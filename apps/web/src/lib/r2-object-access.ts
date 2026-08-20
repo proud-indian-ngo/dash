@@ -1,6 +1,14 @@
 import { isTemporaryR2Key } from "@pi-dash/shared/asset-ref";
 
+interface SessionLike {
+  user: { id: string; role?: null | string };
+}
+
 export interface R2ObjectAccessDeps {
+  canReadKalakritiEntryMusic: (
+    session: SessionLike,
+    record: KalakritiEntryMusicR2ObjectRecord
+  ) => Promise<boolean>;
   isEventMember: (eventId: string, userId: string) => Promise<boolean>;
   isTeamLead: (teamId: string, userId: string) => Promise<boolean>;
   isTeamMember: (teamId: string, userId: string) => Promise<boolean>;
@@ -32,14 +40,21 @@ export interface EventPhotoR2ObjectRecord {
   uploadedBy: string;
 }
 
+export interface KalakritiEntryMusicR2ObjectRecord {
+  access: "kalakritiEntryMusic";
+  centerId: string;
+  competitionCategoryId: string;
+  competitionId: string;
+  editionYear: number;
+  filename: string;
+  key: string;
+}
+
 export type R2ObjectRecord =
   | EventPhotoR2ObjectRecord
+  | KalakritiEntryMusicR2ObjectRecord
   | RequestR2ObjectRecord
   | ScheduledMessageR2ObjectRecord;
-
-interface SessionLike {
-  user: { id: string; role?: null | string };
-}
 
 export interface ResolvedR2Object {
   filename: string;
@@ -125,6 +140,8 @@ export async function authorizeR2Object(
     allowed = await canReadRequestObject(session, record, deps);
   } else if (record.access === "scheduledMessage") {
     allowed = await canReadScheduledMessageObject(session, record, deps);
+  } else if (record.access === "kalakritiEntryMusic") {
+    allowed = await deps.canReadKalakritiEntryMusic(session, record);
   } else {
     allowed = await canReadEventPhoto(session, record, deps);
   }

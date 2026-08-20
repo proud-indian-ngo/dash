@@ -1017,6 +1017,7 @@ describe("Kalakriti Edition registration readiness", () => {
       id: "competition-active",
       maximumGroupSize: 1,
       minimumGroupSize: 1,
+      musicUploadEnabled: true,
       name: "Dance",
       normalizedName: "dance",
       participationMode: "individual",
@@ -1088,6 +1089,7 @@ describe("Kalakriti Edition registration readiness", () => {
       expect.objectContaining({
         cancelledAt: null,
         id: "competition-target",
+        musicUploadEnabled: true,
       })
     );
     expect(spies.insertVenue).toHaveBeenCalledOnce();

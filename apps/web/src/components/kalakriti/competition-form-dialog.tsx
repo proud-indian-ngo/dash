@@ -23,6 +23,7 @@ import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
+import { CheckboxField } from "@/components/form/checkbox-field";
 import { CustomField } from "@/components/form/custom-field";
 import { FormActions } from "@/components/form/form-actions";
 import {
@@ -48,6 +49,7 @@ const competitionSchema = z
     genderEligibility: z.enum(["male", "female", "both"]),
     maximumGroupSize: z.number().int().min(1).max(100),
     minimumGroupSize: z.number().int().min(1).max(100),
+    musicUploadEnabled: z.boolean(),
     name: z.string().trim().min(2).max(120),
     participationMode: z.enum(["individual", "group"]),
   })
@@ -72,6 +74,7 @@ export interface CompetitionFormValue {
   id: string;
   maximumGroupSize: number;
   minimumGroupSize: number;
+  musicUploadEnabled: boolean;
   name: string;
   participationMode: "group" | "individual";
 }
@@ -126,6 +129,7 @@ function CompetitionForm({
         : ("both" as const),
       maximumGroupSize: competition ? competition.maximumGroupSize : 1,
       minimumGroupSize: competition ? competition.minimumGroupSize : 1,
+      musicUploadEnabled: competition ? competition.musicUploadEnabled : false,
       name: competition ? competition.name : "",
       participationMode: competition
         ? competition.participationMode
@@ -232,6 +236,11 @@ function CompetitionForm({
           type="number"
         />
       </div>
+      <CheckboxField
+        description="Guardians can attach one optional audio file to each Entry."
+        label="Allow music upload"
+        name="musicUploadEnabled"
+      />
       <FormActions
         onCancel={handleCancel}
         submitLabel={competition ? "Save Competition" : "Create Competition"}

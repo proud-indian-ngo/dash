@@ -8,12 +8,19 @@ export class KalakritiCompetitionsPage {
     this.page = page;
   }
 
-  async addCompetition(name: string, ageCategory = "Junior") {
+  async addCompetition(
+    name: string,
+    ageCategory = "Junior",
+    options: { musicUpload?: boolean } = {}
+  ) {
     await this.page.getByRole("button", { name: "Add Competition" }).click();
     const dialog = this.page.getByRole("dialog", { name: "Add Competition" });
     await dialog.getByLabel("Competition name").fill(name);
     await dialog.getByLabel("Age Categories").fill(ageCategory);
     await this.page.getByRole("option", { name: ageCategory }).click();
+    if (options.musicUpload) {
+      await dialog.getByRole("switch", { name: "Allow music upload" }).click();
+    }
     await dialog.getByRole("button", { name: "Create Competition" }).click();
     await expect(
       this.page.getByText("Competition created", { exact: true })

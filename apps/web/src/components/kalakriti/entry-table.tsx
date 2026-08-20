@@ -14,6 +14,7 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import { format } from "date-fns";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import type { KalakritiEntryRow } from "./entry-form-dialog";
+import { EntryMusicCell } from "./entry-music-field";
 
 function searchEntries(row: KalakritiEntryRow, query: string): boolean {
   const normalizedQuery = query.trim().toLocaleLowerCase();
@@ -86,7 +87,9 @@ function EntryRowActions({
 
 interface EntryTableProps {
   activeSessionIds: readonly string[];
+  centerId: string;
   data: KalakritiEntryRow[];
+  editionId: string;
   emptyMessage?: string;
   isLoading: boolean;
   onEdit: (entry: KalakritiEntryRow) => void;
@@ -96,7 +99,9 @@ interface EntryTableProps {
     edit: boolean;
     register: boolean;
     remove: boolean;
+    uploadMusic: boolean;
   };
+  showMusic?: boolean;
   variant?: "center" | "session";
 }
 
@@ -106,16 +111,22 @@ function getEntryRowId(entry: KalakritiEntryRow): string {
 
 export function EntryTable({
   activeSessionIds,
+  centerId,
   data,
+  editionId,
   emptyMessage = "No Competition Entries have been registered for this Center.",
   isLoading,
   onEdit,
   onRegister,
   onRemove,
   permissions,
+  showMusic: showMusicProp,
   variant = "center",
 }: EntryTableProps) {
-  const { edit, register, remove } = permissions;
+  const { edit, register, remove, uploadMusic } = permissions;
+  const showMusic =
+    showMusicProp ??
+    data.some((entry) => entry.session.competition.musicUploadEnabled);
   const columns: DataGridColumnDef<KalakritiEntryRow>[] = [
     {
       accessorFn: (row) =>
@@ -249,6 +260,40 @@ export function EntryTable({
       },
       size: 160,
     },
+    ...(showMusic
+      ? [
+          {
+            accessorFn: (row: KalakritiEntryRow) => row.musicFileName ?? "",
+            cell: ({ row }: { row: { original: KalakritiEntryRow } }) =>
+              row.original.session.competition.musicUploadEnabled ? (
+                <EntryMusicCell
+                  canWrite={uploadMusic}
+                  centerId={centerId}
+                  divisionId={row.original.sessionId}
+                  editionId={editionId}
+                  entryId={row.original.id}
+                  musicFileName={row.original.musicFileName}
+                />
+              ) : (
+                <span className="text-muted-foreground text-sm">—</span>
+              ),
+            header: ({ column }) => (
+              <DataGridColumnHeader
+                column={column}
+                title="Music"
+                visibility={true}
+              />
+            ),
+            id: "music",
+            meta: {
+              headerTitle: "Music",
+              skeleton: <Skeleton className="h-5 w-28" />,
+              stopRowClick: true,
+            },
+            size: 220,
+          } satisfies DataGridColumnDef<KalakritiEntryRow>,
+        ]
+      : []),
     ...(remove
       ? [
           {

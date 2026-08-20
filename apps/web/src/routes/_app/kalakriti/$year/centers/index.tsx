@@ -17,6 +17,7 @@ import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notic
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
+import { canViewKalakritiCenterDirectory } from "@/lib/kalakriti-center-registration-policy";
 
 export const Route = createFileRoute("/_app/kalakriti/$year/centers/")({
   component: KalakritiCentersPage,
@@ -47,6 +48,88 @@ function getEmptyStateDescription({
   return "You have not been assigned to a Center.";
 }
 
+function buildCenterRows({
+  canManageGuardians,
+  canManageLiaisons,
+  centers,
+  guardianAssignments,
+  liaisonAssignments,
+}: {
+  canManageGuardians: boolean;
+  canManageLiaisons: boolean;
+  centers: readonly {
+    competitionEntryRegistrationEnabled: boolean | null;
+    id: string;
+    name: string;
+    retiredAt: number | null;
+    studentRegistrationEnabled: boolean | null;
+  }[];
+  guardianAssignments: readonly { centerId: string | null }[];
+  liaisonAssignments: readonly { centerId: string | null }[];
+}): CenterTableRow[] {
+  return centers.map((center) => ({
+    competitionEntryRegistrationEnabled: Boolean(
+      center.competitionEntryRegistrationEnabled
+    ),
+    guardianCount: canManageGuardians
+      ? guardianAssignments.filter((item) => item.centerId === center.id).length
+      : null,
+    id: center.id,
+    liaisonCount: canManageLiaisons
+      ? liaisonAssignments.filter((item) => item.centerId === center.id).length
+      : null,
+    name: center.name,
+    retiredAt: center.retiredAt,
+    studentRegistrationEnabled: Boolean(center.studentRegistrationEnabled),
+  }));
+}
+
+function visibleDirectoryCenters<T>(
+  access: Parameters<typeof canViewKalakritiCenterDirectory>[0],
+  centers: readonly T[]
+): readonly T[] {
+  if (!canViewKalakritiCenterDirectory(access)) {
+    return [];
+  }
+  return centers;
+}
+
+function CenterPageToolbar({
+  canConfigureCenters,
+  canManageRegistrationControls,
+  hasOpenRegistration,
+  onCreate,
+  onLockAll,
+}: {
+  canConfigureCenters: boolean;
+  canManageRegistrationControls: boolean;
+  hasOpenRegistration: boolean;
+  onCreate: () => void;
+  onLockAll: () => void;
+}) {
+  if (!(canConfigureCenters || canManageRegistrationControls)) {
+    return null;
+  }
+  return (
+    <div className="flex flex-wrap gap-2">
+      {canManageRegistrationControls ? (
+        <Button
+          disabled={!hasOpenRegistration}
+          onClick={onLockAll}
+          variant="outline"
+        >
+          {hasOpenRegistration
+            ? "Lock all registrations"
+            : "All registrations locked"}
+        </Button>
+      ) : null}
+      {canConfigureCenters ? (
+        <Button onClick={onCreate}>Add Center</Button>
+      ) : null}
+    </div>
+  );
+}
+
 function KalakritiCentersPage() {
   const navigate = useNavigate();
   const zero = useZero();
@@ -71,6 +154,7 @@ function KalakritiCentersPage() {
   const [centers, centerResult] = useQuery(
     queries.kalakritiCenter.visible({ editionId: edition.id })
   );
+  const directoryCenters = visibleDirectoryCenters(access, centers);
   const [guardianAssignments] = useQuery(
     queries.kalakritiCenter.guardianAssignments({ editionId: edition.id }),
     { enabled: canManageGuardians }
@@ -178,21 +262,16 @@ function KalakritiCentersPage() {
     });
   });
 
-  const centerRows: CenterTableRow[] = centers.map((center) => ({
-    ...center,
-    competitionEntryRegistrationEnabled: Boolean(
-      center.competitionEntryRegistrationEnabled
-    ),
-    guardianCount: canManageGuardians
-      ? guardianAssignments.filter((item) => item.centerId === center.id).length
-      : null,
-    liaisonCount: canManageLiaisons
-      ? liaisonAssignments.filter((item) => item.centerId === center.id).length
-      : null,
-    studentRegistrationEnabled: Boolean(center.studentRegistrationEnabled),
-  }));
-  const isLoading = centers.length === 0 && centerResult.type !== "complete";
-  const hasOpenRegistration = centers.some(
+  const centerRows: CenterTableRow[] = buildCenterRows({
+    canManageGuardians,
+    canManageLiaisons,
+    centers: directoryCenters,
+    guardianAssignments,
+    liaisonAssignments,
+  });
+  const isLoading =
+    directoryCenters.length === 0 && centerResult.type !== "complete";
+  const hasOpenRegistration = directoryCenters.some(
     (center) =>
       center.studentRegistrationEnabled ||
       center.competitionEntryRegistrationEnabled
@@ -202,25 +281,15 @@ function KalakritiCentersPage() {
     canManageCenters,
     centerStructureLocked,
   });
-  const toolbarActions =
-    canConfigureCenters || canManageRegistrationControls ? (
-      <div className="flex flex-wrap gap-2">
-        {canManageRegistrationControls ? (
-          <Button
-            disabled={!hasOpenRegistration}
-            onClick={lockAllAction.trigger}
-            variant="outline"
-          >
-            {hasOpenRegistration
-              ? "Lock all registrations"
-              : "All registrations locked"}
-          </Button>
-        ) : null}
-        {canConfigureCenters ? (
-          <Button onClick={handleCreate}>Add Center</Button>
-        ) : null}
-      </div>
-    ) : null;
+  const toolbarActions = (
+    <CenterPageToolbar
+      canConfigureCenters={canConfigureCenters}
+      canManageRegistrationControls={canManageRegistrationControls}
+      hasOpenRegistration={hasOpenRegistration}
+      onCreate={handleCreate}
+      onLockAll={lockAllAction.trigger}
+    />
+  );
 
   return (
     <div className="space-y-4">

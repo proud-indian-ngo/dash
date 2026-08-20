@@ -10,6 +10,7 @@ const ownerSession = { user: { id: "owner", role: "volunteer" } };
 const deps = (
   overrides: Partial<R2ObjectAccessDeps> = {}
 ): R2ObjectAccessDeps => ({
+  canReadKalakritiEntryMusic: async () => false,
   isEventMember: async () => false,
   isTeamLead: async () => false,
   isTeamMember: async () => false,
@@ -278,5 +279,44 @@ describe("authorizeR2Object", () => {
         deps({ resolvePermissions: async () => ["events.view_all"] })
       )
     ).resolves.toMatchObject({ key: "app/photos/photo.jpg" });
+  });
+
+  it("allows scoped readers to download Kalakriti Entry music", async () => {
+    await expect(
+      authorizeR2Object(
+        ownerSession,
+        {
+          access: "kalakritiEntryMusic",
+          centerId: "center-1",
+          competitionCategoryId: "category-1",
+          competitionId: "competition-1",
+          editionYear: 2026,
+          filename: "track.mp3",
+          key: "app/kalakriti-music/edition/entry/track.mp3",
+        },
+        deps({ canReadKalakritiEntryMusic: async () => true })
+      )
+    ).resolves.toMatchObject({
+      filename: "track.mp3",
+      key: "app/kalakriti-music/edition/entry/track.mp3",
+    });
+  });
+
+  it("denies Kalakriti Entry music outside the actor's registration scope", async () => {
+    await expect(
+      authorizeR2Object(
+        ownerSession,
+        {
+          access: "kalakritiEntryMusic",
+          centerId: "center-2",
+          competitionCategoryId: "category-1",
+          competitionId: "competition-1",
+          editionYear: 2026,
+          filename: "track.mp3",
+          key: "app/kalakriti-music/edition/entry/track.mp3",
+        },
+        deps()
+      )
+    ).rejects.toMatchObject({ status: 403 });
   });
 });

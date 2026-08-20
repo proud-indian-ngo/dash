@@ -189,8 +189,13 @@ export function CompetitionsTable({
     {
       accessorKey: "name",
       cell: ({ row }) => (
-        <span className="font-medium text-sm" data-testid="row-title">
-          {row.original.name}
+        <span className="inline-flex items-center gap-2">
+          <span className="font-medium text-sm" data-testid="row-title">
+            {row.original.name}
+          </span>
+          {row.original.musicUploadEnabled ? (
+            <Badge variant="outline">Music</Badge>
+          ) : null}
         </span>
       ),
       header: ({ column }) => (

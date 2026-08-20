@@ -85,8 +85,24 @@ test.describe("Kalakriti Competition Entry registration", () => {
     const entriesPage = new KalakritiEntriesPage(page);
 
     try {
+      await entriesPage.goto(year, "Spoken Word");
+      const unflaggedDialog = await entriesPage.openRegistrationForm();
+      await entriesPage.fillEntries(unflaggedDialog, ["Entry Student A"]);
+      await expect(
+        unflaggedDialog.getByTestId("entry-music-upload")
+      ).toHaveCount(0);
+      await page.keyboard.press("Escape");
+      await expect(unflaggedDialog).toBeHidden();
+
       await entriesPage.goto(year);
-      await entriesPage.registerMany(["Entry Student A", "Entry Student B"]);
+      const dialog = await entriesPage.openRegistrationForm();
+      await expect(dialog.getByTestId("entry-music-upload")).toHaveCount(0);
+      await entriesPage.fillEntries(dialog, ["Entry Student A"]);
+      await expect(dialog.getByTestId("entry-music-upload")).toHaveCount(1);
+      await entriesPage.fillEntries(dialog, ["Entry Student B"]);
+      await expect(dialog.getByTestId("entry-music-upload")).toHaveCount(0);
+      await dialog.getByRole("button", { name: "Register Entries" }).click();
+      await expect(dialog).toBeHidden();
       await expect(
         page.getByText("2 Competition Entries registered", { exact: true })
       ).toBeVisible();
@@ -96,6 +112,16 @@ test.describe("Kalakriti Competition Entry registration", () => {
       await expect(
         page.getByText("Entry Student B", { exact: true })
       ).toBeVisible();
+
+      const studentA = page.getByRole("row", { name: /Entry Student A/ });
+      const studentB = page.getByRole("row", { name: /Entry Student B/ });
+      await entriesPage.attachMusic(studentA);
+      await expect(
+        page.getByText("Audio attached", { exact: true })
+      ).toBeVisible();
+      await expect(studentA).toContainText("track.mp3");
+      await expect(studentB.getByTestId("entry-music")).toContainText("None");
+      await entriesPage.expectMusicDownloadOk(studentA, "track.mp3");
 
       for (const studentName of ["Entry Student A", "Entry Student B"]) {
         // biome-ignore lint/performance/noAwaitInLoops: each removal closes the shared confirmation dialog before the next row action
@@ -156,6 +182,11 @@ test.describe("Kalakriti Competition Entry registration", () => {
       ).toHaveCount(0);
       await dialog.getByLabel("Group members").fill("");
       await entriesPage.selectGroupMembers(dialog, ["Entry Student B"]);
+      await entriesPage.attachMusic(dialog);
+      await expect(
+        page.getByText("Audio uploaded", { exact: true })
+      ).toBeVisible();
+      await expect(dialog.getByText("track.mp3")).toBeVisible();
       await dialog.getByRole("button", { name: "Register Group" }).click();
       await expect(
         page.getByText("Competition group registered", { exact: true })
@@ -166,6 +197,24 @@ test.describe("Kalakriti Competition Entry registration", () => {
       await expect(
         page.locator("#main").getByText("Entry Student B", { exact: true })
       ).toBeVisible();
+      await expect(page.getByTestId("entry-music")).toContainText("track.mp3");
+      await entriesPage.attachMusic(
+        page.getByTestId("entry-music"),
+        "remix.mp3"
+      );
+      await expect(
+        page.getByText("Audio replaced", { exact: true })
+      ).toBeVisible();
+      await expect(page.getByTestId("entry-music")).toContainText("remix.mp3");
+      await entriesPage.expectMusicDownloadOk(
+        page.getByTestId("entry-music"),
+        "remix.mp3"
+      );
+      await page.getByRole("button", { name: "Remove remix.mp3" }).click();
+      await expect(
+        page.getByText("Audio removed", { exact: true })
+      ).toBeVisible();
+      await expect(page.getByTestId("entry-music")).toContainText("None");
 
       await page
         .getByRole("button", { name: "Actions for Group Dance group" })

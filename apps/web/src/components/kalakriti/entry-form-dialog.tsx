@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@pi-dash/design-system/components/ui/dialog";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { ALLOWED_KALAKRITI_MUSIC_TYPES } from "@pi-dash/shared/constants";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
@@ -32,6 +33,10 @@ import {
 } from "@/components/form/form-context";
 import { FormLayout } from "@/components/form/form-layout";
 import { SelectField } from "@/components/form/select-field";
+import {
+  type EntryMusicClaim,
+  EntryMusicUploadField,
+} from "@/components/kalakriti/entry-music-field";
 import {
   getEntryStudentOptionEligibility,
   getGroupEntryValidationErrors,
@@ -62,6 +67,7 @@ export interface KalakritiEntrySession {
     id: string;
     maximumGroupSize: number;
     minimumGroupSize: number;
+    musicUploadEnabled?: boolean | null;
     name: string;
     participationMode: "group" | "individual";
   };
@@ -78,6 +84,7 @@ export interface KalakritiEntryRow {
     student: KalakritiEntryStudent;
     studentId: string;
   }[];
+  musicFileName: string | null;
   participationMode: "group" | "individual";
   session: KalakritiEntrySession;
   sessionId: string;
@@ -96,6 +103,14 @@ interface EntryFormDialogProps {
 }
 
 const entryFormSchema = z.object({
+  music: z
+    .object({
+      byteSize: z.number().int().positive(),
+      fileName: z.string().trim().min(1),
+      mimeType: z.enum(ALLOWED_KALAKRITI_MUSIC_TYPES),
+      objectKey: z.string().min(1),
+    })
+    .nullable(),
   sessionId: z.string().min(1, "Choose a Competition Session"),
   studentIds: z.array(z.string()).min(1, "Choose at least one Student"),
 });
@@ -171,10 +186,35 @@ function getDialogDescription(props: EntryFormDialogProps): string {
   return "Choose eligible Students and a Competition Session.";
 }
 
-function selectSessionId(state: {
-  values: { sessionId: string; studentIds: string[] };
-}): string {
+function selectSessionId(state: { values: { sessionId: string } }): string {
   return state.values.sessionId;
+}
+
+function selectMusicFieldState(state: {
+  values: { sessionId: string; studentIds: string[] };
+}) {
+  return {
+    sessionId: state.values.sessionId,
+    studentCount: state.values.studentIds.length,
+  };
+}
+
+function shouldShowEntryMusicField({
+  entry,
+  session,
+  studentCount,
+}: {
+  entry?: KalakritiEntryRow;
+  session?: KalakritiEntrySession;
+  studentCount: number;
+}): boolean {
+  if (entry || session?.competition.musicUploadEnabled !== true) {
+    return false;
+  }
+  if (session.competition.participationMode === "group") {
+    return true;
+  }
+  return studentCount === 1;
 }
 
 function sessionOptionLabel(
@@ -430,6 +470,7 @@ function EntryForm({
   });
   const form = useForm({
     defaultValues: {
+      music: null as EntryMusicClaim | null,
       sessionId: entry?.sessionId ?? fixedSession?.id ?? "",
       studentIds: entry?.members.map((member) => member.studentId) ?? [],
     },
@@ -453,10 +494,15 @@ function EntryForm({
         return;
       }
       if (session.competition.participationMode === "group") {
-        await submitGroup(value.sessionId, value.studentIds, now);
+        await submitGroup(value.sessionId, value.studentIds, now, value.music);
         return;
       }
-      await submitIndividuals(value.sessionId, value.studentIds, now);
+      await submitIndividuals(
+        value.sessionId,
+        value.studentIds,
+        now,
+        value.music
+      );
     },
     validators: { onChange: validationSchema, onSubmit: validationSchema },
   });
@@ -511,7 +557,8 @@ function EntryForm({
   async function submitGroup(
     sessionId: string,
     studentIds: string[],
-    now: number
+    now: number,
+    music: EntryMusicClaim | null
   ): Promise<void> {
     const result = await zero.mutate(
       mutators.kalakritiEntry.createGroup({
@@ -524,6 +571,7 @@ function EntryForm({
           memberId: uuidv7(),
           studentId,
         })),
+        ...(music ? { music } : {}),
         now,
       })
     ).server;
@@ -538,8 +586,10 @@ function EntryForm({
   async function submitIndividuals(
     sessionId: string,
     studentIds: string[],
-    now: number
+    now: number,
+    music: EntryMusicClaim | null
   ): Promise<void> {
+    const attachMusic = studentIds.length === 1 ? music : null;
     const results = await Promise.all(
       studentIds.map(
         (studentId) =>
@@ -551,6 +601,7 @@ function EntryForm({
               editionId,
               entryId: uuidv7(),
               memberId: uuidv7(),
+              ...(attachMusic ? { music: attachMusic } : {}),
               now,
               studentId,
             })
@@ -627,6 +678,47 @@ function EntryForm({
               maximum={maximum}
               options={options}
             />
+          );
+        }}
+      </form.Subscribe>
+      <form.Subscribe selector={selectMusicFieldState}>
+        {({ sessionId, studentCount }) => {
+          const session = sessions.find(
+            (candidate) => candidate.id === sessionId
+          );
+          if (
+            !(
+              session &&
+              shouldShowEntryMusicField({
+                entry,
+                session,
+                studentCount,
+              })
+            )
+          ) {
+            return null;
+          }
+          const isGroup = session.competition.participationMode === "group";
+          return (
+            <CustomField<EntryMusicClaim | null>
+              description={
+                isGroup
+                  ? "Attach one optional MP3, M4A, or AAC file for this group."
+                  : "Attach one optional MP3, M4A, or AAC file for this Student."
+              }
+              label="Music"
+              name="music"
+            >
+              {(field) => (
+                <EntryMusicUploadField
+                  centerId={centerId}
+                  divisionId={session.id}
+                  editionId={editionId}
+                  onChange={field.handleChange}
+                  value={field.state.value}
+                />
+              )}
+            </CustomField>
           );
         }}
       </form.Subscribe>

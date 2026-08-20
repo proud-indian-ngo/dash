@@ -35,6 +35,7 @@ import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { KALAKRITI_GENDER_ELIGIBILITY_LABELS } from "@/lib/kalakriti-competition-labels";
 import {
   canRemoveKalakritiEntries,
+  canWriteKalakritiEntries,
   type EntryRegistrationAvailability,
   getEntryRegistrationAvailability,
   getEntryStudentOptionEligibility,
@@ -202,6 +203,76 @@ function SessionSummary({
   );
 }
 
+function getSessionEntryPermissions({
+  access,
+  centerEnabled,
+  lifecycle,
+  registrationOpen,
+}: {
+  access: Parameters<typeof canWriteKalakritiEntries>[0];
+  centerEnabled: boolean;
+  lifecycle: string;
+  registrationOpen: boolean;
+}) {
+  const canWriteEntries = canWriteKalakritiEntries(access);
+  const removalEnabled =
+    canWriteEntries &&
+    canRemoveKalakritiEntries({
+      centerEnabled,
+      lifecycle,
+    });
+  return {
+    canWriteEntries,
+    edit: removalEnabled,
+    register: canWriteEntries && registrationOpen,
+    remove: removalEnabled,
+    uploadMusic: canWriteEntries && registrationOpen,
+  };
+}
+
+function sessionAllowsMusic(session?: KalakritiEntrySession): boolean {
+  return session?.competition.musicUploadEnabled === true;
+}
+
+function renderSessionEntryForm({
+  canWrite,
+  centerId,
+  completeEntries,
+  completeStudents,
+  createOpen,
+  editingEntry,
+  editionId,
+  onOpenChange,
+  session,
+}: {
+  canWrite: boolean;
+  centerId: string | null;
+  completeEntries: readonly KalakritiEntryRow[];
+  completeStudents: readonly KalakritiEntryStudent[];
+  createOpen: boolean;
+  editingEntry: KalakritiEntryRow | null;
+  editionId: string;
+  onOpenChange: (open: boolean) => void;
+  session?: KalakritiEntrySession;
+}) {
+  if (!(canWrite && centerId && session)) {
+    return null;
+  }
+  return (
+    <EntryFormDialog
+      centerId={centerId}
+      editionId={editionId}
+      entries={completeEntries}
+      entry={editingEntry ?? undefined}
+      fixedSession={session}
+      onOpenChange={onOpenChange}
+      open={createOpen}
+      sessions={[session]}
+      students={completeStudents}
+    />
+  );
+}
+
 function KalakritiSessionEntriesPage() {
   const zero = useZero();
   const { kalakritiEditionAccess: access } = Route.useRouteContext();
@@ -353,9 +424,11 @@ function KalakritiSessionEntriesPage() {
     studentCount: visibleStudentOptionCount,
   });
   const registrationOpen = availability === "open";
-  const removalEnabled = canRemoveKalakritiEntries({
+  const permissions = getSessionEntryPermissions({
+    access,
     centerEnabled: selectedCenter?.competitionEntryRegistrationEnabled === true,
     lifecycle: edition.lifecycle,
+    registrationOpen,
   });
   return (
     <div className="space-y-6">
@@ -414,32 +487,34 @@ function KalakritiSessionEntriesPage() {
         activeSessionIds={completeSessions.map(
           (activeSession) => activeSession.id
         )}
+        centerId={centerId ?? ""}
         data={sessionEntries}
+        editionId={edition.id}
         emptyMessage="No Entries have been registered for this Session."
         isLoading={entriesLoading}
         onEdit={handleEdit}
         onRegister={handleRegister}
         onRemove={removeAction.trigger}
         permissions={{
-          edit: removalEnabled,
-          register: registrationOpen,
-          remove: removalEnabled,
+          edit: permissions.edit,
+          register: permissions.register,
+          remove: permissions.remove,
+          uploadMusic: permissions.uploadMusic,
         }}
+        showMusic={sessionAllowsMusic(session)}
         variant="session"
       />
-      {centerId && session ? (
-        <EntryFormDialog
-          centerId={centerId}
-          editionId={edition.id}
-          entries={completeEntries}
-          entry={editingEntry ?? undefined}
-          fixedSession={session}
-          onOpenChange={handleCreateOpenChange}
-          open={createOpen}
-          sessions={[session]}
-          students={completeStudents}
-        />
-      ) : null}
+      {renderSessionEntryForm({
+        canWrite: permissions.canWriteEntries,
+        centerId,
+        completeEntries,
+        completeStudents,
+        createOpen,
+        editingEntry,
+        editionId: edition.id,
+        onOpenChange: handleCreateOpenChange,
+        session,
+      })}
       <ConfirmDialog
         confirmLabel="Remove Entry"
         description={

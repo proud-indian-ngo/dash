@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   canAccessKalakritiEntries,
   canRemoveKalakritiEntries,
+  canWriteKalakritiEntries,
   getEntryRegistrationAvailability,
   getEntryStudentOptionEligibility,
   getGroupEntryValidationErrors,
@@ -13,8 +14,9 @@ import {
 const noAccess = { isGlobalAdmin: false, membership: null };
 
 describe("Kalakriti Entry policy", () => {
-  it("allows only global admins and assigned registration roles", () => {
+  it("allows registration writers and scoped Competition readers", () => {
     expect(canAccessKalakritiEntries(noAccess)).toBe(false);
+    expect(canWriteKalakritiEntries(noAccess)).toBe(false);
     expect(
       canAccessKalakritiEntries({
         isGlobalAdmin: false,
@@ -35,6 +37,75 @@ describe("Kalakriti Entry policy", () => {
         },
       })
     ).toBe(true);
+    expect(
+      canWriteKalakritiEntries({
+        isGlobalAdmin: false,
+        membership: {
+          assignments: [],
+          kind: "guardian",
+          responsibilities: [],
+        },
+      })
+    ).toBe(true);
+    expect(
+      canAccessKalakritiEntries({
+        isGlobalAdmin: false,
+        membership: {
+          assignments: [
+            {
+              centerId: null,
+              responsibility: "competition_category_lead",
+            },
+          ],
+          kind: "volunteer",
+          responsibilities: ["competition_category_lead"],
+        },
+      })
+    ).toBe(true);
+    expect(
+      canWriteKalakritiEntries({
+        isGlobalAdmin: false,
+        membership: {
+          assignments: [
+            {
+              centerId: null,
+              responsibility: "competition_category_lead",
+            },
+          ],
+          kind: "volunteer",
+          responsibilities: ["competition_category_lead"],
+        },
+      })
+    ).toBe(false);
+  });
+
+  it("lets Competition readers pick any Center while Liaisons stay Center-scoped", () => {
+    const centers = [{ id: "center-1" }, { id: "center-2" }];
+    expect(
+      selectKalakritiEntryCenters(centers, {
+        isGlobalAdmin: false,
+        membership: {
+          assignments: [{ centerId: "center-1", responsibility: "liaison" }],
+          kind: "volunteer",
+          responsibilities: ["liaison"],
+        },
+      })
+    ).toEqual([{ id: "center-1" }]);
+    expect(
+      selectKalakritiEntryCenters(centers, {
+        isGlobalAdmin: false,
+        membership: {
+          assignments: [
+            {
+              centerId: null,
+              responsibility: "overall_events_lead",
+            },
+          ],
+          kind: "volunteer",
+          responsibilities: ["overall_events_lead"],
+        },
+      })
+    ).toEqual(centers);
   });
 
   it.each([

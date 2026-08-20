@@ -88,7 +88,10 @@ export const kalakritiCenterQueries = {
                   assignment.where(({ or: assignmentOr, cmp }) =>
                     assignmentOr(
                       cmp("responsibility", "edition_admin"),
-                      cmp("responsibility", "volunteer_coordinator")
+                      cmp("responsibility", "volunteer_coordinator"),
+                      cmp("responsibility", "overall_events_lead"),
+                      cmp("responsibility", "competition_category_lead"),
+                      cmp("responsibility", "competition_coordinator")
                     )
                   )
                 )

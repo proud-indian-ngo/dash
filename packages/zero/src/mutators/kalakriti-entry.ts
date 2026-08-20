@@ -1,3 +1,7 @@
+import {
+  ALLOWED_KALAKRITI_MUSIC_TYPES,
+  MAX_KALAKRITI_MUSIC_SIZE_BYTES,
+} from "@pi-dash/shared/constants";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 import type { Context } from "../context";
@@ -14,6 +18,11 @@ import {
   type LockedCompetitionDivision,
   type LockedStudent,
 } from "./kalakriti-row-locks";
+import {
+  claimUploadedR2ObjectKey,
+  createR2ClaimOptions,
+  enqueueDeleteR2Object,
+} from "./submission-helpers";
 
 abstract class BivariantZeroMutation {
   abstract bivarianceHack(args: unknown): Promise<void>;
@@ -43,6 +52,7 @@ interface CompetitionConfiguration {
   id: string;
   maximumGroupSize: number;
   minimumGroupSize: number;
+  musicUploadEnabled: boolean;
   participationMode: "group" | "individual";
   retiredAt: number | null;
 }
@@ -64,6 +74,13 @@ interface ExistingEntryMembership {
   id: string;
 }
 
+export const entryMusicClaimSchema = z.object({
+  byteSize: z.number().int().positive().max(MAX_KALAKRITI_MUSIC_SIZE_BYTES),
+  fileName: z.string().trim().min(1).max(255),
+  mimeType: z.enum(ALLOWED_KALAKRITI_MUSIC_TYPES),
+  objectKey: z.string().min(1),
+});
+
 export const entryCreateSchema = z.object({
   auditEntryId: z.string(),
   centerId: z.string(),
@@ -71,8 +88,15 @@ export const entryCreateSchema = z.object({
   editionId: z.string(),
   entryId: z.string(),
   memberId: z.string(),
+  music: entryMusicClaimSchema.optional(),
   now: z.number(),
   studentId: z.string(),
+});
+
+export const entryAttachMusicSchema = entryMusicClaimSchema.extend({
+  auditEntryId: z.string(),
+  entryId: z.string(),
+  now: z.number(),
 });
 
 export const entryRemoveSchema = z.object({
@@ -93,6 +117,7 @@ export const entryCreateGroupSchema = z.object({
   editionId: z.string(),
   entryId: z.string(),
   members: z.array(entryGroupMemberSchema),
+  music: entryMusicClaimSchema.optional(),
   now: z.number(),
 });
 
@@ -122,6 +147,98 @@ function assertEntryRegistrationWritable(
   if (!center.competitionEntryRegistrationEnabled) {
     throw new Error("Competition Entry registration is closed for this Center");
   }
+}
+
+function assertMusicUploadEnabled(
+  competition: Pick<CompetitionConfiguration, "musicUploadEnabled">
+): void {
+  if (!competition.musicUploadEnabled) {
+    throw new Error("Music upload is not enabled for this Competition");
+  }
+}
+
+function claimEntryMusicKey(
+  ctx: Context,
+  txLocation: string,
+  input: {
+    editionId: string;
+    entryId: string;
+    mimeType: string;
+    mutator: string;
+    objectKey: string;
+    previousObjectKey?: null | string;
+  }
+): string {
+  const claimedKey = claimUploadedR2ObjectKey(
+    input.objectKey,
+    createR2ClaimOptions(ctx, txLocation, {
+      durablePrefix: `${input.editionId}/${input.entryId}`,
+      mimeType: input.mimeType,
+      subfolder: "kalakriti-music",
+    })
+  );
+  if (input.previousObjectKey && input.previousObjectKey !== claimedKey) {
+    enqueueDeleteR2Object(ctx, txLocation, input.previousObjectKey, {
+      keyPrefixes: [`kalakriti-music/${input.editionId}/${input.entryId}/`],
+      meta: { mutator: input.mutator },
+    });
+  }
+  return claimedKey;
+}
+
+function resolveCreateMusic(
+  ctx: Context,
+  txLocation: string,
+  input: {
+    editionId: string;
+    entryId: string;
+    music?: {
+      byteSize: number;
+      fileName: string;
+      mimeType: string;
+      objectKey: string;
+    };
+    mutator: string;
+    now: number;
+  }
+) {
+  if (!input.music) {
+    return null;
+  }
+  return {
+    byteSize: input.music.byteSize,
+    fileName: input.music.fileName,
+    mimeType: input.music.mimeType,
+    objectKey: claimEntryMusicKey(ctx, txLocation, {
+      editionId: input.editionId,
+      entryId: input.entryId,
+      mimeType: input.music.mimeType,
+      mutator: input.mutator,
+      objectKey: input.music.objectKey,
+    }),
+    uploadedAt: input.now,
+    uploadedBy: ctx.userId,
+  };
+}
+
+function musicColumnValues(
+  music: {
+    byteSize: number;
+    fileName: string;
+    mimeType: string;
+    objectKey: string;
+    uploadedAt: number;
+    uploadedBy: string;
+  } | null
+) {
+  return {
+    musicByteSize: music?.byteSize ?? null,
+    musicFileName: music?.fileName ?? null,
+    musicMimeType: music?.mimeType ?? null,
+    musicObjectKey: music?.objectKey ?? null,
+    musicUploadedAt: music?.uploadedAt ?? null,
+    musicUploadedBy: music?.uploadedBy ?? null,
+  };
 }
 
 async function lockEntryContext(
@@ -414,6 +531,9 @@ export const kalakritiEntryMutators = {
         division,
         "individual"
       );
+      if (args.music) {
+        assertMusicUploadEnabled(competition);
+      }
       assertStudentEligibility(student, division, competition);
 
       const [divisionSessions, existingMemberships] = await Promise.all([
@@ -448,6 +568,13 @@ export const kalakritiEntryMutators = {
       }
       assertNoScheduleConflict(existingMemberships, divisionSessions);
 
+      const music = resolveCreateMusic(ctx, tx.location, {
+        editionId: edition.id,
+        entryId: args.entryId,
+        music: args.music,
+        mutator: "kalakritiEntry.createIndividual",
+        now: args.now,
+      });
       await tx.mutate.kalakritiCompetitionEntry.insert({
         centerId: center.id,
         createdAt: args.now,
@@ -458,6 +585,7 @@ export const kalakritiEntryMutators = {
         participationMode: "individual",
         updatedAt: args.now,
         updatedBy: ctx.userId,
+        ...musicColumnValues(music),
       });
       await tx.mutate.kalakritiEntryMember.insert({
         centerId: center.id,
@@ -480,6 +608,7 @@ export const kalakritiEntryMutators = {
           centerId: center.id,
           competitionId: competition.id,
           divisionId: division.id,
+          musicPresent: Boolean(music),
           studentId: student.id,
         },
         reason: null,
@@ -511,6 +640,9 @@ export const kalakritiEntryMutators = {
         "group"
       );
       assertUniqueGroupMembers(args.members, competition);
+      if (args.music) {
+        assertMusicUploadEnabled(competition);
+      }
       await lockAndValidateGroupMembers(
         tx,
         args.members,
@@ -519,6 +651,13 @@ export const kalakritiEntryMutators = {
         division,
         competition
       );
+      const music = resolveCreateMusic(ctx, tx.location, {
+        editionId: edition.id,
+        entryId: args.entryId,
+        music: args.music,
+        mutator: "kalakritiEntry.createGroup",
+        now: args.now,
+      });
       await tx.mutate.kalakritiCompetitionEntry.insert({
         centerId: center.id,
         createdAt: args.now,
@@ -529,6 +668,7 @@ export const kalakritiEntryMutators = {
         participationMode: "group",
         updatedAt: args.now,
         updatedBy: ctx.userId,
+        ...musicColumnValues(music),
       });
       await Promise.all(
         args.members.map((member) =>
@@ -555,6 +695,7 @@ export const kalakritiEntryMutators = {
           centerId: center.id,
           competitionId: competition.id,
           divisionId: division.id,
+          musicPresent: Boolean(music),
           studentIds: args.members.map((member) => member.studentId),
         },
         reason: null,
@@ -578,6 +719,7 @@ export const kalakritiEntryMutators = {
             divisionId: string;
             editionId: string;
             members: readonly { id: string; studentId: string }[];
+            musicObjectKey: null | string;
             participationMode: "group" | "individual";
           }
         | undefined;
@@ -678,6 +820,7 @@ export const kalakritiEntryMutators = {
           divisionId: string;
           editionId: string;
           members: readonly { id: string; studentId: string }[];
+          musicObjectKey: null | string;
           participationMode: "group" | "individual";
         }
       | undefined;
@@ -706,6 +849,12 @@ export const kalakritiEntryMutators = {
     if (!entry) {
       throw new Error("Competition Entry not found");
     }
+    if (entry.musicObjectKey) {
+      enqueueDeleteR2Object(ctx, tx.location, entry.musicObjectKey, {
+        keyPrefixes: [`kalakriti-music/${edition.id}/${args.entryId}/`],
+        meta: { mutator: "kalakritiEntry.remove" },
+      });
+    }
     await Promise.all(
       entry.members.map((member) =>
         tx.mutate.kalakritiEntryMember.delete({ id: member.id })
@@ -723,6 +872,139 @@ export const kalakritiEntryMutators = {
         centerId: snapshot.centerId,
         divisionId: snapshot.divisionId,
         studentIds: entry.members.map((member) => member.studentId),
+      },
+      reason: null,
+      targetId: args.entryId,
+      targetType: "competition_entry",
+    });
+  }),
+
+  attachOrReplaceMusic: defineMutator(
+    entryAttachMusicSchema,
+    async ({ tx, ctx, args }) => {
+      const snapshot = (await tx.run(
+        zql.kalakritiCompetitionEntry.where("id", args.entryId).one()
+      )) as
+        | {
+            centerId: string;
+            divisionId: string;
+            editionId: string;
+            musicObjectKey: null | string;
+          }
+        | undefined;
+      if (!snapshot) {
+        throw new Error("Competition Entry not found");
+      }
+      const { edition } = await lockEntryContext(
+        tx,
+        ctx,
+        snapshot.editionId,
+        snapshot.centerId
+      );
+      const division = await getCompetitionDivisionForUpdate(
+        tx,
+        snapshot.divisionId
+      );
+      if (!division || division.editionId !== edition.id) {
+        throw new Error("Competition Entry not found in this Edition");
+      }
+      const competition = (await tx.run(
+        zql.kalakritiCompetition.where("id", division.competitionId).one()
+      )) as CompetitionConfiguration | undefined;
+      if (!competition) {
+        throw new Error("Competition not found in this Edition");
+      }
+      assertMusicUploadEnabled(competition);
+      assertIsLoggedIn(ctx);
+      const objectKey = claimEntryMusicKey(ctx, tx.location, {
+        editionId: edition.id,
+        entryId: args.entryId,
+        mimeType: args.mimeType,
+        mutator: "kalakritiEntry.attachOrReplaceMusic",
+        objectKey: args.objectKey,
+        previousObjectKey: snapshot.musicObjectKey,
+      });
+      await tx.mutate.kalakritiCompetitionEntry.update({
+        id: args.entryId,
+        updatedAt: args.now,
+        updatedBy: ctx.userId,
+        ...musicColumnValues({
+          byteSize: args.byteSize,
+          fileName: args.fileName,
+          mimeType: args.mimeType,
+          objectKey,
+          uploadedAt: args.now,
+          uploadedBy: ctx.userId,
+        }),
+      });
+      await tx.mutate.kalakritiAuditEntry.insert({
+        action: "updated",
+        actorUserId: ctx.userId,
+        createdAt: args.now,
+        domain: "entry_registration",
+        editionId: edition.id,
+        id: args.auditEntryId,
+        metadata: {
+          centerId: snapshot.centerId,
+          competitionId: competition.id,
+          divisionId: snapshot.divisionId,
+          musicPresent: true,
+        },
+        reason: null,
+        targetId: args.entryId,
+        targetType: "competition_entry",
+      });
+    }
+  ),
+
+  removeMusic: defineMutator(entryRemoveSchema, async ({ tx, ctx, args }) => {
+    const snapshot = (await tx.run(
+      zql.kalakritiCompetitionEntry.where("id", args.entryId).one()
+    )) as
+      | {
+          centerId: string;
+          divisionId: string;
+          editionId: string;
+          musicObjectKey: null | string;
+        }
+      | undefined;
+    if (!snapshot) {
+      throw new Error("Competition Entry not found");
+    }
+    const { edition } = await lockEntryContext(
+      tx,
+      ctx,
+      snapshot.editionId,
+      snapshot.centerId
+    );
+    if (edition.id !== snapshot.editionId) {
+      throw new Error("Competition Entry not found in this Edition");
+    }
+    if (!snapshot.musicObjectKey) {
+      throw new Error("No music file on this Entry");
+    }
+    assertIsLoggedIn(ctx);
+    enqueueDeleteR2Object(ctx, tx.location, snapshot.musicObjectKey, {
+      keyPrefixes: [`kalakriti-music/${edition.id}/${args.entryId}/`],
+      meta: { mutator: "kalakritiEntry.removeMusic" },
+    });
+    await tx.mutate.kalakritiCompetitionEntry.update({
+      id: args.entryId,
+      updatedAt: args.now,
+      updatedBy: ctx.userId,
+      ...musicColumnValues(null),
+    });
+    await tx.mutate.kalakritiAuditEntry.insert({
+      action: "updated",
+      actorUserId: ctx.userId,
+      createdAt: args.now,
+      domain: "entry_registration",
+      editionId: edition.id,
+      id: args.auditEntryId,
+      metadata: {
+        centerId: snapshot.centerId,
+        divisionId: snapshot.divisionId,
+        musicPresent: false,
       },
       reason: null,
       targetId: args.entryId,

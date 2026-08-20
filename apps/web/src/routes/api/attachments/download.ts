@@ -74,6 +74,10 @@ const sanitizeFileName = (input: string): string =>
 
 const INLINE_MEDIA_TYPES = new Set([
   "application/pdf",
+  "audio/aac",
+  "audio/mp4",
+  "audio/mpeg",
+  "audio/x-m4a",
   "image/gif",
   "image/heic",
   "image/heif",

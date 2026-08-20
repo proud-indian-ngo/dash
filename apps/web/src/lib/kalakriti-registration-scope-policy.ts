@@ -86,3 +86,28 @@ export function resolveKalakritiRegistrationScopes(
   }
   return scopes;
 }
+
+export function entryMatchesKalakritiRegistrationScopes(
+  scopes: readonly KalakritiRegistrationScope[],
+  entry: {
+    centerId: string;
+    competitionCategoryId: string;
+    competitionId: string;
+  }
+): boolean {
+  return scopes.some((scope) => {
+    if (scope.kind === "edition") {
+      return true;
+    }
+    if (scope.kind === "center") {
+      return scope.centerIds.includes(entry.centerId);
+    }
+    if (scope.kind === "competition_category") {
+      return (
+        scope.competitionCategoryIds === null ||
+        scope.competitionCategoryIds.includes(entry.competitionCategoryId)
+      );
+    }
+    return scope.competitionIds.includes(entry.competitionId);
+  });
+}

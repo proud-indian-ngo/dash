@@ -30,6 +30,7 @@ const competition = {
   id: "competition-1",
   maximumGroupSize: 1,
   minimumGroupSize: 1,
+  musicUploadEnabled: false,
   name: "Dance",
   participationMode: "individual" as const,
   retiredAt: null,
@@ -227,6 +228,7 @@ describe("kalakritiCompetition commands", () => {
         ...base,
         maximumGroupSize: 2,
         minimumGroupSize: 1,
+        musicUploadEnabled: false,
         participationMode: "individual",
       }).success
     ).toBe(false);
@@ -235,6 +237,7 @@ describe("kalakritiCompetition commands", () => {
         ...base,
         maximumGroupSize: 2,
         minimumGroupSize: 1,
+        musicUploadEnabled: false,
         participationMode: "group",
       }).success
     ).toBe(false);
@@ -257,6 +260,7 @@ describe("kalakritiCompetition commands", () => {
           genderEligibility: "both",
           maximumGroupSize: 1,
           minimumGroupSize: 1,
+          musicUploadEnabled: false,
           name: "Dance",
           now: 1,
           participationMode: "individual",
@@ -290,6 +294,7 @@ describe("kalakritiCompetition commands", () => {
         genderEligibility: competition.genderEligibility,
         maximumGroupSize: competition.maximumGroupSize,
         minimumGroupSize: competition.minimumGroupSize,
+        musicUploadEnabled: competition.musicUploadEnabled,
         name: competition.name,
         now: 1,
         participationMode: competition.participationMode,
@@ -306,6 +311,47 @@ describe("kalakritiCompetition commands", () => {
         competitionId: competition.id,
         id: division.id,
       })
+    );
+    expect(spies.insertCompetition).toHaveBeenCalledWith(
+      expect.objectContaining({
+        musicUploadEnabled: false,
+      })
+    );
+  });
+
+  it("persists music upload configuration independently of eligibility", async () => {
+    const ageCategory = { editionId: edition.id, id: "age-1" };
+    const { lockedResults, spies, tx } = createTx([category, ageCategory]);
+    lockedResults.push([edition]);
+
+    await kalakritiCompetitionMutators.createCompetition.fn({
+      args: {
+        auditEntryId: "audit-1",
+        competitionCategoryId: category.id,
+        competitionId: competition.id,
+        divisions: [
+          {
+            ageCategoryId: ageCategory.id,
+            divisionId: division.id,
+          },
+        ],
+        editionId: edition.id,
+        genderEligibility: competition.genderEligibility,
+        maximumGroupSize: competition.maximumGroupSize,
+        minimumGroupSize: competition.minimumGroupSize,
+        musicUploadEnabled: true,
+        name: competition.name,
+        now: 1,
+        participationMode: competition.participationMode,
+      },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiCompetitionMutators.createCompetition.fn
+    >[0]);
+
+    expect(spies.insertCompetition).toHaveBeenCalledWith(
+      expect.objectContaining({ musicUploadEnabled: true })
     );
   });
 
@@ -731,6 +777,7 @@ describe("kalakritiCompetition commands", () => {
         genderEligibility: competition.genderEligibility,
         maximumGroupSize: competition.maximumGroupSize,
         minimumGroupSize: competition.minimumGroupSize,
+        musicUploadEnabled: true,
         name: "Dance Finals",
         now: 2,
         participationMode: competition.participationMode,
@@ -787,6 +834,7 @@ describe("kalakritiCompetition commands", () => {
         genderEligibility: competition.genderEligibility,
         maximumGroupSize: competition.maximumGroupSize,
         minimumGroupSize: competition.minimumGroupSize,
+        musicUploadEnabled: competition.musicUploadEnabled,
         name: competition.name,
         now: 2,
         participationMode: competition.participationMode,

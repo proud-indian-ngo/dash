@@ -454,6 +454,9 @@ export const kalakritiCompetition = pgTable(
     id: uuid("id").primaryKey(),
     maximumGroupSize: integer("maximum_group_size").notNull(),
     minimumGroupSize: integer("minimum_group_size").notNull(),
+    musicUploadEnabled: boolean("music_upload_enabled")
+      .default(false)
+      .notNull(),
     name: text("name").notNull(),
     normalizedName: text("normalized_name").notNull(),
     participationMode:
@@ -622,6 +625,12 @@ export const kalakritiCompetitionEntry = pgTable(
     divisionId: uuid("division_id").notNull(),
     editionId: uuid("edition_id").notNull(),
     id: uuid("id").primaryKey(),
+    musicByteSize: integer("music_byte_size"),
+    musicFileName: text("music_file_name"),
+    musicMimeType: text("music_mime_type"),
+    musicObjectKey: text("music_object_key"),
+    musicUploadedAt: timestamp("music_uploaded_at"),
+    musicUploadedBy: text("music_uploaded_by").references(() => user.id),
     participationMode:
       kalakritiParticipationModeEnum("participation_mode").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
@@ -654,6 +663,25 @@ export const kalakritiCompetitionEntry = pgTable(
       ],
       name: "kalakriti_competition_entry_edition_division_fk",
     }).onDelete("restrict"),
+    check(
+      "kalakriti_competition_entry_music_chk",
+      sql`(
+        ${table.musicObjectKey} IS NULL
+        AND ${table.musicFileName} IS NULL
+        AND ${table.musicMimeType} IS NULL
+        AND ${table.musicByteSize} IS NULL
+        AND ${table.musicUploadedAt} IS NULL
+        AND ${table.musicUploadedBy} IS NULL
+      ) OR (
+        ${table.musicObjectKey} IS NOT NULL
+        AND ${table.musicFileName} IS NOT NULL
+        AND ${table.musicMimeType} IS NOT NULL
+        AND ${table.musicByteSize} IS NOT NULL
+        AND ${table.musicByteSize} > 0
+        AND ${table.musicUploadedAt} IS NOT NULL
+        AND ${table.musicUploadedBy} IS NOT NULL
+      )`
+    ),
   ]
 );
 

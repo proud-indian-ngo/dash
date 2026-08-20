@@ -3,6 +3,7 @@ import {
   MAX_ATTACHMENT_FILE_SIZE_BYTES,
   MAX_AVATAR_IMAGE_SIZE_BYTES,
   MAX_IMAGE_SIZE_BYTES,
+  MAX_KALAKRITI_MUSIC_SIZE_BYTES,
   MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES,
   MAX_VIDEO_SIZE_BYTES,
 } from "@pi-dash/shared/constants";
@@ -12,6 +13,7 @@ import {
   avatarUploadSchema,
   eventEditorUploadSchema,
   eventPhotoUploadSchema,
+  kalakritiEntryMusicUploadSchema,
   requestUploadSchema,
   scheduledMessageUploadSchema,
   vendorPaymentInvoiceUploadSchema,
@@ -120,6 +122,36 @@ describe("protected temporary upload schemas", () => {
       vendorPaymentInvoiceUploadSchema.safeParse({
         ...image,
         vendorPaymentId: "not-an-id",
+      }).success
+    ).toBe(false);
+  });
+
+  it("accepts Kalakriti music files and rejects PDF, WAV, and oversized tracks", () => {
+    const music = {
+      centerId: EVENT_ID,
+      divisionId: EVENT_ID,
+      editionId: EVENT_ID,
+      fileName: "track.mp3",
+      fileSize: 1024,
+      mimeType: "audio/mpeg" as const,
+    };
+    expect(kalakritiEntryMusicUploadSchema.safeParse(music).success).toBe(true);
+    expect(
+      kalakritiEntryMusicUploadSchema.safeParse({
+        ...music,
+        mimeType: "application/pdf",
+      }).success
+    ).toBe(false);
+    expect(
+      kalakritiEntryMusicUploadSchema.safeParse({
+        ...music,
+        mimeType: "audio/wav",
+      }).success
+    ).toBe(false);
+    expect(
+      kalakritiEntryMusicUploadSchema.safeParse({
+        ...music,
+        fileSize: MAX_KALAKRITI_MUSIC_SIZE_BYTES + 1,
       }).success
     ).toBe(false);
   });

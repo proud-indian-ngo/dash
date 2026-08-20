@@ -57,6 +57,9 @@ test.describe("Kalakriti public schedule", () => {
         "status",
         "venue",
       ]);
+      expect(JSON.stringify(body)).not.toMatch(
+        /musicFileName|musicObjectKey|musicUploadEnabled/
+      );
       expect(
         body.sessions.map(
           (session: { competition: string }) => session.competition

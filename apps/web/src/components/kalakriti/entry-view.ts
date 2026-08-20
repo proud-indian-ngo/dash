@@ -29,6 +29,7 @@ interface EntrySource {
     };
     studentId: string;
   }[];
+  musicFileName?: string | null;
   participationMode: "group" | "individual";
 }
 
@@ -49,7 +50,11 @@ function buildKalakritiEntrySession(
   return {
     ageCategory,
     ageCategoryId: division.ageCategoryId,
-    competition: { ...competition, category },
+    competition: {
+      ...competition,
+      category,
+      musicUploadEnabled: competition.musicUploadEnabled === true,
+    },
     endAt: schedule.endAt,
     id: division.id,
     scheduleActive: schedule.cancelledAt === null,
@@ -98,6 +103,7 @@ export function buildKalakritiEntryRows(
           {
             id: entry.id,
             members,
+            musicFileName: entry.musicFileName ?? null,
             participationMode: entry.participationMode,
             session,
             sessionId: entry.divisionId,

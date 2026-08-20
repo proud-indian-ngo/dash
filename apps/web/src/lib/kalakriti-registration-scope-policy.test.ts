@@ -1,7 +1,10 @@
 import type { KalakritiResponsibility } from "@pi-dash/shared/kalakriti";
 import { describe, expect, it } from "vitest";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
-import { resolveKalakritiRegistrationScopes } from "./kalakriti-registration-scope-policy";
+import {
+  entryMatchesKalakritiRegistrationScopes,
+  resolveKalakritiRegistrationScopes,
+} from "./kalakriti-registration-scope-policy";
 
 function access({
   assignments = [],
@@ -124,5 +127,51 @@ describe("Kalakriti registration scope policy", () => {
         })
       )
     ).toEqual([]);
+  });
+
+  it("matches Entries against Center, category, and competition scopes", () => {
+    const entry = {
+      centerId: "center-1",
+      competitionCategoryId: "category-1",
+      competitionId: "competition-1",
+    };
+    expect(
+      entryMatchesKalakritiRegistrationScopes([{ kind: "edition" }], entry)
+    ).toBe(true);
+    expect(
+      entryMatchesKalakritiRegistrationScopes(
+        [{ centerIds: ["center-1"], kind: "center" }],
+        entry
+      )
+    ).toBe(true);
+    expect(
+      entryMatchesKalakritiRegistrationScopes(
+        [{ centerIds: ["center-2"], kind: "center" }],
+        entry
+      )
+    ).toBe(false);
+    expect(
+      entryMatchesKalakritiRegistrationScopes(
+        [{ competitionCategoryIds: null, kind: "competition_category" }],
+        entry
+      )
+    ).toBe(true);
+    expect(
+      entryMatchesKalakritiRegistrationScopes(
+        [
+          {
+            competitionCategoryIds: ["category-2"],
+            kind: "competition_category",
+          },
+        ],
+        entry
+      )
+    ).toBe(false);
+    expect(
+      entryMatchesKalakritiRegistrationScopes(
+        [{ competitionIds: ["competition-1"], kind: "competition" }],
+        entry
+      )
+    ).toBe(true);
   });
 });

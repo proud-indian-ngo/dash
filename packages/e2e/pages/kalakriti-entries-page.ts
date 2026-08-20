@@ -87,4 +87,48 @@ export class KalakritiEntriesPage {
     await dialog.getByRole("button", { name: "Register Entries" }).click();
     await expect(dialog).toBeHidden();
   }
+
+  async attachMusic(locator: Locator, fileName = "track.mp3"): Promise<void> {
+    await locator.getByTestId("entry-music-upload").setInputFiles({
+      buffer: TINY_MP3,
+      mimeType: "audio/mpeg",
+      name: fileName,
+    });
+  }
+
+  async expectMusicDownloadOk(
+    locator: Locator,
+    fileName: string
+  ): Promise<void> {
+    const link = locator.getByRole("link", { name: fileName });
+    await expect(link).toBeVisible();
+    const href = await link.getAttribute("href");
+    if (!href) {
+      throw new Error("Missing music download href");
+    }
+    const authorized = await this.page.request.get(href);
+    expect(authorized.status()).toBe(200);
+    const anonymous = await this.page.request.get(href, {
+      headers: { Cookie: "" },
+    });
+    expect(anonymous.status()).toBe(401);
+  }
 }
+
+const TINY_MP3 = Buffer.from([
+  0x49,
+  0x44,
+  0x33,
+  0x03,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0xff,
+  0xfb,
+  0x90,
+  0x00,
+  ...Array.from({ length: 64 }, () => 0),
+]);
