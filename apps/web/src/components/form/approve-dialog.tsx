@@ -1,6 +1,7 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
+import { getRefCurrent } from "@pi-dash/design-system/hooks/get-ref-current";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
   ALLOWED_APPROVAL_SCREENSHOT_TYPES,
@@ -74,8 +75,9 @@ export function ApproveDialog({
   const handleFileChange = useEventCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+      const input = getRefCurrent(fileInputRef);
+      if (input) {
+        input.value = "";
       }
       if (!file) {
         return;

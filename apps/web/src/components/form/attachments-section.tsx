@@ -6,6 +6,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Label } from "@pi-dash/design-system/components/ui/label";
+import { getRefCurrent } from "@pi-dash/design-system/hooks/get-ref-current";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
   type FileWithPreview,
@@ -293,8 +294,9 @@ export function AttachmentsSection({
         return;
       }
       const files = Array.from(selectedFiles);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+      const input = getRefCurrent(fileInputRef);
+      if (input) {
+        input.value = "";
       }
       uploadFilesRef.current(files);
     },

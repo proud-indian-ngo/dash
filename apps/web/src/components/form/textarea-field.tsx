@@ -52,7 +52,7 @@ function TextareaFieldControl({
       name={field.name}
       onBlur={field.handleBlur}
       onChange={handleChange}
-      value={(field.state.value ?? "") as string}
+      value={field.state.value}
     />
   );
 }

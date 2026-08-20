@@ -16,16 +16,14 @@ export type AttachmentRowDownloadKind = Exclude<
   "scheduledMessageAttachment"
 >;
 
-type DirectAttachmentDownloadKind = Exclude<
-  AttachmentDownloadKind,
-  "scheduledMessageAttachment"
->;
-
 export type AttachmentDownloadRef =
-  | {
-      [K in DirectAttachmentDownloadKind]: { id: string; kind: K };
-    }[DirectAttachmentDownloadKind]
-  | { id: string; key: string; kind: "scheduledMessageAttachment" };
+  | { id: string; kind: "advancePaymentAttachment" }
+  | { id: string; kind: "advancePaymentApprovalScreenshot" }
+  | { id: string; kind: "reimbursementAttachment" }
+  | { id: string; kind: "reimbursementApprovalScreenshot" }
+  | { id: string; key: string; kind: "scheduledMessageAttachment" }
+  | { id: string; kind: "vendorPaymentAttachment" }
+  | { id: string; kind: "vendorPaymentTransactionAttachment" };
 
 export type AttachmentAssetRef =
   | AttachmentDownloadRef

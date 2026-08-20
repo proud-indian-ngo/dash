@@ -1,6 +1,7 @@
 import { ArrowReloadHorizontalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { getRefCurrent } from "@pi-dash/design-system/hooks/get-ref-current";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { log } from "evlog";
@@ -157,8 +158,9 @@ function KalakritiAuditPage({
     if (requestedDomain) {
       params.set("domain", requestedDomain);
     }
-    if (snapshotVersionRef.current) {
-      params.set("snapshotVersion", snapshotVersionRef.current);
+    const snapshotVersion = getRefCurrent(snapshotVersionRef);
+    if (snapshotVersion) {
+      params.set("snapshotVersion", snapshotVersion);
     }
     const loadAudit = async () => {
       try {

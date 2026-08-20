@@ -8,6 +8,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
+import { getRefCurrent } from "@pi-dash/design-system/hooks/get-ref-current";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
@@ -212,7 +213,7 @@ function useCancelEventScope(zero: ReturnType<typeof useZero>) {
 
   const cancelEvent = useConfirmAction<EventDisplayRow>({
     onConfirm: (row) => {
-      const mode = cancelScopeRef.current;
+      const mode = getRefCurrent(cancelScopeRef);
       if (mode && row.seriesId) {
         const targetId = mode === "this" ? row.eventId : row.seriesId;
         return zero.mutate(

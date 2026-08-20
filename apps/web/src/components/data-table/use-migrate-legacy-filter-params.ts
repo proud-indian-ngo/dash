@@ -7,6 +7,7 @@ import type {
   FilterNode,
   FilterQuery,
 } from "@pi-dash/design-system/components/reui/filters/filters-types";
+import { getRefCurrent } from "@pi-dash/design-system/hooks/get-ref-current";
 import { parseAsString, useQueryStates } from "nuqs";
 import { useEffect, useMemo, useRef } from "react";
 import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
@@ -54,10 +55,10 @@ export function useMigrateLegacyFilterParams(
     return next;
   }, [mappings]);
   const [paramValues, setParamValues] = useQueryStates(parsers);
-  const migrated = useRef(false);
+  const migrated = useRef<boolean>(false);
 
   useEffect(() => {
-    if (migrated.current) {
+    if (getRefCurrent(migrated)) {
       return;
     }
     if (!isFilterQueryEmpty(query)) {

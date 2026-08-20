@@ -17,9 +17,7 @@ describe("installFetchTracing", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
-    if (originalWindow) {
-      vi.stubGlobal("window", originalWindow);
-    }
+    vi.stubGlobal("window", originalWindow);
   });
 
   it("adds a new trace id for each outgoing request", async () => {

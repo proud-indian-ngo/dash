@@ -31,7 +31,7 @@ export interface JobRow {
 
 export function computeJobStats(
   queues: readonly QueueStat[],
-  stateCounts: Readonly<Record<string, number>>
+  stateCounts: Readonly<Partial<Record<string, number>>>
 ): StatItem[] {
   const active = queues.reduce((sum, q) => sum + q.active, 0);
   const scheduled = queues.reduce((sum, q) => sum + q.size, 0);

@@ -58,7 +58,7 @@ function InputFieldControl({
       onBlur={field.handleBlur}
       onChange={handleChange}
       type={type}
-      value={(field.state.value ?? "") as string | number}
+      value={field.state.value}
     />
   );
 }

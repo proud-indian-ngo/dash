@@ -1,3 +1,4 @@
+import { getRefCurrent } from "@pi-dash/design-system/hooks/get-ref-current";
 import { useEffect, useRef } from "react";
 
 interface Dot {
@@ -124,15 +125,17 @@ export function DotGridCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
+    const maybeCanvas = getRefCurrent(canvasRef);
+    if (!maybeCanvas) {
       return;
     }
+    const canvas = maybeCanvas;
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
+    const maybeCtx = canvas.getContext("2d");
+    if (!maybeCtx) {
       return;
     }
+    const ctx = maybeCtx;
 
     const prefersReducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
@@ -142,9 +145,6 @@ export function DotGridCanvas() {
     let rgb = resolveCssColor(canvas);
 
     function setCanvasSize() {
-      if (!canvas) {
-        return;
-      }
       const parent = canvas.parentElement;
       if (!parent) {
         return;
@@ -155,14 +155,11 @@ export function DotGridCanvas() {
       canvas.height = height * dpr;
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
-      ctx?.scale(dpr, dpr);
+      ctx.scale(dpr, dpr);
       dots = createDots(width, height);
     }
 
     function drawStatic() {
-      if (!(canvas && ctx)) {
-        return;
-      }
       const parent = canvas.parentElement;
       if (!parent) {
         return;
@@ -176,9 +173,6 @@ export function DotGridCanvas() {
     }
 
     function animate() {
-      if (!(canvas && ctx)) {
-        return;
-      }
       const parent = canvas.parentElement;
       if (!parent) {
         return;

@@ -46,7 +46,7 @@ Treat this table as the canonical command map for task planning. Do not reopen r
 
 There is no single documented full-repository gate. **Done when** the task goal is met, changed files are listed, relevant checks passed or have a concrete unavailable reason, there are no generated-file edits, stale references, or unexplained diffs, and major features have E2E coverage.
 
-Lefthook runs type checking, lint, unit tests, and unused-export checks in parallel before commits. Commitlint enforces conventional commits.
+Lefthook runs type checking, lint, unit tests, and unused-export checks in parallel before commits. Staged JS/TS files get `ultracite fix`; `package.json`, `bun.lock`, and biome config trigger a full-repo `bun run check`. Commitlint enforces conventional commits.
 
 ## Generated and protected files
 

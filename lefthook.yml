@@ -10,6 +10,15 @@ pre-commit:
       run: bunx ultracite fix {staged_files}
       stage_fixed: true
 
+    check:
+      glob:
+        - "package.json"
+        - "**/package.json"
+        - "bun.lock"
+        - "biome.json"
+        - "biome.jsonc"
+      run: bun run check
+
     test:
       glob: "*.{ts,tsx}"
       run: bun run test:unit

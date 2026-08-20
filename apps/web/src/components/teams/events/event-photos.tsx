@@ -18,6 +18,7 @@ import "yet-another-react-lightbox/plugins/thumbnails.css";
 import Video from "yet-another-react-lightbox/plugins/video";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import "yet-another-react-lightbox/styles.css";
+import { getRefCurrent } from "@pi-dash/design-system/hooks/get-ref-current";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -266,8 +267,9 @@ export function EventPhotos({
 
     showUploadResultToasts(uploadedCount, failedCount);
     setIsUploading(false);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+    const input = getRefCurrent(fileInputRef);
+    if (input) {
+      input.value = "";
     }
   };
 

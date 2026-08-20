@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { getRefCurrent } from "./get-ref-current";
 
 export interface FileMetadata {
   id: string;
@@ -222,8 +223,9 @@ export const useFileUpload = (
         }
       }
 
-      if (inputRef.current) {
-        inputRef.current.value = "";
+      const input = getRefCurrent(inputRef);
+      if (input) {
+        input.value = "";
       }
 
       const newState = {
@@ -310,8 +312,9 @@ export const useFileUpload = (
       }
 
       // Reset input value after handling files
-      if (inputRef.current) {
-        inputRef.current.value = "";
+      const input = getRefCurrent(inputRef);
+      if (input) {
+        input.value = "";
       }
     },
     [
@@ -414,9 +417,7 @@ export const useFileUpload = (
   );
 
   const openFileDialog = useCallback(() => {
-    if (inputRef.current) {
-      inputRef.current.click();
-    }
+    getRefCurrent(inputRef)?.click();
   }, []);
 
   const getInputProps = useCallback(
