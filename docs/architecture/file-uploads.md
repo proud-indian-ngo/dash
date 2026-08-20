@@ -30,6 +30,11 @@
    key. Downloads are authorized against the exact persisted row and streamed through
    `/api/attachments/download`.
 
+`R2_ENDPOINT` optionally points the Bun S3 client at an S3-compatible host
+(MinIO). Empty keeps Cloudflare R2. CI E2E starts MinIO on `http://127.0.0.1:9000`
+so browser PUTs and transactional claims have a real bucket. Production CSP
+`connect-src` also allows that origin when `R2_ENDPOINT` is set.
+
 Protected temp subfolders: `attachments`, `approval-screenshots`, `kalakriti-music`,
 `photos`, `scheduled-messages`. Avatar and editor uploads remain dedicated durable
 signers under `avatars` and `updates`.

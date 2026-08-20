@@ -53,6 +53,8 @@ Copy `.env.sample` to `.env` and fill in values. Grouped by category:
 | `R2_SECRET_ACCESS_KEY` | R2 secret key |
 | `R2_BUCKET_NAME` | Bucket name |
 | `R2_KEY_PREFIX` | Key prefix for uploads |
+| `R2_ENDPOINT` | Optional S3-compatible endpoint. Empty uses Cloudflare R2. CI E2E sets MinIO at `http://127.0.0.1:9000` |
+| `R2_REGION` | Optional region override (MinIO needs `us-east-1`) |
 | `VITE_CDN_URL` | Historical public CDN URL used to recognize legacy R2 media references |
 
 Protected uploads use current-user temp keys and are claimed to durable keys by

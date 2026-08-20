@@ -119,7 +119,9 @@ jobs:
       R2_ACCESS_KEY: ci-test-access-key
       R2_ACCOUNT_ID: ci-test-account
       R2_BUCKET_NAME: ci-test-bucket
+      R2_ENDPOINT: http://127.0.0.1:9000
       R2_KEY_PREFIX: attachments
+      R2_REGION: us-east-1
       R2_SECRET_ACCESS_KEY: ci-test-secret-access-key
       ZERO_UPSTREAM_DB: postgres://postgres:test@localhost:5433/pi-dash-test
       ZERO_REPLICA_FILE: /tmp/pi-dash-test.db
@@ -184,6 +186,27 @@ jobs:
 
       - name: Seed test users
         run: cd packages/e2e && bun run helpers/seed-test-user.ts
+
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio --network host \
+            -e MINIO_ROOT_USER=ci-test-access-key \
+            -e MINIO_ROOT_PASSWORD=ci-test-secret-access-key \
+            -e MINIO_API_CORS_ALLOW_ORIGIN="*" \
+            minio/minio:RELEASE.2025-04-22T22-12-26Z server /data --console-address :9001
+          for _ in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:9000/minio/health/live >/dev/null; then
+              echo "minio ready"
+              docker run --rm --network host \
+                -e MC_HOST_local=http://ci-test-access-key:ci-test-secret-access-key@127.0.0.1:9000 \
+                minio/mc:RELEASE.2025-04-16T18-13-26Z mb --ignore-existing local/ci-test-bucket
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "minio failed to start"
+          docker logs minio
+          exit 1
 
       - name: Download build artifact
         uses: actions/download-artifact@v8
@@ -256,6 +279,8 @@ jobs:
           docker inspect zero-cache --format 'status={{.State.Status}} exit={{.State.ExitCode}} started={{.State.StartedAt}} finished={{.State.FinishedAt}}' 2>/dev/null || echo "container not found"
           echo "=== zero-cache logs (last 100 lines) ==="
           docker logs --tail 100 zero-cache 2>&1 || echo "no logs available"
+          echo "=== minio logs (last 50 lines) ==="
+          docker logs --tail 50 minio 2>&1 || echo "no minio logs"
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v7
