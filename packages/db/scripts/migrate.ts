@@ -23,14 +23,19 @@ async function run() {
       return;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      const cause =
+        err instanceof Error && err.cause instanceof Error
+          ? err.cause.message
+          : undefined;
+      const detail = cause ? `${message}\n${cause}` : message;
       if (attempt < MAX_RETRIES - 1) {
         const delay = Math.min(1000 * 2 ** attempt, 8000);
         process.stdout.write(
-          `Attempt ${attempt + 1} failed: ${message}. Retrying in ${delay}ms...\n`
+          `Attempt ${attempt + 1} failed: ${detail}. Retrying in ${delay}ms...\n`
         );
         await new Promise((r) => setTimeout(r, delay));
       } else {
-        throw new Error(`Failed after ${MAX_RETRIES} attempts: ${message}`, {
+        throw new Error(`Failed after ${MAX_RETRIES} attempts: ${detail}`, {
           cause: err,
         });
       }
