@@ -11,24 +11,16 @@ function getParentDomain(): string {
   return parts.length > 2 ? parts.slice(1).join(".") : hostname;
 }
 
-function r2ConnectOrigin(): string {
-  if (!env.R2_ENDPOINT) {
-    return "";
-  }
-  return ` ${new URL(env.R2_ENDPOINT).origin}`;
-}
-
 function buildCsp(): string {
   const parentDomain = getParentDomain();
-  const r2Origin = r2ConnectOrigin();
   return [
     "default-src 'self'",
     `script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://*.${parentDomain}`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    `img-src 'self' data: https://api.dicebear.com https://*.gravatar.com https://*.r2.cloudflarestorage.com https://cdn.proudindian.ngo${r2Origin}`,
-    `media-src 'self' https://cdn.proudindian.ngo https://*.r2.cloudflarestorage.com${r2Origin}`,
+    `img-src 'self' data: https://api.dicebear.com https://*.gravatar.com https://*.r2.cloudflarestorage.com https://cdn.proudindian.ngo`,
+    `media-src 'self' https://cdn.proudindian.ngo https://*.r2.cloudflarestorage.com`,
     "font-src 'self' https://fonts.gstatic.com",
-    `connect-src 'self' https://*.${parentDomain} wss://*.${parentDomain} https://*.r2.cloudflarestorage.com${r2Origin}`,
+    `connect-src 'self' https://*.${parentDomain} wss://*.${parentDomain} https://*.r2.cloudflarestorage.com`,
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

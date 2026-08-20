@@ -57,10 +57,6 @@ Functions are idempotent where possible (`onConflictDoNothing()`), return the in
 
 Cache key: `e2e-durations-${{ github.ref_name }}` with fallback to `e2e-durations-master`. New specs on feature branches inherit master's timing data.
 
-CI E2E starts MinIO (`R2_ENDPOINT=http://127.0.0.1:9000`) before Playwright so
-presigned browser PUTs and mutator claims have a reachable bucket. Dummy
-`ci-test-account.r2.cloudflarestorage.com` credentials are not a live store.
-
 ## `run-e2e.sh`
 
 Full-stack orchestration for local E2E:

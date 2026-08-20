@@ -5,10 +5,7 @@ export function getS3() {
   return new S3Client({
     accessKeyId: env.R2_ACCESS_KEY,
     bucket: env.R2_BUCKET_NAME,
-    endpoint:
-      env.R2_ENDPOINT ??
-      `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
     secretAccessKey: env.R2_SECRET_ACCESS_KEY,
-    ...(env.R2_REGION ? { region: env.R2_REGION } : {}),
   });
 }
