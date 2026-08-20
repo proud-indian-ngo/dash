@@ -4,6 +4,7 @@ export const MAX_AVATAR_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 export const MAX_ATTACHMENT_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
 export const MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
 export const MAX_APPROVAL_SCREENSHOT_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+export const MAX_KALAKRITI_MUSIC_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
 export const VOUCHER_AMOUNT_THRESHOLD = 1000;
 
 export const ALLOWED_IMAGE_TYPES = [
@@ -45,6 +46,15 @@ export const ALLOWED_EVENT_MEDIA_TYPES = [
   "video/mp4",
   "video/quicktime",
 ] as const;
+
+export const ALLOWED_KALAKRITI_MUSIC_TYPES = [
+  "audio/mpeg",
+  "audio/mp4",
+  "audio/aac",
+  "audio/x-m4a",
+] as const;
+export type AllowedKalakritiMusicMimeType =
+  (typeof ALLOWED_KALAKRITI_MUSIC_TYPES)[number];
 
 export const cityValues = ["bangalore", "mumbai"] as const;
 export type City = (typeof cityValues)[number];

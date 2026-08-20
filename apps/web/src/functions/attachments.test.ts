@@ -13,6 +13,9 @@ vi.mock("@/lib/private-media-db", () => ({
   defaultPrivateMediaAccessDeps: {},
 }));
 vi.mock("@/lib/s3", () => ({ getS3: vi.fn() }));
+vi.mock("@/lib/server/kalakriti-entry-music", () => ({
+  authorizeKalakritiEntryMusicUpload: vi.fn(),
+}));
 vi.mock("@/middleware/auth", () => ({ authMiddleware: {} }));
 
 import { createEventEditorUpload } from "./attachments";

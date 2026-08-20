@@ -88,6 +88,16 @@ describe("parseAttachmentDownloadRef", () => {
     expect(response).toBeInstanceOf(Response);
     expect((response as Response).status).toBe(400);
   });
+
+  it("parses Kalakriti Entry music by Entry ID and ignores a caller-supplied key", () => {
+    expect(
+      parseAttachmentDownloadRef(
+        new URL(
+          `https://example.test/api/attachments/download?id=${ATTACHMENT_ID}&kind=kalakritiEntryMusic&key=app/kalakriti-music/secret.mp3`
+        )
+      )
+    ).toEqual({ id: ATTACHMENT_ID, kind: "kalakritiEntryMusic" });
+  });
 });
 
 describe("handleAttachmentDownloadRequest", () => {
@@ -222,6 +232,30 @@ describe("handleAttachmentDownloadRequest", () => {
     expect(response.headers.get("content-disposition")).toBe(
       'inline; filename="receipt.pdf"'
     );
+  });
+
+  it("allows inline preview for Kalakriti music", async () => {
+    const response = await handleAttachmentDownloadRequest(
+      new Request(
+        `https://example.test/api/attachments/download?disposition=inline&id=${ATTACHMENT_ID}&kind=kalakritiEntryMusic`
+      ),
+      handlerDeps({
+        fetch: async () =>
+          new Response("audio", {
+            headers: { "content-type": "audio/mpeg" },
+          }),
+        requireSession: async () => ({ session: { user: { id: "owner" } } }),
+        resolveAuthorizedR2Object: async () => ({
+          filename: "track.mp3",
+          key: "app/kalakriti-music/edition/entry/track.mp3",
+        }),
+      })
+    );
+
+    expect(response.headers.get("content-disposition")).toBe(
+      'inline; filename="track.mp3"'
+    );
+    expect(response.headers.get("content-type")).toBe("audio/mpeg");
   });
 
   it("encodes non-ASCII filenames for inline PDF previews", async () => {

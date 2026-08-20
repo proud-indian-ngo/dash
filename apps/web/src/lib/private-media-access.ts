@@ -13,6 +13,12 @@ interface SessionLike {
 export type ProtectedUploadScope =
   | { kind: "approvalScreenshot" }
   | { eventId: string; kind: "eventPhoto" }
+  | {
+      centerId: string;
+      divisionId: string;
+      editionId: string;
+      kind: "kalakritiEntryMusic";
+    }
   | { kind: "request" }
   | { kind: "scheduledMessage" }
   | { kind: "vendorPaymentInvoice"; vendorPaymentId: string };

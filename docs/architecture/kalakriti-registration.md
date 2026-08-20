@@ -38,9 +38,11 @@ draft -> registration_open <-> registration_locked
 
 Opening or reopening requires a complete readiness snapshot. Center Student and Entry controls are independent, bulk lock closes both controls for every Center, and every explicit reopen is audited. Registration commands require both an open Edition lifecycle and the relevant Center control. Closing Center participation registration requires every participating Student to meet the Edition `minTotalCompetitions` floor; Students with no Entries remain non-participants.
 
+A Competition may set `musicUploadEnabled`. While Center Entry registration is open, Guardians, Liaisons, Edition administrators, and global `kalakriti.admin` users may optionally attach one audio file to an Entry (one file per individual Student, one file per group). The flag is not eligibility: it can change after Entries exist until the Edition is structurally locked. Turning it off blocks new claims; existing files stay downloadable until removed in the same write window. Anyone whose registration scope covers the Entry, including Overall Events Leads, Category Leads, and Competition Coordinators, may download. Public schedule and registration export never include music keys, filenames, or binaries.
+
 ## Public and server-only projections
 
-`/api/kalakriti/:year/schedule` is unauthenticated and returns an explicit allowlist: Edition display fields plus Competition, Age Category, Venue, time, and cancellation status. It never returns staffing, contacts, Students, submissions, or evidence.
+`/api/kalakriti/:year/schedule` is unauthenticated and returns an explicit allowlist: Edition display fields plus Competition, Age Category, Venue, time, and cancellation status. It never returns staffing, contacts, Students, submissions, evidence, music files, or `musicUploadEnabled`.
 
 Registration dashboards and `/api/kalakriti/:year/registration-export` resolve the actor and Edition on the server. The export route builds an allowlisted ZIP on the server, returns it as a private non-cacheable attachment, neutralizes spreadsheet formulas, and never sends raw registration rows to the browser. CSV import is intentionally unavailable.
 

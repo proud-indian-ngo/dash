@@ -1,10 +1,12 @@
 import {
   ALLOWED_APPROVAL_SCREENSHOT_TYPES,
   ALLOWED_EVENT_MEDIA_TYPES,
+  ALLOWED_KALAKRITI_MUSIC_TYPES,
   ALLOWED_MIME_TYPES,
   MAX_APPROVAL_SCREENSHOT_SIZE_BYTES,
   MAX_ATTACHMENT_FILE_SIZE_BYTES,
   MAX_IMAGE_SIZE_BYTES,
+  MAX_KALAKRITI_MUSIC_SIZE_BYTES,
   MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES,
   MAX_VIDEO_SIZE_BYTES,
   MIME_TYPE_PATTERN,
@@ -57,6 +59,12 @@ function uploadPolicy(sourceKey: string, mimeType: string) {
     return {
       allowed: null,
       maxSize: MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES,
+    };
+  }
+  if (sourceKey.includes("/kalakriti-music/tmp/")) {
+    return {
+      allowed: ALLOWED_KALAKRITI_MUSIC_TYPES as readonly string[],
+      maxSize: MAX_KALAKRITI_MUSIC_SIZE_BYTES,
     };
   }
   throw new Error("Invalid temporary upload key");

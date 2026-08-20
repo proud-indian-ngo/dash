@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { Context } from "../../context";
 import { kalakritiEntryMutators } from "../kalakriti-entry";
 
 const ctx = {
@@ -65,6 +66,7 @@ const competition = {
   id: "competition-1",
   maximumGroupSize: 4,
   minimumGroupSize: 2,
+  musicUploadEnabled: false,
   participationMode: "individual" as const,
   retiredAt: null as number | null,
 };
@@ -165,6 +167,7 @@ function createEntry({
   accessResults = [],
   actorContext = ctx,
   age = ageCategory,
+  args = createArgs,
   centerRow = center,
   editionRow = edition,
   existingMemberships = [],
@@ -173,8 +176,16 @@ function createEntry({
   configuration = activeConfiguration,
 }: {
   accessResults?: unknown[];
-  actorContext?: typeof ctx;
+  actorContext?: Context;
   age?: typeof ageCategory;
+  args?: typeof createArgs & {
+    music?: {
+      byteSize: number;
+      fileName: string;
+      mimeType: "audio/mpeg";
+      objectKey: string;
+    };
+  };
   centerRow?: typeof center;
   editionRow?: typeof edition;
   existingMemberships?: unknown[];
@@ -198,7 +209,7 @@ function createEntry({
     [age]
   );
   const promise = kalakritiEntryMutators.createIndividual.fn({
-    args: createArgs,
+    args,
     ctx: actorContext,
     tx,
   } as unknown as Parameters<
@@ -212,6 +223,7 @@ const entrySnapshot = {
   divisionId: session.id,
   editionId: edition.id,
   members: [{ id: "member-1", studentId: student.id }],
+  musicObjectKey: null as null | string,
   participationMode: "individual" as const,
 };
 
@@ -223,7 +235,7 @@ function removeEntry({
   snapshot = entrySnapshot,
 }: {
   accessResults?: unknown[];
-  actorContext?: typeof ctx;
+  actorContext?: Context;
   centerRow?: typeof center;
   editionRow?: typeof edition;
   snapshot?: typeof entrySnapshot;
@@ -366,6 +378,67 @@ describe("kalakritiEntry commands", () => {
         studentId: student.id,
       })
     );
+  });
+
+  it("attaches music on individual create when the Competition allows it", async () => {
+    const { promise, spies } = await createEntry({
+      actorContext: {
+        ...ctx,
+        asyncTasks: [],
+        beforeCommitTasks: [],
+        copyR2Object: vi.fn(),
+        enqueue: vi.fn(),
+        lockR2Object: vi.fn(),
+        lockR2ObjectForClaim: vi.fn(),
+        r2KeyPrefix: "app",
+        rollbackTasks: [],
+      },
+      args: {
+        ...createArgs,
+        music: {
+          byteSize: 2048,
+          fileName: "track.mp3",
+          mimeType: "audio/mpeg",
+          objectKey: "app/kalakriti-music/tmp/admin-1/upload-track.mp3",
+        },
+      },
+      configuration: [
+        { ...competition, musicUploadEnabled: true },
+        activeConfiguration[1],
+      ],
+    });
+    await promise;
+
+    expect(spies.insertEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        musicFileName: "track.mp3",
+        musicMimeType: "audio/mpeg",
+        musicObjectKey:
+          "app/kalakriti-music/edition-1/entry-1/upload-track.mp3",
+      })
+    );
+    expect(spies.insertAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ musicPresent: true }),
+      })
+    );
+  });
+
+  it("rejects individual music when the Competition flag is off", async () => {
+    const { promise, spies } = await createEntry({
+      args: {
+        ...createArgs,
+        music: {
+          byteSize: 2048,
+          fileName: "track.mp3",
+          mimeType: "audio/mpeg",
+          objectKey: "app/kalakriti-music/tmp/admin-1/upload-track.mp3",
+        },
+      },
+    });
+
+    await expect(promise).rejects.toThrow("Music upload is not enabled");
+    expect(spies.insertEntry).not.toHaveBeenCalled();
   });
 
   it("rejects a stale submission after Center entry registration closes", async () => {
@@ -799,5 +872,124 @@ describe("kalakritiEntry commands", () => {
     await expect(promise).rejects.toThrow("Unauthorized for this Center");
     expect(spies.deleteMember).not.toHaveBeenCalled();
     expect(spies.deleteEntry).not.toHaveBeenCalled();
+  });
+
+  it("attaches music when the Competition allows it", async () => {
+    const sourceKey = "app/kalakriti-music/tmp/admin-1/upload-track.mp3";
+    const { lockedResults, spies, tx } = createTx([
+      { ...entrySnapshot, musicObjectKey: null },
+      { ...competition, musicUploadEnabled: true },
+    ]);
+    lockedResults.push([edition], [center], [session]);
+    const asyncTasks: Array<{ fn: () => Promise<void> }> = [];
+    const beforeCommitTasks: Array<{ fn: () => Promise<void> }> = [];
+
+    await kalakritiEntryMutators.attachOrReplaceMusic.fn({
+      args: {
+        auditEntryId: "audit-music",
+        byteSize: 2048,
+        entryId: "entry-1",
+        fileName: "track.mp3",
+        mimeType: "audio/mpeg",
+        now: 2000,
+        objectKey: sourceKey,
+      },
+      ctx: {
+        ...ctx,
+        asyncTasks,
+        beforeCommitTasks,
+        copyR2Object: vi.fn(),
+        enqueue: vi.fn(),
+        lockR2Object: vi.fn(),
+        lockR2ObjectForClaim: vi.fn(),
+        r2KeyPrefix: "app",
+        rollbackTasks: [],
+      },
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiEntryMutators.attachOrReplaceMusic.fn
+    >[0]);
+
+    expect(spies.updateEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        musicFileName: "track.mp3",
+        musicMimeType: "audio/mpeg",
+        musicObjectKey:
+          "app/kalakriti-music/edition-1/entry-1/upload-track.mp3",
+      })
+    );
+    expect(spies.insertAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ musicPresent: true }),
+      })
+    );
+  });
+
+  it("rejects music attach when the Competition flag is off", async () => {
+    const { lockedResults, spies, tx } = createTx([
+      entrySnapshot,
+      { ...competition, musicUploadEnabled: false },
+    ]);
+    lockedResults.push([edition], [center], [session]);
+
+    await expect(
+      kalakritiEntryMutators.attachOrReplaceMusic.fn({
+        args: {
+          auditEntryId: "audit-music",
+          byteSize: 2048,
+          entryId: "entry-1",
+          fileName: "track.mp3",
+          mimeType: "audio/mpeg",
+          now: 2000,
+          objectKey: "app/kalakriti-music/tmp/admin-1/upload-track.mp3",
+        },
+        ctx,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiEntryMutators.attachOrReplaceMusic.fn
+      >[0])
+    ).rejects.toThrow("Music upload is not enabled");
+    expect(spies.updateEntry).not.toHaveBeenCalled();
+  });
+
+  it("clears music columns on removeMusic", async () => {
+    const { lockedResults, spies, tx } = createTx([
+      {
+        ...entrySnapshot,
+        musicObjectKey:
+          "app/kalakriti-music/edition-1/entry-1/upload-track.mp3",
+      },
+    ]);
+    lockedResults.push([edition], [center]);
+    const asyncTasks: Array<{
+      fn: () => Promise<void>;
+      meta: Record<string, unknown>;
+    }> = [];
+
+    await kalakritiEntryMutators.removeMusic.fn({
+      args: { auditEntryId: "audit-music", entryId: "entry-1", now: 2000 },
+      ctx: {
+        ...ctx,
+        asyncTasks,
+        enqueue: vi.fn(),
+        r2KeyPrefix: "app",
+      },
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiEntryMutators.removeMusic.fn
+    >[0]);
+
+    expect(spies.updateEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        musicFileName: null,
+        musicObjectKey: null,
+      })
+    );
+    expect(spies.insertAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ musicPresent: false }),
+      })
+    );
+    expect(asyncTasks).toHaveLength(1);
   });
 });

@@ -18,6 +18,7 @@ import {
   avatarUploadSchema,
   eventEditorUploadSchema,
   eventPhotoUploadSchema,
+  kalakritiEntryMusicUploadSchema,
   requestUploadSchema,
   scheduledMessageUploadSchema,
   vendorPaymentInvoiceUploadSchema,
@@ -25,10 +26,12 @@ import {
 import {
   authorizeEventEditorUpload,
   authorizeProtectedUpload,
+  PrivateMediaAccessError,
   type ProtectedUploadScope,
 } from "@/lib/private-media-access";
 import { defaultPrivateMediaAccessDeps } from "@/lib/private-media-db";
 import { getS3 } from "@/lib/s3";
+import { authorizeKalakritiEntryMusicUpload } from "@/lib/server/kalakriti-entry-music";
 import {
   createTemporaryUpload,
   deleteOwnedTemporaryUpload,
@@ -228,6 +231,68 @@ export const getScheduledMessageUploadUrl = createServerFn({ method: "POST" })
           fileName: data.fileName,
           fileSize: data.fileSize,
           handler: "getScheduledMessageUploadUrl",
+          mimeType: data.mimeType,
+          userId: context.session.user.id,
+        },
+        error
+      );
+    }
+  });
+
+export const getKalakritiEntryMusicUploadUrl = createServerFn({
+  method: "POST",
+})
+  .middleware([authMiddleware])
+  .validator(kalakritiEntryMusicUploadSchema)
+  .handler(async ({ data, context }) => {
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    try {
+      return await createTemporaryUpload(
+        {
+          fileName: data.fileName,
+          keyPrefix: env.R2_KEY_PREFIX,
+          mimeType: data.mimeType,
+          scope: {
+            centerId: data.centerId,
+            divisionId: data.divisionId,
+            editionId: data.editionId,
+            kind: "kalakritiEntryMusic",
+          },
+          subfolder: "kalakriti-music",
+          user: context.session.user,
+        },
+        {
+          authorize: async (user, scope) => {
+            if (scope.kind !== "kalakritiEntryMusic") {
+              throw new PrivateMediaAccessError(403, "Forbidden");
+            }
+            await authorizeKalakritiEntryMusicUpload({
+              centerId: scope.centerId,
+              divisionId: scope.divisionId,
+              editionId: scope.editionId,
+              user,
+            });
+          },
+          presign: async (key, mimeType) => {
+            const s3 = await getS3();
+            return s3.presign(key, {
+              expiresIn: 300,
+              method: "PUT",
+              type: mimeType,
+            });
+          },
+        }
+      );
+    } catch (error) {
+      logErrorAndRethrow(
+        { method: "POST", path: "/fn/getKalakritiEntryMusicUploadUrl" },
+        {
+          editionId: data.editionId,
+          fileName: data.fileName,
+          fileSize: data.fileSize,
+          handler: "getKalakritiEntryMusicUploadUrl",
           mimeType: data.mimeType,
           userId: context.session.user.id,
         },

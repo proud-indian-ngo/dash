@@ -130,6 +130,8 @@ const SAFE_AUDIT_METADATA_KEYS = new Set([
   "kind",
   "lifecycle",
   "membershipId",
+  "musicPresent",
+  "musicUploadEnabled",
   "registrationEnabled",
   "responsibility",
   "sortOrder",

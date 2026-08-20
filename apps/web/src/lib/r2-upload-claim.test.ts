@@ -2,6 +2,7 @@ import {
   MAX_APPROVAL_SCREENSHOT_SIZE_BYTES,
   MAX_ATTACHMENT_FILE_SIZE_BYTES,
   MAX_IMAGE_SIZE_BYTES,
+  MAX_KALAKRITI_MUSIC_SIZE_BYTES,
   MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES,
   MAX_VIDEO_SIZE_BYTES,
 } from "@pi-dash/shared/constants";
@@ -176,6 +177,22 @@ describe("copyR2Object", () => {
     expect(writer.write).toHaveBeenCalled();
   });
 
+  it("accepts Kalakriti music MIME types on the dedicated prefix", async () => {
+    s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    s3.stat.mockResolvedValue({ size: 1024, type: "audio/mpeg" });
+
+    await copyR2Object(
+      {
+        mimeType: "audio/mpeg",
+        sourceKey: "app/kalakriti-music/tmp/user-1/track.mp3",
+        targetKey: "app/kalakriti-music/edition-1/entry-1/track.mp3",
+      },
+      deps
+    );
+
+    expect(writer.write).toHaveBeenCalled();
+  });
+
   it.each([
     {
       maxSize: MAX_ATTACHMENT_FILE_SIZE_BYTES,
@@ -196,6 +213,11 @@ describe("copyR2Object", () => {
       maxSize: MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES,
       mimeType: "application/zip",
       sourceKey: "app/scheduled-messages/tmp/user-1/archive.zip",
+    },
+    {
+      maxSize: MAX_KALAKRITI_MUSIC_SIZE_BYTES,
+      mimeType: "audio/mpeg",
+      sourceKey: "app/kalakriti-music/tmp/user-1/track.mp3",
     },
   ])(
     "enforces stored size for $sourceKey",
@@ -225,6 +247,7 @@ describe("copyR2Object", () => {
 
   it.each([
     ["app/attachments/tmp/user-1/audio.mp3", "audio/mpeg"],
+    ["app/kalakriti-music/tmp/user-1/notes.pdf", "application/pdf"],
     ["app/approval-screenshots/tmp/user-1/animation.gif", "image/gif"],
     ["app/photos/tmp/user-1/document.pdf", "application/pdf"],
     ["app/scheduled-messages/tmp/user-1/file", "not-a-mime"],

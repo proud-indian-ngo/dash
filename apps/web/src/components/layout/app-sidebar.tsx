@@ -59,7 +59,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     membership?.assignments.some((assignment) =>
       ["edition_admin", "liaison"].includes(assignment.responsibility)
     ) === true;
-  const canViewEntries = canViewStudents;
+  const canViewEntries =
+    canViewStudents ||
+    membership?.assignments.some((assignment) =>
+      [
+        "overall_events_lead",
+        "competition_category_lead",
+        "competition_coordinator",
+      ].includes(assignment.responsibility)
+    ) === true;
   const canViewAudit =
     hasPermission("kalakriti.admin") ||
     (activeEdition?.lifecycle !== "archived" &&

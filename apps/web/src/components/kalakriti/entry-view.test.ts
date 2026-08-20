@@ -14,6 +14,7 @@ const division = {
     id: "competition-1",
     maximumGroupSize: 1,
     minimumGroupSize: 1,
+    musicUploadEnabled: false,
     name: "Solo Dance",
     participationMode: "individual" as const,
   },

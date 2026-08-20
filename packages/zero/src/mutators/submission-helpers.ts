@@ -14,6 +14,7 @@ type LineItemInput = z.infer<typeof mutatorLineItemSchema>;
 type R2Subfolder =
   | "approval-screenshots"
   | "attachments"
+  | "kalakriti-music"
   | "photos"
   | "scheduled-messages";
 

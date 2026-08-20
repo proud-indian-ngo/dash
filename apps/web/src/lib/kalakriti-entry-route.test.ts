@@ -57,6 +57,15 @@ describe("Kalakriti Competition Entry route guard", () => {
     ["Guardian", { kind: "guardian" as const }],
     ["Edition Administrator", { responsibilities: ["edition_admin"] }],
     ["Liaison", { responsibilities: ["liaison"] }],
+    ["Overall Events Lead", { responsibilities: ["overall_events_lead"] }],
+    [
+      "Competition Category Lead",
+      { responsibilities: ["competition_category_lead"] },
+    ],
+    [
+      "Competition Coordinator",
+      { responsibilities: ["competition_coordinator"] },
+    ],
   ])("allows a %s", (_label, candidate) => {
     expect(() => runBeforeLoad(candidate)).not.toThrow();
   });

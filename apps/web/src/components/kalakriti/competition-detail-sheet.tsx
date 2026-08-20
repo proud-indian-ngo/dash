@@ -124,6 +124,10 @@ export function CompetitionDetailSheet({
                 label="Group size"
                 value={`${competition.minimumGroupSize}-${competition.maximumGroupSize}`}
               />
+              <DetailRow
+                label="Music upload"
+                value={competition.musicUploadEnabled ? "Allowed" : "Off"}
+              />
             </div>
           </div>
 

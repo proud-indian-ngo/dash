@@ -30,13 +30,20 @@
    key. Downloads are authorized against the exact persisted row and streamed through
    `/api/attachments/download`.
 
-Protected temp subfolders: `attachments`, `approval-screenshots`, `photos`,
-`scheduled-messages`. Avatar and editor uploads remain dedicated durable
+Protected temp subfolders: `attachments`, `approval-screenshots`, `kalakriti-music`,
+`photos`, `scheduled-messages`. Avatar and editor uploads remain dedicated durable
 signers under `avatars` and `updates`.
 
 Vendor-payment invoice signing accepts the payment ID only to authorize the
 payment owner or a user with `requests.approve` or `requests.edit_all`; the
 generated key remains under the current user's `attachments/tmp/` prefix.
+
+Kalakriti Entry music uses a dedicated signer (`getKalakritiEntryMusicUploadUrl`)
+and MIME policy (`audio/mpeg`, `audio/mp4`, `audio/aac`, `audio/x-m4a`, 20 MB).
+Center and Division IDs authorize the upload; they never appear in the temp key.
+Durable keys are `<R2_KEY_PREFIX>/kalakriti-music/<editionId>/<entryId>/...`.
+Downloads use `{ id: entryId, kind: "kalakritiEntryMusic" }` and live
+registration-scope checks. Do not add these audio types to `ALLOWED_MIME_TYPES`.
 
 During the private-storage rollout, the bucket remains publicly reachable only
 for asset families that have not migrated yet. All migrated reads use an exact
@@ -56,6 +63,7 @@ Avatar and Plate editor uploads have dedicated signers:
 Configure R2 lifecycle rules that expire these prefixes after 24 hours:
 `<R2_KEY_PREFIX>/attachments/tmp/`,
 `<R2_KEY_PREFIX>/approval-screenshots/tmp/`,
+`<R2_KEY_PREFIX>/kalakriti-music/tmp/`,
 `<R2_KEY_PREFIX>/photos/tmp/`, and
 `<R2_KEY_PREFIX>/scheduled-messages/tmp/`. The repository does not manage the
 bucket, so the rules must be applied in Cloudflare before deploying

@@ -29,6 +29,10 @@ import {
   type R2ObjectRecord,
   type ResolvedR2Object,
 } from "./r2-object-access";
+import {
+  canReadKalakritiEntryMusic,
+  loadKalakritiEntryMusicRecord,
+} from "./server/kalakriti-entry-music";
 
 interface SessionLike {
   user: { id: string; role?: null | string };
@@ -218,6 +222,16 @@ async function resolveVendorPaymentTransactionAttachment(
   ]);
 }
 
+async function resolveKalakritiEntryMusic(
+  ref: Extract<AttachmentAssetRef, { kind: "kalakritiEntryMusic" }>
+): Promise<R2ObjectRecord | null> {
+  const record = await loadKalakritiEntryMusicRecord(ref.id);
+  if (!record) {
+    return null;
+  }
+  return { access: "kalakritiEntryMusic", ...record };
+}
+
 function findRecord(ref: AttachmentAssetRef): Promise<R2ObjectRecord | null> {
   switch (ref.kind) {
     case "advancePaymentAttachment":
@@ -226,6 +240,8 @@ function findRecord(ref: AttachmentAssetRef): Promise<R2ObjectRecord | null> {
       return resolveAdvancePaymentApprovalScreenshot(ref);
     case "eventPhoto":
       return resolveEventPhoto(ref);
+    case "kalakritiEntryMusic":
+      return resolveKalakritiEntryMusic(ref);
     case "reimbursementAttachment":
       return resolveReimbursementAttachment(ref);
     case "reimbursementApprovalScreenshot":
@@ -244,6 +260,8 @@ function findRecord(ref: AttachmentAssetRef): Promise<R2ObjectRecord | null> {
 }
 
 export const defaultR2ObjectAccessDeps: R2ObjectAccessDeps = {
+  canReadKalakritiEntryMusic: async (session, record) =>
+    canReadKalakritiEntryMusic(session.user, record),
   isEventMember: async (eventId, userId) => {
     const member = await db.query.teamEventMember.findFirst({
       where: and(

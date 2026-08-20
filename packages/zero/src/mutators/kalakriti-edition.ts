@@ -465,6 +465,7 @@ export const kalakritiEditionMutators = {
           id: getMappedId(competitionMap, row.id, "Competition"),
           maximumGroupSize: row.maximumGroupSize,
           minimumGroupSize: row.minimumGroupSize,
+          musicUploadEnabled: row.musicUploadEnabled === true,
           name: row.name,
           normalizedName: row.normalizedName,
           participationMode: row.participationMode,

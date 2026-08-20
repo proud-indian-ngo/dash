@@ -113,6 +113,17 @@ test.describe("Kalakriti Registration Release authorization", () => {
       await expect(
         categoryLeadCenterPage.getByText("Outside Center", { exact: true })
       ).toHaveCount(0);
+      await categoryLeadCenterPage.goto(`/kalakriti/${YEAR}/entries`);
+      await waitForZeroReady(categoryLeadCenterPage);
+      await expect(
+        categoryLeadCenterPage.getByRole("heading", {
+          exact: true,
+          name: "Entries",
+        })
+      ).toBeVisible();
+      await expect(
+        categoryLeadCenterPage.getByRole("button", { name: "Register Entry" })
+      ).toHaveCount(0);
     } finally {
       await categoryLeadCenterContext.close();
     }
@@ -140,6 +151,7 @@ test.describe("Kalakriti Registration Release authorization", () => {
     baseURL,
     browser,
     kalakritiActors,
+    page,
   }, testInfo) => {
     test.skip(
       testInfo.project.name !== "super_admin",
@@ -181,6 +193,21 @@ test.describe("Kalakriti Registration Release authorization", () => {
           await unrelatedContext.request.get(`/api/kalakriti/${YEAR}/audit`)
         ).status()
       ).toBe(404);
+      expect(
+        (
+          await unrelatedContext.request.get(
+            "/api/attachments/download?id=019f0000-0019-7000-8000-000000001951&kind=kalakritiEntryMusic"
+          )
+        ).status()
+      ).toBe(404);
+      expect(
+        (
+          await page.request.get(
+            "/api/attachments/download?id=019f0000-0019-7000-8000-000000001951&kind=kalakritiEntryMusic",
+            { headers: { Cookie: "" } }
+          )
+        ).status()
+      ).toBe(401);
     } finally {
       await guardianContext.close();
       await unrelatedContext.close();

@@ -35,18 +35,25 @@ export const kalakritiEntryQueries = {
     if (!(ctx && can(ctx, "kalakriti.view"))) {
       return query.where("id", NO_ACCESS_ID);
     }
-    query = query.whereExists("edition", (edition) =>
-      edition.where(({ or, exists }) =>
-        or(
-          exists("memberships", (membership) =>
+    query = query.where(({ or, exists }) =>
+      or(
+        exists("edition", (edition) =>
+          edition.whereExists("memberships", (membership) =>
             membership
               .where("userId", ctx.userId)
               .where("state", "active")
               .whereExists("assignments", (assignment) =>
-                assignment.where("responsibility", "edition_admin")
+                assignment.where(({ or: assignmentOr, cmp }) =>
+                  assignmentOr(
+                    cmp("responsibility", "edition_admin"),
+                    cmp("responsibility", "overall_events_lead")
+                  )
+                )
               )
-          ),
-          exists("centers", (center) =>
+          )
+        ),
+        exists("edition", (edition) =>
+          edition.whereExists("centers", (center) =>
             center
               .where("id", args.centerId)
               .whereExists("guardianCenters", (guardianCenter) =>
@@ -56,8 +63,10 @@ export const kalakritiEntryQueries = {
                     .where("state", "active")
                 )
               )
-          ),
-          exists("centers", (center) =>
+          )
+        ),
+        exists("edition", (edition) =>
+          edition.whereExists("centers", (center) =>
             center
               .where("id", args.centerId)
               .whereExists("assignments", (assignment) =>
@@ -68,6 +77,28 @@ export const kalakritiEntryQueries = {
                       .where("userId", ctx.userId)
                       .where("state", "active")
                   )
+              )
+          )
+        ),
+        exists("competition", (competition) =>
+          competition.whereExists("category", (category) =>
+            category.whereExists("assignments", (assignment) =>
+              assignment
+                .where("responsibility", "competition_category_lead")
+                .whereExists("membership", (membership) =>
+                  membership
+                    .where("userId", ctx.userId)
+                    .where("state", "active")
+                )
+            )
+          )
+        ),
+        exists("competition", (competition) =>
+          competition.whereExists("assignments", (assignment) =>
+            assignment
+              .where("responsibility", "competition_coordinator")
+              .whereExists("membership", (membership) =>
+                membership.where("userId", ctx.userId).where("state", "active")
               )
           )
         )
@@ -106,7 +137,12 @@ export const kalakritiEntryQueries = {
                 .where("userId", ctx.userId)
                 .where("state", "active")
                 .whereExists("assignments", (assignment) =>
-                  assignment.where("responsibility", "edition_admin")
+                  assignment.where(({ or: assignmentOr, cmp }) =>
+                    assignmentOr(
+                      cmp("responsibility", "edition_admin"),
+                      cmp("responsibility", "overall_events_lead")
+                    )
+                  )
                 )
             )
           ),
@@ -126,6 +162,34 @@ export const kalakritiEntryQueries = {
                     .where("userId", ctx.userId)
                     .where("state", "active")
                 )
+            )
+          ),
+          exists("division", (division) =>
+            division.whereExists("competition", (competition) =>
+              competition.whereExists("category", (category) =>
+                category.whereExists("assignments", (assignment) =>
+                  assignment
+                    .where("responsibility", "competition_category_lead")
+                    .whereExists("membership", (membership) =>
+                      membership
+                        .where("userId", ctx.userId)
+                        .where("state", "active")
+                    )
+                )
+              )
+            )
+          ),
+          exists("division", (division) =>
+            division.whereExists("competition", (competition) =>
+              competition.whereExists("assignments", (assignment) =>
+                assignment
+                  .where("responsibility", "competition_coordinator")
+                  .whereExists("membership", (membership) =>
+                    membership
+                      .where("userId", ctx.userId)
+                      .where("state", "active")
+                  )
+              )
             )
           )
         )

@@ -17,7 +17,7 @@ async function fixture<T>(
   const { stdout } = await execFileAsync(
     "bun",
     ["run", helperPath, action, ...(email ? [email] : [])],
-    { env: process.env }
+    { env: process.env, killSignal: "SIGKILL", timeout: 30_000 }
   );
   return JSON.parse(stdout.trim()) as T;
 }
@@ -31,13 +31,13 @@ test("enforces registration readiness, lifecycle locks, and structural cloning",
     "Super-admin lifecycle flow"
   );
   test.slow();
-  const years = await fixture<{
+  let years: {
     cloneTargetYear: number;
     readyYear: number;
     sourceYear: number;
-  }>("setup", superAdminEmail);
-
+  };
   try {
+    years = await fixture("setup", superAdminEmail);
     await page.goto(`/kalakriti/${years.cloneTargetYear}`);
     await waitForZeroReady(page);
     await expect(

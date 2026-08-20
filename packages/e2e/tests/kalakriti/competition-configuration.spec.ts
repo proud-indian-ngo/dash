@@ -66,7 +66,10 @@ test("configures the Competition catalog and rejects an invalid schedule", async
 
     await competitions.gotoCatalog(year);
     await competitions.addCompetition("Solo Dance");
-    await competitions.addCompetition("Solo Music");
+    await competitions.addCompetition("Solo Music", "Junior", {
+      musicUpload: true,
+    });
+    await expect(competitions.competition("Solo Music")).toContainText("Music");
     await competitions.competition("Solo Dance").click();
     await expect(
       page.getByRole("dialog", { name: "Solo Dance" })

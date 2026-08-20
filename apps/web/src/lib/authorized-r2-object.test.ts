@@ -41,6 +41,7 @@ const session = { user: { id: "owner", role: "volunteer" } };
 const createDeps = (
   overrides: Partial<AuthorizedR2ObjectDeps> = {}
 ): AuthorizedR2ObjectDeps => ({
+  canReadKalakritiEntryMusic: async () => false,
   findRecord: async () => null,
   isEventMember: async () => false,
   isTeamLead: async () => false,
@@ -237,5 +238,49 @@ describe("resolveAuthorizedR2Object", () => {
       filename: "payment.pdf",
       key: "legacy/payment.pdf",
     });
+  });
+
+  it("resolves Kalakriti Entry music through a live registration-scope check", async () => {
+    await expect(
+      resolveAuthorizedR2Object(
+        session,
+        { id: "entry-1", kind: "kalakritiEntryMusic" },
+        createDeps({
+          canReadKalakritiEntryMusic: async () => true,
+          findRecord: async () => ({
+            access: "kalakritiEntryMusic",
+            centerId: "center-1",
+            competitionCategoryId: "category-1",
+            competitionId: "competition-1",
+            editionYear: 2026,
+            filename: "track.mp3",
+            key: "app/kalakriti-music/edition/entry/track.mp3",
+          }),
+        })
+      )
+    ).resolves.toEqual({
+      filename: "track.mp3",
+      key: "app/kalakriti-music/edition/entry/track.mp3",
+    });
+  });
+
+  it("denies Kalakriti Entry music when the registration scope does not match", async () => {
+    await expect(
+      resolveAuthorizedR2Object(
+        session,
+        { id: "entry-1", kind: "kalakritiEntryMusic" },
+        createDeps({
+          findRecord: async () => ({
+            access: "kalakritiEntryMusic",
+            centerId: "center-2",
+            competitionCategoryId: "category-1",
+            competitionId: "competition-1",
+            editionYear: 2026,
+            filename: "track.mp3",
+            key: "app/kalakriti-music/edition/entry/track.mp3",
+          }),
+        })
+      )
+    ).rejects.toEqual(new R2ObjectAccessError(403, "Forbidden"));
   });
 });

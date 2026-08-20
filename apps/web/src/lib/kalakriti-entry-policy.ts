@@ -234,16 +234,47 @@ export function canRemoveKalakritiEntries({
   return lifecycle === "registration_open" && centerEnabled;
 }
 
-export function canAccessKalakritiEntries(
+export function canWriteKalakritiEntries(
   access: KalakritiCenterRegistrationAccess
 ): boolean {
   return canAccessKalakritiCenterRegistration(access);
+}
+
+const ENTRY_READ_RESPONSIBILITIES = [
+  "edition_admin",
+  "overall_events_lead",
+  "competition_category_lead",
+  "competition_coordinator",
+] as const;
+
+export function canAccessKalakritiEntries(
+  access: KalakritiCenterRegistrationAccess
+): boolean {
+  return (
+    canAccessKalakritiCenterRegistration(access) ||
+    access.membership?.responsibilities.some((responsibility) =>
+      (ENTRY_READ_RESPONSIBILITIES as readonly string[]).includes(
+        responsibility
+      )
+    ) === true
+  );
 }
 
 export function selectKalakritiEntryCenters<T extends { id: string }>(
   centers: readonly T[],
   access: KalakritiCenterRegistrationAccess
 ): T[] {
+  const hasAllCenters =
+    access.isGlobalAdmin ||
+    access.membership?.kind === "guardian" ||
+    access.membership?.responsibilities.some((responsibility) =>
+      (ENTRY_READ_RESPONSIBILITIES as readonly string[]).includes(
+        responsibility
+      )
+    ) === true;
+  if (hasAllCenters) {
+    return [...centers];
+  }
   return selectKalakritiCenterRegistrationCenters(centers, access);
 }
 

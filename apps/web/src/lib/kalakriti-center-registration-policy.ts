@@ -21,6 +21,16 @@ export function canAccessKalakritiCenterRegistration(
   );
 }
 
+export function canViewKalakritiCenterDirectory(
+  access: KalakritiCenterRegistrationAccess
+): boolean {
+  return (
+    canAccessKalakritiCenterRegistration(access) ||
+    access.membership?.responsibilities.includes("volunteer_coordinator") ===
+      true
+  );
+}
+
 export function selectKalakritiCenterRegistrationCenters<
   T extends { id: string },
 >(centers: readonly T[], access: KalakritiCenterRegistrationAccess): T[] {

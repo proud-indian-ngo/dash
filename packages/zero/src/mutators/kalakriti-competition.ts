@@ -103,6 +103,7 @@ const competitionValuesSchema = namedConfigurationSchema
     genderEligibility: z.enum(["male", "female", "both"]),
     maximumGroupSize: z.number().int().min(1).max(100),
     minimumGroupSize: z.number().int().min(1).max(100),
+    musicUploadEnabled: z.boolean(),
     participationMode: z.enum(["individual", "group"]),
   })
   .refine(
@@ -248,6 +249,7 @@ async function getCompetition(tx: CompetitionTx, id: string) {
         id: string;
         maximumGroupSize: number;
         minimumGroupSize: number;
+        musicUploadEnabled: boolean;
         name: string;
         participationMode: "group" | "individual";
         retiredAt: number | null;
@@ -659,6 +661,7 @@ export const kalakritiCompetitionMutators = {
         id: args.competitionId,
         maximumGroupSize: args.maximumGroupSize,
         minimumGroupSize: args.minimumGroupSize,
+        musicUploadEnabled: args.musicUploadEnabled,
         name: normalized.name,
         normalizedName: normalized.normalizedName,
         participationMode: args.participationMode,
@@ -1240,6 +1243,7 @@ export const kalakritiCompetitionMutators = {
         id: competition.id,
         maximumGroupSize: args.maximumGroupSize,
         minimumGroupSize: args.minimumGroupSize,
+        musicUploadEnabled: args.musicUploadEnabled,
         name: normalized.name,
         normalizedName: normalized.normalizedName,
         participationMode: args.participationMode,

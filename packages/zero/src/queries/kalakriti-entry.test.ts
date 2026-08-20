@@ -27,6 +27,9 @@ describe("kalakritiEntry queries", () => {
       expect(ast).toContain('"table":"kalakritiGuardianCenter"');
       expect(ast).toContain('"value":"liaison"');
       expect(ast).toContain('"value":"edition_admin"');
+      expect(ast).toContain('"value":"overall_events_lead"');
+      expect(ast).toContain('"value":"competition_category_lead"');
+      expect(ast).toContain('"value":"competition_coordinator"');
       expect(ast).not.toContain('"value":"transport_coordinator"');
       expect(ast).toContain('"value":"guardian-1"');
     }
