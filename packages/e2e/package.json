@@ -3,10 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "seed": "SKIP_VALIDATION=true bun run helpers/seed-test-user.ts",
     "test": "bash run-e2e.sh",
-    "test:unit": "bash process-cleanup.test.sh",
     "test:ui": "bash run-e2e.sh --ui",
-    "seed": "SKIP_VALIDATION=true bun run helpers/seed-test-user.ts"
+    "test:unit": "bash process-cleanup.test.sh"
   },
   "dependencies": {
     "@pi-dash/auth": "workspace:*",

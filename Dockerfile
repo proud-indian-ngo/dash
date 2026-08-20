@@ -18,7 +18,10 @@ COPY packages/shared/package.json packages/shared/
 COPY packages/whatsapp/package.json packages/whatsapp/
 COPY packages/e2e/package.json packages/e2e/
 COPY packages/zero/package.json packages/zero/
-RUN bun install --frozen-lockfile
+# Skip lifecycle scripts: @rocicorp/zero-sqlite3 is a trustedDependency whose
+# install script compiles a native addon (needs Python/g++). Web vite build and
+# the migrator do not load it — production zero-cache is the rocicorp/zero image.
+RUN bun install --frozen-lockfile --ignore-scripts
 COPY . .
 ARG VITE_ZERO_URL
 ARG VITE_CDN_URL

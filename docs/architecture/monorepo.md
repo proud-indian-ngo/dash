@@ -28,6 +28,8 @@ Turborepo monorepo. Bun package manager.
 
 New `packages/*`: add `COPY packages/<name>/package.json packages/<name>/` to `Dockerfile` before `RUN bun install`. Else Docker build breaks.
 
+Dockerfile `bun install` uses `--ignore-scripts`. `@rocicorp/zero-sqlite3` is a trustedDependency whose install script compiles a native addon under Bun; slim images have no Python/g++. Web build and migrator do not load that addon — `zero-cache` is the `rocicorp/zero` image. Keep that image on the same minor as the `@rocicorp/zero` catalog version.
+
 ## Dev Tooling
 
 - **Biome + ultracite** (`biome.jsonc`): linter + formatter. `bun run check` validates, `bun run fix` auto-fixes. Ultracite = preset on top of Biome with opinionated React/TS rules.

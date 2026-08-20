@@ -202,6 +202,8 @@ bun run build
 
 Output: `apps/web/dist/`.
 
+Production Docker (`Dockerfile`) runs `bun install --frozen-lockfile --ignore-scripts` so `@rocicorp/zero-sqlite3` does not compile a native addon in the slim image. Pin `rocicorp/zero` in `docker-compose.prod.yml` to the same minor as the `@rocicorp/zero` catalog version.
+
 ## Running in Production
 
 ### Web App (TanStack Start)
