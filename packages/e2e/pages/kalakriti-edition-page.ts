@@ -160,26 +160,23 @@ export class KalakritiEditionPage {
   }
 
   async assignVolunteer(volunteerName: string, responsibility: string) {
-    await this.page.getByRole("button", { name: "Assign volunteer" }).click();
-    const dialog = this.page.getByRole("dialog", { name: "Assign volunteer" });
+    await this.page.getByRole("button", { name: "Assign role" }).click();
+    const dialog = this.page.getByRole("dialog", { name: "Assign role" });
     const picker = dialog.getByPlaceholder("Search central volunteers...");
     await picker.fill(volunteerName);
     await this.page
       .getByRole("option", { name: new RegExp(volunteerName) })
       .first()
       .click();
-    await dialog
-      .getByRole("combobox")
-      .filter({ hasText: "Edition Administrator" })
-      .click();
+    await dialog.locator("#responsibility").click();
     await this.page
       .getByRole("option", { exact: true, name: responsibility })
       .click();
     await dialog
-      .getByRole("button", { exact: true, name: "Assign volunteer" })
+      .getByRole("button", { exact: true, name: "Assign role" })
       .click();
     await expect(
-      this.page.getByText("Volunteer assigned", { exact: true })
+      this.page.getByText("Role assigned", { exact: true })
     ).toBeVisible({ timeout: 30_000 });
     await expect(dialog).toHaveCount(0);
     await expect(

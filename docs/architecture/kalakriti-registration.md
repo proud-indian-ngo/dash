@@ -15,7 +15,7 @@ Global permissions provide the coarse module gates `kalakriti.view` and `kalakri
 
 - Global administrators can access every Edition, including archived Editions.
 - Edition administrators manage the complete active Edition.
-- Volunteer Coordinators manage the volunteer roster and assignments on `/kalakriti/:year/volunteers`. That page owns assignment, not Overview.
+- Volunteer Coordinators manage the volunteer roster and assignments on `/kalakriti/:year/volunteers`. That page owns assignment, not Overview. One **Assign role** dialog covers Edition leadership, operational leads, competition roles, and Center roles.
 - Overall Events Leads and Category Leads receive Competition-category scopes.
 - Liaisons and Guardians receive explicit Center scopes.
 - Unassigned volunteers fail closed even if their global role can see the Kalakriti shell.

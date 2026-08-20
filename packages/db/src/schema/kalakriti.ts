@@ -809,7 +809,7 @@ export const kalakritiAssignment = pgTable(
           AND ${table.centerId} IS NULL
           AND ${table.competitionCategoryId} IS NULL
           AND ${table.competitionId} IS NULL)
-        OR (${table.responsibility}::text IN ('liaison', 'transport_coordinator')
+        OR (${table.responsibility}::text IN ('liaison', 'liaison_lead', 'liaison_volunteer')
           AND ${table.centerId} IS NOT NULL
           AND ${table.competitionCategoryId} IS NULL
           AND ${table.competitionId} IS NULL)

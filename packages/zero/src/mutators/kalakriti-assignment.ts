@@ -1,9 +1,10 @@
 import {
   canManageKalakritiResponsibility,
   isKalakritiAssignableUserRole,
+  KALAKRITI_CENTER_VOLUNTEER_RESPONSIBILITIES,
   KALAKRITI_COMPETITION_CATEGORY_SCOPED_RESPONSIBILITIES,
   KALAKRITI_COMPETITION_SCOPED_RESPONSIBILITIES,
-  KALAKRITI_EDITION_SCOPED_RESPONSIBILITIES,
+  KALAKRITI_VOLUNTEER_EDITION_ASSIGNMENT_RESPONSIBILITIES,
   type KalakritiResponsibility,
 } from "@pi-dash/shared/kalakriti";
 import { defineMutator } from "@rocicorp/zero";
@@ -83,7 +84,9 @@ export const kalakritiAssignmentCreateSchema = z.object({
   makePrimary: z.boolean(),
   membershipId: z.string(),
   now: z.number(),
-  responsibility: z.enum(KALAKRITI_EDITION_SCOPED_RESPONSIBILITIES),
+  responsibility: z.enum(
+    KALAKRITI_VOLUNTEER_EDITION_ASSIGNMENT_RESPONSIBILITIES
+  ),
   teamEventMemberId: z.string(),
   userId: z.string(),
 });
@@ -96,6 +99,7 @@ export const kalakritiLiaisonAssignmentCreateSchema = z.object({
   makePrimary: z.boolean(),
   membershipId: z.string(),
   now: z.number(),
+  responsibility: z.enum(KALAKRITI_CENTER_VOLUNTEER_RESPONSIBILITIES),
   teamEventMemberId: z.string(),
   userId: z.string(),
 });
@@ -458,7 +462,6 @@ export const kalakritiAssignmentMutators = {
         ...args,
         competitionCategoryId: null,
         competitionId: null,
-        responsibility: "liaison",
       })
   ),
   assignVolunteer: defineMutator(

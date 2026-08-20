@@ -23,7 +23,7 @@ describe("Kalakriti Entry policy", () => {
         membership: {
           assignments: [],
           kind: "volunteer",
-          responsibilities: ["transport_coordinator"],
+          responsibilities: ["transport_lead"],
         },
       })
     ).toBe(false);
@@ -371,15 +371,9 @@ describe("Kalakriti Entry policy", () => {
       selectKalakritiEntryCenters(centers, {
         isGlobalAdmin: false,
         membership: {
-          assignments: [
-            { centerId: "center-2", responsibility: "liaison" },
-            {
-              centerId: "center-1",
-              responsibility: "transport_coordinator",
-            },
-          ],
+          assignments: [{ centerId: "center-2", responsibility: "liaison" }],
           kind: "volunteer",
-          responsibilities: ["liaison", "transport_coordinator"],
+          responsibilities: ["liaison"],
         },
       })
     ).toEqual([{ id: "center-2" }]);

@@ -1,7 +1,6 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
-  KALAKRITI_EDITION_SCOPED_RESPONSIBILITIES,
   KALAKRITI_RESPONSIBILITY_LABELS,
   type KalakritiResponsibility,
 } from "@pi-dash/shared/kalakriti";
@@ -11,9 +10,8 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { uuidv7 } from "uuidv7";
-import { CompetitionAssignmentDialog } from "@/components/kalakriti/competition-assignment-dialog";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
-import { VolunteerAssignmentDialog } from "@/components/kalakriti/volunteer-assignment-dialog";
+import { KalakritiRoleAssignmentDialog } from "@/components/kalakriti/kalakriti-role-assignment-dialog";
 import { VolunteerDetailSheet } from "@/components/kalakriti/volunteer-detail-sheet";
 import {
   type RemoveAssignmentPayload,
@@ -87,13 +85,8 @@ function KalakritiVolunteersPage() {
   const { edition, isGlobalAdmin } = access;
   const actorResponsibilities = (access.membership?.responsibilities ??
     []) as KalakritiResponsibility[];
-  const isEditionAdmin =
-    isGlobalAdmin || actorResponsibilities.includes("edition_admin");
-  const availableResponsibilities = isEditionAdmin
-    ? KALAKRITI_EDITION_SCOPED_RESPONSIBILITIES
-    : (["overall_events_lead"] as const);
   const [assignOpen, setAssignOpen] = useState(false);
-  const [competitionAssignOpen, setCompetitionAssignOpen] = useState(false);
+  const [assignUserId, setAssignUserId] = useState<string | null>(null);
   const [selectedVolunteerId, setSelectedVolunteerId] = useState<string | null>(
     null
   );
@@ -169,6 +162,7 @@ function KalakritiVolunteersPage() {
     snapshotEmail: membership.snapshotEmail,
     snapshotName: membership.snapshotName,
     snapshotPhone: membership.snapshotPhone,
+    userId: membership.userId as string,
   }));
   const selectedVolunteer =
     volunteerRows.find((volunteer) => volunteer.id === selectedVolunteerId) ??
@@ -176,10 +170,17 @@ function KalakritiVolunteersPage() {
   const isLoading =
     volunteerRows.length === 0 && rosterResult.type !== "complete";
 
-  const handleAssignOpen = useEventCallback(() => setAssignOpen(true));
-  const handleCompetitionAssignOpen = useEventCallback(() =>
-    setCompetitionAssignOpen(true)
-  );
+  const handleAssignOpen = useEventCallback((userId?: string | null) => {
+    setAssignUserId(userId ?? null);
+    setAssignOpen(true);
+  });
+  const handleToolbarAssignOpen = useEventCallback(() => handleAssignOpen());
+  const handleAssignOpenChange = useEventCallback((open: boolean) => {
+    setAssignOpen(open);
+    if (!open) {
+      setAssignUserId(null);
+    }
+  });
   const handleViewVolunteer = useEventCallback(
     (volunteer: VolunteerRosterItem) => {
       setSelectedVolunteerId(volunteer.id);
@@ -199,6 +200,12 @@ function KalakritiVolunteersPage() {
     setSelectedVolunteerId(null);
     removeAction.trigger(payload);
   });
+  const handleAssignFromSheet = useEventCallback(
+    (volunteer: VolunteerRosterItem) => {
+      setSelectedVolunteerId(null);
+      handleAssignOpen(volunteer.userId);
+    }
+  );
 
   if (volunteerRows.length === 0 && rosterResult.type === "error") {
     return (
@@ -226,45 +233,33 @@ function KalakritiVolunteersPage() {
         onRemove={handleRemove}
         onView={handleViewVolunteer}
         toolbarActions={
-          <>
-            <Button onClick={handleAssignOpen} type="button">
-              Assign volunteer
-            </Button>
-            <Button
-              onClick={handleCompetitionAssignOpen}
-              type="button"
-              variant="outline"
-            >
-              Assign competition role
-            </Button>
-          </>
+          <Button onClick={handleToolbarAssignOpen} type="button">
+            Assign role
+          </Button>
         }
       />
 
       <VolunteerDetailSheet
         actorResponsibilities={actorResponsibilities}
         isGlobalAdmin={isGlobalAdmin}
+        onAssign={handleAssignFromSheet}
         onOpenChange={handleVolunteerSheetOpenChange}
         onRemove={handleRemove}
         open={selectedVolunteer !== null}
         volunteer={selectedVolunteer}
       />
-      <VolunteerAssignmentDialog
-        editionId={edition.id}
-        onOpenChange={setAssignOpen}
-        open={assignOpen}
-        pickerState={pickerState}
-        responsibilities={availableResponsibilities}
-        users={pickerUsers}
-      />
-      <CompetitionAssignmentDialog
+      <KalakritiRoleAssignmentDialog
+        actorResponsibilities={actorResponsibilities}
         categories={competitionCategories}
         categoriesState={competitionCategoriesResult.type}
+        centers={centers}
         competitions={competitions}
         competitionsState={competitionsResult.type}
         editionId={edition.id}
-        onOpenChange={setCompetitionAssignOpen}
-        open={competitionAssignOpen}
+        initialUserId={assignUserId}
+        isGlobalAdmin={isGlobalAdmin}
+        onOpenChange={handleAssignOpenChange}
+        open={assignOpen}
         pickerState={pickerState}
         users={pickerUsers}
       />

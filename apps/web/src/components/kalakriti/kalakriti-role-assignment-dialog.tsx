@@ -1,6 +1,7 @@
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import type { KalakritiResponsibility } from "@pi-dash/shared/kalakriti";
 import { useState } from "react";
-import { CompetitionAssignmentForm } from "@/components/kalakriti/competition-assignment-form";
+import { KalakritiRoleAssignmentForm } from "@/components/kalakriti/kalakriti-role-assignment-form";
 import { Loader } from "@/components/loader";
 import {
   Dialog,
@@ -14,25 +15,33 @@ import type { PickerUser } from "@/functions/users-for-picker";
 interface ScopeOption {
   id: string;
   name: string;
-  retiredAt: number | null;
+  retiredAt?: number | null;
 }
 
-export function CompetitionAssignmentDialog({
+export function KalakritiRoleAssignmentDialog({
+  actorResponsibilities,
   categories,
   categoriesState,
+  centers,
   competitions,
   competitionsState,
   editionId,
+  initialUserId,
+  isGlobalAdmin,
   onOpenChange,
   open,
   pickerState,
   users,
 }: {
+  actorResponsibilities: readonly KalakritiResponsibility[];
   categories: readonly ScopeOption[];
   categoriesState: "complete" | "error" | "unknown";
+  centers: readonly ScopeOption[];
   competitions: readonly ScopeOption[];
   competitionsState: "complete" | "error" | "unknown";
   editionId: string;
+  initialUserId?: string | null;
+  isGlobalAdmin: boolean;
   onOpenChange: (open: boolean) => void;
   open: boolean;
   pickerState: "error" | "idle" | "loading" | "ready";
@@ -52,19 +61,24 @@ export function CompetitionAssignmentDialog({
     <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Assign competition role</DialogTitle>
+          <DialogTitle>Assign role</DialogTitle>
           <DialogDescription>
-            Scope Category Leads to one Category, and Coordinators or Volunteers
-            to one Competition.
+            Pick a volunteer, choose a role, then add a Center, Category, or
+            Competition scope when required. External Guardians stay out of this
+            picker.
           </DialogDescription>
         </DialogHeader>
-        <CompetitionAssignmentDialogBody
+        <KalakritiRoleAssignmentDialogBody
+          actorResponsibilities={actorResponsibilities}
           categories={categories}
           categoriesState={categoriesState}
+          centers={centers}
           competitions={competitions}
           competitionsState={competitionsState}
           editionId={editionId}
           formKey={formKey}
+          initialUserId={initialUserId}
+          isGlobalAdmin={isGlobalAdmin}
           onAssigned={handleAssigned}
           onCancel={handleCancel}
           pickerState={pickerState}
@@ -75,24 +89,32 @@ export function CompetitionAssignmentDialog({
   );
 }
 
-function CompetitionAssignmentDialogBody({
+function KalakritiRoleAssignmentDialogBody({
+  actorResponsibilities,
   categories,
   categoriesState,
+  centers,
   competitions,
   competitionsState,
   editionId,
   formKey,
+  initialUserId,
+  isGlobalAdmin,
   onAssigned,
   onCancel,
   pickerState,
   users,
 }: {
+  actorResponsibilities: readonly KalakritiResponsibility[];
   categories: readonly ScopeOption[];
   categoriesState: "complete" | "error" | "unknown";
+  centers: readonly ScopeOption[];
   competitions: readonly ScopeOption[];
   competitionsState: "complete" | "error" | "unknown";
   editionId: string;
   formKey: number;
+  initialUserId?: string | null;
+  isGlobalAdmin: boolean;
   onAssigned: () => void;
   onCancel: () => void;
   pickerState: "error" | "idle" | "loading" | "ready";
@@ -105,35 +127,36 @@ function CompetitionAssignmentDialogBody({
   ) {
     return (
       <p className="text-destructive text-sm" role="alert">
-        Competition assignment options could not be loaded. Refresh and try
-        again.
+        Assignment options could not be loaded. Refresh and try again.
       </p>
     );
   }
-  if (
-    pickerState === "ready" &&
-    categoriesState === "complete" &&
-    competitionsState === "complete"
-  ) {
+
+  if (pickerState !== "ready") {
     return (
-      <CompetitionAssignmentForm
-        categories={categories}
-        competitions={competitions}
-        editionId={editionId}
-        key={formKey}
-        onAssigned={onAssigned}
-        onCancel={onCancel}
-        users={users}
-      />
+      <div
+        aria-label="Loading assignment options"
+        className="flex min-h-24 items-center justify-center"
+        role="status"
+      >
+        <Loader />
+      </div>
     );
   }
+
   return (
-    <div
-      aria-label="Loading Competition assignment options"
-      className="flex min-h-24 items-center justify-center"
-      role="status"
-    >
-      <Loader />
-    </div>
+    <KalakritiRoleAssignmentForm
+      actorResponsibilities={actorResponsibilities}
+      categories={categories}
+      centers={centers}
+      competitions={competitions}
+      editionId={editionId}
+      initialUserId={initialUserId}
+      isGlobalAdmin={isGlobalAdmin}
+      key={`${formKey}:${initialUserId ?? "new"}`}
+      onAssigned={onAssigned}
+      onCancel={onCancel}
+      users={users}
+    />
   );
 }

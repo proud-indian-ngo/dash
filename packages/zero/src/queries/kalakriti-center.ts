@@ -2,6 +2,7 @@ import { defineQuery } from "@rocicorp/zero";
 import z from "zod";
 import { can } from "../permissions";
 import { zql } from "../schema";
+import { buildKalakritiLiaisonResponsibilityOr } from "./kalakriti-liaison-scope";
 
 const editionInput = z.object({ editionId: z.string() });
 const NO_ACCESS_ID = "00000000-0000-0000-0000-000000000000";
@@ -37,7 +38,9 @@ export const kalakritiCenterQueries = {
   liaisonAssignments: defineQuery(editionInput, ({ args, ctx }) => {
     const query = zql.kalakritiAssignment
       .where("editionId", args.editionId)
-      .where("responsibility", "liaison")
+      .where(({ or: liaisonOr, cmp }) =>
+        buildKalakritiLiaisonResponsibilityOr(liaisonOr, cmp)
+      )
       .related("center")
       .related("membership");
     if (ctx !== null && can(ctx, "kalakriti.admin")) {
@@ -104,7 +107,9 @@ export const kalakritiCenterQueries = {
         ),
         exists("assignments", (assignment) =>
           assignment
-            .where("responsibility", "liaison")
+            .where(({ or: liaisonOr, cmp }) =>
+              buildKalakritiLiaisonResponsibilityOr(liaisonOr, cmp)
+            )
             .whereExists("membership", (membership) =>
               membership.where("userId", ctx.userId).where("state", "active")
             )

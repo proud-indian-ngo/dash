@@ -7,11 +7,8 @@ vi.mock("@rocicorp/zero/react", () => ({
   useQuery: () => [[], { type: "complete" }],
   useZero: () => ({}),
 }));
-vi.mock("@/components/kalakriti/competition-assignment-dialog", () => ({
-  CompetitionAssignmentDialog: () => null,
-}));
-vi.mock("@/components/kalakriti/volunteer-assignment-dialog", () => ({
-  VolunteerAssignmentDialog: () => null,
+vi.mock("@/components/kalakriti/kalakriti-role-assignment-dialog", () => ({
+  KalakritiRoleAssignmentDialog: () => null,
 }));
 vi.mock("@/components/kalakriti/volunteer-detail-sheet", () => ({
   VolunteerDetailSheet: () => null,

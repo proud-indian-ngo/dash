@@ -309,6 +309,44 @@ describe("kalakritiAssignment.assignVolunteer", () => {
     expect(spies.insertMembership).toHaveBeenCalledOnce();
     expect(spies.insertAssignment).toHaveBeenCalledOnce();
   });
+
+  it("assigns an operational lead at Edition scope", async () => {
+    const { tx, spies } = createTx([
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+      {
+        email: "food@example.com",
+        id: "volunteer-1",
+        isActive: true,
+        name: "Food Lead",
+        phone: null,
+        role: "volunteer",
+      },
+      undefined,
+      undefined,
+      [],
+      undefined,
+    ]);
+
+    await kalakritiAssignmentMutators.assignVolunteer.fn({
+      args: {
+        ...assignArgs,
+        responsibility: "food_lead",
+      },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiAssignmentMutators.assignVolunteer.fn
+    >[0]);
+
+    expect(spies.insertAssignment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        centerId: null,
+        competitionCategoryId: null,
+        competitionId: null,
+        responsibility: "food_lead",
+      })
+    );
+  });
 });
 
 describe("kalakritiAssignment.assignLiaison", () => {
@@ -340,6 +378,7 @@ describe("kalakritiAssignment.assignLiaison", () => {
         makePrimary: false,
         membershipId: "liaison-membership-1",
         now: 1_700_000_000_000,
+        responsibility: "liaison_volunteer",
         teamEventMemberId: "event-member-1",
         userId: "volunteer-1",
       },
@@ -356,7 +395,7 @@ describe("kalakritiAssignment.assignLiaison", () => {
     expect(spies.insertAssignment).toHaveBeenCalledWith(
       expect.objectContaining({
         centerId: "center-1",
-        responsibility: "liaison",
+        responsibility: "liaison_volunteer",
       })
     );
     expect(spies.insertMembership).toHaveBeenCalledOnce();
@@ -377,7 +416,7 @@ describe("kalakritiAssignment.assignLiaison", () => {
       centerId: "center-1",
       id: "liaison-assignment-1",
       isPrimary: true,
-      responsibility: "liaison",
+      responsibility: "liaison_volunteer",
     };
     const { lockedCenters, spies, tx } = createTx([
       { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
@@ -400,6 +439,7 @@ describe("kalakritiAssignment.assignLiaison", () => {
         makePrimary: false,
         membershipId: "unused-membership",
         now: 1_700_000_000_001,
+        responsibility: "liaison_volunteer",
         teamEventMemberId: "unused-event-member",
         userId: "volunteer-1",
       },
@@ -434,6 +474,7 @@ describe("kalakritiAssignment.assignLiaison", () => {
           makePrimary: false,
           membershipId: "unused-membership",
           now: 1_700_000_000_002,
+          responsibility: "liaison_volunteer",
           teamEventMemberId: "unused-event-member",
           userId: "volunteer-1",
         },

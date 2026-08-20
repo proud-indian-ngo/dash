@@ -31,6 +31,7 @@ function DetailRow({ label, value }: { label: string; value: string | null }) {
 export function VolunteerDetailSheet({
   actorResponsibilities,
   isGlobalAdmin,
+  onAssign,
   onOpenChange,
   onRemove,
   open,
@@ -38,11 +39,18 @@ export function VolunteerDetailSheet({
 }: {
   actorResponsibilities: readonly KalakritiResponsibility[];
   isGlobalAdmin: boolean;
+  onAssign: (volunteer: VolunteerRosterItem) => void;
   onOpenChange: (open: boolean) => void;
   onRemove: (payload: RemoveAssignmentPayload) => void;
   open: boolean;
   volunteer: VolunteerRosterItem | null;
 }) {
+  const handleAddRole = useEventCallback(() => {
+    if (volunteer) {
+      onAssign(volunteer);
+    }
+  });
+
   if (!volunteer) {
     return (
       <Sheet onOpenChange={onOpenChange} open={open}>
@@ -71,7 +79,17 @@ export function VolunteerDetailSheet({
           </div>
 
           <div className="grid gap-3">
-            <h3 className="font-medium text-sm">Responsibilities</h3>
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-medium text-sm">Responsibilities</h3>
+              <Button
+                onClick={handleAddRole}
+                size="xs"
+                type="button"
+                variant="outline"
+              >
+                Add role
+              </Button>
+            </div>
             {volunteer.assignments.length === 0 ? (
               <p className="text-muted-foreground text-sm">
                 No responsibilities assigned.

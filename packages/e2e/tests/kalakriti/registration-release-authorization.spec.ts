@@ -30,13 +30,13 @@ test.describe("Kalakriti Registration Release authorization", () => {
       {
         actor: kalakritiActors.editionAdmin,
         expectedHeading: "Volunteers",
-        expectedText: "Assign volunteer",
+        expectedText: "Assign role",
         path: `/kalakriti/${YEAR}/volunteers`,
       },
       {
         actor: kalakritiActors.volunteerCoordinator,
         expectedHeading: "Volunteers",
-        expectedText: "Assign volunteer",
+        expectedText: "Assign role",
         path: `/kalakriti/${YEAR}/volunteers`,
       },
       {

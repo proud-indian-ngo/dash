@@ -63,7 +63,7 @@ describe("Kalakriti Student route guard", () => {
 
   it("rejects an unrelated Edition member", () => {
     expect(() =>
-      runBeforeLoad({ responsibilities: ["transport_coordinator"] })
+      runBeforeLoad({ responsibilities: ["transport_lead"] })
     ).toThrow();
   });
 });

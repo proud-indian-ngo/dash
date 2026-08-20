@@ -30,7 +30,8 @@ describe("kalakritiEntry queries", () => {
       expect(ast).toContain('"value":"overall_events_lead"');
       expect(ast).toContain('"value":"competition_category_lead"');
       expect(ast).toContain('"value":"competition_coordinator"');
-      expect(ast).not.toContain('"value":"transport_coordinator"');
+      expect(ast).toContain('"value":"liaison_lead"');
+      expect(ast).toContain('"value":"liaison_volunteer"');
       expect(ast).toContain('"value":"guardian-1"');
     }
   );

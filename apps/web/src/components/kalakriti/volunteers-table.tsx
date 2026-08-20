@@ -41,6 +41,7 @@ export interface VolunteerRosterItem {
   snapshotEmail: string | null;
   snapshotName: string;
   snapshotPhone: string | null;
+  userId: string;
 }
 
 export interface RemoveAssignmentPayload {

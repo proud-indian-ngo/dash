@@ -5,6 +5,7 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@pi-dash/design-system/components/ui/sidebar";
+import { membershipHasKalakritiLiaisonAccess } from "@pi-dash/shared/kalakriti";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { useLocation } from "@tanstack/react-router";
@@ -54,9 +55,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const canViewStudents =
     hasPermission("kalakriti.admin") ||
     membership?.kind === "guardian" ||
-    membership?.assignments.some((assignment) =>
-      ["edition_admin", "liaison"].includes(assignment.responsibility)
-    ) === true;
+    membership?.assignments.some(
+      (assignment) => assignment.responsibility === "edition_admin"
+    ) === true ||
+    membershipHasKalakritiLiaisonAccess(
+      membership?.assignments.map((assignment) => assignment.responsibility) ??
+        []
+    );
   const canViewEntries =
     canViewStudents ||
     membership?.assignments.some((assignment) =>
