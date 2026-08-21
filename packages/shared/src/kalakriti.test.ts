@@ -96,7 +96,7 @@ describe("Kalakriti assignment helpers", () => {
     );
     expect(getKalakritiResponsibilityScopeKind("food_lead")).toBe("edition");
     expect(getKalakritiResponsibilityScopeKind("liaison")).toBe("center");
-    expect(getKalakritiResponsibilityScopeKind("liaison_lead")).toBe("center");
+    expect(getKalakritiResponsibilityScopeKind("liaison_lead")).toBe("edition");
     expect(getKalakritiResponsibilityScopeKind("liaison_volunteer")).toBe(
       "center"
     );
@@ -132,12 +132,13 @@ describe("Kalakriti assignment helpers", () => {
     expect(flattenKalakritiAssignableResponsibilities(groups)).toContain(
       "transport_lead"
     );
-    expect(flattenKalakritiAssignableResponsibilities(groups)).toContain(
-      "liaison_lead"
-    );
-    expect(flattenKalakritiAssignableResponsibilities(groups)).toContain(
-      "liaison_volunteer"
-    );
+    expect(
+      groups.find((group) => group.label === "Edition leadership")
+        ?.responsibilities
+    ).toContain("liaison_lead");
+    expect(
+      groups.find((group) => group.label === "Center")?.responsibilities
+    ).toEqual(["liaison_volunteer"]);
     expect(flattenKalakritiAssignableResponsibilities(groups)).not.toContain(
       "liaison"
     );

@@ -47,6 +47,7 @@ export const kalakritiEntryQueries = {
                 assignment.where(({ or: assignmentOr, cmp }) =>
                   assignmentOr(
                     cmp("responsibility", "edition_admin"),
+                    cmp("responsibility", "liaison_lead"),
                     cmp("responsibility", "overall_events_lead")
                   )
                 )
@@ -143,6 +144,7 @@ export const kalakritiEntryQueries = {
                   assignment.where(({ or: assignmentOr, cmp }) =>
                     assignmentOr(
                       cmp("responsibility", "edition_admin"),
+                      cmp("responsibility", "liaison_lead"),
                       cmp("responsibility", "overall_events_lead")
                     )
                   )

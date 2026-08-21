@@ -1,8 +1,3 @@
-import {
-  KALAKRITI_CENTER_VOLUNTEER_RESPONSIBILITIES,
-  KALAKRITI_RESPONSIBILITY_LABELS,
-  type KalakritiCenterVolunteerResponsibility,
-} from "@pi-dash/shared/kalakriti";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
@@ -86,7 +81,6 @@ export function GuardianCenterAssignmentForm({
 }
 
 const liaisonAssignmentSchema = z.object({
-  responsibility: z.enum(KALAKRITI_CENTER_VOLUNTEER_RESPONSIBILITIES),
   userIds: z.array(z.string()).length(1, "Select one volunteer"),
 });
 
@@ -133,8 +127,6 @@ export function LiaisonCenterAssignmentForm({
   const zero = useZero();
   const form = useForm({
     defaultValues: {
-      responsibility:
-        "liaison_volunteer" as KalakritiCenterVolunteerResponsibility,
       userIds: [] as string[],
     },
     onSubmit: async ({ value }) => {
@@ -152,7 +144,7 @@ export function LiaisonCenterAssignmentForm({
           makePrimary: false,
           membershipId: uuidv7(),
           now: currentTimestamp(),
-          responsibility: value.responsibility,
+          responsibility: "liaison_volunteer",
           teamEventMemberId: uuidv7(),
           userId,
         })
@@ -175,23 +167,9 @@ export function LiaisonCenterAssignmentForm({
 
   return (
     <FormLayout
-      className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end"
+      className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
       form={form}
     >
-      <SelectField
-        id={`liaison-role-${centerId}`}
-        isRequired
-        label="Role"
-        name="responsibility"
-        options={KALAKRITI_CENTER_VOLUNTEER_RESPONSIBILITIES.map(
-          (responsibility) => ({
-            label: KALAKRITI_RESPONSIBILITY_LABELS[responsibility],
-            value: responsibility,
-          })
-        )}
-        placeholder="Select role"
-        triggerClassName="w-full"
-      />
       <CustomField<string[]>
         controlId={`liaison-${centerId}`}
         isRequired

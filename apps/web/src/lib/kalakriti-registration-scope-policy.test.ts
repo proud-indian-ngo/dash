@@ -51,13 +51,18 @@ function assignment(
 }
 
 describe("Kalakriti registration scope policy", () => {
-  it("gives global and Edition administrators one complete scope", () => {
+  it("gives global, Edition administrators, and Liaison Leads one complete scope", () => {
     expect(
       resolveKalakritiRegistrationScopes(access({ isGlobalAdmin: true }))
     ).toEqual([{ kind: "edition" }]);
     expect(
       resolveKalakritiRegistrationScopes(
         access({ assignments: [assignment("edition_admin")] })
+      )
+    ).toEqual([{ kind: "edition" }]);
+    expect(
+      resolveKalakritiRegistrationScopes(
+        access({ assignments: [assignment("liaison_lead")] })
       )
     ).toEqual([{ kind: "edition" }]);
   });
@@ -68,7 +73,7 @@ describe("Kalakriti registration scope policy", () => {
         access({
           assignments: [
             assignment("liaison", { centerId: "center-2" }),
-            assignment("liaison", { centerId: "center-1" }),
+            assignment("liaison_volunteer", { centerId: "center-1" }),
           ],
           kind: "guardian",
         }),

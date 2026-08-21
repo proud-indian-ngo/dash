@@ -59,15 +59,27 @@ describe("Kalakriti Student policy", () => {
     ).toBe(false);
   });
 
-  it("gives Guardians and Edition Administrators all visible Centers", () => {
+  it("gives Guardians, Edition Administrators, and Liaison Leads all visible Centers", () => {
     const centers = [{ id: "center-1" }, { id: "center-2" }];
     const guardian = access({
       membership: { assignments: [], kind: "guardian", responsibilities: [] },
     });
     expect(selectKalakritiStudentCenters(centers, guardian)).toEqual(centers);
+    expect(
+      selectKalakritiStudentCenters(
+        centers,
+        access({
+          membership: {
+            assignments: [],
+            kind: "volunteer",
+            responsibilities: ["liaison_lead"],
+          },
+        })
+      )
+    ).toEqual(centers);
   });
 
-  it("limits a Liaison to explicitly assigned Centers", () => {
+  it("limits a Center-scoped Liaison to explicitly assigned Centers", () => {
     const centers = [{ id: "center-1" }, { id: "center-2" }];
     const liaison = access({
       membership: {
@@ -84,6 +96,23 @@ describe("Kalakriti Student policy", () => {
     expect(selectKalakritiStudentCenters(centers, liaison)).toEqual([
       { id: "center-2" },
     ]);
+    expect(
+      selectKalakritiStudentCenters(
+        centers,
+        access({
+          membership: {
+            assignments: [
+              {
+                centerId: "center-1",
+                responsibility: "liaison_volunteer",
+              },
+            ],
+            kind: "volunteer",
+            responsibilities: ["liaison_volunteer"],
+          },
+        })
+      )
+    ).toEqual([{ id: "center-1" }]);
   });
 
   it("requires open Entry registration to delete a Student with Entries", () => {

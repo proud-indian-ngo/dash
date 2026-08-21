@@ -6,8 +6,8 @@ import {
   kalakritiEditionMembership,
   kalakritiGuardianCenter,
 } from "@pi-dash/db/schema/kalakriti";
-import { KALAKRITI_LIAISON_RESPONSIBILITIES } from "@pi-dash/shared/kalakriti";
-import { and, eq, inArray, isNotNull, or } from "drizzle-orm";
+import { KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES } from "@pi-dash/shared/kalakriti";
+import { and, eq, inArray, isNotNull, isNull, or } from "drizzle-orm";
 
 export interface KalakritiNotificationEdition {
   id: string;
@@ -147,11 +147,18 @@ export async function resolveKalakritiScheduleRecipients({
 
   const centerAssignmentScope =
     centerIds.length > 0
-      ? and(
-          inArray(kalakritiAssignment.centerId, centerIds),
-          inArray(kalakritiAssignment.responsibility, [
-            ...KALAKRITI_LIAISON_RESPONSIBILITIES,
-          ])
+      ? or(
+          and(
+            inArray(kalakritiAssignment.centerId, centerIds),
+            inArray(
+              kalakritiAssignment.responsibility,
+              KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES
+            )
+          ),
+          and(
+            eq(kalakritiAssignment.responsibility, "liaison_lead"),
+            isNull(kalakritiAssignment.centerId)
+          )
         )
       : undefined;
   const competitionAssignmentScope =

@@ -28,7 +28,12 @@ export const kalakritiStudentQueries = {
             .where(({ or, exists }) =>
               or(
                 exists("assignments", (assignment) =>
-                  assignment.where("responsibility", "edition_admin")
+                  assignment.where(({ or: assignmentOr, cmp }) =>
+                    assignmentOr(
+                      cmp("responsibility", "edition_admin"),
+                      cmp("responsibility", "liaison_lead")
+                    )
+                  )
                 ),
                 exists("guardianCenters", (guardianCenter) =>
                   guardianCenter.where("centerId", args.centerId)
@@ -69,7 +74,12 @@ export const kalakritiStudentQueries = {
                 .where("userId", ctx.userId)
                 .where("state", "active")
                 .whereExists("assignments", (assignment) =>
-                  assignment.where("responsibility", "edition_admin")
+                  assignment.where(({ or: assignmentOr, cmp }) =>
+                    assignmentOr(
+                      cmp("responsibility", "edition_admin"),
+                      cmp("responsibility", "liaison_lead")
+                    )
+                  )
                 )
             )
           ),

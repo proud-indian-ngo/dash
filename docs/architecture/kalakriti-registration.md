@@ -17,7 +17,7 @@ Global permissions provide the coarse module gates `kalakriti.view` and `kalakri
 - Edition administrators manage the complete active Edition.
 - Volunteer Coordinators manage the volunteer roster and assignments on `/kalakriti/:year/volunteers`. That page owns assignment, not Overview. One **Assign role** dialog covers Edition leadership, operational leads, competition roles, and Center roles.
 - Overall Events Leads and Category Leads receive Competition-category scopes. Lead roles are multi-occupant; assignment uniqueness is per person plus scope, not one occupant per Edition.
-- Liaisons and Guardians receive explicit Center scopes.
+- Liaisons and Guardians receive explicit Center scopes. Liaison Lead is Edition-wide: no Center picker, and the assignment covers every Center.
 - Unassigned volunteers fail closed even if their global role can see the Kalakriti shell.
 
 Guardians use the technical `external_user` role and a persistent `kalakritiExternalIdentity` marker. Their yearly profile and access live in Edition Memberships. Archiving the final active Guardian membership bans the external account and revokes its sessions; exact-email reuse can reactivate the identity for a later Edition. External identities are excluded from central user lists and volunteer pickers. Assignment pickers include every oriented central role except `unoriented_volunteer`. Assigned members can open their Edition even when their global role lacks `kalakriti.view`.

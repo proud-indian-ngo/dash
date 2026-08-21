@@ -93,6 +93,7 @@ export const kalakritiCenterQueries = {
                       cmp("responsibility", "edition_admin"),
                       cmp("responsibility", "volunteer_coordinator"),
                       cmp("responsibility", "overall_events_lead"),
+                      cmp("responsibility", "liaison_lead"),
                       cmp("responsibility", "competition_category_lead"),
                       cmp("responsibility", "competition_coordinator")
                     )

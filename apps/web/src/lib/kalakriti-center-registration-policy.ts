@@ -44,7 +44,8 @@ export function selectKalakritiCenterRegistrationCenters<
   const hasAllCenters =
     access.isGlobalAdmin ||
     access.membership?.kind === "guardian" ||
-    access.membership?.responsibilities.includes("edition_admin") === true;
+    access.membership?.responsibilities.includes("edition_admin") === true ||
+    access.membership?.responsibilities.includes("liaison_lead") === true;
   if (hasAllCenters) {
     return [...centers];
   }

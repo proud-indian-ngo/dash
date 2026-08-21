@@ -87,16 +87,8 @@ export class KalakritiCentersPage {
     await dialog.getByRole("button", { name: "Save controls" }).click();
   }
 
-  async assignLiaison(
-    centerName: string,
-    volunteerName: string,
-    responsibility = "Liaison Volunteer"
-  ) {
+  async assignLiaison(centerName: string, volunteerName: string) {
     const detail = await this.openDetails(centerName);
-    await detail.getByRole("combobox", { name: "Role" }).click();
-    await this.page
-      .getByRole("option", { exact: true, name: responsibility })
-      .click();
     const picker = detail.getByPlaceholder("Search central volunteers...");
     await picker.fill(volunteerName);
     await this.page

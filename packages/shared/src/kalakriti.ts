@@ -77,6 +77,7 @@ export const KALAKRITI_EDITION_SCOPED_RESPONSIBILITIES = [
   "edition_admin",
   "volunteer_coordinator",
   "overall_events_lead",
+  "liaison_lead",
 ] as const satisfies readonly KalakritiResponsibility[];
 
 export type KalakritiEditionScopedResponsibility =
@@ -111,8 +112,12 @@ export const KALAKRITI_LIAISON_RESPONSIBILITIES = [
 export type KalakritiLiaisonResponsibility =
   (typeof KALAKRITI_LIAISON_RESPONSIBILITIES)[number];
 
+export const KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES = [
+  "liaison",
+  "liaison_volunteer",
+] as const satisfies readonly KalakritiResponsibility[];
+
 export const KALAKRITI_CENTER_VOLUNTEER_RESPONSIBILITIES = [
-  "liaison_lead",
   "liaison_volunteer",
 ] as const satisfies readonly KalakritiResponsibility[];
 
@@ -198,9 +203,9 @@ export function getKalakritiResponsibilityScopeKind(
   responsibility: KalakritiResponsibility
 ): KalakritiAssignmentScopeKind {
   if (
-    (KALAKRITI_LIAISON_RESPONSIBILITIES as readonly string[]).includes(
-      responsibility
-    )
+    (
+      KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES as readonly string[]
+    ).includes(responsibility)
   ) {
     return "center";
   }
@@ -236,13 +241,8 @@ export function buildKalakritiAssignableResponsibilityGroups(options: {
     canManageKalakritiResponsibility(actorResponsibilities, responsibility);
   const groups: KalakritiResponsibilityGroup[] = [];
 
-  const editionLeadership = (
-    [
-      "edition_admin",
-      "volunteer_coordinator",
-      "overall_events_lead",
-    ] as const satisfies readonly KalakritiResponsibility[]
-  ).filter(canAssign);
+  const editionLeadership =
+    KALAKRITI_EDITION_SCOPED_RESPONSIBILITIES.filter(canAssign);
   if (editionLeadership.length > 0) {
     groups.push({
       label: "Edition leadership",

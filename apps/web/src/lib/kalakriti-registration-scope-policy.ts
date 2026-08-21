@@ -1,3 +1,4 @@
+import { KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES } from "@pi-dash/shared/kalakriti";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 
 export type KalakritiRegistrationScope =
@@ -21,7 +22,12 @@ function collectAssignedScopes(
     if (assignment.responsibility === "overall_events_lead") {
       allCompetitionCategories = true;
     }
-    if (assignment.responsibility === "liaison" && assignment.centerId) {
+    if (
+      (
+        KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES as readonly string[]
+      ).includes(assignment.responsibility) &&
+      assignment.centerId
+    ) {
       centerIds.add(assignment.centerId);
     }
     if (
@@ -51,6 +57,9 @@ export function resolveKalakritiRegistrationScopes(
     return [];
   }
   if (access.membership.responsibilities.includes("edition_admin")) {
+    return [{ kind: "edition" }];
+  }
+  if (access.membership.responsibilities.includes("liaison_lead")) {
     return [{ kind: "edition" }];
   }
 
