@@ -91,10 +91,7 @@ export const getKalakritiVolunteersForPicker = createServerFn({ method: "GET" })
     const role = context.session.user.role ?? "unoriented_volunteer";
     const permissions = await resolvePermissions(role);
     const isGlobalAdmin = permissions.includes("kalakriti.admin");
-    if (!canAccessKalakritiVolunteerPicker(permissions)) {
-      return [];
-    }
-
+    let isAssignedManager = false;
     if (!isGlobalAdmin) {
       const [managerAssignment] = await db
         .select({ id: kalakritiAssignment.id })
@@ -115,9 +112,15 @@ export const getKalakritiVolunteersForPicker = createServerFn({ method: "GET" })
           )
         )
         .limit(1);
-      if (!managerAssignment) {
-        return [];
-      }
+      isAssignedManager = Boolean(managerAssignment);
+    }
+    if (
+      !canAccessKalakritiVolunteerPicker({
+        isAssignedManager,
+        permissions,
+      })
+    ) {
+      return [];
     }
 
     return db

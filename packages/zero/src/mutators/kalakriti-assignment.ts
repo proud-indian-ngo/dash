@@ -332,18 +332,6 @@ async function assignVolunteerResponsibility(
     throw new Error("Volunteer already has this scoped responsibility");
   }
 
-  if (args.responsibility === "overall_events_lead") {
-    const existingLead = await tx.run(
-      zql.kalakritiAssignment
-        .where("editionId", args.editionId)
-        .where("responsibility", "overall_events_lead")
-        .one()
-    );
-    if (existingLead) {
-      throw new Error("An Overall Events Lead is already assigned");
-    }
-  }
-
   if (!membership) {
     await tx.mutate.kalakritiEditionMembership.insert({
       archivedAt: null,

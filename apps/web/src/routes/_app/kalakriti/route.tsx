@@ -1,7 +1,18 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
-import { assertPermission } from "@/lib/route-guards";
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { getCurrentKalakritiEditionAccess } from "@/functions/kalakriti-access";
 
 export const Route = createFileRoute("/_app/kalakriti")({
-  beforeLoad: ({ context }) => assertPermission(context, "kalakriti.view"),
+  beforeLoad: async ({ context }) => {
+    if (
+      context.permissions?.includes("kalakriti.view") ||
+      context.permissions?.includes("kalakriti.admin")
+    ) {
+      return;
+    }
+    const access = await getCurrentKalakritiEditionAccess();
+    if (!access) {
+      throw redirect({ to: "/" });
+    }
+  },
   component: Outlet,
 });

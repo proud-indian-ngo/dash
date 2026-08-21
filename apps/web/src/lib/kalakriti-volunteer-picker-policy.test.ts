@@ -3,14 +3,29 @@ import { canAccessKalakritiVolunteerPicker } from "./kalakriti-volunteer-picker-
 
 describe("canAccessKalakritiVolunteerPicker", () => {
   it("allows global Kalakriti administrators", () => {
-    expect(canAccessKalakritiVolunteerPicker(["kalakriti.admin"])).toBe(true);
+    expect(
+      canAccessKalakritiVolunteerPicker({
+        isAssignedManager: false,
+        permissions: ["kalakriti.admin"],
+      })
+    ).toBe(true);
   });
 
-  it("allows callers with coarse Kalakriti access", () => {
-    expect(canAccessKalakritiVolunteerPicker(["kalakriti.view"])).toBe(true);
+  it("allows assigned managers without coarse Kalakriti access", () => {
+    expect(
+      canAccessKalakritiVolunteerPicker({
+        isAssignedManager: true,
+        permissions: [],
+      })
+    ).toBe(true);
   });
 
-  it("denies an assigned manager after coarse access is revoked", () => {
-    expect(canAccessKalakritiVolunteerPicker([])).toBe(false);
+  it("denies callers who are not administrators or assigned managers", () => {
+    expect(
+      canAccessKalakritiVolunteerPicker({
+        isAssignedManager: false,
+        permissions: ["kalakriti.view"],
+      })
+    ).toBe(false);
   });
 });
