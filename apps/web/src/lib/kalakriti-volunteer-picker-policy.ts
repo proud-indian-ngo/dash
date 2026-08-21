@@ -1,8 +1,8 @@
-export function canAccessKalakritiVolunteerPicker(
-  permissions: readonly string[]
-): boolean {
+export function canAccessKalakritiVolunteerPicker(options: {
+  isAssignedManager: boolean;
+  permissions: readonly string[];
+}): boolean {
   return (
-    permissions.includes("kalakriti.admin") ||
-    permissions.includes("kalakriti.view")
+    options.permissions.includes("kalakriti.admin") || options.isAssignedManager
   );
 }

@@ -1,4 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const getCurrentKalakritiEditionAccess = vi.hoisted(() => vi.fn());
+
+vi.mock("@/functions/kalakriti-access", () => ({
+  getCurrentKalakritiEditionAccess,
+}));
+
 import { Route } from "@/routes/_app/kalakriti/route";
 
 function runBeforeLoad(permissions: string[]) {
@@ -12,11 +19,35 @@ function runBeforeLoad(permissions: string[]) {
 }
 
 describe("Kalakriti route guard", () => {
-  it("allows users with coarse Kalakriti access", () => {
-    expect(() => runBeforeLoad(["kalakriti.view"])).not.toThrow();
+  beforeEach(() => {
+    getCurrentKalakritiEditionAccess.mockReset();
   });
 
-  it("redirects users without Kalakriti access", () => {
-    expect(() => runBeforeLoad([])).toThrow();
+  it("allows users with coarse Kalakriti access", async () => {
+    await expect(runBeforeLoad(["kalakriti.view"])).resolves.toBeUndefined();
+    expect(getCurrentKalakritiEditionAccess).not.toHaveBeenCalled();
+  });
+
+  it("allows global Kalakriti administrators without coarse view", async () => {
+    await expect(runBeforeLoad(["kalakriti.admin"])).resolves.toBeUndefined();
+    expect(getCurrentKalakritiEditionAccess).not.toHaveBeenCalled();
+  });
+
+  it("allows assigned members without coarse Kalakriti access", async () => {
+    getCurrentKalakritiEditionAccess.mockResolvedValue({
+      edition: { year: 2027 },
+      isGlobalAdmin: false,
+      membership: { responsibilities: ["volunteer_coordinator"] },
+    });
+
+    await expect(runBeforeLoad([])).resolves.toBeUndefined();
+    expect(getCurrentKalakritiEditionAccess).toHaveBeenCalledOnce();
+  });
+
+  it("redirects users without Kalakriti access or an Edition assignment", async () => {
+    getCurrentKalakritiEditionAccess.mockResolvedValue(null);
+
+    await expect(runBeforeLoad([])).rejects.toThrow();
+    expect(getCurrentKalakritiEditionAccess).toHaveBeenCalledOnce();
   });
 });

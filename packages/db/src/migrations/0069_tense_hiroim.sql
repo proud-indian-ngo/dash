@@ -1,0 +1,1 @@
+DROP INDEX "kalakriti_assignment_overall_events_lead_uidx";

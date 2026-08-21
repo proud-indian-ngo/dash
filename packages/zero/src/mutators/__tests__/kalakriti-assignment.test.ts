@@ -347,6 +347,44 @@ describe("kalakritiAssignment.assignVolunteer", () => {
       })
     );
   });
+
+  it("assigns overall events lead when another volunteer already holds it", async () => {
+    const { tx, spies } = createTx([
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+      {
+        email: "events@example.com",
+        id: "volunteer-2",
+        isActive: true,
+        name: "Events Lead Two",
+        phone: null,
+        role: "volunteer",
+      },
+      undefined,
+      undefined,
+      [],
+      undefined,
+    ]);
+
+    await kalakritiAssignmentMutators.assignVolunteer.fn({
+      args: {
+        ...assignArgs,
+        assignmentId: "assignment-lead-2",
+        membershipId: "membership-lead-2",
+        responsibility: "overall_events_lead",
+        userId: "volunteer-2",
+      },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiAssignmentMutators.assignVolunteer.fn
+    >[0]);
+
+    expect(spies.insertAssignment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        responsibility: "overall_events_lead",
+      })
+    );
+  });
 });
 
 describe("kalakritiAssignment.assignLiaison", () => {

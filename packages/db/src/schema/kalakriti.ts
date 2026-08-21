@@ -772,9 +772,6 @@ export const kalakritiAssignment = pgTable(
     uniqueIndex("kalakriti_assignment_primary_uidx")
       .on(table.membershipId)
       .where(sql`${table.isPrimary} = true`),
-    uniqueIndex("kalakriti_assignment_overall_events_lead_uidx")
-      .on(table.editionId)
-      .where(sql`${table.responsibility} = 'overall_events_lead'`),
     index("kalakriti_assignment_editionId_idx").on(table.editionId),
     foreignKey({
       columns: [table.editionId, table.membershipId],
