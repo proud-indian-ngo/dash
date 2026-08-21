@@ -802,11 +802,11 @@ export const kalakritiAssignment = pgTable(
     check(
       "kalakriti_assignment_scope_chk",
       sql`
-        (${table.responsibility}::text IN ('edition_admin', 'volunteer_coordinator', 'overall_events_lead', 'food_lead', 'food_member', 'transport_lead', 'logistics_lead', 'logistics_member', 'awards_lead', 'awards_member', 'venue_lead', 'venue_member', 'hospitality_lead', 'hospitality_member', 'media_member', 'fundraising_member')
+        (${table.responsibility}::text IN ('edition_admin', 'volunteer_coordinator', 'overall_events_lead', 'liaison_lead', 'food_lead', 'food_member', 'transport_lead', 'logistics_lead', 'logistics_member', 'awards_lead', 'awards_member', 'venue_lead', 'venue_member', 'hospitality_lead', 'hospitality_member', 'media_member', 'fundraising_member')
           AND ${table.centerId} IS NULL
           AND ${table.competitionCategoryId} IS NULL
           AND ${table.competitionId} IS NULL)
-        OR (${table.responsibility}::text IN ('liaison', 'liaison_lead', 'liaison_volunteer')
+        OR (${table.responsibility}::text IN ('liaison', 'liaison_volunteer')
           AND ${table.centerId} IS NOT NULL
           AND ${table.competitionCategoryId} IS NULL
           AND ${table.competitionId} IS NULL)

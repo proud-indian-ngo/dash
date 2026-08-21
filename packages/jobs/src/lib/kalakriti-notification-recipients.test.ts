@@ -5,6 +5,7 @@ const filterCalls = vi.hoisted(() => ({
   eq: vi.fn(),
   inArray: vi.fn(),
   isNotNull: vi.fn(),
+  isNull: vi.fn(),
 }));
 
 vi.mock("@pi-dash/db", () => ({ db: { select } }));
@@ -23,6 +24,10 @@ vi.mock("drizzle-orm", async (importOriginal) => {
     isNotNull: (...args: Parameters<typeof actual.isNotNull>) => {
       filterCalls.isNotNull(...args);
       return actual.isNotNull(...args);
+    },
+    isNull: (...args: Parameters<typeof actual.isNull>) => {
+      filterCalls.isNull(...args);
+      return actual.isNull(...args);
     },
   };
 });
@@ -105,6 +110,7 @@ describe("Kalakriti schedule recipient resolution", () => {
         "edition-1",
         "guardian",
         "overall_events_lead",
+        "liaison_lead",
         "volunteer",
       ])
     );
@@ -113,11 +119,12 @@ describe("Kalakriti schedule recipient resolution", () => {
         ["center-1"],
         ["competition-1"],
         ["category-1"],
-        ["liaison", "liaison_lead", "liaison_volunteer"],
+        ["liaison", "liaison_volunteer"],
         ["competition_coordinator", "competition_volunteer"],
       ])
     );
     expect(filterCalls.isNotNull).toHaveBeenCalledTimes(2);
+    expect(filterCalls.isNull).toHaveBeenCalled();
   });
 
   it("does not broaden an empty impact to all Edition members", async () => {
