@@ -15,10 +15,10 @@
   },
   "dependencies": {
     "@pi-dash/env": "workspace:*",
-    "@react-email/ui": "^6.9.2",
+    "@react-email/ui": "^6.9.3",
     "nodemailer": "^9.0.5",
     "react": "catalog:",
-    "react-email": "^6.9.2"
+    "react-email": "^6.9.3"
   },
   "devDependencies": {
     "@pi-dash/config": "workspace:*",
