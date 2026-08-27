@@ -27,6 +27,7 @@ const EXEMPT_SERVER_FUNCTIONS = [
   "getRequestUploadUrl",
   "getScheduledMessageUploadUrl",
   "inviteKalakritiGuardian",
+  "updateKalakritiGuardian",
 ];
 
 const CLASSIFIED_API_POST_FILES = [

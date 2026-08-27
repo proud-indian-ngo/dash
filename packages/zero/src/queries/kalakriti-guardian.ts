@@ -9,7 +9,8 @@ export const kalakritiGuardianQueries = {
   roster: defineQuery(editionInput, ({ args, ctx }) => {
     let query = zql.kalakritiEditionMembership
       .where("editionId", args.editionId)
-      .where("kind", "guardian");
+      .where("kind", "guardian")
+      .related("user");
 
     if (!(ctx !== null && can(ctx, "kalakriti.admin"))) {
       if (!(ctx && can(ctx, "kalakriti.view"))) {

@@ -7,6 +7,7 @@ import { log } from "evlog";
 import { useState } from "react";
 import { toast } from "sonner";
 import { GuardianDetailSheet } from "@/components/kalakriti/guardian-detail-sheet";
+import { GuardianEditDialog } from "@/components/kalakriti/guardian-edit-dialog";
 import {
   GuardianInviteDialog,
   type GuardianInviteValues,
@@ -47,6 +48,9 @@ function KalakritiGuardiansPage() {
   const { edition } = access;
   const [inviteOpen, setInviteOpen] = useState(false);
   const [selectedGuardianId, setSelectedGuardianId] = useState<string | null>(
+    null
+  );
+  const [editingGuardianId, setEditingGuardianId] = useState<string | null>(
     null
   );
   const [guardians, rosterResult] = useQuery(
@@ -124,15 +128,27 @@ function KalakritiGuardiansPage() {
       setSelectedGuardianId(guardian.id);
     }
   );
+  const handleEditGuardian = useEventCallback(
+    (guardian: GuardianRosterItem) => {
+      setSelectedGuardianId(null);
+      setEditingGuardianId(guardian.id);
+    }
+  );
   const handleArchiveGuardian = useEventCallback(
     (guardian: GuardianRosterItem) => {
       setSelectedGuardianId(null);
+      setEditingGuardianId(null);
       archiveAction.trigger(guardian);
     }
   );
   const handleGuardianSheetOpenChange = useEventCallback((open: boolean) => {
     if (!open) {
       setSelectedGuardianId(null);
+    }
+  });
+  const handleEditOpenChange = useEventCallback((open: boolean) => {
+    if (!open) {
+      setEditingGuardianId(null);
     }
   });
   const handleArchiveOpenChange = useEventCallback((open: boolean) => {
@@ -147,11 +163,17 @@ function KalakritiGuardiansPage() {
   });
 
   const guardianRows: GuardianRosterItem[] = guardians.map((guardian) => ({
-    ...guardian,
+    id: guardian.id,
+    isExternal: guardian.user?.role === "external_user",
+    snapshotEmail: guardian.snapshotEmail,
+    snapshotName: guardian.snapshotName,
+    snapshotPhone: guardian.snapshotPhone,
     state: guardian.state ?? "active",
   }));
   const selectedGuardian =
     guardianRows.find((guardian) => guardian.id === selectedGuardianId) ?? null;
+  const editingGuardian =
+    guardianRows.find((guardian) => guardian.id === editingGuardianId) ?? null;
   const isLoading =
     guardianRows.length === 0 && rosterResult.type !== "complete";
 
@@ -177,6 +199,7 @@ function KalakritiGuardiansPage() {
         data={guardianRows}
         isLoading={isLoading}
         onArchive={handleArchiveGuardian}
+        onEdit={handleEditGuardian}
         onView={handleViewGuardian}
         toolbarActions={
           <Button onClick={handleInviteOpen}>Invite Guardian</Button>
@@ -186,8 +209,15 @@ function KalakritiGuardiansPage() {
       <GuardianDetailSheet
         guardian={selectedGuardian}
         onArchive={handleArchiveGuardian}
+        onEdit={handleEditGuardian}
         onOpenChange={handleGuardianSheetOpenChange}
         open={selectedGuardian !== null}
+      />
+
+      <GuardianEditDialog
+        guardian={editingGuardian}
+        onOpenChange={handleEditOpenChange}
+        open={editingGuardian !== null}
       />
 
       <GuardianInviteDialog

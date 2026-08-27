@@ -22,6 +22,7 @@ import {
 
 export interface GuardianRosterItem {
   id: string;
+  isExternal: boolean;
   snapshotEmail: string | null;
   snapshotName: string;
   snapshotPhone: string | null;
@@ -37,16 +38,19 @@ const SKELETON_ACTIONS = <Skeleton className="mx-auto size-8" />;
 function RowActions({
   guardian,
   onArchive,
+  onEdit,
   onView,
 }: {
   guardian: GuardianRosterItem;
   onArchive: (guardian: GuardianRosterItem) => void;
+  onEdit: (guardian: GuardianRosterItem) => void;
   onView: (guardian: GuardianRosterItem) => void;
 }) {
   const stopRowClick = useEventCallback(
     (event: { stopPropagation: () => void }) => event.stopPropagation()
   );
   const handleView = useEventCallback(() => onView(guardian));
+  const handleEdit = useEventCallback(() => onEdit(guardian));
   const handleArchive = useEventCallback(() => onArchive(guardian));
 
   return (
@@ -71,6 +75,9 @@ function RowActions({
         }
       />
       <DropdownMenuContent align="end">
+        {guardian.state === "active" ? (
+          <DropdownMenuItem onClick={handleEdit}>Edit details</DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem onClick={handleView}>View details</DropdownMenuItem>
         {guardian.state === "active" ? (
           <>
@@ -105,12 +112,14 @@ export function GuardiansTable({
   data,
   isLoading,
   onArchive,
+  onEdit,
   onView,
   toolbarActions,
 }: {
   data: GuardianRosterItem[];
   isLoading: boolean;
   onArchive: (guardian: GuardianRosterItem) => void;
+  onEdit: (guardian: GuardianRosterItem) => void;
   onView: (guardian: GuardianRosterItem) => void;
   toolbarActions?: ReactNode;
 }) {
@@ -179,6 +188,7 @@ export function GuardiansTable({
         <RowActions
           guardian={row.original}
           onArchive={onArchive}
+          onEdit={onEdit}
           onView={onView}
         />
       ),

@@ -170,4 +170,21 @@ describe("Kalakriti audit policy", () => {
       humanId: "KAL-2027-0001",
     });
   });
+
+  it("keeps privacy-safe Guardian contact change field names", () => {
+    expect(
+      sanitizeKalakritiAuditMetadata({
+        changedFields: ["name", "email", "phone"],
+        email: "private@example.test",
+        kind: "external",
+        membershipId: "membership-1",
+        name: "Private name",
+        phone: "+919999999999",
+      })
+    ).toEqual({
+      changedFields: ["name", "email", "phone"],
+      kind: "external",
+      membershipId: "membership-1",
+    });
+  });
 });

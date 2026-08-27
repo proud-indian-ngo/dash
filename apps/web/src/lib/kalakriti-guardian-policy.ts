@@ -73,3 +73,39 @@ export function shouldBlockExternalIdentity({
 }): boolean {
   return hasExternalMarker && !hasOtherActiveMembership;
 }
+
+export type GuardianContactField = "email" | "name" | "phone";
+
+export function guardianContactChangedFields({
+  current,
+  next,
+}: {
+  current: { email: string | null; name: string; phone: string | null };
+  next: { email: string; name: string; phone: string | null };
+}): GuardianContactField[] {
+  const fields: GuardianContactField[] = [];
+  if (current.name !== next.name) {
+    fields.push("name");
+  }
+  if ((current.email ?? "").toLowerCase() !== next.email) {
+    fields.push("email");
+  }
+  if ((current.phone ?? "") !== (next.phone ?? "")) {
+    fields.push("phone");
+  }
+  return fields;
+}
+
+export function assertAssignedCentralEmailUnchanged({
+  emailChanged,
+  isExternal,
+}: {
+  emailChanged: boolean;
+  isExternal: boolean;
+}) {
+  if (!isExternal && emailChanged) {
+    throw new Error(
+      "Guardian login email cannot be changed for a volunteer account assigned as Guardian"
+    );
+  }
+}

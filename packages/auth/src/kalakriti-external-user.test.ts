@@ -15,6 +15,7 @@ vi.mock("./auth", () => ({
 import {
   createKalakritiExternalUser,
   setKalakritiExternalUserBlocked,
+  updateKalakritiExternalUserContact,
 } from "./kalakriti-external-user";
 
 function createTransaction() {
@@ -28,6 +29,35 @@ function createTransaction() {
     deleteWhere,
     set,
     tx: { delete: deleteFn, update: vi.fn(() => ({ set })) } as never,
+  };
+}
+
+function createContactTransaction({
+  emailOwners = [] as { id: string }[],
+  phoneOwners = [] as { id: string }[],
+  updated = [{ id: "external-1" }] as { id: string }[],
+  updateError,
+}: {
+  emailOwners?: { id: string }[];
+  phoneOwners?: { id: string }[];
+  updateError?: unknown;
+  updated?: { id: string }[];
+}) {
+  const limit = vi
+    .fn()
+    .mockResolvedValueOnce(emailOwners)
+    .mockResolvedValueOnce(phoneOwners);
+  const where = vi.fn(() => ({ limit }));
+  const from = vi.fn(() => ({ where }));
+  const select = vi.fn(() => ({ from }));
+  const returning = updateError
+    ? vi.fn(() => Promise.reject(updateError))
+    : vi.fn(() => Promise.resolve(updated));
+  const updateWhere = vi.fn(() => ({ returning }));
+  const set = vi.fn(() => ({ where: updateWhere }));
+  return {
+    set,
+    tx: { select, update: vi.fn(() => ({ set })) } as never,
   };
 }
 
@@ -92,5 +122,88 @@ describe("Kalakriti external authentication capability", () => {
       banReason: null,
     });
     expect(transaction.deleteFn).not.toHaveBeenCalled();
+  });
+});
+
+describe("Kalakriti external contact update", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("updates name, email, and phone on an external identity", async () => {
+    const transaction = createContactTransaction({});
+
+    await updateKalakritiExternalUserContact(transaction.tx, {
+      email: "guardian-edited@example.test",
+      name: "Edited Guardian",
+      phone: "+919888888888",
+      userId: "external-1",
+    });
+
+    expect(transaction.set).toHaveBeenCalledWith({
+      email: "guardian-edited@example.test",
+      name: "Edited Guardian",
+      phone: "+919888888888",
+    });
+  });
+
+  it("rejects a colliding email", async () => {
+    const transaction = createContactTransaction({
+      emailOwners: [{ id: "other-1" }],
+    });
+
+    await expect(
+      updateKalakritiExternalUserContact(transaction.tx, {
+        email: "taken@example.test",
+        name: "Guardian",
+        phone: null,
+        userId: "external-1",
+      })
+    ).rejects.toThrow("email already exists");
+    expect(transaction.set).not.toHaveBeenCalled();
+  });
+
+  it("rejects a colliding phone", async () => {
+    const transaction = createContactTransaction({
+      phoneOwners: [{ id: "other-1" }],
+    });
+
+    await expect(
+      updateKalakritiExternalUserContact(transaction.tx, {
+        email: "guardian@example.test",
+        name: "Guardian",
+        phone: "+919999999999",
+        userId: "external-1",
+      })
+    ).rejects.toThrow("phone number already exists");
+    expect(transaction.set).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-external account", async () => {
+    const transaction = createContactTransaction({ updated: [] });
+
+    await expect(
+      updateKalakritiExternalUserContact(transaction.tx, {
+        email: "guardian@example.test",
+        name: "Guardian",
+        phone: null,
+        userId: "central-1",
+      })
+    ).rejects.toThrow("Kalakriti external identity not found");
+  });
+
+  it("maps a unique-constraint race to a contact collision", async () => {
+    const transaction = createContactTransaction({
+      updateError: { code: "23505" },
+    });
+
+    await expect(
+      updateKalakritiExternalUserContact(transaction.tx, {
+        email: "guardian@example.test",
+        name: "Guardian",
+        phone: null,
+        userId: "external-1",
+      })
+    ).rejects.toThrow("email or phone already exists");
   });
 });

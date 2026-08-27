@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertAssignedCentralEmailUnchanged,
   decideGuardianIdentity,
   type GuardianIdentityCandidate,
+  guardianContactChangedFields,
   shouldBlockExternalIdentity,
 } from "./kalakriti-guardian-policy";
 
@@ -138,5 +140,57 @@ describe("Guardian identity policy", () => {
         hasOtherActiveMembership: true,
       })
     ).toBe(false);
+  });
+
+  it("reports only contact fields that changed", () => {
+    expect(
+      guardianContactChangedFields({
+        current: {
+          email: "guardian@example.test",
+          name: "Guardian",
+          phone: "+919999999999",
+        },
+        next: {
+          email: "guardian@example.test",
+          name: "Guardian",
+          phone: "+919999999999",
+        },
+      })
+    ).toEqual([]);
+    expect(
+      guardianContactChangedFields({
+        current: {
+          email: "Guardian@example.test",
+          name: "Old Name",
+          phone: null,
+        },
+        next: {
+          email: "guardian-edited@example.test",
+          name: "New Name",
+          phone: "+919888888888",
+        },
+      })
+    ).toEqual(["name", "email", "phone"]);
+  });
+
+  it("blocks email changes on assigned central Guardian accounts", () => {
+    expect(() =>
+      assertAssignedCentralEmailUnchanged({
+        emailChanged: true,
+        isExternal: false,
+      })
+    ).toThrow("cannot be changed");
+    expect(() =>
+      assertAssignedCentralEmailUnchanged({
+        emailChanged: true,
+        isExternal: true,
+      })
+    ).not.toThrow();
+    expect(() =>
+      assertAssignedCentralEmailUnchanged({
+        emailChanged: false,
+        isExternal: false,
+      })
+    ).not.toThrow();
   });
 });
