@@ -844,6 +844,39 @@ describe("kalakritiAssignment.addVolunteers", () => {
       >[0])
     ).rejects.toThrow("No volunteers were added");
   });
+
+  it("defers a missing picker user row to the authoritative server run", async () => {
+    const { tx, spies } = createTx(
+      [
+        { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+        undefined,
+      ],
+      "client"
+    );
+
+    await kalakritiAssignmentMutators.addVolunteers.fn({
+      args: {
+        auditEntryId: "audit-1",
+        editionId: "edition-1",
+        now: 1_700_000_000_000,
+        volunteers: [
+          {
+            membershipId: "membership-new",
+            teamEventMemberId: "event-member-new",
+            userId: "volunteer-1",
+          },
+        ],
+      },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiAssignmentMutators.addVolunteers.fn
+    >[0]);
+
+    expect(spies.insertMembership).not.toHaveBeenCalled();
+    expect(spies.insertEventMember).not.toHaveBeenCalled();
+    expect(spies.insertAudit).not.toHaveBeenCalled();
+  });
 });
 
 describe("kalakritiAssignment.removeVolunteer", () => {

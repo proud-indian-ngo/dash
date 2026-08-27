@@ -474,6 +474,9 @@ export const kalakritiAssignmentMutators = {
         // biome-ignore lint/performance/noAwaitInLoops: enrollment writes must stay sequential per volunteer
         const volunteer = await getRosterVolunteer(tx, volunteerArgs.userId);
         if (!volunteer) {
+          if (tx.location === "client") {
+            continue;
+          }
           missingCount += 1;
           continue;
         }
@@ -503,6 +506,9 @@ export const kalakritiAssignmentMutators = {
         throw new Error("One or more volunteers could not be found");
       }
       if (args.volunteers.length > 0 && addedCount === 0) {
+        if (tx.location === "client") {
+          return;
+        }
         throw new Error("No volunteers were added");
       }
 
