@@ -15,6 +15,7 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
   canManageKalakritiResponsibility,
+  isKalakritiAssignableUserRole,
   KALAKRITI_RESPONSIBILITY_LABELS,
   type KalakritiResponsibility,
 } from "@pi-dash/shared/kalakriti";
@@ -42,6 +43,7 @@ export interface VolunteerRosterItem {
   snapshotName: string;
   snapshotPhone: string | null;
   userId: string;
+  userRole: string | null;
 }
 
 export interface RemoveAssignmentPayload {
@@ -118,13 +120,17 @@ function VolunteerRemoveMenuItem({
 function RowActions({
   actorResponsibilities,
   isGlobalAdmin,
+  onAssignRole,
   onRemove,
+  onRemoveFromEdition,
   onView,
   volunteer,
 }: {
   actorResponsibilities: readonly KalakritiResponsibility[];
   isGlobalAdmin: boolean;
+  onAssignRole: (volunteer: VolunteerRosterItem) => void;
   onRemove: (payload: RemoveAssignmentPayload) => void;
+  onRemoveFromEdition: (volunteer: VolunteerRosterItem) => void;
   onView: (volunteer: VolunteerRosterItem) => void;
   volunteer: VolunteerRosterItem;
 }) {
@@ -132,6 +138,10 @@ function RowActions({
     (event: { stopPropagation: () => void }) => event.stopPropagation()
   );
   const handleView = useEventCallback(() => onView(volunteer));
+  const handleAssignRole = useEventCallback(() => onAssignRole(volunteer));
+  const handleRemoveFromEdition = useEventCallback(() =>
+    onRemoveFromEdition(volunteer)
+  );
   const removable = volunteer.assignments.filter(
     (assignment) =>
       isGlobalAdmin ||
@@ -140,6 +150,7 @@ function RowActions({
         assignment.responsibility
       )
   );
+  const canAssignRole = isKalakritiAssignableUserRole(volunteer.userRole);
 
   return (
     <DropdownMenu>
@@ -164,6 +175,11 @@ function RowActions({
       />
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuItem onClick={handleView}>View details</DropdownMenuItem>
+        {canAssignRole ? (
+          <DropdownMenuItem onClick={handleAssignRole}>
+            Assign role
+          </DropdownMenuItem>
+        ) : null}
         {removable.length > 0 ? <DropdownMenuSeparator /> : null}
         {removable.map((assignment) => (
           <VolunteerRemoveMenuItem
@@ -174,6 +190,13 @@ function RowActions({
             volunteerName={volunteer.snapshotName}
           />
         ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={handleRemoveFromEdition}
+          variant="destructive"
+        >
+          Remove from Edition
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -184,7 +207,9 @@ export function VolunteersTable({
   data,
   isGlobalAdmin,
   isLoading,
+  onAssignRole,
   onRemove,
+  onRemoveFromEdition,
   onView,
   toolbarActions,
 }: {
@@ -192,7 +217,9 @@ export function VolunteersTable({
   data: VolunteerRosterItem[];
   isGlobalAdmin: boolean;
   isLoading: boolean;
+  onAssignRole: (volunteer: VolunteerRosterItem) => void;
   onRemove: (payload: RemoveAssignmentPayload) => void;
+  onRemoveFromEdition: (volunteer: VolunteerRosterItem) => void;
   onView: (volunteer: VolunteerRosterItem) => void;
   toolbarActions?: ReactNode;
 }) {
@@ -247,7 +274,7 @@ export function VolunteersTable({
       cell: ({ row }) => (
         <div className="flex flex-wrap gap-1">
           {row.original.assignments.length === 0 ? (
-            <span className="text-muted-foreground text-sm">None</span>
+            <Badge variant="secondary">Unassigned</Badge>
           ) : (
             row.original.assignments.map((assignment) => (
               <Badge key={assignment.id} variant="outline">
@@ -269,7 +296,9 @@ export function VolunteersTable({
         <RowActions
           actorResponsibilities={actorResponsibilities}
           isGlobalAdmin={isGlobalAdmin}
+          onAssignRole={onAssignRole}
           onRemove={onRemove}
+          onRemoveFromEdition={onRemoveFromEdition}
           onView={onView}
           volunteer={row.original}
         />
@@ -298,7 +327,7 @@ export function VolunteersTable({
     <DataTableWrapper<VolunteerRosterItem>
       columns={columns}
       data={data}
-      emptyMessage="No central volunteers are assigned yet."
+      emptyMessage="No volunteers on this Edition yet."
       filter={{
         fields: createVolunteerFilterFields(data),
         getValue: getVolunteerFilterValue,

@@ -100,6 +100,7 @@
         "better-auth": "catalog:",
         "drizzle-orm": "catalog:",
         "evlog": "catalog:",
+        "uuidv7": "catalog:",
       },
       "devDependencies": {
         "@pi-dash/config": "workspace:*",

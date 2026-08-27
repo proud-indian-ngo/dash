@@ -64,6 +64,7 @@ export function UserDetailSheet({
                 <h3 className="font-medium text-sm">Profile</h3>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <DetailRow label="Phone" value={user.phone} />
+                  <DetailRow label="Group" value={user.registrationGroup} />
                   <DetailRow
                     label="Gender"
                     value={user.gender ? capitalize(user.gender) : null}

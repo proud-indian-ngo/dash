@@ -14,6 +14,7 @@ export const searchUser = (user: User, query: string): boolean => {
     user.name,
     user.email,
     user.phone ?? "",
+    user.registrationGroup ?? "",
     user.gender ?? "",
     dobText,
     user.banReason ?? "",

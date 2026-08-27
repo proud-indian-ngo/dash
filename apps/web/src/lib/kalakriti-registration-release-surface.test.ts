@@ -103,11 +103,13 @@ describe("Kalakriti Registration Release surface", () => {
       "kalakritiStudent.visibleByCenter",
     ]);
     expect(operationKeys(mutators)).toEqual([
+      "kalakritiAssignment.addVolunteers",
       "kalakritiAssignment.assignCompetitionCategoryLead",
       "kalakritiAssignment.assignCompetitionMember",
       "kalakritiAssignment.assignLiaison",
       "kalakritiAssignment.assignVolunteer",
       "kalakritiAssignment.remove",
+      "kalakritiAssignment.removeVolunteer",
       "kalakritiCenter.assignGuardian",
       "kalakritiCenter.create",
       "kalakritiCenter.delete",
@@ -136,6 +138,7 @@ describe("Kalakriti Registration Release surface", () => {
       "kalakritiEdition.cloneConfiguration",
       "kalakritiEdition.create",
       "kalakritiEdition.transition",
+      "kalakritiEdition.updateLinkedEvent",
       "kalakritiEdition.updateMetadata",
       "kalakritiEdition.updateParticipationRules",
       "kalakritiEligibility.createAgeCategory",

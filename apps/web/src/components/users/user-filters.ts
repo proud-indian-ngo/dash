@@ -50,6 +50,8 @@ export function getUserFilterValue(row: User, path: string[]): unknown {
       return row.gender;
     case "isOnWhatsapp":
       return row.isOnWhatsapp ? "yes" : "no";
+    case "registrationGroup":
+      return row.registrationGroup;
     case "role":
       return row.role;
     case "updatedAt":
@@ -60,7 +62,8 @@ export function getUserFilterValue(row: User, path: string[]): unknown {
 }
 
 export function createUserFilterFields(
-  roleOptions: { label: string; value: string }[]
+  roleOptions: { label: string; value: string }[],
+  groupOptions: { label: string; value: string }[]
 ): FilterField[] {
   return [
     selectField("role", "Role", roleOptions),
@@ -70,6 +73,9 @@ export function createUserFilterFields(
     selectField("isOnWhatsapp", "WhatsApp", WHATSAPP_OPTIONS),
     selectField("emailVerified", "Email Verified", EMAIL_VERIFIED_OPTIONS),
     selectField("banned", "Banned", BANNED_OPTIONS),
+    ...(groupOptions.length > 0
+      ? [selectField("registrationGroup", "Group", groupOptions)]
+      : []),
     dateField("banExpires", "Ban Expires"),
     dateField("createdAt", "Created"),
     dateField("updatedAt", "Updated"),

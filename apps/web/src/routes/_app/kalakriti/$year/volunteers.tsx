@@ -10,6 +10,7 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { uuidv7 } from "uuidv7";
+import { KalakritiAddVolunteersDialog } from "@/components/kalakriti/kalakriti-add-volunteers-dialog";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { KalakritiRoleAssignmentDialog } from "@/components/kalakriti/kalakriti-role-assignment-dialog";
 import { VolunteerDetailSheet } from "@/components/kalakriti/volunteer-detail-sheet";
@@ -20,7 +21,7 @@ import {
 } from "@/components/kalakriti/volunteers-table";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import {
-  getKalakritiVolunteersForPicker,
+  getKalakritiAddVolunteersForPicker,
   type PickerUser,
 } from "@/functions/users-for-picker";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
@@ -87,6 +88,7 @@ function KalakritiVolunteersPage() {
     []) as KalakritiResponsibility[];
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignUserId, setAssignUserId] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
   const [selectedVolunteerId, setSelectedVolunteerId] = useState<string | null>(
     null
   );
@@ -110,7 +112,7 @@ function KalakritiVolunteersPage() {
 
   useEffect(() => {
     let active = true;
-    getKalakritiVolunteersForPicker({ data: { editionId: edition.id } })
+    getKalakritiAddVolunteersForPicker({ data: { editionId: edition.id } })
       .then((users) => {
         if (active) {
           setPickerData({ editionId: edition.id, state: "ready", users });
@@ -143,6 +145,23 @@ function KalakritiVolunteersPage() {
       ).server,
   });
 
+  const removeVolunteerAction = useConfirmAction<VolunteerRosterItem>({
+    mutationMeta: {
+      entityId: (payload) => payload.id,
+      errorMsg: "Failed to remove volunteer from Edition",
+      mutation: "kalakritiAssignment.removeVolunteer",
+      successMsg: "Volunteer removed from Edition",
+    },
+    onConfirm: (payload) =>
+      zero.mutate(
+        mutators.kalakritiAssignment.removeVolunteer({
+          auditEntryId: uuidv7(),
+          membershipId: payload.id,
+          now: Date.now(),
+        })
+      ).server,
+  });
+
   const volunteerRows: VolunteerRosterItem[] = roster.map((membership) => ({
     assignments: membership.assignments.map((assignment) => ({
       centerId: assignment.centerId,
@@ -163,6 +182,7 @@ function KalakritiVolunteersPage() {
     snapshotName: membership.snapshotName,
     snapshotPhone: membership.snapshotPhone,
     userId: membership.userId as string,
+    userRole: membership.user?.role ?? null,
   }));
   const selectedVolunteer =
     volunteerRows.find((volunteer) => volunteer.id === selectedVolunteerId) ??
@@ -174,12 +194,15 @@ function KalakritiVolunteersPage() {
     setAssignUserId(userId ?? null);
     setAssignOpen(true);
   });
-  const handleToolbarAssignOpen = useEventCallback(() => handleAssignOpen());
   const handleAssignOpenChange = useEventCallback((open: boolean) => {
     setAssignOpen(open);
     if (!open) {
       setAssignUserId(null);
     }
+  });
+  const handleAddOpen = useEventCallback(() => setAddOpen(true));
+  const handleAddOpenChange = useEventCallback((open: boolean) => {
+    setAddOpen(open);
   });
   const handleViewVolunteer = useEventCallback(
     (volunteer: VolunteerRosterItem) => {
@@ -200,6 +223,19 @@ function KalakritiVolunteersPage() {
     setSelectedVolunteerId(null);
     removeAction.trigger(payload);
   });
+  const handleRemoveFromEdition = useEventCallback(
+    (volunteer: VolunteerRosterItem) => {
+      setSelectedVolunteerId(null);
+      removeVolunteerAction.trigger(volunteer);
+    }
+  );
+  const handleRemoveFromEditionOpenChange = useEventCallback(
+    (open: boolean) => {
+      if (!open) {
+        removeVolunteerAction.cancel();
+      }
+    }
+  );
   const handleAssignFromSheet = useEventCallback(
     (volunteer: VolunteerRosterItem) => {
       setSelectedVolunteerId(null);
@@ -230,11 +266,13 @@ function KalakritiVolunteersPage() {
         data={volunteerRows}
         isGlobalAdmin={isGlobalAdmin}
         isLoading={isLoading}
+        onAssignRole={handleAssignFromSheet}
         onRemove={handleRemove}
+        onRemoveFromEdition={handleRemoveFromEdition}
         onView={handleViewVolunteer}
         toolbarActions={
-          <Button onClick={handleToolbarAssignOpen} type="button">
-            Assign role
+          <Button onClick={handleAddOpen} type="button">
+            Add volunteers
           </Button>
         }
       />
@@ -245,8 +283,17 @@ function KalakritiVolunteersPage() {
         onAssign={handleAssignFromSheet}
         onOpenChange={handleVolunteerSheetOpenChange}
         onRemove={handleRemove}
+        onRemoveFromEdition={handleRemoveFromEdition}
         open={selectedVolunteer !== null}
         volunteer={selectedVolunteer}
+      />
+      <KalakritiAddVolunteersDialog
+        editionId={edition.id}
+        excludeUserIds={new Set(volunteerRows.map((row) => row.userId))}
+        onOpenChange={handleAddOpenChange}
+        open={addOpen}
+        pickerState={pickerState}
+        users={pickerUsers}
       />
       <KalakritiRoleAssignmentDialog
         actorResponsibilities={actorResponsibilities}
@@ -258,16 +305,20 @@ function KalakritiVolunteersPage() {
         editionId={edition.id}
         initialUserId={assignUserId}
         isGlobalAdmin={isGlobalAdmin}
+        lockedVolunteerName={
+          volunteerRows.find((row) => row.userId === assignUserId)
+            ?.snapshotName ?? null
+        }
         onOpenChange={handleAssignOpenChange}
         open={assignOpen}
-        pickerState={pickerState}
-        users={pickerUsers}
+        pickerState="ready"
+        users={[]}
       />
       <ConfirmDialog
         confirmLabel="Remove responsibility"
         description={
           removeAction.payload?.isFinalAssignment
-            ? `This is ${removeAction.payload.volunteerName}'s final responsibility. Removing it also revokes Edition and linked-event access.`
+            ? `This is ${removeAction.payload.volunteerName}'s final responsibility. They stay on the Edition roster as Unassigned.`
             : `Remove ${KALAKRITI_RESPONSIBILITY_LABELS[removeAction.payload?.responsibility ?? "overall_events_lead"]} from ${removeAction.payload?.volunteerName ?? "this volunteer"}?`
         }
         loading={removeAction.isLoading}
@@ -276,6 +327,16 @@ function KalakritiVolunteersPage() {
         onOpenChange={handleRemoveOpenChange}
         open={removeAction.isOpen}
         title="Remove volunteer responsibility?"
+      />
+      <ConfirmDialog
+        confirmLabel="Remove from Edition"
+        description={`Remove ${removeVolunteerAction.payload?.snapshotName ?? "this volunteer"} from this Edition? They lose linked-event access.`}
+        loading={removeVolunteerAction.isLoading}
+        loadingLabel="Removing..."
+        onConfirm={removeVolunteerAction.confirm}
+        onOpenChange={handleRemoveFromEditionOpenChange}
+        open={removeVolunteerAction.isOpen}
+        title="Remove volunteer from Edition?"
       />
     </div>
   );

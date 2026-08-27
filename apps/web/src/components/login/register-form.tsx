@@ -1,5 +1,5 @@
 import { useForm } from "@tanstack/react-form";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { log } from "evlog";
 import { isValidPhoneNumber } from "libphonenumber-js";
 import { toast } from "sonner";
@@ -41,6 +41,7 @@ const registerSchema = z
 
 export function RegisterForm() {
   const navigate = useNavigate({ from: "/register" });
+  const { eventId, group } = useSearch({ from: "/_auth/register" });
   const { isPending } = authClient.useSession();
 
   const form = useForm({
@@ -54,14 +55,19 @@ export function RegisterForm() {
       phone: "",
     },
     onSubmit: async ({ value }) => {
-      const { error } = await authClient.signUp.email({
-        dob: value.dob,
-        email: value.email,
-        gender: value.gender as "male" | "female",
-        name: value.name,
-        password: value.password,
-        phone: value.phone,
-      });
+      const { error } = await authClient.signUp.email(
+        {
+          dob: value.dob,
+          email: value.email,
+          gender: value.gender as "male" | "female",
+          name: value.name,
+          password: value.password,
+          phone: value.phone,
+          ...(group ? { registrationGroup: group } : {}),
+          ...(eventId ? { query: { eventId }, registerEventId: eventId } : {}),
+        },
+        eventId ? { headers: { "x-register-event-id": eventId } } : undefined
+      );
       if (error) {
         log.error({
           action: "signUp",
@@ -88,7 +94,11 @@ export function RegisterForm() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div
+      className="flex flex-col gap-6"
+      data-register-event-id={eventId ?? ""}
+      data-register-group={group ?? ""}
+    >
       <div className="space-y-2">
         <h2 className="font-bold text-2xl">Create your account</h2>
         <p className="text-muted-foreground text-sm">

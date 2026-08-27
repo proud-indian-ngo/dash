@@ -159,15 +159,36 @@ export class KalakritiEditionPage {
     ).toBeVisible();
   }
 
-  async assignVolunteer(volunteerName: string, responsibility: string) {
-    await this.page.getByRole("button", { name: "Assign role" }).click();
-    const dialog = this.page.getByRole("dialog", { name: "Assign role" });
+  async addVolunteers(volunteerName: string) {
+    await this.page.getByRole("button", { name: "Add volunteers" }).click();
+    const dialog = this.page.getByRole("dialog", { name: "Add volunteers" });
     const picker = dialog.getByPlaceholder("Search central volunteers...");
     await picker.fill(volunteerName);
     await this.page
       .getByRole("option", { name: new RegExp(volunteerName) })
       .first()
       .click();
+    await dialog
+      .getByRole("button", { exact: true, name: "Add volunteers" })
+      .click();
+    await expect(
+      this.page.getByText("Volunteers added", { exact: true })
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(dialog).toHaveCount(0);
+    await expect(
+      this.page.getByText(volunteerName, { exact: true })
+    ).toBeVisible();
+    await expect(
+      this.page.getByText("Unassigned", { exact: true })
+    ).toBeVisible();
+  }
+
+  async assignRoleFromRow(volunteerName: string, responsibility: string) {
+    await this.page
+      .getByRole("button", { name: `Actions for ${volunteerName}` })
+      .click();
+    await this.page.getByRole("menuitem", { name: "Assign role" }).click();
+    const dialog = this.page.getByRole("dialog", { name: "Assign role" });
     await dialog.locator("#responsibility").click();
     await this.page
       .getByRole("option", { exact: true, name: responsibility })
@@ -179,9 +200,11 @@ export class KalakritiEditionPage {
       this.page.getByText("Role assigned", { exact: true })
     ).toBeVisible({ timeout: 30_000 });
     await expect(dialog).toHaveCount(0);
-    await expect(
-      this.page.getByText(volunteerName, { exact: true })
-    ).toBeVisible();
+  }
+
+  async assignVolunteer(volunteerName: string, responsibility: string) {
+    await this.addVolunteers(volunteerName);
+    await this.assignRoleFromRow(volunteerName, responsibility);
   }
 
   async removeVolunteer(volunteerName: string, responsibility: string) {
@@ -203,5 +226,21 @@ export class KalakritiEditionPage {
     await expect(
       this.page.getByRole("menuitem", { name: `Remove ${responsibility}` })
     ).toHaveCount(0);
+  }
+
+  async removeFromEdition(volunteerName: string) {
+    await this.page
+      .getByRole("button", { name: `Actions for ${volunteerName}` })
+      .click();
+    await this.page
+      .getByRole("menuitem", { name: "Remove from Edition" })
+      .click();
+    const confirm = this.page.getByRole("alertdialog", {
+      name: "Remove volunteer from Edition?",
+    });
+    await confirm.getByRole("button", { name: "Remove from Edition" }).click();
+    await expect(
+      this.page.getByText("Volunteer removed from Edition", { exact: true })
+    ).toBeVisible();
   }
 }

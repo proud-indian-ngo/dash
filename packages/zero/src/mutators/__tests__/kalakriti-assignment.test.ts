@@ -716,7 +716,7 @@ describe("kalakritiAssignment.remove", () => {
     expect(spies.deleteEventMember).not.toHaveBeenCalled();
   });
 
-  it("archives membership and removes the linked event member after the final role", async () => {
+  it("leaves membership and the linked event member after the final role", async () => {
     const { tx, spies } = createTx([
       {
         editionId: "edition-1",
@@ -728,7 +728,6 @@ describe("kalakritiAssignment.remove", () => {
       { id: "membership-1", userId: "volunteer-1" },
       { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
       [{ id: "assignment-1", isPrimary: true }],
-      { id: "event-member-1" },
     ]);
 
     await kalakritiAssignmentMutators.remove.fn({
@@ -743,6 +742,171 @@ describe("kalakritiAssignment.remove", () => {
       typeof kalakritiAssignmentMutators.remove.fn
     >[0]);
 
+    expect(spies.deleteAssignment).toHaveBeenCalledWith({ id: "assignment-1" });
+    expect(spies.updateMembership).not.toHaveBeenCalled();
+    expect(spies.deleteEventMember).not.toHaveBeenCalled();
+  });
+});
+
+describe("kalakritiAssignment.addVolunteers", () => {
+  it("creates unassigned membership and a linked event member", async () => {
+    const { tx, spies } = createTx([
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+      {
+        email: "volunteer@example.com",
+        id: "volunteer-1",
+        isActive: true,
+        name: "Volunteer One",
+        phone: null,
+        role: "unoriented_volunteer",
+      },
+      undefined,
+      undefined,
+      undefined,
+    ]);
+
+    await kalakritiAssignmentMutators.addVolunteers.fn({
+      args: {
+        auditEntryId: "audit-1",
+        editionId: "edition-1",
+        now: 1_700_000_000_000,
+        volunteers: [
+          {
+            membershipId: "membership-new",
+            teamEventMemberId: "event-member-new",
+            userId: "volunteer-1",
+          },
+        ],
+      },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiAssignmentMutators.addVolunteers.fn
+    >[0]);
+
+    expect(spies.insertMembership).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "membership-new",
+        kind: "volunteer",
+        state: "active",
+        userId: "volunteer-1",
+      })
+    );
+    expect(spies.insertEventMember).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventId: "event-1",
+        userId: "volunteer-1",
+      })
+    );
+    expect(spies.insertAssignment).not.toHaveBeenCalled();
+  });
+
+  it("throws when every selected volunteer is already on the roster", async () => {
+    const { tx } = createTx([
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+      {
+        email: "volunteer@example.com",
+        id: "volunteer-1",
+        isActive: true,
+        name: "Volunteer One",
+        phone: null,
+        role: "volunteer",
+      },
+      undefined,
+      {
+        editionId: "edition-1",
+        id: "membership-1",
+        kind: "volunteer",
+        state: "active",
+        userId: "volunteer-1",
+      },
+      { id: "event-member-1" },
+    ]);
+
+    await expect(
+      kalakritiAssignmentMutators.addVolunteers.fn({
+        args: {
+          auditEntryId: "audit-1",
+          editionId: "edition-1",
+          now: 1_700_000_000_000,
+          volunteers: [
+            {
+              membershipId: "membership-new",
+              teamEventMemberId: "event-member-new",
+              userId: "volunteer-1",
+            },
+          ],
+        },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiAssignmentMutators.addVolunteers.fn
+      >[0])
+    ).rejects.toThrow("No volunteers were added");
+  });
+
+  it("defers a missing picker user row to the authoritative server run", async () => {
+    const { tx, spies } = createTx(
+      [
+        { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+        undefined,
+      ],
+      "client"
+    );
+
+    await kalakritiAssignmentMutators.addVolunteers.fn({
+      args: {
+        auditEntryId: "audit-1",
+        editionId: "edition-1",
+        now: 1_700_000_000_000,
+        volunteers: [
+          {
+            membershipId: "membership-new",
+            teamEventMemberId: "event-member-new",
+            userId: "volunteer-1",
+          },
+        ],
+      },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiAssignmentMutators.addVolunteers.fn
+    >[0]);
+
+    expect(spies.insertMembership).not.toHaveBeenCalled();
+    expect(spies.insertEventMember).not.toHaveBeenCalled();
+    expect(spies.insertAudit).not.toHaveBeenCalled();
+  });
+});
+
+describe("kalakritiAssignment.removeVolunteer", () => {
+  it("archives membership and drops the linked event member", async () => {
+    const { tx, spies } = createTx([
+      {
+        editionId: "edition-1",
+        id: "membership-1",
+        kind: "volunteer",
+        state: "active",
+        userId: "volunteer-1",
+      },
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+      [{ id: "assignment-1" }],
+      { id: "event-member-1" },
+    ]);
+
+    await kalakritiAssignmentMutators.removeVolunteer.fn({
+      args: {
+        auditEntryId: "audit-1",
+        membershipId: "membership-1",
+        now: 1_700_000_000_000,
+      },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiAssignmentMutators.removeVolunteer.fn
+    >[0]);
+
+    expect(spies.deleteAssignment).toHaveBeenCalledWith({ id: "assignment-1" });
     expect(spies.updateMembership).toHaveBeenCalledWith(
       expect.objectContaining({ id: "membership-1", state: "archived" })
     );

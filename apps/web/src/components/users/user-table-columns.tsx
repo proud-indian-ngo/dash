@@ -15,6 +15,7 @@ import {
   SKELETON_DOB,
   SKELETON_EMAIL_VERIFIED,
   SKELETON_GENDER,
+  SKELETON_GROUP,
   SKELETON_NAME,
   SKELETON_PHONE,
   SKELETON_ROLE,
@@ -73,6 +74,18 @@ export function createUserColumns(
         skeleton: SKELETON_ROLE,
       },
       size: 120,
+    },
+    {
+      accessorFn: (row) => row.registrationGroup ?? "—",
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Group" visibility={true} />
+      ),
+      id: "registrationGroup",
+      meta: {
+        headerTitle: "Group",
+        skeleton: SKELETON_GROUP,
+      },
+      size: 140,
     },
     {
       accessorFn: (row) => (row.gender ? capitalize(row.gender) : "—"),

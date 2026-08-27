@@ -112,7 +112,7 @@ All paths are relative to project root.
 | `routes/_app/audit-log.tsx` | Immutable user-action audit viewer (`audit_log.view` permission guard) |
 | `routes/_app/export.tsx` | CSV data export (reimbursements, advance payments, vendor payments) |
 | `routes/_auth/login.tsx` | Login |
-| `routes/_auth/register.tsx` | Registration |
+| `routes/_auth/register.tsx` | Registration (`?eventId=` / `?group=` optional) |
 | `routes/_auth/forgot-password.tsx` | Forgot password |
 | `routes/_auth/reset-password.tsx` | Reset password |
 | `routes/_auth/verify-email.tsx` | Email verification |

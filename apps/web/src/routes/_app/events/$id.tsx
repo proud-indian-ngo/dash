@@ -17,6 +17,7 @@ interface EventAccess {
   canApproveUpdates: boolean;
   canCancelPast: boolean;
   canCreate: boolean;
+  canEdit: boolean;
   canManage: boolean;
   canManageAttendance: boolean;
   canManageFeedback: boolean;
@@ -32,6 +33,7 @@ const protectedKalakritiEventAccess: EventAccess = {
   canApproveUpdates: false,
   canCancelPast: false,
   canCreate: false,
+  canEdit: false,
   canManage: false,
   canManageAttendance: false,
   canManageFeedback: false,
@@ -52,6 +54,7 @@ function protectKalakritiEventAccess(
   }
   return {
     ...protectedKalakritiEventAccess,
+    canEdit: access.canEdit,
     canManageInterest: access.canManageInterest,
     isMember: access.isMember,
     isTeamMember: access.isTeamMember,
@@ -76,7 +79,7 @@ function KalakritiManagedEventBanner({
         <p className="font-medium">Managed by Kalakriti</p>
         <p className="text-muted-foreground text-sm">
           {edition
-            ? `Edit this event from the ${edition.year} Edition workspace.`
+            ? "Event details can be edited here. Volunteer add and remove stay on the Edition workspace."
             : "This event is read-only outside its Kalakriti Edition."}
         </p>
       </div>
@@ -139,6 +142,26 @@ function hasUpdateImageUploadAccess(
   return isLead || hasPermission("event_updates.create");
 }
 
+function resolveEventDetailPermissions(input: {
+  hasPermission: ReturnType<typeof useApp>["hasPermission"];
+  isEditionAdmin: boolean;
+  isLead: boolean;
+}) {
+  const { hasPermission, isEditionAdmin, isLead } = input;
+  const canManage = hasPermission("events.edit") || isLead;
+  return {
+    canApproveUpdates: hasPermission("event_updates.approve") || isLead,
+    canCreate: hasPermission("events.create") || isLead,
+    canEdit: canManage || isEditionAdmin,
+    canManage,
+    canManageAttendance: hasPermission("events.manage_attendance") || isLead,
+    canManageFeedback: hasPermission("events.manage_feedback") || isLead,
+    canManageInterest: hasPermission("events.manage_interest") || isLead,
+    canManagePhotos: hasPermission("events.manage_photos") || isLead,
+    canUploadUpdateImages: hasUpdateImageUploadAccess(hasPermission, isLead),
+  };
+}
+
 // biome-ignore assist/source/useSortedKeys: TanStack Router option order preserves route type inference.
 export const Route = createFileRoute("/_app/events/$id")({
   validateSearch: z.object({
@@ -182,6 +205,12 @@ function EventDetailRouteComponent() {
   const [kalakritiEdition] = useQuery(
     queries.kalakritiEdition.byTeamEventId({ teamEventId: id })
   );
+  const [myKalakritiAccess] = useQuery(
+    queries.kalakritiAssignment.myAccess({
+      editionId: kalakritiEdition?.id ?? "",
+    }),
+    { enabled: !!kalakritiEdition?.id }
+  );
 
   const [teamResult] = useQuery(
     queries.team.byId({ id: event?.teamId ?? "" }),
@@ -198,18 +227,26 @@ function EventDetailRouteComponent() {
   const parentEvent = (parentResult ?? null) as EventRow | null;
 
   const isLead = team ? isTeamLead(team.members, session.user.id) : false;
-  const canManage = hasPermission("events.edit") || isLead;
-  const canCreate = hasPermission("events.create") || isLead;
-  const canManageAttendance =
-    hasPermission("events.manage_attendance") || isLead;
-  const canManageFeedback = hasPermission("events.manage_feedback") || isLead;
-  const canManagePhotos = hasPermission("events.manage_photos") || isLead;
-  const canApproveUpdates = hasPermission("event_updates.approve") || isLead;
-  const canUploadUpdateImages = hasUpdateImageUploadAccess(
+  const isEditionAdmin =
+    hasPermission("kalakriti.admin") ||
+    myKalakritiAccess?.assignments.some(
+      (assignment) => assignment.responsibility === "edition_admin"
+    ) === true;
+  const {
+    canApproveUpdates,
+    canCreate,
+    canEdit,
+    canManage,
+    canManageAttendance,
+    canManageFeedback,
+    canManageInterest,
+    canManagePhotos,
+    canUploadUpdateImages,
+  } = resolveEventDetailPermissions({
     hasPermission,
-    isLead
-  );
-  const canManageInterest = hasPermission("events.manage_interest") || isLead;
+    isEditionAdmin,
+    isLead,
+  });
 
   const [myInterests] = useQuery(
     queries.eventInterest.myByEvent({ eventId: id })
@@ -252,6 +289,7 @@ function EventDetailRouteComponent() {
       canApproveUpdates,
       canCancelPast: hasPermission("events.cancel"),
       canCreate,
+      canEdit,
       canManage,
       canManageAttendance,
       canManageFeedback,
@@ -274,6 +312,7 @@ function EventDetailRouteComponent() {
         canApproveUpdates={access.canApproveUpdates}
         canCancelPast={access.canCancelPast}
         canCreate={access.canCreate}
+        canEdit={access.canEdit}
         canManage={access.canManage}
         canManageAttendance={access.canManageAttendance}
         canManageFeedback={access.canManageFeedback}
@@ -289,6 +328,7 @@ function EventDetailRouteComponent() {
         }
         isMember={access.isMember}
         isTeamMember={access.isTeamMember}
+        kalakritiEditionId={kalakritiEdition?.id}
         myInterest={myInterest ?? null}
         occDate={occDate}
         parentEvent={seriesParent}

@@ -7,6 +7,12 @@ vi.mock("@rocicorp/zero/react", () => ({
   useQuery: () => [[], { type: "complete" }],
   useZero: () => ({}),
 }));
+vi.mock("@/components/kalakriti/kalakriti-add-volunteers-dialog", () => ({
+  KalakritiAddVolunteersDialog: () => null,
+}));
+vi.mock("@/components/kalakriti/kalakriti-page-header", () => ({
+  KalakritiPageHeader: () => null,
+}));
 vi.mock("@/components/kalakriti/kalakriti-role-assignment-dialog", () => ({
   KalakritiRoleAssignmentDialog: () => null,
 }));
@@ -20,6 +26,7 @@ vi.mock("@/components/shared/confirm-dialog", () => ({
   ConfirmDialog: () => null,
 }));
 vi.mock("@/functions/users-for-picker", () => ({
+  getKalakritiAddVolunteersForPicker: async () => [],
   getKalakritiVolunteersForPicker: async () => [],
 }));
 

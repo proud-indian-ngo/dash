@@ -9,6 +9,10 @@ import {
 } from "../permissions";
 import type { EventInterest, TeamEvent, TeamEventMember } from "../schema";
 import { zql } from "../schema";
+import {
+  ensureUnassignedVolunteerEnrollment,
+  findEditionForLinkedEvent,
+} from "./kalakriti-volunteer-enroll";
 
 export const eventInterestMutators = {
   approve: defineMutator(
@@ -48,13 +52,43 @@ export const eventInterestMutators = {
         status: "approved",
       });
 
-      const memberId = uuidv7();
-      await tx.mutate.teamEventMember.insert({
-        addedAt: args.now,
-        eventId: interest.eventId,
-        id: memberId,
-        userId: interest.userId,
-      });
+      const edition = await findEditionForLinkedEvent(tx, interest.eventId);
+      const volunteer =
+        edition && edition.lifecycle !== "archived"
+          ? ((await tx.run(zql.user.where("id", interest.userId).one())) as
+              | {
+                  email: string | null;
+                  name: string;
+                  phone: string | null;
+                }
+              | undefined)
+          : undefined;
+      if (edition && edition.lifecycle !== "archived" && volunteer) {
+        await ensureUnassignedVolunteerEnrollment(tx, {
+          actorUserId: ctx.userId,
+          edition,
+          membershipId: uuidv7(),
+          now: args.now,
+          teamEventMemberId: uuidv7(),
+          user: volunteer,
+          userId: interest.userId,
+        });
+      } else {
+        const existingMember = (await tx.run(
+          zql.teamEventMember
+            .where("eventId", interest.eventId)
+            .where("userId", interest.userId)
+            .one()
+        )) as TeamEventMember | undefined;
+        if (!existingMember) {
+          await tx.mutate.teamEventMember.insert({
+            addedAt: args.now,
+            eventId: interest.eventId,
+            id: uuidv7(),
+            userId: interest.userId,
+          });
+        }
+      }
 
       if (tx.location === "server") {
         const { userId } = interest;

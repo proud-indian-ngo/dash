@@ -22,6 +22,7 @@ export const SKELETON_BANNED = (
 export const SKELETON_CREATED_AT = <Skeleton className="h-5 w-32" />;
 export const SKELETON_WHATSAPP = <Skeleton className="h-6 w-14" />;
 export const SKELETON_PHONE = <Skeleton className="h-5 w-24" />;
+export const SKELETON_GROUP = <Skeleton className="h-5 w-24" />;
 export const SKELETON_EMAIL_VERIFIED = <Skeleton className="h-6 w-14" />;
 export const SKELETON_UPDATED_AT = <Skeleton className="h-5 w-32" />;
 export const SKELETON_BAN_REASON = <Skeleton className="h-5 w-28" />;

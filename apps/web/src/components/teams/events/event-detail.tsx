@@ -207,6 +207,7 @@ interface EventDetailProps {
   canApproveUpdates: boolean;
   canCancelPast: boolean;
   canCreate: boolean;
+  canEdit?: boolean;
   canManage: boolean;
   canManageAttendance: boolean;
   canManageFeedback: boolean;
@@ -218,6 +219,7 @@ interface EventDetailProps {
   interests?: readonly InterestWithUser[];
   isMember?: boolean;
   isTeamMember: boolean;
+  kalakritiEditionId?: string;
   myInterest?: InterestWithUser | null;
   /** ISO date (YYYY-MM-DD) when viewing a virtual occurrence of a series. */
   occDate?: string;
@@ -379,6 +381,7 @@ function deriveEventStatus(event: EventRow): EventStatus {
 function EventHeader({
   canCancel,
   canCreate,
+  canEdit,
   canManage,
   canPostPoll,
   event,
@@ -391,6 +394,7 @@ function EventHeader({
 }: {
   canCancel: boolean;
   canCreate: boolean;
+  canEdit: boolean;
   canManage: boolean;
   canPostPoll: boolean;
   event: EventRow;
@@ -426,7 +430,7 @@ function EventHeader({
           {teamName}
         </button>
       </div>
-      {canManage || canCancel || canCreate || canPostPoll ? (
+      {canManage || canCancel || canCreate || canPostPoll || canEdit ? (
         <div className="flex gap-2">
           {canCreate ? (
             <Button onClick={onDuplicate} size="sm" variant="outline">
@@ -438,7 +442,7 @@ function EventHeader({
               Post Poll
             </Button>
           ) : null}
-          {canManage ? (
+          {canEdit ? (
             <Button onClick={onEdit} size="sm" variant="outline">
               <HugeiconsIcon className="size-4" icon={Edit02Icon} />
               Edit
@@ -768,6 +772,7 @@ export function EventDetail({
   canApproveUpdates,
   canCancelPast,
   canCreate,
+  canEdit: canEditProp,
   canManage,
   canManageAttendance,
   canManageFeedback,
@@ -779,6 +784,7 @@ export function EventDetail({
   interests,
   isMember,
   isTeamMember,
+  kalakritiEditionId,
   myInterest,
   occDate,
   parentEvent,
@@ -854,6 +860,7 @@ export function EventDetail({
   const { status, isPastEvent, hasStarted, canAccessPostEventContent } =
     deriveEventState(event, isVirtualOccurrence);
   const canCancel = hasStarted ? canCancelPast : canManage;
+  const canEdit = canEditProp ?? canManage;
   const canManageVolunteers = isPastEvent ? canManageVolunteersProp : canManage;
   const canPostPoll =
     canManage && !!event.postRsvpPoll && !event.cancelledAt && !isPastEvent;
@@ -1066,6 +1073,7 @@ export function EventDetail({
         <EventHeader
           canCancel={canCancel}
           canCreate={canCreate}
+          canEdit={canEdit}
           canManage={canManage}
           canPostPoll={canPostPoll}
           event={event}
@@ -1181,6 +1189,7 @@ export function EventDetail({
           editScope === "all" && parentEvent ? parentEvent : event,
           recurrence
         )}
+        kalakritiEditionId={kalakritiEditionId}
         onOpenChange={stableOnOpenChange6}
         open={dialog.isOpen("edit")}
         originalDate={scopeOccDate ?? undefined}

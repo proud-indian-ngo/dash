@@ -124,6 +124,7 @@ interface InitialValues {
 interface EventFormDialogProps {
   editScope?: EditScope;
   initialValues?: InitialValues;
+  kalakritiEditionId?: string;
   mode?: "create" | "edit";
   onOpenChange: (open: boolean) => void;
   open: boolean;
@@ -303,8 +304,39 @@ function getMutation(
   initialValues: InitialValues | undefined,
   originalDate: string | undefined,
   isEdit: boolean,
-  teamId: string
+  teamId: string,
+  kalakritiEditionId: string | undefined
 ) {
+  if (isEdit && initialValues && kalakritiEditionId) {
+    return {
+      mutation: zero.mutate(
+        mutators.kalakritiEdition.updateLinkedEvent({
+          auditEntryId: uuidv7(),
+          city: value.city,
+          description: value.description?.trim() || undefined,
+          editionId: kalakritiEditionId,
+          endTime: value.endTime?.getTime(),
+          feedbackDeadline: value.feedbackDeadline?.getTime(),
+          feedbackEnabled: value.feedbackEnabled,
+          location: value.location?.trim() || undefined,
+          name: value.name.trim(),
+          now: Date.now(),
+          postEventNudgesEnabled: value.postEventNudgesEnabled,
+          postRsvpPoll: value.postRsvpPoll,
+          reminderIntervals: value.reminderIntervals.length
+            ? value.reminderIntervals
+            : null,
+          reminderTarget: value.reminderTarget,
+          ...(value.postRsvpPoll
+            ? { rsvpPollLeadMinutes: Number(value.rsvpPollLeadMinutes) }
+            : {}),
+          startTime: getStartTimeEpoch(value),
+          whatsappGroupId: value.whatsappGroupId || undefined,
+        })
+      ),
+      mutationName: "kalakritiEdition.updateLinkedEvent",
+    };
+  }
   if (editScope && initialValues) {
     // "this" targets the event itself (exception or series parent).
     // "following"/"all" target the series parent.
@@ -343,6 +375,7 @@ function EventFormContent({
   editScope,
   initialValues,
   isEdit,
+  kalakritiEditionId,
   onOpenChange,
   originalDate,
   teamHasWhatsAppGroup,
@@ -353,6 +386,7 @@ function EventFormContent({
   editScope?: EditScope;
   initialValues?: InitialValues;
   isEdit: boolean;
+  kalakritiEditionId?: string;
   onOpenChange: (open: boolean) => void;
   originalDate?: string;
   teamHasWhatsAppGroup: boolean;
@@ -375,7 +409,8 @@ function EventFormContent({
         initialValues,
         originalDate,
         isEdit,
-        teamId
+        teamId,
+        kalakritiEditionId
       );
       const entityId = isEdit && initialValues ? initialValues.id : "new";
       let successMsg = "Event created";
@@ -478,7 +513,9 @@ function EventFormContent({
         <DateTimeField label="End Time" name="endTime" />
       </div>
 
-      <CheckboxField label="Public" name="isPublic" />
+      {kalakritiEditionId ? null : (
+        <CheckboxField label="Public" name="isPublic" />
+      )}
 
       <Collapsible onOpenChange={setShowAdvanced} open={showAdvanced}>
         <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-1.5 pt-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
@@ -495,46 +532,50 @@ function EventFormContent({
           ) : null}
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-4 pt-4">
-          {(!isEdit ||
-            editScope === "all" ||
-            editScope === "following" ||
-            (!editScope && !!initialValues?.recurrenceRule)) && (
-            <form.Field name="rrule">
-              {(rruleField) => (
-                <form.Field name="excludeRules">
-                  {(excludeField) => (
-                    <RecurrenceBuilder
-                      excludeRules={
-                        Array.isArray(excludeField.state.value)
-                          ? excludeField.state.value
-                          : []
-                      }
-                      onChange={rruleField.handleChange}
-                      onExcludeRulesChange={excludeField.handleChange}
-                      startTime={form.state.values.startTime}
-                      value={
-                        typeof rruleField.state.value === "string"
-                          ? rruleField.state.value
-                          : ""
-                      }
-                    />
+          {kalakritiEditionId
+            ? null
+            : (!isEdit ||
+                editScope === "all" ||
+                editScope === "following" ||
+                (!editScope && !!initialValues?.recurrenceRule)) && (
+                <form.Field name="rrule">
+                  {(rruleField) => (
+                    <form.Field name="excludeRules">
+                      {(excludeField) => (
+                        <RecurrenceBuilder
+                          excludeRules={
+                            Array.isArray(excludeField.state.value)
+                              ? excludeField.state.value
+                              : []
+                          }
+                          onChange={rruleField.handleChange}
+                          onExcludeRulesChange={excludeField.handleChange}
+                          startTime={form.state.values.startTime}
+                          value={
+                            typeof rruleField.state.value === "string"
+                              ? rruleField.state.value
+                              : ""
+                          }
+                        />
+                      )}
+                    </form.Field>
                   )}
                 </form.Field>
               )}
-            </form.Field>
-          )}
 
-          <form.Subscribe selector={stableSelector1}>
-            {(rrule) =>
-              rrule ? (
-                <CheckboxField
-                  description="Copy volunteers from the series to each occurrence"
-                  label="Inherit volunteers"
-                  name="inheritVolunteers"
-                />
-              ) : null
-            }
-          </form.Subscribe>
+          {kalakritiEditionId ? null : (
+            <form.Subscribe selector={stableSelector1}>
+              {(rrule) =>
+                rrule ? (
+                  <CheckboxField
+                    description="Copy volunteers from the series to each occurrence"
+                    label="Inherit volunteers"
+                    name="inheritVolunteers"
+                  />
+                ) : null
+              }
+            </form.Subscribe>
+          )}
 
           <FormSectionHeading>Notifications</FormSectionHeading>
           <div className="grid items-end gap-4 sm:grid-cols-2">
@@ -647,6 +688,7 @@ export function EventFormDialog({
   editScope,
   teamId,
   initialValues,
+  kalakritiEditionId,
   mode,
   onOpenChange,
   open,
@@ -718,6 +760,7 @@ export function EventFormDialog({
           editScope={editScope}
           initialValues={initialValues}
           isEdit={isEdit}
+          kalakritiEditionId={kalakritiEditionId}
           key={formKey}
           onOpenChange={onOpenChange}
           originalDate={originalDate}
