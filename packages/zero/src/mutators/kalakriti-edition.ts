@@ -1,3 +1,8 @@
+import { cityValues, reminderTargetValues } from "@pi-dash/shared/constants";
+import {
+  REMINDER_PRESET_MINUTES,
+  RSVP_POLL_LEAD_PRESET_MINUTES,
+} from "@pi-dash/shared/event-reminders";
 import { KALAKRITI_TIMEZONE } from "@pi-dash/shared/kalakriti";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
@@ -6,7 +11,7 @@ import {
   getKalakritiRegistrationReadiness,
   type KalakritiRegistrationReadinessSnapshot,
 } from "../kalakriti-registration-readiness";
-import { assertHasPermission, assertIsLoggedIn } from "../permissions";
+import { assertHasPermission, assertIsLoggedIn, can } from "../permissions";
 import { zql } from "../schema";
 import {
   assertCanManageKalakritiConfiguration,
@@ -17,6 +22,7 @@ import {
   getEditionForUpdate,
   type LockableKalakritiTx,
 } from "./kalakriti-row-locks";
+import { buildUpdateFields } from "./team-event-series";
 
 abstract class BivariantZeroMutation {
   abstract bivarianceHack(args: unknown): Promise<void>;
@@ -69,6 +75,32 @@ export const kalakritiEditionUpdateParticipationRulesSchema = z.object({
   now: z.number(),
 });
 
+export const kalakritiEditionUpdateLinkedEventSchema = z.object({
+  auditEntryId: z.string(),
+  city: z.enum(cityValues).optional(),
+  description: z.string().optional(),
+  editionId: z.string(),
+  endTime: z.number().optional(),
+  feedbackDeadline: z.number().nullable().optional(),
+  feedbackEnabled: z.boolean().optional(),
+  location: z.string().optional(),
+  name: z.string().trim().min(1).optional(),
+  now: z.number(),
+  postEventNudgesEnabled: z.boolean().optional(),
+  postRsvpPoll: z.boolean().optional(),
+  reminderIntervals: z
+    .array(z.number().refine((n) => REMINDER_PRESET_MINUTES.includes(n)))
+    .nullable()
+    .optional(),
+  reminderTarget: z.enum(reminderTargetValues).optional(),
+  rsvpPollLeadMinutes: z
+    .number()
+    .refine((n) => RSVP_POLL_LEAD_PRESET_MINUTES.includes(n))
+    .optional(),
+  startTime: z.number().optional(),
+  whatsappGroupId: z.string().optional(),
+});
+
 export const kalakritiEditionTransitionSchema = z.object({
   auditEntryId: z.string(),
   confirmed: z.literal(true),
@@ -115,6 +147,107 @@ function parseEditionDates(args: {
     throw new Error("Registration must close before the event date");
   }
   return { ageCutoffDate, eventDate, eventStart };
+}
+
+function toKalakritiEventDate(startTime: number): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: KALAKRITI_TIMEZONE,
+    year: "numeric",
+  }).format(new Date(startTime));
+}
+
+type LinkedEventUpdateArgs = z.infer<
+  typeof kalakritiEditionUpdateLinkedEventSchema
+>;
+
+function assertLinkedEventScheduleUpdates(
+  args: LinkedEventUpdateArgs,
+  existingStartTime: number,
+  plannedRegistrationCloseAt: number | undefined
+): void {
+  const effectiveStart = args.startTime ?? existingStartTime;
+  if (
+    args.endTime !== undefined &&
+    args.endTime !== null &&
+    args.endTime <= effectiveStart
+  ) {
+    throw new Error("End time must be after start time");
+  }
+  if (
+    args.startTime !== undefined &&
+    typeof plannedRegistrationCloseAt === "number" &&
+    plannedRegistrationCloseAt >= args.startTime
+  ) {
+    throw new Error("Registration must close before the event date");
+  }
+}
+
+function buildLinkedEventEditionUpdates(args: LinkedEventUpdateArgs): {
+  eventDate?: number;
+  id: string;
+  name?: string;
+  updatedAt: number;
+} {
+  const editionUpdates: {
+    eventDate?: number;
+    id: string;
+    name?: string;
+    updatedAt: number;
+  } = { id: args.editionId, updatedAt: args.now };
+  if (args.name !== undefined) {
+    editionUpdates.name = args.name;
+  }
+  if (args.startTime !== undefined) {
+    const eventDate = toKalakritiEventDate(args.startTime);
+    editionUpdates.eventDate = new Date(`${eventDate}T00:00:00Z`).getTime();
+  }
+  return editionUpdates;
+}
+
+function buildLinkedEventAuditFields(args: LinkedEventUpdateArgs): string[] {
+  return [
+    ...(args.name === undefined ? [] : ["name"]),
+    ...(args.startTime === undefined ? [] : ["eventDate", "startTime"]),
+    ...(args.endTime === undefined ? [] : ["endTime"]),
+    ...(args.location === undefined ? [] : ["location"]),
+    ...(args.description === undefined ? [] : ["description"]),
+    ...(args.city === undefined ? [] : ["city"]),
+    ...(args.feedbackEnabled === undefined ? [] : ["feedbackEnabled"]),
+    ...(args.feedbackDeadline === undefined ? [] : ["feedbackDeadline"]),
+    ...(args.postEventNudgesEnabled === undefined
+      ? []
+      : ["postEventNudgesEnabled"]),
+    ...(args.postRsvpPoll === undefined ? [] : ["postRsvpPoll"]),
+    ...(args.reminderIntervals === undefined ? [] : ["reminderIntervals"]),
+    ...(args.reminderTarget === undefined ? [] : ["reminderTarget"]),
+    ...(args.rsvpPollLeadMinutes === undefined ? [] : ["rsvpPollLeadMinutes"]),
+    ...(args.whatsappGroupId === undefined ? [] : ["whatsappGroupId"]),
+  ];
+}
+
+async function assertCanEditLinkedEvent(
+  tx: EditionTx,
+  ctx: Context | undefined,
+  editionId: string,
+  teamId: string
+): Promise<void> {
+  assertIsLoggedIn(ctx);
+  if (can(ctx, "kalakriti.admin") || can(ctx, "events.edit")) {
+    return;
+  }
+  const isTeamLead = !!(await tx.run(
+    zql.teamMember
+      .where("teamId", teamId)
+      .where("userId", ctx.userId)
+      .where("role", "lead")
+      .one()
+  ));
+  if (isTeamLead) {
+    return;
+  }
+  await assertCanManageKalakritiConfiguration(tx, ctx, editionId);
 }
 
 function assertExactMaps(
@@ -699,6 +832,97 @@ export const kalakritiEditionMutators = {
         args,
         plannedRegistrationCloseAt
       );
+    }
+  ),
+
+  updateLinkedEvent: defineMutator(
+    kalakritiEditionUpdateLinkedEventSchema,
+    async ({ tx, ctx, args }) => {
+      const edition = await getEditionForUpdate(
+        tx as EditionTx,
+        args.editionId
+      );
+      if (!edition) {
+        throw new Error("Edition not found");
+      }
+      if (edition.lifecycle === "archived") {
+        throw new Error("Archived Editions cannot change the linked event");
+      }
+      const existingEvent = (await tx.run(
+        zql.teamEvent.where("id", edition.teamEventId).one()
+      )) as
+        | {
+            id: string;
+            name: string;
+            startTime: number;
+            teamId: string;
+          }
+        | undefined;
+      if (!existingEvent) {
+        throw new Error("Linked event not found");
+      }
+      const editionRow = (await tx.run(
+        zql.kalakritiEdition.where("id", args.editionId).one()
+      )) as
+        | {
+            plannedRegistrationCloseAt: number;
+          }
+        | undefined;
+      await assertCanEditLinkedEvent(
+        tx as EditionTx,
+        ctx,
+        args.editionId,
+        existingEvent.teamId
+      );
+      assertIsLoggedIn(ctx);
+
+      assertLinkedEventScheduleUpdates(
+        args,
+        existingEvent.startTime,
+        editionRow?.plannedRegistrationCloseAt
+      );
+
+      await (tx as EditionTx).mutate.teamEvent.update(
+        buildUpdateFields({
+          city: args.city,
+          description: args.description,
+          endTime: args.endTime,
+          feedbackDeadline: args.feedbackDeadline,
+          feedbackEnabled: args.feedbackEnabled,
+          id: existingEvent.id,
+          location: args.location,
+          name: args.name,
+          now: args.now,
+          postEventNudgesEnabled: args.postEventNudgesEnabled,
+          postRsvpPoll: args.postRsvpPoll,
+          reminderIntervals: args.reminderIntervals,
+          reminderTarget: args.reminderTarget,
+          rsvpPollLeadMinutes: args.rsvpPollLeadMinutes,
+          startTime: args.startTime,
+          whatsappGroupId: args.whatsappGroupId,
+        })
+      );
+
+      const editionUpdates = buildLinkedEventEditionUpdates(args);
+      if (args.name !== undefined || args.startTime !== undefined) {
+        await (tx as EditionTx).mutate.kalakritiEdition.update(editionUpdates);
+      }
+
+      await (tx as EditionTx).mutate.kalakritiAuditEntry.insert({
+        action: "updated",
+        actorUserId: ctx.userId,
+        createdAt: args.now,
+        domain: "edition",
+        editionId: args.editionId,
+        id: args.auditEntryId,
+        metadata: {
+          fields: buildLinkedEventAuditFields(args),
+          teamEventId: existingEvent.id,
+        },
+        reason: null,
+        targetId: existingEvent.id,
+        targetType: "event",
+      });
     }
   ),
 

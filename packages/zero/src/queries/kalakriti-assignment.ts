@@ -7,9 +7,11 @@ import { zql } from "../schema";
 const editionInput = z.object({ editionId: z.string() });
 
 function withVolunteerDetails(q: typeof zql.kalakritiEditionMembership) {
-  return q.related("assignments", (assignment) =>
-    assignment.orderBy("createdAt", "asc")
-  );
+  return q
+    .related("assignments", (assignment) =>
+      assignment.orderBy("createdAt", "asc")
+    )
+    .related("user");
 }
 
 function restrictToVolunteerManagers(

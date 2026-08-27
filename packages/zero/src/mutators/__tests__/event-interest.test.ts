@@ -161,6 +161,7 @@ describe("Kalakriti event interest", () => {
 
   it("allows an interest manager to approve a Kalakriti request", async () => {
     const insertMember = vi.fn();
+    const insertMembership = vi.fn();
     const updateInterest = vi.fn();
     const results = [
       {
@@ -175,11 +176,27 @@ describe("Kalakriti event interest", () => {
         teamId: "team-1",
       },
       undefined,
+      {
+        id: "edition-1",
+        lifecycle: "draft",
+        teamEventId: "event-1",
+      },
+      {
+        email: "volunteer@example.com",
+        name: "Volunteer One",
+        phone: null,
+      },
+      undefined,
+      undefined,
     ];
     const tx = {
       location: "client",
       mutate: {
         eventInterest: { update: updateInterest },
+        kalakritiEditionMembership: {
+          insert: insertMembership,
+          update: vi.fn(),
+        },
         teamEventMember: { insert: insertMember },
       },
       run: vi.fn(async () => results.shift()),
@@ -204,6 +221,14 @@ describe("Kalakriti event interest", () => {
     expect(insertMember).toHaveBeenCalledWith(
       expect.objectContaining({
         eventId: "event-1",
+        userId: "volunteer-1",
+      })
+    );
+    expect(insertMembership).toHaveBeenCalledWith(
+      expect.objectContaining({
+        editionId: "edition-1",
+        kind: "volunteer",
+        state: "active",
         userId: "volunteer-1",
       })
     );

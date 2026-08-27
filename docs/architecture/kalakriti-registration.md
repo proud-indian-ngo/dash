@@ -15,12 +15,16 @@ Global permissions provide the coarse module gates `kalakriti.view` and `kalakri
 
 - Global administrators can access every Edition, including archived Editions.
 - Edition administrators manage the complete active Edition.
-- Volunteer Coordinators manage the volunteer roster and assignments on `/kalakriti/:year/volunteers`. That page owns assignment, not Overview. One **Assign role** dialog covers Edition leadership, operational leads, competition roles, and Center roles.
+- Volunteer Coordinators manage the volunteer roster and assignments on `/kalakriti/:year/volunteers`. That page owns roster membership, not Overview. **Add volunteers** puts people on the roster with no role (Unassigned). **Assign role** on a row or detail sheet grants a responsibility. Unoriented volunteers may sit Unassigned; assignment still rejects `unoriented_volunteer`. Removing the last role leaves them Unassigned with linked-event access. **Remove from Edition** archives membership and drops the linked event member.
 - Overall Events Leads and Category Leads receive Competition-category scopes. Lead roles are multi-occupant; assignment uniqueness is per person plus scope, not one occupant per Edition.
 - Liaisons and Guardians receive explicit Center scopes. Liaison Lead is Edition-wide: no Center picker, and the assignment covers every Center.
-- Unassigned volunteers fail closed even if their global role can see the Kalakriti shell.
+- Unassigned volunteer membership is a valid roster state. Edition **access stays fail-closed**: opening the Kalakriti shell still requires Guardian membership, at least one assignment, or global admin. Unassigned volunteers appear on the Volunteers page only.
 
-Guardians use the technical `external_user` role and a persistent `kalakritiExternalIdentity` marker. Their yearly profile and access live in Edition Memberships. Archiving the final active Guardian membership bans the external account and revokes its sessions; exact-email reuse can reactivate the identity for a later Edition. External identities are excluded from central user lists and volunteer pickers. Assignment pickers include every oriented central role except `unoriented_volunteer`. Assigned members can open their Edition even when their global role lacks `kalakriti.view`.
+Signup via `/register?eventId=` on the linked event, coordinator **Add volunteers**, and **approved public interest** on a Kalakriti-linked event all create the same destination: active unassigned volunteer membership plus `team_event_member` on the linked event.
+
+Linked event details are editable from `/events/$id` (name, location, description, schedule, notifications) for `events.edit` / team lead or `kalakriti.admin` / Edition administrator. Generic event volunteer add/remove, cancel, and `isPublic` stay off that page; `isPublic` stays lifecycle-driven. Recurrence and inherit-volunteers do not apply to Edition events.
+
+Guardians use the technical `external_user` role and a persistent `kalakritiExternalIdentity` marker. Their yearly profile and access live in Edition Memberships. Archiving the final active Guardian membership bans the external account and revokes its sessions; exact-email reuse can reactivate the identity for a later Edition. External identities are excluded from central user lists and volunteer pickers. **Assign role** uses an oriented-only picker on a locked row; **Add volunteers** includes `unoriented_volunteer` and excludes people already on the roster. Assigned members can open their Edition even when their global role lacks `kalakriti.view`.
 
 `apps/web/src/lib/server/kalakriti-edition-access.ts` resolves Edition access. `apps/web/src/lib/kalakriti-registration-scope-policy.ts` converts that access into the canonical registration scopes shared by dashboards and exports. Commands and Zero queries perform their own Edition and assignment checks; hidden navigation is never treated as authorization.
 

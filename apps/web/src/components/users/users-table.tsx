@@ -14,6 +14,7 @@ import type { ColumnVisibilityState } from "@tanstack/react-table";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useMemo, useState } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { optionsFromRows } from "@/components/data-table/filter-fields";
 import { FormModal } from "@/components/form/form-modal";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { BanUserForm } from "@/components/users/ban-user-form";
@@ -418,8 +419,16 @@ export function UsersTable({
 }: UsersTableProps) {
   useMigrateLegacyUserFilterParams();
   const filterFields = useMemo(
-    () => createUserFilterFields(roleOptions ?? []),
-    [roleOptions]
+    () =>
+      createUserFilterFields(
+        roleOptions ?? [],
+        optionsFromRows(
+          users,
+          (row) => row.registrationGroup,
+          (row) => row.registrationGroup ?? ""
+        )
+      ),
+    [roleOptions, users]
   );
   const [activeRowForm, setActiveRowForm] = useState<RowFormAction>(null);
   const [banningUserId, setBanningUserId] = useState<string | null>(null);

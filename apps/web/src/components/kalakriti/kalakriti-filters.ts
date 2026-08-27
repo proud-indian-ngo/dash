@@ -243,7 +243,9 @@ export function getVolunteerFilterValue(
         ? "primary"
         : "secondary";
     case "responsibilities":
-      return row.assignments.map((assignment) => assignment.responsibility);
+      return row.assignments.length === 0
+        ? ["unassigned"]
+        : row.assignments.map((assignment) => assignment.responsibility);
     default:
       return;
   }
@@ -257,12 +259,15 @@ export function createVolunteerFilterFields(
       defaultOperator: "has_any_of",
       id: "responsibilities",
       label: "Responsibility",
-      options: optionsFromRows(
-        rows.flatMap((row) => row.assignments),
-        (assignment) => assignment.responsibility,
-        (assignment) =>
-          KALAKRITI_RESPONSIBILITY_LABELS[assignment.responsibility]
-      ),
+      options: [
+        { label: "Unassigned", value: "unassigned" },
+        ...optionsFromRows(
+          rows.flatMap((row) => row.assignments),
+          (assignment) => assignment.responsibility,
+          (assignment) =>
+            KALAKRITI_RESPONSIBILITY_LABELS[assignment.responsibility]
+        ),
+      ],
       type: "multiselect",
     },
     selectField("primary", "Primary role", PRIMARY_ROLE_OPTIONS),

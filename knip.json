@@ -36,6 +36,7 @@
         "helpers/kalakriti-release-races.ts",
         "helpers/kalakriti-students.ts",
         "helpers/kalakriti-volunteer-assignment.ts",
+        "helpers/register-url-options.ts",
         "helpers/seed-dev-data.ts",
         "shard-by-duration.ts"
       ],

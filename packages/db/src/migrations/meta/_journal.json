@@ -498,6 +498,13 @@
       "when": 1787290135542,
       "tag": "0070_foamy_wallflower",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1787810582370,
+      "tag": "0071_funny_bushwacker",
+      "breakpoints": true
     }
   ]
 }

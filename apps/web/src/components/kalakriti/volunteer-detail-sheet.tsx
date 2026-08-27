@@ -10,6 +10,7 @@ import {
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
   canManageKalakritiResponsibility,
+  isKalakritiAssignableUserRole,
   KALAKRITI_RESPONSIBILITY_LABELS,
   type KalakritiResponsibility,
 } from "@pi-dash/shared/kalakriti";
@@ -34,6 +35,7 @@ export function VolunteerDetailSheet({
   onAssign,
   onOpenChange,
   onRemove,
+  onRemoveFromEdition,
   open,
   volunteer,
 }: {
@@ -42,6 +44,7 @@ export function VolunteerDetailSheet({
   onAssign: (volunteer: VolunteerRosterItem) => void;
   onOpenChange: (open: boolean) => void;
   onRemove: (payload: RemoveAssignmentPayload) => void;
+  onRemoveFromEdition: (volunteer: VolunteerRosterItem) => void;
   open: boolean;
   volunteer: VolunteerRosterItem | null;
 }) {
@@ -50,6 +53,14 @@ export function VolunteerDetailSheet({
       onAssign(volunteer);
     }
   });
+  const handleRemoveFromEdition = useEventCallback(() => {
+    if (volunteer) {
+      onRemoveFromEdition(volunteer);
+    }
+  });
+  const canAssignRole = volunteer
+    ? isKalakritiAssignableUserRole(volunteer.userRole)
+    : false;
 
   if (!volunteer) {
     return (
@@ -81,18 +92,20 @@ export function VolunteerDetailSheet({
           <div className="grid gap-3">
             <div className="flex items-center justify-between gap-3">
               <h3 className="font-medium text-sm">Responsibilities</h3>
-              <Button
-                onClick={handleAddRole}
-                size="xs"
-                type="button"
-                variant="outline"
-              >
-                Add role
-              </Button>
+              {canAssignRole ? (
+                <Button
+                  onClick={handleAddRole}
+                  size="xs"
+                  type="button"
+                  variant="outline"
+                >
+                  Add role
+                </Button>
+              ) : null}
             </div>
             {volunteer.assignments.length === 0 ? (
               <p className="text-muted-foreground text-sm">
-                No responsibilities assigned.
+                Unassigned — no responsibilities yet.
               </p>
             ) : (
               <ul className="grid gap-2">
@@ -110,6 +123,14 @@ export function VolunteerDetailSheet({
               </ul>
             )}
           </div>
+
+          <Button
+            onClick={handleRemoveFromEdition}
+            type="button"
+            variant="destructive"
+          >
+            Remove from Edition
+          </Button>
         </div>
       </SheetContent>
     </Sheet>

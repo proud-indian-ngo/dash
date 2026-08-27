@@ -18,6 +18,9 @@ import {
   reactivateUserAfterSignIn,
   type SignInReactivationResult,
 } from "./reactivation";
+import { enrollUserOnRegisterEvent } from "./register-event";
+import { createDbRegisterEventEnrollDeps } from "./register-event-db";
+import { getUserFromSignUpReturned, verifyPersistedSignUpUser } from "./sign-up-returned";
 
 type SignInReactivationStatus = SignInReactivationResult["status"];
 
@@ -33,43 +36,82 @@ const REACTIVATION_LOG_PAYLOADS = {
 >;
 
 interface AuthHookContext {
+  body?: Record<string, unknown>;
   context: {
     newSession?: unknown;
     returned?: unknown;
   };
+  headers?: unknown;
   path: string;
+  query?: Record<string, unknown>;
+  request?: Request;
 }
 
-function getUserFromReturnedBody(
-  returned: unknown
-): { email?: string; id?: string; name?: string } | undefined {
-  const body =
-    returned && typeof returned === "object" && "body" in returned
-      ? (returned as { body?: unknown }).body
-      : undefined;
-
-  return body && typeof body === "object" && "user" in body
-    ? (
-        body as {
-          user?: { id?: string; email?: string; name?: string };
-        }
-      ).user
-    : undefined;
+async function resolveSignedUpUser(
+  ctx: AuthHookContext
+): Promise<{ email?: string; id?: string; name?: string } | undefined> {
+  const fromReturned = getUserFromSignUpReturned(ctx.context.returned);
+  return await verifyPersistedSignUpUser(fromReturned, async (email) => {
+    const [row] = await db
+      .select({ id: schema.user.id })
+      .from(schema.user)
+      .where(eq(schema.user.email, email))
+      .limit(1);
+    return row;
+  });
 }
 
-function handleAfterSignUp(ctx: AuthHookContext): void {
-  const { returned } = ctx.context;
-  const user = getUserFromReturnedBody(returned);
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function sanitizeRegistrationGroup(body: Record<string, unknown>): void {
+  const group = body.registrationGroup;
+  if (typeof group !== "string") {
+    delete body.registrationGroup;
+    return;
+  }
+  const trimmed = group.trim();
+  if (trimmed.length >= 1 && trimmed.length <= 100) {
+    body.registrationGroup = trimmed;
+  } else {
+    delete body.registrationGroup;
+  }
+}
+
+function sanitizeSignUpBody(ctx: AuthHookContext): void {
+  if (ctx.path !== "/sign-up/email" || !ctx.body) {
+    return;
+  }
+  sanitizeRegistrationGroup(ctx.body);
+  const eventId =
+    typeof ctx.body.registerEventId === "string"
+      ? ctx.body.registerEventId.trim()
+      : "";
+  if (eventId && UUID_RE.test(eventId)) {
+    ctx.body.registerEventId = eventId;
+  } else {
+    delete ctx.body.registerEventId;
+  }
+}
+
+function stripRegistrationGroupFromUpdate(ctx: AuthHookContext): void {
+  if (ctx.path === "/update-user" && ctx.body?.registrationGroup !== undefined) {
+    delete ctx.body.registrationGroup;
+  }
+}
+
+async function handleAfterSignUp(ctx: AuthHookContext): Promise<void> {
+  const user = await resolveSignedUpUser(ctx);
 
   if (!user?.id) {
-    if (returned) {
-      const body =
-        returned && typeof returned === "object" && "body" in returned
-          ? (returned as { body?: unknown }).body
-          : undefined;
+    if (ctx.context.returned) {
+      const returned = ctx.context.returned;
       const log = createRequestLogger();
       log.set({
-        bodyShape: body ? Object.keys(body as object) : "no body",
+        returnedKeys:
+          returned && typeof returned === "object"
+            ? Object.keys(returned)
+            : typeof returned,
         hook: "afterSignUp",
         warning: "sign-up returned response but user.id is missing",
       });
@@ -79,6 +121,7 @@ function handleAfterSignUp(ctx: AuthHookContext): void {
   }
 
   const userId = user.id;
+  const registerEventId = getRegisterEventId(ctx);
 
   withFireAndForgetLog({ hook: "afterSignUp", userId }, async () => {
     if (user.email) {
@@ -99,6 +142,55 @@ function handleAfterSignUp(ctx: AuthHookContext): void {
       });
     }
   );
+
+  if (registerEventId) {
+    withFireAndForgetLog(
+      {
+        action: "registerEventEnroll",
+        eventId: registerEventId,
+        hook: "afterSignUp",
+        userId,
+      },
+      async () => {
+        await enrollUserOnRegisterEvent(createDbRegisterEventEnrollDeps(), {
+          eventId: registerEventId,
+          now: Date.now(),
+          userId,
+        });
+      }
+    );
+  }
+}
+
+function getHeaderValue(headers: unknown, name: string): string | undefined {
+  if (!headers || typeof headers !== "object") {
+    return;
+  }
+  if (typeof (headers as Headers).get === "function") {
+    return (headers as Headers).get(name) ?? undefined;
+  }
+  const record = headers as Record<string, unknown>;
+  const value = record[name] ?? record[name.toLowerCase()];
+  return typeof value === "string" ? value : undefined;
+}
+
+function getRegisterEventId(ctx: AuthHookContext): string | undefined {
+  const fromBody =
+    typeof ctx.body?.registerEventId === "string"
+      ? ctx.body.registerEventId
+      : undefined;
+  const raw =
+    fromBody ??
+    getHeaderValue(ctx.headers, "x-register-event-id") ??
+    getHeaderValue(ctx.request?.headers, "x-register-event-id");
+  if (!raw) {
+    return;
+  }
+  const eventId = raw.trim();
+  if (!UUID_RE.test(eventId)) {
+    return;
+  }
+  return eventId;
 }
 
 async function handleAfterSignIn(ctx: AuthHookContext): Promise<void> {
@@ -245,7 +337,7 @@ export const auth = betterAuth({
   hooks: {
     after: createAuthMiddleware(async (ctx) => {
       if (ctx.path === "/sign-up/email") {
-        handleAfterSignUp(ctx);
+        await handleAfterSignUp(ctx);
         return;
       }
 
@@ -254,6 +346,10 @@ export const auth = betterAuth({
       }
 
       await handleAfterSignIn(ctx);
+    }),
+    before: createAuthMiddleware(async (ctx) => {
+      sanitizeSignUpBody(ctx);
+      stripRegistrationGroupFromUpdate(ctx);
     }),
   },
   plugins: [
@@ -313,6 +409,11 @@ export const auth = betterAuth({
         type: "boolean",
       },
       phone: {
+        required: false,
+        type: "string",
+      },
+      registrationGroup: {
+        input: true,
         required: false,
         type: "string",
       },

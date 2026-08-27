@@ -16,6 +16,10 @@ import {
   getCenterForUpdate,
   type LockableKalakritiTx,
 } from "./kalakriti-row-locks";
+import {
+  assertCanManageVolunteerRoster,
+  ensureUnassignedVolunteerEnrollment,
+} from "./kalakriti-volunteer-enroll";
 
 abstract class BivariantZeroMutation {
   abstract bivarianceHack(args: unknown): Promise<void>;
@@ -138,6 +142,27 @@ export const kalakritiAssignmentRemoveSchema = z.object({
   now: z.number(),
 });
 
+export const kalakritiAddVolunteersSchema = z.object({
+  auditEntryId: z.string(),
+  editionId: z.string(),
+  now: z.number(),
+  volunteers: z
+    .array(
+      z.object({
+        membershipId: z.string(),
+        teamEventMemberId: z.string(),
+        userId: z.string(),
+      })
+    )
+    .min(1),
+});
+
+export const kalakritiRemoveVolunteerSchema = z.object({
+  auditEntryId: z.string(),
+  membershipId: z.string(),
+  now: z.number(),
+});
+
 interface AssignVolunteerArgs {
   assignmentId: string;
   auditEntryId: string;
@@ -239,7 +264,7 @@ async function assertAssignmentCompetitionScope(
   }
 }
 
-async function getAssignableVolunteer(
+async function getRosterVolunteer(
   tx: AssignmentTx,
   userId: string
 ): Promise<AssignableVolunteer | undefined> {
@@ -257,6 +282,17 @@ async function getAssignableVolunteer(
   );
   if (volunteer.role === "external_user" || externalIdentity) {
     throw new Error("External identities cannot be volunteer assignments");
+  }
+  return volunteer;
+}
+
+async function getAssignableVolunteer(
+  tx: AssignmentTx,
+  userId: string
+): Promise<AssignableVolunteer | undefined> {
+  const volunteer = await getRosterVolunteer(tx, userId);
+  if (!volunteer) {
+    return;
   }
   if (!isKalakritiAssignableUserRole(volunteer.role)) {
     throw new Error("Unoriented volunteers cannot receive assignments");
@@ -425,6 +461,66 @@ async function assignVolunteerResponsibility(
 }
 
 export const kalakritiAssignmentMutators = {
+  addVolunteers: defineMutator(
+    kalakritiAddVolunteersSchema,
+    async ({ tx, ctx, args }) => {
+      await assertCanManageVolunteerRoster(tx, ctx, args.editionId);
+      assertIsLoggedIn(ctx);
+      const edition = await getAssignmentEdition(tx, args.editionId);
+      let addedCount = 0;
+      let missingCount = 0;
+
+      for (const volunteerArgs of args.volunteers) {
+        // biome-ignore lint/performance/noAwaitInLoops: enrollment writes must stay sequential per volunteer
+        const volunteer = await getRosterVolunteer(tx, volunteerArgs.userId);
+        if (!volunteer) {
+          missingCount += 1;
+          continue;
+        }
+        const result = await ensureUnassignedVolunteerEnrollment(tx, {
+          actorUserId: ctx.userId,
+          edition: {
+            id: args.editionId,
+            lifecycle: edition.lifecycle,
+            teamEventId: edition.teamEventId,
+          },
+          membershipId: volunteerArgs.membershipId,
+          now: args.now,
+          teamEventMemberId: volunteerArgs.teamEventMemberId,
+          user: {
+            email: volunteer.email,
+            name: volunteer.name,
+            phone: volunteer.phone,
+          },
+          userId: volunteerArgs.userId,
+        });
+        if (result === "enrolled") {
+          addedCount += 1;
+        }
+      }
+
+      if (missingCount > 0) {
+        throw new Error("One or more volunteers could not be found");
+      }
+      if (args.volunteers.length > 0 && addedCount === 0) {
+        throw new Error("No volunteers were added");
+      }
+
+      await tx.mutate.kalakritiAuditEntry.insert({
+        action: "added",
+        actorUserId: ctx.userId,
+        createdAt: args.now,
+        domain: "volunteer_assignment",
+        editionId: args.editionId,
+        id: args.auditEntryId,
+        metadata: { addedCount },
+        reason: null,
+        targetId: args.editionId,
+        targetType: "edition",
+      });
+    }
+  ),
+
   assignCompetitionCategoryLead: defineMutator(
     kalakritiCompetitionCategoryAssignmentCreateSchema,
     ({ tx, ctx, args }) =>
@@ -499,23 +595,7 @@ export const kalakritiAssignmentMutators = {
 
       await tx.mutate.kalakritiAssignment.delete({ id: assignment.id });
 
-      if (remaining.length === 0) {
-        await tx.mutate.kalakritiEditionMembership.update({
-          archivedAt: args.now,
-          id: membership.id,
-          state: "archived",
-          updatedAt: args.now,
-        });
-        const eventMember = await tx.run(
-          zql.teamEventMember
-            .where("eventId", edition.teamEventId)
-            .where("userId", membership.userId)
-            .one()
-        );
-        if (eventMember) {
-          await tx.mutate.teamEventMember.delete({ id: eventMember.id });
-        }
-      } else if (assignment.isPrimary) {
+      if (remaining.length > 0 && assignment.isPrimary) {
         const [nextPrimary] = remaining;
         if (!nextPrimary) {
           throw new Error("Assignment state changed while removing role");
@@ -540,6 +620,73 @@ export const kalakritiAssignmentMutators = {
         reason: null,
         targetId: assignment.id,
         targetType: "assignment",
+      });
+    }
+  ),
+
+  removeVolunteer: defineMutator(
+    kalakritiRemoveVolunteerSchema,
+    async ({ tx, ctx, args }) => {
+      const membership = (await tx.run(
+        zql.kalakritiEditionMembership.where("id", args.membershipId).one()
+      )) as
+        | {
+            editionId: string;
+            id: string;
+            kind: "guardian" | "volunteer";
+            state: "active" | "archived";
+            userId: string | null;
+          }
+        | undefined;
+      if (!membership) {
+        throw new Error("Volunteer membership not found");
+      }
+      if (membership.kind !== "volunteer") {
+        throw new Error("Guardian memberships cannot be removed here");
+      }
+      await assertCanManageVolunteerRoster(tx, ctx, membership.editionId);
+      assertIsLoggedIn(ctx);
+      const edition = await getAssignmentEdition(tx, membership.editionId);
+
+      const assignments = (await tx.run(
+        zql.kalakritiAssignment.where("membershipId", membership.id)
+      )) as readonly { id: string }[];
+      await Promise.all(
+        assignments.map((assignment) =>
+          tx.mutate.kalakritiAssignment.delete({ id: assignment.id })
+        )
+      );
+
+      await tx.mutate.kalakritiEditionMembership.update({
+        archivedAt: args.now,
+        id: membership.id,
+        state: "archived",
+        updatedAt: args.now,
+      });
+
+      if (membership.userId) {
+        const eventMember = await tx.run(
+          zql.teamEventMember
+            .where("eventId", edition.teamEventId)
+            .where("userId", membership.userId)
+            .one()
+        );
+        if (eventMember) {
+          await tx.mutate.teamEventMember.delete({ id: eventMember.id });
+        }
+      }
+
+      await tx.mutate.kalakritiAuditEntry.insert({
+        action: "removed",
+        actorUserId: ctx.userId,
+        createdAt: args.now,
+        domain: "volunteer_assignment",
+        editionId: membership.editionId,
+        id: args.auditEntryId,
+        metadata: { userId: membership.userId },
+        reason: null,
+        targetId: membership.id,
+        targetType: "membership",
       });
     }
   ),

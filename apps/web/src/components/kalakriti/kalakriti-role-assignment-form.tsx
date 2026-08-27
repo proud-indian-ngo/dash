@@ -264,6 +264,7 @@ export function KalakritiRoleAssignmentForm({
   editionId,
   initialUserId,
   isGlobalAdmin,
+  lockedVolunteerName,
   onAssigned,
   onCancel,
   users,
@@ -275,6 +276,7 @@ export function KalakritiRoleAssignmentForm({
   editionId: string;
   initialUserId?: string | null;
   isGlobalAdmin: boolean;
+  lockedVolunteerName?: string | null;
   onAssigned?: () => void;
   onCancel?: () => void;
   users: readonly PickerUser[];
@@ -370,15 +372,26 @@ export function KalakritiRoleAssignmentForm({
 
   return (
     <FormLayout className="grid gap-4 md:grid-cols-2" form={form}>
-      <CustomField<string[]> isRequired label="Volunteer" name="userIds">
-        {(field) => (
-          <SingleVolunteerPicker
-            onValueChange={field.handleChange}
-            users={users}
-            value={field.state.value ?? []}
-          />
-        )}
-      </CustomField>
+      {initialUserId ? (
+        <div className="grid gap-1">
+          <p className="font-medium text-sm">Volunteer</p>
+          <p className="text-sm">
+            {lockedVolunteerName ??
+              users.find((candidate) => candidate.id === initialUserId)?.name ??
+              "Selected volunteer"}
+          </p>
+        </div>
+      ) : (
+        <CustomField<string[]> isRequired label="Volunteer" name="userIds">
+          {(field) => (
+            <SingleVolunteerPicker
+              onValueChange={field.handleChange}
+              users={users}
+              value={field.state.value ?? []}
+            />
+          )}
+        </CustomField>
+      )}
       <ResponsibilitySelectField
         groups={responsibilityGroups}
         name="responsibility"

@@ -9,13 +9,27 @@ Better Auth (`packages/auth/src/index.ts`):
 
 - **Drizzle adapter** — sessions, accounts, verification tokens in Postgres. Better Auth 1.7 keys each account by `(issuer, accountId)`; credential rows use `local:credential`.
 - **Admin plugin** — roles (`admin`, `volunteer`), ban/unban, impersonate
-- **Email/password** — sign-up **disabled** by design (admin creates accounts); email verification required
+- **Email/password** — public volunteer signup at `/register` (optional `?eventId=` and `?group=` query params); email verification required
 - **Rate limiting** — sign-in 10/min, sign-up 5/min
 - **Session** — 7-day expiry, daily refresh
 
+## Volunteer signup
+
+`/_auth/register` creates the user immediately through Better Auth `signUp.email`, then redirects to `/login` for email verification.
+
+Optional independent search params:
+
+- `?group=campus-west` — persisted on `user.registrationGroup` (URL query stays `group`)
+- `?eventId=<uuid>` — after signup, the after-signup hook enrolls the new user on that event when it exists, is not cancelled, and has not started. Enroll failures are logged and never block account creation.
+- both together, or neither (`/register` unchanged)
+
+Invalid values are dropped; the page still loads. Group-only links never touch events. Event enroll writes `team_event_member` directly (no team membership required). A Kalakriti-linked event also creates or reactivates an **unassigned** volunteer Edition membership. Signup never fails because enroll skipped or conflicted; enroll runs fire-and-forget after a persisted user row is confirmed.
+
+Unauthenticated signup stays outside the central audit ledger. Do not put group text in `audit_log`.
+
 ## Session Lifecycle
 
-1. Admin creates user → verification email sent → user sets password.
+1. Volunteer signs up at `/register` (or an admin creates the account) → verification email sent → user verifies and signs in.
 2. User signs in → session cookie set (cross-subdomain via `COOKIE_DOMAIN` if configured).
 3. `_app` layout `beforeLoad` → `getAuth()` (combined session + permissions server fn) via `getCachedAuth()` — cached client-side 5 min with promise dedup. Prevents redundant calls from viewport preloading.
 4. Server functions + API routes call `requireSession(request)` to validate.
