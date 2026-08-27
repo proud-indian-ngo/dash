@@ -19,6 +19,7 @@ describe("Kalakriti Guardian roster privacy", () => {
 
     expect(ast).toContain('"value":"edition-1"');
     expect(ast).toContain('"value":"guardian"');
+    expect(ast).toContain('"table":"user"');
     expect(ast).not.toContain('"value":"admin-1"');
   });
 

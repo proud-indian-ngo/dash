@@ -3,6 +3,7 @@ import {
   createKalakritiExternalUser,
   deleteKalakritiExternalUser,
   setKalakritiExternalUserBlocked,
+  updateKalakritiExternalUserContact,
 } from "@pi-dash/auth/kalakriti-external-user";
 import { db } from "@pi-dash/db";
 import { resolvePermissions } from "@pi-dash/db/queries/resolve-permissions";
@@ -25,7 +26,9 @@ import {
   enqueueGuardianReactivationNotification,
 } from "@/lib/kalakriti-guardian-notifications";
 import {
+  assertAssignedCentralEmailUnchanged,
   decideGuardianIdentity,
+  guardianContactChangedFields,
   shouldBlockExternalIdentity,
 } from "@/lib/kalakriti-guardian-policy";
 import { authMiddleware } from "@/middleware/auth";
@@ -50,6 +53,13 @@ const guardianInviteSchema = z.object({
 
 const archiveGuardianSchema = z.object({
   membershipId: z.uuid(),
+});
+
+const guardianUpdateSchema = z.object({
+  email: z.email("Enter a valid email address"),
+  membershipId: z.uuid(),
+  name: z.string().trim().min(2, "Name must be at least 2 characters"),
+  phone: z.string().trim().max(32).optional(),
 });
 
 interface AuthenticatedContext {
@@ -590,4 +600,121 @@ export const archiveKalakritiGuardian = createServerFn({ method: "POST" })
       }
     });
     return { membershipId: data.membershipId, status: "archived" as const };
+  });
+
+export const updateKalakritiGuardian = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(guardianUpdateSchema)
+  .handler(async ({ context, data }) => {
+    const membership = await db
+      .select({
+        editionId: kalakritiEditionMembership.editionId,
+        kind: kalakritiEditionMembership.kind,
+        snapshotEmail: kalakritiEditionMembership.snapshotEmail,
+        snapshotName: kalakritiEditionMembership.snapshotName,
+        snapshotPhone: kalakritiEditionMembership.snapshotPhone,
+        state: kalakritiEditionMembership.state,
+        userId: kalakritiEditionMembership.userId,
+      })
+      .from(kalakritiEditionMembership)
+      .where(eq(kalakritiEditionMembership.id, data.membershipId))
+      .limit(1)
+      .then((rows) => rows[0]);
+    if (membership?.kind !== "guardian") {
+      throw new Error("Guardian membership not found");
+    }
+    const authed = await requireGuardianAdmin(context, membership.editionId);
+    if (membership.state !== "active") {
+      throw new Error("Archived Guardian details cannot be edited");
+    }
+
+    const normalizedEmail = data.email.trim().toLowerCase();
+    const normalizedName = data.name.trim();
+    const normalizedPhone = data.phone?.trim() || null;
+    const membershipUserId = membership.userId;
+
+    await db.transaction(async (tx) => {
+      const marker = membershipUserId
+        ? await tx
+            .select({ userId: kalakritiExternalIdentity.userId })
+            .from(kalakritiExternalIdentity)
+            .where(eq(kalakritiExternalIdentity.userId, membershipUserId))
+            .for("update")
+            .then((rows) => rows[0])
+        : undefined;
+      const current = await tx
+        .select({
+          kind: kalakritiEditionMembership.kind,
+          snapshotEmail: kalakritiEditionMembership.snapshotEmail,
+          snapshotName: kalakritiEditionMembership.snapshotName,
+          snapshotPhone: kalakritiEditionMembership.snapshotPhone,
+          state: kalakritiEditionMembership.state,
+          userId: kalakritiEditionMembership.userId,
+        })
+        .from(kalakritiEditionMembership)
+        .where(eq(kalakritiEditionMembership.id, data.membershipId))
+        .for("update")
+        .then((rows) => rows[0]);
+      if (current?.kind !== "guardian" || current.state !== "active") {
+        throw new Error("Archived Guardian details cannot be edited");
+      }
+
+      const isExternal = Boolean(marker);
+      const changedFields = guardianContactChangedFields({
+        current: {
+          email: current.snapshotEmail,
+          name: current.snapshotName,
+          phone: current.snapshotPhone,
+        },
+        next: {
+          email: normalizedEmail,
+          name: normalizedName,
+          phone: normalizedPhone,
+        },
+      });
+      assertAssignedCentralEmailUnchanged({
+        emailChanged: changedFields.includes("email"),
+        isExternal,
+      });
+      if (changedFields.length === 0) {
+        return;
+      }
+
+      if (isExternal && membershipUserId) {
+        await updateKalakritiExternalUserContact(tx, {
+          email: normalizedEmail,
+          name: normalizedName,
+          phone: normalizedPhone,
+          userId: membershipUserId,
+        });
+      }
+
+      const now = new Date();
+      await tx
+        .update(kalakritiEditionMembership)
+        .set({
+          snapshotEmail: normalizedEmail,
+          snapshotName: normalizedName,
+          snapshotPhone: normalizedPhone,
+          updatedAt: now,
+        })
+        .where(eq(kalakritiEditionMembership.id, data.membershipId));
+      await tx.insert(kalakritiAuditEntry).values({
+        action: "guardian.updated",
+        actorUserId: authed.session.user.id,
+        createdAt: now,
+        domain: "guardian_access",
+        editionId: membership.editionId,
+        id: uuidv7(),
+        metadata: {
+          changedFields,
+          kind: isExternal ? "external" : "assigned_central",
+          membershipId: data.membershipId,
+        },
+        targetId: data.membershipId,
+        targetType: "edition_membership",
+      });
+    });
+
+    return { membershipId: data.membershipId, status: "updated" as const };
   });

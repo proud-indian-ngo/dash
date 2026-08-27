@@ -22,17 +22,24 @@ function DetailRow({ label, value }: { label: string; value: string | null }) {
 export function GuardianDetailSheet({
   guardian,
   onArchive,
+  onEdit,
   onOpenChange,
   open,
 }: {
   guardian: GuardianRosterItem | null;
   onArchive: (guardian: GuardianRosterItem) => void;
+  onEdit: (guardian: GuardianRosterItem) => void;
   onOpenChange: (open: boolean) => void;
   open: boolean;
 }) {
   const handleArchive = useEventCallback(() => {
     if (guardian) {
       onArchive(guardian);
+    }
+  });
+  const handleEdit = useEventCallback(() => {
+    if (guardian) {
+      onEdit(guardian);
     }
   });
 
@@ -71,9 +78,19 @@ export function GuardianDetailSheet({
           </div>
 
           {guardian.state === "active" ? (
-            <Button className="w-fit" onClick={handleArchive} variant="outline">
-              Archive access
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={handleEdit} type="button">
+                Edit details
+              </Button>
+              <Button
+                className="w-fit"
+                onClick={handleArchive}
+                type="button"
+                variant="outline"
+              >
+                Archive access
+              </Button>
+            </div>
           ) : null}
         </div>
       </SheetContent>

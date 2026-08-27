@@ -6,12 +6,15 @@ import {
 } from "@pi-dash/db/schema/kalakriti";
 import { eq } from "drizzle-orm";
 
-const EMAIL = "kalakriti-invite-gate@pi-dash.test";
+const EMAILS = [
+  "kalakriti-invite-gate@pi-dash.test",
+  "kalakriti-invite-gate-edited@pi-dash.test",
+] as const;
 
-async function cleanup() {
+async function cleanupEmail(email: string) {
   const invited = await db.query.user.findFirst({
     columns: { id: true },
-    where: eq(user.email, EMAIL),
+    where: eq(user.email, email),
   });
   if (!invited) {
     return;
@@ -22,27 +25,41 @@ async function cleanup() {
   await db.delete(user).where(eq(user.id, invited.id));
 }
 
+async function cleanup() {
+  await Promise.all(EMAILS.map((email) => cleanupEmail(email)));
+}
+
 async function state() {
-  const invited = await db.query.user.findFirst({
-    columns: { banned: true, id: true, role: true },
-    where: eq(user.email, EMAIL),
-  });
-  if (!invited) {
+  const found = await Promise.all(
+    EMAILS.map(async (candidateEmail) => {
+      const invited = await db.query.user.findFirst({
+        columns: { banned: true, id: true, role: true },
+        where: eq(user.email, candidateEmail),
+      });
+      return { email: candidateEmail, invited };
+    })
+  );
+  const match = found.find((entry) => entry.invited);
+  if (!match?.invited) {
     return null;
   }
+  const { email, invited } = match;
   const [identity, membership] = await Promise.all([
     db.query.kalakritiExternalIdentity.findFirst({
       columns: { userId: true },
       where: eq(kalakritiExternalIdentity.userId, invited.id),
     }),
     db.query.kalakritiEditionMembership.findFirst({
-      columns: { state: true },
+      columns: { snapshotEmail: true, snapshotName: true, state: true },
       where: eq(kalakritiEditionMembership.userId, invited.id),
     }),
   ]);
   return {
     banned: invited.banned,
+    email,
     externalIdentity: Boolean(identity),
+    membershipEmail: membership?.snapshotEmail ?? null,
+    membershipName: membership?.snapshotName ?? null,
     membershipState: membership?.state ?? null,
     role: invited.role,
   };
