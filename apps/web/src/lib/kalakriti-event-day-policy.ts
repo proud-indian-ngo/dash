@@ -10,6 +10,15 @@ type KalakritiEventDayAccessInput = Pick<
   "isGlobalAdmin" | "membership"
 > & { edition?: { lifecycle: string } };
 
+const STATION_RESPONSIBILITIES = [
+  "food_lead",
+  "food_member",
+  "hospitality_lead",
+  "hospitality_member",
+  "competition_volunteer",
+  "competition_coordinator",
+] as const satisfies readonly KalakritiResponsibility[];
+
 function hasEditionWideTransportAccess(
   access: KalakritiEventDayAccessInput
 ): boolean {
@@ -37,6 +46,18 @@ function hasAnyCenterTransportAssignment(
   );
 }
 
+function hasAnyStationAssignment(
+  access: KalakritiEventDayAccessInput
+): boolean {
+  return (
+    access.membership?.assignments.some((assignment) =>
+      (STATION_RESPONSIBILITIES as readonly KalakritiResponsibility[]).includes(
+        assignment.responsibility
+      )
+    ) === true
+  );
+}
+
 export function canAccessKalakritiEventDay(
   access: KalakritiEventDayAccessInput | null | undefined
 ): boolean {
@@ -49,6 +70,7 @@ export function canAccessKalakritiEventDay(
   }
   return (
     hasEditionWideTransportAccess(access) ||
-    hasAnyCenterTransportAssignment(access)
+    hasAnyCenterTransportAssignment(access) ||
+    hasAnyStationAssignment(access)
   );
 }
