@@ -1,7 +1,11 @@
 import { describe, expect, it, mock } from "bun:test";
-
 import z from "zod";
 
+vi.mock("uuidv7", () => ({
+  uuidv7: mock(),
+}));
+
+import { uuidv7 } from "uuidv7";
 import { eventInterestMutators } from "../event-interest";
 
 const createSchema = z.object({
@@ -164,7 +168,14 @@ describe("Kalakriti event interest", () => {
   it("allows an interest manager to approve a Kalakriti request", async () => {
     const insertMember = mock();
     const insertMembership = mock();
+    const insertCredential = mock();
+    const updateEdition = mock();
+    const updateMembership = mock();
     const updateInterest = mock();
+    uuidv7Mock
+      .mockReturnValueOnce("membership-1")
+      .mockReturnValueOnce("event-member-1")
+      .mockReturnValueOnce("credential-1");
     const results = [
       {
         eventId: "event-1",
@@ -190,14 +201,31 @@ describe("Kalakriti event interest", () => {
       },
       undefined,
       undefined,
+      {
+        ageCutoffDate: "2027-06-30",
+        eventDate: "2027-11-21",
+        id: "edition-1",
+        lifecycle: "draft",
+        nextVolunteerSequence: 1,
+        teamEventId: "event-1",
+        timezone: "Asia/Kolkata",
+        year: 2027,
+      },
+      {
+        editionId: "edition-1",
+        humanId: null,
+        id: "membership-1",
+      },
     ];
     const tx = {
       location: "client",
       mutate: {
         eventInterest: { update: updateInterest },
+        kalakritiCredential: { insert: insertCredential, update: mock() },
+        kalakritiEdition: { update: updateEdition },
         kalakritiEditionMembership: {
           insert: insertMembership,
-          update: mock(),
+          update: updateMembership,
         },
         teamEventMember: { insert: insertMember },
       },

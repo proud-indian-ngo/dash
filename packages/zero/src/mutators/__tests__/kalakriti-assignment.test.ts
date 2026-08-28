@@ -1,5 +1,4 @@
 import { describe, expect, it, mock } from "bun:test";
-
 import { kalakritiAssignmentMutators } from "../kalakriti-assignment";
 
 const adminContext = {
@@ -26,9 +25,11 @@ function createMutationSpies() {
     deleteEventMember: mock(),
     insertAssignment: mock(),
     insertAudit: mock(),
+    insertCredential: mock(),
     insertEventMember: mock(),
     insertMembership: mock(),
     updateAssignment: mock(),
+    updateEdition: mock(),
     updateMembership: mock(),
   };
 }
@@ -66,6 +67,11 @@ function createTx(
           update: spies.updateAssignment,
         },
         kalakritiAuditEntry: { insert: spies.insertAudit },
+        kalakritiCredential: {
+          insert: spies.insertCredential,
+          update: mock(),
+        },
+        kalakritiEdition: { update: spies.updateEdition },
         kalakritiEditionMembership: {
           insert: spies.insertMembership,
           update: spies.updateMembership,
@@ -169,7 +175,7 @@ describe("kalakritiAssignment.assignVolunteer", () => {
         userId: "volunteer-1",
       })
     );
-    expect(spies.insertAudit).toHaveBeenCalledTimes(1);
+    expect(spies.insertAudit).toHaveBeenCalledOnce();
   });
 
   it("does not duplicate the linked event member for another role", async () => {
@@ -209,7 +215,7 @@ describe("kalakritiAssignment.assignVolunteer", () => {
     >[0]);
 
     expect(spies.insertMembership).not.toHaveBeenCalled();
-    expect(spies.insertAssignment).toHaveBeenCalledTimes(1);
+    expect(spies.insertAssignment).toHaveBeenCalledOnce();
     expect(spies.insertEventMember).not.toHaveBeenCalled();
   });
 
@@ -307,8 +313,8 @@ describe("kalakritiAssignment.assignVolunteer", () => {
       typeof kalakritiAssignmentMutators.assignVolunteer.fn
     >[0]);
 
-    expect(spies.insertMembership).toHaveBeenCalledTimes(1);
-    expect(spies.insertAssignment).toHaveBeenCalledTimes(1);
+    expect(spies.insertMembership).toHaveBeenCalledOnce();
+    expect(spies.insertAssignment).toHaveBeenCalledOnce();
   });
 
   it("assigns an operational lead at Edition scope", async () => {
@@ -475,8 +481,8 @@ describe("kalakritiAssignment.assignLiaison", () => {
         responsibility: "liaison_volunteer",
       })
     );
-    expect(spies.insertMembership).toHaveBeenCalledTimes(1);
-    expect(spies.insertEventMember).toHaveBeenCalledTimes(1);
+    expect(spies.insertMembership).toHaveBeenCalledOnce();
+    expect(spies.insertEventMember).toHaveBeenCalledOnce();
     expect(lockForUpdate).toHaveBeenCalledWith("update");
   });
 
@@ -802,7 +808,7 @@ describe("kalakritiAssignment.remove", () => {
 
 describe("kalakritiAssignment.addVolunteers", () => {
   it("creates unassigned membership and a linked event member", async () => {
-    const { tx, spies } = createTx([
+    const { lockedCenters, tx, spies } = createTx([
       { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
       {
         email: "volunteer@example.com",
@@ -815,7 +821,20 @@ describe("kalakritiAssignment.addVolunteers", () => {
       undefined,
       undefined,
       undefined,
+      { editionId: "edition-1", humanId: null, id: "membership-new" },
     ]);
+    lockedCenters[0] = [
+      {
+        ageCutoffDate: "2027-06-30",
+        eventDate: "2027-11-21",
+        id: "edition-1",
+        lifecycle: "draft",
+        nextVolunteerSequence: 1,
+        teamEventId: "event-1",
+        timezone: "Asia/Kolkata",
+        year: 2027,
+      },
+    ];
 
     await kalakritiAssignmentMutators.addVolunteers.fn({
       args: {
@@ -824,6 +843,8 @@ describe("kalakritiAssignment.addVolunteers", () => {
         now: 1_700_000_000_000,
         volunteers: [
           {
+            credentialId: "credential-new",
+            credentialTokenHash: "a".repeat(64),
             membershipId: "membership-new",
             teamEventMemberId: "event-member-new",
             userId: "volunteer-1",
@@ -848,6 +869,13 @@ describe("kalakritiAssignment.addVolunteers", () => {
       expect.objectContaining({
         eventId: "event-1",
         userId: "volunteer-1",
+      })
+    );
+    expect(spies.insertCredential).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "credential-new",
+        membershipId: "membership-new",
+        studentId: null,
       })
     );
     expect(spies.insertAssignment).not.toHaveBeenCalled();
@@ -883,6 +911,8 @@ describe("kalakritiAssignment.addVolunteers", () => {
           now: 1_700_000_000_000,
           volunteers: [
             {
+              credentialId: "credential-new",
+              credentialTokenHash: "a".repeat(64),
               membershipId: "membership-new",
               teamEventMemberId: "event-member-new",
               userId: "volunteer-1",
@@ -913,6 +943,8 @@ describe("kalakritiAssignment.addVolunteers", () => {
         now: 1_700_000_000_000,
         volunteers: [
           {
+            credentialId: "credential-new",
+            credentialTokenHash: "a".repeat(64),
             membershipId: "membership-new",
             teamEventMemberId: "event-member-new",
             userId: "volunteer-1",

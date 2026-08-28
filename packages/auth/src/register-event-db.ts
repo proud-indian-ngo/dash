@@ -1,13 +1,15 @@
+import { createHash, randomBytes } from "node:crypto";
 import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
 import {
+  kalakritiCredential,
   kalakritiEdition,
   kalakritiEditionMembership,
 } from "@pi-dash/db/schema/kalakriti";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import { enqueue } from "@pi-dash/jobs/enqueue";
-import { and, eq } from "drizzle-orm";
-
+import { and, eq, isNull } from "drizzle-orm";
+import { uuidv7 } from "uuidv7";
 import type { RegisterEventEnrollDeps } from "./register-event";
 
 function toEpoch(value: Date | number | null | undefined): number | null {
@@ -15,6 +17,176 @@ function toEpoch(value: Date | number | null | undefined): number | null {
     return null;
   }
   return value instanceof Date ? value.getTime() : value;
+}
+
+function createCredentialTokenHash(): string {
+  return createHash("sha256").update(randomBytes(32)).digest("hex");
+}
+
+function formatVolunteerHumanId(year: number, sequence: number): string {
+  return `KALV-${year}-${String(sequence).padStart(4, "0")}`;
+}
+
+async function issueVolunteerCredentialForMembership(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  input: {
+    actorUserId: string;
+    editionId: string;
+    membershipId: string;
+    now: number;
+  }
+): Promise<void> {
+  const [edition] = await tx
+    .select({
+      lifecycle: kalakritiEdition.lifecycle,
+      nextVolunteerSequence: kalakritiEdition.nextVolunteerSequence,
+      year: kalakritiEdition.year,
+    })
+    .from(kalakritiEdition)
+    .where(eq(kalakritiEdition.id, input.editionId))
+    .for("update");
+  if (!edition || edition.lifecycle === "archived") {
+    return;
+  }
+
+  const [membership] = await tx
+    .select({
+      humanId: kalakritiEditionMembership.humanId,
+      kind: kalakritiEditionMembership.kind,
+    })
+    .from(kalakritiEditionMembership)
+    .where(eq(kalakritiEditionMembership.id, input.membershipId))
+    .limit(1);
+  if (membership?.kind !== "volunteer") {
+    return;
+  }
+
+  const [activeCredential] = await tx
+    .select({ id: kalakritiCredential.id })
+    .from(kalakritiCredential)
+    .where(
+      and(
+        eq(kalakritiCredential.membershipId, input.membershipId),
+        isNull(kalakritiCredential.revokedAt)
+      )
+    )
+    .limit(1);
+  if (activeCredential) {
+    return;
+  }
+
+  const { humanId: existingHumanId } = membership;
+  let humanId = existingHumanId;
+  if (!humanId) {
+    humanId = formatVolunteerHumanId(
+      edition.year,
+      edition.nextVolunteerSequence
+    );
+    await tx
+      .update(kalakritiEditionMembership)
+      .set({ humanId, updatedAt: new Date(input.now) })
+      .where(eq(kalakritiEditionMembership.id, input.membershipId));
+    await tx
+      .update(kalakritiEdition)
+      .set({
+        nextVolunteerSequence: edition.nextVolunteerSequence + 1,
+      })
+      .where(eq(kalakritiEdition.id, input.editionId));
+  }
+
+  await tx.insert(kalakritiCredential).values({
+    createdAt: new Date(input.now),
+    editionId: input.editionId,
+    humanId,
+    id: uuidv7(),
+    issuedAt: new Date(input.now),
+    issuedBy: input.actorUserId,
+    membershipId: input.membershipId,
+    revokedAt: null,
+    revokedBy: null,
+    studentId: null,
+    tokenHash: createCredentialTokenHash(),
+  });
+}
+
+async function persistVolunteerMembershipEnroll(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  volunteer: NonNullable<
+    Parameters<
+      RegisterEventEnrollDeps["persistEnrollWrites"]
+    >[0]["volunteerMembership"]
+  >
+): Promise<void> {
+  const [existing] = await tx
+    .select({
+      id: kalakritiEditionMembership.id,
+      kind: kalakritiEditionMembership.kind,
+      state: kalakritiEditionMembership.state,
+    })
+    .from(kalakritiEditionMembership)
+    .where(
+      and(
+        eq(kalakritiEditionMembership.editionId, volunteer.editionId),
+        eq(kalakritiEditionMembership.userId, volunteer.userId)
+      )
+    )
+    .limit(1);
+  if (existing?.kind === "guardian") {
+    return;
+  }
+  let membershipId = existing?.id;
+  let shouldIssueCredential = false;
+  if (!existing) {
+    membershipId = volunteer.id;
+    await tx.insert(kalakritiEditionMembership).values({
+      archivedAt: null,
+      createdAt: new Date(volunteer.now),
+      createdBy: volunteer.createdBy,
+      editionId: volunteer.editionId,
+      humanId: null,
+      id: volunteer.id,
+      kind: "volunteer",
+      snapshotEmail: volunteer.snapshotEmail,
+      snapshotName: volunteer.snapshotName,
+      snapshotPhone: volunteer.snapshotPhone,
+      state: "active",
+      updatedAt: new Date(volunteer.now),
+      userId: volunteer.userId,
+    });
+    shouldIssueCredential = true;
+  } else if (existing.state === "archived") {
+    membershipId = existing.id;
+    await tx
+      .update(kalakritiEditionMembership)
+      .set({
+        archivedAt: null,
+        snapshotEmail: volunteer.snapshotEmail,
+        snapshotName: volunteer.snapshotName,
+        snapshotPhone: volunteer.snapshotPhone,
+        state: "active",
+        updatedAt: new Date(volunteer.now),
+      })
+      .where(eq(kalakritiEditionMembership.id, existing.id));
+    const [activeCredential] = await tx
+      .select({ id: kalakritiCredential.id })
+      .from(kalakritiCredential)
+      .where(
+        and(
+          eq(kalakritiCredential.membershipId, existing.id),
+          isNull(kalakritiCredential.revokedAt)
+        )
+      )
+      .limit(1);
+    shouldIssueCredential = !activeCredential;
+  }
+  if (shouldIssueCredential && membershipId) {
+    await issueVolunteerCredentialForMembership(tx, {
+      actorUserId: volunteer.createdBy,
+      editionId: volunteer.editionId,
+      membershipId,
+      now: volunteer.now,
+    });
+  }
 }
 
 export function createDbRegisterEventEnrollDeps(): RegisterEventEnrollDeps {
@@ -95,52 +267,7 @@ export function createDbRegisterEventEnrollDeps(): RegisterEventEnrollDeps {
           inserted.length > 0 ? ("inserted" as const) : ("conflict" as const);
 
         if (row.volunteerMembership) {
-          const volunteer = row.volunteerMembership;
-          const [existing] = await tx
-            .select({
-              id: kalakritiEditionMembership.id,
-              kind: kalakritiEditionMembership.kind,
-              state: kalakritiEditionMembership.state,
-            })
-            .from(kalakritiEditionMembership)
-            .where(
-              and(
-                eq(kalakritiEditionMembership.editionId, volunteer.editionId),
-                eq(kalakritiEditionMembership.userId, volunteer.userId)
-              )
-            )
-            .limit(1);
-          if (existing?.kind === "guardian") {
-            return memberResult;
-          }
-          if (!existing) {
-            await tx.insert(kalakritiEditionMembership).values({
-              archivedAt: null,
-              createdAt: new Date(volunteer.now),
-              createdBy: volunteer.createdBy,
-              editionId: volunteer.editionId,
-              id: volunteer.id,
-              kind: "volunteer",
-              snapshotEmail: volunteer.snapshotEmail,
-              snapshotName: volunteer.snapshotName,
-              snapshotPhone: volunteer.snapshotPhone,
-              state: "active",
-              updatedAt: new Date(volunteer.now),
-              userId: volunteer.userId,
-            });
-          } else if (existing.state === "archived") {
-            await tx
-              .update(kalakritiEditionMembership)
-              .set({
-                archivedAt: null,
-                snapshotEmail: volunteer.snapshotEmail,
-                snapshotName: volunteer.snapshotName,
-                snapshotPhone: volunteer.snapshotPhone,
-                state: "active",
-                updatedAt: new Date(volunteer.now),
-              })
-              .where(eq(kalakritiEditionMembership.id, existing.id));
-          }
+          await persistVolunteerMembershipEnroll(tx, row.volunteerMembership);
         }
 
         return memberResult;

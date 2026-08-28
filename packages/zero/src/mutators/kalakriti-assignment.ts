@@ -36,6 +36,11 @@ interface AssignmentTx extends LockableKalakritiTx {
       update: ZeroMutationFn;
     };
     kalakritiAuditEntry: { insert: ZeroMutationFn };
+    kalakritiCredential: {
+      insert: ZeroMutationFn;
+      update: ZeroMutationFn;
+    };
+    kalakritiEdition: { update: ZeroMutationFn };
     kalakritiEditionMembership: {
       insert: ZeroMutationFn;
       update: ZeroMutationFn;
@@ -150,6 +155,8 @@ export const kalakritiAddVolunteersSchema = z.object({
   volunteers: z
     .array(
       z.object({
+        credentialId: z.string(),
+        credentialTokenHash: z.string().regex(/^[0-9a-f]{64}$/),
         membershipId: z.string(),
         teamEventMemberId: z.string(),
         userId: z.string(),
@@ -483,6 +490,8 @@ export const kalakritiAssignmentMutators = {
         }
         const result = await ensureUnassignedVolunteerEnrollment(tx, {
           actorUserId: ctx.userId,
+          credentialId: volunteerArgs.credentialId,
+          credentialTokenHash: volunteerArgs.credentialTokenHash,
           edition: {
             id: args.editionId,
             lifecycle: edition.lifecycle,

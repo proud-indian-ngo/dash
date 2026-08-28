@@ -1,4 +1,5 @@
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { createKalakritiCredentialTokenHash } from "@pi-dash/shared/kalakriti-credential";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
@@ -139,16 +140,21 @@ function KalakritiAddVolunteersForm({
     defaultValues: { userIds: [] as string[] },
     onSubmit: async ({ value }) => {
       const auditEntryId = uuidv7();
+      const volunteers = await Promise.all(
+        value.userIds.map(async (userId) => ({
+          credentialId: uuidv7(),
+          credentialTokenHash: await createKalakritiCredentialTokenHash(),
+          membershipId: uuidv7(),
+          teamEventMemberId: uuidv7(),
+          userId,
+        }))
+      );
       const result = await zero.mutate(
         mutators.kalakritiAssignment.addVolunteers({
           auditEntryId,
           editionId,
           now: Date.now(),
-          volunteers: value.userIds.map((userId) => ({
-            membershipId: uuidv7(),
-            teamEventMemberId: uuidv7(),
-            userId,
-          })),
+          volunteers,
         })
       ).server;
       handleMutationResult(result, {
