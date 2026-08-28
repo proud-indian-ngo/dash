@@ -27,6 +27,7 @@ describe("kalakritiCenter queries", () => {
     expect(ast).toContain('"value":"liaison"');
     expect(ast).toContain('"value":"overall_events_lead"');
     expect(ast).toContain('"value":"liaison_lead"');
+    expect(ast).toContain('"value":"center_liaison_lead"');
     expect(ast).toContain('"value":"competition_category_lead"');
     expect(ast).toContain('"value":"competition_coordinator"');
   });

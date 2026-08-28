@@ -2,6 +2,7 @@ import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
 import {
   kalakritiAssignment,
+  kalakritiCenter,
   kalakritiEdition,
   kalakritiEditionMembership,
 } from "@pi-dash/db/schema/kalakriti";
@@ -9,6 +10,8 @@ import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import { and, eq } from "drizzle-orm";
 
 const FIXTURE = {
+  centerId: "019f0000-0019-7000-8000-000000001973",
+  centerName: "Basavanagudi",
   editionId: "019f0000-0019-7000-8000-000000001971",
   eventId: "019f0000-0019-7000-8000-000000001972",
   year: 2093,
@@ -76,7 +79,16 @@ async function setup(email: string) {
     updatedAt: now,
     year: FIXTURE.year,
   });
-  return { year: FIXTURE.year };
+  await db.insert(kalakritiCenter).values({
+    createdAt: now,
+    createdBy: creatorId,
+    editionId: FIXTURE.editionId,
+    id: FIXTURE.centerId,
+    name: FIXTURE.centerName,
+    normalizedName: "basavanagudi",
+    updatedAt: now,
+  });
+  return { centerName: FIXTURE.centerName, year: FIXTURE.year };
 }
 
 async function state() {

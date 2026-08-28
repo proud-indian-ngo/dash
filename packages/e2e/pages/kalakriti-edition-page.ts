@@ -183,7 +183,11 @@ export class KalakritiEditionPage {
     ).toBeVisible();
   }
 
-  async assignRoleFromRow(volunteerName: string, responsibility: string) {
+  async assignRoleFromRow(
+    volunteerName: string,
+    responsibility: string,
+    scope?: { center?: string }
+  ) {
     await this.page
       .getByRole("button", { name: `Actions for ${volunteerName}` })
       .click();
@@ -193,6 +197,12 @@ export class KalakritiEditionPage {
     await this.page
       .getByRole("option", { exact: true, name: responsibility })
       .click();
+    if (scope?.center) {
+      await dialog.getByRole("combobox", { name: "Center" }).click();
+      await this.page
+        .getByRole("option", { exact: true, name: scope.center })
+        .click();
+    }
     await dialog
       .getByRole("button", { exact: true, name: "Assign role" })
       .click();

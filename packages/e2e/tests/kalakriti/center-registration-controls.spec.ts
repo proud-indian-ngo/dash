@@ -124,6 +124,12 @@ test("manages independent Center registration and scoped Liaison access", async 
       await volunteerContext.close();
     }
 
+    await centers.assignLiaison(
+      "Indiranagar",
+      "Test Volunteer",
+      "Liaison Lead"
+    );
+
     await page.getByRole("button", { name: "Lock all registrations" }).click();
     await page
       .getByRole("alertdialog", { name: "Lock all Center registrations?" })
