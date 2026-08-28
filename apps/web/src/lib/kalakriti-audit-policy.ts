@@ -144,6 +144,7 @@ const SAFE_AUDIT_METADATA_KEYS = new Set([
   "studentRegistrationEnabled",
   "subjectKind",
   "targetMembershipId",
+  "targetOperationId",
   "to",
   "toStatus",
   "type",

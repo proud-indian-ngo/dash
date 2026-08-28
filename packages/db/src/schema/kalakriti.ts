@@ -1107,6 +1107,7 @@ export const kalakritiEditionRelations = relations(
       fields: [kalakritiEdition.createdBy],
       references: [user.id],
     }),
+    credentials: many(kalakritiCredential),
     memberships: many(kalakritiEditionMembership),
     operations: many(kalakritiOperation),
     students: many(kalakritiStudent),

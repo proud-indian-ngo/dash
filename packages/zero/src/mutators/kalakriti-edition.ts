@@ -9,6 +9,10 @@ import z from "zod";
 
 import type { Context } from "../context";
 import {
+  getKalakritiGoLiveReadiness,
+  type KalakritiGoLiveReadinessSnapshot,
+} from "../kalakriti-go-live-readiness";
+import {
   getKalakritiRegistrationReadiness,
   type KalakritiRegistrationReadinessSnapshot,
 } from "../kalakriti-registration-readiness";
@@ -35,6 +39,7 @@ interface EditionTx extends LockableKalakritiTx {
   mutate: {
     kalakritiAgeCategory: { insert: ZeroMutationFn };
     kalakritiAuditEntry: { insert: ZeroMutationFn };
+    kalakritiCenter: { update: ZeroMutationFn };
     kalakritiCompetition: { insert: ZeroMutationFn };
     kalakritiCompetitionCategory: { insert: ZeroMutationFn };
     kalakritiCompetitionDivision: { insert: ZeroMutationFn };
@@ -107,7 +112,7 @@ export const kalakritiEditionTransitionSchema = z.object({
   confirmed: z.literal(true),
   editionId: z.string(),
   now: z.number(),
-  targetLifecycle: z.enum(["registration_open", "registration_locked"]),
+  targetLifecycle: z.enum(["registration_open", "registration_locked", "live"]),
 });
 
 const cloneMapSchema = z.array(
@@ -363,10 +368,10 @@ function pushRegistrationNotificationTasks(
   });
 }
 
-async function getReadinessSnapshot(
+async function getGoLiveReadinessSnapshot(
   tx: EditionTx,
   editionId: string
-): Promise<KalakritiRegistrationReadinessSnapshot> {
+): Promise<KalakritiGoLiveReadinessSnapshot> {
   const [
     edition,
     centers,
@@ -376,6 +381,11 @@ async function getReadinessSnapshot(
     divisions,
     sessions,
     venues,
+    assignments,
+    transportAssignments,
+    students,
+    volunteerMemberships,
+    credentials,
   ] = await Promise.all([
     tx.run(zql.kalakritiEdition.where("id", editionId).one()),
     tx.run(zql.kalakritiCenter.where("editionId", editionId)),
@@ -385,6 +395,16 @@ async function getReadinessSnapshot(
     tx.run(zql.kalakritiCompetitionDivision.where("editionId", editionId)),
     tx.run(zql.kalakritiCompetitionSession.where("editionId", editionId)),
     tx.run(zql.kalakritiVenue.where("editionId", editionId)),
+    tx.run(zql.kalakritiAssignment.where("editionId", editionId)),
+    tx.run(zql.kalakritiTransportAssignment.where("editionId", editionId)),
+    tx.run(zql.kalakritiStudent.where("editionId", editionId)),
+    tx.run(
+      zql.kalakritiEditionMembership
+        .where("editionId", editionId)
+        .where("kind", "volunteer")
+        .where("state", "active")
+    ),
+    tx.run(zql.kalakritiCredential.where("editionId", editionId)),
   ]);
   if (!edition) {
     throw new Error("Edition not found");
@@ -392,15 +412,22 @@ async function getReadinessSnapshot(
   return {
     ageCategories:
       ageCategories as KalakritiRegistrationReadinessSnapshot["ageCategories"],
-    centers: centers as KalakritiRegistrationReadinessSnapshot["centers"],
+    assignments: assignments as KalakritiGoLiveReadinessSnapshot["assignments"],
+    centers: centers as KalakritiGoLiveReadinessSnapshot["centers"],
     competitionCategories:
       competitionCategories as KalakritiRegistrationReadinessSnapshot["competitionCategories"],
     competitions:
       competitions as KalakritiRegistrationReadinessSnapshot["competitions"],
+    credentials: credentials as KalakritiGoLiveReadinessSnapshot["credentials"],
     divisions: divisions as KalakritiRegistrationReadinessSnapshot["divisions"],
-    edition: edition as KalakritiRegistrationReadinessSnapshot["edition"],
+    edition: edition as KalakritiGoLiveReadinessSnapshot["edition"],
     sessions: sessions as KalakritiRegistrationReadinessSnapshot["sessions"],
+    students: students as KalakritiGoLiveReadinessSnapshot["students"],
+    transportAssignments:
+      transportAssignments as KalakritiGoLiveReadinessSnapshot["transportAssignments"],
     venues: venues as KalakritiRegistrationReadinessSnapshot["venues"],
+    volunteerMemberships:
+      volunteerMemberships as KalakritiGoLiveReadinessSnapshot["volunteerMemberships"],
   };
 }
 
@@ -784,12 +811,14 @@ export const kalakritiEditionMutators = {
         (edition.lifecycle === "registration_open" &&
           args.targetLifecycle === "registration_locked") ||
         (edition.lifecycle === "registration_locked" &&
-          args.targetLifecycle === "registration_open");
+          args.targetLifecycle === "registration_open") ||
+        (edition.lifecycle === "registration_locked" &&
+          args.targetLifecycle === "live");
       if (!allowed) {
         throw new Error("Invalid Edition lifecycle transition");
       }
 
-      const readinessSnapshot = await getReadinessSnapshot(
+      const readinessSnapshot = await getGoLiveReadinessSnapshot(
         tx as EditionTx,
         args.editionId
       );
@@ -804,6 +833,27 @@ export const kalakritiEditionMutators = {
             `Edition is not ready: ${blockers.map((blocker) => blocker.code).join(", ")}`
           );
         }
+      }
+      if (args.targetLifecycle === "live") {
+        const blockers = getKalakritiGoLiveReadiness(readinessSnapshot);
+        if (blockers.length > 0) {
+          throw new Error(
+            `Edition is not ready to go live: ${blockers.map((blocker) => blocker.code).join(", ")}`
+          );
+        }
+        const activeCenters = readinessSnapshot.centers.filter(
+          (center) => center.retiredAt === null
+        );
+        await Promise.all(
+          activeCenters.map((center) =>
+            (tx as EditionTx).mutate.kalakritiCenter.update({
+              competitionEntryRegistrationEnabled: false,
+              id: center.id,
+              studentRegistrationEnabled: false,
+              updatedAt: args.now,
+            })
+          )
+        );
       }
 
       await (tx as EditionTx).mutate.kalakritiEdition.update({

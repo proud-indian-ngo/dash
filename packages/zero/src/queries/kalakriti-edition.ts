@@ -68,7 +68,14 @@ function withReadinessSnapshot(q: typeof zql.kalakritiEdition) {
     .related("competitions", (competition) => competition.related("divisions"))
     .related("competitionDivisions")
     .related("competitionSessions")
-    .related("venues");
+    .related("venues")
+    .related("assignments")
+    .related("transportAssignments")
+    .related("students")
+    .related("memberships", (membership) =>
+      membership.where("kind", "volunteer").where("state", "active")
+    )
+    .related("credentials");
 }
 
 function withCloneSource(q: typeof zql.kalakritiEdition) {

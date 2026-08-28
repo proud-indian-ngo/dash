@@ -185,6 +185,11 @@ describe("Kalakriti Edition query privacy", () => {
 
     expect(ast).toContain('"name":"id"');
     expect(ast).toContain('"value":"edition-2028"');
+    if (queryDefinition === kalakritiEditionQueries.readiness) {
+      expect(ast).toContain('"table":"kalakritiEditionMembership"');
+      expect(ast).toContain('"table":"kalakritiAssignment"');
+      return;
+    }
     expect(ast).not.toContain('"table":"kalakritiEditionMembership"');
     expect(ast).not.toContain('"table":"kalakritiAssignment"');
   });
