@@ -97,6 +97,7 @@ describe("Kalakriti Registration Release surface", () => {
       "kalakritiCompetition.competitions",
       "kalakritiCompetition.sessions",
       "kalakritiCompetition.venues",
+      "kalakritiCredential.visibleForAdmin",
       "kalakritiEdition.accessible",
       "kalakritiEdition.byTeamEventId",
       "kalakritiEdition.byYear",
