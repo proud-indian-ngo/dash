@@ -442,6 +442,19 @@ export function formatKalakritiStudentHumanId(
   return `KAL-${year}-${String(sequence).padStart(4, "0")}`;
 }
 
+export function formatKalakritiVolunteerHumanId(
+  year: number,
+  sequence: number
+): string {
+  if (!(Number.isInteger(year) && year >= 2000 && year <= 2200)) {
+    throw new Error("Edition year is invalid");
+  }
+  if (!(Number.isInteger(sequence) && sequence > 0)) {
+    throw new Error("Volunteer sequence must be positive");
+  }
+  return `KALV-${year}-${String(sequence).padStart(4, "0")}`;
+}
+
 export function requireKalakritiAgeCategoryOverrideReason(
   reason: string
 ): string {

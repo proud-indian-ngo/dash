@@ -519,6 +519,13 @@
       "when": 1787923541175,
       "tag": "0073_puzzling_logan",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1787947926991,
+      "tag": "0074_tidy_malcolm_colcord",
+      "breakpoints": true
     }
   ]
 }

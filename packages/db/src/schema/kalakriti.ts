@@ -80,6 +80,9 @@ export const kalakritiEdition = pgTable(
       .notNull(),
     name: text("name").notNull(),
     nextStudentSequence: integer("next_student_sequence").default(1).notNull(),
+    nextVolunteerSequence: integer("next_volunteer_sequence")
+      .default(1)
+      .notNull(),
     plannedRegistrationCloseAt: timestamp("planned_registration_close_at", {
       withTimezone: true,
     }).notNull(),
@@ -114,6 +117,10 @@ export const kalakritiEdition = pgTable(
       "kalakriti_edition_nextStudentSequence_chk",
       sql`${table.nextStudentSequence} > 0`
     ),
+    check(
+      "kalakriti_edition_nextVolunteerSequence_chk",
+      sql`${table.nextVolunteerSequence} > 0`
+    ),
   ]
 );
 
@@ -141,6 +148,7 @@ export const kalakritiEditionMembership = pgTable(
     editionId: uuid("edition_id")
       .notNull()
       .references(() => kalakritiEdition.id, { onDelete: "cascade" }),
+    humanId: text("human_id"),
     id: uuid("id").primaryKey(),
     kind: kalakritiMembershipKindEnum("kind").notNull(),
     snapshotEmail: text("snapshot_email"),
@@ -166,6 +174,9 @@ export const kalakritiEditionMembership = pgTable(
       table.editionId,
       table.id
     ),
+    uniqueIndex("kalakriti_membership_humanId_uidx")
+      .on(table.humanId)
+      .where(sql`${table.humanId} IS NOT NULL`),
     index("kalakriti_membership_userId_idx").on(table.userId),
   ]
 );
@@ -368,16 +379,24 @@ export const kalakritiCredential = pgTable(
     issuedBy: text("issued_by")
       .notNull()
       .references(() => user.id),
+    membershipId: uuid("membership_id"),
     revokedAt: timestamp("revoked_at"),
     revokedBy: text("revoked_by").references(() => user.id),
-    studentId: uuid("student_id").notNull(),
+    studentId: uuid("student_id"),
     tokenHash: text("token_hash").notNull(),
   },
   (table) => [
     uniqueIndex("kalakriti_credential_tokenHash_uidx").on(table.tokenHash),
     uniqueIndex("kalakriti_credential_active_studentId_uidx")
       .on(table.studentId)
-      .where(sql`${table.revokedAt} IS NULL`),
+      .where(
+        sql`${table.studentId} IS NOT NULL AND ${table.revokedAt} IS NULL`
+      ),
+    uniqueIndex("kalakriti_credential_active_membershipId_uidx")
+      .on(table.membershipId)
+      .where(
+        sql`${table.membershipId} IS NOT NULL AND ${table.revokedAt} IS NULL`
+      ),
     index("kalakriti_credential_editionId_humanId_idx").on(
       table.editionId,
       table.humanId
@@ -387,6 +406,22 @@ export const kalakritiCredential = pgTable(
       foreignColumns: [kalakritiStudent.editionId, kalakritiStudent.id],
       name: "kalakriti_credential_edition_student_fk",
     }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.editionId, table.membershipId],
+      foreignColumns: [
+        kalakritiEditionMembership.editionId,
+        kalakritiEditionMembership.id,
+      ],
+      name: "kalakriti_credential_edition_membership_fk",
+    }).onDelete("cascade"),
+    check(
+      "kalakriti_credential_subject_chk",
+      sql`(
+        ${table.studentId} IS NOT NULL AND ${table.membershipId} IS NULL
+      ) OR (
+        ${table.studentId} IS NULL AND ${table.membershipId} IS NOT NULL
+      )`
+    ),
     check(
       "kalakriti_credential_tokenHash_chk",
       sql`${table.tokenHash} ~ '^[0-9a-f]{64}$'`
@@ -917,6 +952,7 @@ export const kalakritiEditionMembershipRelations = relations(
   kalakritiEditionMembership,
   ({ many, one }) => ({
     assignments: many(kalakritiAssignment),
+    credentials: many(kalakritiCredential),
     edition: one(kalakritiEdition, {
       fields: [kalakritiEditionMembership.editionId],
       references: [kalakritiEdition.id],
@@ -1015,6 +1051,14 @@ export const kalakritiStudentRelations = relations(
 export const kalakritiCredentialRelations = relations(
   kalakritiCredential,
   ({ one }) => ({
+    edition: one(kalakritiEdition, {
+      fields: [kalakritiCredential.editionId],
+      references: [kalakritiEdition.id],
+    }),
+    membership: one(kalakritiEditionMembership, {
+      fields: [kalakritiCredential.membershipId],
+      references: [kalakritiEditionMembership.id],
+    }),
     student: one(kalakritiStudent, {
       fields: [kalakritiCredential.studentId],
       references: [kalakritiStudent.id],

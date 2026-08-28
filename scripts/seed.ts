@@ -836,6 +836,7 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
       lifecycle: "draft",
       name: "Kalakriti 2027",
       nextStudentSequence: 2,
+      nextVolunteerSequence: 1,
       plannedRegistrationCloseAt: new Date("2027-10-31T23:59:00+05:30"),
       teamEventId: ID.evKalakriti,
       updatedAt: now,

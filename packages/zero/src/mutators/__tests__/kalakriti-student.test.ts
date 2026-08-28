@@ -180,6 +180,7 @@ describe("kalakritiStudent commands", () => {
     expect(spies.insertCredential).toHaveBeenCalledWith(
       expect.objectContaining({
         humanId: "KAL-2027-0012",
+        membershipId: null,
         revokedAt: null,
         studentId: "student-1",
         tokenHash,
