@@ -21,12 +21,12 @@ test.describe("Kalakriti event-day transport", () => {
       page.getByRole("heading", { exact: true, name: "Event day" })
     ).toBeVisible();
     await expect(
-      page.getByText("Online-only transport station", { exact: false })
+      page.getByText("Online-only event-day stations", { exact: false })
     ).toBeVisible();
 
     await page.getByLabel("Yearly ID").fill(ASSIGNED_STUDENT_ID);
     await page.getByRole("button", { name: "Record transport" }).click();
-    await expect(page.getByText("Transport recorded")).toBeVisible();
+    await expect(page.getByText("Operation recorded")).toBeVisible();
 
     await page.getByRole("button", { name: "Record transport" }).click();
     await expect(page.getByText("Already recorded")).toBeVisible();

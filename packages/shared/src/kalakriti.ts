@@ -128,9 +128,18 @@ export const KALAKRITI_OPERATIONAL_LEAD_RESPONSIBILITIES = [
 export type KalakritiOperationalLeadResponsibility =
   (typeof KALAKRITI_OPERATIONAL_LEAD_RESPONSIBILITIES)[number];
 
+export const KALAKRITI_OPERATIONAL_MEMBER_RESPONSIBILITIES = [
+  "food_member",
+  "hospitality_member",
+] as const satisfies readonly KalakritiResponsibility[];
+
+export type KalakritiOperationalMemberResponsibility =
+  (typeof KALAKRITI_OPERATIONAL_MEMBER_RESPONSIBILITIES)[number];
+
 export const KALAKRITI_VOLUNTEER_EDITION_ASSIGNMENT_RESPONSIBILITIES = [
   ...KALAKRITI_EDITION_SCOPED_RESPONSIBILITIES,
   ...KALAKRITI_OPERATIONAL_LEAD_RESPONSIBILITIES,
+  ...KALAKRITI_OPERATIONAL_MEMBER_RESPONSIBILITIES,
 ] as const satisfies readonly KalakritiResponsibility[];
 
 export type KalakritiVolunteerEditionAssignmentResponsibility =
@@ -296,6 +305,15 @@ export function buildKalakritiAssignableResponsibilityGroups(options: {
     groups.push({
       label: "Operational leads",
       responsibilities: operationalLeads,
+    });
+  }
+
+  const operationalMembers =
+    KALAKRITI_OPERATIONAL_MEMBER_RESPONSIBILITIES.filter(canAssign);
+  if (operationalMembers.length > 0) {
+    groups.push({
+      label: "Operational members",
+      responsibilities: operationalMembers,
     });
   }
 

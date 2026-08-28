@@ -131,6 +131,7 @@ describe("Kalakriti assignment helpers", () => {
     expect(groups.map((group) => group.label)).toEqual([
       "Edition leadership",
       "Operational leads",
+      "Operational members",
       "Competition",
       "Center",
     ]);
@@ -139,6 +140,12 @@ describe("Kalakriti assignment helpers", () => {
     );
     expect(flattenKalakritiAssignableResponsibilities(groups)).toContain(
       "food_lead"
+    );
+    expect(flattenKalakritiAssignableResponsibilities(groups)).toContain(
+      "food_member"
+    );
+    expect(flattenKalakritiAssignableResponsibilities(groups)).toContain(
+      "hospitality_member"
     );
     expect(flattenKalakritiAssignableResponsibilities(groups)).not.toContain(
       "edition_admin"

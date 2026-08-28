@@ -89,6 +89,85 @@ describe("canAccessKalakritiEventDay", () => {
     ).toBe(true);
   });
 
+  it("allows food, hospitality, and competition station staff", () => {
+    expect(
+      canAccessKalakritiEventDay(
+        access({
+          membership: {
+            assignments: [
+              {
+                centerId: null,
+                competitionCategoryId: null,
+                competitionId: null,
+                responsibility: "food_lead",
+              },
+            ],
+            id: "food-1",
+            kind: "volunteer",
+            responsibilities: ["food_lead"],
+          },
+        })
+      )
+    ).toBe(true);
+    expect(
+      canAccessKalakritiEventDay(
+        access({
+          membership: {
+            assignments: [
+              {
+                centerId: null,
+                competitionCategoryId: null,
+                competitionId: null,
+                responsibility: "food_member",
+              },
+            ],
+            id: "food-2",
+            kind: "volunteer",
+            responsibilities: ["food_member"],
+          },
+        })
+      )
+    ).toBe(true);
+    expect(
+      canAccessKalakritiEventDay(
+        access({
+          membership: {
+            assignments: [
+              {
+                centerId: null,
+                competitionCategoryId: null,
+                competitionId: null,
+                responsibility: "hospitality_member",
+              },
+            ],
+            id: "hospitality-1",
+            kind: "volunteer",
+            responsibilities: ["hospitality_member"],
+          },
+        })
+      )
+    ).toBe(true);
+    expect(
+      canAccessKalakritiEventDay(
+        access({
+          membership: {
+            assignments: [
+              {
+                centerId: null,
+                competitionCategoryId: null,
+                competitionId: "competition-1",
+                responsibility: "competition_volunteer",
+              },
+            ],
+            id: "competition-1",
+            kind: "volunteer",
+            responsibilities: ["competition_volunteer"],
+          },
+        })
+      )
+    ).toBe(true);
+  });
+
   it("denies guardians and unrelated volunteers", () => {
     expect(
       canAccessKalakritiEventDay(
@@ -111,12 +190,12 @@ describe("canAccessKalakritiEventDay", () => {
                 centerId: null,
                 competitionCategoryId: null,
                 competitionId: null,
-                responsibility: "food_lead",
+                responsibility: "overall_events_lead",
               },
             ],
-            id: "food-1",
+            id: "events-1",
             kind: "volunteer",
-            responsibilities: ["food_lead"],
+            responsibilities: ["overall_events_lead"],
           },
         })
       )
