@@ -94,6 +94,9 @@ All paths are relative to project root.
 | `routes/_app/kalakriti/$year/guardians.tsx` | Edition Guardian access management |
 | `routes/_app/kalakriti/$year/students.tsx` | Center-scoped Student registration, editing, and read-only lifecycle state |
 | `routes/_app/kalakriti/$year/entries.tsx`, `entries/` | Center-scoped Session summary and per-Session individual and group Competition Entry registration with live eligibility, limit, overlap, and capacity validation |
+| `routes/_app/kalakriti/$year/credentials.tsx` | Edition administrator Credential lookup, print, and reissue |
+| `routes/_app/kalakriti/$year/event-day.tsx` | Online event-day stations (transport, check-in, meals, attendance) and lead-only corrections |
+| `routes/api/kalakriti/$year/credentials/print.ts` | Session-authed Credential print PDF stream |
 | `routes/_app/kalakriti/$year/audit.tsx` | Edition-wide administrator and assignment-scoped Lead audit trail with stable pagination |
 | `routes/_app/kalakriti/new.tsx` | Create an Edition and protected linked event (`kalakriti.admin` guard) |
 | `routes/kalakriti/$year/schedule.tsx` | Public Competition schedule for open, locked, live, and archived Editions with signup, volunteer-interest, and Edition dashboard calls to action |
@@ -248,7 +251,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `packages/observability/` | `src/index.ts` — `withTaskLog()` (retry + evlog for mutator async tasks), `withFireAndForgetLog()` (fire-and-forget with logging) |
 | `packages/pdf/` | Server-side PDF generation using @react-pdf/renderer. First template: NGO cash voucher. `src/voucher.ts` (cash voucher PDF builder), `assets/` (logo, signature) |
 | `packages/whatsapp/` | `src/client.ts` (API helpers), `src/groups.ts` (group creation, member management), `src/messaging.ts` (send messages), `src/phone.ts` (number formatting), `src/preferences.ts`, `src/status.ts` |
-| `packages/zero/` | `src/queries/` (core dashboard domains plus Kalakriti Editions, Centers, eligibility, Competitions, Guardians, students, entries, assignments, schedules, and audit), `src/mutators/` (core dashboard domains plus Kalakriti Edition configuration, access assignments, registration, schedules, notifications, and audit-producing commands), `src/lib/rrule-utils.ts` (RRULE expansion, parsing, form state conversion, exported as `@pi-dash/zero/rrule-utils`), `src/lib/compute-payment-status.ts`, `src/shared-schemas.ts`, `src/vendor-payment-constants.ts`, `src/permissions.ts`, `src/context.ts`, `vitest.config.ts` |
+| `packages/zero/` | `src/queries/` (core dashboard domains plus Kalakriti Editions, Centers, eligibility, Competitions, Guardians, students, entries, assignments, schedules, operations, transport, and audit), `src/mutators/` (core dashboard domains plus Kalakriti Edition configuration, access assignments, registration, schedules, event-day operations, transport, notifications, and audit-producing commands), `src/kalakriti-*` pure rule modules (registration readiness, go-live readiness, operation rules, transport rules), `src/lib/rrule-utils.ts` (RRULE expansion, parsing, form state conversion, exported as `@pi-dash/zero/rrule-utils`), `src/lib/compute-payment-status.ts`, `src/shared-schemas.ts`, `src/vendor-payment-constants.ts`, `src/permissions.ts`, `src/context.ts`, `vitest.config.ts` |
 | `packages/e2e/` | `tests/` (feature specs including the Kalakriti registration and release gates), `pages/` (Page Object Models including Kalakriti Editions, Centers, Students, Competitions, and schedules), `fixtures/` (auth and multi-actor Kalakriti fixtures with console error monitoring), `helpers/` (idempotent seeds and DB-state probes), `global-setup.ts`, `run-e2e.sh` |
 
 ## DB Schema Tables
