@@ -1,5 +1,6 @@
 import type { Context } from "../context";
 import { assertIsLoggedIn, can } from "../permissions";
+import { buildKalakritiLiaisonResponsibilityOr } from "../queries/kalakriti-liaison-scope";
 import { zql } from "../schema";
 import type { LockableKalakritiTx } from "./kalakriti-row-locks";
 
@@ -61,8 +62,10 @@ export async function assertCanManageKalakritiCenterRegistration(
       : await tx.run(
           zql.kalakritiAssignment
             .where("membershipId", membership.id)
-            .where("responsibility", "liaison")
             .where("centerId", centerId)
+            .where(({ or, cmp }) =>
+              buildKalakritiLiaisonResponsibilityOr(or, cmp)
+            )
             .one()
         );
   if (!scopedAccess) {

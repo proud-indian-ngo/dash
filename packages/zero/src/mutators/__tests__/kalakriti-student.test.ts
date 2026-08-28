@@ -241,6 +241,27 @@ describe("kalakritiStudent commands", () => {
     expect(spies.insertStudent).toHaveBeenCalledOnce();
   });
 
+  it("accepts a Center Liaison Lead assignment for a volunteer", async () => {
+    const liaisonLeadContext = {
+      permissions: ["kalakriti.view"],
+      role: "volunteer",
+      userId: "center-liaison-lead-1",
+    };
+    const { lockedResults, spies, tx } = createTx([
+      { id: "membership-1", kind: "volunteer" },
+      undefined,
+      { id: "liaison-assignment-1" },
+      [],
+      [],
+      [],
+      [],
+    ]);
+    lockedResults.push([edition], [center], [junior]);
+
+    await createStudent(tx, createArgs, liaisonLeadContext);
+    expect(spies.insertStudent).toHaveBeenCalledOnce();
+  });
+
   it("does not treat another Center responsibility as registration access", async () => {
     const transportContext = {
       permissions: ["kalakriti.view"],

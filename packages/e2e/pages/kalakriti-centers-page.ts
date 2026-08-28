@@ -87,8 +87,16 @@ export class KalakritiCentersPage {
     await dialog.getByRole("button", { name: "Save controls" }).click();
   }
 
-  async assignLiaison(centerName: string, volunteerName: string) {
+  async assignLiaison(
+    centerName: string,
+    volunteerName: string,
+    role?: "Liaison Lead" | "Liaison Volunteer"
+  ) {
     const detail = await this.openDetails(centerName);
+    if (role) {
+      await detail.getByRole("combobox", { name: "Role" }).click();
+      await this.page.getByRole("option", { exact: true, name: role }).click();
+    }
     const picker = detail.getByPlaceholder("Search central volunteers...");
     await picker.fill(volunteerName);
     await this.page
@@ -98,11 +106,13 @@ export class KalakritiCentersPage {
     await expect(
       this.page.getByText("Liaison role assigned", { exact: true })
     ).toBeVisible({ timeout: 30_000 });
+    const liaisons = detail.getByRole("list", { name: "Liaisons" });
     await expect(
-      detail
-        .getByRole("list", { name: "Liaisons" })
-        .getByText(volunteerName, { exact: true })
+      liaisons.getByText(volunteerName, { exact: true })
     ).toBeVisible();
+    if (role) {
+      await expect(liaisons.getByText(role, { exact: true })).toBeVisible();
+    }
     await detail.getByRole("link", { name: "Back to Centers" }).click();
     await expect(
       this.page.getByRole("heading", { exact: true, name: "Centers" })

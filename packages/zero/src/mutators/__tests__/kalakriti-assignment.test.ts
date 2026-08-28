@@ -479,6 +479,57 @@ describe("kalakritiAssignment.assignLiaison", () => {
     expect(lockForUpdate).toHaveBeenCalledWith("update");
   });
 
+  it("lets a Volunteer Coordinator assign a Center Liaison Lead", async () => {
+    const { lockForUpdate, tx, spies } = createTx([
+      { id: "actor-membership" },
+      [{ responsibility: "volunteer_coordinator" }],
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+      {
+        email: "liaison-lead@example.com",
+        id: "volunteer-1",
+        isActive: true,
+        name: "Center Liaison Lead",
+        phone: null,
+        role: "volunteer",
+      },
+      undefined,
+      undefined,
+      [],
+      undefined,
+    ]);
+
+    await kalakritiAssignmentMutators.assignLiaison.fn({
+      args: {
+        assignmentId: "liaison-assignment-lead-1",
+        auditEntryId: "audit-1",
+        centerId: "center-1",
+        editionId: "edition-1",
+        makePrimary: false,
+        membershipId: "liaison-membership-1",
+        now: 1_700_000_000_000,
+        responsibility: "center_liaison_lead",
+        teamEventMemberId: "event-member-1",
+        userId: "volunteer-1",
+      },
+      ctx: {
+        permissions: ["kalakriti.view"],
+        role: "volunteer",
+        userId: "coordinator-1",
+      },
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiAssignmentMutators.assignLiaison.fn
+    >[0]);
+
+    expect(spies.insertAssignment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        centerId: "center-1",
+        responsibility: "center_liaison_lead",
+      })
+    );
+    expect(lockForUpdate).toHaveBeenCalledWith("update");
+  });
+
   it("allows the same Liaison on another Center but rejects a duplicate scope", async () => {
     const volunteer = {
       email: "liaison@example.com",

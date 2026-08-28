@@ -25,6 +25,7 @@ describe("kalakritiStudent queries", () => {
     expect(ast).toContain('"table":"kalakritiGuardianCenter"');
     expect(ast).toContain('"value":"liaison"');
     expect(ast).toContain('"value":"liaison_lead"');
+    expect(ast).toContain('"value":"center_liaison_lead"');
     expect(ast).toContain('"value":"liaison_volunteer"');
     expect(ast).toContain('"value":"edition_admin"');
     expect(ast).toContain('"value":"guardian-1"');
@@ -76,6 +77,7 @@ describe("kalakritiStudent queries", () => {
     expect(ast).toContain('"table":"kalakritiGuardianCenter"');
     expect(ast).toContain('"value":"liaison"');
     expect(ast).toContain('"value":"liaison_lead"');
+    expect(ast).toContain('"value":"center_liaison_lead"');
     expect(ast).toContain('"value":"liaison_volunteer"');
     expect(ast).toContain('"value":"edition_admin"');
     expect(ast).toContain('"value":"guardian-1"');

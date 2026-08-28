@@ -82,6 +82,47 @@ test("assigns a central volunteer and synchronizes linked-event access", async (
   }
 });
 
+test("assigns a per-center Liaison Lead from the Volunteers page", async ({
+  page,
+  superAdminEmail,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "super_admin",
+    "Super-admin volunteer assignment flow"
+  );
+  test.slow();
+  const { centerName, year } = await fixture<{
+    centerName: string;
+    year: number;
+  }>("setup", superAdminEmail);
+  const editionPage = new KalakritiEditionPage(page);
+
+  try {
+    await editionPage.gotoVolunteers(year);
+    await waitForZeroReady(page);
+    await editionPage.addVolunteers(VOLUNTEER_NAME);
+    await editionPage.assignRoleFromRow(VOLUNTEER_NAME, "Liaison Lead", {
+      center: centerName,
+    });
+    expect(await fixture("state")).toEqual({
+      assignments: ["center_liaison_lead"],
+      eventMember: true,
+      membershipState: "active",
+    });
+    await expect(page.getByText(`Liaison Lead · ${centerName}`)).toBeVisible();
+
+    await editionPage.removeVolunteer(VOLUNTEER_NAME, "Liaison Lead");
+    expect(await fixture("state")).toEqual({
+      assignments: [],
+      eventMember: true,
+      membershipState: "active",
+    });
+  } finally {
+    await page.goto("about:blank");
+    await fixture("cleanup");
+  }
+});
+
 test("lets an authorized actor edit Kalakriti-linked event details", async ({
   page,
   superAdminEmail,

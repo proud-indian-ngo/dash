@@ -17,7 +17,7 @@ Global permissions provide the coarse module gates `kalakriti.view` and `kalakri
 - Edition administrators manage the complete active Edition.
 - Volunteer Coordinators manage the volunteer roster and assignments on `/kalakriti/:year/volunteers`. That page owns roster membership, not Overview. **Add volunteers** puts people on the roster with no role (Unassigned). **Assign role** on a row or detail sheet grants a responsibility. Unoriented volunteers may sit Unassigned; assignment still rejects `unoriented_volunteer`. Removing the last role leaves them Unassigned with linked-event access. **Remove from Edition** archives membership and drops the linked event member.
 - Overall Events Leads and Category Leads receive Competition-category scopes. Lead roles are multi-occupant; assignment uniqueness is per person plus scope, not one occupant per Edition.
-- Liaisons and Guardians receive explicit Center scopes. Liaison Lead is Edition-wide: no Center picker, and the assignment covers every Center.
+- Liaisons and Guardians receive explicit Center scopes. Overall Liaison Lead is Edition-wide: no Center picker, and the assignment covers every Center. Center Liaison Lead and Liaison Volunteer are per Center.
 - Unassigned volunteer membership is a valid roster state. Edition **access stays fail-closed**: opening the Kalakriti shell still requires Guardian membership, at least one assignment, or global admin. Unassigned volunteers appear on the Volunteers page only.
 
 Signup via `/register?eventId=` on the linked event, coordinator **Add volunteers**, and **approved public interest** on a Kalakriti-linked event all create the same destination: active unassigned volunteer membership plus `team_event_member` on the linked event.

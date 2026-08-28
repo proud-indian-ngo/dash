@@ -54,6 +54,7 @@ export const KALAKRITI_EDITION_RESPONSIBILITIES = [
   "competition_volunteer",
   "liaison",
   "liaison_lead",
+  "center_liaison_lead",
   "liaison_volunteer",
   "food_lead",
   "food_member",
@@ -106,6 +107,7 @@ export type KalakritiVolunteerEditionAssignmentResponsibility =
 export const KALAKRITI_LIAISON_RESPONSIBILITIES = [
   "liaison",
   "liaison_lead",
+  "center_liaison_lead",
   "liaison_volunteer",
 ] as const satisfies readonly KalakritiResponsibility[];
 
@@ -114,10 +116,12 @@ export type KalakritiLiaisonResponsibility =
 
 export const KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES = [
   "liaison",
+  "center_liaison_lead",
   "liaison_volunteer",
 ] as const satisfies readonly KalakritiResponsibility[];
 
 export const KALAKRITI_CENTER_VOLUNTEER_RESPONSIBILITIES = [
+  "center_liaison_lead",
   "liaison_volunteer",
 ] as const satisfies readonly KalakritiResponsibility[];
 
@@ -142,6 +146,7 @@ export type KalakritiCompetitionScopedResponsibility =
 export const KALAKRITI_RESPONSIBILITY_LABELS = {
   awards_lead: "Awards Lead",
   awards_member: "Awards Member",
+  center_liaison_lead: "Liaison Lead",
   competition_category_lead: "Competition Category Lead",
   competition_coordinator: "Competition Coordinator",
   competition_volunteer: "Competition Volunteer",
@@ -152,7 +157,7 @@ export const KALAKRITI_RESPONSIBILITY_LABELS = {
   hospitality_lead: "Hospitality Lead",
   hospitality_member: "Hospitality Member",
   liaison: "Liaison",
-  liaison_lead: "Liaison Lead",
+  liaison_lead: "Overall Liaison Lead",
   liaison_volunteer: "Liaison Volunteer",
   logistics_lead: "Logistics Lead",
   logistics_member: "Logistics Member",

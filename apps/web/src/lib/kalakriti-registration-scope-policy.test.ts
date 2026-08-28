@@ -73,6 +73,7 @@ describe("Kalakriti registration scope policy", () => {
         access({
           assignments: [
             assignment("liaison", { centerId: "center-2" }),
+            assignment("center_liaison_lead", { centerId: "center-4" }),
             assignment("liaison_volunteer", { centerId: "center-1" }),
           ],
           kind: "guardian",
@@ -81,7 +82,7 @@ describe("Kalakriti registration scope policy", () => {
       )
     ).toEqual([
       {
-        centerIds: ["center-1", "center-2", "center-3"],
+        centerIds: ["center-1", "center-2", "center-3", "center-4"],
         kind: "center",
       },
     ]);

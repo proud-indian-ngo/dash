@@ -104,6 +104,23 @@ describe("Kalakriti Student policy", () => {
             assignments: [
               {
                 centerId: "center-1",
+                responsibility: "center_liaison_lead",
+              },
+            ],
+            kind: "volunteer",
+            responsibilities: ["center_liaison_lead"],
+          },
+        })
+      )
+    ).toEqual([{ id: "center-1" }]);
+    expect(
+      selectKalakritiStudentCenters(
+        centers,
+        access({
+          membership: {
+            assignments: [
+              {
+                centerId: "center-1",
                 responsibility: "liaison_volunteer",
               },
             ],
