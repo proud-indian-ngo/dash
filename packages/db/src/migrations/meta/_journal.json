@@ -533,6 +533,13 @@
       "when": 1787950039568,
       "tag": "0075_brave_dazzler",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1787950853388,
+      "tag": "0076_luxuriant_enchantress",
+      "breakpoints": true
     }
   ]
 }

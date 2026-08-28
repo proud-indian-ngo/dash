@@ -19,6 +19,25 @@ export const KALAKRITI_MEMBERSHIP_STATES = ["active", "archived"] as const;
 export type KalakritiMembershipState =
   (typeof KALAKRITI_MEMBERSHIP_STATES)[number];
 
+export const KALAKRITI_TRANSPORT_STATUSES = [
+  "planned",
+  "arrived_at_center",
+  "arrived_at_venue",
+  "departed_venue",
+  "completed",
+] as const;
+
+export type KalakritiTransportStatus =
+  (typeof KALAKRITI_TRANSPORT_STATUSES)[number];
+
+export const KALAKRITI_TRANSPORT_STATUS_LABELS = {
+  arrived_at_center: "Arrived at Center",
+  arrived_at_venue: "Arrived at venue",
+  completed: "Completed",
+  departed_venue: "Departed venue",
+  planned: "Planned",
+} satisfies Record<KalakritiTransportStatus, string>;
+
 export const KALAKRITI_OPERATION_TYPES = [
   "pickup",
   "venue_departure",
@@ -71,6 +90,7 @@ export const KALAKRITI_EDITION_RESPONSIBILITIES = [
   "food_lead",
   "food_member",
   "transport_lead",
+  "transport_coordinator",
   "logistics_lead",
   "logistics_member",
   "awards_lead",
@@ -135,6 +155,7 @@ export const KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES = [
 export const KALAKRITI_CENTER_VOLUNTEER_RESPONSIBILITIES = [
   "center_liaison_lead",
   "liaison_volunteer",
+  "transport_coordinator",
 ] as const satisfies readonly KalakritiResponsibility[];
 
 export type KalakritiCenterVolunteerResponsibility =
@@ -175,6 +196,7 @@ export const KALAKRITI_RESPONSIBILITY_LABELS = {
   logistics_member: "Logistics Member",
   media_member: "Media Member",
   overall_events_lead: "Overall Events Lead",
+  transport_coordinator: "Transport Coordinator",
   transport_lead: "Transport Lead",
   venue_lead: "Venue Lead",
   venue_member: "Venue Member",
@@ -222,7 +244,8 @@ export function getKalakritiResponsibilityScopeKind(
   if (
     (
       KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES as readonly string[]
-    ).includes(responsibility)
+    ).includes(responsibility) ||
+    responsibility === "transport_coordinator"
   ) {
     return "center";
   }

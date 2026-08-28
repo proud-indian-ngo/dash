@@ -20,6 +20,7 @@ import { kalakritiEligibilityQueries } from "./queries/kalakriti-eligibility";
 import { kalakritiEntryQueries } from "./queries/kalakriti-entry";
 import { kalakritiGuardianQueries } from "./queries/kalakriti-guardian";
 import { kalakritiStudentQueries } from "./queries/kalakriti-student";
+import { kalakritiTransportQueries } from "./queries/kalakriti-transport";
 import { notificationQueries } from "./queries/notification";
 import { notificationPreferenceQueries } from "./queries/notification-preference";
 import { reimbursementQueries } from "./queries/reimbursement";
@@ -51,6 +52,7 @@ export const queries = defineQueries({
   kalakritiEntry: kalakritiEntryQueries,
   kalakritiGuardian: kalakritiGuardianQueries,
   kalakritiStudent: kalakritiStudentQueries,
+  kalakritiTransport: kalakritiTransportQueries,
   notification: notificationQueries,
   notificationPreference: notificationPreferenceQueries,
   reimbursement: reimbursementQueries,

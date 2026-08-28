@@ -1,38 +1,41 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-const hoisted = <T>(factory: () => T): T => factory();
+const notificationEdition = vi.hoisted(() => mock());
+const registrationRecipients = vi.hoisted(() => mock());
+const scheduleRecipients = vi.hoisted(() => mock());
+const transportRecipients = vi.hoisted(() => mock());
+const notifyRegistration = vi.hoisted(() => mock(async () => undefined));
+const notifySchedule = vi.hoisted(() => mock(async () => undefined));
+const notifyTransport = vi.hoisted(() => mock(async () => undefined));
+const notifyReactivation = vi.hoisted(() => mock(async () => undefined));
 
-const notificationEdition = hoisted(() => mock());
-const registrationRecipients = hoisted(() => mock());
-const scheduleRecipients = hoisted(() => mock());
-const notifyRegistration = hoisted(() => mock(async () => undefined));
-const notifySchedule = hoisted(() => mock(async () => undefined));
-const notifyReactivation = hoisted(() => mock(async () => undefined));
-
-mock.module("../lib/kalakriti-notification-recipients", () => ({
+vi.mock("../lib/kalakriti-notification-recipients", () => ({
   getKalakritiNotificationEdition: notificationEdition,
+  resolveKalakritiCenterTransportRecipients: transportRecipients,
   resolveKalakritiRegistrationRecipients: registrationRecipients,
   resolveKalakritiScheduleRecipients: scheduleRecipients,
 }));
-mock.module("@pi-dash/notifications/send/kalakriti", () => ({
+vi.mock("@pi-dash/notifications/send/kalakriti", () => ({
   notifyKalakritiGuardianReactivated: notifyReactivation,
   notifyKalakritiRegistrationLifecycle: notifyRegistration,
   notifyKalakritiScheduleChanged: notifySchedule,
+  notifyKalakritiTransportChanged: notifyTransport,
 }));
-mock.module("@pi-dash/notifications/send-message", () => ({
+vi.mock("@pi-dash/notifications/send-message", () => ({
   captureSends: async (callback: () => Promise<unknown>) => ({
     result: await callback(),
     sends: [],
   }),
 }));
 
-const {
+import {
   handleNotifyKalakritiGuardianReactivated,
   handleNotifyKalakritiRegistrationClosed,
   handleNotifyKalakritiRegistrationOpen,
   handleNotifyKalakritiScheduleChanged,
+  handleNotifyKalakritiTransportChanged,
   handleRemindKalakritiRegistrationClose,
-} = await import("./notify-kalakriti");
+} from "./notify-kalakriti";
 
 const edition = {
   id: "edition-1",
@@ -56,6 +59,7 @@ describe("Kalakriti notification jobs", () => {
       "volunteer-1",
     ]);
     scheduleRecipients.mockResolvedValue(["guardian-1", "volunteer-1"]);
+    transportRecipients.mockResolvedValue(["guardian-1", "volunteer-1"]);
   });
 
   it("sends registration-open once per active Guardian or assigned volunteer", async () => {
@@ -211,5 +215,29 @@ describe("Kalakriti notification jobs", () => {
       recipientUserId: "guardian-1",
       year: edition.year,
     });
+  });
+
+  it("notifies Center Guardians and Liaisons when transport changes", async () => {
+    const payload = {
+      assignmentId: "assignment-1",
+      centerId: "center-1",
+      changeId: "change-1",
+      editionId: edition.id,
+    };
+
+    await handleNotifyKalakritiTransportChanged(job(payload));
+
+    expect(transportRecipients).toHaveBeenCalledWith({
+      centerId: "center-1",
+      editionId: edition.id,
+    });
+    expect(notifyTransport).toHaveBeenCalledTimes(2);
+    expect(notifyTransport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assignmentId: "assignment-1",
+        changeId: "change-1",
+        recipientUserId: "guardian-1",
+      })
+    );
   });
 });

@@ -61,6 +61,36 @@ export async function notifyKalakritiScheduleChanged({
   });
 }
 
+export interface KalakritiTransportChangedOptions {
+  assignmentId: string;
+  centerId: string;
+  changeId: string;
+  editionId: string;
+  editionName: string;
+  recipientUserId: string;
+  year: number;
+}
+
+export async function notifyKalakritiTransportChanged({
+  assignmentId,
+  centerId,
+  changeId,
+  editionId,
+  editionName,
+  recipientUserId,
+  year,
+}: KalakritiTransportChangedOptions): Promise<void> {
+  await sendMessage({
+    body: `Transport details changed for ${editionName}.`,
+    channels: getTopicChannels(TOPICS.KALAKRITI_TRANSPORT),
+    clickAction: `/kalakriti/${year}/centers/${centerId}`,
+    idempotencyKey: `kalakriti-transport-${editionId}-${assignmentId}-${changeId}-${recipientUserId}`,
+    title: "Kalakriti transport updated",
+    to: recipientUserId,
+    topic: TOPICS.KALAKRITI_TRANSPORT,
+  });
+}
+
 export interface KalakritiGuardianReactivatedOptions {
   editionId: string;
   editionName: string;
