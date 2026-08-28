@@ -17,7 +17,7 @@ All async side-effects (notifications, WhatsApp group management, Immich photo s
 
 **Subpath exports**: `@pi-dash/jobs/enqueue` = lean entry — typed payload interfaces + `enqueue()` only, no handler deps. Keeps client bundle free of server-only code. `@pi-dash/jobs` (barrel) re-exports everything incl. `boss.ts`, server-only.
 
-**Exceptions**: `notifyUserDeleted` runs synchronously before user deletion (user row must exist for notification insert via FK constraint).
+**Account deletion**: capture the recipient's enabled email delivery before deleting the user, then send the confirmation only after deletion succeeds. Deleted accounts do not receive inbox notifications because those rows require a live user foreign key.
 
 Enqueue calls for side-effects wrapped in `withFireAndForgetLog` → pg-boss failure doesn't block primary op. Only `await enqueue()` if enqueue IS the primary op.
 

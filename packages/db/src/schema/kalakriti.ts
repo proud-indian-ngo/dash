@@ -134,9 +134,9 @@ export const kalakritiEditionMembership = pgTable(
   {
     archivedAt: timestamp("archived_at"),
     createdAt: timestamp("created_at").notNull(),
-    createdBy: text("created_by")
-      .notNull()
-      .references(() => user.id),
+    createdBy: text("created_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     editionId: uuid("edition_id")
       .notNull()
       .references(() => kalakritiEdition.id, { onDelete: "cascade" }),
