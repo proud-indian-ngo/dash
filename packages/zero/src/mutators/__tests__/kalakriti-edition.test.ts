@@ -696,6 +696,38 @@ describe("Kalakriti Edition registration readiness", () => {
     expect(insertAudit).not.toHaveBeenCalled();
   });
 
+  it("rejects going live when another Edition is already live", async () => {
+    const currentEdition = {
+      eventDate: "2028-11-19",
+      id: "edition-2",
+      lifecycle: "registration_locked",
+      teamEventId: "event-2",
+      timezone: "Asia/Kolkata",
+    };
+    const { spies, tx } = createEditionCommandTx([
+      currentEdition,
+      [{ id: "edition-1" }],
+    ]);
+
+    await expect(
+      kalakritiEditionMutators.transition.fn({
+        args: {
+          auditEntryId: "audit",
+          confirmed: true,
+          editionId: currentEdition.id,
+          now: 1,
+          targetLifecycle: "live",
+        },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiEditionMutators.transition.fn
+      >[0])
+    ).rejects.toThrow("Another Edition is already live");
+    expect(spies.updateEdition).not.toHaveBeenCalled();
+    expect(spies.insertAudit).not.toHaveBeenCalled();
+  });
+
   it("rejects an invalid lifecycle edge without writing", async () => {
     const { spies, tx } = createEditionCommandTx([
       {

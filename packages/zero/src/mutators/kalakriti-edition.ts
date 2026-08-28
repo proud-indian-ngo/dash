@@ -818,6 +818,17 @@ export const kalakritiEditionMutators = {
         throw new Error("Invalid Edition lifecycle transition");
       }
 
+      if (args.targetLifecycle === "live") {
+        const otherLiveEditions = (await tx.run(
+          zql.kalakritiEdition
+            .where("lifecycle", "live")
+            .where("id", "!=", args.editionId)
+        )) as { id: string }[];
+        if (otherLiveEditions.length > 0) {
+          throw new Error("Another Edition is already live");
+        }
+      }
+
       const readinessSnapshot = await getGoLiveReadinessSnapshot(
         tx as EditionTx,
         args.editionId
