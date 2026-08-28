@@ -5,10 +5,7 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@pi-dash/design-system/components/ui/sidebar";
-import {
-  type KalakritiResponsibility,
-  membershipHasKalakritiLiaisonAccess,
-} from "@pi-dash/shared/kalakriti";
+import { membershipHasKalakritiLiaisonAccess } from "@pi-dash/shared/kalakriti";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { useLocation } from "@tanstack/react-router";
@@ -17,6 +14,7 @@ import type * as React from "react";
 import { NavUser } from "@/components/layout/nav-user";
 import { TeamSwitcher } from "@/components/layout/team-switcher";
 import { useApp } from "@/context/app-context";
+import { canAccessKalakritiEventDay } from "@/lib/kalakriti-event-day-policy";
 import {
   buildKalakritiNavGroups,
   shouldUseKalakritiNav,
@@ -95,21 +93,24 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           (assignment.responsibility === "competition_category_lead" &&
             Boolean(assignment.competitionCategoryId))
       ) === true);
-  const canViewEventDay =
-    hasPermission("kalakriti.admin") ||
-    membership?.assignments.some((assignment) =>
-      ["edition_admin", "transport_lead"].includes(assignment.responsibility)
-    ) === true ||
-    membership?.assignments.some((assignment) =>
-      (
-        [
-          "transport_coordinator",
-          "liaison",
-          "center_liaison_lead",
-          "liaison_volunteer",
-        ] as KalakritiResponsibility[]
-      ).includes(assignment.responsibility)
-    ) === true;
+  const canViewEventDay = canAccessKalakritiEventDay({
+    isGlobalAdmin: hasPermission("kalakriti.admin"),
+    membership: membership
+      ? {
+          assignments: membership.assignments.map((assignment) => ({
+            centerId: assignment.centerId,
+            competitionCategoryId: assignment.competitionCategoryId,
+            competitionId: assignment.competitionId,
+            responsibility: assignment.responsibility,
+          })),
+          id: membership.id,
+          kind: membership.kind,
+          responsibilities: membership.assignments.map(
+            (assignment) => assignment.responsibility
+          ),
+        }
+      : null,
+  });
   let visibleNavGroups = buildKalakritiNavGroups({
     canManageCredentials,
     canManageEligibility: canManageEdition,
@@ -118,7 +119,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     canViewAudit,
     canViewCompetitions,
     canViewEntries,
-    canViewEventDay: canViewEventDay && membership?.kind !== "guardian",
+    canViewEventDay,
     canViewStudents,
     year: activeEdition?.year,
   });

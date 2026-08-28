@@ -4,13 +4,18 @@ import {
 } from "@pi-dash/shared/kalakriti";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 
+type KalakritiEventDayAccessInput = Pick<
+  KalakritiEditionAccess,
+  "isGlobalAdmin" | "membership"
+>;
+
 const CENTER_TRANSPORT_RESPONSIBILITIES = [
   "transport_coordinator",
   ...KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES,
 ] as const satisfies readonly KalakritiResponsibility[];
 
 function hasEditionWideTransportAccess(
-  access: KalakritiEditionAccess
+  access: KalakritiEventDayAccessInput
 ): boolean {
   if (access.isGlobalAdmin) {
     return true;
@@ -23,7 +28,7 @@ function hasEditionWideTransportAccess(
 }
 
 function hasAnyCenterTransportAssignment(
-  access: KalakritiEditionAccess
+  access: KalakritiEventDayAccessInput
 ): boolean {
   return (
     access.membership?.assignments.some((assignment) =>
@@ -35,7 +40,7 @@ function hasAnyCenterTransportAssignment(
 }
 
 export function canAccessKalakritiEventDay(
-  access: KalakritiEditionAccess | null | undefined
+  access: KalakritiEventDayAccessInput | null | undefined
 ): boolean {
   if (!access) {
     return false;
