@@ -2,16 +2,19 @@ import {
   notifyKalakritiGuardianReactivated,
   notifyKalakritiRegistrationLifecycle,
   notifyKalakritiScheduleChanged,
+  notifyKalakritiTransportChanged,
 } from "@pi-dash/notifications/send/kalakriti";
 
 import type {
   NotifyKalakritiGuardianReactivatedPayload,
   NotifyKalakritiRegistrationPayload,
   NotifyKalakritiScheduleChangedPayload,
+  NotifyKalakritiTransportChangedPayload,
   RemindKalakritiRegistrationClosePayload,
 } from "../enqueue";
 import {
   getKalakritiNotificationEdition,
+  resolveKalakritiCenterTransportRecipients,
   resolveKalakritiRegistrationRecipients,
   resolveKalakritiScheduleRecipients,
 } from "../lib/kalakriti-notification-recipients";
@@ -135,6 +138,41 @@ export const handleNotifyKalakritiScheduleChanged = createNotifyHandler<
   NotifyKalakritiScheduleChangedPayload,
   KalakritiNotificationResult
 >("notify-kalakriti-schedule-changed", async () => notifyScheduleChanged);
+
+async function notifyTransportChanged(
+  data: NotifyKalakritiTransportChangedPayload
+): Promise<KalakritiNotificationResult> {
+  const edition = await getKalakritiNotificationEdition(data.editionId);
+  if (!edition || edition.lifecycle === "draft") {
+    return {
+      recipientCount: 0,
+      skipped: edition ? "transport_not_public" : "edition_missing",
+    };
+  }
+  const recipientIds = await resolveKalakritiCenterTransportRecipients({
+    centerId: data.centerId,
+    editionId: data.editionId,
+  });
+  await Promise.all(
+    recipientIds.map(async (recipientUserId) =>
+      notifyKalakritiTransportChanged({
+        assignmentId: data.assignmentId,
+        centerId: data.centerId,
+        changeId: data.changeId,
+        editionId: edition.id,
+        editionName: edition.name,
+        recipientUserId,
+        year: edition.year,
+      })
+    )
+  );
+  return { recipientCount: recipientIds.length };
+}
+
+export const handleNotifyKalakritiTransportChanged = createNotifyHandler<
+  NotifyKalakritiTransportChangedPayload,
+  KalakritiNotificationResult
+>("notify-kalakriti-transport-changed", async () => notifyTransportChanged);
 
 async function notifyGuardianReactivated(
   data: NotifyKalakritiGuardianReactivatedPayload
