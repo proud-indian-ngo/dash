@@ -62,6 +62,7 @@ describe("Kalakriti Registration Release surface", () => {
       "entries.tsx",
       "entries/$id.tsx",
       "entries/index.tsx",
+      "event-day.tsx",
       "guardians.tsx",
       "index.tsx",
       "route.tsx",

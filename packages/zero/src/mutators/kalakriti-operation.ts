@@ -69,6 +69,17 @@ interface ActiveMembership {
   kind: "guardian" | "volunteer";
 }
 
+interface ScopedAssignment {
+  centerId: string | null;
+  responsibility: string;
+}
+
+const TRANSPORT_OPERATION_TYPES = new Set<KalakritiOperationType>([
+  "pickup",
+  "venue_departure",
+  "drop_off",
+]);
+
 async function getActiveMembership(
   tx: LockableKalakritiTx,
   ctx: Context,
@@ -83,7 +94,75 @@ async function getActiveMembership(
   )) as ActiveMembership | undefined;
 }
 
-export async function assertCanRecordKalakritiOperation(
+async function getScopedAssignments(
+  tx: LockableKalakritiTx,
+  membershipId: string
+): Promise<readonly ScopedAssignment[]> {
+  return (await tx.run(
+    zql.kalakritiAssignment.where("membershipId", membershipId)
+  )) as readonly ScopedAssignment[];
+}
+
+function hasEditionWideTransportAccess(
+  assignments: readonly ScopedAssignment[]
+): boolean {
+  return assignments.some(
+    (assignment) =>
+      assignment.responsibility === "edition_admin" ||
+      assignment.responsibility === "transport_lead"
+  );
+}
+
+function hasCenterTransportAccess(
+  assignments: readonly ScopedAssignment[],
+  centerId: string
+): boolean {
+  return assignments.some((assignment) => {
+    if (assignment.responsibility === "transport_coordinator") {
+      return assignment.centerId === centerId;
+    }
+    if (
+      (
+        KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES as readonly string[]
+      ).includes(assignment.responsibility)
+    ) {
+      return assignment.centerId === centerId;
+    }
+    return false;
+  });
+}
+
+async function assertCanRecordTransportOperation(
+  tx: LockableKalakritiTx,
+  ctx: Context | undefined,
+  editionId: string,
+  studentCenterId: string
+): Promise<void> {
+  assertIsLoggedIn(ctx);
+  if (can(ctx, "kalakriti.admin")) {
+    return;
+  }
+
+  const membership = await getActiveMembership(tx, ctx, editionId);
+  if (!membership) {
+    throw new Error("Unauthorized");
+  }
+  if (membership.kind === "guardian") {
+    throw new Error("Unauthorized");
+  }
+
+  const assignments = await getScopedAssignments(tx, membership.id);
+  if (hasEditionWideTransportAccess(assignments)) {
+    return;
+  }
+  if (hasCenterTransportAccess(assignments, studentCenterId)) {
+    return;
+  }
+
+  throw new Error("Unauthorized");
+}
+
+async function assertCanRecordNonTransportOperation(
   tx: LockableKalakritiTx,
   ctx: Context | undefined,
   editionId: string
@@ -172,6 +251,41 @@ export async function assertCanRecordKalakritiOperation(
   }
 
   throw new Error("Unauthorized");
+}
+
+export async function assertCanRecordKalakritiOperation(
+  tx: LockableKalakritiTx,
+  ctx: Context | undefined,
+  editionId: string,
+  type: KalakritiOperationType,
+  studentCenterId?: string | null
+): Promise<void> {
+  if (TRANSPORT_OPERATION_TYPES.has(type)) {
+    if (!studentCenterId) {
+      throw new Error("Student center is required for transport operations");
+    }
+    await assertCanRecordTransportOperation(
+      tx,
+      ctx,
+      editionId,
+      studentCenterId
+    );
+    return;
+  }
+  await assertCanRecordNonTransportOperation(tx, ctx, editionId);
+}
+
+async function resolveStudentCenterId(
+  tx: OperationTx,
+  studentId: string
+): Promise<string> {
+  const student = (await tx.run(
+    zql.kalakritiStudent.where("id", studentId).one()
+  )) as { centerId: string } | undefined;
+  if (!student) {
+    throw new Error("Student not found");
+  }
+  return student.centerId;
 }
 
 async function loadSubjectOperations(
@@ -271,7 +385,17 @@ async function recordKalakritiOperation(
   if (edition.lifecycle === "archived") {
     throw new Error("Edition is archived");
   }
-  await assertCanRecordKalakritiOperation(tx, ctx, args.editionId);
+  const studentCenterId =
+    args.subject.studentId && TRANSPORT_OPERATION_TYPES.has(args.type)
+      ? await resolveStudentCenterId(tx, args.subject.studentId)
+      : null;
+  await assertCanRecordKalakritiOperation(
+    tx,
+    ctx,
+    args.editionId,
+    args.type,
+    studentCenterId
+  );
 
   const existing = (await tx.run(
     zql.kalakritiOperation.where("operationId", args.operationId).one()

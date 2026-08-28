@@ -257,16 +257,22 @@ test.describe("Kalakriti Registration Release authorization", () => {
       const page = await editionAdmin.newPage();
       await page.goto(`/kalakriti/${YEAR}`);
       await waitForZeroReady(page);
+      await expect(page.getByRole("link", { name: "Event day" })).toBeVisible();
       await Promise.all(
-        ["Event day", "Results", "Awards", "Inventory"].map((label) =>
+        ["Results", "Awards", "Inventory"].map((label) =>
           expect(page.getByRole("link", { name: label })).toHaveCount(0)
         )
       );
       await expect(
         page.getByRole("link", { name: "Credentials" })
       ).toBeVisible();
+      await page.goto(`/kalakriti/${YEAR}/event-day`);
+      await waitForZeroReady(page);
+      await expect(
+        page.getByRole("heading", { exact: true, name: "Event day" })
+      ).toBeVisible();
       await Promise.all(
-        ["event-day", "results", "awards", "inventory"].map(async (path) => {
+        ["results", "awards", "inventory"].map(async (path) => {
           const routePage = await editionAdmin.newPage();
           try {
             const apiResponse = await editionAdmin.request.get(

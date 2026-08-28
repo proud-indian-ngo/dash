@@ -40,6 +40,7 @@
     "drizzle-orm": "catalog:",
     "evlog": "catalog:",
     "fflate": "catalog:",
+    "html5-qrcode": "^2.3.8",
     "libphonenumber-js": "^1.13.12",
     "lodash": "catalog:",
     "nuqs": "^2.10.1",
