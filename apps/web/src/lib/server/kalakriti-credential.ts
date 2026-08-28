@@ -1,7 +1,7 @@
-import { createHash, randomBytes } from "node:crypto";
 import { db } from "@pi-dash/db";
 import {
   kalakritiAssignment,
+  kalakritiAuditEntry,
   kalakritiCenter,
   kalakritiCredential,
   kalakritiEdition,
@@ -21,6 +21,11 @@ import { and, eq, isNull } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import { canManageKalakritiCredentials as canManageCredentials } from "@/lib/kalakriti-credential-policy";
+import {
+  assertCredentialPrintSubject,
+  type CredentialPrintSubject,
+  createOpaqueCredentialToken,
+} from "@/lib/server/kalakriti-credential-token";
 
 const PRINTABLE_LIFECYCLES = new Set([
   "draft",
@@ -55,14 +60,6 @@ export function canManageKalakritiCredentials(
   access: KalakritiEditionAccess
 ): boolean {
   return canManageCredentials(access);
-}
-
-function createOpaqueCredentialToken(): { token: string; tokenHash: string } {
-  const tokenBytes = randomBytes(32);
-  return {
-    token: tokenBytes.toString("base64url"),
-    tokenHash: createHash("sha256").update(tokenBytes).digest("hex"),
-  };
 }
 
 function buildCredentialCard(
@@ -189,9 +186,121 @@ export async function lookupKalakritiCredential({
   };
 }
 
-export interface CredentialPrintSubject {
-  membershipId?: string;
-  studentId?: string;
+export type { CredentialPrintSubject } from "@/lib/server/kalakriti-credential-token";
+
+export interface KalakritiCredentialListItem {
+  editionId: string;
+  humanId: string;
+  id: string;
+  issuedAt: number;
+  kind: "student" | "volunteer";
+  membershipId: string | null;
+  name: string;
+  revokedAt: number | null;
+  scopeLabel: string;
+  studentId: string | null;
+}
+
+export async function listKalakritiCredentialsForAdmin(
+  editionId: string
+): Promise<KalakritiCredentialListItem[]> {
+  const rows = await db
+    .select({
+      centerName: kalakritiCenter.name,
+      humanId: kalakritiCredential.humanId,
+      id: kalakritiCredential.id,
+      issuedAt: kalakritiCredential.issuedAt,
+      membershipId: kalakritiCredential.membershipId,
+      membershipName: kalakritiEditionMembership.snapshotName,
+      responsibility: kalakritiAssignment.responsibility,
+      revokedAt: kalakritiCredential.revokedAt,
+      studentId: kalakritiCredential.studentId,
+      studentName: kalakritiStudent.name,
+    })
+    .from(kalakritiCredential)
+    .leftJoin(
+      kalakritiStudent,
+      eq(kalakritiCredential.studentId, kalakritiStudent.id)
+    )
+    .leftJoin(
+      kalakritiCenter,
+      eq(kalakritiStudent.centerId, kalakritiCenter.id)
+    )
+    .leftJoin(
+      kalakritiEditionMembership,
+      eq(kalakritiCredential.membershipId, kalakritiEditionMembership.id)
+    )
+    .leftJoin(
+      kalakritiAssignment,
+      and(
+        eq(kalakritiAssignment.membershipId, kalakritiEditionMembership.id),
+        eq(kalakritiAssignment.isPrimary, true)
+      )
+    )
+    .where(eq(kalakritiCredential.editionId, editionId))
+    .orderBy(kalakritiCredential.humanId);
+
+  return rows.map((row) => {
+    const isStudent = row.studentId !== null;
+    let scopeLabel = "Unassigned";
+    if (isStudent) {
+      scopeLabel = row.centerName ?? "Unknown";
+    } else if (row.responsibility) {
+      scopeLabel = KALAKRITI_RESPONSIBILITY_LABELS[row.responsibility];
+    }
+    return {
+      editionId,
+      humanId: row.humanId,
+      id: row.id,
+      issuedAt: row.issuedAt.getTime(),
+      kind: isStudent ? "student" : "volunteer",
+      membershipId: row.membershipId,
+      name: isStudent
+        ? (row.studentName ?? "Unknown")
+        : (row.membershipName ?? "Unknown"),
+      revokedAt: row.revokedAt?.getTime() ?? null,
+      scopeLabel,
+      studentId: row.studentId,
+    };
+  });
+}
+
+interface PrintedCredentialResult {
+  card: Omit<
+    CredentialCard,
+    "accentColor" | "backgroundColor" | "textColor" | "wordmark"
+  >;
+  credentialId: string;
+  humanId: string;
+  subjectKind: "student" | "volunteer";
+}
+
+async function insertCredentialPrintAudit(
+  tx: CredentialPrintTx,
+  args: {
+    actorUserId: string;
+    credentialId: string;
+    editionId: string;
+    humanId: string;
+    now: number;
+    subjectKind: "student" | "volunteer";
+  }
+): Promise<void> {
+  await tx.insert(kalakritiAuditEntry).values({
+    action: "printed",
+    actorUserId: args.actorUserId,
+    createdAt: new Date(args.now),
+    domain: "credential",
+    editionId: args.editionId,
+    id: uuidv7(),
+    metadata: {
+      humanId: args.humanId,
+      subjectKind: args.subjectKind,
+    },
+    reason: null,
+    targetId: args.credentialId,
+    targetType: "credential",
+  });
 }
 
 async function printStudentCredential(
@@ -203,12 +312,7 @@ async function printStudentCredential(
     now: number;
     studentId: string;
   }
-): Promise<
-  Omit<
-    CredentialCard,
-    "accentColor" | "backgroundColor" | "textColor" | "wordmark"
-  >
-> {
+): Promise<PrintedCredentialResult> {
   const [student] = await tx
     .select({
       centerName: kalakritiCenter.name,
@@ -263,12 +367,17 @@ async function printStudentCredential(
     tokenHash,
   });
   return {
-    editionLabel: args.editionLabel,
+    card: {
+      editionLabel: args.editionLabel,
+      humanId: student.humanId,
+      kind: "student",
+      name: student.name,
+      qrToken: token,
+      scopeLabel: student.centerName,
+    },
+    credentialId,
     humanId: student.humanId,
-    kind: "student",
-    name: student.name,
-    qrToken: token,
-    scopeLabel: student.centerName,
+    subjectKind: "student",
   };
 }
 
@@ -307,12 +416,7 @@ async function printVolunteerCredential(
     membershipId: string;
     now: number;
   }
-): Promise<
-  Omit<
-    CredentialCard,
-    "accentColor" | "backgroundColor" | "textColor" | "wordmark"
-  >
-> {
+): Promise<PrintedCredentialResult> {
   const [membership] = await tx
     .select({
       humanId: kalakritiEditionMembership.humanId,
@@ -384,14 +488,19 @@ async function printVolunteerCredential(
     tokenHash,
   });
   return {
-    editionLabel: args.editionLabel,
+    card: {
+      editionLabel: args.editionLabel,
+      humanId,
+      kind: "volunteer",
+      name: membership.name,
+      qrToken: token,
+      scopeLabel: membership.responsibility
+        ? KALAKRITI_RESPONSIBILITY_LABELS[membership.responsibility]
+        : "Unassigned",
+    },
+    credentialId,
     humanId,
-    kind: "volunteer",
-    name: membership.name,
-    qrToken: token,
-    scopeLabel: membership.responsibility
-      ? KALAKRITI_RESPONSIBILITY_LABELS[membership.responsibility]
-      : "Unassigned",
+    subjectKind: "volunteer",
   };
 }
 
@@ -408,6 +517,9 @@ export async function printKalakritiCredentials({
   now: number;
   subjects: readonly CredentialPrintSubject[];
 }): Promise<Buffer> {
+  for (const subject of subjects) {
+    assertCredentialPrintSubject(subject);
+  }
   const cards: CredentialCard[] = [];
 
   await db.transaction(async (tx) => {
@@ -427,30 +539,32 @@ export async function printKalakritiCredentials({
     const branding = resolveKalakritiCredentialBranding(edition.brandingKey);
 
     for (const subject of subjects) {
-      if (!(subject.studentId || subject.membershipId)) {
-        throw new Error("Exactly one credential subject is required");
-      }
-      let card: Omit<
-        CredentialCard,
-        "accentColor" | "backgroundColor" | "textColor" | "wordmark"
-      >;
+      let printed: PrintedCredentialResult;
       if (subject.studentId) {
         // biome-ignore lint/performance/noAwaitInLoops: credential writes must stay sequential per subject
-        card = await printStudentCredential(tx, editionId, {
+        printed = await printStudentCredential(tx, editionId, {
           actorUserId,
           editionLabel,
           now,
           studentId: subject.studentId,
         });
       } else {
-        card = await printVolunteerCredential(tx, edition, editionId, {
+        printed = await printVolunteerCredential(tx, edition, editionId, {
           actorUserId,
           editionLabel,
           membershipId: subject.membershipId as string,
           now,
         });
       }
-      cards.push(buildCredentialCard(branding, editionLabel, card));
+      await insertCredentialPrintAudit(tx, {
+        actorUserId,
+        credentialId: printed.credentialId,
+        editionId,
+        humanId: printed.humanId,
+        now,
+        subjectKind: printed.subjectKind,
+      });
+      cards.push(buildCredentialCard(branding, editionLabel, printed.card));
     }
   });
 

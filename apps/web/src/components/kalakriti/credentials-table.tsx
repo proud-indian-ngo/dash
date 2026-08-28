@@ -11,44 +11,15 @@ import {
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { KALAKRITI_RESPONSIBILITY_LABELS } from "@pi-dash/shared/kalakriti";
 import { format } from "date-fns";
 import { useMemo } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import type { KalakritiCredentialListItem } from "@/lib/server/kalakriti-credential";
 
-export interface KalakritiCredentialRow {
-  humanId: string;
-  id: string;
-  issuedAt: number;
-  membership?: {
-    assignments?: readonly {
-      responsibility: keyof typeof KALAKRITI_RESPONSIBILITY_LABELS;
-    }[];
-    snapshotName: string;
-  } | null;
-  membershipId: string | null;
-  revokedAt: number | null;
-  student?: {
-    center?: { name: string } | null;
-    name: string;
-  } | null;
-  studentId: string | null;
-}
-
-function getCredentialName(row: KalakritiCredentialRow): string {
-  return row.student?.name ?? row.membership?.snapshotName ?? "Unknown";
-}
+export type KalakritiCredentialRow = KalakritiCredentialListItem;
 
 function getCredentialKind(row: KalakritiCredentialRow): string {
-  return row.studentId ? "Student" : "Volunteer";
-}
-
-function getCredentialScope(row: KalakritiCredentialRow): string {
-  if (row.student?.center?.name) {
-    return row.student.center.name;
-  }
-  const primary = row.membership?.assignments?.[0]?.responsibility;
-  return primary ? KALAKRITI_RESPONSIBILITY_LABELS[primary] : "Unassigned";
+  return row.kind === "student" ? "Student" : "Volunteer";
 }
 
 function getCredentialStatus(row: KalakritiCredentialRow): string {
@@ -70,12 +41,7 @@ function searchCredentials(
   if (!normalizedQuery) {
     return true;
   }
-  return [
-    row.humanId,
-    getCredentialName(row),
-    getCredentialKind(row),
-    getCredentialScope(row),
-  ]
+  return [row.humanId, row.name, getCredentialKind(row), row.scopeLabel]
     .join(" ")
     .toLocaleLowerCase()
     .includes(normalizedQuery);
@@ -98,7 +64,7 @@ function CredentialRowActions({
       <DropdownMenuTrigger
         render={
           <Button
-            aria-label={`Actions for ${getCredentialName(row)}`}
+            aria-label={`Actions for ${row.name}`}
             className="size-7"
             data-testid="row-actions"
             size="icon"
@@ -150,8 +116,8 @@ export function CredentialsTable({
         size: 160,
       },
       {
-        accessorFn: getCredentialName,
-        cell: ({ row }) => <span>{getCredentialName(row.original)}</span>,
+        accessorFn: (row) => row.name,
+        cell: ({ row }) => <span>{row.original.name}</span>,
         header: ({ column }) => (
           <DataGridColumnHeader column={column} title="Name" visibility />
         ),
@@ -176,8 +142,8 @@ export function CredentialsTable({
         size: 120,
       },
       {
-        accessorFn: getCredentialScope,
-        cell: ({ row }) => <span>{getCredentialScope(row.original)}</span>,
+        accessorFn: (row) => row.scopeLabel,
+        cell: ({ row }) => <span>{row.original.scopeLabel}</span>,
         header: ({ column }) => (
           <DataGridColumnHeader
             column={column}

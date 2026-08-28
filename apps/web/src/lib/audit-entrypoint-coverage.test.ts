@@ -50,6 +50,9 @@ const AUDITED_API_MARKERS: Record<string, string[]> = {
   "routes/api/jobs/$id/cancel.ts": ["runSessionAuditedAction"],
   "routes/api/jobs/$id/retry.ts": ["runSessionAuditedAction"],
   "routes/api/jobs/index.ts": ["runSessionAuditedAction"],
+  "routes/api/kalakriti/$year/credentials/print.ts": [
+    "runSessionAuditedAction",
+  ],
   "routes/api/zero/mutate.ts": [
     "runZeroAuditedMutation",
     "tx.mutate.auditLog.insert",

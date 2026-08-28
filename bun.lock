@@ -99,6 +99,7 @@
         "@pi-dash/env": "workspace:*",
         "@pi-dash/jobs": "workspace:*",
         "@pi-dash/observability": "workspace:*",
+        "@pi-dash/shared": "workspace:*",
         "better-auth": "catalog:",
         "drizzle-orm": "catalog:",
         "evlog": "catalog:",

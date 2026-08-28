@@ -29,11 +29,8 @@ export async function handleKalakritiCredentialLookupRequest(
     userId: sessionResult.session.user.id,
     year: year.data,
   });
-  if (!access) {
+  if (!(access && canManageKalakritiCredentials(access))) {
     return Response.json({ error: "Not found" }, { status: 404 });
-  }
-  if (!canManageKalakritiCredentials(access)) {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
   }
   const result = await lookupKalakritiCredential({
     editionId: access.edition.id,

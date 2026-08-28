@@ -8,6 +8,7 @@ import {
 } from "@pi-dash/db/schema/kalakriti";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import { enqueue } from "@pi-dash/jobs/enqueue";
+import { formatKalakritiVolunteerHumanId } from "@pi-dash/shared/kalakriti";
 import { and, eq, isNull } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 import type { RegisterEventEnrollDeps } from "./register-event";
@@ -21,10 +22,6 @@ function toEpoch(value: Date | number | null | undefined): number | null {
 
 function createCredentialTokenHash(): string {
   return createHash("sha256").update(randomBytes(32)).digest("hex");
-}
-
-function formatVolunteerHumanId(year: number, sequence: number): string {
-  return `KALV-${year}-${String(sequence).padStart(4, "0")}`;
 }
 
 async function issueVolunteerCredentialForMembership(
@@ -78,7 +75,7 @@ async function issueVolunteerCredentialForMembership(
   const { humanId: existingHumanId } = membership;
   let humanId = existingHumanId;
   if (!humanId) {
-    humanId = formatVolunteerHumanId(
+    humanId = formatKalakritiVolunteerHumanId(
       edition.year,
       edition.nextVolunteerSequence
     );

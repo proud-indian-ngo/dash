@@ -2,6 +2,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireSession } from "@/lib/api-auth";
+import { classifyAuditResponse, runSessionAuditedAction } from "@/lib/audit";
 import {
   canManageKalakritiCredentials,
   printKalakritiCredentials,
@@ -42,43 +43,52 @@ export async function handleKalakritiCredentialPrintRequest(
     userId: sessionResult.session.user.id,
     year: year.data,
   });
-  if (!access) {
+  if (!(access && canManageKalakritiCredentials(access))) {
     return Response.json({ error: "Not found" }, { status: 404 });
   }
-  if (!canManageKalakritiCredentials(access)) {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
-  }
-  const body = printBodySchema.safeParse(await request.json());
-  if (!body.success) {
-    return Response.json({ error: "Invalid request" }, { status: 400 });
-  }
-  try {
-    const pdf = await printKalakritiCredentials({
-      actorUserId: sessionResult.session.user.id,
-      editionId: access.edition.id,
-      editionLabel: access.edition.name,
-      now: Date.now(),
-      subjects: body.data.subjects,
-    });
-    return new Response(new Blob([new Uint8Array(pdf)]).stream(), {
-      headers: {
-        "Cache-Control": "private, no-store, max-age=0",
-        "Content-Disposition": `attachment; filename="kalakriti-${year.data}-credentials.pdf"`,
-        "Content-Type": "application/pdf",
-        Vary: "Cookie",
-        "X-Content-Type-Options": "nosniff",
-      },
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Print failed";
-    if (message.includes("not allowed")) {
-      return Response.json({ error: message }, { status: 403 });
-    }
-    if (message.includes("not found")) {
-      return Response.json({ error: message }, { status: 404 });
-    }
-    return Response.json({ error: message }, { status: 400 });
-  }
+
+  return runSessionAuditedAction(
+    sessionResult.session,
+    request.headers,
+    {
+      action: "kalakriti.credential.print",
+      target: { id: access.edition.id, type: "kalakriti_edition" },
+    },
+    async () => {
+      const body = printBodySchema.safeParse(await request.json());
+      if (!body.success) {
+        return Response.json({ error: "Invalid request" }, { status: 400 });
+      }
+      try {
+        const pdf = await printKalakritiCredentials({
+          actorUserId: sessionResult.session.user.id,
+          editionId: access.edition.id,
+          editionLabel: access.edition.name,
+          now: Date.now(),
+          subjects: body.data.subjects,
+        });
+        return new Response(new Blob([new Uint8Array(pdf)]).stream(), {
+          headers: {
+            "Cache-Control": "private, no-store, max-age=0",
+            "Content-Disposition": `attachment; filename="kalakriti-${year.data}-credentials.pdf"`,
+            "Content-Type": "application/pdf",
+            Vary: "Cookie",
+            "X-Content-Type-Options": "nosniff",
+          },
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Print failed";
+        if (message.includes("not allowed")) {
+          return Response.json({ error: message }, { status: 403 });
+        }
+        if (message.includes("not found")) {
+          return Response.json({ error: message }, { status: 404 });
+        }
+        return Response.json({ error: message }, { status: 400 });
+      }
+    },
+    classifyAuditResponse
+  );
 }
 
 export const Route = createFileRoute("/api/kalakriti/$year/credentials/print")({

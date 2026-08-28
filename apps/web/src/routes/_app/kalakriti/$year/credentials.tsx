@@ -3,10 +3,10 @@ import { Input } from "@pi-dash/design-system/components/ui/input";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { createKalakritiCredentialTokenHash } from "@pi-dash/shared/kalakriti-credential";
 import { mutators } from "@pi-dash/zero/mutators";
-import { queries } from "@pi-dash/zero/queries";
-import { useQuery, useZero } from "@rocicorp/zero/react";
+import { useZero } from "@rocicorp/zero/react";
 import { createFileRoute, notFound } from "@tanstack/react-router";
-import { type ChangeEvent, useState } from "react";
+import { format } from "date-fns";
+import { type ChangeEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import {
@@ -15,6 +15,7 @@ import {
 } from "@/components/kalakriti/credentials-table";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { getKalakritiCredentialsForAdmin } from "@/functions/kalakriti-credentials";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { canManageKalakritiCredentials } from "@/lib/kalakriti-credential-policy";
 
@@ -40,11 +41,39 @@ function KalakritiCredentialsPage() {
     name: string;
     scopeLabel: string;
   }>(null);
-  const [credentials, credentialsResult] = useQuery(
-    queries.kalakritiCredential.visibleForAdmin({ editionId: edition.id })
-  );
-  const isLoading =
-    credentials.length === 0 && credentialsResult.type !== "complete";
+  const [credentials, setCredentials] = useState<KalakritiCredentialRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadCredentials = useEventCallback(async () => {
+    setIsLoading(true);
+    try {
+      const rows = await getKalakritiCredentialsForAdmin({ data: { year } });
+      setCredentials(rows ?? []);
+    } finally {
+      setIsLoading(false);
+    }
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      try {
+        const rows = await getKalakritiCredentialsForAdmin({ data: { year } });
+        if (!cancelled) {
+          setCredentials(rows ?? []);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [year]);
 
   const printCredentials = useEventCallback(
     async (rows: readonly KalakritiCredentialRow[]) => {
@@ -78,6 +107,7 @@ function KalakritiCredentialsPage() {
       anchor.click();
       URL.revokeObjectURL(url);
       toast.success("Credential cards downloaded");
+      await loadCredentials();
       return { type: "success" as const };
     }
   );
@@ -95,7 +125,7 @@ function KalakritiCredentialsPage() {
     },
     onConfirm: async (row) => {
       const auditEntryId = uuidv7();
-      return zero.mutate(
+      const result = await zero.mutate(
         mutators.kalakritiCredential.reissue({
           auditEntryId,
           credentialId: uuidv7(),
@@ -106,6 +136,8 @@ function KalakritiCredentialsPage() {
           tokenHash: await createKalakritiCredentialTokenHash(),
         })
       ).server;
+      await loadCredentials();
+      return result;
     },
   });
 
@@ -185,10 +217,11 @@ function KalakritiCredentialsPage() {
           </p>
           <p className="font-mono">{lookupResult.humanId}</p>
           <p>{lookupResult.scopeLabel}</p>
+          <p>Issued {format(lookupResult.issuedAt, "dd MMM yyyy, HH:mm")}</p>
         </div>
       ) : null}
       <CredentialsTable
-        data={credentials as KalakritiCredentialRow[]}
+        data={credentials}
         isLoading={isLoading}
         onPrint={handlePrintRows}
         onReissue={handleReissueRow}
