@@ -157,6 +157,8 @@ describe("Kalakriti Registration Release surface", () => {
       "kalakritiEntry.remove",
       "kalakritiEntry.removeMusic",
       "kalakritiEntry.replaceGroupMembers",
+      "kalakritiOperation.record",
+      "kalakritiOperation.recordManual",
       "kalakritiStudent.create",
       "kalakritiStudent.delete",
       "kalakritiStudent.update",

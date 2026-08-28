@@ -245,6 +245,7 @@ function removeEntry({
     snapshot,
     ...accessResults,
     snapshot,
+    ...snapshot.members.map(() => []),
   ]);
   lockedResults.push([editionRow], [centerRow], [session]);
   const promise = kalakritiEntryMutators.remove.fn({

@@ -850,6 +850,21 @@ export const kalakritiEntryMutators = {
     if (!entry) {
       throw new Error("Competition Entry not found");
     }
+    const memberOperationSets = await Promise.all(
+      entry.members.map(
+        (member) =>
+          tx.run(
+            zql.kalakritiOperation.where("studentId", member.studentId)
+          ) as Promise<Array<{ id: string }>>
+      )
+    );
+    if (
+      memberOperationSets.some(
+        (memberOperations) => memberOperations.length > 0
+      )
+    ) {
+      throw new Error("Student has event-day operations and cannot be deleted");
+    }
     if (entry.musicObjectKey) {
       enqueueDeleteR2Object(ctx, tx.location, entry.musicObjectKey, {
         keyPrefixes: [`kalakriti-music/${edition.id}/${args.entryId}/`],
