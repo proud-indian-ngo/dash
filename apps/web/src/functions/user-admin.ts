@@ -6,13 +6,17 @@ import {
   invalidatePermissionCache,
   resolvePermissions,
 } from "@pi-dash/db/queries/resolve-permissions";
-import { user } from "@pi-dash/db/schema/auth";
+import { notificationTopicPreference, user } from "@pi-dash/db/schema/auth";
 import { role } from "@pi-dash/db/schema/permission";
 import { enqueue } from "@pi-dash/jobs/enqueue";
-import { notifyUserDeleted } from "@pi-dash/notifications/send/user";
+import {
+  prepareUserDeletedEmail,
+  sendUserDeletedEmail,
+} from "@pi-dash/notifications/send/user";
+import { TOPICS } from "@pi-dash/notifications/topics";
 import { withFireAndForgetLog } from "@pi-dash/observability";
 import { createServerFn } from "@tanstack/react-start";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import z from "zod";
 
@@ -482,13 +486,29 @@ export const deleteUserAdmin = createServerFn({ method: "POST" })
         }
         await assertGenericUserTarget(data.userId);
 
-        // Called directly (not enqueued) — user must exist when notification is sent,
-        // but is deleted immediately after.
-        try {
-          await notifyUserDeleted({ userId: data.userId });
-        } catch {
-          // Best-effort: don't block deletion if notification fails
-        }
+        // Capture delivery details while the user still exists, but don't send a
+        // deletion confirmation until the database delete succeeds.
+        const deletionRecipient = await db
+          .select({
+            email: user.email,
+            emailEnabled: notificationTopicPreference.emailEnabled,
+          })
+          .from(user)
+          .leftJoin(
+            notificationTopicPreference,
+            and(
+              eq(notificationTopicPreference.userId, user.id),
+              eq(notificationTopicPreference.topicId, TOPICS.ACCOUNT)
+            )
+          )
+          .where(eq(user.id, data.userId))
+          .then((rows) => rows[0]);
+        const deletionEmail =
+          deletionRecipient && deletionRecipient.emailEnabled !== false
+            ? await prepareUserDeletedEmail({
+                toEmail: deletionRecipient.email,
+              }).catch(() => null)
+            : null;
 
         // Remove from all WhatsApp groups before deletion (membership rows cascade-delete).
         // Best-effort: enqueue failure must not block user deletion.
@@ -525,6 +545,14 @@ export const deleteUserAdmin = createServerFn({ method: "POST" })
           },
           headers: context.headers,
         });
+
+        if (deletionEmail) {
+          try {
+            await sendUserDeletedEmail(deletionEmail);
+          } catch {
+            // Best-effort: the account is already deleted.
+          }
+        }
 
         return data.userId;
       }

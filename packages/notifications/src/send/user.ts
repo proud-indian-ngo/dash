@@ -1,5 +1,6 @@
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
+import { sendNotificationEmail } from "../email";
 import { sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
 
@@ -153,8 +154,13 @@ interface UserDeactivatedOptions {
   userId: string;
 }
 
-interface UserDeletedOptions {
-  userId: string;
+interface PrepareUserDeletedEmailOptions {
+  toEmail: string;
+}
+
+export interface PreparedUserDeletedEmail {
+  emailHtml: string;
+  toEmail: string;
 }
 
 interface UserReactivatedOptions {
@@ -199,22 +205,25 @@ export async function notifyUserDeactivated({
   });
 }
 
-export async function notifyUserDeleted({
-  userId,
-}: UserDeletedOptions): Promise<void> {
+export async function prepareUserDeletedEmail({
+  toEmail,
+}: PrepareUserDeletedEmailOptions): Promise<PreparedUserDeletedEmail> {
   const emailHtml = await renderNotificationEmail({
     heading: "Account deleted",
-    paragraphs: [
-      "Your account is being removed by an admin. All your data will be deleted.",
-    ],
+    paragraphs: ["Your account has been removed by an admin."],
   });
-  await sendMessage({
-    body: "Your account is being removed by an admin. All your data will be deleted.",
+  return { emailHtml, toEmail };
+}
+
+export async function sendUserDeletedEmail({
+  emailHtml,
+  toEmail,
+}: PreparedUserDeletedEmail): Promise<void> {
+  await sendNotificationEmail({
+    body: "Your account has been removed by an admin.",
     emailHtml,
-    idempotencyKey: `user-deleted-${userId}`,
     title: "⚠️ Account deleted",
-    to: userId,
-    topic: TOPICS.ACCOUNT,
+    toEmail,
   });
 }
 

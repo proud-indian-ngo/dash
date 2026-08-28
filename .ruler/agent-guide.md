@@ -92,7 +92,7 @@ Skip architecture docs for copy, CSS, component restyling, lint-only changes, de
 
 ### Jobs and mutations
 
-- Use `enqueue()` from `@pi-dash/jobs` for asynchronous side effects. Do not call notification or WhatsApp handlers directly from server functions, auth hooks, or mutators; `notifyUserDeleted` is the synchronous pre-deletion exception.
+- Use `enqueue()` from `@pi-dash/jobs` for asynchronous side effects. Do not call notification or WhatsApp handlers directly from server functions, auth hooks, or mutators; account deletion is the synchronous exception because it captures enabled email delivery before deletion and sends only after deletion succeeds.
 - Wrap side-effect enqueues with `withFireAndForgetLog()`. Await enqueue only when enqueueing is the primary operation.
 - Use `handleMutationResult()` for Zero mutation server results.
 - Use `uuidv7()` for IDs. Do not use `Date.now()` in notification idempotency keys; pass the deterministic mutator timestamp.
