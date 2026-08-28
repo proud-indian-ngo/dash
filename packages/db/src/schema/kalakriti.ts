@@ -757,6 +757,10 @@ export const kalakritiTransportAssignment = pgTable(
       table.editionId,
       table.centerId
     ),
+    unique("kalakriti_transport_assignment_editionId_id_uq").on(
+      table.editionId,
+      table.id
+    ),
     foreignKey({
       columns: [table.editionId, table.centerId],
       foreignColumns: [kalakritiCenter.editionId, kalakritiCenter.id],
