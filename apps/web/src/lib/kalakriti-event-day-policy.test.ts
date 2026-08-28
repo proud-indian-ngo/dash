@@ -2,24 +2,16 @@ import { describe, expect, it } from "vitest";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import { canAccessKalakritiEventDay } from "./kalakriti-event-day-policy";
 
-const edition = {
-  ageCutoffDate: "2027-06-30",
-  eventDate: "2027-11-21",
-  id: "edition-1",
-  lifecycle: "registration_open" as const,
-  name: "Kalakriti 2027",
-  plannedRegistrationCloseAt: 1,
-  teamEventId: "team-event-1",
-  timezone: "Asia/Kolkata",
-  year: 2027,
-};
+type EventDayAccessInput = Pick<
+  KalakritiEditionAccess,
+  "isGlobalAdmin" | "membership"
+>;
 
 function access(
-  overrides: Partial<KalakritiEditionAccess> &
-    Pick<KalakritiEditionAccess, "membership">
-): KalakritiEditionAccess {
+  overrides: Partial<EventDayAccessInput> &
+    Pick<EventDayAccessInput, "membership">
+): EventDayAccessInput {
   return {
-    edition,
     isGlobalAdmin: false,
     ...overrides,
   };
@@ -29,7 +21,6 @@ describe("canAccessKalakritiEventDay", () => {
   it("allows global admins", () => {
     expect(
       canAccessKalakritiEventDay({
-        edition,
         isGlobalAdmin: true,
         membership: null,
       })

@@ -74,15 +74,15 @@ function KalakritiEventDayPage() {
       humanId?: string;
       credentialToken?: string;
     }) => {
-      if (recordedKeysRef.current.has(dedupeKey)) {
+      const recordKey = `${operationType}:${dedupeKey}`;
+      if (recordedKeysRef.current.has(recordKey)) {
         toast.message("Already recorded");
         return;
       }
 
-      const pendingKey = `${operationType}:${dedupeKey}`;
       const operationId =
-        pendingOperationIdsRef.current.get(pendingKey) ?? uuidv7();
-      pendingOperationIdsRef.current.set(pendingKey, operationId);
+        pendingOperationIdsRef.current.get(recordKey) ?? uuidv7();
+      pendingOperationIdsRef.current.set(recordKey, operationId);
 
       const now = Date.now();
       const baseArgs = {
@@ -122,8 +122,8 @@ function KalakritiEventDayPage() {
           return;
         }
 
-        recordedKeysRef.current.add(dedupeKey);
-        pendingOperationIdsRef.current.delete(pendingKey);
+        recordedKeysRef.current.add(recordKey);
+        pendingOperationIdsRef.current.delete(recordKey);
         toast.success("Transport recorded");
       } finally {
         setIsSubmitting(false);
