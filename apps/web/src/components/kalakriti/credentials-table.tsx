@@ -1,0 +1,264 @@
+import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
+import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
+import { Button } from "@pi-dash/design-system/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@pi-dash/design-system/components/ui/dropdown-menu";
+import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { KALAKRITI_RESPONSIBILITY_LABELS } from "@pi-dash/shared/kalakriti";
+import { format } from "date-fns";
+import { useMemo } from "react";
+import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+
+export interface KalakritiCredentialRow {
+  humanId: string;
+  id: string;
+  issuedAt: number;
+  membership?: {
+    assignments?: readonly {
+      responsibility: keyof typeof KALAKRITI_RESPONSIBILITY_LABELS;
+    }[];
+    snapshotName: string;
+  } | null;
+  membershipId: string | null;
+  revokedAt: number | null;
+  student?: {
+    center?: { name: string } | null;
+    name: string;
+  } | null;
+  studentId: string | null;
+}
+
+function getCredentialName(row: KalakritiCredentialRow): string {
+  return row.student?.name ?? row.membership?.snapshotName ?? "Unknown";
+}
+
+function getCredentialKind(row: KalakritiCredentialRow): string {
+  return row.studentId ? "Student" : "Volunteer";
+}
+
+function getCredentialScope(row: KalakritiCredentialRow): string {
+  if (row.student?.center?.name) {
+    return row.student.center.name;
+  }
+  const primary = row.membership?.assignments?.[0]?.responsibility;
+  return primary ? KALAKRITI_RESPONSIBILITY_LABELS[primary] : "Unassigned";
+}
+
+function getCredentialStatus(row: KalakritiCredentialRow): string {
+  return row.revokedAt ? "Revoked" : "Active";
+}
+
+interface CredentialsTableProps {
+  data: KalakritiCredentialRow[];
+  isLoading: boolean;
+  onPrint: (rows: KalakritiCredentialRow[]) => void;
+  onReissue: (row: KalakritiCredentialRow) => void;
+}
+
+function searchCredentials(
+  row: KalakritiCredentialRow,
+  query: string
+): boolean {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) {
+    return true;
+  }
+  return [
+    row.humanId,
+    getCredentialName(row),
+    getCredentialKind(row),
+    getCredentialScope(row),
+  ]
+    .join(" ")
+    .toLocaleLowerCase()
+    .includes(normalizedQuery);
+}
+
+function CredentialRowActions({
+  onPrint,
+  onReissue,
+  row,
+}: {
+  onPrint: (rows: KalakritiCredentialRow[]) => void;
+  onReissue: (row: KalakritiCredentialRow) => void;
+  row: KalakritiCredentialRow;
+}) {
+  const handlePrint = useEventCallback(() => onPrint([row]));
+  const handleReissue = useEventCallback(() => onReissue(row));
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            aria-label={`Actions for ${getCredentialName(row)}`}
+            className="size-7"
+            data-testid="row-actions"
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <HugeiconsIcon
+              className="size-4"
+              icon={MoreVerticalIcon}
+              strokeWidth={2}
+            />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end" className="w-40">
+        <DropdownMenuItem onClick={handlePrint}>Print card</DropdownMenuItem>
+        <DropdownMenuItem onClick={handleReissue}>Reissue QR</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+export function CredentialsTable({
+  data,
+  isLoading,
+  onPrint,
+  onReissue,
+}: CredentialsTableProps) {
+  const getRowId = useEventCallback((row: KalakritiCredentialRow) => row.id);
+  const handlePrintActive = useEventCallback(() =>
+    onPrint(data.filter((row) => row.revokedAt === null).slice(0, 100))
+  );
+
+  const columns = useMemo<DataGridColumnDef<KalakritiCredentialRow>[]>(
+    () => [
+      {
+        accessorFn: (row) => row.humanId,
+        cell: ({ row }) => (
+          <span className="font-mono text-sm">{row.original.humanId}</span>
+        ),
+        header: ({ column }) => (
+          <DataGridColumnHeader column={column} title="Yearly ID" visibility />
+        ),
+        id: "humanId",
+        meta: {
+          headerTitle: "Yearly ID",
+          skeleton: <Skeleton className="h-5 w-28" />,
+        },
+        size: 160,
+      },
+      {
+        accessorFn: getCredentialName,
+        cell: ({ row }) => <span>{getCredentialName(row.original)}</span>,
+        header: ({ column }) => (
+          <DataGridColumnHeader column={column} title="Name" visibility />
+        ),
+        id: "name",
+        meta: {
+          headerTitle: "Name",
+          skeleton: <Skeleton className="h-5 w-40" />,
+        },
+        size: 200,
+      },
+      {
+        accessorFn: getCredentialKind,
+        cell: ({ row }) => <span>{getCredentialKind(row.original)}</span>,
+        header: ({ column }) => (
+          <DataGridColumnHeader column={column} title="Kind" visibility />
+        ),
+        id: "kind",
+        meta: {
+          headerTitle: "Kind",
+          skeleton: <Skeleton className="h-5 w-24" />,
+        },
+        size: 120,
+      },
+      {
+        accessorFn: getCredentialScope,
+        cell: ({ row }) => <span>{getCredentialScope(row.original)}</span>,
+        header: ({ column }) => (
+          <DataGridColumnHeader
+            column={column}
+            title="Center / Role"
+            visibility
+          />
+        ),
+        id: "scope",
+        meta: {
+          headerTitle: "Center / Role",
+          skeleton: <Skeleton className="h-5 w-36" />,
+        },
+        size: 180,
+      },
+      {
+        accessorFn: getCredentialStatus,
+        cell: ({ row }) => <span>{getCredentialStatus(row.original)}</span>,
+        header: ({ column }) => (
+          <DataGridColumnHeader column={column} title="Status" visibility />
+        ),
+        id: "status",
+        meta: {
+          headerTitle: "Status",
+          skeleton: <Skeleton className="h-5 w-20" />,
+        },
+        size: 100,
+      },
+      {
+        accessorFn: (row) => row.issuedAt,
+        cell: ({ row }) => (
+          <span>{format(row.original.issuedAt, "dd MMM yyyy, HH:mm")}</span>
+        ),
+        header: ({ column }) => (
+          <DataGridColumnHeader column={column} title="Issued" visibility />
+        ),
+        id: "issuedAt",
+        meta: {
+          headerTitle: "Issued",
+          skeleton: <Skeleton className="h-5 w-36" />,
+        },
+        size: 180,
+      },
+      {
+        cell: ({ row }) => (
+          <CredentialRowActions
+            onPrint={onPrint}
+            onReissue={onReissue}
+            row={row.original}
+          />
+        ),
+        id: "actions",
+        meta: {
+          enableColumnOrdering: false,
+          headerTitle: "",
+          skeleton: <Skeleton className="size-7" />,
+        },
+        size: 48,
+      },
+    ],
+    [onPrint, onReissue]
+  );
+
+  return (
+    <DataTableWrapper
+      columns={columns}
+      data={data}
+      getRowId={getRowId}
+      isLoading={isLoading}
+      searchFn={searchCredentials}
+      searchPlaceholder="Search credentials..."
+      storageKey="kalakriti_credentials_table_state_v1"
+      toolbarActions={
+        <Button
+          disabled={data.length === 0}
+          onClick={handlePrintActive}
+          type="button"
+          variant="outline"
+        >
+          Print active
+        </Button>
+      }
+    />
+  );
+}

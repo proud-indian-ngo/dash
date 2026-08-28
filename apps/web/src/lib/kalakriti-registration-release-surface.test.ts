@@ -57,6 +57,7 @@ describe("Kalakriti Registration Release surface", () => {
       "competitions/route.tsx",
       "competitions/schedule.tsx",
       "competitions/venues.tsx",
+      "credentials.tsx",
       "eligibility.tsx",
       "entries.tsx",
       "entries/$id.tsx",
@@ -76,7 +77,13 @@ describe("Kalakriti Registration Release surface", () => {
       routeSources(
         path.resolve(import.meta.dirname, "../routes/api/kalakriti/$year")
       )
-    ).toEqual(["audit.ts", "registration-export.ts", "schedule.ts"]);
+    ).toEqual([
+      "audit.ts",
+      "credentials/lookup.ts",
+      "credentials/print.ts",
+      "registration-export.ts",
+      "schedule.ts",
+    ]);
   });
 
   it("registers no Event-day, Results, Awards, or Inventory queries or mutations", () => {
@@ -90,6 +97,7 @@ describe("Kalakriti Registration Release surface", () => {
       "kalakritiCompetition.competitions",
       "kalakritiCompetition.sessions",
       "kalakritiCompetition.venues",
+      "kalakritiCredential.visibleForAdmin",
       "kalakritiEdition.accessible",
       "kalakritiEdition.byTeamEventId",
       "kalakritiEdition.byYear",
@@ -136,6 +144,7 @@ describe("Kalakriti Registration Release surface", () => {
       "kalakritiCompetition.updateCompetition",
       "kalakritiCompetition.updateSession",
       "kalakritiCompetition.updateVenue",
+      "kalakritiCredential.reissue",
       "kalakritiEdition.cloneConfiguration",
       "kalakritiEdition.create",
       "kalakritiEdition.transition",

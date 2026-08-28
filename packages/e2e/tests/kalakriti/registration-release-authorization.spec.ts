@@ -262,6 +262,9 @@ test.describe("Kalakriti Registration Release authorization", () => {
           expect(page.getByRole("link", { name: label })).toHaveCount(0)
         )
       );
+      await expect(
+        page.getByRole("link", { name: "Credentials" })
+      ).toBeVisible();
       await Promise.all(
         ["event-day", "results", "awards", "inventory"].map(async (path) => {
           const routePage = await editionAdmin.newPage();
