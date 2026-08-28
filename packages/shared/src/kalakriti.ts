@@ -19,6 +19,18 @@ export const KALAKRITI_MEMBERSHIP_STATES = ["active", "archived"] as const;
 export type KalakritiMembershipState =
   (typeof KALAKRITI_MEMBERSHIP_STATES)[number];
 
+export const KALAKRITI_OPERATION_TYPES = [
+  "pickup",
+  "venue_departure",
+  "drop_off",
+  "volunteer_check_in",
+  "breakfast",
+  "lunch",
+  "competition_attendance",
+] as const;
+
+export type KalakritiOperationType = (typeof KALAKRITI_OPERATION_TYPES)[number];
+
 export const KALAKRITI_OPERATIONAL_TEAMS = [
   "food",
   "transport",
