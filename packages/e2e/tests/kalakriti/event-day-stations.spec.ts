@@ -26,7 +26,7 @@ test.describe("Kalakriti event-day stations", () => {
     await page.getByLabel("Yearly ID").fill(ASSIGNED_STUDENT_ID);
     await page.getByRole("button", { name: "Record transport" }).click();
     await expect(
-      page.getByText(/Transport recorded|Already recorded/)
+      page.getByText(/Operation recorded|Already recorded/)
     ).toBeVisible();
 
     await page.getByLabel("Station").click();
