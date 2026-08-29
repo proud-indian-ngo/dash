@@ -98,6 +98,6 @@ test("manages Center transport assignments and blocks Guardians", async ({
       await guardianContext.close();
     }
   } finally {
-    await fixture("teardown", superAdminEmail);
+    await fixture("cleanup", superAdminEmail);
   }
 });

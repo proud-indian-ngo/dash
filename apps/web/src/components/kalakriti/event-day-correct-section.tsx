@@ -205,7 +205,7 @@ export function EventDayCorrectSection({
       </div>
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="space-y-2">
-          <Label htmlFor="correct-human-id">Yearly ID</Label>
+          <Label htmlFor="correct-human-id">Correct yearly ID</Label>
           <div className="flex gap-2">
             <Input
               autoComplete="off"

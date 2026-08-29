@@ -21,12 +21,15 @@ interface CredentialState {
 async function fixture<T>(
   action: "cleanup" | "setup" | "state",
   email?: string
-) {
+): Promise<T> {
   const { stdout } = await execFileAsync(
     "bun",
     ["run", helperPath, action, ...(email ? [email] : [])],
     { env: process.env }
   );
+  if (action === "cleanup") {
+    return undefined as T;
+  }
   return JSON.parse(stdout.trim()) as T;
 }
 
