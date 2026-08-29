@@ -693,7 +693,7 @@ export async function seedKalakritiReleaseFixture(
       createdAt: now,
       editionId: fixture.editionId,
       humanId: `KALV-2186-${String(index + 1).padStart(4, "0")}`,
-      id: `${prefix}b9${index + 3}`,
+      id: `${prefix}b9${String(index + 3).padStart(2, "0")}`,
       issuedAt: now,
       issuedBy: globalAdminId,
       membershipId,
