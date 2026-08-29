@@ -46,7 +46,7 @@ test.describe("Kalakriti event-day transport", () => {
       page.getByText("Online-only event-day stations", { exact: false })
     ).toBeVisible();
 
-    await page.getByLabel("Yearly ID").fill(ASSIGNED_STUDENT_ID);
+    await page.locator("#event-day-human-id").fill(ASSIGNED_STUDENT_ID);
     await page.getByRole("button", { name: "Record transport" }).click();
     await expect(page.getByText("Operation recorded")).toBeVisible();
 

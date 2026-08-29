@@ -45,7 +45,7 @@ test.describe("Kalakriti event-day stations", () => {
 
     await page.getByLabel("Station").click();
     await page.getByRole("option", { name: "Transport" }).click();
-    await page.getByLabel("Yearly ID").fill(ASSIGNED_STUDENT_ID);
+    await page.locator("#event-day-human-id").fill(ASSIGNED_STUDENT_ID);
     await page.getByRole("button", { name: "Record transport" }).click();
     await expect(
       page.getByText(/Operation recorded|Already recorded/)
@@ -55,7 +55,7 @@ test.describe("Kalakriti event-day stations", () => {
     await page.getByRole("option", { name: "Meals" }).click();
     await page.getByLabel("Meal").click();
     await page.getByRole("option", { name: "Breakfast" }).click();
-    await page.getByLabel("Yearly ID").fill(ASSIGNED_STUDENT_ID);
+    await page.locator("#event-day-human-id").fill(ASSIGNED_STUDENT_ID);
     await page.getByRole("button", { name: "Record meal" }).click();
     await expect(page.getByText("Operation recorded")).toBeVisible();
   });

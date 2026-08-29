@@ -82,20 +82,17 @@ test.describe("Kalakriti go-live", () => {
 
     await page.getByLabel("Station").click();
     await page.getByRole("option", { name: "Transport" }).click();
-    await page.getByLabel("Yearly ID").fill(ASSIGNED_STUDENT_ID);
+    await page.locator("#event-day-human-id").fill(ASSIGNED_STUDENT_ID);
     await page.getByRole("button", { name: "Record transport" }).click();
     await expect(page.getByText("Operation recorded")).toBeVisible();
 
     await page.getByLabel("Station").click();
     await page.getByRole("option", { name: "Meals" }).click();
-    await page.getByLabel("Yearly ID").fill(ASSIGNED_STUDENT_ID);
+    await page.locator("#event-day-human-id").fill(ASSIGNED_STUDENT_ID);
     await page.getByRole("button", { name: "Record meal" }).click();
     await expect(page.getByText("Operation recorded")).toBeVisible();
 
-    await page
-      .getByLabel("Yearly ID", { exact: true })
-      .nth(1)
-      .fill(ASSIGNED_STUDENT_ID);
+    await page.locator("#correct-human-id").fill(ASSIGNED_STUDENT_ID);
     await page.getByRole("button", { name: "Look up" }).click();
     await page.getByLabel("Reason").fill("Wrong pickup time recorded");
     await page.getByRole("button", { name: "Correct operation" }).click();
@@ -103,7 +100,7 @@ test.describe("Kalakriti go-live", () => {
 
     await page.getByLabel("Station").click();
     await page.getByRole("option", { name: "Meals" }).click();
-    await page.getByLabel("Yearly ID").first().fill(ASSIGNED_STUDENT_ID);
+    await page.locator("#event-day-human-id").fill(ASSIGNED_STUDENT_ID);
     await page.getByRole("button", { name: "Record meal" }).click();
     await expect(
       page.getByText(/Operation recorded|Already recorded/)
