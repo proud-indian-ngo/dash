@@ -60,19 +60,20 @@ export function EventDayCorrectSection({
     studentId?: string;
   } | null>(null);
 
+  const hasLookupHumanId = lookupHumanId.length > 0;
   const [studentMatch] = useQuery(
     queries.kalakritiOperation.studentByHumanId({
       editionId,
-      humanId: lookupHumanId,
+      humanId: hasLookupHumanId ? lookupHumanId : "_",
     }),
-    { enabled: lookupHumanId.length > 0 }
+    { enabled: hasLookupHumanId }
   );
   const [volunteerMatch] = useQuery(
     queries.kalakritiOperation.volunteerByHumanId({
       editionId,
-      humanId: lookupHumanId,
+      humanId: hasLookupHumanId ? lookupHumanId : "_",
     }),
-    { enabled: lookupHumanId.length > 0 && !studentMatch }
+    { enabled: hasLookupHumanId && !studentMatch }
   );
   const [operations] = useQuery(
     queries.kalakritiOperation.bySubject({

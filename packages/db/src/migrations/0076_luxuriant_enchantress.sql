@@ -18,6 +18,8 @@ CREATE TABLE "kalakriti_transport_assignment" (
 	CONSTRAINT "kalakriti_transport_assignment_driverName_chk" CHECK (length(trim("kalakriti_transport_assignment"."driver_name")) > 0)
 );
 --> statement-breakpoint
+ALTER TABLE "kalakriti_transport_assignment" ADD CONSTRAINT "kalakriti_transport_assignment_editionId_id_uq" UNIQUE("edition_id","id");
+--> statement-breakpoint
 CREATE TABLE "kalakriti_transport_status_history" (
 	"actor_user_id" text NOT NULL,
 	"assignment_id" uuid NOT NULL,
