@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+bun_version="$(sed -n 's/.*"packageManager": "bun@\([^"]*\)".*/\1/p' package.json)"
+bun_bin="$HOME/.bun/bin/bun"
+
+if [[ ! -x "$bun_bin" ]] || [[ "$($bun_bin --version)" != "$bun_version" ]]; then
+  echo "Pinned Bun ${bun_version} is unavailable; rerun .agents/setup" >&2
+  exit 1
+fi
+
+echo "Orb ready (Bun ${bun_version})."

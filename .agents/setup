@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+step() {
+  local label="$1"
+  shift
+  echo "==> ${label}"
+  time "$@"
+}
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+bun_version="$(sed -n 's/.*"packageManager": "bun@\([^"]*\)".*/\1/p' package.json)"
+if [[ -z "$bun_version" ]]; then
+  echo "Could not read the pinned Bun version from package.json" >&2
+  exit 1
+fi
+
+bun_install="$HOME/.bun"
+bun_bin="$bun_install/bin/bun"
+if [[ ! -x "$bun_bin" ]] || [[ "$($bun_bin --version)" != "$bun_version" ]]; then
+  installer="$(mktemp)"
+  trap 'rm -f "$installer"' EXIT
+  step "Download Bun installer" curl -fsSL https://bun.com/install -o "$installer"
+  step "Install Bun ${bun_version}" bash "$installer" "bun-v${bun_version}"
+  rm -f "$installer"
+  trap - EXIT
+fi
+
+profile_marker="# pi-dash Bun toolchain"
+if ! grep -Fqx "$profile_marker" "$HOME/.bash_profile" 2>/dev/null; then
+  cat >> "$HOME/.bash_profile" <<'EOF'
+
+# pi-dash Bun toolchain
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+EOF
+fi
+
+export BUN_INSTALL="$bun_install"
+export PATH="$BUN_INSTALL/bin:$PATH"
+
+if [[ ! -f .env ]]; then
+  cp -- .env.sample .env
+fi
+
+step "Install workspace dependencies" "$bun_bin" install --frozen-lockfile
+
+if compgen -G "$HOME/.cache/ms-playwright/chromium-*" >/dev/null; then
+  step "Verify Playwright Chromium" "$bun_bin" x playwright install chromium
+else
+  step "Install Playwright Chromium and system dependencies" \
+    "$bun_bin" x playwright install --with-deps chromium
+fi
+
+echo "Orb setup complete."
