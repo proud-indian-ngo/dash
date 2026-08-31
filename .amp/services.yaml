@@ -1,0 +1,33 @@
+services:
+  dash-dev:
+    command: >-
+      mkdir -p /tmp/dash-nginx/{client-body,fastcgi,proxy,scgi,uwsgi} &&
+      exec /usr/sbin/nginx -p /tmp/dash-nginx/ -c "$PWD/.amp/nginx.dev.conf"
+    port: 3000
+    portal:
+      title: Dash
+      description: Dash development app with Zero sync.
+
+  dash-web:
+    command: >-
+      DEV_WEB_PORT="$PORT"
+      ZERO_MUTATE_URL="http://127.0.0.1:$PORT/api/zero/mutate"
+      ZERO_QUERY_URL="http://127.0.0.1:$PORT/api/zero/query"
+      bunx --bun vite dev --host 127.0.0.1 --port "$PORT"
+    cwd: apps/web
+    port: 3001
+    health: /login
+    env:
+      BETTER_AUTH_URL: "${services.dash-dev.publicURL}"
+      CORS_ORIGIN: "${services.dash-dev.publicURL}"
+      VITE_CDN_URL: "${services.dash-dev.publicURL}"
+      VITE_ZERO_URL: "${services.dash-dev.publicURL}"
+
+  dash-zero:
+    command: ZERO_PORT="$PORT" bun run dev
+    cwd: packages/zero
+    port: 4848
+    health: /
+    env:
+      ZERO_MUTATE_URL: http://127.0.0.1:3001/api/zero/mutate
+      ZERO_QUERY_URL: http://127.0.0.1:3001/api/zero/query

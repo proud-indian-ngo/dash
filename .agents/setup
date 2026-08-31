@@ -41,16 +41,37 @@ fi
 export BUN_INSTALL="$bun_install"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
+generate_auth_secret() {
+  "$bun_bin" -e \
+    'process.stdout.write(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url"))'
+}
+
+write_auth_secret() {
+  AUTH_SECRET="$1" "$bun_bin" -e '
+    const path = ".env";
+    const contents = await Bun.file(path).text();
+    const value = JSON.stringify(process.env.AUTH_SECRET);
+    await Bun.write(path, contents.replace(/^BETTER_AUTH_SECRET=.*$/m, `BETTER_AUTH_SECRET=${value}`));
+  '
+}
+
 if [[ ! -f .env ]]; then
   cp -- .env.sample .env
 fi
 
 if cmp -s .env .env.sample; then
+  auth_secret="$(generate_auth_secret)"
   sed -i \
     -e 's/^DEV_DB_PASSWORD=""/DEV_DB_PASSWORD="postgres"/' \
-    -e 's/^BETTER_AUTH_SECRET=""/BETTER_AUTH_SECRET="orb-development-secret-not-for-production"/' \
     .env
+  write_auth_secret "$auth_secret"
   printf '\n# Local orb development\nSKIP_VALIDATION=true\n' >> .env
+fi
+
+known_fallback_secret="orb-development-secret-not-for-production"
+if grep -Fqx "BETTER_AUTH_SECRET=\"${known_fallback_secret}\"" .env; then
+  auth_secret="$(generate_auth_secret)"
+  write_auth_secret "$auth_secret"
 fi
 
 step "Install workspace dependencies" "$bun_bin" install --frozen-lockfile
@@ -78,6 +99,12 @@ if [[ "$postgres_major" != "18" ]]; then
   step "Update package index" sudo apt-get update
   step "Install PostgreSQL 18" sudo env DEBIAN_FRONTEND=noninteractive \
     apt-get install -y postgresql-18 postgresql-client-18
+fi
+
+if [[ ! -x /usr/sbin/nginx ]]; then
+  step "Update package index" sudo apt-get update
+  step "Install development reverse proxy" sudo env DEBIAN_FRONTEND=noninteractive \
+    apt-get install -y --no-install-recommends nginx
 fi
 
 if ! sudo pg_ctlcluster 18 main status >/dev/null 2>&1; then
