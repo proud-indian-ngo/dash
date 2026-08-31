@@ -45,6 +45,14 @@ if [[ ! -f .env ]]; then
   cp -- .env.sample .env
 fi
 
+if cmp -s .env .env.sample; then
+  sed -i \
+    -e 's/^DEV_DB_PASSWORD=""/DEV_DB_PASSWORD="postgres"/' \
+    -e 's/^BETTER_AUTH_SECRET=""/BETTER_AUTH_SECRET="orb-development-secret-not-for-production"/' \
+    .env
+  printf '\n# Local orb development\nSKIP_VALIDATION=true\n' >> .env
+fi
+
 step "Install workspace dependencies" "$bun_bin" install --frozen-lockfile
 
 if compgen -G "$HOME/.cache/ms-playwright/chromium-*" >/dev/null; then
@@ -53,5 +61,72 @@ else
   step "Install Playwright Chromium and system dependencies" \
     "$bun_bin" x playwright install --with-deps chromium
 fi
+
+postgres_major=""
+if command -v psql >/dev/null 2>&1; then
+  postgres_major="$(psql --version | sed -n 's/^psql (PostgreSQL) \([0-9]*\).*/\1/p')"
+fi
+if [[ "$postgres_major" != "18" ]]; then
+  step "Configure PostgreSQL package repository" sudo bash -c '
+    install -d /usr/share/postgresql-common/pgdg
+    curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+      -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+    . /etc/os-release
+    printf "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt %s-pgdg main\n" \
+      "$VERSION_CODENAME" > /etc/apt/sources.list.d/pgdg.list
+  '
+  step "Update package index" sudo apt-get update
+  step "Install PostgreSQL 18" sudo env DEBIAN_FRONTEND=noninteractive \
+    apt-get install -y postgresql-18 postgresql-client-18
+fi
+
+if ! sudo pg_ctlcluster 18 main status >/dev/null 2>&1; then
+  step "Start PostgreSQL" sudo pg_ctlcluster 18 main start
+fi
+
+postgres_restart=false
+declare -A postgres_settings=(
+  [autovacuum]=off
+  [fsync]=off
+  [full_page_writes]=off
+  [max_connections]=300
+  [synchronous_commit]=off
+  [wal_level]=logical
+)
+for setting in "${!postgres_settings[@]}"; do
+  expected="${postgres_settings[$setting]}"
+  actual="$(sudo -u postgres psql -Atqc "SHOW ${setting}")"
+  if [[ "$actual" != "$expected" ]]; then
+    sudo -u postgres psql -v ON_ERROR_STOP=1 -c \
+      "ALTER SYSTEM SET ${setting} = '${expected}'" >/dev/null
+    postgres_restart=true
+  fi
+done
+if [[ "$postgres_restart" == true ]]; then
+  step "Restart PostgreSQL with development settings" sudo pg_ctlcluster 18 main restart
+fi
+
+dev_db_password="${DEV_DB_PASSWORD:-$("$bun_bin" --env-file=.env -e 'process.stdout.write(process.env.DEV_DB_PASSWORD ?? "")')}"
+if [[ -z "$dev_db_password" ]]; then
+  echo "DEV_DB_PASSWORD must be set in the environment or .env" >&2
+  exit 1
+fi
+
+sudo -u postgres env DEV_DB_PASSWORD="$dev_db_password" \
+  psql -v ON_ERROR_STOP=1 <<'SQL' >/dev/null
+\getenv password DEV_DB_PASSWORD
+ALTER ROLE postgres PASSWORD :'password';
+SQL
+if ! sudo -u postgres psql -Atqc \
+  "SELECT 1 FROM pg_database WHERE datname = 'pi-dash'" | grep -qx 1; then
+  step "Create development database" sudo -u postgres createdb pi-dash
+fi
+
+encoded_db_password="$(DEV_DB_PASSWORD="$dev_db_password" "$bun_bin" -e \
+  'process.stdout.write(encodeURIComponent(process.env.DEV_DB_PASSWORD ?? ""))')"
+database_url="postgres://postgres:${encoded_db_password}@localhost:5432/pi-dash"
+step "Apply database migrations" env \
+  DATABASE_URL="$database_url" SKIP_VALIDATION=true \
+  bash -c 'cd packages/db && exec "$1" run scripts/migrate.ts' _ "$bun_bin"
 
 echo "Orb setup complete."

@@ -12,4 +12,13 @@ if [[ ! -x "$bun_bin" ]] || [[ "$($bun_bin --version)" != "$bun_version" ]]; the
   exit 1
 fi
 
-echo "Orb ready (Bun ${bun_version})."
+if ! sudo pg_ctlcluster 18 main status >/dev/null 2>&1; then
+  sudo pg_ctlcluster 18 main start
+fi
+
+if ! pg_isready -h localhost -p 5432 -q; then
+  echo "PostgreSQL is not ready on localhost:5432" >&2
+  exit 1
+fi
+
+echo "Orb ready (Bun ${bun_version}, PostgreSQL 18)."
