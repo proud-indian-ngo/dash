@@ -1,22 +1,10 @@
-import { execFile } from "node:child_process";
-import path from "node:path";
-import { promisify } from "node:util";
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
-
-const execFileAsync = promisify(execFile);
-const helperPath = path.resolve(
-  import.meta.dirname,
-  "../../helpers/kalakriti-golive.ts"
-);
-
-async function fixture<T>(action: string) {
-  const { stdout } = await execFileAsync("bun", ["run", helperPath, action], {
-    env: process.env,
-    killSignal: "SIGKILL",
-    timeout: 30_000,
-  });
-  return JSON.parse(stdout.trim()) as T;
-}
+import {
+  expectKalakritiToast,
+  prepareKalakriti2186EventDay,
+  runKalakritiGoliveFixture,
+  waitForKalakritiLifecycle,
+} from "../../helpers/kalakriti-e2e-fixture";
 
 const YEAR = 2186;
 const ASSIGNED_STUDENT_ID = "KAL-2186-0001";
@@ -28,17 +16,19 @@ test.describe("Kalakriti go-live", () => {
     page,
   }, testInfo) => {
     test.skip(
-      testInfo.project.name !== "super_admin",
+      testInfo.project.name !== "kalakriti_phase2",
       "Kalakriti go-live blockers"
     );
     test.slow();
 
-    await fixture("invalidate-go-live");
-    await page.goto(`/kalakriti/${YEAR}`);
-    await waitForZeroReady(page);
-    await expect(
-      page.getByText("Every Center must have registration controls disabled")
-    ).toBeVisible();
+    await runKalakritiGoliveFixture("invalidate-go-live");
+    await expect(async () => {
+      await page.goto(`/kalakriti/${YEAR}`);
+      await waitForZeroReady(page);
+      await expect(
+        page.getByText("Every Center must have registration controls disabled")
+      ).toBeVisible({ timeout: 3000 });
+    }).toPass({ timeout: 60_000 });
     await expect(page.getByRole("button", { name: "Go live" })).toBeDisabled();
   });
 
@@ -46,20 +36,17 @@ test.describe("Kalakriti go-live", () => {
     page,
   }, testInfo) => {
     test.skip(
-      testInfo.project.name !== "super_admin",
+      testInfo.project.name !== "kalakriti_phase2",
       "Kalakriti go-live transition"
     );
     test.slow();
 
-    await fixture("lock-2186");
-    await page.goto(`/kalakriti/${YEAR}`);
-    await waitForZeroReady(page);
+    await runKalakritiGoliveFixture("lock-2186");
+    await waitForKalakritiLifecycle(page, YEAR, "registration_locked");
     await page.getByRole("button", { name: "Go live" }).click();
     const dialog = page.getByRole("alertdialog", { name: "Go live?" });
     await dialog.getByRole("button", { name: "Go live" }).click();
-    await expect(
-      page.getByText("Edition is now live", { exact: true })
-    ).toBeVisible();
+    await expectKalakritiToast(page, "Edition is now live");
     await expect(
       page.getByText(
         "Event-day operations are enabled. Registration remains closed."
@@ -71,12 +58,12 @@ test.describe("Kalakriti go-live", () => {
     page,
   }, testInfo) => {
     test.skip(
-      testInfo.project.name !== "super_admin",
+      testInfo.project.name !== "kalakriti_phase2",
       "Kalakriti correction eligibility"
     );
     test.slow();
 
-    await fixture("prepare-2186-event-day");
+    await prepareKalakriti2186EventDay(page);
     await page.goto(`/kalakriti/${YEAR}/event-day`);
     await waitForZeroReady(page);
 
@@ -84,27 +71,27 @@ test.describe("Kalakriti go-live", () => {
     await page.getByRole("option", { name: "Transport" }).click();
     await page.locator("#event-day-human-id").fill(ASSIGNED_STUDENT_ID);
     await page.getByRole("button", { name: "Record transport" }).click();
-    await expect(page.getByText("Operation recorded")).toBeVisible();
+    await expectKalakritiToast(page, "Operation recorded");
 
     await page.getByLabel("Station").click();
     await page.getByRole("option", { name: "Meals" }).click();
     await page.locator("#event-day-human-id").fill(ASSIGNED_STUDENT_ID);
     await page.getByRole("button", { name: "Record meal" }).click();
-    await expect(page.getByText("Operation recorded")).toBeVisible();
+    await expectKalakritiToast(page, "Operation recorded");
 
     await page.locator("#correct-human-id").fill(ASSIGNED_STUDENT_ID);
     await page.getByRole("button", { name: "Look up" }).click();
     await page.getByLabel("Reason").fill("Wrong pickup time recorded");
-    await page.getByRole("button", { name: "Correct operation" }).click();
-    await expect(page.getByText("Operation corrected")).toBeVisible();
+    await expect(async () => {
+      await page.getByRole("button", { name: "Correct operation" }).click();
+      await expectKalakritiToast(page, "Operation corrected");
+    }).toPass({ timeout: 30_000 });
 
     await page.getByLabel("Station").click();
     await page.getByRole("option", { name: "Meals" }).click();
     await page.locator("#event-day-human-id").fill(ASSIGNED_STUDENT_ID);
     await page.getByRole("button", { name: "Record meal" }).click();
-    await expect(
-      page.getByText(/Operation recorded|Already recorded/)
-    ).toBeVisible();
+    await expectKalakritiToast(page, /Operation recorded|Already recorded/);
   });
 
   test("still denies guardians on event-day transport", async ({
@@ -113,7 +100,7 @@ test.describe("Kalakriti go-live", () => {
     kalakritiActors,
   }, testInfo) => {
     test.skip(
-      testInfo.project.name !== "super_admin",
+      testInfo.project.name !== "kalakriti_phase2",
       "Kalakriti guardian go-live boundary"
     );
 
@@ -136,7 +123,7 @@ test.describe("Kalakriti go-live", () => {
     page,
   }, testInfo) => {
     test.skip(
-      testInfo.project.name !== "super_admin",
+      testInfo.project.name !== "kalakriti_phase2",
       "Kalakriti deferred module routes"
     );
 

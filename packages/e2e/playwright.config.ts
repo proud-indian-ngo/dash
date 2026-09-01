@@ -21,8 +21,35 @@ export default defineConfig({
     },
     {
       dependencies: ["setup"],
-      name: "super_admin",
+      name: "kalakriti_phase2",
       testIgnore: /auth\//,
+      testMatch: [
+        /kalakriti\/00-lifecycle-golive\.spec\.ts/,
+        /kalakriti\/center-transport\.spec\.ts/,
+        /kalakriti\/credential-print\.spec\.ts/,
+        /kalakriti\/event-day-stations\.spec\.ts/,
+        /kalakriti\/event-day-transport\.spec\.ts/,
+      ],
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: path.resolve(
+          import.meta.dirname,
+          ".auth/super_admin.json"
+        ),
+      },
+      workers: 1,
+    },
+    {
+      dependencies: ["setup"],
+      name: "super_admin",
+      testIgnore: [
+        /auth\//,
+        /kalakriti\/00-lifecycle-golive\.spec\.ts/,
+        /kalakriti\/center-transport\.spec\.ts/,
+        /kalakriti\/credential-print\.spec\.ts/,
+        /kalakriti\/event-day-stations\.spec\.ts/,
+        /kalakriti\/event-day-transport\.spec\.ts/,
+      ],
       use: {
         ...devices["Desktop Chrome"],
         storageState: path.resolve(
