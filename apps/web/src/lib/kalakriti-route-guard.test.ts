@@ -1,8 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-const getCurrentKalakritiEditionAccess = vi.hoisted(() => vi.fn());
+const hoisted = <T>(factory: () => T): T => factory();
 
-vi.mock("@/functions/kalakriti-access", () => ({
+const getCurrentKalakritiEditionAccess = hoisted(() => mock());
+
+mock.module("@/functions/kalakriti-access", () => ({
   getCurrentKalakritiEditionAccess,
 }));
 
@@ -41,13 +43,13 @@ describe("Kalakriti route guard", () => {
     });
 
     await expect(runBeforeLoad([])).resolves.toBeUndefined();
-    expect(getCurrentKalakritiEditionAccess).toHaveBeenCalledOnce();
+    expect(getCurrentKalakritiEditionAccess).toHaveBeenCalledTimes(1);
   });
 
   it("redirects users without Kalakriti access or an Edition assignment", async () => {
     getCurrentKalakritiEditionAccess.mockResolvedValue(null);
 
     await expect(runBeforeLoad([])).rejects.toThrow();
-    expect(getCurrentKalakritiEditionAccess).toHaveBeenCalledOnce();
+    expect(getCurrentKalakritiEditionAccess).toHaveBeenCalledTimes(1);
   });
 });

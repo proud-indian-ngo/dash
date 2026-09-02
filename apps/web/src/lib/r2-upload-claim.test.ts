@@ -1,3 +1,5 @@
+import { beforeEach, describe, expect, it, mock } from "bun:test";
+
 import {
   MAX_APPROVAL_SCREENSHOT_SIZE_BYTES,
   MAX_ATTACHMENT_FILE_SIZE_BYTES,
@@ -6,15 +8,14 @@ import {
   MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES,
   MAX_VIDEO_SIZE_BYTES,
 } from "@pi-dash/shared/constants";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("./s3", () => ({ getS3: vi.fn() }));
+mock.module("./s3", () => ({ getS3: mock() }));
 
 import { copyR2Object } from "./r2-upload-claim";
 
 const writer = {
-  end: vi.fn(),
-  write: vi.fn(),
+  end: mock(),
+  write: mock(),
 };
 let streamedSize = 1024;
 
@@ -34,13 +35,13 @@ const sourceStream = () => {
 };
 
 const s3 = {
-  exists: vi.fn(),
-  file: vi.fn((key: string) =>
+  exists: mock(),
+  file: mock((key: string) =>
     key.includes("/tmp/") && !key.endsWith("-durable")
       ? { stream: sourceStream }
       : { writer: () => writer }
   ),
-  stat: vi.fn(),
+  stat: mock(),
 };
 const deps = {
   getS3: () =>
@@ -57,7 +58,7 @@ const input = {
 };
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  mock.clearAllMocks();
   streamedSize = 1024;
   s3.exists.mockResolvedValue(false);
   s3.stat.mockResolvedValue({ size: 1024, type: "application/pdf" });
@@ -232,7 +233,7 @@ describe("copyR2Object", () => {
       );
       expect(writer.write).toHaveBeenCalled();
 
-      vi.clearAllMocks();
+      mock.clearAllMocks();
       s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
       s3.stat.mockResolvedValue({ size: maxSize + 1, type: mimeType });
       await expect(

@@ -1,19 +1,20 @@
+import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
+
 import type { AllowedMimeType } from "@pi-dash/shared/constants";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { uploadSingleAttachment } from "./attachment-upload";
 
 describe("uploadSingleAttachment", () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
+    mock.restore();
   });
 
   it("uses the dedicated invoice signer when a vendor payment is provided", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(null, { status: 200 })
     );
-    const getRequestUploadUrl = vi.fn();
-    const getVendorPaymentInvoiceUploadUrl = vi.fn().mockResolvedValue({
+    const getRequestUploadUrl = mock();
+    const getVendorPaymentInvoiceUploadUrl = mock().mockResolvedValue({
       key: "app/attachments/tmp/user-1/invoice.pdf",
       presignedUrl: "https://r2.example.test/upload",
     });

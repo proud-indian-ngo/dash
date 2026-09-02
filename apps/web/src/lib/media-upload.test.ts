@@ -1,3 +1,5 @@
+import { describe, expect, it } from "bun:test";
+
 import {
   MAX_APPROVAL_SCREENSHOT_SIZE_BYTES,
   MAX_ATTACHMENT_FILE_SIZE_BYTES,
@@ -7,7 +9,6 @@ import {
   MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES,
   MAX_VIDEO_SIZE_BYTES,
 } from "@pi-dash/shared/constants";
-import { describe, expect, it } from "vitest";
 
 import {
   approvalScreenshotUploadSchema,
@@ -23,7 +24,7 @@ import {
 const image = {
   fileName: "photo.jpg",
   fileSize: 1024,
-  mimeType: "image/jpeg",
+  mimeType: "image/jpeg" as const,
 };
 const EVENT_ID = "e2e00000-0000-0000-0000-000000000101";
 

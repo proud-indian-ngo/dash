@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import type { FormFieldApi } from "./form-context";
 import { fieldErrorProps, getFieldErrorState } from "./form-context";

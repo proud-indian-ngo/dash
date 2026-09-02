@@ -1,5 +1,6 @@
+import { describe, expect, it, mock } from "bun:test";
+
 import { strFromU8, unzipSync } from "fflate";
-import { describe, expect, it, vi } from "vitest";
 
 import type { CsvFile } from "@/lib/csv-export";
 
@@ -94,7 +95,7 @@ describe("financial export archive", () => {
   });
 
   it("propagates attachment stream failures", async () => {
-    const onError = vi.fn();
+    const onError = mock();
     const stream = createFinancialExportArchiveStream(
       csvFiles,
       [
@@ -113,6 +114,6 @@ describe("financial export archive", () => {
     await expect(new Response(stream).arrayBuffer()).rejects.toThrow(
       "R2 stream failed"
     );
-    expect(onError).toHaveBeenCalledOnce();
+    expect(onError).toHaveBeenCalledTimes(1);
   });
 });

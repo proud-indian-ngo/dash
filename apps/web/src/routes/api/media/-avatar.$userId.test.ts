@@ -1,11 +1,11 @@
 // biome-ignore-all lint/style/useFilenamingConvention: TanStack excludes route tests by leading hyphen.
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
-vi.mock("@/lib/api-auth", () => ({ requireSession: vi.fn() }));
-vi.mock("@/lib/private-media-db", () => ({
+mock.module("@/lib/api-auth", () => ({ requireSession: mock() }));
+mock.module("@/lib/private-media-db", () => ({
   defaultPrivateMediaAccessDeps: {},
 }));
-vi.mock("@/lib/s3", () => ({ getS3: vi.fn() }));
+mock.module("@/lib/s3", () => ({ getS3: mock() }));
 
 import { PrivateMediaAccessError } from "@/lib/private-media-access";
 
@@ -37,7 +37,7 @@ const deps = (
 
 describe("handleAvatarMediaRequest", () => {
   it("requires authentication before resolving the avatar", async () => {
-    const resolveAvatarMedia = vi.fn();
+    const resolveAvatarMedia = mock();
     const response = await handleAvatarMediaRequest(
       new Request(
         `https://example.test/api/media/avatar/${USER_ID}?key=${encodeURIComponent(KEY)}`
@@ -79,7 +79,7 @@ describe("handleAvatarMediaRequest", () => {
   });
 
   it("redirects an authenticated viewer to a two-minute signed URL", async () => {
-    const presign = vi.fn(() => "https://r2.example.test/avatar");
+    const presign = mock(() => "https://r2.example.test/avatar");
     const response = await handleAvatarMediaRequest(
       new Request(
         `https://example.test/api/media/avatar/${USER_ID}?key=${encodeURIComponent(KEY)}`

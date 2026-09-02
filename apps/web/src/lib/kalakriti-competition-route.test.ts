@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
-vi.mock("@pi-dash/design-system/components/ui/tabs", () => ({
+mock.module("@pi-dash/design-system/components/ui/tabs", () => ({
   Tabs: () => null,
   TabsList: () => null,
   TabsTrigger: () => null,

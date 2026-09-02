@@ -1,9 +1,9 @@
+import { describe, expect, it } from "bun:test";
 import { readdirSync } from "node:fs";
 import path from "node:path";
 
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
-import { describe, expect, it } from "vitest";
 
 function routeSources(root: string) {
   const sources: string[] = [];

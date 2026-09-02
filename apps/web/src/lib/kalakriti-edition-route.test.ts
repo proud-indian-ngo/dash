@@ -1,16 +1,18 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-const getKalakritiEditionAccess = vi.hoisted(() => vi.fn());
-const getCurrentKalakritiEditionAccess = vi.hoisted(() => vi.fn());
+const hoisted = <T>(factory: () => T): T => factory();
 
-vi.mock("@/functions/kalakriti-access", () => ({
+const getKalakritiEditionAccess = hoisted(() => mock());
+const getCurrentKalakritiEditionAccess = hoisted(() => mock());
+
+mock.module("@/functions/kalakriti-access", () => ({
   getCurrentKalakritiEditionAccess,
   getKalakritiEditionAccess,
 }));
-vi.mock("@pi-dash/design-system/components/ui/badge", () => ({
+mock.module("@pi-dash/design-system/components/ui/badge", () => ({
   Badge: () => null,
 }));
-vi.mock("@pi-dash/design-system/components/ui/button", () => ({
+mock.module("@pi-dash/design-system/components/ui/button", () => ({
   Button: () => null,
 }));
 

@@ -1,9 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
-vi.mock("@pi-dash/env/web", () => ({
+mock.module("@pi-dash/env/web", () => ({
   env: { VITE_APP_NAME: "Proud Indian Dashboard" },
 }));
-vi.mock("@/components/reimbursements/reimbursement-form", () => ({
+mock.module("@/components/reimbursements/reimbursement-form", () => ({
   ReimbursementForm: () => null,
 }));
 

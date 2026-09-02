@@ -1,26 +1,27 @@
+import { describe, expect, it, mock } from "bun:test";
+
 import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
-import { describe, expect, it, vi } from "vitest";
+import { drizzle } from "drizzle-orm/pg-proxy";
+
+const hoisted = <T>(factory: () => T): T => factory();
 
 import type { KalakritiAuditScope } from "@/lib/kalakriti-audit-policy";
 
-const auditQueryCalls = vi.hoisted(
+const auditQueryCalls = hoisted(
   () => [] as Array<{ params: unknown[]; sql: string }>
 );
 
-vi.mock("@pi-dash/db", async () => {
-  const { drizzle } = await import("drizzle-orm/pg-proxy");
-  return {
-    db: drizzle((query, params) => {
-      auditQueryCalls.push({ params, sql: query });
-      return Promise.resolve({
-        rows: query.includes("pg_current_snapshot")
-          ? [{ snapshotVersion: "100:110:105,106" }]
-          : [],
-      });
-    }),
-  };
-});
+mock.module("@pi-dash/db", () => ({
+  db: drizzle((query, params) => {
+    auditQueryCalls.push({ params, sql: query });
+    return Promise.resolve({
+      rows: query.includes("pg_current_snapshot")
+        ? [{ snapshotVersion: "100:110:105,106" }]
+        : [],
+    });
+  }),
+}));
 
 import {
   buildKalakritiAuditItemsQuery,

@@ -1,19 +1,20 @@
+import { describe, expect, it, mock } from "bun:test";
+
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
 
 import { AppContext } from "@/context/app-context";
 
-vi.mock("@hugeicons/react", () => ({
+mock.module("@hugeicons/react", () => ({
   HugeiconsIcon: () => createElement("span", null, "icon"),
 }));
 
-vi.mock("@pi-dash/design-system/components/reui/badge", () => ({
+mock.module("@pi-dash/design-system/components/reui/badge", () => ({
   Badge: ({ children }: { children?: ReactNode }) =>
     createElement("span", null, children),
 }));
 
-vi.mock("@pi-dash/design-system/components/ui/hover-card", () => ({
+mock.module("@pi-dash/design-system/components/ui/hover-card", () => ({
   HoverCard: ({ children }: { children?: ReactNode }) =>
     createElement("div", null, children),
   HoverCardContent: ({ children }: { children?: ReactNode }) =>
@@ -22,7 +23,7 @@ vi.mock("@pi-dash/design-system/components/ui/hover-card", () => ({
     createElement("div", null, children),
 }));
 
-vi.mock("@/components/shared/user-avatar", () => ({
+mock.module("@/components/shared/user-avatar", () => ({
   UserAvatar: ({ user }: { user: { name: string } }) =>
     createElement("span", null, `${user.name} avatar`),
 }));

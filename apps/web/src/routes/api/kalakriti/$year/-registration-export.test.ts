@@ -1,14 +1,15 @@
+import { describe, expect, it, mock } from "bun:test";
+
 // biome-ignore-all lint/style/useFilenamingConvention: TanStack excludes route tests by leading hyphen.
 import { strFromU8, unzipSync } from "fflate";
-import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@pi-dash/db", () => ({ db: {} }));
-vi.mock("@/lib/api-auth", () => ({ requireSession: vi.fn() }));
-vi.mock("@/lib/server/kalakriti-registration-export", () => ({
-  getKalakritiRegistrationExport: vi.fn(),
+mock.module("@pi-dash/db", () => ({ db: {} }));
+mock.module("@/lib/api-auth", () => ({ requireSession: mock() }));
+mock.module("@/lib/server/kalakriti-registration-export", () => ({
+  getKalakritiRegistrationExport: mock(),
 }));
-vi.mock("@/lib/server/kalakriti-registration-scope", () => ({
-  resolveKalakritiRegistrationScope: vi.fn(),
+mock.module("@/lib/server/kalakriti-registration-scope", () => ({
+  resolveKalakritiRegistrationScope: mock(),
 }));
 
 import { buildKalakritiRegistrationCsvArchive } from "@/lib/kalakriti-registration-export";
@@ -27,7 +28,7 @@ function request(year = 2027) {
 function dependencies(): RegistrationExportHandlerDependencies {
   return {
     buildArchive: buildKalakritiRegistrationCsvArchive,
-    getExport: vi.fn(async () => ({
+    getExport: mock(async () => ({
       entries: [
         {
           ageCategory: "Junior",
@@ -45,10 +46,10 @@ function dependencies(): RegistrationExportHandlerDependencies {
       ],
       students: [],
     })),
-    getSession: vi.fn(async () => ({
+    getSession: mock(async () => ({
       session: { user: { id: "guardian-1", role: "guest" } },
     })) as unknown as RegistrationExportHandlerDependencies["getSession"],
-    resolveScope: vi.fn(async () => ({
+    resolveScope: mock(async () => ({
       editionId: "edition-1",
       scopes: [{ centerIds: ["center-1"], kind: "center" as const }],
     })),
@@ -70,7 +71,7 @@ describe("Kalakriti registration export API", () => {
 
   it("returns the session failure without resolving a scope", async () => {
     const deps = dependencies();
-    deps.getSession = vi.fn(async () => ({
+    deps.getSession = mock(async () => ({
       error: Response.json({ error: "Unauthorized" }, { status: 401 }),
     }));
 
@@ -86,7 +87,7 @@ describe("Kalakriti registration export API", () => {
 
   it("fails closed when a changed Edition year has no scoped access", async () => {
     const deps = dependencies();
-    deps.resolveScope = vi.fn(async () => null);
+    deps.resolveScope = mock(async () => null);
 
     const response = await handleKalakritiRegistrationExportRequest(
       request(2028),
@@ -104,7 +105,7 @@ describe("Kalakriti registration export API", () => {
 
   it("rejects an authenticated user without an assigned export scope", async () => {
     const deps = dependencies();
-    deps.resolveScope = vi.fn(async () => ({
+    deps.resolveScope = mock(async () => ({
       editionId: "edition-1",
       scopes: [],
     }));

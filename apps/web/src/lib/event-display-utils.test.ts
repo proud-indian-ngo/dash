@@ -1,4 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  setSystemTime,
+} from "bun:test";
 
 import {
   expandSeriesOccurrences,
@@ -7,13 +14,10 @@ import {
 
 describe("sortUpcomingFirstThenPast", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-04-22T12:00:00Z"));
+    setSystemTime(new Date("2026-04-22T12:00:00Z"));
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
+  afterEach(() => {});
 
   it("places upcoming before past", () => {
     const rows = [

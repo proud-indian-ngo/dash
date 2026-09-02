@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import type { KalakritiResponsibility } from "@pi-dash/shared/kalakriti";
-import { describe, expect, it } from "vitest";
 
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 

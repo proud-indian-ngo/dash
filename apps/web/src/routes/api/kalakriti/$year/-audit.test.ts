@@ -1,13 +1,13 @@
 // biome-ignore-all lint/style/useFilenamingConvention: TanStack excludes route tests by leading hyphen.
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
-vi.mock("@pi-dash/db", () => ({ db: {} }));
-vi.mock("@/lib/api-auth", () => ({ requireSession: vi.fn() }));
-vi.mock("@/lib/server/kalakriti-audit", () => ({
-  getKalakritiAuditPage: vi.fn(),
+mock.module("@pi-dash/db", () => ({ db: {} }));
+mock.module("@/lib/api-auth", () => ({ requireSession: mock() }));
+mock.module("@/lib/server/kalakriti-audit", () => ({
+  getKalakritiAuditPage: mock(),
 }));
-vi.mock("@/lib/server/kalakriti-edition-access", () => ({
-  resolveKalakritiEditionAccess: vi.fn(),
+mock.module("@/lib/server/kalakriti-edition-access", () => ({
+  resolveKalakritiEditionAccess: mock(),
 }));
 
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
@@ -25,16 +25,16 @@ function request(path = "/api/kalakriti/2027/audit") {
 
 function deps(
   access: KalakritiEditionAccess | null,
-  getPage: AuditHandlerDeps["getPage"] = vi.fn(async () => ({
+  getPage: AuditHandlerDeps["getPage"] = mock(async () => ({
     items: [],
     snapshotVersion: "100:100:",
     total: 0,
   })) as AuditHandlerDeps["getPage"]
 ): AuditHandlerDeps {
   return {
-    getAccess: vi.fn(async () => access),
+    getAccess: mock(async () => access),
     getPage,
-    getSession: vi.fn(async () => ({
+    getSession: mock(async () => ({
       session: {
         user: { id: "user-1", role: "volunteer" },
       },
@@ -45,7 +45,7 @@ function deps(
 describe("Kalakriti audit API", () => {
   it("returns the session error without resolving audit access", async () => {
     const testDeps = deps(null);
-    testDeps.getSession = vi.fn(async () => ({
+    testDeps.getSession = mock(async () => ({
       error: Response.json({ error: "Unauthorized" }, { status: 401 }),
     }));
 
@@ -105,7 +105,7 @@ describe("Kalakriti audit API", () => {
   );
 
   it("returns the full Edition log scope to an Edition administrator", async () => {
-    const getPage = vi.fn(async () => ({
+    const getPage = mock(async () => ({
       items: [],
       snapshotVersion: "100:100:",
       total: 0,
@@ -164,7 +164,7 @@ describe("Kalakriti audit API", () => {
   });
 
   it("passes only assigned Competition Category scope for a Category Lead", async () => {
-    const getPage = vi.fn(async () => ({
+    const getPage = mock(async () => ({
       items: [],
       snapshotVersion: "100:100:",
       total: 0,
@@ -253,7 +253,7 @@ describe("Kalakriti audit API", () => {
 
   it("authenticates before rejecting an oversized snapshot", async () => {
     const testDeps = deps(null);
-    testDeps.getSession = vi.fn(async () => ({
+    testDeps.getSession = mock(async () => ({
       error: Response.json({ error: "Unauthorized" }, { status: 401 }),
     }));
     const oversizedSnapshot = `1:2000:${Array.from(
@@ -290,7 +290,7 @@ describe("Kalakriti audit API", () => {
     );
 
     expect(response.status).toBe(400);
-    expect(testDeps.getSession).toHaveBeenCalledOnce();
+    expect(testDeps.getSession).toHaveBeenCalledTimes(1);
     expect(testDeps.getAccess).not.toHaveBeenCalled();
   });
 
@@ -311,12 +311,12 @@ describe("Kalakriti audit API", () => {
     );
 
     expect(response.status).toBe(400);
-    expect(testDeps.getSession).toHaveBeenCalledOnce();
+    expect(testDeps.getSession).toHaveBeenCalledTimes(1);
     expect(testDeps.getAccess).not.toHaveBeenCalled();
   });
 
   it("forwards the stable snapshot and page window on later pages", async () => {
-    const getPage = vi.fn(async () => ({
+    const getPage = mock(async () => ({
       items: [],
       snapshotVersion: "100:110:105,106",
       total: 70,

@@ -1,5 +1,6 @@
+import { describe, expect, it, mock } from "bun:test";
+
 import type { KalakritiResponsibility } from "@pi-dash/shared/kalakriti";
-import { describe, expect, it, vi } from "vitest";
 
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import type { KalakritiRegistrationScope } from "@/lib/kalakriti-registration-scope-policy";
@@ -8,7 +9,7 @@ import { resolveKalakritiRegistrationScope } from "@/lib/server/kalakriti-regist
 
 import { resolveKalakritiRegistrationDashboardRequest } from "../lib/server/kalakriti-registration-dashboard-request";
 
-vi.mock("@pi-dash/db", () => ({ db: { select: vi.fn() } }));
+mock.module("@pi-dash/db", () => ({ db: { select: mock() } }));
 
 function assignment(
   responsibility: KalakritiResponsibility,
@@ -83,10 +84,10 @@ function projection(
 }
 
 function dependencies(resolvedAccess: KalakritiEditionAccess | null) {
-  const loadGuardianCenterIds = vi.fn(async () => ["center-2", "center-1"]);
-  const resolveAccess = vi.fn(async () => resolvedAccess);
+  const loadGuardianCenterIds = mock(async () => ["center-2", "center-1"]);
+  const resolveAccess = mock(async () => resolvedAccess);
   return {
-    getProjections: vi.fn(
+    getProjections: mock(
       async ({
         scopes,
       }: {

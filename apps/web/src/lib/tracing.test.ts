@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 
 import { formatTraceparent, installFetchTracing } from "./tracing";
 
@@ -6,19 +6,18 @@ const TRACEPARENT_RE = /^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/;
 
 describe("installFetchTracing", () => {
   const originalWindow = globalThis.window;
-  let fetchMock: ReturnType<typeof vi.fn>;
+  let fetchMock: ReturnType<typeof mock>;
 
   beforeEach(() => {
-    fetchMock = vi.fn(async () => new Response(null, { status: 200 }));
-    vi.stubGlobal("window", {
-      fetch: fetchMock,
+    fetchMock = mock(async () => new Response(null, { status: 200 }));
+    globalThis.window = {
+      fetch: fetchMock as unknown as typeof fetch,
       location: { origin: "http://localhost:3001" },
-    });
+    } as unknown as typeof globalThis.window;
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.stubGlobal("window", originalWindow);
+    globalThis.window = originalWindow;
   });
 
   it("adds a new trace id for each outgoing request", async () => {

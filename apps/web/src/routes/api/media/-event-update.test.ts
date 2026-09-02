@@ -1,11 +1,11 @@
 // biome-ignore-all lint/style/useFilenamingConvention: TanStack excludes route tests by leading hyphen.
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
-vi.mock("@/lib/api-auth", () => ({ requireSession: vi.fn() }));
-vi.mock("@/lib/private-media-db", () => ({
+mock.module("@/lib/api-auth", () => ({ requireSession: mock() }));
+mock.module("@/lib/private-media-db", () => ({
   defaultPrivateMediaAccessDeps: {},
 }));
-vi.mock("@/lib/s3", () => ({ getS3: vi.fn() }));
+mock.module("@/lib/s3", () => ({ getS3: mock() }));
 
 import { PrivateMediaAccessError } from "@/lib/private-media-access";
 
@@ -42,7 +42,7 @@ const request = (eventId = EVENT_ID, key = KEY) =>
 
 describe("handleEventUpdateMediaRequest", () => {
   it("requires authentication before resolving media", async () => {
-    const resolveEventUpdateMedia = vi.fn();
+    const resolveEventUpdateMedia = mock();
     const response = await handleEventUpdateMediaRequest(
       request(),
       deps({ resolveEventUpdateMedia })
@@ -77,7 +77,7 @@ describe("handleEventUpdateMediaRequest", () => {
   });
 
   it("redirects an authorized viewer to a two-minute signed URL", async () => {
-    const presign = vi.fn(() => "https://r2.example.test/event-image");
+    const presign = mock(() => "https://r2.example.test/event-image");
     const response = await handleEventUpdateMediaRequest(
       request(),
       deps({

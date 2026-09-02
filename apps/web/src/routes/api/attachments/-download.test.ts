@@ -1,13 +1,13 @@
 // biome-ignore-all lint/style/useFilenamingConvention: TanStack excludes route tests by leading hyphen.
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
-vi.mock("@/lib/api-auth", () => ({ requireSession: vi.fn() }));
-vi.mock("@/lib/s3", () => ({ getS3: vi.fn() }));
-vi.mock("@pi-dash/db", () => ({ db: {} }));
-vi.mock("@pi-dash/db/queries/resolve-permissions", () => ({
+mock.module("@/lib/api-auth", () => ({ requireSession: mock() }));
+mock.module("@/lib/s3", () => ({ getS3: mock() }));
+mock.module("@pi-dash/db", () => ({ db: {} }));
+mock.module("@pi-dash/db/queries/resolve-permissions", () => ({
   resolvePermissions: async () => [],
 }));
-vi.mock("@pi-dash/env/server", () => ({
+mock.module("@pi-dash/env/server", () => ({
   env: { R2_KEY_PREFIX: "app" },
 }));
 
@@ -151,7 +151,7 @@ describe("handleAttachmentDownloadRequest", () => {
   });
 
   it("forwards a scheduled-message key to authorization", async () => {
-    const resolveAuthorizedR2Object = vi.fn(async () => ({
+    const resolveAuthorizedR2Object = mock(async () => ({
       filename: "agenda.pdf",
       key: "app/scheduled-messages/agenda.pdf",
     }));
@@ -302,7 +302,7 @@ describe("handleAttachmentDownloadRequest", () => {
   });
 
   it("forwards byte ranges and partial response headers", async () => {
-    const fetch = vi.fn(
+    const fetch = mock(
       async () =>
         new Response("partial", {
           headers: {

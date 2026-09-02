@@ -1,8 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-const { getAuth } = vi.hoisted(() => ({ getAuth: vi.fn() }));
+const hoisted = <T>(factory: () => T): T => factory();
 
-vi.mock("@/functions/get-auth", () => ({ getAuth }));
+const { getAuth } = hoisted(() => ({ getAuth: mock() }));
+
+mock.module("@/functions/get-auth", () => ({ getAuth }));
 
 import { getCachedAuth, invalidateAuthCache } from "./auth-cache";
 

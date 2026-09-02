@@ -1,25 +1,28 @@
+import { describe, expect, it, mock } from "bun:test";
+
 // biome-ignore-all lint/style/useFilenamingConvention: TanStack excludes route tests by leading hyphen.
 import { strFromU8, unzipSync } from "fflate";
-import { describe, expect, it, vi } from "vitest";
 
-const { requestLog } = vi.hoisted(() => ({
+const hoisted = <T>(factory: () => T): T => factory();
+
+const { requestLog } = hoisted(() => ({
   requestLog: {
-    emit: vi.fn(),
-    error: vi.fn(),
-    set: vi.fn(),
+    emit: mock(),
+    error: mock(),
+    set: mock(),
   },
 }));
 
-vi.mock("evlog", () => ({
-  createRequestLogger: vi.fn(() => requestLog),
+mock.module("evlog", () => ({
+  createRequestLogger: mock(() => requestLog),
 }));
-vi.mock("@/lib/api-auth", () => ({
-  assertServerPermission: vi.fn(),
-  requireSession: vi.fn(),
+mock.module("@/lib/api-auth", () => ({
+  assertServerPermission: mock(),
+  requireSession: mock(),
 }));
-vi.mock("@/lib/s3", () => ({ getS3: vi.fn() }));
-vi.mock("@/lib/server/financial-export", () => ({
-  getFinancialExportData: vi.fn(),
+mock.module("@/lib/s3", () => ({ getS3: mock() }));
+mock.module("@/lib/server/financial-export", () => ({
+  getFinancialExportData: mock(),
 }));
 
 import type { FinancialExportData } from "@/lib/server/financial-export";
@@ -51,15 +54,15 @@ const exportData = (
 
 function dependencies(data = exportData()): FinancialExportHandlerDependencies {
   return {
-    assertPermission: vi.fn(async () => undefined),
-    getData: vi.fn(async () => data),
-    getS3: vi.fn(() => ({
-      file: vi.fn(() => ({
-        stat: vi.fn(async () => ({})),
-        stream: vi.fn(() => new Blob(["attachment"]).stream()),
+    assertPermission: mock(async () => undefined),
+    getData: mock(async () => data),
+    getS3: mock(() => ({
+      file: mock(() => ({
+        stat: mock(async () => ({})),
+        stream: mock(() => new Blob(["attachment"]).stream()),
       })),
     })),
-    getSession: vi.fn(async () => ({
+    getSession: mock(async () => ({
       session: { user: { id: "finance-user", role: "system" } },
     })) as unknown as FinancialExportHandlerDependencies["getSession"],
     now: () => new Date("2026-08-11T00:00:00.000Z"),
@@ -69,7 +72,7 @@ function dependencies(data = exportData()): FinancialExportHandlerDependencies {
 describe("financial export API", () => {
   it("returns session failures before parsing the export", async () => {
     const deps = dependencies();
-    deps.getSession = vi.fn(async () => ({
+    deps.getSession = mock(async () => ({
       error: Response.json({ error: "Unauthorized" }, { status: 401 }),
     }));
 
@@ -96,7 +99,7 @@ describe("financial export API", () => {
 
   it("rejects users without export permission", async () => {
     const deps = dependencies();
-    deps.assertPermission = vi.fn(() => Promise.reject(new Error("Forbidden")));
+    deps.assertPermission = mock(() => Promise.reject(new Error("Forbidden")));
 
     const response = await handleFinancialExportRequest(
       new Request(exportUrl),
@@ -156,7 +159,7 @@ describe("financial export API", () => {
     });
     const deps = dependencies(data);
     const s3 = deps.getS3();
-    deps.getS3 = vi.fn(() => s3);
+    deps.getS3 = mock(() => s3);
     const response = await handleFinancialExportRequest(
       new Request(exportUrl),
       deps
@@ -187,10 +190,10 @@ describe("financial export API", () => {
         ],
       })
     );
-    deps.getS3 = vi.fn(() => ({
-      file: vi.fn(() => ({
-        stat: vi.fn(() => Promise.reject(new Error("Not found"))),
-        stream: vi.fn(() => new Blob().stream()),
+    deps.getS3 = mock(() => ({
+      file: mock(() => ({
+        stat: mock(() => Promise.reject(new Error("Not found"))),
+        stream: mock(() => new Blob().stream()),
       })),
     }));
 

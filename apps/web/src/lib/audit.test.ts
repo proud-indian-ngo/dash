@@ -1,14 +1,14 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-vi.mock("evlog", () => ({
+mock.module("evlog", () => ({
   createRequestLogger: () => ({
-    emit: vi.fn(),
-    error: vi.fn(),
-    set: vi.fn(),
+    emit: mock(),
+    error: mock(),
+    set: mock(),
   }),
 }));
 
-vi.mock("@pi-dash/db", () => ({ db: {} }));
+mock.module("@pi-dash/db", () => ({ db: {} }));
 
 import {
   AuditFinalizationError,
@@ -36,12 +36,12 @@ const options = {
 };
 
 function makeStore(): AuditStore & {
-  finalize: ReturnType<typeof vi.fn>;
-  insert: ReturnType<typeof vi.fn>;
+  finalize: ReturnType<typeof mock>;
+  insert: ReturnType<typeof mock>;
 } {
   return {
-    finalize: vi.fn(async () => undefined),
-    insert: vi.fn(async () => undefined),
+    finalize: mock(async () => undefined),
+    insert: mock(async () => undefined),
   };
 }
 
@@ -102,7 +102,7 @@ describe("audit metadata", () => {
 
   it("resolves only canonical existing Better Auth IDs for Zero summaries", async () => {
     const unknownUserId = "abcdef0123456789abcdef0123456789";
-    const resolveExisting = vi.fn(async () => new Set([BETTER_AUTH_USER_ID]));
+    const resolveExisting = mock(async () => new Set([BETTER_AUTH_USER_ID]));
 
     const summary = await resolveZeroAuditSummary(
       "team.addMembers",
@@ -123,7 +123,7 @@ describe("audit metadata", () => {
   });
 
   it("drops unknown session targets and propagates resolver failures", async () => {
-    const unknown = vi.fn(async () => new Set<string>());
+    const unknown = mock(async () => new Set<string>());
     await expect(
       resolveSessionAuditTarget(
         { id: BETTER_AUTH_USER_ID, type: "user" },
@@ -132,7 +132,7 @@ describe("audit metadata", () => {
       )
     ).resolves.toEqual({ type: "user" });
 
-    const failure = vi.fn(() =>
+    const failure = mock(() =>
       Promise.reject(new Error("database unavailable"))
     );
     await expect(
@@ -146,7 +146,7 @@ describe("audit metadata", () => {
   });
 
   it("trusts the session actor target without a database lookup", async () => {
-    const resolveExisting = vi.fn(async () => new Set<string>());
+    const resolveExisting = mock(async () => new Set<string>());
     await expect(
       resolveSessionAuditTarget(
         { id: BETTER_AUTH_USER_ID, type: "user" },
@@ -158,8 +158,8 @@ describe("audit metadata", () => {
   });
 
   it("retains only role IDs resolved from the role table", async () => {
-    const resolveUsers = vi.fn(async () => new Set<string>());
-    const resolveRoles = vi.fn(async () => new Set(["team_lead"]));
+    const resolveUsers = mock(async () => new Set<string>());
+    const resolveRoles = mock(async () => new Set(["team_lead"]));
 
     await expect(
       resolveSessionAuditTarget(
@@ -294,19 +294,19 @@ describe("audited action runner", () => {
   });
 
   it("writes pending before execution and finalizes success", async () => {
-    const execute = vi.fn(async () => "done");
+    const execute = mock(async () => "done");
     const result = await createAuditedActionRunner(store)(options, execute);
 
     expect(result).toBe("done");
-    expect(store.insert).toHaveBeenCalledOnce();
+    expect(store.insert).toHaveBeenCalledTimes(1);
     expect(store.insert.mock.calls[0]?.[0].outcome).toBe("pending");
-    expect(execute).toHaveBeenCalledOnce();
+    expect(execute).toHaveBeenCalledTimes(1);
     expect(store.finalize).toHaveBeenCalledWith(expect.any(String), "success");
   });
 
   it("does not execute when the pending insert fails", async () => {
     store.insert.mockRejectedValueOnce(new Error("database unavailable"));
-    const execute = vi.fn(async () => undefined);
+    const execute = mock(async () => undefined);
 
     await expect(
       createAuditedActionRunner(store)(options, execute)
@@ -387,13 +387,13 @@ describe("Zero mutation audit boundary", () => {
 
   it("records denial separately and preserves the mutation error", async () => {
     const error = new Error("Forbidden");
-    const insertFailure = vi.fn(async () => undefined);
+    const insertFailure = mock(async () => undefined);
 
     await expect(
       runZeroAuditedMutation(
         options,
         () => Promise.reject(error),
-        vi.fn(async () => undefined),
+        mock(async () => undefined),
         insertFailure
       )
     ).rejects.toBe(error);

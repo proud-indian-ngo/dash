@@ -1,22 +1,24 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-const queryMocks = vi.hoisted(() => ({
-  advancePayment: vi.fn(),
-  advancePaymentAttachment: vi.fn(),
-  eventPhoto: vi.fn(),
-  reimbursement: vi.fn(),
-  reimbursementAttachment: vi.fn(),
-  scheduledMessage: vi.fn(),
-  teamEvent: vi.fn(),
-  teamEventMember: vi.fn(),
-  teamMember: vi.fn(),
-  vendorPayment: vi.fn(),
-  vendorPaymentAttachment: vi.fn(),
-  vendorPaymentTransaction: vi.fn(),
-  vendorPaymentTransactionAttachment: vi.fn(),
+const hoisted = <T>(factory: () => T): T => factory();
+
+const queryMocks = hoisted(() => ({
+  advancePayment: mock(),
+  advancePaymentAttachment: mock(),
+  eventPhoto: mock(),
+  reimbursement: mock(),
+  reimbursementAttachment: mock(),
+  scheduledMessage: mock(),
+  teamEvent: mock(),
+  teamEventMember: mock(),
+  teamMember: mock(),
+  vendorPayment: mock(),
+  vendorPaymentAttachment: mock(),
+  vendorPaymentTransaction: mock(),
+  vendorPaymentTransactionAttachment: mock(),
 }));
 
-vi.mock("@pi-dash/db", () => ({
+mock.module("@pi-dash/db", () => ({
   db: {
     query: Object.fromEntries(
       Object.entries(queryMocks).map(([name, findFirst]) => [
@@ -26,7 +28,7 @@ vi.mock("@pi-dash/db", () => ({
     ),
   },
 }));
-vi.mock("@pi-dash/db/queries/resolve-permissions", () => ({
+mock.module("@pi-dash/db/queries/resolve-permissions", () => ({
   resolvePermissions: async () => [],
 }));
 

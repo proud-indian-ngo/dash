@@ -1,26 +1,26 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
-vi.mock("@pi-dash/design-system/components/ui/button", () => ({
+mock.module("@pi-dash/design-system/components/ui/button", () => ({
   Button: () => null,
 }));
-vi.mock("@pi-dash/design-system/components/ui/select", () => ({
+mock.module("@pi-dash/design-system/components/ui/select", () => ({
   Select: () => null,
   SelectContent: () => null,
   SelectItem: () => null,
   SelectTrigger: () => null,
 }));
-vi.mock("@rocicorp/zero/react", () => ({
+mock.module("@rocicorp/zero/react", () => ({
   useQuery: () => [[], { type: "complete" }],
   useZero: () => ({}),
 }));
-vi.mock("@/components/kalakriti/student-form-dialog", () => ({
+mock.module("@/components/kalakriti/student-form-dialog", () => ({
   StudentFormDialog: () => null,
 }));
-vi.mock("@/components/kalakriti/student-table", () => ({
+mock.module("@/components/kalakriti/student-table", () => ({
   StudentTable: () => null,
 }));
-vi.mock("@/components/loader", () => ({ Loader: () => null }));
-vi.mock("@/components/shared/confirm-dialog", () => ({
+mock.module("@/components/loader", () => ({ Loader: () => null }));
+mock.module("@/components/shared/confirm-dialog", () => ({
   ConfirmDialog: () => null,
 }));
 

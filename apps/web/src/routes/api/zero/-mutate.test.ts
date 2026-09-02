@@ -1,69 +1,72 @@
+import { beforeEach, describe, expect, it, mock } from "bun:test";
+
 // biome-ignore-all lint/style/useFilenamingConvention: TanStack excludes route tests by leading hyphen.
 import type { AsyncTask } from "@pi-dash/zero/context";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => {
+const hoisted = <T>(factory: () => T): T => factory();
+
+const mocks = hoisted(() => {
   const routeConfig = { value: undefined as unknown };
   return {
-    buildSessionContext: vi.fn(),
-    checkRateLimit: vi.fn(),
-    copyR2Object: vi.fn(),
-    handleMutateRequest: vi.fn(),
-    mutatorFn: vi.fn(),
-    parseTraceparent: vi.fn(),
-    rateLimitResponse: vi.fn(),
-    requireSession: vi.fn(),
+    buildSessionContext: mock(),
+    checkRateLimit: mock(),
+    copyR2Object: mock(),
+    handleMutateRequest: mock(),
+    mutatorFn: mock(),
+    parseTraceparent: mock(),
+    rateLimitResponse: mock(),
+    requireSession: mock(),
     routeConfig,
-    withFireAndForgetLog: vi.fn(),
-    zeroDrizzle: vi.fn(),
+    withFireAndForgetLog: mock(),
+    zeroDrizzle: mock(),
   };
 });
 
-vi.mock("@pi-dash/db", () => ({ db: {} }));
-vi.mock("@pi-dash/env/server", () => ({
+mock.module("@pi-dash/db", () => ({ db: {} }));
+mock.module("@pi-dash/env/server", () => ({
   env: { R2_KEY_PREFIX: "app" },
 }));
-vi.mock("@pi-dash/observability", () => ({
+mock.module("@pi-dash/observability", () => ({
   withFireAndForgetLog: mocks.withFireAndForgetLog,
 }));
-vi.mock("@pi-dash/observability/trace-context", () => ({
+mock.module("@pi-dash/observability/trace-context", () => ({
   parseTraceparent: mocks.parseTraceparent,
 }));
-vi.mock("@pi-dash/zero/mutators", () => ({ mutators: {} }));
-vi.mock("@pi-dash/zero/schema", () => ({ schema: {} }));
-vi.mock("@rocicorp/zero", () => ({
+mock.module("@pi-dash/zero/mutators", () => ({ mutators: {} }));
+mock.module("@pi-dash/zero/schema", () => ({ schema: {} }));
+mock.module("@rocicorp/zero", () => ({
   mustGetMutator: () => ({ fn: mocks.mutatorFn }),
 }));
-vi.mock("@rocicorp/zero/server", () => ({
+mock.module("@rocicorp/zero/server", () => ({
   handleMutateRequest: mocks.handleMutateRequest,
 }));
-vi.mock("@rocicorp/zero/server/adapters/drizzle", () => ({
+mock.module("@rocicorp/zero/server/adapters/drizzle", () => ({
   zeroDrizzle: mocks.zeroDrizzle,
 }));
-vi.mock("@tanstack/react-router", () => ({
+mock.module("@tanstack/react-router", () => ({
   createFileRoute: () => (config: unknown) => {
     mocks.routeConfig.value = config;
     return config;
   },
 }));
-vi.mock("@/lib/api-auth", () => ({
+mock.module("@/lib/api-auth", () => ({
   buildSessionContext: mocks.buildSessionContext,
   requireSession: mocks.requireSession,
 }));
-vi.mock("@/lib/audit", () => ({
-  buildAuditActor: vi.fn(async () => ({ type: "user", userId: "user-1" })),
-  resolveZeroAuditSummary: vi.fn(async () => ({
+mock.module("@/lib/audit", () => ({
+  buildAuditActor: mock(async () => ({ type: "user", userId: "user-1" })),
+  resolveZeroAuditSummary: mock(async () => ({
     metadata: {},
     target: undefined,
   })),
-  runZeroAuditedMutation: vi.fn(
+  runZeroAuditedMutation: mock(
     async (_options: unknown, action: () => Promise<unknown>) => await action()
   ),
 }));
-vi.mock("@/lib/r2-upload-claim", () => ({
+mock.module("@/lib/r2-upload-claim", () => ({
   copyR2Object: mocks.copyR2Object,
 }));
-vi.mock("@/lib/rate-limit", () => ({
+mock.module("@/lib/rate-limit", () => ({
   checkRateLimit: mocks.checkRateLimit,
   rateLimitResponse: mocks.rateLimitResponse,
 }));
@@ -82,7 +85,7 @@ const postHandler = () =>
   ).server.handlers.POST;
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  mock.clearAllMocks();
   mocks.requireSession.mockResolvedValue({
     error: null,
     session: { user: { id: "user-1" } },
@@ -98,7 +101,7 @@ beforeEach(() => {
 describe("Zero mutate task boundaries", () => {
   it("locks retained R2 keys on the mutation database transaction", async () => {
     const calls: string[] = [];
-    const query = vi.fn(() => {
+    const query = mock(() => {
       calls.push("lock");
       return Promise.resolve([]);
     });
@@ -153,7 +156,7 @@ describe("Zero mutate task boundaries", () => {
   });
 
   it("serializes new R2 target claims with an exclusive transaction lock", async () => {
-    const query = vi.fn(() => Promise.resolve([]));
+    const query = mock(() => Promise.resolve([]));
     mocks.mutatorFn.mockImplementation(
       ({
         ctx,

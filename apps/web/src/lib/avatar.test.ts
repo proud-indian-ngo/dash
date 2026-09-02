@@ -1,7 +1,8 @@
-import { buildAvatarMediaUrl } from "@pi-dash/shared/media-url";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
-vi.mock("@pi-dash/env/web", () => ({
+import { buildAvatarMediaUrl } from "@pi-dash/shared/media-url";
+
+mock.module("@pi-dash/env/web", () => ({
   env: { VITE_CDN_URL: "https://cdn.example.test/" },
 }));
 

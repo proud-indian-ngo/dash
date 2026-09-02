@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import type { KalakritiResponsibility } from "@pi-dash/shared/kalakriti";
-import { describe, expect, it } from "vitest";
 
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 
@@ -7,6 +8,7 @@ import {
   getKalakritiAuditViewKey,
   resolveKalakritiAuditScope,
   sanitizeKalakritiAuditMetadata,
+  type KalakritiAuditScope,
 } from "./kalakriti-audit-policy";
 
 function access(
@@ -93,7 +95,7 @@ describe("Kalakriti audit policy", () => {
         competitionCategoryIds: [],
         domains,
         fullEdition: false,
-      });
+      } as unknown as KalakritiAuditScope);
     }
   );
 

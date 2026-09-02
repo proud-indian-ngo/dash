@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
 import type { FinancialExportInput } from "./financial-export-contract";
 import { downloadFinancialExport } from "./financial-export-download";
@@ -13,7 +13,7 @@ const input: FinancialExportInput = {
 
 describe("downloadFinancialExport", () => {
   it("downloads the returned ZIP filename and exposes export counts", async () => {
-    const fetchExport = vi.fn(
+    const fetchExport = mock(
       async () =>
         new Response("zip bytes", {
           headers: {
@@ -26,7 +26,7 @@ describe("downloadFinancialExport", () => {
           },
         })
     );
-    const saveBlob = vi.fn();
+    const saveBlob = mock();
 
     const result = await downloadFinancialExport(input, {
       fetch: fetchExport,
@@ -49,11 +49,11 @@ describe("downloadFinancialExport", () => {
   });
 
   it("surfaces the server error without saving a partial download", async () => {
-    const saveBlob = vi.fn();
+    const saveBlob = mock();
 
     await expect(
       downloadFinancialExport(input, {
-        fetch: vi.fn(async () =>
+        fetch: mock(async () =>
           Response.json(
             { error: "Financial export could not be generated" },
             { status: 500 }

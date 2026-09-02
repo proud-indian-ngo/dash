@@ -1,9 +1,10 @@
+import { describe, expect, it } from "bun:test";
+
 import {
   createFilterQuery,
   createFilterRule,
   isFilterQueryEmpty,
 } from "@pi-dash/design-system/components/reui/filters/filters-query";
-import { describe, expect, it } from "vitest";
 
 import { buildLegacyFilterQuery } from "./use-migrate-legacy-filter-params";
 

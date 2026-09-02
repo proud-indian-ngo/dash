@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { auditLog, auditOutcomeValues } from "@pi-dash/db/schema/audit-log";
 import { getTableConfig } from "drizzle-orm/pg-core";
-import { describe, expect, it } from "vitest";
 
 describe("audit log schema", () => {
   it("keeps actor and target snapshots independent from deleted records", () => {

@@ -1,4 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  setSystemTime,
+} from "bun:test";
 
 import {
   advancePaymentRequestFormSchema,
@@ -38,13 +45,10 @@ const validAdvancePayment = {
 };
 
 beforeEach(() => {
-  vi.useFakeTimers();
-  vi.setSystemTime(new Date(2025, 5, 15));
+  setSystemTime(new Date(2025, 5, 15));
 });
 
-afterEach(() => {
-  vi.useRealTimers();
-});
+afterEach(() => {});
 
 describe("reimbursementRequestFormSchema", () => {
   it("accepts valid reimbursement data", () => {

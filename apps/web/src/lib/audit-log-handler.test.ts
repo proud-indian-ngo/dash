@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
 import { createAuditLogGetHandler } from "./audit-log-handler";
 
@@ -6,14 +6,14 @@ const session = { user: { id: "actor-id", role: "super_admin" } };
 
 function makeDependencies() {
   return {
-    assertPermission: vi.fn(async () => undefined),
-    load: vi.fn(async () => ({
+    assertPermission: mock(async () => undefined),
+    load: mock(async () => ({
       entries: [{ action: "user.update", id: "entry-id" }],
       facets: { actions: ["user.update"], targetTypes: ["user"] },
       total: 1,
     })),
-    onLoadError: vi.fn(),
-    requireSession: vi.fn(async () => ({ session })),
+    onLoadError: mock(),
+    requireSession: mock(async () => ({ session })),
   };
 }
 

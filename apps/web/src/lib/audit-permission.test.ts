@@ -1,3 +1,4 @@
+import { describe, expect, it, mock } from "bun:test";
 import { readFileSync } from "node:fs";
 
 import {
@@ -5,9 +6,8 @@ import {
   FINANCE_ADMIN_PERMISSIONS,
   PERMISSION_IDS,
 } from "@pi-dash/db/permissions";
-import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@tanstack/react-router", () => ({
+mock.module("@tanstack/react-router", () => ({
   redirect: () => new Error("redirected"),
 }));
 

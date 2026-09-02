@@ -1,15 +1,15 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
-vi.mock("@pi-dash/design-system/components/ui/button", () => ({
+mock.module("@pi-dash/design-system/components/ui/button", () => ({
   Button: () => null,
 }));
-vi.mock("@/components/kalakriti/age-category-form-dialog", () => ({
+mock.module("@/components/kalakriti/age-category-form-dialog", () => ({
   AgeCategoryFormDialog: () => null,
 }));
-vi.mock("@/components/kalakriti/age-categories-table", () => ({
+mock.module("@/components/kalakriti/age-categories-table", () => ({
   AgeCategoriesTable: () => null,
 }));
-vi.mock("@/components/shared/confirm-dialog", () => ({
+mock.module("@/components/shared/confirm-dialog", () => ({
   ConfirmDialog: () => null,
 }));
 

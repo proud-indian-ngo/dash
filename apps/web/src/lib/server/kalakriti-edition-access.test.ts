@@ -1,21 +1,25 @@
-import { PgDialect } from "drizzle-orm/pg-core";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-const dbMocks = vi.hoisted(() => {
+import type { SQL } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
+
+const hoisted = <T>(factory: () => T): T => factory();
+
+const dbMocks = hoisted(() => {
   const results: unknown[][] = [];
   const makeQuery = () => {
     const query = {
-      from: vi.fn(),
-      innerJoin: vi.fn(),
-      leftJoin: vi.fn(),
-      limit: vi.fn(),
-      orderBy: vi.fn(),
+      from: mock(),
+      innerJoin: mock(),
+      leftJoin: mock(),
+      limit: mock(),
+      orderBy: mock(),
       // biome-ignore lint/suspicious/noThenProperty: Drizzle query builders are intentionally promise-like.
       then: (
         resolve: (value: unknown[]) => unknown,
         reject: (reason: unknown) => unknown
       ) => Promise.resolve(results.shift() ?? []).then(resolve, reject),
-      where: vi.fn(),
+      where: mock(),
     };
     query.from.mockReturnValue(query);
     query.innerJoin.mockReturnValue(query);
@@ -27,21 +31,21 @@ const dbMocks = vi.hoisted(() => {
   };
   return {
     results,
-    select: vi.fn(() => makeQuery()),
-    selectDistinct: vi.fn(() => makeQuery()),
+    select: mock(() => makeQuery()),
+    selectDistinct: mock(() => makeQuery()),
   };
 });
 
-const resolvePermissions = vi.hoisted(() => vi.fn());
+const resolvePermissions = hoisted(() => mock());
 
-vi.mock("@pi-dash/db", () => ({
+mock.module("@pi-dash/db", () => ({
   db: {
     select: dbMocks.select,
     selectDistinct: dbMocks.selectDistinct,
   },
 }));
 
-vi.mock("@pi-dash/db/queries/resolve-permissions", () => ({
+mock.module("@pi-dash/db/queries/resolve-permissions", () => ({
   resolvePermissions,
 }));
 
@@ -63,23 +67,27 @@ const edition = {
 };
 
 function selectedWhereParams(callIndex: number) {
-  const query = dbMocks.select.mock.results[callIndex]?.value;
+  const query = dbMocks.select.mock.results[callIndex]?.value as
+    | { where: { mock: { calls: Array<[unknown]> } } }
+    | undefined;
   const predicate = query?.where.mock.calls[0]?.[0];
   if (!predicate) {
     throw new Error(`Missing where predicate for select call ${callIndex}`);
   }
-  return new PgDialect().sqlToQuery(predicate).params;
+  return new PgDialect().sqlToQuery(predicate as SQL).params;
 }
 
 function selectedDistinctWhereQuery(callIndex: number) {
-  const query = dbMocks.selectDistinct.mock.results[callIndex]?.value;
+  const query = dbMocks.selectDistinct.mock.results[callIndex]?.value as
+    | { where: { mock: { calls: Array<[unknown]> } } }
+    | undefined;
   const predicate = query?.where.mock.calls[0]?.[0];
   if (!predicate) {
     throw new Error(
       `Missing where predicate for selectDistinct call ${callIndex}`
     );
   }
-  return new PgDialect().sqlToQuery(predicate);
+  return new PgDialect().sqlToQuery(predicate as SQL);
 }
 
 describe("resolveKalakritiEditionAccess", () => {

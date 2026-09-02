@@ -1,10 +1,10 @@
 // biome-ignore-all lint/style/useFilenamingConvention: TanStack excludes route tests by leading hyphen.
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
-vi.mock("@/lib/api-auth", () => ({ requireSession: vi.fn() }));
-vi.mock("@/lib/s3", () => ({ getS3: vi.fn() }));
-vi.mock("@pi-dash/db", () => ({ db: {} }));
-vi.mock("@pi-dash/db/queries/resolve-permissions", () => ({
+mock.module("@/lib/api-auth", () => ({ requireSession: mock() }));
+mock.module("@/lib/s3", () => ({ getS3: mock() }));
+mock.module("@pi-dash/db", () => ({ db: {} }));
+mock.module("@pi-dash/db/queries/resolve-permissions", () => ({
   resolvePermissions: async () => [],
 }));
 
@@ -67,7 +67,7 @@ describe("handleEventPhotoRequest", () => {
   });
 
   it("rejects malformed database IDs before resolving the photo", async () => {
-    const resolveAuthorizedR2Object = vi.fn();
+    const resolveAuthorizedR2Object = mock();
     const response = await handleEventPhotoRequest(
       new Request("https://example.test/api/media/event-photo/not-a-uuid"),
       "not-a-uuid",
@@ -82,8 +82,7 @@ describe("handleEventPhotoRequest", () => {
   });
 
   it("returns 429 when one photo exceeds its per-photo limit", async () => {
-    const checkRateLimit = vi
-      .fn()
+    const checkRateLimit = mock()
       .mockReturnValueOnce({
         allowed: true,
         limit: 3000,
@@ -96,7 +95,7 @@ describe("handleEventPhotoRequest", () => {
         remaining: 0,
         resetAt: Date.now() + 60_000,
       });
-    const resolveAuthorizedR2Object = vi.fn();
+    const resolveAuthorizedR2Object = mock();
 
     const response = await handleEventPhotoRequest(
       new Request(`https://example.test/api/media/event-photo/${PHOTO_ID}`),
@@ -113,13 +112,13 @@ describe("handleEventPhotoRequest", () => {
   });
 
   it("redirects authorized viewers to a two-minute signed URL", async () => {
-    const checkRateLimit = vi.fn(() => ({
+    const checkRateLimit = mock(() => ({
       allowed: true,
       limit: 3000,
       remaining: 2999,
       resetAt: Date.now() + 60_000,
     }));
-    const presign = vi.fn(() => "https://r2.example.test/signed-event-photo");
+    const presign = mock(() => "https://r2.example.test/signed-event-photo");
     const response = await handleEventPhotoRequest(
       new Request(`https://example.test/api/media/event-photo/${PHOTO_ID}`),
       PHOTO_ID,

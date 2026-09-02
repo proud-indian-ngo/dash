@@ -1,7 +1,8 @@
-import type { EventPhoto } from "@pi-dash/zero/schema";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
-vi.mock("@pi-dash/env/web", () => ({
+import type { EventPhoto } from "@pi-dash/zero/schema";
+
+mock.module("@pi-dash/env/web", () => ({
   env: { VITE_IMMICH_URL: "https://immich.example.test/" },
 }));
 

@@ -1,11 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-const enqueue = vi.hoisted(() => vi.fn(async () => "job-1"));
-const pendingTasks = vi.hoisted(() => [] as Promise<unknown>[]);
+const hoisted = <T>(factory: () => T): T => factory();
 
-vi.mock("@pi-dash/jobs/enqueue", () => ({ enqueue }));
-vi.mock("@pi-dash/observability", () => ({
-  withFireAndForgetLog: vi.fn(
+const enqueue = hoisted(() => mock(async () => "job-1"));
+const pendingTasks = hoisted(() => [] as Promise<unknown>[]);
+
+mock.module("@pi-dash/jobs/enqueue", () => ({ enqueue }));
+mock.module("@pi-dash/observability", () => ({
+  withFireAndForgetLog: mock(
     (_meta: Record<string, unknown>, task: () => Promise<unknown>) => {
       pendingTasks.push(task());
     }

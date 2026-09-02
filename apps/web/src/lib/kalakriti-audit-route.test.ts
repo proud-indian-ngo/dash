@@ -1,18 +1,18 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 
-vi.mock("@pi-dash/design-system/components/ui/button", () => ({
+mock.module("@pi-dash/design-system/components/ui/button", () => ({
   Button: () => null,
 }));
-vi.mock("@pi-dash/design-system/components/ui/card", () => ({
+mock.module("@pi-dash/design-system/components/ui/card", () => ({
   Card: () => null,
   CardContent: () => null,
   CardDescription: () => null,
   CardHeader: () => null,
   CardTitle: () => null,
 }));
-vi.mock("@/components/kalakriti/audit-table", () => ({
+mock.module("@/components/kalakriti/audit-table", () => ({
   KalakritiAuditTable: () => null,
 }));
 

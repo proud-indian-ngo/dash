@@ -9,7 +9,7 @@
     "dev": "bunx --bun vite dev",
     "serve": "bunx --bun vite preview",
     "start": "bun run .output/server/index.mjs",
-    "test:unit": "bun run --env-file ../../.env --env-file ../../.env.worktree bun --bun vitest run"
+    "test:unit": "bash test-unit.sh"
   },
   "dependencies": {
     "@dnd-kit/core": "catalog:",

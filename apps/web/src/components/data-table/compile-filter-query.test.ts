@@ -1,9 +1,10 @@
+import { describe, expect, it } from "bun:test";
+
 import {
   createFilterGroup,
   createFilterQuery,
   createFilterRule,
 } from "@pi-dash/design-system/components/reui/filters/filters-query";
-import { describe, expect, it } from "vitest";
 
 import {
   compileFilterQuery,

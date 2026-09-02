@@ -1,30 +1,30 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
 
-vi.mock("evlog", () => ({ log: { error: vi.fn() } }));
-vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+mock.module("evlog", () => ({ log: { error: mock() } }));
+mock.module("sonner", () => ({ toast: { error: mock(), success: mock() } }));
 
 import { uploadSinglePhoto } from "./photo-upload";
 
 describe("uploadSinglePhoto", () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
+    mock.restore();
   });
 
   it("rejects when the authoritative R2 claim fails", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(null, { status: 200 })
     );
     const mutationError = new Error("claim failed");
-    const mutate = vi.fn(() => ({
+    const mutate = mock(() => ({
       server: Promise.resolve({ error: mutationError, type: "error" }),
     }));
 
     await expect(
       uploadSinglePhoto({
-        callImmichUpload: vi.fn(),
+        callImmichUpload: mock(),
         eventId: "event-1",
         file: new File(["photo"], "photo.jpg", { type: "image/jpeg" }),
-        getUploadUrl: vi.fn().mockResolvedValue({
+        getUploadUrl: mock().mockResolvedValue({
           key: "app/photos/tmp/user-1/upload-photo.jpg",
           presignedUrl: "https://r2.example.test/upload",
         }),

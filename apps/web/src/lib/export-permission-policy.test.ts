@@ -1,3 +1,5 @@
+import { describe, expect, it } from "bun:test";
+
 import {
   ADMIN_PERMISSIONS,
   FINANCE_ADMIN_PERMISSIONS,
@@ -5,7 +7,6 @@ import {
   PERMISSION_IDS,
   SYSTEM_ONLY_PERMISSION_IDS,
 } from "@pi-dash/db/permissions";
-import { describe, expect, it } from "vitest";
 
 describe("requests.export permission policy", () => {
   it("keeps export known but reserved for the super-admin role", () => {

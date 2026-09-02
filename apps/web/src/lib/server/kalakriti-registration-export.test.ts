@@ -1,17 +1,20 @@
-import { PgDialect } from "drizzle-orm/pg-core";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
-const dbMocks = vi.hoisted(() => {
+import { PgDialect } from "drizzle-orm/pg-core";
+
+const hoisted = <T>(factory: () => T): T => factory();
+
+const dbMocks = hoisted(() => {
   const makeQuery = () => {
     const query = {
-      from: vi.fn(),
-      innerJoin: vi.fn(),
-      leftJoin: vi.fn(),
-      orderBy: vi.fn(),
+      from: mock(),
+      innerJoin: mock(),
+      leftJoin: mock(),
+      orderBy: mock(),
       // biome-ignore lint/suspicious/noThenProperty: Drizzle builders are promise-like.
       then: (resolve: (rows: unknown[]) => unknown) =>
         Promise.resolve([]).then(resolve),
-      where: vi.fn(),
+      where: mock(),
     };
     query.from.mockReturnValue(query);
     query.innerJoin.mockReturnValue(query);
@@ -20,15 +23,15 @@ const dbMocks = vi.hoisted(() => {
     query.where.mockReturnValue(query);
     return query;
   };
-  const tx = { select: vi.fn(makeQuery) };
+  const tx = { select: mock(makeQuery) };
   return {
-    transaction: vi.fn((callback: (client: typeof tx) => Promise<unknown>) =>
+    transaction: mock((callback: (client: typeof tx) => Promise<unknown>) =>
       callback(tx)
     ),
   };
 });
 
-vi.mock("@pi-dash/db", () => ({
+mock.module("@pi-dash/db", () => ({
   db: { transaction: dbMocks.transaction },
 }));
 

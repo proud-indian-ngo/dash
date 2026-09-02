@@ -1,8 +1,8 @@
 // biome-ignore-all lint/style/useFilenamingConvention: TanStack excludes route tests by leading hyphen.
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
-vi.mock("@pi-dash/db/queries/kalakriti-public-schedule", () => ({
-  getKalakritiPublicSchedule: vi.fn(),
+mock.module("@pi-dash/db/queries/kalakriti-public-schedule", () => ({
+  getKalakritiPublicSchedule: mock(),
 }));
 
 import {
@@ -42,7 +42,7 @@ const deps = (
 
 describe("handlePublicScheduleRequest", () => {
   it("returns the public allowlist without requiring a session", async () => {
-    const getSchedule = vi.fn(async () => publicSchedule);
+    const getSchedule = mock(async () => publicSchedule);
 
     const response = await handlePublicScheduleRequest(
       "2027",
@@ -107,7 +107,7 @@ describe("handlePublicScheduleRequest", () => {
   });
 
   it("rejects a malformed year before reading the schedule", async () => {
-    const getSchedule = vi.fn(async () => null);
+    const getSchedule = mock(async () => null);
     const response = await handlePublicScheduleRequest(
       "twenty-seven",
       deps(getSchedule)

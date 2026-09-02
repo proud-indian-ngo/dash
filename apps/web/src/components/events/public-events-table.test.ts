@@ -1,4 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  setSystemTime,
+} from "bun:test";
 
 import {
   type PublicEventRow,
@@ -32,13 +39,10 @@ function event(
 
 describe("selectUpcomingPublicKalakritiEvent", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(NOW);
+    setSystemTime(NOW);
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
+  afterEach(() => {});
 
   it("picks the soonest upcoming public Kalakriti event", () => {
     const nearer = event({

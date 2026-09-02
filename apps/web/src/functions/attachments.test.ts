@@ -1,22 +1,22 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
-vi.mock("@pi-dash/env/server", () => ({
+mock.module("@pi-dash/env/server", () => ({
   env: { R2_KEY_PREFIX: "app" },
 }));
-vi.mock("@pi-dash/jobs/lib/protected-r2-reference", () => ({
-  withProtectedR2ObjectDeleteLock: vi.fn(),
+mock.module("@pi-dash/jobs/lib/protected-r2-reference", () => ({
+  withProtectedR2ObjectDeleteLock: mock(),
 }));
-vi.mock("@/lib/audit", () => ({
-  runSessionAuditedAction: vi.fn(),
+mock.module("@/lib/audit", () => ({
+  runSessionAuditedAction: mock(),
 }));
-vi.mock("@/lib/private-media-db", () => ({
+mock.module("@/lib/private-media-db", () => ({
   defaultPrivateMediaAccessDeps: {},
 }));
-vi.mock("@/lib/s3", () => ({ getS3: vi.fn() }));
-vi.mock("@/lib/server/kalakriti-entry-music", () => ({
-  authorizeKalakritiEntryMusicUpload: vi.fn(),
+mock.module("@/lib/s3", () => ({ getS3: mock() }));
+mock.module("@/lib/server/kalakriti-entry-music", () => ({
+  authorizeKalakritiEntryMusicUpload: mock(),
 }));
-vi.mock("@/middleware/auth", () => ({ authMiddleware: {} }));
+mock.module("@/middleware/auth", () => ({ authMiddleware: {} }));
 
 import { createEventEditorUpload } from "./attachments";
 
@@ -30,8 +30,8 @@ const session = { user: { id: "user-1", role: "editor" } };
 
 describe("createEventEditorUpload", () => {
   it("authorizes before issuing an event-scoped PUT URL", async () => {
-    const authorize = vi.fn(async () => undefined);
-    const presign = vi.fn(() => "https://r2.example.test/presigned");
+    const authorize = mock(async () => undefined);
+    const presign = mock(() => "https://r2.example.test/presigned");
 
     const result = await createEventEditorUpload(data, session, {
       authorize,
@@ -55,11 +55,11 @@ describe("createEventEditorUpload", () => {
   });
 
   it("does not presign when authorization fails", async () => {
-    const getS3 = vi.fn(async () => ({ presign: vi.fn() }));
+    const getS3 = mock(async () => ({ presign: mock() }));
 
     await expect(
       createEventEditorUpload(data, session, {
-        authorize: vi.fn(() => Promise.reject(new Error("Forbidden"))),
+        authorize: mock(() => Promise.reject(new Error("Forbidden"))),
         createId: () => "upload-id",
         getS3,
         keyPrefix: "app",

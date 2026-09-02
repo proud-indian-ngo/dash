@@ -1,31 +1,31 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
-vi.mock("@pi-dash/design-system/components/ui/button", () => ({
+mock.module("@pi-dash/design-system/components/ui/button", () => ({
   Button: () => null,
 }));
-vi.mock("@rocicorp/zero/react", () => ({
+mock.module("@rocicorp/zero/react", () => ({
   useQuery: () => [[], { type: "complete" }],
   useZero: () => ({}),
 }));
-vi.mock("@/components/kalakriti/kalakriti-add-volunteers-dialog", () => ({
+mock.module("@/components/kalakriti/kalakriti-add-volunteers-dialog", () => ({
   KalakritiAddVolunteersDialog: () => null,
 }));
-vi.mock("@/components/kalakriti/kalakriti-page-header", () => ({
+mock.module("@/components/kalakriti/kalakriti-page-header", () => ({
   KalakritiPageHeader: () => null,
 }));
-vi.mock("@/components/kalakriti/kalakriti-role-assignment-dialog", () => ({
+mock.module("@/components/kalakriti/kalakriti-role-assignment-dialog", () => ({
   KalakritiRoleAssignmentDialog: () => null,
 }));
-vi.mock("@/components/kalakriti/volunteer-detail-sheet", () => ({
+mock.module("@/components/kalakriti/volunteer-detail-sheet", () => ({
   VolunteerDetailSheet: () => null,
 }));
-vi.mock("@/components/kalakriti/volunteers-table", () => ({
+mock.module("@/components/kalakriti/volunteers-table", () => ({
   VolunteersTable: () => null,
 }));
-vi.mock("@/components/shared/confirm-dialog", () => ({
+mock.module("@/components/shared/confirm-dialog", () => ({
   ConfirmDialog: () => null,
 }));
-vi.mock("@/functions/users-for-picker", () => ({
+mock.module("@/functions/users-for-picker", () => ({
   getKalakritiAddVolunteersForPicker: async () => [],
   getKalakritiVolunteersForPicker: async () => [],
 }));
