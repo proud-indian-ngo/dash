@@ -1,5 +1,6 @@
+import { describe, expect, it, mock } from "bun:test";
+
 import { TOPICS } from "@pi-dash/notifications/topics";
-import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
 import { notificationPreferenceMutators } from "../notification-preference";
@@ -150,7 +151,7 @@ describe("notificationPreference mutator schemas", () => {
   it("rejects channels a catalog topic does not support", async () => {
     const tx = {
       mutate: { notificationTopicPreference: {} },
-      run: vi.fn(),
+      run: mock(),
     };
 
     await expect(
@@ -172,7 +173,7 @@ describe("notificationPreference mutator schemas", () => {
   it("rejects unsupported channels from the admin mutator", async () => {
     const tx = {
       mutate: { notificationTopicPreference: {} },
-      run: vi.fn(),
+      run: mock(),
     };
 
     await expect(

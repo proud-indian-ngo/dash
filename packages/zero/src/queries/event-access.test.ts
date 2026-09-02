@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import { eventImmichAlbumQueries, eventPhotoQueries } from "./event-photo";
 import { eventUpdateQueries } from "./event-update";

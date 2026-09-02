@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
+
 import z from "zod";
 
 import { eventInterestMutators } from "../event-interest";
@@ -111,7 +112,7 @@ describe("event interest status transitions", () => {
 
 describe("Kalakriti event interest", () => {
   it("accepts interest in a public Kalakriti event", async () => {
-    const insertInterest = vi.fn();
+    const insertInterest = mock();
     const results = [
       {
         id: "event-1",
@@ -130,7 +131,7 @@ describe("Kalakriti event interest", () => {
       mutate: {
         eventInterest: { insert: insertInterest },
       },
-      run: vi.fn(async () => results.shift()),
+      run: mock(async () => results.shift()),
     };
 
     await eventInterestMutators.create.fn({
@@ -161,9 +162,9 @@ describe("Kalakriti event interest", () => {
   });
 
   it("allows an interest manager to approve a Kalakriti request", async () => {
-    const insertMember = vi.fn();
-    const insertMembership = vi.fn();
-    const updateInterest = vi.fn();
+    const insertMember = mock();
+    const insertMembership = mock();
+    const updateInterest = mock();
     const results = [
       {
         eventId: "event-1",
@@ -196,11 +197,11 @@ describe("Kalakriti event interest", () => {
         eventInterest: { update: updateInterest },
         kalakritiEditionMembership: {
           insert: insertMembership,
-          update: vi.fn(),
+          update: mock(),
         },
         teamEventMember: { insert: insertMember },
       },
-      run: vi.fn(async () => results.shift()),
+      run: mock(async () => results.shift()),
     };
 
     await eventInterestMutators.approve.fn({

@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
+
 import z from "zod";
 
 import type { Context } from "../../context";
@@ -241,15 +242,15 @@ const makeContext = (permissions: string[]): Context => ({
 });
 
 const makeTx = (...rows: unknown[]) => {
-  const insert = vi.fn(async () => undefined);
-  const update = vi.fn(async () => undefined);
+  const insert = mock(async () => undefined);
+  const update = mock(async () => undefined);
   const queue = [...rows];
   return {
     insert,
     tx: {
       location: "server",
       mutate: { eventUpdate: { insert, update } },
-      run: vi.fn(async () => queue.shift()),
+      run: mock(async () => queue.shift()),
     },
     update,
   };

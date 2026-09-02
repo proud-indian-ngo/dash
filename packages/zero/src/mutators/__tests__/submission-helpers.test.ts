@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 import type { AsyncTask } from "../../context";
 import {
@@ -15,8 +15,8 @@ import {
   replaceRelations,
 } from "../submission-helpers";
 
-const copyR2Object = vi.fn();
-const enqueue = vi.fn();
+const copyR2Object = mock();
+const enqueue = mock();
 const clientClaimOptions = {
   durablePrefix: "reimbursements/request-1",
   subfolder: "attachments" as const,
@@ -25,7 +25,7 @@ const clientClaimOptions = {
 };
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  mock.clearAllMocks();
 });
 
 describe("assertEntityExists", () => {
@@ -304,8 +304,8 @@ describe("claimUploadedR2ObjectKey", () => {
     const beforeCommitTasks: AsyncTask[] = [];
     const asyncTasks: AsyncTask[] = [];
     const rollbackTasks: AsyncTask[] = [];
-    const lockR2Object = vi.fn();
-    const lockR2ObjectForClaim = vi.fn();
+    const lockR2Object = mock();
+    const lockR2ObjectForClaim = mock();
     const sourceKey = "app/attachments/tmp/user-1/upload-id-receipt.pdf";
     const targetKey =
       "app/attachments/reimbursements/request-1/upload-id-receipt.pdf";
@@ -366,7 +366,7 @@ describe("claimUploadedR2ObjectKey", () => {
     const beforeCommitTasks: AsyncTask[] = [];
     const asyncTasks: AsyncTask[] = [];
     const key = "app/attachments/reimbursements/request-1/receipt.pdf";
-    const lockR2Object = vi.fn();
+    const lockR2Object = mock();
 
     expect(
       claimUploadedR2ObjectKey(key, {
@@ -398,7 +398,7 @@ describe("claimUploadedR2ObjectKey", () => {
   it("retains a trusted legacy key that predates the configured prefix", async () => {
     const beforeCommitTasks: AsyncTask[] = [];
     const key = "legacy/attachments/request-1/receipt.pdf";
-    const lockR2Object = vi.fn();
+    const lockR2Object = mock();
 
     expect(
       claimUploadedR2ObjectKey(key, {

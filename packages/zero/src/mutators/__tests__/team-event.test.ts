@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
+
 import z from "zod";
 
 import { assertEventNotManagedByKalakriti } from "../kalakriti-event-guard";
@@ -153,7 +154,7 @@ function makeProtectedEventTx() {
   return {
     location: "server",
     mutate: {},
-    run: vi.fn(async () => event),
+    run: mock(async () => event),
   };
 }
 

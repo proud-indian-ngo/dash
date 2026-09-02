@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
 import { kalakritiStudentMutators } from "../kalakriti-student";
 
@@ -66,27 +66,27 @@ const tokenHash = "a".repeat(64);
 function createTx(results: unknown[] = []) {
   const lockedResults: unknown[][] = [];
   const spies = {
-    deleteCredential: vi.fn(),
-    deleteEntry: vi.fn(),
-    deleteEntryMember: vi.fn(),
-    deleteStudent: vi.fn(),
-    insertAudit: vi.fn(),
-    insertCredential: vi.fn(),
-    insertStudent: vi.fn(),
-    lockRows: vi.fn(),
-    updateEdition: vi.fn(),
-    updateStudent: vi.fn(),
+    deleteCredential: mock(),
+    deleteEntry: mock(),
+    deleteEntryMember: mock(),
+    deleteStudent: mock(),
+    insertAudit: mock(),
+    insertCredential: mock(),
+    insertStudent: mock(),
+    lockRows: mock(),
+    updateEdition: mock(),
+    updateStudent: mock(),
   };
-  const select = vi.fn(() => {
+  const select = mock(() => {
     const query = {
-      for: vi.fn(() => {
+      for: mock(() => {
         const rows = lockedResults.shift() ?? [];
         spies.lockRows(rows);
         return rows;
       }),
-      from: vi.fn(),
-      orderBy: vi.fn(),
-      where: vi.fn(),
+      from: mock(),
+      orderBy: mock(),
+      where: mock(),
     };
     query.from.mockReturnValue(query);
     query.orderBy.mockReturnValue(query);
@@ -114,7 +114,7 @@ function createTx(results: unknown[] = []) {
           update: spies.updateStudent,
         },
       },
-      run: vi.fn(async () => results.shift()),
+      run: mock(async () => results.shift()),
     },
   };
 }
@@ -204,7 +204,7 @@ describe("kalakritiStudent commands", () => {
     lockedResults.push([edition], [center], [junior]);
 
     await createStudent(tx, createArgs, scopedContext);
-    expect(spies.insertStudent).toHaveBeenCalledOnce();
+    expect(spies.insertStudent).toHaveBeenCalledTimes(1);
   });
 
   it("rejects an unassigned Guardian", async () => {
@@ -239,7 +239,7 @@ describe("kalakritiStudent commands", () => {
     lockedResults.push([edition], [center], [junior]);
 
     await createStudent(tx, createArgs, liaisonContext);
-    expect(spies.insertStudent).toHaveBeenCalledOnce();
+    expect(spies.insertStudent).toHaveBeenCalledTimes(1);
   });
 
   it("accepts a Center Liaison Lead assignment for a volunteer", async () => {
@@ -260,7 +260,7 @@ describe("kalakritiStudent commands", () => {
     lockedResults.push([edition], [center], [junior]);
 
     await createStudent(tx, createArgs, liaisonLeadContext);
-    expect(spies.insertStudent).toHaveBeenCalledOnce();
+    expect(spies.insertStudent).toHaveBeenCalledTimes(1);
   });
 
   it("does not treat another Center responsibility as registration access", async () => {

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
 import { kalakritiCenterMutators } from "../kalakriti-center";
 
@@ -23,18 +23,18 @@ function createTx(results: unknown[]) {
   );
   const runResults = results.filter((result) => result !== lifecycleResult);
   const spies = {
-    deleteCenter: vi.fn(),
-    deleteGuardianCenter: vi.fn(),
-    insertAudit: vi.fn(),
-    insertCenter: vi.fn(),
-    insertGuardianCenter: vi.fn(),
-    lockRows: vi.fn(),
-    updateCenter: vi.fn(),
+    deleteCenter: mock(),
+    deleteGuardianCenter: mock(),
+    insertAudit: mock(),
+    insertCenter: mock(),
+    insertGuardianCenter: mock(),
+    lockRows: mock(),
+    updateCenter: mock(),
   };
   const lockedResults: unknown[][] = [[center]];
-  const select = vi.fn((fields: Record<string, unknown>) => {
+  const select = mock((fields: Record<string, unknown>) => {
     const query = {
-      for: vi.fn(() => {
+      for: mock(() => {
         const rows =
           "eventDate" in fields
             ? [
@@ -51,9 +51,9 @@ function createTx(results: unknown[]) {
         spies.lockRows(rows);
         return rows;
       }),
-      from: vi.fn(),
-      orderBy: vi.fn(),
-      where: vi.fn(),
+      from: mock(),
+      orderBy: mock(),
+      where: mock(),
     };
     query.from.mockReturnValue(query);
     query.orderBy.mockReturnValue(query);
@@ -78,7 +78,7 @@ function createTx(results: unknown[]) {
           insert: spies.insertGuardianCenter,
         },
       },
-      run: vi.fn(async () => runResults.shift()),
+      run: mock(async () => runResults.shift()),
     },
   };
 }
@@ -149,7 +149,7 @@ describe("kalakritiCenter commands", () => {
       typeof kalakritiCenterMutators.setRegistrationControls.fn
     >[0]);
 
-    expect(spies.updateCenter).toHaveBeenCalledOnce();
+    expect(spies.updateCenter).toHaveBeenCalledTimes(1);
   });
 
   it("requires explicit confirmation before either control reopens", async () => {
@@ -251,8 +251,8 @@ describe("kalakritiCenter commands", () => {
       typeof kalakritiCenterMutators.setRegistrationControls.fn
     >[0]);
 
-    expect(spies.updateCenter).toHaveBeenCalledOnce();
-    expect(spies.insertAudit).toHaveBeenCalledOnce();
+    expect(spies.updateCenter).toHaveBeenCalledTimes(1);
+    expect(spies.insertAudit).toHaveBeenCalledTimes(1);
   });
 
   it("rejects closing participation when a Student is below the Edition minimum", async () => {
@@ -334,7 +334,7 @@ describe("kalakritiCenter commands", () => {
       typeof kalakritiCenterMutators.setRegistrationControls.fn
     >[0]);
 
-    expect(spies.updateCenter).toHaveBeenCalledOnce();
+    expect(spies.updateCenter).toHaveBeenCalledTimes(1);
   });
 
   it("audits an explicit reopen without changing another Center", async () => {
@@ -355,7 +355,7 @@ describe("kalakritiCenter commands", () => {
       typeof kalakritiCenterMutators.setRegistrationControls.fn
     >[0]);
 
-    expect(spies.updateCenter).toHaveBeenCalledOnce();
+    expect(spies.updateCenter).toHaveBeenCalledTimes(1);
     expect(spies.updateCenter).toHaveBeenCalledWith(
       expect.objectContaining({
         competitionEntryRegistrationEnabled: true,

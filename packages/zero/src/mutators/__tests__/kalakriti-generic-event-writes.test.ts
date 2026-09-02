@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
 import { eventImmichAlbumMutators } from "../event-immich-album";
 import { eventPhotoMutators } from "../event-photo";
@@ -12,7 +12,7 @@ const context = {
 
 describe("Kalakriti generic event write protection", () => {
   it("rejects an event update before inserting it", async () => {
-    const insert = vi.fn();
+    const insert = mock();
     const results = [
       {
         id: "event-1",
@@ -25,7 +25,7 @@ describe("Kalakriti generic event write protection", () => {
     const tx = {
       location: "server",
       mutate: { eventUpdate: { insert } },
-      run: vi.fn(async () => results.shift()),
+      run: mock(async () => results.shift()),
     };
 
     await expect(
@@ -44,7 +44,7 @@ describe("Kalakriti generic event write protection", () => {
   });
 
   it("rejects photo deletion before deleting it", async () => {
-    const deletePhoto = vi.fn();
+    const deletePhoto = mock();
     const results = [
       {
         eventId: "event-1",
@@ -61,7 +61,7 @@ describe("Kalakriti generic event write protection", () => {
     const tx = {
       location: "server",
       mutate: { eventPhoto: { delete: deletePhoto } },
-      run: vi.fn(async () => results.shift()),
+      run: mock(async () => results.shift()),
     };
 
     await expect(
@@ -75,8 +75,8 @@ describe("Kalakriti generic event write protection", () => {
   });
 
   it("rejects album deletion before deleting its photos or album", async () => {
-    const deleteAlbum = vi.fn();
-    const deletePhoto = vi.fn();
+    const deleteAlbum = mock();
+    const deletePhoto = mock();
     const results = [
       { eventId: "event-1", id: "album-1", immichAlbumId: "immich-1" },
       {
@@ -91,7 +91,7 @@ describe("Kalakriti generic event write protection", () => {
         eventImmichAlbum: { delete: deleteAlbum },
         eventPhoto: { delete: deletePhoto },
       },
-      run: vi.fn(async () => results.shift()),
+      run: mock(async () => results.shift()),
     };
 
     await expect(

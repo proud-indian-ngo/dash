@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
 import {
   kalakritiCompetitionCreateSchema,
@@ -52,27 +52,27 @@ const venue = {
 function createTx(results: unknown[] = []) {
   const lockedResults: unknown[][] = [];
   const spies = {
-    deleteCategory: vi.fn(),
-    deleteCompetition: vi.fn(),
-    deleteSession: vi.fn(),
-    deleteVenue: vi.fn(),
-    insertAudit: vi.fn(),
-    insertCategory: vi.fn(),
-    insertCompetition: vi.fn(),
-    insertDivision: vi.fn(),
-    insertSession: vi.fn(),
-    insertVenue: vi.fn(),
-    updateCategory: vi.fn(),
-    updateCompetition: vi.fn(),
-    updateDivision: vi.fn(),
-    updateSession: vi.fn(),
-    updateVenue: vi.fn(),
+    deleteCategory: mock(),
+    deleteCompetition: mock(),
+    deleteSession: mock(),
+    deleteVenue: mock(),
+    insertAudit: mock(),
+    insertCategory: mock(),
+    insertCompetition: mock(),
+    insertDivision: mock(),
+    insertSession: mock(),
+    insertVenue: mock(),
+    updateCategory: mock(),
+    updateCompetition: mock(),
+    updateDivision: mock(),
+    updateSession: mock(),
+    updateVenue: mock(),
   };
-  const select = vi.fn(() => {
+  const select = mock(() => {
     const query = {
-      for: vi.fn(() => lockedResults.shift() ?? []),
-      from: vi.fn(),
-      where: vi.fn(),
+      for: mock(() => lockedResults.shift() ?? []),
+      from: mock(),
+      where: mock(),
     };
     query.from.mockReturnValue(query);
     query.where.mockReturnValue(query);
@@ -97,7 +97,7 @@ function createTx(results: unknown[] = []) {
           update: spies.updateCategory,
         },
         kalakritiCompetitionDivision: {
-          delete: vi.fn(),
+          delete: mock(),
           insert: spies.insertDivision,
           update: spies.updateDivision,
         },
@@ -112,7 +112,7 @@ function createTx(results: unknown[] = []) {
           update: spies.updateVenue,
         },
       },
-      run: vi.fn(async () => results.shift()),
+      run: mock(async () => results.shift()),
     },
   };
 }

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
 import type { Context } from "../../context";
 import { kalakritiEntryMutators } from "../kalakriti-entry";
@@ -124,18 +124,18 @@ function normalizeMembership(value: unknown): unknown {
 function createTx(results: unknown[] = []) {
   const lockedResults: unknown[][] = [];
   const spies = {
-    deleteEntry: vi.fn(),
-    deleteMember: vi.fn(),
-    insertAudit: vi.fn(),
-    insertEntry: vi.fn(),
-    insertMember: vi.fn(),
-    updateEntry: vi.fn(),
+    deleteEntry: mock(),
+    deleteMember: mock(),
+    insertAudit: mock(),
+    insertEntry: mock(),
+    insertMember: mock(),
+    updateEntry: mock(),
   };
-  const select = vi.fn(() => {
+  const select = mock(() => {
     const query = {
-      for: vi.fn(() => lockedResults.shift() ?? []),
-      from: vi.fn(),
-      where: vi.fn(),
+      for: mock(() => lockedResults.shift() ?? []),
+      from: mock(),
+      where: mock(),
     };
     query.from.mockReturnValue(query);
     query.where.mockReturnValue(query);
@@ -159,7 +159,7 @@ function createTx(results: unknown[] = []) {
           insert: spies.insertMember,
         },
       },
-      run: vi.fn(async () => results.shift()),
+      run: mock(async () => results.shift()),
     },
   };
 }
@@ -387,10 +387,10 @@ describe("kalakritiEntry commands", () => {
         ...ctx,
         asyncTasks: [],
         beforeCommitTasks: [],
-        copyR2Object: vi.fn(),
-        enqueue: vi.fn(),
-        lockR2Object: vi.fn(),
-        lockR2ObjectForClaim: vi.fn(),
+        copyR2Object: mock(),
+        enqueue: mock(),
+        lockR2Object: mock(),
+        lockR2ObjectForClaim: mock(),
         r2KeyPrefix: "app",
         rollbackTasks: [],
       },
@@ -899,10 +899,10 @@ describe("kalakritiEntry commands", () => {
         ...ctx,
         asyncTasks,
         beforeCommitTasks,
-        copyR2Object: vi.fn(),
-        enqueue: vi.fn(),
-        lockR2Object: vi.fn(),
-        lockR2ObjectForClaim: vi.fn(),
+        copyR2Object: mock(),
+        enqueue: mock(),
+        lockR2Object: mock(),
+        lockR2ObjectForClaim: mock(),
         r2KeyPrefix: "app",
         rollbackTasks: [],
       },
@@ -972,7 +972,7 @@ describe("kalakritiEntry commands", () => {
       ctx: {
         ...ctx,
         asyncTasks,
-        enqueue: vi.fn(),
+        enqueue: mock(),
         r2KeyPrefix: "app",
       },
       tx,

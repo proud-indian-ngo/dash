@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
 import { kalakritiAssignmentMutators } from "../kalakriti-assignment";
 
@@ -22,14 +22,14 @@ const assignArgs = {
 
 function createMutationSpies() {
   return {
-    deleteAssignment: vi.fn(),
-    deleteEventMember: vi.fn(),
-    insertAssignment: vi.fn(),
-    insertAudit: vi.fn(),
-    insertEventMember: vi.fn(),
-    insertMembership: vi.fn(),
-    updateAssignment: vi.fn(),
-    updateMembership: vi.fn(),
+    deleteAssignment: mock(),
+    deleteEventMember: mock(),
+    insertAssignment: mock(),
+    insertAudit: mock(),
+    insertEventMember: mock(),
+    insertMembership: mock(),
+    updateAssignment: mock(),
+    updateMembership: mock(),
   };
 }
 
@@ -41,12 +41,12 @@ function createTx(
   const lockedCenters: unknown[][] = [
     [{ editionId: "edition-1", id: "center-1", retiredAt: null }],
   ];
-  const lockForUpdate = vi.fn(async () => lockedCenters.shift() ?? []);
-  const select = vi.fn(() => {
+  const lockForUpdate = mock(async () => lockedCenters.shift() ?? []);
+  const select = mock(() => {
     const query = {
       for: lockForUpdate,
-      from: vi.fn(),
-      where: vi.fn(),
+      from: mock(),
+      where: mock(),
     };
     query.from.mockReturnValue(query);
     query.where.mockReturnValue(query);
@@ -75,7 +75,7 @@ function createTx(
           insert: spies.insertEventMember,
         },
       },
-      run: vi.fn(async () => results.shift()),
+      run: mock(async () => results.shift()),
     },
   };
 }
@@ -169,7 +169,7 @@ describe("kalakritiAssignment.assignVolunteer", () => {
         userId: "volunteer-1",
       })
     );
-    expect(spies.insertAudit).toHaveBeenCalledOnce();
+    expect(spies.insertAudit).toHaveBeenCalledTimes(1);
   });
 
   it("does not duplicate the linked event member for another role", async () => {
@@ -209,7 +209,7 @@ describe("kalakritiAssignment.assignVolunteer", () => {
     >[0]);
 
     expect(spies.insertMembership).not.toHaveBeenCalled();
-    expect(spies.insertAssignment).toHaveBeenCalledOnce();
+    expect(spies.insertAssignment).toHaveBeenCalledTimes(1);
     expect(spies.insertEventMember).not.toHaveBeenCalled();
   });
 
@@ -307,8 +307,8 @@ describe("kalakritiAssignment.assignVolunteer", () => {
       typeof kalakritiAssignmentMutators.assignVolunteer.fn
     >[0]);
 
-    expect(spies.insertMembership).toHaveBeenCalledOnce();
-    expect(spies.insertAssignment).toHaveBeenCalledOnce();
+    expect(spies.insertMembership).toHaveBeenCalledTimes(1);
+    expect(spies.insertAssignment).toHaveBeenCalledTimes(1);
   });
 
   it("assigns an operational lead at Edition scope", async () => {
@@ -475,8 +475,8 @@ describe("kalakritiAssignment.assignLiaison", () => {
         responsibility: "liaison_volunteer",
       })
     );
-    expect(spies.insertMembership).toHaveBeenCalledOnce();
-    expect(spies.insertEventMember).toHaveBeenCalledOnce();
+    expect(spies.insertMembership).toHaveBeenCalledTimes(1);
+    expect(spies.insertEventMember).toHaveBeenCalledTimes(1);
     expect(lockForUpdate).toHaveBeenCalledWith("update");
   });
 

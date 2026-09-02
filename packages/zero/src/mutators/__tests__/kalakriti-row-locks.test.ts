@@ -1,13 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
 import { getEditionForUpdate } from "../kalakriti-row-locks";
 
 describe("getEditionForUpdate", () => {
   it("normalizes Zero's numeric date-only value", async () => {
-    const run = vi.fn().mockResolvedValue({
+    const run = mock().mockResolvedValue({
       eventDate: Date.UTC(2027, 10, 21),
       id: "edition-1",
       lifecycle: "draft",
+      teamEventId: "event-1",
       timezone: "Asia/Kolkata",
     });
 
@@ -18,15 +19,17 @@ describe("getEditionForUpdate", () => {
       id: "edition-1",
       lifecycle: "draft",
       minTotalCompetitions: 2,
+      teamEventId: "event-1",
       timezone: "Asia/Kolkata",
     });
   });
 
   it("leaves registration-only fields absent for callers to validate", async () => {
-    const run = vi.fn().mockResolvedValue({
+    const run = mock().mockResolvedValue({
       eventDate: Date.UTC(2027, 10, 21),
       id: "edition-1",
       lifecycle: "draft",
+      teamEventId: "event-1",
       timezone: "Asia/Kolkata",
     });
 

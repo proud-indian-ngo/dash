@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 import type { AsyncTask, Context } from "../../context";
 import { advancePaymentMutators } from "../advance-payment";
@@ -9,10 +9,10 @@ import { scheduledMessageMutators } from "../scheduled-message";
 import { vendorPaymentMutators } from "../vendor-payment";
 import { vendorPaymentTransactionMutators } from "../vendor-payment-transaction";
 
-const copyR2Object = vi.fn();
-const enqueue = vi.fn();
-const lockR2Object = vi.fn();
-const lockR2ObjectForClaim = vi.fn();
+const copyR2Object = mock();
+const enqueue = mock();
+const lockR2Object = mock();
+const lockR2ObjectForClaim = mock();
 
 const serverContext = (permissions: string[] = []): Context => ({
   asyncTasks: [],
@@ -32,22 +32,22 @@ const taskByMutator = (tasks: AsyncTask[], mutator: string) =>
   tasks.find((task) => task.meta.mutator === mutator);
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  mock.clearAllMocks();
 });
 
 describe("server mutator upload claims", () => {
   it("claims a reimbursement attachment under its request", async () => {
-    const insertAttachment = vi.fn();
+    const insertAttachment = mock();
     const ctx = serverContext(["requests.create"]);
     const tx = {
       location: "server",
       mutate: {
-        reimbursement: { insert: vi.fn() },
+        reimbursement: { insert: mock() },
         reimbursementAttachment: { insert: insertAttachment },
-        reimbursementHistory: { insert: vi.fn() },
-        reimbursementLineItem: { insert: vi.fn() },
+        reimbursementHistory: { insert: mock() },
+        reimbursementLineItem: { insert: mock() },
       },
-      run: vi.fn().mockResolvedValue(undefined),
+      run: mock().mockResolvedValue(undefined),
     };
     const sourceKey = "app/attachments/tmp/user-1/upload-id-receipt.pdf";
 
@@ -81,16 +81,15 @@ describe("server mutator upload claims", () => {
   });
 
   it("claims a replacement approval screenshot for an advance payment", async () => {
-    const update = vi.fn();
+    const update = mock();
     const ctx = serverContext(["requests.approve"]);
     const tx = {
       location: "server",
       mutate: {
         advancePayment: { update },
-        advancePaymentHistory: { insert: vi.fn() },
+        advancePaymentHistory: { insert: mock() },
       },
-      run: vi
-        .fn()
+      run: mock()
         .mockResolvedValueOnce({ status: "pending", userId: "owner-1" })
         .mockResolvedValueOnce([]),
     };
@@ -112,17 +111,17 @@ describe("server mutator upload claims", () => {
   });
 
   it("claims an advance-payment attachment under its request", async () => {
-    const insertAttachment = vi.fn();
+    const insertAttachment = mock();
     const ctx = serverContext(["requests.create"]);
     const tx = {
       location: "server",
       mutate: {
-        advancePayment: { insert: vi.fn() },
+        advancePayment: { insert: mock() },
         advancePaymentAttachment: { insert: insertAttachment },
-        advancePaymentHistory: { insert: vi.fn() },
-        advancePaymentLineItem: { insert: vi.fn() },
+        advancePaymentHistory: { insert: mock() },
+        advancePaymentLineItem: { insert: mock() },
       },
-      run: vi.fn().mockResolvedValue(undefined),
+      run: mock().mockResolvedValue(undefined),
     };
     const sourceKey = "app/attachments/tmp/user-1/upload-id-advance.pdf";
 
@@ -155,18 +154,17 @@ describe("server mutator upload claims", () => {
   });
 
   it("claims a vendor-payment quotation under its request", async () => {
-    const insertAttachment = vi.fn();
+    const insertAttachment = mock();
     const ctx = serverContext(["requests.create"]);
     const tx = {
       location: "server",
       mutate: {
-        vendorPayment: { insert: vi.fn() },
+        vendorPayment: { insert: mock() },
         vendorPaymentAttachment: { insert: insertAttachment },
-        vendorPaymentHistory: { insert: vi.fn() },
-        vendorPaymentLineItem: { insert: vi.fn() },
+        vendorPaymentHistory: { insert: mock() },
+        vendorPaymentLineItem: { insert: mock() },
       },
-      run: vi
-        .fn()
+      run: mock()
         .mockResolvedValueOnce({ createdBy: "user-1", status: "approved" })
         .mockResolvedValueOnce(undefined),
     };
@@ -202,7 +200,7 @@ describe("server mutator upload claims", () => {
   });
 
   it("queues transaction attachment cleanup before deleting a vendor payment", async () => {
-    const deletePayment = vi.fn();
+    const deletePayment = mock();
     const ctx = serverContext(["requests.delete_all"]);
     const r2Key =
       "app/attachments/vendor-payment-transactions/transaction-1/upload-id-proof.pdf";
@@ -210,12 +208,11 @@ describe("server mutator upload claims", () => {
       location: "server",
       mutate: {
         vendorPayment: { delete: deletePayment },
-        vendorPaymentAttachment: { delete: vi.fn() },
-        vendorPaymentHistory: { delete: vi.fn() },
-        vendorPaymentLineItem: { delete: vi.fn() },
+        vendorPaymentAttachment: { delete: mock() },
+        vendorPaymentHistory: { delete: mock() },
+        vendorPaymentLineItem: { delete: mock() },
       },
-      run: vi
-        .fn()
+      run: mock()
         .mockResolvedValueOnce({
           approvalScreenshotKey: null,
           status: "paid",
@@ -249,20 +246,19 @@ describe("server mutator upload claims", () => {
   });
 
   it("claims a vendor-payment invoice attachment under the invoice scope", async () => {
-    const insertAttachment = vi.fn();
+    const insertAttachment = mock();
     const ctx = serverContext();
     const tx = {
       location: "server",
       mutate: {
-        vendorPayment: { update: vi.fn() },
+        vendorPayment: { update: mock() },
         vendorPaymentAttachment: {
-          delete: vi.fn(),
+          delete: mock(),
           insert: insertAttachment,
         },
-        vendorPaymentHistory: { insert: vi.fn() },
+        vendorPaymentHistory: { insert: mock() },
       },
-      run: vi
-        .fn()
+      run: mock()
         .mockResolvedValueOnce({
           status: "paid",
           title: "Venue",
@@ -310,15 +306,14 @@ describe("server mutator upload claims", () => {
     const tx = {
       location: "server",
       mutate: {
-        vendorPayment: { update: vi.fn() },
+        vendorPayment: { update: mock() },
         vendorPaymentAttachment: {
-          delete: vi.fn(),
-          insert: vi.fn(),
+          delete: mock(),
+          insert: mock(),
         },
-        vendorPaymentHistory: { insert: vi.fn() },
+        vendorPaymentHistory: { insert: mock() },
       },
-      run: vi
-        .fn()
+      run: mock()
         .mockResolvedValueOnce({ status: "paid", userId: "user-1" })
         .mockResolvedValueOnce([
           { id: "legacy-invoice-attachment", objectKey: legacyKey },
@@ -358,18 +353,17 @@ describe("server mutator upload claims", () => {
   });
 
   it("claims a vendor-payment transaction attachment", async () => {
-    const insertAttachment = vi.fn();
+    const insertAttachment = mock();
     const ctx = serverContext(["requests.record_payment"]);
     const tx = {
       location: "server",
       mutate: {
-        vendorPayment: { update: vi.fn() },
-        vendorPaymentTransaction: { insert: vi.fn() },
+        vendorPayment: { update: mock() },
+        vendorPaymentTransaction: { insert: mock() },
         vendorPaymentTransactionAttachment: { insert: insertAttachment },
-        vendorPaymentTransactionHistory: { insert: vi.fn() },
+        vendorPaymentTransactionHistory: { insert: mock() },
       },
-      run: vi
-        .fn()
+      run: mock()
         .mockResolvedValueOnce({
           status: "pending",
           title: "Venue",
@@ -413,16 +407,15 @@ describe("server mutator upload claims", () => {
   it("preserves an existing approval screenshot when no replacement is supplied", async () => {
     const approvalScreenshotKey =
       "app/approval-screenshots/reimbursements/request-1/approval-screenshots/proof.png";
-    const update = vi.fn();
+    const update = mock();
     const ctx = serverContext(["requests.approve"]);
     const tx = {
       location: "server",
       mutate: {
         reimbursement: { update },
-        reimbursementHistory: { insert: vi.fn() },
+        reimbursementHistory: { insert: mock() },
       },
-      run: vi
-        .fn()
+      run: mock()
         .mockResolvedValueOnce({
           approvalScreenshotKey,
           status: "pending",
@@ -463,11 +456,10 @@ describe("server mutator upload claims", () => {
     const tx = {
       location: "server",
       mutate: {
-        advancePayment: { update: vi.fn() },
-        advancePaymentHistory: { insert: vi.fn() },
+        advancePayment: { update: mock() },
+        advancePaymentHistory: { insert: mock() },
       },
-      run: vi
-        .fn()
+      run: mock()
         .mockResolvedValueOnce({
           approvalScreenshotKey,
           status: "pending",
@@ -494,12 +486,11 @@ describe("server mutator upload claims", () => {
     const tx = {
       location: "server",
       mutate: {
-        vendor: { update: vi.fn() },
-        vendorPayment: { update: vi.fn() },
-        vendorPaymentHistory: { insert: vi.fn() },
+        vendor: { update: mock() },
+        vendorPayment: { update: mock() },
+        vendorPaymentHistory: { insert: mock() },
       },
-      run: vi
-        .fn()
+      run: mock()
         .mockResolvedValueOnce({
           approvalScreenshotKey,
           status: "pending",
@@ -521,15 +512,15 @@ describe("server mutator upload claims", () => {
   });
 
   it("claims scheduled-message attachments before persisting them", async () => {
-    const insertMessage = vi.fn();
+    const insertMessage = mock();
     const ctx = serverContext(["messages.schedule"]);
     const tx = {
       location: "server",
       mutate: {
         scheduledMessage: { insert: insertMessage },
-        scheduledMessageRecipient: { insert: vi.fn() },
+        scheduledMessageRecipient: { insert: mock() },
       },
-      run: vi.fn(),
+      run: mock(),
     };
     const sourceKey =
       "app/scheduled-messages/tmp/user-1/upload-id-voice-note.mp3";
@@ -583,7 +574,7 @@ describe("server mutator upload claims", () => {
   });
 
   it("retains, replaces, and cleans scheduled-message attachments on update", async () => {
-    const updateMessage = vi.fn();
+    const updateMessage = mock();
     const ctx = serverContext(["messages.schedule"]);
     const retainedKey =
       "app/scheduled-messages/message-1/upload-id-retained.mp3";
@@ -597,12 +588,11 @@ describe("server mutator upload claims", () => {
       mutate: {
         scheduledMessage: { update: updateMessage },
         scheduledMessageRecipient: {
-          delete: vi.fn(),
-          insert: vi.fn(),
+          delete: mock(),
+          insert: mock(),
         },
       },
-      run: vi
-        .fn()
+      run: mock()
         .mockResolvedValueOnce({
           attachments: [
             {
@@ -681,14 +671,13 @@ describe("server mutator upload claims", () => {
   });
 
   it("queues durable attachment cleanup when deleting a scheduled message", async () => {
-    const deleteMessage = vi.fn();
+    const deleteMessage = mock();
     const ctx = serverContext(["messages.schedule"]);
     const r2Key = "app/scheduled-messages/message-1/upload-id-file.pdf";
     const tx = {
       location: "server",
       mutate: { scheduledMessage: { delete: deleteMessage } },
-      run: vi
-        .fn()
+      run: mock()
         .mockResolvedValueOnce({
           attachments: [
             { fileName: "file.pdf", mimeType: "application/pdf", r2Key },
@@ -718,9 +707,8 @@ describe("server mutator upload claims", () => {
       "app/scheduled-messages/scheduled-message-draft/upload-id-file.pdf";
     const tx = {
       location: "server",
-      mutate: { scheduledMessage: { delete: vi.fn() } },
-      run: vi
-        .fn()
+      mutate: { scheduledMessage: { delete: mock() } },
+      run: mock()
         .mockResolvedValueOnce({
           attachments: [
             { fileName: "file.pdf", mimeType: "application/pdf", r2Key },
@@ -749,13 +737,12 @@ describe("server mutator upload claims", () => {
   });
 
   it("claims an event photo under its event before inserting the row", async () => {
-    const insertPhoto = vi.fn();
+    const insertPhoto = mock();
     const ctx = serverContext();
     const tx = {
       location: "server",
       mutate: { eventPhoto: { insert: insertPhoto } },
-      run: vi
-        .fn()
+      run: mock()
         .mockResolvedValueOnce({
           name: "Cleanup",
           startTime: 1,
@@ -794,9 +781,8 @@ describe("server mutator upload claims", () => {
     const ctx = serverContext();
     const tx = {
       location: "server",
-      mutate: { eventPhoto: { delete: vi.fn() } },
-      run: vi
-        .fn()
+      mutate: { eventPhoto: { delete: mock() } },
+      run: mock()
         .mockResolvedValueOnce({
           eventId: "event-1",
           r2Key: "app/photos/other-event/photo.jpg",
@@ -818,13 +804,12 @@ describe("server mutator upload claims", () => {
   });
 
   it("clears a rejected event photo key before queueing durable cleanup", async () => {
-    const update = vi.fn();
+    const update = mock();
     const ctx = serverContext(["events.manage_photos"]);
     const tx = {
       location: "server",
       mutate: { eventPhoto: { update } },
-      run: vi
-        .fn()
+      run: mock()
         .mockResolvedValueOnce({
           eventId: "event-1",
           r2Key: "app/photos/event-1/photo.jpg",
@@ -861,11 +846,10 @@ describe("server mutator upload claims", () => {
     const tx = {
       location: "server",
       mutate: {
-        eventImmichAlbum: { delete: vi.fn() },
-        eventPhoto: { delete: vi.fn() },
+        eventImmichAlbum: { delete: mock() },
+        eventPhoto: { delete: mock() },
       },
-      run: vi
-        .fn()
+      run: mock()
         .mockResolvedValueOnce({
           eventId: "event-1",
           id: "album-1",

@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
+
 import z from "zod";
 
 import type { Context } from "../../context";
@@ -295,9 +296,9 @@ const context: Context = {
 };
 
 const makeTx = (...rows: unknown[]) => {
-  const insertFeedback = vi.fn(async () => undefined);
-  const insertSubmission = vi.fn(async () => undefined);
-  const updateFeedback = vi.fn(async () => undefined);
+  const insertFeedback = mock(async () => undefined);
+  const insertSubmission = mock(async () => undefined);
+  const updateFeedback = mock(async () => undefined);
   const queue = [...rows];
   return {
     insertFeedback,
@@ -310,7 +311,7 @@ const makeTx = (...rows: unknown[]) => {
         },
         eventFeedbackSubmission: { insert: insertSubmission },
       },
-      run: vi.fn(async () => queue.shift()),
+      run: mock(async () => queue.shift()),
     },
     updateFeedback,
   };

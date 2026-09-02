@@ -1,9 +1,10 @@
+import { describe, expect, it } from "bun:test";
+
 import {
   kalakritiAuditEntry,
   kalakritiEditionMembership,
 } from "@pi-dash/db/schema/kalakriti";
 import { getTableConfig } from "drizzle-orm/pg-core";
-import { describe, expect, it } from "vitest";
 
 describe("Kalakriti Guardian membership invariants", () => {
   it("enforces one active Guardian membership per login identity", () => {

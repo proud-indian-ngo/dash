@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
 import { getKalakritiRegistrationReadiness } from "../../kalakriti-registration-readiness";
 import {
@@ -45,14 +45,14 @@ const emptyCloneArgs = {
 
 function createEditionCommandTx(results: unknown[]) {
   const spies = {
-    insertAgeCategory: vi.fn(),
-    insertAudit: vi.fn(),
-    insertCompetition: vi.fn(),
-    insertCompetitionCategory: vi.fn(),
-    insertCompetitionDivision: vi.fn(),
-    insertVenue: vi.fn(),
-    updateEdition: vi.fn(),
-    updateEvent: vi.fn(),
+    insertAgeCategory: mock(),
+    insertAudit: mock(),
+    insertCompetition: mock(),
+    insertCompetitionCategory: mock(),
+    insertCompetitionDivision: mock(),
+    insertVenue: mock(),
+    updateEdition: mock(),
+    updateEvent: mock(),
   };
   return {
     spies,
@@ -68,19 +68,19 @@ function createEditionCommandTx(results: unknown[]) {
         kalakritiCompetitionDivision: {
           insert: spies.insertCompetitionDivision,
         },
-        kalakritiEdition: { insert: vi.fn(), update: spies.updateEdition },
+        kalakritiEdition: { insert: mock(), update: spies.updateEdition },
         kalakritiVenue: { insert: spies.insertVenue },
-        teamEvent: { insert: vi.fn(), update: spies.updateEvent },
+        teamEvent: { insert: mock(), update: spies.updateEvent },
       },
-      run: vi.fn(async () => results.shift()),
+      run: mock(async () => results.shift()),
     },
   };
 }
 
 describe("kalakritiEdition.create", () => {
   it("rejects non-admin callers before reading or writing data", async () => {
-    const run = vi.fn();
-    const insertEvent = vi.fn();
+    const run = mock();
+    const insertEvent = mock();
     const tx = {
       location: "server",
       mutate: { teamEvent: { insert: insertEvent } },
@@ -112,11 +112,11 @@ describe("kalakritiEdition.create", () => {
   });
 
   it("rejects duplicate years before inserting a linked event", async () => {
-    const insertEvent = vi.fn();
+    const insertEvent = mock();
     const tx = {
       location: "server",
       mutate: { teamEvent: { insert: insertEvent } },
-      run: vi.fn(async () => ({ id: "existing-edition" })),
+      run: mock(async () => ({ id: "existing-edition" })),
     };
 
     await expect(
@@ -130,9 +130,9 @@ describe("kalakritiEdition.create", () => {
   });
 
   it("rejects a reused Edition ID before inserting a linked event", async () => {
-    const insertEvent = vi.fn();
-    const insertEdition = vi.fn();
-    const insertAudit = vi.fn();
+    const insertEvent = mock();
+    const insertEdition = mock();
+    const insertAudit = mock();
     const results = [undefined, { id: "edition-1" }];
     const tx = {
       location: "server",
@@ -141,7 +141,7 @@ describe("kalakritiEdition.create", () => {
         kalakritiEdition: { insert: insertEdition },
         teamEvent: { insert: insertEvent },
       },
-      run: vi.fn(async () => results.shift()),
+      run: mock(async () => results.shift()),
     };
 
     await expect(
@@ -157,9 +157,9 @@ describe("kalakritiEdition.create", () => {
   });
 
   it("rejects a reused linked event ID before inserting an Edition", async () => {
-    const insertEvent = vi.fn();
-    const insertEdition = vi.fn();
-    const insertAudit = vi.fn();
+    const insertEvent = mock();
+    const insertEdition = mock();
+    const insertAudit = mock();
     const results = [undefined, undefined, { id: "event-1" }];
     const tx = {
       location: "server",
@@ -168,7 +168,7 @@ describe("kalakritiEdition.create", () => {
         kalakritiEdition: { insert: insertEdition },
         teamEvent: { insert: insertEvent },
       },
-      run: vi.fn(async () => results.shift()),
+      run: mock(async () => results.shift()),
     };
 
     await expect(
@@ -184,9 +184,9 @@ describe("kalakritiEdition.create", () => {
   });
 
   it("rejects an unknown owning team before inserting records", async () => {
-    const insertEvent = vi.fn();
-    const insertEdition = vi.fn();
-    const insertAudit = vi.fn();
+    const insertEvent = mock();
+    const insertEdition = mock();
+    const insertAudit = mock();
     const results = [undefined, undefined, undefined, undefined];
     const tx = {
       location: "server",
@@ -195,7 +195,7 @@ describe("kalakritiEdition.create", () => {
         kalakritiEdition: { insert: insertEdition },
         teamEvent: { insert: insertEvent },
       },
-      run: vi.fn(async () => results.shift()),
+      run: mock(async () => results.shift()),
     };
 
     await expect(
@@ -211,9 +211,9 @@ describe("kalakritiEdition.create", () => {
   });
 
   it("rejects registration closing at or after the event starts", async () => {
-    const insertEvent = vi.fn();
-    const insertEdition = vi.fn();
-    const insertAudit = vi.fn();
+    const insertEvent = mock();
+    const insertEdition = mock();
+    const insertAudit = mock();
     const results = [undefined, undefined, undefined, { id: "team-1" }];
     const tx = {
       location: "server",
@@ -222,7 +222,7 @@ describe("kalakritiEdition.create", () => {
         kalakritiEdition: { insert: insertEdition },
         teamEvent: { insert: insertEvent },
       },
-      run: vi.fn(async () => results.shift()),
+      run: mock(async () => results.shift()),
     };
 
     await expect(
@@ -243,9 +243,9 @@ describe("kalakritiEdition.create", () => {
   });
 
   it("creates no implicit yearly assignment for the global administrator", async () => {
-    const insertAudit = vi.fn();
-    const insertEdition = vi.fn();
-    const insertEvent = vi.fn();
+    const insertAudit = mock();
+    const insertEdition = mock();
+    const insertEvent = mock();
     const results = [undefined, undefined, undefined, { id: "team-1" }];
     const tx = {
       location: "server",
@@ -254,7 +254,7 @@ describe("kalakritiEdition.create", () => {
         kalakritiEdition: { insert: insertEdition },
         teamEvent: { insert: insertEvent },
       },
-      run: vi.fn(async () => results.shift()),
+      run: mock(async () => results.shift()),
     };
 
     await kalakritiEditionMutators.create.fn({
@@ -263,9 +263,9 @@ describe("kalakritiEdition.create", () => {
       tx,
     } as unknown as Parameters<typeof kalakritiEditionMutators.create.fn>[0]);
 
-    expect(insertEvent).toHaveBeenCalledOnce();
-    expect(insertEdition).toHaveBeenCalledOnce();
-    expect(insertAudit).toHaveBeenCalledOnce();
+    expect(insertEvent).toHaveBeenCalledTimes(1);
+    expect(insertEdition).toHaveBeenCalledTimes(1);
+    expect(insertAudit).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -639,7 +639,7 @@ describe("Kalakriti Edition registration readiness", () => {
   });
 
   it("rejects a clone source with no active structural configuration", async () => {
-    const insertAudit = vi.fn();
+    const insertAudit = mock();
     const edition = {
       eventDate: "2028-11-19",
       id: "edition",
@@ -662,15 +662,15 @@ describe("Kalakriti Edition registration readiness", () => {
     const tx = {
       location: "client",
       mutate: {
-        kalakritiAgeCategory: { insert: vi.fn() },
+        kalakritiAgeCategory: { insert: mock() },
         kalakritiAuditEntry: { insert: insertAudit },
-        kalakritiCompetition: { insert: vi.fn() },
-        kalakritiCompetitionCategory: { insert: vi.fn() },
-        kalakritiEdition: { insert: vi.fn(), update: vi.fn() },
-        kalakritiVenue: { insert: vi.fn() },
-        teamEvent: { insert: vi.fn() },
+        kalakritiCompetition: { insert: mock() },
+        kalakritiCompetitionCategory: { insert: mock() },
+        kalakritiEdition: { insert: mock(), update: mock() },
+        kalakritiVenue: { insert: mock() },
+        teamEvent: { insert: mock() },
       },
-      run: vi.fn(async () => results.shift()),
+      run: mock(async () => results.shift()),
     };
 
     await expect(
@@ -823,11 +823,11 @@ describe("Kalakriti Edition registration readiness", () => {
       teamEventId: "event-1",
       timezone: "Asia/Kolkata",
     };
-    const select = vi.fn(() => {
+    const select = mock(() => {
       const query = {
-        for: vi.fn(async () => [currentEdition]),
-        from: vi.fn(),
-        where: vi.fn(),
+        for: mock(async () => [currentEdition]),
+        from: mock(),
+        where: mock(),
       };
       query.from.mockReturnValue(query);
       query.where.mockReturnValue(query);
@@ -856,11 +856,11 @@ describe("Kalakriti Edition registration readiness", () => {
       dbTransaction: { wrappedTransaction: { select } },
       location: "server" as const,
       mutate: {
-        kalakritiAuditEntry: { insert: vi.fn() },
-        kalakritiEdition: { update: vi.fn() },
-        teamEvent: { update: vi.fn() },
+        kalakritiAuditEntry: { insert: mock() },
+        kalakritiEdition: { update: mock() },
+        teamEvent: { update: mock() },
       },
-      run: vi.fn(async () => results.shift()),
+      run: mock(async () => results.shift()),
     };
     const args = {
       auditEntryId: "transition-1",
@@ -908,11 +908,11 @@ describe("Kalakriti Edition registration readiness", () => {
       teamEventId: "event-1",
       timezone: "Asia/Kolkata",
     };
-    const select = vi.fn(() => {
+    const select = mock(() => {
       const query = {
-        for: vi.fn(async () => [currentEdition]),
-        from: vi.fn(),
-        where: vi.fn(),
+        for: mock(async () => [currentEdition]),
+        from: mock(),
+        where: mock(),
       };
       query.from.mockReturnValue(query);
       query.where.mockReturnValue(query);
@@ -941,11 +941,11 @@ describe("Kalakriti Edition registration readiness", () => {
       dbTransaction: { wrappedTransaction: { select } },
       location: "server" as const,
       mutate: {
-        kalakritiAuditEntry: { insert: vi.fn() },
-        kalakritiEdition: { update: vi.fn() },
-        teamEvent: { update: vi.fn() },
+        kalakritiAuditEntry: { insert: mock() },
+        kalakritiEdition: { update: mock() },
+        teamEvent: { update: mock() },
       },
-      run: vi.fn(async () => results.shift()),
+      run: mock(async () => results.shift()),
     };
 
     await kalakritiEditionMutators.transition.fn({
@@ -1077,15 +1077,15 @@ describe("Kalakriti Edition registration readiness", () => {
       typeof kalakritiEditionMutators.cloneConfiguration.fn
     >[0]);
 
-    expect(spies.insertCompetitionCategory).toHaveBeenCalledOnce();
+    expect(spies.insertCompetitionCategory).toHaveBeenCalledTimes(1);
     expect(spies.insertAgeCategory).toHaveBeenCalledWith(
       expect.objectContaining({
         femaleStudentLimit: 20,
         maleStudentLimit: 20,
       })
     );
-    expect(spies.insertCompetition).toHaveBeenCalledOnce();
-    expect(spies.insertCompetitionDivision).toHaveBeenCalledOnce();
+    expect(spies.insertCompetition).toHaveBeenCalledTimes(1);
+    expect(spies.insertCompetitionDivision).toHaveBeenCalledTimes(1);
     expect(spies.insertCompetition).toHaveBeenCalledWith(
       expect.objectContaining({
         cancelledAt: null,
@@ -1093,7 +1093,7 @@ describe("Kalakriti Edition registration readiness", () => {
         musicUploadEnabled: true,
       })
     );
-    expect(spies.insertVenue).toHaveBeenCalledOnce();
+    expect(spies.insertVenue).toHaveBeenCalledTimes(1);
     expect(spies.updateEdition).toHaveBeenCalledWith({
       id: "target",
       minTotalCompetitions: 3,

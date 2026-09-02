@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import { appConfigQueries } from "./app-config";
 import { eventFeedbackQueries } from "./event-feedback";
