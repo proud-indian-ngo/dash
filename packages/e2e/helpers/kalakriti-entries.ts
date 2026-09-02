@@ -426,3 +426,6 @@ if (action === "setup" && email) {
 }
 
 process.stdout.write(`${JSON.stringify(result)}\n`);
+// The drizzle pool keeps the event loop alive; exit explicitly so the
+// execFile callers in competition-entry-registration.spec.ts can resolve.
+process.exit(0);

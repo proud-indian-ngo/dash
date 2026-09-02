@@ -43,13 +43,24 @@ export class KalakritiEntriesPage {
   }
 
   async fillEntries(dialog: Locator, studentNames: string[]): Promise<void> {
+    const input = dialog.getByLabel("Students");
     for (const studentName of studentNames) {
-      // biome-ignore lint/performance/noAwaitInLoops: each selection updates the same combobox before the next search
-      await dialog.getByLabel("Students").fill(studentName);
-      await this.page
-        .getByRole("option", { name: new RegExp(studentName) })
-        .click();
+      const option = this.page.getByRole("option", {
+        name: new RegExp(studentName),
+      });
+      // The combobox popup can race its own close/re-open after a selection;
+      // re-focus and re-fill until the matching option renders.
+      await expect(async () => {
+        await input.click();
+        await input.fill(studentName);
+        await expect(option).toBeVisible({ timeout: 2_000 });
+      }).toPass({ timeout: 20_000 });
+      await option.click();
     }
+    // Selecting an option strands focus in the listbox portal, so a
+    // page-level Escape never reaches the dialog. Send it through the
+    // focused input instead.
+    await input.press("Escape");
   }
 
   async selectGroupMembers(
