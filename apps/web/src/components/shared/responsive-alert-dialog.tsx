@@ -34,8 +34,10 @@ export function AlertDialog({
   );
 }
 
-interface AlertDialogContentProps
-  extends Omit<ComponentProps<typeof DesktopAlertDialogContent>, "children"> {
+interface AlertDialogContentProps extends Omit<
+  ComponentProps<typeof DesktopAlertDialogContent>,
+  "children"
+> {
   bodyClassName?: string;
   children: ReactNode;
 }

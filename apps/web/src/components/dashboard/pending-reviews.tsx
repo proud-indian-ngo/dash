@@ -20,6 +20,7 @@ import {
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { Link } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
+
 import { formatINR } from "@/lib/form-schemas";
 import { sumAmounts } from "@/lib/stats";
 
@@ -166,7 +167,7 @@ function GroupHeader({
         icon={icon}
         strokeWidth={2}
       />
-      <span className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+      <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
         {label}
       </span>
       <Badge size="xs" variant="warning-outline">
@@ -190,7 +191,7 @@ function ViewAllLink({
   }
   return (
     <Link
-      className="flex items-center gap-1 py-1 text-muted-foreground text-xs transition-colors hover:text-foreground"
+      className="text-muted-foreground hover:text-foreground flex items-center gap-1 py-1 text-xs transition-colors"
       search={search}
       to={to}
     >
@@ -235,20 +236,20 @@ function FinancialGroup({
       <div>
         {displayed.map((item) => (
           <Link
-            className="-mx-2 flex items-center gap-3 rounded-md px-2 py-1.5 transition-colors hover:bg-muted/50"
+            className="hover:bg-muted/50 -mx-2 flex items-center gap-3 rounded-md px-2 py-1.5 transition-colors"
             key={item.id}
             params={{ id: item.id }}
             to={route}
           >
             <div className="min-w-0 flex-1">
-              <p className="truncate font-medium text-sm">{item.title}</p>
-              <p className="truncate text-muted-foreground text-xs">
+              <p className="truncate text-sm font-medium">{item.title}</p>
+              <p className="text-muted-foreground truncate text-xs">
                 {item.user?.name}
                 {" \u00b7 "}
                 {formatDistanceToNow(item.createdAt, { addSuffix: true })}
               </p>
             </div>
-            <span className="shrink-0 font-medium text-sm tabular-nums">
+            <span className="shrink-0 text-sm font-medium tabular-nums">
               {formatINR(sumAmounts(item.lineItems))}
             </span>
           </Link>
@@ -284,21 +285,21 @@ function VendorPaymentGroup({
       <div>
         {displayed.map((item) => (
           <Link
-            className="-mx-2 flex items-center gap-3 rounded-md px-2 py-1.5 transition-colors hover:bg-muted/50"
+            className="hover:bg-muted/50 -mx-2 flex items-center gap-3 rounded-md px-2 py-1.5 transition-colors"
             key={item.id}
             params={{ id: item.id }}
             to="/vendor-payments/$id"
           >
             <div className="min-w-0 flex-1">
-              <p className="truncate font-medium text-sm">
+              <p className="truncate text-sm font-medium">
                 {item.vendor?.name ? `${item.vendor.name} \u2014 ` : ""}
                 {item.title}
               </p>
-              <p className="truncate text-muted-foreground text-xs">
+              <p className="text-muted-foreground truncate text-xs">
                 {formatDistanceToNow(item.createdAt, { addSuffix: true })}
               </p>
             </div>
-            <span className="shrink-0 font-medium text-sm tabular-nums">
+            <span className="shrink-0 text-sm font-medium tabular-nums">
               {formatINR(sumAmounts(item.lineItems))}
             </span>
           </Link>
@@ -345,15 +346,15 @@ function EventGroupSection({
       <div>
         {displayed.map((group) => (
           <Link
-            className="-mx-2 flex items-center gap-3 rounded-md px-2 py-1.5 transition-colors hover:bg-muted/50"
+            className="hover:bg-muted/50 -mx-2 flex items-center gap-3 rounded-md px-2 py-1.5 transition-colors"
             key={group.eventId}
             params={{ id: group.eventId }}
             search={tab ? { tab } : undefined}
             to="/events/$id"
           >
             <div className="min-w-0 flex-1">
-              <p className="truncate font-medium text-sm">{group.eventName}</p>
-              <p className="truncate text-muted-foreground text-xs">
+              <p className="truncate text-sm font-medium">{group.eventName}</p>
+              <p className="text-muted-foreground truncate text-xs">
                 {group.count} {group.count === 1 ? noun : `${noun}s`}
                 {" \u00b7 "}
                 latest by {group.latestPerson}

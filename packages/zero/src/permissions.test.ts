@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import type { Context } from "./context";
 import {
   assertHasPermission,

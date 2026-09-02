@@ -13,6 +13,7 @@ import { adminAc, userAc } from "better-auth/plugins/admin/access";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { and, eq, isNull, or } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
+
 import {
   getUserIdFromNewSession,
   reactivateUserAfterSignIn,
@@ -20,7 +21,10 @@ import {
 } from "./reactivation";
 import { enrollUserOnRegisterEvent } from "./register-event";
 import { createDbRegisterEventEnrollDeps } from "./register-event-db";
-import { getUserFromSignUpReturned, verifyPersistedSignUpUser } from "./sign-up-returned";
+import {
+  getUserFromSignUpReturned,
+  verifyPersistedSignUpUser,
+} from "./sign-up-returned";
 
 type SignInReactivationStatus = SignInReactivationResult["status"];
 
@@ -95,7 +99,10 @@ function sanitizeSignUpBody(ctx: AuthHookContext): void {
 }
 
 function stripRegistrationGroupFromUpdate(ctx: AuthHookContext): void {
-  if (ctx.path === "/update-user" && ctx.body?.registrationGroup !== undefined) {
+  if (
+    ctx.path === "/update-user" &&
+    ctx.body?.registrationGroup !== undefined
+  ) {
     delete ctx.body.registrationGroup;
   }
 }

@@ -3,6 +3,7 @@ import { schema } from "@pi-dash/zero/schema";
 import { mustGetQuery } from "@rocicorp/zero";
 import { handleQueryRequest } from "@rocicorp/zero/server";
 import { createFileRoute } from "@tanstack/react-router";
+
 import { buildSessionContext, requireSession } from "@/lib/api-auth";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 

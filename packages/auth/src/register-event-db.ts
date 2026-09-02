@@ -7,6 +7,7 @@ import {
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import { enqueue } from "@pi-dash/jobs/enqueue";
 import { and, eq } from "drizzle-orm";
+
 import type { RegisterEventEnrollDeps } from "./register-event";
 
 function toEpoch(value: Date | number | null | undefined): number | null {

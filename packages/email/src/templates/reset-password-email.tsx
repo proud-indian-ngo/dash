@@ -13,6 +13,7 @@ import {
   Tailwind,
   Text,
 } from "react-email";
+
 import { EmailFooterBar } from "./email-footer";
 
 const DEFAULT_APP_NAME = "Proud Indian Dashboard";
@@ -59,9 +60,9 @@ export default function ResetPasswordEmail({
           `}</style>
         </Head>
         <Preview>Reset your password for {appName}</Preview>
-        <Body className="m-0 bg-bg p-0 font-body">
+        <Body className="bg-bg font-body m-0 p-0">
           <Container className="mx-auto my-10 max-w-130 px-4">
-            <Section className="border border-border border-t-2 border-t-primary border-solid bg-surface">
+            <Section className="border-border border-t-primary bg-surface border border-t-2 border-solid">
               {/* ── Logo ── */}
               <Section className="px-8 py-6 text-center">
                 <Img
@@ -83,25 +84,25 @@ export default function ResetPasswordEmail({
 
               {/* ── Body ── */}
               <Section className="px-8 pt-7 pb-8">
-                <Heading className="m-0 mb-1 font-display font-semibold text-[20px] text-fg leading-7 tracking-tight">
+                <Heading className="font-display text-fg m-0 mb-1 text-[20px] leading-7 font-semibold tracking-tight">
                   Reset your password
                 </Heading>
 
-                <Text className="leading-5.5] mt-3 mb-0 text-[14px] text-muted-fg">
+                <Text className="leading-5.5] text-muted-fg mt-3 mb-0 text-[14px]">
                   We received a request to reset your password. Click the button
                   below to choose a new one. This link expires in 1 hour.
                 </Text>
 
                 <Section className="mt-6">
                   <Button
-                    className="box-border inline-block bg-primary px-5 py-2.5 font-display font-semibold text-[13px] text-white tracking-wide no-underline"
+                    className="bg-primary font-display box-border inline-block px-5 py-2.5 text-[13px] font-semibold tracking-wide text-white no-underline"
                     href={url}
                   >
                     Reset Password
                   </Button>
                 </Section>
 
-                <Text className="mt-5 mb-0 text-[13px] text-subtle leading-5">
+                <Text className="text-subtle mt-5 mb-0 text-[13px] leading-5">
                   If you didn't request a password reset, you can safely ignore
                   this email.
                 </Text>

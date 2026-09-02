@@ -11,6 +11,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
 import { useState } from "react";
+
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
 import { useApp } from "@/context/app-context";
@@ -22,6 +23,7 @@ import {
 import { LONG_DATE } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { mapAttachmentsToFormValues } from "@/lib/submission-mappers";
+
 import { InvoiceFormDialog } from "./vendor-payment-invoice-form";
 import type { VendorPaymentWithRelations } from "./vendor-payment-types";
 
@@ -60,7 +62,7 @@ function InvoiceAttachmentList({
           <div className="flex items-center gap-3">
             {att.type === "url" ? (
               <a
-                className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+                className="text-primary text-xs font-medium underline-offset-2 hover:underline"
                 href={getAttachmentPreviewHref(att)}
                 rel="noopener noreferrer"
                 target="_blank"
@@ -70,7 +72,7 @@ function InvoiceAttachmentList({
             ) : (
               <>
                 <a
-                  className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+                  className="text-primary text-xs font-medium underline-offset-2 hover:underline"
                   href={getAttachmentPreviewHref(att, {
                     id: att.id,
                     kind: "vendorPaymentAttachment",
@@ -81,7 +83,7 @@ function InvoiceAttachmentList({
                   Preview
                 </a>
                 <a
-                  className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+                  className="text-primary text-xs font-medium underline-offset-2 hover:underline"
                   download
                   href={getAttachmentDownloadHref(att, {
                     id: att.id,
@@ -117,7 +119,7 @@ function InvoiceContent({
   return (
     <>
       {rejectionReason ? (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-destructive text-sm">
+        <div className="border-destructive/40 bg-destructive/10 text-destructive rounded-md border p-3 text-sm">
           <span className="font-medium">Invoice rejected: </span>
           {rejectionReason}
         </div>
@@ -127,11 +129,11 @@ function InvoiceContent({
         <div className="grid grid-cols-2 gap-4 rounded-md border p-3">
           <div>
             <p className="text-muted-foreground text-xs">Invoice Number</p>
-            <p className="font-medium text-sm">{request.invoiceNumber}</p>
+            <p className="text-sm font-medium">{request.invoiceNumber}</p>
           </div>
           <div>
             <p className="text-muted-foreground text-xs">Invoice Date</p>
-            <p className="font-medium text-sm">
+            <p className="text-sm font-medium">
               {request.invoiceDate
                 ? format(request.invoiceDate, LONG_DATE)
                 : "—"}
@@ -143,7 +145,7 @@ function InvoiceContent({
       {request.invoiceReviewer && request.invoiceReviewedAt ? (
         <p className="text-muted-foreground text-sm">
           Invoice approved by{" "}
-          <span className="font-medium text-foreground">
+          <span className="text-foreground font-medium">
             {request.invoiceReviewer.name}
           </span>{" "}
           on {format(request.invoiceReviewedAt, LONG_DATE)}
@@ -154,7 +156,7 @@ function InvoiceContent({
         <InvoiceAttachmentList attachments={invoiceAttachments} />
       ) : null}
       {showEmptyState ? (
-        <p className="text-center text-muted-foreground text-sm">
+        <p className="text-muted-foreground text-center text-sm">
           No invoice uploaded yet.
         </p>
       ) : null}
@@ -233,7 +235,7 @@ export function VendorPaymentInvoiceSection({
       <Separator />
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-medium text-sm">Invoice</h2>
+          <h2 className="text-sm font-medium">Invoice</h2>
           {showUploadButton ? (
             <Button
               onClick={stableOnClick0}

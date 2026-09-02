@@ -7,6 +7,7 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
+
 import { user } from "./auth";
 import { teamEvent } from "./team-event";
 

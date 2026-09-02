@@ -40,7 +40,7 @@ export function StatCard({
   const card = (
     <Card className={cardClasses} size="sm">
       <CardHeader>
-        <CardTitle className="flex items-center gap-1.5 font-medium text-muted-foreground text-xs">
+        <CardTitle className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
           {item.icon ? (
             <HugeiconsIcon
               className="size-3.5"
@@ -52,7 +52,7 @@ export function StatCard({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="truncate font-display font-semibold text-2xl tabular-nums tracking-tight">
+        <div className="font-display truncate text-2xl font-semibold tracking-tight tabular-nums">
           {item.value}
         </div>
         {Boolean(item.description) && (
@@ -73,7 +73,7 @@ export function StatCard({
   if (item.href) {
     return (
       <Link
-        className={`min-w-0 transition-colors hover:bg-muted/40 ${animationClasses}`}
+        className={`hover:bg-muted/40 min-w-0 transition-colors ${animationClasses}`}
         style={animationStyle}
         to={item.href}
       >

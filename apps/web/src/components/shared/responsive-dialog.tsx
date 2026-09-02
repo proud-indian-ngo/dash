@@ -69,8 +69,10 @@ export function Dialog({
   );
 }
 
-interface DialogContentProps
-  extends Omit<ComponentProps<typeof DesktopDialogContent>, "children"> {
+interface DialogContentProps extends Omit<
+  ComponentProps<typeof DesktopDialogContent>,
+  "children"
+> {
   bodyClassName?: string;
   children: ReactNode;
 }

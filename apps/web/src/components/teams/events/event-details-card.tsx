@@ -21,7 +21,9 @@ import { rruleToLabel } from "@pi-dash/zero/rrule-utils";
 import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 import upperFirst from "lodash/upperFirst";
+
 import { LONG_DATE_TIME } from "@/lib/date-formats";
+
 import type { EventRow } from "./events-table";
 
 const URL_PATTERN = /^https?:\/\//i;
@@ -43,13 +45,13 @@ function PropertyRow({
     <div className="flex items-start gap-3">
       <HugeiconsIcon
         aria-hidden="true"
-        className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+        className="text-muted-foreground mt-0.5 size-4 shrink-0"
         icon={icon}
         strokeWidth={2}
       />
       <div className="min-w-0">
         <div className="text-muted-foreground text-xs">{label}</div>
-        <div className="break-words text-sm">{children}</div>
+        <div className="text-sm break-words">{children}</div>
       </div>
     </div>
   );

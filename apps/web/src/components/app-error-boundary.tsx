@@ -5,6 +5,7 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import { log } from "evlog";
 import { type ReactNode, use } from "react";
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
+
 import { AppContext } from "@/context/app-context";
 import { generateTraceId } from "@/lib/tracing";
 
@@ -21,17 +22,17 @@ function RootFallback({ error, resetErrorBoundary }: FallbackProps) {
     <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-6 p-4">
       <div className="flex flex-col items-center gap-2 text-center">
         <HugeiconsIcon
-          className="size-10 text-destructive"
+          className="text-destructive size-10"
           icon={Alert01Icon}
           strokeWidth={2}
         />
-        <h2 className="font-semibold text-lg">We hit an unexpected error</h2>
-        <p className="max-w-md text-muted-foreground text-sm">
+        <h2 className="text-lg font-semibold">We hit an unexpected error</h2>
+        <p className="text-muted-foreground max-w-md text-sm">
           This page couldn't load properly. Try again, or head back to the home
           page if the problem persists.
         </p>
         {canSeeErrors ? (
-          <p className="mt-2 max-w-md rounded-md bg-muted p-2 font-mono text-muted-foreground text-xs">
+          <p className="bg-muted text-muted-foreground mt-2 max-w-md rounded-md p-2 font-mono text-xs">
             {error instanceof Error ? error.message : String(error)}
           </p>
         ) : null}
@@ -53,14 +54,14 @@ function SectionFallback({ error, resetErrorBoundary }: FallbackProps) {
   const canSeeErrors = appCtx?.hasPermission("settings.app_config") ?? false;
 
   return (
-    <div className="flex flex-col items-center gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-6 text-center">
+    <div className="border-destructive/40 bg-destructive/10 flex flex-col items-center gap-3 rounded-md border p-6 text-center">
       <HugeiconsIcon
-        className="size-6 text-destructive"
+        className="text-destructive size-6"
         icon={Alert01Icon}
         strokeWidth={2}
       />
-      <p className="font-medium text-sm">Failed to load this section</p>
-      <p className="max-w-sm text-muted-foreground text-xs">
+      <p className="text-sm font-medium">Failed to load this section</p>
+      <p className="text-muted-foreground max-w-sm text-xs">
         {canSeeErrors && error instanceof Error
           ? error.message
           : "An unexpected error occurred. Please try again."}

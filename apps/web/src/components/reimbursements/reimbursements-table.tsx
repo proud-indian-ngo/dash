@@ -19,6 +19,7 @@ import { log } from "evlog";
 import type { ReactNode } from "react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import {
   createReimbursementFilterFields,
@@ -205,7 +206,7 @@ export function ReimbursementsTable({
     {
       accessorFn: (row) => row.title,
       cell: ({ row }) => (
-        <span className="truncate font-medium text-sm">
+        <span className="truncate text-sm font-medium">
           {row.original.title}
         </span>
       ),
@@ -237,7 +238,7 @@ export function ReimbursementsTable({
     {
       accessorFn: (row) => row.city,
       cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm capitalize">
+        <span className="text-muted-foreground truncate text-sm capitalize">
           {row.original.city}
         </span>
       ),
@@ -255,7 +256,7 @@ export function ReimbursementsTable({
         const r = row.original;
         const name = isReimbursement(r) ? r.event?.name : undefined;
         return (
-          <span className="truncate text-muted-foreground text-sm">{name}</span>
+          <span className="text-muted-foreground truncate text-sm">{name}</span>
         );
       },
       header: ({ column }) => (
@@ -278,10 +279,10 @@ export function ReimbursementsTable({
             <div className="flex min-w-0 items-center gap-3">
               <UserAvatar className="size-8" user={user} />
               <div className="min-w-0 space-y-px">
-                <div className="truncate font-medium text-foreground text-sm">
+                <div className="text-foreground truncate text-sm font-medium">
                   {user.name}
                 </div>
-                <div className="truncate text-muted-foreground text-xs">
+                <div className="text-muted-foreground truncate text-xs">
                   {user.email}
                 </div>
               </div>
@@ -359,7 +360,7 @@ export function ReimbursementsTable({
       accessorFn: (row) =>
         row.submittedAt === null ? "—" : format(row.submittedAt, SHORT_DATE),
       cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm">
+        <span className="text-muted-foreground truncate text-sm">
           {row.original.submittedAt === null
             ? "—"
             : format(row.original.submittedAt, SHORT_DATE)}

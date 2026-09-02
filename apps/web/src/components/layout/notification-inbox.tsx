@@ -88,8 +88,8 @@ function NotificationItem({
     // biome-ignore lint/a11y/useSemanticElements: can't use <button> — contains child <button> elements (TooltipTrigger)
     <div
       className={cn(
-        "group relative flex w-full gap-0 border-border border-b text-left transition-colors last:border-b-0",
-        n.clickAction ? "cursor-pointer hover:bg-muted/40" : "cursor-default"
+        "group border-border relative flex w-full gap-0 border-b text-left transition-colors last:border-b-0",
+        n.clickAction ? "hover:bg-muted/40 cursor-pointer" : "cursor-default"
       )}
       onClick={handleMarkAllRead}
       onKeyDown={stableOnKeyDown1}
@@ -108,7 +108,7 @@ function NotificationItem({
           >
             {n.title}
           </p>
-          <span className="mt-0.5 flex-shrink-0 text-muted-foreground/70 text-xs">
+          <span className="text-muted-foreground/70 mt-0.5 flex-shrink-0 text-xs">
             {shortTimeAgo(n.createdAt)}
           </span>
         </div>
@@ -126,7 +126,7 @@ function NotificationItem({
       <div className="flex flex-shrink-0 items-start gap-0.5 self-center pr-3">
         <Tooltip>
           <TooltipTrigger
-            className="p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            className="text-muted-foreground hover:bg-accent hover:text-accent-foreground p-2"
             onClick={stableOnClick2}
             type="button"
           >
@@ -142,7 +142,7 @@ function NotificationItem({
         </Tooltip>
         <Tooltip>
           <TooltipTrigger
-            className="p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            className="text-muted-foreground hover:bg-accent hover:text-accent-foreground p-2"
             onClick={stableOnClick3}
             type="button"
           >
@@ -160,10 +160,10 @@ export function NotificationInboxSkeleton() {
     <div>
       {[0, 1, 2, 3].map((i) => (
         <div
-          className="flex gap-0 border-border border-b last:border-b-0"
+          className="border-border flex gap-0 border-b last:border-b-0"
           key={`skeleton-${i}`}
         >
-          <div className="w-1 bg-muted/50" />
+          <div className="bg-muted/50 w-1" />
           <div className="flex-1 space-y-2.5 px-4 py-4">
             <div className="flex justify-between gap-3">
               <Skeleton className="h-4 w-3/5" />
@@ -180,7 +180,7 @@ export function NotificationInboxSkeleton() {
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 py-20 text-muted-foreground">
+    <div className="text-muted-foreground flex flex-col items-center justify-center gap-3 py-20">
       <HugeiconsIcon icon={MailOpenIcon} size={36} strokeWidth={1.5} />
       <p className="text-sm">All caught up</p>
     </div>
@@ -276,11 +276,11 @@ export function NotificationInbox({ onClose }: NotificationInboxProps) {
             size={18}
             strokeWidth={2}
           />
-          <span className="font-semibold text-sm">Inbox</span>
+          <span className="text-sm font-semibold">Inbox</span>
         </div>
         <Tooltip>
           <TooltipTrigger
-            className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+            className="text-muted-foreground hover:bg-muted hover:text-foreground rounded-md p-2 disabled:pointer-events-none disabled:opacity-50"
             disabled={!hasUnread}
             onClick={handleMarkAllRead}
             type="button"

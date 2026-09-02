@@ -23,9 +23,9 @@ const steps = [
 
 export function SignupInfoPanel() {
   return (
-    <div className="max-w-md space-y-8 text-sidebar-foreground">
+    <div className="text-sidebar-foreground max-w-md space-y-8">
       <div className="space-y-3">
-        <h2 className="font-bold text-2xl">
+        <h2 className="text-2xl font-bold">
           Join the Proud Indian volunteer community
         </h2>
         <p className="text-sidebar-foreground/80">
@@ -36,7 +36,7 @@ export function SignupInfoPanel() {
       <ol className="space-y-4">
         {steps.map((step) => (
           <li className="flex items-start gap-3" key={step.number}>
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-sidebar-foreground/10 font-semibold text-sm">
+            <span className="bg-sidebar-foreground/10 flex size-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold">
               {step.number}
             </span>
             <div>
@@ -63,8 +63,8 @@ export function SignupInfoPanel() {
 
 export function LoginInfoPanel() {
   return (
-    <div className="max-w-md space-y-3 text-sidebar-foreground">
-      <h2 className="font-bold text-2xl">Welcome back</h2>
+    <div className="text-sidebar-foreground max-w-md space-y-3">
+      <h2 className="text-2xl font-bold">Welcome back</h2>
       <p className="text-sidebar-foreground/80">
         Your contributions make a real difference. Let's keep the momentum
         going.

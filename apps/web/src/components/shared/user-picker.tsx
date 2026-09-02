@@ -10,6 +10,7 @@ import {
   useComboboxAnchor,
 } from "@pi-dash/design-system/components/ui/combobox";
 import { useState } from "react";
+
 import { UserAvatar } from "@/components/shared/user-avatar";
 
 interface UserPickerProps {
@@ -86,7 +87,7 @@ export function UserPicker({
       <ComboboxContent anchor={anchorRef}>
         <ComboboxList>
           {filteredUsers.length === 0 && searchQuery.trim() ? (
-            <div className="py-2 text-center text-muted-foreground text-xs">
+            <div className="text-muted-foreground py-2 text-center text-xs">
               {emptyMessage}
             </div>
           ) : null}

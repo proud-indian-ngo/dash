@@ -12,6 +12,7 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
+
 import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notice";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import {
@@ -215,7 +216,7 @@ function KalakritiStudentsPage() {
         actions={
           <div className="min-w-52">
             <label
-              className="mb-1 block font-medium text-sm"
+              className="mb-1 block text-sm font-medium"
               htmlFor="student-center"
             >
               Center

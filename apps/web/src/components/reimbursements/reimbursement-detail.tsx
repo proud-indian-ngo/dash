@@ -14,6 +14,7 @@ import { VOUCHER_AMOUNT_THRESHOLD } from "@pi-dash/shared/constants";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useState } from "react";
+
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
@@ -180,7 +181,7 @@ export function ReimbursementDetail({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
-              <h1 className="font-display font-semibold text-2xl tracking-tight">
+              <h1 className="font-display text-2xl font-semibold tracking-tight">
                 {request.title}
               </h1>
               <Badge variant="outline">{typeLabel}</Badge>
@@ -198,7 +199,7 @@ export function ReimbursementDetail({
                       fallbackClassName="text-xs"
                       user={request.user}
                     />
-                    <span className="font-medium text-sm">
+                    <span className="text-sm font-medium">
                       {request.user.name}
                     </span>
                   </div>
@@ -215,7 +216,7 @@ export function ReimbursementDetail({
         {/* Admin actions */}
         {showAdminActions ? (
           <>
-            <div className="fade-in-0 flex animate-in gap-2 duration-150 ease-out-expo">
+            <div className="fade-in-0 animate-in ease-out-expo flex gap-2 duration-150">
               {showApproveAction ? (
                 <Button
                   onClick={stableOnClick0}
@@ -265,7 +266,7 @@ export function ReimbursementDetail({
 
         {/* Rejection reason */}
         {request.status === "rejected" && request.rejectionReason ? (
-          <div className="fade-in-0 animate-in rounded-md border border-destructive/40 bg-destructive/10 p-3 text-destructive text-sm duration-150 ease-out-expo">
+          <div className="fade-in-0 animate-in border-destructive/40 bg-destructive/10 text-destructive ease-out-expo rounded-md border p-3 text-sm duration-150">
             <span className="font-medium">Rejection reason: </span>
             {request.rejectionReason}
           </div>
@@ -273,8 +274,8 @@ export function ReimbursementDetail({
 
         {/* Payment proof */}
         {request.status === "approved" && approvalScreenshot ? (
-          <div className="fade-in-0 flex animate-in flex-col gap-2 duration-150 ease-out-expo">
-            <h2 className="font-medium text-sm">Payment proof</h2>
+          <div className="fade-in-0 animate-in ease-out-expo flex flex-col gap-2 duration-150">
+            <h2 className="text-sm font-medium">Payment proof</h2>
             <div className="flex flex-col items-start gap-1.5">
               <a
                 href={getAttachmentPreviewHref(
@@ -296,7 +297,7 @@ export function ReimbursementDetail({
                 />
               </a>
               <a
-                className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+                className="text-primary text-xs font-medium underline-offset-2 hover:underline"
                 download
                 href={getAttachmentDownloadHref(
                   approvalScreenshot,
@@ -323,7 +324,7 @@ export function ReimbursementDetail({
         {/* Attachments */}
         {request.attachments.length > 0 ? (
           <div className="flex flex-col gap-3">
-            <h2 className="font-medium text-sm">Attachments</h2>
+            <h2 className="text-sm font-medium">Attachments</h2>
             <div className="flex flex-col gap-1.5">
               {request.attachments.map((att) => (
                 <div
@@ -336,7 +337,7 @@ export function ReimbursementDetail({
                   <div className="flex items-center gap-3">
                     {att.type === "url" ? (
                       <a
-                        className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+                        className="text-primary text-xs font-medium underline-offset-2 hover:underline"
                         href={getAttachmentPreviewHref(att)}
                         rel="noopener noreferrer"
                         target="_blank"
@@ -349,7 +350,7 @@ export function ReimbursementDetail({
                     ) : (
                       <>
                         <a
-                          className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+                          className="text-primary text-xs font-medium underline-offset-2 hover:underline"
                           href={getAttachmentPreviewHref(att, {
                             id: att.id,
                             kind: attachmentKind,
@@ -363,7 +364,7 @@ export function ReimbursementDetail({
                           </span>
                         </a>
                         <a
-                          className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+                          className="text-primary text-xs font-medium underline-offset-2 hover:underline"
                           download
                           href={getAttachmentDownloadHref(att, {
                             id: att.id,
@@ -391,7 +392,7 @@ export function ReimbursementDetail({
           <>
             <Separator />
             <div className="flex flex-col gap-2">
-              <h2 className="font-medium text-sm">History</h2>
+              <h2 className="text-sm font-medium">History</h2>
               <div className="flex flex-col">
                 {request.history.map((entry) => (
                   <HistoryEntry entry={entry} key={entry.id} />
@@ -450,7 +451,7 @@ function VoucherCell({
           icon={TickDouble02Icon}
           strokeWidth={2}
         />
-        <span className="text-emerald-600 text-xs">Generated</span>
+        <span className="text-xs text-emerald-600">Generated</span>
         {canApprove && isApproved ? (
           <Button
             className="ml-1 h-auto px-1.5 py-0.5 text-xs"
@@ -533,12 +534,12 @@ function LineItemsTable({
 
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="font-medium text-sm">Line items</h2>
+      <h2 className="text-sm font-medium">Line items</h2>
       {request.lineItems.length > 0 ? (
         <div className="overflow-hidden rounded-md border">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-muted/50">
+              <tr className="bg-muted/50 border-b">
                 <th className="px-3 py-2 text-left font-medium">Category</th>
                 <th className="px-3 py-2 text-left font-medium">Description</th>
                 <th className="px-3 py-2 text-right font-medium">Amount</th>
@@ -551,7 +552,7 @@ function LineItemsTable({
               {request.lineItems.map((item) => (
                 <tr className="border-b last:border-0" key={item.id}>
                   <td className="px-3 py-2">{item.category?.name}</td>
-                  <td className="px-3 py-2 text-muted-foreground">
+                  <td className="text-muted-foreground px-3 py-2">
                     {item.description}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
@@ -572,7 +573,7 @@ function LineItemsTable({
               ))}
             </tbody>
             <tfoot>
-              <tr className="border-t bg-muted/50">
+              <tr className="bg-muted/50 border-t">
                 <td
                   className="px-3 py-2 font-medium"
                   colSpan={showVoucherCol ? 2 : 2}
@@ -588,7 +589,7 @@ function LineItemsTable({
           </table>
         </div>
       ) : (
-        <p className="text-center text-muted-foreground text-sm">
+        <p className="text-muted-foreground text-center text-sm">
           No line items.
         </p>
       )}
@@ -613,7 +614,7 @@ function BankAccountCard({ request }: { request: RequestDetailData }) {
 
   return (
     <div className="flex flex-col gap-2 rounded-md border p-3">
-      <h2 className="font-medium text-sm">Bank account details</h2>
+      <h2 className="text-sm font-medium">Bank account details</h2>
       <div className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-3">
         {bank.name ? (
           <div>

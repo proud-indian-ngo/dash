@@ -19,6 +19,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+
 import { formatINR } from "@/lib/form-schemas";
 import type { TrendDataPoint } from "@/lib/stats";
 
@@ -44,7 +45,7 @@ export function SubmissionTrendsChart({ data }: { data: TrendDataPoint[] }) {
         <CardHeader>
           <CardTitle className="text-sm">Submission Trends</CardTitle>
         </CardHeader>
-        <CardContent className="flex h-[300px] items-center justify-center text-muted-foreground text-sm">
+        <CardContent className="text-muted-foreground flex h-[300px] items-center justify-center text-sm">
           No data for this period
         </CardContent>
       </Card>

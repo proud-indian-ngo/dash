@@ -5,6 +5,7 @@ import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/dat
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { format } from "date-fns";
+
 import { EventActionsMenu } from "@/components/teams/events/event-actions-menu";
 import type { EventDisplayRow } from "@/components/teams/events/events-table-helpers";
 import {
@@ -54,7 +55,7 @@ function EventNameButton({
 
   return (
     <button
-      className="truncate text-left font-medium text-sm hover:underline"
+      className="truncate text-left text-sm font-medium hover:underline"
       onClick={handleClick}
       type="button"
     >
@@ -111,7 +112,7 @@ export function createEventsTableColumns({
           <div className="flex min-w-0 items-center gap-1.5">
             {seriesIcon && (
               <HugeiconsIcon
-                className="size-3.5 shrink-0 text-muted-foreground"
+                className="text-muted-foreground size-3.5 shrink-0"
                 icon={seriesIcon}
                 strokeWidth={2}
               />
@@ -174,7 +175,7 @@ export function createEventsTableColumns({
     {
       accessorFn: (row) => row.event.location,
       cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm">
+        <span className="text-muted-foreground truncate text-sm">
           {row.original.event.location || "\u2014"}
         </span>
       ),
@@ -195,7 +196,7 @@ export function createEventsTableColumns({
     {
       accessorFn: (row) => row.event.city,
       cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm capitalize">
+        <span className="text-muted-foreground truncate text-sm capitalize">
           {row.original.event.city || "\u2014"}
         </span>
       ),

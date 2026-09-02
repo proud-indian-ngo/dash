@@ -24,6 +24,7 @@ import { log } from "evlog";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
+
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { AddMemberDialog } from "@/components/teams/add-member-dialog";
@@ -428,7 +429,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h1 className="font-display font-semibold text-2xl tracking-tight">
+            <h1 className="font-display text-2xl font-semibold tracking-tight">
               {team.name}
             </h1>
             {team.description ? (
@@ -468,7 +469,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
 
         {/* Events */}
         <div className="flex flex-col gap-3">
-          <h2 className="font-medium text-sm">
+          <h2 className="text-sm font-medium">
             <HugeiconsIcon
               aria-hidden="true"
               className="mr-1 inline size-4"

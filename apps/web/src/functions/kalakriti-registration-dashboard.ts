@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
-import { z } from "zod";
+import * as z from "zod";
+
 import { getKalakritiRegistrationDashboardProjections } from "@/lib/server/kalakriti-registration-dashboard";
 import { resolveKalakritiRegistrationDashboardRequest } from "@/lib/server/kalakriti-registration-dashboard-request";
 import { resolveKalakritiRegistrationScope } from "@/lib/server/kalakriti-registration-scope";

@@ -1,5 +1,6 @@
 import { PERMISSIONS } from "@pi-dash/db/permissions";
 import { describe, expect, it } from "vitest";
+
 import {
   getTopicChannels,
   TOPIC_CATALOG,

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { eventImmichAlbumQueries, eventPhotoQueries } from "./event-photo";
 import { eventUpdateQueries } from "./event-update";
 import { teamEventQueries } from "./team-event";

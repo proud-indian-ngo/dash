@@ -26,6 +26,7 @@ import { useForm } from "@tanstack/react-form";
 import { useCallback, useMemo } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
+
 import { CheckboxField } from "@/components/form/checkbox-field";
 import { CustomField } from "@/components/form/custom-field";
 import { FormActions } from "@/components/form/form-actions";
@@ -374,7 +375,7 @@ export function KalakritiRoleAssignmentForm({
     <FormLayout className="grid gap-4 md:grid-cols-2" form={form}>
       {initialUserId ? (
         <div className="grid gap-1">
-          <p className="font-medium text-sm">Volunteer</p>
+          <p className="text-sm font-medium">Volunteer</p>
           <p className="text-sm">
             {lockedVolunteerName ??
               users.find((candidate) => candidate.id === initialUserId)?.name ??

@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+
 import { describe, expect, it, vi } from "vitest";
 
 const APPROVED_KEY_PREFIX = /^photos-approved-/;

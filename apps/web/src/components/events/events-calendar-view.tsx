@@ -21,6 +21,7 @@ import {
 import capitalize from "lodash/capitalize";
 import { parseAsString, parseAsStringLiteral, useQueryState } from "nuqs";
 import React, { useCallback, useMemo, useRef, useState } from "react";
+
 import { EventCard } from "@/components/events/event-card";
 import { EventDateGroup } from "@/components/events/event-date-group";
 import { MobileWeekStrip } from "@/components/events/mobile-week-strip";
@@ -79,7 +80,7 @@ function EventCalendarDayButton({
       {Boolean(hasEvents) && (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-primary opacity-100!"
+          className="bg-primary pointer-events-none absolute bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full opacity-100!"
         />
       )}
     </CalendarDayButton>
@@ -477,7 +478,7 @@ export function EventsCalendarView({
         />
         {featuredRow ? (
           <section className="space-y-2">
-            <h2 className="font-medium text-sm">Upcoming Kalakriti</h2>
+            <h2 className="text-sm font-medium">Upcoming Kalakriti</h2>
             <p className="text-muted-foreground text-xs">
               Volunteer for the upcoming edition
             </p>
@@ -505,7 +506,7 @@ export function EventsCalendarView({
             ))}
             {pastEntries.length > 0 && (
               <>
-                <h2 className="border-t pt-4 font-medium text-muted-foreground text-sm">
+                <h2 className="text-muted-foreground border-t pt-4 text-sm font-medium">
                   Past Events
                 </h2>
                 {pastEntries.map(([dateStr, rows]) => (
@@ -524,7 +525,7 @@ export function EventsCalendarView({
           </div>
         ) : null}
         {dateEntries.length === 0 && !featuredRow ? (
-          <p className="py-8 text-center text-muted-foreground text-sm">
+          <p className="text-muted-foreground py-8 text-center text-sm">
             {emptyMessage(filter, timeScope)}
           </p>
         ) : null}

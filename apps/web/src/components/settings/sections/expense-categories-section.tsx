@@ -15,6 +15,7 @@ import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
+
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
@@ -86,7 +87,7 @@ function ExpenseCategoryDisplayRow({
   return (
     <div className="flex items-start justify-between rounded-md border p-3">
       <div className="flex flex-col gap-0.5">
-        <span className="font-medium text-sm">{category.name}</span>
+        <span className="text-sm font-medium">{category.name}</span>
         {category.description ? (
           <span className="text-muted-foreground text-xs">
             {category.description}
@@ -211,7 +212,7 @@ export function ExpenseCategoriesSection() {
   return (
     <div className="flex flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
-        <p className="font-medium text-xs">Expense categories</p>
+        <p className="text-xs font-medium">Expense categories</p>
         {inlineMode ? null : (
           <Button onClick={stableOnClick0} size="sm" type="button">
             <HugeiconsIcon
@@ -226,7 +227,7 @@ export function ExpenseCategoriesSection() {
 
       {inlineMode?.kind === "create" ? (
         <div className="rounded-md border p-3">
-          <p className="mb-3 font-medium text-sm">Add Category</p>
+          <p className="mb-3 text-sm font-medium">Add Category</p>
           <CategoryForm
             initialValues={{ description: "", name: "" }}
             onCancel={stableOnCancel1}
@@ -242,7 +243,7 @@ export function ExpenseCategoriesSection() {
               {inlineMode?.kind === "edit" &&
               inlineMode.category.id === category.id ? (
                 <div className="rounded-md border p-3">
-                  <p className="mb-3 font-medium text-sm">Edit Category</p>
+                  <p className="mb-3 text-sm font-medium">Edit Category</p>
                   <CategoryForm
                     initialValues={{
                       description: category.description ?? "",
@@ -268,7 +269,7 @@ export function ExpenseCategoriesSection() {
       {categoryList.length === 0 && !inlineMode ? (
         <>
           <Separator />
-          <p className="text-center text-muted-foreground text-xs">
+          <p className="text-muted-foreground text-center text-xs">
             No expense categories yet.
           </p>
         </>

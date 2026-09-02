@@ -6,6 +6,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@pi-dash/design-system/components/ui/sheet";
+
 import type { JobRow } from "@/components/jobs/job-stats";
 import { formatTimestamp } from "@/lib/date-formats";
 
@@ -77,7 +78,7 @@ export function JobDetailSheet({
           </div>
 
           <div className="grid gap-4">
-            <h3 className="font-medium text-sm">Details</h3>
+            <h3 className="text-sm font-medium">Details</h3>
             <div className="grid gap-3 sm:grid-cols-2">
               <DetailRow label="Queue" value={job.name} />
               <DetailRow label="State" value={job.state} />
@@ -103,7 +104,7 @@ export function JobDetailSheet({
 
           {job.state === "failed" && (
             <div className="grid gap-4">
-              <h3 className="font-medium text-sm">Error Info</h3>
+              <h3 className="text-sm font-medium">Error Info</h3>
               <div className="grid gap-3 sm:grid-cols-2">
                 <DetailRow
                   label="Retry Count"
@@ -115,18 +116,18 @@ export function JobDetailSheet({
 
           {Boolean(job.output) && (
             <div className="grid gap-4">
-              <h3 className="font-medium text-sm">
+              <h3 className="text-sm font-medium">
                 {job.state === "failed" ? "Error Output" : "Output"}
               </h3>
-              <pre className="max-h-96 overflow-auto rounded-md border bg-muted/50 p-3 font-mono text-xs leading-relaxed">
+              <pre className="bg-muted/50 max-h-96 overflow-auto rounded-md border p-3 font-mono text-xs leading-relaxed">
                 {JSON.stringify(job.output, null, 2)}
               </pre>
             </div>
           )}
 
           <div className="grid gap-4">
-            <h3 className="font-medium text-sm">Payload</h3>
-            <pre className="overflow-auto rounded-md border bg-muted/50 p-3 font-mono text-xs leading-relaxed">
+            <h3 className="text-sm font-medium">Payload</h3>
+            <pre className="bg-muted/50 overflow-auto rounded-md border p-3 font-mono text-xs leading-relaxed">
               {JSON.stringify(job.data, null, 2)}
             </pre>
           </div>

@@ -1,4 +1,5 @@
 import { syncWhatsAppStatus } from "@pi-dash/whatsapp/status";
+
 import type { SyncWhatsAppStatusPayload } from "../enqueue";
 import { createNotifyHandler } from "./create-handler";
 

@@ -6,6 +6,7 @@ import { log } from "evlog";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import z from "zod";
+
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
@@ -112,7 +113,7 @@ export function ForgotPasswordForm() {
   return (
     <div className="flex flex-col gap-6">
       <div className="space-y-2">
-        <h2 className="font-bold text-2xl">Forgot your password?</h2>
+        <h2 className="text-2xl font-bold">Forgot your password?</h2>
         <p className="text-muted-foreground text-sm">
           Enter your email and we'll send you a reset link.
         </p>
@@ -154,7 +155,7 @@ export function ForgotPasswordForm() {
       )}
       <div className="text-center">
         <Link
-          className="text-muted-foreground text-sm hover:text-foreground"
+          className="text-muted-foreground hover:text-foreground text-sm"
           to="/login"
         >
           Back to login

@@ -7,6 +7,7 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 import { log } from "evlog";
 import { parseAsIndex, parseAsInteger, useQueryStates } from "nuqs";
 import { useEffect, useRef, useState } from "react";
+
 import {
   readSelectEquality,
   removeFilterPath,
@@ -233,7 +234,7 @@ function KalakritiAuditPage({
         title="Audit"
       />
       {error && !isLoading ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 border border-destructive/30 bg-destructive/5 p-3">
+        <div className="border-destructive/30 bg-destructive/5 flex flex-wrap items-center justify-between gap-3 border p-3">
           <p role="alert">{error}</p>
           <Button onClick={handleRefresh} size="sm" variant="outline">
             Retry

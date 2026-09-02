@@ -10,7 +10,7 @@
     }
   },
   "scripts": {
-    "check:types": "tsc --noEmit",
+    "check:types": "tsc --noEmit --checkers 2",
     "db:down": "docker compose down",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun --env-file=../../.env --env-file=../../.env.worktree run scripts/migrate.ts",
@@ -19,7 +19,7 @@
     "db:stop": "docker compose stop",
     "db:studio": "drizzle-kit studio",
     "db:watch": "bun --env-file=../../.env --env-file=../../.env.worktree run docker compose up",
-    "test:unit": "vitest run",
+    "test:unit": "bun --bun vitest run",
     "whatsapp:start": "bun --env-file=../../.env --env-file=../../.env.worktree run docker compose up -d whatsapp",
     "whatsapp:stop": "docker compose stop whatsapp"
   },

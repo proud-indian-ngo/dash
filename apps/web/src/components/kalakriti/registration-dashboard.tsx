@@ -5,6 +5,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@pi-dash/design-system/components/ui/tabs";
+
 import { StatsCards } from "@/components/stats/stats-cards";
 import type { KalakritiRegistrationDashboardProjection } from "@/lib/server/kalakriti-registration-dashboard";
 
@@ -70,25 +71,25 @@ function AggregateTable({
     return null;
   }
   return (
-    <section className="overflow-hidden bg-card ring-1 ring-foreground/15">
+    <section className="bg-card ring-foreground/15 overflow-hidden ring-1">
       <div className="flex items-start justify-between gap-4 border-b px-4 py-3">
         <div>
-          <h4 className="font-medium text-sm">{title}</h4>
-          <p className="mt-0.5 text-muted-foreground text-xs">{description}</p>
+          <h4 className="text-sm font-medium">{title}</h4>
+          <p className="text-muted-foreground mt-0.5 text-xs">{description}</p>
         </div>
         <Badge variant="secondary">{rows.length}</Badge>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-120 text-sm">
           <caption className="sr-only">{caption}</caption>
-          <thead className="bg-muted/35 text-left text-muted-foreground">
+          <thead className="bg-muted/35 text-muted-foreground text-left">
             <tr>
               {columns.map((column, index) => (
                 <th
                   className={
                     index === 0
                       ? "px-4 py-2.5 font-medium"
-                      : "whitespace-nowrap px-4 py-2.5 text-right font-medium"
+                      : "px-4 py-2.5 text-right font-medium whitespace-nowrap"
                   }
                   key={column}
                   scope="col"
@@ -116,7 +117,7 @@ function AggregateTable({
                   }
                   return (
                     <td
-                      className="whitespace-nowrap px-4 py-3 text-right tabular-nums"
+                      className="px-4 py-3 text-right whitespace-nowrap tabular-nums"
                       key={key}
                     >
                       {value}
@@ -163,7 +164,7 @@ function DashboardProjection({
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2
-          className="font-display font-semibold text-lg tracking-tight"
+          className="font-display text-lg font-semibold tracking-tight"
           id="registration-dashboard-title"
         >
           {heading.title}

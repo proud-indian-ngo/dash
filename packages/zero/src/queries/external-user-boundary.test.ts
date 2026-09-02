@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { appConfigQueries } from "./app-config";
 import { eventFeedbackQueries } from "./event-feedback";
 import { eventInterestQueries } from "./event-interest";

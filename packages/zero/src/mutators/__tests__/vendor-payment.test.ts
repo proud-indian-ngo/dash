@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import z from "zod";
+
 import { assertVendorUsable } from "../submission-helpers";
 
 const lineItemSchema = z.object({

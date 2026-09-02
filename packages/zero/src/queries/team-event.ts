@@ -1,5 +1,6 @@
 import { defineQuery } from "@rocicorp/zero";
 import z from "zod";
+
 import type { Context } from "../context";
 import { can } from "../permissions";
 import { zql } from "../schema";

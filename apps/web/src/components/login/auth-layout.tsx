@@ -1,5 +1,6 @@
 import { env } from "@pi-dash/env/web";
 import type { ReactNode } from "react";
+
 import { DotGridCanvas } from "./dot-grid-canvas";
 
 interface AuthLayoutProps {
@@ -19,14 +20,14 @@ export function AuthLayout({ children, panel }: AuthLayoutProps) {
             src="/favicon-96x96.png"
             width={32}
           />
-          <span className="font-semibold text-lg">{env.VITE_APP_NAME}</span>
+          <span className="text-lg font-semibold">{env.VITE_APP_NAME}</span>
         </div>
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-sm">{children}</div>
         </div>
       </div>
       <div
-        className="relative hidden overflow-hidden text-sidebar-foreground lg:flex lg:items-center lg:justify-center lg:p-10"
+        className="text-sidebar-foreground relative hidden overflow-hidden lg:flex lg:items-center lg:justify-center lg:p-10"
         style={{
           background:
             "linear-gradient(to bottom right, var(--auth-panel-from), var(--auth-panel-to))",

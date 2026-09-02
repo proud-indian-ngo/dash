@@ -9,6 +9,7 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { log } from "evlog";
 import { toast } from "sonner";
+
 import { computeReimbursementStats } from "@/components/reimbursements/reimbursement-stats";
 import { ReimbursementsTable } from "@/components/reimbursements/reimbursements-table";
 import { StatsCards } from "@/components/stats/stats-cards";
@@ -81,7 +82,7 @@ function ReimbursementsRouteComponent() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-      <h1 className="font-display font-semibold text-2xl tracking-tight">
+      <h1 className="font-display text-2xl font-semibold tracking-tight">
         Reimbursements
       </h1>
 

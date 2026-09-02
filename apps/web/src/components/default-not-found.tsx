@@ -7,7 +7,7 @@ export function DefaultNotFound() {
 
   return (
     <div className="space-y-2 p-2" role="status">
-      <h1 className="font-display font-semibold text-2xl tracking-tight">
+      <h1 className="font-display text-2xl font-semibold tracking-tight">
         Page not found
       </h1>
       <p className="text-muted-foreground text-sm">

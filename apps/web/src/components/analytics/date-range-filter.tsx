@@ -18,6 +18,7 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import { format, isValid, parseISO } from "date-fns";
 import { useQueryStates } from "nuqs";
 import { useState } from "react";
+
 import { ISO_DATE } from "@/lib/date-formats";
 import { DATE_PRESETS, dateRangeSearchParams } from "@/lib/date-range";
 
@@ -102,7 +103,7 @@ export function DateRangeFilter({ onChange }: { onChange?: () => void } = {}) {
       <Select onValueChange={handlePresetChange} value={params.range}>
         <SelectTrigger className="w-auto gap-1.5">
           <HugeiconsIcon
-            className="size-3.5 text-muted-foreground"
+            className="text-muted-foreground size-3.5"
             icon={Calendar03Icon}
             strokeWidth={2}
           />

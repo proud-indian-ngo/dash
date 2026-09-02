@@ -18,7 +18,13 @@ args = ["-y", "@upstash/context7-mcp", "--api-key", "${CONTEXT7_API_KEY}"]
 
 [mcp_servers.jina-mcp-server]
 command = "npx"
-args = ["-y", "mcp-remote", "https://mcp.jina.ai/v1", "--header", "Authorization: Bearer ${JINA_API_KEY}"]
+args = [
+  "-y",
+  "mcp-remote",
+  "https://mcp.jina.ai/v1",
+  "--header",
+  "Authorization: Bearer ${JINA_API_KEY}",
+]
 
 [mcp_servers.hugeicons]
 command = "npx"

@@ -4,6 +4,7 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
+
 import type { CenterPersonAssignment } from "@/components/kalakriti/center-assignments";
 import { CenterDetail } from "@/components/kalakriti/center-detail";
 import type { CenterListItem } from "@/components/kalakriti/centers-table";
@@ -164,10 +165,10 @@ function KalakritiCenterDetailPage() {
     return (
       <div className="space-y-4 py-12 text-center">
         <div>
-          <h1 className="font-display font-semibold text-xl">
+          <h1 className="font-display text-xl font-semibold">
             Center not found
           </h1>
-          <p className="mt-1 text-muted-foreground text-sm">
+          <p className="text-muted-foreground mt-1 text-sm">
             This Center does not exist or is not available to your account.
           </p>
         </div>

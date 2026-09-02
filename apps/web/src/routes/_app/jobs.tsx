@@ -8,6 +8,7 @@ import { log } from "evlog";
 import { parseAsIndex, parseAsInteger, useQueryStates } from "nuqs";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+
 import { readSelectEquality } from "@/components/data-table/compile-filter-query";
 import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
 import { JobDetailSheet } from "@/components/jobs/job-detail-sheet";
@@ -247,7 +248,7 @@ function JobsRouteComponent() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-      <h1 className="font-display font-semibold text-2xl tracking-tight">
+      <h1 className="font-display text-2xl font-semibold tracking-tight">
         Jobs
       </h1>
 

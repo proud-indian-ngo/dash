@@ -2,6 +2,7 @@ import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
 import { env } from "@pi-dash/env/server";
 import { eq } from "drizzle-orm";
+
 import { auth } from "./index";
 
 const log = (message: string): void => {

@@ -66,7 +66,7 @@ export function RecipientSubTable({
     <div className="px-4 py-3">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b text-left text-muted-foreground text-xs">
+          <tr className="text-muted-foreground border-b text-left text-xs">
             <th className="pr-4 pb-2 font-medium">Recipient</th>
             <th className="pr-4 pb-2 font-medium">Type</th>
             <th className="pr-4 pb-2 font-medium">Status</th>
@@ -100,7 +100,7 @@ export function RecipientSubTable({
                       <Tooltip>
                         <TooltipTrigger
                           render={
-                            <span className="cursor-default text-muted-foreground text-xs">
+                            <span className="text-muted-foreground cursor-default text-xs">
                               (error)
                             </span>
                           }

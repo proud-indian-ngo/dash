@@ -4,6 +4,7 @@ import { QUEUE_NAMES } from "@pi-dash/jobs/enqueue";
 import { createFileRoute } from "@tanstack/react-router";
 import { sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
+
 import { assertServerPermission, requireSession } from "@/lib/api-auth";
 
 export const Route = createFileRoute("/api/jobs/stats")({

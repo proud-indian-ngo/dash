@@ -6,7 +6,7 @@ export function VendorDetailsCard({ vendor }: { vendor: Vendor | undefined }) {
   }
   return (
     <div className="rounded-md border p-3">
-      <h2 className="mb-2 font-medium text-sm">Vendor details</h2>
+      <h2 className="mb-2 text-sm font-medium">Vendor details</h2>
       <div className="grid gap-1 text-sm sm:grid-cols-2">
         <div>
           <span className="text-muted-foreground">Name: </span>
@@ -51,7 +51,7 @@ export function VendorBankCard({ vendor }: { vendor: Vendor | undefined }) {
   }
   return (
     <div className="flex flex-col gap-2 rounded-md border p-3">
-      <h2 className="font-medium text-sm">Bank account details</h2>
+      <h2 className="text-sm font-medium">Bank account details</h2>
       <div className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-3">
         {name ? (
           <div>

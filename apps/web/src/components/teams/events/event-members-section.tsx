@@ -13,10 +13,12 @@ import type { TeamEventMember, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
 import { log } from "evlog";
+
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { LOCALE_DATE } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
+
 import type { EventRow } from "./events-table";
 
 function EventMemberRow({
@@ -80,7 +82,7 @@ function EventMemberRow({
             user={member.user}
           />
           <div className="min-w-0">
-            <div className="truncate font-medium text-sm">{displayName}</div>
+            <div className="truncate text-sm font-medium">{displayName}</div>
             <div className="text-muted-foreground text-xs">
               Added {format(new Date(member.addedAt), LOCALE_DATE)}
             </div>
@@ -88,7 +90,7 @@ function EventMemberRow({
         </UserHoverCard>
       ) : (
         <div className="min-w-0 flex-1">
-          <div className="truncate font-medium text-sm">{displayName}</div>
+          <div className="truncate text-sm font-medium">{displayName}</div>
           <div className="text-muted-foreground text-xs">
             Added {format(new Date(member.addedAt), LOCALE_DATE)}
           </div>
@@ -188,7 +190,7 @@ export function EventMembersSection({
   return (
     <>
       <div className="flex items-center justify-between">
-        <h2 className="font-medium text-sm">
+        <h2 className="text-sm font-medium">
           Volunteers ({members.length})
           {canMarkAttendance && members.length > 0 ? (
             <span className="text-muted-foreground">
@@ -229,7 +231,7 @@ export function EventMembersSection({
           />
         ))}
         {members.length === 0 ? (
-          <p className="text-center text-muted-foreground text-sm">
+          <p className="text-muted-foreground text-center text-sm">
             {canMarkAttendance
               ? "No volunteers to mark attendance for."
               : "No volunteers yet."}

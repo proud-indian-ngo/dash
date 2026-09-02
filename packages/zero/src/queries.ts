@@ -1,4 +1,5 @@
 import { defineQueries } from "@rocicorp/zero";
+
 import { advancePaymentQueries } from "./queries/advance-payment";
 import { appConfigQueries } from "./queries/app-config";
 import { bankAccountQueries } from "./queries/bank-account";

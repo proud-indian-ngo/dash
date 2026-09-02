@@ -8,6 +8,7 @@ vi.mock("@/lib/private-media-db", () => ({
 vi.mock("@/lib/s3", () => ({ getS3: vi.fn() }));
 
 import { PrivateMediaAccessError } from "@/lib/private-media-access";
+
 import {
   type AvatarMediaHandlerDeps,
   handleAvatarMediaRequest,

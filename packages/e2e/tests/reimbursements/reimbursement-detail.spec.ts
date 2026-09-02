@@ -146,64 +146,59 @@ test.describe("Reimbursement detail (reimbursement)", () => {
 });
 
 // Advance payment creation is disabled in the UI.
-test.describe
-  .skip("Reimbursement detail (advance_payment)", () => {
-    let reimbursements: ReimbursementPage;
+test.describe.skip("Reimbursement detail (advance_payment)", () => {
+  let reimbursements: ReimbursementPage;
 
-    test.beforeEach(({ page }) => {
-      reimbursements = new ReimbursementPage(page, "advance_payment");
-    });
-
-    test("advance payment detail does not show Expense Date", async ({
-      page,
-    }, testInfo) => {
-      test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
-
-      await reimbursements.createReimbursement("AP Detail NoDate");
-
-      await expect(
-        page.getByText("Advance Payment", { exact: true }).first()
-      ).toBeVisible();
-      await expect(page.getByText("Expense Date")).toBeHidden();
-    });
-
-    test("admin approves a pending advance payment", async ({
-      page,
-    }, testInfo) => {
-      test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
-
-      await reimbursements.createReimbursement("AP Approve Flow");
-
-      await expect(reimbursements.detail.getApproveButton()).toBeVisible();
-      await reimbursements.detail.approve();
-
-      await expect(page.getByText("Advance payment approved")).toBeVisible();
-      await expect(
-        reimbursements.detail.getStatusBadge("Approved")
-      ).toBeVisible({
-        timeout: 10_000,
-      });
-
-      await expect(reimbursements.detail.getApproveButton()).toBeHidden();
-      await expect(reimbursements.detail.getRejectButton()).toBeHidden();
-    });
-
-    test("admin rejects a pending advance payment with reason", async ({
-      page,
-    }, testInfo) => {
-      test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
-
-      await reimbursements.createReimbursement("AP Reject Flow");
-
-      await reimbursements.detail.reject("Budget exceeded");
-
-      await expect(page.getByText("Advance payment rejected")).toBeVisible();
-      await expect(
-        reimbursements.detail.getStatusBadge("Rejected")
-      ).toBeVisible({
-        timeout: 10_000,
-      });
-
-      await expect(reimbursements.detail.getApproveButton()).toBeHidden();
-    });
+  test.beforeEach(({ page }) => {
+    reimbursements = new ReimbursementPage(page, "advance_payment");
   });
+
+  test("advance payment detail does not show Expense Date", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
+
+    await reimbursements.createReimbursement("AP Detail NoDate");
+
+    await expect(
+      page.getByText("Advance Payment", { exact: true }).first()
+    ).toBeVisible();
+    await expect(page.getByText("Expense Date")).toBeHidden();
+  });
+
+  test("admin approves a pending advance payment", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
+
+    await reimbursements.createReimbursement("AP Approve Flow");
+
+    await expect(reimbursements.detail.getApproveButton()).toBeVisible();
+    await reimbursements.detail.approve();
+
+    await expect(page.getByText("Advance payment approved")).toBeVisible();
+    await expect(reimbursements.detail.getStatusBadge("Approved")).toBeVisible({
+      timeout: 10_000,
+    });
+
+    await expect(reimbursements.detail.getApproveButton()).toBeHidden();
+    await expect(reimbursements.detail.getRejectButton()).toBeHidden();
+  });
+
+  test("admin rejects a pending advance payment with reason", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
+
+    await reimbursements.createReimbursement("AP Reject Flow");
+
+    await reimbursements.detail.reject("Budget exceeded");
+
+    await expect(page.getByText("Advance payment rejected")).toBeVisible();
+    await expect(reimbursements.detail.getStatusBadge("Rejected")).toBeVisible({
+      timeout: 10_000,
+    });
+
+    await expect(reimbursements.detail.getApproveButton()).toBeHidden();
+  });
+});

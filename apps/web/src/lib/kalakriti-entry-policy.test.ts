@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   canAccessKalakritiEntries,
   canRemoveKalakritiEntries,
@@ -160,7 +161,13 @@ describe("Kalakriti Entry policy", () => {
     ],
   ])(
     "returns an actionable message for a %s",
-    (_case, competitionOverrides, studentOverrides, existingEntries, expected) => {
+    (
+      _case,
+      competitionOverrides,
+      studentOverrides,
+      existingEntries,
+      expected
+    ) => {
       const student = {
         ageCategory: {
           maxCompetitionsPerCategory: 2,

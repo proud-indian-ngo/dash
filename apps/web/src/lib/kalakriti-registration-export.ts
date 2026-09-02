@@ -1,5 +1,6 @@
 import { strToU8, zipSync } from "fflate";
-import { z } from "zod";
+import * as z from "zod";
+
 import type { CsvFile } from "@/lib/csv-export";
 import { buildCsv } from "@/lib/csv-export";
 

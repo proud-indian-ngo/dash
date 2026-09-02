@@ -1,6 +1,7 @@
 import { isAssetId } from "@pi-dash/shared/asset-ref";
 import { createFileRoute } from "@tanstack/react-router";
 import { createRequestLogger } from "evlog";
+
 import { requireSession } from "@/lib/api-auth";
 import {
   PrivateMediaAccessError,

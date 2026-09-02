@@ -11,6 +11,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type { WhatsappGroup } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
+
 import { handleMutationResult } from "@/lib/mutation-result";
 
 const ORIENTATION_GROUP_ID = "orientation_group_id";
@@ -56,7 +57,7 @@ export function GroupAssignments({
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="font-medium text-xs">Group Assignments</p>
+      <p className="text-xs font-medium">Group Assignments</p>
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1.5">
           <Label className="text-sm">New volunteer group</Label>

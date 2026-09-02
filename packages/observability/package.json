@@ -12,12 +12,12 @@
     }
   },
   "scripts": {
-    "check:types": "tsc --noEmit",
-    "test:unit": "vitest run"
+    "check:types": "tsc --noEmit --checkers 2",
+    "test:unit": "bun --bun vitest run"
   },
   "dependencies": {
     "evlog": "catalog:",
-    "p-retry": "^8.0.0"
+    "p-retry": "^8.0.1"
   },
   "devDependencies": {
     "@pi-dash/config": "workspace:*",

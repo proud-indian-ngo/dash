@@ -47,6 +47,7 @@ import {
   isWhatsAppTopicEnabled,
 } from "@pi-dash/whatsapp/preferences";
 import { getUserPhone } from "@pi-dash/whatsapp/users";
+
 import { sendNotificationEmail } from "./email";
 import { insertNotification } from "./inbox";
 import { isNotificationsDisabled } from "./kill-switch";

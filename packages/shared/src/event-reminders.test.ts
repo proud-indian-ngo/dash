@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { formatReminderInterval } from "./event-reminders";
 
 describe("formatReminderInterval", () => {

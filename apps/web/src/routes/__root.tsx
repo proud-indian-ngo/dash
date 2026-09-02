@@ -12,9 +12,11 @@ import {
 import { Agentation } from "agentation";
 import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
 import { lazy, Suspense, useEffect } from "react";
+
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ZeroInit } from "@/components/zero-init";
 import type { RouterContext } from "@/router";
+
 // In dev, Vite injects CSS via HMR — no <link> needed (and avoids ?t= hydration mismatch).
 // In prod, we need an explicit <link> for SSR.
 import appCss from "../index.css?url";
@@ -107,7 +109,7 @@ function RootDocument() {
       </head>
       <body>
         <a
-          className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-background focus:p-4 focus:text-foreground"
+          className="focus:bg-background focus:text-foreground sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4"
           href="#main"
         >
           Skip to content

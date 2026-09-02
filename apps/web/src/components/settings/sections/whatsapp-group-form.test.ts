@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { groupSchema } from "./whatsapp-group-schema";
 
 describe("groupSchema", () => {

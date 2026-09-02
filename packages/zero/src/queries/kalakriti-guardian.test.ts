@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { kalakritiGuardianQueries } from "./kalakriti-guardian";
 
 function queryAst(query: unknown): string {

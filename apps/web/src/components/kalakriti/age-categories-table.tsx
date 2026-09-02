@@ -13,7 +13,9 @@ import {
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
+
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+
 import type { AgeCategoryFormValue } from "./age-category-form-dialog";
 
 const SKELETON_NAME = <Skeleton className="h-5 w-28" />;
@@ -106,7 +108,7 @@ export function AgeCategoriesTable({
     {
       accessorKey: "name",
       cell: ({ row }) => (
-        <span className="font-medium text-sm" data-testid="row-title">
+        <span className="text-sm font-medium" data-testid="row-title">
           {row.original.name}
         </span>
       ),

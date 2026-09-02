@@ -1,5 +1,6 @@
 import type { Download } from "@playwright/test";
 import { strFromU8, unzipSync } from "fflate";
+
 import { expect, test } from "../../fixtures/test";
 
 async function readZip(download: Download) {

@@ -4,6 +4,7 @@ import {
   setIdentity as evlogSetIdentity,
 } from "evlog/client";
 import { createHttpLogDrain } from "evlog/http";
+
 import { installFetchTracing } from "./tracing";
 
 let initialized = false;

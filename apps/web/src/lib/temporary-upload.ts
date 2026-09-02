@@ -1,4 +1,5 @@
 import { uuidv7 } from "uuidv7";
+
 import type { ProtectedUploadScope } from "./private-media-access";
 
 export const PROTECTED_UPLOAD_SUBFOLDERS = [

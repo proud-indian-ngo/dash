@@ -14,6 +14,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { log } from "evlog";
 import { type Dispatch, type SetStateAction, useState } from "react";
 import { toast } from "sonner";
+
 import { getErrorMessage } from "@/lib/errors";
 import {
   type RequestExportStatus,
@@ -234,17 +235,17 @@ function ExportRouteComponent() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-      <h1 className="font-display font-semibold text-2xl tracking-tight">
+      <h1 className="font-display text-2xl font-semibold tracking-tight">
         Export Data
       </h1>
-      <p className="mt-2 text-muted-foreground text-sm">
+      <p className="text-muted-foreground mt-2 text-sm">
         Export reimbursement, advance payment, and vendor payment data as a ZIP
         containing CSV files and request attachments for a financial year.
       </p>
 
       <div className="mt-4 grid max-w-md gap-6">
         <fieldset className="grid gap-3">
-          <legend className="font-medium text-sm">Data types</legend>
+          <legend className="text-sm font-medium">Data types</legend>
           <div className="flex items-center gap-2">
             <Checkbox
               checked={includeReimbursements}
@@ -285,7 +286,7 @@ function ExportRouteComponent() {
 
         {Boolean(hasRequestSelection) && (
           <fieldset className="grid gap-3">
-            <legend className="font-medium text-sm">
+            <legend className="text-sm font-medium">
               Reimbursement status
             </legend>
             {ALL_STATUSES.map((status) => (
@@ -303,7 +304,7 @@ function ExportRouteComponent() {
 
         {Boolean(includeVendorPayments) && (
           <fieldset className="grid gap-3">
-            <legend className="font-medium text-sm">
+            <legend className="text-sm font-medium">
               Vendor payment status
             </legend>
             {VP_STATUSES.map((status) => (

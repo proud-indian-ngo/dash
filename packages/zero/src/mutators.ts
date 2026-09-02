@@ -1,4 +1,5 @@
 import { defineMutators } from "@rocicorp/zero";
+
 import { advancePaymentMutators } from "./mutators/advance-payment";
 import { appConfigMutators } from "./mutators/app-config";
 import { bankAccountMutators } from "./mutators/bank-account";

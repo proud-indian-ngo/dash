@@ -45,7 +45,7 @@ const s3 = {
 const deps = {
   getS3: () =>
     s3 as unknown as Pick<
-      ReturnType<typeof import("./s3")["getS3"]>,
+      ReturnType<(typeof import("./s3"))["getS3"]>,
       "exists" | "file" | "stat"
     >,
 };

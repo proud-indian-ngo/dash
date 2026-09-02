@@ -6,6 +6,7 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
+
 import { AgeCategoriesTable } from "@/components/kalakriti/age-categories-table";
 import {
   AgeCategoryFormDialog,

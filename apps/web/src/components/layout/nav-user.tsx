@@ -28,6 +28,7 @@ import { cn } from "@pi-dash/design-system/lib/utils";
 import { useZero } from "@rocicorp/zero/react";
 import { log } from "evlog";
 import { useEffect, useRef, useState } from "react";
+
 import { NotificationInbox } from "@/components/layout/notification-inbox";
 import { SettingsDialog } from "@/components/settings/settings-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
@@ -84,7 +85,7 @@ export function NavUser() {
           <DropdownMenuTrigger
             render={
               <SidebarMenuButton
-                className="flex-1 aria-expanded:bg-muted"
+                className="aria-expanded:bg-muted flex-1"
                 size="lg"
               />
             }
@@ -94,11 +95,11 @@ export function NavUser() {
               {hasUnreadNotifications && (
                 <span
                   aria-hidden="true"
-                  className="fade-in-0 zoom-in-0 absolute -top-0.5 -right-0.5 size-2.5 animate-in transition-all duration-150 ease-out-expo"
+                  className="fade-in-0 zoom-in-0 animate-in ease-out-expo absolute -top-0.5 -right-0.5 size-2.5 transition-all duration-150"
                 >
                   <span
                     className={cn(
-                      "block size-full rounded-full bg-destructive ring-2 ring-sidebar",
+                      "bg-destructive ring-sidebar block size-full rounded-full ring-2",
                       hasPulsed && "animate-badge-pulse"
                     )}
                     key={`avatar-badge-${badgePulseToken}`}
@@ -143,10 +144,10 @@ export function NavUser() {
                   <HugeiconsIcon icon={NotificationIcon} strokeWidth={2} />
                   Notifications
                   {hasUnreadNotifications && (
-                    <span className="fade-in-0 zoom-in-0 ml-auto inline-flex size-5 animate-in transition-all duration-150 ease-out-expo">
+                    <span className="fade-in-0 zoom-in-0 animate-in ease-out-expo ml-auto inline-flex size-5 transition-all duration-150">
                       <span
                         className={cn(
-                          "inline-flex size-full items-center justify-center rounded-full bg-destructive font-medium text-[10px] text-white!",
+                          "bg-destructive inline-flex size-full items-center justify-center rounded-full text-[10px] font-medium text-white!",
                           hasPulsed && "animate-badge-pulse"
                         )}
                         key={`menu-badge-${badgePulseToken}`}

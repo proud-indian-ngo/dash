@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+
 import { getRefCurrent } from "./get-ref-current";
 
 export interface FileMetadata {

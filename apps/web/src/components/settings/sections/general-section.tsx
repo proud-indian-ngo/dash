@@ -7,6 +7,7 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { log } from "evlog";
 import { useState } from "react";
 import { toast } from "sonner";
+
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { handleMutationResult } from "@/lib/mutation-result";
 
@@ -85,7 +86,7 @@ export function GeneralSection() {
       </p>
 
       {Boolean(notificationsDisabled) && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-800 text-sm dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
           All notifications are currently disabled. Users will not receive any
           emails, inbox messages, or WhatsApp messages.
         </div>
@@ -93,7 +94,7 @@ export function GeneralSection() {
 
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0 flex-1 space-y-1">
-          <p className="font-medium text-sm">Disable all notifications</p>
+          <p className="text-sm font-medium">Disable all notifications</p>
           <p className="text-muted-foreground text-sm">
             When enabled, no notifications are sent across all channels (email,
             inbox, WhatsApp).

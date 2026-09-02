@@ -9,6 +9,7 @@ import type { Vendor } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+
 import { StatsCards } from "@/components/stats/stats-cards";
 import { VendorDetailSheet } from "@/components/vendors/vendor-detail-sheet";
 import { VendorFormDialog } from "@/components/vendors/vendor-form-dialog";
@@ -112,7 +113,7 @@ function VendorsRouteComponent() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-      <h1 className="font-display font-semibold text-2xl tracking-tight">
+      <h1 className="font-display text-2xl font-semibold tracking-tight">
         Vendors
       </h1>
 

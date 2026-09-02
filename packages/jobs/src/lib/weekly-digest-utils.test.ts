@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { computeWeekRange } from "./weekly-digest-utils";
 
 describe("computeWeekRange", () => {

@@ -1,6 +1,7 @@
 // biome-ignore-all lint/style/useFilenamingConvention: TanStack dynamic route parameters use $ in filenames.
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { useMemo } from "react";
+
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { ScheduleAction } from "@/components/kalakriti/public-schedule/schedule-action";
 import { ScheduleItem } from "@/components/kalakriti/public-schedule/schedule-item";
@@ -74,8 +75,8 @@ function PublicSchedulePage() {
   );
 
   return (
-    <main className="min-h-svh bg-background text-foreground">
-      <div className="border-b bg-muted/30">
+    <main className="bg-background text-foreground min-h-svh">
+      <div className="bg-muted/30 border-b">
         <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 sm:py-14">
           <KalakritiPageHeader
             actions={
@@ -105,16 +106,16 @@ function PublicSchedulePage() {
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
             <h2
-              className="font-semibold text-xl tracking-tight sm:text-2xl"
+              className="text-xl font-semibold tracking-tight sm:text-2xl"
               id="competition-schedule-heading"
             >
               Competition schedule
             </h2>
-            <p className="mt-1 text-muted-foreground text-sm">
+            <p className="text-muted-foreground mt-1 text-sm">
               Times are shown in {edition.timezone}.
             </p>
           </div>
-          <p className="shrink-0 text-muted-foreground text-sm tabular-nums">
+          <p className="text-muted-foreground shrink-0 text-sm tabular-nums">
             {sessions.length} {sessions.length === 1 ? "event" : "events"}
           </p>
         </div>
@@ -122,12 +123,12 @@ function PublicSchedulePage() {
         {sessions.length === 0 ? (
           <div className="rounded-lg border border-dashed px-5 py-12 text-center">
             <p className="font-medium">The schedule is being prepared.</p>
-            <p className="mt-1 text-muted-foreground text-sm">
+            <p className="text-muted-foreground mt-1 text-sm">
               Please check again closer to the event.
             </p>
           </div>
         ) : (
-          <ol className="overflow-hidden rounded-lg border bg-card shadow-xs">
+          <ol className="bg-card overflow-hidden rounded-lg border shadow-xs">
             {sessions.map((session, index) => (
               <ScheduleItem
                 isLast={index === sessions.length - 1}

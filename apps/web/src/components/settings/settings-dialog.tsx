@@ -35,6 +35,7 @@ import {
   SidebarProvider,
 } from "@pi-dash/design-system/components/ui/sidebar";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import {
   Dialog,
@@ -43,6 +44,7 @@ import {
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
 import { type Section, useApp } from "@/context/app-context";
+
 import { AccountSection } from "./sections/account-section";
 import { AdminActionsSection } from "./sections/admin-actions-section";
 import { BankingSection } from "./sections/banking-section";

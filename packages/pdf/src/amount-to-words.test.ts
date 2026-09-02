@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { amountToWords } from "./amount-to-words";
 
 describe("amountToWords", () => {

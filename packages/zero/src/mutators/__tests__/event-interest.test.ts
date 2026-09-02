@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
+
 import { eventInterestMutators } from "../event-interest";
 
 const createSchema = z.object({

@@ -1,5 +1,6 @@
 import { getCurrentTraceId } from "@pi-dash/observability/trace-store";
 import type { PgBoss, SendOptions } from "pg-boss";
+
 import { ensureBossReady, getBoss } from "./boss-instance";
 import type { JobName, JobPayloads } from "./types";
 

@@ -5,6 +5,7 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { TeamMember, User } from "@pi-dash/zero/schema";
 import { format } from "date-fns";
+
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { SHORT_DATE } from "@/lib/date-formats";
@@ -51,7 +52,7 @@ export function MemberRow({
         >
           <UserAvatar className="size-8" user={user} />
           <div>
-            <div className="font-medium text-sm">{user.name}</div>
+            <div className="text-sm font-medium">{user.name}</div>
             <div className="text-muted-foreground text-xs">
               Joined {format(member.joinedAt, SHORT_DATE)}
             </div>
@@ -61,7 +62,7 @@ export function MemberRow({
         <div className="flex items-center gap-3">
           <UserAvatar className="size-8" user={{ name: "?" }} />
           <div>
-            <div className="font-medium text-sm">Unknown user</div>
+            <div className="text-sm font-medium">Unknown user</div>
             <div className="text-muted-foreground text-xs">
               Joined {format(member.joinedAt, SHORT_DATE)}
             </div>
@@ -94,7 +95,7 @@ export function MemberRow({
             variant="ghost"
           >
             <HugeiconsIcon
-              className="size-4 text-destructive"
+              className="text-destructive size-4"
               icon={UserRemoveIcon}
               strokeWidth={2}
             />

@@ -1,4 +1,5 @@
 import path from "node:path";
+
 import { defineConfig, devices } from "@playwright/test";
 
 const isCI = !!process.env.CI;

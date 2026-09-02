@@ -1,5 +1,6 @@
 import type { TeamEvent, TeamEventMember } from "@pi-dash/zero/schema";
 import { addWeeks } from "date-fns";
+
 import {
   expandSeriesOccurrences,
   sortUpcomingFirstThenPast,

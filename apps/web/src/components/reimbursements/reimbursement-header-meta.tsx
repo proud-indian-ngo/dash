@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { format } from "date-fns";
 import capitalize from "lodash/capitalize";
+
 import { LONG_DATE } from "@/lib/date-formats";
 import {
   isReimbursement,
@@ -13,11 +14,11 @@ export function ReimbursementHeaderMeta({
   request: RequestDetailData;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-sm">
+    <div className="text-muted-foreground flex flex-wrap items-center gap-3 text-sm">
       {request.city ? <span>{capitalize(request.city)}</span> : null}
       {isReimbursement(request) && request.event ? (
         <Link
-          className="font-medium text-primary underline-offset-2 hover:underline"
+          className="text-primary font-medium underline-offset-2 hover:underline"
           params={{ id: request.event.id }}
           to="/events/$id"
         >

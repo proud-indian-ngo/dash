@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 
 const TEAM_NAME = "E2E Updates Team";

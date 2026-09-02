@@ -11,6 +11,7 @@ import { VOUCHER_AMOUNT_THRESHOLD } from "@pi-dash/shared/constants";
 import { eq, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { uuidv7 } from "uuidv7";
+
 import type { GenerateCashVoucherPayload } from "../enqueue";
 import { createNotifyHandler } from "./create-handler";
 import { getR2Client } from "./r2";
@@ -127,9 +128,8 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
 
   log.set({ voucherNumber });
 
-  const { generateCashVoucherPdf } = await import(
-    "@pi-dash/pdf/generate-voucher"
-  );
+  const { generateCashVoucherPdf } =
+    await import("@pi-dash/pdf/generate-voucher");
   const { amountToWords } = await import("@pi-dash/pdf/amount-to-words");
 
   const pdfBuffer = await generateCashVoucherPdf({

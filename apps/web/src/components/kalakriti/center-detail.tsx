@@ -18,6 +18,7 @@ import { useZero } from "@rocicorp/zero/react";
 import { Link } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
 import { uuidv7 } from "uuidv7";
+
 import {
   CenterAssignments,
   type CenterPersonAssignment,
@@ -43,7 +44,7 @@ function RegistrationAccess({
   return (
     <div className="space-y-2 border-l-2 pl-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h4 className="font-medium text-sm">{label}</h4>
+        <h4 className="text-sm font-medium">{label}</h4>
         <Badge variant={enabled ? "secondary" : "outline"}>
           {enabled ? "Open" : "Closed"}
         </Badge>
@@ -156,7 +157,7 @@ export function CenterDetail({
   return (
     <div className="space-y-6">
       <Link
-        className="inline-flex min-h-10 items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
+        className="text-muted-foreground hover:text-foreground inline-flex min-h-10 items-center gap-1.5 text-sm"
         params={{ year }}
         to="/kalakriti/$year/centers"
       >
@@ -248,7 +249,7 @@ export function CenterDetail({
 
       <Card>
         <CardHeader>
-          <h3 className="font-medium text-sm">Registration access</h3>
+          <h3 className="text-sm font-medium">Registration access</h3>
           <CardDescription>
             Student registration and competition participation are controlled
             independently.
@@ -270,7 +271,7 @@ export function CenterDetail({
 
       {manageGuardians || manageLiaisons ? (
         <div className="space-y-4">
-          <h3 className="font-display font-semibold text-xl">Assignments</h3>
+          <h3 className="font-display text-xl font-semibold">Assignments</h3>
           <CenterAssignments
             allowNewAssignments={!isRetired}
             canManageGuardians={manageGuardians}

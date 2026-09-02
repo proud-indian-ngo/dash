@@ -5,6 +5,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@pi-dash/design-system/components/ui/sheet";
+
 import { formatINR } from "@/lib/form-schemas";
 import { getStatusBadge } from "@/lib/status-badge";
 import type { VendorRow } from "@/lib/vendor-types";
@@ -55,7 +56,7 @@ export function VendorDetailSheet({
           })()}
 
           <div className="grid gap-4">
-            <h3 className="font-medium text-sm">Contact</h3>
+            <h3 className="text-sm font-medium">Contact</h3>
             <div className="grid gap-3 sm:grid-cols-2">
               <DetailRow label="Phone" value={vendor.contactPhone} />
               <DetailRow label="Email" value={vendor.contactEmail} />
@@ -64,7 +65,7 @@ export function VendorDetailSheet({
           </div>
 
           <div className="grid gap-4">
-            <h3 className="font-medium text-sm">Bank Details</h3>
+            <h3 className="text-sm font-medium">Bank Details</h3>
             <div className="grid gap-3 sm:grid-cols-2">
               <DetailRow label="Account Name" value={vendor.bankAccountName} />
               <DetailRow
@@ -76,7 +77,7 @@ export function VendorDetailSheet({
           </div>
 
           <div className="grid gap-4">
-            <h3 className="font-medium text-sm">Tax Details</h3>
+            <h3 className="text-sm font-medium">Tax Details</h3>
             <div className="grid gap-3 sm:grid-cols-2">
               <DetailRow label="GST Number" value={vendor.gstNumber} />
               <DetailRow label="PAN Number" value={vendor.panNumber} />
@@ -84,7 +85,7 @@ export function VendorDetailSheet({
           </div>
 
           <div className="grid gap-4">
-            <h3 className="font-medium text-sm">Payment Summary</h3>
+            <h3 className="text-sm font-medium">Payment Summary</h3>
             <div className="grid gap-3 sm:grid-cols-2">
               <DetailRow
                 label="Pending Payments"

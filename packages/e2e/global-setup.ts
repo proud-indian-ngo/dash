@@ -1,6 +1,8 @@
 import path from "node:path";
+
 import { test as setup } from "@playwright/test";
 import dotenv from "dotenv";
+
 import { KALAKRITI_ACTORS } from "./fixtures/kalakriti-actors";
 
 dotenv.config({

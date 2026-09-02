@@ -1,4 +1,5 @@
 import type { PermissionId } from "@pi-dash/db/permissions";
+
 import { type AuditLogQuery, parseAuditLogQuery } from "./audit-query";
 
 interface AuditLogSession {

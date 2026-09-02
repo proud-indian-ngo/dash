@@ -24,6 +24,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
@@ -235,7 +236,7 @@ function RoleEditPage() {
     <div className="app-container mx-auto max-w-4xl px-2 py-6 sm:px-4">
       <div className="mb-6">
         <Link
-          className="inline-flex items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
+          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm"
           to="/settings/roles"
         >
           <HugeiconsIcon
@@ -247,16 +248,16 @@ function RoleEditPage() {
         </Link>
       </div>
       <div className="flex items-center gap-3">
-        <h1 className="font-display font-semibold text-2xl tracking-tight">
+        <h1 className="font-display text-2xl font-semibold tracking-tight">
           {roleData.name}
         </h1>
         {roleData.isSystem ? <Badge variant="secondary">System</Badge> : null}
       </div>
-      <p className="mt-1 text-muted-foreground text-sm">
+      <p className="text-muted-foreground mt-1 text-sm">
         Role ID: {roleData.id}
       </p>
       {isSystemRole ? (
-        <div className="mt-4 rounded-md border border-border bg-muted/50 p-3 text-muted-foreground text-sm">
+        <div className="border-border bg-muted/50 text-muted-foreground mt-4 rounded-md border p-3 text-sm">
           This system role cannot be modified.
         </div>
       ) : null}
@@ -299,16 +300,16 @@ function RoleEditPage() {
 
               return (
                 <Collapsible defaultOpen key={category}>
-                  <div className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50">
+                  <div className="hover:bg-muted/50 flex items-center gap-2 rounded-md px-2 py-1.5">
                     <PermissionCategoryCheckbox
                       allSelected={allSelected}
                       disabled={isSystemRole}
                       onToggle={toggleCategory}
                       permissions={perms}
                     />
-                    <CollapsibleTrigger className="flex-1 text-left font-medium text-sm capitalize">
+                    <CollapsibleTrigger className="flex-1 text-left text-sm font-medium capitalize">
                       {category.replace(/_/g, " ")}
-                      <span className="ml-2 text-muted-foreground text-xs">
+                      <span className="text-muted-foreground ml-2 text-xs">
                         (
                         {
                           perms.filter((p) => selectedPermissions.has(p.id))

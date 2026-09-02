@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+
 import {
   ADMIN_PERMISSIONS,
   FINANCE_ADMIN_PERMISSIONS,

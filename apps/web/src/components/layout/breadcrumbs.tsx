@@ -10,6 +10,7 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { Fragment } from "react";
+
 import { useApp } from "@/context/app-context";
 import {
   buildBreadcrumbs,

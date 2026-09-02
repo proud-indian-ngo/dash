@@ -3,6 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { TeamMember, User } from "@pi-dash/zero/schema";
+
 import { MemberRow } from "@/components/teams/team-member-row";
 
 interface TeamMembersSectionProps {
@@ -31,7 +32,7 @@ export function TeamMembersSection({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <h2 className="font-medium text-sm">Members ({members.length})</h2>
+        <h2 className="text-sm font-medium">Members ({members.length})</h2>
         {canManage ? (
           <Button onClick={onAddMember} size="sm" type="button">
             <HugeiconsIcon
@@ -65,7 +66,7 @@ export function TeamMembersSection({
           ))}
         </div>
       ) : (
-        <p className="text-center text-muted-foreground text-sm">
+        <p className="text-muted-foreground text-center text-sm">
           No members yet.
         </p>
       )}

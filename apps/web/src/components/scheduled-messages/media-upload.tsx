@@ -15,6 +15,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
+
 import {
   deleteTemporaryUpload,
   getScheduledMessageUploadUrl,
@@ -81,7 +82,7 @@ function MediaAttachmentRow({
       <span className="min-w-0 flex-1 truncate text-sm">
         {attachment.fileName}
       </span>
-      <span className="shrink-0 text-muted-foreground text-xs">
+      <span className="text-muted-foreground shrink-0 text-xs">
         {attachment.mimeType.split("/")[0]}
       </span>
       <Button
@@ -196,7 +197,7 @@ export function MediaUpload({ onChange, value }: MediaUploadProps) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <Label className="font-medium text-sm">Attachments</Label>
+        <Label className="text-sm font-medium">Attachments</Label>
         <span className="text-muted-foreground text-xs">
           {value.length}/{MAX_MEDIA_FILES}
         </span>
@@ -221,7 +222,7 @@ export function MediaUpload({ onChange, value }: MediaUploadProps) {
         <input {...uploadActions.getInputProps()} className="sr-only" />
         <div className="flex flex-col items-center gap-2">
           <HugeiconsIcon
-            className="size-5 text-muted-foreground"
+            className="text-muted-foreground size-5"
             icon={Upload01Icon}
             strokeWidth={2}
           />

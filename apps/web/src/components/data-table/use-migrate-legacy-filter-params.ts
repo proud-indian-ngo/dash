@@ -10,6 +10,7 @@ import type {
 import { getRefCurrent } from "@pi-dash/design-system/hooks/get-ref-current";
 import { parseAsString, useQueryStates } from "nuqs";
 import { useEffect, useMemo, useRef } from "react";
+
 import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
 
 export interface LegacyFilterParamMapping {

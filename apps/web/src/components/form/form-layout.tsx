@@ -1,11 +1,14 @@
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
+
 import type { FormInstance } from "./form-context";
 import { FormContextProvider } from "./form-context";
 
-interface FormLayoutProps
-  extends Omit<ComponentPropsWithoutRef<"form">, "onSubmit"> {
+interface FormLayoutProps extends Omit<
+  ComponentPropsWithoutRef<"form">,
+  "onSubmit"
+> {
   children: ReactNode;
   form: FormInstance;
   showSubmitError?: boolean;
@@ -71,7 +74,7 @@ export function FormLayout({
       >
         {submitErrorMessage ? (
           <div
-            className="rounded-none border border-destructive/40 bg-destructive/10 p-3 text-destructive text-sm"
+            className="border-destructive/40 bg-destructive/10 text-destructive rounded-none border p-3 text-sm"
             role="alert"
           >
             {submitErrorMessage}

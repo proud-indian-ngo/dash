@@ -2,6 +2,7 @@ import { MAX_RECIPIENT_RETRIES } from "@pi-dash/shared/scheduled-message";
 import { defineMutator } from "@rocicorp/zero";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
+
 import "../context";
 import type { Context } from "../context";
 import { assertHasPermission } from "../permissions";
@@ -14,9 +15,8 @@ import {
 
 async function markRecipientFailed(recipientRowId: string, error: unknown) {
   const { db } = await import("@pi-dash/db");
-  const { scheduledMessageRecipient } = await import(
-    "@pi-dash/db/schema/scheduled-message"
-  );
+  const { scheduledMessageRecipient } =
+    await import("@pi-dash/db/schema/scheduled-message");
   const { eq } = await import("drizzle-orm");
   await db
     .update(scheduledMessageRecipient)

@@ -100,7 +100,7 @@ export function RegisterForm() {
       data-register-group={group ?? ""}
     >
       <div className="space-y-2">
-        <h2 className="font-bold text-2xl">Create your account</h2>
+        <h2 className="text-2xl font-bold">Create your account</h2>
         <p className="text-muted-foreground text-sm">
           Enter your details below to create your account
         </p>
@@ -160,7 +160,7 @@ export function RegisterForm() {
           submittingLabel="Registering..."
         />
       </FormLayout>
-      <p className="text-center text-muted-foreground text-sm">
+      <p className="text-muted-foreground text-center text-sm">
         Already have an account?{" "}
         <Link className="text-foreground hover:underline" to="/login">
           Login

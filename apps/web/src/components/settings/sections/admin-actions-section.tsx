@@ -5,6 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useState } from "react";
 import { toast } from "sonner";
+
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import {
   triggerR2Cleanup,
@@ -86,7 +87,7 @@ export function AdminActionsSection() {
       </p>
 
       <div className="space-y-1">
-        <p className="font-medium text-sm">WhatsApp Group Scan</p>
+        <p className="text-sm font-medium">WhatsApp Group Scan</p>
         <p className="text-muted-foreground text-sm">
           Scan groups and auto-deactivate users not in any group, reactivate
           inactive users found in groups, and report unregistered numbers.
@@ -106,7 +107,7 @@ export function AdminActionsSection() {
       <Separator />
 
       <div className="space-y-1">
-        <p className="font-medium text-sm">R2 Storage Cleanup</p>
+        <p className="text-sm font-medium">R2 Storage Cleanup</p>
         <p className="text-muted-foreground text-sm">
           Find and delete orphaned files in R2 that are not referenced by any
           database record. Files uploaded in the last 24 hours are skipped.

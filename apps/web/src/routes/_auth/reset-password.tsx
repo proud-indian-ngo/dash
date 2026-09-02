@@ -1,6 +1,6 @@
 import { env } from "@pi-dash/env/web";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { z } from "zod";
+import * as z from "zod";
 
 import { LoginInfoPanel } from "@/components/login/auth-info-panel";
 import { AuthLayout } from "@/components/login/auth-layout";
@@ -30,11 +30,11 @@ function RouteComponent() {
       {error || !token ? (
         <div className="flex flex-col items-center gap-4">
           <h1 className="sr-only">Reset Password</h1>
-          <p className="text-center text-destructive text-sm">
+          <p className="text-destructive text-center text-sm">
             {error || "Invalid or expired reset link."}
           </p>
           <Link
-            className="text-muted-foreground text-sm hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground text-sm"
             to="/forgot-password"
           >
             Request a new reset link

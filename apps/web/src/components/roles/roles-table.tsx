@@ -16,6 +16,7 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import { useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
+
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import {
   createRoleFilterFields,
@@ -138,10 +139,10 @@ export function RolesTable({
       accessorFn: (row) => row.name,
       cell: ({ row }) => (
         <div className="min-w-0">
-          <div className="truncate font-medium text-sm">
+          <div className="truncate text-sm font-medium">
             {row.original.name}
           </div>
-          <div className="truncate text-muted-foreground text-xs">
+          <div className="text-muted-foreground truncate text-xs">
             {row.original.id}
           </div>
         </div>
@@ -156,7 +157,7 @@ export function RolesTable({
     {
       accessorFn: (row) => row.description ?? "",
       cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm">
+        <span className="text-muted-foreground truncate text-sm">
           {row.original.description || "\u2014"}
         </span>
       ),

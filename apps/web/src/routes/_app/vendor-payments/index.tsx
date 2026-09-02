@@ -7,6 +7,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+
 import { StatsCards } from "@/components/stats/stats-cards";
 import { computeVendorPaymentStats } from "@/components/vendor-payments/vendor-payment-stats";
 import type { VendorPaymentWithRelations } from "@/components/vendor-payments/vendor-payment-types";
@@ -46,7 +47,7 @@ function VendorPaymentsRouteComponent() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-      <h1 className="font-display font-semibold text-2xl tracking-tight">
+      <h1 className="font-display text-2xl font-semibold tracking-tight">
         Vendor Payments
       </h1>
 

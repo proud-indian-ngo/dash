@@ -14,6 +14,7 @@ import {
 } from "@pi-dash/shared/rrule-expand";
 import { Link } from "@tanstack/react-router";
 import { addWeeks, format } from "date-fns";
+
 import { GhostEmptyState } from "@/components/shared/ghost-empty-state";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
 
@@ -77,8 +78,8 @@ function UpcomingEventsEmpty() {
     <GhostEmptyState
       ghostContent={GHOST_EVENTS.map((event) => (
         <div className="rounded-md p-2" key={event.name}>
-          <p className="truncate font-medium text-sm">{event.name}</p>
-          <div className="mt-0.5 flex items-center gap-2 text-muted-foreground text-xs">
+          <p className="truncate text-sm font-medium">{event.name}</p>
+          <div className="text-muted-foreground mt-0.5 flex items-center gap-2 text-xs">
             <span>{event.date}</span>
             <span>&middot;</span>
             <span>{event.team}</span>
@@ -90,7 +91,7 @@ function UpcomingEventsEmpty() {
         Events you join will appear here
       </p>
       <Link
-        className="mt-1.5 inline-block font-medium text-primary text-sm underline underline-offset-4"
+        className="text-primary mt-1.5 inline-block text-sm font-medium underline underline-offset-4"
         to="/events"
       >
         View events
@@ -104,20 +105,20 @@ function UpcomingEventsList({ items }: { items: UpcomingItem[] }) {
     <div className="space-y-3">
       {items.map((item) => (
         <Link
-          className="block rounded-md p-2 transition-colors hover:bg-muted/50"
+          className="hover:bg-muted/50 block rounded-md p-2 transition-colors"
           key={`${item.eventId}-${item.startTime}`}
           params={{ id: item.eventId }}
           to="/events/$id"
         >
           <div className="flex items-center gap-2">
-            <p className="truncate font-medium text-sm">{item.name}</p>
+            <p className="truncate text-sm font-medium">{item.name}</p>
             {Boolean(item.isPublic) && (
               <Badge size="xs" variant="info-light">
                 Public
               </Badge>
             )}
           </div>
-          <div className="mt-0.5 flex items-center gap-2 text-muted-foreground text-xs">
+          <div className="text-muted-foreground mt-0.5 flex items-center gap-2 text-xs">
             <span>{format(item.startTime, LONG_DATE_TIME)}</span>
             {Boolean(item.team) && (
               <>

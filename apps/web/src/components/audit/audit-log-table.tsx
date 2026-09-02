@@ -5,8 +5,10 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
+
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { formatTimestamp } from "@/lib/date-formats";
+
 import { createAuditLogFilterFields } from "./audit-filters";
 import type { AuditLogResponse, AuditLogRow } from "./audit-types";
 
@@ -57,7 +59,7 @@ const columns: DataGridColumnDef<AuditLogRow>[] = [
     cell: ({ row }) => (
       <div className="min-w-0">
         <div className="truncate font-medium">{row.original.actorName}</div>
-        <div className="truncate text-muted-foreground text-xs">
+        <div className="text-muted-foreground truncate text-xs">
           {row.original.actorRole}
         </div>
       </div>
@@ -89,7 +91,7 @@ const columns: DataGridColumnDef<AuditLogRow>[] = [
       <div className="min-w-0">
         <div className="truncate">{row.original.targetType ?? "None"}</div>
         {row.original.targetId ? (
-          <div className="truncate font-mono text-muted-foreground text-xs">
+          <div className="text-muted-foreground truncate font-mono text-xs">
             {row.original.targetId}
           </div>
         ) : null}

@@ -12,6 +12,7 @@ import {
 } from "@pi-dash/design-system/components/ui/chart";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { Bar, BarChart, XAxis, YAxis } from "recharts";
+
 import type { ApprovalTimeBucket } from "@/lib/stats";
 
 const chartConfig = {
@@ -34,7 +35,7 @@ export function ApprovalTimeChart({ data }: { data: ApprovalTimeBucket[] }) {
         <CardHeader>
           <CardTitle className="text-sm">Review Time Distribution</CardTitle>
         </CardHeader>
-        <CardContent className="flex h-[300px] items-center justify-center text-muted-foreground text-sm">
+        <CardContent className="text-muted-foreground flex h-[300px] items-center justify-center text-sm">
           No approved or rejected requests for this period
         </CardContent>
       </Card>

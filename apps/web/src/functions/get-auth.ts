@@ -1,6 +1,7 @@
 import { resolvePermissions } from "@pi-dash/db/queries/resolve-permissions";
 import { createServerFn } from "@tanstack/react-start";
 import { createRequestLogger } from "evlog";
+
 import { authMiddleware } from "@/middleware/auth";
 
 export const getAuth = createServerFn({ method: "GET" })

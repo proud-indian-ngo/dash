@@ -8,6 +8,7 @@ import {
 } from "@pi-dash/design-system/components/ui/card";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { Link } from "@tanstack/react-router";
+
 import { GhostEmptyState } from "@/components/shared/ghost-empty-state";
 
 interface Team {
@@ -48,12 +49,12 @@ function MyTeamsEmpty() {
           key={team.name}
         >
           <div className="min-w-0">
-            <p className="truncate font-medium text-sm">{team.name}</p>
-            <p className="truncate text-muted-foreground text-xs">
+            <p className="truncate text-sm font-medium">{team.name}</p>
+            <p className="text-muted-foreground truncate text-xs">
               {team.description}
             </p>
           </div>
-          <span className="ml-2 shrink-0 text-muted-foreground text-xs">
+          <span className="text-muted-foreground ml-2 shrink-0 text-xs">
             {team.members} members
           </span>
         </div>
@@ -63,7 +64,7 @@ function MyTeamsEmpty() {
         Join a team to see your schedule
       </p>
       <Link
-        className="mt-1.5 inline-block font-medium text-primary text-sm underline underline-offset-4"
+        className="text-primary mt-1.5 inline-block text-sm font-medium underline underline-offset-4"
         to="/teams"
       >
         Browse teams
@@ -77,20 +78,20 @@ function MyTeamsList({ teams }: { teams: readonly Team[] }) {
     <div className="space-y-3">
       {teams.map((team) => (
         <Link
-          className="flex items-center justify-between rounded-md p-2 transition-colors hover:bg-muted/50"
+          className="hover:bg-muted/50 flex items-center justify-between rounded-md p-2 transition-colors"
           key={team.id}
           params={{ id: team.id }}
           to="/teams/$id"
         >
           <div className="min-w-0">
-            <p className="truncate font-medium text-sm">{team.name}</p>
+            <p className="truncate text-sm font-medium">{team.name}</p>
             {Boolean(team.description) && (
-              <p className="truncate text-muted-foreground text-xs">
+              <p className="text-muted-foreground truncate text-xs">
                 {team.description}
               </p>
             )}
           </div>
-          <span className="ml-2 shrink-0 text-muted-foreground text-xs">
+          <span className="text-muted-foreground ml-2 shrink-0 text-xs">
             {team.members.length}{" "}
             {team.members.length === 1 ? "member" : "members"}
           </span>

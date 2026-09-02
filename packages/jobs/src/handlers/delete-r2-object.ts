@@ -1,4 +1,5 @@
 import { createRequestLogger } from "evlog";
+
 import type { DeleteR2ObjectPayload } from "../enqueue";
 import {
   withProtectedR2ObjectDeleteLock,

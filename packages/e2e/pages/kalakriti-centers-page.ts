@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
+
 import { waitForZeroReady } from "../fixtures/test";
 
 export class KalakritiCentersPage {

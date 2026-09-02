@@ -23,12 +23,14 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import { VOUCHER_AMOUNT_THRESHOLD } from "@pi-dash/shared/constants";
 import type { ExpenseCategory } from "@pi-dash/zero/schema";
 import type { ChangeEvent } from "react";
+
 import {
   computeRunningTotal,
   formatINR,
   type LineItem,
   newLineItem,
 } from "@/lib/form-schemas";
+
 import type { FormInstance } from "./form-context";
 import { useResolvedForm } from "./form-context";
 
@@ -150,7 +152,7 @@ function CategorySelect({
         </SelectContent>
       </Select>
       {Boolean(hasError) && (
-        <p className="mt-1 text-destructive text-xs" id={errorId} role="alert">
+        <p className="text-destructive mt-1 text-xs" id={errorId} role="alert">
           {formatFieldError(field.state.meta.errors[0])}
         </p>
       )}
@@ -196,7 +198,7 @@ function LineTextInput({
         value={field.state.value}
       />
       {Boolean(hasError) && (
-        <p className="mt-1 text-destructive text-xs" id={errorId} role="alert">
+        <p className="text-destructive mt-1 text-xs" id={errorId} role="alert">
           {formatFieldError(field.state.meta.errors[0])}
         </p>
       )}
@@ -264,7 +266,7 @@ function LineItemRow({
   });
 
   return (
-    <div className="fade-in-0 grid animate-in grid-cols-[1fr_100px_32px] items-start gap-2 duration-150 ease-(--ease-out-expo) sm:grid-cols-[1fr_1fr_100px_32px]">
+    <div className="fade-in-0 animate-in grid grid-cols-[1fr_100px_32px] items-start gap-2 duration-150 ease-(--ease-out-expo) sm:grid-cols-[1fr_1fr_100px_32px]">
       <form.Field name={`${name}[${index}].categoryId`}>
         {(rawField: unknown) => {
           const field = asSubField(rawField);
@@ -395,7 +397,7 @@ export function LineItemsEditor({
         {(total: number) => (
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Label className="font-medium text-sm">Line items</Label>
+              <Label className="text-sm font-medium">Line items</Label>
               <span className="text-destructive text-xs"> *</span>
             </div>
             <span className="text-muted-foreground text-xs">
@@ -426,7 +428,7 @@ export function LineItemsEditor({
                   ))}
                 </div>
               ) : (
-                <p className="py-2 text-center text-muted-foreground text-xs">
+                <p className="text-muted-foreground py-2 text-center text-xs">
                   No line items yet.
                 </p>
               )}

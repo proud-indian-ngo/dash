@@ -8,6 +8,7 @@ import {
   MAX_VIDEO_SIZE_BYTES,
 } from "@pi-dash/shared/constants";
 import { describe, expect, it } from "vitest";
+
 import {
   approvalScreenshotUploadSchema,
   avatarUploadSchema,

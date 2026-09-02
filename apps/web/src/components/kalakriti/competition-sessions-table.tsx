@@ -14,11 +14,13 @@ import {
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { type ReactNode, useMemo } from "react";
+
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import {
   createCompetitionSessionFilterFields,
   getCompetitionSessionFilterValue,
 } from "@/components/kalakriti/kalakriti-filters";
+
 import type {
   ConfigurationDeletePayload,
   ConfigurationStatePayload,
@@ -168,7 +170,7 @@ export function CompetitionSessionsTable({
     {
       accessorKey: "competitionName",
       cell: ({ row }) => (
-        <span className="font-medium text-sm" data-testid="row-title">
+        <span className="text-sm font-medium" data-testid="row-title">
           {row.original.competitionName}
         </span>
       ),

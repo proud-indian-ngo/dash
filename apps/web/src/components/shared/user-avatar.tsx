@@ -3,6 +3,7 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@pi-dash/design-system/components/ui/avatar";
+
 import { resolveAvatarSrc } from "@/lib/avatar";
 
 function getInitials(name: string): string {

@@ -41,7 +41,7 @@ export function EmailFooterBar() {
       <Section className="px-8 py-4">
         <Row>
           <Column className="align-middle">
-            <Text className="m-0 text-[12px] text-subtle leading-4">
+            <Text className="text-subtle m-0 text-[12px] leading-4">
               &copy;{year} Proud Indian NGO
             </Text>
           </Column>
@@ -79,7 +79,7 @@ export function EmailPreferencesLink({
 }: EmailPreferencesLinkProps) {
   return (
     <Section className="pt-3.5">
-      <Text className="m-0 text-[11px] text-subtle leading-4">
+      <Text className="text-subtle m-0 text-[11px] leading-4">
         <Link
           className="text-subtle underline"
           href={`${appUrl}/settings/notifications`}

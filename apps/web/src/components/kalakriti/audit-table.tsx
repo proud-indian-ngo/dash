@@ -3,6 +3,7 @@ import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/d
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { type ReactNode, useMemo } from "react";
+
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { createKalakritiAuditFilterFields } from "@/components/kalakriti/kalakriti-audit-filters";
 import { formatAuditLabel } from "@/lib/kalakriti-audit-policy";
@@ -50,7 +51,7 @@ function createColumns(
             {row.original.actorName ?? "System or deleted user"}
           </div>
           {row.original.actorUserId ? (
-            <div className="truncate text-muted-foreground text-xs">
+            <div className="text-muted-foreground truncate text-xs">
               {row.original.actorUserId}
             </div>
           ) : null}
@@ -102,7 +103,7 @@ function createColumns(
         <div className="min-w-0">
           <div>{formatAuditLabel(row.original.targetType)}</div>
           {row.original.targetId ? (
-            <div className="truncate text-muted-foreground text-xs">
+            <div className="text-muted-foreground truncate text-xs">
               {row.original.targetId}
             </div>
           ) : null}

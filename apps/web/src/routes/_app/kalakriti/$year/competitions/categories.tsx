@@ -8,6 +8,7 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
+
 import { CompetitionCategoriesTable } from "@/components/kalakriti/competition-categories-table";
 import { CompetitionCategoryDetailSheet } from "@/components/kalakriti/competition-category-detail-sheet";
 import {

@@ -5,6 +5,7 @@ import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQueryStates } from "nuqs";
 import { lazy, Suspense } from "react";
+
 import { DateRangeFilter } from "@/components/analytics/date-range-filter";
 import { readSelectEquality } from "@/components/data-table/compile-filter-query";
 import { DataTableFiltersBar } from "@/components/data-table/data-table-wrapper";
@@ -174,9 +175,9 @@ function AnalyticsPage() {
   );
 
   return (
-    <div className="app-container fade-in-0 mx-auto max-w-7xl animate-in px-2 py-6 duration-150 ease-out-expo sm:px-4">
+    <div className="app-container fade-in-0 animate-in ease-out-expo mx-auto max-w-7xl px-2 py-6 duration-150 sm:px-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="font-display font-semibold text-2xl tracking-tight">
+        <h1 className="font-display text-2xl font-semibold tracking-tight">
           Analytics
         </h1>
         <div className="flex items-center gap-2">
@@ -200,16 +201,16 @@ function AnalyticsPage() {
         fallback={
           <div className="mt-6 animate-pulse space-y-6">
             <div className="grid gap-6 lg:grid-cols-2">
-              <div className="h-95 rounded-none bg-muted/50" />
-              <div className="h-95 rounded-none bg-muted/50" />
+              <div className="bg-muted/50 h-95 rounded-none" />
+              <div className="bg-muted/50 h-95 rounded-none" />
             </div>
             <div className="grid gap-6 lg:grid-cols-2">
-              <div className="h-95 rounded-none bg-muted/50" />
-              <div className="h-95 rounded-none bg-muted/50" />
+              <div className="bg-muted/50 h-95 rounded-none" />
+              <div className="bg-muted/50 h-95 rounded-none" />
             </div>
             <div className="grid gap-6 lg:grid-cols-2">
-              <div className="h-95 rounded-none bg-muted/50" />
-              <div className="h-95 rounded-none bg-muted/50" />
+              <div className="bg-muted/50 h-95 rounded-none" />
+              <div className="bg-muted/50 h-95 rounded-none" />
             </div>
           </div>
         }

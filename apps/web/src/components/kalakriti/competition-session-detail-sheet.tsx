@@ -9,6 +9,7 @@ import {
 } from "@pi-dash/design-system/components/ui/sheet";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { useMemo } from "react";
+
 import type {
   ConfigurationDeletePayload,
   ConfigurationStatePayload,
@@ -102,7 +103,7 @@ export function CompetitionSessionDetailSheet({
           </Badge>
 
           <div className="grid gap-4">
-            <h3 className="font-medium text-sm">Schedule</h3>
+            <h3 className="text-sm font-medium">Schedule</h3>
             <div className="grid gap-3 sm:grid-cols-2">
               <DetailRow label="Age Category" value={session.ageCategoryName} />
               <DetailRow label="Venue" value={session.venueName} />

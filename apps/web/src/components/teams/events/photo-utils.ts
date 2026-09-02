@@ -1,5 +1,6 @@
 import { env } from "@pi-dash/env/web";
 import type { EventPhoto } from "@pi-dash/zero/schema";
+
 import type { PhotoSlide } from "./event-photos-lightbox";
 
 type PhotoWithUploader = EventPhoto & {

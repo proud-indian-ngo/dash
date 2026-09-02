@@ -5,6 +5,7 @@ import {
   Loading03Icon,
   MultiplicationSignCircleIcon,
 } from "@hugeicons/core-free-icons";
+
 import type { StatItem } from "@/components/stats/stats-cards";
 
 export interface QueueStat {

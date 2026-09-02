@@ -5,6 +5,7 @@ import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 import z from "zod";
+
 import { CheckboxField } from "@/components/form/checkbox-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
@@ -82,7 +83,7 @@ export function AccountSection() {
       <Separator />
 
       <FormLayout className="flex flex-col gap-4" form={form}>
-        <p className="font-medium text-xs">Change password</p>
+        <p className="text-xs font-medium">Change password</p>
         <InputField
           label="Current password"
           name="currentPassword"

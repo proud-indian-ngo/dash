@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "check:types": "tsc --noEmit",
+    "check:types": "tsc --noEmit --checkers 2",
     "clean": "git clean -xdf .cache .turbo dist node_modules",
     "typecheck": "tsc --noEmit --emitDeclarationOnly false",
     "ui:add": "bunx shadcn@latest add"
@@ -17,7 +17,7 @@
     "@fontsource-variable/inter": "^5.3.0",
     "@hugeicons/core-free-icons": "catalog:",
     "@hugeicons/react": "catalog:",
-    "@tanstack/react-table": "^9.2.3",
+    "@tanstack/react-table": "^9.2.4",
     "@tanstack/react-virtual": "^3.14.10",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -39,7 +39,7 @@
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
-    "shadcn": "^4.19.0",
+    "shadcn": "^4.19.1",
     "typescript": "catalog:"
   }
 }

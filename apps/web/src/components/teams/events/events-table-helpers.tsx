@@ -9,10 +9,12 @@ import type {
 } from "@pi-dash/zero/schema";
 import { addWeeks } from "date-fns";
 import upperFirst from "lodash/upperFirst";
+
 import {
   expandSeriesOccurrences,
   sortUpcomingFirstThenPast,
 } from "@/lib/event-display-utils";
+
 import { parseRuleUntil } from "./rrule-until";
 
 export type EventRow = TeamEvent & {

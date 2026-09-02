@@ -11,11 +11,13 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
+
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { handleMutationResult } from "@/lib/mutation-result";
+
 import {
   type BankAccountFormValues,
   bankAccountSchema,
@@ -37,7 +39,7 @@ function BankAccountListRow({
     <div className="flex items-start justify-between rounded-md border p-3">
       <div className="flex flex-col gap-0.5">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-sm">{account.accountName}</span>
+          <span className="text-sm font-medium">{account.accountName}</span>
           {account.isDefault ? (
             <Badge variant="secondary">Default</Badge>
           ) : null}
@@ -153,7 +155,7 @@ export function BankingSection() {
   return (
     <div className="flex flex-col gap-4 p-4">
       <FormLayout className="flex flex-col gap-3" form={form}>
-        <p className="font-medium text-xs">Add bank account</p>
+        <p className="text-xs font-medium">Add bank account</p>
         <InputField label="Account name" name="accountName" />
         <InputField label="Account number" name="accountNumber" />
         <InputField
@@ -182,7 +184,7 @@ export function BankingSection() {
           </div>
         </>
       ) : (
-        <p className="text-center text-muted-foreground text-xs">
+        <p className="text-muted-foreground text-center text-xs">
           No bank accounts added yet.
         </p>
       )}

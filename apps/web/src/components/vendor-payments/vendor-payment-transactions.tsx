@@ -19,6 +19,7 @@ import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
 import type { ComponentProps } from "react";
 import { useState } from "react";
+
 import { RejectDialog } from "@/components/form/reject-dialog";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useApp } from "@/context/app-context";
@@ -27,6 +28,7 @@ import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { getStatusBadge } from "@/lib/status-badge";
 import { mapTransactionToFormValues } from "@/lib/submission-mappers";
+
 import { TransactionFormDialog } from "./vendor-payment-transaction-form";
 import type {
   VendorPaymentTransactionWithRelations,
@@ -162,7 +164,7 @@ export function VendorPaymentTransactions({
       <Separator />
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-medium text-sm">Payments</h2>
+          <h2 className="text-sm font-medium">Payments</h2>
           {showRecordButton ? (
             <Button onClick={stableOnClick0} size="sm" type="button">
               <HugeiconsIcon
@@ -197,7 +199,7 @@ export function VendorPaymentTransactions({
 
         {/* Progress bar */}
         {totalOwed > 0 ? (
-          <div className="h-2 overflow-hidden rounded-full bg-muted">
+          <div className="bg-muted h-2 overflow-hidden rounded-full">
             <div
               className="h-full rounded-full bg-green-600 transition-all duration-300"
               style={{
@@ -212,7 +214,7 @@ export function VendorPaymentTransactions({
           <div className="overflow-hidden rounded-md border">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-muted/50">
+                <tr className="bg-muted/50 border-b">
                   <th className="px-3 py-2 text-right font-medium">Amount</th>
                   <th className="px-3 py-2 text-left font-medium">
                     Description
@@ -252,7 +254,7 @@ export function VendorPaymentTransactions({
             </table>
           </div>
         ) : (
-          <p className="text-center text-muted-foreground text-sm">
+          <p className="text-muted-foreground text-center text-sm">
             No payments recorded yet.
           </p>
         )}
@@ -344,15 +346,15 @@ function TransactionRow({
       <td className="px-3 py-2 text-right tabular-nums">
         {formatINR(Number(transaction.amount))}
       </td>
-      <td className="px-3 py-2 text-muted-foreground">
+      <td className="text-muted-foreground px-3 py-2">
         {transaction.description ?? "—"}
       </td>
-      <td className="px-3 py-2 text-muted-foreground">
+      <td className="text-muted-foreground px-3 py-2">
         {transaction.transactionDate
           ? format(transaction.transactionDate, LONG_DATE)
           : "—"}
       </td>
-      <td className="px-3 py-2 text-muted-foreground">
+      <td className="text-muted-foreground px-3 py-2">
         {transaction.paymentMethod ?? "—"}
       </td>
       <td className="px-3 py-2">
@@ -385,7 +387,7 @@ function TransactionRow({
                 variant="ghost"
               >
                 <HugeiconsIcon
-                  className="size-4 text-destructive"
+                  className="text-destructive size-4"
                   icon={Cancel01Icon}
                   strokeWidth={2}
                 />
@@ -402,7 +404,7 @@ function TransactionRow({
               variant="ghost"
             >
               <HugeiconsIcon
-                className="size-4 text-muted-foreground"
+                className="text-muted-foreground size-4"
                 icon={PencilEdit01Icon}
                 strokeWidth={2}
               />
@@ -418,7 +420,7 @@ function TransactionRow({
               variant="ghost"
             >
               <HugeiconsIcon
-                className="size-4 text-muted-foreground"
+                className="text-muted-foreground size-4"
                 icon={Delete02Icon}
                 strokeWidth={2}
               />

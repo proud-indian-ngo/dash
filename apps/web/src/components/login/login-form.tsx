@@ -5,6 +5,7 @@ import { log } from "evlog";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import z from "zod";
+
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
@@ -130,7 +131,7 @@ export function LoginForm() {
   return (
     <div className="flex flex-col gap-6">
       <div className="space-y-2">
-        <h2 className="font-bold text-2xl">Login to your account</h2>
+        <h2 className="text-2xl font-bold">Login to your account</h2>
         <p className="text-muted-foreground text-sm">
           Enter your email below to login to your account
         </p>
@@ -138,7 +139,7 @@ export function LoginForm() {
       <FormLayout className="space-y-4" form={form}>
         {formError ? (
           <div
-            className="rounded-md bg-destructive/10 px-3 py-2 text-destructive text-sm"
+            className="bg-destructive/10 text-destructive rounded-md px-3 py-2 text-sm"
             role="alert"
           >
             <p>{formError}</p>
@@ -173,7 +174,7 @@ export function LoginForm() {
           />
           <div className="text-right">
             <Link
-              className="text-muted-foreground text-sm hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground text-sm"
               to="/forgot-password"
             >
               Forgot password?
@@ -188,7 +189,7 @@ export function LoginForm() {
           submittingLabel="Logging in..."
         />
       </FormLayout>
-      <p className="text-center text-muted-foreground text-sm">
+      <p className="text-muted-foreground text-center text-sm">
         Don&apos;t have an account?{" "}
         <Link className="text-foreground hover:underline" to="/register">
           Register

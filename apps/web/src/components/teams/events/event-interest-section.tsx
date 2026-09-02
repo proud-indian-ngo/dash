@@ -3,7 +3,9 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
+
 import { handleMutationResult } from "@/lib/mutation-result";
+
 import { shouldRenderInterestRequests } from "./event-interest-visibility";
 import type { InterestWithUser } from "./interest-requests";
 import { InterestRequests } from "./interest-requests";

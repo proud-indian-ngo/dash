@@ -7,6 +7,7 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { Link } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { useMemo } from "react";
+
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import {
   createEntrySessionFilterFields,
@@ -70,7 +71,7 @@ export function EntrySessionsTable({
       accessorKey: "competitionName",
       cell: ({ row }) => (
         <Link
-          className="font-medium text-sm hover:underline"
+          className="text-sm font-medium hover:underline"
           params={{ id: row.original.id, year: String(year) }}
           search={{ center: centerId }}
           to="/kalakriti/$year/entries/$id"

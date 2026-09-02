@@ -9,6 +9,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+
 import { user } from "./auth";
 
 export const bankAccount = pgTable(

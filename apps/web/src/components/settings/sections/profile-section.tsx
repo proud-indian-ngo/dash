@@ -13,6 +13,7 @@ import { useForm } from "@tanstack/react-form";
 import { log } from "evlog";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+
 import { DateField } from "@/components/form/date-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
@@ -25,6 +26,7 @@ import {
   getProfilePictureUploadUrl,
 } from "@/functions/attachments";
 import { authClient } from "@/lib/auth-client";
+
 import { type ProfileFormValues, profileSchema } from "./profile-schema";
 
 const genderOptions: SelectOption[] = [

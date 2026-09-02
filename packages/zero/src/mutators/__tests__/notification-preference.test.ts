@@ -1,6 +1,7 @@
 import { TOPICS } from "@pi-dash/notifications/topics";
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
+
 import { notificationPreferenceMutators } from "../notification-preference";
 
 const upsertSchema = z.object({

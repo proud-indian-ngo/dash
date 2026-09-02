@@ -10,6 +10,7 @@ import { log } from "evlog";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import z from "zod";
+
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { FormModal } from "@/components/form/form-modal";
@@ -130,10 +131,10 @@ function RolesPage() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-      <h1 className="font-display font-semibold text-2xl tracking-tight">
+      <h1 className="font-display text-2xl font-semibold tracking-tight">
         Roles
       </h1>
-      <div className="fade-in-0 mt-4 grid animate-in gap-6 fill-mode-backwards duration-200 *:min-w-0">
+      <div className="fade-in-0 animate-in fill-mode-backwards mt-4 grid gap-6 duration-200 *:min-w-0">
         <RolesTable
           data={roles}
           isLoading={loading}

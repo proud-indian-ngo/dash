@@ -16,6 +16,7 @@ import { log } from "evlog";
 import debounce from "lodash/debounce";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -150,7 +151,7 @@ function AppLayout() {
               <div className="flex items-center gap-2">
                 <SidebarTrigger className="-ml-1" />
                 <Separator
-                  className="self-stretch! mr-2"
+                  className="mr-2 self-stretch!"
                   orientation="vertical"
                 />
                 {isMobile ? null : <Breadcrumbs />}

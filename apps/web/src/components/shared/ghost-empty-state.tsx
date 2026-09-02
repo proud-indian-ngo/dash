@@ -11,7 +11,7 @@ export function GhostEmptyState({
     <div className="relative">
       <div
         aria-hidden="true"
-        className="pointer-events-none select-none space-y-3 opacity-30 blur-[0.5px]"
+        className="pointer-events-none space-y-3 opacity-30 blur-[0.5px] select-none"
       >
         {ghostContent}
       </div>

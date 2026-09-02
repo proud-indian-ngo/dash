@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { bankAccountSchema, IFSC_PATTERN } from "./banking-schema";
 
 describe("IFSC_PATTERN", () => {

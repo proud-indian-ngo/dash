@@ -10,6 +10,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { log } from "evlog";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
+
 import type { MediaAttachment } from "@/components/scheduled-messages/media-upload";
 import type { Recipient } from "@/components/scheduled-messages/recipient-picker";
 import { ScheduleMessageFormDialog } from "@/components/scheduled-messages/schedule-message-form-dialog";
@@ -243,7 +244,7 @@ function ScheduledMessagesPage() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-      <h1 className="font-display font-semibold text-2xl tracking-tight">
+      <h1 className="font-display text-2xl font-semibold tracking-tight">
         Scheduled Messages
       </h1>
 

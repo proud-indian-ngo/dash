@@ -3,7 +3,7 @@ import { env } from "@pi-dash/env/web";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { createRequestLogger } from "evlog";
-import { z } from "zod";
+import * as z from "zod";
 
 import { LoginInfoPanel } from "@/components/login/auth-info-panel";
 import { AuthLayout } from "@/components/login/auth-layout";
@@ -71,11 +71,11 @@ function VerifyEmailPage() {
     <AuthLayout panel={<LoginInfoPanel />}>
       <div className="flex flex-col items-center gap-4">
         <h1 className="sr-only">Verify Email</h1>
-        <p className="text-center text-destructive text-sm">
+        <p className="text-destructive text-center text-sm">
           {verificationError}
         </p>
         <Link
-          className="text-muted-foreground text-sm hover:text-foreground"
+          className="text-muted-foreground hover:text-foreground text-sm"
           to="/login"
         >
           Back to login

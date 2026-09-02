@@ -23,6 +23,7 @@ import { ExitBreakPlugin, KEYS, TrailingBlockPlugin } from "platejs";
 import { Plate, useEditorSelector, usePlateEditor } from "platejs/react";
 import { type ChangeEvent, type MouseEvent, useRef } from "react";
 import { toast } from "sonner";
+
 import { BasicBlocksKit } from "../components/editor/plugins/basic-blocks-kit";
 import { BasicMarksKit } from "../components/editor/plugins/basic-marks-kit";
 import { CodeBlockKit } from "../components/editor/plugins/code-block-kit";
@@ -199,7 +200,7 @@ export function PlateEditor({
   return (
     <div className={className}>
       <Plate editor={editor}>
-        <div className="border focus-within:ring-1 focus-within:ring-ring">
+        <div className="focus-within:ring-ring border focus-within:ring-1">
           <FixedToolbar
             aria-label="Editor formatting"
             className="flex-wrap gap-0.5 border-x-0 border-t-0 p-1"

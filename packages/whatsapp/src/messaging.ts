@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
+
 import { createRequestLogger } from "evlog";
+
 import { getWhatsAppApiUrl, getWhatsAppHeaders } from "./client";
 import { formatPhoneForWhatsApp } from "./phone";
 

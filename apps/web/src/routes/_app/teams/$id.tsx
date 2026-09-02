@@ -2,6 +2,7 @@ import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
+
 import { Loader } from "@/components/loader";
 import { TeamDetail } from "@/components/teams/team-detail";
 

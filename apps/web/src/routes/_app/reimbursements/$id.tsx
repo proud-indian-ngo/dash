@@ -4,7 +4,8 @@ import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { z } from "zod";
+import * as z from "zod";
+
 import { Loader } from "@/components/loader";
 import { ReimbursementDetail } from "@/components/reimbursements/reimbursement-detail";
 import { ReimbursementForm } from "@/components/reimbursements/reimbursement-form";
@@ -171,14 +172,14 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
         {showEditForm ? (
           <>
             <div className="flex items-center justify-between gap-3">
-              <h1 className="font-display font-semibold text-2xl tracking-tight">
+              <h1 className="font-display text-2xl font-semibold tracking-tight">
                 Edit {typeLabel}
               </h1>
               <Button onClick={stableOnClick0} type="button" variant="outline">
                 View details
               </Button>
             </div>
-            <p className="mt-2 text-muted-foreground text-sm">
+            <p className="text-muted-foreground mt-2 text-sm">
               Update submission details.
             </p>
             <div className="mt-6">

@@ -1,5 +1,6 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import { createElement } from "react";
+
 import { CashVoucher, type CashVoucherProps } from "./cash-voucher";
 
 export function generateCashVoucherPdf(

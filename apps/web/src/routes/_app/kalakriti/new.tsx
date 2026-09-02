@@ -8,6 +8,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
+
 import { DateField } from "@/components/form/date-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
@@ -109,10 +110,10 @@ function NewKalakritiEditionRoute() {
       >
         Back to Kalakriti
       </Button>
-      <h1 className="mt-4 font-display font-semibold text-2xl tracking-tight">
+      <h1 className="font-display mt-4 text-2xl font-semibold tracking-tight">
         Create Kalakriti Edition
       </h1>
-      <p className="mt-2 text-muted-foreground text-sm">
+      <p className="text-muted-foreground mt-2 text-sm">
         This creates the yearly workspace and its protected organization event.
       </p>
 

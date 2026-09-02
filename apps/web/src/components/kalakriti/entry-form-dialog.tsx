@@ -24,6 +24,7 @@ import { format } from "date-fns";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
+
 import { CustomField } from "@/components/form/custom-field";
 import { FormActions } from "@/components/form/form-actions";
 import {
@@ -429,7 +430,7 @@ function StudentComboboxControl({
             </ComboboxItem>
           ))}
           {filteredOptions.length === 0 ? (
-            <div className="py-2 text-center text-muted-foreground text-xs">
+            <div className="text-muted-foreground py-2 text-center text-xs">
               No matching Students found.
             </div>
           ) : null}

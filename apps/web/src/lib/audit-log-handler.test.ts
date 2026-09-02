@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+
 import { createAuditLogGetHandler } from "./audit-log-handler";
 
 const session = { user: { id: "actor-id", role: "super_admin" } };

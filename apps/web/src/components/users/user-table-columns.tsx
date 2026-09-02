@@ -5,6 +5,7 @@ import type { User } from "@pi-dash/zero/schema";
 import { format } from "date-fns";
 import capitalize from "lodash/capitalize";
 import type { ReactNode } from "react";
+
 import { UserAvatar } from "@/components/shared/user-avatar";
 import {
   SKELETON_ACTIVE,
@@ -34,10 +35,10 @@ export function createUserColumns(
         <div className="flex min-w-0 items-center gap-3">
           <UserAvatar className="size-8" user={row.original} />
           <div className="min-w-0 space-y-px">
-            <div className="truncate font-medium text-foreground">
+            <div className="text-foreground truncate font-medium">
               {row.original.name}
             </div>
-            <div className="truncate text-muted-foreground text-xs">
+            <div className="text-muted-foreground truncate text-xs">
               {row.original.email}
             </div>
           </div>
@@ -207,7 +208,7 @@ export function createUserColumns(
             <div
               className={`size-2 shrink-0 rounded-full ${isBanned ? "bg-destructive" : "bg-green-500"}`}
             />
-            <span className="truncate text-muted-foreground text-sm">
+            <span className="text-muted-foreground truncate text-sm">
               {isBanned ? "Banned" : "Active"}
             </span>
           </div>

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { migrateColumnPinning } from "@/hooks/use-table-state";
 
 describe("migrateColumnPinning", () => {

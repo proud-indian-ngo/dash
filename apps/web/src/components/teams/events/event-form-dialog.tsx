@@ -19,6 +19,7 @@ import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
+
 import { CheckboxField } from "@/components/form/checkbox-field";
 import { DateTimeField } from "@/components/form/date-time-field";
 import { FormActions } from "@/components/form/form-actions";
@@ -39,6 +40,7 @@ import { useLocalStorage } from "@/hooks/use-local-storage";
 import { cityOptions } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { isTeamLead } from "@/lib/team-utils";
+
 import type { EditScope } from "./edit-scope-dialog";
 import { RecurrenceBuilder } from "./recurrence-builder";
 import { ReminderIntervalsField } from "./reminder-intervals-field";
@@ -518,7 +520,7 @@ function EventFormContent({
       )}
 
       <Collapsible onOpenChange={setShowAdvanced} open={showAdvanced}>
-        <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-1.5 pt-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
+        <CollapsibleTrigger className="text-muted-foreground flex w-full cursor-pointer items-center gap-1.5 pt-2 text-xs font-medium tracking-wider uppercase">
           <HugeiconsIcon
             className="size-3.5 transition-transform duration-150"
             icon={showAdvanced ? ArrowDown01Icon : ArrowRight01Icon}
@@ -526,7 +528,7 @@ function EventFormContent({
           />
           Advanced settings
           {configured ? (
-            <span className="text-[10px] normal-case tracking-normal">
+            <span className="text-[10px] tracking-normal normal-case">
               (configured)
             </span>
           ) : null}

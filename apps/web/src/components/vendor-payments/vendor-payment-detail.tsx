@@ -13,6 +13,7 @@ import { useZero } from "@rocicorp/zero/react";
 import { Link } from "@tanstack/react-router";
 import capitalize from "lodash/capitalize";
 import { useState } from "react";
+
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
@@ -27,6 +28,7 @@ import {
 import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { getStatusBadge } from "@/lib/status-badge";
+
 import { VendorBankCard, VendorDetailsCard } from "./vendor-details-card";
 import { VendorPaymentInvoiceSection } from "./vendor-payment-invoice-section";
 import { VendorPaymentTransactions } from "./vendor-payment-transactions";
@@ -56,7 +58,7 @@ function VendorPaymentStatusActions({
 }) {
   return (
     <>
-      <div className="fade-in-0 flex animate-in gap-2 duration-150 ease-(--ease-out-expo)">
+      <div className="fade-in-0 animate-in flex gap-2 duration-150 ease-(--ease-out-expo)">
         {showApproveAction ? (
           <Button onClick={onApprove} type="button" variant="default">
             <HugeiconsIcon
@@ -102,12 +104,12 @@ function VendorPaymentLineItemsTable({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="font-medium text-sm">Line items</h2>
+      <h2 className="text-sm font-medium">Line items</h2>
       {lineItems.length > 0 ? (
         <div className="overflow-hidden rounded-md border">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-muted/50">
+              <tr className="bg-muted/50 border-b">
                 <th className="px-3 py-2 text-left font-medium">Category</th>
                 <th className="px-3 py-2 text-left font-medium">Description</th>
                 <th className="px-3 py-2 text-right font-medium">Amount</th>
@@ -123,7 +125,7 @@ function VendorPaymentLineItemsTable({
                 }) => (
                   <tr className="border-b last:border-0" key={item.id}>
                     <td className="px-3 py-2">{item.category?.name}</td>
-                    <td className="px-3 py-2 text-muted-foreground">
+                    <td className="text-muted-foreground px-3 py-2">
                       {item.description}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">
@@ -134,7 +136,7 @@ function VendorPaymentLineItemsTable({
               )}
             </tbody>
             <tfoot>
-              <tr className="border-t bg-muted/50">
+              <tr className="bg-muted/50 border-t">
                 <td className="px-3 py-2 font-medium" colSpan={2}>
                   Total
                 </td>
@@ -146,7 +148,7 @@ function VendorPaymentLineItemsTable({
           </table>
         </div>
       ) : (
-        <p className="text-center text-muted-foreground text-sm">
+        <p className="text-muted-foreground text-center text-sm">
           No line items.
         </p>
       )}
@@ -174,7 +176,7 @@ function QuotationAttachmentList({
 
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="font-medium text-sm">Quotation / Supporting Documents</h2>
+      <h2 className="text-sm font-medium">Quotation / Supporting Documents</h2>
       <div className="flex flex-col gap-1.5">
         {attachments.map((att) => (
           <div
@@ -187,7 +189,7 @@ function QuotationAttachmentList({
             <div className="flex items-center gap-3">
               {att.type === "url" ? (
                 <a
-                  className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+                  className="text-primary text-xs font-medium underline-offset-2 hover:underline"
                   href={getAttachmentPreviewHref(att)}
                   rel="noopener noreferrer"
                   target="_blank"
@@ -197,7 +199,7 @@ function QuotationAttachmentList({
               ) : (
                 <>
                   <a
-                    className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+                    className="text-primary text-xs font-medium underline-offset-2 hover:underline"
                     href={getAttachmentPreviewHref(att, {
                       id: att.id,
                       kind: "vendorPaymentAttachment",
@@ -208,7 +210,7 @@ function QuotationAttachmentList({
                     Preview
                   </a>
                   <a
-                    className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+                    className="text-primary text-xs font-medium underline-offset-2 hover:underline"
                     download
                     href={getAttachmentDownloadHref(att, {
                       id: att.id,
@@ -241,17 +243,17 @@ function VendorPaymentHeader({
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
       <div className="flex flex-col gap-1">
-        <h1 className="font-display font-semibold text-2xl tracking-tight">
+        <h1 className="font-display text-2xl font-semibold tracking-tight">
           {request.title}
         </h1>
-        <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-sm">
+        <div className="text-muted-foreground flex flex-wrap items-center gap-3 text-sm">
           {request.vendor ? <span>Vendor: {request.vendor.name}</span> : null}
           {request.city ? <span>City: {capitalize(request.city)}</span> : null}
           {request.event ? (
             <span>
               Event:{" "}
               <Link
-                className="font-medium text-primary underline-offset-2 hover:underline"
+                className="text-primary font-medium underline-offset-2 hover:underline"
                 params={{ id: request.event.id }}
                 to="/events/$id"
               >
@@ -270,7 +272,7 @@ function VendorPaymentHeader({
                   fallbackClassName="text-xs"
                   user={request.user}
                 />
-                <span className="font-medium text-sm">{request.user.name}</span>
+                <span className="text-sm font-medium">{request.user.name}</span>
               </div>
             </UserHoverCard>
           </div>
@@ -390,7 +392,7 @@ export function VendorPaymentDetail({
 
         {/* Rejection reason */}
         {request.status === "rejected" && request.rejectionReason ? (
-          <div className="fade-in-0 animate-in rounded-md border border-destructive/40 bg-destructive/10 p-3 text-destructive text-sm duration-150 ease-(--ease-out-expo)">
+          <div className="fade-in-0 animate-in border-destructive/40 bg-destructive/10 text-destructive rounded-md border p-3 text-sm duration-150 ease-(--ease-out-expo)">
             <span className="font-medium">Rejection reason: </span>
             {request.rejectionReason}
           </div>
@@ -420,7 +422,7 @@ export function VendorPaymentDetail({
           <>
             <Separator />
             <div className="flex flex-col gap-2">
-              <h2 className="font-medium text-sm">History</h2>
+              <h2 className="text-sm font-medium">History</h2>
               <div className="flex flex-col">
                 {request.history.map((entry) => (
                   <HistoryEntry entry={entry} key={entry.id} />

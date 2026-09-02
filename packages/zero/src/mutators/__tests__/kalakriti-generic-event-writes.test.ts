@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+
 import { eventImmichAlbumMutators } from "../event-immich-album";
 import { eventPhotoMutators } from "../event-photo";
 import { eventUpdateMutators } from "../event-update";

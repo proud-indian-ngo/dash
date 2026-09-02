@@ -7,6 +7,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { Slide } from "yet-another-react-lightbox";
+
 import { UserAvatar } from "@/components/shared/user-avatar";
 
 interface PhotoSlideExtra {

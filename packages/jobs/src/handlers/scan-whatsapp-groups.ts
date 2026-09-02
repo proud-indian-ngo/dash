@@ -10,6 +10,7 @@ import { formatPhoneForWhatsApp } from "@pi-dash/whatsapp/phone";
 import { and, eq, inArray, isNotNull, isNull, or } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
+
 import type { ScanWhatsAppGroupsPayload } from "../enqueue";
 
 interface GroupInfo {

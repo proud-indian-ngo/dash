@@ -22,6 +22,7 @@ import type {
   ScheduledMessageRecipient,
 } from "@pi-dash/zero/schema";
 import { format } from "date-fns";
+
 import { RecipientSubTable } from "@/components/scheduled-messages/recipient-sub-table";
 import { getAttachmentDownloadHref } from "@/lib/attachment-links";
 import { SHORT_DATE_WITH_SECONDS } from "@/lib/date-formats";
@@ -134,12 +135,12 @@ export function ScheduledMessageDetailSheet({
           </div>
 
           <div className="grid gap-4">
-            <h3 className="font-medium text-sm">Message</h3>
-            <p className="whitespace-pre-wrap text-sm">{message.message}</p>
+            <h3 className="text-sm font-medium">Message</h3>
+            <p className="text-sm whitespace-pre-wrap">{message.message}</p>
           </div>
 
           <div className="grid gap-4">
-            <h3 className="font-medium text-sm">Details</h3>
+            <h3 className="text-sm font-medium">Details</h3>
             <div className="grid gap-3 sm:grid-cols-2">
               <DetailRow
                 label="Scheduled for"
@@ -161,7 +162,7 @@ export function ScheduledMessageDetailSheet({
           </div>
 
           <div className="grid gap-4">
-            <h3 className="font-medium text-sm">
+            <h3 className="text-sm font-medium">
               Recipients ({message.recipients.length})
             </h3>
             <RecipientSubTable
@@ -172,13 +173,13 @@ export function ScheduledMessageDetailSheet({
 
           {attachments?.length ? (
             <div className="grid gap-4">
-              <h3 className="font-medium text-sm">
+              <h3 className="text-sm font-medium">
                 Attachments ({attachments.length})
               </h3>
               <div className="flex flex-col gap-1.5">
                 {attachments.map((a) => (
                   <a
-                    className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors hover:bg-muted/50"
+                    className="hover:bg-muted/50 flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors"
                     download={a.fileName}
                     href={getAttachmentDownloadHref(
                       {

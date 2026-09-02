@@ -1,4 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
+
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { ListPage } from "../../pages/list-page";
 

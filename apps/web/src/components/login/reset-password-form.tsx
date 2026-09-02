@@ -49,7 +49,7 @@ export function ResetPasswordForm() {
   return (
     <div className="flex flex-col gap-6">
       <div className="space-y-2">
-        <h2 className="font-bold text-2xl">Reset your password</h2>
+        <h2 className="text-2xl font-bold">Reset your password</h2>
         <p className="text-muted-foreground text-sm">
           Enter your new password below.
         </p>

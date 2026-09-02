@@ -2,6 +2,7 @@ import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
+
 import { EventsCalendarView } from "@/components/events/events-calendar-view";
 import type { PublicEventRow } from "@/components/events/public-events-table";
 
@@ -27,7 +28,7 @@ function PublicEventsRouteComponent() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-      <h1 className="font-display font-semibold text-2xl tracking-tight">
+      <h1 className="font-display text-2xl font-semibold tracking-tight">
         Events
       </h1>
       <div className="mt-4">

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { kalakritiEntryQueries } from "./kalakriti-entry";
 
 const input = { centerId: "center-1", editionId: "edition-1" };

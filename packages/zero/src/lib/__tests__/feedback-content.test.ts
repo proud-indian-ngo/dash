@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { assertFeedbackContentMediaPolicy } from "../feedback-content";
 
 const plate = (...urls: string[]) =>

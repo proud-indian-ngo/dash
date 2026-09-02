@@ -1,4 +1,5 @@
 import { KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES } from "@pi-dash/shared/kalakriti";
+
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 
 export type KalakritiRegistrationScope =

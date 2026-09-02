@@ -18,6 +18,7 @@ import {
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { Link } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
+
 import { GhostEmptyState } from "@/components/shared/ghost-empty-state";
 import { formatINR } from "@/lib/form-schemas";
 import { getStatusBadge, type StatusBadgeVariant } from "@/lib/status-badge";
@@ -160,12 +161,12 @@ function RecentActivityEmpty() {
       ghostContent={GHOST_ACTIVITIES.map((activity) => (
         <div className="flex items-start gap-3" key={activity.title}>
           <HugeiconsIcon
-            className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+            className="text-muted-foreground mt-0.5 size-4 shrink-0"
             icon={Invoice01Icon}
             strokeWidth={2}
           />
           <div className="min-w-0 flex-1">
-            <p className="truncate font-medium text-sm">{activity.title}</p>
+            <p className="truncate text-sm font-medium">{activity.title}</p>
             <p className="text-muted-foreground text-xs">
               {activity.label}
               {Boolean("amount" in activity) && ` · ${activity.amount}`}
@@ -206,19 +207,19 @@ function RecentActivityList({ activities }: { activities: ActivityItem[] }) {
           : null;
         return (
           <Link
-            className="-mx-2 flex items-start gap-3 rounded-md px-2 py-1 transition-colors hover:bg-muted/50"
+            className="hover:bg-muted/50 -mx-2 flex items-start gap-3 rounded-md px-2 py-1 transition-colors"
             key={activity.id}
             params={{ id: activity.entityId } as never}
             to={activity.route as never}
           >
             <HugeiconsIcon
-              className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+              className="text-muted-foreground mt-0.5 size-4 shrink-0"
               icon={activity.icon}
               strokeWidth={2}
             />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <p className="truncate font-medium text-sm">{activity.title}</p>
+                <p className="truncate text-sm font-medium">{activity.title}</p>
                 {statusInfo ? (
                   <Badge
                     size="xs"

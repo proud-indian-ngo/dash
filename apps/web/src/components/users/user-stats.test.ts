@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { computeUserStats } from "./user-stats";
 
 describe("computeUserStats", () => {

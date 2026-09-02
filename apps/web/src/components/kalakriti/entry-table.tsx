@@ -12,7 +12,9 @@ import {
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { format } from "date-fns";
+
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+
 import type { KalakritiEntryRow } from "./entry-form-dialog";
 import { EntryMusicCell } from "./entry-music-field";
 
@@ -158,7 +160,7 @@ export function EntryTable({
       accessorFn: (row) =>
         row.members.map((member) => member.student.name).join(" "),
       cell: ({ row }) => (
-        <div className="flex flex-wrap gap-x-2 gap-y-1 font-medium text-sm">
+        <div className="flex flex-wrap gap-x-2 gap-y-1 text-sm font-medium">
           {row.original.members.length > 0
             ? row.original.members.map((member) => (
                 <span key={member.student.id}>{member.student.name}</span>

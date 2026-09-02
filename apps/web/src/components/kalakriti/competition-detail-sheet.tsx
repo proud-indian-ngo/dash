@@ -8,6 +8,7 @@ import {
   SheetTitle,
 } from "@pi-dash/design-system/components/ui/sheet";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+
 import {
   type CompetitionTableRow,
   type ConfigurationDeletePayload,
@@ -109,7 +110,7 @@ export function CompetitionDetailSheet({
           </div>
 
           <div className="grid gap-4">
-            <h3 className="font-medium text-sm">Configuration</h3>
+            <h3 className="text-sm font-medium">Configuration</h3>
             <div className="grid gap-3 sm:grid-cols-2">
               <DetailRow label="Category" value={competition.categoryName} />
               <DetailRow
@@ -132,7 +133,7 @@ export function CompetitionDetailSheet({
           </div>
 
           <div className="grid gap-3">
-            <h3 className="font-medium text-sm">Competition Divisions</h3>
+            <h3 className="text-sm font-medium">Competition Divisions</h3>
             {competition.divisions.map((division) => (
               <div className="rounded-md border px-3 py-2" key={division.id}>
                 <span className="text-sm">

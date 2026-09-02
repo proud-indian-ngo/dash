@@ -16,7 +16,9 @@ import { cn } from "@pi-dash/design-system/lib/utils";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+
 import { SHORT_MONTH_DATE_TIME } from "@/lib/date-formats";
+
 import { CustomField } from "./custom-field";
 import { applyTimeChange } from "./date-time-utils";
 import type { FieldValidatorConfig, FormInstance } from "./form-context";
@@ -181,7 +183,7 @@ function DateTimePicker({
             aria-describedby={ariaDescribedBy}
             aria-invalid={ariaInvalid}
             className={cn(
-              "w-full justify-between rounded-none border-input font-normal",
+              "border-input w-full justify-between rounded-none font-normal",
               !value && "text-muted-foreground"
             )}
             disabled={disabled}

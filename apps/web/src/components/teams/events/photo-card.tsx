@@ -9,7 +9,9 @@ import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import type { EventPhoto, User } from "@pi-dash/zero/schema";
 import type React from "react";
+
 import { UserAvatar } from "@/components/shared/user-avatar";
+
 import {
   getPhotoThumbnailUrl,
   getR2MediaUrl,
@@ -70,14 +72,14 @@ export function PhotoCard({
     );
   } else {
     preview = (
-      <div className="flex size-full flex-col items-center justify-center gap-1 bg-muted-foreground/10">
+      <div className="bg-muted-foreground/10 flex size-full flex-col items-center justify-center gap-1">
         <span className="text-muted-foreground text-xs">Processing…</span>
       </div>
     );
   }
 
   return (
-    <div className="group relative aspect-square overflow-hidden rounded-lg bg-muted">
+    <div className="group bg-muted relative aspect-square overflow-hidden rounded-lg">
       <button
         className="size-full cursor-pointer"
         onClick={onClick}
@@ -107,7 +109,7 @@ export function PhotoCard({
                 fallbackClassName="text-[10px]"
                 user={photo.uploader}
               />
-              <span className="truncate text-white text-xs">
+              <span className="truncate text-xs text-white">
                 {photo.uploader.name}
               </span>
             </>
@@ -131,7 +133,7 @@ export function PhotoCard({
             variant="secondary"
           >
             <HugeiconsIcon
-              className="size-3.5 text-success"
+              className="text-success size-3.5"
               icon={CheckmarkCircle02Icon}
               strokeWidth={2}
             />
@@ -145,7 +147,7 @@ export function PhotoCard({
             variant="secondary"
           >
             <HugeiconsIcon
-              className="size-3.5 text-destructive"
+              className="text-destructive size-3.5"
               icon={Cancel01Icon}
               strokeWidth={2}
             />
@@ -159,7 +161,7 @@ export function PhotoCard({
             variant="secondary"
           >
             <HugeiconsIcon
-              className="size-3.5 text-destructive"
+              className="text-destructive size-3.5"
               icon={Delete02Icon}
               strokeWidth={2}
             />

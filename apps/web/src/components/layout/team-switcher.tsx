@@ -14,7 +14,7 @@ export function TeamSwitcher() {
           className="data-open:bg-sidebar-accent data-open:text-sidebar-accent-foreground"
           size="lg"
         >
-          <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+          <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
             <HugeiconsIcon icon={LayoutBottomIcon} strokeWidth={2} />
           </div>
           <div className="grid flex-1 text-left text-sm leading-tight">

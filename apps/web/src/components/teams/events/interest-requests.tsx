@@ -9,6 +9,7 @@ import type { EventInterest, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
 import { useState } from "react";
+
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { LOCALE_DATE } from "@/lib/date-formats";
@@ -65,14 +66,14 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
             user={interest.user}
           />
           <div className="min-w-0">
-            <div className="truncate font-medium text-sm">
+            <div className="truncate text-sm font-medium">
               {interest.user.name}
             </div>
             <div className="text-muted-foreground text-xs">
               {format(new Date(interest.createdAt), LOCALE_DATE)}
             </div>
             {interest.message ? (
-              <div className="mt-1 text-muted-foreground text-xs italic">
+              <div className="text-muted-foreground mt-1 text-xs italic">
                 "{interest.message}"
               </div>
             ) : null}
@@ -80,12 +81,12 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
         </UserHoverCard>
       ) : (
         <div className="min-w-0 flex-1">
-          <div className="truncate font-medium text-sm">Unknown</div>
+          <div className="truncate text-sm font-medium">Unknown</div>
           <div className="text-muted-foreground text-xs">
             {format(new Date(interest.createdAt), LOCALE_DATE)}
           </div>
           {interest.message ? (
-            <div className="mt-1 text-muted-foreground text-xs italic">
+            <div className="text-muted-foreground mt-1 text-xs italic">
               "{interest.message}"
             </div>
           ) : null}
@@ -145,7 +146,7 @@ export function InterestRequests({ interests }: InterestRequestsProps) {
     <>
       <Separator />
       <div className="flex flex-col gap-2">
-        <h2 className="font-medium text-sm">
+        <h2 className="text-sm font-medium">
           Interest Requests ({pendingInterests.length})
         </h2>
         {pendingInterests.map((interest) => (

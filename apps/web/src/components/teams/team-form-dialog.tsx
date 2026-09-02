@@ -18,6 +18,7 @@ import type { WhatsappGroup } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { type FormEvent, useEffect, useState } from "react";
 import { uuidv7 } from "uuidv7";
+
 import {
   Dialog,
   DialogContent,
@@ -215,7 +216,7 @@ export function TeamFormDialog({
                   id="team-whatsapp"
                   placeholder="None"
                 />
-                <ComboboxContent className="w-fit min-w-[var(--anchor-width)] max-w-[min(32rem,var(--available-width))]">
+                <ComboboxContent className="w-fit max-w-[min(32rem,var(--available-width))] min-w-[var(--anchor-width)]">
                   <ComboboxList>
                     {(itemValue) => (
                       <ComboboxItem
@@ -223,7 +224,7 @@ export function TeamFormDialog({
                         key={itemValue}
                         value={itemValue}
                       >
-                        <span className="block min-w-0 whitespace-normal break-words">
+                        <span className="block min-w-0 break-words whitespace-normal">
                           {itemValue === NONE_WHATSAPP_GROUP
                             ? "None"
                             : whatsappGroupLabelByValue.get(itemValue)}

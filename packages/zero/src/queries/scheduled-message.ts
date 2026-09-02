@@ -1,5 +1,6 @@
 import { defineQuery } from "@rocicorp/zero";
 import z from "zod";
+
 import { isExternalUser } from "../permissions";
 import { zql } from "../schema";
 

@@ -12,7 +12,9 @@ import { cn } from "@pi-dash/design-system/lib/utils";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+
 import { LONG_DATE } from "@/lib/date-formats";
+
 import { CustomField } from "./custom-field";
 import type { FieldValidatorConfig, FormInstance } from "./form-context";
 import { getFieldErrorState, useResolvedForm } from "./form-context";
@@ -88,7 +90,7 @@ function DateInputPicker({
             aria-describedby={ariaDescribedBy}
             aria-invalid={ariaInvalid}
             className={cn(
-              "w-full justify-between rounded-none border-input font-normal",
+              "border-input w-full justify-between rounded-none font-normal",
               !value && "text-muted-foreground"
             )}
             disabled={disabled}

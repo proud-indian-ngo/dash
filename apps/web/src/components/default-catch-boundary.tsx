@@ -12,6 +12,7 @@ import {
 } from "@tanstack/react-router";
 import { log } from "evlog";
 import { use, useEffect, useRef } from "react";
+
 import { AppContext } from "@/context/app-context";
 
 export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
@@ -56,17 +57,17 @@ export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
     >
       <div className="flex flex-col items-center gap-2 text-center">
         <HugeiconsIcon
-          className="size-10 text-destructive"
+          className="text-destructive size-10"
           icon={Alert01Icon}
           strokeWidth={2}
         />
-        <h2 className="font-semibold text-lg">This page couldn't load</h2>
-        <p className="max-w-md text-muted-foreground text-sm">
+        <h2 className="text-lg font-semibold">This page couldn't load</h2>
+        <p className="text-muted-foreground max-w-md text-sm">
           We hit an unexpected error. Try again, or head back to the home page
           if the problem persists.
         </p>
         {canSeeErrors ? (
-          <p className="mt-2 max-w-md rounded-md bg-muted p-2 font-mono text-muted-foreground text-xs">
+          <p className="bg-muted text-muted-foreground mt-2 max-w-md rounded-md p-2 font-mono text-xs">
             {error instanceof Error ? error.message : String(error)}
           </p>
         ) : null}

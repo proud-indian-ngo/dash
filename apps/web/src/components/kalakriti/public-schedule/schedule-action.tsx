@@ -36,7 +36,7 @@ export function ScheduleAction({
 
   return (
     <div className="flex flex-col items-start gap-2 md:items-end">
-      <p className="max-w-xs text-muted-foreground text-sm md:text-right">
+      <p className="text-muted-foreground max-w-xs text-sm md:text-right">
         Want to help at Kalakriti? Create an account to show your interest.
       </p>
       <div className="flex flex-wrap gap-2">

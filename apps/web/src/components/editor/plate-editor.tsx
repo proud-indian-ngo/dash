@@ -4,6 +4,7 @@ import { PlateEditor as BaseEditor } from "@pi-dash/editor/editor";
 import type { AllowedImageMimeType } from "@pi-dash/shared/constants";
 import { log } from "evlog";
 import { toast } from "sonner";
+
 import { getEventEditorUploadUrl } from "@/functions/attachments";
 
 interface PlateEditorProps extends Omit<EditorProps, "onImageUpload"> {

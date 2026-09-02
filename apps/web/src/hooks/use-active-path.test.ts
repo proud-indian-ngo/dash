@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { resolveActivePath } from "./use-active-path";
 
 describe("resolveActivePath", () => {

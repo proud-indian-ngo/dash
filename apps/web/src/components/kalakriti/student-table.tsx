@@ -14,12 +14,14 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { format } from "date-fns";
 import { useMemo } from "react";
+
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import {
   createStudentFilterFields,
   getStudentFilterValue,
 } from "@/components/kalakriti/kalakriti-filters";
 import { canDeleteKalakritiStudent } from "@/lib/kalakriti-student-policy";
+
 import type { KalakritiStudentRow } from "./student-form-dialog";
 
 function searchStudents(row: KalakritiStudentRow, query: string): boolean {
@@ -128,7 +130,7 @@ export function StudentTable({
     {
       accessorFn: (row) => row.name,
       cell: ({ row }) => (
-        <span className="font-medium text-sm">{row.original.name}</span>
+        <span className="text-sm font-medium">{row.original.name}</span>
       ),
       header: ({ column }) => (
         <DataGridColumnHeader

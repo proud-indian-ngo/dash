@@ -18,6 +18,7 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { log } from "evlog";
 import { toast } from "sonner";
+
 import { handleMutationResult } from "@/lib/mutation-result";
 import { groupBy, NOTIFICATION_GROUP_ORDER } from "@/lib/notification-helpers";
 
@@ -61,7 +62,7 @@ function UserTopicPreferenceRow({
   return (
     <div className="flex items-center justify-between gap-4">
       <div className="min-w-0 flex-1 space-y-1">
-        <p className="font-medium text-sm">{topic.topicName}</p>
+        <p className="text-sm font-medium">{topic.topicName}</p>
         <p className="text-muted-foreground text-sm">
           {topic.required
             ? "This notification is required and cannot be disabled."
@@ -209,7 +210,7 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
           groupIndex > 0 && <Separator key={`sep-${groupName}`} />,
           <div className="space-y-5" key={groupName}>
             <div className="flex items-center justify-between">
-              <p className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+              <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
                 {groupName}
               </p>
               {groupIndex === 0 && (

@@ -1,5 +1,7 @@
 import path from "node:path";
+
 import dotenv from "dotenv";
+
 import { expect, test } from "../../fixtures/test";
 
 dotenv.config({

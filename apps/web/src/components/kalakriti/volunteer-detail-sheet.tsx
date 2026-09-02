@@ -14,6 +14,7 @@ import {
   KALAKRITI_RESPONSIBILITY_LABELS,
   type KalakritiResponsibility,
 } from "@pi-dash/shared/kalakriti";
+
 import {
   formatKalakritiVolunteerAssignment,
   type RemoveAssignmentPayload,
@@ -82,7 +83,7 @@ export function VolunteerDetailSheet({
 
         <div className="flex flex-col gap-6 px-6 pb-6">
           <div className="grid gap-4">
-            <h3 className="font-medium text-sm">Contact</h3>
+            <h3 className="text-sm font-medium">Contact</h3>
             <div className="grid gap-3">
               <DetailRow label="Email" value={volunteer.snapshotEmail} />
               <DetailRow label="Phone" value={volunteer.snapshotPhone} />
@@ -91,7 +92,7 @@ export function VolunteerDetailSheet({
 
           <div className="grid gap-3">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="font-medium text-sm">Responsibilities</h3>
+              <h3 className="text-sm font-medium">Responsibilities</h3>
               {canAssignRole ? (
                 <Button
                   onClick={handleAddRole}

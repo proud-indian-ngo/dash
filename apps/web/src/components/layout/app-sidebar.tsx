@@ -10,6 +10,7 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { useLocation } from "@tanstack/react-router";
 import type * as React from "react";
+
 import { NavUser } from "@/components/layout/nav-user";
 import { TeamSwitcher } from "@/components/layout/team-switcher";
 import { useApp } from "@/context/app-context";
@@ -18,6 +19,7 @@ import {
   shouldUseKalakritiNav,
   withKalakritiNavItem,
 } from "@/lib/nav-items";
+
 import { NavMainGrouped } from "./nav-main";
 
 const KALAKRITI_YEAR_PATH = /^\/kalakriti\/(\d{4})(?:\/|$)/;

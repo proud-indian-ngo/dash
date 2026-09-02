@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
+
 import { expect, type Page, test } from "@playwright/test";
 import dotenv from "dotenv";
 

@@ -16,6 +16,7 @@ import { format } from "date-fns";
 import { type ReactNode, useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
+
 import {
   EntryFormDialog,
   type KalakritiEntryRow,
@@ -450,7 +451,7 @@ function KalakritiSessionEntriesPage() {
         actions={
           <div className="min-w-52">
             <label
-              className="mb-1 block font-medium text-sm"
+              className="mb-1 block text-sm font-medium"
               htmlFor="entry-center"
             >
               Center

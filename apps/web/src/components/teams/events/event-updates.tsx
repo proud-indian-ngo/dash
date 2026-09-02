@@ -22,6 +22,7 @@ import { log } from "evlog";
 import { lazy, Suspense, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
+
 import {
   EditorSkeleton,
   RendererSkeleton,
@@ -174,7 +175,7 @@ export function EventUpdates({
       {/* Pending Approval section — visible to admins/leads */}
       {showPendingSection ? (
         <div className="flex flex-col gap-3">
-          <h3 className="font-medium text-sm">
+          <h3 className="text-sm font-medium">
             Pending Approval ({pendingUpdates.length})
           </h3>
           {pendingUpdates.map((update) => (
@@ -195,7 +196,7 @@ export function EventUpdates({
       {/* Your Pending Updates section — visible to non-admin authors */}
       {showMyPendingSection ? (
         <div className="flex flex-col gap-3">
-          <h3 className="font-medium text-sm">
+          <h3 className="text-sm font-medium">
             Your Pending Updates ({pendingUpdates.length})
           </h3>
           {pendingUpdates.map((update) => (
@@ -213,7 +214,7 @@ export function EventUpdates({
 
       {/* Approved updates timeline */}
       {isEmpty ? (
-        <p className="text-center text-muted-foreground text-sm">
+        <p className="text-muted-foreground text-center text-sm">
           No updates yet.
         </p>
       ) : null}
@@ -282,12 +283,12 @@ function TimelineItem({
       <div className="absolute top-0 left-0">
         {update.author ? (
           <UserAvatar
-            className="size-7 ring-4 ring-background"
+            className="ring-background size-7 ring-4"
             fallbackClassName="text-xs"
             user={update.author}
           />
         ) : (
-          <div className="size-7 rounded-full bg-muted ring-4 ring-background" />
+          <div className="bg-muted ring-background size-7 rounded-full ring-4" />
         )}
       </div>
 
@@ -296,10 +297,10 @@ function TimelineItem({
         <div className="mb-2 flex items-center gap-2">
           {update.author ? (
             <UserHoverCard user={update.author}>
-              <span className="font-medium text-sm">{update.author.name}</span>
+              <span className="text-sm font-medium">{update.author.name}</span>
             </UserHoverCard>
           ) : (
-            <span className="font-medium text-sm">Unknown</span>
+            <span className="text-sm font-medium">Unknown</span>
           )}
           <span className="text-muted-foreground text-xs">
             {format(new Date(update.createdAt), LONG_DATE_TIME)}
@@ -417,7 +418,7 @@ function UpdateTimeline({
   return (
     <div className="relative">
       {/* Timeline line */}
-      <div className="absolute top-0 bottom-3.5 left-3.5 w-px bg-border" />
+      <div className="bg-border absolute top-0 bottom-3.5 left-3.5 w-px" />
 
       <div className="flex flex-col gap-6">
         {updates.map((update) => (
@@ -479,7 +480,7 @@ function PendingUpdateCard({
   const stableOnReject = useEventCallback(() => onReject?.(update.id));
 
   return (
-    <div className="rounded-lg border border-warning/30 bg-warning/5 p-4">
+    <div className="border-warning/30 bg-warning/5 rounded-lg border p-4">
       <div className="mb-2 flex items-center gap-2">
         {update.author ? (
           <UserHoverCard user={update.author}>
@@ -489,13 +490,13 @@ function PendingUpdateCard({
                 fallbackClassName="text-xs"
                 user={update.author}
               />
-              <span className="font-medium text-sm">{update.author.name}</span>
+              <span className="text-sm font-medium">{update.author.name}</span>
             </div>
           </UserHoverCard>
         ) : (
           <div className="flex items-center gap-2">
-            <div className="size-6 rounded-full bg-muted" />
-            <span className="font-medium text-sm">Unknown</span>
+            <div className="bg-muted size-6 rounded-full" />
+            <span className="text-sm font-medium">Unknown</span>
           </div>
         )}
         <span className="text-muted-foreground text-xs">
@@ -517,7 +518,7 @@ function PendingUpdateCard({
                 variant="ghost"
               >
                 <HugeiconsIcon
-                  className="size-4 text-muted-foreground"
+                  className="text-muted-foreground size-4"
                   icon={MoreVerticalIcon}
                   strokeWidth={2}
                 />
@@ -549,7 +550,7 @@ function PendingUpdateCard({
                 variant="ghost"
               >
                 <HugeiconsIcon
-                  className="size-4 text-destructive"
+                  className="text-destructive size-4"
                   icon={MultiplicationSignCircleIcon}
                   strokeWidth={2}
                 />
@@ -565,7 +566,7 @@ function PendingUpdateCard({
                 variant="ghost"
               >
                 <HugeiconsIcon
-                  className="size-4 text-muted-foreground"
+                  className="text-muted-foreground size-4"
                   icon={Delete02Icon}
                   strokeWidth={2}
                 />

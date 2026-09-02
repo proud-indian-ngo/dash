@@ -5,6 +5,7 @@ import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
+
 import { AttachmentsSection } from "@/components/form/attachments-section";
 import { CustomField } from "@/components/form/custom-field";
 import { DateField } from "@/components/form/date-field";
@@ -176,7 +177,7 @@ function TransactionFormContent({
         <div>
           <InputField isRequired label="Amount" name="amount" />
           {remainingAmount !== undefined && (
-            <p className="mt-1 text-muted-foreground text-xs">
+            <p className="text-muted-foreground mt-1 text-xs">
               Remaining: {formatINR(remainingAmount)}
             </p>
           )}

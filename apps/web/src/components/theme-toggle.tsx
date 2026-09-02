@@ -26,11 +26,11 @@ export function ThemeToggle() {
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button size="icon-sm" variant="outline" />}>
         <HugeiconsIcon
-          className="size-3.5 rotate-0 scale-100 transition-[transform,opacity] dark:-rotate-90 dark:scale-0"
+          className="size-3.5 scale-100 rotate-0 transition-[transform,opacity] dark:scale-0 dark:-rotate-90"
           icon={Moon02Icon}
         />
         <HugeiconsIcon
-          className="absolute size-3.5 rotate-90 scale-0 transition-[transform,opacity] dark:rotate-0 dark:scale-100"
+          className="absolute size-3.5 scale-0 rotate-90 transition-[transform,opacity] dark:scale-100 dark:rotate-0"
           icon={SunIcon}
         />
         <span className="sr-only">Toggle theme</span>

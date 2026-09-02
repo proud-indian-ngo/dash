@@ -1,5 +1,5 @@
 import { auditOutcomeValues } from "@pi-dash/db/schema/audit-log";
-import { z } from "zod";
+import * as z from "zod";
 
 const dateSchema = z.iso.date().optional();
 

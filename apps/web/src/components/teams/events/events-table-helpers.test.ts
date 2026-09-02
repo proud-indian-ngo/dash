@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { parseRuleUntil } from "./rrule-until";
 
 describe("parseRuleUntil", () => {

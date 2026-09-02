@@ -9,6 +9,7 @@ import {
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
+
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { useApp } from "@/context/app-context";
 import { LONG_DATE } from "@/lib/date-formats";
@@ -74,9 +75,9 @@ export function UserHoverCard({
           <UserAvatar className="size-10 shrink-0" user={user} />
           <div className="min-w-0 space-y-1.5">
             <div>
-              <p className="truncate font-medium text-sm">{user.name}</p>
+              <p className="truncate text-sm font-medium">{user.name}</p>
               {canSeeFullDetails && user.email ? (
-                <p className="truncate text-muted-foreground text-xs">
+                <p className="text-muted-foreground truncate text-xs">
                   {user.email}
                 </p>
               ) : null}
@@ -85,11 +86,11 @@ export function UserHoverCard({
               {canSeeFullDetails && user.phone ? (
                 <div className="flex items-center gap-1.5">
                   <HugeiconsIcon
-                    className="size-3.5 shrink-0 text-muted-foreground"
+                    className="text-muted-foreground size-3.5 shrink-0"
                     icon={SmartPhone01Icon}
                     strokeWidth={2}
                   />
-                  <span className="truncate text-muted-foreground text-xs">
+                  <span className="text-muted-foreground truncate text-xs">
                     {user.phone}
                   </span>
                 </div>
@@ -109,7 +110,7 @@ export function UserHoverCard({
               {canSeeFullDetails && user.createdAt ? (
                 <div className="flex items-center gap-1.5">
                   <HugeiconsIcon
-                    className="size-3.5 shrink-0 text-muted-foreground"
+                    className="text-muted-foreground size-3.5 shrink-0"
                     icon={Calendar04Icon}
                     strokeWidth={2}
                   />

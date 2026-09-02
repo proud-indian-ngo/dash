@@ -7,8 +7,8 @@
     }
   },
   "scripts": {
-    "check:types": "tsc --noEmit",
-    "test:unit": "vitest run"
+    "check:types": "tsc --noEmit --checkers 2",
+    "test:unit": "bun --bun vitest run"
   },
   "dependencies": {
     "@pi-dash/db": "workspace:*",
@@ -21,7 +21,7 @@
     "date-fns": "catalog:",
     "drizzle-orm": "catalog:",
     "evlog": "catalog:",
-    "pg-boss": "^12.28.0",
+    "pg-boss": "^12.29.0",
     "uuidv7": "catalog:"
   },
   "devDependencies": {

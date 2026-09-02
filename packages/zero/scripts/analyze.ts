@@ -1,4 +1,5 @@
 import { runAnalyzeCLI } from "@rocicorp/zero/analyze";
+
 import { schema } from "../src/schema";
 
 const missingEventId = "__zero_analyze_missing_event__";

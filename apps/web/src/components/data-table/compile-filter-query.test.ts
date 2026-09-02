@@ -4,6 +4,7 @@ import {
   createFilterRule,
 } from "@pi-dash/design-system/components/reui/filters/filters-query";
 import { describe, expect, it } from "vitest";
+
 import {
   compileFilterQuery,
   readSelectEquality,

@@ -514,9 +514,8 @@ export const deleteUserAdmin = createServerFn({ method: "POST" })
         // Best-effort: enqueue failure must not block user deletion.
         try {
           const { getUserPhone } = await import("@pi-dash/whatsapp/users");
-          const { getAllGroupJidsForUser } = await import(
-            "@pi-dash/whatsapp/groups"
-          );
+          const { getAllGroupJidsForUser } =
+            await import("@pi-dash/whatsapp/groups");
           const [phone, groupJids] = await Promise.all([
             getUserPhone(data.userId),
             getAllGroupJidsForUser(data.userId),

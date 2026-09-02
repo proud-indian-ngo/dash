@@ -15,6 +15,7 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
+
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import {
@@ -165,7 +166,7 @@ export function VendorsTable({
     {
       accessorFn: (row) => row.name,
       cell: ({ row }) => (
-        <span className="truncate font-medium text-sm">
+        <span className="truncate text-sm font-medium">
           {row.original.name}
         </span>
       ),
@@ -191,7 +192,7 @@ export function VendorsTable({
     {
       accessorFn: (row) => row.contactEmail,
       cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm">
+        <span className="text-muted-foreground truncate text-sm">
           {row.original.contactEmail ?? "—"}
         </span>
       ),

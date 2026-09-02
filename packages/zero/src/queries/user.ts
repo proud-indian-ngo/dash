@@ -1,4 +1,5 @@
 import { defineQuery } from "@rocicorp/zero";
+
 import { can } from "../permissions";
 import { zql } from "../schema";
 

@@ -1,6 +1,6 @@
 import { env } from "@pi-dash/env/web";
 import { createFileRoute } from "@tanstack/react-router";
-import { z } from "zod";
+import * as z from "zod";
 
 import { SignupInfoPanel } from "@/components/login/auth-info-panel";
 import { AuthLayout } from "@/components/login/auth-layout";

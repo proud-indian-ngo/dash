@@ -13,6 +13,7 @@ import {
   Tailwind,
   Text,
 } from "react-email";
+
 import { EmailFooterBar, EmailPreferencesLink } from "./email-footer";
 import type { LineItemDetail } from "./types";
 
@@ -84,10 +85,10 @@ export default function NotificationEmail({
           `}</style>
         </Head>
         <Preview>{heading}</Preview>
-        <Body className="m-0 bg-bg p-0 font-body">
+        <Body className="bg-bg font-body m-0 p-0">
           <Container className="mx-auto my-10 max-w-[520px] px-4">
             {/* ── Card ── */}
-            <Section className="border border-border border-t-2 border-t-primary border-solid bg-surface">
+            <Section className="border-border border-t-primary bg-surface border border-t-2 border-solid">
               {/* ── Logo ── */}
               <Section className="px-8 py-6 text-center">
                 <Img
@@ -109,13 +110,13 @@ export default function NotificationEmail({
 
               {/* ── Body ── */}
               <Section className="px-8 pt-7 pb-8">
-                <Heading className="m-0 mb-1 font-display font-semibold text-[20px] text-fg leading-7 tracking-tight">
+                <Heading className="font-display text-fg m-0 mb-1 text-[20px] leading-7 font-semibold tracking-tight">
                   {heading}
                 </Heading>
 
                 {paragraphs.map((text) => (
                   <Text
-                    className="mt-3 mb-0 text-[14px] text-muted-fg leading-[22px]"
+                    className="text-muted-fg mt-3 mb-0 text-[14px] leading-[22px]"
                     key={text}
                   >
                     {text}
@@ -127,15 +128,15 @@ export default function NotificationEmail({
                   <table
                     cellPadding="0"
                     cellSpacing="0"
-                    className="mt-5 w-full border border-border border-solid"
+                    className="border-border mt-5 w-full border border-solid"
                     style={{ borderCollapse: "collapse" }}
                   >
                     <thead>
                       <tr>
-                        <th className="bg-muted px-3 py-2 text-left font-medium text-[12px] text-muted-fg uppercase tracking-wider">
+                        <th className="bg-muted text-muted-fg px-3 py-2 text-left text-[12px] font-medium tracking-wider uppercase">
                           Item
                         </th>
-                        <th className="bg-muted px-3 py-2 text-right font-medium text-[12px] text-muted-fg uppercase tracking-wider">
+                        <th className="bg-muted text-muted-fg px-3 py-2 text-right text-[12px] font-medium tracking-wider uppercase">
                           Amount
                         </th>
                       </tr>
@@ -148,13 +149,13 @@ export default function NotificationEmail({
                         return (
                           <tr key={`${item.categoryName}-${item.amount}`}>
                             <td
-                              className={`px-3 py-2.5 text-[13px] text-fg leading-[18px] ${i % 2 === 1 ? "bg-row" : "bg-surface"}`}
+                              className={`text-fg px-3 py-2.5 text-[13px] leading-[18px] ${i % 2 === 1 ? "bg-row" : "bg-surface"}`}
                               style={{ borderBottom: "1px solid #e7e4e7" }}
                             >
                               {label}
                             </td>
                             <td
-                              className={`px-3 py-2.5 text-right text-[13px] text-fg leading-[18px] ${i % 2 === 1 ? "bg-row" : "bg-surface"}`}
+                              className={`text-fg px-3 py-2.5 text-right text-[13px] leading-[18px] ${i % 2 === 1 ? "bg-row" : "bg-surface"}`}
                               style={{
                                 borderBottom: "1px solid #e7e4e7",
                                 fontVariantNumeric: "tabular-nums",
@@ -167,11 +168,11 @@ export default function NotificationEmail({
                         );
                       })}
                       <tr>
-                        <td className="px-3 py-2.5 font-semibold text-[13px] text-fg">
+                        <td className="text-fg px-3 py-2.5 text-[13px] font-semibold">
                           Total
                         </td>
                         <td
-                          className="px-3 py-2.5 text-right font-semibold text-[13px] text-fg"
+                          className="text-fg px-3 py-2.5 text-right text-[13px] font-semibold"
                           style={{ fontVariantNumeric: "tabular-nums" }}
                         >
                           {currencyFormat.format(total)}
@@ -184,10 +185,10 @@ export default function NotificationEmail({
                 {/* ── Note ── */}
                 {Boolean(note) && (
                   <Section
-                    className="mt-5 bg-muted px-4 py-3.5"
+                    className="bg-muted mt-5 px-4 py-3.5"
                     style={{ borderLeft: "3px solid #0086a1" }}
                   >
-                    <Text className="m-0 text-[13px] text-fg leading-5">
+                    <Text className="text-fg m-0 text-[13px] leading-5">
                       {note}
                     </Text>
                   </Section>
@@ -198,7 +199,7 @@ export default function NotificationEmail({
                   <Section className="mt-5">
                     <Img
                       alt="Attachment"
-                      className="w-full border border-border border-solid"
+                      className="border-border w-full border border-solid"
                       height="auto"
                       src={imageUrl}
                       width="100%"
@@ -210,7 +211,7 @@ export default function NotificationEmail({
                 {Boolean(ctaUrl && ctaLabel) && (
                   <Section className="mt-6">
                     <Button
-                      className="box-border inline-block bg-primary px-5 py-2.5 font-display font-semibold text-[13px] text-white tracking-wide no-underline"
+                      className="bg-primary font-display box-border inline-block px-5 py-2.5 text-[13px] font-semibold tracking-wide text-white no-underline"
                       href={ctaUrl}
                     >
                       {ctaLabel}

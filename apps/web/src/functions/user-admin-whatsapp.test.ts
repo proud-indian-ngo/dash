@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { getUserAdminWhatsappSyncPlan } from "./user-admin-whatsapp";
 
 describe("getUserAdminWhatsappSyncPlan", () => {

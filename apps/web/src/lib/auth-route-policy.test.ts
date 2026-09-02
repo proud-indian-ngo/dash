@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { isPublicBetterAuthAdminPath } from "./auth-route-policy";
 
 describe("Better Auth route policy", () => {

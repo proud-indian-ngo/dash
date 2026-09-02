@@ -8,6 +8,7 @@ import {
   SheetTitle,
 } from "@pi-dash/design-system/components/ui/sheet";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+
 import type { GuardianRosterItem } from "@/components/kalakriti/guardians-table";
 
 function DetailRow({ label, value }: { label: string; value: string | null }) {
@@ -70,7 +71,7 @@ export function GuardianDetailSheet({
           </Badge>
 
           <div className="grid gap-4">
-            <h3 className="font-medium text-sm">Contact</h3>
+            <h3 className="text-sm font-medium">Contact</h3>
             <div className="grid gap-3">
               <DetailRow label="Email" value={guardian.snapshotEmail} />
               <DetailRow label="Phone" value={guardian.snapshotPhone} />

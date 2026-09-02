@@ -8,6 +8,7 @@ import {
   SheetTitle,
 } from "@pi-dash/design-system/components/ui/sheet";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+
 import type {
   CompetitionCategoryTableRow,
   ConfigurationDeletePayload,

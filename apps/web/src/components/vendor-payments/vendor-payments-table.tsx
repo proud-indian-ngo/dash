@@ -18,6 +18,7 @@ import { format } from "date-fns";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { toast } from "sonner";
+
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
@@ -34,6 +35,7 @@ import { SHORT_DATE } from "@/lib/date-formats";
 import { formatINR } from "@/lib/form-schemas";
 import { canEditVendorPaymentSubmission } from "@/lib/request-edit-permissions";
 import { getStatusBadge } from "@/lib/status-badge";
+
 import type { VendorPaymentWithRelations } from "./vendor-payment-types";
 
 function computeTotal(
@@ -187,7 +189,7 @@ export function VendorPaymentsTable({
     {
       accessorFn: (row) => row.title,
       cell: ({ row }) => (
-        <span className="truncate font-medium text-sm">
+        <span className="truncate text-sm font-medium">
           {row.original.title}
         </span>
       ),
@@ -202,7 +204,7 @@ export function VendorPaymentsTable({
     {
       accessorFn: (row) => row.vendor?.name,
       cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm">
+        <span className="text-muted-foreground truncate text-sm">
           {row.original.vendor?.name}
         </span>
       ),
@@ -221,7 +223,7 @@ export function VendorPaymentsTable({
     {
       accessorFn: (row) => row.city,
       cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm capitalize">
+        <span className="text-muted-foreground truncate text-sm capitalize">
           {row.original.city}
         </span>
       ),
@@ -236,7 +238,7 @@ export function VendorPaymentsTable({
     {
       accessorFn: (row) => row.event?.name,
       cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm">
+        <span className="text-muted-foreground truncate text-sm">
           {row.original.event?.name}
         </span>
       ),
@@ -260,10 +262,10 @@ export function VendorPaymentsTable({
             <div className="flex min-w-0 items-center gap-3">
               <UserAvatar className="size-8" user={user} />
               <div className="min-w-0 space-y-px">
-                <div className="truncate font-medium text-foreground text-sm">
+                <div className="text-foreground truncate text-sm font-medium">
                   {user.name}
                 </div>
-                <div className="truncate text-muted-foreground text-xs">
+                <div className="text-muted-foreground truncate text-xs">
                   {user.email}
                 </div>
               </div>
@@ -306,7 +308,7 @@ export function VendorPaymentsTable({
       accessorFn: (row) =>
         row.submittedAt === null ? "—" : format(row.submittedAt, SHORT_DATE),
       cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm">
+        <span className="text-muted-foreground truncate text-sm">
           {row.original.submittedAt === null
             ? "—"
             : format(row.original.submittedAt, SHORT_DATE)}

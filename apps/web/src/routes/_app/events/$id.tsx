@@ -4,7 +4,8 @@ import { queries } from "@pi-dash/zero/queries";
 import type { EventInterest, User } from "@pi-dash/zero/schema";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { z } from "zod";
+import * as z from "zod";
+
 import { Loader } from "@/components/loader";
 import { EventDetail } from "@/components/teams/events/event-detail";
 import type { EventRow } from "@/components/teams/events/events-table";
@@ -74,7 +75,7 @@ function KalakritiManagedEventBanner({
   edition?: { year: number };
 }) {
   return (
-    <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border border-primary/30 bg-primary/5 p-4">
+    <div className="border-primary/30 bg-primary/5 mb-6 flex flex-wrap items-center justify-between gap-4 border p-4">
       <div>
         <p className="font-medium">Managed by Kalakriti</p>
         <p className="text-muted-foreground text-sm">

@@ -1,4 +1,5 @@
 import type { PermissionId } from "@pi-dash/db/permissions";
+
 import type { Context } from "./context";
 
 export function assertIsLoggedIn(

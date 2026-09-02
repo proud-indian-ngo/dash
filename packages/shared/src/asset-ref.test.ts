@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { isAssetId, isTemporaryR2Key } from "./asset-ref";
 
 describe("asset reference validation", () => {

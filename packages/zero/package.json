@@ -12,9 +12,9 @@
     "./rrule-utils": "./src/lib/rrule-utils.ts"
   },
   "scripts": {
-    "check:types": "tsc --noEmit",
+    "check:types": "tsc --noEmit --checkers 2",
     "dev": "bun run --env-file=../../.env --env-file=../../.env.worktree zero-cache-dev",
-    "test:unit": "vitest run",
+    "test:unit": "bun --bun vitest run",
     "zero:analyze": "bun run scripts/analyze.ts",
     "zero:generate": "drizzle-zero generate -f -s ../db/src/schema/index.ts -o src/schema.ts"
   },

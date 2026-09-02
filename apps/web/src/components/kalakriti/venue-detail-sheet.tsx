@@ -8,6 +8,7 @@ import {
   SheetTitle,
 } from "@pi-dash/design-system/components/ui/sheet";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+
 import type {
   ConfigurationDeletePayload,
   ConfigurationStatePayload,
@@ -79,7 +80,7 @@ export function VenueDetailSheet({
             <span className="text-muted-foreground text-xs">
               Scheduled Sessions
             </span>
-            <span className="font-display font-semibold text-2xl">
+            <span className="font-display text-2xl font-semibold">
               {venue.sessionCount}
             </span>
           </div>

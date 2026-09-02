@@ -10,6 +10,7 @@ import {
 import { log } from "evlog";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -244,7 +245,7 @@ export function ApproveDialog({
             ) : (
               <input
                 accept="image/jpeg,image/png,image/webp"
-                className="text-sm file:mr-2 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1.5 file:font-medium file:text-sm"
+                className="file:bg-muted text-sm file:mr-2 file:rounded-md file:border-0 file:px-3 file:py-1.5 file:text-sm file:font-medium"
                 disabled={uploading}
                 id="approval-screenshot"
                 onChange={handleFileChange}

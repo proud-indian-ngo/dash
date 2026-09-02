@@ -13,6 +13,7 @@ import {
 } from "nuqs";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+
 import { DateRangeFilter } from "@/components/analytics/date-range-filter";
 import { AuditDetailSheet } from "@/components/audit/audit-detail-sheet";
 import { useMigrateLegacyAuditFilterParams } from "@/components/audit/audit-filters";
@@ -157,13 +158,13 @@ function AuditLogRoute() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-      <h1 className="font-display font-semibold text-2xl tracking-tight">
+      <h1 className="font-display text-2xl font-semibold tracking-tight">
         Audit Log
       </h1>
       <div className="mt-4">
         {loadError ? (
           <div
-            className="flex flex-col items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-4"
+            className="border-destructive/40 bg-destructive/5 flex flex-col items-start gap-3 rounded-md border p-4"
             role="alert"
           >
             <div>

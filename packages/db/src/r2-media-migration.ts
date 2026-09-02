@@ -111,9 +111,9 @@ function planRow(
       changedUrls: after === row.value ? 0 : 1,
       malformed: Boolean(
         referenceKey &&
-          !scopedKey &&
-          (referenceKey.startsWith(`${keyPrefix}/`) ||
-            referenceKey.includes("/avatars/"))
+        !scopedKey &&
+        (referenceKey.startsWith(`${keyPrefix}/`) ||
+          referenceKey.includes("/avatars/"))
       ),
     };
   }

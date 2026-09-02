@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { kalakritiAssignmentQueries } from "./kalakriti-assignment";
 
 function queryAst(query: unknown): string {

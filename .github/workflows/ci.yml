@@ -32,6 +32,8 @@ jobs:
         run: bun run check:types
       - name: Lint
         run: bun run check
+      - name: Unused exports
+        run: bun run check:unused
       - name: Unit tests
         run: bun run test:unit
 
@@ -101,10 +103,7 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: test
         options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-cmd "pg_isready -U postgres" --health-interval 10s --health-timeout 5s --health-retries 5
         ports:
           - 5433:5432
     env:

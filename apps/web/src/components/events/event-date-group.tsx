@@ -1,5 +1,6 @@
 import type { EventInterest } from "@pi-dash/zero/schema";
 import { format, isToday, isTomorrow } from "date-fns";
+
 import { EventCard } from "@/components/events/event-card";
 import type { PublicDisplayRow } from "@/components/events/public-events-table";
 
@@ -35,7 +36,7 @@ export function EventDateGroup({
 }: EventDateGroupProps) {
   return (
     <div ref={groupRef}>
-      <h2 className="sticky top-0 z-10 bg-background/95 px-1 py-2 font-medium text-muted-foreground text-sm backdrop-blur">
+      <h2 className="bg-background/95 text-muted-foreground sticky top-0 z-10 px-1 py-2 text-sm font-medium backdrop-blur">
         {formatGroupDate(date)}
       </h2>
       <div className="flex flex-col gap-2 pt-px">

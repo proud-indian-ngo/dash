@@ -16,6 +16,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 import type { MouseEvent } from "react";
 import { uuidv7 } from "uuidv7";
+
 import type { PublicDisplayRow } from "@/components/events/public-events-table";
 import { useApp } from "@/context/app-context";
 import { handleMutationResult } from "@/lib/mutation-result";
@@ -205,7 +206,7 @@ export function EventCard({
   return (
     <Card
       className={cn(
-        "cursor-pointer transition-colors hover:bg-muted/50",
+        "hover:bg-muted/50 cursor-pointer transition-colors",
         featured && "border-primary/30 bg-primary/5 hover:bg-primary/10",
         hasStarted && !isMember && "opacity-60"
       )}
@@ -214,10 +215,10 @@ export function EventCard({
     >
       <div className="flex">
         <div className="flex w-20 shrink-0 flex-col items-center justify-center border-r px-2 py-2 text-center">
-          <span className="font-medium text-muted-foreground text-xs uppercase">
+          <span className="text-muted-foreground text-xs font-medium uppercase">
             {format(row.startTime, "EEE")}
           </span>
-          <span className="font-semibold text-sm uppercase">
+          <span className="text-sm font-semibold uppercase">
             {format(row.startTime, "MMM d")}
           </span>
           <span className="text-muted-foreground text-xs">

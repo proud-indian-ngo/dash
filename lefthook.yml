@@ -3,11 +3,11 @@ pre-commit:
   commands:
     typecheck:
       glob: "*.{ts,tsx}"
-      run: bun run check:types
+      run: bun run check:types:affected
 
     fix:
       glob: "*.{js,ts,jsx,tsx}"
-      run: bunx ultracite fix {staged_files}
+      run: bunx oxfmt --threads=2 {staged_files} && bunx oxlint --fix {staged_files}
       stage_fixed: true
 
     check:
@@ -21,11 +21,7 @@ pre-commit:
 
     test:
       glob: "*.{ts,tsx}"
-      run: bun run test:unit
-
-    unused:
-      glob: "*.{ts,tsx}"
-      run: bun run check:unused
+      run: bun run test:unit:affected
 
 post-checkout:
   commands:

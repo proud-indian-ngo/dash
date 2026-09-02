@@ -8,6 +8,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import { log } from "evlog";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { uuidv7 } from "uuidv7";
+
 import {
   EditorSkeleton,
   RendererSkeleton,
@@ -93,7 +94,7 @@ function EventFeedbackAdmin({
       {/* Stats bar */}
       <div className="flex flex-col gap-2 rounded-lg border p-4">
         <div className="flex items-center justify-between">
-          <span className="font-medium text-sm">
+          <span className="text-sm font-medium">
             {Math.min(feedback.length, memberCount)}/{memberCount} submitted
           </span>
           {feedbackDeadline ? (
@@ -107,16 +108,16 @@ function EventFeedbackAdmin({
             </Badge>
           ) : null}
         </div>
-        <div className="h-1.5 rounded-full bg-muted">
+        <div className="bg-muted h-1.5 rounded-full">
           <div
-            className="h-full rounded-full bg-primary transition-all duration-300"
+            className="bg-primary h-full rounded-full transition-all duration-300"
             style={{ width: `${Math.min(pct, 100)}%` }}
           />
         </div>
       </div>
 
       {feedback.length === 0 ? (
-        <p className="text-center text-muted-foreground text-sm">
+        <p className="text-muted-foreground text-center text-sm">
           No feedback submitted yet.
         </p>
       ) : (
@@ -125,7 +126,7 @@ function EventFeedbackAdmin({
           return (
             <div className="rounded-lg border p-4" key={item.id}>
               <div className="mb-2 flex items-center justify-between">
-                <span className="font-medium text-muted-foreground text-xs">
+                <span className="text-muted-foreground text-xs font-medium">
                   #{index + 1}
                 </span>
                 <div className="flex items-center gap-2">
@@ -309,7 +310,7 @@ function EventFeedbackParticipant({
 
   if (loading) {
     return (
-      <p className="text-center text-muted-foreground text-sm">
+      <p className="text-muted-foreground text-center text-sm">
         Loading feedback...
       </p>
     );
@@ -319,7 +320,7 @@ function EventFeedbackParticipant({
   if (feedbackDeadlinePassed) {
     if (!myFeedback) {
       return (
-        <p className="text-center text-muted-foreground text-sm">
+        <p className="text-muted-foreground text-center text-sm">
           Feedback period has ended.
         </p>
       );
@@ -360,13 +361,13 @@ function EventFeedbackParticipant({
   // New submission — guidance + editor
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-lg border bg-muted/30 p-4">
-        <p className="font-medium text-sm">Share your anonymous feedback</p>
+      <div className="bg-muted/30 rounded-lg border p-4">
+        <p className="text-sm font-medium">Share your anonymous feedback</p>
         <p className="text-muted-foreground text-xs">
           Your identity will not be visible to anyone.
         </p>
         {feedbackDeadline ? (
-          <p className="mt-1 text-muted-foreground text-xs">
+          <p className="text-muted-foreground mt-1 text-xs">
             Deadline: {format(new Date(feedbackDeadline), LONG_DATE_TIME)}
           </p>
         ) : null}
@@ -401,7 +402,7 @@ function FeedbackCard({
       <Suspense fallback={<RendererSkeleton />}>
         <PlateRenderer content={feedback.content} eventId={eventId} />
       </Suspense>
-      <span className="mt-2 block text-muted-foreground text-xs">
+      <span className="text-muted-foreground mt-2 block text-xs">
         Submitted{" "}
         {formatDistanceToNow(new Date(feedback.createdAt), {
           addSuffix: true,

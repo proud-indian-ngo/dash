@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+
 import { expect, test } from "../../fixtures/test";
 
 const ZERO_AUTH_PROTECTED_EVENT_ID = "e2e00000-0000-4000-8000-000000000201";

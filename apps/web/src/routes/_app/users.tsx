@@ -11,6 +11,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+
 import { FormModal } from "@/components/form/form-modal";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { UserDetailSheet } from "@/components/users/user-detail-sheet";
@@ -221,7 +222,7 @@ function UsersRouteComponent() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-      <h1 className="font-display font-semibold text-2xl tracking-tight">
+      <h1 className="font-display text-2xl font-semibold tracking-tight">
         Users
       </h1>
 

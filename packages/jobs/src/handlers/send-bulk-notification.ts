@@ -2,6 +2,7 @@ import { sendBulkMessage } from "@pi-dash/notifications/send-message";
 import { TOPICS } from "@pi-dash/notifications/topics";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
+
 import type { BulkNotificationPayload } from "../enqueue";
 
 export async function handleSendBulkNotification(

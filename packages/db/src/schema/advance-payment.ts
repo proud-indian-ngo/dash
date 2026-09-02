@@ -10,6 +10,7 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
+
 import { user } from "./auth";
 import { expenseCategory } from "./expense-category";
 import { attachmentTypeEnum, cityEnum, historyActionEnum } from "./shared";

@@ -6,6 +6,7 @@ import { env } from "@pi-dash/env/server";
 import { sendWhatsAppGroupMessage } from "@pi-dash/whatsapp/messaging";
 import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
+
 import { sendBulkMessage, sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
 

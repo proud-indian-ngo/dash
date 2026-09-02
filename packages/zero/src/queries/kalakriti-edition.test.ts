@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { kalakritiEditionQueries } from "./kalakriti-edition";
 
 describe("Kalakriti Edition query privacy", () => {

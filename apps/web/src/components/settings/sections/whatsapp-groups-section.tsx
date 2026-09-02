@@ -15,10 +15,12 @@ import { log } from "evlog";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
+
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useApp } from "@/context/app-context";
 import { fetchWhatsAppGroups } from "@/functions/whatsapp-groups";
 import { handleMutationResult } from "@/lib/mutation-result";
+
 import { GroupAssignments } from "./whatsapp-group-assignments";
 import { GroupForm, type GroupFormValues } from "./whatsapp-group-form";
 import { WhatsAppGroupPickerDialog } from "./whatsapp-group-picker-dialog";
@@ -42,7 +44,7 @@ function WhatsAppGroupDisplayRow({
   return (
     <div className="flex items-start justify-between rounded-md border p-3">
       <div className="flex flex-col gap-0.5">
-        <span className="font-medium text-sm">{group.name}</span>
+        <span className="text-sm font-medium">{group.name}</span>
         <span className="text-muted-foreground text-xs">{group.jid}</span>
         {group.description ? (
           <span className="text-muted-foreground text-xs">
@@ -213,7 +215,7 @@ export function WhatsAppGroupsSection() {
   return (
     <div className="flex flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
-        <p className="font-medium text-xs">WhatsApp Groups</p>
+        <p className="text-xs font-medium">WhatsApp Groups</p>
         {showAddButton ? (
           <Button
             disabled={wapiConfigured === null}
@@ -242,7 +244,7 @@ export function WhatsAppGroupsSection() {
               <div key={group.id}>
                 {editingGroup ? (
                   <div className="rounded-md border p-3">
-                    <p className="mb-3 font-medium text-sm">Edit Group</p>
+                    <p className="mb-3 text-sm font-medium">Edit Group</p>
                     <GroupForm
                       initialValues={{
                         description: editingGroup.description ?? "",
@@ -270,7 +272,7 @@ export function WhatsAppGroupsSection() {
       {groupList.length === 0 && !editMode ? (
         <>
           <Separator />
-          <p className="text-center text-muted-foreground text-xs">
+          <p className="text-muted-foreground text-center text-xs">
             No WhatsApp groups yet.
           </p>
         </>

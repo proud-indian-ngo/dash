@@ -10,13 +10,13 @@
     }
   },
   "scripts": {
-    "check:types": "tsc --noEmit",
-    "dev": "email dev -p 3100 --dir src/templates"
+    "check:types": "tsc --noEmit --checkers 2",
+    "dev:email": "email dev -p 3100 --dir src/templates"
   },
   "dependencies": {
     "@pi-dash/env": "workspace:*",
     "@react-email/ui": "^6.9.3",
-    "nodemailer": "^9.0.5",
+    "nodemailer": "^9.1.1",
     "react": "catalog:",
     "react-email": "^6.9.3"
   },

@@ -1,5 +1,6 @@
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
+
 import "../context";
 import {
   assertHasPermissionOrTeamLead,
@@ -21,9 +22,9 @@ export const eventPhotoMutators = {
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
 
-      const photo = (await tx.run(zql.eventPhoto.where("id", args.id).one())) as
-        | EventPhoto
-        | undefined;
+      const photo = (await tx.run(
+        zql.eventPhoto.where("id", args.id).one()
+      )) as EventPhoto | undefined;
       if (!photo) {
         throw new Error("Photo not found");
       }
@@ -219,9 +220,9 @@ export const eventPhotoMutators = {
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
 
-      const photo = (await tx.run(zql.eventPhoto.where("id", args.id).one())) as
-        | EventPhoto
-        | undefined;
+      const photo = (await tx.run(
+        zql.eventPhoto.where("id", args.id).one()
+      )) as EventPhoto | undefined;
       if (!photo) {
         throw new Error("Photo not found");
       }
@@ -282,9 +283,9 @@ export const eventPhotoMutators = {
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
 
-      const photo = (await tx.run(zql.eventPhoto.where("id", args.id).one())) as
-        | EventPhoto
-        | undefined;
+      const photo = (await tx.run(
+        zql.eventPhoto.where("id", args.id).one()
+      )) as EventPhoto | undefined;
       if (!photo) {
         throw new Error("Photo not found");
       }

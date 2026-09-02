@@ -55,6 +55,7 @@ import debounce from "lodash/debounce";
 import { parseAsString, useQueryState } from "nuqs";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import {
   compileFilterQuery,
@@ -444,7 +445,7 @@ function DataTableWrapperBase<TData extends object>({
           tableLayout={tableLayout}
         >
           <Card className="w-full gap-3 py-3.5!">
-            <CardHeader className="@lg/card-header:grid-cols-[1fr_auto]! grid-cols-1! gap-2.5! px-3.5">
+            <CardHeader className="grid-cols-1! gap-2.5! px-3.5 @lg/card-header:grid-cols-[1fr_auto]!">
               <div className="flex flex-wrap items-center gap-2.5">
                 <InputGroup className="w-full sm:w-72">
                   <InputGroupAddon align="inline-start">
@@ -482,7 +483,7 @@ function DataTableWrapperBase<TData extends object>({
                 {toolbarFilters}
               </div>
 
-              <CardAction className="justify-self-start! @lg/card-header:justify-self-end! col-auto! @lg/card-header:col-start-2! @lg/card-header:row-span-2! row-auto! @lg/card-header:row-start-1! flex flex-wrap items-center gap-1">
+              <CardAction className="col-auto! row-auto! flex flex-wrap items-center gap-1 justify-self-start! @lg/card-header:col-start-2! @lg/card-header:row-span-2! @lg/card-header:row-start-1! @lg/card-header:justify-self-end!">
                 <DataGridColumnVisibility
                   table={table}
                   trigger={

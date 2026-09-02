@@ -6,14 +6,16 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@pi-dash/design-system/components/ui/sheet";
+
 import { formatTimestamp } from "@/lib/date-formats";
+
 import type { AuditLogRow } from "./audit-types";
 
 function DetailRow({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="grid gap-0.5">
       <span className="text-muted-foreground text-xs">{label}</span>
-      <span className="break-all text-sm">{value || "None"}</span>
+      <span className="text-sm break-all">{value || "None"}</span>
     </div>
   );
 }
@@ -69,8 +71,8 @@ export function AuditDetailSheet({
                 <DetailRow label="Trace ID" value={entry.traceId} />
               </div>
               <div className="grid gap-2">
-                <h3 className="font-medium text-sm">Safe metadata</h3>
-                <pre className="max-h-96 overflow-auto rounded-md border bg-muted/50 p-3 font-mono text-xs leading-relaxed">
+                <h3 className="text-sm font-medium">Safe metadata</h3>
+                <pre className="bg-muted/50 max-h-96 overflow-auto rounded-md border p-3 font-mono text-xs leading-relaxed">
                   {JSON.stringify(entry.metadata, null, 2)}
                 </pre>
               </div>

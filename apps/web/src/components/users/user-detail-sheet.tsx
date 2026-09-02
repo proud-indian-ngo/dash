@@ -9,6 +9,7 @@ import {
 import type { User } from "@pi-dash/zero/schema";
 import { format } from "date-fns";
 import capitalize from "lodash/capitalize";
+
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { SHORT_DATE } from "@/lib/date-formats";
 
@@ -61,7 +62,7 @@ export function UserDetailSheet({
               </div>
 
               <div className="grid gap-4">
-                <h3 className="font-medium text-sm">Profile</h3>
+                <h3 className="text-sm font-medium">Profile</h3>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <DetailRow label="Phone" value={user.phone} />
                   <DetailRow label="Group" value={user.registrationGroup} />
@@ -79,7 +80,7 @@ export function UserDetailSheet({
               </div>
 
               <div className="grid gap-4">
-                <h3 className="font-medium text-sm">Role</h3>
+                <h3 className="text-sm font-medium">Role</h3>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <DetailRow
                     label="Role"
@@ -90,7 +91,7 @@ export function UserDetailSheet({
 
               {Boolean(user.banned) && (
                 <div className="grid gap-4">
-                  <h3 className="font-medium text-sm">Ban Details</h3>
+                  <h3 className="text-sm font-medium">Ban Details</h3>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <DetailRow label="Reason" value={user.banReason} />
                     <DetailRow
@@ -106,7 +107,7 @@ export function UserDetailSheet({
               )}
 
               <div className="grid gap-4">
-                <h3 className="font-medium text-sm">Dates</h3>
+                <h3 className="text-sm font-medium">Dates</h3>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <DetailRow
                     label="Joined"

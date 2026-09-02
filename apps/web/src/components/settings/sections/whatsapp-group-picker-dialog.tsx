@@ -9,6 +9,7 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { log } from "evlog";
 import { useEffect, useState } from "react";
+
 import {
   Dialog,
   DialogContent,
@@ -57,7 +58,7 @@ function DialogBody({
     onSearchChange(e.target.value)
   );
   if (error) {
-    return <p className="py-4 text-center text-destructive text-sm">{error}</p>;
+    return <p className="text-destructive py-4 text-center text-sm">{error}</p>;
   }
 
   if (loading) {
@@ -72,7 +73,7 @@ function DialogBody({
 
   if (totalFetched === 0) {
     return (
-      <p className="py-4 text-center text-muted-foreground text-sm">
+      <p className="text-muted-foreground py-4 text-center text-sm">
         No WhatsApp groups found. The connected account may not be part of any
         groups.
       </p>
@@ -81,7 +82,7 @@ function DialogBody({
 
   if (groups.length === 0) {
     return (
-      <p className="py-4 text-center text-muted-foreground text-sm">
+      <p className="text-muted-foreground py-4 text-center text-sm">
         All WhatsApp groups have already been added.
       </p>
     );
@@ -90,7 +91,7 @@ function DialogBody({
     <>
       <div className="relative">
         <HugeiconsIcon
-          className="absolute top-2.5 left-2.5 size-4 text-muted-foreground"
+          className="text-muted-foreground absolute top-2.5 left-2.5 size-4"
           icon={Search01Icon}
           strokeWidth={2}
         />
@@ -104,7 +105,7 @@ function DialogBody({
       <ScrollArea className="max-h-72">
         <div className="flex flex-col gap-1">
           {filtered.length === 0 ? (
-            <p className="py-4 text-center text-muted-foreground text-sm">
+            <p className="text-muted-foreground py-4 text-center text-sm">
               No groups match your search.
             </p>
           ) : (
@@ -136,7 +137,7 @@ function GroupPickerOption({
 
   return (
     <button
-      className="flex w-full cursor-pointer items-start gap-3 rounded-md p-2 text-left hover:bg-accent"
+      className="hover:bg-accent flex w-full cursor-pointer items-start gap-3 rounded-md p-2 text-left"
       onClick={handleToggle}
       type="button"
     >
@@ -147,10 +148,10 @@ function GroupPickerOption({
         tabIndex={-1}
       />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="whitespace-normal break-words font-medium text-sm leading-snug">
+        <span className="text-sm leading-snug font-medium break-words whitespace-normal">
           {group.name}
         </span>
-        <span className="truncate text-muted-foreground text-xs">
+        <span className="text-muted-foreground truncate text-xs">
           {group.jid}
         </span>
       </div>

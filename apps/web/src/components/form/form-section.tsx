@@ -1,6 +1,6 @@
 export function FormSectionHeading({ children }: { children: string }) {
   return (
-    <p className="pt-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
+    <p className="text-muted-foreground pt-2 text-xs font-medium tracking-wider uppercase">
       {children}
     </p>
   );

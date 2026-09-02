@@ -12,6 +12,7 @@ import {
 } from "@pi-dash/design-system/components/ui/chart";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { Bar, BarChart, XAxis, YAxis } from "recharts";
+
 import { formatINR } from "@/lib/form-schemas";
 import type { SubmitterDataPoint } from "@/lib/stats";
 
@@ -34,7 +35,7 @@ export function TopSubmittersChart({ data }: { data: SubmitterDataPoint[] }) {
         <CardHeader>
           <CardTitle className="text-sm">Request Submitters</CardTitle>
         </CardHeader>
-        <CardContent className="flex h-[300px] items-center justify-center text-muted-foreground text-sm">
+        <CardContent className="text-muted-foreground flex h-[300px] items-center justify-center text-sm">
           No data for this period
         </CardContent>
       </Card>

@@ -8,6 +8,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { type ReactNode, useCallback } from "react";
 import { uuidv7 } from "uuidv7";
+
 import {
   GuardianCenterAssignmentForm,
   LiaisonCenterAssignmentForm,
@@ -171,7 +172,7 @@ export function CenterAssignments({
   if (allowNewAssignments && volunteerOptionsError) {
     liaisonAssignmentControl = (
       <div
-        className="flex flex-wrap items-center gap-2 text-destructive text-sm"
+        className="text-destructive flex flex-wrap items-center gap-2 text-sm"
         role="alert"
       >
         <span>Central volunteers could not be loaded.</span>
@@ -198,7 +199,7 @@ export function CenterAssignments({
   return (
     <div className="grid gap-6 xl:grid-cols-2">
       {canManageGuardians ? (
-        <section className="space-y-4 p-4 ring-1 ring-foreground/15">
+        <section className="ring-foreground/15 space-y-4 p-4 ring-1">
           <h3 className="font-medium">Guardians</h3>
           <AssignmentList
             assignments={guardianAssignments}
@@ -214,7 +215,7 @@ export function CenterAssignments({
         </section>
       ) : null}
       {canManageLiaisons ? (
-        <section className="space-y-4 p-4 ring-1 ring-foreground/15">
+        <section className="ring-foreground/15 space-y-4 p-4 ring-1">
           <h3 className="font-medium">Liaisons</h3>
           <AssignmentList
             assignments={liaisonAssignments}

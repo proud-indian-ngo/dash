@@ -10,6 +10,7 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
 import z from "zod";
+
 import type {
   KalakritiEntryRow,
   KalakritiEntrySession,
@@ -164,7 +165,7 @@ function KalakritiEntryEventsPage() {
         actions={
           <div className="min-w-52">
             <label
-              className="mb-1 block font-medium text-sm"
+              className="mb-1 block text-sm font-medium"
               htmlFor="entry-center"
             >
               Center

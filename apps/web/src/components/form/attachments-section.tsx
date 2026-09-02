@@ -25,6 +25,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
+
 import { AddUrlRow } from "@/components/form/add-url-row";
 import {
   getRequestUploadUrl,
@@ -42,6 +43,7 @@ import {
   type Attachment,
   MAX_ATTACHMENT_FILES,
 } from "@/lib/form-schemas";
+
 import { uploadSingleAttachment } from "./attachment-upload";
 
 interface AttachmentsSectionProps {
@@ -96,14 +98,14 @@ function AttachmentRow({
   });
 
   return (
-    <div className="fade-in-0 flex min-w-0 animate-in items-center gap-2 rounded-md border px-3 py-2 duration-150 ease-(--ease-out-expo)">
+    <div className="fade-in-0 animate-in flex min-w-0 items-center gap-2 rounded-md border px-3 py-2 duration-150 ease-(--ease-out-expo)">
       <span className="min-w-0 flex-1 truncate text-sm">
         {getAttachmentLabel(attachment)}
       </span>
       <div className="flex shrink-0 items-center gap-2">
         {attachment.type === "url" ? (
           <a
-            className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+            className="text-primary text-xs font-medium underline-offset-2 hover:underline"
             href={getAttachmentPreviewHref(attachment)}
             rel="noopener noreferrer"
             target="_blank"
@@ -117,7 +119,7 @@ function AttachmentRow({
         {attachment.type === "file" && downloadRef ? (
           <>
             <a
-              className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+              className="text-primary text-xs font-medium underline-offset-2 hover:underline"
               href={getAttachmentPreviewHref(attachment, downloadRef)}
               rel="noopener noreferrer"
               target="_blank"
@@ -125,7 +127,7 @@ function AttachmentRow({
               Preview
             </a>
             <a
-              className="font-medium text-primary text-xs underline-offset-2 hover:underline"
+              className="text-primary text-xs font-medium underline-offset-2 hover:underline"
               download
               href={getAttachmentDownloadHref(attachment, downloadRef)}
               rel="noopener noreferrer"
@@ -338,7 +340,7 @@ export function AttachmentsSection({
       </span>
 
       <div className="flex items-center justify-between gap-2">
-        <Label className="font-medium text-sm">Attachments</Label>
+        <Label className="text-sm font-medium">Attachments</Label>
         <span className="text-muted-foreground text-xs">
           Files: {fileAttachments.length}/{MAX_ATTACHMENT_FILES}
         </span>
@@ -370,16 +372,16 @@ export function AttachmentsSection({
         type="button"
       >
         <div className="flex flex-col items-center gap-4">
-          <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+          <div className="bg-muted flex size-12 items-center justify-center rounded-full">
             <HugeiconsIcon
-              className="size-5 text-muted-foreground"
+              className="text-muted-foreground size-5"
               icon={Upload01Icon}
               strokeWidth={2}
             />
           </div>
 
           <div className="space-y-2">
-            <p className="font-medium text-sm">
+            <p className="text-sm font-medium">
               Drop files here or browse files
             </p>
             <p className="text-muted-foreground text-xs">
@@ -392,7 +394,7 @@ export function AttachmentsSection({
 
       {errors.length > 0 ? (
         <div
-          className="flex flex-col gap-1 rounded-md border border-destructive/50 px-3 py-2"
+          className="border-destructive/50 flex flex-col gap-1 rounded-md border px-3 py-2"
           role="alert"
         >
           {errors.map((error) => (

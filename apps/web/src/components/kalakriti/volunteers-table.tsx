@@ -20,6 +20,7 @@ import {
   type KalakritiResponsibility,
 } from "@pi-dash/shared/kalakriti";
 import type { ReactNode } from "react";
+
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import {
   createVolunteerFilterFields,
@@ -227,7 +228,7 @@ export function VolunteersTable({
     {
       accessorKey: "snapshotName",
       cell: ({ row }) => (
-        <span className="font-medium text-sm" data-testid="row-title">
+        <span className="text-sm font-medium" data-testid="row-title">
           {row.original.snapshotName}
         </span>
       ),

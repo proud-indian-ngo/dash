@@ -8,6 +8,7 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+
 import { TeamFormDialog } from "@/components/teams/team-form-dialog";
 import { TeamsTable } from "@/components/teams/teams-table";
 import { useApp } from "@/context/app-context";
@@ -48,7 +49,7 @@ function TeamsRouteComponent() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-      <h1 className="font-display font-semibold text-2xl tracking-tight">
+      <h1 className="font-display text-2xl font-semibold tracking-tight">
         Teams
       </h1>
 

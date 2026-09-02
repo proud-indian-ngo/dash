@@ -22,6 +22,7 @@ import { parseAsStringLiteral, useQueryState } from "nuqs";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
+
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import {
@@ -43,6 +44,7 @@ import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useDialogManager } from "@/hooks/use-dialog-manager";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
+
 import { AddEventMemberDialog } from "./add-event-member-dialog";
 import type { EditScope } from "./edit-scope-dialog";
 import { EditScopeDialog } from "./edit-scope-dialog";
@@ -415,7 +417,7 @@ function EventHeader({
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
-          <h1 className="font-display font-semibold text-2xl tracking-tight">
+          <h1 className="font-display text-2xl font-semibold tracking-tight">
             {event.name}
           </h1>
           <Badge size="sm" variant={variant}>
@@ -423,7 +425,7 @@ function EventHeader({
           </Badge>
         </div>
         <button
-          className="text-left text-muted-foreground text-sm hover:underline"
+          className="text-muted-foreground text-left text-sm hover:underline"
           onClick={stableOnClick1}
           type="button"
         >
@@ -602,11 +604,11 @@ function EventPostEventPanel({
   if (showUpcomingExpenses) {
     return (
       <div className="flex flex-col gap-6">
-        <p className="py-8 text-center text-muted-foreground text-sm">
+        <p className="text-muted-foreground py-8 text-center text-sm">
           {message}
         </p>
         <div className="flex flex-col gap-3">
-          <h2 className="font-medium text-sm">Expenses</h2>
+          <h2 className="text-sm font-medium">Expenses</h2>
           <EventExpenses eventId={eventTabsProps.event.id} />
         </div>
       </div>
@@ -614,7 +616,7 @@ function EventPostEventPanel({
   }
 
   return (
-    <p className="py-12 text-center text-muted-foreground text-sm">{message}</p>
+    <p className="text-muted-foreground py-12 text-center text-sm">{message}</p>
   );
 }
 
@@ -1094,7 +1096,7 @@ export function EventDetail({
           {/* Main column */}
           <div className="lg:col-span-3">
             {event.description ? (
-              <p className="mb-6 whitespace-pre-line text-muted-foreground text-sm">
+              <p className="text-muted-foreground mb-6 text-sm whitespace-pre-line">
                 {event.description}
               </p>
             ) : null}

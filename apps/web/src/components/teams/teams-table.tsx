@@ -21,6 +21,7 @@ import type {
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
+
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useApp } from "@/context/app-context";
@@ -92,7 +93,7 @@ function RowActions({
 function TeamNameButton({ id, name }: { id: string; name: string }) {
   return (
     <Link
-      className="truncate text-left font-medium text-sm hover:underline"
+      className="truncate text-left text-sm font-medium hover:underline"
       data-testid="row-title"
       params={{ id }}
       to="/teams/$id"
@@ -155,7 +156,7 @@ export function TeamsTable({
     {
       accessorFn: (row) => row.description,
       cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm">
+        <span className="text-muted-foreground truncate text-sm">
           {row.original.description || "—"}
         </span>
       ),
@@ -189,7 +190,7 @@ export function TeamsTable({
     {
       accessorFn: (row) => row.whatsappGroup?.name,
       cell: ({ row }) => (
-        <span className="truncate text-muted-foreground text-sm">
+        <span className="text-muted-foreground truncate text-sm">
           {row.original.whatsappGroup?.name || "—"}
         </span>
       ),

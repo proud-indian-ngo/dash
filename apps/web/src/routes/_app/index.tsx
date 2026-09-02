@@ -21,6 +21,7 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useQueryStates } from "nuqs";
+
 import { DateRangeFilter } from "@/components/analytics/date-range-filter";
 import { MyTeams } from "@/components/dashboard/my-teams";
 import { PendingReviews } from "@/components/dashboard/pending-reviews";
@@ -172,8 +173,8 @@ function WelcomeDashboard() {
   const { session } = Route.useRouteContext();
 
   return (
-    <div className="app-container fade-in-0 mx-auto max-w-7xl animate-in px-2 py-6 duration-150 ease-(--ease-out-expo) sm:px-4">
-      <h1 className="font-display font-semibold text-2xl tracking-tight">
+    <div className="app-container fade-in-0 animate-in mx-auto max-w-7xl px-2 py-6 duration-150 ease-(--ease-out-expo) sm:px-4">
+      <h1 className="font-display text-2xl font-semibold tracking-tight">
         Dashboard
       </h1>
       <Card className="mt-6">
@@ -288,9 +289,9 @@ function OrientedDashboard() {
   });
 
   return (
-    <div className="app-container fade-in-0 mx-auto max-w-7xl animate-in px-2 py-6 duration-150 ease-(--ease-out-expo) sm:px-4">
+    <div className="app-container fade-in-0 animate-in mx-auto max-w-7xl px-2 py-6 duration-150 ease-(--ease-out-expo) sm:px-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="font-display font-semibold text-2xl tracking-tight">
+        <h1 className="font-display text-2xl font-semibold tracking-tight">
           Dashboard
         </h1>
         <div className="flex items-center gap-2">

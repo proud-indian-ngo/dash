@@ -6,25 +6,29 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { getRefCurrent } from "@pi-dash/design-system/hooks/get-ref-current";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import type { EventPhoto, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Lightbox, { type Slide } from "yet-another-react-lightbox";
-import Thumbnails from "yet-another-react-lightbox/plugins/thumbnails";
+
 import "yet-another-react-lightbox/plugins/thumbnails.css";
+import { toast } from "sonner";
+import Lightbox, { type Slide } from "yet-another-react-lightbox";
+
+import "yet-another-react-lightbox/styles.css";
+import Thumbnails from "yet-another-react-lightbox/plugins/thumbnails";
 import Video from "yet-another-react-lightbox/plugins/video";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
-import "yet-another-react-lightbox/styles.css";
-import { getRefCurrent } from "@pi-dash/design-system/hooks/get-ref-current";
-import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { toast } from "sonner";
+
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { getEventPhotoUploadUrl } from "@/functions/attachments";
 import { uploadPhotoToImmich } from "@/functions/immich-upload";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
+
 import { LightboxFooter, type PhotoSlide } from "./event-photos-lightbox";
 import { PhotoCard } from "./photo-card";
 import {
@@ -446,7 +450,7 @@ export function EventPhotos({
         {immichAlbumUrl ? (
           <>
             <a
-              className="inline-flex h-7 items-center gap-1 border border-border bg-background px-2.5 font-medium text-xs hover:bg-muted hover:text-foreground"
+              className="border-border bg-background hover:bg-muted hover:text-foreground inline-flex h-7 items-center gap-1 border px-2.5 text-xs font-medium"
               href={immichAlbumUrl}
               rel="noopener noreferrer"
               target="_blank"
@@ -482,7 +486,7 @@ export function EventPhotos({
       {showPendingSection ? (
         <div className="flex flex-col gap-3 rounded-lg border p-4">
           <div className="flex items-center justify-between">
-            <p className="font-medium text-sm">
+            <p className="text-sm font-medium">
               Pending Approval ({pendingPhotos.length})
             </p>
             <Button
@@ -510,7 +514,7 @@ export function EventPhotos({
       ) : null}
       {showMyPendingSection ? (
         <div className="flex flex-col gap-3 rounded-lg border p-4">
-          <p className="font-medium text-sm">
+          <p className="text-sm font-medium">
             Your Pending Media ({myPendingPhotos.length})
           </p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
@@ -530,7 +534,7 @@ export function EventPhotos({
       {/* Approved photos */}
       {approvedPhotos.length > 0 ? (
         <div className="flex flex-col gap-3">
-          <p className="font-medium text-sm">
+          <p className="text-sm font-medium">
             Approved ({approvedPhotos.length})
           </p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
@@ -552,7 +556,7 @@ export function EventPhotos({
       {isEmpty ? (
         <div className="flex flex-col items-center gap-2 py-12 text-center">
           <HugeiconsIcon
-            className="size-8 text-muted-foreground"
+            className="text-muted-foreground size-8"
             icon={Image02Icon}
             strokeWidth={1.5}
           />

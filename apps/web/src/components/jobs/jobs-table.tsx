@@ -19,6 +19,7 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { MouseEvent, ReactNode } from "react";
 import { useMemo } from "react";
+
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { getStateBadge } from "@/components/jobs/job-detail-sheet";
 import { createJobFilterFields } from "@/components/jobs/job-filters";

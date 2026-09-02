@@ -3,6 +3,7 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { Link } from "@tanstack/react-router";
+
 import { formatINR } from "@/lib/form-schemas";
 import { getStatusBadge } from "@/lib/status-badge";
 
@@ -30,14 +31,14 @@ function ExpenseRow({
   const { label, variant } = getStatusBadge(status);
   return (
     <Link
-      className="flex items-center justify-between gap-4 py-2 outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40"
+      className="hover:bg-muted/40 focus-visible:bg-muted/40 flex items-center justify-between gap-4 py-2 transition-colors outline-none"
       params={{ id }}
       to={href}
     >
       <div className="min-w-0">
-        <p className="truncate font-medium text-sm">{title}</p>
+        <p className="truncate text-sm font-medium">{title}</p>
         {submitter ? (
-          <p className="truncate text-muted-foreground text-xs">{submitter}</p>
+          <p className="text-muted-foreground truncate text-xs">{submitter}</p>
         ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-3">
@@ -53,7 +54,7 @@ function ExpenseRow({
 function SectionHeader({ title, total }: { title: string; total: number }) {
   return (
     <div className="flex items-center justify-between py-1">
-      <p className="font-semibold text-muted-foreground text-xs uppercase tracking-wide">
+      <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
         {title}
       </p>
       <span className="text-muted-foreground text-xs tabular-nums">
@@ -103,7 +104,7 @@ export function EventExpenses({ eventId }: EventExpensesProps) {
 
   if (reimbList.length === 0 && vpList.length === 0) {
     return (
-      <p className="py-8 text-center text-muted-foreground text-sm">
+      <p className="text-muted-foreground py-8 text-center text-sm">
         No expenses linked to this event yet.
       </p>
     );
@@ -151,8 +152,8 @@ export function EventExpenses({ eventId }: EventExpensesProps) {
 
       {reimbList.length > 0 && vpList.length > 0 ? (
         <div className="flex items-center justify-between border-t pt-2">
-          <p className="font-semibold text-sm">Total</p>
-          <p className="font-semibold text-sm tabular-nums">
+          <p className="text-sm font-semibold">Total</p>
+          <p className="text-sm font-semibold tabular-nums">
             {formatINR(grandTotal)}
           </p>
         </div>

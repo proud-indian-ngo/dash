@@ -7,6 +7,7 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
+
 import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notice";
 import { Loader } from "@/components/loader";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -184,10 +185,10 @@ function RegistrationReadinessBlockers({
 
   return (
     <section aria-labelledby="readiness-blockers-heading">
-      <p className="font-medium text-sm" id="readiness-blockers-heading">
+      <p className="text-sm font-medium" id="readiness-blockers-heading">
         Complete these before {action} registration
       </p>
-      <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground text-sm">
+      <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm">
         {blockers.map((blocker) => (
           <li key={blocker.code}>{blocker.message}</li>
         ))}

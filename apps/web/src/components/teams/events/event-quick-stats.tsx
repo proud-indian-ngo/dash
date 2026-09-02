@@ -7,6 +7,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Card, CardContent } from "@pi-dash/design-system/components/ui/card";
+
 import { formatINR } from "@/lib/form-schemas";
 
 function StatItem({
@@ -21,12 +22,12 @@ function StatItem({
   return (
     <div className="flex items-center gap-2">
       <HugeiconsIcon
-        className="size-4 shrink-0 text-muted-foreground"
+        className="text-muted-foreground size-4 shrink-0"
         icon={icon}
         strokeWidth={2}
       />
       <div className="min-w-0">
-        <div className="font-medium text-sm tabular-nums">{value}</div>
+        <div className="text-sm font-medium tabular-nums">{value}</div>
         <div className="text-muted-foreground text-xs">{label}</div>
       </div>
     </div>

@@ -82,10 +82,10 @@ export function MobileWeekStrip({
               onClick={handleDateClick}
               type="button"
             >
-              <span className="text-[10px] uppercase tracking-wide opacity-70">
+              <span className="text-[10px] tracking-wide uppercase opacity-70">
                 {format(day, "EEE")}
               </span>
-              <span className="font-medium text-sm">{format(day, "d")}</span>
+              <span className="text-sm font-medium">{format(day, "d")}</span>
               {hasEvents && (
                 <span
                   aria-hidden="true"
