@@ -1,24 +1,30 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-const notifyKalakritiGuardianAccess = vi.hoisted(() =>
-  vi.fn(async () => undefined)
+import * as userActual from "@pi-dash/notifications/send/user";
+
+const hoisted = <T>(factory: () => T): T => factory();
+
+const notifyKalakritiGuardianAccess = hoisted(() =>
+  mock(async () => undefined)
 );
 
-vi.mock("@pi-dash/notifications/send/user", () => ({
+mock.module("@pi-dash/notifications/send/user", () => ({
+  ...userActual,
   notifyKalakritiGuardianAccess,
 }));
-vi.mock("@pi-dash/notifications/send-message", () => ({
+mock.module("@pi-dash/notifications/send-message", () => ({
   captureSends: async (callback: () => Promise<unknown>) => ({
     result: await callback(),
     sends: [],
   }),
 }));
 
-import { handleNotifyKalakritiGuardianAccess } from "./notify-user-admin";
+const { handleNotifyKalakritiGuardianAccess } =
+  await import("./notify-user-admin");
 
 describe("Kalakriti Guardian access job", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mock.clearAllMocks();
   });
 
   it("forwards the complete queue payload to the sender", async () => {

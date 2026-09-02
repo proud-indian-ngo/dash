@@ -1,34 +1,35 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-const mocks = vi.hoisted(() => ({
-  enqueue: vi.fn(),
-  select: vi.fn(),
-  sendMedia: vi.fn(),
-  update: vi.fn(),
+const hoisted = <T>(factory: () => T): T => factory();
+
+const mocks = hoisted(() => ({
+  enqueue: mock(),
+  select: mock(),
+  sendMedia: mock(),
+  update: mock(),
 }));
 
-vi.mock("@pi-dash/db", () => ({
+mock.module("@pi-dash/db", () => ({
   db: { select: mocks.select, update: mocks.update },
 }));
-vi.mock("@pi-dash/whatsapp/messaging", () => ({
-  sendWhatsAppGroupMessage: vi.fn(),
+mock.module("@pi-dash/whatsapp/messaging", () => ({
+  sendWhatsAppGroupMessage: mock(),
   sendWhatsAppMedia: mocks.sendMedia,
-  sendWhatsAppMessage: vi.fn(),
+  sendWhatsAppMessage: mock(),
 }));
-vi.mock("../enqueue", () => ({ enqueue: mocks.enqueue }));
-vi.mock("./r2", () => ({ getR2Client: vi.fn() }));
-vi.mock("./scheduled-whatsapp-media", () => ({
+mock.module("../enqueue", () => ({ enqueue: mocks.enqueue }));
+mock.module("./r2", () => ({ getR2Client: mock() }));
+mock.module("./scheduled-whatsapp-media", () => ({
   buildScheduledWhatsAppMedia: () => [{ type: "image", url: "signed" }],
 }));
-vi.mock("evlog", () => ({
-  createRequestLogger: () => ({ emit: vi.fn(), error: vi.fn(), set: vi.fn() }),
+mock.module("evlog", () => ({
+  createRequestLogger: () => ({ emit: mock(), error: mock(), set: mock() }),
 }));
 
-import { handleCleanupStaleScheduledRecipients } from "./cleanup-stale-scheduled-recipients";
-import {
-  handleDeadLetterScheduledWhatsApp,
-  handleSendScheduledWhatsApp,
-} from "./send-scheduled-whatsapp";
+const { handleCleanupStaleScheduledRecipients } =
+  await import("./cleanup-stale-scheduled-recipients");
+const { handleDeadLetterScheduledWhatsApp, handleSendScheduledWhatsApp } =
+  await import("./send-scheduled-whatsapp");
 
 const limitedQuery = (rows: unknown[]) => ({
   from: () => ({
@@ -37,7 +38,7 @@ const limitedQuery = (rows: unknown[]) => ({
 });
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  mock.clearAllMocks();
   mocks.update.mockReturnValue({
     set: () => ({ where: async () => undefined }),
   });

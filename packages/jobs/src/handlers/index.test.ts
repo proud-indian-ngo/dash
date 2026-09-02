@@ -1,16 +1,17 @@
+import { describe, expect, it, mock } from "bun:test";
+
 import type { PgBoss } from "pg-boss";
-import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@pi-dash/db", () => ({ db: {} }));
-vi.mock("@pi-dash/env/server", () => ({ env: {} }));
-vi.mock("bun", () => ({ S3Client: class S3Client {} }));
+mock.module("@pi-dash/db", () => ({ db: {} }));
+mock.module("@pi-dash/env/server", () => ({ env: {} }));
+mock.module("bun", () => ({ S3Client: class S3Client {} }));
 
-import { registerHandlers } from "./index";
+const { registerHandlers } = await import("./index");
 
 describe("registerHandlers", () => {
   it("registers every Kalakriti notification worker", async () => {
-    const createQueue = vi.fn().mockResolvedValue(undefined);
-    const work = vi.fn().mockResolvedValue(undefined);
+    const createQueue = mock().mockResolvedValue(undefined);
+    const work = mock().mockResolvedValue(undefined);
 
     await registerHandlers({ createQueue, work } as unknown as PgBoss);
 

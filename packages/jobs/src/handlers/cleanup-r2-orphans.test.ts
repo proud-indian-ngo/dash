@@ -1,6 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
 
-const mocks = vi.hoisted(() => {
+import { S3Client } from "bun";
+
+const hoisted = <T>(factory: () => T): T => factory();
+
+const mocks = hoisted(() => {
   const eventId = "event-1";
   const key = `app/updates/${eventId}/escaped.jpg`;
   const url = `/api/media/event-update?eventId=${eventId}&key=${encodeURIComponent(key)}`;
@@ -9,22 +13,22 @@ const mocks = vi.hoisted(() => {
   ]).replaceAll("/", "\\u002F");
   return {
     content,
-    deleteObject: vi.fn(),
+    deleteObject: mock(),
     eventId,
-    execute: vi.fn(),
+    execute: mock(),
     fromCall: 0,
     key,
-    list: vi.fn(),
-    select: vi.fn(),
+    list: mock(),
+    select: mock(),
     validContent: content,
-    withReferenceLock: vi.fn(),
+    withReferenceLock: mock(),
   };
 });
 
-vi.mock("@pi-dash/db", () => ({
+mock.module("@pi-dash/db", () => ({
   db: { execute: mocks.execute, select: mocks.select },
 }));
-vi.mock("@pi-dash/env/server", () => ({
+mock.module("@pi-dash/env/server", () => ({
   env: {
     R2_ACCESS_KEY: "test-access",
     R2_ACCOUNT_ID: "test-account",
@@ -34,36 +38,38 @@ vi.mock("@pi-dash/env/server", () => ({
     VITE_CDN_URL: "https://cdn.example.test",
   },
 }));
-vi.mock("@pi-dash/notifications/helpers", () => ({
-  getUserIdsWithPermission: vi.fn(async () => []),
+mock.module("@pi-dash/notifications/helpers", () => ({
+  getUserIdsWithPermission: mock(async () => []),
 }));
-vi.mock("@pi-dash/notifications/send/reminders", () => ({
-  notifyR2CleanupResults: vi.fn(),
+mock.module("@pi-dash/notifications/send/reminders", () => ({
+  notifyR2CleanupResults: mock(),
 }));
-vi.mock("bun", () => ({
-  S3Client: { delete: mocks.deleteObject, list: mocks.list },
-}));
-vi.mock("evlog", () => ({
+mock.module("evlog", () => ({
   createRequestLogger: () => ({
-    emit: vi.fn(),
-    error: vi.fn(),
-    set: vi.fn(),
-    warn: vi.fn(),
+    emit: mock(),
+    error: mock(),
+    set: mock(),
+    warn: mock(),
   }),
 }));
-vi.mock("../lib/protected-r2-reference", () => ({
+mock.module("../lib/protected-r2-reference", () => ({
   withProtectedR2ObjectReferenceLock: mocks.withReferenceLock,
 }));
 
-import { handleCleanupR2Orphans } from "./cleanup-r2-orphans";
+spyOn(S3Client, "list").mockImplementation(((...args: unknown[]) =>
+  mocks.list(...args)) as never);
+spyOn(S3Client, "delete").mockImplementation(((...args: unknown[]) =>
+  mocks.deleteObject(...args)) as never);
+
+const { handleCleanupR2Orphans } = await import("./cleanup-r2-orphans");
 
 const query = (rows: unknown[]) =>
   Object.assign(Promise.resolve(rows), {
-    where: vi.fn(async () => []),
+    where: mock(async () => []),
   });
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  mock.clearAllMocks();
   mocks.content = mocks.validContent;
   mocks.fromCall = 0;
   mocks.execute.mockResolvedValue([]);

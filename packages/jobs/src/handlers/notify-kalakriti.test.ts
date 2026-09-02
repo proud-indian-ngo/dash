@@ -1,36 +1,38 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-const notificationEdition = vi.hoisted(() => vi.fn());
-const registrationRecipients = vi.hoisted(() => vi.fn());
-const scheduleRecipients = vi.hoisted(() => vi.fn());
-const notifyRegistration = vi.hoisted(() => vi.fn(async () => undefined));
-const notifySchedule = vi.hoisted(() => vi.fn(async () => undefined));
-const notifyReactivation = vi.hoisted(() => vi.fn(async () => undefined));
+const hoisted = <T>(factory: () => T): T => factory();
 
-vi.mock("../lib/kalakriti-notification-recipients", () => ({
+const notificationEdition = hoisted(() => mock());
+const registrationRecipients = hoisted(() => mock());
+const scheduleRecipients = hoisted(() => mock());
+const notifyRegistration = hoisted(() => mock(async () => undefined));
+const notifySchedule = hoisted(() => mock(async () => undefined));
+const notifyReactivation = hoisted(() => mock(async () => undefined));
+
+mock.module("../lib/kalakriti-notification-recipients", () => ({
   getKalakritiNotificationEdition: notificationEdition,
   resolveKalakritiRegistrationRecipients: registrationRecipients,
   resolveKalakritiScheduleRecipients: scheduleRecipients,
 }));
-vi.mock("@pi-dash/notifications/send/kalakriti", () => ({
+mock.module("@pi-dash/notifications/send/kalakriti", () => ({
   notifyKalakritiGuardianReactivated: notifyReactivation,
   notifyKalakritiRegistrationLifecycle: notifyRegistration,
   notifyKalakritiScheduleChanged: notifySchedule,
 }));
-vi.mock("@pi-dash/notifications/send-message", () => ({
+mock.module("@pi-dash/notifications/send-message", () => ({
   captureSends: async (callback: () => Promise<unknown>) => ({
     result: await callback(),
     sends: [],
   }),
 }));
 
-import {
+const {
   handleNotifyKalakritiGuardianReactivated,
   handleNotifyKalakritiRegistrationClosed,
   handleNotifyKalakritiRegistrationOpen,
   handleNotifyKalakritiScheduleChanged,
   handleRemindKalakritiRegistrationClose,
-} from "./notify-kalakriti";
+} = await import("./notify-kalakriti");
 
 const edition = {
   id: "edition-1",
@@ -46,7 +48,7 @@ function job<T extends object>(data: T) {
 
 describe("Kalakriti notification jobs", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mock.clearAllMocks();
     notificationEdition.mockResolvedValue(edition);
     registrationRecipients.mockResolvedValue([
       "guardian-1",

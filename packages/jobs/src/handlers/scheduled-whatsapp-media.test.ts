@@ -1,10 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
 import { buildScheduledWhatsAppMedia } from "./scheduled-whatsapp-media";
 
 describe("buildScheduledWhatsAppMedia", () => {
   it("signs each attachment for fifteen minutes at execution time", () => {
-    const presign = vi.fn((key: string) => `https://r2.example.test/${key}`);
+    const presign = mock((key: string) => `https://r2.example.test/${key}`);
 
     expect(
       buildScheduledWhatsAppMedia(
@@ -31,7 +31,7 @@ describe("buildScheduledWhatsAppMedia", () => {
   });
 
   it("rejects temporary object keys", () => {
-    const presign = vi.fn();
+    const presign = mock();
 
     expect(() =>
       buildScheduledWhatsAppMedia(

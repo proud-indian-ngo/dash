@@ -1,46 +1,48 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-const mocks = vi.hoisted(() => ({
-  enqueue: vi.fn(),
-  eventPhotoFindFirst: vi.fn(),
-  fetch: vi.fn(),
-  file: vi.fn(),
-  insert: vi.fn(),
+const hoisted = <T>(factory: () => T): T => factory();
+
+const mocks = hoisted(() => ({
+  enqueue: mock(),
+  eventPhotoFindFirst: mock(),
+  fetch: mock(),
+  file: mock(),
+  insert: mock(),
   setValues: [] as unknown[],
-  teamEventFindFirst: vi.fn(),
-  update: vi.fn(),
+  teamEventFindFirst: mock(),
+  update: mock(),
 }));
 
-vi.mock("@pi-dash/db", () => ({
+mock.module("@pi-dash/db", () => ({
   db: {
     insert: mocks.insert,
     query: {
-      eventImmichAlbum: { findFirst: vi.fn() },
+      eventImmichAlbum: { findFirst: mock() },
       eventPhoto: { findFirst: mocks.eventPhotoFindFirst },
       teamEvent: { findFirst: mocks.teamEventFindFirst },
     },
     update: mocks.update,
   },
 }));
-vi.mock("@pi-dash/env/server", () => ({
+mock.module("@pi-dash/env/server", () => ({
   env: {
     IMMICH_API_KEY: "immich-key",
     IMMICH_INTERNAL_URL: "https://immich.example.test",
   },
 }));
-vi.mock("../enqueue", () => ({ enqueue: mocks.enqueue }));
-vi.mock("./create-handler", () => ({ createNotifyHandler: vi.fn() }));
-vi.mock("./r2", () => ({
+mock.module("../enqueue", () => ({ enqueue: mocks.enqueue }));
+mock.module("./create-handler", () => ({ createNotifyHandler: mock() }));
+mock.module("./r2", () => ({
   getR2Client: () => ({ file: mocks.file }),
 }));
-vi.mock("uuidv7", () => ({ uuidv7: () => "album-mapping-id" }));
+mock.module("uuidv7", () => ({ uuidv7: () => "album-mapping-id" }));
 
-vi.stubGlobal("fetch", mocks.fetch);
+globalThis.fetch = mocks.fetch as unknown as typeof fetch;
 
-import { processImmichSync } from "./immich-sync-photo";
+const { processImmichSync } = await import("./immich-sync-photo");
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  mock.clearAllMocks();
   mocks.setValues.length = 0;
   mocks.eventPhotoFindFirst.mockResolvedValue(null);
   mocks.teamEventFindFirst.mockResolvedValue(null);

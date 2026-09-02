@@ -1,47 +1,62 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-const select = vi.hoisted(() => vi.fn());
-const filterCalls = vi.hoisted(() => ({
-  eq: vi.fn(),
-  inArray: vi.fn(),
-  isNotNull: vi.fn(),
-  isNull: vi.fn(),
+const select = mock();
+const filterCalls = {
+  eq: mock(),
+  inArray: mock(),
+  isNotNull: mock(),
+  isNull: mock(),
+};
+
+mock.module("@pi-dash/db", () => ({ db: { select } }));
+mock.module("@pi-dash/db/schema/kalakriti", () => ({
+  kalakritiAssignment: {},
+  kalakritiCompetition: {},
+  kalakritiEdition: {},
+  kalakritiEditionMembership: {},
+  kalakritiGuardianCenter: {},
+}));
+// Bun 1.4 deadlocks when a mock.module factory for drizzle-orm returns new
+// function values closing over the real namespace, so capture filter
+// arguments and return plain placeholders. `or` mimics drizzle semantics:
+// undefined inputs are dropped, and an all-undefined call returns undefined.
+mock.module("drizzle-orm", () => ({
+  and: (...args: unknown[]) => args,
+  eq: (column: unknown, value: unknown) => {
+    filterCalls.eq(column, value);
+    return { column, value };
+  },
+  inArray: (column: unknown, values: unknown[]) => {
+    filterCalls.inArray(column, values);
+    return { column, values };
+  },
+  isNotNull: (column: unknown) => {
+    filterCalls.isNotNull(column);
+    return { column };
+  },
+  isNull: (column: unknown) => {
+    filterCalls.isNull(column);
+    return { column };
+  },
+  or: (...args: unknown[]) => {
+    const defined = args.filter((value) => value !== undefined);
+    if (defined.length === 0) {
+      return undefined;
+    }
+    return defined;
+  },
 }));
 
-vi.mock("@pi-dash/db", () => ({ db: { select } }));
-vi.mock("drizzle-orm", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("drizzle-orm")>();
-  return {
-    ...actual,
-    eq: (...args: Parameters<typeof actual.eq>) => {
-      filterCalls.eq(...args);
-      return actual.eq(...args);
-    },
-    inArray: (...args: Parameters<typeof actual.inArray>) => {
-      filterCalls.inArray(...args);
-      return actual.inArray(...args);
-    },
-    isNotNull: (...args: Parameters<typeof actual.isNotNull>) => {
-      filterCalls.isNotNull(...args);
-      return actual.isNotNull(...args);
-    },
-    isNull: (...args: Parameters<typeof actual.isNull>) => {
-      filterCalls.isNull(...args);
-      return actual.isNull(...args);
-    },
-  };
-});
-
-import {
+const {
   resolveKalakritiRegistrationRecipients,
   resolveKalakritiScheduleRecipients,
-} from "./kalakriti-notification-recipients";
+} = await import("./kalakriti-notification-recipients");
 
 function queryReturning<T>(rows: T[]) {
   const query = {
-    from: vi.fn(),
-    innerJoin: vi.fn(),
-    where: vi.fn(async () => rows),
+    from: mock(),
+    innerJoin: mock(),
+    where: mock(async () => rows),
   };
   query.from.mockReturnValue(query);
   query.innerJoin.mockReturnValue(query);
@@ -50,7 +65,7 @@ function queryReturning<T>(rows: T[]) {
 
 describe("Kalakriti schedule recipient resolution", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mock.clearAllMocks();
   });
 
   it("selects active Guardians and assigned volunteers from the requested Edition", async () => {

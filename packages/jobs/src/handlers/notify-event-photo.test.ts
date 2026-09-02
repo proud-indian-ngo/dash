@@ -1,6 +1,5 @@
+import { describe, expect, it, mock } from "bun:test";
 import { createHash } from "node:crypto";
-
-import { describe, expect, it, vi } from "vitest";
 
 const APPROVED_KEY_PREFIX = /^photos-approved-/;
 const REJECTED_KEY_PREFIX = /^photos-rejected-/;
@@ -213,8 +212,7 @@ describe("error isolation", () => {
   it("notifies other groups even when one group fails", async () => {
     // Simulate the handler logic: Promise.allSettled isolates per-group failures.
     const results: string[] = [];
-    const notifyGroup = vi
-      .fn()
+    const notifyGroup = mock()
       .mockImplementationOnce(() => Promise.reject(new Error("Send error")))
       .mockImplementationOnce(() => {
         results.push("user-b notified");

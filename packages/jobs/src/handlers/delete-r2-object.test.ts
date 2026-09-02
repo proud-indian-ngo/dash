@@ -1,19 +1,19 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
-vi.mock("../lib/protected-r2-reference", () => ({
-  withProtectedR2ObjectDeleteLock: vi.fn(),
-  withProtectedR2ObjectReferenceLock: vi.fn(),
+mock.module("../lib/protected-r2-reference", () => ({
+  withProtectedR2ObjectDeleteLock: mock(),
+  withProtectedR2ObjectReferenceLock: mock(),
 }));
-vi.mock("./create-handler", () => ({ createNotifyHandler: vi.fn() }));
-vi.mock("./r2", () => ({ getR2Client: vi.fn() }));
+mock.module("./create-handler", () => ({ createNotifyHandler: mock() }));
+mock.module("./r2", () => ({ getR2Client: mock() }));
 
-import { deleteR2Object } from "./delete-r2-object";
+const { deleteR2Object } = await import("./delete-r2-object");
 
 describe("deleteR2Object", () => {
   it("keeps a durable object while it is still referenced", async () => {
-    const deleteObject = vi.fn();
-    const withDeleteLock = vi.fn();
-    const withReferenceLock = vi.fn(async (_r2Key, operation) =>
+    const deleteObject = mock();
+    const withDeleteLock = mock();
+    const withReferenceLock = mock(async (_r2Key, operation) =>
       operation(true)
     );
 
@@ -34,10 +34,10 @@ describe("deleteR2Object", () => {
   });
 
   it("holds the reference lock while deleting a durable object", async () => {
-    const deleteObject = vi.fn();
-    const withDeleteLock = vi.fn();
+    const deleteObject = mock();
+    const withDeleteLock = mock();
     const order: string[] = [];
-    const withReferenceLock = vi.fn(async (_r2Key, operation) => {
+    const withReferenceLock = mock(async (_r2Key, operation) => {
       order.push("lock");
       const result = await operation(false);
       order.push("unlock");
@@ -67,9 +67,9 @@ describe("deleteR2Object", () => {
   });
 
   it("reference-checks a persisted legacy job without a mode", async () => {
-    const deleteObject = vi.fn();
-    const withDeleteLock = vi.fn();
-    const withReferenceLock = vi.fn(async (_r2Key, operation) =>
+    const deleteObject = mock();
+    const withDeleteLock = mock();
+    const withReferenceLock = mock(async (_r2Key, operation) =>
       operation(true)
     );
 
@@ -84,15 +84,15 @@ describe("deleteR2Object", () => {
   });
 
   it("holds an exclusive key lock while deleting a temporary source", async () => {
-    const deleteObject = vi.fn();
+    const deleteObject = mock();
     const order: string[] = [];
-    const withDeleteLock = vi.fn(async (_r2Key, operation) => {
+    const withDeleteLock = mock(async (_r2Key, operation) => {
       order.push("lock");
       const result = await operation();
       order.push("unlock");
       return result;
     });
-    const withReferenceLock = vi.fn();
+    const withReferenceLock = mock();
     deleteObject.mockImplementation(() => {
       order.push("delete");
       return Promise.resolve();
