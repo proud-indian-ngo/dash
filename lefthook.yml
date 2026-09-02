@@ -1,22 +1,21 @@
 pre-commit:
-  parallel: true
+  parallel: false
   commands:
-    typecheck:
-      glob: "*.{ts,tsx}"
-      run: bun run check:types:affected
-
     fix:
+      priority: 4
       glob: "*.{js,ts,jsx,tsx}"
       run: bunx oxfmt --threads=2 {staged_files} && bunx oxlint --fix {staged_files}
       stage_fixed: true
+
+    typecheck:
+      glob: "*.{ts,tsx}"
+      run: bun run check:types:affected
 
     check:
       glob:
         - "package.json"
         - "**/package.json"
         - "bun.lock"
-        - "biome.json"
-        - "biome.jsonc"
       run: bun run check
 
     test:
