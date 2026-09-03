@@ -168,23 +168,32 @@ const [action, argument] = process.argv.slice(2);
 if (!action) {
   throw new Error("Usage: kalakriti-credentials.ts <setup|state> [actorEmail]");
 }
-if (action === "setup") {
-  if (!argument) {
-    throw new Error("setup requires actorEmail");
+
+async function main() {
+  if (action === "setup") {
+    if (!argument) {
+      throw new Error("setup requires actorEmail");
+    }
+    process.stdout.write(`${JSON.stringify(await setup(argument))}\n`, () =>
+      process.exit(0)
+    );
+    return;
   }
-  process.stdout.write(`${JSON.stringify(await setup(argument))}\n`, () =>
-    process.exit(0)
-  );
-  return;
-} else if (action === "state") {
-  process.stdout.write(`${JSON.stringify(await readState())}\n`, () =>
-    process.exit(0)
-  );
-  return;
-} else if (action === "cleanup") {
-  await cleanup();
-} else {
-  throw new Error(`Unknown action: ${action}`);
+  if (action === "state") {
+    process.stdout.write(`${JSON.stringify(await readState())}\n`, () =>
+      process.exit(0)
+    );
+    return;
+  }
+  if (action === "cleanup") {
+    await cleanup();
+    process.exit(0);
+  }
 }
 
-process.exit(0);
+try {
+  await main();
+} catch (error) {
+  console.error(error);
+  process.exit(1);
+}
