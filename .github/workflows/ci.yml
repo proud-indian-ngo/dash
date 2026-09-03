@@ -43,6 +43,18 @@ jobs:
           SMTP_USER=ci
           VITE_CDN_URL=http://localhost:3001/cdn
           VITE_ZERO_URL=ws://localhost:4848
+          R2_ACCESS_KEY=ci
+          R2_ACCOUNT_ID=ci
+          R2_BUCKET_NAME=ci-bucket
+          R2_KEY_PREFIX=attachments
+          R2_SECRET_ACCESS_KEY=ci
+          VOUCHER_FINANCE_ADMIN_NAME=CI Finance Admin
+          VOUCHER_ORG_ADDRESS=CI Address
+          VOUCHER_ORG_EMAIL=ci@org.test
+          VOUCHER_ORG_NAME=CI Org
+          VOUCHER_ORG_PHONE=0000000000
+          VOUCHER_ORG_REGISTRATION=CI-REG
+          WHATSAPP_WEBHOOK_SECRET=ci
           EOF
 
       - name: Type check
