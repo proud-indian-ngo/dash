@@ -82,9 +82,14 @@ test.describe("Kalakriti credential print", () => {
           data: { subjects: [{ studentId: setup.studentId }] },
         }
       );
-      expect(printResponse.headers()["content-type"]).toContain(
-        "application/pdf"
-      );
+      const contentType = printResponse.headers()["content-type"] ?? "";
+      if (!contentType.includes("application/pdf")) {
+        const body = await printResponse.text();
+        throw new Error(
+          `Print returned ${printResponse.status()} ${contentType}. Body: ${body.slice(0, 500)}`
+        );
+      }
+      expect(contentType).toContain("application/pdf");
       const afterPrint = await fixture<CredentialState>("state");
       expect(afterPrint.credentials).toHaveLength(2);
       expect(
