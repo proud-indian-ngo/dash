@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
+
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
+
 import { canAccessKalakritiEventDay } from "./kalakriti-event-day-policy";
 
 type EventDayAccessInput = Pick<
