@@ -16,6 +16,7 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
+
 import { EventDayQrScanner } from "@/components/kalakriti/event-day-qr-scanner";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { canAccessKalakritiEventDay } from "@/lib/kalakriti-event-day-policy";
@@ -187,7 +188,7 @@ function KalakritiEventDayPage() {
 
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="space-y-3">
-            <h2 className="font-medium text-sm">Scan credential QR</h2>
+            <h2 className="text-sm font-medium">Scan credential QR</h2>
             <p className="text-muted-foreground text-sm">
               Use the device camera while online. Duplicate scans are treated as
               already recorded.
@@ -196,7 +197,7 @@ function KalakritiEventDayPage() {
           </div>
 
           <form className="space-y-3" onSubmit={handleManualSubmit}>
-            <h2 className="font-medium text-sm">Enter yearly ID</h2>
+            <h2 className="text-sm font-medium">Enter yearly ID</h2>
             <p className="text-muted-foreground text-sm">
               Record transport when a credential QR cannot be scanned.
             </p>

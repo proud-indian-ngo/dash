@@ -2,6 +2,7 @@ import {
   KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES,
   type KalakritiResponsibility,
 } from "@pi-dash/shared/kalakriti";
+
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 
 type KalakritiEventDayAccessInput = Pick<

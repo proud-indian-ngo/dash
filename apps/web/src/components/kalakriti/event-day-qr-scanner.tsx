@@ -59,7 +59,7 @@ export function EventDayQrScanner({ onScan }: EventDayQrScannerProps) {
 
   return (
     <div
-      className="overflow-hidden rounded-lg border bg-muted/30"
+      className="bg-muted/30 overflow-hidden rounded-lg border"
       id={SCANNER_ELEMENT_ID}
     />
   );
