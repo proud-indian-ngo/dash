@@ -22,12 +22,36 @@ async function fixture<T>(
   action: "cleanup" | "setup" | "state",
   email?: string
 ) {
-  const { stdout } = await execFileAsync(
-    "bun",
-    ["run", helperPath, action, ...(email ? [email] : [])],
-    { env: process.env }
-  );
-  return JSON.parse(stdout.trim()) as T;
+  let stdout = "";
+  let stderr = "";
+  try {
+    ({ stdout, stderr } = await execFileAsync(
+      "bun",
+      ["run", helperPath, action, ...(email ? [email] : [])],
+      { env: process.env }
+    ));
+  } catch (error) {
+    const err = error as { stdout?: string; stderr?: string };
+    throw new Error(
+      `credential fixture (${action}) failed. stdout: ${err.stdout?.slice(0, 400) || "(empty)"} stderr: ${err.stderr?.slice(0, 400) || "(empty)"}`,
+      { cause: error }
+    );
+  }
+  if (action === "cleanup") {
+    return undefined as T;
+  }
+  if (!stdout.trim()) {
+    throw new Error(
+      `credential fixture (${action}) exited 0 with empty stdout. stderr: ${stderr.slice(0, 400)}`
+    );
+  }
+  try {
+    return JSON.parse(stdout.trim()) as T;
+  } catch {
+    throw new Error(
+      `credential fixture (${action}) returned unparseable output: ${stdout.slice(0, 200)}`
+    );
+  }
 }
 
 test.describe("Kalakriti credential print", () => {
