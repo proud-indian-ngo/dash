@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import { writeSync } from "node:fs";
 
 import { db } from "@pi-dash/db";
 import {
@@ -174,12 +175,14 @@ async function main() {
     if (!argument) {
       throw new Error("setup requires actorEmail");
     }
-    process.stdout.write(`${JSON.stringify(await setup(argument))}\n`);
+    // writeSync to fd 1: async stdout writes can be truncated by process.exit
+    // when output is a pipe on loaded CI runners.
+    writeSync(1, `${JSON.stringify(await setup(argument))}\n`);
     await db.$client.end();
     process.exit(0);
   }
   if (action === "state") {
-    process.stdout.write(`${JSON.stringify(await readState())}\n`);
+    writeSync(1, `${JSON.stringify(await readState())}\n`);
     await db.$client.end();
     process.exit(0);
   }
