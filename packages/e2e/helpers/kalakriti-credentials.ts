@@ -172,9 +172,15 @@ if (action === "setup") {
   if (!argument) {
     throw new Error("setup requires actorEmail");
   }
-  console.log(JSON.stringify(await setup(argument)));
+  process.stdout.write(`${JSON.stringify(await setup(argument))}\n`, () =>
+    process.exit(0)
+  );
+  return;
 } else if (action === "state") {
-  console.log(JSON.stringify(await readState()));
+  process.stdout.write(`${JSON.stringify(await readState())}\n`, () =>
+    process.exit(0)
+  );
+  return;
 } else if (action === "cleanup") {
   await cleanup();
 } else {
