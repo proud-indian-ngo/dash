@@ -8,7 +8,6 @@ import {
   kalakritiEditionMembership,
   kalakritiStudent,
 } from "@pi-dash/db/schema/kalakriti";
-import { generateKalakritiCredentialPdf } from "@pi-dash/pdf/generate-kalakriti-credential";
 import {
   type KalakritiCredentialBranding,
   resolveKalakritiCredentialBranding,
@@ -521,6 +520,13 @@ export async function printKalakritiCredentials({
   for (const subject of subjects) {
     assertCredentialPrintSubject(subject);
   }
+  // Load the PDF generator at runtime, outside the SSR bundle: react-pdf
+  // resolves standard fonts through "#standard-fonts/*" package imports that
+  // cannot resolve once bundled into the nitro output (CI/Linux).
+  const { generateKalakritiCredentialPdf } = await import(
+    /* @vite-ignore */ "@pi-dash/pdf/generate-kalakriti-credential"
+  );
+
   const cards: CredentialCard[] = [];
 
   await db.transaction(async (tx) => {
