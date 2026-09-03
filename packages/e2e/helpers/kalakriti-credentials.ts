@@ -174,16 +174,14 @@ async function main() {
     if (!argument) {
       throw new Error("setup requires actorEmail");
     }
-    process.stdout.write(`${JSON.stringify(await setup(argument))}\n`, () =>
-      process.exit(0)
-    );
-    return;
+    process.stdout.write(`${JSON.stringify(await setup(argument))}\n`);
+    await db.$client.end();
+    process.exit(0);
   }
   if (action === "state") {
-    process.stdout.write(`${JSON.stringify(await readState())}\n`, () =>
-      process.exit(0)
-    );
-    return;
+    process.stdout.write(`${JSON.stringify(await readState())}\n`);
+    await db.$client.end();
+    process.exit(0);
   }
   if (action === "cleanup") {
     await cleanup();
