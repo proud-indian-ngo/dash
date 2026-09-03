@@ -22,6 +22,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
+
 import { CenterTransportFormDialog } from "@/components/kalakriti/center-transport-form-dialog";
 import { handleMutationResult } from "@/lib/mutation-result";
 
@@ -72,7 +73,7 @@ function TransportAssignmentCard({
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
         <div className="space-y-1">
-          <h4 className="font-medium text-base">{assignment.vehicleLabel}</h4>
+          <h4 className="text-base font-medium">{assignment.vehicleLabel}</h4>
           <CardDescription>
             Driver: {assignment.driverName}
             {assignment.driverPhone ? ` · ${assignment.driverPhone}` : ""}
@@ -194,7 +195,7 @@ export function CenterTransportSection({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="font-display font-semibold text-xl">Transport</h3>
+          <h3 className="font-display text-xl font-semibold">Transport</h3>
           <p className="text-muted-foreground text-sm">
             Buses and drivers for this Center.
           </p>
@@ -213,7 +214,7 @@ export function CenterTransportSection({
 
       {assignments.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center text-muted-foreground text-sm">
+          <CardContent className="text-muted-foreground py-8 text-center text-sm">
             No transport assignments yet.
           </CardContent>
         </Card>
