@@ -1,41 +1,43 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-const notificationEdition = vi.hoisted(() => mock());
-const registrationRecipients = vi.hoisted(() => mock());
-const scheduleRecipients = vi.hoisted(() => mock());
-const transportRecipients = vi.hoisted(() => mock());
-const notifyRegistration = vi.hoisted(() => mock(async () => undefined));
-const notifySchedule = vi.hoisted(() => mock(async () => undefined));
-const notifyTransport = vi.hoisted(() => mock(async () => undefined));
-const notifyReactivation = vi.hoisted(() => mock(async () => undefined));
+const hoisted = <T>(factory: () => T): T => factory();
 
-vi.mock("../lib/kalakriti-notification-recipients", () => ({
+const notificationEdition = hoisted(() => mock());
+const registrationRecipients = hoisted(() => mock());
+const scheduleRecipients = hoisted(() => mock());
+const transportRecipients = hoisted(() => mock());
+const notifyRegistration = hoisted(() => mock(async () => undefined));
+const notifySchedule = hoisted(() => mock(async () => undefined));
+const notifyTransport = hoisted(() => mock(async () => undefined));
+const notifyReactivation = hoisted(() => mock(async () => undefined));
+
+mock.module("../lib/kalakriti-notification-recipients", () => ({
   getKalakritiNotificationEdition: notificationEdition,
-  resolveKalakritiCenterTransportRecipients: transportRecipients,
   resolveKalakritiRegistrationRecipients: registrationRecipients,
   resolveKalakritiScheduleRecipients: scheduleRecipients,
+  resolveKalakritiCenterTransportRecipients: transportRecipients,
 }));
-vi.mock("@pi-dash/notifications/send/kalakriti", () => ({
+mock.module("@pi-dash/notifications/send/kalakriti", () => ({
   notifyKalakritiGuardianReactivated: notifyReactivation,
   notifyKalakritiRegistrationLifecycle: notifyRegistration,
   notifyKalakritiScheduleChanged: notifySchedule,
   notifyKalakritiTransportChanged: notifyTransport,
 }));
-vi.mock("@pi-dash/notifications/send-message", () => ({
+mock.module("@pi-dash/notifications/send-message", () => ({
   captureSends: async (callback: () => Promise<unknown>) => ({
     result: await callback(),
     sends: [],
   }),
 }));
 
-import {
+const {
   handleNotifyKalakritiGuardianReactivated,
   handleNotifyKalakritiRegistrationClosed,
   handleNotifyKalakritiRegistrationOpen,
   handleNotifyKalakritiScheduleChanged,
   handleNotifyKalakritiTransportChanged,
   handleRemindKalakritiRegistrationClose,
-} from "./notify-kalakriti";
+} = await import("./notify-kalakriti");
 
 const edition = {
   id: "edition-1",
