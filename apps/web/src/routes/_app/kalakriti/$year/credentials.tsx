@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { type ChangeEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
+
 import {
   CredentialsTable,
   type KalakritiCredentialRow,
@@ -185,7 +186,7 @@ function KalakritiCredentialsPage() {
       <KalakritiPageHeader
         kicker={`Kalakriti · ${edition.year}`}
         meta={
-          <p className="max-w-2xl text-muted-foreground text-sm">
+          <p className="text-muted-foreground max-w-2xl text-sm">
             Look up yearly IDs and print credential cards for Students and
             volunteers. Printing always issues a new QR; previous cards stop
             working.
@@ -195,7 +196,7 @@ function KalakritiCredentialsPage() {
       />
       <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-end">
         <div className="flex-1 space-y-2">
-          <label className="font-medium text-sm" htmlFor="credential-lookup">
+          <label className="text-sm font-medium" htmlFor="credential-lookup">
             Lookup yearly ID
           </label>
           <Input
@@ -210,7 +211,7 @@ function KalakritiCredentialsPage() {
         </Button>
       </div>
       {lookupResult ? (
-        <div className="rounded-lg border bg-muted/30 p-4 text-sm">
+        <div className="bg-muted/30 rounded-lg border p-4 text-sm">
           <p>
             <span className="font-medium">{lookupResult.name}</span> (
             {lookupResult.kind === "student" ? "Student" : "Volunteer"})

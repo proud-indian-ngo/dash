@@ -189,7 +189,7 @@ describe("enrollUserOnRegisterEvent", () => {
       userId: "user-1",
     });
     expect(result).toEqual({ status: "enrolled" });
-    expect(deps.persistEnrollWrites).toHaveBeenCalledOnce();
+    expect(deps.persistEnrollWrites).toHaveBeenCalledTimes(1);
     expect(deps.persistEnrollWrites).toHaveBeenCalledWith(
       expect.objectContaining({
         eventMember: expect.objectContaining({ eventId: "event-1" }),

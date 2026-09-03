@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
+
 import { kalakritiCredentialMutators } from "../kalakriti-credential";
 
 const adminContext = {
@@ -28,23 +29,23 @@ const nextTokenHash = "c".repeat(64);
 function createTx(results: unknown[] = []) {
   const lockedResults: unknown[][] = [];
   const spies = {
-    insertAudit: vi.fn(),
-    insertCredential: vi.fn(),
-    lockRows: vi.fn(),
-    updateCredential: vi.fn(),
-    updateEdition: vi.fn(),
-    updateMembership: vi.fn(),
+    insertAudit: mock(),
+    insertCredential: mock(),
+    lockRows: mock(),
+    updateCredential: mock(),
+    updateEdition: mock(),
+    updateMembership: mock(),
   };
-  const select = vi.fn(() => {
+  const select = mock(() => {
     const query = {
-      for: vi.fn(() => {
+      for: mock(() => {
         const rows = lockedResults.shift() ?? [];
         spies.lockRows(rows);
         return rows;
       }),
-      from: vi.fn(),
-      orderBy: vi.fn(),
-      where: vi.fn(),
+      from: mock(),
+      orderBy: mock(),
+      where: mock(),
     };
     query.from.mockReturnValue(query);
     query.orderBy.mockReturnValue(query);
@@ -66,7 +67,7 @@ function createTx(results: unknown[] = []) {
         kalakritiEdition: { update: spies.updateEdition },
         kalakritiEditionMembership: { update: spies.updateMembership },
       },
-      run: vi.fn(async () => results.shift()),
+      run: mock(async () => results.shift()),
     },
   };
 }

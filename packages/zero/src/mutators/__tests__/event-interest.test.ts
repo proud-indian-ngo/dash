@@ -1,11 +1,10 @@
 import { describe, expect, it, mock } from "bun:test";
+
 import z from "zod";
 
-vi.mock("uuidv7", () => ({
-  uuidv7: mock(),
-}));
+const uuidv7Mock = mock();
+mock.module("uuidv7", () => ({ uuidv7: uuidv7Mock }));
 
-import { uuidv7 } from "uuidv7";
 import { eventInterestMutators } from "../event-interest";
 
 const createSchema = z.object({

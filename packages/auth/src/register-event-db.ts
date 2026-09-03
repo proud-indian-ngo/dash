@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+
 import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
 import {
@@ -11,6 +12,7 @@ import { enqueue } from "@pi-dash/jobs/enqueue";
 import { formatKalakritiVolunteerHumanId } from "@pi-dash/shared/kalakriti";
 import { and, eq, isNull } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
+
 import type { RegisterEventEnrollDeps } from "./register-event";
 
 function toEpoch(value: Date | number | null | undefined): number | null {

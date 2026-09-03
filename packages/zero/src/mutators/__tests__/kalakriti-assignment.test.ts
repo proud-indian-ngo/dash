@@ -1,4 +1,5 @@
 import { describe, expect, it, mock } from "bun:test";
+
 import { kalakritiAssignmentMutators } from "../kalakriti-assignment";
 
 const adminContext = {
@@ -175,7 +176,7 @@ describe("kalakritiAssignment.assignVolunteer", () => {
         userId: "volunteer-1",
       })
     );
-    expect(spies.insertAudit).toHaveBeenCalledOnce();
+    expect(spies.insertAudit).toHaveBeenCalledTimes(1);
   });
 
   it("does not duplicate the linked event member for another role", async () => {
@@ -215,7 +216,7 @@ describe("kalakritiAssignment.assignVolunteer", () => {
     >[0]);
 
     expect(spies.insertMembership).not.toHaveBeenCalled();
-    expect(spies.insertAssignment).toHaveBeenCalledOnce();
+    expect(spies.insertAssignment).toHaveBeenCalledTimes(1);
     expect(spies.insertEventMember).not.toHaveBeenCalled();
   });
 
@@ -313,8 +314,8 @@ describe("kalakritiAssignment.assignVolunteer", () => {
       typeof kalakritiAssignmentMutators.assignVolunteer.fn
     >[0]);
 
-    expect(spies.insertMembership).toHaveBeenCalledOnce();
-    expect(spies.insertAssignment).toHaveBeenCalledOnce();
+    expect(spies.insertMembership).toHaveBeenCalledTimes(1);
+    expect(spies.insertAssignment).toHaveBeenCalledTimes(1);
   });
 
   it("assigns an operational lead at Edition scope", async () => {
@@ -481,8 +482,8 @@ describe("kalakritiAssignment.assignLiaison", () => {
         responsibility: "liaison_volunteer",
       })
     );
-    expect(spies.insertMembership).toHaveBeenCalledOnce();
-    expect(spies.insertEventMember).toHaveBeenCalledOnce();
+    expect(spies.insertMembership).toHaveBeenCalledTimes(1);
+    expect(spies.insertEventMember).toHaveBeenCalledTimes(1);
     expect(lockForUpdate).toHaveBeenCalledWith("update");
   });
 

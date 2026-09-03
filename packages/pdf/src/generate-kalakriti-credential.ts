@@ -1,13 +1,16 @@
 import { Document, renderToBuffer } from "@react-pdf/renderer";
 import { createElement } from "react";
+
 import {
   createCredentialQrDataUri,
   KalakritiCredentialCard,
   type KalakritiCredentialCardProps,
 } from "./kalakriti-credential-card";
 
-export interface KalakritiCredentialPrintCardInput
-  extends Omit<KalakritiCredentialCardProps, "qrPngDataUri"> {
+export interface KalakritiCredentialPrintCardInput extends Omit<
+  KalakritiCredentialCardProps,
+  "qrPngDataUri"
+> {
   qrToken: string;
 }
 

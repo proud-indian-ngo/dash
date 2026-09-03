@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
 import { createHash } from "node:crypto";
-import { describe, expect, it } from "vitest";
+
 import {
   assertCredentialPrintSubject,
   createOpaqueCredentialToken,
