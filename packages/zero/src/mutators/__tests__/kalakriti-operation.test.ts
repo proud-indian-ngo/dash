@@ -1,5 +1,6 @@
+import { describe, expect, it, mock } from "bun:test";
 import { createHash } from "node:crypto";
-import { describe, expect, it, vi } from "vitest";
+
 import { kalakritiOperationMutators } from "../kalakriti-operation";
 
 const adminContext = {
@@ -49,20 +50,20 @@ const tokenHash = createHash("sha256")
 function createTx(results: unknown[] = []) {
   const lockedResults: unknown[][] = [];
   const spies = {
-    insertAudit: vi.fn(),
-    insertOperation: vi.fn(),
-    lockRows: vi.fn(),
+    insertAudit: mock(),
+    insertOperation: mock(),
+    lockRows: mock(),
   };
-  const select = vi.fn(() => {
+  const select = mock(() => {
     const query = {
-      for: vi.fn(() => {
+      for: mock(() => {
         const rows = lockedResults.shift() ?? [];
         spies.lockRows(rows);
         return rows;
       }),
-      from: vi.fn(),
-      orderBy: vi.fn(),
-      where: vi.fn(),
+      from: mock(),
+      orderBy: mock(),
+      where: mock(),
     };
     query.from.mockReturnValue(query);
     query.orderBy.mockReturnValue(query);
@@ -79,7 +80,7 @@ function createTx(results: unknown[] = []) {
         kalakritiAuditEntry: { insert: spies.insertAudit },
         kalakritiOperation: { insert: spies.insertOperation },
       },
-      run: vi.fn(async () => results.shift()),
+      run: mock(async () => results.shift()),
     },
   };
 }
