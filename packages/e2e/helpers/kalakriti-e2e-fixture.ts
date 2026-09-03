@@ -1,7 +1,9 @@
 import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
+
 import { expect, type Page } from "@playwright/test";
+
 import { waitForZeroReady } from "../fixtures/test";
 
 const execFileAsync = promisify(execFile);

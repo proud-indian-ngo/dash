@@ -19,8 +19,7 @@ export interface KalakritiGoLiveReadinessBlocker {
   message: string;
 }
 
-export interface KalakritiGoLiveReadinessSnapshot
-  extends KalakritiRegistrationReadinessSnapshot {
+export interface KalakritiGoLiveReadinessSnapshot extends KalakritiRegistrationReadinessSnapshot {
   assignments: readonly { responsibility: string }[];
   centers: readonly {
     competitionEntryRegistrationEnabled: boolean;

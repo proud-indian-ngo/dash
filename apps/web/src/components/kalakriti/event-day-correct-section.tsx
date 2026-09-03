@@ -17,6 +17,7 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
+
 import {
   getMutationResultErrorMessage,
   handleMutationResult,
@@ -197,7 +198,7 @@ export function EventDayCorrectSection({
   return (
     <section className="space-y-4 rounded-xl border p-4 sm:p-6">
       <div>
-        <h2 className="font-medium text-sm">Correct operation</h2>
+        <h2 className="text-sm font-medium">Correct operation</h2>
         <p className="text-muted-foreground text-sm">
           Supersede the latest effective operation for a yearly ID. Ordinary
           station members cannot correct records.

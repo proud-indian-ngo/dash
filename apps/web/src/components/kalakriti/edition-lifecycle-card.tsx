@@ -325,10 +325,10 @@ function GoLiveReadinessBlockers({
 
   return (
     <section aria-labelledby="go-live-blockers-heading">
-      <p className="font-medium text-sm" id="go-live-blockers-heading">
+      <p className="text-sm font-medium" id="go-live-blockers-heading">
         Complete these before going live
       </p>
-      <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground text-sm">
+      <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm">
         {blockers.map((blocker) => (
           <li key={blocker.code}>{blocker.message}</li>
         ))}
