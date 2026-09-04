@@ -1,8 +1,7 @@
 services:
   dash-dev:
     command: >-
-      mkdir -p /tmp/dash-nginx/{client-body,fastcgi,proxy,scgi,uwsgi} &&
-      exec /usr/sbin/nginx -p /tmp/dash-nginx/ -c "$PWD/.amp/nginx.dev.conf"
+      mkdir -p /tmp/dash-nginx/{client-body,fastcgi,proxy,scgi,uwsgi} && exec /usr/sbin/nginx -p /tmp/dash-nginx/ -c "$PWD/.amp/nginx.dev.conf"
     port: 3000
     portal:
       title: Dash
@@ -10,10 +9,7 @@ services:
 
   dash-web:
     command: >-
-      DEV_WEB_PORT="$PORT"
-      ZERO_MUTATE_URL="http://127.0.0.1:$PORT/api/zero/mutate"
-      ZERO_QUERY_URL="http://127.0.0.1:$PORT/api/zero/query"
-      bunx --bun vite dev --host 127.0.0.1 --port "$PORT"
+      DEV_WEB_PORT="$PORT" ZERO_MUTATE_URL="http://127.0.0.1:$PORT/api/zero/mutate" ZERO_QUERY_URL="http://127.0.0.1:$PORT/api/zero/query" bunx --bun vite dev --host 127.0.0.1 --port "$PORT"
     cwd: apps/web
     port: 3001
     health: /login
