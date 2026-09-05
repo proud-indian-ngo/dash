@@ -29,6 +29,8 @@ export default defineConfig({
         /kalakriti\/credential-print\.spec\.ts/,
         /kalakriti\/event-day-stations\.spec\.ts/,
         /kalakriti\/event-day-transport\.spec\.ts/,
+        /kalakriti\/release-database-races\.spec\.ts/,
+        /kalakriti\/public-schedule\.spec\.ts/,
       ],
       use: {
         ...devices["Desktop Chrome"],
@@ -49,6 +51,8 @@ export default defineConfig({
         /kalakriti\/credential-print\.spec\.ts/,
         /kalakriti\/event-day-stations\.spec\.ts/,
         /kalakriti\/event-day-transport\.spec\.ts/,
+        /kalakriti\/release-database-races\.spec\.ts/,
+        /kalakriti\/public-schedule\.spec\.ts/,
       ],
       use: {
         ...devices["Desktop Chrome"],
@@ -107,22 +111,6 @@ export default defineConfig({
       name: "unauthenticated",
       testMatch: /auth\//,
       use: { ...devices["Desktop Chrome"] },
-    },
-    {
-      dependencies: ["setup"],
-      name: "kalakriti_release_invariants",
-      testMatch: [
-        /kalakriti\/public-schedule\.spec\.ts/,
-        /kalakriti\/release-database-races\.spec\.ts/,
-      ],
-      use: {
-        ...devices["Desktop Chrome"],
-        storageState: path.resolve(
-          import.meta.dirname,
-          ".auth/unoriented_volunteer.json"
-        ),
-      },
-      workers: 1,
     },
   ],
   reporter: isCI

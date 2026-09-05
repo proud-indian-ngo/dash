@@ -59,7 +59,11 @@ export async function expectKalakritiToast(
   page: Page,
   message: string | RegExp
 ): Promise<void> {
-  await expect(
-    page.locator("[data-sonner-toast]").getByText(message)
-  ).toBeVisible();
+  const toasts = page.locator("[data-sonner-toast]");
+  const toast =
+    typeof message === "string"
+      ? toasts.getByText(message, { exact: true })
+      : toasts.getByText(message);
+  await expect(toast).toBeVisible();
+  await expect(toast).toHaveCount(0);
 }

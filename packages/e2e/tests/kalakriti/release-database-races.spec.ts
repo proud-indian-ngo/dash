@@ -3,6 +3,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 
 import { expect, test } from "../../fixtures/test";
+import { runKalakritiGoliveFixture } from "../../helpers/kalakriti-e2e-fixture";
 
 const execFileAsync = promisify(execFile);
 const helperPath = path.resolve(
@@ -23,12 +24,13 @@ test("serializes live Edition, duplicate Membership, and duplicate Entry races",
   superAdminEmail,
 }, testInfo) => {
   test.skip(
-    testInfo.project.name !== "kalakriti_release_invariants",
+    testInfo.project.name !== "kalakriti_phase2",
     "Authoritative PostgreSQL release races"
   );
   test.slow();
 
   try {
+    await runKalakritiGoliveFixture("reset-2186-registration-open");
     const result = await fixture<{
       entries: {
         entryCount: number;
