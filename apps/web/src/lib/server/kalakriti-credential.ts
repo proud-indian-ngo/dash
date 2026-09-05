@@ -16,7 +16,7 @@ import {
   formatKalakritiVolunteerHumanId,
   KALAKRITI_RESPONSIBILITY_LABELS,
 } from "@pi-dash/shared/kalakriti";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, notExists } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
@@ -192,7 +192,7 @@ export interface KalakritiCredentialListItem {
   editionId: string;
   humanId: string;
   id: string;
-  issuedAt: number;
+  issuedAt: number | null;
   kind: "student" | "volunteer";
   membershipId: string | null;
   name: string;
@@ -240,7 +240,7 @@ export async function listKalakritiCredentialsForAdmin(
     .where(eq(kalakritiCredential.editionId, editionId))
     .orderBy(kalakritiCredential.humanId);
 
-  return rows.map((row) => {
+  const credentials: KalakritiCredentialListItem[] = rows.map((row) => {
     const isStudent = row.studentId !== null;
     let scopeLabel = "Unassigned";
     if (isStudent) {
@@ -263,6 +263,56 @@ export async function listKalakritiCredentialsForAdmin(
       studentId: row.studentId,
     };
   });
+  const unissuedVolunteers = await db
+    .select({
+      humanId: kalakritiEditionMembership.humanId,
+      id: kalakritiEditionMembership.id,
+      name: kalakritiEditionMembership.snapshotName,
+      responsibility: kalakritiAssignment.responsibility,
+    })
+    .from(kalakritiEditionMembership)
+    .leftJoin(
+      kalakritiAssignment,
+      and(
+        eq(kalakritiAssignment.membershipId, kalakritiEditionMembership.id),
+        eq(kalakritiAssignment.isPrimary, true)
+      )
+    )
+    .where(
+      and(
+        eq(kalakritiEditionMembership.editionId, editionId),
+        eq(kalakritiEditionMembership.kind, "volunteer"),
+        eq(kalakritiEditionMembership.state, "active"),
+        notExists(
+          db
+            .select({ id: kalakritiCredential.id })
+            .from(kalakritiCredential)
+            .where(
+              eq(
+                kalakritiCredential.membershipId,
+                kalakritiEditionMembership.id
+              )
+            )
+        )
+      )
+    );
+  for (const volunteer of unissuedVolunteers) {
+    credentials.push({
+      editionId,
+      humanId: volunteer.humanId ?? "Not issued",
+      id: volunteer.id,
+      issuedAt: null,
+      kind: "volunteer",
+      membershipId: volunteer.id,
+      name: volunteer.name,
+      revokedAt: null,
+      scopeLabel: volunteer.responsibility
+        ? KALAKRITI_RESPONSIBILITY_LABELS[volunteer.responsibility]
+        : "Unassigned",
+      studentId: null,
+    });
+  }
+  return credentials;
 }
 
 interface PrintedCredentialResult {
@@ -435,7 +485,8 @@ async function printVolunteerCredential(
     .where(
       and(
         eq(kalakritiEditionMembership.id, args.membershipId),
-        eq(kalakritiEditionMembership.editionId, editionId)
+        eq(kalakritiEditionMembership.editionId, editionId),
+        eq(kalakritiEditionMembership.state, "active")
       )
     )
     .limit(1);
@@ -517,8 +568,16 @@ export async function printKalakritiCredentials({
   now: number;
   subjects: readonly CredentialPrintSubject[];
 }): Promise<Buffer> {
+  const subjectKeys = new Set<string>();
   for (const subject of subjects) {
     assertCredentialPrintSubject(subject);
+    const key = subject.studentId
+      ? `student:${subject.studentId}`
+      : `volunteer:${subject.membershipId}`;
+    if (subjectKeys.has(key)) {
+      throw new Error("Duplicate credential subject");
+    }
+    subjectKeys.add(key);
   }
   // Load the PDF generator at runtime, outside the SSR bundle: react-pdf
   // resolves standard fonts through "#standard-fonts/*" package imports that
@@ -529,7 +588,7 @@ export async function printKalakritiCredentials({
 
   const cards: CredentialCard[] = [];
 
-  await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
     const [edition] = await tx
       .select({
         brandingKey: kalakritiEdition.brandingKey,
@@ -573,7 +632,6 @@ export async function printKalakritiCredentials({
       });
       cards.push(buildCredentialCard(branding, editionLabel, printed.card));
     }
+    return generateKalakritiCredentialPdf(cards);
   });
-
-  return generateKalakritiCredentialPdf(cards);
 }

@@ -24,7 +24,10 @@ function getCredentialKind(row: KalakritiCredentialRow): string {
 }
 
 function getCredentialStatus(row: KalakritiCredentialRow): string {
-  return row.revokedAt ? "Revoked" : "Active";
+  if (row.revokedAt) {
+    return "Revoked";
+  }
+  return row.issuedAt === null ? "Not issued" : "Active";
 }
 
 interface CredentialsTableProps {
@@ -81,8 +84,12 @@ function CredentialRowActions({
         }
       />
       <DropdownMenuContent align="end" className="w-40">
-        <DropdownMenuItem onClick={handlePrint}>Print card</DropdownMenuItem>
-        <DropdownMenuItem onClick={handleReissue}>Reissue QR</DropdownMenuItem>
+        {row.revokedAt === null ? (
+          <DropdownMenuItem onClick={handlePrint}>Print card</DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem onClick={handleReissue}>
+          {row.issuedAt === null ? "Issue QR" : "Reissue QR"}
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -175,7 +182,11 @@ export function CredentialsTable({
       {
         accessorFn: (row) => row.issuedAt,
         cell: ({ row }) => (
-          <span>{format(row.original.issuedAt, "dd MMM yyyy, HH:mm")}</span>
+          <span>
+            {row.original.issuedAt === null
+              ? "Not issued"
+              : format(row.original.issuedAt, "dd MMM yyyy, HH:mm")}
+          </span>
         ),
         header: ({ column }) => (
           <DataGridColumnHeader column={column} title="Issued" visibility />
