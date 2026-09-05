@@ -470,6 +470,7 @@ export const kalakritiStudentMutators = {
         id: args.credentialId,
         issuedAt: args.now,
         issuedBy: ctx.userId,
+        membershipId: null,
         revokedAt: null,
         revokedBy: null,
         studentId: args.studentId,

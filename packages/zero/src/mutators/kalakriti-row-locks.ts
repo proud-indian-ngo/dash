@@ -37,6 +37,7 @@ export interface LockedEdition {
 export interface LockedRegistrationEdition extends LockedEdition {
   ageCutoffDate: string;
   nextStudentSequence: number;
+  nextVolunteerSequence: number;
   year: number;
 }
 
@@ -116,6 +117,7 @@ function normalizeEdition(edition: {
   minTotalCompetitions?: number;
   teamEventId: string;
   nextStudentSequence?: number;
+  nextVolunteerSequence?: number;
   timezone: string;
   year?: number;
 }): LockableEdition {
@@ -129,6 +131,10 @@ function normalizeEdition(edition: {
     edition.nextStudentSequence === undefined
       ? {}
       : { nextStudentSequence: edition.nextStudentSequence };
+  const nextVolunteerSequence =
+    edition.nextVolunteerSequence === undefined
+      ? {}
+      : { nextVolunteerSequence: edition.nextVolunteerSequence };
   const year = edition.year === undefined ? {} : { year: edition.year };
   return {
     ...normalizedAgeCutoff,
@@ -137,6 +143,7 @@ function normalizeEdition(edition: {
     lifecycle: edition.lifecycle,
     minTotalCompetitions: edition.minTotalCompetitions ?? 2,
     ...nextStudentSequence,
+    ...nextVolunteerSequence,
     teamEventId: edition.teamEventId,
     timezone: edition.timezone,
     ...year,
@@ -222,6 +229,7 @@ export async function getEditionForUpdate(
       lifecycle: kalakritiEdition.lifecycle,
       minTotalCompetitions: kalakritiEdition.minTotalCompetitions,
       nextStudentSequence: kalakritiEdition.nextStudentSequence,
+      nextVolunteerSequence: kalakritiEdition.nextVolunteerSequence,
       teamEventId: kalakritiEdition.teamEventId,
       timezone: kalakritiEdition.timezone,
       year: kalakritiEdition.year,

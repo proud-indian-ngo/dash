@@ -151,7 +151,7 @@ describe("sendMessage channel allowlist", () => {
       inboxQueued: true,
       whatsapp: false,
     });
-    expect(insertNotification).toHaveBeenCalledOnce();
+    expect(insertNotification).toHaveBeenCalledTimes(1);
     expect(sendNotificationEmail).not.toHaveBeenCalled();
   });
 

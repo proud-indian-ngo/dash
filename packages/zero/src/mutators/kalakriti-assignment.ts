@@ -11,10 +11,12 @@ import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 
 import type { Context } from "../context";
+import { findActiveCredentialForMembership } from "../kalakriti-credential-issue";
 import { assertIsLoggedIn, can } from "../permissions";
 import { zql } from "../schema";
 import {
   getCenterForUpdate,
+  getEditionForUpdate,
   type LockableKalakritiTx,
 } from "./kalakriti-row-locks";
 import {
@@ -36,6 +38,11 @@ interface AssignmentTx extends LockableKalakritiTx {
       update: ZeroMutationFn;
     };
     kalakritiAuditEntry: { insert: ZeroMutationFn };
+    kalakritiCredential: {
+      insert: ZeroMutationFn;
+      update: ZeroMutationFn;
+    };
+    kalakritiEdition: { update: ZeroMutationFn };
     kalakritiEditionMembership: {
       insert: ZeroMutationFn;
       update: ZeroMutationFn;
@@ -150,6 +157,8 @@ export const kalakritiAddVolunteersSchema = z.object({
   volunteers: z
     .array(
       z.object({
+        credentialId: z.string(),
+        credentialTokenHash: z.string().regex(/^[0-9a-f]{64}$/),
         membershipId: z.string(),
         teamEventMemberId: z.string(),
         userId: z.string(),
@@ -483,6 +492,8 @@ export const kalakritiAssignmentMutators = {
         }
         const result = await ensureUnassignedVolunteerEnrollment(tx, {
           actorUserId: ctx.userId,
+          credentialId: volunteerArgs.credentialId,
+          credentialTokenHash: volunteerArgs.credentialTokenHash,
           edition: {
             id: args.editionId,
             lifecycle: edition.lifecycle,
@@ -653,7 +664,13 @@ export const kalakritiAssignmentMutators = {
       }
       await assertCanManageVolunteerRoster(tx, ctx, membership.editionId);
       assertIsLoggedIn(ctx);
-      const edition = await getAssignmentEdition(tx, membership.editionId);
+      const edition = await getEditionForUpdate(tx, membership.editionId);
+      if (!edition) {
+        throw new Error("Edition not found");
+      }
+      if (edition.lifecycle === "archived") {
+        throw new Error("Archived Editions cannot change assignments");
+      }
 
       const assignments = (await tx.run(
         zql.kalakritiAssignment.where("membershipId", membership.id)
@@ -663,6 +680,18 @@ export const kalakritiAssignmentMutators = {
           tx.mutate.kalakritiAssignment.delete({ id: assignment.id })
         )
       );
+
+      const activeCredential = await findActiveCredentialForMembership(
+        tx,
+        membership.id
+      );
+      if (activeCredential) {
+        await tx.mutate.kalakritiCredential.update({
+          id: activeCredential.id,
+          revokedAt: args.now,
+          revokedBy: ctx.userId,
+        });
+      }
 
       await tx.mutate.kalakritiEditionMembership.update({
         archivedAt: args.now,

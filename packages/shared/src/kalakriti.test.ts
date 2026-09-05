@@ -7,6 +7,7 @@ import {
   findKalakritiAgeCategoryOverlap,
   flattenKalakritiAssignableResponsibilities,
   formatKalakritiStudentHumanId,
+  formatKalakritiVolunteerHumanId,
   getKalakritiResponsibilityScopeKind,
   hasValidKalakritiGroupRules,
   isKalakritiAssignableUserRole,
@@ -55,6 +56,12 @@ describe("Kalakriti domain constants", () => {
 describe("formatKalakritiStudentHumanId", () => {
   it("formats an Edition-scoped monotonic sequence", () => {
     expect(formatKalakritiStudentHumanId(2027, 12)).toBe("KAL-2027-0012");
+  });
+});
+
+describe("formatKalakritiVolunteerHumanId", () => {
+  it("formats volunteer IDs separately from Student IDs", () => {
+    expect(formatKalakritiVolunteerHumanId(2027, 12)).toBe("KALV-2027-0012");
   });
 });
 

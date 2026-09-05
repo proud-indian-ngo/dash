@@ -8,6 +8,7 @@ import {
 } from "@pi-dash/design-system/components/ui/dialog";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { normalizeKalakritiStudentName } from "@pi-dash/shared/kalakriti";
+import { createKalakritiCredentialTokenHash } from "@pi-dash/shared/kalakriti-credential";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
@@ -115,14 +116,6 @@ function studentMutationValues(value: StudentSubmissionValues) {
     gender: value.gender,
     name: value.name,
   };
-}
-
-async function createCredentialTokenHash(): Promise<string> {
-  const opaqueValue = crypto.getRandomValues(new Uint8Array(32));
-  const digest = await crypto.subtle.digest("SHA-256", opaqueValue);
-  return [...new Uint8Array(digest)]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
 }
 
 function DuplicateWarning({
@@ -266,7 +259,7 @@ function StudentForm({
         auditEntryId: uuidv7(),
         centerId,
         credentialId: uuidv7(),
-        credentialTokenHash: await createCredentialTokenHash(),
+        credentialTokenHash: await createKalakritiCredentialTokenHash(),
         editionId,
         now: Date.now(),
         studentId: uuidv7(),

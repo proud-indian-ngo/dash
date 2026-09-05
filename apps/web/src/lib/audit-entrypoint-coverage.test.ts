@@ -35,6 +35,7 @@ const CLASSIFIED_API_POST_FILES = [
   "routes/api/jobs/$id/cancel.ts",
   "routes/api/jobs/$id/retry.ts",
   "routes/api/jobs/index.ts",
+  "routes/api/kalakriti/$year/credentials/print.ts",
   "routes/api/log/ingest.ts",
   "routes/api/whatsapp/webhook.ts",
   "routes/api/zero/mutate.ts",
@@ -49,6 +50,9 @@ const AUDITED_API_MARKERS: Record<string, string[]> = {
   "routes/api/jobs/$id/cancel.ts": ["runSessionAuditedAction"],
   "routes/api/jobs/$id/retry.ts": ["runSessionAuditedAction"],
   "routes/api/jobs/index.ts": ["runSessionAuditedAction"],
+  "routes/api/kalakriti/$year/credentials/print.ts": [
+    "runSessionAuditedAction",
+  ],
   "routes/api/zero/mutate.ts": [
     "runZeroAuditedMutation",
     "tx.mutate.auditLog.insert",

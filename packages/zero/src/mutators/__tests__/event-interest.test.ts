@@ -2,6 +2,9 @@ import { describe, expect, it, mock } from "bun:test";
 
 import z from "zod";
 
+const uuidv7Mock = mock();
+mock.module("uuidv7", () => ({ uuidv7: uuidv7Mock }));
+
 import { eventInterestMutators } from "../event-interest";
 
 const createSchema = z.object({
@@ -164,7 +167,14 @@ describe("Kalakriti event interest", () => {
   it("allows an interest manager to approve a Kalakriti request", async () => {
     const insertMember = mock();
     const insertMembership = mock();
+    const insertCredential = mock();
+    const updateEdition = mock();
+    const updateMembership = mock();
     const updateInterest = mock();
+    uuidv7Mock
+      .mockReturnValueOnce("credential-1")
+      .mockReturnValueOnce("membership-1")
+      .mockReturnValueOnce("event-member-1");
     const results = [
       {
         eventId: "event-1",
@@ -190,14 +200,32 @@ describe("Kalakriti event interest", () => {
       },
       undefined,
       undefined,
+      {
+        ageCutoffDate: "2027-06-30",
+        eventDate: "2027-11-21",
+        id: "edition-1",
+        lifecycle: "draft",
+        nextVolunteerSequence: 1,
+        teamEventId: "event-1",
+        timezone: "Asia/Kolkata",
+        year: 2027,
+      },
+      {
+        editionId: "edition-1",
+        humanId: null,
+        id: "membership-1",
+        state: "active",
+      },
     ];
     const tx = {
       location: "client",
       mutate: {
         eventInterest: { update: updateInterest },
+        kalakritiCredential: { insert: insertCredential, update: mock() },
+        kalakritiEdition: { update: updateEdition },
         kalakritiEditionMembership: {
           insert: insertMembership,
-          update: mock(),
+          update: updateMembership,
         },
         teamEventMember: { insert: insertMember },
       },
@@ -232,6 +260,13 @@ describe("Kalakriti event interest", () => {
         kind: "volunteer",
         state: "active",
         userId: "volunteer-1",
+      })
+    );
+    expect(insertCredential).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "credential-1",
+        membershipId: "membership-1",
+        tokenHash: expect.stringMatching(/^[0-9a-f]{64}$/),
       })
     );
   });

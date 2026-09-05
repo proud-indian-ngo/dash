@@ -12,6 +12,7 @@ import { expenseCategoryMutators } from "./mutators/expense-category";
 import { kalakritiAssignmentMutators } from "./mutators/kalakriti-assignment";
 import { kalakritiCenterMutators } from "./mutators/kalakriti-center";
 import { kalakritiCompetitionMutators } from "./mutators/kalakriti-competition";
+import { kalakritiCredentialMutators } from "./mutators/kalakriti-credential";
 import { kalakritiEditionMutators } from "./mutators/kalakriti-edition";
 import { kalakritiEligibilityMutators } from "./mutators/kalakriti-eligibility";
 import { kalakritiEntryMutators } from "./mutators/kalakriti-entry";
@@ -40,6 +41,7 @@ export const mutators = defineMutators({
   kalakritiAssignment: kalakritiAssignmentMutators,
   kalakritiCenter: kalakritiCenterMutators,
   kalakritiCompetition: kalakritiCompetitionMutators,
+  kalakritiCredential: kalakritiCredentialMutators,
   kalakritiEdition: kalakritiEditionMutators,
   kalakritiEligibility: kalakritiEligibilityMutators,
   kalakritiEntry: kalakritiEntryMutators,

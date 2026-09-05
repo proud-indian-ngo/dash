@@ -1,3 +1,4 @@
+import { createKalakritiCredentialTokenHash } from "@pi-dash/shared/kalakriti-credential";
 import { defineMutator } from "@rocicorp/zero";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
@@ -67,6 +68,8 @@ export const eventInterestMutators = {
       if (edition && edition.lifecycle !== "archived" && volunteer) {
         await ensureUnassignedVolunteerEnrollment(tx, {
           actorUserId: ctx.userId,
+          credentialId: uuidv7(),
+          credentialTokenHash: await createKalakritiCredentialTokenHash(),
           edition,
           membershipId: uuidv7(),
           now: args.now,
