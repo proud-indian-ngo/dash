@@ -1,1 +1,0 @@
-ALTER TABLE "kalakriti_transport_assignment" ADD CONSTRAINT "kalakriti_transport_assignment_editionId_id_uq" UNIQUE("edition_id","id");

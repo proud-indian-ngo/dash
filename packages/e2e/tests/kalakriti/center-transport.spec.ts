@@ -70,6 +70,28 @@ test("manages Center transport assignments and blocks Guardians", async ({
     await expect(page.getByText("Bus 1")).toBeVisible();
     await expect(page.getByText("Driver: Ravi Kumar")).toBeVisible();
 
+    await page
+      .getByRole("button", { name: "Edit", exact: true })
+      .last()
+      .click();
+    const editDialog = page.getByRole("dialog", {
+      name: "Edit transport assignment",
+    });
+    await editDialog.getByLabel("Vehicle").fill("Bus 2");
+    await editDialog.getByLabel("Driver name").fill("Anil Kumar");
+    await editDialog.getByRole("button", { name: "Save changes" }).click();
+    await expect(page.getByText("Driver: Anil Kumar")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Bus 2", exact: true })
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Arrived at Center", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "Arrived at venue", exact: true })
+    ).toBeVisible();
+
+    await centers.goto(year);
     await centers.assignGuardian("Transport Center", guardianName);
     const guardianContext = await browser.newContext({
       baseURL,
@@ -98,6 +120,6 @@ test("manages Center transport assignments and blocks Guardians", async ({
       await guardianContext.close();
     }
   } finally {
-    await fixture("teardown", superAdminEmail);
+    await fixture("cleanup");
   }
 });
