@@ -425,10 +425,7 @@ if (action === "setup" && email) {
   throw new Error(`Unsupported Entry helper action: ${action ?? ""}`);
 }
 
-// Exit inside the write callback: process.exit can truncate buffered pipe
-// output, returning empty stdout to the execFile caller (flaky fixtures).
-process.stdout.write(`${JSON.stringify(result)}\n`, () => {
-  // The drizzle pool keeps the event loop alive; exit explicitly so the
-  // execFile callers in competition-entry-registration.spec.ts can resolve.
-  process.exit(0);
-});
+process.stdout.write(`${JSON.stringify(result)}\n`);
+// Closing the pool gives stdout time to flush before the explicit exit.
+await db.$client.end();
+process.exit(0);

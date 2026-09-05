@@ -56,11 +56,11 @@ export async function handleKalakritiCredentialPrintRequest(
       target: { id: access.edition.id, type: "kalakriti_edition" },
     },
     async () => {
-      const body = printBodySchema.safeParse(await request.json());
-      if (!body.success) {
-        return Response.json({ error: "Invalid request" }, { status: 400 });
-      }
       try {
+        const body = printBodySchema.safeParse(await request.json());
+        if (!body.success) {
+          return Response.json({ error: "Invalid request" }, { status: 400 });
+        }
         const pdf = await printKalakritiCredentials({
           actorUserId: sessionResult.session.user.id,
           editionId: access.edition.id,
@@ -78,6 +78,9 @@ export async function handleKalakritiCredentialPrintRequest(
           },
         });
       } catch (error) {
+        if (error instanceof SyntaxError) {
+          return Response.json({ error: "Invalid request" }, { status: 400 });
+        }
         const message = error instanceof Error ? error.message : "Print failed";
         if (message.includes("not allowed")) {
           return Response.json({ error: message }, { status: 403 });

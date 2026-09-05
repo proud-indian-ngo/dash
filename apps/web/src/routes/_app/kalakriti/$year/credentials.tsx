@@ -6,6 +6,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { format } from "date-fns";
+import { log } from "evlog";
 import { type ChangeEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
@@ -44,12 +45,24 @@ function KalakritiCredentialsPage() {
   }>(null);
   const [credentials, setCredentials] = useState<KalakritiCredentialRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const loadCredentials = useEventCallback(async () => {
     setIsLoading(true);
+    setLoadError(false);
     try {
       const rows = await getKalakritiCredentialsForAdmin({ data: { year } });
       setCredentials(rows ?? []);
+    } catch (error) {
+      log.error({
+        action: "loadCredentials",
+        component: "KalakritiCredentialsPage",
+        editionId: edition.id,
+        error: error instanceof Error ? error.message : String(error),
+        year,
+      });
+      setLoadError(true);
+      toast.error("Couldn't load credentials");
     } finally {
       setIsLoading(false);
     }
@@ -59,10 +72,23 @@ function KalakritiCredentialsPage() {
     let cancelled = false;
     const load = async () => {
       setIsLoading(true);
+      setLoadError(false);
       try {
         const rows = await getKalakritiCredentialsForAdmin({ data: { year } });
         if (!cancelled) {
           setCredentials(rows ?? []);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          log.error({
+            action: "loadCredentials",
+            component: "KalakritiCredentialsPage",
+            editionId: edition.id,
+            error: error instanceof Error ? error.message : String(error),
+            year,
+          });
+          setLoadError(true);
+          toast.error("Couldn't load credentials");
         }
       } finally {
         if (!cancelled) {
@@ -74,7 +100,7 @@ function KalakritiCredentialsPage() {
     return () => {
       cancelled = true;
     };
-  }, [year]);
+  }, [edition.id, year]);
 
   const printCredentials = useEventCallback(
     async (rows: readonly KalakritiCredentialRow[]) => {
@@ -83,33 +109,51 @@ function KalakritiCredentialsPage() {
         toast.error("Select at least one active credential to print");
         return { error: { message: "No active rows" }, type: "error" as const };
       }
-      const response = await fetch(`/api/kalakriti/${year}/credentials/print`, {
-        body: JSON.stringify({
-          subjects: activeRows.map((row) => ({
-            membershipId: row.membershipId ?? undefined,
-            studentId: row.studentId ?? undefined,
-          })),
-        }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
-      if (!response.ok) {
+      try {
+        const response = await fetch(
+          `/api/kalakriti/${year}/credentials/print`,
+          {
+            body: JSON.stringify({
+              subjects: activeRows.map((row) => ({
+                membershipId: row.membershipId ?? undefined,
+                studentId: row.studentId ?? undefined,
+              })),
+            }),
+            headers: { "Content-Type": "application/json" },
+            method: "POST",
+          }
+        );
+        if (!response.ok) {
+          throw new Error(`Credential print failed: ${response.status}`);
+        }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        try {
+          const anchor = document.createElement("a");
+          anchor.href = url;
+          anchor.download = `kalakriti-${year}-credentials.pdf`;
+          anchor.click();
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+        toast.success("Credential cards downloaded");
+        await loadCredentials();
+        return { type: "success" as const };
+      } catch (error) {
+        log.error({
+          action: "printCredentials",
+          component: "KalakritiCredentialsPage",
+          credentialCount: activeRows.length,
+          editionId: edition.id,
+          error: error instanceof Error ? error.message : String(error),
+          year,
+        });
         toast.error("Failed to print credentials");
         return {
           error: { message: "Failed to print credentials" },
           type: "error" as const,
         };
       }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `kalakriti-${year}-credentials.pdf`;
-      anchor.click();
-      URL.revokeObjectURL(url);
-      toast.success("Credential cards downloaded");
-      await loadCredentials();
-      return { type: "success" as const };
     }
   );
 
@@ -120,9 +164,9 @@ function KalakritiCredentialsPage() {
   const reissueAction = useConfirmAction<KalakritiCredentialRow>({
     mutationMeta: {
       entityId: (row) => row.id,
-      errorMsg: "Failed to reissue credential",
+      errorMsg: "Failed to issue credential QR",
       mutation: "kalakritiCredential.reissue",
-      successMsg: "Credential reissued",
+      successMsg: "Credential QR issued",
     },
     onConfirm: async (row) => {
       const auditEntryId = uuidv7();
@@ -148,15 +192,38 @@ function KalakritiCredentialsPage() {
       setLookupResult(null);
       return;
     }
-    const response = await fetch(
-      `/api/kalakriti/${year}/credentials/lookup?humanId=${encodeURIComponent(trimmed)}`
-    );
-    if (!response.ok) {
+    let responseStatus: number | undefined;
+    try {
+      const response = await fetch(
+        `/api/kalakriti/${year}/credentials/lookup?humanId=${encodeURIComponent(trimmed)}`
+      );
+      responseStatus = response.status;
+      if (response.status === 404) {
+        setLookupResult(null);
+        toast.error("Credential not found in this Edition");
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(`Credential lookup failed: ${response.status}`);
+      }
+      setLookupResult(await response.json());
+    } catch (error) {
+      log.error({
+        action: "lookupCredential",
+        component: "KalakritiCredentialsPage",
+        editionId: edition.id,
+        error: error instanceof Error ? error.message : String(error),
+        humanId: trimmed,
+        responseStatus,
+        year,
+      });
       setLookupResult(null);
-      toast.error("Credential not found in this Edition");
-      return;
+      toast.error(
+        responseStatus === 401 || responseStatus === 403
+          ? "You no longer have access to look up credentials"
+          : "Couldn't look up credential. Check your connection and try again."
+      );
     }
-    setLookupResult(await response.json());
   });
 
   const handleLookupIdChange = useEventCallback(
@@ -221,12 +288,30 @@ function KalakritiCredentialsPage() {
           <p>Issued {format(lookupResult.issuedAt, "dd MMM yyyy, HH:mm")}</p>
         </div>
       ) : null}
-      <CredentialsTable
-        data={credentials}
-        isLoading={isLoading}
-        onPrint={handlePrintRows}
-        onReissue={handleReissueRow}
-      />
+      {loadError ? (
+        <div
+          className="border-destructive/40 bg-destructive/5 flex flex-col items-start gap-3 rounded-md border p-4"
+          role="alert"
+        >
+          <div>
+            <p className="font-medium">Couldn't load credentials</p>
+            <p className="text-muted-foreground text-sm">
+              Check your connection and try again.
+            </p>
+          </div>
+          <Button onClick={loadCredentials} size="sm" variant="outline">
+            Retry
+          </Button>
+        </div>
+      ) : null}
+      {credentials.length > 0 || !loadError ? (
+        <CredentialsTable
+          data={credentials}
+          isLoading={isLoading}
+          onPrint={handlePrintRows}
+          onReissue={handleReissueRow}
+        />
+      ) : null}
       <ConfirmDialog
         confirmLabel="Print cards"
         description="Printing issues a new QR for each selected person. Any previously printed cards for them will stop working."
@@ -238,14 +323,28 @@ function KalakritiCredentialsPage() {
         title="Print credential cards?"
       />
       <ConfirmDialog
-        confirmLabel="Reissue"
-        description="Reissuing creates a new QR code. Any previously printed cards for this person will stop working."
+        confirmLabel={
+          reissueAction.payload?.issuedAt === null ? "Issue QR" : "Reissue"
+        }
+        description={
+          reissueAction.payload?.issuedAt === null
+            ? "Issuing creates a new QR code for this person."
+            : "Reissuing creates a new QR code. Any previously printed cards for this person will stop working."
+        }
         loading={reissueAction.isLoading}
-        loadingLabel="Reissuing..."
+        loadingLabel={
+          reissueAction.payload?.issuedAt === null
+            ? "Issuing..."
+            : "Reissuing..."
+        }
         onConfirm={reissueAction.confirm}
         onOpenChange={handleReissueDialogOpenChange}
         open={reissueAction.isOpen}
-        title="Reissue credential?"
+        title={
+          reissueAction.payload?.issuedAt === null
+            ? "Issue credential?"
+            : "Reissue credential?"
+        }
       />
     </div>
   );

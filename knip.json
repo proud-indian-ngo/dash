@@ -36,6 +36,7 @@
         "helpers/kalakriti-lifecycle.ts",
         "helpers/kalakriti-public-schedule.ts",
         "helpers/kalakriti-release-races.ts",
+        "helpers/kalakriti-station-subject.ts",
         "helpers/kalakriti-students.ts",
         "helpers/kalakriti-volunteer-assignment.ts",
         "helpers/register-url-options.ts",

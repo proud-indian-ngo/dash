@@ -1,11 +1,14 @@
 import { createHash, randomBytes } from "node:crypto";
+import { writeSync } from "node:fs";
 
 import { db } from "@pi-dash/db";
 import {
   kalakritiAgeCategory,
+  kalakritiAuditEntry,
   kalakritiCenter,
   kalakritiCredential,
   kalakritiEdition,
+  kalakritiEditionMembership,
   kalakritiStudent,
 } from "@pi-dash/db/schema/kalakriti";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
@@ -17,6 +20,7 @@ const fixture = {
   credentialId: "019f0000-0000-7000-8000-00000000c105",
   editionId: "019f0000-0000-7000-8000-00000000c101",
   eventId: "019f0000-0000-7000-8000-00000000c102",
+  membershipId: "019f0000-0000-7000-8000-00000000c107",
   studentId: "019f0000-0000-7000-8000-00000000c103",
   year: 2025,
 } as const;
@@ -149,19 +153,40 @@ async function setup(actorEmail: string) {
     studentId: fixture.studentId,
     tokenHash: hashToken(tokenBytes),
   });
-  return { humanId, studentId: fixture.studentId, year: fixture.year };
+  await db.insert(kalakritiEditionMembership).values({
+    createdAt: now,
+    createdBy: actor.id,
+    editionId: fixture.editionId,
+    id: fixture.membershipId,
+    kind: "volunteer",
+    snapshotName: "Credential Volunteer",
+    state: "active",
+    updatedAt: now,
+    userId: actor.id,
+  });
+  return {
+    humanId,
+    membershipId: fixture.membershipId,
+    studentId: fixture.studentId,
+    year: fixture.year,
+  };
 }
 
 async function readState() {
   const credentials = await db
     .select({
       humanId: kalakritiCredential.humanId,
+      membershipId: kalakritiCredential.membershipId,
       revokedAt: kalakritiCredential.revokedAt,
       tokenHash: kalakritiCredential.tokenHash,
     })
     .from(kalakritiCredential)
     .where(eq(kalakritiCredential.editionId, fixture.editionId));
-  return { credentials };
+  const audits = await db
+    .select({ action: kalakritiAuditEntry.action })
+    .from(kalakritiAuditEntry)
+    .where(eq(kalakritiAuditEntry.editionId, fixture.editionId));
+  return { audits, credentials };
 }
 
 const [action, argument] = process.argv.slice(2);
@@ -174,17 +199,20 @@ async function main() {
     if (!argument) {
       throw new Error("setup requires actorEmail");
     }
-    process.stdout.write(`${JSON.stringify(await setup(argument))}\n`);
+    // writeSync to fd 1: async stdout writes can be truncated by process.exit
+    // when output is a pipe on loaded CI runners.
+    writeSync(1, `${JSON.stringify(await setup(argument))}\n`);
     await db.$client.end();
     process.exit(0);
   }
   if (action === "state") {
-    process.stdout.write(`${JSON.stringify(await readState())}\n`);
+    writeSync(1, `${JSON.stringify(await readState())}\n`);
     await db.$client.end();
     process.exit(0);
   }
   if (action === "cleanup") {
     await cleanup();
+    await db.$client.end();
     process.exit(0);
   }
 }

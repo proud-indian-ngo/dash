@@ -1,5 +1,5 @@
 {
-  "id": "79285d9c-b8c4-4577-95ac-5f442677a653",
+  "id": "2cc7faee-b142-4674-be71-d3ba3d0db695",
   "prevId": "c5d8d45f-1e91-4379-b5d7-4e34235098b4",
   "version": "7",
   "dialect": "postgresql",
@@ -6144,7 +6144,16 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "kalakriti_transport_assignment_editionId_id_uq": {
+          "name": "kalakriti_transport_assignment_editionId_id_uq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "edition_id",
+            "id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {
         "kalakriti_transport_assignment_capacity_chk": {

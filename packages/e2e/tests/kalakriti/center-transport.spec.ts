@@ -78,6 +78,26 @@ test("manages Center transport assignments and blocks Guardians", async ({
         .getByText(guardianName, { exact: true })
     ).toBeVisible({ timeout: 30_000 });
 
+    await page
+      .getByRole("button", { name: "Edit", exact: true })
+      .last()
+      .click();
+    const editDialog = page.getByRole("dialog", {
+      name: "Edit transport assignment",
+    });
+    await editDialog.getByLabel("Vehicle").fill("Bus 2");
+    await editDialog.getByLabel("Driver name").fill("Anil Kumar");
+    await editDialog.getByRole("button", { name: "Save changes" }).click();
+    await expect(page.getByText("Driver: Anil Kumar")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Bus 2", exact: true })
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Arrived at Center", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "Arrived at venue", exact: true })
+    ).toBeVisible();
     const guardianContext = await browser.newContext({
       baseURL,
       storageState: { cookies: [], origins: [] },

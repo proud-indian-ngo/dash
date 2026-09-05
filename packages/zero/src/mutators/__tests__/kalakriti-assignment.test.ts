@@ -30,6 +30,7 @@ function createMutationSpies() {
     insertEventMember: mock(),
     insertMembership: mock(),
     updateAssignment: mock(),
+    updateCredential: mock(),
     updateEdition: mock(),
     updateMembership: mock(),
   };
@@ -70,7 +71,7 @@ function createTx(
         kalakritiAuditEntry: { insert: spies.insertAudit },
         kalakritiCredential: {
           insert: spies.insertCredential,
-          update: mock(),
+          update: spies.updateCredential,
         },
         kalakritiEdition: { update: spies.updateEdition },
         kalakritiEditionMembership: {
@@ -822,7 +823,12 @@ describe("kalakritiAssignment.addVolunteers", () => {
       undefined,
       undefined,
       undefined,
-      { editionId: "edition-1", humanId: null, id: "membership-new" },
+      {
+        editionId: "edition-1",
+        humanId: null,
+        id: "membership-new",
+        state: "active",
+      },
     ]);
     lockedCenters[0] = [
       {
@@ -928,6 +934,83 @@ describe("kalakritiAssignment.addVolunteers", () => {
     ).rejects.toThrow("No volunteers were added");
   });
 
+  it("re-enrolls an archived volunteer with a fresh credential and retained ID", async () => {
+    const { lockedCenters, tx, spies } = createTx([
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+      {
+        email: "volunteer@example.com",
+        id: "volunteer-1",
+        isActive: true,
+        name: "Volunteer One",
+        phone: null,
+        role: "volunteer",
+      },
+      undefined,
+      {
+        editionId: "edition-1",
+        humanId: "KALV-2027-0004",
+        id: "membership-1",
+        kind: "volunteer",
+        state: "archived",
+        userId: "volunteer-1",
+      },
+      undefined,
+      undefined,
+      {
+        editionId: "edition-1",
+        humanId: "KALV-2027-0004",
+        id: "membership-1",
+        state: "active",
+      },
+    ]);
+    lockedCenters[0] = [
+      {
+        ageCutoffDate: "2027-06-30",
+        eventDate: "2027-11-21",
+        id: "edition-1",
+        lifecycle: "draft",
+        nextVolunteerSequence: 5,
+        teamEventId: "event-1",
+        timezone: "Asia/Kolkata",
+        year: 2027,
+      },
+    ];
+
+    await kalakritiAssignmentMutators.addVolunteers.fn({
+      args: {
+        auditEntryId: "audit-1",
+        editionId: "edition-1",
+        now: 1_700_000_000_000,
+        volunteers: [
+          {
+            credentialId: "credential-new",
+            credentialTokenHash: "d".repeat(64),
+            membershipId: "membership-unused",
+            teamEventMemberId: "event-member-new",
+            userId: "volunteer-1",
+          },
+        ],
+      },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiAssignmentMutators.addVolunteers.fn
+    >[0]);
+
+    expect(spies.updateMembership).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "membership-1", state: "active" })
+    );
+    expect(spies.insertCredential).toHaveBeenCalledWith(
+      expect.objectContaining({
+        humanId: "KALV-2027-0004",
+        id: "credential-new",
+        membershipId: "membership-1",
+        tokenHash: "d".repeat(64),
+      })
+    );
+    expect(spies.updateEdition).not.toHaveBeenCalled();
+  });
+
   it("defers a missing picker user row to the authoritative server run", async () => {
     const { tx, spies } = createTx(
       [
@@ -966,7 +1049,7 @@ describe("kalakritiAssignment.addVolunteers", () => {
 
 describe("kalakritiAssignment.removeVolunteer", () => {
   it("archives membership and drops the linked event member", async () => {
-    const { tx, spies } = createTx([
+    const { lockedCenters, lockForUpdate, tx, spies } = createTx([
       {
         editionId: "edition-1",
         id: "membership-1",
@@ -974,10 +1057,20 @@ describe("kalakritiAssignment.removeVolunteer", () => {
         state: "active",
         userId: "volunteer-1",
       },
-      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
       [{ id: "assignment-1" }],
+      { humanId: "KALV-2027-0004", id: "credential-1" },
       { id: "event-member-1" },
     ]);
+    lockedCenters[0] = [
+      {
+        ageCutoffDate: "2027-06-30",
+        eventDate: "2027-11-21",
+        id: "edition-1",
+        lifecycle: "draft",
+        teamEventId: "event-1",
+        timezone: "Asia/Kolkata",
+      },
+    ];
 
     await kalakritiAssignmentMutators.removeVolunteer.fn({
       args: {
@@ -992,6 +1085,12 @@ describe("kalakritiAssignment.removeVolunteer", () => {
     >[0]);
 
     expect(spies.deleteAssignment).toHaveBeenCalledWith({ id: "assignment-1" });
+    expect(lockForUpdate).toHaveBeenCalledWith("update");
+    expect(spies.updateCredential).toHaveBeenCalledWith({
+      id: "credential-1",
+      revokedAt: 1_700_000_000_000,
+      revokedBy: "admin-1",
+    });
     expect(spies.updateMembership).toHaveBeenCalledWith(
       expect.objectContaining({ id: "membership-1", state: "archived" })
     );

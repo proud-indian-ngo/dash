@@ -82,6 +82,8 @@ All paths are relative to project root.
 | `routes/_app/kalakriti/index.tsx` | Latest accessible Edition redirect and no-access fallback |
 | `routes/_app/kalakriti/$year/route.tsx` | Edition-scoped container and exact-year access guard |
 | `routes/_app/kalakriti/$year/index.tsx` | Edition overview workspace and Edition header |
+| `routes/_app/kalakriti/$year/credentials.tsx` | Admin credential lookup, first issue, reissue, and PDF downloads |
+| `routes/api/kalakriti/$year/credentials/{lookup,print}.ts` | Session- and Edition-admin-protected credential lookup and transactional PDF printing |
 | `routes/_app/kalakriti/$year/centers/index.tsx` | Edition Center list and registration controls |
 | `routes/_app/kalakriti/$year/centers/$id.tsx` | Center registration and assignment detail |
 | `routes/_app/kalakriti/$year/eligibility.tsx` | Edition Age Categories and shared per-Center Student limits |
