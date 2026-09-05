@@ -212,6 +212,7 @@ async function main() {
   }
   if (action === "cleanup") {
     await cleanup();
+    await db.$client.end();
     process.exit(0);
   }
 }

@@ -5,19 +5,24 @@ import {
 import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
 import {
+  kalakritiCenter,
   kalakritiEdition,
   kalakritiEditionMembership,
   kalakritiExternalIdentity,
+  kalakritiGuardianCenter,
 } from "@pi-dash/db/schema/kalakriti";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
 import { eq } from "drizzle-orm";
 
 const EDITION_ID = "019f0000-0000-7000-8000-00000000c701";
 const EVENT_ID = "019f0000-0000-7000-8000-00000000c702";
+const CENTER_ID = "019f0000-0000-7000-8000-00000000c704";
 const GUARDIAN_MEMBERSHIP_ID = "019f0000-0000-7000-8000-00000000c703";
+const GUARDIAN_CENTER_ID = "019f0000-0000-7000-8000-00000000c705";
 const GUARDIAN_EMAIL = "center-guardian@pi-dash.test";
 const GUARDIAN_NAME = "Center Test Guardian";
 const GUARDIAN_PASSWORD = "CenterGuardian!2197";
+const CENTER_NAME = "Transport Center";
 const YEAR = 2197;
 
 async function cleanup(): Promise<void> {
@@ -65,12 +70,23 @@ async function setup(superAdminEmail: string) {
     createdBy: actor.id,
     eventDate: "2197-11-21",
     id: EDITION_ID,
-    lifecycle: "draft",
+    lifecycle: "registration_open",
     name: `Kalakriti ${YEAR}`,
     plannedRegistrationCloseAt: new Date("2197-10-31T18:29:00.000Z"),
     teamEventId: EVENT_ID,
     updatedAt: now,
     year: YEAR,
+  });
+  await db.insert(kalakritiCenter).values({
+    competitionEntryRegistrationEnabled: false,
+    createdAt: now,
+    createdBy: actor.id,
+    editionId: EDITION_ID,
+    id: CENTER_ID,
+    name: CENTER_NAME,
+    normalizedName: "transport center",
+    studentRegistrationEnabled: false,
+    updatedAt: now,
   });
   const external = await createKalakritiExternalUser({
     email: GUARDIAN_EMAIL,
@@ -97,8 +113,17 @@ async function setup(superAdminEmail: string) {
       updatedAt: now,
       userId: external.id,
     });
+    await tx.insert(kalakritiGuardianCenter).values({
+      centerId: CENTER_ID,
+      createdAt: now,
+      createdBy: actor.id,
+      editionId: EDITION_ID,
+      id: GUARDIAN_CENTER_ID,
+      membershipId: GUARDIAN_MEMBERSHIP_ID,
+    });
   });
   return {
+    centerName: CENTER_NAME,
     guardianEmail: GUARDIAN_EMAIL,
     guardianName: GUARDIAN_NAME,
     guardianPassword: GUARDIAN_PASSWORD,
@@ -111,6 +136,7 @@ try {
   let result:
     | { removed: boolean }
     | {
+        centerName: string;
         guardianEmail: string;
         guardianName: string;
         guardianPassword: string;

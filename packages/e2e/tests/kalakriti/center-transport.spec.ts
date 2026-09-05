@@ -39,12 +39,13 @@ test("manages Center transport assignments and blocks Guardians", async ({
   superAdminEmail,
 }, testInfo) => {
   test.skip(
-    testInfo.project.name !== "super_admin",
+    testInfo.project.name !== "kalakriti_phase2",
     "Super-admin Center transport workflow"
   );
   test.slow();
-  const { guardianEmail, guardianName, guardianPassword, year } =
+  const { centerName, guardianEmail, guardianName, guardianPassword, year } =
     await fixture<{
+      centerName: string;
       guardianEmail: string;
       guardianName: string;
       guardianPassword: string;
@@ -53,10 +54,12 @@ test("manages Center transport assignments and blocks Guardians", async ({
   const centers = new KalakritiCentersPage(page);
 
   try {
-    await centers.goto(year);
-    await waitForZeroReady(page);
-    await centers.addCenter("Transport Center");
-    await centers.openDetails("Transport Center");
+    await expect(async () => {
+      await centers.goto(year);
+      await expect(centers.center(centerName)).toBeVisible({ timeout: 3000 });
+    }).toPass({ timeout: 60_000 });
+
+    await centers.openDetails(centerName);
     await waitForZeroReady(page);
 
     await page.getByRole("button", { name: "Add vehicle" }).click();
@@ -69,6 +72,11 @@ test("manages Center transport assignments and blocks Guardians", async ({
     await dialog.getByRole("button", { name: "Add vehicle" }).click();
     await expect(page.getByText("Bus 1")).toBeVisible();
     await expect(page.getByText("Driver: Ravi Kumar")).toBeVisible();
+    await expect(
+      page
+        .getByRole("list", { name: "Guardians" })
+        .getByText(guardianName, { exact: true })
+    ).toBeVisible({ timeout: 30_000 });
 
     await page
       .getByRole("button", { name: "Edit", exact: true })
@@ -90,9 +98,6 @@ test("manages Center transport assignments and blocks Guardians", async ({
     await expect(
       page.getByRole("button", { name: "Arrived at venue", exact: true })
     ).toBeVisible();
-
-    await centers.goto(year);
-    await centers.assignGuardian("Transport Center", guardianName);
     const guardianContext = await browser.newContext({
       baseURL,
       storageState: { cookies: [], origins: [] },
@@ -100,14 +105,21 @@ test("manages Center transport assignments and blocks Guardians", async ({
     const guardianPage = await guardianContext.newPage();
     try {
       await signIn(guardianPage, guardianEmail, guardianPassword);
-      await guardianPage.goto(`/kalakriti/${year}/centers`);
-      await waitForZeroReady(guardianPage);
+      await expect(async () => {
+        await guardianPage.goto(`/kalakriti/${year}/centers`);
+        await waitForZeroReady(guardianPage);
+        await expect(
+          guardianPage.getByRole("row").filter({
+            has: guardianPage.getByText(centerName, { exact: true }),
+          })
+        ).toBeVisible({ timeout: 3000 });
+      }).toPass({ timeout: 60_000 });
       await guardianPage
         .getByRole("row")
         .filter({
-          has: guardianPage.getByText("Transport Center", { exact: true }),
+          has: guardianPage.getByText(centerName, { exact: true }),
         })
-        .getByRole("button", { name: "Actions for Transport Center" })
+        .getByRole("button", { name: `Actions for ${centerName}` })
         .click();
       await guardianPage
         .getByRole("menuitem", { exact: true, name: "View details" })
@@ -120,6 +132,6 @@ test("manages Center transport assignments and blocks Guardians", async ({
       await guardianContext.close();
     }
   } finally {
-    await fixture("cleanup");
+    await fixture("cleanup", superAdminEmail);
   }
 });

@@ -121,8 +121,16 @@ export class KalakritiCentersPage {
   }
 
   async assignGuardian(centerName: string, guardianName: string) {
-    const detail = await this.openDetails(centerName);
+    const main = this.page.locator("#main");
+    const onDetailPage = await main
+      .getByRole("heading", { exact: true, name: centerName })
+      .isVisible();
+    const detail = onDetailPage ? main : await this.openDetails(centerName);
+    await waitForZeroReady(this.page);
     await detail.getByRole("combobox", { name: "Guardian" }).click();
+    await expect(
+      this.page.getByRole("option", { exact: true, name: guardianName })
+    ).toBeVisible({ timeout: 30_000 });
     await this.page
       .getByRole("option", { exact: true, name: guardianName })
       .click();

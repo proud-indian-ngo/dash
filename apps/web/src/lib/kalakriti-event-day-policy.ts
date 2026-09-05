@@ -24,6 +24,17 @@ const STATION_RESPONSIBILITIES = [
   "competition_coordinator",
 ] as const satisfies readonly KalakritiResponsibility[];
 
+const CORRECT_TRANSPORT_RESPONSIBILITIES = [
+  "transport_lead",
+  "transport_coordinator",
+] as const satisfies readonly KalakritiResponsibility[];
+
+const CORRECT_STATION_LEAD_RESPONSIBILITIES = [
+  "food_lead",
+  "hospitality_lead",
+  "competition_coordinator",
+] as const satisfies readonly KalakritiResponsibility[];
+
 function hasEditionWideTransportAccess(
   access: KalakritiEventDayAccessInput
 ): boolean {
@@ -74,5 +85,32 @@ export function canAccessKalakritiEventDay(
     hasEditionWideTransportAccess(access) ||
     hasAnyCenterTransportAssignment(access) ||
     hasAnyStationAssignment(access)
+  );
+}
+
+export function canCorrectKalakritiEventDay(
+  access: KalakritiEventDayAccessInput | null | undefined
+): boolean {
+  if (!access) {
+    return false;
+  }
+  if (access.isGlobalAdmin) {
+    return true;
+  }
+  const responsibilities = access.membership?.responsibilities ?? [];
+  if (responsibilities.includes("edition_admin")) {
+    return true;
+  }
+  return (
+    responsibilities.some((responsibility) =>
+      (
+        CORRECT_TRANSPORT_RESPONSIBILITIES as readonly KalakritiResponsibility[]
+      ).includes(responsibility)
+    ) ||
+    responsibilities.some((responsibility) =>
+      (
+        CORRECT_STATION_LEAD_RESPONSIBILITIES as readonly KalakritiResponsibility[]
+      ).includes(responsibility)
+    )
   );
 }

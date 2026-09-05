@@ -3,6 +3,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { runKalakritiGoliveFixture } from "../../helpers/kalakriti-e2e-fixture";
 
 const execFileAsync = promisify(execFile);
 const helperPath = path.resolve(
@@ -21,6 +22,12 @@ async function fixture<T>(action: string, argument?: string): Promise<T> {
 
 test.describe("Kalakriti public schedule", () => {
   test.describe.configure({ mode: "serial" });
+  test.use({
+    storageState: path.resolve(
+      import.meta.dirname,
+      "../../.auth/unoriented_volunteer.json"
+    ),
+  });
 
   test("shows the public schedule with viewer-specific actions", async ({
     browser,
@@ -28,9 +35,10 @@ test.describe("Kalakriti public schedule", () => {
     request,
   }, testInfo) => {
     test.skip(
-      testInfo.project.name !== "kalakriti_release_invariants",
+      testInfo.project.name !== "kalakriti_phase2",
       "Public and authenticated schedule workflow"
     );
+    await runKalakritiGoliveFixture("reset-2186-registration-open");
     const { draftYear, year } = await fixture<{
       draftYear: number;
       year: number;

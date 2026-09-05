@@ -11,6 +11,7 @@ import {
   assertCanRecordOperation,
   findExistingOperationByOperationId,
   getOperationSubjectKind,
+  isEffectiveOperation,
   type KalakritiOperationRecord,
 } from "../kalakriti-operation-rules";
 import { assertIsLoggedIn, can } from "../permissions";
@@ -29,7 +30,7 @@ type ZeroMutationFn = BivariantZeroMutation["bivarianceHack"];
 interface OperationTx extends LockableKalakritiTx {
   mutate: {
     kalakritiAuditEntry: { insert: ZeroMutationFn };
-    kalakritiOperation: { insert: ZeroMutationFn };
+    kalakritiOperation: { insert: ZeroMutationFn; update: ZeroMutationFn };
   };
 }
 
@@ -63,6 +64,16 @@ export const kalakritiOperationRecordManualSchema =
   kalakritiOperationRecordBaseSchema.extend({
     humanId: z.string().min(1),
   });
+
+export const kalakritiOperationCorrectSchema = z.object({
+  auditEntryId: z.string(),
+  editionId: z.string(),
+  id: z.string(),
+  now: z.number(),
+  operationId: z.string(),
+  reason: z.string().trim().min(1).max(500),
+  targetOperationId: z.string(),
+});
 
 interface ActiveMembership {
   id: string;
@@ -305,6 +316,195 @@ async function assertCanRecordCompetitionAttendance(
   throw new Error("Unauthorized");
 }
 
+async function assertCanCorrectTransportOperation(
+  tx: LockableKalakritiTx,
+  ctx: Context | undefined,
+  editionId: string,
+  studentCenterId: string
+): Promise<void> {
+  assertIsLoggedIn(ctx);
+  if (can(ctx, "kalakriti.admin")) {
+    return;
+  }
+
+  const membership = await getActiveMembership(tx, ctx, editionId);
+  if (!membership) {
+    throw new Error("Unauthorized");
+  }
+  if (membership.kind === "guardian") {
+    throw new Error("Unauthorized");
+  }
+
+  const assignments = await getScopedAssignments(tx, membership.id);
+  if (hasEditionWideTransportAccess(assignments)) {
+    return;
+  }
+  if (
+    assignments.some(
+      (assignment) =>
+        assignment.responsibility === "transport_coordinator" &&
+        assignment.centerId === studentCenterId
+    )
+  ) {
+    return;
+  }
+
+  throw new Error("Unauthorized");
+}
+
+async function assertCanCorrectVolunteerCheckIn(
+  tx: LockableKalakritiTx,
+  ctx: Context | undefined,
+  editionId: string
+): Promise<void> {
+  assertIsLoggedIn(ctx);
+  if (can(ctx, "kalakriti.admin")) {
+    return;
+  }
+
+  const membership = await getActiveMembership(tx, ctx, editionId);
+  if (!membership) {
+    throw new Error("Unauthorized");
+  }
+  if (membership.kind === "guardian") {
+    throw new Error("Unauthorized");
+  }
+
+  const assignments = await getScopedAssignments(tx, membership.id);
+  if (
+    assignments.some(
+      (assignment) =>
+        assignment.responsibility === "edition_admin" ||
+        assignment.responsibility === "hospitality_lead"
+    )
+  ) {
+    return;
+  }
+
+  throw new Error("Unauthorized");
+}
+
+async function assertCanCorrectMeal(
+  tx: LockableKalakritiTx,
+  ctx: Context | undefined,
+  editionId: string
+): Promise<void> {
+  assertIsLoggedIn(ctx);
+  if (can(ctx, "kalakriti.admin")) {
+    return;
+  }
+
+  const membership = await getActiveMembership(tx, ctx, editionId);
+  if (!membership) {
+    throw new Error("Unauthorized");
+  }
+  if (membership.kind === "guardian") {
+    throw new Error("Unauthorized");
+  }
+
+  const assignments = await getScopedAssignments(tx, membership.id);
+  if (
+    assignments.some(
+      (assignment) =>
+        assignment.responsibility === "edition_admin" ||
+        assignment.responsibility === "food_lead"
+    )
+  ) {
+    return;
+  }
+
+  throw new Error("Unauthorized");
+}
+
+async function assertCanCorrectCompetitionAttendance(
+  tx: LockableKalakritiTx,
+  ctx: Context | undefined,
+  editionId: string,
+  sessionId: string
+): Promise<void> {
+  assertIsLoggedIn(ctx);
+  const competitionId = await resolveSessionCompetitionId(
+    tx,
+    editionId,
+    sessionId
+  );
+  if (can(ctx, "kalakriti.admin")) {
+    return;
+  }
+
+  const membership = await getActiveMembership(tx, ctx, editionId);
+  if (!membership) {
+    throw new Error("Unauthorized");
+  }
+  if (membership.kind === "guardian") {
+    throw new Error("Unauthorized");
+  }
+
+  const assignments = await getScopedAssignments(tx, membership.id);
+  if (
+    assignments.some(
+      (assignment) => assignment.responsibility === "edition_admin"
+    )
+  ) {
+    return;
+  }
+  if (
+    assignments.some(
+      (assignment) =>
+        assignment.responsibility === "competition_coordinator" &&
+        assignment.competitionId === competitionId
+    )
+  ) {
+    return;
+  }
+
+  throw new Error("Unauthorized");
+}
+
+async function assertCanCorrectOperation(
+  tx: LockableKalakritiTx,
+  ctx: Context | undefined,
+  editionId: string,
+  type: KalakritiOperationType,
+  studentCenterId?: string | null,
+  sessionId?: string | null
+): Promise<void> {
+  if (TRANSPORT_OPERATION_TYPES.has(type)) {
+    if (!studentCenterId) {
+      throw new Error("Student center is required for transport operations");
+    }
+    await assertCanCorrectTransportOperation(
+      tx,
+      ctx,
+      editionId,
+      studentCenterId
+    );
+    return;
+  }
+  if (type === "volunteer_check_in") {
+    await assertCanCorrectVolunteerCheckIn(tx, ctx, editionId);
+    return;
+  }
+  if (MEAL_OPERATION_TYPES.has(type)) {
+    await assertCanCorrectMeal(tx, ctx, editionId);
+    return;
+  }
+  if (type === "competition_attendance") {
+    if (!sessionId) {
+      throw new Error("Competition session is required for attendance");
+    }
+    await assertCanCorrectCompetitionAttendance(tx, ctx, editionId, sessionId);
+    return;
+  }
+  throw new Error("Unsupported operation type");
+}
+
+function assertEditionIsLive(lifecycle: string): void {
+  if (lifecycle !== "live") {
+    throw new Error("Edition is not live");
+  }
+}
+
 async function assertCanRecordStationOperation(
   tx: LockableKalakritiTx,
   ctx: Context | undefined,
@@ -503,6 +703,7 @@ async function recordKalakritiOperation(
   if (edition.lifecycle === "archived") {
     throw new Error("Edition is archived");
   }
+  assertEditionIsLive(edition.lifecycle);
   const existing = (await tx.run(
     zql.kalakritiOperation.where("operationId", args.operationId).one()
   )) as (KalakritiOperationRecord & { recordedBy: string }) | undefined;
@@ -609,6 +810,95 @@ async function recordKalakritiOperation(
 }
 
 export const kalakritiOperationMutators = {
+  correct: defineMutator(
+    kalakritiOperationCorrectSchema,
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+      const operationTx = tx as OperationTx;
+      const edition = await getEditionForUpdate(operationTx, args.editionId);
+      if (!edition) {
+        throw new Error("Edition not found");
+      }
+      if (edition.lifecycle === "archived") {
+        throw new Error("Edition is archived");
+      }
+      assertEditionIsLive(edition.lifecycle);
+
+      const existing = (await operationTx.run(
+        zql.kalakritiOperation.where("operationId", args.operationId).one()
+      )) as KalakritiOperationRecord | undefined;
+      if (existing) {
+        if (existing.editionId !== args.editionId) {
+          return;
+        }
+        return;
+      }
+
+      const target = (await operationTx.run(
+        zql.kalakritiOperation.where("id", args.targetOperationId).one()
+      )) as
+        | (KalakritiOperationRecord & {
+            competitionSessionId: string | null;
+            correctionReason: string | null;
+            occurredAt: number;
+          })
+        | undefined;
+      if (!target || target.editionId !== args.editionId) {
+        throw new Error("Operation not found in this Edition");
+      }
+      if (!isEffectiveOperation(target)) {
+        throw new Error("Operation has already been superseded");
+      }
+
+      const studentCenterId =
+        target.studentId && TRANSPORT_OPERATION_TYPES.has(target.type)
+          ? await resolveStudentCenterId(operationTx, target.studentId)
+          : null;
+      await assertCanCorrectOperation(
+        operationTx,
+        ctx,
+        args.editionId,
+        target.type,
+        studentCenterId,
+        target.competitionSessionId
+      );
+
+      await operationTx.mutate.kalakritiOperation.insert({
+        competitionSessionId: target.competitionSessionId,
+        correctionReason: args.reason,
+        createdAt: args.now,
+        editionId: args.editionId,
+        id: args.id,
+        membershipId: target.membershipId,
+        occurredAt: target.occurredAt,
+        operationId: args.operationId,
+        recordedBy: ctx.userId,
+        studentId: target.studentId,
+        supersededByOperationId: null,
+        type: target.type,
+      });
+      await operationTx.mutate.kalakritiOperation.update({
+        id: target.id,
+        supersededByOperationId: args.id,
+      });
+
+      await operationTx.mutate.kalakritiAuditEntry.insert({
+        action: "corrected",
+        actorUserId: ctx.userId,
+        createdAt: args.now,
+        domain: "event_day_operation",
+        editionId: args.editionId,
+        id: args.auditEntryId,
+        metadata: {
+          targetOperationId: args.targetOperationId,
+          type: target.type,
+        },
+        reason: args.reason,
+        targetId: args.id,
+        targetType: "event_day_operation",
+      });
+    }
+  ),
   record: defineMutator(
     kalakritiOperationRecordSchema,
     async ({ tx, ctx, args }) => {

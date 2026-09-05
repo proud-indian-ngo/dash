@@ -43,7 +43,7 @@ const edition = {
   ageCutoffDate: "2027-06-30",
   eventDate: "2027-11-21",
   id: "edition-1",
-  lifecycle: "registration_open",
+  lifecycle: "live",
   teamEventId: "team-event-1",
   timezone: "Asia/Kolkata",
   year: 2027,
@@ -52,7 +52,7 @@ const otherEdition = {
   ageCutoffDate: "2027-06-30",
   eventDate: "2027-11-21",
   id: "edition-2",
-  lifecycle: "registration_open",
+  lifecycle: "live",
   teamEventId: "team-event-2",
   timezone: "Asia/Kolkata",
   year: 2027,
@@ -83,6 +83,7 @@ function createTx(results: unknown[] = []) {
     insertAudit: mock(),
     insertOperation: mock(),
     lockRows: mock(),
+    updateOperation: mock(),
   };
   const select = mock(() => {
     const query = {
@@ -108,7 +109,10 @@ function createTx(results: unknown[] = []) {
       location: "server" as const,
       mutate: {
         kalakritiAuditEntry: { insert: spies.insertAudit },
-        kalakritiOperation: { insert: spies.insertOperation },
+        kalakritiOperation: {
+          insert: spies.insertOperation,
+          update: spies.updateOperation,
+        },
       },
       run: mock(async () => results.shift()),
     },
@@ -778,6 +782,175 @@ describe("kalakritiOperation authorization", () => {
       } as never)
     ).rejects.toThrow("Unauthorized");
     expect(spies.insertOperation).not.toHaveBeenCalled();
+  });
+});
+
+describe("kalakritiOperation.correct", () => {
+  const targetOperation = {
+    competitionSessionId: null,
+    correctionReason: null,
+    editionId: edition.id,
+    id: "operation-row-target",
+    membershipId: null,
+    occurredAt: 13_000,
+    operationId: "operation-target",
+    studentId: student.id,
+    supersededByOperationId: null,
+    type: "pickup",
+  };
+
+  const correctArgs = {
+    auditEntryId: "audit-correction-1",
+    editionId: edition.id,
+    id: "operation-row-correction-1",
+    now: 14_000,
+    operationId: "operation-correction-1",
+    reason: "Duplicate pickup scan",
+    targetOperationId: targetOperation.id,
+  };
+
+  it("appends a replacement, supersedes the target, and audits the reason", async () => {
+    const { lockedResults, spies, tx } = createTx([
+      targetOperation,
+      { centerId: student.centerId, id: student.id },
+    ]);
+    lockedResults.push([edition]);
+
+    await kalakritiOperationMutators.correct.fn({
+      args: correctArgs,
+      ctx: adminContext,
+      tx,
+    } as never);
+
+    expect(spies.insertOperation).toHaveBeenCalledWith({
+      competitionSessionId: null,
+      correctionReason: correctArgs.reason,
+      createdAt: correctArgs.now,
+      editionId: edition.id,
+      id: correctArgs.id,
+      membershipId: null,
+      occurredAt: targetOperation.occurredAt,
+      operationId: correctArgs.operationId,
+      recordedBy: adminContext.userId,
+      studentId: student.id,
+      supersededByOperationId: null,
+      type: "pickup",
+    });
+    expect(spies.updateOperation).toHaveBeenCalledWith({
+      id: targetOperation.id,
+      supersededByOperationId: correctArgs.id,
+    });
+    expect(spies.insertAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "corrected",
+        metadata: {
+          targetOperationId: targetOperation.id,
+          type: "pickup",
+        },
+        reason: correctArgs.reason,
+        targetId: correctArgs.id,
+      })
+    );
+  });
+
+  it("rejects an operation that has already been superseded", async () => {
+    const { lockedResults, spies, tx } = createTx([
+      { ...targetOperation, supersededByOperationId: "replacement-existing" },
+    ]);
+    lockedResults.push([edition]);
+
+    await expect(
+      kalakritiOperationMutators.correct.fn({
+        args: correctArgs,
+        ctx: adminContext,
+        tx,
+      } as never)
+    ).rejects.toThrow("Operation has already been superseded");
+
+    expect(spies.insertOperation).not.toHaveBeenCalled();
+    expect(spies.updateOperation).not.toHaveBeenCalled();
+    expect(spies.insertAudit).not.toHaveBeenCalled();
+  });
+
+  it("treats a replayed operation ID as an idempotent success", async () => {
+    const existing = {
+      ...targetOperation,
+      id: correctArgs.id,
+      operationId: correctArgs.operationId,
+    };
+    const { lockedResults, spies, tx } = createTx([]);
+    tx.run.mockImplementationOnce(async () => existing);
+    lockedResults.push([edition]);
+
+    await kalakritiOperationMutators.correct.fn({
+      args: correctArgs,
+      ctx: adminContext,
+      tx,
+    } as never);
+
+    expect(tx.run).toHaveBeenCalledTimes(1);
+    expect(spies.insertOperation).not.toHaveBeenCalled();
+    expect(spies.updateOperation).not.toHaveBeenCalled();
+    expect(spies.insertAudit).not.toHaveBeenCalled();
+  });
+
+  it("rejects an actor without correction authority", async () => {
+    const { lockedResults, spies, tx } = createTx([
+      targetOperation,
+      { centerId: student.centerId, id: student.id },
+      { id: "food-membership-1", kind: "volunteer" },
+      [{ centerId: null, competitionId: null, responsibility: "food_lead" }],
+    ]);
+    lockedResults.push([edition]);
+
+    await expect(
+      kalakritiOperationMutators.correct.fn({
+        args: correctArgs,
+        ctx: foodLeadContext,
+        tx,
+      } as never)
+    ).rejects.toThrow("Unauthorized");
+
+    expect(spies.insertOperation).not.toHaveBeenCalled();
+    expect(spies.updateOperation).not.toHaveBeenCalled();
+    expect(spies.insertAudit).not.toHaveBeenCalled();
+  });
+
+  it("rejects a target from another Edition", async () => {
+    const { lockedResults, spies, tx } = createTx([
+      { ...targetOperation, editionId: otherEdition.id },
+    ]);
+    lockedResults.push([edition]);
+
+    await expect(
+      kalakritiOperationMutators.correct.fn({
+        args: correctArgs,
+        ctx: adminContext,
+        tx,
+      } as never)
+    ).rejects.toThrow("Operation not found in this Edition");
+
+    expect(spies.insertOperation).not.toHaveBeenCalled();
+    expect(spies.updateOperation).not.toHaveBeenCalled();
+    expect(spies.insertAudit).not.toHaveBeenCalled();
+  });
+
+  it("rejects corrections unless the Edition is live", async () => {
+    const { lockedResults, spies, tx } = createTx();
+    lockedResults.push([{ ...edition, lifecycle: "registration_open" }]);
+
+    await expect(
+      kalakritiOperationMutators.correct.fn({
+        args: correctArgs,
+        ctx: adminContext,
+        tx,
+      } as never)
+    ).rejects.toThrow("Edition is not live");
+
+    expect(tx.run).not.toHaveBeenCalled();
+    expect(spies.insertOperation).not.toHaveBeenCalled();
+    expect(spies.updateOperation).not.toHaveBeenCalled();
+    expect(spies.insertAudit).not.toHaveBeenCalled();
   });
 });
 

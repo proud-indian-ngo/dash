@@ -3,6 +3,10 @@ import path from "node:path";
 import { promisify } from "node:util";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import {
+  expectKalakritiToast,
+  prepareKalakriti2186EventDay,
+} from "../../helpers/kalakriti-e2e-fixture";
 
 const YEAR = 2186;
 const ASSIGNED_STUDENT_ID = "KAL-2186-0001";
@@ -33,11 +37,12 @@ test.describe("Kalakriti event-day stations", () => {
     page,
   }, testInfo) => {
     test.skip(
-      testInfo.project.name !== "super_admin",
+      testInfo.project.name !== "kalakriti_phase2",
       "Kalakriti event-day meals workflow"
     );
     test.slow();
 
+    await prepareKalakriti2186EventDay(page);
     await page.goto(`/kalakriti/${YEAR}/event-day`);
     await waitForZeroReady(page);
     await expect(
@@ -46,31 +51,35 @@ test.describe("Kalakriti event-day stations", () => {
 
     await page.getByLabel("Station").click();
     await page.getByRole("option", { name: "Transport" }).click();
-    await page.getByLabel("Yearly ID").fill(ASSIGNED_STUDENT_ID);
+    await page.locator("#event-day-human-id").fill(ASSIGNED_STUDENT_ID);
     await page.getByRole("button", { name: "Record transport" }).click();
+    await expectKalakritiToast(page, /Operation recorded|Already recorded/);
     await expect(
-      page.getByText(/Operation recorded|Already recorded/)
-    ).toBeVisible();
-    await expect(
-      page.getByText(/Operation recorded|Already recorded/)
+      page
+        .locator("[data-sonner-toast]")
+        .getByText(/Operation recorded|Already recorded/)
     ).toHaveCount(0);
 
     await page.getByLabel("Station").click();
     await page.getByRole("option", { name: "Meals" }).click();
     await page.getByLabel("Meal").click();
     await page.getByRole("option", { name: "Breakfast" }).click();
-    await page.getByLabel("Yearly ID").fill(ASSIGNED_STUDENT_ID);
+    await page.locator("#event-day-human-id").fill(ASSIGNED_STUDENT_ID);
     await page.getByRole("button", { name: "Record meal" }).click();
-    await expect(page.getByText("Operation recorded")).toBeVisible();
-    await expect(page.getByText("Operation recorded")).toHaveCount(0);
+    await expectKalakritiToast(page, "Operation recorded");
+    await expect(
+      page.locator("[data-sonner-toast]").getByText("Operation recorded")
+    ).toHaveCount(0);
 
     await page.getByLabel("Meal").click();
     await page.getByRole("option", { name: "Lunch", exact: true }).click();
     await page
       .getByRole("button", { name: "Record meal", exact: true })
       .click();
-    await expect(page.getByText("Operation recorded")).toBeVisible();
-    await expect(page.getByText("Operation recorded")).toHaveCount(0);
+    await expectKalakritiToast(page, "Operation recorded");
+    await expect(
+      page.locator("[data-sonner-toast]").getByText("Operation recorded")
+    ).toHaveCount(0);
 
     await page.getByLabel("Station").click();
     await page.getByRole("option", { name: "Attendance", exact: true }).click();
@@ -79,8 +88,10 @@ test.describe("Kalakriti event-day stations", () => {
     await page
       .getByRole("button", { name: "Record attendance", exact: true })
       .click();
-    await expect(page.getByText("Operation recorded")).toBeVisible();
-    await expect(page.getByText("Operation recorded")).toHaveCount(0);
+    await expectKalakritiToast(page, "Operation recorded");
+    await expect(
+      page.locator("[data-sonner-toast]").getByText("Operation recorded")
+    ).toHaveCount(0);
 
     const volunteer = await volunteerSubject();
     const printed = await page.request.post(
@@ -94,11 +105,10 @@ test.describe("Kalakriti event-day stations", () => {
     expect(issued.humanId).toMatch(/^KALV-2186-/);
     await page.getByLabel("Station").click();
     await page.getByRole("option", { name: "Check-in", exact: true }).click();
-    await page.getByLabel("Yearly ID").fill(issued.humanId ?? "");
+    await page.locator("#event-day-human-id").fill(issued.humanId ?? "");
     await page
       .getByRole("button", { name: "Record check-in", exact: true })
       .click();
-    await expect(page.getByText("Operation recorded")).toBeVisible();
-    await expect(page.getByText("Operation recorded")).toHaveCount(0);
+    await expectKalakritiToast(page, "Operation recorded");
   });
 });

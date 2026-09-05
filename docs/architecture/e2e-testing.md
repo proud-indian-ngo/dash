@@ -45,6 +45,8 @@ Functions are idempotent where possible (`onConflictDoNothing()`), return the in
 
 **DB isolation**: `run-e2e.sh` bootstraps a separate Postgres via `packages/db/docker-compose.e2e*.yml`. Worktree-aware — port + DB name derived from `WORKTREE_ID` to avoid collision with dev DB.
 
+Within each test database, `kalakriti_phase2` runs event-day flows, public schedule privacy, and the singleton live-Edition race in one worker. The race and public schedule tests reset the shared 2186 fixture before competing for the live slot; separate project workers would still share the database-wide unique constraint.
+
 ## Sharding by Duration
 
 `.github/workflows/ci.yml` splits E2E across 4 shards. Sharding is **duration-balanced**, not filename-alphabetical:

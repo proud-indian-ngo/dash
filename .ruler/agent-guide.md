@@ -78,6 +78,7 @@ Read the named chapter directly when its detailed behavior is needed; do not rea
 | Auth cache, permission cache, rate limiting | `docs/architecture/caching.md` |
 | Playwright, seeds, auth state, E2E isolation | `docs/architecture/e2e-testing.md` |
 | Kalakriti Edition access, registration, lifecycle, schedule, audit, or exports | `docs/architecture/kalakriti-registration.md` |
+| Kalakriti event-day Credentials, operations, transport, corrections, or go-live | `docs/architecture/kalakriti-event-day.md` |
 
 Skip architecture docs for copy, CSS, component restyling, lint-only changes, dependency bumps, isolated tests, typo fixes, and unrelated dev-tool configuration. Start from the owning code and open a chapter only when the code exposes an unfamiliar boundary.
 

@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+unset ELECTRON ELECTRON_RUN_AS_NODE
+
 # Always run from repo root
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO_ROOT"

@@ -1,4 +1,8 @@
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import {
+  expectKalakritiToast,
+  prepareKalakriti2186EventDay,
+} from "../../helpers/kalakriti-e2e-fixture";
 
 const YEAR = 2186;
 const ASSIGNED_STUDENT_ID = "KAL-2186-0001";
@@ -10,11 +14,12 @@ test.describe("Kalakriti event-day transport", () => {
     page,
   }, testInfo) => {
     test.skip(
-      testInfo.project.name !== "super_admin",
+      testInfo.project.name !== "kalakriti_phase2",
       "Kalakriti event-day transport workflow"
     );
     test.slow();
 
+    await prepareKalakriti2186EventDay(page);
     await page.goto(`/kalakriti/${YEAR}/event-day`);
     await waitForZeroReady(page);
     await expect(
@@ -24,12 +29,12 @@ test.describe("Kalakriti event-day transport", () => {
       page.getByText("Online-only event-day stations", { exact: false })
     ).toBeVisible();
 
-    await page.getByLabel("Yearly ID").fill(ASSIGNED_STUDENT_ID);
+    await page.locator("#event-day-human-id").fill(ASSIGNED_STUDENT_ID);
     await page.getByRole("button", { name: "Record transport" }).click();
-    await expect(page.getByText("Operation recorded")).toBeVisible();
+    await expectKalakritiToast(page, "Operation recorded");
 
     await page.getByRole("button", { name: "Record transport" }).click();
-    await expect(page.getByText("Already recorded")).toBeVisible();
+    await expectKalakritiToast(page, "Already recorded");
   });
 
   test("returns 404 for guardians on the event-day route", async ({
@@ -38,7 +43,7 @@ test.describe("Kalakriti event-day transport", () => {
     kalakritiActors,
   }, testInfo) => {
     test.skip(
-      testInfo.project.name !== "super_admin",
+      testInfo.project.name !== "kalakriti_phase2",
       "Kalakriti guardian event-day boundary"
     );
 

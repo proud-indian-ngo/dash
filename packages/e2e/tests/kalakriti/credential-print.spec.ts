@@ -64,7 +64,7 @@ test.describe("Kalakriti credential print", () => {
     superAdminEmail,
   }, testInfo) => {
     test.skip(
-      testInfo.project.name !== "super_admin",
+      testInfo.project.name !== "kalakriti_phase2",
       "Super-admin credential print flow"
     );
     test.slow();
@@ -217,7 +217,7 @@ test.describe("Kalakriti credential print", () => {
     kalakritiActors,
   }, testInfo) => {
     test.skip(
-      testInfo.project.name !== "super_admin",
+      testInfo.project.name !== "kalakriti_phase2",
       "Credential authorization boundaries"
     );
     const year = 2186;

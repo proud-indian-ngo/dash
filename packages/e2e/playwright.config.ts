@@ -21,8 +21,39 @@ export default defineConfig({
     },
     {
       dependencies: ["setup"],
-      name: "super_admin",
+      name: "kalakriti_phase2",
       testIgnore: /auth\//,
+      testMatch: [
+        /kalakriti\/00-lifecycle-golive\.spec\.ts/,
+        /kalakriti\/center-transport\.spec\.ts/,
+        /kalakriti\/credential-print\.spec\.ts/,
+        /kalakriti\/event-day-stations\.spec\.ts/,
+        /kalakriti\/event-day-transport\.spec\.ts/,
+        /kalakriti\/release-database-races\.spec\.ts/,
+        /kalakriti\/public-schedule\.spec\.ts/,
+      ],
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: path.resolve(
+          import.meta.dirname,
+          ".auth/super_admin.json"
+        ),
+      },
+      workers: 1,
+    },
+    {
+      dependencies: ["setup"],
+      name: "super_admin",
+      testIgnore: [
+        /auth\//,
+        /kalakriti\/00-lifecycle-golive\.spec\.ts/,
+        /kalakriti\/center-transport\.spec\.ts/,
+        /kalakriti\/credential-print\.spec\.ts/,
+        /kalakriti\/event-day-stations\.spec\.ts/,
+        /kalakriti\/event-day-transport\.spec\.ts/,
+        /kalakriti\/release-database-races\.spec\.ts/,
+        /kalakriti\/public-schedule\.spec\.ts/,
+      ],
       use: {
         ...devices["Desktop Chrome"],
         storageState: path.resolve(
@@ -80,22 +111,6 @@ export default defineConfig({
       name: "unauthenticated",
       testMatch: /auth\//,
       use: { ...devices["Desktop Chrome"] },
-    },
-    {
-      dependencies: ["setup"],
-      name: "kalakriti_release_invariants",
-      testMatch: [
-        /kalakriti\/public-schedule\.spec\.ts/,
-        /kalakriti\/release-database-races\.spec\.ts/,
-      ],
-      use: {
-        ...devices["Desktop Chrome"],
-        storageState: path.resolve(
-          import.meta.dirname,
-          ".auth/unoriented_volunteer.json"
-        ),
-      },
-      workers: 1,
     },
   ],
   reporter: isCI

@@ -18,9 +18,13 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 
+import { EventDayCorrectSection } from "@/components/kalakriti/event-day-correct-section";
 import { EventDayQrScanner } from "@/components/kalakriti/event-day-qr-scanner";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
-import { canAccessKalakritiEventDay } from "@/lib/kalakriti-event-day-policy";
+import {
+  canAccessKalakritiEventDay,
+  canCorrectKalakritiEventDay,
+} from "@/lib/kalakriti-event-day-policy";
 import {
   getMutationResultErrorMessage,
   handleMutationResult,
@@ -435,6 +439,9 @@ function KalakritiEventDayPage() {
           </form>
         </div>
       </section>
+      {canCorrectKalakritiEventDay(access) ? (
+        <EventDayCorrectSection editionId={edition.id} />
+      ) : null}
     </div>
   );
 }

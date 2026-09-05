@@ -32,6 +32,7 @@
         "helpers/kalakriti-eligibility.ts",
         "helpers/kalakriti-guardian-invite.ts",
         "helpers/kalakriti-guardian-race.ts",
+        "helpers/kalakriti-golive.ts",
         "helpers/kalakriti-lifecycle.ts",
         "helpers/kalakriti-public-schedule.ts",
         "helpers/kalakriti-release-races.ts",

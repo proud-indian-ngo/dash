@@ -26,6 +26,7 @@ Chapters intentionally sharded so loading stays cheap.
 | Caching & Rate Limit | `caching.md` | `getCachedAuth`, `invalidateAuthCache`, permission cache TTL, `checkRateLimit`, 429 response, HMR-reset cache, `Retry-After` |
 | E2E Testing | `e2e-testing.md` | `packages/e2e`, Playwright global setup, seed helpers, `.auth` state, `shard-by-duration`, `run-e2e.sh`, duration reporter |
 | Kalakriti Registration | `kalakriti-registration.md` | Kalakriti Edition access, Guardian identity, Center controls, eligibility, Competitions, Students, Entries, lifecycle, public schedule, dashboards, audit, scoped exports |
+| Kalakriti Event Day | `kalakriti-event-day.md` | Credentials, print/lookup, transport setup, event-day operations, corrections, go-live, station authorization |
 
 ## Load Rules
 

@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { auth } from "@pi-dash/auth";
 import {
   createKalakritiExternalUser,
@@ -14,12 +16,14 @@ import {
   kalakritiCompetitionDivision,
   kalakritiCompetitionEntry,
   kalakritiCompetitionSession,
+  kalakritiCredential,
   kalakritiEdition,
   kalakritiEditionMembership,
   kalakritiEntryMember,
   kalakritiExternalIdentity,
   kalakritiGuardianCenter,
   kalakritiStudent,
+  kalakritiTransportAssignment,
   kalakritiVenue,
 } from "@pi-dash/db/schema/kalakriti";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
@@ -484,6 +488,24 @@ export async function seedKalakritiReleaseFixture(
       responsibility: "competition_category_lead",
     },
     {
+      createdAt: now,
+      createdBy: globalAdminId,
+      editionId: fixture.editionId,
+      id: `${prefix}1930`,
+      isPrimary: false,
+      membershipId: membershipIds.overallEventsLead,
+      responsibility: "transport_lead",
+    },
+    {
+      createdAt: now,
+      createdBy: globalAdminId,
+      editionId: fixture.editionId,
+      id: `${prefix}1931`,
+      isPrimary: false,
+      membershipId: membershipIds.editionAdmin,
+      responsibility: "food_lead",
+    },
+    {
       centerId: fixture.centerAssignedId,
       createdAt: now,
       createdBy: globalAdminId,
@@ -608,5 +630,92 @@ export async function seedKalakritiReleaseFixture(
       studentId: studentIds[1],
     },
   ]);
+  await db.insert(kalakritiTransportAssignment).values([
+    {
+      capacity: 40,
+      centerId: fixture.centerAssignedId,
+      createdAt: now,
+      createdBy: globalAdminId,
+      driverName: "Driver A",
+      driverPhone: "+919900000001",
+      editionId: fixture.editionId,
+      id: `${prefix}a901`,
+      notes: null,
+      status: "planned",
+      updatedAt: now,
+      vehicleLabel: "Bus 1",
+    },
+    {
+      capacity: 40,
+      centerId: fixture.centerOutsideId,
+      createdAt: now,
+      createdBy: globalAdminId,
+      driverName: "Driver B",
+      driverPhone: "+919900000002",
+      editionId: fixture.editionId,
+      id: `${prefix}a902`,
+      notes: null,
+      status: "planned",
+      updatedAt: now,
+      vehicleLabel: "Bus 2",
+    },
+  ]);
+  const studentCredentialRows = [
+    { humanId: "KAL-2186-0001", id: `${prefix}b901`, studentId: studentIds[0] },
+    { humanId: "KAL-2186-0002", id: `${prefix}b902`, studentId: studentIds[1] },
+  ] as const;
+  await db.insert(kalakritiCredential).values(
+    studentCredentialRows.map((row) => ({
+      createdAt: now,
+      editionId: fixture.editionId,
+      humanId: row.humanId,
+      id: row.id,
+      issuedAt: now,
+      issuedBy: globalAdminId,
+      membershipId: null,
+      revokedAt: null,
+      revokedBy: null,
+      studentId: row.studentId,
+      tokenHash: createHash("sha256")
+        .update(`student-${row.studentId}`)
+        .digest("hex"),
+    }))
+  );
+  const volunteerCredentialMemberships = [
+    membershipIds.editionAdmin,
+    membershipIds.volunteerCoordinator,
+    membershipIds.overallEventsLead,
+    membershipIds.categoryLead,
+    membershipIds.liaison,
+    membershipIds.unrelatedVolunteerCurrent,
+  ] as const;
+  const volunteerCredentials = volunteerCredentialMemberships.map(
+    (membershipId, index) => ({
+      createdAt: now,
+      editionId: fixture.editionId,
+      humanId: `KALV-2186-${String(index + 1).padStart(4, "0")}`,
+      id: `${prefix}b9${String(index + 3).padStart(2, "0")}`,
+      issuedAt: now,
+      issuedBy: globalAdminId,
+      membershipId,
+      revokedAt: null,
+      revokedBy: null,
+      studentId: null,
+      tokenHash: createHash("sha256")
+        .update(`volunteer-${membershipId}`)
+        .digest("hex"),
+    })
+  );
+  await db.insert(kalakritiCredential).values(volunteerCredentials);
+  for (const credential of volunteerCredentials) {
+    await db
+      .update(kalakritiEditionMembership)
+      .set({ humanId: credential.humanId })
+      .where(eq(kalakritiEditionMembership.id, credential.membershipId));
+  }
+  await db
+    .update(kalakritiEdition)
+    .set({ nextVolunteerSequence: volunteerCredentials.length + 1 })
+    .where(eq(kalakritiEdition.id, fixture.editionId));
   return ids;
 }

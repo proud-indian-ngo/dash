@@ -7,7 +7,7 @@
 
 Kalakriti is a native Edition-bound module under `/kalakriti/:year`. Better Auth remains the only login system and central volunteers remain normal `user` records, but every Kalakriti business row belongs to one `kalakritiEdition`. A linked `teamEvent` exposes the Edition to shared event, reimbursement, and vendor-payment workflows without making the generic event domain authoritative for Kalakriti state.
 
-The Registration Release stops at `registration_locked`. Event-day, transport, attendance, meals, results, awards, scoresheets, and inventory have no production route, query, or mutator until their later release gates are implemented.
+The Registration Release covers registration through `registration_locked`. Event-day operations, transport, Credentials, corrections, and go-live are documented in `kalakriti-event-day.md`. Results, Awards, scoresheets, and inventory have no production route, query, or mutator until their later release gates are implemented.
 
 ## Identity and access
 
@@ -37,10 +37,10 @@ Every sensitive join repeats `editionId`, and composite foreign keys prevent a C
 The lifecycle edges exposed by this release are:
 
 ```text
-draft -> registration_open <-> registration_locked
+draft -> registration_open <-> registration_locked -> live
 ```
 
-Opening or reopening requires a complete readiness snapshot. Center Student and Entry controls are independent, bulk lock closes both controls for every Center, and every explicit reopen is audited. Registration commands require both an open Edition lifecycle and the relevant Center control. Closing Center participation registration requires every participating Student to meet the Edition `minTotalCompetitions` floor; Students with no Entries remain non-participants.
+Opening or reopening requires a complete readiness snapshot. **Go live** (`registration_locked` → `live`) requires go-live readiness: disabled Center controls, registration readiness, lead assignments (`overall_events_lead`, `transport_lead`, `food_lead`), transport coverage for every active Center, and active Credentials for every Student and volunteer. The transition write-confirms both Center controls false in the same transaction. Only one Edition may be `live` at a time. Center Student and Entry controls are independent, bulk lock closes both controls for every Center, and every explicit reopen is audited. Registration commands require both an open Edition lifecycle and the relevant Center control. Closing Center participation registration requires every participating Student to meet the Edition `minTotalCompetitions` floor; Students with no Entries remain non-participants.
 
 A Competition may set `musicUploadEnabled`. While Center Entry registration is open, Guardians, Liaisons, Edition administrators, and global `kalakriti.admin` users may optionally attach one audio file to an Entry (one file per individual Student, one file per group). The flag is not eligibility: it can change after Entries exist until the Edition is structurally locked. Turning it off blocks new claims; existing files stay downloadable until removed in the same write window. Anyone whose registration scope covers the Entry, including Overall Events Leads, Category Leads, and Competition Coordinators, may download. Public schedule and registration export never include music keys, filenames, or binaries.
 
