@@ -91,6 +91,18 @@ export const kalakritiCompetitionQueries = {
                 membership.where("userId", ctx.userId).where("state", "active")
               )
           )
+        ),
+        exists("assignments", (assignment) =>
+          assignment
+            .where(({ or: assignmentOr, cmp }) =>
+              assignmentOr(
+                cmp("responsibility", "competition_coordinator"),
+                cmp("responsibility", "competition_volunteer")
+              )
+            )
+            .whereExists("membership", (membership) =>
+              membership.where("userId", ctx.userId).where("state", "active")
+            )
         )
       )
     );
@@ -141,6 +153,24 @@ export const kalakritiCompetitionQueries = {
                       .where("state", "active")
                   )
               )
+            )
+          )
+        ),
+        exists("division", (division) =>
+          division.whereExists("competition", (competition) =>
+            competition.whereExists("assignments", (assignment) =>
+              assignment
+                .where(({ or: assignmentOr, cmp }) =>
+                  assignmentOr(
+                    cmp("responsibility", "competition_coordinator"),
+                    cmp("responsibility", "competition_volunteer")
+                  )
+                )
+                .whereExists("membership", (membership) =>
+                  membership
+                    .where("userId", ctx.userId)
+                    .where("state", "active")
+                )
             )
           )
         )

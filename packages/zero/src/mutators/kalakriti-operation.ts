@@ -71,6 +71,7 @@ interface ActiveMembership {
 
 interface ScopedAssignment {
   centerId: string | null;
+  competitionId: string | null;
   responsibility: string;
 }
 
@@ -78,6 +79,11 @@ const TRANSPORT_OPERATION_TYPES = new Set<KalakritiOperationType>([
   "pickup",
   "venue_departure",
   "drop_off",
+]);
+
+const MEAL_OPERATION_TYPES = new Set<KalakritiOperationType>([
+  "breakfast",
+  "lunch",
 ]);
 
 async function getActiveMembership(
@@ -162,7 +168,7 @@ async function assertCanRecordTransportOperation(
   throw new Error("Unauthorized");
 }
 
-async function assertCanRecordNonTransportOperation(
+async function assertCanRecordVolunteerCheckIn(
   tx: LockableKalakritiTx,
   ctx: Context | undefined,
   editionId: string
@@ -171,6 +177,7 @@ async function assertCanRecordNonTransportOperation(
   if (can(ctx, "kalakriti.admin")) {
     return;
   }
+
   const membership = await getActiveMembership(tx, ctx, editionId);
   if (!membership) {
     throw new Error("Unauthorized");
@@ -179,78 +186,185 @@ async function assertCanRecordNonTransportOperation(
     throw new Error("Unauthorized");
   }
 
-  const editionAdmin = await tx.run(
-    zql.kalakritiAssignment
-      .where("membershipId", membership.id)
-      .where("responsibility", "edition_admin")
-      .one()
-  );
-  if (editionAdmin) {
-    return;
-  }
-
-  const transportLead = await tx.run(
-    zql.kalakritiAssignment
-      .where("membershipId", membership.id)
-      .where("responsibility", "transport_lead")
-      .one()
-  );
-  if (transportLead) {
-    return;
-  }
-
-  const foodLead = await tx.run(
-    zql.kalakritiAssignment
-      .where("membershipId", membership.id)
-      .where("responsibility", "food_lead")
-      .one()
-  );
-  if (foodLead) {
-    return;
-  }
-
-  const hospitalityLead = await tx.run(
-    zql.kalakritiAssignment
-      .where("membershipId", membership.id)
-      .where("responsibility", "hospitality_lead")
-      .one()
-  );
-  if (hospitalityLead) {
-    return;
-  }
-
-  const centerLiaison = await tx.run(
-    zql.kalakritiAssignment
-      .where("membershipId", membership.id)
-      .where(({ or, cmp }) =>
-        or(
-          ...KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES.map(
-            (responsibility) => cmp("responsibility", responsibility)
-          )
-        )
-      )
-      .one()
-  );
-  if (centerLiaison) {
-    return;
-  }
-
-  const competitionStaff = await tx.run(
-    zql.kalakritiAssignment
-      .where("membershipId", membership.id)
-      .where(({ or, cmp }) =>
-        or(
-          cmp("responsibility", "competition_volunteer"),
-          cmp("responsibility", "competition_coordinator")
-        )
-      )
-      .one()
-  );
-  if (competitionStaff) {
+  const assignments = await getScopedAssignments(tx, membership.id);
+  if (
+    assignments.some(
+      (assignment) =>
+        assignment.responsibility === "edition_admin" ||
+        assignment.responsibility === "hospitality_lead" ||
+        assignment.responsibility === "hospitality_member"
+    )
+  ) {
     return;
   }
 
   throw new Error("Unauthorized");
+}
+
+async function assertCanRecordMeal(
+  tx: LockableKalakritiTx,
+  ctx: Context | undefined,
+  editionId: string
+): Promise<void> {
+  assertIsLoggedIn(ctx);
+  if (can(ctx, "kalakriti.admin")) {
+    return;
+  }
+
+  const membership = await getActiveMembership(tx, ctx, editionId);
+  if (!membership) {
+    throw new Error("Unauthorized");
+  }
+  if (membership.kind === "guardian") {
+    throw new Error("Unauthorized");
+  }
+
+  const assignments = await getScopedAssignments(tx, membership.id);
+  if (
+    assignments.some(
+      (assignment) =>
+        assignment.responsibility === "edition_admin" ||
+        assignment.responsibility === "food_lead" ||
+        assignment.responsibility === "food_member"
+    )
+  ) {
+    return;
+  }
+
+  throw new Error("Unauthorized");
+}
+
+async function resolveSessionCompetitionId(
+  tx: LockableKalakritiTx,
+  editionId: string,
+  sessionId: string
+): Promise<string> {
+  const session = (await tx.run(
+    zql.kalakritiCompetitionSession.where("id", sessionId).one()
+  )) as
+    | { cancelledAt: number | null; divisionId: string; editionId: string }
+    | undefined;
+  if (!session || session.editionId !== editionId) {
+    throw new Error("Competition session not found in this Edition");
+  }
+  if (session.cancelledAt !== null) {
+    throw new Error("Competition session is cancelled");
+  }
+  const division = (await tx.run(
+    zql.kalakritiCompetitionDivision.where("id", session.divisionId).one()
+  )) as { competitionId: string; editionId: string } | undefined;
+  if (!division || division.editionId !== editionId) {
+    throw new Error("Competition session not found in this Edition");
+  }
+  return division.competitionId;
+}
+
+async function assertCanRecordCompetitionAttendance(
+  tx: LockableKalakritiTx,
+  ctx: Context | undefined,
+  editionId: string,
+  sessionId: string
+): Promise<void> {
+  assertIsLoggedIn(ctx);
+  const competitionId = await resolveSessionCompetitionId(
+    tx,
+    editionId,
+    sessionId
+  );
+  if (can(ctx, "kalakriti.admin")) {
+    return;
+  }
+
+  const membership = await getActiveMembership(tx, ctx, editionId);
+  if (!membership) {
+    throw new Error("Unauthorized");
+  }
+  if (membership.kind === "guardian") {
+    throw new Error("Unauthorized");
+  }
+
+  const assignments = await getScopedAssignments(tx, membership.id);
+  if (
+    assignments.some(
+      (assignment) => assignment.responsibility === "edition_admin"
+    )
+  ) {
+    return;
+  }
+  if (
+    assignments.some(
+      (assignment) =>
+        (assignment.responsibility === "competition_volunteer" ||
+          assignment.responsibility === "competition_coordinator") &&
+        assignment.competitionId === competitionId
+    )
+  ) {
+    return;
+  }
+
+  throw new Error("Unauthorized");
+}
+
+async function assertCanRecordStationOperation(
+  tx: LockableKalakritiTx,
+  ctx: Context | undefined,
+  editionId: string,
+  type: KalakritiOperationType,
+  sessionId?: string | null
+): Promise<void> {
+  if (type === "volunteer_check_in") {
+    await assertCanRecordVolunteerCheckIn(tx, ctx, editionId);
+    return;
+  }
+  if (MEAL_OPERATION_TYPES.has(type)) {
+    await assertCanRecordMeal(tx, ctx, editionId);
+    return;
+  }
+  if (type === "competition_attendance") {
+    if (!sessionId) {
+      throw new Error("Competition session is required for attendance");
+    }
+    await assertCanRecordCompetitionAttendance(tx, ctx, editionId, sessionId);
+    return;
+  }
+  throw new Error("Unsupported operation type");
+}
+
+async function assertStudentRegisteredForCompetitionSession(
+  tx: LockableKalakritiTx,
+  editionId: string,
+  sessionId: string,
+  studentId: string
+): Promise<void> {
+  const session = (await tx.run(
+    zql.kalakritiCompetitionSession.where("id", sessionId).one()
+  )) as { divisionId: string; editionId: string } | undefined;
+  if (!session || session.editionId !== editionId) {
+    throw new Error("Competition session not found in this Edition");
+  }
+  const entryMember = (await tx.run(
+    zql.kalakritiEntryMember
+      .where("studentId", studentId)
+      .where("divisionId", session.divisionId)
+      .where("editionId", editionId)
+      .one()
+  )) as
+    | {
+        divisionId: string;
+        editionId: string;
+        entryId: string;
+        studentId: string;
+      }
+    | undefined;
+  if (
+    !entryMember ||
+    !entryMember.entryId ||
+    entryMember.studentId !== studentId ||
+    entryMember.divisionId !== session.divisionId ||
+    entryMember.editionId !== editionId
+  ) {
+    throw new Error("Student is not registered for this Competition session");
+  }
 }
 
 export async function assertCanRecordKalakritiOperation(
@@ -258,7 +372,8 @@ export async function assertCanRecordKalakritiOperation(
   ctx: Context | undefined,
   editionId: string,
   type: KalakritiOperationType,
-  studentCenterId?: string | null
+  studentCenterId?: string | null,
+  sessionId?: string | null
 ): Promise<void> {
   if (TRANSPORT_OPERATION_TYPES.has(type)) {
     if (!studentCenterId) {
@@ -272,7 +387,7 @@ export async function assertCanRecordKalakritiOperation(
     );
     return;
   }
-  await assertCanRecordNonTransportOperation(tx, ctx, editionId);
+  await assertCanRecordStationOperation(tx, ctx, editionId, type, sessionId);
 }
 
 async function resolveStudentCenterId(
@@ -417,7 +532,8 @@ async function recordKalakritiOperation(
     ctx,
     args.editionId,
     args.type,
-    studentCenterId
+    studentCenterId,
+    args.sessionId
   );
 
   const subjectOperations = await loadSubjectOperations(
@@ -446,6 +562,18 @@ async function recordKalakritiOperation(
     subject,
     args.sessionId ?? null
   );
+
+  if (args.type === "competition_attendance") {
+    if (!(args.sessionId && subject.studentId)) {
+      throw new Error("This operation requires a Student subject");
+    }
+    await assertStudentRegisteredForCompetitionSession(
+      tx,
+      args.editionId,
+      args.sessionId,
+      subject.studentId
+    );
+  }
 
   await tx.mutate.kalakritiOperation.insert({
     competitionSessionId: args.sessionId ?? null,
