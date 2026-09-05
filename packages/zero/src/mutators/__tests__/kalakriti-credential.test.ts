@@ -119,6 +119,7 @@ describe("kalakritiCredential.reissue", () => {
         humanId: null,
         id: "membership-1",
         kind: "volunteer",
+        state: "active",
       },
       undefined,
       {
@@ -126,6 +127,7 @@ describe("kalakritiCredential.reissue", () => {
         humanId: null,
         id: "membership-1",
         kind: "volunteer",
+        state: "active",
       },
     ]);
     lockedResults.push([edition]);
@@ -156,6 +158,36 @@ describe("kalakritiCredential.reissue", () => {
         studentId: null,
       })
     );
+  });
+
+  it("rejects credential reissue for an archived volunteer membership", async () => {
+    const { lockedResults, spies, tx } = createTx([
+      {
+        editionId: edition.id,
+        humanId: "KALV-2027-0003",
+        id: "membership-1",
+        kind: "volunteer",
+        state: "archived",
+      },
+    ]);
+    lockedResults.push([edition]);
+
+    await expect(
+      kalakritiCredentialMutators.reissue.fn({
+        args: {
+          auditEntryId: "audit-3",
+          credentialId: "credential-new",
+          editionId: edition.id,
+          membershipId: "membership-1",
+          now: 3000,
+          tokenHash,
+        },
+        ctx: adminContext,
+        tx,
+      } as never)
+    ).rejects.toThrow("Archived Volunteers cannot receive Credentials");
+    expect(spies.updateCredential).not.toHaveBeenCalled();
+    expect(spies.insertCredential).not.toHaveBeenCalled();
   });
 
   it("rejects volunteer coordinators", async () => {

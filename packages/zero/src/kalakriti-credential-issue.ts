@@ -60,9 +60,18 @@ async function resolveVolunteerHumanId(
 ): Promise<string> {
   const membership = (await tx.run(
     zql.kalakritiEditionMembership.where("id", membershipId).one()
-  )) as { editionId: string; humanId: string | null } | undefined;
+  )) as
+    | {
+        editionId: string;
+        humanId: string | null;
+        state: "active" | "archived";
+      }
+    | undefined;
   if (!membership || membership.editionId !== edition.id) {
     throw new Error("Membership not found in this Edition");
+  }
+  if (membership.state !== "active") {
+    throw new Error("Archived Volunteers cannot receive Credentials");
   }
   if (membership.humanId) {
     return membership.humanId;
@@ -181,12 +190,22 @@ export async function reissueCredential(
   }
   const membership = (await tx.run(
     zql.kalakritiEditionMembership.where("id", args.membershipId).one()
-  )) as { editionId: string; humanId: string | null; kind: string } | undefined;
+  )) as
+    | {
+        editionId: string;
+        humanId: string | null;
+        kind: string;
+        state: "active" | "archived";
+      }
+    | undefined;
   if (!membership || membership.editionId !== args.editionId) {
     throw new Error("Membership not found in this Edition");
   }
   if (membership.kind !== "volunteer") {
     throw new Error("Guardians cannot receive Credentials");
+  }
+  if (membership.state !== "active") {
+    throw new Error("Archived Volunteers cannot receive Credentials");
   }
   const active = await findActiveCredentialForMembership(tx, args.membershipId);
   if (active) {
