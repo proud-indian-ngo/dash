@@ -689,8 +689,8 @@ export async function seedKalakritiReleaseFixture(
     membershipIds.liaison,
     membershipIds.unrelatedVolunteerCurrent,
   ] as const;
-  await db.insert(kalakritiCredential).values(
-    volunteerCredentialMemberships.map((membershipId, index) => ({
+  const volunteerCredentials = volunteerCredentialMemberships.map(
+    (membershipId, index) => ({
       createdAt: now,
       editionId: fixture.editionId,
       humanId: `KALV-2186-${String(index + 1).padStart(4, "0")}`,
@@ -704,7 +704,18 @@ export async function seedKalakritiReleaseFixture(
       tokenHash: createHash("sha256")
         .update(`volunteer-${membershipId}`)
         .digest("hex"),
-    }))
+    })
   );
+  await db.insert(kalakritiCredential).values(volunteerCredentials);
+  for (const credential of volunteerCredentials) {
+    await db
+      .update(kalakritiEditionMembership)
+      .set({ humanId: credential.humanId })
+      .where(eq(kalakritiEditionMembership.id, credential.membershipId));
+  }
+  await db
+    .update(kalakritiEdition)
+    .set({ nextVolunteerSequence: volunteerCredentials.length + 1 })
+    .where(eq(kalakritiEdition.id, fixture.editionId));
   return ids;
 }
