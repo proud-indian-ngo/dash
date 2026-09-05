@@ -241,6 +241,8 @@ async function resolveSubjectFromHumanId(
     zql.kalakritiEditionMembership
       .where("editionId", editionId)
       .where("humanId", humanId)
+      .where("state", "active")
+      .where("kind", "volunteer")
       .one()
   )) as { id: string } | undefined;
   if (membership) {
@@ -260,7 +262,8 @@ async function recordKalakritiOperation(
     occurredAt: number;
     operationId: string;
     sessionId?: string;
-    subject: { membershipId: string | null; studentId: string | null };
+    credentialToken?: string;
+    humanId?: string;
     type: KalakritiOperationType;
   }
 ): Promise<void> {
@@ -271,31 +274,52 @@ async function recordKalakritiOperation(
   if (edition.lifecycle === "archived") {
     throw new Error("Edition is archived");
   }
-  await assertCanRecordKalakritiOperation(tx, ctx, args.editionId);
-
   const existing = (await tx.run(
     zql.kalakritiOperation.where("operationId", args.operationId).one()
-  )) as KalakritiOperationRecord | undefined;
+  )) as (KalakritiOperationRecord & { recordedBy: string }) | undefined;
   if (existing) {
-    if (existing.editionId !== args.editionId) {
-      return;
+    if (
+      existing.editionId !== args.editionId ||
+      !(existing.recordedBy === ctx.userId || can(ctx, "kalakriti.admin"))
+    ) {
+      throw new Error("Operation ID is already in use");
     }
     return;
   }
 
+  const subject = args.credentialToken
+    ? await resolveSubjectFromCredential(
+        tx,
+        args.editionId,
+        args.credentialToken
+      )
+    : await resolveSubjectFromHumanId(tx, args.editionId, args.humanId ?? "");
+  await assertCanRecordKalakritiOperation(tx, ctx, args.editionId);
+
   const subjectOperations = await loadSubjectOperations(
     tx,
     args.editionId,
-    args.subject
+    subject
   );
   if (findExistingOperationByOperationId(subjectOperations, args.operationId)) {
+    return;
+  }
+
+  if (
+    subjectOperations.some(
+      (operation) =>
+        operation.type === args.type &&
+        operation.competitionSessionId === (args.sessionId ?? null) &&
+        operation.supersededByOperationId === null
+    )
+  ) {
     return;
   }
 
   assertCanRecordOperation(
     subjectOperations,
     args.type,
-    args.subject,
+    subject,
     args.sessionId ?? null
   );
 
@@ -305,11 +329,11 @@ async function recordKalakritiOperation(
     createdAt: args.now,
     editionId: args.editionId,
     id: args.id,
-    membershipId: args.subject.membershipId,
+    membershipId: subject.membershipId,
     occurredAt: args.occurredAt,
     operationId: args.operationId,
     recordedBy: ctx.userId,
-    studentId: args.subject.studentId,
+    studentId: subject.studentId,
     supersededByOperationId: null,
     type: args.type,
   });
@@ -323,7 +347,7 @@ async function recordKalakritiOperation(
     id: args.auditEntryId,
     metadata: {
       operationId: args.operationId,
-      subjectKind: getOperationSubjectKind(args.subject),
+      subjectKind: getOperationSubjectKind(subject),
       type: args.type,
     },
     reason: null,
@@ -340,11 +364,6 @@ export const kalakritiOperationMutators = {
       if (tx.location === "client") {
         return;
       }
-      const subject = await resolveSubjectFromCredential(
-        tx as OperationTx,
-        args.editionId,
-        args.credentialToken
-      );
       await recordKalakritiOperation(tx as OperationTx, ctx, {
         auditEntryId: args.auditEntryId,
         editionId: args.editionId,
@@ -353,7 +372,7 @@ export const kalakritiOperationMutators = {
         occurredAt: args.occurredAt,
         operationId: args.operationId,
         sessionId: args.sessionId,
-        subject,
+        credentialToken: args.credentialToken,
         type: args.type,
       });
     }
@@ -366,11 +385,6 @@ export const kalakritiOperationMutators = {
       if (tx.location === "client") {
         return;
       }
-      const subject = await resolveSubjectFromHumanId(
-        tx as OperationTx,
-        args.editionId,
-        args.humanId
-      );
       await recordKalakritiOperation(tx as OperationTx, ctx, {
         auditEntryId: args.auditEntryId,
         editionId: args.editionId,
@@ -379,7 +393,7 @@ export const kalakritiOperationMutators = {
         occurredAt: args.occurredAt,
         operationId: args.operationId,
         sessionId: args.sessionId,
-        subject,
+        humanId: args.humanId,
         type: args.type,
       });
     }
