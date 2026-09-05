@@ -62,19 +62,22 @@ export function EventDayCorrectSection({
   } | null>(null);
 
   const hasLookupHumanId = lookupHumanId.length > 0;
-  const [studentMatch] = useQuery(
+  const [studentMatch, studentResult] = useQuery(
     queries.kalakritiOperation.studentByHumanId({
       editionId,
       humanId: hasLookupHumanId ? lookupHumanId : "_",
     }),
     { enabled: hasLookupHumanId }
   );
-  const [volunteerMatch] = useQuery(
+  const [volunteerMatch, volunteerResult] = useQuery(
     queries.kalakritiOperation.volunteerByHumanId({
       editionId,
       humanId: hasLookupHumanId ? lookupHumanId : "_",
     }),
-    { enabled: hasLookupHumanId && !studentMatch }
+    {
+      enabled:
+        hasLookupHumanId && studentResult.type === "complete" && !studentMatch,
+    }
   );
   const [operations] = useQuery(
     queries.kalakritiOperation.bySubject({
@@ -130,14 +133,29 @@ export function EventDayCorrectSection({
     }
     if (studentMatch) {
       setSubject({ studentId: studentMatch.id });
+      setLookupHumanId("");
+      return;
+    }
+    if (studentResult.type !== "complete") {
       return;
     }
     if (volunteerMatch) {
       setSubject({ membershipId: volunteerMatch.id });
+      setLookupHumanId("");
       return;
     }
+    if (volunteerResult.type !== "complete") {
+      return;
+    }
+    setLookupHumanId("");
     toast.error("Yearly ID not found in this Edition");
-  }, [lookupHumanId, studentMatch, volunteerMatch]);
+  }, [
+    lookupHumanId,
+    studentMatch,
+    studentResult.type,
+    volunteerMatch,
+    volunteerResult.type,
+  ]);
 
   const handleSubmit = useEventCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
