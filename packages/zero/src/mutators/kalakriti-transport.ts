@@ -11,6 +11,7 @@ import { assertIsLoggedIn, can } from "../permissions";
 import { zql } from "../schema";
 import {
   getCenterForUpdate,
+  getEditionForUpdate,
   type LockableKalakritiTx,
 } from "./kalakriti-row-locks";
 
@@ -177,6 +178,20 @@ async function requireActiveCenter(
   return center;
 }
 
+async function requireMutableTransportEdition(
+  tx: TransportTx,
+  editionId: string
+) {
+  const edition = await getEditionForUpdate(tx, editionId);
+  if (!edition) {
+    throw new Error("Edition not found");
+  }
+  if (edition.lifecycle === "archived") {
+    throw new Error("Edition is archived");
+  }
+  return edition;
+}
+
 async function requireTransportAssignment(
   tx: TransportTx,
   editionId: string,
@@ -186,11 +201,13 @@ async function requireTransportAssignment(
     zql.kalakritiTransportAssignment.where("id", assignmentId).one()
   )) as
     | {
+        capacity: number;
         centerId: string;
         driverName: string;
         driverPhone: string | null;
         editionId: string;
         id: string;
+        notes: string | null;
         status: KalakritiTransportStatus;
         vehicleLabel: string;
       }
@@ -244,6 +261,7 @@ export const kalakritiTransportMutators = {
   create: defineMutator(
     kalakritiTransportCreateSchema,
     async ({ tx, ctx, args }) => {
+      await requireMutableTransportEdition(tx, args.editionId);
       await assertCanManageCenterTransport(
         tx,
         ctx,
@@ -297,6 +315,7 @@ export const kalakritiTransportMutators = {
   transitionStatus: defineMutator(
     kalakritiTransportTransitionSchema,
     async ({ tx, ctx, args }) => {
+      await requireMutableTransportEdition(tx, args.editionId);
       const assignment = await requireTransportAssignment(
         tx,
         args.editionId,
@@ -309,6 +328,7 @@ export const kalakritiTransportMutators = {
         assignment.centerId
       );
       assertIsLoggedIn(ctx);
+      await requireActiveCenter(tx, args.editionId, assignment.centerId);
 
       const toStatus = getNextKalakritiTransportStatus(assignment.status);
       if (!toStatus) {
@@ -350,6 +370,7 @@ export const kalakritiTransportMutators = {
   update: defineMutator(
     kalakritiTransportUpdateSchema,
     async ({ tx, ctx, args }) => {
+      await requireMutableTransportEdition(tx, args.editionId);
       const assignment = await requireTransportAssignment(
         tx,
         args.editionId,
@@ -362,6 +383,7 @@ export const kalakritiTransportMutators = {
         assignment.centerId
       );
       assertIsLoggedIn(ctx);
+      await requireActiveCenter(tx, args.editionId, assignment.centerId);
 
       const changedFields: string[] = [];
       const updates: {
@@ -394,11 +416,14 @@ export const kalakritiTransportMutators = {
         updates.driverPhone = args.driverPhone;
         changedFields.push("driverPhone");
       }
-      if (args.capacity !== undefined) {
+      if (
+        args.capacity !== undefined &&
+        args.capacity !== assignment.capacity
+      ) {
         updates.capacity = args.capacity;
         changedFields.push("capacity");
       }
-      if (args.notes !== undefined) {
+      if (args.notes !== undefined && args.notes !== assignment.notes) {
         updates.notes = args.notes;
         changedFields.push("notes");
       }

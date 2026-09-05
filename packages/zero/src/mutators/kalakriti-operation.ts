@@ -337,6 +337,9 @@ export const kalakritiOperationMutators = {
     kalakritiOperationRecordSchema,
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
+      if (tx.location === "client") {
+        return;
+      }
       const subject = await resolveSubjectFromCredential(
         tx as OperationTx,
         args.editionId,
@@ -360,6 +363,9 @@ export const kalakritiOperationMutators = {
     kalakritiOperationRecordManualSchema,
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
+      if (tx.location === "client") {
+        return;
+      }
       const subject = await resolveSubjectFromHumanId(
         tx as OperationTx,
         args.editionId,
