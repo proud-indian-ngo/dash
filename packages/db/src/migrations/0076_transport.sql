@@ -13,6 +13,7 @@ CREATE TABLE "kalakriti_transport_assignment" (
 	"status" "kalakriti_transport_status" DEFAULT 'planned' NOT NULL,
 	"updated_at" timestamp NOT NULL,
 	"vehicle_label" text NOT NULL,
+	CONSTRAINT "kalakriti_transport_assignment_editionId_id_uq" UNIQUE("edition_id","id"),
 	CONSTRAINT "kalakriti_transport_assignment_capacity_chk" CHECK ("kalakriti_transport_assignment"."capacity" > 0),
 	CONSTRAINT "kalakriti_transport_assignment_vehicleLabel_chk" CHECK (length(trim("kalakriti_transport_assignment"."vehicle_label")) > 0),
 	CONSTRAINT "kalakriti_transport_assignment_driverName_chk" CHECK (length(trim("kalakriti_transport_assignment"."driver_name")) > 0)
