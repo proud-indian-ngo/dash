@@ -410,6 +410,7 @@ describe("kalakritiOperation station eligibility", () => {
     const { lockedResults, spies, tx } = createTx([
       student,
       {
+        cancelledAt: null,
         divisionId: "division-1",
         editionId: edition.id,
         id: sessionId,
@@ -447,6 +448,187 @@ describe("kalakritiOperation station eligibility", () => {
         tx,
       } as never)
     ).rejects.toThrow("Unauthorized");
+    expect(spies.insertOperation).not.toHaveBeenCalled();
+  });
+
+  it("rejects attendance for a cancelled Competition Session", async () => {
+    const { lockedResults, spies, tx } = createTx([
+      student,
+      {
+        cancelledAt: 11_000,
+        divisionId: "division-1",
+        editionId: edition.id,
+        id: sessionId,
+      },
+    ]);
+    lockedResults.push([edition]);
+
+    await expect(
+      kalakritiOperationMutators.recordManual.fn({
+        args: {
+          auditEntryId: "audit-attendance-cancelled",
+          editionId: edition.id,
+          humanId: student.humanId,
+          id: "operation-row-attendance-cancelled",
+          now: 12_000,
+          occurredAt: 11_900,
+          operationId: "operation-attendance-cancelled",
+          sessionId,
+          type: "competition_attendance",
+        },
+        ctx: adminContext,
+        tx,
+      } as never)
+    ).rejects.toThrow("Competition session is cancelled");
+    expect(spies.insertOperation).not.toHaveBeenCalled();
+  });
+
+  it("records attendance for a Student entered in the Session Division", async () => {
+    const { lockedResults, spies, tx } = createTx([
+      student,
+      {
+        cancelledAt: null,
+        divisionId: "division-1",
+        editionId: edition.id,
+        id: sessionId,
+      },
+      {
+        competitionId,
+        editionId: edition.id,
+        id: "division-1",
+      },
+      { id: "competition-volunteer-membership-1", kind: "volunteer" },
+      [
+        {
+          centerId: null,
+          competitionId,
+          responsibility: "competition_volunteer",
+        },
+      ],
+      undefined,
+      [
+        {
+          editionId: edition.id,
+          id: "pickup-op-1",
+          membershipId: null,
+          operationId: "pickup-operation-1",
+          studentId: student.id,
+          supersededByOperationId: null,
+          type: "pickup",
+        },
+      ],
+      {
+        cancelledAt: null,
+        divisionId: "division-1",
+        editionId: edition.id,
+        id: sessionId,
+      },
+      {
+        divisionId: "division-1",
+        editionId: edition.id,
+        entryId: "entry-1",
+        studentId: student.id,
+      },
+    ]);
+    lockedResults.push([edition]);
+
+    await kalakritiOperationMutators.recordManual.fn({
+      args: {
+        auditEntryId: "audit-attendance-2",
+        editionId: edition.id,
+        humanId: student.humanId,
+        id: "operation-row-attendance-2",
+        now: 13_000,
+        occurredAt: 12_900,
+        operationId: "operation-attendance-2",
+        sessionId,
+        type: "competition_attendance",
+      },
+      ctx: competitionVolunteerContext,
+      tx,
+    } as never);
+
+    expect(spies.insertOperation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        competitionSessionId: sessionId,
+        studentId: student.id,
+        type: "competition_attendance",
+      })
+    );
+  });
+
+  it.each([
+    ["no Entry", undefined],
+    [
+      "an Entry in another Division",
+      {
+        divisionId: "division-2",
+        editionId: edition.id,
+        entryId: "entry-2",
+        studentId: student.id,
+      },
+    ],
+  ])("rejects attendance with %s", async (_case, entryMember) => {
+    const { lockedResults, spies, tx } = createTx([
+      student,
+      {
+        cancelledAt: null,
+        divisionId: "division-1",
+        editionId: edition.id,
+        id: sessionId,
+      },
+      {
+        competitionId,
+        editionId: edition.id,
+        id: "division-1",
+      },
+      { id: "competition-volunteer-membership-1", kind: "volunteer" },
+      [
+        {
+          centerId: null,
+          competitionId,
+          responsibility: "competition_volunteer",
+        },
+      ],
+      undefined,
+      [
+        {
+          editionId: edition.id,
+          id: "pickup-op-1",
+          membershipId: null,
+          operationId: "pickup-operation-1",
+          studentId: student.id,
+          supersededByOperationId: null,
+          type: "pickup",
+        },
+      ],
+      {
+        cancelledAt: null,
+        divisionId: "division-1",
+        editionId: edition.id,
+        id: sessionId,
+      },
+      entryMember,
+    ]);
+    lockedResults.push([edition]);
+
+    await expect(
+      kalakritiOperationMutators.recordManual.fn({
+        args: {
+          auditEntryId: "audit-attendance-3",
+          editionId: edition.id,
+          humanId: student.humanId,
+          id: "operation-row-attendance-3",
+          now: 14_000,
+          occurredAt: 13_900,
+          operationId: "operation-attendance-3",
+          sessionId,
+          type: "competition_attendance",
+        },
+        ctx: competitionVolunteerContext,
+        tx,
+      } as never)
+    ).rejects.toThrow("Student is not registered for this Competition session");
     expect(spies.insertOperation).not.toHaveBeenCalled();
   });
 });

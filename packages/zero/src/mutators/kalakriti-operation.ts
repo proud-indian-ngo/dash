@@ -241,9 +241,14 @@ async function resolveSessionCompetitionId(
 ): Promise<string> {
   const session = (await tx.run(
     zql.kalakritiCompetitionSession.where("id", sessionId).one()
-  )) as { editionId: string; divisionId: string } | undefined;
+  )) as
+    | { cancelledAt: number | null; divisionId: string; editionId: string }
+    | undefined;
   if (!session || session.editionId !== editionId) {
     throw new Error("Competition session not found in this Edition");
+  }
+  if (session.cancelledAt !== null) {
+    throw new Error("Competition session is cancelled");
   }
   const division = (await tx.run(
     zql.kalakritiCompetitionDivision.where("id", session.divisionId).one()
@@ -323,6 +328,43 @@ async function assertCanRecordStationOperation(
     return;
   }
   throw new Error("Unsupported operation type");
+}
+
+async function assertStudentRegisteredForCompetitionSession(
+  tx: LockableKalakritiTx,
+  editionId: string,
+  sessionId: string,
+  studentId: string
+): Promise<void> {
+  const session = (await tx.run(
+    zql.kalakritiCompetitionSession.where("id", sessionId).one()
+  )) as { divisionId: string; editionId: string } | undefined;
+  if (!session || session.editionId !== editionId) {
+    throw new Error("Competition session not found in this Edition");
+  }
+  const entryMember = (await tx.run(
+    zql.kalakritiEntryMember
+      .where("studentId", studentId)
+      .where("divisionId", session.divisionId)
+      .where("editionId", editionId)
+      .one()
+  )) as
+    | {
+        divisionId: string;
+        editionId: string;
+        entryId: string;
+        studentId: string;
+      }
+    | undefined;
+  if (
+    !entryMember ||
+    !entryMember.entryId ||
+    entryMember.studentId !== studentId ||
+    entryMember.divisionId !== session.divisionId ||
+    entryMember.editionId !== editionId
+  ) {
+    throw new Error("Student is not registered for this Competition session");
+  }
 }
 
 export async function assertCanRecordKalakritiOperation(
@@ -497,6 +539,18 @@ async function recordKalakritiOperation(
     args.sessionId ?? null
   );
 
+  if (args.type === "competition_attendance") {
+    if (!(args.sessionId && args.subject.studentId)) {
+      throw new Error("This operation requires a Student subject");
+    }
+    await assertStudentRegisteredForCompetitionSession(
+      tx,
+      args.editionId,
+      args.sessionId,
+      args.subject.studentId
+    );
+  }
+
   await tx.mutate.kalakritiOperation.insert({
     competitionSessionId: args.sessionId ?? null,
     correctionReason: null,
@@ -535,6 +589,9 @@ export const kalakritiOperationMutators = {
     kalakritiOperationRecordSchema,
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
+      if (tx.location === "client") {
+        return;
+      }
       const subject = await resolveSubjectFromCredential(
         tx as OperationTx,
         args.editionId,
@@ -558,6 +615,9 @@ export const kalakritiOperationMutators = {
     kalakritiOperationRecordManualSchema,
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
+      if (tx.location === "client") {
+        return;
+      }
       const subject = await resolveSubjectFromHumanId(
         tx as OperationTx,
         args.editionId,

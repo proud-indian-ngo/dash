@@ -24,6 +24,24 @@ describe("kalakritiCompetition queries", () => {
     expect(ast).toContain('"value":"archived"');
   });
 
+  it("scopes Competition staff reads to their assigned Competitions", () => {
+    const ast = queryAst(
+      kalakritiCompetitionQueries.competitions.fn({
+        args: { editionId: "edition-1" },
+        ctx: {
+          permissions: ["kalakriti.view"],
+          role: "volunteer",
+          userId: "competition-staff-1",
+        },
+      })
+    );
+
+    expect(ast).toContain('"value":"competition_coordinator"');
+    expect(ast).toContain('"value":"competition_volunteer"');
+    expect(ast).toContain('"value":"competition-staff-1"');
+    expect(ast).toContain('"value":"active"');
+  });
+
   it("scopes Category Lead Venue reads through assigned Category Sessions", () => {
     const ast = queryAst(
       kalakritiCompetitionQueries.venues.fn({

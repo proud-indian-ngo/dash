@@ -56,6 +56,7 @@ type TransportOperationType =
 type MealOperationType = (typeof MEAL_OPERATION_TYPES)[number]["value"];
 
 interface CompetitionSessionView {
+  cancelledAt: number | null;
   divisionId: string;
   id: string;
   startAt: number;
@@ -157,15 +158,17 @@ function KalakritiEventDayPage() {
       competition.divisions.map((division) => [division.id, division])
     )
   );
-  const sessionOptions = sessionViews.map((session) => ({
-    id: session.id,
-    label: formatSessionLabel(
-      session,
-      competitionNames.get(
-        divisionById.get(session.divisionId)?.competitionId ?? ""
-      ) ?? "Unknown competition"
-    ),
-  }));
+  const sessionOptions = sessionViews
+    .filter((session) => session.cancelledAt === null)
+    .map((session) => ({
+      id: session.id,
+      label: formatSessionLabel(
+        session,
+        competitionNames.get(
+          divisionById.get(session.divisionId)?.competitionId ?? ""
+        ) ?? "Unknown competition"
+      ),
+    }));
 
   const operationType = operationTypeForStation(
     station,
