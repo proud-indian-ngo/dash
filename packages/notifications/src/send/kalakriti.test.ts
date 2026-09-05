@@ -13,6 +13,7 @@ import {
   notifyKalakritiGuardianReactivated,
   notifyKalakritiRegistrationLifecycle,
   notifyKalakritiScheduleChanged,
+  notifyKalakritiTransportChanged,
 } from "./kalakriti";
 
 describe("Kalakriti notifications", () => {
@@ -80,6 +81,29 @@ describe("Kalakriti notifications", () => {
       title: "Kalakriti schedule updated",
       to: "user-1",
       topic: TOPICS.KALAKRITI_SCHEDULE,
+    });
+  });
+
+  it("sends transport changes to the Center detail with a stable key", async () => {
+    await notifyKalakritiTransportChanged({
+      assignmentId: "assignment-1",
+      centerId: "center-1",
+      changeId: "change-1",
+      editionId: "edition-1",
+      editionName: "Kalakriti 2028",
+      recipientUserId: "user-1",
+      year: 2028,
+    });
+
+    expect(mocks.sendMessage).toHaveBeenCalledWith({
+      body: "Transport details changed for Kalakriti 2028.",
+      channels: ["inbox", "whatsapp"],
+      clickAction: "/kalakriti/2028/centers/center-1",
+      idempotencyKey:
+        "kalakriti-transport-edition-1-assignment-1-change-1-user-1",
+      title: "Kalakriti transport updated",
+      to: "user-1",
+      topic: TOPICS.KALAKRITI_TRANSPORT,
     });
   });
 

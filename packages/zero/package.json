@@ -4,6 +4,7 @@
   "exports": {
     "./context": "./src/context.ts",
     "./kalakriti-registration-readiness": "./src/kalakriti-registration-readiness.ts",
+    "./kalakriti-transport-rules": "./src/kalakriti-transport-rules.ts",
     "./schema": "./src/schema.ts",
     "./queries": "./src/queries.ts",
     "./mutators": "./src/mutators.ts",

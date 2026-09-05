@@ -225,6 +225,20 @@ export async function resolveKalakritiScheduleRecipients({
   return [...recipientIds].sort();
 }
 
+export function resolveKalakritiCenterTransportRecipients({
+  centerId,
+  editionId,
+}: {
+  centerId: string;
+  editionId: string;
+}): Promise<string[]> {
+  return resolveKalakritiScheduleRecipients({
+    centerIds: [centerId],
+    competitionIds: [],
+    editionId,
+  });
+}
+
 export async function getKalakritiCompetitionNames(
   editionId: string,
   competitionIds: string[]

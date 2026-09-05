@@ -110,6 +110,7 @@ describe("Kalakriti Registration Release surface", () => {
       "kalakritiGuardian.roster",
       "kalakritiStudent.ageCategoriesByCenter",
       "kalakritiStudent.visibleByCenter",
+      "kalakritiTransport.byCenter",
     ]);
     expect(operationKeys(mutators)).toEqual([
       "kalakritiAssignment.addVolunteers",
@@ -165,6 +166,9 @@ describe("Kalakriti Registration Release surface", () => {
       "kalakritiStudent.create",
       "kalakritiStudent.delete",
       "kalakritiStudent.update",
+      "kalakritiTransport.create",
+      "kalakritiTransport.transitionStatus",
+      "kalakritiTransport.update",
     ]);
   });
 });

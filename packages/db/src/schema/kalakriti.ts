@@ -5,6 +5,7 @@ import {
   KALAKRITI_MEMBERSHIP_STATES,
   KALAKRITI_OPERATION_TYPES,
   KALAKRITI_TIMEZONE,
+  KALAKRITI_TRANSPORT_STATUSES,
 } from "@pi-dash/shared/kalakriti";
 import { relations, sql } from "drizzle-orm";
 import {
@@ -50,6 +51,11 @@ export const kalakritiResponsibilityEnum = pgEnum(
 export const kalakritiOperationTypeEnum = pgEnum(
   "kalakriti_operation_type",
   KALAKRITI_OPERATION_TYPES
+);
+
+export const kalakritiTransportStatusEnum = pgEnum(
+  "kalakriti_transport_status",
+  KALAKRITI_TRANSPORT_STATUSES
 );
 
 export const kalakritiParticipationModeEnum = pgEnum(
@@ -726,6 +732,93 @@ export const kalakritiOperation = pgTable(
   ]
 );
 
+export const kalakritiTransportAssignment = pgTable(
+  "kalakriti_transport_assignment",
+  {
+    capacity: integer("capacity").notNull(),
+    centerId: uuid("center_id").notNull(),
+    createdAt: timestamp("created_at").notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id),
+    driverName: text("driver_name").notNull(),
+    driverPhone: text("driver_phone"),
+    editionId: uuid("edition_id")
+      .notNull()
+      .references(() => kalakritiEdition.id, { onDelete: "cascade" }),
+    id: uuid("id").primaryKey(),
+    notes: text("notes"),
+    status: kalakritiTransportStatusEnum("status").default("planned").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
+    vehicleLabel: text("vehicle_label").notNull(),
+  },
+  (table) => [
+    index("kalakriti_transport_assignment_editionId_centerId_idx").on(
+      table.editionId,
+      table.centerId
+    ),
+    unique("kalakriti_transport_assignment_editionId_id_uq").on(
+      table.editionId,
+      table.id
+    ),
+    foreignKey({
+      columns: [table.editionId, table.centerId],
+      foreignColumns: [kalakritiCenter.editionId, kalakritiCenter.id],
+      name: "kalakriti_transport_assignment_edition_center_fk",
+    }).onDelete("restrict"),
+    check(
+      "kalakriti_transport_assignment_capacity_chk",
+      sql`${table.capacity} > 0`
+    ),
+    check(
+      "kalakriti_transport_assignment_vehicleLabel_chk",
+      sql`length(trim(${table.vehicleLabel})) > 0`
+    ),
+    check(
+      "kalakriti_transport_assignment_driverName_chk",
+      sql`length(trim(${table.driverName})) > 0`
+    ),
+  ]
+);
+
+export const kalakritiTransportStatusHistory = pgTable(
+  "kalakriti_transport_status_history",
+  {
+    actorUserId: text("actor_user_id")
+      .notNull()
+      .references(() => user.id),
+    assignmentId: uuid("assignment_id")
+      .notNull()
+      .references(() => kalakritiTransportAssignment.id, {
+        onDelete: "cascade",
+      }),
+    createdAt: timestamp("created_at").notNull(),
+    editionId: uuid("edition_id")
+      .notNull()
+      .references(() => kalakritiEdition.id, { onDelete: "cascade" }),
+    fromStatus: kalakritiTransportStatusEnum("from_status"),
+    id: uuid("id").primaryKey(),
+    occurredAt: timestamp("occurred_at").notNull(),
+    toStatus: kalakritiTransportStatusEnum("to_status").notNull(),
+  },
+  (table) => [
+    index("kalakriti_transport_status_history_assignmentId_idx").on(
+      table.assignmentId
+    ),
+    index("kalakriti_transport_status_history_editionId_idx").on(
+      table.editionId
+    ),
+    foreignKey({
+      columns: [table.editionId, table.assignmentId],
+      foreignColumns: [
+        kalakritiTransportAssignment.editionId,
+        kalakritiTransportAssignment.id,
+      ],
+      name: "kalakriti_transport_status_history_edition_assignment_fk",
+    }).onDelete("cascade"),
+  ]
+);
+
 export const kalakritiCompetitionEntry = pgTable(
   "kalakriti_competition_entry",
   {
@@ -918,7 +1011,7 @@ export const kalakritiAssignment = pgTable(
           AND ${table.centerId} IS NULL
           AND ${table.competitionCategoryId} IS NULL
           AND ${table.competitionId} IS NULL)
-        OR (${table.responsibility}::text IN ('liaison', 'center_liaison_lead', 'liaison_volunteer')
+        OR (${table.responsibility}::text IN ('liaison', 'center_liaison_lead', 'liaison_volunteer', 'transport_coordinator')
           AND ${table.centerId} IS NOT NULL
           AND ${table.competitionCategoryId} IS NULL
           AND ${table.competitionId} IS NULL)
@@ -1021,6 +1114,7 @@ export const kalakritiEditionRelations = relations(
       fields: [kalakritiEdition.teamEventId],
       references: [teamEvent.id],
     }),
+    transportAssignments: many(kalakritiTransportAssignment),
     venues: many(kalakritiVenue),
   })
 );
@@ -1080,6 +1174,7 @@ export const kalakritiCenterRelations = relations(
     }),
     guardianCenters: many(kalakritiGuardianCenter),
     students: many(kalakritiStudent),
+    transportAssignments: many(kalakritiTransportAssignment),
   })
 );
 
@@ -1250,6 +1345,43 @@ export const kalakritiOperationRelations = relations(
       fields: [kalakritiOperation.supersededByOperationId],
       references: [kalakritiOperation.id],
       relationName: "kalakriti_operation_supersession",
+    }),
+  })
+);
+
+export const kalakritiTransportAssignmentRelations = relations(
+  kalakritiTransportAssignment,
+  ({ many, one }) => ({
+    center: one(kalakritiCenter, {
+      fields: [kalakritiTransportAssignment.centerId],
+      references: [kalakritiCenter.id],
+    }),
+    creator: one(user, {
+      fields: [kalakritiTransportAssignment.createdBy],
+      references: [user.id],
+    }),
+    edition: one(kalakritiEdition, {
+      fields: [kalakritiTransportAssignment.editionId],
+      references: [kalakritiEdition.id],
+    }),
+    statusHistory: many(kalakritiTransportStatusHistory),
+  })
+);
+
+export const kalakritiTransportStatusHistoryRelations = relations(
+  kalakritiTransportStatusHistory,
+  ({ one }) => ({
+    actor: one(user, {
+      fields: [kalakritiTransportStatusHistory.actorUserId],
+      references: [user.id],
+    }),
+    assignment: one(kalakritiTransportAssignment, {
+      fields: [kalakritiTransportStatusHistory.assignmentId],
+      references: [kalakritiTransportAssignment.id],
+    }),
+    edition: one(kalakritiEdition, {
+      fields: [kalakritiTransportStatusHistory.editionId],
+      references: [kalakritiEdition.id],
     }),
   })
 );

@@ -13,6 +13,7 @@ export const KALAKRITI_AUDIT_DOMAINS = [
   "credential",
   "event_day_operation",
   "schedule_configuration",
+  "transport",
   "student_registration",
   "entry_registration",
 ] as const;
@@ -115,6 +116,7 @@ const SAFE_AUDIT_METADATA_KEYS = new Set([
   "after",
   "ageCategoryId",
   "ageCategoryOverridden",
+  "assignmentId",
   "before",
   "centerId",
   "changedFields",
@@ -142,8 +144,9 @@ const SAFE_AUDIT_METADATA_KEYS = new Set([
   "studentRegistrationEnabled",
   "subjectKind",
   "targetMembershipId",
-  "type",
   "to",
+  "toStatus",
+  "type",
   "venueId",
 ]);
 
