@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
 import { kalakritiTransportMutators } from "../kalakriti-transport";
 
@@ -49,23 +49,23 @@ function createTx(results: unknown[] = []) {
   const callOrder: string[] = [];
   const lockedResults: unknown[][] = [];
   const spies = {
-    insertAssignment: vi.fn(),
-    insertAudit: vi.fn(),
-    insertHistory: vi.fn(),
-    lockRows: vi.fn(),
-    updateAssignment: vi.fn(),
+    insertAssignment: mock(),
+    insertAudit: mock(),
+    insertHistory: mock(),
+    lockRows: mock(),
+    updateAssignment: mock(),
   };
-  const select = vi.fn(() => {
+  const select = mock(() => {
     const query = {
-      for: vi.fn(() => {
+      for: mock(() => {
         callOrder.push("lock");
         const rows = lockedResults.shift() ?? [];
         spies.lockRows(rows);
         return rows;
       }),
-      from: vi.fn(),
-      orderBy: vi.fn(),
-      where: vi.fn(),
+      from: mock(),
+      orderBy: mock(),
+      where: mock(),
     };
     query.from.mockReturnValue(query);
     query.orderBy.mockReturnValue(query);
@@ -88,7 +88,7 @@ function createTx(results: unknown[] = []) {
         },
         kalakritiTransportStatusHistory: { insert: spies.insertHistory },
       },
-      run: vi.fn(async () => {
+      run: mock(async () => {
         callOrder.push("read");
         return results.shift();
       }),

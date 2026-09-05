@@ -18,6 +18,16 @@ const transportLeadContext = {
   role: "volunteer",
   userId: "transport-1",
 };
+const foodLeadContext = {
+  permissions: ["kalakriti.view"],
+  role: "volunteer",
+  userId: "food-1",
+};
+const liaisonContext = {
+  permissions: ["kalakriti.view"],
+  role: "volunteer",
+  userId: "liaison-1",
+};
 
 const edition = {
   ageCutoffDate: "2027-06-30",
@@ -38,6 +48,7 @@ const otherEdition = {
   year: 2027,
 };
 const student = {
+  centerId: "center-assigned",
   editionId: edition.id,
   humanId: "KAL-2027-0001",
   id: "student-1",
@@ -95,6 +106,7 @@ describe("kalakritiOperation.record", () => {
         studentId: student.id,
         tokenHash,
       },
+      { centerId: student.centerId, id: student.id },
       [],
     ]);
     lockedResults.push([edition]);
@@ -176,6 +188,7 @@ describe("kalakritiOperation.record", () => {
         studentId: student.id,
         tokenHash,
       },
+      { centerId: student.centerId, id: student.id },
       [
         {
           competitionSessionId: null,
@@ -312,9 +325,9 @@ describe("kalakritiOperation.recordManual", () => {
   it("records pickup via yearly ID for authorized transport lead", async () => {
     const { lockedResults, spies, tx } = createTx([
       student,
+      { centerId: student.centerId, id: student.id },
       { id: "transport-membership-1", kind: "volunteer" },
-      undefined,
-      { id: "transport-assignment-1" },
+      [{ centerId: null, responsibility: "transport_lead" }],
       [],
     ]);
     lockedResults.push([edition]);
@@ -352,6 +365,7 @@ describe("kalakritiOperation authorization", () => {
         studentId: student.id,
         tokenHash,
       },
+      { centerId: student.centerId, id: student.id },
       { id: "guardian-membership-1", kind: "guardian" },
     ]);
     lockedResults.push([edition]);
@@ -369,6 +383,62 @@ describe("kalakritiOperation authorization", () => {
           type: "pickup",
         },
         ctx: guardianContext,
+        tx,
+      } as never)
+    ).rejects.toThrow("Unauthorized");
+    expect(spies.insertOperation).not.toHaveBeenCalled();
+  });
+
+  it("rejects food leads for transport pickup", async () => {
+    const { lockedResults, spies, tx } = createTx([
+      student,
+      { centerId: student.centerId, id: student.id },
+      { id: "food-membership-1", kind: "volunteer" },
+      [{ centerId: null, responsibility: "food_lead" }],
+    ]);
+    lockedResults.push([edition]);
+
+    await expect(
+      kalakritiOperationMutators.recordManual.fn({
+        args: {
+          auditEntryId: "audit-8",
+          editionId: edition.id,
+          humanId: student.humanId,
+          id: "operation-row-8",
+          now: 8000,
+          occurredAt: 7900,
+          operationId: "operation-8",
+          type: "pickup",
+        },
+        ctx: foodLeadContext,
+        tx,
+      } as never)
+    ).rejects.toThrow("Unauthorized");
+    expect(spies.insertOperation).not.toHaveBeenCalled();
+  });
+
+  it("rejects liaisons scoped to another Center", async () => {
+    const { lockedResults, spies, tx } = createTx([
+      student,
+      { centerId: student.centerId, id: student.id },
+      { id: "liaison-membership-1", kind: "volunteer" },
+      [{ centerId: "center-outside", responsibility: "liaison" }],
+    ]);
+    lockedResults.push([edition]);
+
+    await expect(
+      kalakritiOperationMutators.recordManual.fn({
+        args: {
+          auditEntryId: "audit-9",
+          editionId: edition.id,
+          humanId: student.humanId,
+          id: "operation-row-9",
+          now: 9000,
+          occurredAt: 8900,
+          operationId: "operation-9",
+          type: "pickup",
+        },
+        ctx: liaisonContext,
         tx,
       } as never)
     ).rejects.toThrow("Unauthorized");

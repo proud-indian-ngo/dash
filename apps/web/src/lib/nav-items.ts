@@ -134,6 +134,20 @@ const kalakritiNavItem: NavItem = {
   url: "/kalakriti",
 };
 
+function pushEventDayNavItem(
+  editionItems: NavItem[],
+  year: number | undefined,
+  canViewEventDay: boolean
+): void {
+  if (year && canViewEventDay) {
+    editionItems.push({
+      icon: TaskDaily02Icon,
+      title: "Event day",
+      url: `/kalakriti/${year}/event-day`,
+    });
+  }
+}
+
 export function buildKalakritiNavGroups({
   canManageCredentials = false,
   canManageEligibility = false,
@@ -142,6 +156,7 @@ export function buildKalakritiNavGroups({
   canViewAudit = false,
   canViewCompetitions = false,
   canViewEntries = false,
+  canViewEventDay = false,
   canViewStudents = false,
   year,
 }: {
@@ -152,6 +167,7 @@ export function buildKalakritiNavGroups({
   canViewAudit?: boolean;
   canViewCompetitions?: boolean;
   canViewEntries?: boolean;
+  canViewEventDay?: boolean;
   canViewStudents?: boolean;
   year?: number;
 } = {}): NavGroup[] {
@@ -202,6 +218,8 @@ export function buildKalakritiNavGroups({
       url: `/kalakriti/${year}/students`,
     });
   }
+
+  pushEventDayNavItem(editionItems, year, canViewEventDay);
 
   if (year && canViewEntries) {
     editionItems.push({

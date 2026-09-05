@@ -14,6 +14,7 @@ import type * as React from "react";
 import { NavUser } from "@/components/layout/nav-user";
 import { TeamSwitcher } from "@/components/layout/team-switcher";
 import { useApp } from "@/context/app-context";
+import { canAccessKalakritiEventDay } from "@/lib/kalakriti-event-day-policy";
 import {
   buildKalakritiNavGroups,
   shouldUseKalakritiNav,
@@ -92,6 +93,24 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           (assignment.responsibility === "competition_category_lead" &&
             Boolean(assignment.competitionCategoryId))
       ) === true);
+  const canViewEventDay = canAccessKalakritiEventDay({
+    isGlobalAdmin: hasPermission("kalakriti.admin"),
+    membership: membership
+      ? {
+          assignments: membership.assignments.map((assignment) => ({
+            centerId: assignment.centerId,
+            competitionCategoryId: assignment.competitionCategoryId,
+            competitionId: assignment.competitionId,
+            responsibility: assignment.responsibility,
+          })),
+          id: membership.id,
+          kind: membership.kind,
+          responsibilities: membership.assignments.map(
+            (assignment) => assignment.responsibility
+          ),
+        }
+      : null,
+  });
   let visibleNavGroups = buildKalakritiNavGroups({
     canManageCredentials,
     canManageEligibility: canManageEdition,
@@ -100,6 +119,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     canViewAudit,
     canViewCompetitions,
     canViewEntries,
+    canViewEventDay,
     canViewStudents,
     year: activeEdition?.year,
   });
