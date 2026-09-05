@@ -46,6 +46,10 @@ A Competition may set `musicUploadEnabled`. While Center Entry registration is o
 
 ## Public and server-only projections
 
+Edition and global administrators manage Student and volunteer cards on `/kalakriti/:year/credentials`. `apps/web/src/functions/kalakriti-credentials.ts` lists allowlisted credential fields through `apps/web/src/lib/server/kalakriti-credential.ts`; `credentials-table.tsx` also shows active volunteers awaiting their first card. Enrollment assigns volunteers stable `KALV-{year}-{sequence}` IDs. Removing a volunteer revokes their card, and reactivation preserves their yearly ID.
+
+Credential lookup and print use `/api/kalakriti/:year/credentials/{lookup,print}`. Printing rotates the QR hash and renders the PDF inside the transaction, so rendering failures preserve existing cards. `packages/pdf/src/generate-kalakriti-credential.ts` and `kalakriti-credential-card.tsx` own rendering; the browser never receives stored token hashes. `packages/e2e/helpers/kalakriti-credentials.ts` and `tests/kalakriti/credential-print.spec.ts` cover issuance, lookup, printing, validation, and rollback. The [phase 2 task breakdown](../kalakriti-event-day-phase2-tasks.md) tracks later event-day work.
+
 `/api/kalakriti/:year/schedule` is unauthenticated and returns an explicit allowlist: Edition display fields plus Competition, Age Category, Venue, time, and cancellation status. It never returns staffing, contacts, Students, submissions, evidence, music files, or `musicUploadEnabled`.
 
 Registration dashboards and `/api/kalakriti/:year/registration-export` resolve the actor and Edition on the server. The export route builds an allowlisted ZIP on the server, returns it as a private non-cacheable attachment, neutralizes spreadsheet formulas, and never sends raw registration rows to the browser. CSV import is intentionally unavailable.
@@ -56,7 +60,7 @@ Audit reads apply Edition and responsibility scopes before returning privacy-saf
 
 `packages/e2e/helpers/kalakriti-release-fixture.ts` owns deterministic role and privacy fixtures. The Kalakriti Playwright suite proves Edition creation and linked-event ownership, assignment and Guardian paths, Center controls, Student and individual/group Entry registration, public schedule privacy, scoped exports, direct URL/API denial, dormant Guardian login denial, and concurrent quota and duplicate races.
 
-`docs/kalakriti-registration-release-evidence.md` is the acceptance traceability record for KRR-001 through KRR-019, including the explicit checks deferred until later modules introduce transport, Credential reissue, and operational dependencies.
+`docs/kalakriti-registration-release-evidence.md` is the acceptance traceability record for KRR-001 through KRR-019. Credential reissue, print, and lookup now have dedicated coverage described above; transport and operational dependencies remain later modules on this branch.
 
 The release gate is:
 

@@ -11,10 +11,12 @@ import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 
 import type { Context } from "../context";
+import { findActiveCredentialForMembership } from "../kalakriti-credential-issue";
 import { assertIsLoggedIn, can } from "../permissions";
 import { zql } from "../schema";
 import {
   getCenterForUpdate,
+  getEditionForUpdate,
   type LockableKalakritiTx,
 } from "./kalakriti-row-locks";
 import {
@@ -662,7 +664,13 @@ export const kalakritiAssignmentMutators = {
       }
       await assertCanManageVolunteerRoster(tx, ctx, membership.editionId);
       assertIsLoggedIn(ctx);
-      const edition = await getAssignmentEdition(tx, membership.editionId);
+      const edition = await getEditionForUpdate(tx, membership.editionId);
+      if (!edition) {
+        throw new Error("Edition not found");
+      }
+      if (edition.lifecycle === "archived") {
+        throw new Error("Archived Editions cannot change assignments");
+      }
 
       const assignments = (await tx.run(
         zql.kalakritiAssignment.where("membershipId", membership.id)
@@ -672,6 +680,18 @@ export const kalakritiAssignmentMutators = {
           tx.mutate.kalakritiAssignment.delete({ id: assignment.id })
         )
       );
+
+      const activeCredential = await findActiveCredentialForMembership(
+        tx,
+        membership.id
+      );
+      if (activeCredential) {
+        await tx.mutate.kalakritiCredential.update({
+          id: activeCredential.id,
+          revokedAt: args.now,
+          revokedBy: ctx.userId,
+        });
+      }
 
       await tx.mutate.kalakritiEditionMembership.update({
         archivedAt: args.now,

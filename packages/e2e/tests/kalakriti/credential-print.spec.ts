@@ -11,8 +11,10 @@ const helperPath = path.resolve(
 );
 
 interface CredentialState {
+  audits: Array<{ action: string }>;
   credentials: Array<{
     humanId: string;
+    membershipId: string | null;
     revokedAt: string | null;
     tokenHash: string;
   }>;
@@ -68,6 +70,7 @@ test.describe("Kalakriti credential print", () => {
     test.slow();
     const setup = await fixture<{
       humanId: string;
+      membershipId: string;
       studentId: string;
       year: number;
     }>("setup", superAdminEmail);
@@ -111,6 +114,98 @@ test.describe("Kalakriti credential print", () => {
       });
       expect(lookup.tokenHash).toBeUndefined();
       expect(lookup.token).toBeUndefined();
+
+      await page.goto(`/kalakriti/${setup.year}/credentials`);
+      const volunteerRow = page
+        .getByRole("row")
+        .filter({ hasText: "Credential Volunteer" });
+      await expect(volunteerRow).toContainText("Not issued");
+      await volunteerRow
+        .getByRole("button", { name: "Actions for Credential Volunteer" })
+        .click();
+      await page
+        .getByRole("menuitem", { name: "Print card", exact: true })
+        .click();
+      const printRoute = `**/api/kalakriti/${setup.year}/credentials/print`;
+      let abortPrint = true;
+      await page.route(printRoute, async (route) => {
+        if (abortPrint) {
+          abortPrint = false;
+          await route.abort("failed");
+          return;
+        }
+        await route.continue();
+      });
+      const printDialog = page.getByRole("alertdialog", {
+        name: "Print credential cards?",
+      });
+      const confirmPrint = printDialog.getByRole("button", {
+        name: "Print cards",
+        exact: true,
+      });
+      await confirmPrint.click();
+      await expect(page.getByText("Failed to print credentials")).toBeVisible();
+      await expect(printDialog).toBeVisible();
+      await expect(confirmPrint).toBeEnabled();
+
+      const download = page.waitForEvent("download");
+      await confirmPrint.click();
+      expect((await download).suggestedFilename()).toBe(
+        `kalakriti-${setup.year}-credentials.pdf`
+      );
+      await page.unroute(printRoute);
+      await expect(volunteerRow).toContainText(`KALV-${setup.year}-0001`);
+      await page.getByLabel("Lookup yearly ID").fill(`KALV-${setup.year}-0001`);
+      await page.getByRole("button", { name: "Look up", exact: true }).click();
+      await expect(
+        page
+          .getByText("Issued", { exact: false })
+          .filter({ hasText: "Issued " })
+          .last()
+      ).toBeVisible();
+      const afterVolunteer = await fixture<CredentialState>("state");
+      expect(
+        afterVolunteer.credentials.filter(
+          (row) => row.membershipId === setup.membershipId && !row.revokedAt
+        )
+      ).toHaveLength(1);
+      expect(
+        afterVolunteer.audits.filter((row) => row.action === "printed")
+      ).toHaveLength(2);
+
+      const duplicate = await page.request.post(
+        `/api/kalakriti/${setup.year}/credentials/print`,
+        {
+          data: {
+            subjects: [
+              { membershipId: setup.membershipId },
+              { membershipId: setup.membershipId },
+            ],
+          },
+        }
+      );
+      expect(duplicate.status()).toBe(400);
+      const malformed = await page.request.post(
+        `/api/kalakriti/${setup.year}/credentials/print`,
+        {
+          data: "{",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+      expect(malformed.status()).toBe(400);
+      const invalidBatch = await page.request.post(
+        `/api/kalakriti/${setup.year}/credentials/print`,
+        {
+          data: {
+            subjects: [
+              { studentId: setup.studentId },
+              { membershipId: "019f0000-0000-7000-8000-00000000ffff" },
+            ],
+          },
+        }
+      );
+      expect(invalidBatch.status()).toBe(404);
+      expect(await fixture<CredentialState>("state")).toEqual(afterVolunteer);
     } finally {
       await fixture("cleanup");
     }
