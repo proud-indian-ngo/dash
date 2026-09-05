@@ -119,7 +119,7 @@
     "ultracite": "7.10.7",
     "uuidv7": "^1.2.1",
     "vite-bundle-analyzer": "^1.3.9",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.0"
   },
   "packageManager": "bun@1.4.0",
   "trustedDependencies": [
