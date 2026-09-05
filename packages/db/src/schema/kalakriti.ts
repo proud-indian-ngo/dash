@@ -3,6 +3,7 @@ import {
   KALAKRITI_EDITION_RESPONSIBILITIES,
   KALAKRITI_MEMBERSHIP_KINDS,
   KALAKRITI_MEMBERSHIP_STATES,
+  KALAKRITI_OPERATION_TYPES,
   KALAKRITI_TIMEZONE,
 } from "@pi-dash/shared/kalakriti";
 import { relations, sql } from "drizzle-orm";
@@ -44,6 +45,11 @@ export const kalakritiMembershipStateEnum = pgEnum(
 export const kalakritiResponsibilityEnum = pgEnum(
   "kalakriti_responsibility",
   KALAKRITI_EDITION_RESPONSIBILITIES
+);
+
+export const kalakritiOperationTypeEnum = pgEnum(
+  "kalakriti_operation_type",
+  KALAKRITI_OPERATION_TYPES
 );
 
 export const kalakritiParticipationModeEnum = pgEnum(
@@ -650,6 +656,76 @@ export const kalakritiCompetitionSession = pgTable(
   ]
 );
 
+export const kalakritiOperation = pgTable(
+  "kalakriti_operation",
+  {
+    competitionSessionId: uuid("competition_session_id"),
+    correctionReason: text("correction_reason"),
+    createdAt: timestamp("created_at").notNull(),
+    editionId: uuid("edition_id")
+      .notNull()
+      .references(() => kalakritiEdition.id, { onDelete: "cascade" }),
+    id: uuid("id").primaryKey(),
+    membershipId: uuid("membership_id"),
+    occurredAt: timestamp("occurred_at").notNull(),
+    operationId: uuid("operation_id").notNull(),
+    recordedBy: text("recorded_by")
+      .notNull()
+      .references(() => user.id),
+    studentId: uuid("student_id"),
+    supersededByOperationId: uuid("superseded_by_operation_id"),
+    type: kalakritiOperationTypeEnum("type").notNull(),
+  },
+  (table) => [
+    uniqueIndex("kalakriti_operation_operationId_uidx").on(table.operationId),
+    index("kalakriti_operation_editionId_idx").on(table.editionId),
+    index("kalakriti_operation_studentId_idx").on(table.studentId),
+    index("kalakriti_operation_membershipId_idx").on(table.membershipId),
+    foreignKey({
+      columns: [table.editionId, table.studentId],
+      foreignColumns: [kalakritiStudent.editionId, kalakritiStudent.id],
+      name: "kalakriti_operation_edition_student_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.editionId, table.membershipId],
+      foreignColumns: [
+        kalakritiEditionMembership.editionId,
+        kalakritiEditionMembership.id,
+      ],
+      name: "kalakriti_operation_edition_membership_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.editionId, table.competitionSessionId],
+      foreignColumns: [
+        kalakritiCompetitionSession.editionId,
+        kalakritiCompetitionSession.id,
+      ],
+      name: "kalakriti_operation_edition_session_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.supersededByOperationId],
+      foreignColumns: [table.id],
+      name: "kalakriti_operation_superseded_fk",
+    }).onDelete("restrict"),
+    check(
+      "kalakriti_operation_subject_chk",
+      sql`(
+        ${table.studentId} IS NOT NULL AND ${table.membershipId} IS NULL
+      ) OR (
+        ${table.studentId} IS NULL AND ${table.membershipId} IS NOT NULL
+      )`
+    ),
+    check(
+      "kalakriti_operation_session_chk",
+      sql`(
+        ${table.type}::text = 'competition_attendance'
+      ) OR (
+        ${table.competitionSessionId} IS NULL
+      )`
+    ),
+  ]
+);
+
 export const kalakritiCompetitionEntry = pgTable(
   "kalakriti_competition_entry",
   {
@@ -939,6 +1015,7 @@ export const kalakritiEditionRelations = relations(
       references: [user.id],
     }),
     memberships: many(kalakritiEditionMembership),
+    operations: many(kalakritiOperation),
     students: many(kalakritiStudent),
     teamEvent: one(teamEvent, {
       fields: [kalakritiEdition.teamEventId],
@@ -958,6 +1035,7 @@ export const kalakritiEditionMembershipRelations = relations(
       references: [kalakritiEdition.id],
     }),
     guardianCenters: many(kalakritiGuardianCenter),
+    operations: many(kalakritiOperation),
     user: one(user, {
       fields: [kalakritiEditionMembership.userId],
       references: [user.id],
@@ -1045,6 +1123,7 @@ export const kalakritiStudentRelations = relations(
       references: [kalakritiEdition.id],
     }),
     entryMemberships: many(kalakritiEntryMember),
+    operations: many(kalakritiOperation),
   })
 );
 
@@ -1127,7 +1206,7 @@ export const kalakritiVenueRelations = relations(
 
 export const kalakritiCompetitionSessionRelations = relations(
   kalakritiCompetitionSession,
-  ({ one }) => ({
+  ({ many, one }) => ({
     division: one(kalakritiCompetitionDivision, {
       fields: [kalakritiCompetitionSession.divisionId],
       references: [kalakritiCompetitionDivision.id],
@@ -1136,9 +1215,41 @@ export const kalakritiCompetitionSessionRelations = relations(
       fields: [kalakritiCompetitionSession.editionId],
       references: [kalakritiEdition.id],
     }),
+    operations: many(kalakritiOperation),
     venue: one(kalakritiVenue, {
       fields: [kalakritiCompetitionSession.venueId],
       references: [kalakritiVenue.id],
+    }),
+  })
+);
+
+export const kalakritiOperationRelations = relations(
+  kalakritiOperation,
+  ({ one }) => ({
+    edition: one(kalakritiEdition, {
+      fields: [kalakritiOperation.editionId],
+      references: [kalakritiEdition.id],
+    }),
+    membership: one(kalakritiEditionMembership, {
+      fields: [kalakritiOperation.membershipId],
+      references: [kalakritiEditionMembership.id],
+    }),
+    recorder: one(user, {
+      fields: [kalakritiOperation.recordedBy],
+      references: [user.id],
+    }),
+    session: one(kalakritiCompetitionSession, {
+      fields: [kalakritiOperation.competitionSessionId],
+      references: [kalakritiCompetitionSession.id],
+    }),
+    student: one(kalakritiStudent, {
+      fields: [kalakritiOperation.studentId],
+      references: [kalakritiStudent.id],
+    }),
+    supersededBy: one(kalakritiOperation, {
+      fields: [kalakritiOperation.supersededByOperationId],
+      references: [kalakritiOperation.id],
+      relationName: "kalakriti_operation_supersession",
     }),
   })
 );

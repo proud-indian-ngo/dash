@@ -535,6 +535,14 @@ export const kalakritiStudentMutators = {
         tx,
         student.id
       );
+      const studentOperations = (await tx.run(
+        zql.kalakritiOperation.where("studentId", student.id)
+      )) as Array<{ id: string }>;
+      if (studentOperations.length > 0) {
+        throw new Error(
+          "Student has event-day operations and cannot be deleted"
+        );
+      }
       if (
         entryMemberships.length > 0 &&
         !center.competitionEntryRegistrationEnabled
