@@ -172,9 +172,9 @@ describe("Kalakriti event interest", () => {
     const updateMembership = mock();
     const updateInterest = mock();
     uuidv7Mock
+      .mockReturnValueOnce("credential-1")
       .mockReturnValueOnce("membership-1")
-      .mockReturnValueOnce("event-member-1")
-      .mockReturnValueOnce("credential-1");
+      .mockReturnValueOnce("event-member-1");
     const results = [
       {
         eventId: "event-1",
@@ -214,6 +214,7 @@ describe("Kalakriti event interest", () => {
         editionId: "edition-1",
         humanId: null,
         id: "membership-1",
+        state: "active",
       },
     ];
     const tx = {
@@ -259,6 +260,13 @@ describe("Kalakriti event interest", () => {
         kind: "volunteer",
         state: "active",
         userId: "volunteer-1",
+      })
+    );
+    expect(insertCredential).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "credential-1",
+        membershipId: "membership-1",
+        tokenHash: expect.stringMatching(/^[0-9a-f]{64}$/),
       })
     );
   });
