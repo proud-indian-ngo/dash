@@ -1,4 +1,14 @@
 import {
+  Combobox,
+  ComboboxChip,
+  ComboboxChips,
+  ComboboxChipsInput,
+  ComboboxContent,
+  ComboboxItem,
+  ComboboxList,
+  useComboboxAnchor,
+} from "@pi-dash/design-system/components/ui/combobox";
+import {
   Select,
   SelectContent,
   SelectGroup,
@@ -23,7 +33,8 @@ import { mutators } from "@pi-dash/zero/mutators";
 import type { Zero } from "@rocicorp/zero";
 import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
-import { useCallback, useMemo } from "react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 
@@ -51,10 +62,10 @@ const roleAssignmentSchema = z
   .object({
     centerId: z.string(),
     competitionCategoryId: z.string(),
-    competitionId: z.string(),
+    competitionIds: z.array(z.string()),
     makePrimary: z.boolean(),
     responsibility: z.enum(KALAKRITI_EDITION_RESPONSIBILITIES),
-    userIds: z.array(z.string()).length(1, "Select one volunteer"),
+    userIds: z.array(z.string()).min(1, "Select at least one volunteer"),
   })
   .superRefine((value, context) => {
     const { responsibility } = value;
@@ -74,11 +85,11 @@ const roleAssignmentSchema = z
         path: ["competitionCategoryId"],
       });
     }
-    if (scopeKind === "competition" && !value.competitionId) {
+    if (scopeKind === "competition" && value.competitionIds.length === 0) {
       context.addIssue({
         code: "custom",
         message: "Select a Competition",
-        path: ["competitionId"],
+        path: ["competitionIds"],
       });
     }
   });
@@ -156,28 +167,56 @@ function assignKalakritiRole(
   ).server;
 }
 
-function SingleVolunteerPicker({
-  onValueChange,
-  users,
+function CompetitionPicker({
+  options,
   value,
+  onValueChange,
+  inputId,
 }: {
-  onValueChange: (userIds: string[]) => void;
-  users: readonly PickerUser[];
+  options: readonly ScopeOption[];
   value: string[];
+  onValueChange: (ids: string[]) => void;
+  inputId: string;
 }) {
-  const handleValueChange = useCallback(
-    (userIds: string[]) => onValueChange(userIds.slice(-1)),
-    [onValueChange]
+  const [search, setSearch] = useState("");
+  const anchor = useComboboxAnchor();
+  const filtered = options.filter(
+    (option) =>
+      option.retiredAt === null &&
+      option.name.toLowerCase().includes(search.trim().toLowerCase())
   );
-
   return (
-    <UserPicker
-      emptyMessage="No matching central volunteers found."
-      onValueChange={handleValueChange}
-      placeholder="Search central volunteers..."
-      users={users}
+    <Combobox
+      multiple
+      filter={null}
+      inputValue={search}
+      onInputValueChange={setSearch}
       value={value}
-    />
+      onValueChange={onValueChange}
+    >
+      <ComboboxChips ref={anchor}>
+        {value.map((id) => (
+          <ComboboxChip key={id}>
+            {options.find((option) => option.id === id)?.name ?? id}
+          </ComboboxChip>
+        ))}
+        <ComboboxChipsInput id={inputId} placeholder="Search competitions..." />
+      </ComboboxChips>
+      <ComboboxContent anchor={anchor}>
+        <ComboboxList>
+          {filtered.length === 0 && (
+            <p className="text-muted-foreground p-2 text-sm">
+              No matching competitions found.
+            </p>
+          )}
+          {filtered.map((option) => (
+            <ComboboxItem key={option.id} value={option.id}>
+              {option.name}
+            </ComboboxItem>
+          ))}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
   );
 }
 
@@ -265,7 +304,6 @@ export function KalakritiRoleAssignmentForm({
   editionId,
   initialUserId,
   isGlobalAdmin,
-  lockedVolunteerName,
   onAssigned,
   onCancel,
   users,
@@ -277,7 +315,6 @@ export function KalakritiRoleAssignmentForm({
   editionId: string;
   initialUserId?: string | null;
   isGlobalAdmin: boolean;
-  lockedVolunteerName?: string | null;
   onAssigned?: () => void;
   onCancel?: () => void;
   users: readonly PickerUser[];
@@ -305,57 +342,49 @@ export function KalakritiRoleAssignmentForm({
     defaultValues: {
       centerId: "",
       competitionCategoryId: "",
-      competitionId: "",
+      competitionIds: [] as string[],
       makePrimary: false,
       responsibility: defaultResponsibility,
       userIds: initialUserId ? [initialUserId] : ([] as string[]),
     },
     onSubmit: async ({ value }) => {
-      const [userId] = value.userIds;
-      if (!userId) {
-        return;
+      if (!assignableResponsibilities.includes(value.responsibility)) return;
+      const competitionIds =
+        getKalakritiResponsibilityScopeKind(value.responsibility) ===
+        "competition"
+          ? value.competitionIds
+          : [""];
+      for (const userId of value.userIds) {
+        for (const [index, competitionId] of competitionIds.entries()) {
+          const assignmentId = uuidv7();
+          const result = await assignKalakritiRole(zero, {
+            centerId: value.centerId,
+            competitionCategoryId: value.competitionCategoryId,
+            competitionId,
+            responsibility: value.responsibility,
+            common: {
+              assignmentId,
+              auditEntryId: uuidv7(),
+              editionId,
+              makePrimary: value.makePrimary && index === 0,
+              membershipId: uuidv7(),
+              now: currentTimestamp(),
+              teamEventMemberId: uuidv7(),
+              userId,
+            },
+          });
+          handleMutationResult(result, {
+            entityId: assignmentId,
+            errorMsg:
+              "Failed to assign role. Earlier assignments may have succeeded.",
+            mutation: "kalakritiAssignment.assignRole",
+          });
+          if (result.type === "error") return;
+        }
       }
-      if (!assignableResponsibilities.includes(value.responsibility)) {
-        return;
-      }
-
-      const {
-        makePrimary,
-        responsibility,
-        centerId,
-        competitionCategoryId,
-        competitionId,
-      } = value;
-      const assignmentId = uuidv7();
-      const common = {
-        assignmentId,
-        auditEntryId: uuidv7(),
-        editionId,
-        makePrimary,
-        membershipId: uuidv7(),
-        now: currentTimestamp(),
-        teamEventMemberId: uuidv7(),
-        userId,
-      };
-
-      const result = await assignKalakritiRole(zero, {
-        centerId,
-        common,
-        competitionCategoryId,
-        competitionId,
-        responsibility,
-      });
-
-      handleMutationResult(result, {
-        entityId: assignmentId,
-        errorMsg: "Failed to assign role",
-        mutation: "kalakritiAssignment.assignRole",
-        successMsg: "Role assigned",
-      });
-      if (result.type !== "error") {
-        onAssigned?.();
-        form.reset();
-      }
+      toast.success("Role assigned");
+      onAssigned?.();
+      form.reset();
     },
     validators: {
       onChange: roleAssignmentSchema,
@@ -373,26 +402,17 @@ export function KalakritiRoleAssignmentForm({
 
   return (
     <FormLayout className="grid gap-4 md:grid-cols-2" form={form}>
-      {initialUserId ? (
-        <div className="grid gap-1">
-          <p className="text-sm font-medium">Volunteer</p>
-          <p className="text-sm">
-            {lockedVolunteerName ??
-              users.find((candidate) => candidate.id === initialUserId)?.name ??
-              "Selected volunteer"}
-          </p>
-        </div>
-      ) : (
-        <CustomField<string[]> isRequired label="Volunteer" name="userIds">
-          {(field) => (
-            <SingleVolunteerPicker
-              onValueChange={field.handleChange}
-              users={users}
-              value={field.state.value ?? []}
-            />
-          )}
-        </CustomField>
-      )}
+      <CustomField<string[]> isRequired label="Volunteers" name="userIds">
+        {(field) => (
+          <UserPicker
+            inputId={field.name}
+            onValueChange={field.handleChange}
+            users={users}
+            value={field.state.value ?? []}
+            placeholder="Search volunteers..."
+          />
+        )}
+      </CustomField>
       <ResponsibilitySelectField
         groups={responsibilityGroups}
         name="responsibility"
@@ -436,18 +456,20 @@ export function KalakritiRoleAssignmentForm({
 
           if (scopeKind === "competition") {
             return (
-              <SelectField
+              <CustomField<string[]>
                 isRequired
-                label="Competition"
-                name="competitionId"
-                options={competitions
-                  .filter((competition) => competition.retiredAt === null)
-                  .map((competition) => ({
-                    label: competition.name,
-                    value: competition.id,
-                  }))}
-                placeholder="Select a Competition"
-              />
+                label="Competitions"
+                name="competitionIds"
+              >
+                {(field) => (
+                  <CompetitionPicker
+                    inputId={field.name}
+                    options={competitions}
+                    value={field.state.value ?? []}
+                    onValueChange={field.handleChange}
+                  />
+                )}
+              </CustomField>
             );
           }
 
@@ -456,7 +478,7 @@ export function KalakritiRoleAssignmentForm({
       </form.Subscribe>
       <CheckboxField
         className="rounded-none border p-3 md:col-span-2"
-        description="When this volunteer has multiple roles, this one appears first on their card."
+        description="Show this role first on each selected volunteer’s card. For multiple competitions, the first selected competition is primary."
         label="Show as primary card label"
         name="makePrimary"
       />
