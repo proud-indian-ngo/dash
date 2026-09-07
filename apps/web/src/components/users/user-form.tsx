@@ -42,6 +42,10 @@ export const createUserFormSchema = baseUserFormSchema.extend({
 });
 
 export const editUserFormSchema = baseUserFormSchema.extend({
+  registrationGroup: z
+    .string()
+    .trim()
+    .max(100, "Group must be at most 100 characters"),
   userId: z.string().min(1),
 });
 
@@ -57,6 +61,7 @@ export const toEditUserFormValues = (user: User): EditUserFormValues => ({
   isActive: user.isActive ?? true,
   name: user.name,
   phone: user.phone ?? "",
+  registrationGroup: user.registrationGroup ?? "",
   role: user.role ?? "volunteer",
   userId: user.id,
 });
@@ -161,6 +166,15 @@ export function UserForm(props: UserFormProps) {
           options={props.roleOptions ?? defaultRoleOptions}
           validators={userFieldValidators.role}
         />
+
+        {props.mode === "edit" ? (
+          <InputField
+            description="Leave empty to clear the group."
+            label="Group"
+            name="registrationGroup"
+            validators={{ onBlur: editUserFormSchema.shape.registrationGroup }}
+          />
+        ) : null}
 
         <PhoneField
           defaultCountry="IN"
