@@ -27,46 +27,59 @@ const ensureAdminUser = async (): Promise<void> => {
 
   const existingUser = await db.query.user.findFirst({
     columns: {
+      emailVerified: true,
       id: true,
       role: true,
     },
     where: (table, operators) => operators.eq(table.email, email),
   });
 
-  if (!existingUser) {
-    await auth.api.createUser({
-      body: {
-        email,
-        name: "Admin",
-        password,
-      },
-    });
-
-    log(`Created user: ${email}`);
+  if (existingUser && !existingUser.emailVerified) {
+    throw new Error(
+      `Refusing to verify and promote existing unverified user: ${email}`
+    );
   }
 
-  const userRecord = await db.query.user.findFirst({
-    columns: {
-      id: true,
-      role: true,
-    },
-    where: (table, operators) => operators.eq(table.email, email),
-  });
+  if (existingUser) {
+    if (existingUser.role === "super_admin") {
+      log(`User already has super_admin role and verified email: ${email}`);
+      return;
+    }
 
-  if (!userRecord) {
-    throw new Error(`Unable to find user record for ${email} after creation.`);
-  }
-
-  if (userRecord.role !== "super_admin") {
     await db
       .update(user)
       .set({ role: "super_admin" })
-      .where(eq(user.id, userRecord.id));
-    log(`Promoted user to super_admin: ${email}`);
+      .where(eq(user.id, existingUser.id));
+    log(`Promoted verified user to super_admin: ${email}`);
     return;
   }
 
-  log(`User already has super_admin role: ${email}`);
+  await auth.api.createUser({
+    body: {
+      data: { emailVerified: true },
+      email,
+      name: "Admin",
+      password,
+    },
+  });
+
+  const createdUser = await db.query.user.findFirst({
+    columns: {
+      id: true,
+    },
+    where: (table, operators) => operators.eq(table.email, email),
+  });
+
+  if (!createdUser) {
+    throw new Error(`Unable to find user record for ${email} after creation.`);
+  }
+
+  await db
+    .update(user)
+    .set({ emailVerified: true, role: "super_admin" })
+    .where(eq(user.id, createdUser.id));
+
+  log(`Created verified super_admin user: ${email}`);
 };
 
 ensureAdminUser().catch((error: unknown) => {

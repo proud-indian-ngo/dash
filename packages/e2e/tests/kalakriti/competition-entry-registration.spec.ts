@@ -357,9 +357,22 @@ test.describe("Kalakriti Competition Entry registration", () => {
         firstEntriesPage.fillEntry(firstDialog, "Entry Student A"),
         secondEntriesPage.fillEntry(secondDialog, "Entry Student A"),
       ]);
+      const [firstSubmit, secondSubmit] = await Promise.all([
+        firstDialog
+          .getByRole("button", { name: "Register Entries" })
+          .elementHandle(),
+        secondDialog
+          .getByRole("button", { name: "Register Entries" })
+          .elementHandle(),
+      ]);
+      if (!(firstSubmit && secondSubmit)) {
+        throw new Error("Registration submit buttons were not available");
+      }
+      // Capture both nodes before either mutation can rerender the other page;
+      // native clicks avoid retrying the detached loser until timeout.
       await Promise.all([
-        firstDialog.getByRole("button", { name: "Register Entries" }).click(),
-        secondDialog.getByRole("button", { name: "Register Entries" }).click(),
+        firstSubmit.evaluate((button) => button.click()),
+        secondSubmit.evaluate((button) => button.click()),
       ]);
       await Promise.all([
         waitForSubmissionSettled(firstDialog, "Register Entries"),
@@ -370,9 +383,14 @@ test.describe("Kalakriti Competition Entry registration", () => {
       expect(state.entries).toHaveLength(1);
       expect(state.members).toHaveLength(1);
     } finally {
-      await secondPage.close();
-      await page.goto("about:blank");
-      await fixture("cleanup", "admin");
+      try {
+        await Promise.all([
+          secondPage.isClosed() ? undefined : secondPage.close(),
+          page.isClosed() ? undefined : page.goto("about:blank"),
+        ]);
+      } finally {
+        await fixture("cleanup", "admin");
+      }
     }
   });
 });
