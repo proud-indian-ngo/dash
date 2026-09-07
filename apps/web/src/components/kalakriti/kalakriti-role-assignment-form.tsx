@@ -34,6 +34,7 @@ import type { Zero } from "@rocicorp/zero";
 import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 
@@ -381,6 +382,7 @@ export function KalakritiRoleAssignmentForm({
           if (result.type === "error") return;
         }
       }
+      toast.success("Role assigned");
       onAssigned?.();
       form.reset();
     },
