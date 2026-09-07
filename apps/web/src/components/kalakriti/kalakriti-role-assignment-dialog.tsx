@@ -29,7 +29,6 @@ export function KalakritiRoleAssignmentDialog({
   editionId,
   initialUserId,
   isGlobalAdmin,
-  lockedVolunteerName,
   onOpenChange,
   open,
   pickerState,
@@ -44,7 +43,6 @@ export function KalakritiRoleAssignmentDialog({
   editionId: string;
   initialUserId?: string | null;
   isGlobalAdmin: boolean;
-  lockedVolunteerName?: string | null;
   onOpenChange: (open: boolean) => void;
   open: boolean;
   pickerState: "error" | "idle" | "loading" | "ready";
@@ -66,9 +64,9 @@ export function KalakritiRoleAssignmentDialog({
         <DialogHeader>
           <DialogTitle>Assign role</DialogTitle>
           <DialogDescription>
-            {initialUserId
-              ? "Choose a role, then add a Center, Category, or Competition scope when required."
-              : "Pick a volunteer, choose a role, then add a Center, Category, or Competition scope when required. External Guardians stay out of this picker."}
+            Pick volunteers and a role, then select a Center, Category, or
+            competitions when required. The role is assigned to every selected
+            volunteer.
           </DialogDescription>
         </DialogHeader>
         <KalakritiRoleAssignmentDialogBody
@@ -82,7 +80,6 @@ export function KalakritiRoleAssignmentDialog({
           formKey={formKey}
           initialUserId={initialUserId}
           isGlobalAdmin={isGlobalAdmin}
-          lockedVolunteerName={lockedVolunteerName}
           onAssigned={handleAssigned}
           onCancel={handleCancel}
           pickerState={pickerState}
@@ -104,7 +101,6 @@ function KalakritiRoleAssignmentDialogBody({
   formKey,
   initialUserId,
   isGlobalAdmin,
-  lockedVolunteerName,
   onAssigned,
   onCancel,
   pickerState,
@@ -120,7 +116,6 @@ function KalakritiRoleAssignmentDialogBody({
   formKey: number;
   initialUserId?: string | null;
   isGlobalAdmin: boolean;
-  lockedVolunteerName?: string | null;
   onAssigned: () => void;
   onCancel: () => void;
   pickerState: "error" | "idle" | "loading" | "ready";
@@ -129,7 +124,7 @@ function KalakritiRoleAssignmentDialogBody({
   if (
     categoriesState === "error" ||
     competitionsState === "error" ||
-    (!initialUserId && pickerState === "error")
+    pickerState === "error"
   ) {
     return (
       <p className="text-destructive text-sm" role="alert">
@@ -138,7 +133,7 @@ function KalakritiRoleAssignmentDialogBody({
     );
   }
 
-  if (!initialUserId && pickerState !== "ready") {
+  if (pickerState !== "ready") {
     return (
       <div
         aria-label="Loading assignment options"
@@ -160,7 +155,6 @@ function KalakritiRoleAssignmentDialogBody({
       initialUserId={initialUserId}
       isGlobalAdmin={isGlobalAdmin}
       key={`${formKey}:${initialUserId ?? "new"}`}
-      lockedVolunteerName={lockedVolunteerName}
       onAssigned={onAssigned}
       onCancel={onCancel}
       users={users}

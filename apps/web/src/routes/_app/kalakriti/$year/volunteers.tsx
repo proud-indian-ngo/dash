@@ -23,6 +23,7 @@ import {
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import {
   getKalakritiAddVolunteersForPicker,
+  getKalakritiVolunteersForPicker,
   type PickerUser,
 } from "@/functions/users-for-picker";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
@@ -105,6 +106,16 @@ function KalakritiVolunteersPage() {
   const [competitions, competitionsResult] = useQuery(
     queries.kalakritiCompetition.competitions({ editionId: edition.id })
   );
+  const [assignmentPickerData, setAssignmentPickerData] =
+    useState<PickerData | null>(null);
+  const assignmentPickerIsCurrent =
+    assignmentPickerData?.editionId === edition.id;
+  const assignmentUsers = assignmentPickerIsCurrent
+    ? assignmentPickerData.users
+    : [];
+  const assignmentPickerState = assignmentPickerIsCurrent
+    ? assignmentPickerData.state
+    : "loading";
   const [pickerData, setPickerData] = useState<PickerData | null>(null);
   const pickerIsCurrent =
     pickerData !== null && pickerData.editionId === edition.id;
@@ -113,6 +124,24 @@ function KalakritiVolunteersPage() {
 
   useEffect(() => {
     let active = true;
+    getKalakritiVolunteersForPicker({ data: { editionId: edition.id } })
+      .then((users) => {
+        if (active) {
+          setAssignmentPickerData({
+            editionId: edition.id,
+            state: "ready",
+            users,
+          });
+        }
+      })
+      .catch(() => {
+        if (active)
+          setAssignmentPickerData({
+            editionId: edition.id,
+            state: "error",
+            users: [],
+          });
+      });
     getKalakritiAddVolunteersForPicker({ data: { editionId: edition.id } })
       .then((users) => {
         if (active) {
@@ -306,14 +335,10 @@ function KalakritiVolunteersPage() {
         editionId={edition.id}
         initialUserId={assignUserId}
         isGlobalAdmin={isGlobalAdmin}
-        lockedVolunteerName={
-          volunteerRows.find((row) => row.userId === assignUserId)
-            ?.snapshotName ?? null
-        }
         onOpenChange={handleAssignOpenChange}
         open={assignOpen}
-        pickerState="ready"
-        users={[]}
+        pickerState={assignmentPickerState}
+        users={assignmentUsers}
       />
       <ConfirmDialog
         confirmLabel="Remove responsibility"
