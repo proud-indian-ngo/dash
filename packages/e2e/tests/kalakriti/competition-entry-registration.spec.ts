@@ -204,6 +204,12 @@ test.describe("Kalakriti Competition Entry registration", () => {
     const entriesPage = new KalakritiEntriesPage(page);
 
     try {
+      await page.goto(`/kalakriti/${year}/centers`);
+      await expect(
+        page.getByRole("button", {
+          name: "Participation compliance: Needs attention",
+        })
+      ).toBeVisible();
       await entriesPage.goto(year, "Group Dance");
       const dialog = await entriesPage.openRegistrationForm();
       await entriesPage.selectGroupMembers(dialog, ["Entry Student A"]);
@@ -262,6 +268,45 @@ test.describe("Kalakriti Competition Entry registration", () => {
         ).toBeVisible();
       }
       await expect(page.getByTestId("entry-music")).toContainText("None");
+
+      await page.goto(`/kalakriti/${year}/centers`);
+      const compliance = page.getByRole("button", {
+        name: "Participation compliance: Needs attention",
+      });
+      await compliance.hover();
+      const compliancePopup = page.getByRole("dialog", {
+        name: "Participation compliance",
+      });
+      await expect(compliancePopup).toContainText(
+        "4 students are below the minimum of 2 events."
+      );
+      await expect(compliancePopup).toContainText(
+        "Entry Student A: 1/2 events"
+      );
+      await expect(compliancePopup).toContainText(
+        "Entry Student B: 1/2 events"
+      );
+      await expect(compliancePopup).toContainText(
+        "Entry Student C: 0/2 events"
+      );
+      await expect(compliancePopup).toContainText(
+        "Entry Student D: 0/2 events"
+      );
+      await page.keyboard.press("Escape");
+      await expect(compliancePopup).toBeHidden();
+      await page.mouse.move(0, 0);
+      await compliance.click();
+      await expect(compliancePopup).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(compliancePopup).toBeHidden();
+      await page.keyboard.press("Tab");
+      await compliance.focus();
+      await expect(compliance).toBeFocused();
+      await expect(compliancePopup).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(compliancePopup).toBeHidden();
+      await expect(page).toHaveURL(new RegExp(`/kalakriti/${year}/centers/?$`));
+      await entriesPage.goto(year, "Group Dance");
 
       await page
         .getByRole("button", { name: "Actions for Group Dance group" })
