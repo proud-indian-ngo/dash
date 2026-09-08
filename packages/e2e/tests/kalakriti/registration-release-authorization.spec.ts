@@ -273,7 +273,7 @@ test.describe("Kalakriti Registration Release authorization", () => {
     }
   });
 
-  test("denies dormant Guardian sessions and later-phase surfaces", async ({
+  test("denies dormant Guardian sessions and removed or later-phase surfaces", async ({
     baseURL,
     browser,
     kalakritiActors,
@@ -302,29 +302,29 @@ test.describe("Kalakriti Registration Release authorization", () => {
       await page.goto(`/kalakriti/${YEAR}`);
       await waitForZeroReady(page);
       await Promise.all(
-        ["Event day", "Results", "Awards", "Inventory"].map((label) =>
-          expect(page.getByRole("link", { name: label })).toHaveCount(0)
+        ["Credentials", "Event day", "Results", "Awards", "Inventory"].map(
+          (label) =>
+            expect(page.getByRole("link", { name: label })).toHaveCount(0)
         )
       );
-      await expect(
-        page.getByRole("link", { name: "Credentials" })
-      ).toBeVisible();
       await Promise.all(
-        ["event-day", "results", "awards", "inventory"].map(async (path) => {
-          const routePage = await editionAdmin.newPage();
-          try {
-            const apiResponse = await editionAdmin.request.get(
-              `/api/kalakriti/${YEAR}/${path}`
-            );
-            await routePage.goto(`/kalakriti/${YEAR}/${path}`);
-            await expect(
-              routePage.getByRole("heading", { name: "Page not found" })
-            ).toBeVisible();
-            expect(apiResponse.status()).toBe(404);
-          } finally {
-            await routePage.close();
+        ["credentials", "event-day", "results", "awards", "inventory"].map(
+          async (path) => {
+            const routePage = await editionAdmin.newPage();
+            try {
+              const apiResponse = await editionAdmin.request.get(
+                `/api/kalakriti/${YEAR}/${path}`
+              );
+              await routePage.goto(`/kalakriti/${YEAR}/${path}`);
+              await expect(
+                routePage.getByRole("heading", { name: "Page not found" })
+              ).toBeVisible();
+              expect(apiResponse.status()).toBe(404);
+            } finally {
+              await routePage.close();
+            }
           }
-        })
+        )
       );
     } finally {
       await anonymous.close();
