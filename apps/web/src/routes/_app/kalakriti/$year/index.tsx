@@ -208,7 +208,11 @@ function KalakritiEditionOverview() {
         canManage={canManageLifecycle}
         editionId={edition.id}
       />
-      <RegistrationDashboard projections={dashboard?.projections ?? []} />
+      <RegistrationDashboard
+        editionId={edition.id}
+        year={edition.year}
+        projections={dashboard?.projections ?? []}
+      />
     </div>
   );
 }
