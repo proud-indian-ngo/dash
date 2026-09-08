@@ -161,7 +161,9 @@ describe("Kalakriti event interest", () => {
     });
   });
 
-  it("allows an interest manager to approve a Kalakriti request", async () => {
+  it("allows an interest manager to approve a Kalakriti request and orients on the server", async () => {
+    const { createOrientationSql } = await import("./orientation-tx");
+    const sql = createOrientationSql(true);
     const insertMember = mock();
     const insertMembership = mock();
     const updateInterest = mock();
@@ -185,6 +187,8 @@ describe("Kalakriti event interest", () => {
       },
       {
         email: "volunteer@example.com",
+        isActive: true,
+        role: "unoriented_volunteer",
         name: "Volunteer One",
         phone: null,
       },
@@ -192,7 +196,8 @@ describe("Kalakriti event interest", () => {
       undefined,
     ];
     const tx = {
-      location: "client",
+      location: "server",
+      dbTransaction: { wrappedTransaction: sql.transaction },
       mutate: {
         eventInterest: { update: updateInterest },
         kalakritiEditionMembership: {
@@ -214,6 +219,8 @@ describe("Kalakriti event interest", () => {
       tx,
     } as unknown as Parameters<typeof eventInterestMutators.approve.fn>[0]);
 
+    expect(sql.returning).toHaveBeenCalledTimes(1);
+    expect(sql.deleteWhere).toHaveBeenCalledTimes(1);
     expect(updateInterest).toHaveBeenCalledWith({
       id: "interest-1",
       reviewedAt: 1_700_000_000_000,

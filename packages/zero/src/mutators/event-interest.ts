@@ -46,34 +46,44 @@ export const eventInterestMutators = {
       ));
       assertHasPermissionOrTeamLead(ctx, "events.manage_interest", isTeamLead);
 
-      await tx.mutate.eventInterest.update({
-        id: args.id,
-        reviewedAt: args.now,
-        reviewedBy: ctx.userId,
-        status: "approved",
-      });
-
       const edition = await findEditionForLinkedEvent(tx, interest.eventId);
-      const volunteer =
-        edition && edition.lifecycle !== "archived"
-          ? ((await tx.run(zql.user.where("id", interest.userId).one())) as
-              | {
-                  email: string | null;
-                  name: string;
-                  phone: string | null;
-                }
-              | undefined)
-          : undefined;
-      if (edition && edition.lifecycle !== "archived" && volunteer) {
-        await ensureUnassignedVolunteerEnrollment(tx, {
-          actorUserId: ctx.userId,
-          edition,
-          membershipId: uuidv7(),
-          now: args.now,
-          teamEventMemberId: uuidv7(),
-          user: volunteer,
-          userId: interest.userId,
-        });
+      if (edition || event.managementDomain === "kalakriti") {
+        if (!edition) {
+          throw new Error("Kalakriti Edition not found");
+        }
+        if (edition.lifecycle === "archived") {
+          throw new Error("Edition is archived");
+        }
+        if (event.cancelledAt != null) {
+          throw new Error(
+            "Cancelled Kalakriti events cannot enroll volunteers"
+          );
+        }
+        const volunteer = await tx.run(
+          zql.user.where("id", interest.userId).one()
+        );
+        if (!volunteer?.isActive) {
+          throw new Error("Active volunteer not found");
+        }
+        const externalIdentity = await tx.run(
+          zql.kalakritiExternalIdentity.where("userId", interest.userId).one()
+        );
+        if (volunteer.role === "external_user" || externalIdentity) {
+          throw new Error("External identities cannot enroll as volunteers");
+        }
+        await ensureUnassignedVolunteerEnrollment(
+          tx,
+          {
+            actorUserId: ctx.userId,
+            edition,
+            membershipId: uuidv7(),
+            now: args.now,
+            teamEventMemberId: uuidv7(),
+            user: volunteer,
+            userId: interest.userId,
+          },
+          ctx
+        );
       } else {
         const existingMember = (await tx.run(
           zql.teamEventMember
@@ -90,6 +100,13 @@ export const eventInterestMutators = {
           });
         }
       }
+
+      await tx.mutate.eventInterest.update({
+        id: args.id,
+        reviewedAt: args.now,
+        reviewedBy: ctx.userId,
+        status: "approved",
+      });
 
       if (tx.location === "server") {
         const { userId } = interest;

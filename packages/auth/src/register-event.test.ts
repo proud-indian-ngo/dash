@@ -12,7 +12,9 @@ const now = 1_700_000_000_000;
 function createDeps(overrides: Partial<RegisterEventEnrollDeps> = {}) {
   const enqueueNotifyAddedToEvent = vi.fn();
   const enqueueWhatsappAddMember = vi.fn();
-  const persistEnrollWrites = vi.fn(async () => "inserted" as const);
+  const persistEnrollWrites = vi.fn<
+    RegisterEventEnrollDeps["persistEnrollWrites"]
+  >(async () => "inserted");
   const deps: RegisterEventEnrollDeps = {
     enqueueNotifyAddedToEvent,
     enqueueWhatsappAddMember,
@@ -114,6 +116,81 @@ describe("decideRegisterEventEnroll", () => {
 });
 
 describe("enrollUserOnRegisterEvent", () => {
+  it("does not fall back to event membership when a Kalakriti volunteer is missing", async () => {
+    const deps = createDeps({
+      findEvent: vi.fn(async () => ({
+        cancelledAt: null,
+        id: "event-1",
+        location: null,
+        managementDomain: "kalakriti",
+        name: "Kalakriti",
+        startTime: futureStart,
+        whatsappGroupId: null,
+      })),
+      findEditionByTeamEventId: vi.fn(async () => ({
+        id: "edition-1",
+        lifecycle: "draft",
+        teamEventId: "event-1",
+      })),
+      findUser: vi.fn(async () => null),
+    });
+    expect(
+      await enrollUserOnRegisterEvent(deps, {
+        eventId: "event-1",
+        now,
+        userId: "user-1",
+      })
+    ).toEqual({ status: "skipped", reason: "missing-user" });
+    expect(deps.persistEnrollWrites).not.toHaveBeenCalled();
+    expect(deps.enqueueNotifyAddedToEvent).not.toHaveBeenCalled();
+  });
+
+  it("reports transactional rejection as skipped without event notifications", async () => {
+    const deps = createDeps({
+      findEvent: vi.fn(async () => ({
+        cancelledAt: null,
+        id: "event-1",
+        location: null,
+        managementDomain: null,
+        name: "Event",
+        startTime: futureStart,
+        whatsappGroupId: "group-1",
+      })),
+    });
+    deps.persistEnrollWrites.mockResolvedValue("skipped");
+    expect(
+      await enrollUserOnRegisterEvent(deps, {
+        eventId: "event-1",
+        now,
+        userId: "user-1",
+      })
+    ).toEqual({ status: "skipped" });
+    expect(deps.enqueueNotifyAddedToEvent).not.toHaveBeenCalled();
+    expect(deps.enqueueWhatsappAddMember).not.toHaveBeenCalled();
+  });
+
+  it("does not repeat event notifications on replay", async () => {
+    const deps = createDeps({
+      findEvent: vi.fn(async () => ({
+        cancelledAt: null,
+        id: "event-1",
+        location: null,
+        managementDomain: null,
+        name: "Event",
+        startTime: futureStart,
+        whatsappGroupId: "group-1",
+      })),
+    });
+    deps.persistEnrollWrites.mockResolvedValue("conflict");
+    await enrollUserOnRegisterEvent(deps, {
+      eventId: "event-1",
+      now,
+      userId: "user-1",
+    });
+    expect(deps.enqueueNotifyAddedToEvent).not.toHaveBeenCalled();
+    expect(deps.enqueueWhatsappAddMember).not.toHaveBeenCalled();
+  });
+
   it("does not write when group-only signup has no event", async () => {
     const deps = createDeps();
     const result = await enrollUserOnRegisterEvent(deps, {

@@ -58,7 +58,7 @@ and WhatsApp while still honoring each recipient's topic preferences.
 
 Events with `postRsvpPoll` enabled → WhatsApp poll sent to their team/event group 3 days before start. pg-boss schedule: `send-event-rsvp-polls`, every 15 min.
 
-GoWA gateway (`go-whatsapp-web-multidevice-poll-vote`) sends poll vote webhooks to `/api/whatsapp/webhook`. Votes recorded in `event_rsvp_vote`; "yes" auto-adds user as event member, "no" removes.
+GoWA gateway (`go-whatsapp-web-multidevice-poll-vote`) sends poll vote webhooks to `/api/whatsapp/webhook`. Votes recorded in `event_rsvp_vote`; "yes" auto-adds user as event member, "no" removes. Kalakriti-managed or Edition-linked events reject RSVP votes before writes so webhook traffic can't bypass the Edition volunteer enrollment policy.
 
 **Local dev webhook proxy**: GoWA (Go) can send `Transfer-Encoding: chunked` POSTs. Vite dev server rejects with 400. Run `bun run dev:webhook-proxy` alongside dev server — listens on `:3002`, buffers body, forwards to app on `:3001` with `Content-Length`. Dev `docker-compose.yml` points GoWA's webhook URL to `:3002`. Not needed in prod (Nitro handles direct).
 

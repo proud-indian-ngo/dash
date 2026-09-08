@@ -293,11 +293,6 @@ export function flattenKalakritiAssignableResponsibilities(
   return groups.flatMap((group) => [...group.responsibilities]);
 }
 
-const KALAKRITI_UNASSIGNABLE_USER_ROLES = new Set([
-  "external_user",
-  "unoriented_volunteer",
-]);
-
 export function isKalakritiAssignableUserRole(
   role: string | null | undefined
 ): boolean {
@@ -305,7 +300,7 @@ export function isKalakritiAssignableUserRole(
     role !== null &&
     role !== undefined &&
     role !== "" &&
-    !KALAKRITI_UNASSIGNABLE_USER_ROLES.has(role)
+    role !== "external_user"
   );
 }
 

@@ -1,6 +1,10 @@
 import type { Context } from "../context";
 import { assertIsLoggedIn, can } from "../permissions";
 import { zql } from "../schema";
+import {
+  type OrientationTx,
+  orientEnrolledKalakritiVolunteer,
+} from "./kalakriti-orientation";
 
 abstract class BivariantZeroMutation {
   abstract bivarianceHack(args: unknown): Promise<void>;
@@ -14,7 +18,7 @@ abstract class BivariantZeroRun {
 
 type ZeroRunFn = BivariantZeroRun["bivarianceHack"];
 
-export interface VolunteerEnrollTx {
+export interface VolunteerEnrollTx extends OrientationTx {
   mutate: {
     kalakritiEditionMembership: {
       insert: ZeroMutationFn;
@@ -101,7 +105,8 @@ export async function ensureUnassignedVolunteerEnrollment(
     teamEventMemberId: string;
     user: VolunteerEnrollUser;
     userId: string;
-  }
+  },
+  ctx?: Context
 ): Promise<"already-active" | "enrolled"> {
   if (args.edition.lifecycle === "archived") {
     throw new Error("Edition is archived");
@@ -162,6 +167,8 @@ export async function ensureUnassignedVolunteerEnrollment(
       userId: args.userId,
     });
   }
+
+  await orientEnrolledKalakritiVolunteer(tx, ctx, args.userId, args.now);
 
   if (membership?.state === "active") {
     return eventMember ? "already-active" : "enrolled";

@@ -57,7 +57,7 @@ export function KalakritiAddVolunteersDialog({
           <DialogTitle>Add volunteers</DialogTitle>
           <DialogDescription>
             Add central volunteers to this Edition roster without assigning a
-            role. Unoriented volunteers stay Unassigned until orientation.
+            role. Unoriented volunteers are automatically oriented when added.
           </DialogDescription>
         </DialogHeader>
         <AddVolunteersDialogBody

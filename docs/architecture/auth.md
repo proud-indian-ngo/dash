@@ -23,7 +23,7 @@ Optional independent search params:
 - `?eventId=<uuid>` — after signup, the after-signup hook enrolls the new user on that event when it exists, is not cancelled, and has not started. Enroll failures are logged and never block account creation.
 - both together, or neither (`/register` unchanged)
 
-Invalid values are dropped; the page still loads. Group-only links never touch events. Event enroll writes `team_event_member` directly (no team membership required). A Kalakriti-linked event also creates or reactivates an **unassigned** volunteer Edition membership. Signup never fails because enroll skipped or conflicted; enroll runs fire-and-forget after a persisted user row is confirmed.
+Invalid values are dropped; the page still loads. Group-only links never touch events. Event enroll writes `team_event_member` directly (no team membership required). A Kalakriti-linked event also creates or reactivates an **unassigned** volunteer Edition membership and atomically promotes only `unoriented_volunteer` to `volunteer`. Persistence locks and rechecks the Edition, event, user, and membership before writing; Guardian and external identities are excluded. Promotion revokes existing sessions transactionally, then invalidates role caches and enqueues role-change and orientation WhatsApp jobs after commit. The default unoriented signup job runs only after enrollment and only if the persisted role remains unoriented. Signup never fails because enroll skipped or conflicted; enroll runs fire-and-forget after a persisted user row is confirmed.
 
 Unauthenticated signup stays outside the central audit ledger. Do not put group text in `audit_log`.
 

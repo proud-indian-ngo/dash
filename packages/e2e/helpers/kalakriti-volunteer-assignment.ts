@@ -8,6 +8,7 @@ import {
 } from "@pi-dash/db/schema/kalakriti";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import { and, eq } from "drizzle-orm";
+import { uuidv7 } from "uuidv7";
 
 const FIXTURE = {
   centerId: "019f0000-0019-7000-8000-000000001973",
@@ -16,7 +17,7 @@ const FIXTURE = {
   eventId: "019f0000-0019-7000-8000-000000001972",
   year: 2093,
 } as const;
-const EMAIL = process.env.VOLUNTEER_EMAIL ?? "test-volunteer@pi-dash.test";
+const EMAIL = "kalakriti-auto-orientation@pi-dash.test";
 
 async function getUserId(email: string): Promise<string> {
   const record = await db.query.user.findFirst({
@@ -43,9 +44,10 @@ async function cleanup() {
     .delete(kalakritiEdition)
     .where(eq(kalakritiEdition.id, FIXTURE.editionId));
   await db.delete(teamEvent).where(eq(teamEvent.id, FIXTURE.eventId));
+  await db.delete(user).where(eq(user.email, EMAIL));
 }
 
-async function setup(email: string) {
+async function setup(email: string, initialRole: string) {
   await cleanup();
   const [creatorId, owningTeam] = await Promise.all([
     getUserId(email),
@@ -55,6 +57,14 @@ async function setup(email: string) {
     throw new Error("Volunteer assignment fixture requires an owning team");
   }
   const now = new Date();
+  await db.insert(user).values({
+    email: EMAIL,
+    emailVerified: true,
+    id: uuidv7(),
+    isActive: true,
+    name: "Kalakriti Orientation Volunteer",
+    role: initialRole,
+  });
   await db.insert(teamEvent).values({
     createdAt: now,
     createdBy: creatorId,
@@ -93,7 +103,7 @@ async function setup(email: string) {
 
 async function state() {
   const userId = await getUserId(EMAIL);
-  const [membership, eventMember] = await Promise.all([
+  const [membership, eventMember, volunteer] = await Promise.all([
     db.query.kalakritiEditionMembership.findFirst({
       columns: { id: true, state: true },
       where: and(
@@ -109,8 +119,13 @@ async function state() {
         eq(teamEventMember.userId, userId)
       ),
     }),
+    db.query.user.findFirst({
+      columns: { role: true },
+      where: eq(user.id, userId),
+    }),
   ]);
   return {
+    role: volunteer?.role,
     assignments:
       membership?.assignments.map((assignment) => assignment.responsibility) ??
       [],
@@ -119,13 +134,14 @@ async function state() {
   };
 }
 
-const [action, creatorEmail] = process.argv.slice(2);
+const [action, creatorEmail, initialRole = "unoriented_volunteer"] =
+  process.argv.slice(2);
 let result: unknown;
 if (action === "cleanup") {
   await cleanup();
   result = { cleaned: true };
 } else if (action === "setup" && creatorEmail) {
-  result = await setup(creatorEmail);
+  result = await setup(creatorEmail, initialRole);
 } else if (action === "state") {
   result = await state();
 } else {

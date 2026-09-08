@@ -1,11 +1,16 @@
 import { db } from "@pi-dash/db";
+import { promoteKalakritiVolunteer } from "@pi-dash/db/kalakriti-orientation";
+import { invalidatePermissionCache } from "@pi-dash/db/queries/resolve-permissions";
 import { user } from "@pi-dash/db/schema/auth";
 import {
   kalakritiEdition,
   kalakritiEditionMembership,
+  kalakritiExternalIdentity,
 } from "@pi-dash/db/schema/kalakriti";
+import { role } from "@pi-dash/db/schema/permission";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import { enqueue } from "@pi-dash/jobs/enqueue";
+import { withFireAndForgetLog } from "@pi-dash/observability";
 import { and, eq } from "drizzle-orm";
 
 import type { RegisterEventEnrollDeps } from "./register-event";
@@ -77,23 +82,71 @@ export function createDbRegisterEventEnrollDeps(): RegisterEventEnrollDeps {
         .limit(1);
       return row ?? null;
     },
-    persistEnrollWrites: async (row) =>
-      await db.transaction(async (tx) => {
-        const inserted = await tx
-          .insert(teamEventMember)
-          .values({
-            addedAt: new Date(row.eventMember.addedAt),
-            eventId: row.eventMember.eventId,
-            id: row.eventMember.id,
-            userId: row.eventMember.userId,
+    persistEnrollWrites: async (row) => {
+      const { memberResult, promoted } = await db.transaction(async (tx) => {
+        const skipped = { memberResult: "skipped" as const, promoted: false };
+        // Match the Edition-first locking order of Kalakriti commands.
+        const [edition] = await tx
+          .select({
+            id: kalakritiEdition.id,
+            lifecycle: kalakritiEdition.lifecycle,
           })
-          .onConflictDoNothing({
-            target: [teamEventMember.eventId, teamEventMember.userId],
+          .from(kalakritiEdition)
+          .where(eq(kalakritiEdition.teamEventId, row.eventMember.eventId))
+          .limit(1)
+          .for("update");
+        const [event] = await tx
+          .select({
+            cancelledAt: teamEvent.cancelledAt,
+            managementDomain: teamEvent.managementDomain,
+            startTime: teamEvent.startTime,
           })
-          .returning({ id: teamEventMember.id });
-        const memberResult =
-          inserted.length > 0 ? ("inserted" as const) : ("conflict" as const);
+          .from(teamEvent)
+          .where(eq(teamEvent.id, row.eventMember.eventId))
+          .limit(1)
+          .for("update");
+        if (
+          !event ||
+          event.cancelledAt !== null ||
+          event.startTime.getTime() <=
+            Math.max(Date.now(), row.eventMember.addedAt)
+        ) {
+          return skipped;
+        }
+        if (
+          edition ||
+          event.managementDomain === "kalakriti" ||
+          row.volunteerMembership
+        ) {
+          if (
+            !edition ||
+            edition.lifecycle === "archived" ||
+            !row.volunteerMembership ||
+            edition.id !== row.volunteerMembership.editionId
+          ) {
+            return skipped;
+          }
+        }
+        const [enrollingUser] = await tx
+          .select({ id: user.id, role: user.role })
+          .from(user)
+          .where(eq(user.id, row.eventMember.userId))
+          .limit(1)
+          .for("update");
+        const [external] = await tx
+          .select({ userId: kalakritiExternalIdentity.userId })
+          .from(kalakritiExternalIdentity)
+          .where(eq(kalakritiExternalIdentity.userId, row.eventMember.userId))
+          .limit(1);
+        if (
+          !enrollingUser ||
+          enrollingUser.role === "external_user" ||
+          external
+        ) {
+          return skipped;
+        }
 
+        let promoted = false;
         if (row.volunteerMembership) {
           const volunteer = row.volunteerMembership;
           const [existing] = await tx
@@ -109,9 +162,14 @@ export function createDbRegisterEventEnrollDeps(): RegisterEventEnrollDeps {
                 eq(kalakritiEditionMembership.userId, volunteer.userId)
               )
             )
-            .limit(1);
-          if (existing?.kind === "guardian") {
-            return memberResult;
+            .limit(1)
+            .for("update");
+          if (
+            existing &&
+            (existing.kind !== "volunteer" ||
+              (existing.state !== "active" && existing.state !== "archived"))
+          ) {
+            return skipped;
           }
           if (!existing) {
             await tx.insert(kalakritiEditionMembership).values({
@@ -143,7 +201,58 @@ export function createDbRegisterEventEnrollDeps(): RegisterEventEnrollDeps {
           }
         }
 
-        return memberResult;
-      }),
+        const inserted = await tx
+          .insert(teamEventMember)
+          .values({
+            addedAt: new Date(row.eventMember.addedAt),
+            eventId: row.eventMember.eventId,
+            id: row.eventMember.id,
+            userId: row.eventMember.userId,
+          })
+          .onConflictDoNothing({
+            target: [teamEventMember.eventId, teamEventMember.userId],
+          })
+          .returning({ id: teamEventMember.id });
+        const memberResult =
+          inserted.length > 0 ? ("inserted" as const) : ("conflict" as const);
+        if (row.volunteerMembership) {
+          promoted = await promoteKalakritiVolunteer(
+            tx,
+            row.volunteerMembership.userId,
+            row.volunteerMembership.now
+          );
+        }
+        return { memberResult, promoted };
+      });
+      if (promoted) {
+        invalidatePermissionCache("unoriented_volunteer");
+        invalidatePermissionCache("volunteer");
+        const userId = row.eventMember.userId;
+        withFireAndForgetLog(
+          { handler: "registerEventEnroll:roleChanged", userId },
+          async () => {
+            const [volunteerRole] = await db
+              .select({ name: role.name })
+              .from(role)
+              .where(eq(role.id, "volunteer"))
+              .limit(1);
+            await enqueue("notify-role-changed", {
+              newRole: volunteerRole?.name ?? "volunteer",
+              userId,
+            });
+          }
+        );
+        withFireAndForgetLog(
+          { handler: "registerEventEnroll:orientation", userId },
+          async () => {
+            await enqueue("whatsapp-manage-orientation", {
+              isOriented: true,
+              userId,
+            });
+          }
+        );
+      }
+      return memberResult;
+    },
   };
 }
