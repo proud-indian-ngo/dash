@@ -85,6 +85,7 @@ export default defineConfig({
       dependencies: ["setup"],
       name: "kalakriti_release_invariants",
       testMatch: [
+        /kalakriti\/operations-person-qr\.spec\.ts/,
         /kalakriti\/public-schedule\.spec\.ts/,
         /kalakriti\/release-database-races\.spec\.ts/,
       ],

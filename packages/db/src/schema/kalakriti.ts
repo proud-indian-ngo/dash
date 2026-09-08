@@ -652,9 +652,9 @@ export const kalakritiOperation = pgTable(
     check(
       "kalakriti_operation_session_chk",
       sql`(
-        ${table.type}::text = 'competition_attendance'
+        ${table.type}::text = 'competition_attendance' AND ${table.competitionSessionId} IS NOT NULL
       ) OR (
-        ${table.competitionSessionId} IS NULL
+        ${table.type}::text <> 'competition_attendance' AND ${table.competitionSessionId} IS NULL
       )`
     ),
   ]

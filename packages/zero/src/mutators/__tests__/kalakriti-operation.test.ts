@@ -1,404 +1,484 @@
 import { describe, expect, it, mock } from "bun:test";
-import { createHash } from "node:crypto";
 
-import { kalakritiOperationMutators } from "../kalakriti-operation";
+import {
+  kalakritiOperationMutators,
+  kalakritiOperationRecordSchema,
+} from "../kalakriti-operation";
 
 const adminContext = {
   permissions: ["kalakriti.admin"],
   role: "admin",
   userId: "admin-1",
 };
-const guardianContext = {
-  permissions: ["kalakriti.view"],
-  role: "guardian",
-  userId: "guardian-1",
-};
-const transportLeadContext = {
-  permissions: ["kalakriti.view"],
-  role: "volunteer",
-  userId: "transport-1",
-};
-
-const edition = {
-  ageCutoffDate: "2027-06-30",
-  eventDate: "2027-11-21",
-  id: "edition-1",
-  lifecycle: "registration_open",
-  teamEventId: "team-event-1",
-  timezone: "Asia/Kolkata",
-  year: 2027,
-};
-const otherEdition = {
-  ageCutoffDate: "2027-06-30",
-  eventDate: "2027-11-21",
-  id: "edition-2",
-  lifecycle: "registration_open",
-  teamEventId: "team-event-2",
-  timezone: "Asia/Kolkata",
-  year: 2027,
-};
 const student = {
-  editionId: edition.id,
+  id: "01950000-0000-7000-8000-000000000001",
+  editionId: "edition-1",
+  centerId: "center-1",
   humanId: "KAL-2027-0001",
-  id: "student-1",
 };
-const credentialToken = "opaque-token-value";
-const tokenHash = createHash("sha256")
-  .update(credentialToken, "utf8")
-  .digest("hex");
+const volunteer = {
+  id: "01950000-0000-7000-8000-000000000002",
+  editionId: "edition-1",
+  humanId: "KALV-2027-0001",
+  kind: "volunteer",
+  state: "active",
+};
+const personQr = JSON.stringify({ id: student.id, type: "student" });
+const baseArgs = {
+  auditEntryId: "audit-1",
+  editionId: "edition-1",
+  id: "operation-row-1",
+  now: 1000,
+  occurredAt: 900,
+  operationId: "operation-1",
+  type: "pickup" as const,
+};
+const existing = {
+  ...baseArgs,
+  competitionSessionId: null,
+  membershipId: null,
+  studentId: student.id,
+  recordedBy: "admin-1",
+  supersededByOperationId: null,
+};
 
-function createTx(results: unknown[] = []) {
-  results.unshift(undefined);
-  const lockedResults: unknown[][] = [];
-  const spies = {
-    insertAudit: mock(),
-    insertOperation: mock(),
-    lockRows: mock(),
+function setup(results: unknown[] = [], lifecycle = "live") {
+  const edition = {
+    id: "edition-1",
+    lifecycle,
+    eventDate: "2027-11-21",
+    year: 2027,
   };
-  const select = mock(() => {
-    const query = {
-      for: mock(() => {
-        const rows = lockedResults.shift() ?? [];
-        spies.lockRows(rows);
-        return rows;
-      }),
-      from: mock(),
-      orderBy: mock(),
-      where: mock(),
-    };
-    query.from.mockReturnValue(query);
-    query.orderBy.mockReturnValue(query);
-    query.where.mockReturnValue(query);
-    return query;
-  });
-  return {
-    lockedResults,
-    spies,
-    tx: {
-      dbTransaction: { wrappedTransaction: { select } },
-      location: "server" as const,
-      mutate: {
-        kalakritiAuditEntry: { insert: spies.insertAudit },
-        kalakritiOperation: { insert: spies.insertOperation },
-      },
-      run: mock(async () => results.shift()),
+  const lock = mock(async () => [edition]);
+  const query = { from: () => query, where: () => query, for: lock };
+  const insertOperation = mock();
+  const insertAudit = mock();
+  const tx = {
+    location: "server",
+    dbTransaction: { wrappedTransaction: { select: () => query } },
+    mutate: {
+      kalakritiOperation: { insert: insertOperation },
+      kalakritiAuditEntry: { insert: insertAudit },
     },
+    run: mock(async () => results.shift()),
   };
+  return { tx, insertOperation, insertAudit, lock };
 }
 
-describe("kalakritiOperation.record", () => {
-  it("records a pickup from an active credential token hash", async () => {
-    const { lockedResults, spies, tx } = createTx([
-      {
-        editionId: edition.id,
-        membershipId: null,
-        studentId: student.id,
-        tokenHash,
-      },
-      [],
-    ]);
-    lockedResults.push([edition]);
+async function record(
+  tx: unknown,
+  args: object = {},
+  ctx: object = adminContext
+) {
+  await kalakritiOperationMutators.record.fn({
+    tx,
+    ctx,
+    args: { ...baseArgs, personQr, ...args },
+  } as never);
+}
+async function manual(
+  tx: unknown,
+  args: object = {},
+  ctx: object = adminContext
+) {
+  await kalakritiOperationMutators.recordManual.fn({
+    tx,
+    ctx,
+    args: { ...baseArgs, humanId: student.humanId, ...args },
+  } as never);
+}
 
-    await kalakritiOperationMutators.record.fn({
-      args: {
-        auditEntryId: "audit-1",
-        credentialToken,
-        editionId: edition.id,
-        id: "operation-row-1",
-        now: 1000,
-        occurredAt: 900,
-        operationId: "operation-1",
-        type: "pickup",
-      },
-      ctx: adminContext,
-      tx,
-    } as never);
-
-    expect(spies.insertOperation).toHaveBeenCalledWith(
-      expect.objectContaining({
-        operationId: "operation-1",
-        studentId: student.id,
-        type: "pickup",
-      })
-    );
-    expect(spies.insertAudit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        domain: "event_day_operation",
-        metadata: {
-          operationId: "operation-1",
-          subjectKind: "student",
-          type: "pickup",
-        },
-      })
-    );
+describe("person QR operation recording", () => {
+  it("accepts the current sheet JSON payload in the record schema", () => {
+    expect(
+      kalakritiOperationRecordSchema.safeParse({ ...baseArgs, personQr })
+        .success
+    ).toBe(true);
   });
 
-  it("replays a committed operation without resolving a now-revoked credential", async () => {
-    const existing = {
-      competitionSessionId: null,
-      editionId: edition.id,
-      id: "operation-row-1",
-      membershipId: null,
-      operationId: "operation-1",
-      recordedBy: adminContext.userId,
-      studentId: student.id,
-      supersededByOperationId: null,
-      type: "pickup",
-    };
-    const { lockedResults, spies, tx } = createTx([]);
-    tx.run.mockImplementationOnce(async () => existing);
-    lockedResults.push([edition]);
-
-    await kalakritiOperationMutators.record.fn({
-      args: {
-        auditEntryId: "audit-2",
-        credentialToken,
-        editionId: edition.id,
-        id: "operation-row-2",
-        now: 2000,
-        occurredAt: 1900,
-        operationId: "operation-1",
-        type: "venue_departure",
-      },
-      ctx: adminContext,
-      tx,
-    } as never);
-
-    expect(spies.insertOperation).not.toHaveBeenCalled();
-    expect(spies.insertAudit).not.toHaveBeenCalled();
-  });
-
-  it("keeps one effective pickup when a second device uses a new operation ID", async () => {
-    const { lockedResults, spies, tx } = createTx([
-      {
-        editionId: edition.id,
-        membershipId: null,
-        studentId: student.id,
-        tokenHash,
-      },
-      [
-        {
-          competitionSessionId: null,
-          editionId: edition.id,
-          id: "first-row",
-          membershipId: null,
-          operationId: "first-id",
+  it.each(["center-1", "other-center"])(
+    "applies the same Center scope to manual recording at %s",
+    async (centerId) => {
+      const { tx, insertOperation } = setup([
+        undefined,
+        student,
+        { id: "operator", kind: "volunteer" },
+        [{ responsibility: "liaison", centerId, competitionId: null }],
+        [],
+      ]);
+      const action = manual(
+        tx,
+        {},
+        { userId: "operator", permissions: ["kalakriti.view"] }
+      );
+      if (centerId === student.centerId) {
+        await action;
+        expect(insertOperation).toHaveBeenCalledTimes(1);
+      } else {
+        await expect(action).rejects.toThrow("Unauthorized");
+        expect(insertOperation).not.toHaveBeenCalled();
+      }
+    }
+  );
+  it.each(["qr", "manual"])(
+    "records a Student pickup with %s and privacy-safe audit",
+    async (mode) => {
+      const { tx, insertOperation, insertAudit, lock } = setup([
+        undefined,
+        student,
+        [],
+      ]);
+      await (mode === "qr" ? record(tx) : manual(tx));
+      expect(lock).toHaveBeenCalledWith("update");
+      expect(insertOperation).toHaveBeenCalledWith(
+        expect.objectContaining({
           studentId: student.id,
-          supersededByOperationId: null,
+          membershipId: null,
           type: "pickup",
-        },
-      ],
-    ]);
-    lockedResults.push([edition]);
-    await kalakritiOperationMutators.record.fn({
-      args: {
-        auditEntryId: "audit-repeat",
-        credentialToken,
-        editionId: edition.id,
-        id: "repeat-row",
-        now: 2000,
-        occurredAt: 1900,
-        operationId: "repeat-id",
-        type: "pickup",
-      },
-      ctx: adminContext,
-      tx,
-    } as never);
-    expect(spies.insertOperation).not.toHaveBeenCalled();
-    expect(spies.insertAudit).not.toHaveBeenCalled();
-  });
+        })
+      );
+      expect(insertAudit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: {
+            operationId: "operation-1",
+            subjectKind: "student",
+            type: "pickup",
+          },
+        })
+      );
+      expect(JSON.stringify(insertAudit.mock.calls)).not.toContain(student.id);
+    }
+  );
 
-  it("rejects a revoked credential token", async () => {
-    const { lockedResults, spies, tx } = createTx([undefined]);
-    lockedResults.push([edition]);
-
-    await expect(
-      kalakritiOperationMutators.record.fn({
-        args: {
-          auditEntryId: "audit-3",
-          credentialToken,
-          editionId: edition.id,
-          id: "operation-row-3",
-          now: 3000,
-          occurredAt: 2900,
-          operationId: "operation-3",
-          type: "pickup",
-        },
-        ctx: adminContext,
-        tx,
-      } as never)
-    ).rejects.toThrow("Credential not found or revoked");
-    expect(spies.insertOperation).not.toHaveBeenCalled();
-  });
-
-  it("rejects breakfast for a student without pickup", async () => {
-    const { lockedResults, spies, tx } = createTx([
-      {
-        editionId: edition.id,
-        membershipId: null,
-        studentId: student.id,
-        tokenHash,
-      },
-      [],
-    ]);
-    lockedResults.push([edition]);
-
-    await expect(
-      kalakritiOperationMutators.record.fn({
-        args: {
-          auditEntryId: "audit-4",
-          credentialToken,
-          editionId: edition.id,
-          id: "operation-row-4",
-          now: 4000,
-          occurredAt: 3900,
-          operationId: "operation-4",
-          type: "breakfast",
-        },
-        ctx: adminContext,
-        tx,
-      } as never)
-    ).rejects.toThrow("Pickup is required before meals");
-    expect(spies.insertOperation).not.toHaveBeenCalled();
-  });
-});
-
-describe("kalakritiOperation.recordManual", () => {
-  it("rejects a yearly ID from another Edition", async () => {
-    const { lockedResults, spies, tx } = createTx([undefined, undefined]);
-    lockedResults.push([otherEdition]);
-
-    await expect(
-      kalakritiOperationMutators.recordManual.fn({
-        args: {
-          auditEntryId: "audit-5",
-          editionId: otherEdition.id,
-          humanId: student.humanId,
-          id: "operation-row-5",
-          now: 5000,
-          occurredAt: 4900,
-          operationId: "operation-5",
-          type: "pickup",
-        },
-        ctx: adminContext,
-        tx,
-      } as never)
-    ).rejects.toThrow("Yearly ID not found in this Edition");
-    expect(spies.insertOperation).not.toHaveBeenCalled();
-  });
-
-  it("rejects a removed volunteer yearly ID", async () => {
-    const { lockedResults, spies, tx } = createTx([undefined, undefined]);
-    lockedResults.push([edition]);
-    await expect(
-      kalakritiOperationMutators.recordManual.fn({
-        args: {
-          auditEntryId: "audit-archived",
-          editionId: edition.id,
-          humanId: "KALV-2027-0001",
-          id: "archived-row",
-          now: 2000,
-          occurredAt: 1900,
-          operationId: "archived-id",
+  it.each(["qr", "manual"])(
+    "records active volunteer check-in with %s",
+    async (mode) => {
+      const { tx, insertOperation } = setup(
+        mode === "qr"
+          ? [undefined, volunteer, []]
+          : [undefined, undefined, volunteer, []]
+      );
+      const args = {
+        type: "volunteer_check_in",
+        personQr: JSON.stringify({ id: volunteer.id, type: "volunteer" }),
+        humanId: volunteer.humanId,
+      };
+      await (mode === "qr" ? record(tx, args) : manual(tx, args));
+      expect(insertOperation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          membershipId: volunteer.id,
+          studentId: null,
           type: "volunteer_check_in",
-        },
-        ctx: adminContext,
-        tx,
-      } as never)
-    ).rejects.toThrow("Yearly ID not found");
-    expect(spies.insertOperation).not.toHaveBeenCalled();
-  });
+        })
+      );
+    }
+  );
 
-  it("records pickup via yearly ID for authorized transport lead", async () => {
-    const { lockedResults, spies, tx } = createTx([
-      student,
-      { id: "transport-membership-1", kind: "volunteer" },
-      undefined,
-      { id: "transport-assignment-1" },
-      [],
-    ]);
-    lockedResults.push([edition]);
-
-    await kalakritiOperationMutators.recordManual.fn({
-      args: {
-        auditEntryId: "audit-6",
-        editionId: edition.id,
-        humanId: student.humanId,
-        id: "operation-row-6",
-        now: 6000,
-        occurredAt: 5900,
-        operationId: "operation-6",
-        type: "pickup",
-      },
-      ctx: transportLeadContext,
-      tx,
-    } as never);
-
-    expect(spies.insertOperation).toHaveBeenCalledWith(
-      expect.objectContaining({
-        studentId: student.id,
-        type: "pickup",
-      })
+  it.each([
+    "not JSON",
+    "null",
+    "[]",
+    "{}",
+    JSON.stringify({ id: "KAL-2027-0001", type: "student" }),
+    JSON.stringify({ id: student.id, type: "admin" }),
+    JSON.stringify({ id: student.id, type: "student", extra: true }),
+    " ".repeat(257),
+  ])("rejects malformed payload %s at schema and runtime", async (payload) => {
+    expect(
+      kalakritiOperationRecordSchema.safeParse({
+        ...baseArgs,
+        personQr: payload,
+      }).success
+    ).toBe(false);
+    const { tx, insertOperation } = setup([undefined]);
+    await expect(record(tx, { personQr: payload })).rejects.toThrow(
+      "Invalid person QR"
     );
+    expect(insertOperation).not.toHaveBeenCalled();
   });
-});
 
-describe("kalakritiOperation authorization", () => {
-  it("rejects guardians even when they have Edition access", async () => {
-    const { lockedResults, spies, tx } = createTx([
-      {
-        editionId: edition.id,
-        membershipId: null,
-        studentId: student.id,
-        tokenHash,
-      },
-      { id: "guardian-membership-1", kind: "guardian" },
-    ]);
-    lockedResults.push([edition]);
-
+  it("rejects Guardian QR before subject lookup", async () => {
+    const { tx, insertOperation } = setup([undefined]);
     await expect(
-      kalakritiOperationMutators.record.fn({
-        args: {
-          auditEntryId: "audit-7",
-          credentialToken,
-          editionId: edition.id,
-          id: "operation-row-7",
-          now: 7000,
-          occurredAt: 6900,
-          operationId: "operation-7",
-          type: "pickup",
-        },
-        ctx: guardianContext,
-        tx,
-      } as never)
-    ).rejects.toThrow("Unauthorized");
-    expect(spies.insertOperation).not.toHaveBeenCalled();
+      record(tx, {
+        personQr: JSON.stringify({ id: volunteer.id, type: "guardian" }),
+      })
+    ).rejects.toThrow("Guardians cannot be operation subjects");
+    expect(tx.run).toHaveBeenCalledTimes(1);
+    expect(insertOperation).not.toHaveBeenCalled();
   });
-});
 
-describe("event-day authoritative resolution", () => {
-  it("defers QR and yearly-ID resolution when the client has no subject rows", async () => {
-    const { tx, spies } = createTx();
-    const args = {
-      auditEntryId: "audit-client",
-      editionId: edition.id,
-      id: "client-row",
-      now: 1000,
-      occurredAt: 1000,
-      operationId: "client-operation",
-      type: "pickup",
-    };
-    await kalakritiOperationMutators.record.fn({
-      args: { ...args, credentialToken },
-      ctx: adminContext,
-      tx: { ...tx, location: "client" },
-    } as never);
-    await kalakritiOperationMutators.recordManual.fn({
-      args: { ...args, humanId: student.humanId },
-      ctx: adminContext,
-      tx: { ...tx, location: "client" },
-    } as never);
+  it.each([undefined, { ...student, editionId: "other" }])(
+    "rejects absent or cross-Edition Students",
+    async (subject) => {
+      const { tx, insertOperation } = setup([undefined, subject]);
+      await expect(record(tx)).rejects.toThrow(
+        "Student not found in this Edition"
+      );
+      expect(insertOperation).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([
+    undefined,
+    { ...volunteer, editionId: "other" },
+    { ...volunteer, kind: "guardian" },
+    { ...volunteer, state: "archived" },
+  ])(
+    "rejects missing, cross-Edition, disguised Guardian and inactive volunteers",
+    async (subject) => {
+      const { tx, insertOperation } = setup([undefined, subject]);
+      await expect(
+        record(tx, {
+          personQr: JSON.stringify({ id: volunteer.id, type: "volunteer" }),
+          type: "volunteer_check_in",
+        })
+      ).rejects.toThrow("Active Volunteer not found");
+      expect(insertOperation).not.toHaveBeenCalled();
+    }
+  );
+
+  it("rejects cross-Edition or inactive yearly IDs", async () => {
+    const { tx, insertOperation } = setup([undefined, undefined, undefined]);
+    await expect(manual(tx)).rejects.toThrow(
+      "Yearly ID not found in this Edition"
+    );
+    expect(insertOperation).not.toHaveBeenCalled();
+  });
+
+  it.each(["qr", "manual"])(
+    "preserves meal eligibility for %s",
+    async (mode) => {
+      const { tx, insertOperation } = setup([undefined, student, []]);
+      await expect(
+        mode === "qr"
+          ? record(tx, { type: "breakfast" })
+          : manual(tx, { type: "breakfast" })
+      ).rejects.toThrow("Pickup is required before meals");
+      expect(insertOperation).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(["draft", "registration_open", "registration_locked", "archived"])(
+    "rejects new operations in %s",
+    async (lifecycle) => {
+      const { tx, insertOperation } = setup([undefined], lifecycle);
+      await expect(record(tx)).rejects.toThrow("edition_not_live");
+      expect(insertOperation).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(["live", "archived", "registration_locked"])(
+    "replays committed operation without resolving subject in %s",
+    async (lifecycle) => {
+      const { tx, insertOperation, insertAudit } = setup([existing], lifecycle);
+      await record(tx, { type: "venue_departure" });
+      expect(tx.run).toHaveBeenCalledTimes(1);
+      expect(insertOperation).not.toHaveBeenCalled();
+      expect(insertAudit).not.toHaveBeenCalled();
+    }
+  );
+
+  it("replays manual operation after subject becomes inactive", async () => {
+    const { tx, insertOperation } = setup([existing], "archived");
+    await manual(tx);
+    expect(tx.run).toHaveBeenCalledTimes(1);
+    expect(insertOperation).not.toHaveBeenCalled();
+  });
+
+  it("rejects cross-Edition operation ID reuse", async () => {
+    const { tx, insertOperation } = setup([
+      { ...existing, editionId: "other" },
+    ]);
+    await expect(record(tx)).rejects.toThrow("Operation ID is already in use");
+    expect(insertOperation).not.toHaveBeenCalled();
+  });
+
+  it("rejects another operator's operation ID", async () => {
+    const { tx, insertOperation } = setup([existing]);
+    await expect(
+      record(tx, {}, { userId: "other", permissions: ["kalakriti.view"] })
+    ).rejects.toThrow("Operation ID is already in use");
+    expect(insertOperation).not.toHaveBeenCalled();
+  });
+
+  it("deduplicates an effective operation from a second device", async () => {
+    const { tx, insertOperation, insertAudit } = setup([
+      undefined,
+      student,
+      [{ ...existing, operationId: "earlier" }],
+    ]);
+    await record(tx);
+    expect(insertOperation).not.toHaveBeenCalled();
+    expect(insertAudit).not.toHaveBeenCalled();
+  });
+
+  it.each(["guardian", undefined])(
+    "authorizes operator independently for new writes",
+    async (kind) => {
+      const { tx, insertOperation } = setup([
+        undefined,
+        student,
+        kind ? { id: "operator", kind } : undefined,
+      ]);
+      await expect(
+        record(tx, {}, { userId: "operator", permissions: ["kalakriti.view"] })
+      ).rejects.toThrow("Unauthorized");
+      expect(insertOperation).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([
+    ["transport_lead", "pickup", null, true],
+    ["liaison", "pickup", "center-1", true],
+    ["liaison", "pickup", "other-center", false],
+    ["food_lead", "pickup", null, false],
+    ["hospitality_lead", "volunteer_check_in", null, true],
+    ["transport_lead", "volunteer_check_in", null, false],
+    ["food_lead", "breakfast", null, true],
+    ["hospitality_lead", "breakfast", null, false],
+    ["edition_admin", "pickup", null, true],
+  ] as const)(
+    "enforces %s permission for %s at %s",
+    async (responsibility, type, centerId, allowed) => {
+      const isVolunteer = type === "volunteer_check_in";
+      const subject = isVolunteer ? volunteer : student;
+      const { tx, insertOperation } = setup([
+        undefined,
+        subject,
+        { id: "operator", kind: "volunteer" },
+        [{ responsibility, centerId, competitionId: null }],
+        type === "breakfast"
+          ? [{ ...existing, operationId: "pickup-previous" }]
+          : [],
+      ]);
+      const action = record(
+        tx,
+        {
+          type,
+          personQr: JSON.stringify({
+            id: subject.id,
+            type: isVolunteer ? "volunteer" : "student",
+          }),
+        },
+        { userId: "operator", permissions: ["kalakriti.view"] }
+      );
+      if (allowed) {
+        await action;
+        expect(insertOperation).toHaveBeenCalledTimes(1);
+      } else {
+        await expect(action).rejects.toThrow("Unauthorized");
+        expect(insertOperation).not.toHaveBeenCalled();
+      }
+    }
+  );
+
+  it.each(["competition_coordinator", "competition_volunteer"])(
+    "allows %s attendance only in assigned competition",
+    async (responsibility) => {
+      for (const matches of [true, false]) {
+        const { tx, insertOperation } = setup([
+          undefined,
+          student,
+          {
+            editionId: "edition-1",
+            division: {
+              id: "division-1",
+              editionId: "edition-1",
+              competitionId: "competition-1",
+            },
+          },
+          { id: "entry-member" },
+          { id: "operator", kind: "volunteer" },
+          [
+            {
+              responsibility,
+              competitionId: matches ? "competition-1" : "other",
+              centerId: null,
+            },
+          ],
+          [{ ...existing, operationId: "prior-pickup" }],
+        ]);
+        const action = record(
+          tx,
+          { type: "competition_attendance", sessionId: "session-1" },
+          { userId: "operator", permissions: ["kalakriti.view"] }
+        );
+        if (matches) {
+          await action;
+          expect(insertOperation).toHaveBeenCalledTimes(1);
+        } else {
+          await expect(action).rejects.toThrow("Unauthorized");
+          expect(insertOperation).not.toHaveBeenCalled();
+        }
+      }
+    }
+  );
+
+  it.each([
+    undefined,
+    {
+      editionId: "other",
+      division: {
+        id: "division-1",
+        editionId: "other",
+        competitionId: "competition-1",
+      },
+    },
+    {
+      editionId: "edition-1",
+      division: {
+        id: "division-1",
+        editionId: "other",
+        competitionId: "competition-1",
+      },
+    },
+  ])(
+    "rejects missing or cross-Edition attendance session even for admin",
+    async (session) => {
+      const { tx, insertOperation } = setup([undefined, student, session]);
+      await expect(
+        record(tx, { type: "competition_attendance", sessionId: "session-1" })
+      ).rejects.toThrow("Competition session not found in this Edition");
+      expect(insertOperation).not.toHaveBeenCalled();
+    }
+  );
+
+  it("rejects attendance for a Student not entered in the session division", async () => {
+    const { tx, insertOperation } = setup([
+      undefined,
+      student,
+      {
+        editionId: "edition-1",
+        division: {
+          id: "division-1",
+          editionId: "edition-1",
+          competitionId: "competition-1",
+        },
+      },
+      undefined,
+    ]);
+    await expect(
+      record(tx, { type: "competition_attendance", sessionId: "session-1" })
+    ).rejects.toThrow("Student is not registered");
+    expect(insertOperation).not.toHaveBeenCalled();
+  });
+
+  it("keeps original-recorder retry safe after permission or lifecycle changes", async () => {
+    const { tx, insertOperation } = setup(
+      [{ ...existing, recordedBy: "operator" }],
+      "archived"
+    );
+    await record(tx, {}, { userId: "operator", permissions: [] });
+    expect(tx.run).toHaveBeenCalledTimes(1);
+    expect(insertOperation).not.toHaveBeenCalled();
+  });
+
+  it("defers authoritative subject resolution on the client", async () => {
+    const { tx, insertOperation } = setup();
+    await record({ ...tx, location: "client" });
+    await manual({ ...tx, location: "client" });
     expect(tx.run).not.toHaveBeenCalled();
-    expect(spies.insertOperation).not.toHaveBeenCalled();
+    expect(insertOperation).not.toHaveBeenCalled();
   });
 });

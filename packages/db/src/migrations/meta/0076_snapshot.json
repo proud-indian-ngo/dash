@@ -1,5 +1,5 @@
 {
-  "id": "bb5030ab-467c-41ed-8253-a7ca4e2d3a9c",
+  "id": "f7e3e7d3-7998-4912-a0cd-be000ea9b209",
   "prevId": "b140ac54-cb92-47ab-ba42-baeed6c5a4a1",
   "version": "7",
   "dialect": "postgresql",
@@ -5423,7 +5423,7 @@
         },
         "kalakriti_operation_session_chk": {
           "name": "kalakriti_operation_session_chk",
-          "value": "(\n        \"kalakriti_operation\".\"type\"::text = 'competition_attendance'\n      ) OR (\n        \"kalakriti_operation\".\"competition_session_id\" IS NULL\n      )"
+          "value": "(\n        \"kalakriti_operation\".\"type\"::text = 'competition_attendance' AND \"kalakriti_operation\".\"competition_session_id\" IS NOT NULL\n      ) OR (\n        \"kalakriti_operation\".\"type\"::text <> 'competition_attendance' AND \"kalakriti_operation\".\"competition_session_id\" IS NULL\n      )"
         }
       },
       "isRLSEnabled": false

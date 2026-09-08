@@ -18,9 +18,9 @@ CREATE TABLE "kalakriti_operation" (
         "kalakriti_operation"."student_id" IS NULL AND "kalakriti_operation"."membership_id" IS NOT NULL
       )),
 	CONSTRAINT "kalakriti_operation_session_chk" CHECK ((
-        "kalakriti_operation"."type"::text = 'competition_attendance'
+        "kalakriti_operation"."type"::text = 'competition_attendance' AND "kalakriti_operation"."competition_session_id" IS NOT NULL
       ) OR (
-        "kalakriti_operation"."competition_session_id" IS NULL
+        "kalakriti_operation"."type"::text <> 'competition_attendance' AND "kalakriti_operation"."competition_session_id" IS NULL
       ))
 );
 --> statement-breakpoint

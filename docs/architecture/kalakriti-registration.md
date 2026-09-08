@@ -7,7 +7,7 @@
 
 Kalakriti is a native Edition-bound module under `/kalakriti/:year`. Better Auth remains the only login system and central volunteers remain normal `user` records, but every Kalakriti business row belongs to one `kalakritiEdition`. A linked `teamEvent` exposes the Edition to shared event, reimbursement, and vendor-payment workflows without making the generic event domain authoritative for Kalakriti state.
 
-The Registration Release stops at `registration_locked`. Event-day, transport, attendance, meals, results, awards, scoresheets, and inventory have no production route, query, or mutator until their later release gates are implemented.
+The registration UI stops at `registration_locked`. The event-day operation backend supports recording only in `live` Editions; there is no station UI or go-live action on this branch. Transport setup, results, awards, scoresheets, and inventory remain behind later release gates.
 
 ## Identity and access
 
@@ -61,6 +61,14 @@ The legacy credential table, token hashing, issuance/reissue mutators, and PDF c
 Registration dashboards and `/api/kalakriti/:year/registration-export` resolve the actor and Edition on the server. The export route builds an allowlisted ZIP on the server, returns it as a private non-cacheable attachment, neutralizes spreadsheet formulas, and never sends raw registration rows to the browser. CSV import is intentionally unavailable.
 
 Audit reads apply Edition and responsibility scopes before returning privacy-safe metadata. Mutation audit entries remain Edition-owned and record the actor, domain, action, target, timestamp, reason where required, and structured metadata.
+
+## Event-day operation spine
+
+`packages/zero/src/mutators/kalakriti-operation.ts` owns server-authoritative recording; the client phase performs no optimistic writes. `record` accepts `personQr`, a bounded JSON string containing exactly `{ id, type }`, matching the detail-sheet QR format. It resolves the persisted Student or active volunteer membership inside the requested Edition and rejects Guardian subjects and mismatched types. `recordManual` resolves an Edition yearly ID through the same subject and operation rules; neither path uses credential storage or token hashes.
+
+New writes require a `live` Edition and an authorized operator. Edition/global administrators can record all types; other staff are restricted by operation type and their Center or Competition assignment. Attendance additionally requires a valid in-Edition session and the Student's registration in its Division. Transport ordering, volunteer check-in, and meal eligibility are enforced independently of QR possession.
+
+`kalakriti_operation` is append-only and has a unique `operationId`, XOR subjects, and Edition-composite subject/session references. A retry by the original recorder or global administrator is a no-op even if the submitted type or subject changes; another recorder or Edition cannot reuse the key. Replays don't create audit rows or duplicate operations. Student deletion and Entry removal are blocked once their Students have recorded operations. `event_day_operation` audit entries contain only bounded operation metadata. The seed script leaves draft Edition operations empty and adds an idempotent sample pickup only when the demo Edition is live and its sample Student has no history. E2E fixtures exercise idempotent recording against isolated live Editions.
 
 ## Volunteer yearly IDs
 

@@ -1,8 +1,9 @@
 import {
   KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES,
+  KALAKRITI_OPERATION_TYPES,
   type KalakritiOperationType,
 } from "@pi-dash/shared/kalakriti";
-import { hashKalakritiCredentialToken } from "@pi-dash/shared/kalakriti-credential";
+import { parseKalakritiPersonQr } from "@pi-dash/shared/kalakriti-person-qr";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 
@@ -33,16 +34,6 @@ interface OperationTx extends LockableKalakritiTx {
   };
 }
 
-const kalakritiOperationTypeSchema = z.enum([
-  "pickup",
-  "venue_departure",
-  "drop_off",
-  "volunteer_check_in",
-  "breakfast",
-  "lunch",
-  "competition_attendance",
-]);
-
 const kalakritiOperationRecordBaseSchema = z.object({
   auditEntryId: z.string(),
   editionId: z.string(),
@@ -51,12 +42,23 @@ const kalakritiOperationRecordBaseSchema = z.object({
   occurredAt: z.number(),
   operationId: z.string(),
   sessionId: z.string().optional(),
-  type: kalakritiOperationTypeSchema,
+  type: z.enum(KALAKRITI_OPERATION_TYPES),
 });
 
 export const kalakritiOperationRecordSchema =
   kalakritiOperationRecordBaseSchema.extend({
-    credentialToken: z.string().min(1),
+    personQr: z
+      .string()
+      .min(1)
+      .max(256)
+      .refine((value) => {
+        try {
+          parseKalakritiPersonQr(value);
+          return true;
+        } catch {
+          return false;
+        }
+      }, "Invalid person QR"),
   });
 
 export const kalakritiOperationRecordManualSchema =
@@ -83,95 +85,121 @@ async function getActiveMembership(
   )) as ActiveMembership | undefined;
 }
 
-export async function assertCanRecordKalakritiOperation(
+async function assertCanRecordKalakritiOperation(
   tx: LockableKalakritiTx,
-  ctx: Context | undefined,
-  editionId: string
+  ctx: Context,
+  editionId: string,
+  type: KalakritiOperationType,
+  subject: OperationSubject,
+  competitionId: string | null
 ): Promise<void> {
-  assertIsLoggedIn(ctx);
   if (can(ctx, "kalakriti.admin")) {
     return;
   }
   const membership = await getActiveMembership(tx, ctx, editionId);
-  if (!membership) {
+  if (!membership || membership.kind !== "volunteer") {
     throw new Error("Unauthorized");
   }
-  if (membership.kind === "guardian") {
+  const assignments = (await tx.run(
+    zql.kalakritiAssignment
+      .where("editionId", editionId)
+      .where("membershipId", membership.id)
+  )) as readonly {
+    responsibility: string;
+    centerId: string | null;
+    competitionId: string | null;
+  }[];
+  if (
+    assignments.some(
+      (assignment) => assignment.responsibility === "edition_admin"
+    )
+  ) {
+    return;
+  }
+  const allowed = assignments.some((assignment) => {
+    switch (type) {
+      case "pickup":
+      case "venue_departure":
+      case "drop_off":
+        return (
+          assignment.responsibility === "transport_lead" ||
+          (subject.centerId != null &&
+            assignment.centerId === subject.centerId &&
+            KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES.some(
+              (role) => role === assignment.responsibility
+            ))
+        );
+      case "volunteer_check_in":
+        return assignment.responsibility === "hospitality_lead";
+      case "breakfast":
+      case "lunch":
+        return assignment.responsibility === "food_lead";
+      case "competition_attendance":
+        return (
+          competitionId !== null &&
+          assignment.competitionId === competitionId &&
+          (assignment.responsibility === "competition_volunteer" ||
+            assignment.responsibility === "competition_coordinator")
+        );
+      default:
+        return false;
+    }
+  });
+  if (!allowed) {
     throw new Error("Unauthorized");
   }
+}
 
-  const editionAdmin = await tx.run(
-    zql.kalakritiAssignment
-      .where("membershipId", membership.id)
-      .where("responsibility", "edition_admin")
-      .one()
-  );
-  if (editionAdmin) {
-    return;
+interface OperationSubject {
+  centerId?: string;
+  membershipId: string | null;
+  studentId: string | null;
+}
+
+async function validateAttendanceSubject(
+  tx: OperationTx,
+  editionId: string,
+  subject: OperationSubject,
+  sessionId: string | undefined
+): Promise<string> {
+  if (!sessionId || !subject.studentId) {
+    throw new Error(
+      "Competition session and Student are required for attendance"
+    );
   }
-
-  const transportLead = await tx.run(
-    zql.kalakritiAssignment
-      .where("membershipId", membership.id)
-      .where("responsibility", "transport_lead")
+  const session = (await tx.run(
+    zql.kalakritiCompetitionSession
+      .where("id", sessionId)
+      .where("editionId", editionId)
+      .related("division")
       .one()
-  );
-  if (transportLead) {
-    return;
+  )) as
+    | {
+        editionId: string;
+        division?: { id: string; editionId: string; competitionId: string };
+      }
+    | undefined;
+  if (
+    !session?.division ||
+    session.editionId !== editionId ||
+    session.division.editionId !== editionId
+  ) {
+    throw new Error("Competition session not found in this Edition");
   }
-
-  const foodLead = await tx.run(
-    zql.kalakritiAssignment
-      .where("membershipId", membership.id)
-      .where("responsibility", "food_lead")
-      .one()
-  );
-  if (foodLead) {
-    return;
-  }
-
-  const hospitalityLead = await tx.run(
-    zql.kalakritiAssignment
-      .where("membershipId", membership.id)
-      .where("responsibility", "hospitality_lead")
-      .one()
-  );
-  if (hospitalityLead) {
-    return;
-  }
-
-  const centerLiaison = await tx.run(
-    zql.kalakritiAssignment
-      .where("membershipId", membership.id)
-      .where(({ or, cmp }) =>
-        or(
-          ...KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES.map(
-            (responsibility) => cmp("responsibility", responsibility)
-          )
-        )
+  const divisionId = session.division.id;
+  const entryMember = await tx.run(
+    zql.kalakritiEntryMember
+      .where("editionId", editionId)
+      .where("studentId", subject.studentId)
+      .whereExists("entry", (entry) =>
+        entry.where("editionId", editionId).where("divisionId", divisionId)
       )
       .one()
   );
-  if (centerLiaison) {
-    return;
+  if (!entryMember) {
+    throw new Error("Student is not registered for this Competition session");
   }
-
-  const competitionStaff = await tx.run(
-    zql.kalakritiAssignment
-      .where("membershipId", membership.id)
-      .where(({ or, cmp }) =>
-        or(
-          cmp("responsibility", "competition_volunteer"),
-          cmp("responsibility", "competition_coordinator")
-        )
-      )
-      .one()
-  );
-  if (competitionStaff) {
-    return;
-  }
-
-  throw new Error("Unauthorized");
+  return session.division.competitionId;
 }
 
 async function loadSubjectOperations(
@@ -196,46 +224,74 @@ async function loadSubjectOperations(
   return [];
 }
 
-async function resolveSubjectFromCredential(
+async function resolveSubjectFromPersonQr(
   tx: OperationTx,
   editionId: string,
-  credentialToken: string
-): Promise<{ membershipId: string | null; studentId: string | null }> {
-  const tokenHash = await hashKalakritiCredentialToken(credentialToken);
-  const credential = (await tx.run(
-    zql.kalakritiCredential
-      .where("tokenHash", tokenHash)
-      .where("revokedAt", "IS", null)
+  personQr: string
+): Promise<OperationSubject> {
+  const person = parseKalakritiPersonQr(personQr);
+  if (person.type === "guardian") {
+    throw new Error("Guardians cannot be operation subjects");
+  }
+  if (person.type === "student") {
+    const student = (await tx.run(
+      zql.kalakritiStudent
+        .where("id", person.id)
+        .where("editionId", editionId)
+        .one()
+    )) as { id: string; editionId: string; centerId: string } | undefined;
+    if (
+      !student ||
+      student.id !== person.id ||
+      student.editionId !== editionId
+    ) {
+      throw new Error("Student not found in this Edition");
+    }
+    return {
+      studentId: student.id,
+      membershipId: null,
+      centerId: student.centerId,
+    };
+  }
+  const membership = (await tx.run(
+    zql.kalakritiEditionMembership
+      .where("id", person.id)
+      .where("editionId", editionId)
+      .where("state", "active")
+      .where("kind", "volunteer")
       .one()
   )) as
-    | {
-        editionId: string;
-        membershipId: string | null;
-        studentId: string | null;
-      }
+    | { id: string; editionId: string; state: string; kind: string }
     | undefined;
-  if (!credential || credential.editionId !== editionId) {
-    throw new Error("Credential not found or revoked");
+  if (
+    !membership ||
+    membership.id !== person.id ||
+    membership.editionId !== editionId ||
+    membership.state !== "active" ||
+    membership.kind !== "volunteer"
+  ) {
+    throw new Error("Active Volunteer not found in this Edition");
   }
-  return {
-    membershipId: credential.membershipId,
-    studentId: credential.studentId,
-  };
+  return { studentId: null, membershipId: membership.id };
 }
 
 async function resolveSubjectFromHumanId(
   tx: OperationTx,
   editionId: string,
   humanId: string
-): Promise<{ membershipId: string | null; studentId: string | null }> {
+): Promise<OperationSubject> {
   const student = (await tx.run(
     zql.kalakritiStudent
       .where("editionId", editionId)
       .where("humanId", humanId)
       .one()
-  )) as { id: string } | undefined;
-  if (student) {
-    return { membershipId: null, studentId: student.id };
+  )) as { id: string; editionId: string; centerId: string } | undefined;
+  if (student && student.editionId === editionId) {
+    return {
+      membershipId: null,
+      studentId: student.id,
+      centerId: student.centerId,
+    };
   }
   const membership = (await tx.run(
     zql.kalakritiEditionMembership
@@ -244,8 +300,15 @@ async function resolveSubjectFromHumanId(
       .where("state", "active")
       .where("kind", "volunteer")
       .one()
-  )) as { id: string } | undefined;
-  if (membership) {
+  )) as
+    | { id: string; editionId: string; kind: string; state: string }
+    | undefined;
+  if (
+    membership &&
+    membership.editionId === editionId &&
+    membership.kind === "volunteer" &&
+    membership.state === "active"
+  ) {
     return { membershipId: membership.id, studentId: null };
   }
   throw new Error("Yearly ID not found in this Edition");
@@ -262,7 +325,7 @@ async function recordKalakritiOperation(
     occurredAt: number;
     operationId: string;
     sessionId?: string;
-    credentialToken?: string;
+    personQr?: string;
     humanId?: string;
     type: KalakritiOperationType;
   }
@@ -270,9 +333,6 @@ async function recordKalakritiOperation(
   const edition = await getEditionForUpdate(tx, args.editionId);
   if (!edition) {
     throw new Error("Edition not found");
-  }
-  if (edition.lifecycle === "archived") {
-    throw new Error("Edition is archived");
   }
   const existing = (await tx.run(
     zql.kalakritiOperation.where("operationId", args.operationId).one()
@@ -287,14 +347,31 @@ async function recordKalakritiOperation(
     return;
   }
 
-  const subject = args.credentialToken
-    ? await resolveSubjectFromCredential(
-        tx,
-        args.editionId,
-        args.credentialToken
-      )
+  if (edition.lifecycle !== "live") {
+    throw new Error("edition_not_live");
+  }
+
+  const subject = args.personQr
+    ? await resolveSubjectFromPersonQr(tx, args.editionId, args.personQr)
     : await resolveSubjectFromHumanId(tx, args.editionId, args.humanId ?? "");
-  await assertCanRecordKalakritiOperation(tx, ctx, args.editionId);
+
+  const competitionId =
+    args.type === "competition_attendance"
+      ? await validateAttendanceSubject(
+          tx,
+          args.editionId,
+          subject,
+          args.sessionId
+        )
+      : null;
+  await assertCanRecordKalakritiOperation(
+    tx,
+    ctx,
+    args.editionId,
+    args.type,
+    subject,
+    competitionId
+  );
 
   const subjectOperations = await loadSubjectOperations(
     tx,
@@ -372,7 +449,7 @@ export const kalakritiOperationMutators = {
         occurredAt: args.occurredAt,
         operationId: args.operationId,
         sessionId: args.sessionId,
-        credentialToken: args.credentialToken,
+        personQr: args.personQr,
         type: args.type,
       });
     }

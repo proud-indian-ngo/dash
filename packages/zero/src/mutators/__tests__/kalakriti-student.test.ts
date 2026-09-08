@@ -552,7 +552,6 @@ describe("kalakritiStudent commands", () => {
         humanId: student.humanId,
         name: student.name,
       },
-      [{ id: "credential-1" }],
       [],
       [{ id: "operation-1" }],
     ]);
@@ -570,7 +569,7 @@ describe("kalakritiStudent commands", () => {
       } as unknown as Parameters<typeof kalakritiStudentMutators.delete.fn>[0])
     ).rejects.toThrow("Student has event-day operations and cannot be deleted");
 
-    expect(spies.deleteCredential).not.toHaveBeenCalled();
+    expect(spies.deleteEntry).not.toHaveBeenCalled();
     expect(spies.deleteStudent).not.toHaveBeenCalled();
   });
 

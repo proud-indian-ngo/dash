@@ -87,6 +87,8 @@ All paths are relative to project root.
 | `components/kalakriti/{volunteer,guardian,student}-detail-sheet.tsx` | Table-owned person details, Guardian/Student Center details, Student competition entries, and identifier QR codes for every authorized viewer |
 | `components/kalakriti/person-qr-panel.tsx` | Client-rendered JSON QR containing the database record `id` and subject `type` (`student`, `guardian`, or `volunteer`) |
 | `routes/api/kalakriti/$year/people/lookup.ts` | Session- and Edition-admin-protected person lookup by database or yearly ID |
+| `packages/shared/src/kalakriti-person-qr.ts` (repository root) | Strict bounded parser for detail-sheet JSON person identifiers |
+| `packages/zero/src/mutators/kalakriti-operation.ts` (repository root) | Live-only recording, scoped operator authorization, retry idempotency, and manual yearly-ID resolution |
 | `routes/_app/kalakriti/$year/centers/index.tsx` | Edition Center list and registration controls |
 | `routes/_app/kalakriti/$year/centers/$id.tsx` | Center registration and assignment detail |
 | `routes/_app/kalakriti/$year/eligibility.tsx` | Edition Age Categories and shared per-Center Student limits |
