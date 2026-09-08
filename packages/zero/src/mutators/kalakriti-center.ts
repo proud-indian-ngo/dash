@@ -67,7 +67,7 @@ async function requireLockedCenter(tx: CenterTx, centerId: string) {
   return center;
 }
 
-async function assertParticipatingStudentsMeetMinimum(
+async function assertStudentsMeetMinimum(
   tx: CenterTx,
   centerId: string,
   minTotalCompetitions: number
@@ -81,7 +81,7 @@ async function assertParticipatingStudentsMeetMinimum(
   }>;
   const incomplete = students.find((student) => {
     const entryCount = student.entryMemberships.length;
-    return entryCount > 0 && entryCount < minTotalCompetitions;
+    return entryCount < minTotalCompetitions;
   });
   if (incomplete) {
     throw new Error(
@@ -308,7 +308,7 @@ export const kalakritiCenterMutators = {
       for (const center of enabledCenters) {
         if (center.competitionEntryRegistrationEnabled) {
           // biome-ignore lint/performance/noAwaitInLoops: each Center is validated while its row lock is held
-          await assertParticipatingStudentsMeetMinimum(
+          await assertStudentsMeetMinimum(
             tx,
             center.id,
             edition.minTotalCompetitions
@@ -464,7 +464,7 @@ export const kalakritiCenterMutators = {
         center.competitionEntryRegistrationEnabled &&
         !args.competitionEntryRegistrationEnabled
       ) {
-        await assertParticipatingStudentsMeetMinimum(
+        await assertStudentsMeetMinimum(
           tx,
           center.id,
           edition.minTotalCompetitions

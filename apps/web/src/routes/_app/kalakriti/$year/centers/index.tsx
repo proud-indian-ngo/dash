@@ -18,7 +18,11 @@ import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notic
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
-import { canViewKalakritiCenterDirectory } from "@/lib/kalakriti-center-registration-policy";
+import {
+  canViewKalakritiCenterDirectory,
+  selectKalakritiCenterRegistrationCenters,
+} from "@/lib/kalakriti-center-registration-policy";
+import { buildParticipationCompliance } from "@/lib/kalakriti-participation-compliance";
 
 export const Route = createFileRoute("/_app/kalakriti/$year/centers/")({
   component: KalakritiCentersPage,
@@ -156,6 +160,26 @@ function KalakritiCentersPage() {
     queries.kalakritiCenter.visible({ editionId: edition.id })
   );
   const directoryCenters = visibleDirectoryCenters(access, centers);
+  const registrationCenterIds = new Set(
+    selectKalakritiCenterRegistrationCenters(directoryCenters, access).map(
+      (center) => center.id
+    )
+  );
+  const [students, studentResult] = useQuery(
+    queries.kalakritiStudent.visibleForCompliance({ editionId: edition.id }),
+    { enabled: registrationCenterIds.size > 0 }
+  );
+  const [editionDetails] = useQuery(
+    queries.kalakritiEdition.byYear({ year: edition.year })
+  );
+  const minimum = editionDetails?.minTotalCompetitions ?? undefined;
+  const complianceByCenter =
+    minimum === undefined
+      ? undefined
+      : buildParticipationCompliance(students, minimum);
+  const complianceLoading =
+    minimum === undefined ||
+    (students.length === 0 && studentResult.type !== "complete");
   const [guardianAssignments] = useQuery(
     queries.kalakritiCenter.guardianAssignments({ editionId: edition.id }),
     { enabled: canManageGuardians }
@@ -269,7 +293,18 @@ function KalakritiCentersPage() {
     centers: directoryCenters,
     guardianAssignments,
     liaisonAssignments,
-  });
+  }).map((center) => ({
+    ...center,
+    compliance: !registrationCenterIds.has(center.id)
+      ? ("unavailable" as const)
+      : complianceLoading || minimum === undefined
+        ? undefined
+        : (complianceByCenter?.get(center.id) ?? {
+            issues: [],
+            minimum,
+            students: 0,
+          }),
+  }));
   const isLoading =
     directoryCenters.length === 0 && centerResult.type !== "complete";
   const hasOpenRegistration = directoryCenters.some(

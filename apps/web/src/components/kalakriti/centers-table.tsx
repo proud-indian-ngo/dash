@@ -20,6 +20,8 @@ import {
   createCenterFilterFields,
   getCenterFilterValue,
 } from "@/components/kalakriti/kalakriti-filters";
+import { ParticipationComplianceBadge } from "@/components/kalakriti/participation-compliance-badge";
+import type { ParticipationCompliance } from "@/lib/kalakriti-participation-compliance";
 
 export interface CenterListItem {
   competitionEntryRegistrationEnabled: boolean;
@@ -30,6 +32,7 @@ export interface CenterListItem {
 }
 
 export interface CenterTableRow extends CenterListItem {
+  compliance?: ParticipationCompliance | "unavailable";
   guardianCount: number | null;
   liaisonCount: number | null;
 }
@@ -241,6 +244,35 @@ export function CentersTable({
         skeleton: SKELETON_REGISTRATION,
       },
       size: 210,
+    },
+    {
+      id: "participationCompliance",
+      accessorFn: (row) =>
+        row.compliance === undefined
+          ? "Loading"
+          : row.compliance === "unavailable"
+            ? "Not available"
+            : row.compliance.students === 0
+              ? "No students"
+              : row.compliance.issues.length > 0
+                ? "Needs attention"
+                : "Compliant",
+      cell: ({ row }) => (
+        <ParticipationComplianceBadge compliance={row.original.compliance} />
+      ),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Participation compliance"
+          visibility={true}
+        />
+      ),
+      meta: {
+        headerTitle: "Participation compliance",
+        skeleton: SKELETON_REGISTRATION,
+        stopRowClick: true,
+      },
+      size: 200,
     },
     {
       accessorKey: "guardianCount",

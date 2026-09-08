@@ -9,6 +9,38 @@ function queryAst(query: unknown): string {
 }
 
 describe("kalakritiStudent queries", () => {
+  it("uses the same registration scope for edition-wide compliance without granting coordinator access", () => {
+    const ast = queryAst(
+      kalakritiStudentQueries.visibleForCompliance.fn({
+        args: { editionId: "edition-1" },
+        ctx: {
+          permissions: ["kalakriti.view"],
+          role: "volunteer",
+          userId: "liaison-1",
+        },
+      })
+    );
+    expect(ast).toContain('"value":"edition-1"');
+    expect(ast).toContain('"value":"liaison-1"');
+    expect(ast).toContain('"value":"active"');
+    expect(ast).toContain('"table":"kalakritiGuardianCenter"');
+    expect(ast).toContain('"table":"kalakritiEntryMember"');
+    expect(ast).toContain('"value":"edition_admin"');
+    expect(ast).toContain('"value":"center_liaison_lead"');
+    expect(ast).not.toContain('"value":"volunteer_coordinator"');
+    expect(ast).not.toContain('"value":"competition_category_lead"');
+  });
+
+  it("denies compliance rows without coarse access", () => {
+    const ast = queryAst(
+      kalakritiStudentQueries.visibleForCompliance.fn({
+        args: { editionId: "edition-1" },
+        ctx: { permissions: [], role: "volunteer", userId: "ordinary-1" },
+      })
+    );
+    expect(ast).toContain('"value":"00000000-0000-0000-0000-000000000000"');
+  });
+
   it("scopes Age Categories to the selected Center and registration roles", () => {
     const ast = queryAst(
       kalakritiStudentQueries.ageCategoriesByCenter.fn({

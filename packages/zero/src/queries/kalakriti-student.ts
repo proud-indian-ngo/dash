@@ -1,6 +1,7 @@
 import { defineQuery } from "@rocicorp/zero";
 import z from "zod";
 
+import type { Context } from "../context";
 import { can } from "../permissions";
 import { zql } from "../schema";
 import { buildKalakritiLiaisonResponsibilityOr } from "./kalakriti-liaison-scope";
@@ -52,60 +53,73 @@ export const kalakritiStudentQueries = {
       )
       .orderBy("sortOrder", "asc");
   }),
+  visibleForCompliance: defineQuery(
+    z.object({ editionId: z.string() }),
+    ({ args, ctx }) => visibleStudents(args, ctx)
+  ),
   visibleByCenter: defineQuery(centerInput, ({ args, ctx }) => {
-    const query = zql.kalakritiStudent
-      .where("editionId", args.editionId)
-      .where("centerId", args.centerId)
+    return visibleStudents(args, ctx)
       .related("ageCategory")
       .related("derivedAgeCategory")
-      .related("entryMemberships")
       .related("center");
-    if (ctx !== null && can(ctx, "kalakriti.admin")) {
-      return query.orderBy("humanId", "asc");
-    }
-    if (!(ctx && can(ctx, "kalakriti.view"))) {
-      return query.where("id", NO_ACCESS_ID);
-    }
-    return query
-      .where(({ or, exists }) =>
-        or(
-          exists("edition", (edition) =>
-            edition.whereExists("memberships", (membership) =>
-              membership
-                .where("userId", ctx.userId)
-                .where("state", "active")
-                .whereExists("assignments", (assignment) =>
-                  assignment.where(({ or: assignmentOr, cmp }) =>
-                    assignmentOr(
-                      cmp("responsibility", "edition_admin"),
-                      cmp("responsibility", "liaison_lead")
-                    )
+  }),
+};
+
+function visibleStudents(
+  args: { editionId: string; centerId?: string },
+  ctx: Context | null
+) {
+  let query = zql.kalakritiStudent
+    .where("editionId", args.editionId)
+    .related("entryMemberships", (memberships) =>
+      memberships.where("editionId", args.editionId)
+    );
+  if (args.centerId !== undefined) {
+    query = query.where("centerId", args.centerId);
+  }
+  if (ctx !== null && can(ctx, "kalakriti.admin")) {
+    return query.orderBy("humanId", "asc");
+  }
+  if (!(ctx && can(ctx, "kalakriti.view"))) {
+    return query.where("id", NO_ACCESS_ID);
+  }
+  return query
+    .where(({ or, exists }) =>
+      or(
+        exists("edition", (edition) =>
+          edition.whereExists("memberships", (membership) =>
+            membership
+              .where("userId", ctx.userId)
+              .where("state", "active")
+              .whereExists("assignments", (assignment) =>
+                assignment.where(({ or: assignmentOr, cmp }) =>
+                  assignmentOr(
+                    cmp("responsibility", "edition_admin"),
+                    cmp("responsibility", "liaison_lead")
                   )
                 )
+              )
+          )
+        ),
+        exists("center", (center) =>
+          center.whereExists("guardianCenters", (guardianCenter) =>
+            guardianCenter.whereExists("membership", (membership) =>
+              membership.where("userId", ctx.userId).where("state", "active")
             )
-          ),
-          exists("center", (center) =>
-            center.whereExists("guardianCenters", (guardianCenter) =>
-              guardianCenter.whereExists("membership", (membership) =>
+          )
+        ),
+        exists("center", (center) =>
+          center.whereExists("assignments", (assignment) =>
+            assignment
+              .where(({ or: liaisonOr, cmp }) =>
+                buildKalakritiLiaisonResponsibilityOr(liaisonOr, cmp)
+              )
+              .whereExists("membership", (membership) =>
                 membership.where("userId", ctx.userId).where("state", "active")
               )
-            )
-          ),
-          exists("center", (center) =>
-            center.whereExists("assignments", (assignment) =>
-              assignment
-                .where(({ or: liaisonOr, cmp }) =>
-                  buildKalakritiLiaisonResponsibilityOr(liaisonOr, cmp)
-                )
-                .whereExists("membership", (membership) =>
-                  membership
-                    .where("userId", ctx.userId)
-                    .where("state", "active")
-                )
-            )
           )
         )
       )
-      .orderBy("humanId", "asc");
-  }),
-};
+    )
+    .orderBy("humanId", "asc");
+}
