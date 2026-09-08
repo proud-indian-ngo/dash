@@ -53,7 +53,7 @@ export function ParticipationComplianceBadge({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-80"
+        className="w-80 text-left whitespace-normal"
         finalFocus={false}
         initialFocus={false}
       >

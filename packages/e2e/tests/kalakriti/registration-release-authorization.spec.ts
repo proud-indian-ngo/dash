@@ -8,6 +8,50 @@ const YEAR = 2186;
 test.describe("Kalakriti Registration Release authorization", () => {
   test.describe.configure({ mode: "serial" });
 
+  test("shows guardian dashboard compliance only for assigned centers", async ({
+    baseURL,
+    browser,
+    kalakritiActors,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== "super_admin",
+      "Guardian dashboard compliance"
+    );
+    const context = await browser.newContext({
+      baseURL,
+      storageState: kalakritiActors.guardian.storageState,
+    });
+    const page = await context.newPage();
+    try {
+      await page.goto(`/kalakriti/${YEAR}`);
+      await waitForZeroReady(page);
+      const table = page.getByRole("table", { name: "Your centers by Center" });
+      await expect(
+        table.getByRole("columnheader", { name: "Participation compliance" })
+      ).toBeVisible();
+      await expect(table).toContainText("Assigned Center");
+      await expect(table).not.toContainText("Outside Center");
+      const badge = table.getByRole("button", {
+        name: "Participation compliance: Needs attention",
+      });
+      await badge.hover();
+      const popup = page.getByRole("dialog", {
+        name: "Participation compliance",
+      });
+      await expect(popup).toContainText("Assigned Student: 1/2 events");
+      await expect(popup).not.toContainText("Outside Student");
+      await page.keyboard.press("Escape");
+      await expect(popup).toBeHidden();
+      await page.mouse.move(0, 0);
+      await badge.click();
+      await expect(popup).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(popup).toBeHidden();
+    } finally {
+      await context.close();
+    }
+  });
+
   test("enforces the Edition role matrix on direct URLs", async ({
     baseURL,
     browser,

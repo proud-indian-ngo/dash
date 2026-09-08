@@ -5,8 +5,16 @@ import {
   TabsList,
   TabsTrigger,
 } from "@pi-dash/design-system/components/ui/tabs";
+import { queries } from "@pi-dash/zero/queries";
+import { useQuery } from "@rocicorp/zero/react";
+import type { ReactNode } from "react";
 
+import { ParticipationComplianceBadge } from "@/components/kalakriti/participation-compliance-badge";
 import { StatsCards } from "@/components/stats/stats-cards";
+import {
+  buildParticipationCompliance,
+  type ParticipationCompliance,
+} from "@/lib/kalakriti-participation-compliance";
 import type { KalakritiRegistrationDashboardProjection } from "@/lib/server/kalakriti-registration-dashboard";
 
 function scopeHeading(
@@ -64,7 +72,7 @@ function AggregateTable({
   caption: string;
   columns: string[];
   description: string;
-  rows: Array<Array<number | string>>;
+  rows: Array<Array<ReactNode>>;
   title: string;
 }) {
   if (rows.length === 0) {
@@ -135,8 +143,12 @@ function AggregateTable({
 
 function DashboardProjection({
   projection,
+  complianceByCenter,
+  complianceMinimum,
 }: {
   projection: KalakritiRegistrationDashboardProjection;
+  complianceByCenter: Map<string, ParticipationCompliance> | undefined;
+  complianceMinimum: number | undefined;
 }) {
   const heading = scopeHeading(projection.scope);
   const isCenterScoped = projection.scope.kind === "center";
@@ -228,6 +240,7 @@ function DashboardProjection({
               "Entries",
               "Participations",
               ...(canViewStudentLimits ? ["Student limit"] : []),
+              ...(isCenterScoped ? ["Participation compliance"] : []),
             ]}
             description="Student totals for each visible center."
             rows={projection.centers.map((center) => [
@@ -237,6 +250,22 @@ function DashboardProjection({
               center.entries,
               center.participants,
               ...(canViewStudentLimits ? [center.studentLimit] : []),
+              ...(isCenterScoped
+                ? [
+                    <ParticipationComplianceBadge
+                      key={center.id}
+                      compliance={
+                        complianceByCenter && complianceMinimum !== undefined
+                          ? (complianceByCenter.get(center.id) ?? {
+                              issues: [],
+                              minimum: complianceMinimum,
+                              students: 0,
+                            })
+                          : undefined
+                      }
+                    />,
+                  ]
+                : []),
             ])}
             title="Centers"
           />
@@ -327,9 +356,29 @@ function DashboardProjection({
 
 export function RegistrationDashboard({
   projections,
+  editionId,
+  year,
 }: {
   projections: KalakritiRegistrationDashboardProjection[];
+  editionId: string;
+  year: number;
 }) {
+  const hasCenterScope = projections.some(
+    (projection) => projection.scope.kind === "center"
+  );
+  const [students, studentResult] = useQuery(
+    queries.kalakritiStudent.visibleForCompliance({ editionId }),
+    { enabled: hasCenterScope }
+  );
+  const [edition] = useQuery(queries.kalakritiEdition.byYear({ year }), {
+    enabled: hasCenterScope,
+  });
+  const minimum = edition?.minTotalCompetitions ?? undefined;
+  const complianceByCenter =
+    minimum === undefined ||
+    (students.length === 0 && studentResult.type !== "complete")
+      ? undefined
+      : buildParticipationCompliance(students, minimum);
   if (projections.length === 0) {
     return null;
   }
@@ -339,6 +388,8 @@ export function RegistrationDashboard({
         <DashboardProjection
           key={JSON.stringify(projection.scope)}
           projection={projection}
+          complianceByCenter={complianceByCenter}
+          complianceMinimum={minimum}
         />
       ))}
     </div>
