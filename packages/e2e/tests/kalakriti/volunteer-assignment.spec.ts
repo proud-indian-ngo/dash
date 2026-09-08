@@ -5,7 +5,7 @@ import { promisify } from "node:util";
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { KalakritiEditionPage } from "../../pages/kalakriti-edition-page";
 
-const VOLUNTEER_NAME = "Test Volunteer";
+const VOLUNTEER_NAME = "Kalakriti Orientation Volunteer";
 const RESPONSIBILITY = "Overall Events Lead";
 const execFileAsync = promisify(execFile);
 const helperPath = path.resolve(
@@ -17,17 +17,24 @@ test.describe.configure({ mode: "serial" });
 
 async function fixture<T>(
   action: "cleanup" | "setup" | "state",
-  argument?: string
+  argument?: string,
+  initialRole?: string
 ) {
   const { stdout } = await execFileAsync(
     "bun",
-    ["run", helperPath, action, ...(argument ? [argument] : [])],
+    [
+      "run",
+      helperPath,
+      action,
+      ...(argument ? [argument] : []),
+      ...(initialRole ? [initialRole] : []),
+    ],
     { env: process.env }
   );
   return JSON.parse(stdout.trim()) as T;
 }
 
-test("assigns a central volunteer and synchronizes linked-event access", async ({
+test("automatically orients an added volunteer and assigns a role without manual orientation", async ({
   page,
   superAdminEmail,
 }, testInfo) => {
@@ -49,11 +56,18 @@ test("assigns a central volunteer and synchronizes linked-event access", async (
       0
     );
 
+    expect(await fixture("state")).toEqual({
+      assignments: [],
+      eventMember: false,
+      membershipState: null,
+      role: "unoriented_volunteer",
+    });
     await editionPage.addVolunteers(VOLUNTEER_NAME);
     expect(await fixture("state")).toEqual({
       assignments: [],
       eventMember: true,
       membershipState: "active",
+      role: "volunteer",
     });
 
     await editionPage.assignRoleFromRow(VOLUNTEER_NAME, RESPONSIBILITY);
@@ -61,6 +75,7 @@ test("assigns a central volunteer and synchronizes linked-event access", async (
       assignments: ["overall_events_lead"],
       eventMember: true,
       membershipState: "active",
+      role: "volunteer",
     });
 
     await editionPage.removeVolunteer(VOLUNTEER_NAME, RESPONSIBILITY);
@@ -68,6 +83,7 @@ test("assigns a central volunteer and synchronizes linked-event access", async (
       assignments: [],
       eventMember: true,
       membershipState: "active",
+      role: "volunteer",
     });
     await expect(page.getByText("Unassigned", { exact: true })).toBeVisible();
 
@@ -76,6 +92,7 @@ test("assigns a central volunteer and synchronizes linked-event access", async (
       assignments: [],
       eventMember: false,
       membershipState: "archived",
+      role: "volunteer",
     });
   } finally {
     await page.goto("about:blank");
@@ -109,6 +126,7 @@ test("assigns a per-center Liaison Lead from the Volunteers page", async ({
       assignments: ["center_liaison_lead"],
       eventMember: true,
       membershipState: "active",
+      role: "volunteer",
     });
     await expect(page.getByText(`Liaison Lead · ${centerName}`)).toBeVisible();
 
@@ -117,6 +135,46 @@ test("assigns a per-center Liaison Lead from the Volunteers page", async ({
       assignments: [],
       eventMember: true,
       membershipState: "active",
+      role: "volunteer",
+    });
+  } finally {
+    await page.goto("about:blank");
+    await fixture("cleanup");
+  }
+});
+
+test("preserves an admin role when enrolling and assigning a volunteer", async ({
+  page,
+  superAdminEmail,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "super_admin",
+    "Super-admin enrollment flow"
+  );
+  test.slow();
+  const { year } = await fixture<{ year: number }>(
+    "setup",
+    superAdminEmail,
+    "admin"
+  );
+  const editionPage = new KalakritiEditionPage(page);
+
+  try {
+    await editionPage.gotoVolunteers(year);
+    await waitForZeroReady(page);
+    await editionPage.addVolunteers(VOLUNTEER_NAME);
+    expect(await fixture("state")).toEqual({
+      assignments: [],
+      eventMember: true,
+      membershipState: "active",
+      role: "admin",
+    });
+    await editionPage.assignRoleFromRow(VOLUNTEER_NAME, RESPONSIBILITY);
+    expect(await fixture("state")).toEqual({
+      assignments: ["overall_events_lead"],
+      eventMember: true,
+      membershipState: "active",
+      role: "admin",
     });
   } finally {
     await page.goto("about:blank");

@@ -10,6 +10,9 @@ dotenv.config({
   quiet: true,
 });
 
+// Both describes share the register URL database fixture and its cleanup.
+test.describe.configure({ mode: "default" });
+
 const execFileAsync = promisify(execFile);
 const helperPath = path.resolve(
   import.meta.dirname,
@@ -270,6 +273,7 @@ test.describe("Register URL options", () => {
           kalakritiEventMember: false,
           membershipState: null,
           registrationGroup: "campus-west",
+          role: "unoriented_volunteer",
         });
 
       const eventOnly = uniqueSignup();
@@ -296,6 +300,7 @@ test.describe("Register URL options", () => {
           kalakritiEventMember: false,
           membershipState: null,
           registrationGroup: null,
+          role: "unoriented_volunteer",
         });
 
       const both = uniqueSignup();
@@ -317,6 +322,7 @@ test.describe("Register URL options", () => {
           kalakritiEventMember: false,
           membershipState: null,
           registrationGroup: "campus-west",
+          role: "unoriented_volunteer",
         });
     } finally {
       await fixture("cleanup");
@@ -360,6 +366,7 @@ test.describe("Register URL options", () => {
           kalakritiEventMember: true,
           membershipState: "active",
           registrationGroup: null,
+          role: "volunteer",
         });
     } finally {
       await fixture("cleanup");

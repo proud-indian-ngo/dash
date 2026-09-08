@@ -1,6 +1,7 @@
 import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
 import { eventRsvpPoll, eventRsvpVote } from "@pi-dash/db/schema/event-rsvp";
+import { kalakritiEdition } from "@pi-dash/db/schema/kalakriti";
 import { teamMember } from "@pi-dash/db/schema/team";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import { enqueue } from "@pi-dash/jobs/enqueue";
@@ -95,17 +96,27 @@ export async function processWhatsAppPollVoteWebhook(
       eventId: eventRsvpPoll.eventId,
       eventStartTime: teamEvent.startTime,
       id: eventRsvpPoll.id,
+      kalakritiEditionId: kalakritiEdition.id,
+      managementDomain: teamEvent.managementDomain,
       noOptionHash: eventRsvpPoll.noOptionHash,
       yesOptionHash: eventRsvpPoll.yesOptionHash,
     })
     .from(eventRsvpPoll)
     .innerJoin(teamEvent, eq(teamEvent.id, eventRsvpPoll.eventId))
+    .leftJoin(kalakritiEdition, eq(kalakritiEdition.teamEventId, teamEvent.id))
     .where(eq(eventRsvpPoll.messageId, webhook.payload.poll_message_id))
     .limit(1);
 
   const [poll] = polls;
   if (!poll) {
     log.warn("rsvp_poll_not_found");
+    log.emit();
+    return "ignored";
+  }
+
+  if (poll.managementDomain === "kalakriti" || poll.kalakritiEditionId) {
+    log.set({ eventId: poll.eventId, pollId: poll.id });
+    log.warn("rsvp_kalakriti_roster_managed_by_edition");
     log.emit();
     return "ignored";
   }

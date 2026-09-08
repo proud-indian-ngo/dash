@@ -95,11 +95,12 @@ async function state(email: string) {
       kalakritiEventMember: false,
       membershipState: null,
       registrationGroup: null,
+      role: null,
     };
   }
   const [record, eventMember, kalakritiMember, membership] = await Promise.all([
     db.query.user.findFirst({
-      columns: { registrationGroup: true },
+      columns: { registrationGroup: true, role: true },
       where: eq(user.id, userId),
     }),
     db.query.teamEventMember.findFirst({
@@ -131,6 +132,7 @@ async function state(email: string) {
     kalakritiEventMember: Boolean(kalakritiMember),
     membershipState: membership?.state ?? null,
     registrationGroup: record?.registrationGroup ?? null,
+    role: record?.role ?? null,
   };
 }
 

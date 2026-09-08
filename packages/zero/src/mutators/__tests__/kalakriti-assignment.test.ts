@@ -1,6 +1,7 @@
 import { describe, expect, it, mock } from "bun:test";
 
 import { kalakritiAssignmentMutators } from "../kalakriti-assignment";
+import { createOrientationSql } from "./orientation-tx";
 
 const adminContext = {
   permissions: ["kalakriti.admin"],
@@ -46,8 +47,10 @@ function createTx(
     const query = {
       for: lockForUpdate,
       from: mock(),
+      innerJoin: mock(),
       where: mock(),
     };
+    query.innerJoin.mockReturnValue(query);
     query.from.mockReturnValue(query);
     query.where.mockReturnValue(query);
     return query;
@@ -57,7 +60,9 @@ function createTx(
     lockForUpdate,
     spies,
     tx: {
-      dbTransaction: { wrappedTransaction: { select } },
+      dbTransaction: {
+        wrappedTransaction: { ...createOrientationSql().transaction, select },
+      },
       location,
       mutate: {
         kalakritiAssignment: {
@@ -258,7 +263,7 @@ describe("kalakritiAssignment.assignVolunteer", () => {
     expect(spies.insertAssignment).not.toHaveBeenCalled();
   });
 
-  it("rejects an unoriented volunteer", async () => {
+  it("assigns an unoriented volunteer", async () => {
     const { tx, spies } = createTx([
       { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
       {
@@ -266,6 +271,9 @@ describe("kalakritiAssignment.assignVolunteer", () => {
         isActive: true,
         role: "unoriented_volunteer",
       },
+      undefined,
+      undefined,
+      [],
       undefined,
     ]);
 
@@ -277,9 +285,9 @@ describe("kalakritiAssignment.assignVolunteer", () => {
       } as unknown as Parameters<
         typeof kalakritiAssignmentMutators.assignVolunteer.fn
       >[0])
-    ).rejects.toThrow("Unoriented volunteers cannot receive assignments");
-    expect(spies.insertAssignment).not.toHaveBeenCalled();
-    expect(spies.insertMembership).not.toHaveBeenCalled();
+    ).resolves.toBeUndefined();
+    expect(spies.insertAssignment).toHaveBeenCalled();
+    expect(spies.insertMembership).toHaveBeenCalled();
   });
 
   it("assigns a custom oriented role without Kalakriti view", async () => {
@@ -531,7 +539,7 @@ describe("kalakritiAssignment.assignLiaison", () => {
     expect(lockForUpdate).toHaveBeenCalledWith("update");
   });
 
-  it("allows the same Liaison on another Center but rejects a duplicate scope", async () => {
+  it("allows another Center and orients an active duplicate without adding a role", async () => {
     const volunteer = {
       email: "liaison@example.com",
       id: "volunteer-1",
@@ -588,6 +596,12 @@ describe("kalakritiAssignment.assignLiaison", () => {
       { id: "liaison-membership-1", kind: "volunteer", state: "active" },
       [{ ...existingAssignment, centerId: "center-2" }],
     ]);
+    const sql = createOrientationSql(true);
+    Object.assign(duplicate.tx.dbTransaction.wrappedTransaction, {
+      update: sql.transaction.update,
+      delete: sql.transaction.delete,
+    });
+    const replayContext = { ...adminContext, asyncTasks: [] };
     duplicate.lockedCenters.splice(0, 1, [
       { editionId: "edition-1", id: "center-2", retiredAt: null },
     ]);
@@ -606,13 +620,16 @@ describe("kalakritiAssignment.assignLiaison", () => {
           teamEventMemberId: "unused-event-member",
           userId: "volunteer-1",
         },
-        ctx: adminContext,
+        ctx: replayContext,
         tx: duplicate.tx,
       } as unknown as Parameters<
         typeof kalakritiAssignmentMutators.assignLiaison.fn
       >[0])
-    ).rejects.toThrow("already has this scoped responsibility");
+    ).resolves.toBeUndefined();
     expect(duplicate.spies.insertAssignment).not.toHaveBeenCalled();
+    expect(duplicate.spies.insertAudit).not.toHaveBeenCalled();
+    expect(sql.returning).toHaveBeenCalledTimes(1);
+    expect(replayContext.asyncTasks).toHaveLength(3);
   });
 });
 
@@ -966,4 +983,65 @@ describe("kalakritiAssignment.removeVolunteer", () => {
       id: "event-member-1",
     });
   });
+});
+
+describe("automatic orientation across assignment scopes", () => {
+  for (const [name, scope] of [
+    ["assignVolunteer", {}],
+    [
+      "assignLiaison",
+      { centerId: "center-1", responsibility: "liaison_volunteer" },
+    ],
+    [
+      "assignCompetitionCategoryLead",
+      { competitionCategoryId: "category-1", responsibility: "category_lead" },
+    ],
+    [
+      "assignCompetitionMember",
+      {
+        competitionId: "competition-1",
+        responsibility: "competition_coordinator",
+      },
+    ],
+  ] as const) {
+    it(`promotes an unoriented volunteer through ${name}`, async () => {
+      const competitionScope =
+        "competitionCategoryId" in scope || "competitionId" in scope;
+      const { tx, spies } = createTx([
+        { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+        ...(competitionScope
+          ? [{ editionId: "edition-1", retiredAt: null }]
+          : []),
+        {
+          id: "volunteer-1",
+          isActive: true,
+          role: "unoriented_volunteer",
+          name: "Volunteer",
+          email: null,
+          phone: null,
+        },
+        undefined,
+        { id: "membership-1", kind: "volunteer", state: "archived" },
+        [],
+        undefined,
+      ]);
+      const sql = createOrientationSql(true);
+      Object.assign(tx.dbTransaction.wrappedTransaction, {
+        update: sql.transaction.update,
+        delete: sql.transaction.delete,
+      });
+      const ctx = { ...adminContext, asyncTasks: [] };
+      const fn = kalakritiAssignmentMutators[name]
+        .fn as unknown as typeof kalakritiAssignmentMutators.assignVolunteer.fn;
+      await fn({
+        args: { ...assignArgs, ...scope },
+        ctx,
+        tx,
+      } as unknown as Parameters<typeof fn>[0]);
+      expect(spies.updateMembership).toHaveBeenCalled();
+      expect(sql.returning).toHaveBeenCalledTimes(1);
+      expect(sql.deleteWhere).toHaveBeenCalledTimes(1);
+      expect(ctx.asyncTasks).toHaveLength(3);
+    });
+  }
 });
