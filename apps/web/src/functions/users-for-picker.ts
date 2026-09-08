@@ -93,7 +93,6 @@ async function loadKalakritiVolunteerPickerUsers(
   session: { user: { id: string; role?: string | null } },
   options: {
     excludeExistingRoster: boolean;
-    includeUnorientedVolunteers: boolean;
   }
 ): Promise<PickerUser[]> {
   const userId = session.user.id;
@@ -150,10 +149,6 @@ async function loadKalakritiVolunteerPickerUsers(
         .filter((id): id is string => id !== null)
     : [];
 
-  const roleFilter = options.includeUnorientedVolunteers
-    ? ne(user.role, "external_user")
-    : notInArray(user.role, ["external_user", "unoriented_volunteer"]);
-
   return db
     .select({
       email: user.email,
@@ -171,7 +166,7 @@ async function loadKalakritiVolunteerPickerUsers(
     .where(
       and(
         eq(user.isActive, true),
-        roleFilter,
+        ne(user.role, "external_user"),
         isNull(kalakritiExternalIdentity.userId),
         ...(existingUserIds.length > 0
           ? [notInArray(user.id, existingUserIds)]
@@ -193,7 +188,6 @@ export const getKalakritiVolunteersForPicker = createServerFn({ method: "GET" })
       context.session,
       {
         excludeExistingRoster: false,
-        includeUnorientedVolunteers: false,
       }
     );
   });
@@ -212,7 +206,6 @@ export const getKalakritiAddVolunteersForPicker = createServerFn({
       context.session,
       {
         excludeExistingRoster: true,
-        includeUnorientedVolunteers: true,
       }
     );
   });

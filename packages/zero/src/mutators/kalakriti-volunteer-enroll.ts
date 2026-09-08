@@ -6,6 +6,10 @@ import {
 } from "../kalakriti-credential-issue";
 import { assertIsLoggedIn, can } from "../permissions";
 import { zql } from "../schema";
+import {
+  type OrientationTx,
+  orientEnrolledKalakritiVolunteer,
+} from "./kalakriti-orientation";
 
 abstract class BivariantZeroMutation {
   abstract bivarianceHack(args: unknown): Promise<void>;
@@ -19,7 +23,7 @@ abstract class BivariantZeroRun {
 
 type ZeroRunFn = BivariantZeroRun["bivarianceHack"];
 
-export interface VolunteerEnrollTx {
+export interface VolunteerEnrollTx extends OrientationTx {
   location: "client" | "server";
   mutate: {
     kalakritiCredential: {
@@ -115,7 +119,8 @@ export async function ensureUnassignedVolunteerEnrollment(
     teamEventMemberId: string;
     user: VolunteerEnrollUser;
     userId: string;
-  }
+  },
+  ctx?: Context
 ): Promise<"already-active" | "enrolled"> {
   if (args.edition.lifecycle === "archived") {
     throw new Error("Edition is archived");
@@ -195,6 +200,8 @@ export async function ensureUnassignedVolunteerEnrollment(
       tokenHash: args.credentialTokenHash,
     });
   }
+
+  await orientEnrolledKalakritiVolunteer(tx, ctx, args.userId, args.now);
 
   if (membership?.state === "active") {
     return eventMember ? "already-active" : "enrolled";

@@ -1,6 +1,5 @@
 import {
   canManageKalakritiResponsibility,
-  isKalakritiAssignableUserRole,
   KALAKRITI_CENTER_VOLUNTEER_RESPONSIBILITIES,
   KALAKRITI_COMPETITION_CATEGORY_SCOPED_RESPONSIBILITIES,
   KALAKRITI_COMPETITION_SCOPED_RESPONSIBILITIES,
@@ -14,6 +13,7 @@ import type { Context } from "../context";
 import { findActiveCredentialForMembership } from "../kalakriti-credential-issue";
 import { assertIsLoggedIn, can } from "../permissions";
 import { zql } from "../schema";
+import { orientEnrolledKalakritiVolunteer } from "./kalakriti-orientation";
 import {
   getCenterForUpdate,
   getEditionForUpdate,
@@ -296,20 +296,6 @@ async function getRosterVolunteer(
   return volunteer;
 }
 
-async function getAssignableVolunteer(
-  tx: AssignmentTx,
-  userId: string
-): Promise<AssignableVolunteer | undefined> {
-  const volunteer = await getRosterVolunteer(tx, userId);
-  if (!volunteer) {
-    return;
-  }
-  if (!isKalakritiAssignableUserRole(volunteer.role)) {
-    throw new Error("Unoriented volunteers cannot receive assignments");
-  }
-  return volunteer;
-}
-
 async function assignVolunteerResponsibility(
   tx: AssignmentTx,
   ctx: Context | undefined,
@@ -331,7 +317,7 @@ async function assignVolunteerResponsibility(
     args.competitionCategoryId,
     args.competitionId
   );
-  const volunteer = await getAssignableVolunteer(tx, args.userId);
+  const volunteer = await getRosterVolunteer(tx, args.userId);
   if (!volunteer) {
     return;
   }
@@ -375,6 +361,10 @@ async function assignVolunteerResponsibility(
         (assignment.competitionId ?? null) === args.competitionId
     )
   ) {
+    if (membership?.state === "active") {
+      await orientEnrolledKalakritiVolunteer(tx, ctx, args.userId, args.now);
+      return;
+    }
     throw new Error("Volunteer already has this scoped responsibility");
   }
 
@@ -468,6 +458,7 @@ async function assignVolunteerResponsibility(
     targetId: args.assignmentId,
     targetType: "assignment",
   });
+  await orientEnrolledKalakritiVolunteer(tx, ctx, args.userId, args.now);
 }
 
 export const kalakritiAssignmentMutators = {
@@ -490,25 +481,29 @@ export const kalakritiAssignmentMutators = {
           missingCount += 1;
           continue;
         }
-        const result = await ensureUnassignedVolunteerEnrollment(tx, {
-          actorUserId: ctx.userId,
-          credentialId: volunteerArgs.credentialId,
-          credentialTokenHash: volunteerArgs.credentialTokenHash,
-          edition: {
-            id: args.editionId,
-            lifecycle: edition.lifecycle,
-            teamEventId: edition.teamEventId,
+        const result = await ensureUnassignedVolunteerEnrollment(
+          tx,
+          {
+            actorUserId: ctx.userId,
+            credentialId: volunteerArgs.credentialId,
+            credentialTokenHash: volunteerArgs.credentialTokenHash,
+            edition: {
+              id: args.editionId,
+              lifecycle: edition.lifecycle,
+              teamEventId: edition.teamEventId,
+            },
+            membershipId: volunteerArgs.membershipId,
+            now: args.now,
+            teamEventMemberId: volunteerArgs.teamEventMemberId,
+            user: {
+              email: volunteer.email,
+              name: volunteer.name,
+              phone: volunteer.phone,
+            },
+            userId: volunteerArgs.userId,
           },
-          membershipId: volunteerArgs.membershipId,
-          now: args.now,
-          teamEventMemberId: volunteerArgs.teamEventMemberId,
-          user: {
-            email: volunteer.email,
-            name: volunteer.name,
-            phone: volunteer.phone,
-          },
-          userId: volunteerArgs.userId,
-        });
+          ctx
+        );
         if (result === "enrolled") {
           addedCount += 1;
         }

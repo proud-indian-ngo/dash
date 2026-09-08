@@ -4,7 +4,8 @@ export type RegisterEventEnrollSkipReason =
   | "missing"
   | "cancelled"
   | "started"
-  | "archived-edition";
+  | "archived-edition"
+  | "missing-user";
 
 export type RegisterEventEnrollDecision =
   | { kind: "skip"; reason: RegisterEventEnrollSkipReason }
@@ -68,7 +69,7 @@ export interface RegisterEventEnrollDeps {
       snapshotPhone: string | null;
       userId: string;
     };
-  }) => Promise<"conflict" | "inserted">;
+  }) => Promise<"conflict" | "inserted" | "skipped">;
 }
 
 export function decideRegisterEventEnroll(input: {
@@ -135,18 +136,19 @@ export async function enrollUserOnRegisterEvent(
 
   if (decision.kind === "kalakriti-unassigned" && edition) {
     const volunteer = await deps.findUser(input.userId);
-    if (volunteer) {
-      volunteerMembership = {
-        createdBy: input.userId,
-        editionId: edition.id,
-        id: uuidv7(),
-        now: input.now,
-        snapshotEmail: volunteer.email,
-        snapshotName: volunteer.name,
-        snapshotPhone: volunteer.phone,
-        userId: input.userId,
-      };
+    if (!volunteer) {
+      return { reason: "missing-user", status: "skipped" };
     }
+    volunteerMembership = {
+      createdBy: input.userId,
+      editionId: edition.id,
+      id: uuidv7(),
+      now: input.now,
+      snapshotEmail: volunteer.email,
+      snapshotName: volunteer.name,
+      snapshotPhone: volunteer.phone,
+      userId: input.userId,
+    };
   }
 
   const memberResult = await deps.persistEnrollWrites({
@@ -158,6 +160,10 @@ export async function enrollUserOnRegisterEvent(
     },
     volunteerMembership,
   });
+
+  if (memberResult === "skipped") {
+    return { status: "skipped" };
+  }
 
   if (memberResult === "inserted") {
     if (event.whatsappGroupId) {

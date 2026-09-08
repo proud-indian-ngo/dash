@@ -1,14 +1,19 @@
 import { createHash, randomBytes } from "node:crypto";
 
 import { db } from "@pi-dash/db";
+import { promoteKalakritiVolunteer } from "@pi-dash/db/kalakriti-orientation";
+import { invalidatePermissionCache } from "@pi-dash/db/queries/resolve-permissions";
 import { user } from "@pi-dash/db/schema/auth";
 import {
   kalakritiCredential,
   kalakritiEdition,
   kalakritiEditionMembership,
+  kalakritiExternalIdentity,
 } from "@pi-dash/db/schema/kalakriti";
+import { role } from "@pi-dash/db/schema/permission";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import { enqueue } from "@pi-dash/jobs/enqueue";
+import { withFireAndForgetLog } from "@pi-dash/observability";
 import { formatKalakritiVolunteerHumanId } from "@pi-dash/shared/kalakriti";
 import { and, eq, isNull } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
@@ -115,7 +120,7 @@ async function persistVolunteerMembershipEnroll(
       RegisterEventEnrollDeps["persistEnrollWrites"]
     >[0]["volunteerMembership"]
   >
-): Promise<void> {
+): Promise<boolean> {
   const [existing] = await tx
     .select({
       id: kalakritiEditionMembership.id,
@@ -129,9 +134,14 @@ async function persistVolunteerMembershipEnroll(
         eq(kalakritiEditionMembership.userId, volunteer.userId)
       )
     )
-    .limit(1);
-  if (existing?.kind === "guardian") {
-    return;
+    .limit(1)
+    .for("update");
+  if (
+    existing &&
+    (existing.kind !== "volunteer" ||
+      (existing.state !== "active" && existing.state !== "archived"))
+  ) {
+    return false;
   }
   let membershipId = existing?.id;
   let shouldIssueCredential = false;
@@ -186,6 +196,7 @@ async function persistVolunteerMembershipEnroll(
       now: volunteer.now,
     });
   }
+  return true;
 }
 
 export function createDbRegisterEventEnrollDeps(): RegisterEventEnrollDeps {
@@ -248,8 +259,81 @@ export function createDbRegisterEventEnrollDeps(): RegisterEventEnrollDeps {
         .limit(1);
       return row ?? null;
     },
-    persistEnrollWrites: async (row) =>
-      await db.transaction(async (tx) => {
+    persistEnrollWrites: async (row) => {
+      const { memberResult, promoted } = await db.transaction(async (tx) => {
+        const skipped = { memberResult: "skipped" as const, promoted: false };
+        // Match the Edition-first locking order of Kalakriti commands.
+        const [edition] = await tx
+          .select({
+            id: kalakritiEdition.id,
+            lifecycle: kalakritiEdition.lifecycle,
+          })
+          .from(kalakritiEdition)
+          .where(eq(kalakritiEdition.teamEventId, row.eventMember.eventId))
+          .limit(1)
+          .for("update");
+        const [event] = await tx
+          .select({
+            cancelledAt: teamEvent.cancelledAt,
+            managementDomain: teamEvent.managementDomain,
+            startTime: teamEvent.startTime,
+          })
+          .from(teamEvent)
+          .where(eq(teamEvent.id, row.eventMember.eventId))
+          .limit(1)
+          .for("update");
+        if (
+          !event ||
+          event.cancelledAt !== null ||
+          event.startTime.getTime() <=
+            Math.max(Date.now(), row.eventMember.addedAt)
+        ) {
+          return skipped;
+        }
+        if (
+          edition ||
+          event.managementDomain === "kalakriti" ||
+          row.volunteerMembership
+        ) {
+          if (
+            !edition ||
+            edition.lifecycle === "archived" ||
+            !row.volunteerMembership ||
+            edition.id !== row.volunteerMembership.editionId
+          ) {
+            return skipped;
+          }
+        }
+        const [enrollingUser] = await tx
+          .select({ id: user.id, role: user.role })
+          .from(user)
+          .where(eq(user.id, row.eventMember.userId))
+          .limit(1)
+          .for("update");
+        const [external] = await tx
+          .select({ userId: kalakritiExternalIdentity.userId })
+          .from(kalakritiExternalIdentity)
+          .where(eq(kalakritiExternalIdentity.userId, row.eventMember.userId))
+          .limit(1);
+        if (
+          !enrollingUser ||
+          enrollingUser.role === "external_user" ||
+          external
+        ) {
+          return skipped;
+        }
+
+        let promoted = false;
+        if (row.volunteerMembership) {
+          const enrolled = await persistVolunteerMembershipEnroll(
+            tx,
+            row.volunteerMembership
+          );
+          if (!enrolled) {
+            return skipped;
+          }
+        }
+
         const inserted = await tx
           .insert(teamEventMember)
           .values({
@@ -264,12 +348,44 @@ export function createDbRegisterEventEnrollDeps(): RegisterEventEnrollDeps {
           .returning({ id: teamEventMember.id });
         const memberResult =
           inserted.length > 0 ? ("inserted" as const) : ("conflict" as const);
-
         if (row.volunteerMembership) {
-          await persistVolunteerMembershipEnroll(tx, row.volunteerMembership);
+          promoted = await promoteKalakritiVolunteer(
+            tx,
+            row.volunteerMembership.userId,
+            row.volunteerMembership.now
+          );
         }
-
-        return memberResult;
-      }),
+        return { memberResult, promoted };
+      });
+      if (promoted) {
+        invalidatePermissionCache("unoriented_volunteer");
+        invalidatePermissionCache("volunteer");
+        const userId = row.eventMember.userId;
+        withFireAndForgetLog(
+          { handler: "registerEventEnroll:roleChanged", userId },
+          async () => {
+            const [volunteerRole] = await db
+              .select({ name: role.name })
+              .from(role)
+              .where(eq(role.id, "volunteer"))
+              .limit(1);
+            await enqueue("notify-role-changed", {
+              newRole: volunteerRole?.name ?? "volunteer",
+              userId,
+            });
+          }
+        );
+        withFireAndForgetLog(
+          { handler: "registerEventEnroll:orientation", userId },
+          async () => {
+            await enqueue("whatsapp-manage-orientation", {
+              isOriented: true,
+              userId,
+            });
+          }
+        );
+      }
+      return memberResult;
+    },
   };
 }

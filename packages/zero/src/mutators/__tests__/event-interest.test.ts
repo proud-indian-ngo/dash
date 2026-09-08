@@ -164,7 +164,9 @@ describe("Kalakriti event interest", () => {
     });
   });
 
-  it("allows an interest manager to approve a Kalakriti request", async () => {
+  it("allows an interest manager to approve a Kalakriti request and orients on the server", async () => {
+    const { createOrientationSql } = await import("./orientation-tx");
+    const sql = createOrientationSql(true);
     const insertMember = mock();
     const insertMembership = mock();
     const insertCredential = mock();
@@ -195,21 +197,14 @@ describe("Kalakriti event interest", () => {
       },
       {
         email: "volunteer@example.com",
+        isActive: true,
+        role: "unoriented_volunteer",
         name: "Volunteer One",
         phone: null,
       },
       undefined,
       undefined,
-      {
-        ageCutoffDate: "2027-06-30",
-        eventDate: "2027-11-21",
-        id: "edition-1",
-        lifecycle: "draft",
-        nextVolunteerSequence: 1,
-        teamEventId: "event-1",
-        timezone: "Asia/Kolkata",
-        year: 2027,
-      },
+      undefined,
       {
         editionId: "edition-1",
         humanId: null,
@@ -218,7 +213,8 @@ describe("Kalakriti event interest", () => {
       },
     ];
     const tx = {
-      location: "client",
+      location: "server",
+      dbTransaction: { wrappedTransaction: sql.transaction },
       mutate: {
         eventInterest: { update: updateInterest },
         kalakritiCredential: { insert: insertCredential, update: mock() },
@@ -242,6 +238,8 @@ describe("Kalakriti event interest", () => {
       tx,
     } as unknown as Parameters<typeof eventInterestMutators.approve.fn>[0]);
 
+    expect(sql.returning).toHaveBeenCalledTimes(1);
+    expect(sql.deleteWhere).toHaveBeenCalledTimes(1);
     expect(updateInterest).toHaveBeenCalledWith({
       id: "interest-1",
       reviewedAt: 1_700_000_000_000,

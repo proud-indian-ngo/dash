@@ -175,7 +175,51 @@ describe("kalakritiCenter commands", () => {
     expect(spies.insertAudit).not.toHaveBeenCalled();
   });
 
-  it("rejects closing participation registration while a Student has exactly one Entry", async () => {
+  it.each([0, 1])(
+    "rejects closing participation registration while a Student has %i Entries",
+    async (count) => {
+      const closingCenter = {
+        ...center,
+        competitionEntryRegistrationEnabled: true,
+      };
+      const { lockedResults, spies, tx } = createTx([
+        { lifecycle: "registration_open" },
+        [
+          {
+            entryMemberships: Array.from({ length: count }, (_, index) => ({
+              id: `member-${index}`,
+            })),
+            humanId: "KAL-2026-0001",
+            name: "Aarohi Rao",
+          },
+        ],
+      ]);
+      lockedResults.splice(0, 1, [closingCenter]);
+
+      await expect(
+        kalakritiCenterMutators.setRegistrationControls.fn({
+          args: {
+            auditEntryId: "audit-1",
+            centerId: closingCenter.id,
+            competitionEntryRegistrationEnabled: false,
+            confirmReopen: false,
+            now: 1_700_000_000_000,
+            studentRegistrationEnabled: false,
+          },
+          ctx: adminContext,
+          tx,
+        } as unknown as Parameters<
+          typeof kalakritiCenterMutators.setRegistrationControls.fn
+        >[0])
+      ).rejects.toThrow(
+        "KAL-2026-0001 · Aarohi Rao must be registered for at least 2 Competitions"
+      );
+      expect(spies.updateCenter).not.toHaveBeenCalled();
+      expect(spies.insertAudit).not.toHaveBeenCalled();
+    }
+  );
+
+  it("allows closing participation registration when all Students have at least two Entries", async () => {
     const closingCenter = {
       ...center,
       competitionEntryRegistrationEnabled: true,
@@ -183,50 +227,6 @@ describe("kalakritiCenter commands", () => {
     const { lockedResults, spies, tx } = createTx([
       { lifecycle: "registration_open" },
       [
-        {
-          entryMemberships: [{ id: "member-1" }],
-          humanId: "KAL-2026-0001",
-          name: "Aarohi Rao",
-        },
-      ],
-    ]);
-    lockedResults.splice(0, 1, [closingCenter]);
-
-    await expect(
-      kalakritiCenterMutators.setRegistrationControls.fn({
-        args: {
-          auditEntryId: "audit-1",
-          centerId: closingCenter.id,
-          competitionEntryRegistrationEnabled: false,
-          confirmReopen: false,
-          now: 1_700_000_000_000,
-          studentRegistrationEnabled: false,
-        },
-        ctx: adminContext,
-        tx,
-      } as unknown as Parameters<
-        typeof kalakritiCenterMutators.setRegistrationControls.fn
-      >[0])
-    ).rejects.toThrow(
-      "KAL-2026-0001 · Aarohi Rao must be registered for at least 2 Competitions"
-    );
-    expect(spies.updateCenter).not.toHaveBeenCalled();
-    expect(spies.insertAudit).not.toHaveBeenCalled();
-  });
-
-  it("allows closing participation registration with non-participants and Students having at least two Entries", async () => {
-    const closingCenter = {
-      ...center,
-      competitionEntryRegistrationEnabled: true,
-    };
-    const { lockedResults, spies, tx } = createTx([
-      { lifecycle: "registration_open" },
-      [
-        {
-          entryMemberships: [],
-          humanId: "KAL-2026-0001",
-          name: "Aarohi Rao",
-        },
         {
           entryMemberships: [{ id: "member-1" }, { id: "member-2" }],
           humanId: "KAL-2026-0002",
@@ -293,7 +293,7 @@ describe("kalakritiCenter commands", () => {
     expect(spies.updateCenter).not.toHaveBeenCalled();
   });
 
-  it("allows closing participation when every participating Student meets the Edition minimum", async () => {
+  it("allows closing participation when every Student meets the Edition minimum", async () => {
     const closingCenter = {
       ...center,
       competitionEntryRegistrationEnabled: true,
@@ -301,11 +301,6 @@ describe("kalakritiCenter commands", () => {
     const { lockedResults, spies, tx } = createTx([
       { lifecycle: "registration_open", minTotalCompetitions: 3 },
       [
-        {
-          entryMemberships: [],
-          humanId: "KAL-2026-0001",
-          name: "Aarohi Rao",
-        },
         {
           entryMemberships: [
             { id: "member-1" },
@@ -417,40 +412,45 @@ describe("kalakritiCenter commands", () => {
     expect(spies.lockRows).toHaveBeenCalledTimes(2);
   });
 
-  it("rejects bulk locking while a participating Student has only one Entry", async () => {
-    const closingCenter = {
-      ...center,
-      competitionEntryRegistrationEnabled: true,
-    };
-    const { lockedResults, spies, tx } = createTx([
-      { lifecycle: "registration_open" },
-      [
-        {
-          entryMemberships: [{ id: "member-1" }],
-          humanId: "KAL-2026-0001",
-          name: "Aarohi Rao",
-        },
-      ],
-    ]);
-    lockedResults.splice(0, 1, [closingCenter]);
+  it.each([0, 1])(
+    "rejects bulk locking while a Student has %i Entries",
+    async (count) => {
+      const closingCenter = {
+        ...center,
+        competitionEntryRegistrationEnabled: true,
+      };
+      const { lockedResults, spies, tx } = createTx([
+        { lifecycle: "registration_open" },
+        [
+          {
+            entryMemberships: Array.from({ length: count }, (_, index) => ({
+              id: `member-${index}`,
+            })),
+            humanId: "KAL-2026-0001",
+            name: "Aarohi Rao",
+          },
+        ],
+      ]);
+      lockedResults.splice(0, 1, [closingCenter]);
 
-    await expect(
-      kalakritiCenterMutators.lockAllRegistration.fn({
-        args: {
-          auditEntryId: "audit-1",
-          confirmLock: true,
-          editionId: "edition-1",
-          now: 1_700_000_000_000,
-        },
-        ctx: adminContext,
-        tx,
-      } as unknown as Parameters<
-        typeof kalakritiCenterMutators.lockAllRegistration.fn
-      >[0])
-    ).rejects.toThrow("must be registered for at least 2 Competitions");
-    expect(spies.updateCenter).not.toHaveBeenCalled();
-    expect(spies.insertAudit).not.toHaveBeenCalled();
-  });
+      await expect(
+        kalakritiCenterMutators.lockAllRegistration.fn({
+          args: {
+            auditEntryId: "audit-1",
+            confirmLock: true,
+            editionId: "edition-1",
+            now: 1_700_000_000_000,
+          },
+          ctx: adminContext,
+          tx,
+        } as unknown as Parameters<
+          typeof kalakritiCenterMutators.lockAllRegistration.fn
+        >[0])
+      ).rejects.toThrow("must be registered for at least 2 Competitions");
+      expect(spies.updateCenter).not.toHaveBeenCalled();
+      expect(spies.insertAudit).not.toHaveBeenCalled();
+    }
+  );
 
   it("rejects bulk locking when a participating Student is below the Edition minimum", async () => {
     const closingCenter = {

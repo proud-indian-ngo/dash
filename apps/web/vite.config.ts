@@ -129,7 +129,7 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
       tsconfigPaths: true,
     },
     server: {
-      allowedHosts: ["host.docker.internal"],
+      allowedHosts: process.env.AMP_ORB ? true : ["host.docker.internal"],
       port: Number(process.env.DEV_WEB_PORT) || 3001,
     },
   };

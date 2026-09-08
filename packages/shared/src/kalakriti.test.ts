@@ -157,15 +157,15 @@ describe("Kalakriti assignment helpers", () => {
 });
 
 describe("isKalakritiAssignableUserRole", () => {
-  it("accepts oriented volunteer, admin-tier, and custom roles", () => {
+  it("accepts unoriented and oriented volunteer, admin-tier, and custom roles", () => {
+    expect(isKalakritiAssignableUserRole("unoriented_volunteer")).toBe(true);
     expect(isKalakritiAssignableUserRole("volunteer")).toBe(true);
     expect(isKalakritiAssignableUserRole("admin")).toBe(true);
     expect(isKalakritiAssignableUserRole("finance_admin")).toBe(true);
     expect(isKalakritiAssignableUserRole("team_lead")).toBe(true);
   });
 
-  it("rejects unoriented, external, and missing roles", () => {
-    expect(isKalakritiAssignableUserRole("unoriented_volunteer")).toBe(false);
+  it("rejects external and missing roles", () => {
     expect(isKalakritiAssignableUserRole("external_user")).toBe(false);
     expect(isKalakritiAssignableUserRole(null)).toBe(false);
     expect(isKalakritiAssignableUserRole(undefined)).toBe(false);

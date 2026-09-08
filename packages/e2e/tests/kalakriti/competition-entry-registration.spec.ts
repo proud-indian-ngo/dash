@@ -204,6 +204,12 @@ test.describe("Kalakriti Competition Entry registration", () => {
     const entriesPage = new KalakritiEntriesPage(page);
 
     try {
+      await page.goto(`/kalakriti/${year}/centers`);
+      await expect(
+        page.getByRole("button", {
+          name: "Participation compliance: Needs attention",
+        })
+      ).toBeVisible();
       await entriesPage.goto(year, "Group Dance");
       const dialog = await entriesPage.openRegistrationForm();
       await entriesPage.selectGroupMembers(dialog, ["Entry Student A"]);
@@ -262,6 +268,45 @@ test.describe("Kalakriti Competition Entry registration", () => {
         ).toBeVisible();
       }
       await expect(page.getByTestId("entry-music")).toContainText("None");
+
+      await page.goto(`/kalakriti/${year}/centers`);
+      const compliance = page.getByRole("button", {
+        name: "Participation compliance: Needs attention",
+      });
+      await compliance.hover();
+      const compliancePopup = page.getByRole("dialog", {
+        name: "Participation compliance",
+      });
+      await expect(compliancePopup).toContainText(
+        "4 students are below the minimum of 2 events."
+      );
+      await expect(compliancePopup).toContainText(
+        "Entry Student A: 1/2 events"
+      );
+      await expect(compliancePopup).toContainText(
+        "Entry Student B: 1/2 events"
+      );
+      await expect(compliancePopup).toContainText(
+        "Entry Student C: 0/2 events"
+      );
+      await expect(compliancePopup).toContainText(
+        "Entry Student D: 0/2 events"
+      );
+      await page.keyboard.press("Escape");
+      await expect(compliancePopup).toBeHidden();
+      await page.mouse.move(0, 0);
+      await compliance.click();
+      await expect(compliancePopup).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(compliancePopup).toBeHidden();
+      await page.keyboard.press("Tab");
+      await compliance.focus();
+      await expect(compliance).toBeFocused();
+      await expect(compliancePopup).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(compliancePopup).toBeHidden();
+      await expect(page).toHaveURL(new RegExp(`/kalakriti/${year}/centers/?$`));
+      await entriesPage.goto(year, "Group Dance");
 
       await page
         .getByRole("button", { name: "Actions for Group Dance group" })
@@ -357,9 +402,22 @@ test.describe("Kalakriti Competition Entry registration", () => {
         firstEntriesPage.fillEntry(firstDialog, "Entry Student A"),
         secondEntriesPage.fillEntry(secondDialog, "Entry Student A"),
       ]);
+      const [firstSubmit, secondSubmit] = await Promise.all([
+        firstDialog
+          .getByRole("button", { name: "Register Entries" })
+          .elementHandle(),
+        secondDialog
+          .getByRole("button", { name: "Register Entries" })
+          .elementHandle(),
+      ]);
+      if (!(firstSubmit && secondSubmit)) {
+        throw new Error("Registration submit buttons were not available");
+      }
+      // Capture both nodes before either mutation can rerender the other page;
+      // native clicks avoid retrying the detached loser until timeout.
       await Promise.all([
-        firstDialog.getByRole("button", { name: "Register Entries" }).click(),
-        secondDialog.getByRole("button", { name: "Register Entries" }).click(),
+        firstSubmit.evaluate((button) => button.click()),
+        secondSubmit.evaluate((button) => button.click()),
       ]);
       await Promise.all([
         waitForSubmissionSettled(firstDialog, "Register Entries"),
@@ -370,9 +428,14 @@ test.describe("Kalakriti Competition Entry registration", () => {
       expect(state.entries).toHaveLength(1);
       expect(state.members).toHaveLength(1);
     } finally {
-      await secondPage.close();
-      await page.goto("about:blank");
-      await fixture("cleanup", "admin");
+      try {
+        await Promise.all([
+          secondPage.isClosed() ? undefined : secondPage.close(),
+          page.isClosed() ? undefined : page.goto("about:blank"),
+        ]);
+      } finally {
+        await fixture("cleanup", "admin");
+      }
     }
   });
 });

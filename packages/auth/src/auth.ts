@@ -141,32 +141,37 @@ async function handleAfterSignUp(ctx: AuthHookContext): Promise<void> {
   });
 
   withFireAndForgetLog(
-    { action: "orientationGroup", hook: "afterSignUp", userId },
+    {
+      action: "registerEventEnrollAndOrientation",
+      eventId: registerEventId,
+      hook: "afterSignUp",
+      userId,
+    },
     async () => {
-      await enqueue("whatsapp-manage-orientation", {
-        isOriented: false,
-        userId,
-      });
+      try {
+        if (registerEventId) {
+          await enrollUserOnRegisterEvent(createDbRegisterEventEnrollDeps(), {
+            eventId: registerEventId,
+            now: Date.now(),
+            userId,
+          });
+        }
+      } finally {
+        // Enrollment may promote the user; never enqueue a stale unoriented job.
+        const [persistedUser] = await db
+          .select({ role: schema.user.role })
+          .from(schema.user)
+          .where(eq(schema.user.id, userId))
+          .limit(1);
+        if (persistedUser?.role === "unoriented_volunteer") {
+          await enqueue("whatsapp-manage-orientation", {
+            isOriented: false,
+            userId,
+          });
+        }
+      }
     }
   );
-
-  if (registerEventId) {
-    withFireAndForgetLog(
-      {
-        action: "registerEventEnroll",
-        eventId: registerEventId,
-        hook: "afterSignUp",
-        userId,
-      },
-      async () => {
-        await enrollUserOnRegisterEvent(createDbRegisterEventEnrollDeps(), {
-          eventId: registerEventId,
-          now: Date.now(),
-          userId,
-        });
-      }
-    );
-  }
 }
 
 function getHeaderValue(headers: unknown, name: string): string | undefined {

@@ -109,6 +109,7 @@ describe("Kalakriti Registration Release surface", () => {
       "kalakritiGuardian.roster",
       "kalakritiStudent.ageCategoriesByCenter",
       "kalakritiStudent.visibleByCenter",
+      "kalakritiStudent.visibleForCompliance",
     ]);
     expect(operationKeys(mutators)).toEqual([
       "kalakritiAssignment.addVolunteers",

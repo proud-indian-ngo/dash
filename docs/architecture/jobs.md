@@ -9,6 +9,7 @@ pg-boss–backed job queue. All async side-effects (notifications, integrations,
 |---|---|---|
 | Queue init | `src/boss-instance.ts` | Singleton pg-boss, lazy-started |
 | Enqueue API | `src/enqueue.ts` | Typed `enqueue(name, payload)` — lean entry for mutators |
+| CLI producer | `src/producer.ts` | `startJobProducer(databaseUrl)` uses an explicitly selected database without starting handlers, schedules, or migrations; the caller stops it before exit |
 | Payload types | `src/types.ts` | All payload interfaces + `JobPayloads` map |
 | Handler registration | `src/handlers/index.ts` | Imports all handlers, registers with pg-boss |
 | Handler wrapper | `src/handlers/create-handler.ts` | `createNotifyHandler()` — adds `createRequestLogger`, success/error logging |

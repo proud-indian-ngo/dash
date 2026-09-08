@@ -64,6 +64,7 @@ const updateUserSchema = z.object({
   isActive: z.boolean().optional(),
   name: z.string().min(2, "Name must be at least 2 characters"),
   phone: z.string().optional(),
+  registrationGroup: z.string().trim().max(100).optional(),
   role: roleSchema.optional(),
   userId: z.string().min(1),
 });
@@ -293,6 +294,9 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
         action: "user.update",
         metadata: {
           changedFields: [
+            ...(data.registrationGroup !== undefined
+              ? ["registrationGroup"]
+              : []),
             "dob",
             "email",
             "emailVerified",
@@ -344,6 +348,13 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
           },
           headers: context.headers,
         });
+
+        if (data.registrationGroup !== undefined) {
+          await db
+            .update(user)
+            .set({ registrationGroup: data.registrationGroup || null })
+            .where(eq(user.id, data.userId));
+        }
 
         if (data.role && data.role !== previousRole) {
           const newRole = data.role;
