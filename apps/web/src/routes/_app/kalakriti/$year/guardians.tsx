@@ -164,6 +164,7 @@ function KalakritiGuardiansPage() {
   });
 
   const guardianRows: GuardianRosterItem[] = guardians.map((guardian) => ({
+    humanId: guardian.humanId,
     id: guardian.id,
     isExternal: guardian.user?.role === "external_user",
     snapshotEmail: guardian.snapshotEmail,
@@ -208,6 +209,7 @@ function KalakritiGuardiansPage() {
       />
 
       <GuardianDetailSheet
+        access={access}
         guardian={selectedGuardian}
         onArchive={handleArchiveGuardian}
         onEdit={handleEditGuardian}

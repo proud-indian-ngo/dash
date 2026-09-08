@@ -22,6 +22,7 @@ import {
 } from "@/components/kalakriti/kalakriti-filters";
 
 export interface GuardianRosterItem {
+  humanId?: string | null;
   id: string;
   isExternal: boolean;
   snapshotEmail: string | null;

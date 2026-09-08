@@ -15,6 +15,7 @@ import { uuidv7 } from "uuidv7";
 
 import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notice";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
+import { StudentDetailSheet } from "@/components/kalakriti/student-detail-sheet";
 import {
   type KalakritiStudentRow,
   StudentFormDialog,
@@ -78,6 +79,7 @@ function KalakritiStudentsPage() {
   const selectableCenters = selectKalakritiStudentCenters(centers, access);
   const [selectedCenterId, setSelectedCenterId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [viewingStudentId, setViewingStudentId] = useState<string | null>(null);
   const [editingStudent, setEditingStudent] =
     useState<KalakritiStudentRow | null>(null);
 
@@ -121,9 +123,20 @@ function KalakritiStudentsPage() {
         })
       ).server,
   });
-  const handleCenterChange = useEventCallback((value: string | null) =>
-    setSelectedCenterId(value)
+  const viewingStudent = students.find(
+    (student) =>
+      student.id === viewingStudentId && student.centerId === centerId
   );
+  const handleView = useEventCallback((student: KalakritiStudentRow) =>
+    setViewingStudentId(student.id)
+  );
+  const handleDetailOpenChange = useEventCallback((open: boolean) => {
+    if (!open) setViewingStudentId(null);
+  });
+  const handleCenterChange = useEventCallback((value: string | null) => {
+    setSelectedCenterId(value);
+    setViewingStudentId(null);
+  });
   const handleCreateOpenChange = useEventCallback((open: boolean) =>
     setCreateOpen(open)
   );
@@ -255,7 +268,18 @@ function KalakritiStudentsPage() {
         onDelete={deleteAction.trigger}
         onEdit={handleEdit}
         onRegister={handleRegister}
+        onView={handleView}
       />
+      {viewingStudent && selectedCenter ? (
+        <StudentDetailSheet
+          access={access}
+          center={selectedCenter}
+          key={viewingStudent.id}
+          onOpenChange={handleDetailOpenChange}
+          open={true}
+          student={viewingStudent}
+        />
+      ) : null}
       {centerId ? (
         <StudentFormDialog
           ageCategories={ageCategories}

@@ -3,13 +3,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
 import { requireSession } from "@/lib/api-auth";
-import {
-  canManageKalakritiCredentials,
-  lookupKalakritiCredential,
-} from "@/lib/server/kalakriti-credential";
 import { resolveKalakritiEditionAccess } from "@/lib/server/kalakriti-edition-access";
+import {
+  canLookupKalakritiPerson,
+  lookupKalakritiPerson,
+} from "@/lib/server/kalakriti-person-lookup";
 
-export async function handleKalakritiCredentialLookupRequest(
+export async function handleKalakritiPersonLookupRequest(
   request: Request,
   yearParam: string
 ) {
@@ -30,10 +30,10 @@ export async function handleKalakritiCredentialLookupRequest(
     userId: sessionResult.session.user.id,
     year: year.data,
   });
-  if (!(access && canManageKalakritiCredentials(access))) {
+  if (!(access && canLookupKalakritiPerson(access))) {
     return Response.json({ error: "Not found" }, { status: 404 });
   }
-  const result = await lookupKalakritiCredential({
+  const result = await lookupKalakritiPerson({
     editionId: access.edition.id,
     humanId,
   });
@@ -48,13 +48,11 @@ export async function handleKalakritiCredentialLookupRequest(
   });
 }
 
-export const Route = createFileRoute("/api/kalakriti/$year/credentials/lookup")(
-  {
-    server: {
-      handlers: {
-        GET: ({ params, request }) =>
-          handleKalakritiCredentialLookupRequest(request, params.year),
-      },
+export const Route = createFileRoute("/api/kalakriti/$year/people/lookup")({
+  server: {
+    handlers: {
+      GET: ({ params, request }) =>
+        handleKalakritiPersonLookupRequest(request, params.year),
     },
-  }
-);
+  },
+});

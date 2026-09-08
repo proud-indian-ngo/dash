@@ -15,6 +15,7 @@ import {
   type KalakritiResponsibility,
 } from "@pi-dash/shared/kalakriti";
 
+import { PersonQrPanel } from "@/components/kalakriti/person-qr-panel";
 import {
   formatKalakritiVolunteerAssignment,
   type RemoveAssignmentPayload,
@@ -73,7 +74,7 @@ export function VolunteerDetailSheet({
 
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
-      <SheetContent>
+      <SheetContent className="overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{volunteer.snapshotName}</SheetTitle>
           <SheetDescription>
@@ -82,6 +83,8 @@ export function VolunteerDetailSheet({
         </SheetHeader>
 
         <div className="flex flex-col gap-6 px-6 pb-6">
+          <PersonQrPanel enabled={open} id={volunteer.id} type="volunteer" />
+
           <div className="grid gap-4">
             <h3 className="text-sm font-medium">Contact</h3>
             <div className="grid gap-3">

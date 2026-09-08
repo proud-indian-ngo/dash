@@ -19,6 +19,7 @@
     "uuidv7": "catalog:"
   },
   "devDependencies": {
-    "@playwright/test": "catalog:"
+    "@playwright/test": "catalog:",
+    "jsqr": "^1.4.0"
   }
 }

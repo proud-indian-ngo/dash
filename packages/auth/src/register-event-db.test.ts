@@ -32,7 +32,6 @@ vi.mock("@pi-dash/observability", () => ({
 
 import { user } from "@pi-dash/db/schema/auth";
 import {
-  kalakritiCredential,
   kalakritiEdition,
   kalakritiEditionMembership,
   kalakritiExternalIdentity,
@@ -61,7 +60,7 @@ const row = {
 };
 
 function setup(
-  existing?: { id: string; kind: string; state: string },
+  existing?: { id: string; kind: string; state: string; humanId?: string },
   inserted = true,
   failCommit = false,
   options: {
@@ -120,7 +119,6 @@ function setup(
     ],
     [kalakritiExternalIdentity, options.external ? [{ userId: "user" }] : []],
     [kalakritiEditionMembership, existing ? [existing] : []],
-    [kalakritiCredential, existing ? [{ id: "credential" }] : []],
   ]);
   const lock = vi.fn();
   const tx = {
@@ -174,7 +172,7 @@ describe("signup enrollment orientation persistence", () => {
       await createDbRegisterEventEnrollDeps().persistEnrollWrites(row)
     ).toBe("inserted");
     expect(mocks.promote).toHaveBeenCalledWith(tx, "user", 1000);
-    expect(tx.insert).toHaveBeenCalledTimes(3);
+    expect(tx.insert).toHaveBeenCalledTimes(2);
     expect(lock.mock.calls).toEqual([
       [kalakritiEdition, "update"],
       [teamEvent, "update"],
@@ -182,7 +180,7 @@ describe("signup enrollment orientation persistence", () => {
       [kalakritiEditionMembership, "update"],
       [kalakritiEdition, "update"],
     ]);
-    expect(tx.insert.mock.invocationCallOrder[2]).toBeLessThan(
+    expect(tx.insert.mock.invocationCallOrder[1]).toBeLessThan(
       mocks.promote.mock.invocationCallOrder[0]!
     );
     await Promise.all(mocks.effects);
@@ -204,7 +202,12 @@ describe("signup enrollment orientation persistence", () => {
     "handles %s membership even when the event member already exists",
     async (state) => {
       const { set } = setup(
-        { id: "membership", kind: "volunteer", state },
+        {
+          id: "membership",
+          kind: "volunteer",
+          state,
+          humanId: "KALV-2027-0007",
+        },
         false
       );
       expect(
@@ -403,12 +406,11 @@ describe("createDbRegisterEventEnrollDeps persistEnrollWrites", () => {
     mocks.promote.mockResolvedValue(false);
   });
 
-  it("allocates a human ID and credential for a new volunteer", async () => {
+  it("allocates a yearly human ID for a new volunteer", async () => {
     const transaction = createTransaction([
       [],
       [{ lifecycle: "live", nextVolunteerSequence: 12, year: 2027 }],
       [{ humanId: null, kind: "volunteer" }],
-      [],
     ]);
 
     await expect(persistWith(transaction)).resolves.toBe("inserted");
@@ -425,24 +427,18 @@ describe("createDbRegisterEventEnrollDeps persistEnrollWrites", () => {
       { humanId: "KALV-2027-0012", updatedAt: new Date(now) },
       { nextVolunteerSequence: 13 },
     ]);
-    expect(transaction.insertValues[1]).toEqual(
-      expect.objectContaining({
-        editionId: "edition-1",
-        humanId: "KALV-2027-0012",
-        issuedBy: "user-1",
-        membershipId: "membership-new",
-        tokenHash: expect.stringMatching(/^[a-f0-9]{64}$/),
-      })
-    );
+    expect(transaction.insertValues).toHaveLength(2);
+    expect(transaction.insertValues[1]).toEqual({
+      ...enrollment().eventMember,
+      addedAt: new Date(now),
+    });
   });
 
-  it("preserves an archived volunteer human ID and issues one credential", async () => {
+  it("preserves an archived volunteer human ID without advancing the sequence", async () => {
     const transaction = createTransaction([
       [{ id: "membership-existing", kind: "volunteer", state: "archived" }],
-      [],
       [{ lifecycle: "live", nextVolunteerSequence: 20, year: 2027 }],
       [{ humanId: "KALV-2027-0007", kind: "volunteer" }],
-      [],
     ]);
 
     await persistWith(transaction);
@@ -454,19 +450,18 @@ describe("createDbRegisterEventEnrollDeps persistEnrollWrites", () => {
         updatedAt: new Date(now),
       }),
     ]);
-    expect(transaction.insertValues).toHaveLength(2);
-    expect(transaction.insertValues[0]).toEqual(
-      expect.objectContaining({
-        humanId: "KALV-2027-0007",
-        membershipId: "membership-existing",
-        tokenHash: expect.stringMatching(/^[a-f0-9]{64}$/),
-      })
-    );
+    expect(transaction.insertValues).toHaveLength(1);
+    expect(transaction.insertValues[0]).toEqual({
+      ...enrollment().eventMember,
+      addedAt: new Date(now),
+    });
   });
 
   it("leaves an existing active volunteer membership unchanged", async () => {
     const transaction = createTransaction([
       [{ id: "membership-existing", kind: "volunteer", state: "active" }],
+      [{ lifecycle: "live", nextVolunteerSequence: 20, year: 2027 }],
+      [{ humanId: "KALV-2027-0007", kind: "volunteer" }],
     ]);
 
     await persistWith(transaction);
@@ -475,15 +470,25 @@ describe("createDbRegisterEventEnrollDeps persistEnrollWrites", () => {
     expect(transaction.updateValues).toEqual([]);
   });
 
-  it("does not duplicate an existing active credential when reenrolling", async () => {
-    const transaction = createTransaction([
-      [{ id: "membership-existing", kind: "volunteer", state: "archived" }],
-      [{ id: "credential-existing" }],
-    ]);
+  it.each(["active", "archived"])(
+    "allocates a missing yearly human ID for a replayed %s volunteer",
+    async (state) => {
+      const transaction = createTransaction([
+        [{ id: "membership-existing", kind: "volunteer", state }],
+        [{ lifecycle: "live", nextVolunteerSequence: 20, year: 2027 }],
+        [{ humanId: null, kind: "volunteer" }],
+      ]);
 
-    await persistWith(transaction);
+      await persistWith(transaction);
 
-    expect(transaction.updateValues).toHaveLength(1);
-    expect(transaction.insertValues).toHaveLength(1);
-  });
+      expect(transaction.updateValues).toEqual([
+        ...(state === "archived"
+          ? [expect.objectContaining({ state: "active", archivedAt: null })]
+          : []),
+        { humanId: "KALV-2027-0020", updatedAt: new Date(now) },
+        { nextVolunteerSequence: 21 },
+      ]);
+      expect(transaction.insertValues).toHaveLength(1);
+    }
+  );
 });

@@ -57,7 +57,6 @@ describe("Kalakriti Registration Release surface", () => {
       "competitions/route.tsx",
       "competitions/schedule.tsx",
       "competitions/venues.tsx",
-      "credentials.tsx",
       "eligibility.tsx",
       "entries.tsx",
       "entries/$id.tsx",
@@ -79,8 +78,7 @@ describe("Kalakriti Registration Release surface", () => {
       )
     ).toEqual([
       "audit.ts",
-      "credentials/lookup.ts",
-      "credentials/print.ts",
+      "people/lookup.ts",
       "registration-export.ts",
       "schedule.ts",
     ]);
@@ -144,7 +142,6 @@ describe("Kalakriti Registration Release surface", () => {
       "kalakritiCompetition.updateCompetition",
       "kalakritiCompetition.updateSession",
       "kalakritiCompetition.updateVenue",
-      "kalakritiCredential.reissue",
       "kalakritiEdition.cloneConfiguration",
       "kalakritiEdition.create",
       "kalakritiEdition.transition",

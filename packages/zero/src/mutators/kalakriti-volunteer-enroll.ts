@@ -1,9 +1,8 @@
 import type { Context } from "../context";
 import {
-  type CredentialIssueTx,
-  findActiveCredentialForMembership,
-  issueVolunteerCredential,
-} from "../kalakriti-credential-issue";
+  type VolunteerIdTx,
+  ensureVolunteerHumanId,
+} from "../kalakriti-volunteer-id";
 import { assertIsLoggedIn, can } from "../permissions";
 import { zql } from "../schema";
 import {
@@ -26,10 +25,6 @@ type ZeroRunFn = BivariantZeroRun["bivarianceHack"];
 export interface VolunteerEnrollTx extends OrientationTx {
   location: "client" | "server";
   mutate: {
-    kalakritiCredential: {
-      insert: ZeroMutationFn;
-      update: ZeroMutationFn;
-    };
     kalakritiEdition: { update: ZeroMutationFn };
     kalakritiEditionMembership: {
       insert: ZeroMutationFn;
@@ -111,8 +106,6 @@ export async function ensureUnassignedVolunteerEnrollment(
   tx: VolunteerEnrollTx,
   args: {
     actorUserId: string;
-    credentialId: string;
-    credentialTokenHash: string;
     edition: VolunteerEnrollEdition;
     membershipId: string;
     now: number;
@@ -137,7 +130,6 @@ export async function ensureUnassignedVolunteerEnrollment(
   }
 
   const membershipId = membership ? membership.id : args.membershipId;
-  let shouldIssueCredential = false;
   if (!membership) {
     await tx.mutate.kalakritiEditionMembership.insert({
       archivedAt: null,
@@ -154,7 +146,6 @@ export async function ensureUnassignedVolunteerEnrollment(
       updatedAt: args.now,
       userId: args.userId,
     });
-    shouldIssueCredential = true;
   } else if (membership.state === "archived") {
     await tx.mutate.kalakritiEditionMembership.update({
       archivedAt: null,
@@ -165,11 +156,6 @@ export async function ensureUnassignedVolunteerEnrollment(
       state: "active",
       updatedAt: args.now,
     });
-    const activeCredential = await findActiveCredentialForMembership(
-      tx,
-      membership.id
-    );
-    shouldIssueCredential = !activeCredential;
   }
 
   const eventMember = await tx.run(
@@ -190,21 +176,15 @@ export async function ensureUnassignedVolunteerEnrollment(
     });
   }
 
-  if (shouldIssueCredential) {
-    await issueVolunteerCredential(tx as CredentialIssueTx, {
-      actorUserId: args.actorUserId,
-      credentialId: args.credentialId,
-      editionId: args.edition.id,
-      membershipId,
-      now: args.now,
-      tokenHash: args.credentialTokenHash,
-    });
-  }
+  await ensureVolunteerHumanId(tx as VolunteerIdTx, {
+    editionId: args.edition.id,
+    membershipId,
+  });
 
   await orientEnrolledKalakritiVolunteer(tx, ctx, args.userId, args.now);
 
   if (membership?.state === "active") {
-    return eventMember ? "already-active" : "enrolled";
+    return eventMember && membership.humanId ? "already-active" : "enrolled";
   }
   return "enrolled";
 }

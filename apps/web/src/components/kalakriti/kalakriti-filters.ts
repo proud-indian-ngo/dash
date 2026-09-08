@@ -239,6 +239,30 @@ export function getVolunteerFilterValue(
 ): unknown {
   const [key] = path;
   switch (key) {
+    case "snapshotName":
+      return row.snapshotName;
+    case "humanId":
+      return row.humanId ?? null;
+    case "snapshotEmail":
+      return row.snapshotEmail;
+    case "snapshotPhone":
+      return row.snapshotPhone;
+    case "registrationGroup":
+      return row.registrationGroup ?? null;
+    case "centers":
+      return row.assignments.flatMap((assignment) =>
+        assignment.centerId ? [assignment.centerId] : []
+      );
+    case "competitionCategories":
+      return row.assignments.flatMap((assignment) =>
+        assignment.competitionCategoryId
+          ? [assignment.competitionCategoryId]
+          : []
+      );
+    case "competitions":
+      return row.assignments.flatMap((assignment) =>
+        assignment.competitionId ? [assignment.competitionId] : []
+      );
     case "primary":
       return row.assignments.some((assignment) => assignment.isPrimary)
         ? "primary"
@@ -255,7 +279,75 @@ export function getVolunteerFilterValue(
 export function createVolunteerFilterFields(
   rows: readonly VolunteerRosterItem[]
 ): FilterField[] {
+  const assignments = rows.flatMap((row) => row.assignments);
   return [
+    {
+      id: "snapshotName",
+      label: "Name",
+      type: "text",
+      defaultOperator: "contains",
+    },
+    {
+      id: "humanId",
+      label: "Yearly ID",
+      type: "text",
+      defaultOperator: "contains",
+    },
+    {
+      id: "snapshotEmail",
+      label: "Email",
+      type: "text",
+      defaultOperator: "contains",
+    },
+    {
+      id: "snapshotPhone",
+      label: "Phone",
+      type: "text",
+      defaultOperator: "contains",
+    },
+    selectField(
+      "registrationGroup",
+      "Group",
+      optionsFromRows(
+        rows,
+        (row) => row.registrationGroup,
+        (row) => row.registrationGroup ?? ""
+      )
+    ),
+    {
+      id: "centers",
+      label: "Center",
+      type: "multiselect",
+      defaultOperator: "has_any_of",
+      options: optionsFromRows(
+        assignments,
+        (assignment) => assignment.centerId,
+        (assignment) => assignment.scopeName ?? assignment.centerId ?? ""
+      ),
+    },
+    {
+      id: "competitionCategories",
+      label: "Competition Category",
+      type: "multiselect",
+      defaultOperator: "has_any_of",
+      options: optionsFromRows(
+        assignments,
+        (assignment) => assignment.competitionCategoryId,
+        (assignment) =>
+          assignment.scopeName ?? assignment.competitionCategoryId ?? ""
+      ),
+    },
+    {
+      id: "competitions",
+      label: "Competition",
+      type: "multiselect",
+      defaultOperator: "has_any_of",
+      options: optionsFromRows(
+        assignments,
+        (assignment) => assignment.competitionId,
+        (assignment) => assignment.scopeName ?? assignment.competitionId ?? ""
+      ),
+    },
     {
       defaultOperator: "has_any_of",
       id: "responsibilities",
@@ -263,7 +355,7 @@ export function createVolunteerFilterFields(
       options: [
         { label: "Unassigned", value: "unassigned" },
         ...optionsFromRows(
-          rows.flatMap((row) => row.assignments),
+          assignments,
           (assignment) => assignment.responsibility,
           (assignment) =>
             KALAKRITI_RESPONSIBILITY_LABELS[assignment.responsibility]

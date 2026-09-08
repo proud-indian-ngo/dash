@@ -13,11 +13,6 @@ const helperPath = path.resolve(
 
 interface StudentState {
   audits: Array<{ action: string }>;
-  credentials: Array<{
-    humanId: string;
-    revokedAt: string | null;
-    tokenHash: string;
-  }>;
   nextStudentSequence: number | null;
   students: Array<{ humanId: string; name: string }>;
 }
@@ -162,12 +157,6 @@ test.describe("Kalakriti Student registration", () => {
       expect(state.students).toEqual([
         { humanId: "KAL-2026-0002", name: "Ananya Rao Updated" },
       ]);
-      expect(state.credentials).toHaveLength(1);
-      expect(state.credentials[0]).toMatchObject({
-        humanId: "KAL-2026-0002",
-        revokedAt: null,
-      });
-      expect(state.credentials[0]?.tokenHash).toMatch(/^[0-9a-f]{64}$/);
       expect(state.nextStudentSequence).toBe(3);
       expect(state.audits.map((audit) => audit.action)).toEqual(
         expect.arrayContaining(["created", "updated", "deleted"])
@@ -214,7 +203,6 @@ test.describe("Kalakriti Student registration", () => {
 
       const state = await waitForStudentCount(1);
       expect(state.students).toHaveLength(1);
-      expect(state.credentials).toHaveLength(1);
       expect(state.nextStudentSequence).toBe(2);
     } finally {
       await secondPage.close();

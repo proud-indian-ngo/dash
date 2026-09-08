@@ -3,7 +3,6 @@ import {
   kalakritiAgeCategory,
   kalakritiAuditEntry,
   kalakritiCenter,
-  kalakritiCredential,
   kalakritiEdition,
   kalakritiStudent,
 } from "@pi-dash/db/schema/kalakriti";
@@ -19,9 +18,6 @@ const fixture = {
 } as const;
 
 async function cleanup() {
-  await db
-    .delete(kalakritiCredential)
-    .where(eq(kalakritiCredential.editionId, fixture.editionId));
   await db
     .delete(kalakritiStudent)
     .where(eq(kalakritiStudent.editionId, fixture.editionId));
@@ -112,7 +108,7 @@ async function setup(actorEmail: string, femaleLimit: number) {
 }
 
 async function readState() {
-  const [students, credentials, audits, edition] = await Promise.all([
+  const [students, audits, edition] = await Promise.all([
     db
       .select({
         humanId: kalakritiStudent.humanId,
@@ -120,14 +116,6 @@ async function readState() {
       })
       .from(kalakritiStudent)
       .where(eq(kalakritiStudent.editionId, fixture.editionId)),
-    db
-      .select({
-        humanId: kalakritiCredential.humanId,
-        revokedAt: kalakritiCredential.revokedAt,
-        tokenHash: kalakritiCredential.tokenHash,
-      })
-      .from(kalakritiCredential)
-      .where(eq(kalakritiCredential.editionId, fixture.editionId)),
     db
       .select({ action: kalakritiAuditEntry.action })
       .from(kalakritiAuditEntry)
@@ -139,7 +127,6 @@ async function readState() {
   ]);
   return {
     audits,
-    credentials,
     nextStudentSequence: edition?.nextStudentSequence ?? null,
     students,
   };

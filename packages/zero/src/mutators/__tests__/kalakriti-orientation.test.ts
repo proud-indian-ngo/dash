@@ -26,8 +26,6 @@ function setup(promoted = true) {
 
 const args = {
   actorUserId: "admin-1",
-  credentialId: "credential-1",
-  credentialTokenHash: "a".repeat(64),
   edition: { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
   membershipId: "membership-1",
   now: 1234,
@@ -220,26 +218,24 @@ describe("Kalakriti orientation", () => {
       const { tx, ctx, sql } = setup();
       const insert = mock(async () => undefined);
       const update = mock(async () => undefined);
-      const insertCredential = mock(async () => undefined);
       const results = [
         state === "new"
           ? undefined
           : { id: "membership-1", kind: "volunteer", state },
-        ...(state === "archived" ? [undefined] : []),
-        undefined,
+        state === "active" ? { id: "event-member-1" } : undefined,
         {
           editionId: "edition-1",
           humanId: state === "archived" ? "KALV-2027-00042" : null,
+          kind: "volunteer",
           id: "membership-1",
           state: "active",
         },
       ];
-      await ensureUnassignedVolunteerEnrollment(
+      const enrollmentResult = await ensureUnassignedVolunteerEnrollment(
         {
           ...tx,
           run: mock(async () => results.shift()),
           mutate: {
-            kalakritiCredential: { insert: insertCredential, update },
             kalakritiEdition: { update },
             kalakritiEditionMembership: { insert, update },
             teamEventMember: { insert },
@@ -248,21 +244,14 @@ describe("Kalakriti orientation", () => {
         args,
         ctx
       );
+      expect(enrollmentResult).toBe("enrolled");
       expect(sql.returning).toHaveBeenCalledTimes(1);
       expect(ctx.asyncTasks).toHaveLength(3);
-      expect(insertCredential).toHaveBeenCalledTimes(
-        state === "active" ? 0 : 1
-      );
-      if (state !== "active") {
-        expect(insertCredential).toHaveBeenCalledWith(
-          expect.objectContaining({
-            id: args.credentialId,
-            membershipId: args.membershipId,
-            tokenHash: args.credentialTokenHash,
-            humanId:
-              state === "archived" ? "KALV-2027-00042" : "KALV-2027-0001",
-          })
-        );
+      if (state !== "archived") {
+        expect(update).toHaveBeenCalledWith({
+          humanId: "KALV-2027-0001",
+          id: "membership-1",
+        });
       }
     });
   }
@@ -280,7 +269,6 @@ describe("Kalakriti orientation", () => {
             state: "active",
           })),
           mutate: {
-            kalakritiCredential: { insert, update: mock() },
             kalakritiEdition: { update: mock() },
             kalakritiEditionMembership: { insert, update: mock() },
             teamEventMember: { insert },

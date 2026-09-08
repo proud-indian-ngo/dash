@@ -10,7 +10,10 @@ import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 
 import type { Context } from "../context";
-import { findActiveCredentialForMembership } from "../kalakriti-credential-issue";
+import {
+  ensureVolunteerHumanId,
+  type VolunteerIdTx,
+} from "../kalakriti-volunteer-id";
 import { assertIsLoggedIn, can } from "../permissions";
 import { zql } from "../schema";
 import { orientEnrolledKalakritiVolunteer } from "./kalakriti-orientation";
@@ -38,10 +41,6 @@ interface AssignmentTx extends LockableKalakritiTx {
       update: ZeroMutationFn;
     };
     kalakritiAuditEntry: { insert: ZeroMutationFn };
-    kalakritiCredential: {
-      insert: ZeroMutationFn;
-      update: ZeroMutationFn;
-    };
     kalakritiEdition: { update: ZeroMutationFn };
     kalakritiEditionMembership: {
       insert: ZeroMutationFn;
@@ -157,8 +156,6 @@ export const kalakritiAddVolunteersSchema = z.object({
   volunteers: z
     .array(
       z.object({
-        credentialId: z.string(),
-        credentialTokenHash: z.string().regex(/^[0-9a-f]{64}$/),
         membershipId: z.string(),
         teamEventMemberId: z.string(),
         userId: z.string(),
@@ -362,6 +359,10 @@ async function assignVolunteerResponsibility(
     )
   ) {
     if (membership?.state === "active") {
+      await ensureVolunteerHumanId(tx as VolunteerIdTx, {
+        editionId: args.editionId,
+        membershipId,
+      });
       await orientEnrolledKalakritiVolunteer(tx, ctx, args.userId, args.now);
       return;
     }
@@ -458,6 +459,10 @@ async function assignVolunteerResponsibility(
     targetId: args.assignmentId,
     targetType: "assignment",
   });
+  await ensureVolunteerHumanId(tx as VolunteerIdTx, {
+    editionId: args.editionId,
+    membershipId,
+  });
   await orientEnrolledKalakritiVolunteer(tx, ctx, args.userId, args.now);
 }
 
@@ -485,8 +490,6 @@ export const kalakritiAssignmentMutators = {
           tx,
           {
             actorUserId: ctx.userId,
-            credentialId: volunteerArgs.credentialId,
-            credentialTokenHash: volunteerArgs.credentialTokenHash,
             edition: {
               id: args.editionId,
               lifecycle: edition.lifecycle,
@@ -675,18 +678,6 @@ export const kalakritiAssignmentMutators = {
           tx.mutate.kalakritiAssignment.delete({ id: assignment.id })
         )
       );
-
-      const activeCredential = await findActiveCredentialForMembership(
-        tx,
-        membership.id
-      );
-      if (activeCredential) {
-        await tx.mutate.kalakritiCredential.update({
-          id: activeCredential.id,
-          revokedAt: args.now,
-          revokedBy: ctx.userId,
-        });
-      }
 
       await tx.mutate.kalakritiEditionMembership.update({
         archivedAt: args.now,

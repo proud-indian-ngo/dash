@@ -8,12 +8,10 @@
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
-    "qrcode": "^1.5.4",
     "react": "catalog:"
   },
   "devDependencies": {
     "@pi-dash/config": "workspace:*",
-    "@types/qrcode": "^1.5.5",
     "@types/react": "catalog:",
     "typescript": "catalog:"
   }

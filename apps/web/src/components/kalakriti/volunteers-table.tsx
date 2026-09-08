@@ -38,6 +38,8 @@ export interface VolunteerAssignmentItem {
 }
 
 export interface VolunteerRosterItem {
+  humanId?: string | null;
+  registrationGroup?: string | null;
   assignments: VolunteerAssignmentItem[];
   id: string;
   snapshotEmail: string | null;
@@ -73,6 +75,26 @@ export function formatKalakritiVolunteerAssignment(
   return assignment.isPrimary ? `${scoped} · Primary` : scoped;
 }
 
+function volunteerScopeNames(
+  row: VolunteerRosterItem,
+  scope: "centerId" | "competitionCategoryId" | "competitionId"
+): string {
+  const names = new Map<string, string>();
+  for (const assignment of row.assignments) {
+    const id = assignment[scope];
+    if (id && (!names.has(id) || assignment.scopeName)) {
+      names.set(id, assignment.scopeName ?? "Not available");
+    }
+  }
+  return [...names]
+    .sort(
+      ([leftId, leftName], [rightId, rightName]) =>
+        leftName.localeCompare(rightName) || leftId.localeCompare(rightId)
+    )
+    .map(([, name]) => name)
+    .join(", ");
+}
+
 function searchVolunteer(row: VolunteerRosterItem, query: string): boolean {
   const normalizedQuery = query.trim().toLowerCase();
   if (!normalizedQuery) {
@@ -80,8 +102,10 @@ function searchVolunteer(row: VolunteerRosterItem, query: string): boolean {
   }
   return [
     row.snapshotName,
+    row.humanId ?? "",
     row.snapshotEmail ?? "",
     row.snapshotPhone ?? "",
+    row.registrationGroup ?? "",
     ...row.assignments.map((assignment) =>
       formatKalakritiVolunteerAssignment(assignment)
     ),
@@ -240,6 +264,31 @@ export function VolunteersTable({
       size: 200,
     },
     {
+      accessorKey: "humanId",
+      cell: ({ row }) => (
+        <span className="font-mono text-sm">{row.original.humanId ?? "—"}</span>
+      ),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Yearly ID"
+          visibility={true}
+        />
+      ),
+      id: "humanId",
+      meta: { headerTitle: "Yearly ID", skeleton: SKELETON_NAME },
+      size: 190,
+    },
+    {
+      accessorFn: (row) => row.registrationGroup ?? "—",
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Group" visibility={true} />
+      ),
+      id: "registrationGroup",
+      meta: { headerTitle: "Group", skeleton: SKELETON_NAME },
+      size: 160,
+    },
+    {
       accessorKey: "snapshotEmail",
       cell: ({ row }) => (
         <span className="text-muted-foreground text-sm">
@@ -292,6 +341,37 @@ export function VolunteersTable({
       meta: { headerTitle: "Roles", skeleton: SKELETON_ROLES },
       size: 280,
     },
+    ...(
+      [
+        ["centers", "Center", "centerId"],
+        ["categories", "Competition Category", "competitionCategoryId"],
+        ["competitions", "Competition", "competitionId"],
+      ] as const
+    ).map(([id, title, scope]): DataGridColumnDef<VolunteerRosterItem> => ({
+      accessorFn: (row) => volunteerScopeNames(row, scope) || "—",
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title={title} visibility={true} />
+      ),
+      id,
+      meta: { headerTitle: title, skeleton: SKELETON_NAME },
+      size: 200,
+    })),
+    {
+      accessorFn: (row) =>
+        row.assignments.some((assignment) => assignment.isPrimary)
+          ? "Primary"
+          : "Not primary",
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Primary role"
+          visibility={true}
+        />
+      ),
+      id: "primary",
+      meta: { headerTitle: "Primary role", skeleton: SKELETON_ROLES },
+      size: 150,
+    },
     {
       cell: ({ row }) => (
         <RowActions
@@ -328,6 +408,13 @@ export function VolunteersTable({
     <DataTableWrapper<VolunteerRosterItem>
       columns={columns}
       data={data}
+      defaultColumnVisibility={{
+        centers: false,
+        categories: false,
+        competitions: false,
+        primary: false,
+        registrationGroup: false,
+      }}
       emptyMessage="No volunteers on this Edition yet."
       filter={{
         fields: createVolunteerFilterFields(data),

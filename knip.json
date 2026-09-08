@@ -25,7 +25,7 @@
       "ignoreFiles": ["global-setup.ts"],
       "entry": [
         "helpers/kalakriti-centers.ts",
-        "helpers/kalakriti-credentials.ts",
+        "helpers/kalakriti-person-qr.ts",
         "helpers/kalakriti-competitions.ts",
         "helpers/kalakriti-edition-creation.ts",
         "helpers/kalakriti-entries.ts",

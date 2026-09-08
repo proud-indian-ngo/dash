@@ -36,16 +36,21 @@ function searchStudents(row: KalakritiStudentRow, query: string): boolean {
 }
 
 function StudentRowActions({
+  canManage,
   entryRegistrationEnabled,
+  onView,
   onDelete,
   onEdit,
   student,
 }: {
+  canManage: boolean;
+  onView: (student: KalakritiStudentRow) => void;
   entryRegistrationEnabled: boolean;
   onDelete: (student: KalakritiStudentRow) => void;
   onEdit: (student: KalakritiStudentRow) => void;
   student: KalakritiStudentRow;
 }) {
+  const handleView = useEventCallback(() => onView(student));
   const handleEdit = useEventCallback(() => onEdit(student));
   const handleDelete = useEventCallback(() => onDelete(student));
   const canDelete = canDeleteKalakritiStudent({
@@ -73,15 +78,21 @@ function StudentRowActions({
         }
       />
       <DropdownMenuContent align="end" className="w-44">
-        <DropdownMenuItem onClick={handleEdit}>Edit</DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          disabled={!canDelete}
-          onClick={handleDelete}
-          variant="destructive"
-        >
-          {canDelete ? "Delete" : "Delete (Entries locked)"}
-        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleView}>View details</DropdownMenuItem>
+        {canManage ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleEdit}>Edit</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              disabled={!canDelete}
+              onClick={handleDelete}
+              variant="destructive"
+            >
+              {canDelete ? "Delete" : "Delete (Entries locked)"}
+            </DropdownMenuItem>
+          </>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -95,6 +106,7 @@ interface StudentTableProps {
   onDelete: (student: KalakritiStudentRow) => void;
   onEdit: (student: KalakritiStudentRow) => void;
   onRegister: () => void;
+  onView: (student: KalakritiStudentRow) => void;
 }
 
 function getStudentRowId(student: KalakritiStudentRow): string {
@@ -109,6 +121,7 @@ export function StudentTable({
   onDelete,
   onEdit,
   onRegister,
+  onView,
 }: StudentTableProps) {
   const filterFields = useMemo(() => createStudentFilterFields(data), [data]);
   const columns: DataGridColumnDef<KalakritiStudentRow>[] = [
@@ -207,33 +220,31 @@ export function StudentTable({
       },
       size: 160,
     },
-    ...(canManage
-      ? [
-          {
-            cell: ({ row }: { row: { original: KalakritiStudentRow } }) => (
-              <StudentRowActions
-                entryRegistrationEnabled={entryRegistrationEnabled}
-                onDelete={onDelete}
-                onEdit={onEdit}
-                student={row.original}
-              />
-            ),
-            enableHiding: false,
-            enableResizing: false,
-            enableSorting: false,
-            header: () => null,
-            id: "actions",
-            meta: {
-              cellClassName: "text-center",
-              enableColumnOrdering: false,
-              headerTitle: "",
-              skeleton: <Skeleton className="size-7" />,
-              stopRowClick: true,
-            },
-            size: 52,
-          } satisfies DataGridColumnDef<KalakritiStudentRow>,
-        ]
-      : []),
+    {
+      cell: ({ row }) => (
+        <StudentRowActions
+          canManage={canManage}
+          onView={onView}
+          entryRegistrationEnabled={entryRegistrationEnabled}
+          onDelete={onDelete}
+          onEdit={onEdit}
+          student={row.original}
+        />
+      ),
+      enableHiding: false,
+      enableResizing: false,
+      enableSorting: false,
+      header: () => null,
+      id: "actions",
+      meta: {
+        cellClassName: "text-center",
+        enableColumnOrdering: false,
+        headerTitle: "",
+        skeleton: <Skeleton className="size-7" />,
+        stopRowClick: true,
+      },
+      size: 52,
+    },
   ];
 
   return (
@@ -247,6 +258,7 @@ export function StudentTable({
       }}
       getRowId={getStudentRowId}
       isLoading={isLoading}
+      onRowClick={onView}
       searchFn={searchStudents}
       searchPlaceholder="Search Students..."
       storageKey="kalakriti_students_table_state_v1"

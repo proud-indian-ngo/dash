@@ -177,6 +177,8 @@ bun run db:push        # Alternative: push schema directly (local dev only)
 
 Always update DB schema before deploying the app. The Docker compose dependency chain handles this automatically.
 
+The Kalakriti legacy-credential removal migration drops `kalakriti_credential` and its stored token hashes. Back up that table before applying it, and stop old app/Zero workers that still reference it; a mixed-version rollout isn't compatible with this drop. JSON person QRs and yearly IDs don't require credential rows. Later event-day branches must remove their credential-table dependencies before deployment. Existing missing volunteer yearly IDs can be filled with the [explicit backfill](docs/architecture/kalakriti-registration.md#volunteer-yearly-ids).
+
 ### 3. Generate Zero schema
 
 ```bash

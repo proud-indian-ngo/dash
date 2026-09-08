@@ -56,7 +56,6 @@ import {
   kalakritiCompetitionDivision,
   kalakritiCompetitionEntry,
   kalakritiCompetitionSession,
-  kalakritiCredential,
   kalakritiEdition,
   kalakritiEditionMembership,
   kalakritiEntryMember,
@@ -188,7 +187,6 @@ const ID = {
   kalakritiCompetitionCategory: "019d52c2-7261-7dce-b0ee-e206561715ca",
   kalakritiCompetitionEntry: "019d52c2-7261-7dce-b0ee-e206561715d0",
   kalakritiCompetitionSession: "019d52c2-7261-7dce-b0ee-e206561715cd",
-  kalakritiCredential: "019d52c2-7261-7dce-b0ee-e206561715cf",
   kalakritiEdition: "019d52c2-7261-7dce-b0ee-e206561715c0",
   kalakritiEditionAdminAssignment: "019d52c2-7261-7dce-b0ee-e206561715c3",
   kalakritiEditionAdminEventMember: "019d52c2-7261-7dce-b0ee-e206561715c5",
@@ -966,22 +964,6 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
       normalizedName: "aarohi rao",
       updatedAt: now,
       updatedBy: adminId,
-    })
-    .onConflictDoNothing();
-
-  await db
-    .insert(kalakritiCredential)
-    .values({
-      createdAt: now,
-      editionId: ID.kalakritiEdition,
-      humanId: "KAL-2027-0001",
-      id: ID.kalakritiCredential,
-      issuedAt: now,
-      issuedBy: adminId,
-      studentId: ID.kalakritiStudent,
-      tokenHash: createHash("sha256")
-        .update("kalakriti-dev-student-credential")
-        .digest("hex"),
     })
     .onConflictDoNothing();
 

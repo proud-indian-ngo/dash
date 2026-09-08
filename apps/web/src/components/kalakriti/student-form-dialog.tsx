@@ -8,7 +8,6 @@ import {
 } from "@pi-dash/design-system/components/ui/dialog";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { normalizeKalakritiStudentName } from "@pi-dash/shared/kalakriti";
-import { createKalakritiCredentialTokenHash } from "@pi-dash/shared/kalakriti-credential";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
@@ -258,8 +257,6 @@ function StudentForm({
         ...studentMutationValues(value),
         auditEntryId: uuidv7(),
         centerId,
-        credentialId: uuidv7(),
-        credentialTokenHash: await createKalakritiCredentialTokenHash(),
         editionId,
         now: Date.now(),
         studentId: uuidv7(),

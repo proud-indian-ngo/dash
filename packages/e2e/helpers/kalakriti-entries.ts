@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
 import {
@@ -12,7 +10,6 @@ import {
   kalakritiCompetitionDivision,
   kalakritiCompetitionEntry,
   kalakritiCompetitionSession,
-  kalakritiCredential,
   kalakritiEdition,
   kalakritiEditionMembership,
   kalakritiEntryMember,
@@ -29,10 +26,6 @@ const FIXTURES = {
     categoryId: "019f0000-0000-7000-8000-00000000e107",
     centerId: "019f0000-0000-7000-8000-00000000e104",
     competitionId: "019f0000-0000-7000-8000-00000000e108",
-    credentialIds: [
-      "019f0000-0000-7000-8000-00000000e10b",
-      "019f0000-0000-7000-8000-00000000e10c",
-    ],
     editionId: "019f0000-0000-7000-8000-00000000e101",
     eventId: "019f0000-0000-7000-8000-00000000e102",
     groupCompetitionId: "019f0000-0000-7000-8000-00000000e110",
@@ -56,10 +49,6 @@ const FIXTURES = {
     categoryId: "019f0000-0000-7000-8000-00000000e207",
     centerId: "019f0000-0000-7000-8000-00000000e204",
     competitionId: "019f0000-0000-7000-8000-00000000e208",
-    credentialIds: [
-      "019f0000-0000-7000-8000-00000000e20b",
-      "019f0000-0000-7000-8000-00000000e20c",
-    ],
     editionId: "019f0000-0000-7000-8000-00000000e201",
     eventId: "019f0000-0000-7000-8000-00000000e202",
     groupCompetitionId: "019f0000-0000-7000-8000-00000000e210",
@@ -89,9 +78,6 @@ async function cleanup(kind: FixtureKind): Promise<void> {
   await db
     .delete(kalakritiCompetitionEntry)
     .where(eq(kalakritiCompetitionEntry.editionId, fixture.editionId));
-  await db
-    .delete(kalakritiCredential)
-    .where(eq(kalakritiCredential.editionId, fixture.editionId));
   await db
     .delete(kalakritiStudent)
     .where(eq(kalakritiStudent.editionId, fixture.editionId));
@@ -218,20 +204,6 @@ async function setup(kind: FixtureKind, actorEmail: string) {
       normalizedName: `entry student ${String.fromCharCode(97 + index)}`,
       updatedAt: now,
       updatedBy: actor.id,
-    }))
-  );
-  await db.insert(kalakritiCredential).values(
-    fixture.credentialIds.map((id, index) => ({
-      createdAt: now,
-      editionId: fixture.editionId,
-      humanId: `KAL-${fixture.year}-000${index + 1}`,
-      id,
-      issuedAt: now,
-      issuedBy: actor.id,
-      studentId: fixture.studentIds[index] as string,
-      tokenHash: createHash("sha256")
-        .update(`kalakriti-entry-${kind}-${index}`)
-        .digest("hex"),
     }))
   );
   await db.insert(kalakritiCompetitionCategory).values({

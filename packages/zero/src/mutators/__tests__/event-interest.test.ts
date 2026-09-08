@@ -169,12 +169,10 @@ describe("Kalakriti event interest", () => {
     const sql = createOrientationSql(true);
     const insertMember = mock();
     const insertMembership = mock();
-    const insertCredential = mock();
     const updateEdition = mock();
     const updateMembership = mock();
     const updateInterest = mock();
     uuidv7Mock
-      .mockReturnValueOnce("credential-1")
       .mockReturnValueOnce("membership-1")
       .mockReturnValueOnce("event-member-1");
     const results = [
@@ -208,6 +206,7 @@ describe("Kalakriti event interest", () => {
       {
         editionId: "edition-1",
         humanId: null,
+        kind: "volunteer",
         id: "membership-1",
         state: "active",
       },
@@ -217,7 +216,6 @@ describe("Kalakriti event interest", () => {
       dbTransaction: { wrappedTransaction: sql.transaction },
       mutate: {
         eventInterest: { update: updateInterest },
-        kalakritiCredential: { insert: insertCredential, update: mock() },
         kalakritiEdition: { update: updateEdition },
         kalakritiEditionMembership: {
           insert: insertMembership,
@@ -258,13 +256,6 @@ describe("Kalakriti event interest", () => {
         kind: "volunteer",
         state: "active",
         userId: "volunteer-1",
-      })
-    );
-    expect(insertCredential).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: "credential-1",
-        membershipId: "membership-1",
-        tokenHash: expect.stringMatching(/^[0-9a-f]{64}$/),
       })
     );
   });

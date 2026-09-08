@@ -1,11 +1,8 @@
-import { createHash, randomBytes } from "node:crypto";
-
 import { db } from "@pi-dash/db";
 import { promoteKalakritiVolunteer } from "@pi-dash/db/kalakriti-orientation";
 import { invalidatePermissionCache } from "@pi-dash/db/queries/resolve-permissions";
 import { user } from "@pi-dash/db/schema/auth";
 import {
-  kalakritiCredential,
   kalakritiEdition,
   kalakritiEditionMembership,
   kalakritiExternalIdentity,
@@ -15,8 +12,7 @@ import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import { enqueue } from "@pi-dash/jobs/enqueue";
 import { withFireAndForgetLog } from "@pi-dash/observability";
 import { formatKalakritiVolunteerHumanId } from "@pi-dash/shared/kalakriti";
-import { and, eq, isNull } from "drizzle-orm";
-import { uuidv7 } from "uuidv7";
+import { and, eq } from "drizzle-orm";
 
 import type { RegisterEventEnrollDeps } from "./register-event";
 
@@ -27,14 +23,9 @@ function toEpoch(value: Date | number | null | undefined): number | null {
   return value instanceof Date ? value.getTime() : value;
 }
 
-function createCredentialTokenHash(): string {
-  return createHash("sha256").update(randomBytes(32)).digest("hex");
-}
-
-async function issueVolunteerCredentialForMembership(
+async function ensureVolunteerHumanId(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   input: {
-    actorUserId: string;
     editionId: string;
     membershipId: string;
     now: number;
@@ -65,24 +56,8 @@ async function issueVolunteerCredentialForMembership(
     return;
   }
 
-  const [activeCredential] = await tx
-    .select({ id: kalakritiCredential.id })
-    .from(kalakritiCredential)
-    .where(
-      and(
-        eq(kalakritiCredential.membershipId, input.membershipId),
-        isNull(kalakritiCredential.revokedAt)
-      )
-    )
-    .limit(1);
-  if (activeCredential) {
-    return;
-  }
-
-  const { humanId: existingHumanId } = membership;
-  let humanId = existingHumanId;
-  if (!humanId) {
-    humanId = formatKalakritiVolunteerHumanId(
+  if (!membership.humanId) {
+    const humanId = formatKalakritiVolunteerHumanId(
       edition.year,
       edition.nextVolunteerSequence
     );
@@ -97,20 +72,6 @@ async function issueVolunteerCredentialForMembership(
       })
       .where(eq(kalakritiEdition.id, input.editionId));
   }
-
-  await tx.insert(kalakritiCredential).values({
-    createdAt: new Date(input.now),
-    editionId: input.editionId,
-    humanId,
-    id: uuidv7(),
-    issuedAt: new Date(input.now),
-    issuedBy: input.actorUserId,
-    membershipId: input.membershipId,
-    revokedAt: null,
-    revokedBy: null,
-    studentId: null,
-    tokenHash: createCredentialTokenHash(),
-  });
 }
 
 async function persistVolunteerMembershipEnroll(
@@ -144,7 +105,6 @@ async function persistVolunteerMembershipEnroll(
     return false;
   }
   let membershipId = existing?.id;
-  let shouldIssueCredential = false;
   if (!existing) {
     membershipId = volunteer.id;
     await tx.insert(kalakritiEditionMembership).values({
@@ -162,7 +122,6 @@ async function persistVolunteerMembershipEnroll(
       updatedAt: new Date(volunteer.now),
       userId: volunteer.userId,
     });
-    shouldIssueCredential = true;
   } else if (existing.state === "archived") {
     membershipId = existing.id;
     await tx
@@ -176,21 +135,9 @@ async function persistVolunteerMembershipEnroll(
         updatedAt: new Date(volunteer.now),
       })
       .where(eq(kalakritiEditionMembership.id, existing.id));
-    const [activeCredential] = await tx
-      .select({ id: kalakritiCredential.id })
-      .from(kalakritiCredential)
-      .where(
-        and(
-          eq(kalakritiCredential.membershipId, existing.id),
-          isNull(kalakritiCredential.revokedAt)
-        )
-      )
-      .limit(1);
-    shouldIssueCredential = !activeCredential;
   }
-  if (shouldIssueCredential && membershipId) {
-    await issueVolunteerCredentialForMembership(tx, {
-      actorUserId: volunteer.createdBy,
+  if (membershipId) {
+    await ensureVolunteerHumanId(tx, {
       editionId: volunteer.editionId,
       membershipId,
       now: volunteer.now,

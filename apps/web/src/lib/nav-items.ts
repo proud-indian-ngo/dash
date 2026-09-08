@@ -135,7 +135,6 @@ const kalakritiNavItem: NavItem = {
 };
 
 export function buildKalakritiNavGroups({
-  canManageCredentials = false,
   canManageEligibility = false,
   canManageGuardians = false,
   canManageVolunteers = false,
@@ -145,7 +144,6 @@ export function buildKalakritiNavGroups({
   canViewStudents = false,
   year,
 }: {
-  canManageCredentials?: boolean;
   canManageEligibility?: boolean;
   canManageGuardians?: boolean;
   canManageVolunteers?: boolean;
@@ -176,14 +174,6 @@ export function buildKalakritiNavGroups({
       icon: UserGroupIcon,
       title: "Volunteers",
       url: `/kalakriti/${year}/volunteers`,
-    });
-  }
-
-  if (year && canManageCredentials) {
-    editionItems.push({
-      icon: SecurityLockIcon,
-      title: "Credentials",
-      url: `/kalakriti/${year}/credentials`,
     });
   }
 

@@ -1,6 +1,12 @@
 # Kalakriti Event-Day Phase 2 Task Breakdown
 
-## Release outcome
+## Current QR behavior supersedes the original KED-001–003 UI plan
+
+The original stack breakdown below describes opaque credentials and a standalone Credentials page. The current product uses identifier QRs in volunteer, Guardian, and Student detail sheets instead: every authorized sheet viewer sees a QR encoding JSON with the database record `id` and `type` (`student`, `guardian`, or `volunteer`). Student QRs use the Student record ID; Guardian and volunteer QRs use the Edition Membership record ID. No issue/reissue process, credential write, encryption, or separate QR admin gate is involved. Guardian sheets include assigned Centers; Student sheets include their Center and individual/group competitions. The standalone page and navigation item are removed. See [current architecture](./architecture/kalakriti-registration.md#public-and-server-only-projections).
+
+Person lookup now lives at `/api/kalakriti/:year/people/lookup` and resolves database or yearly identifiers within the Edition; its administrator authorization remains. The legacy credential table, PDF API, token hashing, and issuance/reissue mutators are removed. Volunteer yearly IDs remain independent of QR codes and appear in the Volunteers table within their own Kalakriti Edition. When restacking KED-004 and later scanner work, remove credential-table dependencies, resolve JSON identifiers against subject records rather than hashing them as bearer tokens, authorize each operation independently, and reject Guardian membership for volunteer-only operations. Possession of a QR does not grant permission or prove identity.
+
+## Original release outcome
 
 Phase 2 is complete when an administrator can print and reissue Student and volunteer Credentials, staff can record online event-day operations (Student transport checkpoints, volunteer check-in, meals, Competition attendance), Leads can correct those operations with a reason, and a registration-locked Edition can go `live` after readiness checks pass.
 

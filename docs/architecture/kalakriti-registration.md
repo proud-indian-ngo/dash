@@ -34,7 +34,7 @@ Edition Membership snapshots remain as historical records after a central user i
 
 The Drizzle schema is grouped in `packages/db/src/schema/kalakriti.ts`. Registration commands and queries live under `packages/zero/src/mutators/kalakriti-*` and `packages/zero/src/queries/kalakriti-*`; pure registration rules remain in focused `packages/zero/src/kalakriti-*` modules.
 
-Every sensitive join repeats `editionId`, and composite foreign keys prevent a Center, Age Category, Competition Division, Session, Student, Entry, or Assignment from crossing Edition boundaries. A Competition Division pairs one Competition with one Age Category and owns Entries and future Result ranking; a Competition Session only assigns that Division a time and Venue. PostgreSQL row locks serialize quota, Student-ID sequence, and lifecycle decisions. Unique indexes back duplicate Membership, one-Student-per-Division, one Session per Division, one active Credential, and one live Edition invariants. Assignment uniqueness is per person plus scope; lead roles including Overall Events Lead may be held by more than one volunteer.
+Every sensitive join repeats `editionId`, and composite foreign keys prevent a Center, Age Category, Competition Division, Session, Student, Entry, or Assignment from crossing Edition boundaries. A Competition Division pairs one Competition with one Age Category and owns Entries and future Result ranking; a Competition Session only assigns that Division a time and Venue. PostgreSQL row locks serialize quota, Student-ID sequence, and lifecycle decisions. Unique indexes back duplicate Membership, one-Student-per-Division, one Session per Division, unique volunteer yearly IDs, and one live Edition invariants. Assignment uniqueness is per person plus scope; lead roles including Overall Events Lead may be held by more than one volunteer.
 
 The lifecycle edges exposed by this release are:
 
@@ -48,15 +48,32 @@ A Competition may set `musicUploadEnabled`. While Center Entry registration is o
 
 ## Public and server-only projections
 
-Edition and global administrators manage Student and volunteer cards on `/kalakriti/:year/credentials`. `apps/web/src/functions/kalakriti-credentials.ts` lists allowlisted credential fields through `apps/web/src/lib/server/kalakriti-credential.ts`; `credentials-table.tsx` also shows active volunteers awaiting their first card. Enrollment assigns volunteers stable `KALV-{year}-{sequence}` IDs. Removing a volunteer revokes their card, and reactivation preserves their yearly ID.
+Every authorized viewer of a volunteer, Guardian, or Student detail sheet sees that person's identifier QR through `components/kalakriti/person-qr-panel.tsx`. The browser renders JSON directly from already-scoped row data: `{"id":"<database-id>","type":"student|guardian|volunteer"}`. `id` is the Student record ID for Students and the Edition Membership record ID for Guardians and volunteers; it never uses the yearly display ID. There is no issuance, replacement, secret token, or additional admin gate for these QRs. Opening a sheet never writes credential records.
 
-Credential lookup and print use `/api/kalakriti/:year/credentials/{lookup,print}`. Printing rotates the QR hash and renders the PDF inside the transaction, so rendering failures preserve existing cards. `packages/pdf/src/generate-kalakriti-credential.ts` and `kalakriti-credential-card.tsx` own rendering; the browser never receives stored token hashes. `packages/e2e/helpers/kalakriti-credentials.ts` and `tests/kalakriti/credential-print.spec.ts` cover issuance, lookup, printing, validation, and rollback. The [phase 2 task breakdown](../kalakriti-event-day-phase2-tasks.md) tracks later event-day work.
+Guardian sheets show assigned Centers; Student sheets show their Center and registered individual/group competitions, including cancellation status. There is no standalone Credentials page or navigation item. Existing page and query scopes still determine whose details a viewer can access; QR visibility does not make personal records public.
+
+`GET /api/kalakriti/:year/people/lookup?humanId=` accepts the existing yearly or record identifier and returns allowlisted Student, volunteer, or Guardian details without requiring a credential row. The lookup retains its administrator gate and Edition boundary. Scanners parse the JSON and use its `id` to look up the subject, then verify that the stored subject kind matches `type`. An identifier QR is not proof of identity or permission: scanner commands must authorize the operator and validate subject eligibility independently.
+
+The legacy credential table, token hashing, issuance/reissue mutators, and PDF card printing are removed. JSON QR display and person lookup depend only on Student and Edition Membership records. The person-QR E2E suite covers decoded payloads, stable display, scoped nonadmin visibility, and lookup; former credential routes return 404. The [phase 2 task breakdown](../kalakriti-event-day-phase2-tasks.md) records the scanner integration boundary for later stacked PRs.
 
 `/api/kalakriti/:year/schedule` is unauthenticated and returns an explicit allowlist: Edition display fields plus Competition, Age Category, Venue, time, and cancellation status. It never returns staffing, contacts, Students, submissions, evidence, music files, or `musicUploadEnabled`.
 
 Registration dashboards and `/api/kalakriti/:year/registration-export` resolve the actor and Edition on the server. The export route builds an allowlisted ZIP on the server, returns it as a private non-cacheable attachment, neutralizes spreadsheet formulas, and never sends raw registration rows to the browser. CSV import is intentionally unavailable.
 
 Audit reads apply Edition and responsibility scopes before returning privacy-safe metadata. Mutation audit entries remain Edition-owned and record the actor, domain, action, target, timestamp, reason where required, and structured metadata.
+
+## Volunteer yearly IDs
+
+Enrollment allocates a stable `KALV-{year}-{sequence}` ID on the volunteer's Edition Membership under the Edition row lock. Reactivation and replay preserve existing IDs, independently of QR payloads. Each Edition's Volunteers table displays that membership's ID in a searchable Yearly ID column; missing IDs display a dash. It uses the existing Edition-scoped roster query, without a separate server projection or changes to the global Users table.
+
+For existing volunteer memberships missing IDs, run the explicit backfill:
+
+```bash
+bun --env-file=.env scripts/backfill-kalakriti-volunteer-ids.ts --dry-run
+bun --env-file=.env scripts/backfill-kalakriti-volunteer-ids.ts --apply
+```
+
+The script includes archived volunteer memberships and Editions, preserves every existing ID, and allocates missing IDs in creation/record-ID order under an Edition lock. Dry-run is the default; a second successful apply updates zero rows. Remote targets require `--confirm-target=host:port/database`, using the same target guard as the orientation backfill. It doesn't change roles, notify users, or create credentials.
 
 ## Orientation backfill
 
@@ -75,7 +92,7 @@ Only loopback database hosts are accepted without `--confirm-target=host:port/da
 
 `packages/e2e/helpers/kalakriti-release-fixture.ts` owns deterministic role and privacy fixtures. The Kalakriti Playwright suite proves Edition creation and linked-event ownership, assignment and Guardian paths, Center controls, Student and individual/group Entry registration, public schedule privacy, scoped exports, direct URL/API denial, dormant Guardian login denial, and concurrent quota and duplicate races.
 
-`docs/kalakriti-registration-release-evidence.md` is the acceptance traceability record for KRR-001 through KRR-019. Credential reissue, print, and lookup now have dedicated coverage described above; transport and operational dependencies remain later modules on this branch.
+`docs/kalakriti-registration-release-evidence.md` is the acceptance traceability record for KRR-001 through KRR-019. Person QR display, yearly IDs, and lookup have dedicated coverage described above; transport and operational dependencies remain later modules on this branch.
 
 The release gate is:
 
