@@ -139,16 +139,19 @@ function KalakritiAddVolunteersForm({
     defaultValues: { userIds: [] as string[] },
     onSubmit: async ({ value }) => {
       const auditEntryId = uuidv7();
+      const volunteers = await Promise.all(
+        value.userIds.map(async (userId) => ({
+          membershipId: uuidv7(),
+          teamEventMemberId: uuidv7(),
+          userId,
+        }))
+      );
       const result = await zero.mutate(
         mutators.kalakritiAssignment.addVolunteers({
           auditEntryId,
           editionId,
           now: Date.now(),
-          volunteers: value.userIds.map((userId) => ({
-            membershipId: uuidv7(),
-            teamEventMemberId: uuidv7(),
-            userId,
-          })),
+          volunteers,
         })
       ).server;
       handleMutationResult(result, {

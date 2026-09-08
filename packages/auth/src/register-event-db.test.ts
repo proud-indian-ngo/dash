@@ -60,7 +60,7 @@ const row = {
 };
 
 function setup(
-  existing?: { id: string; kind: string; state: string },
+  existing?: { id: string; kind: string; state: string; humanId?: string },
   inserted = true,
   failCommit = false,
   options: {
@@ -74,18 +74,30 @@ function setup(
     user?: { id: string; role: string } | null;
   } = {}
 ) {
-  const values = vi.fn(() => ({
-    onConflictDoNothing: () => ({
-      returning: async () => (inserted ? [{ id: "member" }] : []),
-    }),
-  }));
+  const values = vi.fn((value: Record<string, unknown>) => {
+    if (value.kind === "volunteer") {
+      rows.set(kalakritiEditionMembership, [value]);
+    }
+    return {
+      onConflictDoNothing: () => ({
+        returning: async () => (inserted ? [{ id: "member" }] : []),
+      }),
+    };
+  });
   const set = vi.fn(() => ({ where: async () => undefined }));
   const rows = new Map<unknown, unknown[]>([
     [
       kalakritiEdition,
       options.edition === null
         ? []
-        : [options.edition ?? { id: "edition", lifecycle: "draft" }],
+        : [
+            options.edition ?? {
+              id: "edition",
+              lifecycle: "draft",
+              year: 2027,
+              nextVolunteerSequence: 1,
+            },
+          ],
     ],
     [
       teamEvent,
@@ -114,6 +126,10 @@ function setup(
     select: () => ({
       from: (table: unknown) => ({
         where: () => ({
+          for: async (mode: string) => {
+            lock(table, mode);
+            return rows.get(table) ?? [];
+          },
           limit: () =>
             Object.assign(Promise.resolve(rows.get(table) ?? []), {
               for: async (mode: string) => {
@@ -162,6 +178,7 @@ describe("signup enrollment orientation persistence", () => {
       [teamEvent, "update"],
       [user, "update"],
       [kalakritiEditionMembership, "update"],
+      [kalakritiEdition, "update"],
     ]);
     expect(tx.insert.mock.invocationCallOrder[1]).toBeLessThan(
       mocks.promote.mock.invocationCallOrder[0]!
@@ -185,7 +202,12 @@ describe("signup enrollment orientation persistence", () => {
     "handles %s membership even when the event member already exists",
     async (state) => {
       const { set } = setup(
-        { id: "membership", kind: "volunteer", state },
+        {
+          id: "membership",
+          kind: "volunteer",
+          state,
+          humanId: "KALV-2027-0007",
+        },
         false
       );
       expect(
@@ -292,4 +314,181 @@ describe("signup enrollment orientation persistence", () => {
     expect(mocks.enqueue).not.toHaveBeenCalled();
     expect(mocks.invalidate).not.toHaveBeenCalled();
   });
+});
+
+const now = 1_700_000_000_000;
+
+function createTransaction(selectResults: Record<string, unknown>[][]) {
+  const insertValues: Record<string, unknown>[] = [];
+  const updateValues: Record<string, unknown>[] = [];
+  const remainingSelectResults = [
+    [{ id: "edition-1", lifecycle: "live" }],
+    [
+      {
+        cancelledAt: null,
+        managementDomain: "kalakriti",
+        startTime: new Date(now + 1000),
+      },
+    ],
+    [{ id: "user-1", role: "unoriented_volunteer" }],
+    [],
+    ...selectResults,
+  ];
+  const select = vi.fn(() => {
+    const result = remainingSelectResults.shift() ?? [];
+    const finish = vi.fn(async () => result);
+    return {
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          for: finish,
+          limit: () => Object.assign(finish(), { for: finish }),
+        })),
+      })),
+    };
+  });
+  const insert = vi.fn(() => ({
+    values: vi.fn((values: Record<string, unknown>) => {
+      insertValues.push(values);
+      return {
+        onConflictDoNothing: vi.fn(() => ({
+          returning: vi.fn(async () => [{ id: "event-member-1" }]),
+        })),
+      };
+    }),
+  }));
+  const update = vi.fn(() => ({
+    set: vi.fn((values: Record<string, unknown>) => {
+      updateValues.push(values);
+      return { where: vi.fn(async () => undefined) };
+    }),
+  }));
+
+  return {
+    insertValues,
+    tx: { insert, select, update } as never,
+    updateValues,
+  };
+}
+
+function enrollment() {
+  return {
+    eventMember: {
+      addedAt: now,
+      eventId: "event-1",
+      id: "event-member-1",
+      userId: "user-1",
+    },
+    volunteerMembership: {
+      createdBy: "user-1",
+      editionId: "edition-1",
+      id: "membership-new",
+      now,
+      snapshotEmail: "volunteer@example.test",
+      snapshotName: "Volunteer",
+      snapshotPhone: "+919999999999",
+      userId: "user-1",
+    },
+  };
+}
+
+async function persistWith(transaction: ReturnType<typeof createTransaction>) {
+  mocks.transaction.mockImplementationOnce(
+    async (callback: (tx: never) => Promise<unknown>) =>
+      await callback(transaction.tx)
+  );
+  return await createDbRegisterEventEnrollDeps().persistEnrollWrites(
+    enrollment()
+  );
+}
+
+describe("createDbRegisterEventEnrollDeps persistEnrollWrites", () => {
+  beforeEach(() => {
+    mocks.promote.mockResolvedValue(false);
+  });
+
+  it("allocates a yearly human ID for a new volunteer", async () => {
+    const transaction = createTransaction([
+      [],
+      [{ lifecycle: "live", nextVolunteerSequence: 12, year: 2027 }],
+      [{ humanId: null, kind: "volunteer" }],
+    ]);
+
+    await expect(persistWith(transaction)).resolves.toBe("inserted");
+
+    expect(transaction.insertValues[0]).toEqual(
+      expect.objectContaining({
+        humanId: null,
+        id: "membership-new",
+        kind: "volunteer",
+        state: "active",
+      })
+    );
+    expect(transaction.updateValues).toEqual([
+      { humanId: "KALV-2027-0012", updatedAt: new Date(now) },
+      { nextVolunteerSequence: 13 },
+    ]);
+    expect(transaction.insertValues).toHaveLength(2);
+    expect(transaction.insertValues[1]).toEqual({
+      ...enrollment().eventMember,
+      addedAt: new Date(now),
+    });
+  });
+
+  it("preserves an archived volunteer human ID without advancing the sequence", async () => {
+    const transaction = createTransaction([
+      [{ id: "membership-existing", kind: "volunteer", state: "archived" }],
+      [{ lifecycle: "live", nextVolunteerSequence: 20, year: 2027 }],
+      [{ humanId: "KALV-2027-0007", kind: "volunteer" }],
+    ]);
+
+    await persistWith(transaction);
+
+    expect(transaction.updateValues).toEqual([
+      expect.objectContaining({
+        archivedAt: null,
+        state: "active",
+        updatedAt: new Date(now),
+      }),
+    ]);
+    expect(transaction.insertValues).toHaveLength(1);
+    expect(transaction.insertValues[0]).toEqual({
+      ...enrollment().eventMember,
+      addedAt: new Date(now),
+    });
+  });
+
+  it("leaves an existing active volunteer membership unchanged", async () => {
+    const transaction = createTransaction([
+      [{ id: "membership-existing", kind: "volunteer", state: "active" }],
+      [{ lifecycle: "live", nextVolunteerSequence: 20, year: 2027 }],
+      [{ humanId: "KALV-2027-0007", kind: "volunteer" }],
+    ]);
+
+    await persistWith(transaction);
+
+    expect(transaction.insertValues).toHaveLength(1);
+    expect(transaction.updateValues).toEqual([]);
+  });
+
+  it.each(["active", "archived"])(
+    "allocates a missing yearly human ID for a replayed %s volunteer",
+    async (state) => {
+      const transaction = createTransaction([
+        [{ id: "membership-existing", kind: "volunteer", state }],
+        [{ lifecycle: "live", nextVolunteerSequence: 20, year: 2027 }],
+        [{ humanId: null, kind: "volunteer" }],
+      ]);
+
+      await persistWith(transaction);
+
+      expect(transaction.updateValues).toEqual([
+        ...(state === "archived"
+          ? [expect.objectContaining({ state: "active", archivedAt: null })]
+          : []),
+        { humanId: "KALV-2027-0020", updatedAt: new Date(now) },
+        { nextVolunteerSequence: 21 },
+      ]);
+      expect(transaction.insertValues).toHaveLength(1);
+    }
+  );
 });

@@ -207,6 +207,8 @@ function KalakritiVolunteersPage() {
         competitions
       ),
     })),
+    humanId: membership.humanId,
+    registrationGroup: membership.user?.registrationGroup ?? null,
     id: membership.id,
     snapshotEmail: membership.snapshotEmail,
     snapshotName: membership.snapshotName,

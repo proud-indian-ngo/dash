@@ -69,6 +69,7 @@ All paths are relative to project root.
 |---|---|
 | `routes/_app/index.tsx` | Dashboard |
 | `routes/_app/users.tsx` | User management |
+| `scripts/backfill-kalakriti-volunteer-ids.ts` (repository root) | Explicit, idempotent allocation of missing historical volunteer yearly IDs |
 | `routes/_app/reimbursements/route.tsx` | Reimbursements layout |
 | `routes/_app/reimbursements/index.tsx` | Reimbursements list (combined reimbursements + advance payments) |
 | `routes/_app/reimbursements/new.tsx` | Create reimbursement |
@@ -83,6 +84,9 @@ All paths are relative to project root.
 | `routes/_app/kalakriti/index.tsx` | Latest accessible Edition redirect and no-access fallback |
 | `routes/_app/kalakriti/$year/route.tsx` | Edition-scoped container and exact-year access guard |
 | `routes/_app/kalakriti/$year/index.tsx` | Edition overview workspace and Edition header |
+| `components/kalakriti/{volunteer,guardian,student}-detail-sheet.tsx` | Table-owned person details, Guardian/Student Center details, Student competition entries, and identifier QR codes for every authorized viewer |
+| `components/kalakriti/person-qr-panel.tsx` | Client-rendered JSON QR containing the database record `id` and subject `type` (`student`, `guardian`, or `volunteer`) |
+| `routes/api/kalakriti/$year/people/lookup.ts` | Session- and Edition-admin-protected person lookup by database or yearly ID |
 | `routes/_app/kalakriti/$year/centers/index.tsx` | Edition Center list and registration controls |
 | `routes/_app/kalakriti/$year/centers/$id.tsx` | Center registration and assignment detail |
 | `routes/_app/kalakriti/$year/eligibility.tsx` | Edition Age Categories and shared per-Center Student limits |

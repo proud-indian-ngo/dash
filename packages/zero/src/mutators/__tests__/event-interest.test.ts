@@ -2,6 +2,9 @@ import { describe, expect, it, mock } from "bun:test";
 
 import z from "zod";
 
+const uuidv7Mock = mock();
+mock.module("uuidv7", () => ({ uuidv7: uuidv7Mock }));
+
 import { eventInterestMutators } from "../event-interest";
 
 const createSchema = z.object({
@@ -166,7 +169,12 @@ describe("Kalakriti event interest", () => {
     const sql = createOrientationSql(true);
     const insertMember = mock();
     const insertMembership = mock();
+    const updateEdition = mock();
+    const updateMembership = mock();
     const updateInterest = mock();
+    uuidv7Mock
+      .mockReturnValueOnce("membership-1")
+      .mockReturnValueOnce("event-member-1");
     const results = [
       {
         eventId: "event-1",
@@ -194,15 +202,24 @@ describe("Kalakriti event interest", () => {
       },
       undefined,
       undefined,
+      undefined,
+      {
+        editionId: "edition-1",
+        humanId: null,
+        kind: "volunteer",
+        id: "membership-1",
+        state: "active",
+      },
     ];
     const tx = {
       location: "server",
       dbTransaction: { wrappedTransaction: sql.transaction },
       mutate: {
         eventInterest: { update: updateInterest },
+        kalakritiEdition: { update: updateEdition },
         kalakritiEditionMembership: {
           insert: insertMembership,
-          update: mock(),
+          update: updateMembership,
         },
         teamEventMember: { insert: insertMember },
       },

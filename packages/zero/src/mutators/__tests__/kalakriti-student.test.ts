@@ -61,17 +61,14 @@ const student = {
   name: "Ananya Rao",
   normalizedName: "ananya rao",
 };
-const tokenHash = "a".repeat(64);
 
 function createTx(results: unknown[] = []) {
   const lockedResults: unknown[][] = [];
   const spies = {
-    deleteCredential: mock(),
     deleteEntry: mock(),
     deleteEntryMember: mock(),
     deleteStudent: mock(),
     insertAudit: mock(),
-    insertCredential: mock(),
     insertStudent: mock(),
     lockRows: mock(),
     updateEdition: mock(),
@@ -102,10 +99,6 @@ function createTx(results: unknown[] = []) {
       mutate: {
         kalakritiAuditEntry: { insert: spies.insertAudit },
         kalakritiCompetitionEntry: { delete: spies.deleteEntry },
-        kalakritiCredential: {
-          delete: spies.deleteCredential,
-          insert: spies.insertCredential,
-        },
         kalakritiEdition: { update: spies.updateEdition },
         kalakritiEntryMember: { delete: spies.deleteEntryMember },
         kalakritiStudent: {
@@ -124,8 +117,6 @@ const createArgs: {
   ageCategoryOverrideReason: string | null;
   auditEntryId: string;
   centerId: string;
-  credentialId: string;
-  credentialTokenHash: string;
   dateOfBirth: string;
   duplicateConfirmed: boolean;
   editionId: string;
@@ -138,8 +129,6 @@ const createArgs: {
   ageCategoryOverrideReason: null,
   auditEntryId: "audit-1",
   centerId: center.id,
-  credentialId: "credential-1",
-  credentialTokenHash: tokenHash,
   dateOfBirth: "2018-06-15",
   duplicateConfirmed: false,
   editionId: edition.id,
@@ -162,7 +151,7 @@ async function createStudent(
 }
 
 describe("kalakritiStudent commands", () => {
-  it("creates a Student with a stable yearly ID and one active Credential", async () => {
+  it("creates a Student with a stable yearly ID", async () => {
     const { lockedResults, spies, tx } = createTx([[], []]);
     lockedResults.push([edition], [center], [junior, senior]);
 
@@ -175,14 +164,6 @@ describe("kalakritiStudent commands", () => {
         humanId: "KAL-2027-0012",
         name: "Ananya Rao",
         normalizedName: "ananya rao",
-      })
-    );
-    expect(spies.insertCredential).toHaveBeenCalledWith(
-      expect.objectContaining({
-        humanId: "KAL-2027-0012",
-        revokedAt: null,
-        studentId: "student-1",
-        tokenHash,
       })
     );
     expect(spies.updateEdition).toHaveBeenCalledWith({
@@ -393,7 +374,7 @@ describe("kalakritiStudent commands", () => {
     );
   });
 
-  it("updates registration data without changing the human ID or Credential", async () => {
+  it("updates registration data without changing the human ID", async () => {
     const { lockedResults, spies, tx } = createTx([
       { centerId: center.id, editionId: edition.id },
       [],
@@ -422,8 +403,6 @@ describe("kalakritiStudent commands", () => {
     expect(spies.updateStudent).toHaveBeenCalledWith(
       expect.not.objectContaining({ humanId: expect.anything() })
     );
-    expect(spies.insertCredential).not.toHaveBeenCalled();
-    expect(spies.deleteCredential).not.toHaveBeenCalled();
     const auditPayload = spies.insertAudit.mock.calls[0]?.[0];
     expect(JSON.stringify(auditPayload?.metadata)).not.toContain("Ananya Rao");
     expect(JSON.stringify(auditPayload?.metadata)).not.toContain(
@@ -534,7 +513,7 @@ describe("kalakritiStudent commands", () => {
     );
   });
 
-  it("hard-deletes the Student and its Credential while retaining audit evidence", async () => {
+  it("hard-deletes the Student while retaining audit evidence", async () => {
     const { lockedResults, spies, tx } = createTx([
       {
         centerId: center.id,
@@ -542,7 +521,6 @@ describe("kalakritiStudent commands", () => {
         humanId: student.humanId,
         name: student.name,
       },
-      [{ id: "credential-1" }],
       [],
     ]);
     lockedResults.push([edition], [center], [junior], [student]);
@@ -553,7 +531,6 @@ describe("kalakritiStudent commands", () => {
       tx,
     } as unknown as Parameters<typeof kalakritiStudentMutators.delete.fn>[0]);
 
-    expect(spies.deleteCredential).toHaveBeenCalledWith({ id: "credential-1" });
     expect(spies.deleteStudent).toHaveBeenCalledWith({ id: student.id });
     expect(spies.insertAudit).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -574,7 +551,6 @@ describe("kalakritiStudent commands", () => {
         humanId: student.humanId,
         name: student.name,
       },
-      [{ id: "credential-1" }],
       [
         {
           entry: {
@@ -611,7 +587,6 @@ describe("kalakritiStudent commands", () => {
         humanId: student.humanId,
         name: student.name,
       },
-      [{ id: "credential-1" }],
       [
         {
           entry: { id: "entry-1", members: [{ id: "member-1" }] },

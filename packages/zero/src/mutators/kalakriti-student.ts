@@ -32,10 +32,6 @@ type ZeroMutationFn = BivariantZeroMutation["bivarianceHack"];
 interface StudentTx extends LockableKalakritiTx {
   mutate: {
     kalakritiAuditEntry: { insert: ZeroMutationFn };
-    kalakritiCredential: {
-      delete: ZeroMutationFn;
-      insert: ZeroMutationFn;
-    };
     kalakritiEdition: { update: ZeroMutationFn };
     kalakritiCompetitionEntry: { delete: ZeroMutationFn };
     kalakritiEntryMember: { delete: ZeroMutationFn };
@@ -71,8 +67,6 @@ const studentValuesSchema = z.object({
 export const kalakritiStudentCreateSchema = studentValuesSchema.extend({
   auditEntryId: z.string(),
   centerId: z.string(),
-  credentialId: z.string(),
-  credentialTokenHash: z.string().regex(/^[0-9a-f]{64}$/),
   editionId: z.string(),
   now: z.number(),
   studentId: z.string(),
@@ -463,18 +457,6 @@ export const kalakritiStudentMutators = {
         updatedAt: args.now,
         updatedBy: ctx.userId,
       });
-      await tx.mutate.kalakritiCredential.insert({
-        createdAt: args.now,
-        editionId: edition.id,
-        humanId,
-        id: args.credentialId,
-        issuedAt: args.now,
-        issuedBy: ctx.userId,
-        revokedAt: null,
-        revokedBy: null,
-        studentId: args.studentId,
-        tokenHash: args.credentialTokenHash,
-      });
       await tx.mutate.kalakritiEdition.update({
         id: edition.id,
         nextStudentSequence: edition.nextStudentSequence + 1,
@@ -527,9 +509,6 @@ export const kalakritiStudentMutators = {
       ) {
         throw new Error("Student not found");
       }
-      const credentials = (await tx.run(
-        zql.kalakritiCredential.where("studentId", student.id)
-      )) as Array<{ id: string }>;
       const entryMemberships = await loadStudentEntryMemberships(
         tx,
         student.id
@@ -563,11 +542,6 @@ export const kalakritiStudentMutators = {
       await Promise.all(
         [...entryIds].map((id) =>
           tx.mutate.kalakritiCompetitionEntry.delete({ id })
-        )
-      );
-      await Promise.all(
-        credentials.map((credential) =>
-          tx.mutate.kalakritiCredential.delete({ id: credential.id })
         )
       );
       await tx.mutate.kalakritiStudent.delete({ id: student.id });

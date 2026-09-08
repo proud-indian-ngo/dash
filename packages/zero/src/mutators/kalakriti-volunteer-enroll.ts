@@ -1,4 +1,8 @@
 import type { Context } from "../context";
+import {
+  type VolunteerIdTx,
+  ensureVolunteerHumanId,
+} from "../kalakriti-volunteer-id";
 import { assertIsLoggedIn, can } from "../permissions";
 import { zql } from "../schema";
 import {
@@ -19,7 +23,9 @@ abstract class BivariantZeroRun {
 type ZeroRunFn = BivariantZeroRun["bivarianceHack"];
 
 export interface VolunteerEnrollTx extends OrientationTx {
+  location: "client" | "server";
   mutate: {
+    kalakritiEdition: { update: ZeroMutationFn };
     kalakritiEditionMembership: {
       insert: ZeroMutationFn;
       update: ZeroMutationFn;
@@ -44,6 +50,7 @@ export interface VolunteerEnrollUser {
 }
 
 interface VolunteerMembershipRow {
+  humanId: string | null;
   id: string;
   kind: "guardian" | "volunteer";
   state: "active" | "archived";
@@ -129,6 +136,7 @@ export async function ensureUnassignedVolunteerEnrollment(
       createdAt: args.now,
       createdBy: args.actorUserId,
       editionId: args.edition.id,
+      humanId: null,
       id: membershipId,
       kind: "volunteer",
       snapshotEmail: args.user.email,
@@ -168,10 +176,15 @@ export async function ensureUnassignedVolunteerEnrollment(
     });
   }
 
+  await ensureVolunteerHumanId(tx as VolunteerIdTx, {
+    editionId: args.edition.id,
+    membershipId,
+  });
+
   await orientEnrolledKalakritiVolunteer(tx, ctx, args.userId, args.now);
 
   if (membership?.state === "active") {
-    return eventMember ? "already-active" : "enrolled";
+    return eventMember && membership.humanId ? "already-active" : "enrolled";
   }
   return "enrolled";
 }

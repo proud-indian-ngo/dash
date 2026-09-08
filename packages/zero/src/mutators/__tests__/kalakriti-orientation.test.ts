@@ -222,13 +222,21 @@ describe("Kalakriti orientation", () => {
         state === "new"
           ? undefined
           : { id: "membership-1", kind: "volunteer", state },
-        undefined,
+        state === "active" ? { id: "event-member-1" } : undefined,
+        {
+          editionId: "edition-1",
+          humanId: state === "archived" ? "KALV-2027-00042" : null,
+          kind: "volunteer",
+          id: "membership-1",
+          state: "active",
+        },
       ];
-      await ensureUnassignedVolunteerEnrollment(
+      const enrollmentResult = await ensureUnassignedVolunteerEnrollment(
         {
           ...tx,
           run: mock(async () => results.shift()),
           mutate: {
+            kalakritiEdition: { update },
             kalakritiEditionMembership: { insert, update },
             teamEventMember: { insert },
           },
@@ -236,8 +244,15 @@ describe("Kalakriti orientation", () => {
         args,
         ctx
       );
+      expect(enrollmentResult).toBe("enrolled");
       expect(sql.returning).toHaveBeenCalledTimes(1);
       expect(ctx.asyncTasks).toHaveLength(3);
+      if (state !== "archived") {
+        expect(update).toHaveBeenCalledWith({
+          humanId: "KALV-2027-0001",
+          id: "membership-1",
+        });
+      }
     });
   }
 
@@ -254,6 +269,7 @@ describe("Kalakriti orientation", () => {
             state: "active",
           })),
           mutate: {
+            kalakritiEdition: { update: mock() },
             kalakritiEditionMembership: { insert, update: mock() },
             teamEventMember: { insert },
           },

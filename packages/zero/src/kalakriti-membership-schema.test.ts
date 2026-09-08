@@ -20,6 +20,19 @@ describe("Kalakriti Guardian membership invariants", () => {
   });
 });
 
+describe("Kalakriti volunteer yearly ID invariants", () => {
+  it("keeps assigned volunteer yearly IDs unique while allowing memberships awaiting allocation", () => {
+    const index = getTableConfig(kalakritiEditionMembership).indexes.find(
+      (candidate) =>
+        candidate.config.name === "kalakriti_membership_humanId_uidx"
+    );
+    expect(index?.config.unique).toBe(true);
+    expect(index?.config.columns).toHaveLength(1);
+    expect(index?.config.where).toBeDefined();
+    expect(kalakritiEditionMembership.humanId.notNull).toBe(false);
+  });
+});
+
 describe("Kalakriti audit invariants", () => {
   it("retains the immutable actor ID after its User is deleted", () => {
     const foreignKeyNames = getTableConfig(kalakritiAuditEntry).foreignKeys.map(

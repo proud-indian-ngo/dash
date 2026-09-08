@@ -10,6 +10,7 @@ export const KALAKRITI_AUDIT_DOMAINS = [
   "age_category_configuration",
   "center_age_quota_configuration",
   "competition_configuration",
+  "credential",
   "schedule_configuration",
   "student_registration",
   "entry_registration",

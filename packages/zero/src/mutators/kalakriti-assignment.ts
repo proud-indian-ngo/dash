@@ -10,11 +10,16 @@ import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 
 import type { Context } from "../context";
+import {
+  ensureVolunteerHumanId,
+  type VolunteerIdTx,
+} from "../kalakriti-volunteer-id";
 import { assertIsLoggedIn, can } from "../permissions";
 import { zql } from "../schema";
 import { orientEnrolledKalakritiVolunteer } from "./kalakriti-orientation";
 import {
   getCenterForUpdate,
+  getEditionForUpdate,
   type LockableKalakritiTx,
 } from "./kalakriti-row-locks";
 import {
@@ -36,6 +41,7 @@ interface AssignmentTx extends LockableKalakritiTx {
       update: ZeroMutationFn;
     };
     kalakritiAuditEntry: { insert: ZeroMutationFn };
+    kalakritiEdition: { update: ZeroMutationFn };
     kalakritiEditionMembership: {
       insert: ZeroMutationFn;
       update: ZeroMutationFn;
@@ -353,6 +359,10 @@ async function assignVolunteerResponsibility(
     )
   ) {
     if (membership?.state === "active") {
+      await ensureVolunteerHumanId(tx as VolunteerIdTx, {
+        editionId: args.editionId,
+        membershipId,
+      });
       await orientEnrolledKalakritiVolunteer(tx, ctx, args.userId, args.now);
       return;
     }
@@ -448,6 +458,10 @@ async function assignVolunteerResponsibility(
     reason: null,
     targetId: args.assignmentId,
     targetType: "assignment",
+  });
+  await ensureVolunteerHumanId(tx as VolunteerIdTx, {
+    editionId: args.editionId,
+    membershipId,
   });
   await orientEnrolledKalakritiVolunteer(tx, ctx, args.userId, args.now);
 }
@@ -648,7 +662,13 @@ export const kalakritiAssignmentMutators = {
       }
       await assertCanManageVolunteerRoster(tx, ctx, membership.editionId);
       assertIsLoggedIn(ctx);
-      const edition = await getAssignmentEdition(tx, membership.editionId);
+      const edition = await getEditionForUpdate(tx, membership.editionId);
+      if (!edition) {
+        throw new Error("Edition not found");
+      }
+      if (edition.lifecycle === "archived") {
+        throw new Error("Archived Editions cannot change assignments");
+      }
 
       const assignments = (await tx.run(
         zql.kalakritiAssignment.where("membershipId", membership.id)

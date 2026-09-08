@@ -76,7 +76,12 @@ describe("Kalakriti Registration Release surface", () => {
       routeSources(
         path.resolve(import.meta.dirname, "../routes/api/kalakriti/$year")
       )
-    ).toEqual(["audit.ts", "registration-export.ts", "schedule.ts"]);
+    ).toEqual([
+      "audit.ts",
+      "people/lookup.ts",
+      "registration-export.ts",
+      "schedule.ts",
+    ]);
   });
 
   it("registers no Event-day, Results, Awards, or Inventory queries or mutations", () => {

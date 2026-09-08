@@ -80,6 +80,9 @@ export const kalakritiEdition = pgTable(
       .notNull(),
     name: text("name").notNull(),
     nextStudentSequence: integer("next_student_sequence").default(1).notNull(),
+    nextVolunteerSequence: integer("next_volunteer_sequence")
+      .default(1)
+      .notNull(),
     plannedRegistrationCloseAt: timestamp("planned_registration_close_at", {
       withTimezone: true,
     }).notNull(),
@@ -114,6 +117,10 @@ export const kalakritiEdition = pgTable(
       "kalakriti_edition_nextStudentSequence_chk",
       sql`${table.nextStudentSequence} > 0`
     ),
+    check(
+      "kalakriti_edition_nextVolunteerSequence_chk",
+      sql`${table.nextVolunteerSequence} > 0`
+    ),
   ]
 );
 
@@ -141,6 +148,7 @@ export const kalakritiEditionMembership = pgTable(
     editionId: uuid("edition_id")
       .notNull()
       .references(() => kalakritiEdition.id, { onDelete: "cascade" }),
+    humanId: text("human_id"),
     id: uuid("id").primaryKey(),
     kind: kalakritiMembershipKindEnum("kind").notNull(),
     snapshotEmail: text("snapshot_email"),
@@ -166,6 +174,9 @@ export const kalakritiEditionMembership = pgTable(
       table.editionId,
       table.id
     ),
+    uniqueIndex("kalakriti_membership_humanId_uidx")
+      .on(table.humanId)
+      .where(sql`${table.humanId} IS NOT NULL`),
     index("kalakriti_membership_userId_idx").on(table.userId),
   ]
 );
@@ -353,48 +364,6 @@ export const kalakritiStudent = pgTable(
       "kalakriti_student_duplicate_confirmation_chk",
       sql`(${table.duplicateConfirmedAt} IS NULL AND ${table.duplicateConfirmedBy} IS NULL)
         OR (${table.duplicateConfirmedAt} IS NOT NULL AND ${table.duplicateConfirmedBy} IS NOT NULL)`
-    ),
-  ]
-);
-
-export const kalakritiCredential = pgTable(
-  "kalakriti_credential",
-  {
-    createdAt: timestamp("created_at").notNull(),
-    editionId: uuid("edition_id").notNull(),
-    humanId: text("human_id").notNull(),
-    id: uuid("id").primaryKey(),
-    issuedAt: timestamp("issued_at").notNull(),
-    issuedBy: text("issued_by")
-      .notNull()
-      .references(() => user.id),
-    revokedAt: timestamp("revoked_at"),
-    revokedBy: text("revoked_by").references(() => user.id),
-    studentId: uuid("student_id").notNull(),
-    tokenHash: text("token_hash").notNull(),
-  },
-  (table) => [
-    uniqueIndex("kalakriti_credential_tokenHash_uidx").on(table.tokenHash),
-    uniqueIndex("kalakriti_credential_active_studentId_uidx")
-      .on(table.studentId)
-      .where(sql`${table.revokedAt} IS NULL`),
-    index("kalakriti_credential_editionId_humanId_idx").on(
-      table.editionId,
-      table.humanId
-    ),
-    foreignKey({
-      columns: [table.editionId, table.studentId],
-      foreignColumns: [kalakritiStudent.editionId, kalakritiStudent.id],
-      name: "kalakriti_credential_edition_student_fk",
-    }).onDelete("cascade"),
-    check(
-      "kalakriti_credential_tokenHash_chk",
-      sql`${table.tokenHash} ~ '^[0-9a-f]{64}$'`
-    ),
-    check(
-      "kalakriti_credential_revocation_chk",
-      sql`(${table.revokedAt} IS NULL AND ${table.revokedBy} IS NULL)
-        OR (${table.revokedAt} IS NOT NULL AND ${table.revokedBy} IS NOT NULL)`
     ),
   ]
 );
@@ -998,7 +967,6 @@ export const kalakritiStudentRelations = relations(
       fields: [kalakritiStudent.centerId],
       references: [kalakritiCenter.id],
     }),
-    credentials: many(kalakritiCredential),
     derivedAgeCategory: one(kalakritiAgeCategory, {
       fields: [kalakritiStudent.derivedAgeCategoryId],
       references: [kalakritiAgeCategory.id],
@@ -1009,16 +977,6 @@ export const kalakritiStudentRelations = relations(
       references: [kalakritiEdition.id],
     }),
     entryMemberships: many(kalakritiEntryMember),
-  })
-);
-
-export const kalakritiCredentialRelations = relations(
-  kalakritiCredential,
-  ({ one }) => ({
-    student: one(kalakritiStudent, {
-      fields: [kalakritiCredential.studentId],
-      references: [kalakritiStudent.id],
-    }),
   })
 );
 

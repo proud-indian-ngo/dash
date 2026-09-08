@@ -117,14 +117,6 @@ function studentMutationValues(value: StudentSubmissionValues) {
   };
 }
 
-async function createCredentialTokenHash(): Promise<string> {
-  const opaqueValue = crypto.getRandomValues(new Uint8Array(32));
-  const digest = await crypto.subtle.digest("SHA-256", opaqueValue);
-  return [...new Uint8Array(digest)]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
-
 function DuplicateWarning({
   duplicate,
   canOverrideAgeCategory,
@@ -265,8 +257,6 @@ function StudentForm({
         ...studentMutationValues(value),
         auditEntryId: uuidv7(),
         centerId,
-        credentialId: uuidv7(),
-        credentialTokenHash: await createCredentialTokenHash(),
         editionId,
         now: Date.now(),
         studentId: uuidv7(),
