@@ -23,6 +23,7 @@ import {
   type KalakritiEntrySession,
   type KalakritiEntryStudent,
 } from "@/components/kalakriti/entry-form-dialog";
+import { getSessionEntryPermissions } from "@/components/kalakriti/entry-permissions";
 import { EntryTable } from "@/components/kalakriti/entry-table";
 import {
   buildKalakritiEntryRows,
@@ -35,8 +36,6 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { KALAKRITI_GENDER_ELIGIBILITY_LABELS } from "@/lib/kalakriti-competition-labels";
 import {
-  canRemoveKalakritiEntries,
-  canWriteKalakritiEntries,
   type EntryRegistrationAvailability,
   getEntryRegistrationAvailability,
   getEntryStudentOptionEligibility,
@@ -202,33 +201,6 @@ function SessionSummary({
       title={session?.competition.name ?? "Loading Session"}
     />
   );
-}
-
-function getSessionEntryPermissions({
-  access,
-  centerEnabled,
-  lifecycle,
-  registrationOpen,
-}: {
-  access: Parameters<typeof canWriteKalakritiEntries>[0];
-  centerEnabled: boolean;
-  lifecycle: string;
-  registrationOpen: boolean;
-}) {
-  const canWriteEntries = canWriteKalakritiEntries(access);
-  const removalEnabled =
-    canWriteEntries &&
-    canRemoveKalakritiEntries({
-      centerEnabled,
-      lifecycle,
-    });
-  return {
-    canWriteEntries,
-    edit: removalEnabled,
-    register: canWriteEntries && registrationOpen,
-    remove: removalEnabled,
-    uploadMusic: canWriteEntries && registrationOpen,
-  };
 }
 
 function sessionAllowsMusic(session?: KalakritiEntrySession): boolean {

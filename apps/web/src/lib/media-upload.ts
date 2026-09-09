@@ -71,6 +71,7 @@ export const scheduledMessageUploadSchema = z.object({
 });
 
 export const kalakritiEntryMusicUploadSchema = z.object({
+  entryId: z.string().refine(isAssetId, "Invalid entry ID").optional(),
   centerId: z.string().refine(isAssetId, "Invalid center ID"),
   divisionId: z.string().refine(isAssetId, "Invalid division ID"),
   editionId: z.string().refine(isAssetId, "Invalid edition ID"),

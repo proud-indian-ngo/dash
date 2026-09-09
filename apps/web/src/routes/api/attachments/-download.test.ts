@@ -334,6 +334,93 @@ describe("handleAttachmentDownloadRequest", () => {
     expect(response.headers.get("content-range")).toBe("bytes 0-6/20");
   });
 
+  it.each(["audio/mpeg", "audio/mp4", "audio/aac", "audio/x-m4a"])(
+    "streams inline %s partial audio with private headers",
+    async (mimeType) => {
+      const fetch = mock(
+        async () =>
+          new Response("audio", {
+            status: 206,
+            headers: {
+              "content-type": mimeType,
+              "content-range": "bytes 0-4/100",
+              "content-length": "5",
+              "accept-ranges": "bytes",
+            },
+          })
+      );
+      const authorize = mock(async () => ({
+        filename: "track.mp3",
+        key: "app/kalakriti-music/edition/entry/track.mp3",
+      }));
+      const response = await handleAttachmentDownloadRequest(
+        new Request(
+          `https://example.test/api/attachments/download?disposition=inline&id=${ATTACHMENT_ID}&kind=kalakritiEntryMusic`,
+          { headers: { Range: "bytes=0-4" } }
+        ),
+        handlerDeps({
+          fetch,
+          requireSession: async () => ({ session: { user: { id: "owner" } } }),
+          resolveAuthorizedR2Object: authorize,
+        })
+      );
+      expect(authorize).toHaveBeenCalledWith(
+        { user: { id: "owner" } },
+        { id: ATTACHMENT_ID, kind: "kalakritiEntryMusic" }
+      );
+      expect(fetch).toHaveBeenCalledWith("https://r2.example.test/file", {
+        headers: { Range: "bytes=0-4" },
+      });
+      expect(response.status).toBe(206);
+      expect(response.headers.get("content-type")).toBe(mimeType);
+      expect(response.headers.get("content-disposition")).toBe(
+        'inline; filename="track.mp3"'
+      );
+      expect(response.headers.get("content-range")).toBe("bytes 0-4/100");
+      expect(response.headers.get("content-length")).toBe("5");
+      expect(response.headers.get("accept-ranges")).toBe("bytes");
+      expect(response.headers.get("cache-control")).toBe(
+        "private, max-age=0, no-store"
+      );
+      expect(response.headers.get("vary")).toBe("Cookie");
+      expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+      await expect(response.text()).resolves.toBe("audio");
+    }
+  );
+
+  it("rechecks authorization for subsequent audio range requests", async () => {
+    const fetch = mock(async () => new Response("audio"));
+    const authorize = mock(async () => ({
+      filename: "track.mp3",
+      key: "app/kalakriti-music/edition/entry/track.mp3",
+    }));
+    const deps = handlerDeps({
+      fetch,
+      requireSession: async () => ({ session: { user: { id: "owner" } } }),
+      resolveAuthorizedR2Object: authorize,
+    });
+    const url = `https://example.test/api/attachments/download?disposition=inline&id=${ATTACHMENT_ID}&kind=kalakritiEntryMusic`;
+    expect(
+      (
+        await handleAttachmentDownloadRequest(
+          new Request(url, { headers: { Range: "bytes=0-4" } }),
+          deps
+        )
+      ).status
+    ).toBe(200);
+    authorize.mockRejectedValueOnce(new R2ObjectAccessError(403, "Forbidden"));
+    expect(
+      (
+        await handleAttachmentDownloadRequest(
+          new Request(url, { headers: { Range: "bytes=5-9" } }),
+          deps
+        )
+      ).status
+    ).toBe(403);
+    expect(authorize).toHaveBeenCalledTimes(2);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
   it("preserves unsatisfiable range responses", async () => {
     const response = await handleAttachmentDownloadRequest(
       new Request(

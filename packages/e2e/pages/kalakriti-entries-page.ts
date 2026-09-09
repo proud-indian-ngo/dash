@@ -1,12 +1,29 @@
-import { expect, type Locator, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
+
+import {
+  expect,
+  type Locator,
+  type Page,
+  type Response,
+  test,
+} from "@playwright/test";
 
 import { waitForZeroReady } from "../fixtures/test";
 
 export class KalakritiEntriesPage {
   readonly page: Page;
+  private readonly mediaResponses: Response[] = [];
 
   constructor(page: Page) {
     this.page = page;
+    page.on("response", (response) => {
+      const url = new URL(response.url());
+      if (
+        url.pathname === "/api/attachments/download" &&
+        url.searchParams.get("disposition") === "inline"
+      )
+        this.mediaResponses.push(response);
+    });
   }
 
   async goto(year: number, competitionName = "Solo Dance") {
@@ -24,6 +41,37 @@ export class KalakritiEntriesPage {
     await expect(
       this.page.getByRole("heading", { name: competitionName })
     ).toBeVisible();
+  }
+
+  trackMusicUploadKeys(): Set<string> {
+    const keys = new Set<string>();
+    this.page.on("request", (request) => {
+      if (
+        request.method() !== "PUT" ||
+        !request.url().includes("r2.cloudflarestorage.com")
+      )
+        return;
+      let key = decodeURIComponent(new URL(request.url()).pathname).slice(1);
+      const bucket = `${process.env.R2_BUCKET_NAME}/`;
+      if (key.startsWith(bucket)) key = key.slice(bucket.length);
+      keys.add(key);
+    });
+    return keys;
+  }
+
+  async openMusicDialog(edit = false): Promise<Locator> {
+    const name = edit ? "Edit music" : "Upload music";
+    const dialog = this.page.getByRole("dialog", { name, exact: true });
+    await this.page.getByRole("button", { name, exact: true }).click();
+    await expect(dialog).toBeVisible();
+    return dialog;
+  }
+
+  async saveMusic(dialog: Locator): Promise<void> {
+    await dialog
+      .getByRole("button", { name: "Save music", exact: true })
+      .click();
+    await expect(dialog).toBeHidden();
   }
 
   async openRegistrationForm(): Promise<Locator> {
@@ -107,7 +155,7 @@ export class KalakritiEntriesPage {
       .scrollIntoViewIfNeeded();
     await expect(input).toBeEnabled();
     await input.setInputFiles({
-      buffer: TINY_MP3,
+      buffer: TEST_MP3,
       mimeType: "audio/mpeg",
       name: fileName,
     });
@@ -117,7 +165,8 @@ export class KalakritiEntriesPage {
     locator: Locator,
     fileName: string
   ): Promise<void> {
-    const link = locator.getByRole("link", { name: fileName });
+    const dialog = await this.openMusicPlayback(locator, fileName);
+    const link = dialog.getByRole("link", { name: "Download", exact: true });
     await expect(link).toBeVisible();
     const href = await link.getAttribute("href");
     if (!href) {
@@ -125,27 +174,124 @@ export class KalakritiEntriesPage {
     }
     const authorized = await this.page.request.get(href);
     expect(authorized.status()).toBe(200);
+    const downloadEvent = this.page.waitForEvent("download");
+    await link.click();
+    const download = await downloadEvent;
+    expect(download.suggestedFilename()).toBe(fileName);
+    expect(await download.failure()).toBeNull();
     const anonymous = await this.page.request.get(href, {
       headers: { Cookie: "" },
     });
     expect(anonymous.status()).toBe(401);
+    await dialog.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(dialog).toBeHidden();
+  }
+
+  async openMusicPlayback(
+    locator: Locator,
+    fileName: string
+  ): Promise<Locator> {
+    const pagesBefore = this.page.context().pages().length;
+    await locator.getByRole("button", { name: fileName, exact: true }).click();
+    const dialog = this.page.getByRole("dialog", {
+      name: "Play music",
+      exact: true,
+    });
+    await expect(dialog).toBeVisible();
+    expect(this.page.context().pages()).toHaveLength(pagesBefore);
+    await expect(
+      dialog.getByRole("link", { name: "Download", exact: true })
+    ).not.toHaveAttribute("target", "_blank");
+    return dialog;
+  }
+
+  async expectAudioPlaysAndSeeks(
+    dialog: Locator,
+    fileName: string
+  ): Promise<void> {
+    const audio = dialog.getByLabel(`Play ${fileName}`, { exact: true });
+    await expect(audio).toBeVisible();
+    try {
+      await audio.evaluate(async (element) => {
+        const player = element as HTMLAudioElement;
+        player.muted = true;
+        await player.play();
+      });
+    } catch (error) {
+      const responses = await Promise.all(
+        this.mediaResponses.map(async (response) => ({
+          url: response.url(),
+          status: response.status(),
+          contentType: response.headers()["content-type"],
+          contentRange: response.headers()["content-range"],
+          destination: response.request().headers()["sec-fetch-dest"],
+          range: response.request().headers().range,
+          body:
+            response.status() >= 400
+              ? (
+                  await response.text().catch(() => "Response body unavailable")
+                ).slice(0, 1024)
+              : undefined,
+        }))
+      );
+      const media = await audio.evaluate((element) => {
+        const player = element as HTMLAudioElement;
+        return {
+          error: player.error?.code,
+          message: player.error?.message,
+          readyState: player.readyState,
+          networkState: player.networkState,
+        };
+      });
+      await test.info().attach("native-audio-diagnostics", {
+        body: JSON.stringify({ media, responses }, null, 2),
+        contentType: "application/json",
+      });
+      throw error;
+    }
+    await expect
+      .poll(() =>
+        audio.evaluate((element) => (element as HTMLAudioElement).currentTime)
+      )
+      .toBeGreaterThan(0.25);
+    const initial = await audio.evaluate((element) => {
+      const player = element as HTMLAudioElement;
+      return {
+        duration: player.duration,
+        error: player.error?.code ?? null,
+        source: player.currentSrc,
+      };
+    });
+    expect(initial.error).toBeNull();
+    expect(initial.duration).toBeGreaterThan(9);
+    const range = await this.page.request.get(initial.source, {
+      headers: { Range: "bytes=1024-2047" },
+    });
+    expect(range.status()).toBe(206);
+    expect(range.headers()["content-type"]).toContain("audio/mpeg");
+    expect(range.headers()["content-range"]).toMatch(/^bytes 1024-2047\/\d+$/);
+    expect((await range.body()).byteLength).toBe(1024);
+    const anonymous = await this.page.request.get(initial.source, {
+      headers: { Cookie: "", Range: "bytes=0-1023" },
+    });
+    expect(anonymous.status()).toBe(401);
+    await audio.evaluate((element) => {
+      (element as HTMLAudioElement).currentTime = 6;
+    });
+    await expect
+      .poll(() =>
+        audio.evaluate((element) => (element as HTMLAudioElement).currentTime)
+      )
+      .toBeGreaterThan(6.25);
+    expect(
+      await audio.evaluate(
+        (element) => (element as HTMLAudioElement).error?.code ?? null
+      )
+    ).toBeNull();
   }
 }
 
-const TINY_MP3 = Buffer.from([
-  0x49,
-  0x44,
-  0x33,
-  0x03,
-  0x00,
-  0x00,
-  0x00,
-  0x00,
-  0x00,
-  0x00,
-  0xff,
-  0xfb,
-  0x90,
-  0x00,
-  ...Array.from({ length: 64 }, () => 0),
-]);
+// Generated 10-second mono 440 Hz tone (24 kbps MP3), checked in so CI needs no encoder.
+const TEST_MP3 = readFileSync(
+  new URL("../fixtures/audio/track.mp3", import.meta.url)
+);

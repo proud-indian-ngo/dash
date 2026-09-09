@@ -17,6 +17,7 @@ import {
   kalakritiVenue,
 } from "@pi-dash/db/schema/kalakriti";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
+import { S3Client } from "bun";
 import { eq } from "drizzle-orm";
 
 const FIXTURES = {
@@ -65,6 +66,29 @@ const FIXTURES = {
     unflaggedSessionId: "019f0000-0000-7000-8000-00000000e215",
     venueId: "019f0000-0000-7000-8000-00000000e209",
     year: 2192,
+  },
+  music: {
+    ageCategoryId: "019f0000-0000-7000-8000-00000000e303",
+    assignmentId: "019f0000-0000-7000-8000-00000000e30d",
+    categoryId: "019f0000-0000-7000-8000-00000000e307",
+    centerId: "019f0000-0000-7000-8000-00000000e304",
+    competitionId: "019f0000-0000-7000-8000-00000000e308",
+    editionId: "019f0000-0000-7000-8000-00000000e301",
+    eventId: "019f0000-0000-7000-8000-00000000e302",
+    groupCompetitionId: "019f0000-0000-7000-8000-00000000e310",
+    groupSessionId: "019f0000-0000-7000-8000-00000000e311",
+    membershipId: "019f0000-0000-7000-8000-00000000e30e",
+    sessionId: "019f0000-0000-7000-8000-00000000e30a",
+    studentIds: [
+      "019f0000-0000-7000-8000-00000000e306",
+      "019f0000-0000-7000-8000-00000000e30f",
+      "019f0000-0000-7000-8000-00000000e312",
+      "019f0000-0000-7000-8000-00000000e313",
+    ],
+    unflaggedCompetitionId: "019f0000-0000-7000-8000-00000000e314",
+    unflaggedSessionId: "019f0000-0000-7000-8000-00000000e315",
+    venueId: "019f0000-0000-7000-8000-00000000e309",
+    year: 2157,
   },
 } as const;
 
@@ -225,7 +249,7 @@ async function setup(kind: FixtureKind, actorEmail: string) {
     id: fixture.competitionId,
     maximumGroupSize: 1,
     minimumGroupSize: 1,
-    musicUploadEnabled: kind === "liaison",
+    musicUploadEnabled: kind !== "admin",
     name: "Solo Dance",
     normalizedName: "solo dance",
     participationMode: "individual",
@@ -331,7 +355,7 @@ async function setup(kind: FixtureKind, actorEmail: string) {
     updatedAt: now,
     venueId: fixture.venueId,
   });
-  if (kind === "liaison") {
+  if (kind !== "admin") {
     await db.insert(kalakritiEditionMembership).values({
       createdAt: now,
       createdBy: actor.id,
@@ -354,14 +378,50 @@ async function setup(kind: FixtureKind, actorEmail: string) {
       responsibility: "liaison",
     });
   }
-  return { year: fixture.year };
+  if (kind === "music") {
+    await db.insert(kalakritiCompetitionEntry).values({
+      id: fixture.membershipId,
+      editionId: fixture.editionId,
+      centerId: fixture.centerId,
+      divisionId: fixture.groupSessionId,
+      participationMode: "group",
+      createdAt: now,
+      createdBy: actor.id,
+      updatedAt: now,
+      updatedBy: actor.id,
+    });
+    await db.insert(kalakritiEntryMember).values(
+      fixture.studentIds.slice(0, 2).map((studentId) => ({
+        id: studentId,
+        entryId: fixture.membershipId,
+        studentId,
+        centerId: fixture.centerId,
+        divisionId: fixture.groupSessionId,
+        editionId: fixture.editionId,
+        createdAt: now,
+        createdBy: actor.id,
+      }))
+    );
+  }
+  return {
+    year: fixture.year,
+    editionId: fixture.editionId,
+    entryId: fixture.membershipId,
+    centerId: fixture.centerId,
+    divisionId: fixture.groupSessionId,
+    studentIds: fixture.studentIds,
+  };
 }
 
 async function readState(kind: FixtureKind) {
   const fixture = FIXTURES[kind];
   const [entries, audits, members] = await Promise.all([
     db
-      .select({ id: kalakritiCompetitionEntry.id })
+      .select({
+        id: kalakritiCompetitionEntry.id,
+        musicFileName: kalakritiCompetitionEntry.musicFileName,
+        musicObjectKey: kalakritiCompetitionEntry.musicObjectKey,
+      })
       .from(kalakritiCompetitionEntry)
       .where(eq(kalakritiCompetitionEntry.editionId, fixture.editionId)),
     db
@@ -388,6 +448,116 @@ if (!(fixtureKind in FIXTURES)) {
 let result: unknown;
 if (action === "setup" && email) {
   result = await setup(fixtureKind, email);
+} else if (action === "music-cleanup-r2" && fixtureKind !== "admin" && email) {
+  const database = new URL(process.env.DATABASE_URL!);
+  if (!["localhost", "127.0.0.1", "[::1]"].includes(database.hostname))
+    throw new Error("Music cleanup requires local E2E database");
+  const fixture = FIXTURES[fixtureKind];
+  const membership = await db.query.kalakritiEditionMembership.findFirst({
+    where: eq(kalakritiEditionMembership.id, fixture.membershipId),
+    columns: { userId: true },
+  });
+  if (!membership?.userId) throw new Error("Missing music test actor");
+  const keys: unknown = JSON.parse(email);
+  const prefix = process.env.R2_KEY_PREFIX ?? "attachments";
+  if (
+    !Array.isArray(keys) ||
+    keys.length > 10 ||
+    keys.some(
+      (key) =>
+        typeof key !== "string" ||
+        !(
+          key.startsWith(`${prefix}/kalakriti-music/${fixture.editionId}/`) ||
+          (key.startsWith(
+            `${prefix}/kalakriti-music/tmp/${membership.userId}/`
+          ) &&
+            /-(music-initial|music-replacement|track|remix)\.mp3$/.test(key))
+        )
+    )
+  )
+    throw new Error("Refusing non-fixture music object cleanup");
+  const client = new S3Client({
+    accessKeyId: process.env.R2_ACCESS_KEY!,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+    bucket: process.env.R2_BUCKET_NAME!,
+    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  });
+  for (const key of keys as string[]) {
+    await client.delete(key);
+    if (await client.exists(key))
+      throw new Error("Test music cleanup did not finish");
+  }
+  result = { removed: keys.length };
+} else if (action === "music-refresh" && fixtureKind === "music") {
+  await db
+    .update(kalakritiStudent)
+    .set({
+      name: "Entry Student A (refreshed)",
+      normalizedName: "entry student a (refreshed)",
+      updatedAt: new Date(),
+    })
+    .where(eq(kalakritiStudent.id, FIXTURES.music.studentIds[0]));
+  result = { refreshed: true };
+} else if (action === "playback-refresh" && fixtureKind === "music") {
+  await db
+    .update(kalakritiStudent)
+    .set({
+      name: "Entry Student A (playback refresh)",
+      normalizedName: "entry student a (playback refresh)",
+      updatedAt: new Date(),
+    })
+    .where(eq(kalakritiStudent.id, FIXTURES.music.studentIds[0]));
+  result = { refreshed: true };
+} else if (action === "music-mode" && fixtureKind === "music") {
+  const fixture = FIXTURES.music;
+  await db
+    .update(kalakritiEdition)
+    .set({
+      lifecycle:
+        email === "archived"
+          ? "archived"
+          : email === "center-closed"
+            ? "registration_open"
+            : "registration_locked",
+    })
+    .where(eq(kalakritiEdition.id, fixture.editionId));
+  await db
+    .update(kalakritiCenter)
+    .set({
+      competitionEntryRegistrationEnabled: false,
+      studentRegistrationEnabled: false,
+    })
+    .where(eq(kalakritiCenter.id, fixture.centerId));
+  await db
+    .update(kalakritiCompetition)
+    .set({ musicUploadEnabled: email !== "disabled" })
+    .where(eq(kalakritiCompetition.id, fixture.groupCompetitionId));
+  if (email === "writer") {
+    await db
+      .update(kalakritiAssignment)
+      .set({
+        responsibility: "liaison",
+        centerId: fixture.centerId,
+        competitionId: null,
+      })
+      .where(eq(kalakritiAssignment.id, fixture.assignmentId));
+  }
+  if (email === "reader") {
+    await db
+      .update(kalakritiAssignment)
+      .set({
+        responsibility: "competition_coordinator",
+        centerId: null,
+        competitionId: fixture.groupCompetitionId,
+      })
+      .where(eq(kalakritiAssignment.id, fixture.assignmentId));
+  }
+  if (email === "unauthorized")
+    await db
+      .update(kalakritiAssignment)
+      .set({ responsibility: "volunteer_coordinator", centerId: null })
+      .where(eq(kalakritiAssignment.id, fixture.assignmentId));
+  result = { configured: email };
 } else if (action === "state") {
   result = await readState(fixtureKind);
 } else if (action === "cleanup") {

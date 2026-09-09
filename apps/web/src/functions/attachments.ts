@@ -270,6 +270,7 @@ export const getKalakritiEntryMusicUploadUrl = createServerFn({
               throw new PrivateMediaAccessError(403, "Forbidden");
             }
             await authorizeKalakritiEntryMusicUpload({
+              entryId: data.entryId,
               centerId: scope.centerId,
               divisionId: scope.divisionId,
               editionId: scope.editionId,

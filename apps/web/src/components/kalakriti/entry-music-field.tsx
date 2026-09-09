@@ -8,20 +8,15 @@ import {
   type AllowedKalakritiMusicMimeType,
   MAX_KALAKRITI_MUSIC_SIZE_BYTES,
 } from "@pi-dash/shared/constants";
-import { mutators } from "@pi-dash/zero/mutators";
-import { useZero } from "@rocicorp/zero/react";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { type ChangeEvent, type DragEvent, useRef, useState } from "react";
 import { toast } from "sonner";
-import { uuidv7 } from "uuidv7";
 
 import {
   deleteTemporaryUpload,
   getKalakritiEntryMusicUploadUrl,
 } from "@/functions/attachments";
-import { getProtectedAttachmentHref } from "@/lib/attachment-links";
-import { handleMutationResult } from "@/lib/mutation-result";
 
 const MUSIC_ACCEPT = ".aac,.m4a,.mp3";
 
@@ -60,6 +55,7 @@ async function uploadKalakritiMusicFile(
     centerId: string;
     divisionId: string;
     editionId: string;
+    entryId?: string;
   },
   getUploadUrl: ReturnType<
     typeof useServerFn<typeof getKalakritiEntryMusicUploadUrl>
@@ -74,6 +70,7 @@ async function uploadKalakritiMusicFile(
   }
   const { presignedUrl, key } = await getUploadUrl({
     data: {
+      entryId: scope.entryId,
       centerId: scope.centerId,
       divisionId: scope.divisionId,
       editionId: scope.editionId,
@@ -167,12 +164,18 @@ export function EntryMusicUploadField({
   centerId,
   divisionId,
   editionId,
+  entryId,
+  disabled = false,
+  onUploadingChange,
   onChange,
   value,
 }: {
   centerId: string;
   divisionId: string;
   editionId: string;
+  entryId?: string;
+  disabled?: boolean;
+  onUploadingChange?: (uploading: boolean) => void;
   onChange: (value: EntryMusicClaim | null) => void;
   value: EntryMusicClaim | null;
 }) {
@@ -182,13 +185,14 @@ export function EntryMusicUploadField({
 
   const handleFilesAdded = useEventCallback((files: File[]) => {
     const [file] = files;
-    if (!file) {
+    if (!file || disabled || isUploading) {
       return;
     }
     setIsUploading(true);
+    onUploadingChange?.(true);
     uploadKalakritiMusicFile(
       file,
-      { centerId, divisionId, editionId },
+      { centerId, divisionId, editionId, entryId },
       getUploadUrl
     )
       .then(async (claim) => {
@@ -211,6 +215,7 @@ export function EntryMusicUploadField({
       })
       .finally(() => {
         setIsUploading(false);
+        onUploadingChange?.(false);
       });
   });
 
@@ -238,6 +243,7 @@ export function EntryMusicUploadField({
         <>
           <span className="min-w-0 truncate text-sm">{value.fileName}</span>
           <Button
+            disabled={disabled || isUploading}
             aria-label={`Remove ${value.fileName}`}
             onClick={handleRemove}
             size="icon"
@@ -256,128 +262,9 @@ export function EntryMusicUploadField({
       )}
       <MusicFileInput
         canWrite={true}
-        isUploading={isUploading}
+        isUploading={isUploading || disabled}
         onFilesAdded={handleFilesAdded}
       />
-    </div>
-  );
-}
-
-export function EntryMusicCell({
-  canWrite,
-  centerId,
-  divisionId,
-  editionId,
-  entryId,
-  musicFileName,
-}: {
-  canWrite: boolean;
-  centerId: string;
-  divisionId: string;
-  editionId: string;
-  entryId: string;
-  musicFileName: string | null;
-}) {
-  const zero = useZero();
-  const getUploadUrl = useServerFn(getKalakritiEntryMusicUploadUrl);
-  const [isUploading, setIsUploading] = useState(false);
-  const downloadHref = getProtectedAttachmentHref(
-    { id: entryId, kind: "kalakritiEntryMusic" },
-    "inline"
-  );
-
-  const handleFilesAdded = useEventCallback((files: File[]) => {
-    const [file] = files;
-    if (!file) {
-      return;
-    }
-    setIsUploading(true);
-    uploadKalakritiMusicFile(
-      file,
-      { centerId, divisionId, editionId },
-      getUploadUrl
-    )
-      .then(async (claim) => {
-        const result = await zero.mutate(
-          mutators.kalakritiEntry.attachOrReplaceMusic({
-            auditEntryId: uuidv7(),
-            entryId,
-            now: Date.now(),
-            ...claim,
-          })
-        ).server;
-        handleMutationResult(result, {
-          entityId: entryId,
-          errorMsg: "Failed to attach audio",
-          mutation: "kalakritiEntry.attachOrReplaceMusic",
-          successMsg: musicFileName ? "Audio replaced" : "Audio attached",
-        });
-      })
-      .catch((error: unknown) => {
-        log.error({
-          action: "attachKalakritiMusic",
-          component: "EntryMusicCell",
-          fileName: file.name,
-          message: error instanceof Error ? error.message : String(error),
-        });
-        toast.error(
-          error instanceof Error ? error.message : "Failed to upload audio"
-        );
-      })
-      .finally(() => {
-        setIsUploading(false);
-      });
-  });
-
-  const handleRemove = useEventCallback(async () => {
-    const result = await zero.mutate(
-      mutators.kalakritiEntry.removeMusic({
-        auditEntryId: uuidv7(),
-        entryId,
-        now: Date.now(),
-      })
-    ).server;
-    handleMutationResult(result, {
-      entityId: entryId,
-      errorMsg: "Failed to remove audio",
-      mutation: "kalakritiEntry.removeMusic",
-      successMsg: "Audio removed",
-    });
-  });
-
-  return (
-    <div
-      className="flex flex-wrap items-center gap-2"
-      data-testid="entry-music"
-    >
-      {musicFileName ? (
-        <a
-          className="min-w-0 truncate text-sm underline-offset-4 hover:underline"
-          href={downloadHref}
-          rel="noreferrer"
-          target="_blank"
-        >
-          {musicFileName}
-        </a>
-      ) : (
-        <span className="text-muted-foreground text-sm">None</span>
-      )}
-      <MusicFileInput
-        canWrite={canWrite}
-        isUploading={isUploading}
-        onFilesAdded={handleFilesAdded}
-      />
-      {canWrite && musicFileName ? (
-        <Button
-          aria-label={`Remove ${musicFileName}`}
-          onClick={handleRemove}
-          size="sm"
-          type="button"
-          variant="ghost"
-        >
-          Remove
-        </Button>
-      ) : null}
     </div>
   );
 }
