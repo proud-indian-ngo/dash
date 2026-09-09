@@ -284,7 +284,8 @@ cd packages/e2e && bash run-e2e.sh tests/kalakriti/center-transport.spec.ts
 
 - Enable `pickup`, `venue_departure`, `drop_off` in the recording mutators with order rules (pickup before departure before drop-off; drop-off requires pickup).
 - Auth: Transport Lead, Center-scoped Liaisons, Edition admin, `kalakriti.admin`. Guardians denied.
-- Route `/kalakriti/$year/event-day` with a transport station: camera QR (library allowed on this client page) + manual yearly ID field. QR payload = opaque token; hash and call `record`. Duplicate scan is success with already-recorded state.
+- Route `/kalakriti/$year/event-day` with a transport station: client camera QR (`html5-qrcode`) and manual Student yearly ID. QR input is Student person JSON `{id,type:"student"}`, passed as `personQr` to the existing operation mutator; no tokens or hashing. Repeated input/checkpoint scans in the open station show already-recorded state, retries retain their operation ID, and later checkpoints remain independent.
+- Recording requires a live Edition; non-live controls are disabled and archived station access is denied. This station records Student checkpoints only, without deriving vehicle status yet.
 - Nav: Event day for actors who can record transport (not Guardians).
 - Derived absence: no effective (non-superseded) pickup ⇒ Student cannot later receive meals/attendance (enforced in KED-007; expose the helper now).
 - Update surface tests and `registration-release-authorization.spec.ts`: Event day exists; Results/Awards/Inventory still 404.

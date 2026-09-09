@@ -1,125 +1,80 @@
 import { describe, expect, it } from "bun:test";
 
-import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
+import type { KalakritiResponsibility } from "@pi-dash/shared/kalakriti";
 
 import { canAccessKalakritiEventDay } from "./kalakriti-event-day-policy";
 
-type EventDayAccessInput = Pick<
-  KalakritiEditionAccess,
-  "isGlobalAdmin" | "membership"
->;
-
 function access(
-  overrides: Partial<EventDayAccessInput> &
-    Pick<EventDayAccessInput, "membership">
-): EventDayAccessInput {
+  role: KalakritiResponsibility,
+  centerId: string | null = "center"
+) {
   return {
     isGlobalAdmin: false,
-    ...overrides,
+    edition: { lifecycle: "live" },
+    membership: {
+      id: "member",
+      kind: "volunteer" as const,
+      responsibilities: [role],
+      assignments: [
+        {
+          centerId,
+          competitionCategoryId: null,
+          competitionId: null,
+          responsibility: role,
+        },
+      ],
+    },
   };
 }
-
-describe("canAccessKalakritiEventDay", () => {
-  it("allows global admins", () => {
+describe("Event day station access", () => {
+  it.each([
+    "edition_admin",
+    "transport_lead",
+    "liaison",
+    "center_liaison_lead",
+    "liaison_volunteer",
+  ] as const)("allows %s", (role) => {
+    expect(canAccessKalakritiEventDay(access(role))).toBe(true);
+  });
+  it("requires a Center scope for a liaison", () => {
+    expect(canAccessKalakritiEventDay(access("liaison", null))).toBe(false);
+  });
+  it.each([
+    "food_lead",
+    "hospitality_lead",
+    "competition_coordinator",
+  ] as const)("denies %s", (role) => {
+    expect(canAccessKalakritiEventDay(access(role))).toBe(false);
+  });
+  it("denies Guardians, absent memberships and archived stations", () => {
+    expect(
+      canAccessKalakritiEventDay({
+        ...access("transport_lead"),
+        membership: {
+          ...access("transport_lead").membership,
+          kind: "guardian",
+        },
+      })
+    ).toBe(false);
+    expect(
+      canAccessKalakritiEventDay({ isGlobalAdmin: false, membership: null })
+    ).toBe(false);
     expect(
       canAccessKalakritiEventDay({
         isGlobalAdmin: true,
         membership: null,
+        edition: { lifecycle: "archived" },
+      })
+    ).toBe(false);
+    expect(canAccessKalakritiEventDay(null)).toBe(false);
+  });
+  it("allows admins before live for the disabled station notice", () => {
+    expect(
+      canAccessKalakritiEventDay({
+        isGlobalAdmin: true,
+        membership: null,
+        edition: { lifecycle: "draft" },
       })
     ).toBe(true);
-  });
-
-  it("allows transport leads and center transport staff", () => {
-    expect(
-      canAccessKalakritiEventDay(
-        access({
-          membership: {
-            assignments: [
-              {
-                centerId: null,
-                competitionCategoryId: null,
-                competitionId: null,
-                responsibility: "transport_lead",
-              },
-            ],
-            id: "membership-1",
-            kind: "volunteer",
-            responsibilities: ["transport_lead"],
-          },
-        })
-      )
-    ).toBe(true);
-    expect(
-      canAccessKalakritiEventDay(
-        access({
-          membership: {
-            assignments: [
-              {
-                centerId: "center-1",
-                competitionCategoryId: null,
-                competitionId: null,
-                responsibility: "transport_coordinator",
-              },
-            ],
-            id: "membership-2",
-            kind: "volunteer",
-            responsibilities: ["transport_coordinator"],
-          },
-        })
-      )
-    ).toBe(true);
-    expect(
-      canAccessKalakritiEventDay(
-        access({
-          membership: {
-            assignments: [
-              {
-                centerId: "center-1",
-                competitionCategoryId: null,
-                competitionId: null,
-                responsibility: "liaison",
-              },
-            ],
-            id: "membership-3",
-            kind: "volunteer",
-            responsibilities: ["liaison"],
-          },
-        })
-      )
-    ).toBe(true);
-  });
-
-  it("denies guardians and unrelated volunteers", () => {
-    expect(
-      canAccessKalakritiEventDay(
-        access({
-          membership: {
-            assignments: [],
-            id: "guardian-1",
-            kind: "guardian",
-            responsibilities: [],
-          },
-        })
-      )
-    ).toBe(false);
-    expect(
-      canAccessKalakritiEventDay(
-        access({
-          membership: {
-            assignments: [
-              {
-                centerId: null,
-                competitionCategoryId: null,
-                competitionId: null,
-                responsibility: "food_lead",
-              },
-            ],
-            id: "food-1",
-            kind: "volunteer",
-            responsibilities: ["food_lead"],
-          },
-        })
-      )
-    ).toBe(false);
   });
 });

@@ -93,6 +93,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             Boolean(assignment.competitionCategoryId))
       ) === true);
   const canViewEventDay = canAccessKalakritiEventDay({
+    edition: activeEdition?.lifecycle
+      ? { lifecycle: activeEdition.lifecycle }
+      : undefined,
     isGlobalAdmin: hasPermission("kalakriti.admin"),
     membership: membership
       ? {

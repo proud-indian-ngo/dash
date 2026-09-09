@@ -47,7 +47,7 @@ Functions are idempotent where possible (`onConflictDoNothing()`), return the in
 
 ## Kalakriti global invariants
 
-Public schedule, database race, and JSON operation tests run only in the `kalakriti_release_invariants` project with one worker. They share the database-wide single-live-Edition constraint, so distinct fixture IDs alone don't isolate them. Keep new live-Edition tests in this lane and skip them in the role projects. `operations-person-qr.spec.ts` overrides the lane's default storage state with the super-admin actor while testing additional scoped actors in separate browser contexts.
+Public schedule, database race, JSON operation, and Event-day transport station tests run only in the `kalakriti_release_invariants` project with one worker. They share the database-wide single-live-Edition constraint, so distinct fixture IDs alone don't isolate them. Keep new live-Edition tests in this lane and skip them in the role projects. `operations-person-qr.spec.ts` and `event-day-transport.spec.ts` override the lane's default storage state with the super-admin actor while testing additional scoped actors in separate browser contexts. The station fixture uses isolated Edition 2166 and its own Guardian identity. Camera frames are simulated at the decoder boundary; UI, Zero mutations, authorization, and database assertions use the real stack.
 
 ## Sharding by Duration
 

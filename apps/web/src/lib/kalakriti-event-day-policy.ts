@@ -8,12 +8,7 @@ import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 type KalakritiEventDayAccessInput = Pick<
   KalakritiEditionAccess,
   "isGlobalAdmin" | "membership"
->;
-
-const CENTER_TRANSPORT_RESPONSIBILITIES = [
-  "transport_coordinator",
-  ...KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES,
-] as const satisfies readonly KalakritiResponsibility[];
+> & { edition?: { lifecycle: string } };
 
 function hasEditionWideTransportAccess(
   access: KalakritiEventDayAccessInput
@@ -32,10 +27,12 @@ function hasAnyCenterTransportAssignment(
   access: KalakritiEventDayAccessInput
 ): boolean {
   return (
-    access.membership?.assignments.some((assignment) =>
-      (
-        CENTER_TRANSPORT_RESPONSIBILITIES as readonly KalakritiResponsibility[]
-      ).includes(assignment.responsibility)
+    access.membership?.assignments.some(
+      (assignment) =>
+        assignment.centerId !== null &&
+        (
+          KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES as readonly KalakritiResponsibility[]
+        ).includes(assignment.responsibility)
     ) === true
   );
 }
@@ -43,10 +40,11 @@ function hasAnyCenterTransportAssignment(
 export function canAccessKalakritiEventDay(
   access: KalakritiEventDayAccessInput | null | undefined
 ): boolean {
-  if (!access) {
+  if (!access || access.edition?.lifecycle === "archived") {
     return false;
   }
-  if (access.membership?.kind === "guardian") {
+  if (access.isGlobalAdmin) return true;
+  if (access.membership?.kind !== "volunteer") {
     return false;
   }
   return (

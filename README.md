@@ -45,6 +45,7 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 | Kalakriti detail sheets | View yearly IDs in each Edition's Volunteers table, volunteer responsibilities, Guardian Centers, and Student Centers and competition entries. Every authorized sheet viewer sees a QR containing the person's existing identifier, with no issuance step or separate Credentials page. |
 | Kalakriti operation ledger | Record authorized live-Edition operations from JSON person identifiers or yearly IDs, with idempotent retries, scoped staff permissions, and Student/Entry deletion guards. Station UI is a later release. |
 | Kalakriti Center transport | The Transport Lead and administrators create, edit, and delete vehicle assignments. Status is read-only pending Student QR scanning integration. Guardians and Center Liaisons can view their own Center's details and receive updates. |
+| Kalakriti Event day | Authorized staff record Student pickup, venue departure, and drop-off in live Editions using person QR scans or yearly IDs. Bus status derivation is not yet connected. |
 | Event interest | Volunteers express interest in public events; leads/admins approve or reject; approved volunteers are auto-added as event members with WhatsApp sync |
 | Event updates | Leads/admins post rich-text updates (Plate editor with inline images) to events after they start |
 | Event photos | Members upload photos to events; leads/admins approve or reject; approved photos sync to Immich for album management |

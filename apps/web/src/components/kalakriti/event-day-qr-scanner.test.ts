@@ -9,7 +9,7 @@ const mocks = hoisted(() => ({
   effect: null as Effect | null,
   error: mock(),
   lifecycle: [] as string[],
-  scanSuccess: null as ((token: string) => void) | null,
+  scanSuccess: null as ((personQr: string) => void) | null,
   setStartFailed: mock((_value: boolean) => {}),
   start: mock(async (..._args: unknown[]) => {}),
   startImplementation: async () => {},
@@ -59,7 +59,7 @@ async function waitFor(predicate: () => boolean) {
   throw new Error("Timed out waiting for scanner lifecycle");
 }
 
-function mountScanner(onScan = mock((_token: string) => {})) {
+function mountScanner(onScan = mock((_personQr: string) => {})) {
   EventDayQrScanner({ onScan });
   const effect = mocks.effect;
   if (!effect) {
@@ -83,7 +83,7 @@ beforeEach(() => {
     mocks.stateValue = value;
   });
   mocks.start.mockImplementation(async (...args: unknown[]) => {
-    mocks.scanSuccess = args[2] as (token: string) => void;
+    mocks.scanSuccess = args[2] as (personQr: string) => void;
     await mocks.startImplementation();
   });
   mocks.stop.mockImplementation(async () => {
@@ -100,9 +100,13 @@ describe("EventDayQrScanner", () => {
 
     await waitFor(() => mocks.scanSuccess !== null);
     await new Promise((resolve) => setTimeout(resolve, 0));
-    mocks.scanSuccess?.("credential-token");
+    mocks.scanSuccess?.(
+      '{"id":"019f0000-0042-7000-8000-00000000d107","type":"student"}'
+    );
 
-    expect(onScan).toHaveBeenCalledWith("credential-token");
+    expect(onScan).toHaveBeenCalledWith(
+      '{"id":"019f0000-0042-7000-8000-00000000d107","type":"student"}'
+    );
 
     cleanup();
     await waitFor(() => mocks.clear.mock.calls.length === 1);
@@ -146,7 +150,7 @@ describe("EventDayQrScanner", () => {
 
     await waitFor(() => mocks.scanSuccess !== null);
     cleanup();
-    mocks.scanSuccess?.("late-token");
+    mocks.scanSuccess?.("late-scan");
 
     expect(onScan).not.toHaveBeenCalled();
     expect(mocks.stop).not.toHaveBeenCalled();

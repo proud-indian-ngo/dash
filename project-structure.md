@@ -86,6 +86,8 @@ All paths are relative to project root.
 | `routes/_app/kalakriti/$year/index.tsx` | Edition overview workspace and Edition header |
 | `components/kalakriti/{volunteer,guardian,student}-detail-sheet.tsx` | Table-owned person details, Guardian/Student Center details, Student competition entries, and identifier QR codes for every authorized viewer |
 | `components/kalakriti/person-qr-panel.tsx` | Client-rendered JSON QR containing the database record `id` and subject `type` (`student`, `guardian`, or `volunteer`) |
+| `routes/_app/kalakriti/$year/event-day.tsx` | Live-Edition Student transport checkpoint station using person QR JSON or yearly IDs; scoped staff only |
+| `components/kalakriti/event-day-qr-scanner.tsx` | Client-only camera decoder with startup failure handling and camera cleanup |
 | `components/kalakriti/center-transport-section.tsx` | Transport Lead/admin vehicle management and deletion confirmation, with read-only status and scoped viewing for Guardians and Center Liaisons |
 | `components/kalakriti/center-transport-form-dialog.tsx` | Scoped vehicle creation/editing form; archived Editions remain read-only |
 | `components/kalakriti/entry-music-dialog.tsx` | Separate staged music upload/replacement/removal form for existing Entries, including after registration closes |

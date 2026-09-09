@@ -80,6 +80,14 @@ New writes require a `live` Edition and an authorized operator. Edition/global a
 
 `kalakriti_operation` is append-only and has a unique `operationId`, XOR subjects, and Edition-composite subject/session references. A retry by the original recorder or global administrator is a no-op even if the submitted type or subject changes; another recorder or Edition cannot reuse the key. Replays don't create audit rows or duplicate operations. Student deletion and Entry removal are blocked once their Students have recorded operations. `event_day_operation` audit entries contain only bounded operation metadata. The seed script leaves draft Edition operations empty and adds an idempotent sample pickup only when the demo Edition is live and its sample Student has no history. E2E fixtures exercise idempotent recording against isolated live Editions.
 
+## Event-day Student transport station
+
+`/kalakriti/$year/event-day` records pickup, venue departure, and drop-off through the operation spine above. Global/Edition administrators, Transport Leads, and scoped Center Liaisons can access the station; Guardians and Food-only staff cannot. New recording is enabled only for live Editions, and archived Editions have no station access. The page and navigation share `lib/kalakriti-event-day-policy.ts`; the backend independently validates each Student's Edition and Center scope.
+
+`components/kalakriti/event-day-qr-scanner.tsx` loads `html5-qrcode` on the client and releases the camera on cleanup. Scanning accepts Student person-QR JSON, not credential tokens. Manual entry accepts a Student yearly ID. Repeated input at the same checkpoint is deduplicated within the open station, while retries reuse an operation ID and later checkpoints get separate keys. This is not cross-device or cross-input deduplication. Camera failures leave manual recording available.
+
+The station records Student operations only. It does not yet derive vehicle assignment status from those operations.
+
 ## Volunteer yearly IDs
 
 Enrollment allocates a stable `KALV-{year}-{sequence}` ID on the volunteer's Edition Membership under the Edition row lock. Reactivation and replay preserve existing IDs, independently of QR payloads. Each Edition's Volunteers table displays that membership's ID in a searchable Yearly ID column; missing IDs display a dash. It uses the existing Edition-scoped roster query, without a separate server projection or changes to the global Users table.
@@ -110,7 +118,7 @@ Only loopback database hosts are accepted without `--confirm-target=host:port/da
 
 `packages/e2e/helpers/kalakriti-release-fixture.ts` owns deterministic role and privacy fixtures. The Kalakriti Playwright suite proves Edition creation and linked-event ownership, assignment and Guardian paths, Center controls, Student and individual/group Entry registration, public schedule privacy, scoped exports, direct URL/API denial, dormant Guardian login denial, and concurrent quota and duplicate races.
 
-`docs/kalakriti-registration-release-evidence.md` is the acceptance traceability record for KRR-001 through KRR-019. Person QR display, yearly IDs, and lookup have dedicated coverage described above; transport and operational dependencies remain later modules on this branch.
+`docs/kalakriti-registration-release-evidence.md` is the acceptance traceability record for KRR-001 through KRR-019. Person QR display, yearly IDs, transport setup, and operation recording have dedicated coverage described above. The Event-day station has isolated live-Edition E2E coverage; camera results are simulated at the decoder boundary while UI, authorization, mutations, and persisted operations remain real. Vehicle status derivation and the remaining operational stations are separate follow-up work.
 
 The release gate is:
 

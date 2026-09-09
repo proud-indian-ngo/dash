@@ -8,6 +8,35 @@ const YEAR = 2186;
 test.describe("Kalakriti Registration Release authorization", () => {
   test.describe.configure({ mode: "serial" });
 
+  test("denies Guardians the event-day station and navigation", async ({
+    baseURL,
+    browser,
+    kalakritiActors,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== "super_admin",
+      "Guardian event-day authorization"
+    );
+    const context = await browser.newContext({
+      baseURL,
+      storageState: kalakritiActors.guardian.storageState,
+    });
+    try {
+      const page = await context.newPage();
+      await page.goto(`/kalakriti/${YEAR}`);
+      await waitForZeroReady(page);
+      await expect(
+        page.getByRole("link", { name: "Event day", exact: true })
+      ).toHaveCount(0);
+      await page.goto(`/kalakriti/${YEAR}/event-day`);
+      await expect(
+        page.getByRole("heading", { name: "Page not found" })
+      ).toBeVisible();
+    } finally {
+      await context.close();
+    }
+  });
+
   test("shows guardian dashboard compliance only for assigned centers", async ({
     baseURL,
     browser,
@@ -302,29 +331,26 @@ test.describe("Kalakriti Registration Release authorization", () => {
       await page.goto(`/kalakriti/${YEAR}`);
       await waitForZeroReady(page);
       await Promise.all(
-        ["Credentials", "Event day", "Results", "Awards", "Inventory"].map(
-          (label) =>
-            expect(page.getByRole("link", { name: label })).toHaveCount(0)
+        ["Credentials", "Results", "Awards", "Inventory"].map((label) =>
+          expect(page.getByRole("link", { name: label })).toHaveCount(0)
         )
       );
       await Promise.all(
-        ["credentials", "event-day", "results", "awards", "inventory"].map(
-          async (path) => {
-            const routePage = await editionAdmin.newPage();
-            try {
-              const apiResponse = await editionAdmin.request.get(
-                `/api/kalakriti/${YEAR}/${path}`
-              );
-              await routePage.goto(`/kalakriti/${YEAR}/${path}`);
-              await expect(
-                routePage.getByRole("heading", { name: "Page not found" })
-              ).toBeVisible();
-              expect(apiResponse.status()).toBe(404);
-            } finally {
-              await routePage.close();
-            }
+        ["credentials", "results", "awards", "inventory"].map(async (path) => {
+          const routePage = await editionAdmin.newPage();
+          try {
+            const apiResponse = await editionAdmin.request.get(
+              `/api/kalakriti/${YEAR}/${path}`
+            );
+            await routePage.goto(`/kalakriti/${YEAR}/${path}`);
+            await expect(
+              routePage.getByRole("heading", { name: "Page not found" })
+            ).toBeVisible();
+            expect(apiResponse.status()).toBe(404);
+          } finally {
+            await routePage.close();
           }
-        )
+        })
       );
     } finally {
       await anonymous.close();

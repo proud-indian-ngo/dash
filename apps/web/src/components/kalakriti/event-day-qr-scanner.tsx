@@ -5,113 +5,120 @@ import { useEffect, useState } from "react";
 const SCANNER_ELEMENT_ID = "kalakriti-event-day-qr";
 
 interface EventDayQrScannerProps {
-  onScan: (token: string) => void;
+  onScan: (personQr: string) => void;
+}
+
+function startScannerSession(
+  onScan: (personQr: string) => void,
+  onStartFailed: () => void
+) {
+  let cancelled = false;
+  let scanner: {
+    clear: () => Promise<void> | void;
+    stop: () => Promise<void>;
+  } | null = null;
+  let cleanupPromise: Promise<void> | null = null;
+  let startSettled = false;
+  let startSucceeded = false;
+
+  const cleanupScanner = async () => {
+    if (!scanner || cleanupPromise) {
+      await cleanupPromise;
+      return;
+    }
+
+    const activeScanner = scanner;
+    cleanupPromise = (async () => {
+      if (startSucceeded) {
+        try {
+          await activeScanner.stop();
+        } catch (error) {
+          log.error({
+            action: "stopQrScanner",
+            component: "EventDayQrScanner",
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      try {
+        await activeScanner.clear();
+      } catch (error) {
+        log.error({
+          action: "clearQrScanner",
+          component: "EventDayQrScanner",
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+
+      if (scanner === activeScanner) {
+        scanner = null;
+      }
+    })();
+    await cleanupPromise;
+  };
+
+  const startScanner = async () => {
+    try {
+      const { Html5Qrcode } = await import("html5-qrcode");
+      if (cancelled) {
+        return;
+      }
+
+      const nextScanner = new Html5Qrcode(SCANNER_ELEMENT_ID);
+      scanner = nextScanner;
+      await nextScanner.start(
+        { facingMode: "environment" },
+        {
+          aspectRatio: 1,
+          fps: 10,
+          qrbox: { height: 220, width: 220 },
+        },
+        (decodedText) => {
+          if (!cancelled) {
+            onScan(decodedText);
+          }
+        },
+        () => {
+          // Ignore scan misses.
+        }
+      );
+      startSucceeded = true;
+    } catch (error) {
+      log.error({
+        action: "startQrScanner",
+        component: "EventDayQrScanner",
+        error: error instanceof Error ? error.message : String(error),
+      });
+      if (!cancelled) {
+        onStartFailed();
+      }
+    } finally {
+      startSettled = true;
+      if (scanner && (cancelled || !startSucceeded)) {
+        await cleanupScanner();
+      }
+    }
+  };
+
+  void startScanner();
+
+  return () => {
+    cancelled = true;
+    if (startSettled) {
+      void cleanupScanner();
+    }
+  };
 }
 
 export function EventDayQrScanner({ onScan }: EventDayQrScannerProps) {
   const handleScan = useEventCallback(onScan);
   const [startFailed, setStartFailed] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    let scanner: {
-      clear: () => Promise<void> | void;
-      stop: () => Promise<void>;
-    } | null = null;
-    let cleanupPromise: Promise<void> | null = null;
-    let startSettled = false;
-    let startSucceeded = false;
-
-    const cleanupScanner = async () => {
-      if (!scanner || cleanupPromise) {
-        await cleanupPromise;
-        return;
-      }
-
-      const activeScanner = scanner;
-      cleanupPromise = (async () => {
-        if (startSucceeded) {
-          try {
-            await activeScanner.stop();
-          } catch (error) {
-            log.error({
-              action: "stopQrScanner",
-              component: "EventDayQrScanner",
-              error: error instanceof Error ? error.message : String(error),
-            });
-          }
-        }
-
-        try {
-          await activeScanner.clear();
-        } catch (error) {
-          log.error({
-            action: "clearQrScanner",
-            component: "EventDayQrScanner",
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-
-        if (scanner === activeScanner) {
-          scanner = null;
-        }
-      })();
-      await cleanupPromise;
-    };
-
-    const startScanner = async () => {
-      try {
-        const { Html5Qrcode } = await import("html5-qrcode");
-        if (cancelled) {
-          return;
-        }
-
-        const nextScanner = new Html5Qrcode(SCANNER_ELEMENT_ID);
-        scanner = nextScanner;
-        await nextScanner.start(
-          { facingMode: "environment" },
-          {
-            aspectRatio: 1,
-            fps: 10,
-            qrbox: { height: 220, width: 220 },
-          },
-          (decodedText) => {
-            if (!cancelled) {
-              handleScan(decodedText);
-            }
-          },
-          () => {
-            // Ignore scan misses.
-          }
-        );
-        startSucceeded = true;
-      } catch (error) {
-        log.error({
-          action: "startQrScanner",
-          component: "EventDayQrScanner",
-          error: error instanceof Error ? error.message : String(error),
-        });
-        if (!cancelled) {
-          setStartFailed(true);
-        }
-      } finally {
-        startSettled = true;
-        if (scanner && (cancelled || !startSucceeded)) {
-          await cleanupScanner();
-        }
-      }
-    };
-
-    setStartFailed(false);
-    void startScanner();
-
-    return () => {
-      cancelled = true;
-      if (startSettled) {
-        void cleanupScanner();
-      }
-    };
-  }, [handleScan]);
+  useEffect(
+    () => startScannerSession(handleScan, () => setStartFailed(true)),
+    [handleScan]
+  );
 
   return (
     <div className="space-y-2">
