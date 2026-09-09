@@ -9,7 +9,9 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
+import { log } from "evlog";
 import { useState } from "react";
+import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 
@@ -59,50 +61,62 @@ function TransportForm({
         ? value.driverPhone.trim()
         : null;
       const notes = value.notes.trim() ? value.notes.trim() : null;
-      const result = isEditing
-        ? await zero.mutate(
-            mutators.kalakritiTransport.update({
-              assignmentId: assignment.id,
-              auditEntryId: uuidv7(),
-              capacity: value.capacity,
-              changeId: uuidv7(),
-              driverName: value.driverName,
-              driverPhone,
-              editionId,
-              notes,
-              now,
-              vehicleLabel: value.vehicleLabel,
-            })
-          ).server
-        : await zero.mutate(
-            mutators.kalakritiTransport.create({
-              assignmentId: uuidv7(),
-              auditEntryId: uuidv7(),
-              capacity: value.capacity,
-              centerId,
-              driverName: value.driverName,
-              driverPhone,
-              editionId,
-              historyId: uuidv7(),
-              notes,
-              now,
-              vehicleLabel: value.vehicleLabel,
-            })
-          ).server;
-      handleMutationResult(result, {
-        entityId: assignment?.id ?? centerId,
-        errorMsg: isEditing
-          ? "Failed to update transport assignment"
-          : "Failed to create transport assignment",
-        mutation: isEditing
-          ? "kalakritiTransport.update"
-          : "kalakritiTransport.create",
-        successMsg: isEditing
-          ? "Transport assignment updated"
-          : "Transport assignment created",
-      });
-      if (result.type !== "error") {
-        onOpenChange(false);
+      try {
+        const result = isEditing
+          ? await zero.mutate(
+              mutators.kalakritiTransport.update({
+                assignmentId: assignment.id,
+                auditEntryId: uuidv7(),
+                capacity: value.capacity,
+                changeId: uuidv7(),
+                driverName: value.driverName,
+                driverPhone,
+                editionId,
+                notes,
+                now,
+                vehicleLabel: value.vehicleLabel,
+              })
+            ).server
+          : await zero.mutate(
+              mutators.kalakritiTransport.create({
+                assignmentId: uuidv7(),
+                auditEntryId: uuidv7(),
+                capacity: value.capacity,
+                centerId,
+                driverName: value.driverName,
+                driverPhone,
+                editionId,
+                historyId: uuidv7(),
+                notes,
+                now,
+                vehicleLabel: value.vehicleLabel,
+              })
+            ).server;
+        handleMutationResult(result, {
+          entityId: assignment?.id ?? centerId,
+          errorMsg: isEditing
+            ? "Failed to update transport assignment"
+            : "Failed to create transport assignment",
+          mutation: isEditing
+            ? "kalakritiTransport.update"
+            : "kalakritiTransport.create",
+          successMsg: isEditing
+            ? "Transport assignment updated"
+            : "Transport assignment created",
+        });
+        if (result.type !== "error") {
+          onOpenChange(false);
+        }
+      } catch (error) {
+        log.error({
+          component: "CenterTransportFormDialog",
+          action: "saveTransportAssignment",
+          editionId,
+          centerId,
+          assignmentId: assignment?.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        toast.error("Failed to save transport assignment");
       }
     },
     validators: {

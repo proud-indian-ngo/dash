@@ -96,6 +96,55 @@ function createTx(results: unknown[] = []) {
   };
 }
 
+describe("transport subject scope", () => {
+  it.each(["create", "update", "transitionStatus"] as const)(
+    "denies %s for Guardians, inactive members, and other-Center coordinators",
+    async (command) => {
+      for (const membership of [
+        { id: "membership-1", kind: "guardian" },
+        undefined,
+        { id: "membership-1", kind: "volunteer" },
+      ]) {
+        const { tx, lockedResults, spies } = createTx([
+          ...(command === "create" ? [] : [assignment]),
+          membership,
+          [
+            {
+              responsibility: "transport_coordinator",
+              centerId: "other-center",
+            },
+          ],
+        ]);
+        lockedResults.push([edition], [center]);
+        await expect(
+          kalakritiTransportMutators[command].fn({
+            args: {
+              assignmentId: assignment.id,
+              auditEntryId: "audit-1",
+              centerId: center.id,
+              editionId: edition.id,
+              capacity: 45,
+              driverName: "Driver",
+              driverPhone: null,
+              notes: null,
+              vehicleLabel: "Bus",
+              historyId: "history-1",
+              changeId: "change-1",
+              now: 2,
+              occurredAt: 2,
+            },
+            ctx: coordinatorContext,
+            tx,
+          } as never)
+        ).rejects.toThrow("Unauthorized");
+        expect(spies.insertAssignment).not.toHaveBeenCalled();
+        expect(spies.updateAssignment).not.toHaveBeenCalled();
+        expect(spies.insertHistory).not.toHaveBeenCalled();
+      }
+    }
+  );
+});
+
 describe("kalakritiTransport.create", () => {
   it("creates a planned assignment for admins", async () => {
     const { lockedResults, spies, tx } = createTx();

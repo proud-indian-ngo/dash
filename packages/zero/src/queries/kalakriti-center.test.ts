@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
 
 import { kalakritiCenterQueries } from "./kalakriti-center";
+import { kalakritiEntryQueries } from "./kalakriti-entry";
+import { kalakritiStudentQueries } from "./kalakriti-student";
 
 const input = { editionId: "edition-1" };
 
@@ -31,6 +33,59 @@ describe("kalakritiCenter queries", () => {
     expect(ast).toContain('"value":"center_liaison_lead"');
     expect(ast).toContain('"value":"competition_category_lead"');
     expect(ast).toContain('"value":"competition_coordinator"');
+  });
+
+  it("grants transport-only Center discovery without broadening registration datasets", () => {
+    const query = kalakritiCenterQueries.visible.fn({
+      args: input,
+      ctx: {
+        permissions: ["kalakriti.view"],
+        role: "volunteer",
+        userId: "transport-user",
+      },
+    });
+    const conditions = (
+      query as unknown as { ast: { where: { conditions: unknown[] } } }
+    ).ast.where.conditions;
+    // Select the transport-only authorization branches, not the full OR expression.
+    const visit = (value: unknown): unknown[] => {
+      if (!value || typeof value !== "object") return [];
+      const node = value as { related?: { subquery?: { table?: string } } };
+      const own =
+        node.related?.subquery?.table === "kalakritiAssignment" &&
+        JSON.stringify(value).includes('"value":"transport_coordinator"')
+          ? [value]
+          : [];
+      return [...own, ...Object.values(value).flatMap(visit)];
+    };
+    const [coordinatorBranch] = visit(conditions);
+    const coordinatorAst = JSON.stringify(coordinatorBranch);
+    expect(coordinatorAst).toContain(
+      '"parentField":["id"],"childField":["centerId"]'
+    );
+    expect(coordinatorAst).toContain('"value":"transport-user"');
+    expect(coordinatorAst).toContain('"value":"active"');
+    expect(coordinatorAst).toContain('"value":"volunteer"');
+    expect(queryAst(query)).toContain('"value":"transport_lead"');
+    const scopedInput = {
+      args: { ...input, centerId: "center-1" },
+      ctx: {
+        permissions: ["kalakriti.view"],
+        role: "volunteer",
+        userId: "transport-user",
+      },
+    };
+    for (const registrationQuery of [
+      kalakritiStudentQueries.visibleByCenter.fn(scopedInput),
+      kalakritiEntryQueries.visibleByCenter.fn(scopedInput),
+    ]) {
+      expect(queryAst(registrationQuery)).not.toContain(
+        '"value":"transport_lead"'
+      );
+      expect(queryAst(registrationQuery)).not.toContain(
+        '"value":"transport_coordinator"'
+      );
+    }
   });
 
   it("returns a never-match query without Kalakriti access", () => {

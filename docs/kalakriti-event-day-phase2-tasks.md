@@ -249,15 +249,15 @@ bun run test:unit
 - Tables: `kalakriti_transport_assignment` (Center, vehicle/driver/phone/capacity/notes, `status`), `kalakriti_transport_status_history` (immutable transitions).
 - Status machine: `planned` → `arrived_at_center` → `arrived_at_venue` → `departed_venue` → `completed`. Ordinary staff cannot skip backwards.
 - Add `transport_coordinator` to `KALAKRITI_EDITION_RESPONSIBILITIES` (Center-scoped). Update assignment CHECK, labels, Assign role groups, `getKalakritiResponsibilityScopeKind`. Do not rename existing IDs.
-- Mutators: create/update assignment (bus/driver/phone/capacity/notes), `transitionTransportStatus`. Auth: `kalakriti.admin`, Edition Administrator, `transport_lead` (edition), `transport_coordinator` (that Center), Center-scoped Liaisons. **Guardians denied** (KRR-007).
+- Mutators: `kalakritiTransport.create`, `update` (bus/driver/phone/capacity/notes), and `transitionStatus`. Auth: `kalakriti.admin`, Edition Administrator, `transport_lead` (Edition), `transport_coordinator` (that Center), Center-scoped Liaisons. **Guardians cannot mutate transport** (KRR-007), but can read their own Center's transport. Transport-only staff receive parent Center discovery without registration-write access.
 - Center detail UI section for transport.
 - Notification: new job `notify-kalakriti-transport-changed`, recipients = affected Center Guardians + Liaisons (copy schedule-change stack). Deterministic idempotency key; no `Date.now()`. Inbox + WhatsApp topic.
 - Pure helper: every non-retired Center has ≥1 transport assignment (consumed by KED-009).
-- Seeds for new tables.
+- Migration `0077_perfect_wendigo.sql` follows the merged operation ledger migration. The root seed atomically creates a planned demo assignment and initial history without resetting existing progress.
 
 **Acceptance:**
 
-- Guardian cannot create or transition transport.
+- Guardian can read only their own Center's transport and cannot create, edit, or transition it.
 - Illegal backward status is rejected.
 - Changing driver/bus enqueues one notification keyed stably per change.
 

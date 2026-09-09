@@ -1,9 +1,9 @@
 # Jobs (`packages/jobs`)
 
-> **Load when**: pg-boss, `enqueue`, job handler, job schedule, cron, retry, DLQ, `singletonKey`, `createNotifyHandler`, `notify-*`, 42 handlers.
+> **Load when**: pg-boss, `enqueue`, job handler, job schedule, cron, retry, DLQ, `singletonKey`, `createNotifyHandler`, `notify-*`, handler registration.
 > **Related**: `notifications.md`, `observability.md`, `data-layer.md`
 
-pg-boss–backed job queue. All async side-effects (notifications, integrations, cleanup). 42 handlers in `src/handlers/`.
+pg-boss–backed job queue. All async side-effects (notifications, integrations, cleanup). Handlers live in `src/handlers/`.
 
 | Concept | Location | Notes |
 |---|---|---|
@@ -17,7 +17,7 @@ pg-boss–backed job queue. All async side-effects (notifications, integrations,
 
 ## Handler Categories
 
-- `notify-*` — 12 notification types
+- `notify-*` — domain notification delivery
 - `process-*` / `remind-*` / `send-*` — event reminders, RSVP polls, digests
 - `immich-*` — photo sync
 - `whatsapp-*` — group management
@@ -35,3 +35,8 @@ Opening registration separately schedules the 24-hour planned-close reminder;
 the reminder handler rechecks the Edition lifecycle and never closes registration.
 Published Session, Competition label, Venue label, and Age Category label/order
 changes enqueue the same affected-recipient schedule job.
+
+Center vehicle/driver updates enqueue `notify-kalakriti-transport-changed` with
+an assignment/change-ID singleton key. The handler reloads the assignment and
+resolves only that Center's active Guardian and Liaison recipients; delivery
+uses the same change ID for deterministic per-recipient message keys.

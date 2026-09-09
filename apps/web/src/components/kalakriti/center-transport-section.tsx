@@ -20,7 +20,9 @@ import {
 import { getNextKalakritiTransportStatus } from "@pi-dash/zero/kalakriti-transport-rules";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
+import { log } from "evlog";
 import { useState } from "react";
+import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 
 import { CenterTransportFormDialog } from "@/components/kalakriti/center-transport-form-dialog";
@@ -49,7 +51,6 @@ function TransportStatusBadge({
 }
 
 function TransportAssignmentCard({
-  advancingId,
   assignment,
   canManageTransport,
   isAdvancing,
@@ -57,7 +58,6 @@ function TransportAssignmentCard({
   onAdvance,
   onEdit,
 }: {
-  advancingId: string | null;
   assignment: CenterTransportAssignment;
   canManageTransport: boolean;
   isAdvancing: boolean;
@@ -103,7 +103,7 @@ function TransportAssignmentCard({
             </Button>
             {nextStatus ? (
               <Button
-                disabled={isAdvancing && advancingId === assignment.id}
+                disabled={isAdvancing}
                 onClick={handleAdvanceClick}
                 size="sm"
                 type="button"
@@ -140,7 +140,6 @@ export function CenterTransportSection({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAssignment, setEditingAssignment] =
     useState<CenterTransportAssignment | null>(null);
-  const [advancingId, setAdvancingId] = useState<string | null>(null);
   const [isAdvancing, setIsAdvancing] = useState(false);
 
   const handleAdd = useEventCallback(() => {
@@ -158,10 +157,9 @@ export function CenterTransportSection({
   const handleAdvance = useEventCallback(
     async (assignment: CenterTransportAssignment) => {
       const nextStatus = getNextKalakritiTransportStatus(assignment.status);
-      if (!nextStatus) {
+      if (!nextStatus || isAdvancing || !canManageTransport || isRetired) {
         return;
       }
-      setAdvancingId(assignment.id);
       setIsAdvancing(true);
       try {
         const result = await zero.mutate(
@@ -180,10 +178,18 @@ export function CenterTransportSection({
           mutation: "kalakritiTransport.transitionStatus",
           successMsg: `Marked as ${KALAKRITI_TRANSPORT_STATUS_LABELS[nextStatus]}`,
         });
-      } finally {
-        setIsAdvancing(false);
-        setAdvancingId(null);
+      } catch (error) {
+        log.error({
+          component: "CenterTransportSection",
+          action: "advanceTransportStatus",
+          editionId,
+          centerId,
+          assignmentId: assignment.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        toast.error("Failed to advance transport status");
       }
+      setIsAdvancing(false);
     }
   );
 
@@ -222,7 +228,6 @@ export function CenterTransportSection({
         <div className="grid gap-4">
           {assignments.map((assignment) => (
             <TransportAssignmentCard
-              advancingId={advancingId}
               assignment={assignment}
               canManageTransport={canManageTransport}
               isAdvancing={isAdvancing}
@@ -235,13 +240,15 @@ export function CenterTransportSection({
         </div>
       )}
 
-      <CenterTransportFormDialog
-        assignment={editingAssignment}
-        centerId={centerId}
-        editionId={editionId}
-        onOpenChange={setDialogOpen}
-        open={dialogOpen}
-      />
+      {canManageTransport && !isRetired ? (
+        <CenterTransportFormDialog
+          assignment={editingAssignment}
+          centerId={centerId}
+          editionId={editionId}
+          onOpenChange={setDialogOpen}
+          open={dialogOpen}
+        />
+      ) : null}
     </div>
   );
 }

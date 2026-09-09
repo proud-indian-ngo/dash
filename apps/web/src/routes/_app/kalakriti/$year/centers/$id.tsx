@@ -1,6 +1,5 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES } from "@pi-dash/shared/kalakriti";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -14,6 +13,7 @@ import {
   getKalakritiVolunteersForPicker,
   type PickerUser,
 } from "@/functions/users-for-picker";
+import { getCenterTransportCapabilities } from "@/lib/kalakriti-center-registration-policy";
 
 export const Route = createFileRoute("/_app/kalakriti/$year/centers/$id")({
   component: KalakritiCenterDetailPage,
@@ -57,23 +57,17 @@ function KalakritiCenterDetailPage() {
     edition.lifecycle === "registration_locked" || fullyLocked;
   const canConfigureCenters = canManageCenters && !structuralLocked;
   const canManageRegistrationControls = canManageCenters && !fullyLocked;
-  const centerAssignments = access.membership?.assignments ?? [];
-  const canManageTransport =
-    access.isGlobalAdmin ||
-    responsibilities.has("edition_admin") ||
-    responsibilities.has("transport_lead") ||
-    centerAssignments.some(
-      (assignment) =>
-        assignment.centerId === id &&
-        (assignment.responsibility === "transport_coordinator" ||
-          (
-            KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES as readonly string[]
-          ).includes(assignment.responsibility))
-    );
-  const canViewTransport = canManageTransport;
   const [centers, centerResult] = useQuery(
     queries.kalakritiCenter.visible({ editionId: edition.id })
   );
+  const { canManageTransport, canViewTransport } =
+    getCenterTransportCapabilities({
+      access,
+      centerId: id,
+      lifecycle: edition.lifecycle,
+      // Guardian Centers come from this server-scoped query, not volunteer assignments.
+      guardianCenterVisible: centers.some((center) => center.id === id),
+    });
   const [guardianAssignments] = useQuery(
     queries.kalakritiCenter.guardianAssignments({ editionId: edition.id }),
     { enabled: canManageGuardians }

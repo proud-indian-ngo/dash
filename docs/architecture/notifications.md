@@ -43,8 +43,8 @@ Enqueue calls for side-effects wrapped in `withFireAndForgetLog` → pg-boss fai
 
 `TOPIC_CATALOG` owns each topic's supported-channel allowlist. Both preference
 editors and the preference mutators enforce that contract, and domain senders
-consume the same lookup. Kalakriti registration and schedule messages use inbox
-and WhatsApp while still honoring each recipient's topic preferences.
+consume the same lookup. Kalakriti registration, schedule, and transport messages
+use inbox and WhatsApp while honoring each recipient's topic preferences.
 
 ### In-App Inbox
 
@@ -66,8 +66,9 @@ GoWA gateway (`go-whatsapp-web-multidevice-poll-vote`) sends poll vote webhooks 
 
 Topics: `packages/notifications/src/topics.ts`. Each topic has per-channel toggles (inbox + email + WhatsApp) in `notification_topic_preference` table (composite PK: `user_id` + `topic_id`). Default: all channels enabled (no row = enabled).
 
-Kalakriti has separate Registration and Schedule topics so Guardians and
-assigned volunteers can control those streams independently.
+Kalakriti has separate Registration, Schedule, and Transport topics so Guardians
+and assigned volunteers can control those streams independently. Transport
+messages go only to the affected Center's active Guardians and Liaisons.
 
 **Storage model**: DB is sole source of truth. Preferences checked at send-time for all channels. No external sync needed.
 

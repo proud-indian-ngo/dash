@@ -25,44 +25,67 @@ export const kalakritiTransportQueries = {
     }
 
     return query
-      .whereExists("edition", (edition) =>
-        edition
-          .where("id", args.editionId)
-          .whereExists("memberships", (membership) =>
-            membership
-              .where("userId", ctx.userId)
-              .where("state", "active")
-              .where("kind", "volunteer")
-              .where(({ or, exists }) =>
-                or(
-                  exists("assignments", (assignment) =>
-                    assignment.where(
-                      ({ or: assignmentOr, cmp: assignmentCmp }) =>
-                        assignmentOr(
-                          assignmentCmp("responsibility", "edition_admin"),
-                          assignmentCmp("responsibility", "transport_lead")
-                        )
-                    )
-                  ),
-                  exists("assignments", (assignment) =>
-                    assignment
-                      .where("centerId", args.centerId)
-                      .where(({ or: assignmentOr, cmp: assignmentCmp }) =>
-                        assignmentOr(
-                          assignmentCmp(
-                            "responsibility",
-                            "transport_coordinator"
-                          ),
-                          ...KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES.map(
-                            (responsibility) =>
-                              assignmentCmp("responsibility", responsibility)
-                          )
-                        )
-                      )
+      .where(({ or, exists }) =>
+        or(
+          exists("center", (center) =>
+            center
+              .where("id", args.centerId)
+              .where("editionId", args.editionId)
+              .whereExists("guardianCenters", (guardianCenter) =>
+                guardianCenter
+                  .where("editionId", args.editionId)
+                  .whereExists("membership", (membership) =>
+                    membership
+                      .where("editionId", args.editionId)
+                      .where("userId", ctx.userId)
+                      .where("state", "active")
+                      .where("kind", "guardian")
                   )
-                )
+              )
+          ),
+          exists("edition", (edition) =>
+            edition
+              .where("id", args.editionId)
+              .whereExists("memberships", (membership) =>
+                membership
+                  .where("userId", ctx.userId)
+                  .where("state", "active")
+                  .where("kind", "volunteer")
+                  .where(({ or, exists }) =>
+                    or(
+                      exists("assignments", (assignment) =>
+                        assignment.where(
+                          ({ or: assignmentOr, cmp: assignmentCmp }) =>
+                            assignmentOr(
+                              assignmentCmp("responsibility", "edition_admin"),
+                              assignmentCmp("responsibility", "transport_lead")
+                            )
+                        )
+                      ),
+                      exists("assignments", (assignment) =>
+                        assignment
+                          .where("centerId", args.centerId)
+                          .where(({ or: assignmentOr, cmp: assignmentCmp }) =>
+                            assignmentOr(
+                              assignmentCmp(
+                                "responsibility",
+                                "transport_coordinator"
+                              ),
+                              ...KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES.map(
+                                (responsibility) =>
+                                  assignmentCmp(
+                                    "responsibility",
+                                    responsibility
+                                  )
+                              )
+                            )
+                          )
+                      )
+                    )
+                  )
               )
           )
+        )
       )
       .orderBy("createdAt", "asc");
   }),
