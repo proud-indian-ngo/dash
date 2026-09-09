@@ -3,6 +3,7 @@ import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 
 import type { Context } from "../context";
+import { getKalakritiCenterTransportStatus } from "../kalakriti-center-scan-rules";
 import { assertIsLoggedIn, can } from "../permissions";
 import { zql } from "../schema";
 import {
@@ -96,14 +97,15 @@ export async function assertCanManageCenterTransport(
   throw new Error("Unauthorized");
 }
 
-function pushTransportChangedNotificationTask(
-  tx: TransportTx,
+export function pushTransportChangedNotificationTask(
+  tx: Pick<TransportTx, "location">,
   ctx: Context | undefined,
   payload: {
     assignmentId: string;
     centerId: string;
     changeId: string;
     editionId: string;
+    mutator?: string;
   }
 ) {
   if (tx.location !== "server") {
@@ -131,7 +133,7 @@ function pushTransportChangedNotificationTask(
       centerId: payload.centerId,
       changeId: payload.changeId,
       editionId: payload.editionId,
-      mutator: "kalakritiTransport.update",
+      mutator: payload.mutator ?? "kalakritiTransport.update",
     },
   });
 }
@@ -241,6 +243,12 @@ export const kalakritiTransportMutators = {
       await assertCanManageCenterTransport(tx, ctx, args.editionId);
       assertIsLoggedIn(ctx);
       await requireActiveCenter(tx, args.editionId, args.centerId);
+      const stages = await tx.run(
+        zql.kalakritiCenterScanStage
+          .where("editionId", args.editionId)
+          .where("centerId", args.centerId)
+      );
+      const status = getKalakritiCenterTransportStatus(stages);
 
       await tx.mutate.kalakritiTransportAssignment.insert({
         deletedAt: null,
@@ -253,7 +261,7 @@ export const kalakritiTransportMutators = {
         editionId: args.editionId,
         id: args.assignmentId,
         notes: args.notes,
-        status: "planned",
+        status,
         updatedAt: args.now,
         vehicleLabel: args.vehicleLabel,
       });
@@ -266,7 +274,7 @@ export const kalakritiTransportMutators = {
         fromStatus: null,
         id: args.historyId,
         occurredAt: args.now,
-        toStatus: "planned",
+        toStatus: status,
       });
 
       await tx.mutate.kalakritiAuditEntry.insert({

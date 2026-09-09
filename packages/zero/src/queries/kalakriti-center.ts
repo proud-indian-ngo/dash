@@ -71,7 +71,11 @@ export const kalakritiCenterQueries = {
       .orderBy("createdAt", "asc");
   }),
   visible: defineQuery(editionInput, ({ args, ctx }) => {
-    let query = zql.kalakritiCenter.where("editionId", args.editionId);
+    let query = zql.kalakritiCenter
+      .where("editionId", args.editionId)
+      .related("scanStages", (stages) =>
+        stages.where("editionId", args.editionId)
+      );
     if (ctx !== null && can(ctx, "kalakriti.admin")) {
       return query.orderBy("name", "asc");
     }

@@ -29,7 +29,7 @@ function buildCsp(): string {
 
 export default defineEventHandler((event) => {
   setHeaders(event, {
-    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Permissions-Policy": "camera=(self), microphone=(), geolocation=()",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",

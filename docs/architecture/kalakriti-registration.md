@@ -66,9 +66,9 @@ Audit reads apply Edition and responsibility scopes before returning privacy-saf
 
 ## Center transport
 
-Center detail pages expose vehicle assignments with capacity, driver contact fields, and notes. `kalakritiTransport.create`, `update`, and `delete` serialize writes through Edition and Center row locks, reject archived Editions and retired Centers, and audit the commands. Deletion requires confirmation and sets `deletedAt`, preserving the assignment and its history while excluding it from active lists, readiness checks, and pending notifications. Stored status is read-only; there is no manual status mutation. Student QR scanning will supply status derivation in the subsequent scanning release; that integration is not implemented here.
+Center detail pages expose vehicle assignments with capacity, driver contact fields, and notes. `kalakritiTransport.create`, `update`, and `delete` serialize writes through Edition and Center row locks, reject archived Editions and retired Centers, and audit the commands. Deletion requires confirmation and sets `deletedAt`, preserving the assignment and its history while excluding it from active lists, readiness checks, and pending notifications. Individual vehicle status is read-only. Completing a Center scan stage transactionally projects the derived status to every non-deleted vehicle at that Center and appends status history. Vehicles created later inherit the latest finalized Center status.
 
-The Edition's Transport Lead and global/Edition administrators manage transport Edition-wide. There is no per-Center transport role. Center-scoped Liaisons and Guardians can read their own Center's transport details but cannot create, edit, or delete vehicle assignments. Transport Leads can discover all Edition Centers without gaining Student or Entry registration-write permissions. Assign the Transport Lead through the normal Edition-scoped volunteer assignment workflow.
+The Edition's Transport Lead and global/Edition administrators manage transport Edition-wide. There is no per-Center transport role. Center-scoped Liaisons and Guardians can read their own Center's transport details but cannot create, edit, or delete vehicle assignments. Authorized Center Liaisons can scan Students and finalize Center stages; Guardians cannot. Transport Leads can discover all Edition Centers without gaining Student or Entry registration-write permissions. Assign the Transport Lead through the normal Edition-scoped volunteer assignment workflow.
 
 Vehicle/driver field updates enqueue `notify-kalakriti-transport-changed` after commit with a deterministic assignment/change key. Recipients are the affected Center's active Guardians and Liaisons; transport details are not public schedule data. The root seed creates one planned demo vehicle and its initial history atomically and idempotently, without changing progressed vehicles or archived Editions.
 
@@ -79,6 +79,29 @@ Vehicle/driver field updates enqueue `notify-kalakriti-transport-changed` after 
 New writes require a `live` Edition and an authorized operator. Edition/global administrators can record all types; other staff are restricted by operation type and their Center or Competition assignment. Attendance additionally requires a valid in-Edition session and the Student's registration in its Division. Transport ordering, volunteer check-in, and meal eligibility are enforced independently of QR possession.
 
 `kalakriti_operation` is append-only and has a unique `operationId`, XOR subjects, and Edition-composite subject/session references. A retry by the original recorder or global administrator is a no-op even if the submitted type or subject changes; another recorder or Edition cannot reuse the key. Replays don't create audit rows or duplicate operations. Student deletion and Entry removal are blocked once their Students have recorded operations. `event_day_operation` audit entries contain only bounded operation metadata. The seed script leaves draft Edition operations empty and adds an idempotent sample pickup only when the demo Edition is live and its sample Student has no history. E2E fixtures exercise idempotent recording against isolated live Editions.
+
+## Center scan sessions
+
+The Kalakriti sidebar **Scan** button opens `components/kalakriti/center-scan-dialog.tsx`. There is no separate Event day page. Global/Edition administrators, Transport Leads, and scoped Center Liaisons can use it; Guardians and Food-only staff cannot. Recording and finalization require a live Edition and connected client. The modal's stable owner lives outside the mobile sidebar sheet so closing navigation does not release the camera.
+
+A session selects one Center and waits for the complete roster/stage query before pinning its current stage. When only one Center is available, it is selected automatically and shown as plain text rather than a dropdown. Later synchronization gaps pause scanning without resetting that pinned stage. Each Student QR scan or yearly-ID entry marks that Student for that stage, without advancing the Center. The camera remains active between Students, and successful marks show a named toast. Camera startup failures leave manual entry available. Backend duplicate checks prevent repeated marks; operation-ID retries remain safe even after a stage changes.
+
+| Current stage | Operator scans | Status after explicit finalization |
+| --- | --- | --- |
+| `pickup` | Students boarding at their Center | `departed_center` |
+| `venue_arrival` | Students arriving at the event venue | `arrived_at_venue` |
+| `venue_departure` | Students leaving the event venue | `departed_venue` |
+| `drop_off` | Students returning to their Center | `completed` |
+
+`kalakriti_center_scan_stage` stores one durable stage per Edition/Center/stage, including creator and finalizer attribution. Pickup uses the Center's Student roster and can finish once at least one Student is marked; the confirmation shows how many remain absent. Unmarked Students are excluded from the rest of the trip. Venue arrival, venue departure, and return require every effectively picked-up Student to be marked before finalization. The modal shows marked and missing Students, and the finalization audit records marked and absent counts. There is no departure-from-Center-for-home stage.
+
+`kalakritiCenterScan.record`, `recordManual`, and `finalize` require a pinned `expectedStage` and selected Center. The shared progress helper derives the stage, roster, and completion from scoped Students, effective operations, and finalized stage rows. Edition and Center locks serialize scanning, finalization, and vehicle status projection. Generic operation APIs apply the same current-stage rules to new transport writes, so they cannot bypass Center finalization.
+
+Finalization closes the modal and ends scanning; the next real-world checkpoint requires reopening it. If another operator finalizes the Center, the open session stops rather than retargeting its camera. New requests with a stale stage are rejected, while retries of a previously recorded operation remain no-ops. Repeated finalization cannot advance a second stage. Vehicle notifications use the finalized stage ID and assignment ID for deterministic keys.
+
+Migration `0078_watery_revanche.sql` adds the stage table and the `venue_arrival` operation / `departed_center` transport-status values. The legacy `arrived_at_center` status remains readable but is not emitted by this workflow. The root seed adds an idempotent open pickup stage without finalizing it or resetting existing progress.
+
+Student and Center tables expose read-only transport status. Student status follows that Student's effective scans, from awaiting pickup through return to the Center. Center status follows explicit stage finalization, so individual Students can reach a checkpoint before the Center advances. The existing scoped queries supply these records without widening access. Status cells wait for a complete initial query snapshot, retain known labels during later synchronization gaps, and discard labels when the Edition/Center scope changes; base table rows remain visible.
 
 ## Volunteer yearly IDs
 
@@ -110,7 +133,7 @@ Only loopback database hosts are accepted without `--confirm-target=host:port/da
 
 `packages/e2e/helpers/kalakriti-release-fixture.ts` owns deterministic role and privacy fixtures. The Kalakriti Playwright suite proves Edition creation and linked-event ownership, assignment and Guardian paths, Center controls, Student and individual/group Entry registration, public schedule privacy, scoped exports, direct URL/API denial, dormant Guardian login denial, and concurrent quota and duplicate races.
 
-`docs/kalakriti-registration-release-evidence.md` is the acceptance traceability record for KRR-001 through KRR-019. Person QR display, yearly IDs, and lookup have dedicated coverage described above; transport and operational dependencies remain later modules on this branch.
+`docs/kalakriti-registration-release-evidence.md` is the acceptance traceability record for KRR-001 through KRR-019. Person QR display, yearly IDs, transport setup, and operation recording have dedicated coverage described above. The Event-day station has isolated live-Edition E2E coverage; camera results are simulated at the decoder boundary while UI, authorization, mutations, and persisted operations remain real. The suite also verifies explicit Center finalization, derived vehicle status, duplicate marks, stale-stage protection, and mobile modal persistence. The remaining operational stations are separate follow-up work.
 
 The release gate is:
 

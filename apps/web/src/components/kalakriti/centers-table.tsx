@@ -13,6 +13,10 @@ import {
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import {
+  type CenterScanStageRecord,
+  getKalakritiCenterTransportLabel,
+} from "@pi-dash/zero/kalakriti-center-scan-rules";
 import type { ReactNode } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
@@ -23,6 +27,8 @@ import {
 import { ParticipationComplianceBadge } from "@/components/kalakriti/participation-compliance-badge";
 import type { ParticipationCompliance } from "@/lib/kalakriti-participation-compliance";
 
+import { useTransportStatusSnapshot } from "./use-transport-status-snapshot";
+
 export interface CenterListItem {
   competitionEntryRegistrationEnabled: boolean;
   id: string;
@@ -32,6 +38,7 @@ export interface CenterListItem {
 }
 
 export interface CenterTableRow extends CenterListItem {
+  scanStages?: readonly CenterScanStageRecord[];
   compliance?: ParticipationCompliance | "unavailable";
   guardianCount: number | null;
   liaisonCount: number | null;
@@ -148,10 +155,16 @@ function searchCenter(row: CenterTableRow, query: string): boolean {
   return `${row.name} ${status}`.toLowerCase().includes(normalizedQuery);
 }
 
+function centerTransportLabel(row: CenterTableRow) {
+  return getKalakritiCenterTransportLabel(row.scanStages ?? []);
+}
+
 export function CentersTable({
   canConfigureCenters,
   canManageRegistrationControls,
   data,
+  statusSnapshotComplete,
+  statusSnapshotKey,
   emptyMessage,
   isLoading,
   onDelete,
@@ -164,6 +177,8 @@ export function CentersTable({
   canConfigureCenters: boolean;
   canManageRegistrationControls: boolean;
   data: CenterTableRow[];
+  statusSnapshotComplete: boolean;
+  statusSnapshotKey: string;
   emptyMessage: string;
   isLoading: boolean;
   onDelete: (center: CenterListItem) => void;
@@ -173,6 +188,12 @@ export function CentersTable({
   onView: (center: CenterTableRow) => void;
   toolbarActions?: ReactNode;
 }) {
+  const { labels, pending } = useTransportStatusSnapshot({
+    data,
+    scopeKey: statusSnapshotKey,
+    complete: statusSnapshotComplete,
+    getStatus: centerTransportLabel,
+  });
   const columns: DataGridColumnDef<CenterTableRow>[] = [
     {
       accessorKey: "name",
@@ -206,6 +227,32 @@ export function CentersTable({
       id: "status",
       meta: { headerTitle: "Status", skeleton: SKELETON_STATUS },
       size: 110,
+    },
+    {
+      id: "transportStatus",
+      accessorFn: (row) => labels?.get(row.id),
+      enableSorting: !pending,
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Transport status"
+          visibility={true}
+        />
+      ),
+      cell: ({ row }) =>
+        labels?.has(row.original.id) ? (
+          <Badge variant="secondary">{labels.get(row.original.id)}</Badge>
+        ) : (
+          <Skeleton
+            aria-label="Loading transport status"
+            className="h-5 w-28"
+          />
+        ),
+      meta: {
+        headerTitle: "Transport status",
+        skeleton: <Skeleton className="h-5 w-28" />,
+      },
+      size: 170,
     },
     {
       accessorKey: "studentRegistrationEnabled",

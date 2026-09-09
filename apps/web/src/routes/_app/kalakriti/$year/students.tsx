@@ -261,6 +261,8 @@ function KalakritiStudentsPage() {
       <StudentTable
         canManage={registrationOpen}
         data={students as KalakritiStudentRow[]}
+        statusSnapshotComplete={studentsResult.type === "complete"}
+        statusSnapshotKey={`${edition.id}:${centerId ?? "none"}`}
         entryRegistrationEnabled={
           selectedCenter?.competitionEntryRegistrationEnabled === true
         }

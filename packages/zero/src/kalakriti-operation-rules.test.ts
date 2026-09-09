@@ -36,7 +36,36 @@ describe("Kalakriti operation rules", () => {
       assertCanRecordOperation([pickup], "venue_departure", {
         studentId: "student",
       })
+    ).toThrow("Venue arrival");
+    expect(() =>
+      assertCanRecordOperation([pickup], "venue_arrival", {
+        studentId: "student",
+      })
     ).not.toThrow();
+    expect(() =>
+      assertCanRecordOperation([], "venue_arrival", { studentId: "student" })
+    ).toThrow("Pickup");
+    expect(() =>
+      assertCanRecordOperation(
+        [pickup, { ...pickup, type: "venue_arrival" }],
+        "venue_departure",
+        { studentId: "student" }
+      )
+    ).not.toThrow();
+    expect(() =>
+      assertCanRecordOperation(
+        [
+          pickup,
+          {
+            ...pickup,
+            type: "venue_arrival",
+            supersededByOperationId: "replacement",
+          },
+        ],
+        "venue_departure",
+        { studentId: "student" }
+      )
+    ).toThrow("Venue arrival");
     expect(() =>
       assertCanRecordOperation([pickup], "drop_off", { studentId: "student" })
     ).toThrow("Venue departure");

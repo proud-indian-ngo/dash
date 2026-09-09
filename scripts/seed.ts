@@ -51,6 +51,7 @@ import {
   kalakritiAssignment,
   kalakritiAuditEntry,
   kalakritiCenter,
+  kalakritiCenterScanStage,
   kalakritiCompetition,
   kalakritiCompetitionCategory,
   kalakritiCompetitionDivision,
@@ -94,6 +95,7 @@ import {
 } from "@pi-dash/db/schema/vendor-payment-transaction";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
+import { getKalakritiCenterTransportStatus } from "@pi-dash/zero/kalakriti-center-scan-rules";
 import { eq, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
@@ -201,6 +203,7 @@ const ID = {
   kalakritiOperation: "01a082b2-b262-78ea-9ba4-bda73e9fc51c",
   kalakritiTransportAssignment: "01a084cd-40f8-74e2-a692-a014548a34e7",
   kalakritiTransportHistory: "01a084cd-40f9-7eb4-ba8c-24e46aed65ba",
+  kalakritiCenterScanStage: "01a084cd-40fa-7ee8-bd59-fc3523adf031",
   kalakritiVenue: "019d52c2-7261-7dce-b0ee-e206561715cc",
   ra01: "019d52c2-7261-7dce-b0ee-e23c364fad5e",
   ra02: "019d52c2-7261-7dce-b0ee-e23d74ae80a5",
@@ -1093,6 +1096,30 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
     if (!center || center.retiredAt !== null) {
       return;
     }
+    await tx
+      .insert(kalakritiCenterScanStage)
+      .values({
+        id: ID.kalakritiCenterScanStage,
+        editionId: ID.kalakritiEdition,
+        centerId: ID.kalakritiCenter,
+        stage: "pickup",
+        createdBy: adminId,
+        createdAt: now,
+      })
+      .onConflictDoNothing();
+    const stages = await tx
+      .select({
+        stage: kalakritiCenterScanStage.stage,
+        finalizedAt: kalakritiCenterScanStage.finalizedAt,
+      })
+      .from(kalakritiCenterScanStage)
+      .where(eq(kalakritiCenterScanStage.centerId, ID.kalakritiCenter));
+    const transportStatus = getKalakritiCenterTransportStatus(
+      stages.map((stage) => ({
+        ...stage,
+        finalizedAt: stage.finalizedAt?.getTime() ?? null,
+      }))
+    );
     const [transport] = await tx
       .insert(kalakritiTransportAssignment)
       .values({
@@ -1102,7 +1129,7 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
         vehicleLabel: "Demo bus 1",
         driverName: "Demo driver",
         capacity: 30,
-        status: "planned",
+        status: transportStatus,
         createdBy: adminId,
         createdAt: now,
         updatedAt: now,
@@ -1116,12 +1143,12 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
         editionId: ID.kalakritiEdition,
         actorUserId: adminId,
         fromStatus: null,
-        toStatus: "planned",
+        toStatus: transportStatus,
         createdAt: now,
         occurredAt: now,
       });
     }
-    if (edition.lifecycle !== "live") {
+    if (edition.lifecycle !== "live" || transportStatus !== "planned") {
       return;
     }
     const [history] = await tx

@@ -1,12 +1,29 @@
-import { describe, expect, it, mock } from "bun:test";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 let entries: unknown[] = [];
 let resultType = "complete";
+let queryIndex = 0;
+let transportResultType = "complete";
+let operations: string[] = [];
 mock.module("@rocicorp/zero/react", () => ({
-  useQuery: () => [entries, { type: resultType }],
+  useQuery: () =>
+    queryIndex++ === 0
+      ? [entries, { type: resultType }]
+      : [
+          [
+            {
+              id: "student",
+              operations: operations.map((type) => ({
+                type,
+                supersededByOperationId: null,
+              })),
+            },
+          ],
+          { type: transportResultType },
+        ],
 }));
 mock.module("@/components/kalakriti/person-qr-panel", () => ({
   PersonQrPanel: ({
@@ -43,6 +60,7 @@ import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import { StudentDetailSheet } from "./student-detail-sheet";
 
 function render(isGlobalAdmin = false, humanId = "KALS-2026-1", open = true) {
+  queryIndex = 0;
   return renderToStaticMarkup(
     <StudentDetailSheet
       access={
@@ -55,8 +73,6 @@ function render(isGlobalAdmin = false, humanId = "KALS-2026-1", open = true) {
       center={{
         id: "center",
         name: "Our Center",
-        studentRegistrationEnabled: false,
-        competitionEntryRegistrationEnabled: false,
       }}
       onOpenChange={() => undefined}
       open={open}
@@ -87,7 +103,40 @@ function entry(id: string, overrides = {}) {
   };
 }
 
+beforeEach(() => {
+  entries = [];
+  resultType = "complete";
+  transportResultType = "complete";
+  operations = [];
+});
+
 describe("Student detail sheet", () => {
+  it.each([
+    [[], "Awaiting pickup"],
+    [["pickup"], "Picked up"],
+    [["pickup", "venue_arrival"], "At Event"],
+    [["pickup", "venue_arrival", "venue_departure"], "Returning"],
+    [
+      ["pickup", "venue_arrival", "venue_departure", "drop_off"],
+      "Back at Center",
+    ],
+  ] as const)(
+    "shows transport status for %j without registration rows",
+    (marks, label) => {
+      operations = [...marks];
+      const html = render();
+      expect(html).toContain("Transport status");
+      expect(html).toContain(label);
+      expect(html).not.toContain("Student registration");
+      expect(html).not.toContain("Competition Entry registration");
+    }
+  );
+  it("does not infer awaiting pickup from an incomplete query", () => {
+    transportResultType = "unknown";
+    const html = render();
+    expect(html).toContain("Loading...");
+    expect(html).not.toContain("Awaiting pickup");
+  });
   it("passes the database ID and student type to QR for scoped viewers regardless of yearly ID", () => {
     expect(render()).toContain("Person QR panel: student:student");
     expect(render(false, "")).toContain("Person QR panel: student:student");
@@ -130,7 +179,7 @@ describe("Student detail sheet", () => {
     expect(html).not.toContain("Other Center");
     expect(html).not.toContain("Other Edition");
     expect(html).toContain("Our Center");
-    expect(html).toContain("Closed");
+    expect(html).not.toContain("Closed");
     expect(html).toContain("Person QR panel: student:student");
     expect(render(true)).toContain("Person QR panel");
   });

@@ -7,14 +7,24 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@pi-dash/design-system/components/ui/sheet";
+import {
+  type CenterScanStudent,
+  getKalakritiStudentTransportLabel,
+} from "@pi-dash/zero/kalakriti-center-scan-rules";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { format } from "date-fns";
+import { useMemo } from "react";
 
 import { PersonQrPanel } from "@/components/kalakriti/person-qr-panel";
 import type { KalakritiStudentRow } from "@/components/kalakriti/student-form-dialog";
+import { useTransportStatusSnapshot } from "@/components/kalakriti/use-transport-status-snapshot";
 import { Loader } from "@/components/loader";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
+
+function studentTransportLabel(student: Pick<CenterScanStudent, "operations">) {
+  return getKalakritiStudentTransportLabel(student.operations);
+}
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -36,8 +46,6 @@ export function StudentDetailSheet({
   center: {
     id: string;
     name: string;
-    studentRegistrationEnabled: boolean | null;
-    competitionEntryRegistrationEnabled: boolean | null;
   };
   onOpenChange: (open: boolean) => void;
   open: boolean;
@@ -50,6 +58,28 @@ export function StudentDetailSheet({
     }),
     { enabled: open }
   );
+  const [students, studentsResult] = useQuery(
+    queries.kalakritiStudent.visibleByCenter({
+      editionId: access.edition.id,
+      centerId: center.id,
+    }),
+    { enabled: open }
+  );
+  const statusRows = useMemo(
+    () => students.filter((row) => row.id === student.id),
+    [students, student.id]
+  );
+  const { labels } = useTransportStatusSnapshot({
+    data: statusRows,
+    scopeKey: `${access.edition.id}:${center.id}:${student.id}`,
+    complete: studentsResult.type === "complete",
+    getStatus: studentTransportLabel,
+  });
+  const transportStatus =
+    labels?.get(student.id) ??
+    (studentsResult.type === "complete" || studentsResult.type === "error"
+      ? "Unavailable"
+      : "Loading...");
   const participation = entries.filter(
     (entry) =>
       entry.editionId === access.edition.id &&
@@ -86,16 +116,7 @@ export function StudentDetailSheet({
           <section className="grid gap-3">
             <h3 className="text-sm font-medium">Center details</h3>
             <DetailRow label="Center" value={center.name} />
-            <DetailRow
-              label="Student registration"
-              value={center.studentRegistrationEnabled ? "Open" : "Closed"}
-            />
-            <DetailRow
-              label="Competition Entry registration"
-              value={
-                center.competitionEntryRegistrationEnabled ? "Open" : "Closed"
-              }
-            />
+            <DetailRow label="Transport status" value={transportStatus} />
           </section>
           <section className="grid gap-3">
             <h3 className="text-sm font-medium">Competitions</h3>

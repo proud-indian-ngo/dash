@@ -8,6 +8,7 @@ import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 
 import type { Context } from "../context";
+import { isKalakritiCenterScanStage } from "../kalakriti-center-scan-rules";
 import {
   assertCanRecordOperation,
   findExistingOperationByOperationId,
@@ -17,22 +18,15 @@ import {
 import { assertIsLoggedIn, can } from "../permissions";
 import { zql } from "../schema";
 import {
+  type CenterScanTx,
+  prepareCenterScan,
+} from "./kalakriti-center-scan-core";
+import {
   getEditionForUpdate,
   type LockableKalakritiTx,
 } from "./kalakriti-row-locks";
 
-abstract class BivariantZeroMutation {
-  abstract bivarianceHack(args: unknown): Promise<void>;
-}
-
-type ZeroMutationFn = BivariantZeroMutation["bivarianceHack"];
-
-interface OperationTx extends LockableKalakritiTx {
-  mutate: {
-    kalakritiAuditEntry: { insert: ZeroMutationFn };
-    kalakritiOperation: { insert: ZeroMutationFn };
-  };
-}
+type OperationTx = CenterScanTx;
 
 const kalakritiOperationRecordBaseSchema = z.object({
   auditEntryId: z.string(),
@@ -85,7 +79,7 @@ async function getActiveMembership(
   )) as ActiveMembership | undefined;
 }
 
-async function assertCanRecordKalakritiOperation(
+export async function assertCanRecordKalakritiOperation(
   tx: LockableKalakritiTx,
   ctx: Context,
   editionId: string,
@@ -119,6 +113,7 @@ async function assertCanRecordKalakritiOperation(
   const allowed = assignments.some((assignment) => {
     switch (type) {
       case "pickup":
+      case "venue_arrival":
       case "venue_departure":
       case "drop_off":
         return (
@@ -314,7 +309,7 @@ async function resolveSubjectFromHumanId(
   throw new Error("Yearly ID not found in this Edition");
 }
 
-async function recordKalakritiOperation(
+export async function recordKalakritiOperation(
   tx: OperationTx,
   ctx: Context,
   args: {
@@ -327,6 +322,7 @@ async function recordKalakritiOperation(
     sessionId?: string;
     personQr?: string;
     humanId?: string;
+    centerId?: string;
     type: KalakritiOperationType;
   }
 ): Promise<void> {
@@ -355,6 +351,10 @@ async function recordKalakritiOperation(
     ? await resolveSubjectFromPersonQr(tx, args.editionId, args.personQr)
     : await resolveSubjectFromHumanId(tx, args.editionId, args.humanId ?? "");
 
+  if (args.centerId !== undefined && subject.centerId !== args.centerId) {
+    throw new Error("Student does not belong to the selected Center");
+  }
+
   const competitionId =
     args.type === "competition_attendance"
       ? await validateAttendanceSubject(
@@ -372,6 +372,20 @@ async function recordKalakritiOperation(
     subject,
     competitionId
   );
+
+  if (isKalakritiCenterScanStage(args.type)) {
+    if (!subject.centerId || !subject.studentId) {
+      throw new Error("This operation requires a Student subject");
+    }
+    await prepareCenterScan(tx, {
+      editionId: args.editionId,
+      centerId: subject.centerId,
+      stage: args.type,
+      studentId: subject.studentId,
+      now: args.now,
+      actorUserId: ctx.userId,
+    });
+  }
 
   const subjectOperations = await loadSubjectOperations(
     tx,

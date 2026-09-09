@@ -21,6 +21,7 @@ const helper = path.resolve(
   "../../helpers/kalakriti-operations.ts"
 );
 interface Setup {
+  centerId: string;
   editionId: string;
   otherEditionId: string;
   otherStudentId: string;
@@ -223,6 +224,41 @@ test("authorized operations resolve JSON people, reject invalid subjects, replay
       storageState: kalakritiActors.liaison.storageState,
     });
     try {
+      // Legacy transport commands obey the same Center stage progression as the scanner.
+      for (const expectedStage of ["pickup", "venue_arrival"]) {
+        if (expectedStage === "venue_arrival") {
+          expect(
+            (
+              await mutate(
+                liaisonContext.request,
+                "kalakritiOperation.record",
+                operation(
+                  setup.editionId,
+                  setup.studentId,
+                  "student",
+                  "venue_arrival"
+                )
+              )
+            ).error
+          ).toBeUndefined();
+        }
+        expect(
+          (
+            await mutate(
+              liaisonContext.request,
+              "kalakritiCenterScan.finalize",
+              {
+                editionId: setup.editionId,
+                centerId: setup.centerId,
+                expectedStage,
+                id: uuidv7(),
+                auditEntryId: uuidv7(),
+                now: Date.now(),
+              }
+            )
+          ).error
+        ).toBeUndefined();
+      }
       // A matching Center liaison can record transport, but not another Center or staff role's operation.
       expect(
         (
@@ -239,7 +275,7 @@ test("authorized operations resolve JSON people, reject invalid subjects, replay
         ).error
       ).toBeUndefined();
       recorded = await fixture<State>("state");
-      expect(recorded.operations).toHaveLength(3);
+      expect(recorded.operations).toHaveLength(4);
       for (const args of [
         operation(setup.editionId, setup.otherStudentId, "student", "pickup"),
         operation(setup.editionId, setup.studentId, "student", "breakfast"),
@@ -299,7 +335,7 @@ test("authorized operations resolve JSON people, reject invalid subjects, replay
       ).error
     ).toBeUndefined();
     const afterManual = await fixture<State>("state");
-    expect(afterManual.operations).toHaveLength(4);
+    expect(afterManual.operations).toHaveLength(5);
     expect(afterManual.operations).toContainEqual({
       operationId: manual.operationId,
       studentId: null,

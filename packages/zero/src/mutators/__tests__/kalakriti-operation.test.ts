@@ -49,18 +49,38 @@ function setup(results: unknown[] = [], lifecycle = "live") {
     eventDate: "2027-11-21",
     year: 2027,
   };
-  const lock = mock(async () => [edition]);
+  let selectingCenter = false;
+  const lock = mock(async () => [
+    selectingCenter
+      ? { id: student.centerId, editionId: student.editionId, retiredAt: null }
+      : edition,
+  ]);
   const query = { from: () => query, where: () => query, for: lock };
   const insertOperation = mock();
   const insertAudit = mock();
   const tx = {
     location: "server",
-    dbTransaction: { wrappedTransaction: { select: () => query } },
+    dbTransaction: {
+      wrappedTransaction: {
+        select: (fields: object) => {
+          selectingCenter = "retiredAt" in fields;
+          return query;
+        },
+      },
+    },
     mutate: {
+      kalakritiCenterScanStage: { insert: mock() },
       kalakritiOperation: { insert: insertOperation },
       kalakritiAuditEntry: { insert: insertAudit },
     },
-    run: mock(async () => results.shift()),
+    run: mock(
+      async (query: { ast: { table: string; related?: unknown[] } }) => {
+        if (query.ast.table === "kalakritiCenterScanStage") return [];
+        if (query.ast.table === "kalakritiStudent" && query.ast.related?.length)
+          return [{ ...student, name: "Student", operations: [] }];
+        return results.shift();
+      }
+    ),
   };
   return { tx, insertOperation, insertAudit, lock };
 }

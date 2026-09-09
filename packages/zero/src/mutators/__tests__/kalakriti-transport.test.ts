@@ -147,35 +147,50 @@ describe("transport subject scope", () => {
 });
 
 describe("kalakritiTransport.create", () => {
-  it("creates a planned assignment for admins", async () => {
-    const { lockedResults, spies, tx } = createTx();
-    lockedResults.push([edition], [center]);
-    await kalakritiTransportMutators.create.fn({
-      args: {
-        assignmentId: "assignment-1",
-        auditEntryId: "audit-1",
-        capacity: 40,
-        centerId: "center-1",
-        driverName: "Ravi",
-        driverPhone: null,
-        editionId: "edition-1",
-        historyId: "history-1",
-        notes: null,
-        now: 1,
-        vehicleLabel: "Bus 1",
-      },
-      ctx: adminContext,
-      tx,
-    } as never);
-    expect(spies.insertAssignment).toHaveBeenCalledWith(
-      expect.objectContaining({
-        centerId: "center-1",
-        status: "planned",
-        vehicleLabel: "Bus 1",
-      })
-    );
-    expect(spies.insertHistory).toHaveBeenCalled();
-  });
+  it.each([
+    { stages: [], status: "planned" },
+    { stages: ["pickup"], status: "departed_center" },
+    { stages: ["pickup", "venue_arrival"], status: "arrived_at_venue" },
+    {
+      stages: ["pickup", "venue_arrival", "venue_departure", "drop_off"],
+      status: "completed",
+    },
+  ])(
+    "creates assignments at the Center's $status status",
+    async ({ stages, status }) => {
+      const { lockedResults, spies, tx } = createTx([
+        stages.map((stage) => ({ stage, finalizedAt: 1 })),
+      ]);
+      lockedResults.push([edition], [center]);
+      await kalakritiTransportMutators.create.fn({
+        args: {
+          assignmentId: "assignment-1",
+          auditEntryId: "audit-1",
+          capacity: 40,
+          centerId: "center-1",
+          driverName: "Ravi",
+          driverPhone: null,
+          editionId: "edition-1",
+          historyId: "history-1",
+          notes: null,
+          now: 1,
+          vehicleLabel: "Bus 1",
+        },
+        ctx: adminContext,
+        tx,
+      } as never);
+      expect(spies.insertAssignment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          centerId: "center-1",
+          status,
+          vehicleLabel: "Bus 1",
+        })
+      );
+      expect(spies.insertHistory).toHaveBeenCalledWith(
+        expect.objectContaining({ fromStatus: null, toStatus: status })
+      );
+    }
+  );
 
   it("rejects guardians", async () => {
     const { lockedResults, tx } = createTx([

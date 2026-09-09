@@ -86,7 +86,11 @@ All paths are relative to project root.
 | `routes/_app/kalakriti/$year/index.tsx` | Edition overview workspace and Edition header |
 | `components/kalakriti/{volunteer,guardian,student}-detail-sheet.tsx` | Table-owned person details, Guardian/Student Center details, Student competition entries, and identifier QR codes for every authorized viewer |
 | `components/kalakriti/person-qr-panel.tsx` | Client-rendered JSON QR containing the database record `id` and subject `type` (`student`, `guardian`, or `volunteer`) |
-| `components/kalakriti/center-transport-section.tsx` | Transport Lead/admin vehicle management and deletion confirmation, with read-only status and scoped viewing for Guardians and Center Liaisons |
+| `components/kalakriti/center-scan-dialog.tsx` | Sidebar and Event-day Center sessions: continuous QR/manual marking, roster progress, pinned stages, and confirmed finalization |
+| `components/kalakriti/event-day-qr-scanner.tsx` | Client-only camera decoder with startup failure handling and camera cleanup |
+| `lib/kalakriti-qr-decoder.ts` | Stable lazy decoder entry for camera loading and E2E interception in development and production builds |
+| `components/kalakriti/use-transport-status-snapshot.ts` | Keeps Student/Center transport labels tied to complete, scoped query snapshots without hiding the base table |
+| `components/kalakriti/center-transport-section.tsx` | Transport Lead/admin vehicle management and deletion confirmation, with derived Center-stage status and scoped viewing for Guardians and Center Liaisons |
 | `components/kalakriti/center-transport-form-dialog.tsx` | Scoped vehicle creation/editing form; archived Editions remain read-only |
 | `components/kalakriti/entry-music-dialog.tsx` | Separate staged music upload/replacement/removal form for existing Entries, including after registration closes |
 | `components/kalakriti/entry-music-playback-dialog.tsx` | Table-owned audio playback and protected download, available independently of music-edit permission |

@@ -238,7 +238,7 @@ bun run test:unit
 
 ## KED-005: Center transport setup
 
-**Outcome:** Each Center can have buses and drivers. Vehicle status is read-only here; Student QR scanning will provide status derivation in the subsequent scanning release. Bus or driver field changes notify that Center's Guardians and Liaisons.
+**Outcome:** Each Center can have buses and drivers. Individual vehicle status is read-only; explicit Center scan finalization in KED-006 derives it. Bus or driver field changes notify that Center's Guardians and Liaisons.
 
 **Depends on:** KED-004.
 
@@ -282,13 +282,17 @@ cd packages/e2e && bash run-e2e.sh tests/kalakriti/center-transport.spec.ts
 
 **Scope:**
 
-- Enable `pickup`, `venue_departure`, `drop_off` in the recording mutators with order rules (pickup before departure before drop-off; drop-off requires pickup).
+- Center scan stages are `pickup`, `venue_arrival`, `venue_departure`, and `drop_off`. Persist one `kalakriti_center_scan_stage` row per Edition/Center/stage. New writes through generic transport operation APIs enforce the same pinned current-stage rules.
 - Auth: Transport Lead, Center-scoped Liaisons, Edition admin, `kalakriti.admin`. Guardians denied.
-- Route `/kalakriti/$year/event-day` with a transport station: camera QR (library allowed on this client page) + manual yearly ID field. QR payload = opaque token; hash and call `record`. Duplicate scan is success with already-recorded state.
+- Sidebar **Scan** opens a stable modal outside the mobile navigation sheet; there is no separate Event day page. A single available Center is shown by name without a dropdown. Use continuous client camera scanning (`html5-qrcode`) with Student person JSON `{id,type:"student"}` and manual yearly-ID fallback. Each successful scan marks that Student for the pinned Center stage and shows a named toast; it does not advance the stage.
+- `kalakritiCenterScan.record`, `recordManual`, and `finalize` bind the selected Center and expected stage. Pickup includes the Center roster and may finish with absentees once at least one Student is marked; confirmation shows marked and absent counts. Later stages include only effectively picked-up Students and require all of them to be marked. Explicit confirmed finalization advances the Center and derives all active vehicles' status/history: departed Center → arrived at venue → departed venue → completed.
+- Finalization closes the modal. Reopening is required at the next checkpoint; external finalization invalidates an open session rather than retargeting its camera. Duplicate Student marks are no-ops, stale-stage new requests fail, and original operation-ID retries remain safe.
+- Recording/finalization require a live Edition; controls react to lifecycle changes and archived station access is denied. Migration `0078_watery_revanche.sql` adds the stage table plus the venue-arrival operation and departed-Center status. The root seed creates an idempotent open pickup stage without finalizing or resetting progress.
 - Nav: Event day for actors who can record transport (not Guardians).
 - Derived absence: no effective (non-superseded) pickup ⇒ Student cannot later receive meals/attendance (enforced in KED-007; expose the helper now).
 - Update surface tests and `registration-release-authorization.spec.ts`: Event day exists; Results/Awards/Inventory still 404.
-- E2E: pickup via manual ID, duplicate no-op, Guardian 404 on event-day.
+- Student and Center tables show read-only transport status derived from effective Student scans and explicit Center stage finalization respectively.
+- E2E: sidebar scanning via manual ID, duplicate no-op, single-Center name display, reactive table statuses, and the removed Event day route returning 404 for every role.
 
 **Acceptance:**
 

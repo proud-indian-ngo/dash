@@ -1,3 +1,4 @@
+import { KALAKRITI_CENTER_SCAN_STAGES } from "@pi-dash/shared/kalakriti";
 import { defineQuery } from "@rocicorp/zero";
 import z from "zod";
 
@@ -59,6 +60,11 @@ export const kalakritiStudentQueries = {
   ),
   visibleByCenter: defineQuery(centerInput, ({ args, ctx }) => {
     return visibleStudents(args, ctx)
+      .related("operations", (operations) =>
+        operations
+          .where("editionId", args.editionId)
+          .where("type", "IN", KALAKRITI_CENTER_SCAN_STAGES)
+      )
       .related("ageCategory")
       .related("derivedAgeCategory")
       .related("center");

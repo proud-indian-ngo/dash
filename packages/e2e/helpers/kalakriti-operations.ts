@@ -6,6 +6,7 @@ import {
   kalakritiAssignment,
   kalakritiAuditEntry,
   kalakritiCenter,
+  kalakritiCenterScanStage,
   kalakritiCompetition,
   kalakritiCompetitionCategory,
   kalakritiCompetitionDivision,
@@ -45,6 +46,9 @@ const ids = {
 } as const;
 
 async function cleanup() {
+  await db
+    .delete(kalakritiCenterScanStage)
+    .where(eq(kalakritiCenterScanStage.editionId, ids.editionId));
   await db
     .delete(kalakritiAssignment)
     .where(eq(kalakritiAssignment.editionId, ids.editionId));
