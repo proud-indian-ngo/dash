@@ -4,13 +4,15 @@ import {
   kalakritiAssignment,
   kalakritiCenter,
   kalakritiCompetition,
+  kalakritiCompetitionCategory,
   kalakritiCompetitionDivision,
   kalakritiCompetitionEntry,
   kalakritiEdition,
   kalakritiEditionMembership,
   kalakritiGuardianCenter,
 } from "@pi-dash/db/schema/kalakriti";
-import { and, eq } from "drizzle-orm";
+import { KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES } from "@pi-dash/shared/kalakriti";
+import { and, eq, inArray } from "drizzle-orm";
 
 import { entryMatchesKalakritiRegistrationScopes } from "@/lib/kalakriti-registration-scope-policy";
 import { PrivateMediaAccessError } from "@/lib/private-media-access";
@@ -34,11 +36,13 @@ export async function authorizeKalakritiEntryMusicUpload({
   centerId,
   divisionId,
   editionId,
+  entryId,
   user,
 }: {
   centerId: string;
   divisionId: string;
   editionId: string;
+  entryId?: string;
   user: SessionUser;
 }): Promise<void> {
   const role = user.role ?? "unoriented_volunteer";
@@ -76,21 +80,59 @@ export async function authorizeKalakritiEntryMusicUpload({
   if (center.editionId !== edition.id || division.editionId !== edition.id) {
     throw new PrivateMediaAccessError(404, "Not found");
   }
-  if (edition.lifecycle !== "registration_open") {
+  if (edition.lifecycle === "archived" || center.retiredAt !== null) {
     throw new PrivateMediaAccessError(403, "Forbidden");
   }
-  if (
-    center.retiredAt !== null ||
+  if (entryId) {
+    const entry = await db.query.kalakritiCompetitionEntry.findFirst({
+      columns: { centerId: true, divisionId: true, editionId: true },
+      where: eq(kalakritiCompetitionEntry.id, entryId),
+    });
+    if (
+      !entry ||
+      entry.editionId !== editionId ||
+      entry.centerId !== centerId ||
+      entry.divisionId !== divisionId
+    ) {
+      throw new PrivateMediaAccessError(404, "Not found");
+    }
+  } else if (
+    edition.lifecycle !== "registration_open" ||
     !center.competitionEntryRegistrationEnabled
   ) {
     throw new PrivateMediaAccessError(403, "Forbidden");
   }
 
   const competition = await db.query.kalakritiCompetition.findFirst({
-    columns: { musicUploadEnabled: true },
+    columns: {
+      musicUploadEnabled: true,
+      editionId: true,
+      competitionCategoryId: true,
+      cancelledAt: true,
+      retiredAt: true,
+    },
     where: eq(kalakritiCompetition.id, division.competitionId),
   });
-  if (!competition?.musicUploadEnabled) {
+  if (
+    !competition?.musicUploadEnabled ||
+    competition.editionId !== editionId ||
+    competition.cancelledAt !== null ||
+    competition.retiredAt !== null
+  ) {
+    throw new PrivateMediaAccessError(403, "Forbidden");
+  }
+  const category = await db.query.kalakritiCompetitionCategory.findFirst({
+    columns: { editionId: true, retiredAt: true },
+    where: eq(
+      kalakritiCompetitionCategory.id,
+      competition.competitionCategoryId
+    ),
+  });
+  if (
+    !category ||
+    category.editionId !== editionId ||
+    category.retiredAt !== null
+  ) {
     throw new PrivateMediaAccessError(403, "Forbidden");
   }
   if (permissions.includes("kalakriti.admin")) {
@@ -131,7 +173,9 @@ export async function authorizeKalakritiEntryMusicUpload({
           columns: { id: true },
           where: and(
             eq(kalakritiAssignment.membershipId, membership.id),
-            eq(kalakritiAssignment.responsibility, "liaison"),
+            inArray(kalakritiAssignment.responsibility, [
+              ...KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES,
+            ]),
             eq(kalakritiAssignment.centerId, centerId)
           ),
         });

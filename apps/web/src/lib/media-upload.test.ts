@@ -139,6 +139,16 @@ describe("protected temporary upload schemas", () => {
     };
     expect(kalakritiEntryMusicUploadSchema.safeParse(music).success).toBe(true);
     expect(
+      kalakritiEntryMusicUploadSchema.parse({ ...music, entryId: EVENT_ID })
+        .entryId
+    ).toBe(EVENT_ID);
+    expect(
+      kalakritiEntryMusicUploadSchema.safeParse({
+        ...music,
+        entryId: "invalid",
+      }).success
+    ).toBe(false);
+    expect(
       kalakritiEntryMusicUploadSchema.safeParse({
         ...music,
         mimeType: "application/pdf",

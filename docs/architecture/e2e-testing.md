@@ -45,6 +45,10 @@ Functions are idempotent where possible (`onConflictDoNothing()`), return the in
 
 **DB isolation**: `run-e2e.sh` bootstraps a separate Postgres via `packages/db/docker-compose.e2e*.yml`. Worktree-aware — port + DB name derived from `WORKTREE_ID` to avoid collision with dev DB.
 
+## Kalakriti global invariants
+
+Public schedule, database race, and JSON operation tests run only in the `kalakriti_release_invariants` project with one worker. They share the database-wide single-live-Edition constraint, so distinct fixture IDs alone don't isolate them. Keep new live-Edition tests in this lane and skip them in the role projects. `operations-person-qr.spec.ts` overrides the lane's default storage state with the super-admin actor while testing additional scoped actors in separate browser contexts.
+
 ## Sharding by Duration
 
 `.github/workflows/ci.yml` splits E2E across 4 shards. Sharding is **duration-balanced**, not filename-alphabetical:

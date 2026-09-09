@@ -522,6 +522,7 @@ describe("kalakritiStudent commands", () => {
         name: student.name,
       },
       [],
+      [],
     ]);
     lockedResults.push([edition], [center], [junior], [student]);
 
@@ -543,6 +544,35 @@ describe("kalakritiStudent commands", () => {
     );
   });
 
+  it("blocks delete when the Student has event-day operations", async () => {
+    const { lockedResults, spies, tx } = createTx([
+      {
+        centerId: center.id,
+        editionId: edition.id,
+        humanId: student.humanId,
+        name: student.name,
+      },
+      [],
+      [{ id: "operation-1" }],
+    ]);
+    lockedResults.push([edition], [center], [junior], [student]);
+
+    await expect(
+      kalakritiStudentMutators.delete.fn({
+        args: {
+          auditEntryId: "audit-operations",
+          now: 3000,
+          studentId: student.id,
+        },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<typeof kalakritiStudentMutators.delete.fn>[0])
+    ).rejects.toThrow("Student has event-day operations and cannot be deleted");
+
+    expect(spies.deleteEntry).not.toHaveBeenCalled();
+    expect(spies.deleteStudent).not.toHaveBeenCalled();
+  });
+
   it("deletes the Student's Competition Entries before deleting the Student", async () => {
     const { lockedResults, spies, tx } = createTx([
       {
@@ -560,6 +590,7 @@ describe("kalakritiStudent commands", () => {
           id: "member-1",
         },
       ],
+      [],
     ]);
     lockedResults.push(
       [edition],
@@ -593,6 +624,7 @@ describe("kalakritiStudent commands", () => {
           id: "member-1",
         },
       ],
+      [],
     ]);
     lockedResults.push([edition], [center], [junior], [student]);
 

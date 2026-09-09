@@ -61,6 +61,7 @@ import {
   kalakritiEntryMember,
   kalakritiExternalIdentity,
   kalakritiGuardianCenter,
+  kalakritiOperation,
   kalakritiStudent,
   kalakritiVenue,
 } from "@pi-dash/db/schema/kalakriti";
@@ -195,6 +196,7 @@ const ID = {
   kalakritiGuardianCenter: "019d52c2-7261-7dce-b0ee-e206561715c7",
   kalakritiGuardianMembership: "019d52c2-7261-7dce-b0ee-e206561715c2",
   kalakritiStudent: "019d52c2-7261-7dce-b0ee-e206561715ce",
+  kalakritiOperation: "01a082b2-b262-78ea-9ba4-bda73e9fc51c",
   kalakritiVenue: "019d52c2-7261-7dce-b0ee-e206561715cc",
   ra01: "019d52c2-7261-7dce-b0ee-e23c364fad5e",
   ra02: "019d52c2-7261-7dce-b0ee-e23d74ae80a5",
@@ -1068,6 +1070,39 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
       studentId: ID.kalakritiStudent,
     })
     .onConflictDoNothing();
+
+  // Seed sample history only after the demo Edition has explicitly gone live.
+  await db.transaction(async (tx) => {
+    const [edition] = await tx
+      .select({ lifecycle: kalakritiEdition.lifecycle })
+      .from(kalakritiEdition)
+      .where(eq(kalakritiEdition.id, ID.kalakritiEdition))
+      .for("update");
+    if (edition?.lifecycle !== "live") {
+      return;
+    }
+    const [history] = await tx
+      .select({ id: kalakritiOperation.id })
+      .from(kalakritiOperation)
+      .where(eq(kalakritiOperation.studentId, ID.kalakritiStudent))
+      .limit(1);
+    if (history) {
+      return;
+    }
+    await tx
+      .insert(kalakritiOperation)
+      .values({
+        id: ID.kalakritiOperation,
+        operationId: ID.kalakritiOperation,
+        editionId: ID.kalakritiEdition,
+        studentId: ID.kalakritiStudent,
+        recordedBy: adminId,
+        type: "pickup",
+        occurredAt: eventDate,
+        createdAt: now,
+      })
+      .onConflictDoNothing();
+  });
 
   await db
     .insert(kalakritiGuardianCenter)

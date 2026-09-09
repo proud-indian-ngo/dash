@@ -41,9 +41,22 @@ generated key remains under the current user's `attachments/tmp/` prefix.
 Kalakriti Entry music uses a dedicated signer (`getKalakritiEntryMusicUploadUrl`)
 and MIME policy (`audio/mpeg`, `audio/mp4`, `audio/aac`, `audio/x-m4a`, 20 MB).
 Center and Division IDs authorize the upload; they never appear in the temp key.
+New-entry signing requires open registration. Existing-entry signing also accepts
+`entryId`, verifies its exact Edition/Center/Division, and allows scoped music
+changes after registration closes while rejecting archived Editions. The separate
+music modal saves through the existing transactional attachment mutators; closing
+it without saving does not replace or remove the persisted file.
 Durable keys are `<R2_KEY_PREFIX>/kalakriti-music/<editionId>/<entryId>/...`.
 Downloads use `{ id: entryId, kind: "kalakritiEntryMusic" }` and live
-registration-scope checks. Do not add these audio types to `ALLOWED_MIME_TYPES`.
+registration-scope checks. The playback modal uses the inline disposition; its
+Download action uses attachment disposition. The proxy forwards byte ranges and
+preserves partial-response headers for playback and seeking. Do not add these
+audio types to `ALLOWED_MIME_TYPES`.
+
+In development, the Vite `/api/` middleware normalizes image, audio, and video
+`Sec-Fetch-Dest` headers so Nitro forwards them to the API handler instead of
+misclassifying them as static assets. Without this workaround, native media
+requests return 404 even though fetching the same URL from JavaScript succeeds.
 
 During the private-storage rollout, the bucket remains publicly reachable only
 for asset families that have not migrated yet. All migrated reads use an exact

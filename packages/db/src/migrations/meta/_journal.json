@@ -533,6 +533,13 @@
       "when": 1788892089236,
       "tag": "0075_supreme_tenebrous",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1788898866512,
+      "tag": "0076_empty_stone_men",
+      "breakpoints": true
     }
   ]
 }

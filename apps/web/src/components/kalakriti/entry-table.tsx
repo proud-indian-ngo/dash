@@ -12,11 +12,14 @@ import {
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { format } from "date-fns";
+import { useState } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 
 import type { KalakritiEntryRow } from "./entry-form-dialog";
-import { EntryMusicCell } from "./entry-music-field";
+import { EntryMusicCell } from "./entry-music-cell";
+import { EntryMusicDialog } from "./entry-music-dialog";
+import { EntryMusicPlaybackDialog } from "./entry-music-playback-dialog";
 
 function searchEntries(row: KalakritiEntryRow, query: string): boolean {
   const normalizedQuery = query.trim().toLocaleLowerCase();
@@ -126,6 +129,12 @@ export function EntryTable({
   variant = "center",
 }: EntryTableProps) {
   const { edit, register, remove, uploadMusic } = permissions;
+  // Cell renderers can remount during Zero updates; keep the staged modal above the grid.
+  const [musicEntry, setMusicEntry] = useState<KalakritiEntryRow | null>(null);
+  const [playbackEntry, setPlaybackEntry] = useState<{
+    id: string;
+    fileName: string;
+  } | null>(null);
   const showMusic =
     showMusicProp ??
     data.some((entry) => entry.session.competition.musicUploadEnabled);
@@ -270,11 +279,15 @@ export function EntryTable({
               row.original.session.competition.musicUploadEnabled ? (
                 <EntryMusicCell
                   canWrite={uploadMusic}
-                  centerId={centerId}
-                  divisionId={row.original.sessionId}
-                  editionId={editionId}
-                  entryId={row.original.id}
                   musicFileName={row.original.musicFileName}
+                  onEdit={() => setMusicEntry(row.original)}
+                  onPlay={() => {
+                    if (row.original.musicFileName)
+                      setPlaybackEntry({
+                        id: row.original.id,
+                        fileName: row.original.musicFileName,
+                      });
+                  }}
                 />
               ) : (
                 <span className="text-muted-foreground text-sm">—</span>
@@ -328,24 +341,49 @@ export function EntryTable({
   ];
 
   return (
-    <DataTableWrapper
-      columns={columns}
-      data={data}
-      emptyMessage={emptyMessage}
-      getRowId={getEntryRowId}
-      isLoading={isLoading}
-      searchFn={searchEntries}
-      searchPlaceholder="Search Entries..."
-      storageKey="kalakriti_entries_table_state_v1"
-      tableLayout={{
-        columnsDraggable: true,
-        columnsPinnable: true,
-        columnsResizable: true,
-        columnsVisibility: true,
-      }}
-      toolbarActions={
-        register ? <Button onClick={onRegister}>Register Entry</Button> : null
-      }
-    />
+    <>
+      {playbackEntry ? (
+        <EntryMusicPlaybackDialog
+          key={playbackEntry.id}
+          entryId={playbackEntry.id}
+          musicFileName={playbackEntry.fileName}
+          onOpenChange={(open) => {
+            if (!open) setPlaybackEntry(null);
+          }}
+        />
+      ) : null}
+      {musicEntry && uploadMusic ? (
+        <EntryMusicDialog
+          key={musicEntry.id}
+          centerId={centerId}
+          divisionId={musicEntry.sessionId}
+          editionId={editionId}
+          entryId={musicEntry.id}
+          musicFileName={musicEntry.musicFileName}
+          onOpenChange={(open) => {
+            if (!open) setMusicEntry(null);
+          }}
+        />
+      ) : null}
+      <DataTableWrapper
+        columns={columns}
+        data={data}
+        emptyMessage={emptyMessage}
+        getRowId={getEntryRowId}
+        isLoading={isLoading}
+        searchFn={searchEntries}
+        searchPlaceholder="Search Entries..."
+        storageKey="kalakriti_entries_table_state_v1"
+        tableLayout={{
+          columnsDraggable: true,
+          columnsPinnable: true,
+          columnsResizable: true,
+          columnsVisibility: true,
+        }}
+        toolbarActions={
+          register ? <Button onClick={onRegister}>Register Entry</Button> : null
+        }
+      />
+    </>
   );
 }

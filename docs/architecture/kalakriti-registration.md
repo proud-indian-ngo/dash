@@ -7,7 +7,7 @@
 
 Kalakriti is a native Edition-bound module under `/kalakriti/:year`. Better Auth remains the only login system and central volunteers remain normal `user` records, but every Kalakriti business row belongs to one `kalakritiEdition`. A linked `teamEvent` exposes the Edition to shared event, reimbursement, and vendor-payment workflows without making the generic event domain authoritative for Kalakriti state.
 
-The Registration Release stops at `registration_locked`. Event-day, transport, attendance, meals, results, awards, scoresheets, and inventory have no production route, query, or mutator until their later release gates are implemented.
+The registration UI stops at `registration_locked`. The event-day operation backend supports recording only in `live` Editions; there is no station UI or go-live action on this branch. Transport setup, results, awards, scoresheets, and inventory remain behind later release gates.
 
 ## Identity and access
 
@@ -44,7 +44,9 @@ draft -> registration_open <-> registration_locked
 
 Opening or reopening requires a complete readiness snapshot. Center Student and Entry controls are independent, bulk lock closes both controls for every Center, and every explicit reopen is audited. Registration commands require both an open Edition lifecycle and the relevant Center control. Closing Center participation registration, individually or through bulk lock, requires every registered Student to meet the Edition `minTotalCompetitions` floor, including Students with zero Entries. Centers with no Students may close. The Centers directory compliance column applies the same rule.
 
-A Competition may set `musicUploadEnabled`. While Center Entry registration is open, Guardians, Liaisons, Edition administrators, and global `kalakriti.admin` users may optionally attach one audio file to an Entry (one file per individual Student, one file per group). The flag is not eligibility: it can change after Entries exist until the Edition is structurally locked. Turning it off blocks new claims; existing files stay downloadable until removed in the same write window. Anyone whose registration scope covers the Entry, including Overall Events Leads, Category Leads, and Competition Coordinators, may download. Public schedule and registration export never include music keys, filenames, or binaries.
+A Competition may set `musicUploadEnabled`. Guardians, Liaisons, Edition administrators, and global `kalakriti.admin` users can manage one audio file per Entry through a separate music modal. Existing Entry music can be uploaded, replaced, or removed after Center or Edition registration closes; participant registration and editing remain locked. Music changes require the actor's existing Center/Edition scope, active Center/Competition/Category records, and a nonarchived Edition. The modal stages changes until Save; Cancel leaves the persisted attachment unchanged. The table owns the modal outside its cells so live row updates don't discard staged uploads. Clicking a saved filename opens a separate, table-owned playback modal with native audio controls and an explicit protected Download action; playback does not require music-edit permission.
+
+New-entry uploads still require open Edition and Center Entry registration. Existing-entry upload signing includes `entryId` and validates its exact Edition, Center, and Division before allowing the post-registration write window. The music flag is not participant eligibility: it can change after Entries exist until the Edition is structurally locked. Turning it off blocks new claims without revoking downloads or the backend's scoped removal permission. Anyone whose registration scope covers the Entry, including Overall Events Leads, Category Leads, and Competition Coordinators, may download. Public schedule and registration export never include music keys, filenames, or binaries.
 
 ## Public and server-only projections
 
@@ -61,6 +63,14 @@ The legacy credential table, token hashing, issuance/reissue mutators, and PDF c
 Registration dashboards and `/api/kalakriti/:year/registration-export` resolve the actor and Edition on the server. The export route builds an allowlisted ZIP on the server, returns it as a private non-cacheable attachment, neutralizes spreadsheet formulas, and never sends raw registration rows to the browser. CSV import is intentionally unavailable.
 
 Audit reads apply Edition and responsibility scopes before returning privacy-safe metadata. Mutation audit entries remain Edition-owned and record the actor, domain, action, target, timestamp, reason where required, and structured metadata.
+
+## Event-day operation spine
+
+`packages/zero/src/mutators/kalakriti-operation.ts` owns server-authoritative recording; the client phase performs no optimistic writes. `record` accepts `personQr`, a bounded JSON string containing exactly `{ id, type }`, matching the detail-sheet QR format. It resolves the persisted Student or active volunteer membership inside the requested Edition and rejects Guardian subjects and mismatched types. `recordManual` resolves an Edition yearly ID through the same subject and operation rules; neither path uses credential storage or token hashes.
+
+New writes require a `live` Edition and an authorized operator. Edition/global administrators can record all types; other staff are restricted by operation type and their Center or Competition assignment. Attendance additionally requires a valid in-Edition session and the Student's registration in its Division. Transport ordering, volunteer check-in, and meal eligibility are enforced independently of QR possession.
+
+`kalakriti_operation` is append-only and has a unique `operationId`, XOR subjects, and Edition-composite subject/session references. A retry by the original recorder or global administrator is a no-op even if the submitted type or subject changes; another recorder or Edition cannot reuse the key. Replays don't create audit rows or duplicate operations. Student deletion and Entry removal are blocked once their Students have recorded operations. `event_day_operation` audit entries contain only bounded operation metadata. The seed script leaves draft Edition operations empty and adds an idempotent sample pickup only when the demo Edition is live and its sample Student has no history. E2E fixtures exercise idempotent recording against isolated live Editions.
 
 ## Volunteer yearly IDs
 

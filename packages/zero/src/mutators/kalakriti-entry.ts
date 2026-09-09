@@ -246,7 +246,8 @@ async function lockEntryContext(
   tx: EntryTx,
   ctx: Context | undefined,
   editionId: string,
-  centerId: string
+  centerId: string,
+  purpose: "registration" | "music" = "registration"
 ) {
   const edition = await getEditionForUpdate(tx, editionId);
   if (!edition) {
@@ -256,7 +257,16 @@ async function lockEntryContext(
   if (!center) {
     throw new Error("Center not found");
   }
-  assertEntryRegistrationWritable(edition, center);
+  if (purpose === "registration") {
+    assertEntryRegistrationWritable(edition, center);
+  } else {
+    if (center.editionId !== edition.id || center.retiredAt !== null) {
+      throw new Error("Center not found in this Edition");
+    }
+    if (edition.lifecycle === "archived") {
+      throw new Error("Edition is archived");
+    }
+  }
   await assertCanManageKalakritiCenterRegistration(
     tx,
     ctx,
@@ -296,6 +306,40 @@ async function loadCompetitionConfiguration(
         ? "This Competition requires an individual Entry"
         : "This Competition requires a group Entry"
     );
+  }
+  return competition;
+}
+
+async function loadMusicCompetition(
+  tx: EntryTx,
+  editionId: string,
+  divisionId: string
+): Promise<CompetitionConfiguration> {
+  const division = await getCompetitionDivisionForUpdate(tx, divisionId);
+  if (!division || division.editionId !== editionId) {
+    throw new Error("Competition Entry not found in this Edition");
+  }
+  const competition = (await tx.run(
+    zql.kalakritiCompetition
+      .where("id", division.competitionId)
+      .where("editionId", editionId)
+      .one()
+  )) as CompetitionConfiguration | undefined;
+  if (
+    !competition ||
+    competition.cancelledAt !== null ||
+    competition.retiredAt !== null
+  ) {
+    throw new Error("Competition Division is not active");
+  }
+  const category = (await tx.run(
+    zql.kalakritiCompetitionCategory
+      .where("id", competition.competitionCategoryId)
+      .where("editionId", editionId)
+      .one()
+  )) as { retiredAt: number | null } | undefined;
+  if (!category || category.retiredAt !== null) {
+    throw new Error("Competition Division is not active");
   }
   return competition;
 }
@@ -850,6 +894,21 @@ export const kalakritiEntryMutators = {
     if (!entry) {
       throw new Error("Competition Entry not found");
     }
+    const memberOperationSets = await Promise.all(
+      entry.members.map(
+        (member) =>
+          tx.run(
+            zql.kalakritiOperation.where("studentId", member.studentId)
+          ) as Promise<Array<{ id: string }>>
+      )
+    );
+    if (
+      memberOperationSets.some(
+        (memberOperations) => memberOperations.length > 0
+      )
+    ) {
+      throw new Error("Student has event-day operations and cannot be deleted");
+    }
     if (entry.musicObjectKey) {
       enqueueDeleteR2Object(ctx, tx.location, entry.musicObjectKey, {
         keyPrefixes: [`kalakriti-music/${edition.id}/${args.entryId}/`],
@@ -900,21 +959,14 @@ export const kalakritiEntryMutators = {
         tx,
         ctx,
         snapshot.editionId,
-        snapshot.centerId
+        snapshot.centerId,
+        "music"
       );
-      const division = await getCompetitionDivisionForUpdate(
+      const competition = await loadMusicCompetition(
         tx,
+        edition.id,
         snapshot.divisionId
       );
-      if (!division || division.editionId !== edition.id) {
-        throw new Error("Competition Entry not found in this Edition");
-      }
-      const competition = (await tx.run(
-        zql.kalakritiCompetition.where("id", division.competitionId).one()
-      )) as CompetitionConfiguration | undefined;
-      if (!competition) {
-        throw new Error("Competition not found in this Edition");
-      }
       assertMusicUploadEnabled(competition);
       assertIsLoggedIn(ctx);
       const objectKey = claimEntryMusicKey(ctx, tx.location, {
@@ -976,11 +1028,10 @@ export const kalakritiEntryMutators = {
       tx,
       ctx,
       snapshot.editionId,
-      snapshot.centerId
+      snapshot.centerId,
+      "music"
     );
-    if (edition.id !== snapshot.editionId) {
-      throw new Error("Competition Entry not found in this Edition");
-    }
+    await loadMusicCompetition(tx, edition.id, snapshot.divisionId);
     if (!snapshot.musicObjectKey) {
       throw new Error("No music file on this Entry");
     }

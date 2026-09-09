@@ -4,7 +4,7 @@
 
 The original stack breakdown below describes opaque credentials and a standalone Credentials page. The current product uses identifier QRs in volunteer, Guardian, and Student detail sheets instead: every authorized sheet viewer sees a QR encoding JSON with the database record `id` and `type` (`student`, `guardian`, or `volunteer`). Student QRs use the Student record ID; Guardian and volunteer QRs use the Edition Membership record ID. No issue/reissue process, credential write, encryption, or separate QR admin gate is involved. Guardian sheets include assigned Centers; Student sheets include their Center and individual/group competitions. The standalone page and navigation item are removed. See [current architecture](./architecture/kalakriti-registration.md#public-and-server-only-projections).
 
-Person lookup now lives at `/api/kalakriti/:year/people/lookup` and resolves database or yearly identifiers within the Edition; its administrator authorization remains. The legacy credential table, PDF API, token hashing, and issuance/reissue mutators are removed. Volunteer yearly IDs remain independent of QR codes and appear in the Volunteers table within their own Kalakriti Edition. When restacking KED-004 and later scanner work, remove credential-table dependencies, resolve JSON identifiers against subject records rather than hashing them as bearer tokens, authorize each operation independently, and reject Guardian membership for volunteer-only operations. Possession of a QR does not grant permission or prove identity.
+Person lookup now lives at `/api/kalakriti/:year/people/lookup` and resolves database or yearly identifiers within the Edition; its administrator authorization remains. The legacy credential table, PDF API, token hashing, and issuance/reissue mutators are removed. Volunteer yearly IDs remain independent of QR codes and appear in the Volunteers table within their own Kalakriti Edition. KED-004 now resolves JSON identifiers against subject records, authorizes each operation independently by type and assignment scope, and rejects Guardian operation subjects. Later scanner branches must adopt its `personQr` input and remove any remaining credential-table dependencies. Possession of a QR does not grant permission or prove identity.
 
 ## Original release outcome
 
@@ -213,8 +213,9 @@ cd packages/e2e && bash run-e2e.sh tests/kalakriti/credential-print.spec.ts
 
 - Table `kalakriti_operation`: `id`, `editionId`, `operationId` (UUIDv7, unique), `type` enum (`pickup`, `venue_departure`, `drop_off`, `volunteer_check_in`, `breakfast`, `lunch`, `competition_attendance`), nullable `studentId` / `membershipId` (exactly one), nullable `competitionSessionId`, `occurredAt`, `recordedBy`, `createdAt`, nullable `supersededByOperationId`, nullable `correctionReason`.
 - Unique `operationId`. Composite Edition FKs. Seed empty/idempotent rows only as required by `scripts/seed.ts` conventions.
-- Pure module `packages/zero/src/kalakriti-operation-rules.ts`: replay (`same operationId` → existing), derived current state, eligibility helpers. Types not yet enabled for live staff still have rule functions; mutators may accept them in tests but **forward recording in production requires `live`** (enforced in KED-009; until then, allow recording in tests against any non-archived Edition **or** fail with a stable `edition_not_live` if easier — prefer **not** requiring `live` until KED-009 so PR4/PR5 can test ops before go-live exists). Locked choice: **operations may be recorded in unit tests without `live` until KED-009**; KED-009 then requires `live` for forward ops and updates tests.
-- Mutators `kalakritiOperation.record` and `kalakritiOperation.recordManual`. `record` resolves SHA-256(`credentialToken`) to an **active** Credential. `recordManual` resolves `humanId` within the Edition. Duplicate `operationId` is a successful no-op returning the original type/subject (do not change type on replay).
+- Pure module `packages/zero/src/kalakriti-operation-rules.ts` owns derived state and eligibility helpers. New operation recording requires `live` now, including in tests; fixtures explicitly seed live Editions until KED-009 supplies the UI transition. Retries of committed operations remain no-ops after lifecycle changes.
+- Mutators `kalakritiOperation.record` and `kalakritiOperation.recordManual`. `record` accepts `personQr`, a strict JSON string with a database UUID `id` and `type` (`student`, `guardian`, or `volunteer`). It validates the stored subject type, Edition, and active volunteer state; Guardian subjects are rejected. `recordManual` resolves `humanId` within the Edition. Duplicate `operationId` is a successful no-op for the original recorder or global administrator in the same Edition; it never changes the stored type/subject.
+- Operator permissions are independent of identifiers: global/Edition administrators can record all types; transport leads or matching Center liaisons record transport; hospitality leads record volunteer check-in; food leads record meals; matching Competition staff record attendance. Attendance requires an in-Edition session and the Student's Entry in its Division.
 - Student `delete` and Entry `remove` must fail if any operation references that Student (or any member of the Entry).
 - No `/event-day` route. Update mutator allowlist in the surface test.
 - Audit domain `event_day_operation`, action `recorded`. Metadata: `{ type, operationId, subjectKind }` — no token, no human-readable free text beyond type.
@@ -222,8 +223,8 @@ cd packages/e2e && bash run-e2e.sh tests/kalakriti/credential-print.spec.ts
 **Acceptance:**
 
 - Replaying the same `operationId` does not create a second row and does not reverse state.
-- A revoked QR cannot record an operation.
-- Cross-Edition humanId/token is rejected.
+- Inactive volunteer, Guardian, malformed JSON, or mismatched-type QR subjects cannot record an operation.
+- Cross-Edition yearly IDs/database IDs and out-of-scope staff writes are rejected.
 - Student delete is blocked once an operation exists.
 
 **Verify:**

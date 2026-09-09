@@ -24,12 +24,12 @@ function crumb(message: string): void {
 
 interface EntryState {
   audits: { action: string }[];
-  entries: { id: string }[];
+  entries: { id: string; musicObjectKey: string | null }[];
   members: { entryId: string; studentId: string }[];
 }
 
 async function fixture<T>(
-  action: "cleanup" | "setup" | "state",
+  action: "cleanup" | "setup" | "state" | "music-cleanup-r2",
   kind: FixtureKind,
   email?: string
 ): Promise<T> {
@@ -148,7 +148,18 @@ test.describe("Kalakriti Competition Entry registration", () => {
         await waitForZeroReady(page);
         crumb("zeroReady-ok");
         await expect(async () => {
-          await entriesPage.attachMusic(studentA);
+          await studentA
+            .getByRole("button", { name: "Upload music", exact: true })
+            .click();
+          const musicDialog = page.getByRole("dialog", {
+            name: "Upload music",
+            exact: true,
+          });
+          await entriesPage.attachMusic(musicDialog);
+          await expect(
+            musicDialog.getByText("track.mp3", { exact: true })
+          ).toBeVisible();
+          await entriesPage.saveMusic(musicDialog);
           await expect(studentA.getByTestId("entry-music")).toContainText(
             "track.mp3",
             { timeout: 15_000 }
@@ -202,6 +213,7 @@ test.describe("Kalakriti Competition Entry registration", () => {
       volunteerEmail
     );
     const entriesPage = new KalakritiEntriesPage(page);
+    const uploadedKeys = entriesPage.trackMusicUploadKeys();
 
     try {
       await page.goto(`/kalakriti/${year}/centers`);
@@ -248,13 +260,15 @@ test.describe("Kalakriti Competition Entry registration", () => {
         await expect(page.getByTestId("entry-music")).toContainText(
           "track.mp3"
         );
-        await entriesPage.attachMusic(
-          page.getByTestId("entry-music"),
-          "remix.mp3"
-        );
+        const beforeReplacement = await fixture<EntryState>("state", "liaison");
+        for (const entry of beforeReplacement.entries)
+          if (entry.musicObjectKey) uploadedKeys.add(entry.musicObjectKey);
+        const musicDialog = await entriesPage.openMusicDialog(true);
+        await entriesPage.attachMusic(musicDialog, "remix.mp3");
         await expect(
-          page.getByText("Audio replaced", { exact: true })
+          musicDialog.getByText("remix.mp3", { exact: true })
         ).toBeVisible();
+        await entriesPage.saveMusic(musicDialog);
         await expect(page.getByTestId("entry-music")).toContainText(
           "remix.mp3"
         );
@@ -262,10 +276,14 @@ test.describe("Kalakriti Competition Entry registration", () => {
           page.getByTestId("entry-music"),
           "remix.mp3"
         );
-        await page.getByRole("button", { name: "Remove remix.mp3" }).click();
-        await expect(
-          page.getByText("Audio removed", { exact: true })
-        ).toBeVisible();
+        const beforeRemoval = await fixture<EntryState>("state", "liaison");
+        for (const entry of beforeRemoval.entries)
+          if (entry.musicObjectKey) uploadedKeys.add(entry.musicObjectKey);
+        const removalDialog = await entriesPage.openMusicDialog(true);
+        await removalDialog
+          .getByRole("button", { name: "Remove remix.mp3" })
+          .click();
+        await entriesPage.saveMusic(removalDialog);
       }
       await expect(page.getByTestId("entry-music")).toContainText("None");
 
@@ -366,6 +384,15 @@ test.describe("Kalakriti Competition Entry registration", () => {
         expect.arrayContaining(["created", "updated", "deleted"])
       );
     } finally {
+      const remaining = await fixture<EntryState>("state", "liaison");
+      for (const entry of remaining.entries)
+        if (entry.musicObjectKey) uploadedKeys.add(entry.musicObjectKey);
+      if (uploadedKeys.size)
+        await fixture(
+          "music-cleanup-r2",
+          "liaison",
+          JSON.stringify([...uploadedKeys])
+        );
       await page.goto("about:blank");
       await fixture("cleanup", "liaison");
     }

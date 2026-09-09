@@ -26,6 +26,7 @@
       "entry": [
         "helpers/kalakriti-centers.ts",
         "helpers/kalakriti-person-qr.ts",
+        "helpers/kalakriti-operations.ts",
         "helpers/kalakriti-competitions.ts",
         "helpers/kalakriti-edition-creation.ts",
         "helpers/kalakriti-entries.ts",
