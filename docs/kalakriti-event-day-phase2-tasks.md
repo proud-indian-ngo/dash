@@ -322,7 +322,9 @@ cd packages/e2e && bash run-e2e.sh tests/kalakriti/event-day-transport.spec.ts
 - `volunteer_check_in`: Hospitality Lead/member, Edition admin, `kalakriti.admin`.
 - `breakfast` / `lunch`: Food Lead/member, Edition admin, `kalakriti.admin`. Student requires effective pickup. Volunteer requires effective check-in.
 - `competition_attendance`: Competition Volunteer or Coordinator for that Competition's scope, Edition admin, `kalakriti.admin`. Requires Student pickup. `competitionSessionId` required. Record per Student (entry member), not per group Entry.
-- Event day page gains station modes. Failed eligibility is a rejected mutator with a stable error string, not a queued UI state.
+- Sidebar **Scan** exposes Transport, Volunteer check-in, Meals, and Attendance according to active Edition assignments. Administrators see all activities; staff with multiple scanning roles see the applicable tabs, while a single activity needs no tab selector. There is no Event day page.
+- Meals select breakfast or lunch; Attendance requires an authorized Competition session. Student/volunteer person QR JSON and yearly-ID fallback use the same live-only operation boundary. Failed eligibility is rejected, not queued.
+- Changing activity, meal, or attendance session stops the previous scanner context; pending requests retain their original operation IDs and cannot silently switch subjects or operation types.
 - Keep delete guards.
 
 **Acceptance:**

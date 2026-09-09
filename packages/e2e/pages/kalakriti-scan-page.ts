@@ -13,7 +13,7 @@ export class KalakritiScanPage {
   constructor(readonly page: Page) {}
   get dialog() {
     return this.page.getByRole("dialog", {
-      name: "Scan Students",
+      name: "Scan",
       exact: true,
     });
   }

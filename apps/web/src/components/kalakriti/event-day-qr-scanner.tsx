@@ -3,6 +3,8 @@ import { log } from "evlog";
 import { useEffect, useState } from "react";
 
 const SCANNER_ELEMENT_ID = "kalakriti-event-day-qr";
+// A replacement waits until the previous camera releases its tracks and DOM.
+let previousSessionCleanup: Promise<void> = Promise.resolve();
 
 interface EventDayQrScannerProps {
   onScan: (personQr: string) => void;
@@ -12,6 +14,11 @@ function startScannerSession(
   onScan: (personQr: string) => void,
   onStartFailed: () => void
 ) {
+  const waitForPreviousSession = previousSessionCleanup;
+  let releaseSession: () => void = () => undefined;
+  previousSessionCleanup = new Promise<void>((resolve) => {
+    releaseSession = resolve;
+  });
   let cancelled = false;
   let scanner: {
     clear: () => Promise<void> | void;
@@ -60,6 +67,8 @@ function startScannerSession(
 
   const startScanner = async () => {
     try {
+      await waitForPreviousSession;
+      if (cancelled) return;
       const { default: Html5Qrcode } =
         await import("@/lib/kalakriti-qr-decoder");
       if (cancelled) {
@@ -99,8 +108,9 @@ function startScannerSession(
       }
     } finally {
       startSettled = true;
-      if (scanner && (cancelled || !startSucceeded)) {
+      if (cancelled || !startSucceeded) {
         await cleanupScanner();
+        releaseSession();
       }
     }
   };
@@ -110,7 +120,7 @@ function startScannerSession(
   return () => {
     cancelled = true;
     if (startSettled) {
-      void cleanupScanner();
+      void cleanupScanner().then(releaseSession);
     }
   };
 }

@@ -86,7 +86,10 @@ All paths are relative to project root.
 | `routes/_app/kalakriti/$year/index.tsx` | Edition overview workspace and Edition header |
 | `components/kalakriti/{volunteer,guardian,student}-detail-sheet.tsx` | Table-owned person details, Guardian/Student Center details, Student competition entries, and identifier QR codes for every authorized viewer |
 | `components/kalakriti/person-qr-panel.tsx` | Client-rendered JSON QR containing the database record `id` and subject `type` (`student`, `guardian`, or `volunteer`) |
-| `components/kalakriti/center-scan-dialog.tsx` | Sidebar and Event-day Center sessions: continuous QR/manual marking, roster progress, pinned stages, and confirmed finalization |
+| `components/kalakriti/scan-dialog.tsx` | Stable sidebar modal with role-derived activity tabs and pending-write guards |
+| `components/kalakriti/center-scan-dialog.tsx` | Transport panel: continuous QR/manual marking, roster progress, pinned Center stages, and confirmed finalization |
+| `components/kalakriti/operation-scan-panel.tsx` | Live-only volunteer check-in, meals, and scoped Competition attendance with explicit scan contexts |
+| `lib/kalakriti-scan-recording.ts` | Stable nontransport operation arguments and retry keys across activity changes |
 | `components/kalakriti/event-day-qr-scanner.tsx` | Client-only camera decoder with startup failure handling and camera cleanup |
 | `lib/kalakriti-qr-decoder.ts` | Stable lazy decoder entry for camera loading and E2E interception in development and production builds |
 | `components/kalakriti/use-transport-status-snapshot.ts` | Keeps Student/Center transport labels tied to complete, scoped query snapshots without hiding the base table |

@@ -17,11 +17,11 @@ import { useQuery } from "@rocicorp/zero/react";
 import { useLocation } from "@tanstack/react-router";
 import { useState, type ComponentProps } from "react";
 
-import { CenterScanDialog } from "@/components/kalakriti/center-scan-dialog";
+import { ScanDialog } from "@/components/kalakriti/scan-dialog";
 import { NavUser } from "@/components/layout/nav-user";
 import { TeamSwitcher } from "@/components/layout/team-switcher";
 import { useApp } from "@/context/app-context";
-import { canAccessKalakritiEventDay } from "@/lib/kalakriti-event-day-policy";
+import { getKalakritiScanActivities } from "@/lib/kalakriti-event-day-policy";
 import {
   buildKalakritiNavGroups,
   shouldUseKalakritiNav,
@@ -34,15 +34,15 @@ const KALAKRITI_YEAR_PATH = /^\/kalakriti\/(\d{4})(?:\/|$)/;
 
 export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
   const { hasPermission, navGroups, user } = useApp();
-  const [scanOpen, setScanOpen] = useState(false);
+  const [scanEditionId, setScanEditionId] = useState<string | null>(null);
   const { setOpenMobile } = useSidebar();
   const { pathname } = useLocation();
   const [editions] = useQuery(queries.kalakritiEdition.accessible());
   const showKalakriti = hasPermission("kalakriti.admin") || editions.length > 0;
   const routeYear = pathname.match(KALAKRITI_YEAR_PATH)?.[1];
-  const activeEdition =
-    editions.find((edition) => edition.year === Number(routeYear)) ??
-    editions[0];
+  const activeEdition = routeYear
+    ? editions.find((edition) => edition.year === Number(routeYear))
+    : editions[0];
   const [membership] = useQuery(
     queries.kalakritiAssignment.myAccess({
       editionId: activeEdition?.id ?? "",
@@ -101,7 +101,7 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
           (assignment.responsibility === "competition_category_lead" &&
             Boolean(assignment.competitionCategoryId))
       ) === true);
-  const canViewEventDay = canAccessKalakritiEventDay({
+  const scanActivities = getKalakritiScanActivities({
     edition: activeEdition?.lifecycle
       ? { lifecycle: activeEdition.lifecycle }
       : undefined,
@@ -122,6 +122,7 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
         }
       : null,
   });
+  const canViewEventDay = scanActivities.length > 0;
   let visibleNavGroups = buildKalakritiNavGroups({
     canManageEligibility: canManageEdition,
     canManageGuardians: canManageEdition,
@@ -146,12 +147,17 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
 
   return (
     <>
-      {scanOpen && canViewEventDay && activeEdition ? (
-        <CenterScanDialog
+      {scanEditionId === activeEdition?.id &&
+      canViewEventDay &&
+      activeEdition ? (
+        <ScanDialog
           key={activeEdition.id}
           editionId={activeEdition.id}
           year={activeEdition.year}
-          onOpenChange={setScanOpen}
+          activities={scanActivities}
+          onOpenChange={(open) => {
+            if (!open) setScanEditionId(null);
+          }}
         />
       ) : null}
       <Sidebar collapsible="icon" {...props}>
@@ -171,7 +177,7 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
                   tooltip="Scan"
                   onClick={() => {
                     setOpenMobile(false);
-                    setScanOpen(true);
+                    setScanEditionId(activeEdition.id);
                   }}
                 >
                   <HugeiconsIcon icon={QrCodeScanIcon} strokeWidth={2} />

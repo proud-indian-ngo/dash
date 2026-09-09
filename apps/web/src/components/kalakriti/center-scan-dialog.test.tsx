@@ -77,14 +77,15 @@ mock.module("@/components/kalakriti/event-day-qr-scanner", () => ({
 mock.module("@/components/shared/confirm-dialog", () => ({
   ConfirmDialog: () => null,
 }));
-const { CenterScanDialog } = await import("./center-scan-dialog");
+const { CenterScanPanel } = await import("./center-scan-dialog");
 function render() {
   queryIndex = 0;
   return renderToStaticMarkup(
-    <CenterScanDialog
+    <CenterScanPanel
       editionId="edition"
       year={2162}
-      onOpenChange={() => undefined}
+      onComplete={() => undefined}
+      onBusyChange={() => undefined}
     />
   );
 }

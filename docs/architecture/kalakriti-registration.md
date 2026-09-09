@@ -80,9 +80,22 @@ New writes require a `live` Edition and an authorized operator. Edition/global a
 
 `kalakriti_operation` is append-only and has a unique `operationId`, XOR subjects, and Edition-composite subject/session references. A retry by the original recorder or global administrator is a no-op even if the submitted type or subject changes; another recorder or Edition cannot reuse the key. Replays don't create audit rows or duplicate operations. Student deletion and Entry removal are blocked once their Students have recorded operations. `event_day_operation` audit entries contain only bounded operation metadata. The seed script leaves draft Edition operations empty and adds an idempotent sample pickup only when the demo Edition is live and its sample Student has no history. E2E fixtures exercise idempotent recording against isolated live Editions.
 
+## Role-aware scanning
+
+The Kalakriti sidebar **Scan** button opens a shared modal, not a separate Event day page. Available activities are the union of the operator's active Edition assignments. Administrators see all activities; multiple activities appear as tabs, while single-activity staff do not need a tab selector.
+
+| Activity | Authorized staff | Eligibility |
+| --- | --- | --- |
+| Transport | Global/Edition administrators, Transport Leads, scoped Center Liaisons | Center roster and current pinned stage |
+| Volunteer check-in | Global/Edition administrators, Hospitality Leads/members | Active Edition volunteer |
+| Meals | Global/Edition administrators, Food Leads/members | Student pickup or volunteer check-in; selected breakfast/lunch service |
+| Attendance | Global/Edition administrators, assigned Competition Volunteers/Coordinators | Picked-up Student registered in the selected session's Division; valid, uncancelled in-Edition session |
+
+The browser tabs are a convenience, not an authorization boundary. Every operation validates role, subject, Edition, eligibility, and session scope on the server. QR input uses person JSON and manual input uses yearly IDs; neither authorizes an operation. Changing scanning activity or session ends the previous camera context, and pending writes cannot change their operation arguments. Archived Editions expose no scanning, and new writes require a live Edition.
+
 ## Center scan sessions
 
-The Kalakriti sidebar **Scan** button opens `components/kalakriti/center-scan-dialog.tsx`. There is no separate Event day page. Global/Edition administrators, Transport Leads, and scoped Center Liaisons can use it; Guardians and Food-only staff cannot. Recording and finalization require a live Edition and connected client. The modal's stable owner lives outside the mobile sidebar sheet so closing navigation does not release the camera.
+The Transport activity uses `components/kalakriti/center-scan-dialog.tsx`. Guardians and Food-only staff cannot use Transport. Recording and finalization require a live Edition and connected client. The modal's stable owner lives outside the mobile sidebar sheet so closing navigation does not release the camera.
 
 A session selects one Center and waits for the complete roster/stage query before pinning its current stage. When only one Center is available, it is selected automatically and shown as plain text rather than a dropdown. Later synchronization gaps pause scanning without resetting that pinned stage. Each Student QR scan or yearly-ID entry marks that Student for that stage, without advancing the Center. The camera remains active between Students, and successful marks show a named toast. Camera startup failures leave manual entry available. Backend duplicate checks prevent repeated marks; operation-ID retries remain safe even after a stage changes.
 

@@ -27,6 +27,7 @@
         "helpers/kalakriti-centers.ts",
         "helpers/kalakriti-transport.ts",
         "helpers/kalakriti-event-day-transport.ts",
+        "helpers/kalakriti-station-subject.ts",
         "helpers/kalakriti-person-qr.ts",
         "helpers/kalakriti-operations.ts",
         "helpers/kalakriti-competitions.ts",

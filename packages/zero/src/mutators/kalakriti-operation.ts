@@ -125,10 +125,16 @@ export async function assertCanRecordKalakritiOperation(
             ))
         );
       case "volunteer_check_in":
-        return assignment.responsibility === "hospitality_lead";
+        return (
+          assignment.responsibility === "hospitality_lead" ||
+          assignment.responsibility === "hospitality_member"
+        );
       case "breakfast":
       case "lunch":
-        return assignment.responsibility === "food_lead";
+        return (
+          assignment.responsibility === "food_lead" ||
+          assignment.responsibility === "food_member"
+        );
       case "competition_attendance":
         return (
           competitionId !== null &&
@@ -166,12 +172,22 @@ async function validateAttendanceSubject(
     zql.kalakritiCompetitionSession
       .where("id", sessionId)
       .where("editionId", editionId)
-      .related("division")
+      .related("division", (division) => division.related("competition"))
       .one()
   )) as
     | {
+        cancelledAt: number | null;
         editionId: string;
-        division?: { id: string; editionId: string; competitionId: string };
+        division?: {
+          id: string;
+          editionId: string;
+          competitionId: string;
+          competition?: {
+            id: string;
+            editionId: string;
+            cancelledAt: number | null;
+          };
+        };
       }
     | undefined;
   if (
@@ -180,6 +196,20 @@ async function validateAttendanceSubject(
     session.division.editionId !== editionId
   ) {
     throw new Error("Competition session not found in this Edition");
+  }
+  if (session.cancelledAt !== null) {
+    throw new Error("Competition session is cancelled");
+  }
+  const competition = session.division.competition;
+  if (
+    !competition ||
+    competition.editionId !== editionId ||
+    competition.id !== session.division.competitionId
+  ) {
+    throw new Error("Competition not found in this Edition");
+  }
+  if (competition.cancelledAt !== null) {
+    throw new Error("Competition is cancelled");
   }
   const divisionId = session.division.id;
   const entryMember = await tx.run(
