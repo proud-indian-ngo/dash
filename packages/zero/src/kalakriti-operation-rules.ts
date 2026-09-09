@@ -13,6 +13,7 @@ export interface KalakritiOperationRecord {
 
 const STUDENT_OPERATION_TYPES = new Set<KalakritiOperationType>([
   "pickup",
+  "venue_arrival",
   "venue_departure",
   "drop_off",
   "competition_attendance",
@@ -127,10 +128,25 @@ export function assertTransportOrderRules(
   studentId: string
 ): void {
   if (
-    type === "venue_departure" &&
+    (type === "venue_arrival" || type === "venue_departure") &&
     !hasEffectivePickup(operations, studentId)
   ) {
-    throw new Error("Pickup is required before venue departure");
+    throw new Error(
+      type === "venue_arrival"
+        ? "Pickup is required before venue arrival"
+        : "Pickup is required before venue departure"
+    );
+  }
+  if (
+    type === "venue_departure" &&
+    !operations.some(
+      (operation) =>
+        operation.studentId === studentId &&
+        operation.type === "venue_arrival" &&
+        isEffectiveOperation(operation)
+    )
+  ) {
+    throw new Error("Venue arrival is required before venue departure");
   }
   if (
     type === "drop_off" &&

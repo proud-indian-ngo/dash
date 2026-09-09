@@ -1,22 +1,21 @@
+import type { KalakritiCenterScanStage } from "@pi-dash/shared/kalakriti";
 import { uuidv7 } from "uuidv7";
 
-export type StudentTransportCheckpoint =
-  | "pickup"
-  | "venue_departure"
-  | "drop_off";
+export type StudentTransportCheckpoint = KalakritiCenterScanStage;
 
 interface CheckpointRequest {
   auditEntryId: string;
+  centerId: string;
   editionId: string;
+  expectedStage: StudentTransportCheckpoint;
   id: string;
   now: number;
   occurredAt: number;
   operationId: string;
-  type: StudentTransportCheckpoint;
 }
 
-// Keep retries identical even when the transport result is uncertain. Each checkpoint
-// and Edition gets its own operation ID; camera frames cannot create concurrent writes.
+// Stable requests survive uncertain results. Center/stage keys prevent one Student's
+// repeated frames from selecting a different checkpoint or racing an in-flight write.
 export function createEventDayRecordingLedger() {
   const requests = new Map<
     string,
@@ -25,14 +24,21 @@ export function createEventDayRecordingLedger() {
   return {
     begin({
       editionId,
-      type,
+      centerId,
+      expectedStage,
       subjectKey,
     }: {
       editionId: string;
-      type: StudentTransportCheckpoint;
+      centerId: string;
+      expectedStage: StudentTransportCheckpoint;
       subjectKey: string;
     }) {
-      const key = JSON.stringify([editionId, type, subjectKey]);
+      const key = JSON.stringify([
+        editionId,
+        centerId,
+        expectedStage,
+        subjectKey,
+      ]);
       let request = requests.get(key);
       if (request?.recorded) return { status: "recorded" } as const;
       if (request?.pending) return { status: "pending" } as const;
@@ -41,12 +47,13 @@ export function createEventDayRecordingLedger() {
         request = {
           args: {
             auditEntryId: uuidv7(),
+            centerId,
             editionId,
+            expectedStage,
             id: uuidv7(),
             now,
             occurredAt: now,
             operationId: uuidv7(),
-            type,
           },
           pending: false,
           recorded: false,

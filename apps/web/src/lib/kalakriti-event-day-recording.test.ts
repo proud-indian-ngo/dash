@@ -6,7 +6,8 @@ import { createEventDayRecordingLedger } from "./kalakriti-event-day-recording";
 
 const input = {
   editionId: "edition",
-  type: "pickup" as const,
+  centerId: "center",
+  expectedStage: "pickup" as const,
   subjectKey: "student:019f0000-0042-7000-8000-00000000d107",
 };
 describe("student checkpoint recording ledger", () => {
@@ -26,9 +27,11 @@ describe("student checkpoint recording ledger", () => {
     const ledger = createEventDayRecordingLedger();
     const attempts = [
       ledger.begin(input),
-      ledger.begin({ ...input, type: "venue_departure" }),
-      ledger.begin({ ...input, type: "drop_off" }),
+      ledger.begin({ ...input, expectedStage: "venue_arrival" }),
+      ledger.begin({ ...input, expectedStage: "venue_departure" }),
+      ledger.begin({ ...input, expectedStage: "drop_off" }),
       ledger.begin({ ...input, editionId: "other" }),
+      ledger.begin({ ...input, centerId: "other-center" }),
     ];
     const ids = attempts.map((attempt) => {
       if (attempt.status !== "ready")
@@ -36,7 +39,7 @@ describe("student checkpoint recording ledger", () => {
       expect(attempt.args.now).toBe(attempt.args.occurredAt);
       return attempt.args.operationId;
     });
-    expect(new Set(ids).size).toBe(4);
+    expect(new Set(ids).size).toBe(6);
   });
   it("deduplicates semantically identical person QR JSON after canonicalization", () => {
     const ledger = createEventDayRecordingLedger();

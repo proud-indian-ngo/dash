@@ -9,6 +9,9 @@ import {
   kalakritiAgeCategory,
   kalakritiAssignment,
   kalakritiCenter,
+  kalakritiCenterScanStage,
+  kalakritiTransportAssignment,
+  kalakritiTransportStatusHistory,
   kalakritiEdition,
   kalakritiEditionMembership,
   kalakritiGuardianCenter,
@@ -31,6 +34,13 @@ const fixture = {
   leadAssignmentId: id("0013"),
   foodMembershipId: id("0014"),
   foodAssignmentId: id("0015"),
+  secondStudentId: id("0016"),
+  secondHumanId: "KAL-2166-0003",
+  vehicleId: id("0017"),
+  vehicleHistoryId: id("0018"),
+  emptyCenterId: id("0019"),
+  absentStudentId: id("0020"),
+  absentHumanId: "KAL-2166-0004",
   editionId: id("0001"),
   eventId: id("0002"),
   centerId: id("0003"),
@@ -48,6 +58,15 @@ const fixture = {
 } as const;
 
 async function cleanup() {
+  await db
+    .delete(kalakritiCenterScanStage)
+    .where(eq(kalakritiCenterScanStage.editionId, fixture.editionId));
+  await db
+    .delete(kalakritiTransportStatusHistory)
+    .where(eq(kalakritiTransportStatusHistory.editionId, fixture.editionId));
+  await db
+    .delete(kalakritiTransportAssignment)
+    .where(eq(kalakritiTransportAssignment.editionId, fixture.editionId));
   await db
     .delete(kalakritiOperation)
     .where(eq(kalakritiOperation.editionId, fixture.editionId));
@@ -150,6 +169,31 @@ async function setup(
       normalizedName: "station center b",
     },
   ]);
+  await db.insert(kalakritiCenter).values({
+    ...editionCommon,
+    id: fixture.emptyCenterId,
+    name: "Empty Station Center",
+    normalizedName: "empty station center",
+  });
+  await db.insert(kalakritiTransportAssignment).values({
+    ...editionCommon,
+    id: fixture.vehicleId,
+    centerId: fixture.centerId,
+    vehicleLabel: "Station Bus",
+    driverName: "Station Driver",
+    capacity: 20,
+    status: "planned",
+  });
+  await db.insert(kalakritiTransportStatusHistory).values({
+    id: fixture.vehicleHistoryId,
+    editionId: fixture.editionId,
+    assignmentId: fixture.vehicleId,
+    actorUserId: admin.id,
+    createdAt: now,
+    occurredAt: now,
+    fromStatus: null,
+    toStatus: "planned",
+  });
   await db.insert(kalakritiAgeCategory).values({
     ...editionCommon,
     id: fixture.ageCategoryId,
@@ -164,6 +208,32 @@ async function setup(
     maxTotalCompetitions: 4,
   });
   await db.insert(kalakritiStudent).values([
+    {
+      ...editionCommon,
+      id: fixture.absentStudentId,
+      centerId: fixture.centerId,
+      humanId: fixture.absentHumanId,
+      name: "Absent Station Student",
+      normalizedName: "absent station student",
+      gender: "female",
+      dateOfBirth: `${fixture.year - 9}-06-15`,
+      ageCategoryId: fixture.ageCategoryId,
+      derivedAgeCategoryId: fixture.ageCategoryId,
+      updatedBy: admin.id,
+    },
+    {
+      ...editionCommon,
+      id: fixture.secondStudentId,
+      centerId: fixture.centerId,
+      humanId: fixture.secondHumanId,
+      name: "Second Station Student A",
+      normalizedName: "second station student a",
+      gender: "male",
+      dateOfBirth: `${fixture.year - 9}-06-15`,
+      ageCategoryId: fixture.ageCategoryId,
+      derivedAgeCategoryId: fixture.ageCategoryId,
+      updatedBy: admin.id,
+    },
     {
       ...editionCommon,
       id: fixture.studentId,
@@ -276,7 +346,37 @@ try {
       })
       .from(kalakritiOperation)
       .where(eq(kalakritiOperation.editionId, fixture.editionId));
-  else if (action === "close") {
+  else if (action === "session-state") {
+    const [operations, stages, vehicles, history] = await Promise.all([
+      db
+        .select()
+        .from(kalakritiOperation)
+        .where(eq(kalakritiOperation.editionId, fixture.editionId))
+        .orderBy(kalakritiOperation.id),
+      db
+        .select()
+        .from(kalakritiCenterScanStage)
+        .where(eq(kalakritiCenterScanStage.editionId, fixture.editionId))
+        .orderBy(kalakritiCenterScanStage.id),
+      db
+        .select()
+        .from(kalakritiTransportAssignment)
+        .where(eq(kalakritiTransportAssignment.editionId, fixture.editionId))
+        .orderBy(kalakritiTransportAssignment.id),
+      db
+        .select()
+        .from(kalakritiTransportStatusHistory)
+        .where(eq(kalakritiTransportStatusHistory.editionId, fixture.editionId))
+        .orderBy(kalakritiTransportStatusHistory.createdAt),
+    ]);
+    result = { operations, stages, vehicles, history };
+  } else if (action === "live") {
+    await db
+      .update(kalakritiEdition)
+      .set({ lifecycle: action })
+      .where(eq(kalakritiEdition.id, fixture.editionId));
+    result = { lifecycle: action };
+  } else if (action === "close") {
     await db
       .update(kalakritiEdition)
       .set({ lifecycle: "registration_locked" })

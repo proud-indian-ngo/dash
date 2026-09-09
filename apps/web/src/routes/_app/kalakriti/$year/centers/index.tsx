@@ -68,6 +68,7 @@ function buildCenterRows({
     name: string;
     retiredAt: number | null;
     studentRegistrationEnabled: boolean | null;
+    scanStages?: CenterTableRow["scanStages"];
   }[];
   guardianAssignments: readonly { centerId: string | null }[];
   liaisonAssignments: readonly { centerId: string | null }[];
@@ -85,6 +86,7 @@ function buildCenterRows({
       : null,
     name: center.name,
     retiredAt: center.retiredAt,
+    scanStages: center.scanStages,
     studentRegistrationEnabled: Boolean(center.studentRegistrationEnabled),
   }));
 }
@@ -346,6 +348,8 @@ function KalakritiCentersPage() {
         canConfigureCenters={canConfigureCenters}
         canManageRegistrationControls={canManageRegistrationControls}
         data={centerRows}
+        statusSnapshotComplete={centerResult.type === "complete"}
+        statusSnapshotKey={edition.id}
         emptyMessage={`No Centers available. ${emptyStateDescription}`}
         isLoading={isLoading}
         onDelete={deleteAction.trigger}

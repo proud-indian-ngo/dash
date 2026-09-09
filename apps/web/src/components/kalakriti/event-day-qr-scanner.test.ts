@@ -95,6 +95,21 @@ beforeEach(() => {
 });
 
 describe("EventDayQrScanner", () => {
+  it("sizes the scanning area to fit desktop and mobile camera previews", async () => {
+    const { cleanup } = mountScanner();
+    await waitFor(() => mocks.start.mock.calls.length > 0);
+    const config = mocks.start.mock.calls[0]?.[1] as {
+      qrbox: (
+        width: number,
+        height: number
+      ) => { width: number; height: number };
+    };
+    expect(config.qrbox(560, 560)).toEqual({ width: 448, height: 448 });
+    expect(config.qrbox(280, 360)).toEqual({ width: 224, height: 224 });
+    cleanup();
+    await waitFor(() => mocks.clear.mock.calls.length === 1);
+  });
+
   it("starts, decodes, then stops before clearing on unmount", async () => {
     const { cleanup, onScan } = mountScanner();
 

@@ -2,6 +2,7 @@ import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
+import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   DropdownMenu,
@@ -12,6 +13,10 @@ import {
 } from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import {
+  type CenterScanStudent,
+  getKalakritiStudentTransportLabel,
+} from "@pi-dash/zero/kalakriti-center-scan-rules";
 import { format } from "date-fns";
 import { useMemo } from "react";
 
@@ -23,8 +28,13 @@ import {
 import { canDeleteKalakritiStudent } from "@/lib/kalakriti-student-policy";
 
 import type { KalakritiStudentRow } from "./student-form-dialog";
+import { useTransportStatusSnapshot } from "./use-transport-status-snapshot";
 
-function searchStudents(row: KalakritiStudentRow, query: string): boolean {
+export interface StudentTableRow extends KalakritiStudentRow {
+  operations?: CenterScanStudent["operations"];
+}
+
+function searchStudents(row: StudentTableRow, query: string): boolean {
   const normalizedQuery = query.trim().toLocaleLowerCase();
   if (!normalizedQuery) {
     return true;
@@ -100,7 +110,9 @@ function StudentRowActions({
 
 interface StudentTableProps {
   canManage: boolean;
-  data: KalakritiStudentRow[];
+  data: StudentTableRow[];
+  statusSnapshotComplete: boolean;
+  statusSnapshotKey: string;
   entryRegistrationEnabled: boolean;
   isLoading: boolean;
   onDelete: (student: KalakritiStudentRow) => void;
@@ -113,9 +125,15 @@ function getStudentRowId(student: KalakritiStudentRow): string {
   return student.id;
 }
 
+function studentTransportLabel(row: StudentTableRow) {
+  return getKalakritiStudentTransportLabel(row.operations ?? []);
+}
+
 export function StudentTable({
   canManage,
   data,
+  statusSnapshotComplete,
+  statusSnapshotKey,
   entryRegistrationEnabled,
   isLoading,
   onDelete,
@@ -123,8 +141,14 @@ export function StudentTable({
   onRegister,
   onView,
 }: StudentTableProps) {
+  const { labels, pending } = useTransportStatusSnapshot({
+    data,
+    scopeKey: statusSnapshotKey,
+    complete: statusSnapshotComplete,
+    getStatus: studentTransportLabel,
+  });
   const filterFields = useMemo(() => createStudentFilterFields(data), [data]);
-  const columns: DataGridColumnDef<KalakritiStudentRow>[] = [
+  const columns: DataGridColumnDef<StudentTableRow>[] = [
     {
       accessorFn: (row) => row.humanId,
       cell: ({ row }) => (
@@ -158,6 +182,32 @@ export function StudentTable({
         skeleton: <Skeleton className="h-5 w-40" />,
       },
       size: 230,
+    },
+    {
+      id: "transportStatus",
+      accessorFn: (row) => labels?.get(row.id),
+      enableSorting: !pending,
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Transport status"
+          visibility={true}
+        />
+      ),
+      cell: ({ row }) =>
+        labels?.has(row.original.id) ? (
+          <Badge variant="secondary">{labels.get(row.original.id)}</Badge>
+        ) : (
+          <Skeleton
+            aria-label="Loading transport status"
+            className="h-5 w-28"
+          />
+        ),
+      meta: {
+        headerTitle: "Transport status",
+        skeleton: <Skeleton className="h-5 w-28" />,
+      },
+      size: 170,
     },
     {
       accessorFn: (row) => row.dateOfBirth,

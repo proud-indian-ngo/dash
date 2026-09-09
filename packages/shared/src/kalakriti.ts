@@ -22,6 +22,7 @@ export type KalakritiMembershipState =
 export const KALAKRITI_TRANSPORT_STATUSES = [
   "planned",
   "arrived_at_center",
+  "departed_center",
   "arrived_at_venue",
   "departed_venue",
   "completed",
@@ -34,12 +35,42 @@ export const KALAKRITI_TRANSPORT_STATUS_LABELS = {
   arrived_at_center: "Arrived at Center",
   arrived_at_venue: "Arrived at venue",
   completed: "Completed",
+  departed_center: "Departed Center",
   departed_venue: "Departed venue",
   planned: "Planned",
 } satisfies Record<KalakritiTransportStatus, string>;
 
+export const KALAKRITI_STUDENT_TRANSPORT_LABELS = {
+  planned: "Awaiting pickup",
+  arrived_at_center: "Awaiting pickup",
+  departed_center: "Picked up",
+  arrived_at_venue: "At Event",
+  departed_venue: "Returning",
+  completed: "Back at Center",
+} as const satisfies Record<KalakritiTransportStatus, string>;
+
+export const KALAKRITI_CENTER_TRANSPORT_LABELS = {
+  planned: "Awaiting pickup",
+  arrived_at_center: "Awaiting pickup",
+  departed_center: "Heading to event",
+  arrived_at_venue: "At Event",
+  departed_venue: "Returning",
+  completed: "Back at Center",
+} as const satisfies Record<KalakritiTransportStatus, string>;
+
+export const KALAKRITI_CENTER_SCAN_STAGES = [
+  "pickup",
+  "venue_arrival",
+  "venue_departure",
+  "drop_off",
+] as const;
+
+export type KalakritiCenterScanStage =
+  (typeof KALAKRITI_CENTER_SCAN_STAGES)[number];
+
 export const KALAKRITI_OPERATION_TYPES = [
   "pickup",
+  "venue_arrival",
   "venue_departure",
   "drop_off",
   "volunteer_check_in",

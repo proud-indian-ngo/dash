@@ -1,4 +1,5 @@
 import {
+  KALAKRITI_CENTER_SCAN_STAGES,
   KALAKRITI_EDITION_LIFECYCLES,
   KALAKRITI_EDITION_RESPONSIBILITIES,
   KALAKRITI_MEMBERSHIP_KINDS,
@@ -51,6 +52,11 @@ export const kalakritiResponsibilityEnum = pgEnum(
 export const kalakritiOperationTypeEnum = pgEnum(
   "kalakriti_operation_type",
   KALAKRITI_OPERATION_TYPES
+);
+
+export const kalakritiCenterScanStageEnum = pgEnum(
+  "kalakriti_center_scan_stage_type",
+  KALAKRITI_CENTER_SCAN_STAGES
 );
 
 export const kalakritiTransportStatusEnum = pgEnum(
@@ -666,6 +672,54 @@ export const kalakritiOperation = pgTable(
   ]
 );
 
+export const kalakritiCenterScanStage = pgTable(
+  "kalakriti_center_scan_stage",
+  {
+    id: uuid("id").primaryKey(),
+    editionId: uuid("edition_id")
+      .notNull()
+      .references(() => kalakritiEdition.id, { onDelete: "cascade" }),
+    centerId: uuid("center_id").notNull(),
+    stage: kalakritiCenterScanStageEnum("stage").notNull(),
+    createdAt: timestamp("created_at").notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id),
+    finalizedAt: timestamp("finalized_at"),
+    finalizedBy: text("finalized_by").references(() => user.id),
+  },
+  (table) => [
+    unique("kalakriti_center_scan_stage_edition_center_stage_uq").on(
+      table.editionId,
+      table.centerId,
+      table.stage
+    ),
+    foreignKey({
+      columns: [table.editionId, table.centerId],
+      foreignColumns: [kalakritiCenter.editionId, kalakritiCenter.id],
+      name: "kalakriti_center_scan_stage_edition_center_fk",
+    }).onDelete("restrict"),
+    check(
+      "kalakriti_center_scan_stage_finalization_chk",
+      sql`(${table.finalizedAt} IS NULL AND ${table.finalizedBy} IS NULL) OR (${table.finalizedAt} IS NOT NULL AND ${table.finalizedBy} IS NOT NULL)`
+    ),
+  ]
+);
+
+export const kalakritiCenterScanStageRelations = relations(
+  kalakritiCenterScanStage,
+  ({ one }) => ({
+    center: one(kalakritiCenter, {
+      fields: [kalakritiCenterScanStage.centerId],
+      references: [kalakritiCenter.id],
+    }),
+    edition: one(kalakritiEdition, {
+      fields: [kalakritiCenterScanStage.editionId],
+      references: [kalakritiEdition.id],
+    }),
+  })
+);
+
 export const kalakritiTransportAssignment = pgTable(
   "kalakriti_transport_assignment",
   {
@@ -1100,6 +1154,7 @@ export const kalakritiAssignmentRelations = relations(
 export const kalakritiCenterRelations = relations(
   kalakritiCenter,
   ({ many, one }) => ({
+    scanStages: many(kalakritiCenterScanStage),
     assignments: many(kalakritiAssignment),
     competitionEntries: many(kalakritiCompetitionEntry),
     edition: one(kalakritiEdition, {

@@ -23,6 +23,8 @@ describe("kalakritiCenter queries", () => {
       })
     );
 
+    expect(ast).toContain('"alias":"scanStages"');
+    expect(ast).toContain('"table":"kalakritiCenterScanStage"');
     expect(ast).toContain('"table":"kalakritiGuardianCenter"');
     expect(ast).toContain('"table":"kalakritiAssignment"');
     expect(ast).toContain('"value":"guardian-1"');

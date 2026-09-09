@@ -72,7 +72,10 @@ function startScannerSession(
         {
           aspectRatio: 1,
           fps: 10,
-          qrbox: { height: 220, width: 220 },
+          qrbox: (width, height) => {
+            const size = Math.floor(Math.min(width, height) * 0.8);
+            return { height: size, width: size };
+          },
         },
         (decodedText) => {
           if (!cancelled) {
@@ -123,7 +126,11 @@ export function EventDayQrScanner({ onScan }: EventDayQrScannerProps) {
   return (
     <div className="space-y-2">
       <div
-        className="bg-muted/30 overflow-hidden rounded-lg border"
+        className={
+          startFailed
+            ? "hidden"
+            : "bg-muted/30 aspect-square w-full overflow-hidden rounded-lg border"
+        }
         id={SCANNER_ELEMENT_ID}
       />
       {startFailed ? (

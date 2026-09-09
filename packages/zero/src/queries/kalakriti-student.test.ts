@@ -91,6 +91,10 @@ describe("kalakritiStudent queries", () => {
     expect(ast).toContain('"value":"edition-1"');
     expect(ast).toContain('"value":"center-1"');
     expect(ast).toContain('"table":"kalakritiAgeCategory"');
+    expect(ast).toContain('"alias":"operations"');
+    expect(ast).toContain('"table":"kalakritiOperation"');
+    expect(ast).toContain('"venue_arrival"');
+    expect(ast).not.toContain('"breakfast"');
     expect(ast).toContain('"table":"kalakritiCenter"');
     expect(ast).toContain('"table":"kalakritiEntryMember"');
   });
