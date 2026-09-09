@@ -15,7 +15,8 @@ export const kalakritiTransportQueries = {
   byCenter: defineQuery(centerInput, ({ args, ctx }) => {
     const query = zql.kalakritiTransportAssignment
       .where("editionId", args.editionId)
-      .where("centerId", args.centerId);
+      .where("centerId", args.centerId)
+      .where("deletedAt", "IS", null);
 
     if (ctx !== null && can(ctx, "kalakriti.admin")) {
       return query.orderBy("createdAt", "asc");
@@ -67,10 +68,6 @@ export const kalakritiTransportQueries = {
                           .where("centerId", args.centerId)
                           .where(({ or: assignmentOr, cmp: assignmentCmp }) =>
                             assignmentOr(
-                              assignmentCmp(
-                                "responsibility",
-                                "transport_coordinator"
-                              ),
                               ...KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES.map(
                                 (responsibility) =>
                                   assignmentCmp(

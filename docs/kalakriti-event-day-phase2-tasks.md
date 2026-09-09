@@ -40,7 +40,7 @@ The release excludes:
 - offline operation queues and service-worker replay;
 - Judges, Guests, `kalakriti_person`, scoresheets, Results, prizes, inventory, archive;
 - CSV import, a branding editor, storing plaintext QR tokens;
-- operational member roles other than `food_member`, `hospitality_member`, and `transport_coordinator`.
+- operational member roles other than `food_member` and `hospitality_member`.
 
 ## Stacked PRs
 
@@ -238,7 +238,7 @@ bun run test:unit
 
 ## KED-005: Center transport setup
 
-**Outcome:** Each Center can have buses and drivers. Status moves only forward. Bus or driver field changes notify that Center's Guardians and Liaisons.
+**Outcome:** Each Center can have buses and drivers. Vehicle status is read-only here; Student QR scanning will provide status derivation in the subsequent scanning release. Bus or driver field changes notify that Center's Guardians and Liaisons.
 
 **Depends on:** KED-004.
 
@@ -246,19 +246,20 @@ bun run test:unit
 
 **Scope:**
 
-- Tables: `kalakriti_transport_assignment` (Center, vehicle/driver/phone/capacity/notes, `status`), `kalakriti_transport_status_history` (immutable transitions).
-- Status machine: `planned` → `arrived_at_center` → `arrived_at_venue` → `departed_venue` → `completed`. Ordinary staff cannot skip backwards.
-- Add `transport_coordinator` to `KALAKRITI_EDITION_RESPONSIBILITIES` (Center-scoped). Update assignment CHECK, labels, Assign role groups, `getKalakritiResponsibilityScopeKind`. Do not rename existing IDs.
-- Mutators: `kalakritiTransport.create`, `update` (bus/driver/phone/capacity/notes), and `transitionStatus`. Auth: `kalakriti.admin`, Edition Administrator, `transport_lead` (Edition), `transport_coordinator` (that Center), Center-scoped Liaisons. **Guardians cannot mutate transport** (KRR-007), but can read their own Center's transport. Transport-only staff receive parent Center discovery without registration-write access.
+- Tables: `kalakriti_transport_assignment` (Center, vehicle/driver/phone/capacity/notes, `status`, nullable `deletedAt`), `kalakriti_transport_status_history` (retained history).
+- New assignments start as `planned`. Do not expose a manual status mutation or advancement controls; scan-derived status is not implemented in this PR.
+- Use the existing Edition-scoped `transport_lead` responsibility. Do not introduce a per-Center transport role.
+- Mutators: `kalakritiTransport.create`, `update` (bus/driver/phone/capacity/notes), and `delete`. Only `kalakriti.admin`, Edition Administrators, and the Edition's `transport_lead` can manage transport. Center-scoped Liaisons and Guardians can read their own Center's transport but cannot mutate it. Transport Leads receive Edition-wide Center discovery without registration-write access.
 - Center detail UI section for transport.
 - Notification: new job `notify-kalakriti-transport-changed`, recipients = affected Center Guardians + Liaisons (copy schedule-change stack). Deterministic idempotency key; no `Date.now()`. Inbox + WhatsApp topic.
-- Pure helper: every non-retired Center has ≥1 transport assignment (consumed by KED-009).
-- Migration `0077_perfect_wendigo.sql` follows the merged operation ledger migration. The root seed atomically creates a planned demo assignment and initial history without resetting existing progress.
+- Pure helper: every non-retired Center has ≥1 non-deleted transport assignment (consumed by KED-009).
+- Migration `0077_crazy_the_twelve.sql` follows the merged operation ledger migration. The root seed atomically creates a planned demo assignment and initial history without resetting existing progress.
 
 **Acceptance:**
 
-- Guardian can read only their own Center's transport and cannot create, edit, or transition it.
-- Illegal backward status is rejected.
+- Guardians and Center Liaisons can read only their own Center's transport and cannot create, edit, or delete it.
+- Delete confirmation sets a tombstone without removing history. Deleted vehicles disappear from active lists, readiness, and pending notifications.
+- No manual status mutation or controls remain.
 - Changing driver/bus enqueues one notification keyed stably per change.
 
 **Verify:**
@@ -282,7 +283,7 @@ cd packages/e2e && bash run-e2e.sh tests/kalakriti/center-transport.spec.ts
 **Scope:**
 
 - Enable `pickup`, `venue_departure`, `drop_off` in the recording mutators with order rules (pickup before departure before drop-off; drop-off requires pickup).
-- Auth: Transport Lead, Transport Coordinator (Student's Center), Center-scoped Liaisons, Edition admin, `kalakriti.admin`. Guardians denied.
+- Auth: Transport Lead, Center-scoped Liaisons, Edition admin, `kalakriti.admin`. Guardians denied.
 - Route `/kalakriti/$year/event-day` with a transport station: camera QR (library allowed on this client page) + manual yearly ID field. QR payload = opaque token; hash and call `record`. Duplicate scan is success with already-recorded state.
 - Nav: Event day for actors who can record transport (not Guardians).
 - Derived absence: no effective (non-superseded) pickup ⇒ Student cannot later receive meals/attendance (enforced in KED-007; expose the helper now).

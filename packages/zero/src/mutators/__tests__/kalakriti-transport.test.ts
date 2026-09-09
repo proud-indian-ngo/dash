@@ -12,10 +12,10 @@ const guardianContext = {
   role: "guardian",
   userId: "guardian-1",
 };
-const coordinatorContext = {
+const staffContext = {
   permissions: ["kalakriti.view"],
   role: "volunteer",
-  userId: "coordinator-1",
+  userId: "staff-1",
 };
 
 const edition = {
@@ -34,6 +34,7 @@ const center = {
   studentRegistrationEnabled: false,
 };
 const assignment = {
+  deletedAt: null,
   capacity: 40,
   centerId: center.id,
   driverName: "Ravi",
@@ -97,8 +98,8 @@ function createTx(results: unknown[] = []) {
 }
 
 describe("transport subject scope", () => {
-  it.each(["create", "update", "transitionStatus"] as const)(
-    "denies %s for Guardians, inactive members, and other-Center coordinators",
+  it.each(["create", "update", "delete"] as const)(
+    "denies %s for Guardians, inactive members, and own-Center Liaisons",
     async (command) => {
       for (const membership of [
         { id: "membership-1", kind: "guardian" },
@@ -110,8 +111,8 @@ describe("transport subject scope", () => {
           membership,
           [
             {
-              responsibility: "transport_coordinator",
-              centerId: "other-center",
+              responsibility: "liaison",
+              centerId: "center-1",
             },
           ],
         ]);
@@ -133,7 +134,7 @@ describe("transport subject scope", () => {
               now: 2,
               occurredAt: 2,
             },
-            ctx: coordinatorContext,
+            ctx: staffContext,
             tx,
           } as never)
         ).rejects.toThrow("Unauthorized");
@@ -255,97 +256,99 @@ describe("kalakritiTransport.create", () => {
   });
 });
 
-describe("kalakritiTransport.transitionStatus", () => {
-  it("advances status by one step", async () => {
-    const { callOrder, lockedResults, spies, tx } = createTx([assignment]);
+describe("kalakritiTransport.delete", () => {
+  const args = {
+    assignmentId: "assignment-1",
+    auditEntryId: "audit-delete",
+    editionId: "edition-1",
+    now: 5,
+  };
+  it("soft deletes while retaining status and immutable history", async () => {
+    const { tx, spies, lockedResults } = createTx([assignment]);
     lockedResults.push([edition], [center]);
-    await kalakritiTransportMutators.transitionStatus.fn({
-      args: {
-        assignmentId: "assignment-1",
-        auditEntryId: "audit-1",
-        editionId: "edition-1",
-        historyId: "history-1",
-        now: 2,
-        occurredAt: 2,
-      },
-      ctx: adminContext,
+    await kalakritiTransportMutators.delete.fn({
       tx,
+      ctx: adminContext,
+      args,
     } as never);
-    expect(spies.updateAssignment).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: "assignment-1",
-        status: "arrived_at_center",
-      })
+    expect(spies.updateAssignment).toHaveBeenCalledWith({
+      id: assignment.id,
+      deletedAt: 5,
+      updatedAt: 5,
+    });
+    expect(spies.insertHistory).not.toHaveBeenCalled();
+    expect(spies.insertAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "deleted", targetId: assignment.id })
     );
-    expect(callOrder.slice(0, 2)).toEqual(["lock", "read"]);
   });
-
-  it("rejects completed assignments", async () => {
-    const { lockedResults, tx } = createTx([
-      { ...assignment, status: "completed" },
+  it("makes repeated authorized deletion a no-op", async () => {
+    const { tx, spies, lockedResults } = createTx([
+      { ...assignment, deletedAt: 4 },
     ]);
     lockedResults.push([edition], [center]);
-    await expect(
-      kalakritiTransportMutators.transitionStatus.fn({
-        args: {
-          assignmentId: "assignment-1",
-          auditEntryId: "audit-1",
-          editionId: "edition-1",
-          historyId: "history-1",
-          now: 2,
-          occurredAt: 2,
-        },
-        ctx: adminContext,
-        tx,
-      } as never)
-    ).rejects.toThrow("Transport status cannot advance further");
+    await kalakritiTransportMutators.delete.fn({
+      tx,
+      ctx: adminContext,
+      args,
+    } as never);
+    expect(spies.updateAssignment).not.toHaveBeenCalled();
+    expect(spies.insertAudit).not.toHaveBeenCalled();
   });
-
-  it("rejects archived Editions before reading assignment status", async () => {
-    const { callOrder, lockedResults, spies, tx } = createTx([assignment]);
+  it("rejects archived Editions", async () => {
+    const { tx, spies, lockedResults } = createTx([assignment]);
     lockedResults.push([{ ...edition, lifecycle: "archived" }]);
-
     await expect(
-      kalakritiTransportMutators.transitionStatus.fn({
-        args: {
-          assignmentId: "assignment-1",
-          auditEntryId: "audit-1",
-          editionId: "edition-1",
-          historyId: "history-1",
-          now: 2,
-          occurredAt: 2,
-        },
-        ctx: adminContext,
+      kalakritiTransportMutators.delete.fn({
         tx,
+        ctx: adminContext,
+        args,
       } as never)
     ).rejects.toThrow("Edition is archived");
-    expect(callOrder).toEqual(["lock"]);
     expect(spies.updateAssignment).not.toHaveBeenCalled();
   });
-
   it("rejects retired Centers", async () => {
-    const { lockedResults, spies, tx } = createTx([assignment]);
+    const { tx, spies, lockedResults } = createTx([assignment]);
     lockedResults.push([edition], [{ ...center, retiredAt: new Date(1) }]);
-
     await expect(
-      kalakritiTransportMutators.transitionStatus.fn({
-        args: {
-          assignmentId: "assignment-1",
-          auditEntryId: "audit-1",
-          editionId: "edition-1",
-          historyId: "history-1",
-          now: 2,
-          occurredAt: 2,
-        },
-        ctx: adminContext,
+      kalakritiTransportMutators.delete.fn({
         tx,
+        ctx: adminContext,
+        args,
       } as never)
-    ).rejects.toThrow("Retired Centers cannot receive transport assignments");
+    ).rejects.toThrow("Retired Centers");
     expect(spies.updateAssignment).not.toHaveBeenCalled();
+  });
+  it("does not expose a manual transition API", () => {
+    expect(Object.keys(kalakritiTransportMutators).sort()).toEqual([
+      "create",
+      "delete",
+      "update",
+    ]);
   });
 });
 
 describe("kalakritiTransport.update", () => {
+  it("rejects edits to soft-deleted assignments", async () => {
+    const { tx, spies, lockedResults } = createTx([
+      { ...assignment, deletedAt: 1 },
+    ]);
+    lockedResults.push([edition]);
+    await expect(
+      kalakritiTransportMutators.update.fn({
+        tx,
+        ctx: adminContext,
+        args: {
+          assignmentId: assignment.id,
+          editionId: edition.id,
+          auditEntryId: "audit-1",
+          changeId: "change-1",
+          capacity: 50,
+          now: 2,
+        },
+      } as never)
+    ).rejects.toThrow("Transport assignment is deleted");
+    expect(spies.updateAssignment).not.toHaveBeenCalled();
+  });
   it("enqueues a transport change notification for driver updates", async () => {
     const { lockedResults, spies, tx } = createTx([assignment]);
     lockedResults.push([edition], [center]);
@@ -429,14 +432,14 @@ describe("kalakritiTransport.update", () => {
     expect(asyncTasks).toHaveLength(0);
   });
 
-  it("allows transport coordinators for their Center", async () => {
+  it("allows the Edition Transport Lead to update a Center", async () => {
     const { lockedResults, spies, tx } = createTx([
       assignment,
       { id: "membership-1", kind: "volunteer" },
       [
         {
-          centerId: "center-1",
-          responsibility: "transport_coordinator",
+          centerId: null,
+          responsibility: "transport_lead",
         },
       ],
     ]);
@@ -450,7 +453,7 @@ describe("kalakritiTransport.update", () => {
         editionId: "edition-1",
         now: 2,
       },
-      ctx: coordinatorContext,
+      ctx: staffContext,
       tx,
     } as never);
     expect(spies.updateAssignment).toHaveBeenCalled();

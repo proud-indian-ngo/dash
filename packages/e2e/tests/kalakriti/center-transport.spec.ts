@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import type { APIRequestContext, Page } from "@playwright/test";
 import { uuidv7 } from "uuidv7";
 
+import { KALAKRITI_ACTORS } from "../../fixtures/kalakriti-actors";
 import { expect, test } from "../../fixtures/test";
 import { KalakritiTransportPage } from "../../pages/kalakriti-transport-page";
 
@@ -29,6 +30,7 @@ interface State {
     vehicleLabel: string;
     driverName: string;
     status: string;
+    deletedAt: string | null;
   }[];
   history: {
     assignmentId: string;
@@ -51,7 +53,7 @@ async function signIn(page: Page, email: string, password: string) {
   await page.getByRole("button", { name: "Login", exact: true }).click();
   await page.waitForURL((url) => url.pathname !== "/login");
 }
-async function mutate(
+async function sendMutation(
   request: APIRequestContext,
   name: string,
   args: Record<string, unknown>
@@ -78,6 +80,14 @@ async function mutate(
       },
     }
   );
+  return response;
+}
+async function mutate(
+  request: APIRequestContext,
+  name: string,
+  input: Record<string, unknown>
+) {
+  const response = await sendMutation(request, name, input);
   expect(response.ok()).toBe(true);
   const body = await response.json();
   expect(body.mutations).toHaveLength(1);
@@ -117,7 +127,7 @@ async function assertTransportDenied(
       "kalakritiTransport.update",
       { ...args(data.editionId, assignmentId), driverName: "Forbidden Driver" },
     ],
-    ["kalakritiTransport.transitionStatus", args(data.editionId, assignmentId)],
+    ["kalakritiTransport.delete", args(data.editionId, assignmentId)],
   ] as const) {
     const result = await mutate(request, name, input);
     expect(result.error).toBeDefined();
@@ -130,11 +140,11 @@ test.describe("Center transport", () => {
   test.beforeEach(() =>
     test.skip(
       test.info().project.name !== "super_admin",
-      "Admin workflow with explicit scoped coordinator and Guardian contexts"
+      "Admin workflow with explicit Transport Lead, Liaison, and Guardian contexts"
     )
   );
 
-  test("creates, edits, and advances through every forward status without advancing past Completed", async ({
+  test("admin deletion is cancelable, hides soft-deleted vehicles, and preserves history without a manual advancement API", async ({
     page,
     superAdminEmail,
     volunteerEmail,
@@ -150,57 +160,64 @@ test.describe("Center transport", () => {
       await transport.goto(data.year, "Transport Center A");
       await transport.addVehicle("Bus 1", "Ravi Kumar");
       await transport.editVehicle("Bus 1", "Bus 2", "Anil Kumar");
-      for (const [label, status] of [
-        ["Arrived at Center", "arrived_at_center"],
-        ["Arrived at venue", "arrived_at_venue"],
-        ["Departed venue", "departed_venue"],
-        ["Completed", "completed"],
-      ] as const) {
-        await page.getByRole("button", { name: label, exact: true }).click();
-        await expect
-          .poll(
-            async () =>
-              (await fixture<State>("state")).assignments.find(
-                (assignment) => assignment.centerId === data.centerA
-              )?.status
-          )
-          .toBe(status);
-      }
-      await expect(
-        page.getByRole("button", { name: "Completed", exact: true })
-      ).toHaveCount(0);
-      await expect(page.getByText("Completed", { exact: true })).toBeVisible();
-      const state = await fixture<State>("state");
-      const assignment = state.assignments.find(
+      await transport.expectNoAdvanceControls();
+      const before = await fixture<State>("state");
+      const assignment = before.assignments.find(
         (item) => item.centerId === data.centerA
       )!;
-      expect(assignment.driverName).toBe("Anil Kumar");
-      expect(
-        state.history
-          .filter((row) => row.assignmentId === assignment.id)
-          .map((row) => row.toStatus)
-      ).toEqual([
-        "planned",
-        "arrived_at_center",
-        "arrived_at_venue",
-        "departed_venue",
-        "completed",
-      ]);
-      const terminal = await mutate(
+      const removedApi = await sendMutation(
         page.request,
         "kalakritiTransport.transitionStatus",
         args(data.editionId, assignment.id)
       );
-      expect(terminal.error).toBeDefined();
-      expect(terminal.message).toContain("cannot advance further");
-      expect(await fixture<State>("state")).toEqual(state);
+      if (removedApi.ok())
+        expect(
+          (await removedApi.json()).mutations?.[0]?.result?.error
+        ).toBeDefined();
+      else expect(removedApi.status()).toBeGreaterThanOrEqual(400);
+      expect(await fixture<State>("state")).toEqual(before);
+      const confirmation = await transport.openDelete("Bus 2");
+      await confirmation
+        .getByRole("button", { name: "Cancel", exact: true })
+        .click();
+      await expect(confirmation).toBeHidden();
+      await expect(
+        page.getByRole("heading", { name: "Bus 2", exact: true })
+      ).toBeVisible();
+      expect(await fixture<State>("state")).toEqual(before);
+      await transport.deleteVehicle("Bus 2");
+      const after = await fixture<State>("state");
+      expect(
+        after.assignments.find((item) => item.id === assignment.id)
+      ).toEqual({ ...assignment, deletedAt: expect.any(String) });
+      expect(after.history).toEqual(before.history);
+      await transport.goto(data.year, "Transport Center A");
+      await expect(
+        page.getByRole("heading", { name: "Bus 2", exact: true })
+      ).toHaveCount(0);
+      const repeated = await mutate(
+        page.request,
+        "kalakritiTransport.delete",
+        args(data.editionId, assignment.id)
+      );
+      expect(repeated.error).toBeUndefined();
+      const editDeleted = await mutate(
+        page.request,
+        "kalakritiTransport.update",
+        {
+          ...args(data.editionId, assignment.id),
+          vehicleLabel: "Resurrected Bus",
+        }
+      );
+      expect(editDeleted.error).toBeDefined();
+      expect(await fixture<State>("state")).toEqual(after);
     } finally {
       if (!page.isClosed()) await page.goto("about:blank");
       await fixture("cleanup");
     }
   });
 
-  test("scopes coordinators to their Center and keeps Guardian and archived transport read-only", async ({
+  test("Transport Leads manage all Centers while Liaisons and Guardians only read their Center", async ({
     baseURL,
     browser,
     page,
@@ -213,11 +230,19 @@ test.describe("Center transport", () => {
       superAdminEmail,
       volunteerEmail
     );
-    const coordinatorContext = await browser.newContext({
+    const leadContext = await browser.newContext({
       baseURL,
       storageState: path.resolve(
         import.meta.dirname,
         "../../.auth/volunteer.json"
+      ),
+    });
+    const liaisonContext = await browser.newContext({
+      baseURL,
+      storageState: path.resolve(
+        import.meta.dirname,
+        "../..",
+        KALAKRITI_ACTORS.liaison.authFile
       ),
     });
     const guardianContext = await browser.newContext({
@@ -225,9 +250,8 @@ test.describe("Center transport", () => {
       storageState: { cookies: [], origins: [] },
     });
     try {
-      const coordinator = await coordinatorContext.newPage();
-      const transport = new KalakritiTransportPage(coordinator);
-      // The fixture grants only transport_coordinator, proving its parent Center remains readable without a Liaison role.
+      const lead = await leadContext.newPage();
+      const transport = new KalakritiTransportPage(lead);
       await transport.goto(data.year, "Transport Center A");
       await transport.addVehicle("Scoped Bus", "Scoped Driver");
       await transport.editVehicle(
@@ -235,101 +259,132 @@ test.describe("Center transport", () => {
         "Scoped Bus Updated",
         "Updated Driver"
       );
-      await coordinator
-        .getByRole("button", { name: "Arrived at Center", exact: true })
-        .click();
-      await expect
-        .poll(
-          async () =>
-            (await fixture<State>("state")).assignments.find(
-              (assignment) => assignment.centerId === data.centerA
-            )?.status
-        )
-        .toBe("arrived_at_center");
-      const beforeDenied = await fixture<State>("state");
-      await assertTransportDenied(
-        coordinator.request,
-        data,
-        data.centerB,
-        data.restrictedAssignment
+      await transport.expectNoAdvanceControls();
+      await transport.goto(data.year, "Transport Center B");
+      await transport.editVehicle(
+        "Restricted Bus",
+        "Center B Bus",
+        "Center B Driver"
       );
-      expect(await fixture<State>("state")).toEqual(beforeDenied);
-      await coordinator.goto(`/kalakriti/${data.year}/centers/${data.centerB}`);
-      await expect(
-        coordinator.getByRole("heading", {
-          name: "Center not found",
-          exact: true,
-        })
-      ).toBeVisible();
-      await expect(
-        coordinator.getByText("Restricted Driver", { exact: false })
-      ).toHaveCount(0);
-      await expect(
-        coordinator.getByRole("button", { name: "Add vehicle", exact: true })
-      ).toHaveCount(0);
+      await transport.expectNoAdvanceControls();
+      await transport.addVehicle("Second Center B Bus", "Second Driver");
+      const beforeDenied = await fixture<State>("state");
+      expect(
+        beforeDenied.assignments.filter(
+          (assignment) => assignment.centerId === data.centerB
+        )
+      ).toHaveLength(2);
+      const scopedAssignment = beforeDenied.assignments.find(
+        (assignment) => assignment.centerId === data.centerA
+      )!;
 
+      const liaison = await liaisonContext.newPage();
       const guardian = await guardianContext.newPage();
       await signIn(guardian, data.guardianEmail, data.guardianPassword);
+      for (const reader of [liaison, guardian]) {
+        const readerTransport = new KalakritiTransportPage(reader);
+        await readerTransport.goto(data.year, "Transport Center A");
+        await readerTransport.expectNoAdvanceControls();
+        await expect(
+          reader.getByRole("heading", {
+            name: "Scoped Bus Updated",
+            exact: true,
+          })
+        ).toBeVisible();
+        await expect(
+          reader.getByText("Driver: Updated Driver", { exact: true })
+        ).toBeVisible();
+        for (const name of [
+          "Add vehicle",
+          "Edit",
+          "Delete",
+          "Arrived at venue",
+        ])
+          await expect(
+            reader.getByRole("button", { name, exact: true })
+          ).toHaveCount(0);
+        await assertTransportDenied(
+          reader.request,
+          data,
+          data.centerA,
+          scopedAssignment.id
+        );
+        expect(await fixture<State>("state")).toEqual(beforeDenied);
+        await reader.goto(`/kalakriti/${data.year}/centers/${data.centerB}`);
+        await expect(
+          reader.getByRole("heading", { name: "Center not found", exact: true })
+        ).toBeVisible();
+        await expect(
+          reader.getByText("Center B Driver", { exact: false })
+        ).toHaveCount(0);
+      }
+
+      await transport.goto(data.year, "Transport Center B");
+      await transport.deleteVehicle("Center B Bus");
+      await transport.goto(data.year, "Transport Center A");
+      await transport.deleteVehicle("Scoped Bus Updated");
+      const afterDeletion = await fixture<State>("state");
+      expect(
+        afterDeletion.assignments.find(
+          (item) => item.id === data.restrictedAssignment
+        )?.deletedAt
+      ).toEqual(expect.any(String));
+      expect(
+        afterDeletion.assignments.find(
+          (item) => item.id === scopedAssignment.id
+        )?.deletedAt
+      ).toEqual(expect.any(String));
+      expect(afterDeletion.history).toEqual(beforeDenied.history);
+      expect(
+        afterDeletion.history.filter(
+          (row) => row.assignmentId === data.restrictedAssignment
+        )
+      ).toHaveLength(3);
       await new KalakritiTransportPage(guardian).goto(
         data.year,
         "Transport Center A"
       );
       await expect(
-        guardian.getByRole("button", { name: "Add vehicle", exact: true })
-      ).toHaveCount(0);
-      await expect(
         guardian.getByRole("heading", {
           name: "Scoped Bus Updated",
           exact: true,
         })
-      ).toBeVisible();
-      await expect(
-        guardian.getByText("Driver: Updated Driver", { exact: true })
-      ).toBeVisible();
-      for (const name of ["Edit", "Arrived at venue"])
-        await expect(
-          guardian.getByRole("button", { name, exact: true })
-        ).toHaveCount(0);
-      const scopedAssignment = beforeDenied.assignments.find(
-        (assignment) => assignment.centerId === data.centerA
-      )!;
-      await assertTransportDenied(
-        guardian.request,
-        data,
-        data.centerA,
-        scopedAssignment.id
-      );
-      expect(await fixture<State>("state")).toEqual(beforeDenied);
-      await guardian.goto(`/kalakriti/${data.year}/centers/${data.centerB}`);
-      await expect(
-        guardian.getByRole("heading", { name: "Center not found", exact: true })
-      ).toBeVisible();
-      await expect(
-        guardian.getByText("Restricted Driver", { exact: false })
       ).toHaveCount(0);
-
+      const remaining = afterDeletion.assignments.find(
+        (item) => item.vehicleLabel === "Second Center B Bus"
+      )!;
       await fixture("archive");
       await new KalakritiTransportPage(page).goto(
         data.year,
         "Transport Center B"
       );
       await expect(
-        page.getByRole("heading", { name: "Restricted Bus", exact: true })
+        page.getByRole("heading", { name: "Second Center B Bus", exact: true })
       ).toBeVisible();
-      for (const name of ["Add vehicle", "Edit", "Arrived at Center"])
+      await expect(
+        page.getByRole("heading", { name: "Center B Bus", exact: true })
+      ).toHaveCount(0);
+      for (const name of [
+        "Add vehicle",
+        "Edit",
+        "Delete",
+        "Arrived at Center",
+        "Arrived at venue",
+      ])
         await expect(
           page.getByRole("button", { name, exact: true })
         ).toHaveCount(0);
-      const archived = await mutate(page.request, "kalakritiTransport.update", {
-        ...args(data.editionId, data.restrictedAssignment),
-        driverName: "Archived edit",
-      });
+      const archived = await mutate(
+        page.request,
+        "kalakritiTransport.delete",
+        args(data.editionId, remaining.id)
+      );
       expect(archived.error).toBeDefined();
       expect(archived.message).toContain("archived");
-      expect(await fixture<State>("state")).toEqual(beforeDenied);
+      expect(await fixture<State>("state")).toEqual(afterDeletion);
     } finally {
-      if (coordinatorContext.pages().length) await coordinatorContext.close();
-      if (guardianContext.pages().length) await guardianContext.close();
+      for (const context of [leadContext, liaisonContext, guardianContext])
+        if (context.pages().length) await context.close();
       if (!page.isClosed()) await page.goto("about:blank");
       await fixture("cleanup");
     }

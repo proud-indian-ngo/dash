@@ -44,28 +44,6 @@ describe("kalakritiCenter queries", () => {
         userId: "transport-user",
       },
     });
-    const conditions = (
-      query as unknown as { ast: { where: { conditions: unknown[] } } }
-    ).ast.where.conditions;
-    // Select the transport-only authorization branches, not the full OR expression.
-    const visit = (value: unknown): unknown[] => {
-      if (!value || typeof value !== "object") return [];
-      const node = value as { related?: { subquery?: { table?: string } } };
-      const own =
-        node.related?.subquery?.table === "kalakritiAssignment" &&
-        JSON.stringify(value).includes('"value":"transport_coordinator"')
-          ? [value]
-          : [];
-      return [...own, ...Object.values(value).flatMap(visit)];
-    };
-    const [coordinatorBranch] = visit(conditions);
-    const coordinatorAst = JSON.stringify(coordinatorBranch);
-    expect(coordinatorAst).toContain(
-      '"parentField":["id"],"childField":["centerId"]'
-    );
-    expect(coordinatorAst).toContain('"value":"transport-user"');
-    expect(coordinatorAst).toContain('"value":"active"');
-    expect(coordinatorAst).toContain('"value":"volunteer"');
     expect(queryAst(query)).toContain('"value":"transport_lead"');
     const scopedInput = {
       args: { ...input, centerId: "center-1" },

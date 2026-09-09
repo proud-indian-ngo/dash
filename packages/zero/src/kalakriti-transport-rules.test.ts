@@ -10,9 +10,21 @@ describe("everyActiveCenterHasTransportAssignment", () => {
           { id: "center-1", retiredAt: null },
           { id: "center-2", retiredAt: null },
         ],
-        [{ centerId: "center-1" }, { centerId: "center-2" }]
+        [
+          { centerId: "center-1", deletedAt: null },
+          { centerId: "center-2", deletedAt: null },
+        ]
       )
     ).toBe(true);
+  });
+
+  it("ignores soft-deleted assignments", () => {
+    expect(
+      everyActiveCenterHasTransportAssignment(
+        [{ id: "center-1", retiredAt: null }],
+        [{ centerId: "center-1", deletedAt: 123 }]
+      )
+    ).toBe(false);
   });
 
   it("ignores retired Centers", () => {
@@ -22,7 +34,7 @@ describe("everyActiveCenterHasTransportAssignment", () => {
           { id: "center-1", retiredAt: null },
           { id: "center-2", retiredAt: 1 },
         ],
-        [{ centerId: "center-1" }]
+        [{ centerId: "center-1", deletedAt: null }]
       )
     ).toBe(true);
   });
@@ -34,7 +46,7 @@ describe("everyActiveCenterHasTransportAssignment", () => {
           { id: "center-1", retiredAt: null },
           { id: "center-2", retiredAt: null },
         ],
-        [{ centerId: "center-1" }]
+        [{ centerId: "center-1", deletedAt: null }]
       )
     ).toBe(false);
   });
@@ -43,7 +55,7 @@ describe("everyActiveCenterHasTransportAssignment", () => {
     expect(
       everyActiveCenterHasTransportAssignment(
         [{ id: "center-1", retiredAt: 1 }],
-        [{ centerId: "center-1" }]
+        [{ centerId: "center-1", deletedAt: null }]
       )
     ).toBe(false);
   });

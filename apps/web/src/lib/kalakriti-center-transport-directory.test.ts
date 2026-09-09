@@ -19,20 +19,23 @@ function access(responsibility: string): KalakritiCenterRegistrationAccess {
   };
 }
 describe("transport-only Center directory access", () => {
-  it.each(["transport_lead", "transport_coordinator"])(
-    "lets %s discover authorized Centers without registration writes",
-    (role) => {
-      const actor = access(role);
-      expect(canViewKalakritiCenterDirectory(actor)).toBe(true);
-      expect(canAccessKalakritiCenterRegistration(actor)).toBe(false);
-      expect(canWriteKalakritiEntries(actor)).toBe(false);
-      expect(canAccessKalakritiStudents(actor)).toBe(false);
-    }
-  );
+  it("lets Transport Leads discover authorized Centers without registration writes", () => {
+    const actor = access("transport_lead");
+    expect(canViewKalakritiCenterDirectory(actor)).toBe(true);
+    expect(canAccessKalakritiCenterRegistration(actor)).toBe(false);
+    expect(canWriteKalakritiEntries(actor)).toBe(false);
+    expect(canAccessKalakritiStudents(actor)).toBe(false);
+  });
   it("does not expose the directory to unrelated operational staff", () => {
     expect(canViewKalakritiCenterDirectory(access("food_lead"))).toBe(false);
   });
-  it("preserves existing liaison registration access", () => {
-    expect(canAccessKalakritiCenterRegistration(access("liaison"))).toBe(true);
-  });
+  it.each(["liaison", "center_liaison_lead", "liaison_volunteer"])(
+    "preserves %s registration permissions independently of transport read-only access",
+    (role) => {
+      const actor = access(role);
+      expect(canAccessKalakritiCenterRegistration(actor)).toBe(true);
+      expect(canWriteKalakritiEntries(actor)).toBe(true);
+      expect(canAccessKalakritiStudents(actor)).toBe(true);
+    }
+  );
 });

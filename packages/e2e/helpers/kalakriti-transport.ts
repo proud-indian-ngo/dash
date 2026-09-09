@@ -17,6 +17,8 @@ import {
 import { teamEvent } from "@pi-dash/db/schema/team-event";
 import { eq } from "drizzle-orm";
 
+import { KALAKRITI_ACTORS } from "../fixtures/kalakriti-actors";
+
 const ids = {
   editionId: "019f0000-0110-7000-8000-000000000001",
   eventId: "019f0000-0110-7000-8000-000000000002",
@@ -24,10 +26,14 @@ const ids = {
   centerB: "019f0000-0110-7000-8000-000000000004",
   guardianMembership: "019f0000-0110-7000-8000-000000000005",
   guardianCenter: "019f0000-0110-7000-8000-000000000006",
-  coordinatorMembership: "019f0000-0110-7000-8000-000000000007",
-  coordinatorAssignment: "019f0000-0110-7000-8000-000000000008",
+  transportLeadMembership: "019f0000-0110-7000-8000-000000000007",
+  transportLeadAssignment: "019f0000-0110-7000-8000-000000000008",
   restrictedAssignment: "019f0000-0110-7000-8000-000000000009",
   restrictedHistory: "019f0000-0110-7000-8000-00000000000a",
+  arrivalHistory: "019f0000-0110-7000-8000-00000000000d",
+  venueHistory: "019f0000-0110-7000-8000-00000000000e",
+  liaisonMembership: "019f0000-0110-7000-8000-00000000000b",
+  liaisonAssignment: "019f0000-0110-7000-8000-00000000000c",
 };
 const year = 2156;
 const guardianEmail = "transport-guardian@pi-dash.test";
@@ -45,21 +51,27 @@ async function cleanup() {
   if (guardian) await deleteKalakritiExternalUser(guardian.id);
 }
 
-async function setup(adminEmail: string, coordinatorEmail: string) {
+async function setup(adminEmail: string, transportLeadEmail: string) {
   await cleanup();
-  const [admin, coordinator, team] = await Promise.all([
+  const [admin, transportLead, liaison, team] = await Promise.all([
     db.query.user.findFirst({
       where: eq(user.email, adminEmail),
       columns: { id: true },
     }),
     db.query.user.findFirst({
-      where: eq(user.email, coordinatorEmail),
+      where: eq(user.email, transportLeadEmail),
+      columns: { id: true, name: true, email: true },
+    }),
+    db.query.user.findFirst({
+      where: eq(user.email, KALAKRITI_ACTORS.liaison.email),
       columns: { id: true, name: true, email: true },
     }),
     db.query.team.findFirst({ columns: { id: true } }),
   ]);
-  if (!admin || !coordinator || !team)
-    throw new Error("Transport fixture requires admin, coordinator, and team");
+  if (!admin || !transportLead || !liaison || !team)
+    throw new Error(
+      "Transport fixture requires admin, Transport Lead, Liaison, and team"
+    );
   const now = new Date();
   await db.insert(teamEvent).values({
     id: ids.eventId,
@@ -121,17 +133,38 @@ async function setup(adminEmail: string, coordinatorEmail: string) {
       updatedAt: now,
     },
     {
-      id: ids.coordinatorMembership,
+      id: ids.transportLeadMembership,
       editionId: ids.editionId,
       kind: "volunteer",
-      userId: coordinator.id,
-      snapshotName: coordinator.name,
-      snapshotEmail: coordinator.email,
+      userId: transportLead.id,
+      snapshotName: transportLead.name,
+      snapshotEmail: transportLead.email,
       createdAt: now,
       createdBy: admin.id,
       updatedAt: now,
     },
   ]);
+  await db.insert(kalakritiEditionMembership).values({
+    id: ids.liaisonMembership,
+    editionId: ids.editionId,
+    kind: "volunteer",
+    userId: liaison.id,
+    snapshotName: liaison.name,
+    snapshotEmail: liaison.email,
+    createdAt: now,
+    createdBy: admin.id,
+    updatedAt: now,
+  });
+  await db.insert(kalakritiAssignment).values({
+    id: ids.liaisonAssignment,
+    editionId: ids.editionId,
+    membershipId: ids.liaisonMembership,
+    centerId: ids.centerA,
+    responsibility: "liaison",
+    isPrimary: true,
+    createdAt: now,
+    createdBy: admin.id,
+  });
   await db.insert(kalakritiGuardianCenter).values({
     id: ids.guardianCenter,
     editionId: ids.editionId,
@@ -141,11 +174,11 @@ async function setup(adminEmail: string, coordinatorEmail: string) {
     createdBy: admin.id,
   });
   await db.insert(kalakritiAssignment).values({
-    id: ids.coordinatorAssignment,
+    id: ids.transportLeadAssignment,
     editionId: ids.editionId,
-    membershipId: ids.coordinatorMembership,
-    centerId: ids.centerA,
-    responsibility: "transport_coordinator",
+    membershipId: ids.transportLeadMembership,
+    centerId: null,
+    responsibility: "transport_lead",
     isPrimary: true,
     createdAt: now,
     createdBy: admin.id,
@@ -157,28 +190,45 @@ async function setup(adminEmail: string, coordinatorEmail: string) {
     vehicleLabel: "Restricted Bus",
     driverName: "Restricted Driver",
     capacity: 20,
-    status: "planned",
+    status: "arrived_at_venue",
     createdAt: now,
     createdBy: admin.id,
     updatedAt: now,
   });
-  await db.insert(kalakritiTransportStatusHistory).values({
-    id: ids.restrictedHistory,
-    editionId: ids.editionId,
-    assignmentId: ids.restrictedAssignment,
-    actorUserId: admin.id,
-    createdAt: now,
-    occurredAt: now,
-    fromStatus: null,
-    toStatus: "planned",
-  });
+  // Historical transitions are fixture data, not a product advancement command.
+  await db.insert(kalakritiTransportStatusHistory).values(
+    [
+      {
+        id: ids.restrictedHistory,
+        fromStatus: null,
+        toStatus: "planned" as const,
+      },
+      {
+        id: ids.arrivalHistory,
+        fromStatus: "planned" as const,
+        toStatus: "arrived_at_center" as const,
+      },
+      {
+        id: ids.venueHistory,
+        fromStatus: "arrived_at_center" as const,
+        toStatus: "arrived_at_venue" as const,
+      },
+    ].map((transition, index) => ({
+      ...transition,
+      editionId: ids.editionId,
+      assignmentId: ids.restrictedAssignment,
+      actorUserId: admin.id,
+      createdAt: new Date(now.getTime() - (2 - index) * 1000),
+      occurredAt: new Date(now.getTime() - (2 - index) * 1000),
+    }))
+  );
   return { ...ids, year, guardianEmail, guardianPassword };
 }
 
-const [action, adminEmail, coordinatorEmail] = process.argv.slice(2);
+const [action, adminEmail, transportLeadEmail] = process.argv.slice(2);
 let result: unknown;
 if (action === "setup")
-  result = await setup(adminEmail ?? "", coordinatorEmail ?? "");
+  result = await setup(adminEmail ?? "", transportLeadEmail ?? "");
 else if (action === "cleanup") {
   await cleanup();
   result = { cleaned: true };
@@ -197,6 +247,7 @@ else if (action === "cleanup") {
         vehicleLabel: kalakritiTransportAssignment.vehicleLabel,
         driverName: kalakritiTransportAssignment.driverName,
         status: kalakritiTransportAssignment.status,
+        deletedAt: kalakritiTransportAssignment.deletedAt,
       })
       .from(kalakritiTransportAssignment)
       .where(eq(kalakritiTransportAssignment.editionId, ids.editionId)),

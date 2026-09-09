@@ -14,6 +14,7 @@ import type {
 } from "../enqueue";
 import {
   getKalakritiNotificationEdition,
+  isKalakritiTransportAssignmentActive,
   resolveKalakritiCenterTransportRecipients,
   resolveKalakritiRegistrationRecipients,
   resolveKalakritiScheduleRecipients,
@@ -147,6 +148,12 @@ async function notifyTransportChanged(
     return {
       recipientCount: 0,
       skipped: edition ? "transport_not_public" : "edition_missing",
+    };
+  }
+  if (!(await isKalakritiTransportAssignmentActive(data))) {
+    return {
+      recipientCount: 0,
+      skipped: "transport_assignment_missing_or_deleted",
     };
   }
   const recipientIds = await resolveKalakritiCenterTransportRecipients({

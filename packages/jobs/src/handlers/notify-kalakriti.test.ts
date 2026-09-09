@@ -6,6 +6,7 @@ const notificationEdition = hoisted(() => mock());
 const registrationRecipients = hoisted(() => mock());
 const scheduleRecipients = hoisted(() => mock());
 const transportRecipients = hoisted(() => mock());
+const transportActive = hoisted(() => mock());
 const notifyRegistration = hoisted(() => mock(async () => undefined));
 const notifySchedule = hoisted(() => mock(async () => undefined));
 const notifyTransport = hoisted(() => mock(async () => undefined));
@@ -13,6 +14,7 @@ const notifyReactivation = hoisted(() => mock(async () => undefined));
 
 mock.module("../lib/kalakriti-notification-recipients", () => ({
   getKalakritiNotificationEdition: notificationEdition,
+  isKalakritiTransportAssignmentActive: transportActive,
   resolveKalakritiRegistrationRecipients: registrationRecipients,
   resolveKalakritiScheduleRecipients: scheduleRecipients,
   resolveKalakritiCenterTransportRecipients: transportRecipients,
@@ -62,6 +64,7 @@ describe("Kalakriti notification jobs", () => {
     ]);
     scheduleRecipients.mockResolvedValue(["guardian-1", "volunteer-1"]);
     transportRecipients.mockResolvedValue(["guardian-1", "volunteer-1"]);
+    transportActive.mockResolvedValue(true);
   });
 
   it("sends registration-open once per active Guardian or assigned volunteer", async () => {
@@ -217,6 +220,20 @@ describe("Kalakriti notification jobs", () => {
       recipientUserId: "guardian-1",
       year: edition.year,
     });
+  });
+
+  it("skips queued notifications for deleted or missing transport assignments", async () => {
+    transportActive.mockResolvedValue(false);
+    await handleNotifyKalakritiTransportChanged(
+      job({
+        assignmentId: "deleted-bus",
+        centerId: "center-1",
+        changeId: "change-1",
+        editionId: edition.id,
+      })
+    );
+    expect(notifyTransport).not.toHaveBeenCalled();
+    expect(transportRecipients).not.toHaveBeenCalled();
   });
 
   it("notifies Center Guardians and Liaisons when transport changes", async () => {

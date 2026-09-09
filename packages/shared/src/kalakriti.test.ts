@@ -111,8 +111,8 @@ describe("Kalakriti assignment helpers", () => {
     expect(getKalakritiResponsibilityScopeKind("liaison_volunteer")).toBe(
       "center"
     );
-    expect(getKalakritiResponsibilityScopeKind("transport_coordinator")).toBe(
-      "center"
+    expect(getKalakritiResponsibilityScopeKind("transport_lead")).toBe(
+      "edition"
     );
     expect(
       getKalakritiResponsibilityScopeKind("competition_category_lead")
@@ -152,11 +152,7 @@ describe("Kalakriti assignment helpers", () => {
     ).toContain("liaison_lead");
     expect(
       groups.find((group) => group.label === "Center")?.responsibilities
-    ).toEqual([
-      "center_liaison_lead",
-      "liaison_volunteer",
-      "transport_coordinator",
-    ]);
+    ).toEqual(["center_liaison_lead", "liaison_volunteer"]);
     expect(flattenKalakritiAssignableResponsibilities(groups)).not.toContain(
       "liaison"
     );

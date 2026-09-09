@@ -14,7 +14,7 @@ function ast(permissions: string[], userId = "operator") {
   );
 }
 
-type TestRow = Record<string, string>;
+type TestRow = Record<string, string | null>;
 interface QueryAst {
   table: string;
   where?: Condition;
@@ -45,7 +45,7 @@ function matches(
   if (!condition) return true;
   switch (condition.type) {
     case "simple":
-      if (condition.op !== "=")
+      if (condition.op !== "=" && condition.op !== "IS")
         throw new Error(`Unsupported comparison ${condition.op}`);
       return row[condition.left.name] === condition.right.value;
     case "and":
@@ -107,25 +107,103 @@ describe("transport query authorization", () => {
         },
       }) as unknown as { ast: QueryAst };
       expect(
-        matches({ id: "bus", centerId, editionId }, query.ast.where, tables)
+        matches(
+          { id: "bus", centerId, editionId, deletedAt: null },
+          query.ast.where,
+          tables
+        )
       ).toBe(allowed);
     }
   );
+  it.each(["center-1", "other-center"])(
+    "limits Liaison read access to assigned Center (%s)",
+    (centerId) => {
+      const query = kalakritiTransportQueries.byCenter.fn({
+        args: { centerId, editionId: "edition-1" },
+        ctx: {
+          permissions: ["kalakriti.view"],
+          role: "volunteer",
+          userId: "liaison-user",
+        },
+      }) as unknown as { ast: QueryAst };
+      const tables = {
+        kalakritiEdition: [{ id: "edition-1" }],
+        kalakritiCenter: [{ id: centerId, editionId: "edition-1" }],
+        kalakritiEditionMembership: [
+          {
+            id: "liaison-membership",
+            editionId: "edition-1",
+            userId: "liaison-user",
+            kind: "volunteer",
+            state: "active",
+          },
+        ],
+        kalakritiAssignment: [
+          {
+            membershipId: "liaison-membership",
+            editionId: "edition-1",
+            responsibility: "liaison",
+            centerId: "center-1",
+          },
+        ],
+      };
+      expect(
+        matches(
+          { id: "bus", centerId, editionId: "edition-1", deletedAt: null },
+          query.ast.where,
+          tables
+        )
+      ).toBe(centerId === "center-1");
+    }
+  );
+
+  it("hides soft-deleted assignments even from administrators", () => {
+    const query = kalakritiTransportQueries.byCenter.fn({
+      args,
+      ctx: { permissions: ["kalakriti.admin"], role: "admin", userId: "admin" },
+    }) as unknown as { ast: QueryAst };
+    expect(
+      matches(
+        {
+          id: "bus",
+          centerId: args.centerId,
+          editionId: args.editionId,
+          deletedAt: null,
+        },
+        query.ast.where,
+        {}
+      )
+    ).toBe(true);
+    expect(
+      matches(
+        {
+          id: "bus",
+          centerId: args.centerId,
+          editionId: args.editionId,
+          deletedAt: "deleted",
+        },
+        query.ast.where,
+        {}
+      )
+    ).toBe(false);
+  });
+
   it("always scopes administrators to the requested Center and Edition", () => {
     const query = ast(["kalakriti.admin"]);
+    expect(query).toContain('"name":"deletedAt"');
+    expect(query).toContain('"value":null');
     expect(query).toContain('"name":"editionId"');
     expect(query).toContain('"value":"edition-1"');
     expect(query).toContain('"name":"centerId"');
     expect(query).toContain('"value":"center-1"');
   });
 
-  it("requires active volunteer membership and scoped coordinator or liaison assignment", () => {
+  it("requires active volunteer membership and scoped liaison assignment", () => {
     const query = ast(["kalakriti.view"]);
     for (const value of [
       "active",
       "volunteer",
       "operator",
-      "transport_coordinator",
       "center_liaison_lead",
       "center-1",
       "edition_admin",
@@ -134,6 +212,7 @@ describe("transport query authorization", () => {
       expect(query).toContain(`"value":"${value}"`);
     }
     expect(query).not.toContain('"value":"volunteer_coordinator"');
+    expect(query).not.toContain('"value":"transport_coordinator"');
   });
 
   it("allows active Guardians only through their requested Center and Edition assignment", () => {

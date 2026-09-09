@@ -115,16 +115,6 @@ export const kalakritiCenterQueries = {
                 )
             )
         ),
-        exists("assignments", (assignment) =>
-          assignment
-            .where("responsibility", "transport_coordinator")
-            .whereExists("membership", (membership) =>
-              membership
-                .where("userId", ctx.userId)
-                .where("state", "active")
-                .where("kind", "volunteer")
-            )
-        ),
         exists("guardianCenters", (guardianCenter) =>
           guardianCenter.whereExists("membership", (membership) =>
             membership.where("userId", ctx.userId).where("state", "active")

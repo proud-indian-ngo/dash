@@ -5,6 +5,7 @@ import {
   kalakritiEdition,
   kalakritiEditionMembership,
   kalakritiGuardianCenter,
+  kalakritiTransportAssignment,
 } from "@pi-dash/db/schema/kalakriti";
 import { KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES } from "@pi-dash/shared/kalakriti";
 import { and, eq, inArray, isNotNull, isNull, or } from "drizzle-orm";
@@ -223,6 +224,30 @@ export async function resolveKalakritiScheduleRecipients({
   }
 
   return [...recipientIds].sort();
+}
+
+export async function isKalakritiTransportAssignmentActive({
+  assignmentId,
+  centerId,
+  editionId,
+}: {
+  assignmentId: string;
+  centerId: string;
+  editionId: string;
+}): Promise<boolean> {
+  const [assignment] = await db
+    .select({ id: kalakritiTransportAssignment.id })
+    .from(kalakritiTransportAssignment)
+    .where(
+      and(
+        eq(kalakritiTransportAssignment.id, assignmentId),
+        eq(kalakritiTransportAssignment.centerId, centerId),
+        eq(kalakritiTransportAssignment.editionId, editionId),
+        isNull(kalakritiTransportAssignment.deletedAt)
+      )
+    )
+    .limit(1);
+  return Boolean(assignment);
 }
 
 export function resolveKalakritiCenterTransportRecipients({

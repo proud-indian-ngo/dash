@@ -1,5 +1,5 @@
 {
-  "id": "9c6cd9f9-1f43-49ca-a079-a06e51ab6f1b",
+  "id": "12b5d0f1-e3a2-4957-83e3-4963d5da128e",
   "prevId": "f7e3e7d3-7998-4912-a0cd-be000ea9b209",
   "version": "7",
   "dialect": "postgresql",
@@ -3164,7 +3164,7 @@
       "checkConstraints": {
         "kalakriti_assignment_scope_chk": {
           "name": "kalakriti_assignment_scope_chk",
-          "value": "\n        (\"kalakriti_assignment\".\"responsibility\"::text IN ('edition_admin', 'volunteer_coordinator', 'overall_events_lead', 'liaison_lead', 'food_lead', 'food_member', 'transport_lead', 'logistics_lead', 'logistics_member', 'awards_lead', 'awards_member', 'venue_lead', 'venue_member', 'hospitality_lead', 'hospitality_member', 'media_member', 'fundraising_member')\n          AND \"kalakriti_assignment\".\"center_id\" IS NULL\n          AND \"kalakriti_assignment\".\"competition_category_id\" IS NULL\n          AND \"kalakriti_assignment\".\"competition_id\" IS NULL)\n        OR (\"kalakriti_assignment\".\"responsibility\"::text IN ('liaison', 'center_liaison_lead', 'liaison_volunteer', 'transport_coordinator')\n          AND \"kalakriti_assignment\".\"center_id\" IS NOT NULL\n          AND \"kalakriti_assignment\".\"competition_category_id\" IS NULL\n          AND \"kalakriti_assignment\".\"competition_id\" IS NULL)\n        OR (\"kalakriti_assignment\".\"responsibility\"::text = 'competition_category_lead'\n          AND \"kalakriti_assignment\".\"center_id\" IS NULL\n          AND \"kalakriti_assignment\".\"competition_category_id\" IS NOT NULL\n          AND \"kalakriti_assignment\".\"competition_id\" IS NULL)\n        OR (\"kalakriti_assignment\".\"responsibility\"::text IN ('competition_coordinator', 'competition_volunteer')\n          AND \"kalakriti_assignment\".\"center_id\" IS NULL\n          AND \"kalakriti_assignment\".\"competition_category_id\" IS NULL\n          AND \"kalakriti_assignment\".\"competition_id\" IS NOT NULL)\n      "
+          "value": "\n        (\"kalakriti_assignment\".\"responsibility\"::text IN ('edition_admin', 'volunteer_coordinator', 'overall_events_lead', 'liaison_lead', 'food_lead', 'food_member', 'transport_lead', 'logistics_lead', 'logistics_member', 'awards_lead', 'awards_member', 'venue_lead', 'venue_member', 'hospitality_lead', 'hospitality_member', 'media_member', 'fundraising_member')\n          AND \"kalakriti_assignment\".\"center_id\" IS NULL\n          AND \"kalakriti_assignment\".\"competition_category_id\" IS NULL\n          AND \"kalakriti_assignment\".\"competition_id\" IS NULL)\n        OR (\"kalakriti_assignment\".\"responsibility\"::text IN ('liaison', 'center_liaison_lead', 'liaison_volunteer')\n          AND \"kalakriti_assignment\".\"center_id\" IS NOT NULL\n          AND \"kalakriti_assignment\".\"competition_category_id\" IS NULL\n          AND \"kalakriti_assignment\".\"competition_id\" IS NULL)\n        OR (\"kalakriti_assignment\".\"responsibility\"::text = 'competition_category_lead'\n          AND \"kalakriti_assignment\".\"center_id\" IS NULL\n          AND \"kalakriti_assignment\".\"competition_category_id\" IS NOT NULL\n          AND \"kalakriti_assignment\".\"competition_id\" IS NULL)\n        OR (\"kalakriti_assignment\".\"responsibility\"::text IN ('competition_coordinator', 'competition_volunteer')\n          AND \"kalakriti_assignment\".\"center_id\" IS NULL\n          AND \"kalakriti_assignment\".\"competition_category_id\" IS NULL\n          AND \"kalakriti_assignment\".\"competition_id\" IS NOT NULL)\n      "
         }
       },
       "isRLSEnabled": false
@@ -5784,6 +5784,12 @@
       "name": "kalakriti_transport_assignment",
       "schema": "",
       "columns": {
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
         "capacity": {
           "name": "capacity",
           "type": "integer",
@@ -9300,7 +9306,6 @@
         "food_lead",
         "food_member",
         "transport_lead",
-        "transport_coordinator",
         "logistics_lead",
         "logistics_member",
         "awards_lead",

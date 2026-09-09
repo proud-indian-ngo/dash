@@ -1,12 +1,8 @@
-import {
-  KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES,
-  type KalakritiTransportStatus,
-} from "@pi-dash/shared/kalakriti";
+import type { KalakritiTransportStatus } from "@pi-dash/shared/kalakriti";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 
 import type { Context } from "../context";
-import { getNextKalakritiTransportStatus } from "../kalakriti-transport-rules";
 import { assertIsLoggedIn, can } from "../permissions";
 import { zql } from "../schema";
 import {
@@ -75,30 +71,10 @@ function hasEditionWideTransportAccess(
   );
 }
 
-function hasCenterTransportAccess(
-  assignments: readonly ScopedAssignment[],
-  centerId: string
-): boolean {
-  return assignments.some((assignment) => {
-    if (assignment.responsibility === "transport_coordinator") {
-      return assignment.centerId === centerId;
-    }
-    if (
-      (
-        KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES as readonly string[]
-      ).includes(assignment.responsibility)
-    ) {
-      return assignment.centerId === centerId;
-    }
-    return false;
-  });
-}
-
 export async function assertCanManageCenterTransport(
   tx: LockableKalakritiTx,
   ctx: Context | undefined,
-  editionId: string,
-  centerId: string
+  editionId: string
 ): Promise<void> {
   assertIsLoggedIn(ctx);
   if (can(ctx, "kalakriti.admin")) {
@@ -115,9 +91,6 @@ export async function assertCanManageCenterTransport(
 
   const assignments = await getScopedAssignments(tx, membership.id);
   if (hasEditionWideTransportAccess(assignments)) {
-    return;
-  }
-  if (hasCenterTransportAccess(assignments, centerId)) {
     return;
   }
   throw new Error("Unauthorized");
@@ -195,12 +168,14 @@ async function requireMutableTransportEdition(
 async function requireTransportAssignment(
   tx: TransportTx,
   editionId: string,
-  assignmentId: string
+  assignmentId: string,
+  allowDeleted = false
 ) {
   const assignment = (await tx.run(
     zql.kalakritiTransportAssignment.where("id", assignmentId).one()
   )) as
     | {
+        deletedAt: number | null;
         capacity: number;
         centerId: string;
         driverName: string;
@@ -214,6 +189,9 @@ async function requireTransportAssignment(
     | undefined;
   if (!assignment || assignment.editionId !== editionId) {
     throw new Error("Transport assignment not found");
+  }
+  if (assignment.deletedAt != null && !allowDeleted) {
+    throw new Error("Transport assignment is deleted");
   }
   return assignment;
 }
@@ -248,13 +226,11 @@ export const kalakritiTransportUpdateSchema = z.object({
   vehicleLabel: transportFieldSchema.optional(),
 });
 
-export const kalakritiTransportTransitionSchema = z.object({
+export const kalakritiTransportDeleteSchema = z.object({
   assignmentId: z.string(),
   auditEntryId: z.string(),
   editionId: z.string(),
-  historyId: z.string(),
   now: z.number(),
-  occurredAt: z.number(),
 });
 
 export const kalakritiTransportMutators = {
@@ -262,16 +238,12 @@ export const kalakritiTransportMutators = {
     kalakritiTransportCreateSchema,
     async ({ tx, ctx, args }) => {
       await requireMutableTransportEdition(tx, args.editionId);
-      await assertCanManageCenterTransport(
-        tx,
-        ctx,
-        args.editionId,
-        args.centerId
-      );
+      await assertCanManageCenterTransport(tx, ctx, args.editionId);
       assertIsLoggedIn(ctx);
       await requireActiveCenter(tx, args.editionId, args.centerId);
 
       await tx.mutate.kalakritiTransportAssignment.insert({
+        deletedAt: null,
         capacity: args.capacity,
         centerId: args.centerId,
         createdAt: args.now,
@@ -312,54 +284,33 @@ export const kalakritiTransportMutators = {
     }
   ),
 
-  transitionStatus: defineMutator(
-    kalakritiTransportTransitionSchema,
+  delete: defineMutator(
+    kalakritiTransportDeleteSchema,
     async ({ tx, ctx, args }) => {
       await requireMutableTransportEdition(tx, args.editionId);
       const assignment = await requireTransportAssignment(
         tx,
         args.editionId,
-        args.assignmentId
+        args.assignmentId,
+        true
       );
-      await assertCanManageCenterTransport(
-        tx,
-        ctx,
-        args.editionId,
-        assignment.centerId
-      );
+      await assertCanManageCenterTransport(tx, ctx, args.editionId);
       assertIsLoggedIn(ctx);
       await requireActiveCenter(tx, args.editionId, assignment.centerId);
-
-      const toStatus = getNextKalakritiTransportStatus(assignment.status);
-      if (!toStatus) {
-        throw new Error("Transport status cannot advance further");
-      }
-
+      if (assignment.deletedAt != null) return;
       await tx.mutate.kalakritiTransportAssignment.update({
         id: assignment.id,
-        status: toStatus,
+        deletedAt: args.now,
         updatedAt: args.now,
       });
-
-      await tx.mutate.kalakritiTransportStatusHistory.insert({
-        actorUserId: ctx.userId,
-        assignmentId: assignment.id,
-        createdAt: args.now,
-        editionId: args.editionId,
-        fromStatus: assignment.status,
-        id: args.historyId,
-        occurredAt: args.occurredAt,
-        toStatus,
-      });
-
       await tx.mutate.kalakritiAuditEntry.insert({
-        action: "status_transitioned",
+        action: "deleted",
         actorUserId: ctx.userId,
         createdAt: args.now,
         domain: "transport",
         editionId: args.editionId,
         id: args.auditEntryId,
-        metadata: { assignmentId: assignment.id, toStatus },
+        metadata: { assignmentId: assignment.id },
         reason: null,
         targetId: assignment.id,
         targetType: "transport_assignment",
@@ -376,12 +327,7 @@ export const kalakritiTransportMutators = {
         args.editionId,
         args.assignmentId
       );
-      await assertCanManageCenterTransport(
-        tx,
-        ctx,
-        args.editionId,
-        assignment.centerId
-      );
+      await assertCanManageCenterTransport(tx, ctx, args.editionId);
       assertIsLoggedIn(ctx);
       await requireActiveCenter(tx, args.editionId, assignment.centerId);
 

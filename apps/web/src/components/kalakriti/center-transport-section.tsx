@@ -1,6 +1,6 @@
 import {
   Add01Icon,
-  ArrowRight01Icon,
+  Delete02Icon,
   Edit02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -17,16 +17,15 @@ import {
   KALAKRITI_TRANSPORT_STATUS_LABELS,
   type KalakritiTransportStatus,
 } from "@pi-dash/shared/kalakriti";
-import { getNextKalakritiTransportStatus } from "@pi-dash/zero/kalakriti-transport-rules";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { log } from "evlog";
 import { useState } from "react";
-import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 
 import { CenterTransportFormDialog } from "@/components/kalakriti/center-transport-form-dialog";
-import { handleMutationResult } from "@/lib/mutation-result";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { useConfirmAction } from "@/hooks/use-confirm-action";
 
 export interface CenterTransportAssignment {
   capacity: number;
@@ -53,21 +52,18 @@ function TransportStatusBadge({
 function TransportAssignmentCard({
   assignment,
   canManageTransport,
-  isAdvancing,
   isRetired,
-  onAdvance,
+  onDelete,
   onEdit,
 }: {
   assignment: CenterTransportAssignment;
   canManageTransport: boolean;
-  isAdvancing: boolean;
   isRetired: boolean;
-  onAdvance: (assignment: CenterTransportAssignment) => void;
+  onDelete: (assignment: CenterTransportAssignment) => void;
   onEdit: (assignment: CenterTransportAssignment) => void;
 }) {
-  const nextStatus = getNextKalakritiTransportStatus(assignment.status);
   const handleEditClick = useEventCallback(() => onEdit(assignment));
-  const handleAdvanceClick = useEventCallback(() => onAdvance(assignment));
+  const handleDeleteClick = useEventCallback(() => onDelete(assignment));
 
   return (
     <Card>
@@ -101,21 +97,19 @@ function TransportAssignmentCard({
               />
               Edit
             </Button>
-            {nextStatus ? (
-              <Button
-                disabled={isAdvancing}
-                onClick={handleAdvanceClick}
-                size="sm"
-                type="button"
-              >
-                <HugeiconsIcon
-                  className="size-4"
-                  icon={ArrowRight01Icon}
-                  strokeWidth={2}
-                />
-                {KALAKRITI_TRANSPORT_STATUS_LABELS[nextStatus]}
-              </Button>
-            ) : null}
+            <Button
+              onClick={handleDeleteClick}
+              size="sm"
+              type="button"
+              variant="destructive"
+            >
+              <HugeiconsIcon
+                className="size-4"
+                icon={Delete02Icon}
+                strokeWidth={2}
+              />
+              Delete
+            </Button>
           </div>
         ) : null}
       </CardContent>
@@ -140,7 +134,6 @@ export function CenterTransportSection({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAssignment, setEditingAssignment] =
     useState<CenterTransportAssignment | null>(null);
-  const [isAdvancing, setIsAdvancing] = useState(false);
 
   const handleAdd = useEventCallback(() => {
     setEditingAssignment(null);
@@ -154,44 +147,39 @@ export function CenterTransportSection({
     }
   );
 
-  const handleAdvance = useEventCallback(
-    async (assignment: CenterTransportAssignment) => {
-      const nextStatus = getNextKalakritiTransportStatus(assignment.status);
-      if (!nextStatus || isAdvancing || !canManageTransport || isRetired) {
-        return;
-      }
-      setIsAdvancing(true);
+  const deleteAction = useConfirmAction<CenterTransportAssignment>({
+    mutationMeta: {
+      entityId: (assignment) => assignment.id,
+      mutation: "kalakritiTransport.delete",
+      errorMsg: "Failed to delete transport assignment",
+      successMsg: "Transport assignment deleted",
+    },
+    onConfirm: async (assignment) => {
       try {
-        const result = await zero.mutate(
-          mutators.kalakritiTransport.transitionStatus({
+        return await zero.mutate(
+          mutators.kalakritiTransport.delete({
             assignmentId: assignment.id,
-            auditEntryId: uuidv7(),
             editionId,
-            historyId: uuidv7(),
+            auditEntryId: uuidv7(),
             now: Date.now(),
-            occurredAt: Date.now(),
           })
         ).server;
-        handleMutationResult(result, {
-          entityId: assignment.id,
-          errorMsg: "Failed to advance transport status",
-          mutation: "kalakritiTransport.transitionStatus",
-          successMsg: `Marked as ${KALAKRITI_TRANSPORT_STATUS_LABELS[nextStatus]}`,
-        });
       } catch (error) {
         log.error({
           component: "CenterTransportSection",
-          action: "advanceTransportStatus",
+          action: "deleteTransportAssignment",
           editionId,
           centerId,
           assignmentId: assignment.id,
           error: error instanceof Error ? error.message : String(error),
         });
-        toast.error("Failed to advance transport status");
+        return {
+          type: "error",
+          error: { message: "Failed to delete transport assignment" },
+        };
       }
-      setIsAdvancing(false);
-    }
-  );
+    },
+  });
 
   if (!canManageTransport && assignments.length === 0) {
     return null;
@@ -230,15 +218,29 @@ export function CenterTransportSection({
             <TransportAssignmentCard
               assignment={assignment}
               canManageTransport={canManageTransport}
-              isAdvancing={isAdvancing}
               isRetired={isRetired}
               key={assignment.id}
-              onAdvance={handleAdvance}
+              onDelete={deleteAction.trigger}
               onEdit={handleEdit}
             />
           ))}
         </div>
       )}
+
+      {canManageTransport && !isRetired ? (
+        <ConfirmDialog
+          title="Delete transport assignment?"
+          description={`Delete ${deleteAction.payload?.vehicleLabel ?? "this vehicle"}? This removes it from the Center while preserving its history.`}
+          confirmLabel="Delete assignment"
+          loadingLabel="Deleting..."
+          loading={deleteAction.isLoading}
+          open={deleteAction.isOpen}
+          onConfirm={deleteAction.confirm}
+          onOpenChange={(open) => {
+            if (!open) deleteAction.cancel();
+          }}
+        />
+      ) : null}
 
       {canManageTransport && !isRetired ? (
         <CenterTransportFormDialog

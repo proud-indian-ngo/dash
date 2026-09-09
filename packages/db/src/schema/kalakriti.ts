@@ -669,6 +669,7 @@ export const kalakritiOperation = pgTable(
 export const kalakritiTransportAssignment = pgTable(
   "kalakriti_transport_assignment",
   {
+    deletedAt: timestamp("deleted_at"),
     capacity: integer("capacity").notNull(),
     centerId: uuid("center_id").notNull(),
     createdAt: timestamp("created_at").notNull(),
@@ -945,7 +946,7 @@ export const kalakritiAssignment = pgTable(
           AND ${table.centerId} IS NULL
           AND ${table.competitionCategoryId} IS NULL
           AND ${table.competitionId} IS NULL)
-        OR (${table.responsibility}::text IN ('liaison', 'center_liaison_lead', 'liaison_volunteer', 'transport_coordinator')
+        OR (${table.responsibility}::text IN ('liaison', 'center_liaison_lead', 'liaison_volunteer')
           AND ${table.centerId} IS NOT NULL
           AND ${table.competitionCategoryId} IS NULL
           AND ${table.competitionId} IS NULL)

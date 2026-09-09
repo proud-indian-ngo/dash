@@ -90,7 +90,6 @@ export const KALAKRITI_EDITION_RESPONSIBILITIES = [
   "food_lead",
   "food_member",
   "transport_lead",
-  "transport_coordinator",
   "logistics_lead",
   "logistics_member",
   "awards_lead",
@@ -155,7 +154,6 @@ export const KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES = [
 export const KALAKRITI_CENTER_VOLUNTEER_RESPONSIBILITIES = [
   "center_liaison_lead",
   "liaison_volunteer",
-  "transport_coordinator",
 ] as const satisfies readonly KalakritiResponsibility[];
 
 export type KalakritiCenterVolunteerResponsibility =
@@ -196,7 +194,6 @@ export const KALAKRITI_RESPONSIBILITY_LABELS = {
   logistics_member: "Logistics Member",
   media_member: "Media Member",
   overall_events_lead: "Overall Events Lead",
-  transport_coordinator: "Transport Coordinator",
   transport_lead: "Transport Lead",
   venue_lead: "Venue Lead",
   venue_member: "Venue Member",
@@ -244,8 +241,7 @@ export function getKalakritiResponsibilityScopeKind(
   if (
     (
       KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES as readonly string[]
-    ).includes(responsibility) ||
-    responsibility === "transport_coordinator"
+    ).includes(responsibility)
   ) {
     return "center";
   }

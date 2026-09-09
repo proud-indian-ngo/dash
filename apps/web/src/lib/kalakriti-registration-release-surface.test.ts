@@ -164,7 +164,7 @@ describe("Kalakriti Registration Release surface", () => {
       "kalakritiStudent.delete",
       "kalakritiStudent.update",
       "kalakritiTransport.create",
-      "kalakritiTransport.transitionStatus",
+      "kalakritiTransport.delete",
       "kalakritiTransport.update",
     ]);
   });

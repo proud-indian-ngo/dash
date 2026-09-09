@@ -1,5 +1,9 @@
 import { describe, expect, it, mock } from "bun:test";
 
+import {
+  KALAKRITI_TRANSPORT_STATUS_LABELS,
+  type KalakritiTransportStatus,
+} from "@pi-dash/shared/kalakriti";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import {
@@ -35,10 +39,14 @@ const assignment = {
   status: "planned" as const,
   vehicleLabel: "Bus 1",
 };
-function render(canManageTransport: boolean, isRetired = false) {
+function render(
+  canManageTransport: boolean,
+  isRetired = false,
+  status: KalakritiTransportStatus = "planned"
+) {
   return renderToStaticMarkup(
     <CenterTransportSection
-      assignments={[assignment]}
+      assignments={[{ ...assignment, status }]}
       canManageTransport={canManageTransport}
       isRetired={isRetired}
       centerId="center"
@@ -47,12 +55,7 @@ function render(canManageTransport: boolean, isRetired = false) {
   );
 }
 describe("Center transport compatibility", () => {
-  it.each([
-    "edition_admin",
-    "transport_lead",
-    "transport_coordinator",
-    "liaison",
-  ])(
+  it.each(["edition_admin", "transport_lead"])(
     "keeps authorized %s read access but disables archived writes",
     (responsibility) => {
       expect(
@@ -71,7 +74,7 @@ describe("Center transport compatibility", () => {
       ).toBe(true);
     }
   );
-  it.each(["transport_coordinator", "liaison"])(
+  it.each(["liaison", "center_liaison_lead", "liaison_volunteer"])(
     "does not widen %s to another Center",
     (responsibility) => {
       expect(
@@ -81,6 +84,34 @@ describe("Center transport compatibility", () => {
           lifecycle: "live",
         })
       ).toEqual({ canManageTransport: false, canViewTransport: false });
+    }
+  );
+  it.each(["liaison", "center_liaison_lead", "liaison_volunteer"])(
+    "keeps %s read-only in its own Center in every lifecycle",
+    (responsibility) => {
+      for (const lifecycle of [
+        "draft",
+        "registration_open",
+        "registration_locked",
+        "live",
+        "archived",
+      ]) {
+        const capabilities = getCenterTransportCapabilities({
+          access: access(responsibility),
+          centerId: "center",
+          lifecycle,
+        });
+        expect(capabilities).toEqual({
+          canManageTransport: false,
+          canViewTransport: true,
+        });
+        const html = render(capabilities.canManageTransport);
+        expect(html).toContain("Bus 1");
+        expect(html).not.toContain("Add vehicle");
+        expect(html).not.toContain(">Edit<");
+        expect(html).not.toContain("Transport form");
+        expect(html).not.toContain(">Delete<");
+      }
     }
   );
   it("preserves global administration but excludes Guardians and unrelated volunteers", () => {
@@ -161,8 +192,25 @@ describe("Center transport compatibility", () => {
     expect(html).not.toContain("Add vehicle");
     expect(html).not.toContain("Transport form");
   });
-  it("preserves active Center management controls", () => {
+  it("preserves active Center management controls and offers delete", () => {
     expect(render(true)).toContain("Add vehicle");
     expect(render(true)).toContain("Transport form");
+    expect(render(true)).toContain("Delete");
+  });
+  it("keeps every status as a badge without manual advancement controls", () => {
+    for (const [status, label] of Object.entries(
+      KALAKRITI_TRANSPORT_STATUS_LABELS
+    )) {
+      const html = render(true, false, status as KalakritiTransportStatus);
+      expect(html).toContain(label);
+      const buttons = html.match(/<button\b[^>]*>[\s\S]*?<\/button>/g) ?? [];
+      for (const button of buttons) {
+        for (const statusLabel of Object.values(
+          KALAKRITI_TRANSPORT_STATUS_LABELS
+        )) {
+          expect(button).not.toContain(statusLabel);
+        }
+      }
+    }
   });
 });

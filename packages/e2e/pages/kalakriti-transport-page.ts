@@ -41,6 +41,46 @@ export class KalakritiTransportPage {
     ).toBeVisible();
   }
 
+  async openDelete(vehicle: string) {
+    const card = this.page
+      .locator('[data-slot="card"]')
+      .filter({
+        has: this.page.getByRole("heading", { name: vehicle, exact: true }),
+      })
+      .last();
+    await card.getByRole("button", { name: "Delete", exact: true }).click();
+    const dialog = this.page.getByRole("alertdialog", {
+      name: "Delete transport assignment?",
+      exact: true,
+    });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText(vehicle);
+    return dialog;
+  }
+
+  async deleteVehicle(vehicle: string) {
+    const dialog = await this.openDelete(vehicle);
+    await dialog
+      .getByRole("button", { name: "Delete assignment", exact: true })
+      .click();
+    await expect(dialog).toBeHidden();
+    await expect(
+      this.page.getByRole("heading", { name: vehicle, exact: true })
+    ).toHaveCount(0);
+  }
+
+  async expectNoAdvanceControls() {
+    for (const name of [
+      "Arrived at Center",
+      "Arrived at venue",
+      "Departed venue",
+      "Completed",
+    ])
+      await expect(
+        this.page.getByRole("button", { name, exact: true })
+      ).toHaveCount(0);
+  }
+
   async editVehicle(previousVehicle: string, vehicle: string, driver: string) {
     await this.page
       .getByRole("button", { name: "Edit", exact: true })
