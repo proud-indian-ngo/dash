@@ -23,9 +23,7 @@ export class KalakritiCompetitionsPage {
       await dialog.getByRole("switch", { name: "Allow music upload" }).click();
     }
     await dialog.getByRole("button", { name: "Create Competition" }).click();
-    await expect(
-      this.page.getByText("Competition created", { exact: true })
-    ).toBeVisible({ timeout: 30_000 });
+    await expect(dialog).toBeHidden({ timeout: 30_000 });
     await expect(this.competition(name)).toBeVisible({ timeout: 30_000 });
   }
 

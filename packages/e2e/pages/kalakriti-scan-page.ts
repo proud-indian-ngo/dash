@@ -20,10 +20,12 @@ export class KalakritiScanPage {
 
   async installDecoder() {
     // Simulate camera/decoder callbacks only; UI, Zero, authorization and DB stay real.
-    await this.page.route(/\/html5-qrcode[^/]*\.js/, (route) =>
-      route.fulfill({
-        contentType: "application/javascript",
-        body: `export class Html5Qrcode {
+    await this.page.route(
+      /\/kalakriti-qr-decoder(?:-[\w-]+)?\.(?:js|ts)(?:\?.*)?$/,
+      (route) =>
+        route.fulfill({
+          contentType: "application/javascript",
+          body: `export default class Html5Qrcode {
         async start(camera, options, onScan) {
           window.stationScannerStarts = (window.stationScannerStarts || 0) + 1;
           if (window.stationCameraFails) throw new Error('Simulated camera unavailable');
@@ -32,7 +34,7 @@ export class KalakritiScanPage {
         async stop() { delete window.stationScan; }
         clear() {}
       }`,
-      })
+        })
     );
   }
   async goto(year: number, section: "centers" | "students" = "centers") {

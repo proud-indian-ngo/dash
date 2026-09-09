@@ -33,12 +33,22 @@ export class KalakritiCentersPage {
       .click();
   }
 
-  studentRegistration(name: string): Locator {
-    return this.center(name).getByRole("cell").nth(2);
+  private async registrationCell(
+    name: string,
+    header: string
+  ): Promise<Locator> {
+    const index = await this.page
+      .getByRole("columnheader", { name: header })
+      .evaluate((cell) => (cell as HTMLTableCellElement).cellIndex);
+    return this.center(name).getByRole("cell").nth(index);
   }
 
-  participationRegistration(name: string): Locator {
-    return this.center(name).getByRole("cell").nth(3);
+  studentRegistration(name: string): Promise<Locator> {
+    return this.registrationCell(name, "Student registration");
+  }
+
+  participationRegistration(name: string): Promise<Locator> {
+    return this.registrationCell(name, "Participation registration");
   }
 
   async goto(year: number) {

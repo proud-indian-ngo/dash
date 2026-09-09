@@ -60,7 +60,8 @@ function startScannerSession(
 
   const startScanner = async () => {
     try {
-      const { Html5Qrcode } = await import("html5-qrcode");
+      const { default: Html5Qrcode } =
+        await import("@/lib/kalakriti-qr-decoder");
       if (cancelled) {
         return;
       }

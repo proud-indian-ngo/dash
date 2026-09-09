@@ -75,13 +75,13 @@ test("manages independent Center registration and scoped Liaison access", async 
       participation: false,
       students: true,
     });
-    await expect(centers.studentRegistration("Basavanagudi")).toHaveText(
+    await expect(await centers.studentRegistration("Basavanagudi")).toHaveText(
       "Open"
     );
-    await expect(centers.participationRegistration("Basavanagudi")).toHaveText(
-      "Closed"
-    );
-    await expect(centers.studentRegistration("Indiranagar")).toHaveText(
+    await expect(
+      await centers.participationRegistration("Basavanagudi")
+    ).toHaveText("Closed");
+    await expect(await centers.studentRegistration("Indiranagar")).toHaveText(
       "Closed"
     );
 
@@ -136,7 +136,7 @@ test("manages independent Center registration and scoped Liaison access", async 
       .getByRole("alertdialog", { name: "Lock all Center registrations?" })
       .getByRole("button", { name: "Lock all registrations" })
       .click();
-    await expect(centers.studentRegistration("Basavanagudi")).toHaveText(
+    await expect(await centers.studentRegistration("Basavanagudi")).toHaveText(
       "Closed"
     );
     await expect(
@@ -147,10 +147,10 @@ test("manages independent Center registration and scoped Liaison access", async 
       participation: false,
       students: true,
     });
-    await expect(centers.studentRegistration("Basavanagudi")).toHaveText(
+    await expect(await centers.studentRegistration("Basavanagudi")).toHaveText(
       "Open"
     );
-    await expect(centers.studentRegistration("Indiranagar")).toHaveText(
+    await expect(await centers.studentRegistration("Indiranagar")).toHaveText(
       "Closed"
     );
 
