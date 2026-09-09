@@ -13,10 +13,11 @@ import {
   getKalakritiVolunteersForPicker,
   type PickerUser,
 } from "@/functions/users-for-picker";
+import { getCenterTransportCapabilities } from "@/lib/kalakriti-center-registration-policy";
 
 export const Route = createFileRoute("/_app/kalakriti/$year/centers/$id")({
   component: KalakritiCenterDetailPage,
-  loader: ({ context }) => {
+  loader: ({ context, params }) => {
     const { edition } = context.kalakritiEditionAccess;
     context.zero?.preload(
       queries.kalakritiCenter.visible({ editionId: edition.id })
@@ -29,6 +30,12 @@ export const Route = createFileRoute("/_app/kalakriti/$year/centers/$id")({
     );
     context.zero?.preload(
       queries.kalakritiGuardian.roster({ editionId: edition.id })
+    );
+    context.zero?.preload(
+      queries.kalakritiTransport.byCenter({
+        centerId: params.id,
+        editionId: edition.id,
+      })
     );
   },
 });
@@ -53,6 +60,14 @@ function KalakritiCenterDetailPage() {
   const [centers, centerResult] = useQuery(
     queries.kalakritiCenter.visible({ editionId: edition.id })
   );
+  const { canManageTransport, canViewTransport } =
+    getCenterTransportCapabilities({
+      access,
+      centerId: id,
+      lifecycle: edition.lifecycle,
+      // Guardian Centers come from this server-scoped query, not volunteer assignments.
+      guardianCenterVisible: centers.some((center) => center.id === id),
+    });
   const [guardianAssignments] = useQuery(
     queries.kalakritiCenter.guardianAssignments({ editionId: edition.id }),
     { enabled: canManageGuardians }
@@ -64,6 +79,13 @@ function KalakritiCenterDetailPage() {
   const [guardians] = useQuery(
     queries.kalakritiGuardian.roster({ editionId: edition.id }),
     { enabled: canManageGuardians }
+  );
+  const [transportAssignments] = useQuery(
+    queries.kalakritiTransport.byCenter({
+      centerId: id,
+      editionId: edition.id,
+    }),
+    { enabled: canViewTransport }
   );
   const [volunteerOptions, setVolunteerOptions] = useState<PickerUser[]>([]);
   const [volunteerOptionsError, setVolunteerOptionsError] = useState(false);
@@ -183,6 +205,22 @@ function KalakritiCenterDetailPage() {
     );
   }
 
+  const transportRows = transportAssignments.flatMap((assignment) =>
+    assignment.status
+      ? [
+          {
+            capacity: assignment.capacity,
+            driverName: assignment.driverName,
+            driverPhone: assignment.driverPhone,
+            id: assignment.id,
+            notes: assignment.notes,
+            status: assignment.status,
+            vehicleLabel: assignment.vehicleLabel,
+          },
+        ]
+      : []
+  );
+
   return (
     <CenterDetail
       capabilities={{
@@ -191,6 +229,8 @@ function KalakritiCenterDetailPage() {
         manageGuardians: canManageGuardians,
         manageLiaisons: canManageLiaisons,
         manageRegistrationControls: canManageRegistrationControls,
+        manageTransport: canManageTransport,
+        viewTransport: canViewTransport,
       }}
       center={center}
       configurationLocked={structuralLocked}
@@ -201,6 +241,7 @@ function KalakritiCenterDetailPage() {
       liaisonAssignments={liaisonRows}
       onDeleted={handleDeleted}
       onRetryVolunteers={handleVolunteerRetry}
+      transportAssignments={transportRows}
       volunteerOptions={volunteerOptions}
       volunteerOptionsError={volunteerOptionsError}
       year={year}

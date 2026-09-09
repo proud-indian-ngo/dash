@@ -15,6 +15,12 @@ mock.module("@pi-dash/db/schema/kalakriti", () => ({
   kalakritiEdition: {},
   kalakritiEditionMembership: {},
   kalakritiGuardianCenter: {},
+  kalakritiTransportAssignment: {
+    id: "transport-id",
+    centerId: "transport-center",
+    editionId: "transport-edition",
+    deletedAt: "transport-deleted-at",
+  },
 }));
 // Bun 1.4 deadlocks when a mock.module factory for drizzle-orm returns new
 // function values closing over the real namespace, so capture filter
@@ -48,6 +54,7 @@ mock.module("drizzle-orm", () => ({
 }));
 
 const {
+  isKalakritiTransportAssignmentActive,
   resolveKalakritiRegistrationRecipients,
   resolveKalakritiScheduleRecipients,
 } = await import("./kalakriti-notification-recipients");
@@ -62,6 +69,36 @@ function queryReturning<T>(rows: T[]) {
   query.innerJoin.mockReturnValue(query);
   return query;
 }
+
+describe("pending transport notification eligibility", () => {
+  it.each([true, false])(
+    "returns current assignment existence (%s) within exact scope",
+    async (present) => {
+      const query = {
+        from: mock(),
+        where: mock(),
+        limit: mock(async () => (present ? [{ id: "bus" }] : [])),
+      };
+      query.from.mockReturnValue(query);
+      query.where.mockReturnValue(query);
+      select.mockReturnValueOnce(query);
+      expect(
+        await isKalakritiTransportAssignmentActive({
+          assignmentId: "bus",
+          centerId: "center",
+          editionId: "edition",
+        })
+      ).toBe(present);
+      expect(filterCalls.eq).toHaveBeenCalledWith("transport-id", "bus");
+      expect(filterCalls.eq).toHaveBeenCalledWith("transport-center", "center");
+      expect(filterCalls.eq).toHaveBeenCalledWith(
+        "transport-edition",
+        "edition"
+      );
+      expect(filterCalls.isNull).toHaveBeenCalledWith("transport-deleted-at");
+    }
+  );
+});
 
 describe("Kalakriti schedule recipient resolution", () => {
   beforeEach(() => {

@@ -25,6 +25,10 @@ import {
 } from "@/components/kalakriti/center-assignments";
 import { CenterFormDialog } from "@/components/kalakriti/center-form-dialog";
 import { CenterRegistrationDialog } from "@/components/kalakriti/center-registration-dialog";
+import {
+  type CenterTransportAssignment,
+  CenterTransportSection,
+} from "@/components/kalakriti/center-transport-section";
 import type { CenterListItem } from "@/components/kalakriti/centers-table";
 import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notice";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
@@ -65,6 +69,7 @@ export function CenterDetail({
   liaisonAssignments,
   onDeleted,
   onRetryVolunteers,
+  transportAssignments,
   volunteerOptions,
   volunteerOptionsError,
   year,
@@ -75,6 +80,8 @@ export function CenterDetail({
     manageGuardians: boolean;
     manageLiaisons: boolean;
     manageRegistrationControls: boolean;
+    manageTransport: boolean;
+    viewTransport: boolean;
   };
   center: CenterListItem;
   configurationLocked: boolean;
@@ -85,6 +92,7 @@ export function CenterDetail({
   liaisonAssignments: readonly CenterPersonAssignment[];
   onDeleted: () => void;
   onRetryVolunteers: () => void;
+  transportAssignments: readonly CenterTransportAssignment[];
   volunteerOptions: readonly PickerUser[];
   volunteerOptionsError: boolean;
   year: string;
@@ -95,6 +103,8 @@ export function CenterDetail({
     manageGuardians,
     manageLiaisons,
     manageRegistrationControls,
+    manageTransport,
+    viewTransport,
   } = capabilities;
   const zero = useZero();
   const [editOpen, setEditOpen] = useState(false);
@@ -286,6 +296,16 @@ export function CenterDetail({
             volunteerOptionsError={volunteerOptionsError}
           />
         </div>
+      ) : null}
+
+      {viewTransport ? (
+        <CenterTransportSection
+          assignments={transportAssignments}
+          canManageTransport={manageTransport}
+          centerId={center.id}
+          editionId={editionId}
+          isRetired={isRetired}
+        />
       ) : null}
 
       <CenterFormDialog

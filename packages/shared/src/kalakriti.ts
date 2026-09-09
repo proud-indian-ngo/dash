@@ -19,6 +19,25 @@ export const KALAKRITI_MEMBERSHIP_STATES = ["active", "archived"] as const;
 export type KalakritiMembershipState =
   (typeof KALAKRITI_MEMBERSHIP_STATES)[number];
 
+export const KALAKRITI_TRANSPORT_STATUSES = [
+  "planned",
+  "arrived_at_center",
+  "arrived_at_venue",
+  "departed_venue",
+  "completed",
+] as const;
+
+export type KalakritiTransportStatus =
+  (typeof KALAKRITI_TRANSPORT_STATUSES)[number];
+
+export const KALAKRITI_TRANSPORT_STATUS_LABELS = {
+  arrived_at_center: "Arrived at Center",
+  arrived_at_venue: "Arrived at venue",
+  completed: "Completed",
+  departed_venue: "Departed venue",
+  planned: "Planned",
+} satisfies Record<KalakritiTransportStatus, string>;
+
 export const KALAKRITI_OPERATION_TYPES = [
   "pickup",
   "venue_departure",

@@ -22,6 +22,7 @@ describe("registerHandlers", () => {
         "notify-kalakriti-registration-open",
         "notify-kalakriti-registration-closed",
         "notify-kalakriti-schedule-changed",
+        "notify-kalakriti-transport-changed",
         "remind-kalakriti-registration-close",
       ])
     );

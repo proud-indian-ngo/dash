@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
 
 import { kalakritiCenterQueries } from "./kalakriti-center";
+import { kalakritiEntryQueries } from "./kalakriti-entry";
+import { kalakritiStudentQueries } from "./kalakriti-student";
 
 const input = { editionId: "edition-1" };
 
@@ -31,6 +33,37 @@ describe("kalakritiCenter queries", () => {
     expect(ast).toContain('"value":"center_liaison_lead"');
     expect(ast).toContain('"value":"competition_category_lead"');
     expect(ast).toContain('"value":"competition_coordinator"');
+  });
+
+  it("grants transport-only Center discovery without broadening registration datasets", () => {
+    const query = kalakritiCenterQueries.visible.fn({
+      args: input,
+      ctx: {
+        permissions: ["kalakriti.view"],
+        role: "volunteer",
+        userId: "transport-user",
+      },
+    });
+    expect(queryAst(query)).toContain('"value":"transport_lead"');
+    const scopedInput = {
+      args: { ...input, centerId: "center-1" },
+      ctx: {
+        permissions: ["kalakriti.view"],
+        role: "volunteer",
+        userId: "transport-user",
+      },
+    };
+    for (const registrationQuery of [
+      kalakritiStudentQueries.visibleByCenter.fn(scopedInput),
+      kalakritiEntryQueries.visibleByCenter.fn(scopedInput),
+    ]) {
+      expect(queryAst(registrationQuery)).not.toContain(
+        '"value":"transport_lead"'
+      );
+      expect(queryAst(registrationQuery)).not.toContain(
+        '"value":"transport_coordinator"'
+      );
+    }
   });
 
   it("returns a never-match query without Kalakriti access", () => {

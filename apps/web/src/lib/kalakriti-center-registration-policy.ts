@@ -1,4 +1,5 @@
 import {
+  KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES,
   isKalakritiLiaisonResponsibility,
   membershipHasKalakritiLiaisonAccess,
 } from "@pi-dash/shared/kalakriti";
@@ -34,7 +35,9 @@ export function canViewKalakritiCenterDirectory(
   return (
     canAccessKalakritiCenterRegistration(access) ||
     access.membership?.responsibilities.includes("volunteer_coordinator") ===
-      true
+      true ||
+    (access.membership?.kind === "volunteer" &&
+      access.membership.responsibilities.includes("transport_lead"))
   );
 }
 
@@ -59,4 +62,39 @@ export function selectKalakritiCenterRegistrationCenters<
     }
   }
   return centers.filter((center) => liaisonCenterIds.has(center.id));
+}
+
+export function getCenterTransportCapabilities({
+  access,
+  centerId,
+  lifecycle,
+  guardianCenterVisible = false,
+}: {
+  access: KalakritiCenterRegistrationAccess;
+  centerId: string;
+  lifecycle: string;
+  guardianCenterVisible?: boolean;
+}) {
+  const responsibilities = new Set(access.membership?.responsibilities ?? []);
+  const hasManageAccess =
+    access.isGlobalAdmin ||
+    (access.membership?.kind === "volunteer" &&
+      (responsibilities.has("edition_admin") ||
+        responsibilities.has("transport_lead")));
+  const hasLiaisonReadAccess =
+    access.membership?.kind === "volunteer" &&
+    access.membership.assignments.some(
+      (assignment) =>
+        assignment.centerId === centerId &&
+        (
+          KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES as readonly string[]
+        ).includes(assignment.responsibility)
+    );
+  return {
+    canManageTransport: hasManageAccess && lifecycle !== "archived",
+    canViewTransport:
+      hasManageAccess ||
+      hasLiaisonReadAccess ||
+      (access.membership?.kind === "guardian" && guardianCenterVisible),
+  };
 }

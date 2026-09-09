@@ -111,6 +111,9 @@ describe("Kalakriti assignment helpers", () => {
     expect(getKalakritiResponsibilityScopeKind("liaison_volunteer")).toBe(
       "center"
     );
+    expect(getKalakritiResponsibilityScopeKind("transport_lead")).toBe(
+      "edition"
+    );
     expect(
       getKalakritiResponsibilityScopeKind("competition_category_lead")
     ).toBe("competition_category");

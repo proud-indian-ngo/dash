@@ -7,7 +7,7 @@
 
 Kalakriti is a native Edition-bound module under `/kalakriti/:year`. Better Auth remains the only login system and central volunteers remain normal `user` records, but every Kalakriti business row belongs to one `kalakritiEdition`. A linked `teamEvent` exposes the Edition to shared event, reimbursement, and vendor-payment workflows without making the generic event domain authoritative for Kalakriti state.
 
-The registration UI stops at `registration_locked`. The event-day operation backend supports recording only in `live` Editions; there is no station UI or go-live action on this branch. Transport setup, results, awards, scoresheets, and inventory remain behind later release gates.
+The registration UI stops at `registration_locked`. The event-day operation backend supports recording only in `live` Editions; there is no station UI or go-live action on this branch. Center transport setup and forward status tracking are available in nonarchived Editions. Results, awards, scoresheets, and inventory remain behind later release gates.
 
 ## Identity and access
 
@@ -63,6 +63,14 @@ The legacy credential table, token hashing, issuance/reissue mutators, and PDF c
 Registration dashboards and `/api/kalakriti/:year/registration-export` resolve the actor and Edition on the server. The export route builds an allowlisted ZIP on the server, returns it as a private non-cacheable attachment, neutralizes spreadsheet formulas, and never sends raw registration rows to the browser. CSV import is intentionally unavailable.
 
 Audit reads apply Edition and responsibility scopes before returning privacy-safe metadata. Mutation audit entries remain Edition-owned and record the actor, domain, action, target, timestamp, reason where required, and structured metadata.
+
+## Center transport
+
+Center detail pages expose vehicle assignments with capacity, driver contact fields, and notes. `kalakritiTransport.create`, `update`, and `delete` serialize writes through Edition and Center row locks, reject archived Editions and retired Centers, and audit the commands. Deletion requires confirmation and sets `deletedAt`, preserving the assignment and its history while excluding it from active lists, readiness checks, and pending notifications. Stored status is read-only; there is no manual status mutation. Student QR scanning will supply status derivation in the subsequent scanning release; that integration is not implemented here.
+
+The Edition's Transport Lead and global/Edition administrators manage transport Edition-wide. There is no per-Center transport role. Center-scoped Liaisons and Guardians can read their own Center's transport details but cannot create, edit, or delete vehicle assignments. Transport Leads can discover all Edition Centers without gaining Student or Entry registration-write permissions. Assign the Transport Lead through the normal Edition-scoped volunteer assignment workflow.
+
+Vehicle/driver field updates enqueue `notify-kalakriti-transport-changed` after commit with a deterministic assignment/change key. Recipients are the affected Center's active Guardians and Liaisons; transport details are not public schedule data. The root seed creates one planned demo vehicle and its initial history atomically and idempotently, without changing progressed vehicles or archived Editions.
 
 ## Event-day operation spine
 

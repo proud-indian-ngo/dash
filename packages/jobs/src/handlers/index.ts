@@ -39,6 +39,7 @@ import {
   handleNotifyKalakritiRegistrationClosed,
   handleNotifyKalakritiRegistrationOpen,
   handleNotifyKalakritiScheduleChanged,
+  handleNotifyKalakritiTransportChanged,
   handleRemindKalakritiRegistrationClose,
 } from "./notify-kalakriti";
 import {
@@ -305,6 +306,11 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "notify-kalakriti-schedule-changed",
     NOTIFY_POLL,
     handleNotifyKalakritiScheduleChanged
+  );
+  await boss.work(
+    "notify-kalakriti-transport-changed",
+    NOTIFY_POLL,
+    handleNotifyKalakritiTransportChanged
   );
   await boss.work("notify-user-welcome", NOTIFY_POLL, handleNotifyUserWelcome);
   await boss.work("notify-user-banned", NOTIFY_POLL, handleNotifyUserBanned);

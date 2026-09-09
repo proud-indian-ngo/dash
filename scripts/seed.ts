@@ -63,6 +63,8 @@ import {
   kalakritiGuardianCenter,
   kalakritiOperation,
   kalakritiStudent,
+  kalakritiTransportAssignment,
+  kalakritiTransportStatusHistory,
   kalakritiVenue,
 } from "@pi-dash/db/schema/kalakriti";
 import { notification } from "@pi-dash/db/schema/notification";
@@ -197,6 +199,8 @@ const ID = {
   kalakritiGuardianMembership: "019d52c2-7261-7dce-b0ee-e206561715c2",
   kalakritiStudent: "019d52c2-7261-7dce-b0ee-e206561715ce",
   kalakritiOperation: "01a082b2-b262-78ea-9ba4-bda73e9fc51c",
+  kalakritiTransportAssignment: "01a084cd-40f8-74e2-a692-a014548a34e7",
+  kalakritiTransportHistory: "01a084cd-40f9-7eb4-ba8c-24e46aed65ba",
   kalakritiVenue: "019d52c2-7261-7dce-b0ee-e206561715cc",
   ra01: "019d52c2-7261-7dce-b0ee-e23c364fad5e",
   ra02: "019d52c2-7261-7dce-b0ee-e23d74ae80a5",
@@ -1071,14 +1075,53 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
     })
     .onConflictDoNothing();
 
-  // Seed sample history only after the demo Edition has explicitly gone live.
+  // Seed transport before event day, but operation history only after go-live.
   await db.transaction(async (tx) => {
     const [edition] = await tx
       .select({ lifecycle: kalakritiEdition.lifecycle })
       .from(kalakritiEdition)
       .where(eq(kalakritiEdition.id, ID.kalakritiEdition))
       .for("update");
-    if (edition?.lifecycle !== "live") {
+    if (!edition || edition.lifecycle === "archived") {
+      return;
+    }
+    const [center] = await tx
+      .select({ retiredAt: kalakritiCenter.retiredAt })
+      .from(kalakritiCenter)
+      .where(eq(kalakritiCenter.id, ID.kalakritiCenter))
+      .for("update");
+    if (!center || center.retiredAt !== null) {
+      return;
+    }
+    const [transport] = await tx
+      .insert(kalakritiTransportAssignment)
+      .values({
+        id: ID.kalakritiTransportAssignment,
+        editionId: ID.kalakritiEdition,
+        centerId: ID.kalakritiCenter,
+        vehicleLabel: "Demo bus 1",
+        driverName: "Demo driver",
+        capacity: 30,
+        status: "planned",
+        createdBy: adminId,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing()
+      .returning({ id: kalakritiTransportAssignment.id });
+    if (transport) {
+      await tx.insert(kalakritiTransportStatusHistory).values({
+        id: ID.kalakritiTransportHistory,
+        assignmentId: transport.id,
+        editionId: ID.kalakritiEdition,
+        actorUserId: adminId,
+        fromStatus: null,
+        toStatus: "planned",
+        createdAt: now,
+        occurredAt: now,
+      });
+    }
+    if (edition.lifecycle !== "live") {
       return;
     }
     const [history] = await tx

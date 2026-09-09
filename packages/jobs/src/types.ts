@@ -408,6 +408,13 @@ export interface NotifyKalakritiScheduleChangedPayload {
   revision: string;
 }
 
+export interface NotifyKalakritiTransportChangedPayload {
+  assignmentId: string;
+  centerId: string;
+  changeId: string;
+  editionId: string;
+}
+
 export interface NotifyKalakritiGuardianReactivatedPayload {
   editionId: string;
   membershipId: string;
@@ -563,6 +570,7 @@ export interface JobPayloads {
   "notify-kalakriti-registration-closed": NotifyKalakritiRegistrationPayload;
   "notify-kalakriti-registration-open": NotifyKalakritiRegistrationPayload;
   "notify-kalakriti-schedule-changed": NotifyKalakritiScheduleChangedPayload;
+  "notify-kalakriti-transport-changed": NotifyKalakritiTransportChangedPayload;
   "notify-password-reset": NotifyPasswordResetPayload;
   "notify-photo-approved": NotifyPhotoApprovedPayload;
   "notify-photo-rejected": NotifyPhotoRejectedPayload;
