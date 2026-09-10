@@ -10,6 +10,7 @@ import z from "zod";
 import type { Context } from "../context";
 import { assertIsLoggedIn } from "../permissions";
 import { zql } from "../schema";
+import { enqueueEntryMusicCleanup } from "./kalakriti-entry-music-cleanup";
 import { assertCanManageKalakritiCenterRegistration } from "./kalakriti-registration-access";
 import {
   getCenterForUpdate,
@@ -548,9 +549,10 @@ export const kalakritiStudentMutators = {
         )
       );
       await Promise.all(
-        [...entryIds].map((id) =>
-          tx.mutate.kalakritiCompetitionEntry.delete({ id })
-        )
+        [...entryIds].map(async (id) => {
+          await enqueueEntryMusicCleanup(tx, ctx, id, student.editionId);
+          await tx.mutate.kalakritiCompetitionEntry.delete({ id });
+        })
       );
       await tx.mutate.kalakritiStudent.delete({ id: student.id });
       await tx.mutate.kalakritiAuditEntry.insert({

@@ -58,7 +58,7 @@ Copy `.env.sample` to `.env` and fill in values. Grouped by category:
 Protected uploads use current-user temp keys and are claimed to durable keys by
 their owning database mutation. Before deployment, configure 24-hour Cloudflare
 R2 expiry rules for
-`<R2_KEY_PREFIX>/{attachments,approval-screenshots,photos,scheduled-messages}/tmp/`.
+`<R2_KEY_PREFIX>/{attachments,approval-screenshots,kalakriti-music,photos,scheduled-messages}/tmp/`.
 
 Private-storage cutover order:
 
@@ -78,6 +78,22 @@ Private-storage cutover order:
 
 Do not remove `VITE_CDN_URL` before the backfill and public-access cutover;
 legacy rows still use it for canonicalization during migration.
+
+### Kalakriti two-file music cutover
+
+This release requires the generated `0079_mighty_kronos.sql` and
+`0080_gray_punisher.sql` migrations before the matching app and Zero schema run.
+Quiesce writes and stop old application instances, apply migrations with
+`bun run db:migrate`, then run the
+[Entry music backfill](docs/architecture/kalakriti-registration.md#entry-music-migration)
+in dry-run, apply, and final dry-run modes. Repair every reported malformed row;
+resume traffic only when no legacy candidates or malformed rows remain.
+
+The backfill preserves object keys and bytes in place, then clears singleton
+metadata atomically after inserting each child. Keep the music temporary-object
+expiry rule above and deploy the app and Zero schema together. Do not roll back
+to singleton-only code after enabling two-file writes without an explicit data
+conversion; it cannot represent both files.
 
 ### Voucher Organization
 

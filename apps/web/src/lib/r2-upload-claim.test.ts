@@ -65,6 +65,31 @@ beforeEach(() => {
 });
 
 describe("copyR2Object", () => {
+  it("rejects claimed music sizes that differ from stored bytes", async () => {
+    s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    s3.stat.mockResolvedValue({ size: 1024, type: "audio/mpeg" });
+    await expect(
+      copyR2Object(
+        {
+          ...input,
+          sourceKey: "app/kalakriti-music/tmp/user-1/upload.mp3",
+          mimeType: "audio/mpeg",
+          byteSize: 512,
+        },
+        deps
+      )
+    ).rejects.toThrow("byte size mismatch");
+    expect(writer.write).not.toHaveBeenCalled();
+  });
+
+  it("validates metadata on an existing music target during retries", async () => {
+    s3.exists.mockResolvedValueOnce(true);
+    s3.stat.mockResolvedValue({ size: 1024, type: "audio/mpeg" });
+    await expect(
+      copyR2Object({ ...input, mimeType: "audio/mpeg", byteSize: 512 }, deps)
+    ).rejects.toThrow("metadata mismatch");
+    expect(writer.write).not.toHaveBeenCalled();
+  });
   it("copies a temporary object without deleting the retryable source", async () => {
     s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
 

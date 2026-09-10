@@ -62,6 +62,8 @@ const SAFE_CHANGED_FIELD_NAMES = new Set([
   "amount",
   "archived",
   "attachments",
+  "music",
+  "removeMusicFileIds",
   "attendance",
   "attendanceMarkedAt",
   "attendanceMarkedBy",

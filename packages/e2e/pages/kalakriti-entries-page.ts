@@ -149,16 +149,22 @@ export class KalakritiEntriesPage {
   }
 
   async attachMusic(locator: Locator, fileName = "track.mp3"): Promise<void> {
+    await this.attachMusicFiles(locator, [fileName]);
+  }
+
+  async attachMusicFiles(locator: Locator, fileNames: string[]): Promise<void> {
     const input = locator.getByTestId("entry-music-upload");
     await locator
       .getByRole("button", { name: "Upload audio" })
       .scrollIntoViewIfNeeded();
     await expect(input).toBeEnabled();
-    await input.setInputFiles({
-      buffer: TEST_MP3,
-      mimeType: "audio/mpeg",
-      name: fileName,
-    });
+    await input.setInputFiles(
+      fileNames.map((name) => ({
+        buffer: TEST_MP3,
+        mimeType: "audio/mpeg",
+        name,
+      }))
+    );
   }
 
   async expectMusicDownloadOk(

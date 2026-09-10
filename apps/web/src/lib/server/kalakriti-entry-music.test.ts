@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
+import { PgDialect } from "drizzle-orm/pg-core";
+
+import type { KalakritiRegistrationScope } from "@/lib/kalakriti-registration-scope-policy";
+
 const tables = {
   kalakritiEdition: { findFirst: mock() },
   kalakritiCenter: { findFirst: mock() },
   kalakritiCompetitionDivision: { findFirst: mock() },
   kalakritiCompetitionEntry: { findFirst: mock() },
+  kalakritiEntryMusic: { findFirst: mock() },
   kalakritiCompetition: { findFirst: mock() },
   kalakritiCompetitionCategory: { findFirst: mock() },
   kalakritiEditionMembership: { findFirst: mock() },
@@ -12,15 +17,20 @@ const tables = {
   kalakritiGuardianCenter: { findFirst: mock() },
 };
 const permissions = mock();
+const resolveScope = mock();
 mock.module("@pi-dash/db", () => ({ db: { query: tables } }));
 mock.module("@pi-dash/db/queries/resolve-permissions", () => ({
   resolvePermissions: permissions,
 }));
 mock.module("@/lib/server/kalakriti-registration-scope", () => ({
-  resolveKalakritiRegistrationScope: mock(),
+  resolveKalakritiRegistrationScope: resolveScope,
 }));
 
-import { authorizeKalakritiEntryMusicUpload } from "./kalakriti-entry-music";
+import {
+  authorizeKalakritiEntryMusicUpload,
+  canReadKalakritiEntryMusic,
+  loadKalakritiEntryMusicRecord,
+} from "./kalakriti-entry-music";
 
 const input = {
   centerId: "center",
@@ -40,6 +50,7 @@ const competition = {
 beforeEach(() => {
   for (const table of Object.values(tables)) table.findFirst.mockReset();
   permissions.mockReset();
+  resolveScope.mockReset();
   permissions.mockResolvedValue(["kalakriti.admin"]);
   tables.kalakritiEdition.findFirst.mockResolvedValue({
     id: "edition",
@@ -63,6 +74,103 @@ beforeEach(() => {
   tables.kalakritiCompetitionCategory.findFirst.mockResolvedValue({
     editionId: "edition",
     retiredAt: null,
+  });
+});
+
+describe("per-file music download authorization", () => {
+  const record = {
+    centerId: "center",
+    competitionCategoryId: "category",
+    competitionId: "competition",
+    editionYear: 2166,
+    filename: "second.m4a",
+    key: "legacy-prefix/kalakriti-music/edition/entry/second.m4a",
+  };
+
+  beforeEach(() => {
+    tables.kalakritiEntryMusic.findFirst.mockResolvedValue({
+      id: "music-2",
+      entryId: "entry",
+      editionId: "edition",
+      fileName: record.filename,
+      objectKey: record.key,
+    });
+    tables.kalakritiEdition.findFirst.mockResolvedValue({ year: 2166 });
+  });
+
+  it("resolves the exact child, preserves its legacy object key and scopes its parent", async () => {
+    expect(await loadKalakritiEntryMusicRecord("music-2")).toEqual(record);
+    const dialect = new PgDialect();
+    const fileQuery =
+      tables.kalakritiEntryMusic.findFirst.mock.calls.at(0)?.[0];
+    const entryQuery =
+      tables.kalakritiCompetitionEntry.findFirst.mock.calls.at(0)?.[0];
+    if (!(fileQuery && entryQuery))
+      throw new Error("Expected child and parent queries");
+    expect(dialect.sqlToQuery(fileQuery.where).params).toEqual(["music-2"]);
+    expect(dialect.sqlToQuery(entryQuery.where).params).toEqual([
+      "entry",
+      "edition",
+    ]);
+  });
+
+  it("does not fall back to a singleton for a missing or deleted child", async () => {
+    tables.kalakritiEntryMusic.findFirst.mockResolvedValue(undefined);
+    expect(await loadKalakritiEntryMusicRecord("entry")).toBeNull();
+    expect(tables.kalakritiCompetitionEntry.findFirst).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "kalakritiCompetitionEntry",
+    "kalakritiEdition",
+    "kalakritiCompetitionDivision",
+    "kalakritiCompetition",
+  ] as const)("fails closed when %s is absent", async (table) => {
+    tables[table].findFirst.mockResolvedValue(undefined);
+    expect(await loadKalakritiEntryMusicRecord("music-2")).toBeNull();
+  });
+
+  it("keeps persisted playback available when new uploads are disabled", async () => {
+    tables.kalakritiCompetition.findFirst.mockResolvedValue({
+      ...competition,
+      musicUploadEnabled: false,
+    });
+    expect(await loadKalakritiEntryMusicRecord("music-2")).toEqual(record);
+  });
+
+  const allowedScopes: KalakritiRegistrationScope[] = [
+    { kind: "edition" },
+    { kind: "center", centerIds: ["center"] },
+    { kind: "competition_category", competitionCategoryIds: ["category"] },
+    { kind: "competition_category", competitionCategoryIds: null },
+    { kind: "competition", competitionIds: ["competition"] },
+  ];
+  it.each(allowedScopes)(
+    "allows a matching $kind read scope without requiring music-write permission",
+    async (scope) => {
+      resolveScope.mockResolvedValue({ editionId: "edition", scopes: [scope] });
+      expect(await canReadKalakritiEntryMusic(input.user, record)).toBe(true);
+      expect(resolveScope).toHaveBeenCalledWith({
+        sessionUser: input.user,
+        year: 2166,
+      });
+      expect(permissions).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([
+    null,
+    { scopes: [] },
+    { scopes: [{ kind: "center", centerIds: ["other"] }] },
+    {
+      scopes: [
+        { kind: "competition_category", competitionCategoryIds: ["other"] },
+      ],
+    },
+    { scopes: [{ kind: "competition", competitionIds: ["other"] }] },
+  ])("denies absent or unrelated registration scopes", async (resolved) => {
+    resolveScope.mockResolvedValue(resolved);
+    expect(await canReadKalakritiEntryMusic(input.user, record)).toBe(false);
   });
 });
 

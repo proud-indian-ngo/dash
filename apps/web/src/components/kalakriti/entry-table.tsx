@@ -136,8 +136,12 @@ export function EntryTable({
     fileName: string;
   } | null>(null);
   const showMusic =
-    showMusicProp ??
-    data.some((entry) => entry.session.competition.musicUploadEnabled);
+    showMusicProp ||
+    data.some(
+      (entry) =>
+        entry.session.competition.musicUploadEnabled ||
+        entry.musicFiles.length > 0
+    );
   const columns: DataGridColumnDef<KalakritiEntryRow>[] = [
     {
       accessorFn: (row) =>
@@ -274,24 +278,20 @@ export function EntryTable({
     ...(showMusic
       ? [
           {
-            accessorFn: (row: KalakritiEntryRow) => row.musicFileName ?? "",
-            cell: ({ row }: { row: { original: KalakritiEntryRow } }) =>
-              row.original.session.competition.musicUploadEnabled ? (
-                <EntryMusicCell
-                  canWrite={uploadMusic}
-                  musicFileName={row.original.musicFileName}
-                  onEdit={() => setMusicEntry(row.original)}
-                  onPlay={() => {
-                    if (row.original.musicFileName)
-                      setPlaybackEntry({
-                        id: row.original.id,
-                        fileName: row.original.musicFileName,
-                      });
-                  }}
-                />
-              ) : (
-                <span className="text-muted-foreground text-sm">—</span>
-              ),
+            accessorFn: (row: KalakritiEntryRow) => row.musicFiles.length,
+            cell: ({ row }: { row: { original: KalakritiEntryRow } }) => (
+              <EntryMusicCell
+                canWrite={
+                  uploadMusic &&
+                  (row.original.session.competition.musicUploadEnabled ===
+                    true ||
+                    row.original.musicFiles.length > 0)
+                }
+                musicFiles={row.original.musicFiles}
+                onEdit={() => setMusicEntry(row.original)}
+                onPlay={setPlaybackEntry}
+              />
+            ),
             header: ({ column }) => (
               <DataGridColumnHeader
                 column={column}
@@ -359,7 +359,10 @@ export function EntryTable({
           divisionId={musicEntry.sessionId}
           editionId={editionId}
           entryId={musicEntry.id}
-          musicFileName={musicEntry.musicFileName}
+          musicFiles={musicEntry.musicFiles}
+          allowAdditions={
+            musicEntry.session.competition.musicUploadEnabled === true
+          }
           onOpenChange={(open) => {
             if (!open) setMusicEntry(null);
           }}

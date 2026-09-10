@@ -554,6 +554,20 @@
       "when": 1788947807207,
       "tag": "0078_watery_revanche",
       "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1789042404965,
+      "tag": "0079_mighty_kronos",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1789042405866,
+      "tag": "0080_gray_punisher",
+      "breakpoints": true
     }
   ]
 }

@@ -13,12 +13,15 @@ import {
   kalakritiEdition,
   kalakritiEditionMembership,
   kalakritiEntryMember,
+  kalakritiEntryMusic,
   kalakritiStudent,
   kalakritiVenue,
 } from "@pi-dash/db/schema/kalakriti";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
 import { S3Client } from "bun";
 import { eq } from "drizzle-orm";
+
+import { backfillKalakritiEntryMusic } from "../../../scripts/backfill-kalakriti-entry-music";
 
 const FIXTURES = {
   admin: {
@@ -96,6 +99,9 @@ type FixtureKind = keyof typeof FIXTURES;
 
 async function cleanup(kind: FixtureKind): Promise<void> {
   const fixture = FIXTURES[kind];
+  await db
+    .delete(kalakritiEntryMusic)
+    .where(eq(kalakritiEntryMusic.editionId, fixture.editionId));
   await db
     .delete(kalakritiEntryMember)
     .where(eq(kalakritiEntryMember.editionId, fixture.editionId));
@@ -409,18 +415,17 @@ async function setup(kind: FixtureKind, actorEmail: string) {
     entryId: fixture.membershipId,
     centerId: fixture.centerId,
     divisionId: fixture.groupSessionId,
+    individualDivisionId: fixture.sessionId,
     studentIds: fixture.studentIds,
   };
 }
 
 async function readState(kind: FixtureKind) {
   const fixture = FIXTURES[kind];
-  const [entries, audits, members] = await Promise.all([
+  const [entries, audits, members, musicFiles] = await Promise.all([
     db
       .select({
         id: kalakritiCompetitionEntry.id,
-        musicFileName: kalakritiCompetitionEntry.musicFileName,
-        musicObjectKey: kalakritiCompetitionEntry.musicObjectKey,
       })
       .from(kalakritiCompetitionEntry)
       .where(eq(kalakritiCompetitionEntry.editionId, fixture.editionId)),
@@ -435,8 +440,12 @@ async function readState(kind: FixtureKind) {
       })
       .from(kalakritiEntryMember)
       .where(eq(kalakritiEntryMember.editionId, fixture.editionId)),
+    db
+      .select()
+      .from(kalakritiEntryMusic)
+      .where(eq(kalakritiEntryMusic.editionId, fixture.editionId)),
   ]);
-  return { audits, entries, members };
+  return { audits, entries, members, musicFiles };
 }
 
 const [action, kindArgument, email] = process.argv.slice(2);
@@ -448,7 +457,11 @@ if (!(fixtureKind in FIXTURES)) {
 let result: unknown;
 if (action === "setup" && email) {
   result = await setup(fixtureKind, email);
-} else if (action === "music-cleanup-r2" && fixtureKind !== "admin" && email) {
+} else if (
+  (action === "music-cleanup-r2" || action === "music-r2-state") &&
+  fixtureKind !== "admin" &&
+  email
+) {
   const database = new URL(process.env.DATABASE_URL!);
   if (!["localhost", "127.0.0.1", "[::1]"].includes(database.hostname))
     throw new Error("Music cleanup requires local E2E database");
@@ -462,7 +475,7 @@ if (action === "setup" && email) {
   const prefix = process.env.R2_KEY_PREFIX ?? "attachments";
   if (
     !Array.isArray(keys) ||
-    keys.length > 10 ||
+    keys.length > 30 ||
     keys.some(
       (key) =>
         typeof key !== "string" ||
@@ -471,7 +484,7 @@ if (action === "setup" && email) {
           (key.startsWith(
             `${prefix}/kalakriti-music/tmp/${membership.userId}/`
           ) &&
-            /-(music-initial|music-replacement|track|remix)\.mp3$/.test(key))
+            /-(music-[a-z-]+|track|remix)\.mp3$/.test(key))
         )
     )
   )
@@ -482,12 +495,75 @@ if (action === "setup" && email) {
     bucket: process.env.R2_BUCKET_NAME!,
     endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
   });
-  for (const key of keys as string[]) {
-    await client.delete(key);
-    if (await client.exists(key))
-      throw new Error("Test music cleanup did not finish");
+  if (action === "music-r2-state") {
+    result = await Promise.all(
+      (keys as string[]).map(async (key) => ({
+        key,
+        exists: await client.exists(key),
+      }))
+    );
+  } else {
+    for (const key of keys as string[]) {
+      await client.delete(key);
+      if (await client.exists(key))
+        throw new Error("Test music cleanup did not finish");
+    }
+    result = { removed: keys.length };
   }
-  result = { removed: keys.length };
+} else if (action === "music-backfill" && fixtureKind === "music") {
+  const database = new URL(process.env.DATABASE_URL!);
+  if (
+    !["localhost", "127.0.0.1", "[::1]"].includes(database.hostname) ||
+    database.pathname !== "/pi-dash-test"
+  )
+    throw new Error("Backfill probe requires the isolated local E2E database");
+  const fixture = FIXTURES.music;
+  const entryId = fixture.membershipId;
+  const [entry] = await db
+    .select()
+    .from(kalakritiCompetitionEntry)
+    .where(eq(kalakritiCompetitionEntry.id, entryId));
+  if (!entry) throw new Error("Missing backfill fixture Entry");
+  const legacy = {
+    musicObjectKey: `attachments/kalakriti-music/${fixture.editionId}/${entryId}/legacy.mp3`,
+    musicFileName: "legacy.mp3",
+    musicMimeType: "audio/mpeg",
+    musicByteSize: 1234,
+    musicUploadedAt: new Date("2026-01-02T03:04:05.000Z"),
+    musicUploadedBy: entry.createdBy,
+  };
+  await db
+    .update(kalakritiCompetitionEntry)
+    .set({ ...legacy, musicMimeType: "image/png" })
+    .where(eq(kalakritiCompetitionEntry.id, entryId));
+  const malformed = await backfillKalakritiEntryMusic(db, { apply: true });
+  const malformedState = await readState(fixtureKind);
+  await db
+    .update(kalakritiCompetitionEntry)
+    .set(legacy)
+    .where(eq(kalakritiCompetitionEntry.id, entryId));
+  const dryRun = await backfillKalakritiEntryMusic(db, { apply: false });
+  const dryRunState = await readState(fixtureKind);
+  const applied = await backfillKalakritiEntryMusic(db, { apply: true });
+  const appliedState = await readState(fixtureKind);
+  const repeated = await backfillKalakritiEntryMusic(db, { apply: true });
+  const repeatedState = await readState(fixtureKind);
+  const [cleared] = await db
+    .select()
+    .from(kalakritiCompetitionEntry)
+    .where(eq(kalakritiCompetitionEntry.id, entryId));
+  result = {
+    legacy,
+    malformed,
+    malformedState,
+    dryRun,
+    dryRunState,
+    applied,
+    appliedState,
+    repeated,
+    repeatedState,
+    cleared,
+  };
 } else if (action === "music-refresh" && fixtureKind === "music") {
   await db
     .update(kalakritiStudent)

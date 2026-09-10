@@ -1,0 +1,1 @@
+ALTER TABLE "kalakriti_competition_entry" ADD CONSTRAINT "kalakriti_competition_entry_edition_id_uq" UNIQUE("edition_id","id");

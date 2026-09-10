@@ -16,6 +16,7 @@ export interface AsyncTask {
 }
 
 export interface CopyR2ObjectInput {
+  byteSize?: number;
   mimeType?: string;
   sourceKey: string;
   targetKey: string;

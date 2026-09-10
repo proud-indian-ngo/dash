@@ -70,6 +70,7 @@ All paths are relative to project root.
 | `routes/_app/index.tsx` | Dashboard |
 | `routes/_app/users.tsx` | User management |
 | `scripts/backfill-kalakriti-volunteer-ids.ts` (repository root) | Explicit, idempotent allocation of missing historical volunteer yearly IDs |
+| `scripts/backfill-kalakriti-entry-music.ts` (repository root) | Guarded, idempotent singleton-to-child music metadata backfill without moving R2 objects |
 | `routes/_app/reimbursements/route.tsx` | Reimbursements layout |
 | `routes/_app/reimbursements/index.tsx` | Reimbursements list (combined reimbursements + advance payments) |
 | `routes/_app/reimbursements/new.tsx` | Create reimbursement |
@@ -92,8 +93,11 @@ All paths are relative to project root.
 | `components/kalakriti/use-transport-status-snapshot.ts` | Keeps Student/Center transport labels tied to complete, scoped query snapshots without hiding the base table |
 | `components/kalakriti/center-transport-section.tsx` | Transport Lead/admin vehicle management and deletion confirmation, with derived Center-stage status and scoped viewing for Guardians and Center Liaisons |
 | `components/kalakriti/center-transport-form-dialog.tsx` | Scoped vehicle creation/editing form; archived Editions remain read-only |
-| `components/kalakriti/entry-music-dialog.tsx` | Separate staged music upload/replacement/removal form for existing Entries, including after registration closes |
-| `components/kalakriti/entry-music-playback-dialog.tsx` | Table-owned audio playback and protected download, available independently of music-edit permission |
+| `components/kalakriti/entry-music-dialog.tsx` | Staged additions and per-file removals for up to two Entry music files, including after registration closes |
+| `components/kalakriti/entry-music-field.tsx` | Multi-select/drop audio uploads with per-file status, removal, and partial-failure retries |
+| `components/kalakriti/entry-music-upload.ts` | Audio MIME resolution, bounded upload claims, and temporary-object discard helpers |
+| `components/kalakriti/entry-music-playback-dialog.tsx` | Table-owned per-file audio playback and protected download, available independently of music-edit permission |
+| `packages/zero/src/mutators/kalakriti-entry-music-cleanup.ts` (repository root) | Removes child music rows and queues reference-checked cleanup when an Entry or Student is deleted |
 | `lib/dev/api-media-dev-middleware.ts` | Vite-only API media request normalization so Nitro routes native image/audio/video requests to their protected handlers |
 | `routes/api/kalakriti/$year/people/lookup.ts` | Session- and Edition-admin-protected person lookup by database or yearly ID |
 | `packages/shared/src/kalakriti-person-qr.ts` (repository root) | Strict bounded parser for detail-sheet JSON person identifiers |
