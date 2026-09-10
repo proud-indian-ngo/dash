@@ -1,6 +1,7 @@
 import {
   ALLOWED_KALAKRITI_MUSIC_TYPES,
   MAX_KALAKRITI_MUSIC_SIZE_BYTES,
+  MAX_KALAKRITI_MUSIC_FILES,
 } from "@pi-dash/shared/constants";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
@@ -8,6 +9,7 @@ import z from "zod";
 import type { Context } from "../context";
 import { assertIsLoggedIn } from "../permissions";
 import { zql } from "../schema";
+import { enqueueEntryMusicCleanup } from "./kalakriti-entry-music-cleanup";
 import { assertCanManageKalakritiCenterRegistration } from "./kalakriti-registration-access";
 import {
   getAgeCategoryForUpdate,
@@ -34,6 +36,7 @@ type ZeroMutationFn = BivariantZeroMutation["bivarianceHack"];
 interface EntryTx extends LockableKalakritiTx {
   mutate: {
     kalakritiAuditEntry: { insert: ZeroMutationFn };
+    kalakritiEntryMusic: { insert: ZeroMutationFn; delete: ZeroMutationFn };
     kalakritiCompetitionEntry: {
       delete: ZeroMutationFn;
       insert: ZeroMutationFn;
@@ -76,6 +79,7 @@ interface ExistingEntryMembership {
 }
 
 export const entryMusicClaimSchema = z.object({
+  id: z.string().uuid(),
   byteSize: z.number().int().positive().max(MAX_KALAKRITI_MUSIC_SIZE_BYTES),
   fileName: z.string().trim().min(1).max(255),
   mimeType: z.enum(ALLOWED_KALAKRITI_MUSIC_TYPES),
@@ -89,15 +93,12 @@ export const entryCreateSchema = z.object({
   editionId: z.string(),
   entryId: z.string(),
   memberId: z.string(),
-  music: entryMusicClaimSchema.optional(),
+  music: z
+    .array(entryMusicClaimSchema)
+    .max(MAX_KALAKRITI_MUSIC_FILES)
+    .optional(),
   now: z.number(),
   studentId: z.string(),
-});
-
-export const entryAttachMusicSchema = entryMusicClaimSchema.extend({
-  auditEntryId: z.string(),
-  entryId: z.string(),
-  now: z.number(),
 });
 
 export const entryRemoveSchema = z.object({
@@ -118,7 +119,10 @@ export const entryCreateGroupSchema = z.object({
   editionId: z.string(),
   entryId: z.string(),
   members: z.array(entryGroupMemberSchema),
-  music: entryMusicClaimSchema.optional(),
+  music: z
+    .array(entryMusicClaimSchema)
+    .max(MAX_KALAKRITI_MUSIC_FILES)
+    .optional(),
   now: z.number(),
 });
 
@@ -165,81 +169,52 @@ function claimEntryMusicKey(
     editionId: string;
     entryId: string;
     mimeType: string;
-    mutator: string;
+    byteSize: number;
     objectKey: string;
-    previousObjectKey?: null | string;
   }
 ): string {
-  const claimedKey = claimUploadedR2ObjectKey(
+  return claimUploadedR2ObjectKey(
     input.objectKey,
     createR2ClaimOptions(ctx, txLocation, {
       durablePrefix: `${input.editionId}/${input.entryId}`,
       mimeType: input.mimeType,
+      byteSize: input.byteSize,
       subfolder: "kalakriti-music",
     })
   );
-  if (input.previousObjectKey && input.previousObjectKey !== claimedKey) {
-    enqueueDeleteR2Object(ctx, txLocation, input.previousObjectKey, {
-      keyPrefixes: [`kalakriti-music/${input.editionId}/${input.entryId}/`],
-      meta: { mutator: input.mutator },
-    });
-  }
-  return claimedKey;
 }
 
-function resolveCreateMusic(
+async function insertMusic(
+  tx: EntryTx,
   ctx: Context,
-  txLocation: string,
   input: {
     editionId: string;
     entryId: string;
-    music?: {
-      byteSize: number;
-      fileName: string;
-      mimeType: string;
-      objectKey: string;
-    };
-    mutator: string;
     now: number;
-  }
+    music?: z.infer<typeof entryMusicClaimSchema>[];
+  },
+  occupiedSlots: number[] = []
 ) {
-  if (!input.music) {
-    return null;
-  }
-  return {
-    byteSize: input.music.byteSize,
-    fileName: input.music.fileName,
-    mimeType: input.music.mimeType,
-    objectKey: claimEntryMusicKey(ctx, txLocation, {
+  for (const music of input.music ?? []) {
+    const slot = [1, 2].find((candidate) => !occupiedSlots.includes(candidate));
+    if (!slot) throw new Error("An Entry can have at most two music files");
+    occupiedSlots.push(slot);
+    // biome-ignore lint/performance/noAwaitInLoops: reserve each slot transactionally
+    await tx.mutate.kalakritiEntryMusic.insert({
+      ...music,
       editionId: input.editionId,
       entryId: input.entryId,
-      mimeType: input.music.mimeType,
-      mutator: input.mutator,
-      objectKey: input.music.objectKey,
-    }),
-    uploadedAt: input.now,
-    uploadedBy: ctx.userId,
-  };
-}
-
-function musicColumnValues(
-  music: {
-    byteSize: number;
-    fileName: string;
-    mimeType: string;
-    objectKey: string;
-    uploadedAt: number;
-    uploadedBy: string;
-  } | null
-) {
-  return {
-    musicByteSize: music?.byteSize ?? null,
-    musicFileName: music?.fileName ?? null,
-    musicMimeType: music?.mimeType ?? null,
-    musicObjectKey: music?.objectKey ?? null,
-    musicUploadedAt: music?.uploadedAt ?? null,
-    musicUploadedBy: music?.uploadedBy ?? null,
-  };
+      slot,
+      objectKey: claimEntryMusicKey(ctx, tx.location, {
+        ...input,
+        mimeType: music.mimeType,
+        byteSize: music.byteSize,
+        objectKey: music.objectKey,
+      }),
+      uploadedAt: input.now,
+      uploadedBy: ctx.userId,
+    });
+  }
 }
 
 async function lockEntryContext(
@@ -576,7 +551,7 @@ export const kalakritiEntryMutators = {
         division,
         "individual"
       );
-      if (args.music) {
+      if (args.music?.length) {
         assertMusicUploadEnabled(competition);
       }
       assertStudentEligibility(student, division, competition);
@@ -613,13 +588,6 @@ export const kalakritiEntryMutators = {
       }
       assertNoScheduleConflict(existingMemberships, divisionSessions);
 
-      const music = resolveCreateMusic(ctx, tx.location, {
-        editionId: edition.id,
-        entryId: args.entryId,
-        music: args.music,
-        mutator: "kalakritiEntry.createIndividual",
-        now: args.now,
-      });
       await tx.mutate.kalakritiCompetitionEntry.insert({
         centerId: center.id,
         createdAt: args.now,
@@ -630,8 +598,8 @@ export const kalakritiEntryMutators = {
         participationMode: "individual",
         updatedAt: args.now,
         updatedBy: ctx.userId,
-        ...musicColumnValues(music),
       });
+      await insertMusic(tx, ctx, args);
       await tx.mutate.kalakritiEntryMember.insert({
         centerId: center.id,
         createdAt: args.now,
@@ -653,7 +621,7 @@ export const kalakritiEntryMutators = {
           centerId: center.id,
           competitionId: competition.id,
           divisionId: division.id,
-          musicPresent: Boolean(music),
+          musicPresent: Boolean(args.music?.length),
           studentId: student.id,
         },
         reason: null,
@@ -685,7 +653,7 @@ export const kalakritiEntryMutators = {
         "group"
       );
       assertUniqueGroupMembers(args.members, competition);
-      if (args.music) {
+      if (args.music?.length) {
         assertMusicUploadEnabled(competition);
       }
       await lockAndValidateGroupMembers(
@@ -696,13 +664,6 @@ export const kalakritiEntryMutators = {
         division,
         competition
       );
-      const music = resolveCreateMusic(ctx, tx.location, {
-        editionId: edition.id,
-        entryId: args.entryId,
-        music: args.music,
-        mutator: "kalakritiEntry.createGroup",
-        now: args.now,
-      });
       await tx.mutate.kalakritiCompetitionEntry.insert({
         centerId: center.id,
         createdAt: args.now,
@@ -713,8 +674,8 @@ export const kalakritiEntryMutators = {
         participationMode: "group",
         updatedAt: args.now,
         updatedBy: ctx.userId,
-        ...musicColumnValues(music),
       });
+      await insertMusic(tx, ctx, args);
       await Promise.all(
         args.members.map((member) =>
           tx.mutate.kalakritiEntryMember.insert({
@@ -740,7 +701,7 @@ export const kalakritiEntryMutators = {
           centerId: center.id,
           competitionId: competition.id,
           divisionId: division.id,
-          musicPresent: Boolean(music),
+          musicPresent: Boolean(args.music?.length),
           studentIds: args.members.map((member) => member.studentId),
         },
         reason: null,
@@ -909,6 +870,7 @@ export const kalakritiEntryMutators = {
     ) {
       throw new Error("Student has event-day operations and cannot be deleted");
     }
+    await enqueueEntryMusicCleanup(tx, ctx, args.entryId, edition.id);
     if (entry.musicObjectKey) {
       enqueueDeleteR2Object(ctx, tx.location, entry.musicObjectKey, {
         keyPrefixes: [`kalakriti-music/${edition.id}/${args.entryId}/`],
@@ -939,22 +901,19 @@ export const kalakritiEntryMutators = {
     });
   }),
 
-  attachOrReplaceMusic: defineMutator(
-    entryAttachMusicSchema,
+  updateMusic: defineMutator(
+    z.object({
+      entryId: z.string(),
+      auditEntryId: z.string(),
+      now: z.number(),
+      music: z.array(entryMusicClaimSchema).max(MAX_KALAKRITI_MUSIC_FILES),
+      removeMusicFileIds: z.array(z.string()).max(MAX_KALAKRITI_MUSIC_FILES),
+    }),
     async ({ tx, ctx, args }) => {
-      const snapshot = (await tx.run(
+      const snapshot = await tx.run(
         zql.kalakritiCompetitionEntry.where("id", args.entryId).one()
-      )) as
-        | {
-            centerId: string;
-            divisionId: string;
-            editionId: string;
-            musicObjectKey: null | string;
-          }
-        | undefined;
-      if (!snapshot) {
-        throw new Error("Competition Entry not found");
-      }
+      );
+      if (!snapshot) throw new Error("Competition Entry not found");
       const { edition } = await lockEntryContext(
         tx,
         ctx,
@@ -962,33 +921,66 @@ export const kalakritiEntryMutators = {
         snapshot.centerId,
         "music"
       );
+      const entry = await tx.run(
+        zql.kalakritiCompetitionEntry
+          .where("id", args.entryId)
+          .related("musicFiles")
+          .one()
+      );
+      if (!entry) throw new Error("Competition Entry not found");
       const competition = await loadMusicCompetition(
         tx,
         edition.id,
-        snapshot.divisionId
+        entry.divisionId
       );
-      assertMusicUploadEnabled(competition);
+      if (args.music.length) assertMusicUploadEnabled(competition);
       assertIsLoggedIn(ctx);
-      const objectKey = claimEntryMusicKey(ctx, tx.location, {
-        editionId: edition.id,
-        entryId: args.entryId,
-        mimeType: args.mimeType,
-        mutator: "kalakritiEntry.attachOrReplaceMusic",
-        objectKey: args.objectKey,
-        previousObjectKey: snapshot.musicObjectKey,
-      });
+      if (entry.musicObjectKey)
+        throw new Error("Legacy music must be backfilled before editing");
+      if (
+        new Set(args.music.map((file) => file.id)).size !== args.music.length ||
+        new Set(args.music.map((file) => file.objectKey)).size !==
+          args.music.length ||
+        new Set(args.removeMusicFileIds).size !== args.removeMusicFileIds.length
+      ) {
+        throw new Error("Music file IDs and upload keys must be unique");
+      }
+      if (
+        args.music.some((file) =>
+          entry.musicFiles.some((existing) => existing.id === file.id)
+        )
+      ) {
+        throw new Error("New music files must use new IDs");
+      }
+      const removed = entry.musicFiles.filter((file) =>
+        args.removeMusicFileIds.includes(file.id)
+      );
+      if (removed.length !== args.removeMusicFileIds.length)
+        throw new Error("Music file no longer exists on this Entry");
+      const retained = entry.musicFiles.filter(
+        (file) => !args.removeMusicFileIds.includes(file.id)
+      );
+      if (retained.length + args.music.length > MAX_KALAKRITI_MUSIC_FILES)
+        throw new Error("An Entry can have at most two music files");
+      await Promise.all(
+        removed.map(async (file) => {
+          await tx.mutate.kalakritiEntryMusic.delete({ id: file.id });
+          enqueueDeleteR2Object(ctx, tx.location, file.objectKey, {
+            keyPrefixes: [`kalakriti-music/${edition.id}/${args.entryId}/`],
+            meta: { mutator: "kalakritiEntry.updateMusic" },
+          });
+        })
+      );
+      await insertMusic(
+        tx,
+        ctx,
+        { ...args, editionId: edition.id },
+        retained.map((file) => file.slot)
+      );
       await tx.mutate.kalakritiCompetitionEntry.update({
         id: args.entryId,
         updatedAt: args.now,
         updatedBy: ctx.userId,
-        ...musicColumnValues({
-          byteSize: args.byteSize,
-          fileName: args.fileName,
-          mimeType: args.mimeType,
-          objectKey,
-          uploadedAt: args.now,
-          uploadedBy: ctx.userId,
-        }),
       });
       await tx.mutate.kalakritiAuditEntry.insert({
         action: "updated",
@@ -998,10 +990,9 @@ export const kalakritiEntryMutators = {
         editionId: edition.id,
         id: args.auditEntryId,
         metadata: {
-          centerId: snapshot.centerId,
-          competitionId: competition.id,
-          divisionId: snapshot.divisionId,
-          musicPresent: true,
+          centerId: entry.centerId,
+          divisionId: entry.divisionId,
+          musicPresent: retained.length + args.music.length > 0,
         },
         reason: null,
         targetId: args.entryId,
@@ -1009,58 +1000,4 @@ export const kalakritiEntryMutators = {
       });
     }
   ),
-
-  removeMusic: defineMutator(entryRemoveSchema, async ({ tx, ctx, args }) => {
-    const snapshot = (await tx.run(
-      zql.kalakritiCompetitionEntry.where("id", args.entryId).one()
-    )) as
-      | {
-          centerId: string;
-          divisionId: string;
-          editionId: string;
-          musicObjectKey: null | string;
-        }
-      | undefined;
-    if (!snapshot) {
-      throw new Error("Competition Entry not found");
-    }
-    const { edition } = await lockEntryContext(
-      tx,
-      ctx,
-      snapshot.editionId,
-      snapshot.centerId,
-      "music"
-    );
-    await loadMusicCompetition(tx, edition.id, snapshot.divisionId);
-    if (!snapshot.musicObjectKey) {
-      throw new Error("No music file on this Entry");
-    }
-    assertIsLoggedIn(ctx);
-    enqueueDeleteR2Object(ctx, tx.location, snapshot.musicObjectKey, {
-      keyPrefixes: [`kalakriti-music/${edition.id}/${args.entryId}/`],
-      meta: { mutator: "kalakritiEntry.removeMusic" },
-    });
-    await tx.mutate.kalakritiCompetitionEntry.update({
-      id: args.entryId,
-      updatedAt: args.now,
-      updatedBy: ctx.userId,
-      ...musicColumnValues(null),
-    });
-    await tx.mutate.kalakritiAuditEntry.insert({
-      action: "updated",
-      actorUserId: ctx.userId,
-      createdAt: args.now,
-      domain: "entry_registration",
-      editionId: edition.id,
-      id: args.auditEntryId,
-      metadata: {
-        centerId: snapshot.centerId,
-        divisionId: snapshot.divisionId,
-        musicPresent: false,
-      },
-      reason: null,
-      targetId: args.entryId,
-      targetType: "competition_entry",
-    });
-  }),
 };

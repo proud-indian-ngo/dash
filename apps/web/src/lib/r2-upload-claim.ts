@@ -25,6 +25,7 @@ interface CopyR2ObjectDeps {
 const defaultDeps: CopyR2ObjectDeps = { getS3 };
 
 export interface CopyR2ObjectInput {
+  byteSize?: number;
   mimeType?: string;
   sourceKey: string;
   targetKey: string;
@@ -125,6 +126,16 @@ export async function copyR2Object(
 ): Promise<void> {
   const s3 = await deps.getS3();
   if (await s3.exists(input.targetKey)) {
+    if (input.byteSize !== undefined) {
+      const target = await s3.stat(input.targetKey);
+      if (
+        target.size !== input.byteSize ||
+        (input.mimeType &&
+          normalizeMimeType(target.type) !== normalizeMimeType(input.mimeType))
+      ) {
+        throw new Error("Upload metadata mismatch");
+      }
+    }
     return;
   }
   if (!(await s3.exists(input.sourceKey))) {
@@ -145,6 +156,9 @@ export async function copyR2Object(
       : !MIME_TYPE_PATTERN.test(storedMimeType)
   ) {
     throw new Error(`Unsupported upload type: ${storedMimeType}`);
+  }
+  if (input.byteSize !== undefined && source.size !== input.byteSize) {
+    throw new Error("Upload byte size mismatch");
   }
   if (source.size <= 0) {
     throw new Error("Upload is empty");

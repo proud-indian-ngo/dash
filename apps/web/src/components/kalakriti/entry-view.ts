@@ -29,7 +29,7 @@ interface EntrySource {
     };
     studentId: string;
   }[];
-  musicFileName?: string | null;
+  musicFiles?: readonly { id: string; fileName: string }[];
   participationMode: "group" | "individual";
 }
 
@@ -103,7 +103,7 @@ export function buildKalakritiEntryRows(
           {
             id: entry.id,
             members,
-            musicFileName: entry.musicFileName ?? null,
+            musicFiles: entry.musicFiles ?? [],
             participationMode: entry.participationMode,
             session,
             sessionId: entry.divisionId,

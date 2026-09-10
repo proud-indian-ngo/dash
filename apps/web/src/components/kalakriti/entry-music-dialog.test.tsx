@@ -3,20 +3,22 @@ import { beforeEach, describe, expect, it, mock } from "bun:test";
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
+interface Claim {
+  id: string;
+  objectKey: string;
+  fileName: string;
+  mimeType: "audio/mpeg";
+  byteSize: number;
+}
 interface Values {
-  music: {
-    objectKey: string;
-    fileName: string;
-    mimeType: "audio/mpeg";
-    byteSize: number;
-  } | null;
-  removeExisting: boolean;
+  music: Claim[];
+  removeMusicFileIds: string[];
 }
 let submit: (args: { value: Values }) => Promise<void>;
 let cancel: () => Promise<void>;
 let state = {
   isSubmitting: false,
-  values: { music: null, removeExisting: false } as Values,
+  values: { music: [], removeMusicFileIds: [] } as Values,
 };
 const mutate = mock(() => ({ server: Promise.resolve({ type: "success" }) }));
 const deleteUpload = mock(() => Promise.resolve());
@@ -41,8 +43,7 @@ mock.module("@/functions/attachments", () => ({
 mock.module("@pi-dash/zero/mutators", () => ({
   mutators: {
     kalakritiEntry: {
-      attachOrReplaceMusic: (args: unknown) => ({ name: "attach", args }),
-      removeMusic: (args: unknown) => ({ name: "remove", args }),
+      updateMusic: (args: unknown) => ({ name: "updateMusic", args }),
     },
   },
 }));
@@ -51,8 +52,13 @@ mock.module("@tanstack/react-form", () => ({
     submit = options.onSubmit;
     return {
       state,
-      Subscribe: ({ children }: { children: (busy: boolean) => ReactNode }) =>
-        children(state.isSubmitting),
+      Subscribe: ({
+        selector,
+        children,
+      }: {
+        selector: (value: typeof state) => unknown;
+        children: (value: unknown) => ReactNode;
+      }) => children(selector(state)),
     };
   },
 }));
@@ -75,11 +81,17 @@ mock.module("@/lib/mutation-result", () => ({
   handleMutationResult: () => undefined,
 }));
 const { EntryMusicDialog } = await import("./entry-music-dialog");
-const claim = {
+const claim: Claim = {
+  id: "new-file",
   objectKey: "attachments/kalakriti-music/tmp/user/new.mp3",
   fileName: "new.mp3",
-  mimeType: "audio/mpeg" as const,
+  mimeType: "audio/mpeg",
   byteSize: 20,
+};
+const second: Claim = {
+  ...claim,
+  id: "second",
+  objectKey: "attachments/kalakriti-music/tmp/user/second.mp3",
 };
 function render() {
   return renderToStaticMarkup(
@@ -88,7 +100,7 @@ function render() {
       divisionId="division"
       editionId="edition"
       entryId="entry"
-      musicFileName="current.mp3"
+      musicFiles={[{ id: "current", fileName: "current.mp3" }]}
       onOpenChange={close}
     />
   );
@@ -99,21 +111,26 @@ beforeEach(() => {
   close.mockClear();
   state = {
     isSubmitting: false,
-    values: { music: null, removeExisting: false },
+    values: { music: [], removeMusicFileIds: [] },
   };
 });
-
 describe("existing Entry music form", () => {
-  it("opens a dedicated form without changing the persisted attachment", () => {
+  it("opens without changing persisted attachments", () => {
     expect(render()).toContain("Edit music");
     expect(mutate).not.toHaveBeenCalled();
   });
-  it("saves replacement only through the music mutation", async () => {
+  it("saves additions and removals atomically", async () => {
     render();
-    await submit({ value: { music: claim, removeExisting: false } });
+    await submit({
+      value: { music: [claim, second], removeMusicFileIds: ["current"] },
+    });
     expect(mutate).toHaveBeenCalledWith({
-      name: "attach",
-      args: expect.objectContaining({ entryId: "entry", ...claim }),
+      name: "updateMusic",
+      args: expect.objectContaining({
+        entryId: "entry",
+        music: [claim, second],
+        removeMusicFileIds: ["current"],
+      }),
     });
     expect(close).toHaveBeenCalledWith(false);
     expect(deleteUpload).not.toHaveBeenCalled();
@@ -121,27 +138,35 @@ describe("existing Entry music form", () => {
   it("stages removal until Save", async () => {
     render();
     expect(mutate).not.toHaveBeenCalled();
-    await submit({ value: { music: null, removeExisting: true } });
+    await submit({ value: { music: [], removeMusicFileIds: ["current"] } });
     expect(mutate).toHaveBeenCalledWith({
-      name: "remove",
-      args: expect.objectContaining({ entryId: "entry" }),
+      name: "updateMusic",
+      args: expect.objectContaining({
+        entryId: "entry",
+        music: [],
+        removeMusicFileIds: ["current"],
+      }),
     });
   });
-  it("Cancel discards only temporary uploads and never removes persisted music", async () => {
-    state.values = { music: claim, removeExisting: true };
+  it("Cancel cleans both temporary successes, never persisted files", async () => {
+    state.values = { music: [claim, second], removeMusicFileIds: ["current"] };
     render();
     await cancel();
+    expect(deleteUpload).toHaveBeenCalledTimes(2);
     expect(deleteUpload).toHaveBeenCalledWith({
       data: { key: claim.objectKey },
+    });
+    expect(deleteUpload).toHaveBeenCalledWith({
+      data: { key: second.objectKey },
     });
     expect(mutate).not.toHaveBeenCalled();
     expect(close).toHaveBeenCalledWith(false);
   });
-  it("keeps a failed save open so the same uploaded claim can be retried", async () => {
+  it("preserves claims after failed Save for retry", async () => {
     mutate.mockImplementationOnce(() => ({
       server: Promise.resolve({ type: "error" }),
     }));
-    state.values = { music: claim, removeExisting: false };
+    state.values = { music: [claim], removeMusicFileIds: [] };
     render();
     await submit({ value: state.values });
     expect(close).not.toHaveBeenCalled();
@@ -150,13 +175,12 @@ describe("existing Entry music form", () => {
     expect(close).toHaveBeenCalledWith(false);
     expect(mutate).toHaveBeenCalledTimes(2);
   });
-  it("cancels a staged removal without touching the current file", async () => {
-    state.values.removeExisting = true;
+  it("Cancel preserves staged persisted removals", async () => {
+    state.values.removeMusicFileIds = ["current"];
     render();
     await cancel();
     expect(mutate).not.toHaveBeenCalled();
     expect(deleteUpload).not.toHaveBeenCalled();
-    expect(close).toHaveBeenCalledWith(false);
   });
   it("does not close during a pending save", async () => {
     state.isSubmitting = true;
@@ -164,5 +188,11 @@ describe("existing Entry music form", () => {
     await cancel();
     expect(close).not.toHaveBeenCalled();
     expect(deleteUpload).not.toHaveBeenCalled();
+  });
+  it("refuses a staged total above two", async () => {
+    render();
+    await submit({ value: { music: [claim, second], removeMusicFileIds: [] } });
+    expect(mutate).not.toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
   });
 });

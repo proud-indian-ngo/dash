@@ -44,9 +44,29 @@ draft -> registration_open <-> registration_locked
 
 Opening or reopening requires a complete readiness snapshot. Center Student and Entry controls are independent, bulk lock closes both controls for every Center, and every explicit reopen is audited. Registration commands require both an open Edition lifecycle and the relevant Center control. Closing Center participation registration, individually or through bulk lock, requires every registered Student to meet the Edition `minTotalCompetitions` floor, including Students with zero Entries. Centers with no Students may close. The Centers directory compliance column applies the same rule.
 
-A Competition may set `musicUploadEnabled`. Guardians, Liaisons, Edition administrators, and global `kalakriti.admin` users can manage one audio file per Entry through a separate music modal. Existing Entry music can be uploaded, replaced, or removed after Center or Edition registration closes; participant registration and editing remain locked. Music changes require the actor's existing Center/Edition scope, active Center/Competition/Category records, and a nonarchived Edition. The modal stages changes until Save; Cancel leaves the persisted attachment unchanged. The table owns the modal outside its cells so live row updates don't discard staged uploads. Clicking a saved filename opens a separate, table-owned playback modal with native audio controls and an explicit protected Download action; playback does not require music-edit permission.
+A Competition may set `musicUploadEnabled`. Guardians, Liaisons, Edition administrators, and global `kalakriti.admin` users can manage up to **two optional audio files per Entry**, each MP3, M4A, or AAC and at most 20 MB. Existing Entry music can be added or removed after Center or Edition registration closes; participant registration and editing remain locked. Music changes require the actor's existing Center/Edition scope, active Center/Competition/Category records, and a nonarchived Edition.
+
+The separate music modal accepts multi-selection and drag-and-drop, shows each file's upload status, and lets the operator retry or remove an individual failed upload without losing successful uploads. Save applies additions and explicit file removals atomically; Cancel leaves persisted files unchanged and cleans staged temporary uploads. The table owns the modal outside its cells so live row updates don't discard staged uploads. Its Music column displays a file count and individual filenames; each filename opens a table-owned playback modal with native audio controls and a protected Download action, independently of music-edit permission.
+
+`kalakritiEntryMusic` owns each file's metadata and Edition-bound Entry reference; scoped Entry queries expose the `musicFiles` relationship. `kalakritiEntry.updateMusic` accepts additions and explicit `removeMusicFileIds`, so saving an older dialog doesn't silently remove files added by another editor. The server serializes writes and checks the resulting file count before claiming objects. Creation, removal, promotion, and delayed reference-checked storage cleanup use individual file records; audit metadata contains identifiers and counts, never filenames or object keys.
 
 New-entry uploads still require open Edition and Center Entry registration. Existing-entry upload signing includes `entryId` and validates its exact Edition, Center, and Division before allowing the post-registration write window. The music flag is not participant eligibility: it can change after Entries exist until the Edition is structurally locked. Turning it off blocks new claims without revoking downloads or the backend's scoped removal permission. Anyone whose registration scope covers the Entry, including Overall Events Leads, Category Leads, and Competition Coordinators, may download. Public schedule and registration export never include music keys, filenames, or binaries.
+
+## Entry music migration
+
+Apply the two generated migrations in order: `0079_mighty_kronos.sql` adds the parent composite unique constraint, and `0080_gray_punisher.sql` adds `kalakriti_entry_music`. The child table has an Edition-composite Entry foreign key, unique object keys, and two unique slots per Entry; the database therefore also rejects a third file independently of the mutator's locked count check.
+
+Quiesce application writes and stop old application instances before the backfill and application cutover. Old singleton writers aren't compatible with the child-only music model. Against the configured database, run:
+
+```bash
+bun --env-file=.env scripts/backfill-kalakriti-entry-music.ts --dry-run
+bun --env-file=.env scripts/backfill-kalakriti-entry-music.ts --apply
+bun --env-file=.env scripts/backfill-kalakriti-entry-music.ts --dry-run
+```
+
+The script reuses the Entry's UUID for its first music row, preserves the exact object key and all file/upload metadata, and never contacts R2 or moves bytes. Under Edition and Entry locks, each successful insert clears the legacy singleton columns in the same transaction, so rerunning the backfill cannot resurrect a subsequently removed file. It includes historical Entries and archived Editions. Malformed or conflicting rows remain untouched and appear as `malformedIds`; the CLI exits nonzero until they are repaired.
+
+Review the first dry-run, repair every reported row, apply, then require the final dry-run to report `candidates: 0`, `updated: 0`, and an empty `malformedIds` array before enabling traffic. Remote targets require `--confirm-target=host:port/database` even for dry-run. Deploy the matching application and generated Zero schema together, and retain the existing music temporary-object expiry rule. After cutover, verify both backfilled and new files through protected playback/download; rolling back to singleton-only code requires a deliberate data conversion and cannot preserve two files per Entry automatically.
 
 ## Public and server-only projections
 

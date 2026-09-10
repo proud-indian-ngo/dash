@@ -44,11 +44,15 @@ Center and Division IDs authorize the upload; they never appear in the temp key.
 New-entry signing requires open registration. Existing-entry signing also accepts
 `entryId`, verifies its exact Edition/Center/Division, and allows scoped music
 changes after registration closes while rejecting archived Editions. The separate
-music modal saves through the existing transactional attachment mutators; closing
-it without saving does not replace or remove the persisted file.
+music modal stages up to two optional files, each independently limited to 20 MB,
+and saves additions/removals in one transaction. Closing it without saving leaves
+persisted files unchanged and cleans temporary uploads. A failed upload can be
+retried individually without re-uploading successful files.
 Durable keys are `<R2_KEY_PREFIX>/kalakriti-music/<editionId>/<entryId>/...`.
-Downloads use `{ id: entryId, kind: "kalakritiEntryMusic" }` and live
-registration-scope checks. The playback modal uses the inline disposition; its
+Each child music row owns one file's metadata; downloads use
+`{ id: musicFileId, kind: "kalakritiEntryMusic" }` and live registration-scope
+checks against the owning Entry. Reference-checked cleanup includes child music
+rows and retained legacy singleton references, so backfilled objects stay protected. The playback modal uses the inline disposition; its
 Download action uses attachment disposition. The proxy forwards byte ranges and
 preserves partial-response headers for playback and seeking. Do not add these
 audio types to `ALLOWED_MIME_TYPES`.

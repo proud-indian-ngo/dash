@@ -16,12 +16,18 @@ import {
   DialogTitle,
 } from "@pi-dash/design-system/components/ui/dialog";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { ALLOWED_KALAKRITI_MUSIC_TYPES } from "@pi-dash/shared/constants";
+import { isTemporaryR2Key } from "@pi-dash/shared/asset-ref";
+import {
+  ALLOWED_KALAKRITI_MUSIC_TYPES,
+  MAX_KALAKRITI_MUSIC_SIZE_BYTES,
+} from "@pi-dash/shared/constants";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
+import { useServerFn } from "@tanstack/react-start";
 import { format } from "date-fns";
-import { useState } from "react";
+import { log } from "evlog";
+import { useEffect, useRef, useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 
@@ -38,6 +44,7 @@ import {
   type EntryMusicClaim,
   EntryMusicUploadField,
 } from "@/components/kalakriti/entry-music-field";
+import { deleteTemporaryUpload } from "@/functions/attachments";
 import {
   getEntryStudentOptionEligibility,
   getGroupEntryValidationErrors,
@@ -85,7 +92,7 @@ export interface KalakritiEntryRow {
     student: KalakritiEntryStudent;
     studentId: string;
   }[];
-  musicFileName: string | null;
+  musicFiles: readonly { id: string; fileName: string }[];
   participationMode: "group" | "individual";
   session: KalakritiEntrySession;
   sessionId: string;
@@ -106,12 +113,14 @@ interface EntryFormDialogProps {
 const entryFormSchema = z.object({
   music: z
     .object({
-      byteSize: z.number().int().positive(),
+      id: z.string(),
+      byteSize: z.number().int().positive().max(MAX_KALAKRITI_MUSIC_SIZE_BYTES),
       fileName: z.string().trim().min(1),
       mimeType: z.enum(ALLOWED_KALAKRITI_MUSIC_TYPES),
       objectKey: z.string().min(1),
     })
-    .nullable(),
+    .array()
+    .max(2),
   sessionId: z.string().min(1, "Choose a Competition Session"),
   studentIds: z.array(z.string()).min(1, "Choose at least one Student"),
 });
@@ -447,10 +456,17 @@ function EntryForm({
   entry,
   fixedSession,
   onOpenChange,
+  dismissRef,
   sessions,
   students,
-}: Omit<EntryFormDialogProps, "open">) {
+}: Omit<EntryFormDialogProps, "open"> & {
+  dismissRef: { current: (() => void) | null };
+}) {
   const zero = useZero();
+  const deleteUpload = useServerFn(deleteTemporaryUpload);
+  const committed = useRef(false);
+  const [uploading, setUploading] = useState(false);
+  const [failedUploads, setFailedUploads] = useState(false);
   const studentMap = new Map(students.map((student) => [student.id, student]));
   const validationSchema = entryFormSchema.superRefine((value, context) => {
     for (const issue of getEntryValidationIssues({
@@ -471,11 +487,12 @@ function EntryForm({
   });
   const form = useForm({
     defaultValues: {
-      music: null as EntryMusicClaim | null,
+      music: [] as EntryMusicClaim[],
       sessionId: entry?.sessionId ?? fixedSession?.id ?? "",
       studentIds: entry?.members.map((member) => member.studentId) ?? [],
     },
     onSubmit: async ({ value }) => {
+      if (uploading || failedUploads) return;
       const session = sessions.find(
         (candidate) => candidate.id === value.sessionId
       );
@@ -485,6 +502,26 @@ function EntryForm({
           errorMap: {
             ...previous.errorMap,
             onServer: { message: unavailableSessionMessage },
+          },
+        }));
+        return;
+      }
+      if (
+        value.music.length &&
+        !shouldShowEntryMusicField({
+          entry,
+          session,
+          studentCount: value.studentIds.length,
+        })
+      ) {
+        form.setFieldMeta("studentIds", (previous) => ({
+          ...previous,
+          errorMap: {
+            ...previous.errorMap,
+            onServer: {
+              message:
+                "Remove staged music or select one Student in a music-enabled Competition.",
+            },
           },
         }));
         return;
@@ -527,6 +564,7 @@ function EntryForm({
       errorMsg: mutationErrorMessage ?? meta.errorMsg,
     });
     if (result.type !== "error") {
+      committed.current = true;
       onOpenChange(false);
     }
   }
@@ -559,7 +597,7 @@ function EntryForm({
     sessionId: string,
     studentIds: string[],
     now: number,
-    music: EntryMusicClaim | null
+    music: EntryMusicClaim[]
   ): Promise<void> {
     const result = await zero.mutate(
       mutators.kalakritiEntry.createGroup({
@@ -588,7 +626,7 @@ function EntryForm({
     sessionId: string,
     studentIds: string[],
     now: number,
-    music: EntryMusicClaim | null
+    music: EntryMusicClaim[]
   ): Promise<void> {
     const attachMusic = studentIds.length === 1 ? music : null;
     const results = await Promise.all(
@@ -621,124 +659,161 @@ function EntryForm({
     });
   }
 
-  const handleCancel = useEventCallback(() => onOpenChange(false));
+  const discardUploads = useEventCallback(() => {
+    if (committed.current) return;
+    for (const file of form.state.values.music) {
+      if (!isTemporaryR2Key(file.objectKey)) continue;
+      deleteUpload({ data: { key: file.objectKey } }).catch(
+        (error: unknown) => {
+          log.error({
+            component: "EntryForm",
+            action: "discardTemporaryMusic",
+            editionId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      );
+    }
+  });
+  useEffect(() => () => discardUploads(), [discardUploads]);
+  const handleCancel = useEventCallback(() => {
+    if (!uploading && !form.state.isSubmitting) onOpenChange(false);
+  });
+  useEffect(() => {
+    dismissRef.current = handleCancel;
+    return () => {
+      dismissRef.current = null;
+    };
+  }, [handleCancel, dismissRef]);
 
   return (
     <FormLayout form={form} showSubmitError>
-      {fixedSession || entry ? null : (
-        <SelectField
-          isRequired
-          label="Competition Session"
-          name="sessionId"
-          options={sessions.map((session) => ({
-            label: sessionOptionLabel(session, true),
-            value: session.id,
-          }))}
-          placeholder="Choose Session"
-        />
-      )}
-      <form.Subscribe selector={selectSessionId}>
-        {(sessionId) => {
-          const session = sessions.find(
-            (candidate) => candidate.id === sessionId
-          );
-          const isGroup = session?.competition.participationMode === "group";
-          const maximum = isGroup
-            ? (session?.competition.maximumGroupSize ?? 1)
-            : Math.max(1, students.length);
-          const options = session
-            ? students.flatMap((student): StudentComboboxOption[] => {
-                const eligibility = getEntryStudentOptionEligibility({
-                  editingEntryId: entry?.id,
-                  entries,
-                  session,
-                  student,
-                });
-                if (eligibility.status === "hidden") {
-                  return [];
-                }
-                return [
-                  {
-                    disabledReason:
-                      eligibility.status === "disabled"
-                        ? eligibility.reason
-                        : null,
+      <fieldset
+        className="grid gap-4"
+        disabled={uploading || form.state.isSubmitting}
+      >
+        {fixedSession || entry ? null : (
+          <form.Subscribe selector={(state) => state.values.music.length}>
+            {(musicCount) => (
+              <SelectField
+                disabled={musicCount > 0}
+                isRequired
+                label="Competition Session"
+                name="sessionId"
+                options={sessions.map((session) => ({
+                  label: sessionOptionLabel(session, true),
+                  value: session.id,
+                }))}
+                placeholder="Choose Session"
+              />
+            )}
+          </form.Subscribe>
+        )}
+        <form.Subscribe selector={selectSessionId}>
+          {(sessionId) => {
+            const session = sessions.find(
+              (candidate) => candidate.id === sessionId
+            );
+            const isGroup = session?.competition.participationMode === "group";
+            const maximum = isGroup
+              ? (session?.competition.maximumGroupSize ?? 1)
+              : Math.max(1, students.length);
+            const options = session
+              ? students.flatMap((student): StudentComboboxOption[] => {
+                  const eligibility = getEntryStudentOptionEligibility({
+                    editingEntryId: entry?.id,
+                    entries,
+                    session,
                     student,
-                  },
-                ];
-              })
-            : [];
-          return (
-            <StudentCombobox
-              description={
-                isGroup
-                  ? `Select ${session?.competition.minimumGroupSize ?? 1} to ${maximum} Students. Every member is checked against eligibility, limits, and schedule conflicts.`
-                  : "Select one or more eligible Students for this Session."
-              }
-              label={isGroup ? "Group members" : "Students"}
-              maximum={maximum}
-              options={options}
-            />
-          );
-        }}
-      </form.Subscribe>
-      <form.Subscribe selector={selectMusicFieldState}>
-        {({ sessionId, studentCount }) => {
-          const session = sessions.find(
-            (candidate) => candidate.id === sessionId
-          );
-          if (
-            !(
-              session &&
-              shouldShowEntryMusicField({
-                entry,
-                session,
-                studentCount,
-              })
-            )
-          ) {
-            return null;
-          }
-          const isGroup = session.competition.participationMode === "group";
-          return (
-            <CustomField<EntryMusicClaim | null>
-              description={
-                isGroup
-                  ? "Attach one optional MP3, M4A, or AAC file for this group."
-                  : "Attach one optional MP3, M4A, or AAC file for this Student."
-              }
-              label="Music"
-              name="music"
-            >
-              {(field) => (
-                <EntryMusicUploadField
-                  centerId={centerId}
-                  divisionId={session.id}
-                  editionId={editionId}
-                  onChange={field.handleChange}
-                  value={field.state.value}
-                />
-              )}
-            </CustomField>
-          );
-        }}
-      </form.Subscribe>
-      <FormActions
-        onCancel={handleCancel}
-        submitLabel={getSubmitLabel(entry, fixedSession)}
-        submittingLabel={entry ? "Saving..." : "Registering..."}
-      />
+                  });
+                  if (eligibility.status === "hidden") {
+                    return [];
+                  }
+                  return [
+                    {
+                      disabledReason:
+                        eligibility.status === "disabled"
+                          ? eligibility.reason
+                          : null,
+                      student,
+                    },
+                  ];
+                })
+              : [];
+            return (
+              <StudentCombobox
+                description={
+                  isGroup
+                    ? `Select ${session?.competition.minimumGroupSize ?? 1} to ${maximum} Students. Every member is checked against eligibility, limits, and schedule conflicts.`
+                    : "Select one or more eligible Students for this Session."
+                }
+                label={isGroup ? "Group members" : "Students"}
+                maximum={maximum}
+                options={options}
+              />
+            );
+          }}
+        </form.Subscribe>
+        <form.Subscribe selector={selectMusicFieldState}>
+          {({ sessionId, studentCount }) => {
+            const session = sessions.find(
+              (candidate) => candidate.id === sessionId
+            );
+            if (
+              !session ||
+              (!shouldShowEntryMusicField({ entry, session, studentCount }) &&
+                form.state.values.music.length === 0)
+            ) {
+              return null;
+            }
+            const isGroup = session.competition.participationMode === "group";
+            return (
+              <CustomField<EntryMusicClaim[]>
+                description={
+                  isGroup
+                    ? "Attach up to two optional MP3, M4A, or AAC files for this group, 20 MB each."
+                    : "Attach up to two optional MP3, M4A, or AAC files for this Student, 20 MB each."
+                }
+                label="Music"
+                name="music"
+              >
+                {(field) => (
+                  <EntryMusicUploadField
+                    centerId={centerId}
+                    divisionId={session.id}
+                    editionId={editionId}
+                    disabled={uploading || form.state.isSubmitting}
+                    onUploadingChange={setUploading}
+                    onErrorsChange={setFailedUploads}
+                    onChange={field.handleChange}
+                    value={field.state.value}
+                  />
+                )}
+              </CustomField>
+            );
+          }}
+        </form.Subscribe>
+        <FormActions
+          disabled={uploading || failedUploads}
+          onCancel={handleCancel}
+          submitLabel={getSubmitLabel(entry, fixedSession)}
+          submittingLabel={entry ? "Saving..." : "Registering..."}
+        />
+      </fieldset>
     </FormLayout>
   );
 }
 
 export function EntryFormDialog(props: EntryFormDialogProps) {
   const [formKey, setFormKey] = useState(0);
+  const dismiss = useRef<(() => void) | null>(null);
+
   const handleOpenChange = useEventCallback((open: boolean) => {
     if (open) {
       setFormKey((key) => key + 1);
     }
-    props.onOpenChange(open);
+    if (open) props.onOpenChange(open);
+    else dismiss.current?.();
   });
 
   return (
@@ -748,7 +823,9 @@ export function EntryFormDialog(props: EntryFormDialogProps) {
           <DialogTitle>{getDialogTitle(props)}</DialogTitle>
           <DialogDescription>{getDialogDescription(props)}</DialogDescription>
         </DialogHeader>
-        <EntryForm key={formKey} {...props} />
+        {props.open ? (
+          <EntryForm key={formKey} {...props} dismissRef={dismiss} />
+        ) : null}
       </DialogContent>
     </Dialog>
   );

@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
+import { PgDialect } from "drizzle-orm/pg-core";
+
 const hoisted = <T>(factory: () => T): T => factory();
 
 const mocks = hoisted(() => {
@@ -61,6 +63,13 @@ describe("withProtectedR2ObjectReferenceLock", () => {
     expect(mocks.transaction).toHaveBeenCalledTimes(1);
     expect(mocks.execute).toHaveBeenCalledTimes(2);
     expect(operation).toHaveBeenCalledWith(false);
+    const referenceSql = new PgDialect().sqlToQuery(
+      mocks.execute.mock.calls[1]?.[0]
+    ).sql;
+    expect(referenceSql).toContain("kalakriti_entry_music WHERE object_key");
+    expect(referenceSql).toContain(
+      "kalakriti_competition_entry WHERE music_object_key"
+    );
     expect(mocks.execute.mock.invocationCallOrder[1]).toBeLessThan(
       operation.mock.invocationCallOrder[0] ?? 0
     );

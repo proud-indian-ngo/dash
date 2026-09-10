@@ -591,6 +591,7 @@ describe("kalakritiStudent commands", () => {
         },
       ],
       [],
+      [],
     ]);
     lockedResults.push(
       [edition],
