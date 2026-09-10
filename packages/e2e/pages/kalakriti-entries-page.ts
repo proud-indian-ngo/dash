@@ -105,10 +105,11 @@ export class KalakritiEntriesPage {
       }).toPass({ timeout: 20_000 });
       await option.click();
     }
-    // Selecting an option strands focus in the listbox portal, so a
-    // page-level Escape never reaches the dialog. Send it through the
-    // focused input instead.
-    await input.press("Escape");
+    // Escape dismisses the registration dialog if selection already closed
+    // the popup. Move focus instead, keeping the form open in either state.
+    await input.press("Tab");
+    await expect(this.page.getByRole("listbox")).toBeHidden();
+    await expect(dialog).toBeVisible();
   }
 
   async selectGroupMembers(
@@ -123,7 +124,9 @@ export class KalakritiEntriesPage {
         .getByRole("option", { name: new RegExp(studentName) })
         .click();
     }
-    await studentInput.press("Escape");
+    await studentInput.press("Tab");
+    await expect(this.page.getByRole("listbox")).toBeHidden();
+    await expect(dialog).toBeVisible();
   }
 
   async fillGroup(
