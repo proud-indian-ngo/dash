@@ -8,6 +8,7 @@ import {
   kalakritiCompetitionDivision,
   kalakritiCompetitionEntry,
   kalakritiEdition,
+  kalakritiEntryMusic,
   kalakritiEditionMembership,
   kalakritiGuardianCenter,
 } from "@pi-dash/db/schema/kalakriti";
@@ -154,7 +155,10 @@ export async function authorizeKalakritiEntryMusicUpload({
     columns: { id: true },
     where: and(
       eq(kalakritiAssignment.membershipId, membership.id),
-      eq(kalakritiAssignment.responsibility, "edition_admin")
+      inArray(kalakritiAssignment.responsibility, [
+        "edition_admin",
+        "liaison_lead",
+      ])
     ),
   });
   if (editionAdmin) {
@@ -185,19 +189,24 @@ export async function authorizeKalakritiEntryMusicUpload({
 }
 
 export async function loadKalakritiEntryMusicRecord(
-  entryId: string
+  musicFileId: string
 ): Promise<KalakritiEntryMusicRecord | null> {
+  const file = await db.query.kalakritiEntryMusic.findFirst({
+    where: eq(kalakritiEntryMusic.id, musicFileId),
+  });
+  if (!file) return null;
   const entry = await db.query.kalakritiCompetitionEntry.findFirst({
     columns: {
       centerId: true,
       divisionId: true,
       editionId: true,
-      musicFileName: true,
-      musicObjectKey: true,
     },
-    where: eq(kalakritiCompetitionEntry.id, entryId),
+    where: and(
+      eq(kalakritiCompetitionEntry.id, file.entryId),
+      eq(kalakritiCompetitionEntry.editionId, file.editionId)
+    ),
   });
-  if (!(entry?.musicObjectKey && entry.musicFileName)) {
+  if (!entry) {
     return null;
   }
   const [edition, division] = await Promise.all([
@@ -225,8 +234,8 @@ export async function loadKalakritiEntryMusicRecord(
     competitionCategoryId: competition.competitionCategoryId,
     competitionId: division.competitionId,
     editionYear: edition.year,
-    filename: entry.musicFileName,
-    key: entry.musicObjectKey,
+    filename: file.fileName,
+    key: file.objectKey,
   };
 }
 

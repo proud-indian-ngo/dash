@@ -60,6 +60,7 @@ import {
   kalakritiEdition,
   kalakritiEditionMembership,
   kalakritiEntryMember,
+  kalakritiEntryMusic,
   kalakritiExternalIdentity,
   kalakritiGuardianCenter,
   kalakritiOperation,
@@ -1075,6 +1076,23 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
       entryId: ID.kalakritiCompetitionEntry,
       id: ID.kalakritiEntryMember,
       studentId: ID.kalakritiStudent,
+    })
+    .onConflictDoNothing();
+
+  // Like the other seeded attachments, this metadata uses a demo object key.
+  await db
+    .insert(kalakritiEntryMusic)
+    .values({
+      id: "019d52c2-7261-7dce-b0ee-e206561715d1",
+      editionId: ID.kalakritiEdition,
+      entryId: ID.kalakritiCompetitionEntry,
+      slot: 1,
+      objectKey: `dev/kalakriti-music/${ID.kalakritiEdition}/${ID.kalakritiCompetitionEntry}/demo.mp3`,
+      fileName: "demo.mp3",
+      mimeType: "audio/mpeg",
+      byteSize: 2048,
+      uploadedAt: now,
+      uploadedBy: adminId,
     })
     .onConflictDoNothing();
 

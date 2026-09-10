@@ -67,6 +67,28 @@ describe("Kalakriti Entry views", () => {
     );
   });
 
+  it("preserves each saved file identity when music uploads are disabled", () => {
+    const musicFiles = [
+      { id: "file-1", fileName: "first.mp3" },
+      { id: "file-2", fileName: "second.m4a" },
+    ];
+    const rows = buildKalakritiEntryRows(
+      [
+        {
+          division,
+          divisionId: division.id,
+          id: "entry-1",
+          members: [{ student, studentId: student.id }],
+          participationMode: "individual",
+          musicFiles,
+        },
+      ],
+      []
+    );
+    expect(rows[0]?.musicFiles).toEqual(musicFiles);
+    expect(rows[0]?.session.competition.musicUploadEnabled).toBe(false);
+  });
+
   it("shows only Divisions with active Sessions in the picker", () => {
     expect(buildKalakritiEntrySessions([division])).toEqual([]);
   });

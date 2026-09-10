@@ -29,6 +29,7 @@ interface R2ObjectClaimOptions {
   lockR2Object?: Context["lockR2Object"];
   lockR2ObjectForClaim?: Context["lockR2ObjectForClaim"];
   mimeType?: null | string;
+  byteSize?: number;
   r2KeyPrefix?: string;
   rollbackTasks?: Context["rollbackTasks"];
   subfolder: R2Subfolder;
@@ -43,7 +44,9 @@ export function createR2ClaimOptions(
   ctx: Context,
   txLocation: string,
   options: Pick<R2ObjectClaimOptions, "durablePrefix" | "subfolder"> &
-    Partial<Pick<R2ObjectClaimOptions, "existingObjectKeys" | "mimeType">>
+    Partial<
+      Pick<R2ObjectClaimOptions, "existingObjectKeys" | "mimeType" | "byteSize">
+    >
 ): R2ObjectClaimOptions {
   return {
     ...options,
@@ -185,6 +188,9 @@ function pushClaimR2ObjectTasks(
       );
       await copyR2Object({
         ...(options.mimeType ? { mimeType: options.mimeType } : {}),
+        ...(options.byteSize === undefined
+          ? {}
+          : { byteSize: options.byteSize }),
         sourceKey,
         targetKey,
       });

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
 
 import { S3Client } from "bun";
+import { PgDialect } from "drizzle-orm/pg-core";
 
 const hoisted = <T>(factory: () => T): T => factory();
 
@@ -93,6 +94,38 @@ beforeEach(() => {
 });
 
 describe("handleCleanupR2Orphans", () => {
+  it.each([true, false])(
+    "retains child and legacy music in the initial reference scan (dryRun=%s)",
+    async (dryRun) => {
+      const keys = [
+        "app/kalakriti-music/edition/entry/child.mp3",
+        "app/kalakriti-music/edition/legacy/track.mp3",
+      ];
+      mocks.list.mockResolvedValue({
+        contents: keys.map((key) => ({
+          key,
+          lastModified: "2000-01-01T00:00:00Z",
+        })),
+        isTruncated: false,
+      });
+      mocks.execute.mockResolvedValue(keys.map((key) => ({ key })));
+      const result = await handleCleanupR2Orphans([
+        { data: { dryRun } },
+      ] as never);
+      expect(result).toMatchObject({ orphanCount: 0, r2ObjectCount: 2 });
+      const statement = new PgDialect().sqlToQuery(
+        mocks.execute.mock.calls[0]?.[0]
+      ).sql;
+      expect(statement).toContain(
+        "FROM kalakriti_entry_music WHERE object_key LIKE"
+      );
+      expect(statement).toContain(
+        "FROM kalakriti_competition_entry WHERE music_object_key LIKE"
+      );
+      expect(mocks.withReferenceLock).not.toHaveBeenCalled();
+      expect(mocks.deleteObject).not.toHaveBeenCalled();
+    }
+  );
   it("retains a live key referenced by escaped canonical Plate JSON", async () => {
     const result = await handleCleanupR2Orphans([
       { data: { dryRun: false } },

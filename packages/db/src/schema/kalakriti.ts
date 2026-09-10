@@ -833,6 +833,10 @@ export const kalakritiCompetitionEntry = pgTable(
       .references(() => user.id),
   },
   (table) => [
+    unique("kalakriti_competition_entry_edition_id_uq").on(
+      table.editionId,
+      table.id
+    ),
     unique("kalakriti_competition_entry_edition_center_division_id_uq").on(
       table.editionId,
       table.centerId,
@@ -877,6 +881,56 @@ export const kalakritiCompetitionEntry = pgTable(
       )`
     ),
   ]
+);
+
+export const kalakritiEntryMusic = pgTable(
+  "kalakriti_entry_music",
+  {
+    id: uuid("id").primaryKey(),
+    editionId: uuid("edition_id").notNull(),
+    entryId: uuid("entry_id").notNull(),
+    slot: integer("slot").notNull(),
+    objectKey: text("object_key").notNull(),
+    fileName: text("file_name").notNull(),
+    mimeType: text("mime_type").notNull(),
+    byteSize: integer("byte_size").notNull(),
+    uploadedAt: timestamp("uploaded_at").notNull(),
+    uploadedBy: text("uploaded_by").references(() => user.id),
+  },
+  (table) => [
+    uniqueIndex("kalakriti_entry_music_entry_slot_uq").on(
+      table.entryId,
+      table.slot
+    ),
+    uniqueIndex("kalakriti_entry_music_object_key_uq").on(table.objectKey),
+    check("kalakriti_entry_music_slot_chk", sql`${table.slot} IN (1, 2)`),
+    check(
+      "kalakriti_entry_music_size_chk",
+      sql`${table.byteSize} > 0 AND ${table.byteSize} <= 20971520`
+    ),
+    check(
+      "kalakriti_entry_music_mime_chk",
+      sql`${table.mimeType} IN ('audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/x-m4a')`
+    ),
+    foreignKey({
+      columns: [table.editionId, table.entryId],
+      foreignColumns: [
+        kalakritiCompetitionEntry.editionId,
+        kalakritiCompetitionEntry.id,
+      ],
+      name: "kalakriti_entry_music_entry_scope_fk",
+    }).onDelete("cascade"),
+  ]
+);
+
+export const kalakritiEntryMusicRelations = relations(
+  kalakritiEntryMusic,
+  ({ one }) => ({
+    entry: one(kalakritiCompetitionEntry, {
+      fields: [kalakritiEntryMusic.entryId],
+      references: [kalakritiCompetitionEntry.id],
+    }),
+  })
 );
 
 export const kalakritiEntryMember = pgTable(
@@ -1372,6 +1426,7 @@ export const kalakritiCompetitionEntryRelations = relations(
       references: [kalakritiEdition.id],
     }),
     members: many(kalakritiEntryMember),
+    musicFiles: many(kalakritiEntryMusic),
   })
 );
 

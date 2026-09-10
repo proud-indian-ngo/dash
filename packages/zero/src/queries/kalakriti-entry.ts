@@ -114,6 +114,7 @@ export const kalakritiEntryQueries = {
 
   visibleByCenter: defineQuery(centerInput, ({ args, ctx }) => {
     const query = zql.kalakritiCompetitionEntry
+      .related("musicFiles")
       .where("editionId", args.editionId)
       .where("centerId", args.centerId)
       .related("members", (member) =>
