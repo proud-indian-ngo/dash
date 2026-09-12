@@ -44,6 +44,7 @@ import {
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type {
   ColumnPinningState,
+  ColumnSizingState,
   ColumnVisibilityState,
   ExpandedState,
   FilterFn,
@@ -69,6 +70,14 @@ import {
   resolveColumnDefId,
   resolveUpdater,
 } from "@/lib/table-utils";
+
+import {
+  applyPreferredSizingChange,
+  deriveColumnFill,
+  TABLE_COLUMN_DEFAULTS,
+} from "./column-fill";
+import { getDataTableClassNames } from "./data-table-layout";
+import { getSizingColumns, useTableViewportWidth } from "./use-column-fill";
 
 export interface DataTableFilterConfig<TData extends object> {
   /** When false, persist and render the query but do not filter `data` locally. */
@@ -278,6 +287,40 @@ function DataTableWrapperBase<TData extends object>({
     }
   );
 
+  const { scrollAreaRef, viewportWidth } = useTableViewportWidth(
+    tableLayout?.columnsResizable === true
+  );
+  const sizingColumns = useMemo(() => getSizingColumns(columns), [columns]);
+  const fill = useMemo(
+    () =>
+      deriveColumnFill({
+        columns: sizingColumns,
+        preferred: columnSizing,
+        order: columnOrder,
+        visibility: columnVisibility,
+        pinning: columnPinning,
+        viewportWidth,
+      }),
+    [
+      sizingColumns,
+      columnSizing,
+      columnOrder,
+      columnVisibility,
+      columnPinning,
+      viewportWidth,
+    ]
+  );
+  const handleColumnSizingChange = useEventCallback(
+    (updater: Updater<ColumnSizingState>) => {
+      if (!tableLayout?.columnsResizable) {
+        setColumnSizing(updater);
+        return;
+      }
+      const preferred = applyPreferredSizingChange(columnSizing, fill, updater);
+      if (preferred !== columnSizing) setColumnSizing(preferred);
+    }
+  );
+
   const [searchQuery, setSearchQuery] = useQueryState(
     searchQueryKey,
     parseAsString.withDefault("")
@@ -346,6 +389,7 @@ function DataTableWrapperBase<TData extends object>({
     {
       autoResetPageIndex: false,
       columnResizeMode: "onChange",
+      defaultColumn: TABLE_COLUMN_DEFAULTS,
       columns,
       data,
       enableRowSelection,
@@ -354,7 +398,7 @@ function DataTableWrapperBase<TData extends object>({
       manualPagination,
       onColumnOrderChange: setColumnOrder,
       onColumnPinningChange: setColumnPinning,
-      onColumnSizingChange: setColumnSizing,
+      onColumnSizingChange: handleColumnSizingChange,
       onColumnVisibilityChange: setColumnVisibility,
       onExpandedChange: setExpanded,
       onPaginationChange,
@@ -363,7 +407,7 @@ function DataTableWrapperBase<TData extends object>({
       state: {
         columnOrder,
         columnPinning,
-        columnSizing,
+        columnSizing: fill.effective,
         columnVisibility,
         expanded,
         globalFilter: localSearch,
@@ -443,6 +487,9 @@ function DataTableWrapperBase<TData extends object>({
           recordCount={displayCount}
           table={table}
           tableLayout={tableLayout}
+          tableClassNames={getDataTableClassNames(
+            tableLayout?.columnsResizable
+          )}
         >
           <Card className="w-full gap-3 py-3.5!">
             <CardHeader className="grid-cols-1! gap-2.5! px-3.5 @lg/card-header:grid-cols-[1fr_auto]!">
@@ -502,7 +549,7 @@ function DataTableWrapperBase<TData extends object>({
             </CardHeader>
 
             <CardContent className="border-y px-0">
-              <ScrollArea>
+              <ScrollArea ref={scrollAreaRef}>
                 {tableLayout?.columnsDraggable ? (
                   <DataGridTableDnd handleDragEnd={handleColumnDragEnd} />
                 ) : (
