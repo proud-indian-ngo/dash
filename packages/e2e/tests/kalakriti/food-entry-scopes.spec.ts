@@ -1614,7 +1614,16 @@ test("Students directory unions assigned Centers while creation, quota and trans
     ] as const) {
       await guardian.goto(`/kalakriti/${data.year}/students`);
       await waitForZeroReady(guardian);
-      const dialog = await students.openRegistrationForm();
+      // This test exercises the initial wizard itself, before choosing a Center.
+      await guardian
+        .locator("#main")
+        .getByRole("button", { name: "Register Student", exact: true })
+        .click();
+      const dialog = guardian.getByRole("dialog", {
+        name: "Register Student",
+        exact: true,
+      });
+      await expect(dialog).toBeVisible();
       await expect(
         dialog.getByText("Choose Center", { exact: true })
       ).toBeVisible();

@@ -519,8 +519,16 @@ test.describe("Kalakriti Competition Entry registration", () => {
       // Capture both nodes before either mutation can rerender the other page;
       // native clicks avoid retrying the detached loser until timeout.
       await Promise.all([
-        firstSubmit.evaluate((button) => button.click()),
-        secondSubmit.evaluate((button) => button.click()),
+        firstSubmit.evaluate((button) => {
+          if (!(button instanceof HTMLButtonElement))
+            throw new Error("Expected a registration button");
+          button.click();
+        }),
+        secondSubmit.evaluate((button) => {
+          if (!(button instanceof HTMLButtonElement))
+            throw new Error("Expected a registration button");
+          button.click();
+        }),
       ]);
       await Promise.all([
         waitForSubmissionSettled(firstDialog, "Register Entries"),
