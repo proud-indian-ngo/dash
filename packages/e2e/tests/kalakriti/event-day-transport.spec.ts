@@ -172,12 +172,14 @@ test("Center scan sessions mark two Students through four explicitly finalized s
     const students = await page.context().newPage();
     await students.goto(`/kalakriti/${data.year}/students`);
     await waitForZeroReady(students);
-    await students
-      .getByRole("combobox", { name: "Center", exact: true })
-      .click();
-    await students
-      .getByRole("option", { name: "Station Center A", exact: true })
-      .click();
+    await expect(
+      students.getByRole("columnheader", { name: "Center", exact: false })
+    ).toBeVisible();
+    await expectTransportStatus(
+      students,
+      "Station Student B",
+      "Awaiting pickup"
+    );
     await expect(
       students.getByRole("columnheader", {
         name: "Transport status",
@@ -477,6 +479,11 @@ test("Center scan sessions mark two Students through four explicitly finalized s
     await expectTransportStatus(
       students,
       "Absent Station Student",
+      "Awaiting pickup"
+    );
+    await expectTransportStatus(
+      students,
+      "Station Student B",
       "Awaiting pickup"
     );
     const completed = await state();

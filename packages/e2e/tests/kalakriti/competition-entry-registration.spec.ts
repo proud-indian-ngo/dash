@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import type { Locator } from "@playwright/test";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { registrationCleanup } from "../../helpers/registration-cleanup";
 import { KalakritiEntriesPage } from "../../pages/kalakriti-entries-page";
 
 const execFileAsync = promisify(execFile);
@@ -107,16 +108,17 @@ test.describe("Kalakriti Competition Entry registration", () => {
       "Volunteer Liaison Entry workflow"
     );
     test.slow();
-    const { year } = await fixture<{ year: number }>(
-      "setup",
-      "liaison",
-      volunteerEmail
-    );
+    const { year, centerName } = await fixture<{
+      year: number;
+      centerName: string;
+    }>("setup", "liaison", volunteerEmail);
     const entriesPage = new KalakritiEntriesPage(page);
 
+    let primaryFailed = false;
     try {
       await entriesPage.goto(year, "Spoken Word");
-      const unflaggedDialog = await entriesPage.openRegistrationForm();
+      const unflaggedDialog =
+        await entriesPage.openRegistrationForm(centerName);
       await entriesPage.fillEntries(unflaggedDialog, ["Entry Student A"]);
       await expect(
         unflaggedDialog.getByTestId("entry-music-upload")
@@ -125,7 +127,7 @@ test.describe("Kalakriti Competition Entry registration", () => {
       await expect(unflaggedDialog).toBeHidden();
 
       await entriesPage.goto(year);
-      const dialog = await entriesPage.openRegistrationForm();
+      const dialog = await entriesPage.openRegistrationForm(centerName);
       await expect(dialog.getByTestId("entry-music-upload")).toHaveCount(0);
       await entriesPage.fillEntries(dialog, ["Entry Student A"]);
       await expect(dialog.getByTestId("entry-music-upload")).toHaveCount(1);
@@ -139,10 +141,16 @@ test.describe("Kalakriti Competition Entry registration", () => {
       ).toBeVisible();
       crumb("registered-toast-ok");
       await expect(
-        page.getByText("Entry Student A", { exact: true })
+        (await entriesPage.participantsCell("Entry Student A")).getByText(
+          "Entry Student A",
+          { exact: true }
+        )
       ).toBeVisible();
       await expect(
-        page.getByText("Entry Student B", { exact: true })
+        (await entriesPage.participantsCell("Entry Student B")).getByText(
+          "Entry Student B",
+          { exact: true }
+        )
       ).toBeVisible();
 
       const studentA = page.getByRole("row", { name: /Entry Student A/ });
@@ -202,9 +210,21 @@ test.describe("Kalakriti Competition Entry registration", () => {
       expect(state.audits.map((audit) => audit.action)).toEqual(
         expect.arrayContaining(["created", "deleted"])
       );
+    } catch (error) {
+      primaryFailed = true;
+      throw error;
     } finally {
-      await page.goto("about:blank");
-      await fixture("cleanup", "liaison");
+      await registrationCleanup(
+        [
+          async () => {
+            if (!page.isClosed())
+              await page.goto("about:blank", { timeout: 5000 });
+          },
+          () => fixture("cleanup", "liaison"),
+        ],
+        primaryFailed,
+        testInfo
+      );
     }
   });
 
@@ -217,14 +237,14 @@ test.describe("Kalakriti Competition Entry registration", () => {
       "Volunteer Liaison group Entry workflow"
     );
     test.slow();
-    const { year } = await fixture<{ year: number }>(
-      "setup",
-      "liaison",
-      volunteerEmail
-    );
+    const { year, centerName } = await fixture<{
+      year: number;
+      centerName: string;
+    }>("setup", "liaison", volunteerEmail);
     const entriesPage = new KalakritiEntriesPage(page);
     const uploadedKeys = entriesPage.trackMusicUploadKeys();
 
+    let primaryFailed = false;
     try {
       await page.goto(`/kalakriti/${year}/centers`);
       await expect(
@@ -233,7 +253,7 @@ test.describe("Kalakriti Competition Entry registration", () => {
         })
       ).toBeVisible();
       await entriesPage.goto(year, "Group Dance");
-      const dialog = await entriesPage.openRegistrationForm();
+      const dialog = await entriesPage.openRegistrationForm(centerName);
       await entriesPage.selectGroupMembers(dialog, ["Entry Student A"]);
       await dialog.getByLabel("Group members").blur();
       await expect(
@@ -269,10 +289,16 @@ test.describe("Kalakriti Competition Entry registration", () => {
         page.getByText("Competition group registered", { exact: true })
       ).toBeVisible();
       await expect(
-        page.locator("#main").getByText("Entry Student A", { exact: true })
+        (await entriesPage.participantsCell("Entry Student A")).getByText(
+          "Entry Student A",
+          { exact: true }
+        )
       ).toBeVisible();
       await expect(
-        page.locator("#main").getByText("Entry Student B", { exact: true })
+        (await entriesPage.participantsCell("Entry Student B")).getByText(
+          "Entry Student B",
+          { exact: true }
+        )
       ).toBeVisible();
       if (!process.env.CI) {
         await expect(page.getByTestId("entry-music")).toContainText(
@@ -380,7 +406,10 @@ test.describe("Kalakriti Competition Entry registration", () => {
         page.getByText("Competition group updated", { exact: true })
       ).toBeVisible();
       await expect(
-        page.locator("#main").getByText("Entry Student C", { exact: true })
+        (await entriesPage.participantsCell("Entry Student C")).getByText(
+          "Entry Student C",
+          { exact: true }
+        )
       ).toBeVisible();
 
       const updatedState = await waitForEntryCount("liaison", 1);
@@ -416,17 +445,32 @@ test.describe("Kalakriti Competition Entry registration", () => {
       expect(removedState.audits.map((audit) => audit.action)).toEqual(
         expect.arrayContaining(["created", "updated", "deleted"])
       );
+    } catch (error) {
+      primaryFailed = true;
+      throw error;
     } finally {
-      const remaining = await fixture<EntryState>("state", "liaison");
-      for (const file of remaining.musicFiles) uploadedKeys.add(file.objectKey);
-      if (uploadedKeys.size)
-        await fixture(
-          "music-cleanup-r2",
-          "liaison",
-          JSON.stringify([...uploadedKeys])
-        );
-      await page.goto("about:blank");
-      await fixture("cleanup", "liaison");
+      await registrationCleanup(
+        [
+          async () => {
+            const remaining = await fixture<EntryState>("state", "liaison");
+            for (const file of remaining.musicFiles)
+              uploadedKeys.add(file.objectKey);
+            if (uploadedKeys.size)
+              await fixture(
+                "music-cleanup-r2",
+                "liaison",
+                JSON.stringify([...uploadedKeys])
+              );
+          },
+          async () => {
+            if (!page.isClosed())
+              await page.goto("about:blank", { timeout: 5000 });
+          },
+          () => fixture("cleanup", "liaison"),
+        ],
+        primaryFailed,
+        testInfo
+      );
     }
   });
 
@@ -439,23 +483,23 @@ test.describe("Kalakriti Competition Entry registration", () => {
       "Super-admin duplicate Entry race"
     );
     test.slow();
-    const { year } = await fixture<{ year: number }>(
-      "setup",
-      "admin",
-      superAdminEmail
-    );
+    const { year, centerName } = await fixture<{
+      year: number;
+      centerName: string;
+    }>("setup", "admin", superAdminEmail);
     const secondPage = await page.context().newPage();
     const firstEntriesPage = new KalakritiEntriesPage(page);
     const secondEntriesPage = new KalakritiEntriesPage(secondPage);
 
+    let primaryFailed = false;
     try {
       await Promise.all([
         firstEntriesPage.goto(year),
         secondEntriesPage.goto(year),
       ]);
       const [firstDialog, secondDialog] = await Promise.all([
-        firstEntriesPage.openRegistrationForm(),
-        secondEntriesPage.openRegistrationForm(),
+        firstEntriesPage.openRegistrationForm(centerName),
+        secondEntriesPage.openRegistrationForm(centerName),
       ]);
       await Promise.all([
         firstEntriesPage.fillEntry(firstDialog, "Entry Student A"),
@@ -486,15 +530,24 @@ test.describe("Kalakriti Competition Entry registration", () => {
       const state = await waitForEntryCount("admin", 1);
       expect(state.entries).toHaveLength(1);
       expect(state.members).toHaveLength(1);
+    } catch (error) {
+      primaryFailed = true;
+      throw error;
     } finally {
-      try {
-        await Promise.all([
-          secondPage.isClosed() ? undefined : secondPage.close(),
-          page.isClosed() ? undefined : page.goto("about:blank"),
-        ]);
-      } finally {
-        await fixture("cleanup", "admin");
-      }
+      await registrationCleanup(
+        [
+          async () => {
+            if (!secondPage.isClosed()) await secondPage.close();
+          },
+          async () => {
+            if (!page.isClosed())
+              await page.goto("about:blank", { timeout: 5000 });
+          },
+          () => fixture("cleanup", "admin"),
+        ],
+        primaryFailed,
+        testInfo
+      );
     }
   });
 });

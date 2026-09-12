@@ -3,7 +3,9 @@ import path from "node:path";
 import { promisify } from "node:util";
 
 import { expect, test } from "../../fixtures/test";
+import { registrationCleanup } from "../../helpers/registration-cleanup";
 import { KalakritiStudentsPage } from "../../pages/kalakriti-students-page";
+import { ListPage } from "../../pages/list-page";
 
 const execFileAsync = promisify(execFile);
 const helperPath = path.resolve(
@@ -61,12 +63,19 @@ test.describe("Kalakriti Student registration", () => {
       "Super-admin Student registration flow"
     );
     test.slow();
-    const setup = await fixture<{ year: number }>("setup", superAdminEmail, 5);
+    const setup = await fixture<{ year: number; centerName: string }>(
+      "setup",
+      superAdminEmail,
+      5
+    );
     const studentsPage = new KalakritiStudentsPage(page);
 
+    let primaryFailed = false;
     try {
       await studentsPage.goto(setup.year);
-      const registrationDialog = await studentsPage.openRegistrationForm();
+      const registrationDialog = await studentsPage.openRegistrationForm(
+        setup.centerName
+      );
       await studentsPage.fillStudent(registrationDialog, {
         birthYear: "2010",
         name: "Ananya Rao",
@@ -102,6 +111,9 @@ test.describe("Kalakriti Student registration", () => {
         .click();
       await page.getByRole("menuitem", { name: "Edit" }).click();
       const editDialog = page.getByRole("dialog", { name: "Edit Student" });
+      await expect(editDialog.getByLabel("Student name")).toHaveValue(
+        "Ananya Rao"
+      );
       await editDialog.getByLabel("Student name").fill("Ananya Rao Updated");
       await editDialog.getByRole("button", { name: "Save Student" }).click();
       await expect(editDialog).toBeHidden();
@@ -115,7 +127,9 @@ test.describe("Kalakriti Student registration", () => {
         page.getByText("Ananya Rao Updated", { exact: true })
       ).toBeVisible();
 
-      const duplicateDialog = await studentsPage.openRegistrationForm();
+      const duplicateDialog = await studentsPage.openRegistrationForm(
+        setup.centerName
+      );
       await studentsPage.fillStudent(duplicateDialog, {
         name: "  Ananya   Rao Updated  ",
       });
@@ -140,13 +154,12 @@ test.describe("Kalakriti Student registration", () => {
         page.getByText("KAL-2026-0002", { exact: true })
       ).toBeVisible();
 
+      const list = new ListPage(page);
+      const originalStudent = list.getRowByText("KAL-2026-0001");
+      await expect(originalStudent).toHaveCount(1);
+      await list.openRowActionAndClick(originalStudent, "Delete");
       await page
-        .getByRole("button", { name: "Actions for Ananya Rao Updated" })
-        .first()
-        .click();
-      await page.getByRole("menuitem", { name: "Delete" }).click();
-      await page
-        .getByRole("alertdialog", { name: "Delete Student?" })
+        .getByRole("alertdialog", { name: "Delete Student", exact: true })
         .getByRole("button", { name: "Delete Student" })
         .click();
       await expect(
@@ -161,9 +174,21 @@ test.describe("Kalakriti Student registration", () => {
       expect(state.audits.map((audit) => audit.action)).toEqual(
         expect.arrayContaining(["created", "updated", "deleted"])
       );
+    } catch (error) {
+      primaryFailed = true;
+      throw error;
     } finally {
-      await page.goto("about:blank");
-      await fixture("cleanup");
+      await registrationCleanup(
+        [
+          async () => {
+            if (!page.isClosed())
+              await page.goto("about:blank", { timeout: 5000 });
+          },
+          () => fixture("cleanup"),
+        ],
+        primaryFailed,
+        testInfo
+      );
     }
   });
 
@@ -176,19 +201,24 @@ test.describe("Kalakriti Student registration", () => {
       "Super-admin Student limit race flow"
     );
     test.slow();
-    const setup = await fixture<{ year: number }>("setup", superAdminEmail, 1);
+    const setup = await fixture<{ year: number; centerName: string }>(
+      "setup",
+      superAdminEmail,
+      1
+    );
     const secondPage = await page.context().newPage();
     const firstStudentsPage = new KalakritiStudentsPage(page);
     const secondStudentsPage = new KalakritiStudentsPage(secondPage);
 
+    let primaryFailed = false;
     try {
       await Promise.all([
         firstStudentsPage.goto(setup.year),
         secondStudentsPage.goto(setup.year),
       ]);
       const [firstDialog, secondDialog] = await Promise.all([
-        firstStudentsPage.openRegistrationForm(),
-        secondStudentsPage.openRegistrationForm(),
+        firstStudentsPage.openRegistrationForm(setup.centerName),
+        secondStudentsPage.openRegistrationForm(setup.centerName),
       ]);
       await Promise.all([
         firstStudentsPage.fillStudent(firstDialog, { name: "Race Student A" }),
@@ -204,10 +234,24 @@ test.describe("Kalakriti Student registration", () => {
       const state = await waitForStudentCount(1);
       expect(state.students).toHaveLength(1);
       expect(state.nextStudentSequence).toBe(2);
+    } catch (error) {
+      primaryFailed = true;
+      throw error;
     } finally {
-      await secondPage.close();
-      await page.goto("about:blank");
-      await fixture("cleanup");
+      await registrationCleanup(
+        [
+          async () => {
+            if (!secondPage.isClosed()) await secondPage.close();
+          },
+          async () => {
+            if (!page.isClosed())
+              await page.goto("about:blank", { timeout: 5000 });
+          },
+          () => fixture("cleanup"),
+        ],
+        primaryFailed,
+        testInfo
+      );
     }
   });
 });

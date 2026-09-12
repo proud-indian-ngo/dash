@@ -74,7 +74,7 @@ export class KalakritiEntriesPage {
     await expect(dialog).toBeHidden();
   }
 
-  async openRegistrationForm(): Promise<Locator> {
+  async openRegistrationForm(centerName: string): Promise<Locator> {
     await this.page
       .locator("#main")
       .getByRole("button", { name: "Register Entry" })
@@ -83,7 +83,40 @@ export class KalakritiEntriesPage {
       name: /Register Competition (Entries|Group)/,
     });
     await expect(dialog).toBeVisible();
+    const picker = dialog.getByRole("combobox", {
+      name: "Center",
+      exact: true,
+    });
+    const selectedCenter = dialog.getByText(`Center: ${centerName}`, {
+      exact: true,
+    });
+    await expect(picker.or(selectedCenter)).toBeVisible();
+    if (await picker.isVisible()) {
+      await picker.click();
+      await this.page
+        .getByRole("option", { name: centerName, exact: true })
+        .click();
+    }
+    await expect(selectedCenter).toBeVisible();
+    await expect(
+      dialog.getByLabel("Students").or(dialog.getByLabel("Group members"))
+    ).toBeVisible();
     return dialog;
+  }
+
+  async participantsCell(studentName: string): Promise<Locator> {
+    const table = this.page.locator("#main").getByRole("table");
+    const header = table.getByRole("columnheader").filter({
+      has: this.page.getByRole("button", { name: "Participants", exact: true }),
+    });
+    await expect(header).toHaveCount(1);
+    const index = await header.evaluate((cell) =>
+      Array.from(cell.parentElement?.children ?? []).indexOf(cell)
+    );
+    expect(index).toBeGreaterThanOrEqual(0);
+    const row = table.getByRole("row").filter({ hasText: studentName });
+    await expect(row).toHaveCount(1);
+    return row.getByRole("cell").nth(index);
   }
 
   async fillEntry(dialog: Locator, studentName: string): Promise<void> {
@@ -140,12 +173,15 @@ export class KalakritiEntriesPage {
     await dialog.getByLabel("Group members").press("Backspace");
   }
 
-  async register(studentName: string): Promise<void> {
-    await this.registerMany([studentName]);
+  async register(studentName: string, centerName: string): Promise<void> {
+    await this.registerMany([studentName], centerName);
   }
 
-  async registerMany(studentNames: string[]): Promise<void> {
-    const dialog = await this.openRegistrationForm();
+  async registerMany(
+    studentNames: string[],
+    centerName: string
+  ): Promise<void> {
+    const dialog = await this.openRegistrationForm(centerName);
     await this.fillEntries(dialog, studentNames);
     await dialog.getByRole("button", { name: "Register Entries" }).click();
     await expect(dialog).toBeHidden();
