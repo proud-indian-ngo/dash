@@ -11,6 +11,12 @@ export interface KalakritiOperationRecord {
   type: KalakritiOperationType;
 }
 
+interface KalakritiOperationSubject {
+  membershipId?: string | null;
+  studentId?: string | null;
+  membershipKind?: "guardian" | "volunteer";
+}
+
 const STUDENT_OPERATION_TYPES = new Set<KalakritiOperationType>([
   "pickup",
   "venue_arrival",
@@ -42,9 +48,11 @@ export function findExistingOperationByOperationId(
 }
 
 export function getOperationSubjectKind(
-  subject: Pick<KalakritiOperationRecord, "membershipId" | "studentId">
-): "student" | "volunteer" {
-  return subject.studentId ? "student" : "volunteer";
+  subject: KalakritiOperationSubject
+): "student" | "volunteer" | "guardian" {
+  return subject.studentId
+    ? "student"
+    : (subject.membershipKind ?? "volunteer");
 }
 
 export function hasEffectivePickup(
@@ -85,8 +93,14 @@ export function hasEffectiveCheckIn(
 
 export function assertOperationSubjectMatchesType(
   type: KalakritiOperationType,
-  subject: { membershipId?: string | null; studentId?: string | null }
+  subject: KalakritiOperationSubject
 ): void {
+  if (
+    subject.membershipKind === "guardian" &&
+    !FLEXIBLE_OPERATION_TYPES.has(type)
+  ) {
+    throw new Error("Guardians can only receive meals");
+  }
   const hasStudent = Boolean(subject.studentId);
   const hasMembership = Boolean(subject.membershipId);
   if (hasStudent === hasMembership) {
@@ -159,7 +173,7 @@ export function assertTransportOrderRules(
 export function assertMealAndAttendanceEligibility(
   operations: readonly KalakritiOperationRecord[],
   type: KalakritiOperationType,
-  subject: { membershipId?: string | null; studentId?: string | null }
+  subject: KalakritiOperationSubject
 ): void {
   if (type === "breakfast" || type === "lunch") {
     if (
@@ -170,6 +184,7 @@ export function assertMealAndAttendanceEligibility(
     }
     if (
       subject.membershipId &&
+      subject.membershipKind !== "guardian" &&
       !hasEffectiveCheckIn(operations, subject.membershipId)
     ) {
       throw new Error("Check-in is required before meals");
@@ -187,7 +202,7 @@ export function assertMealAndAttendanceEligibility(
 export function assertCanRecordOperation(
   operations: readonly KalakritiOperationRecord[],
   type: KalakritiOperationType,
-  subject: { membershipId?: string | null; studentId?: string | null },
+  subject: KalakritiOperationSubject,
   competitionSessionId?: string | null
 ): void {
   assertOperationSubjectMatchesType(type, subject);

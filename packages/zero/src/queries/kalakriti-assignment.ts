@@ -7,8 +7,16 @@ import { zql } from "../schema";
 
 const editionInput = z.object({ editionId: z.string() });
 
-function withVolunteerDetails(q: typeof zql.kalakritiEditionMembership) {
+function withVolunteerDetails(
+  q: typeof zql.kalakritiEditionMembership,
+  editionId: string
+) {
   return q
+    .related("operations", (operations) =>
+      operations
+        .where("editionId", editionId)
+        .where("type", "volunteer_check_in")
+    )
     .related("assignments", (assignment) =>
       assignment.orderBy("createdAt", "asc")
     )
@@ -60,7 +68,7 @@ export const kalakritiAssignmentQueries = {
 
   roster: defineQuery(editionInput, ({ args, ctx }) =>
     restrictToVolunteerManagers(
-      withVolunteerDetails(zql.kalakritiEditionMembership)
+      withVolunteerDetails(zql.kalakritiEditionMembership, args.editionId)
         .where("editionId", args.editionId)
         .where("kind", "volunteer")
         .where("state", "active"),

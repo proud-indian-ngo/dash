@@ -91,6 +91,23 @@ export const kalakritiCompetitionQueries = {
                 membership.where("userId", ctx.userId).where("state", "active")
               )
           )
+        ),
+        exists("assignments", (assignment) =>
+          assignment
+            .where("editionId", args.editionId)
+            .where(({ or: assignmentOr, cmp }) =>
+              assignmentOr(
+                cmp("responsibility", "competition_coordinator"),
+                cmp("responsibility", "competition_volunteer")
+              )
+            )
+            .whereExists("membership", (membership) =>
+              membership
+                .where("editionId", args.editionId)
+                .where("userId", ctx.userId)
+                .where("state", "active")
+                .where("kind", "volunteer")
+            )
         )
       )
     );
@@ -98,10 +115,14 @@ export const kalakritiCompetitionQueries = {
   }),
 
   sessions: defineQuery(editionInput, ({ args, ctx }) => {
-    let query = zql.kalakritiCompetitionSession.where(
-      "editionId",
-      args.editionId
-    );
+    let query = zql.kalakritiCompetitionSession
+      .where("editionId", args.editionId)
+      .related("division", (division) =>
+        division
+          .where("editionId", args.editionId)
+          .related("competition")
+          .related("ageCategory")
+      );
     if (ctx !== null && can(ctx, "kalakriti.admin")) {
       return query.orderBy("startAt", "asc");
     }
@@ -141,6 +162,27 @@ export const kalakritiCompetitionQueries = {
                       .where("state", "active")
                   )
               )
+            )
+          )
+        ),
+        exists("division", (division) =>
+          division.whereExists("competition", (competition) =>
+            competition.whereExists("assignments", (assignment) =>
+              assignment
+                .where("editionId", args.editionId)
+                .where(({ or: assignmentOr, cmp }) =>
+                  assignmentOr(
+                    cmp("responsibility", "competition_coordinator"),
+                    cmp("responsibility", "competition_volunteer")
+                  )
+                )
+                .whereExists("membership", (membership) =>
+                  membership
+                    .where("editionId", args.editionId)
+                    .where("userId", ctx.userId)
+                    .where("state", "active")
+                    .where("kind", "volunteer")
+                )
             )
           )
         )

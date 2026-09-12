@@ -1,0 +1,1 @@
+ALTER TYPE "public"."kalakriti_operation_type" ADD VALUE 'meal_correction';

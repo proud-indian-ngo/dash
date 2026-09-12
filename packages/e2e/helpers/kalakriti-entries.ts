@@ -411,6 +411,7 @@ async function setup(kind: FixtureKind, actorEmail: string) {
   }
   return {
     year: fixture.year,
+    centerName: "Jayanagar",
     editionId: fixture.editionId,
     entryId: fixture.membershipId,
     centerId: fixture.centerId,

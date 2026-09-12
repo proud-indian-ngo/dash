@@ -1,11 +1,4 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@pi-dash/design-system/components/ui/dialog";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import {
   Select,
@@ -49,101 +42,103 @@ const manualSchema = z.object({
   humanId: z.string().trim().min(1, "Enter a yearly ID").max(64),
 });
 
-interface CenterScanDialogProps {
+interface CenterScanPanelProps {
   editionId: string;
   year: number;
-  onOpenChange: (open: boolean) => void;
+  onComplete: () => void;
+  onBusyChange: (busy: boolean) => void;
 }
 
-export function CenterScanDialog({
+export function CenterScanPanel({
   editionId,
   year,
-  onOpenChange,
-}: CenterScanDialogProps) {
+  onComplete,
+  onBusyChange,
+}: CenterScanPanelProps) {
   const [centers, centersResult] = useQuery(
     queries.kalakritiCenter.visible({ editionId })
   );
   const availableCenters = centers.filter(
     (center) => center.retiredAt === null
   );
-  const [selectedCenterId, setSelectedCenterId] = useState("");
+  const [selectedCenterId, setSelectedCenterId] = useState<string | null>(() =>
+    centersResult.type === "complete" && availableCenters.length === 1
+      ? availableCenters[0]!.id
+      : null
+  );
+  if (
+    selectedCenterId === null &&
+    centersResult.type === "complete" &&
+    availableCenters.length === 1
+  ) {
+    setSelectedCenterId(availableCenters[0]!.id);
+  }
   const centerId = availableCenters.some(
     (center) => center.id === selectedCenterId
   )
     ? selectedCenterId
-    : availableCenters.length === 1
-      ? availableCenters[0]!.id
-      : "";
+    : "";
   const loading = centers.length === 0 && centersResult.type !== "complete";
   const [busy, setBusy] = useState(false);
-  const titleRef = useRef<HTMLHeadingElement>(null);
-  const handleClose = useEventCallback((open: boolean) => {
-    if (!busy) onOpenChange(open);
+  const handleBusyChange = useEventCallback((value: boolean) => {
+    setBusy(value);
+    onBusyChange(value);
   });
   return (
-    <Dialog open={true} onOpenChange={handleClose}>
-      <DialogContent
-        className="max-h-[90dvh] overflow-y-auto sm:max-w-4xl"
-        showCloseButton={!busy}
-        initialFocus={titleRef}
-      >
-        <DialogHeader>
-          <DialogTitle ref={titleRef} tabIndex={-1}>
-            Scan Students
-          </DialogTitle>
-          <DialogDescription>
-            Scan each student's QR code, one after another. Then tap Finish
-            stage to update the Center's trip.
-          </DialogDescription>
-        </DialogHeader>
-        {availableCenters.length === 1 ? (
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Center</p>
-            <p>{availableCenters[0]!.name}</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <Label htmlFor="scan-center">Center</Label>
-            <Select
-              items={availableCenters.map((center) => ({
-                value: center.id,
-                label: center.name,
-              }))}
-              disabled={busy || loading}
-              value={centerId || null}
-              onValueChange={(value) => {
-                if (!busy) setSelectedCenterId(value ?? "");
-              }}
-            >
-              <SelectTrigger id="scan-center">
-                <SelectValue placeholder="Select Center" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableCenters.map((center) => (
-                  <SelectItem key={center.id} value={center.id}>
-                    {center.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-        {loading ? <Loader /> : null}
-        {!loading && availableCenters.length === 0 ? (
-          <p>No Centers are available for scanning.</p>
-        ) : null}
-        {centerId ? (
-          <CenterScanStation
-            key={centerId}
-            centerId={centerId}
-            editionId={editionId}
-            onBusyChange={setBusy}
-            onComplete={() => onOpenChange(false)}
-            year={year}
-          />
-        ) : null}
-      </DialogContent>
-    </Dialog>
+    <div className="space-y-4">
+      {availableCenters.length === 1 ? (
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Center</p>
+          <p>{availableCenters[0]!.name}</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <Label htmlFor="scan-center">Center</Label>
+          <Select
+            items={availableCenters.map((center) => ({
+              value: center.id,
+              label: center.name,
+            }))}
+            disabled={busy || loading}
+            value={centerId || null}
+            onValueChange={(value) => {
+              if (!busy) setSelectedCenterId(value ?? "");
+            }}
+          >
+            <SelectTrigger id="scan-center">
+              <SelectValue placeholder="Select Center" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableCenters.map((center) => (
+                <SelectItem key={center.id} value={center.id}>
+                  {center.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+      {selectedCenterId && !centerId ? (
+        <p role="status">
+          The selected Center is no longer available. Close and reopen Scan or
+          select a Center.
+        </p>
+      ) : null}
+      {loading ? <Loader /> : null}
+      {!loading && availableCenters.length === 0 ? (
+        <p>No Centers are available for scanning.</p>
+      ) : null}
+      {centerId ? (
+        <CenterScanStation
+          key={centerId}
+          centerId={centerId}
+          editionId={editionId}
+          onBusyChange={handleBusyChange}
+          onComplete={onComplete}
+          year={year}
+        />
+      ) : null}
+    </div>
   );
 }
 

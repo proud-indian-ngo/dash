@@ -2,11 +2,12 @@ import babel from "@rolldown/plugin-babel";
 import tailwindcss from "@tailwindcss/vite";
 import { devtools } from "@tanstack/devtools-vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
-import react, { reactCompilerPreset } from "@vitejs/plugin-react";
+import react from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
 import { defineConfig, type UserConfig } from "vite";
 
 import { apiMediaDevMiddleware } from "./src/lib/dev/api-media-dev-middleware";
+import { appReactCompilerPreset } from "./src/lib/dev/react-compiler-preset";
 import "@pi-dash/env";
 
 const RE_REACT = /node_modules[\\/](react|react-dom|scheduler)\//;
@@ -34,7 +35,7 @@ const RE_VENDOR = /node_modules/;
 
 export default defineConfig(async ({ mode }): Promise<UserConfig> => {
   const reactCompiler = await babel({
-    presets: [reactCompilerPreset()],
+    presets: [appReactCompilerPreset()],
   });
 
   return {

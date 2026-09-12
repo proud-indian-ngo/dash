@@ -77,7 +77,7 @@ Read the named chapter directly when its detailed behavior is needed; do not rea
 | Environment, secrets, worktree ports | `docs/architecture/env-and-secrets.md` |
 | Auth cache, permission cache, rate limiting | `docs/architecture/caching.md` |
 | Playwright, seeds, auth state, E2E isolation | `docs/architecture/e2e-testing.md` |
-| Kalakriti Edition access, registration, entry music files and backfill, lifecycle, schedule, audit, exports, volunteer yearly IDs, detail-sheet JSON QR codes, Center transport, Student/Center transport status columns, sidebar continuous scan sessions, or event-day operations | `docs/architecture/kalakriti-registration.md` |
+| Kalakriti Edition access, registration, entry music files and backfill, lifecycle, schedule, audit, exports, Volunteer and Guardian yearly IDs, detail-sheet JSON QR codes, Center transport, Student/Center transport status columns, Food roster, meal statistics and meal undo, Volunteer check-in, the Center-union Students directory, Center-agnostic Entries and Present/Attended status, role-aware sidebar scanning (transport, volunteer check-in, meals, attendance), or event-day operations | `docs/architecture/kalakriti-registration.md` |
 
 Skip architecture docs for copy, CSS, component restyling, lint-only changes, dependency bumps, isolated tests, typo fixes, and unrelated dev-tool configuration. Start from the owning code and open a chapter only when the code exposes an unfamiliar boundary.
 

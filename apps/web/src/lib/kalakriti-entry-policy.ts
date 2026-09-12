@@ -308,3 +308,10 @@ export function getEntryRegistrationAvailability({
   }
   return "open";
 }
+
+export function selectEntryStudentsForCenter<T extends { centerId?: string }>(
+  students: readonly T[],
+  centerId: string
+): T[] {
+  return students.filter((student) => student.centerId === centerId);
+}

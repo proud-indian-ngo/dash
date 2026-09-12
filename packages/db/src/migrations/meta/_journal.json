@@ -568,6 +568,20 @@
       "when": 1789042405866,
       "tag": "0080_gray_punisher",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1789148885591,
+      "tag": "0081_uneven_sue_storm",
+      "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1789188852613,
+      "tag": "0082_guardian_yearly_ids",
+      "breakpoints": true
     }
   ]
 }

@@ -19,6 +19,7 @@ import {
 } from "@/lib/kalakriti-competition-labels";
 
 export interface EntrySessionRow {
+  snapshotReady?: boolean;
   ageCategoryName: string;
   categoryName: string;
   competitionName: string;
@@ -52,12 +53,10 @@ function getSessionRowId(session: EntrySessionRow): string {
 }
 
 export function EntrySessionsTable({
-  centerId,
   data,
   isLoading,
   year,
 }: {
-  centerId: string;
   data: EntrySessionRow[];
   isLoading: boolean;
   year: number;
@@ -73,7 +72,7 @@ export function EntrySessionsTable({
         <Link
           className="text-sm font-medium hover:underline"
           params={{ id: row.original.id, year: String(year) }}
-          search={{ center: centerId }}
+          search={{}}
           to="/kalakriti/$year/entries/$id"
         >
           {row.original.competitionName}
@@ -179,18 +178,22 @@ export function EntrySessionsTable({
     {
       accessorKey: "entryCount",
       cell: ({ row }) => (
-        <span className="text-sm">{row.original.entryCount}</span>
+        <span className="text-sm">
+          {row.original.snapshotReady === false
+            ? "Checking Entries"
+            : row.original.entryCount}
+        </span>
       ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
-          title="Center Entries"
+          title="Entries"
           visibility={true}
         />
       ),
       id: "entryCount",
       meta: {
-        headerTitle: "Center Entries",
+        headerTitle: "Entries",
         skeleton: <Skeleton className="h-5 w-16" />,
       },
       size: 105,
@@ -206,7 +209,7 @@ export function EntrySessionsTable({
                 id: row.original.id,
                 year: String(year),
               }}
-              search={{ center: centerId }}
+              search={{}}
               to="/kalakriti/$year/entries/$id"
             />
           }

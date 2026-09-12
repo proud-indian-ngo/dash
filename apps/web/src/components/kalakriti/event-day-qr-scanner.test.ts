@@ -95,6 +95,61 @@ beforeEach(() => {
 });
 
 describe("EventDayQrScanner", () => {
+  it("waits for deferred stop and clear before starting a replacement camera", async () => {
+    let resolveStop: (() => void) | undefined;
+    let resolveClear: (() => void) | undefined;
+    mocks.stop.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveStop = resolve;
+        })
+    );
+    mocks.clear.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveClear = resolve;
+        })
+    );
+    const first = mountScanner();
+    await waitFor(() => mocks.scanSuccess !== null);
+    const oldCallback = mocks.scanSuccess;
+    first.cleanup();
+    const second = mountScanner();
+    oldCallback?.("held-frame");
+    await waitFor(() => resolveStop !== undefined);
+    expect(first.onScan).not.toHaveBeenCalled();
+    expect(mocks.start).toHaveBeenCalledTimes(1);
+    resolveStop?.();
+    await waitFor(() => resolveClear !== undefined);
+    expect(mocks.start).toHaveBeenCalledTimes(1);
+    resolveClear?.();
+    await waitFor(() => mocks.start.mock.calls.length === 2);
+    mocks.stop.mockImplementation(async () => {});
+    mocks.clear.mockImplementation(async () => {});
+    second.cleanup();
+    await waitFor(() => mocks.clear.mock.calls.length === 2);
+  });
+  it("keeps the next camera queued while a canceled session is still starting", async () => {
+    let resolveStart: (() => void) | undefined;
+    mocks.startImplementation = () =>
+      new Promise<void>((resolve) => {
+        resolveStart = resolve;
+      });
+    const first = mountScanner();
+    await waitFor(() => resolveStart !== undefined);
+    first.cleanup();
+    const second = mountScanner();
+    await Promise.resolve();
+    expect(mocks.start).toHaveBeenCalledTimes(1);
+    mocks.startImplementation = async () => {
+      mocks.lifecycle.push("next-start");
+    };
+    resolveStart?.();
+    await waitFor(() => mocks.start.mock.calls.length === 2);
+    expect(mocks.lifecycle).toEqual(["stop", "clear", "next-start"]);
+    second.cleanup();
+    await waitFor(() => mocks.clear.mock.calls.length === 2);
+  });
   it("sizes the scanning area to fit desktop and mobile camera previews", async () => {
     const { cleanup } = mountScanner();
     await waitFor(() => mocks.start.mock.calls.length > 0);

@@ -1,11 +1,12 @@
 import { describe, expect, it, mock } from "bun:test";
 
+import {
+  createFilterQuery,
+  createFilterRule,
+} from "@pi-dash/design-system/components/reui/filters/filters-query";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import type {
-  VolunteerAssignmentItem,
-  VolunteerRosterItem,
-} from "./volunteers-table";
+import type { VolunteerRosterItem } from "./volunteers-table";
 
 interface CapturedTable {
   defaultColumnVisibility: Record<string, boolean>;
@@ -17,7 +18,11 @@ interface CapturedTable {
   searchFn: (row: VolunteerRosterItem, query: string) => boolean;
   onRowClick: (row: VolunteerRosterItem) => void;
 }
-let table: CapturedTable;
+let table: CapturedTable | undefined;
+let query = createFilterQuery();
+mock.module("@/components/data-table/use-data-table-filters", () => ({
+  useDataTableFilters: () => ({ query, setQuery: () => undefined }),
+}));
 mock.module("@/components/data-table/data-table-wrapper", () => ({
   DataTableWrapper: (props: CapturedTable) => {
     table = props;
@@ -25,7 +30,6 @@ mock.module("@/components/data-table/data-table-wrapper", () => ({
   },
 }));
 const { VolunteersTable } = await import("./volunteers-table");
-
 const row: VolunteerRosterItem = {
   id: "membership",
   userId: "user",
@@ -34,24 +38,20 @@ const row: VolunteerRosterItem = {
   snapshotEmail: null,
   snapshotPhone: null,
   registrationGroup: "Weekend Team",
-  assignments: [],
+  assignments: [
+    {
+      id: "assignment",
+      centerId: "center",
+      competitionCategoryId: null,
+      competitionId: null,
+      isPrimary: true,
+      responsibility: "liaison_volunteer",
+      scopeName: "North",
+    },
+  ],
 };
-function assignment(
-  id: string,
-  scope: Partial<VolunteerAssignmentItem>
-): VolunteerAssignmentItem {
-  return {
-    id,
-    centerId: null,
-    competitionCategoryId: null,
-    competitionId: null,
-    isPrimary: false,
-    responsibility: "liaison_volunteer",
-    scopeName: null,
-    ...scope,
-  };
-}
 function setup() {
+  table = undefined;
   const onView = mock(() => undefined);
   renderToStaticMarkup(
     <VolunteersTable
@@ -67,70 +67,50 @@ function setup() {
   );
   return onView;
 }
-function value(id: string, item = row) {
-  return table.columns.find((column) => column.id === id)?.accessorFn?.(item);
-}
-
-describe("Volunteer table scope and group columns", () => {
-  it("hides the new columns by default while keeping them available", () => {
+describe("Volunteer table simplified columns", () => {
+  it("removes scope and primary columns entirely, including visibility choices", () => {
+    query = createFilterQuery();
     setup();
-    expect(table.defaultColumnVisibility).toEqual({
-      centers: false,
-      categories: false,
-      competitions: false,
-      primary: false,
+    expect(table?.defaultColumnVisibility).toEqual({
       registrationGroup: false,
     });
-    for (const id of Object.keys(table.defaultColumnVisibility)) {
-      expect(table.columns.some((column) => column.id === id)).toBe(true);
-    }
-  });
-  it("deduplicates and sorts named scopes without exposing missing IDs", () => {
-    setup();
-    const scoped = {
-      ...row,
-      assignments: [
-        assignment("a", { centerId: "z", scopeName: "Zebra" }),
-        assignment("b", { centerId: "a", scopeName: "Alpha" }),
-        assignment("c", { centerId: "a", scopeName: "Alpha" }),
-        assignment("d", {
-          competitionCategoryId: "category",
-          scopeName: "Music",
-        }),
-        assignment("e", { competitionId: "secret-uuid", scopeName: null }),
-      ],
-    };
-    expect(value("centers", scoped)).toBe("Alpha, Zebra");
-    expect(value("categories", scoped)).toBe("Music");
-    expect(value("competitions", scoped)).toBe("Not available");
-    expect(value("centers")).toBe("—");
-  });
-  it("shows group and primary state, supports group search, and preserves row clicks", () => {
-    const onView = setup();
-    expect(value("registrationGroup")).toBe("Weekend Team");
-    expect(
-      value("registrationGroup", { ...row, registrationGroup: null })
-    ).toBe("—");
-    expect(value("primary")).toBe("Not primary");
-    expect(
-      value("primary", {
-        ...row,
-        assignments: [assignment("primary", { isPrimary: true })],
-      })
-    ).toBe("Primary");
-    expect(table.searchFn(row, " WEEKEND ")).toBe(true);
-    table.onRowClick(row);
-    expect(onView).toHaveBeenCalledWith(row);
+    for (const id of ["centers", "categories", "competitions", "primary"])
+      expect(table?.columns.some((column) => column.id === id)).toBe(false);
     for (const id of [
+      "snapshotName",
+      "humanId",
+      "snapshotEmail",
+      "snapshotPhone",
+      "checkInStatus",
+      "roles",
       "registrationGroup",
-      "centers",
-      "categories",
-      "competitions",
-      "primary",
-    ]) {
-      const column = table.columns.find((item) => item.id === id);
-      expect(column?.meta?.headerTitle).toBeTruthy();
-      expect(column?.meta?.skeleton).toBeTruthy();
-    }
+      "actions",
+    ])
+      expect(table?.columns.some((column) => column.id === id)).toBe(true);
+  });
+  it("preserves Roles scope/primary descriptions, group search and detail clicks", () => {
+    query = createFilterQuery();
+    const onView = setup();
+    const roles = table?.columns
+      .find((column) => column.id === "roles")
+      ?.accessorFn?.(row);
+    expect(roles).toContain("North");
+    expect(roles).toContain("Primary");
+    expect(table?.searchFn(row, " WEEKEND ")).toBe(true);
+    table?.onRowClick(row);
+    expect(onView).toHaveBeenCalledWith(row);
+  });
+  it("does not render narrowed rows while obsolete saved filters are being removed", () => {
+    query = createFilterQuery([
+      createFilterRule({
+        id: "old",
+        path: ["centers"],
+        operator: "has_any_of",
+        value: ["old-center"],
+      }),
+    ]);
+    setup();
+    expect(table).toBeUndefined();
+    query = createFilterQuery();
   });
 });

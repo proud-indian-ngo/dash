@@ -19,13 +19,22 @@ export class KalakritiStudentsPage {
     }).toPass({ timeout: 45_000 });
   }
 
-  async openRegistrationForm(): Promise<Locator> {
+  async openRegistrationForm(centerName: string): Promise<Locator> {
     await this.page
       .locator("#main")
       .getByRole("button", { name: "Register Student" })
       .click();
     const dialog = this.page.getByRole("dialog", { name: "Register Student" });
     await expect(dialog).toBeVisible();
+    await dialog.getByRole("combobox", { name: /^Center/ }).click();
+    await this.page
+      .getByRole("option", { name: centerName, exact: true })
+      .click();
+    await dialog.getByRole("button", { name: "Continue", exact: true }).click();
+    await expect(
+      dialog.getByText(`Center: ${centerName}`, { exact: true })
+    ).toBeVisible();
+    await expect(dialog.getByLabel("Student name")).toBeVisible();
     return dialog;
   }
 
@@ -81,8 +90,8 @@ export class KalakritiStudentsPage {
     await expect(calendar).toBeHidden();
   }
 
-  async register(name: string) {
-    const dialog = await this.openRegistrationForm();
+  async register(name: string, centerName: string) {
+    const dialog = await this.openRegistrationForm(centerName);
     await this.fillStudent(dialog, { name });
     await dialog.getByRole("button", { name: "Register Student" }).click();
     await expect(dialog).toBeHidden();

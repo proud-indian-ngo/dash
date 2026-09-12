@@ -193,6 +193,39 @@ describe("identifier lookup", () => {
     ]);
   });
 
+  it("resolves a Guardian yearly ID while preserving the Edition and active-membership constraints", async () => {
+    dbMocks.results.push(
+      [],
+      [
+        {
+          id: "guardian-membership",
+          humanId: "KALG-2027-0001",
+          kind: "guardian",
+          name: "Guardian",
+          responsibility: null,
+        },
+      ]
+    );
+    expect(
+      await lookupKalakritiPerson({
+        editionId: "edition-1",
+        humanId: "KALG-2027-0001",
+      })
+    ).toEqual({
+      humanId: "KALG-2027-0001",
+      kind: "guardian",
+      name: "Guardian",
+      scopeLabel: "Guardian",
+    });
+    expect(selectedWhereParams(1)).toEqual([
+      "edition-1",
+      "active",
+      "KALG-2027-0001",
+      "KALG-2027-0001",
+    ]);
+    expect(dbMocks.insertCalls).toEqual([]);
+    expect(dbMocks.updateCalls).toEqual([]);
+  });
   for (const kind of ["guardian", "volunteer"] as const) {
     it(`finds active ${kind} by membership ID fallback without writes`, async () => {
       dbMocks.results.push(

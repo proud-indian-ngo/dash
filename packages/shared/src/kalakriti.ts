@@ -9,6 +9,15 @@ export const KALAKRITI_EDITION_LIFECYCLES = [
 export type KalakritiEditionLifecycle =
   (typeof KALAKRITI_EDITION_LIFECYCLES)[number];
 
+export const KALAKRITI_MEAL_STATUS_LABELS = {
+  served: "Served",
+  not_served: "Not served",
+} as const;
+export const KALAKRITI_VOLUNTEER_CHECK_IN_LABELS = {
+  checked_in: "Checked in",
+  not_checked_in: "Not checked in",
+} as const;
+
 export const KALAKRITI_MEMBERSHIP_KINDS = ["volunteer", "guardian"] as const;
 
 export type KalakritiMembershipKind =
@@ -77,6 +86,7 @@ export const KALAKRITI_OPERATION_TYPES = [
   "breakfast",
   "lunch",
   "competition_attendance",
+  "meal_correction",
 ] as const;
 
 export type KalakritiOperationType = (typeof KALAKRITI_OPERATION_TYPES)[number];
@@ -158,9 +168,18 @@ export const KALAKRITI_OPERATIONAL_LEAD_RESPONSIBILITIES = [
 export type KalakritiOperationalLeadResponsibility =
   (typeof KALAKRITI_OPERATIONAL_LEAD_RESPONSIBILITIES)[number];
 
+export const KALAKRITI_OPERATIONAL_MEMBER_RESPONSIBILITIES = [
+  "food_member",
+  "hospitality_member",
+] as const satisfies readonly KalakritiResponsibility[];
+
+export type KalakritiOperationalMemberResponsibility =
+  (typeof KALAKRITI_OPERATIONAL_MEMBER_RESPONSIBILITIES)[number];
+
 export const KALAKRITI_VOLUNTEER_EDITION_ASSIGNMENT_RESPONSIBILITIES = [
   ...KALAKRITI_EDITION_SCOPED_RESPONSIBILITIES,
   ...KALAKRITI_OPERATIONAL_LEAD_RESPONSIBILITIES,
+  ...KALAKRITI_OPERATIONAL_MEMBER_RESPONSIBILITIES,
 ] as const satisfies readonly KalakritiResponsibility[];
 
 export type KalakritiVolunteerEditionAssignmentResponsibility =
@@ -323,6 +342,15 @@ export function buildKalakritiAssignableResponsibilityGroups(options: {
     groups.push({
       label: "Operational leads",
       responsibilities: operationalLeads,
+    });
+  }
+
+  const operationalMembers =
+    KALAKRITI_OPERATIONAL_MEMBER_RESPONSIBILITIES.filter(canAssign);
+  if (operationalMembers.length > 0) {
+    groups.push({
+      label: "Operational members",
+      responsibilities: operationalMembers,
     });
   }
 
@@ -497,6 +525,19 @@ export function formatKalakritiStudentHumanId(
     throw new Error("Student sequence must be positive");
   }
   return `KAL-${year}-${String(sequence).padStart(4, "0")}`;
+}
+
+export function formatKalakritiGuardianHumanId(
+  year: number,
+  sequence: number
+): string {
+  if (!(Number.isInteger(year) && year >= 2000 && year <= 2200)) {
+    throw new Error("Edition year is invalid");
+  }
+  if (!(Number.isSafeInteger(sequence) && sequence > 0)) {
+    throw new Error("Guardian sequence must be positive");
+  }
+  return `KALG-${year}-${String(sequence).padStart(4, "0")}`;
 }
 
 export function formatKalakritiVolunteerHumanId(

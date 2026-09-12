@@ -30,6 +30,12 @@ New `packages/*`: add `COPY packages/<name>/package.json packages/<name>/` to `D
 
 Dockerfile `bun install` uses `--ignore-scripts`. `@rocicorp/zero-sqlite3` is a trustedDependency whose install script compiles a native addon under Bun; slim images have no Python/g++. Web build and migrator do not load that addon — `zero-cache` is the `rocicorp/zero` image. Keep that image on the same minor as the `@rocicorp/zero` catalog version.
 
+## Web compilation
+
+`apps/web/vite.config.ts` uses `src/lib/dev/react-compiler-preset.ts` to exclude only ReUI's `data-grid-table.tsx` and `data-grid-table-dnd.tsx` from React Compiler. Those renderers subscribe to mutable TanStack state but read widths and pin offsets through stable object references; compiler caching otherwise leaves stale DOM geometry after resizing or pinning. Other components retain compiler optimization. Keep this exclusion until the upstream renderers provide compiler-safe reactive inputs, and verify changes with actual browser geometry rather than persisted sizing state alone.
+
+Shared table sizing lives in `components/data-table/column-fill.ts` and `use-column-fill.ts`. The last visible unpinned column absorbs spare viewport width in the TanStack sizing model; other columns keep their preferred widths. Viewport-derived fill is never persisted. The filler cannot shrink below the remaining-space floor, but can grow into horizontal overflow. With no unpinned column or a limiting maximum width, spare space may remain.
+
 ## Dev Tooling
 
 - **Biome + ultracite** (`biome.jsonc`): linter + formatter. `bun run check` validates, `bun run fix` auto-fixes. Ultracite = preset on top of Biome with opinionated React/TS rules.

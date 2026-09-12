@@ -87,6 +87,9 @@ export default defineConfig({
       testMatch: [
         /kalakriti\/operations-person-qr\.spec\.ts/,
         /kalakriti\/event-day-transport\.spec\.ts/,
+        /kalakriti\/event-day-stations\.spec\.ts/,
+        /kalakriti\/food-entry-scopes\.spec\.ts/,
+        /kalakriti\/table-sizing\.spec\.ts/,
         /kalakriti\/public-schedule\.spec\.ts/,
         /kalakriti\/release-database-races\.spec\.ts/,
       ],

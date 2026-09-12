@@ -108,10 +108,16 @@ describe("read-only transport status columns", () => {
         table.columns.find((entry) => entry.id === "transportStatus")
           ?.enableSorting
       ).toBe(false);
-      expect(
-        table.filter.fields.some((field) => field.id === "transportStatus")
-      ).toBe(false);
     }
+    expect(
+      studentTable.filter.fields.some((field) => field.id === "transportStatus")
+    ).toBe(true);
+    expect(
+      studentTable.filter.getValue(student, ["transportStatus"])
+    ).toBeUndefined();
+    expect(
+      centerTable.filter.fields.some((field) => field.id === "transportStatus")
+    ).toBe(false);
   });
   it("shows live Student marks independently of Center finalization without changing existing filters/search", () => {
     const initial = renderStudent(student);
@@ -133,7 +139,10 @@ describe("read-only transport status columns", () => {
     ).toBe("Picked up");
     expect(
       updated.filter.fields.some((field) => field.id === "transportStatus")
-    ).toBe(false);
+    ).toBe(true);
+    expect(updated.filter.getValue(pickedUp, ["transportStatus"])).toBe(
+      "Picked up"
+    );
     expect(updated.searchFn(pickedUp, "picked up")).toBe(false);
     expect(updated.searchFn(pickedUp, "student")).toBe(true);
     expect(updated.isLoading).toBe(false);

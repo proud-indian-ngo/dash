@@ -321,7 +321,7 @@ describe("Center scan sessions", () => {
         ...scanArgs(),
         personQr: JSON.stringify({ id: studentId, type: "guardian" }),
       })
-    ).rejects.toThrow("Guardians cannot");
+    ).rejects.toThrow("Active Guardian not found in this Edition");
     expect(state.rows.kalakritiOperation).toEqual([]);
   });
 

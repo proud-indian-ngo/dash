@@ -12,6 +12,7 @@ interface EntryDivisionSource {
   };
   id: string;
   sessions: readonly {
+    id?: string;
     cancelledAt: number | null;
     endAt: number;
     startAt: number;
@@ -20,6 +21,8 @@ interface EntryDivisionSource {
 }
 
 interface EntrySource {
+  centerId?: string;
+  center?: KalakritiEntryRow["center"];
   division?: EntryDivisionSource;
   divisionId: string;
   id: string;
@@ -48,6 +51,7 @@ function buildKalakritiEntrySession(
     return null;
   }
   return {
+    competitionSessionId: schedule.id,
     ageCategory,
     ageCategoryId: division.ageCategoryId,
     competition: {
@@ -101,6 +105,8 @@ export function buildKalakritiEntryRows(
     return session && members.length === entry.members.length
       ? [
           {
+            centerId: entry.centerId,
+            center: entry.center,
             id: entry.id,
             members,
             musicFiles: entry.musicFiles ?? [],

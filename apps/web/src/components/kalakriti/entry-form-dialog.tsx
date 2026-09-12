@@ -15,6 +15,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@pi-dash/design-system/components/ui/dialog";
+import { Label } from "@pi-dash/design-system/components/ui/label";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@pi-dash/design-system/components/ui/select";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { isTemporaryR2Key } from "@pi-dash/shared/asset-ref";
 import {
@@ -46,6 +54,7 @@ import {
 } from "@/components/kalakriti/entry-music-field";
 import { deleteTemporaryUpload } from "@/functions/attachments";
 import {
+  selectEntryStudentsForCenter,
   getEntryStudentOptionEligibility,
   getGroupEntryValidationErrors,
   getIndividualEntryValidationError,
@@ -53,6 +62,15 @@ import {
 import { handleMutationResult } from "@/lib/mutation-result";
 
 export interface KalakritiEntryStudent {
+  arrivalStatus?: string;
+  centerId?: string;
+  center?: { id: string; name: string };
+  operations?: readonly {
+    type: string;
+    editionId?: string;
+    competitionSessionId?: string | null;
+    supersededByOperationId: string | null;
+  }[];
   ageCategory: {
     maxCompetitionsPerCategory: number;
     maxTotalCompetitions: number;
@@ -66,6 +84,7 @@ export interface KalakritiEntryStudent {
 }
 
 export interface KalakritiEntrySession {
+  competitionSessionId?: string;
   ageCategory: { name: string };
   ageCategoryId: string;
   competition: {
@@ -87,6 +106,12 @@ export interface KalakritiEntrySession {
 }
 
 export interface KalakritiEntryRow {
+  centerId?: string;
+  center?: {
+    id: string;
+    name: string;
+    competitionEntryRegistrationEnabled?: boolean | null;
+  };
   id: string;
   members: readonly {
     student: KalakritiEntryStudent;
@@ -99,7 +124,8 @@ export interface KalakritiEntryRow {
 }
 
 interface EntryFormDialogProps {
-  centerId: string;
+  centerId?: string;
+  centers?: readonly { id: string; name: string }[];
   editionId: string;
   entries: readonly KalakritiEntryRow[];
   entry?: KalakritiEntryRow;
@@ -382,7 +408,12 @@ function StudentComboboxControl({
   const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
   const filteredOptions = normalizedQuery
     ? options.filter(({ student }) =>
-        [student.humanId, student.name, student.ageCategory.name]
+        [
+          student.humanId,
+          student.name,
+          student.ageCategory.name,
+          student.center?.name ?? "",
+        ]
           .join(" ")
           .toLocaleLowerCase()
           .includes(normalizedQuery)
@@ -430,6 +461,10 @@ function StudentComboboxControl({
               <div className="min-w-0">
                 <div>
                   {student.humanId} · {student.name} ·{" "}
+                  {student.center?.name ? `${student.center.name} · ` : ""}
+                  {student.arrivalStatus
+                    ? `${student.arrivalStatus} · `
+                    : ""}{" "}
                   {student.ageCategory.name}
                 </div>
                 {disabledReason ? (
@@ -459,7 +494,8 @@ function EntryForm({
   dismissRef,
   sessions,
   students,
-}: Omit<EntryFormDialogProps, "open"> & {
+}: Omit<EntryFormDialogProps, "open" | "centerId"> & {
+  centerId: string;
   dismissRef: { current: (() => void) | null };
 }) {
   const zero = useZero();
@@ -806,6 +842,11 @@ function EntryForm({
 
 export function EntryFormDialog(props: EntryFormDialogProps) {
   const [formKey, setFormKey] = useState(0);
+  const [chosenCenterId, setChosenCenterId] = useState("");
+  const centerId = props.entry?.centerId ?? props.centerId ?? chosenCenterId;
+  const centerName =
+    props.entry?.center?.name ??
+    props.centers?.find((center) => center.id === centerId)?.name;
   const dismiss = useRef<(() => void) | null>(null);
 
   const handleOpenChange = useEventCallback((open: boolean) => {
@@ -813,7 +854,8 @@ export function EntryFormDialog(props: EntryFormDialogProps) {
       setFormKey((key) => key + 1);
     }
     if (open) props.onOpenChange(open);
-    else dismiss.current?.();
+    else if (dismiss.current) dismiss.current();
+    else props.onOpenChange(false);
   });
 
   return (
@@ -823,8 +865,45 @@ export function EntryFormDialog(props: EntryFormDialogProps) {
           <DialogTitle>{getDialogTitle(props)}</DialogTitle>
           <DialogDescription>{getDialogDescription(props)}</DialogDescription>
         </DialogHeader>
-        {props.open ? (
-          <EntryForm key={formKey} {...props} dismissRef={dismiss} />
+        {!centerId ? (
+          <div className="space-y-2">
+            <Label htmlFor="entry-registration-center">Center</Label>
+            <Select
+              items={
+                props.centers?.map((center) => ({
+                  value: center.id,
+                  label: center.name,
+                })) ?? []
+              }
+              value={null}
+              onValueChange={(value) => {
+                if (props.centers?.some((center) => center.id === value))
+                  setChosenCenterId(value ?? "");
+              }}
+            >
+              <SelectTrigger id="entry-registration-center">
+                <SelectValue placeholder="Choose Center" />
+              </SelectTrigger>
+              <SelectContent>
+                {props.centers?.map((center) => (
+                  <SelectItem key={center.id} value={center.id}>
+                    {center.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : centerName ? (
+          <p>Center: {centerName}</p>
+        ) : null}
+        {props.open && centerId ? (
+          <EntryForm
+            key={`${formKey}:${centerId}`}
+            {...props}
+            centerId={centerId}
+            students={selectEntryStudentsForCenter(props.students, centerId)}
+            dismissRef={dismiss}
+          />
         ) : null}
       </DialogContent>
     </Dialog>

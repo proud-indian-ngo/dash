@@ -1,3 +1,5 @@
+import { isKalakritiLiaisonResponsibility } from "@pi-dash/shared/kalakriti";
+
 import {
   canRemoveKalakritiEntries,
   canWriteKalakritiEntries,
@@ -28,4 +30,27 @@ export function getSessionEntryPermissions({
     remove: removalEnabled,
     uploadMusic: canWriteEntries && lifecycle !== "archived",
   };
+}
+
+// The input Centers must already be authorized by the Center query.
+export function selectWritableEntryCenters<T extends { id: string }>(
+  centers: readonly T[],
+  access: Parameters<typeof canWriteKalakritiEntries>[0]
+): T[] {
+  if (!canWriteKalakritiEntries(access)) return [];
+  if (
+    access.isGlobalAdmin ||
+    access.membership?.kind === "guardian" ||
+    access.membership?.assignments.some(
+      (assignment) => assignment.responsibility === "edition_admin"
+    )
+  )
+    return [...centers];
+  return centers.filter((center) =>
+    access.membership?.assignments.some(
+      (assignment) =>
+        assignment.centerId === center.id &&
+        isKalakritiLiaisonResponsibility(assignment.responsibility)
+    )
+  );
 }

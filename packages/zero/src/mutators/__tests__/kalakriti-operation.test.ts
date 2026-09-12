@@ -23,6 +23,20 @@ const volunteer = {
   kind: "volunteer",
   state: "active",
 };
+const attendanceSession = {
+  cancelledAt: null,
+  editionId: "edition-1",
+  division: {
+    id: "division-1",
+    editionId: "edition-1",
+    competitionId: "competition-1",
+    competition: {
+      id: "competition-1",
+      editionId: "edition-1",
+      cancelledAt: null,
+    },
+  },
+};
 const personQr = JSON.stringify({ id: student.id, type: "student" });
 const baseArgs = {
   auditEntryId: "audit-1",
@@ -107,6 +121,130 @@ async function manual(
     args: { ...baseArgs, humanId: student.humanId, ...args },
   } as never);
 }
+
+describe("Guardian meals", () => {
+  const guardian = { ...volunteer, kind: "guardian", humanId: null };
+  const args = {
+    type: "breakfast",
+    personQr: JSON.stringify({ id: guardian.id, type: "guardian" }),
+    humanId: guardian.id,
+  };
+  for (const mode of ["qr", "manual"] as const) {
+    const command = mode === "qr" ? record : manual;
+    const lookup = (subject: unknown) =>
+      mode === "qr" ? [undefined, subject] : [undefined, undefined, subject];
+    it.each(["breakfast", "lunch"])(
+      `records active Guardian %s via ${mode} without pickup or check-in`,
+      async (type) => {
+        const { tx, insertOperation, insertAudit } = setup([
+          ...lookup(guardian),
+          [],
+        ]);
+        await command(tx, { ...args, type });
+        expect(insertOperation).toHaveBeenCalledWith(
+          expect.objectContaining({
+            membershipId: guardian.id,
+            studentId: null,
+            type,
+          })
+        );
+        expect(insertAudit).toHaveBeenCalledWith(
+          expect.objectContaining({
+            metadata: {
+              operationId: "operation-1",
+              subjectKind: "guardian",
+              type,
+            },
+          })
+        );
+      }
+    );
+    it.each(["food_lead", "food_member"])(
+      `allows %s operators via ${mode}`,
+      async (responsibility) => {
+        const { tx, insertOperation } = setup([
+          ...lookup(guardian),
+          volunteer,
+          [{ responsibility }],
+          [],
+        ]);
+        await command(tx, args, {
+          userId: "food",
+          permissions: ["kalakriti.view"],
+        });
+        expect(insertOperation).toHaveBeenCalledTimes(1);
+      }
+    );
+    it(`does not grant Guardian recording authority via ${mode}`, async () => {
+      const { tx, insertOperation } = setup([...lookup(guardian), guardian]);
+      await expect(
+        command(tx, args, {
+          userId: "guardian",
+          permissions: ["kalakriti.view"],
+        })
+      ).rejects.toThrow("Unauthorized");
+      expect(insertOperation).not.toHaveBeenCalled();
+    });
+    it.each([
+      { ...guardian, state: "archived" },
+      { ...guardian, editionId: "other" },
+    ])(
+      `rejects inactive or cross-Edition Guardian via ${mode}`,
+      async (subject) => {
+        const { tx, insertOperation } = setup(lookup(subject));
+        await expect(command(tx, args)).rejects.toThrow(
+          mode === "qr" ? "Active Guardian not found" : "Yearly ID not found"
+        );
+        expect(insertOperation).not.toHaveBeenCalled();
+      }
+    );
+    it(`deduplicates a fresh Guardian meal operation ID via ${mode}`, async () => {
+      const { tx, insertOperation } = setup([
+        ...lookup(guardian),
+        [
+          {
+            ...existing,
+            type: "breakfast",
+            membershipId: guardian.id,
+            studentId: null,
+          },
+        ],
+      ]);
+      await command(tx, { ...args, operationId: "fresh" });
+      expect(insertOperation).not.toHaveBeenCalled();
+    });
+    it(`preserves same-ID Guardian retry after Edition ends via ${mode}`, async () => {
+      const { tx, insertOperation } = setup(
+        [
+          {
+            ...existing,
+            type: "breakfast",
+            membershipId: guardian.id,
+            studentId: null,
+          },
+        ],
+        "completed"
+      );
+      await command(tx, args);
+      expect(tx.run).toHaveBeenCalledTimes(1);
+      expect(insertOperation).not.toHaveBeenCalled();
+    });
+    it.each([
+      "pickup",
+      "venue_arrival",
+      "venue_departure",
+      "drop_off",
+      "volunteer_check_in",
+      "competition_attendance",
+    ])(`rejects Guardian %s via ${mode}`, async (type) => {
+      const { tx, insertOperation } = setup(lookup(guardian));
+      await expect(command(tx, { ...args, type })).rejects.toThrow(
+        "Guardians can only receive meals"
+      );
+      expect(insertOperation).not.toHaveBeenCalled();
+    });
+  }
+});
 
 describe("person QR operation recording", () => {
   it("accepts the current sheet JSON payload in the record schema", () => {
@@ -217,14 +355,14 @@ describe("person QR operation recording", () => {
     expect(insertOperation).not.toHaveBeenCalled();
   });
 
-  it("rejects Guardian QR before subject lookup", async () => {
+  it("rejects a Guardian QR without an active matching membership", async () => {
     const { tx, insertOperation } = setup([undefined]);
     await expect(
       record(tx, {
         personQr: JSON.stringify({ id: volunteer.id, type: "guardian" }),
       })
-    ).rejects.toThrow("Guardians cannot be operation subjects");
-    expect(tx.run).toHaveBeenCalledTimes(1);
+    ).rejects.toThrow("Active Guardian not found in this Edition");
+    expect(tx.run).toHaveBeenCalledTimes(2);
     expect(insertOperation).not.toHaveBeenCalled();
   });
 
@@ -354,8 +492,13 @@ describe("person QR operation recording", () => {
     ["liaison", "pickup", "other-center", false],
     ["food_lead", "pickup", null, false],
     ["hospitality_lead", "volunteer_check_in", null, true],
+    ["hospitality_member", "volunteer_check_in", null, true],
+    ["food_member", "volunteer_check_in", null, false],
     ["transport_lead", "volunteer_check_in", null, false],
     ["food_lead", "breakfast", null, true],
+    ["food_member", "breakfast", null, true],
+    ["hospitality_member", "breakfast", null, false],
+    ["hospitality_member", "pickup", null, false],
     ["hospitality_lead", "breakfast", null, false],
     ["edition_admin", "pickup", null, true],
   ] as const)(
@@ -400,14 +543,7 @@ describe("person QR operation recording", () => {
         const { tx, insertOperation } = setup([
           undefined,
           student,
-          {
-            editionId: "edition-1",
-            division: {
-              id: "division-1",
-              editionId: "edition-1",
-              competitionId: "competition-1",
-            },
-          },
+          attendanceSession,
           { id: "entry-member" },
           { id: "operator", kind: "volunteer" },
           [
@@ -468,14 +604,7 @@ describe("person QR operation recording", () => {
     const { tx, insertOperation } = setup([
       undefined,
       student,
-      {
-        editionId: "edition-1",
-        division: {
-          id: "division-1",
-          editionId: "edition-1",
-          competitionId: "competition-1",
-        },
-      },
+      attendanceSession,
       undefined,
     ]);
     await expect(
@@ -492,6 +621,290 @@ describe("person QR operation recording", () => {
     await record(tx, {}, { userId: "operator", permissions: [] });
     expect(tx.run).toHaveBeenCalledTimes(1);
     expect(insertOperation).not.toHaveBeenCalled();
+  });
+
+  it.each(["qr", "manual"])(
+    "rejects cancelled attendance sessions through %s, even for administrators",
+    async (mode) => {
+      const { tx, insertOperation, insertAudit } = setup([
+        undefined,
+        student,
+        { ...attendanceSession, cancelledAt: 123 },
+      ]);
+      const args = { type: "competition_attendance", sessionId: "session-1" };
+      await expect(
+        mode === "qr" ? record(tx, args) : manual(tx, args)
+      ).rejects.toThrow("Competition session is cancelled");
+      expect(insertOperation).not.toHaveBeenCalled();
+      expect(insertAudit).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(["qr", "manual"])(
+    "combines hospitality and food assignments without granting transport via %s",
+    async (mode) => {
+      for (const type of [
+        "volunteer_check_in",
+        "breakfast",
+        "lunch",
+      ] as const) {
+        const { tx, insertOperation } = setup([
+          undefined,
+          ...(mode === "manual" ? [undefined] : []),
+          volunteer,
+          { id: "operator", kind: "volunteer" },
+          [
+            {
+              responsibility: "food_member",
+              centerId: null,
+              competitionId: null,
+            },
+            {
+              responsibility: "hospitality_member",
+              centerId: null,
+              competitionId: null,
+            },
+          ],
+          type === "volunteer_check_in"
+            ? []
+            : [
+                {
+                  ...existing,
+                  membershipId: volunteer.id,
+                  studentId: null,
+                  type: "volunteer_check_in",
+                  operationId: "check-in",
+                },
+              ],
+        ]);
+        const args = {
+          type,
+          personQr: JSON.stringify({ id: volunteer.id, type: "volunteer" }),
+          humanId: volunteer.humanId,
+        };
+        const ctx = { userId: "operator", permissions: ["kalakriti.view"] };
+        await (mode === "qr" ? record(tx, args, ctx) : manual(tx, args, ctx));
+        expect(insertOperation).toHaveBeenCalledWith(
+          expect.objectContaining({
+            type,
+            membershipId: volunteer.id,
+            studentId: null,
+          })
+        );
+      }
+    }
+  );
+
+  it.each(["breakfast", "lunch"])(
+    "requires Student pickup or Volunteer check-in for %s through both inputs",
+    async (type) => {
+      for (const mode of ["qr", "manual"]) {
+        for (const isVolunteer of [false, true]) {
+          const subject = isVolunteer ? volunteer : student;
+          const { tx, insertOperation } = setup([
+            undefined,
+            ...(mode === "manual" && isVolunteer ? [undefined] : []),
+            subject,
+            [],
+          ]);
+          const args = {
+            type,
+            humanId: subject.humanId,
+            personQr: JSON.stringify({
+              id: subject.id,
+              type: isVolunteer ? "volunteer" : "student",
+            }),
+          };
+          await expect(
+            mode === "qr" ? record(tx, args) : manual(tx, args)
+          ).rejects.toThrow(
+            isVolunteer ? "Check-in is required" : "Pickup is required"
+          );
+          expect(insertOperation).not.toHaveBeenCalled();
+        }
+      }
+    }
+  );
+
+  it.each([
+    "volunteer_check_in",
+    "breakfast",
+    "lunch",
+    "competition_attendance",
+  ])(
+    "deduplicates fresh operation IDs for already-effective %s through QR and manual inputs",
+    async (type) => {
+      for (const mode of ["qr", "manual"]) {
+        const isVolunteer = type === "volunteer_check_in";
+        const subject = isVolunteer ? volunteer : student;
+        const sessionId =
+          type === "competition_attendance" ? "session-1" : undefined;
+        const previous = {
+          ...existing,
+          type,
+          operationId: "earlier",
+          membershipId: isVolunteer ? volunteer.id : null,
+          studentId: isVolunteer ? null : student.id,
+          competitionSessionId: sessionId ?? null,
+        };
+        const { tx, insertOperation, insertAudit } = setup([
+          undefined,
+          ...(mode === "manual" && isVolunteer ? [undefined] : []),
+          subject,
+          ...(sessionId ? [attendanceSession, { id: "entry-member" }] : []),
+          [previous],
+        ]);
+        const args = {
+          type,
+          sessionId,
+          humanId: subject.humanId,
+          personQr: JSON.stringify({
+            id: subject.id,
+            type: isVolunteer ? "volunteer" : "student",
+          }),
+        };
+        await (mode === "qr" ? record(tx, args) : manual(tx, args));
+        expect(insertOperation).not.toHaveBeenCalled();
+        expect(insertAudit).not.toHaveBeenCalled();
+      }
+    }
+  );
+
+  it("does not let attendance for a different session suppress a valid new mark", async () => {
+    const { tx, insertOperation } = setup([
+      undefined,
+      student,
+      attendanceSession,
+      { id: "entry-member" },
+      [
+        { ...existing, operationId: "pickup" },
+        {
+          ...existing,
+          type: "competition_attendance",
+          competitionSessionId: "other-session",
+          operationId: "earlier-attendance",
+        },
+      ],
+    ]);
+    await record(tx, {
+      type: "competition_attendance",
+      sessionId: "session-1",
+    });
+    expect(insertOperation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "competition_attendance",
+        competitionSessionId: "session-1",
+      })
+    );
+  });
+
+  it("does not let a superseded check-in suppress a new check-in", async () => {
+    const { tx, insertOperation } = setup([
+      undefined,
+      volunteer,
+      [
+        {
+          ...existing,
+          type: "volunteer_check_in",
+          membershipId: volunteer.id,
+          studentId: null,
+          operationId: "old",
+          supersededByOperationId: "replacement",
+        },
+      ],
+    ]);
+    await record(tx, {
+      type: "volunteer_check_in",
+      personQr: JSON.stringify({ id: volunteer.id, type: "volunteer" }),
+    });
+    expect(insertOperation).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves committed attendance replay before lifecycle, cancellation, and changed-subject checks", async () => {
+    const { tx, insertOperation, insertAudit } = setup(
+      [
+        {
+          ...existing,
+          type: "competition_attendance",
+          competitionSessionId: "session-1",
+        },
+      ],
+      "archived"
+    );
+    await record(tx, {
+      type: "competition_attendance",
+      sessionId: "cancelled-session",
+      personQr: JSON.stringify({ id: volunteer.id, type: "guardian" }),
+    });
+    expect(tx.run).toHaveBeenCalledTimes(1);
+    expect(insertOperation).not.toHaveBeenCalled();
+    expect(insertAudit).not.toHaveBeenCalled();
+  });
+
+  it.each(["qr", "manual"])(
+    "rejects cancelled parent Competition through %s without depending on session cancellation",
+    async (mode) => {
+      const session = {
+        ...attendanceSession,
+        division: {
+          ...attendanceSession.division,
+          competition: {
+            ...attendanceSession.division.competition,
+            cancelledAt: 123,
+          },
+        },
+      };
+      const { tx, insertOperation, insertAudit } = setup([
+        undefined,
+        student,
+        session,
+      ]);
+      const args = { type: "competition_attendance", sessionId: "session-1" };
+      await expect(
+        mode === "qr" ? record(tx, args) : manual(tx, args)
+      ).rejects.toThrow("Competition is cancelled");
+      expect(insertOperation).not.toHaveBeenCalled();
+      expect(insertAudit).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([
+    undefined,
+    { id: "competition-1", editionId: "other", cancelledAt: null },
+    { id: "other", editionId: "edition-1", cancelledAt: null },
+  ])(
+    "rejects missing or mismatched parent Competition for attendance",
+    async (competition) => {
+      const { tx, insertOperation } = setup([
+        undefined,
+        student,
+        {
+          ...attendanceSession,
+          division: { ...attendanceSession.division, competition },
+        },
+      ]);
+      await expect(
+        record(tx, { type: "competition_attendance", sessionId: "session-1" })
+      ).rejects.toThrow("Competition not found in this Edition");
+      expect(insertOperation).not.toHaveBeenCalled();
+    }
+  );
+
+  it("replays committed attendance without querying a subsequently cancelled parent Competition", async () => {
+    const { tx, insertOperation, insertAudit } = setup([
+      {
+        ...existing,
+        type: "competition_attendance",
+        competitionSessionId: "session-1",
+      },
+    ]);
+    await record(tx, {
+      type: "competition_attendance",
+      sessionId: "session-1",
+    });
+    expect(tx.run).toHaveBeenCalledTimes(1);
+    expect(insertOperation).not.toHaveBeenCalled();
+    expect(insertAudit).not.toHaveBeenCalled();
   });
 
   it("defers authoritative subject resolution on the client", async () => {

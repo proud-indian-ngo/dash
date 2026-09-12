@@ -172,12 +172,14 @@ test("Center scan sessions mark two Students through four explicitly finalized s
     const students = await page.context().newPage();
     await students.goto(`/kalakriti/${data.year}/students`);
     await waitForZeroReady(students);
-    await students
-      .getByRole("combobox", { name: "Center", exact: true })
-      .click();
-    await students
-      .getByRole("option", { name: "Station Center A", exact: true })
-      .click();
+    await expect(
+      students.getByRole("columnheader", { name: "Center", exact: false })
+    ).toBeVisible();
+    await expectTransportStatus(
+      students,
+      "Station Student B",
+      "Awaiting pickup"
+    );
     await expect(
       students.getByRole("columnheader", {
         name: "Transport status",
@@ -479,6 +481,11 @@ test("Center scan sessions mark two Students through four explicitly finalized s
       "Absent Station Student",
       "Awaiting pickup"
     );
+    await expectTransportStatus(
+      students,
+      "Station Student B",
+      "Awaiting pickup"
+    );
     const completed = await state();
     expect(
       completed.operations.filter(
@@ -548,16 +555,38 @@ test("Center scan sessions mark two Students through four explicitly finalized s
     for (const deniedPage of [guardian, food]) {
       await deniedPage.goto(`/kalakriti/${data.year}`);
       await waitForZeroReady(deniedPage);
-      await expect(
-        deniedPage.getByRole("button", { name: "Scan", exact: true })
-      ).toHaveCount(0);
+      if (deniedPage === guardian) {
+        await expect(
+          deniedPage.getByRole("button", { name: "Scan", exact: true })
+        ).toHaveCount(0);
+      } else {
+        const foodScanner = new KalakritiScanPage(deniedPage);
+        await foodScanner.installDecoder();
+        await foodScanner.open();
+        await expect(
+          foodScanner.dialog.getByRole("button", {
+            name: "Record meal",
+            exact: true,
+          })
+        ).toBeVisible();
+        await expect(
+          foodScanner.dialog.getByRole("tab", {
+            name: "Transport",
+            exact: true,
+          })
+        ).toHaveCount(0);
+        await expect(
+          foodScanner.dialog.getByRole("button", {
+            name: "Mark Student",
+            exact: true,
+          })
+        ).toHaveCount(0);
+        await foodScanner.close();
+      }
       await deniedPage.goto(`/kalakriti/${data.year}/event-day`);
       await expect(
         deniedPage.getByRole("heading", { name: "Page not found" })
       ).toBeVisible();
-      await expect(
-        deniedPage.getByRole("button", { name: "Scan", exact: true })
-      ).toHaveCount(0);
     }
     const beforeDenied = await state();
     for (const request of [

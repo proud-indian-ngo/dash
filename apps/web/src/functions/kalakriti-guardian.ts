@@ -6,6 +6,7 @@ import {
   updateKalakritiExternalUserContact,
 } from "@pi-dash/auth/kalakriti-external-user";
 import { db } from "@pi-dash/db";
+import { ensureKalakritiGuardianHumanId } from "@pi-dash/db/kalakriti-guardian-id";
 import { resolvePermissions } from "@pi-dash/db/queries/resolve-permissions";
 import { user } from "@pi-dash/db/schema/auth";
 import {
@@ -169,6 +170,16 @@ async function insertGuardianMembershipRecords(
     userId: string;
   }
 ): Promise<string> {
+  // Lock the parent before INSERT acquires its FK key-share lock, avoiding
+  // lock-upgrade deadlocks between concurrent creators and the backfill.
+  const [lockedEdition] = await tx
+    .select({ lifecycle: kalakritiEdition.lifecycle })
+    .from(kalakritiEdition)
+    .where(eq(kalakritiEdition.id, editionId))
+    .for("update");
+  if (!lockedEdition) throw new Error("Edition not found");
+  if (lockedEdition.lifecycle === "archived")
+    throw new Error("Edition is archived");
   const membershipId = uuidv7();
   const now = new Date();
   await tx.insert(kalakritiEditionMembership).values({
@@ -184,6 +195,7 @@ async function insertGuardianMembershipRecords(
     updatedAt: now,
     userId,
   });
+  await ensureKalakritiGuardianHumanId(tx, editionId, membershipId);
   await tx.insert(kalakritiAuditEntry).values({
     action,
     actorUserId,
