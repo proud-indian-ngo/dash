@@ -1,4 +1,8 @@
-import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
+import {
+  Cancel01Icon,
+  MoreVerticalIcon,
+  Tick02Icon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
@@ -17,15 +21,22 @@ import {
   canManageKalakritiResponsibility,
   isKalakritiAssignableUserRole,
   KALAKRITI_RESPONSIBILITY_LABELS,
+  KALAKRITI_VOLUNTEER_CHECK_IN_LABELS,
   type KalakritiResponsibility,
 } from "@pi-dash/shared/kalakriti";
-import type { ReactNode } from "react";
+import { getKalakritiFoodStatus } from "@pi-dash/zero/kalakriti-food-rules";
+import { type ReactNode, useCallback, useEffect, useMemo } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
 import {
   createVolunteerFilterFields,
   getVolunteerFilterValue,
+  removeObsoleteVolunteerFilters,
 } from "@/components/kalakriti/kalakriti-filters";
+import { Loader } from "@/components/loader";
+
+import { useTransportStatusSnapshot } from "./use-transport-status-snapshot";
 
 export interface VolunteerAssignmentItem {
   centerId: string | null;
@@ -38,6 +49,10 @@ export interface VolunteerAssignmentItem {
 }
 
 export interface VolunteerRosterItem {
+  operations?: readonly {
+    type: string;
+    supersededByOperationId: string | null;
+  }[];
   humanId?: string | null;
   registrationGroup?: string | null;
   assignments: VolunteerAssignmentItem[];
@@ -73,26 +88,6 @@ export function formatKalakritiVolunteerAssignment(
     ? `${label} · ${assignment.scopeName}`
     : label;
   return assignment.isPrimary ? `${scoped} · Primary` : scoped;
-}
-
-function volunteerScopeNames(
-  row: VolunteerRosterItem,
-  scope: "centerId" | "competitionCategoryId" | "competitionId"
-): string {
-  const names = new Map<string, string>();
-  for (const assignment of row.assignments) {
-    const id = assignment[scope];
-    if (id && (!names.has(id) || assignment.scopeName)) {
-      names.set(id, assignment.scopeName ?? "Not available");
-    }
-  }
-  return [...names]
-    .sort(
-      ([leftId, leftName], [rightId, rightName]) =>
-        leftName.localeCompare(rightName) || leftId.localeCompare(rightId)
-    )
-    .map(([, name]) => name)
-    .join(", ");
 }
 
 function searchVolunteer(row: VolunteerRosterItem, query: string): boolean {
@@ -227,6 +222,16 @@ function RowActions({
   );
 }
 
+function volunteerCheckInLabel(row: VolunteerRosterItem): string {
+  const status = getKalakritiFoodStatus({
+    kind: "volunteer",
+    operations: row.operations ?? [],
+  });
+  return KALAKRITI_VOLUNTEER_CHECK_IN_LABELS[
+    status.checkedIn ? "checked_in" : "not_checked_in"
+  ];
+}
+
 export function VolunteersTable({
   actorResponsibilities,
   data,
@@ -237,6 +242,8 @@ export function VolunteersTable({
   onRemoveFromEdition,
   onView,
   toolbarActions,
+  statusSnapshotComplete = false,
+  statusSnapshotKey = "",
 }: {
   actorResponsibilities: readonly KalakritiResponsibility[];
   data: VolunteerRosterItem[];
@@ -247,7 +254,20 @@ export function VolunteersTable({
   onRemoveFromEdition: (volunteer: VolunteerRosterItem) => void;
   onView: (volunteer: VolunteerRosterItem) => void;
   toolbarActions?: ReactNode;
+  statusSnapshotComplete?: boolean;
+  statusSnapshotKey?: string;
 }) {
+  const { labels, pending } = useTransportStatusSnapshot({
+    data,
+    scopeKey: statusSnapshotKey,
+    complete: statusSnapshotComplete,
+    getStatus: volunteerCheckInLabel,
+  });
+  const getFilterValue = useCallback(
+    (row: VolunteerRosterItem, path: string[]) =>
+      getVolunteerFilterValue(row, path, labels),
+    [labels]
+  );
   const columns: DataGridColumnDef<VolunteerRosterItem>[] = [
     {
       accessorKey: "snapshotName",
@@ -278,6 +298,45 @@ export function VolunteersTable({
       id: "humanId",
       meta: { headerTitle: "Yearly ID", skeleton: SKELETON_NAME },
       size: 190,
+    },
+    {
+      id: "checkInStatus",
+      accessorFn: (row) => labels?.get(row.id),
+      enableSorting: !pending,
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Checked in"
+          visibility={true}
+        />
+      ),
+      cell: ({ row }) => {
+        const label = labels?.get(row.original.id);
+        if (!label) return SKELETON_NAME;
+        const checkedIn =
+          label === KALAKRITI_VOLUNTEER_CHECK_IN_LABELS.checked_in;
+        return (
+          <span
+            role="img"
+            aria-label={label}
+            title={label}
+            className={
+              checkedIn
+                ? "inline-flex text-green-600 dark:text-green-400"
+                : "inline-flex text-red-600 dark:text-red-400"
+            }
+          >
+            <HugeiconsIcon
+              aria-hidden="true"
+              icon={checkedIn ? Tick02Icon : Cancel01Icon}
+              className="size-5"
+              strokeWidth={2}
+            />
+          </span>
+        );
+      },
+      meta: { headerTitle: "Checked in", skeleton: SKELETON_NAME },
+      size: 170,
     },
     {
       accessorFn: (row) => row.registrationGroup ?? "—",
@@ -341,37 +400,6 @@ export function VolunteersTable({
       meta: { headerTitle: "Roles", skeleton: SKELETON_ROLES },
       size: 280,
     },
-    ...(
-      [
-        ["centers", "Center", "centerId"],
-        ["categories", "Competition Category", "competitionCategoryId"],
-        ["competitions", "Competition", "competitionId"],
-      ] as const
-    ).map(([id, title, scope]): DataGridColumnDef<VolunteerRosterItem> => ({
-      accessorFn: (row) => volunteerScopeNames(row, scope) || "—",
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title={title} visibility={true} />
-      ),
-      id,
-      meta: { headerTitle: title, skeleton: SKELETON_NAME },
-      size: 200,
-    })),
-    {
-      accessorFn: (row) =>
-        row.assignments.some((assignment) => assignment.isPrimary)
-          ? "Primary"
-          : "Not primary",
-      header: ({ column }) => (
-        <DataGridColumnHeader
-          column={column}
-          title="Primary role"
-          visibility={true}
-        />
-      ),
-      id: "primary",
-      meta: { headerTitle: "Primary role", skeleton: SKELETON_ROLES },
-      size: 150,
-    },
     {
       cell: ({ row }) => (
         <RowActions
@@ -404,21 +432,29 @@ export function VolunteersTable({
     onView(row)
   );
 
+  const { query, setQuery } = useDataTableFilters();
+  const normalizedQuery = useMemo(
+    () => removeObsoleteVolunteerFilters(query),
+    [query]
+  );
+  const needsFilterMigration =
+    JSON.stringify(query) !== JSON.stringify(normalizedQuery);
+  useEffect(() => {
+    if (needsFilterMigration) setQuery(normalizedQuery);
+  }, [needsFilterMigration, normalizedQuery, setQuery]);
+  if (needsFilterMigration) return <Loader />;
+
   return (
     <DataTableWrapper<VolunteerRosterItem>
       columns={columns}
       data={data}
       defaultColumnVisibility={{
-        centers: false,
-        categories: false,
-        competitions: false,
-        primary: false,
         registrationGroup: false,
       }}
       emptyMessage="No volunteers on this Edition yet."
       filter={{
         fields: createVolunteerFilterFields(data),
-        getValue: getVolunteerFilterValue,
+        getValue: getFilterValue,
       }}
       getRowId={getRowId}
       isLoading={isLoading}

@@ -15,13 +15,17 @@ import { useForm } from "@tanstack/react-form";
 import { log } from "evlog";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { uuidv7 } from "uuidv7";
 import z from "zod";
 
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { Loader } from "@/components/loader";
-import type { ScanActivity } from "@/lib/kalakriti-event-day-policy";
+import {
+  canScanKalakritiPerson,
+  type ScanActivity,
+} from "@/lib/kalakriti-event-day-policy";
 import type {
   StationOperation,
   StationRecordingLedger,
@@ -31,7 +35,7 @@ import { handleMutationResult } from "@/lib/mutation-result";
 import { EventDayQrScanner } from "./event-day-qr-scanner";
 
 const manualSchema = z.object({
-  humanId: z.string().trim().min(1, "Enter a yearly ID").max(64),
+  humanId: z.string().trim().min(1, "Enter a person ID").max(64),
 });
 const MEALS = [
   { value: "breakfast", label: "Breakfast" },
@@ -101,6 +105,10 @@ export function OperationScanPanel({
     <div className="space-y-4">
       {activity === "meals" ? (
         <div className="space-y-2">
+          <p className="text-muted-foreground text-sm">
+            Students require pickup and Volunteers require check-in. Guardians
+            only require active registration in this Edition.
+          </p>
           <Label htmlFor="scan-meal">Meal</Label>
           <Select
             items={MEALS}
@@ -195,6 +203,7 @@ function OperationCapture({
   canRecord: boolean;
 }) {
   const zero = useZero();
+  const [captureSession] = useState(uuidv7);
   const connection = useConnectionState();
   const activeRef = useRef(true);
   const busyRef = useRef(false);
@@ -213,14 +222,17 @@ function OperationCapture({
         | { humanId: string; personQr?: never }
     ) => {
       if (!activeRef.current || !ready || busyRef.current) return;
-      const attempt = ledger.begin({
-        editionId,
-        type,
-        sessionId,
-        subjectKey: input.personQr
-          ? `qr:${input.personQr}`
-          : `manual:${input.humanId}`,
-      });
+      const attempt = ledger.begin(
+        {
+          editionId,
+          type,
+          sessionId,
+          subjectKey: input.personQr
+            ? `qr:${input.personQr}`
+            : `manual:${input.humanId}`,
+        },
+        captureSession
+      );
       if (attempt.status !== "ready") {
         if (input.humanId && attempt.status === "recorded")
           toast.message("Already recorded");
@@ -286,17 +298,13 @@ function OperationCapture({
       toast.error("Scan a valid person QR code", { id: "station-invalid-qr" });
       return;
     }
-    if (
-      person.type === "guardian" ||
-      (type === "volunteer_check_in" && person.type !== "volunteer") ||
-      (type === "competition_attendance" && person.type !== "student")
-    ) {
+    if (!canScanKalakritiPerson(type, person.type)) {
       toast.error(
         type === "volunteer_check_in"
           ? "Scan a Volunteer QR code"
           : type === "competition_attendance"
             ? "Scan a Student QR code"
-            : "Scan a Student or Volunteer QR code",
+            : "Scan a Student, Volunteer or Guardian QR code",
         { id: "station-invalid-qr" }
       );
       return;
@@ -331,9 +339,17 @@ function OperationCapture({
             <InputField
               autoComplete="off"
               isRequired
-              label="Yearly ID"
+              label={
+                type === "breakfast" || type === "lunch"
+                  ? "Yearly ID or Guardian record ID"
+                  : "Yearly ID"
+              }
               name="humanId"
-              placeholder={`KAL-${year}-0001`}
+              placeholder={
+                type === "breakfast" || type === "lunch"
+                  ? "Student/Volunteer/Guardian yearly ID or Guardian UUID"
+                  : `KAL-${year}-0001`
+              }
             />
             <FormActions
               submitLabel={SUBMIT_LABELS[type]}

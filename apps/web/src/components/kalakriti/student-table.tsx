@@ -18,13 +18,14 @@ import {
   getKalakritiStudentTransportLabel,
 } from "@pi-dash/zero/kalakriti-center-scan-rules";
 import { format } from "date-fns";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import {
   createStudentFilterFields,
   getStudentFilterValue,
 } from "@/components/kalakriti/kalakriti-filters";
+import type { StudentCenterPermissions } from "@/lib/kalakriti-student-directory";
 import { canDeleteKalakritiStudent } from "@/lib/kalakriti-student-policy";
 
 import type { KalakritiStudentRow } from "./student-form-dialog";
@@ -39,7 +40,13 @@ function searchStudents(row: StudentTableRow, query: string): boolean {
   if (!normalizedQuery) {
     return true;
   }
-  return [row.humanId, row.name, row.gender, row.ageCategory?.name]
+  return [
+    row.humanId,
+    row.name,
+    row.gender,
+    row.ageCategory?.name,
+    row.center?.name,
+  ]
     .join(" ")
     .toLocaleLowerCase()
     .includes(normalizedQuery);
@@ -109,6 +116,8 @@ function StudentRowActions({
 }
 
 interface StudentTableProps {
+  centers?: readonly { id: string; name: string }[];
+  centerPermissions?: Record<string, StudentCenterPermissions>;
   canManage: boolean;
   data: StudentTableRow[];
   statusSnapshotComplete: boolean;
@@ -130,6 +139,8 @@ function studentTransportLabel(row: StudentTableRow) {
 }
 
 export function StudentTable({
+  centers = [],
+  centerPermissions,
   canManage,
   data,
   statusSnapshotComplete,
@@ -147,8 +158,35 @@ export function StudentTable({
     complete: statusSnapshotComplete,
     getStatus: studentTransportLabel,
   });
-  const filterFields = useMemo(() => createStudentFilterFields(data), [data]);
+  const getFilterValue = useCallback(
+    (row: StudentTableRow, path: string[]) =>
+      getStudentFilterValue(row, path, labels),
+    [labels]
+  );
+  const filterFields = useMemo(
+    () => createStudentFilterFields(data, centers),
+    [data, centers]
+  );
   const columns: DataGridColumnDef<StudentTableRow>[] = [
+    {
+      id: "center",
+      accessorFn: (row) =>
+        row.center?.name ??
+        centers.find((center) => center.id === row.centerId)?.name ??
+        "—",
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Center"
+          visibility={true}
+        />
+      ),
+      meta: {
+        headerTitle: "Center",
+        skeleton: <Skeleton className="h-5 w-32" />,
+      },
+      size: 180,
+    },
     {
       accessorFn: (row) => row.humanId,
       cell: ({ row }) => (
@@ -273,9 +311,18 @@ export function StudentTable({
     {
       cell: ({ row }) => (
         <StudentRowActions
-          canManage={canManage}
+          canManage={
+            centerPermissions
+              ? centerPermissions[row.original.centerId]?.canManage === true
+              : canManage
+          }
           onView={onView}
-          entryRegistrationEnabled={entryRegistrationEnabled}
+          entryRegistrationEnabled={
+            centerPermissions
+              ? centerPermissions[row.original.centerId]
+                  ?.entryRegistrationEnabled === true
+              : entryRegistrationEnabled
+          }
           onDelete={onDelete}
           onEdit={onEdit}
           student={row.original}
@@ -301,10 +348,10 @@ export function StudentTable({
     <DataTableWrapper
       columns={columns}
       data={data}
-      emptyMessage="No Students have been registered for this Center."
+      emptyMessage="No Students match the current filters."
       filter={{
         fields: filterFields,
-        getValue: getStudentFilterValue,
+        getValue: getFilterValue,
       }}
       getRowId={getStudentRowId}
       isLoading={isLoading}

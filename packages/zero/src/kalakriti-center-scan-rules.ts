@@ -21,6 +21,34 @@ export interface CenterScanStudent {
   }[];
 }
 
+export function hasKalakritiSessionAttendance(
+  operations: readonly {
+    type: string;
+    editionId?: string;
+    competitionSessionId?: string | null;
+    supersededByOperationId: string | null;
+  }[],
+  scope: { editionId: string; sessionId: string }
+): boolean {
+  return operations.some(
+    (operation) =>
+      operation.type === "competition_attendance" &&
+      operation.editionId === scope.editionId &&
+      operation.competitionSessionId === scope.sessionId &&
+      operation.supersededByOperationId === null
+  );
+}
+
+export function hasKalakritiVenueArrival(
+  operations: CenterScanStudent["operations"]
+): boolean {
+  return operations.some(
+    (operation) =>
+      operation.type === "venue_arrival" &&
+      operation.supersededByOperationId === null
+  );
+}
+
 export function isKalakritiCenterScanStage(
   value: string
 ): value is KalakritiCenterScanStage {

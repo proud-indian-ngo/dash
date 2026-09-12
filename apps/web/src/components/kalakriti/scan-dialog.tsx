@@ -18,7 +18,10 @@ import {
   SCAN_ACTIVITY_LABELS,
   type ScanActivity,
 } from "@/lib/kalakriti-event-day-policy";
-import { createStationRecordingLedger } from "@/lib/kalakriti-scan-recording";
+import {
+  createStationRecordingLedger,
+  type StationRecordingLedger,
+} from "@/lib/kalakriti-scan-recording";
 
 import { CenterScanPanel } from "./center-scan-dialog";
 import { OperationScanPanel } from "./operation-scan-panel";
@@ -28,11 +31,13 @@ export function ScanDialog({
   year,
   activities,
   onOpenChange,
+  ledger: providedLedger,
 }: {
   editionId: string;
   year: number;
   activities: readonly ScanActivity[];
   onOpenChange: (open: boolean) => void;
+  ledger?: StationRecordingLedger;
 }) {
   const [activity, setActivity] = useState<ScanActivity | undefined>(() =>
     activities.includes("transport") ? "transport" : activities[0]
@@ -40,7 +45,8 @@ export function ScanDialog({
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const [ledger] = useState(createStationRecordingLedger);
+  const [localLedger] = useState(createStationRecordingLedger);
+  const ledger = providedLedger ?? localLedger;
   const setRecording = useEventCallback((value: boolean) => {
     busyRef.current = value;
     setBusy(value);

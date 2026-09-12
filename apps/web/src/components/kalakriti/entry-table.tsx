@@ -12,14 +12,36 @@ import {
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { format } from "date-fns";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 
-import type { KalakritiEntryRow } from "./entry-form-dialog";
+import {
+  getEntryStudentAttendance,
+  entryAttendanceKey,
+  getEntryStudentArrival,
+} from "./entry-arrival";
+import type {
+  KalakritiEntryRow,
+  KalakritiEntryStudent,
+} from "./entry-form-dialog";
 import { EntryMusicCell } from "./entry-music-cell";
 import { EntryMusicDialog } from "./entry-music-dialog";
 import { EntryMusicPlaybackDialog } from "./entry-music-playback-dialog";
+import { EntryStatusCell } from "./entry-status-cell";
+import {
+  createEntryTableFilterFields,
+  getEntryTableFilterValue,
+} from "./entry-table-filters";
+import { useTransportStatusSnapshot } from "./use-transport-status-snapshot";
+
+function getAttendanceSnapshotLabel(row: {
+  student: KalakritiEntryStudent;
+  editionId: string;
+  sessionId?: string;
+}): string {
+  return getEntryStudentAttendance(row.student, row.editionId, row.sessionId);
+}
 
 function searchEntries(row: KalakritiEntryRow, query: string): boolean {
   const normalizedQuery = query.trim().toLocaleLowerCase();
@@ -31,6 +53,7 @@ function searchEntries(row: KalakritiEntryRow, query: string): boolean {
       member.student.humanId,
       member.student.name,
     ]),
+    row.center?.name ?? "",
     row.session.competition.name,
     row.session.competition.category.name,
     row.session.ageCategory.name,
@@ -92,7 +115,11 @@ function EntryRowActions({
 
 interface EntryTableProps {
   activeSessionIds: readonly string[];
-  centerId: string;
+  centerId?: string;
+  snapshotReady?: boolean;
+  getRowPermissions?: (
+    entry: KalakritiEntryRow
+  ) => EntryTableProps["permissions"];
   data: KalakritiEntryRow[];
   editionId: string;
   emptyMessage?: string;
@@ -116,7 +143,9 @@ function getEntryRowId(entry: KalakritiEntryRow): string {
 
 export function EntryTable({
   activeSessionIds,
-  centerId,
+  centerId = "",
+  snapshotReady = false,
+  getRowPermissions,
   data,
   editionId,
   emptyMessage = "No Competition Entries have been registered for this Center.",
@@ -128,7 +157,9 @@ export function EntryTable({
   showMusic: showMusicProp,
   variant = "center",
 }: EntryTableProps) {
-  const { edit, register, remove, uploadMusic } = permissions;
+  const { register, remove } = permissions;
+  const permissionsFor = (entry: KalakritiEntryRow) =>
+    getRowPermissions?.(entry) ?? permissions;
   // Cell renderers can remount during Zero updates; keep the staged modal above the grid.
   const [musicEntry, setMusicEntry] = useState<KalakritiEntryRow | null>(null);
   const [playbackEntry, setPlaybackEntry] = useState<{
@@ -142,7 +173,126 @@ export function EntryTable({
         entry.session.competition.musicUploadEnabled ||
         entry.musicFiles.length > 0
     );
+  const arrivalStudents = useMemo(
+    () => [
+      ...new Map(
+        data.flatMap((entry) =>
+          entry.members.map(
+            (member) => [member.studentId, member.student] as const
+          )
+        )
+      ).values(),
+    ],
+    [data]
+  );
+  const arrival = useTransportStatusSnapshot({
+    data: arrivalStudents,
+    scopeKey: editionId,
+    complete: snapshotReady,
+    getStatus: getEntryStudentArrival,
+  });
+  const attendanceStudents = useMemo(
+    () => [
+      ...new Map(
+        data.flatMap((entry) =>
+          entry.members.map((member) => {
+            const id = entryAttendanceKey(entry, member.studentId);
+            return [
+              id,
+              {
+                id,
+                student: member.student,
+                editionId,
+                sessionId: entry.session.competitionSessionId,
+              },
+            ] as const;
+          })
+        )
+      ).values(),
+    ],
+    [data, editionId]
+  );
+  const attendance = useTransportStatusSnapshot({
+    data: attendanceStudents,
+    scopeKey: editionId,
+    complete: snapshotReady,
+    getStatus: getAttendanceSnapshotLabel,
+  });
+  const filterFields = useMemo(
+    () =>
+      createEntryTableFilterFields(
+        data,
+        variant !== "session",
+        Boolean(showMusic)
+      ),
+    [data, variant, showMusic]
+  );
   const columns: DataGridColumnDef<KalakritiEntryRow>[] = [
+    {
+      id: "center",
+      accessorFn: (row) => row.center?.name ?? "Unknown Center",
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Center"
+          visibility={true}
+        />
+      ),
+      meta: {
+        headerTitle: "Center",
+        skeleton: <Skeleton className="h-5 w-32" />,
+      },
+      size: 180,
+    },
+    ...(["present", "attended"] as const).map(
+      (mode): DataGridColumnDef<KalakritiEntryRow> => ({
+        id: mode,
+        accessorFn: (row) =>
+          getEntryTableFilterValue(
+            row,
+            [mode],
+            arrival.labels,
+            attendance.labels
+          ),
+        header: ({ column }) => (
+          <DataGridColumnHeader
+            column={column}
+            title={mode === "present" ? "Present" : "Attended"}
+            visibility={true}
+          />
+        ),
+        cell: ({ row }) => (
+          <EntryStatusCell
+            entry={row.original}
+            mode={mode}
+            labels={mode === "present" ? arrival.labels : attendance.labels}
+          />
+        ),
+        meta: {
+          headerTitle: mode === "present" ? "Present" : "Attended",
+          skeleton: <Skeleton className="h-5 w-32" />,
+        },
+        size: 210,
+      })
+    ),
+    {
+      id: "participationMode",
+      accessorKey: "participationMode",
+      cell: ({ row }) =>
+        row.original.participationMode === "group" ? "Group" : "Individual",
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Participation"
+          visibility={true}
+        />
+      ),
+      meta: {
+        headerTitle: "Participation",
+        skeleton: <Skeleton className="h-5 w-24" />,
+      },
+      size: 130,
+    },
     {
       accessorFn: (row) =>
         row.members.map((member) => member.student.humanId).join(" "),
@@ -282,7 +432,7 @@ export function EntryTable({
             cell: ({ row }: { row: { original: KalakritiEntryRow } }) => (
               <EntryMusicCell
                 canWrite={
-                  uploadMusic &&
+                  permissionsFor(row.original).uploadMusic &&
                   (row.original.session.competition.musicUploadEnabled ===
                     true ||
                     row.original.musicFiles.length > 0)
@@ -312,16 +462,18 @@ export function EntryTable({
     ...(remove
       ? [
           {
-            cell: ({ row }: { row: { original: KalakritiEntryRow } }) => (
-              <EntryRowActions
-                canEdit={
-                  edit && activeSessionIds.includes(row.original.sessionId)
-                }
-                entry={row.original}
-                onEdit={onEdit}
-                onRemove={onRemove}
-              />
-            ),
+            cell: ({ row }: { row: { original: KalakritiEntryRow } }) =>
+              permissionsFor(row.original).remove ? (
+                <EntryRowActions
+                  canEdit={
+                    permissionsFor(row.original).edit &&
+                    activeSessionIds.includes(row.original.sessionId)
+                  }
+                  entry={row.original}
+                  onEdit={onEdit}
+                  onRemove={onRemove}
+                />
+              ) : null,
             enableHiding: false,
             enableResizing: false,
             enableSorting: false,
@@ -352,10 +504,10 @@ export function EntryTable({
           }}
         />
       ) : null}
-      {musicEntry && uploadMusic ? (
+      {musicEntry && permissionsFor(musicEntry).uploadMusic ? (
         <EntryMusicDialog
           key={musicEntry.id}
-          centerId={centerId}
+          centerId={musicEntry.centerId ?? centerId}
           divisionId={musicEntry.sessionId}
           editionId={editionId}
           entryId={musicEntry.id}
@@ -369,6 +521,16 @@ export function EntryTable({
         />
       ) : null}
       <DataTableWrapper
+        filter={{
+          fields: filterFields,
+          getValue: (row, path) =>
+            getEntryTableFilterValue(
+              row,
+              path,
+              arrival.labels,
+              attendance.labels
+            ),
+        }}
         columns={columns}
         data={data}
         emptyMessage={emptyMessage}

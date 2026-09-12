@@ -29,10 +29,11 @@ export function createStationRecordingLedger() {
     {
       args: ReturnType<typeof makeArgs>;
       status: "ready" | "pending" | "recorded";
+      captureSession: string;
     }
   >();
   return {
-    begin(input: RecordingInput) {
+    begin(input: RecordingInput, captureSession = "default") {
       const key = JSON.stringify([
         input.editionId,
         input.type,
@@ -40,13 +41,23 @@ export function createStationRecordingLedger() {
         input.subjectKey,
       ]);
       let attempt = attempts.get(key);
+      // Only an explicit new capture may discard an acknowledged meal attempt.
+      // Uncertain attempts always retry their original IDs, even across captures.
+      if (
+        attempt?.status === "recorded" &&
+        attempt.captureSession !== captureSession &&
+        (input.type === "breakfast" || input.type === "lunch")
+      )
+        attempt = undefined;
       if (!attempt) {
-        attempt = { args: makeArgs(input), status: "ready" };
+        attempt = { args: makeArgs(input), status: "ready", captureSession };
         attempts.set(key, attempt);
       }
+      if (attempt.status === "pending") attempt.captureSession = captureSession;
       if (attempt.status !== "ready")
         return { status: attempt.status } as const;
       attempt.status = "pending";
+      attempt.captureSession = captureSession;
       const current = attempt;
       return {
         status: "ready",

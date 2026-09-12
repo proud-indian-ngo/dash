@@ -90,6 +90,7 @@ export function GuardianDetailSheet({
             {guardian.state}
           </Badge>
 
+          <DetailRow label="Yearly ID" value={guardian.humanId ?? "—"} />
           <PersonQrPanel enabled={open} id={guardian.id} type="guardian" />
 
           <div className="grid gap-4">

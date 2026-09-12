@@ -12,7 +12,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { format } from "date-fns";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 
@@ -36,6 +36,7 @@ export interface KalakritiStudentRow {
   ageCategoryId: string;
   ageCategoryOverrideReason: string | null;
   centerId: string;
+  center?: { id: string; name: string } | null;
   dateOfBirth: number;
   derivedAgeCategory?: { name: string } | null;
   derivedAgeCategoryId: string;
@@ -52,6 +53,9 @@ interface AgeCategoryOption {
 }
 
 interface StudentFormDialogProps {
+  initialStep?: ReactNode;
+  centerName?: string;
+  canSubmit?: boolean;
   ageCategories: AgeCategoryOption[];
   canOverrideAgeCategory: boolean;
   centerId: string;
@@ -170,6 +174,7 @@ function DuplicateConfirmationControl({
 }
 
 function StudentForm({
+  canSubmit = true,
   ageCategories,
   canOverrideAgeCategory,
   centerId,
@@ -293,6 +298,7 @@ function StudentForm({
     },
     onSubmit: async ({ value }) => {
       setSubmissionError(null);
+      if (!canSubmit) return;
       if (
         !(
           value.dateOfBirth &&
@@ -387,7 +393,7 @@ function StudentForm({
                 form={form}
               />
               <FormActions
-                disabled={duplicateBlocked}
+                disabled={duplicateBlocked || !canSubmit}
                 onCancel={handleCancel}
                 submitLabel={isEditing ? "Save Student" : "Register Student"}
                 submittingLabel={isEditing ? "Saving..." : "Registering..."}
@@ -422,7 +428,24 @@ export function StudentFormDialog(props: StudentFormDialogProps) {
               : "A yearly Student ID and credential are created automatically."}
           </DialogDescription>
         </DialogHeader>
-        <StudentForm key={formKey} {...props} />
+        {props.centerName ? (
+          <p className="text-muted-foreground text-sm">
+            Center: {props.centerName}
+          </p>
+        ) : null}
+        {props.initialStep ?? (
+          <>
+            {props.canSubmit === false ? (
+              <p role="status" className="text-muted-foreground text-sm">
+                Student registration is currently unavailable for this Center.
+              </p>
+            ) : null}
+            <StudentForm
+              key={`${formKey}:${props.centerId}:${props.student?.id ?? "new"}`}
+              {...props}
+            />
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

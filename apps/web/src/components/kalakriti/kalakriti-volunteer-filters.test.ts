@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+  createFilterGroup,
   createFilterQuery,
   createFilterRule,
 } from "@pi-dash/design-system/components/reui/filters/filters-query";
@@ -10,6 +11,7 @@ import { compileFilterQuery } from "@/components/data-table/compile-filter-query
 import {
   createVolunteerFilterFields,
   getVolunteerFilterValue,
+  removeObsoleteVolunteerFilters,
 } from "./kalakriti-filters";
 import type {
   VolunteerAssignmentItem,
@@ -88,18 +90,15 @@ function matching(path: string, operator: string, value?: unknown) {
 }
 
 describe("Kalakriti volunteer filters", () => {
-  it("offers text, assignment scope, responsibility, and primary filters", () => {
+  it("offers contact, ID, group and responsibility filters only", () => {
     expect(createVolunteerFilterFields(rows).map((field) => field.id)).toEqual([
+      "checkInStatus",
       "snapshotName",
       "humanId",
       "snapshotEmail",
       "snapshotPhone",
       "registrationGroup",
-      "centers",
-      "competitionCategories",
-      "competitions",
       "responsibilities",
-      "primary",
     ]);
   });
 
@@ -119,31 +118,36 @@ describe("Kalakriti volunteer filters", () => {
     }
   );
 
-  it.each([
-    ["centers", "center-two"],
-    ["competitionCategories", "category-one"],
-    ["competitions", "competition-one"],
-  ])(
-    "matches every assigned %s scope by ID rather than label",
-    (path, value) => {
-      expect(matching(path, "has_any_of", [value])).toEqual(["one"]);
-      expect(matching(path, "has_any_of", ["not-assigned"])).toEqual([]);
-      expect(getVolunteerFilterValue(rows[1]!, [path])).toEqual([]);
-    }
-  );
-
-  it("builds unique scope options from roster data without mixing scope kinds", () => {
-    const fields = createVolunteerFilterFields([rows[0]!, rows[0]!, rows[1]!]);
-    expect(fields.find((field) => field.id === "centers")?.options).toEqual([
-      { label: "North", value: "center-one" },
-      { label: "South", value: "center-two" },
+  it("removes obsolete nested saved filters while preserving unrelated rules", () => {
+    const retained = createFilterRule({
+      id: "name",
+      path: ["snapshotName"],
+      operator: "contains",
+      value: "Asha",
+    });
+    const obsolete = [
+      "centers",
+      "competitionCategories",
+      "competitions",
+      "primary",
+    ].map((path) =>
+      createFilterRule({ id: path, path: [path], operator: "is", value: "old" })
+    );
+    const query = createFilterQuery([
+      retained,
+      createFilterGroup({ id: "nested", combinator: "or", rules: obsolete }),
     ]);
+    const normalized = removeObsoleteVolunteerFilters(query);
+    expect(normalized.rules).toEqual([retained]);
     expect(
-      fields.find((field) => field.id === "competitionCategories")?.options
-    ).toEqual([{ label: "Arts", value: "category-one" }]);
+      rows
+        .filter(compileFilterQuery(normalized, getVolunteerFilterValue))
+        .map((row) => row.id)
+    ).toEqual(["one"]);
     expect(
-      fields.find((field) => field.id === "competitions")?.options
-    ).toEqual([{ label: "Painting", value: "competition-one" }]);
+      removeObsoleteVolunteerFilters(createFilterQuery(obsolete)).rules
+    ).toEqual([]);
+    expect(removeObsoleteVolunteerFilters(normalized)).toEqual(normalized);
   });
 
   it("filters registration groups and missing groups with unique options", () => {
@@ -156,15 +160,57 @@ describe("Kalakriti volunteer filters", () => {
     ).toEqual([{ label: "Group A", value: "Group A" }]);
   });
 
-  it("preserves unassigned and primary role filters", () => {
+  it("filters Checked in from authoritative labels only, never unknown raw-operation defaults", () => {
+    const field = createVolunteerFilterFields(rows).find(
+      (item) => item.id === "checkInStatus"
+    );
+    expect(field?.label).toBe("Checked in");
+    expect(field?.options).toEqual([
+      { label: "Checked in", value: "Checked in" },
+      { label: "Not checked in", value: "Not checked in" },
+    ]);
+    const query = createFilterQuery([
+      createFilterRule({
+        id: "check-in",
+        path: ["checkInStatus"],
+        operator: "is",
+        value: "Not checked in",
+      }),
+    ]);
+    expect(
+      rows.filter(compileFilterQuery(query, getVolunteerFilterValue))
+    ).toEqual([]);
+    const retained = new Map([
+      ["one", "Checked in"],
+      ["two", "Not checked in"],
+    ]);
+    expect(
+      rows
+        .filter(
+          compileFilterQuery(query, (row, path) =>
+            getVolunteerFilterValue(row, path, retained)
+          )
+        )
+        .map((row) => row.id)
+    ).toEqual(["two"]);
+    expect(
+      getVolunteerFilterValue(
+        { ...rows[0]!, operations: [] },
+        ["checkInStatus"],
+        retained
+      )
+    ).toBe("Checked in");
+  });
+  it("preserves the Unassigned responsibility filter", () => {
     expect(matching("responsibilities", "has_any_of", ["unassigned"])).toEqual([
       "two",
     ]);
-    expect(matching("primary", "is", "primary")).toEqual(["one"]);
-    expect(matching("primary", "is", "secondary")).toEqual(["two"]);
-    expect(
-      createVolunteerFilterFields([]).find((field) => field.id === "centers")
-        ?.options
-    ).toEqual([]);
+    for (const path of [
+      "centers",
+      "competitionCategories",
+      "competitions",
+      "primary",
+    ])
+      expect(getVolunteerFilterValue(rows[0]!, [path])).toBeUndefined();
   });
 });

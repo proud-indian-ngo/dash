@@ -1,6 +1,14 @@
-import type { FilterField } from "@pi-dash/design-system/components/reui/filters/filters-types";
-import { KALAKRITI_RESPONSIBILITY_LABELS } from "@pi-dash/shared/kalakriti";
+import type {
+  FilterField,
+  FilterQuery,
+} from "@pi-dash/design-system/components/reui/filters/filters-types";
+import {
+  KALAKRITI_RESPONSIBILITY_LABELS,
+  KALAKRITI_STUDENT_TRANSPORT_LABELS,
+  KALAKRITI_VOLUNTEER_CHECK_IN_LABELS,
+} from "@pi-dash/shared/kalakriti";
 
+import { removeFilterPath } from "@/components/data-table/compile-filter-query";
 import {
   dateField,
   numberField,
@@ -24,6 +32,9 @@ import {
   type KalakritiGenderEligibility,
 } from "@/lib/kalakriti-competition-labels";
 
+const STUDENT_TRANSPORT_OPTIONS = [
+  ...new Set(Object.values(KALAKRITI_STUDENT_TRANSPORT_LABELS)),
+].map((label) => ({ label, value: label }));
 const GENDER_OPTIONS = [
   { label: "Male", value: "male" },
   { label: "Female", value: "female" },
@@ -35,10 +46,6 @@ const RETIRED_STATUS_OPTIONS = [
 const OPEN_CLOSED_OPTIONS = [
   { label: "Open", value: "open" },
   { label: "Closed", value: "closed" },
-];
-const PRIMARY_ROLE_OPTIONS = [
-  { label: "Primary", value: "primary" },
-  { label: "Not primary", value: "secondary" },
 ];
 const GUARDIAN_STATE_OPTIONS = [
   { label: "Active", value: "active" },
@@ -74,10 +81,19 @@ function openClosed(enabled: boolean): "open" | "closed" {
 
 export function getStudentFilterValue(
   row: KalakritiStudentRow,
-  path: string[]
+  path: string[],
+  transportLabels?: ReadonlyMap<string, string>
 ): unknown {
   const [key] = path;
   switch (key) {
+    case "center":
+      return row.centerId;
+    case "humanId":
+      return row.humanId;
+    case "name":
+      return row.name;
+    case "transportStatus":
+      return transportLabels?.get(row.id);
     case "ageCategory":
       return row.ageCategoryId;
     case "dateOfBirth":
@@ -90,9 +106,36 @@ export function getStudentFilterValue(
 }
 
 export function createStudentFilterFields(
-  rows: readonly KalakritiStudentRow[]
+  rows: readonly KalakritiStudentRow[],
+  centers: readonly { id: string; name: string }[] = []
 ): FilterField[] {
   return [
+    selectField(
+      "center",
+      "Center",
+      optionsFromRows(
+        centers.length
+          ? centers
+          : rows.map((row) => ({
+              id: row.centerId,
+              name: row.center?.name ?? row.centerId,
+            })),
+        (center) => center.id,
+        (center) => center.name
+      )
+    ),
+    { id: "humanId", label: "ID", type: "text", defaultOperator: "contains" },
+    { id: "name", label: "Student", type: "text", defaultOperator: "contains" },
+    selectField(
+      "transportStatus",
+      "Transport status",
+      STUDENT_TRANSPORT_OPTIONS,
+      [
+        { arity: "one", label: "is", value: "is" },
+        { arity: "many", label: "is any of", value: "is_any_of" },
+      ]
+    ),
+    dateField("dateOfBirth", "Date of birth"),
     selectField("gender", "Gender", GENDER_OPTIONS),
     selectField(
       "ageCategory",
@@ -103,7 +146,6 @@ export function createStudentFilterFields(
         (row) => row.ageCategory?.name ?? row.ageCategoryId
       )
     ),
-    dateField("dateOfBirth", "Date of birth"),
   ];
 }
 
@@ -177,7 +219,7 @@ export function createEntrySessionFilterFields(
     ),
     dateField("startAt", "Session"),
     dateField("endAt", "Ends"),
-    numberField("entryCount", "Center Entries"),
+    numberField("entryCount", "Entries"),
   ];
 }
 
@@ -227,15 +269,25 @@ export function getGuardianFilterValue(
   if (path[0] === "state") {
     return row.state;
   }
+  if (path[0] === "humanId") return row.humanId ?? null;
 }
 
 export function createGuardianFilterFields(): FilterField[] {
-  return [selectField("state", "Status", GUARDIAN_STATE_OPTIONS)];
+  return [
+    {
+      id: "humanId",
+      label: "Yearly ID",
+      type: "text",
+      defaultOperator: "contains",
+    },
+    selectField("state", "Status", GUARDIAN_STATE_OPTIONS),
+  ];
 }
 
 export function getVolunteerFilterValue(
   row: VolunteerRosterItem,
-  path: string[]
+  path: string[],
+  checkInLabels?: ReadonlyMap<string, string>
 ): unknown {
   const [key] = path;
   switch (key) {
@@ -249,24 +301,8 @@ export function getVolunteerFilterValue(
       return row.snapshotPhone;
     case "registrationGroup":
       return row.registrationGroup ?? null;
-    case "centers":
-      return row.assignments.flatMap((assignment) =>
-        assignment.centerId ? [assignment.centerId] : []
-      );
-    case "competitionCategories":
-      return row.assignments.flatMap((assignment) =>
-        assignment.competitionCategoryId
-          ? [assignment.competitionCategoryId]
-          : []
-      );
-    case "competitions":
-      return row.assignments.flatMap((assignment) =>
-        assignment.competitionId ? [assignment.competitionId] : []
-      );
-    case "primary":
-      return row.assignments.some((assignment) => assignment.isPrimary)
-        ? "primary"
-        : "secondary";
+    case "checkInStatus":
+      return checkInLabels?.get(row.id);
     case "responsibilities":
       return row.assignments.length === 0
         ? ["unassigned"]
@@ -276,11 +312,28 @@ export function getVolunteerFilterValue(
   }
 }
 
+export function removeObsoleteVolunteerFilters(
+  query: FilterQuery
+): FilterQuery {
+  return ["centers", "competitionCategories", "competitions", "primary"].reduce(
+    (current, path) => removeFilterPath(current, path),
+    query
+  );
+}
+
 export function createVolunteerFilterFields(
   rows: readonly VolunteerRosterItem[]
 ): FilterField[] {
   const assignments = rows.flatMap((row) => row.assignments);
   return [
+    selectField(
+      "checkInStatus",
+      "Checked in",
+      Object.values(KALAKRITI_VOLUNTEER_CHECK_IN_LABELS).map((label) => ({
+        label,
+        value: label,
+      }))
+    ),
     {
       id: "snapshotName",
       label: "Name",
@@ -315,40 +368,6 @@ export function createVolunteerFilterFields(
       )
     ),
     {
-      id: "centers",
-      label: "Center",
-      type: "multiselect",
-      defaultOperator: "has_any_of",
-      options: optionsFromRows(
-        assignments,
-        (assignment) => assignment.centerId,
-        (assignment) => assignment.scopeName ?? assignment.centerId ?? ""
-      ),
-    },
-    {
-      id: "competitionCategories",
-      label: "Competition Category",
-      type: "multiselect",
-      defaultOperator: "has_any_of",
-      options: optionsFromRows(
-        assignments,
-        (assignment) => assignment.competitionCategoryId,
-        (assignment) =>
-          assignment.scopeName ?? assignment.competitionCategoryId ?? ""
-      ),
-    },
-    {
-      id: "competitions",
-      label: "Competition",
-      type: "multiselect",
-      defaultOperator: "has_any_of",
-      options: optionsFromRows(
-        assignments,
-        (assignment) => assignment.competitionId,
-        (assignment) => assignment.scopeName ?? assignment.competitionId ?? ""
-      ),
-    },
-    {
       defaultOperator: "has_any_of",
       id: "responsibilities",
       label: "Responsibility",
@@ -363,7 +382,6 @@ export function createVolunteerFilterFields(
       ],
       type: "multiselect",
     },
-    selectField("primary", "Primary role", PRIMARY_ROLE_OPTIONS),
   ];
 }
 

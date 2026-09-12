@@ -1,0 +1,2 @@
+ALTER TABLE "kalakriti_edition" ADD COLUMN "next_guardian_sequence" integer DEFAULT 1 NOT NULL;--> statement-breakpoint
+ALTER TABLE "kalakriti_edition" ADD CONSTRAINT "kalakriti_edition_nextGuardianSequence_chk" CHECK ("kalakriti_edition"."next_guardian_sequence" > 0);

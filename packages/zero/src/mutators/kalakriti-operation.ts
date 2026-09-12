@@ -11,6 +11,7 @@ import type { Context } from "../context";
 import { isKalakritiCenterScanStage } from "../kalakriti-center-scan-rules";
 import {
   assertCanRecordOperation,
+  assertOperationSubjectMatchesType,
   findExistingOperationByOperationId,
   getOperationSubjectKind,
   type KalakritiOperationRecord,
@@ -21,6 +22,7 @@ import {
   type CenterScanTx,
   prepareCenterScan,
 } from "./kalakriti-center-scan-core";
+import { kalakritiMealUndoMutator } from "./kalakriti-meal-undo";
 import {
   getEditionForUpdate,
   type LockableKalakritiTx,
@@ -36,7 +38,7 @@ const kalakritiOperationRecordBaseSchema = z.object({
   occurredAt: z.number(),
   operationId: z.string(),
   sessionId: z.string().optional(),
-  type: z.enum(KALAKRITI_OPERATION_TYPES),
+  type: z.enum(KALAKRITI_OPERATION_TYPES).exclude(["meal_correction"]),
 });
 
 export const kalakritiOperationRecordSchema =
@@ -153,6 +155,7 @@ export async function assertCanRecordKalakritiOperation(
 
 interface OperationSubject {
   centerId?: string;
+  membershipKind?: "guardian" | "volunteer";
   membershipId: string | null;
   studentId: string | null;
 }
@@ -255,9 +258,6 @@ async function resolveSubjectFromPersonQr(
   personQr: string
 ): Promise<OperationSubject> {
   const person = parseKalakritiPersonQr(personQr);
-  if (person.type === "guardian") {
-    throw new Error("Guardians cannot be operation subjects");
-  }
   if (person.type === "student") {
     const student = (await tx.run(
       zql.kalakritiStudent
@@ -283,7 +283,7 @@ async function resolveSubjectFromPersonQr(
       .where("id", person.id)
       .where("editionId", editionId)
       .where("state", "active")
-      .where("kind", "volunteer")
+      .where("kind", person.type)
       .one()
   )) as
     | { id: string; editionId: string; state: string; kind: string }
@@ -293,11 +293,19 @@ async function resolveSubjectFromPersonQr(
     membership.id !== person.id ||
     membership.editionId !== editionId ||
     membership.state !== "active" ||
-    membership.kind !== "volunteer"
+    membership.kind !== person.type
   ) {
-    throw new Error("Active Volunteer not found in this Edition");
+    throw new Error(
+      person.type === "guardian"
+        ? "Active Guardian not found in this Edition"
+        : "Active Volunteer not found in this Edition"
+    );
   }
-  return { studentId: null, membershipId: membership.id };
+  return {
+    studentId: null,
+    membershipId: membership.id,
+    membershipKind: person.type,
+  };
 }
 
 async function resolveSubjectFromHumanId(
@@ -318,23 +326,28 @@ async function resolveSubjectFromHumanId(
       centerId: student.centerId,
     };
   }
-  const membership = (await tx.run(
-    zql.kalakritiEditionMembership
-      .where("editionId", editionId)
-      .where("humanId", humanId)
-      .where("state", "active")
-      .where("kind", "volunteer")
-      .one()
-  )) as
+  let membershipQuery = zql.kalakritiEditionMembership
+    .where("editionId", editionId)
+    .where("state", "active");
+  membershipQuery = z.uuid().safeParse(humanId).success
+    ? membershipQuery.where(({ or, cmp }) =>
+        or(cmp("humanId", humanId), cmp("id", humanId))
+      )
+    : membershipQuery.where("humanId", humanId);
+  const membership = (await tx.run(membershipQuery.one())) as
     | { id: string; editionId: string; kind: string; state: string }
     | undefined;
   if (
     membership &&
     membership.editionId === editionId &&
-    membership.kind === "volunteer" &&
+    (membership.kind === "volunteer" || membership.kind === "guardian") &&
     membership.state === "active"
   ) {
-    return { membershipId: membership.id, studentId: null };
+    return {
+      membershipId: membership.id,
+      studentId: null,
+      membershipKind: membership.kind,
+    };
   }
   throw new Error("Yearly ID not found in this Edition");
 }
@@ -365,6 +378,7 @@ export async function recordKalakritiOperation(
   )) as (KalakritiOperationRecord & { recordedBy: string }) | undefined;
   if (existing) {
     if (
+      existing.type === "meal_correction" ||
       existing.editionId !== args.editionId ||
       !(existing.recordedBy === ctx.userId || can(ctx, "kalakriti.admin"))
     ) {
@@ -380,6 +394,8 @@ export async function recordKalakritiOperation(
   const subject = args.personQr
     ? await resolveSubjectFromPersonQr(tx, args.editionId, args.personQr)
     : await resolveSubjectFromHumanId(tx, args.editionId, args.humanId ?? "");
+
+  assertOperationSubjectMatchesType(args.type, subject);
 
   if (args.centerId !== undefined && subject.centerId !== args.centerId) {
     throw new Error("Student does not belong to the selected Center");
@@ -478,6 +494,7 @@ export async function recordKalakritiOperation(
 }
 
 export const kalakritiOperationMutators = {
+  undoMeal: kalakritiMealUndoMutator,
   record: defineMutator(
     kalakritiOperationRecordSchema,
     async ({ tx, ctx, args }) => {

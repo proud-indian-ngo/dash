@@ -62,6 +62,8 @@ All paths are relative to project root.
 | `apps/web/src/context/app-context.tsx` | App context provider (authenticated user) |
 | `apps/web/src/components/zero-init.tsx` | Zero client initialization |
 | `apps/web/vitest.config.ts` | Unit test config for web app |
+| `apps/web/src/components/data-table/data-table-wrapper.tsx`, `apps/web/src/components/data-table/{column-fill,use-column-fill}.ts` | Shared table rendering and viewport-aware last-unpinned-column fill, separate from persisted preferred widths |
+| `apps/web/vite.config.ts`, `apps/web/src/lib/dev/react-compiler-preset.ts` | Vite build configuration; keeps imperative ReUI sizing renderers outside React Compiler so resized widths and pin offsets stay current |
 
 ### Routes
 
@@ -70,6 +72,7 @@ All paths are relative to project root.
 | `routes/_app/index.tsx` | Dashboard |
 | `routes/_app/users.tsx` | User management |
 | `scripts/backfill-kalakriti-volunteer-ids.ts` (repository root) | Explicit, idempotent allocation of missing historical volunteer yearly IDs |
+| `scripts/backfill-kalakriti-guardian-ids.ts` (repository root) | Edition- and target-confirmed backfill of missing active Guardian yearly IDs, preserving existing and archived IDs |
 | `scripts/backfill-kalakriti-entry-music.ts` (repository root) | Guarded, idempotent singleton-to-child music metadata backfill without moving R2 objects |
 | `routes/_app/reimbursements/route.tsx` | Reimbursements layout |
 | `routes/_app/reimbursements/index.tsx` | Reimbursements list (combined reimbursements + advance payments) |
@@ -87,6 +90,7 @@ All paths are relative to project root.
 | `routes/_app/kalakriti/$year/index.tsx` | Edition overview workspace and Edition header |
 | `components/kalakriti/{volunteer,guardian,student}-detail-sheet.tsx` | Table-owned person details, Guardian/Student Center details, Student competition entries, and identifier QR codes for every authorized viewer |
 | `components/kalakriti/person-qr-panel.tsx` | Client-rendered JSON QR containing the database record `id` and subject `type` (`student`, `guardian`, or `volunteer`) |
+| `components/kalakriti/{food-table,food-stats,food-meal-undo}.tsx`, `components/kalakriti/food-roster-snapshot.ts`, `lib/kalakriti-food-policy.ts` | Eligible-only Food roster with retained authoritative snapshots, column filters, whole-authorized-roster meal totals, guarded meal undo, and shared page/navigation read policy |
 | `components/kalakriti/scan-dialog.tsx` | Stable sidebar modal with role-derived activity tabs and pending-write guards |
 | `components/kalakriti/center-scan-dialog.tsx` | Transport panel: continuous QR/manual marking, roster progress, pinned Center stages, and confirmed finalization |
 | `components/kalakriti/operation-scan-panel.tsx` | Live-only volunteer check-in, meals, and scoped Competition attendance with explicit scan contexts |
@@ -115,8 +119,9 @@ All paths are relative to project root.
 | `routes/_app/kalakriti/$year/competitions/venues.tsx` | Venue table and detail sheet |
 | `routes/_app/kalakriti/$year/competitions/schedule.tsx` | Competition Session table and detail sheet |
 | `routes/_app/kalakriti/$year/guardians.tsx` | Edition Guardian access management |
-| `routes/_app/kalakriti/$year/students.tsx` | Center-scoped Student registration, editing, and read-only lifecycle state |
-| `routes/_app/kalakriti/$year/entries.tsx`, `entries/` | Center-scoped Session summary and per-Session individual and group Competition Entry registration with live eligibility, limit, overlap, and capacity validation |
+| `routes/_app/kalakriti/$year/students.tsx` | Authorized-Center-union Student directory with a Center column/filter, explicit-Center registration, and actual-row-Center edit/detail/delete guards |
+| `routes/_app/kalakriti/$year/entries.tsx`, `entries/` | Authorized-Center-union directory and Entries; event-detail Present/Attended statuses and data-column filters; same-Center registration with existing eligibility/write guards |
+| `routes/_app/kalakriti/$year/food.tsx` | Scoped Student/Volunteer/Guardian Food roster with eligibility and served history |
 | `routes/_app/kalakriti/$year/audit.tsx` | Edition-wide administrator and assignment-scoped Lead audit trail with stable pagination |
 | `routes/_app/kalakriti/new.tsx` | Create an Edition and protected linked event (`kalakriti.admin` guard) |
 | `routes/kalakriti/$year/schedule.tsx` | Public Competition schedule for open, locked, live, and archived Editions with signup, volunteer-interest, and Edition dashboard calls to action |

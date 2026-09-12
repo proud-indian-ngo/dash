@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
-import { getSessionEntryPermissions } from "./entry-permissions";
+import {
+  getSessionEntryPermissions,
+  selectWritableEntryCenters,
+} from "./entry-permissions";
 
 const admin = { isGlobalAdmin: true, membership: null };
 describe("Entry music permissions", () => {
@@ -56,5 +59,43 @@ describe("Entry music permissions", () => {
         }).uploadMusic
       ).toBe(expected);
     }
+  });
+});
+
+describe("Entry Center write boundaries", () => {
+  const centers = [{ id: "a" }, { id: "b" }];
+  it("keeps Guardian writes at the authorized Center boundary, not own-child ownership", () => {
+    expect(
+      selectWritableEntryCenters(centers, {
+        isGlobalAdmin: false,
+        membership: { kind: "guardian", responsibilities: [], assignments: [] },
+      })
+    ).toEqual(centers);
+  });
+  it("does not promote global read scope into write scope", () => {
+    for (const responsibility of ["competition_coordinator", "liaison_lead"]) {
+      expect(
+        selectWritableEntryCenters(centers, {
+          isGlobalAdmin: false,
+          membership: {
+            kind: "volunteer",
+            responsibilities: [responsibility],
+            assignments: [{ responsibility, centerId: null }],
+          },
+        })
+      ).toEqual([]);
+    }
+  });
+  it("limits Liaisons to their assigned Centers", () => {
+    expect(
+      selectWritableEntryCenters(centers, {
+        isGlobalAdmin: false,
+        membership: {
+          kind: "volunteer",
+          responsibilities: ["liaison"],
+          assignments: [{ responsibility: "liaison", centerId: "b" }],
+        },
+      })
+    ).toEqual([{ id: "b" }]);
   });
 });

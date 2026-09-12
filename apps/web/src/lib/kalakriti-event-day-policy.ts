@@ -19,6 +19,19 @@ export const SCAN_ACTIVITY_LABELS: Record<ScanActivity, string> = {
   meals: "Meals",
   attendance: "Competition attendance",
 };
+export function canScanKalakritiPerson(
+  operation:
+    | "volunteer_check_in"
+    | "competition_attendance"
+    | "breakfast"
+    | "lunch",
+  kind: "student" | "volunteer" | "guardian"
+): boolean {
+  if (operation === "volunteer_check_in") return kind === "volunteer";
+  if (operation === "competition_attendance") return kind === "student";
+  return true;
+}
+
 export function getKalakritiScanActivities(
   access: ScanAccess | null | undefined
 ): ScanActivity[] {

@@ -87,9 +87,19 @@ describe("Non-transport scan capture", () => {
     queryType = "unknown";
     const html = render();
     expect(decode).toBeUndefined();
-    expect(html).toContain('aria-label="Yearly ID"');
+    expect(html).toContain('aria-label="Yearly ID or Guardian record ID"');
     expect(html).toContain('disabled=""');
   });
+  it.each(["check_in", "attendance"] as const)(
+    "keeps the Yearly ID label for %s",
+    (activity) => {
+      const html = render(activity);
+      expect(html).toContain('aria-label="Yearly ID"');
+      expect(html).not.toContain(
+        'aria-label="Yearly ID or Guardian record ID"'
+      );
+    }
+  );
   it("does not start while offline or outside live", () => {
     lifecycle = "registration_locked";
     render();

@@ -403,11 +403,7 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
         )
       ).error
     ).toBeDefined();
-    for (const qr of [
-      person(data.foreignStudentId),
-      person(data.guardianId, "guardian"),
-      "legacy-credential-token",
-    ])
+    for (const qr of [person(data.foreignStudentId), "legacy-credential-token"])
       expect(
         (await mutate(page.request, command(data.editionId, "breakfast", qr)))
           .error
@@ -464,12 +460,36 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
     await count(7);
     await manual(hospitality, data.secondVolunteerHumanId, "Record check-in");
     await count(8);
+    await admin.dialog.getByRole("tab", { name: "Meals", exact: true }).click();
+    await admin.scan(person(data.guardianId, "guardian"), 8);
+    await count(9);
+    await manual(food, data.guardianId, "Record meal");
+    expect(await state()).toHaveLength(9);
+    for (const type of [
+      "pickup",
+      "volunteer_check_in",
+      "competition_attendance",
+    ]) {
+      expect(
+        (
+          await mutate(
+            page.request,
+            command(
+              data.editionId,
+              type,
+              person(data.guardianId, "guardian"),
+              type === "competition_attendance" ? data.sessionId : undefined
+            )
+          )
+        ).error
+      ).toBeDefined();
+    }
     const recorded = await state();
     await admin.holdFrame();
     await fixture("close");
     await expect(
       admin.dialog.getByRole("button", {
-        name: "Record attendance",
+        name: "Record meal",
         exact: true,
       })
     ).toBeDisabled();

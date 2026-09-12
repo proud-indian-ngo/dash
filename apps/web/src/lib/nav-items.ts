@@ -142,6 +142,7 @@ export function buildKalakritiNavGroups({
   canViewCompetitions = false,
   canViewEntries = false,
   canViewStudents = false,
+  canViewFood = false,
   year,
 }: {
   canManageEligibility?: boolean;
@@ -151,6 +152,7 @@ export function buildKalakritiNavGroups({
   canViewCompetitions?: boolean;
   canViewEntries?: boolean;
   canViewStudents?: boolean;
+  canViewFood?: boolean;
   year?: number;
 } = {}): NavGroup[] {
   const editionItems: NavItem[] = [
@@ -214,6 +216,14 @@ export function buildKalakritiNavGroups({
       icon: UserIcon,
       title: "Guardians",
       url: `/kalakriti/${year}/guardians`,
+    });
+  }
+
+  if (year && canViewFood) {
+    editionItems.push({
+      icon: UserGroupIcon,
+      title: "Food",
+      url: `/kalakriti/${year}/food`,
     });
   }
 

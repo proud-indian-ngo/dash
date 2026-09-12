@@ -1,4 +1,5 @@
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 
 import { test as setup } from "@playwright/test";
 import dotenv from "dotenv";
@@ -10,7 +11,7 @@ dotenv.config({
   quiet: true,
 });
 
-setup.describe.configure({ mode: "serial" });
+setup.describe.configure({ mode: "serial", timeout: 150_000 });
 
 const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL!;
 const SUPER_ADMIN_PASSWORD = process.env.SUPER_ADMIN_PASSWORD!;
@@ -58,11 +59,25 @@ async function authenticate(
   if (response.ok() && new URL(page.url()).pathname !== "/login") {
     return;
   }
-  if (attempt >= 2) {
-    throw new Error(`Authentication failed for ${email}`);
+  if (response.status() === 429 && attempt < 2) {
+    const headers = response.headers();
+    const retryAfter = headers["retry-after"] ?? headers["x-retry-after"];
+    const seconds = retryAfter === undefined ? Number.NaN : Number(retryAfter);
+    if (!Number.isFinite(seconds) || seconds < 0 || seconds > 60) {
+      throw new Error(
+        "Auth rate limit did not supply a bounded Retry-After delay"
+      );
+    }
+    console.log(
+      `[auth] rate limited; server retry delay ${seconds}s; retry ${attempt + 1}/2`
+    );
+    await delay(Math.ceil(seconds * 1000));
+    await authenticate(page, email, password, attempt + 1);
+    return;
   }
-  await page.waitForTimeout(500);
-  await authenticate(page, email, password, attempt + 1);
+  throw new Error(
+    `Authentication failed for ${email} (HTTP ${response.status()})`
+  );
 }
 
 setup("authenticate as super_admin", async ({ page }) => {

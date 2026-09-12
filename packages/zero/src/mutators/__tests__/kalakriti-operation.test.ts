@@ -122,6 +122,130 @@ async function manual(
   } as never);
 }
 
+describe("Guardian meals", () => {
+  const guardian = { ...volunteer, kind: "guardian", humanId: null };
+  const args = {
+    type: "breakfast",
+    personQr: JSON.stringify({ id: guardian.id, type: "guardian" }),
+    humanId: guardian.id,
+  };
+  for (const mode of ["qr", "manual"] as const) {
+    const command = mode === "qr" ? record : manual;
+    const lookup = (subject: unknown) =>
+      mode === "qr" ? [undefined, subject] : [undefined, undefined, subject];
+    it.each(["breakfast", "lunch"])(
+      `records active Guardian %s via ${mode} without pickup or check-in`,
+      async (type) => {
+        const { tx, insertOperation, insertAudit } = setup([
+          ...lookup(guardian),
+          [],
+        ]);
+        await command(tx, { ...args, type });
+        expect(insertOperation).toHaveBeenCalledWith(
+          expect.objectContaining({
+            membershipId: guardian.id,
+            studentId: null,
+            type,
+          })
+        );
+        expect(insertAudit).toHaveBeenCalledWith(
+          expect.objectContaining({
+            metadata: {
+              operationId: "operation-1",
+              subjectKind: "guardian",
+              type,
+            },
+          })
+        );
+      }
+    );
+    it.each(["food_lead", "food_member"])(
+      `allows %s operators via ${mode}`,
+      async (responsibility) => {
+        const { tx, insertOperation } = setup([
+          ...lookup(guardian),
+          volunteer,
+          [{ responsibility }],
+          [],
+        ]);
+        await command(tx, args, {
+          userId: "food",
+          permissions: ["kalakriti.view"],
+        });
+        expect(insertOperation).toHaveBeenCalledTimes(1);
+      }
+    );
+    it(`does not grant Guardian recording authority via ${mode}`, async () => {
+      const { tx, insertOperation } = setup([...lookup(guardian), guardian]);
+      await expect(
+        command(tx, args, {
+          userId: "guardian",
+          permissions: ["kalakriti.view"],
+        })
+      ).rejects.toThrow("Unauthorized");
+      expect(insertOperation).not.toHaveBeenCalled();
+    });
+    it.each([
+      { ...guardian, state: "archived" },
+      { ...guardian, editionId: "other" },
+    ])(
+      `rejects inactive or cross-Edition Guardian via ${mode}`,
+      async (subject) => {
+        const { tx, insertOperation } = setup(lookup(subject));
+        await expect(command(tx, args)).rejects.toThrow(
+          mode === "qr" ? "Active Guardian not found" : "Yearly ID not found"
+        );
+        expect(insertOperation).not.toHaveBeenCalled();
+      }
+    );
+    it(`deduplicates a fresh Guardian meal operation ID via ${mode}`, async () => {
+      const { tx, insertOperation } = setup([
+        ...lookup(guardian),
+        [
+          {
+            ...existing,
+            type: "breakfast",
+            membershipId: guardian.id,
+            studentId: null,
+          },
+        ],
+      ]);
+      await command(tx, { ...args, operationId: "fresh" });
+      expect(insertOperation).not.toHaveBeenCalled();
+    });
+    it(`preserves same-ID Guardian retry after Edition ends via ${mode}`, async () => {
+      const { tx, insertOperation } = setup(
+        [
+          {
+            ...existing,
+            type: "breakfast",
+            membershipId: guardian.id,
+            studentId: null,
+          },
+        ],
+        "completed"
+      );
+      await command(tx, args);
+      expect(tx.run).toHaveBeenCalledTimes(1);
+      expect(insertOperation).not.toHaveBeenCalled();
+    });
+    it.each([
+      "pickup",
+      "venue_arrival",
+      "venue_departure",
+      "drop_off",
+      "volunteer_check_in",
+      "competition_attendance",
+    ])(`rejects Guardian %s via ${mode}`, async (type) => {
+      const { tx, insertOperation } = setup(lookup(guardian));
+      await expect(command(tx, { ...args, type })).rejects.toThrow(
+        "Guardians can only receive meals"
+      );
+      expect(insertOperation).not.toHaveBeenCalled();
+    });
+  }
+});
+
 describe("person QR operation recording", () => {
   it("accepts the current sheet JSON payload in the record schema", () => {
     expect(
@@ -231,14 +355,14 @@ describe("person QR operation recording", () => {
     expect(insertOperation).not.toHaveBeenCalled();
   });
 
-  it("rejects Guardian QR before subject lookup", async () => {
+  it("rejects a Guardian QR without an active matching membership", async () => {
     const { tx, insertOperation } = setup([undefined]);
     await expect(
       record(tx, {
         personQr: JSON.stringify({ id: volunteer.id, type: "guardian" }),
       })
-    ).rejects.toThrow("Guardians cannot be operation subjects");
-    expect(tx.run).toHaveBeenCalledTimes(1);
+    ).rejects.toThrow("Active Guardian not found in this Edition");
+    expect(tx.run).toHaveBeenCalledTimes(2);
     expect(insertOperation).not.toHaveBeenCalled();
   });
 

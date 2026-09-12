@@ -22,6 +22,7 @@ const division = {
   id: "division-1",
   sessions: [
     {
+      id: "scheduled-session-1",
       cancelledAt: 1,
       endAt: 200,
       startAt: 100,
@@ -62,6 +63,7 @@ describe("Kalakriti Entry views", () => {
     expect(entries[0]?.session).toEqual(
       expect.objectContaining({
         id: division.id,
+        competitionSessionId: "scheduled-session-1",
         scheduleActive: false,
       })
     );
@@ -89,6 +91,19 @@ describe("Kalakriti Entry views", () => {
     expect(rows[0]?.session.competition.musicUploadEnabled).toBe(false);
   });
 
+  it("keeps actual scheduled identity separate from the Division for active sessions", () => {
+    const sessions = buildKalakritiEntrySessions([
+      {
+        ...division,
+        sessions: division.sessions.map((session) => ({
+          ...session,
+          cancelledAt: null,
+        })),
+      },
+    ]);
+    expect(sessions[0]?.id).toBe("division-1");
+    expect(sessions[0]?.competitionSessionId).toBe("scheduled-session-1");
+  });
   it("shows only Divisions with active Sessions in the picker", () => {
     expect(buildKalakritiEntrySessions([division])).toEqual([]);
   });

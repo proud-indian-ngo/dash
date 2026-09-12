@@ -22,6 +22,8 @@ import { NavUser } from "@/components/layout/nav-user";
 import { TeamSwitcher } from "@/components/layout/team-switcher";
 import { useApp } from "@/context/app-context";
 import { getKalakritiScanActivities } from "@/lib/kalakriti-event-day-policy";
+import { canViewKalakritiFood } from "@/lib/kalakriti-food-policy";
+import { createStationRecordingLedger } from "@/lib/kalakriti-scan-recording";
 import {
   buildKalakritiNavGroups,
   shouldUseKalakritiNav,
@@ -34,6 +36,7 @@ const KALAKRITI_YEAR_PATH = /^\/kalakriti\/(\d{4})(?:\/|$)/;
 
 export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
   const { hasPermission, navGroups, user } = useApp();
+  const [scanLedger] = useState(createStationRecordingLedger);
   const [scanEditionId, setScanEditionId] = useState<string | null>(null);
   const { setOpenMobile } = useSidebar();
   const { pathname } = useLocation();
@@ -131,6 +134,13 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
     canViewCompetitions,
     canViewEntries,
     canViewStudents,
+    canViewFood: canViewKalakritiFood({
+      edition: activeEdition?.lifecycle
+        ? { lifecycle: activeEdition.lifecycle }
+        : undefined,
+      isGlobalAdmin: hasPermission("kalakriti.admin"),
+      membership: membership ?? null,
+    }),
     year: activeEdition?.year,
   });
 
@@ -155,6 +165,7 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
           editionId={activeEdition.id}
           year={activeEdition.year}
           activities={scanActivities}
+          ledger={scanLedger}
           onOpenChange={(open) => {
             if (!open) setScanEditionId(null);
           }}

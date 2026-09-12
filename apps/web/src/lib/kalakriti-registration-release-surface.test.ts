@@ -61,6 +61,7 @@ describe("Kalakriti Registration Release surface", () => {
       "entries.tsx",
       "entries/$id.tsx",
       "entries/index.tsx",
+      "food.tsx",
       "guardians.tsx",
       "index.tsx",
       "route.tsx",
@@ -84,7 +85,7 @@ describe("Kalakriti Registration Release surface", () => {
     ]);
   });
 
-  it("registers no Event-day, Results, Awards, or Inventory queries or mutations", () => {
+  it("registers only approved registration and event-day queries and mutations", () => {
     expect(operationKeys(queries)).toEqual([
       "kalakritiAssignment.myAccess",
       "kalakritiAssignment.roster",
@@ -103,12 +104,20 @@ describe("Kalakriti Registration Release surface", () => {
       "kalakritiEdition.configurationAccessible",
       "kalakritiEdition.readiness",
       "kalakritiEligibility.ageCategories",
+      "kalakritiEntry.availableDivisions",
       "kalakritiEntry.availableDivisionsByCenter",
+      "kalakritiEntry.byId",
+      "kalakritiEntry.visible",
       "kalakritiEntry.visibleByCenter",
+      "kalakritiEntry.visibleByDivision",
+      "kalakritiFood.memberships",
+      "kalakritiFood.students",
       "kalakritiGuardian.roster",
       "kalakritiStudent.ageCategoriesByCenter",
       "kalakritiStudent.visibleByCenter",
       "kalakritiStudent.visibleForCompliance",
+      "kalakritiStudent.visibleForDirectory",
+      "kalakritiStudent.visibleForEntries",
       "kalakritiTransport.byCenter",
     ]);
     expect(operationKeys(mutators)).toEqual([
@@ -163,6 +172,7 @@ describe("Kalakriti Registration Release surface", () => {
       "kalakritiEntry.updateMusic",
       "kalakritiOperation.record",
       "kalakritiOperation.recordManual",
+      "kalakritiOperation.undoMeal",
       "kalakritiStudent.create",
       "kalakritiStudent.delete",
       "kalakritiStudent.update",

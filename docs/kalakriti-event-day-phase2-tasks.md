@@ -4,7 +4,7 @@
 
 The original stack breakdown below describes opaque credentials and a standalone Credentials page. The current product uses identifier QRs in volunteer, Guardian, and Student detail sheets instead: every authorized sheet viewer sees a QR encoding JSON with the database record `id` and `type` (`student`, `guardian`, or `volunteer`). Student QRs use the Student record ID; Guardian and volunteer QRs use the Edition Membership record ID. No issue/reissue process, credential write, encryption, or separate QR admin gate is involved. Guardian sheets include assigned Centers; Student sheets include their Center and individual/group competitions. The standalone page and navigation item are removed. See [current architecture](./architecture/kalakriti-registration.md#public-and-server-only-projections).
 
-Person lookup now lives at `/api/kalakriti/:year/people/lookup` and resolves database or yearly identifiers within the Edition; its administrator authorization remains. The legacy credential table, PDF API, token hashing, and issuance/reissue mutators are removed. Volunteer yearly IDs remain independent of QR codes and appear in the Volunteers table within their own Kalakriti Edition. KED-004 now resolves JSON identifiers against subject records, authorizes each operation independently by type and assignment scope, and rejects Guardian operation subjects. Later scanner branches must adopt its `personQr` input and remove any remaining credential-table dependencies. Possession of a QR does not grant permission or prove identity.
+Person lookup now lives at `/api/kalakriti/:year/people/lookup` and resolves database or yearly identifiers within the Edition; its administrator authorization remains. The legacy credential table, PDF API, token hashing, and issuance/reissue mutators are removed. Volunteer `KALV-` and Guardian `KALG-` yearly IDs remain independent of QR codes and appear in their respective Edition tables when allocated; historical missing IDs display a dash. KED-004 now resolves JSON identifiers against subject records, authorizes each operation independently by type and assignment scope, and restricts Guardian operation subjects to meals. Later scanner branches must adopt its `personQr` input and remove any remaining credential-table dependencies. Possession of a QR does not grant permission or prove identity.
 
 ## Original release outcome
 
@@ -214,7 +214,7 @@ cd packages/e2e && bash run-e2e.sh tests/kalakriti/credential-print.spec.ts
 - Table `kalakriti_operation`: `id`, `editionId`, `operationId` (UUIDv7, unique), `type` enum (`pickup`, `venue_departure`, `drop_off`, `volunteer_check_in`, `breakfast`, `lunch`, `competition_attendance`), nullable `studentId` / `membershipId` (exactly one), nullable `competitionSessionId`, `occurredAt`, `recordedBy`, `createdAt`, nullable `supersededByOperationId`, nullable `correctionReason`.
 - Unique `operationId`. Composite Edition FKs. Seed empty/idempotent rows only as required by `scripts/seed.ts` conventions.
 - Pure module `packages/zero/src/kalakriti-operation-rules.ts` owns derived state and eligibility helpers. New operation recording requires `live` now, including in tests; fixtures explicitly seed live Editions until KED-009 supplies the UI transition. Retries of committed operations remain no-ops after lifecycle changes.
-- Mutators `kalakritiOperation.record` and `kalakritiOperation.recordManual`. `record` accepts `personQr`, a strict JSON string with a database UUID `id` and `type` (`student`, `guardian`, or `volunteer`). It validates the stored subject type, Edition, and active volunteer state; Guardian subjects are rejected. `recordManual` resolves `humanId` within the Edition. Duplicate `operationId` is a successful no-op for the original recorder or global administrator in the same Edition; it never changes the stored type/subject.
+- Mutators `kalakritiOperation.record` and `kalakritiOperation.recordManual`. `record` accepts `personQr`, a strict JSON string with a database UUID `id` and `type` (`student`, `guardian`, or `volunteer`). It validates the stored subject type, Edition, and active volunteer state; Guardian subjects are accepted only for breakfast/lunch with active Edition registration. `recordManual` resolves `humanId` within the Edition. Duplicate `operationId` is a successful no-op for the original recorder or global administrator in the same Edition; it never changes the stored type/subject.
 - Operator permissions are independent of identifiers: global/Edition administrators can record all types; transport leads or matching Center liaisons record transport; hospitality leads record volunteer check-in; food leads record meals; matching Competition staff record attendance. Attendance requires an in-Edition session and the Student's Entry in its Division.
 - Student `delete` and Entry `remove` must fail if any operation references that Student (or any member of the Entry).
 - No `/event-day` route. Update mutator allowlist in the surface test.
@@ -223,7 +223,7 @@ cd packages/e2e && bash run-e2e.sh tests/kalakriti/credential-print.spec.ts
 **Acceptance:**
 
 - Replaying the same `operationId` does not create a second row and does not reverse state.
-- Inactive volunteer, Guardian, malformed JSON, or mismatched-type QR subjects cannot record an operation.
+- Inactive subjects, Guardian subjects for non-meal operations, malformed JSON, and mismatched-type QRs are rejected.
 - Cross-Edition yearly IDs/database IDs and out-of-scope staff writes are rejected.
 - Student delete is blocked once an operation exists.
 
@@ -288,7 +288,7 @@ cd packages/e2e && bash run-e2e.sh tests/kalakriti/center-transport.spec.ts
 - `kalakritiCenterScan.record`, `recordManual`, and `finalize` bind the selected Center and expected stage. Pickup includes the Center roster and may finish with absentees once at least one Student is marked; confirmation shows marked and absent counts. Later stages include only effectively picked-up Students and require all of them to be marked. Explicit confirmed finalization advances the Center and derives all active vehicles' status/history: departed Center → arrived at venue → departed venue → completed.
 - Finalization closes the modal. Reopening is required at the next checkpoint; external finalization invalidates an open session rather than retargeting its camera. Duplicate Student marks are no-ops, stale-stage new requests fail, and original operation-ID retries remain safe.
 - Recording/finalization require a live Edition; controls react to lifecycle changes and archived station access is denied. Migration `0078_watery_revanche.sql` adds the stage table plus the venue-arrival operation and departed-Center status. The root seed creates an idempotent open pickup stage without finalizing or resetting progress.
-- Nav: Event day for actors who can record transport (not Guardians).
+- Nav: sidebar Scan exposes only authorized activities; Guardian meal-view access does not grant scanning authority.
 - Derived absence: no effective (non-superseded) pickup ⇒ Student cannot later receive meals/attendance (enforced in KED-007; expose the helper now).
 - Update surface tests and `registration-release-authorization.spec.ts`: Event day exists; Results/Awards/Inventory still 404.
 - Student and Center tables show read-only transport status derived from effective Student scans and explicit Center stage finalization respectively.
@@ -320,11 +320,13 @@ cd packages/e2e && bash run-e2e.sh tests/kalakriti/event-day-transport.spec.ts
 
 - Make `food_member` and `hospitality_member` assignable in mutator allowlists and Volunteers Assign role groups (edition-scoped members).
 - `volunteer_check_in`: Hospitality Lead/member, Edition admin, `kalakriti.admin`.
-- `breakfast` / `lunch`: Food Lead/member, Edition admin, `kalakriti.admin`. Student requires effective pickup. Volunteer requires effective check-in.
+- `breakfast` / `lunch`: Food Lead/member, Edition admin, `kalakriti.admin`. Student requires effective pickup. Volunteer requires effective check-in. Guardian requires active Edition registration and may use the membership record ID when no yearly ID exists.
 - `competition_attendance`: Competition Volunteer or Coordinator for that Competition's scope, Edition admin, `kalakriti.admin`. Requires Student pickup. `competitionSessionId` required. Record per Student (entry member), not per group Entry.
 - Sidebar **Scan** exposes Transport, Volunteer check-in, Meals, and Attendance according to active Edition assignments. Administrators see all activities; staff with multiple scanning roles see the applicable tabs, while a single activity needs no tab selector. There is no Event day page.
 - Meals select breakfast or lunch; Attendance requires an authorized Competition session. Student/volunteer person QR JSON and yearly-ID fallback use the same live-only operation boundary. Failed eligibility is rejected, not queued.
 - Changing activity, meal, or attendance session stops the previous scanner context; pending requests retain their original operation IDs and cannot silently switch subjects or operation types.
+- Food shows eligible people across all three person kinds, with filters for each column and scoped registered/eligible/served counts. Admins/Food staff see Edition-wide data; Guardians and Center Liaisons see authorized Center unions. Served totals retain archived history without showing archived people as eligible. Admins and Food Leads can undo meal marks while preserving history.
+- Volunteers show read-only Checked in icons. The Entries directory omits Center and arrival columns while retaining authorized-Center unions. Event details show Present from venue arrival and Attended from the actual Competition Session, with individual statuses, unique group counts, and filters for displayed data fields.
 - Keep delete guards.
 
 **Acceptance:**

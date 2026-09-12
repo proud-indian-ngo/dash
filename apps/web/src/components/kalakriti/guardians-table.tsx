@@ -101,6 +101,7 @@ function searchGuardian(row: GuardianRosterItem, query: string): boolean {
   }
   return [
     row.snapshotName,
+    row.humanId ?? "",
     row.snapshotEmail ?? "",
     row.snapshotPhone ?? "",
     row.state,
@@ -138,6 +139,22 @@ export function GuardiansTable({
       ),
       meta: { headerTitle: "Name", skeleton: SKELETON_NAME },
       size: 220,
+    },
+    {
+      id: "humanId",
+      accessorKey: "humanId",
+      cell: ({ row }) => (
+        <span className="font-mono text-sm">{row.original.humanId ?? "—"}</span>
+      ),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Yearly ID"
+          visibility={true}
+        />
+      ),
+      meta: { headerTitle: "Yearly ID", skeleton: SKELETON_NAME },
+      size: 190,
     },
     {
       accessorKey: "snapshotEmail",

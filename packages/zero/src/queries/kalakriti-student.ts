@@ -58,18 +58,33 @@ export const kalakritiStudentQueries = {
     z.object({ editionId: z.string() }),
     ({ args, ctx }) => visibleStudents(args, ctx)
   ),
-  visibleByCenter: defineQuery(centerInput, ({ args, ctx }) => {
-    return visibleStudents(args, ctx)
-      .related("operations", (operations) =>
-        operations
-          .where("editionId", args.editionId)
-          .where("type", "IN", KALAKRITI_CENTER_SCAN_STAGES)
-      )
-      .related("ageCategory")
-      .related("derivedAgeCategory")
-      .related("center");
-  }),
+  visibleForDirectory: defineQuery(
+    z.object({ editionId: z.string() }),
+    ({ args, ctx }) => withStudentDetails(args, ctx)
+  ),
+  visibleForEntries: defineQuery(
+    z.object({ editionId: z.string() }),
+    ({ args, ctx }) => withStudentDetails(args, ctx)
+  ),
+  visibleByCenter: defineQuery(centerInput, ({ args, ctx }) =>
+    withStudentDetails(args, ctx)
+  ),
 };
+
+function withStudentDetails(
+  args: { editionId: string; centerId?: string },
+  ctx: Context | null
+) {
+  return visibleStudents(args, ctx)
+    .related("operations", (operations) =>
+      operations
+        .where("editionId", args.editionId)
+        .where("type", "IN", KALAKRITI_CENTER_SCAN_STAGES)
+    )
+    .related("ageCategory")
+    .related("derivedAgeCategory")
+    .related("center");
+}
 
 function visibleStudents(
   args: { editionId: string; centerId?: string },
@@ -95,33 +110,48 @@ function visibleStudents(
         exists("edition", (edition) =>
           edition.whereExists("memberships", (membership) =>
             membership
+              .where("editionId", args.editionId)
+              .where("kind", "volunteer")
               .where("userId", ctx.userId)
               .where("state", "active")
               .whereExists("assignments", (assignment) =>
-                assignment.where(({ or: assignmentOr, cmp }) =>
-                  assignmentOr(
-                    cmp("responsibility", "edition_admin"),
-                    cmp("responsibility", "liaison_lead")
+                assignment
+                  .where("editionId", args.editionId)
+                  .where(({ or: assignmentOr, cmp }) =>
+                    assignmentOr(
+                      cmp("responsibility", "edition_admin"),
+                      cmp("responsibility", "liaison_lead")
+                    )
                   )
-                )
               )
           )
         ),
         exists("center", (center) =>
           center.whereExists("guardianCenters", (guardianCenter) =>
-            guardianCenter.whereExists("membership", (membership) =>
-              membership.where("userId", ctx.userId).where("state", "active")
-            )
+            guardianCenter
+              .where("editionId", args.editionId)
+              .whereExists("membership", (membership) =>
+                membership
+                  .where("editionId", args.editionId)
+                  .where("kind", "guardian")
+                  .where("userId", ctx.userId)
+                  .where("state", "active")
+              )
           )
         ),
         exists("center", (center) =>
           center.whereExists("assignments", (assignment) =>
             assignment
+              .where("editionId", args.editionId)
               .where(({ or: liaisonOr, cmp }) =>
                 buildKalakritiLiaisonResponsibilityOr(liaisonOr, cmp)
               )
               .whereExists("membership", (membership) =>
-                membership.where("userId", ctx.userId).where("state", "active")
+                membership
+                  .where("editionId", args.editionId)
+                  .where("kind", "volunteer")
+                  .where("userId", ctx.userId)
+                  .where("state", "active")
               )
           )
         )

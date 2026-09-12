@@ -8,7 +8,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, notFound } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { uuidv7 } from "uuidv7";
 
 import { KalakritiAddVolunteersDialog } from "@/components/kalakriti/kalakriti-add-volunteers-dialog";
@@ -27,6 +27,7 @@ import {
   type PickerUser,
 } from "@/functions/users-for-picker";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
+import { kalakritiFoodScopeKey } from "@/lib/kalakriti-food-policy";
 import { canManageKalakritiVolunteers } from "@/lib/kalakriti-volunteer-policy";
 
 interface PickerData {
@@ -192,30 +193,35 @@ function KalakritiVolunteersPage() {
       ).server,
   });
 
-  const volunteerRows: VolunteerRosterItem[] = roster.map((membership) => ({
-    assignments: membership.assignments.map((assignment) => ({
-      centerId: assignment.centerId,
-      competitionCategoryId: assignment.competitionCategoryId,
-      competitionId: assignment.competitionId,
-      id: assignment.id,
-      isPrimary: assignment.isPrimary,
-      responsibility: assignment.responsibility,
-      scopeName: resolveScopeName(
-        assignment,
-        centers,
-        competitionCategories,
-        competitions
-      ),
-    })),
-    humanId: membership.humanId,
-    registrationGroup: membership.user?.registrationGroup ?? null,
-    id: membership.id,
-    snapshotEmail: membership.snapshotEmail,
-    snapshotName: membership.snapshotName,
-    snapshotPhone: membership.snapshotPhone,
-    userId: membership.userId as string,
-    userRole: membership.user?.role ?? null,
-  }));
+  const volunteerRows = useMemo<VolunteerRosterItem[]>(
+    () =>
+      roster.map((membership) => ({
+        assignments: membership.assignments.map((assignment) => ({
+          centerId: assignment.centerId,
+          competitionCategoryId: assignment.competitionCategoryId,
+          competitionId: assignment.competitionId,
+          id: assignment.id,
+          isPrimary: assignment.isPrimary,
+          responsibility: assignment.responsibility,
+          scopeName: resolveScopeName(
+            assignment,
+            centers,
+            competitionCategories,
+            competitions
+          ),
+        })),
+        humanId: membership.humanId,
+        operations: membership.operations,
+        registrationGroup: membership.user?.registrationGroup ?? null,
+        id: membership.id,
+        snapshotEmail: membership.snapshotEmail,
+        snapshotName: membership.snapshotName,
+        snapshotPhone: membership.snapshotPhone,
+        userId: membership.userId as string,
+        userRole: membership.user?.role ?? null,
+      })),
+    [roster, centers, competitionCategories, competitions]
+  );
   const selectedVolunteer =
     volunteerRows.find((volunteer) => volunteer.id === selectedVolunteerId) ??
     null;
@@ -296,6 +302,8 @@ function KalakritiVolunteersPage() {
       <VolunteersTable
         actorResponsibilities={actorResponsibilities}
         data={volunteerRows}
+        statusSnapshotComplete={rosterResult.type === "complete"}
+        statusSnapshotKey={kalakritiFoodScopeKey(access)}
         isGlobalAdmin={isGlobalAdmin}
         isLoading={isLoading}
         onAssignRole={handleAssignFromSheet}

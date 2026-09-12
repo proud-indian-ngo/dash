@@ -24,7 +24,11 @@ mock.module("@rocicorp/zero/react", () => ({
   ],
 }));
 mock.module("@/components/kalakriti/person-qr-panel", () => ({
-  PersonQrPanel: () => <div>Person QR panel</div>,
+  PersonQrPanel: ({ id, type }: { id: string; type: string }) => (
+    <div data-person-id={id} data-person-type={type}>
+      Person QR panel
+    </div>
+  ),
 }));
 const Container = ({ children }: { children?: ReactNode }) => (
   <div>{children}</div>
@@ -41,7 +45,8 @@ import { GuardianDetailSheet } from "./guardian-detail-sheet";
 
 function render(
   isGlobalAdmin: boolean,
-  state: "active" | "archived" = "active"
+  state: "active" | "archived" = "active",
+  humanId: string | null = "KALG-2026-0001"
 ) {
   return renderToStaticMarkup(
     <GuardianDetailSheet
@@ -54,6 +59,7 @@ function render(
       }
       guardian={{
         id: "guardian",
+        humanId,
         isExternal: true,
         snapshotName: "Guardian",
         snapshotEmail: null,
@@ -69,6 +75,17 @@ function render(
 }
 
 describe("Guardian detail sheet", () => {
+  it("shows the yearly ID independently from the unchanged membership UUID QR", () => {
+    const html = render(true);
+    expect(html).toContain("Yearly ID");
+    expect(html).toContain("KALG-2026-0001");
+    expect(html).toContain('data-person-id="guardian"');
+    expect(html).toContain('data-person-type="guardian"');
+    const historical = render(true, "active", null);
+    expect(historical).toContain("—");
+    expect(historical).not.toContain("KALG-");
+    expect(historical).toContain('data-person-id="guardian"');
+  });
   it("shows only the selected Guardian's assigned Center details", () => {
     const html = render(true);
     expect(html).toContain("Assigned Center");
