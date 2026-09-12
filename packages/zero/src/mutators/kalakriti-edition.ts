@@ -9,6 +9,10 @@ import z from "zod";
 
 import type { Context } from "../context";
 import {
+  getKalakritiGoLiveReadiness,
+  type KalakritiGoLiveReadinessSnapshot,
+} from "../kalakriti-go-live-readiness";
+import {
   getKalakritiRegistrationReadiness,
   type KalakritiRegistrationReadinessSnapshot,
 } from "../kalakriti-registration-readiness";
@@ -21,6 +25,7 @@ import {
 import {
   getEditionAgeCategoriesForUpdate,
   getEditionForUpdate,
+  lockKalakritiGoLive,
   type LockableKalakritiTx,
 } from "./kalakriti-row-locks";
 import { buildUpdateFields } from "./team-event-series";
@@ -35,6 +40,7 @@ interface EditionTx extends LockableKalakritiTx {
   mutate: {
     kalakritiAgeCategory: { insert: ZeroMutationFn };
     kalakritiAuditEntry: { insert: ZeroMutationFn };
+    kalakritiCenter: { update: ZeroMutationFn };
     kalakritiCompetition: { insert: ZeroMutationFn };
     kalakritiCompetitionCategory: { insert: ZeroMutationFn };
     kalakritiCompetitionDivision: { insert: ZeroMutationFn };
@@ -107,7 +113,7 @@ export const kalakritiEditionTransitionSchema = z.object({
   confirmed: z.literal(true),
   editionId: z.string(),
   now: z.number(),
-  targetLifecycle: z.enum(["registration_open", "registration_locked"]),
+  targetLifecycle: z.enum(["registration_open", "registration_locked", "live"]),
 });
 
 const cloneMapSchema = z.array(
@@ -300,7 +306,7 @@ function pushRegistrationNotificationTasks(
   args: z.infer<typeof kalakritiEditionTransitionSchema>,
   plannedRegistrationCloseAt: number
 ) {
-  if (tx.location !== "server") {
+  if (tx.location !== "server" || args.targetLifecycle === "live") {
     return;
   }
   const { editionId } = args;
@@ -766,6 +772,11 @@ export const kalakritiEditionMutators = {
   transition: defineMutator(
     kalakritiEditionTransitionSchema,
     async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+      if (args.targetLifecycle === "live") {
+        if (tx.location !== "server") return;
+        await lockKalakritiGoLive(tx as EditionTx);
+      }
       const edition = await getEditionForUpdate(
         tx as EditionTx,
         args.editionId
@@ -785,7 +796,8 @@ export const kalakritiEditionMutators = {
         (edition.lifecycle === "registration_open" &&
           args.targetLifecycle === "registration_locked") ||
         (edition.lifecycle === "registration_locked" &&
-          args.targetLifecycle === "registration_open");
+          (args.targetLifecycle === "registration_open" ||
+            args.targetLifecycle === "live"));
       if (!allowed) {
         throw new Error("Invalid Edition lifecycle transition");
       }
@@ -795,6 +807,59 @@ export const kalakritiEditionMutators = {
         args.editionId
       );
       const { plannedRegistrationCloseAt } = readinessSnapshot.edition;
+      if (args.targetLifecycle === "live") {
+        const [assignments, transportAssignments, otherLive] =
+          await Promise.all([
+            tx.run(
+              zql.kalakritiAssignment
+                .where("editionId", args.editionId)
+                .whereExists("membership", (membership) =>
+                  membership
+                    .where("editionId", args.editionId)
+                    .where("kind", "volunteer")
+                    .where("state", "active")
+                    .where("userId", "IS NOT", null)
+                )
+            ),
+            tx.run(
+              zql.kalakritiTransportAssignment
+                .where("editionId", args.editionId)
+                .where("deletedAt", "IS", null)
+            ),
+            tx.run(
+              zql.kalakritiEdition
+                .where("lifecycle", "live")
+                .where("id", "!=", args.editionId)
+                .one()
+            ),
+          ]);
+        if (otherLive) throw new Error("Another Edition is already live");
+        const blockers = getKalakritiGoLiveReadiness({
+          ...readinessSnapshot,
+          centers:
+            readinessSnapshot.centers as KalakritiGoLiveReadinessSnapshot["centers"],
+          edition: {
+            ...readinessSnapshot.edition,
+            lifecycle: edition.lifecycle,
+          },
+          assignments,
+          transportAssignments,
+        });
+        if (blockers.length > 0)
+          throw new Error(
+            `Edition is not ready: ${blockers.map((blocker) => blocker.code).join(", ")}`
+          );
+        for (const center of readinessSnapshot.centers) {
+          if (center.retiredAt !== null) continue;
+          // biome-ignore lint/performance/noAwaitInLoops: writes share the enclosing transaction
+          await (tx as EditionTx).mutate.kalakritiCenter.update({
+            id: center.id,
+            studentRegistrationEnabled: false,
+            competitionEntryRegistrationEnabled: false,
+            updatedAt: args.now,
+          });
+        }
+      }
       if (
         args.targetLifecycle === "registration_open" ||
         args.targetLifecycle === "registration_locked"

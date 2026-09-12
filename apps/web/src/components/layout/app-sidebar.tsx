@@ -15,7 +15,7 @@ import { membershipHasKalakritiLiaisonAccess } from "@pi-dash/shared/kalakriti";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { useLocation } from "@tanstack/react-router";
-import { useState, type ComponentProps } from "react";
+import { useMemo, useState, type ComponentProps } from "react";
 
 import { ScanDialog } from "@/components/kalakriti/scan-dialog";
 import { NavUser } from "@/components/layout/nav-user";
@@ -23,6 +23,10 @@ import { TeamSwitcher } from "@/components/layout/team-switcher";
 import { useApp } from "@/context/app-context";
 import { getKalakritiScanActivities } from "@/lib/kalakriti-event-day-policy";
 import { canViewKalakritiFood } from "@/lib/kalakriti-food-policy";
+import {
+  createOperationNoteLedger,
+  getOperationNoteTypes,
+} from "@/lib/kalakriti-operation-note";
 import { createStationRecordingLedger } from "@/lib/kalakriti-scan-recording";
 import {
   buildKalakritiNavGroups,
@@ -52,6 +56,32 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
     }),
     { enabled: Boolean(activeEdition) }
   );
+  const noteScope = JSON.stringify([
+    activeEdition?.id,
+    activeEdition?.lifecycle,
+    hasPermission("kalakriti.admin"),
+    membership?.id,
+    membership?.assignments
+      .map((assignment) =>
+        [
+          assignment.responsibility,
+          assignment.centerId,
+          assignment.competitionId,
+          assignment.competitionCategoryId,
+        ].join(":")
+      )
+      .sort(),
+  ]);
+  const noteLedger = useMemo(
+    () => createOperationNoteLedger(noteScope),
+    [noteScope]
+  );
+  const canAddNote =
+    getOperationNoteTypes({
+      isGlobalAdmin: hasPermission("kalakriti.admin"),
+      lifecycle: activeEdition?.lifecycle ?? "",
+      membership,
+    }).length > 0;
   const canManageEdition =
     hasPermission("kalakriti.admin") ||
     membership?.assignments.some(
@@ -166,6 +196,8 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
           year={activeEdition.year}
           activities={scanActivities}
           ledger={scanLedger}
+          canAddNote={canAddNote}
+          noteLedger={noteLedger}
           onOpenChange={(open) => {
             if (!open) setScanEditionId(null);
           }}

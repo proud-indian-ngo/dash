@@ -5,6 +5,7 @@ type Effect = () => (() => void) | void;
 const hoisted = <T>(factory: () => T): T => factory();
 
 const mocks = hoisted(() => ({
+  enabled: true,
   clear: mock(async () => {}),
   effect: null as Effect | null,
   error: mock(),
@@ -21,6 +22,7 @@ const actualReact = await import("react");
 
 mock.module("react", () => ({
   ...actualReact,
+  useContext: () => mocks.enabled,
   useEffect: (effect: Effect) => {
     mocks.effect = effect;
   },
@@ -75,6 +77,7 @@ function mountScanner(onScan = mock((_personQr: string) => {})) {
 beforeEach(() => {
   mock.clearAllMocks();
   mocks.effect = null;
+  mocks.enabled = true;
   mocks.lifecycle = [];
   mocks.scanSuccess = null;
   mocks.startImplementation = async () => {};
@@ -95,6 +98,17 @@ beforeEach(() => {
 });
 
 describe("EventDayQrScanner", () => {
+  it("does not acquire the camera in correction mode and resumes through the existing session lifecycle", async () => {
+    mocks.enabled = false;
+    EventDayQrScanner({ onScan: () => undefined });
+    expect(mocks.effect?.()).toBeUndefined();
+    expect(mocks.start).not.toHaveBeenCalled();
+    mocks.enabled = true;
+    const resumed = mountScanner();
+    await waitFor(() => mocks.start.mock.calls.length === 1);
+    resumed.cleanup();
+    await waitFor(() => mocks.clear.mock.calls.length === 1);
+  });
   it("waits for deferred stop and clear before starting a replacement camera", async () => {
     let resolveStop: (() => void) | undefined;
     let resolveClear: (() => void) | undefined;

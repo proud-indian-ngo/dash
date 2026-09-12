@@ -1,6 +1,8 @@
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { log } from "evlog";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
+
+import { ScanCaptureContext } from "./scan-capture-context";
 
 const SCANNER_ELEMENT_ID = "kalakriti-event-day-qr";
 // A replacement waits until the previous camera releases its tracks and DOM.
@@ -126,12 +128,16 @@ function startScannerSession(
 }
 
 export function EventDayQrScanner({ onScan }: EventDayQrScannerProps) {
+  const enabled = useContext(ScanCaptureContext);
   const handleScan = useEventCallback(onScan);
   const [startFailed, setStartFailed] = useState(false);
 
   useEffect(
-    () => startScannerSession(handleScan, () => setStartFailed(true)),
-    [handleScan]
+    () =>
+      enabled
+        ? startScannerSession(handleScan, () => setStartFailed(true))
+        : undefined,
+    [enabled, handleScan]
   );
 
   return (

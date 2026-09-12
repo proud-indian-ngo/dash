@@ -60,7 +60,10 @@ function configurationAccessibleEdition(
   );
 }
 
-function withReadinessSnapshot(q: typeof zql.kalakritiEdition) {
+function withReadinessSnapshot(
+  q: typeof zql.kalakritiEdition,
+  editionId: string
+) {
   return q
     .related("centers")
     .related("ageCategories")
@@ -68,7 +71,21 @@ function withReadinessSnapshot(q: typeof zql.kalakritiEdition) {
     .related("competitions", (competition) => competition.related("divisions"))
     .related("competitionDivisions")
     .related("competitionSessions")
-    .related("venues");
+    .related("venues")
+    .related("assignments", (assignment) =>
+      assignment
+        .where("editionId", editionId)
+        .whereExists("membership", (membership) =>
+          membership
+            .where("editionId", editionId)
+            .where("kind", "volunteer")
+            .where("state", "active")
+            .where("userId", "IS NOT", null)
+        )
+    )
+    .related("transportAssignments", (assignment) =>
+      assignment.where("editionId", editionId).where("deletedAt", "IS", null)
+    );
 }
 
 function withCloneSource(q: typeof zql.kalakritiEdition) {
@@ -127,7 +144,8 @@ export const kalakritiEditionQueries = {
         ctx?.userId,
         ctx !== null && can(ctx, "kalakriti.admin"),
         ctx !== null && can(ctx, "kalakriti.view")
-      ) as typeof zql.kalakritiEdition
+      ) as typeof zql.kalakritiEdition,
+      args.editionId
     ).one()
   ),
 };

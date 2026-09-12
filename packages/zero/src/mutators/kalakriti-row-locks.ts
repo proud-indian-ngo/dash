@@ -200,6 +200,17 @@ export async function getCenterForUpdate(
   return center ? normalizeCenter(center) : undefined;
 }
 
+export async function lockKalakritiGoLive(
+  tx: LockableKalakritiTx
+): Promise<void> {
+  if (tx.location !== "server") return;
+  const { sql } = await import("drizzle-orm");
+  // Serialize the cross-Edition decision before acquiring any Edition row lock.
+  await requireServerTransaction(tx).execute(
+    sql`SELECT pg_advisory_xact_lock(1262570571, 1)`
+  );
+}
+
 export async function getEditionForUpdate(
   tx: LockableKalakritiTx,
   editionId: string

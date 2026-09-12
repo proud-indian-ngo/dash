@@ -1,9 +1,10 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { getKalakritiGoLiveReadiness } from "@pi-dash/zero/kalakriti-go-live-readiness";
 import { getKalakritiRegistrationReadiness } from "@pi-dash/zero/kalakriti-registration-readiness";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
-import { useQuery, useZero } from "@rocicorp/zero/react";
+import { useConnectionState, useQuery, useZero } from "@rocicorp/zero/react";
 import { useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
@@ -149,11 +150,30 @@ function useEditionLifecycle({
         venues: snapshot.venues,
       })
     : [];
+  const goLiveBlockers = snapshot
+    ? getKalakritiGoLiveReadiness({
+        ageCategories: snapshot.ageCategories.map((category) => ({
+          ...category,
+          femaleStudentLimit: category.femaleStudentLimit ?? 0,
+          maleStudentLimit: category.maleStudentLimit ?? 0,
+        })),
+        centers: snapshot.centers,
+        competitionCategories: snapshot.competitionCategories,
+        competitions: snapshot.competitions,
+        divisions: snapshot.competitionDivisions,
+        edition: { ...snapshot, lifecycle: snapshot.lifecycle ?? "" },
+        sessions: snapshot.competitionSessions,
+        venues: snapshot.venues,
+        assignments: snapshot.assignments,
+        transportAssignments: snapshot.transportAssignments,
+      })
+    : [];
   const target = lifecycle ? nextLifecycle(lifecycle) : null;
   const action = useRegistrationLifecycleTransition({ editionId, target });
   return {
     ...action,
     blockers,
+    goLiveBlockers,
     isLoading,
     lifecycle,
     readinessUnavailable,
@@ -197,6 +217,71 @@ function RegistrationReadinessBlockers({
   );
 }
 
+function GoLiveAction({
+  editionId,
+  ready,
+}: {
+  editionId: string;
+  ready: boolean;
+}) {
+  const zero = useZero();
+  const router = useRouter();
+  const connection = useConnectionState();
+  const allowed = ready && connection.name === "connected";
+  const action = useConfirmAction({
+    mutationMeta: {
+      entityId: editionId,
+      mutation: "kalakritiEdition.transition",
+      successMsg: "Edition is now live",
+      errorMsg: "Edition could not go live",
+    },
+    onConfirm: () =>
+      allowed
+        ? zero.mutate(
+            mutators.kalakritiEdition.transition({
+              auditEntryId: uuidv7(),
+              editionId,
+              now: Date.now(),
+              confirmed: true,
+              targetLifecycle: "live",
+            })
+          ).server
+        : Promise.resolve({
+            type: "error" as const,
+            error: {
+              message:
+                "Wait for authoritative go-live readiness and an online connection.",
+            },
+          }),
+    onSuccess: () => router.invalidate(),
+  });
+  return (
+    <>
+      <Button
+        type="button"
+        disabled={!allowed || action.isLoading}
+        onClick={() => {
+          if (allowed) action.trigger();
+        }}
+      >
+        Go live
+      </Button>
+      <ConfirmDialog
+        title="Go live?"
+        description="Scanning will be enabled. Student and Competition Entry registration controls will close for all Centers. Existing person QR codes, lookup, and transport setup remain available."
+        confirmLabel="Go live"
+        open={action.isOpen}
+        loading={action.isLoading}
+        confirmDisabled={!allowed}
+        onConfirm={action.confirm}
+        onOpenChange={(open) => {
+          if (!open && !action.isLoading) action.cancel();
+        }}
+      />
+    </>
+  );
+}
+
 export function EditionLifecycleAction({
   canManage,
   editionId,
@@ -212,6 +297,8 @@ export function EditionLifecycleAction({
     handleTrigger,
     readinessUnavailable,
     transition,
+    lifecycle,
+    goLiveBlockers,
   } = useEditionLifecycle({ canManage, editionId });
 
   if (!(canManage && copy)) {
@@ -220,6 +307,13 @@ export function EditionLifecycleAction({
 
   return (
     <>
+      {lifecycle === "registration_locked" ? (
+        <GoLiveAction
+          key={editionId}
+          editionId={editionId}
+          ready={!readinessUnavailable && goLiveBlockers.length === 0}
+        />
+      ) : null}
       <Button
         disabled={
           readinessUnavailable || blockers.length > 0 || transition.isLoading
@@ -259,10 +353,11 @@ export function EditionLifecycleAlerts({
   canManage: boolean;
   editionId: string;
 }) {
-  const { blockers, isLoading, lifecycle, result } = useEditionLifecycle({
-    canManage,
-    editionId,
-  });
+  const { blockers, goLiveBlockers, isLoading, lifecycle, result } =
+    useEditionLifecycle({
+      canManage,
+      editionId,
+    });
 
   if (!canManage) {
     return null;
@@ -302,6 +397,23 @@ export function EditionLifecycleAlerts({
         blockers={blockers}
         lifecycle={lifecycle}
       />
+      {lifecycle === "registration_locked" && goLiveBlockers.length > 0 ? (
+        <section aria-labelledby="go-live-blockers-heading">
+          <p id="go-live-blockers-heading" className="text-sm font-medium">
+            Complete these before going live
+          </p>
+          <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm">
+            {goLiveBlockers.map((blocker) => (
+              <li key={blocker.code}>{blocker.message}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {lifecycle === "live" ? (
+        <KalakritiLockNotice>
+          Scanning is enabled. Registration remains closed.
+        </KalakritiLockNotice>
+      ) : null}
       {lifecycle === "registration_open" ? (
         <KalakritiLockNotice>
           Registration commands also require the relevant Center control to be
@@ -311,7 +423,8 @@ export function EditionLifecycleAlerts({
       {lifecycle === "registration_locked" ? (
         <KalakritiLockNotice>
           Structural eligibility and Competition rules are frozen. Schedule
-          times and Venues can still be corrected safely.
+          times and Venues can still be corrected safely. Go live once lead
+          assignments and transport are ready.
         </KalakritiLockNotice>
       ) : null}
     </div>

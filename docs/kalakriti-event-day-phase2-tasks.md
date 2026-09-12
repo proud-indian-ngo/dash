@@ -345,7 +345,7 @@ cd packages/e2e && bash run-e2e.sh tests/kalakriti/event-day-stations.spec.ts
 
 ## KED-008: Online corrections
 
-**Outcome:** Leads and administrators can supersede an operation with a mandatory reason. Ordinary members cannot. Eligibility re-derives from the remaining effective operations.
+**Outcome:** Authorized Leads and administrators can add a mandatory correction note through an identical-fact history revision. The scan remains effective; this does not undo it. Ordinary members cannot annotate. Food's existing meal undo remains a separate command.
 
 **Depends on:** KED-007.
 
@@ -353,14 +353,15 @@ cd packages/e2e && bash run-e2e.sh tests/kalakriti/event-day-stations.spec.ts
 
 **Scope:**
 
-- Mutator `kalakritiOperation.correct` with `targetOperationId`, new `operationId`, `reason` (non-empty, bounded length), `auditEntryId`, `now`. Inserts a correction operation and sets `supersededByOperationId` on the target. Never deletes history.
-- Auth: domain Lead/Coordinator or Edition admin / `kalakriti.admin`. Food member, hospitality member, competition volunteer, and liaison volunteer **cannot** correct.
+- Mutator `kalakritiOperation.correct` takes `editionId`, exact original row `targetOperationId`, new revision `id`, stable command `operationId`, `reason` (trimmed, 1–500 characters), `auditEntryId`, and `now`. It copies type, subject, actual session, and occurrence time into a replacement and links the original through `supersededByOperationId`; history is never deleted.
+- Auth: Transport Lead for transport; Hospitality Lead for volunteer check-in; Food Lead for meals, including Guardian subjects; assigned Competition Coordinator for attendance; Edition/global administrators for all forward types. Members and Liaisons receive no correction grant.
+- UI: **Scan → Add correction note**, authoritative yearly-ID/UUID lookup, explicit operation/session selection, and required reason. The camera pauses without discarding scanning selection or captures. Uncertain responses retain exact arguments; Edition/assignment scope changes clear the correction ledger.
 - Forward ops and corrections require `live` once KED-009 lands; implement the `live` gate in KED-009 if this task merges in the same PR (same PR 6).
 - Audit action `corrected`. Metadata: `{ type, targetOperationId }` plus reason **omitted** if the central audit policy forbids free text — store reason only on `kalakriti_operation.correctionReason` / Kalakriti audit `reason` column (Kalakriti audit already has `reason`). Do not copy reason into central `audit_log` metadata.
 
 **Acceptance:**
 
-- Correcting pickup restores meal eligibility when a new pickup is recorded after correction (or when pickup is superseded and a replacement pickup is recorded — document the exact restore path: superseding pickup without replacement means absent again).
+- Annotating pickup, check-in, attendance, or a meal preserves its effective fact, eligibility, stage counts, and served status. It does not create a fresh capture or enable a duplicate recording. Meal undo still operates independently on the current effective meal.
 - Members cannot correct.
 
 **Verify:** unit tests on the mutator; E2E in KED-009 journey.
@@ -369,7 +370,7 @@ cd packages/e2e && bash run-e2e.sh tests/kalakriti/event-day-stations.spec.ts
 
 **Outcome:** A registration-locked Edition can transition to `live` when readiness passes. One Edition is live. Center registration controls close in the same transaction.
 
-**Depends on:** KED-003, KED-005, KED-008.
+**Depends on:** KED-005, KED-008. Credential issuance is no longer a dependency.
 
 **PR:** 6
 
@@ -380,21 +381,21 @@ cd packages/e2e && bash run-e2e.sh tests/kalakriti/event-day-stations.spec.ts
   - Edition lifecycle is `registration_locked`;
   - every Center has both registration controls disabled;
   - active sessions pass the existing registration session validity checks;
-  - assignments exist for Overall Events Lead, Transport Lead, and Food Lead;
-  - every non-retired Center has ≥1 transport assignment;
-  - every active Student and every active volunteer membership has an active Credential.
+  - active volunteer assignments exist for Overall Events Lead, Transport Lead, and Food Lead;
+  - every non-retired Center has ≥1 non-deleted transport assignment.
+- No credential or person-ID readiness gate.
 - Same transaction: set both Center controls false (already false if locked, still write-confirm).
 - Unique live Edition already indexed.
 - UI on `edition-lifecycle-card.tsx`.
-- After this task: `record` / `recordManual` / `correct` require `lifecycle === "live"`. Print/lookup/transport assignment setup remain allowed in `registration_locked`.
-- Docs: update `docs/architecture/kalakriti-registration.md`, add `docs/architecture/kalakriti-event-day.md`, index row, `README.md`, `project-structure.md`, `.ruler/agent-guide.md` then `bun run ruler:apply`. Evidence matrix `docs/kalakriti-event-day-phase2-evidence.md`.
-- E2E: blockers prevent go-live; successful live transition; correction restores eligibility; Guardian denied transport; Results/Awards/Inventory still 404.
+- After this task: `record` / `recordManual` / `correct` require `lifecycle === "live"`. Detail-sheet person QRs, authorized lookup, and transport setup remain available in `registration_locked`; no standalone Event-day, Credentials, or PDF surface returns.
+- Docs: maintain the current Kalakriti registration architecture chapter, `README.md`, `project-structure.md`, and `.ruler/agent-guide.md`; regenerate agent instructions through `bun run ruler:apply`.
+- E2E: blockers prevent go-live; successful live transition; annotation preserves effective facts and eligibility; Guardian denied transport; Results/Awards/Inventory remain unavailable.
 
 **Acceptance:**
 
 - Two concurrent go-live attempts cannot yield two live Editions.
 - Event-day forward writes fail in `registration_locked` and succeed in `live`.
-- Print still works in `registration_locked`.
+- Existing person QR detail sheets, authorized lookup, and transport setup still work in `registration_locked`.
 
 **Verify:**
 
@@ -406,9 +407,9 @@ bun run check:unused
 cd packages/e2e && bash run-e2e.sh tests/kalakriti/lifecycle-golive.spec.ts
 ```
 
-## Deep command interface
+## Historical command sketch (superseded)
 
-Callers use these commands. Eligibility, QR hashing, transport order, meal gates, duplicate replay, and derived absence stay inside them.
+The original sketch below predates identifier QRs and annotation-only correction. Use the current contracts in [the architecture chapter](./architecture/kalakriti-registration.md#correction-notes-and-go-live); credential and PDF commands below are historical, not implementation instructions.
 
 ```ts
 reissueCredential({ credentialId, subject, tokenHash, auditEntryId, now })
