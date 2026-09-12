@@ -1,32 +1,20 @@
 import { writeSync } from "node:fs";
 
-import {
-  createKalakritiExternalUser,
-  deleteKalakritiExternalUser,
-} from "@pi-dash/auth/kalakriti-external-user";
 import { db } from "@pi-dash/db";
-import { auditLog } from "@pi-dash/db/schema/audit-log";
 import { user } from "@pi-dash/db/schema/auth";
 import {
   kalakritiAgeCategory,
   kalakritiAssignment,
   kalakritiAuditEntry,
   kalakritiCenter,
-  kalakritiCenterScanStage,
   kalakritiCompetition,
   kalakritiCompetitionCategory,
   kalakritiCompetitionDivision,
-  kalakritiCompetitionEntry,
   kalakritiCompetitionSession,
   kalakritiEdition,
   kalakritiEditionMembership,
-  kalakritiEntryMember,
-  kalakritiExternalIdentity,
-  kalakritiGuardianCenter,
-  kalakritiOperation,
   kalakritiStudent,
   kalakritiTransportAssignment,
-  kalakritiTransportStatusHistory,
   kalakritiVenue,
 } from "@pi-dash/db/schema/kalakriti";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
@@ -45,26 +33,15 @@ const editionFixture = (base: number, year: number) => ({
   venueId: id(base + 4),
   centerId: id(base + 5),
   centerB: id(base + 6),
-  studentId: id(base + 7),
-  studentB: id(base + 8),
   competitionId: id(base + 9),
-  competitionB: id(base + 10),
   divisionId: id(base + 11),
-  divisionB: id(base + 12),
   sessionId: id(base + 13),
-  sessionB: id(base + 14),
-  studentHumanId: `KAL-${year}-0001`,
-  studentBHumanId: `KAL-${year}-0002`,
-  guardianId: id(base + 150),
-  guardianHumanId: `KALG-${year}-0001`,
-  guardianEmail: `golive-guardian-${year}@pi-dash.test`,
-  guardianPassword: "GoliveFixtureGuardian!2190",
 });
 const fixtures = {
   first: editionFixture(1000, 2190),
   second: editionFixture(2000, 2191),
 };
-export type GoliveCorrectionFixtures = typeof fixtures;
+export type GoliveFixtures = typeof fixtures;
 const editions = Object.values(fixtures).map((f) => f.editionId);
 
 function assertIsolatedTarget() {
@@ -80,14 +57,8 @@ function assertIsolatedTarget() {
 
 async function cleanup() {
   for (const table of [
-    kalakritiOperation,
-    kalakritiCenterScanStage,
-    kalakritiTransportStatusHistory,
     kalakritiTransportAssignment,
-    kalakritiGuardianCenter,
     kalakritiAssignment,
-    kalakritiEntryMember,
-    kalakritiCompetitionEntry,
     kalakritiCompetitionSession,
     kalakritiCompetitionDivision,
     kalakritiCompetition,
@@ -103,12 +74,6 @@ async function cleanup() {
   await db
     .delete(kalakritiEdition)
     .where(inArray(kalakritiEdition.id, editions));
-  for (const f of Object.values(fixtures)) {
-    const guardian = await db.query.user.findFirst({
-      where: eq(user.email, f.guardianEmail),
-    });
-    if (guardian) await deleteKalakritiExternalUser(guardian.id);
-  }
   await db.delete(teamEvent).where(
     inArray(
       teamEvent.id,
@@ -151,8 +116,7 @@ async function setup(adminEmail: string) {
       plannedRegistrationCloseAt: now,
       brandingKey: "golive-e2e",
       nextStudentSequence: 3,
-      nextVolunteerSequence: 7,
-      nextGuardianSequence: 2,
+      nextVolunteerSequence: 5,
     });
     const scoped = { ...common, editionId: f.editionId };
     await db.insert(kalakritiAgeCategory).values({
@@ -181,40 +145,39 @@ async function setup(adminEmail: string) {
       name: "Go-live Hall",
       normalizedName: "go-live hall",
     });
-    for (const [
-      offset,
-      centerId,
-      studentId,
-      humanId,
-      competitionId,
-      divisionId,
-      sessionId,
-    ] of [
-      [
-        0,
-        f.centerId,
-        f.studentId,
-        f.studentHumanId,
-        f.competitionId,
-        f.divisionId,
-        f.sessionId,
-      ],
-      [
-        1,
-        f.centerB,
-        f.studentB,
-        f.studentBHumanId,
-        f.competitionB,
-        f.divisionB,
-        f.sessionB,
-      ],
-    ] as const) {
+    await db.insert(kalakritiCompetition).values({
+      ...scoped,
+      id: f.competitionId,
+      competitionCategoryId: f.categoryId,
+      name: "Go-live Competition",
+      normalizedName: "go-live competition",
+      participationMode: "individual",
+      genderEligibility: "both",
+      minimumGroupSize: 1,
+      maximumGroupSize: 1,
+      musicUploadEnabled: false,
+    });
+    await db.insert(kalakritiCompetitionDivision).values({
+      ...scoped,
+      id: f.divisionId,
+      competitionId: f.competitionId,
+      ageCategoryId: f.ageCategoryId,
+    });
+    await db.insert(kalakritiCompetitionSession).values({
+      ...scoped,
+      id: f.sessionId,
+      divisionId: f.divisionId,
+      venueId: f.venueId,
+      startAt: eventStart,
+      endAt: new Date(eventStart.getTime() + 3_600_000),
+    });
+    for (const [offset, centerId] of [f.centerId, f.centerB].entries()) {
       const suffix = offset === 0 ? "A" : "B";
       await db.insert(kalakritiCenter).values({
         ...scoped,
         id: centerId,
-        name: `Correction Center ${suffix}`,
-        normalizedName: `correction center ${suffix.toLowerCase()}`,
+        name: `Go-live Center ${suffix}`,
+        normalizedName: `go-live center ${suffix.toLowerCase()}`,
         studentRegistrationEnabled: false,
         competitionEntryRegistrationEnabled: false,
       });
@@ -222,74 +185,30 @@ async function setup(adminEmail: string) {
         ...scoped,
         id: id(base + 20 + offset),
         centerId,
-        vehicleLabel: `Correction Bus ${suffix}`,
+        vehicleLabel: `Go-live Bus ${suffix}`,
         driverName: "Fixture Driver",
         capacity: 20,
         status: "planned",
       });
       await db.insert(kalakritiStudent).values({
         ...scoped,
-        id: studentId,
+        id: id(base + 7 + offset),
         updatedBy: admin.id,
         centerId,
-        humanId,
-        name: `Correction Student ${suffix}`,
-        normalizedName: `correction student ${suffix.toLowerCase()}`,
+        humanId: `KAL-${f.year}-${String(offset + 1).padStart(4, "0")}`,
+        name: `Go-live Student ${suffix}`,
+        normalizedName: `go-live student ${suffix.toLowerCase()}`,
         gender: "female",
         dateOfBirth: `${f.year - 9}-06-15`,
         ageCategoryId: f.ageCategoryId,
         derivedAgeCategoryId: f.ageCategoryId,
       });
-      await db.insert(kalakritiCompetition).values({
-        ...scoped,
-        id: competitionId,
-        competitionCategoryId: f.categoryId,
-        name: `Correction Competition ${suffix}`,
-        normalizedName: `correction competition ${suffix.toLowerCase()}`,
-        participationMode: "individual",
-        genderEligibility: "both",
-        minimumGroupSize: 1,
-        maximumGroupSize: 1,
-        musicUploadEnabled: false,
-      });
-      await db.insert(kalakritiCompetitionDivision).values({
-        ...scoped,
-        id: divisionId,
-        competitionId,
-        ageCategoryId: f.ageCategoryId,
-      });
-      await db.insert(kalakritiCompetitionSession).values({
-        ...scoped,
-        id: sessionId,
-        divisionId,
-        venueId: f.venueId,
-        startAt: eventStart,
-        endAt: new Date(eventStart.getTime() + 3_600_000),
-      });
-      await db.insert(kalakritiCompetitionEntry).values({
-        ...scoped,
-        id: id(base + 30 + offset),
-        centerId,
-        divisionId,
-        participationMode: "individual",
-        updatedBy: admin.id,
-      });
-      await db.insert(kalakritiEntryMember).values({
-        ...scoped,
-        id: id(base + 40 + offset),
-        entryId: id(base + 30 + offset),
-        studentId,
-        centerId,
-        divisionId,
-      });
     }
     const actors = [
-      { name: "overallEventsLead", roles: ["overall_events_lead"] },
-      { name: "liaison", roles: ["transport_lead"] },
-      { name: "categoryLead", roles: ["food_lead"] },
-      { name: "editionAdmin", roles: ["edition_admin"] },
-      { name: "volunteerCoordinator", roles: ["competition_coordinator"] },
-      { name: "unrelatedVolunteer", roles: ["food_member"] },
+      { name: "overallEventsLead", responsibility: "overall_events_lead" },
+      { name: "liaison", responsibility: "transport_lead" },
+      { name: "categoryLead", responsibility: "food_lead" },
+      { name: "unrelatedVolunteer", responsibility: "food_member" },
     ] as const;
     for (const [actorIndex, actor] of actors.entries()) {
       const account = await db.query.user.findFirst({
@@ -306,42 +225,13 @@ async function setup(adminEmail: string) {
         humanId: `KALV-${f.year}-${String(actorIndex + 1).padStart(4, "0")}`,
         snapshotName: account.name,
       });
-      for (const responsibility of actor.roles)
-        await db.insert(kalakritiAssignment).values({
-          ...scoped,
-          id: id(base + 200 + actorIndex),
-          membershipId,
-          responsibility,
-          competitionId:
-            responsibility === "competition_coordinator"
-              ? f.competitionId
-              : null,
-        });
+      await db.insert(kalakritiAssignment).values({
+        ...scoped,
+        id: id(base + 200 + actorIndex),
+        membershipId,
+        responsibility: actor.responsibility,
+      });
     }
-    const guardian = await createKalakritiExternalUser({
-      email: f.guardianEmail,
-      password: f.guardianPassword,
-      name: `Go-live Guardian ${f.year}`,
-      phone: null,
-    });
-    await db
-      .insert(kalakritiExternalIdentity)
-      .values({ userId: guardian.id, createdAt: now, createdBy: admin.id });
-    await db.insert(kalakritiEditionMembership).values({
-      ...scoped,
-      id: id(base + 150),
-      userId: guardian.id,
-      kind: "guardian",
-      state: "active",
-      humanId: `KALG-${f.year}-0001`,
-      snapshotName: `Go-live Guardian ${f.year}`,
-    });
-    await db.insert(kalakritiGuardianCenter).values({
-      ...scoped,
-      id: id(base + 350),
-      membershipId: id(base + 150),
-      centerId: f.centerId,
-    });
   }
   return fixtures;
 }
@@ -360,42 +250,16 @@ try {
       .set({ studentRegistrationEnabled: action === "block-center" })
       .where(eq(kalakritiCenter.id, fixtures.first.centerId));
     result = { updated: true };
-  } else if (action === "archive-first") {
-    await db
-      .update(kalakritiEdition)
-      .set({ lifecycle: "archived" })
-      .where(eq(kalakritiEdition.id, fixtures.first.editionId));
-    result = { updated: true };
   } else if (action === "state") {
     result = {
-      domainAudit: await db
-        .select()
-        .from(kalakritiAuditEntry)
-        .where(inArray(kalakritiAuditEntry.editionId, editions)),
       editions: await db
-        .select()
+        .select({
+          id: kalakritiEdition.id,
+          lifecycle: kalakritiEdition.lifecycle,
+        })
         .from(kalakritiEdition)
         .where(inArray(kalakritiEdition.id, editions)),
-      operations: await db
-        .select()
-        .from(kalakritiOperation)
-        .where(inArray(kalakritiOperation.editionId, editions)),
-      stages: await db
-        .select()
-        .from(kalakritiCenterScanStage)
-        .where(inArray(kalakritiCenterScanStage.editionId, editions)),
     };
-  } else if (action === "audit" && value) {
-    result = await db
-      .select({
-        id: auditLog.id,
-        targetId: auditLog.targetId,
-        action: auditLog.action,
-        outcome: auditLog.outcome,
-        metadata: auditLog.metadata,
-      })
-      .from(auditLog)
-      .where(eq(auditLog.targetId, value));
   } else throw new Error("Unknown go-live fixture action");
   writeSync(1, JSON.stringify(result));
   process.exit(0);

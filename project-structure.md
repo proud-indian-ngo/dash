@@ -91,8 +91,7 @@ All paths are relative to project root.
 | `components/kalakriti/{volunteer,guardian,student}-detail-sheet.tsx` | Table-owned person details, Guardian/Student Center details, Student competition entries, and identifier QR codes for every authorized viewer |
 | `components/kalakriti/person-qr-panel.tsx` | Client-rendered JSON QR containing the database record `id` and subject `type` (`student`, `guardian`, or `volunteer`) |
 | `components/kalakriti/{food-table,food-stats,food-meal-undo}.tsx`, `components/kalakriti/food-roster-snapshot.ts`, `lib/kalakriti-food-policy.ts` | Eligible-only Food roster with retained authoritative snapshots, column filters, whole-authorized-roster meal totals, guarded meal undo, and shared page/navigation read policy |
-| `components/kalakriti/scan-dialog.tsx` | Stable sidebar modal with four role-derived scanning activities, a separate correction-note mode, and pending-write guards |
-| `components/kalakriti/operation-note-panel.tsx`, `lib/kalakriti-operation-note.ts` | Exact-operation, required-reason annotations with scoped Lead authorization and stable retries; recorded facts remain effective |
+| `components/kalakriti/scan-dialog.tsx` | Stable sidebar modal with four role-derived scanning activities and pending-write guards |
 | `components/kalakriti/edition-lifecycle-card.tsx`, `packages/zero/src/kalakriti-go-live-readiness.ts` (repository root for package path) | Registration transitions and confirmed, credential-free Go-live readiness |
 | `components/kalakriti/center-scan-dialog.tsx` | Transport panel: continuous QR/manual marking, roster progress, pinned Center stages, and confirmed finalization |
 | `components/kalakriti/operation-scan-panel.tsx` | Live-only volunteer check-in, meals, and scoped Competition attendance with explicit scan contexts |
@@ -111,7 +110,6 @@ All paths are relative to project root.
 | `routes/api/kalakriti/$year/people/lookup.ts` | Session- and Edition-admin-protected person lookup by database or yearly ID |
 | `packages/shared/src/kalakriti-person-qr.ts` (repository root) | Strict bounded parser for detail-sheet JSON person identifiers |
 | `packages/zero/src/mutators/kalakriti-operation.ts` (repository root) | Live-only recording, scoped operator authorization, retry idempotency, and manual yearly-ID resolution |
-| `packages/zero/src/mutators/kalakriti-operation-correct.ts`, `packages/zero/src/queries/kalakriti-operation.ts` (repository root) | Scoped operation lookup and immutable same-fact revisions, separate from meal undo |
 | `routes/_app/kalakriti/$year/centers/index.tsx` | Edition Center list and registration controls |
 | `routes/_app/kalakriti/$year/centers/$id.tsx` | Center registration and assignment detail |
 | `routes/_app/kalakriti/$year/eligibility.tsx` | Edition Age Categories and shared per-Center Student limits |

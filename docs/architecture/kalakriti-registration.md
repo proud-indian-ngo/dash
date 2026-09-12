@@ -113,13 +113,7 @@ The Kalakriti sidebar **Scan** button opens a shared modal, not a separate Event
 
 The browser tabs are a convenience, not an authorization boundary. Every operation validates role, subject, Edition, eligibility, and session scope on the server. QR input uses person JSON and manual input uses yearly IDs; neither authorizes an operation. Changing scanning activity or session ends the previous camera context, and pending writes cannot change their operation arguments. Archived Editions expose no scanning, and new writes require a live Edition.
 
-## Correction notes and go-live
-
-Authorized Leads use **Scan → Add correction note** to look up a yearly ID or person UUID, select an exact operation (including its actual attendance session), and supply a reason of 1–500 characters. `kalakritiOperation.correct` replaces that history row with the same type, subject, session, and occurrence time, linking the original through `supersededByOperationId`. **The scan remains effective; this does not undo it.** Eligibility, served status, and finalized transport stages do not roll back. Food's existing **Undo meal** action remains separate and targets the current effective meal row.
-
-Transport Leads can annotate transport, Hospitality Leads volunteer check-in, Food Leads meals (including Guardian subjects), and assigned Competition Coordinators attendance in their Competition scope. Global/Edition administrators cover all forward operation types. Members, Guardians, and Liaisons gain no correction authority. Lookups and history queries enforce these scopes on the server; selecting a visible operation is not authorization to mutate it.
-
-The correction mode pauses the camera through its existing serialized cleanup while retaining the selected scanning activity, meal/session, and captured attempt. Returning to scanning does not retarget an attendance session. An uncertain correction response locks its target and reason and retains every command argument for retry, including when Scan is closed and reopened. Changing Edition or assignment scope discards that correction ledger. New annotation submissions require complete lookup/history/access snapshots, a live Edition, and an online connection.
+## Go-live
 
 The lifecycle action offers **Go live** only from registration-locked Editions. Its blocker list uses the shared go-live readiness helper: registration configuration, closed active-Center controls, active Overall Events/Transport/Food Lead assignments, and transport assignments for active Centers. There is no credential or person-ID readiness gate. Confirmation explains that scanning starts and Center registration controls close; existing person QRs, lookup, and transport setup remain available. The server rechecks readiness and the single-live-Edition constraint in the transition transaction.
 

@@ -8,7 +8,7 @@ Person lookup now lives at `/api/kalakriti/:year/people/lookup` and resolves dat
 
 ## Original release outcome
 
-Phase 2 is complete when an administrator can print and reissue Student and volunteer Credentials, staff can record online event-day operations (Student transport checkpoints, volunteer check-in, meals, Competition attendance), Leads can correct those operations with a reason, and a registration-locked Edition can go `live` after readiness checks pass.
+Phase 2 is complete when an administrator can print and reissue Student and volunteer Credentials, staff can record online event-day operations (Student transport checkpoints, volunteer check-in, meals, Competition attendance), and a registration-locked Edition can go `live` after readiness checks pass.
 
 This breakdown implements Phase 2 from [the architecture plan](./kalakriti-native-module-design.md), with the locked product decisions below. Task IDs (KED-*) are dependency identifiers for stacked PRs; they are not external tracker issue numbers.
 
@@ -21,7 +21,7 @@ This breakdown implements Phase 2 from [the architecture plan](./kalakriti-nativ
 - **Commands.** Zero mutators plus `kalakritiAuditEntry` for writes. `createServerFn` / API routes only for print/lookup download. Jobs via `ctx.asyncTasks` then `enqueue()`.
 - **Auth.** No new global permissions. Operational authority stays Edition Assignment. `kalakriti.admin` and Edition Administrator retain override. Update the Registration Release surface allowlist and authorization E2E **in the PR that adds the route or mutator**. Event day may appear; Results, Awards, and Inventory stay 404.
 - **Delete guards.** Each write surface that creates operations must block Student and Entry deletion before that surface ships.
-- **Forward event-day writes require `live`.** Print, lookup, transport *setup*, and volunteer/Student credential issue are allowed from `draft` through `registration_locked` (and `live`). Corrections also require `live`.
+- **Forward event-day writes require `live`.** Print, lookup, transport *setup*, and volunteer/Student credential issue are allowed from `draft` through `registration_locked` (and `live`).
 
 ## Scope guardrails
 
@@ -32,7 +32,6 @@ The release includes:
 - Center buses/drivers, ordered vehicle status, and bus/driver change notifications;
 - Student pickup, venue departure, and drop-off;
 - volunteer check-in, breakfast, lunch, and per-Student Competition attendance;
-- online-only corrections with reasons;
 - go-live readiness and `registration_locked` → `live`.
 
 The release excludes:
@@ -51,7 +50,7 @@ The release excludes:
 | 3 | `feat/kalakriti-p2-03-transport` | PR2 | KED-005 |
 | 4 | `feat/kalakriti-p2-04-student-ops` | PR3 | KED-006 |
 | 5 | `feat/kalakriti-p2-05-stations` | PR4 | KED-007 |
-| 6 | `feat/kalakriti-p2-06-golive` | PR5 | KED-008, KED-009 |
+| 6 | `feat/kalakriti-p2-06-golive` | PR5 | KED-009 |
 
 ## Dependency map
 
@@ -64,10 +63,7 @@ flowchart TD
   T04 --> T06["KED-006 Student transport ops"]
   T05 --> T06
   T06 --> T07["KED-007 Check-in meals attendance"]
-  T07 --> T08["KED-008 Corrections"]
   T05 --> T09["KED-009 Go-live"]
-  T03 --> T09
-  T08 --> T09
 ```
 
 ## Task conventions
@@ -343,34 +339,15 @@ bun run test:unit
 cd packages/e2e && bash run-e2e.sh tests/kalakriti/event-day-stations.spec.ts
 ```
 
-## KED-008: Online corrections
+## KED-008: Removed from scope
 
-**Outcome:** Authorized Leads and administrators can add a mandatory correction note through an identical-fact history revision. The scan remains effective; this does not undo it. Ordinary members cannot annotate. Food's existing meal undo remains a separate command.
-
-**Depends on:** KED-007.
-
-**PR:** 6
-
-**Scope:**
-
-- Mutator `kalakritiOperation.correct` takes `editionId`, exact original row `targetOperationId`, new revision `id`, stable command `operationId`, `reason` (trimmed, 1–500 characters), `auditEntryId`, and `now`. It copies type, subject, actual session, and occurrence time into a replacement and links the original through `supersededByOperationId`; history is never deleted.
-- Auth: Transport Lead for transport; Hospitality Lead for volunteer check-in; Food Lead for meals, including Guardian subjects; assigned Competition Coordinator for attendance; Edition/global administrators for all forward types. Members and Liaisons receive no correction grant.
-- UI: **Scan → Add correction note**, authoritative yearly-ID/UUID lookup, explicit operation/session selection, and required reason. The camera pauses without discarding scanning selection or captures. Uncertain responses retain exact arguments; Edition/assignment scope changes clear the correction ledger.
-- Forward ops and corrections require `live` once KED-009 lands; implement the `live` gate in KED-009 if this task merges in the same PR (same PR 6).
-- Audit action `corrected`. Metadata: `{ type, targetOperationId }` plus reason **omitted** if the central audit policy forbids free text — store reason only on `kalakriti_operation.correctionReason` / Kalakriti audit `reason` column (Kalakriti audit already has `reason`). Do not copy reason into central `audit_log` metadata.
-
-**Acceptance:**
-
-- Annotating pickup, check-in, attendance, or a meal preserves its effective fact, eligibility, stage counts, and served status. It does not create a fresh capture or enable a duplicate recording. Meal undo still operates independently on the current effective meal.
-- Members cannot correct.
-
-**Verify:** unit tests on the mutator; E2E in KED-009 journey.
+This task is withdrawn. Existing Food meal undo remains available and is independent of go-live.
 
 ## KED-009: Go-live
 
 **Outcome:** A registration-locked Edition can transition to `live` when readiness passes. One Edition is live. Center registration controls close in the same transaction.
 
-**Depends on:** KED-005, KED-008. Credential issuance is no longer a dependency.
+**Depends on:** KED-005. Credential issuance is no longer a dependency.
 
 **PR:** 6
 
@@ -387,9 +364,9 @@ cd packages/e2e && bash run-e2e.sh tests/kalakriti/event-day-stations.spec.ts
 - Same transaction: set both Center controls false (already false if locked, still write-confirm).
 - Unique live Edition already indexed.
 - UI on `edition-lifecycle-card.tsx`.
-- After this task: `record` / `recordManual` / `correct` require `lifecycle === "live"`. Detail-sheet person QRs, authorized lookup, and transport setup remain available in `registration_locked`; no standalone Event-day, Credentials, or PDF surface returns.
+- After this task: `record` / `recordManual` require `lifecycle === "live"`. Detail-sheet person QRs, authorized lookup, and transport setup remain available in `registration_locked`; no standalone Event-day, Credentials, or PDF surface returns.
 - Docs: maintain the current Kalakriti registration architecture chapter, `README.md`, `project-structure.md`, and `.ruler/agent-guide.md`; regenerate agent instructions through `bun run ruler:apply`.
-- E2E: blockers prevent go-live; successful live transition; annotation preserves effective facts and eligibility; Guardian denied transport; Results/Awards/Inventory remain unavailable.
+- E2E: blockers prevent go-live; successful live transition; Guardian denied transport; Results/Awards/Inventory remain unavailable.
 
 **Acceptance:**
 
@@ -409,7 +386,7 @@ cd packages/e2e && bash run-e2e.sh tests/kalakriti/lifecycle-golive.spec.ts
 
 ## Historical command sketch (superseded)
 
-The original sketch below predates identifier QRs and annotation-only correction. Use the current contracts in [the architecture chapter](./architecture/kalakriti-registration.md#correction-notes-and-go-live); credential and PDF commands below are historical, not implementation instructions.
+The original sketch below predates identifier QRs. Use the current contracts in [the architecture chapter](./architecture/kalakriti-registration.md#go-live); credential and PDF commands below are historical, not implementation instructions.
 
 ```ts
 reissueCredential({ credentialId, subject, tokenHash, auditEntryId, now })
@@ -418,7 +395,6 @@ printCredentials({ editionId, subjects })
 
 recordOperation({ operationId, credentialToken, type, occurredAt, sessionId? })
 recordManualOperation({ operationId, humanId, type, occurredAt, sessionId? })
-correctOperation({ operationId, targetOperationId, reason })
 
 upsertTransportAssignment(...)
 transitionTransportStatus({ assignmentId, to, occurredAt })

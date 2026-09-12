@@ -85,7 +85,7 @@ export default defineConfig({
       dependencies: ["setup"],
       name: "kalakriti_release_invariants",
       testMatch: [
-        /kalakriti\/golive-corrections\.spec\.ts/,
+        /kalakriti\/golive\.spec\.ts/,
         /kalakriti\/operations-person-qr\.spec\.ts/,
         /kalakriti\/event-day-transport\.spec\.ts/,
         /kalakriti\/event-day-stations\.spec\.ts/,

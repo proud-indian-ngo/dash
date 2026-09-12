@@ -23,7 +23,6 @@ import {
   prepareCenterScan,
 } from "./kalakriti-center-scan-core";
 import { kalakritiMealUndoMutator } from "./kalakriti-meal-undo";
-import { kalakritiOperationCorrectMutator } from "./kalakriti-operation-correct";
 import {
   getEditionForUpdate,
   type LockableKalakritiTx,
@@ -496,7 +495,6 @@ export async function recordKalakritiOperation(
 
 export const kalakritiOperationMutators = {
   undoMeal: kalakritiMealUndoMutator,
-  correct: kalakritiOperationCorrectMutator,
   record: defineMutator(
     kalakritiOperationRecordSchema,
     async ({ tx, ctx, args }) => {

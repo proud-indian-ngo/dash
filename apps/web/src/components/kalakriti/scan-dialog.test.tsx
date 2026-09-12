@@ -20,17 +20,13 @@ mock.module("./operation-scan-panel", () => ({
     <p>{activity} capture</p>
   ),
 }));
-mock.module("./operation-note-panel", () => ({
-  OperationNotePanel: () => <p>Correction form</p>,
-}));
 const { ScanDialog } = await import("./scan-dialog");
-function render(activities: ScanActivity[], canAddNote = false) {
+function render(activities: ScanActivity[]) {
   return renderToStaticMarkup(
     <ScanDialog
       editionId="edition"
       year={2162}
       activities={activities}
-      canAddNote={canAddNote}
       onOpenChange={() => undefined}
     />
   );
@@ -47,19 +43,6 @@ describe("Role-aware sidebar Scan dialog", () => {
     expect(html).not.toContain('role="tablist"');
     expect(html).toContain("meals capture");
     expect(html).not.toContain("Transport roster");
-  });
-  it("offers annotation separately from the four scanning activities only when granted", () => {
-    const activities: ScanActivity[] = [
-      "transport",
-      "check_in",
-      "meals",
-      "attendance",
-    ];
-    expect(render(activities)).not.toContain("Add correction note");
-    const html = render(activities, true);
-    expect(html).toContain("Add correction note");
-    expect(html.match(/role="tab"/g)).toHaveLength(4);
-    expect(html).not.toContain("Correction form");
   });
   it("fails closed when no scanning activity is authorized", () => {
     const html = render([]);
