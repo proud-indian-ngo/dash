@@ -6,11 +6,12 @@ let complete = true;
 let online = true;
 let lifecycle = "registration_locked";
 let blockers: { code: string; message: string }[] = [];
+let registrationBlockers: { code: string; message: string }[] = [];
 let readiness: any;
 const actions: any[] = [];
 const requests: any[] = [];
 mock.module("@pi-dash/zero/kalakriti-registration-readiness", () => ({
-  getKalakritiRegistrationReadiness: () => [],
+  getKalakritiRegistrationReadiness: () => registrationBlockers,
 }));
 mock.module("@pi-dash/zero/kalakriti-go-live-readiness", () => ({
   getKalakritiGoLiveReadiness: (snapshot: any) => {
@@ -82,10 +83,33 @@ beforeEach(() => {
   online = true;
   lifecycle = "registration_locked";
   blockers = [];
+  registrationBlockers = [];
   actions.length = 0;
   requests.length = 0;
 });
 describe("Go live UI", () => {
+  it("retains shared blockers in independently named registration and go-live regions", () => {
+    const message = "Every Age Category needs registration limits";
+    blockers = [{ code: "limits", message }];
+    registrationBlockers = [...blockers];
+    const html = renderToStaticMarkup(
+      <EditionLifecycleAlerts editionId="edition" canManage />
+    );
+    const registration = html.match(
+      /<section aria-labelledby="readiness-blockers-heading">([\s\S]*?)<\/section>/
+    )?.[1];
+    const goLive = html.match(
+      /<section aria-labelledby="go-live-blockers-heading">([\s\S]*?)<\/section>/
+    )?.[1];
+    expect(registration).toContain('id="readiness-blockers-heading"');
+    expect(registration).toContain(
+      "Complete these before reopening registration"
+    );
+    expect(registration).toContain(message);
+    expect(goLive).toContain('id="go-live-blockers-heading"');
+    expect(goLive).toContain("Complete these before going live");
+    expect(goLive).toContain(message);
+  });
   it("adds go-live without replacing reopen and preserves null Center flags for fail-closed readiness", async () => {
     const html = render();
     expect(html).toContain("Go live");
