@@ -154,11 +154,16 @@ test("enforces registration readiness, lifecycle locks, and structural cloning",
     await fixture("invalidate_ready");
     await page.reload();
     await waitForZeroReady(page);
+    const registrationBlockers = page.getByRole("region", {
+      name: "Complete these before reopening registration",
+      exact: true,
+    });
+    await expect(registrationBlockers).toBeVisible();
     await expect(
-      page.getByText("Every Age Category needs a Student limit")
-    ).toBeVisible();
-    await expect(
-      page.getByText("Complete these before reopening registration")
+      registrationBlockers.getByText(
+        "Every Age Category needs a Student limit",
+        { exact: true }
+      )
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Open registration" })

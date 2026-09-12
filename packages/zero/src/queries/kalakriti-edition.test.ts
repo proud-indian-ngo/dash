@@ -181,7 +181,9 @@ describe("Kalakriti Edition query privacy", () => {
         userId: "admin-1",
       },
     });
-    const ast = JSON.stringify((query as unknown as { ast: unknown }).ast);
+    const ast = JSON.stringify(
+      (query as unknown as { ast: { where: unknown } }).ast.where
+    );
 
     expect(ast).toContain('"name":"id"');
     expect(ast).toContain('"value":"edition-2028"');

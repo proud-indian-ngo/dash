@@ -91,7 +91,8 @@ All paths are relative to project root.
 | `components/kalakriti/{volunteer,guardian,student}-detail-sheet.tsx` | Table-owned person details, Guardian/Student Center details, Student competition entries, and identifier QR codes for every authorized viewer |
 | `components/kalakriti/person-qr-panel.tsx` | Client-rendered JSON QR containing the database record `id` and subject `type` (`student`, `guardian`, or `volunteer`) |
 | `components/kalakriti/{food-table,food-stats,food-meal-undo}.tsx`, `components/kalakriti/food-roster-snapshot.ts`, `lib/kalakriti-food-policy.ts` | Eligible-only Food roster with retained authoritative snapshots, column filters, whole-authorized-roster meal totals, guarded meal undo, and shared page/navigation read policy |
-| `components/kalakriti/scan-dialog.tsx` | Stable sidebar modal with role-derived activity tabs and pending-write guards |
+| `components/kalakriti/scan-dialog.tsx` | Stable sidebar modal with four role-derived scanning activities and pending-write guards |
+| `components/kalakriti/edition-lifecycle-card.tsx`, `packages/zero/src/kalakriti-go-live-readiness.ts` (repository root for package path) | Registration transitions and confirmed, credential-free Go-live readiness |
 | `components/kalakriti/center-scan-dialog.tsx` | Transport panel: continuous QR/manual marking, roster progress, pinned Center stages, and confirmed finalization |
 | `components/kalakriti/operation-scan-panel.tsx` | Live-only volunteer check-in, meals, and scoped Competition attendance with explicit scan contexts |
 | `lib/kalakriti-scan-recording.ts` | Stable nontransport operation arguments and retry keys across activity changes |

@@ -113,6 +113,10 @@ The Kalakriti sidebar **Scan** button opens a shared modal, not a separate Event
 
 The browser tabs are a convenience, not an authorization boundary. Every operation validates role, subject, Edition, eligibility, and session scope on the server. QR input uses person JSON and manual input uses yearly IDs; neither authorizes an operation. Changing scanning activity or session ends the previous camera context, and pending writes cannot change their operation arguments. Archived Editions expose no scanning, and new writes require a live Edition.
 
+## Go-live
+
+The lifecycle action offers **Go live** only from registration-locked Editions. Its blocker list uses the shared go-live readiness helper: registration configuration, closed active-Center controls, active Overall Events/Transport/Food Lead assignments, and transport assignments for active Centers. There is no credential or person-ID readiness gate. Confirmation explains that scanning starts and Center registration controls close; existing person QRs, lookup, and transport setup remain available. The server rechecks readiness and the single-live-Edition constraint in the transition transaction.
+
 ## Student directory
 
 The Students page uses `kalakritiStudent.visibleForDirectory({ editionId })` to list Students across the viewer's authorized Center union, without requiring a page-level Center selection. ReUI filters cover the seven data columns: Center (stable ID), ID (yearly Student ID), Student (name), Transport status, Date of birth, Gender, and Age Category. Hiding a column does not remove its filter. Transport filtering uses the same retained labels as the displayed column, without treating unknown status as awaiting pickup. Obsolete non-column filter predicates are removed recursively from saved URL expressions; supported filters and their groups survive. Legacy authorized Center links become visible Center filters in the same normalization flow, rather than hidden constraints. Guardian and Liaison access includes all Students in their authorized Centers, not just their own registrations; unrelated Centers and Editions remain inaccessible.

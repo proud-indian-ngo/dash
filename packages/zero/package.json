@@ -3,6 +3,7 @@
   "type": "module",
   "exports": {
     "./context": "./src/context.ts",
+    "./kalakriti-go-live-readiness": "./src/kalakriti-go-live-readiness.ts",
     "./kalakriti-food-rules": "./src/kalakriti-food-rules.ts",
     "./kalakriti-center-scan-rules": "./src/kalakriti-center-scan-rules.ts",
     "./kalakriti-registration-readiness": "./src/kalakriti-registration-readiness.ts",
