@@ -18,7 +18,7 @@ import { uuidv7 } from "uuidv7";
 
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useApp } from "@/context/app-context";
-import { fetchWhatsAppGroups } from "@/functions/whatsapp-groups";
+import { checkWhatsAppConfiguration } from "@/functions/whatsapp-groups";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 import { GroupAssignments } from "./whatsapp-group-assignments";
@@ -105,7 +105,7 @@ export function WhatsAppGroupsSection() {
     if (!canManageGroups) {
       return;
     }
-    fetchWhatsAppGroups()
+    checkWhatsAppConfiguration()
       .then((result) => setWapiConfigured(result.configured))
       .catch((error: unknown) => {
         log.error({
