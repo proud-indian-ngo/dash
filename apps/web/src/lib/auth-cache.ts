@@ -1,4 +1,5 @@
 import { getAuth } from "@/functions/get-auth";
+import { clearPendingKalakritiAccessRequests } from "@/lib/kalakriti-access-request";
 
 type AuthResult = NonNullable<Awaited<ReturnType<typeof getAuth>>>;
 
@@ -59,4 +60,5 @@ export function invalidateAuthCache() {
   cached = null;
   lastFetchTime = 0;
   inflight = null;
+  clearPendingKalakritiAccessRequests();
 }

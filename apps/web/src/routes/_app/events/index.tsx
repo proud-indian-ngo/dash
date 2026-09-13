@@ -5,16 +5,29 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { EventsCalendarView } from "@/components/events/events-calendar-view";
 import type { PublicEventRow } from "@/components/events/public-events-table";
+import { preloadRouteQuery } from "@/lib/route-preload";
 
 export const Route = createFileRoute("/_app/events/")({
   component: PublicEventsRouteComponent,
   head: () => ({
     meta: [{ title: `Events | ${env.VITE_APP_NAME}` }],
   }),
-  loader: ({ context }) => {
-    context.zero?.preload(queries.teamEvent.allAccessible());
-    context.zero?.preload(queries.eventInterest.byCurrentUser());
-    context.zero?.preload(queries.team.byCurrentUser());
+  loader: ({ abortController, context }) => {
+    preloadRouteQuery(
+      context.zero,
+      queries.teamEvent.allAccessible(),
+      abortController.signal
+    );
+    preloadRouteQuery(
+      context.zero,
+      queries.eventInterest.byCurrentUser(),
+      abortController.signal
+    );
+    preloadRouteQuery(
+      context.zero,
+      queries.team.byCurrentUser(),
+      abortController.signal
+    );
   },
 });
 

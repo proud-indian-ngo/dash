@@ -156,6 +156,9 @@ These are consumed directly by the `zero-cache` binary:
 | `ZERO_QUERY_FORWARD_COOKIES` | `true` — forwards session cookies to query endpoint |
 | `ZERO_LOG_LEVEL` | Log level (default `debug`) |
 | `ZERO_REPLICA_FILE` | Path for local SQLite replica |
+| `ZERO_QUERY_HYDRATION_STATS` | Optional slow-hydration row statistics; Compose defaults to `false` |
+
+For a bounded performance investigation in Dokploy, set `ZERO_QUERY_HYDRATION_STATS=true` in the Compose environment and redeploy zero-cache. Collect slow-hydration row statistics and compare them with query plans from the Zero inspector. Restore `false` and redeploy after the investigation. This setting does not change query results or raise the slow-query warning threshold. Keep the admin password and authentication cookies out of captured reports.
 
 ## Database Setup
 

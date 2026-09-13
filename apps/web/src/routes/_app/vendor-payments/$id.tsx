@@ -11,6 +11,7 @@ import { VendorPaymentDetail } from "@/components/vendor-payments/vendor-payment
 import { VendorPaymentForm } from "@/components/vendor-payments/vendor-payment-form";
 import { useApp } from "@/context/app-context";
 import { canEditVendorPaymentSubmission } from "@/lib/request-edit-permissions";
+import { preloadRouteQuery } from "@/lib/route-preload";
 import {
   mapAttachmentsToFormValues,
   mapLineItemsToFormValues,
@@ -21,8 +22,12 @@ export const Route = createFileRoute("/_app/vendor-payments/$id")({
   head: () => ({
     meta: [{ title: `Vendor Payment Details | ${env.VITE_APP_NAME}` }],
   }),
-  loader: ({ context, params }) => {
-    context.zero?.preload(queries.vendorPayment.byId({ id: params.id }));
+  loader: ({ abortController, context, params }) => {
+    preloadRouteQuery(
+      context.zero,
+      queries.vendorPayment.byId({ id: params.id }),
+      abortController.signal
+    );
   },
   validateSearch: z.object({
     mode: z.enum(["edit"]).optional(),

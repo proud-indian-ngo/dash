@@ -16,7 +16,7 @@ All paths are relative to project root.
 | `bun run db:migrate` | Run pending migrations |
 | `bun run r2:migrate-media-urls -- --legacy-cdn-url=<url>` | Dry-run legacy avatar/editor media backfill; add `--apply` only after reviewing the report |
 | `bun run zero:generate` | Regenerate Zero schema |
-| `bun run zero:analyze` | Analyze configured Zero named queries against a Zero cache |
+| `bun run zero:analyze` | Analyze named Zero queries; `ZERO_ANALYZE_PROFILE=events` (default) or `kalakriti` with required `ZERO_ANALYZE_EDITION_ID`; authenticate via environment |
 | `bun run whatsapp:start` | Start WhatsApp gateway container |
 | `bun run whatsapp:stop` | Stop WhatsApp gateway container |
 | `bun run dev:webhook-proxy` | Start WhatsApp webhook proxy (required for local webhook testing — Vite dev server can't handle chunked POST from Go) |

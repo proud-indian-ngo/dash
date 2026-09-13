@@ -13,6 +13,7 @@ import { useApp } from "@/context/app-context";
 import type { RequestDetailData, RequestType } from "@/lib/reimbursement-types";
 import { REQUEST_TYPE_LABELS } from "@/lib/reimbursement-types";
 import { canEditRequestSubmission } from "@/lib/request-edit-permissions";
+import { preloadRouteQuery } from "@/lib/route-preload";
 import {
   mapAttachmentsToFormValues,
   mapLineItemsToFormValues,
@@ -23,9 +24,17 @@ export const Route = createFileRoute("/_app/reimbursements/$id")({
   head: () => ({
     meta: [{ title: `Reimbursement Details | ${env.VITE_APP_NAME}` }],
   }),
-  loader: ({ context, params }) => {
-    context.zero?.preload(queries.reimbursement.byId({ id: params.id }));
-    context.zero?.preload(queries.advancePayment.byId({ id: params.id }));
+  loader: ({ abortController, context, params }) => {
+    preloadRouteQuery(
+      context.zero,
+      queries.reimbursement.byId({ id: params.id }),
+      abortController.signal
+    );
+    preloadRouteQuery(
+      context.zero,
+      queries.advancePayment.byId({ id: params.id }),
+      abortController.signal
+    );
   },
   validateSearch: z.object({
     mode: z.enum(["edit"]).optional(),

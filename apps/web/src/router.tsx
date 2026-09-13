@@ -21,10 +21,7 @@ export const getRouter = () => {
     defaultPendingComponent: Loader,
     defaultPendingMinMs: 200,
     defaultPendingMs: 100,
-    defaultPreload: import.meta.env.VITE_E2E ? false : "viewport",
-    // We don't want TanStack skipping any calls to us. We want to be asked to
-    // preload every link. This is fine because Zero has its own internal
-    // deduping and caching.
+    defaultPreload: "intent",
     defaultPreloadGcTime: 0,
     // It is fine to call Zero multiple times for same query, Zero dedupes the
     // queries internally.

@@ -64,7 +64,17 @@ Zero client init: `apps/web/src/components/zero-init.tsx` via `<ZeroProvider>`. 
 
 ## SSR Loaders
 
-Route loaders use `context.zero?.preload()` (not `run()`) — syncs ahead of nav without materializing JS objects. `?.` required: Zero doesn't exist server-side during SSR.
+Route loaders use `preloadRouteQuery` from `apps/web/src/lib/route-preload.ts`, passing the optional Zero instance, query and loader abort signal. It uses `zero.preload()` to sync ahead of navigation without materializing JS objects, retains cached data for five minutes, and releases its reference on completion, abort or a 30-second timeout. It does nothing during SSR when Zero is absent. Mounted query hooks own separate references, so releasing a preload does not unsubscribe the page.
+
+Router preloading uses intent (hover/focus) in development, production and E2E. Broad query results are intentional for instant local filtering and warm navigation; visible row count alone does not establish overfetching. Zero deduplicates overlapping rows, but every active query still has lifecycle and execution costs. Route preloads must not retain references indefinitely.
+
+Kalakriti access guards deduplicate only concurrent browser requests by authenticated session, lookup kind and year. Settled results are not cached, and server rendering bypasses shared state. Server-side authentication and query permissions remain authoritative.
+
+## Query Performance Verification
+
+Run `bun run zero:analyze` with `ZERO_CACHE_URL` and the appropriate authentication environment. The default `ZERO_ANALYZE_PROFILE=events` preserves the event query suite and optional `ZERO_ANALYZE_EVENT_ID`. Set `ZERO_ANALYZE_PROFILE=kalakriti` and `ZERO_ANALYZE_EDITION_ID` to profile Entries, available divisions and the Students directory for a specific edition. The script runs named queries sequentially and prints timings, row counts and plans without requesting record contents. Authentication uses `COOKIE` or `ZERO_AUTH_TOKEN`; production inspection also requires `ZERO_ADMIN_PASSWORD`. Do not place their values in reports.
+
+Compare server hydration separately from end-to-end hydration, and distinguish active subscriptions from inactive queries retained by TTL. Use identical data, account and navigation sequences for before/after comparisons. Profile restricted roles separately because permission predicates can produce different plans. Add indexes or reduce query graphs only when measured plans justify doing so. See [Zero's query guidance](https://zero.rocicorp.dev/docs/queries) and [analyzer documentation](https://zero.rocicorp.dev/docs/debug/analyze-query-cli).
 
 ## Connection Errors
 

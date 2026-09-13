@@ -13,14 +13,15 @@ import { TeamFormDialog } from "@/components/teams/team-form-dialog";
 import { TeamsTable } from "@/components/teams/teams-table";
 import { useApp } from "@/context/app-context";
 import { handleMutationResult } from "@/lib/mutation-result";
+import { preloadRouteQuery } from "@/lib/route-preload";
 
 export const Route = createFileRoute("/_app/teams/")({
   component: TeamsRouteComponent,
   head: () => ({
     meta: [{ title: `Teams | ${env.VITE_APP_NAME}` }],
   }),
-  loader: ({ context }) => {
-    context.zero?.preload(queries.team.all());
+  loader: ({ abortController, context }) => {
+    preloadRouteQuery(context.zero, queries.team.all(), abortController.signal);
   },
 });
 

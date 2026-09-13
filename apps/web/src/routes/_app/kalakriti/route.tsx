@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
-import { getCurrentKalakritiEditionAccess } from "@/functions/kalakriti-access";
+import { getCoordinatedCurrentKalakritiEditionAccess } from "@/lib/kalakriti-access-request";
 
 export const Route = createFileRoute("/_app/kalakriti")({
   beforeLoad: async ({ context }) => {
@@ -10,7 +10,9 @@ export const Route = createFileRoute("/_app/kalakriti")({
     ) {
       return;
     }
-    const access = await getCurrentKalakritiEditionAccess();
+    const access = await getCoordinatedCurrentKalakritiEditionAccess(
+      context.session
+    );
     if (!access) {
       throw redirect({ to: "/" });
     }

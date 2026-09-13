@@ -13,14 +13,19 @@ import { computeVendorPaymentStats } from "@/components/vendor-payments/vendor-p
 import type { VendorPaymentWithRelations } from "@/components/vendor-payments/vendor-payment-types";
 import { VendorPaymentsTable } from "@/components/vendor-payments/vendor-payments-table";
 import { useApp } from "@/context/app-context";
+import { preloadRouteQuery } from "@/lib/route-preload";
 
 export const Route = createFileRoute("/_app/vendor-payments/")({
   component: VendorPaymentsRouteComponent,
   head: () => ({
     meta: [{ title: `Vendor Payments | ${env.VITE_APP_NAME}` }],
   }),
-  loader: ({ context }) => {
-    context.zero?.preload(queries.vendorPayment.all());
+  loader: ({ abortController, context }) => {
+    preloadRouteQuery(
+      context.zero,
+      queries.vendorPayment.all(),
+      abortController.signal
+    );
   },
 });
 
