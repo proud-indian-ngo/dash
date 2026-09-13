@@ -28,6 +28,29 @@ describe("Person QR panel", () => {
     expect(render("membership-one")).not.toBe(render("membership-two"));
   });
 
+  it.each(["guest", "judge"] as const)(
+    "renders a stable %s QR distinct from volunteer and other attendee kinds",
+    (type) => {
+      const render = () =>
+        renderToStaticMarkup(<PersonQrPanel id="attendee-one" type={type} />);
+      expect(render()).toContain('aria-label="Person QR code"');
+      expect(render()).toBe(render());
+      expect(render()).not.toBe(
+        renderToStaticMarkup(
+          <PersonQrPanel id="attendee-one" type="volunteer" />
+        )
+      );
+      expect(render()).not.toBe(
+        renderToStaticMarkup(
+          <PersonQrPanel
+            id="attendee-one"
+            type={type === "guest" ? "judge" : "guest"}
+          />
+        )
+      );
+    }
+  );
+
   it("does not render while the sheet is closed", () => {
     expect(
       renderToStaticMarkup(

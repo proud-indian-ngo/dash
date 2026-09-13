@@ -1,8 +1,9 @@
+import type { KalakritiPersonQr } from "@pi-dash/shared/kalakriti-person-qr";
 import { QRCodeSVG } from "qrcode.react";
 
 interface PersonQrPanelProps {
   id: string;
-  type: "student" | "guardian" | "volunteer";
+  type: KalakritiPersonQr["type"];
   enabled?: boolean;
 }
 

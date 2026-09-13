@@ -31,6 +31,22 @@ export function canViewKalakritiFood(
   );
 }
 
+export function canViewKalakritiFoodAttendees(
+  access: FoodAccess | null | undefined
+): boolean {
+  if (!access) return false;
+  if (access.isGlobalAdmin) return true;
+  if (access.edition?.lifecycle === "archived") return false;
+  return (
+    access.membership?.kind === "volunteer" &&
+    access.membership.assignments.some((assignment) =>
+      ["edition_admin", "food_lead", "food_member"].includes(
+        assignment.responsibility
+      )
+    )
+  );
+}
+
 export function canUndoKalakritiMeal(
   access: FoodAccess | null | undefined
 ): boolean {

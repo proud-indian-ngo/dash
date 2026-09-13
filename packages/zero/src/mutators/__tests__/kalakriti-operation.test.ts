@@ -122,6 +122,211 @@ async function manual(
   } as never);
 }
 
+describe("Guest and Judge operations", () => {
+  for (const kind of ["guest", "judge"] as const) {
+    const attendee = {
+      id: "01950000-0000-7000-8000-000000000003",
+      editionId: "edition-1",
+      kind,
+      humanId: "KALX-2027-0001",
+      archivedAt: null,
+    };
+    const checkIn = {
+      ...existing,
+      operationId: "check-in",
+      studentId: null,
+      attendeeId: attendee.id,
+      type: "attendee_check_in",
+    };
+    for (const mode of ["qr", "manual"] as const) {
+      const command = mode === "qr" ? record : manual;
+      const args = {
+        personQr: JSON.stringify({ id: attendee.id, type: kind }),
+        humanId: attendee.humanId,
+        type: "volunteer_check_in",
+      };
+      const lookup = (subject: unknown = attendee) =>
+        mode === "qr"
+          ? [undefined, subject]
+          : [undefined, undefined, undefined, subject];
+      it(`resolves ${kind} ${mode} generic check-in to an attendee-only ledger row`, async () => {
+        const { tx, insertOperation, insertAudit } = setup([...lookup(), []]);
+        await command(tx, args);
+        expect(insertOperation).toHaveBeenCalledWith(
+          expect.objectContaining({
+            attendeeId: attendee.id,
+            membershipId: null,
+            studentId: null,
+            type: "attendee_check_in",
+          })
+        );
+        expect(insertAudit).toHaveBeenCalledWith(
+          expect.objectContaining({
+            metadata: {
+              operationId: baseArgs.operationId,
+              subjectKind: kind,
+              type: "attendee_check_in",
+            },
+          })
+        );
+      });
+      it.each(["hospitality_lead", "hospitality_member", "edition_admin"])(
+        `allows %s to check in ${kind} via ${mode}`,
+        async (responsibility) => {
+          const { tx, insertOperation } = setup([
+            ...lookup(),
+            volunteer,
+            [{ responsibility }],
+            [],
+          ]);
+          await command(tx, args, {
+            userId: "staff",
+            permissions: ["kalakriti.view"],
+          });
+          expect(insertOperation).toHaveBeenCalledTimes(1);
+        }
+      );
+      it.each([
+        "food_lead",
+        "food_member",
+        "transport_lead",
+        "competition_coordinator",
+      ])(`denies %s ${kind} check-in via ${mode}`, async (responsibility) => {
+        const { tx, insertOperation } = setup([
+          ...lookup(),
+          volunteer,
+          [{ responsibility }],
+        ]);
+        await expect(
+          command(tx, args, {
+            userId: "staff",
+            permissions: ["kalakriti.view"],
+          })
+        ).rejects.toThrow("Unauthorized");
+        expect(insertOperation).not.toHaveBeenCalled();
+      });
+      it.each(["breakfast", "lunch"])(
+        `requires check-in for ${kind} %s via ${mode}`,
+        async (type) => {
+          const missing = setup([...lookup(), []]);
+          await expect(command(missing.tx, { ...args, type })).rejects.toThrow(
+            "Check-in"
+          );
+          expect(missing.insertOperation).not.toHaveBeenCalled();
+          for (const responsibility of [
+            "food_lead",
+            "food_member",
+            "edition_admin",
+          ]) {
+            const state = setup([
+              ...lookup(),
+              volunteer,
+              [{ responsibility }],
+              [checkIn],
+            ]);
+            await command(
+              state.tx,
+              { ...args, type },
+              { userId: "staff", permissions: ["kalakriti.view"] }
+            );
+            expect(state.insertOperation).toHaveBeenCalledWith(
+              expect.objectContaining({
+                attendeeId: attendee.id,
+                membershipId: null,
+                type,
+              })
+            );
+          }
+          const denied = setup([
+            ...lookup(),
+            volunteer,
+            [{ responsibility: "hospitality_lead" }],
+          ]);
+          await expect(
+            command(
+              denied.tx,
+              { ...args, type },
+              { userId: "staff", permissions: ["kalakriti.view"] }
+            )
+          ).rejects.toThrow("Unauthorized");
+        }
+      );
+      it.each([
+        "pickup",
+        "venue_arrival",
+        "venue_departure",
+        "drop_off",
+        "competition_attendance",
+      ])(`rejects ${kind} %s via ${mode}`, async (type) => {
+        const state = setup(lookup());
+        await expect(command(state.tx, { ...args, type })).rejects.toThrow(
+          "Student subject"
+        );
+        expect(state.insertOperation).not.toHaveBeenCalled();
+      });
+      it.each([
+        undefined,
+        { ...attendee, archivedAt: 1 },
+        { ...attendee, editionId: "other" },
+      ])(
+        `rejects absent, archived, or foreign ${kind} via ${mode}`,
+        async (subject) => {
+          const state = setup(lookup(subject === undefined ? null : subject));
+          await expect(command(state.tx, args)).rejects.toThrow(
+            mode === "qr" ? "Active attendee not found" : "Yearly ID not found"
+          );
+          expect(state.insertOperation).not.toHaveBeenCalled();
+        }
+      );
+      it.each(["attendee_check_in", "breakfast", "lunch"])(
+        `deduplicates effective ${kind} %s via ${mode}`,
+        async (type) => {
+          const state = setup([...lookup(), [checkIn, { ...checkIn, type }]]);
+          await command(state.tx, {
+            ...args,
+            type: type === "attendee_check_in" ? "volunteer_check_in" : type,
+          });
+          expect(state.insertOperation).not.toHaveBeenCalled();
+          expect(state.insertAudit).not.toHaveBeenCalled();
+        }
+      );
+      it(`preserves ${kind} original-recorder retries before subject and lifecycle validation via ${mode}`, async () => {
+        const state = setup([checkIn], "archived");
+        await command(state.tx, {
+          ...args,
+          operationId: checkIn.operationId,
+          personQr: JSON.stringify({ id: student.id, type: "student" }),
+          humanId: "changed",
+        });
+        expect(state.tx.run).toHaveBeenCalledTimes(1);
+        expect(state.insertOperation).not.toHaveBeenCalled();
+        const denied = setup([checkIn]);
+        await expect(
+          command(
+            denied.tx,
+            { ...args, operationId: checkIn.operationId },
+            { userId: "other", permissions: [] }
+          )
+        ).rejects.toThrow("Operation ID is already in use");
+      });
+    }
+    it(`rejects a persisted mismatched ${kind} QR kind without membership fallback`, async () => {
+      const state = setup([
+        undefined,
+        { ...attendee, kind: kind === "guest" ? "judge" : "guest" },
+      ]);
+      await expect(
+        record(state.tx, {
+          personQr: JSON.stringify({ id: attendee.id, type: kind }),
+          type: "volunteer_check_in",
+        })
+      ).rejects.toThrow("Active attendee not found");
+      expect(state.tx.run).toHaveBeenCalledTimes(2);
+      expect(state.insertOperation).not.toHaveBeenCalled();
+    });
+  }
+});
+
 describe("Guardian meals", () => {
   const guardian = { ...volunteer, kind: "guardian", humanId: null };
   const args = {

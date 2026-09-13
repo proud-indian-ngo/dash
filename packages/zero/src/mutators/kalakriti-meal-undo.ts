@@ -97,6 +97,7 @@ export const kalakritiMealUndoMutator = defineMutator(
       operationId: args.operationId,
       studentId: original.studentId,
       membershipId: original.membershipId,
+      attendeeId: original.attendeeId ?? null,
       competitionSessionId: null,
       type: "meal_correction",
       correctionReason: "meal_unserved",

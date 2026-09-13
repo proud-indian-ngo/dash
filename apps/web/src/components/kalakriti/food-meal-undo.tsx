@@ -35,11 +35,13 @@ export function FoodMealUndo({
   data,
   complete,
   scopeKey,
+  onMealSettled,
 }: {
   access: KalakritiEditionAccess;
   data: FoodTableRow[];
   complete: boolean;
   scopeKey: string;
+  onMealSettled?: () => Promise<void>;
 }) {
   const zero = useZero();
   const connection = useConnectionState();
@@ -99,28 +101,40 @@ export function FoodMealUndo({
           error: { message: "Wait for an authoritative live meal record." },
         };
       pending.current = true;
+      const recordUndo = async () => {
+        try {
+          return await zero.mutate(
+            mutators.kalakritiOperation.undoMeal(payload.args)
+          ).server;
+        } catch (error) {
+          log.error({
+            component: "FoodMealUndo",
+            action: "undoMeal",
+            editionId: access.edition.id,
+            targetOperationId: payload.targetOperationId,
+            error: "Meal undo request failed",
+            errorType: error instanceof Error ? error.name : "unknown",
+          });
+          return {
+            type: "error" as const,
+            error: {
+              message: "Response uncertain. Retry to confirm the same undo.",
+            },
+          };
+        }
+      };
+      const result = await recordUndo();
       try {
-        return await zero.mutate(
-          mutators.kalakritiOperation.undoMeal(payload.args)
-        ).server;
-      } catch (error) {
+        await onMealSettled?.();
+      } catch {
         log.error({
           component: "FoodMealUndo",
-          action: "undoMeal",
-          editionId: access.edition.id,
-          targetOperationId: payload.targetOperationId,
-          error: "Meal undo request failed",
-          errorType: error instanceof Error ? error.name : "unknown",
+          action: "refreshFood",
+          error: "Food refresh failed",
         });
-        return {
-          type: "error",
-          error: {
-            message: "Response uncertain. Retry to confirm the same undo.",
-          },
-        };
-      } finally {
-        pending.current = false;
       }
+      pending.current = false;
+      return result;
     },
   });
   const requestUndo = useEventCallback((target: FoodMealUndoTarget) => {

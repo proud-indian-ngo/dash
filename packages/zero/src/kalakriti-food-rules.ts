@@ -8,7 +8,7 @@ export function getKalakritiFoodStatus({
   operations,
   state,
 }: {
-  kind: "student" | "volunteer" | "guardian";
+  kind: "student" | "volunteer" | "guardian" | "guest" | "judge";
   operations: readonly KalakritiFoodOperation[];
   state?: "active" | "archived";
 }) {
@@ -17,7 +17,11 @@ export function getKalakritiFoodStatus({
       .filter((operation) => operation.supersededByOperationId === null)
       .map((operation) => operation.type)
   );
-  const checkedIn = effective.has("volunteer_check_in");
+  const checkedIn = effective.has(
+    kind === "guest" || kind === "judge"
+      ? "attendee_check_in"
+      : "volunteer_check_in"
+  );
   return {
     eligible:
       kind === "student"

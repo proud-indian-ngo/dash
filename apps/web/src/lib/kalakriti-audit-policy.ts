@@ -7,6 +7,7 @@ export const KALAKRITI_AUDIT_DOMAINS = [
   "guardian_center_assignment",
   "volunteer_assignment",
   "guardian_access",
+  "attendee",
   "age_category_configuration",
   "center_age_quota_configuration",
   "competition_configuration",
@@ -113,6 +114,8 @@ export function resolveKalakritiAuditScope(
 }
 
 const SAFE_AUDIT_METADATA_KEYS = new Set([
+  "addedCount",
+  "removedCount",
   "after",
   "ageCategoryId",
   "ageCategoryOverridden",

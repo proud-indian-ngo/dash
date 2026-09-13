@@ -609,10 +609,106 @@ export const kalakritiCompetitionSession = pgTable(
   ]
 );
 
+export const kalakritiAttendee = pgTable(
+  "kalakriti_attendee",
+  {
+    id: uuid("id").primaryKey(),
+    editionId: uuid("edition_id")
+      .notNull()
+      .references(() => kalakritiEdition.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<"guest" | "judge">().notNull(),
+    humanId: text("human_id").notNull(),
+    name: text("name").notNull(),
+    phone: text("phone").notNull(),
+    email: text("email"),
+    archivedAt: timestamp("archived_at"),
+    createdAt: timestamp("created_at").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
+    createdBy: text("created_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [
+    unique("kalakriti_attendee_edition_id_unique").on(
+      table.editionId,
+      table.id
+    ),
+    uniqueIndex("kalakriti_attendee_humanId_uidx").on(table.humanId),
+    index("kalakriti_attendee_edition_kind_idx").on(
+      table.editionId,
+      table.kind
+    ),
+    check(
+      "kalakriti_attendee_kind_chk",
+      sql`${table.kind} IN ('guest', 'judge')`
+    ),
+  ]
+);
+
+export const kalakritiJudgeAssignment = pgTable(
+  "kalakriti_judge_assignment",
+  {
+    id: uuid("id").primaryKey(),
+    editionId: uuid("edition_id")
+      .notNull()
+      .references(() => kalakritiEdition.id, { onDelete: "cascade" }),
+    attendeeId: uuid("attendee_id").notNull(),
+    competitionId: uuid("competition_id").notNull(),
+    createdAt: timestamp("created_at").notNull(),
+    createdBy: text("created_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [
+    uniqueIndex("kalakriti_judge_assignment_scope_uidx").on(
+      table.editionId,
+      table.attendeeId,
+      table.competitionId
+    ),
+    foreignKey({
+      columns: [table.editionId, table.attendeeId],
+      foreignColumns: [kalakritiAttendee.editionId, kalakritiAttendee.id],
+      name: "kalakriti_judge_assignment_attendee_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.editionId, table.competitionId],
+      foreignColumns: [kalakritiCompetition.editionId, kalakritiCompetition.id],
+      name: "kalakriti_judge_assignment_competition_fk",
+    }).onDelete("restrict"),
+  ]
+);
+
+export const kalakritiAttendeeRelations = relations(
+  kalakritiAttendee,
+  ({ one, many }) => ({
+    edition: one(kalakritiEdition, {
+      fields: [kalakritiAttendee.editionId],
+      references: [kalakritiEdition.id],
+    }),
+    operations: many(kalakritiOperation),
+    judgeAssignments: many(kalakritiJudgeAssignment),
+  })
+);
+
+export const kalakritiJudgeAssignmentRelations = relations(
+  kalakritiJudgeAssignment,
+  ({ one }) => ({
+    attendee: one(kalakritiAttendee, {
+      fields: [kalakritiJudgeAssignment.attendeeId],
+      references: [kalakritiAttendee.id],
+    }),
+    competition: one(kalakritiCompetition, {
+      fields: [kalakritiJudgeAssignment.competitionId],
+      references: [kalakritiCompetition.id],
+    }),
+  })
+);
+
 export const kalakritiOperation = pgTable(
   "kalakriti_operation",
   {
     competitionSessionId: uuid("competition_session_id"),
+    attendeeId: uuid("attendee_id"),
     correctionReason: text("correction_reason"),
     createdAt: timestamp("created_at").notNull(),
     editionId: uuid("edition_id")
@@ -630,6 +726,12 @@ export const kalakritiOperation = pgTable(
     type: kalakritiOperationTypeEnum("type").notNull(),
   },
   (table) => [
+    index("kalakriti_operation_attendeeId_idx").on(table.attendeeId),
+    foreignKey({
+      columns: [table.editionId, table.attendeeId],
+      foreignColumns: [kalakritiAttendee.editionId, kalakritiAttendee.id],
+      name: "kalakriti_operation_edition_attendee_fk",
+    }).onDelete("restrict"),
     uniqueIndex("kalakriti_operation_operationId_uidx").on(table.operationId),
     index("kalakriti_operation_editionId_idx").on(table.editionId),
     index("kalakriti_operation_studentId_idx").on(table.studentId),
@@ -662,11 +764,7 @@ export const kalakritiOperation = pgTable(
     }).onDelete("restrict"),
     check(
       "kalakriti_operation_subject_chk",
-      sql`(
-        ${table.studentId} IS NOT NULL AND ${table.membershipId} IS NULL
-      ) OR (
-        ${table.studentId} IS NULL AND ${table.membershipId} IS NOT NULL
-      )`
+      sql`num_nonnulls(${table.studentId}, ${table.membershipId}, ${table.attendeeId}) = 1`
     ),
     check(
       "kalakriti_operation_session_chk",
@@ -1352,6 +1450,10 @@ export const kalakritiCompetitionSessionRelations = relations(
 export const kalakritiOperationRelations = relations(
   kalakritiOperation,
   ({ one }) => ({
+    attendee: one(kalakritiAttendee, {
+      fields: [kalakritiOperation.attendeeId],
+      references: [kalakritiAttendee.id],
+    }),
     edition: one(kalakritiEdition, {
       fields: [kalakritiOperation.editionId],
       references: [kalakritiEdition.id],

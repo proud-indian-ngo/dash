@@ -88,7 +88,12 @@ export function DialogContent({
 
   if (isMobile) {
     return (
-      <DrawerContent className={cn("max-h-[90vh] overflow-hidden", className)}>
+      <DrawerContent
+        aria-label={props["aria-label"]}
+        aria-labelledby={props["aria-labelledby"]}
+        aria-describedby={props["aria-describedby"]}
+        className={cn("max-h-[90vh] overflow-hidden", className)}
+      >
         <div
           className={cn(
             "grid min-h-0 flex-1 touch-pan-y gap-4 overflow-y-auto overscroll-contain p-4 [-webkit-overflow-scrolling:touch]",

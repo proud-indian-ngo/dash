@@ -121,9 +121,12 @@ All paths are relative to project root.
 | `routes/_app/kalakriti/$year/competitions/venues.tsx` | Venue table and detail sheet |
 | `routes/_app/kalakriti/$year/competitions/schedule.tsx` | Competition Session table and detail sheet |
 | `routes/_app/kalakriti/$year/guardians.tsx` | Edition Guardian access management |
+| `routes/_app/kalakriti/$year/{guests,judges}.tsx` | Non-login attendee rosters, detail-sheet QR/status display, and many-to-many judge Competition assignments |
+| `packages/zero/src/{mutators,queries}/kalakriti-attendee.ts` (repository root) | Edition-bound attendee commands and administrator/lead-scoped roster reads |
 | `routes/_app/kalakriti/$year/students.tsx` | Authorized-Center-union Student directory with a Center column/filter, explicit-Center registration, and actual-row-Center edit/detail/delete guards |
 | `routes/_app/kalakriti/$year/entries.tsx`, `entries/` | Authorized-Center-union directory and Entries; event-detail Present/Attended statuses and data-column filters; same-Center registration with existing eligibility/write guards |
-| `routes/_app/kalakriti/$year/food.tsx` | Scoped Student/Volunteer/Guardian Food roster with eligibility and served history |
+| `routes/_app/kalakriti/$year/food.tsx` | Scoped Student/Volunteer/Guardian/Guest/Judge Food roster with eligibility and served history |
+| `functions/kalakriti-food.ts`, `components/kalakriti/use-food-attendees.ts` | Authenticated no-contact Guest/Judge Food projection, five-second/focus refresh, and snapshot readiness |
 | `routes/_app/kalakriti/$year/audit.tsx` | Edition-wide administrator and assignment-scoped Lead audit trail with stable pagination |
 | `routes/_app/kalakriti/new.tsx` | Create an Edition and protected linked event (`kalakriti.admin` guard) |
 | `routes/kalakriti/$year/schedule.tsx` | Public Competition schedule for open, locked, live, and archived Editions with signup, volunteer-interest, and Edition dashboard calls to action |

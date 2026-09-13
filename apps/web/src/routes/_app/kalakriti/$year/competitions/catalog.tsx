@@ -206,6 +206,7 @@ function CompetitionCatalogPage() {
       />
 
       <CompetitionDetailSheet
+        editionId={edition.id}
         canManageCancellations={canManageCancellations}
         canManageStructure={canManage}
         competition={selectedCompetition}

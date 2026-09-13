@@ -224,6 +224,46 @@ describe("Food table", () => {
       lunch: 1,
     });
   });
+  it.each(["guest", "judge"] as const)(
+    "shows checked-in %s and retains archived meal totals",
+    (kind) => {
+      const attendee: FoodTableRow = {
+        ...guardian,
+        id: kind,
+        name: kind,
+        kind,
+        centers: [],
+        humanId: `KAL-${kind}`,
+        operations: [mark("attendee_check_in"), mark("breakfast")],
+      };
+      const archived: FoodTableRow = {
+        ...attendee,
+        id: "archived",
+        state: "archived",
+        operations: [mark("attendee_check_in"), mark("lunch")],
+      };
+      const unchecked: FoodTableRow = {
+        ...attendee,
+        id: "unchecked",
+        operations: [],
+      };
+      const table = food([attendee, archived, unchecked]);
+      expect(table.data.map((row) => row.id)).toEqual([kind]);
+      expect(status(table, table.data[0]!, "role")).toBe(
+        kind === "guest" ? "Guest" : "Judge"
+      );
+      expect(table.filter.getValue(table.data[0]!, ["role"])).toBe(kind);
+      expect(table.filter.getValue(table.data[0]!, ["humanId"])).toBe(
+        `KAL-${kind}`
+      );
+      expect(countFoodPeople([attendee, archived, unchecked])).toEqual({
+        registered: 2,
+        eligible: 1,
+        breakfast: 1,
+        lunch: 1,
+      });
+    }
+  );
   it("waits for the first complete snapshot instead of showing partial eligibility", () => {
     const table = food([guardian], false);
     expect(table.data).toEqual([]);

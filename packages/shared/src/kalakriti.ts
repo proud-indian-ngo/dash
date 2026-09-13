@@ -83,6 +83,7 @@ export const KALAKRITI_OPERATION_TYPES = [
   "venue_departure",
   "drop_off",
   "volunteer_check_in",
+  "attendee_check_in",
   "breakfast",
   "lunch",
   "competition_attendance",

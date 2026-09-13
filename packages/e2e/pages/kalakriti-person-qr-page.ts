@@ -9,7 +9,7 @@ export class KalakritiPersonQrPage {
 
   async open(
     year: number,
-    subject: "students" | "volunteers" | "guardians",
+    subject: "students" | "volunteers" | "guardians" | "guests" | "judges",
     name: string
   ) {
     await this.page.goto(`/kalakriti/${year}/${subject}`);
@@ -21,6 +21,14 @@ export class KalakritiPersonQrPage {
         .filter({ hasText: name })
         .getByRole("cell")
         .filter({ hasText: /^(male|female)$/i })
+        .click();
+    } else if (subject === "guests" || subject === "judges") {
+      // A yearly-ID cell must open the sheet too, not just the person's name.
+      await this.page
+        .getByRole("row")
+        .filter({ hasText: name })
+        .getByRole("cell")
+        .filter({ hasText: /^KAL(?:GT|J)-/ })
         .click();
     } else {
       const list = new ListPage(this.page);

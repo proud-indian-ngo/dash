@@ -119,6 +119,17 @@ describe("Food view and recording authority remain separate", () => {
       "/kalakriti/2026/food"
     );
   });
+  it.each(["guest", "judge"] as const)(
+    "accepts %s check-in and meals but rejects competition attendance",
+    (kind) => {
+      expect(canScanKalakritiPerson("volunteer_check_in", kind)).toBe(true);
+      expect(canScanKalakritiPerson("breakfast", kind)).toBe(true);
+      expect(canScanKalakritiPerson("lunch", kind)).toBe(true);
+      expect(canScanKalakritiPerson("competition_attendance", kind)).toBe(
+        false
+      );
+    }
+  );
   it("allows Guardian meal subjects without giving Guardians a meal recording activity", () => {
     expect(canScanKalakritiPerson("breakfast", "guardian")).toBe(true);
     expect(canScanKalakritiPerson("lunch", "guardian")).toBe(true);

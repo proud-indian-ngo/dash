@@ -106,8 +106,9 @@ export function OperationScanPanel({
       {activity === "meals" ? (
         <div className="space-y-2">
           <p className="text-muted-foreground text-sm">
-            Students require pickup and Volunteers require check-in. Guardians
-            only require active registration in this Edition.
+            Students require pickup. Volunteers, Guests and Judges require
+            check-in. Guardians only require active registration in this
+            Edition.
           </p>
           <Label htmlFor="scan-meal">Meal</Label>
           <Select
@@ -301,10 +302,10 @@ function OperationCapture({
     if (!canScanKalakritiPerson(type, person.type)) {
       toast.error(
         type === "volunteer_check_in"
-          ? "Scan a Volunteer QR code"
+          ? "Scan a Volunteer, Guest or Judge QR code"
           : type === "competition_attendance"
             ? "Scan a Student QR code"
-            : "Scan a Student, Volunteer or Guardian QR code",
+            : "Scan a Student, Volunteer, Guardian, Guest or Judge QR code",
         { id: "station-invalid-qr" }
       );
       return;
@@ -347,8 +348,10 @@ function OperationCapture({
               name="humanId"
               placeholder={
                 type === "breakfast" || type === "lunch"
-                  ? "Student/Volunteer/Guardian yearly ID or Guardian UUID"
-                  : `KAL-${year}-0001`
+                  ? "Person yearly ID or Guardian UUID"
+                  : type === "volunteer_check_in"
+                    ? "Volunteer, Guest or Judge yearly ID"
+                    : `KAL-${year}-0001`
               }
             />
             <FormActions

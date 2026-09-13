@@ -31,7 +31,9 @@ function fixture(type = "breakfast", kind = "student") {
     editionId: edition.id,
     type,
     studentId: kind === "student" ? subjectId : null,
-    membershipId: kind === "student" ? null : subjectId,
+    membershipId:
+      kind === "volunteer" || kind === "guardian" ? subjectId : null,
+    attendeeId: kind === "guest" || kind === "judge" ? subjectId : null,
     supersededByOperationId: null as string | null,
     competitionSessionId: null,
     correctionReason: null,
@@ -41,7 +43,13 @@ function fixture(type = "breakfast", kind = "student") {
   };
   const rows: Record<string, Row[]> = {
     kalakritiOperation: [
-      { ...original, id: uuidv7(), operationId: uuidv7(), type: "pickup" },
+      {
+        ...original,
+        id: uuidv7(),
+        operationId: uuidv7(),
+        type:
+          kind === "guest" || kind === "judge" ? "attendee_check_in" : "pickup",
+      },
       original,
     ],
     kalakritiEditionMembership: [
@@ -52,7 +60,7 @@ function fixture(type = "breakfast", kind = "student") {
         kind: "volunteer",
         state: "active",
       },
-      ...(kind === "student"
+      ...(kind !== "volunteer" && kind !== "guardian"
         ? []
         : [
             {
@@ -64,6 +72,18 @@ function fixture(type = "breakfast", kind = "student") {
             },
           ]),
     ],
+    kalakritiAttendee:
+      kind === "guest" || kind === "judge"
+        ? [
+            {
+              id: subjectId,
+              editionId: edition.id,
+              kind,
+              humanId: "KALX-2027-0001",
+              archivedAt: null,
+            },
+          ]
+        : [],
     kalakritiAssignment: [],
     kalakritiStudent: [
       {
@@ -196,7 +216,7 @@ function fixture(type = "breakfast", kind = "student") {
 }
 
 describe("immutable meal correction", () => {
-  for (const kind of ["student", "volunteer", "guardian"]) {
+  for (const kind of ["student", "volunteer", "guardian", "guest", "judge"]) {
     it.each(["breakfast", "lunch"])(
       `corrects ${kind} %s while preserving the serving record`,
       async (type) => {
@@ -215,6 +235,7 @@ describe("immutable meal correction", () => {
           correctionReason: "meal_unserved",
           studentId: before.studentId,
           membershipId: before.membershipId,
+          attendeeId: before.attendeeId,
           supersededByOperationId: null,
         });
         expect(
@@ -310,6 +331,7 @@ describe("immutable meal correction", () => {
   it.each([
     "pickup",
     "volunteer_check_in",
+    "attendee_check_in",
     "competition_attendance",
     "meal_correction",
   ])("cannot correct %s", async (type) => {
@@ -319,31 +341,37 @@ describe("immutable meal correction", () => {
     );
     expect(state.mutations).toEqual([]);
   });
-  it("allows a fresh serving after correction but leaves original serving-ID retries as no-ops", async () => {
-    const state = fixture();
-    const undo = state.undoArgs();
-    await state.execute("undoMeal", undo);
-    const replay = {
-      ...state.serveArgs(),
-      operationId: state.original.operationId,
-    };
-    await state.execute("record", replay, { ...state.admin, userId: "server" });
-    expect(state.status().breakfastServed).toBe(false);
-    const replacement = state.serveArgs();
-    await state.execute("record", replacement);
-    expect(state.status().breakfastServed).toBe(true);
-    const count = state.mutations.length;
-    await state.execute("undoMeal", undo);
-    expect(state.mutations).toHaveLength(count);
-    expect(
-      state.rows.kalakritiOperation!.find((row) => row.id === replacement.id)!
-        .supersededByOperationId
-    ).toBeNull();
-    await expect(state.execute("undoMeal", state.undoArgs())).rejects.toThrow(
-      "Meal mark is no longer effective"
-    );
-    expect(state.status().breakfastServed).toBe(true);
-  });
+  it.each(["student", "guest", "judge"])(
+    "allows fresh %s serving after correction but leaves original serving-ID retries as no-ops",
+    async (kind) => {
+      const state = fixture("breakfast", kind);
+      const undo = state.undoArgs();
+      await state.execute("undoMeal", undo);
+      const replay = {
+        ...state.serveArgs(),
+        operationId: state.original.operationId,
+      };
+      await state.execute("record", replay, {
+        ...state.admin,
+        userId: "server",
+      });
+      expect(state.status().breakfastServed).toBe(false);
+      const replacement = state.serveArgs();
+      await state.execute("record", replacement);
+      expect(state.status().breakfastServed).toBe(true);
+      const count = state.mutations.length;
+      await state.execute("undoMeal", undo);
+      expect(state.mutations).toHaveLength(count);
+      expect(
+        state.rows.kalakritiOperation!.find((row) => row.id === replacement.id)!
+          .supersededByOperationId
+      ).toBeNull();
+      await expect(state.execute("undoMeal", state.undoArgs())).rejects.toThrow(
+        "Meal mark is no longer effective"
+      );
+      expect(state.status().breakfastServed).toBe(true);
+    }
+  );
   it("replays the original authorized undo after role removal and archival without new changes", async () => {
     const state = fixture();
     state.roles("food_lead");
@@ -373,45 +401,51 @@ describe("immutable meal correction", () => {
       expect(state.rows.kalakritiAuditEntry).toHaveLength(1);
     }
   );
-  it("serializes concurrent undos and serving against the shared Edition lock", async () => {
-    const state = fixture();
-    const first = state.undoArgs();
-    const second = state.undoArgs();
-    const serve = state.serveArgs();
-    const results = await Promise.allSettled([
-      state.execute("undoMeal", first),
-      state.execute("undoMeal", second),
-      state.execute("record", serve),
-    ]);
-    expect(results.map((result) => result.status)).toEqual([
-      "fulfilled",
-      "rejected",
-      "fulfilled",
-    ]);
-    expect(state.locks()).toBe(3);
-    expect(state.status().breakfastServed).toBe(true);
-    expect(
-      state.rows.kalakritiOperation!.filter(
-        (row) => row.type === "meal_correction"
-      )
-    ).toHaveLength(1);
-    await state.execute("undoMeal", first);
-    expect(state.status().breakfastServed).toBe(true);
-  });
-  it("deduplicates concurrent retries of the same undo ID", async () => {
-    const state = fixture();
-    const args = state.undoArgs();
-    await Promise.all([
-      state.execute("undoMeal", args),
-      state.execute("undoMeal", args),
-    ]);
-    expect(state.rows.kalakritiAuditEntry).toHaveLength(1);
-    expect(
-      state.rows.kalakritiOperation!.filter(
-        (row) => row.type === "meal_correction"
-      )
-    ).toHaveLength(1);
-  });
+  it.each(["student", "guest", "judge"])(
+    "serializes concurrent %s undos and serving against the shared Edition lock",
+    async (kind) => {
+      const state = fixture("breakfast", kind);
+      const first = state.undoArgs();
+      const second = state.undoArgs();
+      const serve = state.serveArgs();
+      const results = await Promise.allSettled([
+        state.execute("undoMeal", first),
+        state.execute("undoMeal", second),
+        state.execute("record", serve),
+      ]);
+      expect(results.map((result) => result.status)).toEqual([
+        "fulfilled",
+        "rejected",
+        "fulfilled",
+      ]);
+      expect(state.locks()).toBe(3);
+      expect(state.status().breakfastServed).toBe(true);
+      expect(
+        state.rows.kalakritiOperation!.filter(
+          (row) => row.type === "meal_correction"
+        )
+      ).toHaveLength(1);
+      await state.execute("undoMeal", first);
+      expect(state.status().breakfastServed).toBe(true);
+    }
+  );
+  it.each(["student", "guest", "judge"])(
+    "deduplicates concurrent %s retries of the same undo ID",
+    async (kind) => {
+      const state = fixture("breakfast", kind);
+      const args = state.undoArgs();
+      await Promise.all([
+        state.execute("undoMeal", args),
+        state.execute("undoMeal", args),
+      ]);
+      expect(state.rows.kalakritiAuditEntry).toHaveLength(1);
+      expect(
+        state.rows.kalakritiOperation!.filter(
+          (row) => row.type === "meal_correction"
+        )
+      ).toHaveLength(1);
+    }
+  );
   it("rejects correction fabrication through generic record schemas and runtime", async () => {
     const state = fixture();
     const args = {
