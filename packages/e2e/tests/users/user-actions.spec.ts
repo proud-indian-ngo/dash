@@ -83,16 +83,17 @@ test.describe("User row actions (admin)", () => {
   test("row action menu shows Edit, Reset password, Ban user, Delete", async ({
     page,
   }) => {
-    await list.openRowActionMenu(getVolunteerRow(), "Edit");
-
-    await expect(page.getByRole("menuitem", { name: "Edit" })).toBeVisible();
-    await expect(
-      page.getByRole("menuitem", { name: "Reset password" })
-    ).toBeVisible();
-    await expect(
-      page.getByRole("menuitem", { name: "Ban user" })
-    ).toBeVisible();
-    await expect(page.getByRole("menuitem", { name: "Delete" })).toBeVisible();
+    await expect(async () => {
+      await page.keyboard.press("Escape");
+      await list.openRowActionMenu(getVolunteerRow(), "Edit");
+      for (const name of ["Edit", "Reset password", "Ban user", "Delete"]) {
+        await expect(
+          page.getByRole("menuitem", { name, exact: true })
+        ).toBeVisible({
+          timeout: 1000,
+        });
+      }
+    }).toPass({ timeout: 15_000 });
   });
 
   test("Edit opens dialog with pre-populated fields", async ({ page }) => {

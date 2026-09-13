@@ -63,24 +63,9 @@ export const test = base.extend<{
   consoleErrors: Error[];
 }>({
   adminEmail: process.env.ADMIN_EMAIL ?? "test-admin@pi-dash.test",
-  consoleErrors: [
-    async ({ page }, use, testInfo) => {
-      const errors: Error[] = [];
-      page.on("pageerror", (error) => errors.push(error));
-      await use(errors);
-      if (errors.length > 0) {
-        for (const error of errors) {
-          testInfo.annotations.push({
-            description: error.message,
-            type: "browser-error",
-          });
-        }
-        // Uncomment the line below to promote to hard failure:
-        // expect(errors, "Uncaught browser errors detected").toHaveLength(0);
-      }
-    },
-    { auto: true },
-  ],
+  consoleErrors: async ({ baseURL: _baseURL }, use) => {
+    await use([]);
+  },
   financeAdminEmail:
     process.env.FINANCE_ADMIN_EMAIL ?? "test-finance-admin@pi-dash.test",
   kalakritiActors: Object.fromEntries(
@@ -104,6 +89,18 @@ export const test = base.extend<{
     KalakritiActorName,
     { email: string; password: string; storageState?: string }
   >,
+  page: async ({ page, consoleErrors }, use, testInfo) => {
+    page.on("pageerror", (error) => consoleErrors.push(error));
+    await use(page);
+    for (const error of consoleErrors) {
+      testInfo.annotations.push({
+        description: error.message,
+        type: "browser-error",
+      });
+    }
+    // Uncomment the line below to promote to hard failure:
+    // expect(consoleErrors, "Uncaught browser errors detected").toHaveLength(0);
+  },
   superAdminEmail:
     process.env.SUPER_ADMIN_EMAIL ?? "test-super-admin@pi-dash.test",
   unorientedVolunteerEmail:

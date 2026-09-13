@@ -1064,7 +1064,7 @@ async function backfillGuardianIds(editionId: string, apply: boolean) {
   expect(
     `${target.host}${target.pathname}`,
     "Guardian backfill must target only the isolated test database"
-  ).toBe("localhost:5433/pi-dash-test");
+  ).toBe(`localhost:${process.env.E2E_DB_PORT ?? "5433"}/pi-dash-test`);
   await execFileAsync(
     "bun",
     [

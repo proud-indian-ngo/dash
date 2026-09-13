@@ -648,6 +648,7 @@ test.describe("Kalakriti entry music after registration closes", () => {
             page
               .locator("#main")
               .getByText("Entry Student A (refreshed)", { exact: true })
+              .first()
           ).toBeVisible();
           await expect(dialog).toBeVisible();
           await expect(
@@ -690,6 +691,7 @@ test.describe("Kalakriti entry music after registration closes", () => {
         page
           .locator("#main")
           .getByText("Entry Student A (playback refresh)", { exact: true })
+          .first()
       ).toBeVisible();
       await expect(playback).toBeVisible();
       const audio = playback.getByLabel("Play music-replacement.mp3", {

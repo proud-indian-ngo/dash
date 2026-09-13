@@ -27,13 +27,13 @@ function buildMutateBody(mutationName: string, args: Record<string, unknown>) {
 }
 
 async function assertUnauthorized(
-  page: import("@playwright/test").Page,
+  request: import("@playwright/test").APIRequestContext,
   baseURL: string | undefined,
   mutationName: string,
   args: Record<string, unknown>
 ) {
   const body = buildMutateBody(mutationName, args);
-  const response = await page.request.post(
+  const response = await request.post(
     `${baseURL}/api/zero/mutate?schema=zero_0&appID=zero`,
     { data: body }
   );
@@ -50,21 +50,21 @@ async function assertUnauthorized(
 const FAKE_ID = "00000000-0000-0000-0000-000000000000";
 
 test.describe("API authorization — admin-only mutations rejected for volunteer", () => {
-  test.beforeEach(({ page: _page }, testInfo) => {
+  test.beforeEach(({ baseURL: _baseURL }, testInfo) => {
     test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
   });
 
   test("reimbursement.approve rejected for volunteer", async ({
-    page,
+    request,
     baseURL,
   }) => {
-    await assertUnauthorized(page, baseURL, "reimbursement.approve", {
+    await assertUnauthorized(request, baseURL, "reimbursement.approve", {
       id: FAKE_ID,
     });
   });
 
-  test("team.create rejected for volunteer", async ({ page, baseURL }) => {
-    await assertUnauthorized(page, baseURL, "team.create", {
+  test("team.create rejected for volunteer", async ({ request, baseURL }) => {
+    await assertUnauthorized(request, baseURL, "team.create", {
       description: "",
       id: FAKE_ID,
       name: "E2E Unauthorized Team",
@@ -72,28 +72,31 @@ test.describe("API authorization — admin-only mutations rejected for volunteer
   });
 
   test("expenseCategory.create rejected for volunteer", async ({
-    page,
+    request,
     baseURL,
   }) => {
-    await assertUnauthorized(page, baseURL, "expenseCategory.create", {
+    await assertUnauthorized(request, baseURL, "expenseCategory.create", {
       id: FAKE_ID,
       name: "E2E Unauthorized Category",
     });
   });
 
   test("whatsappGroup.create rejected for volunteer", async ({
-    page,
+    request,
     baseURL,
   }) => {
-    await assertUnauthorized(page, baseURL, "whatsappGroup.create", {
+    await assertUnauthorized(request, baseURL, "whatsappGroup.create", {
       id: FAKE_ID,
       jid: "fake-jid",
       name: "E2E Unauthorized Group",
     });
   });
 
-  test("appConfig.upsert rejected for volunteer", async ({ page, baseURL }) => {
-    await assertUnauthorized(page, baseURL, "appConfig.upsert", {
+  test("appConfig.upsert rejected for volunteer", async ({
+    request,
+    baseURL,
+  }) => {
+    await assertUnauthorized(request, baseURL, "appConfig.upsert", {
       key: "e2e-test-key",
       value: "e2e-test-value",
     });
@@ -101,24 +104,24 @@ test.describe("API authorization — admin-only mutations rejected for volunteer
 });
 
 test.describe("API authorization — admin role lacks finance + app config", () => {
-  test.beforeEach(({ page: _page }, testInfo) => {
+  test.beforeEach(({ baseURL: _baseURL }, testInfo) => {
     test.skip(testInfo.project.name !== "admin", "Admin-only test");
   });
 
   test("reimbursement.approve rejected for admin (lacks requests.approve)", async ({
-    page,
+    request,
     baseURL,
   }) => {
-    await assertUnauthorized(page, baseURL, "reimbursement.approve", {
+    await assertUnauthorized(request, baseURL, "reimbursement.approve", {
       id: FAKE_ID,
     });
   });
 
   test("appConfig.upsert rejected for admin (lacks settings.app_config)", async ({
-    page,
+    request,
     baseURL,
   }) => {
-    await assertUnauthorized(page, baseURL, "appConfig.upsert", {
+    await assertUnauthorized(request, baseURL, "appConfig.upsert", {
       key: "e2e-test-key",
       value: "e2e-test-value",
     });
@@ -126,25 +129,25 @@ test.describe("API authorization — admin role lacks finance + app config", () 
 });
 
 test.describe("API authorization — finance_admin role lacks app config + whatsapp", () => {
-  test.beforeEach(({ page: _page }, testInfo) => {
+  test.beforeEach(({ baseURL: _baseURL }, testInfo) => {
     test.skip(testInfo.project.name !== "finance_admin", "Finance-admin only");
   });
 
   test("appConfig.upsert rejected for finance_admin", async ({
-    page,
+    request,
     baseURL,
   }) => {
-    await assertUnauthorized(page, baseURL, "appConfig.upsert", {
+    await assertUnauthorized(request, baseURL, "appConfig.upsert", {
       key: "e2e-test-key",
       value: "e2e-test-value",
     });
   });
 
   test("whatsappGroup.create rejected for finance_admin", async ({
-    page,
+    request,
     baseURL,
   }) => {
-    await assertUnauthorized(page, baseURL, "whatsappGroup.create", {
+    await assertUnauthorized(request, baseURL, "whatsappGroup.create", {
       id: FAKE_ID,
       jid: "fake-jid",
       name: "E2E Unauthorized Group",
@@ -153,7 +156,7 @@ test.describe("API authorization — finance_admin role lacks app config + whats
 });
 
 test.describe("API authorization — unoriented_volunteer rejected from all writes", () => {
-  test.beforeEach(({ page: _page }, testInfo) => {
+  test.beforeEach(({ baseURL: _baseURL }, testInfo) => {
     test.skip(
       testInfo.project.name !== "unoriented_volunteer",
       "Unoriented-volunteer only"
@@ -161,19 +164,19 @@ test.describe("API authorization — unoriented_volunteer rejected from all writ
   });
 
   test("reimbursement.approve rejected for unoriented_volunteer", async ({
-    page,
+    request,
     baseURL,
   }) => {
-    await assertUnauthorized(page, baseURL, "reimbursement.approve", {
+    await assertUnauthorized(request, baseURL, "reimbursement.approve", {
       id: FAKE_ID,
     });
   });
 
   test("team.create rejected for unoriented_volunteer", async ({
-    page,
+    request,
     baseURL,
   }) => {
-    await assertUnauthorized(page, baseURL, "team.create", {
+    await assertUnauthorized(request, baseURL, "team.create", {
       description: "",
       id: FAKE_ID,
       name: "E2E Unauthorized Team",
@@ -181,10 +184,10 @@ test.describe("API authorization — unoriented_volunteer rejected from all writ
   });
 
   test("appConfig.upsert rejected for unoriented_volunteer", async ({
-    page,
+    request,
     baseURL,
   }) => {
-    await assertUnauthorized(page, baseURL, "appConfig.upsert", {
+    await assertUnauthorized(request, baseURL, "appConfig.upsert", {
       key: "e2e-test-key",
       value: "e2e-test-value",
     });

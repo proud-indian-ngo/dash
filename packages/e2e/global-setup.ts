@@ -1,7 +1,7 @@
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
-import { test as setup } from "@playwright/test";
+import { type APIRequestContext, test as setup } from "@playwright/test";
 import dotenv from "dotenv";
 
 import { KALAKRITI_ACTORS } from "./fixtures/kalakriti-actors";
@@ -44,19 +44,20 @@ const unorientedVolunteerAuthFile = path.resolve(
 );
 
 async function authenticate(
-  page: import("@playwright/test").Page,
+  request: APIRequestContext,
   email: string,
   password: string,
+  clientIp: string,
   attempt = 0
 ) {
-  const response = await page.request.post("/api/auth/sign-in/email", {
+  const response = await request.post("/api/auth/sign-in/email", {
     data: { email, password },
+    // Setup actors represent separate clients. Keep their sign-ins out of the
+    // browser login tests' shared localhost rate-limit bucket.
+    headers: { "x-forwarded-for": clientIp },
   });
   console.log(`[auth] ${response.status()} POST ${response.url()}`);
   if (response.ok()) {
-    await page.goto("/");
-  }
-  if (response.ok() && new URL(page.url()).pathname !== "/login") {
     return;
   }
   if (response.status() === 429 && attempt < 2) {
@@ -72,7 +73,7 @@ async function authenticate(
       `[auth] rate limited; server retry delay ${seconds}s; retry ${attempt + 1}/2`
     );
     await delay(Math.ceil(seconds * 1000));
-    await authenticate(page, email, password, attempt + 1);
+    await authenticate(request, email, password, clientIp, attempt + 1);
     return;
   }
   throw new Error(
@@ -80,42 +81,60 @@ async function authenticate(
   );
 }
 
-setup("authenticate as super_admin", async ({ page }) => {
-  await authenticate(page, SUPER_ADMIN_EMAIL, SUPER_ADMIN_PASSWORD);
-  await page.context().storageState({ path: superAdminAuthFile });
-});
-
-setup("authenticate as admin", async ({ page }) => {
-  await authenticate(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-  await page.context().storageState({ path: adminAuthFile });
-});
-
-setup("authenticate as finance_admin", async ({ page }) => {
-  await authenticate(page, FINANCE_ADMIN_EMAIL, FINANCE_ADMIN_PASSWORD);
-  await page.context().storageState({ path: financeAdminAuthFile });
-});
-
-setup("authenticate as volunteer", async ({ page }) => {
-  await authenticate(page, VOLUNTEER_EMAIL, VOLUNTEER_PASSWORD);
-  await page.context().storageState({ path: volunteerAuthFile });
-});
-
-setup("authenticate as unoriented_volunteer", async ({ page }) => {
+setup("authenticate as super_admin", async ({ request }) => {
   await authenticate(
-    page,
-    UNORIENTED_VOLUNTEER_EMAIL,
-    UNORIENTED_VOLUNTEER_PASSWORD
+    request,
+    SUPER_ADMIN_EMAIL,
+    SUPER_ADMIN_PASSWORD,
+    "192.0.2.1"
   );
-  await page.context().storageState({ path: unorientedVolunteerAuthFile });
+  await request.storageState({ path: superAdminAuthFile });
 });
 
-for (const [name, actor] of Object.entries(KALAKRITI_ACTORS)) {
+setup("authenticate as admin", async ({ request }) => {
+  await authenticate(request, ADMIN_EMAIL, ADMIN_PASSWORD, "192.0.2.2");
+  await request.storageState({ path: adminAuthFile });
+});
+
+setup("authenticate as finance_admin", async ({ request }) => {
+  await authenticate(
+    request,
+    FINANCE_ADMIN_EMAIL,
+    FINANCE_ADMIN_PASSWORD,
+    "192.0.2.3"
+  );
+  await request.storageState({ path: financeAdminAuthFile });
+});
+
+setup("authenticate as volunteer", async ({ request }) => {
+  await authenticate(request, VOLUNTEER_EMAIL, VOLUNTEER_PASSWORD, "192.0.2.4");
+  await request.storageState({ path: volunteerAuthFile });
+});
+
+setup("authenticate as unoriented_volunteer", async ({ request }) => {
+  await authenticate(
+    request,
+    UNORIENTED_VOLUNTEER_EMAIL,
+    UNORIENTED_VOLUNTEER_PASSWORD,
+    "192.0.2.5"
+  );
+  await request.storageState({ path: unorientedVolunteerAuthFile });
+});
+
+for (const [index, [name, actor]] of Object.entries(
+  KALAKRITI_ACTORS
+).entries()) {
   if (!("authFile" in actor)) {
     continue;
   }
-  setup(`authenticate as Kalakriti ${name}`, async ({ page }) => {
-    await authenticate(page, actor.email, actor.password);
-    await page.context().storageState({
+  setup(`authenticate as Kalakriti ${name}`, async ({ request }) => {
+    await authenticate(
+      request,
+      actor.email,
+      actor.password,
+      `192.0.2.${index + 6}`
+    );
+    await request.storageState({
       path: path.resolve(import.meta.dirname, actor.authFile),
     });
   });
