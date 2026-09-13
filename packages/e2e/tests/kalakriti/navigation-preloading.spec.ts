@@ -3,6 +3,7 @@ import type { Request } from "@playwright/test";
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 
 const YEAR = 2186;
+const EDITION_ID = "019f0000-0019-7000-8000-000000001901";
 
 function isEditionAccessRequest(request: Request) {
   if (request.method() !== "GET") return false;
@@ -13,6 +14,15 @@ function isEditionAccessRequest(request: Request) {
     payload !== null &&
     new RegExp(`\\b${YEAR}\\b`).test(payload) &&
     payload.includes("year")
+  );
+}
+
+function isEditionPickerRequest(request: Request) {
+  if (request.method() !== "GET") return false;
+  const url = new URL(request.url());
+  return (
+    url.pathname.startsWith("/_serverFn/") &&
+    url.searchParams.get("payload")?.includes(EDITION_ID) === true
   );
 }
 
@@ -145,6 +155,53 @@ test("Dashboard-only preloads release their active Zero subscriptions", async ({
       { timeout: 15_000 }
     )
     .toBe(true);
+});
+
+test("volunteer pickers load only when their dialogs open", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "super_admin",
+    "Volunteer roster needs an admin"
+  );
+  const pickerRequests: Request[] = [];
+  page.on("request", (request) => {
+    if (isEditionPickerRequest(request)) pickerRequests.push(request);
+  });
+
+  await page.goto(`/kalakriti/${YEAR}/volunteers`);
+  await waitForZeroReady(page);
+  await expect(
+    page.getByRole("heading", { name: "Volunteers", exact: true })
+  ).toBeVisible();
+  await page.waitForTimeout(750);
+  expect(pickerRequests).toHaveLength(0);
+
+  await page.getByRole("button", { name: "Add volunteers" }).click();
+  const addDialog = page.getByRole("dialog", { name: "Add volunteers" });
+  await expect(
+    addDialog.getByPlaceholder("Search central volunteers...")
+  ).toBeVisible();
+  expect(pickerRequests).toHaveLength(1);
+  const addPickerPath = new URL(pickerRequests[0].url()).pathname;
+
+  await addDialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(addDialog).toBeHidden();
+  await page.getByRole("button", { name: "Add volunteers" }).click();
+  await expect(
+    addDialog.getByPlaceholder("Search central volunteers...")
+  ).toBeVisible();
+  expect(pickerRequests).toHaveLength(1);
+  await addDialog.getByRole("button", { name: "Cancel" }).click();
+
+  await page.getByTestId("row-actions").first().click();
+  await page.getByRole("menuitem", { name: "Assign role" }).click();
+  const roleDialog = page.getByRole("dialog", { name: "Assign role" });
+  await expect(
+    roleDialog.getByPlaceholder("Search volunteers...")
+  ).toBeVisible();
+  expect(pickerRequests).toHaveLength(2);
+  expect(new URL(pickerRequests[1].url()).pathname).not.toBe(addPickerPath);
 });
 
 test("restricted access still allows assigned pages and denies another user", async ({

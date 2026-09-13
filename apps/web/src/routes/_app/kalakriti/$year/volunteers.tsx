@@ -8,6 +8,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, notFound } from "@tanstack/react-router";
+import { log } from "evlog";
 import { useEffect, useMemo, useState } from "react";
 import { uuidv7 } from "uuidv7";
 
@@ -111,6 +112,8 @@ function KalakritiVolunteersPage() {
     useState<PickerData | null>(null);
   const assignmentPickerIsCurrent =
     assignmentPickerData?.editionId === edition.id;
+  const assignmentPickerReady =
+    assignmentPickerIsCurrent && assignmentPickerData?.state === "ready";
   const assignmentUsers = assignmentPickerIsCurrent
     ? assignmentPickerData.users
     : [];
@@ -120,11 +123,14 @@ function KalakritiVolunteersPage() {
   const [pickerData, setPickerData] = useState<PickerData | null>(null);
   const pickerIsCurrent =
     pickerData !== null && pickerData.editionId === edition.id;
+  const pickerReady = pickerIsCurrent && pickerData?.state === "ready";
   const pickerState = pickerIsCurrent ? pickerData.state : "loading";
   const pickerUsers = pickerIsCurrent ? pickerData.users : [];
 
   useEffect(() => {
+    if (!assignOpen || assignmentPickerReady) return;
     let active = true;
+    setAssignmentPickerData(null);
     getKalakritiVolunteersForPicker({ data: { editionId: edition.id } })
       .then((users) => {
         if (active) {
@@ -135,29 +141,51 @@ function KalakritiVolunteersPage() {
           });
         }
       })
-      .catch(() => {
-        if (active)
+      .catch((error) => {
+        if (active) {
+          log.error({
+            component: "KalakritiVolunteersPage",
+            action: "loadAssignmentPicker",
+            editionId: edition.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
           setAssignmentPickerData({
             editionId: edition.id,
             state: "error",
             users: [],
           });
+        }
       });
+    return () => {
+      active = false;
+    };
+  }, [assignOpen, assignmentPickerReady, edition.id]);
+
+  useEffect(() => {
+    if (!addOpen || pickerReady) return;
+    let active = true;
+    setPickerData(null);
     getKalakritiAddVolunteersForPicker({ data: { editionId: edition.id } })
       .then((users) => {
         if (active) {
           setPickerData({ editionId: edition.id, state: "ready", users });
         }
       })
-      .catch(() => {
+      .catch((error) => {
         if (active) {
+          log.error({
+            component: "KalakritiVolunteersPage",
+            action: "loadAddVolunteerPicker",
+            editionId: edition.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
           setPickerData({ editionId: edition.id, state: "error", users: [] });
         }
       });
     return () => {
       active = false;
     };
-  }, [edition.id]);
+  }, [addOpen, edition.id, pickerReady]);
 
   const removeAction = useConfirmAction<RemoveAssignmentPayload>({
     mutationMeta: {
