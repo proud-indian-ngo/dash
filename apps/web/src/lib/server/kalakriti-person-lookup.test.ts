@@ -12,7 +12,7 @@ const dbMocks = hoisted(() => {
   let committed = false;
   let transactionActive = false;
 
-  const makeQuery = () => {
+  const makeQuery = (_fields?: Record<string, unknown>) => {
     const query = {
       for: mock(() => Promise.resolve(results.shift() ?? [])),
       from: mock(),
@@ -264,6 +264,43 @@ describe("identifier lookup", () => {
       );
     });
   }
+
+  it.each(["guest", "judge"] as const)(
+    "looks up %s with an active Edition-bound, contact-free projection",
+    async (kind) => {
+      dbMocks.results.push(
+        [],
+        [],
+        [{ humanId: "attendee-yearly-id", kind, name: "Attendee" }]
+      );
+      expect(
+        await lookupKalakritiPerson({
+          editionId: "edition-1",
+          humanId: "attendee-yearly-id",
+        })
+      ).toEqual({
+        humanId: "attendee-yearly-id",
+        kind,
+        name: "Attendee",
+        scopeLabel: kind === "guest" ? "Guest" : "Judge",
+      });
+      expect(selectedWhereParams(2)).toEqual([
+        "edition-1",
+        "attendee-yearly-id",
+        "attendee-yearly-id",
+      ]);
+      expect(selectedWhereQuery(2).sql).toContain(
+        '"kalakriti_attendee"."archived_at" is null'
+      );
+      expect(Object.keys(dbMocks.select.mock.calls[2]?.[0] ?? {})).toEqual([
+        "humanId",
+        "kind",
+        "name",
+      ]);
+      expect(dbMocks.insertCalls).toEqual([]);
+      expect(dbMocks.updateCalls).toEqual([]);
+    }
+  );
 
   it("does not resolve missing, inactive or out-of-edition subjects", async () => {
     dbMocks.results.push([], []);

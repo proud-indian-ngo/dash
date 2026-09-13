@@ -1,6 +1,6 @@
 export interface KalakritiPersonQr {
   id: string;
-  type: "student" | "guardian" | "volunteer";
+  type: "student" | "guardian" | "volunteer" | "guest" | "judge";
 }
 
 const UUID_PATTERN =
@@ -27,7 +27,9 @@ export function parseKalakritiPersonQr(value: string): KalakritiPersonQr {
     !("type" in parsed) ||
     (parsed.type !== "student" &&
       parsed.type !== "guardian" &&
-      parsed.type !== "volunteer")
+      parsed.type !== "volunteer" &&
+      parsed.type !== "guest" &&
+      parsed.type !== "judge")
   ) {
     throw new Error("Invalid person QR");
   }

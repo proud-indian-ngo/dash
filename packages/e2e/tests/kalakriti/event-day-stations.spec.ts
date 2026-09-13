@@ -210,11 +210,7 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
     await attendance.page.keyboard.press("Escape");
     const combined = await openScanner(combinedContext, data.year);
     await expect(combined.dialog.getByRole("tab")).toHaveCount(3);
-    for (const name of [
-      "Volunteer check-in",
-      "Meals",
-      "Competition attendance",
-    ])
+    for (const name of ["Check-in", "Meals", "Competition attendance"])
       await expect(
         combined.dialog.getByRole("tab", { name, exact: true })
       ).toBeVisible();
@@ -224,7 +220,7 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
 
     await expect(
       combined.dialog.getByRole("tab", {
-        name: "Volunteer check-in",
+        name: "Check-in",
         exact: true,
       })
     ).toHaveAttribute("aria-selected", "true");
@@ -306,7 +302,7 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
       await expect.poll(() => pendingOperations.length).toBeGreaterThan(0);
       for (const name of [
         "Transport",
-        "Volunteer check-in",
+        "Check-in",
         "Meals",
         "Competition attendance",
       ])
@@ -319,7 +315,7 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
       admin.dialog.getByRole("tab", { name: "Transport", exact: true })
     ).toHaveAttribute("aria-selected", "true");
     await admin.dialog
-      .getByRole("tab", { name: "Volunteer check-in", exact: true })
+      .getByRole("tab", { name: "Check-in", exact: true })
       .click();
     await admin.scan(volunteerQr, 8);
     await count(2);

@@ -22,7 +22,7 @@ export interface FoodTableRow {
   id: string;
   name: string;
   humanId: string | null;
-  kind: "student" | "volunteer" | "guardian";
+  kind: "student" | "volunteer" | "guardian" | "guest" | "judge";
   state?: "active" | "archived";
   centers: readonly { id: string; name: string }[];
   operations: readonly {
@@ -35,6 +35,8 @@ const ROLE_LABELS = {
   student: "Student",
   volunteer: "Volunteer",
   guardian: "Guardian",
+  guest: "Guest",
+  judge: "Judge",
 };
 const UNASSIGNED_CENTER = "unassigned";
 const MEAL_OPTIONS = ["Served", "Not served"].map((value) => ({

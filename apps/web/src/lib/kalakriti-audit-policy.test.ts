@@ -38,6 +38,22 @@ describe("Kalakriti audit policy", () => {
     );
   });
 
+  it("exposes attendee audit to administrators with contact-free assignment counts", () => {
+    expect(
+      resolveKalakritiAuditScope(access(["edition_admin"]))?.domains
+    ).toContain("attendee");
+    expect(
+      sanitizeKalakritiAuditMetadata({
+        addedCount: 2,
+        removedCount: 1,
+        changedFields: ["email"],
+        name: "Private person",
+        phone: "+919876543210",
+        email: "private@example.com",
+      })
+    ).toEqual({ addedCount: 2, removedCount: 1, changedFields: ["email"] });
+  });
+
   it("limits Category Leads to their assigned categories and event domains", () => {
     expect(
       resolveKalakritiAuditScope(

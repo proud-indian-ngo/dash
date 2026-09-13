@@ -143,6 +143,8 @@ export function buildKalakritiNavGroups({
   canViewEntries = false,
   canViewStudents = false,
   canViewFood = false,
+  canViewGuests = false,
+  canViewJudges = false,
   year,
 }: {
   canManageEligibility?: boolean;
@@ -153,6 +155,8 @@ export function buildKalakritiNavGroups({
   canViewEntries?: boolean;
   canViewStudents?: boolean;
   canViewFood?: boolean;
+  canViewGuests?: boolean;
+  canViewJudges?: boolean;
   year?: number;
 } = {}): NavGroup[] {
   const editionItems: NavItem[] = [
@@ -216,6 +220,21 @@ export function buildKalakritiNavGroups({
       icon: UserIcon,
       title: "Guardians",
       url: `/kalakriti/${year}/guardians`,
+    });
+  }
+
+  if (year && canViewGuests) {
+    editionItems.push({
+      icon: UserGroupIcon,
+      title: "Guests",
+      url: `/kalakriti/${year}/guests`,
+    });
+  }
+  if (year && canViewJudges) {
+    editionItems.push({
+      icon: UserGroupIcon,
+      title: "Judges",
+      url: `/kalakriti/${year}/judges`,
     });
   }
 

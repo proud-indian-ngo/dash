@@ -75,6 +75,39 @@ describe("Food eligibility and historical status", () => {
       expect(status.lunchServed).toBe(false);
     }
   );
+  it.each(["guest", "judge"] as const)(
+    "requires effective attendee check-in for active %s meals",
+    (kind) => {
+      for (const operations of [
+        [],
+        [mark("volunteer_check_in")],
+        [mark("attendee_check_in", "undo")],
+      ]) {
+        expect(
+          getKalakritiFoodStatus({ kind, state: "active", operations }).eligible
+        ).toBe(false);
+      }
+      expect(
+        getKalakritiFoodStatus({
+          kind,
+          state: "active",
+          operations: [mark("attendee_check_in")],
+        }).eligible
+      ).toBe(true);
+      const archived = getKalakritiFoodStatus({
+        kind,
+        state: "archived",
+        operations: [
+          mark("attendee_check_in"),
+          mark("breakfast"),
+          mark("lunch", "undo"),
+        ],
+      });
+      expect(archived.eligible).toBe(false);
+      expect(archived.breakfastServed).toBe(true);
+      expect(archived.lunchServed).toBe(false);
+    }
+  );
   it("keeps arrival Yes after venue departure and return, ignoring superseded arrival", () => {
     const operations = [
       mark("venue_arrival"),

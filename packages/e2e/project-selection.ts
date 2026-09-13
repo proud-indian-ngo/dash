@@ -56,6 +56,7 @@ const releaseInvariantSpecs = [
   "kalakriti/operations-person-qr.spec.ts",
   "kalakriti/event-day-transport.spec.ts",
   "kalakriti/event-day-stations.spec.ts",
+  "kalakriti/guests-judges.spec.ts",
   "kalakriti/food-entry-scopes.spec.ts",
   "kalakriti/table-sizing.spec.ts",
   "kalakriti/public-schedule.spec.ts",

@@ -50,6 +50,8 @@ import {
   kalakritiAgeCategory,
   kalakritiAssignment,
   kalakritiAuditEntry,
+  kalakritiAttendee,
+  kalakritiJudgeAssignment,
   kalakritiCenter,
   kalakritiCenterScanStage,
   kalakritiCompetition,
@@ -1105,6 +1107,59 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
       .for("update");
     if (!edition || edition.lifecycle === "archived") {
       return;
+    }
+    for (const [kind, id, humanId, name] of [
+      [
+        "guest",
+        "019d52c2-7261-7dce-b0ee-e20656171601",
+        "KALGT-2027-0001",
+        "Demo Guest",
+      ],
+      [
+        "judge",
+        "019d52c2-7261-7dce-b0ee-e20656171602",
+        "KALJ-2027-0001",
+        "Demo Judge",
+      ],
+    ] as const) {
+      await tx
+        .insert(kalakritiAttendee)
+        .values({
+          id,
+          editionId: ID.kalakritiEdition,
+          kind,
+          humanId,
+          name,
+          phone: "+919000000099",
+          email: null,
+          archivedAt: null,
+          createdAt: now,
+          updatedAt: now,
+          createdBy: adminId,
+        })
+        .onConflictDoNothing();
+    }
+    const [judge] = await tx
+      .select()
+      .from(kalakritiAttendee)
+      .where(eq(kalakritiAttendee.id, "019d52c2-7261-7dce-b0ee-e20656171602"));
+    if (
+      judge &&
+      judge.editionId === ID.kalakritiEdition &&
+      judge.kind === "judge" &&
+      judge.archivedAt === null
+    ) {
+      await tx
+        .insert(kalakritiJudgeAssignment)
+        .values({
+          id: "019d52c2-7261-7dce-b0ee-e20656171603",
+          editionId: ID.kalakritiEdition,
+          attendeeId: judge.id,
+          competitionId: ID.kalakritiCompetition,
+          createdAt: now,
+          createdBy: adminId,
+        })
+        .onConflictDoNothing();
     }
     const [center] = await tx
       .select({ retiredAt: kalakritiCenter.retiredAt })

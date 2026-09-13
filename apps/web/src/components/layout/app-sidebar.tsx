@@ -21,6 +21,7 @@ import { ScanDialog } from "@/components/kalakriti/scan-dialog";
 import { NavUser } from "@/components/layout/nav-user";
 import { TeamSwitcher } from "@/components/layout/team-switcher";
 import { useApp } from "@/context/app-context";
+import { canViewKalakritiAttendees } from "@/lib/kalakriti-attendee-policy";
 import { getKalakritiScanActivities } from "@/lib/kalakriti-event-day-policy";
 import { canViewKalakritiFood } from "@/lib/kalakriti-food-policy";
 import { createStationRecordingLedger } from "@/lib/kalakriti-scan-recording";
@@ -126,7 +127,16 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
       : null,
   });
   const canViewEventDay = scanActivities.length > 0;
+  const attendeeAccess = {
+    isGlobalAdmin: hasPermission("kalakriti.admin"),
+    edition: activeEdition?.lifecycle
+      ? { lifecycle: activeEdition.lifecycle }
+      : undefined,
+    membership: membership ?? null,
+  };
   let visibleNavGroups = buildKalakritiNavGroups({
+    canViewGuests: canViewKalakritiAttendees(attendeeAccess, "guest"),
+    canViewJudges: canViewKalakritiAttendees(attendeeAccess, "judge"),
     canManageEligibility: canManageEdition,
     canManageGuardians: canManageEdition,
     canManageVolunteers,

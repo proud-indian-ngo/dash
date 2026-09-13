@@ -8,6 +8,10 @@ import {
   SheetTitle,
 } from "@pi-dash/design-system/components/ui/sheet";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { queries } from "@pi-dash/zero/queries";
+import { useQuery } from "@rocicorp/zero/react";
+
+import { Loader } from "@/components/loader";
 
 import {
   type CompetitionTableRow,
@@ -25,7 +29,43 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function AssignedJudges({
+  editionId,
+  competitionId,
+}: {
+  editionId: string;
+  competitionId: string;
+}) {
+  const [judges, result] = useQuery(
+    queries.kalakritiAttendee.visible({ editionId, kind: "judge" })
+  );
+  const assigned = judges.filter((judge) =>
+    judge.judgeAssignments.some(
+      (assignment) => assignment.competitionId === competitionId
+    )
+  );
+  return (
+    <section className="space-y-2">
+      <h3 className="text-sm font-medium">Assigned judges</h3>
+      {!judges.length && result.type !== "complete" ? (
+        <Loader />
+      ) : assigned.length ? (
+        <ul className="text-sm">
+          {assigned.map((judge) => (
+            <li key={judge.id}>
+              {judge.name} · {judge.humanId}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-muted-foreground text-sm">No judges assigned.</p>
+      )}
+    </section>
+  );
+}
+
 export function CompetitionDetailSheet({
+  editionId,
   canManageCancellations,
   canManageStructure,
   competition,
@@ -35,6 +75,7 @@ export function CompetitionDetailSheet({
   onSetState,
   open,
 }: {
+  editionId: string;
   canManageCancellations: boolean;
   canManageStructure: boolean;
   competition: CompetitionTableRow | null;
@@ -96,6 +137,10 @@ export function CompetitionDetailSheet({
         </SheetHeader>
 
         <div className="flex flex-col gap-6 px-6 pb-6">
+          <AssignedJudges
+            editionId={editionId}
+            competitionId={competition.id}
+          />
           <div className="flex flex-wrap gap-2">
             {competition.cancelledAt === null &&
             competition.retiredAt === null ? (

@@ -1,12 +1,13 @@
 import { db } from "@pi-dash/db";
 import {
   kalakritiAssignment,
+  kalakritiAttendee,
   kalakritiCenter,
   kalakritiEditionMembership,
   kalakritiStudent,
 } from "@pi-dash/db/schema/kalakriti";
 import { KALAKRITI_RESPONSIBILITY_LABELS } from "@pi-dash/shared/kalakriti";
-import { and, eq, or, sql } from "drizzle-orm";
+import { and, eq, isNull, or, sql } from "drizzle-orm";
 
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 
@@ -22,7 +23,7 @@ export function canLookupKalakritiPerson(
 
 export interface KalakritiPersonLookupResult {
   humanId: string;
-  kind: "student" | "volunteer" | "guardian";
+  kind: "student" | "volunteer" | "guardian" | "guest" | "judge";
   name: string;
   scopeLabel: string;
 }
@@ -96,7 +97,32 @@ export async function lookupKalakritiPerson({
       )
     )
     .limit(1);
-  if (!membership) return null;
+  if (!membership) {
+    const [attendee] = await db
+      .select({
+        humanId: kalakritiAttendee.humanId,
+        kind: kalakritiAttendee.kind,
+        name: kalakritiAttendee.name,
+      })
+      .from(kalakritiAttendee)
+      .where(
+        and(
+          eq(kalakritiAttendee.editionId, editionId),
+          isNull(kalakritiAttendee.archivedAt),
+          or(
+            eq(kalakritiAttendee.humanId, humanId),
+            eq(sql`${kalakritiAttendee.id}::text`, humanId)
+          )
+        )
+      )
+      .limit(1);
+    return attendee
+      ? {
+          ...attendee,
+          scopeLabel: attendee.kind === "guest" ? "Guest" : "Judge",
+        }
+      : null;
+  }
   return {
     humanId: membership.humanId ?? membership.id,
     kind: membership.kind,

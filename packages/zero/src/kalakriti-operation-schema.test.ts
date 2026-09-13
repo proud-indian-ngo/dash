@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { kalakritiOperation } from "@pi-dash/db/schema/kalakriti";
+import {
+  kalakritiAttendee,
+  kalakritiJudgeAssignment,
+  kalakritiOperation,
+} from "@pi-dash/db/schema/kalakriti";
 import { getTableConfig, PgDialect } from "drizzle-orm/pg-core";
 
 const config = getTableConfig(kalakritiOperation);
@@ -10,6 +14,45 @@ function checkSql(name: string) {
   expect(constraint).toBeDefined();
   return new PgDialect().sqlToQuery(constraint!.value).sql.replace(/\s+/g, " ");
 }
+
+describe("Kalakriti attendee database invariants", () => {
+  it("keeps yearly IDs unique and contacts outside login identities", () => {
+    const attendee = getTableConfig(kalakritiAttendee);
+    expect(
+      attendee.indexes.find(
+        (index) => index.config.name === "kalakriti_attendee_humanId_uidx"
+      )?.config.unique
+    ).toBe(true);
+    expect(kalakritiAttendee.phone.notNull).toBe(true);
+    expect(kalakritiAttendee.email.notNull).toBe(false);
+    expect(attendee.columns.some((column) => column.name === "user_id")).toBe(
+      false
+    );
+  });
+  it("enforces unique judge/competition links with two Edition-composite references", () => {
+    const assignment = getTableConfig(kalakritiJudgeAssignment);
+    const unique = assignment.indexes.find(
+      (index) => index.config.name === "kalakriti_judge_assignment_scope_uidx"
+    );
+    expect(unique?.config.unique).toBe(true);
+    expect(unique?.config.columns).toHaveLength(3);
+    for (const name of [
+      "kalakriti_judge_assignment_attendee_fk",
+      "kalakriti_judge_assignment_competition_fk",
+    ]) {
+      const reference = assignment.foreignKeys
+        .find((key) => key.getName() === name)
+        ?.reference();
+      expect(reference?.columns.map((column) => column.name)[0]).toBe(
+        "edition_id"
+      );
+      expect(reference?.foreignColumns.map((column) => column.name)[0]).toBe(
+        "edition_id"
+      );
+      expect(reference?.columns).toHaveLength(2);
+    }
+  });
+});
 
 describe("Kalakriti operation database invariants", () => {
   it("makes operationId unique for idempotent recording", () => {
@@ -23,11 +66,8 @@ describe("Kalakriti operation database invariants", () => {
 
   it("requires exactly one subject", () => {
     const sql = checkSql("kalakriti_operation_subject_chk");
-    expect(sql).toContain(
-      '"student_id" IS NOT NULL AND "kalakriti_operation"."membership_id" IS NULL'
-    );
-    expect(sql).toContain(
-      '"student_id" IS NULL AND "kalakriti_operation"."membership_id" IS NOT NULL'
+    expect(sql).toBe(
+      'num_nonnulls("kalakriti_operation"."student_id", "kalakriti_operation"."membership_id", "kalakriti_operation"."attendee_id") = 1'
     );
   });
 
@@ -43,6 +83,7 @@ describe("Kalakriti operation database invariants", () => {
 
   it("keeps Student, membership, and session references within an Edition", () => {
     for (const name of [
+      "kalakriti_operation_edition_attendee_fk",
       "kalakriti_operation_edition_student_fk",
       "kalakriti_operation_edition_membership_fk",
       "kalakriti_operation_edition_session_fk",

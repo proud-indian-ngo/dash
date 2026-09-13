@@ -24,6 +24,7 @@
     "packages/e2e": {
       "ignoreFiles": ["global-setup.ts"],
       "entry": [
+        "helpers/kalakriti-attendee-subject.ts",
         "helpers/kalakriti-centers.ts",
         "helpers/kalakriti-transport.ts",
         "helpers/kalakriti-event-day-transport.ts",

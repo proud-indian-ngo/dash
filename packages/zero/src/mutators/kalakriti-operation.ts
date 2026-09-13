@@ -126,6 +126,7 @@ export async function assertCanRecordKalakritiOperation(
               (role) => role === assignment.responsibility
             ))
         );
+      case "attendee_check_in":
       case "volunteer_check_in":
         return (
           assignment.responsibility === "hospitality_lead" ||
@@ -153,7 +154,17 @@ export async function assertCanRecordKalakritiOperation(
   }
 }
 
+interface ActiveAttendee {
+  id: string;
+  editionId: string;
+  humanId: string;
+  kind: "guest" | "judge";
+  archivedAt: number | null;
+}
+
 interface OperationSubject {
+  attendeeId?: string | null;
+  attendeeKind?: "guest" | "judge";
   centerId?: string;
   membershipKind?: "guardian" | "volunteer";
   membershipId: string | null;
@@ -233,7 +244,7 @@ async function validateAttendanceSubject(
 async function loadSubjectOperations(
   tx: OperationTx,
   editionId: string,
-  subject: { membershipId?: string | null; studentId?: string | null }
+  subject: OperationSubject
 ): Promise<KalakritiOperationRecord[]> {
   if (subject.studentId) {
     return (await tx.run(
@@ -249,6 +260,13 @@ async function loadSubjectOperations(
         .where("membershipId", subject.membershipId)
     )) as KalakritiOperationRecord[];
   }
+  if (subject.attendeeId) {
+    return (await tx.run(
+      zql.kalakritiOperation
+        .where("editionId", editionId)
+        .where("attendeeId", subject.attendeeId)
+    )) as KalakritiOperationRecord[];
+  }
   return [];
 }
 
@@ -258,6 +276,30 @@ async function resolveSubjectFromPersonQr(
   personQr: string
 ): Promise<OperationSubject> {
   const person = parseKalakritiPersonQr(personQr);
+  if (person.type === "guest" || person.type === "judge") {
+    const attendee = (await tx.run(
+      zql.kalakritiAttendee
+        .where("id", person.id)
+        .where("editionId", editionId)
+        .where("kind", person.type)
+        .where("archivedAt", "IS", null)
+        .one()
+    )) as ActiveAttendee | undefined;
+    if (
+      !attendee ||
+      attendee.id !== person.id ||
+      attendee.editionId !== editionId ||
+      attendee.kind !== person.type ||
+      attendee.archivedAt !== null
+    )
+      throw new Error("Active attendee not found in this Edition");
+    return {
+      attendeeId: attendee.id,
+      attendeeKind: attendee.kind,
+      membershipId: null,
+      studentId: null,
+    };
+  }
   if (person.type === "student") {
     const student = (await tx.run(
       zql.kalakritiStudent
@@ -349,6 +391,27 @@ async function resolveSubjectFromHumanId(
       membershipKind: membership.kind,
     };
   }
+  const attendee = (await tx.run(
+    zql.kalakritiAttendee
+      .where("editionId", editionId)
+      .where("humanId", humanId)
+      .where("archivedAt", "IS", null)
+      .one()
+  )) as ActiveAttendee | undefined;
+  if (
+    attendee &&
+    attendee.editionId === editionId &&
+    attendee.humanId === humanId &&
+    attendee.archivedAt === null &&
+    (attendee.kind === "guest" || attendee.kind === "judge")
+  ) {
+    return {
+      attendeeId: attendee.id,
+      attendeeKind: attendee.kind,
+      membershipId: null,
+      studentId: null,
+    };
+  }
   throw new Error("Yearly ID not found in this Edition");
 }
 
@@ -395,14 +458,19 @@ export async function recordKalakritiOperation(
     ? await resolveSubjectFromPersonQr(tx, args.editionId, args.personQr)
     : await resolveSubjectFromHumanId(tx, args.editionId, args.humanId ?? "");
 
-  assertOperationSubjectMatchesType(args.type, subject);
+  // Resolve the generic Check-in station request using persisted identity.
+  const type =
+    args.type === "volunteer_check_in" && subject.attendeeId
+      ? "attendee_check_in"
+      : args.type;
+  assertOperationSubjectMatchesType(type, subject);
 
   if (args.centerId !== undefined && subject.centerId !== args.centerId) {
     throw new Error("Student does not belong to the selected Center");
   }
 
   const competitionId =
-    args.type === "competition_attendance"
+    type === "competition_attendance"
       ? await validateAttendanceSubject(
           tx,
           args.editionId,
@@ -414,19 +482,19 @@ export async function recordKalakritiOperation(
     tx,
     ctx,
     args.editionId,
-    args.type,
+    type,
     subject,
     competitionId
   );
 
-  if (isKalakritiCenterScanStage(args.type)) {
+  if (isKalakritiCenterScanStage(type)) {
     if (!subject.centerId || !subject.studentId) {
       throw new Error("This operation requires a Student subject");
     }
     await prepareCenterScan(tx, {
       editionId: args.editionId,
       centerId: subject.centerId,
-      stage: args.type,
+      stage: type,
       studentId: subject.studentId,
       now: args.now,
       actorUserId: ctx.userId,
@@ -445,7 +513,7 @@ export async function recordKalakritiOperation(
   if (
     subjectOperations.some(
       (operation) =>
-        operation.type === args.type &&
+        operation.type === type &&
         operation.competitionSessionId === (args.sessionId ?? null) &&
         operation.supersededByOperationId === null
     )
@@ -455,7 +523,7 @@ export async function recordKalakritiOperation(
 
   assertCanRecordOperation(
     subjectOperations,
-    args.type,
+    type,
     subject,
     args.sessionId ?? null
   );
@@ -466,13 +534,14 @@ export async function recordKalakritiOperation(
     createdAt: args.now,
     editionId: args.editionId,
     id: args.id,
+    attendeeId: subject.attendeeId ?? null,
     membershipId: subject.membershipId,
     occurredAt: args.occurredAt,
     operationId: args.operationId,
     recordedBy: ctx.userId,
     studentId: subject.studentId,
     supersededByOperationId: null,
-    type: args.type,
+    type,
   });
 
   await tx.mutate.kalakritiAuditEntry.insert({
@@ -485,7 +554,7 @@ export async function recordKalakritiOperation(
     metadata: {
       operationId: args.operationId,
       subjectKind: getOperationSubjectKind(subject),
-      type: args.type,
+      type,
     },
     reason: null,
     targetId: args.id,

@@ -1,6 +1,7 @@
 import type { KalakritiOperationType } from "@pi-dash/shared/kalakriti";
 
 export interface KalakritiOperationRecord {
+  attendeeId?: string | null;
   competitionSessionId: string | null;
   editionId: string;
   id: string;
@@ -12,6 +13,8 @@ export interface KalakritiOperationRecord {
 }
 
 interface KalakritiOperationSubject {
+  attendeeId?: string | null;
+  attendeeKind?: "guest" | "judge";
   membershipId?: string | null;
   studentId?: string | null;
   membershipKind?: "guardian" | "volunteer";
@@ -49,7 +52,8 @@ export function findExistingOperationByOperationId(
 
 export function getOperationSubjectKind(
   subject: KalakritiOperationSubject
-): "student" | "volunteer" | "guardian" {
+): "student" | "volunteer" | "guardian" | "guest" | "judge" {
+  if (subject.attendeeId && subject.attendeeKind) return subject.attendeeKind;
   return subject.studentId
     ? "student"
     : (subject.membershipKind ?? "volunteer");
@@ -103,8 +107,17 @@ export function assertOperationSubjectMatchesType(
   }
   const hasStudent = Boolean(subject.studentId);
   const hasMembership = Boolean(subject.membershipId);
-  if (hasStudent === hasMembership) {
+  const hasAttendee = Boolean(subject.attendeeId);
+  if ([hasStudent, hasMembership, hasAttendee].filter(Boolean).length !== 1) {
     throw new Error("Exactly one operation subject is required");
+  }
+  if (hasAttendee && !subject.attendeeKind) {
+    throw new Error("Attendee kind is required");
+  }
+  if (type === "attendee_check_in") {
+    if (!hasAttendee)
+      throw new Error("This operation requires an attendee subject");
+    return;
   }
   if (STUDENT_OPERATION_TYPES.has(type) && !hasStudent) {
     throw new Error("This operation requires a Student subject");
@@ -186,6 +199,17 @@ export function assertMealAndAttendanceEligibility(
       subject.membershipId &&
       subject.membershipKind !== "guardian" &&
       !hasEffectiveCheckIn(operations, subject.membershipId)
+    ) {
+      throw new Error("Check-in is required before meals");
+    }
+    if (
+      subject.attendeeId &&
+      !operations.some(
+        (operation) =>
+          operation.attendeeId === subject.attendeeId &&
+          operation.type === "attendee_check_in" &&
+          isEffectiveOperation(operation)
+      )
     ) {
       throw new Error("Check-in is required before meals");
     }

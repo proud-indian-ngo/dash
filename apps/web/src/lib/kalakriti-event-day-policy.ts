@@ -1,4 +1,5 @@
 import { KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES } from "@pi-dash/shared/kalakriti";
+import type { KalakritiPersonQr } from "@pi-dash/shared/kalakriti-person-qr";
 
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 
@@ -15,7 +16,7 @@ export const SCAN_ACTIVITIES = [
 export type ScanActivity = (typeof SCAN_ACTIVITIES)[number];
 export const SCAN_ACTIVITY_LABELS: Record<ScanActivity, string> = {
   transport: "Transport",
-  check_in: "Volunteer check-in",
+  check_in: "Check-in",
   meals: "Meals",
   attendance: "Competition attendance",
 };
@@ -25,9 +26,10 @@ export function canScanKalakritiPerson(
     | "competition_attendance"
     | "breakfast"
     | "lunch",
-  kind: "student" | "volunteer" | "guardian"
+  kind: KalakritiPersonQr["type"]
 ): boolean {
-  if (operation === "volunteer_check_in") return kind === "volunteer";
+  if (operation === "volunteer_check_in")
+    return kind === "volunteer" || kind === "guest" || kind === "judge";
   if (operation === "competition_attendance") return kind === "student";
   return true;
 }

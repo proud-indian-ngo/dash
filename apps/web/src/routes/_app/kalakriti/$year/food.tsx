@@ -7,8 +7,10 @@ import { FoodMealUndo } from "@/components/kalakriti/food-meal-undo";
 import { FoodStats } from "@/components/kalakriti/food-stats";
 import type { FoodTableRow } from "@/components/kalakriti/food-table";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
+import { useFoodAttendees } from "@/components/kalakriti/use-food-attendees";
 import {
   canViewKalakritiFood,
+  canViewKalakritiFoodAttendees,
   kalakritiFoodScopeKey,
 } from "@/lib/kalakriti-food-policy";
 
@@ -22,6 +24,12 @@ export const Route = createFileRoute("/_app/kalakriti/$year/food")({
 function KalakritiFoodPage() {
   const { kalakritiEditionAccess: access } = Route.useRouteContext();
   const { edition } = access;
+  const scopeKey = kalakritiFoodScopeKey(access);
+  const attendees = useFoodAttendees(
+    edition.year,
+    scopeKey,
+    canViewKalakritiFoodAttendees(access)
+  );
   const [students, studentsResult] = useQuery(
     queries.kalakritiFood.students({ editionId: edition.id })
   );
@@ -30,6 +38,7 @@ function KalakritiFoodPage() {
   );
   const data = useMemo<FoodTableRow[]>(
     () => [
+      ...attendees.rows,
       ...students.map((student): FoodTableRow => ({
         id: student.id,
         name: student.name,
@@ -51,11 +60,12 @@ function KalakritiFoodPage() {
         operations: membership.operations,
       })),
     ],
-    [students, memberships]
+    [students, memberships, attendees.rows]
   );
   const complete =
-    studentsResult.type === "complete" && membershipsResult.type === "complete";
-  const scopeKey = kalakritiFoodScopeKey(access);
+    studentsResult.type === "complete" &&
+    membershipsResult.type === "complete" &&
+    attendees.complete;
   return (
     <div className="space-y-4">
       <KalakritiPageHeader
@@ -64,12 +74,12 @@ function KalakritiFoodPage() {
       />
       <p className="text-muted-foreground text-sm">
         The table shows only people currently eligible for meals in your scope:
-        picked-up Students, checked-in active Volunteers and active Guardians.
-        Only Food staff and administrators can record meals using Scan. Counts
-        cover your entire authorized roster, not the filtered table. Served
-        totals include archived history and can exceed the number of table rows;
-        archived people are excluded from Registered people and meal
-        eligibility.
+        picked-up Students, checked-in active Volunteers, Guests and Judges, and
+        active Guardians. Only Food staff and administrators can record meals
+        using Scan. Counts cover your entire authorized roster, not the filtered
+        table. Served totals include archived history and can exceed the number
+        of table rows; archived people are excluded from Registered people and
+        meal eligibility.
       </p>
       <FoodStats data={data} complete={complete} scopeKey={scopeKey} />
       <FoodMealUndo
@@ -78,6 +88,7 @@ function KalakritiFoodPage() {
         data={data}
         complete={complete}
         scopeKey={scopeKey}
+        onMealSettled={attendees.refresh}
       />
     </div>
   );

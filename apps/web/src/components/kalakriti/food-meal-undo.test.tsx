@@ -85,7 +85,12 @@ const target = {
   meal: "breakfast" as const,
   targetOperationId: "served",
 };
-function render(role = "food_lead", complete = true, currentRole = role) {
+function render(
+  role = "food_lead",
+  complete = true,
+  currentRole = role,
+  onMealSettled?: () => Promise<void>
+) {
   queryIndex = 0;
   liveRole = currentRole;
   const access = {
@@ -99,6 +104,7 @@ function render(role = "food_lead", complete = true, currentRole = role) {
   renderToStaticMarkup(
     <FoodMealUndo
       access={access}
+      onMealSettled={onMealSettled}
       data={[
         {
           id: "person",
@@ -130,6 +136,30 @@ beforeEach(() => {
   resolvePending = undefined;
 });
 describe("Food meal undo confirmation", () => {
+  it.each([false, true])(
+    "awaits refresh after mutation (uncertain: %s), then releases pending even if refresh fails",
+    async (uncertain) => {
+      fail = uncertain;
+      let rejectRefresh: ((error: Error) => void) | undefined;
+      let refreshed = false;
+      render("food_lead", true, "food_lead", () => {
+        refreshed = true;
+        return new Promise<void>((_resolve, reject) => {
+          rejectRefresh = reject;
+        });
+      });
+      table.onUndoMeal(target);
+      const attempt = options.onConfirm(payload);
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+      expect(refreshed).toBe(true);
+      expect((await options.onConfirm(payload)).type).toBe("error");
+      expect(requests).toHaveLength(1);
+      rejectRefresh!(new Error("refresh failed"));
+      expect((await attempt).type).toBe(uncertain ? "error" : "success");
+      dialog.onOpenChange(false);
+      expect(cancelled).toBe(true);
+    }
+  );
   it("exposes undo only to Food Leads/admin, never Food Members/readers", () => {
     for (const role of ["food_member", "liaison_lead"]) {
       render(role);

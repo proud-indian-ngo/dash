@@ -15,6 +15,75 @@ const pickup: KalakritiOperationRecord = {
   type: "pickup",
 };
 describe("Kalakriti operation rules", () => {
+  for (const attendeeKind of ["guest", "judge"] as const) {
+    const subject = { attendeeId: "attendee", attendeeKind };
+    const checkIn: KalakritiOperationRecord = {
+      ...pickup,
+      studentId: null,
+      attendeeId: "attendee",
+      type: "attendee_check_in",
+    };
+    it(`requires effective ${attendeeKind} check-in independently of membership history`, () => {
+      expect(() =>
+        assertCanRecordOperation([], "attendee_check_in", subject)
+      ).not.toThrow();
+      for (const type of ["breakfast", "lunch"] as const) {
+        expect(() =>
+          assertCanRecordOperation([checkIn], type, subject)
+        ).not.toThrow();
+        for (const operations of [
+          [],
+          [{ ...checkIn, supersededByOperationId: "correction" }],
+          [{ ...checkIn, attendeeId: "other" }],
+          [
+            {
+              ...checkIn,
+              attendeeId: null,
+              membershipId: "attendee",
+              type: "volunteer_check_in" as const,
+            },
+          ],
+        ]) {
+          expect(() =>
+            assertCanRecordOperation(operations, type, subject)
+          ).toThrow("Check-in");
+        }
+      }
+    });
+    it(`rejects ${attendeeKind} transport, attendance, and mixed subject IDs`, () => {
+      for (const type of [
+        "pickup",
+        "venue_arrival",
+        "venue_departure",
+        "drop_off",
+        "competition_attendance",
+      ] as const) {
+        expect(() =>
+          assertCanRecordOperation([checkIn], type, subject)
+        ).toThrow("Student subject");
+      }
+      expect(() =>
+        assertCanRecordOperation([], "volunteer_check_in", subject)
+      ).toThrow("volunteer subject");
+      expect(() =>
+        assertCanRecordOperation([], "attendee_check_in", {
+          membershipId: "attendee",
+        })
+      ).toThrow("attendee subject");
+      for (const extra of [
+        { studentId: "student" },
+        { membershipId: "member" },
+      ]) {
+        expect(() =>
+          assertCanRecordOperation([], "breakfast", { ...subject, ...extra })
+        ).toThrow("Exactly one");
+      }
+      expect(() =>
+        assertCanRecordOperation([], "attendee_check_in", subject, "session")
+      ).toThrow("only allowed for attendance");
+    });
+  }
+
   it("requires exactly one subject and matches operation types", () => {
     expect(() => assertCanRecordOperation([], "pickup", {})).toThrow(
       "Exactly one"
