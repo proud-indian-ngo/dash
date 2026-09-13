@@ -35,7 +35,7 @@ async function fixture<T>(action: "cleanup" | "state") {
   return JSON.parse(stdout.trim()) as T;
 }
 
-test("invites a new Guardian, edits contact details, and grants Edition login", async ({
+test("Guardian login gains Edition access and loses it after archival", async ({
   baseURL,
   browser,
   page,
@@ -113,6 +113,33 @@ test("invites a new Guardian, edits contact details, and grants Edition login", 
       await expect(
         guardianPage.getByRole("heading", { name: `Kalakriti ${YEAR}` })
       ).toBeVisible({ timeout: 30_000 });
+      await waitForZeroReady(guardianPage);
+      await guardianPage
+        .getByRole("link", { name: "Students", exact: true })
+        .first()
+        .click();
+      await expect(guardianPage).toHaveURL(`/kalakriti/${YEAR}/students`);
+      await guardianPage
+        .getByRole("link", { name: "Entries", exact: true })
+        .first()
+        .click();
+      await expect(guardianPage).toHaveURL(`/kalakriti/${YEAR}/entries`);
+
+      await guardians.requestArchive(EDITED_NAME);
+      await guardians.confirmArchive();
+      await expect(
+        page.getByText("Guardian access archived", { exact: true })
+      ).toBeVisible();
+      expect(
+        (await fixture<GuardianInviteState>("state")).membershipState
+      ).toBe("archived");
+
+      // Keep the existing client and its successful access check alive.
+      // Client navigation must consult the server again after revocation.
+      await guardianPage.goBack();
+      await expect(
+        guardianPage.getByRole("heading", { name: "Page not found" })
+      ).toBeVisible();
     } finally {
       await guardianContext.close();
     }

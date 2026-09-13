@@ -106,14 +106,23 @@ test("Dashboard-only preloads release their active Zero subscriptions", async ({
             __zero: {
               inspector: {
                 client: {
-                  queries: () => Promise<{ name: string }[]>;
+                  queries: () => Promise<
+                    {
+                      name: string;
+                      deleted: boolean;
+                      inactivatedAt: number | null;
+                    }[]
+                  >;
                 };
               };
             };
           }
         ).__zero;
         return (await zero.inspector.client.queries()).some(
-          (query) => query.name === "reimbursement.all"
+          (query) =>
+            query.name === "reimbursement.all" &&
+            !query.deleted &&
+            query.inactivatedAt === null
         );
       })
     )
