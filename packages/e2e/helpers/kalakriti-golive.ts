@@ -46,12 +46,15 @@ const editions = Object.values(fixtures).map((f) => f.editionId);
 
 function assertIsolatedTarget() {
   const url = new URL(process.env.DATABASE_URL ?? "");
+  const testDbPort = process.env.E2E_DB_PORT ?? "5433";
   if (
     url.hostname !== "localhost" ||
-    url.port !== "5433" ||
+    url.port !== testDbPort ||
     url.pathname !== "/pi-dash-test"
   ) {
-    throw new Error("Go-live fixture requires localhost:5433/pi-dash-test");
+    throw new Error(
+      `Go-live fixture requires localhost:${testDbPort}/pi-dash-test`
+    );
   }
 }
 

@@ -14,23 +14,29 @@ packages/e2e/
 ├── tests/              # Specs by feature
 ├── global-setup.ts     # Authenticates shared roles + active Kalakriti actors
 ├── playwright.config.ts
+├── project-selection.ts # Role-only and release-invariant spec filters
 ├── duration-reporter.ts
 ├── shard-by-duration.ts
 ├── run-e2e.sh          # Full-stack orchestration
+├── run-two-stacks.ts   # Opt-in two-stack benchmark
+├── partition-specs.ts  # Whole-file duration balancing
+├── stack-workspace.ts  # Source snapshots and dependency/cache isolation
 ├── .env.test           # E2E-only env
 └── .test-durations.json  # Historical timings for sharding
 ```
 
 ## Global Setup
 
-`global-setup.ts` runs once per Playwright worker spin-up:
+The `setup` project runs once per Playwright invocation, before its dependent projects. Each CI shard invokes it separately:
 
 1. Loads `.env.test` with `dotenv`.
-2. Signs in the shared global roles and active Kalakriti release actors by posting credentials to `/api/auth/sign-in/email`, then navigates to the authenticated landing page.
-3. Saves one `storageState` file per active actor under `.auth/`. Dormant actors intentionally have no state.
+2. Signs in the shared global roles and active Kalakriti release actors through Playwright's API `request` fixture. Each actor uses a distinct `192.0.2.x` `x-forwarded-for` test address so setup does not consume the normal browser login tests' localhost rate-limit bucket if rate limiting is enabled.
+3. Saves `request.storageState()` for each active actor under `.auth/`. Dormant actors intentionally have no state.
 4. Tests reference the state via `test.use({ storageState: "..." })`.
 
-`authenticate()` logs each sign-in response status and URL directly, which helps debug CI auth failures before it retries.
+`authenticate()` logs each sign-in response status and URL, and retries only a bounded 429 response.
+
+The shared fixture listens for browser errors only when a test requests `page`. API-only authorization and object-access tests use Playwright's `request` fixture, so they exercise the live HTTP/Zero authorization path without creating a browser page. UI tests still annotate uncaught page errors.
 
 ## Seed Strategy
 
@@ -47,7 +53,7 @@ Functions are idempotent where possible (`onConflictDoNothing()`), return the in
 
 ## Kalakriti global invariants
 
-Public schedule, database race, JSON operation, and sidebar Center scan tests run only in the `kalakriti_release_invariants` project with one worker. They share the database-wide single-live-Edition constraint, so distinct fixture IDs alone don't isolate them. Keep new live-Edition tests in this lane and skip them in the role projects. `operations-person-qr.spec.ts` and `event-day-transport.spec.ts` override the lane's default storage state with the super-admin actor while testing additional scoped actors in separate browser contexts. The transport fixture uses isolated Edition 2166 and its own Guardian identity. `event-day-stations.spec.ts` also runs in this serialized lane, using isolated live Edition 2168 and draft Edition 2169 for role unions, check-in/meal eligibility, scoped attendance, cancelled sessions/Competitions, replay, and stale callbacks after activity changes. Camera frames are simulated at the decoder boundary; UI, Zero mutations, authorization, and database assertions use the real stack. Its three-Student fixture picks up two Students and leaves one absent, covering four Center sessions, absentee exclusion, complete-traveler finalization in later stages, derived vehicle history, single-Center name display, Student-versus-Center transport status updates, mobile modal persistence, camera fallback, and stale-frame protection. The deleted Event day route must return 404 for every role. Cleanup removes Center scan stages before Centers because their composite FK is restrictive. Parent transport-operation fixtures must finalize pickup and venue arrival before testing departure.
+Public schedule, database race, JSON operation, and sidebar Center scan tests run only in the `kalakriti_release_invariants` project with one worker. This project is queued before the other authenticated projects so its serial work overlaps their execution. They share the database-wide single-live-Edition constraint, so distinct fixture IDs alone don't isolate them. Keep new live-Edition tests in this lane and add their files to `project-selection.ts` so role projects exclude them. `operations-person-qr.spec.ts` and `event-day-transport.spec.ts` override the lane's default storage state with the super-admin actor while testing additional scoped actors in separate browser contexts. The transport fixture uses isolated Edition 2166 and its own Guardian identity. `event-day-stations.spec.ts` also runs in this serialized lane, using isolated live Edition 2168 and draft Edition 2169 for role unions, check-in/meal eligibility, scoped attendance, cancelled sessions/Competitions, replay, and stale callbacks after activity changes. Camera frames are simulated at the decoder boundary; UI, Zero mutations, authorization, and database assertions use the real stack. Its three-Student fixture picks up two Students and leaves one absent, covering four Center sessions, absentee exclusion, complete-traveler finalization in later stages, derived vehicle history, single-Center name display, Student-versus-Center transport status updates, mobile modal persistence, camera fallback, and stale-frame protection. The deleted Event day route must return 404 for every role. Cleanup removes Center scan stages before Centers because their composite FK is restrictive. Parent transport-operation fixtures must finalize pickup and venue arrival before testing departure.
 
 ## Sharding by Duration
 
@@ -55,22 +61,36 @@ Public schedule, database race, JSON operation, and sidebar Center scan tests ru
 
 1. `prepare-shards` job runs `shard-by-duration.ts 4`.
 2. Script reads `.test-durations.json` (produced by `duration-reporter.ts` during prior runs, cached between CI runs via `actions/cache`).
-3. Greedy bin-packing (longest-processing-time-first) assigns specs to 4 `shard-lists/shard-{1..4}.txt` files.
+3. Greedy bin-packing (longest-processing-time-first) assigns project-qualified test cases to 4 `shard-lists/shard-{1..4}.txt` files.
 4. Unknown tests default to 10-sec estimate.
 5. Each shard job reads its list via Playwright's `--test-list` flag.
 
 Cache key: `e2e-durations-${{ github.ref_name }}` with fallback to `e2e-durations-master`. New specs on feature branches inherit master's timing data.
 
+`project-selection.ts` excludes a role-only file from other role projects only when every test in that file belongs to one role. Shared multirole specs keep their project coverage. The duration reporter records both passed and runtime-skipped case durations; new cases still use the 10-second estimate.
+
 ## `run-e2e.sh`
 
 Full-stack orchestration for local E2E:
-- Starts Docker Compose (Postgres + Zero cache + WhatsApp gateway if enabled).
-- Runs migrations + seed.
-- Launches dev server.
-- Runs `playwright test`.
-- Tears down on exit.
+- Starts isolated Postgres through Docker Compose, then migrates and seeds it.
+- Starts Zero with `ZERO_LAZY_STARTUP=false` and waits for the root HTTP health response after its workers initialize.
+- The optimized test runtime and CI set both `NODE_ENV=test` and `VITE_E2E=true`, raising the in-memory API budgets 100 times for shared E2E users. Normal production/development limits remain unchanged; unit tests cover their boundaries.
+- Builds the optimized Nitro output with `NODE_ENV=production` and serves it with `NODE_ENV=test` by default, overlapping the build with Zero startup. The local test runtime keeps localhost WebSocket behavior; it does not verify deployment CSP. Set `E2E_SERVER=dev` to run against Vite dev instead. Local runs use at most four workers by default; pass `--workers` to override this.
+- Runs `playwright test`, reports environment-ready, Playwright, and total elapsed times, then tears down on exit.
 
-Use `bun run test:e2e:ui` for interactive Playwright UI mode without the full bash harness.
+Use `bun run test:e2e:ui` for interactive Playwright UI mode with the same full-stack harness and Vite dev, so app edits remain visible. UI/debug flags default to dev unless `E2E_SERVER` explicitly overrides it. `--list` and `--help` return without starting services.
+
+## Two-stack benchmark
+
+Run `bun run packages/e2e/run-two-stacks.ts` from the repository root to benchmark the complete suite across two independent local stacks. This is an opt-in experiment; the ordinary runner remains a single stack. Each child uses two workers, `--trace=off`, and `--retries=0`.
+
+The coordinator snapshots tracked and nonignored working files, preserving uncommitted source changes. Each snapshot has its own `.auth`, app output, test results, and duration report. Workspace dependencies point into the snapshot; installed external packages use links to the existing installation. Writable `.nitro`, `.vite`, `.vite-temp`, and `.cache` directories must never be linked between snapshots. A shared Nitro directory can mix asset manifests from concurrent builds and serve missing JavaScript chunks.
+
+`partition-specs.ts` groups all role/project cases for a spec file together, preserving serial and `beforeAll` dependencies. It balances invariant files first, then remaining files by historical worker time. The coordinator checks that the partition covers every selected non-setup row exactly once. Setup runs independently in each stack, adding twelve repeated authentication cases.
+
+The child runner receives `E2E_STACK_INDEX=1|2` and allocates four reserved ports starting at `20000 + worktreeId * 100 + stackIndex * 10`: web, Zero, change streamer, and PostgreSQL. Container, Compose, volume, replica, and log names include the stack suffix. Occupied stack ports are rejected before startup. Each child tears down its services on exit; cancellation signals both process groups. The coordinator prints the private temporary directory containing snapshots, per-stack logs/JSON, partition data, and `summary.json`. Total time includes snapshot creation, both builds, setup, tests, and teardown.
+
+Partition and snapshot-isolation tests run with the E2E package's unit-test command alongside the existing process-cleanup tests.
 
 ## Page Objects
 
@@ -78,7 +98,7 @@ Use `bun run test:e2e:ui` for interactive Playwright UI mode without the full ba
 
 ## Durations Reporter
 
-`duration-reporter.ts` is a Playwright reporter registered in `playwright.config.ts`. Writes each spec's duration to `.test-durations.json`. Committed to the repo so CI shards from historical data; updated by CI after every run via the cache.
+`duration-reporter.ts` is a Playwright reporter registered in `playwright.config.ts`. It writes passed and skipped test-case durations to `.test-durations.json`; CI restores and updates this file through its cache for later shard balancing.
 
 ## Auth Plugins and E2E
 

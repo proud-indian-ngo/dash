@@ -5,6 +5,16 @@ set -e
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO_ROOT"
 
+RUN_STARTED=$SECONDS
+DEFAULT_E2E_SERVER=production
+for arg in "$@"; do
+  case "$arg" in
+    --list|--help|-h)
+      exec bunx playwright test --config packages/e2e/playwright.config.ts "$@"
+      ;;
+    --ui|--ui=*|--ui-host=*|--ui-port=*|--debug|--debug=*) DEFAULT_E2E_SERVER=dev ;;
+  esac
+done
 # Load shared port computation utility
 # shellcheck source=../../scripts/worktree-ports.sh
 source "$REPO_ROOT/scripts/worktree-ports.sh"
@@ -35,9 +45,34 @@ if [ -f packages/e2e/.env.test ]; then
   set +a
 fi
 
+E2E_SERVER="${E2E_SERVER:-$DEFAULT_E2E_SERVER}"
+case "$E2E_SERVER" in
+  production|dev) ;;
+  *) echo "ERROR: E2E_SERVER must be production or dev"; exit 1 ;;
+esac
+
 # Compute worktree-aware ports
 WT_ID=$(get_worktree_id)
 compute_ports "$WT_ID"
+
+# Reserved per-worktree ports for the opt-in two-stack runner.
+if [ -n "${E2E_STACK_INDEX:-}" ]; then
+  case "$E2E_STACK_INDEX" in
+    1|2) ;;
+    *) echo "ERROR: E2E_STACK_INDEX must be 1 or 2"; exit 1 ;;
+  esac
+  STACK_PORT=$((20000 + WT_ID * 100 + E2E_STACK_INDEX * 10))
+  export E2E_WEB_PORT="$STACK_PORT"
+  export E2E_ZERO_PORT=$((STACK_PORT + 1))
+  export E2E_ZERO_CS_PORT=$((STACK_PORT + 2))
+  export E2E_DB_PORT=$((STACK_PORT + 3))
+  for port in "$E2E_WEB_PORT" "$E2E_ZERO_PORT" "$E2E_ZERO_CS_PORT" "$E2E_DB_PORT"; do
+    if [ -n "$(port_listener_pids "$port")" ]; then
+      echo "ERROR: stack port $port is already in use"
+      exit 1
+    fi
+  done
+fi
 
 # Use computed ports (these come from compute_ports)
 TEST_WEB_PORT="$E2E_WEB_PORT"
@@ -48,12 +83,14 @@ TEST_DB_HOST_PORT="$E2E_DB_PORT"
 # Worktree-unique suffixes for containers, volumes, and temp files
 WT_SUFFIX=""
 [ "$WT_ID" -gt 0 ] && WT_SUFFIX="-wt${WT_ID}"
+[ -n "${E2E_STACK_INDEX:-}" ] && WT_SUFFIX="${WT_SUFFIX}-stack${E2E_STACK_INDEX}"
 
 TEST_CONTAINER="pi-dash-postgres-test${WT_SUFFIX}"
 TEST_VOLUME="pi-dash_postgres_test${WT_SUFFIX}_data"
 COMPOSE_PROJECT="pi-dash-e2e${WT_SUFFIX}"
 ZERO_LOG="/tmp/pi-dash-test${WT_SUFFIX}-zero.log"
 VITE_LOG="/tmp/pi-dash-test${WT_SUFFIX}-vite.log"
+BUILD_LOG="/tmp/pi-dash-test${WT_SUFFIX}-build.log"
 REPLICA_FILE="/tmp/pi-dash-test${WT_SUFFIX}.db"
 
 ENCODED_DEV_DB_PASSWORD=$(bun -e 'process.stdout.write(encodeURIComponent(process.env.DEV_DB_PASSWORD ?? ""))')
@@ -90,6 +127,10 @@ cleanup() {
   local cleanup_failed=0
 
   echo "Tearing down test environment..."
+  if [ -n "${BUILD_PID:-}" ]; then
+    kill "$BUILD_PID" 2>/dev/null || true
+    wait "$BUILD_PID" 2>/dev/null || true
+  fi
   # Kill vite dev server if running
   if [ -n "${VITE_PID:-}" ]; then
     kill "$VITE_PID" 2>/dev/null || true
@@ -108,6 +149,7 @@ cleanup() {
     cleanup_failed=1
   fi
   rm -f "$E2E_COMPOSE_FILE"
+  echo "E2E total: $((SECONDS - RUN_STARTED))s (including teardown)"
 
   return "$cleanup_failed"
 }
@@ -158,11 +200,21 @@ export BETTER_AUTH_URL="http://localhost:$TEST_WEB_PORT"
 export CORS_ORIGIN="http://localhost:$TEST_WEB_PORT"
 export SKIP_VALIDATION=true
 export ZERO_APP_ID=zero
+# The HTTP health endpoint waits for workers and initial replication.
+export ZERO_LAZY_STARTUP=false
 
-# Disable external notification services during E2E tests
-unset WHATSAPP_API_URL
-unset WHATSAPP_AUTH_USER
-unset WHATSAPP_AUTH_PASS
+# Keep dotenv in child processes from restoring the development service URL.
+export WHATSAPP_API_URL=""
+export WHATSAPP_AUTH_USER=""
+export WHATSAPP_AUTH_PASS=""
+
+# Build against the isolated test URLs while Zero starts. Never serve an old
+# build after source or build-time environment changes.
+if [ "$E2E_SERVER" = production ]; then
+  echo "Building production test server..."
+  (cd apps/web && NODE_ENV=production exec bun run build) > "$BUILD_LOG" 2>&1 &
+  BUILD_PID=$!
+fi
 
 # Clean stale replica
 rm -f "${REPLICA_FILE}"*
@@ -177,57 +229,53 @@ export ZERO_CHANGE_STREAMER_PORT="$TEST_ZERO_CS_PORT"
 (cd packages/zero && ZERO_PORT="$TEST_ZERO_PORT" bunx zero-cache-dev) > "$ZERO_LOG" 2>&1 &
 ZERO_PID=$!
 
-# Wait for zero-cache to be ready
-WAIT=0
-until curl -sf "http://localhost:$TEST_ZERO_PORT" >/dev/null 2>&1; do
+# Wait for zero-cache to finish initial replication and start its workers.
+ZERO_STARTED=$SECONDS
+until curl -sf --max-time 2 "http://localhost:$TEST_ZERO_PORT" >/dev/null 2>&1; do
+  if ! kill -0 "$ZERO_PID" 2>/dev/null; then
+    echo "ERROR: zero-cache exited unexpectedly; see $ZERO_LOG"
+    exit 1
+  fi
   sleep 1
-  WAIT=$((WAIT + 1))
-  if [ "$WAIT" -ge 30 ]; then
+  if [ "$((SECONDS - ZERO_STARTED))" -ge 30 ]; then
     echo "ERROR: zero-cache failed to start within 30s"
     exit 1
   fi
 done
-# Wait for initial replication by checking zero-cache logs for watermark
-echo "Waiting for initial replication to complete..."
-WAIT=0
-while true; do
-  if grep -q "replicated up to watermark" "$ZERO_LOG" 2>/dev/null; then
-    echo "Replication complete."
-    break
-  fi
-  sleep 1
-  WAIT=$((WAIT + 1))
-  if [ "$WAIT" -ge 60 ]; then
-    echo "WARNING: Replication not confirmed after 60s, proceeding anyway"
-    break
-  fi
-done
 echo "zero-cache ready."
 
-# Start vite dev server and pre-warm it (cold SSR compilation is slow)
-echo "Starting vite dev server on port $TEST_WEB_PORT..."
+echo "Starting $E2E_SERVER test server on port $TEST_WEB_PORT..."
 stop_port_processes "$TEST_WEB_PORT"
-(cd apps/web && bunx --bun vite dev --port "$TEST_WEB_PORT") > "$VITE_LOG" 2>&1 &
+if [ "$E2E_SERVER" = production ]; then
+  if ! wait "$BUILD_PID"; then
+    cat "$BUILD_LOG"
+    exit 1
+  fi
+  BUILD_PID=""
+  # Use the optimized bundle with the local test environment. Deployment-only
+  # HTTPS/CSP policies don't permit the separate localhost Zero port.
+  (cd apps/web && NODE_ENV=test PORT="$TEST_WEB_PORT" exec bun run .output/server/index.mjs) > "$VITE_LOG" 2>&1 &
+else
+  (cd apps/web && exec bunx --bun vite dev --port "$TEST_WEB_PORT") > "$VITE_LOG" 2>&1 &
+fi
 VITE_PID=$!
 
-# Wait for vite to bind the port
-WAIT=0
-until curl -sf -o /dev/null "http://localhost:$TEST_WEB_PORT" 2>/dev/null; do
-  # Check if vite is still running
+# Bound wall-clock readiness, including the first SSR request.
+SERVER_STARTED=$SECONDS
+until curl -sf --max-time 5 -o /dev/null "http://localhost:$TEST_WEB_PORT" 2>/dev/null; do
   if ! kill -0 "$VITE_PID" 2>/dev/null; then
-    echo "ERROR: Vite dev server exited unexpectedly"
+    echo "ERROR: Test web server exited unexpectedly"
     cat "$VITE_LOG"
     exit 1
   fi
-  sleep 2
-  WAIT=$((WAIT + 2))
-  if [ "$WAIT" -ge 180 ]; then
-    echo "ERROR: Vite dev server failed to respond within 180s"
+  sleep 1
+  if [ "$((SECONDS - SERVER_STARTED))" -ge 180 ]; then
+    echo "ERROR: Test web server failed to respond within 180s"
     cat "$VITE_LOG"
     exit 1
   fi
 done
-echo "Vite dev server ready (pre-warmed in ${WAIT}s)."
+echo "E2E environment ready in $((SECONDS - RUN_STARTED))s."
 
 # Tell Playwright to reuse our pre-warmed server
 export BASE_URL="http://localhost:$TEST_WEB_PORT"
@@ -241,6 +289,8 @@ else
   echo "Running all Playwright tests..."
 fi
 set +e
+TEST_STARTED=$SECONDS
 bunx playwright test --config packages/e2e/playwright.config.ts "$@"
 EXIT_CODE=$?
+echo "Playwright finished in $((SECONDS - TEST_STARTED))s."
 exit $EXIT_CODE

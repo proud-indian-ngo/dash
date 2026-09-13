@@ -52,21 +52,25 @@ test.describe("Public events list business logic", () => {
   });
 
   test("switching back to All restores full list", async ({ page }) => {
-    const allCards = page.locator("main a[href*='/events/']");
-    const initialCount = await allCards.count();
+    const publicEvent = page.getByRole("link", {
+      name: "E2E Upcoming Public Bangalore",
+      exact: true,
+    });
+    const privateEvent = page.getByRole("link", {
+      name: "E2E Upcoming Private Mumbai",
+      exact: true,
+    });
+    await expect(publicEvent).toBeVisible();
+    await expect(privateEvent).toBeVisible();
 
-    // Apply "Public" filter
     await page.getByRole("button", { name: "Public" }).first().click();
-    await page.waitForTimeout(300);
+    await expect(publicEvent).toBeVisible();
+    await expect(privateEvent).toBeHidden();
 
-    // Switch back to "All"
-    // The "All" button in Show section (not Time section)
     const showSection = page.getByText("Show", { exact: true }).locator("..");
     await showSection.getByRole("button", { name: "All" }).click();
-    await page.waitForTimeout(500);
-
-    const restoredCount = await allCards.count();
-    expect(restoredCount).toBe(initialCount);
+    await expect(publicEvent).toBeVisible();
+    await expect(privateEvent).toBeVisible();
   });
 
   test("This Month shows only events within current month", async ({

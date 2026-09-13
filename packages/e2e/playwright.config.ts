@@ -1,6 +1,12 @@
+import { cpus } from "node:os";
 import path from "node:path";
 
 import { defineConfig, devices } from "@playwright/test";
+
+import {
+  releaseInvariantPatterns,
+  testIgnoreForRole,
+} from "./project-selection";
 
 const isCI = !!process.env.CI;
 const isTestDB = !!process.env.TEST_DB_URL;
@@ -21,8 +27,21 @@ export default defineConfig({
     },
     {
       dependencies: ["setup"],
+      name: "kalakriti_release_invariants",
+      testMatch: releaseInvariantPatterns,
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: path.resolve(
+          import.meta.dirname,
+          ".auth/unoriented_volunteer.json"
+        ),
+      },
+      workers: 1,
+    },
+    {
+      dependencies: ["setup"],
       name: "super_admin",
-      testIgnore: /auth\//,
+      testIgnore: testIgnoreForRole("super_admin", [/auth\//]),
       use: {
         ...devices["Desktop Chrome"],
         storageState: path.resolve(
@@ -34,7 +53,7 @@ export default defineConfig({
     {
       dependencies: ["setup"],
       name: "admin",
-      testIgnore: [/auth\//, /users\//],
+      testIgnore: testIgnoreForRole("admin", [/auth\//, /users\//]),
       use: {
         ...devices["Desktop Chrome"],
         storageState: path.resolve(import.meta.dirname, ".auth/admin.json"),
@@ -43,7 +62,7 @@ export default defineConfig({
     {
       dependencies: ["setup"],
       name: "finance_admin",
-      testIgnore: [/auth\//, /users\//],
+      testIgnore: testIgnoreForRole("finance_admin", [/auth\//, /users\//]),
       use: {
         ...devices["Desktop Chrome"],
         storageState: path.resolve(
@@ -55,7 +74,7 @@ export default defineConfig({
     {
       dependencies: ["setup"],
       name: "volunteer",
-      testIgnore: [/auth\//, /users\//],
+      testIgnore: testIgnoreForRole("volunteer", [/auth\//, /users\//]),
       use: {
         ...devices["Desktop Chrome"],
         storageState: path.resolve(import.meta.dirname, ".auth/volunteer.json"),
@@ -67,7 +86,12 @@ export default defineConfig({
       // Skip domains whose specs assume access unoriented volunteers lack.
       // Dedicated coverage lives in tests/roles/unoriented-volunteer-flows.spec.ts
       // and tests/authorization/.
-      testIgnore: [/auth\//, /users\//, /reimbursements\//, /teams\//],
+      testIgnore: testIgnoreForRole("unoriented_volunteer", [
+        /auth\//,
+        /users\//,
+        /reimbursements\//,
+        /teams\//,
+      ]),
       use: {
         ...devices["Desktop Chrome"],
         storageState: path.resolve(
@@ -81,28 +105,6 @@ export default defineConfig({
       testMatch: /auth\//,
       use: { ...devices["Desktop Chrome"] },
     },
-    {
-      dependencies: ["setup"],
-      name: "kalakriti_release_invariants",
-      testMatch: [
-        /kalakriti\/golive\.spec\.ts/,
-        /kalakriti\/operations-person-qr\.spec\.ts/,
-        /kalakriti\/event-day-transport\.spec\.ts/,
-        /kalakriti\/event-day-stations\.spec\.ts/,
-        /kalakriti\/food-entry-scopes\.spec\.ts/,
-        /kalakriti\/table-sizing\.spec\.ts/,
-        /kalakriti\/public-schedule\.spec\.ts/,
-        /kalakriti\/release-database-races\.spec\.ts/,
-      ],
-      use: {
-        ...devices["Desktop Chrome"],
-        storageState: path.resolve(
-          import.meta.dirname,
-          ".auth/unoriented_volunteer.json"
-        ),
-      },
-      workers: 1,
-    },
   ],
   reporter: isCI
     ? [["github"], ["html"], ["./duration-reporter.ts"]]
@@ -115,7 +117,9 @@ export default defineConfig({
     screenshot: "only-on-failure",
     trace: "on-first-retry",
   },
-  workers: undefined,
+  workers: isCI
+    ? undefined
+    : Math.min(4, Math.max(1, Math.floor(cpus().length / 2))),
   // When BASE_URL is set, run-e2e.sh already started and pre-warmed the server
   ...(process.env.BASE_URL
     ? {}

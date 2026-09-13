@@ -29,13 +29,13 @@ function buildMutateBody(mutationName: string, args: Record<string, unknown>) {
 }
 
 async function assertUnauthorized(
-  page: import("@playwright/test").Page,
+  request: import("@playwright/test").APIRequestContext,
   baseURL: string | undefined,
   mutationName: string,
   args: Record<string, unknown>
 ) {
   const body = buildMutateBody(mutationName, args);
-  const response = await page.request.post(
+  const response = await request.post(
     `${baseURL}/api/zero/mutate?schema=zero_0&appID=zero`,
     { data: body }
   );
@@ -49,36 +49,43 @@ async function assertUnauthorized(
 const FAKE_ID = "00000000-0000-0000-0000-000000000000";
 
 test.describe("API authorization — expanded mutations rejected for volunteer", () => {
-  test.beforeEach(({ page: _page }, testInfo) => {
+  test.beforeEach(({ baseURL: _baseURL }, testInfo) => {
     test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
   });
 
   // ── Vendor ──────────────────────────────────────────────────────────────────
 
-  test("vendor.approve rejected for volunteer", async ({ page, baseURL }) => {
-    await assertUnauthorized(page, baseURL, "vendor.approve", { id: FAKE_ID });
+  test("vendor.approve rejected for volunteer", async ({
+    request,
+    baseURL,
+  }) => {
+    await assertUnauthorized(request, baseURL, "vendor.approve", {
+      id: FAKE_ID,
+    });
   });
 
-  test("vendor.delete rejected for volunteer", async ({ page, baseURL }) => {
-    await assertUnauthorized(page, baseURL, "vendor.delete", { id: FAKE_ID });
+  test("vendor.delete rejected for volunteer", async ({ request, baseURL }) => {
+    await assertUnauthorized(request, baseURL, "vendor.delete", {
+      id: FAKE_ID,
+    });
   });
 
   // ── Vendor Payment ───────────────────────────────────────────────────────────
 
   test("vendorPayment.approve rejected for volunteer", async ({
-    page,
+    request,
     baseURL,
   }) => {
-    await assertUnauthorized(page, baseURL, "vendorPayment.approve", {
+    await assertUnauthorized(request, baseURL, "vendorPayment.approve", {
       id: FAKE_ID,
     });
   });
 
   test("vendorPayment.reject rejected for volunteer", async ({
-    page,
+    request,
     baseURL,
   }) => {
-    await assertUnauthorized(page, baseURL, "vendorPayment.reject", {
+    await assertUnauthorized(request, baseURL, "vendorPayment.reject", {
       id: FAKE_ID,
       reason: "test",
     });
@@ -86,23 +93,26 @@ test.describe("API authorization — expanded mutations rejected for volunteer",
 
   // ── Team ────────────────────────────────────────────────────────────────────
 
-  test("team.update rejected for volunteer", async ({ page, baseURL }) => {
-    await assertUnauthorized(page, baseURL, "team.update", {
+  test("team.update rejected for volunteer", async ({ request, baseURL }) => {
+    await assertUnauthorized(request, baseURL, "team.update", {
       id: FAKE_ID,
       name: "Test Team",
       now: Date.now(),
     });
   });
 
-  test("team.delete rejected for volunteer", async ({ page, baseURL }) => {
-    await assertUnauthorized(page, baseURL, "team.delete", { id: FAKE_ID });
+  test("team.delete rejected for volunteer", async ({ request, baseURL }) => {
+    await assertUnauthorized(request, baseURL, "team.delete", { id: FAKE_ID });
   });
 
-  test("team.addMember rejected for volunteer", async ({ page, baseURL }) => {
+  test("team.addMember rejected for volunteer", async ({
+    request,
+    baseURL,
+  }) => {
     // assertIsLoggedIn passes (volunteer is logged in),
     // but isTeamLead will be false for fake teamId,
     // so assertHasPermissionOrTeamLead("teams.manage_members", false) → Unauthorized
-    await assertUnauthorized(page, baseURL, "team.addMember", {
+    await assertUnauthorized(request, baseURL, "team.addMember", {
       id: FAKE_ID,
       role: "member",
       teamId: FAKE_ID,
@@ -111,10 +121,10 @@ test.describe("API authorization — expanded mutations rejected for volunteer",
   });
 
   test("team.removeMember rejected for volunteer", async ({
-    page,
+    request,
     baseURL,
   }) => {
-    await assertUnauthorized(page, baseURL, "team.removeMember", {
+    await assertUnauthorized(request, baseURL, "team.removeMember", {
       memberId: FAKE_ID,
       teamId: FAKE_ID,
     });
@@ -123,10 +133,10 @@ test.describe("API authorization — expanded mutations rejected for volunteer",
   // ── Scheduled Messages ───────────────────────────────────────────────────────
 
   test("scheduledMessage.create rejected for volunteer", async ({
-    page,
+    request,
     baseURL,
   }) => {
-    await assertUnauthorized(page, baseURL, "scheduledMessage.create", {
+    await assertUnauthorized(request, baseURL, "scheduledMessage.create", {
       id: FAKE_ID,
       message: "Test message",
       recipients: [{ id: FAKE_ID, label: "Test Group", type: "group" }],
@@ -135,10 +145,10 @@ test.describe("API authorization — expanded mutations rejected for volunteer",
   });
 
   test("scheduledMessage.delete rejected for volunteer", async ({
-    page,
+    request,
     baseURL,
   }) => {
-    await assertUnauthorized(page, baseURL, "scheduledMessage.delete", {
+    await assertUnauthorized(request, baseURL, "scheduledMessage.delete", {
       id: FAKE_ID,
     });
   });
@@ -146,7 +156,7 @@ test.describe("API authorization — expanded mutations rejected for volunteer",
   // ── Event Updates ────────────────────────────────────────────────────────────
 
   test("eventUpdate.create rejected for non-member volunteer", async ({
-    page,
+    request,
     baseURL,
   }) => {
     // Volunteer is not a member of this fake event → "Must be an event member"
@@ -157,7 +167,7 @@ test.describe("API authorization — expanded mutations rejected for volunteer",
       id: FAKE_ID,
       now: Date.now(),
     });
-    const response = await page.request.post(
+    const response = await request.post(
       `${baseURL}/api/zero/mutate?schema=zero_0&appID=zero`,
       { data: body }
     );
@@ -168,7 +178,7 @@ test.describe("API authorization — expanded mutations rejected for volunteer",
   });
 
   test("eventUpdate.approve rejected for volunteer", async ({
-    page,
+    request,
     baseURL,
   }) => {
     // Volunteer lacks event_updates.approve permission and is not a team lead
@@ -176,7 +186,7 @@ test.describe("API authorization — expanded mutations rejected for volunteer",
       id: FAKE_ID,
       now: Date.now(),
     });
-    const response = await page.request.post(
+    const response = await request.post(
       `${baseURL}/api/zero/mutate?schema=zero_0&appID=zero`,
       { data: body }
     );
@@ -187,14 +197,14 @@ test.describe("API authorization — expanded mutations rejected for volunteer",
   });
 
   test("eventUpdate.reject rejected for volunteer", async ({
-    page,
+    request,
     baseURL,
   }) => {
     const body = buildMutateBody("eventUpdate.reject", {
       id: FAKE_ID,
       now: Date.now(),
     });
-    const response = await page.request.post(
+    const response = await request.post(
       `${baseURL}/api/zero/mutate?schema=zero_0&appID=zero`,
       { data: body }
     );
@@ -207,11 +217,11 @@ test.describe("API authorization — expanded mutations rejected for volunteer",
   // ── Notification Preferences (admin) ────────────────────────────────────────
 
   test("notificationPreference.adminUpsert rejected for volunteer", async ({
-    page,
+    request,
     baseURL,
   }) => {
     await assertUnauthorized(
-      page,
+      request,
       baseURL,
       "notificationPreference.adminUpsert",
       {

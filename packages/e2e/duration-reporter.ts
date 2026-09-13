@@ -34,7 +34,10 @@ export default class DurationReporter implements Reporter {
   }
 
   onTestEnd(test: TestCase, result: TestResult): void {
-    if (result.status === "passed" || result.status === "flaky") {
+    if (
+      result.status === "passed" ||
+      (result.status === "skipped" && test.expectedStatus === "skipped")
+    ) {
       // Build key matching the `playwright test --list --reporter=list` output:
       // [project] › relative/path.spec.ts:line:col › Suite › test name
       // Paths in --list are relative to testDir (packages/e2e/tests/)

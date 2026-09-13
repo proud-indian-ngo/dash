@@ -1,3 +1,5 @@
+import { env } from "@pi-dash/env/server";
+
 // Single-process in-memory rate limiter. State is per-process, lost on restart,
 // and not shared across instances. Replace with Redis/Upstash for horizontal scaling.
 const store = new Map<string, { count: number; resetAt: number }>();
@@ -33,6 +35,11 @@ export function checkRateLimit(
   windowMs = 60_000
 ): RateLimitResult {
   ensurePruneInterval();
+  // The shared E2E actor drives concurrent browser roles through the same keys.
+  const effectiveLimit =
+    env.NODE_ENV === "test" && process.env.VITE_E2E === "true"
+      ? limit * 100
+      : limit;
   const now = Date.now();
   const entry = store.get(key);
 
@@ -40,17 +47,17 @@ export function checkRateLimit(
     store.set(key, { count: 1, resetAt: now + windowMs });
     return {
       allowed: true,
-      limit,
-      remaining: limit - 1,
+      limit: effectiveLimit,
+      remaining: effectiveLimit - 1,
       resetAt: now + windowMs,
     };
   }
 
   entry.count += 1;
-  const remaining = Math.max(limit - entry.count, 0);
+  const remaining = Math.max(effectiveLimit - entry.count, 0);
   return {
-    allowed: entry.count <= limit,
-    limit,
+    allowed: entry.count <= effectiveLimit,
+    limit: effectiveLimit,
     remaining,
     resetAt: entry.resetAt,
   };

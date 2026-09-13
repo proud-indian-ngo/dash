@@ -296,7 +296,10 @@ Copy `.env.sample` to `.env`. Required variables:
 |---|---|
 | `cd packages/e2e && bash run-e2e.sh` | Run full E2E suite (starts test DB, seeds, runs Playwright, cleans up) |
 | `cd packages/e2e && bash run-e2e.sh tests/foo.spec.ts` | Run specific test files (paths relative to `packages/e2e/`) |
+| `E2E_SERVER=dev bash packages/e2e/run-e2e.sh tests/foo.spec.ts` | Run a focused test against Vite without a production build |
 | `cd packages/e2e && bash run-e2e.sh --ui` | Run E2E tests with Playwright UI mode |
+| `bash packages/e2e/run-e2e.sh --list` | List selected tests without starting services |
+| `bun run packages/e2e/run-two-stacks.ts` | Benchmark two isolated stacks with two workers each, tracing off, and no retries |
 | `bun run test:seed` | Seed E2E test data |
 | `bun run test:e2e` | Run E2E tests via Turborepo |
 | `bun run test:e2e:ui` | Run E2E tests in Playwright UI mode |
@@ -308,7 +311,9 @@ The E2E suite uses setup plus seven browser projects:
 - **unauthenticated** — login and password recovery coverage
 - **kalakriti_release_invariants** — public schedule privacy and singleton live-Edition races, serialized through one worker
 
-Global setup also saves Edition Admin, Volunteer Coordinator, Overall Events Lead, Category Lead, Guardian, Liaison, and unrelated-volunteer sessions for the Kalakriti registration access matrix. Test credentials are in `packages/e2e/.env.test`. The orchestration script (`run-e2e.sh`) handles spinning up a dedicated test PostgreSQL on port 5433, pushing the schema, seeding test data, starting zero-cache, and cleaning up after tests complete.
+Global setup saves authenticated API storage state for every shared role and active Kalakriti actor. Test credentials are in `packages/e2e/.env.test`. The orchestration script (`run-e2e.sh`) starts a dedicated worktree-aware PostgreSQL, migrates and seeds it, starts Zero, and serves a fresh optimized build with `NODE_ENV=test`. Interactive UI/debug mode uses Vite so app edits remain visible. Every run tears down its database and services on exit and reports setup, test, and total elapsed time.
+
+Role-only specs are selected before execution in `packages/e2e/project-selection.ts`; shared multirole coverage remains intact. See [E2E runtime research](docs/e2e-performance-research.md) for measurements and tradeoffs.
 
 ### Build & quality
 
