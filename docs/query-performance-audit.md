@@ -1,6 +1,6 @@
 # Query performance audit coverage
 
-Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 51 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
+Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 53 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
 
 Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/tests/performance/app.spec.ts`, with their JSON report attachments. Commands, fixture sizes, account scopes, timings and limitations are recorded in [E2E architecture](architecture/e2e-testing.md). SQLite reads, synced rows, server hydration and total hydration are separate measurements. Broad local caching is intentional; root scans and row counts alone do not establish waste.
 
@@ -31,13 +31,13 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 | `kalakritiTransport` | `byCenter` | None |
 | `notification` | `forCurrentUser` (admin and volunteer) | None |
 | `notificationPreference` | `byCurrentUser` (admin/volunteer), `byUser` (admin) | None |
-| `reimbursement` | `all`, `byId` | `byCurrentUser`, `byEvent` |
+| `reimbursement` | `all`, `byId`, `byEvent` (admin/owner) | `byCurrentUser` |
 | `scheduledMessage` | `all` (admin) | `byId` (no mounted production consumer) |
 | `team` | `byCurrentUser` | `all`, `byId` |
 | `teamEvent` | `allAccessible`, `byCurrentUserAll`, `byId` | `byCurrentUser`, `byIdWithExpenses`, `byTeam`, `public` |
 | `user` | `all`, `whatsappUsers` (admin) | `one` |
 | `vendor` | `all` | `approved`, `byId`, `pendingByCurrentUser` |
-| `vendorPayment` | `all`, `byId` | `byCurrentUser`, `byEvent` |
+| `vendorPayment` | `all`, `byId`, `byEvent` (admin/owner) | `byCurrentUser` |
 | `vendorPaymentTransaction` | None | `byId`, `byVendorPayment` |
 | `whatsappGroup` | None | `all` |
 
@@ -388,3 +388,17 @@ The approved schema change generates `notification_userId_archived_createdAt_id_
 
 
 The real migration applied successfully in the isolated test stack. Both admin and volunteer plans use `notification_userId_archived_createdAt_id_idx`, with 50 scanned/read/synced rows in all three samples and exact expected IDs. Analyzer medians were 12.83/10.79 ms. All 13 browser tests passed without retries, and type, lint and unused-export checks passed.
+
+
+## Event expense baseline (2026-09-14)
+
+The app fixture places 200 Reimbursements and 200 Vendor Payments on its public Event, split equally between admin and volunteer. Other financial records remain distributed among the remaining Events. Event summary metrics mount both queries for ordinary volunteers even though the Expenses tab is manager-only; the initial absent-subscription assertion was incorrect and was replaced with ownership checks.
+
+| Query / scope | Median analyzer ms | Read / synced | Scans | Server hydration ms | Total hydration ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Reimbursement / admin | 67.78 | 1,800 / 1,007 | 3,200 | 41.32 | 1,381.7 |
+| Vendor Payment / admin | 107.89 | 2,800 / 1,707 | 4,400 | 68.01 | 1,376.2 |
+| Reimbursement / owner | 31.23 | 900 / 504 | 1,700 | 18.90 | 305.6 |
+| Vendor Payment / owner | 53.86 | 1,400 / 854 | 2,300 | 34.83 | 302.6 |
+
+The benchmark verifies 200 roots per query for admin, 100 for volunteer, and exact volunteer ownership. All 13 tests passed without retries. Both consumers use line-item amounts; the expense list also needs submitter/vendor names. Attachments, history and transaction details are candidates for removing from these Event-specific projections, while full list/detail queries retain them. No query change is included in this baseline.

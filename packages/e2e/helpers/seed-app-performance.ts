@@ -7,6 +7,8 @@ import { TOPICS } from "../../notifications/src/topics";
 const id = (number: number) =>
   `019f0000-2191-7000-8000-${number.toString(16).padStart(12, "0")}`;
 
+const eventExpenseCount = 200;
+
 const counts = {
   teams: 1,
   teamMembers: 1,
@@ -342,7 +344,11 @@ export async function seedAppPerformance() {
             const index = start + offset;
             return {
               id: reimbursementId(index),
-              eventId: eventId(index % counts.events),
+              eventId: eventId(
+                index < eventExpenseCount
+                  ? 0
+                  : 1 + (index % (counts.events - 1))
+              ),
               userId: ownerId(index),
               title: `Synthetic reimbursement ${index + 1}`,
               expenseDate: day,
@@ -457,7 +463,11 @@ export async function seedAppPerformance() {
             const index = start + offset;
             return {
               id: paymentId(index),
-              eventId: eventId(index % counts.events),
+              eventId: eventId(
+                index < eventExpenseCount
+                  ? 0
+                  : 1 + (index % (counts.events - 1))
+              ),
               vendorId: id(5000 + (index % counts.vendors)),
               userId: ownerId(index),
               title: `Synthetic vendor payment ${index + 1}`,
@@ -693,6 +703,7 @@ export async function seedAppPerformance() {
 
   return {
     teamId: id(1),
+    eventExpenseCount,
     counts: actualCounts,
     notificationIndexExperiment,
     scheduledIndexExperiment,

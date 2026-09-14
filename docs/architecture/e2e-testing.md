@@ -301,3 +301,6 @@ Set `SCHEDULED_INDEX_EXPERIMENT=true` with the app benchmark to compare disposab
 
 
 The app benchmark visits Advance Payment detail as admin, owner and a denied requester using the existing 500-advance fixture. It verifies the exact request ID, owner and related line-item/history counts, plus the empty Reimbursement lookup mounted by the shared request-detail route. It does not edit or submit financial records.
+
+
+The app fixture concentrates 200 Reimbursements and 200 Vendor Payments on the sampled public Event, split between two owners. The benchmark profiles both Event expense queries as admin and volunteer and asserts 200/100 roots plus volunteer ownership. Event summary metrics also consume these queries when the manager-only Expenses tab is absent.

@@ -37,6 +37,7 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     );
   const fixture = JSON.parse((await seed()).stdout.trim()) as {
     counts: Record<string, number>;
+    eventExpenseCount: number;
     restrictedCounts: Record<string, number>;
     notificationIds: { admin: string[]; volunteer: string[] };
     visibleUsers: number;
@@ -285,6 +286,28 @@ test("profile Dashboard, Events and financial queries at scale", async ({
   await expect(
     page.getByText("Synthetic performance feedback 1", { exact: true })
   ).toBeVisible();
+  await page.getByRole("tab", { name: /^Expenses/ }).click();
+  results.push({
+    route: "event-expenses",
+    queries: await profileZeroQueries(
+      page,
+      {
+        "reimbursement.byEvent": fixture.eventExpenseCount,
+        "vendorPayment.byEvent": fixture.eventExpenseCount,
+      },
+      { eventId: fixture.sampleIds.publicEvent },
+      {
+        "reimbursement.byEvent": {
+          table: "reimbursement",
+          count: fixture.eventExpenseCount,
+        },
+        "vendorPayment.byEvent": {
+          table: "vendor_payment",
+          count: fixture.eventExpenseCount,
+        },
+      }
+    ),
+  });
   await page.goto(`/reimbursements/${fixture.sampleIds.ownAdvance}`);
   results.push({
     route: "advance-detail",
@@ -407,6 +430,32 @@ test("profile Dashboard, Events and financial queries at scale", async ({
         ).map((query) => query.name)
       )
     ).not.toContain("eventFeedback.byEvent");
+    await expect(
+      restrictedPage.getByRole("tab", { name: /^Expenses/ })
+    ).toHaveCount(0);
+    restrictedResults.push({
+      route: "event-expenses-owner",
+      queries: await profileZeroQueries(
+        restrictedPage,
+        {
+          "reimbursement.byEvent": fixture.eventExpenseCount / 2,
+          "vendorPayment.byEvent": fixture.eventExpenseCount / 2,
+        },
+        { eventId: fixture.sampleIds.publicEvent },
+        {
+          "reimbursement.byEvent": {
+            table: "reimbursement",
+            count: fixture.eventExpenseCount / 2,
+            userId: fixture.accountIds.volunteer,
+          },
+          "vendorPayment.byEvent": {
+            table: "vendor_payment",
+            count: fixture.eventExpenseCount / 2,
+            userId: fixture.accountIds.volunteer,
+          },
+        }
+      ),
+    });
     for (const [id, count] of [
       [fixture.sampleIds.ownAdvance, 1],
       [fixture.sampleIds.deniedAdvance, 0],
