@@ -1,6 +1,6 @@
 # Query performance audit coverage
 
-Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 48 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
+Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 50 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
 
 Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/tests/performance/app.spec.ts`, with their JSON report attachments. Commands, fixture sizes, account scopes, timings and limitations are recorded in [E2E architecture](architecture/e2e-testing.md). SQLite reads, synced rows, server hydration and total hydration are separate measurements. Broad local caching is intentional; root scans and row counts alone do not establish waste.
 
@@ -32,10 +32,10 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 | `notification` | `forCurrentUser` (admin and volunteer) | None |
 | `notificationPreference` | `byCurrentUser` (admin/volunteer), `byUser` (admin) | None |
 | `reimbursement` | `all`, `byId` | `byCurrentUser`, `byEvent` |
-| `scheduledMessage` | None | `all`, `byId` |
+| `scheduledMessage` | `all` (admin) | `byId` (no mounted production consumer) |
 | `team` | `byCurrentUser` | `all`, `byId` |
 | `teamEvent` | `allAccessible`, `byCurrentUserAll`, `byId` | `byCurrentUser`, `byIdWithExpenses`, `byTeam`, `public` |
-| `user` | `all` (admin) | `one`, `whatsappUsers` |
+| `user` | `all`, `whatsappUsers` (admin) | `one` |
 | `vendor` | `all` | `approved`, `byId`, `pendingByCurrentUser` |
 | `vendorPayment` | `all`, `byId` | `byCurrentUser`, `byEvent` |
 | `vendorPaymentTransaction` | None | `byId`, `byVendorPayment` |
@@ -344,3 +344,17 @@ The local app fixture now adds 1,000 synthetic users and 11,022 notification pre
 Preference plans use the existing `(user_id, topic_id)` primary-key index. These measurements do not justify changing those queries. The Users page intentionally caches the full visible directory; its scan metric includes filtering/sorting work and does not represent distinct users.
 
 The benchmark passed all 13 tests with retries disabled. The Bun worker repeatedly spun at the Food route test import, although that test passed alone with the same environment flags. After capturing a native stack sample, the runner now executes that test in its own process; the full unit suite passed in 11 seconds. Type, lint, unused-export and focused benchmark TypeScript checks also passed. The runtime root cause remains unproven. Other permission combinations, denied preference lookups and larger user directories remain unmeasured.
+
+
+## Scheduled Messages baseline (2026-09-14)
+
+The isolated app fixture adds 500 completed messages and 5,000 sent recipients, with no enqueue or delivery calls. The benchmark verifies all 500 roots and 5,000 related recipients, then opens the scheduling dialog to measure the WhatsApp user picker. Both seeding passes produce identical fixture counts.
+
+| Query | Median analyzer ms | Read / synced | Scans | Server hydration ms | Total hydration ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `scheduledMessage.all` | 133.66 | 6,000 / 5,502 | 11,500 | 66.66 | 480.2 |
+| `user.whatsappUsers` | 16.70 | 400 / 400 | 1,413 | 3.32 | 89.3 |
+
+The message list uses creator names, recipient status summaries and recipient detail rows, so this baseline does not justify removing those relations. Its plan sorts the message root and each recipient lookup with temporary B-trees. Ordered indexes are candidates for a disposable local comparison; no migration is included. The picker scans and sorts Users, but its measured server cost is small at this size.
+
+`scheduledMessage.byId` has no mounted production consumer: the detail sheet selects from the existing list subscription. It remains unmeasured as a query API. The browser benchmark passed all 13 tests without retries. Restricted query API scopes, attachments, mixed delivery statuses and much larger histories still need performance coverage.

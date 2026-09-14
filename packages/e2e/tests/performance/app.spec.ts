@@ -40,6 +40,7 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     restrictedCounts: Record<string, number>;
     notificationIds: { admin: string[]; volunteer: string[] };
     visibleUsers: number;
+    whatsappUsers: number;
     preferenceTopics: number;
     sampleUserId: string;
     accountIds: { admin: string; volunteer: string };
@@ -150,6 +151,44 @@ test("profile Dashboard, Events and financial queries at scale", async ({
       });
     }
   }
+  await page.goto("/scheduled-messages");
+  results.push({
+    route: "scheduled-messages",
+    queries: await profileZeroQueries(
+      page,
+      {
+        "scheduledMessage.all": fixture.counts.scheduledMessages!,
+      },
+      undefined,
+      {
+        "scheduledMessage.all": {
+          table: "scheduled_message",
+          count: fixture.counts.scheduledMessages!,
+          relatedCounts: {
+            scheduled_message_recipient: fixture.counts.scheduledRecipients!,
+          },
+        },
+      }
+    ),
+  });
+  await page.getByRole("button", { name: "Schedule message" }).click();
+  results.push({
+    route: "scheduled-message-recipients",
+    queries: await profileZeroQueries(
+      page,
+      {
+        "user.whatsappUsers": fixture.whatsappUsers,
+      },
+      undefined,
+      {
+        "user.whatsappUsers": { table: "user", count: fixture.whatsappUsers },
+      }
+    ),
+  });
+  await page
+    .getByRole("dialog", { name: "Schedule message" })
+    .getByRole("button", { name: "Cancel" })
+    .click();
   await page.goto("/users");
   results.push({
     route: "users",

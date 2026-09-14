@@ -292,3 +292,6 @@ For the disposable notification index comparison, add `NOTIFICATION_INDEX_EXPERI
 
 
 The app performance fixture also adds 1,000 synthetic users without credentials and 11,022 notification preferences using the canonical topic list. The benchmark visits Users, an individual user's notification settings, and personal settings for admin and volunteer. It verifies visible user totals and exact preference ownership without recording preference contents. These cases use the existing app performance command and local-only database guard.
+
+
+The app performance fixture includes 500 completed Scheduled Messages and 5,000 sent recipient rows. It writes rows directly under the existing local database guard and enqueues no jobs. The benchmark checks root/recipient counts and measures the WhatsApp user picker by opening and cancelling the scheduling dialog. It does not submit a message or exercise delivery.

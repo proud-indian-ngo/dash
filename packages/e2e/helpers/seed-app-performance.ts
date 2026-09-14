@@ -31,6 +31,8 @@ const counts = {
   transactionHistory: 2000,
   notifications: 10_000,
   users: 1000,
+  scheduledMessages: 500,
+  scheduledRecipients: 5000,
 } as const;
 
 function assertTestDatabase() {
@@ -74,6 +76,8 @@ export async function seedAppPerformance() {
   const { eventUpdate } = await import("@pi-dash/db/schema/event-update");
   const { eventFeedback } = await import("@pi-dash/db/schema/event-feedback");
   const { eventPhoto } = await import("@pi-dash/db/schema/event-photo");
+  const { scheduledMessage, scheduledMessageRecipient } =
+    await import("@pi-dash/db/schema/scheduled-message");
   const { notification } = await import("@pi-dash/db/schema/notification");
   const notificationIndexExperiment =
     process.env.NOTIFICATION_INDEX_EXPERIMENT === "true";
@@ -137,6 +141,45 @@ export async function seedAppPerformance() {
           })
         )
         .onConflictDoNothing({ target: user.id })
+    );
+    await batches(counts.scheduledMessages, (start, length) =>
+      tx
+        .insert(scheduledMessage)
+        .values(
+          Array.from({ length }, (_, offset) => {
+            const index = start + offset;
+            return {
+              id: id(100_000 + index),
+              createdBy: ownerId(index),
+              message: `Synthetic scheduled history ${index + 1}`,
+              scheduledAt: now,
+              createdAt: now,
+              updatedAt: now,
+            };
+          })
+        )
+        .onConflictDoNothing({ target: scheduledMessage.id })
+    );
+    await batches(counts.scheduledRecipients, (start, length) =>
+      tx
+        .insert(scheduledMessageRecipient)
+        .values(
+          Array.from({ length }, (_, offset) => {
+            const index = start + offset;
+            return {
+              id: id(110_000 + index),
+              scheduledMessageId: id(100_000 + Math.floor(index / 10)),
+              recipientId: id(90_000 + (index % counts.users)),
+              label: `Synthetic recipient ${index + 1}`,
+              type: "user" as const,
+              status: "sent" as const,
+              sentAt: now,
+              createdAt: now,
+              updatedAt: now,
+            };
+          })
+        )
+        .onConflictDoNothing({ target: scheduledMessageRecipient.id })
     );
     const preferenceUsers = [
       admin.id,
@@ -562,6 +605,8 @@ export async function seedAppPerformance() {
     ["photos", eventPhoto, 32_000],
     ["notifications", notification, 40_000],
     ["users", user, 90_000],
+    ["scheduledMessages", scheduledMessage, 100_000],
+    ["scheduledRecipients", scheduledMessageRecipient, 110_000],
     ["categories", expenseCategory, 4000],
     ["vendors", vendor, 5000],
     ["reimbursements", reimbursement, 6000],
@@ -625,6 +670,9 @@ export async function seedAppPerformance() {
   const [visibleUserCount] = await db.execute(
     sql`SELECT count(*)::integer AS total FROM "user" WHERE role != 'external_user'`
   );
+  const [whatsappUserCount] = await db.execute(
+    sql`SELECT count(*)::integer AS total FROM "user" WHERE role != 'external_user' AND is_on_whatsapp = true`
+  );
   const [preferenceCount] = await db.execute(sql`
     SELECT count(*)::integer AS total FROM notification_topic_preference
     WHERE user_id IN (${admin.id}, ${volunteer.id})
@@ -640,6 +688,7 @@ export async function seedAppPerformance() {
     counts: actualCounts,
     notificationIndexExperiment,
     visibleUsers: Number(visibleUserCount?.total),
+    whatsappUsers: Number(whatsappUserCount?.total),
     preferenceTopics: Object.values(TOPICS).length,
     preferenceRows,
     sampleUserId: id(90_001),
