@@ -174,3 +174,9 @@ Three-sample local medians with PostgreSQL 18.3:
 | Category lead | Offset 5,000 | 12.08 | 8.83 | 21.12 |
 
 First-page plans scan all 41,000 audit rows before sorting: admins retain 40,000 and category leads retain 10,000. The first-page sort stays in memory. This establishes a candidate for ordered-index experiments, not an approved schema change or production bottleneck. SQL samples execute sequentially; HTTP includes authentication and concurrent page/count work. Access resolution is recorded separately as a single observation, not a latency distribution. The benchmark does not prove snapshot behavior under concurrent writes or cover every audit role. The isolated E2E run passed all 13 checks (12 authentication setups and the nine-scenario benchmark).
+
+### Ordered-index experiment
+
+A disposable local index on `(edition_id, created_at DESC NULLS FIRST, id DESC NULLS FIRST)` reduced global-admin first-page item SQL from 21.36 ms to 0.046 ms and Edition-admin from 19.72 ms to 0.040 ms. Those plans read 25 audit rows rather than scanning 41,000. Category first-page item SQL fell from 11.23 ms to 0.082 ms, with 25 retained and 78 filtered rows. All nine scenarios retained exact results and the 13-check E2E run passed.
+
+Global-admin first-page HTTP fell from 24.38 ms to 15.82 ms and Edition-admin from 22.82 ms to 16.06 ms. Category first-page HTTP was essentially unchanged (15.93 to 16.78 ms), since count and authentication still contribute. Deep offsets retained sequential-scan/sort plans and showed no consistent improvement. The candidate was removed with the disposable database; no migration has been added or deployed. This supports a targeted first-page index, not a claim that counting or deep pagination is fixed.
