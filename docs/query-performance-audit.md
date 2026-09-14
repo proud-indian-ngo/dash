@@ -1,6 +1,6 @@
 # Query performance audit coverage
 
-Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 53 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
+Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 55 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
 
 Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/tests/performance/app.spec.ts`, with their JSON report attachments. Commands, fixture sizes, account scopes, timings and limitations are recorded in [E2E architecture](architecture/e2e-testing.md). SQLite reads, synced rows, server hydration and total hydration are separate measurements. Broad local caching is intentional; root scans and row counts alone do not establish waste.
 
@@ -36,7 +36,7 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 | `team` | `byCurrentUser` | `all`, `byId` |
 | `teamEvent` | `allAccessible`, `byCurrentUserAll`, `byId` | `byCurrentUser`, `byIdWithExpenses`, `byTeam`, `public` |
 | `user` | `all`, `whatsappUsers` (admin) | `one` |
-| `vendor` | `all` | `approved`, `byId`, `pendingByCurrentUser` |
+| `vendor` | `all`, `approved`, `pendingByCurrentUser` (admin/volunteer) | `byId` (no production consumer) |
 | `vendorPayment` | `all`, `byId`, `byEvent` (admin/owner) | `byCurrentUser` |
 | `vendorPaymentTransaction` | None | `byId`, `byVendorPayment` |
 | `whatsappGroup` | None | `all` |
@@ -416,3 +416,19 @@ Event-specific Reimbursement queries now include line items and submitter; Vendo
 | Vendor Payment / owner | 53.86 → 25.39 | 1,400 → 500 | 854 → 351 | 11.48 | 238.0 |
 
 All 13 browser tests passed with unchanged 200/100 roots, exact owner checks, the displayed ₹2,40,000.00 total, and reimbursement/vendor labels. Focused query tests preserve permission-dependent ownership and full detail relationships. Local results establish reduced query work; production and HTTP latency remain unverified.
+
+
+## Vendor form lookup baseline (2026-09-14)
+
+The fixture now includes 100 approved synthetic vendors and 100 pending vendors split equally between admin and volunteer. Existing payment fixtures continue to reference approved vendors. The expected approved total comes from the database and includes one ordinary seed vendor; pending results must match the exact 50 owned IDs.
+
+| Query / scope | Analyzer median ms | Read / synced | Scans | Server hydration ms | Total hydration ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Approved / admin | 13.87 | 101 / 101 | 302 | 1.14 | 361.3 |
+| Pending / admin | 11.25 | 50 / 50 | 150 | 0.69 | 361.2 |
+| Approved / volunteer | 11.48 | 101 / 101 | 202 | 1.34 | 155.5 |
+| Pending / volunteer | 10.13 | 50 / 50 | 150 | 0.63 | 155.4 |
+
+All 13 browser tests passed with retries disabled. These lookup costs do not justify a query/index change at this size. The form opens without submitting a payment or creating a vendor. External-user access and substantially larger vendor populations remain separate coverage gaps.
+
+A production-consumer search also found no mounted uses of financial `byCurrentUser` variants, standalone `vendorPaymentTransaction` variants, or `vendor.byId`. They remain registered and unmeasured as query APIs; they are not additional page-flow bottlenecks. Their existence does not count as measured coverage.

@@ -38,6 +38,8 @@ test("profile Dashboard, Events and financial queries at scale", async ({
   const fixture = JSON.parse((await seed()).stdout.trim()) as {
     counts: Record<string, number>;
     eventExpenseCount: number;
+    approvedVendorCount: number;
+    pendingVendorIds: { admin: string[]; volunteer: string[] };
     restrictedCounts: Record<string, number>;
     notificationIds: { admin: string[]; volunteer: string[] };
     visibleUsers: number;
@@ -80,6 +82,28 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     await target.keyboard.press("Escape");
     await expect(dialog).not.toBeVisible();
     return queries;
+  };
+  const profileVendorForm = async (target: Page, pendingIds: string[]) => {
+    await target.goto("/vendor-payments/new");
+    return profileZeroQueries(
+      target,
+      {
+        "vendor.approved": fixture.approvedVendorCount,
+        "vendor.pendingByCurrentUser": pendingIds.length,
+      },
+      undefined,
+      {
+        "vendor.approved": {
+          table: "vendor",
+          count: fixture.approvedVendorCount,
+        },
+        "vendor.pendingByCurrentUser": {
+          table: "vendor",
+          count: pendingIds.length,
+          ids: pendingIds,
+        },
+      }
+    );
   };
   const financial = {
     "reimbursement.all": fixture.counts.reimbursements!,
@@ -154,6 +178,10 @@ test("profile Dashboard, Events and financial queries at scale", async ({
       });
     }
   }
+  results.push({
+    route: "vendor-form",
+    queries: await profileVendorForm(page, fixture.pendingVendorIds.admin),
+  });
   await page.goto("/scheduled-messages");
   results.push({
     route: "scheduled-messages",
@@ -378,6 +406,13 @@ test("profile Dashboard, Events and financial queries at scale", async ({
             ids: fixture.notificationIds.volunteer,
           },
         }
+      ),
+    });
+    restrictedResults.push({
+      route: "vendor-form",
+      queries: await profileVendorForm(
+        restrictedPage,
+        fixture.pendingVendorIds.volunteer
       ),
     });
     for (const [route, queries] of [

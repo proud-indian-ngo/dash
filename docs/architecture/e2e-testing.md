@@ -304,3 +304,6 @@ The app benchmark visits Advance Payment detail as admin, owner and a denied req
 
 
 The app fixture concentrates 200 Reimbursements and 200 Vendor Payments on the sampled public Event, split between two owners. The benchmark profiles both Event expense queries as admin and volunteer and asserts 200/100 roots plus volunteer ownership. Event summary metrics also consume these queries when the manager-only Expenses tab is absent.
+
+
+The app benchmark opens the Vendor Payment form as admin and volunteer. It seeds 100 approved vendors and 50 pending vendors per account, derives the full approved count from the database, and verifies exact pending IDs for each account. Existing payments reference approved vendors. The form is not submitted.

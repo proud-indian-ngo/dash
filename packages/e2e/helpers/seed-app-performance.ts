@@ -8,6 +8,7 @@ const id = (number: number) =>
   `019f0000-2191-7000-8000-${number.toString(16).padStart(12, "0")}`;
 
 const eventExpenseCount = 200;
+const approvedVendorCount = 100;
 
 const counts = {
   teams: 1,
@@ -19,7 +20,7 @@ const counts = {
   feedback: 200,
   photos: 200,
   categories: 4,
-  vendors: 100,
+  vendors: 200,
   reimbursements: 1000,
   reimbursementLineItems: 2000,
   reimbursementHistory: 2000,
@@ -328,8 +329,11 @@ export async function seedAppPerformance() {
           bankAccountName: "Synthetic Test Account",
           bankAccountNumber: `000000${String(index + 1).padStart(6, "0")}`,
           contactPhone: `+910000${String(index + 1).padStart(6, "0")}`,
-          createdBy: admin.id,
-          status: "approved" as const,
+          createdBy: index < approvedVendorCount ? admin.id : ownerId(index),
+          status:
+            index < approvedVendorCount
+              ? ("approved" as const)
+              : ("pending" as const),
           createdAt: now,
           updatedAt: now,
         }))
@@ -468,7 +472,7 @@ export async function seedAppPerformance() {
                   ? 0
                   : 1 + (index % (counts.events - 1))
               ),
-              vendorId: id(5000 + (index % counts.vendors)),
+              vendorId: id(5000 + (index % approvedVendorCount)),
               userId: ownerId(index),
               title: `Synthetic vendor payment ${index + 1}`,
               city: "bangalore" as const,
@@ -685,6 +689,9 @@ export async function seedAppPerformance() {
     throw new Error("Performance fixture restricted events count mismatch");
   }
   restrictedCounts.events = accessibleEvents;
+  const [approvedVendorRows] = await db.execute(
+    sql`SELECT count(*)::integer AS total FROM vendor WHERE status = 'approved'`
+  );
   const [visibleUserCount] = await db.execute(
     sql`SELECT count(*)::integer AS total FROM "user" WHERE role != 'external_user'`
   );
@@ -704,6 +711,11 @@ export async function seedAppPerformance() {
   return {
     teamId: id(1),
     eventExpenseCount,
+    approvedVendorCount: Number(approvedVendorRows?.total),
+    pendingVendorIds: {
+      admin: Array.from({ length: 50 }, (_, index) => id(5101 + index * 2)),
+      volunteer: Array.from({ length: 50 }, (_, index) => id(5100 + index * 2)),
+    },
     counts: actualCounts,
     notificationIndexExperiment,
     scheduledIndexExperiment,
