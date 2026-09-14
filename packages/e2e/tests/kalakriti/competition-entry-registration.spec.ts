@@ -93,13 +93,7 @@ async function waitForSubmissionSettled(
 test.describe("Kalakriti Competition Entry registration", () => {
   test.describe.configure({ mode: "serial" });
 
-  // FIXME(product): hangs in the Students combobox — selecting an option can
-  // strand focus in the listbox portal (page-level Escape never reaches the
-  // dialog) and the popup closes itself mid-selection, detaching the option
-  // under the cursor. Reproduces on Node and Bun, isolated and full-suite.
-  // Root cause lives in entry-form-dialog.tsx Base UI Combobox/Dialog
-  // interplay; needs a product fix, not test retries.
-  test.fixme("allows an assigned Liaison to register and remove an individual Entry", async ({
+  test("allows an assigned Liaison to register and remove an individual Entry", async ({
     page,
     volunteerEmail,
   }, testInfo) => {

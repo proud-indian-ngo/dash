@@ -304,3 +304,9 @@ The same fixture and three samples per scope preserve 1,500/300/300 Student root
 The large benchmark and duplicate-submission regression passed (14 tests including setup; two role-specific tests skipped in the admin project). Type, lint, unit and unused-export checks passed.
 
 The separate volunteer-project run also passed the liaison group Entry create/edit/remove flow (13 tests including setup, two skipped). The existing individual-registration test is marked skipped in source and remains a verification gap; this change does not alter that skip.
+
+### Restore individual-registration verification
+
+The previously `fixme`-disabled liaison individual-registration test passed on the current implementation in three local executions with Playwright retries disabled: 8.0, 8.6 and 7.8 seconds. The first isolated stack reported 13 passing tests including setup; the two-repeat stack reported 14. The flow exercises Student selection in music-enabled and disabled Competitions, multiple individual registration, local music upload/download, removal and resulting audit actions.
+
+The test is enabled again and its stale product-hang comment removed. No combobox product code or retry policy changed. The earlier hang's cause is not established, and these local results do not prove behavior on every CI platform. Type, lint, unit and unused-export checks passed. This closes the skipped local individual-registration verification gap noted above.
