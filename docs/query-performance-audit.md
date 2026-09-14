@@ -658,3 +658,18 @@ The fixture now has two categories with 15 Competitions each. Two previously unl
 All 13 browser tests passed without retries after correcting the expected ID generator to the fixture's 100-Entry blocks per Division. The category lead's exact 1,500 Entry IDs match its assigned category; overall-events returns all 3,000 roots. Eligibility returns one age-category root for each role. Existing global-admin, Guardian, liaison and Edition-admin regression checks also pass on the expanded fixture.
 
 The category assignment index is now exercised with a populated category authority. Eligibility is not the expensive analyzer path here; the Entries relationship and authorization graph remains the main candidate. No product queries changed in this milestone.
+
+## Entries permission factoring experiment (2026-09-14)
+
+A local candidate combined the category-lead and competition-coordinator alternatives beneath one Division → Competition traversal in `visibleEntryScope`. It preserved result graphs and passed all 20 focused Entries tests plus all 13 large-fixture browser tests, including exact category-lead Entry IDs.
+
+| Account | Median analyzer before → candidate | Reads before → candidate | Synced rows |
+| --- | --- | --- | --- |
+| Global admin | 1,245.74 → 1,216.61 ms | 36,000 → 36,000 | 9,104 |
+| Guardian | 370.84 → 356.49 ms | 13,947 → 13,887 | 1,899 |
+| Liaison | 369.87 → 359.00 ms | 13,947 → 13,887 | 1,899 |
+| Edition admin | 1,830.19 → 1,960.06 ms | 58,342 → 58,282 | 9,109 |
+| Category lead | 1,143.64 → 1,170.12 ms | 42,788 → 42,728 | 6,060 |
+| Overall-events | 1,705.43 → 1,721.58 ms | 54,746 → 54,686 | 9,107 |
+
+The scoped queries saved only 60 reads each (less than 0.5%), with no consistent timing improvement. The candidate was removed; product code remains at the measured baseline. Algebraic factoring alone does not address the remaining Entries cost. The large relationship graph and repeated membership/assignment checks remain more substantial contributors than the duplicated 30-Division traversal.
