@@ -1126,6 +1126,11 @@ export const kalakritiAssignment = pgTable(
       .on(table.membershipId)
       .where(sql`${table.isPrimary} = true`),
     index("kalakriti_assignment_editionId_idx").on(table.editionId),
+    index("kalakriti_assignment_membershipId_editionId_id_idx").on(
+      table.membershipId,
+      table.editionId,
+      table.id
+    ),
     foreignKey({
       columns: [table.editionId, table.membershipId],
       foreignColumns: [

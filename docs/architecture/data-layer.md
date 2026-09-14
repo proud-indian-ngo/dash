@@ -78,6 +78,8 @@ Run `bun run zero:analyze` with `ZERO_CACHE_URL` and the appropriate authenticat
 
 Food membership queries short-circuit global-admin access before evaluating Center-scoped authorization alternatives. They still require an existing Edition, retain active registrations or effective meal history, and apply the same filters to related operations, assignments and Guardian Centers. Scoped readers continue through the full authorization predicates.
 
+Kalakriti assignment relationships use the non-partial `(membership_id, edition_id, id)` index added in migration 0084. It supports per-membership filtering and stable ordering in Zero’s replica; the responsibility-specific partial unique indexes do not cover that access path. On the 600-assignment local fixture, this reduced assignment scans from 180,300 to 600 without changing synced results.
+
 Compare server hydration separately from end-to-end hydration, and distinguish active subscriptions from inactive queries retained by TTL. Use identical data, account and navigation sequences for before/after comparisons. Profile restricted roles separately because permission predicates can produce different plans. Add indexes or reduce query graphs only when measured plans justify doing so. See [Zero's query guidance](https://zero.rocicorp.dev/docs/queries) and [analyzer documentation](https://zero.rocicorp.dev/docs/debug/analyze-query-cli).
 
 ## Connection Errors
