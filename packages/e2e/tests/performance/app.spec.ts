@@ -47,6 +47,7 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     preferenceTopics: number;
     sampleUserId: string;
     accountIds: { admin: string; volunteer: string };
+    bankAccountCounts: Record<string, number>;
     sampleIds: {
       publicEvent: string;
       ownAdvance: string;
@@ -78,6 +79,24 @@ test("profile Dashboard, Events and financial queries at scale", async ({
           userId,
         },
       }
+    );
+    await dialog.getByRole("button", { name: "Banking", exact: true }).click();
+    queries.push(
+      ...(await profileZeroQueries(
+        target,
+        {
+          "bankAccount.bankAccountsByCurrentUser":
+            fixture.bankAccountCounts[userId]!,
+        },
+        undefined,
+        {
+          "bankAccount.bankAccountsByCurrentUser": {
+            table: "bank_account",
+            count: fixture.bankAccountCounts[userId]!,
+            userId,
+          },
+        }
+      ))
     );
     await target.keyboard.press("Escape");
     await expect(dialog).not.toBeVisible();

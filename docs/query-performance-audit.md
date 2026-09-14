@@ -1,6 +1,6 @@
 # Query performance audit coverage
 
-Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 55 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
+Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 56 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
 
 Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/tests/performance/app.spec.ts`, with their JSON report attachments. Commands, fixture sizes, account scopes, timings and limitations are recorded in [E2E architecture](architecture/e2e-testing.md). SQLite reads, synced rows, server hydration and total hydration are separate measurements. Broad local caching is intentional; root scans and row counts alone do not establish waste.
 
@@ -10,7 +10,7 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 |---|---|---|
 | `advancePayment` | `all`, `byId` (admin, owner, denied) | `byCurrentUser` |
 | `appConfig` | None | `all` |
-| `bankAccount` | None | `bankAccountsByCurrentUser` |
+| `bankAccount` | `bankAccountsByCurrentUser` (admin/volunteer) | None |
 | `eventFeedback` | `byEvent` | None |
 | `eventImmichAlbum` | None | `byEvent` |
 | `eventInterest` | `allPending`, `byCurrentUser` | `managerByEvent`, `myByEvent` |
@@ -432,3 +432,12 @@ The fixture now includes 100 approved synthetic vendors and 100 pending vendors 
 All 13 browser tests passed with retries disabled. These lookup costs do not justify a query/index change at this size. The form opens without submitting a payment or creating a vendor. External-user access and substantially larger vendor populations remain separate coverage gaps.
 
 A production-consumer search also found no mounted uses of financial `byCurrentUser` variants, standalone `vendorPaymentTransaction` variants, or `vendor.byId`. They remain registered and unmeasured as query APIs; they are not additional page-flow bottlenecks. Their existence does not count as measured coverage.
+
+
+## Banking owner lookup baseline (2026-09-14)
+
+The fixture adds 2,004 synthetic bank accounts, two per fixture user including admin and volunteer. Values are synthetic and no financial operation is submitted. Expected signed-in account counts come from PostgreSQL and include ordinary seed records.
+
+Admin and volunteer each returned three owned rows, with six scans using `bank_account_userId_idx`. Analyzer medians were 11.30/11.01 ms; server hydration was 0.61/0.65 ms and total hydration 37.0/54.3 ms. The remaining temporary sort handles only those three rows. This does not justify another index at the measured size.
+
+All 13 browser tests passed without retries, including exact ownership for both accounts. Large per-user account histories remain unmeasured; the workload exercises a populated table with small personal results.

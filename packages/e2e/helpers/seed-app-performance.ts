@@ -34,6 +34,7 @@ const counts = {
   transactionHistory: 2000,
   notifications: 10_000,
   users: 1000,
+  bankAccounts: 2004,
   scheduledMessages: 500,
   scheduledRecipients: 5000,
 } as const;
@@ -72,6 +73,7 @@ export async function seedAppPerformance() {
   const { db } = await import("@pi-dash/db");
   const { user, notificationTopicPreference } =
     await import("@pi-dash/db/schema/auth");
+  const { bankAccount } = await import("@pi-dash/db/schema/bank-account");
   const { team, teamMember } = await import("@pi-dash/db/schema/team");
   const { teamEvent, teamEventMember } =
     await import("@pi-dash/db/schema/team-event");
@@ -197,6 +199,26 @@ export async function seedAppPerformance() {
       volunteer.id,
       ...Array.from({ length: counts.users }, (_, index) => id(90_000 + index)),
     ];
+    await batches(counts.bankAccounts, (start, length) =>
+      tx
+        .insert(bankAccount)
+        .values(
+          Array.from({ length }, (_, offset) => {
+            const index = start + offset;
+            return {
+              id: id(130_000 + index),
+              userId: preferenceUsers[Math.floor(index / 2)]!,
+              accountName: "Synthetic performance account",
+              accountNumber: `00002191${String(index).padStart(5, "0")}`,
+              ifscCode: "TEST0000001",
+              isDefault: false,
+              createdAt: now,
+              updatedAt: now,
+            };
+          })
+        )
+        .onConflictDoNothing({ target: bankAccount.id })
+    );
     const topics = Object.values(TOPICS);
     await batches(preferenceUsers.length * topics.length, (start, length) =>
       tx
@@ -627,6 +649,7 @@ export async function seedAppPerformance() {
     ["photos", eventPhoto, 32_000],
     ["notifications", notification, 40_000],
     ["users", user, 90_000],
+    ["bankAccounts", bankAccount, 130_000],
     ["scheduledMessages", scheduledMessage, 100_000],
     ["scheduledRecipients", scheduledMessageRecipient, 110_000],
     ["categories", expenseCategory, 4000],
@@ -689,6 +712,10 @@ export async function seedAppPerformance() {
     throw new Error("Performance fixture restricted events count mismatch");
   }
   restrictedCounts.events = accessibleEvents;
+  const bankCounts = await db.execute(sql`
+    SELECT user_id, count(*)::integer AS total FROM bank_account
+    WHERE user_id IN (${admin.id}, ${volunteer.id}) GROUP BY user_id
+  `);
   const [approvedVendorRows] = await db.execute(
     sql`SELECT count(*)::integer AS total FROM vendor WHERE status = 'approved'`
   );
@@ -725,6 +752,9 @@ export async function seedAppPerformance() {
     preferenceRows,
     sampleUserId: id(90_001),
     accountIds: { admin: admin.id, volunteer: volunteer.id },
+    bankAccountCounts: Object.fromEntries(
+      bankCounts.map((row) => [String(row.user_id), Number(row.total)])
+    ),
     restrictedCounts,
     notificationIds: {
       admin: Array.from(

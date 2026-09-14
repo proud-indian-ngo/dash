@@ -307,3 +307,6 @@ The app fixture concentrates 200 Reimbursements and 200 Vendor Payments on the s
 
 
 The app benchmark opens the Vendor Payment form as admin and volunteer. It seeds 100 approved vendors and 50 pending vendors per account, derives the full approved count from the database, and verifies exact pending IDs for each account. Existing payments reference approved vendors. The form is not submitted.
+
+
+Banking performance uses 2,004 synthetic accounts across fixture users. Personal Settings visits Notifications and Banking for both admin and volunteer, checks complete per-user counts against PostgreSQL and verifies every returned account belongs to the signed-in user. It performs no account changes or financial operations.
