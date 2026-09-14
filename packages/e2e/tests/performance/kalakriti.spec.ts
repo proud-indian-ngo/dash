@@ -2,6 +2,8 @@ import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
 
+import type { Page } from "@playwright/test";
+
 import { expect, test } from "../../fixtures/test";
 import { profileZeroQueries } from "../../helpers/zero-performance";
 import { KalakritiScanPage } from "../../pages/kalakriti-scan-page";
@@ -41,6 +43,41 @@ test("profile a large synthetic Kalakriti edition", async ({
     counts: Record<string, number>;
     scopedCounts: { students: number; entries: number };
     scopedCenterIds: string[];
+  };
+  const profileStudentDetails = async (target: Page) => {
+    await target
+      .getByPlaceholder("Search Students...")
+      .fill(`KAL-${fixture.year}-0001`);
+    await target.getByText("Performance Student 1", { exact: true }).click();
+    const sheet = target.getByRole("dialog", { name: "Performance Student 1" });
+    await expect(sheet).toBeVisible();
+    const centerId = fixture.scopedCenterIds[0]!;
+    const expected = {
+      "kalakritiStudent.visibleByCenter":
+        fixture.counts.students! / fixture.counts.centers!,
+      "kalakritiEntry.visibleByCenter":
+        fixture.counts.entries! / fixture.counts.centers!,
+    };
+    const results = await profileZeroQueries(
+      target,
+      expected,
+      { editionId: fixture.editionId, centerId },
+      {
+        "kalakritiStudent.visibleByCenter": {
+          table: "kalakriti_student",
+          count: expected["kalakritiStudent.visibleByCenter"],
+          centerIds: [centerId],
+        },
+        "kalakritiEntry.visibleByCenter": {
+          table: "kalakriti_competition_entry",
+          count: expected["kalakritiEntry.visibleByCenter"],
+          centerIds: [centerId],
+        },
+      }
+    );
+    await target.keyboard.press("Escape");
+    await expect(sheet).not.toBeVisible();
+    return results;
   };
   const dashboardProfile = await execFileAsync(
     "bun",
@@ -149,6 +186,9 @@ test("profile a large synthetic Kalakriti edition", async ({
         { editionId: fixture.editionId }
       ))
     );
+    if (route === "students") {
+      results.push(...(await profileStudentDetails(page)));
+    }
   }
   for (const kind of ["guest", "judge"] as const) {
     await page.goto(`/kalakriti/${fixture.year}/${kind}s`);
@@ -258,6 +298,11 @@ test("profile a large synthetic Kalakriti edition", async ({
         );
         scopedResults.push({ actor, route, queries: analyses });
         if (route === "students") {
+          scopedResults.push({
+            actor,
+            route: "student-details",
+            queries: await profileStudentDetails(scopedPage),
+          });
           scopedResults.push({
             actor,
             route,

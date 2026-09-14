@@ -1,6 +1,6 @@
 # Query performance audit coverage
 
-Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 39 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
+Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 41 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
 
 Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/tests/performance/app.spec.ts`, with their JSON report attachments. Commands, fixture sizes, account scopes, timings and limitations are recorded in [E2E architecture](architecture/e2e-testing.md). SQLite reads, synced rows, server hydration and total hydration are separate measurements. Broad local caching is intentional; root scans and row counts alone do not establish waste.
 
@@ -22,10 +22,10 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 | `kalakritiCompetition` | `categories`, `competitions`, `sessions`, `venues` | None |
 | `kalakritiEdition` | `readiness` (global admin), `byYear` (admin, Guardian, liaison) | `accessible`, `byTeamEventId`, `cloneSource`, `configurationAccessible` |
 | `kalakritiEligibility` | None | `ageCategories` |
-| `kalakritiEntry` | `availableDivisions`, `visible` | `availableDivisionsByCenter`, `visibleByCenter`, `visibleByDivision`, `byId` |
+| `kalakritiEntry` | `availableDivisions`, `visible`, `visibleByCenter` | `availableDivisionsByCenter`, `visibleByDivision`, `byId` |
 | `kalakritiFood` | `students`, `memberships` | None |
 | `kalakritiGuardian` | `roster` | None |
-| `kalakritiStudent` | `visibleForCompliance`, `visibleForDirectory` | `ageCategoriesByCenter`, `visibleForEntries`, `visibleByCenter` |
+| `kalakritiStudent` | `visibleForCompliance`, `visibleForDirectory`, `visibleByCenter` | `ageCategoriesByCenter`, `visibleForEntries` |
 | `kalakritiCenterScan` | `byCenter` | None |
 | `kalakritiAttendee` | `visible` (admin Guest and Judge) | None |
 | `kalakritiTransport` | `byCenter` | None |
@@ -220,3 +220,20 @@ The large Kalakriti benchmark profiles `kalakritiEdition.byYear` on the overview
 All three samples per account had identical read and synced counts. Guardian scanned two memberships and one Edition; liaison additionally scanned nine assignments. These plans show no disproportionate access scan in the 300-membership, 600-assignment fixture, so no query change was made. Total hydration includes other work and is not attributed to these small server execution times. Denied access, archived memberships, many Editions and other assignment responsibilities still need populated performance coverage.
 
 The isolated run passed all 13 tests. Repository type, lint, unit and unused-export checks and focused E2E TypeScript validation passed.
+
+## Student detail Center-query baseline (September 14)
+
+The benchmark searches for the first synthetic Student, opens its real detail sheet, and profiles both Center-wide queries under admin, Guardian and liaison accounts. Each scope verifies exactly 150 Student roots and 300 Entry roots, all belonging to the requested Center. It closes the sheet before continuing navigation.
+
+| Account | Query | Median analyzer ms | Read rows | Unique synced rows | Server hydration ms | Total hydration ms |
+|---|---|---:|---:|---:|---:|---:|
+| Admin | Student.visibleByCenter | 45.2 | 1,200 | 752 | 58.4 | 338.9 |
+| Admin | Entry.visibleByCenter | 133.7 | 3,600 | 994 | 160.9 | 339.1 |
+| Guardian | Student.visibleByCenter | 89.4 | 1,955 | 754 | 203.8 | 573.4 |
+| Guardian | Entry.visibleByCenter | 186.5 | 5,586 | 996 | 199.0 | 574.0 |
+| Liaison | Student.visibleByCenter | 108.8 | 1,956 | 754 | 242.6 | 603.6 |
+| Liaison | Entry.visibleByCenter | 185.8 | 5,586 | 996 | 182.9 | 604.0 |
+
+Names above abbreviate the `kalakritiStudent` and `kalakritiEntry` groups. Read and synced counts were identical across each query's three samples. Restricted scopes add authorization work; these results alone do not establish which part can be eliminated safely. Full Center caching is preserved. Initial server and total hydration are single observations and are reported separately from analyzer medians. No query change was made in this milestone.
+
+The isolated browser run passed all 13 tests, including six Center-query scope checks. Repository type, lint, unit and unused-export checks and focused E2E TypeScript validation passed. Denied Centers and other permission responsibilities remain unmeasured here.
