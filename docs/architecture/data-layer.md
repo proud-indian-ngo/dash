@@ -86,6 +86,8 @@ Compare server hydration separately from end-to-end hydration, and distinguish a
 
 Event detail enables aggregate feedback subscriptions only for feedback managers. Ordinary participants fetch their own feedback through the existing server function, so they do not run an aggregate query that can only return an empty result. Query-side authorization remains authoritative.
 
+Kalakriti readiness syncs Divisions through the Edition's direct `competitionDivisions` relation. Its lifecycle checks consume that flat list, so readiness does not also expand each Competition's Divisions. Clone-source and Competition-page queries retain their nested Divisions because their consumers use them.
+
 ## Connection Errors
 
 Global monitor: `ZeroConnectionMonitor` in `apps/web/src/routes/_app.tsx` via `useConnectionState()`. Individual queries = no error handling. On `error`: debounced toast. On `needs-auth` (401/403): redirect `/login` with current path.

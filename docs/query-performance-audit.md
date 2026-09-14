@@ -198,3 +198,11 @@ Analyzer plans varied: the first sample read 179 rows, while the next two read 7
 The fixture has 600 assignments, but only one Volunteer membership has a linked user and therefore only its four assignments satisfy readiness's membership filter. Categories and venues each have one row. The fixture is not go-live-ready and does not prove performance for hundreds of eligible assignments, Edition-admin authorization, or every readiness condition. Further work should cover those scopes before selecting an optimization.
 
 A second isolated run with exact related-table count assertions passed all 13 tests and reproduced the timing pattern (15.3, 24.0 and 21.3 ms). The untimed scope check verifies 10 Centers, one age category, one Competition category, 30 Competitions, 30 Divisions, 30 Sessions, one venue, four assignments and 40 transport assignments. Reports retain counts and diagnostics only. Repository type, lint, unit and unused-export checks and the focused E2E TypeScript check passed.
+
+### Remove unused readiness Competition Divisions
+
+The lifecycle consumer passes the direct `competitionDivisions` list to registration and go-live readiness. Neither function reads nested `competitions.divisions`. Removing only that nested relation reduced reads from 179/779/779 to 149/749/749 and Division scans from 960/90/90 to 30/30/30 across the three analyzer samples. All 149 unique synced rows remain, including the 30 direct Divisions. Assignment planner variation remains.
+
+The changed query measured 14.4, 23.1 and 21.8 ms, versus the verified baseline's 15.3, 24.0 and 21.3 ms. Median time was essentially unchanged; no page speedup is claimed. Server hydration was 7.7 ms and total hydration 179.2 ms in this run, which are single samples rather than acceptance thresholds.
+
+The isolated benchmark and registration lifecycle/cloning regression passed all 14 tests. Type, lint, unit and unused-export checks passed. Root authorization, direct Division syncing, server transition validation and the clone-source query remain unchanged.
