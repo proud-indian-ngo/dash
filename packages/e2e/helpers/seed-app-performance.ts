@@ -19,6 +19,7 @@ const counts = {
   updates: 200,
   feedback: 200,
   photos: 200,
+  albums: 600,
   categories: 100,
   whatsappGroups: 200,
   vendors: 200,
@@ -76,13 +77,15 @@ export async function seedAppPerformance() {
     await import("@pi-dash/db/schema/auth");
   const { whatsappGroup } = await import("@pi-dash/db/schema/whatsapp-group");
   const { bankAccount } = await import("@pi-dash/db/schema/bank-account");
+  const { appConfig } = await import("@pi-dash/db/schema/app-config");
   const { team, teamMember } = await import("@pi-dash/db/schema/team");
   const { teamEvent, teamEventMember } =
     await import("@pi-dash/db/schema/team-event");
   const { eventInterest } = await import("@pi-dash/db/schema/event-interest");
   const { eventUpdate } = await import("@pi-dash/db/schema/event-update");
   const { eventFeedback } = await import("@pi-dash/db/schema/event-feedback");
-  const { eventPhoto } = await import("@pi-dash/db/schema/event-photo");
+  const { eventPhoto, eventImmichAlbum } =
+    await import("@pi-dash/db/schema/event-photo");
   const { scheduledMessage, scheduledMessageRecipient } =
     await import("@pi-dash/db/schema/scheduled-message");
   const { notification } = await import("@pi-dash/db/schema/notification");
@@ -635,6 +638,29 @@ export async function seedAppPerformance() {
       )
       .onConflictDoNothing({ target: eventFeedback.id });
     await tx
+      .insert(appConfig)
+      .values(
+        Array.from({ length: 10 }, (_, index) => ({
+          key: `performance_2191_${index}`,
+          value: "synthetic",
+          updatedAt: now,
+        }))
+      )
+      .onConflictDoNothing();
+    await batches(counts.albums, (start, length) =>
+      tx
+        .insert(eventImmichAlbum)
+        .values(
+          Array.from({ length }, (_, offset) => ({
+            id: id(150_000 + start + offset),
+            eventId: eventId(start + offset),
+            immichAlbumId: id(150_000 + start + offset),
+            createdAt: now,
+          }))
+        )
+        .onConflictDoNothing({ target: eventImmichAlbum.id })
+    );
+    await tx
       .insert(eventPhoto)
       .values(
         Array.from({ length: counts.photos }, (_, index) => ({
@@ -661,6 +687,7 @@ export async function seedAppPerformance() {
     ["updates", eventUpdate, 30_000],
     ["feedback", eventFeedback, 31_000],
     ["photos", eventPhoto, 32_000],
+    ["albums", eventImmichAlbum, 150_000],
     ["notifications", notification, 40_000],
     ["users", user, 90_000],
     ["bankAccounts", bankAccount, 130_000],
@@ -733,6 +760,7 @@ export async function seedAppPerformance() {
   `);
   const [lookupCounts] = await db.execute(sql`
     SELECT (SELECT count(*)::integer FROM expense_category) AS categories,
+      (SELECT count(*)::integer FROM app_config) AS configs,
       (SELECT count(*)::integer FROM whatsapp_group) AS groups
   `);
   const [approvedVendorRows] = await db.execute(
@@ -759,6 +787,7 @@ export async function seedAppPerformance() {
     eventExpenseCount,
     lookupCounts: {
       categories: Number(lookupCounts?.categories),
+      configs: Number(lookupCounts?.configs),
       groups: Number(lookupCounts?.groups),
     },
     approvedVendorCount: Number(approvedVendorRows?.total),

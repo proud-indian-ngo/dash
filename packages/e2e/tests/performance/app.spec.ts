@@ -39,7 +39,7 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     teamId: string;
     counts: Record<string, number>;
     eventExpenseCount: number;
-    lookupCounts: { categories: number; groups: number };
+    lookupCounts: { categories: number; groups: number; configs: number };
     approvedVendorCount: number;
     pendingVendorIds: { admin: string[]; volunteer: string[] };
     restrictedCounts: Record<string, number>;
@@ -128,6 +128,24 @@ test("profile Dashboard, Events and financial queries at scale", async ({
         }
       ))
     );
+    if (userId === fixture.accountIds.admin) {
+      await dialog
+        .getByRole("button", { name: "General", exact: true })
+        .click();
+      queries.push(
+        ...(await profileZeroQueries(
+          target,
+          { "appConfig.all": fixture.lookupCounts.configs },
+          undefined,
+          {
+            "appConfig.all": {
+              table: "app_config",
+              count: fixture.lookupCounts.configs,
+            },
+          }
+        ))
+      );
+    }
     await target.keyboard.press("Escape");
     await expect(dialog).not.toBeVisible();
     return queries;
@@ -379,6 +397,7 @@ test("profile Dashboard, Events and financial queries at scale", async ({
           "eventFeedback.byEvent": fixture.counts.feedback!,
           "eventInterest.myByEvent": 1,
           "eventInterest.managerByEvent": 1,
+          "eventImmichAlbum.byEvent": 1,
         },
         { eventId: fixture.sampleIds.publicEvent },
         {
@@ -409,6 +428,10 @@ test("profile Dashboard, Events and financial queries at scale", async ({
           },
           "eventInterest.managerByEvent": {
             table: "event_interest",
+            count: 1,
+          },
+          "eventImmichAlbum.byEvent": {
+            table: "event_immich_album",
             count: 1,
           },
         }
@@ -578,6 +601,7 @@ test("profile Dashboard, Events and financial queries at scale", async ({
           "eventUpdate.myPendingByEvent": fixture.counts.updates! / 4,
           "eventPhoto.approvedByEvent": fixture.counts.photos! / 2,
           "eventPhoto.myPendingByEvent": fixture.counts.photos! / 4,
+          "eventImmichAlbum.byEvent": 1,
         },
         { eventId: fixture.sampleIds.publicEvent },
         {
@@ -588,6 +612,10 @@ test("profile Dashboard, Events and financial queries at scale", async ({
           "eventUpdate.myPendingByEvent": {
             table: "event_update",
             count: fixture.counts.updates! / 4,
+          },
+          "eventImmichAlbum.byEvent": {
+            table: "event_immich_album",
+            count: 1,
           },
           "eventPhoto.approvedByEvent": {
             table: "event_photo",

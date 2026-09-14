@@ -1,6 +1,6 @@
 # Query performance audit coverage
 
-Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 71 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
+Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 73 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
 
 Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/tests/performance/app.spec.ts`, with their JSON report attachments. Commands, fixture sizes, account scopes, timings and limitations are recorded in [E2E architecture](architecture/e2e-testing.md). SQLite reads, synced rows, server hydration and total hydration are separate measurements. Broad local caching is intentional; root scans and row counts alone do not establish waste.
 
@@ -9,10 +9,10 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 | Group | Large-fixture measurement exists | No large-fixture measurement yet |
 |---|---|---|
 | `advancePayment` | `all`, `byId` (admin, owner, denied) | `byCurrentUser` |
-| `appConfig` | None | `all` |
+| `appConfig` | `all` (admin) | None |
 | `bankAccount` | `bankAccountsByCurrentUser` (admin/volunteer) | None |
 | `eventFeedback` | `byEvent` | None |
-| `eventImmichAlbum` | None | `byEvent` |
+| `eventImmichAlbum` | `byEvent` (admin/volunteer) | None |
 | `eventInterest` | `allPending`, `byCurrentUser`, `managerByEvent`, `myByEvent` (admin) | None |
 | `eventPhoto` | `allPending`, `approvedByEvent`, `myPendingByEvent`, `pendingByEvent` | `byEvent` |
 | `eventUpdate` | `allPending`, `approvedByEvent`, `myPendingByEvent`, `pendingByEvent` | `byEvent` |
@@ -614,3 +614,15 @@ Remove the unconditional `teamEvent.byTeam` route preload. The route still warms
 Three fresh browser contexts measured time from document navigation until all 600 pending interests rendered, with a return via `/teams` in each context. Before-change fresh samples were 2,639.9 / 1,017.0 / 1,015.7 ms; after-change samples were 2,642.9 / 1,017.3 / 1,025.0 ms. Warm-return samples were 228.2 / 237.4 / 233.6 ms before and 367.7 / 227.7 / 230.2 ms after. Medians were 1,017.0 → 1,025.0 ms fresh and 233.6 → 230.2 ms warm. The first warm after-sample was slower; this small comparison supports no material median regression, not identical timing in every navigation.
 
 All 13 browser tests passed without retries. The authorized team still returns all 600 event roots. The denied Team query returns zero rows and Inspector confirms no event-history query. These are local document-navigation samples; production and hover-intent timing remain unmeasured.
+
+## Configuration and album metadata baseline (2026-09-14)
+
+The app fixture now includes 600 synthetic album records, one per event, and ten inert `performance_2191_*` configuration keys. No Immich service is contacted and no real setting is changed. The settings flow mounts General as admin; public event detail profiles album metadata as both admin and volunteer.
+
+| Query / account | Median analyzer | Read / synced | Scans | Server hydration | Total hydration |
+| --- | --- | --- | --- | --- | --- |
+| `appConfig.all` / admin | 12.10 ms | 10 / 10 | 10 | 0.52 ms | 56.8 ms |
+| `eventImmichAlbum.byEvent` / admin | 12.88 ms | 3 / 2 | 3 | 0.93 ms | 1,316.2 ms |
+| `eventImmichAlbum.byEvent` / volunteer | 10.48 ms | 7 / 3 | 7 | 3.81 ms | 265.1 ms |
+
+Untimed verification checks the exact total configuration count and one album root for the requested event. All 13 browser tests passed without retries. These plans do not demonstrate a query bottleneck; total event-detail hydration remains separate from album execution. Private-event denial and external-user configuration scope are not covered by these new measurements. Product queries remain unchanged.
