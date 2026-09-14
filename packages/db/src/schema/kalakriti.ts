@@ -1066,6 +1066,11 @@ export const kalakritiEntryMember = pgTable(
       table.centerId
     ),
     index("kalakriti_entry_member_studentId_idx").on(table.studentId),
+    index("kalakriti_entry_member_studentId_editionId_id_idx").on(
+      table.studentId,
+      table.editionId,
+      table.id
+    ),
     foreignKey({
       columns: [
         table.editionId,

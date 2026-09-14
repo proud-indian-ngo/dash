@@ -94,6 +94,8 @@ The same sheet uses `kalakritiStudent.visibleByCenter` for transport status only
 
 The registration Student picker (`visibleForEntries`) retains all authorized Students with their assigned age category, Center and transport operations. It does not expand Entry memberships or derived age categories: eligibility uses the separately loaded Entries and assigned age category. Directory and compliance projections remain broader.
 
+Migration `0089_bouncy_mandarin.sql` indexes Entry members by `(student_id, edition_id, id)` for the directory's per-Student expansion. Local analyzer plans use it to filter and return ID order without a temporary sort. It preserves the existing student-only index and query relationships.
+
 ## Connection Errors
 
 Global monitor: `ZeroConnectionMonitor` in `apps/web/src/routes/_app.tsx` via `useConnectionState()`. Individual queries = no error handling. On `error`: debounced toast. On `needs-auth` (401/403): redirect `/login` with current path.

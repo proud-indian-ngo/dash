@@ -624,6 +624,13 @@
       "when": 1789384450857,
       "tag": "0088_hard_nomad",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1789387509243,
+      "tag": "0089_bouncy_mandarin",
+      "breakpoints": true
     }
   ]
 }

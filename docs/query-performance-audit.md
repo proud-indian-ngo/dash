@@ -522,3 +522,7 @@ The baseline global-admin Students samples took 598.99, 306.65 and 313.67 ms. On
 Guardian, liaison and Edition-admin results also retained their read/synced counts. Their entry-member scans were 600, 600 and 3,000 respectively. Edition-admin median analyzer time was essentially unchanged at 654.78 ms versus 653.75 ms. The demonstrated benefit is avoiding the expensive initial plan and sorting; this is not a broad warm-query latency improvement.
 
 All 13 browser tests passed without retries. The user has approved needed performance migrations; this experiment supports generating the compound index while preserving the existing index and authorization predicates. Production effects remain unverified.
+
+### Generated migration verification
+
+Migration `0089_bouncy_mandarin.sql` adds the canonical `kalakriti_entry_member_studentId_editionId_id_idx` index. A fresh local run applied the migration with the experiment disabled and passed all 13 browser tests without retries. All three global-admin directory plans used the canonical index, scanned 3,000 entry-member rows and retained 12,000 reads / 7,511 synced rows. Analyzer samples were 326.65, 307.85 and 304.97 ms. The existing index is retained; production application and effects remain unverified.
