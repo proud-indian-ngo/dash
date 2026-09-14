@@ -511,3 +511,14 @@ The same fixture now measures Students, Entries and Food with an Edition-admin a
 | Food memberships | 138.11 / 777.47 | 31,684 / 912 | 42,692 | 756.32 | 4,163.1 |
 
 All 13 browser tests passed without retries. These scoped authorization paths warrant further investigation. In the same run, the global-admin Students sample scanned 4,506,000 entry-member rows through repeated full scans for `(student_id, edition_id)` ordered by ID, despite an existing student-only index; the later Edition-admin plan used that index. This plan difference needs a controlled comparison before adding a migration or claiming a fix.
+
+
+## Entry-member ordering index experiment (2026-09-14)
+
+Set `ENTRY_MEMBER_INDEX_EXPERIMENT=true` with the Kalakriti benchmark to create a disposable `(student_id, edition_id, id)` index after the local database guard. The fixture report records the option and teardown removes the index with the database.
+
+The baseline global-admin Students samples took 598.99, 306.65 and 313.67 ms. Only the first performed 4,506,000 entry-member scans; subsequent samples used the existing student-only index and scanned 6,000 rows. The compound-index samples took 317.30, 304.59 and 308.26 ms, each scanning 3,000 entry-member rows without a temporary sort. Reads/synced rows stayed at 12,000/7,511. Initial server hydration changed from 564.19 to 293.24 ms and total hydration from 992.4 to 735.4 ms in this comparison.
+
+Guardian, liaison and Edition-admin results also retained their read/synced counts. Their entry-member scans were 600, 600 and 3,000 respectively. Edition-admin median analyzer time was essentially unchanged at 654.78 ms versus 653.75 ms. The demonstrated benefit is avoiding the expensive initial plan and sorting; this is not a broad warm-query latency improvement.
+
+All 13 browser tests passed without retries. The user has approved needed performance migrations; this experiment supports generating the compound index while preserving the existing index and authorization predicates. Production effects remain unverified.
