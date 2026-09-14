@@ -176,6 +176,18 @@ This starts the container defined in `packages/db/docker-compose.yml` with `wal_
 
 **Production:** Ensure your managed Postgres instance has `wal_level=logical` enabled. Use an unpooled connection string for `ZERO_UPSTREAM_DB`.
 
+The production Compose PostgreSQL command also preloads `pg_stat_statements` with `compute_query_id=auto`. Applying this startup change requires recreating/restarting the PostgreSQL service and briefly interrupts database connections. An app-only redeploy is insufficient. If Dokploy maintains a separate Compose definition, apply the same PostgreSQL command there and preserve any other configured preload libraries.
+
+After PostgreSQL restarts, connect to the application database (`dash` in production) as an administrator and run once:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+SHOW shared_preload_libraries;
+SELECT count(*) FROM pg_stat_statements;
+```
+
+The extension exposes collected PostgreSQL statement statistics; it does not measure Zero's SQLite query execution. See the [PostgreSQL documentation](https://www.postgresql.org/docs/18/pgstatstatements.html).
+
 ### 2. Generate Drizzle types and apply schema
 
 ```bash
