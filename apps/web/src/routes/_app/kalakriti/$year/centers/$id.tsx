@@ -14,28 +14,39 @@ import {
   type PickerUser,
 } from "@/functions/users-for-picker";
 import { getCenterTransportCapabilities } from "@/lib/kalakriti-center-registration-policy";
+import { preloadRouteQuery } from "@/lib/route-preload";
 
 export const Route = createFileRoute("/_app/kalakriti/$year/centers/$id")({
   component: KalakritiCenterDetailPage,
-  loader: ({ context, params }) => {
+  loader: ({ abortController, context, params }) => {
     const { edition } = context.kalakritiEditionAccess;
-    context.zero?.preload(
-      queries.kalakritiCenter.visible({ editionId: edition.id })
+    preloadRouteQuery(
+      context.zero,
+      queries.kalakritiCenter.visible({ editionId: edition.id }),
+      abortController.signal
     );
-    context.zero?.preload(
-      queries.kalakritiCenter.guardianAssignments({ editionId: edition.id })
+    preloadRouteQuery(
+      context.zero,
+      queries.kalakritiCenter.guardianAssignments({ editionId: edition.id }),
+      abortController.signal
     );
-    context.zero?.preload(
-      queries.kalakritiCenter.liaisonAssignments({ editionId: edition.id })
+    preloadRouteQuery(
+      context.zero,
+      queries.kalakritiCenter.liaisonAssignments({ editionId: edition.id }),
+      abortController.signal
     );
-    context.zero?.preload(
-      queries.kalakritiGuardian.roster({ editionId: edition.id })
+    preloadRouteQuery(
+      context.zero,
+      queries.kalakritiGuardian.roster({ editionId: edition.id }),
+      abortController.signal
     );
-    context.zero?.preload(
+    preloadRouteQuery(
+      context.zero,
       queries.kalakritiTransport.byCenter({
         centerId: params.id,
         editionId: edition.id,
-      })
+      }),
+      abortController.signal
     );
   },
 });

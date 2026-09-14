@@ -19,15 +19,24 @@ import {
   REQUEST_TYPE_LABELS,
   type RequestRow,
 } from "@/lib/reimbursement-types";
+import { preloadRouteQuery } from "@/lib/route-preload";
 
 export const Route = createFileRoute("/_app/reimbursements/")({
   component: ReimbursementsRouteComponent,
   head: () => ({
     meta: [{ title: `Reimbursements | ${env.VITE_APP_NAME}` }],
   }),
-  loader: ({ context }) => {
-    context.zero?.preload(queries.reimbursement.all());
-    context.zero?.preload(queries.advancePayment.all());
+  loader: ({ abortController, context }) => {
+    preloadRouteQuery(
+      context.zero,
+      queries.reimbursement.all(),
+      abortController.signal
+    );
+    preloadRouteQuery(
+      context.zero,
+      queries.advancePayment.all(),
+      abortController.signal
+    );
   },
 });
 

@@ -8,6 +8,13 @@ import { createRequestLogger } from "evlog";
 import { assertServerPermission } from "@/lib/api-auth";
 import { authMiddleware } from "@/middleware/auth";
 
+export const checkWhatsAppConfiguration = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    await assertServerPermission(context.session, "settings.whatsapp_groups");
+    return { configured: isWhatsAppConfigured() };
+  });
+
 export const fetchWhatsAppGroups = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {

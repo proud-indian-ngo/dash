@@ -36,6 +36,7 @@ import {
   resolveDateRange,
 } from "@/lib/date-range";
 import { formatINR } from "@/lib/form-schemas";
+import { preloadRouteQuery } from "@/lib/route-preload";
 import { byStatus, sumTotal, type WithStatusAndLineItems } from "@/lib/stats";
 import { isTeamLead } from "@/lib/team-utils";
 
@@ -46,15 +47,43 @@ export const Route = createFileRoute("/_app/")({
       throw redirect({ to: "/kalakriti" });
     }
   },
-  loader: ({ context }) => {
-    context.zero?.preload(queries.reimbursement.all());
-    context.zero?.preload(queries.advancePayment.all());
-    context.zero?.preload(queries.user.all());
-    context.zero?.preload(queries.team.byCurrentUser());
-    context.zero?.preload(queries.teamEvent.allAccessible());
-    context.zero?.preload(queries.teamEvent.byCurrentUserAll());
-    context.zero?.preload(queries.vendorPayment.all());
-    context.zero?.preload(queries.eventInterest.byCurrentUser());
+  loader: ({ abortController, context }) => {
+    preloadRouteQuery(
+      context.zero,
+      queries.reimbursement.all(),
+      abortController.signal
+    );
+    preloadRouteQuery(
+      context.zero,
+      queries.advancePayment.all(),
+      abortController.signal
+    );
+    preloadRouteQuery(context.zero, queries.user.all(), abortController.signal);
+    preloadRouteQuery(
+      context.zero,
+      queries.team.byCurrentUser(),
+      abortController.signal
+    );
+    preloadRouteQuery(
+      context.zero,
+      queries.teamEvent.allAccessible(),
+      abortController.signal
+    );
+    preloadRouteQuery(
+      context.zero,
+      queries.teamEvent.byCurrentUserAll(),
+      abortController.signal
+    );
+    preloadRouteQuery(
+      context.zero,
+      queries.vendorPayment.all(),
+      abortController.signal
+    );
+    preloadRouteQuery(
+      context.zero,
+      queries.eventInterest.byCurrentUser(),
+      abortController.signal
+    );
   },
   head: () => ({
     meta: [{ title: `Dashboard | ${env.VITE_APP_NAME}` }],

@@ -16,7 +16,10 @@ function runBeforeLoad(permissions: string[]) {
     throw new Error("Kalakriti route guard is missing");
   }
   return beforeLoad({
-    context: { permissions },
+    context: {
+      permissions,
+      session: { session: { id: "session-1" }, user: { id: "user-1" } },
+    },
   } as Parameters<typeof beforeLoad>[0]);
 }
 

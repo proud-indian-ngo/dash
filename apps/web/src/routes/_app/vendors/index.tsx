@@ -16,6 +16,7 @@ import { VendorFormDialog } from "@/components/vendors/vendor-form-dialog";
 import { computeVendorPaymentStats } from "@/components/vendors/vendor-stats";
 import { VendorsTable } from "@/components/vendors/vendors-table";
 import { handleMutationResult } from "@/lib/mutation-result";
+import { preloadRouteQuery } from "@/lib/route-preload";
 import { enrichVendorsWithPayments, type VendorRow } from "@/lib/vendor-types";
 
 export const Route = createFileRoute("/_app/vendors/")({
@@ -23,9 +24,17 @@ export const Route = createFileRoute("/_app/vendors/")({
   head: () => ({
     meta: [{ title: `Vendors | ${env.VITE_APP_NAME}` }],
   }),
-  loader: ({ context }) => {
-    context.zero?.preload(queries.vendor.all());
-    context.zero?.preload(queries.vendorPayment.all());
+  loader: ({ abortController, context }) => {
+    preloadRouteQuery(
+      context.zero,
+      queries.vendor.all(),
+      abortController.signal
+    );
+    preloadRouteQuery(
+      context.zero,
+      queries.vendorPayment.all(),
+      abortController.signal
+    );
   },
 });
 

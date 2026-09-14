@@ -2,11 +2,13 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 
 import { useApp } from "@/context/app-context";
-import { getCurrentKalakritiEditionAccess } from "@/functions/kalakriti-access";
+import { getCoordinatedCurrentKalakritiEditionAccess } from "@/lib/kalakriti-access-request";
 
 export const Route = createFileRoute("/_app/kalakriti/")({
-  beforeLoad: async () => {
-    const access = await getCurrentKalakritiEditionAccess();
+  beforeLoad: async ({ context }) => {
+    const access = await getCoordinatedCurrentKalakritiEditionAccess(
+      context.session
+    );
     if (access) {
       throw redirect({
         params: { year: String(access.edition.year) },

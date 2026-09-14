@@ -196,6 +196,7 @@ export ZERO_MUTATE_URL="http://localhost:$TEST_WEB_PORT/api/zero/mutate"
 export ZERO_QUERY_URL="http://localhost:$TEST_WEB_PORT/api/zero/query"
 export ZERO_MUTATE_FORWARD_COOKIES=true
 export ZERO_QUERY_FORWARD_COOKIES=true
+export ZERO_ADMIN_PASSWORD="${ZERO_ADMIN_PASSWORD:-e2e-test-admin}"
 export BETTER_AUTH_URL="http://localhost:$TEST_WEB_PORT"
 export CORS_ORIGIN="http://localhost:$TEST_WEB_PORT"
 export SKIP_VALIDATION=true
@@ -226,7 +227,8 @@ stop_port_processes "$TEST_ZERO_CS_PORT"
 # Start zero-cache against test DB on a separate port
 echo "Starting zero-cache on port $TEST_ZERO_PORT (change-streamer on $TEST_ZERO_CS_PORT)..."
 export ZERO_CHANGE_STREAMER_PORT="$TEST_ZERO_CS_PORT"
-(cd packages/zero && ZERO_PORT="$TEST_ZERO_PORT" bunx zero-cache-dev) > "$ZERO_LOG" 2>&1 &
+# Match CI's authenticated inspector instead of the development auth bypass.
+(cd packages/zero && NODE_ENV=production ZERO_PORT="$TEST_ZERO_PORT" bunx zero-cache) > "$ZERO_LOG" 2>&1 &
 ZERO_PID=$!
 
 # Wait for zero-cache to finish initial replication and start its workers.

@@ -5,15 +5,24 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { Loader } from "@/components/loader";
 import { TeamDetail } from "@/components/teams/team-detail";
+import { preloadRouteQuery } from "@/lib/route-preload";
 
 export const Route = createFileRoute("/_app/teams/$id")({
   component: TeamDetailRouteComponent,
   head: () => ({
     meta: [{ title: `Team Details | ${env.VITE_APP_NAME}` }],
   }),
-  loader: ({ context, params }) => {
-    context.zero?.preload(queries.team.byId({ id: params.id }));
-    context.zero?.preload(queries.teamEvent.byTeam({ teamId: params.id }));
+  loader: ({ abortController, context, params }) => {
+    preloadRouteQuery(
+      context.zero,
+      queries.team.byId({ id: params.id }),
+      abortController.signal
+    );
+    preloadRouteQuery(
+      context.zero,
+      queries.teamEvent.byTeam({ teamId: params.id }),
+      abortController.signal
+    );
   },
 });
 

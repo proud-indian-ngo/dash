@@ -37,7 +37,12 @@ function runBeforeLoad(year = "2027") {
   if (!beforeLoad) {
     throw new Error("Edition route guard is missing");
   }
-  return beforeLoad({ params: { year } } as Parameters<typeof beforeLoad>[0]);
+  return beforeLoad({
+    context: {
+      session: { session: { id: "session-1" }, user: { id: "user-1" } },
+    },
+    params: { year },
+  } as Parameters<typeof beforeLoad>[0]);
 }
 
 function runIndexBeforeLoad() {
@@ -45,7 +50,11 @@ function runIndexBeforeLoad() {
   if (!beforeLoad) {
     throw new Error("Kalakriti index route guard is missing");
   }
-  return beforeLoad({} as NonNullable<Parameters<typeof beforeLoad>[0]>);
+  return beforeLoad({
+    context: {
+      session: { session: { id: "session-1" }, user: { id: "user-1" } },
+    },
+  } as NonNullable<Parameters<typeof beforeLoad>[0]>);
 }
 
 describe("Kalakriti Edition route guard", () => {

@@ -12,6 +12,7 @@ import type { EventRow } from "@/components/teams/events/events-table";
 import { applyOccurrenceDate } from "@/components/teams/events/events-table-helpers";
 import type { TeamDetailData } from "@/components/teams/team-detail";
 import { useApp } from "@/context/app-context";
+import { preloadRouteQuery } from "@/lib/route-preload";
 import { isTeamLead } from "@/lib/team-utils";
 
 interface EventAccess {
@@ -172,21 +173,33 @@ export const Route = createFileRoute("/_app/events/$id")({
       .optional(),
     tab: z.enum(["updates", "photos", "feedback", "expenses"]).optional(),
   }),
-  loader: ({ context, params }) => {
-    context.zero?.preload(queries.teamEvent.byId({ id: params.id }));
-    context.zero?.preload(
-      queries.kalakritiEdition.byTeamEventId({ teamEventId: params.id })
+  loader: ({ abortController, context, params }) => {
+    preloadRouteQuery(
+      context.zero,
+      queries.teamEvent.byId({ id: params.id }),
+      abortController.signal
     );
-    context.zero?.preload(
-      queries.eventUpdate.approvedByEvent({ eventId: params.id })
+    preloadRouteQuery(
+      context.zero,
+      queries.kalakritiEdition.byTeamEventId({ teamEventId: params.id }),
+      abortController.signal
+    );
+    preloadRouteQuery(
+      context.zero,
+      queries.eventUpdate.approvedByEvent({ eventId: params.id }),
+      abortController.signal
     );
     // Pending update/photo preloads omitted — conditionally fetched based on
     // permissions inside EventDetail (approvers get all, others get own only).
-    context.zero?.preload(
-      queries.eventPhoto.approvedByEvent({ eventId: params.id })
+    preloadRouteQuery(
+      context.zero,
+      queries.eventPhoto.approvedByEvent({ eventId: params.id }),
+      abortController.signal
     );
-    context.zero?.preload(
-      queries.eventImmichAlbum.byEvent({ eventId: params.id })
+    preloadRouteQuery(
+      context.zero,
+      queries.eventImmichAlbum.byEvent({ eventId: params.id }),
+      abortController.signal
     );
   },
   head: () => ({

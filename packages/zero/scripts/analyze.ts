@@ -5,7 +5,21 @@ import { schema } from "../src/schema";
 const missingEventId = "__zero_analyze_missing_event__";
 const eventId = process.env.ZERO_ANALYZE_EVENT_ID ?? missingEventId;
 
-const queries: ReadonlyArray<{
+const profile = process.env.ZERO_ANALYZE_PROFILE ?? "events";
+const editionId = process.env.ZERO_ANALYZE_EDITION_ID?.trim();
+
+if (profile !== "events" && profile !== "kalakriti") {
+  console.error("ZERO_ANALYZE_PROFILE must be events or kalakriti.");
+  process.exit(1);
+}
+if (profile === "kalakriti" && !editionId) {
+  console.error(
+    "ZERO_ANALYZE_EDITION_ID is required for the kalakriti profile."
+  );
+  process.exit(1);
+}
+
+const eventQueries: ReadonlyArray<{
   args: readonly unknown[];
   name: string;
 }> = [
@@ -20,6 +34,15 @@ const queries: ReadonlyArray<{
   { args: [{ eventId }], name: "eventPhoto.pendingByEvent" },
   { args: [{ eventId }], name: "eventUpdate.pendingByEvent" },
 ];
+
+const queries =
+  profile === "kalakriti"
+    ? [
+        { args: [{ editionId }], name: "kalakritiEntry.visible" },
+        { args: [{ editionId }], name: "kalakritiEntry.availableDivisions" },
+        { args: [{ editionId }], name: "kalakritiStudent.visibleForDirectory" },
+      ]
+    : eventQueries;
 
 const zeroCacheUrl = process.env.ZERO_CACHE_URL;
 

@@ -23,6 +23,7 @@ import {
 } from "@/lib/date-range";
 import { cityOptions } from "@/lib/form-schemas";
 import { assertPermission } from "@/lib/route-guards";
+import { preloadRouteQuery } from "@/lib/route-preload";
 import {
   computeApprovalTimeData,
   computeCategoryData,
@@ -70,10 +71,22 @@ export const Route = createFileRoute("/_app/analytics")({
   head: () => ({
     meta: [{ title: `Analytics | ${env.VITE_APP_NAME}` }],
   }),
-  loader: ({ context }) => {
-    context.zero?.preload(queries.reimbursement.all());
-    context.zero?.preload(queries.advancePayment.all());
-    context.zero?.preload(queries.vendorPayment.all());
+  loader: ({ abortController, context }) => {
+    preloadRouteQuery(
+      context.zero,
+      queries.reimbursement.all(),
+      abortController.signal
+    );
+    preloadRouteQuery(
+      context.zero,
+      queries.advancePayment.all(),
+      abortController.signal
+    );
+    preloadRouteQuery(
+      context.zero,
+      queries.vendorPayment.all(),
+      abortController.signal
+    );
   },
 });
 

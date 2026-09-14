@@ -1,16 +1,17 @@
 import { createFileRoute, notFound, Outlet } from "@tanstack/react-router";
 
-import { getKalakritiEditionAccess } from "@/functions/kalakriti-access";
+import { getCoordinatedKalakritiEditionAccess } from "@/lib/kalakriti-access-request";
 
 export const Route = createFileRoute("/_app/kalakriti/$year")({
-  beforeLoad: async ({ params }) => {
+  beforeLoad: async ({ context, params }) => {
     const year = Number(params.year);
     if (!Number.isInteger(year) || year < 2000 || year > 2200) {
       throw notFound();
     }
-    const access = await getKalakritiEditionAccess({
-      data: { year },
-    });
+    const access = await getCoordinatedKalakritiEditionAccess(
+      context.session,
+      year
+    );
     if (!access) {
       throw notFound();
     }

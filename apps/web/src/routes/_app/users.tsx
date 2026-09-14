@@ -33,6 +33,7 @@ import {
 } from "@/functions/user-admin";
 import { getErrorMessage } from "@/lib/errors";
 import { assertPermission } from "@/lib/route-guards";
+import { preloadRouteQuery } from "@/lib/route-preload";
 
 export const Route = createFileRoute("/_app/users")({
   beforeLoad: ({ context }) => assertPermission(context, "users.manage"),
@@ -40,8 +41,8 @@ export const Route = createFileRoute("/_app/users")({
   head: () => ({
     meta: [{ title: `Users | ${env.VITE_APP_NAME}` }],
   }),
-  loader: ({ context }) => {
-    context.zero?.preload(queries.user.all());
+  loader: ({ abortController, context }) => {
+    preloadRouteQuery(context.zero, queries.user.all(), abortController.signal);
   },
 });
 

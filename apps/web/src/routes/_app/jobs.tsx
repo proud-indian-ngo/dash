@@ -47,7 +47,8 @@ function fetchJobsData(
   stateFilter: string,
   queueFilter: string,
   offset: number,
-  limit: number
+  limit: number,
+  signal: AbortSignal
 ) {
   const params = new URLSearchParams({
     limit: String(limit),
@@ -59,20 +60,22 @@ function fetchJobsData(
   if (queueFilter) {
     params.set("queue", queueFilter);
   }
-  return fetch(`/api/jobs?${params.toString()}`).then(async (res) => {
-    if (!res.ok) {
-      throw new Error(`Failed to fetch jobs: ${res.status}`);
+  return fetch(`/api/jobs?${params.toString()}`, { signal }).then(
+    async (res) => {
+      if (!res.ok) {
+        throw new Error(`Failed to fetch jobs: ${res.status}`);
+      }
+      const data = await res.json();
+      return {
+        jobs: (data.jobs ?? []) as JobRow[],
+        total: (data.total ?? 0) as number,
+      };
     }
-    const data = await res.json();
-    return {
-      jobs: (data.jobs ?? []) as JobRow[],
-      total: (data.total ?? 0) as number,
-    };
-  });
+  );
 }
 
-function fetchStatsData() {
-  return fetch("/api/jobs/stats").then(async (res) => {
+function fetchStatsData(signal: AbortSignal) {
+  return fetch("/api/jobs/stats", { signal }).then(async (res) => {
     if (!res.ok) {
       throw new Error(`Failed to fetch stats: ${res.status}`);
     }
@@ -113,14 +116,23 @@ function JobsRouteComponent() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: refreshKey is intentionally in deps to allow imperative re-fetch without being read in the effect body
   useEffect(() => {
     let cancelled = false;
+    let controller: AbortController | undefined;
     const offset = pageIndex * pageSize;
     const load = () => {
-      if (document.hidden) {
+      if (document.hidden || controller) {
         return;
       }
+      const requestController = new AbortController();
+      controller = requestController;
       Promise.all([
-        fetchJobsData(stateFilter, queueFilter, offset, pageSize),
-        fetchStatsData(),
+        fetchJobsData(
+          stateFilter,
+          queueFilter,
+          offset,
+          pageSize,
+          requestController.signal
+        ),
+        fetchStatsData(requestController.signal),
       ])
         .then(([jobsResult, statsResult]) => {
           if (cancelled) {
@@ -133,6 +145,7 @@ function JobsRouteComponent() {
           setIsLoading(false);
         })
         .catch((error: unknown) => {
+          requestController.abort();
           if (cancelled) {
             return;
           }
@@ -145,6 +158,9 @@ function JobsRouteComponent() {
           setJobs([]);
           setTotal(0);
           setIsLoading(false);
+        })
+        .finally(() => {
+          controller = undefined;
         });
     };
     load();
@@ -152,6 +168,7 @@ function JobsRouteComponent() {
     return () => {
       cancelled = true;
       clearInterval(id);
+      controller?.abort();
     };
   }, [stateFilter, queueFilter, pageIndex, pageSize, refreshKey]);
 
