@@ -342,3 +342,5 @@ The app benchmark visits the Team list and synthetic Team detail as admin, verif
 The app benchmark also opens the synthetic Team as a non-member volunteer. It verifies the denied Team result is empty and no `teamEvent.byTeam` query is registered. The earlier baseline verified exactly 300 public event IDs in the unused preload; that preload is now removed. Three fresh browser contexts measure authorized Team rendering and warm returns, waiting for the complete pending-interest count before recording elapsed time.
 
 The app fixture also seeds 600 album metadata records and ten inert configuration keys. General settings profiles `appConfig.all` as admin; public event detail profiles album metadata as admin and volunteer. Album IDs are synthetic, links are not opened, and the benchmark does not contact Immich or toggle settings.
+
+The Kalakriti benchmark exposes the linked `eventId` and visits that event route as global admin and Edition admin to profile `kalakritiEdition.byTeamEventId`. It verifies the exact returned Edition ID. This tests the mounted lookup without changing the event or Edition.

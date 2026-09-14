@@ -1,6 +1,6 @@
 # Query performance audit coverage
 
-Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 73 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
+Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 74 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
 
 Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/tests/performance/app.spec.ts`, with their JSON report attachments. Commands, fixture sizes, account scopes, timings and limitations are recorded in [E2E architecture](architecture/e2e-testing.md). SQLite reads, synced rows, server hydration and total hydration are separate measurements. Broad local caching is intentional; root scans and row counts alone do not establish waste.
 
@@ -20,7 +20,7 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 | `kalakritiAssignment` | `roster`, `myAccess` (admin/Guardian/liaison) | None |
 | `kalakritiCenter` | `visible`, `guardianAssignments`, `liaisonAssignments` (admin) | None |
 | `kalakritiCompetition` | `categories`, `competitions`, `sessions`, `venues` | None |
-| `kalakritiEdition` | `readiness` (global admin), `byYear` (admin, Guardian, liaison), `cloneSource` (admin/Edition admin), `configurationAccessible` (Edition admin), `accessible` (admin/Guardian/liaison/Edition admin) | `byTeamEventId` |
+| `kalakritiEdition` | `readiness` (global admin), `byYear` (admin, Guardian, liaison), `cloneSource` (admin/Edition admin), `configurationAccessible` (Edition admin), `accessible` (admin/Guardian/liaison/Edition admin), `byTeamEventId` (admin/Edition admin) | None |
 | `kalakritiEligibility` | `ageCategories` (admin/Edition admin) | None |
 | `kalakritiEntry` | `availableDivisions`, `visible`, `visibleByCenter`, `availableDivisionsByCenter` (Guardian/liaison), `visibleByDivision` | `byId` |
 | `kalakritiFood` | `students`, `memberships` | None |
@@ -626,3 +626,20 @@ The app fixture now includes 600 synthetic album records, one per event, and ten
 | `eventImmichAlbum.byEvent` / volunteer | 10.48 ms | 7 / 3 | 7 | 3.81 ms | 265.1 ms |
 
 Untimed verification checks the exact total configuration count and one album root for the requested event. All 13 browser tests passed without retries. These plans do not demonstrate a query bottleneck; total event-detail hydration remains separate from album execution. Private-event denial and external-user configuration scope are not covered by these new measurements. Product queries remain unchanged.
+
+## Linked-event Edition lookup (2026-09-14)
+
+The Kalakriti fixture exposes its linked event ID so the benchmark can visit the event route and measure its existing Edition preload. Both global admin and Edition admin return the exact synthetic Edition ID.
+
+| Account | Median analyzer | Read / synced | Scans | Server hydration | Total hydration |
+| --- | --- | --- | --- | --- | --- |
+| Global admin | 12.26 ms | 1 / 1 | 1 | 0.52 ms | 154.8 ms |
+| Edition admin | 11.68 ms | 12 / 5 | 12 | 1.38 ms | 211.8 ms |
+
+All 13 browser tests passed without retries. This query is inexpensive in the measured fixture; no product changes were made.
+
+### Remaining inventory versus remaining performance work
+
+An exact `queries.<group>.<variant>` consumer search across `apps/` and `packages/`, excluding definitions, analyzer registration and tests, found no direct production callers for the remaining 14 unmeasured variants: `advancePayment.byCurrentUser`, `eventPhoto.byEvent`, `eventUpdate.byEvent`, `kalakritiEntry.byId`, `reimbursement.byCurrentUser`, `scheduledMessage.byId`, `teamEvent.byCurrentUser`, `teamEvent.byIdWithExpenses`, `teamEvent.public`, `user.one`, `vendor.byId`, `vendorPayment.byCurrentUser`, `vendorPaymentTransaction.byId` and `vendorPaymentTransaction.byVendorPayment`. They remain registered APIs and are not claimed to be measured or optimized.
+
+The 74 measured variants cover the direct page consumers identified by this inventory, not all page states, roles or workloads. Remaining work includes populated category-lead and overall-events scopes, team-member/lead scopes, large single-event interest queues, realistic job history, and continued investigation of the expensive Edition-admin Entries/Food relationship graphs. Production and infrastructure measurements remain separate; HTTP latency investigation is paused at the user's request.

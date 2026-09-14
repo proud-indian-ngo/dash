@@ -39,6 +39,7 @@ test("profile a large synthetic Kalakriti edition", async ({
   );
   const fixture = JSON.parse(stdout.trim()) as {
     editionId: string;
+    eventId: string;
     year: number;
     counts: Record<string, number>;
     scopedCounts: { students: number; entries: number };
@@ -74,6 +75,19 @@ test("profile a large synthetic Kalakriti edition", async ({
     );
   };
   const profileConfiguration = async (target: Page, restricted: boolean) => {
+    await target.goto(`/events/${fixture.eventId}`);
+    const linkedEdition = await profileZeroQueries(
+      target,
+      { "kalakritiEdition.byTeamEventId": 1 },
+      { teamEventId: fixture.eventId },
+      {
+        "kalakritiEdition.byTeamEventId": {
+          table: "kalakriti_edition",
+          count: 1,
+          ids: [fixture.editionId],
+        },
+      }
+    );
     await target.goto(`/kalakriti/${fixture.year}`);
     const configuration = await profileZeroQueries(
       target,
@@ -112,7 +126,7 @@ test("profile a large synthetic Kalakriti edition", async ({
       );
     }
     configuration.push(...(await profileEditionPicker(target)));
-    return configuration;
+    return [...linkedEdition, ...configuration];
   };
   const profileRegistration = async (target: Page, restricted: boolean) => {
     const centerId = fixture.scopedCenterIds[0]!;

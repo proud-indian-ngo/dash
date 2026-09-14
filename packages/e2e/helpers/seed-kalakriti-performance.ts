@@ -569,6 +569,7 @@ export async function seedKalakritiPerformance() {
     categoryAssignmentIndexExperiment,
     entryMemberIndexExperiment,
     editionId,
+    eventId,
     year,
     counts: actualCounts,
     scopedCounts,
