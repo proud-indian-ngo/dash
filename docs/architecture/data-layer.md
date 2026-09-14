@@ -98,6 +98,8 @@ Migration `0089_bouncy_mandarin.sql` indexes Entry members by `(student_id, edit
 
 Food membership expansions authorize each assignment or Guardian link through `whereExists("center", foodCenter)`. Their related Center expansion uses that same link without repeating the authorization predicate. Removing Center authority removes the parent link and its Center from the result.
 
+Migration `0090_lovely_domino.sql` adds `(competition_category_id, responsibility, id)` on assignments for category-authority lookups. It complements the membership-leading category uniqueness constraint. The local Eligibility benchmark demonstrated fewer assignment scans with unchanged results, not a material latency improvement.
+
 ## Connection Errors
 
 Global monitor: `ZeroConnectionMonitor` in `apps/web/src/routes/_app.tsx` via `useConnectionState()`. Individual queries = no error handling. On `error`: debounced toast. On `needs-auth` (401/403): redirect `/login` with current path.

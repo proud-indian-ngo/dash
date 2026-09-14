@@ -1147,6 +1147,11 @@ export const kalakritiAssignment = pgTable(
       table.responsibility,
       table.id
     ),
+    index("kalakriti_assignment_category_responsibility_idx").on(
+      table.competitionCategoryId,
+      table.responsibility,
+      table.id
+    ),
     foreignKey({
       columns: [table.editionId, table.membershipId],
       foreignColumns: [

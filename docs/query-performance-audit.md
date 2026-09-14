@@ -574,3 +574,13 @@ The authenticated benchmark now measures the mounted Edition picker for four acc
 All 13 browser tests passed without retries. Eligibility verifies one age-category root under both accounts. The Edition-admin plan performs a full assignment scan for `(competition_category_id, responsibility)`, with 1,219 assignment visits in every sample. This is a candidate for a controlled index experiment, especially under the category-lead branch; the current 11 ms analyzer median does not establish a material page-delay cause. The initial server hydration is a separate sample and is not attributed solely to that scan. No product query changed in this milestone.
 
 Remaining consumer inspection confirms that `eventPhoto.byEvent`, `eventUpdate.byEvent`, `teamEvent.byCurrentUser`, `teamEvent.byIdWithExpenses` and `teamEvent.public` have no production consumers. They remain unmeasured registered APIs. The next active page gaps include `/teams`, team detail, event-detail interests and album metadata.
+
+## Category assignment index experiment (2026-09-14)
+
+`CATEGORY_ASSIGNMENT_INDEX_EXPERIMENT=true` adds a disposable `(competition_category_id, responsibility, id)` index after the local database guard. The report records the option. The runner tears down the database afterwards. Existing assignment indexes start with other lookup keys, including the membership-leading category uniqueness constraint.
+
+Using the same fixture and Edition-admin Eligibility query, assignment scans fell from 1,219 to 8 in all three samples. Read/synced counts remained 15/4; median analyzer time was 11.38 → 11.28 ms. Initial server hydration was 154.96 → 149.06 ms and total hydration 334.1 → 322.9 ms. These differences do not establish useful latency improvement. The demonstrated benefit is replacing the full assignment scan with an indexed lookup on category and responsibility. All 13 browser tests passed without retries.
+
+This fixture primarily tests the empty category-authority branch of an Edition-admin query. A populated category-lead workload remains necessary for that permission scope. Migration `0090_lovely_domino.sql` adds the tested index while retaining existing indexes, constraints and query predicates.
+
+A second fresh-stack run applied migration 0090 with the experiment disabled. All three Eligibility plans used `kalakriti_assignment_category_responsibility_idx`, retained 15 reads / 4 synced rows, and recorded 8 assignment visits. Median analyzer time was 10.44 ms. All 13 browser tests passed without retries. Production deployment and effects remain unverified.

@@ -48,6 +48,12 @@ export async function seedKalakritiPerformance() {
   const adminEmail = process.env.SUPER_ADMIN_EMAIL;
   if (!adminEmail) throw new Error("SUPER_ADMIN_EMAIL is required");
   const { db } = await import("@pi-dash/db");
+  const categoryAssignmentIndexExperiment =
+    process.env.CATEGORY_ASSIGNMENT_INDEX_EXPERIMENT === "true";
+  if (categoryAssignmentIndexExperiment) {
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS kalakriti_assignment_perf_category_responsibility_idx
+      ON kalakriti_assignment (competition_category_id, responsibility, id)`);
+  }
   const entryMemberIndexExperiment =
     process.env.ENTRY_MEMBER_INDEX_EXPERIMENT === "true";
   if (entryMemberIndexExperiment) {
@@ -560,6 +566,7 @@ export async function seedKalakritiPerformance() {
   }
 
   return {
+    categoryAssignmentIndexExperiment,
     entryMemberIndexExperiment,
     editionId,
     year,
@@ -575,11 +582,5 @@ if (import.meta.main) {
   const result = await seedKalakritiPerformance();
   writeSync(1, `${JSON.stringify(result)}\n`);
   const { db } = await import("@pi-dash/db");
-  const entryMemberIndexExperiment =
-    process.env.ENTRY_MEMBER_INDEX_EXPERIMENT === "true";
-  if (entryMemberIndexExperiment) {
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS kalakriti_entry_member_perf_student_edition_id_idx
-      ON kalakriti_entry_member (student_id, edition_id, id)`);
-  }
   await db.$client.end();
 }
