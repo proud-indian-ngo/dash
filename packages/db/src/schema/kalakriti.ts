@@ -1252,6 +1252,11 @@ export const kalakritiAuditEntry = pgTable(
       table.editionId,
       table.createdAt.desc()
     ),
+    index("kalakriti_audit_edition_created_id_idx").on(
+      table.editionId,
+      table.createdAt.desc().nullsFirst(),
+      table.id.desc().nullsFirst()
+    ),
   ]
 );
 
