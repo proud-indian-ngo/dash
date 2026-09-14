@@ -58,33 +58,37 @@ export function buildAuditLogQueries({
       .select({ total: sql<number>`count(*)::int` })
       .from(auditLog)
       .where(where),
-    actions: db
-      .selectDistinct({ action: auditLog.action })
+    facets: db
+      .select({
+        action: sql<string | null>`${auditLog.action}`,
+        targetType: auditLog.targetType,
+        // GROUPING is zero for action groups and one for target-type groups.
+        actionGroup: sql<number>`grouping(${auditLog.action})`,
+      })
       .from(auditLog)
-      .orderBy(auditLog.action),
-    targetTypes: db
-      .selectDistinct({ targetType: auditLog.targetType })
-      .from(auditLog)
-      .where(sql`${auditLog.targetType} is not null`)
-      .orderBy(auditLog.targetType),
+      .groupBy(
+        sql`grouping sets ((${auditLog.action}), (${auditLog.targetType}))`
+      )
+      .orderBy(auditLog.action, auditLog.targetType),
   };
 }
 
 export async function loadAuditLog(input: AuditLogQuery) {
   const queries = buildAuditLogQueries(input);
-  const [entries, countRows, actionRows, targetTypeRows] = await Promise.all([
+  const [entries, countRows, facetRows] = await Promise.all([
     queries.entries,
     queries.count,
-    queries.actions,
-    queries.targetTypes,
+    queries.facets,
   ]);
 
   return {
     entries,
     facets: {
-      actions: actionRows.map((row) => row.action),
-      targetTypes: targetTypeRows.flatMap((row) =>
-        row.targetType ? [row.targetType] : []
+      actions: facetRows.flatMap((row) =>
+        row.actionGroup === 0 && row.action !== null ? [row.action] : []
+      ),
+      targetTypes: facetRows.flatMap((row) =>
+        row.actionGroup === 1 && row.targetType ? [row.targetType] : []
       ),
     },
     total: countRows[0]?.total ?? 0,

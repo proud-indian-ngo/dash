@@ -1,3 +1,4 @@
+import { deepStrictEqual } from "node:assert";
 import { writeSync } from "node:fs";
 
 import { sql } from "drizzle-orm";
@@ -13,7 +14,7 @@ if (
 
 const { db } = await import("@pi-dash/db");
 const { auditLog } = await import("@pi-dash/db/schema/audit-log");
-const { buildAuditLogQueries } =
+const { buildAuditLogQueries, loadAuditLog } =
   await import("../../../apps/web/src/lib/server/audit-log");
 const { auditLogQuerySchema } =
   await import("../../../apps/web/src/lib/audit-query");
@@ -99,8 +100,34 @@ for (const scenario of cases) {
   const queries = buildAuditLogQueries(
     auditLogQuerySchema.parse(scenario.params)
   );
+  const previousActions = db
+    .selectDistinct({ action: auditLog.action })
+    .from(auditLog)
+    .orderBy(auditLog.action);
+  const previousTargetTypes = db
+    .selectDistinct({ targetType: auditLog.targetType })
+    .from(auditLog)
+    .where(sql`${auditLog.targetType} is not null`)
+    .orderBy(auditLog.targetType);
+  const [response, actions, targetTypes] = await Promise.all([
+    loadAuditLog(auditLogQuerySchema.parse(scenario.params)),
+    previousActions,
+    previousTargetTypes,
+  ]);
+  deepStrictEqual(
+    response.facets.actions,
+    actions.map((row) => row.action)
+  );
+  deepStrictEqual(
+    response.facets.targetTypes,
+    targetTypes.flatMap((row) => (row.targetType ? [row.targetType] : []))
+  );
   const plans = [];
-  for (const [name, query] of Object.entries(queries)) {
+  for (const [name, query] of Object.entries({
+    ...queries,
+    previousActions,
+    previousTargetTypes,
+  })) {
     const samples = [];
     for (let sample = 0; sample < 3; sample++) {
       const rows = await db.execute(

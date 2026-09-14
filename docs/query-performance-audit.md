@@ -111,3 +111,12 @@ The next production evidence should combine a representative navigation window w
 Search matched 11 rows but filtered all 50,001 rows separately for the page and count. Deep pagination performed an external merge sort with approximately 8.3 MiB of sort space. Distinct-action and distinct-type facets each scanned the full table even on narrowly filtered requests. These are measured candidates for further experiments, not deployed fixes. The fixture is larger than the approximately 3,139 estimated production audit rows seen in the PostgreSQL snapshot, and its uniform synthetic distribution is not a forecast of production latency.
 
 Verification: 13 E2E checks passed (12 authentication setup checks plus the benchmark). The benchmark checks six response totals and page lengths, facet presence, repeat-seed totals and a volunteer's HTTP 403. It does not measure browser rendering or exercise every authorization role.
+
+
+### Facet scan reduction
+
+The Audit Log now computes action and target-type options with one `GROUPING SETS` query. PostgreSQL groups each dimension independently, then sorts only the distinct groups. The loader separates the groups using `GROUPING(action)` and preserves the original ordering and null/empty target-type handling. The benchmark compares the production loader's option arrays exactly against the original distinct queries. See [PostgreSQL's grouping documentation](https://www.postgresql.org/docs/18/functions-aggregate.html).
+
+On the same 50,001-row database, facet scans fell from 100,002 rows and 2,418 shared block hits across two queries to 50,001 rows and 1,209 block hits. The grouped query took about 14 ms versus approximately 20 ms of combined sequential SQL work for the original queries. This is a database-work reduction, not a demonstrated HTTP latency improvement: the original queries ran concurrently, and filtered HTTP medians moved from approximately 13 ms to 16 ms. Search remained approximately 151 ms. A preceding sorted `array_agg(distinct ...)` experiment was rejected because it sorted all rows and took approximately 70 ms.
+
+The benchmark retains the original two facet queries as comparison measurements, without using them in the API. Search and deep-page sorting remain open optimization candidates. No schema or production configuration changes accompany the facet query change.
