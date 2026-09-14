@@ -1,6 +1,6 @@
 # Query performance audit coverage
 
-Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 38 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
+Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 39 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
 
 Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/tests/performance/app.spec.ts`, with their JSON report attachments. Commands, fixture sizes, account scopes, timings and limitations are recorded in [E2E architecture](architecture/e2e-testing.md). SQLite reads, synced rows, server hydration and total hydration are separate measurements. Broad local caching is intentional; root scans and row counts alone do not establish waste.
 
@@ -20,7 +20,7 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 | `kalakritiAssignment` | `roster` | `myAccess` |
 | `kalakritiCenter` | `visible` | `guardianAssignments`, `liaisonAssignments` |
 | `kalakritiCompetition` | `categories`, `competitions`, `sessions`, `venues` | None |
-| `kalakritiEdition` | `readiness` (global admin) | `accessible`, `byTeamEventId`, `byYear`, `cloneSource`, `configurationAccessible` |
+| `kalakritiEdition` | `readiness` (global admin), `byYear` (admin, Guardian, liaison) | `accessible`, `byTeamEventId`, `cloneSource`, `configurationAccessible` |
 | `kalakritiEligibility` | None | `ageCategories` |
 | `kalakritiEntry` | `availableDivisions`, `visible` | `availableDivisionsByCenter`, `visibleByCenter`, `visibleByDivision`, `byId` |
 | `kalakritiFood` | `students`, `memberships` | None |
@@ -206,3 +206,17 @@ The lifecycle consumer passes the direct `competitionDivisions` list to registra
 The changed query measured 14.4, 23.1 and 21.8 ms, versus the verified baseline's 15.3, 24.0 and 21.3 ms. Median time was essentially unchanged; no page speedup is claimed. Server hydration was 7.7 ms and total hydration 179.2 ms in this run, which are single samples rather than acceptance thresholds.
 
 The isolated benchmark and registration lifecycle/cloning regression passed all 14 tests. Type, lint, unit and unused-export checks passed. Root authorization, direct Division syncing, server transition validation and the clone-source query remain unchanged.
+
+## Edition-by-year access baseline (September 14)
+
+The large Kalakriti benchmark profiles `kalakritiEdition.byYear` on the overview as admin and Students as Guardian and liaison. Query selection matches the numeric year, and an untimed analysis verifies exactly one Edition root for each account.
+
+| Account | Median analyzer ms | Read rows | Unique synced rows | Initial server hydration ms | Initial total hydration ms |
+|---|---:|---:|---:|---:|---:|
+| Admin | 13.0 | 1 | 1 | 0.5 | 213.7 |
+| Guardian | 12.8 | 3 | 2 | 1.6 | 571.6 |
+| Liaison | 11.4 | 12 | 5 | 1.2 | 513.7 |
+
+All three samples per account had identical read and synced counts. Guardian scanned two memberships and one Edition; liaison additionally scanned nine assignments. These plans show no disproportionate access scan in the 300-membership, 600-assignment fixture, so no query change was made. Total hydration includes other work and is not attributed to these small server execution times. Denied access, archived memberships, many Editions and other assignment responsibilities still need populated performance coverage.
+
+The isolated run passed all 13 tests. Repository type, lint, unit and unused-export checks and focused E2E TypeScript validation passed.

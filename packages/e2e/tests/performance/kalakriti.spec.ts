@@ -110,6 +110,14 @@ test("profile a large synthetic Kalakriti edition", async ({
       },
     }
   );
+  results.push(
+    ...(await profileZeroQueries(
+      page,
+      { "kalakritiEdition.byYear": 1 },
+      { year: fixture.year },
+      { "kalakritiEdition.byYear": { table: "kalakriti_edition", count: 1 } }
+    ))
+  );
   for (const [route, names] of [
     ["food", ["kalakritiFood.memberships", "kalakritiFood.students"]],
     ["students", ["kalakritiStudent.visibleForDirectory"]],
@@ -249,6 +257,23 @@ test("profile a large synthetic Kalakriti edition", async ({
           verification
         );
         scopedResults.push({ actor, route, queries: analyses });
+        if (route === "students") {
+          scopedResults.push({
+            actor,
+            route,
+            queries: await profileZeroQueries(
+              scopedPage,
+              { "kalakritiEdition.byYear": 1 },
+              { year: fixture.year },
+              {
+                "kalakritiEdition.byYear": {
+                  table: "kalakriti_edition",
+                  count: 1,
+                },
+              }
+            ),
+          });
+        }
       }
       await scopedPage.goto(`/kalakriti/${fixture.year}/centers/${centerId}`);
       scopedResults.push({

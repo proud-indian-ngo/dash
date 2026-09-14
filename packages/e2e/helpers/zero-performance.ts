@@ -51,7 +51,7 @@ export type InspectorWindow = typeof window & {
 export async function profileZeroQueries(
   page: Page,
   expected: Record<string, number>,
-  args?: Record<string, string>,
+  args?: Record<string, string | number>,
   verification?: Record<
     string,
     {
