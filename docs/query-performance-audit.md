@@ -327,7 +327,7 @@ Run the app benchmark with `NOTIFICATION_INDEX_EXPERIMENT=true` in addition to `
 
 On the same 10,000-row fixture, both accounts' scans decreased from 7,500 to 50 per analysis and the temporary ORDER BY B-tree disappeared. Read/synced counts stayed at 50, and exact expected ID sets passed. Three-sample analyzer medians changed from 14.3 to 12.3 ms for admin and 13.3 to 11.1 ms for volunteer. Server hydration was 1.2/3.5 ms, while total hydration was 217.4/351.4 ms; total hydration did not consistently improve. The benefit established here is bounded scan work and removal of sorting, with a small local analyzer difference.
 
-All 13 benchmark tests passed. A permanent index would add write/storage overhead and requires migration approval. The candidate does not change the query, ownership rules, newest-50 limit or existing indexes.
+All 13 benchmark tests passed. A permanent index adds write/storage overhead; the user approved needed performance migrations after this experiment. The candidate does not change the query, ownership rules, newest-50 limit or existing indexes.
 
 
 ## Users and notification preferences baseline (2026-09-14)
@@ -380,3 +380,11 @@ The request-detail route mounts both Advance Payment and Reimbursement lookups. 
 | Denied | 8.14 | 0 / 0 | 1 | 0.20 | 214.3 |
 
 Allowed results match the requested ID, two line items and two history rows; the owner result also matches the authenticated user. The accompanying Reimbursement lookup returns zero rows in all three cases. No query change is indicated by these small lookup costs. Attachments and long per-request histories remain unmeasured. All 13 browser tests passed with retries disabled.
+
+
+## Notification index migration (0088)
+
+The approved schema change generates `notification_userId_archived_createdAt_id_idx` on `(user_id, archived, created_at DESC, id ASC)`. Migration 0088 adds only this index. Its ordering matches the tested disposable candidate and preserves notification ownership, archive filtering and the newest-50 result set. Production deployment remains pending.
+
+
+The real migration applied successfully in the isolated test stack. Both admin and volunteer plans use `notification_userId_archived_createdAt_id_idx`, with 50 scanned/read/synced rows in all three samples and exact expected IDs. Analyzer medians were 12.83/10.79 ms. All 13 browser tests passed without retries, and type, lint and unused-export checks passed.
