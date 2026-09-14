@@ -497,3 +497,17 @@ The populated Students-page benchmark now profiles sidebar membership and refere
 | Liaison / age categories | 11.92 | 8 / 4 | 16 | 6.44 | 139.0 |
 
 All 13 browser tests passed without retries, with exact membership/assignment and age-category counts. No query change is indicated. The age-category fixture has one category, so this measures permission-path overhead amid populated related tables, not a large category catalog. An unreachable duplicate Centers benchmark block was also removed from the Students/Entries/Food-only loop.
+
+
+## Edition-admin full-roster baseline (2026-09-14)
+
+The same fixture now measures Students, Entries and Food with an Edition-admin assignment and no global-admin shortcut. All root counts match global admin: 1,500 Students, 3,000 Entries and 300 Food memberships.
+
+| Query | Global / Edition-admin analyzer median ms | Edition-admin read / synced | Edition-admin scans | Server hydration ms | Total hydration ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Students directory | 313.67 / 653.75 | 14,129 / 7,514 | 28,428 | 503.89 | 1,001.9 |
+| Entries | 1,171.49 / 1,763.22 | 58,340 / 9,108 | 77,248 | 1,467.55 | 3,022.1 |
+| Food Students | 487.23 / 1,106.44 | 25,541 / 6,015 | 42,675 | 620.85 | 4,528.4 |
+| Food memberships | 138.11 / 777.47 | 31,684 / 912 | 42,692 | 756.32 | 4,163.1 |
+
+All 13 browser tests passed without retries. These scoped authorization paths warrant further investigation. In the same run, the global-admin Students sample scanned 4,506,000 entry-member rows through repeated full scans for `(student_id, edition_id)` ordered by ID, despite an existing student-only index; the later Edition-admin plan used that index. This plan difference needs a controlled comparison before adding a migration or claiming a fix.

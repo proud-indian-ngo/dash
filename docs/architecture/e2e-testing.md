@@ -322,3 +322,6 @@ The Kalakriti performance fixture links Edition-admin and volunteer-coordinator 
 
 
 Students-page profiling includes `myAccess` and `ageCategoriesByCenter` for admin, Guardian and liaison. It verifies the empty admin membership, Guardian membership without assignments, liaison membership with four assignments, and one reference-Center age category per account. The single-category fixture establishes scoped lookup behavior rather than category-catalog scale.
+
+
+The linked Edition-admin account also profiles full Students, Entries and Food routes. Expected roots match global admin, while analyzer reports preserve the additional authorization work. This role has an Edition assignment rather than the global `kalakriti.admin` permission.

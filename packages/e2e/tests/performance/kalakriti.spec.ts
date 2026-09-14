@@ -533,6 +533,50 @@ test("profile a large synthetic Kalakriti edition", async ({
           }
         ),
       });
+      if (actor === "editionAdmin") {
+        for (const [route, expectedQueries, tables] of [
+          [
+            "students",
+            {
+              "kalakritiStudent.visibleForDirectory": fixture.counts.students!,
+            },
+            { "kalakritiStudent.visibleForDirectory": "kalakriti_student" },
+          ],
+          [
+            "entries",
+            { "kalakritiEntry.visible": fixture.counts.entries! },
+            { "kalakritiEntry.visible": "kalakriti_competition_entry" },
+          ],
+          [
+            "food",
+            {
+              "kalakritiFood.students": fixture.counts.students!,
+              "kalakritiFood.memberships": fixture.counts.memberships!,
+            },
+            {
+              "kalakritiFood.students": "kalakriti_student",
+              "kalakritiFood.memberships": "kalakriti_edition_membership",
+            },
+          ],
+        ] as [string, Record<string, number>, Record<string, string>][]) {
+          await managerPage.goto(`/kalakriti/${fixture.year}/${route}`);
+          scopedResults.push({
+            actor,
+            route,
+            queries: await profileZeroQueries(
+              managerPage,
+              expectedQueries,
+              { editionId: fixture.editionId },
+              Object.fromEntries(
+                Object.entries(expectedQueries).map(([name, count]) => [
+                  name,
+                  { table: tables[name]!, count },
+                ])
+              )
+            ),
+          });
+        }
+      }
     } finally {
       await context.close();
     }
