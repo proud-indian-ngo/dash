@@ -212,6 +212,64 @@ async function finish(
   ).toBeUndefined();
 }
 
+for (const actor of ["guardian", "liaison"] as const) {
+  test(`Food removes revoked Center data from a mounted ${actor} subscription`, async ({
+    browser,
+    baseURL,
+    superAdminEmail,
+    kalakritiActors,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== "kalakriti_release_invariants",
+      "Isolated scope fixture requires the serialized invariant lane"
+    );
+    const data = await fixture<Setup>("setup-scopes", superAdminEmail);
+    const context = await browser.newContext({
+      baseURL,
+      storageState:
+        actor === "guardian"
+          ? { cookies: [], origins: [] }
+          : kalakritiActors.unrelatedVolunteer.storageState,
+    });
+    try {
+      const page = await context.newPage();
+      const expectWireScoped = watchOutsideCenter(page);
+      if (actor === "guardian") {
+        await page.goto("/login");
+        await page.getByLabel("Email").fill(data.scopeGuardianEmail);
+        await page.getByLabel("Password").fill(data.scopeGuardianPassword);
+        await page.getByRole("button", { name: "Login", exact: true }).click();
+        await page.waitForURL((url) => url.pathname !== "/login");
+      }
+      await gotoFood(page, data.year, "guardian");
+      await expect(rowFor(page, "Center B Guardian")).toBeVisible();
+      await expect(rowFor(page, "Union Guardian")).toBeVisible();
+      await expect(
+        await cell(page, rowFor(page, "Union Guardian"), "Center")
+      ).toContainText("Union Center B");
+      let navigations = 0;
+      page.on("request", (request) => {
+        if (
+          request.isNavigationRequest() &&
+          request.frame() === page.mainFrame()
+        )
+          navigations += 1;
+      });
+      await fixture("revoke-food-center-b", actor);
+      await expect(
+        await cell(page, rowFor(page, "Union Guardian"), "Center")
+      ).toHaveText("Activity Center");
+      await expect(rowFor(page, "Center B Guardian")).toHaveCount(0);
+      await expect(rowFor(page, "Union Guardian")).toBeVisible();
+      expect(navigations).toBe(0);
+      expectWireScoped();
+    } finally {
+      await context.close();
+      await fixture("cleanup");
+    }
+  });
+}
+
 test("Food and Entry readers see their two-Center union, while arrival and check-in statuses track effective operations", async ({
   page,
   browser,

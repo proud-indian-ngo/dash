@@ -326,5 +326,7 @@ Students-page profiling includes `myAccess` and `ageCategoriesByCenter` for admi
 
 The linked Edition-admin account also profiles full Students, Entries and Food routes. Expected roots match global admin, while analyzer reports preserve the additional authorization work. This role has an Edition assignment rather than the global `kalakriti.admin` permission.
 
+`tests/kalakriti/food-entry-scopes.spec.ts` also verifies live Center revocation for Guardian and liaison Food readers. The serialized fixture removes only the actor's Center B authority while the page stays open. Assertions check removal of a Center B-only person, narrowing of a retained person's nested Centers, no document reload and no outside-Center data in incoming Zero frames.
+
 
 `ENTRY_MEMBER_INDEX_EXPERIMENT=true` enables a disposable Student/Edition/ID index for entry members in the Kalakriti fixture. Compare the first analyzer sample separately from warm samples: the baseline initially selected a full scan, then switched to the existing Student index. The experiment retains all role result checks and changes no query permissions.
