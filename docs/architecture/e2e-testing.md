@@ -316,3 +316,6 @@ Shared lookup profiling uses 100 synthetic expense categories and 200 synthetic 
 
 
 The Kalakriti Centers benchmark checks 300 Guardian links and 300 liaison assignments under global-admin access, using the existing 300-membership and 600-assignment fixture. Restricted manager performance requires separate linked Edition-admin/coordinator memberships; the Guardian and liaison navigation checks do not substitute for those roles.
+
+
+The Kalakriti performance fixture links Edition-admin and volunteer-coordinator accounts to existing synthetic memberships, replacing one Competition-volunteer assignment each with their manager responsibility. Dataset totals remain fixed. Centers benchmarks verify their permitted assignment lists; the analyzer's optional row filter distinguishes liaison roots from manager authorization rows without altering timing or scan metrics.

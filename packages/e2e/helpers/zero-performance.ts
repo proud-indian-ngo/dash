@@ -61,6 +61,7 @@ export async function profileZeroQueries(
       relatedCounts?: Record<string, number>;
       ids?: string[];
       userId?: string;
+      rowFilter?: Record<string, string>;
     }
   >
 ) {
@@ -150,7 +151,14 @@ export async function profileZeroQueries(
           const syncedRows = (
             await query.analyze({ joinPlans: false, syncedRows: true })
           ).syncedRows;
-          const rows = syncedRows?.[verify.table];
+          const tableRows = syncedRows?.[verify.table];
+          const rows = verify.rowFilter
+            ? tableRows?.filter((row) =>
+                Object.entries(verify.rowFilter!).every(
+                  ([key, value]) => row[key] === value
+                )
+              )
+            : tableRows;
           if (!rows) throw new Error(`Missing verified table: ${verify.table}`);
           verifiedScope = {
             count: rows.length,

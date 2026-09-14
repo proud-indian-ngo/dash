@@ -210,8 +210,8 @@ test("profile a large synthetic Kalakriti edition", async ({
           kalakriti_competition_division: fixture.counts.divisions!,
           kalakriti_competition_session: fixture.counts.sessions!,
           kalakriti_venue: 1,
-          // Only one volunteer membership has a linked user, with four assignments.
-          kalakriti_assignment: 4,
+          // Three volunteer memberships have linked users, with four assignments each.
+          kalakriti_assignment: 12,
           kalakriti_transport_assignment: fixture.counts.transport!,
         },
       },
@@ -474,6 +474,50 @@ test("profile a large synthetic Kalakriti edition", async ({
           ),
         });
       }
+    } finally {
+      await context.close();
+    }
+  }
+  for (const actor of ["editionAdmin", "volunteerCoordinator"] as const) {
+    const context = await browser.newContext({
+      storageState: kalakritiActors[actor].storageState!,
+    });
+    try {
+      const managerPage = await context.newPage();
+      await managerPage.goto(`/kalakriti/${fixture.year}/centers`);
+      const expected = {
+        "kalakritiCenter.liaisonAssignments": fixture.counts.assignments! / 2,
+        ...(actor === "editionAdmin"
+          ? {
+              "kalakritiCenter.guardianAssignments":
+                fixture.counts.guardianCenters!,
+            }
+          : {}),
+      };
+      scopedResults.push({
+        actor,
+        route: "centers",
+        queries: await profileZeroQueries(
+          managerPage,
+          expected,
+          { editionId: fixture.editionId },
+          {
+            "kalakritiCenter.liaisonAssignments": {
+              table: "kalakriti_assignment",
+              rowFilter: { responsibility: "liaison" },
+              count: fixture.counts.assignments! / 2,
+            },
+            ...(actor === "editionAdmin"
+              ? {
+                  "kalakritiCenter.guardianAssignments": {
+                    table: "kalakriti_guardian_center",
+                    count: fixture.counts.guardianCenters!,
+                  },
+                }
+              : {}),
+          }
+        ),
+      });
     } finally {
       await context.close();
     }

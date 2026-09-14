@@ -466,3 +466,18 @@ The Centers page benchmark now explicitly profiles Guardian and liaison assignme
 | Liaison assignments | 34.37 | 900 / 460 | 1,500 | 15.82 | 881.0 |
 
 All 13 Kalakriti browser tests passed without retries and both root counts matched exactly. This baseline includes only global-admin access for these queries; linked Edition-admin and volunteer-coordinator memberships are still needed to exercise their restricted authorization branches. The existing Guardian and liaison route regressions do not cover those manager branches. No query change is included.
+
+
+## Centers restricted-manager baseline (2026-09-14)
+
+The synthetic Edition now links existing memberships 151 and 152 to the seeded Edition-admin and volunteer-coordinator accounts. One existing Competition-volunteer assignment on each becomes its manager responsibility; totals remain 300 memberships and 600 assignments, including 300 liaison assignments. Readiness now sees 12 assignments across three linked volunteer memberships.
+
+| Scope / query | Analyzer median ms | Read / synced | Scans | Server hydration ms | Total hydration ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Edition admin / liaison | 64.92 | 1,803 / 462 | 2,406 | 55.40 | 353.9 |
+| Edition admin / Guardian | 60.61 | 1,803 / 463 | 2,106 | 45.97 | 356.9 |
+| Volunteer coordinator / liaison | 59.49 | 1,803 / 462 | 2,406 | 43.09 | 249.7 |
+
+All queries retain the expected 300 roots. The analyzer also includes the manager's authorization assignment in its assignment table, so verification filters liaison rows before counting roots; the reported read/sync/scan metrics remain unfiltered. These manager paths roughly double reads compared with global admin. No authorization or query change is included in this baseline.
+
+All 13 browser tests passed without retries, including existing Guardian/liaison regressions. The coordinator's denied Guardian-assignment query is not mounted by this UI and remains an API-level coverage gap. Other manager-role roster and directory queries still need populated measurements.

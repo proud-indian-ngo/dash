@@ -87,8 +87,27 @@ export async function seedKalakritiPerformance() {
     .from(user)
     .where(eq(user.email, KALAKRITI_ACTORS.liaison.email))
     .limit(1);
+  const [editionAdminActor] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, KALAKRITI_ACTORS.editionAdmin.email))
+    .limit(1);
+  const [coordinatorActor] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, KALAKRITI_ACTORS.volunteerCoordinator.email))
+    .limit(1);
   const [owningTeam] = await db.select({ id: team.id }).from(team).limit(1);
-  if (!(admin && guardianActor && liaisonActor && owningTeam)) {
+  if (
+    !(
+      admin &&
+      guardianActor &&
+      liaisonActor &&
+      editionAdminActor &&
+      coordinatorActor &&
+      owningTeam
+    )
+  ) {
     throw new Error(
       "Performance fixture requires the seeded admin, actors and team"
     );
@@ -223,7 +242,11 @@ export async function seedKalakritiPerformance() {
               ? guardianActor.id
               : index === 150
                 ? liaisonActor.id
-                : null,
+                : index === 151
+                  ? editionAdminActor.id
+                  : index === 152
+                    ? coordinatorActor.id
+                    : null,
         }))
       )
       .onConflictDoNothing({ target: kalakritiEditionMembership.id });
@@ -292,6 +315,17 @@ export async function seedKalakritiPerformance() {
       .values(
         Array.from({ length: counts.assignments }, (_, index) => {
           const volunteer = Math.floor(index / 4);
+          if (index === 6 || index === 10) {
+            return {
+              ...scoped,
+              id: id(4000 + index),
+              membershipId: membershipId(150 + volunteer),
+              responsibility:
+                index === 6
+                  ? ("edition_admin" as const)
+                  : ("volunteer_coordinator" as const),
+            };
+          }
           return index % 4 < 2
             ? {
                 ...scoped,
