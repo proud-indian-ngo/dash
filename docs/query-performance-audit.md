@@ -237,3 +237,17 @@ The benchmark searches for the first synthetic Student, opens its real detail sh
 Names above abbreviate the `kalakritiStudent` and `kalakritiEntry` groups. Read and synced counts were identical across each query's three samples. Restricted scopes add authorization work; these results alone do not establish which part can be eliminated safely. Full Center caching is preserved. Initial server and total hydration are single observations and are reported separately from analyzer medians. No query change was made in this milestone.
 
 The isolated browser run passed all 13 tests, including six Center-query scope checks. Repository type, lint, unit and unused-export checks and focused E2E TypeScript validation passed. Denied Centers and other permission responsibilities remain unmeasured here.
+
+### Center Entry detail projection
+
+The only production consumer of `kalakritiEntry.visibleByCenter` is the Student detail sheet. It uses members' Student IDs, participation mode, Division age category, and Competition name/cancellation. The query now shares the existing root authorization/scope builder with the full Entries queries and expands only those detail relationships. `visible`, `byId` and `visibleByDivision` retain their original full projections. No Center Entry root is filtered out, and the main Students/Entries datasets and cache ownership remain unchanged.
+
+| Account | Analyzer median before → after ms | Reads before → after | Unique synced rows before → after |
+|---|---:|---:|---:|
+| Admin | 133.7 → 47.1 | 3,600 → 1,500 | 994 → 661 |
+| Guardian | 186.5 → 98.0 | 5,586 → 3,486 | 996 → 664 |
+| Liaison | 185.8 → 99.0 | 5,586 → 3,486 | 996 → 664 |
+
+Each value uses three analyzer samples on the same fixture; counts were stable. Removing unused nested Student operations, category/session/venue and Center hydration accounts for the 2,100-read reduction. The separate Students query is unchanged. After-change server hydration was 102.1/94.6/91.4 ms and total hydration 287.2/415.0/436.1 ms for admin/Guardian/liaison respectively; these single samples do not establish production speed.
+
+All 13 E2E tests passed, checking 300 Center Entry roots and no outside-Center roots for each account, plus the selected Student's two Competition names and Individual labels. Repository type, lint, unit and unused-export checks passed; the independent focused query/scope/component checks passed 32 tests.

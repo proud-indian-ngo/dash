@@ -88,6 +88,8 @@ Event detail enables aggregate feedback subscriptions only for feedback managers
 
 Kalakriti readiness syncs Divisions through the Edition's direct `competitionDivisions` relation. Its lifecycle checks consume that flat list, so readiness does not also expand each Competition's Divisions. Clone-source and Competition-page queries retain their nested Divisions because their consumers use them.
 
+The Student detail sheet uses `kalakritiEntry.visibleByCenter` with a participation projection: members, Division age category and Competition data. It shares root authorization with the full Entries queries, which retain their broader relationships. Center-wide Entry roots and the main Students/Entries local datasets remain intact.
+
 ## Connection Errors
 
 Global monitor: `ZeroConnectionMonitor` in `apps/web/src/routes/_app.tsx` via `useConnectionState()`. Individual queries = no error handling. On `error`: debounced toast. On `needs-auth` (401/403): redirect `/login` with current path.

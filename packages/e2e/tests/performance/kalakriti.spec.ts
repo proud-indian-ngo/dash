@@ -75,6 +75,14 @@ test("profile a large synthetic Kalakriti edition", async ({
         },
       }
     );
+    await expect(sheet.getByRole("listitem")).toHaveCount(2);
+    for (const name of [
+      "Performance Competition 1",
+      "Performance Competition 16",
+    ]) {
+      await expect(sheet.getByText(name, { exact: true })).toBeVisible();
+    }
+    await expect(sheet.getByText("Individual", { exact: true })).toHaveCount(2);
     await target.keyboard.press("Escape");
     await expect(sheet).not.toBeVisible();
     return results;
