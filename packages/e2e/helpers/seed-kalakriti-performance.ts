@@ -9,6 +9,8 @@ const id = (number: number) =>
   `019f0000-2190-7000-8000-${number.toString(16).padStart(12, "0")}`;
 const editionId = id(1);
 const eventId = id(2);
+const studentOperations = 6000;
+const attendeeOperations = 600;
 const counts = {
   centers: 10,
   students: 1500,
@@ -20,7 +22,9 @@ const counts = {
   sessions: 30,
   entries: 3000,
   entryMembers: 3000,
-  operations: 6000,
+  attendees: 200,
+  judgeAssignments: 200,
+  operations: studentOperations + attendeeOperations,
   transport: 40,
 } as const;
 
@@ -50,6 +54,7 @@ export async function seedKalakritiPerformance() {
   const {
     kalakritiAgeCategory,
     kalakritiAssignment,
+    kalakritiAttendee,
     kalakritiCenter,
     kalakritiCompetition,
     kalakritiCompetitionCategory,
@@ -60,6 +65,7 @@ export async function seedKalakritiPerformance() {
     kalakritiEditionMembership,
     kalakritiEntryMember,
     kalakritiGuardianCenter,
+    kalakritiJudgeAssignment,
     kalakritiOperation,
     kalakritiStudent,
     kalakritiTransportAssignment,
@@ -98,6 +104,7 @@ export async function seedKalakritiPerformance() {
   const divisionId = (index: number) => id(6000 + index);
   const sessionId = (index: number) => id(7000 + index);
   const entryId = (index: number) => id(10_000 + index);
+  const attendeeId = (index: number) => id(60_001 + index);
 
   await db.transaction(async (tx) => {
     await tx
@@ -306,6 +313,42 @@ export async function seedKalakritiPerformance() {
       )
       .onConflictDoNothing({ target: kalakritiAssignment.id });
 
+    await tx
+      .insert(kalakritiAttendee)
+      .values(
+        Array.from({ length: counts.attendees }, (_, index) => {
+          const kind: "guest" | "judge" =
+            index < counts.attendees / 2 ? "guest" : "judge";
+          return {
+            ...scoped,
+            id: attendeeId(index),
+            kind,
+            humanId: `${kind === "guest" ? "KALGT" : "KALJ"}-${year}-${String((index % 100) + 1).padStart(4, "0")}`,
+            name: `Performance ${kind === "guest" ? "Guest" : "Judge"} ${(index % 100) + 1}`,
+            phone: `+1555000${String(index).padStart(4, "0")}`,
+          };
+        })
+      )
+      .onConflictDoNothing({ target: kalakritiAttendee.id });
+    await tx
+      .insert(kalakritiJudgeAssignment)
+      .values(
+        Array.from({ length: counts.judgeAssignments }, (_, index) => {
+          const judge = Math.floor(index / 2);
+          return {
+            id: id(70_001 + index),
+            editionId,
+            attendeeId: attendeeId(100 + judge),
+            competitionId: competitionId(
+              (judge + (index % 2)) % counts.competitions
+            ),
+            createdAt: now,
+            createdBy: admin.id,
+          };
+        })
+      )
+      .onConflictDoNothing({ target: kalakritiJudgeAssignment.id });
+
     for (let start = 0; start < counts.entries; start += 500) {
       const length = Math.min(500, counts.entries - start);
       await tx
@@ -366,12 +409,12 @@ export async function seedKalakritiPerformance() {
       "breakfast",
       "lunch",
     ] as const;
-    for (let start = 0; start < counts.operations; start += 500) {
+    for (let start = 0; start < studentOperations; start += 500) {
       await tx
         .insert(kalakritiOperation)
         .values(
           Array.from(
-            { length: Math.min(500, counts.operations - start) },
+            { length: Math.min(500, studentOperations - start) },
             (_, offset) => {
               const index = start + offset;
               return {
@@ -380,6 +423,38 @@ export async function seedKalakritiPerformance() {
                 operationId: id(40_000 + index),
                 studentId: studentId(Math.floor(index / operationTypes.length)),
                 type: operationTypes[index % operationTypes.length]!,
+                occurredAt: now,
+                createdAt: now,
+                recordedBy: admin.id,
+              };
+            }
+          )
+        )
+        .onConflictDoNothing({ target: kalakritiOperation.id });
+    }
+    const attendeeOperationTypes = [
+      "attendee_check_in",
+      "breakfast",
+      "lunch",
+    ] as const;
+    for (let start = 0; start < attendeeOperations; start += 300) {
+      await tx
+        .insert(kalakritiOperation)
+        .values(
+          Array.from(
+            { length: Math.min(300, attendeeOperations - start) },
+            (_, offset) => {
+              const index = start + offset;
+              return {
+                id: id(80_001 + index),
+                editionId,
+                operationId: id(90_001 + index),
+                attendeeId: attendeeId(
+                  Math.floor(index / attendeeOperationTypes.length)
+                ),
+                type: attendeeOperationTypes[
+                  index % attendeeOperationTypes.length
+                ]!,
                 occurredAt: now,
                 createdAt: now,
                 recordedBy: admin.id,
@@ -402,6 +477,8 @@ export async function seedKalakritiPerformance() {
     sessions: kalakritiCompetitionSession,
     entries: kalakritiCompetitionEntry,
     entryMembers: kalakritiEntryMember,
+    attendees: kalakritiAttendee,
+    judgeAssignments: kalakritiJudgeAssignment,
     operations: kalakritiOperation,
     transport: kalakritiTransportAssignment,
   };

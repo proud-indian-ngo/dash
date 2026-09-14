@@ -120,6 +120,24 @@ test("profile a large synthetic Kalakriti edition", async ({
       ))
     );
   }
+  for (const kind of ["guest", "judge"] as const) {
+    await page.goto(`/kalakriti/${fixture.year}/${kind}s`);
+    results.push(
+      ...(
+        await profileZeroQueries(
+          page,
+          { "kalakritiAttendee.visible": fixture.counts.attendees! / 2 },
+          { editionId: fixture.editionId, kind },
+          {
+            "kalakritiAttendee.visible": {
+              table: "kalakriti_attendee",
+              count: fixture.counts.attendees! / 2,
+            },
+          }
+        )
+      ).map((result) => ({ ...result, kind }))
+    );
+  }
   const centerId = fixture.scopedCenterIds[0]!;
   const transportExpected = {
     "kalakritiTransport.byCenter":

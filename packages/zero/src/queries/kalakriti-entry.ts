@@ -124,23 +124,20 @@ function visibleEntries(
     .related("center")
     .related("members", (member) =>
       member.where("editionId", args.editionId).related("student", (student) =>
-        student
-          .related("ageCategory")
-          .related("center")
-          .related("operations", (operations) => {
-            const scoped = operations.where("editionId", args.editionId);
-            return attendance
-              ? scoped.where(({ or, and, cmp }) =>
-                  or(
-                    cmp("type", "venue_arrival"),
-                    and(
-                      cmp("type", "competition_attendance"),
-                      cmp("competitionSessionId", attendance.sessionId)
-                    )
+        student.related("ageCategory").related("operations", (operations) => {
+          const scoped = operations.where("editionId", args.editionId);
+          return attendance
+            ? scoped.where(({ or, and, cmp }) =>
+                or(
+                  cmp("type", "venue_arrival"),
+                  and(
+                    cmp("type", "competition_attendance"),
+                    cmp("competitionSessionId", attendance.sessionId)
                   )
                 )
-              : scoped.where("type", "venue_arrival");
-          })
+              )
+            : scoped.where("type", "venue_arrival");
+        })
       )
     )
     .related("division", (division) =>

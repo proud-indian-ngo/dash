@@ -225,3 +225,19 @@ Local baseline (2026-09-14, median of three analyzer calls):
 | Center Scan / liaison | 26 ms | 458 | 454 |
 
 Transport uses its existing Edition/Center index. Center Scan returns one Center with 150 Students and 300 pickup/venue-arrival operations; its root count is verified separately. These samples do not establish a query bottleneck or justify another index. Persisted scan-stage rows, later finalized stages, live mutation latency and larger per-Center rosters remain unmeasured. Server hydration and total hydration remain separate fields in the report attachment.
+
+
+## Guest and Judge profiles
+
+The Kalakriti fixture adds 100 Guests, 100 Judges, two Competition assignments per Judge and three operations per attendee (check-in, breakfast and lunch). Its existing 6,000 Student operations remain unchanged; total operations are 6,600. The benchmark opens both real roster routes as admin, matches analyzer queries by Edition and kind, and verifies 100 attendee root rows per roster. Reports include `kind` to distinguish the two instances of `kalakritiAttendee.visible`.
+
+Initial median analyzer times were 22 ms for Guests (400 reads / 400 synced rows) and 34 ms for Judges (800 reads / 630 synced rows). These populated admin profiles do not show a slow hydration. Restricted Judge assignment visibility still needs a separate workload.
+
+See [query performance audit coverage](../query-performance-audit.md) for the complete registered query inventory and remaining scope; a benchmark for one account or query variant does not prove the whole page or permission surface.
+
+
+## Entries member Center relation comparison
+
+On the same expanded fixture, removing the unused `members.student.center` relation reduced admin Entries reads from 39,000 to 36,000, with 9,103 unique synced rows unchanged. Median analyzer time decreased from 1,332 ms to 1,202 ms (three samples per version, approximately 10%). This is an analyzer comparison, not a production page-load measurement. The query still includes the Entry's Center, member Student age category and arrival/attendance operations, music files and Division context. Registration picker Center labels come from `kalakritiStudent.visibleForEntries`, which is unchanged.
+
+Guardian Entries decreased from 390 ms to 363 ms and liaison Entries from 385 ms to 364 ms. Each retained exactly 600 Entry roots from the two assigned Centers and 1,898 unique synced rows; reads decreased from 14,545 to 13,945. The local regression run passed 25 checks (four role-inapplicable cases skipped), including registration, music editing and two-Center permissions.
