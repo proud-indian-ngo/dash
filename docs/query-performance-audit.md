@@ -713,3 +713,30 @@ Accept only the Edition ordering index as migration `0092_tearful_multiple_man.s
 The fresh-database run passed all 13 browser tests without retries with `entryOrderingIndexExperiment: false`. All six Entries scopes used the canonical index and reported 3,000 Entry scans instead of 6,000, with unchanged read/synced counts. Member plans retained their original index and temporary sort, confirming the two candidates were separated in the final migration. Repository type, lint, unit and unused-export checks and focused benchmark TypeScript validation passed.
 
 The next workload gap is a non-global Team lead reviewing a large interest queue for one Event. Current app data spreads 600 interests over 600 Events, leaving the lead authorization branch and large review-list rendering insufficiently measured. Preserve the existing denied-Team regression while adding this separate workload.
+
+## Large Team-lead interest queue baseline (2026-09-14)
+
+The app fixture adds a separate Team led by the seeded volunteer and one private Event with 801 existing pending requests from distinct non-external users. The original 600-Event Team remains inaccessible to this volunteer. Original range-based fixture counts are preserved; the added Team/Event/interest IDs are reported separately under `leadQueue`. This models reviewing an existing queue, not creating requests on a private Event.
+
+| Query / Team lead | Median analyzer | Read / synced | Server hydration | Total hydration |
+| --- | --- | --- | --- | --- |
+| `teamEvent.byId` | 56.48 ms | 1,609 / 1,605 | 41.17 ms | 486.3 ms |
+| `eventInterest.managerByEvent` | 194.14 ms | 6,411 / 1,605 | 160.90 ms | 758.1 ms |
+| `eventInterest.myByEvent` | 11.44 ms | 11 / 4 | 3.41 ms | 485.6 ms |
+| `eventInterest.allPending` | 150.11 ms | 3,213 / 1,605 | 77.62 ms | 1,137.5 ms |
+
+All 13 browser tests passed without retries. Exact IDs and 801 related users are verified for both manager and dashboard queues, excluding the other Team's requests. The per-user query returns only the lead's request. The original Team remains denied without an event-history preload. One document-navigation pair measured 836.2 ms cold and 707.1 ms warm until all 801 approve controls rendered; it does not establish a stable latency distribution.
+
+The plan exposes overlapping work: `teamEvent.byId` expands all interests/users while the Event route separately subscribes to the manager query. The manager query also repeats Event → Team → lead checks and uses a temporary interest-order sort. Consumer tracing is needed before changing the detail projection; the broad list datasets remain intentional.
+
+### Rejected detail projection candidate
+
+Consumer tracing found that Event detail reads its manager and own-interest queries separately. A candidate removed the nested interest expansion only from `teamEvent.byId`, preserving members/users, WhatsApp group, exceptions and Team metadata. Broad list projections remained unchanged. Four focused query tests and all 13 performance-browser tests passed, including the full manager queue.
+
+The repeated candidate reduced detail reads from 1,609 to 7 and synced rows from 1,605 to 3. Its median analyzer time fell from 54.50 to 11.61 ms, server hydration from 40.25 to 3.83 ms, and total detail hydration from 494.0 to 157.9 ms. Manager reads/synced rows remained 6,411/1,605 and median analyzer time remained about 197 ms. These are query measurements, not full-page rendering times.
+
+Three fresh browser contexts per version measured time until all 801 approve controls rendered, followed by a warm return via Events. Baseline cold samples were 862.8/1,222.2/940.4 ms; candidate samples were 1,382.8/1,324.1/1,327.8 ms. Baseline warm samples were 776.8/672.8/668.7 ms; candidate samples were 800.1/787.9/793.2 ms. Medians regressed from 940.4 to 1,327.8 ms cold and 672.8 to 793.2 ms warm.
+
+The candidate was reverted. The overlapping query may help prepare the review screen, but the mechanism is not established by these timings. Reduced query work alone did not justify worse measured navigation. Further work should investigate rendering and subscription timing on this representative queue before changing its preload graph; no production improvement is claimed.
+
+The final baseline recheck passed all 13 browser tests without retries. Cold samples were 1,229.4/879.2/1,200.7 ms and warm samples were 686.8/863.5/678.5 ms, giving medians of 1,200.7 and 686.8 ms. The cold baseline itself varied substantially; the candidate still had the highest cold and warm medians in these runs. This supports retaining the existing projection, not a claim that query overlap is universally beneficial. Only the repeatable workload, assertions and findings are retained in this milestone.

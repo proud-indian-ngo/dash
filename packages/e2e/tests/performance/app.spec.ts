@@ -36,6 +36,12 @@ test("profile Dashboard, Events and financial queries at scale", async ({
       { env: process.env, timeout: 60_000 }
     );
   const fixture = JSON.parse((await seed()).stdout.trim()) as {
+    leadQueue: {
+      teamId: string;
+      eventId: string;
+      interestIds: string[];
+      ownInterestId: string;
+    };
     teamId: string;
     counts: Record<string, number>;
     eventExpenseCount: number;
@@ -515,6 +521,22 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     ),
   });
   const restrictedResults = [];
+  const leadQueueNavigation = [];
+  const queueCount = fixture.leadQueue.interestIds.length;
+  const measureLeadQueue = async (target: Page) => {
+    const start = performance.now();
+    await target.goto(`/events/${fixture.leadQueue.eventId}`);
+    await expect(
+      target.getByRole("heading", {
+        name: `Interest Requests (${queueCount})`,
+        exact: true,
+      })
+    ).toBeVisible();
+    await expect(target.getByRole("button", { name: /^Approve / })).toHaveCount(
+      queueCount
+    );
+    return performance.now() - start;
+  };
   try {
     const restrictedPage = await restrictedContext.newPage();
     await restrictedPage.goto(`/teams/${fixture.teamId}`);
@@ -537,6 +559,67 @@ test("profile Dashboard, Events and financial queries at scale", async ({
         return queries.some((query) => query.name === "teamEvent.byTeam");
       })
     ).toBe(false);
+    await measureLeadQueue(restrictedPage);
+    restrictedResults.push({
+      route: "lead-event-queue",
+      queries: [
+        ...(await profileZeroQueries(
+          restrictedPage,
+          { "teamEvent.byId": 1 },
+          { id: fixture.leadQueue.eventId },
+          {
+            "teamEvent.byId": {
+              table: "team_event",
+              count: 1,
+              ids: [fixture.leadQueue.eventId],
+              relatedCounts: {
+                event_interest: queueCount,
+              },
+            },
+          }
+        )),
+        ...(await profileZeroQueries(
+          restrictedPage,
+          {
+            "eventInterest.managerByEvent": queueCount,
+            "eventInterest.myByEvent": 1,
+          },
+          { eventId: fixture.leadQueue.eventId },
+          {
+            "eventInterest.managerByEvent": {
+              table: "event_interest",
+              count: queueCount,
+              ids: fixture.leadQueue.interestIds,
+              relatedCounts: { user: queueCount },
+            },
+            "eventInterest.myByEvent": {
+              table: "event_interest",
+              count: 1,
+              ids: [fixture.leadQueue.ownInterestId],
+              userId: fixture.accountIds.volunteer,
+            },
+          }
+        )),
+      ],
+    });
+    await restrictedPage.goto("/");
+    restrictedResults.push({
+      route: "lead-dashboard",
+      queries: await profileZeroQueries(
+        restrictedPage,
+        { "eventInterest.allPending": queueCount },
+        undefined,
+        {
+          "eventInterest.allPending": {
+            table: "event_interest",
+            count: queueCount,
+            ids: fixture.leadQueue.interestIds,
+            relatedCounts: { user: queueCount },
+          },
+        }
+      ),
+    });
+    await measureLeadQueue(restrictedPage);
     await restrictedPage.goto("/events");
     await waitForZeroReady(restrictedPage);
     restrictedResults.push({
@@ -735,9 +818,32 @@ test("profile Dashboard, Events and financial queries at scale", async ({
   } finally {
     await restrictedContext.close();
   }
+  for (let sample = 0; sample < 3; sample++) {
+    const context = await browser.newContext({
+      storageState: path.resolve(
+        import.meta.dirname,
+        "../../.auth/volunteer.json"
+      ),
+    });
+    try {
+      const target = await context.newPage();
+      const coldMs = await measureLeadQueue(target);
+      await target.goto("/events");
+      const warmMs = await measureLeadQueue(target);
+      leadQueueNavigation.push({ coldMs, warmMs });
+    } finally {
+      await context.close();
+    }
+  }
   await info.attach("app-performance.json", {
     body: JSON.stringify(
-      { fixture, teamNavigation, results, restrictedResults },
+      {
+        fixture,
+        teamNavigation,
+        leadQueueNavigation,
+        results,
+        restrictedResults,
+      },
       null,
       2
     ),

@@ -139,6 +139,17 @@ export async function seedAppPerformance() {
   const advanceId = (index: number) => id(11_000 + index);
   const paymentId = (index: number) => id(14_000 + index);
   const transactionId = (index: number) => id(19_000 + index);
+  const leadTeamId = id(160_000);
+  const leadEventId = id(160_002);
+  const leadInterestUserIds = [
+    volunteer.id,
+    ...Array.from({ length: counts.users }, (_, index) => index)
+      .filter((index) => index % 5 !== 0)
+      .map((index) => id(90_000 + index)),
+  ];
+  const leadInterestIds = leadInterestUserIds.map((_, index) =>
+    id(161_000 + index)
+  );
 
   await db.transaction(async (tx) => {
     await batches(counts.users, (start, length) =>
@@ -330,6 +341,54 @@ export async function seedAppPerformance() {
             eventId: eventId(start + offset),
             userId: admin.id,
             createdAt: now,
+            status: "pending" as const,
+          }))
+        )
+        .onConflictDoNothing({ target: eventInterest.id })
+    );
+    await tx
+      .insert(team)
+      .values({
+        id: leadTeamId,
+        name: "Synthetic lead queue team 2191",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing({ target: team.id });
+    await tx
+      .insert(teamMember)
+      .values({
+        id: id(160_001),
+        teamId: leadTeamId,
+        userId: volunteer.id,
+        role: "lead",
+        joinedAt: now,
+      })
+      .onConflictDoNothing({ target: teamMember.id });
+    await tx
+      .insert(teamEvent)
+      .values({
+        id: leadEventId,
+        teamId: leadTeamId,
+        createdBy: volunteer.id,
+        name: "Synthetic lead queue event 2191",
+        city: "bangalore",
+        isPublic: false,
+        startTime: new Date("2191-01-01T08:00:00.000Z"),
+        endTime: new Date("2191-01-01T09:00:00.000Z"),
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing({ target: teamEvent.id });
+    await batches(leadInterestIds.length, (start, length) =>
+      tx
+        .insert(eventInterest)
+        .values(
+          Array.from({ length }, (_, offset) => ({
+            id: leadInterestIds[start + offset]!,
+            eventId: leadEventId,
+            userId: leadInterestUserIds[start + offset]!,
+            createdAt: new Date(now.getTime() + start + offset),
             status: "pending" as const,
           }))
         )
@@ -783,6 +842,12 @@ export async function seedAppPerformance() {
   }
 
   return {
+    leadQueue: {
+      teamId: leadTeamId,
+      eventId: leadEventId,
+      interestIds: leadInterestIds,
+      ownInterestId: leadInterestIds[0]!,
+    },
     teamId: id(1),
     eventExpenseCount,
     lookupCounts: {
