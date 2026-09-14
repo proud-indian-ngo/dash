@@ -145,3 +145,16 @@ The search benchmark now includes selective (11 matches), broad (50,000 matches)
 | Offset past 11 matches | 143 ms | 282 ms |
 
 The broad window query wrote 1,056 temporary blocks; the existing limited page can stop earlier while its independent count uses a narrower projection. The past-end fallback repeated the search sequentially. The production query remains unchanged. Both benchmark runs passed all 13 E2E checks (12 authentication setups plus the nine-scenario benchmark). Query-count reduction alone does not establish a performance improvement. Further search experiments should preserve these cases, the case-insensitive substring semantics and all five searched fields; this phase adds no extension or search index.
+
+
+## Debounced server-table search
+
+The shared table search already waits 300 ms before committing text to URL state. Previously, typing from page two reset the page immediately, producing one Audit Log request with the old search at offset zero and a second request with the final text. The browser regression explicitly clicks to page two, verifies offset 20, types a synthetic search and records requests. It failed with two requests before the change and passes with exactly one afterward.
+
+Server-paginated tables now reset pagination when the debounced search is committed. Client-paginated tables retain their immediate reset, and clearing search still commits immediately. This removes redundant request work without changing query shapes or caching authorization. The nine SQL/HTTP scenarios, exact results, denied access and browser request check pass in the 13-check E2E run; type, lint, unit and unused checks pass. React Doctor retains existing branch diagnostics, including the unchanged ref-initializer pattern in the shared wrapper.
+
+## Kalakriti Audit benchmark scope map
+
+The next audit endpoint is `/api/kalakriti/:year/audit`, backed by `apps/web/src/lib/server/kalakriti-audit.ts`. It combines an Edition predicate, domain/category authorization and `pg_visible_in_snapshot`, then reads page items and count. Global and Edition admins see every domain. Category leads see only competition and schedule configuration records associated with their category through target IDs or the supported metadata fields.
+
+The isolated release fixture already supplies Edition 2186 and authenticated global-admin, Edition-admin and category-lead actors; it needs a separate populated audit dataset before its existing empty/small checks establish scale. Reuse `buildKalakritiAuditItemsQuery` and the scope/snapshot builders for plans, and verify the live endpoint using each actor's stored auth state. This mapping is source evidence only, not a completed performance measurement.

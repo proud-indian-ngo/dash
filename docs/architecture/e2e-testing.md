@@ -281,3 +281,5 @@ The Audit Log report also measures the original two distinct facet queries along
 The Audit Log benchmark requires migration 0086's `(attempted_at DESC, id DESC)` index and verifies it exists before profiling. The helper also verifies exact expected row IDs and order for every scenario. The initial unindexed baseline is recorded in `docs/query-performance-audit.md`.
 
 Audit search coverage includes a selective match, a broad match, no matches and an offset beyond the last match. The benchmark keeps exact totals when a page is empty and bounds expected page lengths at zero.
+
+The Audit Log performance spec also navigates to page two in the browser and types a search. It requires exactly one API request with the final text and offset zero, preventing an immediate page reset from fetching the previous search before the 300 ms debounce completes.

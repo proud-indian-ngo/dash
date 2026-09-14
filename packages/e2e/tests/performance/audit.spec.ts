@@ -9,6 +9,7 @@ const execFileAsync = promisify(execFile);
 test("profile populated Audit Log SQL and authenticated reads", async ({
   request,
   playwright,
+  page,
 }, info) => {
   test.skip(
     process.env.AUDIT_PERFORMANCE !== "true" ||
@@ -77,6 +78,43 @@ test("profile populated Audit Log SQL and authenticated reads", async ({
   } finally {
     await restricted.dispose();
   }
+  const initialResponse = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === "/api/audit-log"
+  );
+  await page.goto("/audit-log");
+  expect((await initialResponse).status()).toBe(200);
+  const searchInput = page.getByRole("textbox", {
+    name: "Search actor, action, or target...",
+  });
+  await expect(searchInput).toBeVisible();
+  const secondPage = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/audit-log" &&
+      new URL(response.url()).searchParams.get("offset") === "20"
+  );
+  await page
+    .getByRole("button", { name: "Go to next page", exact: true })
+    .click();
+  expect((await secondPage).status()).toBe(200);
+  await expect(page).toHaveURL(/page=2/);
+  const searches: { search: string | null; offset: string | null }[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.pathname === "/api/audit-log")
+      searches.push({
+        search: url.searchParams.get("search"),
+        offset: url.searchParams.get("offset"),
+      });
+  });
+  const searched = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/audit-log" &&
+      new URL(response.url()).searchParams.get("search") ===
+        "benchmark-target-1234"
+  );
+  await searchInput.pressSequentially("benchmark-target-1234", { delay: 10 });
+  expect((await searched).status()).toBe(200);
+  expect(searches).toEqual([{ search: "benchmark-target-1234", offset: "0" }]);
   await info.attach("audit-performance.json", {
     body: JSON.stringify({ ...report, http }),
     contentType: "application/json",
