@@ -1,6 +1,6 @@
 # Query performance audit coverage
 
-Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 62 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
+Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 64 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
 
 Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/tests/performance/app.spec.ts`, with their JSON report attachments. Commands, fixture sizes, account scopes, timings and limitations are recorded in [E2E architecture](architecture/e2e-testing.md). SQLite reads, synced rows, server hydration and total hydration are separate measurements. Broad local caching is intentional; root scans and row counts alone do not establish waste.
 
@@ -20,7 +20,7 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 | `kalakritiAssignment` | `roster`, `myAccess` (admin/Guardian/liaison) | None |
 | `kalakritiCenter` | `visible`, `guardianAssignments`, `liaisonAssignments` (admin) | None |
 | `kalakritiCompetition` | `categories`, `competitions`, `sessions`, `venues` | None |
-| `kalakritiEdition` | `readiness` (global admin), `byYear` (admin, Guardian, liaison) | `accessible`, `byTeamEventId`, `cloneSource`, `configurationAccessible` |
+| `kalakritiEdition` | `readiness` (global admin), `byYear` (admin, Guardian, liaison), `cloneSource` (admin/Edition admin), `configurationAccessible` (Edition admin) | `accessible`, `byTeamEventId` |
 | `kalakritiEligibility` | None | `ageCategories` |
 | `kalakritiEntry` | `availableDivisions`, `visible`, `visibleByCenter`, `availableDivisionsByCenter` (Guardian/liaison), `visibleByDivision` | `byId` |
 | `kalakritiFood` | `students`, `memberships` | None |
@@ -545,3 +545,15 @@ Edition-admin initial server hydration was 757.77 → 590.64 ms; total hydration
 ### Live permission revocation verification
 
 Two additional release-invariant cases keep Food mounted as a Guardian and liaison. Removing the actor's Center B link through the fixture database removes the Center B-only Guardian row and narrows a retained Guardian's nested Centers to Center A. Both cases assert zero document navigation requests and no outside-Center name in incoming Zero frames. Both passed without retries (14 tests including authentication setup). These checks prove the tested Guardian-link and liaison-assignment changes propagate to an open local roster; they do not cover every role or authorization mutation.
+
+## Edition configuration baseline (2026-09-14)
+
+The overview mounts the current Edition's `cloneSource` and the accessible configuration list even without opening the clone dialog. Profile those existing subscriptions without cloning or modifying an Edition. Global admin's configuration-list AST matches `accessible`; only the distinct Edition-admin configuration-list query is counted here.
+
+| Query / account | Median analyzer | Read / synced | Scans | Server hydration | Total hydration |
+| --- | --- | --- | --- | --- | --- |
+| Clone source / global admin | 13.46 ms | 64 / 64 | 94 | 2.40 ms | 82.5 ms |
+| Clone source / Edition admin | 11.74 ms | 69 / 66 | 102 | 2.16 ms | 248.1 ms |
+| Configuration list / Edition admin | 10.62 ms | 13 / 6 | 19 | 1.06 ms | 248.2 ms |
+
+Untimed verification confirms the exact source Edition and all 30 Competitions, 30 Divisions, one age category, one competition category and one venue for both accounts. The configuration-list check confirms the synthetic Edition is present; it does not independently verify every other Edition in the seeded account's list. All 13 browser tests passed without retries. This workload does not establish a configuration-query bottleneck, so these queries remain unchanged. Larger multi-Edition histories and additional permission scopes remain unmeasured.

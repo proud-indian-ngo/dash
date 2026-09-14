@@ -46,6 +46,46 @@ test("profile a large synthetic Kalakriti edition", async ({
     firstDivisionId: string;
     firstSessionId: string;
   };
+  const profileConfiguration = async (target: Page, restricted: boolean) => {
+    await target.goto(`/kalakriti/${fixture.year}`);
+    const configuration = await profileZeroQueries(
+      target,
+      { "kalakritiEdition.cloneSource": 1 },
+      { editionId: fixture.editionId },
+      {
+        "kalakritiEdition.cloneSource": {
+          table: "kalakriti_edition",
+          count: 1,
+          ids: [fixture.editionId],
+          relatedCounts: {
+            kalakriti_age_category: 1,
+            kalakriti_competition_category: 1,
+            kalakriti_competition: fixture.counts.competitions!,
+            kalakriti_competition_division: fixture.counts.divisions!,
+            kalakriti_venue: 1,
+          },
+        },
+      }
+    );
+    // Global admin's list shares the accessible query AST and Inspector name.
+    if (restricted) {
+      configuration.push(
+        ...(await profileZeroQueries(
+          target,
+          { "kalakritiEdition.configurationAccessible": 1 },
+          undefined,
+          {
+            "kalakritiEdition.configurationAccessible": {
+              table: "kalakriti_edition",
+              rowFilter: { id: fixture.editionId },
+              count: 1,
+            },
+          }
+        ))
+      );
+    }
+    return configuration;
+  };
   const profileRegistration = async (target: Page, restricted: boolean) => {
     const centerId = fixture.scopedCenterIds[0]!;
     await target.goto(
@@ -255,6 +295,7 @@ test("profile a large synthetic Kalakriti edition", async ({
       { "kalakritiEdition.byYear": { table: "kalakriti_edition", count: 1 } }
     ))
   );
+  results.push(...(await profileConfiguration(page, false)));
   for (const [route, names] of [
     ["food", ["kalakritiFood.memberships", "kalakritiFood.students"]],
     ["students", ["kalakritiStudent.visibleForDirectory"]],
@@ -534,6 +575,11 @@ test("profile a large synthetic Kalakriti edition", async ({
         ),
       });
       if (actor === "editionAdmin") {
+        scopedResults.push({
+          actor,
+          route: "configuration",
+          queries: await profileConfiguration(managerPage, true),
+        });
         for (const [route, expectedQueries, tables] of [
           [
             "students",

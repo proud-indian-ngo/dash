@@ -326,6 +326,8 @@ Students-page profiling includes `myAccess` and `ageCategoriesByCenter` for admi
 
 The linked Edition-admin account also profiles full Students, Entries and Food routes. Expected roots match global admin, while analyzer reports preserve the additional authorization work. This role has an Edition assignment rather than the global `kalakriti.admin` permission.
 
+The overview benchmark profiles its mounted clone-source configuration for global admin and Edition admin, verifying the exact Edition and structural relationship counts. It also profiles the distinct Edition-admin configuration list and confirms the synthetic Edition is included. It performs no clone mutation.
+
 `tests/kalakriti/food-entry-scopes.spec.ts` also verifies live Center revocation for Guardian and liaison Food readers. The serialized fixture removes only the actor's Center B authority while the page stays open. Assertions check removal of a Center B-only person, narrowing of a retained person's nested Centers, no document reload and no outside-Center data in incoming Zero frames.
 
 
