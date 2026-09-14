@@ -52,7 +52,6 @@ async function main() {
         accountId: u.id,
         createdAt: u.createdAt,
         id: uuidv7(),
-        issuer: schema.CREDENTIAL_ACCOUNT_ISSUER,
         providerId: "credential",
         updatedAt: u.updatedAt,
         userId: u.id,

@@ -705,7 +705,6 @@ async function migrateUsers(
       accountId: newId,
       createdAt,
       id: uuidv7(),
-      issuer: schema.CREDENTIAL_ACCOUNT_ISSUER,
       providerId: "credential",
       updatedAt,
       userId: newId,
