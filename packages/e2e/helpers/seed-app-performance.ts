@@ -54,6 +54,8 @@ export async function seedAppPerformance() {
   assertTestDatabase();
   const adminEmail = process.env.SUPER_ADMIN_EMAIL;
   if (!adminEmail) throw new Error("SUPER_ADMIN_EMAIL is required");
+  const volunteerEmail = process.env.VOLUNTEER_EMAIL;
+  if (!volunteerEmail) throw new Error("VOLUNTEER_EMAIL is required");
 
   const { db } = await import("@pi-dash/db");
   const { user } = await import("@pi-dash/db/schema/auth");
@@ -78,6 +80,17 @@ export async function seedAppPerformance() {
     .where(eq(user.email, adminEmail))
     .limit(1);
   if (!admin) throw new Error("Performance fixture requires the seeded admin");
+  const [volunteer] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, volunteerEmail))
+    .limit(1);
+  if (!volunteer) {
+    throw new Error("Performance fixture requires the seeded volunteer");
+  }
+
+  const ownerId = (index: number) =>
+    index % 2 === 0 ? volunteer.id : admin.id;
 
   const now = new Date("2026-09-14T00:00:00.000Z");
   const day = "2026-09-14";
@@ -198,7 +211,7 @@ export async function seedAppPerformance() {
             return {
               id: reimbursementId(index),
               eventId: eventId(index % counts.events),
-              userId: admin.id,
+              userId: ownerId(index),
               title: `Synthetic reimbursement ${index + 1}`,
               expenseDate: day,
               city: "bangalore" as const,
@@ -255,7 +268,7 @@ export async function seedAppPerformance() {
         .values(
           Array.from({ length }, (_, offset) => ({
             id: advanceId(start + offset),
-            userId: admin.id,
+            userId: ownerId(start + offset),
             title: `Synthetic advance ${start + offset + 1}`,
             city: "bangalore" as const,
             status: "pending" as const,
@@ -314,7 +327,7 @@ export async function seedAppPerformance() {
               id: paymentId(index),
               eventId: eventId(index % counts.events),
               vendorId: id(5000 + (index % counts.vendors)),
-              userId: admin.id,
+              userId: ownerId(index),
               title: `Synthetic vendor payment ${index + 1}`,
               city: "bangalore" as const,
               status: "pending" as const,
@@ -370,7 +383,7 @@ export async function seedAppPerformance() {
           Array.from({ length }, (_, offset) => ({
             id: transactionId(start + offset),
             vendorPaymentId: paymentId(start + offset),
-            userId: admin.id,
+            userId: ownerId(start + offset),
             amount: "100.00",
             status: "pending" as const,
             transactionDate: now,
@@ -435,7 +448,51 @@ export async function seedAppPerformance() {
     actualCounts[name] = actual;
   }
 
-  return { teamId: id(1), counts: actualCounts };
+  const restrictedOwnerRanges = [
+    ["reimbursements", reimbursement, 6000, counts.reimbursements / 2],
+    ["advances", advancePayment, 11_000, counts.advances / 2],
+    ["vendorPayments", vendorPayment, 14_000, counts.vendorPayments / 2],
+    ["transactions", vendorPaymentTransaction, 19_000, counts.transactions / 2],
+  ] as const;
+  const restrictedCounts: Record<string, number> = {};
+  for (const [name, table, first, expected] of restrictedOwnerRanges) {
+    const rows = await db.execute(sql`
+      SELECT count(*)::integer AS total
+      FROM ${table}
+      WHERE ${table.id} BETWEEN ${id(first)} AND ${id(first + counts[name] - 1)}
+        AND ${table.userId} = ${volunteer.id}
+    `);
+    const actual = Number(rows[0]?.total);
+    if (actual !== expected) {
+      throw new Error(`Performance fixture restricted ${name} count mismatch`);
+    }
+    if (name !== "transactions") restrictedCounts[name] = actual;
+  }
+  const publicEvents = await db.execute(sql`
+    SELECT count(*)::integer AS total
+    FROM ${teamEvent}
+    WHERE ${teamEvent.id} BETWEEN ${eventId(0)} AND ${eventId(counts.events - 1)}
+      AND ${teamEvent.isPublic} = true
+  `);
+  const accessibleEvents = Number(publicEvents[0]?.total);
+  if (accessibleEvents !== counts.events / 2) {
+    throw new Error("Performance fixture restricted events count mismatch");
+  }
+  restrictedCounts.events = accessibleEvents;
+
+  return {
+    teamId: id(1),
+    counts: actualCounts,
+    restrictedCounts,
+    sampleIds: {
+      ownReimbursement: reimbursementId(0),
+      deniedReimbursement: reimbursementId(1),
+      ownVendorPayment: paymentId(0),
+      deniedVendorPayment: paymentId(1),
+      publicEvent: eventId(0),
+      privateEvent: eventId(1),
+    },
+  };
 }
 
 if (import.meta.main) {

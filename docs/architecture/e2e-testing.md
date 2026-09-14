@@ -115,7 +115,7 @@ env -u ELECTRON_RUN_AS_NODE KALAKRITI_PERFORMANCE=true E2E_STACK_INDEX=2 \
   tests/performance/kalakriti.spec.ts --project=super_admin --workers=1 --retries=0
 ```
 
-The isolated stack runs `helpers/seed-kalakriti-performance.ts` and profiles Food memberships, Food students, the Students directory, Entries and available divisions as the seeded super-admin. Each query is analyzed three times after initial hydration. The Playwright report includes `kalakriti-performance.json` with dataset counts, server/total hydration timings, analyzer timings, read/scan counts and SQLite plans; it omits record contents and credentials. No timing threshold is enforced because local hardware and concurrent work vary.
+The isolated stack runs `helpers/seed-kalakriti-performance.ts` and profiles Food memberships/students, the Students directory/compliance query, Entries/divisions, Guardians, Volunteers, Centers and Competition configuration as the seeded super-admin. Each query is analyzed three times after initial hydration. The Playwright report includes `kalakriti-performance.json` with dataset counts, server/total hydration timings, analyzer timings, read/scan counts and SQLite plans; it omits record contents and credentials. No timing threshold is enforced because local hardware and concurrent work vary.
 
 The seed refuses non-loopback databases and any database name other than `pi-dash-test`. It uses a dedicated synthetic Edition and repeatable identifiers. The harness removes its disposable database on exit, preserving the regular development database. Add `--ui` to keep the test stack available while using Playwright UI; that mode defaults to the development server, so do not compare its timings directly with production-build runs.
 
@@ -160,4 +160,22 @@ Initial Dashboard samples on this fixture (2026-09-14, three analyzer calls per 
 | teamEvent.allAccessible | 156 ms | 3,666 | 1,845 |
 | teamEvent.byCurrentUserAll | 159 ms | 4,272 | 1,837 |
 
-Steady-state financial relationship plans use the existing foreign-key indexes. A full root scan is expected for these unbounded admin queries; it is not by itself evidence of a missing index. Small attachment tables can also be cheaper to scan than index. These measurements do not justify narrowing the existing local datasets. This fixture does not yet model attachment-heavy requests, recurring Event exceptions, deep detail histories, or restricted financial roles.
+Steady-state financial relationship plans use the existing foreign-key indexes. A full root scan is expected for these unbounded admin queries; it is not by itself evidence of a missing index. Small attachment tables can also be cheaper to scan than index. These measurements do not justify narrowing the existing local datasets. The initial table above predates the split of fixture ownership between admin and volunteer. Current fixtures alternate financial ownership, preserving the same total root counts. The benchmark also profiles the volunteer’s lists, public Event access, own financial details and denied financial details; denied detail queries must sync zero rows. This fixture does not yet model attachment-heavy requests, recurring Event exceptions or deep detail histories.
+
+
+Restricted-role baseline (same total fixture scale, 2026-09-14):
+
+| Query | Median analyzer time | Reads | Unique synced rows |
+|---|---:|---:|---:|
+| reimbursement.all (500 owned) | 167 ms | 4,500 | 2,803 |
+| advancePayment.all (250 owned) | 78 ms | 2,000 | 1,253 |
+| vendorPayment.all (500 owned) | 236 ms | 7,000 | 4,353 |
+| teamEvent.allAccessible (300 public fixture Events) | 85 ms | 2,200 | 946 |
+| reimbursement.byId (owned) | 13 ms | 9 | 9 |
+| vendorPayment.byId (owned) | 14 ms | 14 | 13 |
+| reimbursement.byId / vendorPayment.byId (denied) | 11 ms each | 0 | 0 |
+
+These steady-state samples use indexed relationship lookups. The analyzer helper matches query arguments as well as names, preventing a cached detail query for a different record from satisfying a scenario.
+
+
+Additional Kalakriti admin baselines (same large fixture, 2026-09-14): Guardians 14 ms for 150 memberships; Volunteers 32 ms for 150 memberships plus 600 assignments; Centers 13 ms for 10 rows; Student compliance 126 ms for 1,500 Students plus 3,000 entry members; Competition configuration queries 12–14 ms for 30 Competitions/sessions. These do not show the persistent membership-assignment scan fixed in migration 0084. Roster users are unlinked synthetic memberships, so linked-user and restricted-role roster workloads remain unmeasured. The fixture's single category and venue are functional coverage, not scale evidence for those tables.

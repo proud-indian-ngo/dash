@@ -15,7 +15,7 @@ interface InspectorQuery {
   name: string;
   got: boolean;
   rowCount: number;
-  args: { editionId?: string }[] | null;
+  args: Record<string, unknown>[] | null;
   hydrateServer: number | null;
   hydrateTotal: number | null;
   analyze: () => Promise<Analysis>;
@@ -33,7 +33,7 @@ type InspectorWindow = typeof window & {
 export async function profileZeroQueries(
   page: Page,
   expected: Record<string, number>,
-  editionId?: string
+  args?: Record<string, string>
 ) {
   await waitForZeroReady(page);
   expect(
@@ -47,7 +47,7 @@ export async function profileZeroQueries(
     .poll(
       () =>
         page.evaluate(
-          async ({ expected, editionId }) => {
+          async ({ expected, args }) => {
             const queries = await (
               window as InspectorWindow
             ).__zero.inspector.client.queries();
@@ -57,12 +57,16 @@ export async function profileZeroQueries(
                   query.name === name &&
                   query.got &&
                   query.rowCount >= minimum &&
-                  (editionId === undefined ||
-                    query.args?.some((arg) => arg.editionId === editionId))
+                  (args === undefined ||
+                    query.args?.some((arg) =>
+                      Object.entries(args).every(
+                        ([key, value]) => arg[key] === value
+                      )
+                    ))
               )
             );
           },
-          { expected, editionId }
+          { expected, args }
         ),
       { timeout: 60_000 }
     )
@@ -70,15 +74,17 @@ export async function profileZeroQueries(
   const results = [];
   for (const name of Object.keys(expected)) {
     const result = await page.evaluate(
-      async ({ name, editionId }) => {
+      async ({ name, args }) => {
         const queries = await (
           window as InspectorWindow
         ).__zero.inspector.client.queries();
         const query = queries.find(
           (item) =>
             item.name === name &&
-            (editionId === undefined ||
-              item.args?.some((arg) => arg.editionId === editionId))
+            (args === undefined ||
+              item.args?.some((arg) =>
+                Object.entries(args).every(([key, value]) => arg[key] === value)
+              ))
         );
         if (!query) throw new Error(`Missing query: ${name}`);
         const samples = [];
@@ -96,14 +102,20 @@ export async function profileZeroQueries(
         }
         return {
           name,
+          rootRows: query.rowCount,
           serverMs: query.hydrateServer,
           totalMs: query.hydrateTotal,
           samples,
         };
       },
-      { name, editionId }
+      { name, args }
     );
-    expect(result.samples[0]!.syncedRows).toBeGreaterThan(0);
+    if (expected[name] === 0) {
+      expect(result.rootRows).toBe(0);
+      expect(result.samples[0]!.syncedRows).toBe(0);
+    } else {
+      expect(result.samples[0]!.syncedRows).toBeGreaterThan(0);
+    }
     results.push(result);
   }
   return results;

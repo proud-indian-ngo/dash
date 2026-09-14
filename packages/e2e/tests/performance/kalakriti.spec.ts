@@ -41,11 +41,34 @@ test("profile a large synthetic Kalakriti edition", async ({ page }, info) => {
     "kalakritiStudent.visibleForDirectory": fixture.counts.students!,
     "kalakritiEntry.visible": fixture.counts.entries!,
     "kalakritiEntry.availableDivisions": fixture.counts.divisions!,
+    "kalakritiGuardian.roster": fixture.counts.memberships! / 2,
+    "kalakritiAssignment.roster": fixture.counts.memberships! / 2,
+    "kalakritiCenter.visible": fixture.counts.centers!,
+    "kalakritiStudent.visibleForCompliance": fixture.counts.students!,
+    "kalakritiCompetition.categories": 1,
+    "kalakritiCompetition.competitions": fixture.counts.competitions!,
+    "kalakritiCompetition.sessions": fixture.counts.sessions!,
+    "kalakritiCompetition.venues": 1,
   };
   const results = [];
   for (const [route, names] of [
     ["food", ["kalakritiFood.memberships", "kalakritiFood.students"]],
     ["students", ["kalakritiStudent.visibleForDirectory"]],
+    ["guardians", ["kalakritiGuardian.roster"]],
+    ["volunteers", ["kalakritiAssignment.roster"]],
+    [
+      "centers",
+      ["kalakritiCenter.visible", "kalakritiStudent.visibleForCompliance"],
+    ],
+    [
+      "competitions",
+      [
+        "kalakritiCompetition.categories",
+        "kalakritiCompetition.competitions",
+        "kalakritiCompetition.sessions",
+        "kalakritiCompetition.venues",
+      ],
+    ],
     [
       "entries",
       ["kalakritiEntry.visible", "kalakritiEntry.availableDivisions"],
@@ -56,7 +79,7 @@ test("profile a large synthetic Kalakriti edition", async ({ page }, info) => {
       ...(await profileZeroQueries(
         page,
         Object.fromEntries(names.map((name) => [name, minimumRows[name]!])),
-        fixture.editionId
+        { editionId: fixture.editionId }
       ))
     );
   }

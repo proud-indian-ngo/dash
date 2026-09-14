@@ -9,6 +9,7 @@ const execFileAsync = promisify(execFile);
 
 test("profile Dashboard, Events and financial queries at scale", async ({
   page,
+  browser,
 }, info) => {
   test.skip(
     process.env.APP_PERFORMANCE !== "true" ||
@@ -30,6 +31,13 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     );
   const fixture = JSON.parse((await seed()).stdout.trim()) as {
     counts: Record<string, number>;
+    restrictedCounts: Record<string, number>;
+    sampleIds: {
+      ownReimbursement: string;
+      deniedReimbursement: string;
+      ownVendorPayment: string;
+      deniedVendorPayment: string;
+    };
   };
   expect(JSON.parse((await seed()).stdout.trim())).toEqual(fixture);
   const financial = {
@@ -71,13 +79,84 @@ test("profile Dashboard, Events and financial queries at scale", async ({
       queries: analyses,
     });
   }
+  const restrictedContext = await browser.newContext({
+    storageState: path.resolve(
+      import.meta.dirname,
+      "../../.auth/volunteer.json"
+    ),
+  });
+  const restrictedResults = [];
+  try {
+    const restrictedPage = await restrictedContext.newPage();
+    for (const [route, queries] of [
+      [
+        "/reimbursements",
+        {
+          "reimbursement.all": fixture.restrictedCounts.reimbursements!,
+          "advancePayment.all": fixture.restrictedCounts.advances!,
+        },
+      ],
+      [
+        "/vendor-payments",
+        { "vendorPayment.all": fixture.restrictedCounts.vendorPayments! },
+      ],
+      [
+        "/events",
+        { "teamEvent.allAccessible": fixture.restrictedCounts.events! },
+      ],
+    ] as [string, Record<string, number>][]) {
+      await restrictedPage.goto(route);
+      restrictedResults.push({
+        route,
+        queries: await profileZeroQueries(restrictedPage, queries),
+      });
+    }
+    for (const [route, name, id, minimum] of [
+      [
+        "reimbursements",
+        "reimbursement.byId",
+        fixture.sampleIds.ownReimbursement,
+        1,
+      ],
+      [
+        "reimbursements",
+        "reimbursement.byId",
+        fixture.sampleIds.deniedReimbursement,
+        0,
+      ],
+      [
+        "vendor-payments",
+        "vendorPayment.byId",
+        fixture.sampleIds.ownVendorPayment,
+        1,
+      ],
+      [
+        "vendor-payments",
+        "vendorPayment.byId",
+        fixture.sampleIds.deniedVendorPayment,
+        0,
+      ],
+    ] as const) {
+      await restrictedPage.goto(`/${route}/${id}`);
+      restrictedResults.push({
+        route: `/${route}/${minimum ? "own" : "denied"}`,
+        queries: await profileZeroQueries(
+          restrictedPage,
+          { [name]: minimum },
+          { id }
+        ),
+      });
+    }
+  } finally {
+    await restrictedContext.close();
+  }
   await info.attach("app-performance.json", {
-    body: JSON.stringify({ fixture, results }, null, 2),
+    body: JSON.stringify({ fixture, results, restrictedResults }, null, 2),
     contentType: "application/json",
   });
   console.log(
     JSON.stringify(
-      results.map(({ route, queries }) => ({
+      [...results, ...restrictedResults].map(({ route, queries }) => ({
         route,
         queries: queries.map(({ name, samples }) => ({
           name,
