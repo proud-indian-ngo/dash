@@ -283,3 +283,5 @@ The Audit Log benchmark requires migration 0086's `(attempted_at DESC, id DESC)`
 Audit search coverage includes a selective match, a broad match, no matches and an offset beyond the last match. The benchmark keeps exact totals when a page is empty and bounds expected page lengths at zero.
 
 The Audit Log performance spec also navigates to page two in the browser and types a search. It requires exactly one API request with the final text and offset zero, preventing an immediate page reset from fetching the previous search before the 300 ms debounce completes.
+
+The scoped Kalakriti Audit benchmark runs with `KALAKRITI_AUDIT_PERFORMANCE=true E2E_STACK_INDEX=2 bash packages/e2e/run-e2e.sh tests/performance/kalakriti-audit.spec.ts --project=super_admin --workers=1 --retries=0`. It seeds 41,000 local-only rows across two Editions and checks exact results for three roles, domain filters, deep offsets, snapshot reuse and denied domains. Its `kalakriti-audit-performance.json` attachment separates PostgreSQL plans from authenticated HTTP timings. Both audit benchmarks share the sanitized plan summarizer in `helpers/postgres-performance.ts`.

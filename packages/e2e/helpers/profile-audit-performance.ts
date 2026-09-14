@@ -3,6 +3,8 @@ import { writeSync } from "node:fs";
 
 import { sql } from "drizzle-orm";
 
+import { summarizePostgresPlan } from "./postgres-performance";
+
 const url = new URL(process.env.DATABASE_URL ?? "http://invalid");
 if (
   !["postgres:", "postgresql:"].includes(url.protocol) ||
@@ -89,33 +91,6 @@ const cases = [
   },
 ];
 
-// Retain execution evidence without statement parameters, records or credentials.
-function summarizePlan(node: Record<string, unknown>): Record<string, unknown> {
-  const keys = [
-    "Node Type",
-    "Relation Name",
-    "Index Name",
-    "Actual Rows",
-    "Actual Loops",
-    "Actual Total Time",
-    "Rows Removed by Filter",
-    "Shared Hit Blocks",
-    "Shared Read Blocks",
-    "Temp Read Blocks",
-    "Temp Written Blocks",
-    "Sort Method",
-    "Sort Space Used",
-  ];
-  return {
-    ...Object.fromEntries(
-      keys.filter((key) => key in node).map((key) => [key, node[key]])
-    ),
-    ...(Array.isArray(node.Plans)
-      ? { Plans: node.Plans.map(summarizePlan) }
-      : {}),
-  };
-}
-
 const results = [];
 for (const scenario of cases) {
   const queries = buildAuditLogQueries(
@@ -182,7 +157,7 @@ for (const scenario of cases) {
       samples.push({
         executionMs: plan["Execution Time"],
         planningMs: plan["Planning Time"],
-        plan: summarizePlan(plan.Plan),
+        plan: summarizePostgresPlan(plan.Plan),
       });
     }
     if (

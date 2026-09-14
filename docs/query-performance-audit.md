@@ -49,7 +49,7 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 - Center transport covers admin, Guardian and liaison; Scan covers admin and liaison. Live mutations, camera processing and finalized scan-stage history are outside those measurements.
 - Dashboard PostgreSQL aggregate execution is measured for four supplied scopes. Authentication and scope resolution are excluded from those timings; supplying a scope directly is not an authorization test.
 - Analytics reuses the measured financial queries, but its client aggregation and chart rendering have not been profiled. Query reuse does not prove page performance.
-- Global Audit Log has the populated PostgreSQL/HTTP baseline below. Jobs and Kalakriti Audit still need populated workloads and plans. These server reads are not represented by the Zero registry table.
+- Global Audit Log has the populated PostgreSQL/HTTP baseline below. Kalakriti Audit now has the scoped baseline below; Jobs still needs a populated workload and plans. These server reads are not represented by the Zero registry table.
 - Production disk latency, CPU contention and CVR behavior remain a separate investigation. The September 14 PostgreSQL snapshot below found no replication byte lag during its short sample; it does not establish sustained health. Local benchmarks cannot establish production health.
 
 ## Proven changes and current priority
@@ -72,7 +72,7 @@ Verification: 16 focused eligibility tests and the full unit/type/lint/unused ch
 
 Dashboard coverage now includes current-user Teams and interests plus pending interests, updates and photos. Current-user interest analysis for an account with `events.view_all` initially read 2,400 rows for 600 interests and 1,200 unique synced rows. Skipping the redundant Event-existence authorization predicate for that permission reduced reads to 1,200 and median analyzer time from 84 ms to 42 ms. The non-null Event foreign key guarantees existence; the owner filter and related Event remain, and restricted accounts still use the original Event access predicate.
 
-The next server-read workloads are global Audit Log (page/count plus distinct-action/type facets), Kalakriti Audit (snapshot-scoped page/count with domain and category filtering), and Jobs (list/count plus queue stats). Current audit seeds have only one row each, so existing checks are not scale evidence. Use isolated populated fixtures and authenticated HTTP timings plus PostgreSQL plans; the Jobs schema must first be initialized by the local Nitro worker. No index change is justified by source inspection alone.
+The server-read workload inventory includes global Audit Log (page/count plus distinct-action/type facets), Kalakriti Audit (snapshot-scoped page/count with domain and category filtering), and Jobs (list/count plus queue stats). Ordinary audit seeds have only one row each; the opt-in benchmarks below supply scale evidence. Use isolated populated fixtures and authenticated HTTP timings plus PostgreSQL plans; the Jobs schema must first be initialized by the local Nitro worker. No index change is justified by source inspection alone.
 
 
 ## Production PostgreSQL snapshot, September 14
@@ -153,8 +153,24 @@ The shared table search already waits 300 ms before committing text to URL state
 
 Server-paginated tables now reset pagination when the debounced search is committed. Client-paginated tables retain their immediate reset, and clearing search still commits immediately. This removes redundant request work without changing query shapes or caching authorization. The nine SQL/HTTP scenarios, exact results, denied access and browser request check pass in the 13-check E2E run; type, lint, unit and unused checks pass. React Doctor retains existing branch diagnostics, including the unchanged ref-initializer pattern in the shared wrapper.
 
-## Kalakriti Audit benchmark scope map
+## Kalakriti Audit populated baseline
 
 The next audit endpoint is `/api/kalakriti/:year/audit`, backed by `apps/web/src/lib/server/kalakriti-audit.ts`. It combines an Edition predicate, domain/category authorization and `pg_visible_in_snapshot`, then reads page items and count. Global and Edition admins see every domain. Category leads see only competition and schedule configuration records associated with their category through target IDs or the supported metadata fields.
 
-The isolated release fixture already supplies Edition 2186 and authenticated global-admin, Edition-admin and category-lead actors; it needs a separate populated audit dataset before its existing empty/small checks establish scale. Reuse `buildKalakritiAuditItemsQuery` and the scope/snapshot builders for plans, and verify the live endpoint using each actor's stored auth state. This mapping is source evidence only, not a completed performance measurement.
+The opt-in benchmark seeds 40,000 records in the release Edition and 1,000 in another Edition. It profiles the production scope/snapshot/item/count builders and makes authenticated HTTP requests for global-admin, Edition-admin and category-lead actors. Every scenario checks exact IDs, order and totals. Repeated seeding is idempotent, requests reuse the returned snapshot, and a category lead's forbidden domain returns 403. Target-ID, scalar metadata and array metadata category membership paths all appear in the fixture.
+
+Three-sample local medians with PostgreSQL 18.3:
+
+| Actor | Page | Items SQL ms | Count SQL ms | HTTP ms |
+|---|---|---:|---:|---:|
+| Global admin | First | 21.36 | 10.15 | 24.38 |
+| Global admin | Competition domain | 7.84 | 5.13 | 14.82 |
+| Global admin | Offset 20,000 | 26.95 | 10.02 | 30.26 |
+| Edition admin | First | 19.72 | 9.87 | 22.82 |
+| Edition admin | Competition domain | 8.72 | 5.33 | 12.72 |
+| Edition admin | Offset 20,000 | 25.46 | 9.90 | 27.09 |
+| Category lead | First | 11.23 | 8.61 | 15.93 |
+| Category lead | Competition domain | 7.31 | 6.30 | 12.89 |
+| Category lead | Offset 5,000 | 12.08 | 8.83 | 21.12 |
+
+First-page plans scan all 41,000 audit rows before sorting: admins retain 40,000 and category leads retain 10,000. The first-page sort stays in memory. This establishes a candidate for ordered-index experiments, not an approved schema change or production bottleneck. SQL samples execute sequentially; HTTP includes authentication and concurrent page/count work. Access resolution is recorded separately as a single observation, not a latency distribution. The benchmark does not prove snapshot behavior under concurrent writes or cover every audit role. The isolated E2E run passed all 13 checks (12 authentication setups and the nine-scenario benchmark).

@@ -647,3 +647,5 @@ docker volume rm pi-dash_pi-dash_postgres_migration_data
 When R2 vars are omitted, file records are created with old object keys but no files are copied. The script is safe to re-run — it purges existing data first.
 
 - **Audit Log scale benchmark**: `packages/e2e/tests/performance/audit.spec.ts` runs `helpers/profile-audit-performance.ts` with `AUDIT_PERFORMANCE=true`. It seeds 50,000 local-only audit rows, profiles the production builders in `apps/web/src/lib/server/audit-log.ts`, and attaches sanitized PostgreSQL plans and authenticated HTTP timings.
+
+- **Kalakriti Audit scale benchmark**: `packages/e2e/tests/performance/kalakriti-audit.spec.ts` runs `helpers/profile-kalakriti-audit.ts` with `KALAKRITI_AUDIT_PERFORMANCE=true`. It profiles 41,000 local-only rows across two Editions using production scope and snapshot builders. `helpers/postgres-performance.ts` sanitizes PostgreSQL plans for both audit benchmarks.
