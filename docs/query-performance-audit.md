@@ -50,7 +50,7 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 - Dashboard PostgreSQL aggregate execution is measured for four supplied scopes. Authentication and scope resolution are excluded from those timings; supplying a scope directly is not an authorization test.
 - Analytics reuses the measured financial queries, but its client aggregation and chart rendering have not been profiled. Query reuse does not prove page performance.
 - Jobs, global Audit Log and Kalakriti Audit use server/HTTP reads and need populated workloads, database plans and end-to-end timings. They are not represented by the Zero registry table.
-- Production disk latency, CPU contention, replication lag and CVR behavior remain a separate investigation. Local benchmarks cannot establish their health.
+- Production disk latency, CPU contention and CVR behavior remain a separate investigation. The September 14 PostgreSQL snapshot below found no replication byte lag during its short sample; it does not establish sustained health. Local benchmarks cannot establish production health.
 
 ## Proven changes and current priority
 
@@ -73,3 +73,23 @@ Verification: 16 focused eligibility tests and the full unit/type/lint/unused ch
 Dashboard coverage now includes current-user Teams and interests plus pending interests, updates and photos. Current-user interest analysis for an account with `events.view_all` initially read 2,400 rows for 600 interests and 1,200 unique synced rows. Skipping the redundant Event-existence authorization predicate for that permission reduced reads to 1,200 and median analyzer time from 84 ms to 42 ms. The non-null Event foreign key guarantees existence; the owner filter and related Event remain, and restricted accounts still use the original Event access predicate.
 
 The next server-read workloads are global Audit Log (page/count plus distinct-action/type facets), Kalakriti Audit (snapshot-scoped page/count with domain and category filtering), and Jobs (list/count plus queue stats). Current audit seeds have only one row each, so existing checks are not scale evidence. Use isolated populated fixtures and authenticated HTTP timings plus PostgreSQL plans; the Jobs schema must first be initialized by the local Nitro worker. No index change is justified by source inspection alone.
+
+
+## Production PostgreSQL snapshot, September 14
+
+A read-only `pgbot` 0.8.1 inspection at 2026-09-14 06:47 UTC sampled PostgreSQL 18.3 for approximately 1.46 seconds. The connection enforced `default_transaction_read_only=on` and a 10-second statement timeout. Inspection used `--json --no-store --fail-on none --timeout 30s --ash-hz 0`; credentials were supplied through the process environment, and the raw report remains outside the repository. No production settings, extensions, indexes or data were changed.
+
+| Signal | Observation | Limit |
+|---|---|---|
+| Replication | Zero replicator streaming; write, flush and replay byte lag all zero; active logical slot retained 640 bytes | One snapshot, not sustained lag monitoring |
+| Contention | Zero blocked sessions; no sampled deadlocks | Does not exclude contention during slow navigation |
+| Database activity | Approximately 67 transactions/second; no sampled temporary-file spills | Short interval; no representative navigation workload was correlated |
+| Connections | 36 in the activity sample; a separate limits scrape counted 31 against a maximum of 100 | Scrapes occurred at different times |
+| Cache | All 1,961 sampled block accesses were hits | Does not measure replica disk latency or prove sufficient memory |
+| Query instrumentation | `pg_stat_statements` unavailable; `track_io_timing` off | Cannot rank expensive statements or report their block I/O time |
+
+The database was approximately 105 MiB. Zero's CVR `rows` table accounted for approximately 65 MiB and had high cumulative update activity. Low HOT-update ratios in CVR and pg-boss tables are investigation candidates, not evidence that changing vendor-owned schemas or fillfactor will improve navigation. Autovacuum activity was present; tuple estimates and cumulative update counts are not latency measurements.
+
+The tool also reported unindexed foreign keys and overlapping indexes. These are heuristic candidates, not an approved migration list. Missing foreign-key indexes can affect parent updates/deletes without explaining page reads; overlapping-index reports can list one index against several wider indexes. The integer primary key warning concerned Drizzle's migration ledger and does not explain the current performance symptoms.
+
+The next production evidence should combine a representative navigation window with statement statistics and I/O timing. Enabling `pg_stat_statements` requires adding it to `shared_preload_libraries`, restarting PostgreSQL and creating the extension in the database; I/O timings require `track_io_timing`. These changes have not been authorized or applied. See the [PostgreSQL 18 documentation](https://www.postgresql.org/docs/18/pgstatstatements.html). PostgreSQL measurements cover upstream and CVR work; Zero's SQLite hydration plans still require its analyzer, and replica storage/CPU measurements remain outstanding.
