@@ -6,7 +6,7 @@
 |---|---|
 | Bun | `>=1.3.11` (see `packageManager` in `package.json`) |
 | Node.js | `>=20` (for zero-cache and build tools) |
-| PostgreSQL | `>=14` with `wal_level=logical` |
+| PostgreSQL | `>=17` with `wal_level=logical`; Compose and production use 18 |
 | Docker | For local Postgres and WhatsApp gateway |
 
 External services (optional based on features):
@@ -176,6 +176,18 @@ This starts the container defined in `packages/db/docker-compose.yml` with `wal_
 
 **Production:** Ensure your managed Postgres instance has `wal_level=logical` enabled. Use an unpooled connection string for `ZERO_UPSTREAM_DB`.
 
+The production Compose PostgreSQL command also preloads `pg_stat_statements` with `compute_query_id=auto`. Applying this startup change requires recreating/restarting the PostgreSQL service and briefly interrupts database connections. An app-only redeploy is insufficient. If Dokploy maintains a separate Compose definition, apply the same PostgreSQL command there and preserve any other configured preload libraries.
+
+After PostgreSQL restarts, connect to the application database (`dash` in production) as an administrator and run once:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+SHOW shared_preload_libraries;
+SELECT count(*) FROM pg_stat_statements;
+```
+
+The extension exposes collected PostgreSQL statement statistics; it does not measure Zero's SQLite query execution. See the [PostgreSQL documentation](https://www.postgresql.org/docs/18/pgstatstatements.html).
+
 ### 2. Generate Drizzle types and apply schema
 
 ```bash
@@ -288,3 +300,8 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on push:
 - `bun run test:unit` — Vitest unit tests
 
 Pre-commit hook (lefthook) runs type check, linting, unit tests, and unused-exports check in parallel.
+
+
+### pg-boss and Zero event triggers
+
+The application disables PostgreSQL event triggers only on its dedicated pg-boss worker/producer connections to permit concurrent maintenance of the unsynced `pgboss` schema. This requires PostgreSQL 17+ and superuser or suitable SET privilege for `event_triggers`. Do not disable event triggers in `DATABASE_URL`, `ZERO_UPSTREAM_DB`, at role/database level or globally: application schema changes must still reach Zero. The normal deployment recreates job connections; no database restart is required. See `docs/architecture/jobs.md` for the reproduced failure and validation.

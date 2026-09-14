@@ -36,12 +36,15 @@ export const eventInterestQueries = {
       .related("event")
       .orderBy("createdAt", "desc");
   }),
-  byCurrentUser: defineQuery(({ ctx }) =>
-    zql.eventInterest
+  byCurrentUser: defineQuery(({ ctx }) => {
+    const query = zql.eventInterest
       .where("userId", ctx?.userId)
-      .whereExists("event", (event) => restrictToAccessibleEvents(event, ctx))
-      .related("event")
-  ),
+      .related("event");
+    if (ctx && can(ctx, "events.view_all")) return query;
+    return query.whereExists("event", (event) =>
+      restrictToAccessibleEvents(event, ctx)
+    );
+  }),
   managerByEvent: defineQuery(
     z.object({ eventId: z.string() }),
     ({ args: { eventId }, ctx }) => {

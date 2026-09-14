@@ -56,6 +56,7 @@ import { deleteTemporaryUpload } from "@/functions/attachments";
 import {
   selectEntryStudentsForCenter,
   getEntryStudentOptionEligibility,
+  indexEntriesByStudent,
   getGroupEntryValidationErrors,
   getIndividualEntryValidationError,
 } from "@/lib/kalakriti-entry-policy";
@@ -504,6 +505,7 @@ function EntryForm({
   const [uploading, setUploading] = useState(false);
   const [failedUploads, setFailedUploads] = useState(false);
   const studentMap = new Map(students.map((student) => [student.id, student]));
+  const entriesByStudent = indexEntriesByStudent(entries);
   const validationSchema = entryFormSchema.superRefine((value, context) => {
     for (const issue of getEntryValidationIssues({
       entries,
@@ -758,7 +760,7 @@ function EntryForm({
               ? students.flatMap((student): StudentComboboxOption[] => {
                   const eligibility = getEntryStudentOptionEligibility({
                     editingEntryId: entry?.id,
-                    entries,
+                    entries: entriesByStudent.get(student.id) ?? [],
                     session,
                     student,
                   });

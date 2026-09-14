@@ -338,6 +338,9 @@ function DataTableWrapperBase<TData extends object>({
 
   const debouncedSyncRef = useRef(
     debounce((value: string) => {
+      if (manualPagination) {
+        resetPage();
+      }
       setSearchQuery(value);
     }, 300)
   );
@@ -459,7 +462,9 @@ function DataTableWrapperBase<TData extends object>({
     (event: { target: { value: string } }) => {
       const { value } = event.target;
       setLocalSearch(value);
-      resetPage();
+      if (!manualPagination) {
+        resetPage();
+      }
       debouncedSyncRef.current(value);
     }
   );

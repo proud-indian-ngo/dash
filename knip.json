@@ -16,6 +16,7 @@
   "workspaces": {
     ".": {},
     "apps/web": {
+      "entry": ["scripts/profile-entry-eligibility.ts"],
       "ignoreFiles": ["src/entry-server.ts", "server/**", "src/stubs/**"]
     },
     "packages/db": {
@@ -44,6 +45,11 @@
         "helpers/kalakriti-volunteer-assignment.ts",
         "helpers/register-url-options.ts",
         "helpers/seed-dev-data.ts",
+        "helpers/seed-kalakriti-performance.ts",
+        "helpers/profile-kalakriti-dashboard.ts",
+        "helpers/profile-audit-performance.ts",
+        "helpers/profile-kalakriti-audit.ts",
+        "helpers/seed-app-performance.ts",
         "shard-by-duration.ts"
       ],
       "ignoreDependencies": ["better-auth"]

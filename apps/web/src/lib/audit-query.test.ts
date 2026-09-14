@@ -47,7 +47,7 @@ describe("audit log query", () => {
 
   it("keeps target-type search and deterministic newest-first ordering", () => {
     const source = readFileSync(
-      new URL("../routes/api/audit-log.ts", import.meta.url),
+      new URL("./server/audit-log.ts", import.meta.url),
       "utf8"
     );
     expect(source).toContain("ilike(auditLog.targetType, pattern)");

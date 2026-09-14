@@ -381,7 +381,7 @@ describe("Center-agnostic Entry read scope", () => {
       "superseded",
     ]);
   });
-  it("includes Center labels and Edition-scoped historical venue-arrival marks", () => {
+  it("includes Entry Center labels and Edition-scoped historical venue-arrival marks", () => {
     const ast = query("visible");
     expect(
       ast.related!.some((related) => related.subquery.alias === "center")
@@ -393,7 +393,7 @@ describe("Center-agnostic Entry read scope", () => {
       )!.subquery;
     expect(
       student.related!.some((related) => related.subquery.alias === "center")
-    ).toBe(true);
+    ).toBe(false);
     const operations = student.related!.find(
       (related) => related.subquery.alias === "operations"
     )!.subquery;

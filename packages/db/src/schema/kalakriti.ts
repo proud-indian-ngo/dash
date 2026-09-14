@@ -1126,6 +1126,22 @@ export const kalakritiAssignment = pgTable(
       .on(table.membershipId)
       .where(sql`${table.isPrimary} = true`),
     index("kalakriti_assignment_editionId_idx").on(table.editionId),
+    index("kalakriti_assignment_membershipId_editionId_id_idx").on(
+      table.membershipId,
+      table.editionId,
+      table.id
+    ),
+    index("kalakriti_assignment_center_responsibility_idx").on(
+      table.centerId,
+      table.responsibility,
+      table.editionId,
+      table.id
+    ),
+    index("kalakriti_assignment_competition_responsibility_idx").on(
+      table.competitionId,
+      table.responsibility,
+      table.id
+    ),
     foreignKey({
       columns: [table.editionId, table.membershipId],
       foreignColumns: [
@@ -1235,6 +1251,11 @@ export const kalakritiAuditEntry = pgTable(
     index("kalakriti_audit_editionId_createdAt_idx").on(
       table.editionId,
       table.createdAt.desc()
+    ),
+    index("kalakriti_audit_edition_created_id_idx").on(
+      table.editionId,
+      table.createdAt.desc().nullsFirst(),
+      table.id.desc().nullsFirst()
     ),
   ]
 );

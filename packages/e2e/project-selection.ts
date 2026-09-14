@@ -27,6 +27,8 @@ const roleOnlySpecs = {
     "kalakriti/registration-release-authorization.spec.ts",
     "kalakriti/student-registration.spec.ts",
     "kalakriti/volunteer-assignment.spec.ts",
+    "performance/app.spec.ts",
+    "performance/kalakriti.spec.ts",
     "reimbursements/cash-voucher.spec.ts",
     "reimbursements/reimbursement-unhappy-paths.spec.ts",
     "settings/expense-categories.spec.ts",

@@ -1,0 +1,2 @@
+CREATE INDEX "kalakriti_assignment_center_responsibility_idx" ON "kalakriti_assignment" USING btree ("center_id","responsibility","edition_id","id");--> statement-breakpoint
+CREATE INDEX "kalakriti_assignment_competition_responsibility_idx" ON "kalakriti_assignment" USING btree ("competition_id","responsibility","id");

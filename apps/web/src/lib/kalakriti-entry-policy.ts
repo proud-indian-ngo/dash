@@ -48,6 +48,22 @@ interface EntryValidationEntry {
   sessionId: string;
 }
 
+export function indexEntriesByStudent(
+  entries: readonly EntryValidationEntry[]
+) {
+  const byStudent = new Map<string, EntryValidationEntry[]>();
+  for (const entry of entries) {
+    for (const studentId of new Set(
+      entry.members.map((member) => member.studentId)
+    )) {
+      const existing = byStudent.get(studentId);
+      if (existing) existing.push(entry);
+      else byStudent.set(studentId, [entry]);
+    }
+  }
+  return byStudent;
+}
+
 export type EntryStudentOptionEligibility =
   | { status: "disabled"; reason: string }
   | { status: "eligible" }

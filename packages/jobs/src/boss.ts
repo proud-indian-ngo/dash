@@ -7,6 +7,7 @@ import {
   setBossInstance,
   setReadyPromise,
 } from "./boss-instance";
+import { getJobDatabaseUrl } from "./database-url";
 
 export async function startWorker(): Promise<void> {
   // Skip if already started (prevents duplicate pools on Vite SSR HMR re-evaluations).
@@ -24,7 +25,7 @@ export async function startWorker(): Promise<void> {
 
     const boss = new PgBoss({
       application_name: "pi-dash-jobs",
-      connectionString: env.DATABASE_URL,
+      connectionString: getJobDatabaseUrl(env.DATABASE_URL),
       max: 10, // shared query pool — workers poll through this; keep low to leave room for Drizzle (20)
       migrate: true,
       schedule: true,

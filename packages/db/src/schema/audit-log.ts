@@ -44,6 +44,10 @@ export const auditLog = pgTable(
   },
   (table) => [
     index("audit_log_attempted_at_idx").on(table.attemptedAt.desc()),
+    index("audit_log_attempted_at_id_idx").on(
+      table.attemptedAt.desc().nullsFirst(),
+      table.id.desc().nullsFirst()
+    ),
     index("audit_log_actor_attempted_at_idx").on(
       table.actorUserId,
       table.attemptedAt.desc()
