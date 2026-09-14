@@ -31,7 +31,6 @@ All paths are relative to project root.
 | `bun run worktree:setup <ID>` | Set up worktree with port isolation (ID 1-9) |
 | `bun run worktree:setup <ID> --isolated-db` | Set up worktree with isolated Postgres |
 | `bun run worktree:teardown` | Clean up worktree resources |
-| `bun run db:backfill-kalakriti-orientation --dry-run` | Preview eligible active volunteer orientation promotions; `--apply` writes after target safety checks |
 | `bash scripts/worktree-smoke-test.sh` | End-to-end worktree validation |
 | `bash scripts/cloud-setup.sh` | Cloud environment setup (PG upgrade, schema push, seed) |
 | `bun run seed` | Seed all dev data — idempotent, covers all models |
@@ -72,9 +71,6 @@ All paths are relative to project root.
 |---|---|
 | `routes/_app/index.tsx` | Dashboard |
 | `routes/_app/users.tsx` | User management |
-| `scripts/backfill-kalakriti-volunteer-ids.ts` (repository root) | Explicit, idempotent allocation of missing historical volunteer yearly IDs |
-| `scripts/backfill-kalakriti-guardian-ids.ts` (repository root) | Edition- and target-confirmed backfill of missing active Guardian yearly IDs, preserving existing and archived IDs |
-| `scripts/backfill-kalakriti-entry-music.ts` (repository root) | Guarded, idempotent singleton-to-child music metadata backfill without moving R2 objects |
 | `routes/_app/reimbursements/route.tsx` | Reimbursements layout |
 | `routes/_app/reimbursements/index.tsx` | Reimbursements list (combined reimbursements + advance payments) |
 | `routes/_app/reimbursements/new.tsx` | Create reimbursement |
@@ -270,7 +266,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 | Package | Key paths |
 |---|---|
 | `packages/auth/` | `src/index.ts` (auth config), `src/seed-admin.ts` (lightweight admin-only seed) |
-| `packages/db/` | `src/kalakriti-orientation.ts` (transactional conditional role promotion and session revocation), `src/kalakriti-orientation-backfill.ts` (eligibility backfill and target safety, invoked by `scripts/backfill-kalakriti-orientation.ts`), `src/schema/` (Drizzle tables), `src/migrations/`, `src/permissions.ts` (code-defined permission registry), `src/queries/resolve-permissions.ts` (resolve user permissions with cache), `src/sync-permissions.ts` (sync permission registry to DB), `docker-compose.yml` (postgres, postgres-test, postgres-migration, whatsapp), `scripts/migrate-legacy-data.ts` |
+| `packages/db/` | `src/kalakriti-orientation.ts` (transactional conditional role promotion and session revocation), `src/schema/` (Drizzle tables), `src/migrations/`, `src/permissions.ts` (code-defined permission registry), `src/queries/resolve-permissions.ts` (resolve user permissions with cache), `src/sync-permissions.ts` (sync permission registry to DB), `docker-compose.yml` (postgres, postgres-test, postgres-migration, whatsapp), `scripts/migrate-legacy-data.ts` |
 | `packages/email/` | `src/mailer.ts` (Nodemailer transport), `src/templates/` (verification-email, reset-password-email) |
 | `packages/env/` | `src/server.ts` (server env), `src/web.ts` (client env) |
 | `packages/config/` | Shared TypeScript & tooling config |

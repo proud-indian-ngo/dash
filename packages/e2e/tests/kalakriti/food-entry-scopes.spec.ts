@@ -1117,28 +1117,6 @@ interface GuardianIdState {
   state: string;
   name: string;
 }
-async function backfillGuardianIds(editionId: string, apply: boolean) {
-  const target = new URL(process.env.DATABASE_URL!);
-  expect(
-    `${target.host}${target.pathname}`,
-    "Guardian backfill must target only the isolated test database"
-  ).toBe(`localhost:${process.env.E2E_DB_PORT ?? "5433"}/pi-dash-test`);
-  await execFileAsync(
-    "bun",
-    [
-      "run",
-      path.resolve(
-        import.meta.dirname,
-        "../../../../scripts/backfill-kalakriti-guardian-ids.ts"
-      ),
-      `--edition-id=${editionId}`,
-      ...(apply
-        ? ["--apply", `--confirm-target=${target.host}${target.pathname}`]
-        : ["--dry-run"]),
-    ],
-    { env: process.env }
-  );
-}
 async function openGuardianInvite(page: Page, year: number, email: string) {
   await page.goto(`/kalakriti/${year}/guardians`);
   await waitForZeroReady(page);
@@ -1156,7 +1134,7 @@ async function openGuardianInvite(page: Page, year: number, email: string) {
   return dialog;
 }
 
-test("Guardian yearly IDs backfill idempotently, remain stable on retry, and support legacy and yearly meal identifiers", async ({
+test("Guardian yearly IDs remain stable on invite retry and support legacy and yearly meal identifiers", async ({
   page,
   browser,
   baseURL,
@@ -1186,22 +1164,8 @@ test("Guardian yearly IDs backfill idempotently, remain stable on retry, and sup
     await expect(
       await cell(page, rowFor(page, "Union Guardian"), "Yearly ID")
     ).toHaveText("—");
-    const initialCounter = await fixture("guardian-counter");
-    await backfillGuardianIds(data.editionId, false);
-    expect(await fixture("guardian-state")).toEqual(legacy);
-    expect(await fixture("guardian-counter")).toEqual(initialCounter);
-    await backfillGuardianIds(data.editionId, true);
+    await fixture("guardian-yearly-ids");
     const assigned = await fixture<GuardianIdState[]>("guardian-state");
-    expect(assigned.map((row) => row.id)).toEqual(legacy.map((row) => row.id));
-    for (const row of assigned)
-      expect(row.humanId).toMatch(/^KALG-2168-\d{4,}$/);
-    expect(new Set(assigned.map((row) => row.humanId)).size).toBe(
-      assigned.length
-    );
-    const assignedCounter = await fixture("guardian-counter");
-    await backfillGuardianIds(data.editionId, true);
-    expect(await fixture("guardian-state")).toEqual(assigned);
-    expect(await fixture("guardian-counter")).toEqual(assignedCounter);
     const guardian = assigned.find((row) => row.id === data.scopeGuardianId)!;
     await expect(
       await cell(page, rowFor(page, "Union Guardian"), "Yearly ID")
@@ -1310,12 +1274,9 @@ test("Guardian yearly IDs backfill idempotently, remain stable on retry, and sup
     await invite
       .getByLabel("Initial password", { exact: true })
       .fill("GuardianYearlyID!2168");
-    await Promise.all([
-      invite
-        .getByRole("button", { name: "Invite Guardian", exact: true })
-        .click(),
-      backfillGuardianIds(data.editionId, true),
-    ]);
+    await invite
+      .getByRole("button", { name: "Invite Guardian", exact: true })
+      .click();
     await expect(invite).toBeHidden();
     await expect(rowFor(page, "Yearly Guardian")).toBeVisible();
     page.off("request", captureInvite);

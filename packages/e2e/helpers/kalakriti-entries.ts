@@ -21,8 +21,6 @@ import { teamEvent } from "@pi-dash/db/schema/team-event";
 import { S3Client } from "bun";
 import { eq } from "drizzle-orm";
 
-import { backfillKalakritiEntryMusic } from "../../../scripts/backfill-kalakriti-entry-music";
-
 const FIXTURES = {
   admin: {
     ageCategoryId: "019f0000-0000-7000-8000-00000000e103",
@@ -511,60 +509,6 @@ if (action === "setup" && email) {
     }
     result = { removed: keys.length };
   }
-} else if (action === "music-backfill" && fixtureKind === "music") {
-  const database = new URL(process.env.DATABASE_URL!);
-  if (
-    !["localhost", "127.0.0.1", "[::1]"].includes(database.hostname) ||
-    database.pathname !== "/pi-dash-test"
-  )
-    throw new Error("Backfill probe requires the isolated local E2E database");
-  const fixture = FIXTURES.music;
-  const entryId = fixture.membershipId;
-  const [entry] = await db
-    .select()
-    .from(kalakritiCompetitionEntry)
-    .where(eq(kalakritiCompetitionEntry.id, entryId));
-  if (!entry) throw new Error("Missing backfill fixture Entry");
-  const legacy = {
-    musicObjectKey: `attachments/kalakriti-music/${fixture.editionId}/${entryId}/legacy.mp3`,
-    musicFileName: "legacy.mp3",
-    musicMimeType: "audio/mpeg",
-    musicByteSize: 1234,
-    musicUploadedAt: new Date("2026-01-02T03:04:05.000Z"),
-    musicUploadedBy: entry.createdBy,
-  };
-  await db
-    .update(kalakritiCompetitionEntry)
-    .set({ ...legacy, musicMimeType: "image/png" })
-    .where(eq(kalakritiCompetitionEntry.id, entryId));
-  const malformed = await backfillKalakritiEntryMusic(db, { apply: true });
-  const malformedState = await readState(fixtureKind);
-  await db
-    .update(kalakritiCompetitionEntry)
-    .set(legacy)
-    .where(eq(kalakritiCompetitionEntry.id, entryId));
-  const dryRun = await backfillKalakritiEntryMusic(db, { apply: false });
-  const dryRunState = await readState(fixtureKind);
-  const applied = await backfillKalakritiEntryMusic(db, { apply: true });
-  const appliedState = await readState(fixtureKind);
-  const repeated = await backfillKalakritiEntryMusic(db, { apply: true });
-  const repeatedState = await readState(fixtureKind);
-  const [cleared] = await db
-    .select()
-    .from(kalakritiCompetitionEntry)
-    .where(eq(kalakritiCompetitionEntry.id, entryId));
-  result = {
-    legacy,
-    malformed,
-    malformedState,
-    dryRun,
-    dryRunState,
-    applied,
-    appliedState,
-    repeated,
-    repeatedState,
-    cleared,
-  };
 } else if (action === "music-refresh" && fixtureKind === "music") {
   await db
     .update(kalakritiStudent)

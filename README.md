@@ -41,7 +41,7 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 | Requests | Unified view for reimbursement and advance payment requests — submit, review, approve/reject with line items and type filter |
 | Teams | Organize volunteers into teams with leads; optionally link to WhatsApp groups for automated member syncing |
 | Events | Create team events (one-time or recurring), assign members, track attendance per occurrence; public events page for all users |
-| Kalakriti Editions | Run production-gated yearly registration workspaces with Edition-scoped access, persistent external identities, Center quotas and controls, student and competition-entry registration, public schedules, assignment-scoped dashboards and ZIP exports, and administrator or assigned-Lead audit trails. Volunteer enrollment automatically promotes unoriented volunteers without changing admin or custom roles; see the [orientation policy and safe backfill](docs/architecture/kalakriti-registration.md#orientation-backfill). |
+| Kalakriti Editions | Run production-gated yearly registration workspaces with Edition-scoped access, persistent external identities, Center quotas and controls, student and competition-entry registration, public schedules, assignment-scoped dashboards and ZIP exports, and administrator or assigned-Lead audit trails. Volunteer enrollment automatically promotes unoriented volunteers without changing admin or custom roles; see the [orientation policy](docs/architecture/kalakriti-registration.md#identity-and-access). |
 | Kalakriti Students | Browse Students across all authorized Centers with a Center column and filter. Registration and row actions retain their actual Center's permissions and quota rules. |
 | Kalakriti Entry music | Optionally attach up to two MP3, M4A, or AAC files per Entry (20 MB each), with per-file retries, staged Save/Cancel, and protected playback/download. Scoped music editing remains available after registration closes; files stay out of public schedules and exports. |
 | Kalakriti Guests and Judges | Manage Edition-bound non-login attendees with required name/phone and optional email. Assign judges to multiple competitions; Event Heads can view scoped judges and Volunteer Coordinators can view both rosters. Guests and judges use QR/yearly-ID check-in before breakfast or lunch. |
@@ -314,7 +314,7 @@ The E2E suite uses setup plus seven browser projects:
 
 Global setup saves authenticated API storage state for every shared role and active Kalakriti actor. Test credentials are in `packages/e2e/.env.test`. The orchestration script (`run-e2e.sh`) starts a dedicated worktree-aware PostgreSQL, migrates and seeds it, starts Zero, and serves a fresh optimized build with `NODE_ENV=test`. Interactive UI/debug mode uses Vite so app edits remain visible. Every run tears down its database and services on exit and reports setup, test, and total elapsed time.
 
-Role-only specs are selected before execution in `packages/e2e/project-selection.ts`; shared multirole coverage remains intact. See [E2E runtime research](docs/e2e-performance-research.md) for measurements and tradeoffs.
+Role-only specs are selected before execution in `packages/e2e/project-selection.ts`; shared multirole coverage remains intact.
 
 ### Build & quality
 

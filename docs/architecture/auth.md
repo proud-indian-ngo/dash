@@ -7,7 +7,7 @@
 
 Better Auth (`packages/auth/src/index.ts`):
 
-- **Drizzle adapter** — sessions, accounts, verification tokens in Postgres. Better Auth 1.7 keys each account by `(issuer, accountId)`; credential rows use `local:credential`.
+- **Drizzle adapter** — sessions, accounts, verification tokens in Postgres. Better Auth 1.7.3+ keys each account by `(providerId, accountId)`, enforced by a unique index; credential rows use provider ID `credential`. The obsolete `issuer` column is removed by the generated migration.
 - **Admin plugin** — roles (`admin`, `volunteer`), ban/unban, impersonate
 - **Email/password** — public volunteer signup at `/register` (optional `?eventId=` and `?group=` query params); email verification required
 - **Rate limiting** — sign-in 10/min, sign-up 5/min

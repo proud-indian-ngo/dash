@@ -147,64 +147,6 @@ test.describe("Kalakriti entry music after registration closes", () => {
     }
   });
 
-  test("legacy backfill preserves object identity and metadata, rejects malformed rows, and is idempotent in PostgreSQL", async ({
-    volunteerEmail,
-  }) => {
-    const data = await fixture<Fixture>("setup", volunteerEmail);
-    try {
-      type BackfillResult = {
-        candidates: number;
-        updated: number;
-        malformedIds: string[];
-      };
-      const result = await fixture<{
-        legacy: {
-          musicObjectKey: string;
-          musicFileName: string;
-          musicMimeType: string;
-          musicByteSize: number;
-          musicUploadedAt: string;
-          musicUploadedBy: string;
-        };
-        malformed: BackfillResult;
-        malformedState: State;
-        dryRun: BackfillResult;
-        dryRunState: State;
-        applied: BackfillResult;
-        appliedState: State;
-        repeated: BackfillResult;
-        repeatedState: State;
-        cleared: Record<string, unknown>;
-      }>("music-backfill");
-      expect(result.malformed.malformedIds).toContain(data.entryId);
-      expect(result.malformedState.musicFiles).toEqual([]);
-      expect(result.dryRun.candidates).toBeGreaterThanOrEqual(1);
-      expect(result.dryRun.updated).toBe(0);
-      expect(result.dryRunState.musicFiles).toEqual([]);
-      expect(result.applied.updated).toBeGreaterThanOrEqual(1);
-      expect(result.appliedState.musicFiles).toEqual([
-        expect.objectContaining({
-          id: data.entryId,
-          entryId: data.entryId,
-          editionId: data.editionId,
-          slot: 1,
-          objectKey: result.legacy.musicObjectKey,
-          fileName: result.legacy.musicFileName,
-          mimeType: result.legacy.musicMimeType,
-          byteSize: result.legacy.musicByteSize,
-          uploadedAt: result.legacy.musicUploadedAt,
-          uploadedBy: result.legacy.musicUploadedBy,
-        }),
-      ]);
-      for (const key of Object.keys(result.legacy))
-        expect(result.cleared[key]).toBeNull();
-      expect(result.repeated.updated).toBe(0);
-      expect(result.repeatedState).toEqual(result.appliedState);
-    } finally {
-      await fixture("cleanup");
-    }
-  });
-
   test("opens a music-only modal after Center and Edition closure without unlocking participants", async ({
     page,
     volunteerEmail,
