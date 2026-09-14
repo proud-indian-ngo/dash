@@ -84,6 +84,8 @@ Entries retain the full root dataset and Entry Center labels, but no longer join
 
 Compare server hydration separately from end-to-end hydration, and distinguish active subscriptions from inactive queries retained by TTL. Use identical data, account and navigation sequences for before/after comparisons. Profile restricted roles separately because permission predicates can produce different plans. Add indexes or reduce query graphs only when measured plans justify doing so. See [Zero's query guidance](https://zero.rocicorp.dev/docs/queries) and [analyzer documentation](https://zero.rocicorp.dev/docs/debug/analyze-query-cli).
 
+Event detail enables aggregate feedback subscriptions only for feedback managers. Ordinary participants fetch their own feedback through the existing server function, so they do not run an aggregate query that can only return an empty result. Query-side authorization remains authoritative.
+
 ## Connection Errors
 
 Global monitor: `ZeroConnectionMonitor` in `apps/web/src/routes/_app.tsx` via `useConnectionState()`. Individual queries = no error handling. On `error`: debounced toast. On `needs-auth` (401/403): redirect `/login` with current path.

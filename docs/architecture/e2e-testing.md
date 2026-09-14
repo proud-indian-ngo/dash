@@ -241,3 +241,23 @@ See [query performance audit coverage](../query-performance-audit.md) for the co
 On the same expanded fixture, removing the unused `members.student.center` relation reduced admin Entries reads from 39,000 to 36,000, with 9,103 unique synced rows unchanged. Median analyzer time decreased from 1,332 ms to 1,202 ms (three samples per version, approximately 10%). This is an analyzer comparison, not a production page-load measurement. The query still includes the Entry's Center, member Student age category and arrival/attendance operations, music files and Division context. Registration picker Center labels come from `kalakritiStudent.visibleForEntries`, which is unchanged.
 
 Guardian Entries decreased from 390 ms to 363 ms and liaison Entries from 385 ms to 364 ms. Each retained exactly 600 Entry roots from the two assigned Centers and 1,898 unique synced rows; reads decreased from 14,545 to 13,945. The local regression run passed 25 checks (four role-inapplicable cases skipped), including registration, music editing and two-Center permissions.
+
+
+## Populated Event detail profiles
+
+The app fixture's first public Event is in the past with feedback enabled and both admin and volunteer membership (601 total fixture Event memberships). It contains 200 updates, 200 photo metadata rows and 200 feedback rows. Updates and feedback use valid Plate JSON. Updates/photos each have 100 approved and 100 pending rows, with pending content split equally between admin and volunteer authors. Photo rows have no remote asset keys and use the empty-image fallback: this does not measure media downloads or image decoding.
+
+The benchmark verifies 100 approved rows, 100 admin-visible pending rows, 50 volunteer-owned pending rows and 200 admin feedback rows. It opens Photos and Feedback and asserts rendered update/feedback content. The volunteer feedback form must render without any `eventFeedback.byEvent` inspector query. Previously that aggregate query read 202 rows to return zero on this fixture; Event detail now enables it only for feedback managers. The existing participant server function and query authorization remain unchanged.
+
+Local medians (2026-09-14, three analyzer samples):
+
+| Query | Admin | Volunteer | Reads / synced, admin | Reads / synced, volunteer |
+|---|---:|---:|---:|---:|
+| Event by ID | 11 ms | Not profiled | 8 / 7 | Not profiled |
+| Approved updates | 21 ms | 25 ms | 301 / 102 | 503 / 103 |
+| Pending updates | 16 ms | 15 ms (own) | 200 / 102 | 253 / 53 |
+| Approved photos | 21 ms | 25 ms | 301 / 102 | 503 / 103 |
+| Pending photos | 17 ms | 14 ms (own) | 200 / 102 | 253 / 53 |
+| Aggregate feedback | 14 ms | Subscription absent | 200 / 200 | No query |
+
+These queries do not show a local hydration bottleneck at this scale. Rich-text rendering is exercised but not separately timed. The participant's own-feedback HTTP latency, external media, recurrence exceptions, deep expenses and lead-specific authorization still need separate measurements. The corrected benchmark passes all 13 checks, including authentication setup; root and focused TypeScript, unit, lint and unused-export checks pass. React Doctor retains branch-wide route/component diagnostics.

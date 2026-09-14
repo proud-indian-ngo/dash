@@ -629,7 +629,8 @@ function EventPostEventPanel({
 function useEventDetailQueries(
   eventId: string,
   canApproveUpdates: boolean,
-  canManagePhotos: boolean
+  canManagePhotos: boolean,
+  canManageFeedback: boolean
 ) {
   const [approvedUpdates] = useQuery(
     queries.eventUpdate.approvedByEvent({ eventId })
@@ -660,7 +661,9 @@ function useEventDetailQueries(
   const pendingPhotos = canManagePhotos ? allPendingPhotos : myPendingPhotos;
 
   const [album] = useQuery(queries.eventImmichAlbum.byEvent({ eventId }));
-  const [feedback] = useQuery(queries.eventFeedback.byEvent({ eventId }));
+  const [feedback] = useQuery(queries.eventFeedback.byEvent({ eventId }), {
+    enabled: canManageFeedback,
+  });
   const [eventReimbursements] = useQuery(
     queries.reimbursement.byEvent({ eventId })
   );
@@ -946,7 +949,12 @@ export function EventDetail({
     feedback,
     eventReimbursements,
     eventVendorPayments,
-  } = useEventDetailQueries(event.id, canApproveUpdates, canManagePhotos);
+  } = useEventDetailQueries(
+    event.id,
+    canApproveUpdates,
+    canManagePhotos,
+    canManageFeedback
+  );
 
   const totalExpenses = calcTotalExpenses(
     eventReimbursements,

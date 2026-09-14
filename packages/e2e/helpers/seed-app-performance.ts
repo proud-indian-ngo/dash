@@ -9,8 +9,11 @@ const counts = {
   teams: 1,
   teamMembers: 1,
   events: 600,
-  eventMembers: 600,
+  eventMembers: 601,
   interests: 600,
+  updates: 200,
+  feedback: 200,
+  photos: 200,
   categories: 4,
   vendors: 100,
   reimbursements: 1000,
@@ -63,6 +66,9 @@ export async function seedAppPerformance() {
   const { teamEvent, teamEventMember } =
     await import("@pi-dash/db/schema/team-event");
   const { eventInterest } = await import("@pi-dash/db/schema/event-interest");
+  const { eventUpdate } = await import("@pi-dash/db/schema/event-update");
+  const { eventFeedback } = await import("@pi-dash/db/schema/event-feedback");
+  const { eventPhoto } = await import("@pi-dash/db/schema/event-photo");
   const { expenseCategory } =
     await import("@pi-dash/db/schema/expense-category");
   const { reimbursement, reimbursementHistory, reimbursementLineItem } =
@@ -128,7 +134,9 @@ export async function seedAppPerformance() {
           Array.from({ length }, (_, offset) => {
             const index = start + offset;
             const startTime = new Date(
-              Date.UTC(2191, 0, 1 + Math.floor(index / 4), 8 + (index % 4))
+              index === 0
+                ? Date.UTC(2020, 0, 1, 8)
+                : Date.UTC(2191, 0, 1 + Math.floor(index / 4), 8 + (index % 4))
             );
             return {
               id: eventId(index),
@@ -137,6 +145,7 @@ export async function seedAppPerformance() {
               name: `Synthetic performance event ${index + 1}`,
               city: "bangalore" as const,
               isPublic: index % 2 === 0,
+              feedbackEnabled: index === 0,
               startTime,
               endTime: new Date(startTime.getTime() + 60 * 60_000),
               createdAt: now,
@@ -152,8 +161,8 @@ export async function seedAppPerformance() {
         .values(
           Array.from({ length }, (_, offset) => ({
             id: id(2000 + start + offset),
-            eventId: eventId(start + offset),
-            userId: admin.id,
+            eventId: eventId((start + offset) % counts.events),
+            userId: start + offset === counts.events ? volunteer.id : admin.id,
             addedAt: now,
           }))
         )
@@ -411,6 +420,63 @@ export async function seedAppPerformance() {
         )
         .onConflictDoNothing({ target: vendorPaymentTransactionHistory.id })
     );
+    await tx
+      .insert(eventUpdate)
+      .values(
+        Array.from({ length: counts.updates }, (_, index) => ({
+          id: id(30_000 + index),
+          eventId: eventId(0),
+          createdBy: index % 4 === 3 ? admin.id : volunteer.id,
+          content: JSON.stringify([
+            {
+              type: "p",
+              children: [{ text: `Synthetic performance update ${index + 1}` }],
+            },
+          ]),
+          status:
+            index % 2 === 0 ? ("approved" as const) : ("pending" as const),
+          reviewedBy: index % 2 === 0 ? admin.id : null,
+          reviewedAt: index % 2 === 0 ? now : null,
+          createdAt: new Date(now.getTime() + index),
+          updatedAt: now,
+        }))
+      )
+      .onConflictDoNothing({ target: eventUpdate.id });
+    await tx
+      .insert(eventFeedback)
+      .values(
+        Array.from({ length: counts.feedback }, (_, index) => ({
+          id: id(31_000 + index),
+          eventId: eventId(0),
+          content: JSON.stringify([
+            {
+              type: "p",
+              children: [
+                { text: `Synthetic performance feedback ${index + 1}` },
+              ],
+            },
+          ]),
+          createdAt: new Date(now.getTime() + index),
+          updatedAt: now,
+        }))
+      )
+      .onConflictDoNothing({ target: eventFeedback.id });
+    await tx
+      .insert(eventPhoto)
+      .values(
+        Array.from({ length: counts.photos }, (_, index) => ({
+          id: id(32_000 + index),
+          eventId: eventId(0),
+          uploadedBy: index % 4 === 3 ? admin.id : volunteer.id,
+          caption: `Synthetic performance photo ${index + 1}`,
+          status:
+            index % 2 === 0 ? ("approved" as const) : ("pending" as const),
+          reviewedBy: index % 2 === 0 ? admin.id : null,
+          reviewedAt: index % 2 === 0 ? now : null,
+          createdAt: new Date(now.getTime() + index),
+        }))
+      )
+      .onConflictDoNothing({ target: eventPhoto.id });
   });
 
   const ranges = [
@@ -419,6 +485,9 @@ export async function seedAppPerformance() {
     ["events", teamEvent, 1000],
     ["eventMembers", teamEventMember, 2000],
     ["interests", eventInterest, 3000],
+    ["updates", eventUpdate, 30_000],
+    ["feedback", eventFeedback, 31_000],
+    ["photos", eventPhoto, 32_000],
     ["categories", expenseCategory, 4000],
     ["vendors", vendor, 5000],
     ["reimbursements", reimbursement, 6000],

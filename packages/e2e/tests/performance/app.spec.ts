@@ -3,7 +3,10 @@ import path from "node:path";
 import { promisify } from "node:util";
 
 import { expect, test } from "../../fixtures/test";
-import { profileZeroQueries } from "../../helpers/zero-performance";
+import {
+  profileZeroQueries,
+  type InspectorWindow,
+} from "../../helpers/zero-performance";
 
 const execFileAsync = promisify(execFile);
 
@@ -33,6 +36,7 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     counts: Record<string, number>;
     restrictedCounts: Record<string, number>;
     sampleIds: {
+      publicEvent: string;
       ownReimbursement: string;
       deniedReimbursement: string;
       ownVendorPayment: string;
@@ -79,6 +83,60 @@ test("profile Dashboard, Events and financial queries at scale", async ({
       queries: analyses,
     });
   }
+  const eventDetailStart = performance.now();
+  await page.goto(`/events/${fixture.sampleIds.publicEvent}`);
+  results.push({
+    route: "event-detail",
+    queries: [
+      ...(await profileZeroQueries(
+        page,
+        { "teamEvent.byId": 1 },
+        { id: fixture.sampleIds.publicEvent }
+      )),
+      ...(await profileZeroQueries(
+        page,
+        {
+          "eventUpdate.approvedByEvent": fixture.counts.updates! / 2,
+          "eventUpdate.pendingByEvent": fixture.counts.updates! / 2,
+          "eventPhoto.approvedByEvent": fixture.counts.photos! / 2,
+          "eventPhoto.pendingByEvent": fixture.counts.photos! / 2,
+          "eventFeedback.byEvent": fixture.counts.feedback!,
+        },
+        { eventId: fixture.sampleIds.publicEvent },
+        {
+          "eventUpdate.approvedByEvent": {
+            table: "event_update",
+            count: fixture.counts.updates! / 2,
+          },
+          "eventUpdate.pendingByEvent": {
+            table: "event_update",
+            count: fixture.counts.updates! / 2,
+          },
+          "eventPhoto.approvedByEvent": {
+            table: "event_photo",
+            count: fixture.counts.photos! / 2,
+          },
+          "eventPhoto.pendingByEvent": {
+            table: "event_photo",
+            count: fixture.counts.photos! / 2,
+          },
+          "eventFeedback.byEvent": {
+            table: "event_feedback",
+            count: fixture.counts.feedback!,
+          },
+        }
+      )),
+    ],
+    navigationAndAnalysisMs: performance.now() - eventDetailStart,
+  });
+  await expect(
+    page.getByText("Synthetic performance update 1", { exact: true })
+  ).toBeVisible();
+  await page.getByRole("tab", { name: /^Photos & Videos/ }).click();
+  await page.getByRole("tab", { name: /^Feedback/ }).click();
+  await expect(
+    page.getByText("Synthetic performance feedback 1", { exact: true })
+  ).toBeVisible();
   const restrictedContext = await browser.newContext({
     storageState: path.resolve(
       import.meta.dirname,
@@ -111,6 +169,49 @@ test("profile Dashboard, Events and financial queries at scale", async ({
         queries: await profileZeroQueries(restrictedPage, queries),
       });
     }
+    await restrictedPage.goto(`/events/${fixture.sampleIds.publicEvent}`);
+    restrictedResults.push({
+      route: "event-detail",
+      queries: await profileZeroQueries(
+        restrictedPage,
+        {
+          "eventUpdate.approvedByEvent": fixture.counts.updates! / 2,
+          "eventUpdate.myPendingByEvent": fixture.counts.updates! / 4,
+          "eventPhoto.approvedByEvent": fixture.counts.photos! / 2,
+          "eventPhoto.myPendingByEvent": fixture.counts.photos! / 4,
+        },
+        { eventId: fixture.sampleIds.publicEvent },
+        {
+          "eventUpdate.approvedByEvent": {
+            table: "event_update",
+            count: fixture.counts.updates! / 2,
+          },
+          "eventUpdate.myPendingByEvent": {
+            table: "event_update",
+            count: fixture.counts.updates! / 4,
+          },
+          "eventPhoto.approvedByEvent": {
+            table: "event_photo",
+            count: fixture.counts.photos! / 2,
+          },
+          "eventPhoto.myPendingByEvent": {
+            table: "event_photo",
+            count: fixture.counts.photos! / 4,
+          },
+        }
+      ),
+    });
+    await restrictedPage.getByRole("tab", { name: /^Feedback/ }).click();
+    await expect(
+      restrictedPage.getByText("Share your anonymous feedback", { exact: true })
+    ).toBeVisible();
+    expect(
+      await restrictedPage.evaluate(async () =>
+        (
+          await (window as InspectorWindow).__zero.inspector.client.queries()
+        ).map((query) => query.name)
+      )
+    ).not.toContain("eventFeedback.byEvent");
     for (const [route, name, id, minimum] of [
       [
         "reimbursements",

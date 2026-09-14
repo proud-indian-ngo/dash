@@ -39,7 +39,7 @@ interface InspectorQuery {
   }) => Promise<Analysis>;
 }
 
-type InspectorWindow = typeof window & {
+export type InspectorWindow = typeof window & {
   __zero: {
     inspector: {
       authenticate: (password: string) => Promise<boolean>;

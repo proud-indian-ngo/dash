@@ -1,6 +1,6 @@
 # Query performance audit coverage
 
-Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 24 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
+Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 32 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
 
 Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/tests/performance/app.spec.ts`, with their JSON report attachments. Commands, fixture sizes, account scopes, timings and limitations are recorded in [E2E architecture](architecture/e2e-testing.md). SQLite reads, synced rows, server hydration and total hydration are separate measurements. Broad local caching is intentional; root scans and row counts alone do not establish waste.
 
@@ -11,11 +11,11 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 | `advancePayment` | `all` | `byCurrentUser`, `byId` |
 | `appConfig` | None | `all` |
 | `bankAccount` | None | `bankAccountsByCurrentUser` |
-| `eventFeedback` | None | `byEvent` |
+| `eventFeedback` | `byEvent` | None |
 | `eventImmichAlbum` | None | `byEvent` |
 | `eventInterest` | None | `allPending`, `byCurrentUser`, `managerByEvent`, `myByEvent` |
-| `eventPhoto` | None | `allPending`, `approvedByEvent`, `byEvent`, `myPendingByEvent`, `pendingByEvent` |
-| `eventUpdate` | None | `allPending`, `approvedByEvent`, `byEvent`, `myPendingByEvent`, `pendingByEvent` |
+| `eventPhoto` | `approvedByEvent`, `myPendingByEvent`, `pendingByEvent` | `allPending`, `byEvent` |
+| `eventUpdate` | `approvedByEvent`, `myPendingByEvent`, `pendingByEvent` | `allPending`, `byEvent` |
 | `expenseCategory` | None | `all` |
 | `kalakritiAssignment` | `roster` | `myAccess` |
 | `kalakritiCenter` | `visible` | `guardianAssignments`, `liaisonAssignments` |
@@ -34,7 +34,7 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 | `reimbursement` | `all`, `byId` | `byCurrentUser`, `byEvent` |
 | `scheduledMessage` | None | `all`, `byId` |
 | `team` | None | `all`, `byCurrentUser`, `byId` |
-| `teamEvent` | `allAccessible`, `byCurrentUserAll` | `byCurrentUser`, `byId`, `byIdWithExpenses`, `byTeam`, `public` |
+| `teamEvent` | `allAccessible`, `byCurrentUserAll`, `byId` | `byCurrentUser`, `byIdWithExpenses`, `byTeam`, `public` |
 | `user` | None | `all`, `one`, `whatsappUsers` |
 | `vendor` | `all` | `approved`, `byId`, `pendingByCurrentUser` |
 | `vendorPayment` | `all`, `byId` | `byCurrentUser`, `byEvent` |
@@ -43,7 +43,7 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 
 ## Scope and remaining work
 
-- Financial lists cover admin and owner accounts. Reimbursement and Vendor Payment details include allowed and denied reads. Attachments, deep histories, recurring Events and populated Event detail tabs remain unmeasured.
+- Financial lists cover admin and owner accounts. Reimbursement and Vendor Payment details include allowed and denied reads. Attachments, deep financial histories and recurring Events remain unmeasured. Event detail update/photo metadata and aggregate feedback now have populated admin and volunteer coverage; media transfer is excluded.
 - Kalakriti Students, Entries and Food cover global admin plus two-Center Guardian and liaison accounts. Competition/category leads, coordinators and Edition-wide volunteer responsibilities need their own plans. Admin Competition category and venue tables have only one fixture record, so their existing measurements do not establish scaling behavior.
 - Guest and Judge rosters cover admin access with populated operation history and Judge assignments. Restricted Judge assignment visibility remains unmeasured.
 - Center transport covers admin, Guardian and liaison; Scan covers admin and liaison. Live mutations, camera processing and finalized scan-stage history are outside those measurements.
