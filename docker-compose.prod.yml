@@ -149,6 +149,8 @@ services:
       - shared_preload_libraries=pg_stat_statements
       - -c
       - compute_query_id=auto
+      - -c
+      - track_io_timing=on
     volumes:
       - postgres18_data:/var/lib/postgresql
     depends_on:

@@ -150,9 +150,7 @@ export const kalakritiFoodQueries = {
           .whereExists("center", (center) =>
             foodCenter(center, ctx, args.editionId)
           )
-          .related("center", (center) =>
-            foodCenter(center, ctx, args.editionId)
-          )
+          .related("center")
       )
       .related("guardianCenters", (guardianCenters) =>
         guardianCenters
@@ -160,9 +158,7 @@ export const kalakritiFoodQueries = {
           .whereExists("center", (center) =>
             foodCenter(center, ctx, args.editionId)
           )
-          .related("center", (center) =>
-            foodCenter(center, ctx, args.editionId)
-          )
+          .related("center")
       );
     if (!ctx || (!can(ctx, "kalakriti.admin") && !can(ctx, "kalakriti.view")))
       return query.where("id", NO_ACCESS_ID);

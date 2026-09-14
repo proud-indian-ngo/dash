@@ -285,3 +285,72 @@ Audit search coverage includes a selective match, a broad match, no matches and 
 The Audit Log performance spec also navigates to page two in the browser and types a search. It requires exactly one API request with the final text and offset zero, preventing an immediate page reset from fetching the previous search before the 300 ms debounce completes.
 
 The scoped Kalakriti Audit benchmark runs with `KALAKRITI_AUDIT_PERFORMANCE=true E2E_STACK_INDEX=2 bash packages/e2e/run-e2e.sh tests/performance/kalakriti-audit.spec.ts --project=super_admin --workers=1 --retries=0`. It seeds 41,000 local-only rows across two Editions and checks exact results for three roles, domain filters, deep offsets, snapshot reuse and denied domains. Its `kalakriti-audit-performance.json` attachment separates PostgreSQL plans from authenticated HTTP timings. Both audit benchmarks share the sanitized plan summarizer in `helpers/postgres-performance.ts`.
+
+The app performance fixture also includes 10,000 synthetic notifications across admin and volunteer accounts, with equal archived/active histories. The benchmark verifies the exact newest-50 result set for each user, reporting only a boolean match plus diagnostics. Synthetic timestamps in 2191 ensure ordinary seed notifications cannot displace those expected IDs.
+
+For the disposable notification index comparison, add `NOTIFICATION_INDEX_EXPERIMENT=true` to the app benchmark command. The guarded seed creates the candidate index only in the local test database and records the flag in the report. Default runs retain the migrated schema.
+
+
+The app performance fixture also adds 1,000 synthetic users without credentials and 11,022 notification preferences using the canonical topic list. The benchmark visits Users, an individual user's notification settings, and personal settings for admin and volunteer. It verifies visible user totals and exact preference ownership without recording preference contents. These cases use the existing app performance command and local-only database guard.
+
+
+The app performance fixture includes 500 completed Scheduled Messages and 5,000 sent recipient rows. It writes rows directly under the existing local database guard and enqueues no jobs. The benchmark checks root/recipient counts and measures the WhatsApp user picker by opening and cancelling the scheduling dialog. It does not submit a message or exercise delivery.
+
+
+Set `SCHEDULED_INDEX_EXPERIMENT=true` with the app benchmark to compare disposable message and recipient ordering indexes. The seed records this option in the report; the isolated stack removes the indexes on teardown. The first 500-message comparison removed temporary sorts and reduced scans without a meaningful analyzer-time improvement, so it did not produce a schema migration.
+
+
+The app benchmark visits Advance Payment detail as admin, owner and a denied requester using the existing 500-advance fixture. It verifies the exact request ID, owner and related line-item/history counts, plus the empty Reimbursement lookup mounted by the shared request-detail route. It does not edit or submit financial records.
+
+
+The app fixture concentrates 200 Reimbursements and 200 Vendor Payments on the sampled public Event, split between two owners. The benchmark profiles both Event expense queries as admin and volunteer and asserts 200/100 roots plus volunteer ownership. Event summary metrics also consume these queries when the manager-only Expenses tab is absent.
+
+
+The app benchmark opens the Vendor Payment form as admin and volunteer. It seeds 100 approved vendors and 50 pending vendors per account, derives the full approved count from the database, and verifies exact pending IDs for each account. Existing payments reference approved vendors. The form is not submitted.
+
+
+Banking performance uses 2,004 synthetic accounts across fixture users. Personal Settings visits Notifications and Banking for both admin and volunteer, checks complete per-user counts against PostgreSQL and verifies every returned account belongs to the signed-in user. It performs no account changes or financial operations.
+
+
+Shared lookup profiling uses 100 synthetic expense categories and 200 synthetic WhatsApp groups, with full expected counts derived from PostgreSQL to include ordinary seed records. Categories are measured in both payment-form account scopes; groups are measured in the admin recipient picker. Synthetic groups use non-deliverable identifiers and no message is submitted.
+
+
+The Kalakriti Centers benchmark checks 300 Guardian links and 300 liaison assignments under global-admin access, using the existing 300-membership and 600-assignment fixture. Restricted manager performance requires separate linked Edition-admin/coordinator memberships; the Guardian and liaison navigation checks do not substitute for those roles.
+
+
+The Kalakriti performance fixture links Edition-admin and volunteer-coordinator accounts to existing synthetic memberships, replacing one Competition-volunteer assignment each with their manager responsibility. Dataset totals remain fixed. Centers benchmarks verify their permitted assignment lists; the analyzer's optional row filter distinguishes liaison roots from manager authorization rows without altering timing or scan metrics.
+
+
+Students-page profiling includes `myAccess` and `ageCategoriesByCenter` for admin, Guardian and liaison. It verifies the empty admin membership, Guardian membership without assignments, liaison membership with four assignments, and one reference-Center age category per account. The single-category fixture establishes scoped lookup behavior rather than category-catalog scale.
+
+
+The linked Edition-admin account also profiles full Students, Entries and Food routes. Expected roots match global admin, while analyzer reports preserve the additional authorization work. This role has an Edition assignment rather than the global `kalakriti.admin` permission.
+
+The overview benchmark profiles its mounted clone-source configuration for global admin and Edition admin, verifying the exact Edition and structural relationship counts. It also profiles the distinct Edition-admin configuration list and confirms the synthetic Edition is included. It performs no clone mutation.
+
+`tests/kalakriti/food-entry-scopes.spec.ts` also verifies live Center revocation for Guardian and liaison Food readers. The serialized fixture removes only the actor's Center B authority while the page stays open. Assertions check removal of a Center B-only person, narrowing of a retained person's nested Centers, no document reload and no outside-Center data in incoming Zero frames.
+
+
+`ENTRY_MEMBER_INDEX_EXPERIMENT=true` enables a disposable Student/Edition/ID index for entry members in the Kalakriti fixture. Compare the first analyzer sample separately from warm samples: the baseline initially selected a full scan, then switched to the existing Student index. The experiment retains all role result checks and changes no query permissions.
+
+The Kalakriti benchmark explicitly profiles the Edition picker for global admin, Guardian, liaison and Edition admin, plus Eligibility for both admin scopes. Picker verification checks inclusion of the synthetic Edition; Eligibility checks its one age-category root. Three seeded Editions do not represent a long multi-year history.
+
+`CATEGORY_ASSIGNMENT_INDEX_EXPERIMENT=true` adds the disposable category/responsibility/ID assignment index for comparison on an older schema. The seed report records the flag. Migration 0090 supplies the canonical index, so leave this experiment disabled when validating current migrations. The original entry-member experiment now executes only once per seed invocation, inside the guarded seeder.
+
+`OPERATION_INDEX_EXPERIMENT=true` adds a disposable Student/Edition/type/ID operation index inside the guarded local fixture. The report records the flag. Migration 0091 supplies the canonical index; leave the experiment disabled when validating migrations.
+
+`ENTRY_ORDERING_INDEX_EXPERIMENT=true` adds two disposable indexes: Entries by Edition/descending creation time/ID and members by Entry/Edition/ID. Migration 0092 supplies only the first. The second remains an experiment: both individual and ten-member group workloads showed fewer scans without a material timing improvement. Leave the flag disabled when validating migrations.
+
+`KALAKRITI_GROUP_PERFORMANCE=true` switches the isolated Kalakriti workload to 300 ten-student group Entries, keeping 1,500 Students, 3,000 entry memberships and the existing Center/permission assignments. Each Division has ten Entries instead of 100. The seed verifies the member count and a single Center per Entry; browser checks verify the group label and role-scoped root/member counts. Default mode remains 3,000 individual Entries. Use a fresh test database when switching modes: the fixture IDs are intentionally shared and seeding is idempotent within one mode, not a mode-conversion migration.
+
+The app benchmark visits the Team list and synthetic Team detail as admin, verifying the Team ID and all 600 event roots. It explicitly profiles event-detail own-interest and manager-interest subscriptions with one fixture interest each. This measures a large event history within one team.
+
+An additional Team is led by the seeded volunteer, with one private Event and 801 existing pending interests: the lead's own request plus 800 distinct synthetic volunteers. These rows use a separate ID range from the original fixture counts. The benchmark verifies the exact lead queue and related-user count in the manager and dashboard queries, the lead's own request, and the original denied-Team behavior. Three fresh browser contexts record cold/warm pairs until all review controls render; these samples are descriptive, not a latency acceptance threshold. The workload models review of an existing queue, not creation of interests on a private Event.
+
+The app benchmark also opens the synthetic Team as a non-member volunteer. It verifies the denied Team result is empty and no `teamEvent.byTeam` query is registered. The earlier baseline verified exactly 300 public event IDs in the unused preload; that preload is now removed. Three fresh browser contexts measure authorized Team rendering and warm returns, waiting for the complete pending-interest count before recording elapsed time.
+
+The app fixture also seeds 600 album metadata records and ten inert configuration keys. General settings profiles `appConfig.all` as admin; public event detail profiles album metadata as admin and volunteer. Album IDs are synthetic, links are not opened, and the benchmark does not contact Immich or toggle settings.
+
+The Kalakriti benchmark exposes the linked `eventId` and visits that event route as global admin and Edition admin to profile `kalakritiEdition.byTeamEventId`. It verifies the exact returned Edition ID. This tests the mounted lookup without changing the event or Edition.
+
+The Kalakriti fixture now splits 30 Competitions across two categories and links isolated category-lead and overall-events actors. Their Catalog Eligibility and Entries queries are measured separately. Category lead must return the exact first 1,500 Entry IDs (the fixture groups 100 Entries per Division); overall-events must return all 3,000. Existing total membership/assignment counts remain unchanged, while readiness includes 14 linked-volunteer assignments. Earlier one-category measurements require a fresh baseline before comparison.

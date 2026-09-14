@@ -113,41 +113,12 @@ function availableDivisions(
   return query.orderBy("createdAt", "asc");
 }
 
-function visibleEntries(
+function visibleEntryScope(
   args: { editionId: string; centerId?: string },
   ctx: Context | null,
   attendance?: { divisionId: string; sessionId: string }
 ) {
-  let query = zql.kalakritiCompetitionEntry
-    .related("musicFiles")
-    .where("editionId", args.editionId)
-    .related("center")
-    .related("members", (member) =>
-      member.where("editionId", args.editionId).related("student", (student) =>
-        student.related("ageCategory").related("operations", (operations) => {
-          const scoped = operations.where("editionId", args.editionId);
-          return attendance
-            ? scoped.where(({ or, and, cmp }) =>
-                or(
-                  cmp("type", "venue_arrival"),
-                  and(
-                    cmp("type", "competition_attendance"),
-                    cmp("competitionSessionId", attendance.sessionId)
-                  )
-                )
-              )
-            : scoped.where("type", "venue_arrival");
-        })
-      )
-    )
-    .related("division", (division) =>
-      division
-        .related("ageCategory")
-        .related("competition", (competition) =>
-          competition.related("category")
-        )
-        .related("sessions", (session) => session.related("venue"))
-    );
+  let query = zql.kalakritiCompetitionEntry.where("editionId", args.editionId);
   if (attendance) {
     query = query
       .where("divisionId", attendance.divisionId)
@@ -245,6 +216,42 @@ function visibleEntries(
     .orderBy("createdAt", "desc");
 }
 
+function visibleEntries(
+  args: { editionId: string; centerId?: string },
+  ctx: Context | null,
+  attendance?: { divisionId: string; sessionId: string }
+) {
+  return visibleEntryScope(args, ctx, attendance)
+    .related("musicFiles")
+    .related("center")
+    .related("members", (member) =>
+      member.where("editionId", args.editionId).related("student", (student) =>
+        student.related("ageCategory").related("operations", (operations) => {
+          const scoped = operations.where("editionId", args.editionId);
+          return attendance
+            ? scoped.where(({ or, and, cmp }) =>
+                or(
+                  cmp("type", "venue_arrival"),
+                  and(
+                    cmp("type", "competition_attendance"),
+                    cmp("competitionSessionId", attendance.sessionId)
+                  )
+                )
+              )
+            : scoped.where("type", "venue_arrival");
+        })
+      )
+    )
+    .related("division", (division) =>
+      division
+        .related("ageCategory")
+        .related("competition", (competition) =>
+          competition.related("category")
+        )
+        .related("sessions", (session) => session.related("venue"))
+    );
+}
+
 const editionInput = z.object({ editionId: z.string() });
 export const kalakritiEntryQueries = {
   availableDivisionsByCenter: defineQuery(centerInput, ({ args, ctx }) =>
@@ -254,7 +261,11 @@ export const kalakritiEntryQueries = {
     availableDivisions(args, ctx)
   ),
   visibleByCenter: defineQuery(centerInput, ({ args, ctx }) =>
-    visibleEntries(args, ctx)
+    visibleEntryScope(args, ctx)
+      .related("members", (member) => member.where("editionId", args.editionId))
+      .related("division", (division) =>
+        division.related("ageCategory").related("competition")
+      )
   ),
   visible: defineQuery(editionInput, ({ args, ctx }) =>
     visibleEntries(args, ctx)

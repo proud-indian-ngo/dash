@@ -83,6 +83,10 @@ Skip architecture docs for copy, CSS, component restyling, lint-only changes, de
 
 ## Load-bearing implementation rules
 
+### Query performance
+
+Before adding or changing Zero query relationships, route preloads, access-request coordination, or database queries/indexes, read `.agents/skills/query-performance/SKILL.md` for preventive implementation rules and focused verification.
+
 ### Permissions
 
 - Use `assertHasPermission(ctx, "permission.id")` for authorization, `can(ctx, "id")` for conditional server checks, and `hasPermission("id")` from AppContext on the client.

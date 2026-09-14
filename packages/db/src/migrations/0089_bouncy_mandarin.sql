@@ -1,0 +1,1 @@
+CREATE INDEX "kalakriti_entry_member_studentId_editionId_id_idx" ON "kalakriti_entry_member" USING btree ("student_id","edition_id","id");

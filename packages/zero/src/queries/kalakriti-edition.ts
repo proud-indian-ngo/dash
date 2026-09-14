@@ -68,7 +68,7 @@ function withReadinessSnapshot(
     .related("centers")
     .related("ageCategories")
     .related("competitionCategories")
-    .related("competitions", (competition) => competition.related("divisions"))
+    .related("competitions")
     .related("competitionDivisions")
     .related("competitionSessions")
     .related("venues")

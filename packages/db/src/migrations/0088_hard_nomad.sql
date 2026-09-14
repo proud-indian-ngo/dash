@@ -1,0 +1,1 @@
+CREATE INDEX "notification_userId_archived_createdAt_id_idx" ON "notification" USING btree ("user_id","archived","created_at" DESC NULLS LAST,"id");

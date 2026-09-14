@@ -5,5 +5,12 @@
 set -e
 cd "$(dirname "$0")"
 for d in src/lib src/components src/routes src/functions src/hooks; do
-  bun test --env-file ../../.env --env-file ../../.env.worktree --isolate "$d"
+  if [ "$d" = src/lib ]; then
+    # This route import intermittently stalls after earlier lib tests in Bun.
+    # Run it in a fresh process while retaining its permission guard coverage.
+    bun test --env-file ../../.env --env-file ../../.env.worktree --isolate --path-ignore-patterns '**/kalakriti-food-route.test.ts' "$d"
+    bun test --env-file ../../.env --env-file ../../.env.worktree --isolate src/lib/kalakriti-food-route.test.ts
+  else
+    bun test --env-file ../../.env --env-file ../../.env.worktree --isolate "$d"
+  fi
 done

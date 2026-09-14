@@ -86,6 +86,24 @@ Compare server hydration separately from end-to-end hydration, and distinguish a
 
 Event detail enables aggregate feedback subscriptions only for feedback managers. Ordinary participants fetch their own feedback through the existing server function, so they do not run an aggregate query that can only return an empty result. Query-side authorization remains authoritative.
 
+Kalakriti readiness syncs Divisions through the Edition's direct `competitionDivisions` relation. Its lifecycle checks consume that flat list, so readiness does not also expand each Competition's Divisions. Clone-source and Competition-page queries retain their nested Divisions because their consumers use them.
+
+The Student detail sheet uses `kalakritiEntry.visibleByCenter` with a participation projection: members, Division age category and Competition data. It shares root authorization with the full Entries queries, which retain their broader relationships. Center-wide Entry roots and the main Students/Entries local datasets remain intact.
+
+The same sheet uses `kalakritiStudent.visibleByCenter` for transport status only. That projection retains all authorized Center Student roots and transport operations; displayed identity and age category come from the existing directory row. Directory, picker and compliance queries retain their broader data.
+
+The registration Student picker (`visibleForEntries`) retains all authorized Students with their assigned age category, Center and transport operations. It does not expand Entry memberships or derived age categories: eligibility uses the separately loaded Entries and assigned age category. Directory and compliance projections remain broader.
+
+Migration `0089_bouncy_mandarin.sql` indexes Entry members by `(student_id, edition_id, id)` for the directory's per-Student expansion. Local analyzer plans use it to filter and return ID order without a temporary sort. It preserves the existing student-only index and query relationships.
+
+Food membership expansions authorize each assignment or Guardian link through `whereExists("center", foodCenter)`. Their related Center expansion uses that same link without repeating the authorization predicate. Removing Center authority removes the parent link and its Center from the result.
+
+Migration `0090_lovely_domino.sql` adds `(competition_category_id, responsibility, id)` on assignments for category-authority lookups. It complements the membership-leading category uniqueness constraint. The local Eligibility benchmark demonstrated fewer assignment scans with unchanged results, not a material latency improvement.
+
+Migration `0091_sudden_sally_floyd.sql` adds `(student_id, edition_id, type, id)` on operations. Entries' per-Student operation expansion can filter by Edition/type and return ID order without a temporary sort. The six measured Entries scopes scan 80% fewer operation rows with unchanged read/synced counts; analyzer timings were essentially unchanged. Existing operation indexes remain in place.
+
+Migration `0092_tearful_multiple_man.sql` adds `(edition_id, created_at DESC, id ASC)` on Entries to serve the Edition filter and newest-first ordering without a full-list temporary sort. It preserves existing Center and Division access paths. A separate entry-leading member index remains experimental because the fixture has only one member per Entry.
+
 ## Connection Errors
 
 Global monitor: `ZeroConnectionMonitor` in `apps/web/src/routes/_app.tsx` via `useConnectionState()`. Individual queries = no error handling. On `error`: debounced toast. On `needs-auth` (401/403): redirect `/login` with current path.
@@ -95,3 +113,11 @@ Logout: `zero.delete()` (best-effort) before `authClient.signOut()` → clears I
 ## View Transitions
 
 Route navs use View Transitions API (`defaultViewTransition: true` in `apps/web/src/router.tsx`). Animations: `packages/design-system/styles.css`, `::view-transition-old(root)` / `::view-transition-new(root)`, 150ms expo-out fade. Disabled under `prefers-reduced-motion: reduce`. Firefox etc fall back to instant nav.
+
+
+The notification history index in migration 0088 follows `(user_id, archived, created_at DESC, id ASC)`. It supports the inbox/badge query's owner filter, active-only predicate and newest-50 ordering without changing the query or its cached results. The 10,000-row experiment reduced scans from 7,500 to 50; total hydration did not consistently improve. Existing indexes remain in place.
+
+
+Event expense queries (`reimbursement.byEvent` and `vendorPayment.byEvent`) use a summary projection: line items and submitter, plus vendor for Vendor Payments. Event metrics and the Expenses tab share these queries. They retain Event and owner filters but omit unused detail relationships; full financial list and detail queries remain broader.
+
+Team detail preloads only the Team query. Its existing event-history subscription starts when the authorized Team component renders, so a denied Team does not warm an unused public-event history. Query shapes and Zero's consumer-owned caching are unchanged.

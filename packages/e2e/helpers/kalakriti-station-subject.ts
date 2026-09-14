@@ -430,6 +430,29 @@ try {
       .set({ competitionEntryRegistrationEnabled: true })
       .where(eq(kalakritiCenter.editionId, data.editionId));
     result = { updated: true };
+  } else if (action === "revoke-food-center-b") {
+    if (adminEmail === "guardian") {
+      await db
+        .delete(kalakritiGuardianCenter)
+        .where(
+          and(
+            eq(kalakritiGuardianCenter.editionId, data.editionId),
+            eq(kalakritiGuardianCenter.membershipId, data.scopeGuardianId),
+            eq(kalakritiGuardianCenter.centerId, data.centerB)
+          )
+        );
+    } else if (adminEmail === "liaison") {
+      await db
+        .delete(kalakritiAssignment)
+        .where(
+          and(
+            eq(kalakritiAssignment.editionId, data.editionId),
+            eq(kalakritiAssignment.membershipId, data.scopeLiaisonId),
+            eq(kalakritiAssignment.centerId, data.centerB)
+          )
+        );
+    } else throw new Error("Expected guardian or liaison fixture actor");
+    result = { removed: true };
   } else if (action === "archive-scoped-guardian") {
     await db
       .update(kalakritiEditionMembership)

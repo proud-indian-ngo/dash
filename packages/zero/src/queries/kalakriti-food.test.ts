@@ -313,6 +313,21 @@ describe("Food roster authorization", () => {
         .map((row) => row.centerId)
     ).toEqual(["a"]);
   });
+  it.each(["assignments", "guardianCenters"])(
+    "removes included %s when Center authority is revoked",
+    (alias) => {
+      const query = ast("memberships").related!.find(
+        (relation) => relation.subquery.alias === alias
+      )!.subquery;
+      const tables = fixture();
+      const visibleLinks = () => ids(query, tables);
+      expect(visibleLinks().length).toBeGreaterThan(0);
+      tables.kalakritiGuardianCenter = tables.kalakritiGuardianCenter!.filter(
+        (row) => row.membershipId !== "actor"
+      );
+      expect(visibleLinks()).toEqual([]);
+    }
+  );
   it("filters a shared Volunteer A+C to authorized Center relations and omits unscoped Competition assignments", () => {
     const tables = fixture();
     tables.kalakritiAssignment!.push(

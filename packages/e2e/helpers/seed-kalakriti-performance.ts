@@ -11,6 +11,7 @@ const editionId = id(1);
 const eventId = id(2);
 const studentOperations = 6000;
 const attendeeOperations = 600;
+const groupSize = process.env.KALAKRITI_GROUP_PERFORMANCE === "true" ? 10 : 1;
 const counts = {
   centers: 10,
   students: 1500,
@@ -20,7 +21,7 @@ const counts = {
   competitions: 30,
   divisions: 30,
   sessions: 30,
-  entries: 3000,
+  entries: 3000 / groupSize,
   entryMembers: 3000,
   attendees: 200,
   judgeAssignments: 200,
@@ -48,6 +49,32 @@ export async function seedKalakritiPerformance() {
   const adminEmail = process.env.SUPER_ADMIN_EMAIL;
   if (!adminEmail) throw new Error("SUPER_ADMIN_EMAIL is required");
   const { db } = await import("@pi-dash/db");
+  const entryOrderingIndexExperiment =
+    process.env.ENTRY_ORDERING_INDEX_EXPERIMENT === "true";
+  if (entryOrderingIndexExperiment) {
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS kalakriti_entry_perf_edition_created_id_idx
+      ON kalakriti_competition_entry (edition_id, created_at DESC, id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS kalakriti_entry_member_perf_entry_edition_id_idx
+      ON kalakriti_entry_member (entry_id, edition_id, id)`);
+  }
+  const operationIndexExperiment =
+    process.env.OPERATION_INDEX_EXPERIMENT === "true";
+  if (operationIndexExperiment) {
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS kalakriti_operation_perf_student_edition_type_id_idx
+      ON kalakriti_operation (student_id, edition_id, type, id)`);
+  }
+  const categoryAssignmentIndexExperiment =
+    process.env.CATEGORY_ASSIGNMENT_INDEX_EXPERIMENT === "true";
+  if (categoryAssignmentIndexExperiment) {
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS kalakriti_assignment_perf_category_responsibility_idx
+      ON kalakriti_assignment (competition_category_id, responsibility, id)`);
+  }
+  const entryMemberIndexExperiment =
+    process.env.ENTRY_MEMBER_INDEX_EXPERIMENT === "true";
+  if (entryMemberIndexExperiment) {
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS kalakriti_entry_member_perf_student_edition_id_idx
+      ON kalakriti_entry_member (student_id, edition_id, id)`);
+  }
   const { user } = await import("@pi-dash/db/schema/auth");
   const { team } = await import("@pi-dash/db/schema/team");
   const { teamEvent } = await import("@pi-dash/db/schema/team-event");
@@ -87,8 +114,39 @@ export async function seedKalakritiPerformance() {
     .from(user)
     .where(eq(user.email, KALAKRITI_ACTORS.liaison.email))
     .limit(1);
+  const [editionAdminActor] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, KALAKRITI_ACTORS.editionAdmin.email))
+    .limit(1);
+  const [coordinatorActor] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, KALAKRITI_ACTORS.volunteerCoordinator.email))
+    .limit(1);
   const [owningTeam] = await db.select({ id: team.id }).from(team).limit(1);
-  if (!(admin && guardianActor && liaisonActor && owningTeam)) {
+  const [categoryActor] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, KALAKRITI_ACTORS.categoryLead.email))
+    .limit(1);
+  const [eventsActor] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, KALAKRITI_ACTORS.overallEventsLead.email))
+    .limit(1);
+  if (
+    !(
+      admin &&
+      guardianActor &&
+      liaisonActor &&
+      editionAdminActor &&
+      coordinatorActor &&
+      categoryActor &&
+      eventsActor &&
+      owningTeam
+    )
+  ) {
     throw new Error(
       "Performance fixture requires the seeded admin, actors and team"
     );
@@ -104,7 +162,24 @@ export async function seedKalakritiPerformance() {
   const divisionId = (index: number) => id(6000 + index);
   const sessionId = (index: number) => id(7000 + index);
   const entryId = (index: number) => id(10_000 + index);
+  const entriesPerDivision = counts.entries / counts.divisions;
+  const studentIndexForMember = (entryIndex: number, memberIndex = 0) =>
+    (Math.floor(entryIndex / entriesPerDivision) *
+      (counts.entryMembers / counts.divisions) +
+      (entryIndex % entriesPerDivision) +
+      memberIndex * entriesPerDivision) %
+    counts.students;
+  const participationMode: (typeof kalakritiCompetition.$inferInsert)["participationMode"] =
+    groupSize === 1 ? "individual" : "group";
   const attendeeId = (index: number) => id(60_001 + index);
+  const linkedUsers = new Map([
+    [0, guardianActor.id],
+    [150, liaisonActor.id],
+    [151, editionAdminActor.id],
+    [152, coordinatorActor.id],
+    [153, categoryActor.id],
+    [154, eventsActor.id],
+  ]);
 
   await db.transaction(async (tx) => {
     await tx
@@ -164,13 +239,15 @@ export async function seedKalakritiPerformance() {
       .onConflictDoNothing({ target: kalakritiAgeCategory.id });
     await tx
       .insert(kalakritiCompetitionCategory)
-      .values({
-        ...scoped,
-        id: id(300),
-        name: "Performance Events",
-        normalizedName: "performance events",
-        sortOrder: 0,
-      })
+      .values(
+        Array.from({ length: 2 }, (_, index) => ({
+          ...scoped,
+          id: id(300 + index),
+          name: `Performance Events ${index + 1}`,
+          normalizedName: `performance events ${index + 1}`,
+          sortOrder: index,
+        }))
+      )
       .onConflictDoNothing({ target: kalakritiCompetitionCategory.id });
     await tx
       .insert(kalakritiVenue)
@@ -218,12 +295,7 @@ export async function seedKalakritiPerformance() {
           kind: index < 150 ? ("guardian" as const) : ("volunteer" as const),
           state: "active" as const,
           snapshotName: `Performance ${index < 150 ? "Guardian" : "Volunteer"} ${index + 1}`,
-          userId:
-            index === 0
-              ? guardianActor.id
-              : index === 150
-                ? liaisonActor.id
-                : null,
+          userId: linkedUsers.get(index) ?? null,
         }))
       )
       .onConflictDoNothing({ target: kalakritiEditionMembership.id });
@@ -247,13 +319,15 @@ export async function seedKalakritiPerformance() {
         Array.from({ length: counts.competitions }, (_, index) => ({
           ...scoped,
           id: competitionId(index),
-          competitionCategoryId: id(300),
+          competitionCategoryId: id(
+            300 + (index < counts.competitions / 2 ? 0 : 1)
+          ),
           name: `Performance Competition ${index + 1}`,
           normalizedName: `performance competition ${index + 1}`,
           genderEligibility: "both" as const,
-          participationMode: "individual" as const,
-          minimumGroupSize: 1,
-          maximumGroupSize: 1,
+          participationMode,
+          minimumGroupSize: groupSize,
+          maximumGroupSize: groupSize,
         }))
       )
       .onConflictDoNothing({ target: kalakritiCompetition.id });
@@ -292,18 +366,45 @@ export async function seedKalakritiPerformance() {
       .values(
         Array.from({ length: counts.assignments }, (_, index) => {
           const volunteer = Math.floor(index / 4);
+          if (index === 14 || index === 18) {
+            return {
+              ...scoped,
+              id: id(4000 + index),
+              membershipId: membershipId(150 + volunteer),
+              responsibility:
+                index === 14
+                  ? ("competition_category_lead" as const)
+                  : ("overall_events_lead" as const),
+              competitionCategoryId: index === 14 ? id(300) : null,
+            };
+          }
+          // Keep the new actors' scopes pure while retaining the fixture's row counts.
+          const assignmentMembershipId = membershipId(
+            volunteer === 3 ? 299 : volunteer === 4 ? 298 : 150 + volunteer
+          );
+          if (index === 6 || index === 10) {
+            return {
+              ...scoped,
+              id: id(4000 + index),
+              membershipId: membershipId(150 + volunteer),
+              responsibility:
+                index === 6
+                  ? ("edition_admin" as const)
+                  : ("volunteer_coordinator" as const),
+            };
+          }
           return index % 4 < 2
             ? {
                 ...scoped,
                 id: id(4000 + index),
-                membershipId: membershipId(150 + volunteer),
+                membershipId: assignmentMembershipId,
                 responsibility: "liaison" as const,
                 centerId: centerId((volunteer + (index % 4)) % counts.centers),
               }
             : {
                 ...scoped,
                 id: id(4000 + index),
-                membershipId: membershipId(150 + volunteer),
+                membershipId: assignmentMembershipId,
                 responsibility: "competition_volunteer" as const,
                 competitionId: competitionId(
                   (volunteer + (index % 4)) % counts.competitions
@@ -356,13 +457,13 @@ export async function seedKalakritiPerformance() {
         .values(
           Array.from({ length }, (_, offset) => {
             const index = start + offset;
-            const studentIndex = index % counts.students;
+            const studentIndex = studentIndexForMember(index);
             return {
               ...scoped,
               id: entryId(index),
               centerId: centerId(studentIndex % counts.centers),
-              divisionId: divisionId(Math.floor(index / 100)),
-              participationMode: "individual" as const,
+              divisionId: divisionId(Math.floor(index / entriesPerDivision)),
+              participationMode,
               updatedBy: admin.id,
             };
           })
@@ -371,16 +472,17 @@ export async function seedKalakritiPerformance() {
       await tx
         .insert(kalakritiEntryMember)
         .values(
-          Array.from({ length }, (_, offset) => {
-            const index = start + offset;
-            const studentIndex = index % counts.students;
+          Array.from({ length: length * groupSize }, (_, offset) => {
+            const index = start + Math.floor(offset / groupSize);
+            const memberIndex = offset % groupSize;
+            const studentIndex = studentIndexForMember(index, memberIndex);
             return {
-              id: id(20_000 + index),
+              id: id(20_000 + index * groupSize + memberIndex),
               editionId,
               entryId: entryId(index),
               studentId: studentId(studentIndex),
               centerId: centerId(studentIndex % counts.centers),
-              divisionId: divisionId(Math.floor(index / 100)),
+              divisionId: divisionId(Math.floor(index / entriesPerDivision)),
               createdAt: now,
               createdBy: admin.id,
             };
@@ -499,6 +601,16 @@ export async function seedKalakritiPerformance() {
       throw new Error(`Performance fixture ${name} count mismatch`);
     }
   }
+  const invalidGroups = await db.execute(sql`
+    SELECT entry_id FROM kalakriti_entry_member
+    WHERE edition_id = ${editionId}
+    GROUP BY entry_id
+    HAVING count(*) != ${groupSize} OR count(DISTINCT center_id) != 1
+    LIMIT 1
+  `);
+  if (invalidGroups.length > 0) {
+    throw new Error("Performance fixture entry member grouping mismatch");
+  }
 
   const scopedCounts = {
     students: (counts.students / counts.centers) * 2,
@@ -520,11 +632,23 @@ export async function seedKalakritiPerformance() {
   }
 
   return {
+    groupSize,
+    entryOrderingIndexExperiment,
+    operationIndexExperiment,
+    categoryAssignmentIndexExperiment,
+    entryMemberIndexExperiment,
     editionId,
+    eventId,
     year,
+    categoryCount: 2,
+    categoryEntryIds: Array.from({ length: counts.entries / 2 }, (_, index) =>
+      entryId(index)
+    ),
     counts: actualCounts,
     scopedCounts,
     scopedCenterIds: [centerId(0), centerId(1)],
+    firstDivisionId: divisionId(0),
+    firstSessionId: sessionId(0),
   };
 }
 

@@ -51,10 +51,18 @@ export type InspectorWindow = typeof window & {
 export async function profileZeroQueries(
   page: Page,
   expected: Record<string, number>,
-  args?: Record<string, string>,
+  args?: Record<string, string | number>,
   verification?: Record<
     string,
-    { table: string; count: number; centerIds?: string[] }
+    {
+      table: string;
+      count: number;
+      centerIds?: string[];
+      relatedCounts?: Record<string, number>;
+      ids?: string[];
+      userId?: string;
+      rowFilter?: Record<string, string>;
+    }
   >
 ) {
   await waitForZeroReady(page);
@@ -140,12 +148,35 @@ export async function profileZeroQueries(
         let verifiedScope;
         if (verify) {
           // A separate untimed analysis verifies scope; never return record contents.
-          const rows = (
+          const syncedRows = (
             await query.analyze({ joinPlans: false, syncedRows: true })
-          ).syncedRows?.[verify.table];
+          ).syncedRows;
+          const tableRows = syncedRows?.[verify.table];
+          const rows = verify.rowFilter
+            ? tableRows?.filter((row) =>
+                Object.entries(verify.rowFilter!).every(
+                  ([key, value]) => row[key] === value
+                )
+              )
+            : tableRows;
           if (!rows) throw new Error(`Missing verified table: ${verify.table}`);
           verifiedScope = {
             count: rows.length,
+            matchesUser: verify.userId
+              ? rows.every((row) => row.user_id === verify.userId)
+              : undefined,
+            matchesExpectedIds: verify.ids
+              ? rows.length === verify.ids.length &&
+                rows.every((row) => verify.ids!.includes(String(row.id)))
+              : undefined,
+            relatedCounts: verify.relatedCounts
+              ? Object.fromEntries(
+                  Object.keys(verify.relatedCounts).map((table) => [
+                    table,
+                    syncedRows?.[table]?.length ?? 0,
+                  ])
+                )
+              : undefined,
             outsideCenters: verify.centerIds
               ? rows.filter(
                   (row) => !verify.centerIds!.includes(String(row.center_id))
@@ -173,6 +204,17 @@ export async function profileZeroQueries(
     if (verification?.[name]) {
       expect(result.verifiedScope?.count).toBe(verification[name]!.count);
       expect(result.verifiedScope?.outsideCenters).toBe(0);
+      if (verification[name]!.userId) {
+        expect(result.verifiedScope?.matchesUser).toBe(true);
+      }
+      if (verification[name]!.ids) {
+        expect(result.verifiedScope?.matchesExpectedIds).toBe(true);
+      }
+      if (verification[name]!.relatedCounts) {
+        expect(result.verifiedScope?.relatedCounts).toEqual(
+          verification[name]!.relatedCounts
+        );
+      }
     }
     results.push(result);
   }

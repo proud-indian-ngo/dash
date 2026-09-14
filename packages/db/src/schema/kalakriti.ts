@@ -735,6 +735,12 @@ export const kalakritiOperation = pgTable(
     uniqueIndex("kalakriti_operation_operationId_uidx").on(table.operationId),
     index("kalakriti_operation_editionId_idx").on(table.editionId),
     index("kalakriti_operation_studentId_idx").on(table.studentId),
+    index("kalakriti_operation_student_edition_type_id_idx").on(
+      table.studentId,
+      table.editionId,
+      table.type,
+      table.id
+    ),
     index("kalakriti_operation_membershipId_idx").on(table.membershipId),
     foreignKey({
       columns: [table.editionId, table.studentId],
@@ -952,6 +958,11 @@ export const kalakritiCompetitionEntry = pgTable(
       table.editionId,
       table.centerId
     ),
+    index("kalakriti_competition_entry_edition_created_id_idx").on(
+      table.editionId,
+      table.createdAt.desc(),
+      table.id.asc()
+    ),
     index("kalakriti_competition_entry_divisionId_idx").on(table.divisionId),
     foreignKey({
       columns: [table.editionId, table.centerId],
@@ -1066,6 +1077,11 @@ export const kalakritiEntryMember = pgTable(
       table.centerId
     ),
     index("kalakriti_entry_member_studentId_idx").on(table.studentId),
+    index("kalakriti_entry_member_studentId_editionId_id_idx").on(
+      table.studentId,
+      table.editionId,
+      table.id
+    ),
     foreignKey({
       columns: [
         table.editionId,
@@ -1139,6 +1155,11 @@ export const kalakritiAssignment = pgTable(
     ),
     index("kalakriti_assignment_competition_responsibility_idx").on(
       table.competitionId,
+      table.responsibility,
+      table.id
+    ),
+    index("kalakriti_assignment_category_responsibility_idx").on(
+      table.competitionCategoryId,
       table.responsibility,
       table.id
     ),

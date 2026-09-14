@@ -1,0 +1,1 @@
+CREATE INDEX "kalakriti_assignment_category_responsibility_idx" ON "kalakriti_assignment" USING btree ("competition_category_id","responsibility","id");

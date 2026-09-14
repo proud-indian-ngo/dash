@@ -2,11 +2,14 @@ import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
 
-import { expect, test } from "../../fixtures/test";
+import type { Page } from "@playwright/test";
+
+import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import {
   profileZeroQueries,
   type InspectorWindow,
 } from "../../helpers/zero-performance";
+import { ListPage } from "../../pages/list-page";
 
 const execFileAsync = promisify(execFile);
 
@@ -33,10 +36,30 @@ test("profile Dashboard, Events and financial queries at scale", async ({
       { env: process.env, timeout: 60_000 }
     );
   const fixture = JSON.parse((await seed()).stdout.trim()) as {
+    leadQueue: {
+      teamId: string;
+      eventId: string;
+      interestIds: string[];
+      ownInterestId: string;
+    };
+    teamId: string;
     counts: Record<string, number>;
+    eventExpenseCount: number;
+    lookupCounts: { categories: number; groups: number; configs: number };
+    approvedVendorCount: number;
+    pendingVendorIds: { admin: string[]; volunteer: string[] };
     restrictedCounts: Record<string, number>;
+    notificationIds: { admin: string[]; volunteer: string[] };
+    visibleUsers: number;
+    whatsappUsers: number;
+    preferenceTopics: number;
+    sampleUserId: string;
+    accountIds: { admin: string; volunteer: string };
+    bankAccountCounts: Record<string, number>;
     sampleIds: {
       publicEvent: string;
+      ownAdvance: string;
+      deniedAdvance: string;
       ownReimbursement: string;
       deniedReimbursement: string;
       ownVendorPayment: string;
@@ -44,6 +67,122 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     };
   };
   expect(JSON.parse((await seed()).stdout.trim())).toEqual(fixture);
+  const teamNavigation = [];
+  for (let sample = 0; sample < 3; sample++) {
+    const context = await browser.newContext({
+      storageState: path.resolve(
+        import.meta.dirname,
+        "../../.auth/super_admin.json"
+      ),
+    });
+    try {
+      const target = await context.newPage();
+      const measure = async () => {
+        const start = performance.now();
+        await target.goto(`/teams/${fixture.teamId}`);
+        await expect(
+          target.getByText(`${fixture.counts.interests} pending interests`, {
+            exact: true,
+          })
+        ).toBeVisible();
+        return performance.now() - start;
+      };
+      const coldMs = await measure();
+      await target.goto("/teams");
+      const warmMs = await measure();
+      teamNavigation.push({ coldMs, warmMs });
+    } finally {
+      await context.close();
+    }
+  }
+  const profilePreferences = async (target: Page, userId: string) => {
+    await target
+      .locator("[data-sidebar='sidebar']")
+      .locator("[data-sidebar='menu-button']")
+      .last()
+      .click();
+    await target.getByRole("menuitem", { name: "Settings" }).click();
+    const dialog = target.getByRole("dialog");
+    await dialog.getByRole("button", { name: "Notifications" }).click();
+    const queries = await profileZeroQueries(
+      target,
+      { "notificationPreference.byCurrentUser": fixture.preferenceTopics },
+      undefined,
+      {
+        "notificationPreference.byCurrentUser": {
+          table: "notification_topic_preference",
+          count: fixture.preferenceTopics,
+          userId,
+        },
+      }
+    );
+    await dialog.getByRole("button", { name: "Banking", exact: true }).click();
+    queries.push(
+      ...(await profileZeroQueries(
+        target,
+        {
+          "bankAccount.bankAccountsByCurrentUser":
+            fixture.bankAccountCounts[userId]!,
+        },
+        undefined,
+        {
+          "bankAccount.bankAccountsByCurrentUser": {
+            table: "bank_account",
+            count: fixture.bankAccountCounts[userId]!,
+            userId,
+          },
+        }
+      ))
+    );
+    if (userId === fixture.accountIds.admin) {
+      await dialog
+        .getByRole("button", { name: "General", exact: true })
+        .click();
+      queries.push(
+        ...(await profileZeroQueries(
+          target,
+          { "appConfig.all": fixture.lookupCounts.configs },
+          undefined,
+          {
+            "appConfig.all": {
+              table: "app_config",
+              count: fixture.lookupCounts.configs,
+            },
+          }
+        ))
+      );
+    }
+    await target.keyboard.press("Escape");
+    await expect(dialog).not.toBeVisible();
+    return queries;
+  };
+  const profileVendorForm = async (target: Page, pendingIds: string[]) => {
+    await target.goto("/vendor-payments/new");
+    return profileZeroQueries(
+      target,
+      {
+        "expenseCategory.all": fixture.lookupCounts.categories,
+        "vendor.approved": fixture.approvedVendorCount,
+        "vendor.pendingByCurrentUser": pendingIds.length,
+      },
+      undefined,
+      {
+        "expenseCategory.all": {
+          table: "expense_category",
+          count: fixture.lookupCounts.categories,
+        },
+        "vendor.approved": {
+          table: "vendor",
+          count: fixture.approvedVendorCount,
+        },
+        "vendor.pendingByCurrentUser": {
+          table: "vendor",
+          count: pendingIds.length,
+          ids: pendingIds,
+        },
+      }
+    );
+  };
   const financial = {
     "reimbursement.all": fixture.counts.reimbursements!,
     "advancePayment.all": fixture.counts.advances!,
@@ -99,7 +238,151 @@ test("profile Dashboard, Events and financial queries at scale", async ({
       navigationAndAnalysisMs: performance.now() - start,
       queries: analyses,
     });
+    if (route === "/") {
+      results.push({
+        route: "notifications",
+        queries: await profileZeroQueries(
+          page,
+          { "notification.forCurrentUser": 50 },
+          undefined,
+          {
+            "notification.forCurrentUser": {
+              table: "notification",
+              count: 50,
+              ids: fixture.notificationIds.admin,
+            },
+          }
+        ),
+      });
+    }
   }
+  results.push({
+    route: "vendor-form",
+    queries: await profileVendorForm(page, fixture.pendingVendorIds.admin),
+  });
+  await page.goto("/scheduled-messages");
+  results.push({
+    route: "scheduled-messages",
+    queries: await profileZeroQueries(
+      page,
+      {
+        "scheduledMessage.all": fixture.counts.scheduledMessages!,
+      },
+      undefined,
+      {
+        "scheduledMessage.all": {
+          table: "scheduled_message",
+          count: fixture.counts.scheduledMessages!,
+          relatedCounts: {
+            scheduled_message_recipient: fixture.counts.scheduledRecipients!,
+          },
+        },
+      }
+    ),
+  });
+  await page.getByRole("button", { name: "Schedule message" }).click();
+  results.push({
+    route: "scheduled-message-recipients",
+    queries: await profileZeroQueries(
+      page,
+      {
+        "whatsappGroup.all": fixture.lookupCounts.groups,
+        "user.whatsappUsers": fixture.whatsappUsers,
+      },
+      undefined,
+      {
+        "whatsappGroup.all": {
+          table: "whatsapp_group",
+          count: fixture.lookupCounts.groups,
+        },
+        "user.whatsappUsers": { table: "user", count: fixture.whatsappUsers },
+      }
+    ),
+  });
+  await page
+    .getByRole("dialog", { name: "Schedule message" })
+    .getByRole("button", { name: "Cancel" })
+    .click();
+  await page.goto("/users");
+  results.push({
+    route: "users",
+    queries: await profileZeroQueries(
+      page,
+      { "user.all": fixture.visibleUsers },
+      undefined,
+      {
+        "user.all": { table: "user", count: fixture.visibleUsers },
+      }
+    ),
+  });
+  await page
+    .getByPlaceholder("Search users...")
+    .fill("performance-2191-1@example.invalid");
+  const users = new ListPage(page);
+  await users.openRowActionAndClick(
+    users.getRowByText("Synthetic User 2"),
+    "Notifications"
+  );
+  results.push({
+    route: "user-notifications",
+    queries: await profileZeroQueries(
+      page,
+      { "notificationPreference.byUser": fixture.preferenceTopics },
+      { userId: fixture.sampleUserId },
+      {
+        "notificationPreference.byUser": {
+          table: "notification_topic_preference",
+          count: fixture.preferenceTopics,
+          userId: fixture.sampleUserId,
+        },
+      }
+    ),
+  });
+  await page.keyboard.press("Escape");
+  results.push({
+    route: "personal-preferences",
+    queries: await profilePreferences(page, fixture.accountIds.admin),
+  });
+  await page.goto("/teams");
+  results.push({
+    route: "teams",
+    queries: await profileZeroQueries(page, { "team.all": 1 }, undefined, {
+      "team.all": {
+        table: "team",
+        rowFilter: { id: fixture.teamId },
+        count: 1,
+      },
+    }),
+  });
+  await page.goto(`/teams/${fixture.teamId}`);
+  results.push({
+    route: "team-detail",
+    queries: [
+      ...(await profileZeroQueries(
+        page,
+        { "team.byId": 1 },
+        { id: fixture.teamId },
+        {
+          "team.byId": {
+            table: "team",
+            count: 1,
+            ids: [fixture.teamId],
+          },
+        }
+      )),
+      ...(await profileZeroQueries(
+        page,
+        { "teamEvent.byTeam": fixture.counts.events! },
+        { teamId: fixture.teamId },
+        {
+          "teamEvent.byTeam": {
+            table: "team_event",
+            count: fixture.counts.events!,
+          },
+        }
+      )),
+    ],
+  });
   const eventDetailStart = performance.now();
   await page.goto(`/events/${fixture.sampleIds.publicEvent}`);
   results.push({
@@ -118,6 +401,9 @@ test("profile Dashboard, Events and financial queries at scale", async ({
           "eventPhoto.approvedByEvent": fixture.counts.photos! / 2,
           "eventPhoto.pendingByEvent": fixture.counts.photos! / 2,
           "eventFeedback.byEvent": fixture.counts.feedback!,
+          "eventInterest.myByEvent": 1,
+          "eventInterest.managerByEvent": 1,
+          "eventImmichAlbum.byEvent": 1,
         },
         { eventId: fixture.sampleIds.publicEvent },
         {
@@ -141,6 +427,19 @@ test("profile Dashboard, Events and financial queries at scale", async ({
             table: "event_feedback",
             count: fixture.counts.feedback!,
           },
+          "eventInterest.myByEvent": {
+            table: "event_interest",
+            count: 1,
+            userId: fixture.accountIds.admin,
+          },
+          "eventInterest.managerByEvent": {
+            table: "event_interest",
+            count: 1,
+          },
+          "eventImmichAlbum.byEvent": {
+            table: "event_immich_album",
+            count: 1,
+          },
         }
       )),
     ],
@@ -154,6 +453,67 @@ test("profile Dashboard, Events and financial queries at scale", async ({
   await expect(
     page.getByText("Synthetic performance feedback 1", { exact: true })
   ).toBeVisible();
+  await page.getByRole("tab", { name: /^Expenses/ }).click();
+  results.push({
+    route: "event-expenses",
+    queries: await profileZeroQueries(
+      page,
+      {
+        "reimbursement.byEvent": fixture.eventExpenseCount,
+        "vendorPayment.byEvent": fixture.eventExpenseCount,
+      },
+      { eventId: fixture.sampleIds.publicEvent },
+      {
+        "reimbursement.byEvent": {
+          table: "reimbursement",
+          count: fixture.eventExpenseCount,
+        },
+        "vendorPayment.byEvent": {
+          table: "vendor_payment",
+          count: fixture.eventExpenseCount,
+        },
+      }
+    ),
+  });
+  const expensePanel = page.getByRole("tabpanel", { name: "Expenses" });
+  await expect(
+    expensePanel.getByText("₹2,40,000.00", { exact: true })
+  ).toBeVisible();
+  await expect(
+    expensePanel
+      .getByRole("link")
+      .filter({ hasText: "Synthetic reimbursement 1" })
+      .first()
+  ).toBeVisible();
+  await expect(
+    expensePanel
+      .getByRole("link")
+      .filter({ hasText: "Synthetic performance vendor 1" })
+      .first()
+  ).toBeVisible();
+  await page.goto(`/reimbursements/${fixture.sampleIds.ownAdvance}`);
+  results.push({
+    route: "advance-detail",
+    queries: await profileZeroQueries(
+      page,
+      {
+        "advancePayment.byId": 1,
+        "reimbursement.byId": 0,
+      },
+      { id: fixture.sampleIds.ownAdvance },
+      {
+        "advancePayment.byId": {
+          table: "advance_payment",
+          count: 1,
+          ids: [fixture.sampleIds.ownAdvance],
+          relatedCounts: {
+            advance_payment_line_item: 2,
+            advance_payment_history: 2,
+          },
+        },
+      }
+    ),
+  });
   const restrictedContext = await browser.newContext({
     storageState: path.resolve(
       import.meta.dirname,
@@ -161,8 +521,136 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     ),
   });
   const restrictedResults = [];
+  const leadQueueNavigation = [];
+  const queueCount = fixture.leadQueue.interestIds.length;
+  const measureLeadQueue = async (target: Page) => {
+    const start = performance.now();
+    await target.goto(`/events/${fixture.leadQueue.eventId}`);
+    await expect(
+      target.getByRole("heading", {
+        name: `Interest Requests (${queueCount})`,
+        exact: true,
+      })
+    ).toBeVisible();
+    await expect(target.getByRole("button", { name: /^Approve / })).toHaveCount(
+      queueCount
+    );
+    return performance.now() - start;
+  };
   try {
     const restrictedPage = await restrictedContext.newPage();
+    await restrictedPage.goto(`/teams/${fixture.teamId}`);
+    await expect(
+      restrictedPage.getByText("Team not found.", { exact: true })
+    ).toBeVisible();
+    restrictedResults.push({
+      route: "team-detail-denied",
+      queries: await profileZeroQueries(
+        restrictedPage,
+        { "team.byId": 0 },
+        { id: fixture.teamId }
+      ),
+    });
+    expect(
+      await restrictedPage.evaluate(async () => {
+        const queries = await (
+          window as InspectorWindow
+        ).__zero.inspector.client.queries();
+        return queries.some((query) => query.name === "teamEvent.byTeam");
+      })
+    ).toBe(false);
+    await measureLeadQueue(restrictedPage);
+    restrictedResults.push({
+      route: "lead-event-queue",
+      queries: [
+        ...(await profileZeroQueries(
+          restrictedPage,
+          { "teamEvent.byId": 1 },
+          { id: fixture.leadQueue.eventId },
+          {
+            "teamEvent.byId": {
+              table: "team_event",
+              count: 1,
+              ids: [fixture.leadQueue.eventId],
+              relatedCounts: {
+                event_interest: queueCount,
+              },
+            },
+          }
+        )),
+        ...(await profileZeroQueries(
+          restrictedPage,
+          {
+            "eventInterest.managerByEvent": queueCount,
+            "eventInterest.myByEvent": 1,
+          },
+          { eventId: fixture.leadQueue.eventId },
+          {
+            "eventInterest.managerByEvent": {
+              table: "event_interest",
+              count: queueCount,
+              ids: fixture.leadQueue.interestIds,
+              relatedCounts: { user: queueCount },
+            },
+            "eventInterest.myByEvent": {
+              table: "event_interest",
+              count: 1,
+              ids: [fixture.leadQueue.ownInterestId],
+              userId: fixture.accountIds.volunteer,
+            },
+          }
+        )),
+      ],
+    });
+    await restrictedPage.goto("/");
+    restrictedResults.push({
+      route: "lead-dashboard",
+      queries: await profileZeroQueries(
+        restrictedPage,
+        { "eventInterest.allPending": queueCount },
+        undefined,
+        {
+          "eventInterest.allPending": {
+            table: "event_interest",
+            count: queueCount,
+            ids: fixture.leadQueue.interestIds,
+            relatedCounts: { user: queueCount },
+          },
+        }
+      ),
+    });
+    await measureLeadQueue(restrictedPage);
+    await restrictedPage.goto("/events");
+    await waitForZeroReady(restrictedPage);
+    restrictedResults.push({
+      route: "personal-preferences",
+      queries: await profilePreferences(
+        restrictedPage,
+        fixture.accountIds.volunteer
+      ),
+    });
+    restrictedResults.push({
+      route: "notifications",
+      queries: await profileZeroQueries(
+        restrictedPage,
+        { "notification.forCurrentUser": 50 },
+        undefined,
+        {
+          "notification.forCurrentUser": {
+            table: "notification",
+            count: 50,
+            ids: fixture.notificationIds.volunteer,
+          },
+        }
+      ),
+    });
+    restrictedResults.push({
+      route: "vendor-form",
+      queries: await profileVendorForm(
+        restrictedPage,
+        fixture.pendingVendorIds.volunteer
+      ),
+    });
     for (const [route, queries] of [
       [
         "/reimbursements",
@@ -196,6 +684,7 @@ test("profile Dashboard, Events and financial queries at scale", async ({
           "eventUpdate.myPendingByEvent": fixture.counts.updates! / 4,
           "eventPhoto.approvedByEvent": fixture.counts.photos! / 2,
           "eventPhoto.myPendingByEvent": fixture.counts.photos! / 4,
+          "eventImmichAlbum.byEvent": 1,
         },
         { eventId: fixture.sampleIds.publicEvent },
         {
@@ -206,6 +695,10 @@ test("profile Dashboard, Events and financial queries at scale", async ({
           "eventUpdate.myPendingByEvent": {
             table: "event_update",
             count: fixture.counts.updates! / 4,
+          },
+          "eventImmichAlbum.byEvent": {
+            table: "event_immich_album",
+            count: 1,
           },
           "eventPhoto.approvedByEvent": {
             table: "event_photo",
@@ -229,6 +722,63 @@ test("profile Dashboard, Events and financial queries at scale", async ({
         ).map((query) => query.name)
       )
     ).not.toContain("eventFeedback.byEvent");
+    await expect(
+      restrictedPage.getByRole("tab", { name: /^Expenses/ })
+    ).toHaveCount(0);
+    restrictedResults.push({
+      route: "event-expenses-owner",
+      queries: await profileZeroQueries(
+        restrictedPage,
+        {
+          "reimbursement.byEvent": fixture.eventExpenseCount / 2,
+          "vendorPayment.byEvent": fixture.eventExpenseCount / 2,
+        },
+        { eventId: fixture.sampleIds.publicEvent },
+        {
+          "reimbursement.byEvent": {
+            table: "reimbursement",
+            count: fixture.eventExpenseCount / 2,
+            userId: fixture.accountIds.volunteer,
+          },
+          "vendorPayment.byEvent": {
+            table: "vendor_payment",
+            count: fixture.eventExpenseCount / 2,
+            userId: fixture.accountIds.volunteer,
+          },
+        }
+      ),
+    });
+    for (const [id, count] of [
+      [fixture.sampleIds.ownAdvance, 1],
+      [fixture.sampleIds.deniedAdvance, 0],
+    ] as const) {
+      await restrictedPage.goto(`/reimbursements/${id}`);
+      restrictedResults.push({
+        route: `advance-detail/${count ? "own" : "denied"}`,
+        queries: await profileZeroQueries(
+          restrictedPage,
+          {
+            "advancePayment.byId": count,
+            "reimbursement.byId": 0,
+          },
+          { id },
+          count
+            ? {
+                "advancePayment.byId": {
+                  table: "advance_payment",
+                  count,
+                  ids: [id],
+                  userId: fixture.accountIds.volunteer,
+                  relatedCounts: {
+                    advance_payment_line_item: 2,
+                    advance_payment_history: 2,
+                  },
+                },
+              }
+            : undefined
+        ),
+      });
+    }
     for (const [route, name, id, minimum] of [
       [
         "reimbursements",
@@ -268,8 +818,35 @@ test("profile Dashboard, Events and financial queries at scale", async ({
   } finally {
     await restrictedContext.close();
   }
+  for (let sample = 0; sample < 3; sample++) {
+    const context = await browser.newContext({
+      storageState: path.resolve(
+        import.meta.dirname,
+        "../../.auth/volunteer.json"
+      ),
+    });
+    try {
+      const target = await context.newPage();
+      const coldMs = await measureLeadQueue(target);
+      await target.goto("/events");
+      const warmMs = await measureLeadQueue(target);
+      leadQueueNavigation.push({ coldMs, warmMs });
+    } finally {
+      await context.close();
+    }
+  }
   await info.attach("app-performance.json", {
-    body: JSON.stringify({ fixture, results, restrictedResults }, null, 2),
+    body: JSON.stringify(
+      {
+        fixture,
+        teamNavigation,
+        leadQueueNavigation,
+        results,
+        restrictedResults,
+      },
+      null,
+      2
+    ),
     contentType: "application/json",
   });
   console.log(

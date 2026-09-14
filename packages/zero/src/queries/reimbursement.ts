@@ -30,15 +30,16 @@ export const reimbursementQueries = {
   ),
   byEvent: defineQuery(
     z.object({ eventId: z.string() }),
-    ({ args: { eventId }, ctx }) =>
-      ctx !== null && can(ctx, "requests.view_all")
-        ? withRelated(zql.reimbursement)
-            .where("eventId", eventId)
-            .orderBy("createdAt", "desc")
-        : withRelated(zql.reimbursement)
-            .where("eventId", eventId)
-            .where("userId", ctx?.userId)
-            .orderBy("createdAt", "desc")
+    ({ args: { eventId }, ctx }) => {
+      const query = zql.reimbursement
+        .where("eventId", eventId)
+        .related("lineItems")
+        .related("user")
+        .orderBy("createdAt", "desc");
+      return ctx !== null && can(ctx, "requests.view_all")
+        ? query
+        : query.where("userId", ctx?.userId);
+    }
   ),
   byId: defineQuery(
     z.object({

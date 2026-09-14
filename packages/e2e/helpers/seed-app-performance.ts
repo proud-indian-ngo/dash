@@ -2,8 +2,13 @@ import { writeSync } from "node:fs";
 
 import { eq, sql } from "drizzle-orm";
 
+import { TOPICS } from "../../notifications/src/topics";
+
 const id = (number: number) =>
   `019f0000-2191-7000-8000-${number.toString(16).padStart(12, "0")}`;
+
+const eventExpenseCount = 200;
+const approvedVendorCount = 100;
 
 const counts = {
   teams: 1,
@@ -14,8 +19,10 @@ const counts = {
   updates: 200,
   feedback: 200,
   photos: 200,
-  categories: 4,
-  vendors: 100,
+  albums: 600,
+  categories: 100,
+  whatsappGroups: 200,
+  vendors: 200,
   reimbursements: 1000,
   reimbursementLineItems: 2000,
   reimbursementHistory: 2000,
@@ -27,6 +34,11 @@ const counts = {
   vendorPaymentHistory: 2000,
   transactions: 1000,
   transactionHistory: 2000,
+  notifications: 10_000,
+  users: 1000,
+  bankAccounts: 2004,
+  scheduledMessages: 500,
+  scheduledRecipients: 5000,
 } as const;
 
 function assertTestDatabase() {
@@ -61,14 +73,36 @@ export async function seedAppPerformance() {
   if (!volunteerEmail) throw new Error("VOLUNTEER_EMAIL is required");
 
   const { db } = await import("@pi-dash/db");
-  const { user } = await import("@pi-dash/db/schema/auth");
+  const { user, notificationTopicPreference } =
+    await import("@pi-dash/db/schema/auth");
+  const { whatsappGroup } = await import("@pi-dash/db/schema/whatsapp-group");
+  const { bankAccount } = await import("@pi-dash/db/schema/bank-account");
+  const { appConfig } = await import("@pi-dash/db/schema/app-config");
   const { team, teamMember } = await import("@pi-dash/db/schema/team");
   const { teamEvent, teamEventMember } =
     await import("@pi-dash/db/schema/team-event");
   const { eventInterest } = await import("@pi-dash/db/schema/event-interest");
   const { eventUpdate } = await import("@pi-dash/db/schema/event-update");
   const { eventFeedback } = await import("@pi-dash/db/schema/event-feedback");
-  const { eventPhoto } = await import("@pi-dash/db/schema/event-photo");
+  const { eventPhoto, eventImmichAlbum } =
+    await import("@pi-dash/db/schema/event-photo");
+  const { scheduledMessage, scheduledMessageRecipient } =
+    await import("@pi-dash/db/schema/scheduled-message");
+  const { notification } = await import("@pi-dash/db/schema/notification");
+  const notificationIndexExperiment =
+    process.env.NOTIFICATION_INDEX_EXPERIMENT === "true";
+  if (notificationIndexExperiment) {
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS notification_perf_history_idx
+      ON notification (user_id, archived, created_at DESC, id ASC)`);
+  }
+  const scheduledIndexExperiment =
+    process.env.SCHEDULED_INDEX_EXPERIMENT === "true";
+  if (scheduledIndexExperiment) {
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS scheduled_message_perf_order_idx
+      ON scheduled_message (scheduled_at DESC, id ASC)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS scheduled_recipient_perf_order_idx
+      ON scheduled_message_recipient (scheduled_message_id, id ASC)`);
+  }
   const { expenseCategory } =
     await import("@pi-dash/db/schema/expense-category");
   const { reimbursement, reimbursementHistory, reimbursementLineItem } =
@@ -105,8 +139,138 @@ export async function seedAppPerformance() {
   const advanceId = (index: number) => id(11_000 + index);
   const paymentId = (index: number) => id(14_000 + index);
   const transactionId = (index: number) => id(19_000 + index);
+  const leadTeamId = id(160_000);
+  const leadEventId = id(160_002);
+  const leadInterestUserIds = [
+    volunteer.id,
+    ...Array.from({ length: counts.users }, (_, index) => index)
+      .filter((index) => index % 5 !== 0)
+      .map((index) => id(90_000 + index)),
+  ];
+  const leadInterestIds = leadInterestUserIds.map((_, index) =>
+    id(161_000 + index)
+  );
 
   await db.transaction(async (tx) => {
+    await batches(counts.users, (start, length) =>
+      tx
+        .insert(user)
+        .values(
+          Array.from({ length }, (_, offset) => {
+            const index = start + offset;
+            return {
+              id: id(90_000 + index),
+              name: `Synthetic User ${index + 1}`,
+              email: `performance-2191-${index}@example.invalid`,
+              role: index % 5 === 0 ? "external_user" : "volunteer",
+              isOnWhatsapp: index % 2 === 0,
+              createdAt: now,
+              updatedAt: now,
+            };
+          })
+        )
+        .onConflictDoNothing({ target: user.id })
+    );
+    await batches(counts.scheduledMessages, (start, length) =>
+      tx
+        .insert(scheduledMessage)
+        .values(
+          Array.from({ length }, (_, offset) => {
+            const index = start + offset;
+            return {
+              id: id(100_000 + index),
+              createdBy: ownerId(index),
+              message: `Synthetic scheduled history ${index + 1}`,
+              scheduledAt: now,
+              createdAt: now,
+              updatedAt: now,
+            };
+          })
+        )
+        .onConflictDoNothing({ target: scheduledMessage.id })
+    );
+    await batches(counts.scheduledRecipients, (start, length) =>
+      tx
+        .insert(scheduledMessageRecipient)
+        .values(
+          Array.from({ length }, (_, offset) => {
+            const index = start + offset;
+            return {
+              id: id(110_000 + index),
+              scheduledMessageId: id(100_000 + Math.floor(index / 10)),
+              recipientId: id(90_000 + (index % counts.users)),
+              label: `Synthetic recipient ${index + 1}`,
+              type: "user" as const,
+              status: "sent" as const,
+              sentAt: now,
+              createdAt: now,
+              updatedAt: now,
+            };
+          })
+        )
+        .onConflictDoNothing({ target: scheduledMessageRecipient.id })
+    );
+    const preferenceUsers = [
+      admin.id,
+      volunteer.id,
+      ...Array.from({ length: counts.users }, (_, index) => id(90_000 + index)),
+    ];
+    await batches(counts.bankAccounts, (start, length) =>
+      tx
+        .insert(bankAccount)
+        .values(
+          Array.from({ length }, (_, offset) => {
+            const index = start + offset;
+            return {
+              id: id(130_000 + index),
+              userId: preferenceUsers[Math.floor(index / 2)]!,
+              accountName: "Synthetic performance account",
+              accountNumber: `00002191${String(index).padStart(5, "0")}`,
+              ifscCode: "TEST0000001",
+              isDefault: false,
+              createdAt: now,
+              updatedAt: now,
+            };
+          })
+        )
+        .onConflictDoNothing({ target: bankAccount.id })
+    );
+    const topics = Object.values(TOPICS);
+    await batches(preferenceUsers.length * topics.length, (start, length) =>
+      tx
+        .insert(notificationTopicPreference)
+        .values(
+          Array.from({ length }, (_, offset) => {
+            const index = start + offset;
+            return {
+              userId: preferenceUsers[Math.floor(index / topics.length)]!,
+              topicId: topics[index % topics.length]!,
+            };
+          })
+        )
+        .onConflictDoNothing()
+    );
+    await batches(counts.notifications, (start, length) =>
+      tx
+        .insert(notification)
+        .values(
+          Array.from({ length }, (_, offset) => {
+            const index = start + offset;
+            return {
+              id: id(40_000 + index),
+              userId: ownerId(index),
+              archived: index % 4 < 2,
+              read: index % 8 < 4,
+              title: `Synthetic notification ${index + 1}`,
+              body: "Local performance fixture",
+              topicId: "performance",
+              idempotencyKey: `performance-2191-${index}`,
+              createdAt: new Date(Date.UTC(2191, 0, 1) + index * 1000),
+            };
+          })
+        )
+        .onConflictDoNothing({ target: notification.id })
+    );
     await tx
       .insert(team)
       .values({
@@ -183,6 +347,66 @@ export async function seedAppPerformance() {
         .onConflictDoNothing({ target: eventInterest.id })
     );
     await tx
+      .insert(team)
+      .values({
+        id: leadTeamId,
+        name: "Synthetic lead queue team 2191",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing({ target: team.id });
+    await tx
+      .insert(teamMember)
+      .values({
+        id: id(160_001),
+        teamId: leadTeamId,
+        userId: volunteer.id,
+        role: "lead",
+        joinedAt: now,
+      })
+      .onConflictDoNothing({ target: teamMember.id });
+    await tx
+      .insert(teamEvent)
+      .values({
+        id: leadEventId,
+        teamId: leadTeamId,
+        createdBy: volunteer.id,
+        name: "Synthetic lead queue event 2191",
+        city: "bangalore",
+        isPublic: false,
+        startTime: new Date("2191-01-01T08:00:00.000Z"),
+        endTime: new Date("2191-01-01T09:00:00.000Z"),
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing({ target: teamEvent.id });
+    await batches(leadInterestIds.length, (start, length) =>
+      tx
+        .insert(eventInterest)
+        .values(
+          Array.from({ length }, (_, offset) => ({
+            id: leadInterestIds[start + offset]!,
+            eventId: leadEventId,
+            userId: leadInterestUserIds[start + offset]!,
+            createdAt: new Date(now.getTime() + start + offset),
+            status: "pending" as const,
+          }))
+        )
+        .onConflictDoNothing({ target: eventInterest.id })
+    );
+    await tx
+      .insert(whatsappGroup)
+      .values(
+        Array.from({ length: counts.whatsappGroups }, (_, index) => ({
+          id: id(140_000 + index),
+          jid: `performance-2191-${index}@invalid`,
+          name: `Synthetic performance group ${index + 1}`,
+          createdAt: now,
+          updatedAt: now,
+        }))
+      )
+      .onConflictDoNothing({ target: whatsappGroup.id });
+    await tx
       .insert(expenseCategory)
       .values(
         Array.from({ length: counts.categories }, (_, index) => ({
@@ -203,8 +427,11 @@ export async function seedAppPerformance() {
           bankAccountName: "Synthetic Test Account",
           bankAccountNumber: `000000${String(index + 1).padStart(6, "0")}`,
           contactPhone: `+910000${String(index + 1).padStart(6, "0")}`,
-          createdBy: admin.id,
-          status: "approved" as const,
+          createdBy: index < approvedVendorCount ? admin.id : ownerId(index),
+          status:
+            index < approvedVendorCount
+              ? ("approved" as const)
+              : ("pending" as const),
           createdAt: now,
           updatedAt: now,
         }))
@@ -219,7 +446,11 @@ export async function seedAppPerformance() {
             const index = start + offset;
             return {
               id: reimbursementId(index),
-              eventId: eventId(index % counts.events),
+              eventId: eventId(
+                index < eventExpenseCount
+                  ? 0
+                  : 1 + (index % (counts.events - 1))
+              ),
               userId: ownerId(index),
               title: `Synthetic reimbursement ${index + 1}`,
               expenseDate: day,
@@ -334,8 +565,12 @@ export async function seedAppPerformance() {
             const index = start + offset;
             return {
               id: paymentId(index),
-              eventId: eventId(index % counts.events),
-              vendorId: id(5000 + (index % counts.vendors)),
+              eventId: eventId(
+                index < eventExpenseCount
+                  ? 0
+                  : 1 + (index % (counts.events - 1))
+              ),
+              vendorId: id(5000 + (index % approvedVendorCount)),
               userId: ownerId(index),
               title: `Synthetic vendor payment ${index + 1}`,
               city: "bangalore" as const,
@@ -462,6 +697,29 @@ export async function seedAppPerformance() {
       )
       .onConflictDoNothing({ target: eventFeedback.id });
     await tx
+      .insert(appConfig)
+      .values(
+        Array.from({ length: 10 }, (_, index) => ({
+          key: `performance_2191_${index}`,
+          value: "synthetic",
+          updatedAt: now,
+        }))
+      )
+      .onConflictDoNothing();
+    await batches(counts.albums, (start, length) =>
+      tx
+        .insert(eventImmichAlbum)
+        .values(
+          Array.from({ length }, (_, offset) => ({
+            id: id(150_000 + start + offset),
+            eventId: eventId(start + offset),
+            immichAlbumId: id(150_000 + start + offset),
+            createdAt: now,
+          }))
+        )
+        .onConflictDoNothing({ target: eventImmichAlbum.id })
+    );
+    await tx
       .insert(eventPhoto)
       .values(
         Array.from({ length: counts.photos }, (_, index) => ({
@@ -488,7 +746,14 @@ export async function seedAppPerformance() {
     ["updates", eventUpdate, 30_000],
     ["feedback", eventFeedback, 31_000],
     ["photos", eventPhoto, 32_000],
+    ["albums", eventImmichAlbum, 150_000],
+    ["notifications", notification, 40_000],
+    ["users", user, 90_000],
+    ["bankAccounts", bankAccount, 130_000],
+    ["scheduledMessages", scheduledMessage, 100_000],
+    ["scheduledRecipients", scheduledMessageRecipient, 110_000],
     ["categories", expenseCategory, 4000],
+    ["whatsappGroups", whatsappGroup, 140_000],
     ["vendors", vendor, 5000],
     ["reimbursements", reimbursement, 6000],
     ["reimbursementLineItems", reimbursementLineItem, 7000],
@@ -548,12 +813,85 @@ export async function seedAppPerformance() {
     throw new Error("Performance fixture restricted events count mismatch");
   }
   restrictedCounts.events = accessibleEvents;
+  const bankCounts = await db.execute(sql`
+    SELECT user_id, count(*)::integer AS total FROM bank_account
+    WHERE user_id IN (${admin.id}, ${volunteer.id}) GROUP BY user_id
+  `);
+  const [lookupCounts] = await db.execute(sql`
+    SELECT (SELECT count(*)::integer FROM expense_category) AS categories,
+      (SELECT count(*)::integer FROM app_config) AS configs,
+      (SELECT count(*)::integer FROM whatsapp_group) AS groups
+  `);
+  const [approvedVendorRows] = await db.execute(
+    sql`SELECT count(*)::integer AS total FROM vendor WHERE status = 'approved'`
+  );
+  const [visibleUserCount] = await db.execute(
+    sql`SELECT count(*)::integer AS total FROM "user" WHERE role != 'external_user'`
+  );
+  const [whatsappUserCount] = await db.execute(
+    sql`SELECT count(*)::integer AS total FROM "user" WHERE role != 'external_user' AND is_on_whatsapp = true`
+  );
+  const [preferenceCount] = await db.execute(sql`
+    SELECT count(*)::integer AS total FROM notification_topic_preference
+    WHERE user_id IN (${admin.id}, ${volunteer.id})
+      OR user_id BETWEEN ${id(90_000)} AND ${id(90_000 + counts.users - 1)}
+  `);
+  const preferenceRows = Number(preferenceCount?.total);
+  if (preferenceRows !== (counts.users + 2) * Object.values(TOPICS).length) {
+    throw new Error("Performance fixture preference count mismatch");
+  }
 
   return {
+    leadQueue: {
+      teamId: leadTeamId,
+      eventId: leadEventId,
+      interestIds: leadInterestIds,
+      ownInterestId: leadInterestIds[0]!,
+    },
     teamId: id(1),
+    eventExpenseCount,
+    lookupCounts: {
+      categories: Number(lookupCounts?.categories),
+      configs: Number(lookupCounts?.configs),
+      groups: Number(lookupCounts?.groups),
+    },
+    approvedVendorCount: Number(approvedVendorRows?.total),
+    pendingVendorIds: {
+      admin: Array.from({ length: 50 }, (_, index) => id(5101 + index * 2)),
+      volunteer: Array.from({ length: 50 }, (_, index) => id(5100 + index * 2)),
+    },
     counts: actualCounts,
+    notificationIndexExperiment,
+    scheduledIndexExperiment,
+    visibleUsers: Number(visibleUserCount?.total),
+    whatsappUsers: Number(whatsappUserCount?.total),
+    preferenceTopics: Object.values(TOPICS).length,
+    preferenceRows,
+    sampleUserId: id(90_001),
+    accountIds: { admin: admin.id, volunteer: volunteer.id },
+    bankAccountCounts: Object.fromEntries(
+      bankCounts.map((row) => [String(row.user_id), Number(row.total)])
+    ),
     restrictedCounts,
+    notificationIds: {
+      admin: Array.from(
+        { length: counts.notifications },
+        (_, index) => counts.notifications - 1 - index
+      )
+        .filter((index) => index % 4 === 3)
+        .slice(0, 50)
+        .map((index) => id(40_000 + index)),
+      volunteer: Array.from(
+        { length: counts.notifications },
+        (_, index) => counts.notifications - 1 - index
+      )
+        .filter((index) => index % 4 === 2)
+        .slice(0, 50)
+        .map((index) => id(40_000 + index)),
+    },
     sampleIds: {
+      ownAdvance: advanceId(0),
+      deniedAdvance: advanceId(1),
       ownReimbursement: reimbursementId(0),
       deniedReimbursement: reimbursementId(1),
       ownVendorPayment: paymentId(0),
