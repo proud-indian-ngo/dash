@@ -332,3 +332,5 @@ The overview benchmark profiles its mounted clone-source configuration for globa
 
 
 `ENTRY_MEMBER_INDEX_EXPERIMENT=true` enables a disposable Student/Edition/ID index for entry members in the Kalakriti fixture. Compare the first analyzer sample separately from warm samples: the baseline initially selected a full scan, then switched to the existing Student index. The experiment retains all role result checks and changes no query permissions.
+
+The Kalakriti benchmark explicitly profiles the Edition picker for global admin, Guardian, liaison and Edition admin, plus Eligibility for both admin scopes. Picker verification checks inclusion of the synthetic Edition; Eligibility checks its one age-category root. Three seeded Editions do not represent a long multi-year history.

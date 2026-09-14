@@ -1,6 +1,6 @@
 # Query performance audit coverage
 
-Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 64 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
+Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 66 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
 
 Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/tests/performance/app.spec.ts`, with their JSON report attachments. Commands, fixture sizes, account scopes, timings and limitations are recorded in [E2E architecture](architecture/e2e-testing.md). SQLite reads, synced rows, server hydration and total hydration are separate measurements. Broad local caching is intentional; root scans and row counts alone do not establish waste.
 
@@ -20,8 +20,8 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 | `kalakritiAssignment` | `roster`, `myAccess` (admin/Guardian/liaison) | None |
 | `kalakritiCenter` | `visible`, `guardianAssignments`, `liaisonAssignments` (admin) | None |
 | `kalakritiCompetition` | `categories`, `competitions`, `sessions`, `venues` | None |
-| `kalakritiEdition` | `readiness` (global admin), `byYear` (admin, Guardian, liaison), `cloneSource` (admin/Edition admin), `configurationAccessible` (Edition admin) | `accessible`, `byTeamEventId` |
-| `kalakritiEligibility` | None | `ageCategories` |
+| `kalakritiEdition` | `readiness` (global admin), `byYear` (admin, Guardian, liaison), `cloneSource` (admin/Edition admin), `configurationAccessible` (Edition admin), `accessible` (admin/Guardian/liaison/Edition admin) | `byTeamEventId` |
+| `kalakritiEligibility` | `ageCategories` (admin/Edition admin) | None |
 | `kalakritiEntry` | `availableDivisions`, `visible`, `visibleByCenter`, `availableDivisionsByCenter` (Guardian/liaison), `visibleByDivision` | `byId` |
 | `kalakritiFood` | `students`, `memberships` | None |
 | `kalakritiGuardian` | `roster` | None |
@@ -557,3 +557,20 @@ The overview mounts the current Edition's `cloneSource` and the accessible confi
 | Configuration list / Edition admin | 10.62 ms | 13 / 6 | 19 | 1.06 ms | 248.2 ms |
 
 Untimed verification confirms the exact source Edition and all 30 Competitions, 30 Divisions, one age category, one competition category and one venue for both accounts. The configuration-list check confirms the synthetic Edition is present; it does not independently verify every other Edition in the seeded account's list. All 13 browser tests passed without retries. This workload does not establish a configuration-query bottleneck, so these queries remain unchanged. Larger multi-Edition histories and additional permission scopes remain unmeasured.
+
+## Edition picker and Eligibility baseline (2026-09-14)
+
+The authenticated benchmark now measures the mounted Edition picker for four accounts and the Eligibility page for both admin scopes. Each picker check confirms the synthetic Edition is present, not the complete authorization of all other seeded Editions. This dataset has three Editions; it is a large roster workload, not a large historical Edition list.
+
+| Query / account | Median analyzer | Read / synced | Scans | Server hydration | Total hydration |
+| --- | --- | --- | --- | --- | --- |
+| Picker / global admin | 11.72 ms | 3 / 3 | 6 | 0.90 ms | 86.3 ms |
+| Picker / Guardian | 10.91 ms | 11 / 5 | 14 | 5.59 ms | 541.6 ms |
+| Picker / liaison | 11.12 ms | 19 / 8 | 22 | 6.17 ms | 586.8 ms |
+| Picker / Edition admin | 11.27 ms | 19 / 8 | 22 | 7.21 ms | 177.1 ms |
+| Eligibility / global admin | 12.56 ms | 1 / 1 | 2 | 0.41 ms | 92.8 ms |
+| Eligibility / Edition admin | 11.38 ms | 15 / 4 | 1,231 | 154.96 ms | 334.1 ms |
+
+All 13 browser tests passed without retries. Eligibility verifies one age-category root under both accounts. The Edition-admin plan performs a full assignment scan for `(competition_category_id, responsibility)`, with 1,219 assignment visits in every sample. This is a candidate for a controlled index experiment, especially under the category-lead branch; the current 11 ms analyzer median does not establish a material page-delay cause. The initial server hydration is a separate sample and is not attributed solely to that scan. No product query changed in this milestone.
+
+Remaining consumer inspection confirms that `eventPhoto.byEvent`, `eventUpdate.byEvent`, `teamEvent.byCurrentUser`, `teamEvent.byIdWithExpenses` and `teamEvent.public` have no production consumers. They remain unmeasured registered APIs. The next active page gaps include `/teams`, team detail, event-detail interests and album metadata.

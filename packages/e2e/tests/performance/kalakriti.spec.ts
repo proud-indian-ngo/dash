@@ -46,6 +46,33 @@ test("profile a large synthetic Kalakriti edition", async ({
     firstDivisionId: string;
     firstSessionId: string;
   };
+  const profileEditionPicker = (target: Page) =>
+    profileZeroQueries(
+      target,
+      { "kalakritiEdition.accessible": 1 },
+      undefined,
+      {
+        "kalakritiEdition.accessible": {
+          table: "kalakriti_edition",
+          rowFilter: { id: fixture.editionId },
+          count: 1,
+        },
+      }
+    );
+  const profileEligibility = async (target: Page) => {
+    await target.goto(`/kalakriti/${fixture.year}/eligibility`);
+    return profileZeroQueries(
+      target,
+      { "kalakritiEligibility.ageCategories": 1 },
+      { editionId: fixture.editionId },
+      {
+        "kalakritiEligibility.ageCategories": {
+          table: "kalakriti_age_category",
+          count: 1,
+        },
+      }
+    );
+  };
   const profileConfiguration = async (target: Page, restricted: boolean) => {
     await target.goto(`/kalakriti/${fixture.year}`);
     const configuration = await profileZeroQueries(
@@ -84,6 +111,7 @@ test("profile a large synthetic Kalakriti edition", async ({
         ))
       );
     }
+    configuration.push(...(await profileEditionPicker(target)));
     return configuration;
   };
   const profileRegistration = async (target: Page, restricted: boolean) => {
@@ -296,6 +324,7 @@ test("profile a large synthetic Kalakriti edition", async ({
     ))
   );
   results.push(...(await profileConfiguration(page, false)));
+  results.push(...(await profileEligibility(page)));
   for (const [route, names] of [
     ["food", ["kalakritiFood.memberships", "kalakritiFood.students"]],
     ["students", ["kalakritiStudent.visibleForDirectory"]],
@@ -467,6 +496,11 @@ test("profile a large synthetic Kalakriti edition", async ({
         if (route === "students") {
           scopedResults.push({
             actor,
+            route: "edition-picker",
+            queries: await profileEditionPicker(scopedPage),
+          });
+          scopedResults.push({
+            actor,
             route: "student-lookups",
             queries: await profileStudentLookups(
               scopedPage,
@@ -579,6 +613,11 @@ test("profile a large synthetic Kalakriti edition", async ({
           actor,
           route: "configuration",
           queries: await profileConfiguration(managerPage, true),
+        });
+        scopedResults.push({
+          actor,
+          route: "eligibility",
+          queries: await profileEligibility(managerPage),
         });
         for (const [route, expectedQueries, tables] of [
           [
