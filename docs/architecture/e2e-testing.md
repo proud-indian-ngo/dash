@@ -76,6 +76,7 @@ Full-stack orchestration for local E2E:
 - Starts Zero with `ZERO_LAZY_STARTUP=false` and waits for the root HTTP health response after its workers initialize.
 - The optimized test runtime and CI set both `NODE_ENV=test` and `VITE_E2E=true`, raising the in-memory API budgets 100 times for shared E2E users. Normal production/development limits remain unchanged; unit tests cover their boundaries.
 - Builds the optimized Nitro output with `NODE_ENV=production` and serves it with `NODE_ENV=test` by default, overlapping the build with Zero startup. The local test runtime keeps localhost WebSocket behavior; it does not verify deployment CSP. Set `E2E_SERVER=dev` to run against Vite dev instead. Local runs use at most four workers by default; pass `--workers` to override this.
+- Local Zero runs in production mode with a test-only `ZERO_ADMIN_PASSWORD`, matching CI's inspector authentication requirement. Inspector-based tests authenticate with that environment value before querying state; they must not rely on the interactive password prompt or the development-mode bypass.
 - Runs `playwright test`, reports environment-ready, Playwright, and total elapsed times, then tears down on exit.
 
 Use `bun run test:e2e:ui` for interactive Playwright UI mode with the same full-stack harness and Vite dev, so app edits remain visible. UI/debug flags default to dev unless `E2E_SERVER` explicitly overrides it. `--list` and `--help` return without starting services.

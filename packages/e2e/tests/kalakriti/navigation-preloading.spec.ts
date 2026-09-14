@@ -1,15 +1,30 @@
-import type { Request } from "@playwright/test";
+import type { Page, Request } from "@playwright/test";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 
 const YEAR = 2186;
 const EDITION_ID = "019f0000-0019-7000-8000-000000001901";
 
+async function authenticateInspector(page: Page) {
+  const authenticated = await page.evaluate(async (password) => {
+    const zero = (
+      window as typeof window & {
+        __zero: {
+          inspector: { authenticate: (password: string) => Promise<boolean> };
+        };
+      }
+    ).__zero;
+    return zero.inspector.authenticate(password);
+  }, process.env.ZERO_ADMIN_PASSWORD ?? "");
+  expect(authenticated, "Zero inspector authentication").toBe(true);
+}
+
 test("intent hydrates Students and Entries before navigation", async ({
   page,
 }) => {
   await page.goto(`/kalakriti/${YEAR}`);
   await waitForZeroReady(page);
+  await authenticateInspector(page);
   const queryStates = () =>
     page.evaluate(async () => {
       const zero = (
@@ -178,6 +193,7 @@ test("Dashboard-only preloads release their active Zero subscriptions", async ({
     return Boolean(zero?.inspector?.client);
   });
   test.skip(!inspector, "Zero inspector is unavailable in this E2E runtime");
+  await authenticateInspector(page);
 
   await expect
     .poll(async () =>
