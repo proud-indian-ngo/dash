@@ -352,7 +352,34 @@ try {
       })
       .from(auditLog)
       .where(eq(auditLog.targetId, adminEmail));
-  else if (action === "guardian-counter")
+  else if (action === "guardian-yearly-ids") {
+    const guardianIds = [
+      data.guardianId,
+      data.scopeGuardianId,
+      data.scopeGuardianB,
+      data.scopeGuardianC,
+    ];
+    await db.transaction(async (tx) => {
+      for (const [index, membershipId] of guardianIds.entries()) {
+        await tx
+          .update(kalakritiEditionMembership)
+          .set({
+            humanId: `KALG-${data.year}-${String(index + 1).padStart(4, "0")}`,
+          })
+          .where(
+            and(
+              eq(kalakritiEditionMembership.id, membershipId),
+              eq(kalakritiEditionMembership.editionId, data.editionId)
+            )
+          );
+      }
+      await tx
+        .update(kalakritiEdition)
+        .set({ nextGuardianSequence: guardianIds.length + 1 })
+        .where(eq(kalakritiEdition.id, data.editionId));
+    });
+    result = { assigned: guardianIds.length };
+  } else if (action === "guardian-counter")
     result = await db.execute(
       sql`SELECT next_guardian_sequence AS counter FROM kalakriti_edition WHERE id = ${data.editionId}`
     );

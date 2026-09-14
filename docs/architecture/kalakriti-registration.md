@@ -70,17 +70,7 @@ New-entry uploads still require open Edition and Center Entry registration. Exis
 
 Apply the two generated migrations in order: `0079_mighty_kronos.sql` adds the parent composite unique constraint, and `0080_gray_punisher.sql` adds `kalakriti_entry_music`. The child table has an Edition-composite Entry foreign key, unique object keys, and two unique slots per Entry; the database therefore also rejects a third file independently of the mutator's locked count check.
 
-Quiesce application writes and stop old application instances before the backfill and application cutover. Old singleton writers aren't compatible with the child-only music model. Against the configured database, run:
-
-```bash
-bun --env-file=.env scripts/backfill-kalakriti-entry-music.ts --dry-run
-bun --env-file=.env scripts/backfill-kalakriti-entry-music.ts --apply
-bun --env-file=.env scripts/backfill-kalakriti-entry-music.ts --dry-run
-```
-
-The script reuses the Entry's UUID for its first music row, preserves the exact object key and all file/upload metadata, and never contacts R2 or moves bytes. Under Edition and Entry locks, each successful insert clears the legacy singleton columns in the same transaction, so rerunning the backfill cannot resurrect a subsequently removed file. It includes historical Entries and archived Editions. Malformed or conflicting rows remain untouched and appear as `malformedIds`; the CLI exits nonzero until they are repaired.
-
-Review the first dry-run, repair every reported row, apply, then require the final dry-run to report `candidates: 0`, `updated: 0`, and an empty `malformedIds` array before enabling traffic. Remote targets require `--confirm-target=host:port/database` even for dry-run. Deploy the matching application and generated Zero schema together, and retain the existing music temporary-object expiry rule. After cutover, verify both backfilled and new files through protected playback/download; rolling back to singleton-only code requires a deliberate data conversion and cannot preserve two files per Entry automatically.
+The application and generated Zero schema must match these migrations. Legacy singleton music columns are no longer part of the current model; existing music files are served through protected playback and download from child records. The repository no longer includes a singleton-to-child data backfill command.
 
 ## Public and server-only projections
 
@@ -90,7 +80,7 @@ Guardian sheets show assigned Centers; Student sheets show their Center and regi
 
 `GET /api/kalakriti/:year/people/lookup?humanId=` accepts the existing yearly or record identifier and returns allowlisted Student, Volunteer, Guardian, Guest, or Judge details without requiring a credential row. The lookup retains its administrator gate and Edition boundary. Scanners parse the JSON and use its `id` to look up the subject, then verify that the stored subject kind matches `type`. An identifier QR is not proof of identity or permission: scanner commands must authorize the operator and validate subject eligibility independently.
 
-The legacy credential table, token hashing, issuance/reissue mutators, and PDF card printing are removed. JSON QR display and person lookup depend only on Student, Edition Membership, and Attendee records. The person-QR E2E suite covers decoded payloads, stable display, scoped nonadmin visibility, and lookup; former credential routes return 404. The [phase 2 task breakdown](../kalakriti-event-day-phase2-tasks.md) records the scanner integration boundary for later stacked PRs.
+The legacy credential table, token hashing, issuance/reissue mutators, and PDF card printing are removed. JSON QR display and person lookup depend only on Student, Edition Membership, and Attendee records. The person-QR E2E suite covers decoded payloads, stable display, scoped nonadmin visibility, and lookup; former credential routes return 404.
 
 `/api/kalakriti/:year/schedule` is unauthenticated and returns an explicit allowlist: Edition display fields plus Competition, Age Category, Venue, time, and cancellation status. It never returns staffing, contacts, Students, submissions, evidence, music files, or `musicUploadEnabled`.
 
@@ -141,7 +131,7 @@ Creation explicitly targets a writable Center and retains its registration, age-
 
 New Guardian memberships receive an immutable yearly ID such as `KALG-2026-0001` in the same transaction as registration. The shared creation funnel locks the Edition before inserting the membership, avoiding foreign-key lock-upgrade races, then allocates from its separate `nextGuardianSequence`. Existing IDs, including archived memberships' IDs, reserve their sequence numbers. Same-Edition retries keep the existing ID; a later-Edition registration receives a new membership and year-specific ID. Migration `0082_guardian_yearly_ids.sql` adds the counter and positive-value constraint.
 
-For historical active Guardians missing an ID, use `scripts/backfill-kalakriti-guardian-ids.ts` with an explicit `--edition-id=<UUID>`. First run `--dry-run` against a reviewed `DATABASE_URL`; the credential-free output identifies the target and candidate count. Applying requires both `--apply` and `--confirm-target=<host:port/database>`, including for local databases. Repeat the dry-run to verify zero candidates. The script never replaces existing IDs, allocates to archived memberships, or runs migrations.
+Historical Guardian memberships without an allocated ID display a dash in the roster; new memberships receive IDs through the registration transaction.
 
 ## Food and check-in reporting
 
@@ -188,33 +178,13 @@ Student and Center tables expose read-only transport status. Student status foll
 
 Enrollment allocates a stable `KALV-{year}-{sequence}` ID on the volunteer's Edition Membership under the Edition row lock. Reactivation and replay preserve existing IDs, independently of QR payloads. Each Edition's Volunteers table displays that membership's ID in a searchable Yearly ID column; missing IDs display a dash. It uses the existing Edition-scoped roster query, without a separate server projection or changes to the global Users table.
 
-For existing volunteer memberships missing IDs, run the explicit backfill:
-
-```bash
-bun --env-file=.env scripts/backfill-kalakriti-volunteer-ids.ts --dry-run
-bun --env-file=.env scripts/backfill-kalakriti-volunteer-ids.ts --apply
-```
-
-The script includes archived volunteer memberships and Editions, preserves every existing ID, and allocates missing IDs in creation/record-ID order under an Edition lock. Dry-run is the default; a second successful apply updates zero rows. Remote targets require `--confirm-target=host:port/database`, using the same target guard as the orientation backfill. It doesn't change roles, notify users, or create credentials.
-
-## Orientation backfill
-
-Run the idempotent backfill against the configured database to promote existing active volunteer memberships in non-archived Editions. Historical-only and archived memberships, deleted users, Guardians, external identities, and non-default roles are excluded.
-
-```bash
-bun run db:backfill-kalakriti-orientation --dry-run
-bun run db:backfill-kalakriti-orientation --apply
-```
-
-The default is dry-run. The script reports a credential-free target and candidate count, rechecks eligibility in each conditional update, and revokes sessions in the same transaction. Apply first checks pg-boss availability in that same database through a producer-only connection; it doesn't start handlers, schedules, or schema migrations. The app must have initialized the queue schema before apply. Apply queues role-change and orientation jobs only for users it promoted; it doesn't create memberships or assignments. A second successful apply changes zero rows. Queue delivery happens after commit, so a queue failure doesn't roll back the role change; inspect the error before retrying delivery rather than expecting a no-op backfill to resend jobs.
-
-Only loopback database hosts are accepted without `--confirm-target=host:port/database`. Remote targets require explicit operator confirmation even for dry-run; never apply to production without confirming the exact target. The CLI isn't an authenticated product command and doesn't fabricate an audit-ledger actor. Its structured log records the target and counts, not contact details.
+Historical volunteer memberships without an allocated ID display a dash in the roster; enrollment and reactivation preserve existing IDs.
 
 ## Release verification
 
 `packages/e2e/helpers/kalakriti-release-fixture.ts` owns deterministic role and privacy fixtures. The Kalakriti Playwright suite proves Edition creation and linked-event ownership, assignment and Guardian paths, Center controls, Student and individual/group Entry registration, public schedule privacy, scoped exports, direct URL/API denial, dormant Guardian login denial, and concurrent quota and duplicate races.
 
-`docs/kalakriti-registration-release-evidence.md` is the acceptance traceability record for KRR-001 through KRR-019. Person QR display, yearly IDs, transport setup, and operation recording have dedicated coverage described above. The Event-day station has isolated live-Edition E2E coverage; camera results are simulated at the decoder boundary while UI, authorization, mutations, and persisted operations remain real. The suite also verifies explicit Center finalization, derived vehicle status, duplicate marks, stale-stage protection, and mobile modal persistence. The remaining operational stations are separate follow-up work.
+Person QR display, yearly IDs, transport setup, and operation recording have dedicated coverage described above. The Event-day station has isolated live-Edition E2E coverage; camera results are simulated at the decoder boundary while UI, authorization, mutations, and persisted operations remain real. The suite also verifies explicit Center finalization, derived vehicle status, duplicate marks, stale-stage protection, and mobile modal persistence. The remaining operational stations are separate follow-up work.
 
 The release gate is:
 
