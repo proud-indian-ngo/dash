@@ -54,7 +54,12 @@ export async function profileZeroQueries(
   args?: Record<string, string>,
   verification?: Record<
     string,
-    { table: string; count: number; centerIds?: string[] }
+    {
+      table: string;
+      count: number;
+      centerIds?: string[];
+      relatedCounts?: Record<string, number>;
+    }
   >
 ) {
   await waitForZeroReady(page);
@@ -140,12 +145,21 @@ export async function profileZeroQueries(
         let verifiedScope;
         if (verify) {
           // A separate untimed analysis verifies scope; never return record contents.
-          const rows = (
+          const syncedRows = (
             await query.analyze({ joinPlans: false, syncedRows: true })
-          ).syncedRows?.[verify.table];
+          ).syncedRows;
+          const rows = syncedRows?.[verify.table];
           if (!rows) throw new Error(`Missing verified table: ${verify.table}`);
           verifiedScope = {
             count: rows.length,
+            relatedCounts: verify.relatedCounts
+              ? Object.fromEntries(
+                  Object.keys(verify.relatedCounts).map((table) => [
+                    table,
+                    syncedRows?.[table]?.length ?? 0,
+                  ])
+                )
+              : undefined,
             outsideCenters: verify.centerIds
               ? rows.filter(
                   (row) => !verify.centerIds!.includes(String(row.center_id))
@@ -173,6 +187,11 @@ export async function profileZeroQueries(
     if (verification?.[name]) {
       expect(result.verifiedScope?.count).toBe(verification[name]!.count);
       expect(result.verifiedScope?.outsideCenters).toBe(0);
+      if (verification[name]!.relatedCounts) {
+        expect(result.verifiedScope?.relatedCounts).toEqual(
+          verification[name]!.relatedCounts
+        );
+      }
     }
     results.push(result);
   }

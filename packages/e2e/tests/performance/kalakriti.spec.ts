@@ -87,7 +87,29 @@ test("profile a large synthetic Kalakriti edition", async ({
     "kalakritiCompetition.sessions": fixture.counts.sessions!,
     "kalakritiCompetition.venues": 1,
   };
-  const results = [];
+  const results = await profileZeroQueries(
+    page,
+    { "kalakritiEdition.readiness": 1 },
+    { editionId: fixture.editionId },
+    {
+      "kalakritiEdition.readiness": {
+        table: "kalakriti_edition",
+        count: 1,
+        relatedCounts: {
+          kalakriti_center: fixture.counts.centers!,
+          kalakriti_age_category: 1,
+          kalakriti_competition_category: 1,
+          kalakriti_competition: fixture.counts.competitions!,
+          kalakriti_competition_division: fixture.counts.divisions!,
+          kalakriti_competition_session: fixture.counts.sessions!,
+          kalakriti_venue: 1,
+          // Only one volunteer membership has a linked user, with four assignments.
+          kalakriti_assignment: 4,
+          kalakriti_transport_assignment: fixture.counts.transport!,
+        },
+      },
+    }
+  );
   for (const [route, names] of [
     ["food", ["kalakritiFood.memberships", "kalakritiFood.students"]],
     ["students", ["kalakritiStudent.visibleForDirectory"]],

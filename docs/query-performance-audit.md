@@ -1,6 +1,6 @@
 # Query performance audit coverage
 
-Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 37 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
+Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 38 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
 
 Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/tests/performance/app.spec.ts`, with their JSON report attachments. Commands, fixture sizes, account scopes, timings and limitations are recorded in [E2E architecture](architecture/e2e-testing.md). SQLite reads, synced rows, server hydration and total hydration are separate measurements. Broad local caching is intentional; root scans and row counts alone do not establish waste.
 
@@ -20,7 +20,7 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 | `kalakritiAssignment` | `roster` | `myAccess` |
 | `kalakritiCenter` | `visible` | `guardianAssignments`, `liaisonAssignments` |
 | `kalakritiCompetition` | `categories`, `competitions`, `sessions`, `venues` | None |
-| `kalakritiEdition` | None | `accessible`, `byTeamEventId`, `byYear`, `cloneSource`, `configurationAccessible`, `readiness` |
+| `kalakritiEdition` | `readiness` (global admin) | `accessible`, `byTeamEventId`, `byYear`, `cloneSource`, `configurationAccessible` |
 | `kalakritiEligibility` | None | `ageCategories` |
 | `kalakritiEntry` | `availableDivisions`, `visible` | `availableDivisionsByCenter`, `visibleByCenter`, `visibleByDivision`, `byId` |
 | `kalakritiFood` | `students`, `memberships` | None |
@@ -188,3 +188,13 @@ PostgreSQL restarted on September 14 at 08:06 UTC, all five approved indexes wer
 Five alternating browser samples produced median HTTP times of 371.4 ms for `/api/health`, 378.3 ms for session lookup, 380.6 ms for Kalakriti Audit, and 384.5 ms for global Audit. Almost all time was waiting for the first byte; body transfer was generally under 4 ms. Two cached static-image reads took 132.3 and 132.8 ms through Cloudflare, while alternating health reads remained near 370 ms. These observations suggest substantial shared network/proxy/origin latency, but do not isolate its components. The production audit SELECT means were 0.36 ms for the Kalakriti page, 1.52 ms for its count, 0.12 ms for the global page, 0.55 ms for its count and 2.76 ms for facets. PostgreSQL execution is not the dominant measured HTTP cost, and these figures do not measure Zero's SQLite hydration.
 
 The investigation also reproduced a logging defect: Nitro created its request logger after the handler, and evlog overwrote the supplied duration with elapsed time since logger creation. A 60 ms local handler recorded 1 ms before the fix and 66 ms afterward. The focused regression uses the real logger in an isolated process and verifies response identity, incoming trace identity and skipped routes. The fix creates the logger before awaiting the handler. It needs deployment before request-log durations can support production attribution; no server speedup is claimed from this instrumentation correction.
+
+## Readiness baseline (September 14)
+
+The large Kalakriti benchmark now profiles `kalakritiEdition.readiness` on the overview as global admin. Its initial three analyzer samples were 15.6, 23.9 and 21.5 ms, with 149 unique synced rows. Initial server hydration was 8.4 ms; total hydration was 192.6 ms. These are different measurements, not a production latency comparison.
+
+Analyzer plans varied: the first sample read 179 rows, while the next two read 779. Assignment scans changed from 4 to 1,200; combined Division scans changed from 960 to 90. This is evidence to investigate planner behavior, not evidence that an index or query rewrite will improve the page. No product query or index changed in this milestone.
+
+The fixture has 600 assignments, but only one Volunteer membership has a linked user and therefore only its four assignments satisfy readiness's membership filter. Categories and venues each have one row. The fixture is not go-live-ready and does not prove performance for hundreds of eligible assignments, Edition-admin authorization, or every readiness condition. Further work should cover those scopes before selecting an optimization.
+
+A second isolated run with exact related-table count assertions passed all 13 tests and reproduced the timing pattern (15.3, 24.0 and 21.3 ms). The untimed scope check verifies 10 Centers, one age category, one Competition category, 30 Competitions, 30 Divisions, 30 Sessions, one venue, four assignments and 40 transport assignments. Reports retain counts and diagnostics only. Repository type, lint, unit and unused-export checks and the focused E2E TypeScript check passed.
