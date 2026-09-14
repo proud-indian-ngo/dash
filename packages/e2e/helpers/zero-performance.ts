@@ -60,6 +60,7 @@ export async function profileZeroQueries(
       centerIds?: string[];
       relatedCounts?: Record<string, number>;
       ids?: string[];
+      userId?: string;
     }
   >
 ) {
@@ -153,6 +154,9 @@ export async function profileZeroQueries(
           if (!rows) throw new Error(`Missing verified table: ${verify.table}`);
           verifiedScope = {
             count: rows.length,
+            matchesUser: verify.userId
+              ? rows.every((row) => row.user_id === verify.userId)
+              : undefined,
             matchesExpectedIds: verify.ids
               ? rows.length === verify.ids.length &&
                 rows.every((row) => verify.ids!.includes(String(row.id)))
@@ -192,6 +196,9 @@ export async function profileZeroQueries(
     if (verification?.[name]) {
       expect(result.verifiedScope?.count).toBe(verification[name]!.count);
       expect(result.verifiedScope?.outsideCenters).toBe(0);
+      if (verification[name]!.userId) {
+        expect(result.verifiedScope?.matchesUser).toBe(true);
+      }
       if (verification[name]!.ids) {
         expect(result.verifiedScope?.matchesExpectedIds).toBe(true);
       }

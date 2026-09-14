@@ -289,3 +289,6 @@ The scoped Kalakriti Audit benchmark runs with `KALAKRITI_AUDIT_PERFORMANCE=true
 The app performance fixture also includes 10,000 synthetic notifications across admin and volunteer accounts, with equal archived/active histories. The benchmark verifies the exact newest-50 result set for each user, reporting only a boolean match plus diagnostics. Synthetic timestamps in 2191 ensure ordinary seed notifications cannot displace those expected IDs.
 
 For the disposable notification index comparison, add `NOTIFICATION_INDEX_EXPERIMENT=true` to the app benchmark command. The guarded seed creates the candidate index only in the local test database and records the flag in the report. Default runs retain the migrated schema.
+
+
+The app performance fixture also adds 1,000 synthetic users without credentials and 11,022 notification preferences using the canonical topic list. The benchmark visits Users, an individual user's notification settings, and personal settings for admin and volunteer. It verifies visible user totals and exact preference ownership without recording preference contents. These cases use the existing app performance command and local-only database guard.

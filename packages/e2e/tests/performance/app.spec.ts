@@ -2,11 +2,14 @@ import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
 
-import { expect, test } from "../../fixtures/test";
+import type { Page } from "@playwright/test";
+
+import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import {
   profileZeroQueries,
   type InspectorWindow,
 } from "../../helpers/zero-performance";
+import { ListPage } from "../../pages/list-page";
 
 const execFileAsync = promisify(execFile);
 
@@ -36,6 +39,10 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     counts: Record<string, number>;
     restrictedCounts: Record<string, number>;
     notificationIds: { admin: string[]; volunteer: string[] };
+    visibleUsers: number;
+    preferenceTopics: number;
+    sampleUserId: string;
+    accountIds: { admin: string; volunteer: string };
     sampleIds: {
       publicEvent: string;
       ownReimbursement: string;
@@ -45,6 +52,31 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     };
   };
   expect(JSON.parse((await seed()).stdout.trim())).toEqual(fixture);
+  const profilePreferences = async (target: Page, userId: string) => {
+    await target
+      .locator("[data-sidebar='sidebar']")
+      .locator("[data-sidebar='menu-button']")
+      .last()
+      .click();
+    await target.getByRole("menuitem", { name: "Settings" }).click();
+    const dialog = target.getByRole("dialog");
+    await dialog.getByRole("button", { name: "Notifications" }).click();
+    const queries = await profileZeroQueries(
+      target,
+      { "notificationPreference.byCurrentUser": fixture.preferenceTopics },
+      undefined,
+      {
+        "notificationPreference.byCurrentUser": {
+          table: "notification_topic_preference",
+          count: fixture.preferenceTopics,
+          userId,
+        },
+      }
+    );
+    await target.keyboard.press("Escape");
+    await expect(dialog).not.toBeVisible();
+    return queries;
+  };
   const financial = {
     "reimbursement.all": fixture.counts.reimbursements!,
     "advancePayment.all": fixture.counts.advances!,
@@ -118,6 +150,46 @@ test("profile Dashboard, Events and financial queries at scale", async ({
       });
     }
   }
+  await page.goto("/users");
+  results.push({
+    route: "users",
+    queries: await profileZeroQueries(
+      page,
+      { "user.all": fixture.visibleUsers },
+      undefined,
+      {
+        "user.all": { table: "user", count: fixture.visibleUsers },
+      }
+    ),
+  });
+  await page
+    .getByPlaceholder("Search users...")
+    .fill("performance-2191-1@example.invalid");
+  const users = new ListPage(page);
+  await users.openRowActionAndClick(
+    users.getRowByText("Synthetic User 2"),
+    "Notifications"
+  );
+  results.push({
+    route: "user-notifications",
+    queries: await profileZeroQueries(
+      page,
+      { "notificationPreference.byUser": fixture.preferenceTopics },
+      { userId: fixture.sampleUserId },
+      {
+        "notificationPreference.byUser": {
+          table: "notification_topic_preference",
+          count: fixture.preferenceTopics,
+          userId: fixture.sampleUserId,
+        },
+      }
+    ),
+  });
+  await page.keyboard.press("Escape");
+  results.push({
+    route: "personal-preferences",
+    queries: await profilePreferences(page, fixture.accountIds.admin),
+  });
   const eventDetailStart = performance.now();
   await page.goto(`/events/${fixture.sampleIds.publicEvent}`);
   results.push({
@@ -182,6 +254,14 @@ test("profile Dashboard, Events and financial queries at scale", async ({
   try {
     const restrictedPage = await restrictedContext.newPage();
     await restrictedPage.goto("/events");
+    await waitForZeroReady(restrictedPage);
+    restrictedResults.push({
+      route: "personal-preferences",
+      queries: await profilePreferences(
+        restrictedPage,
+        fixture.accountIds.volunteer
+      ),
+    });
     restrictedResults.push({
       route: "notifications",
       queries: await profileZeroQueries(

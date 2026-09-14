@@ -1,6 +1,6 @@
 # Query performance audit coverage
 
-Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 45 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
+Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 48 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
 
 Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/tests/performance/app.spec.ts`, with their JSON report attachments. Commands, fixture sizes, account scopes, timings and limitations are recorded in [E2E architecture](architecture/e2e-testing.md). SQLite reads, synced rows, server hydration and total hydration are separate measurements. Broad local caching is intentional; root scans and row counts alone do not establish waste.
 
@@ -30,12 +30,12 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 | `kalakritiAttendee` | `visible` (admin Guest and Judge) | None |
 | `kalakritiTransport` | `byCenter` | None |
 | `notification` | `forCurrentUser` (admin and volunteer) | None |
-| `notificationPreference` | None | `byCurrentUser`, `byUser` |
+| `notificationPreference` | `byCurrentUser` (admin/volunteer), `byUser` (admin) | None |
 | `reimbursement` | `all`, `byId` | `byCurrentUser`, `byEvent` |
 | `scheduledMessage` | None | `all`, `byId` |
 | `team` | `byCurrentUser` | `all`, `byId` |
 | `teamEvent` | `allAccessible`, `byCurrentUserAll`, `byId` | `byCurrentUser`, `byIdWithExpenses`, `byTeam`, `public` |
-| `user` | None | `all`, `one`, `whatsappUsers` |
+| `user` | `all` (admin) | `one`, `whatsappUsers` |
 | `vendor` | `all` | `approved`, `byId`, `pendingByCurrentUser` |
 | `vendorPayment` | `all`, `byId` | `byCurrentUser`, `byEvent` |
 | `vendorPaymentTransaction` | None | `byId`, `byVendorPayment` |
@@ -328,3 +328,19 @@ Run the app benchmark with `NOTIFICATION_INDEX_EXPERIMENT=true` in addition to `
 On the same 10,000-row fixture, both accounts' scans decreased from 7,500 to 50 per analysis and the temporary ORDER BY B-tree disappeared. Read/synced counts stayed at 50, and exact expected ID sets passed. Three-sample analyzer medians changed from 14.3 to 12.3 ms for admin and 13.3 to 11.1 ms for volunteer. Server hydration was 1.2/3.5 ms, while total hydration was 217.4/351.4 ms; total hydration did not consistently improve. The benefit established here is bounded scan work and removal of sorting, with a small local analyzer difference.
 
 All 13 benchmark tests passed. A permanent index would add write/storage overhead and requires migration approval. The candidate does not change the query, ownership rules, newest-50 limit or existing indexes.
+
+
+## Users and notification preferences baseline (2026-09-14)
+
+The local app fixture now adds 1,000 synthetic users and 11,022 notification preferences across those users and the seeded admin/volunteer. The seed verifies the preference count and creates no credentials for synthetic users. The browser benchmark checks 811 non-external Users and each preference result's exact user and 11-row count.
+
+| Query/account | Median analyzer ms | Read / synced | Scans | Server hydration ms | Total hydration ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `user.all`, admin | 22.85 | 811 / 811 | 1,824 | 6.79 | 320.5 |
+| `notificationPreference.byUser`, admin | 10.51 | 11 / 11 | 11 | 1.24 | 41.2 |
+| `notificationPreference.byCurrentUser`, admin | 9.55 | 11 / 11 | 11 | 0.39 | 58.3 |
+| `notificationPreference.byCurrentUser`, volunteer | 11.60 | 11 / 11 | 11 | 0.98 | 72.6 |
+
+Preference plans use the existing `(user_id, topic_id)` primary-key index. These measurements do not justify changing those queries. The Users page intentionally caches the full visible directory; its scan metric includes filtering/sorting work and does not represent distinct users.
+
+The benchmark passed all 13 tests with retries disabled. The Bun worker repeatedly spun at the Food route test import, although that test passed alone with the same environment flags. After capturing a native stack sample, the runner now executes that test in its own process; the full unit suite passed in 11 seconds. Type, lint, unused-export and focused benchmark TypeScript checks also passed. The runtime root cause remains unproven. Other permission combinations, denied preference lookups and larger user directories remain unmeasured.

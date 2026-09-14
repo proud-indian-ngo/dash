@@ -2,6 +2,8 @@ import { writeSync } from "node:fs";
 
 import { eq, sql } from "drizzle-orm";
 
+import { TOPICS } from "../../notifications/src/topics";
+
 const id = (number: number) =>
   `019f0000-2191-7000-8000-${number.toString(16).padStart(12, "0")}`;
 
@@ -28,6 +30,7 @@ const counts = {
   transactions: 1000,
   transactionHistory: 2000,
   notifications: 10_000,
+  users: 1000,
 } as const;
 
 function assertTestDatabase() {
@@ -62,7 +65,8 @@ export async function seedAppPerformance() {
   if (!volunteerEmail) throw new Error("VOLUNTEER_EMAIL is required");
 
   const { db } = await import("@pi-dash/db");
-  const { user } = await import("@pi-dash/db/schema/auth");
+  const { user, notificationTopicPreference } =
+    await import("@pi-dash/db/schema/auth");
   const { team, teamMember } = await import("@pi-dash/db/schema/team");
   const { teamEvent, teamEventMember } =
     await import("@pi-dash/db/schema/team-event");
@@ -115,6 +119,45 @@ export async function seedAppPerformance() {
   const transactionId = (index: number) => id(19_000 + index);
 
   await db.transaction(async (tx) => {
+    await batches(counts.users, (start, length) =>
+      tx
+        .insert(user)
+        .values(
+          Array.from({ length }, (_, offset) => {
+            const index = start + offset;
+            return {
+              id: id(90_000 + index),
+              name: `Synthetic User ${index + 1}`,
+              email: `performance-2191-${index}@example.invalid`,
+              role: index % 5 === 0 ? "external_user" : "volunteer",
+              isOnWhatsapp: index % 2 === 0,
+              createdAt: now,
+              updatedAt: now,
+            };
+          })
+        )
+        .onConflictDoNothing({ target: user.id })
+    );
+    const preferenceUsers = [
+      admin.id,
+      volunteer.id,
+      ...Array.from({ length: counts.users }, (_, index) => id(90_000 + index)),
+    ];
+    const topics = Object.values(TOPICS);
+    await batches(preferenceUsers.length * topics.length, (start, length) =>
+      tx
+        .insert(notificationTopicPreference)
+        .values(
+          Array.from({ length }, (_, offset) => {
+            const index = start + offset;
+            return {
+              userId: preferenceUsers[Math.floor(index / topics.length)]!,
+              topicId: topics[index % topics.length]!,
+            };
+          })
+        )
+        .onConflictDoNothing()
+    );
     await batches(counts.notifications, (start, length) =>
       tx
         .insert(notification)
@@ -518,6 +561,7 @@ export async function seedAppPerformance() {
     ["feedback", eventFeedback, 31_000],
     ["photos", eventPhoto, 32_000],
     ["notifications", notification, 40_000],
+    ["users", user, 90_000],
     ["categories", expenseCategory, 4000],
     ["vendors", vendor, 5000],
     ["reimbursements", reimbursement, 6000],
@@ -578,11 +622,28 @@ export async function seedAppPerformance() {
     throw new Error("Performance fixture restricted events count mismatch");
   }
   restrictedCounts.events = accessibleEvents;
+  const [visibleUserCount] = await db.execute(
+    sql`SELECT count(*)::integer AS total FROM "user" WHERE role != 'external_user'`
+  );
+  const [preferenceCount] = await db.execute(sql`
+    SELECT count(*)::integer AS total FROM notification_topic_preference
+    WHERE user_id IN (${admin.id}, ${volunteer.id})
+      OR user_id BETWEEN ${id(90_000)} AND ${id(90_000 + counts.users - 1)}
+  `);
+  const preferenceRows = Number(preferenceCount?.total);
+  if (preferenceRows !== (counts.users + 2) * Object.values(TOPICS).length) {
+    throw new Error("Performance fixture preference count mismatch");
+  }
 
   return {
     teamId: id(1),
     counts: actualCounts,
     notificationIndexExperiment,
+    visibleUsers: Number(visibleUserCount?.total),
+    preferenceTopics: Object.values(TOPICS).length,
+    preferenceRows,
+    sampleUserId: id(90_001),
+    accountIds: { admin: admin.id, volunteer: volunteer.id },
     restrictedCounts,
     notificationIds: {
       admin: Array.from(
