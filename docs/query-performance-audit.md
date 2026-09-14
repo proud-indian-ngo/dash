@@ -526,3 +526,18 @@ All 13 browser tests passed without retries. The user has approved needed perfor
 ### Generated migration verification
 
 Migration `0089_bouncy_mandarin.sql` adds the canonical `kalakriti_entry_member_studentId_editionId_id_idx` index. A fresh local run applied the migration with the experiment disabled and passed all 13 browser tests without retries. All three global-admin directory plans used the canonical index, scanned 3,000 entry-member rows and retained 12,000 reads / 7,511 synced rows. Analyzer samples were 326.65, 307.85 and 304.97 ms. The existing index is retained; production application and effects remain unverified.
+
+## Food Center expansion authorization (2026-09-14)
+
+Food memberships previously evaluated `foodCenter` both in each included assignment/Guardian link's `whereExists("center")` and again in its related Center expansion. The parent existence predicate already authorizes that same Center. Keep that predicate and expand the admitted link's Center directly; root authorization and included link filtering remain unchanged.
+
+The same migration-backed fixture, navigation and accounts produced these local membership-query results (three analyzer samples per account):
+
+| Account | Median before → after | Reads before → after | Synced rows |
+| --- | --- | --- | --- |
+| Global admin | 137.19 → 145.62 ms | 11,201 → 11,201 | 911 |
+| Guardian | 138.10 → 127.31 ms | 6,862 → 6,022 | 213 |
+| Liaison | 146.52 → 131.42 ms | 6,875 → 6,031 | 213 |
+| Edition admin | 773.85 → 637.47 ms | 31,684 → 24,724 | 912 |
+
+Edition-admin initial server hydration was 757.77 → 590.64 ms; total hydration was 4,186.3 → 3,910 ms. These are separate from analyzer timings and do not establish production improvement. All 13 benchmark browser tests passed without retries, followed by all four Food/Entry release-invariant cases and their 12 authentication setups. Focused scope tests include revoking Guardian Center authority and verifying that included assignment and Guardian links disappear. Permission predicates still run in Zero so authority changes remain reactive. These unit checks do not prove live revocation during an already-mounted browser subscription; that scenario remains additional coverage to add.

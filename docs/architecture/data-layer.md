@@ -96,6 +96,8 @@ The registration Student picker (`visibleForEntries`) retains all authorized Stu
 
 Migration `0089_bouncy_mandarin.sql` indexes Entry members by `(student_id, edition_id, id)` for the directory's per-Student expansion. Local analyzer plans use it to filter and return ID order without a temporary sort. It preserves the existing student-only index and query relationships.
 
+Food membership expansions authorize each assignment or Guardian link through `whereExists("center", foodCenter)`. Their related Center expansion uses that same link without repeating the authorization predicate. Removing Center authority removes the parent link and its Center from the result.
+
 ## Connection Errors
 
 Global monitor: `ZeroConnectionMonitor` in `apps/web/src/routes/_app.tsx` via `useConnectionState()`. Individual queries = no error handling. On `error`: debounced toast. On `needs-auth` (401/403): redirect `/login` with current path.
