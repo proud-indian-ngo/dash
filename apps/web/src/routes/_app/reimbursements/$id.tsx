@@ -53,9 +53,9 @@ function useResolvedRequest(id: string): {
 } {
   const [reimbursement, r1] = useQuery(queries.reimbursement.byId({ id }));
   const [advancePayment, r2] = useQuery(queries.advancePayment.byId({ id }));
-  const allNotComplete = r1.type !== "complete" && r2.type !== "complete";
+  const anyNotComplete = r1.type !== "complete" || r2.type !== "complete";
 
-  if (!(reimbursement || advancePayment) && allNotComplete) {
+  if (!(reimbursement || advancePayment) && anyNotComplete) {
     return { isLoading: true, resolved: null };
   }
 
