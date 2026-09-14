@@ -35,6 +35,12 @@ await db.execute(sql`
   FROM generate_series(0, 49999) AS n
   ON CONFLICT (id) DO NOTHING
 `);
+const [indexState] = await db.execute(
+  sql`SELECT to_regclass('public.audit_log_attempted_at_id_idx') IS NOT NULL AS present`
+);
+if (!indexState?.present) {
+  throw new Error("Audit benchmark requires the pagination index migration");
+}
 await db.execute(sql`ANALYZE ${auditLog}`);
 const [count] = await db
   .select({ total: sql<number>`count(*)::int` })
@@ -122,6 +128,21 @@ for (const scenario of cases) {
     response.facets.targetTypes,
     targetTypes.flatMap((row) => (row.targetType ? [row.targetType] : []))
   );
+  const expectedNumbers: Record<string, number[]> = {
+    default: Array.from({ length: 20 }, (_, index) => 49999 - index),
+    "deep-page": Array.from({ length: 20 }, (_, index) => 9999 - index),
+    action: Array.from({ length: 20 }, (_, index) => 49980 - index * 20),
+    date: Array.from({ length: 20 }, (_, index) => 2879 - index),
+    search: [...Array.from({ length: 10 }, (_, index) => 12349 - index), 1234],
+    combined: Array.from({ length: 20 }, (_, index) => 49990 - index * 10),
+  };
+  deepStrictEqual(
+    response.entries.map((row) => row.id),
+    expectedNumbers[scenario.name]!.map(
+      (number) =>
+        `019f0000-2192-7000-8000-${number.toString(16).padStart(12, "0")}`
+    )
+  );
   const plans = [];
   for (const [name, query] of Object.entries({
     ...queries,
@@ -145,6 +166,23 @@ for (const scenario of cases) {
         planningMs: plan["Planning Time"],
         plan: summarizePlan(plan.Plan),
       });
+    }
+    if (
+      name === "entries" &&
+      ["default", "deep-page"].includes(scenario.name)
+    ) {
+      for (const sample of samples) {
+        if (
+          !JSON.stringify(sample.plan).includes(
+            '"Index Name":"audit_log_attempted_at_id_idx"'
+          ) ||
+          sample.plan["Temp Written Blocks"] !== 0
+        ) {
+          throw new Error(
+            "Audit pagination must use its ordered index without a sort spill"
+          );
+        }
+      }
     }
     plans.push({ name, samples });
   }

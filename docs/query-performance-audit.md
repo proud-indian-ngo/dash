@@ -120,3 +120,14 @@ The Audit Log now computes action and target-type options with one `GROUPING SET
 On the same 50,001-row database, facet scans fell from 100,002 rows and 2,418 shared block hits across two queries to 50,001 rows and 1,209 block hits. The grouped query took about 14 ms versus approximately 20 ms of combined sequential SQL work for the original queries. This is a database-work reduction, not a demonstrated HTTP latency improvement: the original queries ran concurrently, and filtered HTTP medians moved from approximately 13 ms to 16 ms. Search remained approximately 151 ms. A preceding sorted `array_agg(distinct ...)` experiment was rejected because it sorted all rows and took approximately 70 ms.
 
 The benchmark retains the original two facet queries as comparison measurements, without using them in the API. Search and deep-page sorting remain open optimization candidates. No schema or production configuration changes accompany the facet query change.
+
+
+### Pagination index experiment
+
+An ID-only pagination subquery reduced the deep-page sort from approximately 8.3 MiB to 1.6 MiB but still spilled and did not consistently improve HTTP timing. That query rewrite was discarded.
+
+A disposable local experiment instead added `(attempted_at DESC, id DESC)`, matching both ordering columns in the unchanged production query. With the same 50,001 rows, first-page SQL fell from approximately 14 ms to 0.03 ms and touched four shared blocks for 20 rows. Offset 40,000 SQL fell from approximately 29 ms to 5.15 ms, visited 40,020 index rows and no longer sorted or spilled. Deep-page HTTP median was 16.8 ms; facets/count still contribute to the endpoint. Substring search remained approximately 147 ms HTTP and needs separate work.
+
+The benchmark now asserts exact expected record IDs and ordering for all six cases, in addition to totals, facet equivalence and restricted access. All 13 E2E checks passed with the experimental index. The approved index is now generated in migration 0086 as `audit_log_attempted_at_id_idx`. The normal benchmark requires that migration and verifies its presence. It has not been deployed. Existing indexes remain unchanged.
+
+Migration verification caught Drizzle generating `DESC NULLS LAST`, which did not satisfy the query's `DESC NULLS FIRST` ordering and left the sort in place despite both columns being non-null. The final schema specifies `.desc().nullsFirst()` on both columns. The benchmark now requires the named index in first/deep-page plans and zero temporary written blocks, so merely creating an unused index cannot pass this check.
