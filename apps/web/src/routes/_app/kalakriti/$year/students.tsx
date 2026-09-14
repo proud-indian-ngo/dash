@@ -31,6 +31,7 @@ import {
   canAccessKalakritiStudents,
   selectKalakritiStudentCenters,
 } from "@/lib/kalakriti-student-policy";
+import { preloadRouteQuery } from "@/lib/route-preload";
 
 export const Route = createFileRoute("/_app/kalakriti/$year/students")({
   beforeLoad: ({ context }) => {
@@ -38,6 +39,24 @@ export const Route = createFileRoute("/_app/kalakriti/$year/students")({
       throw notFound();
   },
   component: KalakritiStudentsPage,
+  loader: ({ context, abortController }) => {
+    const { edition } = context.kalakritiEditionAccess;
+    preloadRouteQuery(
+      context.zero,
+      queries.kalakritiStudent.visibleForDirectory({ editionId: edition.id }),
+      abortController.signal
+    );
+    preloadRouteQuery(
+      context.zero,
+      queries.kalakritiCenter.visible({ editionId: edition.id }),
+      abortController.signal
+    );
+    preloadRouteQuery(
+      context.zero,
+      queries.kalakritiEdition.byYear({ year: edition.year }),
+      abortController.signal
+    );
+  },
 });
 const NO_CENTER = "00000000-0000-0000-0000-000000000000";
 function KalakritiStudentsPage() {

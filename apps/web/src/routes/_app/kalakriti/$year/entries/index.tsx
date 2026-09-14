@@ -14,8 +14,22 @@ import {
   buildKalakritiEntrySessions,
 } from "@/components/kalakriti/entry-view";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
+import { preloadRouteQuery } from "@/lib/route-preload";
 export const Route = createFileRoute("/_app/kalakriti/$year/entries/")({
   component: KalakritiEntryEventsPage,
+  loader: ({ context, abortController }) => {
+    const { edition } = context.kalakritiEditionAccess;
+    preloadRouteQuery(
+      context.zero,
+      queries.kalakritiEntry.visible({ editionId: edition.id }),
+      abortController.signal
+    );
+    preloadRouteQuery(
+      context.zero,
+      queries.kalakritiEntry.availableDivisions({ editionId: edition.id }),
+      abortController.signal
+    );
+  },
   validateSearch: z.object({ center: z.string().optional() }),
 });
 function KalakritiEntryEventsPage() {

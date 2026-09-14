@@ -68,6 +68,8 @@ Route loaders use `preloadRouteQuery` from `apps/web/src/lib/route-preload.ts`, 
 
 Router preloading uses intent (hover/focus) in development, production and E2E. Broad query results are intentional for instant local filtering and warm navigation; visible row count alone does not establish overfetching. Zero deduplicates overlapping rows, but every active query still has lifecycle and execution costs. Route preloads must not retain references indefinitely.
 
+Kalakriti Students and Entries preload their existing page queries on route intent. Students warms the directory, visible Centers and Edition metadata; Entries warms visible Entries and available divisions. Merely displaying their sidebar links does not request these datasets. Center-dependent form options still load from the mounted page, once its authorized Center selection is known.
+
 Kalakriti access guards deduplicate only concurrent browser requests by authenticated session, lookup kind and year. Settled results are not cached, and server rendering bypasses shared state. Server-side authentication and query permissions remain authoritative.
 
 ## Query Performance Verification

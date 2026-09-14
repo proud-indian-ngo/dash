@@ -5,6 +5,87 @@ import { expect, test, waitForZeroReady } from "../../fixtures/test";
 const YEAR = 2186;
 const EDITION_ID = "019f0000-0019-7000-8000-000000001901";
 
+test("intent hydrates Students and Entries before navigation", async ({
+  page,
+}) => {
+  await page.goto(`/kalakriti/${YEAR}`);
+  await waitForZeroReady(page);
+  const queryStates = () =>
+    page.evaluate(async () => {
+      const zero = (
+        window as typeof window & {
+          __zero: {
+            inspector: {
+              client: {
+                queries: () => Promise<
+                  {
+                    name: string;
+                    inactivatedAt: number | null;
+                  }[]
+                >;
+              };
+            };
+          };
+        }
+      ).__zero;
+      return (await zero.inspector.client.queries()).map((query) => ({
+        name: query.name,
+        inactive: query.inactivatedAt !== null,
+      }));
+    });
+  await expect(
+    page.getByRole("link", { name: "Entries", exact: true })
+  ).toBeVisible();
+  await page.waitForTimeout(500);
+  expect((await queryStates()).map((query) => query.name)).not.toContain(
+    "kalakritiEntry.visible"
+  );
+  expect((await queryStates()).map((query) => query.name)).not.toContain(
+    "kalakritiStudent.visibleForDirectory"
+  );
+
+  await page.getByRole("link", { name: "Entries", exact: true }).hover();
+  await expect
+    .poll(async () => {
+      const states = await queryStates();
+      return [
+        "kalakritiEntry.visible",
+        "kalakritiEntry.availableDivisions",
+      ].every((name) =>
+        states.some((query) => query.name === name && query.inactive)
+      );
+    })
+    .toBe(true);
+  await expect(page).toHaveURL(`/kalakriti/${YEAR}`);
+
+  await page.getByRole("link", { name: "Students", exact: true }).focus();
+  await expect
+    .poll(async () =>
+      (await queryStates()).some(
+        (query) =>
+          query.name === "kalakritiStudent.visibleForDirectory" &&
+          query.inactive
+      )
+    )
+    .toBe(true);
+  await expect(page).toHaveURL(`/kalakriti/${YEAR}`);
+  await page
+    .getByRole("link", { name: "Students", exact: true })
+    .press("Enter");
+  await expect(
+    page.getByRole("heading", { name: "Students", exact: true })
+  ).toBeVisible();
+  await expect
+    .poll(async () =>
+      (await queryStates()).some(
+        (query) =>
+          query.name === "kalakritiStudent.visibleForDirectory" &&
+          !query.inactive
+      )
+    )
+    .toBe(true);
+});
+
 function isEditionAccessRequest(request: Request) {
   if (request.method() !== "GET") return false;
   const url = new URL(request.url());
