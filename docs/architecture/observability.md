@@ -24,3 +24,5 @@ Client logger init: `apps/web/src/lib/client-logger.ts`. Errors shipped to `/api
 ## Mutation Results
 
 `handleMutationResult()` from `apps/web/src/lib/mutation-result.ts` handles Zero mutation server results — logs via evlog + shows toast on error. Never inline `if (res.type === "error") { toast.error(...) }`.
+
+The Nitro request middleware creates its evlog logger before awaiting the handler. evlog computes `durationMs` at emission from logger creation and overwrites a manually set value, so creating it after the handler incorrectly records near-zero durations. The middleware's duration covers successful handler execution; it excludes client/network time and response-body transfer. Health, log ingestion and asset paths retain their existing logging exclusions.
