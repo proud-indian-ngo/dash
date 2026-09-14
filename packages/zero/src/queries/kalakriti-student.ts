@@ -64,7 +64,15 @@ export const kalakritiStudentQueries = {
   ),
   visibleForEntries: defineQuery(
     z.object({ editionId: z.string() }),
-    ({ args, ctx }) => withStudentDetails(args, ctx)
+    ({ args, ctx }) =>
+      visibleStudentScope(args, ctx)
+        .related("operations", (operations) =>
+          operations
+            .where("editionId", args.editionId)
+            .where("type", "IN", KALAKRITI_CENTER_SCAN_STAGES)
+        )
+        .related("ageCategory")
+        .related("center")
   ),
   visibleByCenter: defineQuery(centerInput, ({ args, ctx }) =>
     visibleStudentScope(args, ctx).related("operations", (operations) =>

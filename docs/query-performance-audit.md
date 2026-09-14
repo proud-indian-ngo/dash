@@ -288,3 +288,19 @@ Admin `availableDivisionsByCenter` has the same AST and result shape as `availab
 Consumer inspection identified unused Entry memberships and derived-age-category relationships in the Student picker, and unused category/session/venue relationships in the breadcrumb-specific Division query. These remain candidates requiring measured comparisons; this milestone changes no product query.
 
 The corrected isolated run passed all 13 tests. Type, lint, unused-export and focused E2E TypeScript checks passed. One full unit run spun in Bun's native stack while importing the existing Food-route test; its standalone run passed, the process sample/log were retained, and the identified worker was stopped. A fresh full run passed all ten package tasks in 11.9 seconds. The native-runtime stall's root cause is not established.
+
+### Student registration picker projection
+
+`kalakritiStudent.visibleForEntries` now retains the full authorized Student root set, transport operations, age category and Center. The sole registration-page consumer does not read Entry memberships or the derived-age relationship; eligibility uses the separately loaded Entry query and the assigned age category. Directory and compliance projections retain their prior graphs, and the shared Student authorization predicates are unchanged.
+
+| Account | Analyzer median before → after ms | Reads before → after | Unique synced rows before → after |
+|---|---:|---:|---:|
+| Admin | 315.4 → 234.0 | 12,000 → 7,500 | 7,511 → 4,511 |
+| Guardian | 88.3 → 81.5 | 3,015 → 2,115 | 1,506 → 906 |
+| Liaison | 102.9 → 97.2 | 3,327 → 2,427 | 1,506 → 906 |
+
+The same fixture and three samples per scope preserve 1,500/300/300 Student roots and restricted Center boundaries. Admin analyzer time decreased about 26%; restricted timing differences are small and need repeat measurement before a strong latency claim. Read reductions were stable at 4,500/900/900. After-change server hydration was 162.1/195.5/209.9 ms and total hydration 2,481.9/531.8/538.2 ms respectively; no production latency improvement is inferred.
+
+The large benchmark and duplicate-submission regression passed (14 tests including setup; two role-specific tests skipped in the admin project). Type, lint, unit and unused-export checks passed.
+
+The separate volunteer-project run also passed the liaison group Entry create/edit/remove flow (13 tests including setup, two skipped). The existing individual-registration test is marked skipped in source and remains a verification gap; this change does not alter that skip.
