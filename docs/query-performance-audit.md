@@ -1,6 +1,6 @@
 # Query performance audit coverage
 
-Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 66 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
+Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 71 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
 
 Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/tests/performance/app.spec.ts`, with their JSON report attachments. Commands, fixture sizes, account scopes, timings and limitations are recorded in [E2E architecture](architecture/e2e-testing.md). SQLite reads, synced rows, server hydration and total hydration are separate measurements. Broad local caching is intentional; root scans and row counts alone do not establish waste.
 
@@ -13,7 +13,7 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 | `bankAccount` | `bankAccountsByCurrentUser` (admin/volunteer) | None |
 | `eventFeedback` | `byEvent` | None |
 | `eventImmichAlbum` | None | `byEvent` |
-| `eventInterest` | `allPending`, `byCurrentUser` | `managerByEvent`, `myByEvent` |
+| `eventInterest` | `allPending`, `byCurrentUser`, `managerByEvent`, `myByEvent` (admin) | None |
 | `eventPhoto` | `allPending`, `approvedByEvent`, `myPendingByEvent`, `pendingByEvent` | `byEvent` |
 | `eventUpdate` | `allPending`, `approvedByEvent`, `myPendingByEvent`, `pendingByEvent` | `byEvent` |
 | `expenseCategory` | `all` (admin/volunteer) | None |
@@ -33,8 +33,8 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 | `notificationPreference` | `byCurrentUser` (admin/volunteer), `byUser` (admin) | None |
 | `reimbursement` | `all`, `byId`, `byEvent` (admin/owner) | `byCurrentUser` |
 | `scheduledMessage` | `all` (admin) | `byId` (no mounted production consumer) |
-| `team` | `byCurrentUser` | `all`, `byId` |
-| `teamEvent` | `allAccessible`, `byCurrentUserAll`, `byId` | `byCurrentUser`, `byIdWithExpenses`, `byTeam`, `public` |
+| `team` | `byCurrentUser`, `all`, `byId` (admin) | None |
+| `teamEvent` | `allAccessible`, `byCurrentUserAll`, `byId`, `byTeam` (admin) | `byCurrentUser`, `byIdWithExpenses`, `public` |
 | `user` | `all`, `whatsappUsers` (admin) | `one` |
 | `vendor` | `all`, `approved`, `pendingByCurrentUser` (admin/volunteer) | `byId` (no production consumer) |
 | `vendorPayment` | `all`, `byId`, `byEvent` (admin/owner) | `byCurrentUser` |
@@ -584,3 +584,17 @@ Using the same fixture and Edition-admin Eligibility query, assignment scans fel
 This fixture primarily tests the empty category-authority branch of an Edition-admin query. A populated category-lead workload remains necessary for that permission scope. Migration `0090_lovely_domino.sql` adds the tested index while retaining existing indexes, constraints and query predicates.
 
 A second fresh-stack run applied migration 0090 with the experiment disabled. All three Eligibility plans used `kalakriti_assignment_category_responsibility_idx`, retained 15 reads / 4 synced rows, and recorded 8 assignment visits. Median analyzer time was 10.44 ms. All 13 browser tests passed without retries. Production deployment and effects remain unverified.
+
+## Team pages and event-interest baseline (2026-09-14)
+
+The admin benchmark now visits `/teams` and the synthetic team's detail page, verifying the team ID and all 600 event roots. The fixture has one synthetic team, 600 events, 601 event memberships and 600 interests; it does not model a large number of teams. Existing event-detail subscriptions also receive explicit own-interest and manager-interest analyses. Each returns one interest among the 600 fixture interests, not a large single-event queue.
+
+| Query | Median analyzer | Read / synced | Scans | Server hydration | Total hydration |
+| --- | --- | --- | --- | --- | --- |
+| `team.all` | 13.20 ms | 18 / 13 | 29 | 0.68 ms | 454.2 ms |
+| `team.byId` | 13.05 ms | 3 / 3 | 4 | 0.60 ms | 559.4 ms |
+| `teamEvent.byTeam` | 121.74 ms | 3,002 / 1,803 | 4,202 | 87.63 ms | 240.9 ms |
+| `eventInterest.myByEvent` | 12.44 ms | 4 / 2 | 4 | 1.62 ms | 1,539.9 ms |
+| `eventInterest.managerByEvent` | 11.90 ms | 2 / 2 | 3 | 0.17 ms | 1,539.8 ms |
+
+All 13 browser tests passed without retries. The team list check confirms the synthetic team is present; the detail check verifies its exact ID. Interest verification checks one root each and ownership for the own-interest result. These results do not justify query changes yet. Team history is the largest new query workload; event-detail total hydration cannot be attributed to its inexpensive interest queries from these measurements. Team-lead/member/denied scopes and high-volume single-event interest queues remain open coverage.

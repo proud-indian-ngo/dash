@@ -336,3 +336,5 @@ The overview benchmark profiles its mounted clone-source configuration for globa
 The Kalakriti benchmark explicitly profiles the Edition picker for global admin, Guardian, liaison and Edition admin, plus Eligibility for both admin scopes. Picker verification checks inclusion of the synthetic Edition; Eligibility checks its one age-category root. Three seeded Editions do not represent a long multi-year history.
 
 `CATEGORY_ASSIGNMENT_INDEX_EXPERIMENT=true` adds the disposable category/responsibility/ID assignment index for comparison on an older schema. The seed report records the flag. Migration 0090 supplies the canonical index, so leave this experiment disabled when validating current migrations. The original entry-member experiment now executes only once per seed invocation, inside the guarded seeder.
+
+The app benchmark visits the Team list and synthetic Team detail as admin, verifying the Team ID and all 600 event roots. It explicitly profiles event-detail own-interest and manager-interest subscriptions with one fixture interest each. This measures a large event history within one team, not many teams or a large single-event interest queue.

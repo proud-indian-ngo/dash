@@ -36,6 +36,7 @@ test("profile Dashboard, Events and financial queries at scale", async ({
       { env: process.env, timeout: 60_000 }
     );
   const fixture = JSON.parse((await seed()).stdout.trim()) as {
+    teamId: string;
     counts: Record<string, number>;
     eventExpenseCount: number;
     lookupCounts: { categories: number; groups: number };
@@ -290,6 +291,46 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     route: "personal-preferences",
     queries: await profilePreferences(page, fixture.accountIds.admin),
   });
+  await page.goto("/teams");
+  results.push({
+    route: "teams",
+    queries: await profileZeroQueries(page, { "team.all": 1 }, undefined, {
+      "team.all": {
+        table: "team",
+        rowFilter: { id: fixture.teamId },
+        count: 1,
+      },
+    }),
+  });
+  await page.goto(`/teams/${fixture.teamId}`);
+  results.push({
+    route: "team-detail",
+    queries: [
+      ...(await profileZeroQueries(
+        page,
+        { "team.byId": 1 },
+        { id: fixture.teamId },
+        {
+          "team.byId": {
+            table: "team",
+            count: 1,
+            ids: [fixture.teamId],
+          },
+        }
+      )),
+      ...(await profileZeroQueries(
+        page,
+        { "teamEvent.byTeam": fixture.counts.events! },
+        { teamId: fixture.teamId },
+        {
+          "teamEvent.byTeam": {
+            table: "team_event",
+            count: fixture.counts.events!,
+          },
+        }
+      )),
+    ],
+  });
   const eventDetailStart = performance.now();
   await page.goto(`/events/${fixture.sampleIds.publicEvent}`);
   results.push({
@@ -308,6 +349,8 @@ test("profile Dashboard, Events and financial queries at scale", async ({
           "eventPhoto.approvedByEvent": fixture.counts.photos! / 2,
           "eventPhoto.pendingByEvent": fixture.counts.photos! / 2,
           "eventFeedback.byEvent": fixture.counts.feedback!,
+          "eventInterest.myByEvent": 1,
+          "eventInterest.managerByEvent": 1,
         },
         { eventId: fixture.sampleIds.publicEvent },
         {
@@ -330,6 +373,15 @@ test("profile Dashboard, Events and financial queries at scale", async ({
           "eventFeedback.byEvent": {
             table: "event_feedback",
             count: fixture.counts.feedback!,
+          },
+          "eventInterest.myByEvent": {
+            table: "event_interest",
+            count: 1,
+            userId: fixture.accountIds.admin,
+          },
+          "eventInterest.managerByEvent": {
+            table: "event_interest",
+            count: 1,
           },
         }
       )),
