@@ -643,3 +643,18 @@ All 13 browser tests passed without retries. This query is inexpensive in the me
 An exact `queries.<group>.<variant>` consumer search across `apps/` and `packages/`, excluding definitions, analyzer registration and tests, found no direct production callers for the remaining 14 unmeasured variants: `advancePayment.byCurrentUser`, `eventPhoto.byEvent`, `eventUpdate.byEvent`, `kalakritiEntry.byId`, `reimbursement.byCurrentUser`, `scheduledMessage.byId`, `teamEvent.byCurrentUser`, `teamEvent.byIdWithExpenses`, `teamEvent.public`, `user.one`, `vendor.byId`, `vendorPayment.byCurrentUser`, `vendorPaymentTransaction.byId` and `vendorPaymentTransaction.byVendorPayment`. They remain registered APIs and are not claimed to be measured or optimized.
 
 The 74 measured variants cover the direct page consumers identified by this inventory, not all page states, roles or workloads. Remaining work includes populated category-lead and overall-events scopes, team-member/lead scopes, large single-event interest queues, realistic job history, and continued investigation of the expensive Edition-admin Entries/Food relationship graphs. Production and infrastructure measurements remain separate; HTTP latency investigation is paused at the user's request.
+
+## Populated category and overall-events scopes (2026-09-14)
+
+The fixture now has two categories with 15 Competitions each. Two previously unlinked volunteer memberships are assigned the seeded category-lead and overall-events accounts. Each actor has only its intended responsibility; their old Center/Competition assignments are reassigned to unlinked fixture memberships, preserving 600 total assignments and 300 liaison assignments. Readiness now includes 14 assignments from linked active volunteers. This changes the fixture, so earlier one-category timings are not a controlled before/after comparison.
+
+| Account / query | Median analyzer | Read / synced | Scans | Server hydration | Total hydration |
+| --- | --- | --- | --- | --- | --- |
+| Category lead / Eligibility | 13.23 ms | 67 / 11 | 101 | 151.32 ms | 684.7 ms |
+| Category lead / Entries | 1,143.64 ms | 42,788 / 6,060 | 53,587 | 1,042.19 ms | 1,900.6 ms |
+| Overall-events / Eligibility | 11.81 ms | 17 / 4 | 20 | 144.70 ms | 692.2 ms |
+| Overall-events / Entries | 1,705.43 ms | 54,746 / 9,107 | 73,045 | 1,456.61 ms | 2,481.6 ms |
+
+All 13 browser tests passed without retries after correcting the expected ID generator to the fixture's 100-Entry blocks per Division. The category lead's exact 1,500 Entry IDs match its assigned category; overall-events returns all 3,000 roots. Eligibility returns one age-category root for each role. Existing global-admin, Guardian, liaison and Edition-admin regression checks also pass on the expanded fixture.
+
+The category assignment index is now exercised with a populated category authority. Eligibility is not the expensive analyzer path here; the Entries relationship and authorization graph remains the main candidate. No product queries changed in this milestone.

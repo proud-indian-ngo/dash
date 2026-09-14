@@ -40,6 +40,8 @@ test("profile a large synthetic Kalakriti edition", async ({
   const fixture = JSON.parse(stdout.trim()) as {
     editionId: string;
     eventId: string;
+    categoryCount: number;
+    categoryEntryIds: string[];
     year: number;
     counts: Record<string, number>;
     scopedCounts: { students: number; entries: number };
@@ -100,7 +102,7 @@ test("profile a large synthetic Kalakriti edition", async ({
           ids: [fixture.editionId],
           relatedCounts: {
             kalakriti_age_category: 1,
-            kalakriti_competition_category: 1,
+            kalakriti_competition_category: fixture.categoryCount,
             kalakriti_competition: fixture.counts.competitions!,
             kalakriti_competition_division: fixture.counts.divisions!,
             kalakriti_venue: 1,
@@ -301,7 +303,7 @@ test("profile a large synthetic Kalakriti edition", async ({
     "kalakritiAssignment.roster": fixture.counts.memberships! / 2,
     "kalakritiCenter.visible": fixture.counts.centers!,
     "kalakritiStudent.visibleForCompliance": fixture.counts.students!,
-    "kalakritiCompetition.categories": 1,
+    "kalakritiCompetition.categories": fixture.categoryCount,
     "kalakritiCompetition.competitions": fixture.counts.competitions!,
     "kalakritiCompetition.sessions": fixture.counts.sessions!,
     "kalakritiCompetition.venues": 1,
@@ -317,13 +319,13 @@ test("profile a large synthetic Kalakriti edition", async ({
         relatedCounts: {
           kalakriti_center: fixture.counts.centers!,
           kalakriti_age_category: 1,
-          kalakriti_competition_category: 1,
+          kalakriti_competition_category: fixture.categoryCount,
           kalakriti_competition: fixture.counts.competitions!,
           kalakriti_competition_division: fixture.counts.divisions!,
           kalakriti_competition_session: fixture.counts.sessions!,
           kalakriti_venue: 1,
-          // Three volunteer memberships have linked users, with four assignments each.
-          kalakriti_assignment: 12,
+          // Three linked volunteers have four assignments; the two new leads have one each.
+          kalakriti_assignment: 14,
           kalakriti_transport_assignment: fixture.counts.transport!,
         },
       },
@@ -676,6 +678,54 @@ test("profile a large synthetic Kalakriti edition", async ({
           });
         }
       }
+    } finally {
+      await context.close();
+    }
+  }
+  for (const actor of ["categoryLead", "overallEventsLead"] as const) {
+    const context = await browser.newContext({
+      storageState: kalakritiActors[actor].storageState!,
+    });
+    try {
+      const target = await context.newPage();
+      await target.goto(`/kalakriti/${fixture.year}/competitions/catalog`);
+      scopedResults.push({
+        actor,
+        route: "catalog-eligibility",
+        queries: await profileZeroQueries(
+          target,
+          { "kalakritiEligibility.ageCategories": 1 },
+          { editionId: fixture.editionId },
+          {
+            "kalakritiEligibility.ageCategories": {
+              table: "kalakriti_age_category",
+              count: 1,
+            },
+          }
+        ),
+      });
+      await target.goto(`/kalakriti/${fixture.year}/entries`);
+      const entryCount =
+        actor === "categoryLead"
+          ? fixture.categoryEntryIds.length
+          : fixture.counts.entries!;
+      scopedResults.push({
+        actor,
+        route: "entries",
+        queries: await profileZeroQueries(
+          target,
+          { "kalakritiEntry.visible": entryCount },
+          { editionId: fixture.editionId },
+          {
+            "kalakritiEntry.visible": {
+              table: "kalakriti_competition_entry",
+              count: entryCount,
+              ids:
+                actor === "categoryLead" ? fixture.categoryEntryIds : undefined,
+            },
+          }
+        ),
+      });
     } finally {
       await context.close();
     }

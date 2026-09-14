@@ -110,6 +110,16 @@ export async function seedKalakritiPerformance() {
     .where(eq(user.email, KALAKRITI_ACTORS.volunteerCoordinator.email))
     .limit(1);
   const [owningTeam] = await db.select({ id: team.id }).from(team).limit(1);
+  const [categoryActor] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, KALAKRITI_ACTORS.categoryLead.email))
+    .limit(1);
+  const [eventsActor] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, KALAKRITI_ACTORS.overallEventsLead.email))
+    .limit(1);
   if (
     !(
       admin &&
@@ -117,6 +127,8 @@ export async function seedKalakritiPerformance() {
       liaisonActor &&
       editionAdminActor &&
       coordinatorActor &&
+      categoryActor &&
+      eventsActor &&
       owningTeam
     )
   ) {
@@ -136,6 +148,14 @@ export async function seedKalakritiPerformance() {
   const sessionId = (index: number) => id(7000 + index);
   const entryId = (index: number) => id(10_000 + index);
   const attendeeId = (index: number) => id(60_001 + index);
+  const linkedUsers = new Map([
+    [0, guardianActor.id],
+    [150, liaisonActor.id],
+    [151, editionAdminActor.id],
+    [152, coordinatorActor.id],
+    [153, categoryActor.id],
+    [154, eventsActor.id],
+  ]);
 
   await db.transaction(async (tx) => {
     await tx
@@ -195,13 +215,15 @@ export async function seedKalakritiPerformance() {
       .onConflictDoNothing({ target: kalakritiAgeCategory.id });
     await tx
       .insert(kalakritiCompetitionCategory)
-      .values({
-        ...scoped,
-        id: id(300),
-        name: "Performance Events",
-        normalizedName: "performance events",
-        sortOrder: 0,
-      })
+      .values(
+        Array.from({ length: 2 }, (_, index) => ({
+          ...scoped,
+          id: id(300 + index),
+          name: `Performance Events ${index + 1}`,
+          normalizedName: `performance events ${index + 1}`,
+          sortOrder: index,
+        }))
+      )
       .onConflictDoNothing({ target: kalakritiCompetitionCategory.id });
     await tx
       .insert(kalakritiVenue)
@@ -249,16 +271,7 @@ export async function seedKalakritiPerformance() {
           kind: index < 150 ? ("guardian" as const) : ("volunteer" as const),
           state: "active" as const,
           snapshotName: `Performance ${index < 150 ? "Guardian" : "Volunteer"} ${index + 1}`,
-          userId:
-            index === 0
-              ? guardianActor.id
-              : index === 150
-                ? liaisonActor.id
-                : index === 151
-                  ? editionAdminActor.id
-                  : index === 152
-                    ? coordinatorActor.id
-                    : null,
+          userId: linkedUsers.get(index) ?? null,
         }))
       )
       .onConflictDoNothing({ target: kalakritiEditionMembership.id });
@@ -282,7 +295,9 @@ export async function seedKalakritiPerformance() {
         Array.from({ length: counts.competitions }, (_, index) => ({
           ...scoped,
           id: competitionId(index),
-          competitionCategoryId: id(300),
+          competitionCategoryId: id(
+            300 + (index < counts.competitions / 2 ? 0 : 1)
+          ),
           name: `Performance Competition ${index + 1}`,
           normalizedName: `performance competition ${index + 1}`,
           genderEligibility: "both" as const,
@@ -327,6 +342,22 @@ export async function seedKalakritiPerformance() {
       .values(
         Array.from({ length: counts.assignments }, (_, index) => {
           const volunteer = Math.floor(index / 4);
+          if (index === 14 || index === 18) {
+            return {
+              ...scoped,
+              id: id(4000 + index),
+              membershipId: membershipId(150 + volunteer),
+              responsibility:
+                index === 14
+                  ? ("competition_category_lead" as const)
+                  : ("overall_events_lead" as const),
+              competitionCategoryId: index === 14 ? id(300) : null,
+            };
+          }
+          // Keep the new actors' scopes pure while retaining the fixture's row counts.
+          const assignmentMembershipId = membershipId(
+            volunteer === 3 ? 299 : volunteer === 4 ? 298 : 150 + volunteer
+          );
           if (index === 6 || index === 10) {
             return {
               ...scoped,
@@ -342,14 +373,14 @@ export async function seedKalakritiPerformance() {
             ? {
                 ...scoped,
                 id: id(4000 + index),
-                membershipId: membershipId(150 + volunteer),
+                membershipId: assignmentMembershipId,
                 responsibility: "liaison" as const,
                 centerId: centerId((volunteer + (index % 4)) % counts.centers),
               }
             : {
                 ...scoped,
                 id: id(4000 + index),
-                membershipId: membershipId(150 + volunteer),
+                membershipId: assignmentMembershipId,
                 responsibility: "competition_volunteer" as const,
                 competitionId: competitionId(
                   (volunteer + (index % 4)) % counts.competitions
@@ -571,6 +602,10 @@ export async function seedKalakritiPerformance() {
     editionId,
     eventId,
     year,
+    categoryCount: 2,
+    categoryEntryIds: Array.from({ length: counts.entries / 2 }, (_, index) =>
+      entryId(index)
+    ),
     counts: actualCounts,
     scopedCounts,
     scopedCenterIds: [centerId(0), centerId(1)],
