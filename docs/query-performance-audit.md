@@ -1,6 +1,6 @@
 # Query performance audit coverage
 
-Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 32 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
+Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 37 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
 
 Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/tests/performance/app.spec.ts`, with their JSON report attachments. Commands, fixture sizes, account scopes, timings and limitations are recorded in [E2E architecture](architecture/e2e-testing.md). SQLite reads, synced rows, server hydration and total hydration are separate measurements. Broad local caching is intentional; root scans and row counts alone do not establish waste.
 
@@ -13,9 +13,9 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 | `bankAccount` | None | `bankAccountsByCurrentUser` |
 | `eventFeedback` | `byEvent` | None |
 | `eventImmichAlbum` | None | `byEvent` |
-| `eventInterest` | None | `allPending`, `byCurrentUser`, `managerByEvent`, `myByEvent` |
-| `eventPhoto` | `approvedByEvent`, `myPendingByEvent`, `pendingByEvent` | `allPending`, `byEvent` |
-| `eventUpdate` | `approvedByEvent`, `myPendingByEvent`, `pendingByEvent` | `allPending`, `byEvent` |
+| `eventInterest` | `allPending`, `byCurrentUser` | `managerByEvent`, `myByEvent` |
+| `eventPhoto` | `allPending`, `approvedByEvent`, `myPendingByEvent`, `pendingByEvent` | `byEvent` |
+| `eventUpdate` | `allPending`, `approvedByEvent`, `myPendingByEvent`, `pendingByEvent` | `byEvent` |
 | `expenseCategory` | None | `all` |
 | `kalakritiAssignment` | `roster` | `myAccess` |
 | `kalakritiCenter` | `visible` | `guardianAssignments`, `liaisonAssignments` |
@@ -33,7 +33,7 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 | `notificationPreference` | None | `byCurrentUser`, `byUser` |
 | `reimbursement` | `all`, `byId` | `byCurrentUser`, `byEvent` |
 | `scheduledMessage` | None | `all`, `byId` |
-| `team` | None | `all`, `byCurrentUser`, `byId` |
+| `team` | `byCurrentUser` | `all`, `byId` |
 | `teamEvent` | `allAccessible`, `byCurrentUserAll`, `byId` | `byCurrentUser`, `byIdWithExpenses`, `byTeam`, `public` |
 | `user` | None | `all`, `one`, `whatsappUsers` |
 | `vendor` | `all` | `approved`, `byId`, `pendingByCurrentUser` |
@@ -66,3 +66,10 @@ The session page and registration picker now build an Entry-by-Student map once 
 Run `env -u ELECTRON_RUN_AS_NODE bun apps/web/scripts/profile-entry-eligibility.ts` to compare the full-list and indexed calculations. The synthetic workload has 3,000 Entries and profiles 150 and 1,500 Students, discarding one warmup and reporting five samples. Index construction is included. Local Bun medians were about 7.9 ms versus 0.4 ms for 150 Students, and 59 ms versus 0.6 ms for 1,500 Students. Every option remains eligible in this benchmark; separate unit cases verify age/gender exclusions, existing registration, group editing, limits, overlapping sessions and duplicate member handling. These are CPU measurements, not browser rendering or network timings.
 
 Verification: 16 focused eligibility tests and the full unit/type/lint/unused checks pass; 24 browser checks pass with four role-inapplicable skips. React Doctor reports existing branch route-ordering and component issues, including complexity in the edited session page; it does not establish an eligibility regression.
+
+
+## Dashboard review and server-read follow-up
+
+Dashboard coverage now includes current-user Teams and interests plus pending interests, updates and photos. Current-user interest analysis for an account with `events.view_all` initially read 2,400 rows for 600 interests and 1,200 unique synced rows. Skipping the redundant Event-existence authorization predicate for that permission reduced reads to 1,200 and median analyzer time from 84 ms to 42 ms. The non-null Event foreign key guarantees existence; the owner filter and related Event remain, and restricted accounts still use the original Event access predicate.
+
+The next server-read workloads are global Audit Log (page/count plus distinct-action/type facets), Kalakriti Audit (snapshot-scoped page/count with domain and category filtering), and Jobs (list/count plus queue stats). Current audit seeds have only one row each, so existing checks are not scale evidence. Use isolated populated fixtures and authenticated HTTP timings plus PostgreSQL plans; the Jobs schema must first be initialized by the local Nitro worker. No index change is justified by source inspection alone.

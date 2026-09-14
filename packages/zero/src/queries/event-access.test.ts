@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
+import { eventInterestQueries } from "./event-interest";
 import { eventImmichAlbumQueries, eventPhotoQueries } from "./event-photo";
 import { eventUpdateQueries } from "./event-update";
 import { teamEventQueries } from "./team-event";
@@ -15,6 +16,24 @@ function queryAst(query: unknown): string {
 }
 
 describe("generic event query access", () => {
+  it("keeps interest ownership and restricted Event authorization", () => {
+    for (const permissions of [["events.view_all"], ["events.view_own"], []]) {
+      const ast = queryAst(
+        eventInterestQueries.byCurrentUser.fn({
+          args: undefined,
+          ctx: { userId: "reader", role: "volunteer", permissions },
+        })
+      );
+      expect(ast).toContain('"name":"userId"');
+      expect(ast).toContain('"value":"reader"');
+      expect(ast).toContain('"alias":"event"');
+      if (permissions.includes("events.view_own"))
+        expect(ast).toContain('"name":"isPublic"');
+      if (permissions.length === 0)
+        expect(ast).toContain('"value":"00000000-0000-0000-0000-000000000000"');
+    }
+  });
+
   it("denies external-only users from public event queries", () => {
     const query = teamEventQueries.allAccessible.fn({
       args: undefined,

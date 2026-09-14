@@ -56,6 +56,11 @@ test("profile Dashboard, Events and financial queries at scale", async ({
         ...financial,
         "teamEvent.allAccessible": fixture.counts.events!,
         "teamEvent.byCurrentUserAll": fixture.counts.events!,
+        "team.byCurrentUser": fixture.counts.teams!,
+        "eventInterest.byCurrentUser": fixture.counts.interests!,
+        "eventInterest.allPending": fixture.counts.interests!,
+        "eventUpdate.allPending": fixture.counts.updates! / 2,
+        "eventPhoto.allPending": fixture.counts.photos! / 2,
       },
     ],
     ["/events", { "teamEvent.allAccessible": fixture.counts.events! }],
@@ -76,7 +81,19 @@ test("profile Dashboard, Events and financial queries at scale", async ({
   for (const [route, queries] of routes) {
     const start = performance.now();
     await page.goto(route);
-    const analyses = await profileZeroQueries(page, queries);
+    const analyses = await profileZeroQueries(
+      page,
+      queries,
+      undefined,
+      route === "/"
+        ? {
+            "eventInterest.byCurrentUser": {
+              table: "event_interest",
+              count: fixture.counts.interests!,
+            },
+          }
+        : undefined
+    );
     results.push({
       route,
       navigationAndAnalysisMs: performance.now() - start,

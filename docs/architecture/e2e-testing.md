@@ -261,3 +261,10 @@ Local medians (2026-09-14, three analyzer samples):
 | Aggregate feedback | 14 ms | Subscription absent | 200 / 200 | No query |
 
 These queries do not show a local hydration bottleneck at this scale. Rich-text rendering is exercised but not separately timed. The participant's own-feedback HTTP latency, external media, recurrence exceptions, deep expenses and lead-specific authorization still need separate measurements. The corrected benchmark passes all 13 checks, including authentication setup; root and focused TypeScript, unit, lint and unused-export checks pass. React Doctor retains branch-wide route/component diagnostics.
+
+
+## Dashboard review profiles
+
+With the expanded Event fixture, admin Dashboard medians were 13 ms for `team.byCurrentUser` (22 reads / 13 synced), 52 ms for `eventInterest.allPending` (1,803 / 1,204), and 20–21 ms for pending update/photo queries (approximately 300 reads / 100 synced). Team cardinality is small here, so this does not establish its scaling behavior.
+
+`eventInterest.byCurrentUser` initially took 84 ms with 2,400 reads / 1,200 synced rows. Its existing user index was used, but a redundant Event-existence predicate caused repeated Event lookups for globally authorized readers. Removing that predicate only for `events.view_all` reduced the median to 42 ms and reads to 1,200, with exactly 600 owned interests and the same synced rows. Restricted Event access and ownership filters are unchanged. These are local analyzer timings, not production navigation measurements. The comparison/regression run passed 15 checks; ten existing cases skipped and are not completion evidence. Focused and full unit/type/lint/unused checks passed.
