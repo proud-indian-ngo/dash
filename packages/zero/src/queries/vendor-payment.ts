@@ -39,15 +39,17 @@ export const vendorPaymentQueries = {
   ),
   byEvent: defineQuery(
     z.object({ eventId: z.string() }),
-    ({ args: { eventId }, ctx }) =>
-      ctx !== null && can(ctx, "requests.view_all")
-        ? withRelated(zql.vendorPayment)
-            .where("eventId", eventId)
-            .orderBy("createdAt", "desc")
-        : withRelated(zql.vendorPayment)
-            .where("eventId", eventId)
-            .where("userId", ctx?.userId)
-            .orderBy("createdAt", "desc")
+    ({ args: { eventId }, ctx }) => {
+      const query = zql.vendorPayment
+        .where("eventId", eventId)
+        .related("lineItems")
+        .related("user")
+        .related("vendor")
+        .orderBy("createdAt", "desc");
+      return ctx !== null && can(ctx, "requests.view_all")
+        ? query
+        : query.where("userId", ctx?.userId);
+    }
   ),
   byId: defineQuery(
     z.object({

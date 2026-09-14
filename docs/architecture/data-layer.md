@@ -106,3 +106,6 @@ Route navs use View Transitions API (`defaultViewTransition: true` in `apps/web/
 
 
 The notification history index in migration 0088 follows `(user_id, archived, created_at DESC, id ASC)`. It supports the inbox/badge query's owner filter, active-only predicate and newest-50 ordering without changing the query or its cached results. The 10,000-row experiment reduced scans from 7,500 to 50; total hydration did not consistently improve. Existing indexes remain in place.
+
+
+Event expense queries (`reimbursement.byEvent` and `vendorPayment.byEvent`) use a summary projection: line items and submitter, plus vendor for Vendor Payments. Event metrics and the Expenses tab share these queries. They retain Event and owner filters but omit unused detail relationships; full financial list and detail queries remain broader.

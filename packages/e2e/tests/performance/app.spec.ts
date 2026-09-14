@@ -308,6 +308,22 @@ test("profile Dashboard, Events and financial queries at scale", async ({
       }
     ),
   });
+  const expensePanel = page.getByRole("tabpanel", { name: "Expenses" });
+  await expect(
+    expensePanel.getByText("₹2,40,000.00", { exact: true })
+  ).toBeVisible();
+  await expect(
+    expensePanel
+      .getByRole("link")
+      .filter({ hasText: "Synthetic reimbursement 1" })
+      .first()
+  ).toBeVisible();
+  await expect(
+    expensePanel
+      .getByRole("link")
+      .filter({ hasText: "Synthetic performance vendor 1" })
+      .first()
+  ).toBeVisible();
   await page.goto(`/reimbursements/${fixture.sampleIds.ownAdvance}`);
   results.push({
     route: "advance-detail",

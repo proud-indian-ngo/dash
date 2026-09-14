@@ -402,3 +402,17 @@ The app fixture places 200 Reimbursements and 200 Vendor Payments on its public 
 | Vendor Payment / owner | 53.86 | 1,400 / 854 | 2,300 | 34.83 | 302.6 |
 
 The benchmark verifies 200 roots per query for admin, 100 for volunteer, and exact volunteer ownership. All 13 tests passed without retries. Both consumers use line-item amounts; the expense list also needs submitter/vendor names. Attachments, history and transaction details are candidates for removing from these Event-specific projections, while full list/detail queries retain them. No query change is included in this baseline.
+
+
+## Event expense projection improvement (2026-09-14)
+
+Event-specific Reimbursement queries now include line items and submitter; Vendor Payments additionally include vendor names. Neither Event consumer uses attachments, history, categories, linked Event records or transaction details. Full financial list/detail queries keep their existing relationships. Event filtering, permission-dependent ownership and root ordering remain unchanged.
+
+| Query / scope | Analyzer median before → after ms | Reads before → after | Synced before → after | Server hydration after ms | Total hydration after ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Reimbursement / admin | 67.78 → 34.83 | 1,800 → 800 | 1,007 → 602 | 14.20 | 1,218.2 |
+| Vendor Payment / admin | 107.89 → 37.49 | 2,800 → 1,000 | 1,707 → 702 | 19.13 | 1,215.6 |
+| Reimbursement / owner | 31.23 → 20.21 | 900 → 400 | 504 → 301 | 7.22 | 239.5 |
+| Vendor Payment / owner | 53.86 → 25.39 | 1,400 → 500 | 854 → 351 | 11.48 | 238.0 |
+
+All 13 browser tests passed with unchanged 200/100 roots, exact owner checks, the displayed ₹2,40,000.00 total, and reimbursement/vendor labels. Focused query tests preserve permission-dependent ownership and full detail relationships. Local results establish reduced query work; production and HTTP latency remain unverified.
