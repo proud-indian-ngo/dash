@@ -71,6 +71,12 @@ export async function seedAppPerformance() {
   const { eventFeedback } = await import("@pi-dash/db/schema/event-feedback");
   const { eventPhoto } = await import("@pi-dash/db/schema/event-photo");
   const { notification } = await import("@pi-dash/db/schema/notification");
+  const notificationIndexExperiment =
+    process.env.NOTIFICATION_INDEX_EXPERIMENT === "true";
+  if (notificationIndexExperiment) {
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS notification_perf_history_idx
+      ON notification (user_id, archived, created_at DESC, id ASC)`);
+  }
   const { expenseCategory } =
     await import("@pi-dash/db/schema/expense-category");
   const { reimbursement, reimbursementHistory, reimbursementLineItem } =
@@ -576,6 +582,7 @@ export async function seedAppPerformance() {
   return {
     teamId: id(1),
     counts: actualCounts,
+    notificationIndexExperiment,
     restrictedCounts,
     notificationIds: {
       admin: Array.from(

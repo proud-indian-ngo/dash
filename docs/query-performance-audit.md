@@ -320,3 +320,11 @@ Both accounts read and sync 50 rows, but scan 7,500 rows per analysis. SQLite us
 The next candidate is a local experiment with an index matching user, archive filter and ordered creation time (including the query's ID tie-breaker). No schema migration or product change is included in this baseline. The globally mounted inbox and badge share this query. Notification preferences and bulk mark-as-read costs remain unmeasured.
 
 The isolated app benchmark passed all 13 tests, including exact result sets for both users and repeatable seeding. Repository type, lint, unit and unused-export checks and focused E2E TypeScript validation passed.
+
+### Notification ordered-index experiment
+
+Run the app benchmark with `NOTIFICATION_INDEX_EXPERIMENT=true` in addition to `APP_PERFORMANCE=true`. After enforcing the local `pi-dash-test` guard, the seed creates a disposable `notification_perf_history_idx` on `(user_id, archived, created_at DESC, id ASC)`. The report records whether the experiment is enabled, and stack teardown removes the database/index. This is not a production schema migration.
+
+On the same 10,000-row fixture, both accounts' scans decreased from 7,500 to 50 per analysis and the temporary ORDER BY B-tree disappeared. Read/synced counts stayed at 50, and exact expected ID sets passed. Three-sample analyzer medians changed from 14.3 to 12.3 ms for admin and 13.3 to 11.1 ms for volunteer. Server hydration was 1.2/3.5 ms, while total hydration was 217.4/351.4 ms; total hydration did not consistently improve. The benefit established here is bounded scan work and removal of sorting, with a small local analyzer difference.
+
+All 13 benchmark tests passed. A permanent index would add write/storage overhead and requires migration approval. The candidate does not change the query, ownership rules, newest-50 limit or existing indexes.
