@@ -49,7 +49,7 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 - Center transport covers admin, Guardian and liaison; Scan covers admin and liaison. Live mutations, camera processing and finalized scan-stage history are outside those measurements.
 - Dashboard PostgreSQL aggregate execution is measured for four supplied scopes. Authentication and scope resolution are excluded from those timings; supplying a scope directly is not an authorization test.
 - Analytics reuses the measured financial queries, but its client aggregation and chart rendering have not been profiled. Query reuse does not prove page performance.
-- Jobs, global Audit Log and Kalakriti Audit use server/HTTP reads and need populated workloads, database plans and end-to-end timings. They are not represented by the Zero registry table.
+- Global Audit Log has the populated PostgreSQL/HTTP baseline below. Jobs and Kalakriti Audit still need populated workloads and plans. These server reads are not represented by the Zero registry table.
 - Production disk latency, CPU contention and CVR behavior remain a separate investigation. The September 14 PostgreSQL snapshot below found no replication byte lag during its short sample; it does not establish sustained health. Local benchmarks cannot establish production health.
 
 ## Proven changes and current priority
@@ -93,3 +93,21 @@ The database was approximately 105 MiB. Zero's CVR `rows` table accounted for ap
 The tool also reported unindexed foreign keys and overlapping indexes. These are heuristic candidates, not an approved migration list. Missing foreign-key indexes can affect parent updates/deletes without explaining page reads; overlapping-index reports can list one index against several wider indexes. The integer primary key warning concerned Drizzle's migration ledger and does not explain the current performance symptoms.
 
 The next production evidence should combine a representative navigation window with statement statistics and I/O timing. Enabling `pg_stat_statements` requires adding it to `shared_preload_libraries`, restarting PostgreSQL and creating the extension in the database; I/O timings require `track_io_timing`. These changes have not been authorized or applied. See the [PostgreSQL 18 documentation](https://www.postgresql.org/docs/18/pgstatstatements.html). PostgreSQL measurements cover upstream and CVR work; Zero's SQLite hydration plans still require its analyzer, and replica storage/CPU measurements remain outstanding.
+
+
+## Global Audit Log baseline
+
+`AUDIT_PERFORMANCE=true` enables the isolated Audit Log benchmark. It inserts 50,000 deterministic synthetic rows idempotently, runs `ANALYZE`, and profiles the exact production Drizzle builders. The API continues to execute page, count and two facet queries concurrently with unchanged authentication and filters. The report retains plan nodes, row/block counts and timings but omits filter values and record contents. Three sequential SQL samples per query and three authenticated HTTP samples per scenario are separate measurements; their timings must not be added or compared as concurrent request components.
+
+| Scenario | Page SQL median | Count SQL median | HTTP median |
+|---|---:|---:|---:|
+| Default, first 20 | 13.6 ms | 7.3 ms | 18.6 ms |
+| Offset 40,000 | 29.5 ms | 12.5 ms | 19.5 ms |
+| Action equality | 3.2 ms | 1.5 ms | 13.1 ms |
+| One-day range | 0.4 ms | 0.4 ms | 13.3 ms |
+| Substring search | 163.9 ms | 172.9 ms | 151.0 ms |
+| Type/outcome/date combination | 5.2 ms | 3.4 ms | 13.2 ms |
+
+Search matched 11 rows but filtered all 50,001 rows separately for the page and count. Deep pagination performed an external merge sort with approximately 8.3 MiB of sort space. Distinct-action and distinct-type facets each scanned the full table even on narrowly filtered requests. These are measured candidates for further experiments, not deployed fixes. The fixture is larger than the approximately 3,139 estimated production audit rows seen in the PostgreSQL snapshot, and its uniform synthetic distribution is not a forecast of production latency.
+
+Verification: 13 E2E checks passed (12 authentication setup checks plus the benchmark). The benchmark checks six response totals and page lengths, facet presence, repeat-seed totals and a volunteer's HTTP 403. It does not measure browser rendering or exercise every authorization role.

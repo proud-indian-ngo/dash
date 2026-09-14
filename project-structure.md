@@ -645,3 +645,5 @@ docker volume rm pi-dash_pi-dash_postgres_migration_data
 | `NEW_R2_*` | no | New R2 credentials + `NEW_R2_KEY_PREFIX` |
 
 When R2 vars are omitted, file records are created with old object keys but no files are copied. The script is safe to re-run — it purges existing data first.
+
+- **Audit Log scale benchmark**: `packages/e2e/tests/performance/audit.spec.ts` runs `helpers/profile-audit-performance.ts` with `AUDIT_PERFORMANCE=true`. It seeds 50,000 local-only audit rows, profiles the production builders in `apps/web/src/lib/server/audit-log.ts`, and attaches sanitized PostgreSQL plans and authenticated HTTP timings.

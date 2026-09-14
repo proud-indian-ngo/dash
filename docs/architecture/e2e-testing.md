@@ -268,3 +268,10 @@ These queries do not show a local hydration bottleneck at this scale. Rich-text 
 With the expanded Event fixture, admin Dashboard medians were 13 ms for `team.byCurrentUser` (22 reads / 13 synced), 52 ms for `eventInterest.allPending` (1,803 / 1,204), and 20–21 ms for pending update/photo queries (approximately 300 reads / 100 synced). Team cardinality is small here, so this does not establish its scaling behavior.
 
 `eventInterest.byCurrentUser` initially took 84 ms with 2,400 reads / 1,200 synced rows. Its existing user index was used, but a redundant Event-existence predicate caused repeated Event lookups for globally authorized readers. Removing that predicate only for `events.view_all` reduced the median to 42 ms and reads to 1,200, with exactly 600 owned interests and the same synced rows. Restricted Event access and ownership filters are unchanged. These are local analyzer timings, not production navigation measurements. The comparison/regression run passed 15 checks; ten existing cases skipped and are not completion evidence. Focused and full unit/type/lint/unused checks passed.
+
+
+## Audit Log performance benchmark
+
+Run `env -u ELECTRON_RUN_AS_NODE AUDIT_PERFORMANCE=true E2E_STACK_INDEX=2 PLAYWRIGHT_HTML_OPEN=never bash packages/e2e/run-e2e.sh tests/performance/audit.spec.ts --project=super_admin --workers=1 --retries=0`.
+
+The helper refuses any database except loopback `pi-dash-test` before importing the database client. It seeds 50,000 synthetic audit rows, analyzes table statistics and profiles production query builders with `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)`. The spec repeats the helper to check idempotent counts, measures authenticated HTTP reads for six filter/pagination cases, and checks volunteer denial. `audit-performance.json` is attached to the Playwright report with sanitized plans and separate SQL/HTTP timings. The baseline and its limits are in `docs/query-performance-audit.md`; this is opt-in and does not seed production or the regular development database.
