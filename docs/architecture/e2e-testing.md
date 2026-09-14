@@ -339,6 +339,8 @@ The Kalakriti benchmark explicitly profiles the Edition picker for global admin,
 
 `OPERATION_INDEX_EXPERIMENT=true` adds a disposable Student/Edition/type/ID operation index inside the guarded local fixture. The report records the flag. Migration 0091 supplies the canonical index; leave the experiment disabled when validating migrations.
 
+`ENTRY_ORDERING_INDEX_EXPERIMENT=true` adds two disposable indexes: Entries by Edition/descending creation time/ID and members by Entry/Edition/ID. Migration 0092 supplies only the first. The second remains an experiment: the current individual-entry fixture does not model group-member sorting cost. Leave the flag disabled when validating migrations.
+
 The app benchmark visits the Team list and synthetic Team detail as admin, verifying the Team ID and all 600 event roots. It explicitly profiles event-detail own-interest and manager-interest subscriptions with one fixture interest each. This measures a large event history within one team, not many teams or a large single-event interest queue.
 
 The app benchmark also opens the synthetic Team as a non-member volunteer. It verifies the denied Team result is empty and no `teamEvent.byTeam` query is registered. The earlier baseline verified exactly 300 public event IDs in the unused preload; that preload is now removed. Three fresh browser contexts measure authorized Team rendering and warm returns, waiting for the complete pending-interest count before recording elapsed time.

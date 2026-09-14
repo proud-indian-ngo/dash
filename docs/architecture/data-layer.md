@@ -102,6 +102,8 @@ Migration `0090_lovely_domino.sql` adds `(competition_category_id, responsibilit
 
 Migration `0091_sudden_sally_floyd.sql` adds `(student_id, edition_id, type, id)` on operations. Entries' per-Student operation expansion can filter by Edition/type and return ID order without a temporary sort. The six measured Entries scopes scan 80% fewer operation rows with unchanged read/synced counts; analyzer timings were essentially unchanged. Existing operation indexes remain in place.
 
+Migration `0092_tearful_multiple_man.sql` adds `(edition_id, created_at DESC, id ASC)` on Entries to serve the Edition filter and newest-first ordering without a full-list temporary sort. It preserves existing Center and Division access paths. A separate entry-leading member index remains experimental because the fixture has only one member per Entry.
+
 ## Connection Errors
 
 Global monitor: `ZeroConnectionMonitor` in `apps/web/src/routes/_app.tsx` via `useConnectionState()`. Individual queries = no error handling. On `error`: debounced toast. On `needs-auth` (401/403): redirect `/login` with current path.

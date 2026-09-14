@@ -692,3 +692,24 @@ All 13 browser tests passed without retries. Plans use the composite index witho
 Migration `0091_sudden_sally_floyd.sql` adds the non-partial `(student_id, edition_id, type, id)` index and retains existing indexes. Query graphs, permissions and cache behavior are unchanged. The additional index consumes storage and adds write maintenance; this fixture establishes reduced read work, not production page latency or operation-write throughput.
 
 The fresh-database migration run passed all 13 browser tests without retries with `operationIndexExperiment: false`. All six Entries scopes selected the canonical migration index and reproduced the candidate's operation scan and read/synced counts. Repository type, lint, unit and unused-export checks, plus the focused benchmark TypeScript check, passed.
+
+## Entries ordering indexes experiment (2026-09-14)
+
+After migration 0091, the full Entries query still sorts the Edition's 3,000 roots and each Entry's members in temporary B-trees. A combined experiment added `(edition_id, created_at DESC, id)` on Entries and `(entry_id, edition_id, id)` on members. All 13 browser tests passed without retries, and both plans selected their corresponding indexes without temporary sorts.
+
+| Account | Median analyzer before → combined candidate | Entry scans before → candidate | Member scans before → candidate |
+| --- | --- | --- | --- |
+| Global admin | 1,246.39 → 1,211.47 ms | 6,000 → 3,000 | 6,000 → 3,000 |
+| Guardian | 370.81 → 365.05 ms | 6,000 → 3,000 | 1,200 → 600 |
+| Liaison | 366.07 → 340.34 ms | 6,000 → 3,000 | 1,200 → 600 |
+| Edition admin | 1,823.52 → 1,839.07 ms | 6,000 → 3,000 | 6,000 → 3,000 |
+| Category lead | 1,132.24 → 1,137.64 ms | 6,000 → 3,000 | 3,000 → 1,500 |
+| Overall-events lead | 1,695.71 → 1,712.33 ms | 6,000 → 3,000 | 6,000 → 3,000 |
+
+Read and synced counts stayed unchanged in all six scopes. Timings were mixed and cannot be attributed independently to either index. The scan reductions include eliminating temporary-sort work, not reducing the authorized dataset.
+
+Accept only the Edition ordering index as migration `0092_tearful_multiple_man.sql`: it avoids sorting the full root list and matches the page's existing order. Defer the member index because this fixture has one member per Entry; it does not establish a costly group-member sort. Existing indexes and query graphs remain unchanged, and the accepted index adds storage/write maintenance. This is a plan improvement, not a demonstrated production latency fix.
+
+The fresh-database run passed all 13 browser tests without retries with `entryOrderingIndexExperiment: false`. All six Entries scopes used the canonical index and reported 3,000 Entry scans instead of 6,000, with unchanged read/synced counts. Member plans retained their original index and temporary sort, confirming the two candidates were separated in the final migration. Repository type, lint, unit and unused-export checks and focused benchmark TypeScript validation passed.
+
+The next workload gap is a non-global Team lead reviewing a large interest queue for one Event. Current app data spreads 600 interests over 600 Events, leaving the lead authorization branch and large review-list rendering insufficiently measured. Preserve the existing denied-Team regression while adding this separate workload.

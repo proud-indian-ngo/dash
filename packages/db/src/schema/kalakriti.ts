@@ -958,6 +958,11 @@ export const kalakritiCompetitionEntry = pgTable(
       table.editionId,
       table.centerId
     ),
+    index("kalakriti_competition_entry_edition_created_id_idx").on(
+      table.editionId,
+      table.createdAt.desc(),
+      table.id.asc()
+    ),
     index("kalakriti_competition_entry_divisionId_idx").on(table.divisionId),
     foreignKey({
       columns: [table.editionId, table.centerId],

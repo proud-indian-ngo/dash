@@ -1,0 +1,1 @@
+CREATE INDEX "kalakriti_competition_entry_edition_created_id_idx" ON "kalakriti_competition_entry" USING btree ("edition_id","created_at" DESC NULLS LAST,"id");
