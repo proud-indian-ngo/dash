@@ -16,6 +16,7 @@
   "workspaces": {
     ".": {},
     "apps/web": {
+      "entry": ["scripts/profile-entry-eligibility.ts"],
       "ignoreFiles": ["src/entry-server.ts", "server/**", "src/stubs/**"]
     },
     "packages/db": {

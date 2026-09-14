@@ -32,7 +32,10 @@ import { useTransportStatusSnapshot } from "@/components/kalakriti/use-transport
 import { Loader } from "@/components/loader";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
-import { getEntryStudentOptionEligibility } from "@/lib/kalakriti-entry-policy";
+import {
+  getEntryStudentOptionEligibility,
+  indexEntriesByStudent,
+} from "@/lib/kalakriti-entry-policy";
 export const Route = createFileRoute("/_app/kalakriti/$year/entries/$id")({
   component: KalakritiSessionEntriesPage,
   validateSearch: z.object({ center: z.string().optional() }),
@@ -106,6 +109,7 @@ function KalakritiSessionEntriesPage() {
     completeSessions
   );
   const writableCenters = selectWritableEntryCenters(centers, access);
+  const entriesByStudent = indexEntriesByStudent(completeEntries);
   const registrationCenters = writableCenters.filter(
     (center) =>
       center.competitionEntryRegistrationEnabled &&
@@ -114,7 +118,7 @@ function KalakritiSessionEntriesPage() {
           student.centerId === center.id &&
           session &&
           getEntryStudentOptionEligibility({
-            entries: completeEntries,
+            entries: entriesByStudent.get(student.id) ?? [],
             session,
             student,
           }).status !== "hidden"
