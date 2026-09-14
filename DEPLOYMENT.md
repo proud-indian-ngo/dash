@@ -186,6 +186,8 @@ SHOW shared_preload_libraries;
 SELECT count(*) FROM pg_stat_statements;
 ```
 
+The production Compose command also sets `track_io_timing=on` to collect disk read/write timings for subsequent queries. Verify it with `SHOW track_io_timing;`.
+
 The extension exposes collected PostgreSQL statement statistics; it does not measure Zero's SQLite query execution. See the [PostgreSQL documentation](https://www.postgresql.org/docs/18/pgstatstatements.html).
 
 ### 2. Generate Drizzle types and apply schema
