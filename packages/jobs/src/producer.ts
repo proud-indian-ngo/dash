@@ -2,6 +2,7 @@ import { createRequestLogger } from "evlog";
 import { PgBoss } from "pg-boss";
 
 import { getBossInstance, setBossInstance } from "./boss-instance";
+import { getJobDatabaseUrl } from "./database-url";
 
 /** CLI queue access without starting handlers, schedules, or schema migrations. */
 export async function startJobProducer(databaseUrl: string) {
@@ -10,7 +11,7 @@ export async function startJobProducer(databaseUrl: string) {
   }
   const boss = new PgBoss({
     application_name: "pi-dash-job-producer",
-    connectionString: databaseUrl,
+    connectionString: getJobDatabaseUrl(databaseUrl),
     max: 1,
     migrate: false,
     schedule: false,

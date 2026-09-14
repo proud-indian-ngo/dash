@@ -38,7 +38,8 @@ describe("standalone job producer", () => {
     const producer = await startJobProducer("postgres://localhost/test");
     expect(constructors).toHaveBeenCalledWith(
       expect.objectContaining({
-        connectionString: "postgres://localhost/test",
+        connectionString:
+          "postgres://localhost/test?options=-c+event_triggers%3Doff",
         migrate: false,
         schedule: false,
         supervise: false,

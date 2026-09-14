@@ -6,7 +6,7 @@
 |---|---|
 | Bun | `>=1.3.11` (see `packageManager` in `package.json`) |
 | Node.js | `>=20` (for zero-cache and build tools) |
-| PostgreSQL | `>=14` with `wal_level=logical` |
+| PostgreSQL | `>=17` with `wal_level=logical`; Compose and production use 18 |
 | Docker | For local Postgres and WhatsApp gateway |
 
 External services (optional based on features):
@@ -288,3 +288,8 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on push:
 - `bun run test:unit` — Vitest unit tests
 
 Pre-commit hook (lefthook) runs type check, linting, unit tests, and unused-exports check in parallel.
+
+
+### pg-boss and Zero event triggers
+
+The application disables PostgreSQL event triggers only on its dedicated pg-boss worker/producer connections to permit concurrent maintenance of the unsynced `pgboss` schema. This requires PostgreSQL 17+ and superuser or suitable SET privilege for `event_triggers`. Do not disable event triggers in `DATABASE_URL`, `ZERO_UPSTREAM_DB`, at role/database level or globally: application schema changes must still reach Zero. The normal deployment recreates job connections; no database restart is required. See `docs/architecture/jobs.md` for the reproduced failure and validation.
