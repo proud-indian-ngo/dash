@@ -55,7 +55,10 @@ test("profile populated Audit Log SQL and authenticated reads", async ({
       samples.push(performance.now() - start);
       expect(body.total).toBe(scenario.total);
       expect(body.entries).toHaveLength(
-        Math.min(20, scenario.total - Number(scenario.params.offset ?? 0))
+        Math.max(
+          0,
+          Math.min(20, scenario.total - Number(scenario.params.offset ?? 0))
+        )
       );
       expect(body.facets.actions).toContain("benchmark.action.0");
       expect(body.facets.targetTypes).toContain("benchmark-type-0");

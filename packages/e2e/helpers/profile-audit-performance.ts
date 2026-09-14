@@ -64,6 +64,21 @@ const cases = [
   },
   { name: "search", params: { search: "benchmark-target-1234" }, total: 11 },
   {
+    name: "search-broad",
+    params: { search: "Benchmark actor" },
+    total: 50_000,
+  },
+  {
+    name: "search-empty",
+    params: { search: "benchmark-no-matches" },
+    total: 0,
+  },
+  {
+    name: "search-past-end",
+    params: { search: "benchmark-target-1234", offset: 20 },
+    total: 11,
+  },
+  {
     name: "combined",
     params: {
       targetType: "benchmark-type-0",
@@ -134,6 +149,9 @@ for (const scenario of cases) {
     action: Array.from({ length: 20 }, (_, index) => 49980 - index * 20),
     date: Array.from({ length: 20 }, (_, index) => 2879 - index),
     search: [...Array.from({ length: 10 }, (_, index) => 12349 - index), 1234],
+    "search-broad": Array.from({ length: 20 }, (_, index) => 49999 - index),
+    "search-empty": [],
+    "search-past-end": [],
     combined: Array.from({ length: 20 }, (_, index) => 49990 - index * 10),
   };
   deepStrictEqual(

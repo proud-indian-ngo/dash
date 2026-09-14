@@ -131,3 +131,17 @@ A disposable local experiment instead added `(attempted_at DESC, id DESC)`, matc
 The benchmark now asserts exact expected record IDs and ordering for all six cases, in addition to totals, facet equivalence and restricted access. All 13 E2E checks passed with the experimental index. The approved index is now generated in migration 0086 as `audit_log_attempted_at_id_idx`. The normal benchmark requires that migration and verifies its presence. It has not been deployed. Existing indexes remain unchanged.
 
 Migration verification caught Drizzle generating `DESC NULLS LAST`, which did not satisfy the query's `DESC NULLS FIRST` ordering and left the sort in place despite both columns being non-null. The final schema specifies `.desc().nullsFirst()` on both columns. The benchmark now requires the named index in first/deep-page plans and zero temporary written blocks, so merely creating an unused index cannot pass this check.
+
+
+### Search count experiment
+
+The search benchmark now includes selective (11 matches), broad (50,000 matches), empty and past-end-offset cases, with exact IDs, ordering, totals and bounded page lengths. A `count(*) over()` experiment shared the filtered scan for ordinary search pages and used a separate count only when an empty page at a positive offset could not carry the total. It preserved results but was discarded after measurement:
+
+| Search case | Existing HTTP median | Window-count HTTP median |
+|---|---:|---:|
+| Selective | 145 ms | 144 ms |
+| Broad | 35 ms | 58 ms |
+| Empty | 141 ms | 143 ms |
+| Offset past 11 matches | 143 ms | 282 ms |
+
+The broad window query wrote 1,056 temporary blocks; the existing limited page can stop earlier while its independent count uses a narrower projection. The past-end fallback repeated the search sequentially. The production query remains unchanged. Both benchmark runs passed all 13 E2E checks (12 authentication setups plus the nine-scenario benchmark). Query-count reduction alone does not establish a performance improvement. Further search experiments should preserve these cases, the case-insensitive substring semantics and all five searched fields; this phase adds no extension or search index.
