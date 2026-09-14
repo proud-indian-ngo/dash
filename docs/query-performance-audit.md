@@ -1,6 +1,6 @@
 # Query performance audit coverage
 
-Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 60 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
+Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 62 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
 
 Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/tests/performance/app.spec.ts`, with their JSON report attachments. Commands, fixture sizes, account scopes, timings and limitations are recorded in [E2E architecture](architecture/e2e-testing.md). SQLite reads, synced rows, server hydration and total hydration are separate measurements. Broad local caching is intentional; root scans and row counts alone do not establish waste.
 
@@ -17,7 +17,7 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 | `eventPhoto` | `allPending`, `approvedByEvent`, `myPendingByEvent`, `pendingByEvent` | `byEvent` |
 | `eventUpdate` | `allPending`, `approvedByEvent`, `myPendingByEvent`, `pendingByEvent` | `byEvent` |
 | `expenseCategory` | `all` (admin/volunteer) | None |
-| `kalakritiAssignment` | `roster` | `myAccess` |
+| `kalakritiAssignment` | `roster`, `myAccess` (admin/Guardian/liaison) | None |
 | `kalakritiCenter` | `visible`, `guardianAssignments`, `liaisonAssignments` (admin) | None |
 | `kalakritiCompetition` | `categories`, `competitions`, `sessions`, `venues` | None |
 | `kalakritiEdition` | `readiness` (global admin), `byYear` (admin, Guardian, liaison) | `accessible`, `byTeamEventId`, `cloneSource`, `configurationAccessible` |
@@ -25,7 +25,7 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 | `kalakritiEntry` | `availableDivisions`, `visible`, `visibleByCenter`, `availableDivisionsByCenter` (Guardian/liaison), `visibleByDivision` | `byId` |
 | `kalakritiFood` | `students`, `memberships` | None |
 | `kalakritiGuardian` | `roster` | None |
-| `kalakritiStudent` | `visibleForCompliance`, `visibleForDirectory`, `visibleByCenter`, `visibleForEntries` | `ageCategoriesByCenter` |
+| `kalakritiStudent` | `visibleForCompliance`, `visibleForDirectory`, `visibleByCenter`, `visibleForEntries`, `ageCategoriesByCenter` (admin/Guardian/liaison) | None |
 | `kalakritiCenterScan` | `byCenter` | None |
 | `kalakritiAttendee` | `visible` (admin Guest and Judge) | None |
 | `kalakritiTransport` | `byCenter` | None |
@@ -481,3 +481,19 @@ The synthetic Edition now links existing memberships 151 and 152 to the seeded E
 All queries retain the expected 300 roots. The analyzer also includes the manager's authorization assignment in its assignment table, so verification filters liaison rows before counting roots; the reported read/sync/scan metrics remain unfiltered. These manager paths roughly double reads compared with global admin. No authorization or query change is included in this baseline.
 
 All 13 browser tests passed without retries, including existing Guardian/liaison regressions. The coordinator's denied Guardian-assignment query is not mounted by this UI and remains an API-level coverage gap. Other manager-role roster and directory queries still need populated measurements.
+
+
+## Kalakriti membership and age-category lookups (2026-09-14)
+
+The populated Students-page benchmark now profiles sidebar membership and reference-Center age categories for global admin, Guardian and liaison. Admin has no membership; Guardian has one membership without assignments; liaison has one membership and four assignments. Each scope returns one allowed age category.
+
+| Scope / query | Analyzer median ms | Read / synced | Scans | Server hydration ms | Total hydration ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Admin / membership | 10.24 | 0 / 0 | 0 | 0.53 | 110.6 |
+| Guardian / membership | 10.57 | 1 / 1 | 1 | 0.60 | 143.6 |
+| Liaison / membership | 9.48 | 5 / 5 | 9 | 0.49 | 141.6 |
+| Admin / age categories | 11.66 | 1 / 1 | 2 | 0.27 | 859.9 |
+| Guardian / age categories | 10.79 | 8 / 4 | 9 | 7.75 | 141.3 |
+| Liaison / age categories | 11.92 | 8 / 4 | 16 | 6.44 | 139.0 |
+
+All 13 browser tests passed without retries, with exact membership/assignment and age-category counts. No query change is indicated. The age-category fixture has one category, so this measures permission-path overhead amid populated related tables, not a large category catalog. An unreachable duplicate Centers benchmark block was also removed from the Students/Entries/Food-only loop.

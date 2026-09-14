@@ -319,3 +319,6 @@ The Kalakriti Centers benchmark checks 300 Guardian links and 300 liaison assign
 
 
 The Kalakriti performance fixture links Edition-admin and volunteer-coordinator accounts to existing synthetic memberships, replacing one Competition-volunteer assignment each with their manager responsibility. Dataset totals remain fixed. Centers benchmarks verify their permitted assignment lists; the analyzer's optional row filter distinguishes liaison roots from manager authorization rows without altering timing or scan metrics.
+
+
+Students-page profiling includes `myAccess` and `ageCategoriesByCenter` for admin, Guardian and liaison. It verifies the empty admin membership, Guardian membership without assignments, liaison membership with four assignments, and one reference-Center age category per account. The single-category fixture establishes scoped lookup behavior rather than category-catalog scale.

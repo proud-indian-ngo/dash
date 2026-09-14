@@ -105,6 +105,36 @@ test("profile a large synthetic Kalakriti edition", async ({
       )),
     ];
   };
+  const profileStudentLookups = async (
+    target: Page,
+    assignmentCount: number | null
+  ) => [
+    ...(await profileZeroQueries(
+      target,
+      { "kalakritiAssignment.myAccess": assignmentCount === null ? 0 : 1 },
+      { editionId: fixture.editionId },
+      assignmentCount === null
+        ? undefined
+        : {
+            "kalakritiAssignment.myAccess": {
+              table: "kalakriti_edition_membership",
+              count: 1,
+              relatedCounts: { kalakriti_assignment: assignmentCount },
+            },
+          }
+    )),
+    ...(await profileZeroQueries(
+      target,
+      { "kalakritiStudent.ageCategoriesByCenter": 1 },
+      { editionId: fixture.editionId, centerId: fixture.scopedCenterIds[0]! },
+      {
+        "kalakritiStudent.ageCategoriesByCenter": {
+          table: "kalakriti_age_category",
+          count: 1,
+        },
+      }
+    )),
+  ];
   const profileStudentDetails = async (target: Page) => {
     await target
       .getByPlaceholder("Search Students...")
@@ -281,6 +311,7 @@ test("profile a large synthetic Kalakriti edition", async ({
       );
     }
     if (route === "students") {
+      results.push(...(await profileStudentLookups(page, null)));
       results.push(...(await profileStudentDetails(page)));
     }
   }
@@ -392,31 +423,15 @@ test("profile a large synthetic Kalakriti edition", async ({
           verification
         );
         scopedResults.push({ actor, route, queries: analyses });
-        if (route === "centers") {
-          results.push(
-            ...(await profileZeroQueries(
-              page,
-              {
-                "kalakritiCenter.guardianAssignments":
-                  fixture.counts.guardianCenters!,
-                "kalakritiCenter.liaisonAssignments":
-                  fixture.counts.assignments! / 2,
-              },
-              { editionId: fixture.editionId },
-              {
-                "kalakritiCenter.guardianAssignments": {
-                  table: "kalakriti_guardian_center",
-                  count: fixture.counts.guardianCenters!,
-                },
-                "kalakritiCenter.liaisonAssignments": {
-                  table: "kalakriti_assignment",
-                  count: fixture.counts.assignments! / 2,
-                },
-              }
-            ))
-          );
-        }
         if (route === "students") {
+          scopedResults.push({
+            actor,
+            route: "student-lookups",
+            queries: await profileStudentLookups(
+              scopedPage,
+              actor === "guardian" ? 0 : 4
+            ),
+          });
           scopedResults.push({
             actor,
             route: "student-details",
