@@ -4,6 +4,7 @@ import { promisify } from "node:util";
 
 import { expect, test } from "../../fixtures/test";
 import { profileZeroQueries } from "../../helpers/zero-performance";
+import { KalakritiScanPage } from "../../pages/kalakriti-scan-page";
 
 const execFileAsync = promisify(execFile);
 
@@ -119,6 +120,40 @@ test("profile a large synthetic Kalakriti edition", async ({
       ))
     );
   }
+  const centerId = fixture.scopedCenterIds[0]!;
+  const transportExpected = {
+    "kalakritiTransport.byCenter":
+      fixture.counts.transport! / fixture.counts.centers!,
+  };
+  const transportVerification = {
+    "kalakritiTransport.byCenter": {
+      table: "kalakriti_transport_assignment",
+      count: transportExpected["kalakritiTransport.byCenter"],
+      centerIds: [centerId],
+    },
+  };
+  await page.goto(`/kalakriti/${fixture.year}/centers/${centerId}`);
+  results.push(
+    ...(await profileZeroQueries(
+      page,
+      transportExpected,
+      { editionId: fixture.editionId, centerId },
+      transportVerification
+    ))
+  );
+  const scan = new KalakritiScanPage(page);
+  await scan.open("Performance Center 1");
+  results.push(
+    ...(await profileZeroQueries(
+      page,
+      { "kalakritiCenterScan.byCenter": 1 },
+      { editionId: fixture.editionId, centerId },
+      {
+        "kalakritiCenterScan.byCenter": { table: "kalakriti_center", count: 1 },
+      }
+    ))
+  );
+  await page.keyboard.press("Escape");
   const scopedResults = [];
   for (const actor of ["guardian", "liaison"] as const) {
     const context = await browser.newContext({
@@ -174,6 +209,36 @@ test("profile a large synthetic Kalakriti edition", async ({
           verification
         );
         scopedResults.push({ actor, route, queries: analyses });
+      }
+      await scopedPage.goto(`/kalakriti/${fixture.year}/centers/${centerId}`);
+      scopedResults.push({
+        actor,
+        route: "center-transport",
+        queries: await profileZeroQueries(
+          scopedPage,
+          transportExpected,
+          { editionId: fixture.editionId, centerId },
+          transportVerification
+        ),
+      });
+      if (actor === "liaison") {
+        const scopedScan = new KalakritiScanPage(scopedPage);
+        await scopedScan.open("Performance Center 1");
+        scopedResults.push({
+          actor,
+          route: "center-scan",
+          queries: await profileZeroQueries(
+            scopedPage,
+            { "kalakritiCenterScan.byCenter": 1 },
+            { editionId: fixture.editionId, centerId },
+            {
+              "kalakritiCenterScan.byCenter": {
+                table: "kalakriti_center",
+                count: 1,
+              },
+            }
+          ),
+        });
       }
     } finally {
       await context.close();

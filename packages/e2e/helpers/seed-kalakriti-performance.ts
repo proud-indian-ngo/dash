@@ -21,6 +21,7 @@ const counts = {
   entries: 3000,
   entryMembers: 3000,
   operations: 6000,
+  transport: 40,
 } as const;
 
 function assertTestDatabase() {
@@ -61,6 +62,7 @@ export async function seedKalakritiPerformance() {
     kalakritiGuardianCenter,
     kalakritiOperation,
     kalakritiStudent,
+    kalakritiTransportAssignment,
     kalakritiVenue,
   } = await import("@pi-dash/db/schema/kalakriti");
 
@@ -344,6 +346,20 @@ export async function seedKalakritiPerformance() {
         .onConflictDoNothing({ target: kalakritiEntryMember.id });
     }
 
+    await tx
+      .insert(kalakritiTransportAssignment)
+      .values(
+        Array.from({ length: counts.transport }, (_, index) => ({
+          ...scoped,
+          id: id(50_000 + index),
+          centerId: centerId(index % counts.centers),
+          capacity: 50,
+          driverName: `Performance Driver ${index + 1}`,
+          vehicleLabel: `Performance Bus ${index + 1}`,
+        }))
+      )
+      .onConflictDoNothing({ target: kalakritiTransportAssignment.id });
+
     const operationTypes = [
       "pickup",
       "venue_arrival",
@@ -387,6 +403,7 @@ export async function seedKalakritiPerformance() {
     entries: kalakritiCompetitionEntry,
     entryMembers: kalakritiEntryMember,
     operations: kalakritiOperation,
+    transport: kalakritiTransportAssignment,
   };
   const actualCounts = Object.fromEntries(
     await Promise.all(

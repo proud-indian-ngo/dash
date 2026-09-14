@@ -208,3 +208,20 @@ Baseline before testing additional Center/Competition assignment indexes:
 All Student and Entry rows belong to the two assigned Centers. Food membership analysis reads approximately 6,900 rows for 213 unique synced rows. Its Center assignment lookups and Entries' Competition assignment lookups use broad scans with the current indexes; these are candidates for measured index experiments.
 
 A disposable-database experiment added assignment indexes on `(center_id, responsibility, edition_id, id)` and `(competition_id, responsibility, id)`. Guardian Entries assignment scans fell from 24,846 to 906; Food membership assignment scans fell from 20,072 to 1,864. Timings did not materially improve (Entries 391 → 388 ms, Food memberships 151 → 149 ms), and read/synced counts were unchanged. Liaison samples were similarly unchanged. Migration 0085 includes these indexes to reduce scan work as assignment volume and concurrency grow. This is a scan-work improvement; faster page loads have not been demonstrated by this local comparison. The remaining read amplification requires investigating the permission/relationship graph, rather than assuming every scan reduction yields a useful latency reduction.
+
+
+## Center transport and Scan profiles
+
+The large Kalakriti fixture includes 40 synthetic transport assignments, four per Center. The benchmark navigates the real Center detail route for admin, Guardian and liaison accounts and verifies exactly four transport records, all from the selected Center. It then uses the Scan page object to open Transport scanning for admin and liaison accounts and select Performance Center 1. The fixture remains in registration-open state: this measures query hydration, not live scan recording or camera performance.
+
+Local baseline (2026-09-14, median of three analyzer calls):
+
+| Query / account | Median analyzer time | Reads | Unique synced rows |
+|---|---:|---:|---:|
+| Transport / admin | 10 ms | 4 | 4 |
+| Transport / Guardian | 14 ms | 16 | 7 |
+| Transport / liaison | 15 ms | 20 | 7 |
+| Center Scan / admin | 25 ms | 454 | 452 |
+| Center Scan / liaison | 26 ms | 458 | 454 |
+
+Transport uses its existing Edition/Center index. Center Scan returns one Center with 150 Students and 300 pickup/venue-arrival operations; its root count is verified separately. These samples do not establish a query bottleneck or justify another index. Persisted scan-stage rows, later finalized stages, live mutation latency and larger per-Center rosters remain unmeasured. Server hydration and total hydration remain separate fields in the report attachment.
