@@ -43,6 +43,67 @@ test("profile a large synthetic Kalakriti edition", async ({
     counts: Record<string, number>;
     scopedCounts: { students: number; entries: number };
     scopedCenterIds: string[];
+    firstDivisionId: string;
+    firstSessionId: string;
+  };
+  const profileRegistration = async (target: Page, restricted: boolean) => {
+    const centerId = fixture.scopedCenterIds[0]!;
+    await target.goto(
+      `/kalakriti/${fixture.year}/entries/${fixture.firstDivisionId}?center=${centerId}`
+    );
+    const students = restricted
+      ? fixture.scopedCounts.students
+      : fixture.counts.students!;
+    const entries =
+      (restricted ? fixture.scopedCounts.entries : fixture.counts.entries!) /
+      fixture.counts.divisions!;
+    return [
+      ...(await profileZeroQueries(
+        target,
+        { "kalakritiStudent.visibleForEntries": students },
+        { editionId: fixture.editionId },
+        {
+          "kalakritiStudent.visibleForEntries": {
+            table: "kalakriti_student",
+            count: students,
+            centerIds: restricted ? fixture.scopedCenterIds : undefined,
+          },
+        }
+      )),
+      // Admin shares the availableDivisions AST/view, so this name is absent in Inspector.
+      ...(restricted
+        ? await profileZeroQueries(
+            target,
+            {
+              "kalakritiEntry.availableDivisionsByCenter":
+                fixture.counts.divisions!,
+            },
+            { editionId: fixture.editionId, centerId },
+            {
+              "kalakritiEntry.availableDivisionsByCenter": {
+                table: "kalakriti_competition_division",
+                count: fixture.counts.divisions!,
+              },
+            }
+          )
+        : []),
+      ...(await profileZeroQueries(
+        target,
+        { "kalakritiEntry.visibleByDivision": entries },
+        {
+          editionId: fixture.editionId,
+          divisionId: fixture.firstDivisionId,
+          sessionId: fixture.firstSessionId,
+        },
+        {
+          "kalakritiEntry.visibleByDivision": {
+            table: "kalakriti_competition_entry",
+            count: entries,
+            centerIds: restricted ? fixture.scopedCenterIds : undefined,
+          },
+        }
+      )),
+    ];
   };
   const profileStudentDetails = async (target: Page) => {
     await target
@@ -199,6 +260,7 @@ test("profile a large synthetic Kalakriti edition", async ({
       results.push(...(await profileStudentDetails(page)));
     }
   }
+  results.push(...(await profileRegistration(page, false)));
   for (const kind of ["guest", "judge"] as const) {
     await page.goto(`/kalakriti/${fixture.year}/${kind}s`);
     results.push(
@@ -329,6 +391,11 @@ test("profile a large synthetic Kalakriti edition", async ({
           });
         }
       }
+      scopedResults.push({
+        actor,
+        route: "registration",
+        queries: await profileRegistration(scopedPage, true),
+      });
       await scopedPage.goto(`/kalakriti/${fixture.year}/centers/${centerId}`);
       scopedResults.push({
         actor,

@@ -1,6 +1,6 @@
 # Query performance audit coverage
 
-Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 41 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
+Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 44 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
 
 Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/tests/performance/app.spec.ts`, with their JSON report attachments. Commands, fixture sizes, account scopes, timings and limitations are recorded in [E2E architecture](architecture/e2e-testing.md). SQLite reads, synced rows, server hydration and total hydration are separate measurements. Broad local caching is intentional; root scans and row counts alone do not establish waste.
 
@@ -22,10 +22,10 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 | `kalakritiCompetition` | `categories`, `competitions`, `sessions`, `venues` | None |
 | `kalakritiEdition` | `readiness` (global admin), `byYear` (admin, Guardian, liaison) | `accessible`, `byTeamEventId`, `cloneSource`, `configurationAccessible` |
 | `kalakritiEligibility` | None | `ageCategories` |
-| `kalakritiEntry` | `availableDivisions`, `visible`, `visibleByCenter` | `availableDivisionsByCenter`, `visibleByDivision`, `byId` |
+| `kalakritiEntry` | `availableDivisions`, `visible`, `visibleByCenter`, `availableDivisionsByCenter` (Guardian/liaison), `visibleByDivision` | `byId` |
 | `kalakritiFood` | `students`, `memberships` | None |
 | `kalakritiGuardian` | `roster` | None |
-| `kalakritiStudent` | `visibleForCompliance`, `visibleForDirectory`, `visibleByCenter` | `ageCategoriesByCenter`, `visibleForEntries` |
+| `kalakritiStudent` | `visibleForCompliance`, `visibleForDirectory`, `visibleByCenter`, `visibleForEntries` | `ageCategoriesByCenter` |
 | `kalakritiCenterScan` | `byCenter` | None |
 | `kalakritiAttendee` | `visible` (admin Guest and Judge) | None |
 | `kalakritiTransport` | `byCenter` | None |
@@ -265,3 +265,26 @@ The Student detail sheet consumes `kalakritiStudent.visibleByCenter` only for tr
 Each account retained 150 Student roots and the required transport operations. Removing Entry membership, age-category and Center expansions saved 750 reads per analysis. After-change server hydration was 10.4/184.2/184.5 ms and total hydration 223.5/404.7/382.6 ms respectively. These initial samples differ from analyzer execution and are not evidence of production latency improvement.
 
 All 13 browser tests passed, including exact Center counts, participation labels and the selected Student's `At Event` transport status under three accounts. The existing query projection test was updated to expect transport-only relationships while preserving scope checks. Repository type, lint, unit and unused-export checks passed.
+
+## Competition registration query baseline (September 14)
+
+The large fixture exposes its first Division and Session IDs. The benchmark opens that Division's real registration page as admin, Guardian and liaison. It verifies 1,500/300/300 Student picker roots; 100/20/20 Division Entry roots; and 30 available Divisions for both restricted accounts. Restricted Student and Entry checks also reject roots outside the account's two Centers.
+
+| Account | Query | Median analyzer ms | Reads | Synced rows | Server hydration ms | Total hydration ms |
+|---|---|---:|---:|---:|---:|---:|
+| Admin | Student.visibleForEntries | 315.4 | 12,000 | 7,511 | 247.7 | 2,646.3 |
+| Admin | Entry.visibleByDivision | 71.4 | 1,202 | 416 | 44.1 | 2,196.8 |
+| Guardian | Student.visibleForEntries | 88.3 | 3,015 | 1,506 | 221.0 | 546.1 |
+| Guardian | Entry.availableDivisionsByCenter | 28.1 | 908 | 97 | 24.0 | 403.8 |
+| Guardian | Entry.visibleByDivision | 28.4 | 1,131 | 91 | 20.9 | 400.0 |
+| Liaison | Student.visibleForEntries | 102.9 | 3,327 | 1,506 | 237.6 | 565.0 |
+| Liaison | Entry.availableDivisionsByCenter | 26.9 | 908 | 97 | 21.4 | 419.6 |
+| Liaison | Entry.visibleByDivision | 29.1 | 1,131 | 91 | 24.6 | 415.8 |
+
+Query names abbreviate the `kalakritiStudent` and `kalakritiEntry` groups. Three analyzer samples had stable read/synced counts. Hydration values are single observations of concurrent page loading, not isolated query timing or production measurements.
+
+Admin `availableDivisionsByCenter` has the same AST and result shape as `availableDivisions`. Zero 1.9's React view cache keys by AST hash, result format and client ID; Inspector consequently exposes only the shared available-Divisions view. The benchmark profiles the Center-specific name only for restricted accounts, where the authorization AST differs. The initial timeout waiting for that admin name was a benchmark assumption error, not a page failure.
+
+Consumer inspection identified unused Entry memberships and derived-age-category relationships in the Student picker, and unused category/session/venue relationships in the breadcrumb-specific Division query. These remain candidates requiring measured comparisons; this milestone changes no product query.
+
+The corrected isolated run passed all 13 tests. Type, lint, unused-export and focused E2E TypeScript checks passed. One full unit run spun in Bun's native stack while importing the existing Food-route test; its standalone run passed, the process sample/log were retained, and the identified worker was stopped. A fresh full run passed all ten package tasks in 11.9 seconds. The native-runtime stall's root cause is not established.

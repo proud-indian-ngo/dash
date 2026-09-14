@@ -525,6 +525,8 @@ export async function seedKalakritiPerformance() {
     counts: actualCounts,
     scopedCounts,
     scopedCenterIds: [centerId(0), centerId(1)],
+    firstDivisionId: divisionId(0),
+    firstSessionId: sessionId(0),
   };
 }
 
