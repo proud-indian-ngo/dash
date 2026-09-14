@@ -598,3 +598,11 @@ The admin benchmark now visits `/teams` and the synthetic team's detail page, ve
 | `eventInterest.managerByEvent` | 11.90 ms | 2 / 2 | 3 | 0.17 ms | 1,539.8 ms |
 
 All 13 browser tests passed without retries. The team list check confirms the synthetic team is present; the detail check verifies its exact ID. Interest verification checks one root each and ownership for the own-interest result. These results do not justify query changes yet. Team history is the largest new query workload; event-detail total hydration cannot be attributed to its inexpensive interest queries from these measurements. Team-lead/member/denied scopes and high-volume single-event interest queues remain open coverage.
+
+## Non-member Team detail baseline (2026-09-14)
+
+The volunteer has no membership in the synthetic team and no global team-view permission. Opening its detail URL displays “Team not found.” `team.byId` returns zero Inspector rows and zero synced rows (median analyzer 10.15 ms, one read, server hydration 2.17 ms, total hydration 301.4 ms).
+
+The route nevertheless preloads `teamEvent.byTeam`. It returns exactly the 300 public event IDs, verified against deterministic fixture IDs: 1,805 reads / 903 synced rows, median analyzer 79.30 ms and server hydration 100.05 ms. Total hydration was unavailable and is not reported as zero. No private event roots were returned. All 13 browser tests passed without retries.
+
+This is measured unused preload work on a denied Team page, not an authorization failure. Removing or deferring that preload remains a candidate requiring an authorized-navigation comparison: it currently warms the 600-event history before the Team component mounts. The query shape and authorization remain unchanged in this baseline milestone.

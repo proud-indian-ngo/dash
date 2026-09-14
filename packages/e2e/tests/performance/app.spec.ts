@@ -37,6 +37,7 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     );
   const fixture = JSON.parse((await seed()).stdout.trim()) as {
     teamId: string;
+    publicEventIds: string[];
     counts: Record<string, number>;
     eventExpenseCount: number;
     lookupCounts: { categories: number; groups: number };
@@ -466,6 +467,32 @@ test("profile Dashboard, Events and financial queries at scale", async ({
   const restrictedResults = [];
   try {
     const restrictedPage = await restrictedContext.newPage();
+    await restrictedPage.goto(`/teams/${fixture.teamId}`);
+    await expect(
+      restrictedPage.getByText("Team not found.", { exact: true })
+    ).toBeVisible();
+    restrictedResults.push({
+      route: "team-detail-denied",
+      queries: [
+        ...(await profileZeroQueries(
+          restrictedPage,
+          { "team.byId": 0 },
+          { id: fixture.teamId }
+        )),
+        ...(await profileZeroQueries(
+          restrictedPage,
+          { "teamEvent.byTeam": fixture.restrictedCounts.events! },
+          { teamId: fixture.teamId },
+          {
+            "teamEvent.byTeam": {
+              table: "team_event",
+              count: fixture.restrictedCounts.events!,
+              ids: fixture.publicEventIds,
+            },
+          }
+        )),
+      ],
+    });
     await restrictedPage.goto("/events");
     await waitForZeroReady(restrictedPage);
     restrictedResults.push({
