@@ -83,6 +83,7 @@ test("profile a large synthetic Kalakriti edition", async ({
       await expect(sheet.getByText(name, { exact: true })).toBeVisible();
     }
     await expect(sheet.getByText("Individual", { exact: true })).toHaveCount(2);
+    await expect(sheet.getByText("At Event", { exact: true })).toBeVisible();
     await target.keyboard.press("Escape");
     await expect(sheet).not.toBeVisible();
     return results;

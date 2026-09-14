@@ -90,6 +90,8 @@ Kalakriti readiness syncs Divisions through the Edition's direct `competitionDiv
 
 The Student detail sheet uses `kalakritiEntry.visibleByCenter` with a participation projection: members, Division age category and Competition data. It shares root authorization with the full Entries queries, which retain their broader relationships. Center-wide Entry roots and the main Students/Entries local datasets remain intact.
 
+The same sheet uses `kalakritiStudent.visibleByCenter` for transport status only. That projection retains all authorized Center Student roots and transport operations; displayed identity and age category come from the existing directory row. Directory, picker and compliance queries retain their broader data.
+
 ## Connection Errors
 
 Global monitor: `ZeroConnectionMonitor` in `apps/web/src/routes/_app.tsx` via `useConnectionState()`. Individual queries = no error handling. On `error`: debounced toast. On `needs-auth` (401/403): redirect `/login` with current path.

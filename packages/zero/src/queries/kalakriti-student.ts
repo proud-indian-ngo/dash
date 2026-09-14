@@ -67,7 +67,11 @@ export const kalakritiStudentQueries = {
     ({ args, ctx }) => withStudentDetails(args, ctx)
   ),
   visibleByCenter: defineQuery(centerInput, ({ args, ctx }) =>
-    withStudentDetails(args, ctx)
+    visibleStudentScope(args, ctx).related("operations", (operations) =>
+      operations
+        .where("editionId", args.editionId)
+        .where("type", "IN", KALAKRITI_CENTER_SCAN_STAGES)
+    )
   ),
 };
 
@@ -90,11 +94,17 @@ function visibleStudents(
   args: { editionId: string; centerId?: string },
   ctx: Context | null
 ) {
-  let query = zql.kalakritiStudent
-    .where("editionId", args.editionId)
-    .related("entryMemberships", (memberships) =>
-      memberships.where("editionId", args.editionId)
-    );
+  return visibleStudentScope(args, ctx).related(
+    "entryMemberships",
+    (memberships) => memberships.where("editionId", args.editionId)
+  );
+}
+
+function visibleStudentScope(
+  args: { editionId: string; centerId?: string },
+  ctx: Context | null
+) {
+  let query = zql.kalakritiStudent.where("editionId", args.editionId);
   if (args.centerId !== undefined) {
     query = query.where("centerId", args.centerId);
   }

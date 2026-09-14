@@ -251,3 +251,17 @@ The only production consumer of `kalakritiEntry.visibleByCenter` is the Student 
 Each value uses three analyzer samples on the same fixture; counts were stable. Removing unused nested Student operations, category/session/venue and Center hydration accounts for the 2,100-read reduction. The separate Students query is unchanged. After-change server hydration was 102.1/94.6/91.4 ms and total hydration 287.2/415.0/436.1 ms for admin/Guardian/liaison respectively; these single samples do not establish production speed.
 
 All 13 E2E tests passed, checking 300 Center Entry roots and no outside-Center roots for each account, plus the selected Student's two Competition names and Individual labels. Repository type, lint, unit and unused-export checks passed; the independent focused query/scope/component checks passed 32 tests.
+
+### Center Student transport projection
+
+The Student detail sheet consumes `kalakritiStudent.visibleByCenter` only for transport operations. Displayed Student identity and age-category data come from the directory row. This Center query now expands only Edition-scoped transport operations, sharing the unchanged root authorization with the other Student queries. Directory, registration picker and compliance projections retain their original relationships.
+
+| Account | Analyzer median before → after ms | Reads before → after | Unique synced rows before → after |
+|---|---:|---:|---:|
+| Admin | 45.2 → 24.6 | 1,200 → 450 | 752 → 450 |
+| Guardian | 89.4 → 50.6 | 1,955 → 1,205 | 754 → 453 |
+| Liaison | 108.8 → 61.3 | 1,956 → 1,206 | 754 → 453 |
+
+Each account retained 150 Student roots and the required transport operations. Removing Entry membership, age-category and Center expansions saved 750 reads per analysis. After-change server hydration was 10.4/184.2/184.5 ms and total hydration 223.5/404.7/382.6 ms respectively. These initial samples differ from analyzer execution and are not evidence of production latency improvement.
+
+All 13 browser tests passed, including exact Center counts, participation labels and the selected Student's `At Event` transport status under three accounts. The existing query projection test was updated to expect transport-only relationships while preserving scope checks. Repository type, lint, unit and unused-export checks passed.
