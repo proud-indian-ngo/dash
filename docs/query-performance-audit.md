@@ -1,6 +1,6 @@
 # Query performance audit coverage
 
-Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 58 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
+Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 60 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
 
 Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/tests/performance/app.spec.ts`, with their JSON report attachments. Commands, fixture sizes, account scopes, timings and limitations are recorded in [E2E architecture](architecture/e2e-testing.md). SQLite reads, synced rows, server hydration and total hydration are separate measurements. Broad local caching is intentional; root scans and row counts alone do not establish waste.
 
@@ -18,7 +18,7 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 | `eventUpdate` | `allPending`, `approvedByEvent`, `myPendingByEvent`, `pendingByEvent` | `byEvent` |
 | `expenseCategory` | `all` (admin/volunteer) | None |
 | `kalakritiAssignment` | `roster` | `myAccess` |
-| `kalakritiCenter` | `visible` | `guardianAssignments`, `liaisonAssignments` |
+| `kalakritiCenter` | `visible`, `guardianAssignments`, `liaisonAssignments` (admin) | None |
 | `kalakritiCompetition` | `categories`, `competitions`, `sessions`, `venues` | None |
 | `kalakritiEdition` | `readiness` (global admin), `byYear` (admin, Guardian, liaison) | `accessible`, `byTeamEventId`, `cloneSource`, `configurationAccessible` |
 | `kalakritiEligibility` | None | `ageCategories` |
@@ -454,3 +454,15 @@ The fixture adds 100 expense categories and 200 synthetic WhatsApp groups. Expec
 | Groups / admin | 14.18 | 201 / 201 | 402 | 1.82 | 99.2 |
 
 All 13 browser tests passed without retries and verified complete lookup counts. The full local lists are intentional; these costs do not justify an index or query change at the tested size. Restricted group readers and external-user denial remain outside this performance measurement.
+
+
+## Centers assignment baseline (2026-09-14)
+
+The Centers page benchmark now explicitly profiles Guardian and liaison assignment queries against the 300-membership, 600-assignment fixture. Admin receives 300 Guardian links and 300 liaison assignments, each including Centers and memberships.
+
+| Query | Analyzer median ms | Read / synced | Scans | Server hydration ms | Total hydration ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Guardian assignments | 34.43 | 900 / 460 | 1,200 | 14.38 | 881.1 |
+| Liaison assignments | 34.37 | 900 / 460 | 1,500 | 15.82 | 881.0 |
+
+All 13 Kalakriti browser tests passed without retries and both root counts matched exactly. This baseline includes only global-admin access for these queries; linked Edition-admin and volunteer-coordinator memberships are still needed to exercise their restricted authorization branches. The existing Guardian and liaison route regressions do not cover those manager branches. No query change is included.

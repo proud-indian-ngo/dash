@@ -313,3 +313,6 @@ Banking performance uses 2,004 synthetic accounts across fixture users. Personal
 
 
 Shared lookup profiling uses 100 synthetic expense categories and 200 synthetic WhatsApp groups, with full expected counts derived from PostgreSQL to include ordinary seed records. Categories are measured in both payment-form account scopes; groups are measured in the admin recipient picker. Synthetic groups use non-deliverable identifiers and no message is submitted.
+
+
+The Kalakriti Centers benchmark checks 300 Guardian links and 300 liaison assignments under global-admin access, using the existing 300-membership and 600-assignment fixture. Restricted manager performance requires separate linked Edition-admin/coordinator memberships; the Guardian and liaison navigation checks do not substitute for those roles.

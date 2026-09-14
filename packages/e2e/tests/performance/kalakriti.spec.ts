@@ -256,6 +256,30 @@ test("profile a large synthetic Kalakriti edition", async ({
         { editionId: fixture.editionId }
       ))
     );
+    if (route === "centers") {
+      results.push(
+        ...(await profileZeroQueries(
+          page,
+          {
+            "kalakritiCenter.guardianAssignments":
+              fixture.counts.guardianCenters!,
+            "kalakritiCenter.liaisonAssignments":
+              fixture.counts.assignments! / 2,
+          },
+          { editionId: fixture.editionId },
+          {
+            "kalakritiCenter.guardianAssignments": {
+              table: "kalakriti_guardian_center",
+              count: fixture.counts.guardianCenters!,
+            },
+            "kalakritiCenter.liaisonAssignments": {
+              table: "kalakriti_assignment",
+              count: fixture.counts.assignments! / 2,
+            },
+          }
+        ))
+      );
+    }
     if (route === "students") {
       results.push(...(await profileStudentDetails(page)));
     }
@@ -368,6 +392,30 @@ test("profile a large synthetic Kalakriti edition", async ({
           verification
         );
         scopedResults.push({ actor, route, queries: analyses });
+        if (route === "centers") {
+          results.push(
+            ...(await profileZeroQueries(
+              page,
+              {
+                "kalakritiCenter.guardianAssignments":
+                  fixture.counts.guardianCenters!,
+                "kalakritiCenter.liaisonAssignments":
+                  fixture.counts.assignments! / 2,
+              },
+              { editionId: fixture.editionId },
+              {
+                "kalakritiCenter.guardianAssignments": {
+                  table: "kalakriti_guardian_center",
+                  count: fixture.counts.guardianCenters!,
+                },
+                "kalakritiCenter.liaisonAssignments": {
+                  table: "kalakriti_assignment",
+                  count: fixture.counts.assignments! / 2,
+                },
+              }
+            ))
+          );
+        }
         if (route === "students") {
           scopedResults.push({
             actor,
