@@ -2,37 +2,10 @@ import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
 
-import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { expect, test } from "../../fixtures/test";
+import { profileZeroQueries } from "../../helpers/zero-performance";
 
 const execFileAsync = promisify(execFile);
-
-interface Analysis {
-  elapsed: number;
-  readRowCount: number;
-  syncedRowCount: number;
-  dbScansByQuery: Record<string, Record<string, number>>;
-  readRowCountsByQuery: Record<string, Record<string, number>>;
-  sqlitePlans: Record<string, string[]>;
-}
-
-interface InspectorQuery {
-  name: string;
-  got: boolean;
-  rowCount: number;
-  args: { editionId?: string }[] | null;
-  hydrateServer: number | null;
-  hydrateTotal: number | null;
-  analyze: () => Promise<Analysis>;
-}
-
-type InspectorWindow = typeof window & {
-  __zero: {
-    inspector: {
-      authenticate: (password: string) => Promise<boolean>;
-      client: { queries: () => Promise<InspectorQuery[]> };
-    };
-  };
-};
 
 test("profile a large synthetic Kalakriti edition", async ({ page }, info) => {
   test.skip(
@@ -79,74 +52,13 @@ test("profile a large synthetic Kalakriti edition", async ({ page }, info) => {
     ],
   ] as const) {
     await page.goto(`/kalakriti/${fixture.year}/${route}`);
-    await waitForZeroReady(page);
-    expect(
-      await page.evaluate(
-        (password) =>
-          (window as InspectorWindow).__zero.inspector.authenticate(password),
-        process.env.ZERO_ADMIN_PASSWORD ?? ""
-      )
-    ).toBe(true);
-    await expect
-      .poll(
-        () =>
-          page.evaluate(
-            async ({ expected, editionId, minimumRows }) => {
-              const queries = await (
-                window as InspectorWindow
-              ).__zero.inspector.client.queries();
-              return expected.every((name) =>
-                queries.some(
-                  (query) =>
-                    query.name === name &&
-                    query.got &&
-                    query.rowCount >= minimumRows[name]! &&
-                    query.args?.some((arg) => arg.editionId === editionId)
-                )
-              );
-            },
-            { expected: [...names], editionId: fixture.editionId, minimumRows }
-          ),
-        { timeout: 60_000 }
-      )
-      .toBe(true);
-    for (const name of names) {
-      const result = await page.evaluate(
-        async ({ queryName, editionId }) => {
-          const queries = await (
-            window as InspectorWindow
-          ).__zero.inspector.client.queries();
-          const query = queries.find(
-            (item) =>
-              item.name === queryName &&
-              item.args?.some((arg) => arg.editionId === editionId)
-          );
-          if (!query) throw new Error(`Missing query: ${queryName}`);
-          const samples = [];
-          for (let sample = 0; sample < 3; sample++) {
-            const analysis = await query.analyze();
-            // Explicitly omit syncedRows: reports contain diagnostics, not records.
-            samples.push({
-              elapsedMs: analysis.elapsed,
-              readRows: analysis.readRowCount,
-              syncedRows: analysis.syncedRowCount,
-              scans: analysis.dbScansByQuery,
-              reads: analysis.readRowCountsByQuery,
-              plans: analysis.sqlitePlans,
-            });
-          }
-          return {
-            name: queryName,
-            serverMs: query.hydrateServer,
-            totalMs: query.hydrateTotal,
-            samples,
-          };
-        },
-        { queryName: name, editionId: fixture.editionId }
-      );
-      expect(result.samples[0]!.syncedRows).toBeGreaterThan(0);
-      results.push(result);
-    }
+    results.push(
+      ...(await profileZeroQueries(
+        page,
+        Object.fromEntries(names.map((name) => [name, minimumRows[name]!])),
+        fixture.editionId
+      ))
+    );
   }
   await info.attach("kalakriti-performance.json", {
     body: JSON.stringify({ fixture, results }, null, 2),

@@ -133,4 +133,31 @@ Initial local sample (2026-09-14, Zero 1.9.0, optimized app build): the fixture 
 
 Only Food memberships changed between the compared application versions: its reads fell from 9,902 to 5,401 with identical synced-row counts. Other timing differences are run variability. These are synthetic local results, not production latency predictions.
 
-Remaining plan candidates: the Students directory's entry-member relationship scanned about 4.5 million rows; Food's assignment relationship used an Edition index rather than a membership-leading lookup (about 180,300 visits), and Guardian-Center relationships scanned their primary-key index (about 90,300 visits). Validate candidate index/query changes against these plans and permission regressions. Some Zero 1.9 analyzer scan counters are negative; retain them in raw diagnostics but do not interpret them as meaningful negative work.
+Inspect every sample's plan before identifying a persistent bottleneck. The Students directory's first entry-member sample scanned about 4.5 million rows, but the next two used the existing Student index and scanned 6,000 rows. Guardian-Center plans also changed between samples. Food's assignment relationship consistently used an Edition index rather than a membership-leading lookup (about 180,300 visits). Validate candidate index/query changes against repeated plans and permission regressions. Some Zero 1.9 analyzer scan counters are negative; retain them in raw diagnostics but do not interpret them as meaningful negative work.
+
+
+The test-only assignment index experiment used `(membership_id, edition_id, id)` on the same fixture. Assignment scans fell from 180,300 to 600 in all three samples; Food membership median analyzer time fell from 173 ms to 148 ms with 911 unique synced rows. A separate offline replica experiment confirmed `ANALYZE` alone did not produce a membership-leading lookup. Migration 0084 adds this index to the application schema. Other plan choices changed during sampling, including Guardian-Center predicate pushdown, so total read counts varied even with identical synced results.
+
+## App data-scale benchmark
+
+`tests/performance/app.spec.ts` profiles the Dashboard, Events, reimbursements, vendor payments and vendors using a separate synthetic fixture. Enable it with `APP_PERFORMANCE=true` and run it through the same isolated harness:
+
+```bash
+env -u ELECTRON_RUN_AS_NODE APP_PERFORMANCE=true E2E_STACK_INDEX=2 \
+  PLAYWRIGHT_HTML_OPEN=never bash packages/e2e/run-e2e.sh \
+  tests/performance/app.spec.ts --project=super_admin --workers=1 --retries=0
+```
+
+The fixture creates 600 Events with memberships and interests, 1,000 reimbursements, 500 advances, 100 Vendors and 1,000 Vendor Payments. Each financial request has two line items and two history rows; each Vendor Payment also has a transaction with two history rows. The helper refuses databases outside the local test stack and checks repeatable counts on a second seed. The report attachment `app-performance.json` contains per-route query diagnostics. Its `navigationAndAnalysisMs` includes three analyzer calls per query and must not be reported as page-load time. Server hydration, total hydration and analyzer samples remain separate fields. Shared diagnostic capture lives in `helpers/zero-performance.ts`.
+
+Initial Dashboard samples on this fixture (2026-09-14, three analyzer calls per query):
+
+| Query | Median analyzer time | Reads | Unique synced rows |
+|---|---:|---:|---:|
+| reimbursement.all | 324 ms | 9,014 | 5,615 |
+| advancePayment.all | 142 ms | 4,000 | 2,505 |
+| vendorPayment.all | 480 ms | 14,011 | 8,712 |
+| teamEvent.allAccessible | 156 ms | 3,666 | 1,845 |
+| teamEvent.byCurrentUserAll | 159 ms | 4,272 | 1,837 |
+
+Steady-state financial relationship plans use the existing foreign-key indexes. A full root scan is expected for these unbounded admin queries; it is not by itself evidence of a missing index. Small attachment tables can also be cheaper to scan than index. These measurements do not justify narrowing the existing local datasets. This fixture does not yet model attachment-heavy requests, recurring Event exceptions, deep detail histories, or restricted financial roles.
