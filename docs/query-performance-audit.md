@@ -1,6 +1,6 @@
 # Query performance audit coverage
 
-Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 44 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
+Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 45 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
 
 Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/tests/performance/app.spec.ts`, with their JSON report attachments. Commands, fixture sizes, account scopes, timings and limitations are recorded in [E2E architecture](architecture/e2e-testing.md). SQLite reads, synced rows, server hydration and total hydration are separate measurements. Broad local caching is intentional; root scans and row counts alone do not establish waste.
 
@@ -29,7 +29,7 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 | `kalakritiCenterScan` | `byCenter` | None |
 | `kalakritiAttendee` | `visible` (admin Guest and Judge) | None |
 | `kalakritiTransport` | `byCenter` | None |
-| `notification` | None | `forCurrentUser` |
+| `notification` | `forCurrentUser` (admin and volunteer) | None |
 | `notificationPreference` | None | `byCurrentUser`, `byUser` |
 | `reimbursement` | `all`, `byId` | `byCurrentUser`, `byEvent` |
 | `scheduledMessage` | None | `all`, `byId` |
@@ -310,3 +310,13 @@ The separate volunteer-project run also passed the liaison group Entry create/ed
 The previously `fixme`-disabled liaison individual-registration test passed on the current implementation in three local executions with Playwright retries disabled: 8.0, 8.6 and 7.8 seconds. The first isolated stack reported 13 passing tests including setup; the two-repeat stack reported 14. The flow exercises Student selection in music-enabled and disabled Competitions, multiple individual registration, local music upload/download, removal and resulting audit actions.
 
 The test is enabled again and its stale product-hang comment removed. No combobox product code or retry policy changed. The earlier hang's cause is not established, and these local results do not prove behavior on every CI platform. Type, lint, unit and unused-export checks passed. This closes the skipped local individual-registration verification gap noted above.
+
+## Notification history baseline (September 14)
+
+The app fixture adds 10,000 local-only notifications, split evenly between admin and volunteer, with half archived for each user. Unique future timestamps keep expected fixture results independent of ordinary seed notifications. Each authenticated query must return the exact set of its newest 50 unarchived IDs. The analyzer report returns a match boolean, timings, plans and counts, never notification contents.
+
+Both accounts read and sync 50 rows, but scan 7,500 rows per analysis. SQLite uses `notification_userId_read_idx` to find a user's history and then `USE TEMP B-TREE FOR ORDER BY`. The count is the analyzer's scan metric, not 7,500 distinct notifications. Three-sample analyzer medians were 14.3 ms for admin and 13.3 ms for volunteer. Initial server hydration was 3.6/5.0 ms; total hydration was 216.9/321.7 ms. This establishes unnecessary scan/sort work at this fixture size, not a significant production page delay.
+
+The next candidate is a local experiment with an index matching user, archive filter and ordered creation time (including the query's ID tie-breaker). No schema migration or product change is included in this baseline. The globally mounted inbox and badge share this query. Notification preferences and bulk mark-as-read costs remain unmeasured.
+
+The isolated app benchmark passed all 13 tests, including exact result sets for both users and repeatable seeding. Repository type, lint, unit and unused-export checks and focused E2E TypeScript validation passed.

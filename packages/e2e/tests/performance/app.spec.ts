@@ -35,6 +35,7 @@ test("profile Dashboard, Events and financial queries at scale", async ({
   const fixture = JSON.parse((await seed()).stdout.trim()) as {
     counts: Record<string, number>;
     restrictedCounts: Record<string, number>;
+    notificationIds: { admin: string[]; volunteer: string[] };
     sampleIds: {
       publicEvent: string;
       ownReimbursement: string;
@@ -99,6 +100,23 @@ test("profile Dashboard, Events and financial queries at scale", async ({
       navigationAndAnalysisMs: performance.now() - start,
       queries: analyses,
     });
+    if (route === "/") {
+      results.push({
+        route: "notifications",
+        queries: await profileZeroQueries(
+          page,
+          { "notification.forCurrentUser": 50 },
+          undefined,
+          {
+            "notification.forCurrentUser": {
+              table: "notification",
+              count: 50,
+              ids: fixture.notificationIds.admin,
+            },
+          }
+        ),
+      });
+    }
   }
   const eventDetailStart = performance.now();
   await page.goto(`/events/${fixture.sampleIds.publicEvent}`);
@@ -163,6 +181,22 @@ test("profile Dashboard, Events and financial queries at scale", async ({
   const restrictedResults = [];
   try {
     const restrictedPage = await restrictedContext.newPage();
+    await restrictedPage.goto("/events");
+    restrictedResults.push({
+      route: "notifications",
+      queries: await profileZeroQueries(
+        restrictedPage,
+        { "notification.forCurrentUser": 50 },
+        undefined,
+        {
+          "notification.forCurrentUser": {
+            table: "notification",
+            count: 50,
+            ids: fixture.notificationIds.volunteer,
+          },
+        }
+      ),
+    });
     for (const [route, queries] of [
       [
         "/reimbursements",

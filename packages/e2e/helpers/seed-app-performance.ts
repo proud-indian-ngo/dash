@@ -27,6 +27,7 @@ const counts = {
   vendorPaymentHistory: 2000,
   transactions: 1000,
   transactionHistory: 2000,
+  notifications: 10_000,
 } as const;
 
 function assertTestDatabase() {
@@ -69,6 +70,7 @@ export async function seedAppPerformance() {
   const { eventUpdate } = await import("@pi-dash/db/schema/event-update");
   const { eventFeedback } = await import("@pi-dash/db/schema/event-feedback");
   const { eventPhoto } = await import("@pi-dash/db/schema/event-photo");
+  const { notification } = await import("@pi-dash/db/schema/notification");
   const { expenseCategory } =
     await import("@pi-dash/db/schema/expense-category");
   const { reimbursement, reimbursementHistory, reimbursementLineItem } =
@@ -107,6 +109,27 @@ export async function seedAppPerformance() {
   const transactionId = (index: number) => id(19_000 + index);
 
   await db.transaction(async (tx) => {
+    await batches(counts.notifications, (start, length) =>
+      tx
+        .insert(notification)
+        .values(
+          Array.from({ length }, (_, offset) => {
+            const index = start + offset;
+            return {
+              id: id(40_000 + index),
+              userId: ownerId(index),
+              archived: index % 4 < 2,
+              read: index % 8 < 4,
+              title: `Synthetic notification ${index + 1}`,
+              body: "Local performance fixture",
+              topicId: "performance",
+              idempotencyKey: `performance-2191-${index}`,
+              createdAt: new Date(Date.UTC(2191, 0, 1) + index * 1000),
+            };
+          })
+        )
+        .onConflictDoNothing({ target: notification.id })
+    );
     await tx
       .insert(team)
       .values({
@@ -488,6 +511,7 @@ export async function seedAppPerformance() {
     ["updates", eventUpdate, 30_000],
     ["feedback", eventFeedback, 31_000],
     ["photos", eventPhoto, 32_000],
+    ["notifications", notification, 40_000],
     ["categories", expenseCategory, 4000],
     ["vendors", vendor, 5000],
     ["reimbursements", reimbursement, 6000],
@@ -553,6 +577,22 @@ export async function seedAppPerformance() {
     teamId: id(1),
     counts: actualCounts,
     restrictedCounts,
+    notificationIds: {
+      admin: Array.from(
+        { length: counts.notifications },
+        (_, index) => counts.notifications - 1 - index
+      )
+        .filter((index) => index % 4 === 3)
+        .slice(0, 50)
+        .map((index) => id(40_000 + index)),
+      volunteer: Array.from(
+        { length: counts.notifications },
+        (_, index) => counts.notifications - 1 - index
+      )
+        .filter((index) => index % 4 === 2)
+        .slice(0, 50)
+        .map((index) => id(40_000 + index)),
+    },
     sampleIds: {
       ownReimbursement: reimbursementId(0),
       deniedReimbursement: reimbursementId(1),

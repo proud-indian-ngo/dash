@@ -59,6 +59,7 @@ export async function profileZeroQueries(
       count: number;
       centerIds?: string[];
       relatedCounts?: Record<string, number>;
+      ids?: string[];
     }
   >
 ) {
@@ -152,6 +153,10 @@ export async function profileZeroQueries(
           if (!rows) throw new Error(`Missing verified table: ${verify.table}`);
           verifiedScope = {
             count: rows.length,
+            matchesExpectedIds: verify.ids
+              ? rows.length === verify.ids.length &&
+                rows.every((row) => verify.ids!.includes(String(row.id)))
+              : undefined,
             relatedCounts: verify.relatedCounts
               ? Object.fromEntries(
                   Object.keys(verify.relatedCounts).map((table) => [
@@ -187,6 +192,9 @@ export async function profileZeroQueries(
     if (verification?.[name]) {
       expect(result.verifiedScope?.count).toBe(verification[name]!.count);
       expect(result.verifiedScope?.outsideCenters).toBe(0);
+      if (verification[name]!.ids) {
+        expect(result.verifiedScope?.matchesExpectedIds).toBe(true);
+      }
       if (verification[name]!.relatedCounts) {
         expect(result.verifiedScope?.relatedCounts).toEqual(
           verification[name]!.relatedCounts
