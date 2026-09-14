@@ -152,7 +152,59 @@ describe("Food roster authorization", () => {
     tables.kalakritiEditionMembership =
       tables.kalakritiEditionMembership!.filter((row) => row.id !== "actor");
     expect(ids(ast("students", ["kalakriti.admin"]), tables)).toHaveLength(3);
+    expect(ids(ast("memberships", ["kalakriti.admin"]), tables)).toEqual([
+      "guardian-ac",
+      "guardian-b",
+      "unscoped",
+      "volunteer-a",
+      "volunteer-c",
+    ]);
   });
+  it("requires an existing Edition even for global admins", () => {
+    const tables = fixture();
+    tables.kalakritiEdition = [];
+    expect(ids(ast("memberships", ["kalakriti.admin"]), tables)).toEqual([]);
+  });
+  it.each(["assignments", "guardianCenters"])(
+    "keeps global-admin %s relations scoped to the requested Edition",
+    (relationName) => {
+      const tables = fixture();
+      const relation = ast("memberships", ["kalakriti.admin"]).related!.find(
+        (item) => item.subquery.alias === relationName
+      )!.subquery;
+      const links = [
+        {
+          id: "a",
+          membershipId: "guardian-ac",
+          centerId: "a",
+          editionId: "edition",
+        },
+        {
+          id: "c",
+          membershipId: "guardian-ac",
+          centerId: "c",
+          editionId: "edition",
+        },
+        {
+          id: "foreign",
+          membershipId: "guardian-ac",
+          centerId: "a",
+          editionId: "other",
+        },
+        {
+          id: "unscoped",
+          membershipId: "guardian-ac",
+          centerId: null,
+          editionId: "edition",
+        },
+      ];
+      expect(
+        links
+          .filter((row) => matches(row, relation.where, tables))
+          .map((row) => row.id)
+      ).toEqual(["a", "c"]);
+    }
+  );
   it("gives Overall Liaison Leads all Center-linked people without exposing unassigned people", () => {
     const tables = fixture("volunteer", "liaison_lead");
     tables.kalakritiEditionMembership!.push({
@@ -295,19 +347,26 @@ describe("Food roster authorization", () => {
     expect(visibleCenters(related())).toEqual(["a"]);
     expect(visibleCenters(related(["kalakriti.admin"]))).toEqual(["a", "c"]);
   });
-  it("retains scoped effective meal history for archived subjects without including all archived registrations", () => {
-    const tables = fixture();
-    tables.kalakritiOperation!.push({
-      id: "meal",
-      editionId: "edition",
-      membershipId: "archived",
-      type: "breakfast",
-      supersededByOperationId: null,
-    });
-    expect(ids(ast("memberships"), tables)).toContain("archived");
-    tables.kalakritiOperation![0]!.supersededByOperationId = "replacement";
-    expect(ids(ast("memberships"), tables)).not.toContain("archived");
-  });
+  it.each([["kalakriti.view"], ["kalakriti.admin"]])(
+    "retains effective meal history for archived subjects with %s",
+    (permission) => {
+      const tables = fixture();
+      tables.kalakritiOperation!.push({
+        id: "meal",
+        editionId: "edition",
+        membershipId: "archived",
+        type: "breakfast",
+        supersededByOperationId: null,
+      });
+      expect(ids(ast("memberships", [permission]), tables)).toContain(
+        "archived"
+      );
+      tables.kalakritiOperation![0]!.supersededByOperationId = "replacement";
+      expect(ids(ast("memberships", [permission]), tables)).not.toContain(
+        "archived"
+      );
+    }
+  );
   it("does not grant subject visibility through wrong-kind Center links", () => {
     const tables = fixture();
     tables.kalakritiGuardianCenter!.push({

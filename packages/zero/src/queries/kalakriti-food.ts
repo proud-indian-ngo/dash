@@ -166,11 +166,14 @@ export const kalakritiFoodQueries = {
       );
     if (!ctx || (!can(ctx, "kalakriti.admin") && !can(ctx, "kalakriti.view")))
       return query.where("id", NO_ACCESS_ID);
+    // Global admins already have edition-wide access; avoid evaluating the
+    // center-scoped alternatives to the same permission for every membership.
+    if (can(ctx, "kalakriti.admin")) {
+      return query.whereExists("edition").orderBy("snapshotName", "asc");
+    }
     return query
       .whereExists("edition", (edition) =>
-        can(ctx, "kalakriti.admin")
-          ? edition
-          : edition.where("lifecycle", "!=", "archived")
+        edition.where("lifecycle", "!=", "archived")
       )
       .where(({ or, and, cmp, exists }) =>
         or(

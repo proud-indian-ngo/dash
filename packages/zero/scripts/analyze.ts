@@ -41,6 +41,8 @@ const queries =
         { args: [{ editionId }], name: "kalakritiEntry.visible" },
         { args: [{ editionId }], name: "kalakritiEntry.availableDivisions" },
         { args: [{ editionId }], name: "kalakritiStudent.visibleForDirectory" },
+        { args: [{ editionId }], name: "kalakritiFood.memberships" },
+        { args: [{ editionId }], name: "kalakritiFood.students" },
       ]
     : eventQueries;
 
