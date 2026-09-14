@@ -19,7 +19,8 @@ const counts = {
   updates: 200,
   feedback: 200,
   photos: 200,
-  categories: 4,
+  categories: 100,
+  whatsappGroups: 200,
   vendors: 200,
   reimbursements: 1000,
   reimbursementLineItems: 2000,
@@ -73,6 +74,7 @@ export async function seedAppPerformance() {
   const { db } = await import("@pi-dash/db");
   const { user, notificationTopicPreference } =
     await import("@pi-dash/db/schema/auth");
+  const { whatsappGroup } = await import("@pi-dash/db/schema/whatsapp-group");
   const { bankAccount } = await import("@pi-dash/db/schema/bank-account");
   const { team, teamMember } = await import("@pi-dash/db/schema/team");
   const { teamEvent, teamEventMember } =
@@ -330,6 +332,18 @@ export async function seedAppPerformance() {
         )
         .onConflictDoNothing({ target: eventInterest.id })
     );
+    await tx
+      .insert(whatsappGroup)
+      .values(
+        Array.from({ length: counts.whatsappGroups }, (_, index) => ({
+          id: id(140_000 + index),
+          jid: `performance-2191-${index}@invalid`,
+          name: `Synthetic performance group ${index + 1}`,
+          createdAt: now,
+          updatedAt: now,
+        }))
+      )
+      .onConflictDoNothing({ target: whatsappGroup.id });
     await tx
       .insert(expenseCategory)
       .values(
@@ -653,6 +667,7 @@ export async function seedAppPerformance() {
     ["scheduledMessages", scheduledMessage, 100_000],
     ["scheduledRecipients", scheduledMessageRecipient, 110_000],
     ["categories", expenseCategory, 4000],
+    ["whatsappGroups", whatsappGroup, 140_000],
     ["vendors", vendor, 5000],
     ["reimbursements", reimbursement, 6000],
     ["reimbursementLineItems", reimbursementLineItem, 7000],
@@ -716,6 +731,10 @@ export async function seedAppPerformance() {
     SELECT user_id, count(*)::integer AS total FROM bank_account
     WHERE user_id IN (${admin.id}, ${volunteer.id}) GROUP BY user_id
   `);
+  const [lookupCounts] = await db.execute(sql`
+    SELECT (SELECT count(*)::integer FROM expense_category) AS categories,
+      (SELECT count(*)::integer FROM whatsapp_group) AS groups
+  `);
   const [approvedVendorRows] = await db.execute(
     sql`SELECT count(*)::integer AS total FROM vendor WHERE status = 'approved'`
   );
@@ -738,6 +757,10 @@ export async function seedAppPerformance() {
   return {
     teamId: id(1),
     eventExpenseCount,
+    lookupCounts: {
+      categories: Number(lookupCounts?.categories),
+      groups: Number(lookupCounts?.groups),
+    },
     approvedVendorCount: Number(approvedVendorRows?.total),
     pendingVendorIds: {
       admin: Array.from({ length: 50 }, (_, index) => id(5101 + index * 2)),

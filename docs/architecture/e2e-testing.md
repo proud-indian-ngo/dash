@@ -310,3 +310,6 @@ The app benchmark opens the Vendor Payment form as admin and volunteer. It seeds
 
 
 Banking performance uses 2,004 synthetic accounts across fixture users. Personal Settings visits Notifications and Banking for both admin and volunteer, checks complete per-user counts against PostgreSQL and verifies every returned account belongs to the signed-in user. It performs no account changes or financial operations.
+
+
+Shared lookup profiling uses 100 synthetic expense categories and 200 synthetic WhatsApp groups, with full expected counts derived from PostgreSQL to include ordinary seed records. Categories are measured in both payment-form account scopes; groups are measured in the admin recipient picker. Synthetic groups use non-deliverable identifiers and no message is submitted.

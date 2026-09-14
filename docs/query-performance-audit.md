@@ -1,6 +1,6 @@
 # Query performance audit coverage
 
-Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 56 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
+Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 58 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
 
 Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/tests/performance/app.spec.ts`, with their JSON report attachments. Commands, fixture sizes, account scopes, timings and limitations are recorded in [E2E architecture](architecture/e2e-testing.md). SQLite reads, synced rows, server hydration and total hydration are separate measurements. Broad local caching is intentional; root scans and row counts alone do not establish waste.
 
@@ -16,7 +16,7 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 | `eventInterest` | `allPending`, `byCurrentUser` | `managerByEvent`, `myByEvent` |
 | `eventPhoto` | `allPending`, `approvedByEvent`, `myPendingByEvent`, `pendingByEvent` | `byEvent` |
 | `eventUpdate` | `allPending`, `approvedByEvent`, `myPendingByEvent`, `pendingByEvent` | `byEvent` |
-| `expenseCategory` | None | `all` |
+| `expenseCategory` | `all` (admin/volunteer) | None |
 | `kalakritiAssignment` | `roster` | `myAccess` |
 | `kalakritiCenter` | `visible` | `guardianAssignments`, `liaisonAssignments` |
 | `kalakritiCompetition` | `categories`, `competitions`, `sessions`, `venues` | None |
@@ -39,7 +39,7 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 | `vendor` | `all`, `approved`, `pendingByCurrentUser` (admin/volunteer) | `byId` (no production consumer) |
 | `vendorPayment` | `all`, `byId`, `byEvent` (admin/owner) | `byCurrentUser` |
 | `vendorPaymentTransaction` | None | `byId`, `byVendorPayment` |
-| `whatsappGroup` | None | `all` |
+| `whatsappGroup` | `all` (admin) | None |
 
 ## Scope and remaining work
 
@@ -441,3 +441,16 @@ The fixture adds 2,004 synthetic bank accounts, two per fixture user including a
 Admin and volunteer each returned three owned rows, with six scans using `bank_account_userId_idx`. Analyzer medians were 11.30/11.01 ms; server hydration was 0.61/0.65 ms and total hydration 37.0/54.3 ms. The remaining temporary sort handles only those three rows. This does not justify another index at the measured size.
 
 All 13 browser tests passed without retries, including exact ownership for both accounts. Large per-user account histories remain unmeasured; the workload exercises a populated table with small personal results.
+
+
+## Shared lookup baseline (2026-09-14)
+
+The fixture adds 100 expense categories and 200 synthetic WhatsApp groups. Expected counts include ordinary seed rows. The payment form profiles categories for admin and volunteer; the scheduling recipient picker profiles groups for admin without submitting messages.
+
+| Query / scope | Analyzer median ms | Read / synced | Scans | Server hydration ms | Total hydration ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Categories / admin | 11.76 | 104 / 104 | 208 | 0.92 | 362.4 |
+| Categories / volunteer | 11.94 | 104 / 104 | 208 | 1.46 | 182.6 |
+| Groups / admin | 14.18 | 201 / 201 | 402 | 1.82 | 99.2 |
+
+All 13 browser tests passed without retries and verified complete lookup counts. The full local lists are intentional; these costs do not justify an index or query change at the tested size. Restricted group readers and external-user denial remain outside this performance measurement.

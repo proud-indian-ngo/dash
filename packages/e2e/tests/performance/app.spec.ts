@@ -38,6 +38,7 @@ test("profile Dashboard, Events and financial queries at scale", async ({
   const fixture = JSON.parse((await seed()).stdout.trim()) as {
     counts: Record<string, number>;
     eventExpenseCount: number;
+    lookupCounts: { categories: number; groups: number };
     approvedVendorCount: number;
     pendingVendorIds: { admin: string[]; volunteer: string[] };
     restrictedCounts: Record<string, number>;
@@ -107,11 +108,16 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     return profileZeroQueries(
       target,
       {
+        "expenseCategory.all": fixture.lookupCounts.categories,
         "vendor.approved": fixture.approvedVendorCount,
         "vendor.pendingByCurrentUser": pendingIds.length,
       },
       undefined,
       {
+        "expenseCategory.all": {
+          table: "expense_category",
+          count: fixture.lookupCounts.categories,
+        },
         "vendor.approved": {
           table: "vendor",
           count: fixture.approvedVendorCount,
@@ -227,10 +233,15 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     queries: await profileZeroQueries(
       page,
       {
+        "whatsappGroup.all": fixture.lookupCounts.groups,
         "user.whatsappUsers": fixture.whatsappUsers,
       },
       undefined,
       {
+        "whatsappGroup.all": {
+          table: "whatsapp_group",
+          count: fixture.lookupCounts.groups,
+        },
         "user.whatsappUsers": { table: "user", count: fixture.whatsappUsers },
       }
     ),
