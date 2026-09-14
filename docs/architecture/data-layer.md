@@ -115,3 +115,5 @@ The notification history index in migration 0088 follows `(user_id, archived, cr
 
 
 Event expense queries (`reimbursement.byEvent` and `vendorPayment.byEvent`) use a summary projection: line items and submitter, plus vendor for Vendor Payments. Event metrics and the Expenses tab share these queries. They retain Event and owner filters but omit unused detail relationships; full financial list and detail queries remain broader.
+
+Team detail preloads only the Team query. Its existing event-history subscription starts when the authorized Team component renders, so a denied Team does not warm an unused public-event history. Query shapes and Zero's consumer-owned caching are unchanged.

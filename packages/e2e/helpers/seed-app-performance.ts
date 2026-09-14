@@ -756,9 +756,6 @@ export async function seedAppPerformance() {
 
   return {
     teamId: id(1),
-    publicEventIds: Array.from({ length: counts.events / 2 }, (_, index) =>
-      eventId(index * 2)
-    ),
     eventExpenseCount,
     lookupCounts: {
       categories: Number(lookupCounts?.categories),

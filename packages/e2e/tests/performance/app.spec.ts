@@ -37,7 +37,6 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     );
   const fixture = JSON.parse((await seed()).stdout.trim()) as {
     teamId: string;
-    publicEventIds: string[];
     counts: Record<string, number>;
     eventExpenseCount: number;
     lookupCounts: { categories: number; groups: number };
@@ -62,6 +61,34 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     };
   };
   expect(JSON.parse((await seed()).stdout.trim())).toEqual(fixture);
+  const teamNavigation = [];
+  for (let sample = 0; sample < 3; sample++) {
+    const context = await browser.newContext({
+      storageState: path.resolve(
+        import.meta.dirname,
+        "../../.auth/super_admin.json"
+      ),
+    });
+    try {
+      const target = await context.newPage();
+      const measure = async () => {
+        const start = performance.now();
+        await target.goto(`/teams/${fixture.teamId}`);
+        await expect(
+          target.getByText(`${fixture.counts.interests} pending interests`, {
+            exact: true,
+          })
+        ).toBeVisible();
+        return performance.now() - start;
+      };
+      const coldMs = await measure();
+      await target.goto("/teams");
+      const warmMs = await measure();
+      teamNavigation.push({ coldMs, warmMs });
+    } finally {
+      await context.close();
+    }
+  }
   const profilePreferences = async (target: Page, userId: string) => {
     await target
       .locator("[data-sidebar='sidebar']")
@@ -473,26 +500,20 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     ).toBeVisible();
     restrictedResults.push({
       route: "team-detail-denied",
-      queries: [
-        ...(await profileZeroQueries(
-          restrictedPage,
-          { "team.byId": 0 },
-          { id: fixture.teamId }
-        )),
-        ...(await profileZeroQueries(
-          restrictedPage,
-          { "teamEvent.byTeam": fixture.restrictedCounts.events! },
-          { teamId: fixture.teamId },
-          {
-            "teamEvent.byTeam": {
-              table: "team_event",
-              count: fixture.restrictedCounts.events!,
-              ids: fixture.publicEventIds,
-            },
-          }
-        )),
-      ],
+      queries: await profileZeroQueries(
+        restrictedPage,
+        { "team.byId": 0 },
+        { id: fixture.teamId }
+      ),
     });
+    expect(
+      await restrictedPage.evaluate(async () => {
+        const queries = await (
+          window as InspectorWindow
+        ).__zero.inspector.client.queries();
+        return queries.some((query) => query.name === "teamEvent.byTeam");
+      })
+    ).toBe(false);
     await restrictedPage.goto("/events");
     await waitForZeroReady(restrictedPage);
     restrictedResults.push({
@@ -687,7 +708,11 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     await restrictedContext.close();
   }
   await info.attach("app-performance.json", {
-    body: JSON.stringify({ fixture, results, restrictedResults }, null, 2),
+    body: JSON.stringify(
+      { fixture, teamNavigation, results, restrictedResults },
+      null,
+      2
+    ),
     contentType: "application/json",
   });
   console.log(

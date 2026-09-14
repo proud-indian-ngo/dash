@@ -606,3 +606,11 @@ The volunteer has no membership in the synthetic team and no global team-view pe
 The route nevertheless preloads `teamEvent.byTeam`. It returns exactly the 300 public event IDs, verified against deterministic fixture IDs: 1,805 reads / 903 synced rows, median analyzer 79.30 ms and server hydration 100.05 ms. Total hydration was unavailable and is not reported as zero. No private event roots were returned. All 13 browser tests passed without retries.
 
 This is measured unused preload work on a denied Team page, not an authorization failure. Removing or deferring that preload remains a candidate requiring an authorized-navigation comparison: it currently warms the 600-event history before the Team component mounts. The query shape and authorization remain unchanged in this baseline milestone.
+
+## Defer Team event history until the Team renders (2026-09-14)
+
+Remove the unconditional `teamEvent.byTeam` route preload. The route still warms `team.byId`, and the authorized Team component retains its existing event-history subscription and full query graph. A denied Team no longer registers the event-history query, eliminating the baseline's unused 300-event / 903-synced-row workload.
+
+Three fresh browser contexts measured time from document navigation until all 600 pending interests rendered, with a return via `/teams` in each context. Before-change fresh samples were 2,639.9 / 1,017.0 / 1,015.7 ms; after-change samples were 2,642.9 / 1,017.3 / 1,025.0 ms. Warm-return samples were 228.2 / 237.4 / 233.6 ms before and 367.7 / 227.7 / 230.2 ms after. Medians were 1,017.0 → 1,025.0 ms fresh and 233.6 → 230.2 ms warm. The first warm after-sample was slower; this small comparison supports no material median regression, not identical timing in every navigation.
+
+All 13 browser tests passed without retries. The authorized team still returns all 600 event roots. The denied Team query returns zero rows and Inspector confirms no event-history query. These are local document-navigation samples; production and hover-intent timing remain unmeasured.
