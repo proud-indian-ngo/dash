@@ -45,6 +45,7 @@
         "helpers/register-url-options.ts",
         "helpers/seed-dev-data.ts",
         "helpers/seed-kalakriti-performance.ts",
+        "helpers/profile-kalakriti-dashboard.ts",
         "helpers/seed-app-performance.ts",
         "shard-by-duration.ts"
       ],

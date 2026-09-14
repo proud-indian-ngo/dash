@@ -35,6 +35,36 @@ test("profile a large synthetic Kalakriti edition", async ({ page }, info) => {
     year: number;
     counts: Record<string, number>;
   };
+  const dashboardProfile = await execFileAsync(
+    "bun",
+    [
+      "run",
+      path.resolve(
+        import.meta.dirname,
+        "../../helpers/profile-kalakriti-dashboard.ts"
+      ),
+    ],
+    { env: process.env, timeout: 60_000 }
+  );
+  const dashboard = JSON.parse(dashboardProfile.stdout.trim()) as {
+    scope: string;
+    samples: {
+      elapsedMs: number;
+      totals: { entries: number; students: number };
+    }[];
+  }[];
+  const editionSamples = dashboard.find(
+    (result) => result.scope === "edition"
+  )?.samples;
+  expect(editionSamples).toHaveLength(3);
+  for (const sample of editionSamples ?? []) {
+    expect(sample.totals.entries).toBe(fixture.counts.entries!);
+    expect(sample.totals.students).toBe(fixture.counts.students!);
+  }
+  await page.goto(`/kalakriti/${fixture.year}`);
+  await expect(
+    page.getByRole("heading", { name: "Edition overview", exact: true })
+  ).toBeVisible();
   const minimumRows: Record<string, number> = {
     "kalakritiFood.memberships": fixture.counts.memberships!,
     "kalakritiFood.students": fixture.counts.students!,
@@ -84,7 +114,7 @@ test("profile a large synthetic Kalakriti edition", async ({ page }, info) => {
     );
   }
   await info.attach("kalakriti-performance.json", {
-    body: JSON.stringify({ fixture, results }, null, 2),
+    body: JSON.stringify({ fixture, dashboard, results }, null, 2),
     contentType: "application/json",
   });
   console.log(

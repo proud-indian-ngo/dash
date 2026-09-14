@@ -4,6 +4,20 @@ import { expect, waitForZeroReady } from "../fixtures/test";
 
 interface Analysis {
   elapsed: number;
+  joinPlans?: {
+    type: string;
+    totalCost?: number;
+    nodeType?: string;
+    node?: string;
+    costEstimate?: {
+      startupCost: number;
+      scanEst: number;
+      cost: number;
+      returnedRows: number;
+      selectivity: number;
+    };
+    joinStates?: { join: string; type: string }[];
+  }[];
   readRowCount: number;
   syncedRowCount: number;
   dbScansByQuery: Record<string, Record<string, number>>;
@@ -18,7 +32,7 @@ interface InspectorQuery {
   args: Record<string, unknown>[] | null;
   hydrateServer: number | null;
   hydrateTotal: number | null;
-  analyze: () => Promise<Analysis>;
+  analyze: (options: { joinPlans: boolean }) => Promise<Analysis>;
 }
 
 type InspectorWindow = typeof window & {
@@ -89,7 +103,7 @@ export async function profileZeroQueries(
         if (!query) throw new Error(`Missing query: ${name}`);
         const samples = [];
         for (let sample = 0; sample < 3; sample++) {
-          const analysis = await query.analyze();
+          const analysis = await query.analyze({ joinPlans: true });
           // Omit syncedRows: reports contain diagnostics, not records.
           samples.push({
             elapsedMs: analysis.elapsed,
@@ -98,6 +112,21 @@ export async function profileZeroQueries(
             scans: analysis.dbScansByQuery,
             reads: analysis.readRowCountsByQuery,
             plans: analysis.sqlitePlans,
+            // Planner filters/constraints can contain values; retain only costs and structure.
+            joins: analysis.joinPlans
+              ?.filter(
+                (event) =>
+                  event.type === "best-plan-selected" ||
+                  event.type === "node-cost"
+              )
+              .map((event) => ({
+                type: event.type,
+                totalCost: event.totalCost,
+                nodeType: event.nodeType,
+                node: event.node,
+                costEstimate: event.costEstimate,
+                joinStates: event.joinStates,
+              })),
           });
         }
         return {
