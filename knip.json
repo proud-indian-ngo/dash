@@ -44,6 +44,7 @@
         "helpers/kalakriti-volunteer-assignment.ts",
         "helpers/register-url-options.ts",
         "helpers/seed-dev-data.ts",
+        "helpers/seed-kalakriti-performance.ts",
         "shard-by-duration.ts"
       ],
       "ignoreDependencies": ["better-auth"]

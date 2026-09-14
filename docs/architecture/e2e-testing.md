@@ -104,3 +104,33 @@ Partition and snapshot-isolation tests run with the E2E package's unit-test comm
 ## Auth Plugins and E2E
 
 Sign-up is disabled in production, so E2E seeds users directly via `seed-test-user.ts` (bypasses Better Auth's admin-creates-user flow). Email verification is pre-satisfied in the seed.
+
+## Kalakriti data-scale benchmark
+
+Run the opt-in synthetic workload from the repository root:
+
+```bash
+env -u ELECTRON_RUN_AS_NODE KALAKRITI_PERFORMANCE=true E2E_STACK_INDEX=2 \
+  PLAYWRIGHT_HTML_OPEN=never bash packages/e2e/run-e2e.sh \
+  tests/performance/kalakriti.spec.ts --project=super_admin --workers=1 --retries=0
+```
+
+The isolated stack runs `helpers/seed-kalakriti-performance.ts` and profiles Food memberships, Food students, the Students directory, Entries and available divisions as the seeded super-admin. Each query is analyzed three times after initial hydration. The Playwright report includes `kalakriti-performance.json` with dataset counts, server/total hydration timings, analyzer timings, read/scan counts and SQLite plans; it omits record contents and credentials. No timing threshold is enforced because local hardware and concurrent work vary.
+
+The seed refuses non-loopback databases and any database name other than `pi-dash-test`. It uses a dedicated synthetic Edition and repeatable identifiers. The harness removes its disposable database on exit, preserving the regular development database. Add `--ui` to keep the test stack available while using Playwright UI; that mode defaults to the development server, so do not compare its timings directly with production-build runs.
+
+Use the same seed, role, runtime and machine for before/after comparisons. Report analyzer execution separately from first hydration and browser navigation. Larger data reproduces query work, not production disk latency or CPU contention. The benchmark is skipped in ordinary CI unless explicitly enabled.
+
+Initial local sample (2026-09-14, Zero 1.9.0, optimized app build): the fixture contains 10 Centers, 1,500 Students, 300 memberships, 600 assignments, 300 Guardian-Center links, 30 Divisions, 3,000 Entries and entry members, and 6,000 operations. Median analyzer times from three runs were:
+
+| Query | Before admin shortcut | With shortcut | Reads with shortcut | Unique synced rows |
+|---|---:|---:|---:|---:|
+| Food memberships | 259 ms | 173 ms | 5,401 | 911 |
+| Food students | 505 ms | 491 ms | 9,011 | 6,011 |
+| Students directory | 328 ms | 329 ms | 12,000 | 7,511 |
+| Entries | 1,329 ms | 1,308 ms | 39,000 | 9,103 |
+| Available divisions | 19 ms | 19 ms | 393 | 93 |
+
+Only Food memberships changed between the compared application versions: its reads fell from 9,902 to 5,401 with identical synced-row counts. Other timing differences are run variability. These are synthetic local results, not production latency predictions.
+
+Remaining plan candidates: the Students directory's entry-member relationship scanned about 4.5 million rows; Food's assignment relationship used an Edition index rather than a membership-leading lookup (about 180,300 visits), and Guardian-Center relationships scanned their primary-key index (about 90,300 visits). Validate candidate index/query changes against these plans and permission regressions. Some Zero 1.9 analyzer scan counters are negative; retain them in raw diagnostics but do not interpret them as meaningful negative work.
