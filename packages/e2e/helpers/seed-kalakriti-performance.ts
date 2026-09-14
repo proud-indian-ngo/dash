@@ -11,6 +11,7 @@ const editionId = id(1);
 const eventId = id(2);
 const studentOperations = 6000;
 const attendeeOperations = 600;
+const groupSize = process.env.KALAKRITI_GROUP_PERFORMANCE === "true" ? 10 : 1;
 const counts = {
   centers: 10,
   students: 1500,
@@ -20,7 +21,7 @@ const counts = {
   competitions: 30,
   divisions: 30,
   sessions: 30,
-  entries: 3000,
+  entries: 3000 / groupSize,
   entryMembers: 3000,
   attendees: 200,
   judgeAssignments: 200,
@@ -161,6 +162,15 @@ export async function seedKalakritiPerformance() {
   const divisionId = (index: number) => id(6000 + index);
   const sessionId = (index: number) => id(7000 + index);
   const entryId = (index: number) => id(10_000 + index);
+  const entriesPerDivision = counts.entries / counts.divisions;
+  const studentIndexForMember = (entryIndex: number, memberIndex = 0) =>
+    (Math.floor(entryIndex / entriesPerDivision) *
+      (counts.entryMembers / counts.divisions) +
+      (entryIndex % entriesPerDivision) +
+      memberIndex * entriesPerDivision) %
+    counts.students;
+  const participationMode: (typeof kalakritiCompetition.$inferInsert)["participationMode"] =
+    groupSize === 1 ? "individual" : "group";
   const attendeeId = (index: number) => id(60_001 + index);
   const linkedUsers = new Map([
     [0, guardianActor.id],
@@ -315,9 +325,9 @@ export async function seedKalakritiPerformance() {
           name: `Performance Competition ${index + 1}`,
           normalizedName: `performance competition ${index + 1}`,
           genderEligibility: "both" as const,
-          participationMode: "individual" as const,
-          minimumGroupSize: 1,
-          maximumGroupSize: 1,
+          participationMode,
+          minimumGroupSize: groupSize,
+          maximumGroupSize: groupSize,
         }))
       )
       .onConflictDoNothing({ target: kalakritiCompetition.id });
@@ -447,13 +457,13 @@ export async function seedKalakritiPerformance() {
         .values(
           Array.from({ length }, (_, offset) => {
             const index = start + offset;
-            const studentIndex = index % counts.students;
+            const studentIndex = studentIndexForMember(index);
             return {
               ...scoped,
               id: entryId(index),
               centerId: centerId(studentIndex % counts.centers),
-              divisionId: divisionId(Math.floor(index / 100)),
-              participationMode: "individual" as const,
+              divisionId: divisionId(Math.floor(index / entriesPerDivision)),
+              participationMode,
               updatedBy: admin.id,
             };
           })
@@ -462,16 +472,17 @@ export async function seedKalakritiPerformance() {
       await tx
         .insert(kalakritiEntryMember)
         .values(
-          Array.from({ length }, (_, offset) => {
-            const index = start + offset;
-            const studentIndex = index % counts.students;
+          Array.from({ length: length * groupSize }, (_, offset) => {
+            const index = start + Math.floor(offset / groupSize);
+            const memberIndex = offset % groupSize;
+            const studentIndex = studentIndexForMember(index, memberIndex);
             return {
-              id: id(20_000 + index),
+              id: id(20_000 + index * groupSize + memberIndex),
               editionId,
               entryId: entryId(index),
               studentId: studentId(studentIndex),
               centerId: centerId(studentIndex % counts.centers),
-              divisionId: divisionId(Math.floor(index / 100)),
+              divisionId: divisionId(Math.floor(index / entriesPerDivision)),
               createdAt: now,
               createdBy: admin.id,
             };
@@ -590,6 +601,16 @@ export async function seedKalakritiPerformance() {
       throw new Error(`Performance fixture ${name} count mismatch`);
     }
   }
+  const invalidGroups = await db.execute(sql`
+    SELECT entry_id FROM kalakriti_entry_member
+    WHERE edition_id = ${editionId}
+    GROUP BY entry_id
+    HAVING count(*) != ${groupSize} OR count(DISTINCT center_id) != 1
+    LIMIT 1
+  `);
+  if (invalidGroups.length > 0) {
+    throw new Error("Performance fixture entry member grouping mismatch");
+  }
 
   const scopedCounts = {
     students: (counts.students / counts.centers) * 2,
@@ -611,6 +632,7 @@ export async function seedKalakritiPerformance() {
   }
 
   return {
+    groupSize,
     entryOrderingIndexExperiment,
     operationIndexExperiment,
     categoryAssignmentIndexExperiment,

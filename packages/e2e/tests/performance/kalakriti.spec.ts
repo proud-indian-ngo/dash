@@ -38,6 +38,7 @@ test("profile a large synthetic Kalakriti edition", async ({
     JSON.parse(stdout.trim())
   );
   const fixture = JSON.parse(stdout.trim()) as {
+    groupSize: number;
     editionId: string;
     eventId: string;
     categoryCount: number;
@@ -257,7 +258,11 @@ test("profile a large synthetic Kalakriti edition", async ({
     ]) {
       await expect(sheet.getByText(name, { exact: true })).toBeVisible();
     }
-    await expect(sheet.getByText("Individual", { exact: true })).toHaveCount(2);
+    await expect(
+      sheet.getByText(fixture.groupSize === 1 ? "Individual" : "Group", {
+        exact: true,
+      })
+    ).toHaveCount(2);
     await expect(sheet.getByText("At Event", { exact: true })).toBeVisible();
     await target.keyboard.press("Escape");
     await expect(sheet).not.toBeVisible();
@@ -369,7 +374,18 @@ test("profile a large synthetic Kalakriti edition", async ({
       ...(await profileZeroQueries(
         page,
         Object.fromEntries(names.map((name) => [name, minimumRows[name]!])),
-        { editionId: fixture.editionId }
+        { editionId: fixture.editionId },
+        route === "entries"
+          ? {
+              "kalakritiEntry.visible": {
+                table: "kalakriti_competition_entry",
+                count: fixture.counts.entries!,
+                relatedCounts: {
+                  kalakriti_entry_member: fixture.counts.entryMembers!,
+                },
+              },
+            }
+          : undefined
       ))
     );
     if (route === "centers") {
@@ -493,6 +509,10 @@ test("profile a large synthetic Kalakriti edition", async ({
             {
               table: tables[name]!,
               count,
+              relatedCounts:
+                name === "kalakritiEntry.visible"
+                  ? { kalakriti_entry_member: count * fixture.groupSize }
+                  : undefined,
               centerIds:
                 name === "kalakritiFood.memberships"
                   ? undefined
@@ -671,7 +691,14 @@ test("profile a large synthetic Kalakriti edition", async ({
               Object.fromEntries(
                 Object.entries(expectedQueries).map(([name, count]) => [
                   name,
-                  { table: tables[name]!, count },
+                  {
+                    table: tables[name]!,
+                    count,
+                    relatedCounts:
+                      name === "kalakritiEntry.visible"
+                        ? { kalakriti_entry_member: count * fixture.groupSize }
+                        : undefined,
+                  },
                 ])
               )
             ),
@@ -720,6 +747,9 @@ test("profile a large synthetic Kalakriti edition", async ({
             "kalakritiEntry.visible": {
               table: "kalakriti_competition_entry",
               count: entryCount,
+              relatedCounts: {
+                kalakriti_entry_member: entryCount * fixture.groupSize,
+              },
               ids:
                 actor === "categoryLead" ? fixture.categoryEntryIds : undefined,
             },

@@ -339,7 +339,9 @@ The Kalakriti benchmark explicitly profiles the Edition picker for global admin,
 
 `OPERATION_INDEX_EXPERIMENT=true` adds a disposable Student/Edition/type/ID operation index inside the guarded local fixture. The report records the flag. Migration 0091 supplies the canonical index; leave the experiment disabled when validating migrations.
 
-`ENTRY_ORDERING_INDEX_EXPERIMENT=true` adds two disposable indexes: Entries by Edition/descending creation time/ID and members by Entry/Edition/ID. Migration 0092 supplies only the first. The second remains an experiment: the current individual-entry fixture does not model group-member sorting cost. Leave the flag disabled when validating migrations.
+`ENTRY_ORDERING_INDEX_EXPERIMENT=true` adds two disposable indexes: Entries by Edition/descending creation time/ID and members by Entry/Edition/ID. Migration 0092 supplies only the first. The second remains an experiment: both individual and ten-member group workloads showed fewer scans without a material timing improvement. Leave the flag disabled when validating migrations.
+
+`KALAKRITI_GROUP_PERFORMANCE=true` switches the isolated Kalakriti workload to 300 ten-student group Entries, keeping 1,500 Students, 3,000 entry memberships and the existing Center/permission assignments. Each Division has ten Entries instead of 100. The seed verifies the member count and a single Center per Entry; browser checks verify the group label and role-scoped root/member counts. Default mode remains 3,000 individual Entries. Use a fresh test database when switching modes: the fixture IDs are intentionally shared and seeding is idempotent within one mode, not a mode-conversion migration.
 
 The app benchmark visits the Team list and synthetic Team detail as admin, verifying the Team ID and all 600 event roots. It explicitly profiles event-detail own-interest and manager-interest subscriptions with one fixture interest each. This measures a large event history within one team.
 

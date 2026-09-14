@@ -740,3 +740,26 @@ Three fresh browser contexts per version measured time until all 801 approve con
 The candidate was reverted. The overlapping query may help prepare the review screen, but the mechanism is not established by these timings. Reduced query work alone did not justify worse measured navigation. Further work should investigate rendering and subscription timing on this representative queue before changing its preload graph; no production improvement is claimed.
 
 The final baseline recheck passed all 13 browser tests without retries. Cold samples were 1,229.4/879.2/1,200.7 ms and warm samples were 686.8/863.5/678.5 ms, giving medians of 1,200.7 and 686.8 ms. The cold baseline itself varied substantially; the candidate still had the highest cold and warm medians in these runs. This supports retaining the existing projection, not a claim that query overlap is universally beneficial. Only the repeatable workload, assertions and findings are retained in this milestone.
+
+## Ten-student group Entries workload (2026-09-14)
+
+`KALAKRITI_GROUP_PERFORMANCE=true` creates 300 group Entries with ten Students each, preserving 1,500 Students, 3,000 entry memberships, 30 Divisions, two categories and all actor assignments. Each group belongs to one Center. Category lead sees exactly 150 Entries; Guardian and liaison each see 60. The seed validates membership counts and Center consistency, and Student detail shows its two competitions as Group entries. The initial run caught an individual-only label assertion; correcting it to follow the fixture mode produced 13 passing browser tests without retries.
+
+This is a separate workload, not a code optimization versus the 3,000 individual Entries. Baseline Entries server hydration ranged from 102.18 to 454.07 ms across measured roles; total hydration ranged from 919.7 to 2,182.9 ms.
+
+The deferred member-ordering candidate was retested with this data. The existing Edition ordering migration is already present; the combined experiment's duplicate Edition index does not change the root access path. The member index removes the per-group temporary sort.
+
+| Account | Median analyzer baseline → candidate | Member scans baseline → candidate | Read / synced, unchanged |
+| --- | --- | --- | --- |
+| Global admin | 485.81 → 471.24 ms | 6,000 → 3,000 | 14,400 / 6,404 |
+| Guardian | 143.50 → 131.09 ms | 1,200 → 600 | 4,227 / 1,359 |
+| Liaison | 131.17 → 133.67 ms | 1,200 → 600 | 4,227 / 1,359 |
+| Edition admin | 567.56 → 561.14 ms | 6,000 → 3,000 | 17,302 / 6,409 |
+| Category lead | 334.62 → 337.48 ms | 3,000 → 1,500 | 10,388 / 4,710 |
+| Overall-events lead | 578.98 → 576.02 ms | 6,000 → 3,000 | 16,946 / 6,407 |
+
+All 13 candidate browser tests passed without retries. Keep the member index experimental: the scan reduction is real, but sorting these small groups did not establish a material latency bottleneck sufficient to add another persistent write-maintained index. Product queries and schema are unchanged in this milestone. The final benchmark strengthens verification to count synced Entry members for every measured role, not only Entry roots.
+
+The default individual mapping is unchanged: with group size one, the new Student index formula reduces to `entryIndex % 1500`, and Entry-member IDs and Division assignments retain their original mappings. The new group mode requires a fresh test database rather than converting a previously seeded mode.
+
+The final group run passed all 13 browser tests without retries with experimental indexes disabled. Synced member counts were exactly 3,000 for global admin, Edition admin and overall-events lead, 1,500 for category lead and 600 for Guardian/liaison. Repository type, lint, unit and unused-export checks and the focused benchmark TypeScript check passed.
