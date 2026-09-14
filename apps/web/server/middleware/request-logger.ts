@@ -28,23 +28,21 @@ export default defineMiddleware(async (event, next) => {
   event.context.traceId = traceId;
   event.context.spanId = spanId;
 
-  const start = performance.now();
-  event.res.headers.set("X-Request-Id", traceId);
-  event.res.headers.set("traceparent", formatTraceparent(traceId, spanId));
-
-  const result = await runWithTraceId(traceId, () => next());
-
   const log = createRequestLogger({
     method: event.req.method,
     path,
     requestId: traceId,
   });
+  event.res.headers.set("X-Request-Id", traceId);
+  event.res.headers.set("traceparent", formatTraceparent(traceId, spanId));
+
+  const result = await runWithTraceId(traceId, () => next());
+
   const { status } = event.res;
   log.set({
     spanId,
     traceId,
     ...(status === undefined ? {} : { status }),
-    durationMs: Math.round(performance.now() - start),
   });
   log.emit();
 
