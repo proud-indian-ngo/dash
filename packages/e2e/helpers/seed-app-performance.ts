@@ -720,6 +720,8 @@ export async function seedAppPerformance() {
         .map((index) => id(40_000 + index)),
     },
     sampleIds: {
+      ownAdvance: advanceId(0),
+      deniedAdvance: advanceId(1),
       ownReimbursement: reimbursementId(0),
       deniedReimbursement: reimbursementId(1),
       ownVendorPayment: paymentId(0),

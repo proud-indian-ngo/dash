@@ -298,3 +298,6 @@ The app performance fixture includes 500 completed Scheduled Messages and 5,000 
 
 
 Set `SCHEDULED_INDEX_EXPERIMENT=true` with the app benchmark to compare disposable message and recipient ordering indexes. The seed records this option in the report; the isolated stack removes the indexes on teardown. The first 500-message comparison removed temporary sorts and reduced scans without a meaningful analyzer-time improvement, so it did not produce a schema migration.
+
+
+The app benchmark visits Advance Payment detail as admin, owner and a denied requester using the existing 500-advance fixture. It verifies the exact request ID, owner and related line-item/history counts, plus the empty Reimbursement lookup mounted by the shared request-detail route. It does not edit or submit financial records.

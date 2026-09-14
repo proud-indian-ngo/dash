@@ -46,6 +46,8 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     accountIds: { admin: string; volunteer: string };
     sampleIds: {
       publicEvent: string;
+      ownAdvance: string;
+      deniedAdvance: string;
       ownReimbursement: string;
       deniedReimbursement: string;
       ownVendorPayment: string;
@@ -283,6 +285,29 @@ test("profile Dashboard, Events and financial queries at scale", async ({
   await expect(
     page.getByText("Synthetic performance feedback 1", { exact: true })
   ).toBeVisible();
+  await page.goto(`/reimbursements/${fixture.sampleIds.ownAdvance}`);
+  results.push({
+    route: "advance-detail",
+    queries: await profileZeroQueries(
+      page,
+      {
+        "advancePayment.byId": 1,
+        "reimbursement.byId": 0,
+      },
+      { id: fixture.sampleIds.ownAdvance },
+      {
+        "advancePayment.byId": {
+          table: "advance_payment",
+          count: 1,
+          ids: [fixture.sampleIds.ownAdvance],
+          relatedCounts: {
+            advance_payment_line_item: 2,
+            advance_payment_history: 2,
+          },
+        },
+      }
+    ),
+  });
   const restrictedContext = await browser.newContext({
     storageState: path.resolve(
       import.meta.dirname,
@@ -382,6 +407,37 @@ test("profile Dashboard, Events and financial queries at scale", async ({
         ).map((query) => query.name)
       )
     ).not.toContain("eventFeedback.byEvent");
+    for (const [id, count] of [
+      [fixture.sampleIds.ownAdvance, 1],
+      [fixture.sampleIds.deniedAdvance, 0],
+    ] as const) {
+      await restrictedPage.goto(`/reimbursements/${id}`);
+      restrictedResults.push({
+        route: `advance-detail/${count ? "own" : "denied"}`,
+        queries: await profileZeroQueries(
+          restrictedPage,
+          {
+            "advancePayment.byId": count,
+            "reimbursement.byId": 0,
+          },
+          { id },
+          count
+            ? {
+                "advancePayment.byId": {
+                  table: "advance_payment",
+                  count,
+                  ids: [id],
+                  userId: fixture.accountIds.volunteer,
+                  relatedCounts: {
+                    advance_payment_line_item: 2,
+                    advance_payment_history: 2,
+                  },
+                },
+              }
+            : undefined
+        ),
+      });
+    }
     for (const [route, name, id, minimum] of [
       [
         "reimbursements",

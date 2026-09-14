@@ -1,6 +1,6 @@
 # Query performance audit coverage
 
-Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 50 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
+Status: incomplete. Inventory checked against `packages/zero/src/queries.ts` and its query definitions on 2026-09-14. There are 32 registered groups and 88 named query variants. The authenticated large-fixture reports cover 51 distinct variants; coverage below means measured under at least one account, not proven fast for every permission scope or dataset.
 
 Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/tests/performance/app.spec.ts`, with their JSON report attachments. Commands, fixture sizes, account scopes, timings and limitations are recorded in [E2E architecture](architecture/e2e-testing.md). SQLite reads, synced rows, server hydration and total hydration are separate measurements. Broad local caching is intentional; root scans and row counts alone do not establish waste.
 
@@ -8,7 +8,7 @@ Evidence: `packages/e2e/tests/performance/kalakriti.spec.ts` and `packages/e2e/t
 
 | Group | Large-fixture measurement exists | No large-fixture measurement yet |
 |---|---|---|
-| `advancePayment` | `all` | `byCurrentUser`, `byId` |
+| `advancePayment` | `all`, `byId` (admin, owner, denied) | `byCurrentUser` |
 | `appConfig` | None | `all` |
 | `bankAccount` | None | `bankAccountsByCurrentUser` |
 | `eventFeedback` | `byEvent` | None |
@@ -367,3 +367,16 @@ Run the app benchmark with `SCHEDULED_INDEX_EXPERIMENT=true` alongside `APP_PERF
 Both temporary sort plans disappeared and scans decreased from 11,500 to 6,000. Reads stayed at 6,000 and synced rows at 5,502; verification retained 500 messages and 5,000 recipients. Three-sample median analyzer time changed from 133.66 to 132.28 ms. Server hydration changed from 66.66 to 75.37 ms and total hydration from 480.2 to 494.0 ms.
 
 This experiment proves less scan/sort work, but no meaningful latency improvement at this fixture size. No permanent index migration is proposed from this result. All 13 browser tests passed with retries disabled. Larger histories may change the tradeoff; these timings do not establish production performance.
+
+
+## Advance Payment detail baseline (2026-09-14)
+
+The request-detail route mounts both Advance Payment and Reimbursement lookups. The benchmark now visits a populated Advance Payment as admin and owner, then another owner's request as the restricted account. The fixture contains 500 advances, with two line items and two history rows per request.
+
+| Scope | Median analyzer ms | Read / synced | Scans | Server hydration ms | Total hydration ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Admin | 13.30 | 8 / 8 | 12 | 0.49 | 513.3 |
+| Owner | 10.64 | 8 / 8 | 12 | 1.94 | 230.6 |
+| Denied | 8.14 | 0 / 0 | 1 | 0.20 | 214.3 |
+
+Allowed results match the requested ID, two line items and two history rows; the owner result also matches the authenticated user. The accompanying Reimbursement lookup returns zero rows in all three cases. No query change is indicated by these small lookup costs. Attachments and long per-request histories remain unmeasured. All 13 browser tests passed with retries disabled.
