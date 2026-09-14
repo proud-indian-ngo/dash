@@ -48,6 +48,12 @@ export async function seedKalakritiPerformance() {
   const adminEmail = process.env.SUPER_ADMIN_EMAIL;
   if (!adminEmail) throw new Error("SUPER_ADMIN_EMAIL is required");
   const { db } = await import("@pi-dash/db");
+  const operationIndexExperiment =
+    process.env.OPERATION_INDEX_EXPERIMENT === "true";
+  if (operationIndexExperiment) {
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS kalakriti_operation_perf_student_edition_type_id_idx
+      ON kalakriti_operation (student_id, edition_id, type, id)`);
+  }
   const categoryAssignmentIndexExperiment =
     process.env.CATEGORY_ASSIGNMENT_INDEX_EXPERIMENT === "true";
   if (categoryAssignmentIndexExperiment) {
@@ -597,6 +603,7 @@ export async function seedKalakritiPerformance() {
   }
 
   return {
+    operationIndexExperiment,
     categoryAssignmentIndexExperiment,
     entryMemberIndexExperiment,
     editionId,

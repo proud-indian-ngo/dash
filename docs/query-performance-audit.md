@@ -673,3 +673,22 @@ A local candidate combined the category-lead and competition-coordinator alterna
 | Overall-events | 1,705.43 → 1,721.58 ms | 54,746 → 54,686 | 9,107 |
 
 The scoped queries saved only 60 reads each (less than 0.5%), with no consistent timing improvement. The candidate was removed; product code remains at the measured baseline. Algebraic factoring alone does not address the remaining Entries cost. The large relationship graph and repeated membership/assignment checks remain more substantial contributors than the duplicated 30-Division traversal.
+
+## Student operation lookup index (2026-09-14)
+
+Entries expands each member's Student operations using Student ID, Edition ID and type, ordered by ID. The baseline uses the Student-only index and a temporary sort. A controlled index experiment on the same two-category fixture uses all three equality filters and supplies the required order.
+
+| Entries account | Operation scans before → candidate | Median analyzer before → candidate | Read / synced, unchanged |
+| --- | --- | --- | --- |
+| Global admin | 15,000 → 3,000 | 1,245.74 → 1,244.32 ms | 36,000 / 9,104 |
+| Guardian | 3,000 → 600 | 370.84 → 369.84 ms | 13,947 / 1,899 |
+| Liaison | 3,000 → 600 | 369.87 → 365.46 ms | 13,947 / 1,899 |
+| Edition admin | 15,000 → 3,000 | 1,830.19 → 1,825.01 ms | 58,342 / 9,109 |
+| Category lead | 7,500 → 1,500 | 1,143.64 → 1,148.71 ms | 42,788 / 6,060 |
+| Overall-events lead | 15,000 → 3,000 | 1,705.43 → 1,749.12 ms | 54,746 / 9,107 |
+
+All 13 browser tests passed without retries. Plans use the composite index without a temporary sort, reducing operation scans by 80%. Timings show no consistent improvement. Candidate server hydration ranged from 311.27 to 1,671.08 ms; total hydration ranged from 1,262.7 to 3,459.6 ms and remains a separate measurement.
+
+Migration `0091_sudden_sally_floyd.sql` adds the non-partial `(student_id, edition_id, type, id)` index and retains existing indexes. Query graphs, permissions and cache behavior are unchanged. The additional index consumes storage and adds write maintenance; this fixture establishes reduced read work, not production page latency or operation-write throughput.
+
+The fresh-database migration run passed all 13 browser tests without retries with `operationIndexExperiment: false`. All six Entries scopes selected the canonical migration index and reproduced the candidate's operation scan and read/synced counts. Repository type, lint, unit and unused-export checks, plus the focused benchmark TypeScript check, passed.

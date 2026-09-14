@@ -735,6 +735,12 @@ export const kalakritiOperation = pgTable(
     uniqueIndex("kalakriti_operation_operationId_uidx").on(table.operationId),
     index("kalakriti_operation_editionId_idx").on(table.editionId),
     index("kalakriti_operation_studentId_idx").on(table.studentId),
+    index("kalakriti_operation_student_edition_type_id_idx").on(
+      table.studentId,
+      table.editionId,
+      table.type,
+      table.id
+    ),
     index("kalakriti_operation_membershipId_idx").on(table.membershipId),
     foreignKey({
       columns: [table.editionId, table.studentId],
