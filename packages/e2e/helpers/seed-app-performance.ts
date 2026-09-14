@@ -85,6 +85,14 @@ export async function seedAppPerformance() {
     await db.execute(sql`CREATE INDEX IF NOT EXISTS notification_perf_history_idx
       ON notification (user_id, archived, created_at DESC, id ASC)`);
   }
+  const scheduledIndexExperiment =
+    process.env.SCHEDULED_INDEX_EXPERIMENT === "true";
+  if (scheduledIndexExperiment) {
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS scheduled_message_perf_order_idx
+      ON scheduled_message (scheduled_at DESC, id ASC)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS scheduled_recipient_perf_order_idx
+      ON scheduled_message_recipient (scheduled_message_id, id ASC)`);
+  }
   const { expenseCategory } =
     await import("@pi-dash/db/schema/expense-category");
   const { reimbursement, reimbursementHistory, reimbursementLineItem } =
@@ -687,6 +695,7 @@ export async function seedAppPerformance() {
     teamId: id(1),
     counts: actualCounts,
     notificationIndexExperiment,
+    scheduledIndexExperiment,
     visibleUsers: Number(visibleUserCount?.total),
     whatsappUsers: Number(whatsappUserCount?.total),
     preferenceTopics: Object.values(TOPICS).length,

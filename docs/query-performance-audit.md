@@ -358,3 +358,12 @@ The isolated app fixture adds 500 completed messages and 5,000 sent recipients, 
 The message list uses creator names, recipient status summaries and recipient detail rows, so this baseline does not justify removing those relations. Its plan sorts the message root and each recipient lookup with temporary B-trees. Ordered indexes are candidates for a disposable local comparison; no migration is included. The picker scans and sorts Users, but its measured server cost is small at this size.
 
 `scheduledMessage.byId` has no mounted production consumer: the detail sheet selects from the existing list subscription. It remains unmeasured as a query API. The browser benchmark passed all 13 tests without retries. Restricted query API scopes, attachments, mixed delivery statuses and much larger histories still need performance coverage.
+
+
+## Scheduled Messages ordered-index experiment (2026-09-14)
+
+Run the app benchmark with `SCHEDULED_INDEX_EXPERIMENT=true` alongside `APP_PERFORMANCE=true`. After the local database guard, the seed creates disposable indexes on `scheduled_message (scheduled_at DESC, id ASC)` and `scheduled_message_recipient (scheduled_message_id, id ASC)`. The fixture report records the flag, and stack teardown removes both indexes with the database.
+
+Both temporary sort plans disappeared and scans decreased from 11,500 to 6,000. Reads stayed at 6,000 and synced rows at 5,502; verification retained 500 messages and 5,000 recipients. Three-sample median analyzer time changed from 133.66 to 132.28 ms. Server hydration changed from 66.66 to 75.37 ms and total hydration from 480.2 to 494.0 ms.
+
+This experiment proves less scan/sort work, but no meaningful latency improvement at this fixture size. No permanent index migration is proposed from this result. All 13 browser tests passed with retries disabled. Larger histories may change the tradeoff; these timings do not establish production performance.

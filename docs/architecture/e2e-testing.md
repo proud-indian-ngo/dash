@@ -295,3 +295,6 @@ The app performance fixture also adds 1,000 synthetic users without credentials 
 
 
 The app performance fixture includes 500 completed Scheduled Messages and 5,000 sent recipient rows. It writes rows directly under the existing local database guard and enqueues no jobs. The benchmark checks root/recipient counts and measures the WhatsApp user picker by opening and cancelling the scheduling dialog. It does not submit a message or exercise delivery.
+
+
+Set `SCHEDULED_INDEX_EXPERIMENT=true` with the app benchmark to compare disposable message and recipient ordering indexes. The seed records this option in the report; the isolated stack removes the indexes on teardown. The first 500-message comparison removed temporary sorts and reduced scans without a meaningful analyzer-time improvement, so it did not produce a schema migration.
