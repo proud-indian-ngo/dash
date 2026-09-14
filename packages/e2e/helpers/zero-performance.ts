@@ -4,6 +4,7 @@ import { expect, waitForZeroReady } from "../fixtures/test";
 
 interface Analysis {
   elapsed: number;
+  syncedRows?: Record<string, Record<string, unknown>[]>;
   joinPlans?: {
     type: string;
     totalCost?: number;
@@ -32,7 +33,10 @@ interface InspectorQuery {
   args: Record<string, unknown>[] | null;
   hydrateServer: number | null;
   hydrateTotal: number | null;
-  analyze: (options: { joinPlans: boolean }) => Promise<Analysis>;
+  analyze: (options: {
+    joinPlans: boolean;
+    syncedRows?: boolean;
+  }) => Promise<Analysis>;
 }
 
 type InspectorWindow = typeof window & {
@@ -47,7 +51,11 @@ type InspectorWindow = typeof window & {
 export async function profileZeroQueries(
   page: Page,
   expected: Record<string, number>,
-  args?: Record<string, string>
+  args?: Record<string, string>,
+  verification?: Record<
+    string,
+    { table: string; count: number; centerIds?: string[] }
+  >
 ) {
   await waitForZeroReady(page);
   expect(
@@ -88,7 +96,7 @@ export async function profileZeroQueries(
   const results = [];
   for (const name of Object.keys(expected)) {
     const result = await page.evaluate(
-      async ({ name, args }) => {
+      async ({ name, args, verify }) => {
         const queries = await (
           window as InspectorWindow
         ).__zero.inspector.client.queries();
@@ -129,21 +137,42 @@ export async function profileZeroQueries(
               })),
           });
         }
+        let verifiedScope;
+        if (verify) {
+          // A separate untimed analysis verifies scope; never return record contents.
+          const rows = (
+            await query.analyze({ joinPlans: false, syncedRows: true })
+          ).syncedRows?.[verify.table];
+          if (!rows) throw new Error(`Missing verified table: ${verify.table}`);
+          verifiedScope = {
+            count: rows.length,
+            outsideCenters: verify.centerIds
+              ? rows.filter(
+                  (row) => !verify.centerIds!.includes(String(row.center_id))
+                ).length
+              : 0,
+          };
+        }
         return {
           name,
-          rootRows: query.rowCount,
+          inspectorRows: query.rowCount,
+          verifiedScope,
           serverMs: query.hydrateServer,
           totalMs: query.hydrateTotal,
           samples,
         };
       },
-      { name, args }
+      { name, args, verify: verification?.[name] }
     );
     if (expected[name] === 0) {
-      expect(result.rootRows).toBe(0);
+      expect(result.inspectorRows).toBe(0);
       expect(result.samples[0]!.syncedRows).toBe(0);
     } else {
       expect(result.samples[0]!.syncedRows).toBeGreaterThan(0);
+    }
+    if (verification?.[name]) {
+      expect(result.verifiedScope?.count).toBe(verification[name]!.count);
+      expect(result.verifiedScope?.outsideCenters).toBe(0);
     }
     results.push(result);
   }

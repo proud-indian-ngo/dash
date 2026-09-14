@@ -178,7 +178,7 @@ Restricted-role baseline (same total fixture scale, 2026-09-14):
 These steady-state samples use indexed relationship lookups. The analyzer helper matches query arguments as well as names, preventing a cached detail query for a different record from satisfying a scenario.
 
 
-Additional Kalakriti admin baselines (same large fixture, 2026-09-14): Guardians 14 ms for 150 memberships; Volunteers 32 ms for 150 memberships plus 600 assignments; Centers 13 ms for 10 rows; Student compliance 126 ms for 1,500 Students plus 3,000 entry members; Competition configuration queries 12–14 ms for 30 Competitions/sessions. These do not show the persistent membership-assignment scan fixed in migration 0084. Roster users are unlinked synthetic memberships, so linked-user and restricted-role roster workloads remain unmeasured. The fixture's single category and venue are functional coverage, not scale evidence for those tables.
+Additional Kalakriti admin baselines (same large fixture, 2026-09-14): Guardians 14 ms for 150 memberships; Volunteers 32 ms for 150 memberships plus 600 assignments; Centers 13 ms for 10 rows; Student compliance 126 ms for 1,500 Students plus 3,000 entry members; Competition configuration queries 12–14 ms for 30 Competitions/sessions. These do not show the persistent membership-assignment scan fixed in migration 0084. Most roster users are unlinked synthetic memberships; the fixture now links one Guardian and one liaison for restricted Students, Entries and Food measurements. Other roster roles remain unmeasured. The fixture's single category and venue are functional coverage, not scale evidence for those tables.
 
 
 The Kalakriti benchmark also runs `helpers/profile-kalakriti-dashboard.ts` after the guarded seed. This invokes the production PostgreSQL projection implementation for edition, two-Center, two-Competition and all-category scopes, three times each. Only elapsed times and aggregate totals are reported. It verifies the edition's Student/Entry totals and renders the overview page. This measures aggregate execution separately from authentication, scope resolution, HTTP latency and Zero hydration; manually supplied scopes are not authorization tests.
@@ -188,3 +188,23 @@ On the 1,500-Student/3,000-Entry fixture, median aggregate execution was 112 ms 
 Zero analysis now requests join plans and records only plan structure and cost estimates, omitting filter/constraint values. This complements SQLite index plans when investigating repeated relationship work. The [Zero inspector documentation](https://zero.rocicorp.dev/docs/debug/inspector) explains the two planner layers. `serverMs` and `totalMs` come from server and client query metrics respectively; they are retained separately and must not be subtracted to infer network latency when cached queries or client recreation can refer to different hydration lifetimes.
 
 With join diagnostics enabled, the admin Entries query still reads 39,000 rows for 9,103 unique synced rows (about 4.3 reads per synced row). It returns no alternative join-plan events, while Food and available-divisions queries do. Its admin permission shortcut is already present. The current measurements therefore do not justify another permission shortcut or a speculative index for Entries; its full relationship graph remains the largest measured hydration workload.
+
+
+## Restricted Kalakriti scale profiles
+
+The benchmark uses an active Guardian membership for the seeded unassigned volunteer account and the seeded liaison account's membership. Both have access to Centers 0 and 1. This avoids altering the existing Guardian's globally unique active membership in the release fixture. It changes no global permissions or existing release memberships.
+
+Each scoped query has three timed analyzer samples plus a separate scope-verification analysis. The latter counts the specific table's synced records and checks Student/Entry Center IDs, returning only counts. Inspector `rowCount` includes related records and is recorded as `inspectorRows`; it must not be treated as the root table's count. Record contents from the verification pass never enter the report.
+
+Baseline before testing additional Center/Competition assignment indexes:
+
+| Query | Guardian median | Liaison median | Verified root rows |
+|---|---:|---:|---:|
+| Students directory | 110 ms | 119 ms | 300 |
+| Entries | 391 ms | 397 ms | 600 |
+| Food students | 113 ms | 114 ms | 300 |
+| Food memberships | 151 ms | 162 ms | 90 |
+
+All Student and Entry rows belong to the two assigned Centers. Food membership analysis reads approximately 6,900 rows for 213 unique synced rows. Its Center assignment lookups and Entries' Competition assignment lookups use broad scans with the current indexes; these are candidates for measured index experiments.
+
+A disposable-database experiment added assignment indexes on `(center_id, responsibility, edition_id, id)` and `(competition_id, responsibility, id)`. Guardian Entries assignment scans fell from 24,846 to 906; Food membership assignment scans fell from 20,072 to 1,864. Timings did not materially improve (Entries 391 → 388 ms, Food memberships 151 → 149 ms), and read/synced counts were unchanged. Liaison samples were similarly unchanged. Migration 0085 includes these indexes to reduce scan work as assignment volume and concurrency grow. This is a scan-work improvement; faster page loads have not been demonstrated by this local comparison. The remaining read amplification requires investigating the permission/relationship graph, rather than assuming every scan reduction yields a useful latency reduction.

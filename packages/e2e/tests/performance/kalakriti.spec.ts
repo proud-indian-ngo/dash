@@ -7,13 +7,17 @@ import { profileZeroQueries } from "../../helpers/zero-performance";
 
 const execFileAsync = promisify(execFile);
 
-test("profile a large synthetic Kalakriti edition", async ({ page }, info) => {
+test("profile a large synthetic Kalakriti edition", async ({
+  page,
+  browser,
+  kalakritiActors,
+}, info) => {
   test.skip(
     process.env.KALAKRITI_PERFORMANCE !== "true" ||
       info.project.name !== "super_admin",
     "Opt-in benchmark on the isolated test stack only"
   );
-  test.setTimeout(180_000);
+  test.setTimeout(300_000);
   const seed = () =>
     execFileAsync(
       "bun",
@@ -34,6 +38,8 @@ test("profile a large synthetic Kalakriti edition", async ({ page }, info) => {
     editionId: string;
     year: number;
     counts: Record<string, number>;
+    scopedCounts: { students: number; entries: number };
+    scopedCenterIds: string[];
   };
   const dashboardProfile = await execFileAsync(
     "bun",
@@ -113,8 +119,72 @@ test("profile a large synthetic Kalakriti edition", async ({ page }, info) => {
       ))
     );
   }
+  const scopedResults = [];
+  for (const actor of ["guardian", "liaison"] as const) {
+    const context = await browser.newContext({
+      storageState:
+        kalakritiActors[actor === "guardian" ? "unrelatedVolunteer" : "liaison"]
+          .storageState!,
+    });
+    try {
+      const scopedPage = await context.newPage();
+      for (const [route, expected] of [
+        [
+          "students",
+          {
+            "kalakritiStudent.visibleForDirectory":
+              fixture.scopedCounts.students,
+          },
+        ],
+        ["entries", { "kalakritiEntry.visible": fixture.scopedCounts.entries }],
+        [
+          "food",
+          {
+            "kalakritiFood.students": fixture.scopedCounts.students,
+            "kalakritiFood.memberships": 90,
+          },
+        ],
+      ] as [string, Record<string, number>][]) {
+        await scopedPage.goto(`/kalakriti/${fixture.year}/${route}`);
+        const tables: Record<string, string> = {
+          "kalakritiStudent.visibleForDirectory": "kalakriti_student",
+          "kalakritiEntry.visible": "kalakriti_competition_entry",
+          "kalakritiFood.students": "kalakriti_student",
+          "kalakritiFood.memberships": "kalakriti_edition_membership",
+        };
+        const verification = Object.fromEntries(
+          Object.entries(expected).map(([name, count]) => [
+            name,
+            {
+              table: tables[name]!,
+              count,
+              centerIds:
+                name === "kalakritiFood.memberships"
+                  ? undefined
+                  : fixture.scopedCenterIds,
+            },
+          ])
+        );
+        const analyses = await profileZeroQueries(
+          scopedPage,
+          expected,
+          {
+            editionId: fixture.editionId,
+          },
+          verification
+        );
+        scopedResults.push({ actor, route, queries: analyses });
+      }
+    } finally {
+      await context.close();
+    }
+  }
   await info.attach("kalakriti-performance.json", {
-    body: JSON.stringify({ fixture, dashboard, results }, null, 2),
+    body: JSON.stringify(
+      { fixture, dashboard, results, scopedResults },
+      null,
+      2
+    ),
     contentType: "application/json",
   });
   console.log(

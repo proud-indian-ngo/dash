@@ -2,6 +2,8 @@ import { writeSync } from "node:fs";
 
 import { eq, sql } from "drizzle-orm";
 
+import { KALAKRITI_ACTORS } from "../fixtures/kalakriti-actors";
+
 const year = 2190;
 const id = (number: number) =>
   `019f0000-2190-7000-8000-${number.toString(16).padStart(12, "0")}`;
@@ -67,9 +69,21 @@ export async function seedKalakritiPerformance() {
     .from(user)
     .where(eq(user.email, adminEmail))
     .limit(1);
+  const [guardianActor] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, KALAKRITI_ACTORS.unrelatedVolunteer.email))
+    .limit(1);
+  const [liaisonActor] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, KALAKRITI_ACTORS.liaison.email))
+    .limit(1);
   const [owningTeam] = await db.select({ id: team.id }).from(team).limit(1);
-  if (!(admin && owningTeam)) {
-    throw new Error("Performance fixture requires the seeded admin and team");
+  if (!(admin && guardianActor && liaisonActor && owningTeam)) {
+    throw new Error(
+      "Performance fixture requires the seeded admin, actors and team"
+    );
   }
 
   const now = new Date();
@@ -195,6 +209,12 @@ export async function seedKalakritiPerformance() {
           kind: index < 150 ? ("guardian" as const) : ("volunteer" as const),
           state: "active" as const,
           snapshotName: `Performance ${index < 150 ? "Guardian" : "Volunteer"} ${index + 1}`,
+          userId:
+            index === 0
+              ? guardianActor.id
+              : index === 150
+                ? liaisonActor.id
+                : null,
         }))
       )
       .onConflictDoNothing({ target: kalakritiEditionMembership.id });
@@ -343,7 +363,7 @@ export async function seedKalakritiPerformance() {
                 editionId,
                 operationId: id(40_000 + index),
                 studentId: studentId(Math.floor(index / operationTypes.length)),
-                type: operationTypes[index % operationTypes.length],
+                type: operationTypes[index % operationTypes.length]!,
                 occurredAt: now,
                 createdAt: now,
                 recordedBy: admin.id,
@@ -386,7 +406,32 @@ export async function seedKalakritiPerformance() {
     }
   }
 
-  return { editionId, year, counts: actualCounts };
+  const scopedCounts = {
+    students: (counts.students / counts.centers) * 2,
+    entries: (counts.entries / counts.centers) * 2,
+  };
+  for (const [name, table] of [
+    ["students", kalakritiStudent],
+    ["entries", kalakritiCompetitionEntry],
+  ] as const) {
+    const rows = await db.execute(sql`
+      SELECT count(*)::integer AS total
+      FROM ${table}
+      WHERE ${table.editionId} = ${editionId}
+        AND ${table.centerId} IN (${centerId(0)}, ${centerId(1)})
+    `);
+    if (Number(rows[0]?.total) !== scopedCounts[name]) {
+      throw new Error(`Performance fixture scoped ${name} count mismatch`);
+    }
+  }
+
+  return {
+    editionId,
+    year,
+    counts: actualCounts,
+    scopedCounts,
+    scopedCenterIds: [centerId(0), centerId(1)],
+  };
 }
 
 if (import.meta.main) {
