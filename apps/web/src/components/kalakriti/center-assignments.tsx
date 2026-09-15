@@ -32,7 +32,7 @@ function AssignmentList({
 }: {
   assignments: readonly CenterPersonAssignment[];
   label: string;
-  onRemove: (assignment: CenterPersonAssignment) => void;
+  onRemove?: (assignment: CenterPersonAssignment) => void;
 }) {
   if (assignments.length === 0) {
     return (
@@ -62,12 +62,12 @@ function AssignmentRow({
 }: {
   assignment: CenterPersonAssignment;
   label: string;
-  onRemove: (assignment: CenterPersonAssignment) => void;
+  onRemove?: (assignment: CenterPersonAssignment) => void;
 }) {
   const roleLabel = assignment.responsibility
     ? KALAKRITI_RESPONSIBILITY_LABELS[assignment.responsibility]
     : label;
-  const handleRemove = useEventCallback(() => onRemove(assignment));
+  const handleRemove = useEventCallback(() => onRemove?.(assignment));
   return (
     <li className="flex items-center justify-between gap-3 py-2">
       <div className="min-w-0">
@@ -76,20 +76,23 @@ function AssignmentRow({
           <p className="text-muted-foreground text-xs">{roleLabel}</p>
         ) : null}
       </div>
-      <Button
-        aria-label={`Remove ${assignment.name} as ${roleLabel}`}
-        onClick={handleRemove}
-        size="sm"
-        type="button"
-        variant="ghost"
-      >
-        Remove
-      </Button>
+      {onRemove ? (
+        <Button
+          aria-label={`Remove ${assignment.name} as ${roleLabel}`}
+          onClick={handleRemove}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          Remove
+        </Button>
+      ) : null}
     </li>
   );
 }
 
 export function CenterAssignments({
+  readOnly = false,
   allowNewAssignments,
   canManageGuardians,
   canManageLiaisons,
@@ -102,6 +105,7 @@ export function CenterAssignments({
   volunteerOptions,
   volunteerOptionsError,
 }: {
+  readOnly?: boolean;
   allowNewAssignments: boolean;
   canManageGuardians: boolean;
   canManageLiaisons: boolean;
@@ -169,7 +173,7 @@ export function CenterAssignments({
   }
 
   let liaisonAssignmentControl: ReactNode = null;
-  if (allowNewAssignments && volunteerOptionsError) {
+  if (!readOnly && allowNewAssignments && volunteerOptionsError) {
     liaisonAssignmentControl = (
       <div
         className="text-destructive flex flex-wrap items-center gap-2 text-sm"
@@ -186,7 +190,7 @@ export function CenterAssignments({
         </Button>
       </div>
     );
-  } else if (allowNewAssignments) {
+  } else if (!readOnly && allowNewAssignments) {
     liaisonAssignmentControl = (
       <LiaisonCenterAssignmentForm
         centerId={centerId}
@@ -204,9 +208,9 @@ export function CenterAssignments({
           <AssignmentList
             assignments={guardianAssignments}
             label="Guardians"
-            onRemove={guardianRemove.trigger}
+            onRemove={readOnly ? undefined : guardianRemove.trigger}
           />
-          {allowNewAssignments ? (
+          {!readOnly && allowNewAssignments ? (
             <GuardianCenterAssignmentForm
               centerId={centerId}
               guardians={guardianOptions}
@@ -220,7 +224,7 @@ export function CenterAssignments({
           <AssignmentList
             assignments={liaisonAssignments}
             label="Liaisons"
-            onRemove={liaisonRemove.trigger}
+            onRemove={readOnly ? undefined : liaisonRemove.trigger}
           />
           {liaisonAssignmentControl}
         </section>

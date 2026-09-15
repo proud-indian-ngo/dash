@@ -20,16 +20,26 @@ import { handleMutationResult } from "@/lib/mutation-result";
 
 const centerFormSchema = z.object({
   name: z.string().trim().min(2, "Enter at least two characters").max(120),
+  location: z.string().trim().max(500),
+  googleMapsUrl: z.union([
+    z.literal(""),
+    z.url().startsWith("https://").max(2048),
+  ]),
 });
 
 interface CenterFormDialogProps {
-  center?: { id: string; name: string };
+  center?: {
+    id: string;
+    name: string;
+    location?: string | null;
+    googleMapsUrl?: string | null;
+  };
   editionId: string;
   onOpenChange: (open: boolean) => void;
   open: boolean;
 }
 
-function CenterForm({
+export function CenterDetailsForm({
   center,
   editionId,
   onOpenChange,
@@ -37,7 +47,11 @@ function CenterForm({
   const zero = useZero();
   const handleCancel = useEventCallback(() => onOpenChange(false));
   const form = useForm({
-    defaultValues: { name: center?.name ?? "" },
+    defaultValues: {
+      name: center?.name ?? "",
+      location: center?.location ?? "",
+      googleMapsUrl: center?.googleMapsUrl ?? "",
+    },
     onSubmit: async ({ value }) => {
       const centerId = center?.id ?? uuidv7();
       const result = center
@@ -45,6 +59,8 @@ function CenterForm({
             mutators.kalakritiCenter.update({
               auditEntryId: uuidv7(),
               centerId,
+              location: value.location.trim() || null,
+              googleMapsUrl: value.googleMapsUrl || null,
               name: value.name,
               now: Date.now(),
             })
@@ -54,6 +70,8 @@ function CenterForm({
               auditEntryId: uuidv7(),
               centerId,
               editionId,
+              location: value.location.trim() || null,
+              googleMapsUrl: value.googleMapsUrl || null,
               name: value.name,
               now: Date.now(),
             })
@@ -81,6 +99,17 @@ function CenterForm({
         label="Center name"
         name="name"
         placeholder="Jayanagar"
+      />
+      <InputField
+        label="Location"
+        name="location"
+        placeholder="Center address or pickup location"
+      />
+      <InputField
+        label="Google Maps link"
+        name="googleMapsUrl"
+        type="url"
+        placeholder="https://maps.google.com/..."
       />
       <FormActions
         onCancel={handleCancel}
@@ -111,7 +140,7 @@ export function CenterFormDialog(props: CenterFormDialogProps) {
             Center names are unique within this Kalakriti Edition.
           </DialogDescription>
         </DialogHeader>
-        <CenterForm key={formKey} {...props} />
+        <CenterDetailsForm key={formKey} {...props} />
       </DialogContent>
     </Dialog>
   );

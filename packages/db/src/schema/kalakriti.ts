@@ -224,6 +224,8 @@ export const kalakritiCenter = pgTable(
     id: uuid("id").primaryKey(),
     name: text("name").notNull(),
     normalizedName: text("normalized_name").notNull(),
+    location: text("location"),
+    googleMapsUrl: text("google_maps_url"),
     retiredAt: timestamp("retired_at"),
     studentRegistrationEnabled: boolean("student_registration_enabled")
       .default(false)
@@ -847,6 +849,7 @@ export const kalakritiTransportAssignment = pgTable(
       .references(() => kalakritiEdition.id, { onDelete: "cascade" }),
     id: uuid("id").primaryKey(),
     notes: text("notes"),
+    pickupTime: timestamp("pickup_time"),
     status: kalakritiTransportStatusEnum("status").default("planned").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
     vehicleLabel: text("vehicle_label").notNull(),

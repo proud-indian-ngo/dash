@@ -42,6 +42,35 @@ export class KalakritiAttendeePage {
     await expect(this.row(name)).toBeVisible();
   }
 
+  async verifyTableControls(kind: "Guest" | "Judge", name: string) {
+    const search = this.page.getByPlaceholder(`Search ${kind}s...`);
+    await search.fill("no matching attendee");
+    await expect(this.row(name)).toHaveCount(0);
+    await search.fill("");
+    await expect(this.row(name)).toBeVisible();
+    await this.page
+      .getByRole("button", { name: "Columns", exact: true })
+      .click();
+    const email = this.page.getByRole("menuitemcheckbox", {
+      name: "Email",
+      exact: true,
+    });
+    const emailHeader = this.page.getByRole("columnheader").filter({
+      has: this.page.getByRole("button", { name: "Email", exact: true }),
+    });
+    await email.click();
+    await expect(emailHeader).toHaveCount(0);
+    await email.click();
+    await this.page.keyboard.press("Escape");
+    await expect(emailHeader).toBeVisible();
+    await expect(
+      emailHeader.getByRole("button", { name: "Drag to reorder", exact: true })
+    ).toBeVisible();
+    await expect(
+      emailHeader.getByRole("separator", { name: "Resize column", exact: true })
+    ).toBeVisible();
+  }
+
   row(name: string) {
     return this.page.getByRole("row").filter({ hasText: name });
   }

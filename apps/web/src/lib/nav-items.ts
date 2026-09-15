@@ -1,5 +1,20 @@
 import {
   AnalyticsUpIcon,
+  Audit01Icon,
+  Building03Icon,
+  Bus01Icon,
+  CheckListIcon,
+  DashboardCircleIcon,
+  FileEditIcon,
+  IdentityCardIcon,
+  JusticeScale01Icon,
+  PaintBoardIcon,
+  Restaurant01Icon,
+  StudentIcon,
+  TransactionIcon,
+  TrophyIcon,
+  UserLove01Icon,
+  UserShield01Icon,
   Calendar03Icon,
   FileExportIcon,
   HomeIcon,
@@ -63,7 +78,7 @@ const reimbursementsNavItem: NavItem = {
 };
 
 const vendorPaymentsNavItem: NavItem = {
-  icon: Store01Icon,
+  icon: TransactionIcon,
   subItems: [
     {
       isHidden: true,
@@ -106,7 +121,7 @@ const jobsNavItem: NavItem = {
 };
 
 const auditLogNavItem: NavItem = {
-  icon: SecurityLockIcon,
+  icon: Audit01Icon,
   title: "Audit Log",
   url: "/audit-log",
 };
@@ -125,7 +140,7 @@ const eventsNavItem: NavItem = {
 };
 
 const kalakritiNavItem: NavItem = {
-  icon: Calendar03Icon,
+  icon: PaintBoardIcon,
   subItems: [
     { isHidden: true, title: "Edition", url: "/kalakriti/$year" },
     { isHidden: true, title: "New Edition", url: "/kalakriti/new" },
@@ -143,6 +158,7 @@ export function buildKalakritiNavGroups({
   canViewEntries = false,
   canViewStudents = false,
   canViewFood = false,
+  canViewTransport = false,
   canViewGuests = false,
   canViewJudges = false,
   year,
@@ -155,13 +171,14 @@ export function buildKalakritiNavGroups({
   canViewEntries?: boolean;
   canViewStudents?: boolean;
   canViewFood?: boolean;
+  canViewTransport?: boolean;
   canViewGuests?: boolean;
   canViewJudges?: boolean;
   year?: number;
 } = {}): NavGroup[] {
   const editionItems: NavItem[] = [
     {
-      icon: Calendar03Icon,
+      icon: DashboardCircleIcon,
       title: year ? "Overview" : "Edition",
       url: year ? `/kalakriti/${year}` : "/kalakriti",
     },
@@ -169,7 +186,7 @@ export function buildKalakritiNavGroups({
 
   if (year) {
     editionItems.push({
-      icon: UserGroupIcon,
+      icon: Building03Icon,
       title: "Centers",
       url: `/kalakriti/${year}/centers`,
     });
@@ -177,7 +194,7 @@ export function buildKalakritiNavGroups({
 
   if (year && canManageVolunteers) {
     editionItems.push({
-      icon: UserGroupIcon,
+      icon: UserLove01Icon,
       title: "Volunteers",
       url: `/kalakriti/${year}/volunteers`,
     });
@@ -185,7 +202,7 @@ export function buildKalakritiNavGroups({
 
   if (year && canManageEligibility) {
     editionItems.push({
-      icon: TaskDaily02Icon,
+      icon: CheckListIcon,
       title: "Eligibility",
       url: `/kalakriti/${year}/eligibility`,
     });
@@ -193,7 +210,7 @@ export function buildKalakritiNavGroups({
 
   if (year && canViewStudents) {
     editionItems.push({
-      icon: UserGroupIcon,
+      icon: StudentIcon,
       title: "Students",
       url: `/kalakriti/${year}/students`,
     });
@@ -201,7 +218,7 @@ export function buildKalakritiNavGroups({
 
   if (year && canViewEntries) {
     editionItems.push({
-      icon: TaskDaily02Icon,
+      icon: FileEditIcon,
       title: "Entries",
       url: `/kalakriti/${year}/entries`,
     });
@@ -209,7 +226,7 @@ export function buildKalakritiNavGroups({
 
   if (year && canViewCompetitions) {
     editionItems.push({
-      icon: Calendar03Icon,
+      icon: TrophyIcon,
       title: "Competitions",
       url: `/kalakriti/${year}/competitions`,
     });
@@ -217,7 +234,7 @@ export function buildKalakritiNavGroups({
 
   if (year && canManageGuardians) {
     editionItems.push({
-      icon: UserIcon,
+      icon: UserShield01Icon,
       title: "Guardians",
       url: `/kalakriti/${year}/guardians`,
     });
@@ -225,22 +242,30 @@ export function buildKalakritiNavGroups({
 
   if (year && canViewGuests) {
     editionItems.push({
-      icon: UserGroupIcon,
+      icon: IdentityCardIcon,
       title: "Guests",
       url: `/kalakriti/${year}/guests`,
     });
   }
   if (year && canViewJudges) {
     editionItems.push({
-      icon: UserGroupIcon,
+      icon: JusticeScale01Icon,
       title: "Judges",
       url: `/kalakriti/${year}/judges`,
     });
   }
 
+  if (year && canViewTransport) {
+    editionItems.push({
+      icon: Bus01Icon,
+      title: "Transport",
+      url: `/kalakriti/${year}/transport`,
+    });
+  }
+
   if (year && canViewFood) {
     editionItems.push({
-      icon: UserGroupIcon,
+      icon: Restaurant01Icon,
       title: "Food",
       url: `/kalakriti/${year}/food`,
     });
@@ -248,7 +273,7 @@ export function buildKalakritiNavGroups({
 
   if (year && canViewAudit) {
     editionItems.push({
-      icon: SecurityLockIcon,
+      icon: Audit01Icon,
       title: "Audit",
       url: `/kalakriti/${year}/audit`,
     });

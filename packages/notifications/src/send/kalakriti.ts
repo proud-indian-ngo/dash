@@ -83,7 +83,7 @@ export async function notifyKalakritiTransportChanged({
   await sendMessage({
     body: `Transport details changed for ${editionName}.`,
     channels: getTopicChannels(TOPICS.KALAKRITI_TRANSPORT),
-    clickAction: `/kalakriti/${year}/centers/${centerId}`,
+    clickAction: `/kalakriti/${year}/centers?centerId=${encodeURIComponent(centerId)}`,
     idempotencyKey: `kalakriti-transport-${editionId}-${assignmentId}-${changeId}-${recipientUserId}`,
     title: "Kalakriti transport updated",
     to: recipientUserId,

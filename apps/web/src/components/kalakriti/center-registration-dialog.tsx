@@ -34,7 +34,7 @@ interface CenterRegistrationDialogProps {
   open: boolean;
 }
 
-function RegistrationForm({
+export function CenterRegistrationForm({
   center,
   onOpenChange,
 }: {
@@ -182,7 +182,7 @@ export function CenterRegistrationDialog({
           </DialogDescription>
         </DialogHeader>
         {center ? (
-          <RegistrationForm
+          <CenterRegistrationForm
             center={center}
             key={`${center.id}:${formKey}`}
             onOpenChange={onOpenChange}

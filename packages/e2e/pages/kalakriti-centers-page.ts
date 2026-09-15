@@ -1,6 +1,7 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 
 import { waitForZeroReady } from "../fixtures/test";
+import { ListPage } from "./list-page";
 
 export class KalakritiCentersPage {
   private readonly page: Page;
@@ -16,21 +17,28 @@ export class KalakritiCentersPage {
   }
 
   async openDetails(name: string): Promise<Locator> {
-    await this.openRowAction(name, "View details");
-    const main = this.page.locator("#main");
-    await expect(
-      main.getByRole("heading", { exact: true, name })
-    ).toBeVisible();
-    return main;
+    await this.center(name).getByTestId("row-title").click();
+    const sheet = this.page.getByRole("dialog", { name, exact: true });
+    await expect(sheet).toBeVisible();
+    await expect(this.page).toHaveURL(/\/centers\?centerId=/);
+    return sheet;
   }
 
   async openRowAction(name: string, action: string): Promise<void> {
-    await this.center(name)
-      .getByRole("button", { name: `Actions for ${name}` })
-      .click();
-    await this.page
-      .getByRole("menuitem", { exact: true, name: action })
-      .click();
+    await new ListPage(this.page).openRowActionAndClick(
+      this.center(name),
+      action
+    );
+  }
+
+  async openEdit(name: string): Promise<Locator> {
+    await this.openRowAction(name, "Edit");
+    const dialog = this.page.getByRole("dialog", {
+      name: "Edit Center",
+      exact: true,
+    });
+    await expect(dialog).toBeVisible();
+    return dialog;
   }
 
   private async registrationCell(
@@ -103,7 +111,7 @@ export class KalakritiCentersPage {
     volunteerName: string,
     role?: "Liaison Lead" | "Liaison Volunteer"
   ) {
-    const detail = await this.openDetails(centerName);
+    const detail = await this.openEdit(centerName);
     if (role) {
       await detail.getByRole("combobox", { name: "Role" }).click();
       await this.page.getByRole("option", { exact: true, name: role }).click();
@@ -124,14 +132,12 @@ export class KalakritiCentersPage {
     if (role) {
       await expect(liaisons.getByText(role, { exact: true })).toBeVisible();
     }
-    await detail.getByRole("link", { name: "Back to Centers" }).click();
-    await expect(
-      this.page.getByRole("heading", { exact: true, name: "Centers" })
-    ).toBeVisible();
+    await detail.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(detail).toBeHidden();
   }
 
   async assignGuardian(centerName: string, guardianName: string) {
-    const detail = await this.openDetails(centerName);
+    const detail = await this.openEdit(centerName);
     await detail.getByRole("combobox", { name: "Guardian" }).click();
     await this.page
       .getByRole("option", { exact: true, name: guardianName })
@@ -142,9 +148,7 @@ export class KalakritiCentersPage {
         .getByRole("list", { name: "Guardians" })
         .getByText(guardianName, { exact: true })
     ).toBeVisible();
-    await detail.getByRole("link", { name: "Back to Centers" }).click();
-    await expect(
-      this.page.getByRole("heading", { exact: true, name: "Centers" })
-    ).toBeVisible();
+    await detail.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(detail).toBeHidden();
   }
 }

@@ -14,16 +14,14 @@ import { Fragment } from "react";
 import { useApp } from "@/context/app-context";
 import {
   buildBreadcrumbs,
-  getKalakritiCenterRoute,
   getKalakritiEntrySessionRoute,
 } from "@/lib/breadcrumbs";
 
 export function Breadcrumbs() {
   const { hasPermission, navItems } = useApp();
   const { pathname, searchStr } = useLocation();
-  const centerRoute = getKalakritiCenterRoute(pathname);
   const entrySessionRoute = getKalakritiEntrySessionRoute(pathname);
-  const routeYear = (centerRoute ?? entrySessionRoute)?.year;
+  const routeYear = entrySessionRoute?.year;
   const [editions] = useQuery(queries.kalakritiEdition.accessible(), {
     enabled: hasPermission("kalakriti.view") && routeYear !== undefined,
   });
@@ -31,14 +29,9 @@ export function Breadcrumbs() {
   const [centers] = useQuery(
     queries.kalakritiCenter.visible({ editionId: edition?.id ?? "" }),
     {
-      enabled:
-        (centerRoute !== undefined || entrySessionRoute !== undefined) &&
-        Boolean(edition),
+      enabled: entrySessionRoute !== undefined && Boolean(edition),
     }
   );
-  const centerName = centers.find(
-    (center) => center.id === centerRoute?.centerId
-  )?.name;
   const requestedCenterId = new URLSearchParams(searchStr).get("center");
   const entryCenterId = centers.some(
     (center) => center.id === requestedCenterId
@@ -65,7 +58,6 @@ export function Breadcrumbs() {
       ? `${breadcrumbSession.competition.name} · ${breadcrumbSession.ageCategory.name}`
       : undefined;
   const breadcrumbItems = buildBreadcrumbs(navItems, pathname, {
-    centerName,
     sessionTitle,
   });
 

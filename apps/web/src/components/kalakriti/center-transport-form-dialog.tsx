@@ -22,11 +22,24 @@ import { TextareaField } from "@/components/form/textarea-field";
 import type { CenterTransportAssignment } from "@/components/kalakriti/center-transport-section";
 import { handleMutationResult } from "@/lib/mutation-result";
 
+function formatLocalDateTime(timestamp: number): string {
+  const date = new Date(timestamp);
+  return new Date(timestamp - date.getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 16);
+}
+
 const transportFormSchema = z.object({
   capacity: z.number().int().positive("Capacity must be positive"),
   driverName: z.string().trim().min(1, "Driver name is required").max(120),
   driverPhone: z.string().trim().max(40),
   notes: z.string().trim().max(500),
+  pickupTime: z
+    .string()
+    .refine(
+      (value) => !value || Number.isFinite(new Date(value).getTime()),
+      "Enter a valid pickup time"
+    ),
   vehicleLabel: z.string().trim().min(1, "Vehicle name is required").max(120),
 });
 
@@ -53,10 +66,16 @@ function TransportForm({
       driverName: assignment?.driverName ?? "",
       driverPhone: assignment?.driverPhone ?? "",
       notes: assignment?.notes ?? "",
+      pickupTime: assignment?.pickupTime
+        ? formatLocalDateTime(assignment.pickupTime)
+        : "",
       vehicleLabel: assignment?.vehicleLabel ?? "",
     },
     onSubmit: async ({ value }) => {
       const now = Date.now();
+      const pickupTime = value.pickupTime
+        ? new Date(value.pickupTime).getTime()
+        : null;
       const driverPhone = value.driverPhone.trim()
         ? value.driverPhone.trim()
         : null;
@@ -69,6 +88,7 @@ function TransportForm({
                 auditEntryId: uuidv7(),
                 capacity: value.capacity,
                 changeId: uuidv7(),
+                pickupTime,
                 driverName: value.driverName,
                 driverPhone,
                 editionId,
@@ -87,6 +107,7 @@ function TransportForm({
                 driverPhone,
                 editionId,
                 historyId: uuidv7(),
+                pickupTime,
                 notes,
                 now,
                 vehicleLabel: value.vehicleLabel,
@@ -130,9 +151,9 @@ function TransportForm({
       <InputField
         autoFocus
         isRequired
-        label="Vehicle"
+        label="Vehicle number"
         name="vehicleLabel"
-        placeholder="Bus 1"
+        placeholder="KA 01 AB 1234"
       />
       <InputField
         isRequired
@@ -152,6 +173,11 @@ function TransportForm({
         name="capacity"
         placeholder="40"
         type="number"
+      />
+      <InputField
+        label="Pickup time (your local time)"
+        name="pickupTime"
+        type="datetime-local"
       />
       <TextareaField
         label="Notes"
@@ -192,8 +218,8 @@ export function CenterTransportFormDialog({
               : "Add transport assignment"}
           </DialogTitle>
           <DialogDescription>
-            Guardians and Liaisons are notified when the vehicle or driver
-            details change.
+            Guardians and Liaisons are notified when the vehicle, driver, or
+            pickup time changes.
           </DialogDescription>
         </DialogHeader>
         <TransportForm

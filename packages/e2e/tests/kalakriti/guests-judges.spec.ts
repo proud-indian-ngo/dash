@@ -141,6 +141,7 @@ test("non-login guests and judges support multiple competitions, scoped visibili
     const roster = new KalakritiAttendeePage(page);
     await roster.goto(data.year, "Guest");
     await roster.create("Guest", "E2E Invited Guest", "9876543210");
+    await roster.verifyTableControls("Guest", "E2E Invited Guest");
     await roster.goto(data.year, "Judge");
     await roster.create(
       "Judge",
@@ -148,6 +149,7 @@ test("non-login guests and judges support multiple competitions, scoped visibili
       "9876543211",
       "judge-attendee@pi-dash.test"
     );
+    await roster.verifyTableControls("Judge", "E2E Invited Judge");
     await roster.assign(
       "E2E Invited Judge",
       competitions.map((competition) => competition.name)

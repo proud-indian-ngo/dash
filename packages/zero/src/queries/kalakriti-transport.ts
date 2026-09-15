@@ -12,6 +12,72 @@ const centerInput = z.object({
 const NO_ACCESS_ID = "00000000-0000-0000-0000-000000000000";
 
 export const kalakritiTransportQueries = {
+  centers: defineQuery(z.object({ editionId: z.string() }), ({ args, ctx }) => {
+    const query = zql.kalakritiCenter
+      .where("editionId", args.editionId)
+      .where("retiredAt", "IS", null)
+      .related("transportAssignments", (assignments) =>
+        assignments
+          .where("editionId", args.editionId)
+          .where("deletedAt", "IS", null)
+          .orderBy("createdAt", "asc")
+      );
+    if (ctx !== null && can(ctx, "kalakriti.admin"))
+      return query.orderBy("name", "asc");
+    if (!(ctx && can(ctx, "kalakriti.view")))
+      return query.where("id", NO_ACCESS_ID);
+    return query
+      .where(({ or, exists }) =>
+        or(
+          exists("guardianCenters", (link) =>
+            link
+              .where("editionId", args.editionId)
+              .whereExists("membership", (membership) =>
+                membership
+                  .where("editionId", args.editionId)
+                  .where("userId", ctx.userId)
+                  .where("state", "active")
+                  .where("kind", "guardian")
+              )
+          ),
+          exists("assignments", (assignment) =>
+            assignment
+              .where("editionId", args.editionId)
+              .where("responsibility", "IN", [
+                ...KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES,
+              ])
+              .whereExists("membership", (membership) =>
+                membership
+                  .where("editionId", args.editionId)
+                  .where("userId", ctx.userId)
+                  .where("state", "active")
+                  .where("kind", "volunteer")
+              )
+          ),
+          exists("edition", (edition) =>
+            edition
+              .where("id", args.editionId)
+              .where("lifecycle", "!=", "archived")
+              .whereExists("memberships", (membership) =>
+                membership
+                  .where("userId", ctx.userId)
+                  .where("state", "active")
+                  .where("kind", "volunteer")
+                  .whereExists("assignments", (assignment) =>
+                    assignment.where("responsibility", "IN", [
+                      "edition_admin",
+                      "transport_lead",
+                    ])
+                  )
+              )
+          )
+        )
+      )
+      .whereExists("edition", (edition) =>
+        edition.where("lifecycle", "!=", "archived")
+      )
+      .orderBy("name", "asc");
+  }),
   byCenter: defineQuery(centerInput, ({ args, ctx }) => {
     const query = zql.kalakritiTransportAssignment
       .where("editionId", args.editionId)

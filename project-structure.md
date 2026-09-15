@@ -96,7 +96,12 @@ All paths are relative to project root.
 | `components/kalakriti/event-day-qr-scanner.tsx` | Client-only camera decoder with startup failure handling and camera cleanup |
 | `lib/kalakriti-qr-decoder.ts` | Stable lazy decoder entry for camera loading and E2E interception in development and production builds |
 | `components/kalakriti/use-transport-status-snapshot.ts` | Keeps Student/Center transport labels tied to complete, scoped query snapshots without hiding the base table |
-| `components/kalakriti/center-transport-section.tsx` | Transport Lead/admin vehicle management and deletion confirmation, with derived Center-stage status and scoped viewing for Guardians and Center Liaisons |
+| `routes/_app/kalakriti/$year/transport.tsx` | Scoped Transport directory and table-owned vehicle editing/deletion; Center sheets retain read-only transport |
+| `components/kalakriti/transport-table.tsx` | One row per vehicle, unassigned Center placeholders, location/Maps links, pickup times, and retained scan-derived status |
+| `lib/kalakriti-transport-policy.ts` | Transport route/navigation readership and management capabilities |
+| `components/kalakriti/center-transport-section.tsx` | Read-only Center vehicle details and derived Center-stage status |
+| `components/kalakriti/center-edit-dialog.tsx` | Shared Center editor: lifecycle-independent basic details, guarded registration controls, and Guardian/Liaison assignments |
+| `components/kalakriti/center-edit-assignments.tsx` | Editor-only scoped assignment queries and central-volunteer picker loading |
 | `components/kalakriti/center-transport-form-dialog.tsx` | Scoped vehicle creation/editing form; archived Editions remain read-only |
 | `components/kalakriti/entry-music-dialog.tsx` | Staged additions and per-file removals for up to two Entry music files, including after registration closes |
 | `components/kalakriti/entry-music-field.tsx` | Multi-select/drop audio uploads with per-file status, removal, and partial-failure retries |
@@ -108,7 +113,8 @@ All paths are relative to project root.
 | `packages/shared/src/kalakriti-person-qr.ts` (repository root) | Strict bounded parser for detail-sheet JSON person identifiers |
 | `packages/zero/src/mutators/kalakriti-operation.ts` (repository root) | Live-only recording, scoped operator authorization, retry idempotency, and manual yearly-ID resolution |
 | `routes/_app/kalakriti/$year/centers/index.tsx` | Edition Center list and registration controls |
-| `routes/_app/kalakriti/$year/centers/$id.tsx` | Center registration and assignment detail |
+| `routes/_app/kalakriti/$year/centers/index.tsx` | Centers directory with a scoped `centerId` search parameter for row-click sheets and notification deep links |
+| `components/kalakriti/center-detail-sheet.tsx` | Center fields, registration/compliance, scoped Guardian/Liaison lists, and lazily loaded read-only transport; actions open table-owned modals |
 | `routes/_app/kalakriti/$year/eligibility.tsx` | Edition Age Categories and shared per-Center Student limits |
 | `routes/_app/kalakriti/$year/competitions/route.tsx` | Competition workspace access guard; Category Leads have read-only access to assigned Categories, while archived Editions are visible only to global administrators |
 | `routes/_app/kalakriti/$year/competitions/index.tsx` | Category, Competition, Venue, and Schedule summary |

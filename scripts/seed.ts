@@ -920,6 +920,8 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
       id: ID.kalakritiCenter,
       name: "Jayanagar",
       normalizedName: "jayanagar",
+      location: "Jayanagar, Bengaluru",
+      googleMapsUrl: "https://maps.google.com/?q=Jayanagar+Bengaluru",
       studentRegistrationEnabled: false,
       updatedAt: now,
     })
@@ -1201,6 +1203,7 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
         centerId: ID.kalakritiCenter,
         vehicleLabel: "Demo bus 1",
         driverName: "Demo driver",
+        pickupTime: eventDate,
         capacity: 30,
         status: transportStatus,
         createdBy: adminId,

@@ -97,6 +97,45 @@ function createTx(results: unknown[] = []) {
   };
 }
 
+describe("per-vehicle pickup time", () => {
+  it("updates and clears pickup time without changing derived status, and audits only field names", async () => {
+    for (const pickupTime of [1_800_000_000_000, null]) {
+      const { tx, lockedResults, spies } = createTx([
+        { ...assignment, pickupTime: 1_700_000_000_000 },
+      ]);
+      lockedResults.push([edition], [center]);
+      const ctx = { ...adminContext, asyncTasks: [] };
+      await kalakritiTransportMutators.update.fn({
+        tx: tx as never,
+        ctx,
+        args: {
+          assignmentId: assignment.id,
+          editionId: edition.id,
+          auditEntryId: "audit",
+          changeId: "change",
+          now: 2,
+          pickupTime,
+        },
+      });
+      expect(spies.updateAssignment).toHaveBeenCalledWith({
+        id: assignment.id,
+        pickupTime,
+        updatedAt: 2,
+      });
+      expect(spies.insertHistory).not.toHaveBeenCalled();
+      expect(spies.insertAudit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: {
+            assignmentId: assignment.id,
+            changedFields: ["pickupTime"],
+          },
+        })
+      );
+      expect(ctx.asyncTasks).toHaveLength(1);
+    }
+  });
+});
+
 describe("transport subject scope", () => {
   it.each(["create", "update", "delete"] as const)(
     "denies %s for Guardians, inactive members, and own-Center Liaisons",

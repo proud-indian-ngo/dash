@@ -1,6 +1,9 @@
 import { describe, expect, it, mock } from "bun:test";
 
-import { kalakritiCenterMutators } from "../kalakriti-center";
+import {
+  kalakritiCenterMutators,
+  kalakritiCenterUpdateSchema,
+} from "../kalakriti-center";
 
 const adminContext = {
   permissions: ["kalakriti.admin"],
@@ -82,6 +85,115 @@ function createTx(results: unknown[]) {
     },
   };
 }
+
+describe("kalakritiCenter location fields", () => {
+  it.each([
+    "draft",
+    "registration_open",
+    "registration_locked",
+    "live",
+    "archived",
+  ])(
+    "allows authorized basic edits in %s without altering registration",
+    async (lifecycle) => {
+      const { spies, tx } = createTx([{ lifecycle }]);
+      await kalakritiCenterMutators.update.fn({
+        args: {
+          auditEntryId: "audit",
+          centerId: center.id,
+          name: "New name",
+          location: "New location",
+          googleMapsUrl: null,
+          now: 2,
+        },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<typeof kalakritiCenterMutators.update.fn>[0]);
+      expect(spies.updateCenter).toHaveBeenCalledWith({
+        id: center.id,
+        name: "New name",
+        normalizedName: "new name",
+        location: "New location",
+        googleMapsUrl: null,
+        updatedAt: 2,
+      });
+    }
+  );
+  it("allows metadata corrections on retired Centers without reactivating them", async () => {
+    const { spies, tx, lockedResults } = createTx([{ lifecycle: "archived" }]);
+    lockedResults.splice(0, 1, [{ ...center, retiredAt: new Date(1) }]);
+    await kalakritiCenterMutators.update.fn({
+      args: {
+        auditEntryId: "audit",
+        centerId: center.id,
+        name: "Corrected name",
+        now: 2,
+      },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<typeof kalakritiCenterMutators.update.fn>[0]);
+    expect(spies.updateCenter).toHaveBeenCalledWith({
+      id: center.id,
+      name: "Corrected name",
+      normalizedName: "corrected name",
+      updatedAt: 2,
+    });
+  });
+  it("persists and clears location fields on the Center without exposing them in audit metadata", async () => {
+    for (const fields of [
+      {
+        location: "Main road",
+        googleMapsUrl: "https://maps.google.com/?q=Bengaluru",
+      },
+      { location: null, googleMapsUrl: null },
+    ]) {
+      const { spies, tx } = createTx([{ lifecycle: "draft" }]);
+      await kalakritiCenterMutators.update.fn({
+        args: {
+          auditEntryId: "audit",
+          centerId: center.id,
+          name: "Center",
+          now: 1,
+          ...fields,
+        },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<typeof kalakritiCenterMutators.update.fn>[0]);
+      expect(spies.updateCenter).toHaveBeenCalledWith(
+        expect.objectContaining(fields)
+      );
+      expect(spies.insertAudit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: { changedFields: ["name", "location", "googleMapsUrl"] },
+        })
+      );
+    }
+  });
+  it("rejects unsafe links and retains omission compatibility for old clients", () => {
+    const args = {
+      auditEntryId: "audit",
+      centerId: center.id,
+      name: "Center",
+      now: 1,
+    };
+    expect(kalakritiCenterUpdateSchema.safeParse(args).success).toBe(true);
+    for (const googleMapsUrl of [
+      "javascript:alert(1)",
+      "http://maps.google.com",
+      "not a url",
+    ])
+      expect(
+        kalakritiCenterUpdateSchema.safeParse({ ...args, googleMapsUrl })
+          .success
+      ).toBe(false);
+    expect(
+      kalakritiCenterUpdateSchema.safeParse({
+        ...args,
+        googleMapsUrl: "https://maps.app.goo.gl/example",
+      }).success
+    ).toBe(true);
+  });
+});
 
 describe("kalakritiCenter commands", () => {
   it("creates a normalized Center with registration locked", async () => {

@@ -593,7 +593,9 @@ test("Food and Entry readers see their two-Center union, while arrival and check
       await expect(
         reader.getByText("Outside Student C", { exact: true })
       ).toHaveCount(0);
-      await reader.goto(`/kalakriti/${data.year}/centers/${data.centerC}`);
+      await reader.goto(
+        `/kalakriti/${data.year}/centers?centerId=${data.centerC}`
+      );
       await expect(
         reader.getByRole("heading", { name: "Center not found", exact: true })
       ).toBeVisible();
