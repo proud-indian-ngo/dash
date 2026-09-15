@@ -96,7 +96,8 @@
     "worktree:setup": "bash scripts/worktree-setup.sh",
     "worktree:teardown": "bash scripts/worktree-teardown.sh",
     "zero:analyze": "turbo run --filter=@pi-dash/zero zero:analyze",
-    "zero:generate": "turbo run --filter=@pi-dash/zero zero:generate"
+    "zero:generate": "turbo run --filter=@pi-dash/zero zero:generate",
+    "preview:id-cards": "bun scripts/preview-kalakriti-id-cards.ts"
   },
   "dependencies": {
     "@pi-dash/auth": "workspace:*",

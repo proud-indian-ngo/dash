@@ -81,6 +81,7 @@ describe("Kalakriti Registration Release surface", () => {
       )
     ).toEqual([
       "audit.ts",
+      "id-cards.ts",
       "people/lookup.ts",
       "registration-export.ts",
       "schedule.ts",

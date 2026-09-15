@@ -7,6 +7,7 @@ import { nitro } from "nitro/vite";
 import { defineConfig, type UserConfig } from "vite";
 
 import { apiMediaDevMiddleware } from "./src/lib/dev/api-media-dev-middleware";
+import { kalakritiPdfAssets } from "./src/lib/dev/kalakriti-pdf-assets";
 import { appReactCompilerPreset } from "./src/lib/dev/react-compiler-preset";
 import "@pi-dash/env";
 
@@ -84,6 +85,7 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
       include: ["use-sync-external-store/shim/with-selector"],
     },
     plugins: [
+      kalakritiPdfAssets(),
       ...devtools(),
       ...tailwindcss(),
       ...tanstackStart(),
