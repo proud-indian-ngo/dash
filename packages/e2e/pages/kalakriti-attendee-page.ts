@@ -133,13 +133,27 @@ export class KalakritiAttendeePage {
     await expect(
       dialog.getByRole("button", { name: "Save assignments", exact: true })
     ).toBeVisible();
-    for (const checkbox of await dialog.getByRole("checkbox").all())
-      await checkbox.uncheck();
+    const search = dialog.getByRole("combobox", {
+      name: "Competitions",
+      exact: true,
+    });
+    await search.fill("no matching competition");
+    await expect(
+      this.page.getByText("No matching competitions found.", { exact: true })
+    ).toBeVisible();
+    await search.fill("");
+    await expect(this.page.getByRole("option").first()).toBeVisible();
+    const selected = this.page.getByRole("option", { selected: true });
+    while (await selected.count()) await selected.first().click();
     for (const competition of competitionNames) {
-      await dialog
-        .getByRole("checkbox", { name: competition, exact: true })
-        .check();
+      await search.fill(competition);
+      await this.page
+        .getByRole("option", { name: competition, exact: true })
+        .click();
     }
+    await dialog
+      .getByRole("heading", { name: "Assign competitions", exact: true })
+      .click();
     await dialog
       .getByRole("button", { name: "Save assignments", exact: true })
       .click();
