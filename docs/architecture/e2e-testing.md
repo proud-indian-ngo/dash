@@ -212,7 +212,7 @@ A disposable-database experiment added assignment indexes on `(center_id, respon
 
 ## Center transport and Scan profiles
 
-The large Kalakriti fixture includes 40 synthetic transport assignments, four per Center. The benchmark navigates the real Center detail route for admin, Guardian and liaison accounts and verifies exactly four transport records, all from the selected Center. It then uses the Scan page object to open Transport scanning for admin and liaison accounts and select Performance Center 1. The fixture remains in registration-open state: this measures query hydration, not live scan recording or camera performance.
+The large Kalakriti fixture includes 40 synthetic transport assignments, four per Center. The benchmark opens the Centers directory's deep-linked detail sheet for admin, Guardian and liaison accounts and verifies exactly four transport records, all from the selected Center. It then uses the Scan page object to open Transport scanning for admin and liaison accounts and select Performance Center 1. The fixture remains in registration-open state: this measures query hydration, not live scan recording or camera performance.
 
 Local baseline (2026-09-14, median of three analyzer calls):
 

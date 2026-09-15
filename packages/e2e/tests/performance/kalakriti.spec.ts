@@ -448,7 +448,7 @@ test("profile a large synthetic Kalakriti edition", async ({
       centerIds: [centerId],
     },
   };
-  await page.goto(`/kalakriti/${fixture.year}/centers/${centerId}`);
+  await page.goto(`/kalakriti/${fixture.year}/centers?centerId=${centerId}`);
   results.push(
     ...(await profileZeroQueries(
       page,
@@ -570,7 +570,9 @@ test("profile a large synthetic Kalakriti edition", async ({
         route: "registration",
         queries: await profileRegistration(scopedPage, true),
       });
-      await scopedPage.goto(`/kalakriti/${fixture.year}/centers/${centerId}`);
+      await scopedPage.goto(
+        `/kalakriti/${fixture.year}/centers?centerId=${centerId}`
+      );
       scopedResults.push({
         actor,
         route: "center-transport",

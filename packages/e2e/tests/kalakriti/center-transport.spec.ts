@@ -7,7 +7,9 @@ import { uuidv7 } from "uuidv7";
 
 import { KALAKRITI_ACTORS } from "../../fixtures/kalakriti-actors";
 import { expect, test } from "../../fixtures/test";
+import { KalakritiCentersPage } from "../../pages/kalakriti-centers-page";
 import { KalakritiTransportPage } from "../../pages/kalakriti-transport-page";
+import { ListPage } from "../../pages/list-page";
 
 const execFileAsync = promisify(execFile);
 const helperPath = path.resolve(
@@ -29,6 +31,7 @@ interface State {
     centerId: string;
     vehicleLabel: string;
     driverName: string;
+    pickupTime: string | null;
     status: string;
     deletedAt: string | null;
   }[];
@@ -157,14 +160,59 @@ test.describe("Center transport", () => {
     );
     const transport = new KalakritiTransportPage(page);
     try {
+      const removedCenterPage = await page.request.get(
+        `/kalakriti/${data.year}/centers/${data.centerA}`
+      );
+      expect(removedCenterPage.status()).toBe(404);
+      const centers = new KalakritiCentersPage(page);
+      await centers.goto(data.year);
+      await new ListPage(page).openRowActionAndClick(
+        centers.center("Transport Center A"),
+        "Edit"
+      );
+      const centerDialog = page.getByRole("dialog", {
+        name: "Edit Center",
+        exact: true,
+      });
+      await expect(centerDialog.getByLabel("Center name")).toHaveValue(
+        "Transport Center A"
+      );
+      await centerDialog
+        .getByLabel("Location", { exact: true })
+        .fill("Main road pickup point");
+      await centerDialog
+        .getByLabel("Google Maps link")
+        .fill("https://maps.google.com/?q=Bengaluru");
+      await centerDialog
+        .getByRole("button", { name: "Save Center", exact: true })
+        .click();
+      await expect(centerDialog).toBeHidden();
+      const sheet = await centers.openDetails("Transport Center A");
+      await expect(sheet).toContainText("Main road pickup point");
+      await expect(
+        sheet.getByRole("link", { name: "Open Google Maps" })
+      ).toHaveAttribute("href", "https://maps.google.com/?q=Bengaluru");
+      await page.reload();
+      await expect(
+        page.getByRole("dialog", { name: "Transport Center A", exact: true })
+      ).toBeVisible();
+      await sheet.getByRole("button", { name: "Close", exact: true }).click();
+      await expect(sheet).toBeHidden();
       await transport.goto(data.year, "Transport Center A");
-      await transport.addVehicle("Bus 1", "Ravi Kumar");
+      await expect(
+        page.getByRole("cell", { name: "Main road pickup point", exact: true })
+      ).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: "Google Maps", exact: true })
+      ).toHaveAttribute("href", "https://maps.google.com/?q=Bengaluru");
+      await transport.addVehicle("Bus 1", "Ravi Kumar", "2170-11-21T07:30");
       await transport.editVehicle("Bus 1", "Bus 2", "Anil Kumar");
       await transport.expectNoAdvanceControls();
       const before = await fixture<State>("state");
       const assignment = before.assignments.find(
         (item) => item.centerId === data.centerA
       )!;
+      expect(assignment.pickupTime).not.toBeNull();
       const removedApi = await sendMutation(
         page.request,
         "kalakritiTransport.transitionStatus",
@@ -182,10 +230,18 @@ test.describe("Center transport", () => {
         .click();
       await expect(confirmation).toBeHidden();
       await expect(
-        page.getByRole("heading", { name: "Bus 2", exact: true })
+        page.getByRole("cell", { name: "Bus 2", exact: true })
       ).toBeVisible();
       expect(await fixture<State>("state")).toEqual(before);
       await transport.deleteVehicle("Bus 2");
+      await expect(
+        page.getByRole("row").filter({
+          has: page.getByRole("cell", {
+            name: "Transport Center A",
+            exact: true,
+          }),
+        })
+      ).toContainText("Unassigned");
       const after = await fixture<State>("state");
       expect(
         after.assignments.find((item) => item.id === assignment.id)
@@ -193,7 +249,7 @@ test.describe("Center transport", () => {
       expect(after.history).toEqual(before.history);
       await transport.goto(data.year, "Transport Center A");
       await expect(
-        page.getByRole("heading", { name: "Bus 2", exact: true })
+        page.getByRole("cell", { name: "Bus 2", exact: true })
       ).toHaveCount(0);
       const repeated = await mutate(
         page.request,
@@ -286,13 +342,17 @@ test.describe("Center transport", () => {
         await readerTransport.goto(data.year, "Transport Center A");
         await readerTransport.expectNoAdvanceControls();
         await expect(
-          reader.getByRole("heading", {
+          reader.getByRole("cell", { name: "Transport Center B", exact: true })
+        ).toHaveCount(0);
+        await expect(reader.getByTestId("row-actions")).toHaveCount(0);
+        await expect(
+          reader.getByRole("cell", {
             name: "Scoped Bus Updated",
             exact: true,
           })
         ).toBeVisible();
         await expect(
-          reader.getByText("Driver: Updated Driver", { exact: true })
+          reader.getByRole("cell", { name: "Updated Driver", exact: true })
         ).toBeVisible();
         for (const name of [
           "Add vehicle",
@@ -310,7 +370,9 @@ test.describe("Center transport", () => {
           scopedAssignment.id
         );
         expect(await fixture<State>("state")).toEqual(beforeDenied);
-        await reader.goto(`/kalakriti/${data.year}/centers/${data.centerB}`);
+        await reader.goto(
+          `/kalakriti/${data.year}/centers?centerId=${data.centerB}`
+        );
         await expect(
           reader.getByRole("heading", { name: "Center not found", exact: true })
         ).toBeVisible();
@@ -345,7 +407,7 @@ test.describe("Center transport", () => {
         "Transport Center A"
       );
       await expect(
-        guardian.getByRole("heading", {
+        guardian.getByRole("cell", {
           name: "Scoped Bus Updated",
           exact: true,
         })
@@ -359,10 +421,10 @@ test.describe("Center transport", () => {
         "Transport Center B"
       );
       await expect(
-        page.getByRole("heading", { name: "Second Center B Bus", exact: true })
+        page.getByRole("cell", { name: "Second Center B Bus", exact: true })
       ).toBeVisible();
       await expect(
-        page.getByRole("heading", { name: "Center B Bus", exact: true })
+        page.getByRole("cell", { name: "Center B Bus", exact: true })
       ).toHaveCount(0);
       for (const name of [
         "Add vehicle",
@@ -382,6 +444,32 @@ test.describe("Center transport", () => {
       expect(archived.error).toBeDefined();
       expect(archived.message).toContain("archived");
       expect(await fixture<State>("state")).toEqual(afterDeletion);
+      const archivedCenters = new KalakritiCentersPage(page);
+      await archivedCenters.goto(data.year);
+      const edit = await archivedCenters.openEdit("Transport Center B");
+      await expect(edit.getByLabel("Center name")).toHaveValue(
+        "Transport Center B"
+      );
+      await expect(
+        edit.getByRole("button", { name: "Save controls", exact: true })
+      ).toHaveCount(0);
+      await expect(
+        edit.getByRole("button", { name: "Assign role", exact: true })
+      ).toHaveCount(0);
+      await edit
+        .getByLabel("Location", { exact: true })
+        .fill("Corrected archived Center location");
+      await edit
+        .getByRole("button", { name: "Save Center", exact: true })
+        .click();
+      await expect(edit).toBeHidden();
+      const reopened = await archivedCenters.openEdit("Transport Center B");
+      await expect(
+        reopened.getByLabel("Location", { exact: true })
+      ).toHaveValue("Corrected archived Center location");
+      await reopened
+        .getByRole("button", { name: "Close", exact: true })
+        .click();
     } finally {
       for (const context of [leadContext, liaisonContext, guardianContext])
         if (context.pages().length) await context.close();

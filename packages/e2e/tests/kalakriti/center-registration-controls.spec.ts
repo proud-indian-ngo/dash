@@ -87,6 +87,31 @@ test("manages independent Center registration and scoped Liaison access", async 
 
     await centers.assignGuardian("Basavanagudi", guardianName);
     await centers.assignGuardian("Indiranagar", guardianName);
+    const assignmentsDialog = await centers.openEdit("Basavanagudi");
+    await assignmentsDialog
+      .getByRole("list", { name: "Guardians" })
+      .getByRole("button", {
+        name: `Remove ${guardianName} as Guardians`,
+        exact: true,
+      })
+      .click();
+    const removeGuardian = page.getByRole("alertdialog", {
+      name: "Remove Guardian assignment?",
+      exact: true,
+    });
+    await expect(removeGuardian).toBeVisible();
+    await removeGuardian
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
+    await expect(removeGuardian).toBeHidden();
+    await expect(
+      assignmentsDialog
+        .getByRole("list", { name: "Guardians" })
+        .getByText(guardianName, { exact: true })
+    ).toBeVisible();
+    await assignmentsDialog
+      .getByRole("button", { name: "Close", exact: true })
+      .click();
     const guardianContext = await browser.newContext({
       baseURL,
       storageState: { cookies: [], origins: [] },
@@ -160,8 +185,9 @@ test("manages independent Center registration and scoped Liaison access", async 
       .getByRole("alertdialog", { name: "Retire Center?" })
       .getByRole("button", { name: "Retire Center" })
       .click();
-    await expect(assignedCenter).toContainText("Retired");
-    await assignedCenter
+    await expect(centers.center("Basavanagudi")).toContainText("Retired");
+    const retiredEditor = await centers.openEdit("Basavanagudi");
+    await retiredEditor
       .getByRole("button", {
         name: `Remove ${guardianName} as Guardians`,
       })
@@ -170,7 +196,7 @@ test("manages independent Center registration and scoped Liaison access", async 
       .getByRole("alertdialog", { name: "Remove Guardian assignment?" })
       .getByRole("button", { name: "Remove Guardian" })
       .click();
-    await assignedCenter
+    await retiredEditor
       .getByRole("button", {
         name: "Remove Test Volunteer as Liaison Volunteer",
       })
@@ -179,7 +205,11 @@ test("manages independent Center registration and scoped Liaison access", async 
       .getByRole("alertdialog", { name: "Remove Liaison assignment?" })
       .getByRole("button", { name: "Remove Liaison" })
       .click();
-    await assignedCenter.getByRole("button", { name: "Delete" }).click();
+    await retiredEditor
+      .getByRole("button", { name: "Close", exact: true })
+      .click();
+    const retiredSheet = await centers.openDetails("Basavanagudi");
+    await retiredSheet.getByRole("button", { name: "Delete" }).click();
     await page
       .getByRole("alertdialog", { name: "Delete Center?" })
       .getByRole("button", { name: "Delete Center" })
@@ -199,8 +229,9 @@ test("manages independent Center registration and scoped Liaison access", async 
       .getByRole("alertdialog", { name: "Retire Center?" })
       .getByRole("button", { name: "Retire Center" })
       .click();
-    await expect(retired).toContainText("Retired");
-    await retired.getByRole("button", { name: "Delete" }).click();
+    await expect(centers.center("Retired Center")).toContainText("Retired");
+    const reopenedRetired = await centers.openDetails("Retired Center");
+    await reopenedRetired.getByRole("button", { name: "Delete" }).click();
     await page
       .getByRole("alertdialog", { name: "Delete Center?" })
       .getByRole("button", { name: "Delete Center" })

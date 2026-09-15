@@ -49,7 +49,6 @@ describe("Kalakriti Registration Release surface", () => {
       )
     ).toEqual([
       "audit.tsx",
-      "centers/$id.tsx",
       "centers/index.tsx",
       "competitions/catalog.tsx",
       "competitions/categories.tsx",
@@ -68,6 +67,7 @@ describe("Kalakriti Registration Release surface", () => {
       "judges.tsx",
       "route.tsx",
       "students.tsx",
+      "transport.tsx",
       "volunteers.tsx",
     ]);
     expect(
@@ -122,6 +122,7 @@ describe("Kalakriti Registration Release surface", () => {
       "kalakritiStudent.visibleForDirectory",
       "kalakritiStudent.visibleForEntries",
       "kalakritiTransport.byCenter",
+      "kalakritiTransport.centers",
     ]);
     expect(operationKeys(mutators)).toEqual([
       "kalakritiAssignment.addVolunteers",
@@ -133,6 +134,7 @@ describe("Kalakriti Registration Release surface", () => {
       "kalakritiAssignment.removeVolunteer",
       "kalakritiAttendee.archive",
       "kalakritiAttendee.create",
+      "kalakritiAttendee.delete",
       "kalakritiAttendee.setCompetitions",
       "kalakritiAttendee.update",
       "kalakritiCenter.assignGuardian",

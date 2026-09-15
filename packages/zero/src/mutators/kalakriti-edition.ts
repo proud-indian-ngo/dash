@@ -744,6 +744,7 @@ export const kalakritiEditionMutators = {
         name: args.name,
         nextStudentSequence: 1,
         nextGuardianSequence: 1,
+        nextJudgeSequence: 1,
         nextVolunteerSequence: 1,
         plannedRegistrationCloseAt: args.plannedRegistrationCloseAt,
         runnerUpPoints: 5,

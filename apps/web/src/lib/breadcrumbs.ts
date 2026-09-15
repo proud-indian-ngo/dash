@@ -6,7 +6,6 @@ export interface BreadcrumbEntry {
 }
 
 interface BreadcrumbOptions {
-  centerName?: string;
   sessionTitle?: string;
 }
 
@@ -39,7 +38,7 @@ function resolveTitle(
 
 function buildKalakritiBreadcrumbs(
   pathname: string,
-  { centerName, sessionTitle }: BreadcrumbOptions
+  { sessionTitle }: BreadcrumbOptions
 ): BreadcrumbEntry[] | undefined {
   if (pathname === "/kalakriti/new") {
     return [
@@ -63,12 +62,6 @@ function buildKalakritiBreadcrumbs(
   if (section === "centers") {
     const centersPath = `${editionPath}/centers`;
     items.push({ path: centersPath, title: "Centers" });
-    if (entityId) {
-      items.push({
-        path: `${centersPath}/${entityId}`,
-        title: centerName ?? "Center",
-      });
-    }
   } else if (section === "guardians") {
     items.push({ path: `${editionPath}/guardians`, title: "Guardians" });
   } else if (section === "eligibility") {
@@ -116,17 +109,6 @@ export function getKalakritiEntrySessionRoute(
   }
 
   return { sessionId: match[3], year: Number(match[1]) };
-}
-
-export function getKalakritiCenterRoute(
-  pathname: string
-): { centerId: string; year: number } | undefined {
-  const match = pathname.match(KALAKRITI_EDITION_PATH);
-  if (match?.[2] !== "centers" || !match[3]) {
-    return;
-  }
-
-  return { centerId: match[3], year: Number(match[1]) };
 }
 
 export function buildBreadcrumbs(

@@ -142,7 +142,7 @@ export function AttendeesTable({
   statusReady,
   onView,
   onEdit,
-  onArchive,
+  onRemove,
   onAssign,
   toolbarActions,
 }: {
@@ -153,7 +153,7 @@ export function AttendeesTable({
   statusReady: boolean;
   onView: (row: AttendeeRow) => void;
   onEdit: (row: AttendeeRow) => void;
-  onArchive: (row: AttendeeRow) => void;
+  onRemove: (row: AttendeeRow) => void;
   onAssign: (row: AttendeeRow) => void;
   toolbarActions: ReactNode;
 }) {
@@ -161,21 +161,35 @@ export function AttendeesTable({
     const text = (
       id: string,
       title: string,
-      get: (row: AttendeeRow) => string
+      get: (row: AttendeeRow) => string,
+      size = 200
     ): DataGridColumnDef<AttendeeRow> => ({
       id,
       accessorFn: get,
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title={title} visibility={true} />
       ),
-      cell: ({ row }) => get(row.original),
+      cell: ({ row }) => (
+        <span
+          className={
+            id === "name"
+              ? "block truncate text-sm font-medium"
+              : "block truncate text-sm"
+          }
+          title={get(row.original)}
+          data-testid={id === "name" ? "row-title" : undefined}
+        >
+          {get(row.original)}
+        </span>
+      ),
+      size,
       meta: { headerTitle: title, skeleton: <Skeleton className="h-5 w-28" /> },
     });
     return [
       text("name", "Name", (r) => r.name),
-      text("humanId", "Yearly ID", (r) => r.humanId || "—"),
-      text("phone", "Phone", (r) => r.phone),
-      text("email", "Email", (r) => r.email || "—"),
+      text("humanId", "Yearly ID", (r) => r.humanId || "—", 190),
+      text("phone", "Phone", (r) => r.phone, 160),
+      text("email", "Email", (r) => r.email || "—", 240),
       ...(kind === "judge"
         ? [
             text(
@@ -185,7 +199,8 @@ export function AttendeesTable({
                 r.judgeAssignments
                   .map((a) => a.competition?.name)
                   .filter(Boolean)
-                  .join(", ") || "Unassigned"
+                  .join(", ") || "Unassigned",
+              280
             ),
           ]
         : []),
@@ -197,6 +212,8 @@ export function AttendeesTable({
         ] as const
       ).map(([type, title]): DataGridColumnDef<AttendeeRow> => ({
         id: type,
+        size: 130,
+        enableSorting: statusReady,
         accessorFn: (r) => (statusReady ? attendeeStatus(r, type) : undefined),
         header: ({ column }) => (
           <DataGridColumnHeader
@@ -215,9 +232,13 @@ export function AttendeesTable({
       })),
       {
         id: "actions",
-        size: 48,
+        size: 52,
+        enableHiding: false,
+        enableSorting: false,
+        enableResizing: false,
         meta: {
           enableColumnOrdering: false,
+          cellClassName: "text-center",
           headerTitle: "",
           skeleton: <Skeleton className="size-7" />,
           stopRowClick: true,
@@ -227,14 +248,18 @@ export function AttendeesTable({
             <DropdownMenuTrigger
               render={
                 <Button
-                  aria-label="Row actions"
+                  aria-label={`Actions for ${row.original.name}`}
                   onKeyDown={(event) => event.stopPropagation()}
                   data-testid="row-actions"
                   className="size-7"
                   size="icon"
                   variant="ghost"
                 >
-                  <HugeiconsIcon icon={MoreVerticalIcon} className="size-4" />
+                  <HugeiconsIcon
+                    icon={MoreVerticalIcon}
+                    className="size-4"
+                    strokeWidth={2}
+                  />
                 </Button>
               }
             />
@@ -257,9 +282,9 @@ export function AttendeesTable({
                   ) : null}
                   <DropdownMenuItem
                     variant="destructive"
-                    onClick={() => onArchive(row.original)}
+                    onClick={() => onRemove(row.original)}
                   >
-                    Archive
+                    {kind === "judge" ? "Delete" : "Archive"}
                   </DropdownMenuItem>
                 </>
               ) : null}
@@ -268,7 +293,7 @@ export function AttendeesTable({
         ),
       },
     ];
-  }, [kind, canManage, onView, onEdit, onArchive, onAssign, statusReady]);
+  }, [kind, canManage, onView, onEdit, onRemove, onAssign, statusReady]);
   return (
     <DataTableWrapper
       filter={{
@@ -293,6 +318,13 @@ export function AttendeesTable({
       searchFn={search}
       emptyMessage={`No ${kind === "guest" ? "guests" : "judges"} found.`}
       storageKey={`kalakriti_${kind}_table_state_v1`}
+      searchPlaceholder={`Search ${kind === "guest" ? "Guests" : "Judges"}...`}
+      tableLayout={{
+        columnsDraggable: true,
+        columnsPinnable: true,
+        columnsResizable: true,
+        columnsVisibility: true,
+      }}
       toolbarActions={toolbarActions}
     />
   );

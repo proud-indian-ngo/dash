@@ -98,7 +98,7 @@ describe("Kalakriti notifications", () => {
     expect(mocks.sendMessage).toHaveBeenCalledWith({
       body: "Transport details changed for Kalakriti 2028.",
       channels: ["inbox", "whatsapp"],
-      clickAction: "/kalakriti/2028/centers/center-1",
+      clickAction: "/kalakriti/2028/centers?centerId=center-1",
       idempotencyKey:
         "kalakriti-transport-edition-1-assignment-1-change-1-user-1",
       title: "Kalakriti transport updated",

@@ -30,6 +30,8 @@ import type { ParticipationCompliance } from "@/lib/kalakriti-participation-comp
 import { useTransportStatusSnapshot } from "./use-transport-status-snapshot";
 
 export interface CenterListItem {
+  location?: string | null;
+  googleMapsUrl?: string | null;
   competitionEntryRegistrationEnabled: boolean;
   id: string;
   name: string;
@@ -59,6 +61,7 @@ function RegistrationStatus({ enabled }: { enabled: boolean }) {
 }
 
 function RowActions({
+  canEditCenters,
   canConfigureCenters,
   canManageRegistrationControls,
   center,
@@ -70,6 +73,7 @@ function RowActions({
 }: {
   canConfigureCenters: boolean;
   canManageRegistrationControls: boolean;
+  canEditCenters: boolean;
   center: CenterTableRow;
   onDelete: (center: CenterListItem) => void;
   onEdit: (center: CenterListItem) => void;
@@ -112,6 +116,9 @@ function RowActions({
       />
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={handleView}>View details</DropdownMenuItem>
+        {canEditCenters ? (
+          <DropdownMenuItem onClick={handleEdit}>Edit</DropdownMenuItem>
+        ) : null}
         {canConfigureCenters || canManageRegistrationControls ? (
           <>
             <DropdownMenuSeparator />
@@ -124,9 +131,6 @@ function RowActions({
                 ) : null}
                 {canConfigureCenters ? (
                   <>
-                    <DropdownMenuItem onClick={handleEdit}>
-                      Edit
-                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleRetire}>
                       Retire
                     </DropdownMenuItem>
@@ -160,6 +164,7 @@ function centerTransportLabel(row: CenterTableRow) {
 }
 
 export function CentersTable({
+  canEditCenters,
   canConfigureCenters,
   canManageRegistrationControls,
   data,
@@ -176,6 +181,7 @@ export function CentersTable({
 }: {
   canConfigureCenters: boolean;
   canManageRegistrationControls: boolean;
+  canEditCenters: boolean;
   data: CenterTableRow[];
   statusSnapshotComplete: boolean;
   statusSnapshotKey: string;
@@ -358,6 +364,7 @@ export function CentersTable({
     {
       cell: ({ row }) => (
         <RowActions
+          canEditCenters={canEditCenters}
           canConfigureCenters={canConfigureCenters}
           canManageRegistrationControls={canManageRegistrationControls}
           center={row.original}

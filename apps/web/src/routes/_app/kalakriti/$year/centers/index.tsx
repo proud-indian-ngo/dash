@@ -6,7 +6,10 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
 import { uuidv7 } from "uuidv7";
+import z from "zod";
 
+import { CenterDetailSheet } from "@/components/kalakriti/center-detail-sheet";
+import { CenterEditDialog } from "@/components/kalakriti/center-edit-dialog";
 import { CenterFormDialog } from "@/components/kalakriti/center-form-dialog";
 import { CenterRegistrationDialog } from "@/components/kalakriti/center-registration-dialog";
 import {
@@ -26,6 +29,7 @@ import { buildParticipationCompliance } from "@/lib/kalakriti-participation-comp
 
 export const Route = createFileRoute("/_app/kalakriti/$year/centers/")({
   component: KalakritiCentersPage,
+  validateSearch: z.object({ centerId: z.string().optional() }),
 });
 
 const CENTER_STRUCTURE_LOCKED_LIFECYCLES = new Set([
@@ -66,6 +70,8 @@ function buildCenterRows({
     competitionEntryRegistrationEnabled: boolean | null;
     id: string;
     name: string;
+    location: string | null;
+    googleMapsUrl: string | null;
     retiredAt: number | null;
     studentRegistrationEnabled: boolean | null;
     scanStages?: CenterTableRow["scanStages"];
@@ -85,6 +91,8 @@ function buildCenterRows({
       ? liaisonAssignments.filter((item) => item.centerId === center.id).length
       : null,
     name: center.name,
+    location: center.location,
+    googleMapsUrl: center.googleMapsUrl,
     retiredAt: center.retiredAt,
     scanStages: center.scanStages,
     studentRegistrationEnabled: Boolean(center.studentRegistrationEnabled),
@@ -141,6 +149,7 @@ function KalakritiCentersPage() {
   const navigate = useNavigate();
   const zero = useZero();
   const { year } = Route.useParams();
+  const { centerId: selectedCenterId } = Route.useSearch();
   const { kalakritiEditionAccess: access } = Route.useRouteContext();
   const { edition } = access;
   const responsibilities = new Set(access.membership?.responsibilities ?? []);
@@ -182,11 +191,11 @@ function KalakritiCentersPage() {
   const complianceLoading =
     minimum === undefined ||
     (students.length === 0 && studentResult.type !== "complete");
-  const [guardianAssignments] = useQuery(
+  const [guardianAssignments, guardianAssignmentsResult] = useQuery(
     queries.kalakritiCenter.guardianAssignments({ editionId: edition.id }),
     { enabled: canManageGuardians }
   );
-  const [liaisonAssignments] = useQuery(
+  const [liaisonAssignments, liaisonAssignmentsResult] = useQuery(
     queries.kalakritiCenter.liaisonAssignments({ editionId: edition.id }),
     { enabled: canManageLiaisons }
   );
@@ -284,8 +293,16 @@ function KalakritiCentersPage() {
   });
   const handleViewCenter = useEventCallback((center: CenterTableRow) => {
     navigate({
-      params: { id: center.id, year },
-      to: "/kalakriti/$year/centers/$id",
+      params: { year },
+      to: "/kalakriti/$year/centers",
+      search: (previous) => ({ ...previous, centerId: center.id }),
+    });
+  });
+  const closeSheet = useEventCallback(() => {
+    navigate({
+      params: { year },
+      to: "/kalakriti/$year/centers",
+      search: (previous) => ({ ...previous, centerId: undefined }),
     });
   });
 
@@ -338,13 +355,14 @@ function KalakritiCentersPage() {
 
       {canManageCenters && centerStructureLocked ? (
         <KalakritiLockNotice>
-          Center structure is locked while this Edition is {edition.lifecycle}.
-          Assignments remain available; registration controls remain available
-          until the Edition goes live.
+          Adding, retiring, and deleting Centers is locked while this Edition is{" "}
+          {edition.lifecycle}. Basic Center details remain editable.
+          Registration controls remain available until the Edition goes live.
         </KalakritiLockNotice>
       ) : null}
 
       <CentersTable
+        canEditCenters={canManageCenters || canManageLiaisons}
         canConfigureCenters={canConfigureCenters}
         canManageRegistrationControls={canManageRegistrationControls}
         data={centerRows}
@@ -360,17 +378,80 @@ function KalakritiCentersPage() {
         toolbarActions={toolbarActions}
       />
 
+      <CenterDetailSheet
+        center={
+          centerRows.find((center) => center.id === selectedCenterId) ?? null
+        }
+        access={access}
+        complete={centerResult.type === "complete"}
+        open={selectedCenterId !== undefined}
+        onClose={closeSheet}
+        canEdit={canManageCenters || canManageLiaisons}
+        canConfigure={canConfigureCenters}
+        canManageRegistrationControls={canManageRegistrationControls}
+        onEdit={(center) => {
+          closeSheet();
+          setEditingCenter(center);
+        }}
+        onControls={(center) => {
+          closeSheet();
+          setControlsCenter(center);
+        }}
+        onRetire={(center) => {
+          closeSheet();
+          retireAction.trigger(center);
+        }}
+        onDelete={(center) => {
+          closeSheet();
+          deleteAction.trigger(center);
+        }}
+        canViewGuardians={canManageGuardians}
+        canViewLiaisons={canManageLiaisons}
+        guardiansLoading={
+          guardianAssignments.length === 0 &&
+          guardianAssignmentsResult.type !== "complete"
+        }
+        liaisonsLoading={
+          liaisonAssignments.length === 0 &&
+          liaisonAssignmentsResult.type !== "complete"
+        }
+        guardianAssignments={guardianAssignments
+          .filter((link) => link.centerId === selectedCenterId)
+          .map((link) => ({
+            centerId: link.centerId,
+            id: link.id,
+            membershipId: link.membershipId,
+            name: link.membership?.snapshotName ?? "Unknown Guardian",
+          }))}
+        liaisonAssignments={liaisonAssignments
+          .filter((link) => link.centerId === selectedCenterId)
+          .map((link) => ({
+            centerId: link.centerId ?? "",
+            id: link.id,
+            membershipId: link.membershipId,
+            name: link.membership?.snapshotName ?? "Unknown Liaison",
+            responsibility: link.responsibility,
+          }))}
+      />
       <CenterFormDialog
         editionId={edition.id}
         onOpenChange={setCreateOpen}
         open={createOpen}
       />
-      <CenterFormDialog
-        center={editingCenter ?? undefined}
-        editionId={edition.id}
-        onOpenChange={handleEditOpenChange}
-        open={editingCenter !== null}
-      />
+      {editingCenter ? (
+        <CenterEditDialog
+          key={editingCenter.id}
+          center={editingCenter}
+          editionId={edition.id}
+          lifecycle={edition.lifecycle}
+          canEditDetails={canManageCenters}
+          canManageGuardians={canManageGuardians}
+          canManageLiaisons={canManageLiaisons}
+          canManageRegistrationControls={canManageRegistrationControls}
+          onOpenChange={handleEditOpenChange}
+          open={true}
+        />
+      ) : null}
       <CenterRegistrationDialog
         center={controlsCenter}
         onOpenChange={handleControlsOpenChange}

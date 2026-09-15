@@ -40,18 +40,12 @@ const assignment = {
   vehicleLabel: "Bus 1",
 };
 function render(
-  canManageTransport: boolean,
-  isRetired = false,
+  _canManageTransport: boolean,
+  _isRetired = false,
   status: KalakritiTransportStatus = "planned"
 ) {
   return renderToStaticMarkup(
-    <CenterTransportSection
-      assignments={[{ ...assignment, status }]}
-      canManageTransport={canManageTransport}
-      isRetired={isRetired}
-      centerId="center"
-      editionId="edition"
-    />
+    <CenterTransportSection assignments={[{ ...assignment, status }]} />
   );
 }
 describe("Center transport compatibility", () => {
@@ -192,10 +186,11 @@ describe("Center transport compatibility", () => {
     expect(html).not.toContain("Add vehicle");
     expect(html).not.toContain("Transport form");
   });
-  it("preserves active Center management controls and offers delete", () => {
-    expect(render(true)).toContain("Add vehicle");
-    expect(render(true)).toContain("Transport form");
-    expect(render(true)).toContain("Delete");
+  it("moves management controls off the Center page even for managers", () => {
+    expect(render(true)).not.toContain("Add vehicle");
+    expect(render(true)).not.toContain("Transport form");
+    expect(render(true)).not.toContain(">Delete<");
+    expect(render(true)).toContain("Transport page");
   });
   it("keeps every status as a badge without manual advancement controls", () => {
     for (const [status, label] of Object.entries(

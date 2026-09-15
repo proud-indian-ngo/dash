@@ -185,6 +185,7 @@ async function requireTransportAssignment(
         editionId: string;
         id: string;
         notes: string | null;
+        pickupTime: number | null;
         status: KalakritiTransportStatus;
         vehicleLabel: string;
       }
@@ -211,6 +212,13 @@ export const kalakritiTransportCreateSchema = z.object({
   editionId: z.string(),
   historyId: z.string(),
   notes: transportNotesSchema,
+  pickupTime: z
+    .number()
+    .int()
+    .min(0)
+    .max(8_640_000_000_000_000)
+    .nullable()
+    .optional(),
   now: z.number(),
   vehicleLabel: transportFieldSchema,
 });
@@ -224,6 +232,13 @@ export const kalakritiTransportUpdateSchema = z.object({
   driverPhone: z.string().trim().max(40).nullable().optional(),
   editionId: z.string(),
   notes: transportNotesSchema.optional(),
+  pickupTime: z
+    .number()
+    .int()
+    .min(0)
+    .max(8_640_000_000_000_000)
+    .nullable()
+    .optional(),
   now: z.number(),
   vehicleLabel: transportFieldSchema.optional(),
 });
@@ -261,6 +276,7 @@ export const kalakritiTransportMutators = {
         editionId: args.editionId,
         id: args.assignmentId,
         notes: args.notes,
+        pickupTime: args.pickupTime ?? null,
         status,
         updatedAt: args.now,
         vehicleLabel: args.vehicleLabel,
@@ -345,6 +361,7 @@ export const kalakritiTransportMutators = {
         driverName?: string;
         driverPhone?: string | null;
         notes?: string | null;
+        pickupTime?: number | null;
         updatedAt: number;
         vehicleLabel?: string;
       } = { updatedAt: args.now };
@@ -382,6 +399,14 @@ export const kalakritiTransportMutators = {
         changedFields.push("notes");
       }
 
+      if (
+        args.pickupTime !== undefined &&
+        args.pickupTime !== assignment.pickupTime
+      ) {
+        updates.pickupTime = args.pickupTime;
+        changedFields.push("pickupTime");
+      }
+
       if (changedFields.length === 0) {
         return;
       }
@@ -392,7 +417,9 @@ export const kalakritiTransportMutators = {
       });
 
       const notifyFields = changedFields.filter((field) =>
-        ["vehicleLabel", "driverName", "driverPhone"].includes(field)
+        ["vehicleLabel", "driverName", "driverPhone", "pickupTime"].includes(
+          field
+        )
       );
       if (notifyFields.length > 0) {
         pushTransportChangedNotificationTask(tx, ctx, {

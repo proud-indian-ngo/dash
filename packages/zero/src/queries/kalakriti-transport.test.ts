@@ -24,7 +24,7 @@ type Condition =
       type: "simple";
       op: string;
       left: { name: string };
-      right: { value: string };
+      right: { value: string | string[] };
     }
   | { type: "and" | "or"; conditions: Condition[] }
   | {
@@ -45,6 +45,13 @@ function matches(
   if (!condition) return true;
   switch (condition.type) {
     case "simple":
+      if (condition.op === "!=")
+        return row[condition.left.name] !== condition.right.value;
+      if (condition.op === "IN")
+        return (
+          Array.isArray(condition.right.value) &&
+          condition.right.value.includes(row[condition.left.name] ?? "")
+        );
       if (condition.op !== "=" && condition.op !== "IS")
         throw new Error(`Unsupported comparison ${condition.op}`);
       return row[condition.left.name] === condition.right.value;
@@ -68,6 +75,72 @@ function matches(
       throw new Error("Unsupported test query condition");
   }
 }
+
+describe("transport directory query authorization", () => {
+  it.each([
+    "transport_lead",
+    "edition_admin",
+    "liaison",
+    "guardian",
+    "food_lead",
+  ])("scopes %s Centers including those without vehicles", (responsibility) => {
+    const query = kalakritiTransportQueries.centers.fn({
+      args: { editionId: "edition-1" },
+      ctx: {
+        permissions: ["kalakriti.view"],
+        role: "volunteer",
+        userId: "operator",
+      },
+    }) as unknown as { ast: QueryAst };
+    const tables: Record<string, TestRow[]> = {
+      kalakritiEdition: [{ id: "edition-1", lifecycle: "live" }],
+      kalakritiEditionMembership: [
+        {
+          id: "membership",
+          editionId: "edition-1",
+          userId: "operator",
+          kind: responsibility === "guardian" ? "guardian" : "volunteer",
+          state: "active",
+        },
+      ],
+      kalakritiAssignment: [
+        {
+          id: "assignment",
+          editionId: "edition-1",
+          membershipId: "membership",
+          centerId: responsibility === "liaison" ? "center-a" : null,
+          responsibility,
+        },
+      ],
+      kalakritiGuardianCenter:
+        responsibility === "guardian"
+          ? [
+              {
+                id: "link",
+                editionId: "edition-1",
+                membershipId: "membership",
+                centerId: "center-a",
+              },
+            ]
+          : [],
+    };
+    const center = { id: "center-a", editionId: "edition-1", retiredAt: null };
+    expect(matches(center, query.ast.where, tables)).toBe(
+      responsibility !== "food_lead"
+    );
+    expect(
+      matches({ ...center, id: "center-b" }, query.ast.where, tables)
+    ).toBe(["transport_lead", "edition_admin"].includes(responsibility));
+    expect(
+      matches({ ...center, editionId: "other" }, query.ast.where, tables)
+    ).toBe(false);
+    expect(
+      matches({ ...center, retiredAt: "retired" }, query.ast.where, tables)
+    ).toBe(false);
+    tables.kalakritiEditionMembership![0]!.state = "archived";
+    expect(matches(center, query.ast.where, tables)).toBe(false);
+  });
+});
 
 describe("transport query authorization", () => {
   it.each([

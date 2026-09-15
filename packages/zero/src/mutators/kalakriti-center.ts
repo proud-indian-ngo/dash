@@ -97,6 +97,8 @@ export const kalakritiCenterCreateSchema = z.object({
   centerId: z.string(),
   editionId: z.string(),
   name: centerNameSchema,
+  location: z.string().trim().max(500).nullable().optional(),
+  googleMapsUrl: z.url().startsWith("https://").max(2048).nullable().optional(),
   now: z.number(),
 });
 
@@ -104,6 +106,8 @@ export const kalakritiCenterUpdateSchema = z.object({
   auditEntryId: z.string(),
   centerId: z.string(),
   name: centerNameSchema,
+  location: z.string().trim().max(500).nullable().optional(),
+  googleMapsUrl: z.url().startsWith("https://").max(2048).nullable().optional(),
   now: z.number(),
 });
 
@@ -236,6 +240,8 @@ export const kalakritiCenterMutators = {
         createdBy: ctx.userId,
         editionId: args.editionId,
         id: args.centerId,
+        location: args.location ?? null,
+        googleMapsUrl: args.googleMapsUrl ?? null,
         name: normalized.name,
         normalizedName: normalized.normalizedName,
         retiredAt: null,
@@ -249,7 +255,7 @@ export const kalakritiCenterMutators = {
         domain: "center_configuration",
         editionId: args.editionId,
         id: args.auditEntryId,
-        metadata: { name: normalized.name },
+        metadata: { changedFields: ["name", "location", "googleMapsUrl"] },
         reason: null,
         targetId: args.centerId,
         targetType: "center",
@@ -509,15 +515,16 @@ export const kalakritiCenterMutators = {
     async ({ tx, ctx, args }) => {
       const center = await requireLockedCenter(tx, args.centerId);
       await assertCanManageKalakritiConfiguration(tx, ctx, center.editionId);
-      await assertEditionStructurallyConfigurable(tx, center.editionId);
       assertIsLoggedIn(ctx);
-      if (center.retiredAt !== null) {
-        throw new Error("Retired Centers cannot be edited");
-      }
+      // Names and location metadata do not change registration structure.
       const normalized = normalizeKalakritiCenterName(args.name);
 
       await tx.mutate.kalakritiCenter.update({
         id: center.id,
+        ...(args.location !== undefined ? { location: args.location } : {}),
+        ...(args.googleMapsUrl !== undefined
+          ? { googleMapsUrl: args.googleMapsUrl }
+          : {}),
         name: normalized.name,
         normalizedName: normalized.normalizedName,
         updatedAt: args.now,
@@ -529,7 +536,13 @@ export const kalakritiCenterMutators = {
         domain: "center_configuration",
         editionId: center.editionId,
         id: args.auditEntryId,
-        metadata: { name: normalized.name },
+        metadata: {
+          changedFields: [
+            "name",
+            ...(args.location !== undefined ? ["location"] : []),
+            ...(args.googleMapsUrl !== undefined ? ["googleMapsUrl"] : []),
+          ],
+        },
         reason: null,
         targetId: center.id,
         targetType: "center",

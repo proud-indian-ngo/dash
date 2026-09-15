@@ -25,6 +25,7 @@ import { canViewKalakritiAttendees } from "@/lib/kalakriti-attendee-policy";
 import { getKalakritiScanActivities } from "@/lib/kalakriti-event-day-policy";
 import { canViewKalakritiFood } from "@/lib/kalakriti-food-policy";
 import { createStationRecordingLedger } from "@/lib/kalakriti-scan-recording";
+import { canViewKalakritiTransport } from "@/lib/kalakriti-transport-policy";
 import {
   buildKalakritiNavGroups,
   shouldUseKalakritiNav,
@@ -135,6 +136,7 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
     membership: membership ?? null,
   };
   let visibleNavGroups = buildKalakritiNavGroups({
+    canViewTransport: canViewKalakritiTransport(attendeeAccess),
     canViewGuests: canViewKalakritiAttendees(attendeeAccess, "guest"),
     canViewJudges: canViewKalakritiAttendees(attendeeAccess, "judge"),
     canManageEligibility: canManageEdition,

@@ -16,7 +16,7 @@ export function AttendeeDetailSheet({
   statusReady,
   onClose,
   onEdit,
-  onArchive,
+  onRemove,
   onAssign,
 }: {
   attendee: AttendeeRow | null;
@@ -24,7 +24,7 @@ export function AttendeeDetailSheet({
   statusReady: boolean;
   onClose: () => void;
   onEdit: (row: AttendeeRow) => void;
-  onArchive: (row: AttendeeRow) => void;
+  onRemove: (row: AttendeeRow) => void;
   onAssign: (row: AttendeeRow) => void;
 }) {
   return (
@@ -105,9 +105,9 @@ export function AttendeeDetailSheet({
                 ) : null}
                 <Button
                   variant="destructive"
-                  onClick={() => onArchive(attendee)}
+                  onClick={() => onRemove(attendee)}
                 >
-                  Archive
+                  {attendee.kind === "judge" ? "Delete" : "Archive"}
                 </Button>
               </div>
             ) : null}

@@ -2,11 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import type { NavItem } from "@/components/layout/nav-main";
 
-import {
-  buildBreadcrumbs,
-  getKalakritiCenterRoute,
-  getKalakritiEntrySessionRoute,
-} from "./breadcrumbs";
+import { buildBreadcrumbs, getKalakritiEntrySessionRoute } from "./breadcrumbs";
 
 const navItems: NavItem[] = [
   { title: "Dashboard", url: "/" },
@@ -27,18 +23,10 @@ describe("breadcrumbs", () => {
   });
 
   it("builds breadcrumbs for a Kalakriti Center", () => {
-    expect(
-      buildBreadcrumbs(navItems, "/kalakriti/2027/centers/center-1", {
-        centerName: "Asha Center",
-      })
-    ).toEqual([
+    expect(buildBreadcrumbs(navItems, "/kalakriti/2027/centers")).toEqual([
       { path: "/kalakriti", title: "Kalakriti" },
       { path: "/kalakriti/2027", title: "2027 Edition" },
       { path: "/kalakriti/2027/centers", title: "Centers" },
-      {
-        path: "/kalakriti/2027/centers/center-1",
-        title: "Asha Center",
-      },
     ]);
   });
 
@@ -105,13 +93,6 @@ describe("breadcrumbs", () => {
         title: "Categories",
       },
     ]);
-  });
-
-  it("extracts a Center detail route", () => {
-    expect(getKalakritiCenterRoute("/kalakriti/2027/centers/center-1")).toEqual(
-      { centerId: "center-1", year: 2027 }
-    );
-    expect(getKalakritiCenterRoute("/kalakriti/2027/centers")).toBeUndefined();
   });
 
   it("extracts an Entry Session route", () => {

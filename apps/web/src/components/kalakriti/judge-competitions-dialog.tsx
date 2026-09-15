@@ -1,7 +1,18 @@
+import {
+  Combobox,
+  ComboboxChip,
+  ComboboxChips,
+  ComboboxChipsInput,
+  ComboboxContent,
+  ComboboxItem,
+  ComboboxList,
+  useComboboxAnchor,
+} from "@pi-dash/design-system/components/ui/combobox";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
+import { useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 
@@ -31,8 +42,15 @@ export function JudgeCompetitionsDialog({
   onClose: () => void;
 }) {
   const zero = useZero();
+  const [search, setSearch] = useState("");
+  const anchor = useComboboxAnchor();
   const [competitions, result] = useQuery(
     queries.kalakritiCompetition.competitions({ editionId })
+  );
+  const filteredCompetitions = competitions.filter((competition) =>
+    competition.name
+      .toLocaleLowerCase()
+      .includes(search.trim().toLocaleLowerCase())
   );
   const form = useForm({
     defaultValues: {
@@ -79,32 +97,48 @@ export function JudgeCompetitionsDialog({
           <FormLayout form={form} showSubmitError>
             <CustomField<string[]> label="Competitions" name="competitionIds">
               {(field) => (
-                <div className="max-h-72 space-y-2 overflow-y-auto">
-                  {competitions.map((competition) => (
-                    <label
-                      className="flex items-center gap-2 text-sm"
-                      key={competition.id}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={field.state.value.includes(competition.id)}
-                        onChange={(event) =>
-                          field.handleChange(
-                            event.target.checked
-                              ? [...field.state.value, competition.id]
-                              : field.state.value.filter(
-                                  (id) => id !== competition.id
-                                )
-                          )
-                        }
-                      />
-                      {competition.name}
-                    </label>
-                  ))}
-                  {competitions.length === 0 ? (
-                    <p>No competitions available.</p>
-                  ) : null}
-                </div>
+                <Combobox
+                  multiple
+                  filter={null}
+                  inputValue={search}
+                  onInputValueChange={setSearch}
+                  value={field.state.value}
+                  onValueChange={field.handleChange}
+                >
+                  <ComboboxChips ref={anchor}>
+                    {field.state.value.map((id) => (
+                      <ComboboxChip key={id}>
+                        {competitions.find(
+                          (competition) => competition.id === id
+                        )?.name ?? id}
+                      </ComboboxChip>
+                    ))}
+                    <ComboboxChipsInput
+                      id={field.name}
+                      onBlur={field.handleBlur}
+                      placeholder="Search competitions..."
+                    />
+                  </ComboboxChips>
+                  <ComboboxContent anchor={anchor}>
+                    <ComboboxList>
+                      {filteredCompetitions.map((competition) => (
+                        <ComboboxItem
+                          key={competition.id}
+                          value={competition.id}
+                        >
+                          {competition.name}
+                        </ComboboxItem>
+                      ))}
+                      {filteredCompetitions.length === 0 ? (
+                        <p className="text-muted-foreground p-2 text-sm">
+                          {competitions.length
+                            ? "No matching competitions found."
+                            : "No competitions available."}
+                        </p>
+                      ) : null}
+                    </ComboboxList>
+                  </ComboboxContent>
+                </Combobox>
               )}
             </CustomField>
             <FormActions

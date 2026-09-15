@@ -19,10 +19,42 @@ function access(responsibility: string, scope = {}) {
   return {
     isGlobalAdmin: false,
     edition: { lifecycle: "live" },
-    membership: { assignments: [{ responsibility, ...scope }] },
+    membership: {
+      kind: "volunteer" as const,
+      assignments: [{ responsibility, ...scope }],
+    },
   };
 }
 describe("attendee direct route guards", () => {
+  it("lets Overall Events Leads manage Judges without granting Guest management", () => {
+    const lead = access("overall_events_lead");
+    expect(canManageKalakritiAttendees(lead, "judge")).toBe(true);
+    expect(canManageKalakritiAttendees(lead, "guest")).toBe(false);
+    expect(
+      canManageKalakritiAttendees(
+        { ...lead, edition: { lifecycle: "archived" } },
+        "judge"
+      )
+    ).toBe(false);
+    expect(
+      canManageKalakritiAttendees(
+        { ...lead, membership: { ...lead.membership, kind: "guardian" } },
+        "judge"
+      )
+    ).toBe(false);
+    for (const responsibility of [
+      "volunteer_coordinator",
+      "competition_category_lead",
+      "competition_coordinator",
+      "food_lead",
+    ])
+      expect(canManageKalakritiAttendees(access(responsibility), "judge")).toBe(
+        false
+      );
+    expect(canManageKalakritiAttendees(access("edition_admin"), "guest")).toBe(
+      true
+    );
+  });
   it("shows only explicitly authorized roster navigation", () => {
     const titles = (options: Parameters<typeof buildKalakritiNavGroups>[0]) =>
       buildKalakritiNavGroups(options).flatMap((group) =>
@@ -45,10 +77,12 @@ describe("attendee direct route guards", () => {
       expect(() => guard(route, null)).toThrow();
       expect(() => guard(route, access("food_member"))).toThrow();
     }
-    expect(canManageKalakritiAttendees(access("volunteer_coordinator"))).toBe(
-      false
+    expect(
+      canManageKalakritiAttendees(access("volunteer_coordinator"), "guest")
+    ).toBe(false);
+    expect(canManageKalakritiAttendees(access("edition_admin"), "guest")).toBe(
+      true
     );
-    expect(canManageKalakritiAttendees(access("edition_admin"))).toBe(true);
   });
   it("restricts event staff to judges and requires assigned scopes", () => {
     for (const actor of [
@@ -60,7 +94,7 @@ describe("attendee direct route guards", () => {
     ]) {
       expect(() => guard(Judges, actor)).not.toThrow();
       expect(() => guard(Guests, actor)).toThrow();
-      expect(canManageKalakritiAttendees(actor)).toBe(false);
+      expect(canManageKalakritiAttendees(actor, "guest")).toBe(false);
     }
     expect(() => guard(Judges, access("competition_category_lead"))).toThrow();
     expect(() => guard(Judges, access("competition_coordinator"))).toThrow();
@@ -74,8 +108,8 @@ describe("attendee direct route guards", () => {
     expect(() =>
       guard(Guests, { ...actor, isGlobalAdmin: true })
     ).not.toThrow();
-    expect(canManageKalakritiAttendees({ ...actor, isGlobalAdmin: true })).toBe(
-      false
-    );
+    expect(
+      canManageKalakritiAttendees({ ...actor, isGlobalAdmin: true }, "judge")
+    ).toBe(false);
   });
 });

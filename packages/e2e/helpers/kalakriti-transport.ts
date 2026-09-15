@@ -246,6 +246,7 @@ else if (action === "cleanup") {
         centerId: kalakritiTransportAssignment.centerId,
         vehicleLabel: kalakritiTransportAssignment.vehicleLabel,
         driverName: kalakritiTransportAssignment.driverName,
+        pickupTime: kalakritiTransportAssignment.pickupTime,
         status: kalakritiTransportAssignment.status,
         deletedAt: kalakritiTransportAssignment.deletedAt,
       })

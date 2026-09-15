@@ -31,6 +31,7 @@ export const kalakritiAttendeeUpdateSchema = base.extend(
   fields.partial().shape
 );
 export const kalakritiAttendeeArchiveSchema = base;
+export const kalakritiAttendeeDeleteSchema = base;
 export const kalakritiAttendeeSetCompetitionsSchema = base.extend({
   competitionIds: z.array(z.uuid()).max(500),
 });
@@ -38,8 +39,9 @@ export const kalakritiAttendeeSetCompetitionsSchema = base.extend({
 async function authorize(
   tx: LockableKalakritiTx,
   ctx: Context | undefined,
-  editionId: string
-) {
+  editionId: string,
+  allowEventsLead = false
+): Promise<"admin" | "events_lead"> {
   assertIsLoggedIn(ctx);
   const edition = await getEditionForUpdate(tx, editionId);
   if (!edition || edition.lifecycle === "archived")
@@ -58,8 +60,26 @@ async function authorize(
         )
         .one()
     );
-    if (!membership) throw new Error("Unauthorized");
+    if (membership) return "admin";
+    if (allowEventsLead) {
+      const eventsLead = await tx.run(
+        zql.kalakritiEditionMembership
+          .where("editionId", editionId)
+          .where("userId", ctx.userId)
+          .where("state", "active")
+          .where("kind", "volunteer")
+          .whereExists("assignments", (assignment) =>
+            assignment
+              .where("editionId", editionId)
+              .where("responsibility", "overall_events_lead")
+          )
+          .one()
+      );
+      if (eventsLead) return "events_lead";
+    }
+    throw new Error("Unauthorized");
   }
+  return "admin";
 }
 
 function audit(
@@ -87,7 +107,7 @@ export const kalakritiAttendeeMutators = {
     kalakritiAttendeeCreateSchema,
     async ({ tx, ctx, args }) => {
       if (tx.location !== "server") return;
-      await authorize(tx, ctx, args.editionId);
+      await authorize(tx, ctx, args.editionId, args.kind === "judge");
       assertIsLoggedIn(ctx);
       const existing = await tx.run(
         zql.kalakritiAttendee.where("id", args.id).one()
@@ -110,7 +130,8 @@ export const kalakritiAttendeeMutators = {
           .where("editionId", args.editionId)
           .where("kind", args.kind)
       );
-      let sequence = 1;
+      let sequence =
+        args.kind === "judge" ? (edition.nextJudgeSequence ?? 1) : 1;
       for (const attendee of attendees) {
         if (attendee.humanId.startsWith(prefix)) {
           const value = Number(attendee.humanId.slice(prefix.length));
@@ -118,6 +139,11 @@ export const kalakritiAttendeeMutators = {
             sequence = Math.max(sequence, value + 1);
         }
       }
+      if (args.kind === "judge")
+        await tx.mutate.kalakritiEdition.update({
+          id: args.editionId,
+          nextJudgeSequence: sequence + 1,
+        });
       await tx.mutate.kalakritiAttendee.insert({
         id: args.id,
         editionId: args.editionId,
@@ -140,7 +166,7 @@ export const kalakritiAttendeeMutators = {
     kalakritiAttendeeUpdateSchema,
     async ({ tx, ctx, args }) => {
       if (tx.location !== "server") return;
-      await authorize(tx, ctx, args.editionId);
+      const authority = await authorize(tx, ctx, args.editionId, true);
       assertIsLoggedIn(ctx);
       const attendee = await tx.run(
         zql.kalakritiAttendee
@@ -150,6 +176,8 @@ export const kalakritiAttendeeMutators = {
           .one()
       );
       if (!attendee) throw new Error("Active attendee not found");
+      if (authority === "events_lead" && attendee.kind !== "judge")
+        throw new Error("Unauthorized");
       const changes = Object.fromEntries(
         Object.entries({
           name: args.name,
@@ -187,6 +215,7 @@ export const kalakritiAttendeeMutators = {
           .one()
       );
       if (!attendee) throw new Error("Attendee not found");
+      if (attendee.kind === "judge") throw new Error("Use Delete for Judges");
       if (attendee.archivedAt !== null) return;
       await tx.mutate.kalakritiAttendee.update({
         id: args.id,
@@ -198,11 +227,63 @@ export const kalakritiAttendeeMutators = {
       );
     }
   ),
+  delete: defineMutator(
+    kalakritiAttendeeDeleteSchema,
+    async ({ tx, ctx, args }) => {
+      if (tx.location !== "server") return;
+      await authorize(tx, ctx, args.editionId, true);
+      assertIsLoggedIn(ctx);
+      const attendee = await tx.run(
+        zql.kalakritiAttendee.where("id", args.id).one()
+      );
+      if (!attendee) return;
+      if (attendee.editionId !== args.editionId || attendee.kind !== "judge")
+        throw new Error("Judge not found in this Edition");
+      const operation = await tx.run(
+        zql.kalakritiOperation.where("attendeeId", args.id).one()
+      );
+      if (operation)
+        throw new Error("Cannot delete a Judge with check-in or meal history");
+      const edition = await tx.run(
+        zql.kalakritiEdition.where("id", args.editionId).one()
+      );
+      if (!edition) throw new Error("Edition not found");
+      const prefix = `KALJ-${edition.year}-`;
+      const sequence = Number(attendee.humanId.slice(prefix.length));
+      if (
+        !attendee.humanId.startsWith(prefix) ||
+        !Number.isSafeInteger(sequence) ||
+        sequence < 1
+      )
+        throw new Error("Invalid Judge yearly ID");
+      // Preserve IDs allocated before the counter was introduced, even when their rows are deleted.
+      await tx.mutate.kalakritiEdition.update({
+        id: args.editionId,
+        nextJudgeSequence: Math.max(
+          edition.nextJudgeSequence ?? 1,
+          sequence + 1
+        ),
+      });
+      const assignments = await tx.run(
+        zql.kalakritiJudgeAssignment
+          .where("editionId", args.editionId)
+          .where("attendeeId", args.id)
+      );
+      for (const assignment of assignments)
+        await tx.mutate.kalakritiJudgeAssignment.delete({ id: assignment.id });
+      await tx.mutate.kalakritiAttendee.delete({ id: args.id });
+      await tx.mutate.kalakritiAuditEntry.insert(
+        audit(args, ctx.userId, "deleted", {
+          removedAssignmentCount: assignments.length,
+        })
+      );
+    }
+  ),
   setCompetitions: defineMutator(
     kalakritiAttendeeSetCompetitionsSchema,
     async ({ tx, ctx, args }) => {
       if (tx.location !== "server") return;
-      await authorize(tx, ctx, args.editionId);
+      await authorize(tx, ctx, args.editionId, true);
       assertIsLoggedIn(ctx);
       const attendee = await tx.run(
         zql.kalakritiAttendee

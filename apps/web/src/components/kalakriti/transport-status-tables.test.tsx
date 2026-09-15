@@ -72,6 +72,7 @@ function renderCenter(row: CenterTableRow, complete = true) {
   renderToStaticMarkup(
     <CentersTable
       data={[row]}
+      canEditCenters={false}
       canConfigureCenters={false}
       statusSnapshotComplete={complete}
       statusSnapshotKey="edition"

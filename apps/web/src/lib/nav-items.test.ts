@@ -2,12 +2,49 @@ import { describe, expect, it } from "bun:test";
 
 import {
   buildKalakritiNavGroups,
+  buildNavGroups,
   isKalakritiPath,
   shouldUseKalakritiNav,
   withKalakritiNavItem,
 } from "./nav-items";
 
 describe("Kalakriti navigation", () => {
+  it("uses a distinct icon for every visible item in both sidebar modes", () => {
+    const kalakriti = buildKalakritiNavGroups({
+      year: 2026,
+      canManageEligibility: true,
+      canManageGuardians: true,
+      canManageVolunteers: true,
+      canViewAudit: true,
+      canViewCompetitions: true,
+      canViewEntries: true,
+      canViewStudents: true,
+      canViewFood: true,
+      canViewTransport: true,
+      canViewGuests: true,
+      canViewJudges: true,
+    });
+    const organization = buildNavGroups([
+      "events.view_all",
+      "requests.view_all",
+      "vendors.view_all",
+      "teams.view_all",
+      "kalakriti.view",
+      "users.manage",
+      "requests.export",
+      "settings.roles",
+      "jobs.manage",
+      "audit_log.view",
+      "messages.schedule",
+    ]);
+    for (const groups of [kalakriti, organization]) {
+      const icons = groups.flatMap((group) =>
+        group.items.map((item) => item.icon)
+      );
+      expect(icons.every(Boolean)).toBe(true);
+      expect(new Set(icons).size).toBe(icons.length);
+    }
+  });
   it.each([
     ["/kalakriti", true],
     ["/kalakriti/2026", true],
