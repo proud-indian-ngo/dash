@@ -27,7 +27,12 @@ export const getRouter = () => {
     // queries internally.
     defaultPreloadStaleTime: 0,
     defaultStructuralSharing: true,
-    defaultViewTransition: true,
+    // TanStack only evaluates the callback when view transition types are supported.
+    defaultViewTransition:
+      typeof CSS !== "undefined" &&
+      CSS.supports("selector(:active-view-transition-type(page))")
+        ? { types: ({ pathChanged }) => (pathChanged ? ["page"] : false) }
+        : false,
     routeTree,
     scrollRestoration: true,
   });
