@@ -20,20 +20,16 @@ export const teamMemberRoleEnum = pgEnum(
   teamMemberRoleValues
 );
 
-export const team = pgTable(
-  "team",
-  {
-    createdAt: timestamp("created_at").notNull(),
-    description: text("description"),
-    id: uuid("id").primaryKey(),
-    name: text("name").notNull().unique(),
-    updatedAt: timestamp("updated_at").notNull(),
-    whatsappGroupId: uuid("whatsapp_group_id")
-      .references(() => whatsappGroup.id, { onDelete: "set null" })
-      .unique(),
-  },
-  (table) => [index("team_whatsappGroupId_idx").on(table.whatsappGroupId)]
-);
+export const team = pgTable("team", {
+  createdAt: timestamp("created_at").notNull(),
+  description: text("description"),
+  id: uuid("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  updatedAt: timestamp("updated_at").notNull(),
+  whatsappGroupId: uuid("whatsapp_group_id")
+    .references(() => whatsappGroup.id, { onDelete: "set null" })
+    .unique(),
+});
 
 export const teamMember = pgTable(
   "team_member",
@@ -53,7 +49,6 @@ export const teamMember = pgTable(
       table.teamId,
       table.userId
     ),
-    index("team_member_teamId_idx").on(table.teamId),
     index("team_member_userId_idx").on(table.userId),
   ]
 );

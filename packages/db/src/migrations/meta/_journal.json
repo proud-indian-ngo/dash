@@ -659,6 +659,13 @@
       "when": 1789399478502,
       "tag": "0093_bumpy_thanos",
       "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1789452447170,
+      "tag": "0094_square_the_call",
+      "breakpoints": true
     }
   ]
 }

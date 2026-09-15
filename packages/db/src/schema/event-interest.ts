@@ -46,7 +46,6 @@ export const eventInterest = pgTable(
       table.createdAt.desc(),
       table.id.asc()
     ),
-    index("event_interest_eventId_idx").on(table.eventId),
     index("event_interest_userId_idx").on(table.userId),
   ]
 );
