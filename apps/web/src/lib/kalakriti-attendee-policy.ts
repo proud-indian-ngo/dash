@@ -2,6 +2,7 @@ interface AttendeeAccess {
   isGlobalAdmin: boolean;
   edition?: { lifecycle: string };
   membership?: {
+    kind?: "guardian" | "volunteer";
     assignments: readonly {
       responsibility: string;
       competitionCategoryId?: string | null;
@@ -20,6 +21,22 @@ export function canManageKalakritiAttendees(
       access.membership?.assignments.some(
         (a) => a.responsibility === "edition_admin"
       ))
+  );
+}
+
+export function canEditKalakritiAttendee(
+  access: AttendeeAccess | null | undefined,
+  kind: "guest" | "judge"
+): boolean {
+  if (canManageKalakritiAttendees(access)) return true;
+  return Boolean(
+    access &&
+    access.edition?.lifecycle !== "archived" &&
+    kind === "judge" &&
+    access.membership?.kind === "volunteer" &&
+    access.membership.assignments.some(
+      (assignment) => assignment.responsibility === "overall_events_lead"
+    )
   );
 }
 

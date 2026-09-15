@@ -59,7 +59,7 @@ function fixture(results: unknown[], lifecycle = "live") {
     tx: {
       location: "server",
       dbTransaction: { wrappedTransaction: { select } },
-      run: mock(async () => {
+      run: mock(async (_query: unknown) => {
         order.push("query");
         return results.shift();
       }),
@@ -84,6 +84,125 @@ async function invoke(
     ctx: { ...ctx, _permissionSet: undefined },
   } as never);
 }
+
+describe("Overall Events Lead Judge editing", () => {
+  const lead = {
+    userId: "lead",
+    permissions: ["kalakriti.view"],
+    role: "volunteer",
+  };
+  it("updates Judge details under active Edition-scoped volunteer authority", async () => {
+    const f = fixture([undefined, { id: "lead-membership" }, person]);
+    await invoke("update", f.tx, { ...base, name: "Updated Judge" }, lead);
+    expect(f.update).toHaveBeenCalledWith({
+      id: base.id,
+      name: "Updated Judge",
+      updatedAt: base.now,
+    });
+    expect(f.audit).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: { changedFields: ["name"] } })
+    );
+    const query = f.tx.run.mock.calls[1]?.[0] as { ast: unknown };
+    const scope = JSON.stringify(query.ast);
+    for (const expected of [
+      "overall_events_lead",
+      "edition-1",
+      "active",
+      "volunteer",
+      "lead",
+    ])
+      expect(scope).toContain(expected);
+    expect(f.order[0]).toBe("edition-lock");
+  });
+  it("adds and removes Judge competition assignments", async () => {
+    const f = fixture([
+      undefined,
+      { id: "lead-membership" },
+      person,
+      { id: "competition-2" },
+      [{ id: "old-link", competitionId: "competition-1" }],
+    ]);
+    await invoke(
+      "setCompetitions",
+      f.tx,
+      { ...base, competitionIds: ["competition-2"] },
+      lead
+    );
+    expect(f.remove).toHaveBeenCalledWith({ id: "old-link" });
+    expect(f.add).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attendeeId: person.id,
+        competitionId: "competition-2",
+        createdBy: "lead",
+      })
+    );
+  });
+  it.each(["create", "archive"] as const)(
+    "does not grant %s authority",
+    async (command) => {
+      const f = fixture([undefined]);
+      await expect(
+        invoke(
+          command,
+          f.tx,
+          { ...base, kind: "judge", name: "Judge", phone: "+919876543211" },
+          lead
+        )
+      ).rejects.toThrow("Unauthorized");
+      expect(f.tx.run).toHaveBeenCalledTimes(1);
+      expect(f.insert).not.toHaveBeenCalled();
+      expect(f.update).not.toHaveBeenCalled();
+    }
+  );
+  it("denies Guest edits based on persisted kind, including no-op edits", async () => {
+    const f = fixture([
+      undefined,
+      { id: "lead-membership" },
+      { ...person, kind: "guest" },
+    ]);
+    await expect(
+      invoke("update", f.tx, { ...base, name: person.name }, lead)
+    ).rejects.toThrow("Unauthorized");
+    expect(f.update).not.toHaveBeenCalled();
+    expect(f.audit).not.toHaveBeenCalled();
+  });
+  it.each(["update", "setCompetitions"] as const)(
+    "denies %s without active scoped authority and in archived Editions",
+    async (command) => {
+      const missing = fixture([undefined, undefined]);
+      await expect(
+        invoke(command, missing.tx, { ...base, competitionIds: [] }, lead)
+      ).rejects.toThrow("Unauthorized");
+      const archived = fixture([], "archived");
+      await expect(
+        invoke(command, archived.tx, { ...base, competitionIds: [] }, lead)
+      ).rejects.toThrow("unavailable");
+      expect(archived.tx.run).not.toHaveBeenCalled();
+    }
+  );
+  it("rejects absent or out-of-Edition targets and competitions", async () => {
+    const target = fixture([undefined, { id: "lead-membership" }, undefined]);
+    await expect(
+      invoke("update", target.tx, { ...base, name: "Updated" }, lead)
+    ).rejects.toThrow("Active attendee");
+    const competition = fixture([
+      undefined,
+      { id: "lead-membership" },
+      person,
+      undefined,
+    ]);
+    await expect(
+      invoke(
+        "setCompetitions",
+        competition.tx,
+        { ...base, competitionIds: ["foreign"] },
+        lead
+      )
+    ).rejects.toThrow("Active competition");
+    expect(competition.remove).not.toHaveBeenCalled();
+    expect(competition.add).not.toHaveBeenCalled();
+  });
+});
 
 describe("Kalakriti attendee commands", () => {
   it("validates identifiers, bounded timestamps, required names and international phone numbers", () => {

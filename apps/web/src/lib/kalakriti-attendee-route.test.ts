@@ -3,7 +3,10 @@ import { describe, expect, it } from "bun:test";
 import { Route as Guests } from "@/routes/_app/kalakriti/$year/guests";
 import { Route as Judges } from "@/routes/_app/kalakriti/$year/judges";
 
-import { canManageKalakritiAttendees } from "./kalakriti-attendee-policy";
+import {
+  canEditKalakritiAttendee,
+  canManageKalakritiAttendees,
+} from "./kalakriti-attendee-policy";
 import { buildKalakritiNavGroups } from "./nav-items";
 function guard(route: typeof Guests | typeof Judges, access: unknown) {
   const beforeLoad: typeof Guests.options.beforeLoad =
@@ -23,6 +26,47 @@ function access(responsibility: string, scope = {}) {
   };
 }
 describe("attendee direct route guards", () => {
+  it("lets Overall Events Leads edit Judges without granting roster or Guest management", () => {
+    const lead = {
+      ...access("overall_events_lead"),
+      membership: {
+        kind: "volunteer" as const,
+        assignments: [{ responsibility: "overall_events_lead" }],
+      },
+    };
+    expect(canEditKalakritiAttendee(lead, "judge")).toBe(true);
+    expect(canEditKalakritiAttendee(lead, "guest")).toBe(false);
+    expect(canManageKalakritiAttendees(lead)).toBe(false);
+    expect(
+      canEditKalakritiAttendee(
+        { ...lead, edition: { lifecycle: "archived" } },
+        "judge"
+      )
+    ).toBe(false);
+    expect(
+      canEditKalakritiAttendee(
+        { ...lead, membership: { ...lead.membership, kind: "guardian" } },
+        "judge"
+      )
+    ).toBe(false);
+    for (const responsibility of [
+      "volunteer_coordinator",
+      "competition_category_lead",
+      "competition_coordinator",
+      "food_lead",
+    ]) {
+      const actor = access(responsibility);
+      expect(
+        canEditKalakritiAttendee(
+          { ...actor, membership: { ...actor.membership, kind: "volunteer" } },
+          "judge"
+        )
+      ).toBe(false);
+    }
+    expect(canEditKalakritiAttendee(access("edition_admin"), "guest")).toBe(
+      true
+    );
+  });
   it("shows only explicitly authorized roster navigation", () => {
     const titles = (options: Parameters<typeof buildKalakritiNavGroups>[0]) =>
       buildKalakritiNavGroups(options).flatMap((group) =>

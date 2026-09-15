@@ -208,18 +208,47 @@ test("non-login guests and judges support multiple competitions, scoped visibili
     await expect(
       eventsPage.page.getByRole("button", { name: "Add Judge", exact: true })
     ).toHaveCount(0);
-    const deniedEdit = await mutate(
-      events.request,
-      "kalakritiAttendee.update",
-      {
-        ...command(data.editionId),
-        id: judge.id,
-        name: "Unauthorized edit",
-        phone: "+919876543211",
-        email: judge.email,
-      }
+    await eventsPage.editJudge(judge.name, "E2E Judge Updated by Events Lead");
+    judge.name = "E2E Judge Updated by Events Lead";
+    await eventsPage.assign(judge.name, [competitions[0]!.name]);
+    const leadEdited = await readState();
+    expect(
+      leadEdited.attendees.find((attendee) => attendee.id === judge.id)?.name
+    ).toBe(judge.name);
+    expect(
+      leadEdited.assignments
+        .filter((assignment) => assignment.attendeeId === judge.id)
+        .map((assignment) => assignment.competitionId)
+    ).toEqual([competitions[0]!.id]);
+    await eventsPage.assign(
+      judge.name,
+      competitions.map((competition) => competition.name)
     );
-    expect(deniedEdit.error).toBeTruthy();
+    for (const [name, args] of [
+      [
+        "kalakritiAttendee.update",
+        { id: guest.id, name: "Unauthorized Guest edit" },
+      ],
+      ["kalakritiAttendee.archive", { id: judge.id }],
+      [
+        "kalakritiAttendee.create",
+        {
+          kind: "judge",
+          name: "Unauthorized new Judge",
+          phone: "+919876543211",
+        },
+      ],
+      [
+        "kalakritiAttendee.setCompetitions",
+        { id: guest.id, competitionIds: [] },
+      ],
+    ] as const) {
+      const denied = await mutate(events.request, name, {
+        ...command(data.editionId),
+        ...args,
+      });
+      expect(denied.error).toBeTruthy();
+    }
     const deniedAssignment = await mutate(
       coordinator.request,
       "kalakritiAttendee.setCompetitions",

@@ -9,7 +9,10 @@ import { uuidv7 } from "uuidv7";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
-import { canManageKalakritiAttendees } from "@/lib/kalakriti-attendee-policy";
+import {
+  canEditKalakritiAttendee,
+  canManageKalakritiAttendees,
+} from "@/lib/kalakriti-attendee-policy";
 
 import { AttendeeDetailSheet } from "./attendee-detail-sheet";
 import { AttendeeFormDialog } from "./attendee-form-dialog";
@@ -27,6 +30,7 @@ export function AttendeeRosterPage({
   const zero = useZero();
   const editionId = access.edition.id;
   const canManage = canManageKalakritiAttendees(access);
+  const canEdit = canEditKalakritiAttendee(access, kind);
   const [rows, result] = useQuery(
     queries.kalakritiAttendee.visible({ editionId, kind })
   );
@@ -105,6 +109,7 @@ export function AttendeeRosterPage({
       <AttendeesTable
         data={data}
         kind={kind}
+        canEdit={canEdit}
         canManage={canManage}
         isLoading={!data.length && result.type !== "complete"}
         statusReady={statusReady}
@@ -120,6 +125,7 @@ export function AttendeeRosterPage({
       />
       <AttendeeDetailSheet
         attendee={selected}
+        canEdit={canEdit}
         canManage={canManage}
         statusReady={statusReady}
         onClose={() => setSelectedId(null)}
@@ -127,7 +133,7 @@ export function AttendeeRosterPage({
         onArchive={onArchive}
         onAssign={onAssign}
       />
-      {canManage && (createOpen || editing) ? (
+      {(canManage && createOpen) || (canEdit && editing) ? (
         <AttendeeFormDialog
           key={editing?.id ?? "new"}
           attendee={editing}
@@ -139,7 +145,7 @@ export function AttendeeRosterPage({
           }}
         />
       ) : null}
-      {canManage && assigning ? (
+      {canEdit && kind === "judge" && assigning ? (
         <JudgeCompetitionsDialog
           key={assigning.id}
           attendee={assigning}

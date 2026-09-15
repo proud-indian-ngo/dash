@@ -13,6 +13,7 @@ import { PersonQrPanel } from "./person-qr-panel";
 export function AttendeeDetailSheet({
   attendee,
   canManage,
+  canEdit,
   statusReady,
   onClose,
   onEdit,
@@ -21,6 +22,7 @@ export function AttendeeDetailSheet({
 }: {
   attendee: AttendeeRow | null;
   canManage: boolean;
+  canEdit: boolean;
   statusReady: boolean;
   onClose: () => void;
   onEdit: (row: AttendeeRow) => void;
@@ -93,7 +95,7 @@ export function AttendeeDetailSheet({
               </section>
             ) : null}
             <PersonQrPanel id={attendee.id} type={attendee.kind} />
-            {canManage ? (
+            {canEdit ? (
               <div className="flex flex-wrap gap-2">
                 <Button onClick={() => onEdit(attendee)} variant="outline">
                   Edit
@@ -103,12 +105,14 @@ export function AttendeeDetailSheet({
                     Assign competitions
                   </Button>
                 ) : null}
-                <Button
-                  variant="destructive"
-                  onClick={() => onArchive(attendee)}
-                >
-                  Archive
-                </Button>
+                {canManage ? (
+                  <Button
+                    variant="destructive"
+                    onClick={() => onArchive(attendee)}
+                  >
+                    Archive
+                  </Button>
+                ) : null}
               </div>
             ) : null}
           </div>

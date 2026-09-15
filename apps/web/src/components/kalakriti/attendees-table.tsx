@@ -138,6 +138,7 @@ export function AttendeesTable({
   data,
   kind,
   canManage,
+  canEdit,
   isLoading,
   statusReady,
   onView,
@@ -149,6 +150,7 @@ export function AttendeesTable({
   data: AttendeeRow[];
   kind: "guest" | "judge";
   canManage: boolean;
+  canEdit: boolean;
   isLoading: boolean;
   statusReady: boolean;
   onView: (row: AttendeeRow) => void;
@@ -270,7 +272,7 @@ export function AttendeesTable({
               <DropdownMenuItem onClick={() => onView(row.original)}>
                 View details
               </DropdownMenuItem>
-              {canManage ? (
+              {canEdit ? (
                 <>
                   <DropdownMenuItem onClick={() => onEdit(row.original)}>
                     Edit
@@ -280,20 +282,31 @@ export function AttendeesTable({
                       Assign competitions
                     </DropdownMenuItem>
                   ) : null}
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onClick={() => onArchive(row.original)}
-                  >
-                    Archive
-                  </DropdownMenuItem>
                 </>
+              ) : null}
+              {canManage ? (
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => onArchive(row.original)}
+                >
+                  Archive
+                </DropdownMenuItem>
               ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
         ),
       },
     ];
-  }, [kind, canManage, onView, onEdit, onArchive, onAssign, statusReady]);
+  }, [
+    kind,
+    canManage,
+    canEdit,
+    onView,
+    onEdit,
+    onArchive,
+    onAssign,
+    statusReady,
+  ]);
   return (
     <DataTableWrapper
       filter={{

@@ -75,6 +75,33 @@ export class KalakritiAttendeePage {
     return this.page.getByRole("row").filter({ hasText: name });
   }
 
+  async editJudge(name: string, nextName: string) {
+    await this.row(name).getByTestId("row-title").click();
+    const sheet = this.page.getByRole("dialog", { name, exact: true });
+    await expect(
+      sheet.getByRole("button", { name: "Assign competitions", exact: true })
+    ).toBeVisible();
+    await expect(
+      sheet.getByRole("button", { name: "Archive", exact: true })
+    ).toHaveCount(0);
+    await sheet.getByRole("button", { name: "Edit", exact: true }).click();
+    const dialog = this.page.getByRole("dialog", {
+      name: "Edit Judge",
+      exact: true,
+    });
+    await expect(
+      dialog.getByRole("textbox", { name: "Name", exact: true })
+    ).toHaveValue(name);
+    await dialog
+      .getByRole("textbox", { name: "Name", exact: true })
+      .fill(nextName);
+    await dialog
+      .getByRole("button", { name: "Save details", exact: true })
+      .click();
+    await expect(dialog).toBeHidden();
+    await expect(this.row(nextName)).toBeVisible();
+  }
+
   async assign(name: string, competitionNames: string[]) {
     await new ListPage(this.page).openRowActionAndClick(
       this.row(name),
@@ -85,6 +112,11 @@ export class KalakritiAttendeePage {
       exact: true,
     });
     await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: "Save assignments", exact: true })
+    ).toBeVisible();
+    for (const checkbox of await dialog.getByRole("checkbox").all())
+      await checkbox.uncheck();
     for (const competition of competitionNames) {
       await dialog
         .getByRole("checkbox", { name: competition, exact: true })
