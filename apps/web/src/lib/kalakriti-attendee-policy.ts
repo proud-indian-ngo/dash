@@ -12,31 +12,20 @@ interface AttendeeAccess {
 }
 
 export function canManageKalakritiAttendees(
-  access: AttendeeAccess | null | undefined
-) {
+  access: AttendeeAccess | null | undefined,
+  kind: "guest" | "judge"
+): boolean {
   return Boolean(
     access &&
     access.edition?.lifecycle !== "archived" &&
     (access.isGlobalAdmin ||
       access.membership?.assignments.some(
-        (a) => a.responsibility === "edition_admin"
+        (assignment) =>
+          assignment.responsibility === "edition_admin" ||
+          (kind === "judge" &&
+            access.membership?.kind === "volunteer" &&
+            assignment.responsibility === "overall_events_lead")
       ))
-  );
-}
-
-export function canEditKalakritiAttendee(
-  access: AttendeeAccess | null | undefined,
-  kind: "guest" | "judge"
-): boolean {
-  if (canManageKalakritiAttendees(access)) return true;
-  return Boolean(
-    access &&
-    access.edition?.lifecycle !== "archived" &&
-    kind === "judge" &&
-    access.membership?.kind === "volunteer" &&
-    access.membership.assignments.some(
-      (assignment) => assignment.responsibility === "overall_events_lead"
-    )
   );
 }
 

@@ -207,7 +207,7 @@ test("non-login guests and judges support multiple competitions, scoped visibili
     await expect(eventsPage.row(judge.name)).toBeVisible();
     await expect(
       eventsPage.page.getByRole("button", { name: "Add Judge", exact: true })
-    ).toHaveCount(0);
+    ).toBeVisible();
     await eventsPage.editJudge(judge.name, "E2E Judge Updated by Events Lead");
     judge.name = "E2E Judge Updated by Events Lead";
     await eventsPage.assign(judge.name, [competitions[0]!.name]);
@@ -224,17 +224,49 @@ test("non-login guests and judges support multiple competitions, scoped visibili
       judge.name,
       competitions.map((competition) => competition.name)
     );
+    const disposableName = "E2E Judge Added by Events Lead";
+    await eventsPage.create("Judge", disposableName, "+919876543212");
+    await eventsPage.assign(
+      disposableName,
+      competitions.map((competition) => competition.name)
+    );
+    const disposable = (await readState()).attendees.find(
+      (attendee) => attendee.name === disposableName
+    );
+    if (!disposable) throw new Error("Created Judge is missing");
+    await eventsPage.deleteJudge(disposableName);
+    const deleted = await readState();
+    expect(
+      deleted.attendees.some((attendee) => attendee.id === disposable.id)
+    ).toBe(false);
+    expect(
+      deleted.assignments.some(
+        (assignment) => assignment.attendeeId === disposable.id
+      )
+    ).toBe(false);
+    await eventsPage.create("Judge", disposableName, "+919876543212");
+    const replacement = (await readState()).attendees.find(
+      (attendee) => attendee.name === disposableName
+    );
+    expect(replacement?.humanId).toBeDefined();
+    expect(replacement?.humanId).not.toBe(disposable.humanId);
+    await eventsPage.deleteJudge(disposableName);
     for (const [name, args] of [
       [
         "kalakritiAttendee.update",
         { id: guest.id, name: "Unauthorized Guest edit" },
       ],
       ["kalakritiAttendee.archive", { id: judge.id }],
+      ["kalakritiAttendee.delete", { id: guest.id }],
+      [
+        "kalakritiAttendee.delete",
+        { id: judge.id, editionId: data.foreignEditionId },
+      ],
       [
         "kalakritiAttendee.create",
         {
-          kind: "judge",
-          name: "Unauthorized new Judge",
+          kind: "guest",
+          name: "Unauthorized new Guest",
           phone: "+919876543211",
         },
       ],
@@ -259,6 +291,19 @@ test("non-login guests and judges support multiple competitions, scoped visibili
       }
     );
     expect(deniedAssignment.error).toBeTruthy();
+    for (const name of [
+      "kalakritiAttendee.create",
+      "kalakritiAttendee.delete",
+    ]) {
+      const denied = await mutate(coordinator.request, name, {
+        ...command(data.editionId),
+        id: judge.id,
+        kind: "judge",
+        name: "Unauthorized Judge",
+        phone: "+919876543211",
+      });
+      expect(denied.error).toBeTruthy();
+    }
     const guestAssignment = await mutate(
       request,
       "kalakritiAttendee.setCompetitions",
@@ -350,7 +395,23 @@ test("non-login guests and judges support multiple competitions, scoped visibili
       ).toBeUndefined();
     }
     await scanner.close();
+    for (const actor of [request, events.request]) {
+      const deletionWithHistory = await mutate(
+        actor,
+        "kalakritiAttendee.delete",
+        { ...command(data.editionId), id: judge.id }
+      );
+      expect(deletionWithHistory.error).toBeTruthy();
+    }
     const served = await readState();
+    expect(served.attendees.some((attendee) => attendee.id === judge.id)).toBe(
+      true
+    );
+    expect(
+      served.assignments.filter(
+        (assignment) => assignment.attendeeId === judge.id
+      )
+    ).toHaveLength(competitions.length);
     for (const attendee of [guest, judge]) {
       expect(
         served.operations

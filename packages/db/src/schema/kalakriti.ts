@@ -100,6 +100,7 @@ export const kalakritiEdition = pgTable(
     nextGuardianSequence: integer("next_guardian_sequence")
       .default(1)
       .notNull(),
+    nextJudgeSequence: integer("next_judge_sequence").default(1).notNull(),
     nextStudentSequence: integer("next_student_sequence").default(1).notNull(),
     nextVolunteerSequence: integer("next_volunteer_sequence")
       .default(1)
@@ -137,6 +138,10 @@ export const kalakritiEdition = pgTable(
     check(
       "kalakriti_edition_nextGuardianSequence_chk",
       sql`${table.nextGuardianSequence} > 0`
+    ),
+    check(
+      "kalakriti_edition_nextJudgeSequence_chk",
+      sql`${table.nextJudgeSequence} > 0`
     ),
     check(
       "kalakriti_edition_nextStudentSequence_chk",

@@ -138,24 +138,22 @@ export function AttendeesTable({
   data,
   kind,
   canManage,
-  canEdit,
   isLoading,
   statusReady,
   onView,
   onEdit,
-  onArchive,
+  onRemove,
   onAssign,
   toolbarActions,
 }: {
   data: AttendeeRow[];
   kind: "guest" | "judge";
   canManage: boolean;
-  canEdit: boolean;
   isLoading: boolean;
   statusReady: boolean;
   onView: (row: AttendeeRow) => void;
   onEdit: (row: AttendeeRow) => void;
-  onArchive: (row: AttendeeRow) => void;
+  onRemove: (row: AttendeeRow) => void;
   onAssign: (row: AttendeeRow) => void;
   toolbarActions: ReactNode;
 }) {
@@ -272,7 +270,7 @@ export function AttendeesTable({
               <DropdownMenuItem onClick={() => onView(row.original)}>
                 View details
               </DropdownMenuItem>
-              {canEdit ? (
+              {canManage ? (
                 <>
                   <DropdownMenuItem onClick={() => onEdit(row.original)}>
                     Edit
@@ -282,31 +280,20 @@ export function AttendeesTable({
                       Assign competitions
                     </DropdownMenuItem>
                   ) : null}
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => onRemove(row.original)}
+                  >
+                    {kind === "judge" ? "Delete" : "Archive"}
+                  </DropdownMenuItem>
                 </>
-              ) : null}
-              {canManage ? (
-                <DropdownMenuItem
-                  variant="destructive"
-                  onClick={() => onArchive(row.original)}
-                >
-                  Archive
-                </DropdownMenuItem>
               ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
         ),
       },
     ];
-  }, [
-    kind,
-    canManage,
-    canEdit,
-    onView,
-    onEdit,
-    onArchive,
-    onAssign,
-    statusReady,
-  ]);
+  }, [kind, canManage, onView, onEdit, onRemove, onAssign, statusReady]);
   return (
     <DataTableWrapper
       filter={{

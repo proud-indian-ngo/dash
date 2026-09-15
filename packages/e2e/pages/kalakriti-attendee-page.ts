@@ -84,6 +84,9 @@ export class KalakritiAttendeePage {
     await expect(
       sheet.getByRole("button", { name: "Archive", exact: true })
     ).toHaveCount(0);
+    await expect(
+      sheet.getByRole("button", { name: "Delete", exact: true })
+    ).toBeVisible();
     await sheet.getByRole("button", { name: "Edit", exact: true }).click();
     const dialog = this.page.getByRole("dialog", {
       name: "Edit Judge",
@@ -100,6 +103,21 @@ export class KalakritiAttendeePage {
       .click();
     await expect(dialog).toBeHidden();
     await expect(this.row(nextName)).toBeVisible();
+  }
+
+  async deleteJudge(name: string) {
+    await new ListPage(this.page).openRowActionAndClick(
+      this.row(name),
+      "Delete"
+    );
+    const dialog = this.page.getByRole("alertdialog", {
+      name: "Delete Judge?",
+      exact: true,
+    });
+    await expect(dialog).toContainText("This cannot be undone");
+    await dialog.getByRole("button", { name: "Delete", exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await expect(this.row(name)).toHaveCount(0);
   }
 
   async assign(name: string, competitionNames: string[]) {

@@ -9,10 +9,7 @@ import { uuidv7 } from "uuidv7";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
-import {
-  canEditKalakritiAttendee,
-  canManageKalakritiAttendees,
-} from "@/lib/kalakriti-attendee-policy";
+import { canManageKalakritiAttendees } from "@/lib/kalakriti-attendee-policy";
 
 import { AttendeeDetailSheet } from "./attendee-detail-sheet";
 import { AttendeeFormDialog } from "./attendee-form-dialog";
@@ -29,8 +26,8 @@ export function AttendeeRosterPage({
 }) {
   const zero = useZero();
   const editionId = access.edition.id;
-  const canManage = canManageKalakritiAttendees(access);
-  const canEdit = canEditKalakritiAttendee(access, kind);
+  const canManage = canManageKalakritiAttendees(access, kind);
+  const removalLabel = kind === "judge" ? "Delete" : "Archive";
   const [rows, result] = useQuery(
     queries.kalakritiAttendee.visible({ editionId, kind })
   );
@@ -69,21 +66,31 @@ export function AttendeeRosterPage({
   const selected = data.find((row) => row.id === selectedId) ?? null;
   const editing = data.find((row) => row.id === editId);
   const assigning = data.find((row) => row.id === assignId);
-  const archive = useConfirmAction<AttendeeRow>({
-    onConfirm: (row) =>
-      zero.mutate(
-        mutators.kalakritiAttendee.archive({
-          id: row.id,
-          editionId,
-          now: Date.now(),
-          auditEntryId: uuidv7(),
-        })
-      ).server,
+  const removal = useConfirmAction<AttendeeRow>({
+    onConfirm: (row) => {
+      const args = {
+        id: row.id,
+        editionId,
+        now: Date.now(),
+        auditEntryId: uuidv7(),
+      };
+      return zero.mutate(
+        row.kind === "judge"
+          ? mutators.kalakritiAttendee.delete(args)
+          : mutators.kalakritiAttendee.archive(args)
+      ).server;
+    },
     mutationMeta: {
-      mutation: "kalakritiAttendee.archive",
+      mutation:
+        kind === "judge"
+          ? "kalakritiAttendee.delete"
+          : "kalakritiAttendee.archive",
       entityId: (row) => row.id,
-      successMsg: "Attendee archived",
-      errorMsg: "Attendee could not be archived",
+      successMsg: kind === "judge" ? "Judge deleted" : "Guest archived",
+      errorMsg:
+        kind === "judge"
+          ? "Judge could not be deleted"
+          : "Guest could not be archived",
     },
   });
   const onView = useEventCallback((row: AttendeeRow) => setSelectedId(row.id));
@@ -95,9 +102,9 @@ export function AttendeeRosterPage({
     setSelectedId(null);
     setAssignId(row.id);
   });
-  const onArchive = useEventCallback((row: AttendeeRow) => {
+  const onRemove = useEventCallback((row: AttendeeRow) => {
     setSelectedId(null);
-    archive.trigger(row);
+    removal.trigger(row);
   });
   const label = kind === "guest" ? "Guest" : "Judge";
   return (
@@ -109,14 +116,13 @@ export function AttendeeRosterPage({
       <AttendeesTable
         data={data}
         kind={kind}
-        canEdit={canEdit}
         canManage={canManage}
         isLoading={!data.length && result.type !== "complete"}
         statusReady={statusReady}
         onView={onView}
         onEdit={onEdit}
         onAssign={onAssign}
-        onArchive={onArchive}
+        onRemove={onRemove}
         toolbarActions={
           canManage ? (
             <Button onClick={() => setCreateOpen(true)}>Add {label}</Button>
@@ -125,15 +131,14 @@ export function AttendeeRosterPage({
       />
       <AttendeeDetailSheet
         attendee={selected}
-        canEdit={canEdit}
         canManage={canManage}
         statusReady={statusReady}
         onClose={() => setSelectedId(null)}
         onEdit={onEdit}
-        onArchive={onArchive}
+        onRemove={onRemove}
         onAssign={onAssign}
       />
-      {(canManage && createOpen) || (canEdit && editing) ? (
+      {canManage && (createOpen || editing) ? (
         <AttendeeFormDialog
           key={editing?.id ?? "new"}
           attendee={editing}
@@ -145,7 +150,7 @@ export function AttendeeRosterPage({
           }}
         />
       ) : null}
-      {canEdit && kind === "judge" && assigning ? (
+      {canManage && kind === "judge" && assigning ? (
         <JudgeCompetitionsDialog
           key={assigning.id}
           attendee={assigning}
@@ -154,15 +159,19 @@ export function AttendeeRosterPage({
         />
       ) : null}
       <ConfirmDialog
-        title={`Archive ${label}?`}
-        description={`Remove ${archive.payload?.name ?? "this attendee"} from the active roster? Recorded event-day history is retained.`}
-        confirmLabel="Archive"
-        loading={archive.isLoading}
-        loadingLabel="Archiving..."
-        open={canManage && archive.isOpen}
-        onConfirm={archive.confirm}
+        title={`${removalLabel} ${label}?`}
+        description={
+          kind === "judge"
+            ? `Permanently delete ${removal.payload?.name ?? "this Judge"} and their Competition assignments? This cannot be undone. Judges with check-in or meal history cannot be deleted.`
+            : `Remove ${removal.payload?.name ?? "this Guest"} from the active roster? Recorded event-day history is retained.`
+        }
+        confirmLabel={removalLabel}
+        loading={removal.isLoading}
+        loadingLabel={kind === "judge" ? "Deleting..." : "Archiving..."}
+        open={canManage && removal.isOpen}
+        onConfirm={removal.confirm}
         onOpenChange={(open) => {
-          if (!open) archive.cancel();
+          if (!open) removal.cancel();
         }}
       />
     </div>

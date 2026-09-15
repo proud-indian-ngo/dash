@@ -11,6 +11,7 @@ const edition = {
   eventDate: "2027-11-21",
   timezone: "Asia/Kolkata",
   year: 2027,
+  nextJudgeSequence: 1,
 };
 const base = {
   id: "attendee-1",
@@ -26,6 +27,7 @@ const admin = {
 const person = {
   ...base,
   kind: "judge",
+  humanId: "KALJ-2027-0009",
   name: "Judge",
   phone: "123",
   email: null,
@@ -37,7 +39,9 @@ function fixture(results: unknown[], lifecycle = "live") {
     update = mock(),
     audit = mock(),
     add = mock(),
-    remove = mock();
+    remove = mock(() => order.push("delete-assignment")),
+    deleteAttendee = mock(() => order.push("delete-attendee")),
+    updateEdition = mock();
   const select = () => {
     const query = {
       from: () => query,
@@ -56,6 +60,8 @@ function fixture(results: unknown[], lifecycle = "live") {
     audit,
     add,
     remove,
+    deleteAttendee,
+    updateEdition,
     tx: {
       location: "server",
       dbTransaction: { wrappedTransaction: { select } },
@@ -64,7 +70,8 @@ function fixture(results: unknown[], lifecycle = "live") {
         return results.shift();
       }),
       mutate: {
-        kalakritiAttendee: { insert, update },
+        kalakritiAttendee: { insert, update, delete: deleteAttendee },
+        kalakritiEdition: { update: updateEdition },
         kalakritiAuditEntry: { insert: audit },
         kalakritiJudgeAssignment: { insert: add, delete: remove },
       },
@@ -138,14 +145,14 @@ describe("Overall Events Lead Judge editing", () => {
     );
   });
   it.each(["create", "archive"] as const)(
-    "does not grant %s authority",
+    "does not grant Guest %s authority",
     async (command) => {
       const f = fixture([undefined]);
       await expect(
         invoke(
           command,
           f.tx,
-          { ...base, kind: "judge", name: "Judge", phone: "+919876543211" },
+          { ...base, kind: "guest", name: "Guest", phone: "+919876543211" },
           lead
         )
       ).rejects.toThrow("Unauthorized");
@@ -154,6 +161,67 @@ describe("Overall Events Lead Judge editing", () => {
       expect(f.update).not.toHaveBeenCalled();
     }
   );
+  it("creates Judges and advances the durable yearly ID counter", async () => {
+    const f = fixture([
+      undefined,
+      { id: "lead-membership" },
+      undefined,
+      { ...edition, nextJudgeSequence: 12 },
+      [person],
+    ]);
+    await invoke(
+      "create",
+      f.tx,
+      { ...base, kind: "judge", name: "Judge", phone: "+919876543211" },
+      lead
+    );
+    expect(f.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "judge",
+        humanId: "KALJ-2027-0012",
+        createdBy: "lead",
+      })
+    );
+    expect(f.updateEdition).toHaveBeenCalledWith({
+      id: edition.id,
+      nextJudgeSequence: 13,
+    });
+  });
+  it("deletes Judges after their assignments, preserving legacy yearly IDs", async () => {
+    const f = fixture([
+      undefined,
+      { id: "lead-membership" },
+      person,
+      undefined,
+      edition,
+      [{ id: "assignment-1" }],
+    ]);
+    await invoke("delete", f.tx, base, lead);
+    expect(f.remove).toHaveBeenCalledWith({ id: "assignment-1" });
+    expect(f.deleteAttendee).toHaveBeenCalledWith({ id: person.id });
+    expect(f.order.slice(-2)).toEqual(["delete-assignment", "delete-attendee"]);
+    expect(f.updateEdition).toHaveBeenCalledWith({
+      id: edition.id,
+      nextJudgeSequence: 10,
+    });
+    expect(f.audit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "deleted",
+        metadata: { removedAssignmentCount: 1 },
+      })
+    );
+  });
+  it.each([
+    { ...person, kind: "guest" },
+    { ...person, editionId: "other" },
+  ])("rejects deletion of Guest or foreign targets: %j", async (target) => {
+    const f = fixture([undefined, { id: "lead-membership" }, target]);
+    await expect(invoke("delete", f.tx, base, lead)).rejects.toThrow(
+      "Judge not found"
+    );
+    expect(f.deleteAttendee).not.toHaveBeenCalled();
+    expect(f.remove).not.toHaveBeenCalled();
+  });
   it("denies Guest edits based on persisted kind, including no-op edits", async () => {
     const f = fixture([
       undefined,
@@ -166,12 +234,17 @@ describe("Overall Events Lead Judge editing", () => {
     expect(f.update).not.toHaveBeenCalled();
     expect(f.audit).not.toHaveBeenCalled();
   });
-  it.each(["update", "setCompetitions"] as const)(
+  it.each(["create", "delete", "update", "setCompetitions"] as const)(
     "denies %s without active scoped authority and in archived Editions",
     async (command) => {
       const missing = fixture([undefined, undefined]);
       await expect(
-        invoke(command, missing.tx, { ...base, competitionIds: [] }, lead)
+        invoke(
+          command,
+          missing.tx,
+          { ...base, kind: "judge", competitionIds: [] },
+          lead
+        )
       ).rejects.toThrow("Unauthorized");
       const archived = fixture([], "archived");
       await expect(
@@ -205,6 +278,62 @@ describe("Overall Events Lead Judge editing", () => {
 });
 
 describe("Kalakriti attendee commands", () => {
+  it.each(["attendee_check_in", "breakfast", "lunch"])(
+    "preserves Judges with %s history",
+    async (type) => {
+      const f = fixture([
+        person,
+        { id: "operation-1", type, supersededAt: 99 },
+      ]);
+      await expect(invoke("delete", f.tx, base)).rejects.toThrow(
+        "check-in or meal history"
+      );
+      expect(f.deleteAttendee).not.toHaveBeenCalled();
+      expect(f.remove).not.toHaveBeenCalled();
+      expect(f.audit).not.toHaveBeenCalled();
+    }
+  );
+  it("allows admin deletion and does not lower an existing counter", async () => {
+    const f = fixture([
+      person,
+      undefined,
+      { ...edition, nextJudgeSequence: 20 },
+      [],
+    ]);
+    await invoke("delete", f.tx, base);
+    expect(f.deleteAttendee).toHaveBeenCalledWith({ id: person.id });
+    expect(f.updateEdition).toHaveBeenCalledWith({
+      id: edition.id,
+      nextJudgeSequence: 20,
+    });
+  });
+  it("replays deletion without another audit or counter update", async () => {
+    const f = fixture([undefined]);
+    await invoke("delete", f.tx, base);
+    expect(f.audit).not.toHaveBeenCalled();
+    expect(f.updateEdition).not.toHaveBeenCalled();
+  });
+  it("rejects the old Judge archive command", async () => {
+    const f = fixture([person]);
+    await expect(invoke("archive", f.tx, base)).rejects.toThrow("Use Delete");
+    expect(f.update).not.toHaveBeenCalled();
+  });
+  it("allocates after legacy Judge rows when the counter is not initialized", async () => {
+    const f = fixture([undefined, edition, [person]]);
+    await invoke("create", f.tx, {
+      ...base,
+      kind: "judge",
+      name: "Judge",
+      phone: "+919876543211",
+    });
+    expect(f.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ humanId: "KALJ-2027-0010" })
+    );
+    expect(f.updateEdition).toHaveBeenCalledWith({
+      id: edition.id,
+      nextJudgeSequence: 11,
+    });
+  });
   it("validates identifiers, bounded timestamps, required names and international phone numbers", () => {
     const valid = {
       id: "019d52c2-7261-7dce-b0ee-e20656171601",
@@ -285,7 +414,7 @@ describe("Kalakriti attendee commands", () => {
     expect(f.update).not.toHaveBeenCalled();
   });
   it("allows an active Edition administrator", async () => {
-    const f = fixture([{ id: "membership-1" }, person]);
+    const f = fixture([{ id: "membership-1" }, { ...person, kind: "guest" }]);
     await invoke("archive", f.tx, base, {
       ...admin,
       permissions: [],
@@ -338,7 +467,7 @@ describe("Kalakriti attendee commands", () => {
     );
   });
   it("archives without deleting operations or assignments and replays without audit", async () => {
-    const f = fixture([{ ...person, archivedAt: 42 }]);
+    const f = fixture([{ ...person, kind: "guest", archivedAt: 42 }]);
     await invoke("archive", f.tx, base);
     expect(f.update).not.toHaveBeenCalled();
     expect(f.audit).not.toHaveBeenCalled();

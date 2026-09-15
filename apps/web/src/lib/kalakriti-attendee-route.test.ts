@@ -3,10 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { Route as Guests } from "@/routes/_app/kalakriti/$year/guests";
 import { Route as Judges } from "@/routes/_app/kalakriti/$year/judges";
 
-import {
-  canEditKalakritiAttendee,
-  canManageKalakritiAttendees,
-} from "./kalakriti-attendee-policy";
+import { canManageKalakritiAttendees } from "./kalakriti-attendee-policy";
 import { buildKalakritiNavGroups } from "./nav-items";
 function guard(route: typeof Guests | typeof Judges, access: unknown) {
   const beforeLoad: typeof Guests.options.beforeLoad =
@@ -22,29 +19,25 @@ function access(responsibility: string, scope = {}) {
   return {
     isGlobalAdmin: false,
     edition: { lifecycle: "live" },
-    membership: { assignments: [{ responsibility, ...scope }] },
+    membership: {
+      kind: "volunteer" as const,
+      assignments: [{ responsibility, ...scope }],
+    },
   };
 }
 describe("attendee direct route guards", () => {
-  it("lets Overall Events Leads edit Judges without granting roster or Guest management", () => {
-    const lead = {
-      ...access("overall_events_lead"),
-      membership: {
-        kind: "volunteer" as const,
-        assignments: [{ responsibility: "overall_events_lead" }],
-      },
-    };
-    expect(canEditKalakritiAttendee(lead, "judge")).toBe(true);
-    expect(canEditKalakritiAttendee(lead, "guest")).toBe(false);
-    expect(canManageKalakritiAttendees(lead)).toBe(false);
+  it("lets Overall Events Leads manage Judges without granting Guest management", () => {
+    const lead = access("overall_events_lead");
+    expect(canManageKalakritiAttendees(lead, "judge")).toBe(true);
+    expect(canManageKalakritiAttendees(lead, "guest")).toBe(false);
     expect(
-      canEditKalakritiAttendee(
+      canManageKalakritiAttendees(
         { ...lead, edition: { lifecycle: "archived" } },
         "judge"
       )
     ).toBe(false);
     expect(
-      canEditKalakritiAttendee(
+      canManageKalakritiAttendees(
         { ...lead, membership: { ...lead.membership, kind: "guardian" } },
         "judge"
       )
@@ -54,16 +47,11 @@ describe("attendee direct route guards", () => {
       "competition_category_lead",
       "competition_coordinator",
       "food_lead",
-    ]) {
-      const actor = access(responsibility);
-      expect(
-        canEditKalakritiAttendee(
-          { ...actor, membership: { ...actor.membership, kind: "volunteer" } },
-          "judge"
-        )
-      ).toBe(false);
-    }
-    expect(canEditKalakritiAttendee(access("edition_admin"), "guest")).toBe(
+    ])
+      expect(canManageKalakritiAttendees(access(responsibility), "judge")).toBe(
+        false
+      );
+    expect(canManageKalakritiAttendees(access("edition_admin"), "guest")).toBe(
       true
     );
   });
@@ -89,10 +77,12 @@ describe("attendee direct route guards", () => {
       expect(() => guard(route, null)).toThrow();
       expect(() => guard(route, access("food_member"))).toThrow();
     }
-    expect(canManageKalakritiAttendees(access("volunteer_coordinator"))).toBe(
-      false
+    expect(
+      canManageKalakritiAttendees(access("volunteer_coordinator"), "guest")
+    ).toBe(false);
+    expect(canManageKalakritiAttendees(access("edition_admin"), "guest")).toBe(
+      true
     );
-    expect(canManageKalakritiAttendees(access("edition_admin"))).toBe(true);
   });
   it("restricts event staff to judges and requires assigned scopes", () => {
     for (const actor of [
@@ -104,7 +94,7 @@ describe("attendee direct route guards", () => {
     ]) {
       expect(() => guard(Judges, actor)).not.toThrow();
       expect(() => guard(Guests, actor)).toThrow();
-      expect(canManageKalakritiAttendees(actor)).toBe(false);
+      expect(canManageKalakritiAttendees(actor, "guest")).toBe(false);
     }
     expect(() => guard(Judges, access("competition_category_lead"))).toThrow();
     expect(() => guard(Judges, access("competition_coordinator"))).toThrow();
@@ -118,8 +108,8 @@ describe("attendee direct route guards", () => {
     expect(() =>
       guard(Guests, { ...actor, isGlobalAdmin: true })
     ).not.toThrow();
-    expect(canManageKalakritiAttendees({ ...actor, isGlobalAdmin: true })).toBe(
-      false
-    );
+    expect(
+      canManageKalakritiAttendees({ ...actor, isGlobalAdmin: true }, "judge")
+    ).toBe(false);
   });
 });

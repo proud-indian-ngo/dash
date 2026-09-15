@@ -134,6 +134,7 @@ describe("Kalakriti Registration Release surface", () => {
       "kalakritiAssignment.removeVolunteer",
       "kalakritiAttendee.archive",
       "kalakritiAttendee.create",
+      "kalakritiAttendee.delete",
       "kalakritiAttendee.setCompetitions",
       "kalakritiAttendee.update",
       "kalakritiCenter.assignGuardian",
