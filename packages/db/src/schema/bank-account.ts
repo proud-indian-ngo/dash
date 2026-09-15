@@ -2,7 +2,6 @@ import { relations, sql } from "drizzle-orm";
 import {
   boolean,
   check,
-  index,
   pgTable,
   text,
   timestamp,
@@ -27,7 +26,6 @@ export const bankAccount = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
   },
   (table) => [
-    index("bank_account_userId_idx").on(table.userId),
     uniqueIndex("bank_account_userId_accountNumber_uidx").on(
       table.userId,
       table.accountNumber

@@ -763,3 +763,28 @@ All 13 candidate browser tests passed without retries. Keep the member index exp
 The default individual mapping is unchanged: with group size one, the new Student index formula reduces to `entryIndex % 1500`, and Entry-member IDs and Division assignments retain their original mappings. The new group mode requires a fresh test database rather than converting a previously seeded mode.
 
 The final group run passed all 13 browser tests without retries with experimental indexes disabled. Synced member counts were exactly 3,000 for global admin, Edition admin and overall-events lead, 1,500 for category lead and 600 for Guardian/liaison. Repository type, lint, unit and unused-export checks and the focused benchmark TypeScript check passed.
+
+## Redundant index cleanup (2026-09-15)
+
+A read-only production catalog inspection reproduced pgbot's 31 overlapping-index pairs across 21 distinct indexes. Deduplicating the names reduced the reported size from 864 KiB to 672 KiB. Ten of those indexes had zero recorded scans. The expression-based Event Reminder unique index also covers its event-only index, adding one source-owned candidate omitted by pgbot. The statistics observation window was unknown, so zero scans were considered alongside index definitions and query verification.
+
+Migration `0094_square_the_call.sql` removes these eleven non-unique indexes, totaling 448 KiB in that production snapshot:
+
+| Removed index | Retained covering index |
+| --- | --- |
+| `audit_log_attempted_at_idx` | `audit_log_attempted_at_id_idx` |
+| `bank_account_userId_idx` | `bank_account_userId_accountNumber_uidx` |
+| `event_feedback_sub_eventId_idx` | `event_feedback_sub_eventId_userId_uidx` |
+| `event_interest_eventId_idx` | `event_interest_eventId_userId_uidx` |
+| `event_reminder_sent_eventId_idx` | `event_reminder_sent_uidx` |
+| `event_update_eventId_idx`, `event_update_eventId_status_idx` | `event_update_eventId_status_createdAt_id_idx` |
+| `kalakriti_audit_editionId_createdAt_idx` | `kalakriti_audit_edition_created_id_idx` |
+| `kalakriti_competition_division_editionId_idx` | `kalakriti_competition_division_editionId_id_uq` |
+| `team_whatsappGroupId_idx` | `team_whatsapp_group_id_unique` |
+| `team_member_teamId_idx` | `team_member_teamId_userId_uidx` |
+
+The other eleven reported indexes have recorded usage and remain pending workload comparisons. Foreign-key indexes are unchanged: production SELECT probes found real full scans on user-reference columns, but each measured check took less than 0.6 ms on the current small tables. Entry/Division, Entry Member/Entry, Entry Music/Entry and Zero desires composite probes used existing indexes. These probes do not reproduce DELETE locking or establish future performance at larger sizes. Vendor-owned schemas are unchanged.
+
+Verification applied the complete migration chain to a fresh local PostgreSQL 18 database. A populated before/after check used 50,000 global audit rows, 20,000 Kalakriti audit rows, 20,000 bank accounts, 20,000 event updates and 10,000 rows each for feedback submissions, interests, reminders and team memberships. All twelve query results and all 744 public constraints were unchanged after executing the generated drop statements. The retained indexes served the tested lookups; PostgreSQL chose the existing primary key for the bounded Division query. Snapshot comparison found only the eleven intended index removals, and Zero schema regeneration produced no diff. The existing App, Global Audit Log and Kalakriti Audit performance suites passed with experimental indexes disabled, including admin/volunteer query checks and the audit pagination assertions. Repository type and unit checks and changed-file formatting/lint checks passed. No production latency improvement is claimed.
+
+The normal Drizzle runner applies pending migrations in one transaction. These regular index drops acquire table locks until commit; schedule deployment during a quiet window and bound lock waits for the migration session. Substituting `DROP INDEX CONCURRENTLY` is incompatible with that runner. Production was not modified during this cleanup.

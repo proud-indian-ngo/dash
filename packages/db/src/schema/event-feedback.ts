@@ -45,7 +45,6 @@ export const eventFeedbackSubmission = pgTable(
       table.eventId,
       table.userId
     ),
-    index("event_feedback_sub_eventId_idx").on(table.eventId),
   ]
 );
 

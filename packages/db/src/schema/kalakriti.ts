@@ -513,7 +513,6 @@ export const kalakritiCompetitionDivision = pgTable(
       table.editionId,
       table.id
     ),
-    index("kalakriti_competition_division_editionId_idx").on(table.editionId),
     foreignKey({
       columns: [table.editionId, table.competitionId],
       foreignColumns: [kalakritiCompetition.editionId, kalakritiCompetition.id],
@@ -1269,10 +1268,6 @@ export const kalakritiAuditEntry = pgTable(
     targetType: text("target_type").notNull(),
   },
   (table) => [
-    index("kalakriti_audit_editionId_createdAt_idx").on(
-      table.editionId,
-      table.createdAt.desc()
-    ),
     index("kalakriti_audit_edition_created_id_idx").on(
       table.editionId,
       table.createdAt.desc().nullsFirst(),

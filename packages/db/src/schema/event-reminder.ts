@@ -1,6 +1,5 @@
 import { relations, sql } from "drizzle-orm";
 import {
-  index,
   integer,
   pgTable,
   text,
@@ -26,7 +25,6 @@ export const eventReminderSent = pgTable(
     uniqueIndex("event_reminder_sent_uidx").on(
       sql`${table.eventId}, COALESCE(${table.instanceDate}, '__none__'), ${table.intervalMinutes}`
     ),
-    index("event_reminder_sent_eventId_idx").on(table.eventId),
   ]
 );
 

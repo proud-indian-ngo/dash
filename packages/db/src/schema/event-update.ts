@@ -48,8 +48,6 @@ export const eventUpdate = pgTable(
       table.createdAt.desc(),
       table.id.asc()
     ),
-    index("event_update_eventId_idx").on(table.eventId),
-    index("event_update_eventId_status_idx").on(table.eventId, table.status),
   ]
 );
 
