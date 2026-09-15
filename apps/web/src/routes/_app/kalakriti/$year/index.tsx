@@ -18,6 +18,7 @@ import {
 } from "@/components/kalakriti/edition-lifecycle-card";
 import { EditionMetadataDialog } from "@/components/kalakriti/edition-metadata-dialog";
 import { EditionParticipationRulesDialog } from "@/components/kalakriti/edition-participation-rules-dialog";
+import { IdCardDownloadButton } from "@/components/kalakriti/id-card-download-button";
 import { KalakritiLifecycleBadge } from "@/components/kalakriti/kalakriti-lifecycle-badge";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { RegistrationDashboard } from "@/components/kalakriti/registration-dashboard";
@@ -103,6 +104,9 @@ function KalakritiEditionOverview() {
             >
               View schedule
             </Button>
+            {canManageLifecycle ? (
+              <IdCardDownloadButton year={edition.year} />
+            ) : null}
             <EditionCloneCard
               editionId={edition.id}
               lifecycle={edition.lifecycle}
