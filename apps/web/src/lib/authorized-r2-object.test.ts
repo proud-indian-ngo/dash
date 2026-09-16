@@ -44,6 +44,7 @@ const createDeps = (
   overrides: Partial<AuthorizedR2ObjectDeps> = {}
 ): AuthorizedR2ObjectDeps => ({
   canReadKalakritiEntryMusic: async () => false,
+  canReadKalakritiScorecard: async () => false,
   findRecord: async () => null,
   isEventMember: async () => false,
   isTeamLead: async () => false,

@@ -30,7 +30,7 @@
    key. Downloads are authorized against the exact persisted row and streamed through
    `/api/attachments/download`.
 
-Protected temp subfolders: `attachments`, `approval-screenshots`, `kalakriti-music`,
+Protected temp subfolders: `attachments`, `approval-screenshots`, `kalakriti-music`, `kalakriti-scorecards`,
 `photos`, `scheduled-messages`. Avatar and editor uploads remain dedicated durable
 signers under `avatars` and `updates`.
 
@@ -81,6 +81,7 @@ Configure R2 lifecycle rules that expire these prefixes after 24 hours:
 `<R2_KEY_PREFIX>/attachments/tmp/`,
 `<R2_KEY_PREFIX>/approval-screenshots/tmp/`,
 `<R2_KEY_PREFIX>/kalakriti-music/tmp/`,
+`<R2_KEY_PREFIX>/kalakriti-scorecards/tmp/`,
 `<R2_KEY_PREFIX>/photos/tmp/`, and
 `<R2_KEY_PREFIX>/scheduled-messages/tmp/`. The repository does not manage the
 bucket, so the rules must be applied in Cloudflare before deploying
@@ -208,3 +209,9 @@ Protected R2 objects are never exposed directly to clients:
 - Event editor media: `/api/media/event-update?eventId=<id>&key=<key>` — requires normal event visibility, an exact image reference, and access to the owning content row. Approved updates follow event visibility; pending updates remain author/approver/lead-only; feedback remains submitter/feedback-manager/lead-only. Authorized reads redirect to a two-minute signed GET URL.
 - Scheduled WhatsApp delivery signs persisted attachment keys for 15 minutes when the job executes. Notification payloads do not include protected approval screenshots.
 - Immich thumbnails: `/api/immich/thumbnail.$id` + `/api/immich/original.$id` — proxies through the server with API key injected. Client never sees `IMMICH_API_KEY`.
+
+## Kalakriti scorecards
+
+The dedicated `getKalakritiScorecardUploadUrl` signer accepts an Edition and Division and requires scoped results authority in a Live, unfinalized Edition. PDF, JPEG, and PNG files are limited to 20 MB; each current result references at most ten. Claims use `<R2_KEY_PREFIX>/kalakriti-scorecards/<editionId>/<divisionId>/...` and the existing transactional copy and rollback cleanup pipeline. The temporary prefix requires the same 24-hour expiry rule as other protected uploads.
+
+Downloads use `{ kind: "kalakritiScorecard", id: scorecardId }` and authorize the exact persisted scorecard against current results-management scope. General Edition/leaderboard access does not grant file access. Removed/replaced scorecards remain referenced for revision history; reference-checked R2 deletion recognizes these retained rows. Cancelling an unsaved upload cleans only its temporary object.

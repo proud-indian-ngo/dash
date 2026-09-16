@@ -172,7 +172,8 @@ function CompetitionCatalogPage() {
     <div className="space-y-6">
       {structuralLocked ? (
         <KalakritiLockNotice>
-          {edition.lifecycle === "registration_locked"
+          {edition.lifecycle === "registration_locked" ||
+          edition.lifecycle === "live"
             ? "Competition structure is locked. Existing Competitions can still be cancelled or restored."
             : `Configuration is locked while this Edition is ${edition.lifecycle}.`}
         </KalakritiLockNotice>

@@ -23,6 +23,7 @@ const EXEMPT_SERVER_FUNCTIONS = [
   "archiveKalakritiGuardian",
   "getEventEditorUploadUrl",
   "getEventPhotoUploadUrl",
+  "getKalakritiScorecardUploadUrl",
   "getProfilePictureUploadUrl",
   "getRequestUploadUrl",
   "getScheduledMessageUploadUrl",

@@ -28,6 +28,7 @@ import {
 } from "@/components/kalakriti/entry-view";
 import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notice";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
+import { ResultSection } from "@/components/kalakriti/result-section";
 import { useTransportStatusSnapshot } from "@/components/kalakriti/use-transport-status-snapshot";
 import { Loader } from "@/components/loader";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -249,35 +250,42 @@ function KalakritiSessionEntriesPage() {
                 : "Registration is unavailable for this Session or your authorized Centers. Existing Entries remain visible."}
             </KalakritiLockNotice>
           ) : null}
-          <EntryTable
-            activeSessionIds={completeSessions.map((item) => item.id)}
-            data={sessionEntries}
-            editionId={edition.id}
-            emptyMessage="No Entries have been registered for this Session."
-            isLoading={
-              divisionEntries.length === 0 &&
-              divisionEntriesResult.type !== "complete"
-            }
-            snapshotReady={
-              snapshotReady && divisionEntriesResult.type === "complete"
-            }
-            onEdit={edit}
-            onRegister={register}
-            onRemove={removeAction.trigger}
-            permissions={{
-              register: canRegister,
-              edit: sessionEntries.some((entry) => permissionsFor(entry).edit),
-              remove: sessionEntries.some(
-                (entry) => permissionsFor(entry).remove
-              ),
-              uploadMusic: sessionEntries.some(
-                (entry) => permissionsFor(entry).uploadMusic
-              ),
-            }}
-            getRowPermissions={permissionsFor}
-            showMusic={session.competition.musicUploadEnabled === true}
-            variant="session"
-          />
+          <ResultSection divisionId={sessionId} year={Number(year)}>
+            {(resultsAction) => (
+              <EntryTable
+                activeSessionIds={completeSessions.map((item) => item.id)}
+                data={sessionEntries}
+                editionId={edition.id}
+                emptyMessage="No Entries have been registered for this Session."
+                isLoading={
+                  divisionEntries.length === 0 &&
+                  divisionEntriesResult.type !== "complete"
+                }
+                snapshotReady={
+                  snapshotReady && divisionEntriesResult.type === "complete"
+                }
+                onEdit={edit}
+                onRegister={register}
+                onRemove={removeAction.trigger}
+                permissions={{
+                  register: canRegister,
+                  edit: sessionEntries.some(
+                    (entry) => permissionsFor(entry).edit
+                  ),
+                  remove: sessionEntries.some(
+                    (entry) => permissionsFor(entry).remove
+                  ),
+                  uploadMusic: sessionEntries.some(
+                    (entry) => permissionsFor(entry).uploadMusic
+                  ),
+                }}
+                getRowPermissions={permissionsFor}
+                showMusic={session.competition.musicUploadEnabled === true}
+                variant="session"
+                toolbarActions={resultsAction}
+              />
+            )}
+          </ResultSection>
           {createOpen &&
           (editingEntry
             ? permissionsFor(editingEntry).edit

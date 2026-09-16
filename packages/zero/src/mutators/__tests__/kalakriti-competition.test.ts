@@ -67,6 +67,7 @@ function createTx(results: unknown[] = []) {
     updateDivision: mock(),
     updateSession: mock(),
     updateVenue: mock(),
+    updateResultsState: mock(),
   };
   const select = mock(() => {
     const query = {
@@ -86,6 +87,7 @@ function createTx(results: unknown[] = []) {
       location: "server" as const,
       mutate: {
         kalakritiAuditEntry: { insert: spies.insertAudit },
+        kalakritiResultsState: { update: spies.updateResultsState },
         kalakritiCompetition: {
           delete: spies.deleteCompetition,
           insert: spies.insertCompetition,
@@ -610,6 +612,66 @@ describe("kalakritiCompetition commands", () => {
       })
     );
   });
+
+  it("allows Live cancellation only after affected awards are withdrawn", async () => {
+    const state = { id: "results-state", version: 3, finalizedAt: null };
+    const { lockedResults, spies, tx } = createTx([
+      competition,
+      state,
+      [division],
+      undefined,
+      [],
+    ]);
+    lockedResults.push([{ ...edition, lifecycle: "live" }]);
+    await kalakritiCompetitionMutators.setCompetitionCancelled.fn({
+      tx,
+      ctx: adminContext,
+      args: {
+        id: competition.id,
+        auditEntryId: "audit-cancel",
+        enabled: true,
+        now: 10,
+      },
+    } as never);
+    expect(spies.updateResultsState).toHaveBeenCalledWith({
+      id: state.id,
+      version: 4,
+    });
+    expect(spies.updateCompetition).toHaveBeenCalledWith(
+      expect.objectContaining({ cancelledAt: 10 })
+    );
+  });
+
+  it.each(["finalized", "published"])(
+    "blocks Live cancellation with %s results",
+    async (status) => {
+      const { lockedResults, spies, tx } = createTx([
+        competition,
+        {
+          id: "state",
+          version: 1,
+          finalizedAt: status === "finalized" ? 10 : null,
+        },
+        [division],
+        { id: "published-result" },
+      ]);
+      lockedResults.push([{ ...edition, lifecycle: "live" }]);
+      await expect(
+        kalakritiCompetitionMutators.setCompetitionCancelled.fn({
+          tx,
+          ctx: adminContext,
+          args: {
+            id: competition.id,
+            auditEntryId: "audit-denied",
+            enabled: true,
+            now: 20,
+          },
+        } as never)
+      ).rejects.toThrow(status === "finalized" ? "Reopen" : "Withdraw");
+      expect(spies.updateCompetition).not.toHaveBeenCalled();
+      expect(spies.updateResultsState).not.toHaveBeenCalled();
+    }
+  );
 
   it("allows Competition cancellation after registration is locked", async () => {
     const asyncTasks: Array<{

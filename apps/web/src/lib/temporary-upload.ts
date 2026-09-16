@@ -6,6 +6,7 @@ export const PROTECTED_UPLOAD_SUBFOLDERS = [
   "attachments",
   "approval-screenshots",
   "kalakriti-music",
+  "kalakriti-scorecards",
   "photos",
   "scheduled-messages",
 ] as const;

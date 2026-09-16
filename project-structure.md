@@ -655,3 +655,9 @@ When R2 vars are omitted, file records are created with old object keys but no f
 Kalakriti all-person ID-card export: `apps/web/src/routes/api/kalakriti/$year/id-cards.ts` authorizes administrators, `apps/web/src/lib/server/kalakriti-id-card-data.ts` reads the roster, and `apps/web/src/components/kalakriti/id-card-download-button.tsx` downloads it from the Edition dashboard. `apps/web/src/lib/dev/kalakriti-pdf-assets.ts` embeds PDF fonts and logos into the server build.
 
 Blank ID cards use `packages/pdf/src/generate-blank-kalakriti-id-cards.tsx` and `components/kalakriti/blank-id-card-download-dialog.tsx`. Registration uses `components/kalakriti/register-id-card-dialog.tsx`, `register-volunteer-card-dialog.tsx`, and `functions/kalakriti-blank-id-card.ts` under `apps/web/src/`, reusing attendee creation and volunteer enrollment commands.
+
+### Kalakriti results ownership
+
+`packages/db/src/schema/kalakriti-results.ts` stores results, revisions, scorecards, scoring state, and final declarations. `packages/zero/src/mutators/kalakriti-result.ts` owns audited Live-only commands. `packages/shared/src/kalakriti-results.ts` owns Center ranking and result-role policy. `apps/web/src/functions/kalakriti-results.ts` exposes aggregate-only standings and separately authorized result details; the existing Edition overview and Entries detail routes mount the widgets. Protected scorecard signing and typed downloads follow the existing attachment pipeline.
+
+`packages/e2e/tests/kalakriti/results.spec.ts` uses a dedicated fixture and page object in the serialized Kalakriti release-invariants lane.

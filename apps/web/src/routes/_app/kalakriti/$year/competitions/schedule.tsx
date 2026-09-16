@@ -196,7 +196,7 @@ function CompetitionSchedulePage() {
     <div className="space-y-6">
       <CompetitionSessionsTable
         canDelete={canManage}
-        canManage={canManageCancellations}
+        canManage={canManageCancellations && edition.lifecycle !== "live"}
         data={rows}
         isLoading={isLoading}
         onDelete={handleDelete}
@@ -220,7 +220,7 @@ function CompetitionSchedulePage() {
 
       <CompetitionSessionDetailSheet
         canDelete={canManage}
-        canManage={canManageCancellations}
+        canManage={canManageCancellations && edition.lifecycle !== "live"}
         onDelete={handleDelete}
         onEdit={handleEdit}
         onOpenChange={handleSheetChange}

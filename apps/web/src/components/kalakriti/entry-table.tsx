@@ -12,7 +12,7 @@ import {
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { format } from "date-fns";
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 
@@ -134,6 +134,7 @@ interface EntryTableProps {
     uploadMusic: boolean;
   };
   showMusic?: boolean;
+  toolbarActions?: ReactNode;
   variant?: "center" | "session";
 }
 
@@ -155,6 +156,7 @@ export function EntryTable({
   onRemove,
   permissions,
   showMusic: showMusicProp,
+  toolbarActions,
   variant = "center",
 }: EntryTableProps) {
   const { register, remove } = permissions;
@@ -546,7 +548,12 @@ export function EntryTable({
           columnsVisibility: true,
         }}
         toolbarActions={
-          register ? <Button onClick={onRegister}>Register Entry</Button> : null
+          <>
+            {toolbarActions}
+            {register ? (
+              <Button onClick={onRegister}>Register Entry</Button>
+            ) : null}
+          </>
         }
       />
     </>

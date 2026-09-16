@@ -4,12 +4,14 @@ import {
   ALLOWED_EVENT_MEDIA_TYPES,
   ALLOWED_IMAGE_TYPES,
   ALLOWED_KALAKRITI_MUSIC_TYPES,
+  ALLOWED_KALAKRITI_SCORECARD_TYPES,
   ALLOWED_MIME_TYPES,
   MAX_APPROVAL_SCREENSHOT_SIZE_BYTES,
   MAX_ATTACHMENT_FILE_SIZE_BYTES,
   MAX_AVATAR_IMAGE_SIZE_BYTES,
   MAX_IMAGE_SIZE_BYTES,
   MAX_KALAKRITI_MUSIC_SIZE_BYTES,
+  MAX_KALAKRITI_SCORECARD_SIZE_BYTES,
   MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES,
   MAX_VIDEO_SIZE_BYTES,
   MIME_TYPE_PATTERN,
@@ -78,6 +80,14 @@ export const kalakritiEntryMusicUploadSchema = z.object({
   fileName: z.string().trim().min(1),
   fileSize: z.number().int().positive().max(MAX_KALAKRITI_MUSIC_SIZE_BYTES),
   mimeType: z.enum(ALLOWED_KALAKRITI_MUSIC_TYPES),
+});
+
+export const kalakritiScorecardUploadSchema = z.object({
+  divisionId: z.string().refine(isAssetId, "Invalid division ID"),
+  editionId: z.string().refine(isAssetId, "Invalid edition ID"),
+  fileName: z.string().trim().min(1),
+  fileSize: z.number().int().positive().max(MAX_KALAKRITI_SCORECARD_SIZE_BYTES),
+  mimeType: z.enum(ALLOWED_KALAKRITI_SCORECARD_TYPES),
 });
 
 export const approvalScreenshotUploadSchema = z.object({

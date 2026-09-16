@@ -11,6 +11,7 @@ import {
   kalakritiStudent,
   kalakritiVenue,
 } from "@pi-dash/db/schema/kalakriti";
+import { kalakritiResult } from "@pi-dash/db/schema/kalakriti-results";
 import {
   and,
   asc,
@@ -20,6 +21,7 @@ import {
   type SQL,
   sql,
 } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import type { KalakritiRegistrationScope } from "@/lib/kalakriti-registration-scope-policy";
 
@@ -118,6 +120,12 @@ export interface KalakritiRegistrationDashboardProjection {
     participants: number;
     retired: boolean;
     sessions: number;
+    awards: Array<{
+      divisionId: string;
+      ageCategoryName: string;
+      winner: string;
+      runnerUp: string;
+    }>;
   }>;
   scope: KalakritiRegistrationScope;
   totals: {
@@ -130,6 +138,7 @@ export interface KalakritiRegistrationDashboardProjection {
 }
 
 interface ProjectionRows {
+  awards: Array<{ divisionId: string; winner: string; runnerUp: string }>;
   ages: AgeConfig[];
   categories: CategoryConfig[];
   centers: CenterConfig[];
@@ -179,6 +188,29 @@ export function assembleKalakritiRegistrationDashboardProjection(
       participants: sum(entries, (entry) => entry.participants),
       retired: competition.retired,
       sessions: sessions.length,
+      awards:
+        competition.cancelled ||
+        competition.retired ||
+        competition.categoryRetired
+          ? []
+          : sessions
+              .filter((session) => !session.cancelled)
+              .flatMap((session) => {
+                const award = rows.awards.find(
+                  (row) => row.divisionId === session.id
+                );
+                return award
+                  ? [
+                      {
+                        ...award,
+                        ageCategoryName:
+                          rows.ages.find(
+                            (age) => age.id === session.ageCategoryId
+                          )?.name ?? "Unknown age category",
+                      },
+                    ]
+                  : [];
+              }),
     };
   });
 
@@ -479,6 +511,64 @@ async function loadKalakritiRegistrationDashboardProjection({
           )
       : [];
   const sessionIds = sessions.map(({ id }) => id);
+  const winnerEntry = alias(
+    kalakritiCompetitionEntry,
+    "dashboard_winner_entry"
+  );
+  const runnerEntry = alias(
+    kalakritiCompetitionEntry,
+    "dashboard_runner_entry"
+  );
+  const winnerCenter = alias(kalakritiCenter, "dashboard_winner_center");
+  const runnerCenter = alias(kalakritiCenter, "dashboard_runner_center");
+  // Published Center names are aggregates; never expose award members or scorecards here.
+  const awards =
+    sessionIds.length > 0
+      ? await tx
+          .select({
+            divisionId: kalakritiResult.divisionId,
+            winner: winnerCenter.name,
+            runnerUp: runnerCenter.name,
+          })
+          .from(kalakritiResult)
+          .innerJoin(
+            winnerEntry,
+            and(
+              eq(winnerEntry.id, kalakritiResult.winnerEntryId),
+              eq(winnerEntry.editionId, kalakritiResult.editionId),
+              eq(winnerEntry.divisionId, kalakritiResult.divisionId)
+            )
+          )
+          .innerJoin(
+            runnerEntry,
+            and(
+              eq(runnerEntry.id, kalakritiResult.runnerUpEntryId),
+              eq(runnerEntry.editionId, kalakritiResult.editionId),
+              eq(runnerEntry.divisionId, kalakritiResult.divisionId)
+            )
+          )
+          .innerJoin(
+            winnerCenter,
+            and(
+              eq(winnerCenter.id, winnerEntry.centerId),
+              eq(winnerCenter.editionId, kalakritiResult.editionId)
+            )
+          )
+          .innerJoin(
+            runnerCenter,
+            and(
+              eq(runnerCenter.id, runnerEntry.centerId),
+              eq(runnerCenter.editionId, kalakritiResult.editionId)
+            )
+          )
+          .where(
+            and(
+              eq(kalakritiResult.editionId, editionId),
+              eq(kalakritiResult.status, "published"),
+              inArray(kalakritiResult.divisionId, sessionIds)
+            )
+          )
+      : [];
   const entries =
     sessionIds.length > 0
       ? await tx
@@ -580,6 +670,7 @@ async function loadKalakritiRegistrationDashboardProjection({
           .groupBy(kalakritiCompetitionDivision.ageCategoryId)
       : [];
   return assembleKalakritiRegistrationDashboardProjection(scope, {
+    awards,
     ages,
     categories,
     centers,

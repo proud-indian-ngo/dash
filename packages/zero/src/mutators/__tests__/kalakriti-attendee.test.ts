@@ -112,7 +112,12 @@ describe("Overall Events Lead Judge editing", () => {
     role: "volunteer",
   };
   it("updates Judge details under active Edition-scoped volunteer authority", async () => {
-    const f = fixture([undefined, { id: "lead-membership" }, person]);
+    const f = fixture([
+      undefined,
+      { id: "lead-membership" },
+      undefined,
+      person,
+    ]);
     await invoke("update", f.tx, { ...base, name: "Updated Judge" }, lead);
     expect(f.update).toHaveBeenCalledWith({
       id: base.id,
@@ -160,7 +165,7 @@ describe("Overall Events Lead Judge editing", () => {
   it.each(["create", "archive"] as const)(
     "does not grant Guest %s authority",
     async (command) => {
-      const f = fixture([undefined]);
+      const f = fixture([undefined, undefined]);
       await expect(
         invoke(
           command,
@@ -169,7 +174,7 @@ describe("Overall Events Lead Judge editing", () => {
           lead
         )
       ).rejects.toThrow("Unauthorized");
-      expect(f.tx.run).toHaveBeenCalledTimes(1);
+      expect(f.tx.run).toHaveBeenCalledTimes(2);
       expect(f.insert).not.toHaveBeenCalled();
       expect(f.update).not.toHaveBeenCalled();
     }
@@ -239,6 +244,7 @@ describe("Overall Events Lead Judge editing", () => {
     const f = fixture([
       undefined,
       { id: "lead-membership" },
+      undefined,
       { ...person, kind: "guest" },
     ]);
     await expect(
@@ -267,7 +273,12 @@ describe("Overall Events Lead Judge editing", () => {
     }
   );
   it("rejects absent or out-of-Edition targets and competitions", async () => {
-    const target = fixture([undefined, { id: "lead-membership" }, undefined]);
+    const target = fixture([
+      undefined,
+      { id: "lead-membership" },
+      undefined,
+      undefined,
+    ]);
     await expect(
       invoke("update", target.tx, { ...base, name: "Updated" }, lead)
     ).rejects.toThrow("Active attendee");
@@ -287,6 +298,173 @@ describe("Overall Events Lead Judge editing", () => {
     ).rejects.toThrow("Active competition");
     expect(competition.remove).not.toHaveBeenCalled();
     expect(competition.add).not.toHaveBeenCalled();
+  });
+});
+
+describe("Hospitality Lead Guest editing", () => {
+  const hospitalityLead = {
+    userId: "hospitality-lead",
+    permissions: ["kalakriti.view"],
+    role: "volunteer",
+  };
+  const guest = { ...person, kind: "guest", name: "Guest" };
+  const authorizedUpdate = (target?: unknown) =>
+    fixture([undefined, undefined, { id: "hospitality-membership" }, target]);
+  const authorizedArchive = (target?: unknown) =>
+    fixture([undefined, { id: "hospitality-membership" }, target]);
+
+  it("creates Guests under active Edition-scoped authority", async () => {
+    const f = fixture([
+      undefined,
+      { id: "hospitality-membership" },
+      undefined,
+      edition,
+      [],
+    ]);
+    await invoke(
+      "create",
+      f.tx,
+      { ...base, kind: "guest", name: "Guest", phone: "+919876543211" },
+      hospitalityLead
+    );
+    expect(f.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "guest",
+        createdBy: hospitalityLead.userId,
+      })
+    );
+    expect(f.audit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "created" })
+    );
+    const scope = JSON.stringify(
+      (f.tx.run.mock.calls[1]![0] as { ast: unknown }).ast
+    );
+    for (const expected of [
+      "hospitality_lead",
+      edition.id,
+      hospitalityLead.userId,
+      "active",
+      "volunteer",
+    ])
+      expect(scope).toContain(expected);
+  });
+
+  it("updates and archives Guests with audit entries", async () => {
+    const edit = authorizedUpdate(guest);
+    await invoke(
+      "update",
+      edit.tx,
+      { ...base, name: "Updated Guest" },
+      hospitalityLead
+    );
+    expect(edit.update).toHaveBeenCalledWith({
+      id: base.id,
+      name: "Updated Guest",
+      updatedAt: base.now,
+    });
+    expect(edit.audit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "updated" })
+    );
+
+    const archive = authorizedArchive(guest);
+    await invoke("archive", archive.tx, base, hospitalityLead);
+    expect(archive.update).toHaveBeenCalledWith({
+      id: base.id,
+      archivedAt: base.now,
+      updatedAt: base.now,
+    });
+    expect(archive.audit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "archived" })
+    );
+  });
+
+  it("allows a volunteer with both lead assignments to update Guests and Judges", async () => {
+    for (const target of [guest, person]) {
+      const f = fixture([
+        undefined,
+        { id: "events-lead-membership" },
+        { id: "hospitality-membership" },
+        target,
+      ]);
+      await invoke(
+        "update",
+        f.tx,
+        { ...base, name: "Updated" },
+        hospitalityLead
+      );
+      expect(f.update).toHaveBeenCalledWith({
+        id: base.id,
+        name: "Updated",
+        updatedAt: base.now,
+      });
+    }
+  });
+
+  it("cannot edit Judges or use Judge-only commands", async () => {
+    const edit = authorizedUpdate(person);
+    await expect(
+      invoke("update", edit.tx, { ...base, name: person.name }, hospitalityLead)
+    ).rejects.toThrow("Unauthorized");
+    expect(edit.update).not.toHaveBeenCalled();
+    expect(edit.audit).not.toHaveBeenCalled();
+
+    for (const command of ["create", "delete", "setCompetitions"] as const) {
+      const f = fixture([undefined, undefined]);
+      await expect(
+        invoke(
+          command,
+          f.tx,
+          {
+            ...base,
+            kind: "judge",
+            name: "Judge",
+            phone: "+919876543211",
+            competitionIds: [],
+          },
+          hospitalityLead
+        )
+      ).rejects.toThrow("Unauthorized");
+      expect(f.insert).not.toHaveBeenCalled();
+      expect(f.deleteAttendee).not.toHaveBeenCalled();
+      expect(f.add).not.toHaveBeenCalled();
+    }
+  });
+
+  it("cannot edit absent or foreign Guests or write in archived Editions", async () => {
+    const f = authorizedUpdate(undefined);
+    await expect(
+      invoke("update", f.tx, { ...base, name: "Updated" }, hospitalityLead)
+    ).rejects.toThrow("Active attendee");
+    expect(f.update).not.toHaveBeenCalled();
+    const targetScope = JSON.stringify(
+      (f.tx.run.mock.calls[3]![0] as { ast: unknown }).ast
+    );
+    expect(targetScope).toContain(edition.id);
+    expect(targetScope).toContain(base.id);
+    const archived = fixture([], "archived");
+    await expect(
+      invoke(
+        "create",
+        archived.tx,
+        { ...base, kind: "guest", name: "Guest", phone: "+919876543211" },
+        hospitalityLead
+      )
+    ).rejects.toThrow("unavailable");
+    expect(archived.tx.run).not.toHaveBeenCalled();
+  });
+
+  it("does not grant Guest writes to Hospitality Members or Guardian memberships", async () => {
+    const f = fixture([undefined, undefined]);
+    await expect(
+      invoke("archive", f.tx, base, hospitalityLead)
+    ).rejects.toThrow("Unauthorized");
+    expect(f.update).not.toHaveBeenCalled();
+    const scope = JSON.stringify(
+      (f.tx.run.mock.calls[1]![0] as { ast: unknown }).ast
+    );
+    expect(scope).toContain("hospitality_lead");
+    expect(scope).toContain("volunteer");
+    expect(scope).not.toContain("hospitality_member");
   });
 });
 
@@ -423,7 +601,7 @@ describe("Kalakriti attendee commands", () => {
         role: "volunteer",
       })
     ).rejects.toThrow("Unauthorized");
-    expect(f.order).toEqual(["edition-lock", "query"]);
+    expect(f.order).toEqual(["edition-lock", "query", "query"]);
     expect(f.update).not.toHaveBeenCalled();
   });
   it("allows an active Edition administrator", async () => {

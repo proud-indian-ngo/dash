@@ -102,10 +102,33 @@ describe("attendee roster scope", () => {
       false
     );
   });
+  it("allows Hospitality Leads to see Guests but not Judges", () => {
+    const guest = fixture("hospitality_lead", "guest");
+    const judge = fixture("hospitality_lead", "judge");
+    expect(matchesScope(guest.attendee, guest.ast.where, guest.tables)).toBe(
+      true
+    );
+    expect(matchesScope(judge.attendee, judge.ast.where, judge.tables)).toBe(
+      false
+    );
+    guest.tables.kalakritiEditionMembership![0]!.state = "archived";
+    expect(matchesScope(guest.attendee, guest.ast.where, guest.tables)).toBe(
+      false
+    );
+    guest.tables.kalakritiEditionMembership![0]!.state = "active";
+    guest.tables.kalakritiAssignment![0]!.editionId = "other";
+    expect(matchesScope(guest.attendee, guest.ast.where, guest.tables)).toBe(
+      false
+    );
+    guest.tables.kalakritiAssignment![0]!.editionId = "edition";
+    guest.tables.kalakritiEditionMembership![0]!.kind = "guardian";
+    expect(matchesScope(guest.attendee, guest.ast.where, guest.tables)).toBe(
+      false
+    );
+  });
   it.each([
     "food_lead",
     "food_member",
-    "hospitality_lead",
     "hospitality_member",
     "competition_volunteer",
     "guardian",

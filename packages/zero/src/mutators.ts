@@ -18,6 +18,7 @@ import { kalakritiEditionMutators } from "./mutators/kalakriti-edition";
 import { kalakritiEligibilityMutators } from "./mutators/kalakriti-eligibility";
 import { kalakritiEntryMutators } from "./mutators/kalakriti-entry";
 import { kalakritiOperationMutators } from "./mutators/kalakriti-operation";
+import { kalakritiResultMutators } from "./mutators/kalakriti-result";
 import { kalakritiStudentMutators } from "./mutators/kalakriti-student";
 import { kalakritiTransportMutators } from "./mutators/kalakriti-transport";
 import { notificationMutators } from "./mutators/notification";
@@ -50,6 +51,7 @@ export const mutators = defineMutators({
   kalakritiCenterScan: kalakritiCenterScanMutators,
   kalakritiOperation: kalakritiOperationMutators,
   kalakritiStudent: kalakritiStudentMutators,
+  kalakritiResult: kalakritiResultMutators,
   kalakritiAttendee: kalakritiAttendeeMutators,
   kalakritiTransport: kalakritiTransportMutators,
   notification: notificationMutators,

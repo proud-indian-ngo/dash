@@ -68,12 +68,14 @@ function AggregateTable({
   description,
   rows,
   title,
+  textColumns = [],
 }: {
   caption: string;
   columns: string[];
   description: string;
   rows: Array<Array<ReactNode>>;
   title: string;
+  textColumns?: string[];
 }) {
   if (rows.length === 0) {
     return null;
@@ -95,7 +97,7 @@ function AggregateTable({
               {columns.map((column, index) => (
                 <th
                   className={
-                    index === 0
+                    index === 0 || textColumns.includes(column)
                       ? "px-4 py-2.5 font-medium"
                       : "px-4 py-2.5 text-right font-medium whitespace-nowrap"
                   }
@@ -125,7 +127,11 @@ function AggregateTable({
                   }
                   return (
                     <td
-                      className="px-4 py-3 text-right whitespace-nowrap tabular-nums"
+                      className={
+                        textColumns.includes(columns[index] ?? "")
+                          ? "px-4 py-3 text-left"
+                          : "px-4 py-3 text-right whitespace-nowrap tabular-nums"
+                      }
                       key={key}
                     >
                       {value}
@@ -138,6 +144,29 @@ function AggregateTable({
         </table>
       </div>
     </section>
+  );
+}
+
+function CompetitionAwards({
+  competition,
+  place,
+}: {
+  competition: KalakritiRegistrationDashboardProjection["competitions"][number];
+  place: "winner" | "runnerUp";
+}) {
+  if (!competition.awards.length)
+    return <span className="text-muted-foreground">Not published</span>;
+  return (
+    <ul className="grid gap-1">
+      {competition.awards.map((award) => (
+        <li key={award.divisionId}>
+          <span className="text-muted-foreground">
+            {award.ageCategoryName}:{" "}
+          </span>
+          {award[place]}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -338,13 +367,29 @@ function DashboardProjection({
           />
           <AggregateTable
             caption={`${heading.title} by Competition`}
-            columns={["Competition", "Sessions", "Entries", "Participations"]}
-            description="Session, entry, and participation totals."
+            columns={[
+              "Competition",
+              "Entries",
+              "Participations",
+              "Winner",
+              "Runner-up",
+            ]}
+            description="Entry and participation totals, with published winning Centers by age division."
+            textColumns={["Winner", "Runner-up"]}
             rows={projection.competitions.map((competition) => [
               competitionLabel(competition),
-              competition.sessions,
               competition.entries,
               competition.participants,
+              <CompetitionAwards
+                key="winner"
+                competition={competition}
+                place="winner"
+              />,
+              <CompetitionAwards
+                key="runner-up"
+                competition={competition}
+                place="runnerUp"
+              />,
             ])}
             title="Competitions"
           />

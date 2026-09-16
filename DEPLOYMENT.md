@@ -58,7 +58,7 @@ Copy `.env.sample` to `.env` and fill in values. Grouped by category:
 Protected uploads use current-user temp keys and are claimed to durable keys by
 their owning database mutation. Before deployment, configure 24-hour Cloudflare
 R2 expiry rules for
-`<R2_KEY_PREFIX>/{attachments,approval-screenshots,kalakriti-music,photos,scheduled-messages}/tmp/`.
+`<R2_KEY_PREFIX>/{attachments,approval-screenshots,kalakriti-music,kalakriti-scorecards,photos,scheduled-messages}/tmp/`.
 
 Private-storage cutover order:
 
@@ -307,3 +307,7 @@ Pre-commit hook (lefthook) runs type check, linting, unit tests, and unused-expo
 ### pg-boss and Zero event triggers
 
 The application disables PostgreSQL event triggers only on its dedicated pg-boss worker/producer connections to permit concurrent maintenance of the unsynced `pgboss` schema. This requires PostgreSQL 17+ and superuser or suitable SET privilege for `event_triggers`. Do not disable event triggers in `DATABASE_URL`, `ZERO_UPSTREAM_DB`, at role/database level or globally: application schema changes must still reach Zero. The normal deployment recreates job connections; no database restart is required. See `docs/architecture/jobs.md` for the reproduced failure and validation.
+
+### Kalakriti results rollout
+
+Apply both ordered results migrations (Entry composite uniqueness, then result tables) before deploying the matching generated Zero schema and web build. Existing Editions start without results; there is no historical score backfill. Add the 24-hour R2 lifecycle expiry for `<R2_KEY_PREFIX>/kalakriti-scorecards/tmp/` before enabling scorecard uploads. Durable scorecards, including files retained by old result revisions, must not expire.

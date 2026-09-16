@@ -24,7 +24,10 @@ export function canManageKalakritiAttendees(
           assignment.responsibility === "edition_admin" ||
           (kind === "judge" &&
             access.membership?.kind === "volunteer" &&
-            assignment.responsibility === "overall_events_lead")
+            assignment.responsibility === "overall_events_lead") ||
+          (kind === "guest" &&
+            access.membership?.kind === "volunteer" &&
+            assignment.responsibility === "hospitality_lead")
       ))
   );
 }
@@ -41,6 +44,9 @@ export function canViewKalakritiAttendees(
       (a) =>
         a.responsibility === "edition_admin" ||
         a.responsibility === "volunteer_coordinator" ||
+        (kind === "guest" &&
+          access.membership?.kind === "volunteer" &&
+          a.responsibility === "hospitality_lead") ||
         (kind === "judge" &&
           (a.responsibility === "overall_events_lead" ||
             (a.responsibility === "competition_category_lead" &&
