@@ -21,6 +21,7 @@ import { kalakritiEligibilityQueries } from "./queries/kalakriti-eligibility";
 import { kalakritiEntryQueries } from "./queries/kalakriti-entry";
 import { kalakritiFoodQueries } from "./queries/kalakriti-food";
 import { kalakritiGuardianQueries } from "./queries/kalakriti-guardian";
+import { kalakritiInventoryQueries } from "./queries/kalakriti-inventory";
 import { kalakritiStudentQueries } from "./queries/kalakriti-student";
 import { kalakritiTransportQueries } from "./queries/kalakriti-transport";
 import { notificationQueries } from "./queries/notification";
@@ -53,6 +54,7 @@ export const queries = defineQueries({
   kalakritiEntry: kalakritiEntryQueries,
   kalakritiFood: kalakritiFoodQueries,
   kalakritiGuardian: kalakritiGuardianQueries,
+  kalakritiInventory: kalakritiInventoryQueries,
   kalakritiStudent: kalakritiStudentQueries,
   kalakritiCenterScan: kalakritiCenterScanQueries,
   kalakritiAttendee: kalakritiAttendeeQueries,

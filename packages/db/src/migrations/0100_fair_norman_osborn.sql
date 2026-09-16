@@ -1,0 +1,2 @@
+ALTER TABLE "kalakriti_inventory_transaction" ADD COLUMN "responsibility" "kalakriti_responsibility";--> statement-breakpoint
+ALTER TABLE "kalakriti_inventory_transaction" ADD CONSTRAINT "kalakriti_inventory_tx_assignment_chk" CHECK ("kalakriti_inventory_transaction"."responsibility" IS NULL OR ("kalakriti_inventory_transaction"."type" IN ('dispatch', 'return') AND "kalakriti_inventory_transaction"."competition_id" IS NULL));

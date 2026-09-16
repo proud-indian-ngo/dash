@@ -9,6 +9,7 @@ import {
   MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES,
   MAX_VIDEO_SIZE_BYTES,
 } from "@pi-dash/shared/constants";
+import { MAX_KALAKRITI_INVENTORY_PHOTO_SIZE_BYTES } from "@pi-dash/shared/kalakriti-inventory";
 
 mock.module("./s3", () => ({ getS3: mock() }));
 
@@ -251,6 +252,11 @@ describe("copyR2Object", () => {
       mimeType: "audio/mpeg",
       sourceKey: "app/kalakriti-music/tmp/user-1/track.mp3",
     },
+    {
+      maxSize: MAX_KALAKRITI_INVENTORY_PHOTO_SIZE_BYTES,
+      mimeType: "image/png",
+      sourceKey: "app/kalakriti-inventory/tmp/user-1/photo.png",
+    },
   ])(
     "enforces stored size for $sourceKey",
     async ({ maxSize, mimeType, sourceKey }) => {
@@ -281,6 +287,7 @@ describe("copyR2Object", () => {
     ["app/attachments/tmp/user-1/audio.mp3", "audio/mpeg"],
     ["app/kalakriti-scorecards/tmp/user-1/audio.mp3", "audio/mpeg"],
     ["app/kalakriti-music/tmp/user-1/notes.pdf", "application/pdf"],
+    ["app/kalakriti-inventory/tmp/user-1/notes.pdf", "application/pdf"],
     ["app/approval-screenshots/tmp/user-1/animation.gif", "image/gif"],
     ["app/photos/tmp/user-1/document.pdf", "application/pdf"],
     ["app/scheduled-messages/tmp/user-1/file", "not-a-mime"],

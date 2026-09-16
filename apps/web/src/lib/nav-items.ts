@@ -159,6 +159,7 @@ export function buildKalakritiNavGroups({
   canViewStudents = false,
   canViewFood = false,
   canViewTransport = false,
+  canViewInventory = false,
   canViewGuests = false,
   canViewJudges = false,
   year,
@@ -172,6 +173,7 @@ export function buildKalakritiNavGroups({
   canViewStudents?: boolean;
   canViewFood?: boolean;
   canViewTransport?: boolean;
+  canViewInventory?: boolean;
   canViewGuests?: boolean;
   canViewJudges?: boolean;
   year?: number;
@@ -260,6 +262,14 @@ export function buildKalakritiNavGroups({
       icon: Bus01Icon,
       title: "Transport",
       url: `/kalakriti/${year}/transport`,
+    });
+  }
+
+  if (year && canViewInventory) {
+    editionItems.push({
+      icon: Building03Icon,
+      title: "Inventory",
+      url: `/kalakriti/${year}/inventory`,
     });
   }
 

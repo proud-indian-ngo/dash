@@ -97,6 +97,13 @@ All paths are relative to project root.
 | `lib/kalakriti-qr-decoder.ts` | Stable lazy decoder entry for camera loading and E2E interception in development and production builds |
 | `components/kalakriti/use-transport-status-snapshot.ts` | Keeps Student/Center transport labels tied to complete, scoped query snapshots without hiding the base table |
 | `routes/_app/kalakriti/$year/transport.tsx` | Scoped Transport directory and table-owned vehicle editing/deletion; Center sheets retain read-only transport |
+| `routes/_app/kalakriti/$year/inventory.tsx` | Edition Inventory Items and Transactions tabs, with role and archived-Edition access guards |
+| `components/kalakriti/inventory-{items-table,item-dialog,movement-dialog}.tsx` | Item catalog, optional photo, and stock movement forms with item history |
+| `components/kalakriti/inventory-scan-panel.tsx` | Volunteer QR/yearly-ID capture, scanned profile, assigned Competition/role choices, searchable item multiselect, and atomic dispatch/return batches |
+| `lib/kalakriti-inventory-assignment-options.ts` | Deduplicated active Competition and role choices from the scanned Volunteer’s assignments |
+| `lib/kalakriti-inventory-{policy,upload}.ts` | Inventory route/navigation policy and protected item-photo upload helpers |
+| `packages/zero/src/{queries,mutators}/kalakriti-inventory.ts`, `packages/zero/src/kalakriti-inventory-schema.ts` (repository root) | Scoped catalog/history/picker reads and validated, serialized stock commands |
+| `packages/shared/src/kalakriti-inventory.ts` (repository root) | Shared movement types, inventory responsibilities, and photo size limit |
 | `components/kalakriti/transport-table.tsx` | One row per vehicle, unassigned Center placeholders, location/Maps links, pickup times, and retained scan-derived status |
 | `lib/kalakriti-transport-policy.ts` | Transport route/navigation readership and management capabilities |
 | `components/kalakriti/center-transport-section.tsx` | Read-only Center vehicle details and derived Center-stage status |
@@ -332,6 +339,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `scheduledMessage` | `packages/db/src/schema/scheduled-message.ts` |
 | `scheduledMessageRecipient` | `packages/db/src/schema/scheduled-message.ts` |
 | `auditLog` | `packages/db/src/schema/audit-log.ts` |
+| `kalakritiInventoryItem`, `kalakritiInventoryTransaction` | `packages/db/src/schema/kalakriti-inventory.ts` (`0099_conscious_expediter.sql`, `0100_fair_norman_osborn.sql`) |
 
 ## Audit Ledger
 

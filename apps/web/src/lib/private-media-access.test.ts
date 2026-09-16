@@ -16,6 +16,7 @@ const LEGACY_CDN_URL = "https://cdn.example.test";
 const deps = (
   overrides: Partial<PrivateMediaAccessDeps> = {}
 ): PrivateMediaAccessDeps => ({
+  canReadKalakritiInventoryPhoto: async () => false,
   canReadKalakritiEntryMusic: async () => false,
   canReadKalakritiScorecard: async () => false,
   findEvent: async () => ({ isPublic: false, teamId: "team-1" }),

@@ -100,6 +100,27 @@ describe("audit metadata", () => {
     expect(JSON.stringify(summary)).not.toContain(oversizedKey);
   });
 
+  it("records inventory field names without photo keys, notes, or stock values", () => {
+    const summary = summarizeZeroMutation(
+      "kalakritiInventory.create",
+      {
+        itemId: TARGET_ID,
+        name: "Private item name",
+        openingQuantity: 123,
+        unitPricePaise: 456,
+        notes: "Private stock note",
+        photo: { objectKey: "private/object/key", fileName: "private.png" },
+      },
+      "actor-1"
+    );
+    expect(summary.metadata).toEqual({
+      changedFields: ["name", "openingQuantity", "photo", "unitPricePaise"],
+      relatedIds: { itemId: TARGET_ID },
+    });
+    expect(JSON.stringify(summary)).not.toContain("Private");
+    expect(JSON.stringify(summary)).not.toContain("private/");
+  });
+
   it("resolves only canonical existing Better Auth IDs for Zero summaries", async () => {
     const unknownUserId = "abcdef0123456789abcdef0123456789";
     const resolveExisting = mock(async () => new Set([BETTER_AUTH_USER_ID]));

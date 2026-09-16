@@ -1,13 +1,13 @@
 # Kalakriti Registration
 
-> **Load when**: Kalakriti Edition access, Guardian identity, Center controls, eligibility, Competition configuration, Student or Entry registration, public schedule, registration dashboards, audit, or exports.
+> **Load when**: Kalakriti Edition access, Guardian identity, Center controls, eligibility, Competition configuration, Student or Entry registration, inventory, public schedule, registration dashboards, audit, or exports.
 > **Related**: `data-layer.md`, `auth.md`, `authorization.md`, `notifications.md`, `jobs.md`, `e2e-testing.md`
 
 ## Boundary
 
 Kalakriti is a native Edition-bound module under `/kalakriti/:year`. Better Auth remains the only login system and central volunteers remain normal `user` records, but every Kalakriti business row belongs to one `kalakritiEdition`. A linked `teamEvent` exposes the Edition to shared event, reimbursement, and vendor-payment workflows without making the generic event domain authoritative for Kalakriti state.
 
-Registration writes close at `registration_locked`, while existing-entry music edits follow their separate policy. Sidebar scanning records operations only in `live` Editions; a go-live action remains behind a later release gate. Center transport setup and forward status tracking are available in nonarchived Editions. Competition results and Center standings are available during Live Editions; inventory remains behind a later release gate.
+Registration writes close at `registration_locked`, while existing-entry music edits follow their separate policy. Sidebar event-day scanning records operations only in `live` Editions; a go-live action remains behind a later release gate. Center transport setup, inventory writes, and forward status tracking are available in nonarchived Editions. Competition results and Center standings are available during Live Editions.
 
 ## Identity and access
 
@@ -110,6 +110,16 @@ The Edition's Transport Lead and global/Edition administrators manage transport 
 
 Vehicle/driver/pickup-time field updates enqueue `notify-kalakriti-transport-changed` after commit with a deterministic assignment/change key. Recipients are the affected Center's active Guardians and Liaisons; transport details are not public schedule data. The root seed creates one planned demo vehicle and its initial history atomically and idempotently, without changing progressed vehicles or archived Editions.
 
+## Inventory
+
+`/kalakriti/:year/inventory` has **Items** and **Transactions** tabs. Items hold an Edition-owned name, optional protected photo, whole-number current quantity, and integer-paise unit price. The Items table shows current stock and estimated INR value using that current price. A new item's opening quantity creates an `initial_inventory` transaction even when the quantity is zero. The item Actions dropdown records purchases and counted-stock adjustments. Primary Dispatch and Return buttons open the same activities as the sidebar Scan menu. A volunteer QR or yearly ID resolves an active Edition Volunteer, then their profile replaces the scanner. A searchable multiselect chooses up to 100 distinct items, each with its own positive quantity and resulting-stock preview. An optional Competition / role menu lists only the scanned Volunteer’s direct active Competition assignments and their other assigned roles. Competition-scoped assignments appear as Competitions; Center, category, and Edition assignments appear as roles. Purpose/notes and the selected Competition or role apply to the whole batch. Transactions and item history show each signed change, resulting balance, responsible Volunteer, optional Competition or role and purpose/notes, time, and recorder. Returns add stock without reconciling an earlier dispatch or tracking custody.
+
+Global `kalakriti.admin` users and active Edition volunteers assigned `edition_admin`, `logistics_lead`, or `logistics_member` can read and write inventory in any nonarchived lifecycle. Only global administrators can read archived Edition inventory, and nobody can change it there. Navigation, route access, Zero queries and mutators, and protected photo reads apply this Edition policy. Form pickers include only active Volunteers from the same Edition. The selected Volunteer’s assignments load after scanning; server mutations reject unassigned Competitions or roles and simultaneous Competition/role selections. A recorded role is stored as a responsibility snapshot, so history remains readable after its assignment is removed. Competition references remain after those records become inactive.
+
+`packages/db/src/schema/kalakriti-inventory.ts` owns `kalakriti_inventory_item` and append-only `kalakriti_inventory_transaction`; generated migration `0099_conscious_expediter.sql` creates them, and `0100_fair_norman_osborn.sql` adds the nullable responsibility snapshot. The `kalakritiInventory` Zero namespace owns separate item, Edition history, item history, Volunteer picker, and selected-Volunteer assignment queries. Catalog reads do not include transaction history; history and picker relationships load only for mounted consumers. Shared types and image limits live in `packages/shared/src/kalakriti-inventory.ts`; `packages/zero/src/kalakriti-inventory-schema.ts` validates command fields.
+
+Purchases and returns add a positive whole quantity; dispatches subtract one and reject insufficient stock. Adjustments set a nonnegative counted quantity, require a reason, preview the signed difference, and reject the command when the current balance differs from the balance shown to the operator. Item creation, catalog edits, movements, archive, and restore serialize through the Edition row lock. `recordBatch` preflights every selected item under that lock before writing any movements, so a failure leaves the entire batch unchanged. Complete identical retries succeed; partial or changed retries fail. Per-line audit metadata contains only a batch anchor identifier, bounded item count, item ID, and changed fields. UUIDv7 transaction IDs make Zero retries idempotent, and each successful stock write records its history and bounded audit metadata in the same transaction. Transactions cannot be edited or deleted. Items can be archived only at zero stock and later restored without losing history. Notes, photo keys, and other free text stay out of audit metadata.
+
 ## Event-day operation spine
 
 `packages/zero/src/mutators/kalakriti-operation.ts` owns server-authoritative recording; the client phase performs no optimistic writes. `record` accepts `personQr`, a bounded JSON string containing exactly `{ id, type }`, matching the detail-sheet QR format. It resolves the persisted Student, active Volunteer/Guardian membership, or active Guest/Judge attendee inside the requested Edition, rejects mismatched types, and restricts Guardian subjects to meals. `recordManual` resolves an Edition yearly ID through the same subject and operation rules; neither path uses credential storage or token hashes.
@@ -125,11 +135,12 @@ The Kalakriti sidebar **Scan** button opens a shared modal, not a separate Event
 | Activity | Authorized staff | Eligibility |
 | --- | --- | --- |
 | Transport | Global/Edition administrators, Transport Leads, scoped Center Liaisons | Center roster and current pinned stage |
+| Dispatch / Return | Global/Edition administrators, Logistics Leads/members | Active Edition Volunteer; nonarchived Edition; distinct inventory items with positive quantities |
 | Check-in | Global/Edition administrators, Hospitality Leads/members | Active Edition Volunteer, Guest, or Judge |
 | Meals | Global/Edition administrators, Food Leads/members | Student pickup, Volunteer/Guest/Judge check-in, or active Guardian Edition registration; selected breakfast/lunch service |
 | Attendance | Global/Edition administrators, assigned Competition Volunteers/Coordinators | Picked-up Student registered in the selected session's Division; valid, uncancelled in-Edition session |
 
-The browser tabs are a convenience, not an authorization boundary. Every operation validates role, subject, Edition, eligibility, and session scope on the server. QR input uses person JSON and manual input uses yearly IDs; neither authorizes an operation. Changing scanning activity or session ends the previous camera context, and pending writes cannot change their operation arguments. Archived Editions expose no scanning, and new writes require a live Edition.
+The browser tabs are a convenience, not an authorization boundary. Every operation validates role, subject, Edition, eligibility, and session scope on the server. QR input uses person JSON and manual input uses yearly IDs; neither authorizes an operation. Changing scanning activity or session ends the previous camera context, and pending writes cannot change their operation arguments. Archived Editions expose no scanning. Event-day writes require a live Edition; inventory dispatches and returns are available in every nonarchived lifecycle.
 
 ## Go-live
 

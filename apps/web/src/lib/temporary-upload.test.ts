@@ -23,6 +23,12 @@ describe("temporary upload keys", () => {
   it("accepts only exact protected temp folders owned by the user", () => {
     expect(
       assertOwnedTemporaryUploadKey(
+        "app/kalakriti-inventory/tmp/user-1/upload-id-photo.jpg",
+        { keyPrefix: "app", userId: "user-1" }
+      )
+    ).toBe("app/kalakriti-inventory/tmp/user-1/upload-id-photo.jpg");
+    expect(
+      assertOwnedTemporaryUploadKey(
         "app/photos/tmp/user-1/upload-id-photo.jpg",
         { keyPrefix: "app", userId: "user-1" }
       )

@@ -12,6 +12,7 @@ export * from "./event-rsvp";
 export * from "./event-update";
 export * from "./expense-category";
 export * from "./kalakriti";
+export * from "./kalakriti-inventory";
 export * from "./kalakriti-results";
 export * from "./notification";
 export * from "./permission";

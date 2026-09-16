@@ -20,6 +20,11 @@ mock.module("./operation-scan-panel", () => ({
     <p>{activity} capture</p>
   ),
 }));
+mock.module("./inventory-scan-panel", () => ({
+  InventoryScanPanel: ({ action }: { action: string }) => (
+    <p>{action} inventory capture</p>
+  ),
+}));
 const { ScanDialog } = await import("./scan-dialog");
 function render(activities: ScanActivity[]) {
   return renderToStaticMarkup(
@@ -42,6 +47,12 @@ describe("Role-aware sidebar Scan dialog", () => {
     const html = render(["meals"]);
     expect(html).not.toContain('role="tablist"');
     expect(html).toContain("meals capture");
+    expect(html).not.toContain("Transport roster");
+  });
+  it("offers dispatch and return to logistics staff", () => {
+    const html = render(["dispatch", "return"]);
+    expect(html.match(/role="tab"/g)).toHaveLength(2);
+    expect(html).toContain("dispatch inventory capture");
     expect(html).not.toContain("Transport roster");
   });
   it("fails closed when no scanning activity is authorized", () => {

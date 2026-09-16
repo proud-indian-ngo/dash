@@ -30,7 +30,7 @@
    key. Downloads are authorized against the exact persisted row and streamed through
    `/api/attachments/download`.
 
-Protected temp subfolders: `attachments`, `approval-screenshots`, `kalakriti-music`, `kalakriti-scorecards`,
+Protected temp subfolders: `attachments`, `approval-screenshots`, `kalakriti-inventory`, `kalakriti-music`, `kalakriti-scorecards`,
 `photos`, `scheduled-messages`. Avatar and editor uploads remain dedicated durable
 signers under `avatars` and `updates`.
 
@@ -57,6 +57,16 @@ Download action uses attachment disposition. The proxy forwards byte ranges and
 preserves partial-response headers for playback and seeking. Do not add these
 audio types to `ALLOWED_MIME_TYPES`.
 
+Kalakriti Inventory accepts one optional item photo from the shared image MIME
+list, limited to 5 MB. A dedicated signer requires inventory write access in a
+nonarchived Edition and places uploads under
+`<R2_KEY_PREFIX>/kalakriti-inventory/tmp/<userId>/`. Item creation or update
+claims the photo transactionally to
+`<R2_KEY_PREFIX>/kalakriti-inventory/<editionId>/<itemId>/...`.
+Downloads use `{ id: itemId, kind: "kalakritiInventoryPhoto" }` and authorize
+against the item's exact current key. Replacement removes the old object only
+after reference-checked cleanup; abandoned temporary uploads expire after 24 hours.
+
 In development, the Vite `/api/` middleware normalizes image, audio, and video
 `Sec-Fetch-Dest` headers so Nitro forwards them to the API handler instead of
 misclassifying them as static assets. Without this workaround, native media
@@ -80,6 +90,7 @@ Avatar and Plate editor uploads have dedicated signers:
 Configure R2 lifecycle rules that expire these prefixes after 24 hours:
 `<R2_KEY_PREFIX>/attachments/tmp/`,
 `<R2_KEY_PREFIX>/approval-screenshots/tmp/`,
+`<R2_KEY_PREFIX>/kalakriti-inventory/tmp/`,
 `<R2_KEY_PREFIX>/kalakriti-music/tmp/`,
 `<R2_KEY_PREFIX>/kalakriti-scorecards/tmp/`,
 `<R2_KEY_PREFIX>/photos/tmp/`, and

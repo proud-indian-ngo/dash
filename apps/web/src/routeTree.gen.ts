@@ -67,6 +67,7 @@ import { Route as AppKalakritiYearEntriesRouteImport } from './routes/_app/kalak
 import { Route as AppKalakritiYearFoodRouteImport } from './routes/_app/kalakriti/$year/food'
 import { Route as AppKalakritiYearGuardiansRouteImport } from './routes/_app/kalakriti/$year/guardians'
 import { Route as AppKalakritiYearGuestsRouteImport } from './routes/_app/kalakriti/$year/guests'
+import { Route as AppKalakritiYearInventoryRouteImport } from './routes/_app/kalakriti/$year/inventory'
 import { Route as AppKalakritiYearJudgesRouteImport } from './routes/_app/kalakriti/$year/judges'
 import { Route as AppKalakritiYearStudentsRouteImport } from './routes/_app/kalakriti/$year/students'
 import { Route as AppKalakritiYearTransportRouteImport } from './routes/_app/kalakriti/$year/transport'
@@ -384,6 +385,12 @@ const AppKalakritiYearGuestsRoute = AppKalakritiYearGuestsRouteImport.update({
   path: '/guests',
   getParentRoute: () => AppKalakritiYearRouteRoute,
 } as any)
+const AppKalakritiYearInventoryRoute =
+  AppKalakritiYearInventoryRouteImport.update({
+    id: '/inventory',
+    path: '/inventory',
+    getParentRoute: () => AppKalakritiYearRouteRoute,
+  } as any)
 const AppKalakritiYearJudgesRoute = AppKalakritiYearJudgesRouteImport.update({
   id: '/judges',
   path: '/judges',
@@ -580,6 +587,7 @@ export interface FileRoutesByFullPath {
   '/kalakriti/$year/food': typeof AppKalakritiYearFoodRoute
   '/kalakriti/$year/guardians': typeof AppKalakritiYearGuardiansRoute
   '/kalakriti/$year/guests': typeof AppKalakritiYearGuestsRoute
+  '/kalakriti/$year/inventory': typeof AppKalakritiYearInventoryRoute
   '/kalakriti/$year/judges': typeof AppKalakritiYearJudgesRoute
   '/kalakriti/$year/students': typeof AppKalakritiYearStudentsRoute
   '/kalakriti/$year/transport': typeof AppKalakritiYearTransportRoute
@@ -653,6 +661,7 @@ export interface FileRoutesByTo {
   '/kalakriti/$year/food': typeof AppKalakritiYearFoodRoute
   '/kalakriti/$year/guardians': typeof AppKalakritiYearGuardiansRoute
   '/kalakriti/$year/guests': typeof AppKalakritiYearGuestsRoute
+  '/kalakriti/$year/inventory': typeof AppKalakritiYearInventoryRoute
   '/kalakriti/$year/judges': typeof AppKalakritiYearJudgesRoute
   '/kalakriti/$year/students': typeof AppKalakritiYearStudentsRoute
   '/kalakriti/$year/transport': typeof AppKalakritiYearTransportRoute
@@ -739,6 +748,7 @@ export interface FileRoutesById {
   '/_app/kalakriti/$year/food': typeof AppKalakritiYearFoodRoute
   '/_app/kalakriti/$year/guardians': typeof AppKalakritiYearGuardiansRoute
   '/_app/kalakriti/$year/guests': typeof AppKalakritiYearGuestsRoute
+  '/_app/kalakriti/$year/inventory': typeof AppKalakritiYearInventoryRoute
   '/_app/kalakriti/$year/judges': typeof AppKalakritiYearJudgesRoute
   '/_app/kalakriti/$year/students': typeof AppKalakritiYearStudentsRoute
   '/_app/kalakriti/$year/transport': typeof AppKalakritiYearTransportRoute
@@ -824,6 +834,7 @@ export interface FileRouteTypes {
     | '/kalakriti/$year/food'
     | '/kalakriti/$year/guardians'
     | '/kalakriti/$year/guests'
+    | '/kalakriti/$year/inventory'
     | '/kalakriti/$year/judges'
     | '/kalakriti/$year/students'
     | '/kalakriti/$year/transport'
@@ -897,6 +908,7 @@ export interface FileRouteTypes {
     | '/kalakriti/$year/food'
     | '/kalakriti/$year/guardians'
     | '/kalakriti/$year/guests'
+    | '/kalakriti/$year/inventory'
     | '/kalakriti/$year/judges'
     | '/kalakriti/$year/students'
     | '/kalakriti/$year/transport'
@@ -982,6 +994,7 @@ export interface FileRouteTypes {
     | '/_app/kalakriti/$year/food'
     | '/_app/kalakriti/$year/guardians'
     | '/_app/kalakriti/$year/guests'
+    | '/_app/kalakriti/$year/inventory'
     | '/_app/kalakriti/$year/judges'
     | '/_app/kalakriti/$year/students'
     | '/_app/kalakriti/$year/transport'
@@ -1447,6 +1460,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppKalakritiYearGuestsRouteImport
       parentRoute: typeof AppKalakritiYearRouteRoute
     }
+    '/_app/kalakriti/$year/inventory': {
+      id: '/_app/kalakriti/$year/inventory'
+      path: '/inventory'
+      fullPath: '/kalakriti/$year/inventory'
+      preLoaderRoute: typeof AppKalakritiYearInventoryRouteImport
+      parentRoute: typeof AppKalakritiYearRouteRoute
+    }
     '/_app/kalakriti/$year/judges': {
       id: '/_app/kalakriti/$year/judges'
       path: '/judges'
@@ -1690,6 +1710,7 @@ interface AppKalakritiYearRouteRouteChildren {
   AppKalakritiYearFoodRoute: typeof AppKalakritiYearFoodRoute
   AppKalakritiYearGuardiansRoute: typeof AppKalakritiYearGuardiansRoute
   AppKalakritiYearGuestsRoute: typeof AppKalakritiYearGuestsRoute
+  AppKalakritiYearInventoryRoute: typeof AppKalakritiYearInventoryRoute
   AppKalakritiYearJudgesRoute: typeof AppKalakritiYearJudgesRoute
   AppKalakritiYearStudentsRoute: typeof AppKalakritiYearStudentsRoute
   AppKalakritiYearTransportRoute: typeof AppKalakritiYearTransportRoute
@@ -1707,6 +1728,7 @@ const AppKalakritiYearRouteRouteChildren: AppKalakritiYearRouteRouteChildren = {
   AppKalakritiYearFoodRoute: AppKalakritiYearFoodRoute,
   AppKalakritiYearGuardiansRoute: AppKalakritiYearGuardiansRoute,
   AppKalakritiYearGuestsRoute: AppKalakritiYearGuestsRoute,
+  AppKalakritiYearInventoryRoute: AppKalakritiYearInventoryRoute,
   AppKalakritiYearJudgesRoute: AppKalakritiYearJudgesRoute,
   AppKalakritiYearStudentsRoute: AppKalakritiYearStudentsRoute,
   AppKalakritiYearTransportRoute: AppKalakritiYearTransportRoute,

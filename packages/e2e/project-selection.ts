@@ -21,6 +21,7 @@ const roleOnlySpecs = {
     "kalakriti/eligibility-configuration.spec.ts",
     "kalakriti/guardian-invite.spec.ts",
     "kalakriti/guardian-lifecycle-concurrency.spec.ts",
+    "kalakriti/inventory.spec.ts",
     "kalakriti/lifecycle-readiness.spec.ts",
     "kalakriti/navigation-preloading.spec.ts",
     "kalakriti/person-qr.spec.ts",
