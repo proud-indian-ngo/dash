@@ -12,6 +12,7 @@ const deps = (
   overrides: Partial<R2ObjectAccessDeps> = {}
 ): R2ObjectAccessDeps => ({
   canReadKalakritiEntryMusic: async () => false,
+  canReadKalakritiScorecard: async () => false,
   isEventMember: async () => false,
   isTeamLead: async () => false,
   isTeamMember: async () => false,
@@ -20,6 +21,34 @@ const deps = (
 });
 
 describe("authorizeR2Object", () => {
+  it("requires scoped authorization for scorecard downloads", async () => {
+    const record = {
+      access: "kalakritiScorecard" as const,
+      competitionCategoryId: "category",
+      competitionId: "competition",
+      divisionId: "division",
+      editionId: "edition",
+      filename: "scores.pdf",
+      key: "app/kalakriti-scorecards/edition/division/scores.pdf",
+    };
+    await expect(
+      authorizeR2Object(ownerSession, record, deps())
+    ).rejects.toMatchObject({ status: 403 });
+    await expect(
+      authorizeR2Object(
+        ownerSession,
+        record,
+        deps({ canReadKalakritiScorecard: async () => true })
+      )
+    ).resolves.toEqual({ filename: record.filename, key: record.key });
+    await expect(
+      authorizeR2Object(
+        ownerSession,
+        { ...record, key: "app/kalakriti-scorecards/tmp/user/scores.pdf" },
+        deps({ canReadKalakritiScorecard: async () => true })
+      )
+    ).rejects.toMatchObject({ status: 404 });
+  });
   it("allows an owner to read an exact legacy request attachment key", async () => {
     await expect(
       authorizeR2Object(

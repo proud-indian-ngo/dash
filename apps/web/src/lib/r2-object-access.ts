@@ -9,6 +9,10 @@ export interface R2ObjectAccessDeps {
     session: SessionLike,
     record: KalakritiEntryMusicR2ObjectRecord
   ) => Promise<boolean>;
+  canReadKalakritiScorecard: (
+    session: SessionLike,
+    record: KalakritiScorecardR2ObjectRecord
+  ) => Promise<boolean>;
   isEventMember: (eventId: string, userId: string) => Promise<boolean>;
   isTeamLead: (teamId: string, userId: string) => Promise<boolean>;
   isTeamMember: (teamId: string, userId: string) => Promise<boolean>;
@@ -50,9 +54,20 @@ export interface KalakritiEntryMusicR2ObjectRecord {
   key: string;
 }
 
+export interface KalakritiScorecardR2ObjectRecord {
+  access: "kalakritiScorecard";
+  competitionCategoryId: string;
+  competitionId: string;
+  divisionId: string;
+  editionId: string;
+  filename: string;
+  key: string;
+}
+
 export type R2ObjectRecord =
   | EventPhotoR2ObjectRecord
   | KalakritiEntryMusicR2ObjectRecord
+  | KalakritiScorecardR2ObjectRecord
   | RequestR2ObjectRecord
   | ScheduledMessageR2ObjectRecord;
 
@@ -142,6 +157,8 @@ export async function authorizeR2Object(
     allowed = await canReadScheduledMessageObject(session, record, deps);
   } else if (record.access === "kalakritiEntryMusic") {
     allowed = await deps.canReadKalakritiEntryMusic(session, record);
+  } else if (record.access === "kalakritiScorecard") {
+    allowed = await deps.canReadKalakritiScorecard(session, record);
   } else {
     allowed = await canReadEventPhoto(session, record, deps);
   }

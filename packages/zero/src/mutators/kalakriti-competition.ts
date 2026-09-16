@@ -35,6 +35,7 @@ type ZeroMutationFn = BivariantZeroMutation["bivarianceHack"];
 interface CompetitionTx extends LockableKalakritiTx {
   mutate: {
     kalakritiAuditEntry: { insert: ZeroMutationFn };
+    kalakritiResultsState: { update: ZeroMutationFn };
     kalakritiCompetition: {
       delete: ZeroMutationFn;
       insert: ZeroMutationFn;
@@ -186,6 +187,60 @@ async function lockCompetitionEdition(
   await assertCanManageKalakritiCompetitionConfiguration(tx, ctx, editionId);
   assertKalakritiEditionConfigurable(edition.lifecycle);
   assertIsLoggedIn(ctx);
+  return edition;
+}
+
+async function lockCancellationEdition(
+  tx: CompetitionTx,
+  ctx: Context | undefined,
+  editionId: string,
+  scope: { competitionId: string } | { divisionId: string }
+) {
+  const edition = await getEditionForUpdate(tx, editionId);
+  if (!edition) throw new Error("Edition not found");
+  await assertCanManageKalakritiCompetitionConfiguration(tx, ctx, editionId);
+  assertIsLoggedIn(ctx);
+  if (edition.lifecycle !== "live") {
+    assertKalakritiEditionConfigurable(edition.lifecycle);
+    return edition;
+  }
+  const state = (await tx.run(
+    zql.kalakritiResultsState.where("editionId", editionId).one()
+  )) as { id: string; version: number; finalizedAt: number | null } | undefined;
+  if (state?.finalizedAt != null)
+    throw new Error(
+      "Reopen overall results before cancelling or restoring events"
+    );
+  const divisions =
+    "competitionId" in scope
+      ? ((await tx.run(
+          zql.kalakritiCompetitionDivision
+            .where("editionId", editionId)
+            .where("competitionId", scope.competitionId)
+        )) as { id: string }[])
+      : [{ id: scope.divisionId }];
+  if (divisions.length) {
+    const published = await tx.run(
+      zql.kalakritiResult
+        .where("editionId", editionId)
+        .where(
+          "divisionId",
+          "IN",
+          divisions.map((division) => division.id)
+        )
+        .where("status", "published")
+        .one()
+    );
+    if (published)
+      throw new Error(
+        "Withdraw published results before cancelling or restoring this event"
+      );
+  }
+  if (state)
+    await tx.mutate.kalakritiResultsState.update({
+      id: state.id,
+      version: state.version + 1,
+    });
   return edition;
 }
 
@@ -998,10 +1053,11 @@ export const kalakritiCompetitionMutators = {
       if (!competition) {
         throw new Error("Competition not found");
       }
-      const edition = await lockCompetitionEdition(
+      const edition = await lockCancellationEdition(
         tx,
         ctx,
-        competition.editionId
+        competition.editionId,
+        { competitionId: competition.id }
       );
       const { centerIds } = await getCompetitionScheduleImpact(
         tx,
@@ -1074,7 +1130,12 @@ export const kalakritiCompetitionMutators = {
       if (!session) {
         throw new Error("Competition Session not found");
       }
-      const edition = await lockCompetitionEdition(tx, ctx, session.editionId);
+      const edition = await lockCancellationEdition(
+        tx,
+        ctx,
+        session.editionId,
+        { divisionId: session.divisionId }
+      );
       const division = await getDivision(tx, session.divisionId);
       requireSameEdition(division, session.editionId, "Competition Division");
       const competition = await getCompetition(tx, division.competitionId);

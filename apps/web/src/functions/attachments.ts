@@ -20,6 +20,7 @@ import {
   eventEditorUploadSchema,
   eventPhotoUploadSchema,
   kalakritiEntryMusicUploadSchema,
+  kalakritiScorecardUploadSchema,
   requestUploadSchema,
   scheduledMessageUploadSchema,
   vendorPaymentInvoiceUploadSchema,
@@ -33,6 +34,7 @@ import {
 import { defaultPrivateMediaAccessDeps } from "@/lib/private-media-db";
 import { getS3 } from "@/lib/s3";
 import { authorizeKalakritiEntryMusicUpload } from "@/lib/server/kalakriti-entry-music";
+import { authorizeKalakritiScorecardUpload } from "@/lib/server/kalakriti-scorecard";
 import {
   createTemporaryUpload,
   deleteOwnedTemporaryUpload,
@@ -295,6 +297,63 @@ export const getKalakritiEntryMusicUploadUrl = createServerFn({
           fileName: data.fileName,
           fileSize: data.fileSize,
           handler: "getKalakritiEntryMusicUploadUrl",
+          mimeType: data.mimeType,
+          userId: context.session.user.id,
+        },
+        error
+      );
+    }
+  });
+
+export const getKalakritiScorecardUploadUrl = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(kalakritiScorecardUploadSchema)
+  .handler(async ({ data, context }) => {
+    if (!context.session) throw new Error("Unauthorized");
+    try {
+      return await createTemporaryUpload(
+        {
+          fileName: data.fileName,
+          keyPrefix: env.R2_KEY_PREFIX,
+          mimeType: data.mimeType,
+          scope: {
+            divisionId: data.divisionId,
+            editionId: data.editionId,
+            kind: "kalakritiScorecard",
+          },
+          subfolder: "kalakriti-scorecards",
+          user: context.session.user,
+        },
+        {
+          authorize: async (user, scope) => {
+            if (scope.kind !== "kalakritiScorecard") {
+              throw new PrivateMediaAccessError(403, "Forbidden");
+            }
+            await authorizeKalakritiScorecardUpload({
+              divisionId: scope.divisionId,
+              editionId: scope.editionId,
+              user,
+            });
+          },
+          presign: async (key, mimeType) => {
+            const s3 = await getS3();
+            return s3.presign(key, {
+              expiresIn: 300,
+              method: "PUT",
+              type: mimeType,
+            });
+          },
+        }
+      );
+    } catch (error) {
+      logErrorAndRethrow(
+        { method: "POST", path: "/fn/getKalakritiScorecardUploadUrl" },
+        {
+          divisionId: data.divisionId,
+          editionId: data.editionId,
+          fileName: data.fileName,
+          fileSize: data.fileSize,
+          handler: "getKalakritiScorecardUploadUrl",
           mimeType: data.mimeType,
           userId: context.session.user.id,
         },

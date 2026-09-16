@@ -88,7 +88,7 @@ describe("Kalakriti Registration Release surface", () => {
     ]);
   });
 
-  it("registers only approved registration and event-day queries and mutations", () => {
+  it("registers only approved registration, event-day, and results operations", () => {
     expect(operationKeys(queries)).toEqual([
       "kalakritiAssignment.myAccess",
       "kalakritiAssignment.roster",
@@ -183,6 +183,10 @@ describe("Kalakriti Registration Release surface", () => {
       "kalakritiOperation.record",
       "kalakritiOperation.recordManual",
       "kalakritiOperation.undoMeal",
+      "kalakritiResult.finalize",
+      "kalakritiResult.reopen",
+      "kalakritiResult.save",
+      "kalakritiResult.withdraw",
       "kalakritiStudent.create",
       "kalakritiStudent.delete",
       "kalakritiStudent.update",

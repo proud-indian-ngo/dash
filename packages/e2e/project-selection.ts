@@ -64,6 +64,7 @@ const releaseInvariantSpecs = [
   "kalakriti/table-sizing.spec.ts",
   "kalakriti/public-schedule.spec.ts",
   "kalakriti/release-database-races.spec.ts",
+  "kalakriti/results.spec.ts",
 ];
 
 const specPattern = (file: string) =>

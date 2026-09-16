@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 /**
  * Comprehensive dev seed — covers all data models with realistic data.
  * Fully idempotent: safe to run multiple times without creating duplicates.
@@ -21,8 +22,6 @@
  *   notification,
  *   scheduledMessage, scheduledMessageRecipient
  */
-
-import { createHash } from "node:crypto";
 
 import { auth } from "@pi-dash/auth";
 import { db } from "@pi-dash/db";
@@ -71,6 +70,12 @@ import {
   kalakritiTransportStatusHistory,
   kalakritiVenue,
 } from "@pi-dash/db/schema/kalakriti";
+import {
+  kalakritiResult,
+  kalakritiResultRevision,
+  kalakritiResultScorecard,
+  kalakritiResultsState,
+} from "@pi-dash/db/schema/kalakriti-results";
 import { notification } from "@pi-dash/db/schema/notification";
 import {
   reimbursement,
@@ -1099,6 +1104,72 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
       uploadedBy: adminId,
     })
     .onConflictDoNothing();
+
+  // Seed an unpublished example only; final declarations require real event results.
+  await db.transaction(async (tx) => {
+    const [edition] = await tx
+      .select({ lifecycle: kalakritiEdition.lifecycle })
+      .from(kalakritiEdition)
+      .where(eq(kalakritiEdition.id, ID.kalakritiEdition))
+      .for("update");
+    if (edition?.lifecycle !== "draft") return;
+    const resultId = "01a0a932-06cb-7000-8000-000000000101";
+    const scorecardId = "01a0a932-06cb-7000-8000-000000000102";
+    const [created] = await tx
+      .insert(kalakritiResult)
+      .values({
+        id: resultId,
+        editionId: ID.kalakritiEdition,
+        divisionId: ID.kalakritiCompetitionSession,
+        version: 1,
+        status: "draft",
+        winnerEntryId: null,
+        runnerUpEntryId: null,
+        scorecardIds: [scorecardId],
+        updatedAt: now,
+        updatedBy: adminId,
+      })
+      .onConflictDoNothing()
+      .returning({ id: kalakritiResult.id });
+    if (!created) return;
+    await tx
+      .insert(kalakritiResultScorecard)
+      .values({
+        id: scorecardId,
+        editionId: ID.kalakritiEdition,
+        divisionId: ID.kalakritiCompetitionSession,
+        objectKey: `dev/kalakriti-scorecards/${ID.kalakritiEdition}/${ID.kalakritiCompetitionSession}/demo.pdf`,
+        fileName: "demo.pdf",
+        mimeType: "application/pdf",
+        byteSize: 2048,
+        uploadedAt: now,
+        uploadedBy: adminId,
+      })
+      .onConflictDoNothing();
+    await tx
+      .insert(kalakritiResultRevision)
+      .values({
+        id: "01a0a932-06cb-7000-8000-000000000103",
+        editionId: ID.kalakritiEdition,
+        resultId,
+        version: 1,
+        status: "draft",
+        winnerEntryId: null,
+        runnerUpEntryId: null,
+        scorecardIds: [scorecardId],
+        createdAt: now,
+        createdBy: adminId,
+      })
+      .onConflictDoNothing();
+    await tx
+      .insert(kalakritiResultsState)
+      .values({
+        id: ID.kalakritiEdition,
+        editionId: ID.kalakritiEdition,
+        version: 1,
+      })
+      .onConflictDoNothing();
+  });
 
   // Seed transport before event day, but operation history only after go-live.
   await db.transaction(async (tx) => {

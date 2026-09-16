@@ -20,6 +20,7 @@ export type ProtectedUploadScope =
       editionId: string;
       kind: "kalakritiEntryMusic";
     }
+  | { divisionId: string; editionId: string; kind: "kalakritiScorecard" }
   | { kind: "request" }
   | { kind: "scheduledMessage" }
   | { kind: "vendorPaymentInvoice"; vendorPaymentId: string };

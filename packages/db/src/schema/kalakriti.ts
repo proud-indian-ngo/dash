@@ -951,6 +951,11 @@ export const kalakritiCompetitionEntry = pgTable(
       .references(() => user.id),
   },
   (table) => [
+    unique("kalakriti_entry_edition_division_id_uq").on(
+      table.editionId,
+      table.divisionId,
+      table.id
+    ),
     unique("kalakriti_competition_entry_edition_id_uq").on(
       table.editionId,
       table.id

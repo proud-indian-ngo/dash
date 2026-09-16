@@ -3,7 +3,10 @@ import { describe, expect, it } from "bun:test";
 import { Route as Guests } from "@/routes/_app/kalakriti/$year/guests";
 import { Route as Judges } from "@/routes/_app/kalakriti/$year/judges";
 
-import { canManageKalakritiAttendees } from "./kalakriti-attendee-policy";
+import {
+  canManageKalakritiAttendees,
+  canViewKalakritiAttendees,
+} from "./kalakriti-attendee-policy";
 import { buildKalakritiNavGroups } from "./nav-items";
 function guard(route: typeof Guests | typeof Judges, access: unknown) {
   const beforeLoad: typeof Guests.options.beforeLoad =
@@ -98,6 +101,30 @@ describe("attendee direct route guards", () => {
     }
     expect(() => guard(Judges, access("competition_category_lead"))).toThrow();
     expect(() => guard(Judges, access("competition_coordinator"))).toThrow();
+  });
+  it("gives Hospitality Leads Guest roster and CRUD access only", () => {
+    const lead = access("hospitality_lead");
+    expect(() => guard(Guests, lead)).not.toThrow();
+    expect(() => guard(Judges, lead)).toThrow();
+    expect(canViewKalakritiAttendees(lead, "guest")).toBe(true);
+    expect(canManageKalakritiAttendees(lead, "guest")).toBe(true);
+    expect(canManageKalakritiAttendees(lead, "judge")).toBe(false);
+    expect(() => guard(Guests, access("hospitality_member"))).toThrow();
+    expect(
+      canManageKalakritiAttendees(access("hospitality_member"), "guest")
+    ).toBe(false);
+    expect(
+      canManageKalakritiAttendees(
+        { ...lead, membership: { ...lead.membership, kind: "guardian" } },
+        "guest"
+      )
+    ).toBe(false);
+    expect(
+      canManageKalakritiAttendees(
+        { ...lead, edition: { lifecycle: "archived" } },
+        "guest"
+      )
+    ).toBe(false);
   });
   it("keeps archived editions read-only and global-admin-only", () => {
     const actor = {

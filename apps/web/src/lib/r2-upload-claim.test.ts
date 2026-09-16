@@ -5,6 +5,7 @@ import {
   MAX_ATTACHMENT_FILE_SIZE_BYTES,
   MAX_IMAGE_SIZE_BYTES,
   MAX_KALAKRITI_MUSIC_SIZE_BYTES,
+  MAX_KALAKRITI_SCORECARD_SIZE_BYTES,
   MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES,
   MAX_VIDEO_SIZE_BYTES,
 } from "@pi-dash/shared/constants";
@@ -241,6 +242,11 @@ describe("copyR2Object", () => {
       sourceKey: "app/scheduled-messages/tmp/user-1/archive.zip",
     },
     {
+      maxSize: MAX_KALAKRITI_SCORECARD_SIZE_BYTES,
+      mimeType: "application/pdf",
+      sourceKey: "app/kalakriti-scorecards/tmp/user-1/judge.pdf",
+    },
+    {
       maxSize: MAX_KALAKRITI_MUSIC_SIZE_BYTES,
       mimeType: "audio/mpeg",
       sourceKey: "app/kalakriti-music/tmp/user-1/track.mp3",
@@ -273,6 +279,7 @@ describe("copyR2Object", () => {
 
   it.each([
     ["app/attachments/tmp/user-1/audio.mp3", "audio/mpeg"],
+    ["app/kalakriti-scorecards/tmp/user-1/audio.mp3", "audio/mpeg"],
     ["app/kalakriti-music/tmp/user-1/notes.pdf", "application/pdf"],
     ["app/approval-screenshots/tmp/user-1/animation.gif", "image/gif"],
     ["app/photos/tmp/user-1/document.pdf", "application/pdf"],

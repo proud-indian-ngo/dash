@@ -41,8 +41,8 @@ async function authorize(
   tx: LockableKalakritiTx,
   ctx: Context | undefined,
   editionId: string,
-  allowEventsLead = false
-): Promise<"admin" | "events_lead"> {
+  kind: "guest" | "judge" | "either" = "judge"
+): Promise<"admin" | "events_lead" | "hospitality_lead" | "both_leads"> {
   assertIsLoggedIn(ctx);
   const edition = await getEditionForUpdate(tx, editionId);
   if (!edition || edition.lifecycle === "archived")
@@ -62,7 +62,8 @@ async function authorize(
         .one()
     );
     if (membership) return "admin";
-    if (allowEventsLead) {
+    let hasEventsLead = false;
+    if (kind !== "guest") {
       const eventsLead = await tx.run(
         zql.kalakritiEditionMembership
           .where("editionId", editionId)
@@ -76,8 +77,27 @@ async function authorize(
           )
           .one()
       );
-      if (eventsLead) return "events_lead";
+      if (eventsLead && kind === "judge") return "events_lead";
+      hasEventsLead = Boolean(eventsLead);
     }
+    if (kind !== "judge") {
+      const hospitalityLead = await tx.run(
+        zql.kalakritiEditionMembership
+          .where("editionId", editionId)
+          .where("userId", ctx.userId)
+          .where("state", "active")
+          .where("kind", "volunteer")
+          .whereExists("assignments", (assignment) =>
+            assignment
+              .where("editionId", editionId)
+              .where("responsibility", "hospitality_lead")
+          )
+          .one()
+      );
+      if (hospitalityLead)
+        return hasEventsLead ? "both_leads" : "hospitality_lead";
+    }
+    if (hasEventsLead) return "events_lead";
     throw new Error("Unauthorized");
   }
   return "admin";
@@ -108,7 +128,7 @@ export const kalakritiAttendeeMutators = {
     kalakritiAttendeeCreateSchema,
     async ({ tx, ctx, args }) => {
       if (tx.location !== "server") return;
-      await authorize(tx, ctx, args.editionId, args.kind === "judge");
+      await authorize(tx, ctx, args.editionId, args.kind);
       assertIsLoggedIn(ctx);
       const existing = await tx.run(
         zql.kalakritiAttendee.where("id", args.id).one()
@@ -169,7 +189,7 @@ export const kalakritiAttendeeMutators = {
     kalakritiAttendeeUpdateSchema,
     async ({ tx, ctx, args }) => {
       if (tx.location !== "server") return;
-      const authority = await authorize(tx, ctx, args.editionId, true);
+      const authority = await authorize(tx, ctx, args.editionId, "either");
       assertIsLoggedIn(ctx);
       const attendee = await tx.run(
         zql.kalakritiAttendee
@@ -180,6 +200,8 @@ export const kalakritiAttendeeMutators = {
       );
       if (!attendee) throw new Error("Active attendee not found");
       if (authority === "events_lead" && attendee.kind !== "judge")
+        throw new Error("Unauthorized");
+      if (authority === "hospitality_lead" && attendee.kind !== "guest")
         throw new Error("Unauthorized");
       const changes = Object.fromEntries(
         Object.entries({
@@ -209,7 +231,7 @@ export const kalakritiAttendeeMutators = {
     kalakritiAttendeeArchiveSchema,
     async ({ tx, ctx, args }) => {
       if (tx.location !== "server") return;
-      await authorize(tx, ctx, args.editionId);
+      await authorize(tx, ctx, args.editionId, "guest");
       assertIsLoggedIn(ctx);
       const attendee = await tx.run(
         zql.kalakritiAttendee
@@ -234,7 +256,7 @@ export const kalakritiAttendeeMutators = {
     kalakritiAttendeeDeleteSchema,
     async ({ tx, ctx, args }) => {
       if (tx.location !== "server") return;
-      await authorize(tx, ctx, args.editionId, true);
+      await authorize(tx, ctx, args.editionId);
       assertIsLoggedIn(ctx);
       const attendee = await tx.run(
         zql.kalakritiAttendee.where("id", args.id).one()
@@ -286,7 +308,7 @@ export const kalakritiAttendeeMutators = {
     kalakritiAttendeeSetCompetitionsSchema,
     async ({ tx, ctx, args }) => {
       if (tx.location !== "server") return;
-      await authorize(tx, ctx, args.editionId, true);
+      await authorize(tx, ctx, args.editionId);
       assertIsLoggedIn(ctx);
       const attendee = await tx.run(
         zql.kalakritiAttendee

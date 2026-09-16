@@ -680,6 +680,20 @@
       "when": 1789471740653,
       "tag": "0096_thick_nightmare",
       "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1789546721644,
+      "tag": "0097_free_meltdown",
+      "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1789546722692,
+      "tag": "0098_open_lyja",
+      "breakpoints": true
     }
   ]
 }

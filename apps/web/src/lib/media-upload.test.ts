@@ -6,6 +6,7 @@ import {
   MAX_AVATAR_IMAGE_SIZE_BYTES,
   MAX_IMAGE_SIZE_BYTES,
   MAX_KALAKRITI_MUSIC_SIZE_BYTES,
+  MAX_KALAKRITI_SCORECARD_SIZE_BYTES,
   MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES,
   MAX_VIDEO_SIZE_BYTES,
 } from "@pi-dash/shared/constants";
@@ -16,6 +17,7 @@ import {
   eventEditorUploadSchema,
   eventPhotoUploadSchema,
   kalakritiEntryMusicUploadSchema,
+  kalakritiScorecardUploadSchema,
   requestUploadSchema,
   scheduledMessageUploadSchema,
   vendorPaymentInvoiceUploadSchema,
@@ -27,6 +29,39 @@ const image = {
   mimeType: "image/jpeg" as const,
 };
 const EVENT_ID = "e2e00000-0000-0000-0000-000000000101";
+
+describe("Kalakriti scorecard upload schema", () => {
+  const scorecard = {
+    divisionId: EVENT_ID,
+    editionId: EVENT_ID,
+    fileName: "scores.pdf",
+    fileSize: MAX_KALAKRITI_SCORECARD_SIZE_BYTES,
+    mimeType: "application/pdf",
+  };
+
+  it("accepts PDF, JPEG and PNG through the 20 MB boundary", () => {
+    for (const mimeType of ["application/pdf", "image/jpeg", "image/png"]) {
+      expect(
+        kalakritiScorecardUploadSchema.safeParse({ ...scorecard, mimeType })
+          .success
+      ).toBe(true);
+    }
+  });
+
+  it("rejects unsupported, empty, oversized, and invalid scope uploads", () => {
+    for (const change of [
+      { mimeType: "image/webp" },
+      { fileSize: 0 },
+      { fileSize: MAX_KALAKRITI_SCORECARD_SIZE_BYTES + 1 },
+      { divisionId: "wrong" },
+    ]) {
+      expect(
+        kalakritiScorecardUploadSchema.safeParse({ ...scorecard, ...change })
+          .success
+      ).toBe(false);
+    }
+  });
+});
 
 describe("avatarUploadSchema", () => {
   it("accepts a supported avatar within the avatar limit", () => {

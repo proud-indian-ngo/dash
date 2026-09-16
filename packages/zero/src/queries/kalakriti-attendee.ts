@@ -110,7 +110,11 @@ export const kalakritiAttendeeQueries = {
                               "volunteer_coordinator",
                               "overall_events_lead",
                             ]
-                          : ["edition_admin", "volunteer_coordinator"]
+                          : [
+                              "edition_admin",
+                              "volunteer_coordinator",
+                              "hospitality_lead",
+                            ]
                       )
                   )
               )

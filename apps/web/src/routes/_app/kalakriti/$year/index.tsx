@@ -12,6 +12,7 @@ import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { BlankIdCardDownloadDialog } from "@/components/kalakriti/blank-id-card-download-dialog";
+import { CenterStandings } from "@/components/kalakriti/center-standings";
 import { EditionCloneCard } from "@/components/kalakriti/edition-clone-card";
 import {
   EditionLifecycleAction,
@@ -218,6 +219,7 @@ function KalakritiEditionOverview() {
         canManage={canManageLifecycle}
         editionId={edition.id}
       />
+      <CenterStandings year={edition.year} />
       <RegistrationDashboard
         editionId={edition.id}
         year={edition.year}

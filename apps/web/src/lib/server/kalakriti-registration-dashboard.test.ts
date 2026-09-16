@@ -51,6 +51,7 @@ import {
 const dialect = new PgDialect();
 
 const rows = {
+  awards: [],
   ages: [
     {
       femaleStudentLimit: 3,
@@ -145,6 +146,79 @@ const rows = {
 };
 
 describe("Kalakriti registration dashboard aggregation", () => {
+  it("keeps each published age-division award and excludes inactive events", () => {
+    const projection = assembleKalakritiRegistrationDashboardProjection(
+      { kind: "edition" },
+      {
+        ...rows,
+        sessions: [
+          ...rows.sessions,
+          { ...rows.sessions[0]!, id: "session-3", ageCategoryId: "age-2" },
+        ],
+        awards: [
+          {
+            divisionId: "session-1",
+            winner: "Center One",
+            runnerUp: "Center Two",
+          },
+          {
+            divisionId: "session-2",
+            winner: "Cancelled winner",
+            runnerUp: "Cancelled runner",
+          },
+          {
+            divisionId: "session-3",
+            winner: "Center Two",
+            runnerUp: "Center One",
+          },
+          {
+            divisionId: "outside-scope",
+            winner: "Hidden winner",
+            runnerUp: "Hidden runner",
+          },
+        ],
+      }
+    );
+    expect(projection.competitions[0]?.awards).toEqual([
+      {
+        divisionId: "session-1",
+        ageCategoryName: "Junior",
+        winner: "Center One",
+        runnerUp: "Center Two",
+      },
+      {
+        divisionId: "session-3",
+        ageCategoryName: "Senior",
+        winner: "Center Two",
+        runnerUp: "Center One",
+      },
+    ]);
+    expect(projection.competitions[1]?.awards).toEqual([]);
+    expect(JSON.stringify(projection)).not.toContain("Hidden winner");
+    for (const inactive of [
+      { cancelled: true },
+      { retired: true },
+      { categoryRetired: true },
+    ]) {
+      const inactiveProjection =
+        assembleKalakritiRegistrationDashboardProjection(
+          { kind: "edition" },
+          {
+            ...rows,
+            competitions: [{ ...rows.competitions[0]!, ...inactive }],
+            awards: [
+              {
+                divisionId: "session-1",
+                winner: "Center One",
+                runnerUp: "Center Two",
+              },
+            ],
+          }
+        );
+      expect(inactiveProjection.competitions[0]?.awards).toEqual([]);
+    }
+  });
+
   it("reads every projection from one repeatable, read-only snapshot", async () => {
     await getKalakritiRegistrationDashboardProjections({
       editionId: "edition-1",
@@ -276,6 +350,7 @@ describe("Kalakriti registration dashboard aggregation", () => {
     const projection = assembleKalakritiRegistrationDashboardProjection(
       { kind: "edition" },
       {
+        awards: [],
         ages: [],
         categories: [],
         centers: [],
