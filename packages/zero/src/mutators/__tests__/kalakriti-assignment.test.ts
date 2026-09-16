@@ -859,6 +859,74 @@ describe("kalakritiAssignment.remove", () => {
 });
 
 describe("kalakritiAssignment.addVolunteers", () => {
+  it("accepts an exact printed-card registration retry without creating another membership", async () => {
+    const member = {
+      id: "printed-card",
+      userId: "volunteer-1",
+      editionId: "edition-1",
+      kind: "volunteer",
+      state: "active",
+    };
+    const { tx, spies } = createTx([
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+      member,
+      member,
+    ]);
+    await kalakritiAssignmentMutators.addVolunteers.fn({
+      args: {
+        requirePrintedCardId: true,
+        auditEntryId: "audit-1",
+        editionId: "edition-1",
+        now: 1000,
+        volunteers: [
+          {
+            membershipId: "printed-card",
+            teamEventMemberId: "event-member-new",
+            userId: "volunteer-1",
+          },
+        ],
+      },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiAssignmentMutators.addVolunteers.fn
+    >[0]);
+    expect(spies.insertMembership).not.toHaveBeenCalled();
+    expect(spies.insertEventMember).not.toHaveBeenCalled();
+  });
+  it("refuses a printed card if the card or volunteer already has a membership", async () => {
+    for (const existing of [
+      [{ id: "used-card" }, undefined],
+      [undefined, { id: "other-card" }],
+    ]) {
+      const { tx, spies } = createTx([
+        { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+        ...existing,
+      ]);
+      await expect(
+        kalakritiAssignmentMutators.addVolunteers.fn({
+          args: {
+            requirePrintedCardId: true,
+            auditEntryId: "audit-1",
+            editionId: "edition-1",
+            now: 1000,
+            volunteers: [
+              {
+                membershipId: "printed-card",
+                teamEventMemberId: "event-member-new",
+                userId: "volunteer-1",
+              },
+            ],
+          },
+          ctx: adminContext,
+          tx,
+        } as unknown as Parameters<
+          typeof kalakritiAssignmentMutators.addVolunteers.fn
+        >[0])
+      ).rejects.toThrow("already registered");
+      expect(spies.insertMembership).not.toHaveBeenCalled();
+    }
+  });
   it("creates unassigned membership and a linked event member", async () => {
     const { lockedCenters, tx, spies } = createTx([
       { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },

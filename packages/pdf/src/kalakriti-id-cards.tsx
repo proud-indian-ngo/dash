@@ -22,6 +22,12 @@ interface Person {
   name: string;
 }
 
+export interface KalakritiBlankIdCardData {
+  id: string;
+  type: "volunteer" | "guest" | "judge";
+  blank: true;
+}
+
 export type KalakritiIdCardData = Person &
   (
     | {
@@ -194,8 +200,12 @@ function PersonQr({ id, type }: Pick<KalakritiIdCardData, "id" | "type">) {
   );
 }
 
-export function KalakritiIdCard({ person }: { person: KalakritiIdCardData }) {
-  const text = fitIdCardText(person);
+export function KalakritiIdCard({
+  person,
+}: {
+  person: KalakritiIdCardData | KalakritiBlankIdCardData;
+}) {
+  const text = "blank" in person ? null : fitIdCardText(person);
   const color = colors[person.type];
   return (
     <View
@@ -305,75 +315,90 @@ export function KalakritiIdCard({ person }: { person: KalakritiIdCardData }) {
           {person.type.toUpperCase()}
         </Text>
       </View>
-      <View
-        style={{
-          position: "absolute",
-          top: mm(42),
-          left: mm(7),
-          right: mm(7),
-          alignItems: "center",
-        }}
-      >
-        <Text
+      {text ? (
+        <View
           style={{
-            fontSize: text.nameSize,
-            fontFamily: "IdCardBold",
-            textAlign: "center",
-            lineHeight: 1.15,
+            position: "absolute",
+            top: mm(42),
+            left: mm(7),
+            right: mm(7),
+            alignItems: "center",
           }}
         >
-          {text.name.join("\n")}
-        </Text>
-        {text.details.length > 0 && (
           <Text
             style={{
-              fontSize: text.bodySize,
-              marginTop: 4,
+              fontSize: text.nameSize,
+              fontFamily: "IdCardBold",
               textAlign: "center",
               lineHeight: 1.15,
             }}
           >
-            {text.details.join("\n")}
+            {text.name.join("\n")}
           </Text>
-        )}
-        {text.competitions.length > 0 && (
-          <View style={{ width: "100%", marginTop: 5 }}>
-            {text.competitions.map((competition, index) => (
-              <View
-                key={`${competition.name}-${index}`}
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  marginBottom: 2,
-                }}
-              >
-                <Text
+          {text.details.length > 0 && (
+            <Text
+              style={{
+                fontSize: text.bodySize,
+                marginTop: 4,
+                textAlign: "center",
+                lineHeight: 1.15,
+              }}
+            >
+              {text.details.join("\n")}
+            </Text>
+          )}
+          {text.competitions.length > 0 && (
+            <View style={{ width: "100%", marginTop: 5 }}>
+              {text.competitions.map((competition, index) => (
+                <View
+                  key={`${competition.name}-${index}`}
                   style={{
-                    width: 148,
-                    fontSize: text.competitionSize,
-                    fontFamily: "IdCardBold",
-                    lineHeight: 1.15,
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    marginBottom: 2,
                   }}
                 >
-                  {competition.lines.join("\n")}
-                </Text>
-                <Text
-                  style={{ fontSize: text.competitionSize, lineHeight: 1.15 }}
-                >
-                  {competition.startsAt === null
-                    ? "Time TBA"
-                    : timeFormat.format(competition.startsAt)}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
+                  <Text
+                    style={{
+                      width: 148,
+                      fontSize: text.competitionSize,
+                      fontFamily: "IdCardBold",
+                      lineHeight: 1.15,
+                    }}
+                  >
+                    {competition.lines.join("\n")}
+                  </Text>
+                  <Text
+                    style={{ fontSize: text.competitionSize, lineHeight: 1.15 }}
+                  >
+                    {competition.startsAt === null
+                      ? "Time TBA"
+                      : timeFormat.format(competition.startsAt)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      ) : (
+        <View
+          style={{
+            position: "absolute",
+            top: mm(59),
+            left: mm(10),
+            width: mm(70),
+            borderBottom: "0.7pt solid #697386",
+          }}
+        />
+      )}
       <View
         style={{
           position: "absolute",
-          top:
-            person.type === "student" ? mm(76) : mm(42) + text.height + mm(4),
+          top: !text
+            ? mm(70)
+            : person.type === "student"
+              ? mm(76)
+              : mm(42) + text.height + mm(4),
           left: mm(21),
           width: mm(48),
           height: mm(48),
@@ -388,7 +413,7 @@ export function KalakritiIdCard({ person }: { person: KalakritiIdCardData }) {
 export function KalakritiIdCards({
   people,
 }: {
-  people: KalakritiIdCardData[];
+  people: (KalakritiIdCardData | KalakritiBlankIdCardData)[];
 }) {
   if (people.length === 0)
     throw new Error("Select at least one person to print");

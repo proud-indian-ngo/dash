@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
+import { generateBlankKalakritiIdCards } from "./generate-blank-kalakriti-id-cards";
 import { generateKalakritiIdCards } from "./generate-kalakriti-id-cards";
 import { fitIdCardText } from "./kalakriti-id-card-layout";
 import type { KalakritiIdCardData } from "./kalakriti-id-cards";
@@ -11,6 +12,26 @@ const guest: KalakritiIdCardData = {
 };
 
 describe("Kalakriti printable ID cards", () => {
+  it("prints the requested whole blank pages per type", async () => {
+    const pages = { volunteerPages: 1, guestPages: 2, judgePages: 1 };
+    const first = await generateBlankKalakritiIdCards(pages);
+    expect([
+      ...first
+        .toString("latin1")
+        .matchAll(/\/MediaBox \[0 0 ([\d.]+) ([\d.]+)\]/g),
+    ]).toHaveLength(4);
+  });
+  it("rejects invalid blank page counts before rendering", async () => {
+    for (const volunteerPages of [-1, 0, 0.5, 101, Number.NaN]) {
+      await expect(
+        generateBlankKalakritiIdCards({
+          volunteerPages,
+          guestPages: 0,
+          judgePages: 0,
+        })
+      ).rejects.toThrow("Choose between");
+    }
+  });
   it("keeps a partially filled final page at A4 size", async () => {
     const pdf = await generateKalakritiIdCards(
       Array.from({ length: 5 }, () => guest)

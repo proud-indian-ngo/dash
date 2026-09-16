@@ -11,6 +11,7 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
+import { BlankIdCardDownloadDialog } from "@/components/kalakriti/blank-id-card-download-dialog";
 import { EditionCloneCard } from "@/components/kalakriti/edition-clone-card";
 import {
   EditionLifecycleAction,
@@ -21,6 +22,7 @@ import { EditionParticipationRulesDialog } from "@/components/kalakriti/edition-
 import { IdCardDownloadButton } from "@/components/kalakriti/id-card-download-button";
 import { KalakritiLifecycleBadge } from "@/components/kalakriti/kalakriti-lifecycle-badge";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
+import { RegisterIdCardDialog } from "@/components/kalakriti/register-id-card-dialog";
 import { RegistrationDashboard } from "@/components/kalakriti/registration-dashboard";
 import { useRegistrationExport } from "@/components/kalakriti/registration-export-card";
 import { useApp } from "@/context/app-context";
@@ -105,7 +107,11 @@ function KalakritiEditionOverview() {
               View schedule
             </Button>
             {canManageLifecycle ? (
-              <IdCardDownloadButton year={edition.year} />
+              <>
+                <IdCardDownloadButton year={edition.year} />
+                <BlankIdCardDownloadDialog year={edition.year} />
+                <RegisterIdCardDialog editionId={edition.id} />
+              </>
             ) : null}
             <EditionCloneCard
               editionId={edition.id}

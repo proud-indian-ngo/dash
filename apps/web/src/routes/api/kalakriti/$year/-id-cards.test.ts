@@ -53,12 +53,61 @@ function dependencies(
       ]
     ),
     generatePdf: mock(async () => Buffer.from("%PDF-1.3\n")),
+    generateBlankPdf: mock(async () => Buffer.from("%PDF-1.3\n")),
   };
 }
 const request = () =>
   new Request("http://localhost/api/kalakriti/2027/id-cards");
 
 describe("ID card download authorization", () => {
+  it("downloads blank pages without querying the roster", async () => {
+    const deps = dependencies();
+    const response = await handleKalakritiIdCards(
+      new Request(
+        `${request().url}?mode=blank&volunteerPages=1&guestPages=2&judgePages=1`
+      ),
+      "2027",
+      deps
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-disposition")).toContain(
+      "blank-id-cards.pdf"
+    );
+    expect(deps.generateBlankPdf).toHaveBeenCalledWith({
+      volunteerPages: 1,
+      guestPages: 2,
+      judgePages: 1,
+    });
+    expect(deps.getPeople).not.toHaveBeenCalled();
+  });
+  it("rejects empty, fractional, negative and excessive blank page requests", async () => {
+    for (const count of ["0", "0.5", "-1", "101", "bad"]) {
+      const deps = dependencies();
+      expect(
+        (
+          await handleKalakritiIdCards(
+            new Request(`${request().url}?mode=blank&volunteerPages=${count}`),
+            "2027",
+            deps
+          )
+        ).status
+      ).toBe(400);
+      expect(deps.generateBlankPdf).not.toHaveBeenCalled();
+    }
+  });
+  it("denies non-admin blank downloads before rendering", async () => {
+    const deps = dependencies(false);
+    expect(
+      (
+        await handleKalakritiIdCards(
+          new Request(`${request().url}?mode=blank&guestPages=1`),
+          "2027",
+          deps
+        )
+      ).status
+    ).toBe(403);
+    expect(deps.generateBlankPdf).not.toHaveBeenCalled();
+  });
   it("rejects invalid years before resolving the session", async () => {
     const deps = dependencies();
     expect((await handleKalakritiIdCards(request(), "bad", deps)).status).toBe(

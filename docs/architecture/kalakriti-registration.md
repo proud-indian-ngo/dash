@@ -30,6 +30,14 @@ Edition Membership snapshots remain as historical records after a central user i
 
 `apps/web/src/lib/server/kalakriti-edition-access.ts` resolves Edition access. `apps/web/src/lib/kalakriti-registration-scope-policy.ts` converts that access into the canonical registration scopes shared by dashboards and exports. Commands and Zero queries perform their own Edition and assignment checks; hidden navigation is never treated as authorization.
 
+## Blank printed cards
+
+Global and Edition admins can download blank Volunteer, Guest, and Judge cards from the dashboard and use **Register ID card** to scan or paste their QR. The normal person QR contract is retained: the printed UUID becomes the new attendee or membership UUID. No issuance record is required, and downloading alone creates no roster records. Registration applies to the selected non-archived edition.
+
+`functions/kalakriti-blank-id-card.ts` preflights administrative access, lifecycle, supported type, and whether the UUID already belongs to a person, including inactive records. Guest/Judge registration reuses attendee creation with `printedCard: true`, which rejects existing IDs under the existing edition lock. Volunteer registration requires `users.create` in addition to edition administration, creates a central volunteer using the existing audited user command, and then enrolls it with `requirePrintedCardId: true`. Enrollment rejects another membership for the user or card; exact card/user retries are accepted. If enrollment fails after account creation, the dialog retains the created user and offers retry without creating a second account. Account creation and enrollment are separate operations; closing after a linking failure leaves the central account available in Users.
+
+The PDF page-count schema, download authorization, duplicate-card mutation guards, and preflight have focused tests. The ID-card E2E spec covers PDF download, registration, and existing-person lookup using the same QR.
+
 ## Guests and Judges
 
 The Guests and Judges pages own Edition-bound `kalakritiAttendee` records with required name and phone, optional email, and a stable yearly ID. These people have no login account, external identity, or Edition Membership. Global/Edition administrators manage both rosters in any nonarchived Edition, including Live. Guests retain Archive, which preserves operation history and blocks new scans. Judges use permanent Delete instead: `kalakritiAttendee.delete` removes their Competition assignments and attendee row atomically, but rejects deletion if any check-in or meal history exists, including corrected operations. The old archive command rejects Judges. Deletion retains audit records and reserves the deleted yearly ID.

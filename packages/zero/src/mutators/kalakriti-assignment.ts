@@ -150,6 +150,7 @@ export const kalakritiAssignmentRemoveSchema = z.object({
 });
 
 export const kalakritiAddVolunteersSchema = z.object({
+  requirePrintedCardId: z.boolean().optional(),
   auditEntryId: z.string(),
   editionId: z.string(),
   now: z.number(),
@@ -477,6 +478,36 @@ export const kalakritiAssignmentMutators = {
       let missingCount = 0;
 
       for (const volunteerArgs of args.volunteers) {
+        if (args.requirePrintedCardId) {
+          const [byId, byUser] = await Promise.all([
+            tx.run(
+              zql.kalakritiEditionMembership
+                .where("id", volunteerArgs.membershipId)
+                .one()
+            ),
+            tx.run(
+              zql.kalakritiEditionMembership
+                .where("editionId", args.editionId)
+                .where("userId", volunteerArgs.userId)
+                .one()
+            ),
+          ]);
+          if (
+            byId?.id === byUser?.id &&
+            byId?.userId === volunteerArgs.userId &&
+            byId?.editionId === args.editionId &&
+            byId?.kind === "volunteer" &&
+            byId?.state === "active"
+          ) {
+            // A retry after a lost response must not create another membership.
+            addedCount += 1;
+            continue;
+          }
+          if (byId || byUser)
+            throw new Error(
+              "This card or volunteer is already registered. Use the existing ID card."
+            );
+        }
         // biome-ignore lint/performance/noAwaitInLoops: enrollment writes must stay sequential per volunteer
         const volunteer = await getRosterVolunteer(tx, volunteerArgs.userId);
         if (!volunteer) {

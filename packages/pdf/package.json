@@ -14,7 +14,8 @@
     "@pi-dash/shared": "workspace:*",
     "@react-pdf/renderer": "^4.9.0",
     "qrcode": "1.5.4",
-    "react": "catalog:"
+    "react": "catalog:",
+    "uuidv7": "catalog:"
   },
   "devDependencies": {
     "@pi-dash/config": "workspace:*",

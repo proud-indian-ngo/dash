@@ -1,9 +1,11 @@
+import { generateBlankKalakritiIdCards } from "@pi-dash/pdf/generate-blank-kalakriti-id-cards.tsx";
 import { generateKalakritiIdCards } from "@pi-dash/pdf/generate-kalakriti-id-cards.tsx";
 import { createFileRoute } from "@tanstack/react-router";
 import { createRequestLogger } from "evlog";
 import { z } from "zod";
 
 import { requireSession } from "@/lib/api-auth";
+import { blankIdCardPagesSchema } from "@/lib/kalakriti-blank-id-cards";
 import { resolveKalakritiEditionAccess } from "@/lib/server/kalakriti-edition-access";
 import { getKalakritiIdCardData } from "@/lib/server/kalakriti-id-card-data";
 
@@ -12,6 +14,7 @@ export interface IdCardExportDependencies {
   resolveAccess: typeof resolveKalakritiEditionAccess;
   getPeople: typeof getKalakritiIdCardData;
   generatePdf: typeof generateKalakritiIdCards;
+  generateBlankPdf: typeof generateBlankKalakritiIdCards;
 }
 
 const defaults: IdCardExportDependencies = {
@@ -19,6 +22,7 @@ const defaults: IdCardExportDependencies = {
   resolveAccess: resolveKalakritiEditionAccess,
   getPeople: getKalakritiIdCardData,
   generatePdf: generateKalakritiIdCards,
+  generateBlankPdf: generateBlankKalakritiIdCards,
 };
 
 export async function handleKalakritiIdCards(
@@ -56,18 +60,38 @@ export async function handleKalakritiIdCards(
     year: year.data,
   });
   try {
-    const people = await deps.getPeople(access.edition.id);
-    log.set({ personCount: people.length });
-    if (people.length === 0)
-      return Response.json(
-        { error: "There are no people to print for this edition" },
-        { status: 422 }
-      );
-    const pdf = await deps.generatePdf(people);
+    const params = new URL(request.url).searchParams;
+    const blank = params.get("mode") === "blank";
+    let pdf: Buffer;
+    if (blank) {
+      const pages = blankIdCardPagesSchema.safeParse({
+        volunteerPages: Number(params.get("volunteerPages") ?? 0),
+        guestPages: Number(params.get("guestPages") ?? 0),
+        judgePages: Number(params.get("judgePages") ?? 0),
+      });
+      if (!pages.success)
+        return Response.json(
+          {
+            error: "Choose whole page counts totaling between 1 and 100 pages.",
+          },
+          { status: 400 }
+        );
+      log.set({ mode: "blank", ...pages.data });
+      pdf = await deps.generateBlankPdf(pages.data);
+    } else {
+      const people = await deps.getPeople(access.edition.id);
+      log.set({ personCount: people.length });
+      if (people.length === 0)
+        return Response.json(
+          { error: "There are no people to print for this edition" },
+          { status: 422 }
+        );
+      pdf = await deps.generatePdf(people);
+    }
     return new Response(new Uint8Array(pdf), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="kalakriti-${year.data}-id-cards.pdf"`,
+        "Content-Disposition": `attachment; filename="kalakriti-${year.data}-${blank ? "blank-" : ""}id-cards.pdf"`,
         "Cache-Control": "private, no-store, max-age=0",
         Vary: "Cookie",
         "X-Content-Type-Options": "nosniff",
