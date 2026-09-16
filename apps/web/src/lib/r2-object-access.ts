@@ -5,6 +5,10 @@ interface SessionLike {
 }
 
 export interface R2ObjectAccessDeps {
+  canReadKalakritiInventoryPhoto: (
+    session: SessionLike,
+    record: KalakritiInventoryPhotoR2ObjectRecord
+  ) => Promise<boolean>;
   canReadKalakritiEntryMusic: (
     session: SessionLike,
     record: KalakritiEntryMusicR2ObjectRecord
@@ -64,9 +68,17 @@ export interface KalakritiScorecardR2ObjectRecord {
   key: string;
 }
 
+export interface KalakritiInventoryPhotoR2ObjectRecord {
+  access: "kalakritiInventoryPhoto";
+  editionId: string;
+  filename: string;
+  key: string;
+}
+
 export type R2ObjectRecord =
   | EventPhotoR2ObjectRecord
   | KalakritiEntryMusicR2ObjectRecord
+  | KalakritiInventoryPhotoR2ObjectRecord
   | KalakritiScorecardR2ObjectRecord
   | RequestR2ObjectRecord
   | ScheduledMessageR2ObjectRecord;
@@ -157,6 +169,8 @@ export async function authorizeR2Object(
     allowed = await canReadScheduledMessageObject(session, record, deps);
   } else if (record.access === "kalakritiEntryMusic") {
     allowed = await deps.canReadKalakritiEntryMusic(session, record);
+  } else if (record.access === "kalakritiInventoryPhoto") {
+    allowed = await deps.canReadKalakritiInventoryPhoto(session, record);
   } else if (record.access === "kalakritiScorecard") {
     allowed = await deps.canReadKalakritiScorecard(session, record);
   } else {

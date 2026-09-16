@@ -64,7 +64,8 @@ jobs:
       - name: Unused exports
         run: bun run check:unused
       - name: Unit tests
-        run: bun run test:unit
+        timeout-minutes: 10
+        run: bun run test:unit --log-order=stream --log-prefix=task
 
   prepare-shards:
     runs-on: ubuntu-latest

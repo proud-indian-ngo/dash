@@ -11,6 +11,7 @@ const ownerSession = { user: { id: "owner", role: "volunteer" } };
 const deps = (
   overrides: Partial<R2ObjectAccessDeps> = {}
 ): R2ObjectAccessDeps => ({
+  canReadKalakritiInventoryPhoto: async () => false,
   canReadKalakritiEntryMusic: async () => false,
   canReadKalakritiScorecard: async () => false,
   isEventMember: async () => false,
@@ -21,6 +22,31 @@ const deps = (
 });
 
 describe("authorizeR2Object", () => {
+  it("requires current inventory authorization and rejects temporary photos", async () => {
+    const record = {
+      access: "kalakritiInventoryPhoto" as const,
+      editionId: "edition",
+      filename: "box.png",
+      key: "app/kalakriti-inventory/edition/item/box.png",
+    };
+    await expect(
+      authorizeR2Object(ownerSession, record, deps())
+    ).rejects.toMatchObject({ status: 403 });
+    await expect(
+      authorizeR2Object(
+        ownerSession,
+        record,
+        deps({ canReadKalakritiInventoryPhoto: async () => true })
+      )
+    ).resolves.toEqual({ filename: record.filename, key: record.key });
+    await expect(
+      authorizeR2Object(
+        ownerSession,
+        { ...record, key: "app/kalakriti-inventory/tmp/owner/box.png" },
+        deps({ canReadKalakritiInventoryPhoto: async () => true })
+      )
+    ).rejects.toMatchObject({ status: 404 });
+  });
   it("requires scoped authorization for scorecard downloads", async () => {
     const record = {
       access: "kalakritiScorecard" as const,

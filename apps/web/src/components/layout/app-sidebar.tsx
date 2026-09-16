@@ -24,6 +24,7 @@ import { useApp } from "@/context/app-context";
 import { canViewKalakritiAttendees } from "@/lib/kalakriti-attendee-policy";
 import { getKalakritiScanActivities } from "@/lib/kalakriti-event-day-policy";
 import { canViewKalakritiFood } from "@/lib/kalakriti-food-policy";
+import { canViewKalakritiInventory } from "@/lib/kalakriti-inventory-policy";
 import { createStationRecordingLedger } from "@/lib/kalakriti-scan-recording";
 import { canViewKalakritiTransport } from "@/lib/kalakriti-transport-policy";
 import {
@@ -137,6 +138,7 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
   };
   let visibleNavGroups = buildKalakritiNavGroups({
     canViewTransport: canViewKalakritiTransport(attendeeAccess),
+    canViewInventory: canViewKalakritiInventory(attendeeAccess),
     canViewGuests: canViewKalakritiAttendees(attendeeAccess, "guest"),
     canViewJudges: canViewKalakritiAttendees(attendeeAccess, "judge"),
     canManageEligibility: canManageEdition,

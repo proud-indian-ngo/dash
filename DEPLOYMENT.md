@@ -58,7 +58,7 @@ Copy `.env.sample` to `.env` and fill in values. Grouped by category:
 Protected uploads use current-user temp keys and are claimed to durable keys by
 their owning database mutation. Before deployment, configure 24-hour Cloudflare
 R2 expiry rules for
-`<R2_KEY_PREFIX>/{attachments,approval-screenshots,kalakriti-music,kalakriti-scorecards,photos,scheduled-messages}/tmp/`.
+`<R2_KEY_PREFIX>/{attachments,approval-screenshots,kalakriti-inventory,kalakriti-music,kalakriti-scorecards,photos,scheduled-messages}/tmp/`.
 
 Private-storage cutover order:
 

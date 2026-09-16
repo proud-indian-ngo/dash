@@ -1164,6 +1164,27 @@ describe("kalakritiCompetition commands", () => {
     });
   });
 
+  it("preserves Competitions referenced by inventory history", async () => {
+    const { lockedResults, spies, tx } = createTx([
+      competition,
+      undefined,
+      undefined,
+      undefined,
+      { id: "inventory-transaction" },
+    ]);
+    lockedResults.push([edition]);
+    await expect(
+      kalakritiCompetitionMutators.deleteCompetition.fn({
+        args: { auditEntryId: "audit-1", id: competition.id, now: 1 },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiCompetitionMutators.deleteCompetition.fn
+      >[0])
+    ).rejects.toThrow("referenced");
+    expect(spies.deleteCompetition).not.toHaveBeenCalled();
+  });
+
   it("protects a Session with Division Entries from deletion", async () => {
     const session = {
       cancelledAt: null,

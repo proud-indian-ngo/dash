@@ -24,6 +24,7 @@ import {
 } from "@/lib/kalakriti-scan-recording";
 
 import { CenterScanPanel } from "./center-scan-dialog";
+import { InventoryScanPanel } from "./inventory-scan-panel";
 import { OperationScanPanel } from "./operation-scan-panel";
 
 export function ScanDialog({
@@ -32,15 +33,21 @@ export function ScanDialog({
   activities,
   onOpenChange,
   ledger: providedLedger,
+  initialActivity,
 }: {
   editionId: string;
   year: number;
   activities: readonly ScanActivity[];
   onOpenChange: (open: boolean) => void;
   ledger?: StationRecordingLedger;
+  initialActivity?: ScanActivity;
 }) {
   const [activity, setActivity] = useState<ScanActivity | undefined>(() =>
-    activities.includes("transport") ? "transport" : activities[0]
+    initialActivity && activities.includes(initialActivity)
+      ? initialActivity
+      : activities.includes("transport")
+        ? "transport"
+        : activities[0]
   );
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
@@ -64,7 +71,7 @@ export function ScanDialog({
   return (
     <Dialog open={true} onOpenChange={close}>
       <DialogContent
-        className="max-h-[90dvh] overflow-y-auto sm:max-w-4xl"
+        className="max-h-[90dvh] overflow-y-auto sm:max-w-6xl"
         initialFocus={headingRef}
         showCloseButton={!busy}
       >
@@ -73,15 +80,21 @@ export function ScanDialog({
             Scan
           </DialogTitle>
           <DialogDescription>
-            Scan a person QR or enter a yearly ID. Recording requires a live
-            Edition and an online connection.
+            Scan a person QR or enter a yearly ID. Inventory is available in
+            nonarchived Editions; event-day recording requires a live Edition.
+            An online connection is required.
           </DialogDescription>
         </DialogHeader>
         <Tabs value={activity ?? "unavailable"} onValueChange={changeActivity}>
           {activities.length > 1 ? (
-            <TabsList className="grid h-auto w-full grid-cols-2 sm:grid-cols-4">
+            <TabsList className="flex w-full flex-wrap gap-1 group-data-horizontal/tabs:h-auto">
               {activities.map((item) => (
-                <TabsTrigger key={item} value={item} disabled={busy}>
+                <TabsTrigger
+                  key={item}
+                  value={item}
+                  disabled={busy}
+                  className="h-auto min-h-8 min-w-0 basis-36 px-3 py-2 whitespace-normal"
+                >
                   {SCAN_ACTIVITY_LABELS[item]}
                 </TabsTrigger>
               ))}
@@ -96,31 +109,73 @@ export function ScanDialog({
               allowed ? SCAN_ACTIVITY_LABELS[activity] : "Scanning unavailable"
             }
           >
-            {!allowed ? (
-              <p role="status">
-                This scanning activity is no longer available. Close and reopen
-                Scan.
-              </p>
-            ) : activity === "transport" ? (
-              <CenterScanPanel
-                editionId={editionId}
-                year={year}
-                onComplete={() => onOpenChange(false)}
-                onBusyChange={setRecording}
-              />
-            ) : (
-              <OperationScanPanel
-                key={activity}
-                activity={activity}
-                editionId={editionId}
-                year={year}
-                ledger={ledger}
-                onBusyChange={setRecording}
-              />
-            )}
+            <ScanActivityPanel
+              activity={allowed ? activity : undefined}
+              editionId={editionId}
+              year={year}
+              ledger={ledger}
+              onBusyChange={setRecording}
+              onComplete={() => onOpenChange(false)}
+            />
           </TabsContent>
         </Tabs>
       </DialogContent>
     </Dialog>
   );
+}
+
+function ScanActivityPanel({
+  activity,
+  editionId,
+  year,
+  ledger,
+  onBusyChange,
+  onComplete,
+}: {
+  activity: ScanActivity | undefined;
+  editionId: string;
+  year: number;
+  ledger: StationRecordingLedger;
+  onBusyChange: (busy: boolean) => void;
+  onComplete: () => void;
+}) {
+  switch (activity) {
+    case undefined:
+      return (
+        <p role="status">
+          This scanning activity is no longer available. Close and reopen Scan.
+        </p>
+      );
+    case "transport":
+      return (
+        <CenterScanPanel
+          editionId={editionId}
+          year={year}
+          onComplete={onComplete}
+          onBusyChange={onBusyChange}
+        />
+      );
+    case "dispatch":
+    case "return":
+      return (
+        <InventoryScanPanel
+          key={activity}
+          action={activity}
+          editionId={editionId}
+          year={year}
+          onBusyChange={onBusyChange}
+        />
+      );
+    default:
+      return (
+        <OperationScanPanel
+          key={activity}
+          activity={activity}
+          editionId={editionId}
+          year={year}
+          ledger={ledger}
+          onBusyChange={onBusyChange}
+        />
+      );
+  }
 }

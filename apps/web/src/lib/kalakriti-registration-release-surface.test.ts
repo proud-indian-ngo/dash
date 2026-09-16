@@ -64,6 +64,7 @@ describe("Kalakriti Registration Release surface", () => {
       "guardians.tsx",
       "guests.tsx",
       "index.tsx",
+      "inventory.tsx",
       "judges.tsx",
       "route.tsx",
       "students.tsx",
@@ -88,7 +89,7 @@ describe("Kalakriti Registration Release surface", () => {
     ]);
   });
 
-  it("registers only approved registration, event-day, and results operations", () => {
+  it("registers only approved registration, event-day, results, and inventory operations", () => {
     expect(operationKeys(queries)).toEqual([
       "kalakritiAssignment.myAccess",
       "kalakritiAssignment.roster",
@@ -117,6 +118,11 @@ describe("Kalakriti Registration Release surface", () => {
       "kalakritiFood.memberships",
       "kalakritiFood.students",
       "kalakritiGuardian.roster",
+      "kalakritiInventory.assignments",
+      "kalakritiInventory.byItem",
+      "kalakritiInventory.items",
+      "kalakritiInventory.transactions",
+      "kalakritiInventory.volunteers",
       "kalakritiStudent.ageCategoriesByCenter",
       "kalakritiStudent.visibleByCenter",
       "kalakritiStudent.visibleForCompliance",
@@ -180,6 +186,12 @@ describe("Kalakriti Registration Release surface", () => {
       "kalakritiEntry.remove",
       "kalakritiEntry.replaceGroupMembers",
       "kalakritiEntry.updateMusic",
+      "kalakritiInventory.archive",
+      "kalakritiInventory.create",
+      "kalakritiInventory.record",
+      "kalakritiInventory.recordBatch",
+      "kalakritiInventory.restore",
+      "kalakritiInventory.update",
       "kalakritiOperation.record",
       "kalakritiOperation.recordManual",
       "kalakritiOperation.undoMeal",

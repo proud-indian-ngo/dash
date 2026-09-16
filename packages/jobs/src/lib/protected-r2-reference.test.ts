@@ -67,6 +67,7 @@ describe("withProtectedR2ObjectReferenceLock", () => {
       mocks.execute.mock.calls[1]?.[0]
     ).sql;
     expect(referenceSql).toContain("kalakriti_entry_music WHERE object_key");
+    expect(referenceSql).toContain("kalakriti_inventory_item WHERE photo_key");
     expect(referenceSql).toContain(
       "kalakriti_competition_entry WHERE music_object_key"
     );

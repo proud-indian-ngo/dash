@@ -45,6 +45,8 @@ export async function isProtectedR2ObjectReferenced(
       SELECT 1 FROM kalakriti_entry_music WHERE object_key = ${r2Key}
       UNION ALL
       SELECT 1 FROM kalakriti_result_scorecard WHERE object_key = ${r2Key}
+      UNION ALL
+      SELECT 1 FROM kalakriti_inventory_item WHERE photo_key = ${r2Key}
     ) AS referenced
   `);
 

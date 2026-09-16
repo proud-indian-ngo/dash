@@ -2,6 +2,7 @@ export const attachmentDownloadKindValues = [
   "advancePaymentAttachment",
   "advancePaymentApprovalScreenshot",
   "kalakritiEntryMusic",
+  "kalakritiInventoryPhoto",
   "kalakritiScorecard",
   "reimbursementAttachment",
   "reimbursementApprovalScreenshot",
@@ -22,6 +23,7 @@ export type AttachmentDownloadRef =
   | { id: string; kind: "advancePaymentAttachment" }
   | { id: string; kind: "advancePaymentApprovalScreenshot" }
   | { id: string; kind: "kalakritiEntryMusic" }
+  | { id: string; kind: "kalakritiInventoryPhoto" }
   | { id: string; kind: "kalakritiScorecard" }
   | { id: string; kind: "reimbursementAttachment" }
   | { id: string; kind: "reimbursementApprovalScreenshot" }

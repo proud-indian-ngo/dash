@@ -71,6 +71,10 @@ import {
   kalakritiVenue,
 } from "@pi-dash/db/schema/kalakriti";
 import {
+  kalakritiInventoryItem,
+  kalakritiInventoryTransaction,
+} from "@pi-dash/db/schema/kalakriti-inventory";
+import {
   kalakritiResult,
   kalakritiResultRevision,
   kalakritiResultScorecard,
@@ -211,6 +215,8 @@ const ID = {
   kalakritiOperation: "01a082b2-b262-78ea-9ba4-bda73e9fc51c",
   kalakritiTransportAssignment: "01a084cd-40f8-74e2-a692-a014548a34e7",
   kalakritiTransportHistory: "01a084cd-40f9-7eb4-ba8c-24e46aed65ba",
+  kalakritiInventoryItem: "01a0aa0d-adf1-7bf6-a245-e0dcd8c99efc",
+  kalakritiInventoryTransaction: "01a0aa0d-adf1-7bf6-a245-e0dd216b94c7",
   kalakritiCenterScanStage: "01a084cd-40fa-7ee8-bd59-fc3523adf031",
   kalakritiVenue: "019d52c2-7261-7dce-b0ee-e206561715cc",
   ra01: "019d52c2-7261-7dce-b0ee-e23c364fad5e",
@@ -1169,6 +1175,40 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
         version: 1,
       })
       .onConflictDoNothing();
+  });
+
+  await db.transaction(async (tx) => {
+    const [edition] = await tx
+      .select({ lifecycle: kalakritiEdition.lifecycle })
+      .from(kalakritiEdition)
+      .where(eq(kalakritiEdition.id, ID.kalakritiEdition))
+      .for("update");
+    if (!edition || edition.lifecycle === "archived") return;
+    const [item] = await tx
+      .insert(kalakritiInventoryItem)
+      .values({
+        id: ID.kalakritiInventoryItem,
+        editionId: ID.kalakritiEdition,
+        name: "Drawing pencils",
+        quantity: 100,
+        unitPricePaise: 1000,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing()
+      .returning({ id: kalakritiInventoryItem.id });
+    if (!item) return;
+    await tx.insert(kalakritiInventoryTransaction).values({
+      id: ID.kalakritiInventoryTransaction,
+      editionId: ID.kalakritiEdition,
+      itemId: item.id,
+      type: "initial_inventory",
+      quantity: 100,
+      quantityBefore: 0,
+      quantityAfter: 100,
+      actorUserId: adminId,
+      createdAt: now,
+    });
   });
 
   // Seed transport before event day, but operation history only after go-live.

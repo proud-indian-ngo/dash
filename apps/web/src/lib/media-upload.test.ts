@@ -10,6 +10,7 @@ import {
   MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES,
   MAX_VIDEO_SIZE_BYTES,
 } from "@pi-dash/shared/constants";
+import { MAX_KALAKRITI_INVENTORY_PHOTO_SIZE_BYTES } from "@pi-dash/shared/kalakriti-inventory";
 
 import {
   approvalScreenshotUploadSchema,
@@ -17,6 +18,7 @@ import {
   eventEditorUploadSchema,
   eventPhotoUploadSchema,
   kalakritiEntryMusicUploadSchema,
+  kalakritiInventoryPhotoUploadSchema,
   kalakritiScorecardUploadSchema,
   requestUploadSchema,
   scheduledMessageUploadSchema,
@@ -57,6 +59,41 @@ describe("Kalakriti scorecard upload schema", () => {
     ]) {
       expect(
         kalakritiScorecardUploadSchema.safeParse({ ...scorecard, ...change })
+          .success
+      ).toBe(false);
+    }
+  });
+});
+
+describe("Kalakriti inventory photo upload schema", () => {
+  const photo = { ...image, editionId: EVENT_ID };
+
+  it("accepts shared image types at the 5 MB boundary", () => {
+    for (const mimeType of [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+    ]) {
+      expect(
+        kalakritiInventoryPhotoUploadSchema.safeParse({
+          ...photo,
+          mimeType,
+          fileSize: MAX_KALAKRITI_INVENTORY_PHOTO_SIZE_BYTES,
+        }).success
+      ).toBe(true);
+    }
+  });
+
+  it("rejects invalid scope, unsupported type, empty and oversized photos", () => {
+    for (const change of [
+      { editionId: "invalid" },
+      { mimeType: "image/svg+xml" },
+      { fileSize: 0 },
+      { fileSize: MAX_KALAKRITI_INVENTORY_PHOTO_SIZE_BYTES + 1 },
+    ]) {
+      expect(
+        kalakritiInventoryPhotoUploadSchema.safeParse({ ...photo, ...change })
           .success
       ).toBe(false);
     }

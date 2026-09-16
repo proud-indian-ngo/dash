@@ -352,12 +352,12 @@ test.describe("Kalakriti Registration Release authorization", () => {
       await page.goto(`/kalakriti/${YEAR}`);
       await waitForZeroReady(page);
       await Promise.all(
-        ["Credentials", "Results", "Awards", "Inventory"].map((label) =>
+        ["Credentials", "Results", "Awards"].map((label) =>
           expect(page.getByRole("link", { name: label })).toHaveCount(0)
         )
       );
       await Promise.all(
-        ["credentials", "results", "awards", "inventory"].map(async (path) => {
+        ["credentials", "results", "awards"].map(async (path) => {
           const routePage = await editionAdmin.newPage();
           try {
             const apiResponse = await editionAdmin.request.get(
@@ -373,6 +373,18 @@ test.describe("Kalakriti Registration Release authorization", () => {
           }
         })
       );
+      await expect(
+        page.getByRole("link", { name: "Inventory", exact: true })
+      ).toBeVisible();
+      await page.goto(`/kalakriti/${YEAR}/inventory`);
+      await expect(
+        page.getByRole("heading", { name: "Inventory", exact: true })
+      ).toBeVisible();
+      expect(
+        (
+          await editionAdmin.request.get(`/api/kalakriti/${YEAR}/inventory`)
+        ).status()
+      ).toBe(404);
     } finally {
       await anonymous.close();
       await editionAdmin.close();

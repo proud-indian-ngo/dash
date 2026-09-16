@@ -895,20 +895,26 @@ export const kalakritiCompetitionMutators = {
         ctx,
         competition.editionId
       );
-      const [hasEntries, session, assignment] = await Promise.all([
-        competitionHasEntries(tx, competition.id),
-        tx.run(
-          zql.kalakritiCompetitionSession
-            .whereExists("division", (division) =>
-              division.where("competitionId", competition.id)
-            )
-            .one()
-        ),
-        tx.run(
-          zql.kalakritiAssignment.where("competitionId", competition.id).one()
-        ),
-      ]);
-      if (hasEntries || session || assignment) {
+      const [hasEntries, session, assignment, inventoryTransaction] =
+        await Promise.all([
+          competitionHasEntries(tx, competition.id),
+          tx.run(
+            zql.kalakritiCompetitionSession
+              .whereExists("division", (division) =>
+                division.where("competitionId", competition.id)
+              )
+              .one()
+          ),
+          tx.run(
+            zql.kalakritiAssignment.where("competitionId", competition.id).one()
+          ),
+          tx.run(
+            zql.kalakritiInventoryTransaction
+              .where("competitionId", competition.id)
+              .one()
+          ),
+        ]);
+      if (hasEntries || session || assignment || inventoryTransaction) {
         throw new Error("Competition is referenced and cannot be deleted");
       }
       await tx.mutate.kalakritiCompetition.delete({ id: competition.id });

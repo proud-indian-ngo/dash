@@ -6,6 +6,7 @@ const queryMocks = hoisted(() => ({
   advancePayment: mock(),
   advancePaymentAttachment: mock(),
   eventPhoto: mock(),
+  kalakritiInventoryItem: mock(),
   reimbursement: mock(),
   reimbursementAttachment: mock(),
   scheduledMessage: mock(),
@@ -43,6 +44,7 @@ const session = { user: { id: "owner", role: "volunteer" } };
 const createDeps = (
   overrides: Partial<AuthorizedR2ObjectDeps> = {}
 ): AuthorizedR2ObjectDeps => ({
+  canReadKalakritiInventoryPhoto: async () => false,
   canReadKalakritiEntryMusic: async () => false,
   canReadKalakritiScorecard: async () => false,
   findRecord: async () => null,
@@ -61,6 +63,31 @@ beforeEach(() => {
 });
 
 describe("resolveAuthorizedR2Object", () => {
+  it("resolves only the current persisted inventory photo", async () => {
+    queryMocks.kalakritiInventoryItem.mockResolvedValue({
+      editionId: "edition",
+      photoKey: "app/kalakriti-inventory/edition/item/photo.png",
+      photoName: "photo.png",
+    });
+    await expect(
+      resolveAuthorizedR2Object(
+        session,
+        { id: "item", kind: "kalakritiInventoryPhoto" },
+        createDeps({
+          canReadKalakritiInventoryPhoto: async () => true,
+          findRecord: async () => ({
+            access: "kalakritiInventoryPhoto",
+            editionId: "edition",
+            filename: "photo.png",
+            key: "app/kalakriti-inventory/edition/item/photo.png",
+          }),
+        })
+      )
+    ).resolves.toEqual({
+      filename: "photo.png",
+      key: "app/kalakriti-inventory/edition/item/photo.png",
+    });
+  });
   it("returns not found when no DB record matches the asset reference", async () => {
     await expect(
       resolveAuthorizedR2Object(

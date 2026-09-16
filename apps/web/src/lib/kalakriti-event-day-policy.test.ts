@@ -44,6 +44,17 @@ describe("Sidebar scan activity access", () => {
       expect(getKalakritiScanActivities(access(role))).toEqual(["check_in"]);
     }
   );
+  it.each(["logistics_lead", "logistics_member"] as const)(
+    "gives %s inventory scans in draft Editions",
+    (role) => {
+      expect(
+        getKalakritiScanActivities({
+          ...access(role),
+          edition: { lifecycle: "draft" },
+        })
+      ).toEqual(["dispatch", "return"]);
+    }
+  );
   it("combines assigned activities and puts transport first", () => {
     const value = access("food_member");
     value.membership.assignments.push(
@@ -67,12 +78,14 @@ describe("Sidebar scan activity access", () => {
       })
     ).toEqual(["attendance"]);
   });
-  it("gives admins all four activities", () => {
+  it("gives admins all activities", () => {
     expect(getKalakritiScanActivities(access("edition_admin"))).toEqual([
       "transport",
       "check_in",
       "meals",
       "attendance",
+      "dispatch",
+      "return",
     ]);
   });
 

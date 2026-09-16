@@ -16,6 +16,7 @@ type R2Subfolder =
   | "approval-screenshots"
   | "attachments"
   | "kalakriti-music"
+  | "kalakriti-inventory"
   | "kalakriti-scorecards"
   | "photos"
   | "scheduled-messages";

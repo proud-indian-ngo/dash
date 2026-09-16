@@ -16,6 +16,7 @@ import {
   MAX_VIDEO_SIZE_BYTES,
   MIME_TYPE_PATTERN,
 } from "@pi-dash/shared/constants";
+import { MAX_KALAKRITI_INVENTORY_PHOTO_SIZE_BYTES } from "@pi-dash/shared/kalakriti-inventory";
 import z from "zod";
 
 const imageUploadFields = {
@@ -88,6 +89,17 @@ export const kalakritiScorecardUploadSchema = z.object({
   fileName: z.string().trim().min(1),
   fileSize: z.number().int().positive().max(MAX_KALAKRITI_SCORECARD_SIZE_BYTES),
   mimeType: z.enum(ALLOWED_KALAKRITI_SCORECARD_TYPES),
+});
+
+export const kalakritiInventoryPhotoUploadSchema = z.object({
+  editionId: z.string().refine(isAssetId, "Invalid edition ID"),
+  fileName: z.string().trim().min(1),
+  fileSize: z
+    .number()
+    .int()
+    .positive()
+    .max(MAX_KALAKRITI_INVENTORY_PHOTO_SIZE_BYTES),
+  mimeType: z.enum(ALLOWED_IMAGE_TYPES),
 });
 
 export const approvalScreenshotUploadSchema = z.object({

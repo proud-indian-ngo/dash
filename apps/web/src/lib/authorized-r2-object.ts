@@ -35,6 +35,10 @@ import {
   loadKalakritiEntryMusicRecord,
 } from "./server/kalakriti-entry-music";
 import {
+  canAccessKalakritiInventoryPhoto,
+  loadKalakritiInventoryPhotoRecord,
+} from "./server/kalakriti-inventory-photo";
+import {
   canReadKalakritiScorecard,
   loadKalakritiScorecardRecord,
 } from "./server/kalakriti-scorecard";
@@ -244,6 +248,13 @@ async function resolveKalakritiScorecard(
   return record ? { access: "kalakritiScorecard", ...record } : null;
 }
 
+async function resolveKalakritiInventoryPhoto(
+  ref: AssetRef<"kalakritiInventoryPhoto">
+): Promise<R2ObjectRecord | null> {
+  const record = await loadKalakritiInventoryPhotoRecord(ref.id);
+  return record ? { access: "kalakritiInventoryPhoto", ...record } : null;
+}
+
 function findRecord(ref: AttachmentAssetRef): Promise<R2ObjectRecord | null> {
   switch (ref.kind) {
     case "advancePaymentAttachment":
@@ -254,6 +265,8 @@ function findRecord(ref: AttachmentAssetRef): Promise<R2ObjectRecord | null> {
       return resolveEventPhoto(ref);
     case "kalakritiEntryMusic":
       return resolveKalakritiEntryMusic(ref);
+    case "kalakritiInventoryPhoto":
+      return resolveKalakritiInventoryPhoto(ref);
     case "kalakritiScorecard":
       return resolveKalakritiScorecard(ref);
     case "reimbursementAttachment":
@@ -274,6 +287,8 @@ function findRecord(ref: AttachmentAssetRef): Promise<R2ObjectRecord | null> {
 }
 
 export const defaultR2ObjectAccessDeps: R2ObjectAccessDeps = {
+  canReadKalakritiInventoryPhoto: (session, record) =>
+    canAccessKalakritiInventoryPhoto(session.user, record.editionId),
   canReadKalakritiEntryMusic: async (session, record) =>
     canReadKalakritiEntryMusic(session.user, record),
   canReadKalakritiScorecard: async (session, record) =>

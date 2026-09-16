@@ -305,12 +305,14 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
         "Check-in",
         "Meals",
         "Competition attendance",
+        "Dispatch",
+        "Return",
       ])
         await expect(
           admin.dialog.getByRole("tab", { name, exact: true })
         ).toBeDisabled();
     };
-    await expect(admin.dialog.getByRole("tab")).toHaveCount(4);
+    await expect(admin.dialog.getByRole("tab")).toHaveCount(6);
     await expect(
       admin.dialog.getByRole("tab", { name: "Transport", exact: true })
     ).toHaveAttribute("aria-selected", "true");

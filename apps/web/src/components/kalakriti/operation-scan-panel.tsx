@@ -48,7 +48,7 @@ const SUBMIT_LABELS: Record<StationOperation, string> = {
   competition_attendance: "Record attendance",
 };
 interface PanelProps {
-  activity: Exclude<ScanActivity, "transport">;
+  activity: Exclude<ScanActivity, "transport" | "dispatch" | "return">;
   editionId: string;
   year: number;
   ledger: StationRecordingLedger;

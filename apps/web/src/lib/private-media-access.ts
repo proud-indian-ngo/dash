@@ -21,6 +21,7 @@ export type ProtectedUploadScope =
       kind: "kalakritiEntryMusic";
     }
   | { divisionId: string; editionId: string; kind: "kalakritiScorecard" }
+  | { editionId: string; kind: "kalakritiInventoryPhoto" }
   | { kind: "request" }
   | { kind: "scheduledMessage" }
   | { kind: "vendorPaymentInvoice"; vendorPaymentId: string };

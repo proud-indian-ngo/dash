@@ -12,9 +12,13 @@ export const SCAN_ACTIVITIES = [
   "check_in",
   "meals",
   "attendance",
+  "dispatch",
+  "return",
 ] as const;
 export type ScanActivity = (typeof SCAN_ACTIVITIES)[number];
 export const SCAN_ACTIVITY_LABELS: Record<ScanActivity, string> = {
+  dispatch: "Dispatch",
+  return: "Return",
   transport: "Transport",
   check_in: "Check-in",
   meals: "Meals",
@@ -46,6 +50,12 @@ export function getKalakritiScanActivities(
   return SCAN_ACTIVITIES.filter((activity) =>
     assignments.some((a) => {
       switch (activity) {
+        case "dispatch":
+        case "return":
+          return (
+            a.responsibility === "logistics_lead" ||
+            a.responsibility === "logistics_member"
+          );
         case "transport":
           return (
             a.responsibility === "transport_lead" ||

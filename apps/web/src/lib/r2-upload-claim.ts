@@ -1,6 +1,7 @@
 import {
   ALLOWED_APPROVAL_SCREENSHOT_TYPES,
   ALLOWED_EVENT_MEDIA_TYPES,
+  ALLOWED_IMAGE_TYPES,
   ALLOWED_KALAKRITI_MUSIC_TYPES,
   ALLOWED_KALAKRITI_SCORECARD_TYPES,
   ALLOWED_MIME_TYPES,
@@ -13,6 +14,7 @@ import {
   MAX_VIDEO_SIZE_BYTES,
   MIME_TYPE_PATTERN,
 } from "@pi-dash/shared/constants";
+import { MAX_KALAKRITI_INVENTORY_PHOTO_SIZE_BYTES } from "@pi-dash/shared/kalakriti-inventory";
 
 import { getS3 } from "./s3";
 
@@ -37,6 +39,12 @@ const normalizeMimeType = (mimeType: string): string =>
   mimeType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
 
 function uploadPolicy(sourceKey: string, mimeType: string) {
+  if (sourceKey.includes("/kalakriti-inventory/tmp/")) {
+    return {
+      allowed: ALLOWED_IMAGE_TYPES as readonly string[],
+      maxSize: MAX_KALAKRITI_INVENTORY_PHOTO_SIZE_BYTES,
+    };
+  }
   if (sourceKey.includes("/approval-screenshots/tmp/")) {
     return {
       allowed: ALLOWED_APPROVAL_SCREENSHOT_TYPES as readonly string[],
