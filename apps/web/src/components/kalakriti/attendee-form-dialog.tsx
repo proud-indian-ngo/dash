@@ -36,11 +36,13 @@ export function AttendeeFormDialog({
   editionId,
   kind,
   onClose,
+  printedCardId,
 }: {
   attendee?: AttendeeRow;
   editionId: string;
   kind: "guest" | "judge";
   onClose: () => void;
+  printedCardId?: string;
 }) {
   const zero = useZero();
   const label = kind === "guest" ? "Guest" : "Judge";
@@ -52,7 +54,7 @@ export function AttendeeFormDialog({
     },
     validators: { onChange: attendeeFormSchema, onSubmit: attendeeFormSchema },
     onSubmit: async ({ value }) => {
-      const id = attendee?.id ?? uuidv7();
+      const id = attendee?.id ?? printedCardId ?? uuidv7();
       const args = {
         ...value,
         name: value.name.trim(),
@@ -66,7 +68,11 @@ export function AttendeeFormDialog({
       const result = await zero.mutate(
         attendee
           ? mutators.kalakritiAttendee.update(args)
-          : mutators.kalakritiAttendee.create({ ...args, kind })
+          : mutators.kalakritiAttendee.create({
+              ...args,
+              kind,
+              printedCard: printedCardId !== undefined,
+            })
       ).server;
       handleMutationResult(result, {
         mutation: `kalakritiAttendee.${attendee ? "update" : "create"}`,
@@ -77,11 +83,16 @@ export function AttendeeFormDialog({
       if (result.type !== "error") onClose();
     },
   });
+  const handleClose = () => {
+    if (!form.state.isSubmitting) {
+      onClose();
+    }
+  };
   return (
     <Dialog
       open
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (!open) handleClose();
       }}
     >
       <DialogContent
@@ -93,8 +104,9 @@ export function AttendeeFormDialog({
             {attendee ? "Edit" : "Add"} {label}
           </DialogTitle>
           <DialogDescription>
-            Yearly roster contact details only. This does not create a login
-            account.
+            {printedCardId
+              ? `Enter contact details to link this printed ${label.toLowerCase()} card to the yearly roster. This does not create a login account.`
+              : "Yearly roster contact details only. This does not create a login account."}
           </DialogDescription>
         </DialogHeader>
         <FormLayout form={form} showSubmitError>
@@ -107,7 +119,7 @@ export function AttendeeFormDialog({
           />
           <InputField label="Email" name="email" type="email" />
           <FormActions
-            onCancel={onClose}
+            onCancel={handleClose}
             submitLabel={attendee ? "Save details" : `Create ${label}`}
             submittingLabel="Saving..."
           />

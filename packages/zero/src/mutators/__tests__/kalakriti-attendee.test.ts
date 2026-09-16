@@ -93,6 +93,19 @@ async function invoke(
 }
 
 describe("Overall Events Lead Judge editing", () => {
+  it("rejects reuse of a printed card instead of reporting another person's registration as successful", async () => {
+    const f = fixture([person]);
+    await expect(
+      invoke("create", f.tx, {
+        ...base,
+        kind: "judge",
+        name: "Someone else",
+        phone: "+919876543210",
+        printedCard: true,
+      })
+    ).rejects.toThrow("already registered");
+    expect(f.insert).not.toHaveBeenCalled();
+  });
   const lead = {
     userId: "lead",
     permissions: ["kalakriti.view"],

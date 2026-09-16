@@ -24,9 +24,10 @@ const fields = z.object({
     .regex(/^\+[1-9]\d{7,14}$/, "Enter a phone number in international format"),
   email: z.email().max(254).nullable().optional(),
 });
-export const kalakritiAttendeeCreateSchema = base
-  .extend(fields.shape)
-  .extend({ kind: z.enum(["guest", "judge"]) });
+export const kalakritiAttendeeCreateSchema = base.extend(fields.shape).extend({
+  kind: z.enum(["guest", "judge"]),
+  printedCard: z.boolean().optional(),
+});
 export const kalakritiAttendeeUpdateSchema = base.extend(
   fields.partial().shape
 );
@@ -113,6 +114,8 @@ export const kalakritiAttendeeMutators = {
         zql.kalakritiAttendee.where("id", args.id).one()
       );
       if (existing) {
+        if (args.printedCard)
+          throw new Error("This ID card is already registered");
         if (
           existing.editionId !== args.editionId ||
           existing.kind !== args.kind

@@ -15,6 +15,8 @@ Voucher flow: `generate-cash-voucher` job → queries reimbursement + line items
 
 ## Kalakriti ID cards
 
+The dashboard also offers **Download blank ID cards**. Administrators choose whole page counts for Volunteer, Guest, and Judge cards, from 1 to 100 pages total. `generate-blank-kalakriti-id-cards.tsx` renders four cards per page, grouped by type, with a write-in name line and a fresh UUIDv7 person QR for every card. Downloading does not create people; **Register ID card** links the scanned UUID to a new person later.
+
 `src/kalakriti-id-cards.tsx` contains reusable React PDF card and document components. `src/generate-kalakriti-id-cards.tsx` validates printable data and returns a PDF buffer. The Kalakriti dashboard downloads the complete current roster through the admin-only `/api/kalakriti/$year/id-cards` endpoint. `apps/web/src/lib/server/kalakriti-id-card-data.ts` projects cards in a read-only repeatable-read transaction.
 
 Cards are 90 x 130 mm, arranged four per A4 page with 6 mm gutters and cutting guides. Hole centers are 19 and 71 mm from the left edge, 7 mm from the top. The original Kalakriti asset is displayed through a clipped viewport to remove transparent margins without changing the source artwork. The festive decoration and QR modules are vector paths.
