@@ -7,10 +7,12 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 import { parseAsString, useQueryState } from "nuqs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { uuidv7 } from "uuidv7";
+import { z } from "zod";
 
 import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
 import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notice";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
+import { PeoplePageSummary } from "@/components/kalakriti/people-page-summary";
 import { StudentCenterChoice } from "@/components/kalakriti/student-center-choice";
 import { StudentDetailSheet } from "@/components/kalakriti/student-detail-sheet";
 import {
@@ -21,6 +23,11 @@ import { StudentTable } from "@/components/kalakriti/student-table";
 import { Loader } from "@/components/loader";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
+import {
+  createDashboardFilterQuery,
+  useDashboardDestinationFilter,
+} from "@/lib/kalakriti-dashboard-filter";
+import { kalakritiFoodScopeKey } from "@/lib/kalakriti-food-policy";
 import {
   canDeleteDirectoryStudent,
   removeObsoleteStudentFilters,
@@ -34,6 +41,9 @@ import {
 import { preloadRouteQuery } from "@/lib/route-preload";
 
 export const Route = createFileRoute("/_app/kalakriti/$year/students")({
+  validateSearch: z
+    .object({ dashboardFilter: z.string().optional() })
+    .passthrough(),
   beforeLoad: ({ context }) => {
     if (!canAccessKalakritiStudents(context.kalakritiEditionAccess))
       throw notFound();
@@ -65,6 +75,12 @@ function KalakritiStudentsPage() {
   const { edition } = access;
   const [currentEdition, editionResult] = useQuery(
     queries.kalakritiEdition.byYear({ year: edition.year })
+  );
+  const dashboardFilterPending = useDashboardDestinationFilter(
+    "students",
+    editionResult.type === "complete"
+      ? (currentEdition?.minTotalCompetitions ?? 2)
+      : undefined
   );
   const [centers, centersResult] = useQuery(
     queries.kalakritiCenter.visible({ editionId: edition.id })
@@ -140,6 +156,21 @@ function KalakritiStudentsPage() {
     parseAsString
   );
   const { query, setQuery } = useDataTableFilters();
+  const minimumEntries = currentEdition?.minTotalCompetitions ?? 2;
+  const withoutEntries = rows.filter(
+    (student) => (student.entryMemberships?.length ?? 0) === 0
+  ).length;
+  const belowMinimum = rows.filter(
+    (student) => (student.entryMemberships?.length ?? 0) < minimumEntries
+  ).length;
+  const showSummary =
+    studentsResult.type === "complete" && editionResult.type === "complete";
+  const applyExceptionFilter = (
+    value: "without_entries" | "participation_shortfall"
+  ) => {
+    const next = createDashboardFilterQuery("students", value, minimumEntries);
+    if (next) void setQuery(next);
+  };
   const normalizedQuery = useMemo(
     () => removeObsoleteStudentFilters(query),
     [query]
@@ -151,6 +182,7 @@ function KalakritiStudentsPage() {
     (center) => center.id === linkedCenterId
   );
   useEffect(() => {
+    if (dashboardFilterPending) return;
     if (linkedCenterId !== null) {
       if (centersResult.type !== "complete") return;
       if (linkedCenterAvailable) {
@@ -170,6 +202,7 @@ function KalakritiStudentsPage() {
     } else consumedLink.current = null;
     if (needsFilterMigration) void setQuery(normalizedQuery);
   }, [
+    dashboardFilterPending,
     linkedCenterId,
     linkedCenterAvailable,
     centersResult.type,
@@ -280,6 +313,7 @@ function KalakritiStudentsPage() {
       </div>
     );
   if (
+    dashboardFilterPending ||
     needsFilterMigration ||
     (centers.length === 0 && centersResult.type !== "complete") ||
     (linkedCenterId !== null &&
@@ -332,13 +366,32 @@ function KalakritiStudentsPage() {
                   : "Student registration is closed for your Centers. Existing registrations remain visible."}
         </KalakritiLockNotice>
       ) : null}
+      {showSummary ? (
+        <PeoplePageSummary
+          title="Registration progress"
+          scope="Students in your authorized Centers"
+          measures={[
+            { label: "Students", value: rows.length },
+            {
+              label: "Without Entries",
+              value: withoutEntries,
+              onClick: () => applyExceptionFilter("without_entries"),
+            },
+            {
+              label: `Below minimum (${minimumEntries})`,
+              value: belowMinimum,
+              onClick: () => applyExceptionFilter("participation_shortfall"),
+            },
+          ]}
+        />
+      ) : null}
       <StudentTable
         canManage={writableCenters.length > 0}
         centerPermissions={permissions}
         centers={selectableCenters}
         data={rows}
         statusSnapshotComplete={studentsResult.type === "complete"}
-        statusSnapshotKey={`${edition.id}:directory`}
+        statusSnapshotKey={`${kalakritiFoodScopeKey(access)}:directory`}
         entryRegistrationEnabled={false}
         isLoading={rows.length === 0 && studentsResult.type !== "complete"}
         onDelete={handleDelete}

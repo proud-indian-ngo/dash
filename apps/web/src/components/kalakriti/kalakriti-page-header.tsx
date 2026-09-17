@@ -35,7 +35,7 @@ export function KalakritiPageHeader({
     >
       <div className="min-w-0">
         {kicker ? (
-          <p className="text-muted-foreground text-sm font-medium tracking-[0.16em] uppercase">
+          <p className="text-primary text-sm font-medium tracking-[0.16em] uppercase">
             {kicker}
           </p>
         ) : null}

@@ -28,19 +28,18 @@ export class KalakritiEntriesPage {
 
   async goto(year: number, competitionName = "Solo Dance") {
     await expect(async () => {
-      await this.page.goto(`/kalakriti/${year}/entries`);
+      await this.page.goto(`/kalakriti/${year}/competitions`);
       await waitForZeroReady(this.page, 10_000);
       await expect(
-        this.page.getByRole("heading", { exact: true, name: "Entries" })
+        this.page.getByRole("heading", { exact: true, name: "Competitions" })
       ).toBeVisible({ timeout: 5000 });
     }).toPass({ timeout: 45_000 });
     await this.page
-      .getByRole("link", { exact: true, name: competitionName })
+      .getByRole("row")
+      .filter({ hasText: competitionName })
       .first()
       .click();
-    await expect(
-      this.page.getByRole("heading", { name: competitionName })
-    ).toBeVisible();
+    await expect(this.page).toHaveURL(/competition=[^&]+/);
   }
 
   trackMusicUploadKeys(): Set<string> {

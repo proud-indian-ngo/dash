@@ -222,12 +222,12 @@ test.describe("Kalakriti Registration Release authorization", () => {
       await expect(
         categoryLeadCenterPage.getByText("Outside Center", { exact: true })
       ).toHaveCount(0);
-      await categoryLeadCenterPage.goto(`/kalakriti/${YEAR}/entries`);
+      await categoryLeadCenterPage.goto(`/kalakriti/${YEAR}/competitions`);
       await waitForZeroReady(categoryLeadCenterPage);
       await expect(
         categoryLeadCenterPage.getByRole("heading", {
           exact: true,
-          name: "Entries",
+          name: "Competitions",
         })
       ).toBeVisible();
       await expect(

@@ -57,7 +57,7 @@ async function assertCanManageResponsibility(
   tx: AssignmentTx,
   ctx: Context | undefined,
   editionId: string,
-  responsibility: KalakritiResponsibility
+  responsibilities: readonly KalakritiResponsibility[]
 ): Promise<void> {
   assertIsLoggedIn(ctx);
   if (can(ctx, "kalakriti.admin")) {
@@ -78,10 +78,12 @@ async function assertCanManageResponsibility(
   const assignments = (await tx.run(
     zql.kalakritiAssignment.where("membershipId", membership.id)
   )) as readonly { responsibility: KalakritiResponsibility }[];
+  const actorResponsibilities = assignments.map(
+    (assignment) => assignment.responsibility
+  );
   if (
-    !canManageKalakritiResponsibility(
-      assignments.map((assignment) => assignment.responsibility),
-      responsibility
+    !responsibilities.every((responsibility) =>
+      canManageKalakritiResponsibility(actorResponsibilities, responsibility)
     )
   ) {
     throw new Error("Unauthorized");
@@ -299,12 +301,9 @@ async function assignVolunteerResponsibility(
   ctx: Context | undefined,
   args: AssignVolunteerArgs
 ): Promise<void> {
-  await assertCanManageResponsibility(
-    tx,
-    ctx,
-    args.editionId,
-    args.responsibility
-  );
+  await assertCanManageResponsibility(tx, ctx, args.editionId, [
+    args.responsibility,
+  ]);
   assertIsLoggedIn(ctx);
 
   const edition = await getAssignmentEdition(tx, args.editionId);
@@ -615,12 +614,9 @@ export const kalakritiAssignmentMutators = {
       if (!assignment) {
         throw new Error("Assignment not found");
       }
-      await assertCanManageResponsibility(
-        tx,
-        ctx,
-        assignment.editionId,
-        assignment.responsibility
-      );
+      await assertCanManageResponsibility(tx, ctx, assignment.editionId, [
+        assignment.responsibility,
+      ]);
       assertIsLoggedIn(ctx);
 
       const membership = await tx.run(
@@ -703,7 +699,15 @@ export const kalakritiAssignmentMutators = {
 
       const assignments = (await tx.run(
         zql.kalakritiAssignment.where("membershipId", membership.id)
-      )) as readonly { id: string }[];
+      )) as readonly { id: string; responsibility: KalakritiResponsibility }[];
+      if (assignments.length > 0) {
+        await assertCanManageResponsibility(
+          tx,
+          ctx,
+          membership.editionId,
+          assignments.map((assignment) => assignment.responsibility)
+        );
+      }
       await Promise.all(
         assignments.map((assignment) =>
           tx.mutate.kalakritiAssignment.delete({ id: assignment.id })

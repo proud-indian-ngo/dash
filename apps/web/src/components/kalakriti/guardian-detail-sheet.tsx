@@ -118,13 +118,21 @@ export function GuardianDetailSheet({
                 />
                 <DetailRow
                   label="Student registration"
-                  value={center.studentRegistrationEnabled ? "Open" : "Closed"}
+                  value={
+                    center.studentRegistrationEnabled
+                      ? access.edition.lifecycle === "registration_open"
+                        ? "Open"
+                        : "Edition locked"
+                      : "Closed"
+                  }
                 />
                 <DetailRow
                   label="Entry registration"
                   value={
                     center.competitionEntryRegistrationEnabled
-                      ? "Open"
+                      ? access.edition.lifecycle === "registration_open"
+                        ? "Open"
+                        : "Edition locked"
                       : "Closed"
                   }
                 />

@@ -85,16 +85,15 @@ describe("Kalakriti navigation", () => {
       { title: "Overview", url: "/kalakriti/2026" },
       { title: "Centers", url: "/kalakriti/2026/centers" },
       { title: "Volunteers", url: "/kalakriti/2026/volunteers" },
-      { title: "Eligibility", url: "/kalakriti/2026/eligibility" },
       { title: "Students", url: "/kalakriti/2026/students" },
-      { title: "Entries", url: "/kalakriti/2026/entries" },
       { title: "Competitions", url: "/kalakriti/2026/competitions" },
+      { title: "Settings", url: "/kalakriti/2026/settings" },
       { title: "Guardians", url: "/kalakriti/2026/guardians" },
       { title: "Audit", url: "/kalakriti/2026/audit" },
     ]);
   });
 
-  it("does not nest Centers, Entries, or Competitions", () => {
+  it("does not nest Centers, Competitions, or Settings", () => {
     const groups = buildKalakritiNavGroups({
       canViewCompetitions: true,
       canViewEntries: true,
@@ -104,10 +103,10 @@ describe("Kalakriti navigation", () => {
     expect(items.find((item) => item.title === "Centers")?.subItems).toBe(
       undefined
     );
-    expect(items.find((item) => item.title === "Entries")?.subItems).toBe(
+    expect(items.find((item) => item.title === "Competitions")?.subItems).toBe(
       undefined
     );
-    expect(items.find((item) => item.title === "Competitions")?.subItems).toBe(
+    expect(items.find((item) => item.title === "Settings")?.subItems).toBe(
       undefined
     );
   });
@@ -126,7 +125,7 @@ describe("Kalakriti navigation", () => {
         canViewCompetitions: true,
         year: 2026,
       }).flatMap((group) => group.items.map(({ title }) => title))
-    ).toEqual(["Dashboard", "Overview", "Centers", "Competitions"]);
+    ).toEqual(["Dashboard", "Overview", "Centers", "Competitions", "Settings"]);
   });
 
   it("shows Students to users with registration access", () => {
@@ -138,13 +137,13 @@ describe("Kalakriti navigation", () => {
     ).toEqual(["Dashboard", "Overview", "Centers", "Students"]);
   });
 
-  it("shows Entries to users with competition registration access", () => {
+  it("shows Competitions to users with competition registration access", () => {
     expect(
       buildKalakritiNavGroups({
         canViewEntries: true,
         year: 2026,
       }).flatMap((group) => group.items.map(({ title }) => title))
-    ).toEqual(["Dashboard", "Overview", "Centers", "Entries"]);
+    ).toEqual(["Dashboard", "Overview", "Centers", "Competitions"]);
   });
 
   it("shows Audit only when the caller has an audit scope", () => {

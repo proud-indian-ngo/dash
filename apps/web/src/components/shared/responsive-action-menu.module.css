@@ -1,0 +1,40 @@
+.trigger {
+  position: relative;
+}
+
+.trigger::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
+}
+
+.sheet {
+  border: 0;
+  background: transparent;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  max-height: calc(100dvh - 2rem);
+  animation: none;
+  transform: translateY(var(--drawer-swipe-movement-y, 0px));
+  transition: transform 200ms ease-out;
+}
+
+.sheet[data-starting-style],
+.sheet[data-ending-style] {
+  transform: translateY(100%);
+}
+
+.sheet[data-swiping] {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet {
+    transition: none;
+  }
+}

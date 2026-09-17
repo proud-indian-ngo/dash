@@ -14,7 +14,7 @@ export class KalakritiResultsPage {
   }
 
   get standings(): Locator {
-    return this.page.getByRole("region", { name: "Center standings" });
+    return this.page.getByLabel("Center standings", { exact: true });
   }
 
   async gotoEvent(year: number, divisionId: string) {
@@ -57,6 +57,9 @@ export class KalakritiResultsPage {
   }
 
   async expectCompetitionAwards() {
+    await this.page
+      .getByRole("button", { name: "Registration breakdown" })
+      .click();
     await this.page
       .getByRole("tab", { name: "Competitions", exact: true })
       .click();

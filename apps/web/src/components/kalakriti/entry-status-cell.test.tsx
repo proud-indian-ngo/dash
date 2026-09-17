@@ -129,10 +129,6 @@ describe("Entry detail filters", () => {
       "attended",
       "studentId",
       "student",
-      "participationMode",
-      "ageCategory",
-      "session",
-      "venue",
       "music",
     ]);
     expect(

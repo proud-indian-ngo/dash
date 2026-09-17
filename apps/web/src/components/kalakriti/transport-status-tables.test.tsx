@@ -1,5 +1,6 @@
 import { describe, expect, it, mock } from "bun:test";
 
+import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import type { CenterTableRow } from "./centers-table";
@@ -10,6 +11,7 @@ interface CapturedTable<T> {
   columns: {
     id?: string;
     accessorFn?: (row: T) => unknown;
+    cell?: (props: { row: { original: T } }) => ReactNode;
     enableSorting?: boolean;
     meta?: { headerTitle?: string; skeleton?: unknown };
   }[];
@@ -68,7 +70,11 @@ function renderStudent(row: StudentTableRow, complete = true) {
   );
   return captured as CapturedTable<StudentTableRow>;
 }
-function renderCenter(row: CenterTableRow, complete = true) {
+function renderCenter(
+  row: CenterTableRow,
+  complete = true,
+  registrationPhaseOpen = true
+) {
   renderToStaticMarkup(
     <CentersTable
       data={[row]}
@@ -76,6 +82,7 @@ function renderCenter(row: CenterTableRow, complete = true) {
       canConfigureCenters={false}
       statusSnapshotComplete={complete}
       statusSnapshotKey="edition"
+      registrationPhaseOpen={registrationPhaseOpen}
       canManageRegistrationControls={false}
       emptyMessage="No Centers"
       isLoading={false}
@@ -90,6 +97,23 @@ function renderCenter(row: CenterTableRow, complete = true) {
 }
 
 describe("read-only transport status columns", () => {
+  it("shows the Edition lock when a Center saved registration as open", () => {
+    const opened = {
+      ...center,
+      studentRegistrationEnabled: true,
+      competitionEntryRegistrationEnabled: true,
+    };
+    const table = renderCenter(opened, true, false);
+    const status = table.columns.find(
+      (column) => column.meta?.headerTitle === "Student registration"
+    );
+    expect(
+      renderToStaticMarkup(<>{status?.cell?.({ row: { original: opened } })}</>)
+    ).toContain("Edition locked");
+    expect(table.filter.getValue(opened, ["studentRegistrationEnabled"])).toBe(
+      "closed"
+    );
+  });
   it("does not mislabel partial cached rows as awaiting pickup or skeletonize the whole table", () => {
     const studentTable = renderStudent(student, false);
     const centerTable = renderCenter(center, false);

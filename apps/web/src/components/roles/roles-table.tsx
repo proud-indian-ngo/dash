@@ -4,13 +4,6 @@ import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { useNavigate } from "@tanstack/react-router";
@@ -24,6 +17,7 @@ import {
   useMigrateLegacyRoleFilterParams,
 } from "@/components/roles/role-filters";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import type { RoleListItem } from "@/functions/role-admin";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 
@@ -57,39 +51,40 @@ function RowActions({
   const handleDelete = useEventCallback(() => onRequestDelete(role));
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label="Row actions"
-            data-testid="row-actions"
-            onClick={stableOnClick0}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4"
-              icon={MoreVerticalIcon}
-              strokeWidth={2}
-            />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end" className="w-32">
-        <DropdownMenuItem onClick={stableOnClick1}>
-          {roleId === "admin" ? "View" : "Edit"}
-        </DropdownMenuItem>
-        {!isSystem && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleDelete} variant="destructive">
-              Delete
-            </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <ResponsiveActionMenu
+      title={`${role.name} actions`}
+      contentClassName="w-32"
+      trigger={
+        <Button
+          aria-label="Row actions"
+          data-testid="row-actions"
+          onClick={stableOnClick0}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <HugeiconsIcon
+            className="size-4"
+            icon={MoreVerticalIcon}
+            strokeWidth={2}
+          />
+        </Button>
+      }
+      actions={[
+        {
+          id: "edit",
+          label: roleId === "admin" ? "View" : "Edit",
+          onSelect: stableOnClick1,
+        },
+        !isSystem && {
+          id: "delete",
+          label: "Delete",
+          onSelect: handleDelete,
+          destructive: true,
+          group: "destructive",
+        },
+      ]}
+    />
   );
 }
 

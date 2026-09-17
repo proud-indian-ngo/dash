@@ -77,6 +77,16 @@ function matches(
 }
 
 describe("transport directory query authorization", () => {
+  it("includes only requested-Edition scan stages for authorized Centers", () => {
+    const query = kalakritiTransportQueries.centers.fn({
+      args: { editionId: "edition-1" },
+      ctx: { permissions: ["kalakriti.admin"], role: "admin", userId: "admin" },
+    }) as unknown as { ast: unknown };
+    const json = JSON.stringify(query.ast);
+    expect(json).toContain('"alias":"scanStages"');
+    expect(json).toContain('"table":"kalakritiCenterScanStage"');
+    expect(json).toContain('"value":"edition-1"');
+  });
   it.each([
     "transport_lead",
     "edition_admin",

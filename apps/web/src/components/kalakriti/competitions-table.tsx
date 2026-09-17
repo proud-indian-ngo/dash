@@ -4,13 +4,6 @@ import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/dat
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
@@ -21,6 +14,8 @@ import {
   createCompetitionFilterFields,
   getCompetitionFilterValue,
 } from "@/components/kalakriti/kalakriti-filters";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { COMPETITION_STATUS_LABELS } from "@/lib/kalakriti-competition-status";
 
 import {
   type CompetitionTableRow,
@@ -37,6 +32,7 @@ const SKELETON_STATUS = <Skeleton className="h-5 w-16" />;
 const SKELETON_ACTIONS = <Skeleton className="mx-auto size-8" />;
 
 function RowActions({
+  canEdit,
   canManageCancellations,
   canManageStructure,
   competition,
@@ -44,7 +40,9 @@ function RowActions({
   onEdit,
   onSetState,
   onView,
+  onDetails,
 }: {
+  canEdit: boolean;
   canManageCancellations: boolean;
   canManageStructure: boolean;
   competition: CompetitionTableRow;
@@ -52,11 +50,13 @@ function RowActions({
   onEdit: (competition: CompetitionTableRow) => void;
   onSetState: (payload: ConfigurationStatePayload) => void;
   onView: (competition: CompetitionTableRow) => void;
+  onDetails: (competition: CompetitionTableRow) => void;
 }) {
   const stopRowClick = useEventCallback(
     (event: { stopPropagation: () => void }) => event.stopPropagation()
   );
   const handleView = useEventCallback(() => onView(competition));
+  const handleDetails = useEventCallback(() => onDetails(competition));
   const handleEdit = useEventCallback(() => onEdit(competition));
   const handleCancel = useEventCallback(() =>
     onSetState({
@@ -85,57 +85,51 @@ function RowActions({
   );
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label={`Actions for ${competition.name}`}
-            className="size-8"
-            data-testid="row-actions"
-            onClick={stopRowClick}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4"
-              icon={MoreVerticalIcon}
-              strokeWidth={2}
-            />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={handleView}>View details</DropdownMenuItem>
-        {canManageCancellations || canManageStructure ? (
-          <>
-            {canManageStructure ? (
-              <DropdownMenuItem onClick={handleEdit}>
-                Edit Competition
-              </DropdownMenuItem>
-            ) : null}
-            {canManageCancellations ? (
-              <DropdownMenuItem onClick={handleCancel}>
-                {competition.cancelledAt === null ? "Cancel" : "Restore"}{" "}
-                Competition
-              </DropdownMenuItem>
-            ) : null}
-            {canManageStructure ? (
-              <>
-                <DropdownMenuItem onClick={handleRetire}>
-                  {competition.retiredAt === null ? "Retire" : "Restore"}{" "}
-                  Competition
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleDelete} variant="destructive">
-                  Delete Competition
-                </DropdownMenuItem>
-              </>
-            ) : null}
-          </>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <ResponsiveActionMenu
+      title={`${competition.name} actions`}
+      trigger={
+        <Button
+          aria-label={`Actions for ${competition.name}`}
+          className="size-10 max-sm:size-11"
+          data-testid="row-actions"
+          onClick={stopRowClick}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <HugeiconsIcon
+            className="size-4"
+            icon={MoreVerticalIcon}
+            strokeWidth={2}
+          />
+        </Button>
+      }
+      actions={[
+        { id: "entries", label: "View Entries", onSelect: handleView },
+        { id: "details", label: "View configuration", onSelect: handleDetails },
+        canEdit && {
+          id: "edit",
+          label: "Edit Competition",
+          onSelect: handleEdit,
+        },
+        canManageCancellations && {
+          id: "cancel",
+          label: `${competition.cancelledAt === null ? "Cancel" : "Restore"} Competition`,
+          onSelect: handleCancel,
+        },
+        canManageStructure && {
+          id: "retire",
+          label: `${competition.retiredAt === null ? "Retire" : "Restore"} Competition`,
+          onSelect: handleRetire,
+        },
+        canManageStructure && {
+          id: "delete",
+          label: "Delete Competition",
+          onSelect: handleDelete,
+          destructive: true,
+        },
+      ]}
+    />
   );
 }
 
@@ -152,10 +146,9 @@ function searchCompetition(
     competition.categoryName,
     competition.participationMode,
     competition.genderEligibility,
-    competition.divisions
-      .map((division) => division.ageCategory?.name)
-      .join(" "),
-    getCompetitionStatus(competition),
+    competition.ageCategoryName,
+    competition.venueName,
+    formatConfigurationLabel(getCompetitionStatus(competition)),
   ]
     .join(" ")
     .toLowerCase()
@@ -163,6 +156,7 @@ function searchCompetition(
 }
 
 export function CompetitionsTable({
+  canEdit,
   canManageCancellations,
   canManageStructure,
   data,
@@ -171,8 +165,10 @@ export function CompetitionsTable({
   onEdit,
   onSetState,
   onView,
+  onDetails,
   toolbarActions,
 }: {
+  canEdit: boolean;
   canManageCancellations: boolean;
   canManageStructure: boolean;
   data: CompetitionTableRow[];
@@ -181,6 +177,7 @@ export function CompetitionsTable({
   onEdit: (competition: CompetitionTableRow) => void;
   onSetState: (payload: ConfigurationStatePayload) => void;
   onView: (competition: CompetitionTableRow) => void;
+  onDetails: (competition: CompetitionTableRow) => void;
   toolbarActions?: ReactNode;
 }) {
   const filterFields = useMemo(
@@ -191,7 +188,7 @@ export function CompetitionsTable({
     {
       accessorKey: "name",
       cell: ({ row }) => (
-        <span className="inline-flex items-center gap-2">
+        <span className="inline-flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium" data-testid="row-title">
             {row.original.name}
           </span>
@@ -211,6 +208,19 @@ export function CompetitionsTable({
       size: 210,
     },
     {
+      accessorKey: "ageCategoryName",
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Age Category"
+          visibility={true}
+        />
+      ),
+      id: "ageCategories",
+      meta: { headerTitle: "Age Category", skeleton: SKELETON_VALUE },
+      size: 190,
+    },
+    {
       accessorKey: "categoryName",
       header: ({ column }) => (
         <DataGridColumnHeader
@@ -221,6 +231,43 @@ export function CompetitionsTable({
       ),
       meta: { headerTitle: "Category", skeleton: SKELETON_CATEGORY },
       size: 170,
+    },
+    {
+      accessorKey: "entryCount",
+      cell: ({ row }) => (
+        <span className="tabular-nums">
+          {row.original.entryCount ?? "Checking"}
+        </span>
+      ),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Entries"
+          visibility={true}
+        />
+      ),
+      meta: { headerTitle: "Entries", skeleton: SKELETON_VALUE },
+      size: 100,
+    },
+    {
+      accessorKey: "venueName",
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Venue" visibility={true} />
+      ),
+      meta: { headerTitle: "Venue", skeleton: SKELETON_VALUE },
+      size: 160,
+    },
+    {
+      accessorKey: "scheduleLabel",
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Schedule"
+          visibility={true}
+        />
+      ),
+      meta: { headerTitle: "Schedule", skeleton: SKELETON_VALUE },
+      size: 230,
     },
     {
       accessorKey: "participationMode",
@@ -258,24 +305,6 @@ export function CompetitionsTable({
     },
     {
       accessorFn: (competition) =>
-        competition.divisions
-          .flatMap((division) =>
-            division.ageCategory ? [division.ageCategory.name] : []
-          )
-          .join(", "),
-      header: ({ column }) => (
-        <DataGridColumnHeader
-          column={column}
-          title="Age Categories"
-          visibility={true}
-        />
-      ),
-      id: "ageCategories",
-      meta: { headerTitle: "Age Categories", skeleton: SKELETON_VALUE },
-      size: 190,
-    },
-    {
-      accessorFn: (competition) =>
         `${competition.minimumGroupSize}-${competition.maximumGroupSize}`,
       cell: ({ row }) => (
         <span className="text-sm">
@@ -299,10 +328,15 @@ export function CompetitionsTable({
         const status = getCompetitionStatus(row.original);
         return (
           <Badge
-            className="capitalize"
-            variant={status === "active" ? "secondary" : "outline"}
+            variant={
+              status === "running" || status === "winner_assigned"
+                ? "secondary"
+                : "outline"
+            }
           >
-            {status}
+            {status === "checking"
+              ? "Checking"
+              : COMPETITION_STATUS_LABELS[status]}
           </Badge>
         );
       },
@@ -320,6 +354,7 @@ export function CompetitionsTable({
     {
       cell: ({ row }) => (
         <RowActions
+          canEdit={canEdit}
           canManageCancellations={canManageCancellations}
           canManageStructure={canManageStructure}
           competition={row.original}
@@ -327,6 +362,7 @@ export function CompetitionsTable({
           onEdit={onEdit}
           onSetState={onSetState}
           onView={onView}
+          onDetails={onDetails}
         />
       ),
       enableHiding: false,
@@ -335,7 +371,7 @@ export function CompetitionsTable({
       header: "",
       id: "actions",
       meta: {
-        cellClassName: "text-center",
+        cellClassName: "px-1 text-center",
         enableColumnOrdering: false,
         headerTitle: "",
         skeleton: SKELETON_ACTIONS,
@@ -344,13 +380,20 @@ export function CompetitionsTable({
       size: 52,
     },
   ];
-  const getRowId = useEventCallback((row: CompetitionTableRow) => row.id);
+  const getRowId = useEventCallback(
+    (row: CompetitionTableRow) => row.divisionId ?? row.id
+  );
   const handleRowClick = useEventCallback((row: CompetitionTableRow) =>
     onView(row)
   );
 
   return (
     <DataTableWrapper<CompetitionTableRow>
+      defaultColumnVisibility={{
+        participationMode: false,
+        genderEligibility: false,
+        groupSize: false,
+      }}
       columns={columns}
       data={data}
       emptyMessage="No Competitions configured."
@@ -363,7 +406,7 @@ export function CompetitionsTable({
       onRowClick={handleRowClick}
       searchFn={searchCompetition}
       searchPlaceholder="Search Competitions..."
-      storageKey="kalakriti_competitions_table_state_v1"
+      storageKey="kalakriti_competitions_table_state_v4"
       tableLayout={{
         columnsDraggable: true,
         columnsPinnable: true,

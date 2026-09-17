@@ -13,7 +13,10 @@ mock.module("./use-result-snapshot", () => ({
     refresh: async () => undefined,
   }),
 }));
-mock.module("@rocicorp/zero/react", () => ({ useZero: () => ({}) }));
+mock.module("@rocicorp/zero/react", () => ({
+  useZero: () => ({}),
+  useQuery: () => [[], { type: "complete" }],
+}));
 mock.module("@/hooks/use-confirm-action", () => ({
   useConfirmAction: () => ({
     trigger: () => undefined,
@@ -82,5 +85,7 @@ describe("CenterStandings", () => {
     const output = textContent();
     expect(output).toContain("Overall winner: Center A · 50 points");
     expect(output).toContain("Overall runner-up: Center B · 35 points");
+    expect(output).toContain("View Center standings");
+    expect(output).not.toContain("Runner-up finishes");
   });
 });

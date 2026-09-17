@@ -16,11 +16,14 @@ import {
   DialogTitle,
 } from "@pi-dash/design-system/components/ui/dialog";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { hasValidKalakritiGroupRules } from "@pi-dash/shared/kalakriti";
+import {
+  hasValidKalakritiGroupRules,
+  validateKalakritiSessionSchedule,
+} from "@pi-dash/shared/kalakriti";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 
@@ -34,7 +37,11 @@ import {
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { SelectField } from "@/components/form/select-field";
+import { previewCompetitionSchedules } from "@/lib/kalakriti-competition-schedule";
+import { formatEditionDateTime } from "@/lib/kalakriti-schedule-time";
 import { handleMutationResult } from "@/lib/mutation-result";
+
+import type { CompetitionSessionFormValue } from "./competition-config-types";
 
 const competitionSchema = z
   .object({
@@ -44,6 +51,9 @@ const competitionSchema = z
         z.object({
           ageCategoryId: z.string(),
           id: z.string(),
+          venueId: z.string().optional(),
+          startAt: z.string().optional(),
+          endAt: z.string().optional(),
         })
       )
       .min(1, "Select at least one Age Category"),
@@ -85,6 +95,9 @@ export interface CompetitionDivisionFormValue {
   ageCategoryId: string;
   competitionId?: string;
   id: string;
+  venueId?: string;
+  startAt?: string;
+  endAt?: string;
 }
 
 export interface AgeCategoryOption {
@@ -103,15 +116,82 @@ function CompetitionForm({
   categories,
   competition,
   editionId,
+  eventDate,
+  timeZone,
+  sessions,
+  venues,
+  structuralLocked = false,
   onOpenChange,
 }: {
   ageCategories: readonly AgeCategoryOption[];
   categories: readonly CompetitionCategoryOption[];
   competition: CompetitionFormValue | null;
   editionId: string;
+  eventDate: string;
+  timeZone: string;
+  sessions: readonly CompetitionSessionFormValue[];
+  venues: readonly CompetitionCategoryOption[];
+  structuralLocked?: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const zero = useZero();
+  const formatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat("en-CA", {
+        day: "2-digit",
+        hour: "2-digit",
+        hourCycle: "h23",
+        minute: "2-digit",
+        month: "2-digit",
+        timeZone,
+        year: "numeric",
+      }),
+    [timeZone]
+  );
+  const schema = competitionSchema.superRefine((value, context) => {
+    const { drafts, finalSchedule } = previewCompetitionSchedules(
+      value.divisions,
+      sessions,
+      formatter
+    );
+    for (const schedule of drafts) {
+      if (!schedule.changed) continue;
+      if (!schedule.venueId)
+        context.addIssue({
+          code: "custom",
+          path: ["divisions", schedule.index, "venueId"],
+          message: "Select a Venue",
+        });
+      if (!Number.isFinite(schedule.startAt))
+        context.addIssue({
+          code: "custom",
+          path: ["divisions", schedule.index, "startAt"],
+          message: "Select a start time",
+        });
+      const validation = validateKalakritiSessionSchedule(
+        schedule,
+        eventDate,
+        timeZone,
+        finalSchedule
+      );
+      if (!validation.valid)
+        context.addIssue({
+          code: "custom",
+          path: [
+            "divisions",
+            schedule.index,
+            validation.reason === "venue_overlap" ? "venueId" : "endAt",
+          ],
+          message:
+            validation.reason === "venue_overlap"
+              ? "Venue already has an overlapping Session"
+              : validation.reason === "outside_event_date"
+                ? `Session must fall on ${eventDate}`
+                : "End time must be after start time",
+        });
+    }
+  });
+
   const activeCategories = categories.filter(
     (category) =>
       category.retiredAt === null ||
@@ -124,7 +204,21 @@ function CompetitionForm({
       competitionCategoryId:
         competition?.competitionCategoryId || activeCategories[0]?.id || "",
       divisions:
-        competition?.divisions.map((division) => ({ ...division })) ?? [],
+        competition?.divisions.map((division): CompetitionDivisionFormValue => {
+          const session = sessions.find(
+            (item) => item.divisionId === division.id
+          );
+          return {
+            ...division,
+            venueId: session?.venueId ?? "",
+            startAt: session
+              ? formatEditionDateTime(session.startAt, formatter)
+              : "",
+            endAt: session
+              ? formatEditionDateTime(session.endAt, formatter)
+              : "",
+          };
+        }) ?? [],
       genderEligibility: competition
         ? competition.genderEligibility
         : ("both" as const),
@@ -146,6 +240,20 @@ function CompetitionForm({
           ageCategoryId: division.ageCategoryId,
           divisionId: division.id,
         })),
+        schedules: previewCompetitionSchedules(
+          value.divisions,
+          sessions,
+          formatter
+        )
+          .drafts.filter((draft) => draft.changed)
+          .map((draft) => ({
+            auditEntryId: uuidv7(),
+            divisionId: draft.divisionId,
+            sessionId: draft.existing?.id ?? uuidv7(),
+            venueId: draft.venueId,
+            startAt: draft.startAt,
+            endAt: draft.endAt,
+          })),
         now: Date.now(),
       };
       const result = competition
@@ -172,76 +280,146 @@ function CompetitionForm({
         onOpenChange(false);
       }
     },
-    validators: { onChange: competitionSchema, onSubmit: competitionSchema },
+    validators: { onChange: schema, onSubmit: schema },
   });
   return (
     <FormLayout form={form}>
-      <InputField autoFocus isRequired label="Competition name" name="name" />
-      <SelectField
-        isRequired
-        label="Competition Category"
-        name="competitionCategoryId"
-        options={activeCategories.map((category) => ({
-          label: category.name,
-          value: category.id,
-        }))}
-      />
-      <CustomField<CompetitionDivisionFormValue[]>
-        description="Each selected Age Category is an independently ranked Competition Division."
-        isRequired
-        label="Age Categories"
-        name="divisions"
+      <fieldset
+        disabled={structuralLocked}
+        className="flex min-w-0 flex-col gap-4"
       >
-        {(field) => (
-          <AgeCategoryDivisionPicker
-            field={field}
-            options={activeAgeCategories}
-            submitted={form.state.submissionAttempts > 0}
+        <InputField autoFocus isRequired label="Competition name" name="name" />
+        <SelectField
+          isRequired
+          label="Competition Category"
+          name="competitionCategoryId"
+          options={activeCategories.map((category) => ({
+            label: category.name,
+            value: category.id,
+          }))}
+        />
+        <CustomField<CompetitionDivisionFormValue[]>
+          description="Each selected Age Category is an independently ranked Competition Division."
+          isRequired
+          label="Age Categories"
+          name="divisions"
+        >
+          {(field) => (
+            <AgeCategoryDivisionPicker
+              field={field}
+              options={activeAgeCategories}
+              submitted={form.state.submissionAttempts > 0}
+            />
+          )}
+        </CustomField>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <SelectField
+            isRequired
+            label="Participation mode"
+            name="participationMode"
+            options={[
+              { label: "Individual", value: "individual" },
+              { label: "Group", value: "group" },
+            ]}
           />
-        )}
-      </CustomField>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <SelectField
-          isRequired
-          label="Participation mode"
-          name="participationMode"
-          options={[
-            { label: "Individual", value: "individual" },
-            { label: "Group", value: "group" },
-          ]}
+          <SelectField
+            isRequired
+            label="Gender eligibility"
+            name="genderEligibility"
+            options={[
+              { label: "All Students", value: "both" },
+              { label: "Male Students", value: "male" },
+              { label: "Female Students", value: "female" },
+            ]}
+          />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <InputField
+            description="Use 1 for an individual Competition."
+            isRequired
+            label="Minimum group size"
+            name="minimumGroupSize"
+            type="number"
+          />
+          <InputField
+            description="Use 1 for an individual Competition."
+            isRequired
+            label="Maximum group size"
+            name="maximumGroupSize"
+            type="number"
+          />
+        </div>
+        <CheckboxField
+          description="Guardians can attach up to two optional audio files to each Entry."
+          label="Allow music upload"
+          name="musicUploadEnabled"
         />
-        <SelectField
-          isRequired
-          label="Gender eligibility"
-          name="genderEligibility"
-          options={[
-            { label: "All Students", value: "both" },
-            { label: "Male Students", value: "male" },
-            { label: "Female Students", value: "female" },
-          ]}
-        />
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <InputField
-          description="Use 1 for an individual Competition."
-          isRequired
-          label="Minimum group size"
-          name="minimumGroupSize"
-          type="number"
-        />
-        <InputField
-          description="Use 1 for an individual Competition."
-          isRequired
-          label="Maximum group size"
-          name="maximumGroupSize"
-          type="number"
-        />
-      </div>
-      <CheckboxField
-        description="Guardians can attach one optional audio file to each Entry."
-        label="Allow music upload"
-        name="musicUploadEnabled"
-      />
+      </fieldset>
+      {structuralLocked ? (
+        <p className="text-muted-foreground text-sm">
+          Competition rules are locked. Existing Session times and Venues can
+          still be updated.
+        </p>
+      ) : null}
+      <section
+        className="flex flex-col gap-4"
+        aria-label="Schedule by Age Category"
+      >
+        <div>
+          <h3 className="text-sm font-semibold">Schedule and Venue</h3>
+          <p className="text-muted-foreground text-xs">
+            Set a time and Venue for each Age Category ({timeZone}). Leave all
+            fields blank to schedule a new Division later. Use Remove schedule
+            in Competition details to remove an existing Session.
+          </p>
+        </div>
+        <form.Subscribe selector={(state) => state.values.divisions}>
+          {(divisions) =>
+            divisions.map((division, index) => {
+              const existing = sessions.find(
+                (session) => session.divisionId === division.id
+              );
+              return (
+                <fieldset
+                  key={division.id}
+                  className="flex min-w-0 flex-col gap-3 border p-3"
+                  disabled={structuralLocked && !existing}
+                >
+                  <legend className="px-1 text-sm font-medium">
+                    {ageCategories.find(
+                      (age) => age.id === division.ageCategoryId
+                    )?.name ?? "Age Category"}
+                    {existing?.cancelledAt ? " · Cancelled" : ""}
+                  </legend>
+                  <SelectField
+                    label="Venue"
+                    name={`divisions[${index}].venueId`}
+                    options={venues
+                      .filter(
+                        (venue) =>
+                          venue.retiredAt === null ||
+                          venue.id === existing?.venueId
+                      )
+                      .map((venue) => ({ label: venue.name, value: venue.id }))}
+                  />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <InputField
+                      label="Start time"
+                      name={`divisions[${index}].startAt`}
+                      type="datetime-local"
+                    />
+                    <InputField
+                      label="End time"
+                      name={`divisions[${index}].endAt`}
+                      type="datetime-local"
+                    />
+                  </div>
+                </fieldset>
+              );
+            })
+          }
+        </form.Subscribe>
+      </section>
       <FormActions
         onCancel={handleCancel}
         submitLabel={competition ? "Save Competition" : "Create Competition"}
@@ -279,6 +457,9 @@ function AgeCategoryDivisionPicker({
           existing.get(ageCategoryId) ?? {
             ageCategoryId,
             id: uuidv7(),
+            venueId: "",
+            startAt: "",
+            endAt: "",
           }
       )
     );
@@ -325,6 +506,11 @@ export function CompetitionFormDialog({
   categories,
   competition,
   editionId,
+  eventDate,
+  timeZone,
+  sessions,
+  venues,
+  structuralLocked = false,
   onOpenChange,
   open,
 }: {
@@ -332,6 +518,11 @@ export function CompetitionFormDialog({
   categories: readonly CompetitionCategoryOption[];
   competition: CompetitionFormValue | null;
   editionId: string;
+  eventDate: string;
+  timeZone: string;
+  sessions: readonly CompetitionSessionFormValue[];
+  venues: readonly CompetitionCategoryOption[];
+  structuralLocked?: boolean;
   onOpenChange: (open: boolean) => void;
   open: boolean;
 }) {
@@ -344,13 +535,14 @@ export function CompetitionFormDialog({
   });
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
             {competition ? "Edit Competition" : "Add Competition"}
           </DialogTitle>
           <DialogDescription>
-            Configure participation, eligibility, and group-size rules.
+            Configure participation, eligibility, and each Division’s schedule
+            and Venue.
           </DialogDescription>
         </DialogHeader>
         <CompetitionForm
@@ -358,6 +550,11 @@ export function CompetitionFormDialog({
           categories={categories}
           competition={competition}
           editionId={editionId}
+          eventDate={eventDate}
+          timeZone={timeZone}
+          sessions={sessions}
+          venues={venues}
+          structuralLocked={structuralLocked}
           key={formKey}
           onOpenChange={onOpenChange}
         />

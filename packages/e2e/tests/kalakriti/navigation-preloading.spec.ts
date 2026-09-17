@@ -49,7 +49,7 @@ test("intent hydrates Students and Entries before navigation", async ({
       }));
     });
   await expect(
-    page.getByRole("link", { name: "Entries", exact: true })
+    page.getByRole("link", { name: "Competitions", exact: true })
   ).toBeVisible();
   await page.waitForTimeout(500);
   expect((await queryStates()).map((query) => query.name)).not.toContain(
@@ -59,7 +59,7 @@ test("intent hydrates Students and Entries before navigation", async ({
     "kalakritiStudent.visibleForDirectory"
   );
 
-  await page.getByRole("link", { name: "Entries", exact: true }).hover();
+  await page.getByRole("link", { name: "Competitions", exact: true }).hover();
   await expect
     .poll(async () => {
       const states = await queryStates();
@@ -133,7 +133,7 @@ test("visible Kalakriti links do not trigger an access-request burst", async ({
   await page.goto(`/kalakriti/${YEAR}/students`);
   await waitForZeroReady(page);
   const entries = page
-    .getByRole("link", { name: "Entries", exact: true })
+    .getByRole("link", { name: "Competitions", exact: true })
     .first();
   await expect(entries).toBeVisible();
 
@@ -150,9 +150,9 @@ test("visible Kalakriti links do not trigger an access-request burst", async ({
   const afterHover = accessRequests.length;
   expect(afterHover - afterInitialLoad).toBe(1);
   await entries.click();
-  await expect(page).toHaveURL(`/kalakriti/${YEAR}/entries`);
+  await expect(page).toHaveURL(`/kalakriti/${YEAR}/competitions`);
   await expect(
-    page.getByRole("heading", { name: "Entries", exact: true })
+    page.getByRole("heading", { name: "Competitions", exact: true })
   ).toBeVisible();
   await waitForZeroReady(page);
   // A completed hover request may be checked again on click. Only concurrent
@@ -327,11 +327,11 @@ test("restricted access still allows assigned pages and denies another user", as
       guardianPage.getByRole("heading", { name: "Students", exact: true })
     ).toBeVisible();
     await guardianPage
-      .getByRole("link", { name: "Entries", exact: true })
+      .getByRole("link", { name: "Competitions", exact: true })
       .first()
       .click();
     await expect(
-      guardianPage.getByRole("heading", { name: "Entries", exact: true })
+      guardianPage.getByRole("heading", { name: "Competitions", exact: true })
     ).toBeVisible();
   } finally {
     await guardianContext.close();

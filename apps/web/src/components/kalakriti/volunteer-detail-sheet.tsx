@@ -63,6 +63,14 @@ export function VolunteerDetailSheet({
   const canAssignRole = volunteer
     ? isKalakritiAssignableUserRole(volunteer.userRole)
     : false;
+  const canRemoveFromEdition =
+    isGlobalAdmin ||
+    volunteer?.assignments.every((assignment) =>
+      canManageKalakritiResponsibility(
+        actorResponsibilities,
+        assignment.responsibility
+      )
+    );
 
   if (!volunteer) {
     return (
@@ -128,13 +136,15 @@ export function VolunteerDetailSheet({
             )}
           </div>
 
-          <Button
-            onClick={handleRemoveFromEdition}
-            type="button"
-            variant="destructive"
-          >
-            Remove from Edition
-          </Button>
+          {canRemoveFromEdition ? (
+            <Button
+              onClick={handleRemoveFromEdition}
+              type="button"
+              variant="destructive"
+            >
+              Remove from Edition
+            </Button>
+          ) : null}
         </div>
       </SheetContent>
     </Sheet>

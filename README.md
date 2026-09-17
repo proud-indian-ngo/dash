@@ -34,6 +34,7 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 |---|---|
 | Role-based access | `admin` and `volunteer` roles; admin-only pages are guarded |
 | User management | Create, edit, delete users (admin only) |
+| Responsive action menus | Row and page actions use desktop dropdowns and swipe-dismissable mobile action sheets with separate destructive actions. The mobile account menu opens Notifications in its own view. |
 | Ban / unban | Ban users with optional reason and expiry |
 | Password reset | Admin can reset any user's password |
 | Email verification | Verification email sent on account creation |
@@ -42,8 +43,10 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 | Teams | Organize volunteers into teams with leads; optionally link to WhatsApp groups for automated member syncing |
 | Events | Create team events (one-time or recurring), assign members, track attendance per occurrence; public events page for all users |
 | Kalakriti Editions | Run production-gated yearly registration workspaces with Edition-scoped access, persistent external identities, Center quotas and controls, student and competition-entry registration, public schedules, assignment-scoped dashboards and ZIP exports, and administrator or assigned-Lead audit trails. Volunteer enrollment automatically promotes unoriented volunteers without changing admin or custom roles; see the [orientation policy](docs/architecture/kalakriti-registration.md#identity-and-access). |
+| Kalakriti dashboards | Scan phase-aware pending work and scoped participation, staffing, meal, transport, inventory and attendance summaries. Work pages add actionable counts, completion visuals, mobile row context and clearable filters; public schedules filter by Venue, Age Category and Category. |
 | Kalakriti Students | Browse Students across all authorized Centers with a Center column and filter. Registration and row actions retain their actual Center's permissions and quota rules. |
 | Kalakriti Entry music | Optionally attach up to two MP3, M4A, or AAC files per Entry (20 MB each), with per-file retries, staged Save/Cancel, and protected playback/download. Scoped music editing remains available after registration closes; files stay out of public schedules and exports. |
+| Kalakriti competition workspace | One row per Competition with scoped Entries and Division schedules; add/edit/cancel in place and set Venue/time in the editor. Settings groups Edition details, participation rules, Categories, Venues and Eligibility. |
 | Kalakriti Guests and Judges | Manage Edition-bound non-login attendees with required name/phone and optional email. Assign judges to multiple competitions; Overall Events Leads can add, edit, assign, and delete Judges (deletion is blocked after check-in or meal history), while other Event Heads have scoped read access and Volunteer Coordinators can view both rosters. Guests and judges use QR/yearly-ID check-in before breakfast or lunch. |
 | Kalakriti ID cards | Global and Edition admins download current-person cards or choose page counts of blank Volunteer, Guest, and Judge cards, four per A4 page. Blank cards have unique QR codes and write-in name lines; scan-to-register links them to new people. Creating central volunteers also requires user-creation permission. |
 | Kalakriti detail sheets | View stable yearly IDs for Students, Volunteers, and Guardians, alongside responsibilities, Centers, and competition entries. Every authorized sheet viewer sees a QR containing the person's existing identifier, with no issuance step or separate Credentials page. |

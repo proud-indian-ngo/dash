@@ -12,12 +12,6 @@ import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
@@ -38,6 +32,7 @@ import {
   getScheduledMessageFilterValue,
   useMigrateLegacyScheduledMessageFilterParams,
 } from "@/components/scheduled-messages/scheduled-message-filters";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { SHORT_DATE_WITH_SECONDS } from "@/lib/date-formats";
 
 type ScheduledMessageRow = ScheduledMessage & {
@@ -299,67 +294,55 @@ function ScheduledMessageActions({
   const handleDelete = useEventCallback(() => onDelete(message));
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label="Row actions"
-            className="size-8"
-            data-testid="row-actions"
-            onClick={stopPropagation}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4"
-              icon={MoreVerticalIcon}
-              strokeWidth={2}
-            />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end" className="w-40">
-        <DropdownMenuItem onClick={handleView}>
+    <ResponsiveActionMenu
+      title="Scheduled message actions"
+      contentClassName="w-40"
+      trigger={
+        <Button
+          aria-label="Row actions"
+          className="size-8"
+          data-testid="row-actions"
+          onClick={stopPropagation}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
           <HugeiconsIcon
-            className="mr-2 size-4"
-            icon={ViewIcon}
+            className="size-4"
+            icon={MoreVerticalIcon}
             strokeWidth={2}
           />
-          View details
-        </DropdownMenuItem>
-        {isPending ? (
-          <DropdownMenuItem onClick={handleEdit}>
-            <HugeiconsIcon
-              className="mr-2 size-4"
-              icon={PencilEdit01Icon}
-              strokeWidth={2}
-            />
-            Edit
-          </DropdownMenuItem>
-        ) : null}
-        {isPending ? (
-          <DropdownMenuItem onClick={handleCancel} variant="destructive">
-            <HugeiconsIcon
-              className="mr-2 size-4"
-              icon={Cancel01Icon}
-              strokeWidth={2}
-            />
-            Cancel
-          </DropdownMenuItem>
-        ) : null}
-        {isPending ? null : (
-          <DropdownMenuItem onClick={handleDelete} variant="destructive">
-            <HugeiconsIcon
-              className="mr-2 size-4"
-              icon={Delete02Icon}
-              strokeWidth={2}
-            />
-            Delete
-          </DropdownMenuItem>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </Button>
+      }
+      actions={[
+        {
+          id: "view",
+          label: "View details",
+          icon: <HugeiconsIcon icon={ViewIcon} strokeWidth={2} />,
+          onSelect: handleView,
+        },
+        isPending && {
+          id: "edit",
+          label: "Edit",
+          icon: <HugeiconsIcon icon={PencilEdit01Icon} strokeWidth={2} />,
+          onSelect: handleEdit,
+        },
+        isPending && {
+          id: "cancel",
+          label: "Cancel",
+          icon: <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />,
+          onSelect: handleCancel,
+          destructive: true,
+        },
+        !isPending && {
+          id: "delete",
+          label: "Delete",
+          icon: <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />,
+          onSelect: handleDelete,
+          destructive: true,
+        },
+      ]}
+    />
   );
 }
 

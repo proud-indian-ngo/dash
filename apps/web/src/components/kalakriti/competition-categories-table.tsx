@@ -4,13 +4,6 @@ import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/dat
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
@@ -20,6 +13,7 @@ import {
   createCompetitionCategoryFilterFields,
   getCompetitionCategoryFilterValue,
 } from "@/components/kalakriti/kalakriti-filters";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 
 import type {
   CompetitionCategoryTableRow,
@@ -66,44 +60,45 @@ function RowActions({
   );
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label={`Actions for ${category.name}`}
-            className="size-8"
-            data-testid="row-actions"
-            onClick={stopRowClick}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4"
-              icon={MoreVerticalIcon}
-              strokeWidth={2}
-            />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={handleView}>View details</DropdownMenuItem>
-        {canManage ? (
-          <>
-            <DropdownMenuItem onClick={handleEdit}>
-              Edit Category
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleRetire}>
-              {category.retiredAt === null ? "Retire" : "Restore"} Category
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleDelete} variant="destructive">
-              Delete Category
-            </DropdownMenuItem>
-          </>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <ResponsiveActionMenu
+      title={`${category.name} actions`}
+      trigger={
+        <Button
+          aria-label={`Actions for ${category.name}`}
+          className="size-8"
+          data-testid="row-actions"
+          onClick={stopRowClick}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <HugeiconsIcon
+            className="size-4"
+            icon={MoreVerticalIcon}
+            strokeWidth={2}
+          />
+        </Button>
+      }
+      actions={[
+        { id: "view", label: "View details", onSelect: handleView },
+        canManage && {
+          id: "edit",
+          label: "Edit Category",
+          onSelect: handleEdit,
+        },
+        canManage && {
+          id: "retire",
+          label: `${category.retiredAt === null ? "Retire" : "Restore"} Category`,
+          onSelect: handleRetire,
+        },
+        canManage && {
+          id: "delete",
+          label: "Delete Category",
+          onSelect: handleDelete,
+          destructive: true,
+        },
+      ]}
+    />
   );
 }
 
@@ -175,11 +170,11 @@ export function CompetitionCategoriesTable({
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
-          title="Competitions"
+          title="All Competitions"
           visibility={true}
         />
       ),
-      meta: { headerTitle: "Competitions", skeleton: SKELETON_VALUE },
+      meta: { headerTitle: "All Competitions", skeleton: SKELETON_VALUE },
       size: 130,
     },
     {

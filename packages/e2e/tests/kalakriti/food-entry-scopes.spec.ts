@@ -196,13 +196,14 @@ async function gotoFood(page: Page, year: number, role?: string) {
 async function finish(
   request: APIRequestContext,
   data: Setup,
-  expectedStage: string
+  expectedStage: string,
+  centerId = data.centerId
 ) {
   expect(
     (
       await mutate(request, "kalakritiCenterScan.finalize", {
         editionId: data.editionId,
-        centerId: data.centerId,
+        centerId,
         expectedStage,
         id: uuidv7(),
         auditEntryId: uuidv7(),
@@ -269,6 +270,147 @@ for (const actor of ["guardian", "liaison"] as const) {
     }
   });
 }
+
+test("Competition workspace scopes Guardian and Liaison Entries without configuration access", async ({
+  browser,
+  baseURL,
+  page,
+  superAdminEmail,
+  kalakritiActors,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "kalakriti_release_invariants",
+    "Isolated scope fixture requires the serialized invariant lane"
+  );
+  test.slow();
+  const data = await fixture<Setup>("setup-scopes", superAdminEmail);
+  const guardianContext = await browser.newContext({
+    baseURL,
+    storageState: { cookies: [], origins: [] },
+  });
+  const liaisonContext = await browser.newContext({
+    baseURL,
+    storageState: kalakritiActors.unrelatedVolunteer.storageState,
+  });
+
+  try {
+    const guardian = await guardianContext.newPage();
+    await guardian.goto("/login");
+    await guardian.getByLabel("Email").fill(data.scopeGuardianEmail);
+    await guardian.getByLabel("Password").fill(data.scopeGuardianPassword);
+    await guardian.getByRole("button", { name: "Login", exact: true }).click();
+    await guardian.waitForURL((url) => url.pathname !== "/login");
+    const liaison = await liaisonContext.newPage();
+
+    for (const reader of [guardian, liaison]) {
+      const expectWireScoped = watchOutsideCenter(reader);
+      await reader.goto(`/kalakriti/${data.year}/entries`);
+      await expect(reader).toHaveURL(
+        new RegExp(`/kalakriti/${data.year}/competitions/?$`)
+      );
+      await waitForZeroReady(reader);
+      await expect(
+        reader.getByRole("heading", { name: "Competitions", exact: true })
+      ).toBeVisible();
+      const competition = reader.getByRole("row").filter({
+        has: reader.getByRole("cell", {
+          name: "Station Singing",
+          exact: true,
+        }),
+      });
+      await expect(competition).toHaveCount(1);
+      await expect(
+        competition.getByRole("cell", { name: "3", exact: true })
+      ).toBeVisible();
+      await expect(
+        reader.getByRole("button", { name: "Add Competition" })
+      ).toHaveCount(0);
+      await expect(
+        reader.getByRole("link", { name: "Settings", exact: true })
+      ).toHaveCount(0);
+
+      await competition.click();
+      await expect(reader).toHaveURL(
+        new RegExp(
+          `/kalakriti/${data.year}/competitions\\?competition=${data.divisionId}$`
+        )
+      );
+      await expect(reader.getByRole("dialog")).toHaveCount(0);
+      await expect(
+        reader.getByRole("button", { name: "Edit Competition" })
+      ).toHaveCount(0);
+      await expect(
+        reader.getByRole("button", { name: /Cancel (Competition|Session)/ })
+      ).toHaveCount(0);
+      await expect(
+        reader.getByRole("heading", { name: "Station Singing", exact: true })
+      ).toBeVisible();
+      for (const name of [
+        "Activity Student",
+        "Another Center A Student",
+        "Union Student B",
+      ]) {
+        await expect(rowFor(reader, name)).toBeVisible();
+      }
+      await expect(rowFor(reader, "Outside Student C")).toHaveCount(0);
+      expectWireScoped();
+
+      await reader.goto(`/kalakriti/${data.year}/settings/categories`);
+      await expect(
+        reader.getByRole("heading", { name: "Page not found" })
+      ).toBeVisible();
+    }
+
+    const readers = [guardian, liaison];
+    const wireChecks = readers.map((reader) => watchOutsideCenter(reader));
+    for (const reader of readers) {
+      await reader.goto(`/kalakriti/${data.year}/competitions`);
+      await waitForZeroReady(reader);
+      await expect(rowFor(reader, "Station Singing")).toContainText(
+        "Scheduled"
+      );
+    }
+    expect(
+      (
+        await mutate(
+          page.request,
+          "kalakritiOperation.record",
+          operation(data, "pickup", data.studentC)
+        )
+      ).error
+    ).toBeUndefined();
+    await finish(page.request, data, "pickup", data.centerC);
+    expect(
+      (
+        await mutate(
+          page.request,
+          "kalakritiOperation.record",
+          operation(data, "venue_arrival", data.studentC)
+        )
+      ).error
+    ).toBeUndefined();
+    await finish(page.request, data, "venue_arrival", data.centerC);
+    expect(
+      (
+        await mutate(page.request, "kalakritiOperation.record", {
+          ...operation(data, "competition_attendance", data.studentC),
+          sessionId: data.sessionId,
+        })
+      ).error
+    ).toBeUndefined();
+    for (const [index, reader] of readers.entries()) {
+      await expect(rowFor(reader, "Station Singing")).toContainText("Running", {
+        timeout: 20_000,
+      });
+      await rowFor(reader, "Station Singing").click();
+      await expect(rowFor(reader, "Outside Student C")).toHaveCount(0);
+      wireChecks[index]!();
+    }
+  } finally {
+    await Promise.allSettled([guardianContext.close(), liaisonContext.close()]);
+    await fixture("cleanup");
+  }
+});
 
 test("Food and Entry readers see their two-Center union, while arrival and check-in statuses track effective operations", async ({
   page,
@@ -541,13 +683,13 @@ test("Food and Entry readers see their two-Center union, while arrival and check
     expect(await fixture("state")).toEqual(beforeSelfMutation);
 
     for (const reader of [guardian, liaison]) {
-      await reader.goto(`/kalakriti/${data.year}/entries`);
+      await reader.goto(`/kalakriti/${data.year}/competitions`);
       await waitForZeroReady(reader);
       await expect(
         reader.getByRole("combobox", { name: "Center", exact: true })
       ).toHaveCount(0);
       const event = reader.getByRole("row").filter({
-        has: reader.getByRole("link", {
+        has: reader.getByRole("cell", {
           name: "Station Singing",
           exact: true,
         }),
@@ -558,9 +700,12 @@ test("Food and Entry readers see their two-Center union, while arrival and check
       await expect(
         event.getByRole("cell", { name: "3", exact: true })
       ).toBeVisible();
-      await event
-        .getByRole("link", { name: "Station Singing", exact: true })
-        .click();
+      await event.click();
+      await expect(reader).toHaveURL(
+        new RegExp(
+          `/kalakriti/${data.year}/competitions\\?competition=${data.divisionId}$`
+        )
+      );
       await expect(
         reader.getByRole("heading", { name: "Station Singing", exact: true })
       ).toBeVisible();

@@ -21,6 +21,10 @@ interface CapturedTable {
     meta?: { headerTitle?: string; skeleton?: unknown };
   }[];
   searchFn: (row: GuardianRosterItem, query: string) => boolean;
+  filter: {
+    fields: { id: string }[];
+    getValue: (row: GuardianRosterItem, path: string[]) => unknown;
+  };
 }
 let table: CapturedTable;
 mock.module("@/components/data-table/data-table-wrapper", () => ({
@@ -31,6 +35,7 @@ mock.module("@/components/data-table/data-table-wrapper", () => ({
 }));
 const { GuardiansTable } = await import("./guardians-table");
 const guardian: GuardianRosterItem = {
+  assignedCenters: [],
   id: "guardian-membership",
   humanId: "KALG-2026-0001",
   isExternal: true,
@@ -78,5 +83,35 @@ describe("Guardian yearly IDs", () => {
     expect(predicate(guardian)).toBe(true);
     expect(predicate({ ...guardian, humanId: null })).toBe(false);
     expect(getGuardianFilterValue(guardian, ["state"])).toBe("active");
+  });
+  it("shows assigned Centers near the name and filters unassigned Guardians", () => {
+    renderToStaticMarkup(
+      <GuardiansTable
+        data={[guardian]}
+        isLoading={false}
+        onArchive={() => undefined}
+        onEdit={() => undefined}
+        onView={() => undefined}
+      />
+    );
+    const assigned = { ...guardian, assignedCenters: ["North Center"] };
+    const name = table.columns.find(
+      (item) => item.meta?.headerTitle === "Name"
+    );
+    const centers = table.columns.find((item) => item.id === "assignedCenters");
+    expect(
+      renderToStaticMarkup(<>{name?.cell?.({ row: { original: assigned } })}</>)
+    ).toContain("North Center");
+    expect(
+      renderToStaticMarkup(
+        <>{centers?.cell?.({ row: { original: assigned } })}</>
+      )
+    ).toContain("North Center");
+    expect(
+      table.filter.fields.some((field) => field.id === "assignedCenterCount")
+    ).toBe(true);
+    expect(table.filter.getValue(guardian, ["assignedCenterCount"])).toBe(0);
+    expect(table.filter.getValue(assigned, ["assignedCenterCount"])).toBe(1);
+    expect(table.searchFn(assigned, "north center")).toBe(true);
   });
 });

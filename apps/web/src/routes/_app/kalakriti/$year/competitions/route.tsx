@@ -1,12 +1,6 @@
-import {
-  createFileRoute,
-  notFound,
-  Outlet,
-  useLocation,
-} from "@tanstack/react-router";
+import { createFileRoute, notFound, Outlet } from "@tanstack/react-router";
 
-import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
-import { KalakritiCompetitionNav } from "@/components/kalakriti/kalakriti-workspace-nav";
+import { canAccessKalakritiEntries } from "@/lib/kalakriti-entry-policy";
 
 export const Route = createFileRoute("/_app/kalakriti/$year/competitions")({
   beforeLoad: ({ context }) => {
@@ -14,33 +8,27 @@ export const Route = createFileRoute("/_app/kalakriti/$year/competitions")({
     if (access.edition.lifecycle === "archived" && !access.isGlobalAdmin) {
       throw notFound();
     }
+    if (!canAccessKalakritiEntries(access)) throw notFound();
     const responsibilities = access.membership?.responsibilities ?? [];
-    const canView =
-      access.isGlobalAdmin ||
-      responsibilities.some(
-        (responsibility) =>
-          responsibility === "edition_admin" ||
-          responsibility === "overall_events_lead" ||
-          responsibility === "competition_category_lead"
-      );
-    if (!canView) {
-      throw notFound();
-    }
-
     const actorCanManage =
       access.isGlobalAdmin ||
       responsibilities.includes("edition_admin") ||
       responsibilities.includes("overall_events_lead");
-    const fullyLocked =
-      access.edition.lifecycle === "live" ||
-      access.edition.lifecycle === "archived";
-    const structuralLocked =
-      access.edition.lifecycle === "registration_locked" || fullyLocked;
-
+    const canViewConfiguration =
+      actorCanManage || responsibilities.includes("competition_category_lead");
+    const structuralLocked = [
+      "registration_locked",
+      "live",
+      "archived",
+    ].includes(access.edition.lifecycle);
     return {
       kalakritiCompetitionAccess: {
         actorCanManage,
+        canViewConfiguration,
         canManage: actorCanManage && !structuralLocked,
+        canEditSchedule:
+          actorCanManage &&
+          !["live", "archived"].includes(access.edition.lifecycle),
         canManageCancellations:
           actorCanManage && access.edition.lifecycle !== "archived",
         configurationLocked: structuralLocked,
@@ -48,22 +36,5 @@ export const Route = createFileRoute("/_app/kalakriti/$year/competitions")({
       },
     };
   },
-  component: KalakritiCompetitionsLayout,
+  component: Outlet,
 });
-
-function KalakritiCompetitionsLayout() {
-  const { year } = Route.useParams();
-  const { pathname } = useLocation();
-  const { kalakritiEditionAccess } = Route.useRouteContext();
-
-  return (
-    <div className="space-y-6">
-      <KalakritiPageHeader
-        kicker={`Kalakriti · ${kalakritiEditionAccess.edition.year}`}
-        title="Competitions"
-      />
-      <KalakritiCompetitionNav pathname={pathname} year={year} />
-      <Outlet />
-    </div>
-  );
-}

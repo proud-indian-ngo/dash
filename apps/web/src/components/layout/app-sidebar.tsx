@@ -141,7 +141,10 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
     canViewInventory: canViewKalakritiInventory(attendeeAccess),
     canViewGuests: canViewKalakritiAttendees(attendeeAccess, "guest"),
     canViewJudges: canViewKalakritiAttendees(attendeeAccess, "judge"),
-    canManageEligibility: canManageEdition,
+    canManageEligibility:
+      canManageEdition &&
+      (activeEdition?.lifecycle !== "archived" ||
+        hasPermission("kalakriti.admin")),
     canManageGuardians: canManageEdition,
     canManageVolunteers,
     canViewAudit,

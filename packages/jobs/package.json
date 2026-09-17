@@ -21,7 +21,7 @@
     "date-fns": "catalog:",
     "drizzle-orm": "catalog:",
     "evlog": "catalog:",
-    "pg-boss": "^12.32.0",
+    "pg-boss": "^12.33.0",
     "uuidv7": "catalog:"
   },
   "devDependencies": {

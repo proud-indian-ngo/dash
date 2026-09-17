@@ -10,7 +10,7 @@ interface BreadcrumbOptions {
 }
 
 const KALAKRITI_EDITION_PATH =
-  /^\/kalakriti\/(\d{4})(?:\/(centers|competitions|eligibility|entries|guardians|students)(?:\/([^/]+))?)?$/;
+  /^\/kalakriti\/(\d{4})(?:\/(centers|competitions|eligibility|entries|guardians|students|settings)(?:\/([^/]+)(?:\/([^/]+))?)?)?$/;
 
 function buildNavItemsMap(items: NavItem[]): Record<string, string> {
   const map: Record<string, string> = {};
@@ -52,7 +52,7 @@ function buildKalakritiBreadcrumbs(
     return;
   }
 
-  const [, year, section, entityId] = match;
+  const [, year, section, entityId, nestedId] = match;
   const editionPath = `/kalakriti/${year}`;
   const items: BreadcrumbEntry[] = [
     { path: "/kalakriti", title: "Kalakriti" },
@@ -80,7 +80,12 @@ function buildKalakritiBreadcrumbs(
   } else if (section === "competitions") {
     const competitionsPath = `${editionPath}/competitions`;
     items.push({ path: competitionsPath, title: "Competitions" });
-    if (entityId) {
+    if (entityId === "sessions" && nestedId) {
+      items.push({
+        path: `${competitionsPath}/sessions/${nestedId}`,
+        title: sessionTitle ?? "Session",
+      });
+    } else if (entityId) {
       const subsectionTitles: Record<string, string> = {
         catalog: "Competitions",
         categories: "Categories",
@@ -95,6 +100,21 @@ function buildKalakritiBreadcrumbs(
         });
       }
     }
+  } else if (section === "settings") {
+    const settingsPath = `${editionPath}/settings`;
+    items.push({ path: settingsPath, title: "Settings" });
+    if (entityId) {
+      const subsectionTitles: Record<string, string> = {
+        categories: "Categories",
+        edition: "Edition",
+        eligibility: "Eligibility",
+        venues: "Venues",
+      };
+      const title = subsectionTitles[entityId];
+      if (title) {
+        items.push({ path: `${settingsPath}/${entityId}`, title });
+      }
+    }
   }
 
   return items;
@@ -104,11 +124,16 @@ export function getKalakritiEntrySessionRoute(
   pathname: string
 ): { sessionId: string; year: number } | undefined {
   const match = pathname.match(KALAKRITI_EDITION_PATH);
-  if (match?.[2] !== "entries" || !match[3]) {
+  if (
+    !match ||
+    (match[2] !== "entries" &&
+      !(match[2] === "competitions" && match[3] === "sessions"))
+  ) {
     return;
   }
 
-  return { sessionId: match[3], year: Number(match[1]) };
+  const sessionId = match[2] === "entries" ? match[3] : match[4];
+  return sessionId ? { sessionId, year: Number(match[1]) } : undefined;
 }
 
 export function buildBreadcrumbs(

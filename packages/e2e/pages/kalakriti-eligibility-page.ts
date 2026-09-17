@@ -35,7 +35,7 @@ export class KalakritiEligibilityPage {
   }
 
   async goto(year: number) {
-    await this.page.goto(`/kalakriti/${year}/eligibility`);
+    await this.page.goto(`/kalakriti/${year}/settings/eligibility`);
   }
 
   async editStudentLimits(categoryName: string, male: number, female: number) {

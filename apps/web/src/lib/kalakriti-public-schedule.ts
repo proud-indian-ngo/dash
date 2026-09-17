@@ -17,6 +17,7 @@ export const kalakritiPublicScheduleSchema = z.object({
   sessions: z.array(
     z.object({
       ageCategory: z.string(),
+      category: z.string(),
       competition: z.string(),
       endAt: z.number().int().nonnegative(),
       startAt: z.number().int().nonnegative(),
@@ -29,3 +30,15 @@ export const kalakritiPublicScheduleSchema = z.object({
 export type KalakritiPublicSchedule = z.infer<
   typeof kalakritiPublicScheduleSchema
 >;
+
+export function filterKalakritiPublicSchedule(
+  sessions: KalakritiPublicSchedule["sessions"],
+  filters: { ageCategory: string; category: string; venue: string }
+) {
+  return sessions.filter(
+    (session) =>
+      (!filters.venue || session.venue === filters.venue) &&
+      (!filters.ageCategory || session.ageCategory === filters.ageCategory) &&
+      (!filters.category || session.category === filters.category)
+  );
+}

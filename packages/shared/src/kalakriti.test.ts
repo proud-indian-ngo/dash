@@ -147,6 +147,19 @@ describe("Kalakriti assignment helpers", () => {
     expect(flattenKalakritiAssignableResponsibilities(groups)).toContain(
       "hospitality_member"
     );
+    expect(flattenKalakritiAssignableResponsibilities(groups)).toContain(
+      "logistics_member"
+    );
+    for (const responsibility of [
+      "awards_member",
+      "fundraising_member",
+      "media_member",
+      "venue_member",
+    ] as const) {
+      expect(flattenKalakritiAssignableResponsibilities(groups)).toContain(
+        responsibility
+      );
+    }
     expect(flattenKalakritiAssignableResponsibilities(groups)).not.toContain(
       "edition_admin"
     );

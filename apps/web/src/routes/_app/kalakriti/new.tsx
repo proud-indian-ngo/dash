@@ -147,6 +147,7 @@ function NewKalakritiEditionRoute() {
             endMonth={new Date(2200, 11, 1)}
             isRequired
             label="Age cutoff date"
+            description="Student ages and age-category eligibility are calculated on this date."
             name="ageCutoffDate"
             startMonth={new Date(2000, 0, 1)}
           />
@@ -156,6 +157,7 @@ function NewKalakritiEditionRoute() {
             endMonth={new Date(2200, 11, 1)}
             isRequired
             label="Registration close date"
+            description="Registration must close before the event date."
             name="registrationCloseDate"
             startMonth={editionCalendarStart}
           />
@@ -167,7 +169,7 @@ function NewKalakritiEditionRoute() {
             placeholder="Select a time"
           />
           <InputField
-            description="Used by code-defined Edition branding."
+            description="Identifies this Edition’s configured artwork and branding, for example kalakriti-2028."
             isRequired
             label="Branding key"
             name="brandingKey"

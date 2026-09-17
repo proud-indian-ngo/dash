@@ -4,13 +4,6 @@ import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { Link } from "@tanstack/react-router";
@@ -27,6 +20,7 @@ import {
   useMigrateLegacyReimbursementFilterParams,
 } from "@/components/reimbursements/reimbursement-filters";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { useApp } from "@/context/app-context";
@@ -87,55 +81,53 @@ function RowActions({
   const handleDelete = useEventCallback(() => onRequestDelete(request));
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label="Row actions"
-            className="size-8"
-            data-testid="row-actions"
-            onClick={stableOnClick0}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4"
-              icon={MoreVerticalIcon}
-              strokeWidth={2}
+    <ResponsiveActionMenu
+      title={`${request.title} actions`}
+      contentClassName="w-32"
+      trigger={
+        <Button
+          aria-label="Row actions"
+          className="size-8"
+          data-testid="row-actions"
+          onClick={stableOnClick0}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <HugeiconsIcon
+            className="size-4"
+            icon={MoreVerticalIcon}
+            strokeWidth={2}
+          />
+        </Button>
+      }
+      actions={[
+        {
+          id: "view",
+          label: "View",
+          render: <Link params={{ id }} to="/reimbursements/$id" />,
+        },
+        canEdit && {
+          id: "edit",
+          label: "Edit",
+          render: (
+            <Link
+              params={{ id }}
+              search={{ mode: "edit" }}
+              to="/reimbursements/$id"
             />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end" className="w-32">
-        <DropdownMenuItem
-          render={<Link params={{ id }} to="/reimbursements/$id" />}
-        >
-          View
-        </DropdownMenuItem>
-        {canEdit ? (
-          <DropdownMenuItem
-            render={
-              <Link
-                params={{ id }}
-                search={{ mode: "edit" }}
-                to="/reimbursements/$id"
-              />
-            }
-          >
-            Edit
-          </DropdownMenuItem>
-        ) : null}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          disabled={!canDelete}
-          onClick={handleDelete}
-          variant="destructive"
-        >
-          Delete
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          ),
+        },
+        {
+          id: "delete",
+          label: "Delete",
+          disabled: !canDelete,
+          onSelect: handleDelete,
+          destructive: true,
+          group: "destructive",
+        },
+      ]}
+    />
   );
 }
 

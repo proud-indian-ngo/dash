@@ -1,13 +1,6 @@
 import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { User } from "@pi-dash/zero/schema";
 import type { ColumnVisibilityState } from "@tanstack/react-table";
@@ -18,6 +11,7 @@ import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { optionsFromRows } from "@/components/data-table/filter-fields";
 import { FormModal } from "@/components/form/form-modal";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { BanUserForm } from "@/components/users/ban-user-form";
 import { PasswordForm } from "@/components/users/password-form";
 import {
@@ -144,59 +138,61 @@ function UserActionsMenu({
   });
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label="Row actions"
-            className="size-8"
-            data-testid="row-actions"
-            onClick={stableOnClick0}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4"
-              icon={MoreVerticalIcon}
-              strokeWidth={2}
-            />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end" className="w-40">
-        <DropdownMenuItem onClick={stableOnClick1}>Edit</DropdownMenuItem>
-        <DropdownMenuItem onClick={stableOnClick2}>
-          Reset password
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={stableOnClick3}>
-          Notifications
-        </DropdownMenuItem>
-        {isBanned ? (
-          <DropdownMenuItem
-            disabled={isSelf || isBanning}
-            onClick={stableOnClick4}
-          >
-            {isBanning ? "Unbanning..." : "Unban user"}
-          </DropdownMenuItem>
-        ) : (
-          <DropdownMenuItem
-            disabled={isSelf || isBanning}
-            onClick={stableOnClick5}
-          >
-            Ban user
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          disabled={isSelf || isDeleting}
-          onClick={stableOnClick6}
-          variant="destructive"
+    <ResponsiveActionMenu
+      title={`${user.name} actions`}
+      contentClassName="w-40"
+      trigger={
+        <Button
+          aria-label="Row actions"
+          className="size-8"
+          data-testid="row-actions"
+          onClick={stableOnClick0}
+          size="icon"
+          type="button"
+          variant="ghost"
         >
-          Delete
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <HugeiconsIcon
+            className="size-4"
+            icon={MoreVerticalIcon}
+            strokeWidth={2}
+          />
+        </Button>
+      }
+      actions={[
+        { id: "edit", label: "Edit", onSelect: stableOnClick1 },
+        {
+          id: "reset-password",
+          label: "Reset password",
+          onSelect: stableOnClick2,
+        },
+        {
+          id: "notifications",
+          label: "Notifications",
+          onSelect: stableOnClick3,
+        },
+        isBanned
+          ? {
+              id: "unban",
+              label: isBanning ? "Unbanning..." : "Unban user",
+              disabled: isSelf || isBanning,
+              onSelect: stableOnClick4,
+            }
+          : {
+              id: "ban",
+              label: "Ban user",
+              disabled: isSelf || isBanning,
+              onSelect: stableOnClick5,
+            },
+        {
+          id: "delete",
+          label: "Delete",
+          disabled: isSelf || isDeleting,
+          onSelect: stableOnClick6,
+          destructive: true,
+          group: "destructive",
+        },
+      ]}
+    />
   );
 }
 

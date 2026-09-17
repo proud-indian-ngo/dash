@@ -1,3 +1,7 @@
+import {
+  createFilterQuery,
+  createFilterRule,
+} from "@pi-dash/design-system/components/reui/filters/filters-query";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { queries } from "@pi-dash/zero/queries";
@@ -7,6 +11,7 @@ import { log } from "evlog";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
 import { GuardianDetailSheet } from "@/components/kalakriti/guardian-detail-sheet";
 import { GuardianEditDialog } from "@/components/kalakriti/guardian-edit-dialog";
 import {
@@ -18,6 +23,8 @@ import {
   GuardiansTable,
 } from "@/components/kalakriti/guardians-table";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
+import { PeoplePageSummary } from "@/components/kalakriti/people-page-summary";
+import { Loader } from "@/components/loader";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import {
   archiveKalakritiGuardian,
@@ -45,6 +52,7 @@ export const Route = createFileRoute("/_app/kalakriti/$year/guardians")({
 });
 
 function KalakritiGuardiansPage() {
+  const { setQuery } = useDataTableFilters();
   const { kalakritiEditionAccess: access } = Route.useRouteContext();
   const { edition } = access;
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -56,6 +64,12 @@ function KalakritiGuardiansPage() {
   );
   const [guardians, rosterResult] = useQuery(
     queries.kalakritiGuardian.roster({ editionId: edition.id })
+  );
+  const [assignments, assignmentsResult] = useQuery(
+    queries.kalakritiCenter.guardianAssignments({ editionId: edition.id })
+  );
+  const [centers, centersResult] = useQuery(
+    queries.kalakritiCenter.visible({ editionId: edition.id })
   );
 
   const archiveAction = useConfirmAction<GuardianRosterItem>({
@@ -164,6 +178,13 @@ function KalakritiGuardiansPage() {
   });
 
   const guardianRows: GuardianRosterItem[] = guardians.map((guardian) => ({
+    assignedCenters: assignments
+      .filter(
+        (assignment) =>
+          assignment.membershipId === guardian.id && assignment.center
+      )
+      .map((assignment) => assignment.center?.name ?? "")
+      .filter(Boolean),
     humanId: guardian.humanId,
     id: guardian.id,
     isExternal: guardian.user?.role === "external_user",
@@ -178,14 +199,55 @@ function KalakritiGuardiansPage() {
     guardianRows.find((guardian) => guardian.id === editingGuardianId) ?? null;
   const isLoading =
     guardianRows.length === 0 && rosterResult.type !== "complete";
+  const activeGuardians = guardianRows.filter(
+    (guardian) => guardian.state === "active"
+  );
+  const unassigned = activeGuardians.filter(
+    (guardian) => guardian.assignedCenters.length === 0
+  ).length;
+  const coveredCenterIds = new Set(
+    assignments
+      .filter((assignment) => assignment.membership?.state === "active")
+      .map((assignment) => assignment.centerId)
+  );
+  const centersWithoutGuardians = centers.filter(
+    (center) => center.retiredAt === null && !coveredCenterIds.has(center.id)
+  ).length;
 
-  if (guardianRows.length === 0 && rosterResult.type === "error") {
+  if (
+    rosterResult.type === "error" ||
+    assignmentsResult.type === "error" ||
+    centersResult.type === "error"
+  ) {
     return (
       <div className="flex min-h-32 flex-col items-center justify-center gap-3 text-center">
-        <p role="alert">Guardians could not be loaded.</p>
-        <Button onClick={rosterResult.retry} type="button" variant="outline">
+        <p role="alert">Guardian coverage could not be loaded.</p>
+        <Button
+          onClick={() => {
+            if (rosterResult.type === "error") rosterResult.retry?.();
+            if (assignmentsResult.type === "error") assignmentsResult.retry?.();
+            if (centersResult.type === "error") centersResult.retry?.();
+          }}
+          type="button"
+          variant="outline"
+        >
           Retry
         </Button>
+      </div>
+    );
+  }
+  if (
+    rosterResult.type !== "complete" ||
+    assignmentsResult.type !== "complete" ||
+    centersResult.type !== "complete"
+  ) {
+    return (
+      <div
+        aria-label="Loading Guardian coverage"
+        className="flex min-h-48 items-center justify-center"
+        role="status"
+      >
+        <Loader />
       </div>
     );
   }
@@ -196,6 +258,43 @@ function KalakritiGuardiansPage() {
         kicker={`Kalakriti · ${edition.year}`}
         title="Guardians"
       />
+
+      {rosterResult.type === "complete" &&
+      assignmentsResult.type === "complete" &&
+      centersResult.type === "complete" ? (
+        <PeoplePageSummary
+          title="Guardian coverage"
+          scope="All Centers and Guardians in this Edition"
+          measures={[
+            { label: "Active Guardians", value: activeGuardians.length },
+            {
+              label: "Without Centers",
+              value: unassigned,
+              onClick: () =>
+                void setQuery(
+                  createFilterQuery<unknown>([
+                    createFilterRule({
+                      id: "guardians-without-centers",
+                      path: ["assignedCenterCount"],
+                      operator: "eq",
+                      value: 0,
+                    }),
+                    createFilterRule({
+                      id: "guardians-active",
+                      path: ["state"],
+                      operator: "is",
+                      value: "active",
+                    }),
+                  ])
+                ),
+            },
+            {
+              label: "Centers without Guardians",
+              value: centersWithoutGuardians,
+            },
+          ]}
+        />
+      ) : null}
 
       <GuardiansTable
         data={guardianRows}

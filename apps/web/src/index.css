@@ -2,6 +2,11 @@
 
 @source "./";
 
+/* Base UI's iOS scroll lock positions drawer backdrops against the body. */
+body {
+  position: relative;
+}
+
 /* z-index scale: use these tokens instead of raw numbers.
    Design-system components (dialog, sheet, popover, tooltip) own z-50.
    App-level layers only need overrides for third-party stacking. */

@@ -95,6 +95,37 @@ describe("breadcrumbs", () => {
     ]);
   });
 
+  it("builds breadcrumbs for Settings sections", () => {
+    expect(
+      buildBreadcrumbs(navItems, "/kalakriti/2027/settings/venues")
+    ).toEqual([
+      { path: "/kalakriti", title: "Kalakriti" },
+      { path: "/kalakriti/2027", title: "2027 Edition" },
+      { path: "/kalakriti/2027/settings", title: "Settings" },
+      { path: "/kalakriti/2027/settings/venues", title: "Venues" },
+    ]);
+  });
+
+  it("builds breadcrumbs for a Competition Session", () => {
+    expect(
+      buildBreadcrumbs(
+        navItems,
+        "/kalakriti/2027/competitions/sessions/session-1",
+        {
+          sessionTitle: "Solo Dance · Junior",
+        }
+      )
+    ).toEqual([
+      { path: "/kalakriti", title: "Kalakriti" },
+      { path: "/kalakriti/2027", title: "2027 Edition" },
+      { path: "/kalakriti/2027/competitions", title: "Competitions" },
+      {
+        path: "/kalakriti/2027/competitions/sessions/session-1",
+        title: "Solo Dance · Junior",
+      },
+    ]);
+  });
+
   it("extracts an Entry Session route", () => {
     expect(
       getKalakritiEntrySessionRoute("/kalakriti/2027/entries/session-1")
@@ -102,5 +133,10 @@ describe("breadcrumbs", () => {
     expect(
       getKalakritiEntrySessionRoute("/kalakriti/2027/entries")
     ).toBeUndefined();
+    expect(
+      getKalakritiEntrySessionRoute(
+        "/kalakriti/2027/competitions/sessions/session-1"
+      )
+    ).toEqual({ sessionId: "session-1", year: 2027 });
   });
 });

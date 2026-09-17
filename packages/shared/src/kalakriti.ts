@@ -170,8 +170,13 @@ export type KalakritiOperationalLeadResponsibility =
   (typeof KALAKRITI_OPERATIONAL_LEAD_RESPONSIBILITIES)[number];
 
 export const KALAKRITI_OPERATIONAL_MEMBER_RESPONSIBILITIES = [
+  "awards_member",
   "food_member",
+  "fundraising_member",
   "hospitality_member",
+  "logistics_member",
+  "media_member",
+  "venue_member",
 ] as const satisfies readonly KalakritiResponsibility[];
 
 export type KalakritiOperationalMemberResponsibility =

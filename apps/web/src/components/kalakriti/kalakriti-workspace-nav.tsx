@@ -6,61 +6,50 @@ import {
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { useNavigate } from "@tanstack/react-router";
 
-const COMPETITION_TABS = [
-  { label: "Overview", to: "/kalakriti/$year/competitions", value: "overview" },
+const SETTINGS_TABS = [
   {
-    label: "Categories",
-    to: "/kalakriti/$year/competitions/categories",
-    value: "categories",
+    label: "Edition",
+    to: "/kalakriti/$year/settings/edition",
+    value: "edition",
+    adminOnly: true,
   },
   {
-    label: "Competitions",
-    to: "/kalakriti/$year/competitions/catalog",
-    value: "catalog",
+    label: "Categories",
+    to: "/kalakriti/$year/settings/categories",
+    value: "categories",
+    adminOnly: false,
   },
   {
     label: "Venues",
-    to: "/kalakriti/$year/competitions/venues",
+    to: "/kalakriti/$year/settings/venues",
     value: "venues",
+    adminOnly: false,
   },
   {
-    label: "Schedule",
-    to: "/kalakriti/$year/competitions/schedule",
-    value: "schedule",
+    label: "Eligibility",
+    to: "/kalakriti/$year/settings/eligibility",
+    value: "eligibility",
+    adminOnly: true,
   },
 ] as const;
 
-type CompetitionTabValue = (typeof COMPETITION_TABS)[number]["value"];
-
-function competitionTabFromPathname(pathname: string): CompetitionTabValue {
-  if (pathname.endsWith("/categories")) {
-    return "categories";
-  }
-  if (pathname.endsWith("/catalog")) {
-    return "catalog";
-  }
-  if (pathname.endsWith("/venues")) {
-    return "venues";
-  }
-  if (pathname.endsWith("/schedule")) {
-    return "schedule";
-  }
-  return "overview";
-}
-
-export function KalakritiCompetitionNav({
+export function KalakritiSettingsNav({
+  canManageEdition,
   pathname,
   year,
 }: {
+  canManageEdition: boolean;
   pathname: string;
   year: string;
 }) {
   const navigate = useNavigate();
-  const value = competitionTabFromPathname(pathname);
+  const value =
+    SETTINGS_TABS.find((tab) => pathname.endsWith(`/${tab.value}`))?.value ??
+    "categories";
   const handleValueChange = useEventCallback(
     async (next: string | number | null) => {
-      const tab = COMPETITION_TABS.find((item) => item.value === next);
-      if (!tab) {
+      const tab = SETTINGS_TABS.find((item) => item.value === next);
+      if (!tab || (tab.adminOnly && !canManageEdition)) {
         return;
       }
       await navigate({
@@ -72,16 +61,21 @@ export function KalakritiCompetitionNav({
 
   return (
     <Tabs className="gap-0" onValueChange={handleValueChange} value={value}>
-      <TabsList className="h-10 min-h-10 w-full justify-start" variant="line">
-        {COMPETITION_TABS.map((tab) => (
-          <TabsTrigger
-            className="flex-none px-3"
-            key={tab.value}
-            value={tab.value}
-          >
-            {tab.label}
-          </TabsTrigger>
-        ))}
+      <TabsList
+        className="h-11 min-h-11 w-full justify-start overflow-x-auto overflow-y-hidden sm:h-10 sm:min-h-10"
+        variant="line"
+      >
+        {SETTINGS_TABS.filter((tab) => !tab.adminOnly || canManageEdition).map(
+          (tab) => (
+            <TabsTrigger
+              className="flex-none px-3 group-data-horizontal/tabs:after:bottom-0"
+              key={tab.value}
+              value={tab.value}
+            >
+              {tab.label}
+            </TabsTrigger>
+          )
+        )}
       </TabsList>
     </Tabs>
   );

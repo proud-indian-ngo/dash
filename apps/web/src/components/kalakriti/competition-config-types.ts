@@ -1,6 +1,7 @@
+import type { CompetitionStatus } from "@/lib/kalakriti-competition-status";
+
 import type { CompetitionCategoryFormValue } from "./competition-category-form-dialog";
 import type { CompetitionFormValue } from "./competition-form-dialog";
-import type { CompetitionSessionFormValue } from "./competition-session-form-dialog";
 import type { VenueFormValue } from "./venue-form-dialog";
 
 export interface CompetitionCategoryView extends CompetitionCategoryFormValue {
@@ -18,6 +19,14 @@ export interface CompetitionView extends CompetitionFormValue {
 
 export interface CompetitionTableRow extends CompetitionView {
   categoryName: string;
+  status?: CompetitionStatus;
+  divisionId?: string;
+  ageCategoryName?: string;
+  ageCategoryId?: string;
+  venueName?: string;
+  scheduleLabel?: string;
+  entryCount?: number;
+  scheduledDivisions?: number;
 }
 
 export interface VenueView extends VenueFormValue {
@@ -28,10 +37,13 @@ export interface VenueTableRow extends VenueView {
   sessionCount: number;
 }
 
-export interface ScheduleTableRow extends CompetitionSessionFormValue {
-  ageCategoryName: string;
-  competitionName: string;
-  venueName: string;
+export interface CompetitionSessionFormValue {
+  cancelledAt: number | null;
+  divisionId: string;
+  endAt: number;
+  id: string;
+  startAt: number;
+  venueId: string;
 }
 
 export interface ConfigurationDeletePayload {
@@ -58,13 +70,10 @@ export function formatConfigurationLabel(value: string): string {
 }
 
 export function getCompetitionStatus(
-  competition: CompetitionView
-): "active" | "cancelled" | "retired" {
-  if (competition.cancelledAt !== null) {
-    return "cancelled";
-  }
-  if (competition.retiredAt !== null) {
-    return "retired";
-  }
-  return "active";
+  competition: CompetitionTableRow
+): CompetitionStatus | "checking" {
+  if (competition.status) return competition.status;
+  if (competition.cancelledAt !== null) return "cancelled";
+  if (competition.retiredAt !== null) return "retired";
+  return "checking";
 }

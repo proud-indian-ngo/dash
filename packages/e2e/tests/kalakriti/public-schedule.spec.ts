@@ -52,6 +52,7 @@ test.describe("Kalakriti public schedule", () => {
       ]);
       expect(Object.keys(body.sessions[0]).sort()).toEqual([
         "ageCategory",
+        "category",
         "competition",
         "endAt",
         "startAt",
@@ -77,6 +78,21 @@ test.describe("Kalakriti public schedule", () => {
       await expect(page.getByText("Painting", { exact: true })).toBeVisible();
       await expect(page.getByText("Cancelled", { exact: true })).toBeVisible();
       await expect(page.getByText("Art Room", { exact: false })).toHaveCount(2);
+      await expect(page.getByRole("combobox", { name: "Venue" })).toBeVisible();
+      await expect(
+        page.getByRole("combobox", { name: "Age Category" })
+      ).toBeVisible();
+      await page
+        .getByRole("combobox", { name: "Category", exact: true })
+        .click();
+      await page.getByRole("option", { name: "Visual Arts" }).click();
+      await expect(
+        page.getByRole("button", { name: "Clear filters" })
+      ).toBeEnabled();
+      await page.getByRole("button", { name: "Clear filters" }).click();
+      await expect(
+        page.getByRole("button", { name: "Clear filters" })
+      ).toBeDisabled();
       await expect(
         page.getByRole("button", { name: "Show interest" })
       ).toBeVisible();

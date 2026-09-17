@@ -1,13 +1,20 @@
+import { Button } from "@pi-dash/design-system/components/ui/button";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, notFound } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { parseAsString, useQueryState } from "nuqs";
+import { useMemo, useState } from "react";
+import { z } from "zod";
 
 import { FoodMealUndo } from "@/components/kalakriti/food-meal-undo";
 import { FoodStats } from "@/components/kalakriti/food-stats";
 import type { FoodTableRow } from "@/components/kalakriti/food-table";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
+import { ScanDialog } from "@/components/kalakriti/scan-dialog";
 import { useFoodAttendees } from "@/components/kalakriti/use-food-attendees";
+import { Loader } from "@/components/loader";
+import { useDashboardDestinationFilter } from "@/lib/kalakriti-dashboard-filter";
+import { getKalakritiScanActivities } from "@/lib/kalakriti-event-day-policy";
 import {
   canViewKalakritiFood,
   canViewKalakritiFoodAttendees,
@@ -15,6 +22,9 @@ import {
 } from "@/lib/kalakriti-food-policy";
 
 export const Route = createFileRoute("/_app/kalakriti/$year/food")({
+  validateSearch: z
+    .object({ dashboardFilter: z.string().optional() })
+    .passthrough(),
   beforeLoad: ({ context }) => {
     if (!canViewKalakritiFood(context.kalakritiEditionAccess)) throw notFound();
   },
@@ -22,8 +32,14 @@ export const Route = createFileRoute("/_app/kalakriti/$year/food")({
 });
 
 function KalakritiFoodPage() {
+  const dashboardFilterPending = useDashboardDestinationFilter("food");
   const { kalakritiEditionAccess: access } = Route.useRouteContext();
   const { edition } = access;
+  const [, setFilter] = useQueryState("dashboardFilter", parseAsString);
+  const [scanOpen, setScanOpen] = useState(false);
+  const canScan =
+    edition.lifecycle === "live" &&
+    getKalakritiScanActivities(access).includes("meals");
   const scopeKey = kalakritiFoodScopeKey(access);
   const attendees = useFoodAttendees(
     edition.year,
@@ -73,23 +89,63 @@ function KalakritiFoodPage() {
         title="Food"
       />
       <p className="text-muted-foreground text-sm">
-        The table shows only people currently eligible for meals in your scope:
-        picked-up Students, checked-in active Volunteers, Guests and Judges, and
-        active Guardians. Only Food staff and administrators can record meals
-        using Scan. Counts cover your entire authorized roster, not the filtered
-        table. Served totals include archived history and can exceed the number
-        of table rows; archived people are excluded from Registered people and
-        meal eligibility.
+        Review currently eligible people and meals awaiting service.
       </p>
-      <FoodStats data={data} complete={complete} scopeKey={scopeKey} />
-      <FoodMealUndo
-        key={scopeKey}
-        access={access}
+      {canScan ? (
+        <Button
+          className="min-h-10 max-sm:min-h-11"
+          onClick={() => setScanOpen(true)}
+        >
+          Serve meals
+        </Button>
+      ) : null}
+      <FoodStats
         data={data}
         complete={complete}
         scopeKey={scopeKey}
-        onMealSettled={attendees.refresh}
+        onReviewPending={
+          complete
+            ? (meal) => {
+                void setFilter(`${meal}_pending`);
+              }
+            : undefined
+        }
       />
+      <details className="text-muted-foreground text-xs">
+        <summary className="min-h-10 cursor-pointer py-2">
+          How meal eligibility works
+        </summary>
+        <p className="max-w-3xl pb-2">
+          The table includes picked-up Students, checked-in active Volunteers,
+          Guests and Judges, and active Guardians in your scope. Historical
+          served totals can include people who are no longer eligible. Archived
+          people are excluded from registered and eligible counts. Meals can be
+          recorded during a Live Edition by authorized staff.
+        </p>
+      </details>
+      {dashboardFilterPending ? (
+        <Loader />
+      ) : (
+        <FoodMealUndo
+          key={scopeKey}
+          access={access}
+          data={data}
+          complete={complete}
+          scopeKey={scopeKey}
+          onMealSettled={attendees.refresh}
+        />
+      )}
+      {canScan && scanOpen ? (
+        <ScanDialog
+          editionId={edition.id}
+          year={edition.year}
+          activities={["meals"]}
+          initialActivity="meals"
+          onOpenChange={(open) => {
+            if (!open) setScanOpen(false);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

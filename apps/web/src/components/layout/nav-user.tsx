@@ -5,6 +5,7 @@ import {
   UnfoldMoreIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,10 +28,18 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { useZero } from "@rocicorp/zero/react";
 import { log } from "evlog";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { NotificationInbox } from "@/components/layout/notification-inbox";
 import { SettingsDialog } from "@/components/settings/settings-dialog";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+  DialogHeader,
+} from "@/components/shared/responsive-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { useApp } from "@/context/app-context";
 import { useUnreadNotificationCount } from "@/hooks/use-unread-notification-count";
@@ -42,6 +51,9 @@ export function NavUser() {
   const zero = useZero();
   const { user, openSettings } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const notificationsTitleId = useId();
+  const notificationsDescriptionId = useId();
   const unreadCount = useUnreadNotificationCount();
   const [badgePulseToken, setBadgePulseToken] = useState(0);
   const previousUnreadCount = useRef(unreadCount);
@@ -78,105 +90,158 @@ export function NavUser() {
     });
   });
 
+  const accountTrigger = (
+    <SidebarMenuButton
+      aria-label="Account menu"
+      className="aria-expanded:bg-muted flex-1"
+      size="lg"
+    >
+      <span className="relative">
+        <UserAvatar user={user} />
+        {hasUnreadNotifications && (
+          <span
+            aria-hidden="true"
+            className="fade-in-0 zoom-in-0 animate-in ease-out-expo absolute -top-0.5 -right-0.5 size-2.5 transition-all duration-150"
+          >
+            <span
+              className={cn(
+                "bg-destructive ring-sidebar block size-full rounded-full ring-2",
+                hasPulsed && "animate-badge-pulse"
+              )}
+              key={`avatar-badge-${badgePulseToken}`}
+            />
+          </span>
+        )}
+        {hasUnreadNotifications && (
+          <span className="sr-only">You have unread notifications</span>
+        )}
+      </span>
+      <div className="grid flex-1 text-left text-sm leading-tight">
+        <span className="truncate font-medium">{user.name}</span>
+        <span className="truncate text-xs">{user.email}</span>
+      </div>
+      <HugeiconsIcon
+        className="ml-auto size-4"
+        icon={UnfoldMoreIcon}
+        strokeWidth={2}
+      />
+    </SidebarMenuButton>
+  );
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <DropdownMenu onOpenChange={setMenuOpen} open={menuOpen}>
-          <DropdownMenuTrigger
-            render={
-              <SidebarMenuButton
-                className="aria-expanded:bg-muted flex-1"
-                size="lg"
-              />
-            }
-          >
-            <span className="relative">
-              <UserAvatar user={user} />
-              {hasUnreadNotifications && (
-                <span
-                  aria-hidden="true"
-                  className="fade-in-0 zoom-in-0 animate-in ease-out-expo absolute -top-0.5 -right-0.5 size-2.5 transition-all duration-150"
-                >
-                  <span
-                    className={cn(
-                      "bg-destructive ring-sidebar block size-full rounded-full ring-2",
-                      hasPulsed && "animate-badge-pulse"
-                    )}
-                    key={`avatar-badge-${badgePulseToken}`}
-                  />
-                </span>
-              )}
-              {hasUnreadNotifications && (
-                <span className="sr-only">You have unread notifications</span>
-              )}
-            </span>
-            <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-medium">{user.name}</span>
-              <span className="truncate text-xs">{user.email}</span>
-            </div>
-            <HugeiconsIcon
-              className="ml-auto size-4"
-              icon={UnfoldMoreIcon}
-              strokeWidth={2}
-            />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            className="min-w-56"
-            side={isMobile ? "bottom" : "right"}
-            sideOffset={4}
-          >
-            <DropdownMenuGroup>
-              <DropdownMenuLabel className="p-0 font-normal">
-                <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                  <UserAvatar user={user} />
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-medium">{user.name}</span>
-                    <span className="truncate text-xs">{user.email}</span>
+        {isMobile ? (
+          <ResponsiveActionMenu
+            title="Account actions"
+            trigger={accountTrigger}
+            actions={[
+              {
+                id: "notifications",
+                label: hasUnreadNotifications
+                  ? `Notifications (${unreadCountLabel} unread)`
+                  : "Notifications",
+                icon: <HugeiconsIcon icon={NotificationIcon} strokeWidth={2} />,
+                onSelect: () => setNotificationsOpen(true),
+              },
+              {
+                id: "settings",
+                label: "Settings",
+                icon: <HugeiconsIcon icon={Settings01Icon} strokeWidth={2} />,
+                onSelect: stableOnClick1,
+              },
+              {
+                id: "logout",
+                label: "Log out",
+                icon: <HugeiconsIcon icon={LogoutIcon} strokeWidth={2} />,
+                onSelect: stableOnClick2,
+                destructive: true,
+              },
+            ]}
+          />
+        ) : (
+          <DropdownMenu onOpenChange={setMenuOpen} open={menuOpen}>
+            <DropdownMenuTrigger render={accountTrigger} />
+            <DropdownMenuContent
+              align="end"
+              className="min-w-56"
+              side="right"
+              sideOffset={4}
+            >
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="p-0 font-normal">
+                  <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                    <UserAvatar user={user} />
+                    <div className="grid flex-1 text-left text-sm leading-tight">
+                      <span className="truncate font-medium">{user.name}</span>
+                      <span className="truncate text-xs">{user.email}</span>
+                    </div>
                   </div>
-                </div>
-              </DropdownMenuLabel>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <HugeiconsIcon icon={NotificationIcon} strokeWidth={2} />
-                  Notifications
-                  {hasUnreadNotifications && (
-                    <span className="fade-in-0 zoom-in-0 animate-in ease-out-expo ml-auto inline-flex size-5 transition-all duration-150">
-                      <span
-                        className={cn(
-                          "bg-destructive inline-flex size-full items-center justify-center rounded-full text-[10px] font-medium text-white!",
-                          hasPulsed && "animate-badge-pulse"
-                        )}
-                        key={`menu-badge-${badgePulseToken}`}
-                      >
-                        {unreadCountLabel}
+                </DropdownMenuLabel>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <HugeiconsIcon icon={NotificationIcon} strokeWidth={2} />
+                    Notifications
+                    {hasUnreadNotifications && (
+                      <span className="fade-in-0 zoom-in-0 animate-in ease-out-expo ml-auto inline-flex size-5 transition-all duration-150">
+                        <span
+                          className={cn(
+                            "bg-destructive inline-flex size-full items-center justify-center rounded-full text-[10px] font-medium text-white!",
+                            hasPulsed && "animate-badge-pulse"
+                          )}
+                          key={`menu-badge-${badgePulseToken}`}
+                        >
+                          {unreadCountLabel}
+                        </span>
                       </span>
-                    </span>
-                  )}
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-[calc(100vw-1rem)] p-0 sm:w-96 sm:max-w-none">
-                  <div className="h-[min(400px,calc(100dvh-7rem))] w-full overflow-hidden sm:h-100">
-                    <NotificationInbox onClose={stableOnClose0} />
-                  </div>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-              <DropdownMenuItem onClick={stableOnClick1}>
-                <HugeiconsIcon icon={Settings01Icon} strokeWidth={2} />
-                Settings
+                    )}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="w-[calc(100vw-1rem)] p-0 sm:w-96 sm:max-w-none">
+                    <div className="h-[min(400px,calc(100dvh-7rem))] w-full overflow-hidden sm:h-100">
+                      <NotificationInbox onClose={stableOnClose0} />
+                    </div>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuItem onClick={stableOnClick1}>
+                  <HugeiconsIcon icon={Settings01Icon} strokeWidth={2} />
+                  Settings
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={stableOnClick2}>
+                <HugeiconsIcon icon={LogoutIcon} strokeWidth={2} />
+                Log out
               </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={stableOnClick2}>
-              <HugeiconsIcon icon={LogoutIcon} strokeWidth={2} />
-              Log out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </SidebarMenuItem>
       <SettingsDialog />
+      <Dialog open={notificationsOpen} onOpenChange={setNotificationsOpen}>
+        <DialogContent
+          aria-labelledby={notificationsTitleId}
+          aria-describedby={notificationsDescriptionId}
+        >
+          <DialogHeader>
+            <DialogTitle id={notificationsTitleId}>Notifications</DialogTitle>
+            <DialogDescription
+              id={notificationsDescriptionId}
+              className="sr-only"
+            >
+              Your recent notifications.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="h-[min(400px,50dvh)] min-h-0">
+            <NotificationInbox onClose={() => setNotificationsOpen(false)} />
+          </div>
+          <Button onClick={() => setNotificationsOpen(false)} variant="outline">
+            Close
+          </Button>
+        </DialogContent>
+      </Dialog>
     </SidebarMenu>
   );
 }

@@ -120,10 +120,10 @@ test("Guardian login gains Edition access and loses it after archival", async ({
         .click();
       await expect(guardianPage).toHaveURL(`/kalakriti/${YEAR}/students`);
       await guardianPage
-        .getByRole("link", { name: "Entries", exact: true })
+        .getByRole("link", { name: "Competitions", exact: true })
         .first()
         .click();
-      await expect(guardianPage).toHaveURL(`/kalakriti/${YEAR}/entries`);
+      await expect(guardianPage).toHaveURL(`/kalakriti/${YEAR}/competitions`);
 
       await guardians.requestArchive(EDITED_NAME);
       await guardians.confirmArchive();
