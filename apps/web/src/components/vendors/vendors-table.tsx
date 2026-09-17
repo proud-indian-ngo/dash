@@ -4,13 +4,6 @@ import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
@@ -18,6 +11,7 @@ import { toast } from "sonner";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import {
   createVendorFilterFields,
   getVendorFilterValue,
@@ -78,43 +72,48 @@ function RowActions({
   const handleDelete = useEventCallback(() => onRequestDelete(vendor.id));
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label="Row actions"
-            className="size-8"
-            data-testid="row-actions"
-            onClick={stableOnClick0}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4"
-              icon={MoreVerticalIcon}
-              strokeWidth={2}
-            />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end" className="w-32">
-        <DropdownMenuItem onClick={handleView}>View</DropdownMenuItem>
-        <DropdownMenuItem onClick={handleEdit}>Edit</DropdownMenuItem>
-        {onApprove && status === "pending" && (
-          <DropdownMenuItem onClick={handleApprove}>Approve</DropdownMenuItem>
-        )}
-        {onUnapprove && status === "approved" && (
-          <DropdownMenuItem onClick={handleUnapprove}>
-            Unapprove
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleDelete} variant="destructive">
-          Delete
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <ResponsiveActionMenu
+      title={`${vendor.name} actions`}
+      contentClassName="w-32"
+      trigger={
+        <Button
+          aria-label="Row actions"
+          className="size-8"
+          data-testid="row-actions"
+          onClick={stableOnClick0}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <HugeiconsIcon
+            className="size-4"
+            icon={MoreVerticalIcon}
+            strokeWidth={2}
+          />
+        </Button>
+      }
+      actions={[
+        { id: "view", label: "View", onSelect: handleView },
+        { id: "edit", label: "Edit", onSelect: handleEdit },
+        Boolean(onApprove && status === "pending") && {
+          id: "approve",
+          label: "Approve",
+          onSelect: handleApprove,
+        },
+        Boolean(onUnapprove && status === "approved") && {
+          id: "unapprove",
+          label: "Unapprove",
+          onSelect: handleUnapprove,
+        },
+        {
+          id: "delete",
+          label: "Delete",
+          onSelect: handleDelete,
+          destructive: true,
+          group: "destructive",
+        },
+      ]}
+    />
   );
 }
 

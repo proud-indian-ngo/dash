@@ -21,6 +21,9 @@ export const kalakritiTransportQueries = {
           .where("editionId", args.editionId)
           .where("deletedAt", "IS", null)
           .orderBy("createdAt", "asc")
+      )
+      .related("scanStages", (stages) =>
+        stages.where("editionId", args.editionId)
       );
     if (ctx !== null && can(ctx, "kalakriti.admin"))
       return query.orderBy("name", "asc");

@@ -4,13 +4,6 @@ import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/dat
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
@@ -25,6 +18,7 @@ import {
   createStudentFilterFields,
   getStudentFilterValue,
 } from "@/components/kalakriti/kalakriti-filters";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import type { StudentCenterPermissions } from "@/lib/kalakriti-student-directory";
 import { canDeleteKalakritiStudent } from "@/lib/kalakriti-student-policy";
 
@@ -75,43 +69,43 @@ function StudentRowActions({
     entryRegistrationEnabled,
   });
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label={`Actions for ${student.name}`}
-            className="size-7"
-            data-testid="row-actions"
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4"
-              icon={MoreVerticalIcon}
-              strokeWidth={2}
-            />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end" className="w-44">
-        <DropdownMenuItem onClick={handleView}>View details</DropdownMenuItem>
-        {canManage ? (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleEdit}>Edit</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              disabled={!canDelete}
-              onClick={handleDelete}
-              variant="destructive"
-            >
-              {canDelete ? "Delete" : "Delete (Entries locked)"}
-            </DropdownMenuItem>
-          </>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <ResponsiveActionMenu
+      title={`${student.name} actions`}
+      trigger={
+        <Button
+          aria-label={`Actions for ${student.name}`}
+          className="size-7"
+          data-testid="row-actions"
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <HugeiconsIcon
+            className="size-4"
+            icon={MoreVerticalIcon}
+            strokeWidth={2}
+          />
+        </Button>
+      }
+      contentClassName="w-44"
+      actions={[
+        { id: "view", label: "View details", onSelect: handleView },
+        canManage && {
+          id: "edit",
+          label: "Edit",
+          onSelect: handleEdit,
+          group: "manage",
+        },
+        canManage && {
+          id: "delete",
+          label: canDelete ? "Delete" : "Delete (Entries locked)",
+          onSelect: handleDelete,
+          disabled: !canDelete,
+          destructive: true,
+          group: "delete",
+        },
+      ]}
+    />
   );
 }
 
@@ -169,6 +163,37 @@ export function StudentTable({
   );
   const columns: DataGridColumnDef<StudentTableRow>[] = [
     {
+      accessorFn: (row) => row.name,
+      cell: ({ row }) => {
+        const count = row.original.entryMemberships?.length ?? 0;
+        const centerName =
+          row.original.center?.name ??
+          centers.find((center) => center.id === row.original.centerId)?.name ??
+          "Center unavailable";
+        return (
+          <div className="grid gap-0.5" data-testid="row-title">
+            <span className="text-sm font-medium">{row.original.name}</span>
+            <span className="text-muted-foreground text-xs md:hidden">
+              {centerName} · {count} {count === 1 ? "Entry" : "Entries"}
+            </span>
+          </div>
+        );
+      },
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Student"
+          visibility={true}
+        />
+      ),
+      id: "name",
+      meta: {
+        headerTitle: "Student",
+        skeleton: <Skeleton className="h-5 w-40" />,
+      },
+      size: 250,
+    },
+    {
       id: "center",
       accessorFn: (row) =>
         row.center?.name ??
@@ -201,25 +226,6 @@ export function StudentTable({
         skeleton: <Skeleton className="h-5 w-24" />,
       },
       size: 130,
-    },
-    {
-      accessorFn: (row) => row.name,
-      cell: ({ row }) => (
-        <span className="text-sm font-medium">{row.original.name}</span>
-      ),
-      header: ({ column }) => (
-        <DataGridColumnHeader
-          column={column}
-          title="Student"
-          visibility={true}
-        />
-      ),
-      id: "name",
-      meta: {
-        headerTitle: "Student",
-        skeleton: <Skeleton className="h-5 w-40" />,
-      },
-      size: 230,
     },
     {
       id: "transportStatus",

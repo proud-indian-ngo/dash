@@ -34,7 +34,7 @@ function rule(id: string, path: string, value: unknown) {
   return createFilterRule({ id, path: [path], operator: "is", value });
 }
 describe("Student column filters", () => {
-  it("exposes exactly the seven data columns, independent of visibility settings", () => {
+  it("exposes the supported fields including entry counts, independent of visibility settings", () => {
     expect(
       createStudentFilterFields([student]).map((field) => [
         field.id,
@@ -46,6 +46,7 @@ describe("Student column filters", () => {
       ["name", "Student"],
       ["transportStatus", "Transport status"],
       ["dateOfBirth", "Date of birth"],
+      ["entryCount", "Entries"],
       ["gender", "Gender"],
       ["ageCategory", "Age Category"],
     ]);
@@ -102,7 +103,6 @@ describe("Obsolete Student filter migration", () => {
       "ageCategoryOverride",
       "ageCategoryOverrideReason",
       "ageCategoryOverrideAt",
-      "entryCount",
       "studentRegistrationEnabled",
       "competitionEntryRegistrationEnabled",
       "centerStatus",
@@ -145,12 +145,14 @@ describe("Obsolete Student filter migration", () => {
       id: "root",
       rules: [
         rule("old-center", "center", ["a"]),
-        rule("old-meta", "entryCount", 99),
+        rule("old-meta", "createdAt", 99),
+        rule("entries", "entryCount", 0),
         rule("gender", "gender", ["female"]),
       ],
     });
     const migrated = withStudentCenterFilter(query, "b", "link");
-    expect(JSON.stringify(migrated)).not.toContain("entryCount");
+    expect(JSON.stringify(migrated)).not.toContain("createdAt");
+    expect(JSON.stringify(migrated)).toContain("entryCount");
     expect(JSON.stringify(migrated)).not.toContain("old-center");
     expect(JSON.stringify(migrated)).toContain('"gender"');
     expect(compileFilterQuery(migrated, getStudentFilterValue)(student)).toBe(

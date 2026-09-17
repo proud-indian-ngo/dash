@@ -84,7 +84,12 @@ All paths are relative to project root.
 | `routes/_app/kalakriti/route.tsx` | Kalakriti layout (`kalakriti.view` permission guard) |
 | `routes/_app/kalakriti/index.tsx` | Latest accessible Edition redirect and no-access fallback |
 | `routes/_app/kalakriti/$year/route.tsx` | Edition-scoped container and exact-year access guard |
-| `routes/_app/kalakriti/$year/index.tsx` | Edition overview workspace and Edition header |
+| `routes/_app/kalakriti/$year/index.tsx` | Phase-aware role dashboard, Edition header, registration breakdowns and standings |
+| `components/kalakriti/role-dashboard.tsx`, `components/kalakriti/use-dashboard-snapshot.ts` | Scoped action sections and retained server-summary refresh |
+| `functions/kalakriti-dashboard-summary.ts`, `lib/server/kalakriti-dashboard-summary.ts` | Authenticated role aggregates and registration projections |
+| `components/kalakriti/*-stats.tsx`, `people-page-summary.tsx`, `competition-readiness-summary.tsx`, `entry-session-summary.tsx` | Scoped work-page metrics, exception filters, and completion visuals |
+| `lib/kalakriti-competition-page-metrics.ts` | Shared active Competition and scheduled Session counting rules |
+| `lib/kalakriti-dashboard-filter.ts` | Validated dashboard destination tokens translated to visible table filters |
 | `components/kalakriti/{volunteer,guardian,student}-detail-sheet.tsx` | Table-owned person details, Guardian/Student Center details, Student competition entries, and identifier QR codes for every authorized viewer |
 | `components/kalakriti/person-qr-panel.tsx` | Client-rendered JSON QR containing the database record `id` and subject `type` (`student`, `guardian`, or `volunteer`) |
 | `components/kalakriti/{food-table,food-stats,food-meal-undo}.tsx`, `components/kalakriti/food-roster-snapshot.ts`, `lib/kalakriti-food-policy.ts` | Eligible-only Food roster with retained authoritative snapshots, column filters, whole-authorized-roster meal totals, guarded meal undo, and shared page/navigation read policy |
@@ -122,18 +127,16 @@ All paths are relative to project root.
 | `routes/_app/kalakriti/$year/centers/index.tsx` | Edition Center list and registration controls |
 | `routes/_app/kalakriti/$year/centers/index.tsx` | Centers directory with a scoped `centerId` search parameter for row-click sheets and notification deep links |
 | `components/kalakriti/center-detail-sheet.tsx` | Center fields, registration/compliance, scoped Guardian/Liaison lists, and lazily loaded read-only transport; actions open table-owned modals |
-| `routes/_app/kalakriti/$year/eligibility.tsx` | Edition Age Categories and shared per-Center Student limits |
-| `routes/_app/kalakriti/$year/competitions/route.tsx` | Competition workspace access guard; Category Leads have read-only access to assigned Categories, while archived Editions are visible only to global administrators |
-| `routes/_app/kalakriti/$year/competitions/index.tsx` | Category, Competition, Venue, and Schedule summary |
-| `routes/_app/kalakriti/$year/competitions/categories.tsx` | Competition Category table and detail sheet |
-| `routes/_app/kalakriti/$year/competitions/catalog.tsx` | Competition table and detail sheet |
-| `routes/_app/kalakriti/$year/competitions/venues.tsx` | Venue table and detail sheet |
-| `routes/_app/kalakriti/$year/competitions/schedule.tsx` | Competition Session table and detail sheet |
+| `routes/_app/kalakriti/$year/competitions/route.tsx` | Unified Competition workspace guard: Entry readers retain scoped access; configuration controls use existing manager/lifecycle rules |
+| `routes/_app/kalakriti/$year/competitions/index.tsx` | One row per age-specific Competition, scoped Entries, schedule, create/edit/cancel and inline Entries selection |
+| `routes/_app/kalakriti/$year/competitions/sessions/$id.tsx` | Redirect to the Competition workspace with the age-specific Competition selected |
+| `routes/_app/kalakriti/$year/settings/` | Role-gated Edition details/participation rules, Competition Categories, Venues, and Eligibility tabs |
+| `routes/_app/kalakriti/$year/competitions/{catalog,categories,venues,schedule}.tsx`, `eligibility.tsx` | Redirects to the consolidated Competition workspace and Settings |
 | `routes/_app/kalakriti/$year/guardians.tsx` | Edition Guardian access management |
 | `routes/_app/kalakriti/$year/{guests,judges}.tsx` | Non-login attendee rosters, detail-sheet QR/status display, and many-to-many judge Competition assignments |
 | `packages/zero/src/{mutators,queries}/kalakriti-attendee.ts` (repository root) | Edition-bound attendee commands and administrator/lead-scoped roster reads |
 | `routes/_app/kalakriti/$year/students.tsx` | Authorized-Center-union Student directory with a Center column/filter, explicit-Center registration, and actual-row-Center edit/detail/delete guards |
-| `routes/_app/kalakriti/$year/entries.tsx`, `entries/` | Authorized-Center-union directory and Entries; event-detail Present/Attended statuses and data-column filters; same-Center registration with existing eligibility/write guards |
+| `routes/_app/kalakriti/$year/entries.tsx`, `entries/` | Legacy Entries redirects to the Competition workspace and inline Entries selection, preserving Center search parameters |
 | `routes/_app/kalakriti/$year/food.tsx` | Scoped Student/Volunteer/Guardian/Guest/Judge Food roster with eligibility and served history |
 | `functions/kalakriti-food.ts`, `components/kalakriti/use-food-attendees.ts` | Authenticated no-contact Guest/Judge Food projection, five-second/focus refresh, and snapshot readiness |
 | `routes/_app/kalakriti/$year/audit.tsx` | Edition-wide administrator and assignment-scoped Lead audit trail with stable pagination |
@@ -197,7 +200,7 @@ pi-dash event remains read-only outside the Kalakriti module.
 | `components/users/` | users-table, user-form, password-form, ban-user-form |
 | `components/reimbursements/` | reimbursements-table, reimbursement-form, reimbursement-detail, reimbursement-stats (unified reimbursements + advance payments) |
 | `components/teams/` | teams-table, team-detail, team-form-dialog, add-member-dialog |
-| `components/shared/` | user-avatar, user-picker, confirm-dialog |
+| `components/shared/` | user-avatar, user-picker, confirm-dialog, responsive-dialog, responsive-action-menu (desktop dropdown and mobile action sheet) |
 | `components/editor/` | plate-editor (rich-text with image upload), plate-renderer (read-only) |
 | `components/events/` | public-events-table |
 | `components/kalakriti/` | Edition configuration, assignments, Guardian access, Competition schedule, Student and Entry registration, scoped dashboards and ZIP exports, and scoped audit tables |
@@ -479,6 +482,8 @@ import { DataGrid } from "@pi-dash/design-system/components/reui/data-grid/data-
 ```
 
 ### Design Tokens
+
+Row and page action menus use `ResponsiveActionMenu` from `@/components/shared/responsive-action-menu`. Pass a contextual `title`, the existing button as `trigger`, and one `actions` array containing stable IDs, labels, optional icons, callbacks or link `render` elements, disabled flags, group keys, and destructive flags. The caller owns permissions and confirmation dialogs. Below the shared 768px mobile breakpoint, actions render in a swipe-dismissable Drawer with separate destructive actions and Cancel; desktop retains DropdownMenu semantics. The scoped CSS module owns safe-area spacing and gesture transitions. Selection releases the menu focus trap before invoking callbacks, without delaying browser-activation-dependent actions. Crossing the breakpoint closes the menu. Theme, filter, column, and editor selection controls keep their existing primitives; the account menu retains its desktop notification submenu and opens a separate mobile inbox.
 
 | Token | Usage |
 |---|---|

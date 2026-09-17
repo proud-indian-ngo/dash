@@ -1161,6 +1161,47 @@ describe("kalakritiAssignment.addVolunteers", () => {
 });
 
 describe("kalakritiAssignment.removeVolunteer", () => {
+  it.each(["edition_admin", "volunteer_coordinator"] as const)(
+    "prevents a Volunteer Coordinator from removing a %s",
+    async (responsibility) => {
+      const { tx, spies } = createTx([
+        {
+          editionId: "edition-1",
+          id: "target-membership",
+          kind: "volunteer",
+          state: "active",
+          userId: "target-1",
+        },
+        { id: "actor-membership" },
+        { id: "actor-assignment", responsibility: "volunteer_coordinator" },
+        [{ id: "target-assignment", responsibility }],
+        { id: "actor-membership" },
+        [{ responsibility: "volunteer_coordinator" }],
+      ]);
+
+      await expect(
+        kalakritiAssignmentMutators.removeVolunteer.fn({
+          args: {
+            auditEntryId: "audit-1",
+            membershipId: "target-membership",
+            now: 1_700_000_000_000,
+          },
+          ctx: {
+            permissions: [],
+            role: "volunteer",
+            userId: "coordinator-1",
+          },
+          tx,
+        } as unknown as Parameters<
+          typeof kalakritiAssignmentMutators.removeVolunteer.fn
+        >[0])
+      ).rejects.toThrow("Unauthorized");
+
+      expect(spies.deleteAssignment).not.toHaveBeenCalled();
+      expect(spies.updateMembership).not.toHaveBeenCalled();
+    }
+  );
+
   it("archives membership and drops the linked event member", async () => {
     const { lockedCenters, lockForUpdate, tx, spies } = createTx([
       {

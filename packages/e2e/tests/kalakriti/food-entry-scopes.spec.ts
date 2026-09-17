@@ -134,8 +134,12 @@ function filterUrl(
       },
     ],
   };
-  return `${pathname}?filters=${encodeURIComponent(JSON.stringify(filters))}`;
+  const url = new URL(pathname, "http://localhost");
+  url.searchParams.set("filters", JSON.stringify(filters));
+  return `${url.pathname}${url.search}`;
 }
+const competitionUrl = (year: number, divisionId: string) =>
+  `/kalakriti/${year}/competitions?competition=${divisionId}`;
 const rowFor = (page: Page, name: string) =>
   page.getByRole("row").filter({ has: page.getByText(name, { exact: true }) });
 async function cell(page: Page, row: Locator, header: string) {
@@ -185,6 +189,10 @@ function watchOutsideCenter(page: Page) {
 }
 const foodCount = (page: Page, label: string) =>
   page.getByText(label, { exact: true }).locator("..").getByRole("definition");
+const eligibleMealProgress = (page: Page, meal: "Breakfast" | "Lunch") =>
+  page.getByRole("progressbar", {
+    name: `${meal} served to currently eligible people`,
+  });
 async function gotoFood(page: Page, year: number, role?: string) {
   const pathname = `/kalakriti/${year}/food`;
   await page.goto(role ? filterUrl(pathname, "role", role) : pathname);
@@ -196,13 +204,14 @@ async function gotoFood(page: Page, year: number, role?: string) {
 async function finish(
   request: APIRequestContext,
   data: Setup,
-  expectedStage: string
+  expectedStage: string,
+  centerId = data.centerId
 ) {
   expect(
     (
       await mutate(request, "kalakritiCenterScan.finalize", {
         editionId: data.editionId,
-        centerId: data.centerId,
+        centerId,
         expectedStage,
         id: uuidv7(),
         auditEntryId: uuidv7(),
@@ -269,6 +278,147 @@ for (const actor of ["guardian", "liaison"] as const) {
     }
   });
 }
+
+test("Competition workspace scopes Guardian and Liaison Entries without configuration access", async ({
+  browser,
+  baseURL,
+  page,
+  superAdminEmail,
+  kalakritiActors,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "kalakriti_release_invariants",
+    "Isolated scope fixture requires the serialized invariant lane"
+  );
+  test.slow();
+  const data = await fixture<Setup>("setup-scopes", superAdminEmail);
+  const guardianContext = await browser.newContext({
+    baseURL,
+    storageState: { cookies: [], origins: [] },
+  });
+  const liaisonContext = await browser.newContext({
+    baseURL,
+    storageState: kalakritiActors.unrelatedVolunteer.storageState,
+  });
+
+  try {
+    const guardian = await guardianContext.newPage();
+    await guardian.goto("/login");
+    await guardian.getByLabel("Email").fill(data.scopeGuardianEmail);
+    await guardian.getByLabel("Password").fill(data.scopeGuardianPassword);
+    await guardian.getByRole("button", { name: "Login", exact: true }).click();
+    await guardian.waitForURL((url) => url.pathname !== "/login");
+    const liaison = await liaisonContext.newPage();
+
+    for (const reader of [guardian, liaison]) {
+      const expectWireScoped = watchOutsideCenter(reader);
+      await reader.goto(`/kalakriti/${data.year}/entries`);
+      await expect(reader).toHaveURL(
+        new RegExp(`/kalakriti/${data.year}/competitions/?$`)
+      );
+      await waitForZeroReady(reader);
+      await expect(
+        reader.getByRole("heading", { name: "Competitions", exact: true })
+      ).toBeVisible();
+      const competition = reader.getByRole("row").filter({
+        has: reader.getByRole("cell", {
+          name: "Station Singing",
+          exact: true,
+        }),
+      });
+      await expect(competition).toHaveCount(1);
+      await expect(
+        competition.getByRole("cell", { name: "3", exact: true })
+      ).toBeVisible();
+      await expect(
+        reader.getByRole("button", { name: "Add Competition" })
+      ).toHaveCount(0);
+      await expect(
+        reader.getByRole("link", { name: "Settings", exact: true })
+      ).toHaveCount(0);
+
+      await competition.click();
+      await expect(reader).toHaveURL(
+        new RegExp(
+          `/kalakriti/${data.year}/competitions\\?competition=${data.divisionId}$`
+        )
+      );
+      await expect(reader.getByRole("dialog")).toHaveCount(0);
+      await expect(
+        reader.getByRole("button", { name: "Edit Competition" })
+      ).toHaveCount(0);
+      await expect(
+        reader.getByRole("button", { name: /Cancel (Competition|Session)/ })
+      ).toHaveCount(0);
+      await expect(
+        reader.getByRole("heading", { name: "Station Singing", exact: true })
+      ).toBeVisible();
+      for (const name of [
+        "Activity Student",
+        "Another Center A Student",
+        "Union Student B",
+      ]) {
+        await expect(rowFor(reader, name)).toBeVisible();
+      }
+      await expect(rowFor(reader, "Outside Student C")).toHaveCount(0);
+      expectWireScoped();
+
+      await reader.goto(`/kalakriti/${data.year}/settings/categories`);
+      await expect(
+        reader.getByRole("heading", { name: "Page not found" })
+      ).toBeVisible();
+    }
+
+    const readers = [guardian, liaison];
+    const wireChecks = readers.map((reader) => watchOutsideCenter(reader));
+    for (const reader of readers) {
+      await reader.goto(`/kalakriti/${data.year}/competitions`);
+      await waitForZeroReady(reader);
+      await expect(rowFor(reader, "Station Singing")).toContainText(
+        "Scheduled"
+      );
+    }
+    expect(
+      (
+        await mutate(
+          page.request,
+          "kalakritiOperation.record",
+          operation(data, "pickup", data.studentC)
+        )
+      ).error
+    ).toBeUndefined();
+    await finish(page.request, data, "pickup", data.centerC);
+    expect(
+      (
+        await mutate(
+          page.request,
+          "kalakritiOperation.record",
+          operation(data, "venue_arrival", data.studentC)
+        )
+      ).error
+    ).toBeUndefined();
+    await finish(page.request, data, "venue_arrival", data.centerC);
+    expect(
+      (
+        await mutate(page.request, "kalakritiOperation.record", {
+          ...operation(data, "competition_attendance", data.studentC),
+          sessionId: data.sessionId,
+        })
+      ).error
+    ).toBeUndefined();
+    for (const [index, reader] of readers.entries()) {
+      await expect(rowFor(reader, "Station Singing")).toContainText("Running", {
+        timeout: 20_000,
+      });
+      await rowFor(reader, "Station Singing").click();
+      await expect(rowFor(reader, "Outside Student C")).toHaveCount(0);
+      wireChecks[index]!();
+    }
+  } finally {
+    await Promise.allSettled([guardianContext.close(), liaisonContext.close()]);
+    await fixture("cleanup");
+  }
+});
 
 test("Food and Entry readers see their two-Center union, while arrival and check-in statuses track effective operations", async ({
   page,
@@ -467,7 +617,10 @@ test("Food and Entry readers see their two-Center union, while arrival and check
         { name: "Served", exact: true }
       )
     ).toBeVisible();
-    await expect(foodCount(food, "Breakfast served")).toHaveText("1");
+    await expect(eligibleMealProgress(food, "Breakfast")).toHaveAttribute(
+      "aria-valuenow",
+      "1"
+    );
     const registered = Number(
       await foodCount(food, "Registered people").textContent()
     );
@@ -524,8 +677,14 @@ test("Food and Entry readers see their two-Center union, while arrival and check
         await waitForZeroReady(page);
         await foodPerson(page, included);
         await foodPerson(page, excluded, false);
-        await expect(foodCount(page, "Breakfast served")).toHaveText("1");
-        await expect(foodCount(page, "Lunch served")).toHaveText("1");
+        await expect(eligibleMealProgress(page, "Breakfast")).toHaveAttribute(
+          "aria-valuenow",
+          "1"
+        );
+        await expect(eligibleMealProgress(page, "Lunch")).toHaveAttribute(
+          "aria-valuenow",
+          "1"
+        );
       });
     }
     const beforeSelfMutation = await fixture("state");
@@ -541,13 +700,13 @@ test("Food and Entry readers see their two-Center union, while arrival and check
     expect(await fixture("state")).toEqual(beforeSelfMutation);
 
     for (const reader of [guardian, liaison]) {
-      await reader.goto(`/kalakriti/${data.year}/entries`);
+      await reader.goto(`/kalakriti/${data.year}/competitions`);
       await waitForZeroReady(reader);
       await expect(
         reader.getByRole("combobox", { name: "Center", exact: true })
       ).toHaveCount(0);
       const event = reader.getByRole("row").filter({
-        has: reader.getByRole("link", {
+        has: reader.getByRole("cell", {
           name: "Station Singing",
           exact: true,
         }),
@@ -558,9 +717,12 @@ test("Food and Entry readers see their two-Center union, while arrival and check
       await expect(
         event.getByRole("cell", { name: "3", exact: true })
       ).toBeVisible();
-      await event
-        .getByRole("link", { name: "Station Singing", exact: true })
-        .click();
+      await event.click();
+      await expect(reader).toHaveURL(
+        new RegExp(
+          `/kalakriti/${data.year}/competitions\\?competition=${data.divisionId}$`
+        )
+      );
       await expect(
         reader.getByRole("heading", { name: "Station Singing", exact: true })
       ).toBeVisible();
@@ -575,16 +737,14 @@ test("Food and Entry readers see their two-Center union, while arrival and check
       ).toHaveCount(0);
       await reader.goto(
         filterUrl(
-          `/kalakriti/${data.year}/entries/${data.divisionId}`,
+          competitionUrl(data.year, data.divisionId),
           "center",
           "Union Center B"
         )
       );
       await expect(rowFor(reader, "Union Student B")).toBeVisible();
       await expect(rowFor(reader, "Activity Student")).toHaveCount(0);
-      await reader.goto(
-        `/kalakriti/${data.year}/entries/${data.outsideDivisionId}`
-      );
+      await reader.goto(competitionUrl(data.year, data.outsideDivisionId));
       await expect(
         reader.getByText("No Entries have been registered for this Session.", {
           exact: true,
@@ -613,10 +773,8 @@ test("Food and Entry readers see their two-Center union, while arrival and check
     }
     expectGuardianWireScoped();
     expectLiaisonWireScoped();
-    await guardian.goto(`/kalakriti/${data.year}/entries/${data.divisionId}`);
-    await liaison.goto(
-      `/kalakriti/${data.year}/entries/${data.groupDivisionId}`
-    );
+    await guardian.goto(competitionUrl(data.year, data.divisionId));
+    await liaison.goto(competitionUrl(data.year, data.groupDivisionId));
     await expect(
       rowFor(guardian, "Activity Student").getByRole("img", {
         name: "Activity Student: Not present",
@@ -661,7 +819,7 @@ test("Food and Entry readers see their two-Center union, while arrival and check
     ).toBeVisible();
     await page.goto(
       filterUrl(
-        `/kalakriti/${data.year}/entries/${data.groupDivisionId}`,
+        competitionUrl(data.year, data.groupDivisionId),
         "present",
         "partial"
       )
@@ -736,7 +894,7 @@ test("Food and Entry readers see their two-Center union, while arrival and check
       if (index === 0) {
         await page.goto(
           filterUrl(
-            `/kalakriti/${data.year}/entries/${data.groupDivisionId}`,
+            competitionUrl(data.year, data.groupDivisionId),
             "attended",
             "partial"
           )
@@ -795,16 +953,11 @@ test("Food and Entry readers see their two-Center union, while arrival and check
       ["attended", "none", "is", 2],
       ["studentId", "KAL-2168-0002", "contains", 1],
       ["student", "Another Center A Student", "contains", 1],
-      ["participationMode", "individual", "is", 3],
-      ["participationMode", "group", "is", 0],
-      ["ageCategory", "Junior", "is", 3],
-      ["session", data.sessionStartAt, "is", 3],
-      ["venue", "Station Hall", "is", 3],
     ] as const) {
       await test.step(`Entry filter ${field} ${operator} ${value}`, async () => {
         await guardian.goto(
           filterUrl(
-            `/kalakriti/${data.year}/entries/${data.divisionId}`,
+            competitionUrl(data.year, data.divisionId),
             field,
             value,
             operator
@@ -829,7 +982,11 @@ test("Food and Entry readers see their two-Center union, while arrival and check
     await expect(foodCount(food, "Registered people")).toHaveText(
       String(registered - 1)
     );
-    await expect(foodCount(food, "Breakfast served")).toHaveText("1");
+    await expect(
+      food.getByText(
+        /Historical meals served, including people no longer eligible:/
+      )
+    ).toContainText("breakfast 1;");
     expect(
       (
         await mutate(
@@ -841,9 +998,7 @@ test("Food and Entry readers see their two-Center union, while arrival and check
     ).toBeDefined();
     expect(await fixture("state")).toEqual(operations);
     await fixture("open-scope-registration");
-    await page.goto(
-      `/kalakriti/${data.year}/entries/${data.creationDivisionId}`
-    );
+    await page.goto(competitionUrl(data.year, data.creationDivisionId));
     await waitForZeroReady(page);
     for (const [center, included, excluded] of [
       ["Activity Center", "Another Center A Student", "Union Student B"],
@@ -998,7 +1153,10 @@ test("Meal undo preserves history and requires a new capture before re-serving",
       .getByRole("button", { name: "Undo meal", exact: true })
       .click();
     await expect(confirmation).toBeHidden();
-    await expect(foodCount(page, "Breakfast served")).toHaveText("0");
+    await expect(eligibleMealProgress(page, "Breakfast")).toHaveAttribute(
+      "aria-valuenow",
+      "0"
+    );
     const afterUndo = await fixture<MealOperation[]>("state");
     expect(afterUndo).toHaveLength(2);
     expect(
@@ -1028,7 +1186,10 @@ test("Meal undo preserves history and requires a new capture before re-serving",
     await expect
       .poll(async () => (await fixture<MealOperation[]>("state")).length)
       .toBe(3);
-    await expect(foodCount(page, "Breakfast served")).toHaveText("1");
+    await expect(eligibleMealProgress(page, "Breakfast")).toHaveAttribute(
+      "aria-valuenow",
+      "1"
+    );
     const replacement = (await fixture<MealOperation[]>("state")).find(
       (row) => row.type === "breakfast" && row.supersededByOperationId === null
     )!;
@@ -1105,7 +1266,10 @@ test("Meal undo preserves history and requires a new capture before re-serving",
     expect(await fixture("audit", freshServe.id)).toEqual(
       expect.arrayContaining(serveAudit as unknown[])
     );
-    await expect(foodCount(page, "Breakfast served")).toHaveText("0");
+    await expect(eligibleMealProgress(page, "Breakfast")).toHaveAttribute(
+      "aria-valuenow",
+      "0"
+    );
   } finally {
     await Promise.allSettled(contexts.map((context) => context.close()));
     if (!page.isClosed()) await page.goto("about:blank");

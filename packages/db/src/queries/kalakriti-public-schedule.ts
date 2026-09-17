@@ -4,6 +4,7 @@ import { db } from "..";
 import {
   kalakritiAgeCategory,
   kalakritiCompetition,
+  kalakritiCompetitionCategory,
   kalakritiCompetitionDivision,
   kalakritiCompetitionSession,
   kalakritiEdition,
@@ -43,6 +44,7 @@ export async function getKalakritiPublicSchedule(year: number) {
   const sessions = await db
     .select({
       ageCategory: kalakritiAgeCategory.name,
+      category: kalakritiCompetitionCategory.name,
       competition: kalakritiCompetition.name,
       competitionCancelledAt: kalakritiCompetition.cancelledAt,
       endAt: kalakritiCompetitionSession.endAt,
@@ -76,6 +78,16 @@ export async function getKalakritiPublicSchedule(year: number) {
       )
     )
     .innerJoin(
+      kalakritiCompetitionCategory,
+      and(
+        eq(kalakritiCompetitionCategory.editionId, edition.id),
+        eq(
+          kalakritiCompetitionCategory.id,
+          kalakritiCompetition.competitionCategoryId
+        )
+      )
+    )
+    .innerJoin(
       kalakritiVenue,
       and(
         eq(kalakritiVenue.editionId, edition.id),
@@ -99,6 +111,7 @@ export async function getKalakritiPublicSchedule(year: number) {
     },
     sessions: sessions.map((session) => ({
       ageCategory: session.ageCategory,
+      category: session.category,
       competition: session.competition,
       endAt: session.endAt.getTime(),
       startAt: session.startAt.getTime(),

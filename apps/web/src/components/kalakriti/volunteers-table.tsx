@@ -8,13 +8,6 @@ import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/dat
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
@@ -35,6 +28,7 @@ import {
   removeObsoleteVolunteerFilters,
 } from "@/components/kalakriti/kalakriti-filters";
 import { Loader } from "@/components/loader";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 
 import { useTransportStatusSnapshot } from "./use-transport-status-snapshot";
 
@@ -110,33 +104,6 @@ function searchVolunteer(row: VolunteerRosterItem, query: string): boolean {
     .includes(normalizedQuery);
 }
 
-function VolunteerRemoveMenuItem({
-  assignment,
-  isFinalAssignment,
-  onRemove,
-  volunteerName,
-}: {
-  assignment: VolunteerAssignmentItem;
-  isFinalAssignment: boolean;
-  onRemove: (payload: RemoveAssignmentPayload) => void;
-  volunteerName: string;
-}) {
-  const handleClick = useEventCallback(() => {
-    onRemove({
-      assignmentId: assignment.id,
-      isFinalAssignment,
-      responsibility: assignment.responsibility,
-      volunteerName,
-    });
-  });
-
-  return (
-    <DropdownMenuItem onClick={handleClick} variant="destructive">
-      {`Remove ${KALAKRITI_RESPONSIBILITY_LABELS[assignment.responsibility]}`}
-    </DropdownMenuItem>
-  );
-}
-
 function RowActions({
   actorResponsibilities,
   isGlobalAdmin,
@@ -171,54 +138,65 @@ function RowActions({
       )
   );
   const canAssignRole = isKalakritiAssignableUserRole(volunteer.userRole);
+  const canRemoveFromEdition =
+    isGlobalAdmin ||
+    volunteer.assignments.every((assignment) =>
+      canManageKalakritiResponsibility(
+        actorResponsibilities,
+        assignment.responsibility
+      )
+    );
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label={`Actions for ${volunteer.snapshotName}`}
-            className="size-8"
-            data-testid="row-actions"
-            onClick={stopRowClick}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4"
-              icon={MoreVerticalIcon}
-              strokeWidth={2}
-            />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuItem onClick={handleView}>View details</DropdownMenuItem>
-        {canAssignRole ? (
-          <DropdownMenuItem onClick={handleAssignRole}>
-            Assign role
-          </DropdownMenuItem>
-        ) : null}
-        {removable.length > 0 ? <DropdownMenuSeparator /> : null}
-        {removable.map((assignment) => (
-          <VolunteerRemoveMenuItem
-            assignment={assignment}
-            isFinalAssignment={volunteer.assignments.length === 1}
-            key={assignment.id}
-            onRemove={onRemove}
-            volunteerName={volunteer.snapshotName}
-          />
-        ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={handleRemoveFromEdition}
-          variant="destructive"
+    <ResponsiveActionMenu
+      title={`${volunteer.snapshotName} actions`}
+      trigger={
+        <Button
+          aria-label={`Actions for ${volunteer.snapshotName}`}
+          className="size-8"
+          data-testid="row-actions"
+          onClick={stopRowClick}
+          size="icon"
+          type="button"
+          variant="ghost"
         >
-          Remove from Edition
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <HugeiconsIcon
+            className="size-4"
+            icon={MoreVerticalIcon}
+            strokeWidth={2}
+          />
+        </Button>
+      }
+      contentClassName="w-56"
+      actions={[
+        { id: "view", label: "View details", onSelect: handleView },
+        canAssignRole && {
+          id: "assign",
+          label: "Assign role",
+          onSelect: handleAssignRole,
+        },
+        ...removable.map((assignment) => ({
+          id: `remove-${assignment.id}`,
+          label: `Remove ${KALAKRITI_RESPONSIBILITY_LABELS[assignment.responsibility]}`,
+          onSelect: () =>
+            onRemove({
+              assignmentId: assignment.id,
+              isFinalAssignment: volunteer.assignments.length === 1,
+              responsibility: assignment.responsibility,
+              volunteerName: volunteer.snapshotName,
+            }),
+          destructive: true,
+          group: "assignments",
+        })),
+        canRemoveFromEdition && {
+          id: "remove-edition",
+          label: "Remove from Edition",
+          onSelect: handleRemoveFromEdition,
+          destructive: true,
+          group: "edition",
+        },
+      ]}
+    />
   );
 }
 
@@ -272,16 +250,25 @@ export function VolunteersTable({
     {
       accessorKey: "snapshotName",
       cell: ({ row }) => (
-        <span className="text-sm font-medium" data-testid="row-title">
-          {row.original.snapshotName}
-        </span>
+        <div className="grid gap-0.5" data-testid="row-title">
+          <span className="text-sm font-medium">
+            {row.original.snapshotName}
+          </span>
+          <span className="text-muted-foreground line-clamp-2 text-xs md:hidden">
+            {row.original.assignments.length
+              ? row.original.assignments
+                  .map(formatKalakritiVolunteerAssignment)
+                  .join(", ")
+              : "No responsibilities"}
+          </span>
+        </div>
       ),
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="Name" visibility={true} />
       ),
       id: "snapshotName",
       meta: { headerTitle: "Name", skeleton: SKELETON_NAME },
-      size: 200,
+      size: 260,
     },
     {
       accessorKey: "humanId",

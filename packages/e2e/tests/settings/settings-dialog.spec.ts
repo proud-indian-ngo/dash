@@ -26,7 +26,14 @@ async function openSettings(page: import("@playwright/test").Page) {
   const userMenuButton = sidebar.locator("[data-sidebar='menu-button']").last();
   await expect(userMenuButton).toBeVisible();
   await userMenuButton.click();
-  await page.getByRole("menuitem", { name: "Settings" }).click();
+  if ((page.viewportSize()?.width ?? 1280) < 768) {
+    await page
+      .getByRole("dialog", { name: "Account actions" })
+      .getByRole("button", { name: "Settings", exact: true })
+      .click();
+  } else {
+    await page.getByRole("menuitem", { name: "Settings" }).click();
+  }
 
   await expect(page.getByRole("dialog")).toBeVisible();
 }

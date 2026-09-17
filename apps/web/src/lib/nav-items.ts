@@ -3,9 +3,7 @@ import {
   Audit01Icon,
   Building03Icon,
   Bus01Icon,
-  CheckListIcon,
   DashboardCircleIcon,
-  FileEditIcon,
   IdentityCardIcon,
   JusticeScale01Icon,
   PaintBoardIcon,
@@ -21,6 +19,7 @@ import {
   Invoice01Icon,
   Message01Icon,
   SecurityLockIcon,
+  Settings01Icon,
   Store01Icon,
   TaskDaily02Icon,
   UserGroupIcon,
@@ -202,14 +201,6 @@ export function buildKalakritiNavGroups({
     });
   }
 
-  if (year && canManageEligibility) {
-    editionItems.push({
-      icon: CheckListIcon,
-      title: "Eligibility",
-      url: `/kalakriti/${year}/eligibility`,
-    });
-  }
-
   if (year && canViewStudents) {
     editionItems.push({
       icon: StudentIcon,
@@ -218,19 +209,19 @@ export function buildKalakritiNavGroups({
     });
   }
 
-  if (year && canViewEntries) {
-    editionItems.push({
-      icon: FileEditIcon,
-      title: "Entries",
-      url: `/kalakriti/${year}/entries`,
-    });
-  }
-
-  if (year && canViewCompetitions) {
+  if (year && (canViewCompetitions || canViewEntries)) {
     editionItems.push({
       icon: TrophyIcon,
       title: "Competitions",
       url: `/kalakriti/${year}/competitions`,
+    });
+  }
+
+  if (year && (canViewCompetitions || canManageEligibility)) {
+    editionItems.push({
+      icon: Settings01Icon,
+      title: "Settings",
+      url: `/kalakriti/${year}/settings`,
     });
   }
 

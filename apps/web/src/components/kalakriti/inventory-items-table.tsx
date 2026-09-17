@@ -12,16 +12,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@pi-dash/design-system/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useMemo } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { formatINR } from "@/lib/form-schemas";
 import { getKalakritiInventoryPhotoUrl } from "@/lib/kalakriti-inventory-upload";
 
@@ -31,6 +26,7 @@ import type { InventoryItem } from "./inventory-types";
 const filterFields: FilterField[] = [
   { id: "name", label: "Name", type: "text" },
   { id: "status", label: "Status", type: "text" },
+  { id: "quantity", label: "Quantity", type: "number" },
 ];
 
 function searchItem(row: InventoryItem, query: string): boolean {
@@ -201,59 +197,63 @@ export function InventoryItemsTable({
         cell: ({ row }) => {
           const item = row.original;
           return (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    aria-label={`Actions for ${item.name}`}
-                    data-testid="row-actions"
-                    className="size-7"
-                    size="icon"
-                    variant="ghost"
-                  >
-                    <HugeiconsIcon
-                      icon={MoreVerticalIcon}
-                      className="size-4"
-                      strokeWidth={2}
-                    />
-                  </Button>
-                }
-              />
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onHistory(item)}>
-                  History
-                </DropdownMenuItem>
-                {canManage && !item.archivedAt ? (
-                  <>
-                    <DropdownMenuItem
-                      onClick={() => onMovement(item, "purchase")}
-                    >
-                      Purchase
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => onMovement(item, "adjustment")}
-                    >
-                      Adjust stock
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onEdit(item)}>
-                      Edit item
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      disabled={item.quantity !== 0}
-                      onClick={() => onArchive(item)}
-                      variant="destructive"
-                    >
-                      Archive item
-                    </DropdownMenuItem>
-                  </>
-                ) : null}
-                {canManage && item.archivedAt ? (
-                  <DropdownMenuItem onClick={() => onRestore(item)}>
-                    Restore item
-                  </DropdownMenuItem>
-                ) : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <ResponsiveActionMenu
+              title={`${item.name} actions`}
+              trigger={
+                <Button
+                  aria-label={`Actions for ${item.name}`}
+                  data-testid="row-actions"
+                  className="size-7"
+                  size="icon"
+                  variant="ghost"
+                >
+                  <HugeiconsIcon
+                    icon={MoreVerticalIcon}
+                    className="size-4"
+                    strokeWidth={2}
+                  />
+                </Button>
+              }
+              actions={[
+                {
+                  id: "history",
+                  label: "History",
+                  onSelect: () => onHistory(item),
+                },
+                canManage &&
+                  !item.archivedAt && {
+                    id: "purchase",
+                    label: "Purchase",
+                    onSelect: () => onMovement(item, "purchase"),
+                  },
+                canManage &&
+                  !item.archivedAt && {
+                    id: "adjust",
+                    label: "Adjust stock",
+                    onSelect: () => onMovement(item, "adjustment"),
+                  },
+                canManage &&
+                  !item.archivedAt && {
+                    id: "edit",
+                    label: "Edit item",
+                    onSelect: () => onEdit(item),
+                  },
+                canManage &&
+                  !item.archivedAt && {
+                    id: "archive",
+                    label: "Archive item",
+                    onSelect: () => onArchive(item),
+                    disabled: item.quantity !== 0,
+                    destructive: true,
+                  },
+                canManage &&
+                  !!item.archivedAt && {
+                    id: "restore",
+                    label: "Restore item",
+                    onSelect: () => onRestore(item),
+                  },
+              ]}
+            />
           );
         },
         meta: {
@@ -293,7 +293,9 @@ export function InventoryItemsTable({
             ? row.archivedAt
               ? "Archived"
               : "Active"
-            : row.name,
+            : path[0] === "quantity"
+              ? row.quantity
+              : row.name,
       }}
     />
   );

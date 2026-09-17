@@ -3,18 +3,12 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 
 import type { AgeCategoryFormValue } from "./age-category-form-dialog";
 
@@ -39,34 +33,35 @@ function RowActions({
   const handleDelete = useEventCallback(() => onDelete(category));
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label={`Actions for ${category.name}`}
-            className="size-8"
-            data-testid="row-actions"
-            onClick={stopRowClick}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4"
-              icon={MoreVerticalIcon}
-              strokeWidth={2}
-            />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={handleEdit}>Edit Category</DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleDelete} variant="destructive">
-          Delete Category
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <ResponsiveActionMenu
+      title={`${category.name} actions`}
+      trigger={
+        <Button
+          aria-label={`Actions for ${category.name}`}
+          className="size-8"
+          data-testid="row-actions"
+          onClick={stopRowClick}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <HugeiconsIcon
+            className="size-4"
+            icon={MoreVerticalIcon}
+            strokeWidth={2}
+          />
+        </Button>
+      }
+      actions={[
+        { id: "edit", label: "Edit Category", onSelect: handleEdit },
+        {
+          id: "delete",
+          label: "Delete Category",
+          onSelect: handleDelete,
+          destructive: true,
+        },
+      ]}
+    />
   );
 }
 

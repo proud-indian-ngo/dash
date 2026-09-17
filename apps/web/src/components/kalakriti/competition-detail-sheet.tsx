@@ -10,6 +10,8 @@ import {
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
+import { Link } from "@tanstack/react-router";
+import { useMemo } from "react";
 
 import { Loader } from "@/components/loader";
 
@@ -19,6 +21,7 @@ import {
   type ConfigurationStatePayload,
   formatConfigurationLabel,
 } from "./competition-config-types";
+import type { CompetitionSessionFormValue } from "./competition-config-types";
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -66,6 +69,15 @@ function AssignedJudges({
 
 export function CompetitionDetailSheet({
   editionId,
+  year,
+  center,
+  availableDivisionIds,
+  timeZone,
+  sessions,
+  entries,
+  countsReady,
+  canViewJudges,
+  canEdit,
   canManageCancellations,
   canManageStructure,
   competition,
@@ -76,6 +88,15 @@ export function CompetitionDetailSheet({
   open,
 }: {
   editionId: string;
+  year: number;
+  center?: string;
+  availableDivisionIds: readonly string[];
+  timeZone: string;
+  sessions: readonly (CompetitionSessionFormValue & { venueName: string })[];
+  entries: readonly { divisionId: string }[];
+  countsReady: boolean;
+  canViewJudges: boolean;
+  canEdit: boolean;
   canManageCancellations: boolean;
   canManageStructure: boolean;
   competition: CompetitionTableRow | null;
@@ -85,6 +106,17 @@ export function CompetitionDetailSheet({
   onSetState: (payload: ConfigurationStatePayload) => void;
   open: boolean;
 }) {
+  const dateFormat = useMemo(
+    () =>
+      new Intl.DateTimeFormat("en-IN", {
+        timeZone,
+        day: "numeric",
+        month: "short",
+        hour: "numeric",
+        minute: "2-digit",
+      }),
+    [timeZone]
+  );
   const handleEdit = useEventCallback(() => {
     if (competition) {
       onEdit(competition);
@@ -128,7 +160,7 @@ export function CompetitionDetailSheet({
 
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
-      <SheetContent>
+      <SheetContent className="overflow-y-auto sm:max-w-xl">
         <SheetHeader>
           <SheetTitle>{competition.name}</SheetTitle>
           <SheetDescription>
@@ -137,10 +169,12 @@ export function CompetitionDetailSheet({
         </SheetHeader>
 
         <div className="flex flex-col gap-6 px-6 pb-6">
-          <AssignedJudges
-            editionId={editionId}
-            competitionId={competition.id}
-          />
+          {canViewJudges ? (
+            <AssignedJudges
+              editionId={editionId}
+              competitionId={competition.id}
+            />
+          ) : null}
           <div className="flex flex-wrap gap-2">
             {competition.cancelledAt === null &&
             competition.retiredAt === null ? (
@@ -179,18 +213,100 @@ export function CompetitionDetailSheet({
 
           <div className="grid gap-3">
             <h3 className="text-sm font-medium">Competition Divisions</h3>
-            {competition.divisions.map((division) => (
-              <div className="rounded-md border px-3 py-2" key={division.id}>
-                <span className="text-sm">
-                  {division.ageCategory?.name ?? "Unknown Age Category"}
-                </span>
-              </div>
-            ))}
+            {competition.divisions.map((division) => {
+              const session = sessions.find(
+                (item) => item.divisionId === division.id
+              );
+              const entryCount = entries.filter(
+                (entry) => entry.divisionId === division.id
+              ).length;
+              return (
+                <div
+                  className="flex flex-col gap-3 border p-3"
+                  key={division.id}
+                >
+                  <h4 className="text-sm font-medium">
+                    {division.ageCategory?.name ?? "Unknown Age Category"}
+                  </h4>
+                  <p className="text-muted-foreground text-sm">
+                    {countsReady ? `${entryCount} Entries` : "Checking Entries"}
+                  </p>
+                  {session ? (
+                    <p className="text-sm">
+                      {session.venueName} · {dateFormat.format(session.startAt)}{" "}
+                      – {dateFormat.format(session.endAt)} ({timeZone})
+                      {session.cancelledAt !== null ? " · Cancelled" : ""}
+                    </p>
+                  ) : (
+                    <p className="text-muted-foreground text-sm">
+                      {countsReady ? "Not scheduled" : "Checking schedule"}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    {session &&
+                    (availableDivisionIds.includes(division.id) ||
+                      entryCount > 0) ? (
+                      <Button
+                        nativeButton={false}
+                        variant="outline"
+                        className="min-h-10 max-sm:min-h-11"
+                        render={
+                          <Link
+                            to="/kalakriti/$year/competitions"
+                            params={{ year: String(year) }}
+                            search={{ center, competition: division.id }}
+                          />
+                        }
+                      >
+                        View Entries
+                      </Button>
+                    ) : null}
+                    {session && canManageCancellations ? (
+                      <Button
+                        variant="ghost"
+                        className="min-h-10 max-sm:min-h-11"
+                        onClick={() =>
+                          onSetState({
+                            action:
+                              session.cancelledAt === null
+                                ? "Cancel"
+                                : "Restore",
+                            enabled: session.cancelledAt === null,
+                            id: session.id,
+                            kind: "session_cancelled",
+                            name: `${competition.name} · ${division.ageCategory?.name ?? "Division"}`,
+                          })
+                        }
+                      >
+                        {session.cancelledAt === null
+                          ? "Cancel Session"
+                          : "Restore Session"}
+                      </Button>
+                    ) : null}
+                    {session && canManageStructure ? (
+                      <Button
+                        variant="ghost"
+                        className="min-h-10 max-sm:min-h-11"
+                        onClick={() =>
+                          onDelete({
+                            id: session.id,
+                            kind: "session",
+                            name: `${competition.name} · ${division.ageCategory?.name ?? "Session"}`,
+                          })
+                        }
+                      >
+                        Remove schedule
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
-          {canManageCancellations || canManageStructure ? (
+          {canEdit || canManageCancellations || canManageStructure ? (
             <div className="flex flex-wrap gap-2 border-t pt-4">
-              {canManageStructure ? (
+              {canEdit ? (
                 <Button onClick={handleEdit}>Edit Competition</Button>
               ) : null}
               {canManageCancellations ? (

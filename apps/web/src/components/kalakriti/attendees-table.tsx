@@ -8,18 +8,16 @@ import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/dat
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import type { FilterField } from "@pi-dash/design-system/components/reui/filters/filters-types";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
-import { selectField } from "@/components/data-table/filter-fields";
+import {
+  numberField,
+  selectField,
+} from "@/components/data-table/filter-fields";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 
 export interface AttendeeRow {
   id: string;
@@ -104,6 +102,7 @@ const filterFields: FilterField[] = [
   ),
 ];
 function getFilterValue(row: AttendeeRow, path: string) {
+  if (path === "judgeAssignmentCount") return row.judgeAssignments.length;
   if (path === "competitions")
     return (
       row.judgeAssignments
@@ -186,10 +185,22 @@ export function AttendeesTable({
       meta: { headerTitle: title, skeleton: <Skeleton className="h-5 w-28" /> },
     });
     return [
-      text("name", "Name", (r) => r.name),
-      text("humanId", "Yearly ID", (r) => r.humanId || "—", 190),
-      text("phone", "Phone", (r) => r.phone, 160),
-      text("email", "Email", (r) => r.email || "—", 240),
+      {
+        ...text("name", "Name", (r) => r.name, 250),
+        cell: ({ row }) => (
+          <div className="grid gap-0.5" data-testid="row-title">
+            <span className="text-sm font-medium">{row.original.name}</span>
+            {kind === "judge" ? (
+              <span className="text-muted-foreground line-clamp-2 text-xs md:hidden">
+                {row.original.judgeAssignments
+                  .map((assignment) => assignment.competition?.name)
+                  .filter(Boolean)
+                  .join(", ") || "No Competitions assigned"}
+              </span>
+            ) : null}
+          </div>
+        ),
+      } as DataGridColumnDef<AttendeeRow>,
       ...(kind === "judge"
         ? [
             text(
@@ -204,6 +215,9 @@ export function AttendeesTable({
             ),
           ]
         : []),
+      text("humanId", "Yearly ID", (r) => r.humanId || "—", 190),
+      text("phone", "Phone", (r) => r.phone, 160),
+      text("email", "Email", (r) => r.email || "—", 240),
       ...(
         [
           ["attendee_check_in", "Checked in"],
@@ -244,52 +258,49 @@ export function AttendeesTable({
           stopRowClick: true,
         },
         cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  aria-label={`Actions for ${row.original.name}`}
-                  onKeyDown={(event) => event.stopPropagation()}
-                  data-testid="row-actions"
-                  className="size-7"
-                  size="icon"
-                  variant="ghost"
-                >
-                  <HugeiconsIcon
-                    icon={MoreVerticalIcon}
-                    className="size-4"
-                    strokeWidth={2}
-                  />
-                </Button>
-              }
-            />
-            <DropdownMenuContent
-              align="end"
-              onKeyDown={(event) => event.stopPropagation()}
-            >
-              <DropdownMenuItem onClick={() => onView(row.original)}>
-                View details
-              </DropdownMenuItem>
-              {canManage ? (
-                <>
-                  <DropdownMenuItem onClick={() => onEdit(row.original)}>
-                    Edit
-                  </DropdownMenuItem>
-                  {kind === "judge" ? (
-                    <DropdownMenuItem onClick={() => onAssign(row.original)}>
-                      Assign competitions
-                    </DropdownMenuItem>
-                  ) : null}
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onClick={() => onRemove(row.original)}
-                  >
-                    {kind === "judge" ? "Delete" : "Archive"}
-                  </DropdownMenuItem>
-                </>
-              ) : null}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <ResponsiveActionMenu
+            title={`${row.original.name} actions`}
+            trigger={
+              <Button
+                aria-label={`Actions for ${row.original.name}`}
+                onKeyDown={(event) => event.stopPropagation()}
+                data-testid="row-actions"
+                className="size-7"
+                size="icon"
+                variant="ghost"
+              >
+                <HugeiconsIcon
+                  icon={MoreVerticalIcon}
+                  className="size-4"
+                  strokeWidth={2}
+                />
+              </Button>
+            }
+            actions={[
+              {
+                id: "view",
+                label: "View details",
+                onSelect: () => onView(row.original),
+              },
+              canManage && {
+                id: "edit",
+                label: "Edit",
+                onSelect: () => onEdit(row.original),
+              },
+              canManage &&
+                kind === "judge" && {
+                  id: "assign",
+                  label: "Assign competitions",
+                  onSelect: () => onAssign(row.original),
+                },
+              canManage && {
+                id: "remove",
+                label: kind === "judge" ? "Delete" : "Archive",
+                onSelect: () => onRemove(row.original),
+                destructive: true,
+              },
+            ]}
+          />
         ),
       },
     ];
@@ -302,6 +313,7 @@ export function AttendeesTable({
             ? [
                 ...filterFields,
                 { id: "competitions", label: "Competitions", type: "text" },
+                numberField("judgeAssignmentCount", "Assigned Competitions"),
               ]
             : filterFields,
         getValue: (row, path) =>

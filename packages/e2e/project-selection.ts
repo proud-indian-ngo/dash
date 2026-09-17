@@ -66,6 +66,7 @@ const releaseInvariantSpecs = [
   "kalakriti/public-schedule.spec.ts",
   "kalakriti/release-database-races.spec.ts",
   "kalakriti/results.spec.ts",
+  "kalakriti/role-dashboard.spec.ts",
 ];
 
 const specPattern = (file: string) =>

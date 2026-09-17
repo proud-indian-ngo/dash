@@ -232,6 +232,12 @@ function KalakritiAuditPage({
       <KalakritiPageHeader
         kicker={`Kalakriti · ${access.edition.year}`}
         title="Audit"
+        meta={
+          <p>
+            Domain filters search the full audit history. Text search applies to
+            the current page only.
+          </p>
+        }
       />
       {error && !isLoading ? (
         <div className="border-destructive/30 bg-destructive/5 flex flex-wrap items-center justify-between gap-3 border p-3">

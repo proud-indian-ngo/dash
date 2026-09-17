@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@pi-dash/config": "workspace:*",
-    "@types/nodemailer": "^8.0.1",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "catalog:",
     "typescript": "catalog:"
   }

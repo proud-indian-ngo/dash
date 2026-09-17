@@ -4,13 +4,6 @@ import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/dat
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
@@ -20,11 +13,13 @@ import {
 import type { ReactNode } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { numberField } from "@/components/data-table/filter-fields";
 import {
   createCenterFilterFields,
   getCenterFilterValue,
 } from "@/components/kalakriti/kalakriti-filters";
 import { ParticipationComplianceBadge } from "@/components/kalakriti/participation-compliance-badge";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import type { ParticipationCompliance } from "@/lib/kalakriti-participation-compliance";
 
 import { useTransportStatusSnapshot } from "./use-transport-status-snapshot";
@@ -52,10 +47,17 @@ const SKELETON_REGISTRATION = <Skeleton className="h-5 w-20" />;
 const SKELETON_COUNT = <Skeleton className="h-5 w-8" />;
 const SKELETON_ACTIONS = <Skeleton className="mx-auto size-8" />;
 
-function RegistrationStatus({ enabled }: { enabled: boolean }) {
+function RegistrationStatus({
+  enabled,
+  registrationPhaseOpen,
+}: {
+  enabled: boolean;
+  registrationPhaseOpen: boolean;
+}) {
+  const available = enabled && registrationPhaseOpen;
   return (
-    <Badge variant={enabled ? "secondary" : "outline"}>
-      {enabled ? "Open" : "Closed"}
+    <Badge variant={available ? "secondary" : "outline"}>
+      {available ? "Open" : enabled ? "Edition locked" : "Closed"}
     </Badge>
   );
 }
@@ -94,59 +96,51 @@ function RowActions({
   const handleDelete = useEventCallback(() => onDelete(center));
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label={`Actions for ${center.name}`}
-            className="size-8"
-            data-testid="row-actions"
-            onClick={stopRowClick}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4"
-              icon={MoreVerticalIcon}
-              strokeWidth={2}
-            />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={handleView}>View details</DropdownMenuItem>
-        {canEditCenters ? (
-          <DropdownMenuItem onClick={handleEdit}>Edit</DropdownMenuItem>
-        ) : null}
-        {canConfigureCenters || canManageRegistrationControls ? (
-          <>
-            <DropdownMenuSeparator />
-            {isRetired ? null : (
-              <>
-                {canManageRegistrationControls ? (
-                  <DropdownMenuItem onClick={handleRegistrationControls}>
-                    Registration controls
-                  </DropdownMenuItem>
-                ) : null}
-                {canConfigureCenters ? (
-                  <>
-                    <DropdownMenuItem onClick={handleRetire}>
-                      Retire
-                    </DropdownMenuItem>
-                  </>
-                ) : null}
-              </>
-            )}
-            {canConfigureCenters ? (
-              <DropdownMenuItem onClick={handleDelete} variant="destructive">
-                Delete
-              </DropdownMenuItem>
-            ) : null}
-          </>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <ResponsiveActionMenu
+      title={`${center.name} actions`}
+      trigger={
+        <Button
+          aria-label={`Actions for ${center.name}`}
+          className="size-8"
+          data-testid="row-actions"
+          onClick={stopRowClick}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <HugeiconsIcon
+            className="size-4"
+            icon={MoreVerticalIcon}
+            strokeWidth={2}
+          />
+        </Button>
+      }
+      actions={[
+        { id: "view", label: "View details", onSelect: handleView },
+        canEditCenters && { id: "edit", label: "Edit", onSelect: handleEdit },
+        !isRetired &&
+          canManageRegistrationControls && {
+            id: "registration",
+            label: "Registration controls",
+            onSelect: handleRegistrationControls,
+            group: "configuration",
+          },
+        !isRetired &&
+          canConfigureCenters && {
+            id: "retire",
+            label: "Retire",
+            onSelect: handleRetire,
+            group: "configuration",
+          },
+        canConfigureCenters && {
+          id: "delete",
+          label: "Delete",
+          onSelect: handleDelete,
+          destructive: true,
+          group: "configuration",
+        },
+      ]}
+    />
   );
 }
 
@@ -177,6 +171,7 @@ export function CentersTable({
   onRegistrationControls,
   onRetire,
   onView,
+  registrationPhaseOpen,
   toolbarActions,
 }: {
   canConfigureCenters: boolean;
@@ -192,6 +187,7 @@ export function CentersTable({
   onRegistrationControls: (center: CenterListItem) => void;
   onRetire: (center: CenterListItem) => void;
   onView: (center: CenterTableRow) => void;
+  registrationPhaseOpen: boolean;
   toolbarActions?: ReactNode;
 }) {
   const { labels, pending } = useTransportStatusSnapshot({
@@ -263,7 +259,10 @@ export function CentersTable({
     {
       accessorKey: "studentRegistrationEnabled",
       cell: ({ row }) => (
-        <RegistrationStatus enabled={row.original.studentRegistrationEnabled} />
+        <RegistrationStatus
+          enabled={row.original.studentRegistrationEnabled}
+          registrationPhaseOpen={registrationPhaseOpen}
+        />
       ),
       header: ({ column }) => (
         <DataGridColumnHeader
@@ -283,6 +282,7 @@ export function CentersTable({
       cell: ({ row }) => (
         <RegistrationStatus
           enabled={row.original.competitionEntryRegistrationEnabled}
+          registrationPhaseOpen={registrationPhaseOpen}
         />
       ),
       header: ({ column }) => (
@@ -399,8 +399,20 @@ export function CentersTable({
       data={data}
       emptyMessage={emptyMessage}
       filter={{
-        fields: createCenterFilterFields(),
-        getValue: getCenterFilterValue,
+        fields: [
+          ...createCenterFilterFields(),
+          numberField("participationIssues", "Participation gaps"),
+        ],
+        getValue: (row, path) =>
+          path[0] === "participationIssues"
+            ? typeof row.compliance === "object"
+              ? row.compliance.issues.length
+              : undefined
+            : !registrationPhaseOpen &&
+                (path[0] === "studentRegistrationEnabled" ||
+                  path[0] === "competitionEntryRegistrationEnabled")
+              ? "closed"
+              : getCenterFilterValue(row, path),
       }}
       getRowId={getRowId}
       isLoading={isLoading}

@@ -4,13 +4,6 @@ import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/dat
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
@@ -20,6 +13,7 @@ import {
   createVenueFilterFields,
   getVenueFilterValue,
 } from "@/components/kalakriti/kalakriti-filters";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 
 import type {
   ConfigurationDeletePayload,
@@ -66,42 +60,41 @@ function RowActions({
   );
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label={`Actions for ${venue.name}`}
-            className="size-8"
-            data-testid="row-actions"
-            onClick={stopRowClick}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4"
-              icon={MoreVerticalIcon}
-              strokeWidth={2}
-            />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={handleView}>View details</DropdownMenuItem>
-        {canManage ? (
-          <>
-            <DropdownMenuItem onClick={handleEdit}>Edit Venue</DropdownMenuItem>
-            <DropdownMenuItem onClick={handleRetire}>
-              {venue.retiredAt === null ? "Retire" : "Restore"} Venue
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleDelete} variant="destructive">
-              Delete Venue
-            </DropdownMenuItem>
-          </>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <ResponsiveActionMenu
+      title={`${venue.name} actions`}
+      trigger={
+        <Button
+          aria-label={`Actions for ${venue.name}`}
+          className="size-8"
+          data-testid="row-actions"
+          onClick={stopRowClick}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <HugeiconsIcon
+            className="size-4"
+            icon={MoreVerticalIcon}
+            strokeWidth={2}
+          />
+        </Button>
+      }
+      actions={[
+        { id: "view", label: "View details", onSelect: handleView },
+        canManage && { id: "edit", label: "Edit Venue", onSelect: handleEdit },
+        canManage && {
+          id: "retire",
+          label: `${venue.retiredAt === null ? "Retire" : "Restore"} Venue`,
+          onSelect: handleRetire,
+        },
+        canManage && {
+          id: "delete",
+          label: "Delete Venue",
+          onSelect: handleDelete,
+          destructive: true,
+        },
+      ]}
+    />
   );
 }
 

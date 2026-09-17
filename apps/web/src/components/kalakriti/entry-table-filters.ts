@@ -44,12 +44,12 @@ export function createEntryTableFilterFields(
       type: "text",
       defaultOperator: "contains",
     },
-    selectField("participationMode", "Participation", [
-      { value: "individual", label: "Individual" },
-      { value: "group", label: "Group" },
-    ]),
     ...(showCompetition
       ? [
+          selectField("participationMode", "Participation", [
+            { value: "individual", label: "Individual" },
+            { value: "group", label: "Group" },
+          ]),
           selectField(
             "competition",
             "Competition",
@@ -59,27 +59,27 @@ export function createEntryTableFilterFields(
               (row) => row.session.competition.name
             )
           ),
+          selectField(
+            "ageCategory",
+            "Age Category",
+            optionsFromRows(
+              rows,
+              (row) => row.session.ageCategory.name,
+              (row) => row.session.ageCategory.name
+            )
+          ),
+          dateField("session", "Session"),
+          selectField(
+            "venue",
+            "Venue",
+            optionsFromRows(
+              rows,
+              (row) => row.session.venue.name,
+              (row) => row.session.venue.name
+            )
+          ),
         ]
       : []),
-    selectField(
-      "ageCategory",
-      "Age Category",
-      optionsFromRows(
-        rows,
-        (row) => row.session.ageCategory.name,
-        (row) => row.session.ageCategory.name
-      )
-    ),
-    dateField("session", "Session"),
-    selectField(
-      "venue",
-      "Venue",
-      optionsFromRows(
-        rows,
-        (row) => row.session.venue.name,
-        (row) => row.session.venue.name
-      )
-    ),
     ...(showMusic ? [numberField("music", "Music files")] : []),
   ];
 }

@@ -4,18 +4,16 @@ import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/dat
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import type { FilterField } from "@pi-dash/design-system/components/reui/filters/filters-types";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
-import { KALAKRITI_TRANSPORT_STATUS_LABELS } from "@pi-dash/shared/kalakriti";
+import {
+  KALAKRITI_TRANSPORT_STATUS_LABELS,
+  type KalakritiCenterScanStage,
+} from "@pi-dash/shared/kalakriti";
 import { useMemo } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
-import { dateField } from "@/components/data-table/filter-fields";
+import { dateField, selectField } from "@/components/data-table/filter-fields";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 
 import type { CenterTransportAssignment } from "./center-transport-section";
 import { useTransportStatusSnapshot } from "./use-transport-status-snapshot";
@@ -26,6 +24,10 @@ export interface TransportCenter {
   location: string | null;
   googleMapsUrl: string | null;
   transportAssignments: readonly CenterTransportAssignment[];
+  scanStages?: readonly {
+    stage: KalakritiCenterScanStage;
+    finalizedAt: number | null;
+  }[];
 }
 export interface TransportRow {
   id: string;
@@ -58,6 +60,10 @@ const fields = [
 ] as const;
 const filterFields: FilterField[] = [
   ...fields.map(([key, label]) => ({ id: key, label, type: "text" as const })),
+  selectField("vehicleAssignment", "Vehicle assignment", [
+    { label: "Missing vehicle", value: "missing" },
+    { label: "Assigned", value: "assigned" },
+  ]),
   dateField("pickupTime", "Pickup time"),
 ];
 function getValue(
@@ -65,6 +71,8 @@ function getValue(
   key: string
 ): string | number | null | undefined {
   switch (key) {
+    case "vehicleAssignment":
+      return row.assignment ? "assigned" : "missing";
     case "center":
       return row.center.name;
     case "location":
@@ -212,43 +220,42 @@ export function TransportTable({
           skeleton: <Skeleton className="size-7" />,
         },
         cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  aria-label={`Actions for ${row.original.assignment?.vehicleLabel ?? row.original.center.name}`}
-                  className="size-7"
-                  data-testid="row-actions"
-                  size="icon"
-                  variant="ghost"
-                >
-                  <HugeiconsIcon
-                    icon={MoreVerticalIcon}
-                    className="size-4"
-                    strokeWidth={2}
-                  />
-                </Button>
-              }
-            />
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onAdd(row.original)}>
-                Add vehicle
-              </DropdownMenuItem>
-              {row.original.assignment ? (
-                <>
-                  <DropdownMenuItem onClick={() => onEdit(row.original)}>
-                    Edit vehicle
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onClick={() => onDelete(row.original)}
-                  >
-                    Delete vehicle
-                  </DropdownMenuItem>
-                </>
-              ) : null}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <ResponsiveActionMenu
+            title={`${row.original.assignment?.vehicleLabel ?? row.original.center.name} actions`}
+            trigger={
+              <Button
+                aria-label={`Actions for ${row.original.assignment?.vehicleLabel ?? row.original.center.name}`}
+                className="size-7"
+                data-testid="row-actions"
+                size="icon"
+                variant="ghost"
+              >
+                <HugeiconsIcon
+                  icon={MoreVerticalIcon}
+                  className="size-4"
+                  strokeWidth={2}
+                />
+              </Button>
+            }
+            actions={[
+              {
+                id: "add",
+                label: "Add vehicle",
+                onSelect: () => onAdd(row.original),
+              },
+              !!row.original.assignment && {
+                id: "edit",
+                label: "Edit vehicle",
+                onSelect: () => onEdit(row.original),
+              },
+              !!row.original.assignment && {
+                id: "delete",
+                label: "Delete vehicle",
+                onSelect: () => onDelete(row.original),
+                destructive: true,
+              },
+            ]}
+          />
         ),
       });
     return textColumns;

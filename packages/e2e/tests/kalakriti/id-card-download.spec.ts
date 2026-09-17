@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import type { Download } from "@playwright/test";
+import type { Download, Page } from "@playwright/test";
 import { uuidv7 } from "uuidv7";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
@@ -18,6 +18,12 @@ async function readDownload(download: Download): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
+async function openIdCardTools(page: Page): Promise<void> {
+  await page
+    .getByRole("button", { name: "ID cards and registration tools" })
+    .click();
+}
+
 test("downloads all-person ID cards only for Kalakriti administrators", async ({
   baseURL,
   browser,
@@ -32,6 +38,7 @@ test("downloads all-person ID cards only for Kalakriti administrators", async ({
 
   await page.goto(`/kalakriti/${YEAR}`);
   await waitForZeroReady(page);
+  await openIdCardTools(page);
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download ID cards" }).click();
   const download = await downloadPromise;
@@ -59,6 +66,7 @@ test("downloads all-person ID cards only for Kalakriti administrators", async ({
     const editionAdminPage = await editionAdmin.newPage();
     await editionAdminPage.goto(`/kalakriti/${YEAR}`);
     await waitForZeroReady(editionAdminPage);
+    await openIdCardTools(editionAdminPage);
     await expect(
       editionAdminPage.getByRole("button", { name: "Download ID cards" })
     ).toBeVisible();
@@ -74,7 +82,9 @@ test("downloads all-person ID cards only for Kalakriti administrators", async ({
     await nonAdminPage.goto(`/kalakriti/${YEAR}`);
     await waitForZeroReady(nonAdminPage);
     await expect(
-      nonAdminPage.getByRole("button", { name: "Download ID cards" })
+      nonAdminPage.getByRole("button", {
+        name: "ID cards and registration tools",
+      })
     ).toHaveCount(0);
     expect((await nonAdmin.request.get(ENDPOINT)).status()).toBe(403);
     expect((await anonymous.request.get(ENDPOINT)).status()).toBe(401);
@@ -98,6 +108,7 @@ test("downloads requested blank ID-card pages only for Kalakriti administrators"
 
   await page.goto(`/kalakriti/${YEAR}`);
   await waitForZeroReady(page);
+  await openIdCardTools(page);
   await page.getByRole("button", { name: "Download blank ID cards" }).click();
   const dialog = page.getByRole("dialog", { name: "Blank ID cards" });
   await expect(dialog).toBeVisible();
@@ -136,7 +147,9 @@ test("downloads requested blank ID-card pages only for Kalakriti administrators"
     await nonAdminPage.goto(`/kalakriti/${YEAR}`);
     await waitForZeroReady(nonAdminPage);
     await expect(
-      nonAdminPage.getByRole("button", { name: "Download blank ID cards" })
+      nonAdminPage.getByRole("button", {
+        name: "ID cards and registration tools",
+      })
     ).toHaveCount(0);
     expect((await nonAdmin.request.get(BLANK_ENDPOINT)).status()).toBe(403);
     expect((await anonymous.request.get(BLANK_ENDPOINT)).status()).toBe(401);
@@ -161,6 +174,7 @@ test("registers a blank guest card once and resolves it through person lookup", 
 
   await page.goto(`/kalakriti/${YEAR}`);
   await waitForZeroReady(page);
+  await openIdCardTools(page);
   await page.getByRole("button", { name: "Register ID card" }).click();
   const registerDialog = page.getByRole("dialog", {
     name: "Register ID card",
@@ -211,6 +225,7 @@ test("registers a blank judge card and resolves it through person lookup", async
 
   await page.goto(`/kalakriti/${YEAR}`);
   await waitForZeroReady(page);
+  await openIdCardTools(page);
   await page.getByRole("button", { name: "Register ID card" }).click();
   const registerDialog = page.getByRole("dialog", {
     name: "Register ID card",
@@ -266,6 +281,7 @@ test("creates and registers a volunteer from a blank card", async ({
 
     await page.goto(`/kalakriti/${YEAR}`);
     await waitForZeroReady(page);
+    await openIdCardTools(page);
     await page.getByRole("button", { name: "Register ID card" }).click();
     const registerDialog = page.getByRole("dialog", {
       name: "Register ID card",

@@ -34,7 +34,7 @@ export function ScheduleItem({
         <div className={cancelled ? "opacity-60" : undefined}>
           <h3 className="text-base font-medium">{session.competition}</h3>
           <p className="text-muted-foreground mt-1 text-sm">
-            {session.ageCategory} · {session.venue}
+            {session.category} · {session.ageCategory} · {session.venue}
           </p>
         </div>
 

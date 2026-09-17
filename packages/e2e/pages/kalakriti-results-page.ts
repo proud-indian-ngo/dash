@@ -14,7 +14,7 @@ export class KalakritiResultsPage {
   }
 
   get standings(): Locator {
-    return this.page.getByRole("region", { name: "Center standings" });
+    return this.page.getByLabel("Center standings", { exact: true });
   }
 
   async gotoEvent(year: number, divisionId: string) {
@@ -58,9 +58,14 @@ export class KalakritiResultsPage {
 
   async expectCompetitionAwards() {
     await this.page
+      .getByRole("button", { name: "Registration breakdown" })
+      .click();
+    await this.page
       .getByRole("tab", { name: "Competitions", exact: true })
       .click();
-    const table = this.page.getByRole("table", { name: /by Competition$/ });
+    const table = this.page
+      .getByRole("region", { name: /by Competition$/ })
+      .getByRole("table");
     await expect(
       table.getByRole("columnheader", { name: "Sessions", exact: true })
     ).toHaveCount(0);
@@ -73,10 +78,10 @@ export class KalakritiResultsPage {
     const row = table
       .getByRole("row")
       .filter({ hasText: "Group Dance Results" });
-    await expect(row.getByRole("cell").nth(2)).toContainText(
+    await expect(row.getByRole("cell").nth(3)).toContainText(
       "Junior: Results Center A"
     );
-    await expect(row.getByRole("cell").nth(3)).toContainText(
+    await expect(row.getByRole("cell").nth(4)).toContainText(
       "Junior: Results Center B"
     );
     await expect(table).not.toContainText("Results Student");

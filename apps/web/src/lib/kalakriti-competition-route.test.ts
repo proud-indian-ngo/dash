@@ -1,74 +1,100 @@
-import { describe, expect, it, mock } from "bun:test";
-
-mock.module("@pi-dash/design-system/components/ui/tabs", () => ({
-  Tabs: () => null,
-  TabsList: () => null,
-  TabsTrigger: () => null,
-}));
+import { describe, expect, it } from "bun:test";
 
 import { Route } from "@/routes/_app/kalakriti/$year/competitions/route";
 
-function runBeforeLoad(access: {
-  edition: { lifecycle: "archived" | "draft" };
-  isGlobalAdmin: boolean;
-  membership: { responsibilities: string[] } | null;
-}) {
-  const { beforeLoad } = Route.options;
-  if (!beforeLoad) {
-    throw new Error("Competition route guard is missing");
-  }
+function load(
+  responsibilities: string[],
+  lifecycle = "draft",
+  kind = "volunteer",
+  isGlobalAdmin = false
+) {
+  const beforeLoad = Route.options.beforeLoad;
+  if (!beforeLoad) throw new Error("Competition guard missing");
   return beforeLoad({
-    context: { kalakritiEditionAccess: access },
+    context: {
+      kalakritiEditionAccess: {
+        isGlobalAdmin,
+        edition: { lifecycle },
+        membership: { kind, responsibilities },
+      },
+    },
   } as Parameters<typeof beforeLoad>[0]);
 }
-
-describe("Kalakriti Competition route guard", () => {
-  it.each([
-    ["global administrator", true, []],
-    ["Edition Administrator", false, ["edition_admin"]],
-    ["Overall Events Lead", false, ["overall_events_lead"]],
-    ["Category Lead", false, ["competition_category_lead"]],
-  ])("allows a %s", (_label, isGlobalAdmin, responsibilities) => {
-    expect(() =>
-      runBeforeLoad({
-        edition: { lifecycle: "draft" },
-        isGlobalAdmin,
-        membership: { responsibilities },
-      })
-    ).not.toThrow();
+describe("Competition workspace access", () => {
+  it("keeps Guardians in the workspace without configuration controls", () => {
+    expect(load([], "registration_open", "guardian")).toMatchObject({
+      kalakritiCompetitionAccess: {
+        canManage: false,
+        canEditSchedule: false,
+        canManageCancellations: false,
+        canViewConfiguration: false,
+      },
+    });
   });
-
-  it("rejects an unrelated Edition member", () => {
-    expect(() =>
-      runBeforeLoad({
-        edition: { lifecycle: "draft" },
-        isGlobalAdmin: false,
-        membership: { responsibilities: ["volunteer_coordinator"] },
-      })
-    ).toThrow();
+  it("keeps coordinators scoped and read-only", () => {
+    expect(load(["competition_coordinator"], "live")).toMatchObject({
+      kalakritiCompetitionAccess: {
+        canManage: false,
+        canEditSchedule: false,
+        canManageCancellations: false,
+      },
+    });
   });
-
-  it.each([
-    ["Edition Administrator", ["edition_admin"]],
-    ["Overall Events Lead", ["overall_events_lead"]],
-    ["Category Lead", ["competition_category_lead"]],
-  ])("rejects an archived Edition for a %s", (_label, responsibilities) => {
-    expect(() =>
-      runBeforeLoad({
-        edition: { lifecycle: "archived" },
-        isGlobalAdmin: false,
-        membership: { responsibilities },
-      })
-    ).toThrow();
+  it("allows category leads to read configuration without modifying it", () => {
+    expect(load(["competition_category_lead"])).toMatchObject({
+      kalakritiCompetitionAccess: {
+        canViewConfiguration: true,
+        canManage: false,
+      },
+    });
   });
-
-  it("allows a global administrator to inspect an archived Edition", () => {
-    expect(() =>
-      runBeforeLoad({
-        edition: { lifecycle: "archived" },
-        isGlobalAdmin: true,
-        membership: null,
-      })
-    ).not.toThrow();
+  it("allows managers to edit structure during registration", () => {
+    expect(load(["overall_events_lead"], "registration_open")).toMatchObject({
+      kalakritiCompetitionAccess: {
+        canManage: true,
+        canEditSchedule: true,
+        canManageCancellations: true,
+      },
+    });
+  });
+  it("locks structure before Live and all edits during Live", () => {
+    expect(load(["edition_admin"], "registration_locked")).toMatchObject({
+      kalakritiCompetitionAccess: {
+        canManage: false,
+        canEditSchedule: true,
+        canManageCancellations: true,
+      },
+    });
+    expect(load(["edition_admin"], "live")).toMatchObject({
+      kalakritiCompetitionAccess: {
+        canManage: false,
+        canEditSchedule: false,
+        canManageCancellations: true,
+      },
+    });
+    expect(load([], "archived", "volunteer", true)).toMatchObject({
+      kalakritiCompetitionAccess: {
+        canManage: false,
+        canEditSchedule: false,
+        canManageCancellations: false,
+      },
+    });
+  });
+  it("denies archived configuration access to non-global roles", () => {
+    for (const role of [
+      "edition_admin",
+      "overall_events_lead",
+      "competition_category_lead",
+    ])
+      expect(() => load([role], "archived")).toThrow();
+  });
+  it("denies scan-only and unrelated roles", () => {
+    for (const role of [
+      "food_member",
+      "competition_volunteer",
+      "awards_lead",
+      "volunteer_coordinator",
+    ])
+      expect(() => load([role])).toThrow();
   });
 });

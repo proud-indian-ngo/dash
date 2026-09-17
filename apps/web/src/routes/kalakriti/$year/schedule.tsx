@@ -1,6 +1,26 @@
 // biome-ignore-all lint/style/useFilenamingConvention: TanStack dynamic route parameters use $ in filenames.
+import { Button } from "@pi-dash/design-system/components/ui/button";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@pi-dash/design-system/components/ui/empty";
+import {
+  Field,
+  FieldGroup,
+  FieldLabel,
+} from "@pi-dash/design-system/components/ui/field";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@pi-dash/design-system/components/ui/select";
 import { createFileRoute, notFound } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { ScheduleAction } from "@/components/kalakriti/public-schedule/schedule-action";
@@ -9,7 +29,10 @@ import { ScheduleNotFound } from "@/components/kalakriti/public-schedule/schedul
 import { getKalakritiEditionAccess } from "@/functions/kalakriti-access";
 import { getKalakritiPublicSchedule } from "@/functions/kalakriti-public-schedule";
 import { getCachedAuth } from "@/lib/auth-cache";
-import { kalakritiPublicScheduleYearSchema } from "@/lib/kalakriti-public-schedule";
+import {
+  filterKalakritiPublicSchedule,
+  kalakritiPublicScheduleYearSchema,
+} from "@/lib/kalakriti-public-schedule";
 
 const EVENT_DATE_FORMATTER = new Intl.DateTimeFormat("en-IN", {
   day: "numeric",
@@ -73,10 +96,33 @@ function PublicSchedulePage() {
       }),
     [edition.timezone]
   );
+  const [venue, setVenue] = useState("");
+  const [ageCategory, setAgeCategory] = useState("");
+  const [category, setCategory] = useState("");
+  const venueOptions = [
+    ...new Set(sessions.map((session) => session.venue)),
+  ].sort((a, b) => a.localeCompare(b));
+  const ageOptions = [
+    ...new Set(sessions.map((session) => session.ageCategory)),
+  ].sort((a, b) => a.localeCompare(b));
+  const categoryOptions = [
+    ...new Set(sessions.map((session) => session.category)),
+  ].sort((a, b) => a.localeCompare(b));
+  const visibleSessions = filterKalakritiPublicSchedule(sessions, {
+    ageCategory,
+    category,
+    venue,
+  });
+  const hasFilters = Boolean(venue || ageCategory || category);
+  const clearFilters = () => {
+    setVenue("");
+    setAgeCategory("");
+    setCategory("");
+  };
 
   return (
     <main className="bg-background text-foreground min-h-svh">
-      <div className="bg-muted/30 border-b">
+      <div className="bg-brand/5 border-brand/30 border-b">
         <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 sm:py-14">
           <KalakritiPageHeader
             actions={
@@ -115,8 +161,12 @@ function PublicSchedulePage() {
               Times are shown in {edition.timezone}.
             </p>
           </div>
-          <p className="text-muted-foreground shrink-0 text-sm tabular-nums">
-            {sessions.length} {sessions.length === 1 ? "event" : "events"}
+          <p
+            className="text-muted-foreground shrink-0 text-sm tabular-nums"
+            aria-live="polite"
+          >
+            {hasFilters ? `${visibleSessions.length} of ` : ""}
+            {sessions.length} {sessions.length === 1 ? "Session" : "Sessions"}
           </p>
         </div>
 
@@ -128,16 +178,113 @@ function PublicSchedulePage() {
             </p>
           </div>
         ) : (
-          <ol className="bg-card overflow-hidden rounded-lg border shadow-xs">
-            {sessions.map((session, index) => (
-              <ScheduleItem
-                isLast={index === sessions.length - 1}
-                key={`${session.competition}-${session.ageCategory}-${session.startAt}`}
-                session={session}
-                timeFormatter={timeFormatter}
-              />
-            ))}
-          </ol>
+          <>
+            <FieldGroup className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Field>
+                <FieldLabel htmlFor="public-schedule-venue">Venue</FieldLabel>
+                <Select
+                  onValueChange={(value) => setVenue(value ?? "")}
+                  value={venue || null}
+                >
+                  <SelectTrigger
+                    className="min-h-11 w-full sm:min-h-10"
+                    id="public-schedule-venue"
+                  >
+                    <SelectValue placeholder="All Venues" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {venueOptions.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="public-schedule-age">
+                  Age Category
+                </FieldLabel>
+                <Select
+                  onValueChange={(value) => setAgeCategory(value ?? "")}
+                  value={ageCategory || null}
+                >
+                  <SelectTrigger
+                    className="min-h-11 w-full sm:min-h-10"
+                    id="public-schedule-age"
+                  >
+                    <SelectValue placeholder="All Ages" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {ageOptions.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="public-schedule-category">
+                  Category
+                </FieldLabel>
+                <Select
+                  onValueChange={(value) => setCategory(value ?? "")}
+                  value={category || null}
+                >
+                  <SelectTrigger
+                    className="min-h-11 w-full sm:min-h-10"
+                    id="public-schedule-category"
+                  >
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {categoryOptions.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
+            </FieldGroup>
+            <Button
+              className="mb-4 min-h-11 sm:min-h-10"
+              disabled={!hasFilters}
+              onClick={clearFilters}
+              size="sm"
+              variant="outline"
+            >
+              Clear filters
+            </Button>
+            {visibleSessions.length === 0 ? (
+              <Empty className="border">
+                <EmptyHeader>
+                  <EmptyTitle>No matching Sessions</EmptyTitle>
+                  <EmptyDescription>
+                    Change a filter or clear them to see the full schedule.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              <ol className="bg-card overflow-hidden rounded-lg border shadow-xs">
+                {visibleSessions.map((session, index) => (
+                  <ScheduleItem
+                    isLast={index === visibleSessions.length - 1}
+                    key={`${session.competition}-${session.ageCategory}-${session.startAt}`}
+                    session={session}
+                    timeFormatter={timeFormatter}
+                  />
+                ))}
+              </ol>
+            )}
+          </>
         )}
       </section>
     </main>

@@ -1,3 +1,7 @@
+import {
+  createFilterQuery,
+  createFilterRule,
+} from "@pi-dash/design-system/components/reui/filters/filters-query";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
@@ -8,6 +12,7 @@ import { useCallback, useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 
+import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
 import { CenterDetailSheet } from "@/components/kalakriti/center-detail-sheet";
 import { CenterEditDialog } from "@/components/kalakriti/center-edit-dialog";
 import { CenterFormDialog } from "@/components/kalakriti/center-form-dialog";
@@ -19,6 +24,7 @@ import {
 } from "@/components/kalakriti/centers-table";
 import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notice";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
+import { PeoplePageSummary } from "@/components/kalakriti/people-page-summary";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import {
@@ -146,6 +152,7 @@ function CenterPageToolbar({
 }
 
 function KalakritiCentersPage() {
+  const { setQuery } = useDataTableFilters();
   const navigate = useNavigate();
   const zero = useZero();
   const { year } = Route.useParams();
@@ -180,7 +187,7 @@ function KalakritiCentersPage() {
     queries.kalakritiStudent.visibleForCompliance({ editionId: edition.id }),
     { enabled: registrationCenterIds.size > 0 }
   );
-  const [editionDetails] = useQuery(
+  const [editionDetails, editionDetailsResult] = useQuery(
     queries.kalakritiEdition.byYear({ year: edition.year })
   );
   const minimum = editionDetails?.minTotalCompetitions ?? undefined;
@@ -324,6 +331,44 @@ function KalakritiCentersPage() {
             students: 0,
           }),
   }));
+  const activeCenters = centerRows.filter(
+    (center) => center.retiredAt === null
+  );
+  const participationGaps = activeCenters.filter(
+    (center) =>
+      typeof center.compliance === "object" &&
+      center.compliance.issues.length > 0
+  ).length;
+  const noGuardians = activeCenters.filter(
+    (center) => center.guardianCount === 0
+  ).length;
+  const noLiaisons = activeCenters.filter(
+    (center) => center.liaisonCount === 0
+  ).length;
+  const summaryReady =
+    centerResult.type === "complete" &&
+    editionDetailsResult.type === "complete" &&
+    (registrationCenterIds.size === 0 || studentResult.type === "complete") &&
+    (!canManageGuardians || guardianAssignmentsResult.type === "complete") &&
+    (!canManageLiaisons || liaisonAssignmentsResult.type === "complete");
+  const filterCenters = (path: string, operator: string, value: number) => {
+    void setQuery(
+      createFilterQuery<unknown>([
+        createFilterRule({
+          id: `centers-${path}`,
+          path: [path],
+          operator,
+          value,
+        }),
+        createFilterRule({
+          id: "centers-active",
+          path: ["status"],
+          operator: "is",
+          value: "active",
+        }),
+      ])
+    );
+  };
   const isLoading =
     directoryCenters.length === 0 && centerResult.type !== "complete";
   const hasOpenRegistration = directoryCenters.some(
@@ -361,6 +406,46 @@ function KalakritiCentersPage() {
         </KalakritiLockNotice>
       ) : null}
 
+      <PeoplePageSummary
+        title="Center readiness"
+        scope="Centers in your authorized directory"
+        measures={[
+          {
+            label: "Active Centers",
+            value: summaryReady ? activeCenters.length : undefined,
+          },
+          {
+            label: "Participation gaps",
+            value: summaryReady ? participationGaps : undefined,
+            onClick: summaryReady
+              ? () => filterCenters("participationIssues", "gt", 0)
+              : undefined,
+          },
+          ...(canManageGuardians
+            ? [
+                {
+                  label: "Without Guardians",
+                  value: summaryReady ? noGuardians : undefined,
+                  onClick: summaryReady
+                    ? () => filterCenters("guardianCount", "eq", 0)
+                    : undefined,
+                },
+              ]
+            : []),
+          ...(canManageLiaisons
+            ? [
+                {
+                  label: "Without Liaisons",
+                  value: summaryReady ? noLiaisons : undefined,
+                  onClick: summaryReady
+                    ? () => filterCenters("liaisonCount", "eq", 0)
+                    : undefined,
+                },
+              ]
+            : []),
+        ]}
+      />
+
       <CentersTable
         canEditCenters={canManageCenters || canManageLiaisons}
         canConfigureCenters={canConfigureCenters}
@@ -375,6 +460,7 @@ function KalakritiCentersPage() {
         onRegistrationControls={setControlsCenter}
         onRetire={retireAction.trigger}
         onView={handleViewCenter}
+        registrationPhaseOpen={edition.lifecycle === "registration_open"}
         toolbarActions={toolbarActions}
       />
 

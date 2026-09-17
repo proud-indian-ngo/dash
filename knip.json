@@ -46,6 +46,7 @@
         "helpers/kalakriti-students.ts",
         "helpers/kalakriti-volunteer-assignment.ts",
         "helpers/register-url-options.ts",
+        "helpers/role-dashboard-fixture.ts",
         "helpers/seed-dev-data.ts",
         "helpers/seed-kalakriti-performance.ts",
         "helpers/profile-kalakriti-dashboard.ts",

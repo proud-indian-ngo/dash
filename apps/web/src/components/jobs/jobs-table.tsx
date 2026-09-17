@@ -9,12 +9,6 @@ import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { MouseEvent, ReactNode } from "react";
@@ -24,6 +18,7 @@ import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { getStateBadge } from "@/components/jobs/job-detail-sheet";
 import { createJobFilterFields } from "@/components/jobs/job-filters";
 import type { JobRow } from "@/components/jobs/job-stats";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { formatTimestamp } from "@/lib/date-formats";
 
 const SKELETON_QUEUE = <Skeleton className="h-4 w-24" />;
@@ -181,57 +176,48 @@ function JobActions({
   const handleRetry = useEventCallback(() => onRetry(job));
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label="Row actions"
-            className="size-8"
-            data-testid="row-actions"
-            onClick={stopPropagation}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4"
-              icon={MoreVerticalIcon}
-              strokeWidth={2}
-            />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end" className="w-40">
-        <DropdownMenuItem onClick={handleView}>
+    <ResponsiveActionMenu
+      title={`${job.name} actions`}
+      contentClassName="w-40"
+      trigger={
+        <Button
+          aria-label="Row actions"
+          className="size-8"
+          data-testid="row-actions"
+          onClick={stopPropagation}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
           <HugeiconsIcon
-            className="mr-2 size-4"
-            icon={ViewIcon}
+            className="size-4"
+            icon={MoreVerticalIcon}
             strokeWidth={2}
           />
-          View details
-        </DropdownMenuItem>
-        {Boolean(canCancel) && (
-          <DropdownMenuItem onClick={handleCancel} variant="destructive">
-            <HugeiconsIcon
-              className="mr-2 size-4"
-              icon={Cancel01Icon}
-              strokeWidth={2}
-            />
-            Cancel
-          </DropdownMenuItem>
-        )}
-        {Boolean(canRetry) && (
-          <DropdownMenuItem onClick={handleRetry}>
-            <HugeiconsIcon
-              className="mr-2 size-4"
-              icon={RepeatIcon}
-              strokeWidth={2}
-            />
-            Retry
-          </DropdownMenuItem>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </Button>
+      }
+      actions={[
+        {
+          id: "view",
+          label: "View details",
+          icon: <HugeiconsIcon icon={ViewIcon} strokeWidth={2} />,
+          onSelect: handleView,
+        },
+        canCancel && {
+          id: "cancel",
+          label: "Cancel",
+          icon: <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />,
+          onSelect: handleCancel,
+          destructive: true,
+        },
+        canRetry && {
+          id: "retry",
+          label: "Retry",
+          icon: <HugeiconsIcon icon={RepeatIcon} strokeWidth={2} />,
+          onSelect: handleRetry,
+        },
+      ]}
+    />
   );
 }
 

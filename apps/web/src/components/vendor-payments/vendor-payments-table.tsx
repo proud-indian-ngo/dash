@@ -4,13 +4,6 @@ import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { Link } from "@tanstack/react-router";
@@ -21,6 +14,7 @@ import { toast } from "sonner";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
 import {
@@ -108,55 +102,52 @@ function VendorPaymentRowActions({
   );
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label="Row actions"
-            className="size-8"
-            data-testid="row-actions"
-            onClick={stopPropagation}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4"
-              icon={MoreVerticalIcon}
-              strokeWidth={2}
-            />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end" className="w-32">
-        <DropdownMenuItem
-          render={<Link params={{ id }} to="/vendor-payments/$id" />}
+    <ResponsiveActionMenu
+      title={`${payment.title} actions`}
+      contentClassName="w-32"
+      trigger={
+        <Button
+          aria-label="Row actions"
+          className="size-8"
+          data-testid="row-actions"
+          onClick={stopPropagation}
+          size="icon"
+          type="button"
+          variant="ghost"
         >
-          View
-        </DropdownMenuItem>
-        {canEdit ? (
-          <DropdownMenuItem
-            render={
-              <Link
-                params={{ id }}
-                search={{ mode: "edit" }}
-                to="/vendor-payments/$id"
-              />
-            }
-          >
-            Edit
-          </DropdownMenuItem>
-        ) : null}
-        {canDelete ? (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleDelete} variant="destructive">
-              Delete
-            </DropdownMenuItem>
-          </>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <HugeiconsIcon
+            className="size-4"
+            icon={MoreVerticalIcon}
+            strokeWidth={2}
+          />
+        </Button>
+      }
+      actions={[
+        {
+          id: "view",
+          label: "View",
+          render: <Link params={{ id }} to="/vendor-payments/$id" />,
+        },
+        canEdit && {
+          id: "edit",
+          label: "Edit",
+          render: (
+            <Link
+              params={{ id }}
+              search={{ mode: "edit" }}
+              to="/vendor-payments/$id"
+            />
+          ),
+        },
+        canDelete && {
+          id: "delete",
+          label: "Delete",
+          onSelect: handleDelete,
+          destructive: true,
+          group: "destructive",
+        },
+      ]}
+    />
   );
 }
 

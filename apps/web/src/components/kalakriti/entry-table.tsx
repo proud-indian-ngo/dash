@@ -2,19 +2,19 @@ import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
-import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@pi-dash/design-system/components/ui/dropdown-menu";
+  createFilterQuery,
+  createFilterRule,
+} from "@pi-dash/design-system/components/reui/filters/filters-query";
+import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { format } from "date-fns";
 import { type ReactNode, useMemo, useState } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 
 import {
   getEntryStudentAttendance,
@@ -28,6 +28,7 @@ import type {
 import { EntryMusicCell } from "./entry-music-cell";
 import { EntryMusicDialog } from "./entry-music-dialog";
 import { EntryMusicPlaybackDialog } from "./entry-music-playback-dialog";
+import { EntrySessionSummary } from "./entry-session-summary";
 import { EntryStatusCell } from "./entry-status-cell";
 import {
   createEntryTableFilterFields,
@@ -43,7 +44,11 @@ function getAttendanceSnapshotLabel(row: {
   return getEntryStudentAttendance(row.student, row.editionId, row.sessionId);
 }
 
-function searchEntries(row: KalakritiEntryRow, query: string): boolean {
+function searchEntries(
+  row: KalakritiEntryRow,
+  query: string,
+  includeCompetition = true
+): boolean {
   const normalizedQuery = query.trim().toLocaleLowerCase();
   if (!normalizedQuery) {
     return true;
@@ -54,10 +59,14 @@ function searchEntries(row: KalakritiEntryRow, query: string): boolean {
       member.student.name,
     ]),
     row.center?.name ?? "",
-    row.session.competition.name,
-    row.session.competition.category.name,
-    row.session.ageCategory.name,
-    row.session.venue.name,
+    ...(includeCompetition
+      ? [
+          row.session.competition.name,
+          row.session.competition.category.name,
+          row.session.ageCategory.name,
+          row.session.venue.name,
+        ]
+      : []),
   ]
     .join(" ")
     .toLocaleLowerCase()
@@ -82,34 +91,40 @@ function EntryRowActions({
       ? `${entry.session.competition.name} group`
       : (entry.members[0]?.student.name ?? "Entry");
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label={`Actions for ${actionLabel}`}
-            className="mx-auto size-7"
-            data-testid="row-actions"
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4"
-              icon={MoreVerticalIcon}
-              strokeWidth={2}
-            />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end" className="w-40">
-        {canEdit && entry.participationMode === "group" ? (
-          <DropdownMenuItem onClick={handleEdit}>Edit Group</DropdownMenuItem>
-        ) : null}
-        <DropdownMenuItem onClick={handleRemove} variant="destructive">
-          Remove Entry
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <ResponsiveActionMenu
+      title={`${actionLabel} actions`}
+      trigger={
+        <Button
+          aria-label={`Actions for ${actionLabel}`}
+          className="mx-auto size-7"
+          data-testid="row-actions"
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <HugeiconsIcon
+            className="size-4"
+            icon={MoreVerticalIcon}
+            strokeWidth={2}
+          />
+        </Button>
+      }
+      contentClassName="w-40"
+      actions={[
+        canEdit &&
+          entry.participationMode === "group" && {
+            id: "edit",
+            label: "Edit Group",
+            onSelect: handleEdit,
+          },
+        {
+          id: "remove",
+          label: "Remove Entry",
+          onSelect: handleRemove,
+          destructive: true,
+        },
+      ]}
+    />
   );
 }
 
@@ -159,6 +174,7 @@ export function EntryTable({
   toolbarActions,
   variant = "center",
 }: EntryTableProps) {
+  const { setQuery } = useDataTableFilters();
   const { register, remove } = permissions;
   const permissionsFor = (entry: KalakritiEntryRow) =>
     getRowPermissions?.(entry) ?? permissions;
@@ -229,7 +245,7 @@ export function EntryTable({
       ),
     [data, variant, showMusic]
   );
-  const columns: DataGridColumnDef<KalakritiEntryRow>[] = [
+  const allColumns: DataGridColumnDef<KalakritiEntryRow>[] = [
     {
       id: "center",
       accessorFn: (row) => row.center?.name ?? "Unknown Center",
@@ -494,6 +510,16 @@ export function EntryTable({
       : []),
   ];
 
+  const columns =
+    variant === "session"
+      ? allColumns.filter(
+          (column) =>
+            !["ageCategory", "venue", "session", "participationMode"].includes(
+              column.id ?? ""
+            )
+        )
+      : allColumns;
+
   return (
     <>
       {playbackEntry ? (
@@ -522,6 +548,33 @@ export function EntryTable({
           }}
         />
       ) : null}
+      {variant === "session" ? (
+        <EntrySessionSummary
+          entries={data.length}
+          studentIds={arrivalStudents.map((student) => student.id)}
+          attendanceIds={attendanceStudents.map((student) => student.id)}
+          present={arrival.labels}
+          attended={attendance.labels}
+          ready={snapshotReady}
+          missingMusic={
+            showMusicProp
+              ? data.filter((entry) => entry.musicFiles.length === 0).length
+              : undefined
+          }
+          onReviewMusic={() =>
+            void setQuery(
+              createFilterQuery([
+                createFilterRule({
+                  id: "missing-music",
+                  path: ["music"],
+                  operator: "eq",
+                  value: 0,
+                }),
+              ])
+            )
+          }
+        />
+      ) : null}
       <DataTableWrapper
         filter={{
           fields: filterFields,
@@ -538,9 +591,15 @@ export function EntryTable({
         emptyMessage={emptyMessage}
         getRowId={getEntryRowId}
         isLoading={isLoading}
-        searchFn={searchEntries}
+        searchFn={(row, query) =>
+          searchEntries(row, query, variant !== "session")
+        }
         searchPlaceholder="Search Entries..."
-        storageKey="kalakriti_entries_table_state_v1"
+        storageKey={
+          variant === "session"
+            ? "kalakriti_competition_entries_table_state_v2"
+            : "kalakriti_entries_table_state_v1"
+        }
         tableLayout={{
           columnsDraggable: true,
           columnsPinnable: true,

@@ -1,9 +1,15 @@
+import {
+  createFilterQuery,
+  createFilterRule,
+} from "@pi-dash/design-system/components/reui/filters/filters-query";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { KALAKRITI_VOLUNTEER_CHECK_IN_LABELS } from "@pi-dash/shared/kalakriti";
 import {
   KALAKRITI_RESPONSIBILITY_LABELS,
   type KalakritiResponsibility,
 } from "@pi-dash/shared/kalakriti";
+import { getKalakritiFoodStatus } from "@pi-dash/zero/kalakriti-food-rules";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
@@ -11,16 +17,20 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 import { log } from "evlog";
 import { useEffect, useMemo, useState } from "react";
 import { uuidv7 } from "uuidv7";
+import { z } from "zod";
 
+import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
 import { KalakritiAddVolunteersDialog } from "@/components/kalakriti/kalakriti-add-volunteers-dialog";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { KalakritiRoleAssignmentDialog } from "@/components/kalakriti/kalakriti-role-assignment-dialog";
+import { PeoplePageSummary } from "@/components/kalakriti/people-page-summary";
 import { VolunteerDetailSheet } from "@/components/kalakriti/volunteer-detail-sheet";
 import {
   type RemoveAssignmentPayload,
   type VolunteerRosterItem,
   VolunteersTable,
 } from "@/components/kalakriti/volunteers-table";
+import { Loader } from "@/components/loader";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import {
   getKalakritiAddVolunteersForPicker,
@@ -28,6 +38,10 @@ import {
   type PickerUser,
 } from "@/functions/users-for-picker";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
+import {
+  createDashboardFilterQuery,
+  useDashboardDestinationFilter,
+} from "@/lib/kalakriti-dashboard-filter";
 import { kalakritiFoodScopeKey } from "@/lib/kalakriti-food-policy";
 import { canManageKalakritiVolunteers } from "@/lib/kalakriti-volunteer-policy";
 
@@ -44,6 +58,9 @@ interface AssignmentScope {
 }
 
 export const Route = createFileRoute("/_app/kalakriti/$year/volunteers")({
+  validateSearch: z
+    .object({ dashboardFilter: z.string().optional() })
+    .passthrough(),
   beforeLoad: ({ context }) => {
     if (!canManageKalakritiVolunteers(context.kalakritiEditionAccess)) {
       throw notFound();
@@ -85,6 +102,8 @@ function resolveScopeName(
 }
 
 function KalakritiVolunteersPage() {
+  const dashboardFilterPending = useDashboardDestinationFilter("volunteers");
+  const { setQuery } = useDataTableFilters();
   const zero = useZero();
   const { kalakritiEditionAccess: access } = Route.useRouteContext();
   const { edition, isGlobalAdmin } = access;
@@ -255,6 +274,16 @@ function KalakritiVolunteersPage() {
     null;
   const isLoading =
     volunteerRows.length === 0 && rosterResult.type !== "complete";
+  const unassigned = volunteerRows.filter(
+    (row) => row.assignments.length === 0
+  ).length;
+  const checkedIn = volunteerRows.filter(
+    (row) =>
+      getKalakritiFoodStatus({
+        kind: "volunteer",
+        operations: row.operations ?? [],
+      }).checkedIn
+  ).length;
 
   const handleAssignOpen = useEventCallback((userId?: string | null) => {
     setAssignUserId(userId ?? null);
@@ -327,23 +356,73 @@ function KalakritiVolunteersPage() {
         title="Volunteers"
       />
 
-      <VolunteersTable
-        actorResponsibilities={actorResponsibilities}
-        data={volunteerRows}
-        statusSnapshotComplete={rosterResult.type === "complete"}
-        statusSnapshotKey={kalakritiFoodScopeKey(access)}
-        isGlobalAdmin={isGlobalAdmin}
-        isLoading={isLoading}
-        onAssignRole={handleAssignFromSheet}
-        onRemove={handleRemove}
-        onRemoveFromEdition={handleRemoveFromEdition}
-        onView={handleViewVolunteer}
-        toolbarActions={
-          <Button onClick={handleAddOpen} type="button">
-            Add volunteers
-          </Button>
-        }
-      />
+      {rosterResult.type === "complete" ? (
+        <PeoplePageSummary
+          title="Volunteer coverage"
+          scope="Active volunteers in this Edition"
+          measures={[
+            { label: "Active volunteers", value: volunteerRows.length },
+            {
+              label: "Without responsibilities",
+              value: unassigned,
+              onClick: () => {
+                const query = createDashboardFilterQuery(
+                  "volunteers",
+                  "unassigned"
+                );
+                if (query) void setQuery(query);
+              },
+            },
+            { label: "Checked in", value: checkedIn },
+            {
+              label: "Awaiting check-in",
+              value: volunteerRows.length - checkedIn,
+              onClick: () =>
+                void setQuery(
+                  createFilterQuery([
+                    createFilterRule({
+                      id: "volunteers-awaiting-check-in",
+                      path: ["checkInStatus"],
+                      operator: "is",
+                      value: KALAKRITI_VOLUNTEER_CHECK_IN_LABELS.not_checked_in,
+                    }),
+                  ])
+                ),
+            },
+          ]}
+          completion={
+            edition.lifecycle === "live"
+              ? {
+                  label: "Volunteer check-in",
+                  value: checkedIn,
+                  total: volunteerRows.length,
+                }
+              : undefined
+          }
+        />
+      ) : null}
+
+      {dashboardFilterPending ? (
+        <Loader />
+      ) : (
+        <VolunteersTable
+          actorResponsibilities={actorResponsibilities}
+          data={volunteerRows}
+          statusSnapshotComplete={rosterResult.type === "complete"}
+          statusSnapshotKey={kalakritiFoodScopeKey(access)}
+          isGlobalAdmin={isGlobalAdmin}
+          isLoading={isLoading}
+          onAssignRole={handleAssignFromSheet}
+          onRemove={handleRemove}
+          onRemoveFromEdition={handleRemoveFromEdition}
+          onView={handleViewVolunteer}
+          toolbarActions={
+            <Button onClick={handleAddOpen} type="button">
+              Add volunteers
+            </Button>
+          }
+        />
+      )}
 
       <VolunteerDetailSheet
         actorResponsibilities={actorResponsibilities}

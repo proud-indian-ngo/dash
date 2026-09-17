@@ -4,24 +4,20 @@ import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/dat
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { numberField } from "@/components/data-table/filter-fields";
 import {
   createGuardianFilterFields,
   getGuardianFilterValue,
 } from "@/components/kalakriti/kalakriti-filters";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 
 export interface GuardianRosterItem {
+  assignedCenters: readonly string[];
   humanId?: string | null;
   id: string;
   isExternal: boolean;
@@ -56,41 +52,40 @@ function RowActions({
   const handleArchive = useEventCallback(() => onArchive(guardian));
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label={`Actions for ${guardian.snapshotName}`}
-            className="size-8"
-            data-testid="row-actions"
-            onClick={stopRowClick}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4"
-              icon={MoreVerticalIcon}
-              strokeWidth={2}
-            />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end">
-        {guardian.state === "active" ? (
-          <DropdownMenuItem onClick={handleEdit}>Edit details</DropdownMenuItem>
-        ) : null}
-        <DropdownMenuItem onClick={handleView}>View details</DropdownMenuItem>
-        {guardian.state === "active" ? (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleArchive} variant="destructive">
-              Archive access
-            </DropdownMenuItem>
-          </>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <ResponsiveActionMenu
+      title={`${guardian.snapshotName} actions`}
+      trigger={
+        <Button
+          aria-label={`Actions for ${guardian.snapshotName}`}
+          className="size-8"
+          data-testid="row-actions"
+          onClick={stopRowClick}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <HugeiconsIcon
+            className="size-4"
+            icon={MoreVerticalIcon}
+            strokeWidth={2}
+          />
+        </Button>
+      }
+      actions={[
+        guardian.state === "active" && {
+          id: "edit",
+          label: "Edit details",
+          onSelect: handleEdit,
+        },
+        { id: "view", label: "View details", onSelect: handleView },
+        guardian.state === "active" && {
+          id: "archive",
+          label: "Archive access",
+          onSelect: handleArchive,
+          destructive: true,
+        },
+      ]}
+    />
   );
 }
 
@@ -101,6 +96,7 @@ function searchGuardian(row: GuardianRosterItem, query: string): boolean {
   }
   return [
     row.snapshotName,
+    ...row.assignedCenters,
     row.humanId ?? "",
     row.snapshotEmail ?? "",
     row.snapshotPhone ?? "",
@@ -130,15 +126,38 @@ export function GuardiansTable({
     {
       accessorKey: "snapshotName",
       cell: ({ row }) => (
-        <span className="text-sm font-medium" data-testid="row-title">
-          {row.original.snapshotName}
-        </span>
+        <div className="grid gap-0.5" data-testid="row-title">
+          <span className="text-sm font-medium">
+            {row.original.snapshotName}
+          </span>
+          <span className="text-muted-foreground line-clamp-2 text-xs md:hidden">
+            {row.original.assignedCenters.join(", ") || "No Centers assigned"}
+          </span>
+        </div>
       ),
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="Name" visibility={true} />
       ),
       meta: { headerTitle: "Name", skeleton: SKELETON_NAME },
-      size: 220,
+      size: 260,
+    },
+    {
+      id: "assignedCenters",
+      accessorFn: (row) => row.assignedCenters.join(", ") || "Unassigned",
+      cell: ({ row }) => (
+        <span className="text-sm">
+          {row.original.assignedCenters.join(", ") || "Unassigned"}
+        </span>
+      ),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Assigned Centers"
+          visibility={true}
+        />
+      ),
+      meta: { headerTitle: "Assigned Centers", skeleton: SKELETON_NAME },
+      size: 260,
     },
     {
       id: "humanId",
@@ -237,8 +256,14 @@ export function GuardiansTable({
       data={data}
       emptyMessage="No Guardians found."
       filter={{
-        fields: createGuardianFilterFields(),
-        getValue: getGuardianFilterValue,
+        fields: [
+          ...createGuardianFilterFields(),
+          numberField("assignedCenterCount", "Assigned Centers"),
+        ],
+        getValue: (row, path) =>
+          path[0] === "assignedCenterCount"
+            ? row.assignedCenters.length
+            : getGuardianFilterValue(row, path),
       }}
       getRowId={getRowId}
       isLoading={isLoading}

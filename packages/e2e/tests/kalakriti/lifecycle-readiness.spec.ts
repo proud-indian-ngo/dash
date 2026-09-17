@@ -4,6 +4,7 @@ import { promisify } from "node:util";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { KalakritiEditionPage } from "../../pages/kalakriti-edition-page";
+import { ListPage } from "../../pages/list-page";
 
 const execFileAsync = promisify(execFile);
 const helperPath = path.resolve(
@@ -42,7 +43,11 @@ test("enforces registration readiness, lifecycle locks, and structural cloning",
     await page.goto(`/kalakriti/${years.cloneTargetYear}`);
     await waitForZeroReady(page);
     await expect(
-      page.getByText("At least one active Center is required")
+      page
+        .getByRole("region", {
+          name: "Complete these before opening registration",
+        })
+        .getByText("At least one active Center is required", { exact: true })
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Open registration" })
@@ -84,12 +89,13 @@ test("enforces registration readiness, lifecycle locks, and structural cloning",
     await expect(page.getByText("Source Dance", { exact: true })).toBeVisible();
     await page.goto(`/kalakriti/${years.cloneTargetYear}/competitions/venues`);
     await expect(page.getByText("Source Stage", { exact: true })).toBeVisible();
-    await page.goto(
-      `/kalakriti/${years.cloneTargetYear}/competitions/schedule`
-    );
+    await page.goto(`/kalakriti/${years.cloneTargetYear}/competitions`);
     await expect(
-      page.getByText("No Competition Sessions scheduled.")
-    ).toBeVisible();
+      page
+        .getByRole("row", { name: /Source Dance/ })
+        .getByRole("cell")
+        .nth(5)
+    ).toHaveText("Not scheduled");
     await page.goto(`/kalakriti/${years.cloneTargetYear}/centers`);
     await expect(page.getByText("No Centers available")).toBeVisible();
 
@@ -114,19 +120,21 @@ test("enforces registration readiness, lifecycle locks, and structural cloning",
     ).toBeVisible();
     await expect(page.getByRole("alertdialog")).toHaveCount(0);
 
-    await page.goto(`/kalakriti/${years.readyYear}/competitions/catalog`);
+    await page.goto(`/kalakriti/${years.readyYear}/competitions`);
     await expect(
       page.getByRole("button", { name: "Add Competition" })
     ).toHaveCount(0);
-    await page.goto(`/kalakriti/${years.readyYear}/competitions/schedule`);
-    await page.getByText("Solo Dance", { exact: true }).click();
-    await page.getByRole("button", { name: "Edit Session" }).click();
+    await waitForZeroReady(page);
+    await new ListPage(page).openRowActionAndClick(
+      page
+        .getByRole("row")
+        .filter({ has: page.getByText("Solo Dance", { exact: true }) }),
+      "Edit Competition"
+    );
     const sessionDialog = page.getByRole("dialog", {
-      name: "Edit Competition Session",
+      name: "Edit Competition",
     });
-    await expect(
-      sessionDialog.getByLabel("Competition Division")
-    ).toBeDisabled();
+    await expect(sessionDialog.getByLabel("Competition name")).toBeDisabled();
     await expect(sessionDialog.getByLabel("Venue")).toBeEnabled();
     await sessionDialog.getByRole("button", { name: "Cancel" }).click();
 

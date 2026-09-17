@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
+import { countTransport } from "./transport-stats";
 import { buildTransportRows, type TransportCenter } from "./transport-table";
 
 const center: TransportCenter = {
@@ -46,5 +47,33 @@ describe("Transport vehicle rows", () => {
   });
   it("does not invent a status or vehicle for an empty directory", () => {
     expect(buildTransportRows([])).toEqual([]);
+  });
+  it("counts distinct active Centers, every assigned vehicle, and finalized stages independently", () => {
+    expect(
+      countTransport([
+        {
+          ...center,
+          scanStages: [
+            { stage: "pickup", finalizedAt: 1 },
+            { stage: "venue_arrival", finalizedAt: null },
+          ],
+        },
+        {
+          ...center,
+          id: "center-b",
+          transportAssignments: [assignment, { ...assignment, id: "bus-b" }],
+          scanStages: [
+            { stage: "pickup", finalizedAt: 1 },
+            { stage: "venue_arrival", finalizedAt: 2 },
+            { stage: "drop_off", finalizedAt: 3 },
+          ],
+        },
+      ])
+    ).toEqual({
+      centers: 2,
+      missingVehicles: 1,
+      vehicles: 2,
+      stages: { pickup: 2, venue_arrival: 1, venue_departure: 0, drop_off: 1 },
+    });
   });
 });

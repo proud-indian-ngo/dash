@@ -32,6 +32,11 @@ import {
   CardHeader,
 } from "@pi-dash/design-system/components/ui/card";
 import {
+  Empty,
+  EmptyHeader,
+  EmptyTitle,
+} from "@pi-dash/design-system/components/ui/empty";
+import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
@@ -554,8 +559,20 @@ function DataTableWrapperBase<TData extends object>({
             </CardHeader>
 
             <CardContent className="border-y px-0">
-              <ScrollArea ref={scrollAreaRef}>
-                {tableLayout?.columnsDraggable ? (
+              {!isLoading && filteredRows.length === 0 ? (
+                <Empty>
+                  <EmptyHeader>
+                    <EmptyTitle>{emptyMessage}</EmptyTitle>
+                  </EmptyHeader>
+                </Empty>
+              ) : null}
+              <ScrollArea
+                ref={scrollAreaRef}
+                hidden={!isLoading && filteredRows.length === 0}
+              >
+                {!isLoading &&
+                filteredRows.length ===
+                  0 ? null : tableLayout?.columnsDraggable ? (
                   <DataGridTableDnd handleDragEnd={handleColumnDragEnd} />
                 ) : (
                   <DataGridTable />
@@ -565,7 +582,13 @@ function DataTableWrapperBase<TData extends object>({
             </CardContent>
 
             <CardFooter className="border-none bg-transparent! px-3.5 py-0">
-              <DataGridPagination sizes={paginationSizes} />
+              {!isLoading && displayCount === 0 ? (
+                <span className="text-muted-foreground text-sm">
+                  0 of 0 results
+                </span>
+              ) : (
+                <DataGridPagination sizes={paginationSizes} />
+              )}
             </CardFooter>
           </Card>
         </DataGrid>

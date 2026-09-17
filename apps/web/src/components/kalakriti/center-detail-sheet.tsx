@@ -157,14 +157,24 @@ function CenterSheetDetails({
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
           <div>
             <dt className="text-muted-foreground">Student registration</dt>
-            <dd>{center.studentRegistrationEnabled ? "Open" : "Closed"}</dd>
+            <dd>
+              {center.studentRegistrationEnabled
+                ? access.edition.lifecycle === "registration_open"
+                  ? "Open"
+                  : "Edition locked"
+                : "Closed"}
+            </dd>
           </div>
           <div>
             <dt className="text-muted-foreground">
               Participation registration
             </dt>
             <dd>
-              {center.competitionEntryRegistrationEnabled ? "Open" : "Closed"}
+              {center.competitionEntryRegistrationEnabled
+                ? access.edition.lifecycle === "registration_open"
+                  ? "Open"
+                  : "Edition locked"
+                : "Closed"}
             </dd>
           </div>
         </dl>

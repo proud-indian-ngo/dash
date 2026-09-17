@@ -61,7 +61,6 @@ const REMOVED_STUDENT_FILTER_PATHS = [
   "ageCategoryOverride",
   "ageCategoryOverrideReason",
   "ageCategoryOverrideAt",
-  "entryCount",
   "studentRegistrationEnabled",
   "competitionEntryRegistrationEnabled",
   "centerStatus",

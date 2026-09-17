@@ -68,6 +68,28 @@ const namedConfigurationSchema = z.object({
   name: z.string().trim().min(2).max(120),
 });
 
+const competitionSchedulesSchema = z
+  .array(
+    z.object({
+      auditEntryId: z.string(),
+      divisionId: z.string(),
+      endAt: z.number().int(),
+      sessionId: z.string(),
+      startAt: z.number().int(),
+      venueId: z.string(),
+    })
+  )
+  .refine(
+    (schedules) =>
+      new Set(schedules.map((schedule) => schedule.sessionId)).size ===
+        schedules.length &&
+      new Set(schedules.map((schedule) => schedule.divisionId)).size ===
+        schedules.length &&
+      new Set(schedules.map((schedule) => schedule.auditEntryId)).size ===
+        schedules.length,
+    "Session IDs, Division IDs, and audit IDs must be unique"
+  );
+
 export const kalakritiCompetitionCategoryCreateSchema =
   namedConfigurationSchema.extend({
     auditEntryId: z.string(),
@@ -99,8 +121,10 @@ const competitionValuesSchema = namedConfigurationSchema
       .refine(
         (divisions) =>
           new Set(divisions.map((division) => division.ageCategoryId)).size ===
-          divisions.length,
-        "Age Categories must be unique"
+            divisions.length &&
+          new Set(divisions.map((division) => division.divisionId)).size ===
+            divisions.length,
+        "Age Categories and Division IDs must be unique"
       ),
     genderEligibility: z.enum(["male", "female", "both"]),
     maximumGroupSize: z.number().int().min(1).max(100),
@@ -123,12 +147,14 @@ export const kalakritiCompetitionCreateSchema = competitionValuesSchema.extend({
   competitionId: z.string(),
   editionId: z.string(),
   now: z.number(),
+  schedules: competitionSchedulesSchema.optional(),
 });
 
 export const kalakritiCompetitionUpdateSchema = competitionValuesSchema.extend({
   auditEntryId: z.string(),
   competitionId: z.string(),
   now: z.number(),
+  schedules: competitionSchedulesSchema.optional(),
 });
 
 export const kalakritiVenueCreateSchema = namedConfigurationSchema.extend({
@@ -305,7 +331,7 @@ async function getCompetition(tx: CompetitionTx, id: string) {
         id: string;
         maximumGroupSize: number;
         minimumGroupSize: number;
-        musicUploadEnabled: boolean;
+        musicUploadEnabled: boolean | null;
         name: string;
         participationMode: "group" | "individual";
         retiredAt: number | null;
@@ -349,6 +375,7 @@ interface DivisionEntrySnapshot {
       entryMemberships: readonly {
         entry?: {
           division?: {
+            id: string;
             sessions: readonly {
               cancelledAt: number | null;
               endAt: number;
@@ -368,6 +395,12 @@ async function assertDivisionEntriesDoNotConflict(
     divisionId: string;
     endAt: number;
     excludedSessionId?: string;
+    scheduledSessions?: readonly {
+      divisionId: string;
+      endAt: number;
+      sessionId: string;
+      startAt: number;
+    }[];
     startAt: number;
   }
 ): Promise<number> {
@@ -388,17 +421,35 @@ async function assertDivisionEntriesDoNotConflict(
         )
       )
   )) as readonly DivisionEntrySnapshot[];
+  const submittedSessionIds = new Set(
+    values.scheduledSessions?.map((session) => session.sessionId) ?? []
+  );
   const createsConflict = entries.some((entry) =>
     entry.members.some((member) =>
-      member.student?.entryMemberships.some(({ entry: otherEntry }) =>
-        otherEntry?.division?.sessions.some(
+      member.student?.entryMemberships.some(({ entry: otherEntry }) => {
+        const division = otherEntry?.division;
+        if (!division) return false;
+        const otherSessions = [
+          ...division.sessions.filter(
+            (session) => !submittedSessionIds.has(session.id)
+          ),
+          ...(values.scheduledSessions ?? [])
+            .filter((session) => session.divisionId === division.id)
+            .map((session) => ({
+              cancelledAt: null,
+              endAt: session.endAt,
+              id: session.sessionId,
+              startAt: session.startAt,
+            })),
+        ];
+        return otherSessions.some(
           (otherSession) =>
             otherSession.cancelledAt === null &&
             otherSession.id !== values.excludedSessionId &&
             otherSession.startAt < values.endAt &&
             otherSession.endAt > values.startAt
-        )
-      )
+        );
+      })
     )
   );
   if (createsConflict) {
@@ -415,6 +466,12 @@ async function assertSessionUpdatePreservesEntries(
   values: {
     divisionId: string;
     endAt: number;
+    scheduledSessions?: readonly {
+      divisionId: string;
+      endAt: number;
+      sessionId: string;
+      startAt: number;
+    }[];
     startAt: number;
   }
 ): Promise<void> {
@@ -422,6 +479,7 @@ async function assertSessionUpdatePreservesEntries(
     divisionId: session.divisionId,
     endAt: values.endAt,
     excludedSessionId: session.id,
+    scheduledSessions: values.scheduledSessions,
     startAt: values.startAt,
   });
   if (sourceEntryCount > 0 && values.divisionId !== session.divisionId) {
@@ -432,6 +490,7 @@ async function assertSessionUpdatePreservesEntries(
       divisionId: values.divisionId,
       endAt: values.endAt,
       excludedSessionId: session.id,
+      scheduledSessions: values.scheduledSessions,
       startAt: values.startAt,
     });
   }
@@ -656,6 +715,222 @@ async function syncCompetitionDivisions(
   });
 }
 
+type CompetitionSchedule = NonNullable<
+  z.infer<typeof kalakritiCompetitionCreateSchema>["schedules"]
+>[number];
+
+async function saveCompetitionSchedules(
+  tx: CompetitionTx,
+  ctx: Context,
+  values: {
+    auditEntryId: string;
+    competitionActive: boolean;
+    competitionId: string;
+    competitionCategoryId: string;
+    divisionIds: readonly string[];
+    edition: {
+      eventDate: string;
+      id: string;
+      lifecycle: string;
+      timezone: string;
+    };
+    now: number;
+    schedules: readonly CompetitionSchedule[];
+  }
+) {
+  if (values.schedules.length === 0) return;
+  if (!values.competitionActive) throw new Error("Competition is not active");
+  if (
+    values.schedules.some(
+      (schedule) => schedule.auditEntryId === values.auditEntryId
+    )
+  ) {
+    throw new Error(
+      "Session audit IDs must differ from the Competition audit ID"
+    );
+  }
+
+  const submittedDivisionIds = new Set(values.divisionIds);
+  const existing = await Promise.all(
+    values.schedules.map((schedule) => getSession(tx, schedule.sessionId))
+  );
+  const venues = await Promise.all(
+    values.schedules.map((schedule) => getVenue(tx, schedule.venueId))
+  );
+  const divisions = await Promise.all(
+    values.schedules.map((schedule) => getDivision(tx, schedule.divisionId))
+  );
+  const editionSessions = (await tx.run(
+    zql.kalakritiCompetitionSession.where("editionId", values.edition.id)
+  )) as Array<{
+    cancelledAt: number | null;
+    divisionId: string;
+    endAt: number;
+    id: string;
+    startAt: number;
+    venueId: string;
+  }>;
+  const submittedSessionIds = new Set(
+    values.schedules.map((schedule) => schedule.sessionId)
+  );
+  const finalSessions = [
+    ...editionSessions.filter(
+      (session) => !submittedSessionIds.has(session.id)
+    ),
+    ...values.schedules.map((schedule) => ({
+      cancelledAt: null,
+      endAt: schedule.endAt,
+      id: schedule.sessionId,
+      startAt: schedule.startAt,
+      venueId: schedule.venueId,
+    })),
+  ];
+
+  for (const [index, schedule] of values.schedules.entries()) {
+    if (!submittedDivisionIds.has(schedule.divisionId)) {
+      throw new Error("Session Division is not in this Competition");
+    }
+    const division = divisions[index];
+    if (division && division.editionId !== values.edition.id) {
+      throw new Error("Competition Division not found in this Edition");
+    }
+    if (division && division.competitionId !== values.competitionId) {
+      throw new Error("Session Division is not in this Competition");
+    }
+    const session = existing[index];
+    if (
+      !session &&
+      editionSessions.some(
+        (stored) => stored.divisionId === schedule.divisionId
+      )
+    ) {
+      throw new Error("Competition Division already has a Session");
+    }
+    if (session) {
+      requireSameEdition(session, values.edition.id, "Competition Session");
+      const previousDivision = await getDivision(tx, session.divisionId);
+      requireSameEdition(
+        previousDivision,
+        values.edition.id,
+        "Competition Division"
+      );
+      if (previousDivision.competitionId !== values.competitionId) {
+        throw new Error("Competition Session is not in this Competition");
+      }
+      if (
+        values.edition.lifecycle === "registration_locked" &&
+        schedule.divisionId !== session.divisionId
+      ) {
+        throw new Error(
+          "Session Division cannot change after registration is locked"
+        );
+      }
+    } else if (values.edition.lifecycle === "registration_locked") {
+      throw new Error("Sessions cannot be added after registration is locked");
+    }
+    const venue = venues[index];
+    requireSameEdition(venue, values.edition.id, "Venue");
+    if (venue.retiredAt !== null) throw new Error("Venue is retired");
+    const validation = validateKalakritiSessionSchedule(
+      finalSessions.find((item) => item.id === schedule.sessionId)!,
+      values.edition.eventDate,
+      values.edition.timezone,
+      finalSessions
+    );
+    if (!validation.valid) {
+      if (validation.reason === "venue_overlap") {
+        throw new Error("Venue already has an overlapping Session");
+      }
+      if (validation.reason === "outside_event_date") {
+        throw new Error("Session must fall on the Edition event date");
+      }
+      throw new Error("Session end time must be after its start time");
+    }
+    if (session) {
+      await assertSessionUpdatePreservesEntries(tx, session, {
+        ...schedule,
+        scheduledSessions: values.schedules,
+      });
+    } else {
+      await assertDivisionEntriesDoNotConflict(tx, {
+        ...schedule,
+        excludedSessionId: schedule.sessionId,
+        scheduledSessions: values.schedules,
+      });
+    }
+  }
+
+  for (const [index, schedule] of values.schedules.entries()) {
+    const session = existing[index];
+    const changed =
+      !session ||
+      session.divisionId !== schedule.divisionId ||
+      session.endAt !== schedule.endAt ||
+      session.startAt !== schedule.startAt ||
+      session.venueId !== schedule.venueId;
+    if (!changed) continue;
+
+    const previousImpact =
+      session && values.edition.lifecycle !== "draft"
+        ? await getSessionScheduleImpact(tx, session.id, values.competitionId)
+        : { centerIds: [], competitionIds: [] };
+    const nextImpact =
+      values.edition.lifecycle !== "draft"
+        ? await getDivisionScheduleImpact(
+            tx,
+            schedule.divisionId,
+            values.competitionId
+          )
+        : { centerIds: [], competitionIds: [] };
+    if (session) {
+      await tx.mutate.kalakritiCompetitionSession.update({
+        divisionId: schedule.divisionId,
+        endAt: schedule.endAt,
+        id: session.id,
+        startAt: schedule.startAt,
+        updatedAt: values.now,
+        venueId: schedule.venueId,
+      });
+    } else {
+      await tx.mutate.kalakritiCompetitionSession.insert({
+        cancelledAt: null,
+        createdAt: values.now,
+        createdBy: ctx.userId,
+        divisionId: schedule.divisionId,
+        editionId: values.edition.id,
+        endAt: schedule.endAt,
+        id: schedule.sessionId,
+        startAt: schedule.startAt,
+        updatedAt: values.now,
+        venueId: schedule.venueId,
+      });
+    }
+    await insertAudit(tx, ctx, {
+      action: session ? "updated" : "created",
+      auditEntryId: schedule.auditEntryId,
+      domain: "schedule_configuration",
+      editionId: values.edition.id,
+      metadata: {
+        competitionCategoryId: values.competitionCategoryId,
+        competitionId: values.competitionId,
+        divisionId: schedule.divisionId,
+        venueId: schedule.venueId,
+      },
+      now: values.now,
+      targetId: schedule.sessionId,
+      targetType: "competition_session",
+    });
+    if (values.edition.lifecycle !== "draft") {
+      pushKalakritiScheduleChangedTask(tx, ctx, {
+        centerIds: [...previousImpact.centerIds, ...nextImpact.centerIds],
+        competitionIds: [values.competitionId],
+        editionId: values.edition.id,
+        revision: schedule.auditEntryId,
+      });
+    }
+  }
+}
+
 export const kalakritiCompetitionMutators = {
   createCategory: defineMutator(
     kalakritiCompetitionCategoryCreateSchema,
@@ -696,7 +971,7 @@ export const kalakritiCompetitionMutators = {
   createCompetition: defineMutator(
     kalakritiCompetitionCreateSchema,
     async ({ tx, ctx, args }) => {
-      await lockStructurallyConfigurableCompetitionEdition(
+      const edition = await lockStructurallyConfigurableCompetitionEdition(
         tx,
         ctx,
         args.editionId
@@ -730,6 +1005,18 @@ export const kalakritiCompetitionMutators = {
         editionId: args.editionId,
         now: args.now,
       });
+      if (args.schedules) {
+        await saveCompetitionSchedules(tx, ctx, {
+          auditEntryId: args.auditEntryId,
+          competitionActive: true,
+          competitionCategoryId: args.competitionCategoryId,
+          competitionId: args.competitionId,
+          divisionIds: args.divisions.map((division) => division.divisionId),
+          edition,
+          now: args.now,
+          schedules: args.schedules,
+        });
+      }
       await insertAudit(tx, ctx, {
         action: "created",
         auditEntryId: args.auditEntryId,
@@ -1277,19 +1564,50 @@ export const kalakritiCompetitionMutators = {
       if (!competition) {
         throw new Error("Competition not found");
       }
-      const edition = await lockStructurallyConfigurableCompetitionEdition(
+      const edition = await lockCompetitionEdition(
         tx,
         ctx,
         competition.editionId
       );
-      const category = await getCategory(tx, args.competitionCategoryId);
-      requireSameEdition(
-        category,
-        competition.editionId,
-        "Competition Category"
-      );
-      if (category?.retiredAt !== null) {
-        throw new Error("Competition Category is retired");
+      const normalized = normalizeKalakritiConfigurationName(args.name);
+      const existingDivisions = (await tx.run(
+        zql.kalakritiCompetitionDivision.where("competitionId", competition.id)
+      )) as readonly { ageCategoryId: string; id: string }[];
+      const structureChanged =
+        normalized.name !== competition.name ||
+        args.competitionCategoryId !== competition.competitionCategoryId ||
+        args.genderEligibility !== competition.genderEligibility ||
+        args.maximumGroupSize !== competition.maximumGroupSize ||
+        args.minimumGroupSize !== competition.minimumGroupSize ||
+        args.musicUploadEnabled !== (competition.musicUploadEnabled === true) ||
+        args.participationMode !== competition.participationMode ||
+        args.divisions.length !== existingDivisions.length ||
+        args.divisions.some(
+          (division) =>
+            !existingDivisions.some(
+              (stored) =>
+                stored.id === division.divisionId &&
+                stored.ageCategoryId === division.ageCategoryId
+            )
+        );
+      if (edition.lifecycle === "registration_locked" && structureChanged) {
+        throw new Error(
+          "Competition structure cannot change after registration is locked"
+        );
+      }
+      if (edition.lifecycle !== "registration_locked") {
+        assertKalakritiEditionStructurallyConfigurable(edition.lifecycle);
+      }
+      if (structureChanged) {
+        const category = await getCategory(tx, args.competitionCategoryId);
+        requireSameEdition(
+          category,
+          competition.editionId,
+          "Competition Category"
+        );
+        if (category.retiredAt !== null) {
+          throw new Error("Competition Category is retired");
+        }
       }
       if (
         (args.competitionCategoryId !== competition.competitionCategoryId ||
@@ -1303,46 +1621,62 @@ export const kalakritiCompetitionMutators = {
           "Competition eligibility cannot change while Entries exist"
         );
       }
-      const normalized = normalizeKalakritiConfigurationName(args.name);
       const publicScheduleChanged = normalized.name !== competition.name;
-      await tx.mutate.kalakritiCompetition.update({
-        competitionCategoryId: args.competitionCategoryId,
-        genderEligibility: args.genderEligibility,
-        id: competition.id,
-        maximumGroupSize: args.maximumGroupSize,
-        minimumGroupSize: args.minimumGroupSize,
-        musicUploadEnabled: args.musicUploadEnabled,
-        name: normalized.name,
-        normalizedName: normalized.normalizedName,
-        participationMode: args.participationMode,
-        updatedAt: args.now,
-      });
-      await syncCompetitionDivisions(tx, ctx, {
-        competitionId: competition.id,
-        divisions: args.divisions,
-        editionId: competition.editionId,
-        now: args.now,
-      });
-      await insertAudit(tx, ctx, {
-        action: "updated",
-        auditEntryId: args.auditEntryId,
-        domain: "competition_configuration",
-        editionId: competition.editionId,
-        metadata: {
-          ageCategoryIds: args.divisions.map(
-            (division) => division.ageCategoryId
-          ),
+      if (structureChanged)
+        await tx.mutate.kalakritiCompetition.update({
           competitionCategoryId: args.competitionCategoryId,
-          competitionCategoryIds: [
-            competition.competitionCategoryId,
-            args.competitionCategoryId,
-          ],
+          genderEligibility: args.genderEligibility,
+          id: competition.id,
+          maximumGroupSize: args.maximumGroupSize,
+          minimumGroupSize: args.minimumGroupSize,
+          musicUploadEnabled: args.musicUploadEnabled,
           name: normalized.name,
-        },
-        now: args.now,
-        targetId: competition.id,
-        targetType: "competition",
-      });
+          normalizedName: normalized.normalizedName,
+          participationMode: args.participationMode,
+          updatedAt: args.now,
+        });
+      if (edition.lifecycle !== "registration_locked") {
+        await syncCompetitionDivisions(tx, ctx, {
+          competitionId: competition.id,
+          divisions: args.divisions,
+          editionId: competition.editionId,
+          now: args.now,
+        });
+      }
+      if (args.schedules) {
+        await saveCompetitionSchedules(tx, ctx, {
+          auditEntryId: args.auditEntryId,
+          competitionActive:
+            competition.cancelledAt === null && competition.retiredAt === null,
+          competitionCategoryId: args.competitionCategoryId,
+          competitionId: competition.id,
+          divisionIds: args.divisions.map((division) => division.divisionId),
+          edition,
+          now: args.now,
+          schedules: args.schedules,
+        });
+      }
+      if (structureChanged)
+        await insertAudit(tx, ctx, {
+          action: "updated",
+          auditEntryId: args.auditEntryId,
+          domain: "competition_configuration",
+          editionId: competition.editionId,
+          metadata: {
+            ageCategoryIds: args.divisions.map(
+              (division) => division.ageCategoryId
+            ),
+            competitionCategoryId: args.competitionCategoryId,
+            competitionCategoryIds: [
+              competition.competitionCategoryId,
+              args.competitionCategoryId,
+            ],
+            name: normalized.name,
+          },
+          now: args.now,
+          targetId: competition.id,
+          targetType: "competition",
+        });
       if (edition.lifecycle !== "draft" && publicScheduleChanged) {
         const impact = await getCompetitionScheduleImpact(tx, competition.id);
         pushKalakritiScheduleChangedTask(tx, ctx, {

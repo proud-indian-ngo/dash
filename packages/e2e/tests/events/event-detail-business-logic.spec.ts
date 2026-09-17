@@ -1,4 +1,5 @@
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { ListPage } from "../../pages/list-page";
 
 const TEAM_NAME = "E2E Updates Team";
 
@@ -27,8 +28,7 @@ async function navigateToTeamEvent(
   if ((await eventRow.count()) === 0) {
     return false;
   }
-  await eventRow.first().getByRole("button", { name: "Row actions" }).click();
-  await page.getByRole("menuitem", { name: "View" }).click();
+  await new ListPage(page).openRowActionAndClick(eventRow.first(), "View");
   await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
     timeout: 10_000,

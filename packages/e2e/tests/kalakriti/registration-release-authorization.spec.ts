@@ -75,7 +75,17 @@ test.describe("Kalakriti Registration Release authorization", () => {
     try {
       await page.goto(`/kalakriti/${YEAR}`);
       await waitForZeroReady(page);
-      const table = page.getByRole("table", { name: "Your centers by Center" });
+      const coverage = page.getByRole("region", {
+        name: "Entry coverage by Center",
+      });
+      await expect(coverage).toContainText("Assigned Center");
+      await expect(coverage).not.toContainText("Outside Center");
+      await page
+        .getByRole("button", { name: "Registration breakdown" })
+        .click();
+      const table = page
+        .getByRole("region", { name: "Your centers by Center" })
+        .getByRole("table");
       await expect(
         table.getByRole("columnheader", { name: "Participation compliance" })
       ).toBeVisible();
@@ -136,15 +146,15 @@ test.describe("Kalakriti Registration Release authorization", () => {
       },
       {
         actor: kalakritiActors.overallEventsLead,
-        expectedHeading: "Competitions",
+        expectedHeading: "Settings",
         expectedText: "Performing Arts",
-        path: `/kalakriti/${YEAR}/competitions/categories`,
+        path: `/kalakriti/${YEAR}/settings/categories`,
       },
       {
         actor: kalakritiActors.categoryLead,
-        expectedHeading: "Competitions",
+        expectedHeading: "Settings",
         expectedText: "Performing Arts",
-        path: `/kalakriti/${YEAR}/competitions/categories`,
+        path: `/kalakriti/${YEAR}/settings/categories`,
       },
       {
         actor: kalakritiActors.guardian,
@@ -222,12 +232,12 @@ test.describe("Kalakriti Registration Release authorization", () => {
       await expect(
         categoryLeadCenterPage.getByText("Outside Center", { exact: true })
       ).toHaveCount(0);
-      await categoryLeadCenterPage.goto(`/kalakriti/${YEAR}/entries`);
+      await categoryLeadCenterPage.goto(`/kalakriti/${YEAR}/competitions`);
       await waitForZeroReady(categoryLeadCenterPage);
       await expect(
         categoryLeadCenterPage.getByRole("heading", {
           exact: true,
-          name: "Entries",
+          name: "Competitions",
         })
       ).toBeVisible();
       await expect(

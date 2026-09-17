@@ -16,9 +16,11 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { log } from "evlog";
+import { parseAsString, useQueryState } from "nuqs";
 import { useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
+import { z } from "zod";
 
 import { InventoryItemDialog } from "@/components/kalakriti/inventory-item-dialog";
 import { InventoryItemsTable } from "@/components/kalakriti/inventory-items-table";
@@ -26,12 +28,15 @@ import {
   InventoryMovementDialog,
   type MovementAction,
 } from "@/components/kalakriti/inventory-movement-dialog";
+import { InventoryStats } from "@/components/kalakriti/inventory-stats";
 import { InventoryTransactionsTable } from "@/components/kalakriti/inventory-transactions-table";
 import type { InventoryItem } from "@/components/kalakriti/inventory-types";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { ScanDialog } from "@/components/kalakriti/scan-dialog";
+import { Loader } from "@/components/loader";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
+import { useDashboardDestinationFilter } from "@/lib/kalakriti-dashboard-filter";
 import {
   canManageKalakritiInventory,
   canViewKalakritiInventory,
@@ -39,6 +44,9 @@ import {
 import { handleMutationResult } from "@/lib/mutation-result";
 
 export const Route = createFileRoute("/_app/kalakriti/$year/inventory")({
+  validateSearch: z
+    .object({ dashboardFilter: z.string().optional() })
+    .passthrough(),
   beforeLoad: ({ context }) => {
     if (!canViewKalakritiInventory(context.kalakritiEditionAccess))
       throw notFound();
@@ -90,8 +98,10 @@ function ItemHistory({
 }
 
 function KalakritiInventoryPage() {
+  const dashboardFilterPending = useDashboardDestinationFilter("inventory");
   const { kalakritiEditionAccess: access } = Route.useRouteContext();
   const { edition } = access;
+  const [, setFilter] = useQueryState("dashboardFilter", parseAsString);
   const zero = useZero();
   const [items, itemsResult] = useQuery(
     queries.kalakritiInventory.items({ editionId: edition.id })
@@ -165,6 +175,19 @@ function KalakritiInventoryPage() {
         Track stock for this edition. Each purchase, dispatch, return, and
         correction is recorded in history.
       </p>
+      <InventoryStats
+        items={items}
+        complete={itemsResult.type === "complete"}
+        scopeKey={JSON.stringify([
+          edition.id,
+          access.isGlobalAdmin,
+          access.membership?.id,
+        ])}
+        onReviewOutOfStock={() => {
+          setTab("items");
+          void setFilter("out_of_stock");
+        }}
+      />
       {canManage ? (
         <div className="flex gap-2">
           <Button onClick={() => setScanAction("dispatch")}>Dispatch</Button>
@@ -189,19 +212,23 @@ function KalakritiInventoryPage() {
         </TabsList>
       </Tabs>
       {tab === "items" ? (
-        <InventoryItemsTable
-          items={items}
-          complete={itemsResult.type === "complete"}
-          canManage={canManage}
-          onAdd={() => setEditing(null)}
-          onEdit={setEditing}
-          onMovement={(item, action) => setMovement({ item, action })}
-          onHistory={setHistoryItem}
-          onArchive={archiveAction.trigger}
-          onRestore={(item) => {
-            void restore(item);
-          }}
-        />
+        dashboardFilterPending ? (
+          <Loader />
+        ) : (
+          <InventoryItemsTable
+            items={items}
+            complete={itemsResult.type === "complete"}
+            canManage={canManage}
+            onAdd={() => setEditing(null)}
+            onEdit={setEditing}
+            onMovement={(item, action) => setMovement({ item, action })}
+            onHistory={setHistoryItem}
+            onArchive={archiveAction.trigger}
+            onRestore={(item) => {
+              void restore(item);
+            }}
+          />
+        )
       ) : (
         <EditionTransactions editionId={edition.id} />
       )}

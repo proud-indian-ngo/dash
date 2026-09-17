@@ -7,12 +7,6 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@pi-dash/design-system/components/ui/dropdown-menu";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import type { EventUpdate, User } from "@pi-dash/zero/schema";
@@ -28,6 +22,7 @@ import {
   RendererSkeleton,
 } from "@/components/editor/editor-skeletons";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { useApp } from "@/context/app-context";
@@ -311,40 +306,38 @@ function TimelineItem({
 
           {(canEdit || canDelete) && editingId !== update.id ? (
             <div className="ml-auto">
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Button
-                      aria-label="Update actions"
-                      className="size-7"
-                      size="icon"
-                      type="button"
-                      variant="ghost"
-                    >
-                      <HugeiconsIcon
-                        className="size-3.5"
-                        icon={MoreVerticalIcon}
-                        strokeWidth={2}
-                      />
-                    </Button>
-                  }
-                />
-                <DropdownMenuContent align="end" className="w-28">
-                  {canEdit ? (
-                    <DropdownMenuItem onClick={stableOnClick2}>
-                      Edit
-                    </DropdownMenuItem>
-                  ) : null}
-                  {canDelete ? (
-                    <DropdownMenuItem
-                      onClick={stableOnClick3}
-                      variant="destructive"
-                    >
-                      Delete
-                    </DropdownMenuItem>
-                  ) : null}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <ResponsiveActionMenu
+                title="Update actions"
+                contentClassName="w-28"
+                trigger={
+                  <Button
+                    aria-label="Update actions"
+                    className="size-7"
+                    size="icon"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <HugeiconsIcon
+                      className="size-3.5"
+                      icon={MoreVerticalIcon}
+                      strokeWidth={2}
+                    />
+                  </Button>
+                }
+                actions={[
+                  canEdit && {
+                    id: "edit",
+                    label: "Edit",
+                    onSelect: stableOnClick2,
+                  },
+                  canDelete && {
+                    id: "delete",
+                    label: "Delete",
+                    onSelect: stableOnClick3,
+                    destructive: true,
+                  },
+                ]}
+              />
             </div>
           ) : null}
         </div>

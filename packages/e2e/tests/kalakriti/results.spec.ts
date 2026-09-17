@@ -5,7 +5,7 @@ import { promisify } from "node:util";
 import type { APIRequestContext } from "@playwright/test";
 import { uuidv7 } from "uuidv7";
 
-import { expect, test } from "../../fixtures/test";
+import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { KalakritiResultsPage } from "../../pages/kalakriti-results-page";
 
 test.use({
@@ -123,6 +123,12 @@ test("scorecard-backed results publish only after group attendance, then finaliz
     );
     expect(signIn.ok()).toBe(true);
     const admin = new KalakritiResultsPage(page);
+    await page.goto(`/kalakriti/${data.year}/competitions`);
+    await waitForZeroReady(page);
+    const competition = page.getByRole("row").filter({
+      hasText: "Group Dance Results",
+    });
+    await expect(competition).toContainText("Running");
     await admin.gotoEvent(data.year, data.divisionId);
     await admin.openResults();
     await expect(admin.results.getByText("judge.pdf")).toBeVisible();
@@ -141,6 +147,8 @@ test("scorecard-backed results publish only after group attendance, then finaliz
     await expect
       .poll(async () => (await fixture<ResultState>("state")).result?.version)
       .toBe(2);
+    await page.goto(`/kalakriti/${data.year}/competitions`);
+    await expect(competition).toContainText("Running");
 
     const incomplete = await mutate(page.request, "kalakritiResult.save", {
       editionId: data.editionId,
@@ -168,6 +176,8 @@ test("scorecard-backed results publish only after group attendance, then finaliz
     await expect
       .poll(async () => (await fixture<ResultState>("state")).result?.status)
       .toBe("published");
+    await page.goto(`/kalakriti/${data.year}/competitions`);
+    await expect(competition).toContainText("Winner assigned");
     await admin.gotoDashboard(data.year);
     await admin.expectCompetitionAwards();
     await expect(
@@ -176,6 +186,9 @@ test("scorecard-backed results publish only after group attendance, then finaliz
     await expect(
       admin.standings.getByText("Leading: Results Center A")
     ).toBeVisible();
+    await admin.standings
+      .getByRole("button", { name: "View Center standings" })
+      .click();
     const rows = admin.standings.getByRole("row");
     await expect(rows.filter({ hasText: "Results Center A" })).toContainText(
       "10"

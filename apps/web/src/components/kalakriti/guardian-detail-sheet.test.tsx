@@ -58,6 +58,7 @@ function render(
         } as unknown as KalakritiEditionAccess
       }
       guardian={{
+        assignedCenters: [],
         id: "guardian",
         humanId,
         isExternal: true,

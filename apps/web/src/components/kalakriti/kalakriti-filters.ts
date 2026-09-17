@@ -20,10 +20,8 @@ import type { CompetitionCategoryTableRow } from "@/components/kalakriti/competi
 import {
   type CompetitionTableRow,
   getCompetitionStatus,
-  type ScheduleTableRow,
   type VenueTableRow,
 } from "@/components/kalakriti/competition-config-types";
-import type { EntrySessionRow } from "@/components/kalakriti/entry-sessions-table";
 import type { GuardianRosterItem } from "@/components/kalakriti/guardians-table";
 import type { KalakritiStudentRow } from "@/components/kalakriti/student-form-dialog";
 import type { VolunteerRosterItem } from "@/components/kalakriti/volunteers-table";
@@ -31,6 +29,7 @@ import {
   KALAKRITI_GENDER_ELIGIBILITY_LABELS,
   type KalakritiGenderEligibility,
 } from "@/lib/kalakriti-competition-labels";
+import { COMPETITION_STATUS_LABELS } from "@/lib/kalakriti-competition-status";
 
 const STUDENT_TRANSPORT_OPTIONS = [
   ...new Set(Object.values(KALAKRITI_STUDENT_TRANSPORT_LABELS)),
@@ -51,18 +50,13 @@ const GUARDIAN_STATE_OPTIONS = [
   { label: "Active", value: "active" },
   { label: "Archived", value: "archived" },
 ];
-const COMPETITION_STATUS_OPTIONS = [
-  { label: "Active", value: "active" },
-  { label: "Cancelled", value: "cancelled" },
-  { label: "Retired", value: "retired" },
-];
+const COMPETITION_STATUS_OPTIONS = Object.entries(
+  COMPETITION_STATUS_LABELS
+).map(([value, label]) => ({ value, label }));
+
 const PARTICIPATION_MODE_OPTIONS = [
   { label: "Individual", value: "individual" },
   { label: "Group", value: "group" },
-];
-const SESSION_STATUS_OPTIONS = [
-  { label: "Scheduled", value: "scheduled" },
-  { label: "Cancelled", value: "cancelled" },
 ];
 const GENDER_ELIGIBILITY_OPTIONS = (
   Object.entries(KALAKRITI_GENDER_ELIGIBILITY_LABELS) as [
@@ -96,6 +90,8 @@ export function getStudentFilterValue(
       return transportLabels?.get(row.id);
     case "ageCategory":
       return row.ageCategoryId;
+    case "entryCount":
+      return row.entryMemberships?.length ?? 0;
     case "dateOfBirth":
       return row.dateOfBirth;
     case "gender":
@@ -136,6 +132,7 @@ export function createStudentFilterFields(
       ]
     ),
     dateField("dateOfBirth", "Date of birth"),
+    numberField("entryCount", "Entries"),
     selectField("gender", "Gender", GENDER_OPTIONS),
     selectField(
       "ageCategory",
@@ -146,80 +143,6 @@ export function createStudentFilterFields(
         (row) => row.ageCategory?.name ?? row.ageCategoryId
       )
     ),
-  ];
-}
-
-export function getEntrySessionFilterValue(
-  row: EntrySessionRow,
-  path: string[]
-): unknown {
-  const [key] = path;
-  switch (key) {
-    case "ageCategoryName":
-      return row.ageCategoryName;
-    case "categoryName":
-      return row.categoryName;
-    case "competitionName":
-      return row.competitionName;
-    case "endAt":
-      return row.endAt;
-    case "entryCount":
-      return row.entryCount;
-    case "genderEligibility":
-      return row.genderEligibility;
-    case "startAt":
-      return row.startAt;
-    case "venueName":
-      return row.venueName;
-    default:
-      return;
-  }
-}
-
-export function createEntrySessionFilterFields(
-  rows: readonly EntrySessionRow[]
-): FilterField[] {
-  return [
-    selectField(
-      "competitionName",
-      "Event",
-      optionsFromRows(
-        rows,
-        (row) => row.competitionName,
-        (row) => row.competitionName
-      )
-    ),
-    selectField(
-      "categoryName",
-      "Category",
-      optionsFromRows(
-        rows,
-        (row) => row.categoryName,
-        (row) => row.categoryName
-      )
-    ),
-    selectField(
-      "ageCategoryName",
-      "Age Category",
-      optionsFromRows(
-        rows,
-        (row) => row.ageCategoryName,
-        (row) => row.ageCategoryName
-      )
-    ),
-    selectField("genderEligibility", "Gender", GENDER_ELIGIBILITY_OPTIONS),
-    selectField(
-      "venueName",
-      "Venue",
-      optionsFromRows(
-        rows,
-        (row) => row.venueName,
-        (row) => row.venueName
-      )
-    ),
-    dateField("startAt", "Session"),
-    dateField("endAt", "Ends"),
-    numberField("entryCount", "Entries"),
   ];
 }
 
@@ -392,7 +315,9 @@ export function getCompetitionFilterValue(
   const [key] = path;
   switch (key) {
     case "ageCategories":
-      return row.divisions.map((division) => division.ageCategoryId);
+      return row.ageCategoryId
+        ? [row.ageCategoryId]
+        : row.divisions.map((division) => division.ageCategoryId);
     case "categoryName":
       return row.categoryName;
     case "genderEligibility":
@@ -403,6 +328,10 @@ export function getCompetitionFilterValue(
       return row.minimumGroupSize;
     case "participationMode":
       return row.participationMode;
+    case "entryCount":
+      return row.entryCount;
+    case "scheduledDivisions":
+      return row.scheduledDivisions;
     case "status":
       return getCompetitionStatus(row);
     default:
@@ -437,6 +366,8 @@ export function createCompetitionFilterFields(
       ),
       type: "multiselect",
     },
+    numberField("entryCount", "Entries"),
+    numberField("scheduledDivisions", "Scheduled Divisions"),
     numberField("minimumGroupSize", "Min group size"),
     numberField("maximumGroupSize", "Max group size"),
   ];
@@ -464,66 +395,6 @@ export function createCompetitionCategoryFilterFields(): FilterField[] {
     selectField("status", "Status", RETIRED_STATUS_OPTIONS),
     numberField("sortOrder", "Display order"),
     numberField("competitionCount", "Competitions"),
-  ];
-}
-
-export function getCompetitionSessionFilterValue(
-  row: ScheduleTableRow,
-  path: string[]
-): unknown {
-  const [key] = path;
-  switch (key) {
-    case "ageCategoryName":
-      return row.ageCategoryName;
-    case "competitionName":
-      return row.competitionName;
-    case "endAt":
-      return row.endAt;
-    case "startAt":
-      return row.startAt;
-    case "status":
-      return row.cancelledAt === null ? "scheduled" : "cancelled";
-    case "venueName":
-      return row.venueName;
-    default:
-      return;
-  }
-}
-
-export function createCompetitionSessionFilterFields(
-  rows: readonly ScheduleTableRow[]
-): FilterField[] {
-  return [
-    selectField("status", "Status", SESSION_STATUS_OPTIONS),
-    selectField(
-      "competitionName",
-      "Competition",
-      optionsFromRows(
-        rows,
-        (row) => row.competitionName,
-        (row) => row.competitionName
-      )
-    ),
-    selectField(
-      "ageCategoryName",
-      "Age Category",
-      optionsFromRows(
-        rows,
-        (row) => row.ageCategoryName,
-        (row) => row.ageCategoryName
-      )
-    ),
-    selectField(
-      "venueName",
-      "Venue",
-      optionsFromRows(
-        rows,
-        (row) => row.venueName,
-        (row) => row.venueName
-      )
-    ),
-    dateField("startAt", "Starts"),
-    dateField("endAt", "Ends"),
   ];
 }
 

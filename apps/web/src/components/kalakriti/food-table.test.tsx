@@ -222,6 +222,28 @@ describe("Food table", () => {
       eligible: 0,
       breakfast: 1,
       lunch: 1,
+      eligibleBreakfast: 0,
+      eligibleLunch: 0,
+    });
+  });
+  it("keeps currently eligible meal completion separate from effective history", () => {
+    const counts = countFoodPeople([
+      { ...guardian, id: "eligible", operations: [mark("breakfast")] },
+      { ...guardian, id: "undone", operations: [mark("breakfast", "undo-1")] },
+      {
+        ...guardian,
+        id: "archived",
+        state: "archived",
+        operations: [mark("breakfast"), mark("lunch")],
+      },
+    ]);
+    expect(counts).toEqual({
+      registered: 2,
+      eligible: 2,
+      breakfast: 2,
+      lunch: 1,
+      eligibleBreakfast: 1,
+      eligibleLunch: 0,
     });
   });
   it.each(["guest", "judge"] as const)(
@@ -261,6 +283,8 @@ describe("Food table", () => {
         eligible: 1,
         breakfast: 1,
         lunch: 1,
+        eligibleBreakfast: 1,
+        eligibleLunch: 0,
       });
     }
   );
