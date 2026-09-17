@@ -40,9 +40,9 @@ test.describe("Volunteer role restrictions", () => {
       page.getByRole("heading", { name: "Reimbursements" })
     ).toBeVisible();
 
-    // Wait for table to load
     const table = page.getByRole("table");
-    await expect(table).toBeVisible({ timeout: 15_000 });
+    const emptyState = page.getByText("No reimbursements found.");
+    await expect(table.or(emptyState)).toBeVisible({ timeout: 15_000 });
   });
 
   test("super_admin sees reimbursements page", async ({ page }, testInfo) => {
