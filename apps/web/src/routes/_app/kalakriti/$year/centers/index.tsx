@@ -406,38 +406,45 @@ function KalakritiCentersPage() {
         </KalakritiLockNotice>
       ) : null}
 
-      {summaryReady ? (
-        <PeoplePageSummary
-          title="Center readiness"
-          scope="Centers in your authorized directory"
-          measures={[
-            { label: "Active Centers", value: activeCenters.length },
-            {
-              label: "Participation gaps",
-              value: participationGaps,
-              onClick: () => filterCenters("participationIssues", "gt", 0),
-            },
-            ...(canManageGuardians
-              ? [
-                  {
-                    label: "Without Guardians",
-                    value: noGuardians,
-                    onClick: () => filterCenters("guardianCount", "eq", 0),
-                  },
-                ]
-              : []),
-            ...(canManageLiaisons
-              ? [
-                  {
-                    label: "Without Liaisons",
-                    value: noLiaisons,
-                    onClick: () => filterCenters("liaisonCount", "eq", 0),
-                  },
-                ]
-              : []),
-          ]}
-        />
-      ) : null}
+      <PeoplePageSummary
+        title="Center readiness"
+        scope="Centers in your authorized directory"
+        measures={[
+          {
+            label: "Active Centers",
+            value: summaryReady ? activeCenters.length : undefined,
+          },
+          {
+            label: "Participation gaps",
+            value: summaryReady ? participationGaps : undefined,
+            onClick: summaryReady
+              ? () => filterCenters("participationIssues", "gt", 0)
+              : undefined,
+          },
+          ...(canManageGuardians
+            ? [
+                {
+                  label: "Without Guardians",
+                  value: summaryReady ? noGuardians : undefined,
+                  onClick: summaryReady
+                    ? () => filterCenters("guardianCount", "eq", 0)
+                    : undefined,
+                },
+              ]
+            : []),
+          ...(canManageLiaisons
+            ? [
+                {
+                  label: "Without Liaisons",
+                  value: summaryReady ? noLiaisons : undefined,
+                  onClick: summaryReady
+                    ? () => filterCenters("liaisonCount", "eq", 0)
+                    : undefined,
+                },
+              ]
+            : []),
+        ]}
+      />
 
       <CentersTable
         canEditCenters={canManageCenters || canManageLiaisons}

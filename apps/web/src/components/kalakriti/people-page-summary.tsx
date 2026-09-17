@@ -7,7 +7,7 @@ import { SummaryMetricCards } from "./summary-metric-cards";
 
 interface Measure {
   label: string;
-  value: number;
+  value: number | undefined;
   onClick?: () => void;
 }
 

@@ -241,6 +241,10 @@ test.describe("Kalakriti Competition Entry registration", () => {
     let primaryFailed = false;
     try {
       await page.goto(`/kalakriti/${year}/centers`);
+      await waitForZeroReady(page);
+      await expect(
+        page.getByRole("region", { name: "Center readiness" })
+      ).toBeVisible();
       await expect(
         page.getByRole("button", {
           name: "Participation compliance: Needs attention",
@@ -341,9 +345,17 @@ test.describe("Kalakriti Competition Entry registration", () => {
       await expect(page.getByTestId("entry-music")).toContainText("0 files");
 
       await page.goto(`/kalakriti/${year}/centers`);
+      await waitForZeroReady(page);
+      await expect(
+        page.getByRole("region", { name: "Center readiness" })
+      ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Show participation gaps in table" })
+      ).toBeVisible();
       const compliance = page.getByRole("button", {
         name: "Participation compliance: Needs attention",
       });
+      await expect(compliance).toBeVisible();
       await compliance.hover();
       const compliancePopup = page.getByRole("dialog", {
         name: "Participation compliance",
