@@ -66,7 +66,7 @@ describe("handlePublicScheduleRequest", () => {
       sessions: [
         {
           ageCategory: "Juniors",
-      category: "Art",
+          category: "Art",
           competition: "Drawing",
           endAt: 1_800_001_800_000,
           startAt: 1_800_000_000_000,
