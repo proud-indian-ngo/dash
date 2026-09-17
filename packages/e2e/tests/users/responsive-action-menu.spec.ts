@@ -2,9 +2,8 @@ import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { ListPage } from "../../pages/list-page";
 
 async function volunteerRow(page: import("@playwright/test").Page) {
-  await page.goto("/users");
+  await page.goto("/users?search=test-volunteer");
   await waitForZeroReady(page);
-  await page.getByPlaceholder("Search users...").fill("test-volunteer");
   const row = new ListPage(page)
     .getTable()
     .getByRole("row")

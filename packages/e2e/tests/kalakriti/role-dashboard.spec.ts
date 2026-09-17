@@ -48,8 +48,8 @@ test("role dashboards show scoped work, linked actions, and a useful future-role
   superAdminEmail,
 }, testInfo) => {
   test.skip(
-    testInfo.project.name !== "super_admin",
-    "Role dashboard actor matrix runs once"
+    testInfo.project.name !== "kalakriti_release_invariants",
+    "Serialized live Edition lane"
   );
   test.slow();
   const contexts: BrowserContext[] = [];
@@ -169,7 +169,9 @@ test("role dashboards show scoped work, linked actions, and a useful future-role
       .getByRole("button", { name: "Review" })
       .click();
     await expect(operator).toHaveURL(
-      /\/kalakriti\/2196\/food\?.*dashboardFilter=breakfast_pending/
+      (url) =>
+        url.pathname === `/kalakriti/${year}/food` &&
+        url.searchParams.get("dashboardFilter") === "breakfast_pending"
     );
     await expect(
       operator.getByRole("button", {

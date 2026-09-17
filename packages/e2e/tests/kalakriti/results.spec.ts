@@ -186,6 +186,9 @@ test("scorecard-backed results publish only after group attendance, then finaliz
     await expect(
       admin.standings.getByText("Leading: Results Center A")
     ).toBeVisible();
+    await admin.standings
+      .getByRole("button", { name: "View Center standings" })
+      .click();
     const rows = admin.standings.getByRole("row");
     await expect(rows.filter({ hasText: "Results Center A" })).toContainText(
       "10"

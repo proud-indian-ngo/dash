@@ -128,7 +128,12 @@ test("assigns a per-center Liaison Lead from the Volunteers page", async ({
       membershipState: "active",
       role: "volunteer",
     });
-    await expect(page.getByText(`Liaison Lead · ${centerName}`)).toBeVisible();
+    await expect(
+      page.getByRole("cell", {
+        name: `Liaison Lead · ${centerName} · Primary`,
+        exact: true,
+      })
+    ).toBeVisible();
 
     await editionPage.removeVolunteer(VOLUNTEER_NAME, "Liaison Lead");
     expect(await fixture("state")).toEqual({

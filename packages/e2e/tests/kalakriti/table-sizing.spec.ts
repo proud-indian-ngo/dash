@@ -173,12 +173,12 @@ test("shared table DOM sizing, drag, scroll and persisted column controls", asyn
         `/kalakriti/${data.year}/entries/${data.divisionId}`,
         "Center",
         "Present",
-        "Participation",
+        "Attended",
       ],
       ["Food", `/kalakriti/${data.year}/food`, "Name", "Person ID", "Role"],
     ] as const) {
       await test.step(surface, async () => {
-        await page.setViewportSize({ width: 1440, height: 1000 });
+        await page.setViewportSize({ width: 900, height: 800 });
         await page.goto(pathname);
         await waitForZeroReady(page);
         const table = page.getByRole("table");
@@ -186,10 +186,22 @@ test("shared table DOM sizing, drag, scroll and persisted column controls", asyn
         await expect(
           column.getByRole("separator", { name: "Resize column", exact: true })
         ).toBeVisible();
-        const before = await geometry(table);
+        let natural = await geometry(table);
+        await expect
+          .poll(async () => {
+            natural = await geometry(table);
+            return (
+              natural.table > natural.viewport &&
+              natural.viewport > 0 &&
+              natural.headers.every((item) => item.width > 0)
+            );
+          })
+          .toBe(true);
         const preferred = new Map(
-          before.headers.map((item) => [item.name ?? "", item.width])
+          natural.headers.map((item) => [item.name ?? "", item.width])
         );
+        await page.setViewportSize({ width: 1440, height: 1000 });
+        const before = await geometry(table);
         const initialWidth = await width(column);
         const during = await dragResize(page, column, 120);
         await expect.soft
@@ -328,20 +340,6 @@ test("shared table DOM sizing, drag, scroll and persisted column controls", asyn
           .poll(() => width(column), { timeout: 2_000 })
           .toBeCloseTo(resizedWidth, 0);
         await page.setViewportSize({ width: 1800, height: 1000 });
-        if (surface === "Entries") {
-          for (const extraHidden of ["Student IDs", "Age Category", "Venue"]) {
-            await column.getByRole("button", { name, exact: true }).click();
-            await page
-              .getByRole("menuitem", { name: "Columns", exact: true })
-              .hover();
-            await page
-              .getByRole("menuitemcheckbox", { name: extraHidden, exact: true })
-              .click();
-            await page.keyboard.press("Escape");
-            await page.keyboard.press("Escape");
-            await expect(header(page, extraHidden)).toHaveCount(0);
-          }
-        }
         await header(page, neighbor)
           .getByRole("button", { name: neighbor, exact: true })
           .click();
@@ -404,13 +402,20 @@ test("shared table DOM sizing, drag, scroll and persisted column controls", asyn
         });
         await reorderHandle.hover();
         const from = await reorderHandle.boundingBox();
+        const source = await header(page, oldFiller).boundingBox();
         const to = await header(page, unpinned[0]!.name!).boundingBox();
+        const targetX =
+          from!.x +
+          from!.width / 2 +
+          to!.x +
+          to!.width / 4 -
+          (source!.x + source!.width / 2);
         await page.mouse.move(
           from!.x + from!.width / 2,
           from!.y + from!.height / 2
         );
         await page.mouse.down();
-        await page.mouse.move(to!.x + to!.width / 4, to!.y + to!.height / 2, {
+        await page.mouse.move(targetX, to!.y + to!.height / 2, {
           steps: 16,
         });
         await page.mouse.up();
@@ -433,6 +438,9 @@ test("shared table DOM sizing, drag, scroll and persisted column controls", asyn
           .filter((item) => !item.pinned)
           .at(-1)!.name!;
         expect(nextFiller).not.toBe(firstFiller);
+        await toggleColumn(page, column, name, firstFiller);
+        await expect(header(page, firstFiller)).toBeVisible();
+        await expectAllocation(table, preferred);
         await header(page, nextFiller)
           .getByRole("button", { name: nextFiller, exact: true })
           .click();

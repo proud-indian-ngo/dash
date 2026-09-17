@@ -106,7 +106,13 @@ export class KalakritiEditionPage {
   }
 
   async editMinimumCompetitions(minimum: number) {
-    await this.page.getByRole("button", { name: /^Min \d+$/ }).click();
+    await this.page
+      .getByRole("link", { name: "Settings", exact: true })
+      .click();
+    await expect(this.page).toHaveURL(/\/settings\/edition$/);
+    await this.page
+      .getByRole("button", { name: "Edit minimum", exact: true })
+      .click();
     const dialog = this.page.getByRole("dialog", {
       name: "Edit minimum Competitions",
     });
@@ -119,7 +125,7 @@ export class KalakritiEditionPage {
     ).toBeVisible();
     await expect(dialog).toHaveCount(0);
     await expect(
-      this.page.getByRole("button", { name: `Min ${minimum}` })
+      this.page.getByText(`Minimum Competitions: ${minimum}`, { exact: true })
     ).toBeVisible();
   }
 
@@ -148,7 +154,7 @@ export class KalakritiEditionPage {
     ).toBeVisible();
     await expect(dialog).toHaveCount(0);
     await expect(
-      this.page.getByRole("heading", { exact: true, name })
+      this.page.getByRole("definition").filter({ hasText: name })
     ).toBeVisible();
   }
 

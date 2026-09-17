@@ -150,10 +150,12 @@ test("go-live enforces readiness and authorization without Credential issuance, 
       await page.goto(`/kalakriti/${first.year}`);
       await waitForZeroReady(page);
       await expect(
-        page.getByText(
-          "Every active Center must have registration controls disabled",
-          { exact: true }
-        )
+        page
+          .getByRole("region", { name: "Complete these before going live" })
+          .getByText(
+            "Every active Center must have registration controls disabled",
+            { exact: true }
+          )
       ).toBeVisible();
       await expect(
         page.getByRole("button", { name: "Go live", exact: true })

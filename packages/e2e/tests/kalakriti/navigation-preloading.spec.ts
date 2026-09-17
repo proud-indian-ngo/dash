@@ -126,9 +126,12 @@ test("visible Kalakriti links do not trigger an access-request burst", async ({
   page,
 }) => {
   const accessRequests: Request[] = [];
+  const settledRequests = new Set<Request>();
   page.on("request", (request) => {
     if (isEditionAccessRequest(request)) accessRequests.push(request);
   });
+  page.on("requestfinished", (request) => settledRequests.add(request));
+  page.on("requestfailed", (request) => settledRequests.add(request));
 
   await page.goto(`/kalakriti/${YEAR}/students`);
   await waitForZeroReady(page);
@@ -143,37 +146,97 @@ test("visible Kalakriti links do not trigger an access-request burst", async ({
   expect(accessRequests.length).toBeLessThanOrEqual(3);
   const afterInitialLoad = accessRequests.length;
 
-  await entries.hover();
-  await expect
-    .poll(() => accessRequests.length)
-    .toBeGreaterThan(afterInitialLoad);
-  const afterHover = accessRequests.length;
-  expect(afterHover - afterInitialLoad).toBe(1);
-  await entries.click();
+  let accessPath: string | null = null;
+  let accessGate: Promise<void> | null = null;
+  let releaseGate = () => {};
+  const holdAccess = () => {
+    accessGate = new Promise<void>((resolve) => {
+      releaseGate = resolve;
+    });
+  };
+  const releaseAccess = () => {
+    accessGate = null;
+    releaseGate();
+  };
+  await page.route("**/_serverFn/**", async (route) => {
+    const request = route.request();
+    if (
+      accessGate &&
+      isEditionAccessRequest(request) &&
+      (accessPath === null || new URL(request.url()).pathname === accessPath)
+    ) {
+      await accessGate;
+    }
+    await route.continue();
+  });
+
+  holdAccess();
+  let click: Promise<void> | undefined;
+  try {
+    await entries.hover();
+    await expect
+      .poll(() => accessRequests.length)
+      .toBeGreaterThan(afterInitialLoad);
+    accessPath = new URL(accessRequests[afterInitialLoad].url()).pathname;
+    click = entries.click();
+    await page.waitForTimeout(250);
+    expect(
+      accessRequests
+        .slice(afterInitialLoad)
+        .filter((request) => new URL(request.url()).pathname === accessPath)
+    ).toHaveLength(1);
+  } finally {
+    releaseAccess();
+  }
+  await click;
+
+  const accessRequestsForPath = () =>
+    accessRequests.filter(
+      (request) => new URL(request.url()).pathname === accessPath
+    );
+  const accessCount = () => accessRequestsForPath().length;
   await expect(page).toHaveURL(`/kalakriti/${YEAR}/competitions`);
   await expect(
     page.getByRole("heading", { name: "Competitions", exact: true })
   ).toBeVisible();
   await waitForZeroReady(page);
-  // A completed hover request may be checked again on click. Only concurrent
-  // work is deduplicated; there is no settled authorization cache.
-  expect(accessRequests.length - afterHover).toBeLessThanOrEqual(2);
+  await expect
+    .poll(
+      async () => {
+        const count = accessCount();
+        await page.waitForTimeout(250);
+        return (
+          accessCount() === count &&
+          accessRequestsForPath().every((request) =>
+            settledRequests.has(request)
+          )
+        );
+      },
+      { message: "Competition access checks settle before Students focus" }
+    )
+    .toBe(true);
 
   const students = page
     .getByRole("link", { name: "Students", exact: true })
     .first();
-  const beforeFocus = accessRequests.length;
-  await students.focus();
-  await expect.poll(() => accessRequests.length).toBeGreaterThan(beforeFocus);
-  const afterFocus = accessRequests.length;
-  expect(afterFocus - beforeFocus).toBe(1);
-  await students.press("Enter");
+  const beforeFocus = accessCount();
+  holdAccess();
+  let enter: Promise<void> | undefined;
+  try {
+    await students.focus();
+    await expect.poll(accessCount).toBeGreaterThan(beforeFocus);
+    enter = students.press("Enter");
+    await page.waitForTimeout(250);
+    expect(accessCount() - beforeFocus).toBe(1);
+  } finally {
+    releaseAccess();
+  }
+  await enter;
   await expect(page).toHaveURL(`/kalakriti/${YEAR}/students`);
   await expect(
     page.getByRole("heading", { name: "Students", exact: true })
   ).toBeVisible();
   await waitForZeroReady(page);
-  expect(accessRequests.length - afterFocus).toBeLessThanOrEqual(2);
 });
 
 test("Dashboard-only preloads release their active Zero subscriptions", async ({

@@ -65,7 +65,7 @@ async function setup(superAdminEmail: string) {
     createdBy: actor.id,
     eventDate: "2197-11-21",
     id: EDITION_ID,
-    lifecycle: "draft",
+    lifecycle: "registration_open",
     name: `Kalakriti ${YEAR}`,
     plannedRegistrationCloseAt: new Date("2197-10-31T18:29:00.000Z"),
     teamEventId: EVENT_ID,

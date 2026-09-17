@@ -24,12 +24,12 @@ import { KALAKRITI_ACTORS } from "../fixtures/kalakriti-actors";
 const id = (suffix: number) =>
   `019f0000-0196-7000-8000-${suffix.toString(16).padStart(12, "0")}`;
 const fixture = {
-  year: 2196,
+  year: 2179,
   editionId: id(1),
   eventId: id(2),
   centerId: id(3),
   guardianEmail: "role-dashboard-guardian@pi-dash.test",
-  guardianPassword: "RoleDashboardGuardian!2196",
+  guardianPassword: "RoleDashboardGuardian!2179",
 } as const;
 
 function assertIsolatedDatabase() {
@@ -95,7 +95,7 @@ async function setup(adminEmail: string) {
     ...common,
     id: fixture.eventId,
     teamId: team.id,
-    name: "Role dashboard 2196",
+    name: "Role dashboard 2179",
     managementDomain: "kalakriti",
     isPublic: false,
     startTime: now,
@@ -105,10 +105,10 @@ async function setup(adminEmail: string) {
     id: fixture.editionId,
     teamEventId: fixture.eventId,
     year: fixture.year,
-    name: "Role dashboard 2196",
+    name: "Role dashboard 2179",
     lifecycle: "live",
-    ageCutoffDate: "2196-06-30",
-    eventDate: "2196-11-21",
+    ageCutoffDate: "2179-06-30",
+    eventDate: "2179-11-21",
     plannedRegistrationCloseAt: now,
     brandingKey: "role-dashboard-e2e",
   });
@@ -191,11 +191,11 @@ async function setup(adminEmail: string) {
     id: id(30),
     centerId: fixture.centerId,
     updatedBy: admin.id,
-    humanId: "KAL-2196-0001",
+    humanId: "KAL-2179-0001",
     name: "Dashboard Student",
     normalizedName: "dashboard student",
     gender: "female",
-    dateOfBirth: "2188-06-15",
+    dateOfBirth: "2171-06-15",
     ageCategoryId: id(4),
     derivedAgeCategoryId: id(4),
   });

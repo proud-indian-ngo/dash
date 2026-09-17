@@ -104,7 +104,8 @@ describe("Kalakriti dashboard summary scope", () => {
     async (role) => {
       const result = await getKalakritiDashboardSummaryForAccess(
         "user-a",
-        access(role)
+        access(role),
+        { loadProjections: async () => [] }
       );
       expect(result.access.membership?.responsibilities).toEqual([role]);
       expect(result.sections).toEqual([]);
@@ -114,7 +115,8 @@ describe("Kalakriti dashboard summary scope", () => {
   it("omits archived nonadministrator operations", async () => {
     const result = await getKalakritiDashboardSummaryForAccess(
       "user-a",
-      access("awards_member", "archived")
+      access("awards_member", "archived"),
+      { loadProjections: async () => [] }
     );
     expect(result.sections).toEqual([]);
   });

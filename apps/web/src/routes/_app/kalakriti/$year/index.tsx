@@ -27,7 +27,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { BlankIdCardDownloadDialog } from "@/components/kalakriti/blank-id-card-download-dialog";
 import { CenterStandings } from "@/components/kalakriti/center-standings";
 import { EditionCloneCard } from "@/components/kalakriti/edition-clone-card";
-import { EditionLifecycleAction } from "@/components/kalakriti/edition-lifecycle-card";
+import {
+  EditionLifecycleAction,
+  EditionLifecycleAlerts,
+} from "@/components/kalakriti/edition-lifecycle-card";
 import { IdCardDownloadButton } from "@/components/kalakriti/id-card-download-button";
 import { KalakritiLifecycleBadge } from "@/components/kalakriti/kalakriti-lifecycle-badge";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
@@ -266,6 +269,10 @@ function KalakritiEditionOverview() {
         variant="edition"
       />
 
+      <EditionLifecycleAlerts
+        canManage={canManageLifecycle}
+        editionId={edition.id}
+      />
       <div aria-label="Your roles" className="flex flex-wrap gap-2">
         {access.isGlobalAdmin ? (
           <Badge variant="outline">Kalakriti Administrator</Badge>
