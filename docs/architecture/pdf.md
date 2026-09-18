@@ -19,7 +19,7 @@ The dashboard also offers **Download blank ID cards**. Administrators choose who
 
 `src/kalakriti-id-cards.tsx` contains reusable React PDF card and document components. `src/generate-kalakriti-id-cards.tsx` validates printable data and returns a PDF buffer. The Kalakriti dashboard downloads the complete current roster through the admin-only `/api/kalakriti/$year/id-cards` endpoint. `apps/web/src/lib/server/kalakriti-id-card-data.ts` projects cards in a read-only repeatable-read transaction.
 
-Cards are 90 x 130 mm, arranged four per A4 page with 6 mm gutters and cutting guides. Hole centers are 19 and 71 mm from the left edge, 7 mm from the top. The original Kalakriti asset is displayed through a clipped viewport to remove transparent margins without changing the source artwork. The festive decoration and QR modules are vector paths.
+Cards fill A4 edge-to-edge as a 2×2 of 105 × 148.5 mm (the 90 × 130 mm artwork is scaled to each quadrant). One vertical and one horizontal through-cut at the midlines separate the four cards. Hole centers scale with the artwork from 19 and 71 mm left and 7 mm from the top in design space. The original Kalakriti asset is displayed through a clipped viewport to remove transparent margins without changing the source artwork. The festive decoration and QR modules are vector paths.
 
 QR codes use the shared `{ id, type }` person contract: Student UUID, Guardian/Volunteer Edition Membership UUID, or Guest/Judge Attendee UUID. The 48 mm QR area includes a four-module white quiet zone. Student cards include their center name alongside their competitions. Student times are formatted in Asia/Kolkata with AM/PM; a missing time displays `Time TBA`.
 
