@@ -111,6 +111,7 @@ Before adding or changing Zero query relationships, route preloads, access-reque
 
 - Import design-system components through `@pi-dash/design-system/components/ui/...` or `/reui/...`, never through `src/` paths.
 - Use `ResponsiveActionMenu` from `@/components/shared/responsive-action-menu` for web row and page action menus. Keep action permissions and confirmations at the call site. Theme, filter, column, and editor selection controls retain their specialized menu primitives.
+- Use `Sheet` from `@/components/shared/responsive-sheet` for detail sidesheets. Desktop stays a right-side sheet; below 768px it uses the Base UI Drawer mobile-navigation pattern.
 - Put client-accessible constants in `@pi-dash/shared`.
 - Keep static imports in server functions, API routes, and server-only packages. Do not use dynamic imports in `createServerFn` or `routes/api/`.
 - Keep `useMemo` and `useCallback` where third-party components or shared hook return values require stable references.

@@ -41,8 +41,16 @@ import {
   tableFeatures,
 } from "@tanstack/react-table"
 
+export type DataGridCompactRole =
+  | "always"
+  | "collapsed"
+  | "hidden"
+  | "primary"
+  | "trailing"
+
 export type DataGridColumnMeta = {
   cellClassName?: string
+  compact?: DataGridCompactRole
   enableColumnOrdering?: boolean
   expandedContent?(row: object): ReactNode
   headerClassName?: string

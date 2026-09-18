@@ -188,7 +188,11 @@ export function VendorPaymentsTable({
         <DataGridColumnHeader column={column} title="Title" visibility={true} />
       ),
       id: "title",
-      meta: { headerTitle: "Title", skeleton: SKELETON_TITLE },
+      meta: {
+        compact: "primary",
+        headerTitle: "Title",
+        skeleton: SKELETON_TITLE,
+      },
       minSize: 200,
       size: 240,
     },
@@ -330,7 +334,11 @@ export function VendorPaymentsTable({
         />
       ),
       id: "status",
-      meta: { headerTitle: "Status", skeleton: SKELETON_STATUS },
+      meta: {
+        compact: "primary",
+        headerTitle: "Status",
+        skeleton: SKELETON_STATUS,
+      },
       size: 130,
     },
     {
@@ -388,6 +396,7 @@ export function VendorPaymentsTable({
         data={data}
         defaultColumnVisibility={{ event: false }}
         emptyMessage="No vendor payments found."
+        compactOnMobile
         filter={{
           fields: filterFields,
           getValue: getVendorPaymentFilterValue,

@@ -146,7 +146,11 @@ export function RolesTable({
         <DataGridColumnHeader column={column} title="Name" visibility={true} />
       ),
       id: "name",
-      meta: { headerTitle: "Name", skeleton: SKELETON_NAME },
+      meta: {
+        compact: "primary",
+        headerTitle: "Name",
+        skeleton: SKELETON_NAME,
+      },
       size: 200,
     },
     {
@@ -179,7 +183,11 @@ export function RolesTable({
         <DataGridColumnHeader column={column} title="Type" visibility={true} />
       ),
       id: "type",
-      meta: { headerTitle: "Type", skeleton: SKELETON_TYPE },
+      meta: {
+        compact: "primary",
+        headerTitle: "Type",
+        skeleton: SKELETON_TYPE,
+      },
       size: 110,
     },
     {
@@ -255,6 +263,7 @@ export function RolesTable({
         columns={columns}
         data={data}
         emptyMessage="No roles found."
+        compactOnMobile
         filter={{
           fields: createRoleFilterFields(),
           getValue: getRoleFilterValue,

@@ -1,6 +1,4 @@
 import {
-  ArrowDown01Icon,
-  ArrowRight01Icon,
   Cancel01Icon,
   Delete02Icon,
   MoreVerticalIcon,
@@ -25,6 +23,7 @@ import type {
 import { format } from "date-fns";
 import type { MouseEvent, ReactNode } from "react";
 
+import { DataTableExpandButton } from "@/components/data-table/data-table-compact";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { RecipientSubTable } from "@/components/scheduled-messages/recipient-sub-table";
 import {
@@ -55,7 +54,7 @@ function getStatusBadge(status: ScheduledMessageDerivedStatus) {
   }
 }
 
-const SKELETON_EXPAND = <Skeleton className="size-6" />;
+const SKELETON_EXPAND = <Skeleton className="size-10" />;
 const SKELETON_MSG = <Skeleton className="h-4 w-48" />;
 const SKELETON_DATE = <Skeleton className="h-4 w-28" />;
 const SKELETON_STATUS = <Skeleton className="h-5 w-16" />;
@@ -94,25 +93,32 @@ function createColumns(
   return [
     {
       cell: ({ row }) => (
-        <ExpandButton
-          expanded={row.getIsExpanded()}
-          onToggle={row.toggleExpanded}
-        />
+        <div className="flex size-full items-center justify-center">
+          <DataTableExpandButton
+            expanded={row.getIsExpanded()}
+            onToggle={row.getToggleExpandedHandler()}
+          />
+        </div>
       ),
       enableHiding: false,
       enableResizing: false,
       enableSorting: false,
       header: "",
       id: "expand",
+      maxSize: 40,
+      minSize: 40,
+      size: 40,
       meta: {
+        cellClassName: "px-0",
+        compact: "always",
         enableColumnOrdering: false,
         expandedContent: (row: ScheduledMessageRow) => (
           <RecipientSubTable onRetry={onRetry} recipients={row.recipients} />
         ),
+        headerClassName: "px-0",
         skeleton: SKELETON_EXPAND,
+        stopRowClick: true,
       },
-      minSize: 40,
-      size: 40,
     },
     {
       accessorFn: (row) => row.message,
@@ -131,7 +137,11 @@ function createColumns(
         />
       ),
       id: "message",
-      meta: { headerTitle: "Message", skeleton: SKELETON_MSG },
+      meta: {
+        compact: "primary",
+        headerTitle: "Message",
+        skeleton: SKELETON_MSG,
+      },
       size: 300,
     },
     {
@@ -165,7 +175,11 @@ function createColumns(
         />
       ),
       id: "status",
-      meta: { headerTitle: "Status", skeleton: SKELETON_STATUS },
+      meta: {
+        compact: "primary",
+        headerTitle: "Status",
+        skeleton: SKELETON_STATUS,
+      },
       size: 120,
     },
     {
@@ -238,36 +252,6 @@ function createColumns(
       size: 52,
     },
   ];
-}
-
-function ExpandButton({
-  expanded,
-  onToggle,
-}: {
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  const handleClick = useEventCallback((e: MouseEvent) => {
-    e.stopPropagation();
-    onToggle();
-  });
-
-  return (
-    <Button
-      aria-label={expanded ? "Collapse" : "Expand"}
-      className="size-7"
-      onClick={handleClick}
-      size="icon"
-      type="button"
-      variant="ghost"
-    >
-      <HugeiconsIcon
-        className="size-4"
-        icon={expanded ? ArrowDown01Icon : ArrowRight01Icon}
-        strokeWidth={2}
-      />
-    </Button>
-  );
 }
 
 function ScheduledMessageActions({
@@ -379,6 +363,7 @@ export function ScheduledMessagesTable({
       columns={columns}
       data={messages}
       emptyMessage="No scheduled messages."
+      compactOnMobile
       filter={{
         fields: createScheduledMessageFilterFields(messages),
         getValue: getScheduledMessageFilterValue,

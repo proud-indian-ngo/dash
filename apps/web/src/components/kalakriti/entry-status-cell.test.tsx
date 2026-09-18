@@ -7,12 +7,17 @@ import {
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { compileFilterQuery } from "@/components/data-table/compile-filter-query";
+import { CompactTableProvider } from "@/components/data-table/data-table-compact";
 
 import type {
   KalakritiEntryRow,
   KalakritiEntryStudent,
 } from "./entry-form-dialog";
-import { EntryStatusCell } from "./entry-status-cell";
+import {
+  EntryCompactParticipants,
+  EntryParticipantsCell,
+  EntryStatusCell,
+} from "./entry-status-cell";
 import {
   createEntryTableFilterFields,
   getEntryTableFilterValue,
@@ -104,6 +109,70 @@ describe("Entry Present and Attended cells", () => {
     );
     expect(html).toContain("Checking attendance");
     expect(html).not.toContain("text-red-600");
+  });
+  it("puts present and attended icons on each compact student line", () => {
+    const group = renderToStaticMarkup(
+      <EntryCompactParticipants
+        attended={attended}
+        entry={row}
+        present={present}
+      />
+    );
+    expect(group).toContain("Ananya");
+    expect(group).toContain("Dev");
+    expect(group).toContain('aria-label="Ananya: Present"');
+    expect(group).toContain('aria-label="Ananya: Attended"');
+    expect(group).toContain('aria-label="Dev: Not present"');
+    expect(group).toContain('aria-label="Dev: Not attended"');
+    expect(group.match(/role="img"/g)).toHaveLength(4);
+    const individual = renderToStaticMarkup(
+      <EntryCompactParticipants
+        attended={attended}
+        entry={{
+          ...row,
+          participationMode: "individual",
+          members: [row.members[0]!],
+        }}
+        present={present}
+      />
+    );
+    expect(individual).toContain("Ananya");
+    expect(individual).not.toContain("Dev");
+    expect(individual.match(/role="img"/g)).toHaveLength(2);
+    expect(individual).toContain(">Present</span>");
+    expect(individual).toContain(">Attended</span>");
+  });
+  it("renders one participant name node outside compact layout", () => {
+    const html = renderToStaticMarkup(
+      <CompactTableProvider compact={false}>
+        <EntryParticipantsCell
+          attended={attended}
+          entry={{
+            ...row,
+            participationMode: "individual",
+            members: [row.members[0]!],
+          }}
+          present={present}
+        />
+      </CompactTableProvider>
+    );
+    expect(html.match(/>Ananya</g)).toHaveLength(1);
+    expect(html).not.toContain(">Present</span>");
+    expect(html).not.toContain("min-w-0 truncate");
+  });
+  it("renders compact present and attended labels only in compact layout", () => {
+    const html = renderToStaticMarkup(
+      <CompactTableProvider compact={true}>
+        <EntryParticipantsCell
+          attended={attended}
+          entry={row}
+          present={present}
+        />
+      </CompactTableProvider>
+    );
+    expect(html.match(/>Ananya</g)).toHaveLength(1);
+    expect(html).toContain(">Present</span>");
+    expect(html).toContain(">Attended</span>");
   });
   it("does not reuse attendance from another actual session or a Division ID", () => {
     expect(

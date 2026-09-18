@@ -47,7 +47,7 @@ mock.module("@/components/loader", () => ({
 const Container = ({ children }: { children?: ReactNode }) => (
   <div>{children}</div>
 );
-mock.module("@pi-dash/design-system/components/ui/sheet", () => ({
+mock.module("@/components/shared/responsive-sheet", () => ({
   Sheet: Container,
   SheetContent: Container,
   SheetHeader: Container,

@@ -9,11 +9,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { VolunteerRosterItem } from "./volunteers-table";
 
 interface CapturedTable {
+  compactOnMobile?: boolean;
   defaultColumnVisibility: Record<string, boolean>;
   columns: {
     id: string;
     accessorFn?: (row: VolunteerRosterItem) => unknown;
-    meta?: { headerTitle?: string; skeleton?: unknown };
+    meta?: { compact?: string; headerTitle?: string; skeleton?: unknown };
   }[];
   searchFn: (row: VolunteerRosterItem, query: string) => boolean;
   onRowClick: (row: VolunteerRosterItem) => void;
@@ -71,6 +72,7 @@ describe("Volunteer table simplified columns", () => {
   it("removes scope and primary columns entirely, including visibility choices", () => {
     query = createFilterQuery();
     setup();
+    expect(table?.compactOnMobile).toBe(true);
     expect(table?.defaultColumnVisibility).toEqual({
       registrationGroup: false,
     });
@@ -87,6 +89,9 @@ describe("Volunteer table simplified columns", () => {
       "actions",
     ])
       expect(table?.columns.some((column) => column.id === id)).toBe(true);
+    expect(
+      table?.columns.find((column) => column.id === "roles")?.meta?.compact
+    ).toBe("primary");
   });
   it("preserves Roles scope/primary descriptions, group search and detail clicks", () => {
     query = createFilterQuery();

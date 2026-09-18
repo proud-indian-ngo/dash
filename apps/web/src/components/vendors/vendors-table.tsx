@@ -173,7 +173,11 @@ export function VendorsTable({
         <DataGridColumnHeader column={column} title="Name" visibility={true} />
       ),
       id: "name",
-      meta: { headerTitle: "Name", skeleton: SKELETON_NAME },
+      meta: {
+        compact: "primary",
+        headerTitle: "Name",
+        skeleton: SKELETON_NAME,
+      },
       size: 200,
     },
     {
@@ -378,7 +382,11 @@ export function VendorsTable({
         />
       ),
       id: "status",
-      meta: { headerTitle: "Status", skeleton: SKELETON_STATUS },
+      meta: {
+        compact: "primary",
+        headerTitle: "Status",
+        skeleton: SKELETON_STATUS,
+      },
       size: 120,
     },
     {
@@ -428,6 +436,7 @@ export function VendorsTable({
           rejectedCount: false,
         }}
         emptyMessage="No vendors found."
+        compactOnMobile
         filter={{
           fields: createVendorFilterFields(),
           getValue: getVendorFilterValue,

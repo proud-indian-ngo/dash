@@ -26,7 +26,20 @@ export interface CompetitionTableRow extends CompetitionView {
   venueName?: string;
   scheduleLabel?: string;
   entryCount?: number;
+  participantCount?: number;
   scheduledDivisions?: number;
+}
+
+export function countUniqueParticipants(
+  entries: readonly { members?: readonly { studentId?: string }[] }[]
+): number {
+  return new Set(
+    entries.flatMap((entry) =>
+      (entry.members ?? []).flatMap((member) =>
+        member.studentId ? [member.studentId] : []
+      )
+    )
+  ).size;
 }
 
 export interface VenueView extends VenueFormValue {

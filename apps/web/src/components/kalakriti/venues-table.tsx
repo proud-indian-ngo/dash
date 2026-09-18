@@ -139,7 +139,11 @@ export function VenuesTable({
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="Venue" visibility={true} />
       ),
-      meta: { headerTitle: "Venue", skeleton: SKELETON_NAME },
+      meta: {
+        compact: "primary",
+        headerTitle: "Venue",
+        skeleton: SKELETON_NAME,
+      },
       size: 260,
     },
     {
@@ -171,7 +175,11 @@ export function VenuesTable({
         />
       ),
       id: "status",
-      meta: { headerTitle: "Status", skeleton: SKELETON_STATUS },
+      meta: {
+        compact: "primary",
+        headerTitle: "Status",
+        skeleton: SKELETON_STATUS,
+      },
       size: 120,
     },
     {
@@ -208,6 +216,7 @@ export function VenuesTable({
       columns={columns}
       data={data}
       emptyMessage="No Venues configured."
+      compactOnMobile
       filter={{
         fields: createVenueFilterFields(),
         getValue: getVenueFilterValue,

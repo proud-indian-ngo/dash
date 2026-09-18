@@ -7,13 +7,6 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@pi-dash/design-system/components/ui/sheet";
-import {
   deriveMessageStatus,
   type ScheduledMessageDerivedStatus,
 } from "@pi-dash/shared/scheduled-message";
@@ -24,6 +17,13 @@ import type {
 import { format } from "date-fns";
 
 import { RecipientSubTable } from "@/components/scheduled-messages/recipient-sub-table";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/shared/responsive-sheet";
 import { getAttachmentDownloadHref } from "@/lib/attachment-links";
 import { SHORT_DATE_WITH_SECONDS } from "@/lib/date-formats";
 

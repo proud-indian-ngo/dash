@@ -1,15 +1,15 @@
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
+import type { User } from "@pi-dash/zero/schema";
+import { format } from "date-fns";
+import capitalize from "lodash/capitalize";
+
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@pi-dash/design-system/components/ui/sheet";
-import type { User } from "@pi-dash/zero/schema";
-import { format } from "date-fns";
-import capitalize from "lodash/capitalize";
-
+} from "@/components/shared/responsive-sheet";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { SHORT_DATE } from "@/lib/date-formats";
 

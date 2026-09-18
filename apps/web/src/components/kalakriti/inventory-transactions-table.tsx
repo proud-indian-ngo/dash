@@ -107,6 +107,9 @@ export function InventoryTransactionsTable({
         ),
         cell: ({ row }) => getValue(row.original, key) || "—",
         meta: {
+          ...(key === "item" || key === "type"
+            ? { compact: "primary" as const }
+            : {}),
           headerTitle: {
             item: "Item",
             type: "Type",
@@ -164,6 +167,7 @@ export function InventoryTransactionsTable({
       columns={columns}
       data={[...transactions]}
       emptyMessage="No stock transactions found."
+      compactOnMobile
       getRowId={(row) => row.id}
       isLoading={transactions.length === 0 && !complete}
       searchFn={searchTransaction}

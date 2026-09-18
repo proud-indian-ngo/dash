@@ -1,8 +1,134 @@
 import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { useCompactTable } from "@/components/data-table/data-table-compact";
+
 import { getEntryStatusCounts, entryAttendanceKey } from "./entry-arrival";
 import type { KalakritiEntryRow } from "./entry-form-dialog";
+
+function uniqueEntryMembers(entry: KalakritiEntryRow) {
+  return [
+    ...new Map(
+      entry.members.map((member) => [member.studentId, member])
+    ).values(),
+  ];
+}
+
+function EntryStatusIcon({
+  ariaLabel,
+  label,
+  positive,
+}: {
+  ariaLabel: string;
+  label: string;
+  positive: string;
+}) {
+  const negative = `Not ${positive.toLowerCase()}`;
+  if (label !== positive && label !== negative) {
+    return (
+      <span className="text-muted-foreground text-xs" aria-label={ariaLabel}>
+        {label}
+      </span>
+    );
+  }
+  return (
+    <span
+      role="img"
+      aria-label={ariaLabel}
+      className={
+        label === positive
+          ? "inline-flex text-green-600 dark:text-green-400"
+          : "inline-flex text-red-600 dark:text-red-400"
+      }
+    >
+      <HugeiconsIcon
+        aria-hidden="true"
+        icon={label === positive ? Tick02Icon : Cancel01Icon}
+        className="size-4"
+        strokeWidth={2}
+      />
+    </span>
+  );
+}
+
+export function EntryParticipantsCell({
+  attended,
+  entry,
+  present,
+}: {
+  attended: ReadonlyMap<string, string> | undefined;
+  entry: KalakritiEntryRow;
+  present: ReadonlyMap<string, string> | undefined;
+}) {
+  const compact = useCompactTable();
+  if (entry.members.length === 0) {
+    return <div className="text-sm font-medium">Unknown Student</div>;
+  }
+  if (compact) {
+    return (
+      <div className="text-sm font-medium">
+        <EntryCompactParticipants
+          attended={attended}
+          entry={entry}
+          present={present}
+        />
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-wrap gap-x-2 gap-y-1 text-sm font-medium">
+      {entry.members.map((member) => (
+        <span key={member.student.id}>{member.student.name}</span>
+      ))}
+    </div>
+  );
+}
+
+export function EntryCompactParticipants({
+  attended,
+  entry,
+  present,
+}: {
+  attended: ReadonlyMap<string, string> | undefined;
+  entry: KalakritiEntryRow;
+  present: ReadonlyMap<string, string> | undefined;
+}) {
+  return (
+    <div className="grid gap-1">
+      {uniqueEntryMembers(entry).map((member) => {
+        const presentLabel =
+          present?.get(member.studentId) ?? "Checking presence";
+        const attendedLabel =
+          attended?.get(entryAttendanceKey(entry, member.studentId)) ??
+          "Checking attendance";
+        return (
+          <div className="grid min-w-0 gap-0.5" key={member.studentId}>
+            <span className="min-w-0 truncate">{member.student.name}</span>
+            <span className="flex items-center gap-3">
+              <span className="flex items-center gap-1">
+                <span className="text-muted-foreground text-xs">Present</span>
+                <EntryStatusIcon
+                  ariaLabel={`${member.student.name}: ${presentLabel}`}
+                  label={presentLabel}
+                  positive="Present"
+                />
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="text-muted-foreground text-xs">Attended</span>
+                <EntryStatusIcon
+                  ariaLabel={`${member.student.name}: ${attendedLabel}`}
+                  label={attendedLabel}
+                  positive="Attended"
+                />
+              </span>
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function EntryStatusCell({
   entry,
   mode,
@@ -12,11 +138,7 @@ export function EntryStatusCell({
   mode: "present" | "attended";
   labels: ReadonlyMap<string, string> | undefined;
 }) {
-  const members = [
-    ...new Map(
-      entry.members.map((member) => [member.studentId, member])
-    ).values(),
-  ];
+  const members = uniqueEntryMembers(entry);
   const keyFor = (id: string) =>
     mode === "present" ? id : entryAttendanceKey(entry, id);
   const positive = mode === "present" ? "Present" : "Attended";
@@ -49,22 +171,11 @@ export function EntryStatusCell({
             {entry.participationMode === "group" ? (
               <span className="text-xs">{member.student.name}</span>
             ) : null}
-            <span
-              role="img"
-              aria-label={`${member.student.name}: ${label}`}
-              className={
-                label === positive
-                  ? "inline-flex text-green-600 dark:text-green-400"
-                  : "inline-flex text-red-600 dark:text-red-400"
-              }
-            >
-              <HugeiconsIcon
-                aria-hidden="true"
-                icon={label === positive ? Tick02Icon : Cancel01Icon}
-                className="size-4"
-                strokeWidth={2}
-              />
-            </span>
+            <EntryStatusIcon
+              ariaLabel={`${member.student.name}: ${label}`}
+              label={label}
+              positive={positive}
+            />
           </div>
         );
       })}

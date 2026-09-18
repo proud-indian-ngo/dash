@@ -110,7 +110,11 @@ export function AgeCategoriesTable({
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="Name" visibility={true} />
       ),
-      meta: { headerTitle: "Name", skeleton: SKELETON_NAME },
+      meta: {
+        compact: "primary",
+        headerTitle: "Name",
+        skeleton: SKELETON_NAME,
+      },
       size: 180,
     },
     {
@@ -128,7 +132,11 @@ export function AgeCategoriesTable({
         />
       ),
       id: "ageRange",
-      meta: { headerTitle: "Age range", skeleton: SKELETON_RANGE },
+      meta: {
+        compact: "primary",
+        headerTitle: "Age range",
+        skeleton: SKELETON_RANGE,
+      },
       size: 130,
     },
     {
@@ -226,6 +234,7 @@ export function AgeCategoriesTable({
       columns={columns}
       data={data}
       emptyMessage="No Age Categories configured."
+      compactOnMobile
       getRowId={getRowId}
       isLoading={isLoading}
       onRowClick={canEdit ? handleRowClick : undefined}

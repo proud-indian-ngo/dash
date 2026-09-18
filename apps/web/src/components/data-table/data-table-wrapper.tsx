@@ -81,6 +81,26 @@ import {
   deriveColumnFill,
   TABLE_COLUMN_DEFAULTS,
 } from "./column-fill";
+import {
+  applyCompactVisibilityChange,
+  COMPACT_BREAKPOINT,
+  findExistingExpandColumnId,
+  insertExpandColumn,
+  overlayCompactVisibility,
+  partitionCompactColumns,
+  stripCompactExpandId,
+  toCompactColumnRefs,
+  visibleCollapsedIds,
+  visibleStackedPrimaryIds,
+  withCompactExpandOrder,
+  withCompactExpandPinning,
+} from "./compact-columns";
+import {
+  CompactTableProvider,
+  createCompactExpandColumn,
+  stackPrimaryColumn,
+  wrapExpandColumnWithCompactDetails,
+} from "./data-table-compact";
 import { getDataTableClassNames } from "./data-table-layout";
 import { getSizingColumns, useTableViewportWidth } from "./use-column-fill";
 
@@ -94,6 +114,8 @@ export interface DataTableFilterConfig<TData extends object> {
 
 export interface DataTableWrapperProps<TData extends object> {
   columns: DataGridColumnDef<TData>[];
+  /** Collapse secondary columns on narrow tables. Injects an expand panel unless `onRowClick` already opens details. */
+  compactOnMobile?: boolean;
   data: TData[];
   defaultColumnPinning?: ColumnPinningState;
   defaultColumnVisibility?: ColumnVisibilityState;
@@ -223,6 +245,7 @@ function DataTableWrapperWithFilters<TData extends object>({
 }
 
 function DataTableWrapperBase<TData extends object>({
+  compactOnMobile = false,
   storageKey,
   columns,
   data,
@@ -293,25 +316,150 @@ function DataTableWrapperBase<TData extends object>({
   );
 
   const { scrollAreaRef, viewportWidth } = useTableViewportWidth(
-    tableLayout?.columnsResizable === true
+    compactOnMobile || tableLayout?.columnsResizable === true
   );
-  const sizingColumns = useMemo(() => getSizingColumns(columns), [columns]);
+  const compactPartition = useMemo(
+    () => partitionCompactColumns(toCompactColumnRefs(columns)),
+    [columns]
+  );
+  const isCompact =
+    compactOnMobile && viewportWidth > 0 && viewportWidth < COMPACT_BREAKPOINT;
+  const collapsedForPanel = useMemo(
+    () =>
+      isCompact
+        ? visibleCollapsedIds(compactPartition.collapsedIds, columnVisibility)
+        : [],
+    [columnVisibility, compactPartition.collapsedIds, isCompact]
+  );
+  const stackedPrimaryIds = useMemo(
+    () =>
+      isCompact
+        ? visibleStackedPrimaryIds(
+            compactPartition.stackedPrimaryIds,
+            columnVisibility
+          )
+        : [],
+    [columnVisibility, compactPartition.stackedPrimaryIds, isCompact]
+  );
+  const trailingIds = useMemo(
+    () =>
+      isCompact
+        ? visibleStackedPrimaryIds(
+            compactPartition.trailingIds,
+            columnVisibility
+          )
+        : [],
+    [columnVisibility, compactPartition.trailingIds, isCompact]
+  );
+  const showExpand = isCompact && collapsedForPanel.length > 0 && !onRowClick;
+  const existingExpandColumnId = useMemo(
+    () => findExistingExpandColumnId(columns),
+    [columns]
+  );
+  const reuseExistingExpand = showExpand && Boolean(existingExpandColumnId);
+  const existingExpandedContent = useMemo(
+    () =>
+      columns.find((column) => column.meta?.expandedContent)?.meta
+        ?.expandedContent,
+    [columns]
+  );
+  const tableColumns = useMemo(() => {
+    if (!isCompact) {
+      return columns;
+    }
+    const withStackedPrimary =
+      compactPartition.firstPrimaryId &&
+      (stackedPrimaryIds.length > 0 || trailingIds.length > 0)
+        ? columns.map((column) =>
+            resolveColumnDefId(column) === compactPartition.firstPrimaryId
+              ? stackPrimaryColumn(column, stackedPrimaryIds, trailingIds)
+              : column
+          )
+        : columns;
+    if (!showExpand) {
+      return withStackedPrimary;
+    }
+    if (existingExpandColumnId) {
+      return withStackedPrimary.map((column) =>
+        resolveColumnDefId(column) === existingExpandColumnId
+          ? wrapExpandColumnWithCompactDetails(
+              column,
+              collapsedForPanel,
+              getRowId
+            )
+          : column
+      );
+    }
+    return insertExpandColumn(
+      withStackedPrimary,
+      createCompactExpandColumn({
+        collapsedColumnIds: collapsedForPanel,
+        existingExpandedContent,
+        getRowId,
+      })
+    );
+  }, [
+    collapsedForPanel,
+    columns,
+    compactPartition.firstPrimaryId,
+    existingExpandColumnId,
+    existingExpandedContent,
+    getRowId,
+    isCompact,
+    showExpand,
+    stackedPrimaryIds,
+    trailingIds,
+  ]);
+  const tableColumnOrder = useMemo(
+    () =>
+      showExpand && !reuseExistingExpand
+        ? withCompactExpandOrder(
+            columnOrder,
+            tableColumns.some(
+              (column) => resolveColumnDefId(column) === "select"
+            )
+          )
+        : columnOrder,
+    [columnOrder, reuseExistingExpand, showExpand, tableColumns]
+  );
+  const tableColumnPinning = useMemo(
+    () =>
+      showExpand && !reuseExistingExpand
+        ? withCompactExpandPinning(columnPinning)
+        : columnPinning,
+    [columnPinning, reuseExistingExpand, showExpand]
+  );
+  const tableColumnVisibility = useMemo(
+    () =>
+      isCompact
+        ? overlayCompactVisibility(
+            columnVisibility,
+            compactPartition,
+            showExpand
+          )
+        : columnVisibility,
+    [columnVisibility, compactPartition, isCompact, showExpand]
+  );
+  const sizingColumns = useMemo(
+    () => getSizingColumns(tableColumns),
+    [tableColumns]
+  );
   const fill = useMemo(
     () =>
       deriveColumnFill({
         columns: sizingColumns,
         preferred: columnSizing,
-        order: columnOrder,
-        visibility: columnVisibility,
-        pinning: columnPinning,
+        order: tableColumnOrder,
+        visibility: tableColumnVisibility,
+        pinning: tableColumnPinning,
         viewportWidth,
       }),
     [
       sizingColumns,
       columnSizing,
-      columnOrder,
-      columnVisibility,
-      columnPinning,
+      tableColumnOrder,
+      tableColumnVisibility,
+      tableColumnPinning,
       viewportWidth,
     ]
   );
@@ -323,6 +471,41 @@ function DataTableWrapperBase<TData extends object>({
       }
       const preferred = applyPreferredSizingChange(columnSizing, fill, updater);
       if (preferred !== columnSizing) setColumnSizing(preferred);
+    }
+  );
+  const handleColumnVisibilityChange = useEventCallback(
+    (updater: Updater<ColumnVisibilityState>) => {
+      if (!isCompact) {
+        setColumnVisibility(updater);
+        return;
+      }
+      const nextTableVisibility = resolveUpdater(
+        updater,
+        tableColumnVisibility
+      );
+      setColumnVisibility(
+        applyCompactVisibilityChange(
+          columnVisibility,
+          tableColumnVisibility,
+          nextTableVisibility,
+          compactPartition
+        )
+      );
+    }
+  );
+  const handleColumnOrderChange = useEventCallback(
+    (updater: Updater<typeof columnOrder>) => {
+      const next = resolveUpdater(updater, tableColumnOrder);
+      setColumnOrder(stripCompactExpandId(next));
+    }
+  );
+  const handleColumnPinningChange = useEventCallback(
+    (updater: Updater<ColumnPinningState>) => {
+      const next = resolveUpdater(updater, tableColumnPinning);
+      setColumnPinning({
+        end: next.end,
+        start: stripCompactExpandId(next.start ?? []),
+      });
     }
   );
 
@@ -376,6 +559,12 @@ function DataTableWrapperBase<TData extends object>({
     );
   }, [pageResetKey, setPagination]);
 
+  useEffect(() => {
+    if (!isCompact) {
+      setExpanded({});
+    }
+  }, [isCompact]);
+
   const globalFilterFn: FilterFn<DataGridFeatures, TData> = (
     row,
     _columnId,
@@ -395,28 +584,30 @@ function DataTableWrapperBase<TData extends object>({
 
   const table = useDataGridTable(
     {
+      autoResetExpanded: false,
       autoResetPageIndex: false,
       columnResizeMode: "onChange",
       defaultColumn: TABLE_COLUMN_DEFAULTS,
-      columns,
+      columns: tableColumns,
       data,
       enableRowSelection,
       getRowId,
       globalFilterFn,
       manualPagination,
-      onColumnOrderChange: setColumnOrder,
-      onColumnPinningChange: setColumnPinning,
+      paginateExpandedRows: false,
+      onColumnOrderChange: handleColumnOrderChange,
+      onColumnPinningChange: handleColumnPinningChange,
       onColumnSizingChange: handleColumnSizingChange,
-      onColumnVisibilityChange: setColumnVisibility,
+      onColumnVisibilityChange: handleColumnVisibilityChange,
       onExpandedChange: setExpanded,
       onPaginationChange,
       onRowSelectionChange: setRowSelection,
       onSortingChange,
       state: {
-        columnOrder,
-        columnPinning,
+        columnOrder: tableColumnOrder,
+        columnPinning: tableColumnPinning,
         columnSizing: fill.effective,
-        columnVisibility,
+        columnVisibility: tableColumnVisibility,
         expanded,
         globalFilter: localSearch,
         pagination,
@@ -424,7 +615,10 @@ function DataTableWrapperBase<TData extends object>({
         sorting,
       },
       ...(rowCount !== undefined && { rowCount }),
-      ...(getRowCanExpand && { getRowCanExpand }),
+      ...((showExpand || getRowCanExpand) && {
+        getRowCanExpand: (row: DataGridRow<TData>) =>
+          showExpand || Boolean(getRowCanExpand?.(row)),
+      }),
     },
     () => null
   ) as unknown as DataGridTableInstance<TData>;
@@ -448,7 +642,10 @@ function DataTableWrapperBase<TData extends object>({
     const visibleColumnIds = table
       .getVisibleLeafColumns()
       .map((column) => column.id);
-    const orderedColumnIds = mergeColumnOrder(columnOrder, visibleColumnIds);
+    const orderedColumnIds = mergeColumnOrder(
+      tableColumnOrder,
+      visibleColumnIds
+    );
     const oldIndex = orderedColumnIds.indexOf(activeColumnId);
     const newIndex = orderedColumnIds.indexOf(overColumnId);
 
@@ -456,7 +653,9 @@ function DataTableWrapperBase<TData extends object>({
       return;
     }
 
-    setColumnOrder(arrayMove(orderedColumnIds, oldIndex, newIndex));
+    setColumnOrder(
+      stripCompactExpandId(arrayMove(orderedColumnIds, oldIndex, newIndex))
+    );
   });
 
   const filteredRows = table.getFilteredRowModel().rows;
@@ -484,27 +683,39 @@ function DataTableWrapperBase<TData extends object>({
     onFilteredDataChange?.(filteredData);
   }, [onFilteredDataChange, filteredData]);
 
+  const resolvedTableLayout = useMemo(
+    () =>
+      isCompact && tableLayout
+        ? {
+            ...tableLayout,
+            columnsDraggable: false,
+            columnsMovable: false,
+          }
+        : tableLayout,
+    [isCompact, tableLayout]
+  );
+
   return (
     <AppErrorBoundary level="section">
       <div aria-busy={isLoading}>
         <span aria-atomic="true" aria-live="polite" className="sr-only">
           {isLoading ? "Loading…" : `${displayCount} results`}
         </span>
-        <DataGrid
-          emptyMessage={emptyMessage}
-          isLoading={isLoading}
-          onRowClick={onRowClick}
-          recordCount={displayCount}
-          table={table}
-          tableLayout={tableLayout}
-          tableClassNames={getDataTableClassNames(
-            tableLayout?.columnsResizable
-          )}
-        >
-          <Card className="w-full gap-3 py-3.5!">
-            <CardHeader className="grid-cols-1! gap-2.5! px-3.5 @lg/card-header:grid-cols-[1fr_auto]!">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <InputGroup className="w-full sm:w-72">
+        <CompactTableProvider compact={isCompact}>
+          <DataGrid
+            emptyMessage={emptyMessage}
+            isLoading={isLoading}
+            onRowClick={onRowClick}
+            recordCount={displayCount}
+            table={table}
+            tableLayout={resolvedTableLayout}
+            tableClassNames={getDataTableClassNames(
+              tableLayout?.columnsResizable
+            )}
+          >
+            <Card className="w-full gap-3 py-3.5!">
+              <CardHeader className="flex flex-col gap-2.5! px-3.5 @lg/card-header:flex-row @lg/card-header:items-center">
+                <InputGroup className="w-full shrink-0 @lg/card-header:w-72">
                   <InputGroupAddon align="inline-start">
                     <HugeiconsIcon
                       className="size-4"
@@ -537,61 +748,64 @@ function DataTableWrapperBase<TData extends object>({
                     </InputGroupAddon>
                   ) : null}
                 </InputGroup>
-                {toolbarFilters}
-              </div>
+                <div className="flex w-full min-w-0 items-center justify-between gap-2 @lg/card-header:flex-1">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+                    {toolbarFilters}
+                  </div>
+                  <CardAction className="relative col-auto row-auto flex shrink-0 flex-wrap items-center gap-1 self-auto justify-self-auto">
+                    <DataGridColumnVisibility
+                      table={table}
+                      trigger={
+                        <Button size="sm" variant="outline">
+                          <HugeiconsIcon
+                            aria-hidden="true"
+                            icon={FilterHorizontalIcon}
+                            strokeWidth={2}
+                          />
+                          Columns
+                        </Button>
+                      }
+                    />
+                    {toolbarActions}
+                  </CardAction>
+                </div>
+              </CardHeader>
 
-              <CardAction className="col-auto! row-auto! flex flex-wrap items-center gap-1 justify-self-start! @lg/card-header:col-start-2! @lg/card-header:row-span-2! @lg/card-header:row-start-1! @lg/card-header:justify-self-end!">
-                <DataGridColumnVisibility
-                  table={table}
-                  trigger={
-                    <Button size="sm" variant="outline">
-                      <HugeiconsIcon
-                        aria-hidden="true"
-                        icon={FilterHorizontalIcon}
-                        strokeWidth={2}
-                      />
-                      Columns
-                    </Button>
-                  }
-                />
-                {toolbarActions}
-              </CardAction>
-            </CardHeader>
+              <CardContent className="border-y px-0">
+                {!isLoading && filteredRows.length === 0 ? (
+                  <Empty>
+                    <EmptyHeader>
+                      <EmptyTitle>{emptyMessage}</EmptyTitle>
+                    </EmptyHeader>
+                  </Empty>
+                ) : null}
+                <ScrollArea
+                  ref={scrollAreaRef}
+                  hidden={!isLoading && filteredRows.length === 0}
+                >
+                  {!isLoading &&
+                  filteredRows.length ===
+                    0 ? null : resolvedTableLayout?.columnsDraggable ? (
+                    <DataGridTableDnd handleDragEnd={handleColumnDragEnd} />
+                  ) : (
+                    <DataGridTable />
+                  )}
+                  <ScrollBar orientation="horizontal" />
+                </ScrollArea>
+              </CardContent>
 
-            <CardContent className="border-y px-0">
-              {!isLoading && filteredRows.length === 0 ? (
-                <Empty>
-                  <EmptyHeader>
-                    <EmptyTitle>{emptyMessage}</EmptyTitle>
-                  </EmptyHeader>
-                </Empty>
-              ) : null}
-              <ScrollArea
-                ref={scrollAreaRef}
-                hidden={!isLoading && filteredRows.length === 0}
-              >
-                {!isLoading &&
-                filteredRows.length ===
-                  0 ? null : tableLayout?.columnsDraggable ? (
-                  <DataGridTableDnd handleDragEnd={handleColumnDragEnd} />
+              <CardFooter className="border-none bg-transparent! px-3.5 py-0">
+                {!isLoading && displayCount === 0 ? (
+                  <span className="text-muted-foreground text-sm">
+                    0 of 0 results
+                  </span>
                 ) : (
-                  <DataGridTable />
+                  <DataGridPagination sizes={paginationSizes} />
                 )}
-                <ScrollBar orientation="horizontal" />
-              </ScrollArea>
-            </CardContent>
-
-            <CardFooter className="border-none bg-transparent! px-3.5 py-0">
-              {!isLoading && displayCount === 0 ? (
-                <span className="text-muted-foreground text-sm">
-                  0 of 0 results
-                </span>
-              ) : (
-                <DataGridPagination sizes={paginationSizes} />
-              )}
-            </CardFooter>
-          </Card>
-        </DataGrid>
+              </CardFooter>
+            </Card>
+          </DataGrid>
+        </CompactTableProvider>
       </div>
     </AppErrorBoundary>
   );

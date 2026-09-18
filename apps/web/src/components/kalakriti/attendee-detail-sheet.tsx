@@ -1,11 +1,12 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
+
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@pi-dash/design-system/components/ui/sheet";
+} from "@/components/shared/responsive-sheet";
 
 import { type AttendeeRow, AttendeeStatus } from "./attendees-table";
 import { PersonQrPanel } from "./person-qr-panel";

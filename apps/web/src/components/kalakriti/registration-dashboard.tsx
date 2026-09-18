@@ -125,6 +125,7 @@ function AggregateTable({
           </span>
         ),
         meta: {
+          ...(index < 2 ? { compact: "primary" as const } : {}),
           headerTitle: label,
           skeleton: <Skeleton className="h-5 w-24" />,
         },
@@ -174,6 +175,7 @@ function AggregateTable({
         }
         searchPlaceholder={`Search ${title.toLowerCase()}...`}
         searchQueryKey={`${storageKey}_search`}
+        compactOnMobile
         storageKey={storageKey}
         tableLayout={{ dense: true, columnsVisibility: true }}
         filter={{

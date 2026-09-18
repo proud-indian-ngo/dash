@@ -32,6 +32,11 @@ test.describe("Reimbursement detail (reimbursement)", () => {
     test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
 
     await reimbursements.navigateToList();
+    const empty = _page.getByText("No reimbursements found.");
+    await expect(reimbursements.list.getTable().or(empty)).toBeVisible({
+      timeout: 15_000,
+    });
+    test.skip((await empty.count()) > 0, "No reimbursements available");
     await reimbursements.list.waitForTableData();
 
     const firstRow = reimbursements.list.getRows().nth(1);

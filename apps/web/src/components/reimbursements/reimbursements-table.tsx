@@ -206,7 +206,11 @@ export function ReimbursementsTable({
         <DataGridColumnHeader column={column} title="Title" visibility={true} />
       ),
       id: "title",
-      meta: { headerTitle: "Title", skeleton: SKELETON_TITLE },
+      meta: {
+        compact: "primary",
+        headerTitle: "Title",
+        skeleton: SKELETON_TITLE,
+      },
       minSize: 200,
       size: 240,
     },
@@ -308,7 +312,11 @@ export function ReimbursementsTable({
         />
       ),
       id: "status",
-      meta: { headerTitle: "Status", skeleton: SKELETON_STATUS },
+      meta: {
+        compact: "primary",
+        headerTitle: "Status",
+        skeleton: SKELETON_STATUS,
+      },
       size: 120,
     },
     {
@@ -426,6 +434,7 @@ export function ReimbursementsTable({
         data={data}
         defaultColumnVisibility={{ event: false }}
         emptyMessage="No reimbursements found."
+        compactOnMobile
         filter={{
           fields: filterFields,
           getValue: getReimbursementFilterValue,

@@ -204,7 +204,11 @@ export function CompetitionsTable({
           visibility={true}
         />
       ),
-      meta: { headerTitle: "Competition", skeleton: SKELETON_NAME },
+      meta: {
+        compact: "primary",
+        headerTitle: "Competition",
+        skeleton: SKELETON_NAME,
+      },
       size: 210,
     },
     {
@@ -248,6 +252,27 @@ export function CompetitionsTable({
       ),
       meta: { headerTitle: "Entries", skeleton: SKELETON_VALUE },
       size: 100,
+    },
+    {
+      accessorKey: "participantCount",
+      cell: ({ row }) => (
+        <span className="tabular-nums">
+          {row.original.participantCount ?? "Checking"}
+        </span>
+      ),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Participants"
+          visibility={true}
+        />
+      ),
+      meta: {
+        compact: "trailing",
+        headerTitle: "Participants",
+        skeleton: SKELETON_VALUE,
+      },
+      size: 120,
     },
     {
       accessorKey: "venueName",
@@ -348,7 +373,11 @@ export function CompetitionsTable({
         />
       ),
       id: "status",
-      meta: { headerTitle: "Status", skeleton: SKELETON_STATUS },
+      meta: {
+        compact: "primary",
+        headerTitle: "Status",
+        skeleton: SKELETON_STATUS,
+      },
       size: 110,
     },
     {
@@ -397,6 +426,7 @@ export function CompetitionsTable({
       columns={columns}
       data={data}
       emptyMessage="No Competitions configured."
+      compactOnMobile
       filter={{
         fields: filterFields,
         getValue: getCompetitionFilterValue,
