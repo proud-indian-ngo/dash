@@ -509,6 +509,7 @@ export function UsersTable({
         data={users}
         defaultColumnVisibility={DEFAULT_COLUMN_VISIBILITY}
         emptyMessage="No users found."
+        compactOnMobile
         filter={{
           fields: filterFields,
           getValue: getUserFilterValue,

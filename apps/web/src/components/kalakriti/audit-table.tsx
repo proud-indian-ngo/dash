@@ -40,7 +40,11 @@ function createColumns(
         <DataGridColumnHeader column={column} title="Time" visibility={true} />
       ),
       id: "createdAt",
-      meta: { headerTitle: "Time", skeleton: TEXT_SKELETON },
+      meta: {
+        compact: "primary",
+        headerTitle: "Time",
+        skeleton: TEXT_SKELETON,
+      },
       size: 180,
     },
     {
@@ -79,7 +83,11 @@ function createColumns(
         />
       ),
       id: "action",
-      meta: { headerTitle: "Action", skeleton: BADGE_SKELETON },
+      meta: {
+        compact: "primary",
+        headerTitle: "Action",
+        skeleton: BADGE_SKELETON,
+      },
       size: 150,
     },
     {
@@ -205,6 +213,7 @@ export function KalakritiAuditTable({
       data={rows}
       defaultPageSize={25}
       emptyMessage="No audit entries found for this scope."
+      compactOnMobile
       filter={{
         applyLocally: false,
         fields: filterFields,

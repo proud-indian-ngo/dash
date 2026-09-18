@@ -1,12 +1,12 @@
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
+
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@pi-dash/design-system/components/ui/sheet";
-
+} from "@/components/shared/responsive-sheet";
 import { formatTimestamp } from "@/lib/date-formats";
 
 import type { AuditLogRow } from "./audit-types";

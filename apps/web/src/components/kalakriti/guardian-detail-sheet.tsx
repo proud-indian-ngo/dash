@@ -1,12 +1,5 @@
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@pi-dash/design-system/components/ui/sheet";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
@@ -14,6 +7,13 @@ import { useQuery } from "@rocicorp/zero/react";
 import type { GuardianRosterItem } from "@/components/kalakriti/guardians-table";
 import { PersonQrPanel } from "@/components/kalakriti/person-qr-panel";
 import { Loader } from "@/components/loader";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/shared/responsive-sheet";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 
 function DetailRow({ label, value }: { label: string; value: string | null }) {

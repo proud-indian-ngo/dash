@@ -143,7 +143,11 @@ export function TeamsTable({
         <DataGridColumnHeader column={column} title="Name" visibility={true} />
       ),
       id: "name",
-      meta: { headerTitle: "Name", skeleton: SKELETON_NAME },
+      meta: {
+        compact: "primary",
+        headerTitle: "Name",
+        skeleton: SKELETON_NAME,
+      },
       size: 200,
     },
     {
@@ -177,7 +181,11 @@ export function TeamsTable({
         />
       ),
       id: "members",
-      meta: { headerTitle: "Members", skeleton: SKELETON_COUNT },
+      meta: {
+        compact: "primary",
+        headerTitle: "Members",
+        skeleton: SKELETON_COUNT,
+      },
       size: 100,
     },
     {
@@ -237,6 +245,7 @@ export function TeamsTable({
         columns={columns}
         data={data}
         emptyMessage="No teams found."
+        compactOnMobile
         getRowId={stableGetRowId2}
         isLoading={isLoading}
         onRowClick={stableOnRowClick3}

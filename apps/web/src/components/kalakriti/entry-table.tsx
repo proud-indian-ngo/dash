@@ -29,7 +29,7 @@ import { EntryMusicCell } from "./entry-music-cell";
 import { EntryMusicDialog } from "./entry-music-dialog";
 import { EntryMusicPlaybackDialog } from "./entry-music-playback-dialog";
 import { EntrySessionSummary } from "./entry-session-summary";
-import { EntryStatusCell } from "./entry-status-cell";
+import { EntryCompactParticipants, EntryStatusCell } from "./entry-status-cell";
 import {
   createEntryTableFilterFields,
   getEntryTableFilterValue,
@@ -257,6 +257,7 @@ export function EntryTable({
         />
       ),
       meta: {
+        compact: "primary",
         headerTitle: "Center",
         skeleton: <Skeleton className="h-5 w-32" />,
       },
@@ -287,6 +288,7 @@ export function EntryTable({
           />
         ),
         meta: {
+          compact: "hidden",
           headerTitle: mode === "present" ? "Present" : "Attended",
           skeleton: <Skeleton className="h-5 w-32" />,
         },
@@ -341,13 +343,26 @@ export function EntryTable({
       accessorFn: (row) =>
         row.members.map((member) => member.student.name).join(" "),
       cell: ({ row }) => (
-        <div className="flex flex-wrap gap-x-2 gap-y-1 text-sm font-medium">
-          {row.original.members.length > 0
-            ? row.original.members.map((member) => (
-                <span key={member.student.id}>{member.student.name}</span>
-              ))
-            : "Unknown Student"}
-        </div>
+        <>
+          <div className="hidden text-sm font-medium [[data-compact-primary]_&]:block">
+            {row.original.members.length > 0 ? (
+              <EntryCompactParticipants
+                attended={attendance.labels}
+                entry={row.original}
+                present={arrival.labels}
+              />
+            ) : (
+              "Unknown Student"
+            )}
+          </div>
+          <div className="flex flex-wrap gap-x-2 gap-y-1 text-sm font-medium [[data-compact-primary]_&]:hidden">
+            {row.original.members.length > 0
+              ? row.original.members.map((member) => (
+                  <span key={member.student.id}>{member.student.name}</span>
+                ))
+              : "Unknown Student"}
+          </div>
+        </>
       ),
       header: ({ column }) => (
         <DataGridColumnHeader
@@ -358,6 +373,7 @@ export function EntryTable({
       ),
       id: "student",
       meta: {
+        compact: "primary",
         headerTitle: "Participants",
         skeleton: <Skeleton className="h-5 w-40" />,
       },
@@ -589,6 +605,7 @@ export function EntryTable({
         columns={columns}
         data={data}
         emptyMessage={emptyMessage}
+        compactOnMobile
         getRowId={getEntryRowId}
         isLoading={isLoading}
         searchFn={(row, query) =>

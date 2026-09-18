@@ -1,11 +1,11 @@
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
+
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
-} from "@pi-dash/design-system/components/ui/sheet";
-
+} from "@/components/shared/responsive-sheet";
 import { formatINR } from "@/lib/form-schemas";
 import { getStatusBadge } from "@/lib/status-badge";
 import type { VendorRow } from "@/lib/vendor-types";

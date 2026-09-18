@@ -1,13 +1,25 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
 
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { attendeeFormSchema } from "./attendee-form-dialog";
-import {
-  type AttendeeRow,
-  attendeeStatus,
-  AttendeeStatus,
-} from "./attendees-table";
+import type { AttendeeRow } from "./attendees-table";
+
+interface CapturedAttendees {
+  columns: {
+    id?: string;
+    meta?: { compact?: string };
+  }[];
+}
+let captured: CapturedAttendees;
+mock.module("@/components/data-table/data-table-wrapper", () => ({
+  DataTableWrapper: (props: CapturedAttendees) => {
+    captured = props;
+    return null;
+  },
+}));
+const { attendeeStatus, AttendeeStatus, AttendeesTable } =
+  await import("./attendees-table");
 const attendee: AttendeeRow = {
   id: "attendee",
   name: "Judge",
@@ -87,4 +99,36 @@ describe("attendee UI", () => {
       )
     ).not.toContain('role="img"');
   });
+  it.each(["guest", "judge"] as const)(
+    "stacks checked-in status instead of yearly ID for %s compact rows",
+    (kind) => {
+      const noop = () => undefined;
+      renderToStaticMarkup(
+        <AttendeesTable
+          canManage={false}
+          data={[{ ...attendee, kind }]}
+          isLoading={false}
+          kind={kind}
+          onAssign={noop}
+          onEdit={noop}
+          onRemove={noop}
+          onView={noop}
+          statusReady
+          toolbarActions={null}
+        />
+      );
+      expect(
+        captured.columns.find((column) => column.id === "humanId")?.meta
+          ?.compact
+      ).toBeUndefined();
+      expect(
+        captured.columns.find((column) => column.id === "attendee_check_in")
+          ?.meta?.compact
+      ).toBe("primary");
+      expect(
+        captured.columns.find((column) => column.id === "competitions")?.meta
+          ?.compact
+      ).toBe(kind === "judge" ? "primary" : undefined);
+    }
+  );
 });

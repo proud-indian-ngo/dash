@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import type { StudentTableRow } from "./student-table";
 interface Captured {
+  compactOnMobile?: boolean;
   columns: {
     id?: string;
     accessorFn?: (row: StudentTableRow) => unknown;
@@ -13,6 +14,7 @@ interface Captured {
       entryRegistrationEnabled: boolean;
       student: StudentTableRow;
     }>;
+    meta?: { compact?: string };
   }[];
   searchFn: (row: StudentTableRow, query: string) => boolean;
   filter: { getValue: (row: StudentTableRow, path: string[]) => unknown };
@@ -60,6 +62,14 @@ it("derives each row action from its actual Center rather than the global create
       onRegister={noop}
     />
   );
+  expect(captured.compactOnMobile).toBe(true);
+  expect(
+    captured.columns.find((column) => column.id === "center")?.meta?.compact
+  ).toBe("primary");
+  expect(
+    captured.columns.find((column) => column.id === "transportStatus")?.meta
+      ?.compact
+  ).toBe("primary");
   const actions = captured.columns.find((column) => column.id === "actions");
   const a = actions?.cell?.({ row: { original: rows[0]! } });
   const b = actions?.cell?.({ row: { original: rows[1]! } });

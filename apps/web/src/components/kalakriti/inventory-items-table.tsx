@@ -115,6 +115,7 @@ export function InventoryItemsTable({
           </div>
         ),
         meta: {
+          compact: "primary",
           headerTitle: "Item",
           skeleton: <Skeleton className="h-5 w-36" />,
         },
@@ -132,6 +133,7 @@ export function InventoryItemsTable({
         ),
         cell: ({ row }) => row.original.quantity,
         meta: {
+          compact: "trailing",
           headerTitle: "In stock",
           skeleton: <Skeleton className="h-5 w-12" />,
         },
@@ -186,6 +188,7 @@ export function InventoryItemsTable({
         ),
         cell: ({ row }) => (row.original.archivedAt ? "Archived" : "Active"),
         meta: {
+          compact: "primary",
           headerTitle: "Status",
           skeleton: <Skeleton className="h-5 w-16" />,
         },
@@ -273,6 +276,7 @@ export function InventoryItemsTable({
       columns={columns}
       data={[...items]}
       emptyMessage="No inventory items found."
+      compactOnMobile
       getRowId={(row) => row.id}
       isLoading={items.length === 0 && !complete}
       searchFn={searchItem}

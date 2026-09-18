@@ -200,7 +200,7 @@ pi-dash event remains read-only outside the Kalakriti module.
 | `components/users/` | users-table, user-form, password-form, ban-user-form |
 | `components/reimbursements/` | reimbursements-table, reimbursement-form, reimbursement-detail, reimbursement-stats (unified reimbursements + advance payments) |
 | `components/teams/` | teams-table, team-detail, team-form-dialog, add-member-dialog |
-| `components/shared/` | user-avatar, user-picker, confirm-dialog, responsive-dialog, responsive-action-menu (desktop dropdown and mobile action sheet) |
+| `components/shared/` | user-avatar, user-picker, confirm-dialog, responsive-dialog, responsive-sheet (desktop side sheet and mobile drawer navigation), responsive-action-menu (desktop dropdown and mobile action sheet) |
 | `components/editor/` | plate-editor (rich-text with image upload), plate-renderer (read-only) |
 | `components/events/` | public-events-table |
 | `components/kalakriti/` | Edition configuration, assignments, Guardian access, Competition schedule, Student and Entry registration, scoped dashboards and ZIP exports, and scoped audit tables |

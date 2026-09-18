@@ -1,12 +1,5 @@
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@pi-dash/design-system/components/ui/sheet";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
   canManageKalakritiResponsibility,
@@ -21,6 +14,13 @@ import {
   type RemoveAssignmentPayload,
   type VolunteerRosterItem,
 } from "@/components/kalakriti/volunteers-table";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/shared/responsive-sheet";
 
 function DetailRow({ label, value }: { label: string; value: string | null }) {
   return (

@@ -207,7 +207,11 @@ export function CentersTable({
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="Name" visibility={true} />
       ),
-      meta: { headerTitle: "Name", skeleton: SKELETON_NAME },
+      meta: {
+        compact: "primary",
+        headerTitle: "Name",
+        skeleton: SKELETON_NAME,
+      },
       size: 220,
     },
     {
@@ -227,7 +231,10 @@ export function CentersTable({
         />
       ),
       id: "status",
-      meta: { headerTitle: "Status", skeleton: SKELETON_STATUS },
+      meta: {
+        headerTitle: "Status",
+        skeleton: SKELETON_STATUS,
+      },
       size: 110,
     },
     {
@@ -251,6 +258,7 @@ export function CentersTable({
           />
         ),
       meta: {
+        compact: "primary",
         headerTitle: "Transport status",
         skeleton: <Skeleton className="h-5 w-28" />,
       },
@@ -330,7 +338,7 @@ export function CentersTable({
     {
       accessorKey: "guardianCount",
       cell: ({ row }) => (
-        <span className="text-sm">
+        <span className="text-sm tabular-nums">
           {row.original.guardianCount ?? "Not available"}
         </span>
       ),
@@ -347,7 +355,7 @@ export function CentersTable({
     {
       accessorKey: "liaisonCount",
       cell: ({ row }) => (
-        <span className="text-sm">
+        <span className="text-sm tabular-nums">
           {row.original.liaisonCount ?? "Not available"}
         </span>
       ),
@@ -396,6 +404,7 @@ export function CentersTable({
   return (
     <DataTableWrapper<CenterTableRow>
       columns={columns}
+      compactOnMobile
       data={data}
       emptyMessage={emptyMessage}
       filter={{

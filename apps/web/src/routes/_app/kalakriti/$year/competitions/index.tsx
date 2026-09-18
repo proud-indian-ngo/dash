@@ -21,12 +21,13 @@ import { useMemo, useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 
-import type {
-  CompetitionCategoryView,
-  CompetitionTableRow,
-  CompetitionView,
-  ConfigurationDeletePayload,
-  ConfigurationStatePayload,
+import {
+  type CompetitionCategoryView,
+  type CompetitionTableRow,
+  type CompetitionView,
+  type ConfigurationDeletePayload,
+  type ConfigurationStatePayload,
+  countUniqueParticipants,
 } from "@/components/kalakriti/competition-config-types";
 import { CompetitionDetailSheet } from "@/components/kalakriti/competition-detail-sheet";
 import { CompetitionEntries } from "@/components/kalakriti/competition-entries";
@@ -183,6 +184,9 @@ function CompetitionCatalogPage() {
         const visibleSession = visibleDivisions.find(
           (item) => item.id === division?.id
         )?.sessions[0];
+        const divisionEntries = entries.filter(
+          (entry) => entry.divisionId === division?.id
+        );
         return {
           ...competition,
           categoryName,
@@ -200,9 +204,9 @@ function CompetitionCatalogPage() {
           scheduleLabel: session
             ? `${scheduleFormatter.format(session.startAt)} – ${scheduleFormatter.format(session.endAt)}`
             : "Not scheduled",
-          entryCount: countsReady
-            ? entries.filter((entry) => entry.divisionId === division?.id)
-                .length
+          entryCount: countsReady ? divisionEntries.length : undefined,
+          participantCount: countsReady
+            ? countUniqueParticipants(divisionEntries)
             : undefined,
           scheduledDivisions: countsReady
             ? Number(Boolean(session && session.cancelledAt === null))

@@ -250,24 +250,19 @@ export function VolunteersTable({
     {
       accessorKey: "snapshotName",
       cell: ({ row }) => (
-        <div className="grid gap-0.5" data-testid="row-title">
-          <span className="text-sm font-medium">
-            {row.original.snapshotName}
-          </span>
-          <span className="text-muted-foreground line-clamp-2 text-xs md:hidden">
-            {row.original.assignments.length
-              ? row.original.assignments
-                  .map(formatKalakritiVolunteerAssignment)
-                  .join(", ")
-              : "No responsibilities"}
-          </span>
-        </div>
+        <span className="text-sm font-medium" data-testid="row-title">
+          {row.original.snapshotName}
+        </span>
       ),
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="Name" visibility={true} />
       ),
       id: "snapshotName",
-      meta: { headerTitle: "Name", skeleton: SKELETON_NAME },
+      meta: {
+        compact: "primary",
+        headerTitle: "Name",
+        skeleton: SKELETON_NAME,
+      },
       size: 260,
     },
     {
@@ -384,7 +379,11 @@ export function VolunteersTable({
         <DataGridColumnHeader column={column} title="Roles" visibility={true} />
       ),
       id: "roles",
-      meta: { headerTitle: "Roles", skeleton: SKELETON_ROLES },
+      meta: {
+        compact: "primary",
+        headerTitle: "Roles",
+        skeleton: SKELETON_ROLES,
+      },
       size: 280,
     },
     {
@@ -439,6 +438,7 @@ export function VolunteersTable({
         registrationGroup: false,
       }}
       emptyMessage="No volunteers on this Edition yet."
+      compactOnMobile
       filter={{
         fields: createVolunteerFilterFields(data),
         getValue: getFilterValue,

@@ -1,12 +1,5 @@
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@pi-dash/design-system/components/ui/sheet";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { KALAKRITI_RESPONSIBILITY_LABELS } from "@pi-dash/shared/kalakriti";
 import { getKalakritiCenterTransportLabel } from "@pi-dash/zero/kalakriti-center-scan-rules";
@@ -14,6 +7,13 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { useMemo } from "react";
 
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/shared/responsive-sheet";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import { getCenterTransportCapabilities } from "@/lib/kalakriti-center-registration-policy";
 

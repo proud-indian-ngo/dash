@@ -1,13 +1,13 @@
 import { Badge } from "@pi-dash/design-system/components/reui/badge";
+
+import type { JobRow } from "@/components/jobs/job-stats";
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@pi-dash/design-system/components/ui/sheet";
-
-import type { JobRow } from "@/components/jobs/job-stats";
+} from "@/components/shared/responsive-sheet";
 import { formatTimestamp } from "@/lib/date-formats";
 
 interface JobDetailSheetProps {

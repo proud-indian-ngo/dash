@@ -1,0 +1,164 @@
+.backdrop {
+  --backdrop-opacity: 1;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  min-height: 100dvh;
+  background-image: linear-gradient(
+    to bottom,
+    rgb(0 0 0 / 5%) 0,
+    rgb(0 0 0 / 10%) 50%
+  );
+  opacity: calc(
+    var(--backdrop-opacity) * (1 - var(--drawer-swipe-progress, 0))
+  );
+  transition-duration: 200ms;
+  transition-property: opacity;
+  transition-timing-function: ease-out;
+}
+
+@supports (-webkit-touch-callout: none) {
+  .backdrop {
+    position: absolute;
+  }
+}
+
+:global(.dark) .backdrop {
+  --backdrop-opacity: 0.7;
+}
+
+.backdrop[data-starting-style],
+.backdrop[data-ending-style] {
+  opacity: 0;
+}
+
+.viewport {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+}
+
+.scrollRoot {
+  box-sizing: border-box;
+  height: 100%;
+  overscroll-behavior: contain;
+  transition: transform 200ms ease-out;
+}
+
+.viewport[data-starting-style] .scrollRoot {
+  transform: translateY(100dvh);
+}
+
+.viewport[data-ending-style] .scrollRoot {
+  pointer-events: none;
+}
+
+.scrollViewport {
+  box-sizing: border-box;
+  height: 100%;
+  overscroll-behavior: contain;
+  touch-action: auto;
+}
+
+.scrollContent {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-height: 100%;
+  padding-top: 2rem;
+}
+
+.popup {
+  box-sizing: border-box;
+  width: 100%;
+  outline: 0;
+  will-change: transform;
+  transform: translateY(var(--drawer-swipe-movement-y, 0px));
+  transition: transform 200ms ease-out;
+}
+
+.popup[data-swiping] {
+  transition: none;
+}
+
+.popup[data-ending-style] {
+  transform: translateY(calc(max(100dvh, 100%) + 2px));
+}
+
+.panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--background);
+  color: var(--foreground);
+  box-shadow: 0 -1px 0 color-mix(in oklch, var(--foreground) 15%, transparent);
+}
+
+.content {
+  width: 100%;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: start;
+  padding: 0.75rem 0.75rem 0;
+}
+
+.headerSpacer {
+  width: 2rem;
+  height: 2rem;
+}
+
+.handle {
+  width: 3rem;
+  height: 0.25rem;
+  justify-self: center;
+  background-color: color-mix(
+    in oklch,
+    var(--muted-foreground) 40%,
+    transparent
+  );
+}
+
+.close {
+  justify-self: end;
+}
+
+.scrollbar {
+  position: absolute;
+  display: flex;
+  width: 0.75rem;
+  margin: 1px;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  background-color: color-mix(in oklch, var(--foreground) 12%, transparent);
+  transition: opacity 200ms ease-out;
+}
+
+.scrollbar:hover,
+.scrollbar[data-scrolling] {
+  pointer-events: auto;
+  opacity: 1;
+  transition-duration: 75ms;
+}
+
+.viewport[data-ending-style] .scrollbar {
+  opacity: 0;
+}
+
+.thumb {
+  width: 100%;
+  background-color: color-mix(in oklch, var(--foreground) 40%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop,
+  .scrollRoot,
+  .popup,
+  .scrollbar {
+    transition: none;
+  }
+}

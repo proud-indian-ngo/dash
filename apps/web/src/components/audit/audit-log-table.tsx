@@ -51,7 +51,11 @@ const columns: DataGridColumnDef<AuditLogRow>[] = [
       <DataGridColumnHeader column={column} title="Time" visibility={true} />
     ),
     id: "attemptedAt",
-    meta: { headerTitle: "Time", skeleton: SKELETON_TEXT },
+    meta: {
+      compact: "primary",
+      headerTitle: "Time",
+      skeleton: SKELETON_TEXT,
+    },
     size: 180,
   },
   {
@@ -82,7 +86,11 @@ const columns: DataGridColumnDef<AuditLogRow>[] = [
       <DataGridColumnHeader column={column} title="Action" visibility={true} />
     ),
     id: "action",
-    meta: { headerTitle: "Action", skeleton: SKELETON_TEXT },
+    meta: {
+      compact: "primary",
+      headerTitle: "Action",
+      skeleton: SKELETON_TEXT,
+    },
     size: 240,
   },
   {
@@ -151,6 +159,7 @@ export function AuditLogTable({
       data={entries}
       defaultPageSize={20}
       emptyMessage="No audit entries found."
+      compactOnMobile
       filter={{
         applyLocally: false,
         fields: filterFields,

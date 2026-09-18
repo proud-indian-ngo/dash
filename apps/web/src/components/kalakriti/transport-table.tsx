@@ -173,6 +173,9 @@ export function TransportTable({
           return value || "—";
         },
         meta: {
+          ...(key === "center" || key === "status"
+            ? { compact: "primary" as const }
+            : {}),
           headerTitle: title,
           skeleton: <Skeleton className="h-5 w-28" />,
         },
@@ -266,6 +269,7 @@ export function TransportTable({
       getRowId={(row) => row.id}
       data={data}
       emptyMessage="No Centers available."
+      compactOnMobile
       isLoading={data.length === 0 && !complete}
       searchFn={searchTransport}
       storageKey="kalakriti_transport_table_state_v1"

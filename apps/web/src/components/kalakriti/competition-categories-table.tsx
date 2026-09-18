@@ -150,7 +150,11 @@ export function CompetitionCategoriesTable({
           visibility={true}
         />
       ),
-      meta: { headerTitle: "Category", skeleton: SKELETON_NAME },
+      meta: {
+        compact: "primary",
+        headerTitle: "Category",
+        skeleton: SKELETON_NAME,
+      },
       size: 240,
     },
     {
@@ -196,7 +200,11 @@ export function CompetitionCategoriesTable({
         />
       ),
       id: "status",
-      meta: { headerTitle: "Status", skeleton: SKELETON_STATUS },
+      meta: {
+        compact: "primary",
+        headerTitle: "Status",
+        skeleton: SKELETON_STATUS,
+      },
       size: 110,
     },
     {
@@ -237,6 +245,7 @@ export function CompetitionCategoriesTable({
       columns={columns}
       data={data}
       emptyMessage="No Competition Categories configured."
+      compactOnMobile
       filter={{
         fields: createCompetitionCategoryFilterFields(),
         getValue: getCompetitionCategoryFilterValue,

@@ -126,6 +126,7 @@ export function createEventsTableColumns({
       ),
       id: "name",
       meta: {
+        compact: "primary",
         headerTitle: "Name",
         skeleton: SKELETON_NAME,
       },
@@ -146,6 +147,7 @@ export function createEventsTableColumns({
       ),
       id: "status",
       meta: {
+        compact: "primary",
         headerTitle: "Status",
         skeleton: SKELETON_BADGE,
       },

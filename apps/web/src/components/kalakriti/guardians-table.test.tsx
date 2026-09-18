@@ -15,10 +15,15 @@ import {
   getGuardianFilterValue,
 } from "./kalakriti-filters";
 interface CapturedTable {
+  compactOnMobile?: boolean;
   columns: {
     id?: string;
     cell?: (props: { row: { original: GuardianRosterItem } }) => ReactNode;
-    meta?: { headerTitle?: string; skeleton?: unknown };
+    meta?: {
+      compact?: string;
+      headerTitle?: string;
+      skeleton?: unknown;
+    };
   }[];
   searchFn: (row: GuardianRosterItem, query: string) => boolean;
   filter: {
@@ -84,7 +89,7 @@ describe("Guardian yearly IDs", () => {
     expect(predicate({ ...guardian, humanId: null })).toBe(false);
     expect(getGuardianFilterValue(guardian, ["state"])).toBe("active");
   });
-  it("shows assigned Centers near the name and filters unassigned Guardians", () => {
+  it("shows assigned Centers in their column and filters unassigned Guardians", () => {
     renderToStaticMarkup(
       <GuardiansTable
         data={[guardian]}
@@ -99,9 +104,15 @@ describe("Guardian yearly IDs", () => {
       (item) => item.meta?.headerTitle === "Name"
     );
     const centers = table.columns.find((item) => item.id === "assignedCenters");
+    expect(table.compactOnMobile).toBe(true);
+    expect(name?.meta?.compact).toBe("primary");
+    expect(centers?.meta?.compact).toBe("primary");
     expect(
       renderToStaticMarkup(<>{name?.cell?.({ row: { original: assigned } })}</>)
-    ).toContain("North Center");
+    ).toContain("Guardian");
+    expect(
+      renderToStaticMarkup(<>{name?.cell?.({ row: { original: assigned } })}</>)
+    ).not.toContain("North Center");
     expect(
       renderToStaticMarkup(
         <>{centers?.cell?.({ row: { original: assigned } })}</>

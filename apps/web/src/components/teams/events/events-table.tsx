@@ -69,6 +69,7 @@ export function EventsTable({
       data={displayRows}
       defaultColumnPinning={{ end: ["actions"], start: [] }}
       emptyMessage="No events found."
+      compactOnMobile
       filter={{
         fields: createEventFilterFields(),
         getValue: getEventFilterValue,

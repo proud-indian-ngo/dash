@@ -164,21 +164,11 @@ export function StudentTable({
   const columns: DataGridColumnDef<StudentTableRow>[] = [
     {
       accessorFn: (row) => row.name,
-      cell: ({ row }) => {
-        const count = row.original.entryMemberships?.length ?? 0;
-        const centerName =
-          row.original.center?.name ??
-          centers.find((center) => center.id === row.original.centerId)?.name ??
-          "Center unavailable";
-        return (
-          <div className="grid gap-0.5" data-testid="row-title">
-            <span className="text-sm font-medium">{row.original.name}</span>
-            <span className="text-muted-foreground text-xs md:hidden">
-              {centerName} · {count} {count === 1 ? "Entry" : "Entries"}
-            </span>
-          </div>
-        );
-      },
+      cell: ({ row }) => (
+        <span className="text-sm font-medium" data-testid="row-title">
+          {row.original.name}
+        </span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -188,6 +178,7 @@ export function StudentTable({
       ),
       id: "name",
       meta: {
+        compact: "primary",
         headerTitle: "Student",
         skeleton: <Skeleton className="h-5 w-40" />,
       },
@@ -208,6 +199,7 @@ export function StudentTable({
       ),
       meta: {
         headerTitle: "Center",
+        compact: "primary",
         skeleton: <Skeleton className="h-5 w-32" />,
       },
       size: 180,
@@ -248,6 +240,7 @@ export function StudentTable({
           />
         ),
       meta: {
+        compact: "primary",
         headerTitle: "Transport status",
         skeleton: <Skeleton className="h-5 w-28" />,
       },
@@ -355,6 +348,7 @@ export function StudentTable({
       columns={columns}
       data={data}
       emptyMessage="No Students match the current filters."
+      compactOnMobile
       filter={{
         fields: filterFields,
         getValue: getFilterValue,

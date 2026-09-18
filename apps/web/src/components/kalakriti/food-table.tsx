@@ -201,7 +201,7 @@ export function FoodTable({
             {row.original.name}
           </span>
         ),
-        meta: { headerTitle: "Name", skeleton },
+        meta: { compact: "primary", headerTitle: "Name", skeleton },
         size: 220,
       },
       {
@@ -227,7 +227,7 @@ export function FoodTable({
             visibility={true}
           />
         ),
-        meta: { headerTitle: "Role", skeleton },
+        meta: { compact: "primary", headerTitle: "Role", skeleton },
         size: 130,
       },
       {
@@ -283,7 +283,7 @@ export function FoodTable({
             <FoodMealStatus label={row.original[id]} />
           );
         },
-        meta: { headerTitle: title, skeleton },
+        meta: { compact: "trailing", headerTitle: title, skeleton },
         size: 170,
       })),
     ],
@@ -295,6 +295,7 @@ export function FoodTable({
       data={rows}
       isLoading={!snapshot && (isLoading || !statusSnapshotComplete)}
       emptyMessage="No eligible people in your Food scope."
+      compactOnMobile
       filter={{ fields, getValue: getFoodFilterValue }}
       getRowId={getFoodRowId}
       searchFn={searchFood}

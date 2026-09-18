@@ -1,13 +1,14 @@
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@pi-dash/design-system/components/ui/sheet";
-import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+} from "@/components/shared/responsive-sheet";
 
 import type {
   CompetitionCategoryTableRow,

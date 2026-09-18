@@ -60,22 +60,25 @@ export function AttendeeStatus({
         ? "Served"
         : "Not served";
   return (
-    <span
-      role="img"
-      aria-label={label}
-      title={label}
-      className={
-        yes
-          ? "inline-flex text-green-600 dark:text-green-400"
-          : "inline-flex text-red-600 dark:text-red-400"
-      }
-    >
-      <HugeiconsIcon
-        aria-hidden="true"
-        icon={yes ? Tick02Icon : Cancel01Icon}
-        className="size-5"
-        strokeWidth={2}
-      />
+    <span className="inline-flex items-center gap-1">
+      <span
+        role="img"
+        aria-label={label}
+        title={label}
+        className={
+          yes
+            ? "inline-flex text-green-600 dark:text-green-400"
+            : "inline-flex text-red-600 dark:text-red-400"
+        }
+      >
+        <HugeiconsIcon
+          aria-hidden="true"
+          icon={yes ? Tick02Icon : Cancel01Icon}
+          className="size-5"
+          strokeWidth={2}
+        />
+      </span>
+      <span className="hidden [[data-compact-primary]_&]:inline">{label}</span>
     </span>
   );
 }
@@ -187,35 +190,40 @@ export function AttendeesTable({
     return [
       {
         ...text("name", "Name", (r) => r.name, 250),
-        cell: ({ row }) => (
-          <div className="grid gap-0.5" data-testid="row-title">
-            <span className="text-sm font-medium">{row.original.name}</span>
-            {kind === "judge" ? (
-              <span className="text-muted-foreground line-clamp-2 text-xs md:hidden">
-                {row.original.judgeAssignments
-                  .map((assignment) => assignment.competition?.name)
-                  .filter(Boolean)
-                  .join(", ") || "No Competitions assigned"}
-              </span>
-            ) : null}
-          </div>
-        ),
+        meta: {
+          compact: "primary" as const,
+          headerTitle: "Name",
+          skeleton: <Skeleton className="h-5 w-28" />,
+        },
       } as DataGridColumnDef<AttendeeRow>,
       ...(kind === "judge"
         ? [
-            text(
-              "competitions",
-              "Competitions",
-              (r) =>
-                r.judgeAssignments
-                  .map((a) => a.competition?.name)
-                  .filter(Boolean)
-                  .join(", ") || "Unassigned",
-              280
-            ),
+            {
+              ...text(
+                "competitions",
+                "Competitions",
+                (r) =>
+                  r.judgeAssignments
+                    .map((a) => a.competition?.name)
+                    .filter(Boolean)
+                    .join(", ") || "Unassigned",
+                280
+              ),
+              meta: {
+                compact: "primary" as const,
+                headerTitle: "Competitions",
+                skeleton: <Skeleton className="h-5 w-28" />,
+              },
+            } satisfies DataGridColumnDef<AttendeeRow>,
           ]
         : []),
-      text("humanId", "Yearly ID", (r) => r.humanId || "—", 190),
+      {
+        ...text("humanId", "Yearly ID", (r) => r.humanId || "—", 190),
+        meta: {
+          headerTitle: "Yearly ID",
+          skeleton: <Skeleton className="h-5 w-28" />,
+        },
+      },
       text("phone", "Phone", (r) => r.phone, 160),
       text("email", "Email", (r) => r.email || "—", 240),
       ...(
@@ -240,6 +248,8 @@ export function AttendeesTable({
           <AttendeeStatus row={row.original} type={type} ready={statusReady} />
         ),
         meta: {
+          compact:
+            type === "attendee_check_in" ? ("primary" as const) : undefined,
           headerTitle: title,
           skeleton: <Skeleton className="h-5 w-12" />,
         },
@@ -329,6 +339,7 @@ export function AttendeesTable({
       isLoading={isLoading}
       searchFn={search}
       emptyMessage={`No ${kind === "guest" ? "guests" : "judges"} found.`}
+      compactOnMobile
       storageKey={`kalakriti_${kind}_table_state_v1`}
       searchPlaceholder={`Search ${kind === "guest" ? "Guests" : "Judges"}...`}
       tableLayout={{

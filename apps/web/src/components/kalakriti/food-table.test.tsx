@@ -18,6 +18,7 @@ import type { FoodTableRow } from "./food-table";
 import type { VolunteerRosterItem } from "./volunteers-table";
 
 interface CapturedTable<T> {
+  compactOnMobile?: boolean;
   data: T[];
   getRowId: (row: T) => string;
   isLoading: boolean;
@@ -26,7 +27,7 @@ interface CapturedTable<T> {
     accessorFn?: (row: T) => unknown;
     enableSorting?: boolean;
     cell?: (props: { row: { original: T } }) => ReactNode;
-    meta?: { headerTitle?: string; skeleton?: unknown };
+    meta?: { compact?: string; headerTitle?: string; skeleton?: unknown };
   }[];
   filter: {
     fields: {
@@ -148,6 +149,19 @@ function volunteerTable(
 describe("Food table", () => {
   it("restricts the base roster to eligible people and removes Eligibility", () => {
     const table = food([student, guardian, volunteer]);
+    expect(table.compactOnMobile).toBe(true);
+    expect(
+      table.columns.find((column) => column.id === "role")?.meta?.compact
+    ).toBe("primary");
+    expect(
+      table.columns.find((column) => column.id === "breakfast")?.meta?.compact
+    ).toBe("trailing");
+    expect(
+      table.columns.find((column) => column.id === "lunch")?.meta?.compact
+    ).toBe("trailing");
+    expect(
+      table.columns.find((column) => column.id === "centers")?.meta?.compact
+    ).toBeUndefined();
     expect(table.data.map((row) => row.id)).toEqual([guardian.id]);
     expect(table.columns.some((column) => column.id === "eligibility")).toBe(
       false

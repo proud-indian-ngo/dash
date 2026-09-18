@@ -15,6 +15,8 @@ description: Use when creating, modifying, refactoring, or fixing data tables �
 - [ ] Delete confirmations use `useConfirmAction` hook
 - [ ] Currency formatted with `formatINR` from `@/lib/form-schemas`
 - [ ] New tables use ReUI Filters via `filter={{ fields, getValue }}`; server-paginated tables set `applyLocally: false`
+- [ ] Opt into `compactOnMobile` for directory tables; mark identity columns `meta.compact: "primary"`
+- [ ] Detail sheets use `Sheet` from `@/components/shared/responsive-sheet`
 
 ## Column Definition Pattern
 
@@ -29,7 +31,7 @@ const columns = useMemo<DataGridColumnDef<MyEntity>[]>(() => [
       <DataGridColumnHeader column={column} title="Name" visibility={true} />
     ),
     cell: ({ row }) => <span>{row.original.name}</span>,
-    meta: { headerTitle: "Name", skeleton: <Skeleton className="h-5 w-40" /> },
+    meta: { compact: "primary", headerTitle: "Name", skeleton: <Skeleton className="h-5 w-40" /> },
     size: 200,
   },
   // ... more columns
@@ -100,6 +102,7 @@ const deleteAction = useConfirmAction<string>({
 ```tsx
 <DataTableWrapper
   columns={columns}
+  compactOnMobile
   data={data}
   emptyMessage="No items found."
   isLoading={isLoading}
@@ -152,6 +155,18 @@ filter={{
 }}
 ```
 
+## Compact on mobile
+
+Pass `compactOnMobile` so `DataTableWrapper` collapses secondary columns below 768px of table width. Tables only set column roles:
+
+- `meta.compact: "primary"` — stays in the compact row. Extra primaries stack under the first; mark the next scan field (status, center, role) as primary too.
+- `meta.compact: "trailing"` — labeled icons or badges aligned to the right of the identity (breakfast/lunch).
+- `meta.compact: "collapsed"` — default for remaining data columns; shown in the expanded panel when the row is not clickable.
+- `meta.compact: "always"` — default for `select` and `actions`.
+- `meta.compact: "hidden"` — omit from the compact row and the panel.
+
+Do not add a manual expand column. The wrapper injects it only when the table has no `onRowClick` (row click already opens a detail sheet or page). Compact mode also disables column reordering.
+
 ## Pinning
 
 Default pinning in `DataTableWrapper` is `{ start: ["select"], end: ["actions"] }`. Use `start`/`end`, never `left`/`right`. Opt a column out of drag-reorder with `meta.enableColumnOrdering: false`, not a root column-def flag.
@@ -163,4 +178,5 @@ Default pinning in `DataTableWrapper` is `{ start: ["select"], end: ["actions"] 
 - **Never** use manual `useState` for delete confirmation — use `useConfirmAction`
 - **Never** use inline `Intl.NumberFormat` — use `formatINR`
 - **Never** omit `data-testid="row-actions"` on action menu triggers
+- **Never** import detail `Sheet` from the design-system sheet — use `@/components/shared/responsive-sheet`
 - **Never** use bare `visibility` — always write `visibility={true}`

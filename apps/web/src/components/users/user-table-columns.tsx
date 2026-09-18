@@ -49,6 +49,7 @@ export function createUserColumns(
       ),
       id: "name",
       meta: {
+        compact: "primary",
         headerTitle: "User",
         skeleton: SKELETON_NAME,
       },
@@ -138,6 +139,7 @@ export function createUserColumns(
       ),
       id: "active",
       meta: {
+        compact: "primary",
         headerTitle: "Active",
         skeleton: SKELETON_ACTIVE,
       },

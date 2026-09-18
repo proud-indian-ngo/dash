@@ -1,13 +1,6 @@
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@pi-dash/design-system/components/ui/sheet";
-import {
   type CenterScanStudent,
   getKalakritiStudentTransportLabel,
 } from "@pi-dash/zero/kalakriti-center-scan-rules";
@@ -20,6 +13,13 @@ import { PersonQrPanel } from "@/components/kalakriti/person-qr-panel";
 import type { KalakritiStudentRow } from "@/components/kalakriti/student-form-dialog";
 import { useTransportStatusSnapshot } from "@/components/kalakriti/use-transport-status-snapshot";
 import { Loader } from "@/components/loader";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/shared/responsive-sheet";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 
 function studentTransportLabel(student: Pick<CenterScanStudent, "operations">) {

@@ -13,7 +13,7 @@ interface CapturedTable<T> {
     accessorFn?: (row: T) => unknown;
     cell?: (props: { row: { original: T } }) => ReactNode;
     enableSorting?: boolean;
-    meta?: { headerTitle?: string; skeleton?: unknown };
+    meta?: { compact?: string; headerTitle?: string; skeleton?: unknown };
   }[];
   searchFn: (row: T, query: string) => boolean;
   filter: {
@@ -180,6 +180,13 @@ describe("read-only transport status columns", () => {
         .find((entry) => entry.id === "status")
         ?.accessorFn?.(center)
     ).toBe("Active");
+    expect(
+      initial.columns.find((entry) => entry.id === "status")?.meta?.compact
+    ).toBeUndefined();
+    expect(
+      initial.columns.find((entry) => entry.id === "transportStatus")?.meta
+        ?.compact
+    ).toBe("primary");
     expect(
       initial.columns.find((entry) => entry.id === "transportStatus")?.meta
         ?.headerTitle

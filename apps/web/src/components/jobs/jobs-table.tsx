@@ -50,6 +50,7 @@ function createJobColumns(
       ),
       id: "name",
       meta: {
+        compact: "primary",
         headerTitle: "Queue",
         skeleton: SKELETON_QUEUE,
       },
@@ -66,6 +67,7 @@ function createJobColumns(
       ),
       id: "state",
       meta: {
+        compact: "primary",
         headerTitle: "State",
         skeleton: SKELETON_STATE,
       },
@@ -256,6 +258,7 @@ export function JobsTable({
       columns={columns}
       data={jobs}
       emptyMessage="No jobs found."
+      compactOnMobile
       filter={{
         applyLocally: false,
         fields: filterFields,

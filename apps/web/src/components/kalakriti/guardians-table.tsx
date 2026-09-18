@@ -126,19 +126,18 @@ export function GuardiansTable({
     {
       accessorKey: "snapshotName",
       cell: ({ row }) => (
-        <div className="grid gap-0.5" data-testid="row-title">
-          <span className="text-sm font-medium">
-            {row.original.snapshotName}
-          </span>
-          <span className="text-muted-foreground line-clamp-2 text-xs md:hidden">
-            {row.original.assignedCenters.join(", ") || "No Centers assigned"}
-          </span>
-        </div>
+        <span className="text-sm font-medium" data-testid="row-title">
+          {row.original.snapshotName}
+        </span>
       ),
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="Name" visibility={true} />
       ),
-      meta: { headerTitle: "Name", skeleton: SKELETON_NAME },
+      meta: {
+        compact: "primary",
+        headerTitle: "Name",
+        skeleton: SKELETON_NAME,
+      },
       size: 260,
     },
     {
@@ -156,7 +155,11 @@ export function GuardiansTable({
           visibility={true}
         />
       ),
-      meta: { headerTitle: "Assigned Centers", skeleton: SKELETON_NAME },
+      meta: {
+        compact: "primary",
+        headerTitle: "Assigned Centers",
+        skeleton: SKELETON_NAME,
+      },
       size: 260,
     },
     {
@@ -255,6 +258,7 @@ export function GuardiansTable({
       columns={columns}
       data={data}
       emptyMessage="No Guardians found."
+      compactOnMobile
       filter={{
         fields: [
           ...createGuardianFilterFields(),
