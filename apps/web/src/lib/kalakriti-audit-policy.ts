@@ -143,6 +143,7 @@ const SAFE_AUDIT_METADATA_KEYS = new Set([
   "operationId",
   "registrationEnabled",
   "responsibility",
+  "sequentialPerformances",
   "sortOrder",
   "studentRegistrationEnabled",
   "subjectKind",

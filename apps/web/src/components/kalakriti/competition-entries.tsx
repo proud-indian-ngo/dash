@@ -15,6 +15,7 @@ import {
   type KalakritiEntryRow,
   type KalakritiEntryStudent,
 } from "@/components/kalakriti/entry-form-dialog";
+import { orderSequentialKalakritiEntries } from "@/components/kalakriti/entry-performance-order";
 import {
   getSessionEntryPermissions,
   selectWritableEntryCenters,
@@ -27,10 +28,12 @@ import {
 import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notice";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { ResultSection } from "@/components/kalakriti/result-section";
+import { useResultSnapshot } from "@/components/kalakriti/use-result-snapshot";
 import { useTransportStatusSnapshot } from "@/components/kalakriti/use-transport-status-snapshot";
 import { Loader } from "@/components/loader";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
+import { getKalakritiNextSlots } from "@/functions/kalakriti-performance-order";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import {
   getEntryStudentOptionEligibility,
@@ -109,11 +112,31 @@ export function CompetitionEntries({
     }),
     { enabled: Boolean(session?.competitionSessionId) }
   );
+  const sequential = session?.competition.sequentialPerformances === true;
+  const nextSlots = useResultSnapshot(
+    `${edition.id}:${sessionId}`,
+    () =>
+      getKalakritiNextSlots({
+        data: { divisionId: sessionId, year: Number(year) },
+      }),
+    sequential
+  );
   const results = [...baseResults, divisionEntriesResult];
   const sessionEntries = buildKalakritiEntryRows(
     divisionEntries,
     completeSessions
   );
+  const orderedSession =
+    sequential && nextSlots.data && session
+      ? orderSequentialKalakritiEntries(
+          sessionEntries,
+          session.endAt,
+          nextSlots.data
+        )
+      : {
+          entries: sessionEntries,
+          nextByEntryId: sequential ? new Map() : undefined,
+        };
   const writableCenters = selectWritableEntryCenters(centers, access);
   const entriesByStudent = indexEntriesByStudent(completeEntries);
   const registrationCenters = writableCenters.filter(
@@ -258,7 +281,8 @@ export function CompetitionEntries({
             {(resultsAction) => (
               <EntryTable
                 activeSessionIds={completeSessions.map((item) => item.id)}
-                data={sessionEntries}
+                data={orderedSession.entries}
+                nextByEntryId={orderedSession.nextByEntryId}
                 editionId={edition.id}
                 centerId={center}
                 emptyMessage="No Entries have been registered for this Session."

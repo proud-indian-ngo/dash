@@ -459,6 +459,9 @@ export const kalakritiCompetition = pgTable(
     musicUploadEnabled: boolean("music_upload_enabled")
       .default(false)
       .notNull(),
+    sequentialPerformances: boolean("sequential_performances")
+      .default(false)
+      .notNull(),
     name: text("name").notNull(),
     normalizedName: text("normalized_name").notNull(),
     participationMode:

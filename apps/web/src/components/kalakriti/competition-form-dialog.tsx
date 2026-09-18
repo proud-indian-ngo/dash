@@ -61,6 +61,7 @@ const competitionSchema = z
     maximumGroupSize: z.number().int().min(1).max(100),
     minimumGroupSize: z.number().int().min(1).max(100),
     musicUploadEnabled: z.boolean(),
+    sequentialPerformances: z.boolean(),
     name: z.string().trim().min(2).max(120),
     participationMode: z.enum(["individual", "group"]),
   })
@@ -86,6 +87,7 @@ export interface CompetitionFormValue {
   maximumGroupSize: number;
   minimumGroupSize: number;
   musicUploadEnabled: boolean;
+  sequentialPerformances: boolean;
   name: string;
   participationMode: "group" | "individual";
 }
@@ -120,6 +122,7 @@ function CompetitionForm({
   timeZone,
   sessions,
   venues,
+  scheduleLocked = false,
   structuralLocked = false,
   onOpenChange,
 }: {
@@ -131,6 +134,7 @@ function CompetitionForm({
   timeZone: string;
   sessions: readonly CompetitionSessionFormValue[];
   venues: readonly CompetitionCategoryOption[];
+  scheduleLocked?: boolean;
   structuralLocked?: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -225,6 +229,9 @@ function CompetitionForm({
       maximumGroupSize: competition ? competition.maximumGroupSize : 1,
       minimumGroupSize: competition ? competition.minimumGroupSize : 1,
       musicUploadEnabled: competition ? competition.musicUploadEnabled : false,
+      sequentialPerformances: competition
+        ? competition.sequentialPerformances
+        : false,
       name: competition ? competition.name : "",
       participationMode: competition
         ? competition.participationMode
@@ -355,10 +362,16 @@ function CompetitionForm({
           name="musicUploadEnabled"
         />
       </fieldset>
+      <CheckboxField
+        description="Suggest a running order so participants with another Competition next go first."
+        label="Performances happen one at a time"
+        name="sequentialPerformances"
+      />
       {structuralLocked ? (
         <p className="text-muted-foreground text-sm">
-          Competition rules are locked. Existing Session times and Venues can
-          still be updated.
+          {scheduleLocked
+            ? "Competition rules and schedule are locked. You can still mark whether performances happen one at a time."
+            : "Competition rules are locked. Existing Session times and Venues can still be updated."}
         </p>
       ) : null}
       <section
@@ -383,7 +396,7 @@ function CompetitionForm({
                 <fieldset
                   key={division.id}
                   className="flex min-w-0 flex-col gap-3 border p-3"
-                  disabled={structuralLocked && !existing}
+                  disabled={scheduleLocked || (structuralLocked && !existing)}
                 >
                   <legend className="px-1 text-sm font-medium">
                     {ageCategories.find(
@@ -510,6 +523,7 @@ export function CompetitionFormDialog({
   timeZone,
   sessions,
   venues,
+  scheduleLocked = false,
   structuralLocked = false,
   onOpenChange,
   open,
@@ -522,6 +536,7 @@ export function CompetitionFormDialog({
   timeZone: string;
   sessions: readonly CompetitionSessionFormValue[];
   venues: readonly CompetitionCategoryOption[];
+  scheduleLocked?: boolean;
   structuralLocked?: boolean;
   onOpenChange: (open: boolean) => void;
   open: boolean;
@@ -554,6 +569,7 @@ export function CompetitionFormDialog({
           timeZone={timeZone}
           sessions={sessions}
           venues={venues}
+          scheduleLocked={scheduleLocked}
           structuralLocked={structuralLocked}
           key={formKey}
           onOpenChange={onOpenChange}

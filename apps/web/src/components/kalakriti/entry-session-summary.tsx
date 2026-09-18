@@ -15,6 +15,7 @@ export function EntrySessionSummary({
   attended,
   ready,
   missingMusic,
+  sequential = false,
   onReviewMusic,
 }: {
   entries: number;
@@ -24,6 +25,7 @@ export function EntrySessionSummary({
   attended: ReadonlyMap<string, string> | undefined;
   ready: boolean;
   missingMusic?: number;
+  sequential?: boolean;
   onReviewMusic: () => void;
 }) {
   const presence = getEntryStatusCounts(studentIds, present, "Present");
@@ -50,6 +52,9 @@ export function EntrySessionSummary({
     <section aria-label="Session participation" className="flex flex-col gap-3">
       <p className="text-muted-foreground text-xs">
         This Session · All authorized Entries
+        {sequential
+          ? " · Suggested order lists participants who have another Competition next"
+          : ""}
       </p>
       <SummaryMetricCards metrics={metrics} />
       {ready && attendance.category !== "checking" && attendance.total > 0 ? (

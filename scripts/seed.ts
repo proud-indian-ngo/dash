@@ -1020,6 +1020,7 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
       name: "Solo Dance",
       normalizedName: "solo dance",
       participationMode: "individual",
+      sequentialPerformances: true,
       updatedAt: now,
     })
     .onConflictDoNothing();

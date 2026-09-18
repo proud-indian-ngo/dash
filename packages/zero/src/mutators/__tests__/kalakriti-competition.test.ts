@@ -1330,6 +1330,93 @@ describe("kalakritiCompetition commands", () => {
     expect(spies.updateCompetition).not.toHaveBeenCalled();
   });
 
+  it("allows sequential performance flag updates after registration is locked", async () => {
+    const { lockedResults, spies, tx } = createTx([competition, [division]]);
+    lockedResults.push([{ ...edition, lifecycle: "registration_locked" }]);
+
+    await kalakritiCompetitionMutators.updateCompetition.fn({
+      args: {
+        auditEntryId: "audit-sequential",
+        competitionCategoryId: category.id,
+        competitionId: competition.id,
+        divisions: [{ ageCategoryId: "age-1", divisionId: division.id }],
+        genderEligibility: competition.genderEligibility,
+        maximumGroupSize: 1,
+        minimumGroupSize: 1,
+        musicUploadEnabled: false,
+        name: competition.name,
+        now: 2,
+        participationMode: competition.participationMode,
+        sequentialPerformances: true,
+      },
+      ctx: adminContext,
+      tx,
+    } as never);
+
+    expect(spies.updateCompetition).toHaveBeenCalledWith({
+      id: competition.id,
+      sequentialPerformances: true,
+      updatedAt: 2,
+    });
+  });
+
+  it("allows sequential performance flag updates while Live", async () => {
+    const { lockedResults, spies, tx } = createTx([competition, [division]]);
+    lockedResults.push([{ ...edition, lifecycle: "live" }]);
+
+    await kalakritiCompetitionMutators.updateCompetition.fn({
+      args: {
+        auditEntryId: "audit-live-sequential",
+        competitionCategoryId: category.id,
+        competitionId: competition.id,
+        divisions: [{ ageCategoryId: "age-1", divisionId: division.id }],
+        genderEligibility: competition.genderEligibility,
+        maximumGroupSize: 1,
+        minimumGroupSize: 1,
+        musicUploadEnabled: false,
+        name: competition.name,
+        now: 3,
+        participationMode: competition.participationMode,
+        sequentialPerformances: true,
+      },
+      ctx: adminContext,
+      tx,
+    } as never);
+
+    expect(spies.updateCompetition).toHaveBeenCalledWith({
+      id: competition.id,
+      sequentialPerformances: true,
+      updatedAt: 3,
+    });
+  });
+
+  it("still rejects other structure edits while Live", async () => {
+    const { lockedResults, spies, tx } = createTx([competition, [division]]);
+    lockedResults.push([{ ...edition, lifecycle: "live" }]);
+
+    await expect(
+      kalakritiCompetitionMutators.updateCompetition.fn({
+        args: {
+          auditEntryId: "audit-live-name",
+          competitionCategoryId: category.id,
+          competitionId: competition.id,
+          divisions: [{ ageCategoryId: "age-1", divisionId: division.id }],
+          genderEligibility: competition.genderEligibility,
+          maximumGroupSize: 1,
+          minimumGroupSize: 1,
+          musicUploadEnabled: false,
+          name: "Dance Finals",
+          now: 4,
+          participationMode: competition.participationMode,
+          sequentialPerformances: true,
+        },
+        ctx: adminContext,
+        tx,
+      } as never)
+    ).rejects.toThrow("Configuration cannot be changed");
+    expect(spies.updateCompetition).not.toHaveBeenCalled();
+  });
+
   it("allows locked Session edits with a legacy null music flag", async () => {
     const session = {
       cancelledAt: null,

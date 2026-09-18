@@ -130,6 +130,7 @@ const competitionValuesSchema = namedConfigurationSchema
     maximumGroupSize: z.number().int().min(1).max(100),
     minimumGroupSize: z.number().int().min(1).max(100),
     musicUploadEnabled: z.boolean(),
+    sequentialPerformances: z.boolean().default(false),
     participationMode: z.enum(["individual", "group"]),
   })
   .refine(
@@ -335,6 +336,7 @@ async function getCompetition(tx: CompetitionTx, id: string) {
         name: string;
         participationMode: "group" | "individual";
         retiredAt: number | null;
+        sequentialPerformances: boolean | null;
       }
     | undefined;
 }
@@ -997,6 +999,7 @@ export const kalakritiCompetitionMutators = {
         normalizedName: normalized.normalizedName,
         participationMode: args.participationMode,
         retiredAt: null,
+        sequentialPerformances: args.sequentialPerformances === true,
         updatedAt: args.now,
       });
       await insertCompetitionDivisions(tx, ctx, {
@@ -1564,11 +1567,16 @@ export const kalakritiCompetitionMutators = {
       if (!competition) {
         throw new Error("Competition not found");
       }
-      const edition = await lockCompetitionEdition(
+      const edition = await getEditionForUpdate(tx, competition.editionId);
+      if (!edition) {
+        throw new Error("Edition not found");
+      }
+      await assertCanManageKalakritiCompetitionConfiguration(
         tx,
         ctx,
         competition.editionId
       );
+      assertIsLoggedIn(ctx);
       const normalized = normalizeKalakritiConfigurationName(args.name);
       const existingDivisions = (await tx.run(
         zql.kalakritiCompetitionDivision.where("competitionId", competition.id)
@@ -1590,13 +1598,26 @@ export const kalakritiCompetitionMutators = {
                 stored.ageCategoryId === division.ageCategoryId
             )
         );
-      if (edition.lifecycle === "registration_locked" && structureChanged) {
+      const sequentialPerformances = args.sequentialPerformances === true;
+      const sequentialChanged =
+        sequentialPerformances !==
+        (competition.sequentialPerformances === true);
+      const sequentialOnly =
+        sequentialChanged && !structureChanged && !args.schedules?.length;
+      if (edition.lifecycle === "archived") {
         throw new Error(
-          "Competition structure cannot change after registration is locked"
+          "Configuration cannot be changed in this Edition state"
         );
       }
-      if (edition.lifecycle !== "registration_locked") {
-        assertKalakritiEditionStructurallyConfigurable(edition.lifecycle);
+      if (!sequentialOnly) {
+        if (edition.lifecycle === "registration_locked" && structureChanged) {
+          throw new Error(
+            "Competition structure cannot change after registration is locked"
+          );
+        }
+        if (edition.lifecycle !== "registration_locked") {
+          assertKalakritiEditionStructurallyConfigurable(edition.lifecycle);
+        }
       }
       if (structureChanged) {
         const category = await getCategory(tx, args.competitionCategoryId);
@@ -1622,7 +1643,7 @@ export const kalakritiCompetitionMutators = {
         );
       }
       const publicScheduleChanged = normalized.name !== competition.name;
-      if (structureChanged)
+      if (structureChanged) {
         await tx.mutate.kalakritiCompetition.update({
           competitionCategoryId: args.competitionCategoryId,
           genderEligibility: args.genderEligibility,
@@ -1633,9 +1654,17 @@ export const kalakritiCompetitionMutators = {
           name: normalized.name,
           normalizedName: normalized.normalizedName,
           participationMode: args.participationMode,
+          sequentialPerformances,
           updatedAt: args.now,
         });
-      if (edition.lifecycle !== "registration_locked") {
+      } else if (sequentialChanged) {
+        await tx.mutate.kalakritiCompetition.update({
+          id: competition.id,
+          sequentialPerformances,
+          updatedAt: args.now,
+        });
+      }
+      if (!sequentialOnly && edition.lifecycle !== "registration_locked") {
         await syncCompetitionDivisions(tx, ctx, {
           competitionId: competition.id,
           divisions: args.divisions,
@@ -1656,7 +1685,7 @@ export const kalakritiCompetitionMutators = {
           schedules: args.schedules,
         });
       }
-      if (structureChanged)
+      if (structureChanged || sequentialChanged)
         await insertAudit(tx, ctx, {
           action: "updated",
           auditEntryId: args.auditEntryId,
@@ -1672,6 +1701,7 @@ export const kalakritiCompetitionMutators = {
               args.competitionCategoryId,
             ],
             name: normalized.name,
+            sequentialPerformances,
           },
           now: args.now,
           targetId: competition.id,

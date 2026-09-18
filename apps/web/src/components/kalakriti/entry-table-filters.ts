@@ -7,18 +7,20 @@ import {
   selectField,
 } from "@/components/data-table/filter-fields";
 
-import { getEntryStatusCounts } from "./entry-arrival";
-import { entryAttendanceKey } from "./entry-arrival";
+import { entryAttendanceKey, getEntryStatusCounts } from "./entry-arrival";
 import type { KalakritiEntryRow } from "./entry-form-dialog";
+
 const STATUS_OPTIONS = [
   { value: "all", label: "All" },
   { value: "partial", label: "Partial" },
   { value: "none", label: "None" },
 ];
+
 export function createEntryTableFilterFields(
   rows: readonly KalakritiEntryRow[],
   showCompetition: boolean,
-  showMusic: boolean
+  showMusic: boolean,
+  showNext = false
 ): FilterField[] {
   return [
     selectField(
@@ -44,6 +46,15 @@ export function createEntryTableFilterFields(
       type: "text",
       defaultOperator: "contains",
     },
+    ...(showNext
+      ? [
+          selectField("next", "Next", [
+            { value: "immediate", label: "Immediate" },
+            { value: "later", label: "Later" },
+            { value: "none", label: "None" },
+          ]),
+        ]
+      : []),
     ...(showCompetition
       ? [
           selectField("participationMode", "Participation", [
@@ -87,7 +98,8 @@ export function getEntryTableFilterValue(
   row: KalakritiEntryRow,
   path: string[],
   present: ReadonlyMap<string, string> | undefined,
-  attended: ReadonlyMap<string, string> | undefined
+  attended: ReadonlyMap<string, string> | undefined,
+  nextByEntryId?: ReadonlyMap<string, { kind: string }>
 ): unknown {
   switch (path[0]) {
     case "center":
@@ -120,6 +132,8 @@ export function getEntryTableFilterValue(
       return row.session.venue.name;
     case "music":
       return row.musicFiles.length;
+    case "next":
+      return nextByEntryId?.get(row.id)?.kind ?? "none";
     default:
       return undefined;
   }

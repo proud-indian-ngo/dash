@@ -610,6 +610,7 @@ export const kalakritiEditionMutators = {
           normalizedName: row.normalizedName,
           participationMode: row.participationMode,
           retiredAt: null,
+          sequentialPerformances: row.sequentialPerformances === true,
           updatedAt: args.now,
         });
       }
