@@ -15,7 +15,10 @@ import {
 import QRCode from "qrcode";
 
 import { kalakritiIdCardAssets } from "./kalakriti-id-card-assets";
-import { fitIdCardText } from "./kalakriti-id-card-layout";
+import {
+  fitIdCardText,
+  kalakritiIdCardSheet,
+} from "./kalakriti-id-card-layout";
 
 interface Person {
   id: string;
@@ -41,8 +44,22 @@ export type KalakritiIdCardData = Person &
   );
 
 const mm = (value: number) => (value * 72) / 25.4;
-const WIDTH = mm(90);
-const HEIGHT = mm(130);
+const dx = (value: number) => mm(value * kalakritiIdCardSheet.scaleX);
+const dy = (value: number) => mm(value * kalakritiIdCardSheet.scaleY);
+const {
+  pageWidthMm: PAGE_WIDTH_MM,
+  pageHeightMm: PAGE_HEIGHT_MM,
+  cardWidthMm: CARD_WIDTH_MM,
+  cardHeightMm: CARD_HEIGHT_MM,
+} = kalakritiIdCardSheet;
+const WIDTH = mm(CARD_WIDTH_MM);
+const HEIGHT = mm(CARD_HEIGHT_MM);
+const QR_MM =
+  48 * Math.min(kalakritiIdCardSheet.scaleX, kalakritiIdCardSheet.scaleY);
+const CUT_MARK_MM = 3;
+
+export { kalakritiIdCardSheet };
+
 const colors = {
   student: "#ef543b",
   volunteer: "#008e99",
@@ -62,7 +79,7 @@ function FestivalArtwork({ color }: { color: string }) {
     <Svg
       width={WIDTH}
       height={HEIGHT}
-      viewBox="0 0 90 130"
+      viewBox={`0 0 ${kalakritiIdCardSheet.designWidthMm} ${kalakritiIdCardSheet.designHeightMm}`}
       style={{ position: "absolute", top: 0, left: 0 }}
     >
       <Path d="M0 0H16Q12 11 0 23Z" fill={color} />
@@ -193,7 +210,7 @@ function PersonQr({ id, type }: Pick<KalakritiIdCardData, "id" | "type">) {
     }
   }
   return (
-    <Svg width={mm(48)} height={mm(48)} viewBox={`0 0 ${size} ${size}`}>
+    <Svg width={mm(QR_MM)} height={mm(QR_MM)} viewBox={`0 0 ${size} ${size}`}>
       <Rect x={0} y={0} width={size} height={size} fill="#ffffff" />
       <Path d={modulesPath} fill="#000000" />
     </Svg>
@@ -225,52 +242,52 @@ export function KalakritiIdCard({
       <View
         style={{
           position: "absolute",
-          top: mm(16),
-          left: mm(7),
-          right: mm(7),
-          height: mm(14),
+          top: dy(16),
+          left: dx(7),
+          right: dx(7),
+          height: dy(14),
           flexDirection: "row",
           alignItems: "center",
-          gap: mm(3.8),
+          gap: dx(3.8),
           justifyContent: "center",
         }}
       >
         <Image
           src={kalakritiIdCardAssets.proudIndian}
-          style={{ width: mm(42), height: mm(8.91), objectFit: "contain" }}
+          style={{ width: dx(42), height: dy(8.91), objectFit: "contain" }}
         />
-        <View style={{ width: 0.5, height: mm(14) }} />
-        <View style={{ width: mm(26), height: mm(7.51), overflow: "hidden" }}>
+        <View style={{ width: 0.5, height: dy(14) }} />
+        <View style={{ width: dx(26), height: dy(7.51), overflow: "hidden" }}>
           <Image
             src={kalakritiIdCardAssets.kalakriti}
             style={{
               position: "absolute",
-              width: mm(31.1),
-              height: mm(21.99),
-              left: mm(-2.62),
-              top: mm(-7.51),
+              width: dx(31.1),
+              height: dy(21.99),
+              left: dx(-2.62),
+              top: dy(-7.51),
             }}
           />
         </View>
       </View>
       <Svg
-        style={{ position: "absolute", left: mm(54), top: mm(16) }}
+        style={{ position: "absolute", left: dx(54), top: dy(16) }}
         width={1}
-        height={mm(14)}
+        height={dy(14)}
       >
         <Line
           x1={0.5}
           y1={0}
           x2={0.5}
-          y2={mm(14)}
+          y2={dy(14)}
           stroke="#969aa3"
           strokeWidth={0.6}
         />
       </Svg>
       <Svg
-        style={{ position: "absolute", left: 0, top: mm(33) }}
+        style={{ position: "absolute", left: 0, top: dy(33) }}
         width={WIDTH}
-        height={mm(7)}
+        height={dy(7)}
         viewBox="0 0 90 7"
       >
         <Line
@@ -295,12 +312,12 @@ export function KalakritiIdCard({
       <View
         style={{
           position: "absolute",
-          top: mm(33),
-          left: mm(23),
-          right: mm(23),
+          top: dy(33),
+          left: dx(23),
+          right: dx(23),
           backgroundColor: color,
-          borderRadius: mm(3),
-          paddingVertical: mm(1.1),
+          borderRadius: dy(3),
+          paddingVertical: dy(1.1),
         }}
       >
         <Text
@@ -319,9 +336,9 @@ export function KalakritiIdCard({
         <View
           style={{
             position: "absolute",
-            top: mm(42),
-            left: mm(7),
-            right: mm(7),
+            top: dy(42),
+            left: dx(7),
+            right: dx(7),
             alignItems: "center",
           }}
         >
@@ -360,7 +377,7 @@ export function KalakritiIdCard({
                 >
                   <Text
                     style={{
-                      width: 148,
+                      width: 148 * kalakritiIdCardSheet.scaleX,
                       fontSize: text.competitionSize,
                       fontFamily: "IdCardBold",
                       lineHeight: 1.15,
@@ -384,9 +401,9 @@ export function KalakritiIdCard({
         <View
           style={{
             position: "absolute",
-            top: mm(59),
-            left: mm(10),
-            width: mm(70),
+            top: dy(59),
+            left: dx(10),
+            width: dx(70),
             borderBottom: "0.7pt solid #697386",
           }}
         />
@@ -395,13 +412,13 @@ export function KalakritiIdCard({
         style={{
           position: "absolute",
           top: !text
-            ? mm(70)
+            ? dy(70)
             : person.type === "student"
-              ? mm(76)
-              : mm(42) + text.height + mm(4),
-          left: mm(21),
-          width: mm(48),
-          height: mm(48),
+              ? dy(76)
+              : dy(42) + text.height + dy(4),
+          left: (WIDTH - mm(QR_MM)) / 2,
+          width: mm(QR_MM),
+          height: mm(QR_MM),
         }}
       >
         <PersonQr id={person.id} type={person.type} />
@@ -429,50 +446,61 @@ export function KalakritiIdCards({
           size="A4"
           wrap={false}
           style={{
-            width: mm(210),
-            height: mm(297),
-            minHeight: mm(297),
-            paddingTop: mm(13.5),
-            paddingBottom: mm(17.5),
-            paddingLeft: mm(12),
+            width: mm(PAGE_WIDTH_MM),
+            height: mm(PAGE_HEIGHT_MM),
+            minHeight: mm(PAGE_HEIGHT_MM),
+            padding: 0,
             flexDirection: "row",
             flexWrap: "wrap",
-            gap: mm(6),
+            gap: 0,
           }}
         >
           {page.map((person, index) => (
-            <View key={`${person.type}-${person.id}-${index}`}>
+            <View
+              key={`${person.type}-${person.id}-${index}`}
+              style={{ width: WIDTH, height: HEIGHT }}
+            >
               <KalakritiIdCard person={person} />
             </View>
           ))}
           <Svg
             style={{ position: "absolute", top: 0, left: 0 }}
-            width={mm(210)}
-            height={mm(297)}
-            viewBox="0 0 210 297"
+            width={mm(PAGE_WIDTH_MM)}
+            height={mm(PAGE_HEIGHT_MM)}
+            viewBox={`0 0 ${PAGE_WIDTH_MM} ${PAGE_HEIGHT_MM}`}
           >
-            {[12, 102, 108, 198].flatMap((x) =>
-              [13.5, 143.5, 149.5, 279.5].map((y) => (
-                <G key={`${x}-${y}`}>
-                  <Line
-                    x1={x - 2}
-                    y1={y}
-                    x2={x - 0.7}
-                    y2={y}
-                    stroke="#526071"
-                    strokeWidth="0.15"
-                  />
-                  <Line
-                    x1={x}
-                    y1={y - 2}
-                    x2={x}
-                    y2={y - 0.7}
-                    stroke="#526071"
-                    strokeWidth="0.15"
-                  />
-                </G>
-              ))
-            )}
+            <Line
+              x1={PAGE_WIDTH_MM / 2}
+              y1={0}
+              x2={PAGE_WIDTH_MM / 2}
+              y2={CUT_MARK_MM}
+              stroke="#526071"
+              strokeWidth="0.15"
+            />
+            <Line
+              x1={PAGE_WIDTH_MM / 2}
+              y1={PAGE_HEIGHT_MM - CUT_MARK_MM}
+              x2={PAGE_WIDTH_MM / 2}
+              y2={PAGE_HEIGHT_MM}
+              stroke="#526071"
+              strokeWidth="0.15"
+            />
+            <Line
+              x1={0}
+              y1={PAGE_HEIGHT_MM / 2}
+              x2={CUT_MARK_MM}
+              y2={PAGE_HEIGHT_MM / 2}
+              stroke="#526071"
+              strokeWidth="0.15"
+            />
+            <Line
+              x1={PAGE_WIDTH_MM - CUT_MARK_MM}
+              y1={PAGE_HEIGHT_MM / 2}
+              x2={PAGE_WIDTH_MM}
+              y2={PAGE_HEIGHT_MM / 2}
+              stroke="#526071"
+              strokeWidth="0.15"
+            />
           </Svg>
         </Page>
       ))}

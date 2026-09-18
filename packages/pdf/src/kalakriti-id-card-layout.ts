@@ -3,6 +3,22 @@ import { Font } from "@react-pdf/renderer";
 import { kalakritiIdCardAssets } from "./kalakriti-id-card-assets";
 import type { KalakritiIdCardData } from "./kalakriti-id-cards";
 
+export const kalakritiIdCardSheet = {
+  pageWidthMm: 210,
+  pageHeightMm: 297,
+  designWidthMm: 90,
+  designHeightMm: 130,
+  cardWidthMm: 105,
+  cardHeightMm: 148.5,
+  gutterMm: 0,
+  marginXMm: 0,
+  marginYMm: 0,
+  scaleX: 105 / 90,
+  scaleY: 148.5 / 130,
+  cutXMm: [0, 105, 210] as const,
+  cutYMm: [0, 148.5, 297] as const,
+};
+
 Font.register({
   family: "IdCard",
   src: kalakritiIdCardAssets.regularFont,
@@ -67,15 +83,27 @@ export function fitIdCardText(person: KalakritiIdCardData) {
   for (const nameSize of [21, 17, 14]) {
     const bodySize = nameSize === 14 ? 8.5 : person.type === "student" ? 9 : 10;
     const competitionSize = nameSize === 14 ? 8 : 8.5;
-    const name = wrapText(person.name, 211, nameSize, true);
+    const name = wrapText(
+      person.name,
+      211 * kalakritiIdCardSheet.scaleX,
+      nameSize,
+      true
+    );
     const details = detail
       .split("\n")
-      .flatMap((line) => wrapText(line, 211, bodySize));
+      .flatMap((line) =>
+        wrapText(line, 211 * kalakritiIdCardSheet.scaleX, bodySize)
+      );
     const competitions =
       person.type === "student"
         ? person.competitions.map((competition) => ({
             ...competition,
-            lines: wrapText(competition.name, 146, competitionSize, true),
+            lines: wrapText(
+              competition.name,
+              146 * kalakritiIdCardSheet.scaleX,
+              competitionSize,
+              true
+            ),
           }))
         : [];
     const height =
