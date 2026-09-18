@@ -96,6 +96,7 @@ export interface KalakritiEntrySession {
     maximumGroupSize: number;
     minimumGroupSize: number;
     musicUploadEnabled?: boolean | null;
+    sequentialPerformances?: boolean | null;
     name: string;
     participationMode: "group" | "individual";
   };

@@ -57,10 +57,11 @@ describe("Competition workspace access", () => {
       },
     });
   });
-  it("locks structure before Live and all edits during Live", () => {
+  it("locks structure before Live and keeps sequential-flag edits available during Live", () => {
     expect(load(["edition_admin"], "registration_locked")).toMatchObject({
       kalakritiCompetitionAccess: {
         canManage: false,
+        canEditCompetition: true,
         canEditSchedule: true,
         canManageCancellations: true,
       },
@@ -68,6 +69,7 @@ describe("Competition workspace access", () => {
     expect(load(["edition_admin"], "live")).toMatchObject({
       kalakritiCompetitionAccess: {
         canManage: false,
+        canEditCompetition: true,
         canEditSchedule: false,
         canManageCancellations: true,
       },
@@ -75,6 +77,7 @@ describe("Competition workspace access", () => {
     expect(load([], "archived", "volunteer", true)).toMatchObject({
       kalakritiCompetitionAccess: {
         canManage: false,
+        canEditCompetition: false,
         canEditSchedule: false,
         canManageCancellations: false,
       },

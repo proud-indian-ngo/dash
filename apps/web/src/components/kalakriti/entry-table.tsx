@@ -9,6 +9,7 @@ import {
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import type { KalakritiEntryNextSlot } from "@pi-dash/shared/kalakriti-performance-order";
 import { format } from "date-fns";
 import { type ReactNode, useMemo, useState } from "react";
 
@@ -28,6 +29,7 @@ import type {
 import { EntryMusicCell } from "./entry-music-cell";
 import { EntryMusicDialog } from "./entry-music-dialog";
 import { EntryMusicPlaybackDialog } from "./entry-music-playback-dialog";
+import { formatKalakritiNextSlotLabel } from "./entry-performance-order";
 import { EntrySessionSummary } from "./entry-session-summary";
 import { EntryParticipantsCell, EntryStatusCell } from "./entry-status-cell";
 import {
@@ -47,7 +49,8 @@ function getAttendanceSnapshotLabel(row: {
 function searchEntries(
   row: KalakritiEntryRow,
   query: string,
-  includeCompetition = true
+  includeCompetition = true,
+  nextLabel?: string
 ): boolean {
   const normalizedQuery = query.trim().toLocaleLowerCase();
   if (!normalizedQuery) {
@@ -59,6 +62,7 @@ function searchEntries(
       member.student.name,
     ]),
     row.center?.name ?? "",
+    nextLabel ?? "",
     ...(includeCompetition
       ? [
           row.session.competition.name,
@@ -149,6 +153,7 @@ interface EntryTableProps {
     uploadMusic: boolean;
   };
   showMusic?: boolean;
+  nextByEntryId?: ReadonlyMap<string, KalakritiEntryNextSlot>;
   toolbarActions?: ReactNode;
   variant?: "center" | "session";
 }
@@ -171,6 +176,7 @@ export function EntryTable({
   onRemove,
   permissions,
   showMusic: showMusicProp,
+  nextByEntryId,
   toolbarActions,
   variant = "center",
 }: EntryTableProps) {
@@ -241,9 +247,10 @@ export function EntryTable({
       createEntryTableFilterFields(
         data,
         variant !== "session",
-        Boolean(showMusic)
+        Boolean(showMusic),
+        Boolean(nextByEntryId)
       ),
-    [data, variant, showMusic]
+    [data, variant, showMusic, nextByEntryId]
   );
   const allColumns: DataGridColumnDef<KalakritiEntryRow>[] = [
     {
@@ -364,6 +371,49 @@ export function EntryTable({
       },
       size: 210,
     },
+    ...(nextByEntryId
+      ? [
+          {
+            accessorFn: (row: KalakritiEntryRow) =>
+              nextByEntryId.get(row.id)?.startAt ?? Number.POSITIVE_INFINITY,
+            cell: ({ row }: { row: { original: KalakritiEntryRow } }) => {
+              const slot = nextByEntryId.get(row.original.id);
+              if (!slot) return "—";
+              const timeLabel = slot.startAt
+                ? format(new Date(slot.startAt), "h:mm a")
+                : "";
+              return (
+                <span
+                  className={
+                    slot.kind === "immediate"
+                      ? "text-sm font-medium"
+                      : "text-sm"
+                  }
+                >
+                  {formatKalakritiNextSlotLabel(
+                    slot,
+                    timeLabel,
+                    row.original.participationMode === "group"
+                  )}
+                </span>
+              );
+            },
+            header: ({ column }) => (
+              <DataGridColumnHeader
+                column={column}
+                title="Next"
+                visibility={true}
+              />
+            ),
+            id: "next",
+            meta: {
+              headerTitle: "Next",
+              skeleton: <Skeleton className="h-5 w-40" />,
+            },
+            size: 240,
+          } satisfies DataGridColumnDef<KalakritiEntryRow>,
+        ]
+      : []),
     ...(variant === "session"
       ? []
       : [
@@ -562,6 +612,7 @@ export function EntryTable({
               ? data.filter((entry) => entry.musicFiles.length === 0).length
               : undefined
           }
+          sequential={Boolean(nextByEntryId)}
           onReviewMusic={() =>
             void setQuery(
               createFilterQuery([
@@ -584,7 +635,8 @@ export function EntryTable({
               row,
               path,
               arrival.labels,
-              attendance.labels
+              attendance.labels,
+              nextByEntryId
             ),
         }}
         columns={columns}
@@ -593,9 +645,21 @@ export function EntryTable({
         compactOnMobile
         getRowId={getEntryRowId}
         isLoading={isLoading}
-        searchFn={(row, query) =>
-          searchEntries(row, query, variant !== "session")
-        }
+        searchFn={(row, query) => {
+          const slot = nextByEntryId?.get(row.id);
+          return searchEntries(
+            row,
+            query,
+            variant !== "session",
+            slot
+              ? formatKalakritiNextSlotLabel(
+                  slot,
+                  slot.startAt ? format(new Date(slot.startAt), "h:mm a") : "",
+                  row.participationMode === "group"
+                )
+              : undefined
+          );
+        }}
         searchPlaceholder="Search Entries..."
         storageKey={
           variant === "session"

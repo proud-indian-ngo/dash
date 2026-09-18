@@ -40,6 +40,7 @@ it("filters each row by its own age category while preserving all divisions for 
         cancelledAt: null,
         retiredAt: null,
         musicUploadEnabled: false,
+        sequentialPerformances: false,
         genderEligibility: "both",
         participationMode: "individual",
         minimumGroupSize: 1,

@@ -201,6 +201,11 @@ describe("Entry detail filters", () => {
       "music",
     ]);
     expect(
+      createEntryTableFilterFields([row], false, true, true).map(
+        (field) => field.id
+      )
+    ).toContain("next");
+    expect(
       createEntryTableFilterFields([row], true, false).map((field) => field.id)
     ).toContain("competition");
     expect(
@@ -288,5 +293,17 @@ describe("Entry detail filters", () => {
       expect(getEntryTableFilterValue(row, [key], present, attended)).toBe(
         value
       );
+    expect(getEntryTableFilterValue(row, ["next"], present, attended)).toBe(
+      "none"
+    );
+    expect(
+      getEntryTableFilterValue(
+        row,
+        ["next"],
+        present,
+        attended,
+        new Map([["entry", { kind: "immediate" }]])
+      )
+    ).toBe("immediate");
   });
 });

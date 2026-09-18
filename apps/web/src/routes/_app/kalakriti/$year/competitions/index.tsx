@@ -78,6 +78,7 @@ function CompetitionCatalogPage() {
     kalakritiCompetitionAccess: {
       canManage,
       canViewConfiguration,
+      canEditCompetition,
       canEditSchedule,
       canManageCancellations,
       structuralLocked,
@@ -103,7 +104,7 @@ function CompetitionCatalogPage() {
   );
   const [ageCategories, ageCategoryResult] = useQuery(
     queries.kalakritiEligibility.ageCategories({ editionId: edition.id }),
-    { enabled: canEditSchedule }
+    { enabled: canEditCompetition }
   );
   const [venues, venueResult] = useQuery(
     queries.kalakritiCompetition.venues({ editionId: edition.id }),
@@ -135,6 +136,7 @@ function CompetitionCatalogPage() {
     ? competitions.map((competition) => ({
         ...competition,
         musicUploadEnabled: competition.musicUploadEnabled === true,
+        sequentialPerformances: competition.sequentialPerformances === true,
       }))
     : [
         ...new Map(
@@ -147,6 +149,7 @@ function CompetitionCatalogPage() {
       ].map((competition) => ({
         ...competition,
         musicUploadEnabled: competition.musicUploadEnabled === true,
+        sequentialPerformances: competition.sequentialPerformances === true,
         divisions: visibleDivisions.filter(
           (division) => division.competition?.id === competition.id
         ),
@@ -216,7 +219,7 @@ function CompetitionCatalogPage() {
     }
   );
   const editorReady =
-    canEditSchedule &&
+    canEditCompetition &&
     [ageCategoryResult, categoryResult, venueResult, scheduleResult].every(
       (result) => result.type === "complete"
     );
@@ -544,6 +547,7 @@ function CompetitionCatalogPage() {
         sessions={schedule}
         venues={venues}
         structuralLocked={structuralLocked}
+        scheduleLocked={!canEditSchedule}
         onOpenChange={handleCompetitionDialogChange}
         open={competitionDialogOpen}
       />

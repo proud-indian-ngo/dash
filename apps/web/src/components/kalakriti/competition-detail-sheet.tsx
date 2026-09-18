@@ -208,6 +208,14 @@ export function CompetitionDetailSheet({
                 label="Music upload"
                 value={competition.musicUploadEnabled ? "Allowed" : "Off"}
               />
+              <DetailRow
+                label="Performances"
+                value={
+                  competition.sequentialPerformances
+                    ? "One at a time"
+                    : "Everyone together"
+                }
+              />
             </div>
           </div>
 

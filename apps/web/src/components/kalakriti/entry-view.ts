@@ -58,6 +58,7 @@ function buildKalakritiEntrySession(
       ...competition,
       category,
       musicUploadEnabled: competition.musicUploadEnabled === true,
+      sequentialPerformances: competition.sequentialPerformances === true,
     },
     endAt: schedule.endAt,
     id: division.id,
