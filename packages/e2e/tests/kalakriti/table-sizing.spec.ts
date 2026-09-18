@@ -178,7 +178,7 @@ test("shared table DOM sizing, drag, scroll and persisted column controls", asyn
       ["Food", `/kalakriti/${data.year}/food`, "Name", "Person ID", "Role"],
     ] as const) {
       await test.step(surface, async () => {
-        await page.setViewportSize({ width: 900, height: 800 });
+        await page.setViewportSize({ width: 1280, height: 800 });
         await page.goto(pathname);
         await waitForZeroReady(page);
         const table = page.getByRole("table");
@@ -241,7 +241,7 @@ test("shared table DOM sizing, drag, scroll and persisted column controls", asyn
             message: `${surface}: resized DOM width persists after reload`,
           })
           .toBeCloseTo(resizedWidth, 0);
-        await page.setViewportSize({ width: 900, height: 800 });
+        await page.setViewportSize({ width: 1280, height: 800 });
         await expect.soft
           .poll(() => width(column), {
             timeout: 2_000,
@@ -448,7 +448,7 @@ test("shared table DOM sizing, drag, scroll and persisted column controls", asyn
           .getByRole("menuitem", { name: "Pin to right", exact: true })
           .click();
         await expectAllocation(table, preferred);
-        await page.setViewportSize({ width: 1000, height: 900 });
+        await page.setViewportSize({ width: 1280, height: 900 });
         await expectAllocation(table, preferred);
         await page.setViewportSize({ width: 1800, height: 1000 });
         await expectAllocation(table, preferred);

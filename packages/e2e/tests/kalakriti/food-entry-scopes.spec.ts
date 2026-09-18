@@ -327,9 +327,7 @@ test("Competition workspace scopes Guardian and Liaison Entries without configur
         }),
       });
       await expect(competition).toHaveCount(1);
-      await expect(
-        competition.getByRole("cell", { name: "3", exact: true })
-      ).toBeVisible();
+      await expect(await cell(reader, competition, "Entries")).toHaveText("3");
       await expect(
         reader.getByRole("button", { name: "Add Competition" })
       ).toHaveCount(0);
@@ -714,9 +712,7 @@ test("Food and Entry readers see their two-Center union, while arrival and check
       await expect(
         reader.getByRole("columnheader", { name: /Center|Arrival/ })
       ).toHaveCount(0);
-      await expect(
-        event.getByRole("cell", { name: "3", exact: true })
-      ).toBeVisible();
+      await expect(await cell(reader, event, "Entries")).toHaveText("3");
       await event.click();
       await expect(reader).toHaveURL(
         new RegExp(

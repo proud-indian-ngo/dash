@@ -7,12 +7,17 @@ import {
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { compileFilterQuery } from "@/components/data-table/compile-filter-query";
+import { CompactTableProvider } from "@/components/data-table/data-table-compact";
 
 import type {
   KalakritiEntryRow,
   KalakritiEntryStudent,
 } from "./entry-form-dialog";
-import { EntryCompactParticipants, EntryStatusCell } from "./entry-status-cell";
+import {
+  EntryCompactParticipants,
+  EntryParticipantsCell,
+  EntryStatusCell,
+} from "./entry-status-cell";
 import {
   createEntryTableFilterFields,
   getEntryTableFilterValue,
@@ -136,6 +141,38 @@ describe("Entry Present and Attended cells", () => {
     expect(individual.match(/role="img"/g)).toHaveLength(2);
     expect(individual).toContain(">Present</span>");
     expect(individual).toContain(">Attended</span>");
+  });
+  it("renders one participant name node outside compact layout", () => {
+    const html = renderToStaticMarkup(
+      <CompactTableProvider compact={false}>
+        <EntryParticipantsCell
+          attended={attended}
+          entry={{
+            ...row,
+            participationMode: "individual",
+            members: [row.members[0]!],
+          }}
+          present={present}
+        />
+      </CompactTableProvider>
+    );
+    expect(html.match(/>Ananya</g)).toHaveLength(1);
+    expect(html).not.toContain(">Present</span>");
+    expect(html).not.toContain("min-w-0 truncate");
+  });
+  it("renders compact present and attended labels only in compact layout", () => {
+    const html = renderToStaticMarkup(
+      <CompactTableProvider compact={true}>
+        <EntryParticipantsCell
+          attended={attended}
+          entry={row}
+          present={present}
+        />
+      </CompactTableProvider>
+    );
+    expect(html.match(/>Ananya</g)).toHaveLength(1);
+    expect(html).toContain(">Present</span>");
+    expect(html).toContain(">Attended</span>");
   });
   it("does not reuse attendance from another actual session or a Division ID", () => {
     expect(

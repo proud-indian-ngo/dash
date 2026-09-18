@@ -96,6 +96,7 @@ import {
   withCompactExpandPinning,
 } from "./compact-columns";
 import {
+  CompactTableProvider,
   createCompactExpandColumn,
   stackPrimaryColumn,
   wrapExpandColumnWithCompactDetails,
@@ -700,109 +701,111 @@ function DataTableWrapperBase<TData extends object>({
         <span aria-atomic="true" aria-live="polite" className="sr-only">
           {isLoading ? "Loading…" : `${displayCount} results`}
         </span>
-        <DataGrid
-          emptyMessage={emptyMessage}
-          isLoading={isLoading}
-          onRowClick={onRowClick}
-          recordCount={displayCount}
-          table={table}
-          tableLayout={resolvedTableLayout}
-          tableClassNames={getDataTableClassNames(
-            tableLayout?.columnsResizable
-          )}
-        >
-          <Card className="w-full gap-3 py-3.5!">
-            <CardHeader className="flex flex-col gap-2.5! px-3.5 @lg/card-header:flex-row @lg/card-header:items-center">
-              <InputGroup className="w-full shrink-0 @lg/card-header:w-72">
-                <InputGroupAddon align="inline-start">
-                  <HugeiconsIcon
-                    className="size-4"
-                    icon={Search01Icon}
-                    strokeWidth={2}
-                  />
-                </InputGroupAddon>
-
-                <InputGroupInput
-                  aria-label={searchPlaceholder}
-                  onChange={stableOnChange0}
-                  placeholder={searchPlaceholder}
-                  value={localSearch}
-                />
-
-                {localSearch ? (
-                  <InputGroupAddon align="inline-end">
-                    <InputGroupButton
-                      aria-label="Clear search"
-                      onClick={stableOnClick1}
-                      size="icon-xs"
-                      type="button"
-                    >
-                      <HugeiconsIcon
-                        className="size-3.5"
-                        icon={Cancel01Icon}
-                        strokeWidth={2}
-                      />
-                    </InputGroupButton>
+        <CompactTableProvider compact={isCompact}>
+          <DataGrid
+            emptyMessage={emptyMessage}
+            isLoading={isLoading}
+            onRowClick={onRowClick}
+            recordCount={displayCount}
+            table={table}
+            tableLayout={resolvedTableLayout}
+            tableClassNames={getDataTableClassNames(
+              tableLayout?.columnsResizable
+            )}
+          >
+            <Card className="w-full gap-3 py-3.5!">
+              <CardHeader className="flex flex-col gap-2.5! px-3.5 @lg/card-header:flex-row @lg/card-header:items-center">
+                <InputGroup className="w-full shrink-0 @lg/card-header:w-72">
+                  <InputGroupAddon align="inline-start">
+                    <HugeiconsIcon
+                      className="size-4"
+                      icon={Search01Icon}
+                      strokeWidth={2}
+                    />
                   </InputGroupAddon>
-                ) : null}
-              </InputGroup>
-              <div className="flex w-full min-w-0 items-center justify-between gap-2 @lg/card-header:flex-1">
-                <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-                  {toolbarFilters}
-                </div>
-                <CardAction className="relative col-auto row-auto flex shrink-0 flex-wrap items-center gap-1 self-auto justify-self-auto">
-                  <DataGridColumnVisibility
-                    table={table}
-                    trigger={
-                      <Button size="sm" variant="outline">
+
+                  <InputGroupInput
+                    aria-label={searchPlaceholder}
+                    onChange={stableOnChange0}
+                    placeholder={searchPlaceholder}
+                    value={localSearch}
+                  />
+
+                  {localSearch ? (
+                    <InputGroupAddon align="inline-end">
+                      <InputGroupButton
+                        aria-label="Clear search"
+                        onClick={stableOnClick1}
+                        size="icon-xs"
+                        type="button"
+                      >
                         <HugeiconsIcon
-                          aria-hidden="true"
-                          icon={FilterHorizontalIcon}
+                          className="size-3.5"
+                          icon={Cancel01Icon}
                           strokeWidth={2}
                         />
-                        Columns
-                      </Button>
-                    }
-                  />
-                  {toolbarActions}
-                </CardAction>
-              </div>
-            </CardHeader>
+                      </InputGroupButton>
+                    </InputGroupAddon>
+                  ) : null}
+                </InputGroup>
+                <div className="flex w-full min-w-0 items-center justify-between gap-2 @lg/card-header:flex-1">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+                    {toolbarFilters}
+                  </div>
+                  <CardAction className="relative col-auto row-auto flex shrink-0 flex-wrap items-center gap-1 self-auto justify-self-auto">
+                    <DataGridColumnVisibility
+                      table={table}
+                      trigger={
+                        <Button size="sm" variant="outline">
+                          <HugeiconsIcon
+                            aria-hidden="true"
+                            icon={FilterHorizontalIcon}
+                            strokeWidth={2}
+                          />
+                          Columns
+                        </Button>
+                      }
+                    />
+                    {toolbarActions}
+                  </CardAction>
+                </div>
+              </CardHeader>
 
-            <CardContent className="border-y px-0">
-              {!isLoading && filteredRows.length === 0 ? (
-                <Empty>
-                  <EmptyHeader>
-                    <EmptyTitle>{emptyMessage}</EmptyTitle>
-                  </EmptyHeader>
-                </Empty>
-              ) : null}
-              <ScrollArea
-                ref={scrollAreaRef}
-                hidden={!isLoading && filteredRows.length === 0}
-              >
-                {!isLoading &&
-                filteredRows.length ===
-                  0 ? null : resolvedTableLayout?.columnsDraggable ? (
-                  <DataGridTableDnd handleDragEnd={handleColumnDragEnd} />
+              <CardContent className="border-y px-0">
+                {!isLoading && filteredRows.length === 0 ? (
+                  <Empty>
+                    <EmptyHeader>
+                      <EmptyTitle>{emptyMessage}</EmptyTitle>
+                    </EmptyHeader>
+                  </Empty>
+                ) : null}
+                <ScrollArea
+                  ref={scrollAreaRef}
+                  hidden={!isLoading && filteredRows.length === 0}
+                >
+                  {!isLoading &&
+                  filteredRows.length ===
+                    0 ? null : resolvedTableLayout?.columnsDraggable ? (
+                    <DataGridTableDnd handleDragEnd={handleColumnDragEnd} />
+                  ) : (
+                    <DataGridTable />
+                  )}
+                  <ScrollBar orientation="horizontal" />
+                </ScrollArea>
+              </CardContent>
+
+              <CardFooter className="border-none bg-transparent! px-3.5 py-0">
+                {!isLoading && displayCount === 0 ? (
+                  <span className="text-muted-foreground text-sm">
+                    0 of 0 results
+                  </span>
                 ) : (
-                  <DataGridTable />
+                  <DataGridPagination sizes={paginationSizes} />
                 )}
-                <ScrollBar orientation="horizontal" />
-              </ScrollArea>
-            </CardContent>
-
-            <CardFooter className="border-none bg-transparent! px-3.5 py-0">
-              {!isLoading && displayCount === 0 ? (
-                <span className="text-muted-foreground text-sm">
-                  0 of 0 results
-                </span>
-              ) : (
-                <DataGridPagination sizes={paginationSizes} />
-              )}
-            </CardFooter>
-          </Card>
-        </DataGrid>
+              </CardFooter>
+            </Card>
+          </DataGrid>
+        </CompactTableProvider>
       </div>
     </AppErrorBoundary>
   );

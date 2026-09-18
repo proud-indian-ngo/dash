@@ -29,7 +29,7 @@ import { EntryMusicCell } from "./entry-music-cell";
 import { EntryMusicDialog } from "./entry-music-dialog";
 import { EntryMusicPlaybackDialog } from "./entry-music-playback-dialog";
 import { EntrySessionSummary } from "./entry-session-summary";
-import { EntryCompactParticipants, EntryStatusCell } from "./entry-status-cell";
+import { EntryParticipantsCell, EntryStatusCell } from "./entry-status-cell";
 import {
   createEntryTableFilterFields,
   getEntryTableFilterValue,
@@ -343,26 +343,11 @@ export function EntryTable({
       accessorFn: (row) =>
         row.members.map((member) => member.student.name).join(" "),
       cell: ({ row }) => (
-        <>
-          <div className="hidden text-sm font-medium [[data-compact-primary]_&]:block">
-            {row.original.members.length > 0 ? (
-              <EntryCompactParticipants
-                attended={attendance.labels}
-                entry={row.original}
-                present={arrival.labels}
-              />
-            ) : (
-              "Unknown Student"
-            )}
-          </div>
-          <div className="flex flex-wrap gap-x-2 gap-y-1 text-sm font-medium [[data-compact-primary]_&]:hidden">
-            {row.original.members.length > 0
-              ? row.original.members.map((member) => (
-                  <span key={member.student.id}>{member.student.name}</span>
-                ))
-              : "Unknown Student"}
-          </div>
-        </>
+        <EntryParticipantsCell
+          attended={attendance.labels}
+          entry={row.original}
+          present={arrival.labels}
+        />
       ),
       header: ({ column }) => (
         <DataGridColumnHeader

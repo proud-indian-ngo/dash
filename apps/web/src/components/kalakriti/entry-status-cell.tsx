@@ -1,6 +1,8 @@
 import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { useCompactTable } from "@/components/data-table/data-table-compact";
+
 import { getEntryStatusCounts, entryAttendanceKey } from "./entry-arrival";
 import type { KalakritiEntryRow } from "./entry-form-dialog";
 
@@ -46,6 +48,39 @@ function EntryStatusIcon({
         strokeWidth={2}
       />
     </span>
+  );
+}
+
+export function EntryParticipantsCell({
+  attended,
+  entry,
+  present,
+}: {
+  attended: ReadonlyMap<string, string> | undefined;
+  entry: KalakritiEntryRow;
+  present: ReadonlyMap<string, string> | undefined;
+}) {
+  const compact = useCompactTable();
+  if (entry.members.length === 0) {
+    return <div className="text-sm font-medium">Unknown Student</div>;
+  }
+  if (compact) {
+    return (
+      <div className="text-sm font-medium">
+        <EntryCompactParticipants
+          attended={attended}
+          entry={entry}
+          present={present}
+        />
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-wrap gap-x-2 gap-y-1 text-sm font-medium">
+      {entry.members.map((member) => (
+        <span key={member.student.id}>{member.student.name}</span>
+      ))}
+    </div>
   );
 }
 

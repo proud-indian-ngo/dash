@@ -8,11 +8,36 @@ import type {
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { cn } from "@pi-dash/design-system/lib/utils";
-import { type MouseEvent, type ReactNode } from "react";
+import {
+  createContext,
+  type MouseEvent,
+  type ReactNode,
+  useContext,
+} from "react";
 
 import { COMPACT_EXPAND_COLUMN_ID } from "./compact-columns";
 
 const EXPAND_SKELETON = <Skeleton className="size-8" />;
+
+const CompactTableContext = createContext(false);
+
+export function CompactTableProvider({
+  children,
+  compact,
+}: {
+  children: ReactNode;
+  compact: boolean;
+}) {
+  return (
+    <CompactTableContext.Provider value={compact}>
+      {children}
+    </CompactTableContext.Provider>
+  );
+}
+
+export function useCompactTable() {
+  return useContext(CompactTableContext);
+}
 
 export function DataTableExpandButton({
   expanded,
