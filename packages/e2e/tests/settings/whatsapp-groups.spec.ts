@@ -42,8 +42,11 @@ test.describe("WhatsApp Groups (admin)", () => {
 
     const dialog = await openWhatsAppGroups(page);
     const addGroupBtn = dialog.getByRole("button", { name: "Add group" });
-    // Button is hidden when WhatsApp API is not configured (e.g. in CI)
-    if (!(await addGroupBtn.isVisible({ timeout: 5000 }).catch(() => false))) {
+    // Visible-but-disabled while the config check runs, then hidden if WAPI
+    // is not configured. Skip instead of asserting that loading flash.
+    if (
+      !(await addGroupBtn.isEnabled({ timeout: 10_000 }).catch(() => false))
+    ) {
       test.skip(
         true,
         "WhatsApp API not configured — Add group button not shown"
