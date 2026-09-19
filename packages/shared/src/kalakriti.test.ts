@@ -18,6 +18,7 @@ import {
   KALAKRITI_MEMBERSHIP_STATES,
   KALAKRITI_OPERATIONAL_TEAMS,
   KALAKRITI_TIMEZONE,
+  membershipHasKalakritiLiaisonAccess,
   normalizeKalakritiCenterName,
   normalizeKalakritiVolunteerName,
   requireKalakritiAgeCategoryOverrideReason,
@@ -96,6 +97,18 @@ describe("canManageKalakritiResponsibility", () => {
     expect(
       canManageKalakritiResponsibility(["volunteer_coordinator"], "food_lead")
     ).toBe(true);
+    expect(
+      canManageKalakritiResponsibility(
+        ["volunteer_coordinator"],
+        "transit_volunteer"
+      )
+    ).toBe(true);
+    expect(
+      canManageKalakritiResponsibility(
+        ["volunteer_coordinator"],
+        "escort_volunteer"
+      )
+    ).toBe(true);
   });
 });
 
@@ -112,6 +125,12 @@ describe("Kalakriti assignment helpers", () => {
     );
     expect(getKalakritiResponsibilityScopeKind("liaison_volunteer")).toBe(
       "center"
+    );
+    expect(getKalakritiResponsibilityScopeKind("transit_volunteer")).toBe(
+      "edition"
+    );
+    expect(getKalakritiResponsibilityScopeKind("escort_volunteer")).toBe(
+      "edition"
     );
     expect(getKalakritiResponsibilityScopeKind("transport_lead")).toBe(
       "edition"
@@ -136,6 +155,7 @@ describe("Kalakriti assignment helpers", () => {
       "Operational members",
       "Competition",
       "Center",
+      "Liaison",
     ]);
     expect(flattenKalakritiAssignableResponsibilities(groups)).toContain(
       "overall_events_lead"
@@ -175,9 +195,24 @@ describe("Kalakriti assignment helpers", () => {
     expect(
       groups.find((group) => group.label === "Center")?.responsibilities
     ).toEqual(["center_liaison_lead", "liaison_volunteer"]);
+    expect(
+      groups.find((group) => group.label === "Liaison")?.responsibilities
+    ).toEqual(["transit_volunteer", "escort_volunteer"]);
     expect(flattenKalakritiAssignableResponsibilities(groups)).not.toContain(
       "liaison"
     );
+  });
+
+  it("does not grant liaison Center access to Transit or Escort Volunteers", () => {
+    expect(membershipHasKalakritiLiaisonAccess(["transit_volunteer"])).toBe(
+      false
+    );
+    expect(membershipHasKalakritiLiaisonAccess(["escort_volunteer"])).toBe(
+      false
+    );
+    expect(
+      membershipHasKalakritiLiaisonAccess(["liaison_volunteer", "liaison_lead"])
+    ).toBe(true);
   });
 });
 

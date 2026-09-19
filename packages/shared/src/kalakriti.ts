@@ -142,6 +142,8 @@ export const KALAKRITI_EDITION_RESPONSIBILITIES = [
   "hospitality_member",
   "media_member",
   "fundraising_member",
+  "escort_volunteer",
+  "transit_volunteer",
 ] as const;
 
 export type KalakritiResponsibility =
@@ -182,10 +184,16 @@ export const KALAKRITI_OPERATIONAL_MEMBER_RESPONSIBILITIES = [
 export type KalakritiOperationalMemberResponsibility =
   (typeof KALAKRITI_OPERATIONAL_MEMBER_RESPONSIBILITIES)[number];
 
+export const KALAKRITI_LIAISON_SUPPORT_RESPONSIBILITIES = [
+  "transit_volunteer",
+  "escort_volunteer",
+] as const satisfies readonly KalakritiResponsibility[];
+
 export const KALAKRITI_VOLUNTEER_EDITION_ASSIGNMENT_RESPONSIBILITIES = [
   ...KALAKRITI_EDITION_SCOPED_RESPONSIBILITIES,
   ...KALAKRITI_OPERATIONAL_LEAD_RESPONSIBILITIES,
   ...KALAKRITI_OPERATIONAL_MEMBER_RESPONSIBILITIES,
+  ...KALAKRITI_LIAISON_SUPPORT_RESPONSIBILITIES,
 ] as const satisfies readonly KalakritiResponsibility[];
 
 export type KalakritiVolunteerEditionAssignmentResponsibility =
@@ -238,6 +246,7 @@ export const KALAKRITI_RESPONSIBILITY_LABELS = {
   competition_coordinator: "Competition Coordinator",
   competition_volunteer: "Competition Volunteer",
   edition_admin: "Edition Administrator",
+  escort_volunteer: "Escort Volunteer",
   food_lead: "Food Lead",
   food_member: "Food Member",
   fundraising_member: "Fundraising Member",
@@ -250,6 +259,7 @@ export const KALAKRITI_RESPONSIBILITY_LABELS = {
   logistics_member: "Logistics Member",
   media_member: "Media Member",
   overall_events_lead: "Overall Events Lead",
+  transit_volunteer: "Transit Volunteer",
   transport_lead: "Transport Lead",
   venue_lead: "Venue Lead",
   venue_member: "Venue Member",
@@ -377,6 +387,15 @@ export function buildKalakritiAssignableResponsibilityGroups(options: {
     groups.push({
       label: "Center",
       responsibilities: centerResponsibilities,
+    });
+  }
+
+  const liaisonSupport =
+    KALAKRITI_LIAISON_SUPPORT_RESPONSIBILITIES.filter(canAssign);
+  if (liaisonSupport.length > 0) {
+    groups.push({
+      label: "Liaison",
+      responsibilities: liaisonSupport,
     });
   }
 

@@ -101,7 +101,11 @@ describe("Sidebar scan activity access", () => {
   it("requires a Center scope for a liaison", () => {
     expect(canAccessKalakritiEventDay(access("liaison", null))).toBe(false);
   });
-  it.each(["competition_coordinator"] as const)("denies %s", (role) => {
+  it.each([
+    "competition_coordinator",
+    "transit_volunteer",
+    "escort_volunteer",
+  ] as const)("denies %s", (role) => {
     expect(canAccessKalakritiEventDay(access(role))).toBe(false);
   });
   it("denies Guardians, absent memberships and archived stations", () => {

@@ -46,19 +46,22 @@ describe("Kalakriti Student policy", () => {
     expect(canAccessKalakritiStudents(candidate)).toBe(true);
   });
 
-  it("rejects an unrelated Edition responsibility", () => {
-    expect(
-      canAccessKalakritiStudents(
-        access({
-          membership: {
-            assignments: [],
-            kind: "volunteer",
-            responsibilities: ["transport_lead"],
-          },
-        })
-      )
-    ).toBe(false);
-  });
+  it.each(["transport_lead", "transit_volunteer", "escort_volunteer"] as const)(
+    "rejects %s Student directory access",
+    (responsibility) => {
+      expect(
+        canAccessKalakritiStudents(
+          access({
+            membership: {
+              assignments: [],
+              kind: "volunteer",
+              responsibilities: [responsibility],
+            },
+          })
+        )
+      ).toBe(false);
+    }
+  );
 
   it("gives Guardians, Edition Administrators, and Liaison Leads all visible Centers", () => {
     const centers = [{ id: "center-1" }, { id: "center-2" }];

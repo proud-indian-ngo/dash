@@ -28,6 +28,12 @@ describe("transport-only Center directory access", () => {
   });
   it("does not expose the directory to unrelated operational staff", () => {
     expect(canViewKalakritiCenterDirectory(access("food_lead"))).toBe(false);
+    expect(canViewKalakritiCenterDirectory(access("transit_volunteer"))).toBe(
+      false
+    );
+    expect(canViewKalakritiCenterDirectory(access("escort_volunteer"))).toBe(
+      false
+    );
   });
   it.each(["liaison", "center_liaison_lead", "liaison_volunteer"])(
     "preserves %s registration permissions independently of transport read-only access",

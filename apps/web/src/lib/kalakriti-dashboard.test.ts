@@ -83,6 +83,8 @@ describe("Kalakriti dashboard work areas", () => {
     "venue_member",
     "media_member",
     "fundraising_member",
+    "transit_volunteer",
+    "escort_volunteer",
   ] as const)("preserves %s without invented operations", (role) => {
     expect(getDashboardActions(access([role]))).toEqual([]);
     expect(getDashboardScanActions(access([role]))).toEqual([]);
