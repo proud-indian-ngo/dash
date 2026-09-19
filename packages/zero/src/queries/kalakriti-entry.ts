@@ -223,7 +223,27 @@ function visibleEntries(
 ) {
   return visibleEntryScope(args, ctx, attendance)
     .related("musicFiles")
-    .related("center")
+    .related("center", (center) =>
+      attendance
+        ? center.related("assignments", (assignment) =>
+            assignment
+              .where("editionId", args.editionId)
+              .where("responsibility", "center_liaison_lead")
+              .whereExists("membership", (membership) =>
+                membership
+                  .where("editionId", args.editionId)
+                  .where("kind", "volunteer")
+                  .where("state", "active")
+              )
+              .related("membership", (membership) =>
+                membership
+                  .where("editionId", args.editionId)
+                  .where("kind", "volunteer")
+                  .where("state", "active")
+              )
+          )
+        : center
+    )
     .related("members", (member) =>
       member.where("editionId", args.editionId).related("student", (student) =>
         student.related("ageCategory").related("operations", (operations) => {

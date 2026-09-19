@@ -34,7 +34,8 @@ export const kalakritiCompetitionQueries = {
                   assignmentOr(
                     cmp("responsibility", "edition_admin"),
                     cmp("responsibility", "overall_events_lead"),
-                    cmp("responsibility", "volunteer_coordinator")
+                    cmp("responsibility", "volunteer_coordinator"),
+                    cmp("responsibility", "volunteer_management_volunteer")
                   )
                 )
               )
@@ -77,7 +78,8 @@ export const kalakritiCompetitionQueries = {
                   assignmentOr(
                     cmp("responsibility", "edition_admin"),
                     cmp("responsibility", "overall_events_lead"),
-                    cmp("responsibility", "volunteer_coordinator")
+                    cmp("responsibility", "volunteer_coordinator"),
+                    cmp("responsibility", "volunteer_management_volunteer")
                   )
                 )
               )

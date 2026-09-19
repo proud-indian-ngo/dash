@@ -84,6 +84,7 @@ export const KALAKRITI_OPERATION_TYPES = [
   "drop_off",
   "volunteer_check_in",
   "attendee_check_in",
+  "guardian_check_in",
   "breakfast",
   "lunch",
   "competition_attendance",
@@ -121,6 +122,7 @@ export const KALAKRITI_TIMEZONE = "Asia/Kolkata" as const;
 export const KALAKRITI_EDITION_RESPONSIBILITIES = [
   "edition_admin",
   "volunteer_coordinator",
+  "volunteer_management_volunteer",
   "overall_events_lead",
   "competition_category_lead",
   "competition_coordinator",
@@ -179,6 +181,7 @@ export const KALAKRITI_OPERATIONAL_MEMBER_RESPONSIBILITIES = [
   "logistics_member",
   "media_member",
   "venue_member",
+  "volunteer_management_volunteer",
 ] as const satisfies readonly KalakritiResponsibility[];
 
 export type KalakritiOperationalMemberResponsibility =
@@ -264,6 +267,7 @@ export const KALAKRITI_RESPONSIBILITY_LABELS = {
   venue_lead: "Venue Lead",
   venue_member: "Venue Member",
   volunteer_coordinator: "Volunteer Coordinator",
+  volunteer_management_volunteer: "Volunteer Management Volunteer",
 } satisfies Record<KalakritiResponsibility, string>;
 
 export function isKalakritiLiaisonResponsibility(
@@ -690,4 +694,35 @@ export function validateKalakritiSessionSchedule(
         valid: false,
       }
     : { valid: true };
+}
+
+export function isKalakritiVolunteerManagementResponsibility(
+  responsibility: string
+): boolean {
+  return (
+    responsibility === "volunteer_coordinator" ||
+    responsibility === "volunteer_management_volunteer"
+  );
+}
+
+export function canRecordKalakritiCompetitionAttendance(
+  assignments: readonly {
+    responsibility: string;
+    competitionId?: string | null;
+    competitionCategoryId?: string | null;
+  }[],
+  competition: { competitionId: string; competitionCategoryId: string | null }
+): boolean {
+  return assignments.some(
+    (assignment) =>
+      assignment.responsibility === "edition_admin" ||
+      assignment.responsibility === "overall_events_lead" ||
+      (assignment.responsibility === "competition_category_lead" &&
+        competition.competitionCategoryId !== null &&
+        assignment.competitionCategoryId ===
+          competition.competitionCategoryId) ||
+      ((assignment.responsibility === "competition_coordinator" ||
+        assignment.responsibility === "competition_volunteer") &&
+        assignment.competitionId === competition.competitionId)
+  );
 }

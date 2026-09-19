@@ -177,6 +177,7 @@ describe("Kalakriti assignment helpers", () => {
       "fundraising_member",
       "media_member",
       "venue_member",
+      "volunteer_management_volunteer",
     ] as const) {
       expect(flattenKalakritiAssignableResponsibilities(groups)).toContain(
         responsibility
@@ -402,4 +403,22 @@ describe("Kalakriti Competition configuration", () => {
       )
     ).toEqual({ reason: "outside_event_date", valid: false });
   });
+});
+
+it("keeps registration staff edition-scoped without role-management authority", () => {
+  expect(
+    getKalakritiResponsibilityScopeKind("volunteer_management_volunteer")
+  ).toBe("edition");
+  expect(
+    canManageKalakritiResponsibility(
+      ["volunteer_management_volunteer"],
+      "food_member"
+    )
+  ).toBe(false);
+  expect(
+    canManageKalakritiResponsibility(
+      ["volunteer_coordinator"],
+      "volunteer_management_volunteer"
+    )
+  ).toBe(true);
 });

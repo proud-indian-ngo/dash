@@ -284,3 +284,22 @@ describe("kalakritiCompetition queries", () => {
     expect(ast).toContain('"value":"volunteer-coordinator-1"');
   });
 });
+
+it.each(["categories", "competitions"] as const)(
+  "lets registration volunteers resolve %s names in the roster",
+  (catalog) => {
+    const ast = queryAst(
+      kalakritiCompetitionQueries[catalog].fn({
+        args: { editionId: "edition-1" },
+        ctx: {
+          permissions: ["kalakriti.view"],
+          role: "volunteer",
+          userId: "registration-staff",
+        },
+      })
+    );
+    expect(ast).toContain('"value":"volunteer_management_volunteer"');
+    expect(ast).toContain('"value":"active"');
+    expect(ast).toContain('"value":"registration-staff"');
+  }
+);

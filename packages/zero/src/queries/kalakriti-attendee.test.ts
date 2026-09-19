@@ -79,15 +79,16 @@ function fixture(
 }
 
 describe("attendee roster scope", () => {
-  it.each(["edition_admin", "volunteer_coordinator"])(
-    "allows %s both rosters",
-    (responsibility) => {
-      for (const kind of ["guest", "judge"] as const) {
-        const f = fixture(responsibility, kind);
-        expect(matchesScope(f.attendee, f.ast.where, f.tables)).toBe(true);
-      }
+  it.each([
+    "edition_admin",
+    "volunteer_coordinator",
+    "volunteer_management_volunteer",
+  ])("allows %s both rosters", (responsibility) => {
+    for (const kind of ["guest", "judge"] as const) {
+      const f = fixture(responsibility, kind);
+      expect(matchesScope(f.attendee, f.ast.where, f.tables)).toBe(true);
     }
-  );
+  });
   it.each([
     "overall_events_lead",
     "competition_category_lead",

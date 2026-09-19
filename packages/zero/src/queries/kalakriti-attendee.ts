@@ -28,6 +28,7 @@ function scopedAssignments(
                   .where("responsibility", "IN", [
                     "edition_admin",
                     "volunteer_coordinator",
+                    "volunteer_management_volunteer",
                     "overall_events_lead",
                   ])
               )
@@ -108,11 +109,13 @@ export const kalakritiAttendeeQueries = {
                           ? [
                               "edition_admin",
                               "volunteer_coordinator",
+                              "volunteer_management_volunteer",
                               "overall_events_lead",
                             ]
                           : [
                               "edition_admin",
                               "volunteer_coordinator",
+                              "volunteer_management_volunteer",
                               "hospitality_lead",
                             ]
                       )

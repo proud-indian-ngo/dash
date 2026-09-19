@@ -38,6 +38,10 @@ describe("Kalakriti Guardian roster privacy", () => {
     expect(ast).toContain('"value":"edition-admin-1"');
     expect(ast).toContain('"value":"active"');
     expect(ast).toContain('"value":"edition_admin"');
+    expect(ast).toContain(
+      '"value":["volunteer_coordinator","volunteer_management_volunteer"]'
+    );
+    expect(ast).toContain('"value":"guardian_check_in"');
     expect(ast).toContain('"value":"edition-1"');
   });
 

@@ -19,8 +19,8 @@ describe("Kalakriti volunteer roster privacy", () => {
     const ast = queryAst(query);
 
     expect(ast).toContain('"value":"manager-1"');
-    expect(ast).toContain('"value":"edition_admin"');
-    expect(ast).toContain('"value":"volunteer_coordinator"');
+    expect(ast).toContain('"value":["edition_admin","volunteer_coordinator"]');
+    expect(ast).toContain('"value":"volunteer_management_volunteer"');
     expect(ast).toContain('"value":"active"');
   });
 
@@ -36,8 +36,8 @@ describe("Kalakriti volunteer roster privacy", () => {
     const ast = queryAst(query);
 
     expect(ast).toContain('"value":"manager-1"');
-    expect(ast).toContain('"value":"edition_admin"');
-    expect(ast).toContain('"value":"volunteer_coordinator"');
+    expect(ast).toContain('"value":["edition_admin","volunteer_coordinator"]');
+    expect(ast).toContain('"value":"volunteer_management_volunteer"');
     expect(ast).not.toContain('"value":"00000000-0000-0000-0000-000000000000"');
   });
 

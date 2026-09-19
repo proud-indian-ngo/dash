@@ -80,7 +80,7 @@ describe("kalakritiCenter queries", () => {
     expect(ast).not.toContain('"value":"ordinary-1"');
   });
 
-  it("limits Guardian assignment visibility to administrators", () => {
+  it("allows Volunteer Management roles to view Guardian assignments", () => {
     const editionAdminAst = queryAst(
       kalakritiCenterQueries.guardianAssignments.fn({
         args: input,
@@ -103,7 +103,9 @@ describe("kalakritiCenter queries", () => {
     );
 
     expect(editionAdminAst).toContain('"value":"edition_admin"');
-    expect(editionAdminAst).not.toContain('"value":"volunteer_coordinator"');
+    expect(editionAdminAst).toContain(
+      '"value":["volunteer_coordinator","volunteer_management_volunteer"]'
+    );
     expect(liaisonManagerAst).toContain('"value":"edition_admin"');
     expect(liaisonManagerAst).toContain('"value":"volunteer_coordinator"');
   });

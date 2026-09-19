@@ -36,18 +36,34 @@ function restrictToVolunteerManagers(
   }
 
   return query.whereExists("edition", (edition) =>
-    edition.where("id", editionId).whereExists("memberships", (membership) =>
-      membership
-        .where("userId", ctx.userId)
-        .where("state", "active")
-        .whereExists("assignments", (assignment) =>
-          assignment.where(({ or, cmp }) =>
-            or(
-              cmp("responsibility", "edition_admin"),
-              cmp("responsibility", "volunteer_coordinator")
+    edition.where("id", editionId).where(({ or, and, cmp, exists }) =>
+      or(
+        exists("memberships", (membership) =>
+          membership
+            .where("userId", ctx.userId)
+            .where("state", "active")
+            .whereExists("assignments", (assignment) =>
+              assignment.where("responsibility", "IN", [
+                "edition_admin",
+                "volunteer_coordinator",
+              ])
             )
+        ),
+        and(
+          cmp("lifecycle", "!=", "archived"),
+          exists("memberships", (membership) =>
+            membership
+              .where("userId", ctx.userId)
+              .where("state", "active")
+              .whereExists("assignments", (assignment) =>
+                assignment.where(
+                  "responsibility",
+                  "volunteer_management_volunteer"
+                )
+              )
           )
         )
+      )
     )
   );
 }

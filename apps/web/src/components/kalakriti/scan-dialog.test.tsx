@@ -16,8 +16,16 @@ mock.module("./center-scan-dialog", () => ({
   CenterScanPanel: () => <p>Transport roster</p>,
 }));
 mock.module("./operation-scan-panel", () => ({
-  OperationScanPanel: ({ activity }: { activity: string }) => (
-    <p>{activity} capture</p>
+  OperationScanPanel: ({
+    activity,
+    fixedSessionId,
+  }: {
+    activity: string;
+    fixedSessionId?: string;
+  }) => (
+    <p>
+      {activity} capture {fixedSessionId}
+    </p>
   ),
 }));
 mock.module("./inventory-scan-panel", () => ({
@@ -59,5 +67,18 @@ describe("Role-aware sidebar Scan dialog", () => {
     const html = render([]);
     expect(html).toContain("no longer available");
     expect(html).not.toContain("Transport roster");
+  });
+  it("passes a fixed Competition session to attendance capture", () => {
+    const html = renderToStaticMarkup(
+      <ScanDialog
+        activities={["attendance"]}
+        editionId="edition"
+        fixedSessionId="session-1"
+        initialActivity="attendance"
+        onOpenChange={() => undefined}
+        year={2162}
+      />
+    );
+    expect(html).toContain("attendance capture session-1");
   });
 });

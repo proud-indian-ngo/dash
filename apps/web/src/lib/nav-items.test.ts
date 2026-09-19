@@ -13,8 +13,8 @@ describe("Kalakriti navigation", () => {
     const kalakriti = buildKalakritiNavGroups({
       year: 2026,
       canManageEligibility: true,
-      canManageGuardians: true,
-      canManageVolunteers: true,
+      canViewGuardians: true,
+      canViewVolunteers: true,
       canViewAudit: true,
       canViewCompetitions: true,
       canViewEntries: true,
@@ -70,8 +70,8 @@ describe("Kalakriti navigation", () => {
     expect(
       buildKalakritiNavGroups({
         canManageEligibility: true,
-        canManageGuardians: true,
-        canManageVolunteers: true,
+        canViewGuardians: true,
+        canViewVolunteers: true,
         canViewAudit: true,
         canViewCompetitions: true,
         canViewEntries: true,
@@ -158,7 +158,7 @@ describe("Kalakriti navigation", () => {
   it("shows Volunteers to volunteer managers", () => {
     expect(
       buildKalakritiNavGroups({
-        canManageVolunteers: true,
+        canViewVolunteers: true,
         year: 2026,
       }).flatMap((group) => group.items.map(({ title }) => title))
     ).toEqual(["Dashboard", "Overview", "Centers", "Volunteers"]);

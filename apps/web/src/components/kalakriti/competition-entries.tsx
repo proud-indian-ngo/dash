@@ -1,4 +1,4 @@
-import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
+import { ArrowLeft01Icon, QrCodeScanIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
@@ -28,6 +28,7 @@ import {
 import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notice";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { ResultSection } from "@/components/kalakriti/result-section";
+import { ScanDialog } from "@/components/kalakriti/scan-dialog";
 import { useResultSnapshot } from "@/components/kalakriti/use-result-snapshot";
 import { useTransportStatusSnapshot } from "@/components/kalakriti/use-transport-status-snapshot";
 import { Loader } from "@/components/loader";
@@ -39,6 +40,7 @@ import {
   getEntryStudentOptionEligibility,
   indexEntriesByStudent,
 } from "@/lib/kalakriti-entry-policy";
+import { canScanKalakritiCompetition } from "@/lib/kalakriti-event-day-policy";
 function completeStudent<T extends { ageCategory?: unknown }>(
   student: T
 ): student is T & KalakritiEntryStudent {
@@ -60,6 +62,7 @@ export function CompetitionEntries({
   const zero = useZero();
   const { edition } = access;
   const [createOpen, setCreateOpen] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<KalakritiEntryRow | null>(
     null
   );
@@ -158,6 +161,19 @@ export function CompetitionEntries({
     registrationCenters.length > 0 &&
     completeSessions.some((candidate) => candidate.id === sessionId);
   const canRegister = snapshotReady && registrationEligible;
+  const scanAuthorized = Boolean(
+    session &&
+    canScanKalakritiCompetition(access, {
+      competitionId: session.competition.id,
+      competitionCategoryId: session.competition.competitionCategoryId,
+    })
+  );
+  const canScan = Boolean(
+    scanAuthorized &&
+    edition.lifecycle === "live" &&
+    session?.scheduleActive === true &&
+    session?.competitionSessionId
+  );
   const permissionsFor = useEventCallback((entry: KalakritiEntryRow) => {
     const center = writableCenters.find(
       (candidate) => candidate.id === entry.centerId
@@ -311,7 +327,26 @@ export function CompetitionEntries({
                 getRowPermissions={permissionsFor}
                 showMusic={session.competition.musicUploadEnabled === true}
                 variant="session"
-                toolbarActions={resultsAction}
+                toolbarActions={
+                  <>
+                    {resultsAction}
+                    {scanAuthorized ? (
+                      <Button
+                        disabled={!canScan}
+                        onClick={() => setScanOpen(true)}
+                        type="button"
+                        variant="outline"
+                      >
+                        <HugeiconsIcon
+                          data-icon="inline-start"
+                          icon={QrCodeScanIcon}
+                          strokeWidth={2}
+                        />
+                        Scan attendance
+                      </Button>
+                    ) : null}
+                  </>
+                }
               />
             )}
           </ResultSection>
@@ -329,6 +364,16 @@ export function CompetitionEntries({
               students={completeStudents}
               open={true}
               onOpenChange={closeForm}
+            />
+          ) : null}
+          {scanOpen && canScan && session.competitionSessionId ? (
+            <ScanDialog
+              activities={["attendance"]}
+              editionId={edition.id}
+              fixedSessionId={session.competitionSessionId}
+              initialActivity="attendance"
+              onOpenChange={setScanOpen}
+              year={edition.year}
             />
           ) : null}
         </>

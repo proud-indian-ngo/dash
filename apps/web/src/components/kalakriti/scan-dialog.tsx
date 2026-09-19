@@ -34,6 +34,7 @@ export function ScanDialog({
   onOpenChange,
   ledger: providedLedger,
   initialActivity,
+  fixedSessionId,
 }: {
   editionId: string;
   year: number;
@@ -41,6 +42,7 @@ export function ScanDialog({
   onOpenChange: (open: boolean) => void;
   ledger?: StationRecordingLedger;
   initialActivity?: ScanActivity;
+  fixedSessionId?: string;
 }) {
   const [activity, setActivity] = useState<ScanActivity | undefined>(() =>
     initialActivity && activities.includes(initialActivity)
@@ -114,6 +116,7 @@ export function ScanDialog({
               editionId={editionId}
               year={year}
               ledger={ledger}
+              fixedSessionId={fixedSessionId}
               onBusyChange={setRecording}
               onComplete={() => onOpenChange(false)}
             />
@@ -129,6 +132,7 @@ function ScanActivityPanel({
   editionId,
   year,
   ledger,
+  fixedSessionId,
   onBusyChange,
   onComplete,
 }: {
@@ -136,6 +140,7 @@ function ScanActivityPanel({
   editionId: string;
   year: number;
   ledger: StationRecordingLedger;
+  fixedSessionId?: string;
   onBusyChange: (busy: boolean) => void;
   onComplete: () => void;
 }) {
@@ -174,6 +179,7 @@ function ScanActivityPanel({
           editionId={editionId}
           year={year}
           ledger={ledger}
+          fixedSessionId={fixedSessionId}
           onBusyChange={onBusyChange}
         />
       );

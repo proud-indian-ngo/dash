@@ -150,8 +150,8 @@ const kalakritiNavItem: NavItem = {
 
 export function buildKalakritiNavGroups({
   canManageEligibility = false,
-  canManageGuardians = false,
-  canManageVolunteers = false,
+  canViewGuardians = false,
+  canViewVolunteers = false,
   canViewAudit = false,
   canViewCompetitions = false,
   canViewEntries = false,
@@ -164,8 +164,8 @@ export function buildKalakritiNavGroups({
   year,
 }: {
   canManageEligibility?: boolean;
-  canManageGuardians?: boolean;
-  canManageVolunteers?: boolean;
+  canViewGuardians?: boolean;
+  canViewVolunteers?: boolean;
   canViewAudit?: boolean;
   canViewCompetitions?: boolean;
   canViewEntries?: boolean;
@@ -193,7 +193,7 @@ export function buildKalakritiNavGroups({
     });
   }
 
-  if (year && canManageVolunteers) {
+  if (year && canViewVolunteers) {
     editionItems.push({
       icon: UserLove01Icon,
       title: "Volunteers",
@@ -225,7 +225,7 @@ export function buildKalakritiNavGroups({
     });
   }
 
-  if (year && canManageGuardians) {
+  if (year && canViewGuardians) {
     editionItems.push({
       icon: UserShield01Icon,
       title: "Guardians",

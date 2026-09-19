@@ -48,33 +48,20 @@ import type {
  * The cap is what stops a pathological label pushing the menu off the side of
  * a phone.
  *
- * NO ROW EVER WRAPS. At max-content none can, by definition; past the cap one
- * has to give, and this is what decides how. `min-w-0` lets a row shrink below
- * its content at all (a flex child's floor is its content otherwise), and the
- * label span inside carries `truncate` - see `FILTER_MENU_LABEL_CLASS`, and see
- * why it is a span. Truncating is chosen over wrapping because a wrapped row
- * changes HEIGHT, which moves every row under it and puts the destructive row
- * somewhere the pointer was not aiming.
+ * Past the viewport cap, rows wrap so their complete labels remain available.
+ * `min-w-0` lets a row shrink below its content instead of widening the panel.
  */
 export const FILTER_MENU_CLASS =
   "w-max min-w-32 max-w-[min(24rem,calc(100vw-2rem))] [&_[data-slot=dropdown-menu-item]]:min-w-0"
 
 /**
- * What a menu row's LABEL wears, so the row truncates instead of wrapping.
+ * What a menu row's label wears so it can wrap within the viewport cap.
  *
- * A span, and it has to be a span. `truncate` is `overflow:hidden` plus
- * `text-overflow:ellipsis` plus `white-space:nowrap`, and `text-overflow`
- * applies to a block container - a menu row is `display:flex`, so its bare text
- * child is an anonymous flex item and the ellipsis is not reliably drawn on it.
- * Putting the text in a real element is what makes the property land. The span
- * is transparent to the accessible name, which is still the row's text content,
- * and it costs no layout: the row already spaces its children with `gap`, so a
- * span sits exactly where the text did.
- *
- * `min-w-0` for the same reason it is on the row: without it the span's floor
- * is its own content and it never shrinks, so `truncate` has nothing to do.
+ * The span is transparent to the accessible name. `min-w-0` lets it shrink as
+ * a flex child, while `wrap-anywhere` also handles values without spaces.
  */
-export const FILTER_MENU_LABEL_CLASS = "min-w-0 truncate"
+export const FILTER_MENU_LABEL_CLASS =
+  "min-w-0 whitespace-normal wrap-anywhere"
 
 /**
  * How the FIELD PICKER's panel is sized, in one place.

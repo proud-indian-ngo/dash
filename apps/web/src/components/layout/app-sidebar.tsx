@@ -24,9 +24,11 @@ import { useApp } from "@/context/app-context";
 import { canViewKalakritiAttendees } from "@/lib/kalakriti-attendee-policy";
 import { getKalakritiScanActivities } from "@/lib/kalakriti-event-day-policy";
 import { canViewKalakritiFood } from "@/lib/kalakriti-food-policy";
+import { canViewKalakritiGuardians } from "@/lib/kalakriti-guardian-policy";
 import { canViewKalakritiInventory } from "@/lib/kalakriti-inventory-policy";
 import { createStationRecordingLedger } from "@/lib/kalakriti-scan-recording";
 import { canViewKalakritiTransport } from "@/lib/kalakriti-transport-policy";
+import { canViewKalakritiVolunteers } from "@/lib/kalakriti-volunteer-policy";
 import {
   buildKalakritiNavGroups,
   shouldUseKalakritiNav,
@@ -89,13 +91,6 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
         "competition_coordinator",
       ].includes(assignment.responsibility)
     ) === true;
-  const canManageVolunteers =
-    hasPermission("kalakriti.admin") ||
-    membership?.assignments.some((assignment) =>
-      ["edition_admin", "volunteer_coordinator"].includes(
-        assignment.responsibility
-      )
-    ) === true;
   const canViewAudit =
     hasPermission("kalakriti.admin") ||
     (activeEdition?.lifecycle !== "archived" &&
@@ -136,6 +131,23 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
       : undefined,
     membership: membership ?? null,
   };
+  const rosterAccess = {
+    edition: { lifecycle: activeEdition?.lifecycle ?? null },
+    isGlobalAdmin: hasPermission("kalakriti.admin"),
+    membership: membership
+      ? {
+          responsibilities: membership.assignments.map(
+            (assignment) => assignment.responsibility
+          ),
+        }
+      : null,
+  };
+  const canViewGuardians = activeEdition
+    ? canViewKalakritiGuardians(rosterAccess)
+    : false;
+  const canViewVolunteers = activeEdition
+    ? canViewKalakritiVolunteers(rosterAccess)
+    : false;
   let visibleNavGroups = buildKalakritiNavGroups({
     canViewTransport: canViewKalakritiTransport(attendeeAccess),
     canViewInventory: canViewKalakritiInventory(attendeeAccess),
@@ -145,8 +157,8 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
       canManageEdition &&
       (activeEdition?.lifecycle !== "archived" ||
         hasPermission("kalakriti.admin")),
-    canManageGuardians: canManageEdition,
-    canManageVolunteers,
+    canViewGuardians,
+    canViewVolunteers,
     canViewAudit,
     canViewCompetitions,
     canViewEntries,

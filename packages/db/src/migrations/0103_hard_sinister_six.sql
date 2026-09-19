@@ -1,0 +1,21 @@
+ALTER TYPE "public"."kalakriti_operation_type" ADD VALUE 'guardian_check_in' BEFORE 'breakfast';--> statement-breakpoint
+ALTER TYPE "public"."kalakriti_responsibility" ADD VALUE 'volunteer_management_volunteer' BEFORE 'overall_events_lead';--> statement-breakpoint
+ALTER TABLE "kalakriti_assignment" DROP CONSTRAINT "kalakriti_assignment_scope_chk";--> statement-breakpoint
+ALTER TABLE "kalakriti_assignment" ADD CONSTRAINT "kalakriti_assignment_scope_chk" CHECK (
+        ("kalakriti_assignment"."responsibility"::text IN ('edition_admin', 'volunteer_coordinator', 'volunteer_management_volunteer', 'overall_events_lead', 'liaison_lead', 'food_lead', 'food_member', 'transport_lead', 'logistics_lead', 'logistics_member', 'awards_lead', 'awards_member', 'venue_lead', 'venue_member', 'hospitality_lead', 'hospitality_member', 'media_member', 'fundraising_member', 'escort_volunteer', 'transit_volunteer')
+          AND "kalakriti_assignment"."center_id" IS NULL
+          AND "kalakriti_assignment"."competition_category_id" IS NULL
+          AND "kalakriti_assignment"."competition_id" IS NULL)
+        OR ("kalakriti_assignment"."responsibility"::text IN ('liaison', 'center_liaison_lead', 'liaison_volunteer')
+          AND "kalakriti_assignment"."center_id" IS NOT NULL
+          AND "kalakriti_assignment"."competition_category_id" IS NULL
+          AND "kalakriti_assignment"."competition_id" IS NULL)
+        OR ("kalakriti_assignment"."responsibility"::text = 'competition_category_lead'
+          AND "kalakriti_assignment"."center_id" IS NULL
+          AND "kalakriti_assignment"."competition_category_id" IS NOT NULL
+          AND "kalakriti_assignment"."competition_id" IS NULL)
+        OR ("kalakriti_assignment"."responsibility"::text IN ('competition_coordinator', 'competition_volunteer')
+          AND "kalakriti_assignment"."center_id" IS NULL
+          AND "kalakriti_assignment"."competition_category_id" IS NULL
+          AND "kalakriti_assignment"."competition_id" IS NOT NULL)
+      );

@@ -75,6 +75,7 @@ describe("attendee direct route guards", () => {
         { isGlobalAdmin: true },
         access("edition_admin"),
         access("volunteer_coordinator"),
+        access("volunteer_management_volunteer"),
       ])
         expect(() => guard(route, actor)).not.toThrow();
       expect(() => guard(route, null)).toThrow();

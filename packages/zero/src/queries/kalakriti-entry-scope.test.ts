@@ -402,4 +402,31 @@ describe("Center-agnostic Entry read scope", () => {
     );
     expect(JSON.stringify(operations.where)).toContain('"value":"edition"');
   });
+  it("loads active Center Liaison Lead snapshots only for Competition detail", () => {
+    const detail = query("visibleByDivision", {
+      divisionId: "division",
+      sessionId: "session-division",
+    });
+    const detailCenter = detail.related!.find(
+      (related) => related.subquery.alias === "center"
+    )!.subquery;
+    const assignments = detailCenter.related!.find(
+      (related) => related.subquery.alias === "assignments"
+    )!.subquery;
+    const membership = assignments.related!.find(
+      (related) => related.subquery.alias === "membership"
+    )!.subquery;
+
+    expect(JSON.stringify(assignments.where)).toContain(
+      '"value":"center_liaison_lead"'
+    );
+    expect(JSON.stringify(assignments.where)).toContain('"value":"edition"');
+    expect(JSON.stringify(membership.where)).toContain('"value":"active"');
+    expect(JSON.stringify(membership.where)).toContain('"value":"volunteer"');
+
+    const listCenter = query("visible").related!.find(
+      (related) => related.subquery.alias === "center"
+    )!.subquery;
+    expect(listCenter.related ?? []).toHaveLength(0);
+  });
 });

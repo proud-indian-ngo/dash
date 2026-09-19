@@ -45,6 +45,7 @@ import {
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { useApp } from "@/context/app-context";
 import { dashboardAccessKey } from "@/lib/kalakriti-dashboard";
+import { canRegisterKalakritiIdCards } from "@/lib/kalakriti-volunteer-policy";
 
 const editionTimestampFormatter = new Intl.DateTimeFormat("en-IN", {
   day: "numeric",
@@ -132,6 +133,7 @@ function KalakritiEditionOverview() {
     Boolean(dashboard) &&
     (access.isGlobalAdmin ||
       access.membership?.responsibilities.includes("edition_admin") === true);
+  const canRegisterIdCards = canRegisterKalakritiIdCards(access);
   const [teamEvent] = useQuery(
     queries.teamEvent.byId({ id: edition.teamEventId }),
     { enabled: canViewLinkedEvent }
@@ -296,7 +298,7 @@ function KalakritiEditionOverview() {
       {dashboard ? (
         <RoleDashboard
           registerIdCard={
-            canManageLifecycle ? (
+            canRegisterIdCards ? (
               <RegisterIdCardDialog
                 className="max-sm:min-h-11"
                 editionId={edition.id}

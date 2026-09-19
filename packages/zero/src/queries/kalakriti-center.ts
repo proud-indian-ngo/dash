@@ -22,16 +22,32 @@ export const kalakritiCenterQueries = {
     }
     return query
       .whereExists("edition", (edition) =>
-        edition
-          .where("id", args.editionId)
-          .whereExists("memberships", (membership) =>
-            membership
-              .where("userId", ctx.userId)
-              .where("state", "active")
-              .whereExists("assignments", (assignment) =>
-                assignment.where("responsibility", "edition_admin")
+        edition.where("id", args.editionId).where(({ or, and, cmp, exists }) =>
+          or(
+            exists("memberships", (membership) =>
+              membership
+                .where("userId", ctx.userId)
+                .where("state", "active")
+                .whereExists("assignments", (assignment) =>
+                  assignment.where("responsibility", "edition_admin")
+                )
+            ),
+            and(
+              cmp("lifecycle", "!=", "archived"),
+              exists("memberships", (membership) =>
+                membership
+                  .where("userId", ctx.userId)
+                  .where("state", "active")
+                  .whereExists("assignments", (assignment) =>
+                    assignment.where("responsibility", "IN", [
+                      "volunteer_coordinator",
+                      "volunteer_management_volunteer",
+                    ])
+                  )
               )
+            )
           )
+        )
       )
       .orderBy("createdAt", "asc");
   }),
@@ -97,6 +113,7 @@ export const kalakritiCenterQueries = {
                     assignmentOr(
                       cmp("responsibility", "edition_admin"),
                       cmp("responsibility", "volunteer_coordinator"),
+                      cmp("responsibility", "volunteer_management_volunteer"),
                       cmp("responsibility", "overall_events_lead"),
                       cmp("responsibility", "liaison_lead"),
                       cmp("responsibility", "competition_category_lead"),
