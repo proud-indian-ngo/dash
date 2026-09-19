@@ -411,7 +411,8 @@ export function EditionLifecycleAlerts({
       ) : null}
       {lifecycle === "live" ? (
         <KalakritiLockNotice>
-          Scanning is enabled. Registration remains closed.
+          Scanning is enabled. Registration remains closed. Competition names,
+          existing Session times, and Venues can still be corrected.
         </KalakritiLockNotice>
       ) : null}
       {lifecycle === "registration_open" ? (

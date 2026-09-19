@@ -291,11 +291,11 @@ function CompetitionForm({
   });
   return (
     <FormLayout form={form}>
+      <InputField autoFocus isRequired label="Competition name" name="name" />
       <fieldset
         disabled={structuralLocked}
         className="flex min-w-0 flex-col gap-4"
       >
-        <InputField autoFocus isRequired label="Competition name" name="name" />
         <SelectField
           isRequired
           label="Competition Category"
@@ -370,8 +370,8 @@ function CompetitionForm({
       {structuralLocked ? (
         <p className="text-muted-foreground text-sm">
           {scheduleLocked
-            ? "Competition rules and schedule are locked. You can still mark whether performances happen one at a time."
-            : "Competition rules are locked. Existing Session times and Venues can still be updated."}
+            ? "Competition rules and schedule are locked. You can still update the Competition name and whether performances happen one at a time."
+            : "Competition rules are locked. You can still update the Competition name, existing Session times, and Venues."}
         </p>
       ) : null}
       <section

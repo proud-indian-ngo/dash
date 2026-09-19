@@ -12,7 +12,9 @@ import { zql } from "../schema";
 import {
   assertCanManageKalakritiCompetitionConfiguration,
   assertKalakritiEditionConfigurable,
+  assertKalakritiEditionNotArchived,
   assertKalakritiEditionStructurallyConfigurable,
+  isKalakritiCompetitionIdentityLocked,
 } from "./kalakriti-config-access";
 import {
   getEditionForUpdate,
@@ -202,21 +204,6 @@ export const kalakritiCompetitionActionSchema = z.object({
 export const kalakritiCompetitionStateSchema =
   kalakritiCompetitionActionSchema.extend({ enabled: z.boolean() });
 
-async function lockCompetitionEdition(
-  tx: CompetitionTx,
-  ctx: Context | undefined,
-  editionId: string
-) {
-  const edition = await getEditionForUpdate(tx, editionId);
-  if (!edition) {
-    throw new Error("Edition not found");
-  }
-  await assertCanManageKalakritiCompetitionConfiguration(tx, ctx, editionId);
-  assertKalakritiEditionConfigurable(edition.lifecycle);
-  assertIsLoggedIn(ctx);
-  return edition;
-}
-
 async function lockCancellationEdition(
   tx: CompetitionTx,
   ctx: Context | undefined,
@@ -282,6 +269,21 @@ async function lockStructurallyConfigurableCompetitionEdition(
   }
   await assertCanManageKalakritiCompetitionConfiguration(tx, ctx, editionId);
   assertKalakritiEditionStructurallyConfigurable(edition.lifecycle);
+  assertIsLoggedIn(ctx);
+  return edition;
+}
+
+async function lockNonArchivedCompetitionEdition(
+  tx: CompetitionTx,
+  ctx: Context | undefined,
+  editionId: string
+) {
+  const edition = await getEditionForUpdate(tx, editionId);
+  if (!edition) {
+    throw new Error("Edition not found");
+  }
+  await assertCanManageKalakritiCompetitionConfiguration(tx, ctx, editionId);
+  assertKalakritiEditionNotArchived(edition.lifecycle);
   assertIsLoggedIn(ctx);
   return edition;
 }
@@ -820,14 +822,14 @@ async function saveCompetitionSchedules(
         throw new Error("Competition Session is not in this Competition");
       }
       if (
-        values.edition.lifecycle === "registration_locked" &&
+        isKalakritiCompetitionIdentityLocked(values.edition.lifecycle) &&
         schedule.divisionId !== session.divisionId
       ) {
         throw new Error(
           "Session Division cannot change after registration is locked"
         );
       }
-    } else if (values.edition.lifecycle === "registration_locked") {
+    } else if (isKalakritiCompetitionIdentityLocked(values.edition.lifecycle)) {
       throw new Error("Sessions cannot be added after registration is locked");
     }
     const venue = venues[index];
@@ -1098,11 +1100,7 @@ export const kalakritiCompetitionMutators = {
   createVenue: defineMutator(
     kalakritiVenueCreateSchema,
     async ({ tx, ctx, args }) => {
-      await lockStructurallyConfigurableCompetitionEdition(
-        tx,
-        ctx,
-        args.editionId
-      );
+      await lockNonArchivedCompetitionEdition(tx, ctx, args.editionId);
       const normalized = normalizeKalakritiConfigurationName(args.name);
       await tx.mutate.kalakritiVenue.insert({
         createdAt: args.now,
@@ -1581,8 +1579,7 @@ export const kalakritiCompetitionMutators = {
       const existingDivisions = (await tx.run(
         zql.kalakritiCompetitionDivision.where("competitionId", competition.id)
       )) as readonly { ageCategoryId: string; id: string }[];
-      const structureChanged =
-        normalized.name !== competition.name ||
+      const identityChanged =
         args.competitionCategoryId !== competition.competitionCategoryId ||
         args.genderEligibility !== competition.genderEligibility ||
         args.maximumGroupSize !== competition.maximumGroupSize ||
@@ -1598,6 +1595,8 @@ export const kalakritiCompetitionMutators = {
                 stored.ageCategoryId === division.ageCategoryId
             )
         );
+      const structureChanged =
+        identityChanged || normalized.name !== competition.name;
       const sequentialPerformances = args.sequentialPerformances === true;
       const sequentialChanged =
         sequentialPerformances !==
@@ -1609,15 +1608,19 @@ export const kalakritiCompetitionMutators = {
           "Configuration cannot be changed in this Edition state"
         );
       }
-      if (!sequentialOnly) {
-        if (edition.lifecycle === "registration_locked" && structureChanged) {
-          throw new Error(
-            "Competition structure cannot change after registration is locked"
-          );
-        }
-        if (edition.lifecycle !== "registration_locked") {
-          assertKalakritiEditionStructurallyConfigurable(edition.lifecycle);
-        }
+      if (
+        identityChanged &&
+        isKalakritiCompetitionIdentityLocked(edition.lifecycle)
+      ) {
+        throw new Error(
+          "Competition structure cannot change after registration is locked"
+        );
+      }
+      if (
+        !sequentialOnly &&
+        !isKalakritiCompetitionIdentityLocked(edition.lifecycle)
+      ) {
+        assertKalakritiEditionStructurallyConfigurable(edition.lifecycle);
       }
       if (structureChanged) {
         const category = await getCategory(tx, args.competitionCategoryId);
@@ -1664,7 +1667,10 @@ export const kalakritiCompetitionMutators = {
           updatedAt: args.now,
         });
       }
-      if (!sequentialOnly && edition.lifecycle !== "registration_locked") {
+      if (
+        !sequentialOnly &&
+        !isKalakritiCompetitionIdentityLocked(edition.lifecycle)
+      ) {
         await syncCompetitionDivisions(tx, ctx, {
           competitionId: competition.id,
           divisions: args.divisions,
@@ -1725,9 +1731,13 @@ export const kalakritiCompetitionMutators = {
       if (!session) {
         throw new Error("Competition Session not found");
       }
-      const edition = await lockCompetitionEdition(tx, ctx, session.editionId);
+      const edition = await lockNonArchivedCompetitionEdition(
+        tx,
+        ctx,
+        session.editionId
+      );
       if (
-        edition.lifecycle === "registration_locked" &&
+        isKalakritiCompetitionIdentityLocked(edition.lifecycle) &&
         args.divisionId !== session.divisionId
       ) {
         throw new Error(
@@ -1806,7 +1816,7 @@ export const kalakritiCompetitionMutators = {
       if (!venue) {
         throw new Error("Venue not found");
       }
-      const edition = await lockStructurallyConfigurableCompetitionEdition(
+      const edition = await lockNonArchivedCompetitionEdition(
         tx,
         ctx,
         venue.editionId

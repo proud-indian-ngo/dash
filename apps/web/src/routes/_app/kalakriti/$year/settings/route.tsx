@@ -41,6 +41,8 @@ export const Route = createFileRoute("/_app/kalakriti/$year/settings")({
       kalakritiCompetitionAccess: {
         actorCanManage,
         canManage: actorCanManage && !structuralLocked,
+        canEditVenues:
+          actorCanManage && access.edition.lifecycle !== "archived",
         canManageCancellations:
           actorCanManage && access.edition.lifecycle !== "archived",
         configurationLocked: structuralLocked,
