@@ -116,7 +116,7 @@ export class KalakritiCentersPage {
       await detail.getByRole("combobox", { name: "Role" }).click();
       await this.page.getByRole("option", { exact: true, name: role }).click();
     }
-    const picker = detail.getByPlaceholder("Search central volunteers...");
+    const picker = detail.getByPlaceholder("Search volunteers...");
     await picker.fill(volunteerName);
     await this.page
       .getByRole("option", { name: new RegExp(volunteerName) })

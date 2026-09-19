@@ -52,6 +52,8 @@ describe("Transport directory access", () => {
       "overall_events_lead",
       "volunteer_coordinator",
       "liaison_lead",
+      "transit_volunteer",
+      "escort_volunteer",
     ])
       expect(() => guard(access(responsibility))).toThrow();
     const archived = {

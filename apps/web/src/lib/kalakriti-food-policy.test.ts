@@ -78,6 +78,8 @@ describe("Food view and recording authority remain separate", () => {
       "hospitality_lead",
       "competition_coordinator",
       "overall_events_lead",
+      "transit_volunteer",
+      "escort_volunteer",
     ])
       expect(canViewKalakritiFood(candidate(role))).toBe(false);
     expect(canViewKalakritiFood(null)).toBe(false);

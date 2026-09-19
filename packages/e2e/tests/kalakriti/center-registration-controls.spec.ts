@@ -238,7 +238,7 @@ test("manages independent Center registration and scoped Liaison access", async 
       .click();
     await expect(centers.center("Retired Center")).toHaveCount(0);
   } finally {
-    await page.goto("about:blank");
+    await page.goto("about:blank").catch(() => undefined);
     await fixture("cleanup");
   }
 });

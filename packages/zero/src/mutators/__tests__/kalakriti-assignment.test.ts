@@ -473,6 +473,47 @@ describe("kalakritiAssignment.assignVolunteer", () => {
       })
     );
   });
+
+  it.each(["transit_volunteer", "escort_volunteer"] as const)(
+    "assigns a %s at Edition scope without a Center",
+    async (responsibility) => {
+      const { tx, spies } = createTx([
+        { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+        {
+          email: "support@example.com",
+          id: "volunteer-1",
+          isActive: true,
+          name: "Liaison Support",
+          phone: null,
+          role: "volunteer",
+        },
+        undefined,
+        undefined,
+        [],
+        undefined,
+      ]);
+
+      await kalakritiAssignmentMutators.assignVolunteer.fn({
+        args: {
+          ...assignArgs,
+          responsibility,
+        },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiAssignmentMutators.assignVolunteer.fn
+      >[0]);
+
+      expect(spies.insertAssignment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          centerId: null,
+          competitionCategoryId: null,
+          competitionId: null,
+          responsibility,
+        })
+      );
+    }
+  );
 });
 
 describe("kalakritiAssignment.assignLiaison", () => {
