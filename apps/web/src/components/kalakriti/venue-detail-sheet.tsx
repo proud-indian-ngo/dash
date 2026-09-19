@@ -17,6 +17,7 @@ import type {
 } from "./competition-config-types";
 
 export function VenueDetailSheet({
+  canEdit,
   canManage,
   onDelete,
   onEdit,
@@ -25,6 +26,7 @@ export function VenueDetailSheet({
   open,
   venue,
 }: {
+  canEdit: boolean;
   canManage: boolean;
   onDelete: (payload: ConfigurationDeletePayload) => void;
   onEdit: (venue: VenueTableRow) => void;
@@ -86,15 +88,21 @@ export function VenueDetailSheet({
             </span>
           </div>
 
-          {canManage ? (
+          {canEdit || canManage ? (
             <div className="flex flex-wrap gap-2 border-t pt-4">
-              <Button onClick={handleEdit}>Edit Venue</Button>
-              <Button onClick={handleRetire} variant="outline">
-                {venue.retiredAt === null ? "Retire" : "Restore"}
-              </Button>
-              <Button onClick={handleDelete} variant="destructive">
-                Delete
-              </Button>
+              {canEdit ? (
+                <Button onClick={handleEdit}>Edit Venue</Button>
+              ) : null}
+              {canManage ? (
+                <>
+                  <Button onClick={handleRetire} variant="outline">
+                    {venue.retiredAt === null ? "Retire" : "Restore"}
+                  </Button>
+                  <Button onClick={handleDelete} variant="destructive">
+                    Delete
+                  </Button>
+                </>
+              ) : null}
             </div>
           ) : null}
         </div>

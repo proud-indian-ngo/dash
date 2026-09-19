@@ -82,6 +82,18 @@ export function assertKalakritiEditionConfigurable(lifecycle: string): void {
   }
 }
 
+export function assertKalakritiEditionNotArchived(lifecycle: string): void {
+  if (lifecycle === "archived") {
+    throw new Error("Configuration cannot be changed in this Edition state");
+  }
+}
+
+export function isKalakritiCompetitionIdentityLocked(
+  lifecycle: string
+): boolean {
+  return lifecycle === "registration_locked" || lifecycle === "live";
+}
+
 export function assertKalakritiEditionStructurallyConfigurable(
   lifecycle: string
 ): void {

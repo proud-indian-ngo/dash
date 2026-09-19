@@ -57,7 +57,7 @@ describe("Competition workspace access", () => {
       },
     });
   });
-  it("locks structure before Live and keeps sequential-flag edits available during Live", () => {
+  it("locks structure before Live and keeps name, schedule, and sequential-flag edits available during Live", () => {
     expect(load(["edition_admin"], "registration_locked")).toMatchObject({
       kalakritiCompetitionAccess: {
         canManage: false,
@@ -70,7 +70,7 @@ describe("Competition workspace access", () => {
       kalakritiCompetitionAccess: {
         canManage: false,
         canEditCompetition: true,
-        canEditSchedule: false,
+        canEditSchedule: true,
         canManageCancellations: true,
       },
     });

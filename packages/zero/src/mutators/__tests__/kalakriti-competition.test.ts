@@ -649,116 +649,122 @@ describe("kalakritiCompetition commands", () => {
     );
   });
 
-  it("rejects stale structural Session changes after registration is locked", async () => {
-    const session = {
-      cancelledAt: null,
-      divisionId: division.id,
-      editionId: edition.id,
-      endAt: Date.parse("2027-11-21T05:30:00.000Z"),
-      id: "session-1",
-      startAt: Date.parse("2027-11-21T04:30:00.000Z"),
-      venueId: venue.id,
-    };
-    const { lockedResults, spies, tx } = createTx([session]);
-    lockedResults.push([{ ...edition, lifecycle: "registration_locked" }]);
+  it.each(["registration_locked", "live"] as const)(
+    "rejects stale structural Session changes while %s",
+    async (lifecycle) => {
+      const session = {
+        cancelledAt: null,
+        divisionId: division.id,
+        editionId: edition.id,
+        endAt: Date.parse("2027-11-21T05:30:00.000Z"),
+        id: "session-1",
+        startAt: Date.parse("2027-11-21T04:30:00.000Z"),
+        venueId: venue.id,
+      };
+      const { lockedResults, spies, tx } = createTx([session]);
+      lockedResults.push([{ ...edition, lifecycle }]);
 
-    await expect(
-      kalakritiCompetitionMutators.updateSession.fn({
+      await expect(
+        kalakritiCompetitionMutators.updateSession.fn({
+          args: {
+            ...session,
+            auditEntryId: "audit-1",
+            divisionId: "division-2",
+            now: 1,
+            sessionId: session.id,
+          },
+          ctx: adminContext,
+          tx,
+        } as unknown as Parameters<
+          typeof kalakritiCompetitionMutators.updateSession.fn
+        >[0])
+      ).rejects.toThrow("Session Division cannot change");
+      expect(spies.updateSession).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(["registration_locked", "live"] as const)(
+    "allows Session time and Venue changes while %s",
+    async (lifecycle) => {
+      const session = {
+        cancelledAt: null,
+        divisionId: division.id,
+        editionId: edition.id,
+        endAt: Date.parse("2027-11-21T05:30:00.000Z"),
+        id: "session-1",
+        startAt: Date.parse("2027-11-21T04:30:00.000Z"),
+        venueId: venue.id,
+      };
+      const nextVenue = { ...venue, id: "venue-2", name: "Second Hall" };
+      const nextStartAt = Date.parse("2027-11-21T06:30:00.000Z");
+      const nextEndAt = Date.parse("2027-11-21T07:30:00.000Z");
+      const asyncTasks: Array<{
+        fn: () => Promise<void>;
+        meta: Record<string, unknown>;
+      }> = [];
+      const { lockedResults, spies, tx } = createTx([
+        session,
+        [],
+        division,
+        nextVenue,
+        [],
+        competition,
+        division,
+        competition,
+        [{ centerId: "center-1" }, { centerId: "center-1" }],
+        [{ centerId: "center-1" }],
+      ]);
+      lockedResults.push([{ ...edition, lifecycle }]);
+
+      await kalakritiCompetitionMutators.updateSession.fn({
         args: {
           ...session,
           auditEntryId: "audit-1",
-          divisionId: "division-2",
+          endAt: nextEndAt,
           now: 1,
           sessionId: session.id,
+          startAt: nextStartAt,
+          venueId: nextVenue.id,
         },
-        ctx: adminContext,
+        ctx: { ...adminContext, asyncTasks },
         tx,
       } as unknown as Parameters<
         typeof kalakritiCompetitionMutators.updateSession.fn
-      >[0])
-    ).rejects.toThrow("Session Division cannot change");
-    expect(spies.updateSession).not.toHaveBeenCalled();
-  });
+      >[0]);
 
-  it("allows Session time and Venue changes after registration is locked", async () => {
-    const session = {
-      cancelledAt: null,
-      divisionId: division.id,
-      editionId: edition.id,
-      endAt: Date.parse("2027-11-21T05:30:00.000Z"),
-      id: "session-1",
-      startAt: Date.parse("2027-11-21T04:30:00.000Z"),
-      venueId: venue.id,
-    };
-    const nextVenue = { ...venue, id: "venue-2", name: "Second Hall" };
-    const nextStartAt = Date.parse("2027-11-21T06:30:00.000Z");
-    const nextEndAt = Date.parse("2027-11-21T07:30:00.000Z");
-    const asyncTasks: Array<{
-      fn: () => Promise<void>;
-      meta: Record<string, unknown>;
-    }> = [];
-    const { lockedResults, spies, tx } = createTx([
-      session,
-      [],
-      division,
-      nextVenue,
-      [],
-      competition,
-      division,
-      competition,
-      [{ centerId: "center-1" }, { centerId: "center-1" }],
-      [{ centerId: "center-1" }],
-    ]);
-    lockedResults.push([{ ...edition, lifecycle: "registration_locked" }]);
-
-    await kalakritiCompetitionMutators.updateSession.fn({
-      args: {
-        ...session,
-        auditEntryId: "audit-1",
+      expect(spies.updateSession).toHaveBeenCalledWith({
+        divisionId: session.divisionId,
         endAt: nextEndAt,
-        now: 1,
-        sessionId: session.id,
+        id: session.id,
         startAt: nextStartAt,
+        updatedAt: 1,
         venueId: nextVenue.id,
-      },
-      ctx: { ...adminContext, asyncTasks },
-      tx,
-    } as unknown as Parameters<
-      typeof kalakritiCompetitionMutators.updateSession.fn
-    >[0]);
-
-    expect(spies.updateSession).toHaveBeenCalledWith({
-      divisionId: session.divisionId,
-      endAt: nextEndAt,
-      id: session.id,
-      startAt: nextStartAt,
-      updatedAt: 1,
-      venueId: nextVenue.id,
-    });
-    expect(spies.insertAudit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: "updated",
-        metadata: expect.objectContaining({
-          competitionCategoryId: competition.competitionCategoryId,
-          competitionCategoryIds: [
-            competition.competitionCategoryId,
-            competition.competitionCategoryId,
-          ],
-        }),
-        targetId: session.id,
-        targetType: "competition_session",
-      })
-    );
-    expect(asyncTasks).toHaveLength(1);
-    expect(asyncTasks[0]?.meta).toEqual(
-      expect.objectContaining({
-        centerIds: ["center-1"],
-        competitionIds: [competition.id],
-        editionId: edition.id,
-        revision: "audit-1",
-      })
-    );
-  });
+      });
+      expect(spies.insertAudit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "updated",
+          metadata: expect.objectContaining({
+            competitionCategoryId: competition.competitionCategoryId,
+            competitionCategoryIds: [
+              competition.competitionCategoryId,
+              competition.competitionCategoryId,
+            ],
+          }),
+          targetId: session.id,
+          targetType: "competition_session",
+        })
+      );
+      expect(asyncTasks).toHaveLength(1);
+      expect(asyncTasks[0]?.meta).toEqual(
+        expect.objectContaining({
+          centerIds: ["center-1"],
+          competitionIds: [competition.id],
+          editionId: edition.id,
+          revision: "audit-1",
+        })
+      );
+    }
+  );
 
   it("records both Category scopes when a Session moves between Competitions", async () => {
     const session = {
@@ -1313,11 +1319,11 @@ describe("kalakritiCompetition commands", () => {
           competitionCategoryId: category.id,
           competitionId: competition.id,
           divisions: [{ ageCategoryId: "age-1", divisionId: division.id }],
-          genderEligibility: competition.genderEligibility,
+          genderEligibility: "male",
           maximumGroupSize: 1,
           minimumGroupSize: 1,
           musicUploadEnabled: false,
-          name: "Dance Finals",
+          name: competition.name,
           now: 2,
           participationMode: competition.participationMode,
         },
@@ -1328,6 +1334,52 @@ describe("kalakritiCompetition commands", () => {
       >[0])
     ).rejects.toThrow("Competition structure cannot change");
     expect(spies.updateCompetition).not.toHaveBeenCalled();
+  });
+
+  it("allows Competition name updates after registration is locked", async () => {
+    const asyncTasks: Array<{
+      fn: () => Promise<void>;
+      meta: Record<string, unknown>;
+    }> = [];
+    const { lockedResults, spies, tx } = createTx([
+      competition,
+      [division],
+      category,
+      [{ centerId: "center-1" }],
+    ]);
+    lockedResults.push([{ ...edition, lifecycle: "registration_locked" }]);
+
+    await kalakritiCompetitionMutators.updateCompetition.fn({
+      args: {
+        auditEntryId: "audit-locked-name",
+        competitionCategoryId: category.id,
+        competitionId: competition.id,
+        divisions: [{ ageCategoryId: "age-1", divisionId: division.id }],
+        genderEligibility: competition.genderEligibility,
+        maximumGroupSize: 1,
+        minimumGroupSize: 1,
+        musicUploadEnabled: false,
+        name: "Dance Finals",
+        now: 2,
+        participationMode: competition.participationMode,
+      },
+      ctx: { ...adminContext, asyncTasks },
+      tx,
+    } as never);
+
+    expect(spies.updateCompetition).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: competition.id,
+        name: "Dance Finals",
+        normalizedName: "dance finals",
+      })
+    );
+    expect(asyncTasks[0]?.meta).toEqual(
+      expect.objectContaining({
+        competitionIds: [competition.id],
+        revision: "audit-locked-name",
+      })
+    );
   });
 
   it("allows sequential performance flag updates after registration is locked", async () => {
@@ -1390,22 +1442,22 @@ describe("kalakritiCompetition commands", () => {
     });
   });
 
-  it("still rejects other structure edits while Live", async () => {
+  it("still rejects identity edits while Live", async () => {
     const { lockedResults, spies, tx } = createTx([competition, [division]]);
     lockedResults.push([{ ...edition, lifecycle: "live" }]);
 
     await expect(
       kalakritiCompetitionMutators.updateCompetition.fn({
         args: {
-          auditEntryId: "audit-live-name",
+          auditEntryId: "audit-live-identity",
           competitionCategoryId: category.id,
           competitionId: competition.id,
           divisions: [{ ageCategoryId: "age-1", divisionId: division.id }],
-          genderEligibility: competition.genderEligibility,
+          genderEligibility: "male",
           maximumGroupSize: 1,
           minimumGroupSize: 1,
           musicUploadEnabled: false,
-          name: "Dance Finals",
+          name: competition.name,
           now: 4,
           participationMode: competition.participationMode,
           sequentialPerformances: true,
@@ -1413,8 +1465,54 @@ describe("kalakritiCompetition commands", () => {
         ctx: adminContext,
         tx,
       } as never)
-    ).rejects.toThrow("Configuration cannot be changed");
+    ).rejects.toThrow("Competition structure cannot change");
     expect(spies.updateCompetition).not.toHaveBeenCalled();
+  });
+
+  it("allows Competition name updates while Live", async () => {
+    const asyncTasks: Array<{
+      fn: () => Promise<void>;
+      meta: Record<string, unknown>;
+    }> = [];
+    const { lockedResults, spies, tx } = createTx([
+      competition,
+      [division],
+      category,
+      [{ centerId: "center-1" }],
+    ]);
+    lockedResults.push([{ ...edition, lifecycle: "live" }]);
+
+    await kalakritiCompetitionMutators.updateCompetition.fn({
+      args: {
+        auditEntryId: "audit-live-name",
+        competitionCategoryId: category.id,
+        competitionId: competition.id,
+        divisions: [{ ageCategoryId: "age-1", divisionId: division.id }],
+        genderEligibility: competition.genderEligibility,
+        maximumGroupSize: 1,
+        minimumGroupSize: 1,
+        musicUploadEnabled: false,
+        name: "Dance Finals",
+        now: 4,
+        participationMode: competition.participationMode,
+      },
+      ctx: { ...adminContext, asyncTasks },
+      tx,
+    } as never);
+
+    expect(spies.updateCompetition).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: competition.id,
+        name: "Dance Finals",
+        normalizedName: "dance finals",
+      })
+    );
+    expect(asyncTasks[0]?.meta).toEqual(
+      expect.objectContaining({
+        competitionIds: [competition.id],
+        revision: "audit-live-name",
+      })
+    );
   });
 
   it("allows locked Session edits with a legacy null music flag", async () => {
@@ -1485,50 +1583,53 @@ describe("kalakritiCompetition commands", () => {
     );
   });
 
-  it("rejects new Sessions after registration is locked", async () => {
-    const { lockedResults, spies, tx } = createTx([
-      competition,
-      [division],
-      undefined,
-      venue,
-      division,
-      [],
-    ]);
-    lockedResults.push([{ ...edition, lifecycle: "registration_locked" }]);
+  it.each(["registration_locked", "live"] as const)(
+    "rejects new Sessions while %s",
+    async (lifecycle) => {
+      const { lockedResults, spies, tx } = createTx([
+        competition,
+        [division],
+        undefined,
+        venue,
+        division,
+        [],
+      ]);
+      lockedResults.push([{ ...edition, lifecycle }]);
 
-    await expect(
-      kalakritiCompetitionMutators.updateCompetition.fn({
-        args: {
-          auditEntryId: "competition-audit",
-          competitionCategoryId: category.id,
-          competitionId: competition.id,
-          divisions: [{ ageCategoryId: "age-1", divisionId: division.id }],
-          genderEligibility: competition.genderEligibility,
-          maximumGroupSize: 1,
-          minimumGroupSize: 1,
-          musicUploadEnabled: false,
-          name: competition.name,
-          now: 2,
-          participationMode: competition.participationMode,
-          schedules: [
-            {
-              auditEntryId: "session-audit",
-              divisionId: division.id,
-              endAt: Date.parse("2027-11-21T05:30:00.000Z"),
-              sessionId: "new-session",
-              startAt: Date.parse("2027-11-21T04:30:00.000Z"),
-              venueId: venue.id,
-            },
-          ],
-        },
-        ctx: adminContext,
-        tx,
-      } as unknown as Parameters<
-        typeof kalakritiCompetitionMutators.updateCompetition.fn
-      >[0])
-    ).rejects.toThrow("Sessions cannot be added");
-    expect(spies.insertSession).not.toHaveBeenCalled();
-  });
+      await expect(
+        kalakritiCompetitionMutators.updateCompetition.fn({
+          args: {
+            auditEntryId: "competition-audit",
+            competitionCategoryId: category.id,
+            competitionId: competition.id,
+            divisions: [{ ageCategoryId: "age-1", divisionId: division.id }],
+            genderEligibility: competition.genderEligibility,
+            maximumGroupSize: 1,
+            minimumGroupSize: 1,
+            musicUploadEnabled: false,
+            name: competition.name,
+            now: 2,
+            participationMode: competition.participationMode,
+            schedules: [
+              {
+                auditEntryId: "session-audit",
+                divisionId: division.id,
+                endAt: Date.parse("2027-11-21T05:30:00.000Z"),
+                sessionId: "new-session",
+                startAt: Date.parse("2027-11-21T04:30:00.000Z"),
+                venueId: venue.id,
+              },
+            ],
+          },
+          ctx: adminContext,
+          tx,
+        } as unknown as Parameters<
+          typeof kalakritiCompetitionMutators.updateCompetition.fn
+        >[0])
+      ).rejects.toThrow("Sessions cannot be added");
+      expect(spies.insertSession).not.toHaveBeenCalled();
+    }
+  );
 
   it("rejects a second Session for an occupied Division", async () => {
     const occupiedSession = {
@@ -1641,51 +1742,103 @@ describe("kalakritiCompetition commands", () => {
     expect(spies.updateSession).not.toHaveBeenCalled();
   });
 
-  it("notifies affected users when a published Venue name changes", async () => {
-    const asyncTasks: Array<{
-      fn: () => Promise<void>;
-      meta: Record<string, unknown>;
-    }> = [];
-    const { lockedResults, spies, tx } = createTx([
-      venue,
-      [{ division: { competitionId: competition.id } }],
-      [{ centerId: "center-1" }],
-      competition,
-    ]);
-    lockedResults.push([{ ...edition, lifecycle: "registration_open" }]);
+  it.each(["registration_open", "live"] as const)(
+    "notifies affected users when a published Venue name changes while %s",
+    async (lifecycle) => {
+      const asyncTasks: Array<{
+        fn: () => Promise<void>;
+        meta: Record<string, unknown>;
+      }> = [];
+      const { lockedResults, spies, tx } = createTx([
+        venue,
+        [{ division: { competitionId: competition.id } }],
+        [{ centerId: "center-1" }],
+        competition,
+      ]);
+      lockedResults.push([{ ...edition, lifecycle }]);
 
-    await kalakritiCompetitionMutators.updateVenue.fn({
-      args: {
-        auditEntryId: "venue-name-audit",
-        name: "Main Auditorium",
-        now: 2,
-        venueId: venue.id,
-      },
-      ctx: { ...adminContext, asyncTasks },
-      tx,
-    } as unknown as Parameters<
-      typeof kalakritiCompetitionMutators.updateVenue.fn
-    >[0]);
-
-    expect(asyncTasks).toHaveLength(1);
-    expect(asyncTasks[0]?.meta).toEqual(
-      expect.objectContaining({
-        centerIds: ["center-1"],
-        competitionIds: [competition.id],
-        editionId: edition.id,
-        revision: "venue-name-audit",
-      })
-    );
-    expect(spies.insertAudit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        metadata: {
-          competitionCategoryIds: [competition.competitionCategoryId],
-          competitionIds: [competition.id],
+      await kalakritiCompetitionMutators.updateVenue.fn({
+        args: {
+          auditEntryId: "venue-name-audit",
           name: "Main Auditorium",
+          now: 2,
+          venueId: venue.id,
         },
-        targetType: "venue",
-      })
-    );
+        ctx: { ...adminContext, asyncTasks },
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiCompetitionMutators.updateVenue.fn
+      >[0]);
+
+      expect(asyncTasks).toHaveLength(1);
+      expect(asyncTasks[0]?.meta).toEqual(
+        expect.objectContaining({
+          centerIds: ["center-1"],
+          competitionIds: [competition.id],
+          editionId: edition.id,
+          revision: "venue-name-audit",
+        })
+      );
+      expect(spies.insertAudit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: {
+            competitionCategoryIds: [competition.competitionCategoryId],
+            competitionIds: [competition.id],
+            name: "Main Auditorium",
+          },
+          targetType: "venue",
+        })
+      );
+    }
+  );
+
+  it.each(["registration_locked", "live"] as const)(
+    "allows creating a Venue while %s",
+    async (lifecycle) => {
+      const { lockedResults, spies, tx } = createTx();
+      lockedResults.push([{ ...edition, lifecycle }]);
+
+      await kalakritiCompetitionMutators.createVenue.fn({
+        args: {
+          auditEntryId: "venue-create-audit",
+          editionId: edition.id,
+          name: "  Side  Hall ",
+          now: 2,
+          venueId: "venue-2",
+        },
+        ctx: adminContext,
+        tx,
+      } as never);
+
+      expect(spies.insertVenue).toHaveBeenCalledWith(
+        expect.objectContaining({
+          editionId: edition.id,
+          id: "venue-2",
+          name: "Side Hall",
+          normalizedName: "side hall",
+        })
+      );
+    }
+  );
+
+  it("rejects Venue creation after the Edition is archived", async () => {
+    const { lockedResults, spies, tx } = createTx();
+    lockedResults.push([{ ...edition, lifecycle: "archived" }]);
+
+    await expect(
+      kalakritiCompetitionMutators.createVenue.fn({
+        args: {
+          auditEntryId: "venue-create-archived",
+          editionId: edition.id,
+          name: "Side Hall",
+          now: 2,
+          venueId: "venue-2",
+        },
+        ctx: adminContext,
+        tx,
+      } as never)
+    ).rejects.toThrow("Configuration cannot be changed");
+    expect(spies.insertVenue).not.toHaveBeenCalled();
   });
 
   it("rejects a same-Venue Session overlap", async () => {

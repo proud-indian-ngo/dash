@@ -21,6 +21,7 @@ import type {
   VenueView,
 } from "@/components/kalakriti/competition-config-types";
 import { CompetitionPageSummary } from "@/components/kalakriti/competition-page-summary";
+import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notice";
 import { VenueDetailSheet } from "@/components/kalakriti/venue-detail-sheet";
 import {
   VenueFormDialog,
@@ -39,7 +40,7 @@ function VenuesPage() {
   const zero = useZero();
   const { setQuery } = useDataTableFilters();
   const {
-    kalakritiCompetitionAccess: { canManage },
+    kalakritiCompetitionAccess: { canEditVenues, canManage, structuralLocked },
     kalakritiEditionAccess: { edition },
   } = Route.useRouteContext();
   const [venues, venueResult] = useQuery(
@@ -192,7 +193,14 @@ function VenuesPage() {
         onRetry={retrySummary}
         title="Venue coverage"
       />
+      {structuralLocked && canEditVenues ? (
+        <KalakritiLockNotice>
+          Venue names can still be added and corrected. Retiring or deleting
+          Venues is locked while this Edition is {edition.lifecycle}.
+        </KalakritiLockNotice>
+      ) : null}
       <VenuesTable
+        canEdit={canEditVenues}
         canManage={canManage}
         data={rows}
         isLoading={isLoading}
@@ -201,7 +209,7 @@ function VenuesPage() {
         onSetState={handleSetState}
         onView={handleView}
         toolbarActions={
-          canManage ? (
+          canEditVenues ? (
             <Button onClick={handleAdd} size="sm">
               <HugeiconsIcon
                 className="size-4"
@@ -215,6 +223,7 @@ function VenuesPage() {
       />
 
       <VenueDetailSheet
+        canEdit={canEditVenues}
         canManage={canManage}
         onDelete={handleDelete}
         onEdit={handleEdit}
