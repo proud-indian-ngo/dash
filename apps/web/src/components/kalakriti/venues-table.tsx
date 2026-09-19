@@ -27,6 +27,7 @@ const SKELETON_STATUS = <Skeleton className="h-5 w-16" />;
 const SKELETON_ACTIONS = <Skeleton className="mx-auto size-8" />;
 
 function RowActions({
+  canEdit,
   canManage,
   onDelete,
   onEdit,
@@ -34,6 +35,7 @@ function RowActions({
   onView,
   venue,
 }: {
+  canEdit: boolean;
   canManage: boolean;
   onDelete: (payload: ConfigurationDeletePayload) => void;
   onEdit: (venue: VenueTableRow) => void;
@@ -81,7 +83,7 @@ function RowActions({
       }
       actions={[
         { id: "view", label: "View details", onSelect: handleView },
-        canManage && { id: "edit", label: "Edit Venue", onSelect: handleEdit },
+        canEdit && { id: "edit", label: "Edit Venue", onSelect: handleEdit },
         canManage && {
           id: "retire",
           label: `${venue.retiredAt === null ? "Retire" : "Restore"} Venue`,
@@ -110,6 +112,7 @@ function searchVenue(venue: VenueTableRow, query: string): boolean {
 }
 
 export function VenuesTable({
+  canEdit,
   canManage,
   data,
   isLoading,
@@ -119,6 +122,7 @@ export function VenuesTable({
   onView,
   toolbarActions,
 }: {
+  canEdit: boolean;
   canManage: boolean;
   data: VenueTableRow[];
   isLoading: boolean;
@@ -185,6 +189,7 @@ export function VenuesTable({
     {
       cell: ({ row }) => (
         <RowActions
+          canEdit={canEdit}
           canManage={canManage}
           onDelete={onDelete}
           onEdit={onEdit}

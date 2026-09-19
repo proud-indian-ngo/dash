@@ -431,7 +431,7 @@ function CompetitionCatalogPage() {
         <KalakritiLockNotice>
           {edition.lifecycle === "registration_locked" ||
           edition.lifecycle === "live"
-            ? "Competition structure is locked. Existing Competitions can still be cancelled or restored; schedule editing follows the Edition phase."
+            ? "Competition structure is locked. You can still update names, existing Session times, and Venues, and cancel or restore existing Competitions."
             : `Configuration is locked while this Edition is ${edition.lifecycle}.`}
         </KalakritiLockNotice>
       ) : null}

@@ -148,4 +148,20 @@ describe("Kalakriti settings route guard", () => {
       })
     ).not.toThrow();
   });
+
+  it("allows venue edits while Live without unlocking structural settings", () => {
+    expect(
+      runSettingsBeforeLoad({
+        edition: { lifecycle: "live" },
+        isGlobalAdmin: false,
+        membership: { responsibilities: ["edition_admin"] },
+      })
+    ).toMatchObject({
+      kalakritiCompetitionAccess: {
+        canManage: false,
+        canEditVenues: true,
+        canManageCancellations: true,
+      },
+    });
+  });
 });
