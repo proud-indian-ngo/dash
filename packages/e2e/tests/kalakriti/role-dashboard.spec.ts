@@ -41,7 +41,7 @@ async function actorPage(
   return page;
 }
 
-test("role dashboards show scoped work, linked actions, and a useful future-role overview", async ({
+test("role dashboards show scoped work, linked actions, and read-only Awards access", async ({
   baseURL,
   browser,
   kalakritiActors,
@@ -196,7 +196,7 @@ test("role dashboards show scoped work, linked actions, and a useful future-role
       operator.getByRole("button", { name: "Serve meals", exact: true })
     ).toHaveCount(1);
 
-    const future = await actorPage(
+    const awards = await actorPage(
       browser,
       baseURL,
       kalakritiActors.unrelatedVolunteer.storageState,
@@ -204,17 +204,31 @@ test("role dashboards show scoped work, linked actions, and a useful future-role
       year
     );
     await expect(
-      future.getByText("Awards Member", { exact: true })
-    ).toBeVisible();
-    await expect(future.getByText("Your Edition at a glance")).toBeVisible();
-    await expect(
-      future.getByRole("button", { name: "View schedule" })
+      awards.getByText("Awards Member", { exact: true })
     ).toBeVisible();
     await expect(
-      future.getByRole("heading", { name: "Center standings" })
+      awards.getByRole("heading", { name: "Competitions", exact: true })
+    ).toBeVisible();
+    await expect(awards.getByText("Your Edition at a glance")).toHaveCount(0);
+    await expect(
+      awards.getByRole("button", { name: "View schedule" })
     ).toBeVisible();
     await expect(
-      future.getByRole("heading", { name: "Meals", exact: true })
+      awards.getByRole("heading", { name: "Center standings" })
+    ).toBeVisible();
+    await expect(
+      awards.getByRole("heading", { name: "Meals", exact: true })
+    ).toHaveCount(0);
+    await awards
+      .getByRole("button", { name: "Competitions", exact: true })
+      .click();
+    await expect(awards).toHaveURL(`/kalakriti/${year}/competitions`);
+    await expect(awards.getByText("No Competitions configured.")).toBeVisible();
+    await expect(
+      awards.getByRole("link", { name: "Settings", exact: true })
+    ).toHaveCount(0);
+    await expect(
+      awards.getByRole("button", { name: "Scan", exact: true })
     ).toHaveCount(0);
     failed = false;
   } finally {
