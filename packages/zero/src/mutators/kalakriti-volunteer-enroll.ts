@@ -59,7 +59,8 @@ interface VolunteerMembershipRow {
 export async function assertCanManageVolunteerRoster(
   tx: { run: ZeroRunFn },
   ctx: Context | undefined,
-  editionId: string
+  editionId: string,
+  printedCard = false
 ): Promise<void> {
   assertIsLoggedIn(ctx);
   if (can(ctx, "kalakriti.admin")) {
@@ -71,6 +72,7 @@ export async function assertCanManageVolunteerRoster(
       .where("editionId", editionId)
       .where("userId", ctx.userId)
       .where("state", "active")
+      .where("kind", "volunteer")
       .one()
   )) as { id: string } | undefined;
   if (!membership) {
@@ -80,10 +82,14 @@ export async function assertCanManageVolunteerRoster(
   const managerAssignment = await tx.run(
     zql.kalakritiAssignment
       .where("membershipId", membership.id)
+      .where("editionId", editionId)
       .where(({ or, cmp }) =>
         or(
           cmp("responsibility", "edition_admin"),
-          cmp("responsibility", "volunteer_coordinator")
+          cmp("responsibility", "volunteer_coordinator"),
+          ...(printedCard
+            ? [cmp("responsibility", "volunteer_management_volunteer")]
+            : [])
         )
       )
       .one()

@@ -33,6 +33,7 @@ function DetailRow({ label, value }: { label: string; value: string | null }) {
 
 export function VolunteerDetailSheet({
   actorResponsibilities,
+  canManage,
   isGlobalAdmin,
   onAssign,
   onOpenChange,
@@ -42,6 +43,7 @@ export function VolunteerDetailSheet({
   volunteer,
 }: {
   actorResponsibilities: readonly KalakritiResponsibility[];
+  canManage: boolean;
   isGlobalAdmin: boolean;
   onAssign: (volunteer: VolunteerRosterItem) => void;
   onOpenChange: (open: boolean) => void;
@@ -60,17 +62,17 @@ export function VolunteerDetailSheet({
       onRemoveFromEdition(volunteer);
     }
   });
-  const canAssignRole = volunteer
-    ? canAssignKalakritiVolunteerRole(volunteer)
-    : false;
+  const canAssignRole =
+    canManage && volunteer ? canAssignKalakritiVolunteerRole(volunteer) : false;
   const canRemoveFromEdition =
-    isGlobalAdmin ||
-    volunteer?.assignments.every((assignment) =>
-      canManageKalakritiResponsibility(
-        actorResponsibilities,
-        assignment.responsibility
-      )
-    );
+    canManage &&
+    (isGlobalAdmin ||
+      volunteer?.assignments.every((assignment) =>
+        canManageKalakritiResponsibility(
+          actorResponsibilities,
+          assignment.responsibility
+        )
+      ));
 
   if (!volunteer) {
     return (
@@ -125,6 +127,7 @@ export function VolunteerDetailSheet({
                   <VolunteerAssignmentDetailRow
                     actorResponsibilities={actorResponsibilities}
                     assignment={assignment}
+                    canManage={canManage}
                     isFinalAssignment={volunteer.assignments.length === 1}
                     isGlobalAdmin={isGlobalAdmin}
                     key={assignment.id}
@@ -154,6 +157,7 @@ export function VolunteerDetailSheet({
 function VolunteerAssignmentDetailRow({
   actorResponsibilities,
   assignment,
+  canManage,
   isFinalAssignment,
   isGlobalAdmin,
   onRemove,
@@ -161,6 +165,7 @@ function VolunteerAssignmentDetailRow({
 }: {
   actorResponsibilities: readonly KalakritiResponsibility[];
   assignment: VolunteerRosterItem["assignments"][number];
+  canManage: boolean;
   isFinalAssignment: boolean;
   isGlobalAdmin: boolean;
   onRemove: (payload: RemoveAssignmentPayload) => void;
@@ -175,11 +180,12 @@ function VolunteerAssignmentDetailRow({
     });
   });
   const canRemove =
-    isGlobalAdmin ||
-    canManageKalakritiResponsibility(
-      actorResponsibilities,
-      assignment.responsibility
-    );
+    canManage &&
+    (isGlobalAdmin ||
+      canManageKalakritiResponsibility(
+        actorResponsibilities,
+        assignment.responsibility
+      ));
 
   return (
     <li className="flex items-center justify-between gap-3">

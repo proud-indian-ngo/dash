@@ -2,11 +2,53 @@ import { describe, expect, it } from "bun:test";
 
 import {
   assertAssignedCentralEmailUnchanged,
+  canManageKalakritiGuardians,
+  canViewKalakritiGuardians,
   decideGuardianIdentity,
   type GuardianIdentityCandidate,
   guardianContactChangedFields,
   shouldBlockExternalIdentity,
 } from "./kalakriti-guardian-policy";
+
+describe("Guardian roster permissions", () => {
+  const access = (responsibility: string, lifecycle = "live") => ({
+    edition: { lifecycle },
+    isGlobalAdmin: false,
+    membership: { responsibilities: [responsibility] },
+  });
+
+  it.each(["volunteer_coordinator", "volunteer_management_volunteer"])(
+    "gives %s read-only access",
+    (responsibility) => {
+      const candidate = access(responsibility);
+      expect(canViewKalakritiGuardians(candidate)).toBe(true);
+      expect(canManageKalakritiGuardians(candidate)).toBe(false);
+      expect(
+        canViewKalakritiGuardians(access(responsibility, "archived"))
+      ).toBe(false);
+    }
+  );
+
+  it.each([
+    "liaison",
+    "liaison_lead",
+    "center_liaison_lead",
+    "liaison_volunteer",
+  ])("gives %s scoped Guardian access", (responsibility) => {
+    const candidate = access(responsibility);
+    expect(canViewKalakritiGuardians(candidate)).toBe(true);
+    expect(canManageKalakritiGuardians(candidate)).toBe(false);
+    expect(canViewKalakritiGuardians(access(responsibility, "archived"))).toBe(
+      false
+    );
+  });
+
+  it("preserves archived Guardian reads for Edition Administrators", () => {
+    expect(canViewKalakritiGuardians(access("edition_admin", "archived"))).toBe(
+      true
+    );
+  });
+});
 
 const dormantExternal: GuardianIdentityCandidate = {
   banned: true,

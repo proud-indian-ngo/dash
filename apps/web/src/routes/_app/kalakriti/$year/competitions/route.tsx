@@ -16,6 +16,10 @@ export const Route = createFileRoute("/_app/kalakriti/$year/competitions")({
       responsibilities.includes("overall_events_lead");
     const canViewConfiguration =
       actorCanManage || responsibilities.includes("competition_category_lead");
+    const canViewCompetitionCatalog =
+      canViewConfiguration ||
+      responsibilities.includes("awards_lead") ||
+      responsibilities.includes("awards_member");
     const structuralLocked = [
       "registration_locked",
       "live",
@@ -24,6 +28,7 @@ export const Route = createFileRoute("/_app/kalakriti/$year/competitions")({
     return {
       kalakritiCompetitionAccess: {
         actorCanManage,
+        canViewCompetitionCatalog,
         canViewConfiguration,
         canManage: actorCanManage && !structuralLocked,
         canEditCompetition:

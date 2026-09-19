@@ -49,6 +49,7 @@ function runBeforeLoad({
   return beforeLoad({
     context: {
       kalakritiEditionAccess: {
+        edition: { lifecycle: "live" },
         isGlobalAdmin,
         membership: isGlobalAdmin
           ? null
@@ -63,6 +64,10 @@ describe("Kalakriti Volunteers route guard", () => {
     ["global administrator", { isGlobalAdmin: true }],
     ["Edition Administrator", { responsibilities: ["edition_admin"] }],
     ["Volunteer Coordinator", { responsibilities: ["volunteer_coordinator"] }],
+    [
+      "Volunteer Management Volunteer",
+      { responsibilities: ["volunteer_management_volunteer"] },
+    ],
   ])("allows a %s", (_label, candidate) => {
     expect(() => runBeforeLoad(candidate)).not.toThrow();
   });

@@ -722,6 +722,13 @@
       "when": 1789834513600,
       "tag": "0102_dizzy_firedrake",
       "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "7",
+      "when": 1789846917100,
+      "tag": "0103_hard_sinister_six",
+      "breakpoints": true
     }
   ]
 }

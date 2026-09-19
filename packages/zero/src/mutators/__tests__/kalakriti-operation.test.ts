@@ -34,6 +34,8 @@ const attendanceSession = {
       id: "competition-1",
       editionId: "edition-1",
       cancelledAt: null,
+      competitionCategoryId: "category-1",
+      participationMode: "individual",
     },
   },
 };
@@ -170,7 +172,13 @@ describe("Guest and Judge operations", () => {
           })
         );
       });
-      it.each(["hospitality_lead", "hospitality_member", "edition_admin"])(
+      it.each([
+        "hospitality_lead",
+        "hospitality_member",
+        "edition_admin",
+        "volunteer_coordinator",
+        "volunteer_management_volunteer",
+      ])(
         `allows %s to check in ${kind} via ${mode}`,
         async (responsibility) => {
           const { tx, insertOperation } = setup([
@@ -439,12 +447,11 @@ describe("Guardian meals", () => {
       "venue_arrival",
       "venue_departure",
       "drop_off",
-      "volunteer_check_in",
       "competition_attendance",
     ])(`rejects Guardian %s via ${mode}`, async (type) => {
       const { tx, insertOperation } = setup(lookup(guardian));
       await expect(command(tx, { ...args, type })).rejects.toThrow(
-        "Guardians can only receive meals"
+        "Guardians can only check in or receive meals"
       );
       expect(insertOperation).not.toHaveBeenCalled();
     });
@@ -1119,4 +1126,212 @@ describe("person QR operation recording", () => {
     expect(tx.run).not.toHaveBeenCalled();
     expect(insertOperation).not.toHaveBeenCalled();
   });
+});
+
+describe("Volunteer Management check-in", () => {
+  for (const kind of ["guardian", "volunteer"] as const) {
+    for (const mode of ["qr", "manual"] as const) {
+      it.each(["volunteer_coordinator", "volunteer_management_volunteer"])(
+        `allows %s to check in ${kind} via ${mode}`,
+        async (responsibility) => {
+          const subject = {
+            ...volunteer,
+            kind,
+            humanId: kind === "guardian" ? "KALG-2027-0001" : volunteer.humanId,
+          };
+          const { tx, insertOperation } = setup([
+            undefined,
+            ...(mode === "manual" ? [undefined] : []),
+            subject,
+            volunteer,
+            [{ responsibility }],
+            [],
+          ]);
+          await (mode === "qr" ? record : manual)(
+            tx,
+            {
+              type: "volunteer_check_in",
+              humanId: subject.humanId,
+              personQr: JSON.stringify({ id: subject.id, type: kind }),
+            },
+            { userId: "operator", permissions: ["kalakriti.view"] }
+          );
+          expect(insertOperation).toHaveBeenCalledWith(
+            expect.objectContaining({
+              type:
+                kind === "guardian"
+                  ? "guardian_check_in"
+                  : "volunteer_check_in",
+              membershipId: subject.id,
+              studentId: null,
+              attendeeId: null,
+            })
+          );
+        }
+      );
+    }
+  }
+  it("does not grant hospitality staff Guardian check-in", async () => {
+    const guardian = { ...volunteer, kind: "guardian" };
+    const { tx, insertOperation } = setup([
+      undefined,
+      guardian,
+      volunteer,
+      [{ responsibility: "hospitality_member" }],
+    ]);
+    await expect(
+      record(
+        tx,
+        {
+          type: "volunteer_check_in",
+          personQr: JSON.stringify({ id: guardian.id, type: "guardian" }),
+        },
+        { userId: "operator", permissions: ["kalakriti.view"] }
+      )
+    ).rejects.toThrow("Unauthorized");
+    expect(insertOperation).not.toHaveBeenCalled();
+  });
+  it("deduplicates Guardian check-in across fresh scans", async () => {
+    const guardian = { ...volunteer, kind: "guardian" };
+    const { tx, insertOperation } = setup([
+      undefined,
+      guardian,
+      [
+        {
+          ...existing,
+          type: "guardian_check_in",
+          studentId: null,
+          membershipId: guardian.id,
+          operationId: "earlier",
+        },
+      ],
+    ]);
+    await record(tx, {
+      type: "volunteer_check_in",
+      personQr: JSON.stringify({ id: guardian.id, type: "guardian" }),
+    });
+    expect(insertOperation).not.toHaveBeenCalled();
+  });
+});
+
+describe("Competition lead attendance", () => {
+  it.each([
+    ["overall_events_lead", null, true],
+    ["competition_category_lead", "category-1", true],
+    ["competition_category_lead", "other", false],
+    ["competition_category_lead", null, false],
+    ["volunteer_management_volunteer", null, false],
+  ] as const)(
+    "scopes %s category %s",
+    async (responsibility, competitionCategoryId, allowed) => {
+      const { tx, insertOperation } = setup([
+        undefined,
+        student,
+        attendanceSession,
+        { id: "entry-member" },
+        volunteer,
+        [{ responsibility, competitionCategoryId }],
+        [{ ...existing, operationId: "pickup" }],
+      ]);
+      const action = record(
+        tx,
+        { type: "competition_attendance", sessionId: "session-1" },
+        { userId: "operator", permissions: ["kalakriti.view"] }
+      );
+      if (allowed) {
+        await action;
+        expect(insertOperation).toHaveBeenCalledTimes(1);
+      } else {
+        await expect(action).rejects.toThrow("Unauthorized");
+        expect(insertOperation).not.toHaveBeenCalled();
+      }
+    }
+  );
+});
+
+describe("Group competition attendance", () => {
+  it.each(["qr", "manual"] as const)(
+    "marks only present teammates via %s",
+    async (mode) => {
+      const groupSession = {
+        ...attendanceSession,
+        division: {
+          ...attendanceSession.division,
+          competition: {
+            ...attendanceSession.division.competition,
+            participationMode: "group",
+          },
+        },
+      };
+      const operations = (id: string, present: boolean, attended = false) => [
+        { ...existing, operationId: `pickup-${id}`, studentId: id },
+        ...(present
+          ? [
+              {
+                ...existing,
+                type: "venue_arrival",
+                operationId: `arrival-${id}`,
+                studentId: id,
+              },
+            ]
+          : []),
+        ...(attended
+          ? [
+              {
+                ...existing,
+                type: "competition_attendance",
+                competitionSessionId: "session-1",
+                operationId: `attendance-${id}`,
+                studentId: id,
+              },
+            ]
+          : []),
+      ];
+      const { tx, insertOperation, insertAudit } = setup([
+        undefined,
+        student,
+        groupSession,
+        { id: "entry-member", entryId: "group-1" },
+        operations(student.id, true),
+        [
+          {
+            studentId: student.id,
+            student: { operations: operations(student.id, true) },
+          },
+          {
+            studentId: "present",
+            student: { operations: operations("present", true) },
+          },
+          {
+            studentId: "absent",
+            student: { operations: operations("absent", false) },
+          },
+          {
+            studentId: "attended",
+            student: { operations: operations("attended", true, true) },
+          },
+        ],
+      ]);
+      await (mode === "qr" ? record : manual)(tx, {
+        type: "competition_attendance",
+        sessionId: "session-1",
+      });
+      expect(insertOperation).toHaveBeenCalledTimes(2);
+      expect(insertOperation.mock.calls.map(([row]) => row.studentId)).toEqual([
+        student.id,
+        "present",
+      ]);
+      expect(insertOperation.mock.calls[1]?.[0]).toMatchObject({
+        competitionSessionId: "session-1",
+        recordedBy: adminContext.userId,
+      });
+      expect(insertAudit).toHaveBeenCalledTimes(2);
+      expect(insertAudit.mock.calls[1]?.[0].metadata).toMatchObject({
+        initiatingOperationId: baseArgs.operationId,
+        entryId: "group-1",
+      });
+      const groupQuery = tx.run.mock.calls.at(-1)?.[0];
+      expect(JSON.stringify(groupQuery?.ast)).toContain("group-1");
+    }
+  );
 });

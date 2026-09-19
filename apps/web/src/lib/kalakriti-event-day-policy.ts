@@ -1,4 +1,8 @@
-import { KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES } from "@pi-dash/shared/kalakriti";
+import {
+  KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES,
+  canRecordKalakritiCompetitionAttendance,
+  isKalakritiVolunteerManagementResponsibility,
+} from "@pi-dash/shared/kalakriti";
 import type { KalakritiPersonQr } from "@pi-dash/shared/kalakriti-person-qr";
 
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
@@ -33,7 +37,12 @@ export function canScanKalakritiPerson(
   kind: KalakritiPersonQr["type"]
 ): boolean {
   if (operation === "volunteer_check_in")
-    return kind === "volunteer" || kind === "guest" || kind === "judge";
+    return (
+      kind === "volunteer" ||
+      kind === "guest" ||
+      kind === "judge" ||
+      kind === "guardian"
+    );
   if (operation === "competition_attendance") return kind === "student";
   return true;
 }
@@ -66,6 +75,7 @@ export function getKalakritiScanActivities(
           );
         case "check_in":
           return (
+            isKalakritiVolunteerManagementResponsibility(a.responsibility) ||
             a.responsibility === "hospitality_lead" ||
             a.responsibility === "hospitality_member"
           );
@@ -76,13 +86,31 @@ export function getKalakritiScanActivities(
           );
         case "attendance":
           return (
-            a.competitionId !== null &&
-            (a.responsibility === "competition_volunteer" ||
-              a.responsibility === "competition_coordinator")
+            a.responsibility === "overall_events_lead" ||
+            (a.responsibility === "competition_category_lead" &&
+              a.competitionCategoryId != null) ||
+            (a.competitionId !== null &&
+              (a.responsibility === "competition_volunteer" ||
+                a.responsibility === "competition_coordinator"))
           );
         default:
           return false;
       }
     })
+  );
+}
+
+export function canScanKalakritiCompetition(
+  access: ScanAccess | null | undefined,
+  competition: { competitionId: string; competitionCategoryId: string | null }
+): boolean {
+  if (!access || access.edition?.lifecycle === "archived") return false;
+  return (
+    access.isGlobalAdmin ||
+    (access.membership?.kind === "volunteer" &&
+      canRecordKalakritiCompetitionAttendance(
+        access.membership.assignments,
+        competition
+      ))
   );
 }

@@ -91,6 +91,43 @@ describe("Kalakriti Entry views", () => {
     expect(rows[0]?.session.competition.musicUploadEnabled).toBe(false);
   });
 
+  it("maps Center Liaison Lead membership snapshots to detail rows", () => {
+    const rows = buildKalakritiEntryRows(
+      [
+        {
+          center: {
+            id: "center-1",
+            name: "North",
+            assignments: [
+              {
+                id: "assignment-1",
+                membership: {
+                  id: "membership-1",
+                  snapshotName: "Asha Rao",
+                  snapshotPhone: "+919876543210",
+                },
+              },
+            ],
+          },
+          division,
+          divisionId: division.id,
+          id: "entry-1",
+          members: [{ student, studentId: student.id }],
+          participationMode: "individual",
+        },
+      ],
+      []
+    );
+
+    expect(rows[0]?.liaisonContacts).toEqual([
+      {
+        id: "membership-1",
+        name: "Asha Rao",
+        phone: "+919876543210",
+      },
+    ]);
+  });
+
   it("keeps actual scheduled identity separate from the Division for active sessions", () => {
     const sessions = buildKalakritiEntrySessions([
       {

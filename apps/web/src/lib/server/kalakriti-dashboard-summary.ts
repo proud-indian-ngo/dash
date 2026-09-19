@@ -579,7 +579,11 @@ async function competitions(
   const all =
     access.isGlobalAdmin ||
     access.membership?.responsibilities.some(
-      (role) => role === "edition_admin" || role === "overall_events_lead"
+      (role) =>
+        role === "edition_admin" ||
+        role === "overall_events_lead" ||
+        role === "awards_lead" ||
+        role === "awards_member"
     );
   const categoryIds = [
     ...new Set(

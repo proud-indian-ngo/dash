@@ -194,6 +194,9 @@ test.describe("Kalakriti inventory", () => {
       ).toHaveCSS("text-overflow", "clip");
       const dispatch = await inventory.openScan("Dispatch");
       await dispatch
+        .getByRole("button", { name: "Enter ID manually", exact: true })
+        .click();
+      await dispatch
         .getByRole("textbox", { name: "Volunteer yearly ID" })
         .fill("KALV-2157-9999");
       await dispatch.getByRole("button", { name: "Find volunteer" }).click();

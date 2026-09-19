@@ -15,12 +15,17 @@ import {
   getGuardianFilterValue,
 } from "@/components/kalakriti/kalakriti-filters";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { hasEffectiveGuardianCheckIn } from "@/lib/kalakriti-guardian-policy";
 
 export interface GuardianRosterItem {
   assignedCenters: readonly string[];
   humanId?: string | null;
   id: string;
   isExternal: boolean;
+  operations: readonly {
+    supersededByOperationId: string | null;
+    type: string;
+  }[];
   snapshotEmail: string | null;
   snapshotName: string;
   snapshotPhone: string | null;
@@ -35,11 +40,13 @@ const SKELETON_ACTIONS = <Skeleton className="mx-auto size-8" />;
 
 function RowActions({
   guardian,
+  canManage,
   onArchive,
   onEdit,
   onView,
 }: {
   guardian: GuardianRosterItem;
+  canManage: boolean;
   onArchive: (guardian: GuardianRosterItem) => void;
   onEdit: (guardian: GuardianRosterItem) => void;
   onView: (guardian: GuardianRosterItem) => void;
@@ -72,18 +79,20 @@ function RowActions({
         </Button>
       }
       actions={[
-        guardian.state === "active" && {
-          id: "edit",
-          label: "Edit details",
-          onSelect: handleEdit,
-        },
+        canManage &&
+          guardian.state === "active" && {
+            id: "edit",
+            label: "Edit details",
+            onSelect: handleEdit,
+          },
         { id: "view", label: "View details", onSelect: handleView },
-        guardian.state === "active" && {
-          id: "archive",
-          label: "Archive access",
-          onSelect: handleArchive,
-          destructive: true,
-        },
+        canManage &&
+          guardian.state === "active" && {
+            id: "archive",
+            label: "Archive access",
+            onSelect: handleArchive,
+            destructive: true,
+          },
       ]}
     />
   );
@@ -101,6 +110,9 @@ function searchGuardian(row: GuardianRosterItem, query: string): boolean {
     row.snapshotEmail ?? "",
     row.snapshotPhone ?? "",
     row.state,
+    hasEffectiveGuardianCheckIn(row.operations)
+      ? "checked in"
+      : "not checked in",
   ]
     .join(" ")
     .toLowerCase()
@@ -108,6 +120,7 @@ function searchGuardian(row: GuardianRosterItem, query: string): boolean {
 }
 
 export function GuardiansTable({
+  canManage,
   data,
   isLoading,
   onArchive,
@@ -115,6 +128,7 @@ export function GuardiansTable({
   onView,
   toolbarActions,
 }: {
+  canManage: boolean;
   data: GuardianRosterItem[];
   isLoading: boolean;
   onArchive: (guardian: GuardianRosterItem) => void;
@@ -205,6 +219,39 @@ export function GuardiansTable({
       size: 160,
     },
     {
+      id: "checkInStatus",
+      accessorFn: (row) =>
+        hasEffectiveGuardianCheckIn(row.operations)
+          ? "Checked in"
+          : "Not checked in",
+      cell: ({ row }) => (
+        <Badge
+          variant={
+            hasEffectiveGuardianCheckIn(row.original.operations)
+              ? "secondary"
+              : "outline"
+          }
+        >
+          {hasEffectiveGuardianCheckIn(row.original.operations)
+            ? "Checked in"
+            : "Not checked in"}
+        </Badge>
+      ),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Check-in"
+          visibility={true}
+        />
+      ),
+      meta: {
+        compact: "collapsed",
+        headerTitle: "Check-in",
+        skeleton: SKELETON_STATUS,
+      },
+      size: 130,
+    },
+    {
       accessorKey: "state",
       cell: ({ row }) => (
         <Badge
@@ -227,6 +274,7 @@ export function GuardiansTable({
     {
       cell: ({ row }) => (
         <RowActions
+          canManage={canManage}
           guardian={row.original}
           onArchive={onArchive}
           onEdit={onEdit}

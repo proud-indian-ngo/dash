@@ -182,6 +182,24 @@ describe("Center-agnostic Entry read scope", () => {
     expect(visibleIds(query("visible"), tables)).toEqual([]);
     expect(visibleIds(query("availableDivisions"), tables)).toEqual([]);
   });
+  it.each(["awards_lead", "awards_member"])(
+    "grants %s Edition-wide Competition and Entry reads",
+    (role) => {
+      const tables = fixture("volunteer", role);
+      expect(visibleIds(query("visible"), tables)).toEqual([
+        "entry-a",
+        "entry-b",
+        "entry-c",
+      ]);
+      expect(visibleIds(query("availableDivisions"), tables)).toEqual([
+        "division",
+        "division-empty",
+        "division-other",
+      ]);
+      tables.kalakritiEditionMembership![0]!.state = "archived";
+      expect(visibleIds(query("visible"), tables)).toEqual([]);
+    }
+  );
   it.each(["archived", "wrong-edition"])(
     "rejects %s Guardian scope",
     (invalid) => {
@@ -401,5 +419,32 @@ describe("Center-agnostic Entry read scope", () => {
       '"value":"venue_arrival"'
     );
     expect(JSON.stringify(operations.where)).toContain('"value":"edition"');
+  });
+  it("loads active Center Liaison Lead snapshots only for Competition detail", () => {
+    const detail = query("visibleByDivision", {
+      divisionId: "division",
+      sessionId: "session-division",
+    });
+    const detailCenter = detail.related!.find(
+      (related) => related.subquery.alias === "center"
+    )!.subquery;
+    const assignments = detailCenter.related!.find(
+      (related) => related.subquery.alias === "assignments"
+    )!.subquery;
+    const membership = assignments.related!.find(
+      (related) => related.subquery.alias === "membership"
+    )!.subquery;
+
+    expect(JSON.stringify(assignments.where)).toContain(
+      '"value":"center_liaison_lead"'
+    );
+    expect(JSON.stringify(assignments.where)).toContain('"value":"edition"');
+    expect(JSON.stringify(membership.where)).toContain('"value":"active"');
+    expect(JSON.stringify(membership.where)).toContain('"value":"volunteer"');
+
+    const listCenter = query("visible").related!.find(
+      (related) => related.subquery.alias === "center"
+    )!.subquery;
+    expect(listCenter.related ?? []).toHaveLength(0);
   });
 });

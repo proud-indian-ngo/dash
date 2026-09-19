@@ -77,6 +77,7 @@ function CompetitionCatalogPage() {
   const {
     kalakritiCompetitionAccess: {
       canManage,
+      canViewCompetitionCatalog,
       canViewConfiguration,
       canEditCompetition,
       canEditSchedule,
@@ -96,11 +97,11 @@ function CompetitionCatalogPage() {
   );
   const [categories, categoryResult] = useQuery(
     queries.kalakritiCompetition.categories({ editionId: edition.id }),
-    { enabled: canViewConfiguration }
+    { enabled: canViewCompetitionCatalog }
   );
   const [competitions, competitionResult] = useQuery(
     queries.kalakritiCompetition.competitions({ editionId: edition.id }),
-    { enabled: canViewConfiguration }
+    { enabled: canViewCompetitionCatalog }
   );
   const [ageCategories, ageCategoryResult] = useQuery(
     queries.kalakritiEligibility.ageCategories({ editionId: edition.id }),
@@ -108,11 +109,11 @@ function CompetitionCatalogPage() {
   );
   const [venues, venueResult] = useQuery(
     queries.kalakritiCompetition.venues({ editionId: edition.id }),
-    { enabled: canViewConfiguration }
+    { enabled: canViewCompetitionCatalog }
   );
   const [schedule, scheduleResult] = useQuery(
     queries.kalakritiCompetition.sessions({ editionId: edition.id }),
-    { enabled: canViewConfiguration }
+    { enabled: canViewCompetitionCatalog }
   );
   const [divisions, divisionResult] = useQuery(
     queries.kalakritiEntry.availableDivisions({ editionId: edition.id })
@@ -132,7 +133,7 @@ function CompetitionCatalogPage() {
       ].map((division) => [division.id, division])
     ).values(),
   ];
-  const competitionViews: CompetitionView[] = canViewConfiguration
+  const competitionViews: CompetitionView[] = canViewCompetitionCatalog
     ? competitions.map((competition) => ({
         ...competition,
         musicUploadEnabled: competition.musicUploadEnabled === true,
@@ -156,7 +157,7 @@ function CompetitionCatalogPage() {
       }));
   const countsReady =
     entryResult.type === "complete" &&
-    (canViewConfiguration
+    (canViewCompetitionCatalog
       ? scheduleResult.type === "complete"
       : divisionResult.type === "complete");
   const scheduleFormatter = useMemo(
@@ -180,7 +181,7 @@ function CompetitionCatalogPage() {
       return (
         competition.divisions.length ? competition.divisions : [undefined]
       ).map((division) => {
-        const session = canViewConfiguration
+        const session = canViewCompetitionCatalog
           ? schedule.find((item) => item.divisionId === division?.id)
           : visibleDivisions.find((item) => item.id === division?.id)
               ?.sessions[0];
@@ -223,7 +224,7 @@ function CompetitionCatalogPage() {
     [ageCategoryResult, categoryResult, venueResult, scheduleResult].every(
       (result) => result.type === "complete"
     );
-  const pageResults = canViewConfiguration
+  const pageResults = canViewCompetitionCatalog
     ? [
         competitionResult,
         categoryResult,
@@ -510,7 +511,7 @@ function CompetitionCatalogPage() {
         availableDivisionIds={divisions.map((division) => division.id)}
         timeZone={edition.timezone}
         sessions={
-          canViewConfiguration
+          canViewCompetitionCatalog
             ? schedule.map((session) => ({
                 ...session,
                 venueName:

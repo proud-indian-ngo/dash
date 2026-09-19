@@ -1,14 +1,21 @@
 import {
   KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES,
   KALAKRITI_OPERATION_TYPES,
+  canRecordKalakritiCompetitionAttendance,
+  isKalakritiVolunteerManagementResponsibility,
   type KalakritiOperationType,
 } from "@pi-dash/shared/kalakriti";
 import { parseKalakritiPersonQr } from "@pi-dash/shared/kalakriti-person-qr";
 import { defineMutator } from "@rocicorp/zero";
+import { uuidv7 } from "uuidv7";
 import z from "zod";
 
 import type { Context } from "../context";
-import { isKalakritiCenterScanStage } from "../kalakriti-center-scan-rules";
+import {
+  isKalakritiCenterScanStage,
+  hasKalakritiVenueArrival,
+  hasKalakritiSessionAttendance,
+} from "../kalakriti-center-scan-rules";
 import {
   assertCanRecordOperation,
   assertOperationSubjectMatchesType,
@@ -87,7 +94,8 @@ export async function assertCanRecordKalakritiOperation(
   editionId: string,
   type: KalakritiOperationType,
   subject: OperationSubject,
-  competitionId: string | null
+  competitionId: string | null,
+  competitionCategoryId: string | null = null
 ): Promise<void> {
   if (can(ctx, "kalakriti.admin")) {
     return;
@@ -104,6 +112,7 @@ export async function assertCanRecordKalakritiOperation(
     responsibility: string;
     centerId: string | null;
     competitionId: string | null;
+    competitionCategoryId: string | null;
   }[];
   if (
     assignments.some(
@@ -126,9 +135,16 @@ export async function assertCanRecordKalakritiOperation(
               (role) => role === assignment.responsibility
             ))
         );
+      case "guardian_check_in":
+        return isKalakritiVolunteerManagementResponsibility(
+          assignment.responsibility
+        );
       case "attendee_check_in":
       case "volunteer_check_in":
         return (
+          isKalakritiVolunteerManagementResponsibility(
+            assignment.responsibility
+          ) ||
           assignment.responsibility === "hospitality_lead" ||
           assignment.responsibility === "hospitality_member"
         );
@@ -141,9 +157,10 @@ export async function assertCanRecordKalakritiOperation(
       case "competition_attendance":
         return (
           competitionId !== null &&
-          assignment.competitionId === competitionId &&
-          (assignment.responsibility === "competition_volunteer" ||
-            assignment.responsibility === "competition_coordinator")
+          canRecordKalakritiCompetitionAttendance([assignment], {
+            competitionId,
+            competitionCategoryId,
+          })
         );
       default:
         return false;
@@ -176,7 +193,11 @@ async function validateAttendanceSubject(
   editionId: string,
   subject: OperationSubject,
   sessionId: string | undefined
-): Promise<string> {
+): Promise<{
+  competitionId: string;
+  competitionCategoryId: string | null;
+  groupEntryId: string | null;
+}> {
   if (!sessionId || !subject.studentId) {
     throw new Error(
       "Competition session and Student are required for attendance"
@@ -200,6 +221,8 @@ async function validateAttendanceSubject(
             id: string;
             editionId: string;
             cancelledAt: number | null;
+            competitionCategoryId: string;
+            participationMode: "individual" | "group";
           };
         };
       }
@@ -226,7 +249,7 @@ async function validateAttendanceSubject(
     throw new Error("Competition is cancelled");
   }
   const divisionId = session.division.id;
-  const entryMember = await tx.run(
+  const entryMember = (await tx.run(
     zql.kalakritiEntryMember
       .where("editionId", editionId)
       .where("studentId", subject.studentId)
@@ -234,11 +257,16 @@ async function validateAttendanceSubject(
         entry.where("editionId", editionId).where("divisionId", divisionId)
       )
       .one()
-  );
+  )) as { entryId: string } | undefined;
   if (!entryMember) {
     throw new Error("Student is not registered for this Competition session");
   }
-  return session.division.competitionId;
+  return {
+    competitionId: session.division.competitionId,
+    competitionCategoryId: competition.competitionCategoryId ?? null,
+    groupEntryId:
+      competition.participationMode === "group" ? entryMember.entryId : null,
+  };
 }
 
 async function loadSubjectOperations(
@@ -459,17 +487,18 @@ export async function recordKalakritiOperation(
     : await resolveSubjectFromHumanId(tx, args.editionId, args.humanId ?? "");
 
   // Resolve the generic Check-in station request using persisted identity.
-  const type =
-    args.type === "volunteer_check_in" && subject.attendeeId
-      ? "attendee_check_in"
-      : args.type;
+  let type = args.type;
+  if (type === "volunteer_check_in") {
+    if (subject.attendeeId) type = "attendee_check_in";
+    else if (subject.membershipKind === "guardian") type = "guardian_check_in";
+  }
   assertOperationSubjectMatchesType(type, subject);
 
   if (args.centerId !== undefined && subject.centerId !== args.centerId) {
     throw new Error("Student does not belong to the selected Center");
   }
 
-  const competitionId =
+  const attendance =
     type === "competition_attendance"
       ? await validateAttendanceSubject(
           tx,
@@ -484,7 +513,8 @@ export async function recordKalakritiOperation(
     args.editionId,
     type,
     subject,
-    competitionId
+    attendance?.competitionId ?? null,
+    attendance?.competitionCategoryId ?? null
   );
 
   if (isKalakritiCenterScanStage(type)) {
@@ -560,6 +590,91 @@ export async function recordKalakritiOperation(
     targetId: args.id,
     targetType: "event_day_operation",
   });
+
+  if (attendance?.groupEntryId && args.sessionId) {
+    const sessionId = args.sessionId;
+    const members = (await tx.run(
+      zql.kalakritiEntryMember
+        .where("editionId", args.editionId)
+        .where("entryId", attendance.groupEntryId)
+        .related("student", (student) =>
+          student
+            .where("editionId", args.editionId)
+            .related("operations", (operations) =>
+              operations
+                .where("editionId", args.editionId)
+                .where(({ or, and, cmp }) =>
+                  or(
+                    cmp("type", "pickup"),
+                    cmp("type", "venue_arrival"),
+                    and(
+                      cmp("type", "competition_attendance"),
+                      cmp("competitionSessionId", sessionId)
+                    )
+                  )
+                )
+            )
+        )
+    )) as readonly {
+      studentId: string;
+      student?: { operations: readonly KalakritiOperationRecord[] };
+    }[];
+    for (const member of members) {
+      const operations = member.student?.operations;
+      if (
+        member.studentId === subject.studentId ||
+        !operations ||
+        !hasKalakritiVenueArrival(operations) ||
+        hasKalakritiSessionAttendance(operations, {
+          editionId: args.editionId,
+          sessionId: args.sessionId,
+        })
+      )
+        continue;
+      const memberSubject = { studentId: member.studentId, membershipId: null };
+      assertCanRecordOperation(
+        operations,
+        "competition_attendance",
+        memberSubject,
+        args.sessionId
+      );
+      const id = uuidv7();
+      const operationId = uuidv7();
+      await tx.mutate.kalakritiOperation.insert({
+        id,
+        operationId,
+        editionId: args.editionId,
+        studentId: member.studentId,
+        membershipId: null,
+        attendeeId: null,
+        type: "competition_attendance",
+        competitionSessionId: args.sessionId,
+        correctionReason: null,
+        supersededByOperationId: null,
+        createdAt: args.now,
+        occurredAt: args.occurredAt,
+        recordedBy: ctx.userId,
+      });
+      await tx.mutate.kalakritiAuditEntry.insert({
+        id: uuidv7(),
+        editionId: args.editionId,
+        actorUserId: ctx.userId,
+        createdAt: args.now,
+        action: "recorded",
+        domain: "event_day_operation",
+        targetId: id,
+        targetType: "event_day_operation",
+        reason: null,
+        metadata: {
+          operationId,
+          subjectKind: "student",
+          type: "competition_attendance",
+          initiatingOperationId: args.operationId,
+          entryId: attendance.groupEntryId,
+        },
+      });
+    }
+  }
 }
 
 export const kalakritiOperationMutators = {

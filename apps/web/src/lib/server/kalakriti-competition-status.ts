@@ -25,7 +25,10 @@ import {
 
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import { deriveCompetitionStatus } from "@/lib/kalakriti-competition-status";
-import { canAccessKalakritiEntries } from "@/lib/kalakriti-entry-policy";
+import {
+  canAccessKalakritiEntries,
+  canViewAllKalakritiCompetitions,
+} from "@/lib/kalakriti-entry-policy";
 import {
   resolveKalakritiRegistrationScopes,
   type KalakritiRegistrationScope,
@@ -93,7 +96,11 @@ export async function getKalakritiCompetitionStatusesForAccess(
           )
           .then((rows) => rows.map(({ centerId }) => centerId))
       : [];
-  const scopes = resolveKalakritiRegistrationScopes(access, guardianCenterIds);
+  const scopes: KalakritiRegistrationScope[] = canViewAllKalakritiCompetitions(
+    access
+  )
+    ? [{ kind: "edition" }]
+    : resolveKalakritiRegistrationScopes(access, guardianCenterIds);
   if (scopes.length === 0) return [];
 
   const hasAttendance = exists(

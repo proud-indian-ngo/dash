@@ -44,7 +44,10 @@ import {
   useDashboardDestinationFilter,
 } from "@/lib/kalakriti-dashboard-filter";
 import { kalakritiFoodScopeKey } from "@/lib/kalakriti-food-policy";
-import { canManageKalakritiVolunteers } from "@/lib/kalakriti-volunteer-policy";
+import {
+  canManageKalakritiVolunteers,
+  canViewKalakritiVolunteers,
+} from "@/lib/kalakriti-volunteer-policy";
 
 interface PickerData {
   editionId: string;
@@ -63,7 +66,7 @@ export const Route = createFileRoute("/_app/kalakriti/$year/volunteers")({
     .object({ dashboardFilter: z.string().optional() })
     .passthrough(),
   beforeLoad: ({ context }) => {
-    if (!canManageKalakritiVolunteers(context.kalakritiEditionAccess)) {
+    if (!canViewKalakritiVolunteers(context.kalakritiEditionAccess)) {
       throw notFound();
     }
   },
@@ -108,6 +111,7 @@ function KalakritiVolunteersPage() {
   const zero = useZero();
   const { kalakritiEditionAccess: access } = Route.useRouteContext();
   const { edition, isGlobalAdmin } = access;
+  const canManage = canManageKalakritiVolunteers(access);
   const actorResponsibilities = (access.membership?.responsibilities ??
     []) as KalakritiResponsibility[];
   const [assignOpen, setAssignOpen] = useState(false);
@@ -413,6 +417,7 @@ function KalakritiVolunteersPage() {
       ) : (
         <VolunteersTable
           actorResponsibilities={actorResponsibilities}
+          canManage={canManage}
           data={volunteerRows}
           statusSnapshotComplete={rosterResult.type === "complete"}
           statusSnapshotKey={kalakritiFoodScopeKey(access)}
@@ -423,20 +428,23 @@ function KalakritiVolunteersPage() {
           onRemoveFromEdition={handleRemoveFromEdition}
           onView={handleViewVolunteer}
           toolbarActions={
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={handleCreateOpen} type="button">
-                Create volunteer
-              </Button>
-              <Button onClick={handleAddOpen} type="button" variant="outline">
-                Add volunteers
-              </Button>
-            </div>
+            canManage ? (
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={handleCreateOpen} type="button">
+                  Create volunteer
+                </Button>
+                <Button onClick={handleAddOpen} type="button" variant="outline">
+                  Add volunteers
+                </Button>
+              </div>
+            ) : undefined
           }
         />
       )}
 
       <VolunteerDetailSheet
         actorResponsibilities={actorResponsibilities}
+        canManage={canManage}
         isGlobalAdmin={isGlobalAdmin}
         onAssign={handleAssignFromSheet}
         onOpenChange={handleVolunteerSheetOpenChange}
@@ -445,38 +453,42 @@ function KalakritiVolunteersPage() {
         open={selectedVolunteer !== null}
         volunteer={selectedVolunteer}
       />
-      <KalakritiCreateVolunteerDialog
-        editionId={edition.id}
-        onOpenChange={handleCreateOpenChange}
-        open={createOpen}
-      />
-      <KalakritiAddVolunteersDialog
-        editionId={edition.id}
-        excludeUserIds={
-          new Set(
-            volunteerRows.flatMap((row) => (row.userId ? [row.userId] : []))
-          )
-        }
-        onOpenChange={handleAddOpenChange}
-        open={addOpen}
-        pickerState={pickerState}
-        users={pickerUsers}
-      />
-      <KalakritiRoleAssignmentDialog
-        actorResponsibilities={actorResponsibilities}
-        categories={competitionCategories}
-        categoriesState={competitionCategoriesResult.type}
-        centers={centers}
-        competitions={competitions}
-        competitionsState={competitionsResult.type}
-        editionId={edition.id}
-        initialUserId={assignUserId}
-        isGlobalAdmin={isGlobalAdmin}
-        onOpenChange={handleAssignOpenChange}
-        open={assignOpen}
-        pickerState={assignmentPickerState}
-        users={assignmentUsers}
-      />
+      {canManage ? (
+        <>
+          <KalakritiCreateVolunteerDialog
+            editionId={edition.id}
+            onOpenChange={handleCreateOpenChange}
+            open={createOpen}
+          />
+          <KalakritiAddVolunteersDialog
+            editionId={edition.id}
+            excludeUserIds={
+              new Set(
+                volunteerRows.flatMap((row) => (row.userId ? [row.userId] : []))
+              )
+            }
+            onOpenChange={handleAddOpenChange}
+            open={addOpen}
+            pickerState={pickerState}
+            users={pickerUsers}
+          />
+          <KalakritiRoleAssignmentDialog
+            actorResponsibilities={actorResponsibilities}
+            categories={competitionCategories}
+            categoriesState={competitionCategoriesResult.type}
+            centers={centers}
+            competitions={competitions}
+            competitionsState={competitionsResult.type}
+            editionId={edition.id}
+            initialUserId={assignUserId}
+            isGlobalAdmin={isGlobalAdmin}
+            onOpenChange={handleAssignOpenChange}
+            open={assignOpen}
+            pickerState={assignmentPickerState}
+            users={assignmentUsers}
+          />
+        </>
+      ) : null}
       <ConfirmDialog
         confirmLabel="Remove responsibility"
         description={

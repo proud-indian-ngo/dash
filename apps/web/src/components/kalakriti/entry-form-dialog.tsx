@@ -115,6 +115,11 @@ export interface KalakritiEntryRow {
     competitionEntryRegistrationEnabled?: boolean | null;
   };
   id: string;
+  liaisonContacts?: readonly {
+    id: string;
+    name: string;
+    phone: string | null;
+  }[];
   members: readonly {
     student: KalakritiEntryStudent;
     studentId: string;

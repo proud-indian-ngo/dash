@@ -676,3 +676,84 @@ describe("Kalakriti attendee commands", () => {
     expect(f.insert).not.toHaveBeenCalled();
   });
 });
+
+describe("Volunteer Management printed attendee cards", () => {
+  const operator = {
+    userId: "registration-staff",
+    permissions: ["kalakriti.view"],
+    role: "volunteer",
+  };
+  it.each(["guest", "judge"] as const)(
+    "registers a printed %s card under scoped registration authority",
+    async (kind) => {
+      const f = fixture([
+        { id: "registration-membership" },
+        undefined,
+        edition,
+        [],
+      ]);
+      await invoke(
+        "create",
+        f.tx,
+        {
+          ...base,
+          kind,
+          name: "New person",
+          phone: "+919876543210",
+          printedCard: true,
+        },
+        operator
+      );
+      expect(f.insert).toHaveBeenCalledWith(
+        expect.objectContaining({ id: base.id, kind })
+      );
+      const query = f.tx.run.mock.calls[0]?.[0] as { ast: unknown };
+      const scope = JSON.stringify(query.ast);
+      for (const value of [
+        "volunteer_coordinator",
+        "volunteer_management_volunteer",
+        "edition-1",
+        "active",
+        "volunteer",
+      ])
+        expect(scope).toContain(value);
+    }
+  );
+  it.each(["update", "archive", "delete", "setCompetitions"] as const)(
+    "does not extend registration authority to %s",
+    async (command) => {
+      const f = fixture([]);
+      await expect(
+        invoke(
+          command,
+          f.tx,
+          { ...base, name: "Changed", competitionIds: [] },
+          operator
+        )
+      ).rejects.toThrow("Unauthorized");
+      for (const [query] of f.tx.run.mock.calls) {
+        const scope = JSON.stringify((query as { ast: unknown }).ast);
+        expect(scope).not.toContain("volunteer_management_volunteer");
+        expect(scope).not.toContain("volunteer_coordinator");
+      }
+      expect(f.insert).not.toHaveBeenCalled();
+      expect(f.update).not.toHaveBeenCalled();
+      expect(f.deleteAttendee).not.toHaveBeenCalled();
+    }
+  );
+  it("does not allow generic attendee creation through card-only permissions", async () => {
+    const f = fixture([]);
+    await expect(
+      invoke(
+        "create",
+        f.tx,
+        { ...base, kind: "guest", name: "Guest", phone: "+919876543210" },
+        operator
+      )
+    ).rejects.toThrow("Unauthorized");
+    const query = f.tx.run.mock.calls[0]?.[0] as { ast: unknown };
+    expect(JSON.stringify(query.ast)).not.toContain(
+      "volunteer_management_volunteer"
+    );
+  });
+});

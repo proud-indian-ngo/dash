@@ -23,6 +23,7 @@ import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { EventDayQrScanner } from "@/components/kalakriti/event-day-qr-scanner";
+import { ManualScanEntry } from "@/components/kalakriti/manual-scan-entry";
 import { Loader } from "@/components/loader";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
@@ -414,8 +415,8 @@ function ActiveCenterScanSession({
           ) : null}
           {sessionStage === "pickup" && !sessionChanged ? (
             <p className="text-muted-foreground text-sm">
-              Finish pickup once everyone traveling is marked. Unmarked students
-              will be left out of the remaining three stages.
+              Mark everyone traveling before finishing pickup; unmarked Students
+              won't continue to later stages.
             </p>
           ) : null}
           {progress.stage && !sessionChanged ? (
@@ -435,30 +436,29 @@ function ActiveCenterScanSession({
           {progress.stage && !sessionChanged && progress.roster.length === 0 ? (
             <p>No Students are registered at this Center.</p>
           ) : null}
-          <div className="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]">
-            <div>
+          <div className="space-y-3">
+            <div className="space-y-2">
               <h3 className="mb-2 text-sm font-medium">Scan Student QR</h3>
               {canRecord ? <EventDayQrScanner onScan={handleScan} /> : null}
             </div>
-            <FormLayout form={form}>
-              <h3 className="text-sm font-medium">
-                Can't scan? Enter yearly ID
-              </h3>
-              <fieldset className="space-y-3" disabled={disabled}>
-                <InputField
-                  autoComplete="off"
-                  isRequired
-                  label="Yearly ID"
-                  name="humanId"
-                  placeholder={`KAL-${year}-0001`}
-                />
-                <FormActions
-                  submitLabel="Mark Student"
-                  submittingLabel="Marking..."
-                  disabled={disabled}
-                />
-              </fieldset>
-            </FormLayout>
+            <ManualScanEntry>
+              <FormLayout form={form}>
+                <fieldset className="space-y-3" disabled={disabled}>
+                  <InputField
+                    autoComplete="off"
+                    isRequired
+                    label="Yearly ID"
+                    name="humanId"
+                    placeholder={`KAL-${year}-0001`}
+                  />
+                  <FormActions
+                    submitLabel="Mark Student"
+                    submittingLabel="Marking..."
+                    disabled={disabled}
+                  />
+                </fieldset>
+              </FormLayout>
+            </ManualScanEntry>
           </div>
           {progress.stage && !sessionChanged ? (
             <>

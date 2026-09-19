@@ -106,6 +106,7 @@ function searchVolunteer(row: VolunteerRosterItem, query: string): boolean {
 
 function RowActions({
   actorResponsibilities,
+  canManage,
   isGlobalAdmin,
   onAssignRole,
   onRemove,
@@ -114,6 +115,7 @@ function RowActions({
   volunteer,
 }: {
   actorResponsibilities: readonly KalakritiResponsibility[];
+  canManage: boolean;
   isGlobalAdmin: boolean;
   onAssignRole: (volunteer: VolunteerRosterItem) => void;
   onRemove: (payload: RemoveAssignmentPayload) => void;
@@ -131,21 +133,23 @@ function RowActions({
   );
   const removable = volunteer.assignments.filter(
     (assignment) =>
-      isGlobalAdmin ||
-      canManageKalakritiResponsibility(
-        actorResponsibilities,
-        assignment.responsibility
-      )
+      canManage &&
+      (isGlobalAdmin ||
+        canManageKalakritiResponsibility(
+          actorResponsibilities,
+          assignment.responsibility
+        ))
   );
-  const canAssignRole = canAssignKalakritiVolunteerRole(volunteer);
+  const canAssignRole = canManage && canAssignKalakritiVolunteerRole(volunteer);
   const canRemoveFromEdition =
-    isGlobalAdmin ||
-    volunteer.assignments.every((assignment) =>
-      canManageKalakritiResponsibility(
-        actorResponsibilities,
-        assignment.responsibility
-      )
-    );
+    canManage &&
+    (isGlobalAdmin ||
+      volunteer.assignments.every((assignment) =>
+        canManageKalakritiResponsibility(
+          actorResponsibilities,
+          assignment.responsibility
+        )
+      ));
 
   return (
     <ResponsiveActionMenu
@@ -212,6 +216,7 @@ function volunteerCheckInLabel(row: VolunteerRosterItem): string {
 
 export function VolunteersTable({
   actorResponsibilities,
+  canManage = true,
   data,
   isGlobalAdmin,
   isLoading,
@@ -224,6 +229,7 @@ export function VolunteersTable({
   statusSnapshotKey = "",
 }: {
   actorResponsibilities: readonly KalakritiResponsibility[];
+  canManage?: boolean;
   data: VolunteerRosterItem[];
   isGlobalAdmin: boolean;
   isLoading: boolean;
@@ -390,6 +396,7 @@ export function VolunteersTable({
       cell: ({ row }) => (
         <RowActions
           actorResponsibilities={actorResponsibilities}
+          canManage={canManage}
           isGlobalAdmin={isGlobalAdmin}
           onAssignRole={onAssignRole}
           onRemove={onRemove}

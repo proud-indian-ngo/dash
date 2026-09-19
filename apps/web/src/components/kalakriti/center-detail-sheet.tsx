@@ -26,6 +26,76 @@ import { useTransportStatusSnapshot } from "./use-transport-status-snapshot";
 function centerStatus(center: CenterTableRow) {
   return getKalakritiCenterTransportLabel(center.scanStages ?? []);
 }
+
+type CenterGuardianDetail = CenterPersonAssignment & {
+  email: string | null;
+  humanId: string | null;
+  phone: string | null;
+};
+
+function Guardians({
+  guardians,
+  loading,
+}: {
+  guardians: readonly CenterGuardianDetail[];
+  loading: boolean;
+}) {
+  return (
+    <section className="space-y-2">
+      <h3 className="font-medium">Guardians</h3>
+      {loading ? (
+        <Skeleton aria-label="Loading Guardians" className="h-20 w-full" />
+      ) : guardians.length ? (
+        <ul aria-label="Guardians" className="divide-y rounded-md border">
+          {guardians.map((guardian) => (
+            <li className="space-y-2 p-3 text-sm" key={guardian.id}>
+              <div>
+                <p className="font-medium">{guardian.name}</p>
+                <p className="text-muted-foreground text-xs">
+                  {guardian.humanId ?? "Yearly ID not assigned"}
+                </p>
+              </div>
+              <dl className="grid gap-2 sm:grid-cols-2">
+                <div>
+                  <dt className="text-muted-foreground text-xs">Phone</dt>
+                  <dd>
+                    {guardian.phone ? (
+                      <a
+                        className="text-primary underline"
+                        href={`tel:${guardian.phone}`}
+                      >
+                        {guardian.phone}
+                      </a>
+                    ) : (
+                      "Not provided"
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground text-xs">Email</dt>
+                  <dd className="break-all">
+                    {guardian.email ? (
+                      <a
+                        className="text-primary underline"
+                        href={`mailto:${guardian.email}`}
+                      >
+                        {guardian.email}
+                      </a>
+                    ) : (
+                      "Not provided"
+                    )}
+                  </dd>
+                </div>
+              </dl>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-muted-foreground text-sm">No guardians assigned.</p>
+      )}
+    </section>
+  );
+}
 function People({
   title,
   people,
@@ -77,7 +147,7 @@ function CenterSheetDetails({
   center: CenterTableRow;
   access: KalakritiEditionAccess;
   complete: boolean;
-  guardianAssignments: readonly CenterPersonAssignment[];
+  guardianAssignments: readonly CenterGuardianDetail[];
   liaisonAssignments: readonly CenterPersonAssignment[];
   guardiansLoading: boolean;
   liaisonsLoading: boolean;
@@ -181,11 +251,7 @@ function CenterSheetDetails({
         <ParticipationComplianceBadge compliance={center.compliance} />
       </section>
       {canViewGuardians ? (
-        <People
-          title="Guardians"
-          people={guardianAssignments}
-          loading={guardiansLoading}
-        />
+        <Guardians guardians={guardianAssignments} loading={guardiansLoading} />
       ) : null}
       {canViewLiaisons ? (
         <People
@@ -235,7 +301,7 @@ export function CenterDetailSheet({
   onControls: (center: CenterTableRow) => void;
   onRetire: (center: CenterTableRow) => void;
   onDelete: (center: CenterTableRow) => void;
-  guardianAssignments: readonly CenterPersonAssignment[];
+  guardianAssignments: readonly CenterGuardianDetail[];
   liaisonAssignments: readonly CenterPersonAssignment[];
   guardiansLoading: boolean;
   liaisonsLoading: boolean;

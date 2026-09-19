@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
 
 import { db } from "@pi-dash/db";
 import {
@@ -42,6 +42,7 @@ function metric(
 
 function access(
   responsibility:
+    | "awards_lead"
     | "awards_member"
     | "media_member"
     | "venue_member"
@@ -78,6 +79,21 @@ function access(
 }
 
 describe("Kalakriti dashboard summary scope", () => {
+  const emptyDatabase = {
+    select: mock(() => {
+      const query = {
+        from: mock(),
+        innerJoin: mock(),
+        where: mock(),
+        then: (resolve: (value: unknown) => unknown) =>
+          Promise.resolve([]).then(resolve),
+      };
+      query.from.mockReturnValue(query);
+      query.innerJoin.mockReturnValue(query);
+      query.where.mockReturnValue(query);
+      return query;
+    }),
+  } as never;
   it("includes identity and Edition lifecycle in its retention key", () => {
     const current = access("media_member");
     expect(kalakritiDashboardScopeKey("user-a", current)).not.toBe(
@@ -94,12 +110,7 @@ describe("Kalakriti dashboard summary scope", () => {
     ).not.toBe(kalakritiDashboardScopeKey("user-a", current, ["center-b"]));
   });
 
-  it.each([
-    "awards_member",
-    "media_member",
-    "venue_member",
-    "fundraising_member",
-  ] as const)(
+  it.each(["media_member", "venue_member", "fundraising_member"] as const)(
     "keeps %s visible without inventing operational access",
     async (role) => {
       const result = await getKalakritiDashboardSummaryForAccess(
@@ -109,6 +120,20 @@ describe("Kalakriti dashboard summary scope", () => {
       );
       expect(result.access.membership?.responsibilities).toEqual([role]);
       expect(result.sections).toEqual([]);
+    }
+  );
+
+  it.each(["awards_lead", "awards_member"] as const)(
+    "shows the Edition-wide Competition summary to %s",
+    async (role) => {
+      const result = await getKalakritiDashboardSummaryForAccess(
+        "user-a",
+        access(role),
+        { database: emptyDatabase, loadProjections: async () => [] }
+      );
+      expect(result.sections).toMatchObject([
+        { id: "competitions", scopeLabel: "Edition" },
+      ]);
     }
   );
 

@@ -5,6 +5,7 @@ import {
   kalakritiEditionMembership,
   kalakritiStudent,
 } from "@pi-dash/db/schema/kalakriti";
+import { isKalakritiVolunteerManagementResponsibility } from "@pi-dash/shared/kalakriti";
 import { parseKalakritiPersonQr } from "@pi-dash/shared/kalakriti-person-qr";
 import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
@@ -41,7 +42,11 @@ export const validateBlankIdCard = createServerFn({ method: "GET" })
         !access ||
         !(
           access.isGlobalAdmin ||
-          access.membership?.responsibilities.includes("edition_admin")
+          access.membership?.responsibilities.some((responsibility) =>
+            responsibility === "edition_admin"
+              ? true
+              : isKalakritiVolunteerManagementResponsibility(responsibility)
+          )
         )
       )
         throw new Error("Unauthorized");

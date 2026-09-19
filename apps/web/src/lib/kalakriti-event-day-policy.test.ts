@@ -2,7 +2,11 @@ import { describe, expect, it } from "bun:test";
 
 import type { KalakritiResponsibility } from "@pi-dash/shared/kalakriti";
 
-import { getKalakritiScanActivities } from "./kalakriti-event-day-policy";
+import {
+  getKalakritiScanActivities,
+  canScanKalakritiCompetition,
+  canScanKalakritiPerson,
+} from "./kalakriti-event-day-policy";
 
 function canAccessKalakritiEventDay(
   value: Parameters<typeof getKalakritiScanActivities>[0]
@@ -38,12 +42,14 @@ describe("Sidebar scan activity access", () => {
       expect(getKalakritiScanActivities(access(role))).toEqual(["meals"]);
     }
   );
-  it.each(["hospitality_lead", "hospitality_member"] as const)(
-    "gives %s check-in only",
-    (role) => {
-      expect(getKalakritiScanActivities(access(role))).toEqual(["check_in"]);
-    }
-  );
+  it.each([
+    "hospitality_lead",
+    "hospitality_member",
+    "volunteer_coordinator",
+    "volunteer_management_volunteer",
+  ] as const)("gives %s check-in only", (role) => {
+    expect(getKalakritiScanActivities(access(role))).toEqual(["check_in"]);
+  });
   it.each(["logistics_lead", "logistics_member"] as const)(
     "gives %s inventory scans in draft Editions",
     (role) => {
@@ -139,4 +145,43 @@ describe("Sidebar scan activity access", () => {
       })
     ).toBe(true);
   });
+});
+
+it("allows Guardian check-in cards but rejects Students", () => {
+  expect(canScanKalakritiPerson("volunteer_check_in", "guardian")).toBe(true);
+  expect(canScanKalakritiPerson("volunteer_check_in", "student")).toBe(false);
+});
+it("scopes category scanning and allows the overall events lead", () => {
+  const competition = {
+    competitionId: "competition",
+    competitionCategoryId: "category",
+  };
+  expect(
+    canScanKalakritiCompetition(access("overall_events_lead"), competition)
+  ).toBe(true);
+  const categoryAccess = access("competition_category_lead");
+  const scoped = {
+    ...categoryAccess,
+    membership: {
+      ...categoryAccess.membership,
+      assignments: categoryAccess.membership.assignments.map((a) => ({
+        ...a,
+        competitionCategoryId: "category",
+      })),
+    },
+  };
+  expect(getKalakritiScanActivities(scoped)).toEqual(["attendance"]);
+  expect(canScanKalakritiCompetition(scoped, competition)).toBe(true);
+  expect(
+    canScanKalakritiCompetition(scoped, {
+      ...competition,
+      competitionCategoryId: "other",
+    })
+  ).toBe(false);
+  expect(
+    canScanKalakritiCompetition(
+      access("volunteer_management_volunteer"),
+      competition
+    )
+  ).toBe(false);
 });

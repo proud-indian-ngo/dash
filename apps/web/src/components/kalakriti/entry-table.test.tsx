@@ -1,11 +1,16 @@
 import { expect, it, mock } from "bun:test";
 
+import type React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import type { KalakritiEntryRow } from "./entry-form-dialog";
 
 interface Captured {
-  columns: { id?: string }[];
+  columns: {
+    id?: string;
+    cell?: (input: { row: { original: KalakritiEntryRow } }) => React.ReactNode;
+    meta?: { compact?: string };
+  }[];
   data: KalakritiEntryRow[];
   filter?: { fields: { id: string }[] };
 }
@@ -128,4 +133,21 @@ it("omits Next on simultaneous sessions", () => {
   expect(captured.filter?.fields.some((field) => field.id === "next")).toBe(
     false
   );
+});
+
+it("shows Liaison Lead contacts in collapsed session details", () => {
+  const entry = row("paint", "Asha");
+  entry.liaisonContacts = [
+    { id: "lead", name: "Meera", phone: "+919999999999" },
+  ];
+  renderSession([entry]);
+  const column = captured.columns.find(
+    (candidate) => candidate.id === "liaisonLead"
+  );
+  expect(column?.meta?.compact).toBe("collapsed");
+  const html = renderToStaticMarkup(
+    column?.cell?.({ row: { original: entry } }) ?? null
+  );
+  expect(html).toContain("Meera");
+  expect(html).toContain('href="tel:+919999999999"');
 });

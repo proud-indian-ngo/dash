@@ -15,6 +15,7 @@ import {
   SheetTitle,
 } from "@/components/shared/responsive-sheet";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
+import { hasEffectiveGuardianCheckIn } from "@/lib/kalakriti-guardian-policy";
 
 function DetailRow({ label, value }: { label: string; value: string | null }) {
   return (
@@ -27,6 +28,7 @@ function DetailRow({ label, value }: { label: string; value: string | null }) {
 
 export function GuardianDetailSheet({
   access,
+  canManage,
   guardian,
   onArchive,
   onEdit,
@@ -34,6 +36,7 @@ export function GuardianDetailSheet({
   open,
 }: {
   access: KalakritiEditionAccess;
+  canManage: boolean;
   guardian: GuardianRosterItem | null;
   onArchive: (guardian: GuardianRosterItem) => void;
   onEdit: (guardian: GuardianRosterItem) => void;
@@ -91,6 +94,14 @@ export function GuardianDetailSheet({
           </Badge>
 
           <DetailRow label="Yearly ID" value={guardian.humanId ?? "—"} />
+          <DetailRow
+            label="Check-in"
+            value={
+              hasEffectiveGuardianCheckIn(guardian.operations)
+                ? "Checked in"
+                : "Not checked in"
+            }
+          />
           <PersonQrPanel enabled={open} id={guardian.id} type="guardian" />
 
           <div className="grid gap-4">
@@ -140,7 +151,7 @@ export function GuardianDetailSheet({
             ))}
           </section>
 
-          {guardian.state === "active" ? (
+          {canManage && guardian.state === "active" ? (
             <div className="flex flex-wrap gap-2">
               <Button onClick={handleEdit} type="button">
                 Edit details

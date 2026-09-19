@@ -1,3 +1,5 @@
+import { isKalakritiVolunteerManagementResponsibility } from "@pi-dash/shared/kalakriti";
+
 interface AttendeeAccess {
   isGlobalAdmin: boolean;
   edition?: { lifecycle: string };
@@ -43,10 +45,10 @@ export function canViewKalakritiAttendees(
     access.membership?.assignments.some(
       (a) =>
         a.responsibility === "edition_admin" ||
-        a.responsibility === "volunteer_coordinator" ||
-        (kind === "guest" &&
-          access.membership?.kind === "volunteer" &&
-          a.responsibility === "hospitality_lead") ||
+        isKalakritiVolunteerManagementResponsibility(a.responsibility) ||
+        (access.membership?.kind === "volunteer" &&
+          (a.responsibility === "hospitality_lead" ||
+            a.responsibility === "hospitality_member")) ||
         (kind === "judge" &&
           (a.responsibility === "overall_events_lead" ||
             (a.responsibility === "competition_category_lead" &&

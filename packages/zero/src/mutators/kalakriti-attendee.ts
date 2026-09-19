@@ -41,7 +41,8 @@ async function authorize(
   tx: LockableKalakritiTx,
   ctx: Context | undefined,
   editionId: string,
-  kind: "guest" | "judge" | "either" = "judge"
+  kind: "guest" | "judge" | "either" = "judge",
+  printedCard = false
 ): Promise<"admin" | "events_lead" | "hospitality_lead" | "both_leads"> {
   assertIsLoggedIn(ctx);
   const edition = await getEditionForUpdate(tx, editionId);
@@ -57,7 +58,17 @@ async function authorize(
         .whereExists("assignments", (assignment) =>
           assignment
             .where("editionId", editionId)
-            .where("responsibility", "edition_admin")
+            .where(
+              "responsibility",
+              "IN",
+              printedCard
+                ? [
+                    "edition_admin",
+                    "volunteer_coordinator",
+                    "volunteer_management_volunteer",
+                  ]
+                : ["edition_admin"]
+            )
         )
         .one()
     );
@@ -128,7 +139,13 @@ export const kalakritiAttendeeMutators = {
     kalakritiAttendeeCreateSchema,
     async ({ tx, ctx, args }) => {
       if (tx.location !== "server") return;
-      await authorize(tx, ctx, args.editionId, args.kind);
+      await authorize(
+        tx,
+        ctx,
+        args.editionId,
+        args.kind,
+        args.printedCard === true
+      );
       assertIsLoggedIn(ctx);
       const existing = await tx.run(
         zql.kalakritiAttendee.where("id", args.id).one()

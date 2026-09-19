@@ -79,7 +79,16 @@ describe("Kalakriti dashboard work areas", () => {
     ).toEqual(["attendance"]);
   });
   it.each([
-    "awards_member",
+    "liaison",
+    "liaison_lead",
+    "center_liaison_lead",
+    "liaison_volunteer",
+  ] as const)("shows Guardians to %s", (role) => {
+    expect(
+      getDashboardActions(access([role])).map((action) => action.destination)
+    ).toContain("guardians");
+  });
+  it.each([
     "venue_member",
     "media_member",
     "fundraising_member",
@@ -89,6 +98,15 @@ describe("Kalakriti dashboard work areas", () => {
     expect(getDashboardActions(access([role]))).toEqual([]);
     expect(getDashboardScanActions(access([role]))).toEqual([]);
   });
+  it.each(["awards_lead", "awards_member"] as const)(
+    "shows the Competition workspace to %s without scan actions",
+    (role) => {
+      expect(
+        getDashboardActions(access([role])).map((a) => a.destination)
+      ).toEqual(["competitions"]);
+      expect(getDashboardScanActions(access([role]))).toEqual([]);
+    }
+  );
   it("keeps inventory available before Live but labels event-day recording unavailable", () => {
     const actions = getDashboardScanActions(access(["edition_admin"], "draft"));
     expect(
