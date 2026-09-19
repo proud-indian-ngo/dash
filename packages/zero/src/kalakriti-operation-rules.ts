@@ -30,6 +30,7 @@ const STUDENT_OPERATION_TYPES = new Set<KalakritiOperationType>([
 
 const MEMBERSHIP_OPERATION_TYPES = new Set<KalakritiOperationType>([
   "volunteer_check_in",
+  "guardian_check_in",
 ]);
 
 const FLEXIBLE_OPERATION_TYPES = new Set<KalakritiOperationType>([
@@ -101,9 +102,13 @@ export function assertOperationSubjectMatchesType(
 ): void {
   if (
     subject.membershipKind === "guardian" &&
+    type !== "guardian_check_in" &&
     !FLEXIBLE_OPERATION_TYPES.has(type)
   ) {
-    throw new Error("Guardians can only receive meals");
+    throw new Error("Guardians can only check in or receive meals");
+  }
+  if (type === "guardian_check_in" && subject.membershipKind !== "guardian") {
+    throw new Error("This operation requires a Guardian subject");
   }
   const hasStudent = Boolean(subject.studentId);
   const hasMembership = Boolean(subject.membershipId);

@@ -63,6 +63,9 @@
     "packages/notifications": {
       "entry": ["src/*.ts", "src/send/*.ts"]
     },
+    "packages/zero": {
+      "entry": ["scripts/verify-kalakriti-operation-integration.ts"]
+    },
     "packages/whatsapp": {},
     "packages/email": {},
     "packages/design-system": {

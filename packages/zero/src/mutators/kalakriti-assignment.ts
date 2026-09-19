@@ -540,7 +540,12 @@ export const kalakritiAssignmentMutators = {
   addVolunteers: defineMutator(
     kalakritiAddVolunteersSchema,
     async ({ tx, ctx, args }) => {
-      await assertCanManageVolunteerRoster(tx, ctx, args.editionId);
+      await assertCanManageVolunteerRoster(
+        tx,
+        ctx,
+        args.editionId,
+        args.requirePrintedCardId === true
+      );
       assertIsLoggedIn(ctx);
       const edition = await getAssignmentEdition(tx, args.editionId);
       let addedCount = 0;
@@ -678,7 +683,12 @@ export const kalakritiAssignmentMutators = {
   createLocalVolunteer: defineMutator(
     kalakritiCreateLocalVolunteerSchema,
     async ({ tx, ctx, args }) => {
-      await assertCanManageVolunteerRoster(tx, ctx, args.editionId);
+      await assertCanManageVolunteerRoster(
+        tx,
+        ctx,
+        args.editionId,
+        args.requirePrintedCardId === true
+      );
       assertIsLoggedIn(ctx);
       await getAssignmentEdition(tx, args.editionId);
       const name = normalizeKalakritiVolunteerName(args.name);

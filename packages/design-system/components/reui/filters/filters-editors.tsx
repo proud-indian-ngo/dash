@@ -1247,9 +1247,11 @@ export function FilterMenu({
         ) : null}
 
         <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-          <span className="w-full truncate text-start">{node.label}</span>
+          <span className="w-full wrap-anywhere whitespace-normal text-start">
+            {node.label}
+          </span>
           {node.description ? (
-            <span className="text-muted-foreground w-full truncate text-start text-xs">
+            <span className="text-muted-foreground w-full wrap-anywhere whitespace-normal text-start text-xs">
               {node.description}
             </span>
           ) : null}
@@ -1505,15 +1507,12 @@ function OptionEditor<V, O>(props: FilterEditorProps<V, O> & { multiple: boolean
   const announce = React.useContext(FilterActionsContext)?.announce
 
   return (
-    /*
-      A DELIBERATELY narrow default. An option label is a status, a name or a
-      tag, not a sentence, and 12rem holds around 22 characters at every style's
-      row size; the rest of the width a menu used to take was empty space beside
-      short rows. A field whose labels genuinely need more says so through its
-      own `className` - which lands LAST here, so tailwind-merge resolves the
-      two `w-*` in the consumer's favour rather than by source order.
-    */
-    <EditorPanel className={cn("w-48 min-w-0 gap-0 p-0", field.className)}>
+    <EditorPanel
+      className={cn(
+        "w-max min-w-48 max-w-[calc(100vw-2rem)] gap-0 p-0",
+        field.className
+      )}
+    >
       <FilterMenu
         items={options.items}
         selected={selected}

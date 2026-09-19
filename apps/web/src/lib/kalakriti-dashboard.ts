@@ -7,10 +7,11 @@ import {
   type ScanActivity,
 } from "@/lib/kalakriti-event-day-policy";
 import { canViewKalakritiFood } from "@/lib/kalakriti-food-policy";
+import { canViewKalakritiGuardians } from "@/lib/kalakriti-guardian-policy";
 import { canViewKalakritiInventory } from "@/lib/kalakriti-inventory-policy";
 import { canAccessKalakritiStudents } from "@/lib/kalakriti-student-policy";
 import { canViewKalakritiTransport } from "@/lib/kalakriti-transport-policy";
-import { canManageKalakritiVolunteers } from "@/lib/kalakriti-volunteer-policy";
+import { canViewKalakritiVolunteers } from "@/lib/kalakriti-volunteer-policy";
 
 export const DASHBOARD_DESTINATIONS = {
   centers: "/kalakriti/$year/centers",
@@ -102,7 +103,7 @@ export function getDashboardActions(
   add(canAccessKalakritiStudents(access), "students", "Students");
   add(canAccessKalakritiEntries(access), "competitions", "Competitions");
   add(canViewKalakritiCenterDirectory(access), "centers", "Centers");
-  add(canManageKalakritiVolunteers(access), "volunteers", "Volunteers");
+  add(canViewKalakritiVolunteers(access), "volunteers", "Volunteers");
   add(
     admin ||
       access.membership?.responsibilities.some(
@@ -116,7 +117,7 @@ export function getDashboardActions(
   add(canViewKalakritiInventory(access), "inventory", "Inventory");
   add(canViewKalakritiAttendees(access, "guest"), "guests", "Guests");
   add(canViewKalakritiAttendees(access, "judge"), "judges", "Judges");
-  add(admin, "guardians", "Guardians");
+  add(canViewKalakritiGuardians(access), "guardians", "Guardians");
   add(
     admin && access.edition.lifecycle === "draft",
     "eligibility",

@@ -827,6 +827,31 @@ test("Food and Entry readers see their two-Center union, while arrival and check
     ).toBeVisible();
     expect(
       (
+        await mutate(page.request, "kalakritiOperation.record", {
+          ...operation(data, "competition_attendance", data.studentId),
+          sessionId: data.groupSessionId,
+        })
+      ).error
+    ).toBeUndefined();
+    await expect(
+      rowFor(liaison, "Activity Student").getByText("1 / 2 attended", {
+        exact: true,
+      })
+    ).toBeVisible();
+    await page.goto(
+      filterUrl(
+        competitionUrl(data.year, data.groupDivisionId),
+        "attended",
+        "partial"
+      )
+    );
+    await expect(
+      rowFor(page, "Activity Student").getByText("1 / 2 attended", {
+        exact: true,
+      })
+    ).toBeVisible();
+    expect(
+      (
         await mutate(
           page.request,
           "kalakritiOperation.record",
@@ -852,7 +877,7 @@ test("Food and Entry readers see their two-Center union, while arrival and check
       })
     ).toBeVisible();
     await expect(
-      rowFor(liaison, "Activity Student").getByText("0 / 2 attended", {
+      rowFor(liaison, "Activity Student").getByText("1 / 2 attended", {
         exact: true,
       })
     ).toBeVisible();
@@ -869,39 +894,19 @@ test("Food and Entry readers see their two-Center union, while arrival and check
         await cell(guardian, rowFor(guardian, "Activity Student"), "Attended")
       ).getByRole("img", { name: "Activity Student: Attended", exact: true })
     ).toBeVisible();
-    for (const [index, studentId] of [
-      data.studentId,
-      data.extraStudentA,
-    ].entries()) {
-      expect(
-        (
-          await mutate(page.request, "kalakritiOperation.record", {
-            ...operation(data, "competition_attendance", studentId),
-            sessionId: data.groupSessionId,
-          })
-        ).error
-      ).toBeUndefined();
-      await expect(
-        rowFor(liaison, "Activity Student").getByText(
-          `${index + 1} / 2 attended`,
-          { exact: true }
-        )
-      ).toBeVisible();
-      if (index === 0) {
-        await page.goto(
-          filterUrl(
-            competitionUrl(data.year, data.groupDivisionId),
-            "attended",
-            "partial"
-          )
-        );
-        await expect(
-          rowFor(page, "Activity Student").getByText("1 / 2 attended", {
-            exact: true,
-          })
-        ).toBeVisible();
-      }
-    }
+    expect(
+      (
+        await mutate(page.request, "kalakritiOperation.record", {
+          ...operation(data, "competition_attendance", data.extraStudentA),
+          sessionId: data.groupSessionId,
+        })
+      ).error
+    ).toBeUndefined();
+    await expect(
+      rowFor(liaison, "Activity Student").getByText("2 / 2 attended", {
+        exact: true,
+      })
+    ).toBeVisible();
     for (const stage of ["venue_departure", "drop_off"]) {
       for (const id of [data.studentId, data.extraStudentA])
         expect(
@@ -1363,6 +1368,9 @@ test("Guardian yearly IDs remain stable on invite retry and support legacy and y
       await cell(food, rowFor(food, "Union Guardian"), "Person ID")
     ).toHaveText(guardian.humanId!);
     await scanner.open();
+    await scanner.dialog
+      .getByRole("button", { name: "Enter ID manually", exact: true })
+      .click();
     const manual = scanner.dialog.getByLabel("Yearly ID");
     await manual.fill(guardian.humanId!);
     await scanner.dialog
@@ -1385,12 +1393,28 @@ test("Guardian yearly IDs remain stable on invite retry and support legacy and y
     await expect
       .poll(async () => (await fixture<MealOperation[]>("state")).length)
       .toBe(2);
-    const beforeDenied = await fixture("state");
-    for (const type of [
-      "pickup",
+    const guardianCheckIn = operation(
+      data,
       "volunteer_check_in",
-      "competition_attendance",
-    ]) {
+      guardian.id,
+      "guardian"
+    );
+    expect(
+      (await mutate(page.request, "kalakritiOperation.record", guardianCheckIn))
+        .error
+    ).toBeUndefined();
+    await expect
+      .poll(async () => (await fixture<MealOperation[]>("state")).length)
+      .toBe(3);
+    expect(await fixture<MealOperation[]>("state")).toContainEqual(
+      expect.objectContaining({
+        membershipId: guardian.id,
+        operationId: guardianCheckIn.operationId,
+        type: "guardian_check_in",
+      })
+    );
+    const beforeDenied = await fixture("state");
+    for (const type of ["pickup", "competition_attendance"]) {
       expect(
         (
           await mutate(page.request, "kalakritiOperation.record", {

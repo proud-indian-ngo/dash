@@ -1,4 +1,4 @@
-import type { Download, Page } from "@playwright/test";
+import type { Download, Locator, Page } from "@playwright/test";
 import { uuidv7 } from "uuidv7";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
@@ -19,6 +19,12 @@ async function readDownload(download: Download): Promise<Buffer> {
 async function openIdCardTools(page: Page): Promise<void> {
   await page
     .getByRole("button", { name: "ID cards and registration tools" })
+    .click();
+}
+
+async function expandManualEntry(dialog: Locator): Promise<void> {
+  await dialog
+    .getByRole("button", { name: "Enter ID manually", exact: true })
     .click();
 }
 
@@ -182,6 +188,7 @@ test("registers a blank guest card once and resolves it through person lookup", 
   const registerDialog = page.getByRole("dialog", {
     name: "Register ID card",
   });
+  await expandManualEntry(registerDialog);
   await registerDialog.getByLabel("QR code value").fill(qrValue);
   await registerDialog.getByRole("button", { name: "Register card" }).click();
 
@@ -209,6 +216,7 @@ test("registers a blank guest card once and resolves it through person lookup", 
   const duplicateDialog = page.getByRole("dialog", {
     name: "Register ID card",
   });
+  await expandManualEntry(duplicateDialog);
   await duplicateDialog.getByLabel("QR code value").fill(qrValue);
   await duplicateDialog.getByRole("button", { name: "Register card" }).click();
   await expect(duplicateDialog).toContainText("already registered");
@@ -232,6 +240,7 @@ test("registers a blank judge card and resolves it through person lookup", async
   const registerDialog = page.getByRole("dialog", {
     name: "Register ID card",
   });
+  await expandManualEntry(registerDialog);
   await registerDialog.getByLabel("QR code value").fill(qrValue);
   await registerDialog.getByRole("button", { name: "Register card" }).click();
 
@@ -284,6 +293,7 @@ test("creates and registers a volunteer from a blank card", async ({
     const registerDialog = page.getByRole("dialog", {
       name: "Register ID card",
     });
+    await expandManualEntry(registerDialog);
     await registerDialog.getByLabel("QR code value").fill(qrValue);
     await registerDialog.getByRole("button", { name: "Register card" }).click();
 

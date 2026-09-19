@@ -123,6 +123,8 @@ describe("kalakritiCompetition queries", () => {
       "edition-1",
       false,
     ],
+    ["awards_lead", "other", "active", "volunteer", "edition-1", true],
+    ["awards_member", "other", "active", "volunteer", "edition-1", true],
   ] as const)(
     "evaluates station catalog scope %s/%s/%s/%s/%s",
     (
@@ -284,3 +286,22 @@ describe("kalakritiCompetition queries", () => {
     expect(ast).toContain('"value":"volunteer-coordinator-1"');
   });
 });
+
+it.each(["categories", "competitions"] as const)(
+  "lets registration volunteers resolve %s names in the roster",
+  (catalog) => {
+    const ast = queryAst(
+      kalakritiCompetitionQueries[catalog].fn({
+        args: { editionId: "edition-1" },
+        ctx: {
+          permissions: ["kalakriti.view"],
+          role: "volunteer",
+          userId: "registration-staff",
+        },
+      })
+    );
+    expect(ast).toContain('"value":"volunteer_management_volunteer"');
+    expect(ast).toContain('"value":"active"');
+    expect(ast).toContain('"value":"registration-staff"');
+  }
+);

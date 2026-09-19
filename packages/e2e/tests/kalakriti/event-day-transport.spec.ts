@@ -410,6 +410,15 @@ test("Center scan sessions mark two Students through four explicitly finalized s
       )
     ).toBeVisible();
     await expect(
+      liaison.dialog.getByRole("button", {
+        name: "Mark Student",
+        exact: true,
+      })
+    ).toHaveCount(0);
+    await liaison.dialog
+      .getByRole("button", { name: "Enter ID manually", exact: true })
+      .click();
+    await expect(
       liaison.dialog.getByRole("button", { name: "Mark Student", exact: true })
     ).toBeDisabled();
     await liaison.emitHeldFrame(secondQr);
@@ -520,6 +529,15 @@ test("Center scan sessions mark two Students through four explicitly finalized s
       })
     ).toBeVisible();
     await expect(
+      liaison.dialog.getByRole("button", {
+        name: "Mark Student",
+        exact: true,
+      })
+    ).toHaveCount(0);
+    await liaison.dialog
+      .getByRole("button", { name: "Enter ID manually", exact: true })
+      .click();
+    await expect(
       liaison.dialog.getByRole("button", { name: "Mark Student", exact: true })
     ).toBeDisabled();
     await liaison.close();
@@ -563,6 +581,15 @@ test("Center scan sessions mark two Students through four explicitly finalized s
         const foodScanner = new KalakritiScanPage(deniedPage);
         await foodScanner.installDecoder();
         await foodScanner.open();
+        await expect(
+          foodScanner.dialog.getByRole("button", {
+            name: "Record meal",
+            exact: true,
+          })
+        ).toHaveCount(0);
+        await foodScanner.dialog
+          .getByRole("button", { name: "Enter ID manually", exact: true })
+          .click();
         await expect(
           foodScanner.dialog.getByRole("button", {
             name: "Record meal",
@@ -632,6 +659,12 @@ test("Center scan sessions mark two Students through four explicitly finalized s
     });
     const beforeInvalidation = await state();
     // Invalidate an open session with an unmarked Student, without navigation or reload.
+    await expect(
+      lead.dialog.getByRole("button", { name: "Mark Student", exact: true })
+    ).toHaveCount(0);
+    await lead.dialog
+      .getByRole("button", { name: "Enter ID manually", exact: true })
+      .click();
     await fixture("close");
     await expect(
       lead.dialog.getByRole("button", { name: "Mark Student", exact: true })

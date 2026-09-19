@@ -34,7 +34,10 @@ export const kalakritiCompetitionQueries = {
                   assignmentOr(
                     cmp("responsibility", "edition_admin"),
                     cmp("responsibility", "overall_events_lead"),
-                    cmp("responsibility", "volunteer_coordinator")
+                    cmp("responsibility", "awards_lead"),
+                    cmp("responsibility", "awards_member"),
+                    cmp("responsibility", "volunteer_coordinator"),
+                    cmp("responsibility", "volunteer_management_volunteer")
                   )
                 )
               )
@@ -77,7 +80,10 @@ export const kalakritiCompetitionQueries = {
                   assignmentOr(
                     cmp("responsibility", "edition_admin"),
                     cmp("responsibility", "overall_events_lead"),
-                    cmp("responsibility", "volunteer_coordinator")
+                    cmp("responsibility", "awards_lead"),
+                    cmp("responsibility", "awards_member"),
+                    cmp("responsibility", "volunteer_coordinator"),
+                    cmp("responsibility", "volunteer_management_volunteer")
                   )
                 )
               )
@@ -144,6 +150,8 @@ export const kalakritiCompetitionQueries = {
                   assignmentOr(
                     cmp("responsibility", "edition_admin"),
                     cmp("responsibility", "overall_events_lead"),
+                    cmp("responsibility", "awards_lead"),
+                    cmp("responsibility", "awards_member"),
                     cmp("responsibility", "volunteer_coordinator")
                   )
                 )
@@ -214,6 +222,8 @@ export const kalakritiCompetitionQueries = {
                   assignmentOr(
                     cmp("responsibility", "edition_admin"),
                     cmp("responsibility", "overall_events_lead"),
+                    cmp("responsibility", "awards_lead"),
+                    cmp("responsibility", "awards_member"),
                     cmp("responsibility", "volunteer_coordinator")
                   )
                 )

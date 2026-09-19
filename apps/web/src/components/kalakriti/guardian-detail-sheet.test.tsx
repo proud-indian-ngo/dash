@@ -57,11 +57,13 @@ function render(
           membership: { responsibilities: [] },
         } as unknown as KalakritiEditionAccess
       }
+      canManage={isGlobalAdmin}
       guardian={{
         assignedCenters: [],
         id: "guardian",
         humanId,
         isExternal: true,
+        operations: [],
         snapshotName: "Guardian",
         snapshotEmail: null,
         snapshotPhone: null,

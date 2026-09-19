@@ -16,8 +16,16 @@ mock.module("./center-scan-dialog", () => ({
   CenterScanPanel: () => <p>Transport roster</p>,
 }));
 mock.module("./operation-scan-panel", () => ({
-  OperationScanPanel: ({ activity }: { activity: string }) => (
-    <p>{activity} capture</p>
+  OperationScanPanel: ({
+    activity,
+    fixedSessionId,
+  }: {
+    activity: string;
+    fixedSessionId?: string;
+  }) => (
+    <p>
+      {activity} capture {fixedSessionId}
+    </p>
   ),
 }));
 mock.module("./inventory-scan-panel", () => ({
@@ -41,12 +49,14 @@ describe("Role-aware sidebar Scan dialog", () => {
     const html = render(["meals", "transport", "check_in", "attendance"]);
     expect(html.match(/role="tab"/g)).toHaveLength(4);
     expect(html).toContain("Transport roster");
+    expect(html).toContain("Mark Students at each transport stage.");
     expect(html).not.toContain("meals capture");
   });
   it("shows a single activity without unnecessary tabs or transport", () => {
     const html = render(["meals"]);
     expect(html).not.toContain('role="tablist"');
     expect(html).toContain("meals capture");
+    expect(html).toContain("Record breakfast or lunch service.");
     expect(html).not.toContain("Transport roster");
   });
   it("offers dispatch and return to logistics staff", () => {
@@ -59,5 +69,18 @@ describe("Role-aware sidebar Scan dialog", () => {
     const html = render([]);
     expect(html).toContain("no longer available");
     expect(html).not.toContain("Transport roster");
+  });
+  it("passes a fixed Competition session to attendance capture", () => {
+    const html = renderToStaticMarkup(
+      <ScanDialog
+        activities={["attendance"]}
+        editionId="edition"
+        fixedSessionId="session-1"
+        initialActivity="attendance"
+        onOpenChange={() => undefined}
+        year={2162}
+      />
+    );
+    expect(html).toContain("attendance capture session-1");
   });
 });

@@ -22,7 +22,16 @@ interface EntryDivisionSource {
 
 interface EntrySource {
   centerId?: string;
-  center?: KalakritiEntryRow["center"];
+  center?: KalakritiEntryRow["center"] & {
+    assignments?: readonly {
+      id: string;
+      membership?: {
+        id: string;
+        snapshotName: string;
+        snapshotPhone: string | null;
+      };
+    }[];
+  };
   division?: EntryDivisionSource;
   divisionId: string;
   id: string;
@@ -109,6 +118,18 @@ export function buildKalakritiEntryRows(
             centerId: entry.centerId,
             center: entry.center,
             id: entry.id,
+            liaisonContacts:
+              entry.center?.assignments?.flatMap((assignment) =>
+                assignment.membership
+                  ? [
+                      {
+                        id: assignment.membership.id,
+                        name: assignment.membership.snapshotName,
+                        phone: assignment.membership.snapshotPhone,
+                      },
+                    ]
+                  : []
+              ) ?? [],
             members,
             musicFiles: entry.musicFiles ?? [],
             participationMode: entry.participationMode,

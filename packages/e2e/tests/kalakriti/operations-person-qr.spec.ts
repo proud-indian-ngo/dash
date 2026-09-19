@@ -181,6 +181,26 @@ test("authorized operations resolve JSON people, reject invalid subjects, replay
     ).toBeUndefined();
     expect(await fixture<State>("state")).toEqual(recorded);
 
+    const guardianCheckIn = operation(
+      setup.editionId,
+      setup.guardianId,
+      "guardian",
+      "volunteer_check_in"
+    );
+    expect(
+      (await mutate(page.request, "kalakritiOperation.record", guardianCheckIn))
+        .error
+    ).toBeUndefined();
+    recorded = await fixture<State>("state");
+    expect(recorded.operations).toContainEqual({
+      operationId: guardianCheckIn.operationId,
+      studentId: null,
+      membershipId: setup.guardianId,
+      type: "guardian_check_in",
+    });
+    expect(recorded.operations).toHaveLength(3);
+    expect(recorded.audits).toHaveLength(3);
+
     for (const args of [
       operation(setup.otherEditionId, setup.studentId, "student", "pickup"),
       operation(
@@ -196,12 +216,6 @@ test("authorized operations resolve JSON people, reject invalid subjects, replay
         "volunteer_check_in"
       ),
       operation(setup.editionId, setup.volunteerId, "student", "pickup"),
-      operation(
-        setup.editionId,
-        setup.guardianId,
-        "guardian",
-        "volunteer_check_in"
-      ),
       operation(
         setup.editionId,
         setup.inactiveId,
@@ -275,7 +289,7 @@ test("authorized operations resolve JSON people, reject invalid subjects, replay
         ).error
       ).toBeUndefined();
       recorded = await fixture<State>("state");
-      expect(recorded.operations).toHaveLength(4);
+      expect(recorded.operations).toHaveLength(5);
       for (const args of [
         operation(setup.editionId, setup.otherStudentId, "student", "pickup"),
         operation(setup.editionId, setup.studentId, "student", "breakfast"),
@@ -335,7 +349,7 @@ test("authorized operations resolve JSON people, reject invalid subjects, replay
       ).error
     ).toBeUndefined();
     const afterManual = await fixture<State>("state");
-    expect(afterManual.operations).toHaveLength(5);
+    expect(afterManual.operations).toHaveLength(6);
     expect(afterManual.operations).toContainEqual({
       operationId: manual.operationId,
       studentId: null,

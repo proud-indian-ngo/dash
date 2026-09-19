@@ -348,6 +348,9 @@ test("non-login guests and judges support multiple competitions, scoped visibili
       if (attendee.kind === "guest") {
         await scanner.scan(personQr, 3);
       } else {
+        await scanner.dialog
+          .getByRole("button", { name: "Enter ID manually", exact: true })
+          .click();
         await scanner.dialog.getByLabel("Yearly ID").fill(attendee.humanId);
         await scanner.dialog
           .getByRole("button", { name: "Record check-in", exact: true })

@@ -59,6 +59,17 @@ describe("blank ID registration preflight", () => {
     await expect(run()).rejects.toThrow("Unauthorized");
     expect(reads).toBe(1);
   });
+  it.each(["volunteer_coordinator", "volunteer_management_volunteer"])(
+    "allows %s to validate a printed card",
+    async (responsibility) => {
+      access = {
+        isGlobalAdmin: false,
+        edition: { lifecycle: "live" },
+        membership: { responsibilities: [responsibility] },
+      };
+      expect(await run()).toEqual(card);
+    }
+  );
   it("rejects archived editions and unsupported card types", async () => {
     access = { isGlobalAdmin: true, edition: { lifecycle: "archived" } };
     await expect(run()).rejects.toThrow("archived");

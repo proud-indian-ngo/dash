@@ -135,9 +135,7 @@ describe("Food view and recording authority remain separate", () => {
   it("allows Guardian meal subjects without giving Guardians a meal recording activity", () => {
     expect(canScanKalakritiPerson("breakfast", "guardian")).toBe(true);
     expect(canScanKalakritiPerson("lunch", "guardian")).toBe(true);
-    expect(canScanKalakritiPerson("volunteer_check_in", "guardian")).toBe(
-      false
-    );
+    expect(canScanKalakritiPerson("volunteer_check_in", "guardian")).toBe(true);
     expect(canScanKalakritiPerson("competition_attendance", "guardian")).toBe(
       false
     );

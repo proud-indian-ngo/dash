@@ -261,7 +261,29 @@ const ENTRY_READ_RESPONSIBILITIES = [
   "overall_events_lead",
   "competition_category_lead",
   "competition_coordinator",
+  "awards_lead",
+  "awards_member",
 ] as const;
+
+const EDITION_WIDE_COMPETITION_READ_RESPONSIBILITIES = [
+  "edition_admin",
+  "overall_events_lead",
+  "awards_lead",
+  "awards_member",
+] as const;
+
+export function canViewAllKalakritiCompetitions(
+  access: KalakritiCenterRegistrationAccess
+): boolean {
+  return (
+    access.isGlobalAdmin ||
+    access.membership?.responsibilities.some((responsibility) =>
+      (
+        EDITION_WIDE_COMPETITION_READ_RESPONSIBILITIES as readonly string[]
+      ).includes(responsibility)
+    ) === true
+  );
+}
 
 export function canAccessKalakritiEntries(
   access: KalakritiCenterRegistrationAccess

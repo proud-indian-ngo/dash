@@ -62,6 +62,10 @@ function searchEntries(
       member.student.name,
     ]),
     row.center?.name ?? "",
+    ...(row.liaisonContacts ?? []).flatMap((contact) => [
+      contact.name,
+      contact.phone ?? "",
+    ]),
     nextLabel ?? "",
     ...(includeCompetition
       ? [
@@ -415,7 +419,54 @@ export function EntryTable({
         ]
       : []),
     ...(variant === "session"
-      ? []
+      ? [
+          {
+            accessorFn: (row: KalakritiEntryRow) =>
+              (row.liaisonContacts ?? [])
+                .flatMap((contact) => [contact.name, contact.phone ?? ""])
+                .join(" "),
+            cell: ({ row }: { row: { original: KalakritiEntryRow } }) =>
+              (row.original.liaisonContacts?.length ?? 0) > 0 ? (
+                <div className="space-y-2 text-sm">
+                  {row.original.liaisonContacts?.map((contact) => (
+                    <div key={contact.id}>
+                      <p className="font-medium">{contact.name}</p>
+                      {contact.phone ? (
+                        <a
+                          className="text-primary underline-offset-4 hover:underline"
+                          href={`tel:${contact.phone}`}
+                        >
+                          {contact.phone}
+                        </a>
+                      ) : (
+                        <p className="text-muted-foreground">
+                          Phone not provided
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-muted-foreground text-sm">
+                  Not assigned
+                </span>
+              ),
+            header: ({ column }) => (
+              <DataGridColumnHeader
+                column={column}
+                title="Liaison Lead"
+                visibility={true}
+              />
+            ),
+            id: "liaisonLead",
+            meta: {
+              compact: "collapsed",
+              headerTitle: "Liaison Lead",
+              skeleton: <Skeleton className="h-10 w-36" />,
+            },
+            size: 190,
+          } satisfies DataGridColumnDef<KalakritiEntryRow>,
+        ]
       : [
           {
             accessorFn: (row) => row.session.competition.name,

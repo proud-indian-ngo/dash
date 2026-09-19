@@ -27,6 +27,15 @@ import { CenterScanPanel } from "./center-scan-dialog";
 import { InventoryScanPanel } from "./inventory-scan-panel";
 import { OperationScanPanel } from "./operation-scan-panel";
 
+const SCAN_ACTIVITY_DESCRIPTIONS: Record<ScanActivity, string> = {
+  attendance: "Record Student attendance for a Competition session.",
+  check_in: "Check in Volunteers, Guardians, Guests and Judges.",
+  dispatch: "Scan a Volunteer, then record dispatched inventory.",
+  meals: "Record breakfast or lunch service.",
+  return: "Scan a Volunteer, then record returned inventory.",
+  transport: "Mark Students at each transport stage.",
+};
+
 export function ScanDialog({
   editionId,
   year,
@@ -34,6 +43,7 @@ export function ScanDialog({
   onOpenChange,
   ledger: providedLedger,
   initialActivity,
+  fixedSessionId,
 }: {
   editionId: string;
   year: number;
@@ -41,6 +51,7 @@ export function ScanDialog({
   onOpenChange: (open: boolean) => void;
   ledger?: StationRecordingLedger;
   initialActivity?: ScanActivity;
+  fixedSessionId?: string;
 }) {
   const [activity, setActivity] = useState<ScanActivity | undefined>(() =>
     initialActivity && activities.includes(initialActivity)
@@ -80,9 +91,9 @@ export function ScanDialog({
             Scan
           </DialogTitle>
           <DialogDescription>
-            Scan a person QR or enter a yearly ID. Inventory is available in
-            nonarchived Editions; event-day recording requires a live Edition.
-            An online connection is required.
+            {allowed && activity
+              ? SCAN_ACTIVITY_DESCRIPTIONS[activity]
+              : "Choose an available scanning activity."}
           </DialogDescription>
         </DialogHeader>
         <Tabs value={activity ?? "unavailable"} onValueChange={changeActivity}>
@@ -114,6 +125,7 @@ export function ScanDialog({
               editionId={editionId}
               year={year}
               ledger={ledger}
+              fixedSessionId={fixedSessionId}
               onBusyChange={setRecording}
               onComplete={() => onOpenChange(false)}
             />
@@ -129,6 +141,7 @@ function ScanActivityPanel({
   editionId,
   year,
   ledger,
+  fixedSessionId,
   onBusyChange,
   onComplete,
 }: {
@@ -136,6 +149,7 @@ function ScanActivityPanel({
   editionId: string;
   year: number;
   ledger: StationRecordingLedger;
+  fixedSessionId?: string;
   onBusyChange: (busy: boolean) => void;
   onComplete: () => void;
 }) {
@@ -174,6 +188,7 @@ function ScanActivityPanel({
           editionId={editionId}
           year={year}
           ledger={ledger}
+          fixedSessionId={fixedSessionId}
           onBusyChange={onBusyChange}
         />
       );

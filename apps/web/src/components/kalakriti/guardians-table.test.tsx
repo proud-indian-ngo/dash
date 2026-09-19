@@ -44,6 +44,7 @@ const guardian: GuardianRosterItem = {
   id: "guardian-membership",
   humanId: "KALG-2026-0001",
   isExternal: true,
+  operations: [],
   snapshotName: "Guardian",
   snapshotEmail: null,
   snapshotPhone: null,
@@ -53,6 +54,7 @@ describe("Guardian yearly IDs", () => {
   it("shows/searches Yearly ID and uses a dash rather than inventing a historical ID", () => {
     renderToStaticMarkup(
       <GuardiansTable
+        canManage
         data={[guardian]}
         isLoading={false}
         onArchive={() => undefined}
@@ -92,6 +94,7 @@ describe("Guardian yearly IDs", () => {
   it("shows assigned Centers in their column and filters unassigned Guardians", () => {
     renderToStaticMarkup(
       <GuardiansTable
+        canManage
         data={[guardian]}
         isLoading={false}
         onArchive={() => undefined}
@@ -124,5 +127,40 @@ describe("Guardian yearly IDs", () => {
     expect(table.filter.getValue(guardian, ["assignedCenterCount"])).toBe(0);
     expect(table.filter.getValue(assigned, ["assignedCenterCount"])).toBe(1);
     expect(table.searchFn(assigned, "north center")).toBe(true);
+  });
+  it("shows effective Guardian check-in status", () => {
+    renderToStaticMarkup(
+      <GuardiansTable
+        canManage={false}
+        data={[guardian]}
+        isLoading={false}
+        onArchive={() => undefined}
+        onEdit={() => undefined}
+        onView={() => undefined}
+      />
+    );
+    const column = table.columns.find((item) => item.id === "checkInStatus");
+    const markup = (row: GuardianRosterItem) =>
+      renderToStaticMarkup(<>{column?.cell?.({ row: { original: row } })}</>);
+    expect(markup(guardian)).toContain("Not checked in");
+    expect(
+      markup({
+        ...guardian,
+        operations: [
+          { type: "guardian_check_in", supersededByOperationId: null },
+        ],
+      })
+    ).toContain("Checked in");
+    expect(
+      markup({
+        ...guardian,
+        operations: [
+          {
+            type: "guardian_check_in",
+            supersededByOperationId: "undo",
+          },
+        ],
+      })
+    ).toContain("Not checked in");
   });
 });

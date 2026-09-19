@@ -31,6 +31,10 @@ import {
   inviteKalakritiGuardian,
 } from "@/functions/kalakriti-guardian";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
+import {
+  canManageKalakritiGuardians,
+  canViewKalakritiGuardians,
+} from "@/lib/kalakriti-guardian-policy";
 
 interface ReusePayload extends GuardianInviteValues {
   existingName: string;
@@ -39,12 +43,7 @@ interface ReusePayload extends GuardianInviteValues {
 export const Route = createFileRoute("/_app/kalakriti/$year/guardians")({
   beforeLoad: ({ context }) => {
     const access = context.kalakritiEditionAccess;
-    if (
-      !(
-        access.isGlobalAdmin ||
-        access.membership?.responsibilities.includes("edition_admin")
-      )
-    ) {
+    if (!canViewKalakritiGuardians(access)) {
       throw notFound();
     }
   },
@@ -55,6 +54,7 @@ function KalakritiGuardiansPage() {
   const { setQuery } = useDataTableFilters();
   const { kalakritiEditionAccess: access } = Route.useRouteContext();
   const { edition } = access;
+  const canManage = canManageKalakritiGuardians(access);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [selectedGuardianId, setSelectedGuardianId] = useState<string | null>(
     null
@@ -188,6 +188,7 @@ function KalakritiGuardiansPage() {
     humanId: guardian.humanId,
     id: guardian.id,
     isExternal: guardian.user?.role === "external_user",
+    operations: guardian.operations,
     snapshotEmail: guardian.snapshotEmail,
     snapshotName: guardian.snapshotName,
     snapshotPhone: guardian.snapshotPhone,
@@ -297,18 +298,22 @@ function KalakritiGuardiansPage() {
       ) : null}
 
       <GuardiansTable
+        canManage={canManage}
         data={guardianRows}
         isLoading={isLoading}
         onArchive={handleArchiveGuardian}
         onEdit={handleEditGuardian}
         onView={handleViewGuardian}
         toolbarActions={
-          <Button onClick={handleInviteOpen}>Invite Guardian</Button>
+          canManage ? (
+            <Button onClick={handleInviteOpen}>Invite Guardian</Button>
+          ) : undefined
         }
       />
 
       <GuardianDetailSheet
         access={access}
+        canManage={canManage}
         guardian={selectedGuardian}
         onArchive={handleArchiveGuardian}
         onEdit={handleEditGuardian}
@@ -316,18 +321,22 @@ function KalakritiGuardiansPage() {
         open={selectedGuardian !== null}
       />
 
-      <GuardianEditDialog
-        guardian={editingGuardian}
-        onOpenChange={handleEditOpenChange}
-        open={editingGuardian !== null}
-      />
+      {canManage ? (
+        <>
+          <GuardianEditDialog
+            guardian={editingGuardian}
+            onOpenChange={handleEditOpenChange}
+            open={editingGuardian !== null}
+          />
 
-      <GuardianInviteDialog
-        editionId={edition.id}
-        onOpenChange={setInviteOpen}
-        onRequiresConfirmation={handleRequiresConfirmation}
-        open={inviteOpen}
-      />
+          <GuardianInviteDialog
+            editionId={edition.id}
+            onOpenChange={setInviteOpen}
+            onRequiresConfirmation={handleRequiresConfirmation}
+            open={inviteOpen}
+          />
+        </>
+      ) : null}
       <ConfirmDialog
         confirmLabel="Archive access"
         description={`Archive ${archiveAction.payload?.snapshotName ?? "this Guardian"}'s access to ${edition.name}? A dedicated external account will be blocked if this is its final active Edition; central account access is unchanged.`}

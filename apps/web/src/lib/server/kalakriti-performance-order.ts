@@ -14,7 +14,10 @@ import {
 import { and, eq, gte, inArray, isNull, ne, type SQL } from "drizzle-orm";
 
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
-import { canAccessKalakritiEntries } from "@/lib/kalakriti-entry-policy";
+import {
+  canAccessKalakritiEntries,
+  canViewAllKalakritiCompetitions,
+} from "@/lib/kalakriti-entry-policy";
 import {
   resolveKalakritiRegistrationScopes,
   type KalakritiRegistrationScope,
@@ -81,7 +84,11 @@ export async function getKalakritiNextSlotsForAccess(
           )
           .then((rows) => rows.map(({ centerId }) => centerId))
       : [];
-  const scopes = resolveKalakritiRegistrationScopes(access, guardianCenterIds);
+  const scopes: KalakritiRegistrationScope[] = canViewAllKalakritiCompetitions(
+    access
+  )
+    ? [{ kind: "edition" }]
+    : resolveKalakritiRegistrationScopes(access, guardianCenterIds);
   if (scopes.length === 0) return [];
 
   const [division] = await database

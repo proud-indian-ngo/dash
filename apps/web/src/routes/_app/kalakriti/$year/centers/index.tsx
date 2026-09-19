@@ -31,6 +31,7 @@ import {
   canViewKalakritiCenterDirectory,
   selectKalakritiCenterRegistrationCenters,
 } from "@/lib/kalakriti-center-registration-policy";
+import { canViewKalakritiGuardians } from "@/lib/kalakriti-guardian-policy";
 import { buildParticipationCompliance } from "@/lib/kalakriti-participation-compliance";
 
 export const Route = createFileRoute("/_app/kalakriti/$year/centers/")({
@@ -64,13 +65,13 @@ function getEmptyStateDescription({
 }
 
 function buildCenterRows({
-  canManageGuardians,
+  canViewGuardians,
   canManageLiaisons,
   centers,
   guardianAssignments,
   liaisonAssignments,
 }: {
-  canManageGuardians: boolean;
+  canViewGuardians: boolean;
   canManageLiaisons: boolean;
   centers: readonly {
     competitionEntryRegistrationEnabled: boolean | null;
@@ -89,7 +90,7 @@ function buildCenterRows({
     competitionEntryRegistrationEnabled: Boolean(
       center.competitionEntryRegistrationEnabled
     ),
-    guardianCount: canManageGuardians
+    guardianCount: canViewGuardians
       ? guardianAssignments.filter((item) => item.centerId === center.id).length
       : null,
     id: center.id,
@@ -163,6 +164,7 @@ function KalakritiCentersPage() {
   const canManageCenters =
     access.isGlobalAdmin || responsibilities.has("edition_admin");
   const canManageGuardians = canManageCenters;
+  const canViewGuardians = canViewKalakritiGuardians(access);
   const canManageLiaisons =
     canManageCenters || responsibilities.has("volunteer_coordinator");
   const centerStructureLocked = CENTER_STRUCTURE_LOCKED_LIFECYCLES.has(
@@ -200,7 +202,7 @@ function KalakritiCentersPage() {
     (students.length === 0 && studentResult.type !== "complete");
   const [guardianAssignments, guardianAssignmentsResult] = useQuery(
     queries.kalakritiCenter.guardianAssignments({ editionId: edition.id }),
-    { enabled: canManageGuardians }
+    { enabled: canViewGuardians }
   );
   const [liaisonAssignments, liaisonAssignmentsResult] = useQuery(
     queries.kalakritiCenter.liaisonAssignments({ editionId: edition.id }),
@@ -314,7 +316,7 @@ function KalakritiCentersPage() {
   });
 
   const centerRows: CenterTableRow[] = buildCenterRows({
-    canManageGuardians,
+    canViewGuardians,
     canManageLiaisons,
     centers: directoryCenters,
     guardianAssignments,
@@ -349,7 +351,7 @@ function KalakritiCentersPage() {
     centerResult.type === "complete" &&
     editionDetailsResult.type === "complete" &&
     (registrationCenterIds.size === 0 || studentResult.type === "complete") &&
-    (!canManageGuardians || guardianAssignmentsResult.type === "complete") &&
+    (!canViewGuardians || guardianAssignmentsResult.type === "complete") &&
     (!canManageLiaisons || liaisonAssignmentsResult.type === "complete");
   const filterCenters = (path: string, operator: string, value: number) => {
     void setQuery(
@@ -421,7 +423,7 @@ function KalakritiCentersPage() {
               ? () => filterCenters("participationIssues", "gt", 0)
               : undefined,
           },
-          ...(canManageGuardians
+          ...(canViewGuardians
             ? [
                 {
                   label: "Without Guardians",
@@ -491,7 +493,7 @@ function KalakritiCentersPage() {
           closeSheet();
           deleteAction.trigger(center);
         }}
-        canViewGuardians={canManageGuardians}
+        canViewGuardians={canViewGuardians}
         canViewLiaisons={canManageLiaisons}
         guardiansLoading={
           guardianAssignments.length === 0 &&
@@ -507,7 +509,10 @@ function KalakritiCentersPage() {
             centerId: link.centerId,
             id: link.id,
             membershipId: link.membershipId,
+            email: link.membership?.snapshotEmail ?? null,
+            humanId: link.membership?.humanId ?? null,
             name: link.membership?.snapshotName ?? "Unknown Guardian",
+            phone: link.membership?.snapshotPhone ?? null,
           }))}
         liaisonAssignments={liaisonAssignments
           .filter((link) => link.centerId === selectedCenterId)

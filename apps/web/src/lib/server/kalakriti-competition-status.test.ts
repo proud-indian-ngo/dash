@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
 
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 
@@ -9,6 +9,26 @@ const database = {
     throw new Error("Denied status requests must not query the database");
   },
 } as never;
+
+function emptyDatabase() {
+  return {
+    select: mock(() => {
+      const query = {
+        from: mock(),
+        innerJoin: mock(),
+        leftJoin: mock(),
+        where: mock(),
+        then: (resolve: (value: unknown) => unknown) =>
+          Promise.resolve([]).then(resolve),
+      };
+      query.from.mockReturnValue(query);
+      query.innerJoin.mockReturnValue(query);
+      query.leftJoin.mockReturnValue(query);
+      query.where.mockReturnValue(query);
+      return query;
+    }),
+  };
+}
 
 function access(
   responsibility: string,
@@ -53,4 +73,19 @@ describe("Competition status data access", () => {
       )
     ).toBeNull();
   });
+
+  it.each(["awards_lead", "awards_member"])(
+    "loads Edition-wide statuses for %s",
+    async (responsibility) => {
+      const currentDatabase = emptyDatabase();
+      expect(
+        await getKalakritiCompetitionStatusesForAccess(
+          access(responsibility),
+          0,
+          currentDatabase as never
+        )
+      ).toEqual([]);
+      expect(currentDatabase.select).toHaveBeenCalledTimes(3);
+    }
+  );
 });

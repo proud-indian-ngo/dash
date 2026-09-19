@@ -10,6 +10,7 @@ let queryType = "complete";
 let online = true;
 let decode: ((value: string) => void) | undefined;
 let fail = false;
+let sessions: unknown[] = [];
 const requests: {
   args: { personQr?: string; humanId?: string; operationId: string };
 }[] = [];
@@ -17,7 +18,7 @@ mock.module("@rocicorp/zero/react", () => ({
   useQuery: () =>
     queryIndex++ === 0
       ? [{ id: "edition", lifecycle }, { type: queryType }]
-      : [[], { type: "complete" }],
+      : [sessions, { type: "complete" }],
   useConnectionState: () => ({ name: online ? "connected" : "disconnected" }),
   useZero: () => ({
     mutate: (request: (typeof requests)[number]) => {
@@ -55,6 +56,11 @@ mock.module("./event-day-qr-scanner", () => ({
     return <p>Camera fallback available</p>;
   },
 }));
+mock.module("./manual-scan-entry", () => ({
+  ManualScanEntry: ({ children }: { children?: ReactNode }) => (
+    <div>{children}</div>
+  ),
+}));
 mock.module("@/lib/mutation-result", () => ({
   handleMutationResult: () => undefined,
 }));
@@ -74,6 +80,19 @@ function render(activity: "meals" | "check_in" | "attendance" = "meals") {
     />
   );
 }
+function renderFixedAttendance() {
+  queryIndex = 0;
+  return renderToStaticMarkup(
+    <OperationScanPanel
+      activity="attendance"
+      editionId="edition"
+      fixedSessionId="session-1"
+      year={2162}
+      ledger={createStationRecordingLedger()}
+      onBusyChange={() => undefined}
+    />
+  );
+}
 beforeEach(() => {
   lifecycle = "live";
   queryType = "complete";
@@ -81,25 +100,24 @@ beforeEach(() => {
   fail = false;
   decode = undefined;
   requests.length = 0;
+  sessions = [];
 });
 describe("Non-transport scan capture", () => {
-  it("keeps manual fallback visible and starts only for a complete live snapshot", () => {
+  it("keeps manual fallback available and starts only for a complete live snapshot", () => {
     queryType = "unknown";
     const html = render();
     expect(decode).toBeUndefined();
     expect(html).toContain('aria-label="Yearly ID or Guardian record ID"');
     expect(html).toContain('disabled=""');
   });
-  it.each(["check_in", "attendance"] as const)(
-    "keeps the Yearly ID label for %s",
-    (activity) => {
-      const html = render(activity);
-      expect(html).toContain('aria-label="Yearly ID"');
-      expect(html).not.toContain(
-        'aria-label="Yearly ID or Guardian record ID"'
-      );
-    }
-  );
+  it("accepts a Guardian record ID at check-in", () => {
+    const html = render("check_in");
+    expect(html).toContain('aria-label="Yearly ID or Guardian record ID"');
+  });
+  it("keeps the Yearly ID label for attendance", () => {
+    const html = render("attendance");
+    expect(html).toContain('aria-label="Yearly ID"');
+  });
   it("does not start while offline or outside live", () => {
     lifecycle = "registration_locked";
     render();
@@ -113,6 +131,23 @@ describe("Non-transport scan capture", () => {
     const html = render("attendance");
     expect(html).toContain("Competition session");
     expect(decode).toBeUndefined();
+  });
+  it("locks attendance to a supplied active Competition session", () => {
+    sessions = [
+      {
+        id: "session-1",
+        cancelledAt: null,
+        startAt: 1,
+        division: {
+          ageCategory: { name: "Junior" },
+          competition: { name: "Solo Dance", cancelledAt: null },
+        },
+      },
+    ];
+    const html = renderFixedAttendance();
+    expect(html).toContain("Solo Dance");
+    expect(html).not.toContain("Select competition session");
+    expect(decode).toBeDefined();
   });
   it("canonicalizes person QR and suppresses both pending and successful duplicate frames", async () => {
     render();
@@ -134,11 +169,14 @@ describe("Non-transport scan capture", () => {
     expect(requests).toHaveLength(2);
     expect(requests[1]?.args).toEqual(requests[0]?.args);
   });
-  it("rejects bearer payloads, Guardians and Students at volunteer check-in", () => {
+  it("accepts Guardians and rejects bearer payloads and Students at check-in", () => {
     render("check_in");
     decode?.("secret-bearer-token");
     decode?.(studentQr);
     decode?.(JSON.stringify({ id: studentId, type: "guardian" }));
-    expect(requests).toHaveLength(0);
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.args.personQr).toBe(
+      JSON.stringify({ id: studentId, type: "guardian" })
+    );
   });
 });

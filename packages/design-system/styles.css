@@ -249,6 +249,16 @@
     @apply border-border outline-ring/50;
   }
 
+  /* iOS Safari zooms focused editable controls whose text is below 16px. */
+  @media (width < 48rem) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    textarea,
+    select,
+    [contenteditable="true"] {
+      font-size: 16px !important;
+    }
+  }
+
   body {
     @apply font-sans bg-background text-foreground;
   }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import {
   canAccessKalakritiEntries,
+  canViewAllKalakritiCompetitions,
   canRemoveKalakritiEntries,
   canWriteKalakritiEntries,
   getEntryRegistrationAvailability,
@@ -78,6 +79,19 @@ describe("Kalakriti Entry policy", () => {
         },
       })
     ).toBe(false);
+    for (const responsibility of ["awards_lead", "awards_member"] as const) {
+      const awardsAccess = {
+        isGlobalAdmin: false,
+        membership: {
+          assignments: [],
+          kind: "volunteer",
+          responsibilities: [responsibility],
+        },
+      } as const;
+      expect(canAccessKalakritiEntries(awardsAccess)).toBe(true);
+      expect(canViewAllKalakritiCompetitions(awardsAccess)).toBe(true);
+    }
+    expect(canViewAllKalakritiCompetitions(noAccess)).toBe(false);
   });
 
   it("lets Competition readers pick any Center while Liaisons stay Center-scoped", () => {

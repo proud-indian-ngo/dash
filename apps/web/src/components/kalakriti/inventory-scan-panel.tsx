@@ -33,6 +33,7 @@ import { getInventoryAssignmentOptions } from "@/lib/kalakriti-inventory-assignm
 import { handleMutationResult } from "@/lib/mutation-result";
 
 import { EventDayQrScanner } from "./event-day-qr-scanner";
+import { ManualScanEntry } from "./manual-scan-entry";
 
 const batchFormSchema = z.object({
   selection: z.string(),
@@ -152,22 +153,24 @@ export function InventoryScanPanel({
       {result.type !== "complete" ? (
         <Loader />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
+        <div className="space-y-3">
+          <div className="space-y-2">
             <h3 className="mb-2 text-sm font-medium">Scan volunteer QR</h3>
             {ready ? <EventDayQrScanner onScan={scan} /> : null}
           </div>
-          <FormLayout form={form}>
-            <InputField
-              autoComplete="off"
-              isRequired
-              label="Volunteer yearly ID"
-              name="humanId"
-              placeholder="Enter the ID on the volunteer card"
-              disabled={!ready}
-            />
-            <FormActions submitLabel="Find volunteer" disabled={!ready} />
-          </FormLayout>
+          <ManualScanEntry>
+            <FormLayout form={form}>
+              <InputField
+                autoComplete="off"
+                isRequired
+                label="Volunteer yearly ID"
+                name="humanId"
+                placeholder="Enter the ID on the volunteer card"
+                disabled={!ready}
+              />
+              <FormActions submitLabel="Find volunteer" disabled={!ready} />
+            </FormLayout>
+          </ManualScanEntry>
         </div>
       )}
     </div>

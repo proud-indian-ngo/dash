@@ -1,3 +1,47 @@
+import {
+  isKalakritiLiaisonResponsibility,
+  isKalakritiVolunteerManagementResponsibility,
+} from "@pi-dash/shared/kalakriti";
+
+interface GuardianAccess {
+  edition: { lifecycle: string | null };
+  isGlobalAdmin: boolean;
+  membership?: null | { responsibilities: readonly string[] };
+}
+
+export function canManageKalakritiGuardians(access: GuardianAccess): boolean {
+  return (
+    access.isGlobalAdmin ||
+    access.membership?.responsibilities.includes("edition_admin") === true
+  );
+}
+
+export function canViewKalakritiGuardians(access: GuardianAccess): boolean {
+  if (access.isGlobalAdmin) return true;
+  if (canManageKalakritiGuardians(access)) return true;
+  if (access.edition.lifecycle === "archived") return false;
+  return (
+    access.membership?.responsibilities.some(
+      (responsibility) =>
+        isKalakritiVolunteerManagementResponsibility(responsibility) ||
+        isKalakritiLiaisonResponsibility(responsibility)
+    ) === true
+  );
+}
+
+export function hasEffectiveGuardianCheckIn(
+  operations: readonly {
+    supersededByOperationId: string | null;
+    type: string;
+  }[]
+): boolean {
+  return operations.some(
+    (operation) =>
+      operation.type === "guardian_check_in" &&
+      operation.supersededByOperationId === null
+  );
+}
+
 export type GuardianIdentityDecision =
   | "assign_central"
   | "create_external"

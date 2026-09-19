@@ -33,6 +33,7 @@ import type {
 import { handleMutationResult } from "@/lib/mutation-result";
 
 import { EventDayQrScanner } from "./event-day-qr-scanner";
+import { ManualScanEntry } from "./manual-scan-entry";
 
 const manualSchema = z.object({
   humanId: z.string().trim().min(1, "Enter a person ID").max(64),
@@ -52,6 +53,7 @@ interface PanelProps {
   editionId: string;
   year: number;
   ledger: StationRecordingLedger;
+  fixedSessionId?: string;
   onBusyChange: (busy: boolean) => void;
 }
 export function OperationScanPanel({
@@ -59,6 +61,7 @@ export function OperationScanPanel({
   editionId,
   year,
   ledger,
+  fixedSessionId,
   onBusyChange,
 }: PanelProps) {
   const [edition, editionResult] = useQuery(
@@ -69,7 +72,7 @@ export function OperationScanPanel({
     { enabled: activity === "attendance" }
   );
   const [meal, setMeal] = useState<"breakfast" | "lunch">("breakfast");
-  const [sessionId, setSessionId] = useState("");
+  const [sessionId, setSessionId] = useState(fixedSessionId ?? "");
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const setRecording = useEventCallback((value: boolean) => {
@@ -91,6 +94,9 @@ export function OperationScanPanel({
     activity !== "attendance" ||
     (sessionResult.type === "complete" &&
       sessionOptions.some((session) => session.value === sessionId));
+  const selectedSession = sessionOptions.find(
+    (session) => session.value === sessionId
+  );
   const queryReady =
     editionResult.type === "complete" &&
     edition?.id === editionId &&
@@ -106,9 +112,8 @@ export function OperationScanPanel({
       {activity === "meals" ? (
         <div className="space-y-2">
           <p className="text-muted-foreground text-sm">
-            Students require pickup. Volunteers, Guests and Judges require
-            check-in. Guardians only require active registration in this
-            Edition.
+            Students need pickup; Volunteers, Guests and Judges need check-in;
+            Guardians need active registration.
           </p>
           <Label htmlFor="scan-meal">Meal</Label>
           <Select
@@ -138,26 +143,38 @@ export function OperationScanPanel({
       ) : null}
       {activity === "attendance" ? (
         <div className="space-y-2">
-          <Label htmlFor="scan-competition-session">Competition session</Label>
-          <Select
-            items={sessionOptions}
-            value={sessionId || null}
-            disabled={busy || sessionResult.type !== "complete"}
-            onValueChange={(value) => {
-              if (!busyRef.current) setSessionId(value ?? "");
-            }}
-          >
-            <SelectTrigger id="scan-competition-session">
-              <SelectValue placeholder="Select competition session" />
-            </SelectTrigger>
-            <SelectContent>
-              {sessionOptions.map((session) => (
-                <SelectItem key={session.value} value={session.value}>
-                  {session.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {fixedSessionId ? (
+            <p className="text-sm font-medium">Competition session</p>
+          ) : (
+            <Label htmlFor="scan-competition-session">
+              Competition session
+            </Label>
+          )}
+          {fixedSessionId ? (
+            <p className="text-sm">
+              {selectedSession?.label ?? "Checking competition session..."}
+            </p>
+          ) : (
+            <Select
+              items={sessionOptions}
+              value={sessionId || null}
+              disabled={busy || sessionResult.type !== "complete"}
+              onValueChange={(value) => {
+                if (!busyRef.current) setSessionId(value ?? "");
+              }}
+            >
+              <SelectTrigger id="scan-competition-session">
+                <SelectValue placeholder="Select competition session" />
+              </SelectTrigger>
+              <SelectContent>
+                {sessionOptions.map((session) => (
+                  <SelectItem key={session.value} value={session.value}>
+                    {session.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           {sessionResult.type !== "complete" ? (
             <Loader />
           ) : !sessionOptions.length ? (
@@ -167,8 +184,10 @@ export function OperationScanPanel({
           !sessionAvailable &&
           sessionResult.type === "complete" ? (
             <p role="status">
-              This session is no longer available. Select a competition session
-              to continue.
+              This session is no longer available.
+              {fixedSessionId
+                ? " Close the scanner and choose an active session."
+                : " Select a competition session to continue."}
             </p>
           ) : null}
         </div>
@@ -302,7 +321,7 @@ function OperationCapture({
     if (!canScanKalakritiPerson(type, person.type)) {
       toast.error(
         type === "volunteer_check_in"
-          ? "Scan a Volunteer, Guest or Judge QR code"
+          ? "Scan a Volunteer, Guardian, Guest or Judge QR code"
           : type === "competition_attendance"
             ? "Scan a Student QR code"
             : "Scan a Student, Volunteer, Guardian, Guest or Judge QR code",
@@ -330,37 +349,41 @@ function OperationCapture({
       {connection.name !== "connected" ? (
         <p role="status">Scanning requires an online connection.</p>
       ) : null}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
+      <div className="space-y-3">
+        <div className="space-y-2">
           <h3 className="mb-2 text-sm font-medium">Scan person QR</h3>
           {ready ? <EventDayQrScanner onScan={scan} /> : null}
         </div>
-        <FormLayout form={form}>
-          <fieldset className="space-y-3" disabled={!ready || busy}>
-            <InputField
-              autoComplete="off"
-              isRequired
-              label={
-                type === "breakfast" || type === "lunch"
-                  ? "Yearly ID or Guardian record ID"
-                  : "Yearly ID"
-              }
-              name="humanId"
-              placeholder={
-                type === "breakfast" || type === "lunch"
-                  ? "Person yearly ID or Guardian UUID"
-                  : type === "volunteer_check_in"
-                    ? "Volunteer, Guest or Judge yearly ID"
+        <ManualScanEntry>
+          <FormLayout form={form}>
+            <fieldset className="space-y-3" disabled={!ready || busy}>
+              <InputField
+                autoComplete="off"
+                isRequired
+                label={
+                  type === "breakfast" ||
+                  type === "lunch" ||
+                  type === "volunteer_check_in"
+                    ? "Yearly ID or Guardian record ID"
+                    : "Yearly ID"
+                }
+                name="humanId"
+                placeholder={
+                  type === "breakfast" ||
+                  type === "lunch" ||
+                  type === "volunteer_check_in"
+                    ? "Person yearly ID or Guardian UUID"
                     : `KAL-${year}-0001`
-              }
-            />
-            <FormActions
-              submitLabel={SUBMIT_LABELS[type]}
-              submittingLabel="Recording..."
-              disabled={!ready || busy}
-            />
-          </fieldset>
-        </FormLayout>
+                }
+              />
+              <FormActions
+                submitLabel={SUBMIT_LABELS[type]}
+                submittingLabel="Recording..."
+                disabled={!ready || busy}
+              />
+            </fieldset>
+          </FormLayout>
+        </ManualScanEntry>
       </div>
     </div>
   );
