@@ -295,6 +295,14 @@ function KalakritiEditionOverview() {
       ) : null}
       {dashboard ? (
         <RoleDashboard
+          registerIdCard={
+            canManageLifecycle ? (
+              <RegisterIdCardDialog
+                className="max-sm:min-h-11"
+                editionId={edition.id}
+              />
+            ) : null
+          }
           summary={dashboard.summary}
           fresh={snapshot.fresh}
           error={snapshot.error}
@@ -340,7 +348,6 @@ function KalakritiEditionOverview() {
                 <div className="flex flex-wrap gap-2 pt-2">
                   <IdCardDownloadButton year={edition.year} />
                   <BlankIdCardDownloadDialog year={edition.year} />
-                  <RegisterIdCardDialog editionId={edition.id} />
                 </div>
               </CollapsibleContent>
             </Collapsible>

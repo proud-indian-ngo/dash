@@ -5,6 +5,7 @@ import {
   KALAKRITI_COMPETITION_SCOPED_RESPONSIBILITIES,
   KALAKRITI_VOLUNTEER_EDITION_ASSIGNMENT_RESPONSIBILITIES,
   type KalakritiResponsibility,
+  normalizeKalakritiVolunteerName,
 } from "@pi-dash/shared/kalakriti";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
@@ -100,8 +101,8 @@ export const kalakritiAssignmentCreateSchema = z.object({
   responsibility: z.enum(
     KALAKRITI_VOLUNTEER_EDITION_ASSIGNMENT_RESPONSIBILITIES
   ),
-  teamEventMemberId: z.string(),
-  userId: z.string(),
+  teamEventMemberId: z.string().optional(),
+  userId: z.string().optional(),
 });
 
 export const kalakritiLiaisonAssignmentCreateSchema = z.object({
@@ -113,8 +114,8 @@ export const kalakritiLiaisonAssignmentCreateSchema = z.object({
   membershipId: z.string(),
   now: z.number(),
   responsibility: z.enum(KALAKRITI_CENTER_VOLUNTEER_RESPONSIBILITIES),
-  teamEventMemberId: z.string(),
-  userId: z.string(),
+  teamEventMemberId: z.string().optional(),
+  userId: z.string().optional(),
 });
 
 export const kalakritiCompetitionCategoryAssignmentCreateSchema = z.object({
@@ -128,8 +129,8 @@ export const kalakritiCompetitionCategoryAssignmentCreateSchema = z.object({
   responsibility: z.enum(
     KALAKRITI_COMPETITION_CATEGORY_SCOPED_RESPONSIBILITIES
   ),
-  teamEventMemberId: z.string(),
-  userId: z.string(),
+  teamEventMemberId: z.string().optional(),
+  userId: z.string().optional(),
 });
 
 export const kalakritiCompetitionScopeAssignmentCreateSchema = z.object({
@@ -141,8 +142,19 @@ export const kalakritiCompetitionScopeAssignmentCreateSchema = z.object({
   membershipId: z.string(),
   now: z.number(),
   responsibility: z.enum(KALAKRITI_COMPETITION_SCOPED_RESPONSIBILITIES),
-  teamEventMemberId: z.string(),
-  userId: z.string(),
+  teamEventMemberId: z.string().optional(),
+  userId: z.string().optional(),
+});
+
+export const kalakritiCreateLocalVolunteerSchema = z.object({
+  auditEntryId: z.string(),
+  editionId: z.string(),
+  membershipId: z.string(),
+  name: z.string().trim().min(1).max(120),
+  now: z.number(),
+  requirePrintedCardId: z.boolean().optional(),
+  snapshotEmail: z.email().nullable().optional(),
+  snapshotPhone: z.string().nullable().optional(),
 });
 
 export const kalakritiAssignmentRemoveSchema = z.object({
@@ -184,8 +196,16 @@ interface AssignVolunteerArgs {
   membershipId: string;
   now: number;
   responsibility: KalakritiResponsibility;
-  teamEventMemberId: string;
-  userId: string;
+  teamEventMemberId?: string;
+  userId?: string;
+}
+
+interface AssignmentMembershipRow {
+  editionId: string;
+  id: string;
+  kind: "guardian" | "volunteer";
+  state: "active" | "archived";
+  userId: string | null;
 }
 
 interface AssignableVolunteer {
@@ -296,6 +316,27 @@ async function getRosterVolunteer(
   return volunteer;
 }
 
+function assertVolunteerMembership(
+  membership:
+    | {
+        editionId?: string;
+        kind: "guardian" | "volunteer";
+      }
+    | undefined,
+  editionId: string
+): AssignmentMembershipRow | undefined {
+  if (!membership) {
+    return;
+  }
+  if (membership.editionId && membership.editionId !== editionId) {
+    throw new Error("Volunteer membership not found in this Edition");
+  }
+  if (membership.kind === "guardian") {
+    throw new Error("Guardian memberships cannot receive volunteer roles");
+  }
+  return membership as AssignmentMembershipRow;
+}
+
 async function assignVolunteerResponsibility(
   tx: AssignmentTx,
   ctx: Context | undefined,
@@ -314,25 +355,39 @@ async function assignVolunteerResponsibility(
     args.competitionCategoryId,
     args.competitionId
   );
-  const volunteer = await getRosterVolunteer(tx, args.userId);
-  if (!volunteer) {
-    return;
-  }
 
-  const membership = (await tx.run(
-    zql.kalakritiEditionMembership
-      .where("editionId", args.editionId)
-      .where("userId", args.userId)
-      .one()
-  )) as
-    | {
-        id: string;
-        kind: "guardian" | "volunteer";
-        state: "active" | "archived";
+  let volunteer: AssignableVolunteer | undefined;
+  let membership: AssignmentMembershipRow | undefined;
+  if (args.userId) {
+    volunteer = await getRosterVolunteer(tx, args.userId);
+    if (!volunteer) {
+      return;
+    }
+    membership = assertVolunteerMembership(
+      (await tx.run(
+        zql.kalakritiEditionMembership
+          .where("editionId", args.editionId)
+          .where("userId", args.userId)
+          .one()
+      )) as AssignmentMembershipRow | undefined,
+      args.editionId
+    );
+  } else {
+    membership = assertVolunteerMembership(
+      (await tx.run(
+        zql.kalakritiEditionMembership.where("id", args.membershipId).one()
+      )) as AssignmentMembershipRow | undefined,
+      args.editionId
+    );
+    if (!membership) {
+      if (tx.location === "client") {
+        return;
       }
-    | undefined;
-  if (membership?.kind === "guardian") {
-    throw new Error("Guardian memberships cannot receive volunteer roles");
+      throw new Error("Active volunteer not found");
+    }
+    if (membership.state !== "active") {
+      throw new Error("Active volunteer not found");
+    }
   }
 
   const membershipId = membership ? membership.id : args.membershipId;
@@ -363,13 +418,18 @@ async function assignVolunteerResponsibility(
         editionId: args.editionId,
         membershipId,
       });
-      await orientEnrolledKalakritiVolunteer(tx, ctx, args.userId, args.now);
+      if (args.userId) {
+        await orientEnrolledKalakritiVolunteer(tx, ctx, args.userId, args.now);
+      }
       return;
     }
     throw new Error("Volunteer already has this scoped responsibility");
   }
 
   if (!membership) {
+    if (!volunteer || !args.userId) {
+      throw new Error("Active volunteer not found");
+    }
     await tx.mutate.kalakritiEditionMembership.insert({
       archivedAt: null,
       createdAt: args.now,
@@ -385,6 +445,9 @@ async function assignVolunteerResponsibility(
       userId: args.userId,
     });
   } else if (membership.state === "archived") {
+    if (!volunteer) {
+      throw new Error("Active volunteer not found");
+    }
     await tx.mutate.kalakritiEditionMembership.update({
       archivedAt: null,
       id: membership.id,
@@ -423,22 +486,27 @@ async function assignVolunteerResponsibility(
     responsibility: args.responsibility,
   });
 
-  const eventMember = await tx.run(
-    zql.teamEventMember
-      .where("eventId", edition.teamEventId)
-      .where("userId", args.userId)
-      .one()
-  );
-  if (!eventMember) {
-    await tx.mutate.teamEventMember.insert({
-      addedAt: args.now,
-      attendance: null,
-      attendanceMarkedAt: null,
-      attendanceMarkedBy: null,
-      eventId: edition.teamEventId,
-      id: args.teamEventMemberId,
-      userId: args.userId,
-    });
+  if (args.userId) {
+    const eventMember = await tx.run(
+      zql.teamEventMember
+        .where("eventId", edition.teamEventId)
+        .where("userId", args.userId)
+        .one()
+    );
+    if (!eventMember) {
+      if (!args.teamEventMemberId) {
+        throw new Error("Linked event member is required");
+      }
+      await tx.mutate.teamEventMember.insert({
+        addedAt: args.now,
+        attendance: null,
+        attendanceMarkedAt: null,
+        attendanceMarkedBy: null,
+        eventId: edition.teamEventId,
+        id: args.teamEventMemberId,
+        userId: args.userId,
+      });
+    }
   }
 
   await tx.mutate.kalakritiAuditEntry.insert({
@@ -453,7 +521,7 @@ async function assignVolunteerResponsibility(
       competitionCategoryId: args.competitionCategoryId,
       competitionId: args.competitionId,
       responsibility: args.responsibility,
-      userId: args.userId,
+      userId: args.userId ?? null,
     },
     reason: null,
     targetId: args.assignmentId,
@@ -463,7 +531,9 @@ async function assignVolunteerResponsibility(
     editionId: args.editionId,
     membershipId,
   });
-  await orientEnrolledKalakritiVolunteer(tx, ctx, args.userId, args.now);
+  if (args.userId) {
+    await orientEnrolledKalakritiVolunteer(tx, ctx, args.userId, args.now);
+  }
 }
 
 export const kalakritiAssignmentMutators = {
@@ -605,6 +675,75 @@ export const kalakritiAssignmentMutators = {
       })
   ),
 
+  createLocalVolunteer: defineMutator(
+    kalakritiCreateLocalVolunteerSchema,
+    async ({ tx, ctx, args }) => {
+      await assertCanManageVolunteerRoster(tx, ctx, args.editionId);
+      assertIsLoggedIn(ctx);
+      await getAssignmentEdition(tx, args.editionId);
+      const name = normalizeKalakritiVolunteerName(args.name);
+      if (!name) {
+        throw new Error("Name is required");
+      }
+
+      const existing = (await tx.run(
+        zql.kalakritiEditionMembership.where("id", args.membershipId).one()
+      )) as AssignmentMembershipRow | undefined;
+      if (args.requirePrintedCardId) {
+        if (
+          existing?.id === args.membershipId &&
+          existing.userId === null &&
+          existing.editionId === args.editionId &&
+          existing.kind === "volunteer" &&
+          existing.state === "active"
+        ) {
+          return;
+        }
+        if (existing) {
+          throw new Error(
+            "This card or volunteer is already registered. Use the existing ID card."
+          );
+        }
+      } else if (existing) {
+        throw new Error(
+          "This card or volunteer is already registered. Use the existing ID card."
+        );
+      }
+
+      await tx.mutate.kalakritiEditionMembership.insert({
+        archivedAt: null,
+        createdAt: args.now,
+        createdBy: ctx.userId,
+        editionId: args.editionId,
+        humanId: null,
+        id: args.membershipId,
+        kind: "volunteer",
+        snapshotEmail: args.snapshotEmail ?? null,
+        snapshotName: name,
+        snapshotPhone: args.snapshotPhone ?? null,
+        state: "active",
+        updatedAt: args.now,
+        userId: null,
+      });
+      await ensureVolunteerHumanId(tx as VolunteerIdTx, {
+        editionId: args.editionId,
+        membershipId: args.membershipId,
+      });
+      await tx.mutate.kalakritiAuditEntry.insert({
+        action: "added",
+        actorUserId: ctx.userId,
+        createdAt: args.now,
+        domain: "volunteer_assignment",
+        editionId: args.editionId,
+        id: args.auditEntryId,
+        metadata: { addedCount: 1 },
+        reason: null,
+        targetId: args.membershipId,
+        targetType: "membership",
+      });
+    }
+  ),
+
   remove: defineMutator(
     kalakritiAssignmentRemoveSchema,
     async ({ tx, ctx, args }) => {
@@ -624,8 +763,8 @@ export const kalakritiAssignmentMutators = {
           .where("id", assignment.membershipId)
           .one()
       );
-      const edition = await getAssignmentEdition(tx, assignment.editionId);
-      if (!(membership?.userId && edition)) {
+      await getAssignmentEdition(tx, assignment.editionId);
+      if (!membership) {
         throw new Error("Assignment membership not found");
       }
 

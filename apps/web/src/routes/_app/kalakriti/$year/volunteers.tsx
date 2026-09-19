@@ -21,6 +21,7 @@ import { z } from "zod";
 
 import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
 import { KalakritiAddVolunteersDialog } from "@/components/kalakriti/kalakriti-add-volunteers-dialog";
+import { KalakritiCreateVolunteerDialog } from "@/components/kalakriti/kalakriti-create-volunteer-dialog";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { KalakritiRoleAssignmentDialog } from "@/components/kalakriti/kalakriti-role-assignment-dialog";
 import { PeoplePageSummary } from "@/components/kalakriti/people-page-summary";
@@ -112,6 +113,7 @@ function KalakritiVolunteersPage() {
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignUserId, setAssignUserId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [selectedVolunteerId, setSelectedVolunteerId] = useState<string | null>(
     null
   );
@@ -264,7 +266,7 @@ function KalakritiVolunteersPage() {
         snapshotEmail: membership.snapshotEmail,
         snapshotName: membership.snapshotName,
         snapshotPhone: membership.snapshotPhone,
-        userId: membership.userId as string,
+        userId: membership.userId,
         userRole: membership.user?.role ?? null,
       })),
     [roster, centers, competitionCategories, competitions]
@@ -298,6 +300,10 @@ function KalakritiVolunteersPage() {
   const handleAddOpen = useEventCallback(() => setAddOpen(true));
   const handleAddOpenChange = useEventCallback((open: boolean) => {
     setAddOpen(open);
+  });
+  const handleCreateOpen = useEventCallback(() => setCreateOpen(true));
+  const handleCreateOpenChange = useEventCallback((open: boolean) => {
+    setCreateOpen(open);
   });
   const handleViewVolunteer = useEventCallback(
     (volunteer: VolunteerRosterItem) => {
@@ -334,7 +340,7 @@ function KalakritiVolunteersPage() {
   const handleAssignFromSheet = useEventCallback(
     (volunteer: VolunteerRosterItem) => {
       setSelectedVolunteerId(null);
-      handleAssignOpen(volunteer.userId);
+      handleAssignOpen(volunteer.userId ?? volunteer.id);
     }
   );
 
@@ -417,9 +423,14 @@ function KalakritiVolunteersPage() {
           onRemoveFromEdition={handleRemoveFromEdition}
           onView={handleViewVolunteer}
           toolbarActions={
-            <Button onClick={handleAddOpen} type="button">
-              Add volunteers
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={handleCreateOpen} type="button">
+                Create volunteer
+              </Button>
+              <Button onClick={handleAddOpen} type="button" variant="outline">
+                Add volunteers
+              </Button>
+            </div>
           }
         />
       )}
@@ -434,9 +445,18 @@ function KalakritiVolunteersPage() {
         open={selectedVolunteer !== null}
         volunteer={selectedVolunteer}
       />
+      <KalakritiCreateVolunteerDialog
+        editionId={edition.id}
+        onOpenChange={handleCreateOpenChange}
+        open={createOpen}
+      />
       <KalakritiAddVolunteersDialog
         editionId={edition.id}
-        excludeUserIds={new Set(volunteerRows.map((row) => row.userId))}
+        excludeUserIds={
+          new Set(
+            volunteerRows.flatMap((row) => (row.userId ? [row.userId] : []))
+          )
+        }
         onOpenChange={handleAddOpenChange}
         open={addOpen}
         pickerState={pickerState}

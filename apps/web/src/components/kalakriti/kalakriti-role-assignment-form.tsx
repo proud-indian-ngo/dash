@@ -50,6 +50,7 @@ import { FormLayout } from "@/components/form/form-layout";
 import { SelectField } from "@/components/form/select-field";
 import { UserPicker } from "@/components/shared/user-picker";
 import type { PickerUser } from "@/functions/users-for-picker";
+import { kalakritiAssignmentMutationIds } from "@/lib/kalakriti-assignment-target";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 interface ScopeOption {
@@ -109,8 +110,8 @@ function assignKalakritiRole(
       makePrimary: boolean;
       membershipId: string;
       now: number;
-      teamEventMemberId: string;
-      userId: string;
+      teamEventMemberId?: string;
+      userId?: string;
     };
     competitionCategoryId: string;
     competitionId: string;
@@ -354,9 +355,10 @@ export function KalakritiRoleAssignmentForm({
         "competition"
           ? value.competitionIds
           : [""];
-      for (const userId of value.userIds) {
+      for (const selectedId of value.userIds) {
         for (const [index, competitionId] of competitionIds.entries()) {
           const assignmentId = uuidv7();
+          const target = kalakritiAssignmentMutationIds(selectedId, users);
           const result = await assignKalakritiRole(zero, {
             centerId: value.centerId,
             competitionCategoryId: value.competitionCategoryId,
@@ -367,10 +369,10 @@ export function KalakritiRoleAssignmentForm({
               auditEntryId: uuidv7(),
               editionId,
               makePrimary: value.makePrimary && index === 0,
-              membershipId: uuidv7(),
+              membershipId: target.membershipId,
               now: currentTimestamp(),
-              teamEventMemberId: uuidv7(),
-              userId,
+              teamEventMemberId: target.teamEventMemberId,
+              userId: target.userId,
             },
           });
           handleMutationResult(result, {

@@ -10,6 +10,9 @@ mock.module("@rocicorp/zero/react", () => ({
 mock.module("@/components/kalakriti/kalakriti-add-volunteers-dialog", () => ({
   KalakritiAddVolunteersDialog: () => null,
 }));
+mock.module("@/components/kalakriti/kalakriti-create-volunteer-dialog", () => ({
+  KalakritiCreateVolunteerDialog: () => null,
+}));
 mock.module("@/components/kalakriti/kalakriti-page-header", () => ({
   KalakritiPageHeader: () => null,
 }));

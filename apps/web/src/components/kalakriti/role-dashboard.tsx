@@ -34,7 +34,7 @@ import { getKalakritiRegistrationReadiness } from "@pi-dash/zero/kalakriti-regis
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { DashboardSectionMetrics } from "@/components/kalakriti/dashboard-section-metrics";
 import { ScanDialog } from "@/components/kalakriti/scan-dialog";
@@ -218,11 +218,13 @@ function sectionActions(
 }
 
 export function RoleDashboard({
+  registerIdCard,
   summary,
   fresh,
   error,
   refresh,
 }: {
+  registerIdCard?: ReactNode;
   summary: KalakritiDashboardSummary;
   fresh: boolean;
   error: boolean;
@@ -285,6 +287,9 @@ export function RoleDashboard({
   );
   const remainingActions = [...scans, ...actions].filter(
     (action) => !usedActionIds.has(action.id)
+  );
+  const hasVolunteersSection = sections.some(
+    (section) => section.id === "volunteers"
   );
 
   return (
@@ -368,8 +373,9 @@ export function RoleDashboard({
           </CardContent>
         </Card>
       ) : null}
-      {remainingActions.length ? (
+      {remainingActions.length || (registerIdCard && !hasVolunteersSection) ? (
         <nav aria-label="Your work areas" className="flex flex-wrap gap-2">
+          {hasVolunteersSection ? null : registerIdCard}
           {remainingActions.map((action) => (
             <DashboardActionButton
               key={action.id}
@@ -403,8 +409,10 @@ export function RoleDashboard({
               </CardHeader>
               <CardContent className="flex flex-1 flex-col gap-5">
                 <DashboardSectionMetrics section={section} />
-                {workActions.length ? (
+                {workActions.length ||
+                (section.id === "volunteers" && registerIdCard) ? (
                   <div className="mt-auto flex flex-wrap items-center gap-2">
+                    {section.id === "volunteers" ? registerIdCard : null}
                     {workActions.map((action) => (
                       <DashboardActionButton
                         key={action.id}
