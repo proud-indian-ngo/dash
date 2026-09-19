@@ -748,11 +748,11 @@ function DataTableWrapperBase<TData extends object>({
                     </InputGroupAddon>
                   ) : null}
                 </InputGroup>
-                <div className="flex w-full min-w-0 items-center justify-between gap-2 @lg/card-header:flex-1">
+                <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2 @lg/card-header:flex-1">
                   <div className="flex min-w-0 flex-wrap items-center gap-2.5">
                     {toolbarFilters}
                   </div>
-                  <CardAction className="relative col-auto row-auto flex shrink-0 flex-wrap items-center gap-1 self-auto justify-self-auto">
+                  <CardAction className="relative col-auto row-auto flex max-w-full shrink-0 flex-wrap items-center gap-1 self-auto justify-self-auto">
                     <DataGridColumnVisibility
                       table={table}
                       trigger={
