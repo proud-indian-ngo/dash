@@ -1248,6 +1248,278 @@ describe("kalakritiAssignment.removeVolunteer", () => {
   });
 });
 
+describe("kalakritiAssignment.createLocalVolunteer", () => {
+  const createArgs = {
+    auditEntryId: "audit-1",
+    editionId: "edition-1",
+    membershipId: "membership-local",
+    name: "  Walk In  Volunteer ",
+    now: 1_700_000_000_000,
+  };
+
+  it("creates a name-only membership without a user, event member, or orientation", async () => {
+    const { tx, spies } = createTx([
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+      undefined,
+    ]);
+
+    await kalakritiAssignmentMutators.createLocalVolunteer.fn({
+      args: createArgs,
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiAssignmentMutators.createLocalVolunteer.fn
+    >[0]);
+
+    expect(spies.insertMembership).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "membership-local",
+        kind: "volunteer",
+        snapshotEmail: null,
+        snapshotName: "Walk In Volunteer",
+        snapshotPhone: null,
+        state: "active",
+        userId: null,
+      })
+    );
+    expect(spies.insertEventMember).not.toHaveBeenCalled();
+    expect(spies.insertAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "added",
+        metadata: { addedCount: 1 },
+        targetId: "membership-local",
+        targetType: "membership",
+      })
+    );
+  });
+
+  it("stores optional phone on a no-login printed-card membership", async () => {
+    const { tx, spies } = createTx([
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+      undefined,
+    ]);
+
+    await kalakritiAssignmentMutators.createLocalVolunteer.fn({
+      args: {
+        ...createArgs,
+        membershipId: "printed-card",
+        requirePrintedCardId: true,
+        snapshotPhone: "+919876543210",
+      },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiAssignmentMutators.createLocalVolunteer.fn
+    >[0]);
+
+    expect(spies.insertMembership).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "printed-card",
+        snapshotEmail: null,
+        snapshotPhone: "+919876543210",
+        userId: null,
+      })
+    );
+    expect(spies.insertEventMember).not.toHaveBeenCalled();
+  });
+
+  it("accepts an exact printed-card retry without creating another membership", async () => {
+    const { tx, spies } = createTx([
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+      {
+        id: "printed-card",
+        userId: null,
+        editionId: "edition-1",
+        kind: "volunteer",
+        state: "active",
+      },
+    ]);
+
+    await kalakritiAssignmentMutators.createLocalVolunteer.fn({
+      args: {
+        ...createArgs,
+        membershipId: "printed-card",
+        requirePrintedCardId: true,
+      },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiAssignmentMutators.createLocalVolunteer.fn
+    >[0]);
+
+    expect(spies.insertMembership).not.toHaveBeenCalled();
+    expect(spies.insertAudit).not.toHaveBeenCalled();
+  });
+
+  it("refuses a printed card that already belongs to another record", async () => {
+    const { tx, spies } = createTx([
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+      {
+        id: "printed-card",
+        userId: "volunteer-1",
+        editionId: "edition-1",
+        kind: "volunteer",
+        state: "active",
+      },
+    ]);
+
+    await expect(
+      kalakritiAssignmentMutators.createLocalVolunteer.fn({
+        args: {
+          ...createArgs,
+          membershipId: "printed-card",
+          requirePrintedCardId: true,
+        },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiAssignmentMutators.createLocalVolunteer.fn
+      >[0])
+    ).rejects.toThrow("already registered");
+    expect(spies.insertMembership).not.toHaveBeenCalled();
+  });
+
+  it("rejects archived Editions", async () => {
+    const { tx, spies } = createTx([
+      { id: "edition-1", lifecycle: "archived", teamEventId: "event-1" },
+    ]);
+
+    await expect(
+      kalakritiAssignmentMutators.createLocalVolunteer.fn({
+        args: createArgs,
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiAssignmentMutators.createLocalVolunteer.fn
+      >[0])
+    ).rejects.toThrow("Archived Editions cannot change assignments");
+    expect(spies.insertMembership).not.toHaveBeenCalled();
+  });
+});
+
+describe("kalakritiAssignment.assignVolunteer local membership", () => {
+  it("assigns a role without a login user, event member, or orientation", async () => {
+    const { tx, spies } = createTx([
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+      {
+        id: "membership-local",
+        editionId: "edition-1",
+        kind: "volunteer",
+        state: "active",
+        userId: null,
+      },
+      [],
+    ]);
+    const sql = createOrientationSql();
+    Object.assign(tx.dbTransaction.wrappedTransaction, {
+      update: sql.transaction.update,
+      delete: sql.transaction.delete,
+    });
+    const ctx = { ...adminContext, asyncTasks: [] };
+
+    await kalakritiAssignmentMutators.assignVolunteer.fn({
+      args: {
+        ...assignArgs,
+        membershipId: "membership-local",
+        teamEventMemberId: undefined,
+        userId: undefined,
+      },
+      ctx,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiAssignmentMutators.assignVolunteer.fn
+    >[0]);
+
+    expect(spies.insertAssignment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        membershipId: "membership-local",
+        responsibility: "volunteer_coordinator",
+      })
+    );
+    expect(spies.insertMembership).not.toHaveBeenCalled();
+    expect(spies.insertEventMember).not.toHaveBeenCalled();
+    expect(sql.returning).not.toHaveBeenCalled();
+    expect(ctx.asyncTasks).toHaveLength(0);
+  });
+
+  it("assigns a Center liaison to a local volunteer", async () => {
+    const { tx, spies } = createTx([
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+      {
+        id: "membership-local",
+        editionId: "edition-1",
+        kind: "volunteer",
+        state: "active",
+        userId: null,
+      },
+      [],
+    ]);
+
+    await kalakritiAssignmentMutators.assignLiaison.fn({
+      args: {
+        ...assignArgs,
+        centerId: "center-1",
+        membershipId: "membership-local",
+        responsibility: "liaison_volunteer",
+        teamEventMemberId: undefined,
+        userId: undefined,
+      },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiAssignmentMutators.assignLiaison.fn
+    >[0]);
+
+    expect(spies.insertAssignment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        centerId: "center-1",
+        membershipId: "membership-local",
+        responsibility: "liaison_volunteer",
+      })
+    );
+    expect(spies.insertEventMember).not.toHaveBeenCalled();
+  });
+
+  it("assigns a competition volunteer to a local volunteer", async () => {
+    const { tx, spies } = createTx([
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+      { editionId: "edition-1", retiredAt: null },
+      {
+        id: "membership-local",
+        editionId: "edition-1",
+        kind: "volunteer",
+        state: "active",
+        userId: null,
+      },
+      [],
+    ]);
+
+    await kalakritiAssignmentMutators.assignCompetitionMember.fn({
+      args: {
+        ...assignArgs,
+        competitionId: "competition-1",
+        membershipId: "membership-local",
+        responsibility: "competition_volunteer",
+        teamEventMemberId: undefined,
+        userId: undefined,
+      },
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiAssignmentMutators.assignCompetitionMember.fn
+    >[0]);
+
+    expect(spies.insertAssignment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        competitionId: "competition-1",
+        membershipId: "membership-local",
+        responsibility: "competition_volunteer",
+      })
+    );
+    expect(spies.insertEventMember).not.toHaveBeenCalled();
+  });
+});
+
 describe("automatic orientation across assignment scopes", () => {
   for (const [name, scope] of [
     ["assignVolunteer", {}],

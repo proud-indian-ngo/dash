@@ -11,8 +11,8 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
+  canAssignKalakritiVolunteerRole,
   canManageKalakritiResponsibility,
-  isKalakritiAssignableUserRole,
   KALAKRITI_RESPONSIBILITY_LABELS,
   KALAKRITI_VOLUNTEER_CHECK_IN_LABELS,
   type KalakritiResponsibility,
@@ -54,7 +54,7 @@ export interface VolunteerRosterItem {
   snapshotEmail: string | null;
   snapshotName: string;
   snapshotPhone: string | null;
-  userId: string;
+  userId: string | null;
   userRole: string | null;
 }
 
@@ -137,7 +137,7 @@ function RowActions({
         assignment.responsibility
       )
   );
-  const canAssignRole = isKalakritiAssignableUserRole(volunteer.userRole);
+  const canAssignRole = canAssignKalakritiVolunteerRole(volunteer);
   const canRemoveFromEdition =
     isGlobalAdmin ||
     volunteer.assignments.every((assignment) =>

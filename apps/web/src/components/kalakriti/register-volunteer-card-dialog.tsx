@@ -5,16 +5,16 @@ import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
+import { isValidPhoneNumber } from "libphonenumber-js";
 import { useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
+import z from "zod";
 
-import { DateField } from "@/components/form/date-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { PhoneField } from "@/components/form/phone-field-lazy";
-import { SelectField } from "@/components/form/select-field";
 import { Loader } from "@/components/loader";
 import {
   Dialog,
@@ -23,20 +23,46 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
-import {
-  createUserFormSchema,
-  defaultCreateUserFormValues,
-} from "@/components/users/user-form";
 import { useApp } from "@/context/app-context";
-import { validateBlankIdCard } from "@/functions/kalakriti-blank-id-card";
 import { createUserAdmin } from "@/functions/user-admin";
 import { getErrorMessage } from "@/lib/errors";
 import { handleMutationResult } from "@/lib/mutation-result";
 
-const genderOptions = [
-  { label: "Male", value: "male" },
-  { label: "Female", value: "female" },
-];
+const registerVolunteerCardSchema = z
+  .object({
+    email: z
+      .string()
+      .trim()
+      .pipe(z.union([z.literal(""), z.email("Enter a valid email address")])),
+    name: z.string().trim().min(1, "Name is required").max(120),
+    password: z.string(),
+    phone: z.string(),
+  })
+  .superRefine((value, ctx) => {
+    const phone = value.phone.trim();
+    if (phone && phone !== "+" && !isValidPhoneNumber(phone)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Enter a valid phone number",
+        path: ["phone"],
+      });
+    }
+    if (value.email && value.password.length < 8) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Password must be at least 8 characters",
+        path: ["password"],
+      });
+    }
+  });
+
+function optionalContact(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "+") {
+    return null;
+  }
+  return trimmed;
+}
 
 interface RegisterVolunteerCardDialogProps {
   editionId: string;
@@ -49,7 +75,6 @@ export function RegisterVolunteerCardDialog({
   onClose,
   printedCardId,
 }: RegisterVolunteerCardDialogProps) {
-  const { hasPermission } = useApp();
   const [isPending, setIsPending] = useState(false);
 
   return (
@@ -61,29 +86,23 @@ export function RegisterVolunteerCardDialog({
       }}
       open
     >
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Register volunteer card</DialogTitle>
           <DialogDescription>
-            Create a central volunteer account and add it to this Edition using
-            the scanned printed card.
+            Name is required. Email and phone are optional. Leave both blank to
+            add this person without a login. Enter an email to create an account
+            they can sign in with.
           </DialogDescription>
         </DialogHeader>
-        {hasPermission("users.create") ? (
-          <RegisterVolunteerCardForm
-            editionId={editionId}
-            isPending={isPending}
-            key={printedCardId}
-            onClose={onClose}
-            onPendingChange={setIsPending}
-            printedCardId={printedCardId}
-          />
-        ) : (
-          <p className="text-destructive text-sm" role="alert">
-            You need permission to create central users before you can register
-            this volunteer card.
-          </p>
-        )}
+        <RegisterVolunteerCardForm
+          editionId={editionId}
+          isPending={isPending}
+          key={printedCardId}
+          onClose={onClose}
+          onPendingChange={setIsPending}
+          printedCardId={printedCardId}
+        />
       </DialogContent>
     </Dialog>
   );
@@ -99,17 +118,19 @@ function RegisterVolunteerCardForm({
   isPending: boolean;
   onPendingChange: (pending: boolean) => void;
 }) {
+  const { hasPermission } = useApp();
   const zero = useZero();
   const createUser = useServerFn(createUserAdmin);
-  const validateCard = useServerFn(validateBlankIdCard);
   const [createdUserId, setCreatedUserId] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const selectHasEmail = useEventCallback(
+    (state: { values: { email: string } }) => state.values.email.trim() !== ""
+  );
 
-  const registerCard = useEventCallback(async (userId: string) => {
-    const auditEntryId = uuidv7();
+  const registerLoginVolunteer = useEventCallback(async (userId: string) => {
     const result = await zero.mutate(
       mutators.kalakritiAssignment.addVolunteers({
-        auditEntryId,
+        auditEntryId: uuidv7(),
         editionId,
         now: Date.now(),
         requirePrintedCardId: true,
@@ -139,7 +160,7 @@ function RegisterVolunteerCardForm({
     onPendingChange(true);
     setSubmitError(null);
     try {
-      const registered = await registerCard(createdUserId);
+      const registered = await registerLoginVolunteer(createdUserId);
       if (registered) {
         onClose();
       }
@@ -164,25 +185,63 @@ function RegisterVolunteerCardForm({
   });
 
   const form = useForm({
-    defaultValues: defaultCreateUserFormValues,
+    defaultValues: { email: "", name: "", password: "", phone: "" },
     validators: {
-      onChange: createUserFormSchema,
-      onSubmit: createUserFormSchema,
+      onChange: registerVolunteerCardSchema,
+      onSubmit: registerVolunteerCardSchema,
     },
     onSubmit: async ({ value }) => {
+      const email = value.email.trim();
+      const phone = optionalContact(value.phone);
       onPendingChange(true);
       setSubmitError(null);
+
+      if (!email) {
+        try {
+          const result = await zero.mutate(
+            mutators.kalakritiAssignment.createLocalVolunteer({
+              auditEntryId: uuidv7(),
+              editionId,
+              membershipId: printedCardId,
+              name: value.name.trim(),
+              now: Date.now(),
+              requirePrintedCardId: true,
+              snapshotEmail: null,
+              snapshotPhone: phone,
+            })
+          ).server;
+          handleMutationResult(result, {
+            entityId: printedCardId,
+            errorMsg: "Failed to create volunteer",
+            mutation: "kalakritiAssignment.createLocalVolunteer",
+            successMsg: "Volunteer card registered",
+          });
+          if (result.type !== "error") {
+            onClose();
+          }
+        } finally {
+          onPendingChange(false);
+        }
+        return;
+      }
+
+      if (!hasPermission("users.create")) {
+        const message =
+          "Creating a login requires permission to create users. Leave email blank to register without a login.";
+        setSubmitError(message);
+        toast.error(message);
+        onPendingChange(false);
+        return;
+      }
+
       let userId: string;
       try {
-        await validateCard({
-          data: {
-            editionId,
-            personQr: JSON.stringify({ id: printedCardId, type: "volunteer" }),
-          },
-        });
         userId = await createUser({
           data: {
-            ...value,
+            email,
+            name: value.name.trim(),
+            password: value.password,
+            phone: phone ?? undefined,
             role: "volunteer",
           },
         });
@@ -206,7 +265,7 @@ function RegisterVolunteerCardForm({
       }
 
       try {
-        const registered = await registerCard(userId);
+        const registered = await registerLoginVolunteer(userId);
         if (registered) {
           onClose();
         }
@@ -244,7 +303,7 @@ function RegisterVolunteerCardForm({
           className="border-destructive/40 bg-destructive/10 text-destructive border p-3 text-sm"
           role="alert"
         >
-          <p>The central volunteer account was created.</p>
+          <p>The volunteer account was created.</p>
           <p>
             The printed card is not registered yet. Retry to link this card
             without creating another account.
@@ -269,30 +328,26 @@ function RegisterVolunteerCardForm({
 
   return (
     <FormLayout form={form} submitError={submitError}>
-      <div className="grid gap-3 md:grid-cols-2">
-        <InputField isRequired label="Name" name="name" />
-        <InputField isRequired label="Email" name="email" type="email" />
-        <InputField
-          isRequired
-          label="Password"
-          name="password"
-          type="password"
-        />
-        <PhoneField defaultCountry="IN" label="Phone" name="phone" />
-        <DateField label="Date of birth" name="dob" />
-        <SelectField
-          isRequired
-          label="Gender"
-          name="gender"
-          options={genderOptions}
-          placeholder="Select gender"
-        />
-      </div>
+      <InputField isRequired label="Name" name="name" />
+      <InputField label="Email" name="email" type="email" />
+      <PhoneField defaultCountry="IN" label="Phone" name="phone" />
+      <form.Subscribe selector={selectHasEmail}>
+        {(hasEmail) =>
+          hasEmail ? (
+            <InputField
+              isRequired
+              label="Password"
+              name="password"
+              type="password"
+            />
+          ) : null
+        }
+      </form.Subscribe>
       <FormActions
         disabled={isPending}
         onCancel={handleClose}
-        submitLabel="Create and register volunteer"
-        submittingLabel="Creating volunteer..."
+        submitLabel="Register volunteer"
+        submittingLabel="Registering volunteer..."
       />
     </FormLayout>
   );

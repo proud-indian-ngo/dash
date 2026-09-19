@@ -1,5 +1,3 @@
-import path from "node:path";
-
 import type { Download, Page } from "@playwright/test";
 import { uuidv7 } from "uuidv7";
 
@@ -86,6 +84,9 @@ test("downloads all-person ID cards only for Kalakriti administrators", async ({
         name: "ID cards and registration tools",
       })
     ).toHaveCount(0);
+    await expect(
+      nonAdminPage.getByRole("button", { name: "Register ID card" })
+    ).toHaveCount(0);
     expect((await nonAdmin.request.get(ENDPOINT)).status()).toBe(403);
     expect((await anonymous.request.get(ENDPOINT)).status()).toBe(401);
   } finally {
@@ -151,6 +152,9 @@ test("downloads requested blank ID-card pages only for Kalakriti administrators"
         name: "ID cards and registration tools",
       })
     ).toHaveCount(0);
+    await expect(
+      nonAdminPage.getByRole("button", { name: "Register ID card" })
+    ).toHaveCount(0);
     expect((await nonAdmin.request.get(BLANK_ENDPOINT)).status()).toBe(403);
     expect((await anonymous.request.get(BLANK_ENDPOINT)).status()).toBe(401);
   } finally {
@@ -174,7 +178,6 @@ test("registers a blank guest card once and resolves it through person lookup", 
 
   await page.goto(`/kalakriti/${YEAR}`);
   await waitForZeroReady(page);
-  await openIdCardTools(page);
   await page.getByRole("button", { name: "Register ID card" }).click();
   const registerDialog = page.getByRole("dialog", {
     name: "Register ID card",
@@ -225,7 +228,6 @@ test("registers a blank judge card and resolves it through person lookup", async
 
   await page.goto(`/kalakriti/${YEAR}`);
   await waitForZeroReady(page);
-  await openIdCardTools(page);
   await page.getByRole("button", { name: "Register ID card" }).click();
   const registerDialog = page.getByRole("dialog", {
     name: "Register ID card",
@@ -257,6 +259,7 @@ test("registers a blank judge card and resolves it through person lookup", async
 test("creates and registers a volunteer from a blank card", async ({
   browser,
   baseURL,
+  kalakritiActors,
 }, testInfo) => {
   test.skip(
     testInfo.project.name !== "admin",
@@ -266,22 +269,17 @@ test("creates and registers a volunteer from a blank card", async ({
 
   const context = await browser.newContext({
     baseURL,
-    storageState: path.resolve(
-      import.meta.dirname,
-      "../../.auth/super_admin.json"
-    ),
+    storageState: kalakritiActors.editionAdmin.storageState,
   });
   const page = await context.newPage();
   try {
     const cardId = uuidv7();
     const suffix = cardId.slice(-8);
     const name = `Printed Card Volunteer ${suffix}`;
-    const email = `printed-card-${suffix}@pi-dash.test`;
     const qrValue = JSON.stringify({ id: cardId, type: "volunteer" });
 
     await page.goto(`/kalakriti/${YEAR}`);
     await waitForZeroReady(page);
-    await openIdCardTools(page);
     await page.getByRole("button", { name: "Register ID card" }).click();
     const registerDialog = page.getByRole("dialog", {
       name: "Register ID card",
@@ -296,15 +294,14 @@ test("creates and registers a volunteer from a blank card", async ({
     await volunteerDialog
       .getByRole("textbox", { name: "Name", exact: true })
       .fill(name);
+    await expect(
+      volunteerDialog.getByRole("textbox", { name: "Email" })
+    ).toBeVisible();
+    await expect(
+      volunteerDialog.getByRole("textbox", { name: "Phone" })
+    ).toBeVisible();
     await volunteerDialog
-      .getByRole("textbox", { name: "Email", exact: true })
-      .fill(email);
-    await volunteerDialog.getByLabel("Password").fill("printed-card-password");
-    await volunteerDialog.getByRole("combobox", { name: /Gender/ }).click();
-    await page.getByRole("option", { name: "Female", exact: true }).click();
-
-    await volunteerDialog
-      .getByRole("button", { name: "Create and register volunteer" })
+      .getByRole("button", { name: "Register volunteer" })
       .click();
     await expect(volunteerDialog).toBeHidden();
 

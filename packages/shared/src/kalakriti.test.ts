@@ -10,6 +10,7 @@ import {
   formatKalakritiVolunteerHumanId,
   getKalakritiResponsibilityScopeKind,
   hasValidKalakritiGroupRules,
+  canAssignKalakritiVolunteerRole,
   isKalakritiAssignableUserRole,
   KALAKRITI_ASSIGNMENT_SCOPES,
   KALAKRITI_EDITION_LIFECYCLES,
@@ -18,6 +19,7 @@ import {
   KALAKRITI_OPERATIONAL_TEAMS,
   KALAKRITI_TIMEZONE,
   normalizeKalakritiCenterName,
+  normalizeKalakritiVolunteerName,
   requireKalakritiAgeCategoryOverrideReason,
   validateKalakritiSessionSchedule,
 } from "./kalakriti";
@@ -193,6 +195,37 @@ describe("isKalakritiAssignableUserRole", () => {
     expect(isKalakritiAssignableUserRole(null)).toBe(false);
     expect(isKalakritiAssignableUserRole(undefined)).toBe(false);
     expect(isKalakritiAssignableUserRole("")).toBe(false);
+  });
+});
+
+describe("canAssignKalakritiVolunteerRole", () => {
+  it("allows local volunteers without a login user", () => {
+    expect(
+      canAssignKalakritiVolunteerRole({ userId: null, userRole: null })
+    ).toBe(true);
+  });
+
+  it("still uses the global role for central volunteers", () => {
+    expect(
+      canAssignKalakritiVolunteerRole({
+        userId: "user-1",
+        userRole: "volunteer",
+      })
+    ).toBe(true);
+    expect(
+      canAssignKalakritiVolunteerRole({
+        userId: "user-1",
+        userRole: "external_user",
+      })
+    ).toBe(false);
+  });
+});
+
+describe("normalizeKalakritiVolunteerName", () => {
+  it("trims and collapses whitespace", () => {
+    expect(normalizeKalakritiVolunteerName("  Ada   Lovelace  ")).toBe(
+      "Ada Lovelace"
+    );
   });
 });
 

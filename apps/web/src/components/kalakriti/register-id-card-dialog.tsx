@@ -68,7 +68,13 @@ function ManualQrForm({
   );
 }
 
-export function RegisterIdCardDialog({ editionId }: { editionId: string }) {
+export function RegisterIdCardDialog({
+  className,
+  editionId,
+}: {
+  className?: string;
+  editionId: string;
+}) {
   const validateCard = useServerFn(validateBlankIdCard);
   const [open, setOpen] = useState(false);
   const [formKey, setFormKey] = useState(0);
@@ -155,7 +161,12 @@ export function RegisterIdCardDialog({ editionId }: { editionId: string }) {
 
   return (
     <>
-      <Button onClick={handleTrigger} type="button" variant="outline">
+      <Button
+        className={className}
+        onClick={handleTrigger}
+        type="button"
+        variant="outline"
+      >
         Register ID card
       </Button>
       <Dialog onOpenChange={handleOpenChange} open={open}>
