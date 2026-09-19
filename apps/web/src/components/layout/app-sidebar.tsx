@@ -89,6 +89,8 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
         "overall_events_lead",
         "competition_category_lead",
         "competition_coordinator",
+        "awards_lead",
+        "awards_member",
       ].includes(assignment.responsibility)
     ) === true;
   const canViewAudit =

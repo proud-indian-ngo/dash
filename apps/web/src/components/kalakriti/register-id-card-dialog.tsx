@@ -22,6 +22,7 @@ import { validateBlankIdCard } from "@/functions/kalakriti-blank-id-card";
 
 import { AttendeeFormDialog } from "./attendee-form-dialog";
 import { EventDayQrScanner } from "./event-day-qr-scanner";
+import { ManualScanEntry } from "./manual-scan-entry";
 import { RegisterVolunteerCardDialog } from "./register-volunteer-card-dialog";
 
 const manualQrSchema = z.object({
@@ -174,8 +175,7 @@ export function RegisterIdCardDialog({
           <DialogHeader>
             <DialogTitle>Register ID card</DialogTitle>
             <DialogDescription>
-              Scan a blank Volunteer, Guest, or Judge card, then enter the
-              person's details to link them to the printed card.
+              Scan a blank Volunteer, Guest or Judge card to register it.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
@@ -192,17 +192,14 @@ export function RegisterIdCardDialog({
               {error}
             </p>
           ) : null}
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium">
-              Can't scan? Paste the QR code value
-            </h3>
+          <ManualScanEntry>
             <ManualQrForm
               disabled={checking}
               key={formKey}
               onCancel={() => handleOpenChange(false)}
               onScan={handleScan}
             />
-          </div>
+          </ManualScanEntry>
         </DialogContent>
       </Dialog>
       {registration?.type === "guest" || registration?.type === "judge" ? (

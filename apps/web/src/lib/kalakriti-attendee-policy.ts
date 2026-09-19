@@ -46,9 +46,9 @@ export function canViewKalakritiAttendees(
       (a) =>
         a.responsibility === "edition_admin" ||
         isKalakritiVolunteerManagementResponsibility(a.responsibility) ||
-        (kind === "guest" &&
-          access.membership?.kind === "volunteer" &&
-          a.responsibility === "hospitality_lead") ||
+        (access.membership?.kind === "volunteer" &&
+          (a.responsibility === "hospitality_lead" ||
+            a.responsibility === "hospitality_member")) ||
         (kind === "judge" &&
           (a.responsibility === "overall_events_lead" ||
             (a.responsibility === "competition_category_lead" &&

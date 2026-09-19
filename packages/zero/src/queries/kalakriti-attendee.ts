@@ -30,6 +30,8 @@ function scopedAssignments(
                     "volunteer_coordinator",
                     "volunteer_management_volunteer",
                     "overall_events_lead",
+                    "hospitality_lead",
+                    "hospitality_member",
                   ])
               )
           )
@@ -111,12 +113,15 @@ export const kalakritiAttendeeQueries = {
                               "volunteer_coordinator",
                               "volunteer_management_volunteer",
                               "overall_events_lead",
+                              "hospitality_lead",
+                              "hospitality_member",
                             ]
                           : [
                               "edition_admin",
                               "volunteer_coordinator",
                               "volunteer_management_volunteer",
                               "hospitality_lead",
+                              "hospitality_member",
                             ]
                       )
                   )

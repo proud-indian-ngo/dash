@@ -99,6 +99,21 @@ describe("next-slot data access", () => {
     ).toBeNull();
   });
 
+  it.each(["awards_lead", "awards_member"])(
+    "allows %s to read any Competition Division",
+    async (responsibility) => {
+      const database = queuedDatabase([[]]);
+      expect(
+        await getKalakritiNextSlotsForAccess(
+          access(responsibility),
+          "11111111-1111-4111-8111-111111111111",
+          database as never
+        )
+      ).toEqual([]);
+      expect(database.select).toHaveBeenCalledTimes(1);
+    }
+  );
+
   it("returns an in-scope Coordinator the Student's next painting slot", async () => {
     const database = queuedDatabase([
       [

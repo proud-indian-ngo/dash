@@ -127,6 +127,12 @@ async function manual(
   humanId: string,
   button: string
 ) {
+  const manualToggle = scanner.dialog.getByRole("button", {
+    name: "Enter ID manually",
+    exact: true,
+  });
+  if ((await manualToggle.getAttribute("aria-expanded")) !== "true")
+    await manualToggle.click();
   await scanner.dialog.getByLabel("Yearly ID").fill(humanId);
   await scanner.dialog
     .getByRole("button", { name: button, exact: true })
@@ -175,6 +181,15 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
     await expect(food.dialog.getByRole("tab")).toHaveCount(0);
     await expect(
       food.dialog.getByRole("button", { name: "Record meal", exact: true })
+    ).toHaveCount(0);
+    await expect(
+      food.dialog.getByRole("button", { name: "Record check-in", exact: true })
+    ).toHaveCount(0);
+    await food.dialog
+      .getByRole("button", { name: "Enter ID manually", exact: true })
+      .click();
+    await expect(
+      food.dialog.getByRole("button", { name: "Record meal", exact: true })
     ).toBeVisible();
     await expect(
       food.dialog.getByRole("button", { name: "Record check-in", exact: true })
@@ -186,9 +201,27 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
         name: "Record check-in",
         exact: true,
       })
+    ).toHaveCount(0);
+    await hospitality.dialog
+      .getByRole("button", { name: "Enter ID manually", exact: true })
+      .click();
+    await expect(
+      hospitality.dialog.getByRole("button", {
+        name: "Record check-in",
+        exact: true,
+      })
     ).toBeVisible();
     const attendance = await openScanner(attendanceContext, data.year);
     await expect(attendance.dialog.getByRole("tab")).toHaveCount(0);
+    await expect(
+      attendance.dialog.getByRole("button", {
+        name: "Record attendance",
+        exact: true,
+      })
+    ).toHaveCount(0);
+    await attendance.dialog
+      .getByRole("button", { name: "Enter ID manually", exact: true })
+      .click();
     await expect(attendance.dialog.getByLabel("Yearly ID")).toBeDisabled();
     await expect(
       attendance.dialog.getByRole("button", {
@@ -415,6 +448,15 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
         name: "Record attendance",
         exact: true,
       })
+    ).toHaveCount(0);
+    await admin.dialog
+      .getByRole("button", { name: "Enter ID manually", exact: true })
+      .click();
+    await expect(
+      admin.dialog.getByRole("button", {
+        name: "Record attendance",
+        exact: true,
+      })
     ).toBeDisabled();
     await chooseSession(admin, "Station Singing");
     holdOperations = true;
@@ -463,11 +505,7 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
     await count(9);
     await manual(food, data.guardianId, "Record meal");
     expect(await state()).toHaveLength(9);
-    for (const type of [
-      "pickup",
-      "volunteer_check_in",
-      "competition_attendance",
-    ]) {
+    for (const type of ["pickup", "competition_attendance"]) {
       expect(
         (
           await mutate(
@@ -482,9 +520,29 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
         ).error
       ).toBeDefined();
     }
+    const guardianCheckIn = command(
+      data.editionId,
+      "volunteer_check_in",
+      person(data.guardianId, "guardian")
+    );
+    expect((await mutate(page.request, guardianCheckIn)).error).toBeUndefined();
+    await count(10);
+    expect(await state()).toContainEqual(
+      expect.objectContaining({
+        membershipId: data.guardianId,
+        operationId: guardianCheckIn.operationId,
+        type: "guardian_check_in",
+      })
+    );
     const recorded = await state();
     await admin.holdFrame();
     await fixture("close");
+    await expect(
+      admin.dialog.getByRole("button", { name: "Record meal", exact: true })
+    ).toHaveCount(0);
+    await admin.dialog
+      .getByRole("button", { name: "Enter ID manually", exact: true })
+      .click();
     await expect(
       admin.dialog.getByRole("button", {
         name: "Record meal",

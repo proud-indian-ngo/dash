@@ -90,9 +90,15 @@ export class KalakritiInventoryPage {
 
   async findVolunteer(humanId: string, name: string) {
     const dialog = this.page.getByRole("dialog", { name: "Scan", exact: true });
-    await dialog
-      .getByRole("textbox", { name: "Volunteer yearly ID" })
-      .fill(humanId);
+    const input = dialog.getByRole("textbox", {
+      name: "Volunteer yearly ID",
+    });
+    if (!(await input.isVisible())) {
+      await dialog
+        .getByRole("button", { name: "Enter ID manually", exact: true })
+        .click();
+    }
+    await input.fill(humanId);
     await dialog.getByRole("button", { name: "Find volunteer" }).click();
     const profile = dialog.getByRole("region", { name: "Scanned volunteer" });
     await expect(profile).toContainText(name);

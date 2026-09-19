@@ -123,6 +123,8 @@ describe("kalakritiCompetition queries", () => {
       "edition-1",
       false,
     ],
+    ["awards_lead", "other", "active", "volunteer", "edition-1", true],
+    ["awards_member", "other", "active", "volunteer", "edition-1", true],
   ] as const)(
     "evaluates station catalog scope %s/%s/%s/%s/%s",
     (

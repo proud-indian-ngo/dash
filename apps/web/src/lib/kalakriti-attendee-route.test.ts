@@ -103,14 +103,18 @@ describe("attendee direct route guards", () => {
     expect(() => guard(Judges, access("competition_category_lead"))).toThrow();
     expect(() => guard(Judges, access("competition_coordinator"))).toThrow();
   });
-  it("gives Hospitality Leads Guest roster and CRUD access only", () => {
+  it("gives Hospitality staff both rosters while preserving Guest management", () => {
     const lead = access("hospitality_lead");
     expect(() => guard(Guests, lead)).not.toThrow();
-    expect(() => guard(Judges, lead)).toThrow();
+    expect(() => guard(Judges, lead)).not.toThrow();
     expect(canViewKalakritiAttendees(lead, "guest")).toBe(true);
     expect(canManageKalakritiAttendees(lead, "guest")).toBe(true);
     expect(canManageKalakritiAttendees(lead, "judge")).toBe(false);
-    expect(() => guard(Guests, access("hospitality_member"))).toThrow();
+    expect(() => guard(Guests, access("hospitality_member"))).not.toThrow();
+    expect(() => guard(Judges, access("hospitality_member"))).not.toThrow();
+    expect(
+      canManageKalakritiAttendees(access("hospitality_member"), "judge")
+    ).toBe(false);
     expect(
       canManageKalakritiAttendees(access("hospitality_member"), "guest")
     ).toBe(false);

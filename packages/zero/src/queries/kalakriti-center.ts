@@ -1,3 +1,4 @@
+import { KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES } from "@pi-dash/shared/kalakriti";
 import { defineQuery } from "@rocicorp/zero";
 import z from "zod";
 
@@ -7,6 +8,16 @@ import { buildKalakritiLiaisonResponsibilityOr } from "./kalakriti-liaison-scope
 
 const editionInput = z.object({ editionId: z.string() });
 const NO_ACCESS_ID = "00000000-0000-0000-0000-000000000000";
+const FULL_GUARDIAN_DIRECTORY_RESPONSIBILITIES = [
+  "edition_admin",
+  "volunteer_coordinator",
+  "volunteer_management_volunteer",
+  "liaison_lead",
+] as const;
+const GUARDIAN_DIRECTORY_RESPONSIBILITIES = [
+  ...FULL_GUARDIAN_DIRECTORY_RESPONSIBILITIES,
+  ...KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES,
+] as const;
 
 export const kalakritiCenterQueries = {
   guardianAssignments: defineQuery(editionInput, ({ args, ctx }) => {
@@ -27,6 +38,7 @@ export const kalakritiCenterQueries = {
             exists("memberships", (membership) =>
               membership
                 .where("userId", ctx.userId)
+                .where("kind", "volunteer")
                 .where("state", "active")
                 .whereExists("assignments", (assignment) =>
                   assignment.where("responsibility", "edition_admin")
@@ -37,14 +49,54 @@ export const kalakritiCenterQueries = {
               exists("memberships", (membership) =>
                 membership
                   .where("userId", ctx.userId)
+                  .where("kind", "volunteer")
                   .where("state", "active")
                   .whereExists("assignments", (assignment) =>
-                    assignment.where("responsibility", "IN", [
-                      "volunteer_coordinator",
-                      "volunteer_management_volunteer",
-                    ])
+                    assignment.where(
+                      "responsibility",
+                      "IN",
+                      GUARDIAN_DIRECTORY_RESPONSIBILITIES
+                    )
                   )
               )
+            )
+          )
+        )
+      )
+      .where(({ or, exists }) =>
+        or(
+          exists("edition", (edition) =>
+            edition
+              .where("id", args.editionId)
+              .whereExists("memberships", (membership) =>
+                membership
+                  .where("userId", ctx.userId)
+                  .where("kind", "volunteer")
+                  .where("state", "active")
+                  .whereExists("assignments", (assignment) =>
+                    assignment.where(
+                      "responsibility",
+                      "IN",
+                      FULL_GUARDIAN_DIRECTORY_RESPONSIBILITIES
+                    )
+                  )
+              )
+          ),
+          exists("center", (center) =>
+            center.whereExists("assignments", (assignment) =>
+              assignment
+                .where("editionId", args.editionId)
+                .where(
+                  "responsibility",
+                  "IN",
+                  KALAKRITI_CENTER_SCOPED_LIAISON_RESPONSIBILITIES
+                )
+                .whereExists("membership", (membership) =>
+                  membership
+                    .where("userId", ctx.userId)
+                    .where("kind", "volunteer")
+                    .where("state", "active")
+                )
             )
           )
         )
@@ -73,6 +125,7 @@ export const kalakritiCenterQueries = {
           .whereExists("memberships", (membership) =>
             membership
               .where("userId", ctx.userId)
+              .where("kind", "volunteer")
               .where("state", "active")
               .whereExists("assignments", (assignment) =>
                 assignment.where(({ or, cmp }) =>
@@ -107,6 +160,7 @@ export const kalakritiCenterQueries = {
             .whereExists("memberships", (membership) =>
               membership
                 .where("userId", ctx.userId)
+                .where("kind", "volunteer")
                 .where("state", "active")
                 .whereExists("assignments", (assignment) =>
                   assignment.where(({ or: assignmentOr, cmp }) =>

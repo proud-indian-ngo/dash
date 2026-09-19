@@ -1,4 +1,7 @@
-import { isKalakritiVolunteerManagementResponsibility } from "@pi-dash/shared/kalakriti";
+import {
+  isKalakritiLiaisonResponsibility,
+  isKalakritiVolunteerManagementResponsibility,
+} from "@pi-dash/shared/kalakriti";
 
 interface GuardianAccess {
   edition: { lifecycle: string | null };
@@ -19,7 +22,9 @@ export function canViewKalakritiGuardians(access: GuardianAccess): boolean {
   if (access.edition.lifecycle === "archived") return false;
   return (
     access.membership?.responsibilities.some(
-      isKalakritiVolunteerManagementResponsibility
+      (responsibility) =>
+        isKalakritiVolunteerManagementResponsibility(responsibility) ||
+        isKalakritiLiaisonResponsibility(responsibility)
     ) === true
   );
 }

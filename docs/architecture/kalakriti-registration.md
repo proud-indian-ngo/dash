@@ -40,7 +40,7 @@ The PDF page-count schema, download authorization, duplicate-card mutation guard
 
 ## Guests and Judges
 
-The Guests and Judges pages own Edition-bound `kalakritiAttendee` records with required name and phone, optional email, and a stable yearly ID. These people have no login account, external identity, or Edition Membership. Global/Edition administrators manage both rosters in any nonarchived Edition, including Live. Hospitality Leads can create, view, edit, and archive Guests through their active Edition-scoped volunteer assignment; this does not grant Judge management. Guests retain Archive, which preserves operation history and blocks new scans. Judges use permanent Delete instead: `kalakritiAttendee.delete` removes their Competition assignments and attendee row atomically, but rejects deletion if any check-in or meal history exists, including corrected operations. The old archive command rejects Judges. Deletion retains audit records and reserves the deleted yearly ID.
+The Guests and Judges pages own Edition-bound `kalakritiAttendee` records with required name and phone, optional email, and a stable yearly ID. These people have no login account, external identity, or Edition Membership. Global/Edition administrators manage both rosters in any nonarchived Edition, including Live. Hospitality Leads and Members can read both Guest and Judge rosters, details, and ID cards through active Edition-scoped volunteer assignments. Hospitality Members have read-only roster access. Hospitality Leads can create, view, edit, and archive Guests through their active Edition-scoped volunteer assignment; this does not grant Judge management. Guests retain Archive, which preserves operation history and blocks new scans. Judges use permanent Delete instead: `kalakritiAttendee.delete` removes their Competition assignments and attendee row atomically, but rejects deletion if any check-in or meal history exists, including corrected operations. The old archive command rejects Judges. Deletion retains audit records and reserves the deleted yearly ID.
 
 Volunteer Coordinators and Volunteer Management Volunteers can read both rosters, as well as the Volunteer and Guardian lists, detail sheets, and ID cards. Both roles can register blank Volunteer, Guest, and Judge cards and check in all four non-Student person types. These capabilities do not grant attendee editing/deletion or Guardian invitation, editing, or archiving. Overall Events Leads can read Judges Edition-wide; Competition Category Leads and Competition Coordinators see judges assigned within their existing scopes. Scoped Judge read permissions include detail sheets and identifier QRs; they do not grant check-in or meal recording. Overall Events Leads can add and delete Judges, edit their name/phone/email fields, and replace their Competition assignments in any nonarchived Edition. They cannot modify Guests; Category Leads, Competition Coordinators, Volunteer Coordinators, and Volunteer Management Volunteers cannot edit or delete existing attendees. Mutation authorization uses active, Edition-scoped volunteer assignments and the persisted attendee kind rather than a client-supplied kind. Scoped judge queries also restrict the nested Competition assignments, so a judge shared with another category does not reveal that category's assignments.
 
@@ -96,7 +96,11 @@ Registration dashboards and `/api/kalakriti/:year/registration-export` resolve t
 
 Audit reads apply Edition and responsibility scopes before returning privacy-safe metadata. Mutation audit entries remain Edition-owned and record the actor, domain, action, target, timestamp, reason where required, and structured metadata.
 
+All scan dialogs place manual ID entry in an accessible, initially collapsed section below the camera scanner. Users can expand it to type or paste an ID without starting the camera.
+
 ## Center directory
+
+Center Liaison Leads and liaison volunteers with active assignments can view Guardians for their assigned Centers. The Overall Liaison Lead can view Guardians across all Centers in the Edition. Guardian lists and Center links remain scoped to authorized Centers, including when a Guardian serves multiple Centers. Center detail sheets show Guardian names, yearly IDs, callable phone numbers, and email links, with explicit missing-contact states. This read access does not grant Guardian management.
 
 Clicking a Centers table row opens a table-owned detail sheet at `/kalakriti/:year/centers?centerId=...`; there is no individual Center route. The sheet resolves its selected ID against the current authorized directory, so reloads and transport notifications can reopen it without bypassing scope. Deleted or inaccessible IDs show “Center not found,” and live updates refresh the selected Center. The sheet includes basic fields, registration/compliance, authorized Guardian/Liaison lists, and read-only transport; vehicle queries mount only for an authorized open sheet. Edit, registration-control, retirement, and deletion actions close the sheet before opening their table-owned modal.
 
@@ -241,6 +245,8 @@ The serialized `tests/kalakriti/results.spec.ts` lane covers publication, Center
 
 
 ## Competition workspace and Settings
+
+Awards Leads and Awards Members can read every Competition and its Entries across their Edition. Configuration, result-writing, and scanning permissions remain unchanged.
 
 The Competitions route uses the former Entries access policy. Guardians and Liaisons derive their Competition rows from authorized available Divisions and historical Entries. Configuration readers additionally load the existing scoped Competition query so unscheduled, retired and cancelled Competitions remain manageable. Configuration queries start only for configuration readers. Entry counts retain the actor’s authorized Center or Competition scope. Competition Volunteers remain scan-only.
 

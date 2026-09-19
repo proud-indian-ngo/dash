@@ -83,12 +83,39 @@ describe("attendee roster scope", () => {
     "edition_admin",
     "volunteer_coordinator",
     "volunteer_management_volunteer",
+    "hospitality_lead",
+    "hospitality_member",
   ])("allows %s both rosters", (responsibility) => {
     for (const kind of ["guest", "judge"] as const) {
       const f = fixture(responsibility, kind);
       expect(matchesScope(f.attendee, f.ast.where, f.tables)).toBe(true);
     }
   });
+  it.each(["hospitality_lead", "hospitality_member"])(
+    "limits %s to active membership and the assigned Edition",
+    (responsibility) => {
+      for (const kind of ["guest", "judge"] as const) {
+        const f = fixture(responsibility, kind);
+        const nested = f.ast.related?.find(
+          (row) => row.subquery.table === "kalakritiJudgeAssignment"
+        )?.subquery;
+        for (const assignment of f.tables.kalakritiJudgeAssignment ?? []) {
+          expect(matchesScope(assignment, nested?.where, f.tables)).toBe(true);
+        }
+        f.tables.kalakritiEditionMembership![0]!.state = "archived";
+        expect(matchesScope(f.attendee, f.ast.where, f.tables)).toBe(false);
+        f.tables.kalakritiEditionMembership![0]!.state = "active";
+        f.tables.kalakritiAssignment![0]!.editionId = "other";
+        expect(matchesScope(f.attendee, f.ast.where, f.tables)).toBe(false);
+        f.tables.kalakritiAssignment![0]!.editionId = "edition";
+        f.tables.kalakritiEdition![0]!.lifecycle = "archived";
+        expect(matchesScope(f.attendee, f.ast.where, f.tables)).toBe(false);
+        f.tables.kalakritiEdition![0]!.lifecycle = "live";
+        f.tables.kalakritiAssignment = [];
+        expect(matchesScope(f.attendee, f.ast.where, f.tables)).toBe(false);
+      }
+    }
+  );
   it.each([
     "overall_events_lead",
     "competition_category_lead",
@@ -103,14 +130,14 @@ describe("attendee roster scope", () => {
       false
     );
   });
-  it("allows Hospitality Leads to see Guests but not Judges", () => {
+  it("allows Hospitality Leads to see both rosters within their Edition", () => {
     const guest = fixture("hospitality_lead", "guest");
     const judge = fixture("hospitality_lead", "judge");
     expect(matchesScope(guest.attendee, guest.ast.where, guest.tables)).toBe(
       true
     );
     expect(matchesScope(judge.attendee, judge.ast.where, judge.tables)).toBe(
-      false
+      true
     );
     guest.tables.kalakritiEditionMembership![0]!.state = "archived";
     expect(matchesScope(guest.attendee, guest.ast.where, guest.tables)).toBe(
@@ -127,16 +154,13 @@ describe("attendee roster scope", () => {
       false
     );
   });
-  it.each([
-    "food_lead",
-    "food_member",
-    "hospitality_member",
-    "competition_volunteer",
-    "guardian",
-  ])("denies %s access to contact-bearing rows", (responsibility) => {
-    const f = fixture(responsibility);
-    expect(matchesScope(f.attendee, f.ast.where, f.tables)).toBe(false);
-  });
+  it.each(["food_lead", "food_member", "competition_volunteer", "guardian"])(
+    "denies %s access to contact-bearing rows",
+    (responsibility) => {
+      const f = fixture(responsibility);
+      expect(matchesScope(f.attendee, f.ast.where, f.tables)).toBe(false);
+    }
+  );
   it.each(["competition_category_lead", "competition_coordinator"])(
     "filters nested assignments and denies judges without matching scope for %s",
     (responsibility) => {

@@ -74,6 +74,9 @@ mock.module("@/components/kalakriti/event-day-qr-scanner", () => ({
     </p>
   ),
 }));
+mock.module("@/components/kalakriti/manual-scan-entry", () => ({
+  ManualScanEntry: pass,
+}));
 mock.module("@/components/shared/confirm-dialog", () => ({
   ConfirmDialog: () => null,
 }));
@@ -159,7 +162,7 @@ describe("Center scan modal", () => {
     expect(
       pickup.match(/<button\b[^>]*>Finish stage<\/button>/)?.[0]
     ).not.toContain('disabled=""');
-    expect(pickup).toContain("Unmarked students");
+    expect(pickup).toContain("unmarked Students");
     center.scanStages = [{ stage: "pickup", finalizedAt: 100 }];
     const arrival = render();
     expect(arrival).not.toContain("Dev");

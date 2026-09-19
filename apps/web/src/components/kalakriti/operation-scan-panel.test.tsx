@@ -56,6 +56,11 @@ mock.module("./event-day-qr-scanner", () => ({
     return <p>Camera fallback available</p>;
   },
 }));
+mock.module("./manual-scan-entry", () => ({
+  ManualScanEntry: ({ children }: { children?: ReactNode }) => (
+    <div>{children}</div>
+  ),
+}));
 mock.module("@/lib/mutation-result", () => ({
   handleMutationResult: () => undefined,
 }));
@@ -98,7 +103,7 @@ beforeEach(() => {
   sessions = [];
 });
 describe("Non-transport scan capture", () => {
-  it("keeps manual fallback visible and starts only for a complete live snapshot", () => {
+  it("keeps manual fallback available and starts only for a complete live snapshot", () => {
     queryType = "unknown";
     const html = render();
     expect(decode).toBeUndefined();

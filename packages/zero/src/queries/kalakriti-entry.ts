@@ -54,7 +54,9 @@ function availableDivisions(
                 assignmentOr(
                   cmp("responsibility", "edition_admin"),
                   cmp("responsibility", "liaison_lead"),
-                  cmp("responsibility", "overall_events_lead")
+                  cmp("responsibility", "overall_events_lead"),
+                  cmp("responsibility", "awards_lead"),
+                  cmp("responsibility", "awards_member")
                 )
               )
             )
@@ -153,7 +155,9 @@ function visibleEntryScope(
                   assignmentOr(
                     cmp("responsibility", "edition_admin"),
                     cmp("responsibility", "liaison_lead"),
-                    cmp("responsibility", "overall_events_lead")
+                    cmp("responsibility", "overall_events_lead"),
+                    cmp("responsibility", "awards_lead"),
+                    cmp("responsibility", "awards_member")
                   )
                 )
               )

@@ -48,6 +48,21 @@ describe("Competition workspace access", () => {
       },
     });
   });
+  it.each(["awards_lead", "awards_member"])(
+    "allows %s to read every Competition without management controls",
+    (responsibility) => {
+      expect(load([responsibility])).toMatchObject({
+        kalakritiCompetitionAccess: {
+          canViewCompetitionCatalog: true,
+          canViewConfiguration: false,
+          canManage: false,
+          canEditCompetition: false,
+          canEditSchedule: false,
+          canManageCancellations: false,
+        },
+      });
+    }
+  );
   it("allows managers to edit structure during registration", () => {
     expect(load(["overall_events_lead"], "registration_open")).toMatchObject({
       kalakritiCompetitionAccess: {
@@ -95,7 +110,6 @@ describe("Competition workspace access", () => {
     for (const role of [
       "food_member",
       "competition_volunteer",
-      "awards_lead",
       "volunteer_coordinator",
     ])
       expect(() => load([role])).toThrow();

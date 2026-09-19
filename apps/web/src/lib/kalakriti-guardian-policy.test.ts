@@ -29,6 +29,20 @@ describe("Guardian roster permissions", () => {
     }
   );
 
+  it.each([
+    "liaison",
+    "liaison_lead",
+    "center_liaison_lead",
+    "liaison_volunteer",
+  ])("gives %s scoped Guardian access", (responsibility) => {
+    const candidate = access(responsibility);
+    expect(canViewKalakritiGuardians(candidate)).toBe(true);
+    expect(canManageKalakritiGuardians(candidate)).toBe(false);
+    expect(canViewKalakritiGuardians(access(responsibility, "archived"))).toBe(
+      false
+    );
+  });
+
   it("preserves archived Guardian reads for Edition Administrators", () => {
     expect(canViewKalakritiGuardians(access("edition_admin", "archived"))).toBe(
       true

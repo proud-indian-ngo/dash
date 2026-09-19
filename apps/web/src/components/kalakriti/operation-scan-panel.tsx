@@ -33,6 +33,7 @@ import type {
 import { handleMutationResult } from "@/lib/mutation-result";
 
 import { EventDayQrScanner } from "./event-day-qr-scanner";
+import { ManualScanEntry } from "./manual-scan-entry";
 
 const manualSchema = z.object({
   humanId: z.string().trim().min(1, "Enter a person ID").max(64),
@@ -111,9 +112,8 @@ export function OperationScanPanel({
       {activity === "meals" ? (
         <div className="space-y-2">
           <p className="text-muted-foreground text-sm">
-            Students require pickup. Volunteers, Guests and Judges require
-            check-in. Guardians only require active registration in this
-            Edition.
+            Students need pickup; Volunteers, Guests and Judges need check-in;
+            Guardians need active registration.
           </p>
           <Label htmlFor="scan-meal">Meal</Label>
           <Select
@@ -349,39 +349,41 @@ function OperationCapture({
       {connection.name !== "connected" ? (
         <p role="status">Scanning requires an online connection.</p>
       ) : null}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
+      <div className="space-y-3">
+        <div className="space-y-2">
           <h3 className="mb-2 text-sm font-medium">Scan person QR</h3>
           {ready ? <EventDayQrScanner onScan={scan} /> : null}
         </div>
-        <FormLayout form={form}>
-          <fieldset className="space-y-3" disabled={!ready || busy}>
-            <InputField
-              autoComplete="off"
-              isRequired
-              label={
-                type === "breakfast" ||
-                type === "lunch" ||
-                type === "volunteer_check_in"
-                  ? "Yearly ID or Guardian record ID"
-                  : "Yearly ID"
-              }
-              name="humanId"
-              placeholder={
-                type === "breakfast" ||
-                type === "lunch" ||
-                type === "volunteer_check_in"
-                  ? "Person yearly ID or Guardian UUID"
-                  : `KAL-${year}-0001`
-              }
-            />
-            <FormActions
-              submitLabel={SUBMIT_LABELS[type]}
-              submittingLabel="Recording..."
-              disabled={!ready || busy}
-            />
-          </fieldset>
-        </FormLayout>
+        <ManualScanEntry>
+          <FormLayout form={form}>
+            <fieldset className="space-y-3" disabled={!ready || busy}>
+              <InputField
+                autoComplete="off"
+                isRequired
+                label={
+                  type === "breakfast" ||
+                  type === "lunch" ||
+                  type === "volunteer_check_in"
+                    ? "Yearly ID or Guardian record ID"
+                    : "Yearly ID"
+                }
+                name="humanId"
+                placeholder={
+                  type === "breakfast" ||
+                  type === "lunch" ||
+                  type === "volunteer_check_in"
+                    ? "Person yearly ID or Guardian UUID"
+                    : `KAL-${year}-0001`
+                }
+              />
+              <FormActions
+                submitLabel={SUBMIT_LABELS[type]}
+                submittingLabel="Recording..."
+                disabled={!ready || busy}
+              />
+            </fieldset>
+          </FormLayout>
+        </ManualScanEntry>
       </div>
     </div>
   );

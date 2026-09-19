@@ -182,6 +182,24 @@ describe("Center-agnostic Entry read scope", () => {
     expect(visibleIds(query("visible"), tables)).toEqual([]);
     expect(visibleIds(query("availableDivisions"), tables)).toEqual([]);
   });
+  it.each(["awards_lead", "awards_member"])(
+    "grants %s Edition-wide Competition and Entry reads",
+    (role) => {
+      const tables = fixture("volunteer", role);
+      expect(visibleIds(query("visible"), tables)).toEqual([
+        "entry-a",
+        "entry-b",
+        "entry-c",
+      ]);
+      expect(visibleIds(query("availableDivisions"), tables)).toEqual([
+        "division",
+        "division-empty",
+        "division-other",
+      ]);
+      tables.kalakritiEditionMembership![0]!.state = "archived";
+      expect(visibleIds(query("visible"), tables)).toEqual([]);
+    }
+  );
   it.each(["archived", "wrong-edition"])(
     "rejects %s Guardian scope",
     (invalid) => {

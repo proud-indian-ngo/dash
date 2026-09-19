@@ -49,12 +49,14 @@ describe("Role-aware sidebar Scan dialog", () => {
     const html = render(["meals", "transport", "check_in", "attendance"]);
     expect(html.match(/role="tab"/g)).toHaveLength(4);
     expect(html).toContain("Transport roster");
+    expect(html).toContain("Mark Students at each transport stage.");
     expect(html).not.toContain("meals capture");
   });
   it("shows a single activity without unnecessary tabs or transport", () => {
     const html = render(["meals"]);
     expect(html).not.toContain('role="tablist"');
     expect(html).toContain("meals capture");
+    expect(html).toContain("Record breakfast or lunch service.");
     expect(html).not.toContain("Transport roster");
   });
   it("offers dispatch and return to logistics staff", () => {
