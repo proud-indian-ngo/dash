@@ -28,6 +28,7 @@ export interface PickerUser {
   id: string;
   image: string | null;
   isActive: boolean;
+  localMembership?: boolean;
   name: string;
   role: string;
 }
@@ -149,7 +150,7 @@ async function loadKalakritiVolunteerPickerUsers(
         .filter((id): id is string => id !== null)
     : [];
 
-  return db
+  const users = await db
     .select({
       email: user.email,
       id: user.id,
@@ -174,6 +175,42 @@ async function loadKalakritiVolunteerPickerUsers(
       )
     )
     .orderBy(user.name);
+
+  if (options.excludeExistingRoster) {
+    return users;
+  }
+
+  const localMembers = await db
+    .select({
+      id: kalakritiEditionMembership.id,
+      name: kalakritiEditionMembership.snapshotName,
+    })
+    .from(kalakritiEditionMembership)
+    .where(
+      and(
+        eq(kalakritiEditionMembership.editionId, editionId),
+        eq(kalakritiEditionMembership.kind, "volunteer"),
+        eq(kalakritiEditionMembership.state, "active"),
+        isNull(kalakritiEditionMembership.userId)
+      )
+    )
+    .orderBy(kalakritiEditionMembership.snapshotName);
+
+  return [...users, ...localMembers.map(toLocalPickerUser)].sort(
+    (left, right) => left.name.localeCompare(right.name, "en")
+  );
+}
+
+function toLocalPickerUser(member: { id: string; name: string }): PickerUser {
+  return {
+    email: "",
+    id: member.id,
+    image: null,
+    isActive: true,
+    localMembership: true,
+    name: member.name,
+    role: "",
+  };
 }
 
 export const getKalakritiVolunteersForPicker = createServerFn({ method: "GET" })

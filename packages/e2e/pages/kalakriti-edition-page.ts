@@ -189,6 +189,27 @@ export class KalakritiEditionPage {
     ).toBeVisible();
   }
 
+  async createLocalVolunteer(volunteerName: string) {
+    await this.page.getByRole("button", { name: "Create volunteer" }).click();
+    const dialog = this.page.getByRole("dialog", { name: "Create volunteer" });
+    await dialog
+      .getByRole("textbox", { name: "Name", exact: true })
+      .fill(volunteerName);
+    await dialog
+      .getByRole("button", { exact: true, name: "Create volunteer" })
+      .click();
+    await expect(
+      this.page.getByText("Volunteer created", { exact: true })
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(dialog).toHaveCount(0);
+    await expect(
+      this.page.getByText(volunteerName, { exact: true })
+    ).toBeVisible();
+    await expect(
+      this.page.getByText("Unassigned", { exact: true })
+    ).toBeVisible();
+  }
+
   async assignRoleFromRow(
     volunteerName: string,
     responsibility: string,

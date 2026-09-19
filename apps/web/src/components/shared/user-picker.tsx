@@ -107,7 +107,9 @@ export function UserPicker({
                     </Badge>
                   )}
                 </div>
-                <div className="text-muted-foreground text-xs">{u.email}</div>
+                {u.email ? (
+                  <div className="text-muted-foreground text-xs">{u.email}</div>
+                ) : null}
               </div>
             </ComboboxItem>
           ))}

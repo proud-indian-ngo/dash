@@ -400,6 +400,16 @@ export function isKalakritiAssignableUserRole(
   );
 }
 
+export function canAssignKalakritiVolunteerRole(volunteer: {
+  userId: string | null;
+  userRole: string | null | undefined;
+}): boolean {
+  if (volunteer.userId === null) {
+    return true;
+  }
+  return isKalakritiAssignableUserRole(volunteer.userRole);
+}
+
 function normalizeKalakritiName(name: string): {
   name: string;
   normalizedName: string;
@@ -416,6 +426,10 @@ export function normalizeKalakritiCenterName(name: string): {
   normalizedName: string;
 } {
   return normalizeKalakritiName(name);
+}
+
+export function normalizeKalakritiVolunteerName(name: string): string {
+  return normalizeKalakritiName(name).name;
 }
 
 export interface KalakritiAgeCategoryRange {

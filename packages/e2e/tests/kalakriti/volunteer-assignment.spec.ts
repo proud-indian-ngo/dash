@@ -100,6 +100,36 @@ test("automatically orients an added volunteer and assigns a role without manual
   }
 });
 
+test("creates a name-only volunteer and assigns a role", async ({
+  page,
+  superAdminEmail,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "super_admin",
+    "Super-admin volunteer assignment flow"
+  );
+  test.slow();
+  const { year } = await fixture<{ year: number }>("setup", superAdminEmail);
+  const editionPage = new KalakritiEditionPage(page);
+  const localName = "Walk-in Volunteer";
+
+  try {
+    await editionPage.gotoVolunteers(year);
+    await waitForZeroReady(page);
+    await editionPage.createLocalVolunteer(localName);
+    await editionPage.assignRoleFromRow(localName, RESPONSIBILITY);
+    await expect(
+      page.getByRole("cell", {
+        name: `${RESPONSIBILITY} · Primary`,
+        exact: true,
+      })
+    ).toBeVisible();
+  } finally {
+    await page.goto("about:blank");
+    await fixture("cleanup");
+  }
+});
+
 test("assigns a per-center Liaison Lead from the Volunteers page", async ({
   page,
   superAdminEmail,

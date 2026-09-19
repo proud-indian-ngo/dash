@@ -2,8 +2,8 @@ import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
+  canAssignKalakritiVolunteerRole,
   canManageKalakritiResponsibility,
-  isKalakritiAssignableUserRole,
   KALAKRITI_RESPONSIBILITY_LABELS,
   type KalakritiResponsibility,
 } from "@pi-dash/shared/kalakriti";
@@ -61,7 +61,7 @@ export function VolunteerDetailSheet({
     }
   });
   const canAssignRole = volunteer
-    ? isKalakritiAssignableUserRole(volunteer.userRole)
+    ? canAssignKalakritiVolunteerRole(volunteer)
     : false;
   const canRemoveFromEdition =
     isGlobalAdmin ||
@@ -86,7 +86,7 @@ export function VolunteerDetailSheet({
         <SheetHeader>
           <SheetTitle>{volunteer.snapshotName}</SheetTitle>
           <SheetDescription>
-            Central volunteer contact details and Edition responsibilities.
+            Volunteer contact details and Edition responsibilities.
           </SheetDescription>
         </SheetHeader>
 

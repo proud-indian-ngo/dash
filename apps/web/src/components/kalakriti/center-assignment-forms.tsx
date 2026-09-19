@@ -16,6 +16,7 @@ import { FormLayout } from "@/components/form/form-layout";
 import { SelectField } from "@/components/form/select-field";
 import { UserPicker } from "@/components/shared/user-picker";
 import type { PickerUser } from "@/functions/users-for-picker";
+import { kalakritiAssignmentMutationIds } from "@/lib/kalakriti-assignment-target";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 const guardianAssignmentSchema = z.object({
@@ -112,10 +113,10 @@ function SingleVolunteerPicker({
   );
   return (
     <UserPicker
-      emptyMessage="No matching central volunteers found."
+      emptyMessage="No matching volunteers found."
       inputId={inputId}
       onValueChange={handleValueChange}
-      placeholder="Search central volunteers..."
+      placeholder="Search volunteers..."
       users={users}
       value={value}
     />
@@ -139,11 +140,12 @@ export function LiaisonCenterAssignmentForm({
       userIds: [] as string[],
     },
     onSubmit: async ({ value }) => {
-      const [userId] = value.userIds;
-      if (!userId) {
+      const [selectedId] = value.userIds;
+      if (!selectedId) {
         return;
       }
       const assignmentId = uuidv7();
+      const target = kalakritiAssignmentMutationIds(selectedId, users);
       const result = await zero.mutate(
         mutators.kalakritiAssignment.assignLiaison({
           assignmentId,
@@ -151,11 +153,11 @@ export function LiaisonCenterAssignmentForm({
           centerId,
           editionId,
           makePrimary: false,
-          membershipId: uuidv7(),
+          membershipId: target.membershipId,
           now: currentTimestamp(),
           responsibility: value.responsibility,
-          teamEventMemberId: uuidv7(),
-          userId,
+          teamEventMemberId: target.teamEventMemberId,
+          userId: target.userId,
         })
       ).server;
       handleMutationResult(result, {
@@ -196,7 +198,7 @@ export function LiaisonCenterAssignmentForm({
       <CustomField<string[]>
         controlId={`liaison-${centerId}`}
         isRequired
-        label="Central volunteer"
+        label="Volunteer"
         name="userIds"
       >
         {(field) => (
