@@ -40,6 +40,7 @@ function fixture() {
     kalakritiEdition: [edition],
     kalakritiResultsState: [],
     kalakritiResult: [],
+    kalakritiAwardHandover: [],
     kalakritiResultRevision: [],
     kalakritiStandingsRevision: [],
     kalakritiResultScorecard: [
@@ -356,6 +357,49 @@ describe("Kalakriti result mutations", () => {
     expect(f.mutations).toHaveLength(withdrawnCount);
   });
 
+  it("blocks only result award slots with completed handovers", async () => {
+    const f = fixture();
+    await f.execute("save", f.args());
+    f.rows.kalakritiAwardHandover.push({
+      id: uuidv7(),
+      editionId: f.editionId,
+      divisionId: f.divisionId,
+      entryId: f.entryIds[0],
+      studentId: f.studentIds[0],
+      award: "winner",
+      awarded: true,
+      version: 1,
+    });
+    await expect(
+      f.execute("save", {
+        ...f.args(),
+        winnerEntryId: f.entryIds[2],
+      })
+    ).rejects.toThrow("Undo awarded prizes");
+    await expect(
+      f.execute("withdraw", {
+        editionId: f.editionId,
+        divisionId: f.divisionId,
+        revisionId: uuidv7(),
+        expectedVersion: 1,
+        now: 300,
+      })
+    ).rejects.toThrow("Undo awarded prizes");
+
+    await f.execute("save", {
+      ...f.args(),
+      scorecardIds: [f.scorecardId],
+    });
+    expect(f.rows.kalakritiResult[0]?.version).toBe(2);
+
+    f.rows.kalakritiAwardHandover[0]!.awarded = false;
+    await f.execute("save", {
+      ...f.args(),
+      winnerEntryId: f.entryIds[2],
+    });
+    expect(f.rows.kalakritiResult[0]?.winnerEntryId).toBe(f.entryIds[2]);
+  });
+
   it("rejects incomplete, duplicate, foreign, and stale awards", async () => {
     const f = fixture();
     await expect(
@@ -387,16 +431,42 @@ describe("Kalakriti result mutations", () => {
     expect(f.rows.kalakritiResultRevision).toHaveLength(1);
   });
 
-  it("requires every group member to attend the actual session", async () => {
+  it.each(["winner", "runner_up"])(
+    "allows a partially attended group as %s",
+    async (award) => {
+      const f = fixture();
+      f.rows.kalakritiOperation[1]!.competitionSessionId = uuidv7();
+      const args = f.args();
+      if (award === "runner_up") {
+        [args.winnerEntryId, args.runnerUpEntryId] = [
+          args.runnerUpEntryId,
+          args.winnerEntryId,
+        ];
+      }
+      await f.execute("save", args);
+      expect(f.rows.kalakritiResult[0]?.status).toBe("published");
+    }
+  );
+
+  it("requires effective attendance from a member in the actual session", async () => {
     const f = fixture();
-    f.rows.kalakritiOperation[1]!.competitionSessionId = uuidv7();
-    await expect(f.execute("save", f.args())).rejects.toThrow("Every member");
-    f.rows.kalakritiOperation[1]!.competitionSessionId = f.sessionId;
+    f.rows.kalakritiOperation[0]!.competitionSessionId = uuidv7();
     f.rows.kalakritiOperation[1]!.supersededByOperationId = uuidv7();
-    await expect(f.execute("save", f.args())).rejects.toThrow("Every member");
+    await expect(f.execute("save", f.args())).rejects.toThrow(
+      "At least one member"
+    );
     f.rows.kalakritiOperation[1]!.supersededByOperationId = null;
     await f.execute("save", f.args());
     expect(f.rows.kalakritiResult[0]?.status).toBe("published");
+  });
+
+  it("rejects an absent individual participant", async () => {
+    const f = fixture();
+    f.rows.kalakritiOperation[2]!.competitionSessionId = uuidv7();
+    await expect(f.execute("save", f.args())).rejects.toThrow(
+      "At least one member"
+    );
+    expect(f.rows.kalakritiResult).toHaveLength(0);
   });
 
   it.each([

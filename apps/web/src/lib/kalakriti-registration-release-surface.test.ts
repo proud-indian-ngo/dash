@@ -49,6 +49,7 @@ describe("Kalakriti Registration Release surface", () => {
       )
     ).toEqual([
       "audit.tsx",
+      "awards.tsx",
       "centers/index.tsx",
       "competitions/catalog.tsx",
       "competitions/categories.tsx",
@@ -96,7 +97,7 @@ describe("Kalakriti Registration Release surface", () => {
     ]);
   });
 
-  it("registers only approved registration, event-day, results, and inventory operations", () => {
+  it("registers only approved registration, event-day, results, awards, and inventory operations", () => {
     expect(operationKeys(queries)).toEqual([
       "kalakritiAssignment.myAccess",
       "kalakritiAssignment.roster",
@@ -152,6 +153,7 @@ describe("Kalakriti Registration Release surface", () => {
       "kalakritiAttendee.delete",
       "kalakritiAttendee.setCompetitions",
       "kalakritiAttendee.update",
+      "kalakritiAward.set",
       "kalakritiCenter.assignGuardian",
       "kalakritiCenter.create",
       "kalakritiCenter.delete",

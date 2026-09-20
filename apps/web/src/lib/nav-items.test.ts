@@ -23,6 +23,7 @@ describe("Kalakriti navigation", () => {
       canViewTransport: true,
       canViewGuests: true,
       canViewJudges: true,
+      canViewAwards: true,
     });
     const organization = buildNavGroups([
       "events.view_all",
@@ -76,6 +77,7 @@ describe("Kalakriti navigation", () => {
         canViewCompetitions: true,
         canViewEntries: true,
         canViewStudents: true,
+        canViewAwards: true,
         year: 2026,
       }).flatMap((group) =>
         group.items.map(({ title, url }) => ({ title, url }))
@@ -87,6 +89,7 @@ describe("Kalakriti navigation", () => {
       { title: "Volunteers", url: "/kalakriti/2026/volunteers" },
       { title: "Students", url: "/kalakriti/2026/students" },
       { title: "Competitions", url: "/kalakriti/2026/competitions" },
+      { title: "Awards", url: "/kalakriti/2026/awards" },
       { title: "Settings", url: "/kalakriti/2026/settings" },
       { title: "Guardians", url: "/kalakriti/2026/guardians" },
       { title: "Audit", url: "/kalakriti/2026/audit" },
@@ -153,6 +156,15 @@ describe("Kalakriti navigation", () => {
         year: 2026,
       }).flatMap((group) => group.items.map(({ title }) => title))
     ).toEqual(["Dashboard", "Overview", "Centers", "Audit"]);
+  });
+
+  it("shows Awards only when the caller has Awards access", () => {
+    const titles = (canViewAwards: boolean) =>
+      buildKalakritiNavGroups({ canViewAwards, year: 2026 }).flatMap((group) =>
+        group.items.map(({ title }) => title)
+      );
+    expect(titles(false)).not.toContain("Awards");
+    expect(titles(true)).toContain("Awards");
   });
 
   it("shows Volunteers to volunteer managers", () => {

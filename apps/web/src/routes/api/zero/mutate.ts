@@ -101,7 +101,7 @@ export const Route = createFileRoute("/api/zero/mutate")({
                       userId
                     );
                     const auditOptions = {
-                      action: name,
+                      action: summary.action ?? name,
                       actor,
                       metadata: summary.metadata,
                       target: summary.target,

@@ -476,6 +476,7 @@ async function findExistingRoleIds(
 }
 
 export interface ZeroAuditSummary {
+  action?: string;
   metadata: AuditMetadata;
   target?: AuditTarget;
 }
@@ -540,6 +541,34 @@ export function summarizeZeroMutation(
 
   const values = args as Record<string, unknown>;
   const relatedIds = collectRelatedIds(values, knownUserIds);
+  if (action === "kalakritiAward.set" && typeof values.awarded === "boolean") {
+    const recipients = Array.isArray(values.expectedVersions)
+      ? values.expectedVersions.filter(
+          (value): value is { studentId: string } =>
+            value !== null &&
+            typeof value === "object" &&
+            "studentId" in value &&
+            isSafeIdentifier(value.studentId)
+        )
+      : [];
+    if (recipients.length) {
+      relatedIds.studentIds = recipients
+        .slice(0, MAX_ID_VALUES)
+        .map((recipient) => recipient.studentId);
+    }
+    return {
+      action: values.awarded ? "kalakritiAward.award" : "kalakritiAward.undo",
+      metadata: {
+        changedFields: ["awarded"],
+        relatedIds,
+        batchCount: Math.min(recipients.length, 1000),
+      },
+      target: {
+        type: "kalakritiAward",
+        ...(isSafeIdentifier(values.entryId) ? { id: values.entryId } : {}),
+      },
+    };
+  }
   const changedFields = Object.keys(values)
     .filter(
       (key) =>

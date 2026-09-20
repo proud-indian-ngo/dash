@@ -22,6 +22,7 @@ import { NavUser } from "@/components/layout/nav-user";
 import { TeamSwitcher } from "@/components/layout/team-switcher";
 import { useApp } from "@/context/app-context";
 import { canViewKalakritiAttendees } from "@/lib/kalakriti-attendee-policy";
+import { canViewKalakritiAwards } from "@/lib/kalakriti-awards-policy";
 import { getKalakritiScanActivities } from "@/lib/kalakriti-event-day-policy";
 import { canViewKalakritiFood } from "@/lib/kalakriti-food-policy";
 import { canViewKalakritiGuardians } from "@/lib/kalakriti-guardian-policy";
@@ -151,6 +152,19 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
     ? canViewKalakritiVolunteers(rosterAccess)
     : false;
   let visibleNavGroups = buildKalakritiNavGroups({
+    canViewAwards: activeEdition
+      ? canViewKalakritiAwards({
+          edition: { lifecycle: activeEdition.lifecycle ?? "archived" },
+          isGlobalAdmin: hasPermission("kalakriti.admin"),
+          membership: membership
+            ? {
+                assignments: membership.assignments,
+                kind: membership.kind,
+                state: membership.state ?? undefined,
+              }
+            : null,
+        })
+      : false,
     canViewTransport: canViewKalakritiTransport(attendeeAccess),
     canViewInventory: canViewKalakritiInventory(attendeeAccess),
     canViewGuests: canViewKalakritiAttendees(attendeeAccess, "guest"),
