@@ -10,14 +10,17 @@ import {
   kalakritiStudent,
 } from "@pi-dash/db/schema/kalakriti";
 import { kalakritiAwardHandover } from "@pi-dash/db/schema/kalakriti-awards";
-import { kalakritiResult } from "@pi-dash/db/schema/kalakriti-results";
+import {
+  kalakritiResult,
+  kalakritiResultRevision,
+} from "@pi-dash/db/schema/kalakriti-results";
 import {
   canManageKalakritiAwards,
   type KalakritiAwardEntry,
   type KalakritiAwardsRoster,
 } from "@pi-dash/shared/kalakriti-awards";
 import { createServerFn } from "@tanstack/react-start";
-import { and, asc, eq, or } from "drizzle-orm";
+import { and, asc, eq, or, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import z from "zod";
 
@@ -168,8 +171,16 @@ export const getKalakritiAwards = createServerFn({ method: "GET" })
               )
             )
             .orderBy(
+              asc(sql`(
+                select min(${kalakritiResultRevision.createdAt})
+                from ${kalakritiResultRevision}
+                where ${kalakritiResultRevision.resultId} = ${kalakritiResult.id}
+                  and ${kalakritiResultRevision.editionId} = ${kalakritiResult.editionId}
+                  and ${kalakritiResultRevision.status} = 'published'
+              )`),
               asc(kalakritiCompetition.name),
               asc(kalakritiAgeCategory.name),
+              asc(kalakritiResult.divisionId),
               asc(kalakritiCompetitionEntry.id),
               asc(kalakritiStudent.name),
               asc(kalakritiStudent.id)
