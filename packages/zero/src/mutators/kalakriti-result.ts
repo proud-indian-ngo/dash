@@ -187,6 +187,27 @@ async function assertEligibleAward(
     );
 }
 
+async function assertAwardHandoversUndone(
+  tx: Transaction,
+  editionId: string,
+  divisionId: string,
+  entryId: string | null,
+  award: "winner" | "runner_up"
+) {
+  if (!entryId) return;
+  const awarded = await tx.run(
+    zql.kalakritiAwardHandover
+      .where("editionId", editionId)
+      .where("divisionId", divisionId)
+      .where("entryId", entryId)
+      .where("award", award)
+      .where("awarded", true)
+      .one()
+  );
+  if (awarded)
+    throw new Error("Undo awarded prizes before changing published results");
+}
+
 async function assertActiveDivision(
   tx: Transaction,
   editionId: string,
@@ -276,6 +297,28 @@ export const kalakritiResultMutators = {
       throw new Error("Results changed. Reload before saving");
     if (current?.status === "published" && args.status === "draft")
       throw new Error("Withdraw published results before saving a draft");
+    if (
+      current?.status === "published" &&
+      current.winnerEntryId !== args.winnerEntryId
+    )
+      await assertAwardHandoversUndone(
+        tx,
+        args.editionId,
+        args.divisionId,
+        current.winnerEntryId,
+        "winner"
+      );
+    if (
+      current?.status === "published" &&
+      current.runnerUpEntryId !== args.runnerUpEntryId
+    )
+      await assertAwardHandoversUndone(
+        tx,
+        args.editionId,
+        args.divisionId,
+        current.runnerUpEntryId,
+        "runner_up"
+      );
     if (args.winnerEntryId && args.winnerEntryId === args.runnerUpEntryId)
       throw new Error("Winner and runner-up must be different entries");
     const publishing = args.status === "published";
@@ -390,6 +433,20 @@ export const kalakritiResultMutators = {
       current.status !== "published"
     )
       throw new Error("Results changed. Reload before withdrawing");
+    await assertAwardHandoversUndone(
+      tx,
+      args.editionId,
+      args.divisionId,
+      current.winnerEntryId,
+      "winner"
+    );
+    await assertAwardHandoversUndone(
+      tx,
+      args.editionId,
+      args.divisionId,
+      current.runnerUpEntryId,
+      "runner_up"
+    );
     const snapshot = {
       editionId: args.editionId,
       version: current.version + 1,

@@ -244,6 +244,18 @@ The root seed adds an idempotent unpublished demo result, revision, scorecard me
 The serialized `tests/kalakriti/results.spec.ts` lane covers publication, Center totals, finalization/reopening, scoped authority, attendance, stale versions, and private scorecards. The real R2 upload/retry scenario follows the existing local-only storage test convention; CI exercises the database/UI workflow with a persisted fixture scorecard.
 
 
+## Awards handovers
+
+`/kalakriti/:year/awards` shows published winner and runner-up recipients to active Awards Leads, Awards Members, and global/Edition administrators. Each Student's prize is tracked separately for each Entry and award type. Group rows expose member actions and atomic whole-group Award/Undo actions, with Pending, Partially awarded, and Awarded status. Search and filters retain the group context; summary counts count recipient awards rather than distinct Students.
+
+`getKalakritiAwards` returns only published recipients and handover state in a repeatable-read snapshot. It does not expose draft results, scorecards, or contact information. The page refreshes every five seconds, on focus, and after actions. Failed refreshes retain matching-scope content and disable writes. Non-Live Editions are read-only; archived access remains global-admin-only.
+
+`kalakriti_award_handover` stores the current per-recipient status and version. An absent row means pending at version zero. `kalakriti_award_command` retains accepted command identities so retries cannot replay an old action after a later undo. The server-only `kalakritiAward.set` mutation resolves active authority, takes the Edition lock, checks published eligibility and all target versions, and atomically applies an explicit desired status. Both Awards roles can award and undo during Live, including after standings finalization. The central immutable audit ledger records distinct award/undo actions, sanitized identifiers, changed fields, and bounded recipient counts.
+
+Result saves and withdrawals take the same Edition lock and reject replacing, reclassifying, or removing an award while any affected recipient's prize remains awarded. Staff must undo affected handovers first. Unchanged award slots retain their handovers across scorecard edits. Winner selection, points, and result/finalization authority remain owned by the existing results workflow.
+
+The root seed adds an idempotent pending handover and command example only when the demo Entry already has a published award in a Live Edition, preserving existing handovers. The serialized Awards E2E fixture exercises real publication and award/undo commands, role boundaries, stale versions, retries, result corrections, filters, and mobile actions.
+
 ## Competition workspace and Settings
 
 Awards Leads and Awards Members can read every Competition and its Entries across their Edition. Configuration, result-writing, and scanning permissions remain unchanged.

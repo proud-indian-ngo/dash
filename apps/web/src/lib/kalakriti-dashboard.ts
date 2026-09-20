@@ -1,5 +1,6 @@
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import { canViewKalakritiAttendees } from "@/lib/kalakriti-attendee-policy";
+import { canViewKalakritiAwards } from "@/lib/kalakriti-awards-policy";
 import { canViewKalakritiCenterDirectory } from "@/lib/kalakriti-center-registration-policy";
 import { canAccessKalakritiEntries } from "@/lib/kalakriti-entry-policy";
 import {
@@ -28,6 +29,7 @@ export const DASHBOARD_DESTINATIONS = {
   food: "/kalakriti/$year/food",
   transport: "/kalakriti/$year/transport",
   inventory: "/kalakriti/$year/inventory",
+  awards: "/kalakriti/$year/awards",
   schedule: "/kalakriti/$year/schedule",
 } as const;
 
@@ -115,6 +117,7 @@ export function getDashboardActions(
   add(canViewKalakritiFood(access), "food", "Food roster");
   add(canViewKalakritiTransport(access), "transport", "Transport");
   add(canViewKalakritiInventory(access), "inventory", "Inventory");
+  add(canViewKalakritiAwards(access), "awards", "Awards");
   add(canViewKalakritiAttendees(access, "guest"), "guests", "Guests");
   add(canViewKalakritiAttendees(access, "judge"), "judges", "Judges");
   add(canViewKalakritiGuardians(access), "guardians", "Guardians");

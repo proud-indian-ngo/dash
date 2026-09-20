@@ -56,6 +56,7 @@ const roleOnlySpecs = {
 type RoleProject = keyof typeof roleOnlySpecs;
 
 const releaseInvariantSpecs = [
+  "kalakriti/awards.spec.ts",
   "kalakriti/golive.spec.ts",
   "kalakriti/operations-person-qr.spec.ts",
   "kalakriti/event-day-transport.spec.ts",

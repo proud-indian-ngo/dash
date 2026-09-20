@@ -103,6 +103,9 @@ All paths are relative to project root.
 | `components/kalakriti/use-transport-status-snapshot.ts` | Keeps Student/Center transport labels tied to complete, scoped query snapshots without hiding the base table |
 | `routes/_app/kalakriti/$year/transport.tsx` | Scoped Transport directory and table-owned vehicle editing/deletion; Center sheets retain read-only transport |
 | `routes/_app/kalakriti/$year/inventory.tsx` | Edition Inventory Items and Transactions tabs, with role and archived-Edition access guards |
+| `routes/_app/kalakriti/$year/awards.tsx`, `components/kalakriti/awards*` | Published prize roster, recipient/group handovers, filters, summaries, and ID display |
+| `functions/kalakriti-awards.ts`, `packages/shared/src/kalakriti-awards.ts` | Published-recipient projection and shared Awards authority/types |
+| `packages/db/src/schema/kalakriti-awards.ts`, `packages/zero/src/mutators/kalakriti-award.ts` | Versioned prize handovers, durable command receipts, and atomic award/undo |
 | `components/kalakriti/inventory-{items-table,item-dialog,movement-dialog}.tsx` | Item catalog, optional photo, and stock movement forms with item history |
 | `components/kalakriti/inventory-scan-panel.tsx` | Volunteer QR/yearly-ID capture, scanned profile, assigned Competition/role choices, searchable item multiselect, and atomic dispatch/return batches |
 | `lib/kalakriti-inventory-assignment-options.ts` | Deduplicated active Competition and role choices from the scanned Volunteer’s assignments |

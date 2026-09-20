@@ -71,6 +71,10 @@ import {
   kalakritiVenue,
 } from "@pi-dash/db/schema/kalakriti";
 import {
+  kalakritiAwardCommand,
+  kalakritiAwardHandover,
+} from "@pi-dash/db/schema/kalakriti-awards";
+import {
   kalakritiInventoryItem,
   kalakritiInventoryTransaction,
 } from "@pi-dash/db/schema/kalakriti-inventory";
@@ -108,7 +112,7 @@ import {
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
 import { getKalakritiCenterTransportStatus } from "@pi-dash/zero/kalakriti-center-scan-rules";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -1210,6 +1214,79 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
       actorUserId: adminId,
       createdAt: now,
     });
+  });
+
+  // Pending handover examples require a real published demo award; never seed a received prize.
+  await db.transaction(async (tx) => {
+    const [edition] = await tx
+      .select({ lifecycle: kalakritiEdition.lifecycle })
+      .from(kalakritiEdition)
+      .where(eq(kalakritiEdition.id, ID.kalakritiEdition))
+      .for("update");
+    if (edition?.lifecycle !== "live") return;
+    const [result] = await tx
+      .select()
+      .from(kalakritiResult)
+      .where(
+        and(
+          eq(kalakritiResult.editionId, ID.kalakritiEdition),
+          eq(kalakritiResult.divisionId, ID.kalakritiCompetitionSession),
+          eq(kalakritiResult.status, "published")
+        )
+      );
+    const award =
+      result?.winnerEntryId === ID.kalakritiCompetitionEntry
+        ? "winner"
+        : result?.runnerUpEntryId === ID.kalakritiCompetitionEntry
+          ? "runner_up"
+          : null;
+    if (!award) return;
+    const [member] = await tx
+      .select({ id: kalakritiEntryMember.id })
+      .from(kalakritiEntryMember)
+      .where(
+        and(
+          eq(kalakritiEntryMember.editionId, ID.kalakritiEdition),
+          eq(kalakritiEntryMember.entryId, ID.kalakritiCompetitionEntry),
+          eq(kalakritiEntryMember.studentId, ID.kalakritiStudent)
+        )
+      );
+    if (!member) return;
+    const [created] = await tx
+      .insert(kalakritiAwardHandover)
+      .values({
+        id: "01a0a932-06cb-7000-8000-000000000104",
+        editionId: ID.kalakritiEdition,
+        divisionId: ID.kalakritiCompetitionSession,
+        entryId: ID.kalakritiCompetitionEntry,
+        studentId: ID.kalakritiStudent,
+        award,
+        awarded: false,
+        version: 1,
+        updatedAt: now,
+        updatedBy: adminId,
+      })
+      .onConflictDoNothing()
+      .returning({ id: kalakritiAwardHandover.id });
+    if (!created) return;
+    await tx
+      .insert(kalakritiAwardCommand)
+      .values({
+        id: "01a0a932-06cb-7000-8000-000000000105",
+        editionId: ID.kalakritiEdition,
+        actorUserId: adminId,
+        createdAt: now,
+        payload: sql`${JSON.stringify({
+          divisionId: ID.kalakritiCompetitionSession,
+          entryId: ID.kalakritiCompetitionEntry,
+          studentId: ID.kalakritiStudent,
+          award,
+          awarded: false,
+          expectedVersions: [{ studentId: ID.kalakritiStudent, version: 0 }],
+          now: now.getTime(),
+        })}::text::jsonb`,
+      })
+      .onConflictDoNothing();
   });
 
   // Seed transport before event day, but operation history only after go-live.

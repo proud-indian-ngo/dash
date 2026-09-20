@@ -1,5 +1,6 @@
 import {
   AnalyticsUpIcon,
+  Award01Icon,
   Audit01Icon,
   Building03Icon,
   Bus01Icon,
@@ -161,6 +162,7 @@ export function buildKalakritiNavGroups({
   canViewInventory = false,
   canViewGuests = false,
   canViewJudges = false,
+  canViewAwards = false,
   year,
 }: {
   canManageEligibility?: boolean;
@@ -175,6 +177,7 @@ export function buildKalakritiNavGroups({
   canViewInventory?: boolean;
   canViewGuests?: boolean;
   canViewJudges?: boolean;
+  canViewAwards?: boolean;
   year?: number;
 } = {}): NavGroup[] {
   const editionItems: NavItem[] = [
@@ -214,6 +217,14 @@ export function buildKalakritiNavGroups({
       icon: TrophyIcon,
       title: "Competitions",
       url: `/kalakriti/${year}/competitions`,
+    });
+  }
+
+  if (year && canViewAwards) {
+    editionItems.push({
+      icon: Award01Icon,
+      title: "Awards",
+      url: `/kalakriti/${year}/awards`,
     });
   }
 

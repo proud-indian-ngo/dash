@@ -40,6 +40,7 @@ function fixture() {
     kalakritiEdition: [edition],
     kalakritiResultsState: [],
     kalakritiResult: [],
+    kalakritiAwardHandover: [],
     kalakritiResultRevision: [],
     kalakritiStandingsRevision: [],
     kalakritiResultScorecard: [
@@ -354,6 +355,49 @@ describe("Kalakriti result mutations", () => {
     const withdrawnCount = f.mutations.length;
     await f.execute("withdraw", withdraw);
     expect(f.mutations).toHaveLength(withdrawnCount);
+  });
+
+  it("blocks only result award slots with completed handovers", async () => {
+    const f = fixture();
+    await f.execute("save", f.args());
+    f.rows.kalakritiAwardHandover.push({
+      id: uuidv7(),
+      editionId: f.editionId,
+      divisionId: f.divisionId,
+      entryId: f.entryIds[0],
+      studentId: f.studentIds[0],
+      award: "winner",
+      awarded: true,
+      version: 1,
+    });
+    await expect(
+      f.execute("save", {
+        ...f.args(),
+        winnerEntryId: f.entryIds[2],
+      })
+    ).rejects.toThrow("Undo awarded prizes");
+    await expect(
+      f.execute("withdraw", {
+        editionId: f.editionId,
+        divisionId: f.divisionId,
+        revisionId: uuidv7(),
+        expectedVersion: 1,
+        now: 300,
+      })
+    ).rejects.toThrow("Undo awarded prizes");
+
+    await f.execute("save", {
+      ...f.args(),
+      scorecardIds: [f.scorecardId],
+    });
+    expect(f.rows.kalakritiResult[0]?.version).toBe(2);
+
+    f.rows.kalakritiAwardHandover[0]!.awarded = false;
+    await f.execute("save", {
+      ...f.args(),
+      winnerEntryId: f.entryIds[2],
+    });
+    expect(f.rows.kalakritiResult[0]?.winnerEntryId).toBe(f.entryIds[2]);
   });
 
   it("rejects incomplete, duplicate, foreign, and stale awards", async () => {

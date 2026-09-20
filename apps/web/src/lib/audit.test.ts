@@ -46,6 +46,41 @@ function makeStore(): AuditStore & {
 }
 
 describe("audit metadata", () => {
+  it.each([true, false])(
+    "records award handover intent with bounded identifiers (%s)",
+    (awarded) => {
+      const summary = summarizeZeroMutation(
+        "kalakritiAward.set",
+        {
+          editionId: TEAM_ID,
+          entryId: TARGET_ID,
+          awarded,
+          expectedVersions: [
+            ...Array.from({ length: 60 }, () => ({
+              studentId: TARGET_ID,
+              version: 7,
+            })),
+            { studentId: "private@example.com", name: "Private student" },
+          ],
+          name: "Private student",
+        },
+        "actor-1"
+      );
+      expect(summary.action).toBe(
+        awarded ? "kalakritiAward.award" : "kalakritiAward.undo"
+      );
+      expect(summary.target).toEqual({ type: "kalakritiAward", id: TARGET_ID });
+      expect(summary.metadata.changedFields).toEqual(["awarded"]);
+      expect(summary.metadata.batchCount).toBe(60);
+      expect(
+        (summary.metadata.relatedIds as Record<string, string[]>).studentIds
+      ).toHaveLength(50);
+      expect(JSON.stringify(summary)).not.toContain("Private student");
+      expect(JSON.stringify(summary)).not.toContain("private@example.com");
+      expect(JSON.stringify(summary)).not.toContain("version");
+    }
+  );
+
   it("snapshots actor and impersonator attribution", () => {
     expect(
       snapshotAuditActor(

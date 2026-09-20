@@ -11,6 +11,7 @@ import { eventUpdateMutators } from "./mutators/event-update";
 import { expenseCategoryMutators } from "./mutators/expense-category";
 import { kalakritiAssignmentMutators } from "./mutators/kalakriti-assignment";
 import { kalakritiAttendeeMutators } from "./mutators/kalakriti-attendee";
+import { kalakritiAwardMutators } from "./mutators/kalakriti-award";
 import { kalakritiCenterMutators } from "./mutators/kalakriti-center";
 import { kalakritiCenterScanMutators } from "./mutators/kalakriti-center-scan";
 import { kalakritiCompetitionMutators } from "./mutators/kalakriti-competition";
@@ -44,6 +45,7 @@ export const mutators = defineMutators({
   eventUpdate: eventUpdateMutators,
   expenseCategory: expenseCategoryMutators,
   kalakritiAssignment: kalakritiAssignmentMutators,
+  kalakritiAward: kalakritiAwardMutators,
   kalakritiCenter: kalakritiCenterMutators,
   kalakritiCompetition: kalakritiCompetitionMutators,
   kalakritiEdition: kalakritiEditionMutators,

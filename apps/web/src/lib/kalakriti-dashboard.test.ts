@@ -99,11 +99,11 @@ describe("Kalakriti dashboard work areas", () => {
     expect(getDashboardScanActions(access([role]))).toEqual([]);
   });
   it.each(["awards_lead", "awards_member"] as const)(
-    "shows the Competition workspace to %s without scan actions",
+    "shows the Competition and Awards workspaces to %s without scan actions",
     (role) => {
       expect(
         getDashboardActions(access([role])).map((a) => a.destination)
-      ).toEqual(["competitions"]);
+      ).toEqual(["competitions", "awards"]);
       expect(getDashboardScanActions(access([role]))).toEqual([]);
     }
   );
