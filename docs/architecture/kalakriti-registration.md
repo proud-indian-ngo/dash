@@ -246,7 +246,7 @@ The serialized `tests/kalakriti/results.spec.ts` lane covers publication, Center
 
 ## Awards handovers
 
-`/kalakriti/:year/awards` shows published winner and runner-up recipients to active Awards Leads, Awards Members, and global/Edition administrators. Each Student's prize is tracked separately for each Entry and award type. Group rows expose member actions and atomic whole-group Award/Undo actions, with Pending, Partially awarded, and Awarded status. Search and filters retain the group context; summary counts count recipient awards rather than distinct Students.
+`/kalakriti/:year/awards` shows published winner and runner-up recipients to active Awards Leads, Awards Members, and global/Edition administrators. Each Student's prize is tracked separately for each Entry and award type. Group rows expose member actions and atomic whole-group Award/Undo actions, with Pending, Partially awarded, and Awarded status. Search and filters retain the group context; summary counts count recipient awards rather than distinct Students. The default roster order is earliest first publication, using published result revision timestamps so later corrections do not move a Competition to the back of the queue. Manual column sorting overrides this order.
 
 `getKalakritiAwards` returns only published recipients and handover state in a repeatable-read snapshot. It does not expose draft results, scorecards, or contact information. The page refreshes every five seconds, on focus, and after actions. Failed refreshes retain matching-scope content and disable writes. Non-Live Editions are read-only; archived access remains global-admin-only.
 
