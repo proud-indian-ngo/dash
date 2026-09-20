@@ -119,7 +119,7 @@ export function ResultEditor({
           )
         ) {
           setFormError(
-            "Every member of each awarded entry must have recorded attendance for this session."
+            "At least one member of each awarded entry must have recorded attendance for this session."
           );
           return;
         }
@@ -283,8 +283,8 @@ export function ResultEditor({
       ) : null}
       {eligibleEntries.length < 2 ? (
         <p className="text-muted-foreground text-sm">
-          Publishing requires two distinct registered Entries whose members have
-          attendance recorded for this session.
+          Publishing requires two distinct registered Entries with at least one
+          member each having attendance recorded for this session.
         </p>
       ) : null}
       <fieldset className="grid gap-4" disabled={!canEdit || uploading || busy}>

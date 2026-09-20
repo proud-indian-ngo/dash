@@ -431,16 +431,42 @@ describe("Kalakriti result mutations", () => {
     expect(f.rows.kalakritiResultRevision).toHaveLength(1);
   });
 
-  it("requires every group member to attend the actual session", async () => {
+  it.each(["winner", "runner_up"])(
+    "allows a partially attended group as %s",
+    async (award) => {
+      const f = fixture();
+      f.rows.kalakritiOperation[1]!.competitionSessionId = uuidv7();
+      const args = f.args();
+      if (award === "runner_up") {
+        [args.winnerEntryId, args.runnerUpEntryId] = [
+          args.runnerUpEntryId,
+          args.winnerEntryId,
+        ];
+      }
+      await f.execute("save", args);
+      expect(f.rows.kalakritiResult[0]?.status).toBe("published");
+    }
+  );
+
+  it("requires effective attendance from a member in the actual session", async () => {
     const f = fixture();
-    f.rows.kalakritiOperation[1]!.competitionSessionId = uuidv7();
-    await expect(f.execute("save", f.args())).rejects.toThrow("Every member");
-    f.rows.kalakritiOperation[1]!.competitionSessionId = f.sessionId;
+    f.rows.kalakritiOperation[0]!.competitionSessionId = uuidv7();
     f.rows.kalakritiOperation[1]!.supersededByOperationId = uuidv7();
-    await expect(f.execute("save", f.args())).rejects.toThrow("Every member");
+    await expect(f.execute("save", f.args())).rejects.toThrow(
+      "At least one member"
+    );
     f.rows.kalakritiOperation[1]!.supersededByOperationId = null;
     await f.execute("save", f.args());
     expect(f.rows.kalakritiResult[0]?.status).toBe("published");
+  });
+
+  it("rejects an absent individual participant", async () => {
+    const f = fixture();
+    f.rows.kalakritiOperation[2]!.competitionSessionId = uuidv7();
+    await expect(f.execute("save", f.args())).rejects.toThrow(
+      "At least one member"
+    );
+    expect(f.rows.kalakritiResult).toHaveLength(0);
   });
 
   it.each([

@@ -178,12 +178,9 @@ async function assertEligibleAward(
       .where("supersededByOperationId", "IS", null)
   );
   const attended = new Set(attendance.map((mark) => mark.studentId));
-  if (
-    members.length === 0 ||
-    members.some((member) => !attended.has(member.studentId))
-  )
+  if (!members.some((member) => attended.has(member.studentId)))
     throw new Error(
-      "Every member of an awarded entry must have recorded competition attendance"
+      "At least one member of an awarded entry must have recorded competition attendance"
     );
 }
 

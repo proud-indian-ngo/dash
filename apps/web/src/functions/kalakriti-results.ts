@@ -411,9 +411,9 @@ export const getKalakritiResultDetail = createServerFn({ method: "GET" })
                 label: people
                   .map((person) => `${person.name} (${person.humanId})`)
                   .join(", "),
-                eligible:
-                  people.length > 0 &&
-                  people.every((person) => attended.has(person.studentId)),
+                eligible: people.some((person) =>
+                  attended.has(person.studentId)
+                ),
               };
             }),
             revisions: revisions.map((revision) => ({
