@@ -318,20 +318,21 @@ async function setup(adminEmail: string, coordinatorEmail: string) {
       createdBy: admin.id,
     }))
   );
+  // The first group starts with no attended member, so publishing it is
+  // blocked; `complete-attendance` then marks only Student B, since one
+  // attended member is enough for a group award.
   await db.insert(kalakritiOperation).values(
-    [fixture.studentAId, fixture.studentCId, fixture.studentDId].map(
-      (studentId, index) => ({
-        id: id(40 + index),
-        editionId: fixture.editionId,
-        studentId,
-        competitionSessionId: fixture.sessionId,
-        type: "competition_attendance" as const,
-        operationId: id(50 + index),
-        createdAt: now,
-        occurredAt: now,
-        recordedBy: admin.id,
-      })
-    )
+    [fixture.studentCId, fixture.studentDId].map((studentId, index) => ({
+      id: id(40 + index),
+      editionId: fixture.editionId,
+      studentId,
+      competitionSessionId: fixture.sessionId,
+      type: "competition_attendance" as const,
+      operationId: id(50 + index),
+      createdAt: now,
+      occurredAt: now,
+      recordedBy: admin.id,
+    }))
   );
   await db.insert(kalakritiEditionMembership).values([
     {
