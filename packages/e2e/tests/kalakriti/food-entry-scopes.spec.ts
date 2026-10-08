@@ -965,15 +965,16 @@ test("Food and Entry readers see their two-Center union, while arrival and check
           )
         );
         await waitForZeroReady(guardian);
+        // Filters (Present/Attended especially) apply to the server-confirmed
+        // Entry snapshot; under suite load it can take well over the default
+        // timeout, while the summary cards show "Checking".
+        await expect(
+          guardian.getByText("Checking", { exact: true })
+        ).toHaveCount(0, { timeout: 60_000 });
         const entries = guardian.getByRole("row").filter({
           has: guardian.getByRole("cell").filter({ hasText: "KAL-2168-" }),
         });
-        // Present/Attended labels wait for the server-confirmed Entry
-        // snapshot, which can lag well behind first paint under suite load.
-        const statusFilter = field === "present" || field === "attended";
-        await expect(entries).toHaveCount(count, {
-          timeout: statusFilter ? 30_000 : undefined,
-        });
+        await expect(entries).toHaveCount(count);
         if (count === 0)
           await expect(
             guardian.getByText(
