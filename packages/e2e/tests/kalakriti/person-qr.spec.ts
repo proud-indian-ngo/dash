@@ -269,6 +269,9 @@ test.describe("Kalakriti person QR", () => {
       testInfo.project.name !== "super_admin",
       "Credential authorization boundaries"
     );
+    // Two actors each open, decode and reopen sheets; this exceeds the
+    // default budget under full-suite load.
+    test.slow();
     const year = 2186;
     for (const actor of [kalakritiActors.guardian, kalakritiActors.liaison]) {
       // biome-ignore lint/performance/noAwaitInLoops: browser contexts must close sequentially
