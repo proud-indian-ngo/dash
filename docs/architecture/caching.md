@@ -37,6 +37,8 @@ Used in `_app` layout `beforeLoad` — every protected route calls `getCachedAut
 
 **Multi-instance caveat**: each instance maintains separate counters. A user can burn N×instances requests before getting limited. Acceptable for Better Auth sign-in (10/min) where brute-force floor is high enough, but revisit if adding tighter limits.
 
+`/api/public/events` uses key `public-events:<ip>` at 60/min. The IP is `cf-connecting-ip` (production is only reachable through Cloudflare), else the right-most `x-forwarded-for` hop; with neither, all requests share `unknown` and a warning is logged once. The same route keeps a 60-second in-process response cache (`apps/web/src/lib/ttl-cache.ts`, at most 100 entries) keyed by city, raw `from`, window and limit.
+
 Better Auth has its own per-endpoint rate limits (sign-in 10/min, sign-up 5/min) — those live in `packages/auth/src/index.ts`, independent from this limiter.
 
 ## Summary
@@ -46,5 +48,6 @@ Better Auth has its own per-endpoint rate limits (sign-in 10/min, sign-up 5/min)
 | Auth (session + perms) | client | 5 min | per-tab | `invalidateAuthCache()` |
 | Permissions (by role) | server process | 60 sec | per-instance | `invalidatePermissionCache(role)` |
 | Rate limit counters | server process | window-based (default 60s) | per-instance | reset on restart |
+| Public events feed responses | server process | 60 sec (max 100 keys) | per-instance | expiry only |
 
 No Redis, no Memcached, no shared cache layer. Intentional: single-process deployment simplicity. Re-evaluate when horizontal scaling becomes a requirement.

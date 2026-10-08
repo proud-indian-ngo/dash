@@ -739,6 +739,7 @@ function buildEditInitialValues(
     name: event.name,
     postEventNudgesEnabled: event.postEventNudgesEnabled,
     postRsvpPoll: !!event.postRsvpPoll,
+    publicArea: event.publicArea,
     recurrenceRule: recurrence,
     reminderIntervals: event.reminderIntervals as number[] | null,
     reminderTarget: event.reminderTarget as string,
@@ -763,6 +764,7 @@ function buildDuplicateInitialValues(event: EventRow) {
     name: `Copy of ${event.name}`,
     postEventNudgesEnabled: event.postEventNudgesEnabled,
     postRsvpPoll: !!event.postRsvpPoll,
+    publicArea: event.publicArea,
     recurrenceRule: null,
     reminderIntervals: event.reminderIntervals as number[] | null,
     reminderTarget: event.reminderTarget as string,
@@ -800,6 +802,10 @@ export function EventDetail({
 
   const { isVirtualOccurrence, isRecurring, isOccurrence, scopeOccDate } =
     deriveRecurrenceState(event, occDate);
+  // An already-materialized row for this date takes the interest instead.
+  const interestSessionId = isVirtualOccurrence
+    ? event.exceptions.find((e) => e.originalDate === occDate)?.id
+    : undefined;
 
   /** Materialize a virtual occurrence into an exception row, then navigate to it. */
   const materializeOccurrence = useCallback(async (): Promise<
@@ -1318,6 +1324,8 @@ export function EventDetail({
         eventDate={format(new Date(event.startTime), LONG_DATE_TIME)}
         eventId={event.id}
         eventName={event.name}
+        occDate={isVirtualOccurrence ? occDate : undefined}
+        sessionId={interestSessionId}
         onOpenChange={dialog.onOpenChange}
         open={dialog.isOpen("interest")}
       />

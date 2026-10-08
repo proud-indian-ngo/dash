@@ -1,4 +1,10 @@
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import {
+  EVENT_REDIRECT_HEADER,
+  eventPagePath,
+  formatEventRedirect,
+  parseEventRedirect,
+} from "@pi-dash/shared/event-redirect";
 import { useForm } from "@tanstack/react-form";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { log } from "evlog";
@@ -22,11 +28,26 @@ const STATUS_MESSAGES: Record<string, string> = {
   "password-reset": "Password reset successfully",
 };
 
+/**
+ * Where to go after login. Event redirects keep their ?occDate= (hence href),
+ * minus the verification-only interest marker.
+ */
+function postLoginPath(redirect: string | undefined): string {
+  const eventRedirect = parseEventRedirect(redirect);
+  if (eventRedirect) {
+    return eventPagePath(eventRedirect);
+  }
+  return redirect?.startsWith("/") && !redirect.startsWith("//")
+    ? redirect
+    : "/";
+}
+
 export function LoginForm() {
   const navigate = useNavigate({
     from: "/login",
   });
   const { status, redirect } = useSearch({ from: "/_auth/login" });
+  const eventRedirect = parseEventRedirect(redirect);
   const { isPending } = authClient.useSession();
   const handledStatusRef = useRef<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -42,9 +63,9 @@ export function LoginForm() {
     if (message) {
       handledStatusRef.current = status;
       toast.success(message, { id: status });
-      navigate({ replace: true, search: {}, to: "/login" });
+      navigate({ replace: true, search: { redirect }, to: "/login" });
     }
-  }, [navigate, status]);
+  }, [navigate, redirect, status]);
 
   const form = useForm({
     defaultValues: {
@@ -60,6 +81,15 @@ export function LoginForm() {
           password: value.password,
         },
         {
+          // An unverified sign-in re-sends the verification email; keep the
+          // website event (and interest request) in it.
+          ...(eventRedirect
+            ? {
+                headers: {
+                  [EVENT_REDIRECT_HEADER]: formatEventRedirect(eventRedirect),
+                },
+              }
+            : {}),
           onError: (error) => {
             const message = error.error.message || error.error.statusText;
             log.error({
@@ -82,12 +112,8 @@ export function LoginForm() {
             }
           },
           onSuccess: () => {
-            const safeRedirect =
-              redirect?.startsWith("/") && !redirect.startsWith("//")
-                ? redirect
-                : "/";
             navigate({
-              to: safeRedirect,
+              href: postLoginPath(redirect),
             });
             toast.success("Welcome back!");
           },
@@ -107,7 +133,10 @@ export function LoginForm() {
     setResending(true);
     try {
       await authClient.sendVerificationEmail({
-        callbackURL: "/login",
+        // Website sign-ups keep their event (and interest request) on resend.
+        callbackURL: eventRedirect
+          ? formatEventRedirect(eventRedirect)
+          : "/login",
         email: unverifiedEmail,
       });
       toast.success("Verification email sent — check your inbox");

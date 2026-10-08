@@ -27,7 +27,7 @@ Copy `.env.sample` to `.env` and fill in values. Grouped by category:
 | `DATABASE_URL` | PostgreSQL connection string (pooled) |
 | `ZERO_UPSTREAM_DB` | PostgreSQL connection string (unpooled, for WAL replication) |
 | `BETTER_AUTH_SECRET` | Session encryption secret (min 32 chars) |
-| `BETTER_AUTH_URL` | Auth base URL (e.g., `https://dash.example.com`) |
+| `BETTER_AUTH_URL` | Auth base URL (e.g., `https://dash.example.com`). Also the base of the public events feed's `signUpUrl`; the proudindian.ngo website only accepts links starting with `https://dash.proudindian.ngo/`, so production must use exactly that origin |
 | `CORS_ORIGIN` | Allowed CORS origin (usually same as `BETTER_AUTH_URL`) |
 | `ZERO_ADMIN_PASSWORD` | Zero cache admin password |
 | `ZERO_MUTATE_URL` | Zero mutate endpoint (e.g., `https://dash.example.com/api/zero/mutate`) |
@@ -124,6 +124,7 @@ Files required: `packages/pdf/assets/logo.png` and `packages/pdf/assets/signatur
 | `AVATAR_FALLBACK_SEED` | DiceBear fallback seed |
 | `COOKIE_DOMAIN` | Cross-subdomain cookie domain (production) |
 | `APP_URL` | App URL shown in notification footers |
+| `PAGES_DEPLOY_HOOK_URL` | Cloudflare Pages deploy hook for the proudindian.ngo website (Pages → Settings → Builds → Deploy hooks). When set, the `sync-public-events-deploy` job checks `/api/public/events` every 5 minutes and POSTs to the hook only when the feed changed (and once after each restart). Treat as a secret. |
 | `VOUCHER_FINANCE_ADMIN_NAME` | Finance admin name printed on cash vouchers |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | For `auth:seed-admin` script |
 | `POSTHOG_API_KEY` | Server-side PostHog API key used for OTLP log export when `OTEL_EXPORTER_OTLP_ENDPOINT` is unset |
@@ -292,6 +293,8 @@ Starts `go-whatsapp-web-multidevice` container on port 3100. Pair via QR code at
 - [ ] R2 public bucket/CDN access is disabled after authenticated-read verification
 - [ ] WhatsApp gateway running and paired (if using WhatsApp alerts)
 - [ ] Immich server accessible (if using photo management)
+- [ ] `PAGES_DEPLOY_HOOK_URL` set if the public website should rebuild when events change; the website's `PUBLIC_EVENTS_URL` is `https://dash.proudindian.ngo/api/public/events`
+- [ ] The app origin is only reachable through Cloudflare: `/api/public/events` rate-limits by `cf-connecting-ip`, which a client could forge if the origin were exposed directly
 
 ## CI Pipeline
 

@@ -25,6 +25,7 @@ import {
   getUserFromSignUpReturned,
   verifyPersistedSignUpUser,
 } from "./sign-up-returned";
+import { getVerificationEventRedirect } from "./verification-redirect";
 
 type SignInReactivationStatus = SignInReactivationResult["status"];
 
@@ -341,8 +342,14 @@ export const auth = betterAuth({
   },
   emailVerification: {
     sendOnSignIn: true,
-    sendVerificationEmail: async (data) => {
-      const url = `${env.BETTER_AUTH_URL}/verify-email?token=${data.token}`;
+    sendVerificationEmail: async (data, request) => {
+      // Website sign-ups carry the event page (and interest marker) through
+      // Better Auth's callbackURL, or the login form's header when sign-in
+      // re-sends the email; the verify page files the interest.
+      const redirect = getVerificationEventRedirect(data.url, request);
+      const url = `${env.BETTER_AUTH_URL}/verify-email?token=${data.token}${
+        redirect ? `&redirect=${encodeURIComponent(redirect)}` : ""
+      }`;
       await sendVerificationEmail(data.user.email, url);
     },
   },

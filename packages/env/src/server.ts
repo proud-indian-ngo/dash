@@ -33,6 +33,7 @@ export const env = createEnv({
       .default("development"),
     OTEL_EXPORTER_OTLP_ENDPOINT: z.string().optional(),
     OTEL_SERVICE_NAME: z.string().default("pi-dash"),
+    PAGES_DEPLOY_HOOK_URL: z.url().optional(),
     PHOTO_NOTIFICATION_DELAY_SECONDS: z.coerce
       .number()
       .int()

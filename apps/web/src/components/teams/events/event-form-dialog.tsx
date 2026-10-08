@@ -59,6 +59,10 @@ const eventFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   postEventNudgesEnabled: z.boolean(),
   postRsvpPoll: z.boolean(),
+  publicArea: z
+    .string()
+    .max(80, "Keep the area under 80 characters")
+    .optional(),
   reminderIntervals: z.array(z.number()),
   reminderTarget: z.enum(reminderTargetValues),
   rrule: z.string().optional(),
@@ -110,6 +114,7 @@ interface InitialValues {
   name?: string | null;
   postEventNudgesEnabled?: boolean | null;
   postRsvpPoll?: boolean | null;
+  publicArea?: string | null;
   recurrenceRule?: {
     rrule: string;
     exdates?: string[];
@@ -153,6 +158,7 @@ function getDefaultValues(initialValues?: InitialValues): EventFormValues {
     name: initialValues?.name ?? "",
     postEventNudgesEnabled: initialValues?.postEventNudgesEnabled ?? false,
     postRsvpPoll: initialValues?.postRsvpPoll ?? false,
+    publicArea: initialValues?.publicArea ?? undefined,
     reminderIntervals: initialValues?.reminderIntervals ?? [],
     reminderTarget: (initialValues?.reminderTarget ??
       "participants") as (typeof reminderTargetValues)[number],
@@ -200,6 +206,7 @@ function buildUpdateMutatorArgs(id: string, value: EventFormValues) {
     now: Date.now(),
     postEventNudgesEnabled: value.postEventNudgesEnabled,
     postRsvpPoll: value.postRsvpPoll,
+    publicArea: value.publicArea?.trim() ?? "",
     reminderIntervals: value.reminderIntervals.length
       ? value.reminderIntervals
       : null,
@@ -233,6 +240,7 @@ function buildUpdateSeriesArgs(
     now: Date.now(),
     postEventNudgesEnabled: value.postEventNudgesEnabled,
     postRsvpPoll: value.postRsvpPoll,
+    publicArea: value.publicArea?.trim() ?? "",
     recurrenceRule: value.rrule
       ? {
           excludeRules: value.excludeRules?.length
@@ -285,6 +293,7 @@ function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
     now: Date.now(),
     postEventNudgesEnabled: value.postEventNudgesEnabled,
     postRsvpPoll: value.postRsvpPoll,
+    publicArea: value.publicArea?.trim() || undefined,
     recurrenceRule,
     reminderIntervals: value.reminderIntervals.length
       ? value.reminderIntervals
@@ -466,6 +475,9 @@ function EventFormContent({
   const stableSelector6 = useEventCallback(
     (state: EventFormState) => state.values.whatsappGroupId
   );
+  const stableSelectorPublic = useEventCallback(
+    (state: EventFormState) => state.values.isPublic
+  );
   const stableOnCancel7 = useEventCallback(() => onOpenChange(false));
 
   return (
@@ -516,7 +528,25 @@ function EventFormContent({
       </div>
 
       {kalakritiEditionId ? null : (
-        <CheckboxField label="Public" name="isPublic" />
+        <CheckboxField
+          description="Also listed on proudindian.ngo with the name, date, public area and a short description."
+          label="Public"
+          name="isPublic"
+        />
+      )}
+      {kalakritiEditionId ? null : (
+        <form.Subscribe selector={stableSelectorPublic}>
+          {(isPublic) =>
+            isPublic ? (
+              <InputField
+                description="Shown on proudindian.ngo instead of the location. Use a neighbourhood, never an exact address."
+                label="Public area"
+                name="publicArea"
+                placeholder="e.g. Iblur"
+              />
+            ) : null
+          }
+        </form.Subscribe>
       )}
 
       <Collapsible onOpenChange={setShowAdvanced} open={showAdvanced}>

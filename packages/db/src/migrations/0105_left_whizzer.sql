@@ -1,0 +1,1 @@
+ALTER TABLE "team_event" ADD COLUMN "public_area" text;

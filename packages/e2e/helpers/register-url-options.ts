@@ -1,16 +1,26 @@
 import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
+import { eventInterest } from "@pi-dash/db/schema/event-interest";
 import {
   kalakritiEdition,
   kalakritiEditionMembership,
 } from "@pi-dash/db/schema/kalakriti";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
-import { and, eq } from "drizzle-orm";
+import { createEmailVerificationToken } from "better-auth/api";
+import { and, eq, sql } from "drizzle-orm";
+
+// A jsonb object, as the app writes it (Drizzle on bun-sql would store a
+// JSON string instead).
+const WEEKLY = sql<{ rrule: string }>`'{"rrule":"FREQ=WEEKLY"}'::jsonb`;
 
 const FIXTURE = {
   editionId: "019f0000-0019-7000-8000-000000001981",
   kalakritiEventId: "019f0000-0019-7000-8000-000000001982",
   normalEventId: "019f0000-0019-7000-8000-000000001983",
+  publicEventId: "019f0000-0019-7000-8000-000000001984",
+  /** Weekly public series; its 2095-11-27 session is the website link. */
+  seriesEventId: "019f0000-0019-7000-8000-000000001985",
+  seriesOccDate: "2095-11-27",
   year: 2095,
 } as const;
 
@@ -23,6 +33,15 @@ async function getUserId(email: string): Promise<string | null> {
 }
 
 async function cleanup() {
+  // Materialized sessions (and their interests) cascade with the series.
+  await db.delete(teamEvent).where(eq(teamEvent.id, FIXTURE.seriesEventId));
+  await db
+    .delete(eventInterest)
+    .where(eq(eventInterest.eventId, FIXTURE.publicEventId));
+  await db
+    .delete(teamEventMember)
+    .where(eq(teamEventMember.eventId, FIXTURE.publicEventId));
+  await db.delete(teamEvent).where(eq(teamEvent.id, FIXTURE.publicEventId));
   await db
     .delete(kalakritiEditionMembership)
     .where(eq(kalakritiEditionMembership.editionId, FIXTURE.editionId));
@@ -60,6 +79,29 @@ async function setup(creatorEmail: string) {
   await db.insert(teamEvent).values({
     createdAt: now,
     createdBy: creatorId,
+    id: FIXTURE.publicEventId,
+    isPublic: true,
+    name: "Register URL public event",
+    publicArea: "Iblur",
+    startTime,
+    teamId: owningTeam.id,
+    updatedAt: now,
+  });
+  await db.insert(teamEvent).values({
+    createdAt: now,
+    createdBy: creatorId,
+    id: FIXTURE.seriesEventId,
+    isPublic: true,
+    name: "Register URL weekly session",
+    publicArea: "Iblur",
+    recurrenceRule: WEEKLY,
+    startTime,
+    teamId: owningTeam.id,
+    updatedAt: now,
+  });
+  await db.insert(teamEvent).values({
+    createdAt: now,
+    createdBy: creatorId,
     id: FIXTURE.kalakritiEventId,
     managementDomain: "kalakriti",
     name: `Kalakriti ${FIXTURE.year}`,
@@ -84,7 +126,69 @@ async function setup(creatorEmail: string) {
   return {
     kalakritiEventId: FIXTURE.kalakritiEventId,
     normalEventId: FIXTURE.normalEventId,
+    publicEventId: FIXTURE.publicEventId,
+    seriesEventId: FIXTURE.seriesEventId,
+    seriesOccDate: FIXTURE.seriesOccDate,
   };
+}
+
+/** Website sign-up state on the public fixture event. */
+async function interest(email: string) {
+  const userId = await getUserId(email);
+  if (!userId) {
+    return {
+      interestStatus: null,
+      publicEventMember: false,
+      seriesSessionInterest: null,
+    };
+  }
+  const [record, member, sessionInterest] = await Promise.all([
+    db.query.eventInterest.findFirst({
+      columns: { status: true },
+      where: and(
+        eq(eventInterest.eventId, FIXTURE.publicEventId),
+        eq(eventInterest.userId, userId)
+      ),
+    }),
+    db.query.teamEventMember.findFirst({
+      columns: { id: true },
+      where: and(
+        eq(teamEventMember.eventId, FIXTURE.publicEventId),
+        eq(teamEventMember.userId, userId)
+      ),
+    }),
+    // Interest on a session of the series, not the series itself.
+    db
+      .select({
+        originalDate: teamEvent.originalDate,
+        status: eventInterest.status,
+      })
+      .from(eventInterest)
+      .innerJoin(teamEvent, eq(teamEvent.id, eventInterest.eventId))
+      .where(
+        and(
+          eq(teamEvent.seriesId, FIXTURE.seriesEventId),
+          eq(eventInterest.userId, userId)
+        )
+      )
+      .limit(1),
+  ]);
+  return {
+    interestStatus: record?.status ?? null,
+    publicEventMember: Boolean(member),
+    seriesSessionInterest: sessionInterest[0] ?? null,
+  };
+}
+
+/** The token a verification email would carry (signed like Better Auth's). */
+async function token(email: string) {
+  const secret = process.env.BETTER_AUTH_SECRET;
+  if (!secret) {
+    throw new Error(
+      "BETTER_AUTH_SECRET is required to sign verification links"
+    );
+  }
+  return { token: await createEmailVerificationToken(secret, email) };
 }
 
 async function state(email: string) {
@@ -143,6 +247,10 @@ if (action === "cleanup") {
   result = { cleaned: true };
 } else if (action === "setup" && argument) {
   result = await setup(argument);
+} else if (action === "interest" && argument) {
+  result = await interest(argument);
+} else if (action === "token" && argument) {
+  result = await token(argument);
 } else if (action === "state" && argument) {
   result = await state(argument);
 } else {

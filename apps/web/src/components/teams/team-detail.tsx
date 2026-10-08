@@ -116,6 +116,7 @@ function buildDuplicateInitialValues(row: EventDisplayRow) {
     name: `Copy of ${row.event.name}`,
     postEventNudgesEnabled: row.event.postEventNudgesEnabled,
     postRsvpPoll: !!row.event.postRsvpPoll,
+    publicArea: row.event.publicArea,
     recurrenceRule: null,
     reminderIntervals: row.event.reminderIntervals as number[] | null,
     reminderTarget: row.event.reminderTarget as string,
@@ -140,6 +141,7 @@ function buildEditInitialValues(row: EventDisplayRow) {
     name: row.event.name,
     postEventNudgesEnabled: row.event.postEventNudgesEnabled,
     postRsvpPoll: !!row.event.postRsvpPoll,
+    publicArea: row.event.publicArea,
     recurrenceRule: row.event.recurrenceRule as {
       rrule: string;
       exdates?: string[];

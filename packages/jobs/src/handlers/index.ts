@@ -109,6 +109,7 @@ import {
 import { handleSendSingleRsvpPoll } from "./send-single-rsvp-poll";
 import { handleSendWeeklyEventsDigest } from "./send-weekly-events-digest";
 import { handleSendWhatsApp } from "./send-whatsapp";
+import { handleSyncPublicEventsDeploy } from "./sync-public-events-deploy";
 import { handleSyncWhatsAppStatus } from "./sync-user";
 import {
   handleWhatsAppAddMember,
@@ -443,6 +444,11 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "cleanup-notifications",
     NOTIFY_POLL,
     withDefaultOutput(handleCleanupNotifications)
+  );
+  await boss.work(
+    "sync-public-events-deploy",
+    NOTIFY_POLL,
+    withDefaultOutput(handleSyncPublicEventsDeploy)
   );
   await boss.work(
     "cleanup-r2-orphans",
