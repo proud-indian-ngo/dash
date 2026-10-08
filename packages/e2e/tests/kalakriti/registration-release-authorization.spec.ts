@@ -362,12 +362,21 @@ test.describe("Kalakriti Registration Release authorization", () => {
       await page.goto(`/kalakriti/${YEAR}`);
       await waitForZeroReady(page);
       await Promise.all(
-        ["Credentials", "Results", "Awards"].map((label) =>
+        ["Credentials", "Results"].map((label) =>
           expect(page.getByRole("link", { name: label })).toHaveCount(0)
         )
       );
       await Promise.all(
         ["credentials", "results", "awards"].map(async (path) => {
+          // Awards is a page (read-only before Live) with no API route.
+          if (path === "awards") {
+            expect(
+              (
+                await editionAdmin.request.get(`/api/kalakriti/${YEAR}/${path}`)
+              ).status()
+            ).toBe(404);
+            return;
+          }
           const routePage = await editionAdmin.newPage();
           try {
             const apiResponse = await editionAdmin.request.get(
@@ -383,6 +392,16 @@ test.describe("Kalakriti Registration Release authorization", () => {
           }
         })
       );
+      // Awards handovers are visible to administrators before Live,
+      // read-only until the Edition goes live.
+      await expect(
+        page.getByRole("link", { name: "Awards", exact: true })
+      ).toBeVisible();
+      await page.goto(`/kalakriti/${YEAR}/awards`);
+      await expect(
+        page.getByRole("heading", { name: "Awards", exact: true })
+      ).toBeVisible();
+      await page.goto(`/kalakriti/${YEAR}`);
       await expect(
         page.getByRole("link", { name: "Inventory", exact: true })
       ).toBeVisible();

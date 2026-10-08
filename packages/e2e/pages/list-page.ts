@@ -103,7 +103,9 @@ export class ListPage {
     const tryClick = async (attempt: number): Promise<boolean> => {
       try {
         await trigger.click({ timeout: 5000 });
-        await expect(menuItem).toBeVisible({ timeout: 3000 });
+        // waitFor (not expect) so a menu that has not opened yet throws a
+        // TimeoutError and is retried below; an expect failure is not.
+        await menuItem.waitFor({ state: "visible", timeout: 3000 });
         await menuItem.click({ timeout: 3000 });
         return true;
       } catch (caughtError) {
