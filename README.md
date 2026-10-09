@@ -254,7 +254,7 @@ Copy `.env.sample` to `.env`. Required variables:
 | `GRAVATAR_API_BASE_URL` | Override Gravatar REST base URL (defaults to `https://api.gravatar.com/v3`) |
 | `GRAVATAR_TIMEOUT_MS` | Timeout in milliseconds for Gravatar profile requests (default `5000`) |
 | `APP_URL` | App URL shown in notification footers (e.g. `https://dash.proudindian.ngo`) |
-| `PAGES_DEPLOY_HOOK_URL` | Cloudflare Pages deploy hook for proudindian.ngo; when set, a 5-minute job rebuilds the site whenever the public events feed changes |
+| `WEBSITE_DISPATCH_TOKEN` | Fine-grained GitHub token for `proud-indian-ngo/website` (Contents: read and write); when set, a 5-minute job sends the website's `events-changed` dispatch whenever the public events feed changes |
 
 ## Available Scripts
 

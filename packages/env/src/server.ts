@@ -33,7 +33,6 @@ export const env = createEnv({
       .default("development"),
     OTEL_EXPORTER_OTLP_ENDPOINT: z.string().optional(),
     OTEL_SERVICE_NAME: z.string().default("pi-dash"),
-    PAGES_DEPLOY_HOOK_URL: z.url().optional(),
     PHOTO_NOTIFICATION_DELAY_SECONDS: z.coerce
       .number()
       .int()
@@ -60,6 +59,7 @@ export const env = createEnv({
     VOUCHER_ORG_NAME: z.string().min(1),
     VOUCHER_ORG_PHONE: z.string().min(1),
     VOUCHER_ORG_REGISTRATION: z.string().min(1),
+    WEBSITE_DISPATCH_TOKEN: z.string().min(1).optional(),
     WHATSAPP_API_URL: z.url().optional(),
     WHATSAPP_AUTH_PASS: z.string().min(1).optional(),
     WHATSAPP_AUTH_USER: z.string().min(1).optional(),

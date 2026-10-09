@@ -124,7 +124,7 @@ Files required: `packages/pdf/assets/logo.png` and `packages/pdf/assets/signatur
 | `AVATAR_FALLBACK_SEED` | DiceBear fallback seed |
 | `COOKIE_DOMAIN` | Cross-subdomain cookie domain (production) |
 | `APP_URL` | App URL shown in notification footers |
-| `PAGES_DEPLOY_HOOK_URL` | Cloudflare Pages deploy hook for the proudindian.ngo website (Pages → Settings → Builds → Deploy hooks). When set, the `sync-public-events-deploy` job checks `/api/public/events` every 5 minutes and POSTs to the hook only when the feed changed (and once after each restart). Treat as a secret. |
+| `WEBSITE_DISPATCH_TOKEN` | Fine-grained GitHub token whose only resource is `proud-indian-ngo/website`, with **Contents: read and write**. When set, the `sync-public-events-deploy` job checks `/api/public/events` every 5 minutes and sends the website's `events-changed` `repository_dispatch` (which rebuilds proudindian.ngo) only when the feed changed (and once after each restart). Treat as a secret. |
 | `VOUCHER_FINANCE_ADMIN_NAME` | Finance admin name printed on cash vouchers |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | For `auth:seed-admin` script |
 | `POSTHOG_API_KEY` | Server-side PostHog API key used for OTLP log export when `OTEL_EXPORTER_OTLP_ENDPOINT` is unset |
@@ -293,7 +293,7 @@ Starts `go-whatsapp-web-multidevice` container on port 3100. Pair via QR code at
 - [ ] R2 public bucket/CDN access is disabled after authenticated-read verification
 - [ ] WhatsApp gateway running and paired (if using WhatsApp alerts)
 - [ ] Immich server accessible (if using photo management)
-- [ ] `PAGES_DEPLOY_HOOK_URL` set if the public website should rebuild when events change; the website's `PUBLIC_EVENTS_URL` is `https://dash.proudindian.ngo/api/public/events`
+- [ ] `WEBSITE_DISPATCH_TOKEN` set (fine-grained GitHub token, `proud-indian-ngo/website` only, Contents: read and write) if the public website should rebuild when events change; the website's `PUBLIC_EVENTS_URL` is `https://dash.proudindian.ngo/api/public/events`
 - [ ] The app origin is only reachable through Cloudflare: `/api/public/events` rate-limits by `cf-connecting-ip`, which a client could forge if the origin were exposed directly
 
 ## CI Pipeline

@@ -21,7 +21,7 @@ pg-boss–backed job queue. All async side-effects (notifications, integrations,
 - `process-*` / `remind-*` / `send-*` — event reminders, RSVP polls, digests
 - `immich-*` — photo sync
 - `whatsapp-*` — group management
-- `sync-*` — WhatsApp status; `sync-public-events-deploy` (every 5 min, scheduled only when `PAGES_DEPLOY_HOOK_URL` is set, unscheduled otherwise) POSTs the Cloudflare Pages deploy hook when the default public events feed changes. The fingerprint is in-memory, so the first run after a restart always deploys; a failed POST throws and the next run retries
+- `sync-*` — WhatsApp status; `sync-public-events-deploy` (every 5 min, scheduled only when `WEBSITE_DISPATCH_TOKEN` is set, unscheduled otherwise) sends an `events-changed` GitHub `repository_dispatch` to `proud-indian-ngo/website`, whose Actions workflow rebuilds and deploys the site, when the default public events feed changes. The fingerprint is in-memory, so the first run after a restart always deploys; a failed dispatch throws and the next run retries
 - `generate-*` — cash voucher PDF
 - `delete-*` / `cleanup-*` — R2, stale data, old notifications
 

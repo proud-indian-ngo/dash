@@ -1,7 +1,8 @@
 import type { PgBoss } from "pg-boss";
 
 // Read from process.env to avoid importing @pi-dash/env/server (see enqueue.ts).
-const hasPagesDeployHook = (): boolean => !!process.env.PAGES_DEPLOY_HOOK_URL;
+const hasWebsiteDispatchToken = (): boolean =>
+  !!process.env.WEBSITE_DISPATCH_TOKEN;
 
 const IST_TIMEZONE = "Asia/Kolkata";
 
@@ -103,7 +104,7 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
   );
 
   // Every 5 minutes — rebuild proudindian.ngo when the public events feed changes
-  if (hasPagesDeployHook()) {
+  if (hasWebsiteDispatchToken()) {
     await boss.schedule(
       "sync-public-events-deploy",
       "*/5 * * * *",
