@@ -1,5 +1,9 @@
 import type { PgBoss } from "pg-boss";
 
+// Read from process.env to avoid importing @pi-dash/env/server (see enqueue.ts).
+const hasWebsiteDispatchToken = (): boolean =>
+  !!process.env.WEBSITE_DISPATCH_TOKEN;
+
 const IST_TIMEZONE = "Asia/Kolkata";
 
 export async function registerSchedules(boss: PgBoss): Promise<void> {
@@ -98,4 +102,16 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     {},
     { expireInSeconds: 600, retryLimit: 2, tz: IST_TIMEZONE }
   );
+
+  // Every 5 minutes — rebuild proudindian.ngo when the public events feed changes
+  if (hasWebsiteDispatchToken()) {
+    await boss.schedule(
+      "sync-public-events-deploy",
+      "*/5 * * * *",
+      {},
+      { expireInSeconds: 120, retryLimit: 0, tz: IST_TIMEZONE }
+    );
+  } else {
+    await boss.unschedule("sync-public-events-deploy");
+  }
 }

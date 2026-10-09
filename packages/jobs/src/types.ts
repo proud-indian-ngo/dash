@@ -618,6 +618,7 @@ export interface JobPayloads {
   "send-single-rsvp-poll": SendSingleRsvpPollPayload;
   "send-weekly-events-digest": SendWeeklyEventsDigestPayload;
   "send-whatsapp": WhatsAppPayload;
+  "sync-public-events-deploy": Record<string, never>;
   "sync-whatsapp-status": SyncWhatsAppStatusPayload;
   "whatsapp-add-member": WhatsAppAddMemberPayload;
   "whatsapp-add-member-team": WhatsAppAddMemberTeamPayload;

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   expandSeries,
+  findOccurrence,
   parseRecurrenceRule,
   type RecurrenceRule,
 } from "./rrule-expand";
@@ -216,5 +217,38 @@ describe("expandSeries", () => {
     );
 
     expect(result).toHaveLength(3);
+  });
+});
+
+describe("parseRecurrenceRule string storage", () => {
+  it("accepts a rule stored as a JSON string", () => {
+    expect(parseRecurrenceRule('{"rrule":"FREQ=WEEKLY"}')).toEqual({
+      rrule: "FREQ=WEEKLY",
+    });
+    expect(parseRecurrenceRule("not json")).toBeNull();
+    expect(parseRecurrenceRule('"FREQ=WEEKLY"')).toBeNull();
+  });
+});
+
+describe("findOccurrence", () => {
+  // Weekly on Saturdays at 04:30Z from 2026-09-05.
+  const start = Date.UTC(2026, 8, 5, 4, 30);
+  const rule = { exdates: ["2026-10-17"], rrule: "FREQ=WEEKLY;BYDAY=SA" };
+
+  it("returns the session on a matching date", () => {
+    expect(
+      findOccurrence(rule, start, start + 7_200_000, "2026-10-10")
+    ).toEqual({
+      date: "2026-10-10",
+      endTime: Date.UTC(2026, 9, 10, 6, 30),
+      startTime: Date.UTC(2026, 9, 10, 4, 30),
+    });
+  });
+
+  it("rejects dates the rule skips or never produces", () => {
+    expect(findOccurrence(rule, start, null, "2026-10-17")).toBeNull();
+    expect(findOccurrence(rule, start, null, "2026-10-11")).toBeNull();
+    expect(findOccurrence(rule, start, null, "2026-08-29")).toBeNull();
+    expect(findOccurrence(rule, start, null, "not-a-date")).toBeNull();
   });
 });

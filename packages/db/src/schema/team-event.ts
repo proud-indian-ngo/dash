@@ -53,6 +53,8 @@ export const teamEvent = pgTable(
       .default(true)
       .notNull(),
     postRsvpPoll: boolean("post_rsvp_poll").default(false).notNull(),
+    /** Coarse, admin-confirmed area shown on the public website (never the raw location). */
+    publicArea: text("public_area"),
     recurrenceRule: jsonb("recurrence_rule").$type<{
       rrule: string;
       exdates?: string[];

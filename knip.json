@@ -46,6 +46,7 @@
         "helpers/kalakriti-results.ts",
         "helpers/kalakriti-students.ts",
         "helpers/kalakriti-volunteer-assignment.ts",
+        "helpers/public-events-feed.ts",
         "helpers/register-url-options.ts",
         "helpers/role-dashboard-fixture.ts",
         "helpers/seed-dev-data.ts",
@@ -55,8 +56,7 @@
         "helpers/profile-kalakriti-audit.ts",
         "helpers/seed-app-performance.ts",
         "shard-by-duration.ts"
-      ],
-      "ignoreDependencies": ["better-auth"]
+      ]
     },
     "packages/jobs": {
       "entry": ["src/*.ts", "src/handlers/*.ts", "src/lib/*.ts"]

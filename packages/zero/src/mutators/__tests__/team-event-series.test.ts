@@ -56,6 +56,7 @@ const SERIES_BASE = {
   originalDate: null,
   postEventNudgesEnabled: true,
   postRsvpPoll: false,
+  publicArea: "Iblur",
   recurrenceRule: { rrule: "FREQ=WEEKLY" },
   reminderIntervals: [60, 1440],
   reminderTarget: "group" as const,
@@ -68,6 +69,25 @@ const SERIES_BASE = {
 };
 
 describe("buildExceptionInsert", () => {
+  it("stores null when a session's public area is cleared", () => {
+    expect(
+      buildExceptionInsert("exc-9", SERIES_BASE, "2026-04-15", "u", NOW, {
+        publicArea: "",
+      }).publicArea
+    ).toBeNull();
+    expect(
+      buildExceptionInsert("exc-9", SERIES_BASE, "2026-04-15", "u", NOW, {
+        publicArea: "HSR Layout",
+      }).publicArea
+    ).toBe("HSR Layout");
+  });
+
+  it("clears a public area to null on update", () => {
+    expect(buildUpdateFields({ id: "e", now: NOW, publicArea: "" })).toEqual(
+      expect.objectContaining({ publicArea: null })
+    );
+  });
+
   it("inherits all fields from series with no overrides", () => {
     const result = buildExceptionInsert(
       "exc-1",
@@ -92,6 +112,7 @@ describe("buildExceptionInsert", () => {
     expect(result.cancelledAt).toBeNull();
     expect(result.feedbackEnabled).toBe(true);
     expect(result.postRsvpPoll).toBe(false);
+    expect(result.publicArea).toBe("Iblur");
     expect(result.reminderIntervals).toEqual([60, 1440]);
     expect(result.reminderTarget).toBe("group");
     expect(result.postEventNudgesEnabled).toBe(true);

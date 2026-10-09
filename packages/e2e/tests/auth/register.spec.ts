@@ -20,7 +20,7 @@ const helperPath = path.resolve(
 );
 
 async function fixture<T>(
-  action: "cleanup" | "setup" | "state",
+  action: "cleanup" | "interest" | "setup" | "state" | "token",
   argument?: string
 ) {
   const { stdout } = await execFileAsync(
@@ -52,7 +52,8 @@ async function fillRegisterForm(
   const registerBtn = page.getByRole("button", { name: "Register" });
   await expect(registerBtn).toBeEnabled({ timeout: 5000 });
   await registerBtn.click();
-  await page.waitForURL("/login", { timeout: 30_000 });
+  // Event links continue to /login?redirect=/events/<id>.
+  await page.waitForURL(/\/login(\?|$)/, { timeout: 30_000 });
   await expect(
     page.locator("[data-sonner-toast]").getByText("Registration successful")
   ).toBeVisible({ timeout: 10_000 });
@@ -367,6 +368,170 @@ test.describe("Register URL options", () => {
           membershipState: "active",
           registrationGroup: null,
           role: "volunteer",
+        });
+    } finally {
+      await fixture("cleanup");
+    }
+  });
+});
+
+test.describe("Public website sign-up links", () => {
+  test.describe.configure({ mode: "serial" });
+
+  /** Open the link from a verification email, as the inbox would. */
+  async function verifyEmail(page: Page, email: string, redirect: string) {
+    const { token } = await fixture<{ token: string }>("token", email);
+    await page.goto(
+      `/verify-email?token=${token}&redirect=${encodeURIComponent(redirect)}`
+    );
+    await page.waitForURL(/\/login\?/, { timeout: 30_000 });
+  }
+
+  test("files a pending interest once verified and lands on the event", async ({
+    page,
+  }) => {
+    const creatorEmail = process.env.ADMIN_EMAIL;
+    if (!creatorEmail) {
+      throw new Error("ADMIN_EMAIL is required for register URL fixtures");
+    }
+    const ids = await fixture<{ publicEventId: string }>("setup", creatorEmail);
+    const eventPath = `/events/${ids.publicEventId}`;
+    const linkRedirect = `${eventPath}?interest=1`;
+
+    try {
+      const signup = uniqueSignup();
+      await page.goto(`/register?interestEventId=${ids.publicEventId}`);
+      await expect(page.getByTestId("register-event-banner")).toContainText(
+        "Register URL public event"
+      );
+      await expect(page.getByTestId("register-event-banner")).toContainText(
+        "Iblur, Bengaluru"
+      );
+      await expect(page.getByRole("link", { name: "Login" })).toHaveAttribute(
+        "href",
+        `/login?redirect=${encodeURIComponent(linkRedirect)}`
+      );
+      await fillRegisterForm(page, {
+        email: signup.email,
+        name: "Website Signup User",
+        phone: signup.phone,
+      });
+      expect(new URL(page.url()).searchParams.get("redirect")).toBe(
+        linkRedirect
+      );
+
+      // Nothing reaches the team until the email is verified.
+      expect(await fixture("interest", signup.email)).toMatchObject({
+        interestStatus: null,
+        publicEventMember: false,
+      });
+
+      await verifyEmail(page, signup.email, linkRedirect);
+      expect(new URL(page.url()).searchParams.get("redirect")).toBe(eventPath);
+      // A pending request for a lead to approve, never a direct enrollment.
+      await expect
+        .poll(async () => fixture("interest", signup.email), {
+          timeout: 15_000,
+        })
+        .toMatchObject({ interestStatus: "pending", publicEventMember: false });
+
+      await page.getByLabel("Email").fill(signup.email);
+      await page.locator("#password").fill("Password123!");
+      await page.getByRole("button", { name: "Login" }).click();
+      await page.waitForURL(eventPath, { timeout: 30_000 });
+      await expect(page.getByText("Interest Pending")).toBeVisible({
+        timeout: 15_000,
+      });
+
+      // Signed-in volunteers following the website link go straight to the event.
+      await page.goto(`/register?interestEventId=${ids.publicEventId}`);
+      await page.waitForURL(eventPath, { timeout: 15_000 });
+    } finally {
+      await fixture("cleanup");
+    }
+  });
+
+  test("keeps the event in re-sent verification emails", async ({ page }) => {
+    const creatorEmail = process.env.ADMIN_EMAIL;
+    if (!creatorEmail) {
+      throw new Error("ADMIN_EMAIL is required for register URL fixtures");
+    }
+    const ids = await fixture<{ publicEventId: string }>("setup", creatorEmail);
+    const linkRedirect = `/events/${ids.publicEventId}?interest=1`;
+
+    try {
+      const signup = uniqueSignup();
+      await page.goto(`/register?interestEventId=${ids.publicEventId}`);
+      await fillRegisterForm(page, {
+        email: signup.email,
+        name: "Website Resend User",
+        phone: signup.phone,
+      });
+
+      // An unverified sign-in makes Better Auth re-send the verification
+      // email; the login form passes the event in a header, not callbackURL.
+      const signIn = page.waitForRequest("**/api/auth/sign-in/email");
+      await page.getByLabel("Email").fill(signup.email);
+      await page.locator("#password").fill("Password123!");
+      await page.getByRole("button", { name: "Login" }).click();
+      const signInRequest = await signIn;
+      expect(await signInRequest.headerValue("x-auth-event-redirect")).toBe(
+        linkRedirect
+      );
+      expect(signInRequest.postDataJSON()).not.toHaveProperty("callbackURL");
+      await expect(page.getByText("has not been verified")).toBeVisible();
+
+      // The manual resend carries the same event.
+      const resend = page.waitForRequest("**/api/auth/send-verification-email");
+      await page.getByRole("button", { name: /resend/i }).click();
+      expect((await resend).postDataJSON()).toMatchObject({
+        callbackURL: linkRedirect,
+      });
+    } finally {
+      await fixture("cleanup");
+    }
+  });
+
+  test("files interest on the chosen session of a recurring series", async ({
+    page,
+  }) => {
+    const creatorEmail = process.env.ADMIN_EMAIL;
+    if (!creatorEmail) {
+      throw new Error("ADMIN_EMAIL is required for register URL fixtures");
+    }
+    const ids = await fixture<{ seriesEventId: string; seriesOccDate: string }>(
+      "setup",
+      creatorEmail
+    );
+
+    try {
+      const signup = uniqueSignup();
+      await page.goto(
+        `/register?interestEventId=${ids.seriesEventId}&occDate=${ids.seriesOccDate}`
+      );
+      await expect(page.getByTestId("register-event-banner")).toContainText(
+        "Register URL weekly session"
+      );
+      await fillRegisterForm(page, {
+        email: signup.email,
+        name: "Website Session User",
+        phone: signup.phone,
+      });
+      await verifyEmail(
+        page,
+        signup.email,
+        `/events/${ids.seriesEventId}?occDate=${ids.seriesOccDate}&interest=1`
+      );
+
+      await expect
+        .poll(async () => fixture("interest", signup.email), {
+          timeout: 15_000,
+        })
+        .toMatchObject({
+          seriesSessionInterest: {
+            originalDate: ids.seriesOccDate,
+            status: "pending",
+          },
         });
     } finally {
       await fixture("cleanup");

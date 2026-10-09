@@ -1,3 +1,7 @@
+import {
+  findOccurrence,
+  parseRecurrenceRule,
+} from "@pi-dash/shared/rrule-expand";
 import { defineMutator } from "@rocicorp/zero";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
@@ -14,6 +18,56 @@ import {
   ensureUnassignedVolunteerEnrollment,
   findEditionForLinkedEvent,
 } from "./kalakriti-volunteer-enroll";
+import { resolveJoinTarget } from "./team-event";
+import type { Tx } from "./team-event-series";
+
+const STARTED_MESSAGE =
+  "Cannot show interest in an event that has already started";
+
+/**
+ * The event row an interest attaches to. Interest is per session: a virtual
+ * occurrence of a recurring series (`occDate`) is materialized into its
+ * exception row, the same way `teamEvent.joinAsMember` does.
+ */
+async function resolveInterestTarget(
+  tx: Tx,
+  ctx: { userId: string },
+  event: TeamEvent,
+  args: { materializedId?: string; now: number; occDate?: string }
+): Promise<TeamEvent> {
+  if (!args.occDate) {
+    return event;
+  }
+  const rule = parseRecurrenceRule(event.recurrenceRule ?? null);
+  if (!rule || event.seriesId) {
+    throw new Error("Event is not a recurring series");
+  }
+  const occurrence = findOccurrence(
+    rule,
+    event.startTime,
+    event.endTime,
+    args.occDate
+  );
+  if (!occurrence) {
+    throw new Error("The series has no session on that date");
+  }
+  if (occurrence.startTime <= args.now) {
+    throw new Error(STARTED_MESSAGE);
+  }
+  const target = await resolveJoinTarget(tx, ctx, event, {
+    eventId: event.id,
+    materializedId: args.materializedId,
+    now: args.now,
+    occDate: args.occDate,
+  });
+  const row = (await tx.run(
+    zql.teamEvent.where("id", target.eventId).one()
+  )) as TeamEvent | undefined;
+  if (!row) {
+    throw new Error("Event not found");
+  }
+  return row;
+}
 
 export const eventInterestMutators = {
   approve: defineMutator(
@@ -184,26 +238,30 @@ export const eventInterestMutators = {
     z.object({
       eventId: z.string(),
       id: z.string(),
+      /** Exception id to create when `occDate` names a virtual occurrence. */
+      materializedId: z.string().optional(),
       message: z.string().optional(),
       now: z.number(),
+      /** Session of a recurring series (YYYY-MM-DD) the interest is for. */
+      occDate: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .optional(),
     }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
 
-      const event = (await tx.run(
+      const series = (await tx.run(
         zql.teamEvent.where("id", args.eventId).one()
       )) as TeamEvent | undefined;
-      if (!event) {
+      if (!series) {
         throw new Error("Event not found");
       }
-      if (!event.isPublic) {
+      if (!series.isPublic) {
         throw new Error("Event is not public");
       }
-
-      if (event.startTime <= args.now) {
-        throw new Error(
-          "Cannot show interest in an event that has already started"
-        );
+      if (series.cancelledAt != null) {
+        throw new Error("Event is cancelled");
       }
 
       if (can(ctx, "events.manage_interest")) {
@@ -214,7 +272,7 @@ export const eventInterestMutators = {
 
       const teamMembership = await tx.run(
         zql.teamMember
-          .where("teamId", event.teamId)
+          .where("teamId", series.teamId)
           .where("userId", ctx.userId)
           .one()
       );
@@ -222,9 +280,22 @@ export const eventInterestMutators = {
         throw new Error("Team members cannot submit interest requests");
       }
 
+      const event = await resolveInterestTarget(tx, ctx, series, args);
+      // A materialized session can differ from its series.
+      if (!event.isPublic) {
+        throw new Error("Event is not public");
+      }
+      if (event.cancelledAt != null) {
+        throw new Error("Event is cancelled");
+      }
+      if (event.startTime <= args.now) {
+        throw new Error(STARTED_MESSAGE);
+      }
+      const eventId = event.id;
+
       const existingMember = (await tx.run(
         zql.teamEventMember
-          .where("eventId", args.eventId)
+          .where("eventId", eventId)
           .where("userId", ctx.userId)
           .one()
       )) as TeamEventMember | undefined;
@@ -234,7 +305,7 @@ export const eventInterestMutators = {
 
       const existingInterest = (await tx.run(
         zql.eventInterest
-          .where("eventId", args.eventId)
+          .where("eventId", eventId)
           .where("userId", ctx.userId)
           .one()
       )) as EventInterest | undefined;
@@ -244,7 +315,7 @@ export const eventInterestMutators = {
 
       await tx.mutate.eventInterest.insert({
         createdAt: args.now,
-        eventId: args.eventId,
+        eventId,
         id: args.id,
         message: args.message,
         reviewedAt: null,
@@ -254,7 +325,6 @@ export const eventInterestMutators = {
       });
 
       if (tx.location === "server") {
-        const { eventId } = args;
         const eventName = event.name;
         const { teamId } = event;
         const volunteerUserId = ctx.userId;

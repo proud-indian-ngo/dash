@@ -75,7 +75,8 @@ interface JoinTarget {
   startTime: number;
 }
 
-async function resolveJoinTarget(
+/** Resolve (materializing if needed) the event row a volunteer joins. */
+export async function resolveJoinTarget(
   tx: Tx,
   ctx: MutatorCtx,
   event: TeamEvent,
@@ -146,6 +147,7 @@ async function resolveJoinTarget(
     originalDate: args.occDate,
     postEventNudgesEnabled: event.postEventNudgesEnabled,
     postRsvpPoll: event.postRsvpPoll,
+    publicArea: event.publicArea,
     recurrenceRule: null,
     reminderIntervals: event.reminderIntervals,
     reminderTarget: event.reminderTarget,
@@ -655,6 +657,7 @@ export const teamEventMutators = {
       now: z.number(),
       postEventNudgesEnabled: z.boolean().optional(),
       postRsvpPoll: z.boolean().optional(),
+      publicArea: z.string().max(80).optional(),
       recurrenceRule: recurrenceRuleSchema,
       reminderIntervals: reminderIntervalsSchema,
       reminderTarget: reminderTargetSchema,
@@ -702,6 +705,7 @@ export const teamEventMutators = {
         originalDate: null,
         postEventNudgesEnabled: args.postEventNudgesEnabled,
         postRsvpPoll: args.postRsvpPoll,
+        publicArea: args.publicArea,
         recurrenceRule: args.recurrenceRule,
         reminderIntervals: args.reminderIntervals,
         reminderTarget: args.reminderTarget,
@@ -1076,6 +1080,7 @@ export const teamEventMutators = {
         name: series.name,
         originalDate: args.originalDate,
         postRsvpPoll: series.postRsvpPoll,
+        publicArea: series.publicArea,
         recurrenceRule: null,
         reminderIntervals: series.reminderIntervals,
         reminderTarget: series.reminderTarget,
@@ -1205,6 +1210,7 @@ export const teamEventMutators = {
       now: z.number(),
       postEventNudgesEnabled: z.boolean().optional(),
       postRsvpPoll: z.boolean().optional(),
+      publicArea: z.string().max(80).optional(),
       reminderIntervals: reminderIntervalsSchema,
       reminderTarget: reminderTargetSchema,
       rsvpPollLeadMinutes: rsvpPollLeadMinutesSchema,
@@ -1324,6 +1330,7 @@ export const teamEventMutators = {
       originalDate: z.string().regex(ISO_DATE_RE).optional(),
       postEventNudgesEnabled: z.boolean().optional(),
       postRsvpPoll: z.boolean().optional(),
+      publicArea: z.string().max(80).optional(),
       recurrenceRule: recurrenceRuleSchema,
       reminderIntervals: reminderIntervalsSchema,
       reminderTarget: reminderTargetSchema,

@@ -39,6 +39,7 @@ export function buildExceptionInsert(
     name: string;
     description: string;
     location: string;
+    publicArea: string;
     startTime: number;
     endTime: number;
     isPublic: boolean;
@@ -75,6 +76,11 @@ export function buildExceptionInsert(
     postEventNudgesEnabled:
       overrides.postEventNudgesEnabled ?? series.postEventNudgesEnabled,
     postRsvpPoll: overrides.postRsvpPoll ?? series.postRsvpPoll,
+    // A cleared area ("") stores null, so the session shows the series' area.
+    publicArea:
+      overrides.publicArea === undefined
+        ? (series.publicArea ?? null)
+        : overrides.publicArea || null,
     recurrenceRule: null,
     reminderIntervals:
       overrides.reminderIntervals ?? series.reminderIntervals ?? null,
@@ -105,6 +111,7 @@ export interface UpdateArgs {
   now: number;
   postEventNudgesEnabled?: boolean;
   postRsvpPoll?: boolean;
+  publicArea?: string;
   reminderIntervals?: number[] | null;
   reminderTarget?: ReminderTarget;
   rsvpPollLeadMinutes?: number;
@@ -120,6 +127,9 @@ export function buildUpdateFields(args: UpdateArgs) {
       description: args.description || null,
     }),
     ...(args.location !== undefined && { location: args.location || null }),
+    ...(args.publicArea !== undefined && {
+      publicArea: args.publicArea || null,
+    }),
     ...(args.city !== undefined && { city: args.city }),
     ...(args.startTime !== undefined && { startTime: args.startTime }),
     ...(args.endTime !== undefined && { endTime: args.endTime }),
@@ -210,6 +220,7 @@ export async function updateSeriesThis(
     name?: string;
     description?: string;
     location?: string;
+    publicArea?: string;
     startTime?: number;
     endTime?: number;
     isPublic?: boolean;
@@ -249,6 +260,7 @@ export async function updateSeriesThis(
           name: args.name,
           postEventNudgesEnabled: args.postEventNudgesEnabled,
           postRsvpPoll: args.postRsvpPoll,
+          publicArea: args.publicArea,
           reminderIntervals: args.reminderIntervals,
           reminderTarget: args.reminderTarget,
           rsvpPollLeadMinutes: args.rsvpPollLeadMinutes,
@@ -270,6 +282,7 @@ export async function updateSeriesFollowing(
     name?: string;
     description?: string;
     location?: string;
+    publicArea?: string;
     startTime?: number;
     endTime?: number;
     isPublic?: boolean;
@@ -322,6 +335,7 @@ export async function updateSeriesFollowing(
     postEventNudgesEnabled:
       args.postEventNudgesEnabled ?? existing.postEventNudgesEnabled,
     postRsvpPoll: args.postRsvpPoll ?? existing.postRsvpPoll,
+    publicArea: args.publicArea ?? existing.publicArea ?? null,
     recurrenceRule: newRule,
     reminderIntervals:
       args.reminderIntervals ?? existing.reminderIntervals ?? null,

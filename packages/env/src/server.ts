@@ -59,6 +59,7 @@ export const env = createEnv({
     VOUCHER_ORG_NAME: z.string().min(1),
     VOUCHER_ORG_PHONE: z.string().min(1),
     VOUCHER_ORG_REGISTRATION: z.string().min(1),
+    WEBSITE_DISPATCH_TOKEN: z.string().min(1).optional(),
     WHATSAPP_API_URL: z.url().optional(),
     WHATSAPP_AUTH_PASS: z.string().min(1).optional(),
     WHATSAPP_AUTH_USER: z.string().min(1).optional(),

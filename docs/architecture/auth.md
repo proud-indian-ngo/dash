@@ -9,7 +9,7 @@ Better Auth (`packages/auth/src/index.ts`):
 
 - **Drizzle adapter** — sessions, accounts, verification tokens in Postgres. Better Auth 1.7.3+ keys each account by `(providerId, accountId)`, enforced by a unique index; credential rows use provider ID `credential`. The obsolete `issuer` column is removed by the generated migration.
 - **Admin plugin** — roles (`admin`, `volunteer`), ban/unban, impersonate
-- **Email/password** — public volunteer signup at `/register` (optional `?eventId=` and `?group=` query params); email verification required
+- **Email/password** — public volunteer signup at `/register` (optional `?eventId=`, `?interestEventId=`, `?occDate=` and `?group=` query params); email verification required
 - **Rate limiting** — sign-in 10/min, sign-up 5/min
 - **Session** — 7-day expiry, daily refresh
 
@@ -21,7 +21,10 @@ Optional independent search params:
 
 - `?group=campus-west` — persisted on `user.registrationGroup` (URL query stays `group`)
 - `?eventId=<uuid>` — after signup, the after-signup hook enrolls the new user on that event when it exists, is not cancelled, and has not started. Enroll failures are logged and never block account creation.
+- `?interestEventId=<uuid>[&occDate=YYYY-MM-DD]` — links from the public website (`signUpUrl` in `/api/public/events`). The register page shows a banner naming the session (`getPublicSessionSummary`, public non-Kalakriti events only). Nothing is written at signup: the register form passes `/events/<id>[?occDate=]&interest=1` as Better Auth's `callbackURL`, the verification email carries it as `redirect`, and `/verify-email` files a **pending** `event_interest` (`fileVerifiedSignUpInterest`) only on the account's first verification, then notifies team leads. Interest is per session: for a recurring series the `occDate` session is validated against the RRULE and materialized (copying the series row in SQL, plus inherited volunteers). Private, Kalakriti, cancelled or started sessions are skipped and the outcome is logged. It never enrolls; a team lead approves the request as usual.
 - both together, or neither (`/register` unchanged)
+
+Website links also carry the visitor to the event page. A signed-in visitor opening `/register?interestEventId=` is redirected from `/_auth` to `/events/<id>[?occDate=]` (invite `?eventId=` links still go to `/`). The register form's Login link, the post-signup `/login`, the verification email and the login page's "Resend verification" all carry the same redirect; `@pi-dash/shared/event-redirect` is the single validator (only `/events/<uuid>` with `occDate`/`interest=1`). Login drops the `interest` marker before navigating. Better Auth's automatic re-send on an unverified sign-in keeps it too: the login form sends the redirect in the `x-auth-event-redirect` header (`EVENT_REDIRECT_HEADER`) rather than `callbackURL`, which would make the client redirect plugin reload the page, and `sendVerificationEmail` reads `callbackURL` first, then the header, through the same validator. `_app` keeps the full path and query when sending signed-out visitors to `/login`.
 
 Invalid values are dropped; the page still loads. Group-only links never touch events. Event enroll writes `team_event_member` directly (no team membership required). A Kalakriti-linked event also creates or reactivates an **unassigned** volunteer Edition membership and atomically promotes only `unoriented_volunteer` to `volunteer`. Persistence locks and rechecks the Edition, event, user, and membership before writing; Guardian and external identities are excluded. Promotion revokes existing sessions transactionally, then invalidates role caches and enqueues role-change and orientation WhatsApp jobs after commit. The default unoriented signup job runs only after enrollment and only if the persisted role remains unoriented. Signup never fails because enroll skipped or conflicted; enroll runs fire-and-forget after a persisted user row is confirmed.
 

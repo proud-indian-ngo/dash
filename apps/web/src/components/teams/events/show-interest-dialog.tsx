@@ -4,6 +4,7 @@ import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
+import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { uuidv7 } from "uuidv7";
 
@@ -21,18 +22,28 @@ interface ShowInterestDialogProps {
   eventDate?: string;
   eventId: string;
   eventName?: string;
+  /**
+   * Session of a recurring series when viewing a virtual occurrence: the
+   * interest is filed on that session, which is materialized and opened.
+   */
+  occDate?: string;
   onOpenChange: (open: boolean) => void;
   open: boolean;
+  /** Existing row for `occDate`, when that session is already materialized. */
+  sessionId?: string;
 }
 
 export function ShowInterestDialog({
   eventDate,
   eventId,
   eventName,
+  occDate,
   onOpenChange,
   open,
+  sessionId,
 }: ShowInterestDialogProps) {
   const zero = useZero();
+  const navigate = useNavigate();
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -45,10 +56,12 @@ export function ShowInterestDialog({
   const handleSubmit = async () => {
     setIsSubmitting(true);
     const id = uuidv7();
+    const materializedId = occDate && !sessionId ? uuidv7() : undefined;
     const res = await zero.mutate(
       mutators.eventInterest.create({
-        eventId,
+        eventId: sessionId ?? eventId,
         id,
+        ...(materializedId ? { materializedId, occDate } : {}),
         message: message.trim() || undefined,
         now: Date.now(),
       })
@@ -63,6 +76,11 @@ export function ShowInterestDialog({
     if (res.type !== "error") {
       setMessage("");
       onOpenChange(false);
+      const targetSessionId = sessionId ?? materializedId;
+      if (targetSessionId) {
+        // The interest lives on the session row; open it to show the status.
+        navigate({ params: { id: targetSessionId }, to: "/events/$id" });
+      }
     }
   };
   const stableOnSubmit0 = useEventCallback(

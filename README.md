@@ -61,6 +61,7 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 | Kalakriti Awards | Awards Leads, Awards Members, and administrators track published prizes per Student or whole group, with partial completion, undo, and safeguards against changing handed-over awards. |
 | Kalakriti Scan | Role-aware sidebar tabs cover Center transport, volunteer/guest/judge check-in, meals, and Competition attendance. Pickup allows absentees; later transport stages require every traveler. Meals require Student pickup, volunteer/guest/judge check-in, or active Guardian registration; Competition attendance requires pickup and a valid session. Students and Centers show transport status in their tables. |
 | Event interest | Volunteers express interest in public events; leads/admins approve or reject; approved volunteers are auto-added as event members with WhatsApp sync |
+| Public events feed | `GET /api/public/events` serves upcoming public sessions to proudindian.ngo (recurring series expanded, admin-set coarse "Public area" instead of the location, no personal data). Its `signUpUrl` (`/register?interestEventId=[&occDate=]`) shows the session on the register page, files a pending per-session interest once the email is verified, and lands existing volunteers on the event. Kalakriti events are not listed |
 | Event updates | Leads/admins post rich-text updates (Plate editor with inline images) to events after they start |
 | Event photos | Members upload photos to events; leads/admins approve or reject; approved photos sync to Immich for album management |
 | Anonymous feedback | Collect anonymous feedback from event participants after events complete, with configurable deadlines and admin visibility |
@@ -253,6 +254,7 @@ Copy `.env.sample` to `.env`. Required variables:
 | `GRAVATAR_API_BASE_URL` | Override Gravatar REST base URL (defaults to `https://api.gravatar.com/v3`) |
 | `GRAVATAR_TIMEOUT_MS` | Timeout in milliseconds for Gravatar profile requests (default `5000`) |
 | `APP_URL` | App URL shown in notification footers (e.g. `https://dash.proudindian.ngo`) |
+| `WEBSITE_DISPATCH_TOKEN` | Fine-grained GitHub token for `proud-indian-ngo/website` (Contents: read and write); when set, a 5-minute job sends the website's `events-changed` dispatch whenever the public events feed changes |
 
 ## Available Scripts
 

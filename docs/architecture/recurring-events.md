@@ -58,6 +58,10 @@ To keep them visible, the team detail display applies **no range filter** to exc
 
 Auth gate: must be a member of `event.teamId` via `teamMember` table.
 
+## Interest and the public feed
+
+Interest is per session. `eventInterest.create` takes optional `occDate` + `materializedId`: the date is validated with `findOccurrence` (`@pi-dash/shared/rrule-expand`) and the session is materialized through `resolveJoinTarget`, exactly like self-join, so the interest and its approval land on that session's row. Without `occDate`, a series parent that has started is rejected. The event page's "Show Interest" dialog and the `/events` cards pass the virtual occurrence's date (or the existing exception id) and the dialog opens the session afterwards. Website sign-ups (`/register?interestEventId=&occDate=`) do the same server-side on email verification. `parseRecurrenceRule` also accepts rules stored as a JSON string (Drizzle on bun-sql writes jsonb that way). The public events feed (`@pi-dash/shared/public-events`) expands series server-side: it applies `exdates`/`excludeRules`, lets every exception row (cancelled ones included) replace its virtual date, lists non-cancelled public exceptions on their own ids, and inherits the parent's `publicArea` when an exception has none. A cancelled or private parent hides all of its occurrences, and Kalakriti-managed events are never listed. Exception rows are loaded only when they start in the window or replace a date in it.
+
 ## Volunteer Inheritance
 
 Series parents have an `inheritVolunteers` boolean column (default `false`). When `true`, all materialized occurrences copy `teamEventMember` rows from the series parent.

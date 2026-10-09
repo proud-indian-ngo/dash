@@ -97,11 +97,18 @@ export function EventCard({
 
   const handleShowInterest = useEventCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (row.isVirtualOccurrence && !row.occDate) {
+      return;
+    }
     const id = uuidv7();
+    // Interest is per session: a virtual occurrence is materialized first.
     const res = await zero.mutate(
       mutators.eventInterest.create({
         eventId: row.eventId,
         id,
+        ...(row.isVirtualOccurrence && row.occDate
+          ? { materializedId: uuidv7(), occDate: row.occDate }
+          : {}),
         now: Date.now(),
       })
     ).server;

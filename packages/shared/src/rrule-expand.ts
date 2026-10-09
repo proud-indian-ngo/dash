@@ -21,7 +21,16 @@ export interface VirtualOccurrence {
 
 /** Narrow an `unknown` JSON column value to `RecurrenceRule | null`. */
 export function parseRecurrenceRule(value: unknown): RecurrenceRule | null {
-  if (value === null) {
+  // Rows written through Drizzle on bun-sql can hold the rule as a JSON
+  // string rather than an object; accept both.
+  if (typeof value === "string") {
+    try {
+      return parseRecurrenceRule(JSON.parse(value));
+    } catch {
+      return null;
+    }
+  }
+  if (value === null || value === undefined) {
     return null;
   }
   if (
@@ -107,4 +116,32 @@ export function expandSeries(
   }
 
   return occurrences;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The occurrence of a series on `occDate` (YYYY-MM-DD, the series' date key),
+ * or null when the rule (with its exdates and exclude rules) has no session
+ * that day. Exception rows are not consulted.
+ */
+export function findOccurrence(
+  rule: RecurrenceRule,
+  seriesStart: number,
+  seriesEnd: number | null,
+  occDate: string
+): VirtualOccurrence | null {
+  const day = Date.parse(`${occDate}T00:00:00Z`);
+  if (Number.isNaN(day)) {
+    return null;
+  }
+  return (
+    expandSeries(
+      rule,
+      seriesStart,
+      seriesEnd,
+      day - DAY_MS,
+      day + 2 * DAY_MS
+    ).find((occ) => occ.date === occDate) ?? null
+  );
 }

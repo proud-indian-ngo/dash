@@ -1,3 +1,4 @@
+import { formatEventRedirect } from "@pi-dash/shared/event-redirect";
 import { useForm } from "@tanstack/react-form";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { log } from "evlog";
@@ -13,6 +14,7 @@ import { PhoneField } from "@/components/form/phone-field-lazy";
 import { SelectField, type SelectOption } from "@/components/form/select-field";
 import { Loader } from "@/components/loader";
 import { authClient } from "@/lib/auth-client";
+import { registerLinkEventRedirect } from "@/lib/auth-route-policy";
 
 const genderOptions: SelectOption[] = [
   { label: "Male", value: "male" },
@@ -41,7 +43,14 @@ const registerSchema = z
 
 export function RegisterForm() {
   const navigate = useNavigate({ from: "/register" });
-  const { eventId, group } = useSearch({ from: "/_auth/register" });
+  const search = useSearch({ from: "/_auth/register" });
+  const { eventId, group } = search;
+  // Website sign-up links: the verification link files the interest request
+  // and login lands on the event page (see auth-route-policy).
+  const eventRedirect = registerLinkEventRedirect(search);
+  const redirect = eventRedirect
+    ? formatEventRedirect(eventRedirect)
+    : undefined;
   const { isPending } = authClient.useSession();
 
   const form = useForm({
@@ -65,6 +74,7 @@ export function RegisterForm() {
           phone: value.phone,
           ...(group ? { registrationGroup: group } : {}),
           ...(eventId ? { query: { eventId }, registerEventId: eventId } : {}),
+          ...(redirect ? { callbackURL: redirect } : {}),
         },
         eventId ? { headers: { "x-register-event-id": eventId } } : undefined
       );
@@ -81,7 +91,7 @@ export function RegisterForm() {
       toast.success(
         "Registration successful. Please check your email to verify your account."
       );
-      navigate({ to: "/login" });
+      navigate({ search: { redirect }, to: "/login" });
     },
     validators: {
       onChange: registerSchema,
@@ -162,7 +172,11 @@ export function RegisterForm() {
       </FormLayout>
       <p className="text-muted-foreground text-center text-sm">
         Already have an account?{" "}
-        <Link className="text-foreground hover:underline" to="/login">
+        <Link
+          className="text-foreground hover:underline"
+          search={{ redirect }}
+          to="/login"
+        >
           Login
         </Link>
       </p>

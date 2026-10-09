@@ -260,3 +260,102 @@ describe("Kalakriti event interest", () => {
     );
   });
 });
+
+describe("event interest targets", () => {
+  const NOW = Date.UTC(2026, 9, 8);
+  const DAY = 24 * 60 * 60 * 1000;
+  // Weekly on Saturdays at 04:30Z, started a month ago.
+  const SERIES = {
+    cancelledAt: null,
+    endTime: Date.UTC(2026, 8, 5, 6, 30),
+    id: "series-1",
+    isPublic: true,
+    name: "Class",
+    recurrenceRule: { rrule: "FREQ=WEEKLY;BYDAY=SA" },
+    seriesId: null,
+    startTime: Date.UTC(2026, 8, 5, 4, 30),
+    teamId: "team-1",
+  };
+
+  function runCreate(results: unknown[], args: Record<string, unknown> = {}) {
+    const insertInterest = mock();
+    const insertEvent = mock();
+    const tx = {
+      location: "client",
+      mutate: {
+        eventInterest: { insert: insertInterest },
+        teamEvent: { insert: insertEvent },
+        teamEventMember: { insert: mock() },
+      },
+      run: mock(async () => results.shift()),
+    };
+    const result = eventInterestMutators.create.fn({
+      args: { eventId: "series-1", id: "interest-1", now: NOW, ...args },
+      ctx: {
+        permissions: ["events.view_own"],
+        role: "unoriented_volunteer",
+        userId: "volunteer-1",
+      },
+      tx,
+    } as unknown as Parameters<typeof eventInterestMutators.create.fn>[0]);
+    return { insertEvent, insertInterest, result };
+  }
+
+  it("rejects a one-off event that has started", async () => {
+    const { insertInterest, result } = runCreate([
+      { ...SERIES, recurrenceRule: null, startTime: NOW - DAY },
+      undefined,
+    ]);
+    await expect(result).rejects.toThrow("already started");
+    expect(insertInterest).not.toHaveBeenCalled();
+  });
+
+  it("rejects cancelled events", async () => {
+    const { insertInterest, result } = runCreate([
+      { ...SERIES, cancelledAt: NOW - DAY, startTime: NOW + DAY },
+    ]);
+    await expect(result).rejects.toThrow("Event is cancelled");
+    expect(insertInterest).not.toHaveBeenCalled();
+  });
+
+  it("rejects interest in a whole series that has started", async () => {
+    const { insertInterest, result } = runCreate([SERIES, undefined]);
+    await expect(result).rejects.toThrow("already started");
+    expect(insertInterest).not.toHaveBeenCalled();
+  });
+
+  it("files interest on the materialized session of a series", async () => {
+    const session = {
+      ...SERIES,
+      id: "session-1",
+      originalDate: "2026-10-10",
+      recurrenceRule: null,
+      seriesId: "series-1",
+      startTime: Date.UTC(2026, 9, 10, 4, 30),
+    };
+    const { insertEvent, insertInterest, result } = runCreate(
+      [SERIES, undefined, undefined, session, undefined, undefined],
+      { materializedId: "session-1", occDate: "2026-10-10" }
+    );
+    await result;
+    expect(insertEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "session-1",
+        originalDate: "2026-10-10",
+        seriesId: "series-1",
+      })
+    );
+    expect(insertInterest).toHaveBeenCalledWith(
+      expect.objectContaining({ eventId: "session-1", status: "pending" })
+    );
+  });
+
+  it("rejects a date the series has no session on", async () => {
+    const { insertEvent, result } = runCreate([SERIES, undefined], {
+      materializedId: "session-1",
+      occDate: "2026-10-11",
+    });
+    await expect(result).rejects.toThrow("no session on that date");
+    expect(insertEvent).not.toHaveBeenCalled();
+  });
+});
