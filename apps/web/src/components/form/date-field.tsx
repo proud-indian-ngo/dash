@@ -61,7 +61,7 @@ function DateInputPicker({
   startMonth,
   value,
 }: DateInputPickerProps) {
-  const [month, setMonth] = useState<Date>(value ?? new Date());
+  const [month, setMonth] = useState<Date>(value ?? maxDate ?? new Date());
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
