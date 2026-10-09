@@ -188,7 +188,7 @@ function DataGridContainer({
       className={cn(
         "w-full overflow-hidden",
         border &&
-          "border-border rounded-none border",
+          "border-border rounded-xl border",
         className
       )}
     >

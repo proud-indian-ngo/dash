@@ -126,7 +126,7 @@ function DrawerContent({
       <DrawerViewport>
         <DrawerPrimitive.Popup
           className={cn(
-            "group/drawer-content data-open:fade-in-0 data-closed:fade-out-0 fixed z-50 flex h-auto flex-col bg-popover text-popover-foreground text-xs/relaxed outline-none data-[swipe-direction=down]:inset-x-0 data-[swipe-direction=top]:inset-x-0 data-[swipe-direction=left]:inset-y-0 data-[swipe-direction=right]:inset-y-0 data-[swipe-direction=top]:top-0 data-[swipe-direction=right]:right-0 data-[swipe-direction=down]:bottom-0 data-[swipe-direction=left]:left-0 data-[swipe-direction=down]:mt-24 data-[swipe-direction=top]:mb-24 data-[swipe-direction=down]:max-h-[80vh] data-[swipe-direction=top]:max-h-[80vh] data-[swipe-direction=left]:w-3/4 data-[swipe-direction=right]:w-3/4 data-closed:animate-out data-open:animate-in data-[swipe-direction=down]:rounded-none data-[swipe-direction=left]:rounded-none data-[swipe-direction=right]:rounded-none data-[swipe-direction=top]:rounded-none data-[swipe-direction=down]:border-t data-[swipe-direction=left]:border-r data-[swipe-direction=top]:border-b data-[swipe-direction=right]:border-l data-[swipe-direction=left]:sm:max-w-sm data-[swipe-direction=right]:sm:max-w-sm",
+            "group/drawer-content data-open:fade-in-0 data-closed:fade-out-0 fixed z-50 flex h-auto flex-col bg-popover text-popover-foreground outline-none data-[swipe-direction=down]:inset-x-0 data-[swipe-direction=top]:inset-x-0 data-[swipe-direction=left]:inset-y-0 data-[swipe-direction=right]:inset-y-0 data-[swipe-direction=top]:top-0 data-[swipe-direction=right]:right-0 data-[swipe-direction=down]:bottom-0 data-[swipe-direction=left]:left-0 data-[swipe-direction=down]:mt-24 data-[swipe-direction=top]:mb-24 data-[swipe-direction=down]:max-h-[80vh] data-[swipe-direction=top]:max-h-[80vh] data-[swipe-direction=left]:w-3/4 data-[swipe-direction=right]:w-3/4 data-closed:animate-out data-open:animate-in data-[swipe-direction=down]:border-t data-[swipe-direction=left]:border-r data-[swipe-direction=top]:border-b data-[swipe-direction=right]:border-l data-[swipe-direction=left]:sm:max-w-sm data-[swipe-direction=right]:sm:max-w-sm rounded-[inherit]",
             className
           )}
           data-slot="drawer-content"
@@ -134,7 +134,7 @@ function DrawerContent({
         >
           <DrawerPrimitive.Content className="contents" data-slot="drawer-body">
             {showHandle ? (
-              <div className="mx-auto mt-4 h-1 w-[100px] shrink-0 rounded-none bg-muted group-data-[swipe-direction=down]/drawer-content:block group-data-[swipe-direction=left]/drawer-content:hidden group-data-[swipe-direction=right]/drawer-content:hidden group-data-[swipe-direction=top]/drawer-content:hidden" />
+              <div className="mx-auto mt-4 h-1 w-[100px] shrink-0 rounded-full bg-muted group-data-[swipe-direction=down]/drawer-content:block group-data-[swipe-direction=left]/drawer-content:hidden group-data-[swipe-direction=right]/drawer-content:hidden group-data-[swipe-direction=top]/drawer-content:hidden" />
             ) : null}
             {children}
           </DrawerPrimitive.Content>
@@ -170,7 +170,7 @@ function DrawerFooter({ className, ...props }: ComponentProps<"div">) {
 function DrawerTitle({ className, ...props }: DrawerPrimitive.Title.Props) {
   return (
     <DrawerPrimitive.Title
-      className={cn("font-medium text-foreground text-sm", className)}
+      className={cn("font-medium text-foreground text-base", className)}
       data-slot="drawer-title"
       {...props}
     />
@@ -183,7 +183,7 @@ function DrawerDescription({
 }: DrawerPrimitive.Description.Props) {
   return (
     <DrawerPrimitive.Description
-      className={cn("text-muted-foreground text-xs/relaxed", className)}
+      className={cn("text-muted-foreground text-sm", className)}
       data-slot="drawer-description"
       {...props}
     />

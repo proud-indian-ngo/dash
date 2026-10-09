@@ -37,7 +37,8 @@
   --chart-3: var(--color-sky-ink);
   --chart-4: var(--color-sky-tint);
   --chart-5: var(--color-ink);
-  --radius: 0.625rem;
+  /* ~7px: controls and menus use rounded-lg, cards and dialogs rounded-xl (~10px) */
+  --radius: 0.45rem;
   --sidebar: var(--color-ui-sidebar);
   --sidebar-foreground: var(--color-ink);
   --sidebar-primary: var(--color-sky-ink);
@@ -115,6 +116,9 @@
   --font-display: var(--font-pi-display);
   /* Paper Mono, the data font: amounts, dates, counts, IDs */
   --font-mono: var(--font-pi-mono);
+  /* 13px body and control text: Geist reads cramped at 12px, 14px costs too much density */
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: calc(1.25 / 0.8125);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-out-quart: cubic-bezier(0.165, 0.84, 0.44, 1);
   --ease-out-sheet: cubic-bezier(0.32, 0.72, 0, 1);
@@ -254,6 +258,17 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+
+  /* Touch: no grey tap flash (controls have their own :active state) and no double-tap delay. */
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button,
+  a,
+  [role="button"] {
+    touch-action: manipulation;
   }
 
   /* iOS Safari zooms focused editable controls whose text is below 16px. */
