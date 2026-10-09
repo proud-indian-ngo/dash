@@ -70,6 +70,8 @@ services:
       POSTHOG_HOST: ${POSTHOG_HOST:-https://us.i.posthog.com}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-pi-dash}
+      # rebuilds proudindian.ngo when the public events feed changes (sync-public-events-deploy); unset disables it
+      WEBSITE_DISPATCH_TOKEN: ${WEBSITE_DISPATCH_TOKEN:-}
       TZ: Asia/Kolkata
       NODE_ENV: production
     healthcheck:
