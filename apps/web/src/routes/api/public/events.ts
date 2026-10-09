@@ -15,27 +15,9 @@ const PATH = "/api/public/events";
 const PUBLIC_EVENTS_CACHE_CONTROL =
   "public, max-age=300, stale-while-revalidate=3600";
 const RATE_LIMIT_PER_MINUTE = 60;
-const ALLOWED_ORIGIN = "https://proudindian.ngo";
-// Cloudflare Pages preview deployments: https://<hash>.<project>.pages.dev
-const PAGES_PREVIEW_ORIGIN_RE =
-  /^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.pages\.dev$/;
-
-export function isAllowedPublicOrigin(origin: string | null): boolean {
-  return (
-    !!origin &&
-    (origin === ALLOWED_ORIGIN || PAGES_PREVIEW_ORIGIN_RE.test(origin))
-  );
-}
-
-function corsHeaders(request: Request): Record<string, string> {
-  const origin = request.headers.get("origin");
-  return {
-    ...(isAllowedPublicOrigin(origin) && origin
-      ? { "Access-Control-Allow-Origin": origin }
-      : {}),
-    Vary: "Origin",
-  };
-}
+// Public, credential-free data for proudindian.ngo and any other site or agent:
+// every origin may read it (the per-IP rate limit still applies).
+const CORS_HEADERS = { "Access-Control-Allow-Origin": "*" };
 
 let warnedUnknownIp = false;
 
@@ -100,8 +82,7 @@ export async function handlePublicEventsRequest(
   request: Request,
   deps = defaultHandlerDeps
 ): Promise<Response> {
-  const cors = corsHeaders(request);
-  const noStore = { ...cors, "Cache-Control": "no-store" };
+  const noStore = { ...CORS_HEADERS, "Cache-Control": "no-store" };
 
   const rateLimit = deps.checkRateLimit(
     `public-events:${clientIp(request)}`,
@@ -143,7 +124,10 @@ export async function handlePublicEventsRequest(
       deps.cache.set(cacheKey, body, now);
     }
     return Response.json(body, {
-      headers: { ...cors, "Cache-Control": PUBLIC_EVENTS_CACHE_CONTROL },
+      headers: {
+        ...CORS_HEADERS,
+        "Cache-Control": PUBLIC_EVENTS_CACHE_CONTROL,
+      },
     });
   } catch (error) {
     const log = createRequestLogger({ method: "GET", path: PATH });
@@ -157,18 +141,13 @@ export async function handlePublicEventsRequest(
   }
 }
 
-export function handlePublicEventsPreflight(request: Request): Response {
-  const cors = corsHeaders(request);
+export function handlePublicEventsPreflight(): Response {
   return new Response(null, {
     headers: {
-      ...cors,
-      ...(cors["Access-Control-Allow-Origin"]
-        ? {
-            "Access-Control-Allow-Headers": "Accept, Content-Type",
-            "Access-Control-Allow-Methods": "GET, OPTIONS",
-            "Access-Control-Max-Age": "86400",
-          }
-        : {}),
+      ...CORS_HEADERS,
+      "Access-Control-Allow-Headers": "Accept, Content-Type",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Max-Age": "86400",
     },
     status: 204,
   });
@@ -178,16 +157,16 @@ export const Route = createFileRoute("/api/public/events")({
   server: {
     handlers: {
       // Read-only feed: every other method is refused.
-      ANY: ({ request }) =>
+      ANY: () =>
         Response.json(
           { error: "Method not allowed" },
           {
-            headers: { ...corsHeaders(request), Allow: "GET, OPTIONS" },
+            headers: { ...CORS_HEADERS, Allow: "GET, OPTIONS" },
             status: 405,
           }
         ),
       GET: ({ request }) => handlePublicEventsRequest(request),
-      OPTIONS: ({ request }) => handlePublicEventsPreflight(request),
+      OPTIONS: () => handlePublicEventsPreflight(),
     },
   },
 });

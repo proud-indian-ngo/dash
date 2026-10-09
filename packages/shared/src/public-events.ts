@@ -11,11 +11,13 @@ import {
  * Everything here is an allow-list: only the fields of `PublicEvent` ever leave pi-dash.
  */
 
-export type PublicProgramme =
-  | "community"
-  | "education"
-  | "kalakriti"
-  | "nutrition";
+export const publicProgrammeValues = [
+  "community",
+  "education",
+  "kalakriti",
+  "nutrition",
+] as const;
+export type PublicProgramme = (typeof publicProgrammeValues)[number];
 
 export interface PublicEvent {
   area: string;

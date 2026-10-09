@@ -75,9 +75,7 @@ test.describe("Public events API", () => {
         { headers: { Origin: "https://proudindian.ngo" } }
       );
       expect(response.status()).toBe(200);
-      expect(response.headers()["access-control-allow-origin"]).toBe(
-        "https://proudindian.ngo"
-      );
+      expect(response.headers()["access-control-allow-origin"]).toBe("*");
       expect(response.headers()["cache-control"]).toBe(
         "public, max-age=300, stale-while-revalidate=3600"
       );
