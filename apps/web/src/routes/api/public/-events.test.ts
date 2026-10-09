@@ -12,7 +12,6 @@ import {
   createPublicEventsCache,
   handlePublicEventsPreflight,
   handlePublicEventsRequest,
-  isAllowedPublicOrigin,
   type PublicEventsHandlerDeps,
 } from "./events";
 
@@ -98,39 +97,23 @@ describe("handlePublicEventsRequest", () => {
     expect(response.headers.get("cache-control")).toBe(
       "public, max-age=300, stale-while-revalidate=3600"
     );
-    expect(response.headers.get("vary")).toBe("Origin");
   });
 
   it.each([
     "https://proudindian.ngo",
     "https://abc123.proud-indian-website.pages.dev",
-    "https://proud-indian-website.pages.dev",
-  ])("allows CORS from %s", async (origin) => {
+    "https://example.com",
+    null,
+  ])("allows CORS from any origin (%s)", async (origin) => {
     const { deps } = createDeps();
 
     const response = await handlePublicEventsRequest(
-      request("", { origin }),
+      request("", origin ? { origin } : {}),
       deps
     );
 
-    expect(response.headers.get("access-control-allow-origin")).toBe(origin);
-  });
-
-  it.each([
-    "https://evil.example",
-    "http://proudindian.ngo",
-    "https://proudindian.ngo.evil.example",
-    "https://pages.dev.evil.example",
-  ])("does not allow CORS from %s", async (origin) => {
-    const { deps } = createDeps();
-
-    const response = await handlePublicEventsRequest(
-      request("", { origin }),
-      deps
-    );
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get("access-control-allow-origin")).toBeNull();
+    expect(response.headers.get("access-control-allow-origin")).toBe("*");
+    expect(response.headers.get("access-control-allow-credentials")).toBeNull();
   });
 
   it("rejects bad query params with 400 and no caching", async () => {
@@ -143,9 +126,7 @@ describe("handlePublicEventsRequest", () => {
 
     expect(response.status).toBe(400);
     expect(response.headers.get("cache-control")).toBe("no-store");
-    expect(response.headers.get("access-control-allow-origin")).toBe(
-      "https://proudindian.ngo"
-    );
+    expect(response.headers.get("access-control-allow-origin")).toBe("*");
     expect(getPublicEvents).not.toHaveBeenCalled();
   });
 
@@ -166,6 +147,7 @@ describe("handlePublicEventsRequest", () => {
 
     expect(response.status).toBe(429);
     expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("access-control-allow-origin")).toBe("*");
     expect(deps.checkRateLimit).toHaveBeenCalledWith(
       "public-events:203.0.113.7",
       60
@@ -217,27 +199,14 @@ describe("handlePublicEventsRequest", () => {
 });
 
 describe("handlePublicEventsPreflight", () => {
-  it("allows GET and OPTIONS for allowed origins", () => {
-    const response = handlePublicEventsPreflight(
-      request("", { origin: "https://proudindian.ngo" })
-    );
+  it("allows GET and OPTIONS from any origin", () => {
+    const response = handlePublicEventsPreflight();
 
     expect(response.status).toBe(204);
-    expect(response.headers.get("access-control-allow-origin")).toBe(
-      "https://proudindian.ngo"
-    );
+    expect(response.headers.get("access-control-allow-origin")).toBe("*");
     expect(response.headers.get("access-control-allow-methods")).toBe(
       "GET, OPTIONS"
     );
-  });
-
-  it("grants nothing to other origins", () => {
-    const response = handlePublicEventsPreflight(
-      request("", { origin: "https://evil.example" })
-    );
-
-    expect(response.headers.get("access-control-allow-origin")).toBeNull();
-    expect(response.headers.get("access-control-allow-methods")).toBeNull();
   });
 });
 
@@ -255,11 +224,5 @@ describe("clientIp", () => {
       clientIp(request("", { "x-forwarded-for": "6.6.6.6, 203.0.113.9" }))
     ).toBe("203.0.113.9");
     expect(clientIp(request())).toBe("unknown");
-  });
-});
-
-describe("isAllowedPublicOrigin", () => {
-  it("rejects a missing origin", () => {
-    expect(isAllowedPublicOrigin(null)).toBe(false);
   });
 });

@@ -56,6 +56,7 @@ import { Route as ApiJobsStatsRouteImport } from './routes/api/jobs/stats'
 import { Route as ApiLogIngestRouteImport } from './routes/api/log/ingest'
 import { Route as ApiMediaEventUpdateRouteImport } from './routes/api/media/event-update'
 import { Route as ApiPublicEventsRouteImport } from './routes/api/public/events'
+import { Route as ApiPublicOpenapiDotjsonRouteImport } from './routes/api/public/openapi[.]json'
 import { Route as ApiWhatsappWebhookRouteImport } from './routes/api/whatsapp/webhook'
 import { Route as ApiZeroMutateRouteImport } from './routes/api/zero/mutate'
 import { Route as ApiZeroQueryRouteImport } from './routes/api/zero/query'
@@ -334,6 +335,11 @@ const ApiMediaEventUpdateRoute = ApiMediaEventUpdateRouteImport.update({
 const ApiPublicEventsRoute = ApiPublicEventsRouteImport.update({
   id: '/api/public/events',
   path: '/api/public/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicOpenapiDotjsonRoute = ApiPublicOpenapiDotjsonRouteImport.update({
+  id: '/api/public/openapi.json',
+  path: '/api/public/openapi.json',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiWhatsappWebhookRoute = ApiWhatsappWebhookRouteImport.update({
@@ -631,6 +637,7 @@ export interface FileRoutesByFullPath {
   '/api/log/ingest': typeof ApiLogIngestRoute
   '/api/media/event-update': typeof ApiMediaEventUpdateRoute
   '/api/public/events': typeof ApiPublicEventsRoute
+  '/api/public/openapi.json': typeof ApiPublicOpenapiDotjsonRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
@@ -716,6 +723,7 @@ export interface FileRoutesByTo {
   '/api/log/ingest': typeof ApiLogIngestRoute
   '/api/media/event-update': typeof ApiMediaEventUpdateRoute
   '/api/public/events': typeof ApiPublicEventsRoute
+  '/api/public/openapi.json': typeof ApiPublicOpenapiDotjsonRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
@@ -809,6 +817,7 @@ export interface FileRoutesById {
   '/api/log/ingest': typeof ApiLogIngestRoute
   '/api/media/event-update': typeof ApiMediaEventUpdateRoute
   '/api/public/events': typeof ApiPublicEventsRoute
+  '/api/public/openapi.json': typeof ApiPublicOpenapiDotjsonRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
@@ -904,6 +913,7 @@ export interface FileRouteTypes {
     | '/api/log/ingest'
     | '/api/media/event-update'
     | '/api/public/events'
+    | '/api/public/openapi.json'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
@@ -989,6 +999,7 @@ export interface FileRouteTypes {
     | '/api/log/ingest'
     | '/api/media/event-update'
     | '/api/public/events'
+    | '/api/public/openapi.json'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
@@ -1081,6 +1092,7 @@ export interface FileRouteTypes {
     | '/api/log/ingest'
     | '/api/media/event-update'
     | '/api/public/events'
+    | '/api/public/openapi.json'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
@@ -1150,6 +1162,7 @@ export interface RootRouteChildren {
   ApiLogIngestRoute: typeof ApiLogIngestRoute
   ApiMediaEventUpdateRoute: typeof ApiMediaEventUpdateRoute
   ApiPublicEventsRoute: typeof ApiPublicEventsRoute
+  ApiPublicOpenapiDotjsonRoute: typeof ApiPublicOpenapiDotjsonRoute
   ApiWhatsappWebhookRoute: typeof ApiWhatsappWebhookRoute
   ApiZeroMutateRoute: typeof ApiZeroMutateRoute
   ApiZeroQueryRoute: typeof ApiZeroQueryRoute
@@ -1495,6 +1508,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/events'
       fullPath: '/api/public/events'
       preLoaderRoute: typeof ApiPublicEventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/openapi.json': {
+      id: '/api/public/openapi.json'
+      path: '/api/public/openapi.json'
+      fullPath: '/api/public/openapi.json'
+      preLoaderRoute: typeof ApiPublicOpenapiDotjsonRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/whatsapp/webhook': {
@@ -2125,6 +2145,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiLogIngestRoute: ApiLogIngestRoute,
   ApiMediaEventUpdateRoute: ApiMediaEventUpdateRoute,
   ApiPublicEventsRoute: ApiPublicEventsRoute,
+  ApiPublicOpenapiDotjsonRoute: ApiPublicOpenapiDotjsonRoute,
   ApiWhatsappWebhookRoute: ApiWhatsappWebhookRoute,
   ApiZeroMutateRoute: ApiZeroMutateRoute,
   ApiZeroQueryRoute: ApiZeroQueryRoute,

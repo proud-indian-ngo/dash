@@ -12,7 +12,7 @@ This file is the source for generated `AGENTS.md` and `CLAUDE.md`. Apply changes
 | Database | Drizzle schema, migrations, PostgreSQL and local services | `packages/db/src/schema/`, `packages/db/docker-compose.yml` |
 | Zero | Synced schema, queries, mutators | `packages/zero/` |
 | Auth and permissions | Better Auth configuration and permission resolution | `packages/auth/`, `packages/db/src/permissions.ts` |
-| Public events feed | Unauthenticated upcoming-events API for proudindian.ngo and its website sign-up links | `apps/web/src/routes/api/public/events.ts`, `packages/shared/src/public-events.ts`, `packages/db/src/queries/public-events.ts`, `packages/shared/src/event-redirect.ts`, `packages/auth/src/register-interest.ts`, `apps/web/src/routes/_auth/verify-email.tsx` |
+| Public events feed | Unauthenticated upcoming-events API for proudindian.ngo and its website sign-up links | `apps/web/src/routes/api/public/events.ts`, `packages/shared/src/public-events.ts`, `packages/shared/src/public-events-openapi.ts` (OpenAPI, served at `/api/public/openapi.json`), `packages/db/src/queries/public-events.ts`, `packages/shared/src/event-redirect.ts`, `packages/auth/src/register-interest.ts`, `apps/web/src/routes/_auth/verify-email.tsx` |
 | Audit ledger | Immutable action schema and permission in DB; capture, API, and viewer in web | `packages/db/src/schema/audit-log.ts`, `apps/web/src/lib/audit.ts`, `apps/web/src/routes/api/audit-log.ts`, `apps/web/src/routes/_app/audit-log.tsx` |
 | Jobs and notifications | pg-boss handlers and multi-channel delivery | `packages/jobs/`, `packages/notifications/` |
 | Environment | Server and web environment contracts | `packages/env/`, `.env.sample` |
