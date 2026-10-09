@@ -494,7 +494,7 @@ The shadcn variables in `packages/design-system/styles.css` point at `@proudindi
 
 | Token | Usage |
 |---|---|
-| `--primary` | The primary button and solid controls: ink in light mode, near-white in dark mode. |
+| `--primary` | The primary button and solid controls, in brand blue: sky ink with white text in light mode, sky with ink text in dark mode. |
 | `--sidebar-accent` / `--sidebar-accent-foreground` | The active or selected item: sky ink on sky wash (light), sky on charcoal (dark). Sky is never a fill behind body text. |
 | `--brand` / `--brand-foreground` | Decorative brand accent (sky `#4CC0EC`): indicators, dots, thin rules. |
 | `--success` / `--warning` / `--destructive` (+ `-foreground`) | Status dot and text colours from `color-status-*`. Marigold is never a status colour. |
