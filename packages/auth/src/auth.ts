@@ -21,6 +21,7 @@ import {
 } from "./reactivation";
 import { enrollUserOnRegisterEvent } from "./register-event";
 import { createDbRegisterEventEnrollDeps } from "./register-event-db";
+import { signUpDobError } from "./sign-up-age";
 import {
   getUserFromSignUpReturned,
   verifyPersistedSignUpUser,
@@ -96,6 +97,16 @@ function sanitizeSignUpBody(ctx: AuthHookContext): void {
     ctx.body.registerEventId = eventId;
   } else {
     delete ctx.body.registerEventId;
+  }
+}
+
+function assertSignUpAgeEligible(ctx: AuthHookContext): void {
+  if (ctx.path !== "/sign-up/email" || !ctx.body) {
+    return;
+  }
+  const message = signUpDobError(ctx.body.dob, new Date());
+  if (message) {
+    throw new APIError("BAD_REQUEST", { message });
   }
 }
 
@@ -368,6 +379,7 @@ export const auth = betterAuth({
     }),
     before: createAuthMiddleware(async (ctx) => {
       sanitizeSignUpBody(ctx);
+      assertSignUpAgeEligible(ctx);
       stripRegistrationGroupFromUpdate(ctx);
     }),
   },

@@ -1,4 +1,10 @@
 import { formatEventRedirect } from "@pi-dash/shared/event-redirect";
+import {
+  isVolunteerAgeEligible,
+  latestVolunteerDob,
+  MIN_VOLUNTEER_AGE,
+  MIN_VOLUNTEER_AGE_MESSAGE,
+} from "@pi-dash/shared/volunteer-age";
 import { useForm } from "@tanstack/react-form";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { log } from "evlog";
@@ -23,7 +29,12 @@ const genderOptions: SelectOption[] = [
 
 const registerFields = {
   confirmPassword: z.string().min(8, "Password must be at least 8 characters"),
-  dob: z.date({ error: "Date of birth is required" }),
+  dob: z
+    .date({ error: "Date of birth is required" })
+    .refine(
+      (dob) => isVolunteerAgeEligible(dob, new Date()),
+      MIN_VOLUNTEER_AGE_MESSAGE
+    ),
   email: z.email("Invalid email address"),
   gender: z.enum(["male", "female"], { error: "Please select a gender" }),
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -52,6 +63,7 @@ export function RegisterForm() {
     ? formatEventRedirect(eventRedirect)
     : undefined;
   const { isPending } = authClient.useSession();
+  const maxDob = latestVolunteerDob(new Date());
 
   const form = useForm({
     defaultValues: {
@@ -154,7 +166,14 @@ export function RegisterForm() {
           name="phone"
           placeholder="Your phone number"
         />
-        <DateField isRequired label="Date of birth" name="dob" />
+        <DateField
+          description={`You must be at least ${MIN_VOLUNTEER_AGE} to register as a volunteer.`}
+          endMonth={maxDob}
+          isRequired
+          label="Date of birth"
+          maxDate={maxDob}
+          name="dob"
+        />
         <SelectField
           isRequired
           label="Gender"

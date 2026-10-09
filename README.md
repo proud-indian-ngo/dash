@@ -2,7 +2,7 @@
 
 A volunteer and admin management dashboard built with a modern TypeScript monorepo stack. Admins can create and manage user accounts, assign roles, ban users, reset passwords, track volunteer orientation, and process financial request workflows (reimbursements and advance payments) — with real-time data sync powered by Rocicorp Zero and self-owned multi-channel notifications (in-app inbox, email, WhatsApp).
 
-> Sign-up is disabled by design. Only admins can create new accounts.
+> Volunteers aged 18 or over can self-register at `/register` (email verification required). Admins can also create accounts directly.
 
 ## Features
 

@@ -103,7 +103,7 @@ Partition and snapshot-isolation tests run with the E2E package's unit-test comm
 
 ## Auth Plugins and E2E
 
-Sign-up is disabled in production, so E2E seeds users directly via `seed-test-user.ts` (bypasses Better Auth's admin-creates-user flow). Email verification is pre-satisfied in the seed.
+Fixture users are seeded directly via `seed-test-user.ts`, bypassing Better Auth sign-up (and its email verification and 18+ date-of-birth checks). Email verification is pre-satisfied in the seed. Public self-registration at `/register` is covered separately by `tests/auth/register.spec.ts`.
 
 ## Kalakriti data-scale benchmark
 

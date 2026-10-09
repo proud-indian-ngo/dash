@@ -17,6 +17,8 @@ Better Auth (`packages/auth/src/index.ts`):
 
 `/_auth/register` creates the user immediately through Better Auth `signUp.email`, then redirects to `/login` for email verification.
 
+Self-registration is 18+. The form's date picker stops at `latestVolunteerDob`, and the Better Auth `before` hook rejects `/sign-up/email` with 400 when `dob` is missing, invalid (before 1900), or under `MIN_VOLUNTEER_AGE` (`packages/auth/src/sign-up-age.ts`). The server compares UTC calendar dates with one day of slack so it never rejects a date the form accepts. Admin-created accounts and profile `dob` edits are deliberately exempt.
+
 Optional independent search params:
 
 - `?group=campus-west` — persisted on `user.registrationGroup` (URL query stays `group`)

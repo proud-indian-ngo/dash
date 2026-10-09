@@ -43,7 +43,11 @@ async function fillRegisterForm(
   await page.getByRole("button", { name: "Date of birth" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  const dayButton = dialog.getByRole("button", { name: /^Sunday/ }).first();
+  // The picker opens on the latest allowed month and disables later days;
+  // outside days keep an enabled Sunday on screen in every month.
+  const dayButton = dialog
+    .getByRole("button", { disabled: false, name: /^Sunday/ })
+    .first();
   await dayButton.waitFor({ state: "visible" });
   await dayButton.click();
   await page.getByLabel("Gender").click();
@@ -116,7 +120,9 @@ test.describe("Register page", () => {
     await page.getByRole("button", { name: "Date of birth" }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
-    const dayButton = dialog.getByRole("button", { name: /^Sunday/ }).first();
+    const dayButton = dialog
+      .getByRole("button", { disabled: false, name: /^Sunday/ })
+      .first();
     await dayButton.waitFor({ state: "visible" });
     await dayButton.click();
     // Select gender
@@ -144,7 +150,7 @@ test.describe("Register page", () => {
     const regDialog = page.getByRole("dialog");
     await expect(regDialog).toBeVisible();
     const regDayBtn = regDialog
-      .getByRole("button", { name: /^Sunday/ })
+      .getByRole("button", { disabled: false, name: /^Sunday/ })
       .first();
     await regDayBtn.waitFor({ state: "visible" });
     await regDayBtn.click();
@@ -176,7 +182,7 @@ test.describe("Register page", () => {
     const dupDialog = page.getByRole("dialog");
     await expect(dupDialog).toBeVisible();
     const dupDayBtn = dupDialog
-      .getByRole("button", { name: /^Sunday/ })
+      .getByRole("button", { disabled: false, name: /^Sunday/ })
       .first();
     await dupDayBtn.waitFor({ state: "visible" });
     await dupDayBtn.click();
@@ -210,7 +216,7 @@ test.describe("Register page", () => {
       await page.getByRole("button", { name: "Date of birth" }).click();
       const dialog = page.getByRole("dialog");
       await dialog
-        .getByRole("button", { name: /^Sunday/ })
+        .getByRole("button", { disabled: false, name: /^Sunday/ })
         .first()
         .click();
       await page.getByLabel("Gender").click();
@@ -227,6 +233,55 @@ test.describe("Register page", () => {
         });
     } finally {
       await fixture("cleanup");
+    }
+  });
+
+  test("sign-up API rejects volunteers under 18", async ({ page }) => {
+    const signup = uniqueSignup();
+    const dob = new Date();
+    dob.setFullYear(dob.getFullYear() - 17);
+    const response = await page.request.post("/api/auth/sign-up/email", {
+      data: {
+        dob: dob.toISOString(),
+        email: signup.email,
+        gender: "male",
+        name: "Underage User",
+        password: "Password123!",
+        phone: signup.phone,
+      },
+    });
+    expect(response.status()).toBe(400);
+    expect(await response.text()).toContain("at least 18 years old");
+    expect(await fixture("state", signup.email)).toMatchObject({ role: null });
+  });
+
+  test("date picker only offers dates at least 18 years ago", async ({
+    page,
+  }) => {
+    await expect(
+      page.getByText("You must be at least 18 to register as a volunteer.")
+    ).toBeVisible();
+    const today = new Date();
+    const latest = new Date(
+      today.getFullYear() - 18,
+      today.getMonth(),
+      today.getDate()
+    );
+    const dayLabel = (date: Date) =>
+      new RegExp(
+        `${date.toLocaleString("en-US", { month: "long" })} ${date.getDate()}(st|nd|rd|th), ${date.getFullYear()}`
+      );
+    await page.getByRole("button", { name: "Date of birth" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(
+      dialog.getByRole("button", { name: dayLabel(latest) })
+    ).toBeEnabled();
+    const nextDay = new Date(latest);
+    nextDay.setDate(latest.getDate() + 1);
+    if (nextDay.getMonth() === latest.getMonth()) {
+      await expect(
+        dialog.getByRole("button", { name: dayLabel(nextDay) })
+      ).toBeDisabled();
     }
   });
 

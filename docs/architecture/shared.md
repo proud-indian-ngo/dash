@@ -11,5 +11,6 @@ Cross-package constants, types, and utilities used by both client and server cod
 | `src/event-reminders.ts` | `REMINDER_PRESET_MINUTES`, `RSVP_POLL_LEAD_PRESET_MINUTES`, `DEFAULT_RSVP_POLL_LEAD_MINUTES` |
 | `src/scheduled-message.ts` | `MAX_RECIPIENT_RETRIES`, scheduling constants |
 | `src/rrule-expand.ts` | RRULE expansion with exclusion pattern support |
+| `src/volunteer-age.ts` | `MIN_VOLUNTEER_AGE` (18), `isVolunteerAgeEligible` (form, local calendar), `isVolunteerAgeEligibleOnServer` (UTC with one day of slack), `latestVolunteerDob` |
 
 **Import rule**: Client-safe code imports from `@pi-dash/shared`, **not** `@pi-dash/db/schema/shared`. The latter pulls server-only deps into the client bundle.
