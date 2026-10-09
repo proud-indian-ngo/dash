@@ -17,7 +17,8 @@
   --card-foreground: var(--color-ink);
   --popover: var(--color-white);
   --popover-foreground: var(--color-ink);
-  --primary: var(--color-ink);
+  /* the primary button is brand blue: white on sky ink (6.38:1) */
+  --primary: var(--color-sky-ink);
   --primary-foreground: var(--color-white);
   --brand: var(--color-sky);
   --brand-foreground: var(--color-ink);
@@ -39,7 +40,7 @@
   --radius: 0.625rem;
   --sidebar: var(--color-ui-sidebar);
   --sidebar-foreground: var(--color-ink);
-  --sidebar-primary: var(--color-ink);
+  --sidebar-primary: var(--color-sky-ink);
   --sidebar-primary-foreground: var(--color-white);
   /* the active item: sky ink on sky wash, the one "selected" pairing (5.75:1) */
   --sidebar-accent: var(--color-sky-wash);
@@ -66,8 +67,9 @@
   --card-foreground: var(--color-ui-dark-text);
   --popover: var(--color-ui-dark-raised);
   --popover-foreground: var(--color-ui-dark-text);
-  --primary: var(--color-ui-dark-text);
-  --primary-foreground: var(--color-ui-dark-page);
+  /* ink on sky (8.36:1) */
+  --primary: var(--color-sky);
+  --primary-foreground: var(--color-ink);
   --brand: var(--color-sky);
   --brand-foreground: var(--color-ink);
   --secondary: var(--color-ui-dark-raised);
@@ -87,8 +89,8 @@
   --chart-5: var(--color-ui-dark-text);
   --sidebar: var(--color-ui-dark-sidebar);
   --sidebar-foreground: var(--color-ui-dark-text);
-  --sidebar-primary: var(--color-ui-dark-text);
-  --sidebar-primary-foreground: var(--color-ui-dark-page);
+  --sidebar-primary: var(--color-sky);
+  --sidebar-primary-foreground: var(--color-ink);
   /* sky on sky at 14% over the card (6.09:1) */
   --sidebar-accent: var(--color-ui-dark-active);
   --sidebar-accent-foreground: var(--color-sky);
