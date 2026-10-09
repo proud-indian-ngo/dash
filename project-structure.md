@@ -490,12 +490,17 @@ import { DataGrid } from "@pi-dash/design-system/components/reui/data-grid/data-
 
 Row and page action menus use `ResponsiveActionMenu` from `@/components/shared/responsive-action-menu`. Pass a contextual `title`, the existing button as `trigger`, and one `actions` array containing stable IDs, labels, optional icons, callbacks or link `render` elements, disabled flags, group keys, and destructive flags. The caller owns permissions and confirmation dialogs. Below the shared 768px mobile breakpoint, actions render in a swipe-dismissable Drawer with separate destructive actions and Cancel; desktop retains DropdownMenu semantics. The scoped CSS module owns safe-area spacing and gesture transitions. Selection releases the menu focus trap before invoking callbacks, without delaying browser-activation-dependent actions. Crossing the breakpoint closes the menu. Theme, filter, column, and editor selection controls keep their existing primitives; the account menu retains its desktop notification submenu and opens a separate mobile inbox.
 
+The shadcn variables in `packages/design-system/styles.css` point at `@proudindian/design` tokens (`theme.css` and `fonts.css`, pinned by git tag). Light mode is white with ink-tinted greys (`color-ui-*`); dark mode is a neutral charcoal (`color-ui-dark-*`). The usage rules are in the brand guide, appendix A1.
+
 | Token | Usage |
 |---|---|
-| `--primary` | Interactive elements: buttons, links, focus rings. Darker cyan in light mode. |
-| `--brand` / `--brand-foreground` | Decorative brand accent: borders, tints, indicators. Lighter cyan in light mode; converges with `--primary` in dark mode. |
-| `font-sans` (`Inter Variable`) | Body text, UI elements, form inputs, table cells. |
-| `font-display` (`Geist Variable`) | Page titles (`h1`), stat card values. Apply via `font-display tracking-tight`. |
+| `--primary` | The primary button and solid controls: ink in light mode, near-white in dark mode. |
+| `--sidebar-accent` / `--sidebar-accent-foreground` | The active or selected item: sky ink on sky wash (light), sky on charcoal (dark). Sky is never a fill behind body text. |
+| `--brand` / `--brand-foreground` | Decorative brand accent (sky `#4CC0EC`): indicators, dots, thin rules. |
+| `--success` / `--warning` / `--destructive` (+ `-foreground`) | Status dot and text colours from `color-status-*`. Marigold is never a status colour. |
+| `font-sans` (Geist) | Body text, UI elements, form inputs, table cells. |
+| `font-display` (Bricolage Grotesque) | Page titles (`h1`), stat card values. Apply via `font-display font-semibold tracking-tight`; the product weight is 600, not the website's 800. |
+| `font-mono` (Paper Mono) | The data font: IDs, codes, amounts and dates where alignment matters. |
 
 ### Server Functions
 
