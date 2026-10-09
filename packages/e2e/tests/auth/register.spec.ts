@@ -462,6 +462,9 @@ test.describe("Public website sign-up links", () => {
       await expect(page.getByTestId("register-event-banner")).toContainText(
         "Iblur, Bengaluru"
       );
+      await expect(page.getByTestId("auth-event-info-panel")).toContainText(
+        "Join Register URL public event"
+      );
       await expect(page.getByRole("link", { name: "Login" })).toHaveAttribute(
         "href",
         `/login?redirect=${encodeURIComponent(linkRedirect)}`
@@ -473,6 +476,16 @@ test.describe("Public website sign-up links", () => {
       });
       expect(new URL(page.url()).searchParams.get("redirect")).toBe(
         linkRedirect
+      );
+      // Login keeps the session in its panel, and Register keeps the sign-up.
+      await expect(page.getByTestId("auth-event-info-panel")).toContainText(
+        "Log in to join Register URL public event"
+      );
+      await expect(
+        page.getByRole("link", { name: "Register" })
+      ).toHaveAttribute(
+        "href",
+        `/register?interestEventId=${ids.publicEventId}`
       );
 
       // Nothing reaches the team until the email is verified.
