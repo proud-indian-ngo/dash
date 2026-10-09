@@ -26,3 +26,20 @@ export function registerLinkEventRedirect(
     ...(isOccDate(search.occDate) ? { occDate: search.occDate } : {}),
   };
 }
+
+/**
+ * Register-link search for a login screen reached from a website sign-up, so
+ * "Register" keeps the same event. Plain event redirects (e.g. after
+ * verification) have no pending sign-up and must not start one.
+ */
+export function registerLinkSearch(
+  eventRedirect: EventRedirect | null
+): { interestEventId: string; occDate?: string } | undefined {
+  if (!eventRedirect?.interest) {
+    return undefined;
+  }
+  return {
+    interestEventId: eventRedirect.eventId,
+    ...(eventRedirect.occDate ? { occDate: eventRedirect.occDate } : {}),
+  };
+}

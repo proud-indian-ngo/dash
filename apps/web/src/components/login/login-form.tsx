@@ -17,6 +17,7 @@ import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { Loader } from "@/components/loader";
 import { authClient } from "@/lib/auth-client";
+import { registerLinkSearch } from "@/lib/auth-route-policy";
 
 const loginSchema = z.object({
   email: z.email("Invalid email address"),
@@ -220,7 +221,11 @@ export function LoginForm() {
       </FormLayout>
       <p className="text-muted-foreground text-center text-sm">
         Don&apos;t have an account?{" "}
-        <Link className="text-foreground hover:underline" to="/register">
+        <Link
+          className="text-foreground hover:underline"
+          search={registerLinkSearch(eventRedirect)}
+          to="/register"
+        >
           Register
         </Link>
       </p>

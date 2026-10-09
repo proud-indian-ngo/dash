@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import {
   isPublicBetterAuthAdminPath,
   registerLinkEventRedirect,
+  registerLinkSearch,
 } from "./auth-route-policy";
 
 describe("Better Auth route policy", () => {
@@ -57,5 +58,27 @@ describe("registerLinkEventRedirect", () => {
         occDate: "2026-10-18&x=1",
       })
     ).toEqual({ eventId, interest: true });
+  });
+});
+
+describe("registerLinkSearch", () => {
+  const eventId = "019a0000-0000-7000-8000-000000000001";
+
+  it("carries a pending website sign-up back to register", () => {
+    expect(
+      registerLinkSearch({ eventId, interest: true, occDate: "2026-10-18" })
+    ).toEqual({ interestEventId: eventId, occDate: "2026-10-18" });
+  });
+
+  it("round-trips through registerLinkEventRedirect", () => {
+    const redirect = { eventId, interest: true };
+    expect(
+      registerLinkEventRedirect(registerLinkSearch(redirect) ?? {})
+    ).toEqual(redirect);
+  });
+
+  it("does not start a sign-up from a plain event redirect", () => {
+    expect(registerLinkSearch({ eventId, interest: false })).toBeUndefined();
+    expect(registerLinkSearch(null)).toBeUndefined();
   });
 });
