@@ -61,6 +61,11 @@ async function fillRegisterForm(
   await expect(
     page.locator("[data-sonner-toast]").getByText("Registration successful")
   ).toBeVisible({ timeout: 10_000 });
+  // The URL changes before the login loader (event summary) settles; the
+  // register form stays mounted until then and would take the next fills.
+  await expect(
+    page.getByRole("heading", { name: "Login to your account" })
+  ).toBeVisible({ timeout: 15_000 });
 }
 
 let signupSeq = 0;
