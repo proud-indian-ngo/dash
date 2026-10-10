@@ -1,14 +1,14 @@
 import { expect, test } from "../../fixtures/test";
 import { pickDate } from "../../helpers/date-time-picker";
 import { openAdvancedSettings } from "../../helpers/event-form";
-import { openSeededTeam } from "../../helpers/team-event";
+import { SANDBOX_TEAM, openSeededTeam } from "../../helpers/team-event";
 import { ListPage } from "../../pages/list-page";
 
 test.describe("Recurring event exclusion patterns", () => {
   test.beforeEach(async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
-    await openSeededTeam(page);
+    await openSeededTeam(page, SANDBOX_TEAM);
   });
 
   test("recurrence builder displays exclusion pattern controls", async ({

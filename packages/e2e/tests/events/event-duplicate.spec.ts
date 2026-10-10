@@ -1,6 +1,6 @@
 import { expect, test } from "../../fixtures/test";
 import {
-  openPublicEvent,
+  SANDBOX_TEAM,
   openSeededTeam,
   openSeededTeamEvent,
   searchTeamEvents,
@@ -10,8 +10,8 @@ test.describe("Event duplication", () => {
   test("duplicates an event from detail page", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
-    const originalEventName = "E2E Upcoming Public Bangalore";
-    await openPublicEvent(page, originalEventName);
+    const originalEventName = "E2E Sandbox Source Event";
+    await openSeededTeamEvent(page, originalEventName, SANDBOX_TEAM);
 
     // Click Duplicate button
     const duplicateButton = page.getByRole("button", { name: "Duplicate" });
@@ -54,7 +54,7 @@ test.describe("Event duplication", () => {
     });
 
     // The copy lands in the same team; find it in the team's event list
-    await openSeededTeam(page);
+    await openSeededTeam(page, SANDBOX_TEAM);
     await searchTeamEvents(page, dupName);
     await expect(
       page.getByRole("cell").filter({ hasText: dupName }).first()
@@ -66,7 +66,7 @@ test.describe("Event duplication", () => {
   }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
-    await openSeededTeamEvent(page, "E2E Upcoming Public Bangalore");
+    await openSeededTeamEvent(page, "E2E Sandbox Source Event", SANDBOX_TEAM);
 
     // Click Duplicate
     const duplicateButton = page.getByRole("button", { name: "Duplicate" });

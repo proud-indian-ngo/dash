@@ -1,6 +1,10 @@
 import { expect, test } from "../../fixtures/test";
 import { pickDate } from "../../helpers/date-time-picker";
-import { openSeededTeam, openSeededTeamEvent } from "../../helpers/team-event";
+import {
+  SANDBOX_TEAM,
+  openSeededTeam,
+  openSeededTeamEvent,
+} from "../../helpers/team-event";
 
 test.describe("Event updates CRUD (admin)", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
@@ -12,7 +16,7 @@ test.describe("Event updates CRUD (admin)", () => {
   }) => {
     test.slow();
 
-    await openSeededTeam(page);
+    await openSeededTeam(page, SANDBOX_TEAM);
 
     // Create a past event (start time = yesterday) so Updates tab appears
     const pastEventName = `E2E Past Event ${Date.now()}`;

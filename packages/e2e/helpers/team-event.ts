@@ -4,6 +4,8 @@ import { waitForZeroReady } from "../fixtures/test";
 import { ListPage } from "../pages/list-page";
 
 const SEED_TEAM_NAME = "E2E Updates Team";
+/** Seeded team for specs that create, edit, cancel or duplicate events. */
+export const SANDBOX_TEAM = "E2E Sandbox Team";
 
 /**
  * Types into a data table's search box and waits for the value to reach the
@@ -41,8 +43,12 @@ export async function openSeededTeam(page: Page, teamName = SEED_TEAM_NAME) {
  * Opens a seeded event through its team's event list. The /events page shows
  * cards and a calendar, so the team table is the stable route to a named event.
  */
-export async function openSeededTeamEvent(page: Page, eventName: string) {
-  await openSeededTeam(page);
+export async function openSeededTeamEvent(
+  page: Page,
+  eventName: string,
+  teamName = SEED_TEAM_NAME
+) {
+  await openSeededTeam(page, teamName);
   await fillTableSearch(page, "Search events...", eventName);
   const eventRow = page.getByRole("row").filter({ hasText: eventName });
   await new ListPage(page).openRowActionAndClick(eventRow.first(), "View");
@@ -86,6 +92,6 @@ export async function openPublicEvent(page: Page, eventName: string) {
 export async function searchTeamEvents(page: Page, eventName: string) {
   const search = page.getByPlaceholder("Search events...");
   if (await search.isVisible().catch(() => false)) {
-    await search.fill(eventName);
+    await fillTableSearch(page, "Search events...", eventName);
   }
 }

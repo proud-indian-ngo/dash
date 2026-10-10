@@ -1,7 +1,7 @@
 import { expect, test } from "../../fixtures/test";
 import { pickDate } from "../../helpers/date-time-picker";
 import { openAdvancedSettings } from "../../helpers/event-form";
-import { openSeededTeam } from "../../helpers/team-event";
+import { SANDBOX_TEAM, openSeededTeam } from "../../helpers/team-event";
 
 /** Seeded public weekly event in "E2E Updates Team". */
 const SEEDED_RECURRING = "E2E Upcoming Recurring Public";
@@ -12,7 +12,7 @@ test.describe("Recurring events", () => {
   test.beforeEach(async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
-    await openSeededTeam(page);
+    await openSeededTeam(page, SANDBOX_TEAM);
   });
 
   test("create weekly recurring event and verify occurrences", async ({
@@ -73,6 +73,7 @@ test.describe("Recurring events", () => {
   });
 
   test("recurring event detail shows recurrence info", async ({ page }) => {
+    await openSeededTeam(page);
     await page.getByPlaceholder("Search events...").fill(SEEDED_RECURRING);
     const recurringRow = page
       .getByRole("row")

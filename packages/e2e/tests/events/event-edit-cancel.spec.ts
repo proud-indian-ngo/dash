@@ -1,14 +1,18 @@
 import { expect, test } from "../../fixtures/test";
 import { pickDate } from "../../helpers/date-time-picker";
 import { waitForToastsToClear } from "../../helpers/event-form";
-import { openSeededTeam, searchTeamEvents } from "../../helpers/team-event";
+import {
+  SANDBOX_TEAM,
+  openSeededTeam,
+  searchTeamEvents,
+} from "../../helpers/team-event";
 import { ListPage } from "../../pages/list-page";
 
 test.describe("Event edit and cancel (admin)", () => {
   test.beforeEach(async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
-    await openSeededTeam(page);
+    await openSeededTeam(page, SANDBOX_TEAM);
   });
 
   test("edits an existing event name and location", async ({ page }) => {

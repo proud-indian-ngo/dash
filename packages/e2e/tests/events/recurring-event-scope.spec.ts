@@ -4,7 +4,11 @@ import {
   openAdvancedSettings,
   waitForToastsToClear,
 } from "../../helpers/event-form";
-import { openSeededTeam, searchTeamEvents } from "../../helpers/team-event";
+import {
+  SANDBOX_TEAM,
+  openSeededTeam,
+  searchTeamEvents,
+} from "../../helpers/team-event";
 import { ListPage } from "../../pages/list-page";
 
 test.describe("Recurring event edit/cancel scope", () => {
@@ -13,7 +17,7 @@ test.describe("Recurring event edit/cancel scope", () => {
   test.beforeEach(async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
-    await openSeededTeam(page);
+    await openSeededTeam(page, SANDBOX_TEAM);
   });
 
   test("edit recurring event shows scope dialog, 'This event only' opens form", async ({
@@ -84,6 +88,7 @@ test.describe("Recurring event edit/cancel scope", () => {
 
   test("cancel recurring event shows scope dialog", async ({ page }) => {
     // The seeded weekly event; the dialog is closed without cancelling
+    await openSeededTeam(page);
     await searchTeamEvents(page, "E2E Upcoming Recurring Public");
     const recurringRow = page
       .getByRole("row")

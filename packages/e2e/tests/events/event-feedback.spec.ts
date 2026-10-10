@@ -2,6 +2,7 @@ import { expect, test } from "../../fixtures/test";
 import { pickDate } from "../../helpers/date-time-picker";
 import { openAdvancedSettings } from "../../helpers/event-form";
 import {
+  SANDBOX_TEAM,
   openPublicEvent,
   openSeededTeam,
   searchTeamEvents,
@@ -19,7 +20,7 @@ test.describe("Event feedback — admin", () => {
   }) => {
     test.slow();
 
-    await openSeededTeam(page);
+    await openSeededTeam(page, SANDBOX_TEAM);
 
     // Create a past event with feedback enabled
     const pastEventName = `E2E Feedback Event ${Date.now()}`;
