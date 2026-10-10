@@ -1,13 +1,8 @@
-import {
-  Cancel01Icon,
-  MoreVerticalIcon,
-  Tick02Icon,
-} from "@hugeicons/core-free-icons";
+import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import type { FilterField } from "@pi-dash/design-system/components/reui/filters/filters-types";
-import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
@@ -18,6 +13,7 @@ import {
   selectField,
 } from "@/components/data-table/filter-fields";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { RowActionsButton } from "@/components/shared/row-actions-button";
 
 export interface AttendeeRow {
   id: string;
@@ -271,20 +267,9 @@ export function AttendeesTable({
           <ResponsiveActionMenu
             title={`${row.original.name} actions`}
             trigger={
-              <Button
+              <RowActionsButton
                 aria-label={`Actions for ${row.original.name}`}
-                onKeyDown={(event) => event.stopPropagation()}
-                data-testid="row-actions"
-                className="size-7"
-                size="icon"
-                variant="ghost"
-              >
-                <HugeiconsIcon
-                  icon={MoreVerticalIcon}
-                  className="size-4"
-                  strokeWidth={2}
-                />
-              </Button>
+              />
             }
             actions={[
               {

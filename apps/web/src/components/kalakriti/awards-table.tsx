@@ -1,11 +1,8 @@
-import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type {
   DataGridColumnDef,
   DataGridRow,
 } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
-import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type {
@@ -25,7 +22,9 @@ import {
   STATUS_LABELS,
   TYPE_LABELS,
 } from "@/components/kalakriti/awards-table-utils";
+import { InlineMetaCell } from "@/components/shared/inline-meta-cell";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
 const GENDER_LABELS = { female: "Female", male: "Male" } as const;
 
@@ -52,21 +51,10 @@ function AwardStatusBadge({ entry }: { entry: KalakritiAwardEntry }) {
 
 function actionTrigger(label: string) {
   return (
-    <Button
+    <RowActionsButton
       aria-label={`Actions for ${label}`}
-      className="size-8"
-      data-testid="row-actions"
       onClick={(event) => event.stopPropagation()}
-      size="icon"
-      type="button"
-      variant="ghost"
-    >
-      <HugeiconsIcon
-        className="size-4"
-        icon={MoreVerticalIcon}
-        strokeWidth={2}
-      />
-    </Button>
+    />
   );
 }
 
@@ -290,18 +278,19 @@ export function AwardsTable({
           const { original } = row;
           const member = original.members[0];
           return (
-            <div className="grid gap-0.5">
-              <span className="font-medium" data-testid="row-title">
-                {original.type === "group"
-                  ? `${original.members.length} students`
-                  : (member?.name ?? "Student unavailable")}
-              </span>
-              {original.type === "individual" && member ? (
-                <span className="text-muted-foreground font-mono text-xs">
-                  {member.humanId}
+            <InlineMetaCell
+              mono
+              primary={
+                <span data-testid="row-title">
+                  {original.type === "group"
+                    ? `${original.members.length} students`
+                    : (member?.name ?? "Student unavailable")}
                 </span>
-              ) : null}
-            </div>
+              }
+              secondary={
+                original.type === "individual" ? member?.humanId : undefined
+              }
+            />
           );
         },
         header: ({ column }) => (

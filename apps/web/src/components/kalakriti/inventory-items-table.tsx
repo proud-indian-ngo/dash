@@ -1,5 +1,3 @@
-import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import type { FilterField } from "@pi-dash/design-system/components/reui/filters/filters-types";
@@ -17,6 +15,7 @@ import { useMemo } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { formatINR } from "@/lib/form-schemas";
 import { getKalakritiInventoryPhotoUrl } from "@/lib/kalakriti-inventory-upload";
 
@@ -203,19 +202,7 @@ export function InventoryItemsTable({
             <ResponsiveActionMenu
               title={`${item.name} actions`}
               trigger={
-                <Button
-                  aria-label={`Actions for ${item.name}`}
-                  data-testid="row-actions"
-                  className="size-7"
-                  size="icon"
-                  variant="ghost"
-                >
-                  <HugeiconsIcon
-                    icon={MoreVerticalIcon}
-                    className="size-4"
-                    strokeWidth={2}
-                  />
-                </Button>
+                <RowActionsButton aria-label={`Actions for ${item.name}`} />
               }
               actions={[
                 {

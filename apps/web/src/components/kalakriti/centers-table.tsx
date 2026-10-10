@@ -1,8 +1,5 @@
-import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
-import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
@@ -19,6 +16,7 @@ import {
 } from "@/components/kalakriti/kalakriti-filters";
 import { ParticipationComplianceBadge } from "@/components/kalakriti/participation-compliance-badge";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { StatusBadge } from "@/components/shared/status-badge";
 import type { ParticipationCompliance } from "@/lib/kalakriti-participation-compliance";
 
@@ -99,21 +97,10 @@ function RowActions({
     <ResponsiveActionMenu
       title={`${center.name} actions`}
       trigger={
-        <Button
+        <RowActionsButton
           aria-label={`Actions for ${center.name}`}
-          className="size-8"
-          data-testid="row-actions"
           onClick={stopRowClick}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <HugeiconsIcon
-            className="size-4"
-            icon={MoreVerticalIcon}
-            strokeWidth={2}
-          />
-        </Button>
+        />
       }
       actions={[
         { id: "view", label: "View details", onSelect: handleView },

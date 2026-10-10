@@ -1,9 +1,7 @@
-import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { RowActionsButton } from "@/components/shared/row-actions-button";
 
 export interface EventActionsMenuProps {
   canCancel: boolean;
@@ -32,23 +30,7 @@ export function EventActionsMenu({
     <ResponsiveActionMenu
       title="Event actions"
       contentClassName="w-32"
-      trigger={
-        <Button
-          aria-label="Row actions"
-          className="size-8"
-          data-testid="row-actions"
-          onClick={stableOnClick0}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <HugeiconsIcon
-            className="size-4"
-            icon={MoreVerticalIcon}
-            strokeWidth={2}
-          />
-        </Button>
-      }
+      trigger={<RowActionsButton onClick={stableOnClick0} />}
       actions={[
         { id: "view", label: "View", onSelect: onSelectEvent },
         canCreate && {

@@ -1,5 +1,13 @@
 import { expect, type Locator } from "@playwright/test";
 
+// `isHidden` ignores its timeout and checks once, so wait for the state instead.
+function waitUntilHidden(dialog: Locator, timeout: number) {
+  return dialog
+    .waitFor({ state: "hidden", timeout })
+    .then(() => true)
+    .catch(() => false);
+}
+
 export async function clickUntilDialogCloses(
   dialog: Locator,
   buttonName: string | RegExp
@@ -12,7 +20,7 @@ export async function clickUntilDialogCloses(
   await dialog
     .locator("form")
     .evaluate((form: HTMLFormElement) => form.requestSubmit());
-  if (await dialog.isHidden({ timeout: 30_000 }).catch(() => false)) {
+  if (await waitUntilHidden(dialog, 30_000)) {
     return;
   }
 
@@ -22,7 +30,7 @@ export async function clickUntilDialogCloses(
     .catch(() => {
       // The dialog may already be detached after the submit completes.
     });
-  if (await dialog.isHidden({ timeout: 5000 }).catch(() => false)) {
+  if (await waitUntilHidden(dialog, 5000)) {
     return;
   }
 

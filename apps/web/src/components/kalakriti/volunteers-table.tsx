@@ -1,12 +1,7 @@
-import {
-  Cancel01Icon,
-  MoreVerticalIcon,
-  Tick02Icon,
-} from "@hugeicons/core-free-icons";
+import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
-import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
@@ -28,6 +23,7 @@ import {
 } from "@/components/kalakriti/kalakriti-filters";
 import { Loader } from "@/components/loader";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
 
 import { useTransportStatusSnapshot } from "./use-transport-status-snapshot";
@@ -155,21 +151,10 @@ function RowActions({
     <ResponsiveActionMenu
       title={`${volunteer.snapshotName} actions`}
       trigger={
-        <Button
+        <RowActionsButton
           aria-label={`Actions for ${volunteer.snapshotName}`}
-          className="size-8"
-          data-testid="row-actions"
           onClick={stopRowClick}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <HugeiconsIcon
-            className="size-4"
-            icon={MoreVerticalIcon}
-            strokeWidth={2}
-          />
-        </Button>
+        />
       }
       contentClassName="w-56"
       actions={[

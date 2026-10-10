@@ -1,8 +1,5 @@
-import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
-import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { Link } from "@tanstack/react-router";
@@ -19,9 +16,13 @@ import {
   useMigrateLegacyReimbursementFilterParams,
 } from "@/components/reimbursements/reimbursement-filters";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import {
+  USER_CELL_SKELETON,
+  UserCell,
+} from "@/components/shared/inline-meta-cell";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
-import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { useApp } from "@/context/app-context";
 import { authClient } from "@/lib/auth-client";
@@ -40,15 +41,7 @@ function computeTotal(lineItems: RequestRow["lineItems"]): number {
 }
 
 const SKELETON_TITLE = <Skeleton className="h-5 w-40" />;
-const SKELETON_CREATED_BY = (
-  <div className="flex items-center gap-3">
-    <Skeleton className="size-8 rounded-full" />
-    <div className="space-y-1">
-      <Skeleton className="h-4 w-24" />
-      <Skeleton className="h-3 w-32" />
-    </div>
-  </div>
-);
+const SKELETON_CREATED_BY = USER_CELL_SKELETON;
 const SKELETON_STATUS = <Skeleton className="h-6 w-16" />;
 const SKELETON_TOTAL = <Skeleton className="h-5 w-20" />;
 const SKELETON_DATE = <Skeleton className="h-5 w-24" />;
@@ -84,23 +77,7 @@ function RowActions({
     <ResponsiveActionMenu
       title={`${request.title} actions`}
       contentClassName="w-32"
-      trigger={
-        <Button
-          aria-label="Row actions"
-          className="size-8"
-          data-testid="row-actions"
-          onClick={stableOnClick0}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <HugeiconsIcon
-            className="size-4"
-            icon={MoreVerticalIcon}
-            strokeWidth={2}
-          />
-        </Button>
-      }
+      trigger={<RowActionsButton onClick={stableOnClick0} />}
       actions={[
         {
           id: "view",
@@ -272,17 +249,7 @@ export function ReimbursementsTable({
         }
         return (
           <UserHoverCard user={user}>
-            <div className="flex min-w-0 items-center gap-3">
-              <UserAvatar className="size-8" user={user} />
-              <div className="min-w-0 space-y-px">
-                <div className="text-foreground truncate text-sm font-medium">
-                  {user.name}
-                </div>
-                <div className="text-muted-foreground truncate text-xs">
-                  {user.email}
-                </div>
-              </div>
-            </div>
+            <UserCell user={user} />
           </UserHoverCard>
         );
       },

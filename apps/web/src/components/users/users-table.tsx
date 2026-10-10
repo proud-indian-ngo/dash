@@ -1,6 +1,3 @@
-import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { User } from "@pi-dash/zero/schema";
 import type { ColumnVisibilityState } from "@tanstack/react-table";
@@ -12,6 +9,7 @@ import { optionsFromRows } from "@/components/data-table/filter-fields";
 import { FormModal } from "@/components/form/form-modal";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { BanUserForm } from "@/components/users/ban-user-form";
 import { PasswordForm } from "@/components/users/password-form";
 import {
@@ -141,23 +139,7 @@ function UserActionsMenu({
     <ResponsiveActionMenu
       title={`${user.name} actions`}
       contentClassName="w-40"
-      trigger={
-        <Button
-          aria-label="Row actions"
-          className="size-8"
-          data-testid="row-actions"
-          onClick={stableOnClick0}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <HugeiconsIcon
-            className="size-4"
-            icon={MoreVerticalIcon}
-            strokeWidth={2}
-          />
-        </Button>
-      }
+      trigger={<RowActionsButton onClick={stableOnClick0} />}
       actions={[
         { id: "edit", label: "Edit", onSelect: stableOnClick1 },
         {

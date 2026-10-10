@@ -1,8 +1,5 @@
-import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
-import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { useNavigate } from "@tanstack/react-router";
@@ -16,7 +13,9 @@ import {
   useMigrateLegacyRoleFilterParams,
 } from "@/components/roles/role-filters";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { InlineMetaCell } from "@/components/shared/inline-meta-cell";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { Tag } from "@/components/shared/status-badge";
 import type { RoleListItem } from "@/functions/role-admin";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
@@ -54,22 +53,7 @@ function RowActions({
     <ResponsiveActionMenu
       title={`${role.name} actions`}
       contentClassName="w-32"
-      trigger={
-        <Button
-          aria-label="Row actions"
-          data-testid="row-actions"
-          onClick={stableOnClick0}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <HugeiconsIcon
-            className="size-4"
-            icon={MoreVerticalIcon}
-            strokeWidth={2}
-          />
-        </Button>
-      }
+      trigger={<RowActionsButton onClick={stableOnClick0} />}
       actions={[
         {
           id: "edit",
@@ -133,14 +117,11 @@ export function RolesTable({
     {
       accessorFn: (row) => row.name,
       cell: ({ row }) => (
-        <div className="min-w-0">
-          <div className="truncate text-sm font-medium">
-            {row.original.name}
-          </div>
-          <div className="text-muted-foreground truncate text-xs">
-            {row.original.id}
-          </div>
-        </div>
+        <InlineMetaCell
+          mono
+          primary={row.original.name}
+          secondary={row.original.id}
+        />
       ),
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="Name" visibility={true} />

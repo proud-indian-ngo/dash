@@ -5,8 +5,8 @@ import { format } from "date-fns";
 import capitalize from "lodash/capitalize";
 import type { ReactNode } from "react";
 
+import { UserCell } from "@/components/shared/inline-meta-cell";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
-import { UserAvatar } from "@/components/shared/user-avatar";
 import {
   SKELETON_ACTIVE,
   SKELETON_BAN_EXPIRES,
@@ -31,19 +31,7 @@ export function createUserColumns(
   return [
     {
       accessorFn: (row) => row.name,
-      cell: ({ row }) => (
-        <div className="flex min-w-0 items-center gap-3">
-          <UserAvatar className="size-8" user={row.original} />
-          <div className="min-w-0 space-y-px">
-            <div className="text-foreground truncate font-medium">
-              {row.original.name}
-            </div>
-            <div className="text-muted-foreground truncate text-xs">
-              {row.original.email}
-            </div>
-          </div>
-        </div>
-      ),
+      cell: ({ row }) => <UserCell user={row.original} />,
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="User" visibility={true} />
       ),
@@ -53,7 +41,7 @@ export function createUserColumns(
         headerTitle: "User",
         skeleton: SKELETON_NAME,
       },
-      size: 240,
+      size: 340,
     },
     {
       accessorFn: (row) => row.role ?? "volunteer",

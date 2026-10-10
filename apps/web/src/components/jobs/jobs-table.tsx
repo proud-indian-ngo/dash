@@ -1,13 +1,7 @@
-import {
-  Cancel01Icon,
-  MoreVerticalIcon,
-  RepeatIcon,
-  ViewIcon,
-} from "@hugeicons/core-free-icons";
+import { Cancel01Icon, RepeatIcon, ViewIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
-import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { MouseEvent, ReactNode } from "react";
@@ -18,6 +12,7 @@ import { getStateBadge } from "@/components/jobs/job-detail-sheet";
 import { createJobFilterFields } from "@/components/jobs/job-filters";
 import type { JobRow } from "@/components/jobs/job-stats";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatTimestamp } from "@/lib/date-formats";
 
@@ -181,23 +176,7 @@ function JobActions({
     <ResponsiveActionMenu
       title={`${job.name} actions`}
       contentClassName="w-40"
-      trigger={
-        <Button
-          aria-label="Row actions"
-          className="size-8"
-          data-testid="row-actions"
-          onClick={stopPropagation}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <HugeiconsIcon
-            className="size-4"
-            icon={MoreVerticalIcon}
-            strokeWidth={2}
-          />
-        </Button>
-      }
+      trigger={<RowActionsButton onClick={stopPropagation} />}
       actions={[
         {
           id: "view",

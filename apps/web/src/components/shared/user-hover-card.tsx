@@ -63,7 +63,7 @@ export function UserHoverCard({
           <div
             className={
               triggerClassName ??
-              "inline-flex cursor-pointer [@media(pointer:coarse)]:pointer-events-none"
+              "inline-flex max-w-full cursor-pointer align-middle [@media(pointer:coarse)]:pointer-events-none"
             }
           />
         }

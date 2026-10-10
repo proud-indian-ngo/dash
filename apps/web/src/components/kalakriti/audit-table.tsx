@@ -5,6 +5,7 @@ import { type ReactNode, useMemo } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { createKalakritiAuditFilterFields } from "@/components/kalakriti/kalakriti-audit-filters";
+import { InlineMetaCell } from "@/components/shared/inline-meta-cell";
 import { Tag } from "@/components/shared/status-badge";
 import { formatAuditLabel } from "@/lib/kalakriti-audit-policy";
 
@@ -50,16 +51,11 @@ function createColumns(
     {
       accessorFn: (row) => row.actorName ?? "System",
       cell: ({ row }) => (
-        <div className="min-w-0">
-          <div className="truncate font-medium">
-            {row.original.actorName ?? "System or deleted user"}
-          </div>
-          {row.original.actorUserId ? (
-            <div className="text-muted-foreground truncate text-xs">
-              {row.original.actorUserId}
-            </div>
-          ) : null}
-        </div>
+        <InlineMetaCell
+          mono
+          primary={row.original.actorName ?? "System or deleted user"}
+          secondary={row.original.actorUserId}
+        />
       ),
       enableSorting: false,
       header: ({ column }) => (
@@ -106,14 +102,12 @@ function createColumns(
     {
       accessorFn: (row) => `${row.targetType} ${row.targetId ?? ""}`,
       cell: ({ row }) => (
-        <div className="min-w-0">
-          <div>{formatAuditLabel(row.original.targetType)}</div>
-          {row.original.targetId ? (
-            <div className="text-muted-foreground truncate text-xs">
-              {row.original.targetId}
-            </div>
-          ) : null}
-        </div>
+        <InlineMetaCell
+          mono
+          primary={formatAuditLabel(row.original.targetType)}
+          primaryClassName="font-normal"
+          secondary={row.original.targetId}
+        />
       ),
       enableSorting: false,
       header: ({ column }) => (
