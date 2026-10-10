@@ -379,7 +379,6 @@ function DataTableWrapperBase<TData extends object>({
     areaRef: scrollAreaRef,
     enabled: isAutoSize,
     hasRows: data.length > 0,
-    minimum: defaultPageSize,
   });
   const tablePagination = isAutoSize
     ? { ...pagination, pageSize: fittedPageSize ?? defaultPageSize }
