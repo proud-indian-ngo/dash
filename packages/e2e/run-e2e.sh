@@ -51,6 +51,10 @@ case "$E2E_SERVER" in
   *) echo "ERROR: E2E_SERVER must be production or dev"; exit 1 ;;
 esac
 
+# Serialize runs that share this checkout (see process-cleanup.sh).
+acquire_e2e_run_lock "$REPO_ROOT/packages/e2e/.run-e2e.lock"
+trap release_e2e_run_lock EXIT
+
 # Compute worktree-aware ports
 WT_ID=$(get_worktree_id)
 compute_ports "$WT_ID"
@@ -149,6 +153,7 @@ cleanup() {
     cleanup_failed=1
   fi
   rm -f "$E2E_COMPOSE_FILE"
+  release_e2e_run_lock
   echo "E2E total: $((SECONDS - RUN_STARTED))s (including teardown)"
 
   return "$cleanup_failed"
