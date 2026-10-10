@@ -37,3 +37,21 @@ export async function openSeededTeamEvent(page: Page, eventName: string) {
   await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
   await waitForZeroReady(page);
 }
+
+/** Opens a public event from the /events cards by its name. */
+export async function openPublicEvent(page: Page, eventName: string) {
+  await page.goto("/events");
+  await expect(
+    page.getByRole("heading", { exact: true, name: "Events" })
+  ).toBeVisible({ timeout: 10_000 });
+  await waitForZeroReady(page);
+  await page
+    .getByRole("link", { exact: true, name: eventName })
+    .first()
+    .click();
+  await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
+    timeout: 10_000,
+  });
+  await waitForZeroReady(page);
+}

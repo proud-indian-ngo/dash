@@ -1,134 +1,78 @@
 import { expect, test } from "../../fixtures/test";
+import { openPublicEvent, openSeededTeamEvent } from "../../helpers/team-event";
 
-test.describe("Event interest flow", () => {
-  test("volunteer sees Show Interest button on public events", async ({
-    page,
-  }, testInfo) => {
+/** Public, upcoming, in a team the volunteer is not in. */
+const OPEN_EVENT = "E2E Open Interest Event";
+/** Holds a pending request from the unoriented volunteer that no test decides. */
+const PENDING_EVENT = "E2E Upcoming Event With Pending Interests";
+
+test.describe("Event interest flow (volunteer)", () => {
+  test.describe.configure({ mode: "serial" });
+
+  test.beforeEach(async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
-
-    await page.goto("/events");
-    await expect(
-      page.getByRole("heading", { exact: true, name: "Events" })
-    ).toBeVisible({
-      timeout: 10_000,
-    });
-
-    // At least one "Show Interest" button should be visible
-    const showInterestButton = page.getByRole("button", {
-      name: "Show Interest",
-    });
-    if ((await showInterestButton.count()) > 0) {
-      await expect(showInterestButton.first()).toBeVisible();
-    }
+    await openPublicEvent(page, OPEN_EVENT);
   });
 
-  test("volunteer can open and close interest dialog", async ({
-    page,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
-
-    await page.goto("/events");
-    await expect(
-      page.getByRole("heading", { exact: true, name: "Events" })
-    ).toBeVisible({
-      timeout: 10_000,
-    });
-
-    const showInterestButton = page.getByRole("button", {
-      name: "Show Interest",
-    });
-    if ((await showInterestButton.count()) === 0) {
-      test.skip(true, "No public events available to show interest in");
-      return;
-    }
-
-    await showInterestButton.first().click();
-
-    // Dialog should appear
-    await expect(
-      page.getByRole("heading", { name: "Show Interest" })
-    ).toBeVisible();
-
-    // Message textarea should be present
-    await expect(page.getByLabel("Message (optional)")).toBeVisible();
-
-    // Cancel button should close the dialog
-    await page.getByRole("button", { name: "Cancel" }).click();
-    await expect(
-      page.getByRole("heading", { name: "Show Interest" })
-    ).not.toBeVisible();
-  });
-
-  test("volunteer can submit interest", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
-
-    await page.goto("/events");
-    await expect(
-      page.getByRole("heading", { exact: true, name: "Events" })
-    ).toBeVisible({
-      timeout: 10_000,
-    });
-
-    const showInterestButton = page.getByRole("button", {
-      name: "Show Interest",
-    });
-    if ((await showInterestButton.count()) === 0) {
-      test.skip(true, "No public events available to show interest in");
-      return;
-    }
-
-    await showInterestButton.first().click();
-    await expect(
-      page.getByRole("heading", { name: "Show Interest" })
-    ).toBeVisible();
-
-    // Optionally fill in message
+  test("opens and closes the interest dialog", async ({ page }) => {
     await page
+      .getByRole("button", { exact: true, name: "Show Interest" })
+      .click();
+    const dialog = page.getByRole("dialog");
+    await expect(
+      dialog.getByRole("heading", { name: "Show Interest" })
+    ).toBeVisible();
+    await expect(dialog.getByLabel("Message (optional)")).toBeVisible();
+
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden();
+  });
+
+  test("submits interest, then cancels it", async ({ page }) => {
+    await page
+      .getByRole("button", { exact: true, name: "Show Interest" })
+      .click();
+    const dialog = page.getByRole("dialog");
+    await dialog
       .getByLabel("Message (optional)")
       .fill("I would like to volunteer!");
+    await dialog.getByRole("button", { name: "Submit Interest" }).click();
+    await expect(dialog).toBeHidden({ timeout: 5000 });
 
-    // Submit
-    await page.getByRole("button", { name: "Submit Interest" }).click();
+    const cancel = page.getByRole("button", { name: "Cancel Interest" });
+    await expect(cancel).toBeVisible({ timeout: 10_000 });
 
-    // Dialog should close and a status badge should appear
+    // Withdraw it so the event is open again for the next run
+    await cancel.click();
+    await expect(page.getByText("Interest cancelled")).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Show Interest" })
-    ).not.toBeVisible({ timeout: 5000 });
+      page.getByRole("button", { exact: true, name: "Show Interest" })
+    ).toBeVisible({ timeout: 10_000 });
   });
+});
 
-  test("admin sees interest requests on event detail", async ({
+test.describe("Event interest requests (admin)", () => {
+  test("admin sees a pending request with Approve and Reject", async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
+    test.slow();
+    await openSeededTeamEvent(page, PENDING_EVENT);
 
-    await page.goto("/events");
-    await expect(
-      page.getByRole("heading", { exact: true, name: "Events" })
-    ).toBeVisible({
+    await expect(page.getByText(/Interest Requests \(\d+\)/)).toBeVisible({
       timeout: 10_000,
     });
-
-    // Click first event name link in the table
-    const eventLink = page
-      .getByRole("table")
-      .getByRole("link")
-      .filter({ hasText: /.+/ });
-    if ((await eventLink.count()) === 0) {
-      test.skip(true, "No public events found");
-      return;
-    }
-
-    await eventLink.first().click();
-
-    // Should be on event detail page
-    await expect(page.getByText("Volunteers")).toBeVisible({ timeout: 10_000 });
-
-    // If there are pending interests, the Interest Requests section should be visible
-    const interestSection = page.getByText("Interest Requests");
-    if (await interestSection.isVisible()) {
-      // Approve and reject buttons should be present
-      await expect(page.getByRole("button", { name: "Approve" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "Reject" })).toBeVisible();
-    }
+    await expect(
+      page.getByRole("button", {
+        exact: true,
+        name: "Approve Test Unoriented Volunteer",
+      })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", {
+        exact: true,
+        name: "Reject Test Unoriented Volunteer",
+      })
+    ).toBeVisible();
   });
 });

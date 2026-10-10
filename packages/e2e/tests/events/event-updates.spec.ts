@@ -1,4 +1,5 @@
 import { expect, test } from "../../fixtures/test";
+import { pickDate } from "../../helpers/date-time-picker";
 import { openSeededTeam, openSeededTeamEvent } from "../../helpers/team-event";
 
 test.describe("Event updates CRUD (admin)", () => {
@@ -6,11 +7,7 @@ test.describe("Event updates CRUD (admin)", () => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
   });
 
-  // This used to skip silently: it looked for a team link named "E2E Team",
-  // which no longer exists. With navigation fixed it reaches the create form,
-  // which now picks Start Time with a date-time picker instead of a text
-  // input, so the rest of the flow needs rewriting.
-  test.fixme("creates a past event and posts, edits, and deletes an update", async ({
+  test("creates a past event and posts, edits, and deletes an update", async ({
     page,
   }) => {
     test.slow();
@@ -23,26 +20,25 @@ test.describe("Event updates CRUD (admin)", () => {
     const createDialog = page.getByRole("dialog");
     await expect(createDialog).toBeVisible();
 
-    await createDialog.getByLabel("Name", { exact: true }).fill(pastEventName);
-
-    const yesterday = new Date(Date.now() - 86_400_000);
     await createDialog
-      .getByLabel("Start Time")
-      .fill(yesterday.toISOString().slice(0, 16));
+      .getByRole("textbox", { exact: true, name: "Name" })
+      .fill(pastEventName);
 
-    // Make it public so we can navigate to it
-    await createDialog.getByLabel("Public").check();
+    await pickDate(
+      createDialog,
+      "Start Time",
+      new Date(Date.now() - 86_400_000)
+    );
 
     await createDialog
       .getByRole("button", { exact: true, name: "Create" })
       .click();
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
-    await expect(page.getByText(pastEventName)).toBeVisible({
-      timeout: 10_000,
-    });
 
-    // Click the event name to go to detail page
+    // The list is paged by date, so search for the new event before opening it
+    await page.getByPlaceholder("Search events...").fill(pastEventName);
     const eventCell = page.getByRole("cell").filter({ hasText: pastEventName });
+    await expect(eventCell).toBeVisible({ timeout: 10_000 });
     await eventCell.getByRole("button").first().click();
     await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
 
@@ -69,18 +65,22 @@ test.describe("Event updates CRUD (admin)", () => {
     });
 
     // ---- EDIT UPDATE ----
-    await page
-      .getByRole("button", { exact: true, name: "Edit" })
-      .first()
-      .click();
+    // The page header has its own Edit (for the event); the update's actions
+    // sit in its "Update actions" menu.
+    await page.getByRole("button", { name: "Update actions" }).first().click();
+    await page.getByRole("menuitem", { exact: true, name: "Edit" }).click();
 
-    const editEditor = page.locator("[data-slate-editor]");
+    // The composer stays on the page, so pick the editor holding this update
+    const editEditor = page
+      .locator("[data-slate-editor]")
+      .filter({ hasText: "This is an E2E test update" });
     await expect(editEditor).toBeVisible();
     await editEditor.click();
     await page.keyboard.press("ControlOrMeta+A");
     await page.keyboard.type("Updated E2E test content");
 
-    await page.getByRole("button", { name: "Save" }).click();
+    // The composer's Save comes first; the edited update's Save is last
+    await page.getByRole("button", { name: "Save" }).last().click();
     await expect(page.getByText("Update saved")).toBeVisible({
       timeout: 10_000,
     });
@@ -88,10 +88,8 @@ test.describe("Event updates CRUD (admin)", () => {
     await expect(page.getByText("(edited)")).toBeVisible({ timeout: 10_000 });
 
     // ---- DELETE UPDATE ----
-    await page
-      .getByRole("button", { exact: true, name: "Delete" })
-      .first()
-      .click();
+    await page.getByRole("button", { name: "Update actions" }).first().click();
+    await page.getByRole("menuitem", { exact: true, name: "Delete" }).click();
 
     const confirmDialog = page.getByRole("alertdialog");
     await expect(confirmDialog).toBeVisible();
@@ -99,7 +97,7 @@ test.describe("Event updates CRUD (admin)", () => {
       .getByRole("button", { exact: true, name: "Delete" })
       .click();
 
-    await expect(page.getByText("Update deleted")).toBeVisible({
+    await expect(page.getByText("Update removed")).toBeVisible({
       timeout: 10_000,
     });
 
