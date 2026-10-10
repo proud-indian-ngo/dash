@@ -164,6 +164,7 @@ export function StudentTable({
       meta: {
         compact: "primary",
         headerTitle: "Student",
+        kind: "person",
         skeleton: <Skeleton className="h-5 w-40" />,
       },
       size: 250,
@@ -183,6 +184,7 @@ export function StudentTable({
       ),
       meta: {
         headerTitle: "Center",
+        kind: "text",
         compact: "primary",
         skeleton: <Skeleton className="h-5 w-32" />,
       },
@@ -199,6 +201,7 @@ export function StudentTable({
       id: "humanId",
       meta: {
         headerTitle: "ID",
+        kind: "id",
         skeleton: <Skeleton className="h-5 w-24" />,
       },
       size: 130,
@@ -226,6 +229,7 @@ export function StudentTable({
       meta: {
         compact: "primary",
         headerTitle: "Transport status",
+        kind: "status",
         skeleton: <Skeleton className="h-5 w-28" />,
       },
       size: 170,
@@ -247,6 +251,7 @@ export function StudentTable({
       id: "dateOfBirth",
       meta: {
         headerTitle: "Date of birth",
+        kind: "date",
         skeleton: <Skeleton className="h-5 w-28" />,
       },
       size: 155,
@@ -266,6 +271,7 @@ export function StudentTable({
       id: "gender",
       meta: {
         headerTitle: "Gender",
+        kind: "tag",
         skeleton: <Skeleton className="h-5 w-16" />,
       },
       size: 110,
@@ -287,6 +293,7 @@ export function StudentTable({
       id: "ageCategory",
       meta: {
         headerTitle: "Age Category",
+        kind: "tag",
         skeleton: <Skeleton className="h-5 w-28" />,
       },
       size: 160,

@@ -44,9 +44,10 @@ function createColumns(
       meta: {
         compact: "primary",
         headerTitle: "Time",
+        kind: "date",
         skeleton: TEXT_SKELETON,
       },
-      size: 180,
+      size: 200,
     },
     {
       accessorFn: (row) => row.actorName ?? "System",
@@ -62,7 +63,7 @@ function createColumns(
         <DataGridColumnHeader column={column} title="Actor" visibility={true} />
       ),
       id: "actor",
-      meta: { headerTitle: "Actor", skeleton: TEXT_SKELETON },
+      meta: { headerTitle: "Actor", kind: "person", skeleton: TEXT_SKELETON },
       size: 190,
     },
     {
@@ -80,6 +81,7 @@ function createColumns(
       meta: {
         compact: "primary",
         headerTitle: "Action",
+        kind: "tag",
         skeleton: BADGE_SKELETON,
       },
       size: 150,
@@ -96,7 +98,7 @@ function createColumns(
         />
       ),
       id: "domain",
-      meta: { headerTitle: "Domain", skeleton: TEXT_SKELETON },
+      meta: { headerTitle: "Domain", kind: "tag", skeleton: TEXT_SKELETON },
       size: 210,
     },
     {
@@ -118,7 +120,7 @@ function createColumns(
         />
       ),
       id: "target",
-      meta: { headerTitle: "Target", skeleton: TEXT_SKELETON },
+      meta: { headerTitle: "Target", kind: "text", skeleton: TEXT_SKELETON },
       size: 220,
     },
     {
@@ -137,7 +139,7 @@ function createColumns(
         />
       ),
       id: "reason",
-      meta: { headerTitle: "Reason", skeleton: TEXT_SKELETON },
+      meta: { headerTitle: "Reason", kind: "text", skeleton: TEXT_SKELETON },
       size: 260,
     },
   ];

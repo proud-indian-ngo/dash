@@ -80,6 +80,7 @@ export function InventoryTransactionsTable({
         cell: ({ row }) => new Date(row.original.createdAt).toLocaleString(),
         meta: {
           headerTitle: "Recorded at",
+          kind: "date",
           skeleton: <Skeleton className="h-5 w-32" />,
         },
         size: 185,
@@ -138,6 +139,7 @@ export function InventoryTransactionsTable({
             : row.original.quantity,
         meta: {
           headerTitle: "Change",
+          kind: "count",
           skeleton: <Skeleton className="h-5 w-12" />,
         },
         size: 90,
@@ -155,6 +157,7 @@ export function InventoryTransactionsTable({
         cell: ({ row }) => row.original.quantityAfter,
         meta: {
           headerTitle: "Balance",
+          kind: "count",
           skeleton: <Skeleton className="h-5 w-12" />,
         },
         size: 95,

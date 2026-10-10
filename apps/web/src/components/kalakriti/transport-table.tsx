@@ -203,6 +203,7 @@ export function TransportTable({
             ),
       meta: {
         headerTitle: "Pickup time",
+        kind: "date",
         skeleton: <Skeleton className="h-5 w-28" />,
       },
       size: 210,

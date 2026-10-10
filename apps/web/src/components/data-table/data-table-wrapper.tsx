@@ -81,6 +81,7 @@ import {
   deriveColumnFill,
   TABLE_COLUMN_DEFAULTS,
 } from "./column-fill";
+import { applyColumnKinds } from "./column-kinds";
 import {
   applyCompactVisibilityChange,
   COMPACT_BREAKPOINT,
@@ -384,19 +385,20 @@ function DataTableWrapperBase<TData extends object>({
         ?.expandedContent,
     [columns]
   );
+  const kindColumns = useMemo(() => applyColumnKinds(columns), [columns]);
   const tableColumns = useMemo(() => {
     if (!isCompact) {
-      return columns;
+      return kindColumns;
     }
     const withStackedPrimary =
       compactPartition.firstPrimaryId &&
       (stackedPrimaryIds.length > 0 || trailingIds.length > 0)
-        ? columns.map((column) =>
+        ? kindColumns.map((column) =>
             resolveColumnDefId(column) === compactPartition.firstPrimaryId
               ? stackPrimaryColumn(column, stackedPrimaryIds, trailingIds)
               : column
           )
-        : columns;
+        : kindColumns;
     if (!showExpand) {
       return withStackedPrimary;
     }
@@ -421,7 +423,7 @@ function DataTableWrapperBase<TData extends object>({
     );
   }, [
     collapsedForPanel,
-    columns,
+    kindColumns,
     compactPartition.firstPrimaryId,
     existingExpandColumnId,
     existingExpandedContent,

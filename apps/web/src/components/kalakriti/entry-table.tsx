@@ -259,6 +259,7 @@ export function EntryTable({
       meta: {
         compact: "primary",
         headerTitle: "Center",
+        kind: "text",
         skeleton: <Skeleton className="h-5 w-32" />,
       },
       size: 180,
@@ -309,6 +310,7 @@ export function EntryTable({
       ),
       meta: {
         headerTitle: "Participation",
+        kind: "status",
         skeleton: <Skeleton className="h-5 w-24" />,
       },
       size: 130,
@@ -335,6 +337,7 @@ export function EntryTable({
       id: "studentId",
       meta: {
         headerTitle: "Student IDs",
+        kind: "id",
         skeleton: <Skeleton className="h-5 w-24" />,
       },
       size: 135,
@@ -360,6 +363,7 @@ export function EntryTable({
       meta: {
         compact: "primary",
         headerTitle: "Participants",
+        kind: "count",
         skeleton: <Skeleton className="h-5 w-40" />,
       },
       size: 210,
@@ -451,6 +455,7 @@ export function EntryTable({
             meta: {
               compact: "collapsed",
               headerTitle: "Liaison Lead",
+              kind: "person",
               skeleton: <Skeleton className="h-10 w-36" />,
             },
             size: 190,
@@ -474,6 +479,7 @@ export function EntryTable({
             id: "competition",
             meta: {
               headerTitle: "Competition",
+              kind: "text",
               skeleton: <Skeleton className="h-5 w-32" />,
             },
             size: 190,
@@ -494,6 +500,7 @@ export function EntryTable({
       id: "ageCategory",
       meta: {
         headerTitle: "Age Category",
+        kind: "tag",
         skeleton: <Skeleton className="h-5 w-24" />,
       },
       size: 145,
@@ -515,6 +522,7 @@ export function EntryTable({
       id: "session",
       meta: {
         headerTitle: "Session",
+        kind: "text",
         skeleton: <Skeleton className="h-5 w-28" />,
       },
       size: 175,
@@ -530,6 +538,7 @@ export function EntryTable({
       id: "venue",
       meta: {
         headerTitle: "Venue",
+        kind: "location",
         skeleton: <Skeleton className="h-5 w-24" />,
       },
       size: 160,

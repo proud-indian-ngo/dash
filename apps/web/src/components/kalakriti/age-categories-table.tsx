@@ -100,6 +100,7 @@ export function AgeCategoriesTable({
       meta: {
         compact: "primary",
         headerTitle: "Name",
+        kind: "text",
         skeleton: SKELETON_NAME,
       },
       size: 180,
@@ -135,7 +136,11 @@ export function AgeCategoriesTable({
           visibility={true}
         />
       ),
-      meta: { headerTitle: "Male / Center", skeleton: SKELETON_LIMIT },
+      meta: {
+        headerTitle: "Male / Center",
+        kind: "count",
+        skeleton: SKELETON_LIMIT,
+      },
       size: 130,
     },
     {
@@ -147,7 +152,11 @@ export function AgeCategoriesTable({
           visibility={true}
         />
       ),
-      meta: { headerTitle: "Female / Center", skeleton: SKELETON_LIMIT },
+      meta: {
+        headerTitle: "Female / Center",
+        kind: "count",
+        skeleton: SKELETON_LIMIT,
+      },
       size: 140,
     },
     {
@@ -161,6 +170,7 @@ export function AgeCategoriesTable({
       ),
       meta: {
         headerTitle: "Competitions / Student",
+        kind: "count",
         skeleton: SKELETON_LIMIT,
       },
       size: 180,
@@ -176,6 +186,7 @@ export function AgeCategoriesTable({
       ),
       meta: {
         headerTitle: "Per Competition Category",
+        kind: "count",
         skeleton: SKELETON_LIMIT,
       },
       size: 190,

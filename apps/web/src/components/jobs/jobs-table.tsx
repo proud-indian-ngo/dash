@@ -47,6 +47,7 @@ function createJobColumns(
       meta: {
         compact: "primary",
         headerTitle: "Queue",
+        kind: "tag",
         skeleton: SKELETON_QUEUE,
       },
       size: 200,
@@ -64,6 +65,7 @@ function createJobColumns(
       meta: {
         compact: "primary",
         headerTitle: "State",
+        kind: "status",
         skeleton: SKELETON_STATE,
       },
       size: 120,
@@ -80,6 +82,7 @@ function createJobColumns(
       id: "createdOn",
       meta: {
         headerTitle: "Created",
+        kind: "date",
         skeleton: SKELETON_DATE,
       },
       size: 180,
@@ -96,6 +99,7 @@ function createJobColumns(
       id: "startAfter",
       meta: {
         headerTitle: "Scheduled For",
+        kind: "date",
         skeleton: SKELETON_DATE,
       },
       size: 180,
@@ -112,6 +116,7 @@ function createJobColumns(
       id: "completedOn",
       meta: {
         headerTitle: "Completed At",
+        kind: "date",
         skeleton: SKELETON_DATE,
       },
       size: 180,

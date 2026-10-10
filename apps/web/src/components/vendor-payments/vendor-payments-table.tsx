@@ -168,6 +168,7 @@ export function VendorPaymentsTable({
       meta: {
         compact: "primary",
         headerTitle: "Title",
+        kind: "text",
         skeleton: SKELETON_TITLE,
       },
       minSize: 200,
@@ -188,7 +189,7 @@ export function VendorPaymentsTable({
         />
       ),
       id: "vendor",
-      meta: { headerTitle: "Vendor", skeleton: SKELETON_TEXT },
+      meta: { headerTitle: "Vendor", kind: "text", skeleton: SKELETON_TEXT },
       minSize: 120,
       size: 180,
     },
@@ -203,7 +204,7 @@ export function VendorPaymentsTable({
         <DataGridColumnHeader column={column} title="City" visibility={true} />
       ),
       id: "city",
-      meta: { headerTitle: "City", skeleton: SKELETON_TEXT },
+      meta: { headerTitle: "City", kind: "location", skeleton: SKELETON_TEXT },
       minSize: 100,
       size: 120,
     },
@@ -218,7 +219,7 @@ export function VendorPaymentsTable({
         <DataGridColumnHeader column={column} title="Event" visibility={true} />
       ),
       id: "event",
-      meta: { headerTitle: "Event", skeleton: SKELETON_TEXT },
+      meta: { headerTitle: "Event", kind: "text", skeleton: SKELETON_TEXT },
       minSize: 120,
       size: 180,
     },
@@ -243,7 +244,11 @@ export function VendorPaymentsTable({
         />
       ),
       id: "submittedBy",
-      meta: { headerTitle: "Submitted by", skeleton: SKELETON_USER },
+      meta: {
+        headerTitle: "Submitted by",
+        kind: "person",
+        skeleton: SKELETON_USER,
+      },
       minSize: 180,
       size: 220,
     },
@@ -262,7 +267,7 @@ export function VendorPaymentsTable({
         />
       ),
       id: "total",
-      meta: { headerTitle: "Amount", skeleton: SKELETON_TOTAL },
+      meta: { headerTitle: "Amount", kind: "amount", skeleton: SKELETON_TOTAL },
       minSize: 100,
       size: 120,
     },
@@ -284,7 +289,7 @@ export function VendorPaymentsTable({
         />
       ),
       id: "submittedAt",
-      meta: { headerTitle: "Submitted", skeleton: SKELETON_TEXT },
+      meta: { headerTitle: "Submitted", kind: "date", skeleton: SKELETON_TEXT },
       size: 130,
     },
     {
@@ -304,6 +309,7 @@ export function VendorPaymentsTable({
       meta: {
         compact: "primary",
         headerTitle: "Status",
+        kind: "status",
         skeleton: SKELETON_STATUS,
       },
       size: 170,

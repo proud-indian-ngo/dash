@@ -189,6 +189,7 @@ export function AttendeesTable({
         meta: {
           compact: "primary" as const,
           headerTitle: "Name",
+          kind: "text",
           skeleton: <Skeleton className="h-5 w-28" />,
         },
       } as DataGridColumnDef<AttendeeRow>,
@@ -217,6 +218,7 @@ export function AttendeesTable({
         ...text("humanId", "Yearly ID", (r) => r.humanId || "—", 190),
         meta: {
           headerTitle: "Yearly ID",
+          kind: "id",
           skeleton: <Skeleton className="h-5 w-28" />,
         },
       },

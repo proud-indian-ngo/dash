@@ -116,6 +116,7 @@ export function InventoryItemsTable({
         meta: {
           compact: "primary",
           headerTitle: "Item",
+          kind: "text",
           skeleton: <Skeleton className="h-5 w-36" />,
         },
         size: 240,
@@ -134,6 +135,7 @@ export function InventoryItemsTable({
         meta: {
           compact: "trailing",
           headerTitle: "In stock",
+          kind: "count",
           skeleton: <Skeleton className="h-5 w-12" />,
         },
         size: 120,
@@ -151,6 +153,7 @@ export function InventoryItemsTable({
         cell: ({ row }) => formatINR((row.original.unitPricePaise ?? 0) / 100),
         meta: {
           headerTitle: "Unit price",
+          kind: "amount",
           skeleton: <Skeleton className="h-5 w-20" />,
         },
         size: 140,
@@ -171,6 +174,7 @@ export function InventoryItemsTable({
           ),
         meta: {
           headerTitle: "Estimated value",
+          kind: "amount",
           skeleton: <Skeleton className="h-5 w-20" />,
         },
         size: 160,
@@ -189,6 +193,7 @@ export function InventoryItemsTable({
         meta: {
           compact: "primary",
           headerTitle: "Status",
+          kind: "status",
           skeleton: <Skeleton className="h-5 w-16" />,
         },
         size: 120,

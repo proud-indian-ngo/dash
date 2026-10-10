@@ -252,6 +252,7 @@ export function VolunteersTable({
       meta: {
         compact: "primary",
         headerTitle: "Name",
+        kind: "text",
         skeleton: SKELETON_NAME,
       },
       size: 260,
@@ -269,7 +270,7 @@ export function VolunteersTable({
         />
       ),
       id: "humanId",
-      meta: { headerTitle: "Yearly ID", skeleton: SKELETON_NAME },
+      meta: { headerTitle: "Yearly ID", kind: "id", skeleton: SKELETON_NAME },
       size: 190,
     },
     {
@@ -308,7 +309,11 @@ export function VolunteersTable({
           </span>
         );
       },
-      meta: { headerTitle: "Checked in", skeleton: SKELETON_NAME },
+      meta: {
+        headerTitle: "Checked in",
+        kind: "status",
+        skeleton: SKELETON_NAME,
+      },
       size: 170,
     },
     {
@@ -317,7 +322,7 @@ export function VolunteersTable({
         <DataGridColumnHeader column={column} title="Group" visibility={true} />
       ),
       id: "registrationGroup",
-      meta: { headerTitle: "Group", skeleton: SKELETON_NAME },
+      meta: { headerTitle: "Group", kind: "tag", skeleton: SKELETON_NAME },
       size: 160,
     },
     {
@@ -331,7 +336,7 @@ export function VolunteersTable({
         <DataGridColumnHeader column={column} title="Email" visibility={true} />
       ),
       id: "snapshotEmail",
-      meta: { headerTitle: "Email", skeleton: SKELETON_EMAIL },
+      meta: { headerTitle: "Email", kind: "email", skeleton: SKELETON_EMAIL },
       size: 240,
     },
     {
@@ -345,7 +350,7 @@ export function VolunteersTable({
         <DataGridColumnHeader column={column} title="Phone" visibility={true} />
       ),
       id: "snapshotPhone",
-      meta: { headerTitle: "Phone", skeleton: SKELETON_PHONE },
+      meta: { headerTitle: "Phone", kind: "phone", skeleton: SKELETON_PHONE },
       size: 150,
     },
     {
@@ -373,6 +378,7 @@ export function VolunteersTable({
       meta: {
         compact: "primary",
         headerTitle: "Roles",
+        kind: "tag",
         skeleton: SKELETON_ROLES,
       },
       size: 280,

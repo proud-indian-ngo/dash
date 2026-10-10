@@ -304,6 +304,7 @@ export function AwardsTable({
         meta: {
           compact: "primary",
           headerTitle: "Recipient",
+          kind: "person",
           skeleton: SKELETON_NAME,
         },
         size: 220,
@@ -321,6 +322,7 @@ export function AwardsTable({
         meta: {
           compact: "primary",
           headerTitle: "Competition",
+          kind: "text",
           skeleton: SKELETON_NAME,
         },
         size: 220,
@@ -339,6 +341,7 @@ export function AwardsTable({
         meta: {
           compact: "primary",
           headerTitle: "Award",
+          kind: "text",
           skeleton: SKELETON_TEXT,
         },
         size: 120,
@@ -353,7 +356,11 @@ export function AwardsTable({
           />
         ),
         id: "centerName",
-        meta: { headerTitle: "Center", skeleton: SKELETON_NAME },
+        meta: {
+          headerTitle: "Center",
+          kind: "text",
+          skeleton: SKELETON_NAME,
+        },
         size: 200,
       },
       {
@@ -366,7 +373,11 @@ export function AwardsTable({
           />
         ),
         id: "ageCategoryName",
-        meta: { headerTitle: "Age Category", skeleton: SKELETON_TEXT },
+        meta: {
+          headerTitle: "Age Category",
+          kind: "tag",
+          skeleton: SKELETON_TEXT,
+        },
         size: 150,
       },
       {
@@ -379,7 +390,7 @@ export function AwardsTable({
           />
         ),
         id: "type",
-        meta: { headerTitle: "Type", skeleton: SKELETON_TEXT },
+        meta: { headerTitle: "Type", kind: "tag", skeleton: SKELETON_TEXT },
         size: 120,
       },
       {
@@ -399,7 +410,7 @@ export function AwardsTable({
           />
         ),
         id: "gender",
-        meta: { headerTitle: "Gender", skeleton: SKELETON_TEXT },
+        meta: { headerTitle: "Gender", kind: "tag", skeleton: SKELETON_TEXT },
         size: 120,
       },
       {
@@ -416,6 +427,7 @@ export function AwardsTable({
         meta: {
           compact: "primary",
           headerTitle: "Status",
+          kind: "status",
           skeleton: SKELETON_TEXT,
         },
         size: 190,

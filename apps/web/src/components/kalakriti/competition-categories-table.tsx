@@ -140,6 +140,7 @@ export function CompetitionCategoriesTable({
       meta: {
         compact: "primary",
         headerTitle: "Category",
+        kind: "tag",
         skeleton: SKELETON_NAME,
       },
       size: 240,
@@ -153,7 +154,11 @@ export function CompetitionCategoriesTable({
           visibility={true}
         />
       ),
-      meta: { headerTitle: "Display order", skeleton: SKELETON_VALUE },
+      meta: {
+        headerTitle: "Display order",
+        kind: "count",
+        skeleton: SKELETON_VALUE,
+      },
       size: 130,
     },
     {
@@ -190,6 +195,7 @@ export function CompetitionCategoriesTable({
       meta: {
         compact: "primary",
         headerTitle: "Status",
+        kind: "status",
         skeleton: SKELETON_STATUS,
       },
       size: 130,

@@ -56,6 +56,7 @@ const columns: DataGridColumnDef<AuditLogRow>[] = [
     meta: {
       compact: "primary",
       headerTitle: "Time",
+      kind: "date",
       skeleton: SKELETON_TEXT,
     },
     size: 180,
@@ -73,7 +74,7 @@ const columns: DataGridColumnDef<AuditLogRow>[] = [
       <DataGridColumnHeader column={column} title="Actor" visibility={true} />
     ),
     id: "actor",
-    meta: { headerTitle: "Actor", skeleton: SKELETON_TEXT },
+    meta: { headerTitle: "Actor", kind: "person", skeleton: SKELETON_TEXT },
     size: 180,
   },
   {
@@ -89,6 +90,7 @@ const columns: DataGridColumnDef<AuditLogRow>[] = [
     meta: {
       compact: "primary",
       headerTitle: "Action",
+      kind: "tag",
       skeleton: SKELETON_TEXT,
     },
     size: 240,
@@ -108,7 +110,7 @@ const columns: DataGridColumnDef<AuditLogRow>[] = [
       <DataGridColumnHeader column={column} title="Target" visibility={true} />
     ),
     id: "target",
-    meta: { headerTitle: "Target", skeleton: SKELETON_TEXT },
+    meta: { headerTitle: "Target", kind: "text", skeleton: SKELETON_TEXT },
     size: 220,
   },
   {
@@ -123,7 +125,7 @@ const columns: DataGridColumnDef<AuditLogRow>[] = [
       <DataGridColumnHeader column={column} title="Outcome" visibility={true} />
     ),
     id: "outcome",
-    meta: { headerTitle: "Outcome", skeleton: SKELETON_BADGE },
+    meta: { headerTitle: "Outcome", kind: "status", skeleton: SKELETON_BADGE },
     size: 110,
   },
 ];

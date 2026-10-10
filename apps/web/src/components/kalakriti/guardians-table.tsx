@@ -137,6 +137,7 @@ export function GuardiansTable({
       meta: {
         compact: "primary",
         headerTitle: "Name",
+        kind: "text",
         skeleton: SKELETON_NAME,
       },
       size: 260,
@@ -176,7 +177,7 @@ export function GuardiansTable({
           visibility={true}
         />
       ),
-      meta: { headerTitle: "Yearly ID", skeleton: SKELETON_NAME },
+      meta: { headerTitle: "Yearly ID", kind: "id", skeleton: SKELETON_NAME },
       size: 190,
     },
     {
@@ -189,7 +190,7 @@ export function GuardiansTable({
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="Email" visibility={true} />
       ),
-      meta: { headerTitle: "Email", skeleton: SKELETON_EMAIL },
+      meta: { headerTitle: "Email", kind: "email", skeleton: SKELETON_EMAIL },
       size: 260,
     },
     {
@@ -202,7 +203,7 @@ export function GuardiansTable({
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="Phone" visibility={true} />
       ),
-      meta: { headerTitle: "Phone", skeleton: SKELETON_PHONE },
+      meta: { headerTitle: "Phone", kind: "phone", skeleton: SKELETON_PHONE },
       size: 160,
     },
     {
@@ -234,6 +235,7 @@ export function GuardiansTable({
       meta: {
         compact: "collapsed",
         headerTitle: "Check-in",
+        kind: "status",
         skeleton: SKELETON_STATUS,
       },
       size: 130,
@@ -255,7 +257,11 @@ export function GuardiansTable({
           visibility={true}
         />
       ),
-      meta: { headerTitle: "Status", skeleton: SKELETON_STATUS },
+      meta: {
+        headerTitle: "Status",
+        kind: "status",
+        skeleton: SKELETON_STATUS,
+      },
       size: 110,
     },
     {
