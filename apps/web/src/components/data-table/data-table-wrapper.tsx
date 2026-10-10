@@ -917,7 +917,7 @@ function DataTableWrapperBase<TData extends object>({
                       {groupBy ? (
                         <Button
                           aria-pressed={Boolean(activeGroupBy)}
-                          className="aria-pressed:bg-accent aria-pressed:text-accent-foreground"
+                          className="aria-pressed:border-brand/50 aria-pressed:bg-sidebar-accent aria-pressed:text-sidebar-accent-foreground aria-pressed:hover:bg-sidebar-accent dark:aria-pressed:border-brand/50 dark:aria-pressed:bg-sidebar-accent dark:aria-pressed:hover:bg-sidebar-accent"
                           onClick={handleGroupToggle}
                           size="sm"
                           variant="outline"
