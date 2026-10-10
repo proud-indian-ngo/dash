@@ -102,6 +102,7 @@ import {
   wrapExpandColumnWithCompactDetails,
 } from "./data-table-compact";
 import { getDataTableClassNames } from "./data-table-layout";
+import { useAutoPageSize } from "./use-auto-page-size";
 import { getSizingColumns, useTableViewportWidth } from "./use-column-fill";
 
 export interface DataTableFilterConfig<TData extends object> {
@@ -148,6 +149,9 @@ export interface DataTableWrapperProps<TData extends object> {
   toolbarActions?: ReactNode;
   toolbarFilters?: ReactNode;
 }
+
+/** `size` value meaning "fit the window"; any size picked in the menu replaces it. */
+const AUTO_PAGE_SIZE = 0;
 
 const DEFAULT_COLUMN_PINNING: ColumnPinningState = {
   end: ["actions"],
@@ -270,6 +274,8 @@ function DataTableWrapperBase<TData extends object>({
   toolbarActions,
   toolbarFilters,
 }: DataTableWrapperProps<TData> & { pageResetKey?: string }) {
+  // Server-paged callers read `size` from the URL themselves, so they keep a fixed size.
+  const autoPageSize = !manualPagination;
   const initialColumnOrder = columns
     .map(resolveColumnDefId)
     .filter((id): id is string => typeof id === "string");
@@ -301,7 +307,7 @@ function DataTableWrapperBase<TData extends object>({
       columnVisibility: defaultColumnVisibility,
       pagination: {
         pageIndex: 0,
-        pageSize: defaultPageSize,
+        pageSize: autoPageSize ? AUTO_PAGE_SIZE : defaultPageSize,
       },
       rowSelection: {},
       sorting: [],
@@ -318,6 +324,21 @@ function DataTableWrapperBase<TData extends object>({
   const { scrollAreaRef, viewportWidth } = useTableViewportWidth(
     compactOnMobile || tableLayout?.columnsResizable === true
   );
+  const isAutoSize = autoPageSize && pagination.pageSize === AUTO_PAGE_SIZE;
+  const fittedPageSize = useAutoPageSize({
+    areaRef: scrollAreaRef,
+    enabled: isAutoSize,
+    hasRows: data.length > 0,
+    minimum: defaultPageSize,
+  });
+  const tablePagination = isAutoSize
+    ? { ...pagination, pageSize: fittedPageSize ?? defaultPageSize }
+    : pagination;
+  const tablePaginationSizes = isAutoSize
+    ? [...new Set([...paginationSizes, tablePagination.pageSize])].sort(
+        (a, b) => a - b
+      )
+    : paginationSizes;
   const compactPartition = useMemo(
     () => partitionCompactColumns(toCompactColumnRefs(columns)),
     [columns]
@@ -572,8 +593,14 @@ function DataTableWrapperBase<TData extends object>({
   ) => searchFn(row.original, String(value));
 
   const onPaginationChange = (updater: Updater<PaginationState>) => {
-    const nextPagination = resolveUpdater(updater, pagination);
-    setPagination(nextPagination);
+    const nextPagination = resolveUpdater(updater, tablePagination);
+    // Keep the fitted size out of the URL until someone picks a size.
+    const keepAuto =
+      isAutoSize && nextPagination.pageSize === tablePagination.pageSize;
+    setPagination({
+      pageIndex: nextPagination.pageIndex,
+      pageSize: keepAuto ? AUTO_PAGE_SIZE : nextPagination.pageSize,
+    });
   };
 
   const onSortingChange = (updater: Updater<SortingState>) => {
@@ -610,7 +637,7 @@ function DataTableWrapperBase<TData extends object>({
         columnVisibility: tableColumnVisibility,
         expanded,
         globalFilter: localSearch,
-        pagination,
+        pagination: tablePagination,
         rowSelection,
         sorting,
       },
@@ -799,7 +826,7 @@ function DataTableWrapperBase<TData extends object>({
                     0 of 0 results
                   </span>
                 ) : (
-                  <DataGridPagination sizes={paginationSizes} />
+                  <DataGridPagination sizes={tablePaginationSizes} />
                 )}
               </CardFooter>
             </Card>
