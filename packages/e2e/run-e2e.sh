@@ -70,6 +70,18 @@ if [ -n "${E2E_STACK_INDEX:-}" ]; then
   export E2E_ZERO_PORT=$((STACK_PORT + 1))
   export E2E_ZERO_CS_PORT=$((STACK_PORT + 2))
   export E2E_DB_PORT=$((STACK_PORT + 3))
+  # The run lock means anything on these ports is left over from an earlier
+  # run in this checkout (one stopped before its teardown), so clear it first.
+  STALE_SUFFIX=""
+  [ "$WT_ID" -gt 0 ] && STALE_SUFFIX="-wt${WT_ID}"
+  STALE_CONTAINER="pi-dash-postgres-test${STALE_SUFFIX}-stack${E2E_STACK_INDEX}"
+  if docker ps -aq --filter "name=^${STALE_CONTAINER}$" | grep -q .; then
+    echo "Removing leftover E2E database container $STALE_CONTAINER"
+    docker rm -f "$STALE_CONTAINER" >/dev/null
+  fi
+  for port in "$E2E_WEB_PORT" "$E2E_ZERO_PORT" "$E2E_ZERO_CS_PORT"; do
+    stop_port_processes "$port" || true
+  done
   for port in "$E2E_WEB_PORT" "$E2E_ZERO_PORT" "$E2E_ZERO_CS_PORT" "$E2E_DB_PORT"; do
     if [ -n "$(port_listener_pids "$port")" ]; then
       echo "ERROR: stack port $port is already in use"
