@@ -128,6 +128,7 @@ export function createEventsTableColumns({
       meta: {
         compact: "primary",
         headerTitle: "Name",
+        kind: "text",
         skeleton: SKELETON_NAME,
       },
       size: 200,
@@ -149,6 +150,7 @@ export function createEventsTableColumns({
       meta: {
         compact: "primary",
         headerTitle: "Status",
+        kind: "status",
         skeleton: SKELETON_BADGE,
       },
       size: 120,
@@ -170,6 +172,7 @@ export function createEventsTableColumns({
       id: "startTime",
       meta: {
         headerTitle: "Date/Time",
+        kind: "date",
         skeleton: SKELETON_DATETIME,
       },
       size: 180,
@@ -191,6 +194,7 @@ export function createEventsTableColumns({
       id: "location",
       meta: {
         headerTitle: "Location",
+        kind: "location",
         skeleton: SKELETON_LOCATION,
       },
       size: 140,
@@ -208,6 +212,7 @@ export function createEventsTableColumns({
       id: "city",
       meta: {
         headerTitle: "City",
+        kind: "location",
         skeleton: SKELETON_LOCATION,
       },
       size: 120,
@@ -228,6 +233,7 @@ export function createEventsTableColumns({
       id: "isPublic",
       meta: {
         headerTitle: "Public",
+        kind: "tag",
         skeleton: SKELETON_BADGE,
       },
       size: 80,
@@ -252,6 +258,7 @@ export function createEventsTableColumns({
       id: "recurrence",
       meta: {
         headerTitle: "Recurrence",
+        kind: "tag",
         skeleton: SKELETON_BADGE,
       },
       size: 100,
@@ -272,6 +279,7 @@ export function createEventsTableColumns({
       id: "members",
       meta: {
         headerTitle: "Volunteers",
+        kind: "count",
         skeleton: SKELETON_COUNT,
       },
       size: 80,

@@ -186,6 +186,7 @@ export function ReimbursementsTable({
       meta: {
         compact: "primary",
         headerTitle: "Title",
+        kind: "text",
         skeleton: SKELETON_TITLE,
       },
       minSize: 200,
@@ -204,7 +205,7 @@ export function ReimbursementsTable({
         <DataGridColumnHeader column={column} title="Type" visibility={true} />
       ),
       id: "type",
-      meta: { headerTitle: "Type", skeleton: SKELETON_TYPE },
+      meta: { headerTitle: "Type", kind: "tag", skeleton: SKELETON_TYPE },
       minSize: 120,
       size: 150,
     },
@@ -219,7 +220,7 @@ export function ReimbursementsTable({
         <DataGridColumnHeader column={column} title="City" visibility={true} />
       ),
       id: "city",
-      meta: { headerTitle: "City", skeleton: SKELETON_TYPE },
+      meta: { headerTitle: "City", kind: "location", skeleton: SKELETON_TYPE },
       minSize: 100,
       size: 120,
     },
@@ -236,7 +237,7 @@ export function ReimbursementsTable({
         <DataGridColumnHeader column={column} title="Event" visibility={true} />
       ),
       id: "event",
-      meta: { headerTitle: "Event", skeleton: SKELETON_TYPE },
+      meta: { headerTitle: "Event", kind: "text", skeleton: SKELETON_TYPE },
       minSize: 120,
       size: 180,
     },
@@ -261,7 +262,11 @@ export function ReimbursementsTable({
         />
       ),
       id: "createdBy",
-      meta: { headerTitle: "Created By", skeleton: SKELETON_CREATED_BY },
+      meta: {
+        headerTitle: "Created By",
+        kind: "person",
+        skeleton: SKELETON_CREATED_BY,
+      },
       minSize: 180,
       size: 220,
     },
@@ -282,6 +287,7 @@ export function ReimbursementsTable({
       meta: {
         compact: "primary",
         headerTitle: "Status",
+        kind: "status",
         skeleton: SKELETON_STATUS,
       },
       size: 140,
@@ -296,7 +302,7 @@ export function ReimbursementsTable({
         <DataGridColumnHeader column={column} title="Total" visibility={true} />
       ),
       id: "total",
-      meta: { headerTitle: "Total", skeleton: SKELETON_TOTAL },
+      meta: { headerTitle: "Total", kind: "amount", skeleton: SKELETON_TOTAL },
       size: 120,
     },
     {
@@ -320,7 +326,11 @@ export function ReimbursementsTable({
         />
       ),
       id: "expenseDate",
-      meta: { headerTitle: "Expense Date", skeleton: SKELETON_DATE },
+      meta: {
+        headerTitle: "Expense Date",
+        kind: "date",
+        skeleton: SKELETON_DATE,
+      },
       size: 130,
     },
     {
@@ -341,7 +351,7 @@ export function ReimbursementsTable({
         />
       ),
       id: "submittedAt",
-      meta: { headerTitle: "Submitted", skeleton: SKELETON_DATE },
+      meta: { headerTitle: "Submitted", kind: "date", skeleton: SKELETON_DATE },
       size: 130,
     },
     {

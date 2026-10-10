@@ -39,6 +39,7 @@ export function createUserColumns(
       meta: {
         compact: "primary",
         headerTitle: "User",
+        kind: "person",
         skeleton: SKELETON_NAME,
       },
       size: 340,
@@ -59,6 +60,7 @@ export function createUserColumns(
       id: "role",
       meta: {
         headerTitle: "Role",
+        kind: "tag",
         skeleton: SKELETON_ROLE,
       },
       size: 120,
@@ -71,6 +73,7 @@ export function createUserColumns(
       id: "registrationGroup",
       meta: {
         headerTitle: "Group",
+        kind: "tag",
         skeleton: SKELETON_GROUP,
       },
       size: 140,
@@ -87,6 +90,7 @@ export function createUserColumns(
       id: "gender",
       meta: {
         headerTitle: "Gender",
+        kind: "tag",
         skeleton: SKELETON_GENDER,
       },
       size: 110,
@@ -104,6 +108,7 @@ export function createUserColumns(
       id: "dob",
       meta: {
         headerTitle: "DOB",
+        kind: "date",
         skeleton: SKELETON_DOB,
       },
       size: 120,
@@ -126,6 +131,7 @@ export function createUserColumns(
       meta: {
         compact: "primary",
         headerTitle: "Active",
+        kind: "status",
         skeleton: SKELETON_ACTIVE,
       },
       size: 110,
@@ -159,6 +165,7 @@ export function createUserColumns(
       id: "phone",
       meta: {
         headerTitle: "Phone",
+        kind: "phone",
         skeleton: SKELETON_PHONE,
       },
       size: 140,
@@ -180,6 +187,7 @@ export function createUserColumns(
       id: "emailVerified",
       meta: {
         headerTitle: "Email Verified",
+        kind: "status",
         skeleton: SKELETON_EMAIL_VERIFIED,
       },
       size: 130,
@@ -209,6 +217,7 @@ export function createUserColumns(
       id: "banned",
       meta: {
         headerTitle: "Banned",
+        kind: "status",
         skeleton: SKELETON_BANNED,
       },
       size: 110,
@@ -225,6 +234,7 @@ export function createUserColumns(
       id: "banReason",
       meta: {
         headerTitle: "Ban Reason",
+        kind: "text",
         skeleton: SKELETON_BAN_REASON,
       },
       size: 180,
@@ -246,6 +256,7 @@ export function createUserColumns(
       id: "banExpires",
       meta: {
         headerTitle: "Ban Expires",
+        kind: "date",
         skeleton: SKELETON_BAN_EXPIRES,
       },
       size: 180,
@@ -267,6 +278,7 @@ export function createUserColumns(
       id: "createdAt",
       meta: {
         headerTitle: "Created",
+        kind: "date",
         skeleton: SKELETON_CREATED_AT,
       },
       size: 180,
@@ -288,6 +300,7 @@ export function createUserColumns(
       id: "updatedAt",
       meta: {
         headerTitle: "Updated",
+        kind: "date",
         skeleton: SKELETON_UPDATED_AT,
       },
       size: 180,

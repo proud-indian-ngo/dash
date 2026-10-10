@@ -201,7 +201,12 @@ export function FoodTable({
             {row.original.name}
           </span>
         ),
-        meta: { compact: "primary", headerTitle: "Name", skeleton },
+        meta: {
+          compact: "primary",
+          headerTitle: "Name",
+          kind: "text",
+          skeleton,
+        },
         size: 220,
       },
       {
@@ -214,7 +219,7 @@ export function FoodTable({
             visibility={true}
           />
         ),
-        meta: { headerTitle: "Person ID", skeleton },
+        meta: { headerTitle: "Person ID", kind: "id", skeleton },
         size: 220,
       },
       {
@@ -227,7 +232,12 @@ export function FoodTable({
             visibility={true}
           />
         ),
-        meta: { compact: "primary", headerTitle: "Role", skeleton },
+        meta: {
+          compact: "primary",
+          headerTitle: "Role",
+          kind: "tag",
+          skeleton,
+        },
         size: 130,
       },
       {
@@ -240,7 +250,7 @@ export function FoodTable({
             visibility={true}
           />
         ),
-        meta: { headerTitle: "Center", skeleton },
+        meta: { headerTitle: "Center", kind: "text", skeleton },
         size: 240,
       },
       ...(

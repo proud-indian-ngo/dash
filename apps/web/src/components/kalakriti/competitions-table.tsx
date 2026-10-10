@@ -209,6 +209,7 @@ export function CompetitionsTable({
       meta: {
         compact: "primary",
         headerTitle: "Competition",
+        kind: "text",
         skeleton: SKELETON_NAME,
       },
       size: 210,
@@ -223,7 +224,11 @@ export function CompetitionsTable({
         />
       ),
       id: "ageCategories",
-      meta: { headerTitle: "Age Category", skeleton: SKELETON_VALUE },
+      meta: {
+        headerTitle: "Age Category",
+        kind: "tag",
+        skeleton: SKELETON_VALUE,
+      },
       size: 190,
     },
     {
@@ -235,7 +240,11 @@ export function CompetitionsTable({
           visibility={true}
         />
       ),
-      meta: { headerTitle: "Category", skeleton: SKELETON_CATEGORY },
+      meta: {
+        headerTitle: "Category",
+        kind: "tag",
+        skeleton: SKELETON_CATEGORY,
+      },
       size: 170,
     },
     {
@@ -252,7 +261,7 @@ export function CompetitionsTable({
           visibility={true}
         />
       ),
-      meta: { headerTitle: "Entries", skeleton: SKELETON_VALUE },
+      meta: { headerTitle: "Entries", kind: "count", skeleton: SKELETON_VALUE },
       size: 100,
     },
     {
@@ -272,6 +281,7 @@ export function CompetitionsTable({
       meta: {
         compact: "trailing",
         headerTitle: "Participants",
+        kind: "count",
         skeleton: SKELETON_VALUE,
       },
       size: 120,
@@ -281,7 +291,11 @@ export function CompetitionsTable({
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="Venue" visibility={true} />
       ),
-      meta: { headerTitle: "Venue", skeleton: SKELETON_VALUE },
+      meta: {
+        headerTitle: "Venue",
+        kind: "location",
+        skeleton: SKELETON_VALUE,
+      },
       size: 160,
     },
     {
@@ -310,7 +324,7 @@ export function CompetitionsTable({
           visibility={true}
         />
       ),
-      meta: { headerTitle: "Format", skeleton: SKELETON_VALUE },
+      meta: { headerTitle: "Format", kind: "tag", skeleton: SKELETON_VALUE },
       size: 120,
     },
     {
@@ -346,7 +360,11 @@ export function CompetitionsTable({
         />
       ),
       id: "groupSize",
-      meta: { headerTitle: "Group size", skeleton: SKELETON_VALUE },
+      meta: {
+        headerTitle: "Group size",
+        kind: "count",
+        skeleton: SKELETON_VALUE,
+      },
       size: 120,
     },
     {
@@ -378,6 +396,7 @@ export function CompetitionsTable({
       meta: {
         compact: "primary",
         headerTitle: "Status",
+        kind: "status",
         skeleton: SKELETON_STATUS,
       },
       size: 160,

@@ -142,6 +142,7 @@ function createColumns(
       meta: {
         compact: "primary",
         headerTitle: "Message",
+        kind: "text",
         skeleton: SKELETON_MSG,
       },
       size: 300,
@@ -159,7 +160,11 @@ function createColumns(
         />
       ),
       id: "scheduledAt",
-      meta: { headerTitle: "Scheduled At", skeleton: SKELETON_DATE },
+      meta: {
+        headerTitle: "Scheduled At",
+        kind: "date",
+        skeleton: SKELETON_DATE,
+      },
       size: 180,
     },
     {
@@ -180,6 +185,7 @@ function createColumns(
       meta: {
         compact: "primary",
         headerTitle: "Status",
+        kind: "status",
         skeleton: SKELETON_STATUS,
       },
       size: 140,
@@ -220,7 +226,11 @@ function createColumns(
         />
       ),
       id: "creator",
-      meta: { headerTitle: "Created By", skeleton: SKELETON_CREATOR },
+      meta: {
+        headerTitle: "Created By",
+        kind: "person",
+        skeleton: SKELETON_CREATOR,
+      },
       size: 160,
     },
     {

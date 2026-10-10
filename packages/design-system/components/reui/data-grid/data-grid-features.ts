@@ -48,6 +48,21 @@ export type DataGridCompactRole =
   | "primary"
   | "trailing"
 
+/** What a column holds; the app maps it to a header icon and the data font. */
+export type DataGridColumnKind =
+  | "amount"
+  | "count"
+  | "date"
+  | "email"
+  | "id"
+  | "link"
+  | "location"
+  | "person"
+  | "phone"
+  | "status"
+  | "tag"
+  | "text"
+
 export type DataGridColumnMeta = {
   cellClassName?: string
   compact?: DataGridCompactRole
@@ -55,6 +70,7 @@ export type DataGridColumnMeta = {
   expandedContent?(row: object): ReactNode
   headerClassName?: string
   headerTitle?: string
+  kind?: DataGridColumnKind
   skeleton?: ReactNode
   stopRowClick?: boolean
 }

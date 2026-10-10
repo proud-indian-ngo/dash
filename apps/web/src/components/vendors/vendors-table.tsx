@@ -155,6 +155,7 @@ export function VendorsTable({
       meta: {
         compact: "primary",
         headerTitle: "Name",
+        kind: "text",
         skeleton: SKELETON_NAME,
       },
       size: 200,
@@ -168,7 +169,7 @@ export function VendorsTable({
         <DataGridColumnHeader column={column} title="Phone" visibility={true} />
       ),
       id: "contactPhone",
-      meta: { headerTitle: "Phone", skeleton: SKELETON_PHONE },
+      meta: { headerTitle: "Phone", kind: "phone", skeleton: SKELETON_PHONE },
       size: 150,
     },
     {
@@ -182,7 +183,7 @@ export function VendorsTable({
         <DataGridColumnHeader column={column} title="Email" visibility={true} />
       ),
       id: "contactEmail",
-      meta: { headerTitle: "Email", skeleton: SKELETON_EMAIL },
+      meta: { headerTitle: "Email", kind: "email", skeleton: SKELETON_EMAIL },
       size: 200,
     },
     {
@@ -204,7 +205,11 @@ export function VendorsTable({
         />
       ),
       id: "bankAccount",
-      meta: { headerTitle: "Bank Account", skeleton: SKELETON_BANK },
+      meta: {
+        headerTitle: "Bank Account",
+        kind: "text",
+        skeleton: SKELETON_BANK,
+      },
       size: 220,
     },
     {
@@ -220,7 +225,11 @@ export function VendorsTable({
         />
       ),
       id: "pendingCount",
-      meta: { headerTitle: "Pending Payments", skeleton: SKELETON_COUNT },
+      meta: {
+        headerTitle: "Pending Payments",
+        kind: "count",
+        skeleton: SKELETON_COUNT,
+      },
       size: 140,
     },
     {
@@ -236,7 +245,11 @@ export function VendorsTable({
         />
       ),
       id: "activeCount",
-      meta: { headerTitle: "Active Payments", skeleton: SKELETON_COUNT },
+      meta: {
+        headerTitle: "Active Payments",
+        kind: "count",
+        skeleton: SKELETON_COUNT,
+      },
       size: 140,
     },
     {
@@ -268,7 +281,11 @@ export function VendorsTable({
         />
       ),
       id: "pendingAmount",
-      meta: { headerTitle: "Pending Amount", skeleton: SKELETON_AMOUNT },
+      meta: {
+        headerTitle: "Pending Amount",
+        kind: "amount",
+        skeleton: SKELETON_AMOUNT,
+      },
       size: 150,
     },
     {
@@ -284,7 +301,11 @@ export function VendorsTable({
         />
       ),
       id: "activeAmount",
-      meta: { headerTitle: "Active Amount", skeleton: SKELETON_AMOUNT },
+      meta: {
+        headerTitle: "Active Amount",
+        kind: "amount",
+        skeleton: SKELETON_AMOUNT,
+      },
       size: 140,
     },
     {
@@ -302,7 +323,11 @@ export function VendorsTable({
         />
       ),
       id: "completedAmount",
-      meta: { headerTitle: "Completed Amount", skeleton: SKELETON_AMOUNT },
+      meta: {
+        headerTitle: "Completed Amount",
+        kind: "amount",
+        skeleton: SKELETON_AMOUNT,
+      },
       size: 160,
     },
     {
@@ -318,7 +343,11 @@ export function VendorsTable({
         />
       ),
       id: "rejectedCount",
-      meta: { headerTitle: "Rejected Payments", skeleton: SKELETON_COUNT },
+      meta: {
+        headerTitle: "Rejected Payments",
+        kind: "count",
+        skeleton: SKELETON_COUNT,
+      },
       size: 150,
     },
     {
@@ -336,7 +365,11 @@ export function VendorsTable({
         />
       ),
       id: "rejectedAmount",
-      meta: { headerTitle: "Rejected Amount", skeleton: SKELETON_AMOUNT },
+      meta: {
+        headerTitle: "Rejected Amount",
+        kind: "amount",
+        skeleton: SKELETON_AMOUNT,
+      },
       size: 150,
     },
     {
@@ -364,6 +397,7 @@ export function VendorsTable({
       meta: {
         compact: "primary",
         headerTitle: "Status",
+        kind: "status",
         skeleton: SKELETON_STATUS,
       },
       size: 140,

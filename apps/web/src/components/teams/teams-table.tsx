@@ -128,6 +128,7 @@ export function TeamsTable({
       meta: {
         compact: "primary",
         headerTitle: "Name",
+        kind: "text",
         skeleton: SKELETON_NAME,
       },
       size: 200,
@@ -147,7 +148,11 @@ export function TeamsTable({
         />
       ),
       id: "description",
-      meta: { headerTitle: "Description", skeleton: SKELETON_DESC },
+      meta: {
+        headerTitle: "Description",
+        kind: "text",
+        skeleton: SKELETON_DESC,
+      },
       size: 280,
     },
     {
@@ -166,6 +171,7 @@ export function TeamsTable({
       meta: {
         compact: "primary",
         headerTitle: "Members",
+        kind: "count",
         skeleton: SKELETON_COUNT,
       },
       size: 100,
@@ -185,7 +191,11 @@ export function TeamsTable({
         />
       ),
       id: "whatsappGroup",
-      meta: { headerTitle: "WhatsApp Group", skeleton: SKELETON_WA },
+      meta: {
+        headerTitle: "WhatsApp Group",
+        kind: "text",
+        skeleton: SKELETON_WA,
+      },
       size: 180,
     },
     {

@@ -130,6 +130,7 @@ export function RolesTable({
       meta: {
         compact: "primary",
         headerTitle: "Name",
+        kind: "text",
         skeleton: SKELETON_NAME,
       },
       size: 200,
@@ -149,7 +150,11 @@ export function RolesTable({
         />
       ),
       id: "description",
-      meta: { headerTitle: "Description", skeleton: SKELETON_DESCRIPTION },
+      meta: {
+        headerTitle: "Description",
+        kind: "text",
+        skeleton: SKELETON_DESCRIPTION,
+      },
       size: 280,
     },
     {
@@ -164,6 +169,7 @@ export function RolesTable({
       meta: {
         compact: "primary",
         headerTitle: "Type",
+        kind: "tag",
         skeleton: SKELETON_TYPE,
       },
       size: 110,
@@ -181,7 +187,11 @@ export function RolesTable({
         />
       ),
       id: "permissionCount",
-      meta: { headerTitle: "Permissions", skeleton: SKELETON_COUNT },
+      meta: {
+        headerTitle: "Permissions",
+        kind: "count",
+        skeleton: SKELETON_COUNT,
+      },
       size: 130,
     },
     {
@@ -193,7 +203,7 @@ export function RolesTable({
         <DataGridColumnHeader column={column} title="Users" visibility={true} />
       ),
       id: "userCount",
-      meta: { headerTitle: "Users", skeleton: SKELETON_COUNT },
+      meta: { headerTitle: "Users", kind: "count", skeleton: SKELETON_COUNT },
       size: 110,
     },
     {

@@ -197,6 +197,7 @@ export function CentersTable({
       meta: {
         compact: "primary",
         headerTitle: "Name",
+        kind: "text",
         skeleton: SKELETON_NAME,
       },
       size: 220,
@@ -220,6 +221,7 @@ export function CentersTable({
       id: "status",
       meta: {
         headerTitle: "Status",
+        kind: "status",
         skeleton: SKELETON_STATUS,
       },
       size: 130,
@@ -247,6 +249,7 @@ export function CentersTable({
       meta: {
         compact: "primary",
         headerTitle: "Transport status",
+        kind: "status",
         skeleton: <Skeleton className="h-5 w-28" />,
       },
       size: 170,
@@ -268,6 +271,7 @@ export function CentersTable({
       ),
       meta: {
         headerTitle: "Student registration",
+        kind: "status",
         skeleton: SKELETON_REGISTRATION,
       },
       size: 180,
@@ -289,6 +293,7 @@ export function CentersTable({
       ),
       meta: {
         headerTitle: "Participation registration",
+        kind: "status",
         skeleton: SKELETON_REGISTRATION,
       },
       size: 210,
@@ -317,6 +322,7 @@ export function CentersTable({
       ),
       meta: {
         headerTitle: "Participation compliance",
+        kind: "status",
         skeleton: SKELETON_REGISTRATION,
         stopRowClick: true,
       },

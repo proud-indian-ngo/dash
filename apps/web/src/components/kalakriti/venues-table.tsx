@@ -133,6 +133,7 @@ export function VenuesTable({
       meta: {
         compact: "primary",
         headerTitle: "Venue",
+        kind: "location",
         skeleton: SKELETON_NAME,
       },
       size: 260,
@@ -146,7 +147,11 @@ export function VenuesTable({
           visibility={true}
         />
       ),
-      meta: { headerTitle: "Scheduled Sessions", skeleton: SKELETON_COUNT },
+      meta: {
+        headerTitle: "Scheduled Sessions",
+        kind: "count",
+        skeleton: SKELETON_COUNT,
+      },
       size: 170,
     },
     {
@@ -169,6 +174,7 @@ export function VenuesTable({
       meta: {
         compact: "primary",
         headerTitle: "Status",
+        kind: "status",
         skeleton: SKELETON_STATUS,
       },
       size: 130,
