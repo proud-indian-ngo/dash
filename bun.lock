@@ -8,6 +8,7 @@
         "@pi-dash/auth": "workspace:*",
         "@pi-dash/db": "workspace:*",
         "@pi-dash/env": "workspace:*",
+        "@pi-dash/zero": "workspace:*",
         "drizzle-orm": "^0.45.4",
       },
       "devDependencies": {

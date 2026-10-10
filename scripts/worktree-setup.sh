@@ -102,17 +102,20 @@ if [ "$ISOLATED_DB" = true ]; then
   DB_CONTAINER="pi-dash-postgres-wt${WORKTREE_ID}"
   DB_VOLUME="pi-dash_postgres_wt${WORKTREE_ID}_data"
   DB_COMPOSE="$REPO_ROOT/packages/db/docker-compose.wt${WORKTREE_ID}.yml"
-  ISOLATED_DB_URL="postgres://postgres:${DEV_DB_PASSWORD}@localhost:${DB_PORT}/pi-dash"
+  # Percent-encode the password so characters such as @ or / don't break the
+  # connection URL; Zero fails to authenticate with an unencoded one.
+  DB_PASSWORD_URL=$(DEV_DB_PASSWORD="$DEV_DB_PASSWORD" bun -e 'process.stdout.write(encodeURIComponent(process.env.DEV_DB_PASSWORD ?? ""))')
+  ISOLATED_DB_URL="postgres://postgres:${DB_PASSWORD_URL}@localhost:${DB_PORT}/pi-dash"
 
-  # Append DB overrides to .env.worktree
+  # Append DB overrides to .env.worktree (gitignored, like .env)
   cat >> "$ENV_WORKTREE" <<EOF
 
 # Isolated database (--isolated-db)
 DEV_DB_HOST=localhost:$DB_PORT
-DATABASE_URL=postgres://postgres:\${DEV_DB_PASSWORD}@localhost:$DB_PORT/pi-dash
-ZERO_UPSTREAM_DB=postgres://postgres:\${DEV_DB_PASSWORD}@localhost:$DB_PORT/pi-dash
-ZERO_CVR_DB=postgres://postgres:\${DEV_DB_PASSWORD}@localhost:$DB_PORT/pi-dash
-ZERO_CHANGE_DB=postgres://postgres:\${DEV_DB_PASSWORD}@localhost:$DB_PORT/pi-dash
+DATABASE_URL=$ISOLATED_DB_URL
+ZERO_UPSTREAM_DB=$ISOLATED_DB_URL
+ZERO_CVR_DB=$ISOLATED_DB_URL
+ZERO_CHANGE_DB=$ISOLATED_DB_URL
 EOF
 
   # Generate docker-compose file
