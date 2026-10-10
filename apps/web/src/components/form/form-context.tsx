@@ -31,6 +31,8 @@ export interface FormFieldApi<TValue = unknown> {
     meta: {
       errors: FormFieldError[];
       isBlurred: boolean;
+      /** The value has changed since the form started. */
+      isDirty?: boolean;
       isTouched: boolean;
     };
     value: TValue;
@@ -86,8 +88,21 @@ export function FormContextProvider({
   return <FormContext value={form}>{children}</FormContext>;
 }
 
+/**
+ * Errors show once a field has been edited and left, or after a submit
+ * attempt. Leaving an untouched field (focus moving to Cancel, the close
+ * button or outside the dialog) must not flag it, or the error line shifts the
+ * layout under the pointer mid-click.
+ */
+export function shouldShowFieldErrors(
+  meta: { isBlurred: boolean; isDirty?: boolean },
+  submitted: boolean
+) {
+  return submitted || (meta.isBlurred && (meta.isDirty ?? true));
+}
+
 export function getFieldErrorState(field: FormFieldApi, submitted = false) {
-  const showErrors = field.state.meta.isBlurred || submitted;
+  const showErrors = shouldShowFieldErrors(field.state.meta, submitted);
   const hasError = showErrors && field.state.meta.errors.length > 0;
   const errorMessageId = `${field.name}-error`;
   return { errorMessageId, hasError };

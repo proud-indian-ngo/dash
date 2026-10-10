@@ -6,7 +6,8 @@ import { fieldErrorProps, getFieldErrorState } from "./form-context";
 function makeField(
   errors: unknown[],
   name = "email",
-  isBlurred = true
+  isBlurred = true,
+  isDirty = true
 ): FormFieldApi {
   return {
     handleBlur: () => undefined,
@@ -16,6 +17,7 @@ function makeField(
       meta: {
         errors: errors as FormFieldApi["state"]["meta"]["errors"],
         isBlurred,
+        isDirty,
         isTouched: isBlurred,
       },
       value: "",
@@ -42,6 +44,21 @@ describe("getFieldErrorState", () => {
       makeField([{ message: "Required" }], "email", false)
     );
     expect(hasError).toBe(false);
+  });
+
+  it("returns hasError false when a never-edited field loses focus", () => {
+    const { hasError } = getFieldErrorState(
+      makeField([{ message: "Required" }], "name", true, false)
+    );
+    expect(hasError).toBe(false);
+  });
+
+  it("returns hasError true for a never-edited field after submit", () => {
+    const { hasError } = getFieldErrorState(
+      makeField([{ message: "Required" }], "name", true, false),
+      true
+    );
+    expect(hasError).toBe(true);
   });
 
   it("returns hasError true when submitted even if not blurred", () => {
