@@ -902,6 +902,93 @@ async function ensureEventWithPendingUpdate(
   return teamId;
 }
 
+const SEED_INTEREST_EVENT_NAME = "E2E Upcoming Event With Pending Interests";
+const SEED_PHOTO_EVENT_NAME = "E2E Past Event With Pending Photos";
+const SEED_PENDING_PHOTO_COUNT = 3;
+
+/**
+ * Events owned by the approval specs: two pending interest requests (one to
+ * approve, one to reject) and three pending photos (one approved alone, the
+ * rest with Approve All). Separate from the Zero authorization fixtures, which
+ * must stay pending.
+ */
+async function ensureApprovalFixtures({
+  adminUserId,
+  financeAdminUserId,
+  teamId,
+  volunteerUserId,
+}: {
+  adminUserId: string;
+  financeAdminUserId: string;
+  teamId: string;
+  volunteerUserId: string;
+}): Promise<void> {
+  const existing = await db.query.teamEvent.findFirst({
+    where: (table, ops) => ops.eq(table.name, SEED_INTEREST_EVENT_NAME),
+  });
+  if (existing) {
+    log("Approval fixtures already exist — skipping");
+    return;
+  }
+  const now = new Date();
+
+  const interestEventId = uuidv7();
+  await db.insert(teamEvent).values({
+    createdAt: subDays(now, 1),
+    createdBy: adminUserId,
+    description: "Upcoming event with pending interest requests for E2E tests",
+    id: interestEventId,
+    isPublic: true,
+    name: SEED_INTEREST_EVENT_NAME,
+    startTime: addDays(now, 10),
+    teamId,
+    updatedAt: subDays(now, 1),
+  });
+  await db.insert(eventInterest).values(
+    [volunteerUserId, financeAdminUserId].map((userId) => ({
+      createdAt: subDays(now, 1),
+      eventId: interestEventId,
+      id: uuidv7(),
+      message: "E2E interest request",
+      status: "pending" as const,
+      userId,
+    }))
+  );
+
+  const photoEventId = uuidv7();
+  await db.insert(teamEvent).values({
+    createdAt: subDays(now, 4),
+    createdBy: adminUserId,
+    description: "Past event with pending photos for E2E tests",
+    id: photoEventId,
+    isPublic: true,
+    name: SEED_PHOTO_EVENT_NAME,
+    startTime: subDays(now, 2),
+    teamId,
+    updatedAt: subDays(now, 4),
+  });
+  await db.insert(teamEventMember).values({
+    addedAt: subDays(now, 4),
+    eventId: photoEventId,
+    id: uuidv7(),
+    userId: volunteerUserId,
+  });
+  await db.insert(eventPhoto).values(
+    Array.from({ length: SEED_PENDING_PHOTO_COUNT }, (_, index) => ({
+      caption: `E2E pending photo ${index + 1}`,
+      createdAt: subDays(now, 1),
+      eventId: photoEventId,
+      id: uuidv7(),
+      mimeType: "image/jpeg",
+      r2Key: `e2e/pending-photo-${index + 1}.jpg`,
+      status: "pending" as const,
+      uploadedBy: volunteerUserId,
+    }))
+  );
+
+  log("Created approval fixtures: pending interests and photos");
+}
+
 interface FilterTestEvent {
   cancelled?: boolean;
   city: "bangalore" | "mumbai";
@@ -1022,6 +1109,7 @@ async function seed(): Promise<void> {
   await ensureWhatsAppGroup();
 
   let superAdminUserId = "";
+  let financeAdminUserId = "";
   let volunteerUserId = "";
   await Promise.all(
     TEST_USERS.map(async (testUser) => {
@@ -1029,6 +1117,8 @@ async function seed(): Promise<void> {
       await ensureBankAccount(userId);
       if (testUser.role === "super_admin") {
         superAdminUserId = userId;
+      } else if (testUser.role === "finance_admin") {
+        financeAdminUserId = userId;
       } else if (testUser.role === "volunteer") {
         volunteerUserId = userId;
       }
@@ -1042,6 +1132,12 @@ async function seed(): Promise<void> {
   await seedKalakritiReleaseFixture(superAdminUserId, teamId);
   await ensureZeroQueryAuthorizationFixtures(superAdminUserId, volunteerUserId);
   await ensureFilterTestEvents(teamId, superAdminUserId, volunteerUserId);
+  await ensureApprovalFixtures({
+    adminUserId: superAdminUserId,
+    financeAdminUserId,
+    teamId,
+    volunteerUserId,
+  });
   await ensureAuditLogEntry(superAdminUserId);
   const pastEvent = await db.query.teamEvent.findFirst({
     where: (table, ops) => ops.eq(table.name, SEED_EVENT_NAME),
