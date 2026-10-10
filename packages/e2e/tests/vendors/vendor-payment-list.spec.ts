@@ -20,8 +20,8 @@ test.describe("Vendor Payments list (admin)", () => {
   });
 
   test("stats cards render", async ({ page }) => {
-    // Stats cards are always rendered (may show zero values)
-    await expect(page.locator("[data-slot='card-title']").first()).toBeVisible({
+    // KPI chips are always rendered (may show zero values)
+    await expect(page.locator("[data-slot='stat-chip']").first()).toBeVisible({
       timeout: 10_000,
     });
   });

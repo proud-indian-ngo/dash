@@ -453,6 +453,7 @@ export function VendorsTable({
         filter={{
           fields: createVendorFilterFields(),
           getValue: getVendorFilterValue,
+          viewField: "status",
         }}
         getRowId={stableGetRowId1}
         isLoading={isLoading}

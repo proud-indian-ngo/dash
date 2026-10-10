@@ -363,6 +363,7 @@ export function ScheduledMessagesTable({
       filter={{
         fields: createScheduledMessageFilterFields(messages),
         getValue: getScheduledMessageFilterValue,
+        viewField: "status",
       }}
       getRowCanExpand={stableGetRowCanExpand0}
       getRowId={stableGetRowId1}

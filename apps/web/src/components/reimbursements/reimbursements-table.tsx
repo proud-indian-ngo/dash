@@ -415,6 +415,7 @@ export function ReimbursementsTable({
         filter={{
           fields: filterFields,
           getValue: getReimbursementFilterValue,
+          viewField: "status",
         }}
         getRowId={stableGetRowId1}
         isLoading={isLoading}

@@ -70,7 +70,7 @@ test.describe("Users list (admin)", () => {
   });
 
   test("shows stats cards", async ({ page }) => {
-    const cardTitles = page.locator("[data-slot='card-title']");
+    const cardTitles = page.locator("[data-slot='stat-label']");
     await expect(cardTitles.getByText("Total Users")).toBeVisible({
       timeout: 15_000,
     });

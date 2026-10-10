@@ -271,6 +271,7 @@ function JobsRouteComponent() {
 
       <div className="mt-4 grid gap-6 *:min-w-0">
         <StatsCards
+          variant="chips"
           isLoading={isLoading}
           items={computeJobStats(queues, stateCounts)}
         />

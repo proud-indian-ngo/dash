@@ -21,8 +21,11 @@ export class ListPage {
     return this.getRows().first().getByRole("columnheader");
   }
 
+  /** Stat card titles, or KPI chip labels on table pages. */
   getStatsCards(): Locator {
-    return this.page.locator("[data-slot='card-title']");
+    return this.page.locator(
+      "[data-slot='card-title'], [data-slot='stat-label']"
+    );
   }
 
   getColumnsButton(): Locator {

@@ -228,7 +228,11 @@ function UsersRouteComponent() {
       </h1>
 
       <div className="mt-4 grid gap-6 *:min-w-0">
-        <StatsCards isLoading={isLoading} items={computeUserStats(allUsers)} />
+        <StatsCards
+          variant="chips"
+          isLoading={isLoading}
+          items={computeUserStats(allUsers)}
+        />
         <UsersTable
           isLoading={isLoading}
           onBanUser={handleBanUser}
