@@ -1,4 +1,3 @@
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import {
   Combobox,
   ComboboxChip,
@@ -11,6 +10,7 @@ import {
 } from "@pi-dash/design-system/components/ui/combobox";
 import { useState } from "react";
 
+import { Tag } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 
 interface UserPickerProps {
@@ -102,9 +102,7 @@ export function UserPicker({
                 <div className="flex items-center gap-1.5">
                   <span className="font-medium">{u.name}</span>
                   {highlightedUserIds?.has(u.id) && highlightLabel && (
-                    <Badge size="xs" variant="primary-light">
-                      {highlightLabel}
-                    </Badge>
+                    <Tag>{highlightLabel}</Tag>
                   )}
                 </div>
                 {u.email ? (

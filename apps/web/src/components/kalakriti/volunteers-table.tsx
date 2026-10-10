@@ -6,7 +6,6 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
@@ -29,6 +28,7 @@ import {
 } from "@/components/kalakriti/kalakriti-filters";
 import { Loader } from "@/components/loader";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { StatusBadge, Tag } from "@/components/shared/status-badge";
 
 import { useTransportStatusSnapshot } from "./use-transport-status-snapshot";
 
@@ -371,12 +371,12 @@ export function VolunteersTable({
       cell: ({ row }) => (
         <div className="flex flex-wrap gap-1">
           {row.original.assignments.length === 0 ? (
-            <Badge variant="secondary">Unassigned</Badge>
+            <StatusBadge tone="neutral">Unassigned</StatusBadge>
           ) : (
             row.original.assignments.map((assignment) => (
-              <Badge key={assignment.id} variant="outline">
+              <Tag key={assignment.id}>
                 {formatKalakritiVolunteerAssignment(assignment)}
-              </Badge>
+              </Tag>
             ))
           )}
         </div>

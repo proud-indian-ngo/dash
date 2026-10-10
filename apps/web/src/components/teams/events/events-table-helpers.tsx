@@ -10,6 +10,7 @@ import type {
 import { addWeeks } from "date-fns";
 import upperFirst from "lodash/upperFirst";
 
+import type { StatusTone } from "@/components/shared/status-badge";
 import {
   expandSeriesOccurrences,
   sortUpcomingFirstThenPast,
@@ -193,19 +194,16 @@ export function getEventStatusKey(row: EventDisplayRow): EventStatusKey {
 
 const EVENT_STATUS_MAP: Record<
   EventStatusKey,
-  {
-    label: string;
-    variant: "destructive" | "outline" | "secondary" | "success-outline";
-  }
+  { label: string; tone: StatusTone }
 > = {
-  cancelled: { label: "Cancelled", variant: "destructive" },
-  past: { label: "Past", variant: "secondary" },
-  upcoming: { label: "Upcoming", variant: "success-outline" },
+  cancelled: { label: "Cancelled", tone: "neutral" },
+  past: { label: "Past", tone: "neutral" },
+  upcoming: { label: "Upcoming", tone: "info" },
 };
 
 export function getEventStatus(row: EventDisplayRow): {
   label: string;
-  variant: "destructive" | "outline" | "secondary" | "success-outline";
+  tone: StatusTone;
 } {
   return EVENT_STATUS_MAP[getEventStatusKey(row)];
 }

@@ -2,7 +2,6 @@ import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
@@ -15,6 +14,7 @@ import {
   getGuardianFilterValue,
 } from "@/components/kalakriti/kalakriti-filters";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { hasEffectiveGuardianCheckIn } from "@/lib/kalakriti-guardian-policy";
 
 export interface GuardianRosterItem {
@@ -225,17 +225,17 @@ export function GuardiansTable({
           ? "Checked in"
           : "Not checked in",
       cell: ({ row }) => (
-        <Badge
-          variant={
+        <StatusBadge
+          tone={
             hasEffectiveGuardianCheckIn(row.original.operations)
-              ? "secondary"
-              : "outline"
+              ? "success"
+              : "neutral"
           }
         >
           {hasEffectiveGuardianCheckIn(row.original.operations)
             ? "Checked in"
             : "Not checked in"}
-        </Badge>
+        </StatusBadge>
       ),
       header: ({ column }) => (
         <DataGridColumnHeader
@@ -254,12 +254,12 @@ export function GuardiansTable({
     {
       accessorKey: "state",
       cell: ({ row }) => (
-        <Badge
+        <StatusBadge
           className="capitalize"
-          variant={row.original.state === "active" ? "secondary" : "outline"}
+          tone={row.original.state === "active" ? "success" : "neutral"}
         >
           {row.original.state}
-        </Badge>
+        </StatusBadge>
       ),
       header: ({ column }) => (
         <DataGridColumnHeader

@@ -6,7 +6,6 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@pi-dash/design-system/components/reui/alert";
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   Card,
@@ -38,6 +37,7 @@ import { useState, type ReactNode } from "react";
 
 import { DashboardSectionMetrics } from "@/components/kalakriti/dashboard-section-metrics";
 import { ScanDialog } from "@/components/kalakriti/scan-dialog";
+import { Tag } from "@/components/shared/status-badge";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import {
   DASHBOARD_DESTINATIONS,
@@ -362,9 +362,7 @@ export function RoleDashboard({
                         onScan={setActivity}
                       />
                     ) : (
-                      <Badge variant="outline">
-                        Use Edition controls above
-                      </Badge>
+                      <Tag>Use Edition controls above</Tag>
                     )}
                   </ItemActions>
                 </Item>

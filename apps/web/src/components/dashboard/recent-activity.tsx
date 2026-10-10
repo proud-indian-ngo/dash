@@ -8,7 +8,6 @@ import {
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import {
   Card,
   CardContent,
@@ -20,8 +19,9 @@ import { Link } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
 
 import { GhostEmptyState } from "@/components/shared/ghost-empty-state";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { formatINR } from "@/lib/form-schemas";
-import { getStatusBadge, type StatusBadgeVariant } from "@/lib/status-badge";
+import { getStatusBadge } from "@/lib/status-badge";
 
 interface FinancialItem {
   createdAt: number;
@@ -221,12 +221,9 @@ function RecentActivityList({ activities }: { activities: ActivityItem[] }) {
               <div className="flex items-center gap-2">
                 <p className="truncate text-sm font-medium">{activity.title}</p>
                 {statusInfo ? (
-                  <Badge
-                    size="xs"
-                    variant={statusInfo.variant as StatusBadgeVariant}
-                  >
+                  <StatusBadge tone={statusInfo.tone}>
                     {statusInfo.label}
-                  </Badge>
+                  </StatusBadge>
                 ) : null}
               </div>
               <p className="text-muted-foreground text-xs">

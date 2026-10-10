@@ -1,5 +1,3 @@
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
-
 import type { JobRow } from "@/components/jobs/job-stats";
 import {
   Sheet,
@@ -8,6 +6,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/shared/responsive-sheet";
+import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { formatTimestamp } from "@/lib/date-formats";
 
 interface JobDetailSheetProps {
@@ -16,22 +15,22 @@ interface JobDetailSheetProps {
   open: boolean;
 }
 
-function getStateBadge(state: string) {
+function getStateBadge(state: string): { label: string; tone: StatusTone } {
   switch (state) {
     case "created":
-      return { label: "Created", variant: "outline" as const };
+      return { label: "Created", tone: "neutral" };
     case "retry":
-      return { label: "Retry", variant: "warning-outline" as const };
+      return { label: "Retry", tone: "warning" };
     case "active":
-      return { label: "Active", variant: "info" as const };
+      return { label: "Active", tone: "info" };
     case "completed":
-      return { label: "Completed", variant: "success" as const };
+      return { label: "Completed", tone: "success" };
     case "failed":
-      return { label: "Failed", variant: "destructive" as const };
+      return { label: "Failed", tone: "danger" };
     case "cancelled":
-      return { label: "Cancelled", variant: "warning" as const };
+      return { label: "Cancelled", tone: "neutral" };
     default:
-      return { label: state, variant: "secondary" as const };
+      return { label: state, tone: "neutral" };
   }
 }
 
@@ -73,7 +72,7 @@ export function JobDetailSheet({
           <div className="flex items-center gap-2">
             {(() => {
               const badge = getStateBadge(job.state);
-              return <Badge variant={badge.variant}>{badge.label}</Badge>;
+              return <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>;
             })()}
           </div>
 

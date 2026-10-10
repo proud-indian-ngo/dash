@@ -4,7 +4,6 @@ import {
   RepeatIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
@@ -18,6 +17,7 @@ import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
 import { HistoryEntry } from "@/components/reimbursements/reimbursement-history-entry";
+import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
 import {
@@ -234,11 +234,11 @@ function QuotationAttachmentList({
 function VendorPaymentHeader({
   label,
   request,
-  variant,
+  tone,
 }: {
   label: string;
   request: VendorPaymentWithRelations;
-  variant: React.ComponentProps<typeof Badge>["variant"];
+  tone: StatusTone;
 }) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
@@ -278,7 +278,7 @@ function VendorPaymentHeader({
           </div>
         ) : null}
       </div>
-      <Badge variant={variant}>{label}</Badge>
+      <StatusBadge tone={tone}>{label}</StatusBadge>
     </div>
   );
 }
@@ -294,7 +294,7 @@ export function VendorPaymentDetail({
   const [rejectOpen, setRejectOpen] = useState(false);
 
   const status = request.status as string;
-  const { label, variant } = getStatusBadge(request.status);
+  const { label, tone } = getStatusBadge(request.status);
   const canResetToPending =
     status !== "pending" &&
     request.transactions.length === 0 &&
@@ -366,11 +366,7 @@ export function VendorPaymentDetail({
   return (
     <AppErrorBoundary level="section">
       <div className="flex flex-col gap-6">
-        <VendorPaymentHeader
-          label={label}
-          request={request}
-          variant={variant}
-        />
+        <VendorPaymentHeader label={label} request={request} tone={tone} />
 
         {/* Vendor details */}
         <VendorDetailsCard vendor={request.vendor} />

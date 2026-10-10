@@ -10,7 +10,6 @@ import {
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import {
   Card,
   CardContent,
@@ -21,6 +20,7 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { Link } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
 
+import { Tag } from "@/components/shared/status-badge";
 import { formatINR } from "@/lib/form-schemas";
 import { sumAmounts } from "@/lib/stats";
 
@@ -170,9 +170,7 @@ function GroupHeader({
       <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
         {label}
       </span>
-      <Badge size="xs" variant="warning-outline">
-        {count}
-      </Badge>
+      <Tag className="font-mono tabular-nums">{count}</Tag>
     </div>
   );
 }
@@ -425,7 +423,7 @@ export function PendingReviews({
   }
 
   return (
-    <Card className="border-l-2 border-l-amber-500">
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm">
           <HugeiconsIcon
@@ -435,9 +433,7 @@ export function PendingReviews({
           />
           Pending Reviews
           {totalCount > 0 && (
-            <Badge size="xs" variant="warning-outline">
-              {totalCount}
-            </Badge>
+            <Tag className="font-mono tabular-nums">{totalCount}</Tag>
           )}
         </CardTitle>
       </CardHeader>

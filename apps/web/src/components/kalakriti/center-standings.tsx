@@ -1,4 +1,3 @@
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   Card,
@@ -23,6 +22,7 @@ import { FormLayout } from "@/components/form/form-layout";
 import { SelectField } from "@/components/form/select-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { getKalakritiStandings } from "@/functions/kalakriti-results";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { handleMutationResult } from "@/lib/mutation-result";
@@ -238,9 +238,9 @@ export function CenterStandings({ year }: { year: number }) {
         <CardTitle>
           <h2>Center standings</h2>
         </CardTitle>
-        <Badge variant={data?.finalizedAt ? "default" : "secondary"}>
+        <StatusBadge tone={data?.finalizedAt ? "success" : "info"}>
           {data?.finalizedAt ? "Final" : "Live"}
-        </Badge>
+        </StatusBadge>
       </CardHeader>
       <CardContent className="grid gap-3">
         {error || !fresh ? (

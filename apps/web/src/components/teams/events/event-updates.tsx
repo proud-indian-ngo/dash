@@ -5,7 +5,6 @@ import {
   MultiplicationSignCircleIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
@@ -23,6 +22,7 @@ import {
 } from "@/components/editor/editor-skeletons";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { useApp } from "@/context/app-context";
@@ -495,9 +495,7 @@ function PendingUpdateCard({
         <span className="text-muted-foreground text-xs">
           {format(new Date(update.createdAt), LONG_DATE_TIME)}
         </span>
-        <Badge size="xs" variant="warning">
-          Pending
-        </Badge>
+        <StatusBadge tone="warning">Pending</StatusBadge>
 
         {editing ? null : (
           <div className="ml-auto flex items-center gap-1">

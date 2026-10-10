@@ -122,8 +122,6 @@ function computeDashboardStats({
 
   return [
     {
-      accent: "border-l-brand",
-      bgAccent: "bg-brand/5 dark:bg-brand/10",
       description: formatINR(sumTotal(allRequests)),
       href: "/reimbursements",
       icon: Invoice01Icon,
@@ -131,8 +129,6 @@ function computeDashboardStats({
       value: allRequests.length,
     },
     {
-      accent: "border-l-amber-500",
-      bgAccent: "bg-amber-500/5 dark:bg-amber-500/10",
       description: "Awaiting review",
       href: "/reimbursements?status=pending",
       icon: Clock01Icon,
@@ -142,8 +138,6 @@ function computeDashboardStats({
     ...(canViewUsers
       ? [
           {
-            accent: "border-l-brand",
-            bgAccent: "bg-brand/5 dark:bg-brand/10",
             href: "/users",
             icon: UserMultipleIcon,
             label: "Total Users",
@@ -152,8 +146,6 @@ function computeDashboardStats({
         ]
       : [
           {
-            accent: "border-l-brand",
-            bgAccent: "bg-brand/5 dark:bg-brand/10",
             href: "/teams",
             icon: UserMultipleIcon,
             label: "My Teams",
@@ -163,8 +155,6 @@ function computeDashboardStats({
     ...(canViewVendors
       ? [
           {
-            accent: "border-l-brand",
-            bgAccent: "bg-brand/5 dark:bg-brand/10",
             description: formatINR(sumTotal(vendorPayments)),
             href: "/vendors",
             icon: Store01Icon,
@@ -174,8 +164,6 @@ function computeDashboardStats({
         ]
       : [
           {
-            accent: "border-l-brand",
-            bgAccent: "bg-brand/5 dark:bg-brand/10",
             href: "/events",
             icon: Calendar03Icon,
             label: "Upcoming Events",

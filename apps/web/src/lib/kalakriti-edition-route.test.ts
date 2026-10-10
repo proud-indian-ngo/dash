@@ -9,9 +9,6 @@ mock.module("@/functions/kalakriti-access", () => ({
   getCurrentKalakritiEditionAccess,
   getKalakritiEditionAccess,
 }));
-mock.module("@pi-dash/design-system/components/ui/badge", () => ({
-  Badge: () => null,
-}));
 mock.module("@pi-dash/design-system/components/ui/button", () => ({
   Button: () => null,
 }));

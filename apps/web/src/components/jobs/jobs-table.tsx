@@ -5,7 +5,6 @@ import {
   ViewIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Button } from "@pi-dash/design-system/components/ui/button";
@@ -19,6 +18,7 @@ import { getStateBadge } from "@/components/jobs/job-detail-sheet";
 import { createJobFilterFields } from "@/components/jobs/job-filters";
 import type { JobRow } from "@/components/jobs/job-stats";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { formatTimestamp } from "@/lib/date-formats";
 
 const SKELETON_QUEUE = <Skeleton className="h-4 w-24" />;
@@ -60,7 +60,7 @@ function createJobColumns(
       accessorFn: (row) => row.state,
       cell: ({ row }) => {
         const badge = getStateBadge(row.original.state);
-        return <Badge variant={badge.variant}>{badge.label}</Badge>;
+        return <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>;
       },
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="State" visibility={true} />

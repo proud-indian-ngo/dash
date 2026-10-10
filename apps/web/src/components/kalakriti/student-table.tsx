@@ -2,7 +2,6 @@ import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
@@ -19,6 +18,7 @@ import {
   getStudentFilterValue,
 } from "@/components/kalakriti/kalakriti-filters";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { StatusBadge } from "@/components/shared/status-badge";
 import type { StudentCenterPermissions } from "@/lib/kalakriti-student-directory";
 import { canDeleteKalakritiStudent } from "@/lib/kalakriti-student-policy";
 
@@ -232,7 +232,7 @@ export function StudentTable({
       ),
       cell: ({ row }) =>
         labels?.has(row.original.id) ? (
-          <Badge variant="secondary">{labels.get(row.original.id)}</Badge>
+          <StatusBadge tone="info">{labels.get(row.original.id)}</StatusBadge>
         ) : (
           <Skeleton
             aria-label="Loading transport status"

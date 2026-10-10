@@ -1,7 +1,6 @@
 import { Edit02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { BrailleSpinner } from "@pi-dash/design-system/components/braille-spinner";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   Tabs,
@@ -35,6 +34,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/shared/responsive-alert-dialog";
+import type { StatusTone } from "@/components/shared/status-badge";
+import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import type { TeamDetailData } from "@/components/teams/team-detail";
 import {
   type PostEventRsvpPollResult,
@@ -356,13 +357,13 @@ const STATUS_CONFIG: Record<
   EventStatus,
   {
     label: string;
-    variant: "outline" | "secondary" | "default" | "destructive-light";
+    tone: StatusTone;
   }
 > = {
-  cancelled: { label: "Cancelled", variant: "destructive-light" },
-  completed: { label: "Completed", variant: "default" },
-  "in-progress": { label: "In Progress", variant: "secondary" },
-  upcoming: { label: "Upcoming", variant: "outline" },
+  cancelled: { label: "Cancelled", tone: "neutral" },
+  completed: { label: "Completed", tone: "success" },
+  "in-progress": { label: "In Progress", tone: "info" },
+  upcoming: { label: "Upcoming", tone: "info" },
 };
 
 function deriveEventStatus(event: EventRow): EventStatus {
@@ -408,7 +409,7 @@ function EventHeader({
   teamName: string | null;
 }) {
   const navigate = useNavigate();
-  const { label, variant } = STATUS_CONFIG[status];
+  const { label, tone } = STATUS_CONFIG[status];
   const stableOnClick1 = useEventCallback(() =>
     navigate({ params: { id: event.teamId }, to: "/teams/$id" })
   );
@@ -420,9 +421,7 @@ function EventHeader({
           <h1 className="font-display text-2xl font-semibold tracking-tight">
             {event.name}
           </h1>
-          <Badge size="sm" variant={variant}>
-            {label}
-          </Badge>
+          <StatusBadge tone={tone}>{label}</StatusBadge>
         </div>
         <button
           className="text-muted-foreground text-left text-sm hover:underline"
@@ -520,18 +519,16 @@ function EventTabs({
           Updates
           {approvedUpdates.length > 0 ? ` (${approvedUpdates.length})` : ""}
           {canApproveUpdates && pendingUpdates.length > 0 ? (
-            <Badge size="xs" variant="warning">
+            <Tag className="font-mono tabular-nums">
               {pendingUpdates.length}
-            </Badge>
+            </Tag>
           ) : null}
         </TabsTrigger>
         <TabsTrigger value="photos">
           Photos &amp; Videos
           {approvedPhotos.length > 0 ? ` (${approvedPhotos.length})` : ""}
           {canManagePhotos && pendingPhotos.length > 0 ? (
-            <Badge size="xs" variant="warning">
-              {pendingPhotos.length}
-            </Badge>
+            <Tag className="font-mono tabular-nums">{pendingPhotos.length}</Tag>
           ) : null}
         </TabsTrigger>
         {event.feedbackEnabled && isPastEvent ? (

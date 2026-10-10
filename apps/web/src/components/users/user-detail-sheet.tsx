@@ -1,4 +1,3 @@
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import type { User } from "@pi-dash/zero/schema";
 import { format } from "date-fns";
 import capitalize from "lodash/capitalize";
@@ -10,6 +9,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/shared/responsive-sheet";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { SHORT_DATE } from "@/lib/date-formats";
 
@@ -53,11 +53,11 @@ export function UserDetailSheet({
 
             <div className="flex flex-col gap-6 px-6 pb-6">
               <div className="flex gap-2">
-                <Badge variant={user.isActive ? "success-light" : "secondary"}>
+                <StatusBadge tone={user.isActive ? "success" : "neutral"}>
                   {user.isActive ? "Active" : "Inactive"}
-                </Badge>
+                </StatusBadge>
                 {Boolean(user.banned) && (
-                  <Badge variant="destructive-light">Banned</Badge>
+                  <StatusBadge tone="danger">Banned</StatusBadge>
                 )}
               </div>
 

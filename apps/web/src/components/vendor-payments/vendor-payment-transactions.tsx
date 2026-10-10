@@ -6,7 +6,6 @@ import {
   PlusSignIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
@@ -17,11 +16,11 @@ import {
 } from "@pi-dash/zero/vendor-payment-constants";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
-import type { ComponentProps } from "react";
 import { useState } from "react";
 
 import { RejectDialog } from "@/components/form/reject-dialog";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
 import { LONG_DATE } from "@/lib/date-formats";
 import { formatINR } from "@/lib/form-schemas";
@@ -325,7 +324,7 @@ function TransactionRow({
   onReject,
   transaction,
 }: {
-  badge: { label: string; variant: ComponentProps<typeof Badge>["variant"] };
+  badge: { label: string; tone: StatusTone };
   canApprove: boolean;
   canDeleteTxn: boolean;
   canEditTxn: boolean;
@@ -358,7 +357,7 @@ function TransactionRow({
         {transaction.paymentMethod ?? "—"}
       </td>
       <td className="px-3 py-2">
-        <Badge variant={badge.variant}>{badge.label}</Badge>
+        <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
       </td>
       <td className="px-3 py-2 text-right">
         <div className="flex items-center justify-end gap-1">

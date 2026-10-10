@@ -5,7 +5,6 @@ import {
   PlusSignIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { getRefCurrent } from "@pi-dash/design-system/hooks/get-ref-current";
@@ -27,6 +26,7 @@ import { uuidv7 } from "uuidv7";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { Tag } from "@/components/shared/status-badge";
 import { AddMemberDialog } from "@/components/teams/add-member-dialog";
 import type { EditScope } from "@/components/teams/events/edit-scope-dialog";
 import { EditScopeDialog } from "@/components/teams/events/edit-scope-dialog";
@@ -480,10 +480,10 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
             />
             Events
             {pendingInterestCount > 0 ? (
-              <Badge className="ml-2" variant="outline">
+              <Tag className="ml-2 tabular-nums">
                 {pendingInterestCount} pending interest
                 {pendingInterestCount === 1 ? "" : "s"}
-              </Badge>
+              </Tag>
             ) : null}
           </h2>
 

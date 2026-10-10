@@ -28,7 +28,7 @@ export class ApprovalDetailPage {
   }
 
   getStatusBadge(status: string): Locator {
-    return this.page.locator('[data-slot="badge"]', { hasText: status });
+    return this.page.locator('[data-slot="status-badge"]', { hasText: status });
   }
 
   async approve(message?: string): Promise<void> {

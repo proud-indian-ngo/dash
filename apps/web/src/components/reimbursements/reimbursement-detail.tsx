@@ -6,7 +6,6 @@ import {
   TickDouble02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
@@ -20,6 +19,7 @@ import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
 import { ReimbursementHeaderMeta } from "@/components/reimbursements/reimbursement-header-meta";
 import { HistoryEntry } from "@/components/reimbursements/reimbursement-history-entry";
+import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
 import {
@@ -84,7 +84,7 @@ export function ReimbursementDetail({
   } as const;
   const { ns: mutatorNs, name: mutatorName } = mutatorMap[request.type];
 
-  const { label, variant } = getStatusBadge(request.status);
+  const { label, tone } = getStatusBadge(request.status);
   const showAdminActions =
     canApprove && (request.status === "pending" || canUpdateAnyStatus);
   const showApproveAction = showAdminActions && request.status !== "approved";
@@ -184,7 +184,7 @@ export function ReimbursementDetail({
               <h1 className="font-display text-2xl font-semibold tracking-tight">
                 {request.title}
               </h1>
-              <Badge variant="outline">{typeLabel}</Badge>
+              <Tag>{typeLabel}</Tag>
             </div>
             <ReimbursementHeaderMeta request={request} />
             {request.user ? (
@@ -207,7 +207,7 @@ export function ReimbursementDetail({
               </div>
             ) : null}
           </div>
-          <Badge variant={variant}>{label}</Badge>
+          <StatusBadge tone={tone}>{label}</StatusBadge>
         </div>
 
         {/* Bank account details */}

@@ -1,6 +1,5 @@
 import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Button } from "@pi-dash/design-system/components/ui/button";
@@ -12,6 +11,7 @@ import { toast } from "sonner";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import {
   createVendorFilterFields,
   getVendorFilterValue,
@@ -21,12 +21,9 @@ import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { formatINR } from "@/lib/form-schemas";
 import type { VendorRow } from "@/lib/vendor-types";
 
-const STATUS_BADGE_MAP: Record<
-  string,
-  { label: string; variant: "default" | "secondary" | "outline" }
-> = {
-  approved: { label: "Approved", variant: "default" },
-  pending: { label: "Pending", variant: "secondary" },
+const STATUS_BADGE_MAP: Record<string, { label: string; tone: StatusTone }> = {
+  approved: { label: "Approved", tone: "success" },
+  pending: { label: "Pending", tone: "warning" },
 };
 
 const SKELETON_NAME = <Skeleton className="h-5 w-40" />;
@@ -366,12 +363,12 @@ export function VendorsTable({
         const status = row.original.status ?? "pending";
         const badge = STATUS_BADGE_MAP[status] ?? {
           label: status,
-          variant: "secondary" as const,
+          tone: "neutral" as const,
         };
         return (
-          <Badge className="max-w-full shrink truncate" variant={badge.variant}>
+          <StatusBadge className="max-w-full shrink truncate" tone={badge.tone}>
             <span className="truncate">{badge.label}</span>
-          </Badge>
+          </StatusBadge>
         );
       },
       header: ({ column }) => (
@@ -387,7 +384,7 @@ export function VendorsTable({
         headerTitle: "Status",
         skeleton: SKELETON_STATUS,
       },
-      size: 120,
+      size: 140,
     },
     {
       cell: ({ row }) => (

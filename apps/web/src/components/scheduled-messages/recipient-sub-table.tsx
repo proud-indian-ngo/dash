@@ -4,7 +4,6 @@ import {
   UserIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   Tooltip,
@@ -16,16 +15,21 @@ import { MAX_RECIPIENT_RETRIES } from "@pi-dash/shared/scheduled-message";
 import type { ScheduledMessageRecipient } from "@pi-dash/zero/schema";
 import type { MouseEvent } from "react";
 
-function getRecipientStatusBadge(status: string | null) {
+import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
+
+function getRecipientStatusBadge(status: string | null): {
+  label: string;
+  tone: StatusTone;
+} {
   switch (status) {
     case "sent":
-      return { label: "Sent", variant: "success" as const };
+      return { label: "Sent", tone: "success" };
     case "failed":
-      return { label: "Failed", variant: "destructive" as const };
+      return { label: "Failed", tone: "danger" };
     case "cancelled":
-      return { label: "Cancelled", variant: "warning" as const };
+      return { label: "Cancelled", tone: "neutral" };
     default:
-      return { label: "Pending", variant: "outline" as const };
+      return { label: "Pending", tone: "warning" };
   }
 }
 
@@ -95,7 +99,7 @@ export function RecipientSubTable({
                 </td>
                 <td className="py-2 pr-4">
                   <span className="flex items-center gap-2">
-                    <Badge variant={badge.variant}>{badge.label}</Badge>
+                    <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
                     {Boolean(r.error) && (
                       <Tooltip>
                         <TooltipTrigger

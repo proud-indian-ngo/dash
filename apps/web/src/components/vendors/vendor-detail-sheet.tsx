@@ -1,11 +1,10 @@
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
-
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from "@/components/shared/responsive-sheet";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { formatINR } from "@/lib/form-schemas";
 import { getStatusBadge } from "@/lib/status-badge";
 import type { VendorRow } from "@/lib/vendor-types";
@@ -48,11 +47,7 @@ export function VendorDetailSheet({
         <div className="flex flex-col gap-6 px-6 pb-6">
           {(() => {
             const badge = getStatusBadge(vendor.status);
-            return (
-              <Badge className="w-fit" variant={badge.variant}>
-                {badge.label}
-              </Badge>
-            );
+            return <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>;
           })()}
 
           <div className="grid gap-4">

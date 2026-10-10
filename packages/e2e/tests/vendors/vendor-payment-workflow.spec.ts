@@ -15,7 +15,9 @@ test.describe("Vendor payment workflow (admin)", () => {
     status: string
   ) {
     await expect(
-      page.locator('[data-slot="badge"]').getByText(status, { exact: true })
+      page
+        .locator('[data-slot="status-badge"]')
+        .getByText(status, { exact: true })
     ).toBeVisible({ timeout: 10_000 });
   }
 

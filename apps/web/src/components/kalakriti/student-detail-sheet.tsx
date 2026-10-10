@@ -1,4 +1,3 @@
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   type CenterScanStudent,
@@ -20,6 +19,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/shared/responsive-sheet";
+import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 
 function studentTransportLabel(student: Pick<CenterScanStudent, "operations">) {
@@ -149,13 +149,13 @@ export function StudentDetailSheet({
                     <span className="text-muted-foreground text-sm">
                       {entry.division?.ageCategory?.name}
                     </span>
-                    <Badge variant="outline">
+                    <Tag>
                       {entry.participationMode === "group"
                         ? "Group"
                         : "Individual"}
-                    </Badge>
+                    </Tag>
                     {entry.division?.competition?.cancelledAt != null ? (
-                      <Badge variant="secondary">Cancelled</Badge>
+                      <StatusBadge tone="neutral">Cancelled</StatusBadge>
                     ) : null}
                   </li>
                 ))}

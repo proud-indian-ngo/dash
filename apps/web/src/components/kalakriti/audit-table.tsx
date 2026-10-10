@@ -1,11 +1,11 @@
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { type ReactNode, useMemo } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { createKalakritiAuditFilterFields } from "@/components/kalakriti/kalakriti-audit-filters";
+import { Tag } from "@/components/shared/status-badge";
 import { formatAuditLabel } from "@/lib/kalakriti-audit-policy";
 
 export interface KalakritiAuditRow {
@@ -71,9 +71,7 @@ function createColumns(
     },
     {
       accessorFn: (row) => row.action,
-      cell: ({ row }) => (
-        <Badge variant="outline">{formatAuditLabel(row.original.action)}</Badge>
-      ),
+      cell: ({ row }) => <Tag>{formatAuditLabel(row.original.action)}</Tag>,
       enableSorting: false,
       header: ({ column }) => (
         <DataGridColumnHeader

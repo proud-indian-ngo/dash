@@ -1,6 +1,5 @@
 import { Calendar04Icon, SmartPhone01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import {
   HoverCard,
   HoverCardContent,
@@ -10,6 +9,7 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import { format } from "date-fns";
 import type { ReactNode } from "react";
 
+import { Tag } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { useApp } from "@/context/app-context";
 import { LONG_DATE } from "@/lib/date-formats";
@@ -97,14 +97,7 @@ export function UserHoverCard({
               ) : null}
               {user.role ? (
                 <div className="flex items-center gap-1.5">
-                  <Badge
-                    size="xs"
-                    variant={
-                      user.role === "admin" ? "info-outline" : "secondary"
-                    }
-                  >
-                    {user.role.replace(/_/g, " ")}
-                  </Badge>
+                  <Tag>{user.role.replace(/_/g, " ")}</Tag>
                 </div>
               ) : null}
               {canSeeFullDetails && user.createdAt ? (

@@ -1,4 +1,3 @@
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 
@@ -9,6 +8,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/shared/responsive-sheet";
+import { StatusBadge } from "@/components/shared/status-badge";
 
 import type {
   ConfigurationDeletePayload,
@@ -72,12 +72,12 @@ export function VenueDetailSheet({
         </SheetHeader>
 
         <div className="flex flex-col gap-6 px-6 pb-6">
-          <Badge
+          <StatusBadge
             className="w-fit"
-            variant={venue.retiredAt === null ? "secondary" : "outline"}
+            tone={venue.retiredAt === null ? "success" : "neutral"}
           >
             {venue.retiredAt === null ? "Active" : "Retired"}
-          </Badge>
+          </StatusBadge>
 
           <div className="grid gap-1">
             <span className="text-muted-foreground text-xs">

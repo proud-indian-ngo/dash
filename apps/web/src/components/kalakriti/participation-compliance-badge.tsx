@@ -1,4 +1,3 @@
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import {
   Popover,
   PopoverContent,
@@ -9,6 +8,7 @@ import {
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useState } from "react";
 
+import { StatusBadge } from "@/components/shared/status-badge";
 import type { ParticipationCompliance } from "@/lib/kalakriti-participation-compliance";
 
 export function ParticipationComplianceBadge({
@@ -47,9 +47,17 @@ export function ParticipationComplianceBadge({
           />
         }
       >
-        <Badge variant={issues.length > 0 ? "destructive" : "outline"}>
+        <StatusBadge
+          tone={
+            students === 0
+              ? "neutral"
+              : issues.length > 0
+                ? "warning"
+                : "success"
+          }
+        >
           {label}
-        </Badge>
+        </StatusBadge>
       </PopoverTrigger>
       <PopoverContent
         align="start"
