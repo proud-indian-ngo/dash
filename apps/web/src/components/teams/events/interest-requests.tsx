@@ -1,6 +1,5 @@
 import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
@@ -10,6 +9,7 @@ import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
 import { useState } from "react";
 
+import { StatusBadge } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { LOCALE_DATE } from "@/lib/date-formats";
@@ -125,11 +125,11 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
           </Button>
         </div>
       ) : (
-        <Badge
-          variant={interest.status === "approved" ? "default" : "secondary"}
+        <StatusBadge
+          tone={interest.status === "approved" ? "success" : "danger"}
         >
           {interest.status === "approved" ? "Approved" : "Rejected"}
-        </Badge>
+        </StatusBadge>
       )}
     </div>
   );

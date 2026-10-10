@@ -1,6 +1,6 @@
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 
+import { StatusBadge } from "@/components/shared/status-badge";
 import type { KalakritiPublicSchedule } from "@/lib/kalakriti-public-schedule";
 
 export function ScheduleItem({
@@ -39,9 +39,9 @@ export function ScheduleItem({
         </div>
 
         {cancelled ? (
-          <Badge className="w-fit" variant="secondary">
+          <StatusBadge className="w-fit" tone="neutral">
             Cancelled
-          </Badge>
+          </StatusBadge>
         ) : null}
       </article>
       {isLast ? null : <Separator />}

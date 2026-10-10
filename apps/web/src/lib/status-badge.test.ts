@@ -3,59 +3,59 @@ import { describe, expect, it } from "bun:test";
 import { getStatusBadge } from "./status-badge";
 
 describe("getStatusBadge", () => {
-  it('maps pending to "Pending" label with "warning-outline" variant', () => {
+  it('maps pending to "Pending" label with "warning" tone', () => {
     expect(getStatusBadge("pending")).toEqual({
       label: "Pending",
-      variant: "warning-outline",
+      tone: "warning",
     });
   });
 
-  it('maps approved to "Approved" label with "success-outline" variant', () => {
+  it('maps approved to "Approved" label with "success" tone', () => {
     expect(getStatusBadge("approved")).toEqual({
       label: "Approved",
-      variant: "success-outline",
+      tone: "success",
     });
   });
 
-  it('maps rejected to "Rejected" label with "destructive-outline" variant', () => {
+  it('maps rejected to "Rejected" label with "danger" tone', () => {
     expect(getStatusBadge("rejected")).toEqual({
       label: "Rejected",
-      variant: "destructive-outline",
+      tone: "danger",
     });
   });
 
-  it('maps partially_paid to "Partially Paid" with "warning-outline" variant', () => {
+  it('maps partially_paid to "Partially Paid" with "warning" tone', () => {
     expect(getStatusBadge("partially_paid")).toEqual({
       label: "Partially Paid",
-      variant: "warning-outline",
+      tone: "warning",
     });
   });
 
-  it('maps paid to "Paid" with "success-outline" variant', () => {
+  it('maps paid to "Paid" with "success" tone', () => {
     expect(getStatusBadge("paid")).toEqual({
       label: "Paid",
-      variant: "success-outline",
+      tone: "success",
     });
   });
 
   it("returns fallback for unknown status", () => {
     expect(getStatusBadge("unknown_status")).toEqual({
       label: "Unknown",
-      variant: "secondary",
+      tone: "neutral",
     });
   });
 
   it("returns fallback for null", () => {
     expect(getStatusBadge(null)).toEqual({
       label: "Unknown",
-      variant: "secondary",
+      tone: "neutral",
     });
   });
 
   it("returns fallback for empty string", () => {
     expect(getStatusBadge("")).toEqual({
       label: "Unknown",
-      variant: "secondary",
+      tone: "neutral",
     });
   });
 });

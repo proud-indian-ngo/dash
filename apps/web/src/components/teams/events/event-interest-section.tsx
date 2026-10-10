@@ -1,9 +1,10 @@
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 
+import type { StatusTone } from "@/components/shared/status-badge";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 import { shouldRenderInterestRequests } from "./event-interest-visibility";
@@ -11,10 +12,10 @@ import type { InterestWithUser } from "./interest-requests";
 import { InterestRequests } from "./interest-requests";
 
 const interestStatusMap = {
-  approved: { label: "Interest Approved", variant: "default" },
-  pending: { label: "Interest Pending", variant: "outline" },
-  rejected: { label: "Interest Declined", variant: "secondary" },
-} as const satisfies Record<string, { label: string; variant: string }>;
+  approved: { label: "Interest Approved", tone: "success" },
+  pending: { label: "Interest Pending", tone: "warning" },
+  rejected: { label: "Interest Declined", tone: "danger" },
+} as const satisfies Record<string, { label: string; tone: StatusTone }>;
 
 export function VolunteerInterestSection({
   canManage,
@@ -79,17 +80,17 @@ export function VolunteerInterestSection({
       ) : null}
       {myInterest && !isMember ? (
         <div className="flex items-center gap-2">
-          <Badge
-            variant={
+          <StatusBadge
+            tone={
               interestStatusMap[
                 myInterest.status as keyof typeof interestStatusMap
-              ]?.variant ?? "outline"
+              ]?.tone ?? "neutral"
             }
           >
             {interestStatusMap[
               myInterest.status as keyof typeof interestStatusMap
             ]?.label ?? myInterest.status}
-          </Badge>
+          </StatusBadge>
           {myInterest.status === "pending" ? (
             <Button onClick={handleCancel} size="sm" variant="ghost">
               Cancel Interest
@@ -116,9 +117,9 @@ export function PastInterestBadge({
     return null;
   }
   const status = myInterest.status as keyof typeof interestStatusMap;
-  const { label, variant } = interestStatusMap[status] ?? {
+  const { label, tone } = interestStatusMap[status] ?? {
     label: myInterest.status,
-    variant: "outline" as const,
+    tone: "neutral" as const,
   };
-  return <Badge variant={variant}>{label}</Badge>;
+  return <StatusBadge tone={tone}>{label}</StatusBadge>;
 }

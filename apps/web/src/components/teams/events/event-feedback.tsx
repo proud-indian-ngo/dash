@@ -1,4 +1,3 @@
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
@@ -13,6 +12,7 @@ import {
   EditorSkeleton,
   RendererSkeleton,
 } from "@/components/editor/editor-skeletons";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { getMyEventFeedback } from "@/functions/event-feedback";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
@@ -98,14 +98,11 @@ function EventFeedbackAdmin({
             {Math.min(feedback.length, memberCount)}/{memberCount} submitted
           </span>
           {feedbackDeadline ? (
-            <Badge
-              size="sm"
-              variant={feedbackDeadlinePassed ? "secondary" : "info-light"}
-            >
+            <StatusBadge tone={feedbackDeadlinePassed ? "neutral" : "info"}>
               {feedbackDeadlinePassed
                 ? `Closed ${formatDistanceToNow(new Date(feedbackDeadline), { addSuffix: true })}`
                 : `Closes ${formatDistanceToNow(new Date(feedbackDeadline), { addSuffix: true })}`}
-            </Badge>
+            </StatusBadge>
           ) : null}
         </div>
         <div className="bg-muted h-1.5 rounded-full">

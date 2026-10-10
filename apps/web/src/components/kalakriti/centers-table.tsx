@@ -2,7 +2,6 @@ import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
@@ -20,6 +19,7 @@ import {
 } from "@/components/kalakriti/kalakriti-filters";
 import { ParticipationComplianceBadge } from "@/components/kalakriti/participation-compliance-badge";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { StatusBadge } from "@/components/shared/status-badge";
 import type { ParticipationCompliance } from "@/lib/kalakriti-participation-compliance";
 
 import { useTransportStatusSnapshot } from "./use-transport-status-snapshot";
@@ -56,9 +56,9 @@ function RegistrationStatus({
 }) {
   const available = enabled && registrationPhaseOpen;
   return (
-    <Badge variant={available ? "secondary" : "outline"}>
+    <StatusBadge tone={available ? "success" : enabled ? "warning" : "neutral"}>
       {available ? "Open" : enabled ? "Edition locked" : "Closed"}
-    </Badge>
+    </StatusBadge>
   );
 }
 
@@ -217,11 +217,11 @@ export function CentersTable({
     {
       accessorFn: (row) => (row.retiredAt === null ? "Active" : "Retired"),
       cell: ({ row }) => (
-        <Badge
-          variant={row.original.retiredAt === null ? "secondary" : "outline"}
+        <StatusBadge
+          tone={row.original.retiredAt === null ? "success" : "neutral"}
         >
           {row.original.retiredAt === null ? "Active" : "Retired"}
-        </Badge>
+        </StatusBadge>
       ),
       header: ({ column }) => (
         <DataGridColumnHeader
@@ -235,7 +235,7 @@ export function CentersTable({
         headerTitle: "Status",
         skeleton: SKELETON_STATUS,
       },
-      size: 110,
+      size: 130,
     },
     {
       id: "transportStatus",
@@ -250,7 +250,7 @@ export function CentersTable({
       ),
       cell: ({ row }) =>
         labels?.has(row.original.id) ? (
-          <Badge variant="secondary">{labels.get(row.original.id)}</Badge>
+          <StatusBadge tone="info">{labels.get(row.original.id)}</StatusBadge>
         ) : (
           <Skeleton
             aria-label="Loading transport status"

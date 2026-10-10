@@ -13,8 +13,6 @@ import { Link } from "@tanstack/react-router";
 const STAGGER_DELAY_MS = 50;
 
 export interface StatItem {
-  accent?: string;
-  bgAccent?: string;
   description?: string;
   href?: string;
   icon?: IconSvgElement;
@@ -29,16 +27,8 @@ export function StatCard({
   animationDelay?: number;
   item: StatItem;
 }) {
-  const cardClasses = [
-    "h-full",
-    item.accent && `border-l-2 ${item.accent}`,
-    item.bgAccent,
-  ]
-    .filter(Boolean)
-    .join(" ");
-
   const card = (
-    <Card className={cardClasses} size="sm">
+    <Card className="h-full" size="sm">
       <CardHeader>
         <CardTitle className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
           {item.icon ? (

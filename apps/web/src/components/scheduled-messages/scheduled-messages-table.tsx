@@ -6,7 +6,6 @@ import {
   ViewIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Button } from "@pi-dash/design-system/components/ui/button";
@@ -32,6 +31,7 @@ import {
   useMigrateLegacyScheduledMessageFilterParams,
 } from "@/components/scheduled-messages/scheduled-message-filters";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { SHORT_DATE_WITH_SECONDS } from "@/lib/date-formats";
 
 type ScheduledMessageRow = ScheduledMessage & {
@@ -39,18 +39,21 @@ type ScheduledMessageRow = ScheduledMessage & {
   recipients: ScheduledMessageRecipient[];
 };
 
-function getStatusBadge(status: ScheduledMessageDerivedStatus) {
+function getStatusBadge(status: ScheduledMessageDerivedStatus): {
+  label: string;
+  tone: StatusTone;
+} {
   switch (status) {
     case "sent":
-      return { label: "Sent", variant: "success" as const };
+      return { label: "Sent", tone: "success" };
     case "failed":
-      return { label: "Failed", variant: "destructive" as const };
+      return { label: "Failed", tone: "danger" };
     case "cancelled":
-      return { label: "Cancelled", variant: "warning" as const };
+      return { label: "Cancelled", tone: "neutral" };
     case "partial":
-      return { label: "Partial", variant: "secondary" as const };
+      return { label: "Partial", tone: "warning" };
     default:
-      return { label: "Pending", variant: "outline" as const };
+      return { label: "Pending", tone: "warning" };
   }
 }
 
@@ -165,7 +168,7 @@ function createColumns(
       cell: ({ row }) => {
         const status = deriveMessageStatus(row.original.recipients);
         const badge = getStatusBadge(status);
-        return <Badge variant={badge.variant}>{badge.label}</Badge>;
+        return <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>;
       },
       header: ({ column }) => (
         <DataGridColumnHeader
@@ -180,7 +183,7 @@ function createColumns(
         headerTitle: "Status",
         skeleton: SKELETON_STATUS,
       },
-      size: 120,
+      size: 140,
     },
     {
       accessorFn: (row) => row.recipients.length,

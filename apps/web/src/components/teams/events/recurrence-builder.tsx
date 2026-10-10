@@ -1,4 +1,3 @@
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import { Label } from "@pi-dash/design-system/components/ui/label";
@@ -20,6 +19,7 @@ import {
 import { format } from "date-fns";
 import { useEffect, useRef, useState } from "react";
 
+import { Tag } from "@/components/shared/status-badge";
 import { SHORT_MONTH_DATE_TIME } from "@/lib/date-formats";
 
 const WEEKDAY_LABELS = [
@@ -373,7 +373,7 @@ function ExclusionBadge({
   const handleRemove = useEventCallback(() => onRemove(index));
 
   return (
-    <Badge className="gap-1 pr-1" variant="secondary">
+    <Tag className="pr-1">
       {excludeRuleLabel(rule)}
       <Button
         className="h-4 w-4 p-0"
@@ -384,7 +384,7 @@ function ExclusionBadge({
       >
         ×
       </Button>
-    </Badge>
+    </Tag>
   );
 }
 
@@ -433,9 +433,9 @@ function OccurrencePreview({
       </Label>
       <div className="flex flex-wrap gap-1">
         {dates.map((occ) => (
-          <Badge key={occ.date} variant="secondary">
+          <Tag key={occ.date}>
             {format(new Date(occ.startTime), SHORT_MONTH_DATE_TIME)}
-          </Badge>
+          </Tag>
         ))}
       </div>
     </div>

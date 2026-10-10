@@ -39,36 +39,26 @@ export function computeJobStats(
 
   return [
     {
-      accent: "border-l-blue-500",
-      bgAccent: "bg-blue-500/5 dark:bg-blue-500/10",
       icon: Loading03Icon,
       label: "Active",
       value: active,
     },
     {
-      accent: "border-l-emerald-500",
-      bgAccent: "bg-emerald-500/5 dark:bg-emerald-500/10",
       icon: CheckmarkCircle01Icon,
       label: "Completed",
       value: stateCounts.completed ?? 0,
     },
     {
-      accent: "border-l-red-500",
-      bgAccent: "bg-red-500/5 dark:bg-red-500/10",
       icon: MultiplicationSignCircleIcon,
       label: "Failed",
       value: stateCounts.failed ?? 0,
     },
     {
-      accent: "border-l-orange-500",
-      bgAccent: "bg-orange-500/5 dark:bg-orange-500/10",
       icon: Cancel01Icon,
       label: "Cancelled",
       value: stateCounts.cancelled ?? 0,
     },
     {
-      accent: "border-l-amber-500",
-      bgAccent: "bg-amber-500/5 dark:bg-amber-500/10",
       icon: Clock01Icon,
       label: "Scheduled",
       value: scheduled,

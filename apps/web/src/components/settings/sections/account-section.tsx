@@ -1,4 +1,3 @@
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
@@ -10,6 +9,7 @@ import { CheckboxField } from "@/components/form/checkbox-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { authClient } from "@/lib/auth-client";
 
 const passwordSchema = z
@@ -72,11 +72,9 @@ export function AccountSection() {
             id="account-email"
             value={user?.email ?? ""}
           />
-          {user?.emailVerified ? (
-            <Badge variant="secondary">Verified</Badge>
-          ) : (
-            <Badge variant="destructive">Unverified</Badge>
-          )}
+          <StatusBadge tone={user?.emailVerified ? "success" : "warning"}>
+            {user?.emailVerified ? "Verified" : "Unverified"}
+          </StatusBadge>
         </div>
       </div>
 

@@ -1,4 +1,3 @@
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   Dialog,
@@ -14,6 +13,7 @@ import { type ReactNode, useCallback, useState } from "react";
 import { uuidv7 } from "uuidv7";
 
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { getKalakritiResultDetail } from "@/functions/kalakriti-results";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 
@@ -133,12 +133,12 @@ export function ResultSection({
             event.
           </DialogDescription>
         </DialogHeader>
-        <Badge
+        <StatusBadge
           className="justify-self-start"
-          variant={detail.status === "published" ? "default" : "secondary"}
+          tone={detail.status === "published" ? "success" : "neutral"}
         >
           {detail.status === "published" ? "Published" : "Draft"}
-        </Badge>
+        </StatusBadge>
         {error || !fresh ? (
           <p
             className="text-muted-foreground text-sm"

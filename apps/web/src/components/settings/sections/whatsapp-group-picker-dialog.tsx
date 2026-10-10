@@ -1,6 +1,5 @@
 import { Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Checkbox } from "@pi-dash/design-system/components/ui/checkbox";
 import { Input } from "@pi-dash/design-system/components/ui/input";
@@ -18,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
+import { Tag } from "@/components/shared/status-badge";
 import { fetchWhatsAppGroups } from "@/functions/whatsapp-groups";
 
 interface WapiGroup {
@@ -155,9 +155,9 @@ function GroupPickerOption({
           {group.jid}
         </span>
       </div>
-      <Badge className="shrink-0 self-start" variant="secondary">
+      <Tag className="shrink-0 self-start font-mono tabular-nums">
         {group.participantCount}
-      </Badge>
+      </Tag>
     </button>
   );
 }

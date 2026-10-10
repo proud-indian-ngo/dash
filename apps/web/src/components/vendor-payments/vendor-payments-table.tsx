@@ -1,6 +1,5 @@
 import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Button } from "@pi-dash/design-system/components/ui/button";
@@ -15,6 +14,7 @@ import { toast } from "sonner";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
 import {
@@ -323,8 +323,8 @@ export function VendorPaymentsTable({
     {
       accessorFn: (row) => row.status,
       cell: ({ row }) => {
-        const { label, variant } = getStatusBadge(row.original.status);
-        return <Badge variant={variant}>{label}</Badge>;
+        const { label, tone } = getStatusBadge(row.original.status);
+        return <StatusBadge tone={tone}>{label}</StatusBadge>;
       },
       header: ({ column }) => (
         <DataGridColumnHeader
@@ -339,7 +339,7 @@ export function VendorPaymentsTable({
         headerTitle: "Status",
         skeleton: SKELETON_STATUS,
       },
-      size: 130,
+      size: 170,
     },
     {
       cell: ({ row }) => {

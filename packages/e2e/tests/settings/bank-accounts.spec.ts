@@ -138,7 +138,7 @@ test.describe("Banking settings — bank account management", () => {
     // New account should show "Default" badge
     await expect(
       newAccountRow
-        .locator('[data-slot="badge"]')
+        .locator('[data-slot="tag"]')
         .getByText("Default", { exact: true })
     ).toBeVisible({
       timeout: 10_000,

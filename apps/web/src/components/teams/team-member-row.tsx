@@ -1,11 +1,11 @@
 import { UserRemoveIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { TeamMember, User } from "@pi-dash/zero/schema";
 import { format } from "date-fns";
 
+import { Tag } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { SHORT_DATE } from "@/lib/date-formats";
@@ -70,9 +70,7 @@ export function MemberRow({
         </div>
       )}
       <div className="flex items-center gap-2">
-        <Badge variant={member.role === "lead" ? "default" : "secondary"}>
-          {member.role === "lead" ? "Lead" : "Member"}
-        </Badge>
+        <Tag>{member.role === "lead" ? "Lead" : "Member"}</Tag>
         {canManage ? (
           <Button
             disabled={Boolean(isSoleLeadSelf) && member.role === "lead"}

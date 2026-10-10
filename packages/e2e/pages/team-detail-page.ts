@@ -25,7 +25,7 @@ export class TeamDetailPage {
   }
 
   getMemberRoleBadge(nameOrEmail: string): Locator {
-    return this.getMemberRow(nameOrEmail).locator("[data-slot='badge']");
+    return this.getMemberRow(nameOrEmail).locator("[data-slot='tag']");
   }
 
   /**

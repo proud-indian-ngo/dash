@@ -1,4 +1,3 @@
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { queries } from "@pi-dash/zero/queries";
@@ -14,6 +13,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/shared/responsive-sheet";
+import { StatusBadge } from "@/components/shared/status-badge";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import { hasEffectiveGuardianCheckIn } from "@/lib/kalakriti-guardian-policy";
 
@@ -86,12 +86,12 @@ export function GuardianDetailSheet({
         </SheetHeader>
 
         <div className="flex flex-col gap-6 px-6 pb-6">
-          <Badge
+          <StatusBadge
             className="w-fit capitalize"
-            variant={guardian.state === "active" ? "secondary" : "outline"}
+            tone={guardian.state === "active" ? "success" : "neutral"}
           >
             {guardian.state}
-          </Badge>
+          </StatusBadge>
 
           <DetailRow label="Yearly ID" value={guardian.humanId ?? "—"} />
           <DetailRow

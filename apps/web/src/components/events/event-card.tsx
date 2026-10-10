@@ -1,4 +1,3 @@
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   Card,
@@ -18,6 +17,7 @@ import type { MouseEvent } from "react";
 import { uuidv7 } from "uuidv7";
 
 import type { PublicDisplayRow } from "@/components/events/public-events-table";
+import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
 import { handleMutationResult } from "@/lib/mutation-result";
 
@@ -179,10 +179,10 @@ export function EventCard({
     });
     switch (action.kind) {
       case "joined":
-        return <Badge variant="default">Joined</Badge>;
+        return <StatusBadge tone="success">Joined</StatusBadge>;
       case "interestPending":
         return action.started ? (
-          <Badge variant="secondary">Interest Pending</Badge>
+          <StatusBadge tone="warning">Interest Pending</StatusBadge>
         ) : (
           <CancelInterestButton
             interestId={action.interestId}
@@ -190,9 +190,9 @@ export function EventCard({
           />
         );
       case "interestApproved":
-        return <Badge variant="default">Interest Approved</Badge>;
+        return <StatusBadge tone="success">Interest Approved</StatusBadge>;
       case "interestDeclined":
-        return <Badge variant="secondary">Interest Declined</Badge>;
+        return <StatusBadge tone="danger">Interest Declined</StatusBadge>;
       case "join":
         return (
           <Button onClick={handleJoinAsMember} size="sm">
@@ -245,16 +245,16 @@ export function EventCard({
             </Link>
           </CardTitle>
           <CardDescription className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            {featured ? <Badge variant="outline">Kalakriti</Badge> : null}
+            {featured ? <Tag>Kalakriti</Tag> : null}
             {row.team ? <span>{row.team.name}</span> : null}
             {Boolean(row.location) && (
               <span className="max-w-48 truncate">{row.location}</span>
             )}
             {Boolean(canSeeVolunteers) && (
-              <Badge className="ml-0.5" variant="secondary">
+              <Tag className="ml-0.5 tabular-nums">
                 {row.members.length}{" "}
                 {row.members.length === 1 ? "volunteer" : "volunteers"}
-              </Badge>
+              </Tag>
             )}
           </CardDescription>
           <CardAction>{renderAction()}</CardAction>

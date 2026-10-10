@@ -63,12 +63,4 @@ describe("computeReimbursementStats", () => {
     expect(stats.at(2)?.value).toBe(0);
     expect(stats.at(3)?.value).toBe(0);
   });
-
-  it("sets correct accent classes", () => {
-    const stats = computeReimbursementStats([]);
-    expect(stats.at(0)?.accent).toBe("border-l-blue-500");
-    expect(stats.at(1)?.accent).toBe("border-l-amber-500");
-    expect(stats.at(2)?.accent).toBe("border-l-emerald-500");
-    expect(stats.at(3)?.accent).toBe("border-l-red-500");
-  });
 });

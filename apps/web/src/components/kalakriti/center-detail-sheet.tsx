@@ -1,4 +1,3 @@
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { KALAKRITI_RESPONSIBILITY_LABELS } from "@pi-dash/shared/kalakriti";
@@ -14,6 +13,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/shared/responsive-sheet";
+import { StatusBadge } from "@/components/shared/status-badge";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import { getCenterTransportCapabilities } from "@/lib/kalakriti-center-registration-policy";
 
@@ -180,11 +180,11 @@ function CenterSheetDetails({
         <div>
           <dt className="text-muted-foreground">Status</dt>
           <dd>
-            <Badge
-              variant={center.retiredAt === null ? "secondary" : "outline"}
+            <StatusBadge
+              tone={center.retiredAt === null ? "success" : "neutral"}
             >
               {center.retiredAt === null ? "Active" : "Retired"}
-            </Badge>
+            </StatusBadge>
           </dd>
         </div>
         <div>

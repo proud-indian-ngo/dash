@@ -1,6 +1,5 @@
 import { Calendar03Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import {
   Card,
   CardContent,
@@ -16,6 +15,7 @@ import { Link } from "@tanstack/react-router";
 import { addWeeks, format } from "date-fns";
 
 import { GhostEmptyState } from "@/components/shared/ghost-empty-state";
+import { Tag } from "@/components/shared/status-badge";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
 
 interface TeamEventException {
@@ -112,11 +112,7 @@ function UpcomingEventsList({ items }: { items: UpcomingItem[] }) {
         >
           <div className="flex items-center gap-2">
             <p className="truncate text-sm font-medium">{item.name}</p>
-            {Boolean(item.isPublic) && (
-              <Badge size="xs" variant="info-light">
-                Public
-              </Badge>
-            )}
+            {Boolean(item.isPublic) && <Tag>Public</Tag>}
           </div>
           <div className="text-muted-foreground mt-0.5 flex items-center gap-2 text-xs">
             <span>{format(item.startTime, LONG_DATE_TIME)}</span>

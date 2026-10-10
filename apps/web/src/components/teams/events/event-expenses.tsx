@@ -1,9 +1,9 @@
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { Link } from "@tanstack/react-router";
 
+import { StatusBadge } from "@/components/shared/status-badge";
 import { formatINR } from "@/lib/form-schemas";
 import { getStatusBadge } from "@/lib/status-badge";
 
@@ -28,7 +28,7 @@ function ExpenseRow({
   total,
   status,
 }: ExpenseRowProps) {
-  const { label, variant } = getStatusBadge(status);
+  const { label, tone } = getStatusBadge(status);
   return (
     <Link
       className="hover:bg-muted/40 focus-visible:bg-muted/40 flex items-center justify-between gap-4 py-2 transition-colors outline-none"
@@ -43,9 +43,7 @@ function ExpenseRow({
       </div>
       <div className="flex shrink-0 items-center gap-3">
         <span className="text-sm tabular-nums">{formatINR(total)}</span>
-        <Badge size="sm" variant={variant}>
-          {label}
-        </Badge>
+        <StatusBadge tone={tone}>{label}</StatusBadge>
       </div>
     </Link>
   );

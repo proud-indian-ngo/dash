@@ -4,7 +4,6 @@ import {
   UserIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   Command,
@@ -23,6 +22,8 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { useState } from "react";
+
+import { Tag } from "@/components/shared/status-badge";
 
 export interface Recipient {
   id: string;
@@ -73,7 +74,7 @@ function SelectedRecipientBadge({
   const handleRemove = useEventCallback(() => onRemove(recipient.id));
 
   return (
-    <Badge className="gap-1 pr-1" variant="secondary">
+    <Tag className="gap-1 pr-1">
       <HugeiconsIcon
         className="size-3"
         icon={recipient.type === "group" ? UserGroupIcon : UserIcon}
@@ -88,7 +89,7 @@ function SelectedRecipientBadge({
       >
         <HugeiconsIcon className="size-3" icon={Cancel01Icon} strokeWidth={2} />
       </button>
-    </Badge>
+    </Tag>
   );
 }
 

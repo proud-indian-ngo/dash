@@ -1,4 +1,3 @@
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
@@ -21,6 +20,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/shared/responsive-sheet";
+import { Tag } from "@/components/shared/status-badge";
 
 function DetailRow({ label, value }: { label: string; value: string | null }) {
   return (
@@ -189,9 +189,7 @@ function VolunteerAssignmentDetailRow({
 
   return (
     <li className="flex items-center justify-between gap-3">
-      <Badge variant="outline">
-        {formatKalakritiVolunteerAssignment(assignment)}
-      </Badge>
+      <Tag>{formatKalakritiVolunteerAssignment(assignment)}</Tag>
       {canRemove ? (
         <Button
           aria-label={`Remove ${KALAKRITI_RESPONSIBILITY_LABELS[assignment.responsibility]} from ${volunteerName}`}

@@ -2,7 +2,6 @@ import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
@@ -15,7 +14,15 @@ import {
   getCompetitionFilterValue,
 } from "@/components/kalakriti/kalakriti-filters";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
-import { COMPETITION_STATUS_LABELS } from "@/lib/kalakriti-competition-status";
+import {
+  StatusBadge,
+  type StatusTone,
+  Tag,
+} from "@/components/shared/status-badge";
+import {
+  COMPETITION_STATUS_LABELS,
+  type CompetitionStatus,
+} from "@/lib/kalakriti-competition-status";
 
 import {
   type CompetitionTableRow,
@@ -30,6 +37,16 @@ const SKELETON_CATEGORY = <Skeleton className="h-5 w-28" />;
 const SKELETON_VALUE = <Skeleton className="h-5 w-20" />;
 const SKELETON_STATUS = <Skeleton className="h-5 w-16" />;
 const SKELETON_ACTIONS = <Skeleton className="mx-auto size-8" />;
+
+const COMPETITION_STATUS_TONES: Record<CompetitionStatus, StatusTone> = {
+  cancelled: "neutral",
+  finished: "success",
+  not_scheduled: "neutral",
+  retired: "neutral",
+  running: "info",
+  scheduled: "info",
+  winner_assigned: "success",
+};
 
 function RowActions({
   canEdit,
@@ -192,9 +209,7 @@ export function CompetitionsTable({
           <span className="text-sm font-medium" data-testid="row-title">
             {row.original.name}
           </span>
-          {row.original.musicUploadEnabled ? (
-            <Badge variant="outline">Music</Badge>
-          ) : null}
+          {row.original.musicUploadEnabled ? <Tag>Music</Tag> : null}
         </span>
       ),
       header: ({ column }) => (
@@ -352,17 +367,17 @@ export function CompetitionsTable({
       cell: ({ row }) => {
         const status = getCompetitionStatus(row.original);
         return (
-          <Badge
-            variant={
-              status === "running" || status === "winner_assigned"
-                ? "secondary"
-                : "outline"
+          <StatusBadge
+            tone={
+              status === "checking"
+                ? "neutral"
+                : COMPETITION_STATUS_TONES[status]
             }
           >
             {status === "checking"
               ? "Checking"
               : COMPETITION_STATUS_LABELS[status]}
-          </Badge>
+          </StatusBadge>
         );
       },
       header: ({ column }) => (
@@ -378,7 +393,7 @@ export function CompetitionsTable({
         headerTitle: "Status",
         skeleton: SKELETON_STATUS,
       },
-      size: 110,
+      size: 160,
     },
     {
       cell: ({ row }) => (

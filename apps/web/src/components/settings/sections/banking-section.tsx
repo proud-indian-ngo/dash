@@ -1,6 +1,5 @@
 import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
@@ -16,6 +15,7 @@ import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { Tag } from "@/components/shared/status-badge";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 import {
@@ -40,9 +40,7 @@ function BankAccountListRow({
       <div className="flex flex-col gap-0.5">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">{account.accountName}</span>
-          {account.isDefault ? (
-            <Badge variant="secondary">Default</Badge>
-          ) : null}
+          {account.isDefault ? <Tag>Default</Tag> : null}
         </div>
         <span className="text-muted-foreground text-xs">
           ••••{account.accountNumber.slice(-4)}

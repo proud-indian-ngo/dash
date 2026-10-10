@@ -1,11 +1,11 @@
 import { GitForkIcon, RepeatIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { format } from "date-fns";
 
+import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import { EventActionsMenu } from "@/components/teams/events/event-actions-menu";
 import type { EventDisplayRow } from "@/components/teams/events/events-table-helpers";
 import {
@@ -134,8 +134,8 @@ export function createEventsTableColumns({
     },
     {
       cell: ({ row }) => {
-        const { label, variant } = getEventStatus(row.original);
-        return <Badge variant={variant}>{label}</Badge>;
+        const { label, tone } = getEventStatus(row.original);
+        return <StatusBadge tone={tone}>{label}</StatusBadge>;
       },
       enableSorting: false,
       header: ({ column }) => (
@@ -151,7 +151,7 @@ export function createEventsTableColumns({
         headerTitle: "Status",
         skeleton: SKELETON_BADGE,
       },
-      size: 90,
+      size: 120,
     },
     {
       accessorFn: (row) => row.startTime,
@@ -214,12 +214,9 @@ export function createEventsTableColumns({
     },
     {
       accessorFn: (row) => row.event.isPublic,
-      cell: ({ row }) =>
-        row.original.event.isPublic ? (
-          <Badge variant="default">Public</Badge>
-        ) : (
-          <Badge variant="secondary">Private</Badge>
-        ),
+      cell: ({ row }) => (
+        <Tag>{row.original.event.isPublic ? "Public" : "Private"}</Tag>
+      ),
       enableSorting: false,
       header: ({ column }) => (
         <DataGridColumnHeader
@@ -242,11 +239,7 @@ export function createEventsTableColumns({
           | null
           | undefined;
         const label = getRecurrenceLabel(rule);
-        return (
-          <Badge variant={label === "One-time" ? "secondary" : "outline"}>
-            {label}
-          </Badge>
-        );
+        return <Tag>{label}</Tag>;
       },
       enableSorting: false,
       header: ({ column }) => (

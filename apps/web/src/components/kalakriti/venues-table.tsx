@@ -2,7 +2,6 @@ import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
@@ -14,6 +13,7 @@ import {
   getVenueFilterValue,
 } from "@/components/kalakriti/kalakriti-filters";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { StatusBadge } from "@/components/shared/status-badge";
 
 import type {
   ConfigurationDeletePayload,
@@ -165,11 +165,11 @@ export function VenuesTable({
     {
       accessorFn: (venue) => (venue.retiredAt === null ? "active" : "retired"),
       cell: ({ row }) => (
-        <Badge
-          variant={row.original.retiredAt === null ? "secondary" : "outline"}
+        <StatusBadge
+          tone={row.original.retiredAt === null ? "success" : "neutral"}
         >
           {row.original.retiredAt === null ? "Active" : "Retired"}
-        </Badge>
+        </StatusBadge>
       ),
       header: ({ column }) => (
         <DataGridColumnHeader
@@ -184,7 +184,7 @@ export function VenuesTable({
         headerTitle: "Status",
         skeleton: SKELETON_STATUS,
       },
-      size: 120,
+      size: 130,
     },
     {
       cell: ({ row }) => (

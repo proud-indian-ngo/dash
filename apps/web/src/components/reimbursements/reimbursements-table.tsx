@@ -1,6 +1,5 @@
 import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Button } from "@pi-dash/design-system/components/ui/button";
@@ -21,6 +20,7 @@ import {
 } from "@/components/reimbursements/reimbursement-filters";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { useApp } from "@/context/app-context";
@@ -217,11 +217,11 @@ export function ReimbursementsTable({
     {
       accessorFn: (row: RequestRow) => REQUEST_TYPE_LABELS[row.type],
       cell: ({ row }) => (
-        <Badge className="max-w-full shrink truncate" variant="outline">
+        <Tag className="max-w-full shrink truncate">
           <span className="truncate">
             {REQUEST_TYPE_LABELS[row.original.type]}
           </span>
-        </Badge>
+        </Tag>
       ),
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="Type" visibility={true} />
@@ -301,8 +301,8 @@ export function ReimbursementsTable({
     {
       accessorFn: (row) => row.status,
       cell: ({ row }) => {
-        const { label, variant } = getStatusBadge(row.original.status);
-        return <Badge variant={variant}>{label}</Badge>;
+        const { label, tone } = getStatusBadge(row.original.status);
+        return <StatusBadge tone={tone}>{label}</StatusBadge>;
       },
       header: ({ column }) => (
         <DataGridColumnHeader
@@ -317,7 +317,7 @@ export function ReimbursementsTable({
         headerTitle: "Status",
         skeleton: SKELETON_STATUS,
       },
-      size: 120,
+      size: 140,
     },
     {
       accessorFn: (row) => computeTotal(row.lineItems),

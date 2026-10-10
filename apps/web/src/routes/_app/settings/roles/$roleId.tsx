@@ -1,7 +1,6 @@
 import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ADMIN_TIER_ROLES } from "@pi-dash/db/permissions";
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -30,6 +29,7 @@ import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import { Loader } from "@/components/loader";
+import { Tag } from "@/components/shared/status-badge";
 import {
   getAllPermissions,
   getRoleById,
@@ -251,7 +251,7 @@ function RoleEditPage() {
         <h1 className="font-display text-2xl font-semibold tracking-tight">
           {roleData.name}
         </h1>
-        {roleData.isSystem ? <Badge variant="secondary">System</Badge> : null}
+        {roleData.isSystem ? <Tag>System</Tag> : null}
       </div>
       <p className="text-muted-foreground mt-1 text-sm">
         Role ID: {roleData.id}

@@ -1,4 +1,3 @@
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -9,6 +8,8 @@ import {
   KALAKRITI_TRANSPORT_STATUS_LABELS,
   type KalakritiTransportStatus,
 } from "@pi-dash/shared/kalakriti";
+
+import { StatusBadge } from "@/components/shared/status-badge";
 
 export interface CenterTransportAssignment {
   capacity: number;
@@ -51,15 +52,19 @@ export function CenterTransportSection({
                   {assignment.driverPhone ? ` · ${assignment.driverPhone}` : ""}
                 </CardDescription>
               </div>
-              <Badge
-                variant={
-                  assignment.status === "completed" ? "outline" : "secondary"
+              <StatusBadge
+                tone={
+                  assignment.status
+                    ? assignment.status === "completed"
+                      ? "success"
+                      : "info"
+                    : "neutral"
                 }
               >
                 {assignment.status
                   ? KALAKRITI_TRANSPORT_STATUS_LABELS[assignment.status]
                   : "Unknown"}
-              </Badge>
+              </StatusBadge>
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-muted-foreground text-sm">

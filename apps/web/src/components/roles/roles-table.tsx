@@ -1,6 +1,5 @@
 import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Button } from "@pi-dash/design-system/components/ui/button";
@@ -18,6 +17,7 @@ import {
 } from "@/components/roles/role-filters";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { Tag } from "@/components/shared/status-badge";
 import type { RoleListItem } from "@/functions/role-admin";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 
@@ -173,12 +173,9 @@ export function RolesTable({
     },
     {
       accessorFn: (row) => (row.isSystem ? "System" : "Custom"),
-      cell: ({ row }) =>
-        row.original.isSystem ? (
-          <Badge variant="info-light">System</Badge>
-        ) : (
-          <Badge variant="success-light">Custom</Badge>
-        ),
+      cell: ({ row }) => (
+        <Tag>{row.original.isSystem ? "System" : "Custom"}</Tag>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="Type" visibility={true} />
       ),

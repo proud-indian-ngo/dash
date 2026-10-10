@@ -1,4 +1,3 @@
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import type { User } from "@pi-dash/zero/schema";
@@ -6,6 +5,7 @@ import { format } from "date-fns";
 import capitalize from "lodash/capitalize";
 import type { ReactNode } from "react";
 
+import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import {
   SKELETON_ACTIVE,
@@ -60,11 +60,9 @@ export function createUserColumns(
       cell: ({ row }) => {
         const roleName = row.original.role ?? "volunteer";
         return roleName === "admin" ? (
-          <Badge variant="info-outline">Admin</Badge>
+          <Tag>Admin</Tag>
         ) : (
-          <Badge className="capitalize" variant="secondary">
-            {roleName.replace(/_/g, " ")}
-          </Badge>
+          <Tag className="capitalize">{roleName.replace(/_/g, " ")}</Tag>
         );
       },
       header: ({ column }) => (
@@ -124,12 +122,11 @@ export function createUserColumns(
     },
     {
       accessorFn: (row) => (row.isActive ? "yes" : "no"),
-      cell: ({ row }) =>
-        row.original.isActive ? (
-          <Badge variant="success-outline">Active</Badge>
-        ) : (
-          <Badge variant="destructive-outline">Inactive</Badge>
-        ),
+      cell: ({ row }) => (
+        <StatusBadge tone={row.original.isActive ? "success" : "neutral"}>
+          {row.original.isActive ? "Active" : "Inactive"}
+        </StatusBadge>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -147,12 +144,11 @@ export function createUserColumns(
     },
     {
       accessorFn: (row) => (row.isOnWhatsapp ? "yes" : "no"),
-      cell: ({ row }) =>
-        row.original.isOnWhatsapp ? (
-          <Badge variant="success-outline">Yes</Badge>
-        ) : (
-          <Badge variant="secondary">No</Badge>
-        ),
+      cell: ({ row }) => (
+        <StatusBadge tone={row.original.isOnWhatsapp ? "success" : "neutral"}>
+          {row.original.isOnWhatsapp ? "Yes" : "No"}
+        </StatusBadge>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -181,12 +177,11 @@ export function createUserColumns(
     },
     {
       accessorFn: (row) => (row.emailVerified ? "yes" : "no"),
-      cell: ({ row }) =>
-        row.original.emailVerified ? (
-          <Badge variant="success-outline">Verified</Badge>
-        ) : (
-          <Badge variant="secondary">Unverified</Badge>
-        ),
+      cell: ({ row }) => (
+        <StatusBadge tone={row.original.emailVerified ? "success" : "neutral"}>
+          {row.original.emailVerified ? "Verified" : "Unverified"}
+        </StatusBadge>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}

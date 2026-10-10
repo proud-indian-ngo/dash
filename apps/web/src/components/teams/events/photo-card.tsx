@@ -5,11 +5,11 @@ import {
   PlayIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import type { EventPhoto, User } from "@pi-dash/zero/schema";
 import type React from "react";
 
+import { StatusBadge } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 
 import {
@@ -118,9 +118,9 @@ export function PhotoCard({
       </div>
 
       {pending ? (
-        <Badge className="absolute top-2 left-2" size="sm" variant="warning">
+        <StatusBadge className="absolute top-2 left-2" tone="warning">
           Pending
-        </Badge>
+        </StatusBadge>
       ) : null}
 
       {/* Hover action buttons */}

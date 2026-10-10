@@ -5,7 +5,6 @@ import {
   AlertTitle,
   AlertAction,
 } from "@pi-dash/design-system/components/reui/alert";
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   Collapsible,
@@ -43,6 +42,7 @@ import {
   useDashboardSnapshot,
 } from "@/components/kalakriti/use-dashboard-snapshot";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { Tag } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
 import { dashboardAccessKey } from "@/lib/kalakriti-dashboard";
 import { canRegisterKalakritiIdCards } from "@/lib/kalakriti-volunteer-policy";
@@ -276,16 +276,10 @@ function KalakritiEditionOverview() {
         editionId={edition.id}
       />
       <div aria-label="Your roles" className="flex flex-wrap gap-2">
-        {access.isGlobalAdmin ? (
-          <Badge variant="outline">Kalakriti Administrator</Badge>
-        ) : null}
-        {access.membership?.kind === "guardian" ? (
-          <Badge variant="outline">Guardian</Badge>
-        ) : null}
+        {access.isGlobalAdmin ? <Tag>Kalakriti Administrator</Tag> : null}
+        {access.membership?.kind === "guardian" ? <Tag>Guardian</Tag> : null}
         {[...new Set(access.membership?.responsibilities ?? [])].map((role) => (
-          <Badge key={role} variant="outline">
-            {KALAKRITI_RESPONSIBILITY_LABELS[role]}
-          </Badge>
+          <Tag key={role}>{KALAKRITI_RESPONSIBILITY_LABELS[role]}</Tag>
         ))}
       </div>
       {dashboard ? (

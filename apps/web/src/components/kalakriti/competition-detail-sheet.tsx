@@ -1,4 +1,3 @@
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { queries } from "@pi-dash/zero/queries";
@@ -14,6 +13,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/shared/responsive-sheet";
+import { StatusBadge } from "@/components/shared/status-badge";
 
 import {
   type CompetitionTableRow,
@@ -178,13 +178,13 @@ export function CompetitionDetailSheet({
           <div className="flex flex-wrap gap-2">
             {competition.cancelledAt === null &&
             competition.retiredAt === null ? (
-              <Badge variant="secondary">Active</Badge>
+              <StatusBadge tone="success">Active</StatusBadge>
             ) : null}
             {competition.cancelledAt === null ? null : (
-              <Badge variant="destructive">Cancelled</Badge>
+              <StatusBadge tone="neutral">Cancelled</StatusBadge>
             )}
             {competition.retiredAt === null ? null : (
-              <Badge variant="outline">Retired</Badge>
+              <StatusBadge tone="neutral">Retired</StatusBadge>
             )}
           </div>
 

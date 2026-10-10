@@ -2,7 +2,6 @@ import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
@@ -14,6 +13,7 @@ import {
   getCompetitionCategoryFilterValue,
 } from "@/components/kalakriti/kalakriti-filters";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { StatusBadge } from "@/components/shared/status-badge";
 
 import type {
   CompetitionCategoryTableRow,
@@ -187,9 +187,9 @@ export function CompetitionCategoriesTable({
       cell: ({ row }) => {
         const status = row.original.retiredAt === null ? "Active" : "Retired";
         return (
-          <Badge variant={status === "Active" ? "secondary" : "outline"}>
+          <StatusBadge tone={status === "Active" ? "success" : "neutral"}>
             {status}
-          </Badge>
+          </StatusBadge>
         );
       },
       header: ({ column }) => (
@@ -205,7 +205,7 @@ export function CompetitionCategoriesTable({
         headerTitle: "Status",
         skeleton: SKELETON_STATUS,
       },
-      size: 110,
+      size: 130,
     },
     {
       cell: ({ row }) => (

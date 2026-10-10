@@ -5,7 +5,6 @@ import type {
   DataGridColumnDef,
   DataGridRow,
 } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
@@ -27,28 +26,21 @@ import {
   TYPE_LABELS,
 } from "@/components/kalakriti/awards-table-utils";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { StatusBadge, Tag } from "@/components/shared/status-badge";
 const GENDER_LABELS = { female: "Female", male: "Male" } as const;
 
 const SKELETON_TEXT = <Skeleton className="h-5 w-28" />;
 const SKELETON_NAME = <Skeleton className="h-5 w-40" />;
 const SKELETON_ACTIONS = <Skeleton className="size-8" />;
 
-function StatusBadge({ entry }: { entry: KalakritiAwardEntry }) {
+function AwardStatusBadge({ entry }: { entry: KalakritiAwardEntry }) {
   const status = getAwardStatus(entry);
   const awarded = entry.members.filter((member) => member.awarded).length;
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Badge
-        variant={
-          status === "awarded"
-            ? "default"
-            : status === "partial"
-              ? "secondary"
-              : "outline"
-        }
-      >
+      <StatusBadge tone={status === "awarded" ? "success" : "warning"}>
         {STATUS_LABELS[status]}
-      </Badge>
+      </StatusBadge>
       {entry.type === "group" ? (
         <span className="text-muted-foreground text-xs tabular-nums">
           {awarded} of {entry.members.length}
@@ -203,9 +195,9 @@ function AwardMembersTable({
               <td className="px-3 py-2 font-mono">{member.humanId}</td>
               <td className="px-3 py-2">{GENDER_LABELS[member.gender]}</td>
               <td className="px-3 py-2">
-                <Badge variant={member.awarded ? "default" : "outline"}>
+                <StatusBadge tone={member.awarded ? "success" : "warning"}>
                   {member.awarded ? "Awarded" : "Pending"}
-                </Badge>
+                </StatusBadge>
               </td>
               <td className="px-3 py-2">
                 <MemberActions
@@ -346,9 +338,7 @@ export function AwardsTable({
       },
       {
         accessorFn: (entry) => AWARD_LABELS[entry.award],
-        cell: ({ row }) => (
-          <Badge variant="outline">{AWARD_LABELS[row.original.award]}</Badge>
-        ),
+        cell: ({ row }) => <Tag>{AWARD_LABELS[row.original.award]}</Tag>,
         header: ({ column }) => (
           <DataGridColumnHeader
             column={column}
@@ -425,7 +415,7 @@ export function AwardsTable({
       },
       {
         accessorFn: (entry) => STATUS_LABELS[getAwardStatus(entry)],
-        cell: ({ row }) => <StatusBadge entry={row.original} />,
+        cell: ({ row }) => <AwardStatusBadge entry={row.original} />,
         header: ({ column }) => (
           <DataGridColumnHeader
             column={column}

@@ -8,7 +8,6 @@ import {
   WhatsappIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import {
   Card,
   CardContent,
@@ -22,6 +21,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 import upperFirst from "lodash/upperFirst";
 
+import { Tag } from "@/components/shared/status-badge";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
 
 import type { EventRow } from "./events-table";
@@ -112,12 +112,7 @@ export function EventDetailsCard({
           icon={event.isPublic ? ViewIcon : ViewOffSlashIcon}
           label="Privacy"
         >
-          <Badge
-            size="xs"
-            variant={event.isPublic ? "info-light" : "secondary"}
-          >
-            {event.isPublic ? "Public" : "Private"}
-          </Badge>
+          <Tag>{event.isPublic ? "Public" : "Private"}</Tag>
         </PropertyRow>
 
         {recurrence?.rrule ? (
@@ -150,9 +145,7 @@ export function EventDetailsCard({
               {[...reminderIntervals]
                 .sort((a, b) => b - a)
                 .map((m) => (
-                  <Badge key={m} size="xs" variant="secondary">
-                    {formatReminderInterval(m)}
-                  </Badge>
+                  <Tag key={m}>{formatReminderInterval(m)}</Tag>
                 ))}
             </div>
           </PropertyRow>

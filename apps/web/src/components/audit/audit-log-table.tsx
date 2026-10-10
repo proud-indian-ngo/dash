@@ -1,4 +1,3 @@
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
@@ -7,6 +6,7 @@ import type { ReactNode } from "react";
 import { useMemo } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { formatTimestamp } from "@/lib/date-formats";
 
 import { createAuditLogFilterFields } from "./audit-filters";
@@ -29,16 +29,17 @@ function searchAuditRow(row: AuditLogRow, query: string): boolean {
     .includes(normalized);
 }
 
-function outcomeVariant(outcome: AuditLogRow["outcome"]) {
+export function outcomeTone(outcome: AuditLogRow["outcome"]): StatusTone {
   switch (outcome) {
     case "success":
-      return "success" as const;
+      return "success";
     case "denied":
-      return "warning" as const;
     case "failure":
-      return "destructive" as const;
+      return "danger";
+    case "pending":
+      return "warning";
     default:
-      return "outline" as const;
+      return "neutral";
   }
 }
 
@@ -116,9 +117,9 @@ const columns: DataGridColumnDef<AuditLogRow>[] = [
   {
     accessorFn: (row) => row.outcome,
     cell: ({ row }) => (
-      <Badge variant={outcomeVariant(row.original.outcome)}>
+      <StatusBadge tone={outcomeTone(row.original.outcome)}>
         {row.original.outcome}
-      </Badge>
+      </StatusBadge>
     ),
     enableSorting: false,
     header: ({ column }) => (

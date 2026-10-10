@@ -1,5 +1,3 @@
-import { Badge } from "@pi-dash/design-system/components/reui/badge";
-
 import {
   Sheet,
   SheetContent,
@@ -7,8 +5,10 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/shared/responsive-sheet";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { formatTimestamp } from "@/lib/date-formats";
 
+import { outcomeTone } from "./audit-log-table";
 import type { AuditLogRow } from "./audit-types";
 
 function DetailRow({ label, value }: { label: string; value?: string | null }) {
@@ -43,9 +43,9 @@ export function AuditDetailSheet({
               </SheetDescription>
             </SheetHeader>
             <div className="grid min-h-0 flex-1 gap-6 overflow-y-auto px-6 pb-6">
-              <Badge className="w-fit" variant="outline">
+              <StatusBadge tone={outcomeTone(entry.outcome)}>
                 {entry.outcome}
-              </Badge>
+              </StatusBadge>
               <div className="grid gap-3 sm:grid-cols-2">
                 <DetailRow
                   label="Attempted"

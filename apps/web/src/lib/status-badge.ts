@@ -1,30 +1,26 @@
-export type StatusBadgeVariant =
-  | "secondary"
-  | "warning-outline"
-  | "success-outline"
-  | "destructive-outline";
+import type { StatusTone } from "@/components/shared/status-badge";
 
 const FALLBACK_BADGE = {
   label: "Unknown",
-  variant: "secondary" as StatusBadgeVariant,
+  tone: "neutral" as StatusTone,
 };
 
 const STATUS_BADGE_ENTRIES: Record<
   string,
-  { label: string; variant: StatusBadgeVariant }
+  { label: string; tone: StatusTone }
 > = {
-  approved: { label: "Approved", variant: "success-outline" },
-  completed: { label: "Completed", variant: "success-outline" },
-  invoice_pending: { label: "Invoice Pending", variant: "warning-outline" },
-  paid: { label: "Paid", variant: "success-outline" },
-  partially_paid: { label: "Partially Paid", variant: "warning-outline" },
-  pending: { label: "Pending", variant: "warning-outline" },
-  rejected: { label: "Rejected", variant: "destructive-outline" },
+  approved: { label: "Approved", tone: "success" },
+  completed: { label: "Completed", tone: "success" },
+  invoice_pending: { label: "Invoice Pending", tone: "warning" },
+  paid: { label: "Paid", tone: "success" },
+  partially_paid: { label: "Partially Paid", tone: "warning" },
+  pending: { label: "Pending", tone: "warning" },
+  rejected: { label: "Rejected", tone: "danger" },
 };
 
 export function getStatusBadge(status: string | null): {
   label: string;
-  variant: StatusBadgeVariant;
+  tone: StatusTone;
 } {
   return (status ? STATUS_BADGE_ENTRIES[status] : null) ?? FALLBACK_BADGE;
 }

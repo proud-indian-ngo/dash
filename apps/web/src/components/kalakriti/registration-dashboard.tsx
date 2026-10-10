@@ -1,7 +1,6 @@
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import type { FilterField } from "@pi-dash/design-system/components/reui/filters/filters-types";
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -28,6 +27,7 @@ import { useId, useMemo, type ReactNode } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { CenterRegistrationChart } from "@/components/kalakriti/center-registration-chart";
 import { ParticipationComplianceBadge } from "@/components/kalakriti/participation-compliance-badge";
+import { Tag } from "@/components/shared/status-badge";
 import {
   buildParticipationCompliance,
   type ParticipationCompliance,
@@ -160,7 +160,7 @@ function AggregateTable({
           <h4 className="text-sm font-medium">{title}</h4>
           <p className="text-muted-foreground mt-0.5 text-xs">{description}</p>
         </div>
-        <Badge variant="secondary">{rows.length}</Badge>
+        <Tag className="font-mono tabular-nums">{rows.length}</Tag>
       </div>
       <DataTableWrapper
         columns={tableColumns}
@@ -268,7 +268,7 @@ function DashboardProjection({
           <CardTitle>
             <h2 id={headingId}>{heading.title}</h2>
           </CardTitle>
-          <Badge variant="outline">{heading.badge}</Badge>
+          <Tag>{heading.badge}</Tag>
         </CardHeader>
         <CardContent>
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">

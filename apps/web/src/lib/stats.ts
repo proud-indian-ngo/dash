@@ -52,32 +52,24 @@ export function computeSubmissionStats(
 
   return [
     {
-      accent: "border-l-blue-500",
-      bgAccent: "bg-blue-500/5 dark:bg-blue-500/10",
       description: formatTotal(data),
       icon: totalIcon,
       label: "Total",
       value: data.length,
     },
     {
-      accent: "border-l-amber-500",
-      bgAccent: "bg-amber-500/5 dark:bg-amber-500/10",
       description: formatTotal(pending),
       icon: Clock01Icon,
       label: "Pending",
       value: pending.length,
     },
     {
-      accent: "border-l-emerald-500",
-      bgAccent: "bg-emerald-500/5 dark:bg-emerald-500/10",
       description: formatTotal(approved),
       icon: CheckmarkCircle02Icon,
       label: "Approved",
       value: approved.length,
     },
     {
-      accent: "border-l-red-500",
-      bgAccent: "bg-red-500/5 dark:bg-red-500/10",
       description: formatTotal(rejected),
       icon: CancelCircleIcon,
       label: "Rejected",

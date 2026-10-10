@@ -77,12 +77,4 @@ describe("computeUserStats", () => {
     expect(stats.at(1)?.value).toBe(0);
     expect(stats.at(2)?.value).toBe(1); // counted as inactive
   });
-
-  it("sets correct accent classes", () => {
-    const stats = computeUserStats([]);
-    expect(stats.at(0)?.accent).toBe("border-l-blue-500");
-    expect(stats.at(1)?.accent).toBe("border-l-emerald-500");
-    expect(stats.at(2)?.accent).toBe("border-l-amber-500");
-    expect(stats.at(3)?.accent).toBe("border-l-violet-500");
-  });
 });

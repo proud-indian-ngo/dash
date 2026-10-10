@@ -9,11 +9,6 @@ mock.module("@hugeicons/react", () => ({
   HugeiconsIcon: () => createElement("span", null, "icon"),
 }));
 
-mock.module("@pi-dash/design-system/components/reui/badge", () => ({
-  Badge: ({ children }: { children?: ReactNode }) =>
-    createElement("span", null, children),
-}));
-
 mock.module("@pi-dash/design-system/components/ui/hover-card", () => ({
   HoverCard: ({ children }: { children?: ReactNode }) =>
     createElement("div", null, children),
