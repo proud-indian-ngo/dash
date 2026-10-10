@@ -500,17 +500,25 @@ function DataTableWrapperBase<TData extends object>({
         : columnPinning,
     [columnPinning, reuseExistingExpand, showExpand]
   );
-  const tableColumnVisibility = useMemo(
-    () =>
-      isCompact
-        ? overlayCompactVisibility(
-            columnVisibility,
-            compactPartition,
-            showExpand
-          )
-        : columnVisibility,
-    [columnVisibility, compactPartition, isCompact, showExpand]
-  );
+  const [groupColumnId, setGroupColumnId] = useDataTableGroupBy();
+  const activeGroupBy =
+    groupBy && groupColumnId === groupBy.columnId ? groupBy : undefined;
+  const tableColumnVisibility = useMemo(() => {
+    const visibility = isCompact
+      ? overlayCompactVisibility(columnVisibility, compactPartition, showExpand)
+      : columnVisibility;
+    // The group header shows the grouped value, and TanStack leaves that
+    // column's cells empty in grouped rows, so hide it while grouped.
+    return activeGroupBy
+      ? { ...visibility, [activeGroupBy.columnId]: false }
+      : visibility;
+  }, [
+    activeGroupBy,
+    columnVisibility,
+    compactPartition,
+    isCompact,
+    showExpand,
+  ]);
   const sizingColumns = useMemo(
     () => getSizingColumns(tableColumns),
     [tableColumns]
@@ -546,21 +554,34 @@ function DataTableWrapperBase<TData extends object>({
   );
   const handleColumnVisibilityChange = useEventCallback(
     (updater: Updater<ColumnVisibilityState>) => {
-      if (!isCompact) {
-        setColumnVisibility(updater);
-        return;
-      }
       const nextTableVisibility = resolveUpdater(
         updater,
         tableColumnVisibility
       );
+      if (isCompact) {
+        // Grouping hides the same column in both states, so it is no change.
+        setColumnVisibility(
+          applyCompactVisibilityChange(
+            columnVisibility,
+            tableColumnVisibility,
+            nextTableVisibility,
+            compactPartition
+          )
+        );
+        return;
+      }
+      if (!activeGroupBy) {
+        setColumnVisibility(nextTableVisibility);
+        return;
+      }
+      // Keep the saved choice for the grouped column; grouping hides it.
+      const { [activeGroupBy.columnId]: _grouped, ...rest } =
+        nextTableVisibility;
+      const saved = columnVisibility?.[activeGroupBy.columnId];
       setColumnVisibility(
-        applyCompactVisibilityChange(
-          columnVisibility,
-          tableColumnVisibility,
-          nextTableVisibility,
-          compactPartition
-        )
+        saved === undefined
+          ? rest
+          : { ...rest, [activeGroupBy.columnId]: saved }
       );
     }
   );
@@ -586,12 +607,9 @@ function DataTableWrapperBase<TData extends object>({
   );
 
   const [expanded, setExpanded] = useState<ExpandedState>({});
-  const [groupColumnId, setGroupColumnId] = useDataTableGroupBy();
   const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(
     () => new Set()
   );
-  const activeGroupBy =
-    groupBy && groupColumnId === groupBy.columnId ? groupBy : undefined;
   const groupedData = useMemo(
     () =>
       activeGroupBy

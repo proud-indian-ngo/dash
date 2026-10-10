@@ -16,8 +16,12 @@ test.describe("Reimbursements grouped by status", () => {
 
     await reimbursements.navigateToList();
     await reimbursements.list.waitForTableData();
+    const statusHeader = page.getByRole("columnheader", { name: "Status" });
+    await expect(statusHeader).toBeVisible();
     await page.getByRole("button", { name: "Group by status" }).click();
     await expect(page).toHaveURL(/group=status/);
+    // The group header carries the status, so the column hides while grouped.
+    await expect(statusHeader).toBeHidden();
 
     const row = reimbursements.list.getRowByText(title);
     await expect(row).toBeVisible({ timeout: 10_000 });
@@ -39,5 +43,8 @@ test.describe("Reimbursements grouped by status", () => {
     await expect(
       row.getByRole("button", { name: `Approve ${title}` })
     ).toBeHidden({ timeout: 10_000 });
+
+    await page.getByRole("button", { name: "Group by status" }).click();
+    await expect(statusHeader).toBeVisible();
   });
 });
