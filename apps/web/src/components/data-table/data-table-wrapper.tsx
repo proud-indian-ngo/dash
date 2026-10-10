@@ -107,6 +107,7 @@ import {
   wrapExpandColumnWithCompactDetails,
 } from "./data-table-compact";
 import { getDataTableClassNames } from "./data-table-layout";
+import { DataTableTotals } from "./data-table-totals";
 import { useAutoPageSize } from "./use-auto-page-size";
 import { getSizingColumns, useTableViewportWidth } from "./use-column-fill";
 
@@ -155,6 +156,8 @@ export interface DataTableWrapperProps<TData extends object> {
   };
   toolbarActions?: ReactNode;
   toolbarFilters?: ReactNode;
+  /** Column ids summed in a totals row under the grid, over every filtered row. */
+  totals?: string[];
 }
 
 /** `size` value meaning "fit the window"; any size picked in the menu replaces it. */
@@ -303,6 +306,7 @@ function DataTableWrapperBase<TData extends object>({
   toolbarActions,
   toolbarFilters,
   toolbarTop,
+  totals,
 }: DataTableWrapperProps<TData> & {
   pageResetKey?: string;
   toolbarTop?: ReactNode;
@@ -853,6 +857,14 @@ function DataTableWrapperBase<TData extends object>({
                   ) : (
                     <DataGridTable />
                   )}
+                  {totals?.length && filteredRows.length > 0 && !isLoading ? (
+                    <DataTableTotals
+                      areaRef={scrollAreaRef}
+                      rows={filteredRows}
+                      table={table}
+                      totals={totals}
+                    />
+                  ) : null}
                   <ScrollBar orientation="horizontal" />
                 </ScrollArea>
               </CardContent>

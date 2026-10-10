@@ -33,6 +33,8 @@ import { getStatusBadge } from "@/lib/status-badge";
 
 import type { VendorPaymentWithRelations } from "./vendor-payment-types";
 
+const TOTAL_COLUMNS = ["total"];
+
 function computeTotal(
   lineItems: VendorPaymentWithRelations["lineItems"]
 ): number {
@@ -380,6 +382,7 @@ export function VendorPaymentsTable({
         onRowClick={stableOnRowClick1}
         searchFn={searchFn}
         searchPlaceholder="Search vendor payments..."
+        totals={TOTAL_COLUMNS}
         storageKey="vendor_payments_table_state_v1"
         tableLayout={{
           columnsDraggable: true,
