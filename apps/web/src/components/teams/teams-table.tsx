@@ -1,8 +1,5 @@
-import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
-import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type {
@@ -18,6 +15,7 @@ import { toast } from "sonner";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { useApp } from "@/context/app-context";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 
@@ -52,23 +50,7 @@ function RowActions({
     <ResponsiveActionMenu
       title="Team actions"
       contentClassName="w-32"
-      trigger={
-        <Button
-          aria-label="Row actions"
-          className="size-8"
-          data-testid="row-actions"
-          onClick={stableOnClick0}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <HugeiconsIcon
-            className="size-4"
-            icon={MoreVerticalIcon}
-            strokeWidth={2}
-          />
-        </Button>
-      }
+      trigger={<RowActionsButton onClick={stableOnClick0} />}
       actions={[
         { id: "view", label: "View", onSelect: stableOnClick1 },
         canDelete && {

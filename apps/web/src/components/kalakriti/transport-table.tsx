@@ -1,9 +1,6 @@
-import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import type { FilterField } from "@pi-dash/design-system/components/reui/filters/filters-types";
-import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import {
   KALAKRITI_TRANSPORT_STATUS_LABELS,
@@ -14,6 +11,7 @@ import { useMemo } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { dateField, selectField } from "@/components/data-table/filter-fields";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { RowActionsButton } from "@/components/shared/row-actions-button";
 
 import type { CenterTransportAssignment } from "./center-transport-section";
 import { useTransportStatusSnapshot } from "./use-transport-status-snapshot";
@@ -226,19 +224,9 @@ export function TransportTable({
           <ResponsiveActionMenu
             title={`${row.original.assignment?.vehicleLabel ?? row.original.center.name} actions`}
             trigger={
-              <Button
+              <RowActionsButton
                 aria-label={`Actions for ${row.original.assignment?.vehicleLabel ?? row.original.center.name}`}
-                className="size-7"
-                data-testid="row-actions"
-                size="icon"
-                variant="ghost"
-              >
-                <HugeiconsIcon
-                  icon={MoreVerticalIcon}
-                  className="size-4"
-                  strokeWidth={2}
-                />
-              </Button>
+              />
             }
             actions={[
               {

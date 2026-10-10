@@ -1,5 +1,3 @@
-import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import {
@@ -16,6 +14,7 @@ import { type ReactNode, useMemo, useState } from "react";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { RowActionsButton } from "@/components/shared/row-actions-button";
 
 import {
   getEntryStudentAttendance,
@@ -102,20 +101,10 @@ function EntryRowActions({
     <ResponsiveActionMenu
       title={`${actionLabel} actions`}
       trigger={
-        <Button
+        <RowActionsButton
           aria-label={`Actions for ${actionLabel}`}
-          className="mx-auto size-7"
-          data-testid="row-actions"
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <HugeiconsIcon
-            className="size-4"
-            icon={MoreVerticalIcon}
-            strokeWidth={2}
-          />
-        </Button>
+          className="mx-auto"
+        />
       }
       contentClassName="w-40"
       actions={[

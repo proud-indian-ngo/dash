@@ -1,14 +1,12 @@
 import {
   Cancel01Icon,
   Delete02Icon,
-  MoreVerticalIcon,
   PencilEdit01Icon,
   ViewIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
-import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
@@ -31,6 +29,7 @@ import {
   useMigrateLegacyScheduledMessageFilterParams,
 } from "@/components/scheduled-messages/scheduled-message-filters";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { SHORT_DATE_WITH_SECONDS } from "@/lib/date-formats";
 
@@ -284,23 +283,7 @@ function ScheduledMessageActions({
     <ResponsiveActionMenu
       title="Scheduled message actions"
       contentClassName="w-40"
-      trigger={
-        <Button
-          aria-label="Row actions"
-          className="size-8"
-          data-testid="row-actions"
-          onClick={stopPropagation}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <HugeiconsIcon
-            className="size-4"
-            icon={MoreVerticalIcon}
-            strokeWidth={2}
-          />
-        </Button>
-      }
+      trigger={<RowActionsButton onClick={stopPropagation} />}
       actions={[
         {
           id: "view",

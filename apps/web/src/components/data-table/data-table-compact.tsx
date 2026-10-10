@@ -50,7 +50,7 @@ export function DataTableExpandButton({
     <Button
       aria-expanded={expanded}
       aria-label={expanded ? "Collapse row" : "Expand row"}
-      className="aria-expanded:hover:bg-muted dark:aria-expanded:hover:bg-muted/50 aria-expanded:bg-transparent"
+      className="aria-expanded:hover:bg-muted dark:aria-expanded:hover:bg-muted/50 size-7 aria-expanded:bg-transparent pointer-coarse:size-10"
       data-testid="row-expand"
       onClick={(event) => {
         event.stopPropagation();

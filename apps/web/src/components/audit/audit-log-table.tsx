@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { useMemo } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { InlineMetaCell } from "@/components/shared/inline-meta-cell";
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { formatTimestamp } from "@/lib/date-formats";
 
@@ -62,12 +63,10 @@ const columns: DataGridColumnDef<AuditLogRow>[] = [
   {
     accessorFn: (row) => row.actorName,
     cell: ({ row }) => (
-      <div className="min-w-0">
-        <div className="truncate font-medium">{row.original.actorName}</div>
-        <div className="text-muted-foreground truncate text-xs">
-          {row.original.actorRole}
-        </div>
-      </div>
+      <InlineMetaCell
+        primary={row.original.actorName}
+        secondary={row.original.actorRole}
+      />
     ),
     enableSorting: false,
     header: ({ column }) => (
@@ -97,14 +96,12 @@ const columns: DataGridColumnDef<AuditLogRow>[] = [
   {
     accessorFn: (row) => row.targetId ?? row.targetType ?? "",
     cell: ({ row }) => (
-      <div className="min-w-0">
-        <div className="truncate">{row.original.targetType ?? "None"}</div>
-        {row.original.targetId ? (
-          <div className="text-muted-foreground truncate font-mono text-xs">
-            {row.original.targetId}
-          </div>
-        ) : null}
-      </div>
+      <InlineMetaCell
+        mono
+        primary={row.original.targetType ?? "None"}
+        primaryClassName="font-normal"
+        secondary={row.original.targetId}
+      />
     ),
     enableSorting: false,
     header: ({ column }) => (

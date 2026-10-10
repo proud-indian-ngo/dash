@@ -1,5 +1,3 @@
-import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Button } from "@pi-dash/design-system/components/ui/button";
@@ -18,6 +16,7 @@ import {
   getStudentFilterValue,
 } from "@/components/kalakriti/kalakriti-filters";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { StatusBadge } from "@/components/shared/status-badge";
 import type { StudentCenterPermissions } from "@/lib/kalakriti-student-directory";
 import { canDeleteKalakritiStudent } from "@/lib/kalakriti-student-policy";
@@ -71,22 +70,7 @@ function StudentRowActions({
   return (
     <ResponsiveActionMenu
       title={`${student.name} actions`}
-      trigger={
-        <Button
-          aria-label={`Actions for ${student.name}`}
-          className="size-7"
-          data-testid="row-actions"
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <HugeiconsIcon
-            className="size-4"
-            icon={MoreVerticalIcon}
-            strokeWidth={2}
-          />
-        </Button>
-      }
+      trigger={<RowActionsButton aria-label={`Actions for ${student.name}`} />}
       contentClassName="w-44"
       actions={[
         { id: "view", label: "View details", onSelect: handleView },
