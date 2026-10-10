@@ -186,7 +186,11 @@ test.describe("Kalakriti Competition Entry registration", () => {
         await page
           .getByRole("button", { name: `Actions for ${studentName}` })
           .click();
-        await page.getByRole("menuitem", { name: "Remove Entry" }).click();
+        // Success toasts can cover the menu and stay while hovered, so pick
+        // the item with the keyboard.
+        await page
+          .getByRole("menuitem", { name: "Remove Entry" })
+          .press("Enter");
         await page
           .getByRole("alertdialog", { name: "Remove Competition Entry?" })
           .getByRole("button", { name: "Remove Entry" })
@@ -436,7 +440,7 @@ test.describe("Kalakriti Competition Entry registration", () => {
       await page
         .getByRole("button", { name: "Actions for Group Dance group" })
         .click();
-      await page.getByRole("menuitem", { name: "Remove Entry" }).click();
+      await page.getByRole("menuitem", { name: "Remove Entry" }).press("Enter");
       await page
         .getByRole("alertdialog", { name: "Remove Competition Entry?" })
         .getByRole("button", { name: "Remove Entry" })
