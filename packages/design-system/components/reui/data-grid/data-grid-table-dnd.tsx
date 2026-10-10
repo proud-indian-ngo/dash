@@ -101,7 +101,7 @@ function DataGridTableDndHeader<TData extends object>({
           <button
             aria-label="Drag to reorder"
             className={cn(
-              "inline-flex size-6 shrink-0 cursor-grab items-center justify-center rounded-none border border-transparent bg-transparent text-secondary-foreground/80 hover:bg-muted hover:text-foreground active:cursor-grabbing"
+              "inline-flex size-6 shrink-0 cursor-grab items-center justify-center rounded-md border border-transparent bg-transparent text-secondary-foreground/80 hover:bg-muted hover:text-foreground active:cursor-grabbing"
             )}
             type="button"
             {...attributes}

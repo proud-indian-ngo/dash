@@ -498,6 +498,8 @@ The shadcn variables in `packages/design-system/styles.css` point at `@proudindi
 | `--sidebar-accent` / `--sidebar-accent-foreground` | The active or selected item: sky ink on sky wash (light), sky on charcoal (dark). Sky is never a fill behind body text. |
 | `--brand` / `--brand-foreground` | Decorative brand accent (sky `#4CC0EC`): indicators, dots, thin rules. |
 | `--success` / `--warning` / `--destructive` (+ `-foreground`) | Status dot and text colours from `color-status-*`. Marigold is never a status colour. |
+| `--radius` (~7px) | `rounded-lg` for controls and menus, `rounded-xl` (~10px) for cards and dialogs, `rounded-md` for badges and menu items. Components follow the shadcn `base-nova` style. |
+| `text-sm` (13px) | Body and control text; Tailwind's `text-sm` is redefined to 13px in `styles.css`. `text-xs` (12px) is for secondary text. |
 | `font-sans` (Geist) | Body text, UI elements, form inputs, table cells. |
 | `font-display` (Bricolage Grotesque) | Page titles (`h1`), stat card values. Apply via `font-display font-semibold tracking-tight`; the product weight is 600, not the website's 800. |
 | `font-mono` (Paper Mono) | The data font: IDs, codes, amounts and dates where alignment matters. |

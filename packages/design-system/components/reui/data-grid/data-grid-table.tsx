@@ -70,7 +70,7 @@ function DataGridTableBase({ children }: { children: ReactNode }) {
     <table
       data-slot="data-grid-table"
       className={cn(
-        "text-foreground text-xs w-full min-w-full caption-bottom text-left align-middle font-normal rtl:text-right",
+        "text-foreground text-sm w-full min-w-full caption-bottom text-left align-middle font-normal rtl:text-right",
         props.tableLayout?.width === "auto" ? "table-auto" : "table-fixed",
         !props.tableLayout?.columnsResizable && "",
         !props.tableLayout?.columnsDraggable &&
@@ -447,7 +447,7 @@ function DataGridTableEmpty() {
     <tr>
       <td
         colSpan={totalColumns}
-        className="text-muted-foreground text-xs py-6 text-center"
+        className="text-muted-foreground text-sm py-6 text-center"
       >
         {props.emptyMessage || "No data available"}
       </td>
@@ -460,7 +460,7 @@ function DataGridTableLoader() {
 
   return (
     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" role="status" aria-live="polite">
-      <div className="text-muted-foreground bg-card rounded-none text-xs flex items-center gap-2 border px-4 py-2 leading-none font-medium">
+      <div className="text-muted-foreground bg-card rounded-lg text-sm flex items-center gap-2 border px-4 py-2 leading-none font-medium">
         <BrailleSpinner variant="inline" />
         {props.loadingMessage || "Loading…"}
       </div>

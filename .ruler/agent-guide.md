@@ -52,9 +52,10 @@ Lefthook runs type checking, lint, unit tests, and unused-export checks in paral
 ## Generated and protected files
 
 - Edit `.ruler/agent-guide.md`, then run `bun run ruler:apply`; do not edit `AGENTS.md` or `CLAUDE.md` directly.
-- Do not edit `routeTree.gen.ts`, `packages/zero/src/schema.ts`, `packages/db/src/migrations/**`, `packages/design-system/components/**`, `packages/design-system/lib/utils.ts`, or `packages/design-system/hooks/use-mobile.ts` directly.
+- Do not edit `routeTree.gen.ts`, `packages/zero/src/schema.ts`, `packages/db/src/migrations/**`, `packages/design-system/lib/utils.ts`, or `packages/design-system/hooks/use-mobile.ts` directly.
+- In `packages/design-system/components/**`, keep edits to class-level styling (radius, type size, colour tokens) that matches the shadcn `base-nova` style; behaviour changes belong in app wrappers under `apps/web/src/components/shared`.
 - Change route sources to regenerate the route tree. Change the Drizzle schema, then run `bun run zero:generate` for the Zero schema.
-- Add new design-system components with `bun run ui:add <component>`.
+- Add new design-system components with `bun run ui:add <component>` (style `base-nova`, configured in `packages/design-system/components.json`).
 - When adding a new `packages/*` workspace, add its package manifest to the Dockerfile copy layer before `bun install`.
 
 ## Direct architecture routing
