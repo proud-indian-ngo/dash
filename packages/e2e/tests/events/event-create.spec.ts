@@ -1,13 +1,17 @@
 import { expect, test } from "../../fixtures/test";
 import { pickDate } from "../../helpers/date-time-picker";
 import { openAdvancedSettings } from "../../helpers/event-form";
-import { openSeededTeam, searchTeamEvents } from "../../helpers/team-event";
+import {
+  SANDBOX_TEAM,
+  openSeededTeam,
+  searchTeamEvents,
+} from "../../helpers/team-event";
 
 test.describe("Create event (admin)", () => {
   test.beforeEach(async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
-    await openSeededTeam(page);
+    await openSeededTeam(page, SANDBOX_TEAM);
   });
 
   test("opens create event dialog with correct fields", async ({ page }) => {

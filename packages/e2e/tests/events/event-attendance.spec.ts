@@ -1,6 +1,7 @@
 import { expect, test } from "../../fixtures/test";
 import { pickDate } from "../../helpers/date-time-picker";
 import {
+  SANDBOX_TEAM,
   openPublicEvent,
   openSeededTeam,
   searchTeamEvents,
@@ -14,7 +15,7 @@ test.describe("Event attendance (admin)", () => {
   test("admin sees attendance section on a started event", async ({ page }) => {
     test.slow();
 
-    await openSeededTeam(page);
+    await openSeededTeam(page, SANDBOX_TEAM);
 
     // Create a past event so attendance section appears
     const eventName = `E2E Attendance ${Date.now()}`;
