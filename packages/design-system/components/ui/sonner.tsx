@@ -38,8 +38,6 @@ const Toaster = ({ ...props }: ToasterProps) => {
       toastOptions={{
         classNames: {
           toast: "cn-toast",
-          actionButton:
-            "bg-transparent! text-primary! font-semibold! hover:bg-primary/10!",
         },
       }}
       {...props}
