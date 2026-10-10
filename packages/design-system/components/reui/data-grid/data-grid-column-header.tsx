@@ -132,7 +132,7 @@ function DataGridColumnHeaderControls<TData extends object, TValue>({
     ) : isSorted === "asc" ? (
       <HugeiconsIcon icon={ArrowUp02Icon} strokeWidth={2} className="size-3.25" />
     ) : (
-      <HugeiconsIcon icon={UnfoldMoreIcon} strokeWidth={2} className="mt-px size-3.25" />
+      <HugeiconsIcon icon={UnfoldMoreIcon} strokeWidth={2} className="mt-px size-3.25 opacity-0! transition-opacity group-hover/th:opacity-60! group-focus-within/th:opacity-60!" />
     ))
 
   const hasControls =

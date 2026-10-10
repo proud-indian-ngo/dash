@@ -101,7 +101,7 @@ function DataGridTableDndHeader<TData extends object>({
           <button
             aria-label="Drag to reorder"
             className={cn(
-              "inline-flex size-6 shrink-0 cursor-grab items-center justify-center rounded-md border border-transparent bg-transparent text-secondary-foreground/80 hover:bg-muted hover:text-foreground active:cursor-grabbing"
+              "absolute inset-y-0 start-0 inline-flex w-3 shrink-0 cursor-grab items-center justify-center bg-transparent text-secondary-foreground/80 opacity-0 transition-opacity group-hover/th:opacity-100 focus-visible:opacity-100 hover:text-foreground active:cursor-grabbing [&_svg]:size-3"
             )}
             type="button"
             {...attributes}
@@ -133,7 +133,6 @@ function DataGridTableDndCell<TData extends object>({
 }) {
   const { table } = useDataGrid<TData>()
   const isPinned = cell.column.getIsPinned()
-  const canOrder = cell.column.columnDef.meta?.enableColumnOrdering !== false
   const { isDragging, setNodeRef, transform, transition } = useSortable({
     id: cell.column.id,
   })
@@ -145,7 +144,6 @@ function DataGridTableDndCell<TData extends object>({
     transition,
     width: cell.column.getSize(),
     ...(!isPinned && { zIndex: isDragging ? 1 : 0 }),
-    ...(canOrder && { paddingInlineStart: 30 }),
   }
 
   return (

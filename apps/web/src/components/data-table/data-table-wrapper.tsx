@@ -102,6 +102,7 @@ import {
   wrapExpandColumnWithCompactDetails,
 } from "./data-table-compact";
 import { getDataTableClassNames } from "./data-table-layout";
+import { useAutoPageSize } from "./use-auto-page-size";
 import { getSizingColumns, useTableViewportWidth } from "./use-column-fill";
 
 export interface DataTableFilterConfig<TData extends object> {
@@ -148,6 +149,9 @@ export interface DataTableWrapperProps<TData extends object> {
   toolbarActions?: ReactNode;
   toolbarFilters?: ReactNode;
 }
+
+/** `size` value meaning "fit the window"; any size picked in the menu replaces it. */
+const AUTO_PAGE_SIZE = 0;
 
 const DEFAULT_COLUMN_PINNING: ColumnPinningState = {
   end: ["actions"],
@@ -270,6 +274,8 @@ function DataTableWrapperBase<TData extends object>({
   toolbarActions,
   toolbarFilters,
 }: DataTableWrapperProps<TData> & { pageResetKey?: string }) {
+  // Server-paged callers read `size` from the URL themselves, so they keep a fixed size.
+  const autoPageSize = !manualPagination;
   const initialColumnOrder = columns
     .map(resolveColumnDefId)
     .filter((id): id is string => typeof id === "string");
@@ -301,7 +307,7 @@ function DataTableWrapperBase<TData extends object>({
       columnVisibility: defaultColumnVisibility,
       pagination: {
         pageIndex: 0,
-        pageSize: defaultPageSize,
+        pageSize: autoPageSize ? AUTO_PAGE_SIZE : defaultPageSize,
       },
       rowSelection: {},
       sorting: [],
@@ -318,6 +324,21 @@ function DataTableWrapperBase<TData extends object>({
   const { scrollAreaRef, viewportWidth } = useTableViewportWidth(
     compactOnMobile || tableLayout?.columnsResizable === true
   );
+  const isAutoSize = autoPageSize && pagination.pageSize === AUTO_PAGE_SIZE;
+  const fittedPageSize = useAutoPageSize({
+    areaRef: scrollAreaRef,
+    enabled: isAutoSize,
+    hasRows: data.length > 0,
+    minimum: defaultPageSize,
+  });
+  const tablePagination = isAutoSize
+    ? { ...pagination, pageSize: fittedPageSize ?? defaultPageSize }
+    : pagination;
+  const tablePaginationSizes = isAutoSize
+    ? [...new Set([...paginationSizes, tablePagination.pageSize])].sort(
+        (a, b) => a - b
+      )
+    : paginationSizes;
   const compactPartition = useMemo(
     () => partitionCompactColumns(toCompactColumnRefs(columns)),
     [columns]
@@ -572,8 +593,14 @@ function DataTableWrapperBase<TData extends object>({
   ) => searchFn(row.original, String(value));
 
   const onPaginationChange = (updater: Updater<PaginationState>) => {
-    const nextPagination = resolveUpdater(updater, pagination);
-    setPagination(nextPagination);
+    const nextPagination = resolveUpdater(updater, tablePagination);
+    // Keep the fitted size out of the URL until someone picks a size.
+    const keepAuto =
+      isAutoSize && nextPagination.pageSize === tablePagination.pageSize;
+    setPagination({
+      pageIndex: nextPagination.pageIndex,
+      pageSize: keepAuto ? AUTO_PAGE_SIZE : nextPagination.pageSize,
+    });
   };
 
   const onSortingChange = (updater: Updater<SortingState>) => {
@@ -610,7 +637,7 @@ function DataTableWrapperBase<TData extends object>({
         columnVisibility: tableColumnVisibility,
         expanded,
         globalFilter: localSearch,
-        pagination,
+        pagination: tablePagination,
         rowSelection,
         sorting,
       },
@@ -684,14 +711,11 @@ function DataTableWrapperBase<TData extends object>({
   }, [onFilteredDataChange, filteredData]);
 
   const resolvedTableLayout = useMemo(
-    () =>
-      isCompact && tableLayout
-        ? {
-            ...tableLayout,
-            columnsDraggable: false,
-            columnsMovable: false,
-          }
-        : tableLayout,
+    () => ({
+      cellBorder: true,
+      ...tableLayout,
+      ...(isCompact && { columnsDraggable: false, columnsMovable: false }),
+    }),
     [isCompact, tableLayout]
   );
 
@@ -713,65 +737,67 @@ function DataTableWrapperBase<TData extends object>({
               tableLayout?.columnsResizable
             )}
           >
-            <Card className="w-full gap-3 py-3.5!">
-              <CardHeader className="flex flex-col gap-2.5! px-3.5 @lg/card-header:flex-row @lg/card-header:items-center">
-                <InputGroup className="w-full shrink-0 @lg/card-header:w-72">
-                  <InputGroupAddon align="inline-start">
-                    <HugeiconsIcon
-                      className="size-4"
-                      icon={Search01Icon}
-                      strokeWidth={2}
-                    />
-                  </InputGroupAddon>
-
-                  <InputGroupInput
-                    aria-label={searchPlaceholder}
-                    onChange={stableOnChange0}
-                    placeholder={searchPlaceholder}
-                    value={localSearch}
-                  />
-
-                  {localSearch ? (
-                    <InputGroupAddon align="inline-end">
-                      <InputGroupButton
-                        aria-label="Clear search"
-                        onClick={stableOnClick1}
-                        size="icon-xs"
-                        type="button"
-                      >
-                        <HugeiconsIcon
-                          className="size-3.5"
-                          icon={Cancel01Icon}
-                          strokeWidth={2}
-                        />
-                      </InputGroupButton>
+            <Card className="w-full gap-0 py-0!">
+              <CardHeader className="block border-b px-3 py-2.5">
+                <div className="flex flex-col gap-2 @3xl/card-header:flex-row @3xl/card-header:items-center">
+                  <InputGroup className="w-full shrink-0 @3xl/card-header:w-64">
+                    <InputGroupAddon align="inline-start">
+                      <HugeiconsIcon
+                        className="size-4"
+                        icon={Search01Icon}
+                        strokeWidth={2}
+                      />
                     </InputGroupAddon>
-                  ) : null}
-                </InputGroup>
-                <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2 @lg/card-header:flex-1">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-                    {toolbarFilters}
-                  </div>
-                  <CardAction className="relative col-auto row-auto flex max-w-full shrink-0 flex-wrap items-center gap-1 self-auto justify-self-auto">
-                    <DataGridColumnVisibility
-                      table={table}
-                      trigger={
-                        <Button size="sm" variant="outline">
+
+                    <InputGroupInput
+                      aria-label={searchPlaceholder}
+                      onChange={stableOnChange0}
+                      placeholder={searchPlaceholder}
+                      value={localSearch}
+                    />
+
+                    {localSearch ? (
+                      <InputGroupAddon align="inline-end">
+                        <InputGroupButton
+                          aria-label="Clear search"
+                          onClick={stableOnClick1}
+                          size="icon-xs"
+                          type="button"
+                        >
                           <HugeiconsIcon
-                            aria-hidden="true"
-                            icon={FilterHorizontalIcon}
+                            className="size-3.5"
+                            icon={Cancel01Icon}
                             strokeWidth={2}
                           />
-                          Columns
-                        </Button>
-                      }
-                    />
-                    {toolbarActions}
-                  </CardAction>
+                        </InputGroupButton>
+                      </InputGroupAddon>
+                    ) : null}
+                  </InputGroup>
+                  <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2 @3xl/card-header:flex-1">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+                      {toolbarFilters}
+                    </div>
+                    <CardAction className="relative col-auto row-auto flex max-w-full shrink-0 flex-wrap items-center gap-1 self-auto justify-self-auto">
+                      <DataGridColumnVisibility
+                        table={table}
+                        trigger={
+                          <Button size="sm" variant="outline">
+                            <HugeiconsIcon
+                              aria-hidden="true"
+                              icon={FilterHorizontalIcon}
+                              strokeWidth={2}
+                            />
+                            Columns
+                          </Button>
+                        }
+                      />
+                      {toolbarActions}
+                    </CardAction>
+                  </div>
                 </div>
               </CardHeader>
 
-              <CardContent className="border-y px-0">
+              <CardContent className="px-0">
                 {!isLoading && filteredRows.length === 0 ? (
                   <Empty>
                     <EmptyHeader>
@@ -794,13 +820,13 @@ function DataTableWrapperBase<TData extends object>({
                 </ScrollArea>
               </CardContent>
 
-              <CardFooter className="border-none bg-transparent! px-3.5 py-0">
+              <CardFooter className="bg-transparent! px-3 py-2">
                 {!isLoading && displayCount === 0 ? (
                   <span className="text-muted-foreground text-sm">
                     0 of 0 results
                   </span>
                 ) : (
-                  <DataGridPagination sizes={paginationSizes} />
+                  <DataGridPagination sizes={tablePaginationSizes} />
                 )}
               </CardFooter>
             </Card>
