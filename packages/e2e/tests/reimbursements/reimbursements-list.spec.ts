@@ -1,4 +1,5 @@
 import { expect, test } from "../../fixtures/test";
+import { applyQuickFilter } from "../../helpers/quick-filters";
 import { ReimbursementPage } from "../../pages/reimbursement-page";
 
 test.describe("Reimbursements list", () => {
@@ -83,17 +84,14 @@ test.describe("Reimbursements list", () => {
       table.getByText("E2E Upcoming Event Reimbursement")
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "Add filter" }).click();
-    await page.getByRole("option", { name: "Status" }).click();
-    await page.getByRole("option", { exact: true, name: "is" }).click();
-    await page.getByRole("option", { name: "Pending" }).click();
+    await page.getByRole("tab", { name: /^Pending/ }).click();
 
     await expect(table.getByText("E2E Seed Reimbursement")).toBeVisible();
     await expect(
       table.getByText("E2E Upcoming Event Reimbursement")
     ).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Clear" }).click();
+    await page.getByRole("tab", { name: /^All/ }).click();
     await expect(
       table.getByText("E2E Upcoming Event Reimbursement")
     ).toBeVisible();
@@ -121,12 +119,7 @@ test.describe("Reimbursements list", () => {
       table.getByText("E2E Upcoming Event Reimbursement")
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "Add filter" }).click();
-    await page.getByRole("option", { exact: true, name: "Event" }).click();
-    await page.getByRole("option", { exact: true, name: "is" }).click();
-    await page
-      .getByRole("option", { name: "E2E Upcoming Public Bangalore" })
-      .click();
+    await applyQuickFilter(page, "Event", "E2E Upcoming Public Bangalore");
 
     await expect(
       table.getByText("E2E Upcoming Event Reimbursement")

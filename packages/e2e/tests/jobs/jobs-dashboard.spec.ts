@@ -59,7 +59,9 @@ test.describe("Jobs dashboard (admin)", () => {
   });
 
   test("state filter dropdown is present", async ({ page }) => {
-    await expect(page.getByRole("button", { name: "Add filter" })).toBeVisible({
+    await expect(
+      page.getByRole("button", { exact: true, name: "Filter by State" })
+    ).toBeVisible({
       timeout: 5000,
     });
   });

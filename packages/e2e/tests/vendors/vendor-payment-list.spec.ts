@@ -34,10 +34,8 @@ test.describe("Vendor Payments list (admin)", () => {
     ).toBeVisible();
   });
 
-  test("status filter dropdown is present", async ({ page }) => {
-    await expect(
-      page.getByRole("button", { name: "Add filter" })
-    ).toBeVisible();
+  test("status view tabs are present", async ({ page }) => {
+    await expect(page.getByRole("tab", { name: /^All/ })).toBeVisible();
   });
 });
 

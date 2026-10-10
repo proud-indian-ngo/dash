@@ -3,6 +3,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { applyQuickFilter } from "../../helpers/quick-filters";
 import { KalakritiCentersPage } from "../../pages/kalakriti-centers-page";
 
 const execFileAsync = promisify(execFile);
@@ -63,10 +64,7 @@ test("manages independent Center registration and scoped Liaison access", async 
     await centers.addCenter("Indiranagar");
     await centers.addCenter("Unassigned Center");
 
-    await page.getByRole("button", { name: "Add filter" }).click();
-    await page.getByRole("option", { exact: true, name: "Status" }).click();
-    await page.getByRole("option", { exact: true, name: "is" }).click();
-    await page.getByRole("option", { exact: true, name: "Retired" }).click();
+    await applyQuickFilter(page, "Status", "Retired");
     await expect(centers.center("Basavanagudi")).toHaveCount(0);
     await page.getByRole("button", { name: "Clear" }).click();
     await expect(centers.center("Basavanagudi")).toBeVisible();
