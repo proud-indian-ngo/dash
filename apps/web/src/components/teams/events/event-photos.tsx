@@ -12,11 +12,9 @@ import { mutators } from "@pi-dash/zero/mutators";
 import type { EventPhoto, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
 import { useServerFn } from "@tanstack/react-start";
-import { log } from "evlog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import "yet-another-react-lightbox/plugins/thumbnails.css";
-import { toast } from "sonner";
 import Lightbox, { type Slide } from "yet-another-react-lightbox";
 
 import "yet-another-react-lightbox/styles.css";
@@ -28,6 +26,8 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { getEventPhotoUploadUrl } from "@/functions/attachments";
 import { uploadPhotoToImmich } from "@/functions/immich-upload";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
+import { deferAction, useDeferredIds } from "@/lib/deferred-actions";
+import { handleMutationResult } from "@/lib/mutation-result";
 
 import { LightboxFooter, type PhotoSlide } from "./event-photos-lightbox";
 import { PhotoCard } from "./photo-card";
@@ -185,10 +185,14 @@ export function EventPhotos({
   isMember,
   occDate,
   approvedPhotos,
-  pendingPhotos,
+  pendingPhotos: allPendingPhotos,
   immichAlbumUrl,
 }: EventPhotosProps) {
   const zero = useZero();
+  const deferredIds = useDeferredIds();
+  const pendingPhotos = allPendingPhotos.filter(
+    (photo) => !deferredIds.has(photo.id)
+  );
   const getUploadUrl = useServerFn(getEventPhotoUploadUrl);
   const callImmichUpload = useServerFn(uploadPhotoToImmich);
   const [isUploading, setIsUploading] = useState(false);
@@ -277,32 +281,31 @@ export function EventPhotos({
     }
   };
 
-  const approveAllAction = useConfirmAction({
-    mutationMeta: {
-      entityId: () => eventId,
-      errorMsg: "Failed to approve media",
-      mutation: "eventPhoto.approveBatch",
-      successMsg: `${pendingPhotos.length} media item${pendingPhotos.length > 1 ? "s" : ""} approved`,
-    },
-    onConfirm: () => {
-      const ids = pendingPhotos.map((p) => p.id);
-      return zero.mutate(
-        mutators.eventPhoto.approveBatch({ ids, now: Date.now() })
-      ).server;
-    },
+  const handleApproveAll = useEventCallback(() => {
+    const ids = pendingPhotos.map((photo) => photo.id);
+    const count = `${ids.length} media item${ids.length > 1 ? "s" : ""}`;
+    deferAction({
+      ids,
+      key: `eventPhoto.approveBatch:${eventId}`,
+      message: `${count} approved`,
+      run: async () => {
+        const res = await zero.mutate(
+          mutators.eventPhoto.approveBatch({ ids, now: Date.now() })
+        ).server;
+        handleMutationResult(res, {
+          entityId: eventId,
+          errorMsg: "Failed to approve media",
+          mutation: "eventPhoto.approveBatch",
+        });
+      },
+    });
   });
   const stableOnClick0 = useEventCallback(() => fileInputRef.current?.click());
   const stableOnChange1 = useEventCallback(
     (e: { target: { files: FileList | null } }) => handleUpload(e.target.files)
   );
   const stableOnClick2 = useEventCallback(() => deleteAlbumAction.trigger());
-  const stableOnClick3 = useEventCallback(() => approveAllAction.trigger());
   const stableClose4 = useEventCallback(() => setLightboxOpen(false));
-  const stableOnOpenChange5 = useEventCallback((open: boolean) => {
-    if (!open) {
-      approveAllAction.cancel();
-    }
-  });
   const stableOnOpenChange6 = useEventCallback((open: boolean) => {
     if (!open) {
       deleteAction.cancel();
@@ -313,43 +316,31 @@ export function EventPhotos({
       deleteAlbumAction.cancel();
     }
   });
-  const handleApprove = useEventCallback(async (id: string) => {
-    const now = Date.now();
-    try {
-      await zero.mutate(mutators.eventPhoto.approve({ id, now })).server;
-      toast.success("Approved!");
-    } catch (caughtError) {
-      log.error({
-        action: "approve",
-        caughtError:
-          caughtError instanceof Error
-            ? caughtError.message
-            : String(caughtError),
-        component: "EventPhotos",
-        photoId: id,
+  const decide = useEventCallback(
+    (id: string, decision: "approve" | "reject") => {
+      const approve = decision === "approve";
+      deferAction({
+        ids: [id],
+        key: `eventPhoto.${decision}:${id}`,
+        message: approve ? "Media approved" : "Media rejected",
+        run: async () => {
+          const args = { id, now: Date.now() };
+          const res = await zero.mutate(
+            approve
+              ? mutators.eventPhoto.approve(args)
+              : mutators.eventPhoto.reject(args)
+          ).server;
+          handleMutationResult(res, {
+            entityId: id,
+            errorMsg: approve ? "Failed to approve" : "Failed to reject",
+            mutation: `eventPhoto.${decision}`,
+          });
+        },
       });
-      toast.error("Failed to approve");
     }
-  });
-
-  const handleReject = useEventCallback(async (id: string) => {
-    const now = Date.now();
-    try {
-      await zero.mutate(mutators.eventPhoto.reject({ id, now })).server;
-      toast.success("Removed");
-    } catch (caughtError) {
-      log.error({
-        action: "reject",
-        caughtError:
-          caughtError instanceof Error
-            ? caughtError.message
-            : String(caughtError),
-        component: "EventPhotos",
-        photoId: id,
-      });
-      toast.error("Failed to reject");
-    }
-  });
+  );
+  const handleApprove = useEventCallback((id: string) => decide(id, "approve"));
+  const handleReject = useEventCallback((id: string) => decide(id, "reject"));
 
   const deleteAction = useConfirmAction<string>({
     mutationMeta: {
@@ -374,9 +365,8 @@ export function EventPhotos({
   const handleDelete = useEventCallback((id: string) =>
     deleteAction.trigger(id)
   );
-  const handleLightboxView = useCallback(
-    ({ index }: { index: number }) => setLightboxIndex(index),
-    []
+  const handleLightboxView = useEventCallback(({ index }: { index: number }) =>
+    setLightboxIndex(index)
   );
   const handleLightboxDelete = useEventCallback((id: string) =>
     deleteAction.trigger(id)
@@ -489,11 +479,7 @@ export function EventPhotos({
             <p className="text-sm font-medium">
               Pending Approval ({pendingPhotos.length})
             </p>
-            <Button
-              disabled={approveAllAction.isLoading}
-              onClick={stableOnClick3}
-              size="sm"
-            >
+            <Button onClick={handleApproveAll} size="sm">
               Approve All
             </Button>
           </div>
@@ -579,17 +565,6 @@ export function EventPhotos({
         }}
         thumbnails={{ height: 64, width: 64 }}
         zoom={{ maxZoomPixelRatio: 3, scrollToZoom: true }}
-      />
-
-      <ConfirmDialog
-        confirmLabel="Approve All"
-        description={`Approve all ${pendingPhotos.length} pending media item${pendingPhotos.length > 1 ? "s" : ""}?`}
-        loading={approveAllAction.isLoading}
-        loadingLabel="Approving..."
-        onConfirm={approveAllAction.confirm}
-        onOpenChange={stableOnOpenChange5}
-        open={approveAllAction.isOpen}
-        title="Approve all"
       />
 
       <ConfirmDialog
