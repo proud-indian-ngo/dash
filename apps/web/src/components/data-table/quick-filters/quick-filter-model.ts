@@ -166,7 +166,7 @@ export function matchDatePreset(
 }
 
 const NUMBER_OPERATOR_LABELS: Record<string, string> = {
-  eq: "=",
+  eq: "",
   gt: ">",
   gte: "≥",
   lt: "<",

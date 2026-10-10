@@ -133,14 +133,20 @@ test("role dashboards show scoped work, linked actions, and read-only Awards acc
       })
       .click();
     await expect(
-      guardian.getByRole("group", { name: "Entries equals 0", exact: true })
+      guardian.getByRole("button", {
+        name: "Entries filter: 0",
+        exact: true,
+      })
     ).toBeVisible();
     await expect(
       guardian.getByRole("cell", { name: /^Dashboard Student/ })
     ).toBeVisible();
     await guardian.getByRole("button", { name: "Clear", exact: true }).click();
     await expect(
-      guardian.getByRole("group", { name: "Entries equals 0", exact: true })
+      guardian.getByRole("button", {
+        name: "Entries filter: 0",
+        exact: true,
+      })
     ).toHaveCount(0);
 
     const operator = await actorPage(
@@ -180,15 +186,15 @@ test("role dashboards show scoped work, linked actions, and read-only Awards acc
       })
     ).toBeVisible();
     await expect(
-      operator.getByRole("group", {
-        name: "Breakfast is Not served",
+      operator.getByRole("button", {
+        name: "Breakfast filter: Not served",
         exact: true,
       })
     ).toBeVisible();
     await operator.getByRole("button", { name: "Clear", exact: true }).click();
     await expect(
-      operator.getByRole("group", {
-        name: "Breakfast is Not served",
+      operator.getByRole("button", {
+        name: "Breakfast filter: Not served",
         exact: true,
       })
     ).toHaveCount(0);
