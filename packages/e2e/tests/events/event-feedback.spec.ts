@@ -1,4 +1,13 @@
 import { expect, test } from "../../fixtures/test";
+import { pickDate } from "../../helpers/date-time-picker";
+import { openAdvancedSettings } from "../../helpers/event-form";
+import {
+  openPublicEvent,
+  openSeededTeam,
+  searchTeamEvents,
+} from "../../helpers/team-event";
+
+const SEEDED_FEEDBACK_EVENT = "E2E Seeded Feedback Event";
 
 test.describe("Event feedback — admin", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
@@ -10,19 +19,7 @@ test.describe("Event feedback — admin", () => {
   }) => {
     test.slow();
 
-    // Navigate to teams page
-    await page.goto("/teams");
-    await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
-
-    const teamLink = page.getByRole("link").filter({ hasText: /E2E Team/ });
-    if ((await teamLink.count()) === 0) {
-      test.skip(true, "No E2E team available");
-      return;
-    }
-    await teamLink.first().click();
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
-      timeout: 10_000,
-    });
+    await openSeededTeam(page);
 
     // Create a past event with feedback enabled
     const pastEventName = `E2E Feedback Event ${Date.now()}`;
@@ -30,23 +27,27 @@ test.describe("Event feedback — admin", () => {
     const createDialog = page.getByRole("dialog");
     await expect(createDialog).toBeVisible();
 
-    await createDialog.getByLabel("Name", { exact: true }).fill(pastEventName);
+    await createDialog
+      .getByRole("textbox", { exact: true, name: "Name" })
+      .fill(pastEventName);
 
     const yesterday = new Date(Date.now() - 86_400_000);
-    await createDialog
-      .getByLabel("Start Time")
-      .fill(yesterday.toISOString().slice(0, 16));
+    await pickDate(createDialog, "Start Time", yesterday);
 
     // Make it public so volunteers can see it
-    await createDialog.getByLabel("Public").check();
+    await createDialog.getByRole("switch", { name: "Public" }).click();
 
     // Enable anonymous feedback
-    await createDialog.getByLabel("Enable anonymous feedback").check();
+    await openAdvancedSettings(createDialog);
+    await createDialog
+      .getByRole("switch", { name: "Enable anonymous feedback" })
+      .click();
 
     await createDialog
       .getByRole("button", { exact: true, name: "Create" })
       .click();
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
+    await searchTeamEvents(page, pastEventName);
     await expect(page.getByText(pastEventName)).toBeVisible({
       timeout: 10_000,
     });
@@ -69,6 +70,8 @@ test.describe("Event feedback — admin", () => {
 });
 
 test.describe("Event feedback — volunteer", () => {
+  // Submit then edit the same feedback, in order.
+  test.describe.configure({ mode: "serial" });
   test.beforeEach(({ page: _page }, testInfo) => {
     test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
   });
@@ -76,35 +79,19 @@ test.describe("Event feedback — volunteer", () => {
   test("submits anonymous feedback on a past event", async ({ page }) => {
     test.slow();
 
-    // Navigate to public events
-    await page.goto("/events");
-    await expect(
-      page.getByRole("heading", { exact: true, name: "Events" })
-    ).toBeVisible();
-
-    // Find an event that has feedback enabled (created by admin test or seeded)
-    const feedbackEvent = page
-      .getByRole("link")
-      .filter({ hasText: /E2E Feedback Event/ });
-    if ((await feedbackEvent.count()) === 0) {
-      test.skip(true, "No feedback-enabled event available");
-      return;
-    }
-    await feedbackEvent.first().click();
-    await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
+    await openPublicEvent(page, SEEDED_FEEDBACK_EVENT);
 
     // Click the Feedback tab
     const feedbackTab = page.getByRole("tab", { name: /Feedback/ });
     await expect(feedbackTab).toBeVisible({ timeout: 10_000 });
     await feedbackTab.click();
 
-    // Fill in feedback textarea and submit
+    // Write feedback in the editor and save
     const feedbackText = `E2E anonymous feedback ${Date.now()}`;
-    await page
-      .getByPlaceholder("Share your anonymous feedback...")
-      .fill(feedbackText);
-
-    await page.getByRole("button", { name: "Submit" }).click();
+    const editor = page.locator("[data-slate-editor]").first();
+    await editor.click();
+    await page.keyboard.type(feedbackText);
+    await page.getByRole("button", { name: "Save" }).first().click();
     await expect(page.getByText("Feedback submitted")).toBeVisible({
       timeout: 10_000,
     });
@@ -123,22 +110,7 @@ test.describe("Event feedback — volunteer", () => {
   test("edits own anonymous feedback", async ({ page }) => {
     test.slow();
 
-    // Navigate to public events
-    await page.goto("/events");
-    await expect(
-      page.getByRole("heading", { exact: true, name: "Events" })
-    ).toBeVisible();
-
-    // Find the feedback-enabled event
-    const feedbackEvent = page
-      .getByRole("link")
-      .filter({ hasText: /E2E Feedback Event/ });
-    if ((await feedbackEvent.count()) === 0) {
-      test.skip(true, "No feedback-enabled event available");
-      return;
-    }
-    await feedbackEvent.first().click();
-    await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
+    await openPublicEvent(page, SEEDED_FEEDBACK_EVENT);
 
     // Click the Feedback tab
     const feedbackTab = page.getByRole("tab", { name: /Feedback/ });
@@ -150,13 +122,14 @@ test.describe("Event feedback — volunteer", () => {
 
     // Clear and type updated content
     const updatedText = `E2E updated feedback ${Date.now()}`;
-    const textarea = page.getByPlaceholder("Update your feedback...");
-    await expect(textarea).toBeVisible();
-    await textarea.clear();
-    await textarea.fill(updatedText);
+    const editor = page.locator("[data-slate-editor]").first();
+    await expect(editor).toBeVisible();
+    await editor.click();
+    await page.keyboard.press("ControlOrMeta+A");
+    await page.keyboard.type(updatedText);
 
     // Save the update
-    await page.getByRole("button", { name: "Save" }).click();
+    await page.getByRole("button", { name: "Save" }).first().click();
     await expect(page.getByText("Feedback updated")).toBeVisible({
       timeout: 10_000,
     });
