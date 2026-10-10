@@ -354,7 +354,8 @@ test.describe("Kalakriti inventory", () => {
       await search.fill("Counted after event");
       await expect(page.getByRole("table").getByRole("row")).toHaveCount(2);
       await search.clear();
-      await expect(page.getByRole("table").getByRole("row")).toHaveCount(9);
+      // The fitted page size may split the 8 transactions across pages.
+      await expect(page.getByText(/^\d+ - \d+ of 8$/)).toBeVisible();
       expect((await fixture<State>("state")).transactions).toHaveLength(8);
     } finally {
       await context.close();

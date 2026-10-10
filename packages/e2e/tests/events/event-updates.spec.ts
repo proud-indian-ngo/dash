@@ -131,6 +131,8 @@ test.describe("Event update approval (admin)", () => {
       timeout: 10_000,
     });
     await waitForZeroReady(page);
+    // Search so the row is on the first page whatever the fitted page size.
+    await page.getByPlaceholder("Search teams...").fill("E2E Updates Team");
     await page
       .getByRole("row")
       .filter({ hasText: "E2E Updates Team" })
@@ -140,6 +142,9 @@ test.describe("Event update approval (admin)", () => {
       timeout: 10_000,
     });
     await waitForZeroReady(page);
+    await page
+      .getByPlaceholder("Search events...")
+      .fill("E2E Past Event With Pending Update");
     const eventRow = page
       .getByRole("row")
       .filter({ hasText: /E2E Past Event With Pending Update/ });
