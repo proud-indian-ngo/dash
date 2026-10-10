@@ -1,22 +1,14 @@
 import { expect, test } from "../../fixtures/test";
+import { pickDate } from "../../helpers/date-time-picker";
+import { waitForToastsToClear } from "../../helpers/event-form";
+import { openSeededTeam, searchTeamEvents } from "../../helpers/team-event";
+import { ListPage } from "../../pages/list-page";
 
 test.describe("Event edit and cancel (admin)", () => {
   test.beforeEach(async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
-    await page.goto("/teams");
-    await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
-
-    const teamLink = page.getByRole("link").filter({ hasText: /E2E Team/ });
-    const count = await teamLink.count();
-    if (count === 0) {
-      test.skip(true, "No E2E team available — run team-create tests first");
-      return;
-    }
-    await teamLink.first().click();
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
-      timeout: 10_000,
-    });
+    await openSeededTeam(page);
   });
 
   test("edits an existing event name and location", async ({ page }) => {
@@ -28,24 +20,25 @@ test.describe("Event edit and cancel (admin)", () => {
     const createDialog = page.getByRole("dialog");
     await expect(createDialog).toBeVisible();
 
-    await createDialog.getByLabel("Name", { exact: true }).fill(originalName);
+    await createDialog
+      .getByRole("textbox", { exact: true, name: "Name" })
+      .fill(originalName);
     await createDialog.getByLabel("Location").fill("Original Location");
 
     const tomorrow = new Date(Date.now() + 86_400_000);
-    await createDialog
-      .getByLabel("Start Time")
-      .fill(tomorrow.toISOString().slice(0, 16));
+    await pickDate(createDialog, "Start Time", tomorrow);
 
     await createDialog
       .getByRole("button", { exact: true, name: "Create" })
       .click();
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
+    await searchTeamEvents(page, originalName);
     await expect(page.getByText(originalName)).toBeVisible({ timeout: 10_000 });
 
     // Now edit it via the row action menu
     const row = page.getByRole("row").filter({ hasText: originalName });
-    await row.getByRole("button", { name: "Row actions" }).click();
-    await page.getByRole("menuitem", { name: "Edit" }).click();
+    await waitForToastsToClear(page);
+    await new ListPage(page).openRowActionAndClick(row, "Edit");
 
     const editDialog = page.getByRole("dialog");
     await expect(
@@ -53,7 +46,10 @@ test.describe("Event edit and cancel (admin)", () => {
     ).toBeVisible();
 
     // Wait for form to populate before editing
-    const nameInput = editDialog.getByLabel("Name", { exact: true });
+    const nameInput = editDialog.getByRole("textbox", {
+      exact: true,
+      name: "Name",
+    });
     await expect(nameInput).toHaveValue(originalName);
 
     const updatedName = `E2E Edited ${Date.now()}`;
@@ -66,6 +62,7 @@ test.describe("Event edit and cancel (admin)", () => {
     await editDialog.getByRole("button", { exact: true, name: "Save" }).click();
     await expect(editDialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText("Event updated")).toBeVisible();
+    await searchTeamEvents(page, updatedName);
     await expect(page.getByText(updatedName)).toBeVisible({ timeout: 10_000 });
   });
 
@@ -78,28 +75,31 @@ test.describe("Event edit and cancel (admin)", () => {
     const createDialog = page.getByRole("dialog");
     await expect(createDialog).toBeVisible();
 
-    await createDialog.getByLabel("Name", { exact: true }).fill(eventName);
+    await createDialog
+      .getByRole("textbox", { exact: true, name: "Name" })
+      .fill(eventName);
 
     const nextWeek = new Date(Date.now() + 7 * 86_400_000);
-    await createDialog
-      .getByLabel("Start Time")
-      .fill(nextWeek.toISOString().slice(0, 16));
+    await pickDate(createDialog, "Start Time", nextWeek);
 
     await createDialog
       .getByRole("button", { exact: true, name: "Create" })
       .click();
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
+    await searchTeamEvents(page, eventName);
     await expect(page.getByText(eventName)).toBeVisible({ timeout: 10_000 });
 
     // Cancel via row action menu
     const row = page.getByRole("row").filter({ hasText: eventName });
-    await row.getByRole("button", { name: "Row actions" }).click();
-    await page.getByRole("menuitem", { name: "Cancel" }).click();
+    await waitForToastsToClear(page);
+    await new ListPage(page).openRowActionAndClick(row, "Cancel");
 
     // Confirm dialog appears
     const confirmDialog = page.getByRole("alertdialog");
     await expect(confirmDialog).toBeVisible();
-    await expect(confirmDialog.getByText("Cancel event")).toBeVisible();
+    await expect(
+      confirmDialog.getByRole("heading", { name: "Cancel event" })
+    ).toBeVisible();
     await expect(
       confirmDialog.getByText(`Are you sure you want to cancel "${eventName}"`)
     ).toBeVisible();
@@ -122,22 +122,36 @@ test.describe("Event edit and cancel (admin)", () => {
     const createDialog = page.getByRole("dialog");
     await expect(createDialog).toBeVisible();
 
-    await createDialog.getByLabel("Name", { exact: true }).fill(eventName);
+    await createDialog
+      .getByRole("textbox", { exact: true, name: "Name" })
+      .fill(eventName);
 
     const nextWeek = new Date(Date.now() + 7 * 86_400_000);
-    await createDialog
-      .getByLabel("Start Time")
-      .fill(nextWeek.toISOString().slice(0, 16));
+    await pickDate(createDialog, "Start Time", nextWeek);
 
     await createDialog
       .getByRole("button", { exact: true, name: "Create" })
       .click();
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
+    await searchTeamEvents(page, eventName);
     await expect(page.getByText(eventName)).toBeVisible({ timeout: 10_000 });
 
     const row = page.getByRole("row").filter({ hasText: eventName });
-    await row.getByRole("button", { name: "Row actions" }).click();
-    await page.getByRole("menuitem", { name: "Cancel" }).click();
+    // On phones the row menu is a bottom sheet of buttons. Its own Cancel
+    // (close the sheet) comes after the Cancel event action. The row can
+    // re-render as data syncs, so retry opening the sheet.
+    await waitForToastsToClear(page);
+    const sheet = page.getByRole("dialog", { name: /actions$/i });
+    await expect(async () => {
+      if (!(await sheet.isVisible())) {
+        await row.getByTestId("row-actions").click();
+      }
+      await expect(sheet).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 15_000 });
+    await sheet
+      .getByRole("button", { exact: true, name: "Cancel" })
+      .first()
+      .click();
 
     const confirmDialog = page.getByRole("alertdialog");
     await expect(confirmDialog).toBeVisible();
