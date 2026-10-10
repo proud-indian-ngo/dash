@@ -1,14 +1,12 @@
 import type { Page } from "@playwright/test";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { applyQuickFilter } from "../../helpers/quick-filters";
 
 const TEAM_NAME = "E2E Updates Team";
 
 async function applySelectFilter(page: Page, field: string, value: string) {
-  await page.getByRole("button", { name: "Add filter" }).click();
-  await page.getByRole("option", { exact: true, name: field }).click();
-  await page.getByRole("option", { exact: true, name: "is" }).click();
-  await page.getByRole("option", { exact: true, name: value }).click();
+  await applyQuickFilter(page, field, value);
 }
 
 async function clearFilters(page: Page) {

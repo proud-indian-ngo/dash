@@ -118,6 +118,12 @@ import {
 } from "./data-table-group";
 import { getDataTableClassNames } from "./data-table-layout";
 import { DataTableTotals } from "./data-table-totals";
+import { filterFieldIcons } from "./quick-filters/filter-field-icons";
+import {
+  countOptions,
+  isQuickFilterQuery,
+} from "./quick-filters/quick-filter-model";
+import { QuickFilters } from "./quick-filters/quick-filters";
 import { useAutoPageSize } from "./use-auto-page-size";
 import { getSizingColumns, useTableViewportWidth } from "./use-column-fill";
 
@@ -127,6 +133,8 @@ export interface DataTableFilterConfig<TData extends object> {
   fields: FilterField[];
   getValue?: FilterValueGetter<TData>;
   queryKey?: string;
+  /** Field ids shown in the toolbar before the rest go under More. */
+  pinnedFields?: string[];
   /** A select field shown as view tabs with row counts above the toolbar. */
   viewField?: string;
 }
@@ -224,6 +232,7 @@ export function DataTableWrapper<TData extends object>(
 }
 
 function DataTableWrapperWithFilters<TData extends object>({
+  columns,
   data,
   filter,
   toolbarFilters,
@@ -233,6 +242,7 @@ function DataTableWrapperWithFilters<TData extends object>({
     applyLocally: applyLocallyOption,
     fields,
     getValue,
+    pinnedFields,
     queryKey,
     viewField,
   } = filter;
@@ -260,10 +270,32 @@ function DataTableWrapperWithFilters<TData extends object>({
         : null,
     [data, getValue, viewFieldConfig]
   );
+  // The view tabs already cover their field, so it is not a quick filter.
+  const quickFields = useMemo(
+    () => fields.filter((field) => field.id !== viewField),
+    [fields, viewField]
+  );
+  const counts = useMemo(
+    () =>
+      applyLocally && getValue
+        ? countOptions(data, quickFields, getValue)
+        : undefined,
+    [applyLocally, data, getValue, quickFields]
+  );
+  const icons = useMemo(
+    () => filterFieldIcons(quickFields, columns),
+    [columns, quickFields]
+  );
+  const [advanced, setAdvanced] = useState(false);
+  const canUseQuick = isQuickFilterQuery(query, fields);
+  const showAdvanced = advanced || !canUseQuick;
+  const handleAdvanced = useEventCallback(() => setAdvanced(true));
+  const handleQuick = useEventCallback(() => setAdvanced(false));
 
   return (
     <DataTableWrapperBase
       {...rest}
+      columns={columns}
       data={filteredData}
       pageResetKey={JSON.stringify(query)}
       toolbarTop={
@@ -279,12 +311,33 @@ function DataTableWrapperWithFilters<TData extends object>({
       }
       toolbarFilters={
         <>
-          <DataTableFiltersBar
-            allowAdvanced={applyLocally}
-            fields={fields}
-            onQueryChange={handleQueryChange}
-            query={query}
-          />
+          {showAdvanced ? (
+            <>
+              <DataTableFiltersBar
+                allowAdvanced={applyLocally}
+                fields={fields}
+                onQueryChange={handleQueryChange}
+                query={query}
+              />
+              {canUseQuick ? (
+                <Button onClick={handleQuick} size="sm" variant="ghost">
+                  Quick filters
+                </Button>
+              ) : null}
+            </>
+          ) : (
+            <QuickFilters
+              counts={counts}
+              fields={quickFields}
+              icons={icons}
+              onAdvanced={applyLocally ? handleAdvanced : undefined}
+              onQueryChange={handleQueryChange}
+              pinned={pinnedFields}
+              query={query}
+              resultCount={applyLocally ? filteredData.length : undefined}
+              single={!applyLocally}
+            />
+          )}
           {toolbarFilters}
         </>
       }
@@ -914,8 +967,8 @@ function DataTableWrapperBase<TData extends object>({
                       </InputGroupAddon>
                     ) : null}
                   </InputGroup>
-                  <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2 @3xl/card-header:flex-1">
-                    <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+                  <div className="flex w-full min-w-0 flex-wrap items-start justify-between gap-2 @3xl/card-header:flex-1 @3xl/card-header:flex-nowrap">
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2.5">
                       {toolbarFilters}
                     </div>
                     <CardAction className="relative col-auto row-auto flex max-w-full shrink-0 flex-wrap items-center gap-1 self-auto justify-self-auto">

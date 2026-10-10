@@ -35,6 +35,10 @@ const KIND_ICON: Record<DataGridColumnKind, typeof TextIcon> = {
   text: TextIcon,
 };
 
+export function columnKindIcon(kind: DataGridColumnKind) {
+  return KIND_ICON[kind];
+}
+
 /** Kinds set in Paper Mono, the data font. */
 const DATA_FONT_KINDS = new Set<DataGridColumnKind>([
   "amount",

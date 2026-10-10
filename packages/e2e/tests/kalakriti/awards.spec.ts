@@ -12,6 +12,7 @@ import type {
 import { uuidv7 } from "uuidv7";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { applyQuickFilter } from "../../helpers/quick-filters";
 
 const execFileAsync = promisify(execFile);
 const helper = path.resolve(
@@ -156,10 +157,7 @@ async function expectMetric(page: Page, label: string, value: number) {
 }
 
 async function selectFilter(page: Page, field: string, value: string) {
-  await page.getByRole("button", { name: "Add filter" }).click();
-  await page.getByRole("option", { exact: true, name: field }).click();
-  await page.getByRole("option", { exact: true, name: "is" }).click();
-  await page.getByRole("option", { exact: true, name: value }).click();
+  await applyQuickFilter(page, field, value);
 }
 
 async function desktopAction(
