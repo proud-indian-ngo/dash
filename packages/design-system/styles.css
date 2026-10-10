@@ -77,7 +77,12 @@
   --secondary-foreground: var(--color-ui-dark-text);
   --muted: var(--color-ui-dark-raised);
   --muted-foreground: var(--color-ui-dark-mute);
-  --accent: var(--color-ui-dark-raised);
+  /* One step above raised, so menu and list highlights show on popovers */
+  --accent: color-mix(
+    in oklab,
+    var(--color-ui-dark-text) 8%,
+    var(--color-ui-dark-raised)
+  );
   --accent-foreground: var(--color-ui-dark-text);
   --destructive: var(--color-status-rejected-dark);
   --border: var(--color-ui-dark-line);

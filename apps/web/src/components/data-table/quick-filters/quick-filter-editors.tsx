@@ -119,7 +119,7 @@ export function SelectFilterEditor({
               return (
                 <button
                   aria-checked={checked}
-                  className="hover:bg-muted flex h-8 w-full items-center gap-2 rounded-md px-2 text-left"
+                  className="hover:bg-accent flex h-8 w-full items-center gap-2 rounded-md px-2 text-left"
                   key={option.value}
                   onClick={() => toggle(option.value, !checked)}
                   role="radio"
@@ -136,7 +136,7 @@ export function SelectFilterEditor({
               <button
                 aria-checked={checked}
                 aria-label={option.label}
-                className="hover:bg-muted flex h-8 w-full items-center gap-2 rounded-md px-2 text-left"
+                className="hover:bg-accent flex h-8 w-full items-center gap-2 rounded-md px-2 text-left"
                 key={option.value}
                 onClick={() => toggle(option.value, !checked)}
                 role="checkbox"
@@ -178,7 +178,7 @@ function CheckBox({ checked }: { checked: boolean }) {
   return (
     <span
       className={cn(
-        "border-input grid size-4 shrink-0 place-items-center rounded-[4px] border",
+        "border-muted-foreground/50 grid size-4 shrink-0 place-items-center rounded-[4px] border",
         checked && "bg-primary border-primary text-primary-foreground"
       )}
     >
@@ -193,7 +193,7 @@ function RadioDot({ checked }: { checked: boolean }) {
   return (
     <span
       className={cn(
-        "border-input size-3.5 shrink-0 rounded-full border",
+        "border-muted-foreground/50 size-3.5 shrink-0 rounded-full border",
         checked && "border-primary border-[4.5px]"
       )}
     />
@@ -242,7 +242,7 @@ export function DateFilterEditor({
         return (
           <button
             aria-checked={checked}
-            className="hover:bg-muted flex h-8 items-center gap-2 rounded-md px-2 text-left"
+            className="hover:bg-accent flex h-8 items-center gap-2 rounded-md px-2 text-left"
             key={option.label}
             onClick={() => onChange(datePresetRule(option))}
             role="radio"
