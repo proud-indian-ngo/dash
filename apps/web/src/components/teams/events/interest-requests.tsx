@@ -7,12 +7,12 @@ import { mutators } from "@pi-dash/zero/mutators";
 import type { EventInterest, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
-import { useState } from "react";
 
 import { StatusBadge } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { LOCALE_DATE } from "@/lib/date-formats";
+import { deferAction, useDeferredIds } from "@/lib/deferred-actions";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 export type InterestWithUser = EventInterest & { user: User | undefined };
@@ -23,35 +23,32 @@ interface InterestRequestsProps {
 
 function InterestRow({ interest }: { interest: InterestWithUser }) {
   const zero = useZero();
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleApprove = useEventCallback(async () => {
-    setIsSubmitting(true);
-    const res = await zero.mutate(
-      mutators.eventInterest.approve({ id: interest.id, now: Date.now() })
-    ).server;
-    setIsSubmitting(false);
-    handleMutationResult(res, {
-      entityId: interest.id,
-      errorMsg: "Failed to approve interest",
-      mutation: "eventInterest.approve",
-      successMsg: "Interest approved",
+  const decide = useEventCallback((decision: "approve" | "reject") => {
+    const approve = decision === "approve";
+    deferAction({
+      ids: [interest.id],
+      key: `eventInterest.${decision}:${interest.id}`,
+      message: approve ? "Interest approved" : "Interest rejected",
+      run: async () => {
+        const args = { id: interest.id, now: Date.now() };
+        const res = await zero.mutate(
+          approve
+            ? mutators.eventInterest.approve(args)
+            : mutators.eventInterest.reject(args)
+        ).server;
+        handleMutationResult(res, {
+          entityId: interest.id,
+          errorMsg: approve
+            ? "Failed to approve interest"
+            : "Failed to reject interest",
+          mutation: `eventInterest.${decision}`,
+        });
+      },
     });
   });
-
-  const handleReject = useEventCallback(async () => {
-    setIsSubmitting(true);
-    const res = await zero.mutate(
-      mutators.eventInterest.reject({ id: interest.id, now: Date.now() })
-    ).server;
-    setIsSubmitting(false);
-    handleMutationResult(res, {
-      entityId: interest.id,
-      errorMsg: "Failed to reject interest",
-      mutation: "eventInterest.reject",
-      successMsg: "Interest rejected",
-    });
-  });
+  const handleApprove = useEventCallback(() => decide("approve"));
+  const handleReject = useEventCallback(() => decide("reject"));
 
   return (
     <div className="flex items-center gap-3 rounded-md border p-2">
@@ -97,7 +94,6 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
           <Button
             aria-label={`Approve ${interest.user?.name ?? "request"}`}
             className="border-success/20 bg-success/10 text-success hover:bg-success/20"
-            disabled={isSubmitting}
             onClick={handleApprove}
             size="icon"
             variant="outline"
@@ -111,7 +107,6 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
           </Button>
           <Button
             aria-label={`Reject ${interest.user?.name ?? "request"}`}
-            disabled={isSubmitting}
             onClick={handleReject}
             size="icon"
             variant="destructive"
@@ -136,7 +131,10 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
 }
 
 export function InterestRequests({ interests }: InterestRequestsProps) {
-  const pendingInterests = interests.filter((i) => i.status === "pending");
+  const deferredIds = useDeferredIds();
+  const pendingInterests = interests.filter(
+    (i) => i.status === "pending" && !deferredIds.has(i.id)
+  );
 
   if (pendingInterests.length === 0) {
     return null;

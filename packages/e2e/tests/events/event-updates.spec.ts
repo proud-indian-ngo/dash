@@ -1,4 +1,5 @@
-import { expect, test } from "../../fixtures/test";
+import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { ListPage } from "../../pages/list-page";
 
 test.describe("Event updates CRUD (admin)", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
@@ -122,22 +123,29 @@ test.describe("Event update approval (admin)", () => {
   });
 
   test("approves a pending update from seeded data", async ({ page }) => {
-    // Navigate to the seeded event with a pending update
-    await page.goto("/events");
-    await expect(
-      page.getByRole("heading", { exact: true, name: "Events" })
-    ).toBeVisible();
+    test.slow();
 
-    const eventLink = page
-      .getByRole("table")
-      .getByRole("link")
+    // Navigate to the seeded event through its team's event list
+    await page.goto("/teams");
+    await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible({
+      timeout: 10_000,
+    });
+    await waitForZeroReady(page);
+    await page
+      .getByRole("row")
+      .filter({ hasText: "E2E Updates Team" })
+      .first()
+      .click();
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
+      timeout: 10_000,
+    });
+    await waitForZeroReady(page);
+    const eventRow = page
+      .getByRole("row")
       .filter({ hasText: /E2E Past Event With Pending Update/ });
-    if ((await eventLink.count()) === 0) {
-      test.skip(true, "Seeded event not available");
-      return;
-    }
-    await eventLink.first().click();
+    await new ListPage(page).openRowActionAndClick(eventRow.first(), "View");
     await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
+    await waitForZeroReady(page);
 
     // Click Updates tab — should show pending badge
     const updatesTab = page.getByRole("tab", { name: /Updates/ });
@@ -157,7 +165,20 @@ test.describe("Event update approval (admin)", () => {
     // Verify "Pending" badge
     await expect(page.getByText("Pending", { exact: true })).toBeVisible();
 
-    // Approve the pending update
+    // Approve, then Undo: the update returns and the save never runs
+    await page.getByRole("button", { name: "Approve" }).click();
+    await expect(page.getByText("Update approved")).toBeVisible();
+    await expect(page.getByText("Pending Approval")).toBeHidden();
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect(page.getByText("Pending Approval")).toBeVisible();
+    await page.waitForTimeout(6000);
+    await page.reload();
+    await page.getByRole("tab", { name: /Updates/ }).click();
+    await expect(page.getByText("Pending Approval")).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // Approve for real and let the Undo window pass
     await page.getByRole("button", { name: "Approve" }).click();
     await expect(page.getByText("Update approved")).toBeVisible({
       timeout: 10_000,

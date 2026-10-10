@@ -28,6 +28,7 @@ import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { useApp } from "@/context/app-context";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { LONG_DATE_TIME } from "@/lib/date-formats";
+import { deferAction, useDeferredIds } from "@/lib/deferred-actions";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 const PlateEditor = lazy(() =>
@@ -60,9 +61,13 @@ export function EventUpdates({
   canUploadImages,
   eventId,
   isMember,
-  pendingUpdates,
+  pendingUpdates: allPendingUpdates,
 }: EventUpdatesProps) {
   const zero = useZero();
+  const deferredIds = useDeferredIds();
+  const pendingUpdates = allPendingUpdates.filter(
+    (update) => !deferredIds.has(update.id)
+  );
   const [saving, setSaving] = useState(false);
 
   const canPost = canManage || isMember;
@@ -97,17 +102,32 @@ export function EventUpdates({
     }
   });
 
-  const handleApprove = useEventCallback(async (id: string) => {
-    const res = await zero.mutate(
-      mutators.eventUpdate.approve({ id, now: Date.now() })
-    ).server;
-    handleMutationResult(res, {
-      entityId: id,
-      errorMsg: "Failed to approve update",
-      mutation: "eventUpdate.approve",
-      successMsg: "Update approved",
-    });
-  });
+  const decide = useEventCallback(
+    (id: string, decision: "approve" | "reject") => {
+      const approve = decision === "approve";
+      deferAction({
+        ids: [id],
+        key: `eventUpdate.${decision}:${id}`,
+        message: approve ? "Update approved" : "Update rejected",
+        run: async () => {
+          const args = { id, now: Date.now() };
+          const res = await zero.mutate(
+            approve
+              ? mutators.eventUpdate.approve(args)
+              : mutators.eventUpdate.reject(args)
+          ).server;
+          handleMutationResult(res, {
+            entityId: id,
+            errorMsg: approve
+              ? "Failed to approve update"
+              : "Failed to reject update",
+            mutation: `eventUpdate.${decision}`,
+          });
+        },
+      });
+    }
+  );
+  const handleApprove = useEventCallback((id: string) => decide(id, "approve"));
 
   const handleEdit = useEventCallback(async (id: string, content: string) => {
     const res = await zero.mutate(
@@ -121,17 +141,7 @@ export function EventUpdates({
     });
   });
 
-  const handleReject = useEventCallback(async (id: string) => {
-    const res = await zero.mutate(
-      mutators.eventUpdate.reject({ id, now: Date.now() })
-    ).server;
-    handleMutationResult(res, {
-      entityId: id,
-      errorMsg: "Failed to reject update",
-      mutation: "eventUpdate.reject",
-      successMsg: "Update rejected",
-    });
-  });
+  const handleReject = useEventCallback((id: string) => decide(id, "reject"));
   const stableOnDelete0 = useEventCallback((id: string) =>
     deleteAction.trigger(id)
   );
