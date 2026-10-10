@@ -97,6 +97,7 @@ function ReimbursementsRouteComponent() {
 
       <div className="mt-4 grid gap-6 *:min-w-0">
         <StatsCards
+          variant="chips"
           isLoading={isLoading}
           items={computeReimbursementStats(allData)}
         />

@@ -41,16 +41,19 @@ export function computeJobStats(
     {
       icon: Loading03Icon,
       label: "Active",
+      tone: "info",
       value: active,
     },
     {
       icon: CheckmarkCircle01Icon,
       label: "Completed",
+      tone: "success",
       value: stateCounts.completed ?? 0,
     },
     {
       icon: MultiplicationSignCircleIcon,
       label: "Failed",
+      tone: "danger",
       value: stateCounts.failed ?? 0,
     },
     {
@@ -61,6 +64,7 @@ export function computeJobStats(
     {
       icon: Clock01Icon,
       label: "Scheduled",
+      tone: "info",
       value: scheduled,
     },
   ];

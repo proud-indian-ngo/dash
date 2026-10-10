@@ -29,6 +29,7 @@ export function computeUserStats(users: readonly UserLike[]): StatItem[] {
     {
       icon: UserCheck01Icon,
       label: "Active",
+      tone: "success",
       value: active.length,
     },
     {
@@ -39,6 +40,7 @@ export function computeUserStats(users: readonly UserLike[]): StatItem[] {
     {
       icon: Mortarboard02Icon,
       label: "Needs Orientation",
+      tone: "warning",
       value: needsOrientation.length,
     },
   ];

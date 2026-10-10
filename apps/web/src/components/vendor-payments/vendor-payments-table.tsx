@@ -373,6 +373,7 @@ export function VendorPaymentsTable({
         filter={{
           fields: filterFields,
           getValue: getVendorPaymentFilterValue,
+          viewField: "status",
         }}
         getRowId={stableGetRowId0}
         isLoading={isLoading}

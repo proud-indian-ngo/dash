@@ -52,8 +52,8 @@ test.describe("Jobs dashboard (admin)", () => {
   });
 
   test("renders stats cards", async ({ page }) => {
-    // Stats cards may show 0 but should still render
-    await expect(page.locator("[data-slot='card-title']").first()).toBeVisible({
+    // KPI chips may show 0 but should still render
+    await expect(page.locator("[data-slot='stat-chip']").first()).toBeVisible({
       timeout: 10_000,
     });
   });

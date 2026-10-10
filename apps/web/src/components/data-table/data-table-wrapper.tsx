@@ -67,6 +67,10 @@ import {
   compileFilterQuery,
   type FilterValueGetter,
 } from "@/components/data-table/compile-filter-query";
+import {
+  DataTableViewTabs,
+  getDataTableViews,
+} from "@/components/data-table/data-table-view-tabs";
 import { DATA_TABLE_FILTER_EDITORS } from "@/components/data-table/filter-date-editor";
 import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
 import { useTableState } from "@/hooks/use-table-state";
@@ -112,6 +116,8 @@ export interface DataTableFilterConfig<TData extends object> {
   fields: FilterField[];
   getValue?: FilterValueGetter<TData>;
   queryKey?: string;
+  /** A select field shown as view tabs with row counts above the toolbar. */
+  viewField?: string;
 }
 
 export interface DataTableWrapperProps<TData extends object> {
@@ -213,6 +219,7 @@ function DataTableWrapperWithFilters<TData extends object>({
     fields,
     getValue,
     queryKey,
+    viewField,
   } = filter;
   const { query, setQuery } = useDataTableFilters(queryKey);
   const applyLocally = applyLocallyOption !== false && Boolean(getValue);
@@ -228,12 +235,33 @@ function DataTableWrapperWithFilters<TData extends object>({
   const handleQueryChange = useEventCallback((next: FilterQuery) => {
     setQuery(next);
   });
+  const viewFieldConfig = viewField
+    ? fields.find((field) => field.id === viewField)
+    : undefined;
+  const views = useMemo(
+    () =>
+      viewFieldConfig && getValue
+        ? getDataTableViews({ data, field: viewFieldConfig, getValue })
+        : null,
+    [data, getValue, viewFieldConfig]
+  );
 
   return (
     <DataTableWrapperBase
       {...rest}
       data={filteredData}
       pageResetKey={JSON.stringify(query)}
+      toolbarTop={
+        viewField && views ? (
+          <DataTableViewTabs
+            fieldId={viewField}
+            onQueryChange={handleQueryChange}
+            query={query}
+            total={data.length}
+            views={views}
+          />
+        ) : null
+      }
       toolbarFilters={
         <>
           <DataTableFiltersBar
@@ -274,7 +302,11 @@ function DataTableWrapperBase<TData extends object>({
   tableLayout,
   toolbarActions,
   toolbarFilters,
-}: DataTableWrapperProps<TData> & { pageResetKey?: string }) {
+  toolbarTop,
+}: DataTableWrapperProps<TData> & {
+  pageResetKey?: string;
+  toolbarTop?: ReactNode;
+}) {
   // Server-paged callers read `size` from the URL themselves, so they keep a fixed size.
   const autoPageSize = !manualPagination;
   const initialColumnOrder = columns
@@ -740,6 +772,9 @@ function DataTableWrapperBase<TData extends object>({
             )}
           >
             <Card className="w-full gap-0 py-0!">
+              {toolbarTop ? (
+                <div className="border-b px-3 pt-1">{toolbarTop}</div>
+              ) : null}
               <CardHeader className="block border-b px-3 py-2.5">
                 <div className="flex flex-col gap-2 @3xl/card-header:flex-row @3xl/card-header:items-center">
                   <InputGroup className="w-full shrink-0 @3xl/card-header:w-64">

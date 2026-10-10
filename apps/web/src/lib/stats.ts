@@ -61,18 +61,21 @@ export function computeSubmissionStats(
       description: formatTotal(pending),
       icon: Clock01Icon,
       label: "Pending",
+      tone: "warning",
       value: pending.length,
     },
     {
       description: formatTotal(approved),
       icon: CheckmarkCircle02Icon,
       label: "Approved",
+      tone: "success",
       value: approved.length,
     },
     {
       description: formatTotal(rejected),
       icon: CancelCircleIcon,
       label: "Rejected",
+      tone: "danger",
       value: rejected.length,
     },
   ];

@@ -127,7 +127,7 @@ function VendorsRouteComponent() {
       </h1>
 
       <div className="mt-4 grid gap-6 *:min-w-0">
-        <StatsCards isLoading={isLoading} items={stats} />
+        <StatsCards variant="chips" isLoading={isLoading} items={stats} />
         <VendorsTable
           data={vendorRows}
           isLoading={isLoading}
