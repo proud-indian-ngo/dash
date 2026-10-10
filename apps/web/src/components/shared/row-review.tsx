@@ -1,5 +1,13 @@
+import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@pi-dash/design-system/components/ui/tooltip";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { cn } from "@pi-dash/design-system/lib/utils";
 import { useState } from "react";
 
 import type { DataTableGroupBy } from "@/components/data-table/data-table-group";
@@ -7,7 +15,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { getStatusBadge } from "@/lib/status-badge";
 
 /** Width of an actions cell holding Approve, Reject and the ⋯ menu. */
-export const REVIEW_ACTIONS_SIZE = 196;
+export const REVIEW_ACTIONS_SIZE = 108;
 
 /** "Group by status" for tables whose rows carry a status, pending first. */
 export function createStatusGroupBy<TData extends { status: null | string }>(
@@ -54,6 +62,39 @@ export function useRowReview<TRow>() {
   };
 }
 
+function ReviewIconButton({
+  className,
+  icon,
+  label,
+  onClick,
+}: {
+  className?: string;
+  icon: typeof Tick02Icon;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            aria-label={label}
+            className={cn("size-7 pointer-coarse:size-10", className)}
+            onClick={onClick}
+            size="icon"
+            type="button"
+            variant="ghost"
+          />
+        }
+      >
+        <HugeiconsIcon className="size-4" icon={icon} strokeWidth={2} />
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** Approve and Reject icon buttons for a pending row; they open the review dialogs. */
 export function RowReviewButtons({
   name,
   onApprove,
@@ -64,26 +105,19 @@ export function RowReviewButtons({
   onReject: () => void;
 }) {
   return (
-    <div className="flex items-center gap-1">
-      <Button
-        aria-label={`Approve ${name}`}
+    <div className="flex items-center gap-0.5">
+      <ReviewIconButton
+        className="text-success-foreground hover:text-success-foreground"
+        icon={Tick02Icon}
+        label={`Approve ${name}`}
         onClick={onApprove}
-        size="xs"
-        type="button"
-        variant="outline"
-      >
-        Approve
-      </Button>
-      <Button
-        aria-label={`Reject ${name}`}
+      />
+      <ReviewIconButton
         className="text-destructive hover:text-destructive"
+        icon={Cancel01Icon}
+        label={`Reject ${name}`}
         onClick={onReject}
-        size="xs"
-        type="button"
-        variant="ghost"
-      >
-        Reject
-      </Button>
+      />
     </div>
   );
 }
