@@ -3,6 +3,7 @@ import { arrayMove } from "@dnd-kit/sortable";
 import {
   Cancel01Icon,
   FilterHorizontalIcon,
+  GroupItemsIcon,
   Search01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -106,6 +107,15 @@ import {
   stackPrimaryColumn,
   wrapExpandColumnWithCompactDetails,
 } from "./data-table-compact";
+import {
+  DataTableGroupHeader,
+  type DataTableGroupBy,
+  groupRowId,
+  mergeGroupExpanded,
+  orderByGroup,
+  splitGroupExpanded,
+  useDataTableGroupBy,
+} from "./data-table-group";
 import { getDataTableClassNames } from "./data-table-layout";
 import { DataTableTotals } from "./data-table-totals";
 import { useAutoPageSize } from "./use-auto-page-size";
@@ -134,6 +144,8 @@ export interface DataTableWrapperProps<TData extends object> {
   filter?: DataTableFilterConfig<TData>;
   getRowCanExpand?: (row: DataGridRow<TData>) => boolean;
   getRowId: (row: TData) => string;
+  /** Offers a "Group by" toggle that splits rows under collapsible group headers. */
+  groupBy?: DataTableGroupBy<TData>;
   isLoading?: boolean;
   /** Server-side pagination: delegates page slicing to the caller */
   manualPagination?: boolean;
@@ -292,6 +304,7 @@ function DataTableWrapperBase<TData extends object>({
   emptyMessage = "No results found.",
   getRowCanExpand,
   getRowId,
+  groupBy,
   isLoading,
   manualPagination,
   onFilteredDataChange,
@@ -366,7 +379,6 @@ function DataTableWrapperBase<TData extends object>({
     areaRef: scrollAreaRef,
     enabled: isAutoSize,
     hasRows: data.length > 0,
-    minimum: defaultPageSize,
   });
   const tablePagination = isAutoSize
     ? { ...pagination, pageSize: fittedPageSize ?? defaultPageSize }
@@ -574,6 +586,69 @@ function DataTableWrapperBase<TData extends object>({
   );
 
   const [expanded, setExpanded] = useState<ExpandedState>({});
+  const [groupColumnId, setGroupColumnId] = useDataTableGroupBy();
+  const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(
+    () => new Set()
+  );
+  const activeGroupBy =
+    groupBy && groupColumnId === groupBy.columnId ? groupBy : undefined;
+  const groupedData = useMemo(
+    () =>
+      activeGroupBy
+        ? orderByGroup(data, activeGroupBy.getValue, activeGroupBy.order)
+        : data,
+    [activeGroupBy, data]
+  );
+  const groupIds = useMemo(
+    () =>
+      activeGroupBy
+        ? [
+            ...new Set(
+              groupedData.map((row) =>
+                groupRowId(activeGroupBy.columnId, activeGroupBy.getValue(row))
+              )
+            ),
+          ]
+        : [],
+    [activeGroupBy, groupedData]
+  );
+  const tableExpanded = useMemo(
+    () =>
+      activeGroupBy
+        ? mergeGroupExpanded(expanded, groupIds, collapsedGroups)
+        : expanded,
+    [activeGroupBy, collapsedGroups, expanded, groupIds]
+  );
+  const handleExpandedChange = useEventCallback(
+    (updater: Updater<ExpandedState>) => {
+      const next = resolveUpdater(updater, tableExpanded);
+      if (!activeGroupBy) {
+        setExpanded(next);
+        return;
+      }
+      const { collapsed, leaf } = splitGroupExpanded(next, groupIds);
+      setCollapsedGroups(collapsed);
+      setExpanded(leaf);
+    }
+  );
+  const handleGroupToggle = useEventCallback(() => {
+    if (!groupBy) {
+      return;
+    }
+    resetPage();
+    setCollapsedGroups(new Set());
+    setGroupColumnId(activeGroupBy ? null : groupBy.columnId);
+  });
+  const renderGroupRow = useEventCallback((row: DataGridRow<TData>) =>
+    activeGroupBy ? (
+      <DataTableGroupHeader
+        groupBy={activeGroupBy}
+        row={row}
+        table={table}
+        totals={totals}
+      />
+    ) : null
+  );
   const [localSearch, setLocalSearch] = useState(searchQuery);
 
   const resetPage = () => {
@@ -654,17 +729,22 @@ function DataTableWrapperBase<TData extends object>({
       columnResizeMode: "onChange",
       defaultColumn: TABLE_COLUMN_DEFAULTS,
       columns: tableColumns,
-      data,
-      enableRowSelection,
+      data: groupedData,
+      enableRowSelection:
+        enableRowSelection && activeGroupBy
+          ? (row: DataGridRow<TData>) => !row.getIsGrouped()
+          : enableRowSelection,
       getRowId,
       globalFilterFn,
       manualPagination,
-      paginateExpandedRows: false,
+      // Grouped pages hold group headers and their rows, not whole groups.
+      groupedColumnMode: false,
+      paginateExpandedRows: Boolean(activeGroupBy),
       onColumnOrderChange: handleColumnOrderChange,
       onColumnPinningChange: handleColumnPinningChange,
       onColumnSizingChange: handleColumnSizingChange,
       onColumnVisibilityChange: handleColumnVisibilityChange,
-      onExpandedChange: setExpanded,
+      onExpandedChange: handleExpandedChange,
       onPaginationChange,
       onRowSelectionChange: setRowSelection,
       onSortingChange,
@@ -673,8 +753,9 @@ function DataTableWrapperBase<TData extends object>({
         columnPinning: tableColumnPinning,
         columnSizing: fill.effective,
         columnVisibility: tableColumnVisibility,
-        expanded,
+        expanded: tableExpanded,
         globalFilter: localSearch,
+        grouping: activeGroupBy ? [activeGroupBy.columnId] : [],
         pagination: tablePagination,
         rowSelection,
         sorting,
@@ -769,6 +850,7 @@ function DataTableWrapperBase<TData extends object>({
             isLoading={isLoading}
             onRowClick={onRowClick}
             recordCount={displayCount}
+            renderGroupRow={activeGroupBy ? renderGroupRow : undefined}
             table={table}
             tableLayout={resolvedTableLayout}
             tableClassNames={getDataTableClassNames(
@@ -832,6 +914,22 @@ function DataTableWrapperBase<TData extends object>({
                           </Button>
                         }
                       />
+                      {groupBy ? (
+                        <Button
+                          aria-pressed={Boolean(activeGroupBy)}
+                          className="aria-pressed:border-brand/50 aria-pressed:bg-sidebar-accent aria-pressed:text-sidebar-accent-foreground aria-pressed:hover:bg-sidebar-accent dark:aria-pressed:border-brand/50 dark:aria-pressed:bg-sidebar-accent dark:aria-pressed:hover:bg-sidebar-accent"
+                          onClick={handleGroupToggle}
+                          size="sm"
+                          variant="outline"
+                        >
+                          <HugeiconsIcon
+                            aria-hidden="true"
+                            icon={GroupItemsIcon}
+                            strokeWidth={2}
+                          />
+                          Group by {groupBy.label}
+                        </Button>
+                      ) : null}
                       {toolbarActions}
                     </CardAction>
                   </div>

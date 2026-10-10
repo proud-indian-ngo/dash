@@ -372,6 +372,22 @@ function DataGridTableBodyRowExpandded<TData extends object>({
   )
 }
 
+function DataGridTableBodyGroupRow<TData extends object>({
+  row,
+}: {
+  row: DataGridRow<TData>
+}) {
+  const { props } = useDataGrid<TData>()
+
+  return (
+    <tr data-group-row="" className="bg-muted/40">
+      <td colSpan={row.getVisibleCells().length} className="border-b p-0">
+        {props.renderGroupRow?.(row)}
+      </td>
+    </tr>
+  )
+}
+
 function DataGridTableBodyRowCell<TData extends object>({
   children,
   cell,
@@ -600,19 +616,23 @@ function DataGridTable() {
                 table.getRowModel().rows.map((row, index) => {
                   return (
                     <Fragment key={row.id}>
-                      <DataGridTableBodyRow row={row} key={index}>
-                        {row.getVisibleCells().map((cell, colIndex) => {
-                          return (
-                            <DataGridTableBodyRowCell
-                              cell={cell}
-                              key={colIndex}
-                            >
-                              <table.FlexRender cell={cell} />
-                            </DataGridTableBodyRowCell>
-                          )
-                        })}
-                      </DataGridTableBodyRow>
-                      {row.getIsExpanded() && (
+                      {row.getIsGrouped() ? (
+                        <DataGridTableBodyGroupRow row={row} />
+                      ) : (
+                        <DataGridTableBodyRow row={row} key={index}>
+                          {row.getVisibleCells().map((cell, colIndex) => {
+                            return (
+                              <DataGridTableBodyRowCell
+                                cell={cell}
+                                key={colIndex}
+                              >
+                                <table.FlexRender cell={cell} />
+                              </DataGridTableBodyRowCell>
+                            )
+                          })}
+                        </DataGridTableBodyRow>
+                      )}
+                      {row.getIsExpanded() && !row.getIsGrouped() && (
                         <DataGridTableBodyRowExpandded row={row} />
                       )}
                     </Fragment>
@@ -633,6 +653,7 @@ export {
   DataGridTable,
   DataGridTableBase,
   DataGridTableBody,
+  DataGridTableBodyGroupRow,
   DataGridTableBodyRow,
   DataGridTableBodyRowCell,
   DataGridTableBodyRowExpandded,

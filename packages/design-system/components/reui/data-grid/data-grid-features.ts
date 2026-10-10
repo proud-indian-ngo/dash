@@ -11,6 +11,7 @@ import type {
 import {
   columnFacetingFeature,
   columnFilteringFeature,
+  columnGroupingFeature,
   columnOrderingFeature,
   columnPinningFeature,
   columnResizingFeature,
@@ -20,6 +21,7 @@ import {
   createFacetedRowModel,
   createFacetedUniqueValues,
   createFilteredRowModel,
+  createGroupedRowModel,
   createPaginatedRowModel,
   createSortedRowModel,
   createTableHook,
@@ -78,6 +80,7 @@ export type DataGridColumnMeta = {
 export const dataGridFeatures = tableFeatures({
   columnFacetingFeature,
   columnFilteringFeature,
+  columnGroupingFeature,
   columnOrderingFeature,
   columnPinningFeature,
   columnResizingFeature,
@@ -93,6 +96,7 @@ export const dataGridFeatures = tableFeatures({
   facetedRowModel: createFacetedRowModel(),
   facetedUniqueValues: createFacetedUniqueValues(),
   filteredRowModel: createFilteredRowModel(),
+  groupedRowModel: createGroupedRowModel(),
   paginatedRowModel: createPaginatedRowModel(),
   sortedRowModel: createSortedRowModel(),
   filterFns: {

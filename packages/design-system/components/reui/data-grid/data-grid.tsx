@@ -6,6 +6,7 @@ import type {
 
 import { cn } from "@pi-dash/design-system/lib/utils"
 import type {
+  DataGridRow,
   DataGridTableInstance,
 } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features"
 
@@ -46,6 +47,8 @@ export interface DataGridProps<TData extends object> {
   recordCount: number
   children?: ReactNode
   onRowClick?: (row: TData) => void
+  /** Content for a full-width header row above each group when rows are grouped. */
+  renderGroupRow?: (row: DataGridRow<TData>) => ReactNode
   isLoading?: boolean
   loadingMode?: "skeleton" | "spinner"
   loadingMessage?: ReactNode | string

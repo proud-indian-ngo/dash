@@ -3,6 +3,7 @@ import { useDataGrid } from "@pi-dash/design-system/components/reui/data-grid/da
 import {
   DataGridTableBase,
   DataGridTableBody,
+  DataGridTableBodyGroupRow,
   DataGridTableBodyRow,
   DataGridTableBodyRowCell,
   DataGridTableBodyRowExpandded,
@@ -275,20 +276,24 @@ function DataGridTableDnd({
                     table.getRowModel().rows.map((row) => {
                       return (
                         <Fragment key={row.id}>
-                          <DataGridTableBodyRow row={row}>
-                            {row.getVisibleCells().map((cell) => {
-                              return (
-                                <SortableContext
-                                  key={cell.id}
-                                  items={sortableColumnIds}
-                                  strategy={horizontalListSortingStrategy}
-                                >
-                                  <DataGridTableDndCell cell={cell} />
-                                </SortableContext>
-                              )
-                            })}
-                          </DataGridTableBodyRow>
-                          {row.getIsExpanded() && (
+                          {row.getIsGrouped() ? (
+                            <DataGridTableBodyGroupRow row={row} />
+                          ) : (
+                            <DataGridTableBodyRow row={row}>
+                              {row.getVisibleCells().map((cell) => {
+                                return (
+                                  <SortableContext
+                                    key={cell.id}
+                                    items={sortableColumnIds}
+                                    strategy={horizontalListSortingStrategy}
+                                  >
+                                    <DataGridTableDndCell cell={cell} />
+                                  </SortableContext>
+                                )
+                              })}
+                            </DataGridTableBodyRow>
+                          )}
+                          {row.getIsExpanded() && !row.getIsGrouped() && (
                             <DataGridTableBodyRowExpandded row={row} />
                           )}
                         </Fragment>
