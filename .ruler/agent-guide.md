@@ -73,6 +73,7 @@ Read the named chapter directly when its detailed behavior is needed; do not rea
 | R2 uploads, attachments, Immich | `docs/architecture/file-uploads.md` |
 | Cash-voucher or Kalakriti ID-card PDF generation | `docs/architecture/cash-vouchers.md`, `docs/architecture/pdf.md` |
 | Logging and request/task events | `docs/architecture/observability.md` |
+| Visual design, colours, fonts, brand styling, restyling screens | `docs/architecture/design-language.md` |
 | Plate editor | `docs/architecture/editor.md` |
 | Shared client/server constants | `docs/architecture/shared.md` |
 | Workspaces, Turborepo, Docker package layout | `docs/architecture/monorepo.md` |
@@ -81,7 +82,7 @@ Read the named chapter directly when its detailed behavior is needed; do not rea
 | Playwright, seeds, auth state, E2E isolation | `docs/architecture/e2e-testing.md` |
 | Kalakriti Edition access, registration, entry music files and backfill, judge scorecards, competition results, Awards recipient and group prize handovers and undo, Center standings and finalization, inventory items and stock history, lifecycle, schedule, audit, exports, Volunteer and Guardian yearly IDs, non-login Guest/Judge rosters, Events Lead Judge management and history-protected deletion, judge Competition assignments, detail-sheet JSON QR codes, administrator all-person ID-card PDF downloads, the Transport directory and per-vehicle pickup times, row-click Center detail sheets and deep links, Center editing and Guardian/Liaison assignment modals, lifecycle-independent Center name/location/Google Maps fields, Student/Center transport status columns, Food roster, meal statistics and meal undo, Volunteer check-in, the Center-union Students directory, the unified Competition/Entries workspace, atomic per-Division scheduling, Settings configuration tabs and Present/Attended status, role-aware sidebar scanning (transport, volunteer check-in, meals, attendance, inventory dispatch/return), phase-aware role dashboards, scoped work-page summaries and filtered work links, Go-live readiness or event-day operations | `docs/architecture/kalakriti-registration.md` |
 
-Skip architecture docs for copy, CSS, component restyling, lint-only changes, dependency bumps, isolated tests, typo fixes, and unrelated dev-tool configuration. Start from the owning code and open a chapter only when the code exposes an unfamiliar boundary.
+Skip architecture docs for copy, lint-only changes, dependency bumps, isolated tests, typo fixes, and unrelated dev-tool configuration. Start from the owning code and open a chapter only when the code exposes an unfamiliar boundary.
 
 ## Load-bearing implementation rules
 
@@ -108,6 +109,11 @@ Before adding or changing Zero query relationships, route preloads, access-reque
 - Route direct authenticated state-changing commands through the central Zero mutation audit boundary or `runSessionAuditedAction`. Preserve the explicit exclusions for reads, navigation, exports, presigned-upload URL issuance, unauthenticated auth flows, webhooks, scheduled jobs, and downstream background effects.
 - Store stable action IDs, sanitized entity identifiers, changed field names, and bounded counts only. Never put raw payloads, secrets, contact details, free text, file data, URLs, object keys, request IP/user-agent, or error messages in `audit_log` metadata.
 - Enforce `audit_log.view` independently in the page guard and `/api/audit-log`. Finalized ledger rows have no product update or delete path; only pending non-transactional attempts may finalize once.
+
+### Visual design
+
+- pi-dash uses the **product** design language from `@proudindian/design` (brand guide appendices A1–A2), never the playful website and marketing language. Read `docs/architecture/design-language.md` before styling or restyling screens.
+- Never use `.pi-*` classes, `@proudindian/design` React components or `PiRoot`, doodles, paper backgrounds, ink offset shadows, Bricolage 800 or marigold in pi-dash, and import only `theme.css` and `fonts.css` from the package.
 
 ### Imports and React boundaries
 
