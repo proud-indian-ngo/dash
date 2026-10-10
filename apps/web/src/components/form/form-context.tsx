@@ -88,17 +88,48 @@ export function FormContextProvider({
   return <FormContext value={form}>{children}</FormContext>;
 }
 
-/**
- * Errors show once a field has been edited and left, or after a submit
- * attempt. Leaving an untouched field (focus moving to Cancel, the close
- * button or outside the dialog) must not flag it, or the error line shifts the
- * layout under the pointer mid-click.
- */
 export function shouldShowFieldErrors(
-  meta: { isBlurred: boolean; isDirty?: boolean },
+  meta: { isBlurred: boolean },
   submitted: boolean
 ) {
-  return submitted || (meta.isBlurred && (meta.isDirty ?? true));
+  return submitted || meta.isBlurred;
+}
+
+/** Controls that close a form: dialog, sheet and drawer close buttons, Cancel. */
+const DISMISS_TARGET =
+  '[data-slot="dialog-close"], [data-slot="sheet-close"], [data-slot="drawer-close"], [data-form-dismiss]';
+
+/** Focus is leaving for a control that closes the form, or for nothing. */
+export function isDismissBlur(next: EventTarget | null): boolean {
+  const element = next as Partial<Pick<Element, "closest">> | null;
+  if (typeof element?.closest !== "function") {
+    return true;
+  }
+  return element.closest(DISMISS_TARGET) !== null;
+}
+
+/**
+ * Blurs a field, except when an untouched field loses focus because the form
+ * is being closed (Cancel, the close button, a click outside). Validating then
+ * flashes an error and shifts the layout under the pointer mid-click. Moving
+ * to Submit or another field still validates, so a disabled Submit always
+ * comes with the error that explains it.
+ */
+export function blurField(
+  field: {
+    handleBlur: () => void;
+    state: { meta: { isDirty?: boolean } };
+  },
+  event?: { relatedTarget: EventTarget | null }
+) {
+  if (
+    event &&
+    !field.state.meta.isDirty &&
+    isDismissBlur(event.relatedTarget)
+  ) {
+    return;
+  }
+  field.handleBlur();
 }
 
 export function getFieldErrorState(field: FormFieldApi, submitted = false) {

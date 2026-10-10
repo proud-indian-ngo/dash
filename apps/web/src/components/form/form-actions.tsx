@@ -69,7 +69,12 @@ export function FormActions({
               )}
             </Button>
             {onCancel ? (
-              <Button onClick={onCancel} type="button" variant={cancelVariant}>
+              <Button
+                data-form-dismiss
+                onClick={onCancel}
+                type="button"
+                variant={cancelVariant}
+              >
                 {cancelLabel}
               </Button>
             ) : null}

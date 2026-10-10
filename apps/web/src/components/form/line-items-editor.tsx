@@ -32,7 +32,11 @@ import {
 } from "@/lib/form-schemas";
 
 import type { FormInstance } from "./form-context";
-import { shouldShowFieldErrors, useResolvedForm } from "./form-context";
+import {
+  blurField,
+  shouldShowFieldErrors,
+  useResolvedForm,
+} from "./form-context";
 
 interface ArrayFieldApi {
   pushValue: (value: LineItem) => void;
@@ -190,7 +194,7 @@ function LineTextInput({
         aria-label={`${label} for line item ${index + 1}`}
         inputMode={type === "number" ? "decimal" : undefined}
         min={type === "number" ? "0" : undefined}
-        onBlur={field.handleBlur}
+        onBlur={(event) => blurField(field, event)}
         onChange={handleChange}
         placeholder={placeholder}
         step={type === "number" ? "0.01" : undefined}

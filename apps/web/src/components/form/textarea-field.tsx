@@ -7,6 +7,7 @@ import {
   type FieldValidatorConfig,
   type FormFieldApi,
   type FormInstance,
+  blurField,
   fieldErrorProps,
   useResolvedForm,
 } from "./form-context";
@@ -51,7 +52,7 @@ function TextareaFieldControl({
       aria-required={isRequired}
       id={field.name}
       name={field.name}
-      onBlur={field.handleBlur}
+      onBlur={(event) => blurField(field, event)}
       onChange={handleChange}
       value={field.state.value}
     />
