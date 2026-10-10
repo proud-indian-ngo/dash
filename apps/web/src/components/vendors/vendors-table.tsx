@@ -19,6 +19,13 @@ import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { formatINR } from "@/lib/form-schemas";
 import type { VendorRow } from "@/lib/vendor-types";
 
+const TOTAL_COLUMNS = [
+  "pendingAmount",
+  "activeAmount",
+  "completedAmount",
+  "rejectedAmount",
+];
+
 const STATUS_BADGE_MAP: Record<string, { label: string; tone: StatusTone }> = {
   approved: { label: "Approved", tone: "success" },
   pending: { label: "Pending", tone: "warning" },
@@ -460,6 +467,7 @@ export function VendorsTable({
         onRowClick={onView}
         searchFn={searchVendor}
         searchPlaceholder="Search vendors..."
+        totals={TOTAL_COLUMNS}
         storageKey="vendors_table_state_v3"
         tableLayout={{
           columnsDraggable: true,

@@ -36,6 +36,8 @@ import {
 import { canEditRequestSubmission } from "@/lib/request-edit-permissions";
 import { getStatusBadge } from "@/lib/status-badge";
 
+const TOTAL_COLUMNS = ["total"];
+
 function computeTotal(lineItems: RequestRow["lineItems"]): number {
   return lineItems.reduce((sum, item) => sum + Number(item.amount), 0);
 }
@@ -422,6 +424,7 @@ export function ReimbursementsTable({
         onRowClick={stableOnRowClick2}
         searchFn={searchReimbursement}
         searchPlaceholder="Search reimbursements..."
+        totals={TOTAL_COLUMNS}
         storageKey="reimbursements_table_state_v1"
         tableLayout={{
           columnsDraggable: true,
