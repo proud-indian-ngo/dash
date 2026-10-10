@@ -175,7 +175,10 @@ function FieldChip({
           </button>
         ) : null}
       </span>
-      <PopoverContent align="start" className="w-64 gap-1.5 p-2.5">
+      <PopoverContent
+        align="start"
+        className="w-auto max-w-sm min-w-64 gap-1.5 p-2.5"
+      >
         {children}
       </PopoverContent>
     </Popover>

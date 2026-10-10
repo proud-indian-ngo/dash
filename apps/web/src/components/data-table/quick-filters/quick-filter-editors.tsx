@@ -1,9 +1,19 @@
-import { Search01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
+import {
+  ArrowLeft01Icon,
+  ArrowRight01Icon,
+  Search01Icon,
+  Tick02Icon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  resolveFilterDate,
+  toFilterDateValue,
+} from "@pi-dash/design-system/components/reui/filters/filters-date";
 import type {
   FilterField,
   FilterRule,
 } from "@pi-dash/design-system/components/reui/filters/filters-types";
+import { Calendar } from "@pi-dash/design-system/components/ui/calendar";
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import {
   ToggleGroup,
@@ -11,6 +21,8 @@ import {
 } from "@pi-dash/design-system/components/ui/toggle-group";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { useState } from "react";
+
+import { isFilterDateValue } from "@/components/data-table/filter-date";
 
 import {
   DATE_PRESETS,
@@ -200,15 +212,25 @@ function RadioDot({ checked }: { checked: boolean }) {
   );
 }
 
-function absoluteRange(rule: FilterRule | undefined): [string, string] {
-  if (rule?.operator !== "between" || !Array.isArray(rule.value)) {
-    return ["", ""];
-  }
-  const [from, to] = rule.value as { date?: string }[];
-  return [from?.date ?? "", to?.date ?? ""];
+interface CalendarRange {
+  from: Date | undefined;
+  to?: Date | undefined;
 }
 
-/** Presets ending today, then a custom range. */
+/** The custom range a rule holds, for the calendar to show as selected. */
+function customRange(rule: FilterRule | undefined): CalendarRange | undefined {
+  if (rule?.operator !== "between" || !Array.isArray(rule.value)) {
+    return;
+  }
+  const [from, to] = rule.value.map((value) =>
+    isFilterDateValue(value)
+      ? (resolveFilterDate(value) ?? undefined)
+      : undefined
+  );
+  return from ? { from, to } : undefined;
+}
+
+/** Presets ending today, then a custom range on the theme's calendar. */
 export function DateFilterEditor({
   onChange,
   rule,
@@ -217,23 +239,48 @@ export function DateFilterEditor({
   rule: FilterRule | undefined;
 }) {
   const preset = matchDatePreset(rule);
-  const [initialFrom, initialTo] = absoluteRange(rule);
-  const [from, setFrom] = useState(initialFrom);
-  const [to, setTo] = useState(initialTo);
   const custom = Boolean(rule) && !preset;
+  const [picking, setPicking] = useState(custom);
+  const [draft, setDraft] = useState<CalendarRange | undefined>(() =>
+    customRange(rule)
+  );
 
-  const setRange = (nextFrom: string, nextTo: string) => {
-    setFrom(nextFrom);
-    setTo(nextTo);
-    if (nextFrom && nextTo) {
-      const [start, end] =
-        nextFrom <= nextTo ? [nextFrom, nextTo] : [nextTo, nextFrom];
-      onChange({
-        operator: "between",
-        value: [{ date: start }, { date: end }],
-      });
-    }
-  };
+  if (picking) {
+    return (
+      <div className="flex flex-col gap-1">
+        <button
+          className="text-muted-foreground hover:text-foreground flex h-7 items-center gap-1 self-start rounded-md px-1 text-xs"
+          onClick={() => setPicking(false)}
+          type="button"
+        >
+          <HugeiconsIcon
+            className="size-3.5"
+            icon={ArrowLeft01Icon}
+            strokeWidth={2}
+          />
+          Presets
+        </button>
+        <Calendar
+          className="p-0"
+          mode="range"
+          onSelect={(range: CalendarRange | undefined) => {
+            setDraft(range);
+            if (range?.from && range.to) {
+              onChange({
+                operator: "between",
+                value: [
+                  toFilterDateValue(range.from),
+                  toFilterDateValue(range.to),
+                ],
+              });
+            }
+          }}
+          selected={draft}
+        />
+        {rule ? <EditorFooter onClear={() => onChange(null)} /> : null}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-0.5" role="radiogroup">
@@ -253,27 +300,22 @@ export function DateFilterEditor({
           </button>
         );
       })}
-      <div className="-mx-2.5 my-1 border-t" />
-      <span className="text-muted-foreground flex items-center gap-2 px-2 text-xs">
+      <div className="my-1 border-t" />
+      <button
+        aria-checked={custom}
+        className="hover:bg-accent flex h-8 items-center gap-2 rounded-md px-2 text-left"
+        onClick={() => setPicking(true)}
+        role="radio"
+        type="button"
+      >
         <RadioDot checked={custom} />
-        Custom range
-      </span>
-      <div className="grid grid-cols-2 gap-1.5 px-0.5 pt-1">
-        <Input
-          aria-label="From"
-          className="h-8 font-mono text-xs"
-          onChange={(event) => setRange(event.target.value, to)}
-          type="date"
-          value={from}
+        <span className="flex-1">Custom range</span>
+        <HugeiconsIcon
+          className="text-muted-foreground size-3.5"
+          icon={ArrowRight01Icon}
+          strokeWidth={2}
         />
-        <Input
-          aria-label="To"
-          className="h-8 font-mono text-xs"
-          onChange={(event) => setRange(from, event.target.value)}
-          type="date"
-          value={to}
-        />
-      </div>
+      </button>
       {rule ? <EditorFooter onClear={() => onChange(null)} /> : null}
     </div>
   );
