@@ -684,14 +684,11 @@ function DataTableWrapperBase<TData extends object>({
   }, [onFilteredDataChange, filteredData]);
 
   const resolvedTableLayout = useMemo(
-    () =>
-      isCompact && tableLayout
-        ? {
-            ...tableLayout,
-            columnsDraggable: false,
-            columnsMovable: false,
-          }
-        : tableLayout,
+    () => ({
+      cellBorder: true,
+      ...tableLayout,
+      ...(isCompact && { columnsDraggable: false, columnsMovable: false }),
+    }),
     [isCompact, tableLayout]
   );
 
@@ -713,65 +710,67 @@ function DataTableWrapperBase<TData extends object>({
               tableLayout?.columnsResizable
             )}
           >
-            <Card className="w-full gap-3 py-3.5!">
-              <CardHeader className="flex flex-col gap-2.5! px-3.5 @lg/card-header:flex-row @lg/card-header:items-center">
-                <InputGroup className="w-full shrink-0 @lg/card-header:w-72">
-                  <InputGroupAddon align="inline-start">
-                    <HugeiconsIcon
-                      className="size-4"
-                      icon={Search01Icon}
-                      strokeWidth={2}
-                    />
-                  </InputGroupAddon>
-
-                  <InputGroupInput
-                    aria-label={searchPlaceholder}
-                    onChange={stableOnChange0}
-                    placeholder={searchPlaceholder}
-                    value={localSearch}
-                  />
-
-                  {localSearch ? (
-                    <InputGroupAddon align="inline-end">
-                      <InputGroupButton
-                        aria-label="Clear search"
-                        onClick={stableOnClick1}
-                        size="icon-xs"
-                        type="button"
-                      >
-                        <HugeiconsIcon
-                          className="size-3.5"
-                          icon={Cancel01Icon}
-                          strokeWidth={2}
-                        />
-                      </InputGroupButton>
+            <Card className="w-full gap-0 py-0!">
+              <CardHeader className="block border-b px-3 py-2.5">
+                <div className="flex flex-col gap-2 @3xl/card-header:flex-row @3xl/card-header:items-center">
+                  <InputGroup className="w-full shrink-0 @3xl/card-header:w-64">
+                    <InputGroupAddon align="inline-start">
+                      <HugeiconsIcon
+                        className="size-4"
+                        icon={Search01Icon}
+                        strokeWidth={2}
+                      />
                     </InputGroupAddon>
-                  ) : null}
-                </InputGroup>
-                <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2 @lg/card-header:flex-1">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-                    {toolbarFilters}
-                  </div>
-                  <CardAction className="relative col-auto row-auto flex max-w-full shrink-0 flex-wrap items-center gap-1 self-auto justify-self-auto">
-                    <DataGridColumnVisibility
-                      table={table}
-                      trigger={
-                        <Button size="sm" variant="outline">
+
+                    <InputGroupInput
+                      aria-label={searchPlaceholder}
+                      onChange={stableOnChange0}
+                      placeholder={searchPlaceholder}
+                      value={localSearch}
+                    />
+
+                    {localSearch ? (
+                      <InputGroupAddon align="inline-end">
+                        <InputGroupButton
+                          aria-label="Clear search"
+                          onClick={stableOnClick1}
+                          size="icon-xs"
+                          type="button"
+                        >
                           <HugeiconsIcon
-                            aria-hidden="true"
-                            icon={FilterHorizontalIcon}
+                            className="size-3.5"
+                            icon={Cancel01Icon}
                             strokeWidth={2}
                           />
-                          Columns
-                        </Button>
-                      }
-                    />
-                    {toolbarActions}
-                  </CardAction>
+                        </InputGroupButton>
+                      </InputGroupAddon>
+                    ) : null}
+                  </InputGroup>
+                  <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2 @3xl/card-header:flex-1">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+                      {toolbarFilters}
+                    </div>
+                    <CardAction className="relative col-auto row-auto flex max-w-full shrink-0 flex-wrap items-center gap-1 self-auto justify-self-auto">
+                      <DataGridColumnVisibility
+                        table={table}
+                        trigger={
+                          <Button size="sm" variant="outline">
+                            <HugeiconsIcon
+                              aria-hidden="true"
+                              icon={FilterHorizontalIcon}
+                              strokeWidth={2}
+                            />
+                            Columns
+                          </Button>
+                        }
+                      />
+                      {toolbarActions}
+                    </CardAction>
+                  </div>
                 </div>
               </CardHeader>
 
-              <CardContent className="border-y px-0">
+              <CardContent className="px-0">
                 {!isLoading && filteredRows.length === 0 ? (
                   <Empty>
                     <EmptyHeader>
@@ -794,7 +793,7 @@ function DataTableWrapperBase<TData extends object>({
                 </ScrollArea>
               </CardContent>
 
-              <CardFooter className="border-none bg-transparent! px-3.5 py-0">
+              <CardFooter className="bg-transparent! px-3 py-2">
                 {!isLoading && displayCount === 0 ? (
                   <span className="text-muted-foreground text-sm">
                     0 of 0 results
