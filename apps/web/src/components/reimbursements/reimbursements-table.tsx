@@ -2,6 +2,8 @@ import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/dat
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { mutators } from "@pi-dash/zero/mutators";
+import { useZero } from "@rocicorp/zero/react";
 import { Link } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { log } from "evlog";
@@ -9,7 +11,10 @@ import type { ReactNode } from "react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { useDataTableGroupBy } from "@/components/data-table/data-table-group";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { ApproveDialog } from "@/components/form/approve-dialog";
+import { RejectDialog } from "@/components/form/reject-dialog";
 import {
   createReimbursementFilterFields,
   getReimbursementFilterValue,
@@ -22,12 +27,19 @@ import {
 } from "@/components/shared/inline-meta-cell";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
+import {
+  createStatusGroupBy,
+  REVIEW_ACTIONS_SIZE,
+  RowReviewButtons,
+  useRowReview,
+} from "@/components/shared/row-review";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { useApp } from "@/context/app-context";
 import { authClient } from "@/lib/auth-client";
 import { SHORT_DATE } from "@/lib/date-formats";
 import { formatINR } from "@/lib/form-schemas";
+import { handleMutationResult } from "@/lib/mutation-result";
 import {
   isReimbursement,
   REQUEST_TYPE_LABELS,
@@ -37,6 +49,15 @@ import { canEditRequestSubmission } from "@/lib/request-edit-permissions";
 import { getStatusBadge } from "@/lib/status-badge";
 
 const TOTAL_COLUMNS = ["total"];
+const STATUS_GROUP_BY = createStatusGroupBy<RequestRow>([
+  "pending",
+  "approved",
+  "rejected",
+]);
+const REQUEST_MUTATORS = {
+  advance_payment: { name: "advancePayment", ns: mutators.advancePayment },
+  reimbursement: { name: "reimbursement", ns: mutators.reimbursement },
+} as const;
 
 function computeTotal(lineItems: RequestRow["lineItems"]): number {
   return lineItems.reduce((sum, item) => sum + Number(item.amount), 0);
@@ -140,6 +161,58 @@ export function ReimbursementsTable({
   const currentUserId = session?.user?.id;
   const { hasPermission } = useApp();
   const canDeleteAll = hasPermission("requests.delete_all");
+  const zero = useZero();
+  const review = useRowReview<RequestRow>();
+  const [groupColumnId] = useDataTableGroupBy();
+  const showReview =
+    hasPermission("requests.approve") &&
+    groupColumnId === STATUS_GROUP_BY.columnId;
+  const reviewLabel = review.row
+    ? REQUEST_TYPE_LABELS[review.row.type].toLowerCase()
+    : "request";
+
+  const handleApprove = useEventCallback(
+    async (message: string, screenshotKey?: string) => {
+      const { row } = review;
+      if (!row) {
+        return false;
+      }
+      const { name, ns } = REQUEST_MUTATORS[row.type];
+      const typeLabel = REQUEST_TYPE_LABELS[row.type];
+      const res = await zero.mutate(
+        ns.approve({
+          approvalScreenshotKey: screenshotKey,
+          id: row.id,
+          note: message || undefined,
+        })
+      ).server;
+      handleMutationResult(res, {
+        entityId: row.id,
+        errorMsg: `Couldn't approve ${typeLabel.toLowerCase()}`,
+        mutation: `${name}.approve`,
+        successMsg: `${typeLabel} approved`,
+      });
+      return res.type !== "error";
+    }
+  );
+  const handleReject = useEventCallback(async (reason: string) => {
+    const { row } = review;
+    if (!row) {
+      return;
+    }
+    const { name, ns } = REQUEST_MUTATORS[row.type];
+    const typeLabel = REQUEST_TYPE_LABELS[row.type];
+    const res = await zero.mutate(ns.reject({ id: row.id, reason })).server;
+    handleMutationResult(res, {
+      entityId: row.id,
+      errorMsg: `Couldn't reject ${typeLabel.toLowerCase()}`,
+      mutation: `${name}.reject`,
+      successMsg: `${typeLabel} rejected`,
+    });
+    if (res.type !== "error") {
+      review.close();
+    }
+  });
 
   const [deleteTarget, setDeleteTarget] = useState<{
     row: RequestRow;
@@ -364,7 +437,7 @@ export function ReimbursementsTable({
         const canEdit = currentUserId
           ? canEditRequestSubmission(r, currentUserId, hasPermission)
           : false;
-        return (
+        const actions = (
           <RowActions
             canDelete={canDelete}
             canEdit={canEdit}
@@ -373,6 +446,19 @@ export function ReimbursementsTable({
             request={r}
           />
         );
+        if (!(showReview && r.status === "pending")) {
+          return actions;
+        }
+        return (
+          <div className="flex items-center justify-end gap-1">
+            <RowReviewButtons
+              name={r.title}
+              onApprove={() => review.approve(r)}
+              onReject={() => review.reject(r)}
+            />
+            {actions}
+          </div>
+        );
       },
       enableHiding: false,
       enableResizing: false,
@@ -380,12 +466,12 @@ export function ReimbursementsTable({
       header: "",
       id: "actions",
       meta: {
-        cellClassName: "text-center",
+        cellClassName: showReview ? "text-end" : "text-center",
         enableColumnOrdering: false,
         stopRowClick: true,
       },
       minSize: 52,
-      size: 52,
+      size: showReview ? REVIEW_ACTIONS_SIZE : 52,
     },
   ];
 
@@ -420,6 +506,7 @@ export function ReimbursementsTable({
           viewField: "status",
         }}
         getRowId={stableGetRowId1}
+        groupBy={STATUS_GROUP_BY}
         isLoading={isLoading}
         onRowClick={stableOnRowClick2}
         searchFn={searchReimbursement}
@@ -443,6 +530,19 @@ export function ReimbursementsTable({
         onOpenChange={stableOnOpenChange3}
         open={deleteTarget !== null}
         title={`Delete ${deleteType}`}
+      />
+      <ApproveDialog
+        entityId={review.row?.id ?? ""}
+        entityLabel={reviewLabel}
+        onConfirm={handleApprove}
+        onOpenChange={review.handleOpenChange}
+        open={review.approveOpen}
+      />
+      <RejectDialog
+        entityLabel={reviewLabel}
+        onConfirm={handleReject}
+        onOpenChange={review.handleOpenChange}
+        open={review.rejectOpen}
       />
     </>
   );

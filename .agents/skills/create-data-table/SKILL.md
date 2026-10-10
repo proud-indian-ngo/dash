@@ -155,6 +155,12 @@ filter={{
 }}
 ```
 
+## Totals and grouping
+
+- `totals={["total"]}` adds a ₹ totals row under the grid, summed over every filtered row. Only list columns whose sum means something.
+- `groupBy={createStatusGroupBy<Row>(["pending", ...])}` (from `@/components/shared/row-review`) adds a "Group by status" toggle (`?group=status`) with collapsible group headers showing count and ₹ totals. Use it on approval queues.
+- For inline review, read `useDataTableGroupBy()`; when grouped by status and the user can approve, render `RowReviewButtons` in the actions cell of pending rows (size `REVIEW_ACTIONS_SIZE`) and open the existing `ApproveDialog` / `RejectDialog` through `useRowReview()`.
+
 ## Compact on mobile
 
 Pass `compactOnMobile` so `DataTableWrapper` collapses secondary columns below 768px of table width. Tables only set column roles:

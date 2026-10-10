@@ -2,13 +2,18 @@ import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/dat
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { mutators } from "@pi-dash/zero/mutators";
+import { useZero } from "@rocicorp/zero/react";
 import { Link } from "@tanstack/react-router";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { toast } from "sonner";
 
+import { useDataTableGroupBy } from "@/components/data-table/data-table-group";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { ApproveDialog } from "@/components/form/approve-dialog";
+import { RejectDialog } from "@/components/form/reject-dialog";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import {
   USER_CELL_SKELETON,
@@ -16,6 +21,12 @@ import {
 } from "@/components/shared/inline-meta-cell";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
+import {
+  createStatusGroupBy,
+  REVIEW_ACTIONS_SIZE,
+  RowReviewButtons,
+  useRowReview,
+} from "@/components/shared/row-review";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
 import {
@@ -28,12 +39,22 @@ import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { authClient } from "@/lib/auth-client";
 import { SHORT_DATE } from "@/lib/date-formats";
 import { formatINR } from "@/lib/form-schemas";
+import { handleMutationResult } from "@/lib/mutation-result";
 import { canEditVendorPaymentSubmission } from "@/lib/request-edit-permissions";
 import { getStatusBadge } from "@/lib/status-badge";
 
 import type { VendorPaymentWithRelations } from "./vendor-payment-types";
 
 const TOTAL_COLUMNS = ["total"];
+const STATUS_GROUP_BY = createStatusGroupBy<VendorPaymentWithRelations>([
+  "pending",
+  "approved",
+  "invoice_pending",
+  "partially_paid",
+  "paid",
+  "completed",
+  "rejected",
+]);
 
 function computeTotal(
   lineItems: VendorPaymentWithRelations["lineItems"]
@@ -146,6 +167,49 @@ export function VendorPaymentsTable({
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id;
   const { hasPermission } = useApp();
+  const zero = useZero();
+  const review = useRowReview<VendorPaymentWithRelations>();
+  const [groupColumnId] = useDataTableGroupBy();
+  const showReview =
+    hasPermission("requests.approve") &&
+    groupColumnId === STATUS_GROUP_BY.columnId;
+  const handleApprove = useEventCallback(async (message: string) => {
+    const { row } = review;
+    if (!row) {
+      return false;
+    }
+    const res = await zero.mutate(
+      mutators.vendorPayment.approve({
+        id: row.id,
+        note: message || undefined,
+      })
+    ).server;
+    handleMutationResult(res, {
+      entityId: row.id,
+      errorMsg: "Couldn't approve vendor payment",
+      mutation: "vendorPayment.approve",
+      successMsg: "Vendor payment approved",
+    });
+    return res.type !== "error";
+  });
+  const handleReject = useEventCallback(async (reason: string) => {
+    const { row } = review;
+    if (!row) {
+      return;
+    }
+    const res = await zero.mutate(
+      mutators.vendorPayment.reject({ id: row.id, reason })
+    ).server;
+    handleMutationResult(res, {
+      entityId: row.id,
+      errorMsg: "Couldn't reject vendor payment",
+      mutation: "vendorPayment.reject",
+      successMsg: "Vendor payment rejected",
+    });
+    if (res.type !== "error") {
+      review.close();
+    }
+  });
   const deleteAction = useConfirmAction<{ id: string; title: string }>({
     onConfirm: async (payload) =>
       onDelete ? onDelete(payload.id) : { type: "success" },
@@ -328,7 +392,7 @@ export function VendorPaymentsTable({
             )
           : false;
 
-        return (
+        const actions = (
           <VendorPaymentRowActions
             canDelete={canDelete && Boolean(onDelete)}
             canEdit={canEdit}
@@ -337,6 +401,19 @@ export function VendorPaymentsTable({
             payment={request}
           />
         );
+        if (!(showReview && request.status === "pending")) {
+          return actions;
+        }
+        return (
+          <div className="flex items-center justify-end gap-1">
+            <RowReviewButtons
+              name={request.title}
+              onApprove={() => review.approve(request)}
+              onReject={() => review.reject(request)}
+            />
+            {actions}
+          </div>
+        );
       },
       enableHiding: false,
       enableResizing: false,
@@ -344,12 +421,12 @@ export function VendorPaymentsTable({
       header: "",
       id: "actions",
       meta: {
-        cellClassName: "text-center",
+        cellClassName: showReview ? "text-end" : "text-center",
         enableColumnOrdering: false,
         stopRowClick: true,
       },
       minSize: 52,
-      size: 52,
+      size: showReview ? REVIEW_ACTIONS_SIZE : 52,
     },
   ];
   const stableGetRowId0 = useEventCallback(
@@ -378,6 +455,7 @@ export function VendorPaymentsTable({
           viewField: "status",
         }}
         getRowId={stableGetRowId0}
+        groupBy={STATUS_GROUP_BY}
         isLoading={isLoading}
         onRowClick={stableOnRowClick1}
         searchFn={searchFn}
@@ -402,6 +480,20 @@ export function VendorPaymentsTable({
         open={deleteAction.isOpen}
         title="Delete vendor payment"
         variant="destructive"
+      />
+      <ApproveDialog
+        entityId={review.row?.id ?? ""}
+        entityLabel="vendor payment"
+        hideScreenshot
+        onConfirm={handleApprove}
+        onOpenChange={review.handleOpenChange}
+        open={review.approveOpen}
+      />
+      <RejectDialog
+        entityLabel="vendor payment"
+        onConfirm={handleReject}
+        onOpenChange={review.handleOpenChange}
+        open={review.rejectOpen}
       />
     </>
   );
