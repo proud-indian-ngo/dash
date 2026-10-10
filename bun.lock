@@ -142,7 +142,7 @@
         "@dnd-kit/utilities": "catalog:",
         "@hugeicons/core-free-icons": "catalog:",
         "@hugeicons/react": "catalog:",
-        "@proudindian/design": "github:proud-indian-ngo/design#v0.3.2",
+        "@proudindian/design": "github:proud-indian-ngo/design#v0.3.4",
         "@tanstack/react-table": "^9.2.6",
         "@tanstack/react-virtual": "^3.14.13",
         "class-variance-authority": "^0.7.1",
@@ -1223,7 +1223,7 @@
 
     "@protobufjs/utf8": ["@protobufjs/utf8@1.1.2", "", {}, "sha512-b1UQwcEZ4yCnMCD8DAL1VlbvBJE9/IX4FTIp7BG1xYpf29SLazLSrqUkj4w7Y5y7cCVP6E5tcqqcI0xemPkHug=="],
 
-    "@proudindian/design": ["@proudindian/design@github:proud-indian-ngo/design#614ad22", { "peerDependencies": { "react": "^19", "tailwindcss": "^4" }, "optionalPeers": ["react", "tailwindcss"] }, "proud-indian-ngo-design-614ad22", "sha512-157icI0HKxx1roG+4PEKe3gvSe+H6Ezz64kpWReFXupPEZe6F5tV2rv9dj44Q3HTYQc4TEuo6rgQa5JMrvF4Hg=="],
+    "@proudindian/design": ["@proudindian/design@github:proud-indian-ngo/design#0e1304b", { "peerDependencies": { "react": "^19", "tailwindcss": "^4" }, "optionalPeers": ["react", "tailwindcss"] }, "proud-indian-ngo-design-0e1304b", "sha512-OQxRr+NXYLXfpKgAY62TeIhptFF2AnzfxNE2oBNk9PVfsBYPAWLPL8WbA89vB282upbLkFqhP/cWaZL8GSQwxA=="],
 
     "@radix-ui/primitive": ["@radix-ui/primitive@1.1.7", "", {}, "sha512-rqWnm76nYT8HoNNqEjpgJ7Pw/DrBj5iBTrmEPo6HTX5+VJyBNOqTdv4g89G63HuR5g0AaENoAcH7Is5fF2kZ8Q=="],
 
