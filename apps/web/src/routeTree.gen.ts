@@ -88,6 +88,11 @@ import { Route as ApiKalakritiYearRegistrationExportRouteImport } from './routes
 import { Route as ApiKalakritiYearScheduleRouteImport } from './routes/api/kalakriti/$year/schedule'
 import { Route as ApiMediaAvatarUserIdRouteImport } from './routes/api/media/avatar.$userId'
 import { Route as ApiMediaEventPhotoIdRouteImport } from './routes/api/media/event-photo.$id'
+import { Route as ApiSocialV1EventsRouteImport } from './routes/api/social/v1/events'
+import { Route as ApiSocialV1NotifyRouteImport } from './routes/api/social/v1/notify'
+import { Route as ApiSocialV1OpenapiDotjsonRouteImport } from './routes/api/social/v1/openapi[.]json'
+import { Route as ApiSocialV1PostedRouteImport } from './routes/api/social/v1/posted'
+import { Route as ApiSocialV1StatsRouteImport } from './routes/api/social/v1/stats'
 import { Route as AppKalakritiYearCentersIndexRouteImport } from './routes/_app/kalakriti/$year/centers/index'
 import { Route as AppKalakritiYearCompetitionsIndexRouteImport } from './routes/_app/kalakriti/$year/competitions/index'
 import { Route as AppKalakritiYearCompetitionsCatalogRouteImport } from './routes/_app/kalakriti/$year/competitions/catalog'
@@ -103,6 +108,8 @@ import { Route as AppKalakritiYearSettingsEligibilityRouteImport } from './route
 import { Route as AppKalakritiYearSettingsVenuesRouteImport } from './routes/_app/kalakriti/$year/settings/venues'
 import { Route as ApiKalakritiYearPeopleLookupRouteImport } from './routes/api/kalakriti/$year/people/lookup'
 import { Route as AppKalakritiYearCompetitionsSessionsIdRouteImport } from './routes/_app/kalakriti/$year/competitions/sessions/$id'
+import { Route as ApiSocialV1EventsIdPhotosRouteImport } from './routes/api/social/v1/events.$id.photos'
+import { Route as ApiSocialV1MediaPhotoIdVariantRouteImport } from './routes/api/social/v1/media.$photoId.$variant'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -507,6 +514,32 @@ const ApiMediaEventPhotoIdRoute = ApiMediaEventPhotoIdRouteImport.update({
   path: '/api/media/event-photo/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSocialV1EventsRoute = ApiSocialV1EventsRouteImport.update({
+  id: '/api/social/v1/events',
+  path: '/api/social/v1/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSocialV1NotifyRoute = ApiSocialV1NotifyRouteImport.update({
+  id: '/api/social/v1/notify',
+  path: '/api/social/v1/notify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSocialV1OpenapiDotjsonRoute =
+  ApiSocialV1OpenapiDotjsonRouteImport.update({
+    id: '/api/social/v1/openapi.json',
+    path: '/api/social/v1/openapi.json',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiSocialV1PostedRoute = ApiSocialV1PostedRouteImport.update({
+  id: '/api/social/v1/posted',
+  path: '/api/social/v1/posted',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSocialV1StatsRoute = ApiSocialV1StatsRouteImport.update({
+  id: '/api/social/v1/stats',
+  path: '/api/social/v1/stats',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppKalakritiYearCentersIndexRoute =
   AppKalakritiYearCentersIndexRouteImport.update({
     id: '/centers/',
@@ -597,6 +630,18 @@ const AppKalakritiYearCompetitionsSessionsIdRoute =
     path: '/sessions/$id',
     getParentRoute: () => AppKalakritiYearCompetitionsRouteRoute,
   } as any)
+const ApiSocialV1EventsIdPhotosRoute =
+  ApiSocialV1EventsIdPhotosRouteImport.update({
+    id: '/$id/photos',
+    path: '/$id/photos',
+    getParentRoute: () => ApiSocialV1EventsRoute,
+  } as any)
+const ApiSocialV1MediaPhotoIdVariantRoute =
+  ApiSocialV1MediaPhotoIdVariantRouteImport.update({
+    id: '/api/social/v1/media/$photoId/$variant',
+    path: '/api/social/v1/media/$photoId/$variant',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -674,6 +719,11 @@ export interface FileRoutesByFullPath {
   '/api/kalakriti/$year/schedule': typeof ApiKalakritiYearScheduleRoute
   '/api/media/avatar/$userId': typeof ApiMediaAvatarUserIdRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
+  '/api/social/v1/events': typeof ApiSocialV1EventsRouteWithChildren
+  '/api/social/v1/notify': typeof ApiSocialV1NotifyRoute
+  '/api/social/v1/openapi.json': typeof ApiSocialV1OpenapiDotjsonRoute
+  '/api/social/v1/posted': typeof ApiSocialV1PostedRoute
+  '/api/social/v1/stats': typeof ApiSocialV1StatsRoute
   '/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
   '/settings/roles/': typeof AppSettingsRolesIndexRoute
   '/kalakriti/$year/competitions/catalog': typeof AppKalakritiYearCompetitionsCatalogRoute
@@ -691,6 +741,8 @@ export interface FileRoutesByFullPath {
   '/kalakriti/$year/entries/': typeof AppKalakritiYearEntriesIndexRoute
   '/kalakriti/$year/settings/': typeof AppKalakritiYearSettingsIndexRoute
   '/kalakriti/$year/competitions/sessions/$id': typeof AppKalakritiYearCompetitionsSessionsIdRoute
+  '/api/social/v1/events/$id/photos': typeof ApiSocialV1EventsIdPhotosRoute
+  '/api/social/v1/media/$photoId/$variant': typeof ApiSocialV1MediaPhotoIdVariantRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
@@ -757,6 +809,11 @@ export interface FileRoutesByTo {
   '/api/kalakriti/$year/schedule': typeof ApiKalakritiYearScheduleRoute
   '/api/media/avatar/$userId': typeof ApiMediaAvatarUserIdRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
+  '/api/social/v1/events': typeof ApiSocialV1EventsRouteWithChildren
+  '/api/social/v1/notify': typeof ApiSocialV1NotifyRoute
+  '/api/social/v1/openapi.json': typeof ApiSocialV1OpenapiDotjsonRoute
+  '/api/social/v1/posted': typeof ApiSocialV1PostedRoute
+  '/api/social/v1/stats': typeof ApiSocialV1StatsRoute
   '/kalakriti/$year': typeof AppKalakritiYearIndexRoute
   '/settings/roles': typeof AppSettingsRolesIndexRoute
   '/kalakriti/$year/competitions/catalog': typeof AppKalakritiYearCompetitionsCatalogRoute
@@ -774,6 +831,8 @@ export interface FileRoutesByTo {
   '/kalakriti/$year/entries': typeof AppKalakritiYearEntriesIndexRoute
   '/kalakriti/$year/settings': typeof AppKalakritiYearSettingsIndexRoute
   '/kalakriti/$year/competitions/sessions/$id': typeof AppKalakritiYearCompetitionsSessionsIdRoute
+  '/api/social/v1/events/$id/photos': typeof ApiSocialV1EventsIdPhotosRoute
+  '/api/social/v1/media/$photoId/$variant': typeof ApiSocialV1MediaPhotoIdVariantRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -854,6 +913,11 @@ export interface FileRoutesById {
   '/api/kalakriti/$year/schedule': typeof ApiKalakritiYearScheduleRoute
   '/api/media/avatar/$userId': typeof ApiMediaAvatarUserIdRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
+  '/api/social/v1/events': typeof ApiSocialV1EventsRouteWithChildren
+  '/api/social/v1/notify': typeof ApiSocialV1NotifyRoute
+  '/api/social/v1/openapi.json': typeof ApiSocialV1OpenapiDotjsonRoute
+  '/api/social/v1/posted': typeof ApiSocialV1PostedRoute
+  '/api/social/v1/stats': typeof ApiSocialV1StatsRoute
   '/_app/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
   '/_app/settings/roles/': typeof AppSettingsRolesIndexRoute
   '/_app/kalakriti/$year/competitions/catalog': typeof AppKalakritiYearCompetitionsCatalogRoute
@@ -871,6 +935,8 @@ export interface FileRoutesById {
   '/_app/kalakriti/$year/entries/': typeof AppKalakritiYearEntriesIndexRoute
   '/_app/kalakriti/$year/settings/': typeof AppKalakritiYearSettingsIndexRoute
   '/_app/kalakriti/$year/competitions/sessions/$id': typeof AppKalakritiYearCompetitionsSessionsIdRoute
+  '/api/social/v1/events/$id/photos': typeof ApiSocialV1EventsIdPhotosRoute
+  '/api/social/v1/media/$photoId/$variant': typeof ApiSocialV1MediaPhotoIdVariantRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -950,6 +1016,11 @@ export interface FileRouteTypes {
     | '/api/kalakriti/$year/schedule'
     | '/api/media/avatar/$userId'
     | '/api/media/event-photo/$id'
+    | '/api/social/v1/events'
+    | '/api/social/v1/notify'
+    | '/api/social/v1/openapi.json'
+    | '/api/social/v1/posted'
+    | '/api/social/v1/stats'
     | '/kalakriti/$year/'
     | '/settings/roles/'
     | '/kalakriti/$year/competitions/catalog'
@@ -967,6 +1038,8 @@ export interface FileRouteTypes {
     | '/kalakriti/$year/entries/'
     | '/kalakriti/$year/settings/'
     | '/kalakriti/$year/competitions/sessions/$id'
+    | '/api/social/v1/events/$id/photos'
+    | '/api/social/v1/media/$photoId/$variant'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -1033,6 +1106,11 @@ export interface FileRouteTypes {
     | '/api/kalakriti/$year/schedule'
     | '/api/media/avatar/$userId'
     | '/api/media/event-photo/$id'
+    | '/api/social/v1/events'
+    | '/api/social/v1/notify'
+    | '/api/social/v1/openapi.json'
+    | '/api/social/v1/posted'
+    | '/api/social/v1/stats'
     | '/kalakriti/$year'
     | '/settings/roles'
     | '/kalakriti/$year/competitions/catalog'
@@ -1050,6 +1128,8 @@ export interface FileRouteTypes {
     | '/kalakriti/$year/entries'
     | '/kalakriti/$year/settings'
     | '/kalakriti/$year/competitions/sessions/$id'
+    | '/api/social/v1/events/$id/photos'
+    | '/api/social/v1/media/$photoId/$variant'
   id:
     | '__root__'
     | '/_app'
@@ -1129,6 +1209,11 @@ export interface FileRouteTypes {
     | '/api/kalakriti/$year/schedule'
     | '/api/media/avatar/$userId'
     | '/api/media/event-photo/$id'
+    | '/api/social/v1/events'
+    | '/api/social/v1/notify'
+    | '/api/social/v1/openapi.json'
+    | '/api/social/v1/posted'
+    | '/api/social/v1/stats'
     | '/_app/kalakriti/$year/'
     | '/_app/settings/roles/'
     | '/_app/kalakriti/$year/competitions/catalog'
@@ -1146,6 +1231,8 @@ export interface FileRouteTypes {
     | '/_app/kalakriti/$year/entries/'
     | '/_app/kalakriti/$year/settings/'
     | '/_app/kalakriti/$year/competitions/sessions/$id'
+    | '/api/social/v1/events/$id/photos'
+    | '/api/social/v1/media/$photoId/$variant'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1176,7 +1263,13 @@ export interface RootRouteChildren {
   ApiKalakritiYearScheduleRoute: typeof ApiKalakritiYearScheduleRoute
   ApiMediaAvatarUserIdRoute: typeof ApiMediaAvatarUserIdRoute
   ApiMediaEventPhotoIdRoute: typeof ApiMediaEventPhotoIdRoute
+  ApiSocialV1EventsRoute: typeof ApiSocialV1EventsRouteWithChildren
+  ApiSocialV1NotifyRoute: typeof ApiSocialV1NotifyRoute
+  ApiSocialV1OpenapiDotjsonRoute: typeof ApiSocialV1OpenapiDotjsonRoute
+  ApiSocialV1PostedRoute: typeof ApiSocialV1PostedRoute
+  ApiSocialV1StatsRoute: typeof ApiSocialV1StatsRoute
   ApiKalakritiYearPeopleLookupRoute: typeof ApiKalakritiYearPeopleLookupRoute
+  ApiSocialV1MediaPhotoIdVariantRoute: typeof ApiSocialV1MediaPhotoIdVariantRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1734,6 +1827,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMediaEventPhotoIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/social/v1/events': {
+      id: '/api/social/v1/events'
+      path: '/api/social/v1/events'
+      fullPath: '/api/social/v1/events'
+      preLoaderRoute: typeof ApiSocialV1EventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/social/v1/notify': {
+      id: '/api/social/v1/notify'
+      path: '/api/social/v1/notify'
+      fullPath: '/api/social/v1/notify'
+      preLoaderRoute: typeof ApiSocialV1NotifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/social/v1/openapi.json': {
+      id: '/api/social/v1/openapi.json'
+      path: '/api/social/v1/openapi.json'
+      fullPath: '/api/social/v1/openapi.json'
+      preLoaderRoute: typeof ApiSocialV1OpenapiDotjsonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/social/v1/posted': {
+      id: '/api/social/v1/posted'
+      path: '/api/social/v1/posted'
+      fullPath: '/api/social/v1/posted'
+      preLoaderRoute: typeof ApiSocialV1PostedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/social/v1/stats': {
+      id: '/api/social/v1/stats'
+      path: '/api/social/v1/stats'
+      fullPath: '/api/social/v1/stats'
+      preLoaderRoute: typeof ApiSocialV1StatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app/kalakriti/$year/centers/': {
       id: '/_app/kalakriti/$year/centers/'
       path: '/centers'
@@ -1838,6 +1966,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/kalakriti/$year/competitions/sessions/$id'
       preLoaderRoute: typeof AppKalakritiYearCompetitionsSessionsIdRouteImport
       parentRoute: typeof AppKalakritiYearCompetitionsRouteRoute
+    }
+    '/api/social/v1/events/$id/photos': {
+      id: '/api/social/v1/events/$id/photos'
+      path: '/$id/photos'
+      fullPath: '/api/social/v1/events/$id/photos'
+      preLoaderRoute: typeof ApiSocialV1EventsIdPhotosRouteImport
+      parentRoute: typeof ApiSocialV1EventsRoute
+    }
+    '/api/social/v1/media/$photoId/$variant': {
+      id: '/api/social/v1/media/$photoId/$variant'
+      path: '/api/social/v1/media/$photoId/$variant'
+      fullPath: '/api/social/v1/media/$photoId/$variant'
+      preLoaderRoute: typeof ApiSocialV1MediaPhotoIdVariantRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -2131,6 +2273,17 @@ const ApiJobsIdRouteWithChildren = ApiJobsIdRoute._addFileChildren(
   ApiJobsIdRouteChildren,
 )
 
+interface ApiSocialV1EventsRouteChildren {
+  ApiSocialV1EventsIdPhotosRoute: typeof ApiSocialV1EventsIdPhotosRoute
+}
+
+const ApiSocialV1EventsRouteChildren: ApiSocialV1EventsRouteChildren = {
+  ApiSocialV1EventsIdPhotosRoute: ApiSocialV1EventsIdPhotosRoute,
+}
+
+const ApiSocialV1EventsRouteWithChildren =
+  ApiSocialV1EventsRoute._addFileChildren(ApiSocialV1EventsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
@@ -2160,7 +2313,13 @@ const rootRouteChildren: RootRouteChildren = {
   ApiKalakritiYearScheduleRoute: ApiKalakritiYearScheduleRoute,
   ApiMediaAvatarUserIdRoute: ApiMediaAvatarUserIdRoute,
   ApiMediaEventPhotoIdRoute: ApiMediaEventPhotoIdRoute,
+  ApiSocialV1EventsRoute: ApiSocialV1EventsRouteWithChildren,
+  ApiSocialV1NotifyRoute: ApiSocialV1NotifyRoute,
+  ApiSocialV1OpenapiDotjsonRoute: ApiSocialV1OpenapiDotjsonRoute,
+  ApiSocialV1PostedRoute: ApiSocialV1PostedRoute,
+  ApiSocialV1StatsRoute: ApiSocialV1StatsRoute,
   ApiKalakritiYearPeopleLookupRoute: ApiKalakritiYearPeopleLookupRoute,
+  ApiSocialV1MediaPhotoIdVariantRoute: ApiSocialV1MediaPhotoIdVariantRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

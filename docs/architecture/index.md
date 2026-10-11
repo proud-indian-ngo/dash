@@ -15,6 +15,7 @@ Chapters intentionally sharded so loading stays cheap.
 | Recurring Events | `recurring-events.md` | RRULE, `teamEvent`, `seriesId`, `originalDate`, materialize, exdate, expandSeries, edit/cancel scope |
 | Vendor Payments | `vendor-payments.md` | vendor payment, VP, status state machine, invoice approval, `recalculateParentStatus`, `quotation`, `invoice` purposes |
 | Notifications | `notifications.md` | `enqueue`, in-app inbox, email, WhatsApp RSVP poll, notification topic preferences, `notify-*` handlers, webhook proxy |
+| Social API | `social-api.md` | `/api/social/v1`, social-artifacts pipeline, bearer tokens, `social:token`, `event_partner`, `social_post`, signed photo links, social digest, post-event social fields |
 | File Uploads | `file-uploads.md` | R2, presigned URL, attachments, Immich sync, event photos, `immichAssetId` |
 | Cash Vouchers | `cash-vouchers.md` | cash voucher, PDF generation, `generate-cash-voucher`, `@react-pdf/renderer`, `VOUCHER_ORG_*` |
 | Observability | `observability.md` | evlog, `createRequestLogger`, `withTaskLog`, `withFireAndForgetLog`, client logger, `/api/log/ingest` |

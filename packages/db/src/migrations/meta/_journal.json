@@ -743,6 +743,20 @@
       "when": 1791466412779,
       "tag": "0105_left_whizzer",
       "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1791714149465,
+      "tag": "0106_ordinary_red_wolf",
+      "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1791717984376,
+      "tag": "0107_colossal_crystal",
+      "breakpoints": true
     }
   ]
 }

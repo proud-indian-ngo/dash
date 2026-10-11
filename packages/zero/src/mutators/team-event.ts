@@ -27,6 +27,13 @@ import {
   updateSeriesFollowing,
   updateSeriesThis,
 } from "./team-event-series";
+import {
+  assertEventIdAvailable,
+  eventPartnersSchema,
+  replaceEventPartners,
+  teamEventSocialMutators,
+  volunteersNeededSchema,
+} from "./team-event-social";
 
 const reminderIntervalsSchema = z
   .array(z.number().refine((n) => REMINDER_PRESET_MINUTES.includes(n)))
@@ -656,6 +663,7 @@ export const teamEventMutators = {
       name: z.string().min(1),
       now: z.number(),
       postEventNudgesEnabled: z.boolean().optional(),
+      partners: eventPartnersSchema.optional(),
       postRsvpPoll: z.boolean().optional(),
       publicArea: z.string().max(80).optional(),
       recurrenceRule: recurrenceRuleSchema,
@@ -664,6 +672,7 @@ export const teamEventMutators = {
       rsvpPollLeadMinutes: rsvpPollLeadMinutesSchema,
       startTime: z.number(),
       teamId: z.string(),
+      volunteersNeeded: volunteersNeededSchema,
       whatsappGroupId: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {
@@ -688,6 +697,7 @@ export const teamEventMutators = {
         throw new Error("Start time must be in the future");
       }
 
+      await assertEventIdAvailable(tx, args.id);
       await tx.mutate.teamEvent.insert({
         cancelledAt: null,
         city: args.city,
@@ -714,8 +724,18 @@ export const teamEventMutators = {
         startTime: args.startTime,
         teamId: args.teamId,
         updatedAt: args.now,
+        volunteersNeeded: args.volunteersNeeded ?? null,
         whatsappGroupId: args.whatsappGroupId,
       });
+      if (args.partners?.length) {
+        await replaceEventPartners(
+          tx,
+          args.id,
+          args.teamId,
+          args.partners,
+          args.now
+        );
+      }
 
       if (tx.location === "server") {
         await pushCreateServerTasks(tx, ctx, args, isBackdated);
@@ -1064,6 +1084,7 @@ export const teamEventMutators = {
         series.endTime === null ? null : series.endTime - series.startTime;
       const occEnd = duration === null ? null : occStart + duration;
 
+      await assertEventIdAvailable(tx, args.id);
       await tx.mutate.teamEvent.insert({
         cancelledAt: null,
         createdAt: args.now,
@@ -1209,12 +1230,14 @@ export const teamEventMutators = {
       name: z.string().min(1).optional(),
       now: z.number(),
       postEventNudgesEnabled: z.boolean().optional(),
+      partners: eventPartnersSchema.optional(),
       postRsvpPoll: z.boolean().optional(),
       publicArea: z.string().max(80).optional(),
       reminderIntervals: reminderIntervalsSchema,
       reminderTarget: reminderTargetSchema,
       rsvpPollLeadMinutes: rsvpPollLeadMinutesSchema,
       startTime: z.number().optional(),
+      volunteersNeeded: volunteersNeededSchema,
       whatsappGroupId: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {
@@ -1245,6 +1268,15 @@ export const teamEventMutators = {
       assertHasPermissionOrTeamLead(ctx, "events.edit", isTeamLead);
 
       await tx.mutate.teamEvent.update(buildUpdateFields(args));
+      if (args.partners) {
+        await replaceEventPartners(
+          tx,
+          args.id,
+          existing.teamId,
+          args.partners,
+          args.now
+        );
+      }
 
       if (tx.location === "server") {
         const eventId = args.id;
@@ -1329,6 +1361,7 @@ export const teamEventMutators = {
       now: z.number(),
       originalDate: z.string().regex(ISO_DATE_RE).optional(),
       postEventNudgesEnabled: z.boolean().optional(),
+      partners: eventPartnersSchema.optional(),
       postRsvpPoll: z.boolean().optional(),
       publicArea: z.string().max(80).optional(),
       recurrenceRule: recurrenceRuleSchema,
@@ -1336,6 +1369,7 @@ export const teamEventMutators = {
       reminderTarget: reminderTargetSchema,
       rsvpPollLeadMinutes: rsvpPollLeadMinutesSchema,
       startTime: z.number().optional(),
+      volunteersNeeded: volunteersNeededSchema,
       whatsappGroupId: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {
@@ -1355,6 +1389,19 @@ export const teamEventMutators = {
           .one()
       ));
       assertHasPermissionOrTeamLead(ctx, "events.edit", isTeamLead);
+
+      if (
+        args.mode === "this" &&
+        !existing.seriesId &&
+        existing.recurrenceRule &&
+        args.originalDate &&
+        args.newExceptionId
+      ) {
+        await assertEventIdAvailable(tx, args.newExceptionId);
+      }
+      if (args.mode === "following" && args.originalDate && args.newSeriesId) {
+        await assertEventIdAvailable(tx, args.newSeriesId);
+      }
 
       if (args.mode === "all") {
         await updateSeriesAll(tx, args, buildUpdateFields(args));
@@ -1376,6 +1423,47 @@ export const teamEventMutators = {
           ctx.userId
         );
       }
+
+      const partnerTarget = resolveSeriesWriteTarget(args, existing);
+      if (args.partners && partnerTarget) {
+        await replaceEventPartners(
+          tx,
+          partnerTarget,
+          existing.teamId,
+          args.partners,
+          args.now
+        );
+      }
     }
   ),
+
+  ...teamEventSocialMutators,
 };
+
+/**
+ * The row an updateSeries call writes: the parent for "all", the exception
+ * (existing or newly inserted) for "this", the new series for "following".
+ */
+export function resolveSeriesWriteTarget(
+  args: {
+    id: string;
+    mode: "this" | "following" | "all";
+    newExceptionId?: string;
+    newSeriesId?: string;
+    originalDate?: string;
+  },
+  existing: Pick<TeamEvent, "recurrenceRule" | "seriesId">
+): string | undefined {
+  if (args.mode === "all") {
+    return args.id;
+  }
+  if (args.mode === "following") {
+    return args.originalDate ? args.newSeriesId : undefined;
+  }
+  if (existing.seriesId) {
+    return args.id;
+  }
+  return existing.recurrenceRule && args.originalDate
+    ? args.newExceptionId
+    : undefined;
+}

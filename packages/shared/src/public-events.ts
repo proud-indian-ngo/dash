@@ -248,7 +248,7 @@ const indiaDateFormat = new Intl.DateTimeFormat("en-CA", {
   year: "numeric",
 });
 
-function toIndiaDate(epochMs: number): string {
+export function toIndiaDate(epochMs: number): string {
   return indiaDateFormat.format(new Date(epochMs));
 }
 
@@ -265,16 +265,130 @@ export function buildPublicSignUpUrl(
   return url.toString();
 }
 
-interface Occurrence {
+/** One dated occurrence produced by {@link expandEventOccurrences}. */
+export interface EventOccurrence<R extends PublicEventSourceRow> {
   endTime: number | null;
+  /** Event id; for a virtual occurrence, the series id. */
   id: string;
   /** Series occurrence key, only for virtual occurrences. */
   occDate?: string;
-  row: PublicEventSourceRow;
+  /** Series parent, for exception rows and virtual occurrences; else null. */
+  parent: R | null;
+  /** The occurrence's row; an exception inherits the series' public area unless it sets its own. */
+  row: R;
   startTime: number;
+  /** Whether the occurrence has no row of its own (expanded from the series RRULE). */
+  virtual: boolean;
 }
 
-function toPublicEvent(occ: Occurrence, baseUrl: string): PublicEvent {
+export interface ExpandEventOccurrencesOptions<R extends PublicEventSourceRow> {
+  /** Window start, epoch ms (inclusive). */
+  from: number;
+  /**
+   * Whether a row may appear. A series parent that fails hides every
+   * occurrence, including its exception rows.
+   */
+  isListed: (row: R) => boolean;
+  /** Window end, epoch ms (inclusive). */
+  to: number;
+}
+
+/**
+ * Turn standalone events, series parents and their exception rows into dated
+ * occurrences: expands recurring series, applies exdates and exception rows
+ * (every exception row replaces its virtual occurrence, listed or not), keeps
+ * listed occurrences that start inside the window, sorted by start time.
+ */
+export function expandEventOccurrences<R extends PublicEventSourceRow>(
+  rows: readonly R[],
+  options: ExpandEventOccurrencesOptions<R>
+): EventOccurrence<R>[] {
+  const { from, isListed, to } = options;
+  const inWindow = (start: number) => start >= from && start <= to;
+  const parents = new Map<string, R>();
+  const exceptionsBySeries = new Map<string, R[]>();
+  const occurrences: EventOccurrence<R>[] = [];
+
+  for (const row of rows) {
+    if (row.seriesId) {
+      const list = exceptionsBySeries.get(row.seriesId) ?? [];
+      list.push(row);
+      exceptionsBySeries.set(row.seriesId, list);
+    } else if (parseRecurrenceRule(row.recurrenceRule)) {
+      parents.set(row.id, row);
+    } else if (isListed(row) && inWindow(row.startTime)) {
+      occurrences.push({
+        endTime: row.endTime,
+        id: row.id,
+        parent: null,
+        row,
+        startTime: row.startTime,
+        virtual: false,
+      });
+    }
+  }
+
+  for (const parent of parents.values()) {
+    if (!isListed(parent)) {
+      continue;
+    }
+    const exceptions = exceptionsBySeries.get(parent.id) ?? [];
+    // Every exception row (cancelled ones too) replaces its virtual occurrence.
+    const exceptionDates = new Set(
+      exceptions.flatMap((e) => (e.originalDate ? [e.originalDate] : []))
+    );
+    const rule = parseRecurrenceRule(parent.recurrenceRule);
+    if (rule) {
+      for (const occ of expandSeries(
+        rule,
+        parent.startTime,
+        parent.endTime,
+        from,
+        to,
+        exceptionDates
+      )) {
+        if (inWindow(occ.startTime)) {
+          occurrences.push({
+            endTime: occ.endTime,
+            id: parent.id,
+            occDate: occ.date,
+            parent,
+            row: parent,
+            startTime: occ.startTime,
+            virtual: true,
+          });
+        }
+      }
+    }
+    for (const exception of exceptions) {
+      if (isListed(exception) && inWindow(exception.startTime)) {
+        occurrences.push({
+          endTime: exception.endTime,
+          id: exception.id,
+          parent,
+          // Exceptions inherit the series' public area unless they set their own.
+          row: {
+            ...exception,
+            publicArea: exception.publicArea?.trim()
+              ? exception.publicArea
+              : parent.publicArea,
+          },
+          startTime: exception.startTime,
+          virtual: false,
+        });
+      }
+    }
+  }
+
+  return occurrences.sort(
+    (a, b) => a.startTime - b.startTime || a.id.localeCompare(b.id)
+  );
+}
+
+function toPublicEvent(
+  occ: EventOccurrence<PublicEventSourceRow>,
+  baseUrl: string
+): PublicEvent {
   const { row } = occ;
   const programme = toPublicProgramme(row.teamName, row.managementDomain);
   return {
@@ -305,87 +419,19 @@ function isListed(row: PublicEventSourceRow, city: City): boolean {
 
 /**
  * Turn standalone events, series parents and their exception rows into the public feed:
- * expands recurring series, applies exdates and exception rows, keeps only public,
- * non-cancelled occurrences that start inside the window, sorted by start time.
+ * public, non-cancelled occurrences in the city that start inside the window, sorted by
+ * start time. A cancelled or private series hides every occurrence, including exceptions.
  */
 export function buildPublicEvents(
   rows: readonly PublicEventSourceRow[],
   query: PublicEventsQuery,
   baseUrl: string
 ): PublicEvent[] {
-  const inWindow = (start: number) => start >= query.from && start <= query.to;
-  const parents = new Map<string, PublicEventSourceRow>();
-  const exceptionsBySeries = new Map<string, PublicEventSourceRow[]>();
-  const occurrences: Occurrence[] = [];
-
-  for (const row of rows) {
-    if (row.seriesId) {
-      const list = exceptionsBySeries.get(row.seriesId) ?? [];
-      list.push(row);
-      exceptionsBySeries.set(row.seriesId, list);
-    } else if (parseRecurrenceRule(row.recurrenceRule)) {
-      parents.set(row.id, row);
-    } else if (isListed(row, query.city) && inWindow(row.startTime)) {
-      occurrences.push({
-        endTime: row.endTime,
-        id: row.id,
-        row,
-        startTime: row.startTime,
-      });
-    }
-  }
-
-  for (const parent of parents.values()) {
-    // A cancelled or private series hides every occurrence, including exceptions.
-    if (!isListed(parent, query.city)) {
-      continue;
-    }
-    const exceptions = exceptionsBySeries.get(parent.id) ?? [];
-    // Every exception row (cancelled ones too) replaces its virtual occurrence.
-    const exceptionDates = new Set(
-      exceptions.flatMap((e) => (e.originalDate ? [e.originalDate] : []))
-    );
-    const rule = parseRecurrenceRule(parent.recurrenceRule);
-    if (rule) {
-      for (const occ of expandSeries(
-        rule,
-        parent.startTime,
-        parent.endTime,
-        query.from,
-        query.to,
-        exceptionDates
-      )) {
-        if (inWindow(occ.startTime)) {
-          occurrences.push({
-            endTime: occ.endTime,
-            id: parent.id,
-            occDate: occ.date,
-            row: parent,
-            startTime: occ.startTime,
-          });
-        }
-      }
-    }
-    for (const exception of exceptions) {
-      if (isListed(exception, query.city) && inWindow(exception.startTime)) {
-        occurrences.push({
-          endTime: exception.endTime,
-          id: exception.id,
-          // Exceptions inherit the series' public area unless they set their own.
-          row: {
-            ...exception,
-            publicArea: exception.publicArea?.trim()
-              ? exception.publicArea
-              : parent.publicArea,
-          },
-          startTime: exception.startTime,
-        });
-      }
-    }
-  }
-
-  return occurrences
-    .sort((a, b) => a.startTime - b.startTime || a.id.localeCompare(b.id))
+  return expandEventOccurrences(rows, {
+    from: query.from,
+    isListed: (row) => isListed(row, query.city),
+    to: query.to,
+  })
     .slice(0, query.limit)
     .map((occ) => toPublicEvent(occ, baseUrl));
 }

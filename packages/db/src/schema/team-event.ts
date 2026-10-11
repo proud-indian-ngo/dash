@@ -18,6 +18,7 @@ import {
 import { user } from "./auth";
 import { eventFeedback } from "./event-feedback";
 import { eventInterest } from "./event-interest";
+import { eventPartner } from "./event-partner";
 import { reimbursement } from "./reimbursement";
 import { cityEnum, reminderTargetEnum } from "./shared";
 import { team } from "./team";
@@ -33,6 +34,8 @@ export const teamEvent = pgTable(
   "team_event",
   {
     cancelledAt: timestamp("cancelled_at"),
+    /** Children who attended, entered by the lead in the post-event social form. */
+    childrenAttended: integer("children_attended"),
     city: cityEnum("city").notNull().default("bangalore"),
     createdAt: timestamp("created_at").notNull(),
     createdBy: text("created_by")
@@ -70,11 +73,17 @@ export const teamEvent = pgTable(
     seriesId: uuid("series_id").references((): AnyPgColumn => teamEvent.id, {
       onDelete: "cascade",
     }),
+    /** Set when the lead submits the post-event social form; marks the occurrence completed. */
+    socialCompletedAt: timestamp("social_completed_at"),
+    /** One line from the lead about what happened, for social posts. */
+    socialNotes: text("social_notes"),
     startTime: timestamp("start_time").notNull(),
     teamId: uuid("team_id")
       .notNull()
       .references(() => team.id, { onDelete: "cascade" }),
     updatedAt: timestamp("updated_at").notNull(),
+    /** Volunteers the session needs; drives the social "session short" call. */
+    volunteersNeeded: integer("volunteers_needed"),
     whatsappGroupId: uuid("whatsapp_group_id").references(
       () => whatsappGroup.id,
       { onDelete: "set null" }
@@ -147,6 +156,7 @@ export const teamEventRelations = relations(teamEvent, ({ one, many }) => ({
   feedback: many(eventFeedback),
   interests: many(eventInterest),
   members: many(teamEventMember),
+  partners: many(eventPartner),
   reimbursements: many(reimbursement),
   series: one(teamEvent, {
     fields: [teamEvent.seriesId],

@@ -50,6 +50,7 @@
         "helpers/register-url-options.ts",
         "helpers/role-dashboard-fixture.ts",
         "helpers/seed-dev-data.ts",
+        "helpers/social-recap.ts",
         "helpers/seed-kalakriti-performance.ts",
         "helpers/profile-kalakriti-dashboard.ts",
         "helpers/profile-audit-performance.ts",

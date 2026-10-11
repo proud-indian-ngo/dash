@@ -356,6 +356,53 @@ export const eventPhotoMutators = {
       }
     }
   ),
+  /**
+   * Keep an approved photo out of social posts. The social API still lists it
+   * with `doNotUse: true`; the generator skips it.
+   */
+  setDoNotUse: defineMutator(
+    z.object({ doNotUse: z.boolean(), id: z.string() }),
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+      const photo = (await tx.run(
+        zql.eventPhoto.where("id", args.id).one()
+      )) as EventPhoto | undefined;
+      if (!photo) {
+        throw new Error("Photo not found");
+      }
+      if (photo.status !== "approved") {
+        throw new Error("Only approved photos can be marked");
+      }
+      const event = (await tx.run(
+        zql.teamEvent.where("id", photo.eventId).one()
+      )) as TeamEvent | undefined;
+      if (!event) {
+        throw new Error("Event not found");
+      }
+      assertEventRowNotManagedByKalakriti(event);
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", event.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      // The toggle lives in the lead's social recap (attendance gate) and is
+      // also a photo-moderation decision.
+      if (!can(ctx, "events.manage_photos")) {
+        assertHasPermissionOrTeamLead(
+          ctx,
+          "events.manage_attendance",
+          isTeamLead
+        );
+      }
+      await tx.mutate.eventPhoto.update({
+        doNotUse: args.doNotUse,
+        id: args.id,
+      });
+    }
+  ),
+
   upload: defineMutator(
     z
       .object({

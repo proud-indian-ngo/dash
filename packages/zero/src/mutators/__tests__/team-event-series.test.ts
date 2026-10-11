@@ -40,6 +40,7 @@ describe("buildTruncatedRRule", () => {
 
 const SERIES_BASE = {
   cancelledAt: null,
+  childrenAttended: null,
   city: "bangalore" as const,
   createdAt: NOW,
   createdBy: "user-1",
@@ -62,9 +63,12 @@ const SERIES_BASE = {
   reminderTarget: "group" as const,
   rsvpPollLeadMinutes: 4320,
   seriesId: null,
+  socialCompletedAt: null,
+  socialNotes: null,
   startTime: NOW,
   teamId: "team-1",
   updatedAt: NOW,
+  volunteersNeeded: null,
   whatsappGroupId: "wg-1",
 };
 

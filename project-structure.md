@@ -173,7 +173,8 @@ All paths are relative to project root.
 | `routes/api/immich/thumbnail.$id.ts` | Immich photo thumbnail proxy |
 | `routes/api/immich/original.$id.ts` | Immich photo original image proxy |
 | `routes/api/media/event-photo.$id.ts` | Authorized event-photo signed redirect |
-| `routes/api/public/events.ts` | Public, unauthenticated upcoming-events feed for proudindian.ngo (CORS for `https://proudindian.ngo` and `*.pages.dev`, GET/OPTIONS only, 5-minute public cache, 60-second in-process cache, per-IP rate limit, `from` within 90 days); builder in `@pi-dash/shared/public-events`, query in `@pi-dash/db/queries/public-events` |
+| `routes/api/public/events.ts` | Public, unauthenticated upcoming-events feed for proudindian.ngo (CORS open to every origin, GET/OPTIONS only, 5-minute public cache, 60-second in-process cache, per-IP rate limit, `from` within 90 days); builder in `@pi-dash/shared/public-events`, query in `@pi-dash/db/queries/public-events` |
+| `routes/api/social/v1/*.ts` | Bearer-token social API for the social-artifacts pipeline (`events`, `events/$id/photos`, `stats`, `posted`, `notify`, `openapi.json`) plus the token-free HMAC-signed photo proxy `media/$photoId/$variant`; handlers in `lib/social-api/`, token check in `lib/social-api-auth.ts`, shapes in `@pi-dash/shared/social-api`, queries in `@pi-dash/db/queries/social-api`. See `docs/architecture/social-api.md` |
 | `functions/public-session-summary.ts` | Register-page banner lookup for website sign-up links (public, non-Kalakriti sessions only) |
 | `routes/api/kalakriti/$year/schedule.ts` | Public lifecycle-filtered Kalakriti schedule API with an explicit public data allowlist |
 | `routes/api/kalakriti/$year/audit.ts` | Authenticated Edition/domain-scoped Kalakriti audit API with privacy-safe metadata |
@@ -209,8 +210,8 @@ pi-dash event remains read-only outside the Kalakriti module.
 | `components/editor/` | plate-editor (rich-text with image upload), plate-renderer (read-only) |
 | `components/events/` | public-events-table |
 | `components/kalakriti/` | Edition configuration, assignments, Guardian access, Competition schedule, Student and Entry registration, scoped dashboards and ZIP exports, and scoped audit tables |
-| `components/teams/events/` | events-table, events-table-helpers (RRULE expansion, display row building), event-form-dialog, event-detail, event-details-card, event-attendance-section, event-updates, event-photos, add-event-member-dialog, show-interest-dialog, interest-requests, recurrence-builder (RRULE form UI), edit-scope-dialog (this/following/all scope selection), event-actions-menu |
-| `components/settings/` | settings-dialog, sections/ (profile, account, banking, expense-categories, whatsapp-groups, notifications) |
+| `components/teams/events/` | events-table, events-table-helpers (RRULE expansion, display row building), event-form-dialog, event-detail, event-details-card, event-attendance-section, event-updates, event-photos, add-event-member-dialog, show-interest-dialog, interest-requests, recurrence-builder (RRULE form UI), edit-scope-dialog (this/following/all scope selection), event-actions-menu, event-social-recap (post-event "Social recap" card), event-partners-field (partners repeater in the event form) |
+| `components/settings/` | settings-dialog, sections/ (profile, account, banking, expense-categories, whatsapp-groups, notifications, general with social-settings, api-tokens) |
 | `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, phone-field-lazy, textarea-field, checkbox-field, select-field, add-url-row, line-items-editor, attachments-section, reject-dialog, approve-dialog |
 | `components/login/` | auth-layout (split-panel shell), auth-info-panel (info panels for signup/login), login-form, register-form, forgot-password-form, reset-password-form |
 | `components/stats/` | stats-cards (dashboard stats) |
@@ -247,6 +248,7 @@ All hook paths above are prefixed with `apps/web/src/`.
 | `functions/role-admin.ts` | Role CRUD and permission assignment server functions |
 | `functions/admin-actions.ts` | Audited maintenance and job triggers |
 | `functions/event-poll.ts` | Audited event RSVP poll command |
+| `functions/social-api-tokens.ts` | Social API token list, audited create (returns the raw token once) and revoke for Settings → API Tokens |
 
 All function paths above are prefixed with `apps/web/src/`.
 
@@ -275,6 +277,9 @@ All function paths above are prefixed with `apps/web/src/`.
 | `lib/immich.ts` | Immich photo service integration |
 | `lib/s3.ts` | S3/R2 client utilities |
 | `lib/rate-limit.ts` | Rate limiting helpers |
+| `lib/social-api-auth.ts` | Social API bearer-token check (sha256 lookup, scopes, per-token rate limit) |
+| `lib/social-media-url.ts` | Sign and verify the social API's 36-hour photo links (`SOCIAL_MEDIA_SIGNING_SECRET`) |
+| `lib/social-api/` | Social API route handlers with injectable dependencies |
 | `lib/csv-export.ts` | CSV export utilities |
 | `lib/kalakriti-registration-export.ts` | Allowlisted Kalakriti registration CSV and ZIP archive generation |
 | `lib/kalakriti-registration-scope-policy.ts` | Canonical assignment-to-registration-scope policy for dashboards and exports |
@@ -287,7 +292,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 | Package | Key paths |
 |---|---|
 | `packages/auth/` | `src/index.ts` (auth config), `src/seed-admin.ts` (lightweight admin-only seed), `src/register-event*.ts` (`?eventId=` invite enrollment), `src/register-interest*.ts` (website sign-up interest filed on first email verification, with session materialization), `src/verification-redirect.ts` (event redirect carried through verification emails) |
-| `packages/db/` | `src/kalakriti-orientation.ts` (transactional conditional role promotion and session revocation), `src/schema/` (Drizzle tables), `src/migrations/`, `src/permissions.ts` (code-defined permission registry), `src/queries/resolve-permissions.ts` (resolve user permissions with cache), `src/queries/public-events.ts` (public events feed and register-banner lookups), `src/sync-permissions.ts` (sync permission registry to DB), `docker-compose.yml` (postgres, postgres-test, postgres-migration, whatsapp), `scripts/migrate-legacy-data.ts` |
+| `packages/db/` | `src/kalakriti-orientation.ts` (transactional conditional role promotion and session revocation), `src/schema/` (Drizzle tables), `src/migrations/`, `src/permissions.ts` (code-defined permission registry), `src/queries/resolve-permissions.ts` (resolve user permissions with cache), `src/queries/public-events.ts` (public events feed and register-banner lookups), `src/queries/social-api.ts` and `src/queries/social-api-token.ts` (social API reads, posted log, tokens), `src/sync-permissions.ts` (sync permission registry to DB), `docker-compose.yml` (postgres, postgres-test, postgres-migration, whatsapp), `scripts/migrate-legacy-data.ts` |
 | `packages/email/` | `src/mailer.ts` (Nodemailer transport), `src/templates/` (verification-email, reset-password-email) |
 | `packages/env/` | `src/server.ts` (server env), `src/web.ts` (client env) |
 | `packages/config/` | Shared TypeScript & tooling config |
@@ -396,6 +401,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 - **Fixtures**: Import `test` and `expect` from `packages/e2e/fixtures/test.ts` for email fixtures, `kalakritiActors`, and `consoleErrors`. The `page` fixture annotates uncaught browser errors when a test needs a page. API-only tests use `request` without starting a browser page. Use plain `@playwright/test` for unauthenticated tests that do not need the shared fixtures.
 - **Page Object Model**: Shared page objects live in `packages/e2e/pages/`. `RequestPage` composes the request list, form, and approval detail objects; Kalakriti page objects cover Edition creation, Centers, students, competitions, entries, and the public schedule. New feature suites should follow the owning domain's existing pattern.
 - **API authorization tests**: `tests/authorization/api-authorization.spec.ts` tests that admin-only Zero mutations are rejected for volunteer users via the `request` fixture and the live `/api/zero/mutate` endpoint.
+- **Social API tokens**: Settings → API Tokens (`settings.app_config`), or the CLI fallback `scripts/social-token.ts` — `bun run social:token create <name> --scopes …`, `list`, `revoke <id>`; both show the raw token once and store only its sha256.
 - **Dev seeding**: `scripts/seed.ts` — comprehensive idempotent seed covering all data models. Run via `bun run seed`. Used by worktree setup and general dev.
 - **E2E seeding**: `packages/e2e/helpers/seed-test-user.ts` creates standard test data plus the idempotent Kalakriti registration-release fixture, including all active role actors and one dormant external actor.
 - **Selectors**: Use accessibility-first selectors (`getByRole`, `getByLabel`, `getByText`). Use `aria-current="date"` via `getByRole("button", { current: "date" })` for calendar today buttons. Avoid CSS class selectors.

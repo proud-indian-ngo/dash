@@ -158,6 +158,7 @@ jobs:
       ZERO_MUTATE_URL: http://localhost:3099/api/zero/mutate
       ZERO_QUERY_URL: http://localhost:3099/api/zero/query
       ZERO_ADMIN_PASSWORD: ci-test-admin
+      SOCIAL_MEDIA_SIGNING_SECRET: ci-social-media-signing-secret-0000
       VITE_ZERO_URL: http://localhost:4848
       VITE_CDN_URL: http://localhost:3099
     steps:

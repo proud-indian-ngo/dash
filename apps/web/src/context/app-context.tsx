@@ -16,6 +16,7 @@ export type Section =
   | "banking"
   | "expense-categories"
   | "whatsapp-groups"
+  | "api-tokens"
   | "admin-actions";
 
 interface AppUser {

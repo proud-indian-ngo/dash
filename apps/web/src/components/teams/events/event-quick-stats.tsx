@@ -3,6 +3,7 @@ import {
   CheckmarkCircle02Icon,
   Invoice01Icon,
   Message01Icon,
+  UserAdd01Icon,
   UserGroupIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -35,26 +36,38 @@ function StatItem({
 }
 
 interface EventQuickStatsProps {
+  /** Approved sign-ups against `volunteersNeeded`, shown when a target is set. */
+  approvedCount?: number;
   feedbackCount: number;
   hasStarted: boolean;
   memberCount: number;
   photoCount: number;
   presentCount: number;
   totalExpenses: number;
+  volunteersNeeded?: number | null;
 }
 
 export function EventQuickStats({
+  approvedCount = 0,
   feedbackCount,
   hasStarted,
   memberCount,
   photoCount,
   presentCount,
   totalExpenses,
+  volunteersNeeded,
 }: EventQuickStatsProps) {
   return (
     <Card size="sm">
       <CardContent className="grid grid-cols-2 gap-3">
         <StatItem icon={UserGroupIcon} label="Volunteers" value={memberCount} />
+        {volunteersNeeded ? (
+          <StatItem
+            icon={UserAdd01Icon}
+            label="Approved / needed"
+            value={`${approvedCount}/${volunteersNeeded}`}
+          />
+        ) : null}
         {hasStarted ? (
           <StatItem
             icon={CheckmarkCircle02Icon}

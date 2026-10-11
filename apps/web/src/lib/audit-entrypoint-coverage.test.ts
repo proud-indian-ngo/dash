@@ -4,12 +4,14 @@ import { join, relative } from "node:path";
 
 const AUDITED_SERVER_FUNCTIONS = [
   "createRole",
+  "createSocialApiTokenFn",
   "createUserAdmin",
   "deleteProfilePicture",
   "deleteRole",
   "deleteTemporaryUpload",
   "deleteUserAdmin",
   "postEventRsvpPoll",
+  "revokeSocialApiTokenFn",
   "setUserBanAdmin",
   "setUserPasswordAdmin",
   "triggerR2Cleanup",
@@ -37,6 +39,9 @@ const CLASSIFIED_API_POST_FILES = [
   "routes/api/jobs/$id/retry.ts",
   "routes/api/jobs/index.ts",
   "routes/api/log/ingest.ts",
+  // Machine token API: posted is audited in its handler; notify only enqueues a digest.
+  "routes/api/social/v1/notify.ts",
+  "routes/api/social/v1/posted.ts",
   "routes/api/whatsapp/webhook.ts",
   "routes/api/zero/mutate.ts",
   "routes/api/zero/query.ts",
@@ -50,6 +55,7 @@ const AUDITED_API_MARKERS: Record<string, string[]> = {
   "routes/api/jobs/$id/cancel.ts": ["runSessionAuditedAction"],
   "routes/api/jobs/$id/retry.ts": ["runSessionAuditedAction"],
   "routes/api/jobs/index.ts": ["runSessionAuditedAction"],
+  "lib/social-api/posted.ts": ["runAuditedAction", "social.posted.record"],
   "routes/api/zero/mutate.ts": [
     "runZeroAuditedMutation",
     "tx.mutate.auditLog.insert",

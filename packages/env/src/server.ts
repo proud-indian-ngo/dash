@@ -51,6 +51,8 @@ export const env = createEnv({
     SMTP_PASS: z.string().min(1),
     SMTP_PORT: z.coerce.number().default(587),
     SMTP_USER: z.string().min(1),
+    /** HMAC key for the social API's signed photo links; unset disables photo endpoints. */
+    SOCIAL_MEDIA_SIGNING_SECRET: z.string().min(32).optional(),
     VITE_CDN_URL: z.url(),
     VITE_IMMICH_URL: z.url().optional(),
     VOUCHER_FINANCE_ADMIN_NAME: z.string().min(1),

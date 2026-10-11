@@ -53,6 +53,7 @@ export function buildExceptionInsert(
     whatsappGroupId: string;
     inheritVolunteers: boolean;
     cancelledAt: number | null;
+    volunteersNeeded: number | null;
   }> = {}
 ) {
   return {
@@ -92,6 +93,8 @@ export function buildExceptionInsert(
     startTime: overrides.startTime ?? series.startTime,
     teamId: series.teamId,
     updatedAt: now,
+    // Null inherits the parent's figure in the social API.
+    volunteersNeeded: overrides.volunteersNeeded ?? null,
     whatsappGroupId:
       overrides.whatsappGroupId ?? series.whatsappGroupId ?? null,
   };
@@ -116,6 +119,7 @@ export interface UpdateArgs {
   reminderTarget?: ReminderTarget;
   rsvpPollLeadMinutes?: number;
   startTime?: number;
+  volunteersNeeded?: number | null;
   whatsappGroupId?: string;
 }
 
@@ -157,6 +161,9 @@ export function buildUpdateFields(args: UpdateArgs) {
     }),
     ...(args.inheritVolunteers !== undefined && {
       inheritVolunteers: args.inheritVolunteers,
+    }),
+    ...(args.volunteersNeeded !== undefined && {
+      volunteersNeeded: args.volunteersNeeded,
     }),
     ...(args.whatsappGroupId !== undefined && {
       whatsappGroupId: args.whatsappGroupId || null,
@@ -231,6 +238,7 @@ export async function updateSeriesThis(
     postEventNudgesEnabled?: boolean;
     reminderIntervals?: number[] | null;
     reminderTarget?: ReminderTarget;
+    volunteersNeeded?: number | null;
     whatsappGroupId?: string;
   },
   existing: TeamEvent,
@@ -265,6 +273,7 @@ export async function updateSeriesThis(
           reminderTarget: args.reminderTarget,
           rsvpPollLeadMinutes: args.rsvpPollLeadMinutes,
           startTime: args.startTime,
+          volunteersNeeded: args.volunteersNeeded,
           whatsappGroupId: args.whatsappGroupId,
         }
       )
@@ -296,6 +305,7 @@ export async function updateSeriesFollowing(
     whatsappGroupId?: string;
     inheritVolunteers?: boolean;
     recurrenceRule?: RecurrenceRuleValue;
+    volunteersNeeded?: number | null;
   },
   existing: TeamEvent,
   userId: string
@@ -346,6 +356,10 @@ export async function updateSeriesFollowing(
     startTime: args.startTime ?? existing.startTime,
     teamId: existing.teamId,
     updatedAt: args.now,
+    volunteersNeeded:
+      args.volunteersNeeded === undefined
+        ? existing.volunteersNeeded
+        : args.volunteersNeeded,
     whatsappGroupId: args.whatsappGroupId ?? existing.whatsappGroupId ?? null,
   });
 }

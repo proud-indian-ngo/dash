@@ -57,6 +57,8 @@ services:
       APP_URL: ${APP_URL:-}
       IMMICH_API_KEY: ${IMMICH_API_KEY:-}
       IMMICH_INTERNAL_URL: ${IMMICH_INTERNAL_URL:-}
+      # signs the social API's photo links; unset disables /api/social/v1 photos
+      SOCIAL_MEDIA_SIGNING_SECRET: ${SOCIAL_MEDIA_SIGNING_SECRET:-}
       VOUCHER_ORG_NAME: ${VOUCHER_ORG_NAME}
       VOUCHER_ORG_ADDRESS: ${VOUCHER_ORG_ADDRESS}
       VOUCHER_ORG_PHONE: ${VOUCHER_ORG_PHONE}

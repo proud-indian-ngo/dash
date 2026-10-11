@@ -1,6 +1,7 @@
 import {
   BankIcon,
   CommandIcon,
+  Key01Icon,
   NotificationIcon,
   Settings01Icon,
   ShieldIcon,
@@ -47,6 +48,7 @@ import { type Section, useApp } from "@/context/app-context";
 
 import { AccountSection } from "./sections/account-section";
 import { AdminActionsSection } from "./sections/admin-actions-section";
+import { ApiTokensSection } from "./sections/api-tokens-section";
 import { BankingSection } from "./sections/banking-section";
 import { ExpenseCategoriesSection } from "./sections/expense-categories-section";
 import { GeneralSection } from "./sections/general-section";
@@ -101,6 +103,12 @@ const NAV_ITEMS_BASE: NavItem[] = [
     permission: "settings.whatsapp_groups",
   },
   {
+    icon: Key01Icon,
+    id: "api-tokens",
+    label: "API Tokens",
+    permission: "settings.app_config",
+  },
+  {
     icon: CommandIcon,
     id: "admin-actions",
     label: "Admin Actions",
@@ -111,6 +119,7 @@ const NAV_ITEMS_BASE: NavItem[] = [
 const SECTION_CONTENT: Record<Section, React.ReactNode> = {
   account: <AccountSection />,
   "admin-actions": <AdminActionsSection />,
+  "api-tokens": <ApiTokensSection />,
   banking: <BankingSection />,
   "expense-categories": <ExpenseCategoriesSection />,
   general: <GeneralSection />,
