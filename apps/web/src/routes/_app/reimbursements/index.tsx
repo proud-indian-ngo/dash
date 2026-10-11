@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { computeReimbursementStats } from "@/components/reimbursements/reimbursement-stats";
 import { ReimbursementsTable } from "@/components/reimbursements/reimbursements-table";
 import { PageHeader } from "@/components/shared/page-header";
+import { TipStrip } from "@/components/shared/tip-strip";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { useApp } from "@/context/app-context";
 import {
@@ -51,7 +52,7 @@ function getMutatorNs(type: RequestRow["type"]) {
 function ReimbursementsRouteComponent() {
   const navigate = useNavigate();
   const zero = useZero();
-  const { hasPermission } = useApp();
+  const { hasPermission, openSettings } = useApp();
 
   const [reimbursements, r1] = useQuery(queries.reimbursement.all());
   const [advancePayments, r2] = useQuery(queries.advancePayment.all());
@@ -108,6 +109,24 @@ function ReimbursementsRouteComponent() {
         description="Money spent on Proud Indian work, claimed back or paid in advance."
         title="Reimbursements"
       />
+      {hasPermission("requests.create") ? (
+        <TipStrip
+          action={
+            <button
+              className="underline-offset-2 hover:underline"
+              onClick={() => openSettings("banking")}
+              type="button"
+            >
+              Open Banking
+            </button>
+          }
+          className="mt-4"
+          id="reimbursements-bank-account"
+        >
+          Add your bank account once in Settings → Banking, and every claim
+          fills it in for you.
+        </TipStrip>
+      ) : null}
 
       <div className="mt-4 grid gap-6 *:min-w-0">
         <StatsCards

@@ -28,6 +28,7 @@ import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
 import { Tag } from "@/components/shared/status-badge";
+import { TipStrip } from "@/components/shared/tip-strip";
 import { AddMemberDialog } from "@/components/teams/add-member-dialog";
 import type { EditScope } from "@/components/teams/events/edit-scope-dialog";
 import { EditScopeDialog } from "@/components/teams/events/edit-scope-dialog";
@@ -421,6 +422,11 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
           ]}
           title={team.name}
         />
+        {isTeamLead(team.members, userId) ? (
+          <TipStrip className="-mt-2" id="team-lead-tools">
+            As a team lead, you can add members and create events right here.
+          </TipStrip>
+        ) : null}
 
         <Separator />
 

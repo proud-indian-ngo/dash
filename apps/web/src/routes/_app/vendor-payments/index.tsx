@@ -9,6 +9,7 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { PageHeader } from "@/components/shared/page-header";
+import { TipStrip } from "@/components/shared/tip-strip";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { computeVendorPaymentStats } from "@/components/vendor-payments/vendor-payment-stats";
 import type { VendorPaymentWithRelations } from "@/components/vendor-payments/vendor-payment-types";
@@ -69,6 +70,12 @@ function VendorPaymentsRouteComponent() {
         description="Payments to vendors, from quotation through approval to invoice."
         title="Vendor Payments"
       />
+      {hasPermission("requests.create") ? (
+        <TipStrip className="mt-4" id="vendor-payments-flow">
+          Start with the vendor's quotation. Once it's approved and paid, you'll
+          upload their invoice to close it out.
+        </TipStrip>
+      ) : null}
 
       <div className="mt-4 grid gap-6 *:min-w-0">
         <StatsCards

@@ -9,13 +9,18 @@ import { useEffect, useState } from "react";
 
 const APPLE_PLATFORM = /Mac|iPhone|iPad/;
 
-/** The sidebar toggle, with a tooltip naming its ⌘B / Ctrl+B shortcut. */
-export function SidebarToggle() {
-  // Decided after mount so the server and first client render agree.
+/** "⌘" on Apple devices, "Ctrl+" elsewhere; decided after mount so SSR agrees. */
+export function useShortcutModifier() {
   const [modifier, setModifier] = useState("Ctrl+");
   useEffect(() => {
     if (APPLE_PLATFORM.test(navigator.userAgent)) setModifier("⌘");
   }, []);
+  return modifier;
+}
+
+/** The sidebar toggle, with a tooltip naming its ⌘B / Ctrl+B shortcut. */
+export function SidebarToggle() {
+  const modifier = useShortcutModifier();
 
   return (
     <Tooltip>

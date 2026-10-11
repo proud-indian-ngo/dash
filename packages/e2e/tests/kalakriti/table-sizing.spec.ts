@@ -447,7 +447,9 @@ test("shared table DOM sizing, drag, scroll and persisted column controls", asyn
         await header(page, nextFiller)
           .getByRole("button", { name: nextFiller, exact: true })
           .click();
+        // Scope to the open menu: the previous one may still be fading out.
         await page
+          .locator('[role="menu"][data-open]')
           .getByRole("menuitem", { name: "Pin to right", exact: true })
           .click();
         await expectAllocation(table, preferred);

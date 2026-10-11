@@ -16,6 +16,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@pi-dash/design-system/components/ui/card";
+import { Kbd } from "@pi-dash/design-system/components/ui/kbd";
+import { useIsMobile } from "@pi-dash/design-system/hooks/use-mobile";
 import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
@@ -27,7 +29,9 @@ import { MyTeams } from "@/components/dashboard/my-teams";
 import { PendingReviews } from "@/components/dashboard/pending-reviews";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { UpcomingEvents } from "@/components/dashboard/upcoming-events";
+import { useShortcutModifier } from "@/components/layout/sidebar-toggle";
 import { PageHeader } from "@/components/shared/page-header";
+import { TipStrip } from "@/components/shared/tip-strip";
 import type { StatItem } from "@/components/stats/stats-cards";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { useApp } from "@/context/app-context";
@@ -321,6 +325,7 @@ function OrientedDashboard() {
         }
         title="Dashboard"
       />
+      <SidebarShortcutTip />
 
       <div className="mt-4">
         <StatsCards isLoading={isLoading} items={stats} />
@@ -378,5 +383,19 @@ function OrientedDashboard() {
         </div>
       </div>
     </div>
+  );
+}
+
+/** Desktop only: phones have no sidebar shortcut. */
+function SidebarShortcutTip() {
+  const isMobile = useIsMobile();
+  const modifier = useShortcutModifier();
+  if (isMobile) {
+    return null;
+  }
+  return (
+    <TipStrip className="mt-4" id="sidebar-shortcut">
+      Press <Kbd>{modifier}B</Kbd> to collapse or expand the sidebar.
+    </TipStrip>
   );
 }
