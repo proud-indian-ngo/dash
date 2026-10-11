@@ -9,6 +9,8 @@ type RuleFieldType = "int" | "text" | "time";
 
 interface RuleField {
   field: string;
+  /** Help text after the default, for limits beyond the field's type. */
+  hint?: string;
   label: string;
   type: RuleFieldType;
 }
@@ -16,6 +18,8 @@ interface RuleField {
 interface RuleCard {
   description: string;
   fields: readonly RuleField[];
+  /** Extra help under the held switch. */
+  heldHint?: string;
   heldLabel: string;
   kind: SocialRuleKind;
   title: string;
@@ -27,10 +31,20 @@ export const RULE_CARDS: readonly RuleCard[] = [
     description: "The weekly schedule of upcoming sessions.",
     fields: [
       { field: "buildTime", label: "Build time", type: "time" },
-      { field: "postTime", label: "Post time", type: "time" },
+      {
+        field: "postTime",
+        hint: "After the build time, with an HH:00 in between: runs are hourly.",
+        label: "Post time",
+        type: "time",
+      },
       { field: "minRows", label: "Minimum rows", type: "int" },
       { field: "maxRows", label: "Maximum rows", type: "int" },
-      { field: "title", label: "Title", type: "text" },
+      {
+        field: "title",
+        hint: "One line, up to 120 characters.",
+        label: "Title",
+        type: "text",
+      },
     ],
     heldLabel: "Hold schedules for approval",
     kind: "schedule",
@@ -55,8 +69,15 @@ export const RULE_CARDS: readonly RuleCard[] = [
       },
       { field: "photosMax", label: "Most photos", type: "int" },
       { field: "reelMinSeconds", label: "Shortest reel (s)", type: "int" },
-      { field: "closingLine", label: "Closing line", type: "text" },
+      {
+        field: "closingLine",
+        hint: "One line, up to 120 characters.",
+        label: "Closing line",
+        type: "text",
+      },
     ],
+    heldHint:
+      "Recaps whose photo consent is not cleared stay held regardless of this setting.",
     heldLabel: "Hold recaps for approval",
     kind: "recap",
     title: "Recap",
@@ -65,7 +86,12 @@ export const RULE_CARDS: readonly RuleCard[] = [
     description: "Calls for volunteers before sessions that need more.",
     fields: [
       { field: "postTime", label: "Post time", type: "time" },
-      { field: "daysOut", label: "Days before the session", type: "int" },
+      {
+        field: "daysOut",
+        hint: "1 to 14 days.",
+        label: "Days before the session",
+        type: "int",
+      },
     ],
     heldLabel: "Hold volunteer calls for approval",
     kind: "volunteerCall",
@@ -75,13 +101,23 @@ export const RULE_CARDS: readonly RuleCard[] = [
     description: "The monthly impact card on LinkedIn.",
     fields: [
       { field: "buildTime", label: "Build time", type: "time" },
-      { field: "postTime", label: "Post time", type: "time" },
+      {
+        field: "postTime",
+        hint: "After the build time when posting on the build day.",
+        label: "Post time",
+        type: "time",
+      },
       {
         field: "postDaysAfterBuild",
         label: "Post days after build",
         type: "int",
       },
-      { field: "line", label: "Thank-you line", type: "text" },
+      {
+        field: "line",
+        hint: "One line, up to 120 characters.",
+        label: "Thank-you line",
+        type: "text",
+      },
     ],
     heldLabel: "Hold impact posts for approval",
     kind: "impact",

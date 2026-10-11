@@ -533,13 +533,40 @@ const ruleInt = (min: number, max: number) => {
   });
 };
 const ruleHeld = z.boolean({ error: "Use true or false" });
+/** True when `text` has a control character (U+0000–U+001F, U+007F), e.g. a newline. */
+function hasControlCharacter(text: string): boolean {
+  for (let i = 0; i < text.length; i += 1) {
+    const code = text.charCodeAt(i);
+    if (code <= 0x1f || code === 0x7f) {
+      return true;
+    }
+  }
+  return false;
+}
+
 const ruleText = z
   .string({ error: `Use 1 to ${SOCIAL_RULE_TEXT_MAX} characters` })
   .trim()
   .min(1, { error: `Use 1 to ${SOCIAL_RULE_TEXT_MAX} characters` })
   .max(SOCIAL_RULE_TEXT_MAX, {
     error: `Use 1 to ${SOCIAL_RULE_TEXT_MAX} characters`,
+  })
+  .refine((text) => !hasControlCharacter(text), {
+    error: "Use one line without control characters",
   });
+
+const minutesOf = (time: string) =>
+  Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
+
+/**
+ * The Worker's cron runs at the top of every hour, so the schedule is built
+ * on the first HH:00 at or after `buildTime`, which must come before
+ * `postTime`.
+ */
+export function hasHourMarkBetween(buildTime: string, postTime: string) {
+  const firstHourMark = Math.ceil(minutesOf(buildTime) / 60) * 60;
+  return firstHourMark < minutesOf(postTime);
+}
 
 /**
  * Display copy of the pipeline's own defaults (the Worker owns them). Used for
@@ -585,6 +612,18 @@ export const socialRulesSchema = z.strictObject({
       postTime: ruleTime,
     })
     .partial()
+    .refine(
+      (impact) =>
+        (impact.postDaysAfterBuild ??
+          SOCIAL_RULES_DEFAULTS.impact.postDaysAfterBuild) > 0 ||
+        (impact.postTime ?? SOCIAL_RULES_DEFAULTS.impact.postTime) >
+          (impact.buildTime ?? SOCIAL_RULES_DEFAULTS.impact.buildTime),
+      {
+        error:
+          "Post after the build time, or set post days after build to 1 or more",
+        path: ["postTime"],
+      }
+    )
     .optional(),
   recap: z
     .strictObject({
@@ -621,11 +660,32 @@ export const socialRulesSchema = z.strictObject({
         (schedule.maxRows ?? SOCIAL_RULES_DEFAULTS.schedule.maxRows),
       { error: "Use at least the minimum rows", path: ["maxRows"] }
     )
+    .refine(
+      (schedule) =>
+        (schedule.postTime ?? SOCIAL_RULES_DEFAULTS.schedule.postTime) >
+        (schedule.buildTime ?? SOCIAL_RULES_DEFAULTS.schedule.buildTime),
+      { error: "Post after the build time", path: ["postTime"] }
+    )
+    .refine(
+      (schedule) => {
+        const buildTime =
+          schedule.buildTime ?? SOCIAL_RULES_DEFAULTS.schedule.buildTime;
+        const postTime =
+          schedule.postTime ?? SOCIAL_RULES_DEFAULTS.schedule.postTime;
+        // Reported once: an inverted window already failed the check above.
+        return postTime <= buildTime || hasHourMarkBetween(buildTime, postTime);
+      },
+      {
+        error:
+          "Leave a full hour (HH:00) from the build time until before the post time; the pipeline runs on the hour",
+        path: ["postTime"],
+      }
+    )
     .optional(),
   story: z.strictObject({ held: ruleHeld }).partial().optional(),
   volunteerCall: z
     .strictObject({
-      daysOut: ruleInt(0, 14),
+      daysOut: ruleInt(1, 14),
       held: ruleHeld,
       postTime: ruleTime,
     })

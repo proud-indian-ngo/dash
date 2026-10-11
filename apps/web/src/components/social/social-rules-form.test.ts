@@ -69,4 +69,13 @@ describe("posting rules form", () => {
     expect(ruleDefault("recap", "postTime")).toBe("20:00");
     expect(ruleDefault("schedule", "minRows")).toBe("3");
   });
+
+  it("shows the schedule window error on the post time", () => {
+    const form = rulesToForm({});
+    form.values["schedule.buildTime"] = "18:30";
+    expect(formToRules(form).errors).toEqual({
+      "schedule.postTime":
+        "Leave a full hour (HH:00) from the build time until before the post time; the pipeline runs on the hour",
+    });
+  });
 });

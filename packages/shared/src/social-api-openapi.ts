@@ -179,11 +179,14 @@ const RULE_KIND_DESCRIPTIONS: Record<
   keyof typeof SOCIAL_RULES_DEFAULTS,
   string
 > = {
-  impact: "LinkedIn impact post.",
-  recap: "Recap after a session. `photosMax` ≥ `slideshowMinPhotos`.",
-  schedule: "Weekly schedule. `minRows` ≤ `maxRows`.",
+  impact:
+    "LinkedIn impact post. `postDaysAfterBuild` > 0 or `postTime` > `buildTime`.",
+  recap:
+    "Recap after a session. `photosMax` ≥ `slideshowMinPhotos`. Recaps whose photo consent is not cleared stay held whatever `held` says.",
+  schedule:
+    "Weekly schedule. `minRows` ≤ `maxRows`; `buildTime` < `postTime`, and [`buildTime`, `postTime`) contains a top-of-hour instant (HH:00) because the run is hourly.",
   story: "Schedule story.",
-  volunteerCall: "Volunteer call before a session.",
+  volunteerCall: "Volunteer call before a session (`daysOut` 1–14).",
 };
 
 /**
@@ -214,7 +217,7 @@ function rulesSchema(): SchemaObject {
   }
   return {
     ...schema,
-    description: `Posting rules the run merges over its own defaults; every field is optional and an absent one means the pipeline default. Times are "HH:MM" (24-hour) in ${SOCIAL_TIMEZONE}. \`{}\` when unset or when the stored value is invalid.`,
+    description: `Posting rules the run merges over its own defaults; every field is optional and an absent one means the pipeline default. Times are "HH:MM" (24-hour) in ${SOCIAL_TIMEZONE}. Text fields are trimmed, one line, without control characters. Cross-field rules use the default for an unset side. \`{}\` when unset or when the stored value is invalid.`,
   };
 }
 

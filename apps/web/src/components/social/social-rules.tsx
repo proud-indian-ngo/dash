@@ -121,87 +121,95 @@ export function SocialRulesSettings({ stored }: { stored: string }) {
           defaults. Save or reset to replace them.
         </div>
       ) : null}
-      {RULE_CARDS.map(({ description, fields, heldLabel, kind, title }) => {
-        const heldId = domId(`${kind}.held`);
-        return (
-          <Card key={kind} size="sm">
-            <CardHeader>
-              <CardTitle>{title}</CardTitle>
-              <CardDescription>{description}</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-4">
-              {fields.length > 0 ? (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {fields.map(({ field, label, type }) => {
-                    const key = ruleFieldId(kind, field);
-                    const id = domId(key);
-                    const error = errors[key];
-                    const fallback = ruleDefault(kind, field);
-                    return (
-                      <div
-                        className={
-                          type === "text"
-                            ? "grid gap-2 sm:col-span-2"
-                            : "grid gap-2"
-                        }
-                        key={key}
-                      >
-                        <Label htmlFor={id}>{label}</Label>
-                        <Input
-                          aria-describedby={`${id}-help`}
-                          aria-invalid={!!error}
-                          id={id}
-                          inputMode={type === "text" ? undefined : "numeric"}
-                          onChange={(event) =>
-                            setValue(key, event.target.value)
+      {RULE_CARDS.map(
+        ({ description, fields, heldHint, heldLabel, kind, title }) => {
+          const heldId = domId(`${kind}.held`);
+          return (
+            <Card key={kind} size="sm">
+              <CardHeader>
+                <CardTitle>{title}</CardTitle>
+                <CardDescription>{description}</CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-4">
+                {fields.length > 0 ? (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {fields.map(({ field, hint, label, type }) => {
+                      const key = ruleFieldId(kind, field);
+                      const id = domId(key);
+                      const error = errors[key];
+                      const fallback = ruleDefault(kind, field);
+                      return (
+                        <div
+                          className={
+                            type === "text"
+                              ? "grid gap-2 sm:col-span-2"
+                              : "grid gap-2"
                           }
-                          placeholder={fallback}
-                          value={form.values[key] ?? ""}
-                        />
-                        {error ? (
-                          <p
-                            className="text-destructive text-xs"
-                            id={`${id}-help`}
-                            role="alert"
-                          >
-                            {error}
-                          </p>
-                        ) : (
-                          <p
-                            className="text-muted-foreground text-xs"
-                            id={`${id}-help`}
-                          >
-                            Default: {fallback}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
+                          key={key}
+                        >
+                          <Label htmlFor={id}>{label}</Label>
+                          <Input
+                            aria-describedby={`${id}-help`}
+                            aria-invalid={!!error}
+                            id={id}
+                            inputMode={type === "text" ? undefined : "numeric"}
+                            onChange={(event) =>
+                              setValue(key, event.target.value)
+                            }
+                            placeholder={fallback}
+                            value={form.values[key] ?? ""}
+                          />
+                          {error ? (
+                            <p
+                              className="text-destructive text-xs"
+                              id={`${id}-help`}
+                              role="alert"
+                            >
+                              {error}
+                            </p>
+                          ) : (
+                            <p
+                              className="text-muted-foreground text-xs"
+                              id={`${id}-help`}
+                            >
+                              Default: {fallback}.{hint ? ` ${hint}` : ""}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <Label htmlFor={heldId}>{heldLabel}</Label>
+                    <p className="text-muted-foreground text-sm">
+                      Lands in Buffer drafts for the approver to schedule.
+                      Default: {SOCIAL_RULES_DEFAULTS[kind].held ? "on" : "off"}
+                      .
+                    </p>
+                    {heldHint ? (
+                      <p className="text-muted-foreground text-sm">
+                        {heldHint}
+                      </p>
+                    ) : null}
+                  </div>
+                  <Switch
+                    checked={form.held[kind]}
+                    id={heldId}
+                    onCheckedChange={(checked) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        held: { ...prev.held, [kind]: checked },
+                      }))
+                    }
+                  />
                 </div>
-              ) : null}
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0 flex-1 space-y-0.5">
-                  <Label htmlFor={heldId}>{heldLabel}</Label>
-                  <p className="text-muted-foreground text-sm">
-                    Lands in Buffer drafts for the approver to schedule.
-                    Default: {SOCIAL_RULES_DEFAULTS[kind].held ? "on" : "off"}.
-                  </p>
-                </div>
-                <Switch
-                  checked={form.held[kind]}
-                  id={heldId}
-                  onCheckedChange={(checked) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      held: { ...prev.held, [kind]: checked },
-                    }))
-                  }
-                />
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
+              </CardContent>
+            </Card>
+          );
+        }
+      )}
       <div className="flex flex-wrap gap-2">
         <Button disabled={saving} type="submit" variant="outline">
           Save rules

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   buildSocialSettings,
+  hasHourMarkBetween,
   parseSocialRules,
   SOCIAL_MANAGE_CONFIG_KEYS,
   SOCIAL_RULES_CONFIG_KEY,
@@ -35,7 +36,7 @@ const FULL_RULES = {
     title: "Coming up",
   },
   story: { held: true },
-  volunteerCall: { daysOut: 0, held: true, postTime: "18:05" },
+  volunteerCall: { daysOut: 1, held: true, postTime: "18:05" },
 };
 
 const rulesConfig = (value: string) =>
@@ -76,6 +77,7 @@ describe("socialRulesSchema", () => {
     ["photos max below slideshow minimum", { recap: { photosMax: 2 } }],
     ["reel below 5 s", { recap: { reelMinSeconds: 4 } }],
     ["days out above 14", { volunteerCall: { daysOut: 15 } }],
+    ["days out of 0", { volunteerCall: { daysOut: 0 } }],
     ["post days above 6", { impact: { postDaysAfterBuild: 7 } }],
     ["held as a string", { story: { held: "true" } }],
     ["blank text", { recap: { closingLine: "   " } }],
@@ -85,6 +87,134 @@ describe("socialRulesSchema", () => {
     ["number as a string", { volunteerCall: { daysOut: "4" } }],
   ])("rejects %s", (_name, value) => {
     expect(socialRulesSchema.safeParse(value).success).toBe(false);
+  });
+});
+
+const issuesOf = (value: unknown) => {
+  const result = socialRulesSchema.safeParse(value);
+  return result.success
+    ? []
+    : result.error.issues.map((issue) => ({
+        message: issue.message,
+        path: issue.path.join("."),
+      }));
+};
+
+describe("volunteer call days out", () => {
+  it.each([1, 14])("accepts %i", (daysOut) => {
+    expect(issuesOf({ volunteerCall: { daysOut } })).toEqual([]);
+  });
+});
+
+describe("impact timing", () => {
+  it.each([
+    [
+      "same day, posting after the build",
+      { buildTime: "08:00", postTime: "08:01" },
+    ],
+    ["same time on a later day", { postDaysAfterBuild: 1 }],
+    [
+      "earlier time on a later day",
+      { buildTime: "10:00", postDaysAfterBuild: 1, postTime: "09:00" },
+    ],
+    ["the defaults (2 days later)", {}],
+  ])("accepts %s", (_name, impact) => {
+    expect(issuesOf({ impact })).toEqual([]);
+  });
+
+  it.each([
+    ["same day at the same time", { postDaysAfterBuild: 0 }],
+    [
+      "same day before the build",
+      { buildTime: "10:00", postDaysAfterBuild: 0, postTime: "09:59" },
+    ],
+    [
+      "same day before the default build",
+      { postDaysAfterBuild: 0, postTime: "08:00" },
+    ],
+  ])("rejects %s on postTime", (_name, impact) => {
+    expect(issuesOf({ impact })).toEqual([
+      {
+        message:
+          "Post after the build time, or set post days after build to 1 or more",
+        path: "impact.postTime",
+      },
+    ]);
+  });
+});
+
+describe("schedule window", () => {
+  const HOUR_MARK_ERROR =
+    "Leave a full hour (HH:00) from the build time until before the post time; the pipeline runs on the hour";
+
+  it.each([
+    ["build on the hour", { buildTime: "09:00", postTime: "09:01" }],
+    ["an hour mark inside", { buildTime: "09:30", postTime: "10:01" }],
+    ["the defaults", {}],
+    ["only post time, after the default build", { postTime: "10:00" }],
+  ])("accepts %s", (_name, schedule) => {
+    expect(issuesOf({ schedule })).toEqual([]);
+  });
+
+  it("rejects a post time not after the build time, once", () => {
+    for (const schedule of [
+      { buildTime: "10:00", postTime: "10:00" },
+      { buildTime: "10:00", postTime: "09:00" },
+      { postTime: "08:00" },
+    ]) {
+      expect(issuesOf({ schedule })).toEqual([
+        { message: "Post after the build time", path: "schedule.postTime" },
+      ]);
+    }
+  });
+
+  it.each([
+    [
+      "the next hour mark is the post time",
+      { buildTime: "09:30", postTime: "10:00" },
+    ],
+    ["no hour mark inside", { buildTime: "09:15", postTime: "09:45" }],
+    ["only build time, too close to the default post", { buildTime: "18:01" }],
+  ])("rejects %s", (_name, schedule) => {
+    expect(issuesOf({ schedule })).toEqual([
+      { message: HOUR_MARK_ERROR, path: "schedule.postTime" },
+    ]);
+  });
+
+  it("finds the first hour mark at or after the build time", () => {
+    expect(hasHourMarkBetween("09:00", "09:01")).toBe(true);
+    expect(hasHourMarkBetween("09:01", "10:00")).toBe(false);
+    expect(hasHourMarkBetween("09:01", "10:01")).toBe(true);
+    expect(hasHourMarkBetween("23:01", "23:59")).toBe(false);
+  });
+});
+
+describe("rule text", () => {
+  it.each([
+    ["a newline", "Thank you\nfor showing up"],
+    ["a tab", "Thank\tyou"],
+    ["a carriage return", "Thank you\r for showing up"],
+    ["NUL", "Thanks\u0000"],
+    ["DEL", "Thanks\u007f all"],
+  ])("rejects %s inside the text", (_name, closingLine) => {
+    expect(issuesOf({ recap: { closingLine } })).toEqual([
+      {
+        message: "Use one line without control characters",
+        path: "recap.closingLine",
+      },
+    ]);
+  });
+
+  it("trims surrounding whitespace, newlines included, before checking", () => {
+    expect(
+      socialRulesSchema.parse({ impact: { line: "\n  Thanks all.  \n" } })
+    ).toEqual({ impact: { line: "Thanks all." } });
+  });
+
+  it("accepts punctuation and non-Latin text", () => {
+    expect(
+      issuesOf({ schedule: { title: "This week — धन्यवाद! (2/3)" } })
+    ).toEqual([]);
   });
 });
 
