@@ -106,6 +106,16 @@ describe("postedRecordSchema", () => {
 });
 
 describe("handleSocialPostedWrite", () => {
+  it("answers 413 for a body over 64 KB", async () => {
+    const { deps, upsertSocialPost } = createDeps();
+    const response = await handleSocialPostedWrite(
+      post({ ...record, eventName: "n".repeat(70_000) }),
+      deps
+    );
+    expect(response.status).toBe(413);
+    expect(upsertSocialPost).not.toHaveBeenCalled();
+  });
+
   it("upserts the record under an audit entry for the token and answers 204", async () => {
     const { deps, runAuditedAction, upsertSocialPost } = createDeps();
 

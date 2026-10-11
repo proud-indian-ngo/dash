@@ -22,6 +22,7 @@ export * from "./reimbursement";
 export * from "./scheduled-message";
 export * from "./shared";
 export * from "./social-post";
+export * from "./social-run";
 export * from "./team";
 export * from "./team-event";
 export * from "./vendor";

@@ -123,6 +123,16 @@ describe("handleSocialNotifyRequest", () => {
     expect(noPhone.enqueueWhatsApp).not.toHaveBeenCalled();
   });
 
+  it("returns 413 for a body over 64 KB", async () => {
+    const { deps, enqueueWhatsApp } = createDeps();
+    const response = await handleSocialNotifyRequest(
+      post({ ...body, lines: ["x".repeat(70_000)] }),
+      deps
+    );
+    expect(response.status).toBe(413);
+    expect(enqueueWhatsApp).not.toHaveBeenCalled();
+  });
+
   it("returns 400 for an invalid body and the auth error for a bad token", async () => {
     const { deps } = createDeps();
     expect(

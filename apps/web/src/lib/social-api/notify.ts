@@ -79,7 +79,11 @@ export async function handleSocialNotifyRequest(
   if (auth.error) {
     return auth.error;
   }
-  const parsed = notifyRequestSchema.safeParse(await readJsonBody(request));
+  const read = await readJsonBody(request);
+  if ("tooLarge" in read) {
+    return read.tooLarge;
+  }
+  const parsed = notifyRequestSchema.safeParse(read.body);
   if (!parsed.success) {
     return socialJsonError(
       400,

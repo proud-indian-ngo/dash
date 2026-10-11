@@ -1,6 +1,6 @@
 # Social API
 
-> **Load when**: `/api/social/v1`, social-artifacts pipeline, `social_api_token`, `social:token`, `requireSocialToken`, `social_post`, `event_partner`, post-event social form fields (`children_attended`, `social_notes`, `social_completed_at`, `volunteers_needed`), signed photo links, `SOCIAL_MEDIA_SIGNING_SECRET`, `social_approver_user_id`, social digest.
+> **Load when**: `/api/social/v1`, social-artifacts pipeline, `social_api_token`, `social:token`, `requireSocialToken`, `social_post`, `event_partner`, post-event social form fields (`children_attended`, `social_notes`, `social_completed_at`, `volunteers_needed`), signed photo links, `SOCIAL_MEDIA_SIGNING_SECRET`, `social_approver_user_id`, social digest, `social_run`, `social_paused`, `social.manage`, Social page (`/social`), `socialPost.drop`.
 > **Related**: `recurring-events.md`, `file-uploads.md`, `notifications.md`, `caching.md`
 
 Machine-facing API for the social-artifacts generator (Instagram and LinkedIn posts). Contract: `social-artifacts/docs/strategy/dashboard-api-spec.md`; the consumer's typed client (`social-artifacts/worker/src/pipeline/dashboard.ts`) is the source of truth for response shapes. No browser consumer, so no CORS.
@@ -27,6 +27,8 @@ All under `apps/web/src/routes/api/social/v1/`; handlers with injectable depende
 | `POST posted` | `social:write` | Upsert on (event id, channel, kind, buffer post id); optional `occurrenceDate` (YYYY-MM-DD) and `eventName` are stored and updated by a repeat; audited as `social.posted.record` with actor role `social-api` (target `teamEvent` only for a bare uuid, `teamEventSeries` with the series id for a composite id, otherwise `socialPost` without an id); 204 |
 | `GET posted?eventId=` or `GET posted?from=&to=` | `social:write` or `events:read` | Exactly one form, else 400. `{ posted: PostedRecord[] }`, `occurrenceDate` and `eventName` null when unset. The window form (same validation as `events`) returns records whose `occurrence_date` is in the window, or whose `occurrence_date` is null and `event_id` is `<uuid>:<YYYY-MM-DD>` with the date in the window |
 | `POST notify` | `social:write` | WhatsApp digest to the approver; 204 |
+| `GET settings` | `events:read` | `{ paused, pausedKinds }` from app_config `social_paused` and `social_paused_kinds` (see [Pause](#pause)); `Cache-Control: no-store` |
+| `POST runs` | `social:write` | One pipeline run report (see [Runs](#runs)); 204 |
 | `GET openapi.json` | none | `@pi-dash/shared/social-api-openapi` |
 
 ### Events
@@ -41,6 +43,10 @@ All under `apps/web/src/routes/api/social/v1/`; handlers with injectable depende
 - `attendance` (children, checked-in volunteers, session hours to one decimal), `photos.count` (usable photos: approved, Immich asset set, `mime_type` `image/*`, not `do_not_use`) and `socialNotes` stay null until `social_completed_at` is set. `photos.consentCleared` is always false until the consent process exists.
 - `startTime`/`endTime` are `HH:mm` in India; `programme` is inferred from the team name, `"general"` when unknown; `venue.name` is the public area.
 
+### Request bodies
+
+`POST runs`, `posted` and `notify` read their JSON through `readJsonBody` (`lib/social-api/shared.ts`), which refuses bodies over 64 KB with 413: by `Content-Length` before reading, and by the actual size when the header is missing or wrong.
+
 ### Photos and signed links
 
 The photos endpoint reads `event_photo` rows with status `approved`, `immich_asset_id` set and `mime_type` starting `image/` (the signed media proxy serves only those rows too). Usable photos rank first, then by `coalesce(taken_at, created_at)`; the cap of 12 applies after ranking, so `do_not_use` photos are still returned with the flag but never displace usable ones. Up to 60 candidates are read in that order, so later uploads are not starved by photos without a capture time. When `width` or `height` is null the asset is looked up once in Immich `GET /api/assets/{id}` (EXIF size, rotated orientations swapped; `dateTimeOriginal` then `fileCreatedAt`), at most 4 lookups at a time per request, and the result persisted; a size Immich does not know is stored as `0` ("unknown, checked") so the asset is not fetched again, and an unknown capture time falls back to the upload time.
@@ -50,6 +56,18 @@ Links are `/api/social/v1/media/{photoId}/{variant}?exp=<unix>&sig=<hex>`, where
 ### Stats
 
 Sessions are `team_event` rows with `social_completed_at` set and `cancelled_at` null whose start falls in the India-time month (`summarizeSocialSessions` in `@pi-dash/shared/social-api`). `children` sums `children_attended`, `volunteers` counts distinct users marked present, `hours` sums session hours, `newOptimists` counts active users created in the month, `partners` are distinct partner names (with series inheritance) of public sessions only: private sessions count towards sessions, children, volunteers and hours, but their partners are never published. `allTime` computes active users, hours and children over every completed, non-cancelled row; app_config overrides replace each value when set to a non-negative number.
+
+### Pause
+
+`GET settings` is read by the generator at the start of every run. `paused` is true only when `social_paused` is exactly `"true"`; then the hourly run does nothing (no planning, rendering, recording or Buffer queueing). `pausedKinds` lists the kinds in `social_paused_kinds` (comma-separated; unknown values are ignored, order is `schedule`, `recap`, `volunteer-call`, `impact`, `story`) and the run skips posts of those kinds. Posts already queued in Buffer are not touched by a pause; drop them (below) and delete them in Buffer. Parsing lives in `buildSocialSettings` / `parseSocialPausedKinds` (`@pi-dash/shared/social-api`).
+
+### Runs
+
+`POST runs` takes `{ startedAt, finishedAt, tick: "hourly" | "digest", eventsSeen, planned, rendered, recorded, dropped, skipped, errors, digestSent }` (strict; counts are non-negative integers, `finishedAt` may not precede `startedAt`). `skipped` and `errors` are refused beyond 1,000 entries or 10,000 characters an entry, and otherwise capped: the first 50 entries are kept, each cut to 500 characters. `insertSocialRun` (`packages/db/src/queries/social-api.ts`) inserts the row into `social_run` and, in the same transaction, deletes everything but the latest 500 rows (by uuidv7 id). The route is not audited: like a scheduled job, it is the pipeline's own telemetry (classified in `audit-entrypoint-coverage.test.ts`).
+
+### Drop
+
+Holders of `social.manage` can drop a `queued` or `approved` post on the Social page (`socialPost.drop`). The row gets `status = "dropped"`, `dropped_by` (the user) and `dropped_at`. The generator treats `dropped` as final, and `upsertSocialPost` keeps a dropped row dropped when `POST posted` repeats it with `queued` or `approved` (the other fields still update). A repeat reporting `published` wins, because the post went out anyway (for example it was already in Buffer); `dropped_by` and `dropped_at` stay on the row as history. Dropping does not delete the Buffer post; the confirmation tells the user to delete it there.
 
 ### Notify
 
@@ -63,10 +81,22 @@ Body `{ to: "approver", template: "social-digest", lines }` (1–40 lines, 500 c
 | `social_all_time_optimists` | Overrides `allTime.optimists` (historical total, e.g. `3600`) |
 | `social_all_time_hours` | Overrides `allTime.hours` (e.g. `14000`) |
 | `social_all_time_reached` | Overrides `allTime.reached` (e.g. `23000`) |
+| `social_paused` | `"true"` pauses the whole pipeline; `"false"` or unset runs it |
+| `social_paused_kinds` | Comma-separated kinds the run skips (e.g. `recap,impact`); unset when none |
 
-Set them in **Settings → General → Social posts** (`settings.app_config`): a picker of active, unbanned users for the approver, and three optional number fields for the all-time totals. Saving a value uses `appConfig.upsert`; clearing a field (or picking "None") uses `appConfig.remove`, so the API falls back to the computed figure or 503 for a missing approver.
+Set them on the **Social page → Settings** tab (`social.manage`): "Pause all posts", one "Pause … posts" switch per kind (`schedule`, `recap`, `volunteer-call`, `impact`; `story` is reserved and kept if already listed), a picker of active, unbanned users for the approver, and three optional number fields for the all-time totals. Saving a value uses `appConfig.upsert`; clearing a field (or picking "None", or unpausing the last kind) uses `appConfig.remove`, so the API falls back to the computed figure, no paused kinds, or 503 for a missing approver. `appConfig.upsert` / `remove` accept these six keys (`SOCIAL_MANAGE_CONFIG_KEYS` in `@pi-dash/shared/social-api`) from `social.manage`; every other key still needs `settings.app_config`, which may write all keys. API tokens stay in **Settings → API Tokens** (`settings.app_config`).
 
 ## Dashboard UI
+
+### Social page
+
+`/social` (`apps/web/src/routes/_app/social.tsx`, components in `apps/web/src/components/social/`), guarded by `social.manage` in `beforeLoad` and listed in the sidebar's Organization group after Events only with that permission. `social.manage` ("Manage social posts: pause the pipeline, drop queued posts, change social settings") is granted to `super_admin` and `admin` by `syncPermissions`; `finance_admin` is excluded. Three tabs, selected by `?tab=`:
+
+- **Runs** (default): `socialRun.all`, newest first by `started_at`: time (IST), tick, events seen, planned, rendered, recorded, dropped, digest sent and a result badge (OK or the error count). Rows with skipped reasons or errors expand to list them. With no runs, an empty state explains the hourly and daily digest runs.
+- **Posts**: `socialPost.all`, newest first by `scheduled_for`: scheduled for (IST), kind, channel, event (name and occurrence date; a link to `/events/$id` when the event id is a bare uuid), status badge (dropped rows add who and when), Buffer id. Status, kind and channel filters, with status as view tabs. Queued and approved rows have a **Drop post** row action behind a confirmation.
+- **Settings**: the pause switches, the digest approver and the all-time totals (see [app_config keys](#app_config-keys)).
+
+Both Zero queries return nothing without `social.manage`; `social_run` has no mutators. User names never come from synced user rows: the approver picker and the "dropped by" names use the `getSocialPeople` server function (`apps/web/src/functions/social-people.ts`, loader in `apps/web/src/lib/social-people.ts`, `social.manage` or `users.view`), which returns ids and names only: active, unbanned, non-external users as approver candidates, plus the named ids (the current approver) and everyone who dropped a post. Zero 1.9 has no column projection, so `socialPost.all` has no user relation.
 
 ### Social recap (post-event form)
 
@@ -92,7 +122,8 @@ The details card lists the effective partners (an exception's own, otherwise its
 | `teamEvent.undoSocialRecap({ eventId, now })` | same as above |
 | `eventPhoto.setDoNotUse({ id, doNotUse })` | approved photos only; `events.manage_photos`, or `events.manage_attendance` / team lead |
 | `teamEvent.create` / `update` / `updateSeries` with `volunteersNeeded`, `partners` | the existing `events.create` / `events.edit` or team lead gates |
-| `appConfig.upsert` / `appConfig.remove` | `settings.app_config` |
+| `appConfig.upsert` / `appConfig.remove` | `settings.app_config` for any key; `social.manage` for the six social keys only (`assertCanWriteAppConfig`) |
+| `socialPost.drop({ id, now })` | `social.manage`; `queued` or `approved` posts only; stamps `dropped_by` / `dropped_at` |
 
 All go through the central Zero mutation audit; `childrenAttended`, `socialNotes`, `markReady`, `doNotUse`, `partners` and `volunteersNeeded` are allowed as changed-field names (values are never stored). Shared limits live in `@pi-dash/shared/social-recap`.
 
@@ -101,4 +132,5 @@ All go through the central Zero mutation audit; `childrenAttended`, `socialNotes
 - `team_event`: `volunteers_needed` (event form), `children_attended`, `social_notes`, `social_completed_at` (social recap card).
 - `event_partner`: partner name and optional Instagram handle and LinkedIn slug per event row; exposed to Zero as `teamEvent.partners`.
 - `event_photo`: `do_not_use`, `width`, `height`, `taken_at`.
-- `social_post`: the posted log; `event_id` is the social API event id as the generator sent it (never rewritten when an occurrence is materialised), so not a foreign key; `occurrence_date` (indexed) and `event_name` are set for event posts.
+- `social_post`: the posted log; `event_id` is the social API event id as the generator sent it (never rewritten when an occurrence is materialised), so not a foreign key; `occurrence_date` (indexed) and `event_name` are set for event posts; `dropped_by` (user, set null on delete) and `dropped_at` are set by `socialPost.drop`; names resolve through `getSocialPeople`.
+- `social_run`: pipeline run reports (`POST runs`), at most 500 rows; `skipped` and `errors` are jsonb string arrays. In Zero, read-only.

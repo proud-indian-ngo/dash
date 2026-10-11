@@ -27,6 +27,7 @@ import { notificationMutators } from "./mutators/notification";
 import { notificationPreferenceMutators } from "./mutators/notification-preference";
 import { reimbursementMutators } from "./mutators/reimbursement";
 import { scheduledMessageMutators } from "./mutators/scheduled-message";
+import { socialPostMutators } from "./mutators/social-post";
 import { teamMutators } from "./mutators/team";
 import { teamEventMutators } from "./mutators/team-event";
 import { vendorMutators } from "./mutators/vendor";
@@ -62,6 +63,7 @@ export const mutators = defineMutators({
   notificationPreference: notificationPreferenceMutators,
   reimbursement: reimbursementMutators,
   scheduledMessage: scheduledMessageMutators,
+  socialPost: socialPostMutators,
   team: teamMutators,
   teamEvent: teamEventMutators,
   vendor: vendorMutators,

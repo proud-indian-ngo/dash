@@ -13,7 +13,7 @@ This file is the source for generated `AGENTS.md` and `CLAUDE.md`. Apply changes
 | Zero | Synced schema, queries, mutators | `packages/zero/` |
 | Auth and permissions | Better Auth configuration and permission resolution | `packages/auth/`, `packages/db/src/permissions.ts` |
 | Public events feed | Unauthenticated upcoming-events API for proudindian.ngo and its website sign-up links | `apps/web/src/routes/api/public/events.ts`, `packages/shared/src/public-events.ts`, `packages/shared/src/public-events-openapi.ts` (OpenAPI, served at `/api/public/openapi.json`), `packages/db/src/queries/public-events.ts`, `packages/shared/src/event-redirect.ts`, `packages/auth/src/register-interest.ts`, `apps/web/src/routes/_auth/verify-email.tsx` |
-| Social API | Bearer-token API for the social-artifacts pipeline: events, photos with signed links, stats, posted log, WhatsApp digest | `apps/web/src/routes/api/social/v1/`, `apps/web/src/lib/social-api/`, `apps/web/src/lib/social-api-auth.ts`, `packages/shared/src/social-api.ts`, `packages/db/src/queries/social-api.ts`, `scripts/social-token.ts` (`bun run social:token`), `apps/web/src/functions/social-api-tokens.ts` and `apps/web/src/components/settings/sections/api-tokens-section.tsx` (Settings → API Tokens), `apps/web/src/components/teams/events/event-social-recap.tsx` (lead recap form) |
+| Social API | Bearer-token API for the social-artifacts pipeline: events, photos with signed links, stats, posted log, WhatsApp digest, pause settings, run reports; the Social page (`social.manage`) lists runs and posts, drops queued posts and holds the pause switches | `apps/web/src/routes/api/social/v1/`, `apps/web/src/lib/social-api/`, `apps/web/src/lib/social-api-auth.ts`, `packages/shared/src/social-api.ts`, `packages/db/src/queries/social-api.ts`, `scripts/social-token.ts` (`bun run social:token`), `apps/web/src/functions/social-api-tokens.ts` and `apps/web/src/components/settings/sections/api-tokens-section.tsx` (Settings → API Tokens), `apps/web/src/components/teams/events/event-social-recap.tsx` (lead recap form), `apps/web/src/routes/_app/social.tsx` and `apps/web/src/components/social/` (Social page) |
 | Audit ledger | Immutable action schema and permission in DB; capture, API, and viewer in web | `packages/db/src/schema/audit-log.ts`, `apps/web/src/lib/audit.ts`, `apps/web/src/routes/api/audit-log.ts`, `apps/web/src/routes/_app/audit-log.tsx` |
 | Jobs and notifications | pg-boss handlers and multi-channel delivery | `packages/jobs/`, `packages/notifications/` |
 | Environment | Server and web environment contracts | `packages/env/`, `.env.sample` |
@@ -69,7 +69,7 @@ Read the named chapter directly when its detailed behavior is needed; do not rea
 | Better Auth, sessions, sign-in | `docs/architecture/auth.md` |
 | Permissions, roles, authorization checks | `docs/architecture/authorization.md` |
 | Recurring events and RRULE | `docs/architecture/recurring-events.md` |
-| Social API, bearer tokens, signed photo links, posted log, social digest | `docs/architecture/social-api.md` |
+| Social API, bearer tokens, signed photo links, posted log, social digest, Social page, pause switches, run reports | `docs/architecture/social-api.md` |
 | Vendor payments and invoice approval | `docs/architecture/vendor-payments.md` |
 | pg-boss, notifications, WhatsApp delivery | `docs/architecture/notifications.md`, `docs/architecture/jobs.md` |
 | R2 uploads, attachments, Immich | `docs/architecture/file-uploads.md` |

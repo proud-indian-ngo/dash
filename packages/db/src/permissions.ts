@@ -335,6 +335,15 @@ export const PERMISSIONS = [
     name: "Manage Roles",
   },
 
+  // ── Social ──
+  {
+    category: "social",
+    description:
+      "Manage social posts: pause the pipeline, drop queued posts, change social settings",
+    id: "social.manage",
+    name: "Manage Social Posts",
+  },
+
   // ── Jobs ──
   {
     category: "jobs",
@@ -455,6 +464,7 @@ const adminExcluded = new Set<PermissionId>([
 
 const financeAdminExcluded = new Set<PermissionId>([
   "audit_log.view",
+  "social.manage",
   "requests.edit_all_statuses",
   "users.create",
   "users.edit",
@@ -473,7 +483,7 @@ export const ADMIN_PERMISSIONS: readonly PermissionId[] = PERMISSIONS.map(
   (p) => p.id
 ).filter((id) => !(adminExcluded.has(id) || systemOnlyPermissionIds.has(id)));
 
-/** Permissions for the finance_admin role — all except user CRUD, app settings, and jobs */
+/** Permissions for the finance_admin role — all except user CRUD, app settings, social posts and jobs */
 export const FINANCE_ADMIN_PERMISSIONS: readonly PermissionId[] =
   PERMISSIONS.map((p) => p.id).filter(
     (id) => !(financeAdminExcluded.has(id) || systemOnlyPermissionIds.has(id))

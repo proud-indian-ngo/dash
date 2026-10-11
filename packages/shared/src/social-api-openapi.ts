@@ -3,11 +3,17 @@ import {
   SOCIAL_NOTIFY_MAX_LINE_LENGTH,
   SOCIAL_NOTIFY_MAX_LINES,
   SOCIAL_PHOTOS_MAX,
+  SOCIAL_RUN_MAX_MESSAGE_LENGTH,
+  SOCIAL_RUN_MAX_MESSAGES,
+  SOCIAL_RUN_RETENTION,
   SOCIAL_TIMEZONE,
   type SocialEvent,
   type SocialMonthlyStats,
   type SocialPhoto,
   socialEventStatusValues,
+  socialPostKinds,
+  socialRunTickValues,
+  type SocialSettingsResponse,
 } from "./social-api";
 
 /**
@@ -165,6 +171,42 @@ const POSTED_PROPERTIES: Record<string, SchemaObject> = {
   },
 };
 
+const SETTINGS_PROPERTIES: Record<keyof SocialSettingsResponse, SchemaObject> =
+  {
+    paused: {
+      description:
+        "Pause all posts: the run plans, renders and records nothing.",
+      type: "boolean",
+    },
+    pausedKinds: {
+      description: "Post kinds the run skips; `story` is reserved.",
+      items: { enum: [...socialPostKinds], type: "string" },
+      type: "array",
+      uniqueItems: true,
+    },
+  };
+
+const runMessages = (description: string): SchemaObject => ({
+  description: `${description} At most 1000 entries of 10000 characters; entries after the first ${SOCIAL_RUN_MAX_MESSAGES} are dropped and each is cut to ${SOCIAL_RUN_MAX_MESSAGE_LENGTH} characters.`,
+  items: { maxLength: 10_000, type: "string" },
+  maxItems: 1000,
+  type: "array",
+});
+
+const RUN_PROPERTIES: Record<string, SchemaObject> = {
+  digestSent: { type: "boolean" },
+  dropped: count,
+  errors: runMessages("Errors the run hit."),
+  eventsSeen: count,
+  finishedAt: { format: "date-time", type: "string" },
+  planned: count,
+  recorded: count,
+  rendered: count,
+  skipped: runMessages("Why planned posts were skipped."),
+  startedAt: { format: "date-time", type: "string" },
+  tick: { enum: [...socialRunTickValues], type: "string" },
+};
+
 const POSTED_OPTIONAL_INPUT = new Set(["eventName", "occurrenceDate"]);
 
 const json = (schema: SchemaObject | { $ref: string }) => ({
@@ -202,6 +244,8 @@ export function buildSocialApiOpenApi(baseUrl: string) {
           ),
         },
         SocialEvent: objectSchema(EVENT_PROPERTIES),
+        SocialRunInput: objectSchema(RUN_PROPERTIES),
+        SocialSettings: objectSchema(SETTINGS_PROPERTIES),
         SocialMonthlyStats: objectSchema(STATS_PROPERTIES),
         SocialPhoto: {
           ...objectSchema(PHOTO_PROPERTIES),
@@ -317,6 +361,7 @@ export function buildSocialApiOpenApi(baseUrl: string) {
           responses: {
             204: { description: "Queued (or suppressed by the kill switch)." },
             400: errorResponse("The body is invalid."),
+            413: errorResponse("The body is over 64 KB."),
             503: errorResponse("No approver is configured."),
             ...authErrors,
           },
@@ -372,13 +417,50 @@ export function buildSocialApiOpenApi(baseUrl: string) {
           responses: {
             204: {
               description:
-                "Recorded (a repeat updates status, time, occurrenceDate and eventName).",
+                "Recorded (a repeat updates status, time, occurrenceDate and eventName; a post dropped on the dashboard stays dropped unless the repeat reports it published).",
             },
             400: errorResponse("The body is invalid."),
+            413: errorResponse("The body is over 64 KB."),
             ...authErrors,
           },
           security: scope("social:write"),
           summary: "Record a queued post",
+        },
+      },
+      "/api/social/v1/runs": {
+        post: {
+          description: `Called once at the end of every hourly and digest run. Only the latest ${SOCIAL_RUN_RETENTION} reports are kept; the dashboard lists them on the Social page.`,
+          operationId: "recordSocialRun",
+          requestBody: {
+            content: json({ $ref: "#/components/schemas/SocialRunInput" }),
+            required: true,
+          },
+          responses: {
+            204: { description: "Stored." },
+            400: errorResponse(
+              "The body is invalid (also when finishedAt is before startedAt)."
+            ),
+            413: errorResponse("The body is over 64 KB."),
+            ...authErrors,
+          },
+          security: scope("social:write"),
+          summary: "Report a pipeline run",
+        },
+      },
+      "/api/social/v1/settings": {
+        get: {
+          description:
+            "Read at the start of every run. `paused` stops the whole run; `pausedKinds` skips those kinds. Set on the dashboard Social page (permission `social.manage`).",
+          operationId: "getSocialSettings",
+          responses: {
+            200: {
+              content: json({ $ref: "#/components/schemas/SocialSettings" }),
+              description: "Current pause settings (not cached).",
+            },
+            ...authErrors,
+          },
+          security: scope("events:read"),
+          summary: "Pipeline pause settings",
         },
       },
       "/api/social/v1/stats": {

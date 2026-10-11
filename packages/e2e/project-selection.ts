@@ -40,7 +40,7 @@ const roleOnlySpecs = {
     "vendors/vendor-payment-unhappy-paths.spec.ts",
     "vendors/vendor-unhappy-paths.spec.ts",
   ],
-  admin: ["roles/admin-flows.spec.ts"],
+  admin: ["roles/admin-flows.spec.ts", "social/social-page.spec.ts"],
   finance_admin: [],
   volunteer: [
     "authorization/api-authorization-expanded.spec.ts",
