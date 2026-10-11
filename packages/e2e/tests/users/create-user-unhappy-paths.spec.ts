@@ -18,7 +18,7 @@ test.describe("Create user unhappy paths (admin)", () => {
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
     await expect(
-      dialog.getByRole("heading", { name: /Add User|Create User/i })
+      dialog.getByRole("heading", { name: /Add User|Create user/i })
     ).toBeVisible();
 
     // Fill in the volunteer's existing email

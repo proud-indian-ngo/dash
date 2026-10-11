@@ -3,8 +3,8 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { Loader } from "@/components/loader";
 import { RecordNotFound } from "@/components/shared/not-found-state";
+import { DetailPageSkeleton } from "@/components/shared/page-skeleton";
 import { TeamDetail } from "@/components/teams/team-detail";
 import { preloadRouteQuery } from "@/lib/route-preload";
 
@@ -30,7 +30,7 @@ function TeamDetailRouteComponent() {
   if (!team && result.type !== "complete") {
     return (
       <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-        <Loader />
+        <DetailPageSkeleton />
       </div>
     );
   }

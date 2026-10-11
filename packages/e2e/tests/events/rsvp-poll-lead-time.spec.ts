@@ -16,7 +16,7 @@ const LEAD_PRESETS = [
 ];
 
 async function openCreateEvent(page: Page) {
-  await page.getByRole("button", { name: "Create Event" }).click();
+  await page.getByRole("button", { name: "Create event" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   return dialog;
@@ -97,7 +97,9 @@ test.describe("RSVP poll lead time", () => {
       .getByRole("option", { exact: true, name: "3 days before" })
       .click();
 
-    await dialog.getByRole("button", { exact: true, name: "Create" }).click();
+    await dialog
+      .getByRole("button", { exact: true, name: "Create event" })
+      .click();
     await expect(dialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText(/^Event created/)).toBeVisible({
       timeout: 10_000,

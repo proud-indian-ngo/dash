@@ -36,7 +36,7 @@ test.describe("Reimbursements list", () => {
     await reimbursements.list.getNewReimbursementButton().click();
     await page.waitForURL(/\/reimbursements\/new/);
     await expect(
-      page.getByRole("heading", { name: "New Reimbursement" })
+      page.getByRole("heading", { name: "New reimbursement" })
     ).toBeVisible();
   });
 

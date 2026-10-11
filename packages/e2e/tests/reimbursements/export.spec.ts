@@ -32,7 +32,7 @@ test.describe("Export ZIP (admin)", () => {
 
     await page.goto("/export");
     await expect(
-      page.getByRole("heading", { name: "Export Data" })
+      page.getByRole("heading", { name: "Export data" })
     ).toBeVisible();
   });
 

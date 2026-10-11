@@ -171,7 +171,7 @@ export function VendorPaymentTransactions({
                 icon={PlusSignIcon}
                 strokeWidth={2}
               />
-              {canApprove ? "Record Payment" : "Request Payment"}
+              {canApprove ? "Record payment" : "Request payment"}
             </Button>
           ) : null}
         </div>

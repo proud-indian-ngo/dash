@@ -6,9 +6,9 @@ import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import * as z from "zod";
 
-import { Loader } from "@/components/loader";
 import { RecordNotFound } from "@/components/shared/not-found-state";
 import { PageHeader } from "@/components/shared/page-header";
+import { DetailPageSkeleton } from "@/components/shared/page-skeleton";
 import { VendorPaymentDetail } from "@/components/vendor-payments/vendor-payment-detail";
 import { VendorPaymentForm } from "@/components/vendor-payments/vendor-payment-form";
 import { useApp } from "@/context/app-context";
@@ -58,7 +58,7 @@ function VendorPaymentEditPane({
           </Button>
         }
         description="Update submission details."
-        title="Edit Vendor Payment"
+        title="Edit vendor payment"
       />
       <div className="mt-6">
         <VendorPaymentForm
@@ -93,7 +93,7 @@ function VendorPaymentDetailRouteComponent() {
   if (isLoading) {
     return (
       <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
-        <Loader />
+        <DetailPageSkeleton />
       </div>
     );
   }

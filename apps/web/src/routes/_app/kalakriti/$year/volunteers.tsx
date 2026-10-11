@@ -31,8 +31,8 @@ import {
   type VolunteerRosterItem,
   VolunteersTable,
 } from "@/components/kalakriti/volunteers-table";
-import { Loader } from "@/components/loader";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { TableSkeleton } from "@/components/shared/page-skeleton";
 import {
   getKalakritiAddVolunteersForPicker,
   getKalakritiVolunteersForPicker,
@@ -430,7 +430,7 @@ function KalakritiVolunteersPage() {
       ) : null}
 
       {dashboardFilterPending ? (
-        <Loader />
+        <TableSkeleton />
       ) : (
         <VolunteersTable
           actorResponsibilities={actorResponsibilities}

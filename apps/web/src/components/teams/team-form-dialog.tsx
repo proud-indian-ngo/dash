@@ -184,7 +184,7 @@ export function TeamFormDialog({
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="sm:max-w-(--dialog-md)">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit Team" : "Create Team"}</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit team" : "Create team"}</DialogTitle>
           <DialogDescription className="sr-only">
             {isEdit ? "Edit team details" : "Create a new team"}
           </DialogDescription>

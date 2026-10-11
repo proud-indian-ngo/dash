@@ -20,10 +20,10 @@ test.describe("Event member management (admin)", () => {
     page,
   }) => {
     await page
-      .getByRole("button", { exact: true, name: "Add Volunteer" })
+      .getByRole("button", { exact: true, name: "Add volunteer" })
       .click();
     await expect(
-      page.getByRole("dialog").getByRole("heading", { name: "Add Volunteer" })
+      page.getByRole("dialog").getByRole("heading", { name: "Add volunteer" })
     ).toBeVisible({ timeout: 5000 });
   });
 });

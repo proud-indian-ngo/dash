@@ -207,13 +207,13 @@ export function EventMembersSection({
                 icon={UserGroupIcon}
                 strokeWidth={2}
               />
-              Mark All Present
+              Mark all present
             </Button>
           ) : null}
           {canManage ? (
             <Button onClick={onAddMember} size="sm" variant="default">
               <HugeiconsIcon className="size-4" icon={PlusSignIcon} />
-              Add Volunteer
+              Add volunteer
             </Button>
           ) : null}
         </div>

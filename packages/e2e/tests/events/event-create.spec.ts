@@ -15,12 +15,12 @@ test.describe("Create event (admin)", () => {
   });
 
   test("opens create event dialog with correct fields", async ({ page }) => {
-    await page.getByRole("button", { name: "Create Event" }).click();
+    await page.getByRole("button", { name: "Create event" }).click();
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
     await expect(
-      dialog.getByRole("heading", { name: "Create Event" })
+      dialog.getByRole("heading", { name: "Create event" })
     ).toBeVisible();
 
     await expect(
@@ -36,13 +36,15 @@ test.describe("Create event (admin)", () => {
   });
 
   test("Create with an empty name shows the name error", async ({ page }) => {
-    await page.getByRole("button", { name: "Create Event" }).click();
+    await page.getByRole("button", { name: "Create event" }).click();
     const dialog = page.getByRole("dialog");
 
     await expect(
       dialog.getByRole("textbox", { exact: true, name: "Name" })
     ).toHaveValue("");
-    await dialog.getByRole("button", { exact: true, name: "Create" }).click();
+    await dialog
+      .getByRole("button", { exact: true, name: "Create event" })
+      .click();
     await expect(dialog.getByText("Name is required")).toBeVisible();
     await expect(dialog).toBeVisible();
   });
@@ -50,7 +52,7 @@ test.describe("Create event (admin)", () => {
   test("creates a one-time event successfully", async ({ page }) => {
     const eventName = `E2E Event ${Date.now()}`;
 
-    await page.getByRole("button", { name: "Create Event" }).click();
+    await page.getByRole("button", { name: "Create event" }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
 
@@ -63,7 +65,9 @@ test.describe("Create event (admin)", () => {
     const tomorrow = new Date(Date.now() + 86_400_000);
     await pickDate(dialog, "Start Time", tomorrow);
 
-    await dialog.getByRole("button", { exact: true, name: "Create" }).click();
+    await dialog
+      .getByRole("button", { exact: true, name: "Create event" })
+      .click();
 
     await expect(dialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText("Event created")).toBeVisible();
@@ -74,7 +78,7 @@ test.describe("Create event (admin)", () => {
   test("creates a weekly recurring event successfully", async ({ page }) => {
     const eventName = `E2E Weekly ${Date.now()}`;
 
-    await page.getByRole("button", { name: "Create Event" }).click();
+    await page.getByRole("button", { name: "Create event" }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
 
@@ -90,7 +94,9 @@ test.describe("Create event (admin)", () => {
     await dialog.getByText("None (one-time)").click();
     await page.getByRole("option", { name: "Weekly" }).click();
 
-    await dialog.getByRole("button", { exact: true, name: "Create" }).click();
+    await dialog
+      .getByRole("button", { exact: true, name: "Create event" })
+      .click();
 
     await expect(dialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText("Event created")).toBeVisible();
@@ -105,7 +111,7 @@ test.describe("Create event (admin)", () => {
   test("recurrence builder shows preview of upcoming dates", async ({
     page,
   }) => {
-    await page.getByRole("button", { name: "Create Event" }).click();
+    await page.getByRole("button", { name: "Create event" }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
 
@@ -134,14 +140,14 @@ test.describe("Create event (admin)", () => {
   test("mobile drawer scrolls to form actions", async ({ page }) => {
     await page.setViewportSize({ height: 932, width: 430 });
 
-    await page.getByRole("button", { name: "Create Event" }).click();
+    await page.getByRole("button", { name: "Create event" }).click();
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
 
     const createButton = dialog.getByRole("button", {
       exact: true,
-      name: "Create",
+      name: "Create event",
     });
 
     await expect(createButton).not.toBeInViewport();

@@ -115,7 +115,7 @@ function InvoiceFormContent({
       <FormActions
         cancelLabel="Cancel"
         onCancel={stableOnCancel0}
-        submitLabel={mode === "submit" ? "Submit Invoice" : "Update Invoice"}
+        submitLabel={mode === "submit" ? "Submit invoice" : "Update invoice"}
         submittingLabel={mode === "submit" ? "Submitting..." : "Updating..."}
       />
     </FormLayout>
@@ -143,7 +143,7 @@ export function InvoiceFormDialog({
       <DialogContent className="sm:max-w-(--dialog-md)">
         <DialogHeader>
           <DialogTitle>
-            {mode === "submit" ? "Upload Invoice" : "Edit Invoice"}
+            {mode === "submit" ? "Upload invoice" : "Edit invoice"}
           </DialogTitle>
           <DialogDescription>
             {mode === "submit"

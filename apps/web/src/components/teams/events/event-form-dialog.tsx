@@ -777,7 +777,7 @@ function EventFormContent({
 
       <FormActions
         onCancel={stableOnCancel7}
-        submitLabel={isEdit ? "Save" : "Create"}
+        submitLabel={isEdit ? "Save changes" : "Create event"}
         submittingLabel={isEdit ? "Saving..." : "Creating..."}
       />
     </FormLayout>
@@ -796,10 +796,10 @@ export function EventFormDialog({
 }: EventFormDialogProps) {
   const isEdit = mode ? mode === "edit" : !!initialValues;
   const isDuplicate = !isEdit && !!initialValues;
-  let dialogTitle = "Create Event";
+  let dialogTitle = "Create event";
 
   if (isEdit) {
-    dialogTitle = "Edit Event";
+    dialogTitle = "Edit event";
   } else if (isDuplicate) {
     dialogTitle = "Duplicate Event";
   }

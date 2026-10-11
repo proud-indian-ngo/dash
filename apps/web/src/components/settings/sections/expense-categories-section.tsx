@@ -57,7 +57,7 @@ function CategoryForm({
         <TextareaField label="Description" name="description" />
         <FormActions
           onCancel={onCancel}
-          submitLabel="Save"
+          submitLabel="Save category"
           submittingLabel="Saving..."
         />
       </div>
@@ -227,7 +227,7 @@ export function ExpenseCategoriesSection() {
 
       {inlineMode?.kind === "create" ? (
         <div className="rounded-md border p-3">
-          <p className="mb-3 text-sm font-medium">Add Category</p>
+          <p className="mb-3 text-sm font-medium">Add category</p>
           <CategoryForm
             initialValues={{ description: "", name: "" }}
             onCancel={stableOnCancel1}
@@ -243,7 +243,7 @@ export function ExpenseCategoriesSection() {
               {inlineMode?.kind === "edit" &&
               inlineMode.category.id === category.id ? (
                 <div className="rounded-md border p-3">
-                  <p className="mb-3 text-sm font-medium">Edit Category</p>
+                  <p className="mb-3 text-sm font-medium">Edit category</p>
                   <CategoryForm
                     initialValues={{
                       description: category.description ?? "",

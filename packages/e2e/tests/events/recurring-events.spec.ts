@@ -24,7 +24,7 @@ test.describe("Recurring events", () => {
   }) => {
     const eventName = `E2E Recurring Weekly ${Date.now()}`;
 
-    await page.getByRole("button", { name: "Create Event" }).click();
+    await page.getByRole("button", { name: "Create event" }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
 
@@ -46,7 +46,9 @@ test.describe("Recurring events", () => {
     // Verify preview shows upcoming dates
     await expect(dialog.getByText("Next")).toBeVisible({ timeout: 5000 });
 
-    await dialog.getByRole("button", { exact: true, name: "Create" }).click();
+    await dialog
+      .getByRole("button", { exact: true, name: "Create event" })
+      .click();
     await expect(dialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText("Event created")).toBeVisible();
 
@@ -95,7 +97,7 @@ test.describe("Recurring events", () => {
   }) => {
     const eventName = `E2E Monthly ${Date.now()}`;
 
-    await page.getByRole("button", { name: "Create Event" }).click();
+    await page.getByRole("button", { name: "Create event" }).click();
     const dialog = page.getByRole("dialog");
 
     await dialog
@@ -119,7 +121,9 @@ test.describe("Recurring events", () => {
     await countInput.clear();
     await countInput.fill("6");
 
-    await dialog.getByRole("button", { exact: true, name: "Create" }).click();
+    await dialog
+      .getByRole("button", { exact: true, name: "Create event" })
+      .click();
     await expect(dialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText("Event created")).toBeVisible();
     await fillTableSearch(page, "Search events...", eventName);

@@ -24,7 +24,7 @@ test.describe("Event feedback — admin", () => {
 
     // Create a past event with feedback enabled
     const pastEventName = `E2E Feedback Event ${Date.now()}`;
-    await page.getByRole("button", { name: "Create Event" }).click();
+    await page.getByRole("button", { name: "Create event" }).click();
     const createDialog = page.getByRole("dialog");
     await expect(createDialog).toBeVisible();
 
@@ -45,7 +45,7 @@ test.describe("Event feedback — admin", () => {
       .click();
 
     await createDialog
-      .getByRole("button", { exact: true, name: "Create" })
+      .getByRole("button", { exact: true, name: "Create event" })
       .click();
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
     await searchTeamEvents(page, pastEventName);

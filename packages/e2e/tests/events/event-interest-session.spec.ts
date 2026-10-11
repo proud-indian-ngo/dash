@@ -44,7 +44,7 @@ test.describe("Event interest in a recurring session", () => {
 
     try {
       await page.goto(`/events/${seriesId}?occDate=${occDate}`);
-      await page.getByRole("button", { name: "Show Interest" }).click();
+      await page.getByRole("button", { name: "Show interest" }).click();
       await page.getByRole("button", { name: "Submit Interest" }).click();
 
       // The session is materialized and opened, showing the request on it.

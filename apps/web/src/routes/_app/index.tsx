@@ -220,7 +220,7 @@ function WelcomeDashboard() {
           </p>
           <Button nativeButton={false} render={<Link to="/events" />}>
             <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
-            Browse Events
+            Browse events
           </Button>
         </CardContent>
       </Card>
@@ -360,7 +360,12 @@ function OrientedDashboard() {
       <SidebarShortcutTip />
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-        <StatsCards isLoading={isLoading} items={stats} variant="chips" />
+        <StatsCards
+          className="min-w-0 flex-1 max-sm:basis-full"
+          isLoading={isLoading}
+          items={stats}
+          variant="chips"
+        />
         {canViewAllRequests && (
           <Button
             className="text-muted-foreground"

@@ -12,7 +12,7 @@ import type { FoodTableRow } from "@/components/kalakriti/food-table";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { ScanDialog } from "@/components/kalakriti/scan-dialog";
 import { useFoodAttendees } from "@/components/kalakriti/use-food-attendees";
-import { Loader } from "@/components/loader";
+import { TableSkeleton } from "@/components/shared/page-skeleton";
 import { useDashboardDestinationFilter } from "@/lib/kalakriti-dashboard-filter";
 import { getKalakritiScanActivities } from "@/lib/kalakriti-event-day-policy";
 import {
@@ -121,7 +121,7 @@ function KalakritiFoodPage() {
         </p>
       </details>
       {dashboardFilterPending ? (
-        <Loader />
+        <TableSkeleton />
       ) : (
         <FoodMealUndo
           key={scopeKey}

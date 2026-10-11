@@ -203,7 +203,7 @@ export function EventCard({
       case "showInterest":
         return (
           <Button onClick={handleShowInterest} size="sm">
-            Show Interest
+            Show interest
           </Button>
         );
       default:

@@ -227,7 +227,7 @@ export function VendorPaymentFields({
         cancelLabel="Cancel"
         disableWhenInvalid={false}
         onCancel={onCancel}
-        submitLabel={isEdit ? "Save changes" : "Submit"}
+        submitLabel={isEdit ? "Save changes" : "Submit vendor payment"}
         submittingLabel={isEdit ? "Saving..." : "Submitting..."}
       />
 

@@ -20,7 +20,7 @@ test.describe("Vendor unhappy paths (admin)", () => {
 
     // Clear any pre-filled fields and try to submit
     // The Create button should be disabled or validation errors shown
-    const createBtn = dialog.getByRole("button", { name: "Create" });
+    const createBtn = dialog.getByRole("button", { name: "Add vendor" });
 
     // If create is disabled (preferred pattern), just verify that
     if (await createBtn.isDisabled({ timeout: 1000 }).catch(() => false)) {
@@ -64,7 +64,7 @@ test.describe("Vendor unhappy paths (admin)", () => {
     await createDialog
       .getByRole("textbox", { name: "IFSC Code" })
       .fill("SBIN0001234");
-    await clickUntilDialogCloses(createDialog, "Create");
+    await clickUntilDialogCloses(createDialog, "Add vendor");
     await expect(page.getByText("Vendor created").first()).toBeVisible();
     await page.getByPlaceholder("Search vendors...").fill(vendorName);
     await expect(page.getByText(vendorName).first()).toBeVisible({

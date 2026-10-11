@@ -78,7 +78,7 @@ test.describe("Role management (super_admin)", () => {
     await page.getByRole("button", { name: "Add role" }).click();
     const dialog = page.getByRole("dialog");
     await expect(
-      dialog.getByRole("heading", { name: "Create Role" })
+      dialog.getByRole("heading", { name: "Create role" })
     ).toBeVisible();
 
     await dialog.getByLabel("ID (slug)").fill(roleId);

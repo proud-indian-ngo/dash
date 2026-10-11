@@ -158,14 +158,14 @@ function TransactionFormContent({
   });
 
   const isEdit = mode === "edit";
-  let submitLabel = "Request Payment";
+  let submitLabel = "Request payment";
   let submittingLabel = "Requesting...";
 
   if (isEdit) {
     submitLabel = "Update Payment";
     submittingLabel = "Updating...";
   } else if (canApprove) {
-    submitLabel = "Record Payment";
+    submitLabel = "Record payment";
     submittingLabel = "Recording...";
   }
 
@@ -232,7 +232,7 @@ export function TransactionFormDialog({
   });
 
   const isEdit = mode === "edit";
-  let title = "Request Payment";
+  let title = "Request payment";
   let description =
     "Request a payment against this vendor payment. An approver will record the payment details.";
 
@@ -240,7 +240,7 @@ export function TransactionFormDialog({
     title = "Edit Payment";
     description = "Update this payment record.";
   } else if (canApprove) {
-    title = "Record Payment";
+    title = "Record payment";
     description = "Record a payment made against this vendor payment.";
   }
 

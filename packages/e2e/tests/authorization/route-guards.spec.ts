@@ -82,7 +82,7 @@ test.describe("Route guards — super-admin access", () => {
     await page.goto("/export");
     await expect(page).toHaveURL(/\/export$/);
     await expect(
-      page.getByRole("heading", { name: "Export Data" })
+      page.getByRole("heading", { name: "Export data" })
     ).toBeVisible();
   });
 });

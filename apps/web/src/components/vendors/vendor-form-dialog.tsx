@@ -170,7 +170,7 @@ function VendorFormContent({
       <FormActions
         disableWhenInvalid={false}
         onCancel={stableOnCancel0}
-        submitLabel={isEdit ? "Save" : "Create"}
+        submitLabel={isEdit ? "Save changes" : "Add vendor"}
         submittingLabel={isEdit ? "Saving..." : "Creating..."}
       />
     </FormLayout>
@@ -206,7 +206,7 @@ export function VendorFormDialog({
     <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogContent className="sm:max-w-(--dialog-md)">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit Vendor" : "Add New Vendor"}</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit vendor" : "Add vendor"}</DialogTitle>
           <DialogDescription className="sr-only">
             {isEdit ? "Edit vendor details" : "Create a new vendor"}
           </DialogDescription>

@@ -1379,7 +1379,7 @@ export function EventDetail({
                   Cancelling...
                 </>
               ) : (
-                "Cancel Event"
+                "Cancel event"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -1409,7 +1409,7 @@ export function EventDetail({
       />
 
       <ConfirmDialog
-        confirmLabel="Post Poll"
+        confirmLabel="Post poll"
         description={
           <>
             Post RSVP poll for <strong>{event.name}</strong> to the WhatsApp

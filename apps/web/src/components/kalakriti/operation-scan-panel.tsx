@@ -377,6 +377,9 @@ function OperationCapture({
                 }
               />
               <FormActions
+                // Scan panels sit at the screen edge where toasts appear;
+                // keep the action left so a toast never covers the next scan.
+                className="justify-start"
                 submitLabel={SUBMIT_LABELS[type]}
                 submittingLabel="Recording..."
                 disabled={!ready || busy}

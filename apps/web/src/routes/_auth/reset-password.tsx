@@ -29,7 +29,7 @@ function RouteComponent() {
     <AuthLayout panel={<LoginInfoPanel />}>
       {error || !token ? (
         <div className="flex flex-col items-center gap-4">
-          <h1 className="sr-only">Reset Password</h1>
+          <h1 className="sr-only">Reset password</h1>
           <p className="text-destructive text-center text-sm">
             {error || "Invalid or expired reset link."}
           </p>
@@ -42,7 +42,7 @@ function RouteComponent() {
         </div>
       ) : (
         <>
-          <h1 className="sr-only">Reset Password</h1>
+          <h1 className="sr-only">Reset password</h1>
           <ResetPasswordForm />
         </>
       )}

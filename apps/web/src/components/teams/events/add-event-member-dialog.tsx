@@ -125,7 +125,7 @@ function AddEventMemberFormContent({
           <FormActions
             onCancel={stableOnCancel}
             submitLabel={
-              count > 1 ? `Add ${count} Volunteers` : "Add Volunteer"
+              count > 1 ? `Add ${count} volunteers` : "Add volunteer"
             }
             submittingLabel="Adding..."
           />
@@ -156,7 +156,7 @@ export function AddEventMemberDialog({
     <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogContent className="sm:max-w-(--dialog-md)">
         <DialogHeader>
-          <DialogTitle>Add Volunteer</DialogTitle>
+          <DialogTitle>Add volunteer</DialogTitle>
           <DialogDescription className="sr-only">
             Add a volunteer to this event
           </DialogDescription>

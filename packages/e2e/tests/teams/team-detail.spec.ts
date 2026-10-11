@@ -193,7 +193,7 @@ test.describe("Team detail — volunteer view", () => {
       "Member"
     );
 
-    // But should NOT see Add Member button
+    // But should NOT see Add member button
     await expect(teamDetail.getAddMemberButton()).toBeHidden();
   });
 });

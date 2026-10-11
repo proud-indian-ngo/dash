@@ -58,7 +58,7 @@ const exportNavItem: NavItem = {
 const rolesNavItem: NavItem = {
   icon: SecurityLockIcon,
   subItems: [
-    { isHidden: true, title: "Edit Role", url: "/settings/roles/$roleId" },
+    { isHidden: true, title: "Edit role", url: "/settings/roles/$roleId" },
   ],
   title: "Roles",
   url: "/settings/roles",
@@ -67,7 +67,7 @@ const rolesNavItem: NavItem = {
 const reimbursementsNavItem: NavItem = {
   icon: Invoice01Icon,
   subItems: [
-    { isHidden: true, title: "New Reimbursement", url: "/reimbursements/new" },
+    { isHidden: true, title: "New reimbursement", url: "/reimbursements/new" },
     {
       isHidden: true,
       title: "Reimbursement Details",
@@ -83,7 +83,7 @@ const vendorPaymentsNavItem: NavItem = {
   subItems: [
     {
       isHidden: true,
-      title: "New Vendor Payment",
+      title: "New vendor payment",
       url: "/vendor-payments/new",
     },
     {

@@ -19,7 +19,7 @@ test.describe("Event attendance (admin)", () => {
 
     // Create a past event so attendance section appears
     const eventName = `E2E Attendance ${Date.now()}`;
-    await page.getByRole("button", { name: "Create Event" }).click();
+    await page.getByRole("button", { name: "Create event" }).click();
     const createDialog = page.getByRole("dialog");
     await expect(createDialog).toBeVisible();
 
@@ -33,7 +33,7 @@ test.describe("Event attendance (admin)", () => {
     await createDialog.getByRole("switch", { name: "Public" }).click();
 
     await createDialog
-      .getByRole("button", { exact: true, name: "Create" })
+      .getByRole("button", { exact: true, name: "Create event" })
       .click();
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
     await searchTeamEvents(page, eventName);
@@ -65,7 +65,7 @@ test.describe("Event attendance (volunteer)", () => {
 
     // Attendance controls should NOT be visible to volunteers
     await expect(
-      page.getByRole("button", { name: /Mark All Present/ })
+      page.getByRole("button", { name: /Mark all present/ })
     ).not.toBeVisible();
   });
 });

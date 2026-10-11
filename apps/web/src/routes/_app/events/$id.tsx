@@ -6,8 +6,8 @@ import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import * as z from "zod";
 
-import { Loader } from "@/components/loader";
 import { RecordNotFound } from "@/components/shared/not-found-state";
+import { DetailPageSkeleton } from "@/components/shared/page-skeleton";
 import { EventDetail } from "@/components/teams/events/event-detail";
 import type { EventRow } from "@/components/teams/events/events-table";
 import { applyOccurrenceDate } from "@/components/teams/events/events-table-helpers";
@@ -274,7 +274,7 @@ function EventDetailRouteComponent() {
   if (!event && eventStatus.type !== "complete") {
     return (
       <div className="flex h-full items-center justify-center pt-8">
-        <Loader />
+        <DetailPageSkeleton />
       </div>
     );
   }

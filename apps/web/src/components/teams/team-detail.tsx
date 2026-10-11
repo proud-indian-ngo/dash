@@ -479,7 +479,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
                     icon={PlusSignIcon}
                     strokeWidth={2}
                   />
-                  Create Event
+                  Create event
                 </Button>
               ) : undefined
             }
@@ -511,7 +511,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
           />
         ) : null}
 
-        {/* Create Event Dialog */}
+        {/* Create event Dialog */}
         {canManage ? (
           <EventFormDialog
             onOpenChange={dialog.onOpenChange}
@@ -587,8 +587,8 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
 
         {/* Cancel Event Confirmation */}
         <ConfirmDialog
-          cancelLabel="Keep Event"
-          confirmLabel="Cancel Event"
+          cancelLabel="Keep event"
+          confirmLabel="Cancel event"
           description={`Are you sure you want to cancel "${cancelEvent.payload?.event.name}"? This action cannot be undone and all members will be notified.`}
           loading={cancelEvent.isLoading}
           loadingLabel="Cancelling..."

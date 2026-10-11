@@ -184,7 +184,7 @@ export function StatChip({ item }: { item: StatItem }) {
 
 function StatChipsSkeleton() {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex gap-2 overflow-hidden *:shrink-0 sm:flex-wrap">
       {["sk-1", "sk-2", "sk-3", "sk-4"].map((id) => (
         <Skeleton className="h-8 w-36 rounded-lg" key={id} />
       ))}
@@ -208,8 +208,16 @@ export function StatsCards({
     if (isLoading) {
       return <StatChipsSkeleton />;
     }
+    // Phones: one swipeable row that bleeds to the screen edge, instead of a
+    // stack of chips pushing the table down. Wider screens wrap.
     return (
-      <div className={cn("flex flex-wrap gap-2", className)}>
+      <div
+        className={cn(
+          "flex [scrollbar-width:none] gap-2 overflow-x-auto *:shrink-0 max-sm:-mx-2 max-sm:px-2 sm:flex-wrap [&::-webkit-scrollbar]:hidden",
+          className
+        )}
+        data-slot="stat-chips"
+      >
         {items.map((item) => (
           <StatChip item={item} key={item.label} />
         ))}

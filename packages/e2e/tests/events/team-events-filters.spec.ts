@@ -256,15 +256,15 @@ test.describe("Team events list filters (admin)", () => {
     ).toBeVisible();
   });
 
-  test("admin sees Create Event button", async ({ page }) => {
+  test("admin sees Create event button", async ({ page }) => {
     await expect(
-      page.getByRole("button", { name: "Create Event" })
+      page.getByRole("button", { name: "Create event" })
     ).toBeVisible();
   });
 });
 
 test.describe("Team events list (volunteer permissions)", () => {
-  test("volunteer does NOT see Create Event button on team they don't lead", async ({
+  test("volunteer does NOT see Create event button on team they don't lead", async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
@@ -287,7 +287,7 @@ test.describe("Team events list (volunteer permissions)", () => {
     await waitForZeroReady(page);
 
     await expect(
-      page.getByRole("button", { name: "Create Event" })
+      page.getByRole("button", { name: "Create event" })
     ).not.toBeVisible();
   });
 });

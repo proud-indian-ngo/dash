@@ -246,7 +246,7 @@ export function VendorPaymentInvoiceSection({
                 icon={Upload04Icon}
                 strokeWidth={2}
               />
-              {wasRejected ? "Resubmit Invoice" : "Upload Invoice"}
+              {wasRejected ? "Resubmit invoice" : "Upload invoice"}
             </Button>
           ) : null}
           {showEditButton ? (
@@ -256,7 +256,7 @@ export function VendorPaymentInvoiceSection({
               type="button"
               variant="outline"
             >
-              Edit Invoice
+              Edit invoice
             </Button>
           ) : null}
         </div>
@@ -277,7 +277,7 @@ export function VendorPaymentInvoiceSection({
                 icon={CheckmarkCircle01Icon}
                 strokeWidth={2}
               />
-              Approve Invoice
+              Approve invoice
             </Button>
             <Button
               onClick={stableOnClick3}
@@ -289,7 +289,7 @@ export function VendorPaymentInvoiceSection({
                 icon={Cancel01Icon}
                 strokeWidth={2}
               />
-              Reject Invoice
+              Reject invoice
             </Button>
           </div>
         ) : null}

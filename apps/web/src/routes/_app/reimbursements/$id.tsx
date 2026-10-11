@@ -6,11 +6,11 @@ import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import * as z from "zod";
 
-import { Loader } from "@/components/loader";
 import { ReimbursementDetail } from "@/components/reimbursements/reimbursement-detail";
 import { ReimbursementForm } from "@/components/reimbursements/reimbursement-form";
 import { RecordNotFound } from "@/components/shared/not-found-state";
 import { PageHeader } from "@/components/shared/page-header";
+import { DetailPageSkeleton } from "@/components/shared/page-skeleton";
 import { useApp } from "@/context/app-context";
 import type { RequestDetailData, RequestType } from "@/lib/reimbursement-types";
 import { REQUEST_TYPE_LABELS } from "@/lib/reimbursement-types";
@@ -96,7 +96,7 @@ function ReimbursementDetailRouteComponent() {
   if (isLoading) {
     return (
       <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
-        <Loader />
+        <DetailPageSkeleton />
       </div>
     );
   }

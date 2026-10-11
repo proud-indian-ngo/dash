@@ -77,7 +77,7 @@ async function selectOrCreateVendor(page: Page, vendorNamePrefix: string) {
     .getByRole("textbox", { name: "Account Number" })
     .fill(uniqueSuffix.slice(-10).padStart(10, "1"));
   await dialog.getByRole("textbox", { name: "IFSC Code" }).fill("SBIN0001234");
-  await clickUntilDialogCloses(dialog, /Create/i);
+  await clickUntilDialogCloses(dialog, /Add vendor/i);
   await waitForZeroReady(page);
 
   if (await hasSelectedVendor(page)) {
@@ -115,7 +115,7 @@ export async function createVendorPayment(
   await page.goto("/vendor-payments/new");
   await waitForZeroReady(page);
   await expect(
-    page.getByRole("heading", { name: "New Vendor Payment" })
+    page.getByRole("heading", { name: "New vendor payment" })
   ).toBeVisible();
 
   await page.getByLabel("Title").fill(title);
@@ -132,7 +132,7 @@ export async function createPendingVP(page: Page): Promise<string> {
   await page.goto("/vendor-payments/new");
   await waitForZeroReady(page);
   await expect(
-    page.getByRole("heading", { name: "New Vendor Payment" })
+    page.getByRole("heading", { name: "New vendor payment" })
   ).toBeVisible();
 
   const title = `E2E VP Unhappy ${Date.now()}`;
@@ -155,7 +155,7 @@ export async function createVolunteerVP(
   await page.goto("/vendor-payments/new");
   await waitForZeroReady(page);
   await expect(
-    page.getByRole("heading", { name: "New Vendor Payment" })
+    page.getByRole("heading", { name: "New vendor payment" })
   ).toBeVisible();
 
   await page.getByLabel("Title").fill(title);

@@ -10,7 +10,7 @@ export const Route = createFileRoute("/_app/reimbursements/new")({
   beforeLoad: ({ context }) => assertPermission(context, "requests.create"),
   component: NewReimbursementRouteComponent,
   head: () => ({
-    meta: [{ title: `New Reimbursement | ${env.VITE_APP_NAME}` }],
+    meta: [{ title: `New reimbursement | ${env.VITE_APP_NAME}` }],
   }),
 });
 
@@ -27,7 +27,7 @@ function NewReimbursementRouteComponent() {
     <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
       <PageHeader
         description="Fill in the details and add line items for your reimbursement."
-        title="New Reimbursement"
+        title="New reimbursement"
       />
       <div className="mt-6">
         <ReimbursementForm

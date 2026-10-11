@@ -146,7 +146,14 @@ test.describe("Event detail — info display", () => {
       return;
     }
 
-    await expect(page.getByText("Upcoming", { exact: true })).toBeVisible();
+    // The header badge sits beside the title; other sessions on the page can
+    // show their own Upcoming badges.
+    await expect(
+      page
+        .getByRole("heading", { level: 1 })
+        .locator("xpath=..")
+        .getByText("Upcoming", { exact: true })
+    ).toBeVisible();
   });
 });
 

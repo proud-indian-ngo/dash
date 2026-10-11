@@ -122,10 +122,10 @@ test.describe("Kalakriti public schedule", () => {
       await page.getByRole("button", { name: "Show interest" }).click();
       await expect(page).toHaveURL(`/events/${body.edition.eventId}`);
       await waitForZeroReady(page);
-      await page.getByRole("button", { name: "Show Interest" }).click();
+      await page.getByRole("button", { name: "Show interest" }).click();
       await expect(
         page.getByRole("heading", {
-          name: `Show Interest: Kalakriti ${year}`,
+          name: `Show interest: Kalakriti ${year}`,
         })
       ).toBeVisible();
       await page.getByRole("button", { name: "Submit Interest" }).click();

@@ -53,7 +53,7 @@ test.describe("Vendor management (admin)", () => {
       .getByRole("textbox", { name: "IFSC Code" })
       .fill("SBIN0001234");
 
-    await clickUntilDialogCloses(dialog, "Create");
+    await clickUntilDialogCloses(dialog, "Add vendor");
     await page.getByPlaceholder("Search vendors...").fill(vendorName);
     await expect(list.getRowByText(vendorName).first()).toBeVisible({
       timeout: 10_000,
@@ -66,7 +66,7 @@ test.describe("Vendor management (admin)", () => {
     const editDialog = page.getByRole("dialog");
     await expect(editDialog).toBeVisible();
     await expect(
-      editDialog.getByRole("heading", { name: "Edit Vendor" })
+      editDialog.getByRole("heading", { name: "Edit vendor" })
     ).toBeVisible();
 
     await expect(
@@ -75,7 +75,7 @@ test.describe("Vendor management (admin)", () => {
     await editDialog
       .getByRole("textbox", { exact: true, name: "Name" })
       .fill(editedName);
-    await clickUntilDialogCloses(editDialog, "Save");
+    await clickUntilDialogCloses(editDialog, "Save changes");
     await page.getByPlaceholder("Search vendors...").fill(editedName);
     await expect(list.getRowByText(editedName).first()).toBeVisible({
       timeout: 10_000,

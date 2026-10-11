@@ -268,7 +268,7 @@ function UsersRouteComponent() {
         description="Create a new user account with an initial password."
         onOpenChange={setCreateModalOpen}
         open={createModalOpen}
-        title="Create User"
+        title="Create user"
       >
         {createModalOpen ? (
           <UserForm
