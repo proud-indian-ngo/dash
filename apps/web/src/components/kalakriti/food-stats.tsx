@@ -67,10 +67,10 @@ export function FoodStats({
   return (
     <section aria-labelledby="food-stats-title" className="flex flex-col gap-4">
       <div>
-        <h2 className="text-sm font-semibold" id="food-stats-title">
+        <h2 className="sr-only" id="food-stats-title">
           Meals in scope
         </h2>
-        <p className="text-muted-foreground text-xs">All authorized people</p>
+        <p className="sr-only">All authorized people</p>
       </div>
       {!complete && counts ? (
         <p className="text-muted-foreground text-xs" role="status">

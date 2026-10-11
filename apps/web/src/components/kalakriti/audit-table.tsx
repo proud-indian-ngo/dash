@@ -182,7 +182,7 @@ export function KalakritiAuditTable({
   rowCount: number;
   rows: KalakritiAuditRow[];
   timeZone: string;
-  toolbarActions: ReactNode;
+  toolbarActions?: ReactNode;
 }) {
   const columns = useMemo(() => {
     const dateTimeFormatter = new Intl.DateTimeFormat("en-IN", {

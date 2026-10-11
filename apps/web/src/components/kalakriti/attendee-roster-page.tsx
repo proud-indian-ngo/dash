@@ -181,6 +181,32 @@ export function AttendeeRosterPage({
       <KalakritiPageHeader
         kicker={`Kalakriti · ${access.edition.year}`}
         title={`${label}s`}
+        actions={
+          <>
+            {canScanCheckIn ? (
+              <Button
+                disabled={access.edition.lifecycle !== "live"}
+                onClick={() => setScanOpen(true)}
+                type="button"
+                variant="outline"
+              >
+                {access.edition.lifecycle === "live"
+                  ? "Scan check-in"
+                  : "Scan check-in (Live only)"}
+              </Button>
+            ) : null}
+            {canManage ? (
+              <Button onClick={() => setCreateOpen(true)}>Add {label}</Button>
+            ) : null}
+          </>
+        }
+        meta={
+          <p>
+            {kind === "judge"
+              ? "Judges for this Edition and the Competitions they score."
+              : "Guests invited to this Edition, with their event-day check-in."}
+          </p>
+        }
       />
       {result.type === "error" ? (
         <div className="flex flex-wrap items-center gap-2 text-sm" role="alert">
@@ -270,31 +296,6 @@ export function AttendeeRosterPage({
         onEdit={onEdit}
         onAssign={onAssign}
         onRemove={onRemove}
-        toolbarActions={
-          <div className="flex flex-wrap gap-2">
-            {canScanCheckIn ? (
-              <Button
-                className="min-h-11 sm:min-h-10"
-                disabled={access.edition.lifecycle !== "live"}
-                onClick={() => setScanOpen(true)}
-                type="button"
-                variant="outline"
-              >
-                {access.edition.lifecycle === "live"
-                  ? "Scan check-in"
-                  : "Scan check-in (Live only)"}
-              </Button>
-            ) : null}
-            {canManage ? (
-              <Button
-                className="min-h-11 sm:min-h-10"
-                onClick={() => setCreateOpen(true)}
-              >
-                Add {label}
-              </Button>
-            ) : null}
-          </div>
-        }
       />
       {scanOpen && canScanCheckIn && access.edition.lifecycle === "live" ? (
         <ScanDialog

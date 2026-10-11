@@ -170,11 +170,25 @@ function KalakritiInventoryPage() {
       <KalakritiPageHeader
         kicker={`Kalakriti · ${edition.year}`}
         title="Inventory"
+        actions={
+          canManage ? (
+            <>
+              <Button onClick={() => setScanAction("return")} variant="outline">
+                Return
+              </Button>
+              <Button onClick={() => setScanAction("dispatch")}>
+                Dispatch
+              </Button>
+            </>
+          ) : null
+        }
+        meta={
+          <p>
+            Track stock for this Edition. Each purchase, dispatch, return, and
+            correction is recorded in history.
+          </p>
+        }
       />
-      <p className="text-muted-foreground text-sm">
-        Track stock for this edition. Each purchase, dispatch, return, and
-        correction is recorded in history.
-      </p>
       <InventoryStats
         items={items}
         complete={itemsResult.type === "complete"}
@@ -188,12 +202,6 @@ function KalakritiInventoryPage() {
           void setFilter("out_of_stock");
         }}
       />
-      {canManage ? (
-        <div className="flex gap-2">
-          <Button onClick={() => setScanAction("dispatch")}>Dispatch</Button>
-          <Button onClick={() => setScanAction("return")}>Return</Button>
-        </div>
-      ) : null}
       {canManage && scanAction ? (
         <ScanDialog
           editionId={edition.id}

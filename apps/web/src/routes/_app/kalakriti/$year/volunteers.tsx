@@ -364,6 +364,23 @@ function KalakritiVolunteersPage() {
       <KalakritiPageHeader
         kicker={`Kalakriti · ${edition.year}`}
         title="Volunteers"
+        actions={
+          canManage ? (
+            <>
+              <Button onClick={handleCreateOpen} type="button">
+                Create volunteer
+              </Button>
+              <Button onClick={handleAddOpen} type="button" variant="outline">
+                Add volunteers
+              </Button>
+            </>
+          ) : null
+        }
+        meta={
+          <p>
+            Volunteers working this Edition and the responsibilities they hold.
+          </p>
+        }
       />
 
       {rosterResult.type === "complete" ? (
@@ -427,18 +444,6 @@ function KalakritiVolunteersPage() {
           onRemove={handleRemove}
           onRemoveFromEdition={handleRemoveFromEdition}
           onView={handleViewVolunteer}
-          toolbarActions={
-            canManage ? (
-              <div className="flex flex-wrap gap-2">
-                <Button onClick={handleCreateOpen} type="button">
-                  Create volunteer
-                </Button>
-                <Button onClick={handleAddOpen} type="button" variant="outline">
-                  Add volunteers
-                </Button>
-              </div>
-            ) : undefined
-          }
         />
       )}
 

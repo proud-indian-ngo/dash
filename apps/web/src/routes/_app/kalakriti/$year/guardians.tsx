@@ -258,6 +258,17 @@ function KalakritiGuardiansPage() {
       <KalakritiPageHeader
         kicker={`Kalakriti · ${edition.year}`}
         title="Guardians"
+        actions={
+          canManage ? (
+            <Button onClick={handleInviteOpen}>Invite guardian</Button>
+          ) : null
+        }
+        meta={
+          <p>
+            Guardians register Students for their Center. Invite them and manage
+            their login access here.
+          </p>
+        }
       />
 
       {rosterResult.type === "complete" &&
@@ -304,11 +315,6 @@ function KalakritiGuardiansPage() {
         onArchive={handleArchiveGuardian}
         onEdit={handleEditGuardian}
         onView={handleViewGuardian}
-        toolbarActions={
-          canManage ? (
-            <Button onClick={handleInviteOpen}>Invite Guardian</Button>
-          ) : undefined
-        }
       />
 
       <GuardianDetailSheet

@@ -40,10 +40,10 @@ export function CompetitionReadinessSummary({
       className="flex flex-col gap-3"
     >
       <div>
-        <h2 className="text-sm font-semibold" id="competition-readiness-title">
+        <h2 className="sr-only" id="competition-readiness-title">
           Competition readiness
         </h2>
-        <p className="text-muted-foreground text-xs">
+        <p className="sr-only">
           {data?.scopeLabel ?? "Authorized Competitions"}
         </p>
       </div>

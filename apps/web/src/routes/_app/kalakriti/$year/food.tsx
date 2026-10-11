@@ -87,18 +87,15 @@ function KalakritiFoodPage() {
       <KalakritiPageHeader
         kicker={`Kalakriti · ${edition.year}`}
         title="Food"
+        actions={
+          canScan ? (
+            <Button onClick={() => setScanOpen(true)}>Serve meals</Button>
+          ) : null
+        }
+        meta={
+          <p>Who is eligible for meals, and which meals are still to serve.</p>
+        }
       />
-      <p className="text-muted-foreground text-sm">
-        Review currently eligible people and meals awaiting service.
-      </p>
-      {canScan ? (
-        <Button
-          className="min-h-10 max-sm:min-h-11"
-          onClick={() => setScanOpen(true)}
-        >
-          Serve meals
-        </Button>
-      ) : null}
       <FoodStats
         data={data}
         complete={complete}
