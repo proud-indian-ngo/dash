@@ -183,9 +183,19 @@ test.describe("Bank account selection with duplicate names", () => {
         .getByText("Default", { exact: true })
     ).toBeVisible({ timeout: 10_000 });
 
-    // Close the settings dialog
-    await dialog.getByRole("button", { name: "Close" }).click();
-    await expect(dialog).toBeHidden();
+    // The badge is optimistic. Reload until the server has the new default
+    // too, so leaving the page can't cut off the pending mutation.
+    await expect(async () => {
+      const reloaded = await navigateToBanking(page);
+      const card = accountCard(reloaded, duplicateLast4).first();
+      const setDefault = card.getByRole("button", { name: "Set default" });
+      if (await setDefault.isVisible().catch(() => false)) {
+        await setDefault.click();
+      }
+      await expect(card.getByText("Default", { exact: true })).toBeVisible({
+        timeout: 3000,
+      });
+    }).toPass({ timeout: 30_000 });
 
     // Step 3: Open new reimbursement form and verify the default account is selected
     const reimbursements = new ReimbursementPage(page, "reimbursement");
