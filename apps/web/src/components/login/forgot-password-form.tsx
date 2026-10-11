@@ -113,7 +113,9 @@ export function ForgotPasswordForm() {
   return (
     <div className="flex flex-col gap-6">
       <div className="space-y-2">
-        <h2 className="text-2xl font-bold">Forgot your password?</h2>
+        <h2 className="font-display text-2xl font-semibold tracking-tight">
+          Forgot your password?
+        </h2>
         <p className="text-muted-foreground text-sm">
           Enter your email and we'll send you a reset link.
         </p>

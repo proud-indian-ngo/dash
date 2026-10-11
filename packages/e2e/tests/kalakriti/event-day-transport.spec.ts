@@ -567,7 +567,7 @@ test("Center scan sessions mark two Students through four explicitly finalized s
     await guardian.goto("/login");
     await guardian.getByLabel("Email").fill(data.guardianEmail);
     await guardian.getByLabel("Password").fill(data.guardianPassword);
-    await guardian.getByRole("button", { name: "Login", exact: true }).click();
+    await guardian.getByRole("button", { name: "Log in", exact: true }).click();
     await guardian.waitForURL((url) => !url.pathname.startsWith("/login"));
     const food = await foodContext.newPage();
     for (const deniedPage of [guardian, food]) {

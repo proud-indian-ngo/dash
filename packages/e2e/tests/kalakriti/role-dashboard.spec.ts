@@ -102,7 +102,7 @@ test("role dashboards show scoped work, linked actions, and read-only Awards acc
     await guardian.goto("/login");
     await guardian.getByLabel("Email").fill(guardianEmail);
     await guardian.getByLabel("Password").fill(guardianPassword);
-    await guardian.getByRole("button", { name: "Login", exact: true }).click();
+    await guardian.getByRole("button", { name: "Log in", exact: true }).click();
     await guardian.waitForURL((url) => !url.pathname.startsWith("/login"));
     await guardian.goto(`/kalakriti/${year}`);
     await waitForZeroReady(guardian);

@@ -64,7 +64,7 @@ async function fillRegisterForm(
   // The URL changes before the login loader (event summary) settles; the
   // register form stays mounted until then and would take the next fills.
   await expect(
-    page.getByRole("heading", { name: "Login to your account" })
+    page.getByRole("heading", { name: "Log in", exact: true })
   ).toBeVisible({ timeout: 15_000 });
 }
 
@@ -292,7 +292,7 @@ test.describe("Register page", () => {
 
   test("login link navigates to /login", async ({ page }) => {
     await expect(page.getByText("Already have an account?")).toBeVisible();
-    await page.getByText("Login").click();
+    await page.getByRole("link", { name: "Log in" }).click();
     await page.waitForURL("/login");
   });
 });
@@ -470,7 +470,7 @@ test.describe("Public website sign-up links", () => {
       await expect(page.getByTestId("auth-event-info-panel")).toContainText(
         "Join Register URL public event"
       );
-      await expect(page.getByRole("link", { name: "Login" })).toHaveAttribute(
+      await expect(page.getByRole("link", { name: "Log in" })).toHaveAttribute(
         "href",
         `/login?redirect=${encodeURIComponent(linkRedirect)}`
       );
@@ -487,7 +487,7 @@ test.describe("Public website sign-up links", () => {
         "Log in to join Register URL public event"
       );
       await expect(
-        page.getByRole("link", { name: "Register" })
+        page.getByRole("link", { name: "Create an account" })
       ).toHaveAttribute(
         "href",
         `/register?interestEventId=${ids.publicEventId}`
@@ -510,7 +510,7 @@ test.describe("Public website sign-up links", () => {
 
       await page.getByLabel("Email").fill(signup.email);
       await page.locator("#password").fill("Password123!");
-      await page.getByRole("button", { name: "Login" }).click();
+      await page.getByRole("button", { name: "Log in" }).click();
       await page.waitForURL(eventPath, { timeout: 30_000 });
       await expect(page.getByText("Interest Pending")).toBeVisible({
         timeout: 15_000,
@@ -546,7 +546,7 @@ test.describe("Public website sign-up links", () => {
       const signIn = page.waitForRequest("**/api/auth/sign-in/email");
       await page.getByLabel("Email").fill(signup.email);
       await page.locator("#password").fill("Password123!");
-      await page.getByRole("button", { name: "Login" }).click();
+      await page.getByRole("button", { name: "Log in" }).click();
       const signInRequest = await signIn;
       expect(await signInRequest.headerValue("x-auth-event-redirect")).toBe(
         linkRedirect

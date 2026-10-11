@@ -1,40 +1,35 @@
-import { env } from "@pi-dash/env/web";
+import lockupReversed from "@proudindian/design/logo/svg/pi-lockup-compact-reversed.svg";
+import lockup from "@proudindian/design/logo/svg/pi-lockup-compact.svg";
 import type { ReactNode } from "react";
-
-import { DotGridCanvas } from "./dot-grid-canvas";
 
 interface AuthLayoutProps {
   children: ReactNode;
   panel: ReactNode;
 }
 
+/**
+ * Sign-in screens: the form beside a quiet info-wash panel that carries the
+ * welcome text, sign-up steps or the session being joined. Phones show the
+ * form only.
+ */
 export function AuthLayout({ children, panel }: AuthLayoutProps) {
   return (
     <main className="grid min-h-svh lg:grid-cols-2" id="main" tabIndex={-1}>
       <div className="flex flex-col gap-4 p-6 md:p-10">
-        <div className="flex items-center gap-2">
+        <a aria-label="Proud Indian" className="self-start" href="/">
+          <img alt="" className="h-6 w-auto dark:hidden" src={lockup} />
           <img
-            alt={env.VITE_APP_NAME}
-            className="size-8"
-            height={32}
-            src="/favicon-96x96.png"
-            width={32}
+            alt=""
+            className="hidden h-6 w-auto dark:block"
+            src={lockupReversed}
           />
-          <span className="text-lg font-semibold">{env.VITE_APP_NAME}</span>
-        </div>
+        </a>
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-sm">{children}</div>
         </div>
       </div>
-      <div
-        className="text-sidebar-foreground relative hidden overflow-hidden lg:flex lg:items-center lg:justify-center lg:p-10"
-        style={{
-          background:
-            "linear-gradient(to bottom right, var(--auth-panel-from), var(--auth-panel-to))",
-        }}
-      >
-        <DotGridCanvas />
-        <div className="relative z-10">{panel}</div>
+      <div className="bg-info/10 dark:bg-info/14 text-foreground hidden lg:flex lg:items-center lg:justify-center lg:p-10">
+        {panel}
       </div>
     </main>
   );

@@ -161,7 +161,7 @@ test.describe("Sidebar log out", () => {
     await page
       .getByLabel("Password")
       .fill(process.env.SUPER_ADMIN_PASSWORD ?? "TestSuperAdmin123!");
-    await page.getByRole("button", { name: "Login" }).click();
+    await page.getByRole("button", { name: "Log in" }).click();
     await page.waitForURL("/");
     await expect(
       page.getByRole("heading", { name: "Dashboard" })

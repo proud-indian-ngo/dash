@@ -161,9 +161,11 @@ export function LoginForm() {
   return (
     <div className="flex flex-col gap-6">
       <div className="space-y-2">
-        <h2 className="text-2xl font-bold">Login to your account</h2>
+        <h2 className="font-display text-2xl font-semibold tracking-tight">
+          Log in
+        </h2>
         <p className="text-muted-foreground text-sm">
-          Enter your email below to login to your account
+          Welcome back to the volunteer dashboard.
         </p>
       </div>
       <FormLayout className="space-y-4" form={form}>
@@ -215,18 +217,18 @@ export function LoginForm() {
           className="w-full"
           form={form}
           submitClassName="w-full"
-          submitLabel="Login"
+          submitLabel="Log in"
           submittingLabel="Logging in..."
         />
       </FormLayout>
       <p className="text-muted-foreground text-center text-sm">
-        Don&apos;t have an account?{" "}
+        New here?{" "}
         <Link
           className="text-foreground hover:underline"
           search={registerLinkSearch(eventRedirect)}
           to="/register"
         >
-          Register
+          Create an account
         </Link>
       </p>
     </div>

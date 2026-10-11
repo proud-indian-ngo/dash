@@ -108,7 +108,7 @@ test("Guardian login gains Edition access and loses it after archival", async ({
       await guardianPage.goto("/login");
       await guardianPage.getByLabel("Email").fill(EDITED_EMAIL);
       await guardianPage.getByLabel("Password").fill(PASSWORD);
-      await guardianPage.getByRole("button", { name: "Login" }).click();
+      await guardianPage.getByRole("button", { name: "Log in" }).click();
       await guardianPage.waitForURL(`/kalakriti/${YEAR}`);
       await expect(
         guardianPage.getByRole("heading", { name: `Kalakriti ${YEAR}` })

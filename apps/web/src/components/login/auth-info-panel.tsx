@@ -60,14 +60,12 @@ function StepList({ items }: { items: readonly Step[] }) {
     <ol className="space-y-4">
       {items.map((step) => (
         <li className="flex items-start gap-3" key={step.number}>
-          <span className="bg-sidebar-foreground/10 flex size-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold">
+          <span className="bg-background text-info-foreground flex size-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold">
             {step.number}
           </span>
           <div>
             <p className="font-medium">{step.title}</p>
-            <p className="text-sidebar-foreground/70 text-sm">
-              {step.description}
-            </p>
+            <p className="text-muted-foreground text-sm">{step.description}</p>
           </div>
         </li>
       ))}
@@ -77,10 +75,10 @@ function StepList({ items }: { items: readonly Step[] }) {
 
 function ContactLine() {
   return (
-    <p className="text-sidebar-foreground/60 text-sm">
+    <p className="text-muted-foreground text-sm">
       Questions? Reach out at{" "}
       <a
-        className="text-sidebar-foreground underline-offset-2 hover:underline"
+        className="text-foreground underline-offset-2 hover:underline"
         href="mailto:connect@proudindian.ngo"
       >
         connect@proudindian.ngo
@@ -91,12 +89,12 @@ function ContactLine() {
 
 export function SignupInfoPanel() {
   return (
-    <div className="text-sidebar-foreground max-w-md space-y-8">
+    <div className="max-w-md space-y-8">
       <div className="space-y-3">
-        <h2 className="text-2xl font-bold">
+        <h2 className="font-display text-2xl font-semibold tracking-tight">
           Join the Proud Indian volunteer community
         </h2>
-        <p className="text-sidebar-foreground/80">
+        <p className="text-muted-foreground">
           Make a difference in your community by volunteering your time and
           skills.
         </p>
@@ -109,9 +107,11 @@ export function SignupInfoPanel() {
 
 export function LoginInfoPanel() {
   return (
-    <div className="text-sidebar-foreground max-w-md space-y-3">
-      <h2 className="text-2xl font-bold">Welcome back</h2>
-      <p className="text-sidebar-foreground/80">
+    <div className="max-w-md space-y-3">
+      <h2 className="font-display text-2xl font-semibold tracking-tight">
+        Welcome back
+      </h2>
+      <p className="text-muted-foreground">
         Your contributions make a real difference. Let's keep the momentum
         going.
       </p>
@@ -150,16 +150,15 @@ export function EventInfoPanel({
   }
 
   return (
-    <div
-      className="text-sidebar-foreground max-w-md space-y-8"
-      data-testid="auth-event-info-panel"
-    >
+    <div className="max-w-md space-y-8" data-testid="auth-event-info-panel">
       <div className="space-y-3">
-        <h2 className="text-2xl font-bold">{heading}</h2>
-        <p className="text-sidebar-foreground/70 text-sm">
+        <h2 className="font-display text-2xl font-semibold tracking-tight">
+          {heading}
+        </h2>
+        <p className="text-muted-foreground text-sm">
           {when} · {session.area}
         </p>
-        <p className="text-sidebar-foreground/80">{description}</p>
+        <p className="text-muted-foreground">{description}</p>
       </div>
       {mode === "register" && session.open ? (
         <StepList items={eventSignupSteps} />

@@ -16,22 +16,22 @@ test.describe("Login page", () => {
 
   test("renders login form", async ({ page }) => {
     await expect(
-      page.getByText("Login to your account", { exact: true })
+      page.getByRole("heading", { name: "Log in", exact: true })
     ).toBeVisible();
     await expect(page.getByLabel("Email")).toBeVisible();
     await expect(page.getByLabel("Password")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Login" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Log in" })).toBeVisible();
   });
 
   test("shows validation errors on empty submit", async ({ page }) => {
-    await page.getByRole("button", { name: "Login" }).click();
+    await page.getByRole("button", { name: "Log in" }).click();
     await expect(page.getByText("Invalid email address")).toBeVisible();
   });
 
   test("shows error toast for invalid credentials", async ({ page }) => {
     await page.getByLabel("Email").fill("wrong@example.com");
     await page.getByLabel("Password").fill("WrongPassword123!");
-    await page.getByRole("button", { name: "Login" }).click();
+    await page.getByRole("button", { name: "Log in" }).click();
     // Auth error is shown inline
     await expect(page.getByRole("alert")).toBeVisible({
       timeout: 10_000,
@@ -88,7 +88,7 @@ async function loginToDashboard(page: Page, email: string, password: string) {
   async function tryLogin(attempt: number): Promise<void> {
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Password").fill(password);
-    await page.getByRole("button", { name: "Login" }).click();
+    await page.getByRole("button", { name: "Log in" }).click();
 
     if (
       await page

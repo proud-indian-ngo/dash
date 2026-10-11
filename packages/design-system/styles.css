@@ -61,8 +61,6 @@
   --warning-foreground: var(--color-status-pending);
   --invert: var(--color-ink);
   --invert-foreground: var(--color-white);
-  --auth-panel-from: var(--color-sky-wash);
-  --auth-panel-to: var(--color-sky-tint);
 }
 
 .dark {
@@ -115,8 +113,6 @@
   --warning-foreground: var(--color-status-pending-dark);
   --invert: var(--color-ui-dark-raised);
   --invert-foreground: var(--color-ui-dark-text);
-  --auth-panel-from: var(--color-ui-dark-card);
-  --auth-panel-to: var(--color-ui-dark-active);
 }
 
 @theme inline {
