@@ -103,7 +103,11 @@ export async function handleSocialPostedWrite(
   if (auth.error) {
     return auth.error;
   }
-  const parsed = postedRecordSchema.safeParse(await readJsonBody(request));
+  const read = await readJsonBody(request);
+  if ("tooLarge" in read) {
+    return read.tooLarge;
+  }
+  const parsed = postedRecordSchema.safeParse(read.body);
   if (!parsed.success) {
     return Response.json(
       {

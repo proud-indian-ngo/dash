@@ -488,3 +488,78 @@ export function applyAllTimeOverrides(
 export function formatSocialDigest(lines: readonly string[]): string {
   return `Social digest\n\n${lines.join("\n")}`;
 }
+
+/** app_config key: "true" pauses the whole pipeline (the hourly run does nothing). */
+export const SOCIAL_PAUSED_CONFIG_KEY = "social_paused";
+/** app_config key: comma-separated post kinds the pipeline skips. */
+export const SOCIAL_PAUSED_KINDS_CONFIG_KEY = "social_paused_kinds";
+
+/** Every post kind the pipeline knows; `story` is reserved. */
+export const socialPostKinds = [
+  "schedule",
+  "recap",
+  "volunteer-call",
+  "impact",
+  "story",
+] as const;
+export type SocialPostKindValue = (typeof socialPostKinds)[number];
+
+/** Kinds the Social page offers a pause switch for (`story` is reserved). */
+export const SOCIAL_PAUSABLE_KINDS = [
+  "schedule",
+  "recap",
+  "volunteer-call",
+  "impact",
+] as const satisfies readonly SocialPostKindValue[];
+
+/**
+ * app_config keys holders of `social.manage` may write through
+ * `appConfig.upsert` / `appConfig.remove` (everything else still needs
+ * `settings.app_config`).
+ */
+export const SOCIAL_MANAGE_CONFIG_KEYS: readonly string[] = [
+  SOCIAL_PAUSED_CONFIG_KEY,
+  SOCIAL_PAUSED_KINDS_CONFIG_KEY,
+  SOCIAL_APPROVER_CONFIG_KEY,
+  ...Object.values(SOCIAL_ALL_TIME_CONFIG_KEYS),
+];
+
+export interface SocialSettingsResponse {
+  paused: boolean;
+  pausedKinds: SocialPostKindValue[];
+}
+
+const SOCIAL_POST_KIND_SET = new Set<string>(socialPostKinds);
+
+/** Known kinds from a comma-separated list, deduplicated, in canonical order. */
+export function parseSocialPausedKinds(
+  raw: string | null | undefined
+): SocialPostKindValue[] {
+  const listed = new Set(
+    (raw ?? "")
+      .split(",")
+      .map((kind) => kind.trim())
+      .filter((kind) => SOCIAL_POST_KIND_SET.has(kind))
+  );
+  return socialPostKinds.filter((kind) => listed.has(kind));
+}
+
+/** The settings the pipeline reads at the start of every run. */
+export function buildSocialSettings(
+  config: ReadonlyMap<string, string>
+): SocialSettingsResponse {
+  return {
+    paused: config.get(SOCIAL_PAUSED_CONFIG_KEY)?.trim() === "true",
+    pausedKinds: parseSocialPausedKinds(
+      config.get(SOCIAL_PAUSED_KINDS_CONFIG_KEY)
+    ),
+  };
+}
+
+/** Run report limits (`POST /api/social/v1/runs`). */
+export const SOCIAL_RUN_MAX_MESSAGES = 50;
+export const SOCIAL_RUN_MAX_MESSAGE_LENGTH = 500;
+/** Rows kept in `social_run`; older ones are deleted on insert. */
+export const SOCIAL_RUN_RETENTION = 500;
+export const socialRunTickValues = ["hourly", "digest"] as const;
+export type SocialRunTick = (typeof socialRunTickValues)[number];

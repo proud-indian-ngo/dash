@@ -48,11 +48,36 @@ export function socialServerError(
   );
 }
 
-/** Parse a JSON body; null when it is missing or malformed. */
-export async function readJsonBody(request: Request): Promise<unknown> {
+/** Largest request body the social API accepts. */
+export const SOCIAL_MAX_BODY_BYTES = 64 * 1024;
+
+export type JsonBodyResult = { body: unknown } | { tooLarge: Response };
+
+/**
+ * Parse a JSON body of at most `SOCIAL_MAX_BODY_BYTES`; `body` is null when
+ * it is missing or malformed. A larger body is refused with 413, by
+ * Content-Length before reading and by its actual size otherwise.
+ */
+export async function readJsonBody(request: Request): Promise<JsonBodyResult> {
+  const tooLarge = () => ({
+    tooLarge: socialJsonError(413, "Request body is too large"),
+  });
+  const declared = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > SOCIAL_MAX_BODY_BYTES) {
+    return tooLarge();
+  }
+  let text: string;
   try {
-    return await request.json();
+    text = await request.text();
   } catch {
-    return null;
+    return { body: null };
+  }
+  if (new TextEncoder().encode(text).byteLength > SOCIAL_MAX_BODY_BYTES) {
+    return tooLarge();
+  }
+  try {
+    return { body: JSON.parse(text) as unknown };
+  } catch {
+    return { body: null };
   }
 }

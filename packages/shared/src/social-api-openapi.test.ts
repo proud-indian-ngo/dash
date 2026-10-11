@@ -49,4 +49,18 @@ describe("buildSocialApiOpenApi", () => {
     }
     expect(spec.servers).toEqual([{ url: "https://dash.proudindian.ngo" }]);
   });
+
+  it("documents the settings and run report endpoints", () => {
+    expect(spec.paths["/api/social/v1/settings"].get.security).toEqual([
+      { bearer: ["events:read"] },
+    ]);
+    expect(spec.paths["/api/social/v1/runs"].post.security).toEqual([
+      { bearer: ["social:write"] },
+    ]);
+    expect(spec.components.schemas.SocialSettings.required.sort()).toEqual([
+      "paused",
+      "pausedKinds",
+    ]);
+    expect(spec.components.schemas.SocialRunInput.required).toHaveLength(11);
+  });
 });

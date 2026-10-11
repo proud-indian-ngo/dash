@@ -28,6 +28,7 @@ import { notificationQueries } from "./queries/notification";
 import { notificationPreferenceQueries } from "./queries/notification-preference";
 import { reimbursementQueries } from "./queries/reimbursement";
 import { scheduledMessageQueries } from "./queries/scheduled-message";
+import { socialPostQueries, socialRunQueries } from "./queries/social";
 import { teamQueries } from "./queries/team";
 import { teamEventQueries } from "./queries/team-event";
 import { userQueries } from "./queries/user";
@@ -63,6 +64,8 @@ export const queries = defineQueries({
   notificationPreference: notificationPreferenceQueries,
   reimbursement: reimbursementQueries,
   scheduledMessage: scheduledMessageQueries,
+  socialPost: socialPostQueries,
+  socialRun: socialRunQueries,
   team: teamQueries,
   teamEvent: teamEventQueries,
   user: userQueries,

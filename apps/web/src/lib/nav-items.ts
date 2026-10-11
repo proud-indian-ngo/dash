@@ -7,6 +7,7 @@ import {
   DashboardCircleIcon,
   IdentityCardIcon,
   JusticeScale01Icon,
+  Megaphone01Icon,
   PaintBoardIcon,
   Restaurant01Icon,
   StudentIcon,
@@ -137,6 +138,12 @@ const eventsNavItem: NavItem = {
   subItems: [{ isHidden: true, title: "Event Details", url: "/events/$id" }],
   title: "Events",
   url: "/events",
+};
+
+const socialNavItem: NavItem = {
+  icon: Megaphone01Icon,
+  title: "Social",
+  url: "/social",
 };
 
 const kalakritiNavItem: NavItem = {
@@ -344,6 +351,9 @@ export function buildNavItems(permissions: string[] = []): NavItem[] {
   if (hasAny(permissions, "events.view_own", "events.view_all")) {
     items.push(eventsNavItem);
   }
+  if (has(permissions, "social.manage")) {
+    items.push(socialNavItem);
+  }
   if (has(permissions, "kalakriti.view")) {
     items.push(kalakritiNavItem);
   }
@@ -416,6 +426,9 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
   }
   if (hasEvents) {
     orgItems.push(eventsNavItem);
+  }
+  if (has(permissions, "social.manage")) {
+    orgItems.push(socialNavItem);
   }
   if (has(permissions, "kalakriti.view")) {
     orgItems.push(kalakritiNavItem);

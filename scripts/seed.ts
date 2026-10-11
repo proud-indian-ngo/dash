@@ -14,7 +14,7 @@ import { createHash } from "node:crypto";
  *   team, teamMember, teamEvent, teamEventMember, eventRsvpPoll, eventRsvpVote,
  *   eventInterest, eventFeedback, eventFeedbackSubmission,
  *   eventPhoto, eventImmichAlbum, eventUpdate,
- *   eventPartner, socialPost, socialApiToken,
+ *   eventPartner, socialPost, socialRun, socialApiToken,
  *   expenseCategory, bankAccount,
  *   reimbursement, reimbursementLineItem, reimbursementAttachment, reimbursementHistory,
  *   advancePayment, advancePaymentLineItem, advancePaymentAttachment, advancePaymentHistory,
@@ -99,6 +99,7 @@ import {
 } from "@pi-dash/db/schema/scheduled-message";
 import { socialApiToken } from "@pi-dash/db/schema/social-api-token";
 import { socialPost } from "@pi-dash/db/schema/social-post";
+import { socialRun } from "@pi-dash/db/schema/social-run";
 import { team, teamMember } from "@pi-dash/db/schema/team";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import {
@@ -277,6 +278,7 @@ const ID = {
   socialPartnerEthos: "019d52c2-7261-7dce-b0ee-e270a1b2c3d4",
   socialPartnerNss: "019d52c2-7261-7dce-b0ee-e271b2c3d4e5",
   socialPost01: "019d52c2-7261-7dce-b0ee-e272c3d4e5f6",
+  socialRun01: "019d52c2-7261-7dce-b0ee-e274e5f60718",
   socialToken01: "019d52c2-7261-7dce-b0ee-e273d4e5f607",
 } as const;
 
@@ -2682,6 +2684,24 @@ async function seedSocial(): Promise<void> {
       scheduledFor: past(5),
       status: "published",
       updatedAt: past(5),
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(socialRun)
+    .values({
+      createdAt: past(5),
+      digestSent: false,
+      dropped: 0,
+      errors: sql`'[]'::jsonb`,
+      eventsSeen: 6,
+      finishedAt: addHours(past(6), 0.05),
+      id: ID.socialRun01,
+      planned: 1,
+      recorded: 1,
+      rendered: 1,
+      skipped: sql`${JSON.stringify(["volunteer-call: target already met"])}::text::jsonb`,
+      startedAt: past(6),
+      tick: "hourly",
     })
     .onConflictDoNothing();
   if (!shouldSeedDevSocialToken(process.env.NODE_ENV)) {

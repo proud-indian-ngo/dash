@@ -37,6 +37,7 @@ describe("Kalakriti navigation", () => {
       "jobs.manage",
       "audit_log.view",
       "messages.schedule",
+      "social.manage",
     ]);
     for (const groups of [kalakriti, organization]) {
       const icons = groups.flatMap((group) =>

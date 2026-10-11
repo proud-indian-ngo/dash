@@ -39,9 +39,11 @@ const CLASSIFIED_API_POST_FILES = [
   "routes/api/jobs/$id/retry.ts",
   "routes/api/jobs/index.ts",
   "routes/api/log/ingest.ts",
-  // Machine token API: posted is audited in its handler; notify only enqueues a digest.
+  // Machine token API: posted is audited in its handler; notify only enqueues
+  // a digest; runs stores the pipeline's own run report (scheduled-job telemetry).
   "routes/api/social/v1/notify.ts",
   "routes/api/social/v1/posted.ts",
+  "routes/api/social/v1/runs.ts",
   "routes/api/whatsapp/webhook.ts",
   "routes/api/zero/mutate.ts",
   "routes/api/zero/query.ts",

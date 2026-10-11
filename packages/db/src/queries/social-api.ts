@@ -8,11 +8,13 @@ import {
   type SocialPartner,
   type SocialStatsMonth,
   SOCIAL_PHOTOS_MAX,
+  SOCIAL_RUN_RETENTION,
   summarizeSocialSessions,
 } from "@pi-dash/shared/social-api";
 import {
   and,
   asc,
+  desc,
   eq,
   gte,
   inArray,
@@ -20,6 +22,7 @@ import {
   isNull,
   like,
   lte,
+  notInArray,
   or,
   sql,
 } from "drizzle-orm";
@@ -37,6 +40,7 @@ import {
   type SocialPostStatus,
   socialPost,
 } from "../schema/social-post";
+import { type SocialRunTickValue, socialRun } from "../schema/social-run";
 import { team } from "../schema/team";
 import { teamEvent, teamEventMember } from "../schema/team-event";
 
@@ -511,13 +515,15 @@ export interface SocialPostInput {
 
 /**
  * Record a queued post; a repeat of the same post updates status, time,
- * occurrence date and event name.
+ * occurrence date and event name. A post dropped on the Social page stays
+ * dropped unless the repeat reports it `published`.
  */
 export async function upsertSocialPost(
   input: SocialPostInput,
-  now: Date
+  now: Date,
+  executor: Pick<typeof db, "insert"> = db
 ): Promise<void> {
-  await db
+  await executor
     .insert(socialPost)
     .values({ ...input, createdAt: now, id: uuidv7(), updatedAt: now })
     .onConflictDoUpdate({
@@ -525,7 +531,10 @@ export async function upsertSocialPost(
         eventName: input.eventName,
         occurrenceDate: input.occurrenceDate,
         scheduledFor: input.scheduledFor,
-        status: input.status,
+        // Dropped on the dashboard stays dropped, unless the generator itself
+        // reports it published (it went out anyway); dropped_at/dropped_by
+        // stay as history either way.
+        status: sql`CASE WHEN ${socialPost.status} = 'dropped' AND excluded.status <> 'published' THEN 'dropped' ELSE excluded.status END`,
         updatedAt: now,
       },
       target: [
@@ -590,4 +599,99 @@ export async function listSocialPostsInWindow(
       )
     )
     .orderBy(asc(socialPost.scheduledFor), asc(socialPost.id));
+}
+
+export interface SocialRunInput {
+  digestSent: boolean;
+  dropped: number;
+  errors: string[];
+  eventsSeen: number;
+  finishedAt: Date;
+  planned: number;
+  recorded: number;
+  rendered: number;
+  skipped: string[];
+  startedAt: Date;
+  tick: SocialRunTickValue;
+}
+
+type SocialRunExecutor = Pick<typeof db, "transaction">;
+
+/**
+ * A string array as a jsonb array. The Bun SQL driver would otherwise store
+ * the serialized array as a jsonb string.
+ */
+function jsonbArray(values: readonly string[]) {
+  return sql<string[]>`${JSON.stringify(values)}::text::jsonb`;
+}
+
+/**
+ * Store one pipeline run report and delete everything but the latest
+ * `SOCIAL_RUN_RETENTION` rows (uuidv7 ids order by insertion). `executor`
+ * lets a test run it inside a transaction it rolls back.
+ */
+export async function insertSocialRun(
+  input: SocialRunInput,
+  now: Date,
+  executor: SocialRunExecutor = db
+): Promise<void> {
+  await executor.transaction(async (tx) => {
+    await tx.insert(socialRun).values({
+      ...input,
+      createdAt: now,
+      errors: jsonbArray(input.errors),
+      id: uuidv7(),
+      skipped: jsonbArray(input.skipped),
+    });
+    const kept = tx
+      .select({ id: socialRun.id })
+      .from(socialRun)
+      .orderBy(desc(socialRun.id))
+      .limit(SOCIAL_RUN_RETENTION);
+    await tx.delete(socialRun).where(notInArray(socialRun.id, kept));
+  });
+}
+
+export interface SocialPerson {
+  id: string;
+  name: string;
+}
+
+/**
+ * Names for the Social page without syncing user rows: `candidates` are
+ * active, unbanned, non-external users (the digest approver picker); `named`
+ * resolves the users in `ids` plus everyone who dropped a post, whatever
+ * their status now.
+ */
+export async function listSocialPeople(ids: readonly string[]): Promise<{
+  candidates: SocialPerson[];
+  named: SocialPerson[];
+}> {
+  const columns = { id: user.id, name: user.name };
+  const droppers = db
+    .selectDistinct({ id: socialPost.droppedBy })
+    .from(socialPost)
+    .where(isNotNull(socialPost.droppedBy));
+  const [candidates, named] = await Promise.all([
+    db
+      .select(columns)
+      .from(user)
+      .where(
+        and(
+          eq(user.isActive, true),
+          or(isNull(user.banned), eq(user.banned, false)),
+          or(isNull(user.role), sql`${user.role} <> 'external_user'`)
+        )
+      )
+      .orderBy(asc(user.name)),
+    db
+      .select(columns)
+      .from(user)
+      .where(
+        ids.length > 0
+          ? or(inArray(user.id, [...ids]), inArray(user.id, droppers))
+          : inArray(user.id, droppers)
+      ),
+  ]);
+  return { candidates, named };
 }

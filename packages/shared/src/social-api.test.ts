@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   applyAllTimeOverrides,
+  buildSocialSettings,
+  parseSocialPausedKinds,
   parseVirtualSocialEventId,
   buildSocialEvents,
   formatSocialDigest,
@@ -491,5 +493,23 @@ describe("helpers", () => {
 
   it("formats the digest", () => {
     expect(formatSocialDigest(["a", "b"])).toBe("Social digest\n\na\nb");
+  });
+});
+
+describe("social pause settings", () => {
+  it("parses known kinds in canonical order and ignores the rest", () => {
+    expect(
+      parseSocialPausedKinds(" impact ,story,bogus,,schedule,impact")
+    ).toEqual(["schedule", "impact", "story"]);
+    expect(parseSocialPausedKinds(undefined)).toEqual([]);
+  });
+
+  it("pauses only for the exact value true", () => {
+    expect(
+      buildSocialSettings(new Map([["social_paused", "true"]])).paused
+    ).toBe(true);
+    expect(
+      buildSocialSettings(new Map([["social_paused", "TRUE"]])).paused
+    ).toBe(false);
   });
 });

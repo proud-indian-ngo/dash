@@ -11,8 +11,6 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { handleMutationResult } from "@/lib/mutation-result";
 
-import { SocialSettings } from "./social-settings";
-
 const KILL_SWITCH_KEY = "notifications_disabled";
 
 export function GeneralSection() {
@@ -108,8 +106,6 @@ export function GeneralSection() {
           onCheckedChange={handleToggle}
         />
       </div>
-
-      <SocialSettings configs={configs} />
 
       <ConfirmDialog
         confirmLabel="Disable notifications"

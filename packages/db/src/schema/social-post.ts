@@ -9,6 +9,8 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+import { user } from "./auth";
+
 export const socialPostChannelValues = ["instagram", "linkedin"] as const;
 export const socialPostKindValues = [
   "schedule",
@@ -34,7 +36,9 @@ export type SocialPostStatus = (typeof socialPostStatusValues)[number];
  * generator sent it (a row id, `${seriesId}:${occDate}` for a virtual
  * occurrence, or a synthetic id for schedule and impact posts), so it is not
  * a foreign key. `occurrence_date` (YYYY-MM-DD) and `event_name` are set for
- * event posts only.
+ * event posts only. `dropped_by` / `dropped_at` are set when someone drops
+ * the post on the Social page (`socialPost.drop`); the pipeline treats
+ * `dropped` as final.
  */
 export const socialPost = pgTable(
   "social_post",
@@ -42,6 +46,10 @@ export const socialPost = pgTable(
     bufferPostId: text("buffer_post_id").notNull(),
     channel: text("channel").$type<SocialPostChannel>().notNull(),
     createdAt: timestamp("created_at").notNull(),
+    droppedAt: timestamp("dropped_at"),
+    droppedBy: text("dropped_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     eventId: text("event_id").notNull(),
     eventName: text("event_name"),
     id: uuid("id").primaryKey(),
@@ -59,6 +67,10 @@ export const socialPost = pgTable(
       table.bufferPostId
     ),
     index("social_post_occurrence_date_idx").on(table.occurrenceDate),
+    index("social_post_scheduled_for_idx").on(
+      table.scheduledFor.desc(),
+      table.id
+    ),
     check("social_post_channel_chk", sql`channel IN ('instagram', 'linkedin')`),
     check(
       "social_post_kind_chk",

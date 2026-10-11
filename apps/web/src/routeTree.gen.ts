@@ -20,6 +20,7 @@ import { Route as AppJobsRouteImport } from './routes/_app/jobs'
 import { Route as AppKalakritiRouteRouteImport } from './routes/_app/kalakriti/route'
 import { Route as AppReimbursementsRouteRouteImport } from './routes/_app/reimbursements/route'
 import { Route as AppScheduledMessagesRouteImport } from './routes/_app/scheduled-messages'
+import { Route as AppSocialRouteImport } from './routes/_app/social'
 import { Route as AppTeamsRouteRouteImport } from './routes/_app/teams/route'
 import { Route as AppUsersRouteImport } from './routes/_app/users'
 import { Route as AppVendorPaymentsRouteRouteImport } from './routes/_app/vendor-payments/route'
@@ -92,6 +93,8 @@ import { Route as ApiSocialV1EventsRouteImport } from './routes/api/social/v1/ev
 import { Route as ApiSocialV1NotifyRouteImport } from './routes/api/social/v1/notify'
 import { Route as ApiSocialV1OpenapiDotjsonRouteImport } from './routes/api/social/v1/openapi[.]json'
 import { Route as ApiSocialV1PostedRouteImport } from './routes/api/social/v1/posted'
+import { Route as ApiSocialV1RunsRouteImport } from './routes/api/social/v1/runs'
+import { Route as ApiSocialV1SettingsRouteImport } from './routes/api/social/v1/settings'
 import { Route as ApiSocialV1StatsRouteImport } from './routes/api/social/v1/stats'
 import { Route as AppKalakritiYearCentersIndexRouteImport } from './routes/_app/kalakriti/$year/centers/index'
 import { Route as AppKalakritiYearCompetitionsIndexRouteImport } from './routes/_app/kalakriti/$year/competitions/index'
@@ -162,6 +165,11 @@ const AppReimbursementsRouteRoute = AppReimbursementsRouteRouteImport.update({
 const AppScheduledMessagesRoute = AppScheduledMessagesRouteImport.update({
   id: '/scheduled-messages',
   path: '/scheduled-messages',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSocialRoute = AppSocialRouteImport.update({
+  id: '/social',
+  path: '/social',
   getParentRoute: () => AppRoute,
 } as any)
 const AppTeamsRouteRoute = AppTeamsRouteRouteImport.update({
@@ -535,6 +543,16 @@ const ApiSocialV1PostedRoute = ApiSocialV1PostedRouteImport.update({
   path: '/api/social/v1/posted',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSocialV1RunsRoute = ApiSocialV1RunsRouteImport.update({
+  id: '/api/social/v1/runs',
+  path: '/api/social/v1/runs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSocialV1SettingsRoute = ApiSocialV1SettingsRouteImport.update({
+  id: '/api/social/v1/settings',
+  path: '/api/social/v1/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiSocialV1StatsRoute = ApiSocialV1StatsRouteImport.update({
   id: '/api/social/v1/stats',
   path: '/api/social/v1/stats',
@@ -656,6 +674,7 @@ export interface FileRoutesByFullPath {
   '/export': typeof AppExportRoute
   '/jobs': typeof AppJobsRoute
   '/scheduled-messages': typeof AppScheduledMessagesRoute
+  '/social': typeof AppSocialRoute
   '/users': typeof AppUsersRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
@@ -723,6 +742,8 @@ export interface FileRoutesByFullPath {
   '/api/social/v1/notify': typeof ApiSocialV1NotifyRoute
   '/api/social/v1/openapi.json': typeof ApiSocialV1OpenapiDotjsonRoute
   '/api/social/v1/posted': typeof ApiSocialV1PostedRoute
+  '/api/social/v1/runs': typeof ApiSocialV1RunsRoute
+  '/api/social/v1/settings': typeof ApiSocialV1SettingsRoute
   '/api/social/v1/stats': typeof ApiSocialV1StatsRoute
   '/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
   '/settings/roles/': typeof AppSettingsRolesIndexRoute
@@ -751,6 +772,7 @@ export interface FileRoutesByTo {
   '/export': typeof AppExportRoute
   '/jobs': typeof AppJobsRoute
   '/scheduled-messages': typeof AppScheduledMessagesRoute
+  '/social': typeof AppSocialRoute
   '/users': typeof AppUsersRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
@@ -813,6 +835,8 @@ export interface FileRoutesByTo {
   '/api/social/v1/notify': typeof ApiSocialV1NotifyRoute
   '/api/social/v1/openapi.json': typeof ApiSocialV1OpenapiDotjsonRoute
   '/api/social/v1/posted': typeof ApiSocialV1PostedRoute
+  '/api/social/v1/runs': typeof ApiSocialV1RunsRoute
+  '/api/social/v1/settings': typeof ApiSocialV1SettingsRoute
   '/api/social/v1/stats': typeof ApiSocialV1StatsRoute
   '/kalakriti/$year': typeof AppKalakritiYearIndexRoute
   '/settings/roles': typeof AppSettingsRolesIndexRoute
@@ -849,6 +873,7 @@ export interface FileRoutesById {
   '/_app/export': typeof AppExportRoute
   '/_app/jobs': typeof AppJobsRoute
   '/_app/scheduled-messages': typeof AppScheduledMessagesRoute
+  '/_app/social': typeof AppSocialRoute
   '/_app/users': typeof AppUsersRoute
   '/_auth/forgot-password': typeof AuthForgotPasswordRoute
   '/_auth/login': typeof AuthLoginRoute
@@ -917,6 +942,8 @@ export interface FileRoutesById {
   '/api/social/v1/notify': typeof ApiSocialV1NotifyRoute
   '/api/social/v1/openapi.json': typeof ApiSocialV1OpenapiDotjsonRoute
   '/api/social/v1/posted': typeof ApiSocialV1PostedRoute
+  '/api/social/v1/runs': typeof ApiSocialV1RunsRoute
+  '/api/social/v1/settings': typeof ApiSocialV1SettingsRoute
   '/api/social/v1/stats': typeof ApiSocialV1StatsRoute
   '/_app/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
   '/_app/settings/roles/': typeof AppSettingsRolesIndexRoute
@@ -953,6 +980,7 @@ export interface FileRouteTypes {
     | '/export'
     | '/jobs'
     | '/scheduled-messages'
+    | '/social'
     | '/users'
     | '/forgot-password'
     | '/login'
@@ -1020,6 +1048,8 @@ export interface FileRouteTypes {
     | '/api/social/v1/notify'
     | '/api/social/v1/openapi.json'
     | '/api/social/v1/posted'
+    | '/api/social/v1/runs'
+    | '/api/social/v1/settings'
     | '/api/social/v1/stats'
     | '/kalakriti/$year/'
     | '/settings/roles/'
@@ -1048,6 +1078,7 @@ export interface FileRouteTypes {
     | '/export'
     | '/jobs'
     | '/scheduled-messages'
+    | '/social'
     | '/users'
     | '/forgot-password'
     | '/login'
@@ -1110,6 +1141,8 @@ export interface FileRouteTypes {
     | '/api/social/v1/notify'
     | '/api/social/v1/openapi.json'
     | '/api/social/v1/posted'
+    | '/api/social/v1/runs'
+    | '/api/social/v1/settings'
     | '/api/social/v1/stats'
     | '/kalakriti/$year'
     | '/settings/roles'
@@ -1145,6 +1178,7 @@ export interface FileRouteTypes {
     | '/_app/export'
     | '/_app/jobs'
     | '/_app/scheduled-messages'
+    | '/_app/social'
     | '/_app/users'
     | '/_auth/forgot-password'
     | '/_auth/login'
@@ -1213,6 +1247,8 @@ export interface FileRouteTypes {
     | '/api/social/v1/notify'
     | '/api/social/v1/openapi.json'
     | '/api/social/v1/posted'
+    | '/api/social/v1/runs'
+    | '/api/social/v1/settings'
     | '/api/social/v1/stats'
     | '/_app/kalakriti/$year/'
     | '/_app/settings/roles/'
@@ -1267,6 +1303,8 @@ export interface RootRouteChildren {
   ApiSocialV1NotifyRoute: typeof ApiSocialV1NotifyRoute
   ApiSocialV1OpenapiDotjsonRoute: typeof ApiSocialV1OpenapiDotjsonRoute
   ApiSocialV1PostedRoute: typeof ApiSocialV1PostedRoute
+  ApiSocialV1RunsRoute: typeof ApiSocialV1RunsRoute
+  ApiSocialV1SettingsRoute: typeof ApiSocialV1SettingsRoute
   ApiSocialV1StatsRoute: typeof ApiSocialV1StatsRoute
   ApiKalakritiYearPeopleLookupRoute: typeof ApiKalakritiYearPeopleLookupRoute
   ApiSocialV1MediaPhotoIdVariantRoute: typeof ApiSocialV1MediaPhotoIdVariantRoute
@@ -1349,6 +1387,13 @@ declare module '@tanstack/react-router' {
       path: '/scheduled-messages'
       fullPath: '/scheduled-messages'
       preLoaderRoute: typeof AppScheduledMessagesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/social': {
+      id: '/_app/social'
+      path: '/social'
+      fullPath: '/social'
+      preLoaderRoute: typeof AppSocialRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/teams': {
@@ -1855,6 +1900,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSocialV1PostedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/social/v1/runs': {
+      id: '/api/social/v1/runs'
+      path: '/api/social/v1/runs'
+      fullPath: '/api/social/v1/runs'
+      preLoaderRoute: typeof ApiSocialV1RunsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/social/v1/settings': {
+      id: '/api/social/v1/settings'
+      path: '/api/social/v1/settings'
+      fullPath: '/api/social/v1/settings'
+      preLoaderRoute: typeof ApiSocialV1SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/social/v1/stats': {
       id: '/api/social/v1/stats'
       path: '/api/social/v1/stats'
@@ -2217,6 +2276,7 @@ interface AppRouteChildren {
   AppExportRoute: typeof AppExportRoute
   AppJobsRoute: typeof AppJobsRoute
   AppScheduledMessagesRoute: typeof AppScheduledMessagesRoute
+  AppSocialRoute: typeof AppSocialRoute
   AppUsersRoute: typeof AppUsersRoute
   AppIndexRoute: typeof AppIndexRoute
   AppSettingsRolesRouteRoute: typeof AppSettingsRolesRouteRouteWithChildren
@@ -2234,6 +2294,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppExportRoute: AppExportRoute,
   AppJobsRoute: AppJobsRoute,
   AppScheduledMessagesRoute: AppScheduledMessagesRoute,
+  AppSocialRoute: AppSocialRoute,
   AppUsersRoute: AppUsersRoute,
   AppIndexRoute: AppIndexRoute,
   AppSettingsRolesRouteRoute: AppSettingsRolesRouteRouteWithChildren,
@@ -2317,6 +2378,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSocialV1NotifyRoute: ApiSocialV1NotifyRoute,
   ApiSocialV1OpenapiDotjsonRoute: ApiSocialV1OpenapiDotjsonRoute,
   ApiSocialV1PostedRoute: ApiSocialV1PostedRoute,
+  ApiSocialV1RunsRoute: ApiSocialV1RunsRoute,
+  ApiSocialV1SettingsRoute: ApiSocialV1SettingsRoute,
   ApiSocialV1StatsRoute: ApiSocialV1StatsRoute,
   ApiKalakritiYearPeopleLookupRoute: ApiKalakritiYearPeopleLookupRoute,
   ApiSocialV1MediaPhotoIdVariantRoute: ApiSocialV1MediaPhotoIdVariantRoute,

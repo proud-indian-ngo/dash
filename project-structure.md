@@ -158,6 +158,7 @@ All paths are relative to project root.
 | `routes/_app/analytics.tsx` | Analytics dashboard with charts (`requests.view_all` permission guard) |
 | `routes/_app/jobs.tsx` | Background jobs dashboard (`jobs.manage` permission guard) |
 | `routes/_app/audit-log.tsx` | Immutable user-action audit viewer (`audit_log.view` permission guard) |
+| `routes/_app/social.tsx` | Social page: pipeline runs, posted log with Drop, pause switches and social settings (`social.manage` permission guard) |
 | `routes/_app/export.tsx` | CSV data export (reimbursements, advance payments, vendor payments) |
 | `routes/_auth/login.tsx` | Login |
 | `routes/_auth/register.tsx` | Registration (`?eventId=` / `?group=` optional) |
@@ -174,7 +175,7 @@ All paths are relative to project root.
 | `routes/api/immich/original.$id.ts` | Immich photo original image proxy |
 | `routes/api/media/event-photo.$id.ts` | Authorized event-photo signed redirect |
 | `routes/api/public/events.ts` | Public, unauthenticated upcoming-events feed for proudindian.ngo (CORS open to every origin, GET/OPTIONS only, 5-minute public cache, 60-second in-process cache, per-IP rate limit, `from` within 90 days); builder in `@pi-dash/shared/public-events`, query in `@pi-dash/db/queries/public-events` |
-| `routes/api/social/v1/*.ts` | Bearer-token social API for the social-artifacts pipeline (`events`, `events/$id/photos`, `stats`, `posted`, `notify`, `openapi.json`) plus the token-free HMAC-signed photo proxy `media/$photoId/$variant`; handlers in `lib/social-api/`, token check in `lib/social-api-auth.ts`, shapes in `@pi-dash/shared/social-api`, queries in `@pi-dash/db/queries/social-api`. See `docs/architecture/social-api.md` |
+| `routes/api/social/v1/*.ts` | Bearer-token social API for the social-artifacts pipeline (`events`, `events/$id/photos`, `stats`, `posted`, `notify`, `settings`, `runs`, `openapi.json`) plus the token-free HMAC-signed photo proxy `media/$photoId/$variant`; handlers in `lib/social-api/`, token check in `lib/social-api-auth.ts`, shapes in `@pi-dash/shared/social-api`, queries in `@pi-dash/db/queries/social-api`. See `docs/architecture/social-api.md` |
 | `functions/public-session-summary.ts` | Register-page banner lookup for website sign-up links (public, non-Kalakriti sessions only) |
 | `routes/api/kalakriti/$year/schedule.ts` | Public lifecycle-filtered Kalakriti schedule API with an explicit public data allowlist |
 | `routes/api/kalakriti/$year/audit.ts` | Authenticated Edition/domain-scoped Kalakriti audit API with privacy-safe metadata |
@@ -203,6 +204,7 @@ pi-dash event remains read-only outside the Kalakriti module.
 | `components/layout/` | app-sidebar, nav-main, nav-user, team-switcher, breadcrumbs |
 | `components/data-table/` | data-table-wrapper, ReUI Filters adapter (`compile-filter-query`, `use-data-table-filters`, `filter-fields`, `filter-date-editor`, `use-migrate-legacy-filter-params`) |
 | `components/audit/` | audit-log table, row detail sheet, and API response types |
+| `components/social/` | Social page: runs table, posts table (Drop action), social settings (pause switches, digest approver, all-time totals), IST formatting |
 | `components/users/` | users-table, user-form, password-form, ban-user-form |
 | `components/reimbursements/` | reimbursements-table, reimbursement-form, reimbursement-detail, reimbursement-stats (unified reimbursements + advance payments) |
 | `components/teams/` | teams-table, team-detail, team-form-dialog, add-member-dialog |
@@ -211,7 +213,7 @@ pi-dash event remains read-only outside the Kalakriti module.
 | `components/events/` | public-events-table |
 | `components/kalakriti/` | Edition configuration, assignments, Guardian access, Competition schedule, Student and Entry registration, scoped dashboards and ZIP exports, and scoped audit tables |
 | `components/teams/events/` | events-table, events-table-helpers (RRULE expansion, display row building), event-form-dialog, event-detail, event-details-card, event-attendance-section, event-updates, event-photos, add-event-member-dialog, show-interest-dialog, interest-requests, recurrence-builder (RRULE form UI), edit-scope-dialog (this/following/all scope selection), event-actions-menu, event-social-recap (post-event "Social recap" card), event-partners-field (partners repeater in the event form) |
-| `components/settings/` | settings-dialog, sections/ (profile, account, banking, expense-categories, whatsapp-groups, notifications, general with social-settings, api-tokens) |
+| `components/settings/` | settings-dialog, sections/ (profile, account, banking, expense-categories, whatsapp-groups, notifications, general, api-tokens) |
 | `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, phone-field-lazy, textarea-field, checkbox-field, select-field, add-url-row, line-items-editor, attachments-section, reject-dialog, approve-dialog |
 | `components/login/` | auth-layout (split-panel shell), auth-info-panel (info panels for signup/login), login-form, register-form, forgot-password-form, reset-password-form |
 | `components/stats/` | stats-cards (dashboard stats) |
@@ -248,6 +250,7 @@ All hook paths above are prefixed with `apps/web/src/`.
 | `functions/role-admin.ts` | Role CRUD and permission assignment server functions |
 | `functions/admin-actions.ts` | Audited maintenance and job triggers |
 | `functions/event-poll.ts` | Audited event RSVP poll command |
+| `functions/social-people.ts` | Ids and names for the Social page (approver candidates, droppers) without syncing user rows (`social.manage` or `users.view`) |
 | `functions/social-api-tokens.ts` | Social API token list, audited create (returns the raw token once) and revoke for Settings → API Tokens |
 
 All function paths above are prefixed with `apps/web/src/`.
@@ -292,7 +295,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 | Package | Key paths |
 |---|---|
 | `packages/auth/` | `src/index.ts` (auth config), `src/seed-admin.ts` (lightweight admin-only seed), `src/register-event*.ts` (`?eventId=` invite enrollment), `src/register-interest*.ts` (website sign-up interest filed on first email verification, with session materialization), `src/verification-redirect.ts` (event redirect carried through verification emails) |
-| `packages/db/` | `src/kalakriti-orientation.ts` (transactional conditional role promotion and session revocation), `src/schema/` (Drizzle tables), `src/migrations/`, `src/permissions.ts` (code-defined permission registry), `src/queries/resolve-permissions.ts` (resolve user permissions with cache), `src/queries/public-events.ts` (public events feed and register-banner lookups), `src/queries/social-api.ts` and `src/queries/social-api-token.ts` (social API reads, posted log, tokens), `src/sync-permissions.ts` (sync permission registry to DB), `docker-compose.yml` (postgres, postgres-test, postgres-migration, whatsapp), `scripts/migrate-legacy-data.ts` |
+| `packages/db/` | `src/kalakriti-orientation.ts` (transactional conditional role promotion and session revocation), `src/schema/` (Drizzle tables), `src/migrations/`, `src/permissions.ts` (code-defined permission registry), `src/queries/resolve-permissions.ts` (resolve user permissions with cache), `src/queries/public-events.ts` (public events feed and register-banner lookups), `src/queries/social-api.ts` and `src/queries/social-api-token.ts` (social API reads, posted log, run reports with 500-row retention, tokens), `src/sync-permissions.ts` (sync permission registry to DB), `docker-compose.yml` (postgres, postgres-test, postgres-migration, whatsapp), `scripts/migrate-legacy-data.ts` |
 | `packages/email/` | `src/mailer.ts` (Nodemailer transport), `src/templates/` (verification-email, reset-password-email) |
 | `packages/env/` | `src/server.ts` (server env), `src/web.ts` (client env) |
 | `packages/config/` | Shared TypeScript & tooling config |
@@ -352,6 +355,8 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `scheduledMessage` | `packages/db/src/schema/scheduled-message.ts` |
 | `scheduledMessageRecipient` | `packages/db/src/schema/scheduled-message.ts` |
 | `auditLog` | `packages/db/src/schema/audit-log.ts` |
+| `socialPost` | `packages/db/src/schema/social-post.ts` |
+| `socialRun` | `packages/db/src/schema/social-run.ts` (`0108_absent_james_howlett.sql`) |
 | `kalakritiInventoryItem`, `kalakritiInventoryTransaction` | `packages/db/src/schema/kalakriti-inventory.ts` (`0099_conscious_expediter.sql`, `0100_fair_norman_osborn.sql`) |
 
 ## Audit Ledger
