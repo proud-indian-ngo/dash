@@ -14,6 +14,7 @@ import { toast } from "sonner";
 
 import { FormModal } from "@/components/form/form-modal";
 import { PageHeader } from "@/components/shared/page-header";
+import { TipStrip } from "@/components/shared/tip-strip";
 import { StatsCards } from "@/components/stats/stats-cards";
 import {
   type CreateUserFormValues,
@@ -237,6 +238,10 @@ function UsersRouteComponent() {
         description="Everyone who can sign in, with their role and account status."
         title="Users"
       />
+      <TipStrip className="mt-4" id="users-detail-sheet">
+        Click anyone to see their details, edit them, or reset a password
+        without leaving the list.
+      </TipStrip>
 
       <div className="mt-4 grid gap-6 *:min-w-0">
         <StatsCards
