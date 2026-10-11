@@ -19,7 +19,7 @@ import { useState, type ComponentProps } from "react";
 
 import { ScanDialog } from "@/components/kalakriti/scan-dialog";
 import { NavUser } from "@/components/layout/nav-user";
-import { TeamSwitcher } from "@/components/layout/team-switcher";
+import { SidebarBrand } from "@/components/layout/sidebar-brand";
 import { useApp } from "@/context/app-context";
 import { canViewKalakritiAttendees } from "@/lib/kalakriti-attendee-policy";
 import { canViewKalakritiAwards } from "@/lib/kalakriti-awards-policy";
@@ -218,7 +218,7 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
       ) : null}
       <Sidebar collapsible="icon" {...props}>
         <SidebarHeader>
-          <TeamSwitcher />
+          <SidebarBrand />
         </SidebarHeader>
         <SidebarContent>
           <NavMainGrouped groups={visibleNavGroups} />

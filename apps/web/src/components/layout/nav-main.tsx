@@ -15,6 +15,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  SidebarSeparator,
 } from "@pi-dash/design-system/components/ui/sidebar";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useState } from "react";
@@ -108,8 +109,12 @@ export function NavMainGrouped({ groups }: { groups: NavGroup[] }) {
 
   return (
     <>
-      {groups.map((group) => (
+      {groups.map((group, index) => (
         <SidebarGroup key={group.label ?? "primary"}>
+          {index > 0 ? (
+            // Group labels fade out in the collapsed rail; a hairline keeps the groups apart.
+            <SidebarSeparator className="mx-auto mb-2 hidden w-5 group-data-[collapsible=icon]:block" />
+          ) : null}
           {group.label ? (
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
           ) : null}

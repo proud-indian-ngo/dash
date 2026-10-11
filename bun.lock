@@ -49,6 +49,7 @@
         "@pi-dash/shared": "workspace:*",
         "@pi-dash/whatsapp": "workspace:*",
         "@pi-dash/zero": "workspace:*",
+        "@proudindian/design": "github:proud-indian-ngo/design#v0.3.4",
         "@rocicorp/zero": "catalog:",
         "@tailwindcss/vite": "catalog:",
         "@tanstack/react-form": "^1.33.5",
