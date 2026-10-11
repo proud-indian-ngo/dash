@@ -21,7 +21,7 @@ import { PageHeaderMenu } from "@/components/shared/page-header";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { getAttachmentDownloadHref } from "@/lib/attachment-links";
-import { SHORT_DATE_WITH_SECONDS } from "@/lib/date-formats";
+import { DATE_TIME } from "@/lib/date-formats";
 
 type ScheduledMessageWithCreator = ScheduledMessage & {
   creator?: { name: string } | null;
@@ -70,7 +70,7 @@ function getStatusBadge(status: ScheduledMessageDerivedStatus): {
 
 function formatTs(ts: number): string {
   try {
-    return format(new Date(ts), SHORT_DATE_WITH_SECONDS);
+    return format(new Date(ts), DATE_TIME);
   } catch {
     return "\u2014";
   }

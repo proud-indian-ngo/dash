@@ -36,6 +36,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import { getKalakritiNextSlots } from "@/functions/kalakriti-performance-order";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
+import { DAY_MONTH_TIME, TIME } from "@/lib/date-formats";
 import {
   getEntryStudentOptionEligibility,
   indexEntriesByStudent,
@@ -270,9 +271,8 @@ export function CompetitionEntries({
                 {session.competition.participationMode === "group"
                   ? "Group"
                   : "Individual"}{" "}
-                · {format(new Date(session.startAt), "dd MMM, h:mm a")}–
-                {format(new Date(session.endAt), "h:mm a")} ·{" "}
-                {session.venue.name}
+                · {format(new Date(session.startAt), DAY_MONTH_TIME)}–
+                {format(new Date(session.endAt), TIME)} · {session.venue.name}
               </p>
             </>
           ) : (

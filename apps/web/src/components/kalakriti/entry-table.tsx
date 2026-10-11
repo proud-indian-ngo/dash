@@ -16,6 +16,7 @@ import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
+import { DAY_MONTH_TIME, TIME } from "@/lib/date-formats";
 
 import {
   getEntryStudentAttendance,
@@ -379,7 +380,7 @@ export function EntryTable({
               const slot = nextByEntryId.get(row.original.id);
               if (!slot) return "—";
               const timeLabel = slot.startAt
-                ? format(new Date(slot.startAt), "h:mm a")
+                ? format(new Date(slot.startAt), TIME)
                 : "";
               return (
                 <span
@@ -511,7 +512,7 @@ export function EntryTable({
       accessorFn: (row) => row.session.startAt,
       cell: ({ row }) => (
         <span className="text-sm">
-          {format(new Date(row.original.session.startAt), "dd MMM, h:mm a")}
+          {format(new Date(row.original.session.startAt), DAY_MONTH_TIME)}
         </span>
       ),
       header: ({ column }) => (
@@ -705,7 +706,7 @@ export function EntryTable({
             slot
               ? formatKalakritiNextSlotLabel(
                   slot,
-                  slot.startAt ? format(new Date(slot.startAt), "h:mm a") : "",
+                  slot.startAt ? format(new Date(slot.startAt), TIME) : "",
                   row.participationMode === "group"
                 )
               : undefined

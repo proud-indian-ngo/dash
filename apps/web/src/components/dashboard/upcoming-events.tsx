@@ -16,7 +16,7 @@ import { addWeeks, format } from "date-fns";
 
 import { GhostEmptyState } from "@/components/shared/ghost-empty-state";
 import { Tag } from "@/components/shared/status-badge";
-import { LONG_DATE_TIME } from "@/lib/date-formats";
+import { DATE_TIME } from "@/lib/date-formats";
 
 interface TeamEventException {
   cancelledAt: number | null;
@@ -115,7 +115,7 @@ function UpcomingEventsList({ items }: { items: UpcomingItem[] }) {
             {Boolean(item.isPublic) && <Tag>Public</Tag>}
           </div>
           <div className="text-muted-foreground mt-0.5 flex items-center gap-2 text-xs">
-            <span>{format(item.startTime, LONG_DATE_TIME)}</span>
+            <span>{format(item.startTime, DATE_TIME)}</span>
             {Boolean(item.team) && (
               <>
                 <span>&middot;</span>

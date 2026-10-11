@@ -38,7 +38,7 @@ import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { useApp } from "@/context/app-context";
 import { authClient } from "@/lib/auth-client";
-import { SHORT_DATE } from "@/lib/date-formats";
+import { DATE } from "@/lib/date-formats";
 import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import {
@@ -392,7 +392,7 @@ export function ReimbursementsTable({
         }
         return (
           <span className="truncate text-sm">
-            {format(new Date(r.expenseDate), SHORT_DATE)}
+            {format(new Date(r.expenseDate), DATE)}
           </span>
         );
       },
@@ -413,12 +413,12 @@ export function ReimbursementsTable({
     },
     {
       accessorFn: (row) =>
-        row.submittedAt === null ? "—" : format(row.submittedAt, SHORT_DATE),
+        row.submittedAt === null ? "—" : format(row.submittedAt, DATE),
       cell: ({ row }) => (
         <span className="text-muted-foreground truncate text-sm">
           {row.original.submittedAt === null
             ? "—"
-            : format(row.original.submittedAt, SHORT_DATE)}
+            : format(row.original.submittedAt, DATE)}
         </span>
       ),
       header: ({ column }) => (

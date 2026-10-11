@@ -56,7 +56,7 @@ import {
 } from "@/functions/event-poll";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useDialogManager } from "@/hooks/use-dialog-manager";
-import { LONG_DATE_TIME, SHORT_MONTH_DATE_TIME } from "@/lib/date-formats";
+import { DATE_TIME } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 import { AddEventMemberDialog } from "./add-event-member-dialog";
@@ -158,7 +158,7 @@ function getPostEventContentMessage(
   const lead = isPastEvent
     ? "This event took place on"
     : "This event is scheduled for";
-  return `${lead} ${format(new Date(startTime), LONG_DATE_TIME)}. Post-event updates, photos, and feedback will appear here soon.`;
+  return `${lead} ${format(new Date(startTime), DATE_TIME)}. Post-event updates, photos, and feedback will appear here soon.`;
 }
 
 function InterestSection(props: {
@@ -475,7 +475,7 @@ function EventHeader({
             {teamName}
           </button>
         ) : null,
-        format(new Date(event.startTime), SHORT_MONTH_DATE_TIME),
+        format(new Date(event.startTime), DATE_TIME),
       ]}
       title={event.name}
     />
@@ -1426,7 +1426,7 @@ export function EventDetail({
       />
 
       <ShowInterestDialog
-        eventDate={format(new Date(event.startTime), LONG_DATE_TIME)}
+        eventDate={format(new Date(event.startTime), DATE_TIME)}
         eventId={event.id}
         eventName={event.name}
         occDate={isVirtualOccurrence ? occDate : undefined}

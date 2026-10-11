@@ -17,7 +17,7 @@ import {
   SKELETON_LOCATION,
   SKELETON_NAME,
 } from "@/components/teams/events/events-table-helpers";
-import { SHORT_MONTH_DATE_TIME } from "@/lib/date-formats";
+import { DATE_TIME } from "@/lib/date-formats";
 
 interface ColumnCallbacks {
   canCancelPast: boolean;
@@ -159,7 +159,7 @@ export function createEventsTableColumns({
       accessorFn: (row) => row.startTime,
       cell: ({ row }) => (
         <span className="truncate text-sm">
-          {format(new Date(row.original.startTime), SHORT_MONTH_DATE_TIME)}
+          {format(new Date(row.original.startTime), DATE_TIME)}
         </span>
       ),
       header: ({ column }) => (

@@ -27,7 +27,7 @@ import {
   revokeSocialApiTokenFn,
   type SocialApiTokenListItem,
 } from "@/functions/social-api-tokens";
-import { SHORT_DATE } from "@/lib/date-formats";
+import { DATE } from "@/lib/date-formats";
 import { getErrorMessage } from "@/lib/errors";
 
 const SCOPE_OPTIONS = [
@@ -40,7 +40,7 @@ const SCOPE_OPTIONS = [
 type Scope = (typeof SCOPE_OPTIONS)[number]["value"];
 
 function formatDate(value: number | null) {
-  return value === null ? "Never" : format(new Date(value), SHORT_DATE);
+  return value === null ? "Never" : format(new Date(value), DATE);
 }
 
 function ScopeCheckbox({

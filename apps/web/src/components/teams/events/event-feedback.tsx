@@ -14,7 +14,7 @@ import {
 } from "@/components/editor/editor-skeletons";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { getMyEventFeedback } from "@/functions/event-feedback";
-import { LONG_DATE_TIME } from "@/lib/date-formats";
+import { DATE_TIME } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 const PlateEditor = lazy(() =>
@@ -365,7 +365,7 @@ function EventFeedbackParticipant({
         </p>
         {feedbackDeadline ? (
           <p className="text-muted-foreground mt-1 text-xs">
-            Deadline: {format(new Date(feedbackDeadline), LONG_DATE_TIME)}
+            Deadline: {format(new Date(feedbackDeadline), DATE_TIME)}
           </p>
         ) : null}
       </div>

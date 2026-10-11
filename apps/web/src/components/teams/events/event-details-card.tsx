@@ -24,7 +24,7 @@ import { format } from "date-fns";
 import upperFirst from "lodash/upperFirst";
 
 import { Tag } from "@/components/shared/status-badge";
-import { LONG_DATE_TIME } from "@/lib/date-formats";
+import { DATE_TIME } from "@/lib/date-formats";
 
 import type { EventRow } from "./events-table";
 
@@ -105,9 +105,9 @@ export function EventDetailsCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <PropertyRow icon={Calendar03Icon} label="Date & Time">
-          {format(new Date(event.startTime), LONG_DATE_TIME)}
+          {format(new Date(event.startTime), DATE_TIME)}
           {event.endTime
-            ? ` — ${format(new Date(event.endTime), LONG_DATE_TIME)}`
+            ? ` — ${format(new Date(event.endTime), DATE_TIME)}`
             : null}
         </PropertyRow>
 

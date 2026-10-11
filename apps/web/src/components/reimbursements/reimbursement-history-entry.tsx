@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 
-import { SHORT_DATE_WITH_TIME } from "@/lib/date-formats";
+import { DATE_TIME } from "@/lib/date-formats";
 
 interface HistoryEntryProps {
   action: string;
@@ -19,7 +19,7 @@ export function HistoryEntry({ entry }: { entry: HistoryEntryProps }) {
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium capitalize">{entry.action}</span>
           <span className="text-muted-foreground text-xs">
-            {format(entry.createdAt, SHORT_DATE_WITH_TIME)}
+            {format(entry.createdAt, DATE_TIME)}
           </span>
         </div>
         {entry.note ? (

@@ -22,7 +22,7 @@ import { RejectDialog } from "@/components/form/reject-dialog";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
-import { LONG_DATE } from "@/lib/date-formats";
+import { DATE } from "@/lib/date-formats";
 import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { getStatusBadge } from "@/lib/status-badge";
@@ -350,7 +350,7 @@ function TransactionRow({
       </td>
       <td className="text-muted-foreground px-3 py-2">
         {transaction.transactionDate
-          ? format(transaction.transactionDate, LONG_DATE)
+          ? format(transaction.transactionDate, DATE)
           : "—"}
       </td>
       <td className="text-muted-foreground px-3 py-2">

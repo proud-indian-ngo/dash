@@ -20,7 +20,7 @@ import {
   getAttachmentLabel,
   getAttachmentPreviewHref,
 } from "@/lib/attachment-links";
-import { LONG_DATE } from "@/lib/date-formats";
+import { DATE } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { mapAttachmentsToFormValues } from "@/lib/submission-mappers";
 
@@ -134,9 +134,7 @@ function InvoiceContent({
           <div>
             <p className="text-muted-foreground text-xs">Invoice Date</p>
             <p className="text-sm font-medium">
-              {request.invoiceDate
-                ? format(request.invoiceDate, LONG_DATE)
-                : "—"}
+              {request.invoiceDate ? format(request.invoiceDate, DATE) : "—"}
             </p>
           </div>
         </div>
@@ -148,7 +146,7 @@ function InvoiceContent({
           <span className="text-foreground font-medium">
             {request.invoiceReviewer.name}
           </span>{" "}
-          on {format(request.invoiceReviewedAt, LONG_DATE)}
+          on {format(request.invoiceReviewedAt, DATE)}
         </p>
       ) : null}
 

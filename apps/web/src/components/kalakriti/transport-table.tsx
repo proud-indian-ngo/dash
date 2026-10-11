@@ -11,12 +11,14 @@ import {
   KALAKRITI_TRANSPORT_STATUS_LABELS,
   type KalakritiCenterScanStage,
 } from "@pi-dash/shared/kalakriti";
+import { format } from "date-fns";
 import { useMemo } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { dateField, selectField } from "@/components/data-table/filter-fields";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
+import { TIME } from "@/lib/date-formats";
 
 import type { CenterTransportAssignment } from "./center-transport-section";
 import { useTransportStatusSnapshot } from "./use-transport-status-snapshot";
@@ -198,14 +200,7 @@ export function TransportTable({
       cell: ({ row }) =>
         row.original.assignment?.pickupTime == null
           ? "—"
-          : new Date(row.original.assignment.pickupTime).toLocaleTimeString(
-              "en-US",
-              {
-                hour: "numeric",
-                minute: "2-digit",
-                hour12: true,
-              }
-            ),
+          : format(new Date(row.original.assignment.pickupTime), TIME),
       meta: {
         headerTitle: "Pickup time",
         kind: "date",

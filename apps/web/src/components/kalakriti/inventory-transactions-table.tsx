@@ -4,10 +4,12 @@ import type { FilterField } from "@pi-dash/design-system/components/reui/filters
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { KALAKRITI_RESPONSIBILITY_LABELS } from "@pi-dash/shared/kalakriti";
 import { KALAKRITI_INVENTORY_LABELS } from "@pi-dash/shared/kalakriti-inventory";
+import { format } from "date-fns";
 import { useMemo } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { dateField } from "@/components/data-table/filter-fields";
+import { DATE_TIME } from "@/lib/date-formats";
 
 import type { InventoryTransaction } from "./inventory-types";
 
@@ -77,7 +79,7 @@ export function InventoryTransactionsTable({
             visibility={true}
           />
         ),
-        cell: ({ row }) => new Date(row.original.createdAt).toLocaleString(),
+        cell: ({ row }) => format(new Date(row.original.createdAt), DATE_TIME),
         meta: {
           headerTitle: "Recorded at",
           kind: "date",

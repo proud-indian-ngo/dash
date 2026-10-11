@@ -23,7 +23,7 @@ import {
   SKELETON_UPDATED_AT,
   SKELETON_WHATSAPP,
 } from "@/components/users/user-table-skeletons";
-import { SHORT_DATE, SHORT_DATE_WITH_SECONDS } from "@/lib/date-formats";
+import { DATE, DATE_TIME } from "@/lib/date-formats";
 
 export function createUserColumns(
   renderActions: (row: User) => ReactNode
@@ -100,7 +100,7 @@ export function createUserColumns(
         if (row.dob === null) {
           return "—";
         }
-        return format(row.dob, SHORT_DATE);
+        return format(row.dob, DATE);
       },
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="DOB" visibility={true} />
@@ -244,7 +244,7 @@ export function createUserColumns(
         if (row.banExpires === null) {
           return "—";
         }
-        return format(row.banExpires, SHORT_DATE_WITH_SECONDS);
+        return format(row.banExpires, DATE_TIME);
       },
       header: ({ column }) => (
         <DataGridColumnHeader
@@ -266,7 +266,7 @@ export function createUserColumns(
         if (row.createdAt === null) {
           return "—";
         }
-        return format(row.createdAt, SHORT_DATE_WITH_SECONDS);
+        return format(row.createdAt, DATE_TIME);
       },
       header: ({ column }) => (
         <DataGridColumnHeader
@@ -288,7 +288,7 @@ export function createUserColumns(
         if (row.updatedAt === null) {
           return "—";
         }
-        return format(row.updatedAt, SHORT_DATE_WITH_SECONDS);
+        return format(row.updatedAt, DATE_TIME);
       },
       header: ({ column }) => (
         <DataGridColumnHeader

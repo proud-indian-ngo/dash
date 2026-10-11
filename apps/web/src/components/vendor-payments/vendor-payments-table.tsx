@@ -38,7 +38,7 @@ import {
 import { useApp } from "@/context/app-context";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { authClient } from "@/lib/auth-client";
-import { SHORT_DATE } from "@/lib/date-formats";
+import { DATE } from "@/lib/date-formats";
 import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { canEditVendorPaymentSubmission } from "@/lib/request-edit-permissions";
@@ -342,12 +342,12 @@ export function VendorPaymentsTable({
     },
     {
       accessorFn: (row) =>
-        row.submittedAt === null ? "—" : format(row.submittedAt, SHORT_DATE),
+        row.submittedAt === null ? "—" : format(row.submittedAt, DATE),
       cell: ({ row }) => (
         <span className="text-muted-foreground truncate text-sm">
           {row.original.submittedAt === null
             ? "—"
-            : format(row.original.submittedAt, SHORT_DATE)}
+            : format(row.original.submittedAt, DATE)}
         </span>
       ),
       header: ({ column }) => (

@@ -36,18 +36,21 @@ export function AuditDetailSheet({
                 </StatusBadge>
               }
               description={`Immutable audit entry ${entry.id}`}
-              meta={[entry.actorName, formatTimestamp(entry.attemptedAt)]}
+              meta={[
+                entry.actorName,
+                formatTimestamp(entry.attemptedAt, { seconds: true }),
+              ]}
               title={<span className="font-mono text-sm">{entry.action}</span>}
             />
             <div className="grid min-h-0 flex-1 gap-6 overflow-y-auto px-6 pb-6">
               <div className="grid gap-3 sm:grid-cols-2">
                 <DetailRow
                   label="Attempted"
-                  value={formatTimestamp(entry.attemptedAt)}
+                  value={formatTimestamp(entry.attemptedAt, { seconds: true })}
                 />
                 <DetailRow
                   label="Completed"
-                  value={formatTimestamp(entry.completedAt)}
+                  value={formatTimestamp(entry.completedAt, { seconds: true })}
                 />
                 <DetailRow label="Actor" value={entry.actorName} />
                 <DetailRow label="Actor ID" value={entry.actorUserId} />

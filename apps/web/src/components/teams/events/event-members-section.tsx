@@ -16,7 +16,7 @@ import { log } from "evlog";
 
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
-import { LOCALE_DATE } from "@/lib/date-formats";
+import { DATE } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 import type { EventRow } from "./events-table";
@@ -84,7 +84,7 @@ function EventMemberRow({
           <div className="min-w-0">
             <div className="truncate text-sm font-medium">{displayName}</div>
             <div className="text-muted-foreground text-xs">
-              Added {format(new Date(member.addedAt), LOCALE_DATE)}
+              Added {format(new Date(member.addedAt), DATE)}
             </div>
           </div>
         </UserHoverCard>
@@ -92,7 +92,7 @@ function EventMemberRow({
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium">{displayName}</div>
           <div className="text-muted-foreground text-xs">
-            Added {format(new Date(member.addedAt), LOCALE_DATE)}
+            Added {format(new Date(member.addedAt), DATE)}
           </div>
         </div>
       )}

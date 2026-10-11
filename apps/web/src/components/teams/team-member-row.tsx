@@ -8,7 +8,7 @@ import { format } from "date-fns";
 import { Tag } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
-import { SHORT_DATE } from "@/lib/date-formats";
+import { DATE } from "@/lib/date-formats";
 
 export interface MemberRowProps {
   canManage: boolean;
@@ -54,7 +54,7 @@ export function MemberRow({
           <div>
             <div className="text-sm font-medium">{user.name}</div>
             <div className="text-muted-foreground text-xs">
-              Joined {format(member.joinedAt, SHORT_DATE)}
+              Joined {format(member.joinedAt, DATE)}
             </div>
           </div>
         </UserHoverCard>
@@ -64,7 +64,7 @@ export function MemberRow({
           <div>
             <div className="text-sm font-medium">Unknown user</div>
             <div className="text-muted-foreground text-xs">
-              Joined {format(member.joinedAt, SHORT_DATE)}
+              Joined {format(member.joinedAt, DATE)}
             </div>
           </div>
         </div>

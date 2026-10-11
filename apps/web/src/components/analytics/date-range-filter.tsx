@@ -19,7 +19,7 @@ import { format, isValid, parseISO } from "date-fns";
 import { useQueryStates } from "nuqs";
 import { useState } from "react";
 
-import { ISO_DATE } from "@/lib/date-formats";
+import { DAY_MONTH, ISO_DATE } from "@/lib/date-formats";
 import { DATE_PRESETS, dateRangeSearchParams } from "@/lib/date-range";
 
 interface RangeSelection {
@@ -42,7 +42,7 @@ function formatRangeLabel(fromStr: string, toStr: string, includeYear = false) {
     return null;
   }
   const toFormat = includeYear ? "MMM d, yyyy" : "MMM d";
-  return `${format(from, "MMM d")} \u2013 ${format(to, toFormat)}`;
+  return `${format(from, DAY_MONTH)} \u2013 ${format(to, toFormat)}`;
 }
 
 export function DateRangeFilter({ onChange }: { onChange?: () => void } = {}) {
