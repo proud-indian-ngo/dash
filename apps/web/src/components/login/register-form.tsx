@@ -122,7 +122,9 @@ export function RegisterForm() {
       data-register-group={group ?? ""}
     >
       <div className="space-y-2">
-        <h2 className="text-2xl font-bold">Create your account</h2>
+        <h2 className="font-display text-2xl font-semibold tracking-tight">
+          Create your account
+        </h2>
         <p className="text-muted-foreground text-sm">
           Enter your details below to create your account
         </p>
@@ -196,7 +198,7 @@ export function RegisterForm() {
           search={{ redirect }}
           to="/login"
         >
-          Login
+          Log in
         </Link>
       </p>
     </div>

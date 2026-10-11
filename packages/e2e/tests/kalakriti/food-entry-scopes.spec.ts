@@ -247,7 +247,7 @@ for (const actor of ["guardian", "liaison"] as const) {
         await page.goto("/login");
         await page.getByLabel("Email").fill(data.scopeGuardianEmail);
         await page.getByLabel("Password").fill(data.scopeGuardianPassword);
-        await page.getByRole("button", { name: "Login", exact: true }).click();
+        await page.getByRole("button", { name: "Log in", exact: true }).click();
         await page.waitForURL((url) => url.pathname !== "/login");
       }
       await gotoFood(page, data.year, "guardian");
@@ -306,7 +306,7 @@ test("Competition workspace scopes Guardian and Liaison Entries without configur
     await guardian.goto("/login");
     await guardian.getByLabel("Email").fill(data.scopeGuardianEmail);
     await guardian.getByLabel("Password").fill(data.scopeGuardianPassword);
-    await guardian.getByRole("button", { name: "Login", exact: true }).click();
+    await guardian.getByRole("button", { name: "Log in", exact: true }).click();
     await guardian.waitForURL((url) => url.pathname !== "/login");
     const liaison = await liaisonContext.newPage();
 
@@ -449,7 +449,7 @@ test("Food and Entry readers see their two-Center union, while arrival and check
     await guardian.goto("/login");
     await guardian.getByLabel("Email").fill(data.scopeGuardianEmail);
     await guardian.getByLabel("Password").fill(data.scopeGuardianPassword);
-    await guardian.getByRole("button", { name: "Login", exact: true }).click();
+    await guardian.getByRole("button", { name: "Log in", exact: true }).click();
     await guardian.waitForURL((url) => url.pathname !== "/login");
     const liaison = await liaisonContext.newPage();
     const expectLiaisonWireScoped = watchOutsideCenter(liaison);
@@ -1575,7 +1575,7 @@ test("Students directory unions assigned Centers while creation, quota and trans
     await guardian.goto("/login");
     await guardian.getByLabel("Email").fill(data.scopeGuardianEmail);
     await guardian.getByLabel("Password").fill(data.scopeGuardianPassword);
-    await guardian.getByRole("button", { name: "Login", exact: true }).click();
+    await guardian.getByRole("button", { name: "Log in", exact: true }).click();
     await guardian.waitForURL((url) => url.pathname !== "/login");
     for (const reader of [guardian, liaison]) {
       await reader.goto(`/kalakriti/${data.year}/students`);

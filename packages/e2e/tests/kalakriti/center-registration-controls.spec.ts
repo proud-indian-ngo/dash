@@ -29,7 +29,7 @@ async function signIn(
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Login" }).click();
+  await page.getByRole("button", { name: "Log in" }).click();
   await page.waitForURL((url) => url.pathname !== "/login");
 }
 
