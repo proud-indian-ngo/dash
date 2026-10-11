@@ -99,7 +99,7 @@ export function ShowInterestDialog({
       <DialogContent className="sm:max-w-(--dialog-md)">
         <DialogHeader>
           <DialogTitle>
-            Show Interest{eventName ? `: ${eventName}` : ""}
+            Show interest{eventName ? `: ${eventName}` : ""}
           </DialogTitle>
           <DialogDescription className={eventDate ? "text-sm" : "sr-only"}>
             {eventDate ?? "Express your interest in this event"}

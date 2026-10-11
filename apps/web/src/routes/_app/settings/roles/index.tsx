@@ -155,7 +155,7 @@ function RolesPage() {
         onOpenChange={setCreateOpen}
         open={createOpen}
         size="md"
-        title="Create Role"
+        title="Create role"
       >
         {createOpen ? (
           <CreateRoleForm onCancel={stableOnCancel2} onSubmit={handleCreate} />

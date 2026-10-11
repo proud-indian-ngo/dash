@@ -170,7 +170,7 @@ test.describe("WhatsApp Groups (admin)", () => {
       .filter({ hasText: groupName! });
     await groupRow.getByRole("button", { name: "Edit group" }).click();
     await expect(
-      settingsDialog.getByText("Edit Group", { exact: true })
+      settingsDialog.getByText("Edit group", { exact: true })
     ).toBeVisible();
 
     const updatedName = `${groupName} Updated`;

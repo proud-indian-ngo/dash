@@ -28,9 +28,9 @@ import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { TextareaField } from "@/components/form/textarea-field";
-import { Loader } from "@/components/loader";
 import { RecordNotFound } from "@/components/shared/not-found-state";
 import { PageHeader } from "@/components/shared/page-header";
+import { DetailPageSkeleton } from "@/components/shared/page-skeleton";
 import { Tag } from "@/components/shared/status-badge";
 import {
   getAllPermissions,
@@ -223,7 +223,11 @@ function RoleEditPage() {
   );
 
   if (loading) {
-    return <Loader />;
+    return (
+      <div className="app-container mx-auto max-w-4xl px-2 py-6 sm:px-4">
+        <DetailPageSkeleton />
+      </div>
+    );
   }
 
   if (!(roleData && permissionGroups)) {

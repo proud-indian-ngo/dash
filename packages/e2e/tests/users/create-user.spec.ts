@@ -12,7 +12,7 @@ test.describe("Create user dialog (admin)", () => {
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
     await expect(
-      dialog.getByRole("heading", { name: "Create User" })
+      dialog.getByRole("heading", { name: "Create user" })
     ).toBeVisible();
 
     // Form fields

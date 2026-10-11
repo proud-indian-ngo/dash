@@ -17,8 +17,8 @@ import {
   TransportTable,
   type TransportRow,
 } from "@/components/kalakriti/transport-table";
-import { Loader } from "@/components/loader";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { TableSkeleton } from "@/components/shared/page-skeleton";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useDashboardDestinationFilter } from "@/lib/kalakriti-dashboard-filter";
 import { getKalakritiScanActivities } from "@/lib/kalakriti-event-day-policy";
@@ -108,7 +108,7 @@ function KalakritiTransportPage() {
         }}
       />
       {dashboardFilterPending ? (
-        <Loader />
+        <TableSkeleton />
       ) : (
         <TransportTable
           centers={centers}

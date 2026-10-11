@@ -916,7 +916,7 @@ const SEED_RSVP_WHATSAPP_JID = "e2e-rsvp-group@g.us";
 /**
  * Events owned by the approval specs: two pending interest requests (one to
  * approve, one to reject) and three pending photos (one approved alone, the
- * rest with Approve All). Separate from the Zero authorization fixtures, which
+ * rest with Approve all). Separate from the Zero authorization fixtures, which
  * must stay pending.
  */
 async function ensureApprovalFixtures({

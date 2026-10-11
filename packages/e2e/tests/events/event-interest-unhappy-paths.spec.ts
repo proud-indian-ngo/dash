@@ -61,10 +61,10 @@ test.describe("Event interest unhappy paths (volunteer)", () => {
     page,
   }) => {
     // Regression check: a public event outside the volunteer's teams offers
-    // Show Interest on its page.
+    // Show interest on its page.
     await openPublicEvent(page, "E2E Open Interest Event");
     await expect(
-      page.getByRole("button", { exact: true, name: "Show Interest" })
+      page.getByRole("button", { exact: true, name: "Show interest" })
     ).toBeVisible();
   });
 });

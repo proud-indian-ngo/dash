@@ -238,7 +238,7 @@ function ExportRouteComponent() {
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
       <PageHeader
         description="Export reimbursement, advance payment, and vendor payment data as a ZIP containing CSV files and request attachments for a financial year."
-        title="Export Data"
+        title="Export data"
       />
 
       <div className="mt-4 grid max-w-md gap-6">

@@ -37,7 +37,7 @@ export class ReimbursementPage {
     await this.page.goto("/reimbursements/new");
     await waitForZeroReady(this.page);
     await expect(
-      this.page.getByRole("heading", { name: "New Reimbursement" })
+      this.page.getByRole("heading", { name: "New reimbursement" })
     ).toBeVisible();
   }
 

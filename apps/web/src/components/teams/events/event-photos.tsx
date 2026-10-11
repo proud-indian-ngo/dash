@@ -422,7 +422,7 @@ export function EventPhotos({
                 icon={ImageUpload01Icon}
                 strokeWidth={2}
               />
-              {isUploading ? "Uploading..." : "Upload Photos & Videos"}
+              {isUploading ? "Uploading..." : "Upload photos & videos"}
             </Button>
             <span className="text-muted-foreground text-xs">
               JPEG, PNG, MP4, MOV · 20 MB / 500 MB
@@ -450,7 +450,7 @@ export function EventPhotos({
                 icon={LinkSquare02Icon}
                 strokeWidth={2}
               />
-              View Album
+              View album
             </a>
             {canManage ? (
               <Button
@@ -465,7 +465,7 @@ export function EventPhotos({
                   icon={Delete02Icon}
                   strokeWidth={2}
                 />
-                Delete Album
+                Delete album
               </Button>
             ) : null}
           </>
@@ -480,7 +480,7 @@ export function EventPhotos({
               Pending Approval ({pendingPhotos.length})
             </p>
             <Button onClick={handleApproveAll} size="sm">
-              Approve All
+              Approve all
             </Button>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
@@ -581,7 +581,7 @@ export function EventPhotos({
 
       <ConfirmDialog
         cancelLabel="Keep"
-        confirmLabel="Delete Album"
+        confirmLabel="Delete album"
         description="This will permanently delete the album and all media for this event. This action cannot be undone."
         loading={deleteAlbumAction.isLoading}
         loadingLabel="Deleting..."

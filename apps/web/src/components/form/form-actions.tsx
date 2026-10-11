@@ -53,9 +53,19 @@ export function FormActions({
 
         return (
           <div
-            className={cn("flex flex-wrap gap-2", className)}
+            className={cn("flex flex-wrap justify-end gap-2", className)}
             data-slot="form-actions"
           >
+            {onCancel ? (
+              <Button
+                data-form-dismiss
+                onClick={onCancel}
+                type="button"
+                variant={cancelVariant}
+              >
+                {cancelLabel}
+              </Button>
+            ) : null}
             <Button
               className={submitClassName}
               disabled={disableSubmit}
@@ -71,16 +81,6 @@ export function FormActions({
                 submitLabel
               )}
             </Button>
-            {onCancel ? (
-              <Button
-                data-form-dismiss
-                onClick={onCancel}
-                type="button"
-                variant={cancelVariant}
-              >
-                {cancelLabel}
-              </Button>
-            ) : null}
           </div>
         );
       }}

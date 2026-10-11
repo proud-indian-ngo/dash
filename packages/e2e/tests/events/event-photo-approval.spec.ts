@@ -19,7 +19,7 @@ test.describe("Event photo approval (admin)", () => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
   });
 
-  test("approves one photo, then the rest with Approve All, each with Undo", async ({
+  test("approves one photo, then the rest with Approve all, each with Undo", async ({
     page,
   }) => {
     test.slow();
@@ -45,8 +45,8 @@ test.describe("Event photo approval (admin)", () => {
     await openPhotos(page);
     await expect(pendingHeading(page, 2)).toBeVisible({ timeout: 10_000 });
 
-    // Approve All: Undo restores every photo, then approve them for real
-    const approveAll = page.getByRole("button", { name: "Approve All" });
+    // Approve all: Undo restores every photo, then approve them for real
+    const approveAll = page.getByRole("button", { name: "Approve all" });
     await approveAll.click();
     await expect(page.getByText("2 media items approved")).toBeVisible();
     await expect(approveAll).toBeHidden();

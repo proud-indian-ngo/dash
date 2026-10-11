@@ -38,7 +38,7 @@ test.describe("Expense Categories settings (admin)", () => {
     const categoryName = `E2E Category ${Date.now()}`;
 
     await dialog.getByRole("button", { name: "Add category" }).click();
-    await expect(dialog.getByText("Add Category")).toBeVisible();
+    await expect(dialog.getByText("Add category")).toBeVisible();
 
     await dialog.getByLabel("Name").fill(categoryName);
     await dialog.getByRole("button", { name: "Save" }).click();
@@ -70,7 +70,7 @@ test.describe("Expense Categories settings (admin)", () => {
       .locator("[class*='border']")
       .filter({ hasText: categoryName });
     await categoryRow.getByRole("button", { name: "Edit category" }).click();
-    await expect(dialog.getByText("Edit Category")).toBeVisible();
+    await expect(dialog.getByText("Edit category")).toBeVisible();
 
     await expect(dialog.getByLabel("Name")).toHaveValue(categoryName, {
       timeout: 5000,

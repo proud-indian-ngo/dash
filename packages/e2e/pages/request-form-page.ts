@@ -77,7 +77,7 @@ export class RequestFormPage {
       await this.page.goto("/reimbursements/new");
       await waitForZeroReady(this.page);
       await expect(
-        this.page.getByRole("heading", { name: "New Reimbursement" })
+        this.page.getByRole("heading", { name: "New reimbursement" })
       ).toBeVisible({ timeout });
       if (attempt < 2) {
         await trySelectBankAccount(attempt + 1);

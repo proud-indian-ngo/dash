@@ -16,11 +16,11 @@ test.describe("Event interest flow (volunteer)", () => {
 
   test("opens and closes the interest dialog", async ({ page }) => {
     await page
-      .getByRole("button", { exact: true, name: "Show Interest" })
+      .getByRole("button", { exact: true, name: "Show interest" })
       .click();
     const dialog = page.getByRole("dialog");
     await expect(
-      dialog.getByRole("heading", { name: "Show Interest" })
+      dialog.getByRole("heading", { name: "Show interest" })
     ).toBeVisible();
     await expect(dialog.getByLabel("Message (optional)")).toBeVisible();
 
@@ -30,7 +30,7 @@ test.describe("Event interest flow (volunteer)", () => {
 
   test("submits interest, then cancels it", async ({ page }) => {
     await page
-      .getByRole("button", { exact: true, name: "Show Interest" })
+      .getByRole("button", { exact: true, name: "Show interest" })
       .click();
     const dialog = page.getByRole("dialog");
     await dialog
@@ -46,7 +46,7 @@ test.describe("Event interest flow (volunteer)", () => {
     await cancel.click();
     await expect(page.getByText("Interest cancelled")).toBeVisible();
     await expect(
-      page.getByRole("button", { exact: true, name: "Show Interest" })
+      page.getByRole("button", { exact: true, name: "Show interest" })
     ).toBeVisible({ timeout: 10_000 });
   });
 });

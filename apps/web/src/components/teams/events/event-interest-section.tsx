@@ -70,12 +70,12 @@ export function VolunteerInterestSection({
       ) : null}
       {showInterest ? (
         <Button onClick={onShowInterest} size="sm" variant="default">
-          Show Interest
+          Show interest
         </Button>
       ) : null}
       {showLeave ? (
         <Button onClick={onLeaveEvent} size="sm" variant="outline">
-          Leave Event
+          Leave event
         </Button>
       ) : null}
       {myInterest && !isMember ? (

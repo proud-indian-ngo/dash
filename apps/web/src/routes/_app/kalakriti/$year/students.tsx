@@ -20,8 +20,8 @@ import {
   StudentFormDialog,
 } from "@/components/kalakriti/student-form-dialog";
 import { StudentTable } from "@/components/kalakriti/student-table";
-import { Loader } from "@/components/loader";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { TableSkeleton } from "@/components/shared/page-skeleton";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import {
   createDashboardFilterQuery,
@@ -325,7 +325,7 @@ function KalakritiStudentsPage() {
         className="flex min-h-48 items-center justify-center"
         role="status"
       >
-        <Loader />
+        <TableSkeleton />
       </div>
     );
   if (

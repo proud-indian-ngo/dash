@@ -36,7 +36,7 @@ test.describe("Vendor approval/unapproval (admin)", () => {
     await dialog
       .getByRole("textbox", { name: "IFSC Code" })
       .fill("SBIN0001234");
-    await clickUntilDialogCloses(dialog, "Create");
+    await clickUntilDialogCloses(dialog, "Add vendor");
     await expect(page.getByText("Vendor created")).toBeVisible({
       timeout: 10_000,
     });

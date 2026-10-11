@@ -136,7 +136,7 @@ function AddMemberFormContent({
             ) : null}
             <FormActions
               onCancel={stableOnCancel}
-              submitLabel={count > 1 ? `Add ${count} Members` : "Add Member"}
+              submitLabel={count > 1 ? `Add ${count} members` : "Add member"}
               submittingLabel="Adding..."
             />
           </>
@@ -166,7 +166,7 @@ export function AddMemberDialog({
     <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogContent className="sm:max-w-(--dialog-md)">
         <DialogHeader>
-          <DialogTitle>Add Member</DialogTitle>
+          <DialogTitle>Add member</DialogTitle>
           <DialogDescription className="sr-only">
             Add a member to this team
           </DialogDescription>

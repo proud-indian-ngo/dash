@@ -236,7 +236,7 @@ test("lets an authorized actor edit Kalakriti-linked event details", async ({
       page.getByRole("button", { exact: true, name: "Edit" })
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Add Volunteer" })
+      page.getByRole("button", { name: "Add volunteer" })
     ).toHaveCount(0);
     await expect(
       page.getByRole("button", { name: "Add volunteers" })

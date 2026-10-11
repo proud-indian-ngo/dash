@@ -40,7 +40,7 @@ export function TeamMembersSection({
               icon={PlusSignIcon}
               strokeWidth={2}
             />
-            Add Member
+            Add member
           </Button>
         ) : null}
       </div>

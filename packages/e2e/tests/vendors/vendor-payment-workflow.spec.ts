@@ -53,28 +53,28 @@ test.describe("Vendor payment workflow (admin)", () => {
     await expectStatus(page, "Approved");
 
     // Step 2: Record partial payment (auto-approved as admin)
-    await page.getByRole("button", { name: "Record Payment" }).click();
-    const recordDialog = page.getByRole("dialog", { name: /Payment/ });
+    await page.getByRole("button", { name: "Record payment" }).click();
+    const recordDialog = page.getByRole("dialog", { name: /payment/i });
     await expect(recordDialog).toBeVisible({ timeout: 5000 });
     await recordDialog.getByLabel("Amount").fill("3000");
     await recordDialog.getByLabel("Description").fill("Partial payment");
-    await recordDialog.getByRole("button", { name: "Record Payment" }).click();
+    await recordDialog.getByRole("button", { name: "Record payment" }).click();
     await expect(recordDialog).toBeHidden({ timeout: 10_000 });
     await expectStatus(page, "Partially Paid");
 
     // Step 3: Record remaining payment
-    await page.getByRole("button", { name: "Record Payment" }).click();
-    const recordDialog2 = page.getByRole("dialog", { name: /Payment/ });
+    await page.getByRole("button", { name: "Record payment" }).click();
+    const recordDialog2 = page.getByRole("dialog", { name: /payment/i });
     await expect(recordDialog2).toBeVisible({ timeout: 5000 });
     await recordDialog2.getByLabel("Amount").fill("2000");
     await recordDialog2.getByLabel("Description").fill("Final payment");
-    await recordDialog2.getByRole("button", { name: "Record Payment" }).click();
+    await recordDialog2.getByRole("button", { name: "Record payment" }).click();
     await expect(recordDialog2).toBeHidden({ timeout: 10_000 });
     await expectStatus(page, "Paid");
 
     // Step 4: Upload invoice
-    await page.getByRole("button", { name: "Upload Invoice" }).click();
-    const invoiceDialog = page.getByRole("dialog", { name: /Invoice/ });
+    await page.getByRole("button", { name: "Upload invoice" }).click();
+    const invoiceDialog = page.getByRole("dialog", { name: /invoice/i });
     await expect(invoiceDialog).toBeVisible({ timeout: 5000 });
     await invoiceDialog.getByLabel("Invoice Number").fill("INV-E2E-001");
     await invoiceDialog.getByLabel("Invoice Date").click();
@@ -85,12 +85,12 @@ test.describe("Vendor payment workflow (admin)", () => {
     await invoiceDialog
       .getByRole("button", { exact: true, name: "Add" })
       .click();
-    await invoiceDialog.getByRole("button", { name: "Submit Invoice" }).click();
+    await invoiceDialog.getByRole("button", { name: "Submit invoice" }).click();
     await expect(invoiceDialog).toBeHidden({ timeout: 10_000 });
     await expectStatus(page, "Invoice Pending");
 
     // Step 5: Approve invoice
-    await page.getByRole("button", { name: "Approve Invoice" }).click();
+    await page.getByRole("button", { name: "Approve invoice" }).click();
     await approveInDialog(page);
     await expectStatus(page, "Completed");
   });
@@ -105,17 +105,17 @@ test.describe("Vendor payment workflow (admin)", () => {
     await expectStatus(page, "Approved");
 
     // Record full payment
-    await page.getByRole("button", { name: "Record Payment" }).click();
-    const recordDialog = page.getByRole("dialog", { name: /Payment/ });
+    await page.getByRole("button", { name: "Record payment" }).click();
+    const recordDialog = page.getByRole("dialog", { name: /payment/i });
     await expect(recordDialog).toBeVisible({ timeout: 5000 });
     await recordDialog.getByLabel("Amount").fill("5000");
-    await recordDialog.getByRole("button", { name: "Record Payment" }).click();
+    await recordDialog.getByRole("button", { name: "Record payment" }).click();
     await expect(recordDialog).toBeHidden({ timeout: 10_000 });
     await expectStatus(page, "Paid");
 
     // Upload invoice
-    await page.getByRole("button", { name: "Upload Invoice" }).click();
-    const invoiceDialog = page.getByRole("dialog", { name: /Invoice/ });
+    await page.getByRole("button", { name: "Upload invoice" }).click();
+    const invoiceDialog = page.getByRole("dialog", { name: /invoice/i });
     await expect(invoiceDialog).toBeVisible({ timeout: 5000 });
     await invoiceDialog.getByLabel("Invoice Number").fill("INV-BAD-001");
     await invoiceDialog.getByLabel("Invoice Date").click();
@@ -126,12 +126,12 @@ test.describe("Vendor payment workflow (admin)", () => {
     await invoiceDialog
       .getByRole("button", { exact: true, name: "Add" })
       .click();
-    await invoiceDialog.getByRole("button", { name: "Submit Invoice" }).click();
+    await invoiceDialog.getByRole("button", { name: "Submit invoice" }).click();
     await expect(invoiceDialog).toBeHidden({ timeout: 10_000 });
     await expectStatus(page, "Invoice Pending");
 
     // Reject invoice
-    await page.getByRole("button", { name: "Reject Invoice" }).click();
+    await page.getByRole("button", { name: "Reject invoice" }).click();
     await rejectInDialog(page, "Wrong invoice number format");
 
     await expectStatus(page, "Paid");
@@ -140,8 +140,8 @@ test.describe("Vendor payment workflow (admin)", () => {
     ).toBeVisible();
 
     // Re-upload corrected invoice
-    await page.getByRole("button", { name: "Resubmit Invoice" }).click();
-    const editDialog = page.getByRole("dialog", { name: /Invoice/ });
+    await page.getByRole("button", { name: "Resubmit invoice" }).click();
+    const editDialog = page.getByRole("dialog", { name: /invoice/i });
     await expect(editDialog).toBeVisible({ timeout: 5000 });
     await expect(editDialog.getByLabel("Invoice Number")).toHaveValue(
       "INV-BAD-001",
@@ -149,12 +149,12 @@ test.describe("Vendor payment workflow (admin)", () => {
     );
     await editDialog.getByLabel("Invoice Number").clear();
     await editDialog.getByLabel("Invoice Number").fill("INV-GOOD-001");
-    await editDialog.getByRole("button", { name: "Update Invoice" }).click();
+    await editDialog.getByRole("button", { name: "Update invoice" }).click();
     await expect(editDialog).toBeHidden({ timeout: 15_000 });
     await expectStatus(page, "Invoice Pending");
 
     // Approve corrected invoice
-    await page.getByRole("button", { name: "Approve Invoice" }).click();
+    await page.getByRole("button", { name: "Approve invoice" }).click();
     await approveInDialog(page);
     await expectStatus(page, "Completed");
   });
@@ -174,7 +174,7 @@ test.describe("Vendor payment workflow (volunteer)", () => {
     await page.getByRole("button", { exact: true, name: "Edit" }).click();
 
     await expect(
-      page.getByRole("heading", { name: "Edit Vendor Payment" })
+      page.getByRole("heading", { name: "Edit vendor payment" })
     ).toBeVisible();
     await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue(
       title

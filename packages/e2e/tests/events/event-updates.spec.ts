@@ -21,7 +21,7 @@ test.describe("Event updates CRUD (admin)", () => {
 
     // Create a past event (start time = yesterday) so Updates tab appears
     const pastEventName = `E2E Past Event ${Date.now()}`;
-    await page.getByRole("button", { name: "Create Event" }).click();
+    await page.getByRole("button", { name: "Create event" }).click();
     const createDialog = page.getByRole("dialog");
     await expect(createDialog).toBeVisible();
 
@@ -36,7 +36,7 @@ test.describe("Event updates CRUD (admin)", () => {
     );
 
     await createDialog
-      .getByRole("button", { exact: true, name: "Create" })
+      .getByRole("button", { exact: true, name: "Create event" })
       .click();
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
 

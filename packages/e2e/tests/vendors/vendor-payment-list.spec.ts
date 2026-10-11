@@ -30,7 +30,7 @@ test.describe("Vendor Payments list (admin)", () => {
     await page.getByRole("button", { name: "Add vendor payment" }).click();
     await page.waitForURL("/vendor-payments/new", { timeout: 10_000 });
     await expect(
-      page.getByRole("heading", { name: "New Vendor Payment" })
+      page.getByRole("heading", { name: "New vendor payment" })
     ).toBeVisible();
   });
 

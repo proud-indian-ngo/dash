@@ -33,7 +33,7 @@ export function TopSubmittersChart({ data }: { data: SubmitterDataPoint[] }) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Request Submitters</CardTitle>
+          <CardTitle className="text-sm">Request submitters</CardTitle>
         </CardHeader>
         <CardContent className="text-muted-foreground flex h-[300px] items-center justify-center text-sm">
           No data for this period
@@ -44,7 +44,7 @@ export function TopSubmittersChart({ data }: { data: SubmitterDataPoint[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">Request Submitters</CardTitle>
+        <CardTitle className="text-sm">Request submitters</CardTitle>
       </CardHeader>
       <CardContent>
         <ChartContainer

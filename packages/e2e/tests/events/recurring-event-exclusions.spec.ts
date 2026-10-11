@@ -14,7 +14,7 @@ test.describe("Recurring event exclusion patterns", () => {
   test("recurrence builder displays exclusion pattern controls", async ({
     page,
   }) => {
-    await page.getByRole("button", { name: "Create Event" }).click();
+    await page.getByRole("button", { name: "Create event" }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
 
@@ -113,7 +113,7 @@ test.describe("Recurring event exclusion patterns", () => {
   });
 
   test("creating recurring event shows preview of dates", async ({ page }) => {
-    await page.getByRole("button", { name: "Create Event" }).click();
+    await page.getByRole("button", { name: "Create event" }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
 

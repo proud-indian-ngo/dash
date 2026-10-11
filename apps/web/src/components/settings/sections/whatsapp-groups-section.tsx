@@ -244,7 +244,7 @@ export function WhatsAppGroupsSection() {
               <div key={group.id}>
                 {editingGroup ? (
                   <div className="rounded-md border p-3">
-                    <p className="mb-3 text-sm font-medium">Edit Group</p>
+                    <p className="mb-3 text-sm font-medium">Edit group</p>
                     <GroupForm
                       initialValues={{
                         description: editingGroup.description ?? "",

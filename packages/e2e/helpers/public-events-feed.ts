@@ -20,7 +20,7 @@ const ID = {
   skipped: "019f0000-0020-7000-8000-000000002008",
 } as const;
 
-/** Dashboard "Show Interest" on one session; its own team and series. */
+/** Dashboard "Show interest" on one session; its own team and series. */
 const SESSION = {
   series: "019f0000-0020-7000-8000-000000002101",
   team: "019f0000-0020-7000-8000-000000002100",

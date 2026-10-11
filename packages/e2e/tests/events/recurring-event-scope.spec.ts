@@ -25,7 +25,7 @@ test.describe("Recurring event edit/cancel scope", () => {
   }) => {
     // Create a recurring event first
     const eventName = `E2E Scope Edit ${Date.now()}`;
-    await page.getByRole("button", { name: "Create Event" }).click();
+    await page.getByRole("button", { name: "Create event" }).click();
     const createDialog = page.getByRole("dialog");
     await expect(createDialog).toBeVisible();
 
@@ -42,7 +42,7 @@ test.describe("Recurring event edit/cancel scope", () => {
     await page.getByRole("option", { name: "Weekly" }).click();
 
     await createDialog
-      .getByRole("button", { exact: true, name: "Create" })
+      .getByRole("button", { exact: true, name: "Create event" })
       .click();
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText("Event created")).toBeVisible();
@@ -115,7 +115,7 @@ test.describe("Recurring event edit/cancel scope", () => {
   test("standalone event edit skips scope dialog", async ({ page }) => {
     // Create a non-recurring event
     const eventName = `E2E No Scope ${Date.now()}`;
-    await page.getByRole("button", { name: "Create Event" }).click();
+    await page.getByRole("button", { name: "Create event" }).click();
     const createDialog = page.getByRole("dialog");
     await expect(createDialog).toBeVisible();
 
@@ -128,7 +128,7 @@ test.describe("Recurring event edit/cancel scope", () => {
 
     // No recurrence selected (default: None)
     await createDialog
-      .getByRole("button", { exact: true, name: "Create" })
+      .getByRole("button", { exact: true, name: "Create event" })
       .click();
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
     await searchTeamEvents(page, eventName);

@@ -20,7 +20,7 @@ test.describe("Event edit and cancel (admin)", () => {
 
     // First create an event to edit
     const originalName = `E2E Edit Target ${Date.now()}`;
-    await page.getByRole("button", { name: "Create Event" }).click();
+    await page.getByRole("button", { name: "Create event" }).click();
     const createDialog = page.getByRole("dialog");
     await expect(createDialog).toBeVisible();
 
@@ -33,7 +33,7 @@ test.describe("Event edit and cancel (admin)", () => {
     await pickDate(createDialog, "Start Time", tomorrow);
 
     await createDialog
-      .getByRole("button", { exact: true, name: "Create" })
+      .getByRole("button", { exact: true, name: "Create event" })
       .click();
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
     await searchTeamEvents(page, originalName);
@@ -63,7 +63,9 @@ test.describe("Event edit and cancel (admin)", () => {
     await editDialog.getByLabel("Location").clear();
     await editDialog.getByLabel("Location").fill("Updated Location");
 
-    await editDialog.getByRole("button", { exact: true, name: "Save" }).click();
+    await editDialog
+      .getByRole("button", { exact: true, name: "Save changes" })
+      .click();
     await expect(editDialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText("Event updated")).toBeVisible();
     await searchTeamEvents(page, updatedName);
@@ -75,7 +77,7 @@ test.describe("Event edit and cancel (admin)", () => {
 
     // Create a future event to cancel
     const eventName = `E2E Cancel Target ${Date.now()}`;
-    await page.getByRole("button", { name: "Create Event" }).click();
+    await page.getByRole("button", { name: "Create event" }).click();
     const createDialog = page.getByRole("dialog");
     await expect(createDialog).toBeVisible();
 
@@ -87,7 +89,7 @@ test.describe("Event edit and cancel (admin)", () => {
     await pickDate(createDialog, "Start Time", nextWeek);
 
     await createDialog
-      .getByRole("button", { exact: true, name: "Create" })
+      .getByRole("button", { exact: true, name: "Create event" })
       .click();
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
     await searchTeamEvents(page, eventName);
@@ -108,7 +110,7 @@ test.describe("Event edit and cancel (admin)", () => {
       confirmDialog.getByText(`Are you sure you want to cancel "${eventName}"`)
     ).toBeVisible();
 
-    await confirmDialog.getByRole("button", { name: "Cancel Event" }).click();
+    await confirmDialog.getByRole("button", { name: "Cancel event" }).click();
 
     await expect(page.getByText("Event cancelled")).toBeVisible({
       timeout: 10_000,
@@ -122,7 +124,7 @@ test.describe("Event edit and cancel (admin)", () => {
     await page.setViewportSize({ height: 932, width: 430 });
 
     const eventName = `E2E Mobile Cancel ${Date.now()}`;
-    await page.getByRole("button", { name: "Create Event" }).click();
+    await page.getByRole("button", { name: "Create event" }).click();
     const createDialog = page.getByRole("dialog");
     await expect(createDialog).toBeVisible();
 
@@ -134,7 +136,7 @@ test.describe("Event edit and cancel (admin)", () => {
     await pickDate(createDialog, "Start Time", nextWeek);
 
     await createDialog
-      .getByRole("button", { exact: true, name: "Create" })
+      .getByRole("button", { exact: true, name: "Create event" })
       .click();
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
     await searchTeamEvents(page, eventName);
@@ -163,7 +165,7 @@ test.describe("Event edit and cancel (admin)", () => {
     await page.mouse.click(10, 10);
     await expect(confirmDialog).toBeVisible();
 
-    await confirmDialog.getByRole("button", { name: "Keep Event" }).click();
+    await confirmDialog.getByRole("button", { name: "Keep event" }).click();
     await expect(confirmDialog).toBeHidden();
   });
 });

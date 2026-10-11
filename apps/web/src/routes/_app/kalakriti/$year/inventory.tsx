@@ -33,8 +33,8 @@ import { InventoryTransactionsTable } from "@/components/kalakriti/inventory-tra
 import type { InventoryItem } from "@/components/kalakriti/inventory-types";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { ScanDialog } from "@/components/kalakriti/scan-dialog";
-import { Loader } from "@/components/loader";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { TableSkeleton } from "@/components/shared/page-skeleton";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useDashboardDestinationFilter } from "@/lib/kalakriti-dashboard-filter";
 import {
@@ -221,7 +221,7 @@ function KalakritiInventoryPage() {
       </Tabs>
       {tab === "items" ? (
         dashboardFilterPending ? (
-          <Loader />
+          <TableSkeleton />
         ) : (
           <InventoryItemsTable
             items={items}

@@ -329,7 +329,13 @@ export function StandardReimbursementFields({
         disabled={bankAccountOptions.length === 0}
         disableWhenInvalid={false}
         onCancel={onCancel}
-        submitLabel={isEdit ? "Save changes" : "Submit"}
+        submitLabel={
+          isEdit
+            ? "Save changes"
+            : requestType === "reimbursement"
+              ? "Submit reimbursement"
+              : "Submit advance payment"
+        }
         submittingLabel={isEdit ? "Saving..." : "Submitting..."}
       />
     </>

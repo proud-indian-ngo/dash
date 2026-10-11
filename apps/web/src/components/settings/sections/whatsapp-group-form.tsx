@@ -44,7 +44,7 @@ export function GroupForm({
         <TextareaField label="Description" name="description" />
         <FormActions
           onCancel={onCancel}
-          submitLabel="Save"
+          submitLabel="Save group"
           submittingLabel="Saving..."
         />
       </div>

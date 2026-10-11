@@ -16,7 +16,7 @@ export class TeamDetailPage {
   }
 
   getAddMemberButton(): Locator {
-    return this.page.getByRole("button", { name: "Add Member" });
+    return this.page.getByRole("button", { name: "Add member" });
   }
 
   getMemberRow(nameOrEmail: string): Locator {
@@ -29,12 +29,12 @@ export class TeamDetailPage {
   }
 
   /**
-   * Opens the Add Member dialog and selects a user by searching name or email.
-   * Waits for the option to appear and clicks it, then clicks "Add Member".
+   * Opens the Add member dialog and selects a user by searching name or email.
+   * Waits for the option to appear and clicks it, then clicks "Add member".
    */
   async addMember(nameOrEmail: string): Promise<void> {
     await this.getAddMemberButton().click();
-    const addDialog = this.page.getByRole("dialog", { name: /Add Member/i });
+    const addDialog = this.page.getByRole("dialog", { name: /Add member/i });
     await expect(addDialog).toBeVisible();
 
     // Search for user in the picker
@@ -48,7 +48,7 @@ export class TeamDetailPage {
     await option.click();
 
     // Submit
-    await addDialog.getByRole("button", { name: "Add Member" }).click();
+    await addDialog.getByRole("button", { name: "Add member" }).click();
     await expect(addDialog).toBeHidden({ timeout: 10_000 });
   }
 

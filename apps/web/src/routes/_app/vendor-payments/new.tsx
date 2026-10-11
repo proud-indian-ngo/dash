@@ -10,7 +10,7 @@ export const Route = createFileRoute("/_app/vendor-payments/new")({
   beforeLoad: ({ context }) => assertPermission(context, "requests.create"),
   component: NewVendorPaymentRouteComponent,
   head: () => ({
-    meta: [{ title: `New Vendor Payment | ${env.VITE_APP_NAME}` }],
+    meta: [{ title: `New vendor payment | ${env.VITE_APP_NAME}` }],
   }),
 });
 
@@ -27,7 +27,7 @@ function NewVendorPaymentRouteComponent() {
     <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
       <PageHeader
         description="Fill in the details and add line items for your vendor payment."
-        title="New Vendor Payment"
+        title="New vendor payment"
       />
       <div className="mt-6">
         <VendorPaymentForm
