@@ -27,7 +27,7 @@ import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { LOCALE_DATE } from "@/lib/date-formats";
+import { DATE } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 import { getPhotoThumbnailUrl, isVideoPhoto } from "./photo-utils";
@@ -251,8 +251,7 @@ export function EventSocialRecap({
         {isReady && event.socialCompletedAt !== null ? (
           <CardDescription>
             <StatusBadge tone="success">
-              Recap ready ·{" "}
-              {format(new Date(event.socialCompletedAt), LOCALE_DATE)}
+              Recap ready · {format(new Date(event.socialCompletedAt), DATE)}
             </StatusBadge>
           </CardDescription>
         ) : (

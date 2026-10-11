@@ -1,7 +1,7 @@
 import type { PublicSessionSummary } from "@pi-dash/shared/public-events";
 import { format } from "date-fns";
 
-import { LONG_DATE_TIME } from "@/lib/date-formats";
+import { DATE_TIME } from "@/lib/date-formats";
 
 interface Step {
   description: string;
@@ -131,7 +131,7 @@ export function EventInfoPanel({
   mode: "login" | "register";
   session: PublicSessionSummary;
 }) {
-  const when = format(new Date(session.startTime), LONG_DATE_TIME);
+  const when = format(new Date(session.startTime), DATE_TIME);
   let heading: string;
   let description: string;
   if (!session.open) {

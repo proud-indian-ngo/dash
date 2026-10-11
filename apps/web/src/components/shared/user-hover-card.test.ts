@@ -83,7 +83,7 @@ describe("UserHoverCard", () => {
     expect(markup).toContain("other@example.com");
     expect(markup).toContain("+91 99999 99999");
     expect(markup).toContain("volunteer");
-    expect(markup).toContain("Joined January 15, 2024");
+    expect(markup).toContain("Joined 15 Jan 2024");
   });
 
   it("redacts contact and join details for other users without users.view", () => {
@@ -96,7 +96,7 @@ describe("UserHoverCard", () => {
     expect(markup).toContain("volunteer");
     expect(markup).not.toContain("other@example.com");
     expect(markup).not.toContain("+91 99999 99999");
-    expect(markup).not.toContain("Joined January 15, 2024");
+    expect(markup).not.toContain("Joined 15 Jan 2024");
   });
 
   it("shows full details for self without users.view", () => {
@@ -107,6 +107,6 @@ describe("UserHoverCard", () => {
 
     expect(markup).toContain("other@example.com");
     expect(markup).toContain("+91 99999 99999");
-    expect(markup).toContain("Joined January 15, 2024");
+    expect(markup).toContain("Joined 15 Jan 2024");
   });
 });

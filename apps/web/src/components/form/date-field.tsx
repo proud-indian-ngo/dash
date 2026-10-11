@@ -13,7 +13,7 @@ import { format } from "date-fns";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
-import { LONG_DATE } from "@/lib/date-formats";
+import { DATE } from "@/lib/date-formats";
 
 import { CustomField } from "./custom-field";
 import type { FieldValidatorConfig, FormInstance } from "./form-context";
@@ -98,7 +98,7 @@ function DateInputPicker({
             type="button"
             variant="outline"
           >
-            {value === undefined ? placeholder : format(value, LONG_DATE)}
+            {value === undefined ? placeholder : format(value, DATE)}
             <HugeiconsIcon
               className="size-4 opacity-60"
               icon={Calendar01Icon}

@@ -9,6 +9,7 @@ import {
 } from "@pi-dash/design-system/components/ui/dialog";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
+import { format } from "date-fns";
 import { type ReactNode, useCallback, useState } from "react";
 import { uuidv7 } from "uuidv7";
 
@@ -16,6 +17,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { getKalakritiResultDetail } from "@/functions/kalakriti-results";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
+import { DATE_TIME } from "@/lib/date-formats";
 
 import { ResultEditor } from "./result-editor";
 import { useResultSnapshot } from "./use-result-snapshot";
@@ -187,7 +189,7 @@ export function ResultSection({
                       Version {revision.version} · {revision.status} · Winner:{" "}
                       {entryLabel(revision.winnerEntryId)} · Runner-up:{" "}
                       {entryLabel(revision.runnerUpEntryId)} ·{" "}
-                      {new Date(revision.createdAt).toLocaleString("en-IN")}
+                      {format(new Date(revision.createdAt), DATE_TIME)}
                     </li>
                   ))}
                 </ol>

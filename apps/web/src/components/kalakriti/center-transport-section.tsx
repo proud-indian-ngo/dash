@@ -8,8 +8,10 @@ import {
   KALAKRITI_TRANSPORT_STATUS_LABELS,
   type KalakritiTransportStatus,
 } from "@pi-dash/shared/kalakriti";
+import { format } from "date-fns";
 
 import { StatusBadge } from "@/components/shared/status-badge";
+import { DATE_TIME } from "@/lib/date-formats";
 
 export interface CenterTransportAssignment {
   capacity: number;
@@ -75,7 +77,7 @@ export function CenterTransportSection({
                 Pickup:{" "}
                 {assignment.pickupTime == null
                   ? "Not scheduled"
-                  : new Date(assignment.pickupTime).toLocaleString()}
+                  : format(new Date(assignment.pickupTime), DATE_TIME)}
               </p>
             </CardContent>
           </Card>

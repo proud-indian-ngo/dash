@@ -1,7 +1,7 @@
 import type { PublicSessionSummary } from "@pi-dash/shared/public-events";
 import { format } from "date-fns";
 
-import { LONG_DATE_TIME } from "@/lib/date-formats";
+import { DATE_TIME } from "@/lib/date-formats";
 
 /** Which session a public-website sign-up link is for, or that it closed. */
 export function RegisterEventBanner({
@@ -9,7 +9,7 @@ export function RegisterEventBanner({
 }: {
   session: PublicSessionSummary;
 }) {
-  const when = format(new Date(session.startTime), LONG_DATE_TIME);
+  const when = format(new Date(session.startTime), DATE_TIME);
   return (
     <div
       className="border-primary/30 bg-primary/5 mb-6 border p-3 text-sm"

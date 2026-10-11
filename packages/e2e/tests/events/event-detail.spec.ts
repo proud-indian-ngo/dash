@@ -22,7 +22,7 @@ test.describe("Event detail page", () => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await openPublicEvent(page, PUBLIC_EVENT);
-    await expect(page.getByText(/\w+ \d+, \d{4}/).first()).toBeVisible({
+    await expect(page.getByText(/\d{1,2} \w{3} \d{4}/).first()).toBeVisible({
       timeout: 10_000,
     });
     await expect(

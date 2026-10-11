@@ -53,6 +53,7 @@ import {
   EntryMusicUploadField,
 } from "@/components/kalakriti/entry-music-field";
 import { deleteTemporaryUpload } from "@/functions/attachments";
+import { DAY_MONTH_TIME, TIME } from "@/lib/date-formats";
 import {
   selectEntryStudentsForCenter,
   getEntryStudentOptionEligibility,
@@ -224,7 +225,7 @@ function getDialogDescription(props: EntryFormDialogProps): string {
     return "Update the Students in this group. The existing group remains unchanged if validation fails.";
   }
   if (props.fixedSession) {
-    return `Register eligible Students for ${props.fixedSession.competition.name} · ${props.fixedSession.ageCategory.name} · ${format(new Date(props.fixedSession.startAt), "dd MMM, h:mm a")} · ${props.fixedSession.venue.name}.`;
+    return `Register eligible Students for ${props.fixedSession.competition.name} · ${props.fixedSession.ageCategory.name} · ${format(new Date(props.fixedSession.startAt), DAY_MONTH_TIME)} · ${props.fixedSession.venue.name}.`;
   }
   return "Choose eligible Students and a Competition Session.";
 }
@@ -270,7 +271,7 @@ function sessionOptionLabel(
       ? `Group of ${session.competition.minimumGroupSize}–${session.competition.maximumGroupSize}`
       : "Individual",
     session.ageCategory.name,
-    `${format(new Date(session.startAt), "dd MMM, h:mm a")}–${format(new Date(session.endAt), "h:mm a")}`,
+    `${format(new Date(session.startAt), DAY_MONTH_TIME)}–${format(new Date(session.endAt), TIME)}`,
     session.venue.name,
   ].join(" · ");
 }

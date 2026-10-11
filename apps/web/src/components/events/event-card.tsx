@@ -19,6 +19,7 @@ import { uuidv7 } from "uuidv7";
 import type { PublicDisplayRow } from "@/components/events/public-events-table";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
+import { DAY_MONTH, TIME } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 interface EventCardProps {
@@ -226,10 +227,10 @@ export function EventCard({
             {format(row.startTime, "EEE")}
           </span>
           <span className="text-sm font-semibold uppercase">
-            {format(row.startTime, "MMM d")}
+            {format(row.startTime, DAY_MONTH)}
           </span>
           <span className="text-muted-foreground text-xs">
-            {format(row.startTime, "h:mm a")}
+            {format(row.startTime, TIME)}
           </span>
         </div>
         <CardHeader className="min-w-0 flex-1">

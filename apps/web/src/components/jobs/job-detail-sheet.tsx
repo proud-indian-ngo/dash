@@ -100,7 +100,7 @@ export function JobDetailSheet({
             </>
           }
           badge={<StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>}
-          meta={[job.name, formatTimestamp(job.createdOn)]}
+          meta={[job.name, formatTimestamp(job.createdOn, { seconds: true })]}
           title={<span className="font-mono text-sm">{job.id}</span>}
         />
 
@@ -113,19 +113,19 @@ export function JobDetailSheet({
               <DetailRow label="Priority" value={String(job.priority)} />
               <DetailRow
                 label="Created"
-                value={formatTimestamp(job.createdOn)}
+                value={formatTimestamp(job.createdOn, { seconds: true })}
               />
               <DetailRow
                 label="Started"
-                value={formatTimestamp(job.startedOn)}
+                value={formatTimestamp(job.startedOn, { seconds: true })}
               />
               <DetailRow
                 label="Completed"
-                value={formatTimestamp(job.completedOn)}
+                value={formatTimestamp(job.completedOn, { seconds: true })}
               />
               <DetailRow
                 label="Scheduled For"
-                value={formatTimestamp(job.startAfter)}
+                value={formatTimestamp(job.startAfter, { seconds: true })}
               />
             </div>
           </div>

@@ -16,6 +16,7 @@ import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
+import { DATE } from "@/lib/date-formats";
 
 function studentTransportLabel(student: Pick<CenterScanStudent, "operations">) {
   return getKalakritiStudentTransportLabel(student.operations);
@@ -94,7 +95,7 @@ export function StudentDetailSheet({
             <DetailRow label="Student ID" value={student.humanId} />
             <DetailRow
               label="Date of birth"
-              value={format(new Date(student.dateOfBirth), "dd MMM yyyy")}
+              value={format(new Date(student.dateOfBirth), DATE)}
             />
             <DetailRow
               label="Gender"

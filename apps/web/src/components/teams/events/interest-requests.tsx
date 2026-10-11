@@ -11,7 +11,7 @@ import { format } from "date-fns";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
-import { LOCALE_DATE } from "@/lib/date-formats";
+import { DATE } from "@/lib/date-formats";
 import { deferAction, useDeferredIds } from "@/lib/deferred-actions";
 import { handleMutationResult } from "@/lib/mutation-result";
 
@@ -67,7 +67,7 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
               {interest.user.name}
             </div>
             <div className="text-muted-foreground text-xs">
-              {format(new Date(interest.createdAt), LOCALE_DATE)}
+              {format(new Date(interest.createdAt), DATE)}
             </div>
             {interest.message ? (
               <div className="text-muted-foreground mt-1 text-xs italic">
@@ -80,7 +80,7 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium">Unknown</div>
           <div className="text-muted-foreground text-xs">
-            {format(new Date(interest.createdAt), LOCALE_DATE)}
+            {format(new Date(interest.createdAt), DATE)}
           </div>
           {interest.message ? (
             <div className="text-muted-foreground mt-1 text-xs italic">

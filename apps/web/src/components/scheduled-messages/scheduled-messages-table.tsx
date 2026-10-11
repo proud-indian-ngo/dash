@@ -30,7 +30,7 @@ import {
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
-import { SHORT_DATE_WITH_SECONDS } from "@/lib/date-formats";
+import { DATE_TIME } from "@/lib/date-formats";
 
 type ScheduledMessageRow = ScheduledMessage & {
   creator?: { name: string } | null;
@@ -65,7 +65,7 @@ const SKELETON_ACTIONS = <Skeleton className="size-8" />;
 
 function formatTs(ts: number): string {
   try {
-    return format(new Date(ts), SHORT_DATE_WITH_SECONDS);
+    return format(new Date(ts), DATE_TIME);
   } catch {
     return "\u2014";
   }

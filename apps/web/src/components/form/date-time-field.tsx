@@ -17,7 +17,7 @@ import { format } from "date-fns";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { SHORT_MONTH_DATE_TIME } from "@/lib/date-formats";
+import { DATE_TIME } from "@/lib/date-formats";
 
 import { CustomField } from "./custom-field";
 import { applyTimeChange } from "./date-time-utils";
@@ -192,9 +192,7 @@ function DateTimePicker({
             type="button"
             variant="outline"
           >
-            {value === undefined
-              ? placeholder
-              : format(value, SHORT_MONTH_DATE_TIME)}
+            {value === undefined ? placeholder : format(value, DATE_TIME)}
             <HugeiconsIcon
               className="size-4 opacity-60"
               icon={Calendar01Icon}

@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import capitalize from "lodash/capitalize";
 import type { ReactNode } from "react";
 
-import { LONG_DATE } from "@/lib/date-formats";
+import { DATE } from "@/lib/date-formats";
 import {
   isReimbursement,
   type RequestDetailData,
@@ -25,7 +25,7 @@ export function reimbursementHeaderMeta(
         {request.event.name}
       </Link>
     ) : null,
-    isReimbursement(request) ? format(request.expenseDate, LONG_DATE) : null,
+    isReimbursement(request) ? format(request.expenseDate, DATE) : null,
     request.bankAccountName && request.bankAccountNumber
       ? `${request.bankAccountName} (••••${
           request.bankAccountNumber.length >= 4

@@ -10,6 +10,7 @@ import { uuidv7 } from "uuidv7";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { FormLayout } from "@/components/form/form-layout";
+import { DATE } from "@/lib/date-formats";
 import { newLineItem } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 
@@ -61,7 +62,7 @@ export function VendorPaymentForm({
       ? eventList.filter((e) => e.city === selectedCity)
       : eventList;
     return filtered.map((e) => ({
-      label: `${e.name} (${format(new Date(e.startTime), "MMM d, yyyy")})`,
+      label: `${e.name} (${format(new Date(e.startTime), DATE)})`,
       value: e.id,
     }));
   }

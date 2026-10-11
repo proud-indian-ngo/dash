@@ -14,6 +14,7 @@ import {
 } from "date-fns";
 
 import type { StatItem } from "@/components/stats/stats-cards";
+import { DAY_MONTH } from "@/lib/date-formats";
 import { formatINR } from "@/lib/form-schemas";
 
 export interface WithStatusAndLineItems {
@@ -147,7 +148,7 @@ export function computeTrendData(
       return {
         amount: sumTotal(weekItems),
         count: weekItems.length,
-        period: format(weekStart, "MMM d"),
+        period: format(weekStart, DAY_MONTH),
       };
     });
   }

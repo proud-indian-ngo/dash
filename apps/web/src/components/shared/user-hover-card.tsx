@@ -12,7 +12,7 @@ import type { ReactNode } from "react";
 import { Tag } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { useApp } from "@/context/app-context";
-import { LONG_DATE } from "@/lib/date-formats";
+import { DATE } from "@/lib/date-formats";
 
 interface UserHoverCardUser {
   createdAt?: null | number | string;
@@ -108,7 +108,7 @@ export function UserHoverCard({
                     strokeWidth={2}
                   />
                   <span className="text-muted-foreground text-xs">
-                    Joined {format(new Date(user.createdAt), LONG_DATE)}
+                    Joined {format(new Date(user.createdAt), DATE)}
                   </span>
                 </div>
               ) : null}

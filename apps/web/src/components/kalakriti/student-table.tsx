@@ -19,6 +19,7 @@ import {
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { DATE } from "@/lib/date-formats";
 import type { StudentCenterPermissions } from "@/lib/kalakriti-student-directory";
 import { canDeleteKalakritiStudent } from "@/lib/kalakriti-student-policy";
 
@@ -245,7 +246,7 @@ export function StudentTable({
       accessorFn: (row) => row.dateOfBirth,
       cell: ({ row }) => (
         <span className="text-sm">
-          {format(new Date(row.original.dateOfBirth), "dd MMM yyyy")}
+          {format(new Date(row.original.dateOfBirth), DATE)}
         </span>
       ),
       header: ({ column }) => (

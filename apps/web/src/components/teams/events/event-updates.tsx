@@ -28,7 +28,7 @@ import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { useApp } from "@/context/app-context";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
-import { LONG_DATE_TIME } from "@/lib/date-formats";
+import { DATE_TIME } from "@/lib/date-formats";
 import { deferAction, useDeferredIds } from "@/lib/deferred-actions";
 import { handleMutationResult } from "@/lib/mutation-result";
 
@@ -309,7 +309,7 @@ function TimelineItem({
             <span className="text-sm font-medium">Unknown</span>
           )}
           <span className="text-muted-foreground text-xs">
-            {format(new Date(update.createdAt), LONG_DATE_TIME)}
+            {format(new Date(update.createdAt), DATE_TIME)}
           </span>
           {isEdited ? (
             <span className="text-muted-foreground text-xs">(edited)</span>
@@ -505,7 +505,7 @@ function PendingUpdateCard({
           </div>
         )}
         <span className="text-muted-foreground text-xs">
-          {format(new Date(update.createdAt), LONG_DATE_TIME)}
+          {format(new Date(update.createdAt), DATE_TIME)}
         </span>
         <StatusBadge tone="warning">Pending</StatusBadge>
 

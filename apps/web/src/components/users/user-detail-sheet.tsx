@@ -7,7 +7,7 @@ import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
-import { SHORT_DATE } from "@/lib/date-formats";
+import { DATE } from "@/lib/date-formats";
 
 interface UserDetailSheetProps {
   /** Header buttons and ⋯ menu; the table supplies the row menu's actions. */
@@ -66,9 +66,7 @@ export function UserDetailSheet({
                   />
                   <DetailRow
                     label="Date of Birth"
-                    value={
-                      user.dob ? format(new Date(user.dob), SHORT_DATE) : null
-                    }
+                    value={user.dob ? format(new Date(user.dob), DATE) : null}
                   />
                 </div>
               </div>
@@ -92,7 +90,7 @@ export function UserDetailSheet({
                       label="Expires"
                       value={
                         user.banExpires
-                          ? format(new Date(user.banExpires), SHORT_DATE)
+                          ? format(new Date(user.banExpires), DATE)
                           : "Never"
                       }
                     />
@@ -107,7 +105,7 @@ export function UserDetailSheet({
                     label="Joined"
                     value={
                       user.createdAt
-                        ? format(new Date(user.createdAt), SHORT_DATE)
+                        ? format(new Date(user.createdAt), DATE)
                         : null
                     }
                   />
@@ -115,7 +113,7 @@ export function UserDetailSheet({
                     label="Last Updated"
                     value={
                       user.updatedAt
-                        ? format(new Date(user.updatedAt), SHORT_DATE)
+                        ? format(new Date(user.updatedAt), DATE)
                         : null
                     }
                   />

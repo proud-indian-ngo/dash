@@ -20,7 +20,7 @@ import { format } from "date-fns";
 import { useEffect, useRef, useState } from "react";
 
 import { Tag } from "@/components/shared/status-badge";
-import { SHORT_MONTH_DATE_TIME } from "@/lib/date-formats";
+import { DATE_TIME } from "@/lib/date-formats";
 
 const WEEKDAY_LABELS = [
   { label: "Mo", value: 0 },
@@ -433,9 +433,7 @@ function OccurrencePreview({
       </Label>
       <div className="flex flex-wrap gap-1">
         {dates.map((occ) => (
-          <Tag key={occ.date}>
-            {format(new Date(occ.startTime), SHORT_MONTH_DATE_TIME)}
-          </Tag>
+          <Tag key={occ.date}>{format(new Date(occ.startTime), DATE_TIME)}</Tag>
         ))}
       </div>
     </div>
