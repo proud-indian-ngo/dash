@@ -1,37 +1,17 @@
 import { expect, test } from "../../fixtures/test";
+import {
+  SANDBOX_TEAM,
+  openSeededTeam,
+  openSeededTeamEvent,
+  searchTeamEvents,
+} from "../../helpers/team-event";
 
 test.describe("Event duplication", () => {
   test("duplicates an event from detail page", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
-    // Navigate to events and open the first one
-    await page.goto("/events");
-    await expect(
-      page.getByRole("heading", { exact: true, name: "Events" })
-    ).toBeVisible({ timeout: 10_000 });
-
-    const eventLink = page
-      .getByRole("table")
-      .getByRole("link")
-      .filter({ hasText: /.+/ });
-    if ((await eventLink.count()) === 0) {
-      test.skip(true, "No events found");
-      return;
-    }
-
-    const originalEventName = await eventLink.first().textContent();
-    if (!originalEventName) {
-      test.skip(true, "Event link has no text");
-      return;
-    }
-
-    await eventLink.first().click();
-    await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
-
-    // Verify event detail page is loaded
-    await expect(
-      page.getByRole("heading", { level: 1, name: originalEventName })
-    ).toBeVisible({ timeout: 10_000 });
+    const originalEventName = "E2E Sandbox Source Event";
+    await openSeededTeamEvent(page, originalEventName, SANDBOX_TEAM);
 
     // Click Duplicate button
     const duplicateButton = page.getByRole("button", { name: "Duplicate" });
@@ -45,11 +25,14 @@ test.describe("Event duplication", () => {
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible({ timeout: 10_000 });
     await expect(
-      dialog.getByRole("heading", { name: "Create Event" })
+      dialog.getByRole("heading", { name: "Duplicate Event" })
     ).toBeVisible();
 
     // Name field should be pre-filled with original event name
-    const nameInput = dialog.getByLabel("Name", { exact: true });
+    const nameInput = dialog.getByRole("textbox", {
+      exact: true,
+      name: "Name",
+    });
     await expect(nameInput).toBeVisible();
     const prefillValue = await nameInput.inputValue();
     if (!prefillValue) {
@@ -70,8 +53,12 @@ test.describe("Event duplication", () => {
       timeout: 10_000,
     });
 
-    // Should see the new event name on the page
-    await expect(page.getByText(dupName)).toBeVisible({ timeout: 10_000 });
+    // The copy lands in the same team; find it in the team's event list
+    await openSeededTeam(page, SANDBOX_TEAM);
+    await searchTeamEvents(page, dupName);
+    await expect(
+      page.getByRole("cell").filter({ hasText: dupName }).first()
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test("duplicate preserves event details from original", async ({
@@ -79,32 +66,7 @@ test.describe("Event duplication", () => {
   }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
-    await page.goto("/teams");
-    await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
-
-    const teamLink = page.getByRole("link").filter({ hasText: /E2E Team/ });
-    if ((await teamLink.count()) === 0) {
-      test.skip(true, "No E2E team available");
-      return;
-    }
-    await teamLink.first().click();
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
-      timeout: 10_000,
-    });
-
-    // Use the row action menu to navigate to event detail
-    const eventRow = page
-      .getByRole("row")
-      .filter({ hasText: /E2E Event|E2E Edit|E2E Weekly/ });
-    if ((await eventRow.count()) === 0) {
-      test.skip(true, "No events available");
-      return;
-    }
-
-    await eventRow.first().getByRole("button", { name: "Row actions" }).click();
-    await page.getByRole("menuitem", { name: "View" }).click();
-
-    await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
+    await openSeededTeamEvent(page, "E2E Sandbox Source Event", SANDBOX_TEAM);
 
     // Click Duplicate
     const duplicateButton = page.getByRole("button", { name: "Duplicate" });
@@ -123,7 +85,9 @@ test.describe("Event duplication", () => {
 
     // Modify only the name
     const dupName = `E2E Dup Copy ${Date.now()}`;
-    await dialog.getByLabel("Name", { exact: true }).fill(dupName);
+    await dialog
+      .getByRole("textbox", { exact: true, name: "Name" })
+      .fill(dupName);
 
     await dialog.getByRole("button", { exact: true, name: "Create" }).click();
 
@@ -133,6 +97,7 @@ test.describe("Event duplication", () => {
     });
 
     // Optionally navigate to the new event to verify details
+    await searchTeamEvents(page, dupName);
     const newEventLink = page.getByText(dupName);
     if ((await newEventLink.count()) > 0) {
       await newEventLink.first().click();

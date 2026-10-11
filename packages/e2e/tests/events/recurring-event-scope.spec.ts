@@ -1,4 +1,15 @@
 import { expect, test } from "../../fixtures/test";
+import { pickDate } from "../../helpers/date-time-picker";
+import {
+  openAdvancedSettings,
+  waitForToastsToClear,
+} from "../../helpers/event-form";
+import {
+  SANDBOX_TEAM,
+  openSeededTeam,
+  searchTeamEvents,
+} from "../../helpers/team-event";
+import { ListPage } from "../../pages/list-page";
 
 test.describe("Recurring event edit/cancel scope", () => {
   test.slow();
@@ -6,19 +17,7 @@ test.describe("Recurring event edit/cancel scope", () => {
   test.beforeEach(async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
-    await page.goto("/teams");
-    await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
-
-    const teamLink = page.getByRole("link").filter({ hasText: /E2E Team/ });
-    const count = await teamLink.count();
-    if (count === 0) {
-      test.skip(true, "No E2E team available — run team-create tests first");
-      return;
-    }
-    await teamLink.first().click();
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
-      timeout: 10_000,
-    });
+    await openSeededTeam(page, SANDBOX_TEAM);
   });
 
   test("edit recurring event shows scope dialog, 'This event only' opens form", async ({
@@ -30,14 +29,15 @@ test.describe("Recurring event edit/cancel scope", () => {
     const createDialog = page.getByRole("dialog");
     await expect(createDialog).toBeVisible();
 
-    await createDialog.getByLabel("Name", { exact: true }).fill(eventName);
+    await createDialog
+      .getByRole("textbox", { exact: true, name: "Name" })
+      .fill(eventName);
 
     const tomorrow = new Date(Date.now() + 86_400_000);
-    await createDialog
-      .getByLabel("Start Time")
-      .fill(tomorrow.toISOString().slice(0, 16));
+    await pickDate(createDialog, "Start Time", tomorrow);
 
     // Select weekly recurrence
+    await openAdvancedSettings(createDialog);
     await createDialog.getByText("None (one-time)").click();
     await page.getByRole("option", { name: "Weekly" }).click();
 
@@ -46,14 +46,15 @@ test.describe("Recurring event edit/cancel scope", () => {
       .click();
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText("Event created")).toBeVisible();
+    await searchTeamEvents(page, eventName);
     await expect(page.getByText(eventName).first()).toBeVisible({
       timeout: 10_000,
     });
 
     // Click Edit on a recurring event row
     const row = page.getByRole("row").filter({ hasText: eventName }).first();
-    await row.getByRole("button", { name: "Row actions" }).click();
-    await page.getByRole("menuitem", { name: "Edit" }).click();
+    await waitForToastsToClear(page);
+    await new ListPage(page).openRowActionAndClick(row, "Edit");
 
     // Scope dialog should appear
     const scopeDialog = page.getByRole("dialog");
@@ -86,21 +87,17 @@ test.describe("Recurring event edit/cancel scope", () => {
   });
 
   test("cancel recurring event shows scope dialog", async ({ page }) => {
-    // Find a recurring event in the table
+    // The seeded weekly event; the dialog is closed without cancelling
+    await openSeededTeam(page);
+    await searchTeamEvents(page, "E2E Upcoming Recurring Public");
     const recurringRow = page
       .getByRole("row")
-      .filter({ hasText: /every week|every month|every day/ })
+      .filter({ hasText: "E2E Upcoming Recurring Public" })
       .first();
 
-    const hasRecurring = (await recurringRow.count()) > 0;
-    if (!hasRecurring) {
-      test.skip(true, "No recurring events available");
-      return;
-    }
-
     // Click Cancel on the recurring event row
-    await recurringRow.getByRole("button", { name: "Row actions" }).click();
-    await page.getByRole("menuitem", { name: "Cancel" }).click();
+    await waitForToastsToClear(page);
+    await new ListPage(page).openRowActionAndClick(recurringRow, "Cancel");
 
     // Scope dialog should appear (not the confirm dialog)
     const scopeDialog = page.getByRole("dialog");
@@ -121,24 +118,25 @@ test.describe("Recurring event edit/cancel scope", () => {
     const createDialog = page.getByRole("dialog");
     await expect(createDialog).toBeVisible();
 
-    await createDialog.getByLabel("Name", { exact: true }).fill(eventName);
+    await createDialog
+      .getByRole("textbox", { exact: true, name: "Name" })
+      .fill(eventName);
 
     const tomorrow = new Date(Date.now() + 86_400_000);
-    await createDialog
-      .getByLabel("Start Time")
-      .fill(tomorrow.toISOString().slice(0, 16));
+    await pickDate(createDialog, "Start Time", tomorrow);
 
     // No recurrence selected (default: None)
     await createDialog
       .getByRole("button", { exact: true, name: "Create" })
       .click();
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
+    await searchTeamEvents(page, eventName);
     await expect(page.getByText(eventName)).toBeVisible({ timeout: 10_000 });
 
     // Click Edit — should go straight to form, no scope dialog
     const row = page.getByRole("row").filter({ hasText: eventName });
-    await row.getByRole("button", { name: "Row actions" }).click();
-    await page.getByRole("menuitem", { name: "Edit" }).click();
+    await waitForToastsToClear(page);
+    await new ListPage(page).openRowActionAndClick(row, "Edit");
 
     const editDialog = page.getByRole("dialog");
     await expect(

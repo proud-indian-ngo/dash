@@ -907,6 +907,11 @@ const SEED_PHOTO_EVENT_NAME = "E2E Past Event With Pending Photos";
 const SEED_PENDING_PHOTO_COUNT = 3;
 const SEED_OPEN_INTEREST_TEAM_NAME = "E2E Interest Team";
 const SEED_OPEN_INTEREST_EVENT_NAME = "E2E Open Interest Event";
+const SEED_FEEDBACK_EVENT_NAME = "E2E Seeded Feedback Event";
+const SEED_RSVP_TEAM_NAME = "E2E RSVP Team";
+const SEED_SANDBOX_TEAM_NAME = "E2E Sandbox Team";
+const SEED_SANDBOX_SOURCE_EVENT_NAME = "E2E Sandbox Source Event";
+const SEED_RSVP_WHATSAPP_JID = "e2e-rsvp-group@g.us";
 
 /**
  * Events owned by the approval specs: two pending interest requests (one to
@@ -1020,7 +1025,87 @@ async function ensureApprovalFixtures({
     updatedAt: subDays(now, 1),
   });
 
-  log("Created approval fixtures: pending interests, photos, open event");
+  // A team with its own WhatsApp group, so its events can post RSVP polls
+  // without taking a group from the shared pool.
+  const rsvpGroupId = uuidv7();
+  await db.insert(whatsappGroup).values({
+    createdAt: now,
+    id: rsvpGroupId,
+    jid: SEED_RSVP_WHATSAPP_JID,
+    name: "E2E RSVP Group",
+    updatedAt: now,
+  });
+  const rsvpTeamId = uuidv7();
+  await db.insert(team).values({
+    createdAt: subDays(now, 1),
+    description: "Team with a WhatsApp group for E2E RSVP poll tests",
+    id: rsvpTeamId,
+    name: SEED_RSVP_TEAM_NAME,
+    updatedAt: subDays(now, 1),
+    whatsappGroupId: rsvpGroupId,
+  });
+  await db.insert(teamMember).values({
+    id: uuidv7(),
+    joinedAt: subDays(now, 1),
+    role: "lead",
+    teamId: rsvpTeamId,
+    userId: adminUserId,
+  });
+
+  // A team for specs that create, edit, cancel or duplicate events, so the
+  // seeded team's list stays stable for the filter and read-only specs.
+  const sandboxTeamId = uuidv7();
+  await db.insert(team).values({
+    createdAt: subDays(now, 1),
+    description: "Team for E2E specs that change events",
+    id: sandboxTeamId,
+    name: SEED_SANDBOX_TEAM_NAME,
+    updatedAt: subDays(now, 1),
+  });
+  await db.insert(teamMember).values({
+    id: uuidv7(),
+    joinedAt: subDays(now, 1),
+    role: "lead",
+    teamId: sandboxTeamId,
+    userId: adminUserId,
+  });
+  await db.insert(teamEvent).values({
+    createdAt: subDays(now, 1),
+    createdBy: adminUserId,
+    description: "Event the duplication specs copy",
+    id: uuidv7(),
+    isPublic: true,
+    location: "Sandbox Hall, Bangalore",
+    name: SEED_SANDBOX_SOURCE_EVENT_NAME,
+    startTime: addDays(now, 6),
+    teamId: sandboxTeamId,
+    updatedAt: subDays(now, 1),
+  });
+
+  // A past event with anonymous feedback on, for the volunteer feedback flow.
+  const feedbackEventId = uuidv7();
+  await db.insert(teamEvent).values({
+    createdAt: subDays(now, 5),
+    createdBy: adminUserId,
+    description: "Past event with feedback enabled for E2E tests",
+    feedbackEnabled: true,
+    id: feedbackEventId,
+    isPublic: true,
+    name: SEED_FEEDBACK_EVENT_NAME,
+    startTime: subDays(now, 1),
+    teamId,
+    updatedAt: subDays(now, 5),
+  });
+  await db.insert(teamEventMember).values({
+    addedAt: subDays(now, 5),
+    eventId: feedbackEventId,
+    id: uuidv7(),
+    userId: volunteerUserId,
+  });
+
+  log(
+    "Created event fixtures: pending interests, photos, open and feedback events"
+  );
 }
 
 interface FilterTestEvent {
