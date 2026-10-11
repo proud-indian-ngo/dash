@@ -1,6 +1,11 @@
 import { expect, test } from "../../fixtures/test";
 import { pickDate } from "../../helpers/date-time-picker";
-import { openSeededTeam, openSeededTeamEvent } from "../../helpers/team-event";
+import {
+  SANDBOX_TEAM,
+  fillTableSearch,
+  openSeededTeam,
+  openSeededTeamEvent,
+} from "../../helpers/team-event";
 
 test.describe("Event updates CRUD (admin)", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
@@ -12,7 +17,7 @@ test.describe("Event updates CRUD (admin)", () => {
   }) => {
     test.slow();
 
-    await openSeededTeam(page);
+    await openSeededTeam(page, SANDBOX_TEAM);
 
     // Create a past event (start time = yesterday) so Updates tab appears
     const pastEventName = `E2E Past Event ${Date.now()}`;
@@ -36,7 +41,7 @@ test.describe("Event updates CRUD (admin)", () => {
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
 
     // The list is paged by date, so search for the new event before opening it
-    await page.getByPlaceholder("Search events...").fill(pastEventName);
+    await fillTableSearch(page, "Search events...", pastEventName);
     const eventCell = page.getByRole("cell").filter({ hasText: pastEventName });
     await expect(eventCell).toBeVisible({ timeout: 10_000 });
     await eventCell.getByRole("button").first().click();

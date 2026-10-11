@@ -1,4 +1,14 @@
 import { expect, test } from "../../fixtures/test";
+import { pickDate } from "../../helpers/date-time-picker";
+import { openAdvancedSettings } from "../../helpers/event-form";
+import {
+  SANDBOX_TEAM,
+  fillTableSearch,
+  openSeededTeam,
+} from "../../helpers/team-event";
+
+/** Seeded public weekly event in "E2E Updates Team". */
+const SEEDED_RECURRING = "E2E Upcoming Recurring Public";
 
 test.describe("Recurring events", () => {
   test.slow();
@@ -6,19 +16,7 @@ test.describe("Recurring events", () => {
   test.beforeEach(async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
-    await page.goto("/teams");
-    await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
-
-    const teamLink = page.getByRole("link").filter({ hasText: /E2E Team/ });
-    const count = await teamLink.count();
-    if (count === 0) {
-      test.skip(true, "No E2E team available — run team-create tests first");
-      return;
-    }
-    await teamLink.first().click();
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
-      timeout: 10_000,
-    });
+    await openSeededTeam(page, SANDBOX_TEAM);
   });
 
   test("create weekly recurring event and verify occurrences", async ({
@@ -30,17 +28,18 @@ test.describe("Recurring events", () => {
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
 
-    await dialog.getByLabel("Name", { exact: true }).fill(eventName);
+    await dialog
+      .getByRole("textbox", { exact: true, name: "Name" })
+      .fill(eventName);
     await dialog.getByLabel("Location").fill("Weekly Room");
 
     // Set start time to tomorrow
     const tomorrow = new Date(Date.now() + 86_400_000);
-    await dialog
-      .getByLabel("Start Time")
-      .fill(tomorrow.toISOString().slice(0, 16));
-    await dialog.getByLabel("Public").check();
+    await pickDate(dialog, "Start Time", tomorrow);
+    await dialog.getByRole("switch", { name: "Public" }).click();
 
     // Select weekly recurrence
+    await openAdvancedSettings(dialog);
     await dialog.getByText("None (one-time)").click();
     await page.getByRole("option", { name: "Weekly" }).click();
 
@@ -52,6 +51,7 @@ test.describe("Recurring events", () => {
     await expect(page.getByText("Event created")).toBeVisible();
 
     // Table should show multiple occurrences of the same event
+    await fillTableSearch(page, "Search events...", eventName);
     const eventCells = page.getByRole("cell").filter({ hasText: eventName });
     await expect(eventCells.first()).toBeVisible({ timeout: 10_000 });
 
@@ -62,49 +62,32 @@ test.describe("Recurring events", () => {
     // All occurrences should show the recurrence label
     const recurrenceBadges = page
       .getByRole("cell")
-      .filter({ hasText: /every week/ });
+      .filter({ hasText: /every week/i });
     await expect(recurrenceBadges.first()).toBeVisible();
   });
 
   test("recurring events appear on the events page", async ({ page }) => {
-    // Navigate to global events page
-    await page.goto("/events");
+    await page.goto(`/events?s=${encodeURIComponent(SEEDED_RECURRING)}`);
     await expect(
       page.getByRole("heading", { exact: true, name: "Events" })
-    ).toBeVisible({
-      timeout: 10_000,
-    });
-
-    // Table should be visible
+    ).toBeVisible({ timeout: 10_000 });
     await expect(
-      page.getByRole("columnheader", { name: "Event" })
-    ).toBeVisible();
-
-    // If we have recurring events from prior tests, they should show
-    // multiple occurrences on this page too
-    const rows = page.getByRole("row");
-    const rowCount = await rows.count();
-    expect(rowCount).toBeGreaterThan(1); // At least header + 1 event
+      page.getByRole("link", { exact: true, name: SEEDED_RECURRING }).first()
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test("recurring event detail shows recurrence info", async ({ page }) => {
-    // Find a recurring event in the table
+    await openSeededTeam(page);
+    await fillTableSearch(page, "Search events...", SEEDED_RECURRING);
     const recurringRow = page
       .getByRole("row")
-      .filter({ hasText: /every week|every month|every day/ })
+      .filter({ hasText: SEEDED_RECURRING })
       .first();
-
-    const hasRecurring = (await recurringRow.count()) > 0;
-    if (!hasRecurring) {
-      test.skip(true, "No recurring events available");
-      return;
-    }
-
-    // Click the event name to navigate to detail
     await recurringRow.getByRole("button").first().click();
-
-    // Detail page should show recurrence info
-    await expect(page.getByText("Recurrence")).toBeVisible({ timeout: 10_000 });
+    await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
+    await expect(page.getByText("Recurrence").first()).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test("create monthly recurring event with end condition", async ({
@@ -115,14 +98,15 @@ test.describe("Recurring events", () => {
     await page.getByRole("button", { name: "Create Event" }).click();
     const dialog = page.getByRole("dialog");
 
-    await dialog.getByLabel("Name", { exact: true }).fill(eventName);
+    await dialog
+      .getByRole("textbox", { exact: true, name: "Name" })
+      .fill(eventName);
 
     const tomorrow = new Date(Date.now() + 86_400_000);
-    await dialog
-      .getByLabel("Start Time")
-      .fill(tomorrow.toISOString().slice(0, 16));
+    await pickDate(dialog, "Start Time", tomorrow);
 
     // Select monthly recurrence
+    await openAdvancedSettings(dialog);
     await dialog.getByText("None (one-time)").click();
     await page.getByRole("option", { name: "Monthly" }).click();
 
@@ -138,6 +122,9 @@ test.describe("Recurring events", () => {
     await dialog.getByRole("button", { exact: true, name: "Create" }).click();
     await expect(dialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText("Event created")).toBeVisible();
-    await expect(page.getByText(eventName)).toBeVisible({ timeout: 10_000 });
+    await fillTableSearch(page, "Search events...", eventName);
+    await expect(
+      page.getByRole("cell").filter({ hasText: eventName }).first()
+    ).toBeVisible({ timeout: 10_000 });
   });
 });

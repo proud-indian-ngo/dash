@@ -1,21 +1,14 @@
 import { expect, test } from "../../fixtures/test";
+import { pickDate } from "../../helpers/date-time-picker";
+import { openAdvancedSettings } from "../../helpers/event-form";
+import { SANDBOX_TEAM, openSeededTeam } from "../../helpers/team-event";
+import { ListPage } from "../../pages/list-page";
 
 test.describe("Recurring event exclusion patterns", () => {
   test.beforeEach(async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
-    await page.goto("/teams");
-    await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
-
-    const teamLink = page.getByRole("link").filter({ hasText: /E2E Team/ });
-    if ((await teamLink.count()) === 0) {
-      test.skip(true, "No E2E team available");
-      return;
-    }
-    await teamLink.first().click();
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
-      timeout: 10_000,
-    });
+    await openSeededTeam(page, SANDBOX_TEAM);
   });
 
   test("recurrence builder displays exclusion pattern controls", async ({
@@ -27,16 +20,15 @@ test.describe("Recurring event exclusion patterns", () => {
 
     // Fill required fields
     await dialog
-      .getByLabel("Name", { exact: true })
+      .getByRole("textbox", { exact: true, name: "Name" })
       .fill(`E2E Exclusion ${Date.now()}`);
 
     // Set start time
     const tomorrow = new Date(Date.now() + 86_400_000);
-    await dialog
-      .getByLabel("Start Time")
-      .fill(tomorrow.toISOString().slice(0, 16));
+    await pickDate(dialog, "Start Time", tomorrow);
 
     // Enable recurrence
+    await openAdvancedSettings(dialog);
     await dialog.getByText("None (one-time)").click();
     await page.getByRole("option", { name: "Weekly" }).click();
 
@@ -65,8 +57,7 @@ test.describe("Recurring event exclusion patterns", () => {
     }
 
     // Open the row actions menu and navigate to event detail
-    await eventRow.first().getByRole("button", { name: "Row actions" }).click();
-    await page.getByRole("menuitem", { name: "View" }).click();
+    await new ListPage(page).openRowActionAndClick(eventRow.first(), "View");
 
     await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
 
@@ -96,13 +87,12 @@ test.describe("Recurring event exclusion patterns", () => {
       return;
     }
 
-    await eventRow.first().getByRole("button", { name: "Row actions" }).click();
-    await page.getByRole("menuitem", { name: "View" }).click();
+    await new ListPage(page).openRowActionAndClick(eventRow.first(), "View");
 
     await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
 
     // Click Edit button
-    const editButton = page.getByRole("button", { name: "Edit" });
+    const editButton = page.getByRole("button", { exact: true, name: "Edit" });
     if ((await editButton.count()) === 0) {
       test.skip(true, "Edit button not available");
       return;
@@ -128,16 +118,15 @@ test.describe("Recurring event exclusion patterns", () => {
     await expect(dialog).toBeVisible();
 
     await dialog
-      .getByLabel("Name", { exact: true })
+      .getByRole("textbox", { exact: true, name: "Name" })
       .fill(`E2E Preview ${Date.now()}`);
 
     // Set start time
     const tomorrow = new Date(Date.now() + 86_400_000);
-    await dialog
-      .getByLabel("Start Time")
-      .fill(tomorrow.toISOString().slice(0, 16));
+    await pickDate(dialog, "Start Time", tomorrow);
 
     // Select weekly recurrence
+    await openAdvancedSettings(dialog);
     await dialog.getByText("None (one-time)").click();
     await page.getByRole("option", { name: "Weekly" }).click();
 
