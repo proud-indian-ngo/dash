@@ -2,7 +2,6 @@ import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import {
   SidebarInset,
   SidebarProvider,
-  SidebarTrigger,
 } from "@pi-dash/design-system/components/ui/sidebar";
 import { useIsMobile } from "@pi-dash/design-system/hooks/use-mobile";
 import { useConnectionState } from "@rocicorp/zero/react";
@@ -19,6 +18,7 @@ import { toast } from "sonner";
 
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
+import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AppProvider, useApp } from "@/context/app-context";
 import { getCachedAuth } from "@/lib/auth-cache";
@@ -146,10 +146,10 @@ function AppLayout() {
           id="main"
           tabIndex={-1}
         >
-          <header className="flex h-16 shrink-0 items-center transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+          <header className="flex h-12 shrink-0 items-center">
             <div className="flex h-full flex-1 items-center justify-between px-2 sm:px-4">
               <div className="flex items-center gap-2">
-                <SidebarTrigger className="-ml-1" />
+                <SidebarToggle />
                 <Separator
                   className="mr-2 self-stretch!"
                   orientation="vertical"

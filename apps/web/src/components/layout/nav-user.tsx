@@ -96,26 +96,7 @@ export function NavUser() {
       className="aria-expanded:bg-muted flex-1"
       size="lg"
     >
-      <span className="relative">
-        <UserAvatar user={user} />
-        {hasUnreadNotifications && (
-          <span
-            aria-hidden="true"
-            className="fade-in-0 zoom-in-0 animate-in ease-out-expo absolute -top-0.5 -right-0.5 size-2.5 transition-all duration-150"
-          >
-            <span
-              className={cn(
-                "bg-destructive ring-sidebar block size-full rounded-full ring-2",
-                hasPulsed && "animate-badge-pulse"
-              )}
-              key={`avatar-badge-${badgePulseToken}`}
-            />
-          </span>
-        )}
-        {hasUnreadNotifications && (
-          <span className="sr-only">You have unread notifications</span>
-        )}
-      </span>
+      <UserAvatar user={user} />
       <div className="grid flex-1 text-left text-sm leading-tight">
         <span className="truncate font-medium">{user.name}</span>
         <span className="truncate text-xs">{user.email}</span>
@@ -128,9 +109,40 @@ export function NavUser() {
     </SidebarMenuButton>
   );
 
+  const bell = (
+    <Button
+      aria-label={
+        hasUnreadNotifications
+          ? `Notifications, ${unreadCountLabel} unread`
+          : "Notifications"
+      }
+      className="text-sidebar-foreground/80 hover:bg-sidebar-foreground/5 relative shrink-0"
+      onClick={() => setNotificationsOpen(true)}
+      size="icon-sm"
+      type="button"
+      variant="ghost"
+    >
+      <HugeiconsIcon icon={NotificationIcon} strokeWidth={2} />
+      {hasUnreadNotifications ? (
+        <span
+          aria-hidden="true"
+          className="fade-in-0 zoom-in-0 animate-in ease-out-expo absolute top-1 right-1 size-2 transition-all duration-150"
+        >
+          <span
+            className={cn(
+              "bg-destructive ring-sidebar block size-full rounded-full ring-2",
+              hasPulsed && "animate-badge-pulse"
+            )}
+            key={`bell-badge-${badgePulseToken}`}
+          />
+        </span>
+      ) : null}
+    </Button>
+  );
+
   return (
     <SidebarMenu>
-      <SidebarMenuItem>
+      <SidebarMenuItem className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col-reverse">
         {isMobile ? (
           <ResponsiveActionMenu
             title="Account actions"
@@ -218,6 +230,7 @@ export function NavUser() {
             </DropdownMenuContent>
           </DropdownMenu>
         )}
+        {bell}
       </SidebarMenuItem>
       <SettingsDialog />
       <Dialog open={notificationsOpen} onOpenChange={setNotificationsOpen}>
