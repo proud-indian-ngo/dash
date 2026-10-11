@@ -1,4 +1,5 @@
 import {
+  Agreement01Icon,
   Calendar03Icon,
   Location01Icon,
   NotificationIcon,
@@ -17,6 +18,7 @@ import {
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { formatReminderInterval } from "@pi-dash/shared/event-reminders";
 import { rruleToLabel } from "@pi-dash/zero/rrule-utils";
+import type { EventPartner } from "@pi-dash/zero/schema";
 import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 import upperFirst from "lodash/upperFirst";
@@ -57,12 +59,30 @@ function PropertyRow({
   );
 }
 
+function PartnersList({ partners }: { partners: readonly EventPartner[] }) {
+  return (
+    <ul className="flex flex-col gap-0.5">
+      {partners.map((partner) => (
+        <li key={partner.id}>
+          {partner.name}
+          {partner.instagram ? (
+            <span className="text-muted-foreground"> {partner.instagram}</span>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function EventDetailsCard({
   canManage,
   event,
+  partners = [],
 }: {
   canManage?: boolean;
   event: EventRow;
+  /** Effective partners (an exception without its own shows the series'). */
+  partners?: readonly EventPartner[];
 }) {
   const navigate = useNavigate();
   const raw = event.reminderIntervals;
@@ -130,6 +150,12 @@ export function EventDetailsCard({
             >
               Part of a recurring series
             </button>
+          </PropertyRow>
+        ) : null}
+
+        {partners.length > 0 ? (
+          <PropertyRow icon={Agreement01Icon} label="Partners">
+            <PartnersList partners={partners} />
           </PropertyRow>
         ) : null}
 

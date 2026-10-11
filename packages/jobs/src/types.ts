@@ -22,6 +22,8 @@ export interface BulkNotificationPayload {
 }
 
 export interface WhatsAppPayload {
+  /** Forwarded to the WhatsApp gateway so a retried job sends once. */
+  idempotencyKey?: string;
   imageUrl?: string;
   message: string;
   phone: string;

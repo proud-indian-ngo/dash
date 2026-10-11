@@ -10,7 +10,7 @@ export async function handleSendWhatsApp(
   await Promise.all(
     jobs.map(async (job) => {
       const log = createRequestLogger({ method: "JOB", path: "send-whatsapp" });
-      const { phone, message } = job.data;
+      const { idempotencyKey, phone, message } = job.data;
 
       log.set({
         event: "job_start",
@@ -18,7 +18,11 @@ export async function handleSendWhatsApp(
         phone,
       });
 
-      await sendWhatsAppMessage(phone, message);
+      await sendWhatsAppMessage(
+        phone,
+        message,
+        idempotencyKey ? { idempotencyKey } : undefined
+      );
 
       log.set({ event: "job_complete" });
       log.emit();

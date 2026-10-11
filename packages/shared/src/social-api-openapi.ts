@@ -1,0 +1,412 @@
+import {
+  SOCIAL_EVENTS_MAX_DAYS,
+  SOCIAL_NOTIFY_MAX_LINE_LENGTH,
+  SOCIAL_NOTIFY_MAX_LINES,
+  SOCIAL_PHOTOS_MAX,
+  SOCIAL_TIMEZONE,
+  type SocialEvent,
+  type SocialMonthlyStats,
+  type SocialPhoto,
+  socialEventStatusValues,
+} from "./social-api";
+
+/**
+ * OpenAPI 3.1 description of the bearer-token social API (`/api/social/v1/*`),
+ * served at `/api/social/v1/openapi.json`. The `Record<keyof …>` types make a
+ * field added to or removed from a response type fail type checking until the
+ * schema matches.
+ */
+
+interface SchemaObject {
+  [key: string]: unknown;
+  description?: string;
+  type?: string | string[];
+}
+
+const nullable = (schema: SchemaObject): SchemaObject => ({
+  anyOf: [schema, { type: "null" }],
+});
+
+const count: SchemaObject = { minimum: 0, type: "integer" };
+const hhmm: SchemaObject = {
+  description: `"HH:mm" in ${SOCIAL_TIMEZONE}.`,
+  pattern: "^\\d{2}:\\d{2}$",
+  type: "string",
+};
+const partnerRef = { $ref: "#/components/schemas/Partner" };
+
+const objectSchema = (properties: Record<string, SchemaObject>) => ({
+  additionalProperties: false,
+  properties,
+  required: Object.keys(properties),
+  type: "object",
+});
+
+const EVENT_PROPERTIES: Record<keyof SocialEvent, SchemaObject> = {
+  area: { description: "Coarse public area, naming the city.", type: "string" },
+  attendance: nullable(
+    objectSchema({
+      children: count,
+      hours: { minimum: 0, type: "number" },
+      volunteers: { ...count, description: "Volunteers checked in present." },
+    })
+  ),
+  city: { type: "string" },
+  endTime: hhmm,
+  id: {
+    description:
+      "Row id (uuid) for standalone events and materialised occurrences; `<seriesId>:<occurrenceDate>` for a virtual occurrence of a recurring series, so every week has its own id. A virtual occurrence's id changes to the row id once it is materialised.",
+    type: "string",
+  },
+  name: { type: "string" },
+  occurrenceDate: {
+    description: `Calendar date in ${SOCIAL_TIMEZONE}.`,
+    format: "date",
+    type: "string",
+  },
+  partners: { items: partnerRef, type: "array" },
+  photos: nullable(
+    objectSchema({
+      consentCleared: {
+        description: "False until the consent process exists.",
+        type: "boolean",
+      },
+      count: nullable({
+        ...count,
+        description:
+          "Approved image photos not marked do-not-use; null until the post-event form is in.",
+      }),
+    })
+  ),
+  programme: {
+    description: 'Guessed from the team name; "general" when unknown.',
+    type: "string",
+  },
+  signUpUrl: { format: "uri", type: "string" },
+  socialNotes: nullable({ type: "string" }),
+  startTime: hhmm,
+  status: {
+    description:
+      "cancelled also covers occurrences the series' exdates removed. Occurrences removed by cancelling a series from a date onwards disappear instead.",
+    enum: [...socialEventStatusValues],
+    type: "string",
+  },
+  summary: { type: "string" },
+  team: { type: "string" },
+  venue: objectSchema({
+    instagram: nullable({ type: "string" }),
+    name: { type: "string" },
+  }),
+  volunteers: objectSchema({
+    approved: count,
+    needed: count,
+    waitlisted: { ...count, description: "Pending sign-up requests." },
+  }),
+};
+
+const PHOTO_PROPERTIES: Record<keyof SocialPhoto, SchemaObject> = {
+  caption: nullable({ type: "string" }),
+  doNotUse: { type: "boolean" },
+  height: { ...count, description: "Pixels; 0 when unknown." },
+  id: { format: "uuid", type: "string" },
+  takenAt: { format: "date-time", type: "string" },
+  thumbnailUrl: {
+    description: "Signed link, valid for 36 hours; no token needed.",
+    format: "uri",
+    type: "string",
+  },
+  url: {
+    description: "Signed link to the original, valid for 36 hours.",
+    format: "uri",
+    type: "string",
+  },
+  width: { ...count, description: "Pixels; 0 when unknown." },
+};
+
+const STATS_PROPERTIES: Record<keyof SocialMonthlyStats, SchemaObject> = {
+  allTime: objectSchema({ hours: count, optimists: count, reached: count }),
+  children: count,
+  hours: { minimum: 0, type: "number" },
+  month: { pattern: "^\\d{4}-\\d{2}$", type: "string" },
+  newOptimists: count,
+  partners: { items: partnerRef, type: "array" },
+  sessions: count,
+  volunteers: count,
+};
+
+const POSTED_PROPERTIES: Record<string, SchemaObject> = {
+  bufferPostId: { maxLength: 200, minLength: 1, type: "string" },
+  channel: { enum: ["instagram", "linkedin"], type: "string" },
+  eventId: {
+    description:
+      "The event id when the post was queued (row id, `<seriesId>:<occurrenceDate>` or a synthetic id), stored as given.",
+    maxLength: 200,
+    minLength: 1,
+    type: "string",
+  },
+  eventName: nullable({
+    description: "Event name when queued; event posts only.",
+    maxLength: 200,
+    type: "string",
+  }),
+  kind: {
+    enum: ["schedule", "recap", "volunteer-call", "impact", "story"],
+    type: "string",
+  },
+  occurrenceDate: nullable({
+    description: `Occurrence date in ${SOCIAL_TIMEZONE}; event posts only.`,
+    format: "date",
+    type: "string",
+  }),
+  scheduledFor: { format: "date-time", type: "string" },
+  status: {
+    enum: ["queued", "approved", "published", "dropped"],
+    type: "string",
+  },
+};
+
+const POSTED_OPTIONAL_INPUT = new Set(["eventName", "occurrenceDate"]);
+
+const json = (schema: SchemaObject | { $ref: string }) => ({
+  "application/json": { schema },
+});
+
+const errorResponse = (description: string) => ({
+  content: json({ $ref: "#/components/schemas/Error" }),
+  description,
+});
+
+const authErrors = {
+  401: errorResponse("Missing, unknown or revoked token."),
+  403: errorResponse("The token lacks the required scope."),
+  429: errorResponse("Rate limited; retry after the Retry-After seconds."),
+};
+
+const scope = (...scopes: string[]) => scopes.map((s) => ({ bearer: [s] }));
+
+export function buildSocialApiOpenApi(baseUrl: string) {
+  return {
+    components: {
+      schemas: {
+        Error: objectSchema({ error: { type: "string" } }),
+        Partner: objectSchema({
+          instagram: nullable({ type: "string" }),
+          linkedin: nullable({ type: "string" }),
+          name: { type: "string" },
+        }),
+        PostedRecord: objectSchema(POSTED_PROPERTIES),
+        PostedRecordInput: {
+          ...objectSchema(POSTED_PROPERTIES),
+          required: Object.keys(POSTED_PROPERTIES).filter(
+            (k) => !POSTED_OPTIONAL_INPUT.has(k)
+          ),
+        },
+        SocialEvent: objectSchema(EVENT_PROPERTIES),
+        SocialMonthlyStats: objectSchema(STATS_PROPERTIES),
+        SocialPhoto: {
+          ...objectSchema(PHOTO_PROPERTIES),
+          required: Object.keys(PHOTO_PROPERTIES).filter(
+            (k) => k !== "caption"
+          ),
+        },
+      },
+      securitySchemes: {
+        bearer: {
+          description:
+            "Per-consumer token from `bun run social:token create`. Scopes: events:read, photos:read, signups:read, social:write.",
+          scheme: "bearer",
+          type: "http",
+        },
+      },
+    },
+    info: {
+      description: `Machine API for Proud Indian's social media pipeline. Bearer token per consumer; 600 requests a minute per token and endpoint; times in ${SOCIAL_TIMEZONE} unless marked UTC.`,
+      title: "Proud Indian social API",
+      version: "1.0.0",
+    },
+    openapi: "3.1.0",
+    paths: {
+      "/api/social/v1/events": {
+        get: {
+          operationId: "listSocialEvents",
+          parameters: ["from", "to"].map((name) => ({
+            description: `Inclusive ${SOCIAL_TIMEZONE} date; the window spans at most ${SOCIAL_EVENTS_MAX_DAYS} days, counting from and to.`,
+            in: "query",
+            name,
+            required: true,
+            schema: { format: "date", type: "string" },
+          })),
+          responses: {
+            200: {
+              content: json(
+                objectSchema({
+                  events: {
+                    items: { $ref: "#/components/schemas/SocialEvent" },
+                    type: "array",
+                  },
+                  timezone: { const: SOCIAL_TIMEZONE, type: "string" },
+                })
+              ),
+              description:
+                "Public occurrences in the window, cancelled ones included.",
+            },
+            400: errorResponse("from or to is invalid."),
+            ...authErrors,
+          },
+          security: scope("events:read"),
+          summary: "List event occurrences",
+        },
+      },
+      "/api/social/v1/events/{id}/photos": {
+        get: {
+          operationId: "listSocialEventPhotos",
+          parameters: [
+            {
+              in: "path",
+              description:
+                "A social event id: a row uuid, or `<seriesId>:<occurrenceDate>` for a virtual occurrence (resolved to its materialised row; no photos while it has none).",
+              name: "id",
+              required: true,
+              schema: { type: "string" },
+            },
+          ],
+          responses: {
+            200: {
+              content: json(
+                objectSchema({
+                  photos: {
+                    items: { $ref: "#/components/schemas/SocialPhoto" },
+                    maxItems: SOCIAL_PHOTOS_MAX,
+                    type: "array",
+                  },
+                })
+              ),
+              description: `Up to ${SOCIAL_PHOTOS_MAX} approved image photos: usable ones first, then do-not-use ones (flagged), each sorted by takenAt.`,
+            },
+            400: errorResponse("The id is not a social event id."),
+            404: errorResponse("No such public event."),
+            503: errorResponse("Photos are not configured."),
+            ...authErrors,
+          },
+          security: scope("photos:read"),
+          summary: "List an event's approved photos",
+        },
+      },
+      "/api/social/v1/notify": {
+        post: {
+          operationId: "notifySocialApprover",
+          requestBody: {
+            content: json(
+              objectSchema({
+                lines: {
+                  items: {
+                    maxLength: SOCIAL_NOTIFY_MAX_LINE_LENGTH,
+                    minLength: 1,
+                    type: "string",
+                  },
+                  maxItems: SOCIAL_NOTIFY_MAX_LINES,
+                  minItems: 1,
+                  type: "array",
+                },
+                template: { const: "social-digest", type: "string" },
+                to: { const: "approver", type: "string" },
+              })
+            ),
+            required: true,
+          },
+          responses: {
+            204: { description: "Queued (or suppressed by the kill switch)." },
+            400: errorResponse("The body is invalid."),
+            503: errorResponse("No approver is configured."),
+            ...authErrors,
+          },
+          security: scope("social:write"),
+          summary: "Send the WhatsApp digest to the approver",
+        },
+      },
+      "/api/social/v1/posted": {
+        get: {
+          operationId: "listSocialPosted",
+          description: `Give exactly one of eventId, or from and to. The window form returns records whose occurrenceDate is in the window, or, when no occurrenceDate was stored, whose eventId is \`<uuid>:<YYYY-MM-DD>\` with the date in the window.`,
+          parameters: [
+            {
+              in: "query",
+              name: "eventId",
+              required: false,
+              schema: { maxLength: 200, minLength: 1, type: "string" },
+            },
+            ...["from", "to"].map((name) => ({
+              description: `Inclusive ${SOCIAL_TIMEZONE} occurrence date; the window spans at most ${SOCIAL_EVENTS_MAX_DAYS} days, counting from and to.`,
+              in: "query",
+              name,
+              required: false,
+              schema: { format: "date", type: "string" },
+            })),
+          ],
+          responses: {
+            200: {
+              content: json(
+                objectSchema({
+                  posted: {
+                    items: { $ref: "#/components/schemas/PostedRecord" },
+                    type: "array",
+                  },
+                })
+              ),
+              description: "Posts recorded for the event or window.",
+            },
+            400: errorResponse(
+              "Neither or both of eventId and from/to, or an invalid window."
+            ),
+            ...authErrors,
+          },
+          security: scope("social:write", "events:read"),
+          summary: "List recorded posts for an event or date window",
+        },
+        post: {
+          operationId: "recordSocialPosted",
+          requestBody: {
+            content: json({ $ref: "#/components/schemas/PostedRecordInput" }),
+            required: true,
+          },
+          responses: {
+            204: {
+              description:
+                "Recorded (a repeat updates status, time, occurrenceDate and eventName).",
+            },
+            400: errorResponse("The body is invalid."),
+            ...authErrors,
+          },
+          security: scope("social:write"),
+          summary: "Record a queued post",
+        },
+      },
+      "/api/social/v1/stats": {
+        get: {
+          operationId: "getSocialMonthlyStats",
+          parameters: [
+            {
+              in: "query",
+              name: "month",
+              required: true,
+              schema: { pattern: "^\\d{4}-\\d{2}$", type: "string" },
+            },
+          ],
+          responses: {
+            200: {
+              content: json({
+                $ref: "#/components/schemas/SocialMonthlyStats",
+              }),
+              description: "Impact numbers for the month.",
+            },
+            400: errorResponse("month is invalid."),
+            ...authErrors,
+          },
+          security: scope("events:read"),
+          summary: "Monthly impact numbers",
+        },
+      },
+    },
+    servers: [{ url: new URL(baseUrl).origin }],
+  };
+}

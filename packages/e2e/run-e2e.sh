@@ -221,6 +221,9 @@ export ZERO_APP_ID=zero
 # The HTTP health endpoint waits for workers and initial replication.
 export ZERO_LAZY_STARTUP=false
 
+# Social API photo links need a signing secret; a fixed test value is fine.
+export SOCIAL_MEDIA_SIGNING_SECRET="${SOCIAL_MEDIA_SIGNING_SECRET:-e2e-social-media-signing-secret-0000}"
+
 # Keep dotenv in child processes from restoring the development service URL.
 export WHATSAPP_API_URL=""
 export WHATSAPP_AUTH_USER=""

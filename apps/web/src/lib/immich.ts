@@ -213,3 +213,61 @@ export async function fetchImmichThumbnail(
   log.emit();
   throw new Error(`Immich thumbnail failed: ${res.status}`);
 }
+
+export interface ImmichAssetMetadata {
+  height: number | null;
+  takenAt: Date | null;
+  width: number | null;
+}
+
+interface ImmichAssetInfo {
+  exifInfo?: {
+    dateTimeOriginal?: string | null;
+    exifImageHeight?: number | null;
+    exifImageWidth?: number | null;
+    orientation?: string | null;
+  } | null;
+  fileCreatedAt?: string | null;
+}
+
+// EXIF orientations 5-8 rotate by 90 degrees, so the displayed size swaps.
+const ROTATED_ORIENTATIONS = new Set(["5", "6", "7", "8"]);
+
+const positiveInt = (value: number | null | undefined) =>
+  typeof value === "number" && Number.isInteger(value) && value > 0
+    ? value
+    : null;
+
+/** Displayed pixel size and capture time from Immich asset info (`GET /api/assets/{id}`). */
+export function toImmichAssetMetadata(
+  info: ImmichAssetInfo
+): ImmichAssetMetadata {
+  const exif = info.exifInfo ?? {};
+  let width = positiveInt(exif.exifImageWidth);
+  let height = positiveInt(exif.exifImageHeight);
+  if (exif.orientation && ROTATED_ORIENTATIONS.has(exif.orientation)) {
+    [width, height] = [height, width];
+  }
+  const rawTakenAt = exif.dateTimeOriginal ?? info.fileCreatedAt ?? null;
+  const takenAt = rawTakenAt ? new Date(rawTakenAt) : null;
+  return {
+    height,
+    takenAt: takenAt && !Number.isNaN(takenAt.getTime()) ? takenAt : null,
+    width,
+  };
+}
+
+/** Asset size and capture time from Immich; throws on a failed request. */
+export async function fetchImmichAssetMetadata(
+  config: ImmichConfig,
+  assetId: string
+): Promise<ImmichAssetMetadata> {
+  const res = await fetch(`${config.url}/api/assets/${assetId}`, {
+    headers: { Accept: "application/json", "x-api-key": config.key },
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!res.ok) {
+    throw new Error(`Immich asset info failed: ${res.status}`);
+  }
+  return toImmichAssetMetadata((await res.json()) as ImmichAssetInfo);
+}

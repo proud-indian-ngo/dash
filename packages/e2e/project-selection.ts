@@ -45,6 +45,7 @@ const roleOnlySpecs = {
   volunteer: [
     "authorization/api-authorization-expanded.spec.ts",
     "events/event-interest-unhappy-paths.spec.ts",
+    "events/social-recap.spec.ts",
     "kalakriti/entry-music-edit.spec.ts",
   ],
   unoriented_volunteer: [

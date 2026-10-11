@@ -14,6 +14,7 @@ import { createHash } from "node:crypto";
  *   team, teamMember, teamEvent, teamEventMember, eventRsvpPoll, eventRsvpVote,
  *   eventInterest, eventFeedback, eventFeedbackSubmission,
  *   eventPhoto, eventImmichAlbum, eventUpdate,
+ *   eventPartner, socialPost, socialApiToken,
  *   expenseCategory, bankAccount,
  *   reimbursement, reimbursementLineItem, reimbursementAttachment, reimbursementHistory,
  *   advancePayment, advancePaymentLineItem, advancePaymentAttachment, advancePaymentHistory,
@@ -40,6 +41,7 @@ import {
   eventFeedbackSubmission,
 } from "@pi-dash/db/schema/event-feedback";
 import { eventInterest } from "@pi-dash/db/schema/event-interest";
+import { eventPartner } from "@pi-dash/db/schema/event-partner";
 import { eventImmichAlbum, eventPhoto } from "@pi-dash/db/schema/event-photo";
 import { eventReminderSent } from "@pi-dash/db/schema/event-reminder";
 import { eventRsvpPoll, eventRsvpVote } from "@pi-dash/db/schema/event-rsvp";
@@ -95,6 +97,8 @@ import {
   scheduledMessage,
   scheduledMessageRecipient,
 } from "@pi-dash/db/schema/scheduled-message";
+import { socialApiToken } from "@pi-dash/db/schema/social-api-token";
+import { socialPost } from "@pi-dash/db/schema/social-post";
 import { team, teamMember } from "@pi-dash/db/schema/team";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import {
@@ -112,8 +116,10 @@ import {
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
 import { getKalakritiCenterTransportStatus } from "@pi-dash/zero/kalakriti-center-scan-rules";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
+
+import { shouldSeedDevSocialToken } from "./seed-social-token";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -267,6 +273,11 @@ const ID = {
   // WhatsApp groups
   waTeaching: "019d52c2-7260-7d08-8a7b-fdd8adb38030",
   waWeekend: "019d52c2-7260-7d08-8a7b-fddb082a270e",
+  // Social API
+  socialPartnerEthos: "019d52c2-7261-7dce-b0ee-e270a1b2c3d4",
+  socialPartnerNss: "019d52c2-7261-7dce-b0ee-e271b2c3d4e5",
+  socialPost01: "019d52c2-7261-7dce-b0ee-e272c3d4e5f6",
+  socialToken01: "019d52c2-7261-7dce-b0ee-e273d4e5f607",
 } as const;
 
 // Second batch of IDs for vendors, scheduled messages, etc.
@@ -2609,12 +2620,99 @@ async function seedNotifications(userMap: Map<string, string>): Promise<void> {
 
 // ── 14. App Config ───────────────────────────────────────────────────────────
 
+/**
+ * Social API fixtures: the past teaching session is completed for social,
+ * with partners and a recorded post; one dev-only API token whose raw value
+ * is DEV_SOCIAL_API_TOKEN (never valid outside a seeded dev database).
+ */
+const DEV_SOCIAL_API_TOKEN = "dev-social-api-token";
+
+async function seedSocial(): Promise<void> {
+  log("Seeding social API data...");
+  await db
+    .update(teamEvent)
+    .set({
+      childrenAttended: 24,
+      socialCompletedAt: addHours(past(7), 3),
+      socialNotes: "Twenty-four children practised introductions in pairs.",
+      volunteersNeeded: 4,
+    })
+    .where(
+      and(eq(teamEvent.id, ID.evTeaching), isNull(teamEvent.socialCompletedAt))
+    );
+  await db
+    .update(teamEvent)
+    .set({ volunteersNeeded: 4 })
+    .where(
+      and(
+        eq(teamEvent.id, ID.evTeachingNext),
+        isNull(teamEvent.volunteersNeeded)
+      )
+    );
+  await db
+    .insert(eventPartner)
+    .values([
+      {
+        createdAt: past(8),
+        eventId: ID.evTeaching,
+        id: ID.socialPartnerNss,
+        instagram: "@nss_sfs",
+        linkedin: null,
+        name: "NSS SFS College",
+      },
+      {
+        createdAt: past(8),
+        eventId: ID.evTeaching,
+        id: ID.socialPartnerEthos,
+        instagram: null,
+        linkedin: "ethos",
+        name: "Ethos",
+      },
+    ])
+    .onConflictDoNothing();
+  await db
+    .insert(socialPost)
+    .values({
+      bufferPostId: "dev-buffer-post-1",
+      channel: "instagram",
+      createdAt: past(6),
+      eventId: ID.evTeaching,
+      id: ID.socialPost01,
+      kind: "recap",
+      scheduledFor: past(5),
+      status: "published",
+      updatedAt: past(5),
+    })
+    .onConflictDoNothing();
+  if (!shouldSeedDevSocialToken(process.env.NODE_ENV)) {
+    log("social API data ready (dev token skipped in production)");
+    return;
+  }
+  await db
+    .insert(socialApiToken)
+    .values({
+      createdAt: now,
+      id: ID.socialToken01,
+      name: "Dev seed token",
+      scopes: ["events:read", "photos:read", "signups:read", "social:write"],
+      tokenHash: createHash("sha256")
+        .update(DEV_SOCIAL_API_TOKEN)
+        .digest("hex"),
+    })
+    .onConflictDoNothing();
+  log("social API data ready");
+}
+
 async function seedAppConfig(): Promise<void> {
   log("Seeding app config...");
   const configs = [
     { key: "org_name", value: "Proud Indian NGO" },
     { key: "org_city", value: "Bangalore" },
     { key: "reimbursement_auto_approve_limit", value: "500" },
+    // Historical totals that predate the dashboard (social API all-time stats).
+    { key: "social_all_time_optimists", value: "3600" },
+    { key: "social_all_time_hours", value: "14000" },
+    { key: "social_all_time_reached", value: "23000" },
   ];
 
   await db
@@ -2644,6 +2742,7 @@ async function main(): Promise<void> {
   await seedKalakriti(userMap);
   await seedEventRsvp(userMap);
   await seedEventExtras(userMap);
+  await seedSocial();
   await seedReimbursements(userMap);
   await seedAdvancePayments(userMap);
   await seedVendors(userMap);

@@ -2,6 +2,8 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import type { VirtualOccurrence } from "@pi-dash/shared/rrule-expand";
 import { rruleToLabel } from "@pi-dash/zero/rrule-utils";
 import type {
+  EventInterest,
+  EventPartner,
   TeamEvent,
   TeamEventMember,
   User,
@@ -25,7 +27,11 @@ export type EventRow = TeamEvent & {
       whatsappGroup: WhatsappGroup | undefined;
     }
   >;
+  /** Loaded by list and detail queries; read for the approved sign-up count. */
+  interests?: ReadonlyArray<Pick<EventInterest, "status">>;
   members: ReadonlyArray<TeamEventMember & { user: User | undefined }>;
+  /** Only the detail query (`teamEvent.byId`) loads partners. */
+  partners?: readonly EventPartner[];
   whatsappGroup: WhatsappGroup | undefined;
 };
 

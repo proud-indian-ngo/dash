@@ -61,7 +61,13 @@ export const teamEventQueries = {
       .orderBy("startTime", "desc")
   ),
   byId: defineQuery(z.object({ id: z.string() }), ({ args: { id }, ctx }) =>
-    restrictToAccessibleEvents(withRelated(zql.teamEvent).related("team"), ctx)
+    restrictToAccessibleEvents(
+      withRelated(zql.teamEvent)
+        .related("team")
+        // Event detail lists partners and prefills the edit form.
+        .related("partners", (p) => p.orderBy("createdAt", "asc")),
+      ctx
+    )
       .where("id", id)
       .one()
   ),

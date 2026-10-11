@@ -167,6 +167,7 @@ Flow:
 3. Job: resolves/creates Immich album for event → downloads from R2 → uploads to Immich → persists `immichAssetId` immediately → adds to album → clears R2 key → enqueues delayed, reference-checked R2 cleanup.
 4. Photo deletion enqueues `immich-delete-asset` and/or `delete-r2-object` jobs as needed.
 5. Thumbnails/originals proxied through `/api/immich/thumbnail.$id` and `/api/immich/original.$id`.
+6. The social API (`social-api.md`) serves approved photos through token-free, HMAC-signed `/api/social/v1/media/...` links and backfills `width`, `height` and `taken_at` from Immich. `do_not_use` marks photos social posts must skip.
 
 Implementation:
 - Mutator: `packages/zero/src/mutators/event-photo.ts`

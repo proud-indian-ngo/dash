@@ -118,6 +118,7 @@ Files required: `packages/pdf/assets/logo.png` and `packages/pdf/assets/signatur
 | `IMMICH_API_KEY` | Immich API key |
 | `VITE_IMMICH_URL` | Public Immich URL; blank to disable |
 | `IMMICH_INTERNAL_URL` | Optional direct/internal Immich URL used by server-side jobs (photo sync, delete) to bypass Cloudflare 100 MB body limit. Example: `http://immich-server:2283` on shared Docker network. Falls back to `VITE_IMMICH_URL` when unset. |
+| `SOCIAL_MEDIA_SIGNING_SECRET` | HMAC key (at least 32 characters, e.g. `openssl rand -hex 32`) for the 36-hour signed photo links of the social API (`/api/social/v1/events/{id}/photos` and `/api/social/v1/media/...`). Unset makes both return 503. Rotating it invalidates links already handed out. Treat as a secret. |
 | `GRAVATAR_API_KEY` | Gravatar REST API key |
 | `GRAVATAR_API_BASE_URL` | Gravatar API base URL (default `https://api.gravatar.com/v3`) |
 | `GRAVATAR_TIMEOUT_MS` | Gravatar API timeout in ms (default `5000`) |
@@ -294,6 +295,7 @@ Starts `go-whatsapp-web-multidevice` container on port 3100. Pair via QR code at
 - [ ] WhatsApp gateway running and paired (if using WhatsApp alerts)
 - [ ] Immich server accessible (if using photo management)
 - [ ] `WEBSITE_DISPATCH_TOKEN` set (fine-grained GitHub token, `proud-indian-ngo/website` only, Contents: read and write) if the public website should rebuild when events change; the website's `PUBLIC_EVENTS_URL` is `https://dash.proudindian.ngo/api/public/events`
+- [ ] `SOCIAL_MEDIA_SIGNING_SECRET` set and a social API token created (`bun run social:token create social-artifacts --scopes events:read,photos:read,signups:read,social:write`) if the social pipeline is in use; app_config `social_approver_user_id` names the digest recipient (see `docs/architecture/social-api.md`)
 - [ ] The app origin is only reachable through Cloudflare: `/api/public/events` rate-limits by `cf-connecting-ip`, which a client could forge if the origin were exposed directly
 
 ## CI Pipeline

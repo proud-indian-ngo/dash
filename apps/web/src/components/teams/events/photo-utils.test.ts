@@ -16,7 +16,9 @@ import {
 const createPhoto = (overrides: Partial<EventPhoto> = {}): EventPhoto => ({
   caption: null,
   createdAt: 1,
+  doNotUse: false,
   eventId: "event-1",
+  height: null,
   id: "photo-1",
   immichAssetId: null,
   mimeType: null,
@@ -24,7 +26,9 @@ const createPhoto = (overrides: Partial<EventPhoto> = {}): EventPhoto => ({
   reviewedAt: null,
   reviewedBy: null,
   status: "pending",
+  takenAt: null,
   uploadedBy: "uploader-1",
+  width: null,
   ...overrides,
 });
 

@@ -11,6 +11,7 @@ import {
   DEFAULT_RSVP_POLL_LEAD_MINUTES,
   RSVP_POLL_LEAD_PRESETS,
 } from "@pi-dash/shared/event-reminders";
+import { VOLUNTEERS_NEEDED_MAX } from "@pi-dash/shared/social-recap";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type { WhatsappGroup } from "@pi-dash/zero/schema";
@@ -42,8 +43,16 @@ import { handleMutationResult } from "@/lib/mutation-result";
 import { isTeamLead } from "@/lib/team-utils";
 
 import type { EditScope } from "./edit-scope-dialog";
+import {
+  EventPartnersField,
+  partnersFormSchema,
+  toPartnerFormValues,
+} from "./event-partners-field";
+import { buildSocialFields } from "./event-social-fields";
 import { RecurrenceBuilder } from "./recurrence-builder";
 import { ReminderIntervalsField } from "./reminder-intervals-field";
+
+const VOLUNTEERS_NEEDED_RE = /^\d*$/;
 
 const eventFormSchema = z.object({
   city: z.enum(cityValues, { message: "City is required" }),
@@ -57,6 +66,7 @@ const eventFormSchema = z.object({
   isPublic: z.boolean(),
   location: z.string().optional(),
   name: z.string().min(1, "Name is required"),
+  partners: partnersFormSchema,
   postEventNudgesEnabled: z.boolean(),
   postRsvpPoll: z.boolean(),
   publicArea: z
@@ -71,6 +81,14 @@ const eventFormSchema = z.object({
     .date()
     .optional()
     .refine((d): d is Date => d !== null, "Start time is required"),
+  volunteersNeeded: z
+    .string()
+    .trim()
+    .regex(VOLUNTEERS_NEEDED_RE, "Use a whole number")
+    .refine(
+      (value) => !value || Number(value) <= VOLUNTEERS_NEEDED_MAX,
+      `At most ${VOLUNTEERS_NEEDED_MAX}`
+    ),
   whatsappGroupId: z.string().optional(),
 });
 
@@ -112,6 +130,11 @@ interface InitialValues {
   isPublic?: boolean | null;
   location: string | null;
   name?: string | null;
+  partners?: readonly {
+    instagram: string | null;
+    linkedin: string | null;
+    name: string;
+  }[];
   postEventNudgesEnabled?: boolean | null;
   postRsvpPoll?: boolean | null;
   publicArea?: string | null;
@@ -125,6 +148,7 @@ interface InitialValues {
   rsvpPollLeadMinutes?: number | null;
   seriesId: string | null;
   startTime: number | null;
+  volunteersNeeded?: number | null;
   whatsappGroupId: string | null;
 }
 
@@ -156,6 +180,7 @@ function getDefaultValues(initialValues?: InitialValues): EventFormValues {
     isPublic: initialValues?.isPublic ?? false,
     location: initialValues?.location ?? undefined,
     name: initialValues?.name ?? "",
+    partners: toPartnerFormValues(initialValues?.partners),
     postEventNudgesEnabled: initialValues?.postEventNudgesEnabled ?? false,
     postRsvpPoll: initialValues?.postRsvpPoll ?? false,
     publicArea: initialValues?.publicArea ?? undefined,
@@ -169,6 +194,11 @@ function getDefaultValues(initialValues?: InitialValues): EventFormValues {
     startTime: initialValues?.startTime
       ? new Date(initialValues.startTime)
       : undefined,
+    volunteersNeeded:
+      initialValues?.volunteersNeeded === null ||
+      initialValues?.volunteersNeeded === undefined
+        ? ""
+        : String(initialValues.volunteersNeeded),
     whatsappGroupId: initialValues?.whatsappGroupId ?? undefined,
   };
 }
@@ -191,7 +221,11 @@ function getStartTimeEpoch(value: EventFormValues): number {
   return value.startTime.getTime();
 }
 
-function buildUpdateMutatorArgs(id: string, value: EventFormValues) {
+function buildUpdateMutatorArgs(
+  id: string,
+  value: EventFormValues,
+  initialValues: InitialValues
+) {
   return {
     city: value.city,
     description: value.description?.trim() || undefined,
@@ -215,6 +249,11 @@ function buildUpdateMutatorArgs(id: string, value: EventFormValues) {
       ? { rsvpPollLeadMinutes: Number(value.rsvpPollLeadMinutes) }
       : {}),
     startTime: getStartTimeEpoch(value),
+    // An exception keeps inheriting unchanged partners and target.
+    ...buildSocialFields(value, {
+      initial: initialValues,
+      omitUnchanged: initialValues.seriesId !== null,
+    }),
     whatsappGroupId: value.whatsappGroupId || undefined,
   };
 }
@@ -223,6 +262,7 @@ function buildUpdateSeriesArgs(
   id: string,
   value: EventFormValues,
   editScope: EditScope,
+  initialValues: InitialValues,
   originalDate?: string
 ) {
   const base = {
@@ -257,6 +297,12 @@ function buildUpdateSeriesArgs(
       ? { rsvpPollLeadMinutes: Number(value.rsvpPollLeadMinutes) }
       : {}),
     startTime: getStartTimeEpoch(value),
+    // "this" writes an exception: unchanged partners and target stay
+    // inherited from the series. "all" and "following" always write them.
+    ...buildSocialFields(value, {
+      initial: initialValues,
+      omitUnchanged: editScope === "this",
+    }),
     whatsappGroupId: value.whatsappGroupId || undefined,
   };
   if (editScope === "this") {
@@ -304,6 +350,7 @@ function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
       : {}),
     startTime: getStartTimeEpoch(value),
     teamId,
+    ...buildSocialFields(value),
     whatsappGroupId: value.whatsappGroupId || undefined,
   };
 }
@@ -358,7 +405,13 @@ function getMutation(
     return {
       mutation: zero.mutate(
         mutators.teamEvent.updateSeries(
-          buildUpdateSeriesArgs(targetId, value, editScope, originalDate)
+          buildUpdateSeriesArgs(
+            targetId,
+            value,
+            editScope,
+            initialValues,
+            originalDate
+          )
         )
       ),
       mutationName: "teamEvent.updateSeries",
@@ -368,7 +421,7 @@ function getMutation(
     return {
       mutation: zero.mutate(
         mutators.teamEvent.update(
-          buildUpdateMutatorArgs(initialValues.id, value)
+          buildUpdateMutatorArgs(initialValues.id, value, initialValues)
         )
       ),
       mutationName: "teamEvent.update",
@@ -547,6 +600,21 @@ function EventFormContent({
             ) : null
           }
         </form.Subscribe>
+      )}
+
+      {kalakritiEditionId ? null : (
+        <>
+          <FormSectionHeading>Volunteers and partners</FormSectionHeading>
+          <InputField
+            className="max-w-32"
+            description="Shown on social volunteer calls. Leave empty if there is no target."
+            inputMode="numeric"
+            label="Volunteers needed"
+            name="volunteersNeeded"
+            placeholder="0"
+          />
+          <EventPartnersField />
+        </>
       )}
 
       <Collapsible onOpenChange={setShowAdvanced} open={showAdvanced}>

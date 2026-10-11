@@ -8,6 +8,13 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { BrailleSpinner } from "@pi-dash/design-system/components/braille-spinner";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
+  Card,
+  CardAction,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@pi-dash/design-system/components/ui/card";
+import {
   Tabs,
   TabsContent,
   TabsList,
@@ -66,6 +73,8 @@ import {
 import { EventMembersSection } from "./event-members-section";
 import { EventPhotos } from "./event-photos";
 import { EventQuickStats } from "./event-quick-stats";
+import { deriveSocialRecapMode } from "./event-social-fields";
+import { EventSocialRecap } from "./event-social-recap";
 import { EventUpdates } from "./event-updates";
 import type { EventRow } from "./events-table";
 
@@ -693,6 +702,41 @@ function useEventDetailQueries(
   };
 }
 
+/**
+ * Partners and the volunteer target as the social API reports them: an
+ * exception row falls back to its series parent when it has none of its own.
+ */
+function deriveSocialFacts(event: EventRow, parentEvent: EventRow | undefined) {
+  const own = event.partners ?? [];
+  const inherited = event.seriesId ? (parentEvent?.partners ?? []) : [];
+  return {
+    approvedCount: (event.interests ?? []).filter(
+      (interest) => interest.status === "approved"
+    ).length,
+    partners: own.length > 0 ? own : inherited,
+    volunteersNeeded:
+      event.volunteersNeeded ?? parentEvent?.volunteersNeeded ?? null,
+  };
+}
+
+function SocialRecapStart({ onStart }: { onStart: () => void }) {
+  return (
+    <Card aria-label="Social recap" className="mb-6" role="region" size="sm">
+      <CardHeader>
+        <CardTitle>Social recap</CardTitle>
+        <CardDescription>
+          Open this session to record children, notes and photo choices.
+        </CardDescription>
+        <CardAction>
+          <Button onClick={onStart} size="sm" type="button" variant="outline">
+            Start recap
+          </Button>
+        </CardAction>
+      </CardHeader>
+    </Card>
+  );
+}
+
 function deriveEventState(event: EventRow, isVirtualOccurrence: boolean) {
   const status = deriveEventStatus(event);
   const eventTime = event.endTime ?? event.startTime;
@@ -734,8 +778,11 @@ function deriveEventMetrics(event: EventDetailProps["event"]) {
 
 function buildEditInitialValues(
   event: EventRow,
-  recurrence: { rrule: string; exdates?: string[] } | null | undefined
+  recurrence: { rrule: string; exdates?: string[] } | null | undefined,
+  seriesParent: EventRow | undefined
 ) {
+  // Prefill what the row shows today, including what an exception inherits.
+  const social = deriveSocialFacts(event, seriesParent);
   return {
     city: event.city,
     description: event.description,
@@ -747,6 +794,7 @@ function buildEditInitialValues(
     isPublic: !!event.isPublic,
     location: event.location,
     name: event.name,
+    partners: social.partners,
     postEventNudgesEnabled: event.postEventNudgesEnabled,
     postRsvpPoll: !!event.postRsvpPoll,
     publicArea: event.publicArea,
@@ -756,11 +804,16 @@ function buildEditInitialValues(
     rsvpPollLeadMinutes: event.rsvpPollLeadMinutes,
     seriesId: event.seriesId,
     startTime: event.startTime,
+    volunteersNeeded: social.volunteersNeeded,
     whatsappGroupId: event.whatsappGroupId,
   };
 }
 
-function buildDuplicateInitialValues(event: EventRow) {
+function buildDuplicateInitialValues(
+  event: EventRow,
+  seriesParent: EventRow | undefined
+) {
+  const social = deriveSocialFacts(event, seriesParent);
   return {
     city: event.city,
     description: event.description,
@@ -772,6 +825,7 @@ function buildDuplicateInitialValues(event: EventRow) {
     isPublic: !!event.isPublic,
     location: event.location,
     name: `Copy of ${event.name}`,
+    partners: social.partners,
     postEventNudgesEnabled: event.postEventNudgesEnabled,
     postRsvpPoll: !!event.postRsvpPoll,
     publicArea: event.publicArea,
@@ -781,6 +835,7 @@ function buildDuplicateInitialValues(event: EventRow) {
     rsvpPollLeadMinutes: event.rsvpPollLeadMinutes,
     seriesId: null,
     startTime: event.startTime,
+    volunteersNeeded: social.volunteersNeeded,
     whatsappGroupId: null,
   };
 }
@@ -984,6 +1039,25 @@ export function EventDetail({
   const { feedbackDeadlinePassed, presentCount, recurrence } =
     deriveEventMetrics(event);
 
+  const socialFacts = deriveSocialFacts(event, parentEvent);
+  const socialRecapMode = deriveSocialRecapMode({
+    canManageAttendance,
+    // teamEvent.materialize requires events.edit or team lead.
+    canMaterialize: canManage,
+    event,
+    existingOccurrenceId: interestSessionId,
+    isPastEvent,
+    isVirtualOccurrence,
+  });
+  const startSocialRecap = () => {
+    // Someone already materialised this date: open that row instead.
+    if (interestSessionId) {
+      navigate({ params: { id: interestSessionId }, to: "/events/$id" });
+      return;
+    }
+    materializeOccurrence();
+  };
+
   const immichAlbumUrl = deriveImmichUrl(
     album?.immichAlbumId,
     env.VITE_IMMICH_URL
@@ -1112,7 +1186,11 @@ export function EventDetail({
 
         {/* Mobile-only details card (above tabs) */}
         <div className="lg:hidden">
-          <EventDetailsCard canManage={canManage} event={event} />
+          <EventDetailsCard
+            canManage={canManage}
+            event={event}
+            partners={socialFacts.partners}
+          />
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
@@ -1122,6 +1200,17 @@ export function EventDetail({
               <p className="text-muted-foreground mb-6 text-sm whitespace-pre-line">
                 {event.description}
               </p>
+            ) : null}
+
+            {socialRecapMode === "form" ? (
+              <EventSocialRecap
+                approvedPhotos={approvedPhotos}
+                event={event}
+                presentCount={presentCount}
+              />
+            ) : null}
+            {socialRecapMode === "materialize" ? (
+              <SocialRecapStart onStart={startSocialRecap} />
             ) : null}
 
             <EventPostEventPanel
@@ -1152,9 +1241,15 @@ export function EventDetail({
           <aside className="lg:col-span-2 lg:col-start-4 lg:row-start-1">
             <div className="flex flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-x-hidden lg:overflow-y-clip">
               <div className="hidden -space-y-px lg:flex lg:flex-col">
-                <EventDetailsCard canManage={canManage} event={event} />
+                <EventDetailsCard
+                  canManage={canManage}
+                  event={event}
+                  partners={socialFacts.partners}
+                />
                 {canManage ? (
                   <EventQuickStats
+                    approvedCount={socialFacts.approvedCount}
+                    volunteersNeeded={socialFacts.volunteersNeeded}
                     feedbackCount={feedback.length}
                     hasStarted={hasStarted}
                     memberCount={event.members.length}
@@ -1212,7 +1307,8 @@ export function EventDetail({
         editScope={editScope ?? undefined}
         initialValues={buildEditInitialValues(
           editScope === "all" && parentEvent ? parentEvent : event,
-          recurrence
+          recurrence,
+          editScope === "all" ? undefined : parentEvent
         )}
         kalakritiEditionId={kalakritiEditionId}
         onOpenChange={stableOnOpenChange6}
@@ -1222,7 +1318,7 @@ export function EventDetail({
       />
 
       <EventFormDialog
-        initialValues={buildDuplicateInitialValues(event)}
+        initialValues={buildDuplicateInitialValues(event, parentEvent)}
         mode="create"
         onOpenChange={dialog.onOpenChange}
         open={dialog.isOpen("duplicate")}

@@ -1,6 +1,8 @@
 import { relations } from "drizzle-orm";
 import {
+  boolean,
   index,
+  integer,
   pgEnum,
   pgTable,
   text,
@@ -23,9 +25,13 @@ export const eventPhoto = pgTable(
   {
     caption: text("caption"),
     createdAt: timestamp("created_at").notNull(),
+    /** Set in the lead's social recap; the social generator skips this photo. */
+    doNotUse: boolean("do_not_use").default(false).notNull(),
     eventId: uuid("event_id")
       .notNull()
       .references(() => teamEvent.id, { onDelete: "cascade" }),
+    /** Pixel size, backfilled from Immich EXIF on first social read. */
+    height: integer("height"),
     id: uuid("id").primaryKey(),
     immichAssetId: text("immich_asset_id"),
     mimeType: text("mime_type"),
@@ -35,9 +41,12 @@ export const eventPhoto = pgTable(
       onDelete: "set null",
     }),
     status: eventPhotoStatusEnum("status").notNull().default("pending"),
+    /** Capture time, backfilled from Immich on first social read. */
+    takenAt: timestamp("taken_at"),
     uploadedBy: text("uploaded_by")
       .notNull()
       .references(() => user.id),
+    width: integer("width"),
   },
   (table) => [
     index("event_photo_status_createdAt_id_idx").on(
