@@ -7,6 +7,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import * as z from "zod";
 
 import { Loader } from "@/components/loader";
+import { PageHeader } from "@/components/shared/page-header";
 import { VendorPaymentDetail } from "@/components/vendor-payments/vendor-payment-detail";
 import { VendorPaymentForm } from "@/components/vendor-payments/vendor-payment-form";
 import { useApp } from "@/context/app-context";
@@ -49,17 +50,15 @@ function VendorPaymentEditPane({
 }) {
   return (
     <>
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="font-display text-2xl font-semibold tracking-tight">
-          Edit Vendor Payment
-        </h1>
-        <Button onClick={onViewDetails} type="button" variant="outline">
-          View details
-        </Button>
-      </div>
-      <p className="text-muted-foreground mt-2 text-sm">
-        Update submission details.
-      </p>
+      <PageHeader
+        actions={
+          <Button onClick={onViewDetails} type="button" variant="outline">
+            View details
+          </Button>
+        }
+        description="Update submission details."
+        title="Edit Vendor Payment"
+      />
       <div className="mt-6">
         <VendorPaymentForm
           initialValues={initialValues}
@@ -149,25 +148,13 @@ function VendorPaymentDetailRouteComponent() {
             onViewDetails={stableOnViewDetails2}
           />
         ) : (
-          <>
-            {canEdit ? (
-              <div className="mb-4 flex justify-end">
-                <Button
-                  onClick={stableOnClick3}
-                  type="button"
-                  variant="outline"
-                >
-                  Edit submission
-                </Button>
-              </div>
-            ) : null}
-            <VendorPaymentDetail
-              canApprove={canApprove}
-              canUpdateAnyStatus={canEditAnyStatus}
-              isOwner={isOwner}
-              request={vendorPayment}
-            />
-          </>
+          <VendorPaymentDetail
+            canApprove={canApprove}
+            canUpdateAnyStatus={canEditAnyStatus}
+            isOwner={isOwner}
+            onEdit={canEdit ? stableOnClick3 : undefined}
+            request={vendorPayment}
+          />
         )}
       </div>
     </div>

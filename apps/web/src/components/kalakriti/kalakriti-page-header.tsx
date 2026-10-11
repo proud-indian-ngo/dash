@@ -1,5 +1,6 @@
-import { cn } from "@pi-dash/design-system/lib/utils";
 import type { ReactNode } from "react";
+
+import { PageHeader } from "@/components/shared/page-header";
 
 export function KalakritiPageHeader({
   actions,
@@ -16,47 +17,41 @@ export function KalakritiPageHeader({
   title: ReactNode;
   variant?: "edition" | "page" | "public";
 }) {
-  let titleClass =
-    "text-balance font-display font-semibold text-2xl tracking-tight";
-  if (variant === "public") {
-    titleClass =
-      "mt-3 text-balance font-semibold text-3xl tracking-tight sm:text-4xl";
-  } else if (variant === "edition") {
-    titleClass =
-      "text-balance font-display font-semibold text-3xl tracking-tight";
+  if (variant !== "public") {
+    return (
+      <PageHeader
+        actions={
+          actions ? (
+            <div className="contents [&_button]:active:scale-[0.96] motion-reduce:[&_button]:active:scale-100">
+              {actions}
+            </div>
+          ) : null
+        }
+        badge={badge}
+        description={meta}
+        kicker={kicker}
+        title={title}
+        titleClassName={variant === "edition" ? "text-3xl" : undefined}
+      />
+    );
   }
 
   return (
-    <header
-      className={cn(
-        "flex flex-wrap items-start justify-between gap-4",
-        variant === "public" && "flex-col gap-6 md:flex-row md:items-end"
-      )}
-    >
+    <header className="flex flex-col flex-wrap items-start justify-between gap-6 md:flex-row md:items-end">
       <div className="min-w-0">
         {kicker ? (
           <p className="text-primary text-sm font-medium tracking-[0.16em] uppercase">
             {kicker}
           </p>
         ) : null}
-        <div
-          className={cn(
-            "flex flex-wrap items-center gap-3",
-            kicker && variant !== "public" && "mt-2"
-          )}
-        >
-          <h1 className={titleClass}>{title}</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+            {title}
+          </h1>
           {badge}
         </div>
         {meta ? (
-          <div
-            className={cn(
-              "text-muted-foreground",
-              variant === "public"
-                ? "mt-3 text-base sm:text-lg"
-                : "mt-2 text-sm tabular-nums"
-            )}
-          >
+          <div className="text-muted-foreground mt-3 text-base sm:text-lg">
             {meta}
           </div>
         ) : null}

@@ -44,9 +44,9 @@ export class KalakritiCompetitionsPage {
     const dialog = this.page.getByRole("dialog", { name: "Add Venue" });
     await dialog.getByLabel("Venue name").fill(name);
     await dialog.getByRole("button", { name: "Create Venue" }).click();
-    await expect(
-      this.page.getByText("Venue created", { exact: true })
-    ).toBeVisible({ timeout: 30_000 });
+    // Not the "Venue created" toast: adding venues back to back leaves the
+    // previous toast up, and two matches break the strict text lookup.
+    await expect(dialog).toBeHidden({ timeout: 30_000 });
     await expect(this.venue(name)).toBeVisible({ timeout: 30_000 });
   }
 

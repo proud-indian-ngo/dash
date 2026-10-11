@@ -20,6 +20,7 @@ import {
 } from "@/components/jobs/job-stats";
 import { JobsTable } from "@/components/jobs/jobs-table";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { PageHeader } from "@/components/shared/page-header";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { getErrorMessage } from "@/lib/errors";
 import { assertPermission } from "@/lib/route-guards";
@@ -265,9 +266,20 @@ function JobsRouteComponent() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-      <h1 className="font-display text-2xl font-semibold tracking-tight">
-        Jobs
-      </h1>
+      <PageHeader
+        actions={
+          <Button onClick={handleRefresh} type="button" variant="outline">
+            <HugeiconsIcon
+              className="size-4"
+              icon={ArrowReloadHorizontalIcon}
+              strokeWidth={2}
+            />
+            Refresh
+          </Button>
+        }
+        description="Background work such as emails, WhatsApp messages and reminders. Retry or cancel jobs that failed."
+        title="Jobs"
+      />
 
       <div className="mt-4 grid gap-6 *:min-w-0">
         <StatsCards
@@ -284,16 +296,6 @@ function JobsRouteComponent() {
           onView={handleView}
           queueOptions={queueOptions}
           rowCount={total}
-          toolbarActions={
-            <Button onClick={handleRefresh} size="sm" variant="outline">
-              <HugeiconsIcon
-                className="size-4"
-                icon={ArrowReloadHorizontalIcon}
-                strokeWidth={2}
-              />
-              Refresh
-            </Button>
-          }
         />
       </div>
 

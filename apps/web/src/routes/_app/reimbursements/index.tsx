@@ -12,6 +12,7 @@ import { toast } from "sonner";
 
 import { computeReimbursementStats } from "@/components/reimbursements/reimbursement-stats";
 import { ReimbursementsTable } from "@/components/reimbursements/reimbursements-table";
+import { PageHeader } from "@/components/shared/page-header";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { useApp } from "@/context/app-context";
 import {
@@ -91,9 +92,22 @@ function ReimbursementsRouteComponent() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-      <h1 className="font-display text-2xl font-semibold tracking-tight">
-        Reimbursements
-      </h1>
+      <PageHeader
+        actions={
+          hasPermission("requests.create") ? (
+            <Button onClick={stableOnClick2} type="button">
+              <HugeiconsIcon
+                className="size-4"
+                icon={PlusSignIcon}
+                strokeWidth={2}
+              />
+              Add reimbursement
+            </Button>
+          ) : null
+        }
+        description="Money spent on Proud Indian work, claimed back or paid in advance."
+        title="Reimbursements"
+      />
 
       <div className="mt-4 grid gap-6 *:min-w-0">
         <StatsCards
@@ -106,18 +120,6 @@ function ReimbursementsRouteComponent() {
           isLoading={isLoading}
           onDelete={handleDelete}
           onNavigate={stableOnNavigate1}
-          toolbarActions={
-            hasPermission("requests.create") ? (
-              <Button onClick={stableOnClick2} size="sm" type="button">
-                <HugeiconsIcon
-                  className="size-4"
-                  icon={PlusSignIcon}
-                  strokeWidth={2}
-                />
-                Add reimbursement
-              </Button>
-            ) : null
-          }
         />
       </div>
     </div>

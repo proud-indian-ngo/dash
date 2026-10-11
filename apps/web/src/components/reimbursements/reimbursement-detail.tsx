@@ -1,6 +1,7 @@
 import {
   Cancel01Icon,
   CheckmarkCircle01Icon,
+  Edit02Icon,
   FileDownloadIcon,
   RepeatIcon,
   TickDouble02Icon,
@@ -17,11 +18,11 @@ import { useState } from "react";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
-import { ReimbursementHeaderMeta } from "@/components/reimbursements/reimbursement-header-meta";
+import { reimbursementHeaderMeta } from "@/components/reimbursements/reimbursement-header-meta";
 import { HistoryEntry } from "@/components/reimbursements/reimbursement-history-entry";
+import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
+import { RequesterMeta } from "@/components/shared/requester-meta";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
-import { UserAvatar } from "@/components/shared/user-avatar";
-import { UserHoverCard } from "@/components/shared/user-hover-card";
 import {
   getAttachmentDownloadHref,
   getAttachmentLabel,
@@ -39,6 +40,8 @@ import { getStatusBadge } from "@/lib/status-badge";
 interface ReimbursementDetailProps {
   canApprove: boolean;
   canUpdateAnyStatus?: boolean;
+  /** Opens the edit form; omitted when the viewer can't edit. */
+  onEdit?: () => void;
   request: RequestDetailData;
 }
 
@@ -67,6 +70,7 @@ const toApprovalScreenshot = (objectKey: null | string | undefined) =>
 export function ReimbursementDetail({
   canApprove,
   canUpdateAnyStatus = false,
+  onEdit,
   request,
 }: ReimbursementDetailProps) {
   const zero = useZero();
@@ -177,52 +181,11 @@ export function ReimbursementDetail({
   return (
     <AppErrorBoundary level="section">
       <div className="flex flex-col gap-6">
-        {/* Header */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <h1 className="font-display text-2xl font-semibold tracking-tight">
-                {request.title}
-              </h1>
-              <Tag>{typeLabel}</Tag>
-            </div>
-            <ReimbursementHeaderMeta request={request} />
-            {request.user ? (
-              <div className="mt-1 flex items-center gap-2">
-                <span className="text-muted-foreground text-sm">
-                  Requested by
-                </span>
-                <UserHoverCard user={request.user}>
-                  <div className="flex items-center gap-2">
-                    <UserAvatar
-                      className="size-6"
-                      fallbackClassName="text-xs"
-                      user={request.user}
-                    />
-                    <span className="text-sm font-medium">
-                      {request.user.name}
-                    </span>
-                  </div>
-                </UserHoverCard>
-              </div>
-            ) : null}
-          </div>
-          <StatusBadge tone={tone}>{label}</StatusBadge>
-        </div>
-
-        {/* Bank account details */}
-        <BankAccountCard request={request} />
-
-        {/* Admin actions */}
-        {showAdminActions ? (
-          <>
-            <div className="fade-in-0 animate-in ease-out-expo flex gap-2 duration-150">
+        <PageHeader
+          actions={
+            <>
               {showApproveAction ? (
-                <Button
-                  onClick={stableOnClick0}
-                  type="button"
-                  variant="default"
-                >
+                <Button onClick={stableOnClick0} type="button">
                   <HugeiconsIcon
                     className="size-4"
                     icon={CheckmarkCircle01Icon}
@@ -235,7 +198,7 @@ export function ReimbursementDetail({
                 <Button
                   onClick={stableOnClick1}
                   type="button"
-                  variant="destructive"
+                  variant="outline"
                 >
                   <HugeiconsIcon
                     className="size-4"
@@ -245,24 +208,52 @@ export function ReimbursementDetail({
                   Reject
                 </Button>
               ) : null}
-              {showResetAction ? (
-                <Button
-                  onClick={handleResetToPending}
-                  type="button"
-                  variant="outline"
-                >
+              {onEdit ? (
+                <Button onClick={onEdit} type="button" variant="outline">
                   <HugeiconsIcon
                     className="size-4"
-                    icon={RepeatIcon}
+                    icon={Edit02Icon}
                     strokeWidth={2}
                   />
-                  Reset to pending
+                  Edit
                 </Button>
               ) : null}
-            </div>
-            <Separator />
-          </>
-        ) : null}
+              <PageHeaderMenu
+                actions={[
+                  showResetAction && {
+                    icon: (
+                      <HugeiconsIcon
+                        className="size-4"
+                        icon={RepeatIcon}
+                        strokeWidth={2}
+                      />
+                    ),
+                    id: "reset",
+                    label: "Reset to pending",
+                    onSelect: handleResetToPending,
+                  },
+                ]}
+                title={request.title}
+              />
+            </>
+          }
+          badge={
+            <>
+              <Tag>{typeLabel}</Tag>
+              <StatusBadge tone={tone}>{label}</StatusBadge>
+            </>
+          }
+          meta={[
+            request.user ? (
+              <RequesterMeta key="requester" user={request.user} />
+            ) : null,
+            ...reimbursementHeaderMeta(request),
+          ]}
+          title={request.title}
+        />
+
+        {/* Bank account details */}
+        <BankAccountCard request={request} />
 
         {/* Rejection reason */}
         {request.status === "rejected" && request.rejectionReason ? (

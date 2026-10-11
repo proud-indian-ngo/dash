@@ -20,6 +20,7 @@ import {
   ScheduledMessagesTable,
 } from "@/components/scheduled-messages/scheduled-messages-table";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { PageHeader } from "@/components/shared/page-header";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { assertPermission } from "@/lib/route-guards";
 
@@ -244,9 +245,20 @@ function ScheduledMessagesPage() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-      <h1 className="font-display text-2xl font-semibold tracking-tight">
-        Scheduled Messages
-      </h1>
+      <PageHeader
+        actions={
+          <Button onClick={stableOnClick1} type="button">
+            <HugeiconsIcon
+              className="size-4"
+              icon={PlusSignIcon}
+              strokeWidth={2}
+            />
+            Schedule message
+          </Button>
+        }
+        description="WhatsApp messages queued to go out later, and how each delivery went."
+        title="Scheduled Messages"
+      />
 
       <div className="mt-4 grid gap-6 *:min-w-0">
         <ScheduledMessagesTable
@@ -257,16 +269,6 @@ function ScheduledMessagesPage() {
           onEdit={handleEdit}
           onRetry={handleRetryRecipient}
           onView={handleView}
-          toolbarActions={
-            <Button onClick={stableOnClick1} size="sm">
-              <HugeiconsIcon
-                className="size-4"
-                icon={PlusSignIcon}
-                strokeWidth={2}
-              />
-              Schedule message
-            </Button>
-          }
         />
       </div>
 

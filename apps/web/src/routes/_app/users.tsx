@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { FormModal } from "@/components/form/form-modal";
+import { PageHeader } from "@/components/shared/page-header";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { UserDetailSheet } from "@/components/users/user-detail-sheet";
 import {
@@ -223,9 +224,20 @@ function UsersRouteComponent() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-      <h1 className="font-display text-2xl font-semibold tracking-tight">
-        Users
-      </h1>
+      <PageHeader
+        actions={
+          <Button onClick={stableOnClick1} type="button">
+            <HugeiconsIcon
+              className="size-4"
+              icon={PlusSignIcon}
+              strokeWidth={2}
+            />
+            Add user
+          </Button>
+        }
+        description="Everyone who can sign in, with their role and account status."
+        title="Users"
+      />
 
       <div className="mt-4 grid gap-6 *:min-w-0">
         <StatsCards
@@ -242,16 +254,6 @@ function UsersRouteComponent() {
           onUnbanUser={handleUnbanUser}
           onUpdateUser={handleUpdateUser}
           roleOptions={roleSelectOptions}
-          toolbarActions={
-            <Button onClick={stableOnClick1} size="sm" type="button">
-              <HugeiconsIcon
-                className="size-4"
-                icon={PlusSignIcon}
-                strokeWidth={2}
-              />
-              Add user
-            </Button>
-          }
           users={allUsers}
         />
         <UserDetailSheet

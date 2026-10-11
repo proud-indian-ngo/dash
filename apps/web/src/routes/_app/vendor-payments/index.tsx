@@ -8,6 +8,7 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
+import { PageHeader } from "@/components/shared/page-header";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { computeVendorPaymentStats } from "@/components/vendor-payments/vendor-payment-stats";
 import type { VendorPaymentWithRelations } from "@/components/vendor-payments/vendor-payment-types";
@@ -52,9 +53,22 @@ function VendorPaymentsRouteComponent() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-      <h1 className="font-display text-2xl font-semibold tracking-tight">
-        Vendor Payments
-      </h1>
+      <PageHeader
+        actions={
+          hasPermission("requests.create") ? (
+            <Button onClick={stableOnClick2} type="button">
+              <HugeiconsIcon
+                className="size-4"
+                icon={PlusSignIcon}
+                strokeWidth={2}
+              />
+              Add vendor payment
+            </Button>
+          ) : null
+        }
+        description="Payments to vendors, from quotation through approval to invoice."
+        title="Vendor Payments"
+      />
 
       <div className="mt-4 grid gap-6 *:min-w-0">
         <StatsCards
@@ -68,18 +82,6 @@ function VendorPaymentsRouteComponent() {
           isLoading={isLoading}
           onDelete={handleDelete}
           onNavigate={stableOnNavigate1}
-          toolbarActions={
-            hasPermission("requests.create") ? (
-              <Button onClick={stableOnClick2} size="sm" type="button">
-                <HugeiconsIcon
-                  className="size-4"
-                  icon={PlusSignIcon}
-                  strokeWidth={2}
-                />
-                Add vendor payment
-              </Button>
-            ) : null
-          }
         />
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { format } from "date-fns";
 import capitalize from "lodash/capitalize";
+import type { ReactNode } from "react";
 
 import { LONG_DATE } from "@/lib/date-formats";
 import {
@@ -8,35 +9,29 @@ import {
   type RequestDetailData,
 } from "@/lib/reimbursement-types";
 
-export function ReimbursementHeaderMeta({
-  request,
-}: {
-  request: RequestDetailData;
-}) {
-  return (
-    <div className="text-muted-foreground flex flex-wrap items-center gap-3 text-sm">
-      {request.city ? <span>{capitalize(request.city)}</span> : null}
-      {isReimbursement(request) && request.event ? (
-        <Link
-          className="text-primary font-medium underline-offset-2 hover:underline"
-          params={{ id: request.event.id }}
-          to="/events/$id"
-        >
-          {request.event.name}
-        </Link>
-      ) : null}
-      {isReimbursement(request) ? (
-        <span>{format(request.expenseDate, LONG_DATE)}</span>
-      ) : null}
-      {request.bankAccountName && request.bankAccountNumber ? (
-        <span>
-          {request.bankAccountName} (••••
-          {request.bankAccountNumber.length >= 4
+/** The facts shown under a request's title, for `PageHeader`'s `meta`. */
+export function reimbursementHeaderMeta(
+  request: RequestDetailData
+): ReactNode[] {
+  return [
+    request.city ? capitalize(request.city) : null,
+    isReimbursement(request) && request.event ? (
+      <Link
+        className="text-primary font-medium underline-offset-2 hover:underline"
+        key="event"
+        params={{ id: request.event.id }}
+        to="/events/$id"
+      >
+        {request.event.name}
+      </Link>
+    ) : null,
+    isReimbursement(request) ? format(request.expenseDate, LONG_DATE) : null,
+    request.bankAccountName && request.bankAccountNumber
+      ? `${request.bankAccountName} (••••${
+          request.bankAccountNumber.length >= 4
             ? request.bankAccountNumber.slice(-4)
-            : request.bankAccountNumber}
-          )
-        </span>
-      ) : null}
-    </div>
-  );
+            : request.bankAccountNumber
+        })`
+      : null,
+  ];
 }

@@ -1,6 +1,7 @@
 import {
   Cancel01Icon,
   CheckmarkCircle01Icon,
+  Edit02Icon,
   RepeatIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -17,9 +18,9 @@ import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
 import { HistoryEntry } from "@/components/reimbursements/reimbursement-history-entry";
+import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
+import { RequesterMeta } from "@/components/shared/requester-meta";
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
-import { UserAvatar } from "@/components/shared/user-avatar";
-import { UserHoverCard } from "@/components/shared/user-hover-card";
 import {
   getAttachmentDownloadHref,
   getAttachmentLabel,
@@ -38,61 +39,9 @@ interface VendorPaymentDetailProps {
   canApprove: boolean;
   canUpdateAnyStatus?: boolean;
   isOwner: boolean;
+  /** Opens the edit form; omitted when the viewer can't edit. */
+  onEdit?: () => void;
   request: VendorPaymentWithRelations;
-}
-
-function VendorPaymentStatusActions({
-  onApprove,
-  onReject,
-  onReset,
-  showApproveAction,
-  showRejectAction,
-  showResetAction,
-}: {
-  onApprove: () => void;
-  onReject: () => void;
-  onReset: () => void;
-  showApproveAction: boolean;
-  showRejectAction: boolean;
-  showResetAction: boolean;
-}) {
-  return (
-    <>
-      <div className="fade-in-0 animate-in flex gap-2 duration-150 ease-(--ease-out-expo)">
-        {showApproveAction ? (
-          <Button onClick={onApprove} type="button" variant="default">
-            <HugeiconsIcon
-              className="size-4"
-              icon={CheckmarkCircle01Icon}
-              strokeWidth={2}
-            />
-            Approve
-          </Button>
-        ) : null}
-        {showRejectAction ? (
-          <Button onClick={onReject} type="button" variant="destructive">
-            <HugeiconsIcon
-              className="size-4"
-              icon={Cancel01Icon}
-              strokeWidth={2}
-            />
-            Reject
-          </Button>
-        ) : null}
-        {showResetAction ? (
-          <Button onClick={onReset} type="button" variant="outline">
-            <HugeiconsIcon
-              className="size-4"
-              icon={RepeatIcon}
-              strokeWidth={2}
-            />
-            Reset to pending
-          </Button>
-        ) : null}
-      </div>
-      <Separator />
-    </>
-  );
 }
 
 function VendorPaymentLineItemsTable({
@@ -233,53 +182,100 @@ function QuotationAttachmentList({
 
 function VendorPaymentHeader({
   label,
+  onApprove,
+  onEdit,
+  onReject,
+  onReset,
   request,
+  showApproveAction,
+  showRejectAction,
+  showResetAction,
   tone,
 }: {
   label: string;
+  onApprove: () => void;
+  onEdit?: () => void;
+  onReject: () => void;
+  onReset: () => void;
   request: VendorPaymentWithRelations;
+  showApproveAction: boolean;
+  showRejectAction: boolean;
+  showResetAction: boolean;
   tone: StatusTone;
 }) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-      <div className="flex flex-col gap-1">
-        <h1 className="font-display text-2xl font-semibold tracking-tight">
-          {request.title}
-        </h1>
-        <div className="text-muted-foreground flex flex-wrap items-center gap-3 text-sm">
-          {request.vendor ? <span>Vendor: {request.vendor.name}</span> : null}
-          {request.city ? <span>City: {capitalize(request.city)}</span> : null}
-          {request.event ? (
-            <span>
-              Event:{" "}
-              <Link
-                className="text-primary font-medium underline-offset-2 hover:underline"
-                params={{ id: request.event.id }}
-                to="/events/$id"
-              >
-                {request.event.name}
-              </Link>
-            </span>
+    <PageHeader
+      actions={
+        <>
+          {showApproveAction ? (
+            <Button onClick={onApprove} type="button">
+              <HugeiconsIcon
+                className="size-4"
+                icon={CheckmarkCircle01Icon}
+                strokeWidth={2}
+              />
+              Approve
+            </Button>
           ) : null}
-        </div>
-        {request.user ? (
-          <div className="mt-1 flex items-center gap-2">
-            <span className="text-muted-foreground text-sm">Requested by</span>
-            <UserHoverCard user={request.user}>
-              <div className="flex items-center gap-2">
-                <UserAvatar
-                  className="size-6"
-                  fallbackClassName="text-xs"
-                  user={request.user}
-                />
-                <span className="text-sm font-medium">{request.user.name}</span>
-              </div>
-            </UserHoverCard>
-          </div>
-        ) : null}
-      </div>
-      <StatusBadge tone={tone}>{label}</StatusBadge>
-    </div>
+          {showRejectAction ? (
+            <Button onClick={onReject} type="button" variant="outline">
+              <HugeiconsIcon
+                className="size-4"
+                icon={Cancel01Icon}
+                strokeWidth={2}
+              />
+              Reject
+            </Button>
+          ) : null}
+          {onEdit ? (
+            <Button onClick={onEdit} type="button" variant="outline">
+              <HugeiconsIcon
+                className="size-4"
+                icon={Edit02Icon}
+                strokeWidth={2}
+              />
+              Edit
+            </Button>
+          ) : null}
+          <PageHeaderMenu
+            actions={[
+              showResetAction && {
+                icon: (
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={RepeatIcon}
+                    strokeWidth={2}
+                  />
+                ),
+                id: "reset",
+                label: "Reset to pending",
+                onSelect: onReset,
+              },
+            ]}
+            title={request.title}
+          />
+        </>
+      }
+      badge={<StatusBadge tone={tone}>{label}</StatusBadge>}
+      meta={[
+        request.user ? (
+          <RequesterMeta key="requester" user={request.user} />
+        ) : null,
+        request.vendor ? `Vendor: ${request.vendor.name}` : null,
+        request.city ? capitalize(request.city) : null,
+        request.event ? (
+          <Link
+            className="text-primary font-medium underline-offset-2 hover:underline"
+            key="event"
+            params={{ id: request.event.id }}
+            to="/events/$id"
+          >
+            {request.event.name}
+          </Link>
+        ) : null,
+      ]}
+      title={request.title}
+    />
   );
 }
 
@@ -287,6 +283,7 @@ export function VendorPaymentDetail({
   canApprove,
   canUpdateAnyStatus = false,
   isOwner,
+  onEdit,
   request,
 }: VendorPaymentDetailProps) {
   const zero = useZero();
@@ -366,25 +363,24 @@ export function VendorPaymentDetail({
   return (
     <AppErrorBoundary level="section">
       <div className="flex flex-col gap-6">
-        <VendorPaymentHeader label={label} request={request} tone={tone} />
+        <VendorPaymentHeader
+          label={label}
+          onApprove={stableOnApprove0}
+          onEdit={onEdit}
+          onReject={stableOnReject1}
+          onReset={handleResetToPending}
+          request={request}
+          showApproveAction={showApproveAction}
+          showRejectAction={showRejectAction}
+          showResetAction={showResetAction}
+          tone={tone}
+        />
 
         {/* Vendor details */}
         <VendorDetailsCard vendor={request.vendor} />
 
         {/* Bank account details */}
         <VendorBankCard vendor={request.vendor} />
-
-        {/* Admin actions */}
-        {showAdminActions ? (
-          <VendorPaymentStatusActions
-            onApprove={stableOnApprove0}
-            onReject={stableOnReject1}
-            onReset={handleResetToPending}
-            showApproveAction={showApproveAction}
-            showRejectAction={showRejectAction}
-            showResetAction={showResetAction}
-          />
-        ) : null}
 
         {/* Rejection reason */}
         {request.status === "rejected" && request.rejectionReason ? (

@@ -9,6 +9,7 @@ import * as z from "zod";
 import { Loader } from "@/components/loader";
 import { ReimbursementDetail } from "@/components/reimbursements/reimbursement-detail";
 import { ReimbursementForm } from "@/components/reimbursements/reimbursement-form";
+import { PageHeader } from "@/components/shared/page-header";
 import { useApp } from "@/context/app-context";
 import type { RequestDetailData, RequestType } from "@/lib/reimbursement-types";
 import { REQUEST_TYPE_LABELS } from "@/lib/reimbursement-types";
@@ -180,17 +181,19 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
       >
         {showEditForm ? (
           <>
-            <div className="flex items-center justify-between gap-3">
-              <h1 className="font-display text-2xl font-semibold tracking-tight">
-                Edit {typeLabel}
-              </h1>
-              <Button onClick={stableOnClick0} type="button" variant="outline">
-                View details
-              </Button>
-            </div>
-            <p className="text-muted-foreground mt-2 text-sm">
-              Update submission details.
-            </p>
+            <PageHeader
+              actions={
+                <Button
+                  onClick={stableOnClick0}
+                  type="button"
+                  variant="outline"
+                >
+                  View details
+                </Button>
+              }
+              description="Update submission details."
+              title={`Edit ${typeLabel}`}
+            />
             <div className="mt-6">
               <ReimbursementForm
                 disableBankAccountSelection={isAdminEditingAnotherUser}
@@ -202,24 +205,12 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
             </div>
           </>
         ) : (
-          <>
-            {canEdit ? (
-              <div className="mb-4 flex justify-end">
-                <Button
-                  onClick={stableOnClick3}
-                  type="button"
-                  variant="outline"
-                >
-                  Edit submission
-                </Button>
-              </div>
-            ) : null}
-            <ReimbursementDetail
-              canApprove={canApprove}
-              canUpdateAnyStatus={canEditAnyStatus}
-              request={request}
-            />
-          </>
+          <ReimbursementDetail
+            canApprove={canApprove}
+            canUpdateAnyStatus={canEditAnyStatus}
+            onEdit={canEdit ? stableOnClick3 : undefined}
+            request={request}
+          />
         )}
       </div>
     </div>

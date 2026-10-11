@@ -1,4 +1,5 @@
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { openPageAction, pageActionsButton } from "../../helpers/page-header";
 import { ListPage } from "../../pages/list-page";
 
 const TEAM_NAME = "E2E Updates Team";
@@ -165,7 +166,7 @@ test.describe("Event detail — admin permissions", () => {
     await expect(page.getByRole("button", { name: "Edit" })).toBeVisible();
   });
 
-  test("admin sees Cancel Event button for future event", async ({
+  test("admin sees Cancel event action for future event", async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
@@ -179,12 +180,10 @@ test.describe("Event detail — admin permissions", () => {
       return;
     }
 
-    await expect(
-      page.getByRole("button", { name: "Cancel Event" })
-    ).toBeVisible();
+    await expect(await openPageAction(page, "Cancel event")).toBeVisible();
   });
 
-  test("admin sees Duplicate button", async ({ page }, testInfo) => {
+  test("admin sees Duplicate action", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     const found = await navigateToTeamEvent(
@@ -196,7 +195,7 @@ test.describe("Event detail — admin permissions", () => {
       return;
     }
 
-    await expect(page.getByRole("button", { name: "Duplicate" })).toBeVisible();
+    await expect(await openPageAction(page, "Duplicate")).toBeVisible();
   });
 
   test("admin sees Updates and Photos tabs", async ({ page }, testInfo) => {
@@ -260,7 +259,7 @@ test.describe("Event detail — volunteer permissions", () => {
     await expect(page.getByRole("button", { name: "Edit" })).not.toBeVisible();
   });
 
-  test("volunteer does NOT see Cancel Event button", async ({
+  test("volunteer does NOT see the page actions menu", async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
@@ -282,9 +281,7 @@ test.describe("Event detail — volunteer permissions", () => {
       timeout: 10_000,
     });
 
-    await expect(
-      page.getByRole("button", { name: "Cancel Event" })
-    ).not.toBeVisible();
+    await expect(pageActionsButton(page)).toBeHidden();
   });
 
   test("volunteer does NOT see Expenses tab", async ({ page }, testInfo) => {
