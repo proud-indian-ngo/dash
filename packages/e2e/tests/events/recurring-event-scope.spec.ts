@@ -51,8 +51,9 @@ test.describe("Recurring event edit/cancel scope", () => {
       timeout: 10_000,
     });
 
-    // Click Edit on a recurring event row
-    const row = page.getByRole("row").filter({ hasText: eventName }).first();
+    // Upcoming rows sort oldest first, so the first row is the series parent,
+    // which edits the whole series without asking. Use the next occurrence.
+    const row = page.getByRole("row").filter({ hasText: eventName }).nth(1);
     await waitForToastsToClear(page);
     await new ListPage(page).openRowActionAndClick(row, "Edit");
 
