@@ -81,12 +81,15 @@ export class KalakritiAttendeePage {
     await expect(
       sheet.getByRole("button", { name: "Assign competitions", exact: true })
     ).toBeVisible();
+    // A judge is deleted, not archived, from the sheet header's ⋯ menu.
+    await sheet.getByRole("button", { name: "More actions" }).click();
     await expect(
-      sheet.getByRole("button", { name: "Archive", exact: true })
+      this.page.getByRole("menuitem", { name: "Archive", exact: true })
     ).toHaveCount(0);
     await expect(
-      sheet.getByRole("button", { name: "Delete", exact: true })
+      this.page.getByRole("menuitem", { name: "Delete", exact: true })
     ).toBeVisible();
+    await this.page.keyboard.press("Escape");
     await sheet.getByRole("button", { name: "Edit", exact: true }).click();
     const dialog = this.page.getByRole("dialog", {
       name: "Edit Judge",

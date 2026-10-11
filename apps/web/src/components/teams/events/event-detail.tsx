@@ -1,4 +1,9 @@
-import { Edit02Icon } from "@hugeicons/core-free-icons";
+import {
+  Cancel01Icon,
+  ChartBarLineIcon,
+  Copy01Icon,
+  Edit02Icon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { BrailleSpinner } from "@pi-dash/design-system/components/braille-spinner";
 import { Button } from "@pi-dash/design-system/components/ui/button";
@@ -427,17 +432,20 @@ function EventHeader({
             actions={[
               canCreate && {
                 id: "duplicate",
+                icon: Copy01Icon,
                 label: "Duplicate",
                 onSelect: onDuplicate,
               },
               canPostPoll && {
                 id: "post-poll",
+                icon: ChartBarLineIcon,
                 label: "Post poll",
                 onSelect: onPostPoll,
               },
               canCancel && {
                 destructive: true,
                 id: "cancel",
+                icon: Cancel01Icon,
                 label: "Cancel event",
                 onSelect: onCancel,
               },

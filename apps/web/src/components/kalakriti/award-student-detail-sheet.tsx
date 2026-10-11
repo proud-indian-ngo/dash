@@ -4,13 +4,8 @@ import type {
 } from "@pi-dash/shared/kalakriti-awards";
 
 import { PersonQrPanel } from "@/components/kalakriti/person-qr-panel";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/shared/responsive-sheet";
+import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
+import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -38,12 +33,10 @@ export function AwardStudentDetailSheet({
       <SheetContent className="overflow-y-auto">
         {entry && member ? (
           <>
-            <SheetHeader>
-              <SheetTitle>{member.name}</SheetTitle>
-              <SheetDescription>
-                Award recipient identity and published Competition result.
-              </SheetDescription>
-            </SheetHeader>
+            <DetailSheetHeader
+              description="Award recipient identity and published Competition result."
+              title={member.name}
+            />
             <div className="grid gap-6 px-6 pb-6">
               <div className="grid gap-3">
                 <DetailRow label="Student ID" value={member.humanId} />

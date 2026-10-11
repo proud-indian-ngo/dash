@@ -1,3 +1,4 @@
+import { Delete02Icon, Edit02Icon, ViewIcon } from "@hugeicons/core-free-icons";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
@@ -120,16 +121,17 @@ function VendorPaymentRowActions({
   return (
     <ResponsiveActionMenu
       title={`${payment.title} actions`}
-      contentClassName="w-32"
       trigger={<RowActionsButton onClick={stopPropagation} />}
       actions={[
         {
           id: "view",
+          icon: ViewIcon,
           label: "View",
           render: <Link params={{ id }} to="/vendor-payments/$id" />,
         },
         canEdit && {
           id: "edit",
+          icon: Edit02Icon,
           label: "Edit",
           render: (
             <Link
@@ -141,6 +143,7 @@ function VendorPaymentRowActions({
         },
         canDelete && {
           id: "delete",
+          icon: Delete02Icon,
           label: "Delete",
           onSelect: handleDelete,
           destructive: true,

@@ -4,7 +4,6 @@ import {
   PencilEdit01Icon,
   ViewIcon,
 } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
@@ -292,32 +291,31 @@ function ScheduledMessageActions({
   return (
     <ResponsiveActionMenu
       title="Scheduled message actions"
-      contentClassName="w-40"
       trigger={<RowActionsButton onClick={stopPropagation} />}
       actions={[
         {
           id: "view",
           label: "View details",
-          icon: <HugeiconsIcon icon={ViewIcon} strokeWidth={2} />,
+          icon: ViewIcon,
           onSelect: handleView,
         },
         isPending && {
           id: "edit",
           label: "Edit",
-          icon: <HugeiconsIcon icon={PencilEdit01Icon} strokeWidth={2} />,
+          icon: PencilEdit01Icon,
           onSelect: handleEdit,
         },
         isPending && {
           id: "cancel",
           label: "Cancel",
-          icon: <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />,
+          icon: Cancel01Icon,
           onSelect: handleCancel,
           destructive: true,
         },
         !isPending && {
           id: "delete",
           label: "Delete",
-          icon: <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />,
+          icon: Delete02Icon,
           onSelect: handleDelete,
           destructive: true,
         },

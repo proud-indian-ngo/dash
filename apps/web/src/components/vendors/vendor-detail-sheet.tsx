@@ -1,15 +1,15 @@
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/shared/responsive-sheet";
+import type { ReactNode } from "react";
+
+import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
+import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatINR } from "@/lib/form-schemas";
 import { getStatusBadge } from "@/lib/status-badge";
 import type { VendorRow } from "@/lib/vendor-types";
 
 interface VendorDetailSheetProps {
+  /** Header buttons and ⋯ menu; the table supplies the row menu's actions. */
+  actions?: ReactNode;
   onOpenChange: (open: boolean) => void;
   open: boolean;
   vendor: VendorRow | null;
@@ -25,6 +25,7 @@ function DetailRow({ label, value }: { label: string; value: string | null }) {
 }
 
 export function VendorDetailSheet({
+  actions,
   onOpenChange,
   open,
   vendor,
@@ -37,19 +38,19 @@ export function VendorDetailSheet({
     );
   }
 
+  const badge = getStatusBadge(vendor.status);
+
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent>
-        <SheetHeader>
-          <SheetTitle>{vendor.name}</SheetTitle>
-        </SheetHeader>
+        <DetailSheetHeader
+          actions={actions}
+          badge={<StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>}
+          meta={[vendor.contactPhone, vendor.contactEmail]}
+          title={vendor.name}
+        />
 
         <div className="flex flex-col gap-6 px-6 pb-6">
-          {(() => {
-            const badge = getStatusBadge(vendor.status);
-            return <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>;
-          })()}
-
           <div className="grid gap-4">
             <h3 className="text-sm font-medium">Contact</h3>
             <div className="grid gap-3 sm:grid-cols-2">

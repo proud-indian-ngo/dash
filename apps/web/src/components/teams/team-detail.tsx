@@ -1,5 +1,6 @@
 import {
   Calendar03Icon,
+  Delete02Icon,
   Edit02Icon,
   PlusSignIcon,
 } from "@hugeicons/core-free-icons";
@@ -405,6 +406,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
                   canDelete && {
                     destructive: true,
                     id: "delete",
+                    icon: Delete02Icon,
                     label: "Delete team",
                     onSelect: stableOnDelete0,
                   },

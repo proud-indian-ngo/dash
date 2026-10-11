@@ -1,3 +1,4 @@
+import { Delete02Icon, Edit02Icon } from "@hugeicons/core-free-icons";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
@@ -52,16 +53,17 @@ function RowActions({
   return (
     <ResponsiveActionMenu
       title={`${role.name} actions`}
-      contentClassName="w-32"
       trigger={<RowActionsButton onClick={stableOnClick0} />}
       actions={[
         {
           id: "edit",
+          icon: Edit02Icon,
           label: roleId === "admin" ? "View" : "Edit",
           onSelect: stableOnClick1,
         },
         !isSystem && {
           id: "delete",
+          icon: Delete02Icon,
           label: "Delete",
           onSelect: handleDelete,
           destructive: true,

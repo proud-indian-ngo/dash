@@ -141,19 +141,19 @@ export function NavUser() {
                 label: hasUnreadNotifications
                   ? `Notifications (${unreadCountLabel} unread)`
                   : "Notifications",
-                icon: <HugeiconsIcon icon={NotificationIcon} strokeWidth={2} />,
+                icon: NotificationIcon,
                 onSelect: () => setNotificationsOpen(true),
               },
               {
                 id: "settings",
                 label: "Settings",
-                icon: <HugeiconsIcon icon={Settings01Icon} strokeWidth={2} />,
+                icon: Settings01Icon,
                 onSelect: stableOnClick1,
               },
               {
                 id: "logout",
                 label: "Log out",
-                icon: <HugeiconsIcon icon={LogoutIcon} strokeWidth={2} />,
+                icon: LogoutIcon,
                 onSelect: stableOnClick2,
                 destructive: true,
               },

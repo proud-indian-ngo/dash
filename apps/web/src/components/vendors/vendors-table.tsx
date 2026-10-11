@@ -1,5 +1,14 @@
+import {
+  ArrowTurnBackwardIcon,
+  CheckmarkCircle01Icon,
+  Delete02Icon,
+  Edit02Icon,
+  ViewIcon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
+import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
@@ -7,9 +16,11 @@ import { toast } from "sonner";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { PageHeaderMenu } from "@/components/shared/page-header";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
+import { VendorDetailSheet } from "@/components/vendors/vendor-detail-sheet";
 import {
   createVendorFilterFields,
   getVendorFilterValue,
@@ -76,23 +87,25 @@ function RowActions({
   return (
     <ResponsiveActionMenu
       title={`${vendor.name} actions`}
-      contentClassName="w-32"
       trigger={<RowActionsButton onClick={stableOnClick0} />}
       actions={[
-        { id: "view", label: "View", onSelect: handleView },
-        { id: "edit", label: "Edit", onSelect: handleEdit },
+        { id: "view", icon: ViewIcon, label: "View", onSelect: handleView },
+        { id: "edit", icon: Edit02Icon, label: "Edit", onSelect: handleEdit },
         Boolean(onApprove && status === "pending") && {
           id: "approve",
+          icon: CheckmarkCircle01Icon,
           label: "Approve",
           onSelect: handleApprove,
         },
         Boolean(onUnapprove && status === "approved") && {
           id: "unapprove",
+          icon: ArrowTurnBackwardIcon,
           label: "Unapprove",
           onSelect: handleUnapprove,
         },
         {
           id: "delete",
+          icon: Delete02Icon,
           label: "Delete",
           onSelect: handleDelete,
           destructive: true,
@@ -100,6 +113,58 @@ function RowActions({
         },
       ]}
     />
+  );
+}
+
+function VendorSheetActions({
+  onApprove,
+  onDelete,
+  onEdit,
+  onUnapprove,
+  vendor,
+}: {
+  onApprove?: (vendor: VendorRow) => void;
+  onDelete: (id: string) => void;
+  onEdit: (vendor: VendorRow) => void;
+  onUnapprove?: (vendor: VendorRow) => void;
+  vendor: VendorRow;
+}) {
+  const status = vendor.status ?? "pending";
+  return (
+    <>
+      {onApprove && status === "pending" ? (
+        <Button onClick={() => onApprove(vendor)} type="button">
+          <HugeiconsIcon
+            className="size-4"
+            icon={CheckmarkCircle01Icon}
+            strokeWidth={2}
+          />
+          Approve
+        </Button>
+      ) : null}
+      <Button onClick={() => onEdit(vendor)} type="button" variant="outline">
+        <HugeiconsIcon className="size-4" icon={Edit02Icon} strokeWidth={2} />
+        Edit
+      </Button>
+      <PageHeaderMenu
+        actions={[
+          Boolean(onUnapprove && status === "approved") && {
+            icon: ArrowTurnBackwardIcon,
+            id: "unapprove",
+            label: "Unapprove",
+            onSelect: () => onUnapprove?.(vendor),
+          },
+          {
+            destructive: true,
+            icon: Delete02Icon,
+            id: "delete",
+            label: "Delete vendor",
+            onSelect: () => onDelete(vendor.id),
+          },
+        ]}
+        title={`${vendor.name} actions`}
+      />
+    </>
   );
 }
 
@@ -116,9 +181,12 @@ function searchVendor(row: VendorRow, query: string): boolean {
 
 interface VendorsTableProps {
   data: VendorRow[];
+  /** The vendor whose detail sheet is open; its header reuses the row actions. */
+  detailVendor?: VendorRow | null;
   isLoading?: boolean;
   onApprove?: (vendor: VendorRow) => void;
   onDelete: (id: string) => Promise<{ type: string }>;
+  onDetailOpenChange?: (open: boolean) => void;
   onEdit: (vendor: VendorRow) => void;
   onUnapprove?: (vendor: VendorRow) => void;
   onView: (vendor: VendorRow) => void;
@@ -127,9 +195,11 @@ interface VendorsTableProps {
 
 export function VendorsTable({
   data,
+  detailVendor = null,
   isLoading,
   onApprove,
   onDelete,
+  onDetailOpenChange,
   onEdit,
   onUnapprove,
   onView,
@@ -476,6 +546,22 @@ export function VendorsTable({
           columnsVisibility: true,
         }}
         toolbarActions={toolbarActions}
+      />
+      <VendorDetailSheet
+        actions={
+          detailVendor ? (
+            <VendorSheetActions
+              onApprove={onApprove}
+              onDelete={handleDeleteRequest}
+              onEdit={onEdit}
+              onUnapprove={onUnapprove}
+              vendor={detailVendor}
+            />
+          ) : null
+        }
+        onOpenChange={(open) => onDetailOpenChange?.(open)}
+        open={Boolean(detailVendor)}
+        vendor={detailVendor}
       />
       <ConfirmDialog
         confirmLabel="Delete vendor"

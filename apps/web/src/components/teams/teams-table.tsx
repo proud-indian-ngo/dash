@@ -1,3 +1,4 @@
+import { Delete02Icon, ViewIcon } from "@hugeicons/core-free-icons";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
@@ -49,12 +50,12 @@ function RowActions({
   return (
     <ResponsiveActionMenu
       title="Team actions"
-      contentClassName="w-32"
       trigger={<RowActionsButton onClick={stableOnClick0} />}
       actions={[
-        { id: "view", label: "View", onSelect: stableOnClick1 },
+        { id: "view", icon: ViewIcon, label: "View", onSelect: stableOnClick1 },
         canDelete && {
           id: "delete",
+          icon: Delete02Icon,
           label: "Delete",
           onSelect: handleDelete,
           destructive: true,

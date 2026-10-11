@@ -1,6 +1,7 @@
 import {
   CheckmarkCircle02Icon,
   Delete02Icon,
+  Edit02Icon,
   MoreVerticalIcon,
   MultiplicationSignCircleIcon,
 } from "@hugeicons/core-free-icons";
@@ -318,7 +319,6 @@ function TimelineItem({
             <div className="ml-auto">
               <ResponsiveActionMenu
                 title="Update actions"
-                contentClassName="w-28"
                 trigger={
                   <Button
                     aria-label="Update actions"
@@ -337,11 +337,13 @@ function TimelineItem({
                 actions={[
                   canEdit && {
                     id: "edit",
+                    icon: Edit02Icon,
                     label: "Edit",
                     onSelect: stableOnClick2,
                   },
                   canDelete && {
                     id: "delete",
+                    icon: Delete02Icon,
                     label: "Delete",
                     onSelect: stableOnClick3,
                     destructive: true,

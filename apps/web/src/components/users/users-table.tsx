@@ -1,3 +1,13 @@
+import {
+  Delete02Icon,
+  Edit02Icon,
+  Key01Icon,
+  NotificationIcon,
+  UserBlock01Icon,
+  UserCheck01Icon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { User } from "@pi-dash/zero/schema";
 import type { ColumnVisibilityState } from "@tanstack/react-table";
@@ -8,10 +18,12 @@ import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { optionsFromRows } from "@/components/data-table/filter-fields";
 import { FormModal } from "@/components/form/form-modal";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { PageHeaderMenu } from "@/components/shared/page-header";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { BanUserForm } from "@/components/users/ban-user-form";
 import { PasswordForm } from "@/components/users/password-form";
+import { UserDetailSheet } from "@/components/users/user-detail-sheet";
 import {
   createUserFilterFields,
   getUserFilterValue,
@@ -34,6 +46,8 @@ type RowFormAction = {
 } | null;
 
 interface UsersTableProps {
+  /** The user whose detail sheet is open; its header reuses the row actions. */
+  detailUser?: User | null;
   isLoading?: boolean;
   onBanUser: (
     userId: string,
@@ -41,6 +55,7 @@ interface UsersTableProps {
     banExpires?: string
   ) => Promise<void>;
   onDelete: (userId: string) => Promise<void>;
+  onDetailOpenChange?: (open: boolean) => void;
   onRowClick?: (user: User) => void;
   onSetPassword: (userId: string, newPassword: string) => Promise<void>;
   onUnbanUser: (userId: string) => Promise<void>;
@@ -138,35 +153,44 @@ function UserActionsMenu({
   return (
     <ResponsiveActionMenu
       title={`${user.name} actions`}
-      contentClassName="w-40"
       trigger={<RowActionsButton onClick={stableOnClick0} />}
       actions={[
-        { id: "edit", label: "Edit", onSelect: stableOnClick1 },
+        {
+          id: "edit",
+          icon: Edit02Icon,
+          label: "Edit",
+          onSelect: stableOnClick1,
+        },
         {
           id: "reset-password",
+          icon: Key01Icon,
           label: "Reset password",
           onSelect: stableOnClick2,
         },
         {
           id: "notifications",
+          icon: NotificationIcon,
           label: "Notifications",
           onSelect: stableOnClick3,
         },
         isBanned
           ? {
               id: "unban",
+              icon: UserCheck01Icon,
               label: isBanning ? "Unbanning..." : "Unban user",
               disabled: isSelf || isBanning,
               onSelect: stableOnClick4,
             }
           : {
               id: "ban",
+              icon: UserBlock01Icon,
               label: "Ban user",
               disabled: isSelf || isBanning,
               onSelect: stableOnClick5,
             },
         {
           id: "delete",
+          icon: Delete02Icon,
           label: "Delete",
           disabled: isSelf || isDeleting,
           onSelect: stableOnClick6,
@@ -207,6 +231,82 @@ function UserRowActions({
       onUnbanUser={handleUnban}
       user={user}
     />
+  );
+}
+
+function UserSheetActions({
+  isBanning,
+  isDeleting,
+  onOpenForm,
+  onSetBanningUserId,
+  onUnbanUser,
+  user,
+}: UserRowActionsProps) {
+  const { data: session } = authClient.useSession();
+  const isSelf = user.id === (session?.user?.id ?? "");
+  const isBanned = Boolean(user.banned);
+  const handleUnban = useEventCallback(async () => {
+    try {
+      onSetBanningUserId(user.id);
+      await onUnbanUser(user.id);
+    } finally {
+      onSetBanningUserId(null);
+    }
+  });
+
+  return (
+    <>
+      <Button
+        onClick={() => onOpenForm(user.id, "edit")}
+        type="button"
+        variant="outline"
+      >
+        <HugeiconsIcon className="size-4" icon={Edit02Icon} strokeWidth={2} />
+        Edit
+      </Button>
+      <Button
+        onClick={() => onOpenForm(user.id, "password")}
+        type="button"
+        variant="outline"
+      >
+        <HugeiconsIcon className="size-4" icon={Key01Icon} strokeWidth={2} />
+        Reset password
+      </Button>
+      <PageHeaderMenu
+        actions={[
+          {
+            icon: NotificationIcon,
+            id: "notifications",
+            label: "Notifications",
+            onSelect: () => onOpenForm(user.id, "notifications"),
+          },
+          isBanned
+            ? {
+                disabled: isSelf || isBanning,
+                icon: UserCheck01Icon,
+                id: "unban",
+                label: isBanning ? "Unbanning..." : "Unban user",
+                onSelect: handleUnban,
+              }
+            : {
+                disabled: isSelf || isBanning,
+                icon: UserBlock01Icon,
+                id: "ban",
+                label: "Ban user",
+                onSelect: () => onOpenForm(user.id, "ban"),
+              },
+          {
+            destructive: true,
+            disabled: isSelf || isDeleting,
+            icon: Delete02Icon,
+            id: "delete",
+            label: "Delete user",
+            onSelect: () => onOpenForm(user.id, "delete"),
+          },
+        ]}
+        title={`${user.name} actions`}
+      />
+    </>
   );
 }
 
@@ -388,9 +488,11 @@ function UserRowActionDialogs({
 }
 
 export function UsersTable({
+  detailUser = null,
   isLoading,
   onBanUser,
   onDelete,
+  onDetailOpenChange,
   onRowClick,
   onSetPassword,
   onUnbanUser,
@@ -515,6 +617,23 @@ export function UsersTable({
           columnsVisibility: true,
         }}
         toolbarActions={toolbarActions}
+      />
+      <UserDetailSheet
+        actions={
+          detailUser ? (
+            <UserSheetActions
+              isBanning={banningUserId === detailUser.id}
+              isDeleting={isDeleting}
+              onOpenForm={openForm}
+              onSetBanningUserId={setBanningUserId}
+              onUnbanUser={onUnbanUser}
+              user={detailUser}
+            />
+          ) : null
+        }
+        onOpenChange={(open) => onDetailOpenChange?.(open)}
+        open={Boolean(detailUser)}
+        user={detailUser}
       />
       {activeUser ? (
         <UserRowActionDialogs

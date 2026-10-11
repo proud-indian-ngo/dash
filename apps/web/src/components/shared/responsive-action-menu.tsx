@@ -1,3 +1,4 @@
+import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   Drawer,
@@ -31,7 +32,8 @@ import styles from "./responsive-action-menu.module.css";
 interface ActionMenuAction {
   id: string;
   label: ReactNode;
-  icon?: ReactNode;
+  /** Every item has an icon, so a menu scans as one column. */
+  icon: IconSvgElement;
   onSelect?: () => void;
   render?: ReactElement;
   disabled?: boolean;
@@ -69,9 +71,12 @@ function ActionMenu({
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const selecting = useRef(false);
-  const visibleActions = actions.filter((action): action is ActionMenuAction =>
-    Boolean(action)
-  );
+  // Destructive actions always come last, after a divider.
+  const visibleActions = actions
+    .filter((action): action is ActionMenuAction => Boolean(action))
+    .sort(
+      (a, b) => Number(Boolean(a.destructive)) - Number(Boolean(b.destructive))
+    );
 
   function changeOpen(nextOpen: boolean) {
     if (nextOpen) selecting.current = false;
@@ -122,7 +127,7 @@ function ActionMenu({
                     render={action.render}
                     variant={action.destructive ? "destructive" : "default"}
                   >
-                    {action.icon}
+                    <ActionIcon action={action} />
                     {action.label}
                   </DropdownMenuItem>
                 </Fragment>
@@ -220,11 +225,24 @@ function MobileActions({
             render={action.render}
             variant="ghost"
           >
-            {action.icon}
+            <ActionIcon action={action} />
             {action.label}
           </Button>
         </li>
       ))}
     </ul>
+  );
+}
+
+function ActionIcon({ action }: { action: ActionMenuAction }) {
+  return (
+    <HugeiconsIcon
+      className={cn(
+        "size-4",
+        action.destructive ? "text-destructive" : "text-muted-foreground"
+      )}
+      icon={action.icon}
+      strokeWidth={2}
+    />
   );
 }

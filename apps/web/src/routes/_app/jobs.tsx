@@ -301,7 +301,9 @@ function JobsRouteComponent() {
 
       <JobDetailSheet
         job={selectedJob}
+        onCancel={handleCancelRequest}
         onOpenChange={setSheetOpen}
+        onRetry={handleRetryRequest}
         open={sheetOpen}
       />
 

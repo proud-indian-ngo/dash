@@ -15,7 +15,6 @@ import { toast } from "sonner";
 import { FormModal } from "@/components/form/form-modal";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatsCards } from "@/components/stats/stats-cards";
-import { UserDetailSheet } from "@/components/users/user-detail-sheet";
 import {
   type CreateUserFormValues,
   defaultCreateUserFormValues,
@@ -246,20 +245,17 @@ function UsersRouteComponent() {
           items={computeUserStats(allUsers)}
         />
         <UsersTable
+          detailUser={selectedUser}
           isLoading={isLoading}
           onBanUser={handleBanUser}
           onDelete={handleDeleteUser}
+          onDetailOpenChange={stableOnOpenChange2}
           onRowClick={stableOnRowClick0}
           onSetPassword={handleResetPassword}
           onUnbanUser={handleUnbanUser}
           onUpdateUser={handleUpdateUser}
           roleOptions={roleSelectOptions}
           users={allUsers}
-        />
-        <UserDetailSheet
-          onOpenChange={stableOnOpenChange2}
-          open={!!selectedUser}
-          user={selectedUser}
         />
       </div>
 

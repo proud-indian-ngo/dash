@@ -1,3 +1,8 @@
+import {
+  Archive02Icon,
+  Edit02Icon,
+  ViewIcon,
+} from "@hugeicons/core-free-icons";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
@@ -69,13 +74,20 @@ function RowActions({
         canManage &&
           guardian.state === "active" && {
             id: "edit",
+            icon: Edit02Icon,
             label: "Edit details",
             onSelect: handleEdit,
           },
-        { id: "view", label: "View details", onSelect: handleView },
+        {
+          id: "view",
+          icon: ViewIcon,
+          label: "View details",
+          onSelect: handleView,
+        },
         canManage &&
           guardian.state === "active" && {
             id: "archive",
+            icon: Archive02Icon,
             label: "Archive access",
             onSelect: handleArchive,
             destructive: true,

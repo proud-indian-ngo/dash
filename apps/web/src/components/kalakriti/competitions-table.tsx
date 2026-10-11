@@ -1,3 +1,12 @@
+import {
+  Archive02Icon,
+  ArrowTurnBackwardIcon,
+  Cancel01Icon,
+  Delete02Icon,
+  Edit02Icon,
+  Settings02Icon,
+  Task01Icon,
+} from "@hugeicons/core-free-icons";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
@@ -109,25 +118,45 @@ function RowActions({
         />
       }
       actions={[
-        { id: "entries", label: "View Entries", onSelect: handleView },
-        { id: "details", label: "View configuration", onSelect: handleDetails },
+        {
+          id: "entries",
+          icon: Task01Icon,
+          label: "View Entries",
+          onSelect: handleView,
+        },
+        {
+          id: "details",
+          icon: Settings02Icon,
+          label: "View configuration",
+          onSelect: handleDetails,
+        },
         canEdit && {
           id: "edit",
+          icon: Edit02Icon,
           label: "Edit Competition",
           onSelect: handleEdit,
         },
         canManageCancellations && {
           id: "cancel",
+          icon:
+            competition.cancelledAt === null
+              ? Cancel01Icon
+              : ArrowTurnBackwardIcon,
           label: `${competition.cancelledAt === null ? "Cancel" : "Restore"} Competition`,
           onSelect: handleCancel,
         },
         canManageStructure && {
           id: "retire",
+          icon:
+            competition.retiredAt === null
+              ? Archive02Icon
+              : ArrowTurnBackwardIcon,
           label: `${competition.retiredAt === null ? "Retire" : "Restore"} Competition`,
           onSelect: handleRetire,
         },
         canManageStructure && {
           id: "delete",
+          icon: Delete02Icon,
           label: "Delete Competition",
           onSelect: handleDelete,
           destructive: true,

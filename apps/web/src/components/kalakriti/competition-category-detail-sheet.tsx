@@ -1,13 +1,16 @@
+import {
+  ArrowTurnBackwardIcon,
+  Archive02Icon,
+  Delete02Icon,
+  Edit02Icon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/shared/responsive-sheet";
+import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
+import { PageHeaderMenu } from "@/components/shared/page-header";
+import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { StatusBadge } from "@/components/shared/status-badge";
 
 import type {
@@ -62,21 +65,54 @@ export function CompetitionCategoryDetailSheet({
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent>
-        <SheetHeader>
-          <SheetTitle>{category.name}</SheetTitle>
-          <SheetDescription>
-            Competition grouping, display order, and lifecycle details.
-          </SheetDescription>
-        </SheetHeader>
+        <DetailSheetHeader
+          actions={
+            <>
+              {canManage ? (
+                <Button onClick={handleEdit} type="button" variant="outline">
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={Edit02Icon}
+                    strokeWidth={2}
+                  />
+                  Edit
+                </Button>
+              ) : null}
+              <PageHeaderMenu
+                actions={[
+                  canManage && {
+                    icon:
+                      category.retiredAt === null
+                        ? Archive02Icon
+                        : ArrowTurnBackwardIcon,
+                    id: "retire",
+                    label: category.retiredAt === null ? "Retire" : "Restore",
+                    onSelect: handleRetire,
+                  },
+                  canManage && {
+                    destructive: true,
+                    icon: Delete02Icon,
+                    id: "delete",
+                    label: "Delete category",
+                    onSelect: handleDelete,
+                  },
+                ]}
+                title={`${category.name} actions`}
+              />
+            </>
+          }
+          badge={
+            <StatusBadge
+              tone={category.retiredAt === null ? "success" : "neutral"}
+            >
+              {category.retiredAt === null ? "Active" : "Retired"}
+            </StatusBadge>
+          }
+          description="Competition grouping, display order, and lifecycle details."
+          title={category.name}
+        />
 
         <div className="flex flex-col gap-6 px-6 pb-6">
-          <StatusBadge
-            className="w-fit"
-            tone={category.retiredAt === null ? "success" : "neutral"}
-          >
-            {category.retiredAt === null ? "Active" : "Retired"}
-          </StatusBadge>
-
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-1">
               <span className="text-muted-foreground text-xs">
@@ -91,18 +127,6 @@ export function CompetitionCategoryDetailSheet({
               <span className="text-sm">{category.competitionCount}</span>
             </div>
           </div>
-
-          {canManage ? (
-            <div className="flex flex-wrap gap-2 border-t pt-4">
-              <Button onClick={handleEdit}>Edit Category</Button>
-              <Button onClick={handleRetire} variant="outline">
-                {category.retiredAt === null ? "Retire" : "Restore"}
-              </Button>
-              <Button onClick={handleDelete} variant="destructive">
-                Delete
-              </Button>
-            </div>
-          ) : null}
         </div>
       </SheetContent>
     </Sheet>

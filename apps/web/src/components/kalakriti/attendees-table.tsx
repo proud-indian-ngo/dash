@@ -1,4 +1,12 @@
-import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
+import {
+  Archive02Icon,
+  Cancel01Icon,
+  Delete02Icon,
+  Edit02Icon,
+  Tick02Icon,
+  UserAdd01Icon,
+  ViewIcon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
@@ -276,22 +284,26 @@ export function AttendeesTable({
             actions={[
               {
                 id: "view",
+                icon: ViewIcon,
                 label: "View details",
                 onSelect: () => onView(row.original),
               },
               canManage && {
                 id: "edit",
+                icon: Edit02Icon,
                 label: "Edit",
                 onSelect: () => onEdit(row.original),
               },
               canManage &&
                 kind === "judge" && {
                   id: "assign",
+                  icon: UserAdd01Icon,
                   label: "Assign competitions",
                   onSelect: () => onAssign(row.original),
                 },
               canManage && {
                 id: "remove",
+                icon: kind === "judge" ? Delete02Icon : Archive02Icon,
                 label: kind === "judge" ? "Delete" : "Archive",
                 onSelect: () => onRemove(row.original),
                 destructive: true,

@@ -1,4 +1,10 @@
-import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
+import {
+  Copy01Icon,
+  Download04Icon,
+  MoreVerticalIcon,
+  PlusSignIcon,
+  RepeatIcon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Alert,
@@ -204,6 +210,7 @@ function KalakritiEditionOverview() {
                     actions={[
                       canExport && {
                         id: "export",
+                        icon: Download04Icon,
                         label: isExporting
                           ? "Preparing export..."
                           : "Download registration data",
@@ -212,16 +219,19 @@ function KalakritiEditionOverview() {
                       },
                       availability === "query_error" && {
                         id: "retry",
+                        icon: RepeatIcon,
                         label: "Retry clone options",
                         onSelect: retry,
                       },
                       availability === "ready" && {
                         id: "clone",
+                        icon: Copy01Icon,
                         label: "Clone configuration",
                         onSelect: open,
                       },
                       access.isGlobalAdmin && {
                         id: "create",
+                        icon: PlusSignIcon,
                         label: "Create Edition",
                         render: <Link to="/kalakriti/new" />,
                       },

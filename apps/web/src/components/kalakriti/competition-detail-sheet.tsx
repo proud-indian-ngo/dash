@@ -1,3 +1,11 @@
+import {
+  ArrowTurnBackwardIcon,
+  Archive02Icon,
+  Cancel01Icon,
+  Delete02Icon,
+  Edit02Icon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { queries } from "@pi-dash/zero/queries";
@@ -6,13 +14,9 @@ import { Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 
 import { Loader } from "@/components/loader";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/shared/responsive-sheet";
+import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
+import { PageHeaderMenu } from "@/components/shared/page-header";
+import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { StatusBadge } from "@/components/shared/status-badge";
 
 import {
@@ -161,12 +165,72 @@ export function CompetitionDetailSheet({
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent className="overflow-y-auto sm:max-w-xl">
-        <SheetHeader>
-          <SheetTitle>{competition.name}</SheetTitle>
-          <SheetDescription>
-            Competition eligibility, participation, and lifecycle details.
-          </SheetDescription>
-        </SheetHeader>
+        <DetailSheetHeader
+          actions={
+            <>
+              {canEdit ? (
+                <Button onClick={handleEdit} type="button" variant="outline">
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={Edit02Icon}
+                    strokeWidth={2}
+                  />
+                  Edit
+                </Button>
+              ) : null}
+              <PageHeaderMenu
+                actions={[
+                  canManageCancellations && {
+                    icon:
+                      competition.cancelledAt === null
+                        ? Cancel01Icon
+                        : ArrowTurnBackwardIcon,
+                    id: "cancel",
+                    label:
+                      competition.cancelledAt === null
+                        ? "Cancel competition"
+                        : "Restore competition",
+                    onSelect: handleCancel,
+                  },
+                  canManageStructure && {
+                    icon:
+                      competition.retiredAt === null
+                        ? Archive02Icon
+                        : ArrowTurnBackwardIcon,
+                    id: "retire",
+                    label:
+                      competition.retiredAt === null ? "Retire" : "Restore",
+                    onSelect: handleRetire,
+                  },
+                  canManageStructure && {
+                    destructive: true,
+                    icon: Delete02Icon,
+                    id: "delete",
+                    label: "Delete competition",
+                    onSelect: handleDelete,
+                  },
+                ]}
+                title={`${competition.name} actions`}
+              />
+            </>
+          }
+          badge={
+            <>
+              {competition.cancelledAt === null &&
+              competition.retiredAt === null ? (
+                <StatusBadge tone="success">Active</StatusBadge>
+              ) : null}
+              {competition.cancelledAt === null ? null : (
+                <StatusBadge tone="neutral">Cancelled</StatusBadge>
+              )}
+              {competition.retiredAt === null ? null : (
+                <StatusBadge tone="neutral">Retired</StatusBadge>
+              )}
+            </>
+          }
+          description="Competition eligibility, participation, and lifecycle details."
+          title={competition.name}
+        />
 
         <div className="flex flex-col gap-6 px-6 pb-6">
           {canViewJudges ? (
@@ -175,19 +239,6 @@ export function CompetitionDetailSheet({
               competitionId={competition.id}
             />
           ) : null}
-          <div className="flex flex-wrap gap-2">
-            {competition.cancelledAt === null &&
-            competition.retiredAt === null ? (
-              <StatusBadge tone="success">Active</StatusBadge>
-            ) : null}
-            {competition.cancelledAt === null ? null : (
-              <StatusBadge tone="neutral">Cancelled</StatusBadge>
-            )}
-            {competition.retiredAt === null ? null : (
-              <StatusBadge tone="neutral">Retired</StatusBadge>
-            )}
-          </div>
-
           <div className="grid gap-4">
             <h3 className="text-sm font-medium">Configuration</h3>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -311,29 +362,6 @@ export function CompetitionDetailSheet({
               );
             })}
           </div>
-
-          {canEdit || canManageCancellations || canManageStructure ? (
-            <div className="flex flex-wrap gap-2 border-t pt-4">
-              {canEdit ? (
-                <Button onClick={handleEdit}>Edit Competition</Button>
-              ) : null}
-              {canManageCancellations ? (
-                <Button onClick={handleCancel} variant="outline">
-                  {competition.cancelledAt === null ? "Cancel" : "Restore"}
-                </Button>
-              ) : null}
-              {canManageStructure ? (
-                <>
-                  <Button onClick={handleRetire} variant="outline">
-                    {competition.retiredAt === null ? "Retire" : "Restore"}
-                  </Button>
-                  <Button onClick={handleDelete} variant="destructive">
-                    Delete
-                  </Button>
-                </>
-              ) : null}
-            </div>
-          ) : null}
         </div>
       </SheetContent>
     </Sheet>

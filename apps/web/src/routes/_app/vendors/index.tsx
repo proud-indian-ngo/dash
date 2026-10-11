@@ -12,7 +12,6 @@ import { useState } from "react";
 
 import { PageHeader } from "@/components/shared/page-header";
 import { StatsCards } from "@/components/stats/stats-cards";
-import { VendorDetailSheet } from "@/components/vendors/vendor-detail-sheet";
 import { VendorFormDialog } from "@/components/vendors/vendor-form-dialog";
 import { computeVendorPaymentStats } from "@/components/vendors/vendor-stats";
 import { VendorsTable } from "@/components/vendors/vendors-table";
@@ -142,9 +141,11 @@ function VendorsRouteComponent() {
         <StatsCards variant="chips" isLoading={isLoading} items={stats} />
         <VendorsTable
           data={vendorRows}
+          detailVendor={viewingVendor}
           isLoading={isLoading}
           onApprove={handleApprove}
           onDelete={handleDelete}
+          onDetailOpenChange={stableOnOpenChange3}
           onEdit={handleEdit}
           onUnapprove={handleUnapprove}
           onView={handleView}
@@ -155,12 +156,6 @@ function VendorsRouteComponent() {
         onOpenChange={stableOnOpenChange2}
         open={formOpen}
         vendor={editingVendor}
-      />
-
-      <VendorDetailSheet
-        onOpenChange={stableOnOpenChange3}
-        open={!!viewingVendor}
-        vendor={viewingVendor}
       />
     </div>
   );

@@ -178,7 +178,8 @@ test("manages independent Center registration and scoped Liaison access", async 
     );
 
     const assignedCenter = await centers.openDetails("Basavanagudi");
-    await assignedCenter.getByRole("button", { name: "Retire" }).click();
+    await assignedCenter.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { name: "Retire" }).click();
     await page
       .getByRole("alertdialog", { name: "Retire Center?" })
       .getByRole("button", { name: "Retire Center" })
@@ -207,7 +208,8 @@ test("manages independent Center registration and scoped Liaison access", async 
       .getByRole("button", { name: "Close", exact: true })
       .click();
     const retiredSheet = await centers.openDetails("Basavanagudi");
-    await retiredSheet.getByRole("button", { name: "Delete" }).click();
+    await retiredSheet.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { name: "Delete center" }).click();
     await page
       .getByRole("alertdialog", { name: "Delete Center?" })
       .getByRole("button", { name: "Delete Center" })
@@ -222,14 +224,16 @@ test("manages independent Center registration and scoped Liaison access", async 
       .fill("Retired Center");
     await editDialog.getByRole("button", { name: "Save Center" }).click();
     const retired = await centers.openDetails("Retired Center");
-    await retired.getByRole("button", { name: "Retire" }).click();
+    await retired.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { name: "Retire" }).click();
     await page
       .getByRole("alertdialog", { name: "Retire Center?" })
       .getByRole("button", { name: "Retire Center" })
       .click();
     await expect(centers.center("Retired Center")).toContainText("Retired");
     const reopenedRetired = await centers.openDetails("Retired Center");
-    await reopenedRetired.getByRole("button", { name: "Delete" }).click();
+    await reopenedRetired.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { name: "Delete center" }).click();
     await page
       .getByRole("alertdialog", { name: "Delete Center?" })
       .getByRole("button", { name: "Delete Center" })

@@ -1,4 +1,10 @@
-import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
+import {
+  Cancel01Icon,
+  Tick02Icon,
+  UserAdd01Icon,
+  UserRemove01Icon,
+  ViewIcon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
@@ -156,16 +162,22 @@ function RowActions({
           onClick={stopRowClick}
         />
       }
-      contentClassName="w-56"
       actions={[
-        { id: "view", label: "View details", onSelect: handleView },
+        {
+          id: "view",
+          icon: ViewIcon,
+          label: "View details",
+          onSelect: handleView,
+        },
         canAssignRole && {
           id: "assign",
+          icon: UserAdd01Icon,
           label: "Assign role",
           onSelect: handleAssignRole,
         },
         ...removable.map((assignment) => ({
           id: `remove-${assignment.id}`,
+          icon: UserRemove01Icon,
           label: `Remove ${KALAKRITI_RESPONSIBILITY_LABELS[assignment.responsibility]}`,
           onSelect: () =>
             onRemove({
@@ -179,6 +191,7 @@ function RowActions({
         })),
         canRemoveFromEdition && {
           id: "remove-edition",
+          icon: UserRemove01Icon,
           label: "Remove from Edition",
           onSelect: handleRemoveFromEdition,
           destructive: true,

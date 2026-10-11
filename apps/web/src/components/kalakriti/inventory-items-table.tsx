@@ -1,3 +1,11 @@
+import {
+  Archive02Icon,
+  ArrowTurnBackwardIcon,
+  Clock01Icon,
+  Edit02Icon,
+  PlusMinusIcon,
+  ShoppingCart01Icon,
+} from "@hugeicons/core-free-icons";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import type { FilterField } from "@pi-dash/design-system/components/reui/filters/filters-types";
@@ -212,30 +220,35 @@ export function InventoryItemsTable({
               actions={[
                 {
                   id: "history",
+                  icon: Clock01Icon,
                   label: "History",
                   onSelect: () => onHistory(item),
                 },
                 canManage &&
                   !item.archivedAt && {
                     id: "purchase",
+                    icon: ShoppingCart01Icon,
                     label: "Purchase",
                     onSelect: () => onMovement(item, "purchase"),
                   },
                 canManage &&
                   !item.archivedAt && {
                     id: "adjust",
+                    icon: PlusMinusIcon,
                     label: "Adjust stock",
                     onSelect: () => onMovement(item, "adjustment"),
                   },
                 canManage &&
                   !item.archivedAt && {
                     id: "edit",
+                    icon: Edit02Icon,
                     label: "Edit item",
                     onSelect: () => onEdit(item),
                   },
                 canManage &&
                   !item.archivedAt && {
                     id: "archive",
+                    icon: Archive02Icon,
                     label: "Archive item",
                     onSelect: () => onArchive(item),
                     disabled: item.quantity !== 0,
@@ -244,6 +257,7 @@ export function InventoryItemsTable({
                 canManage &&
                   !!item.archivedAt && {
                     id: "restore",
+                    icon: ArrowTurnBackwardIcon,
                     label: "Restore item",
                     onSelect: () => onRestore(item),
                   },

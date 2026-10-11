@@ -1,10 +1,5 @@
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/shared/responsive-sheet";
+import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
+import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatTimestamp } from "@/lib/date-formats";
 
@@ -34,18 +29,17 @@ export function AuditDetailSheet({
       <SheetContent>
         {entry ? (
           <>
-            <SheetHeader>
-              <SheetTitle className="font-mono text-sm">
-                {entry.action}
-              </SheetTitle>
-              <SheetDescription>
-                Immutable audit entry {entry.id}
-              </SheetDescription>
-            </SheetHeader>
+            <DetailSheetHeader
+              badge={
+                <StatusBadge tone={outcomeTone(entry.outcome)}>
+                  {entry.outcome}
+                </StatusBadge>
+              }
+              description={`Immutable audit entry ${entry.id}`}
+              meta={[entry.actorName, formatTimestamp(entry.attemptedAt)]}
+              title={<span className="font-mono text-sm">{entry.action}</span>}
+            />
             <div className="grid min-h-0 flex-1 gap-6 overflow-y-auto px-6 pb-6">
-              <StatusBadge tone={outcomeTone(entry.outcome)}>
-                {entry.outcome}
-              </StatusBadge>
               <div className="grid gap-3 sm:grid-cols-2">
                 <DetailRow
                   label="Attempted"
@@ -79,10 +73,10 @@ export function AuditDetailSheet({
             </div>
           </>
         ) : (
-          <SheetHeader>
-            <SheetTitle>Audit entry</SheetTitle>
-            <SheetDescription>No entry selected.</SheetDescription>
-          </SheetHeader>
+          <DetailSheetHeader
+            description="No entry selected."
+            title="Audit entry"
+          />
         )}
       </SheetContent>
     </Sheet>
