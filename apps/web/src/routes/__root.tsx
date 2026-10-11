@@ -123,7 +123,8 @@ function RootDocument() {
         </ScriptOnce>
         <ThemeProvider>
           <AppErrorBoundary level="root">
-            <TooltipProvider>
+            {/* Wait before the first tooltip; once one is showing, neighbours open instantly. */}
+            <TooltipProvider delay={400}>
               <NuqsAdapter>
                 <ZeroInit>
                   <Outlet />

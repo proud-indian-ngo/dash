@@ -189,7 +189,7 @@ function AnalyticsPage() {
   );
 
   return (
-    <div className="app-container fade-in-0 animate-in ease-out-expo mx-auto max-w-7xl px-2 py-6 duration-150 sm:px-4">
+    <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
       <PageHeader
         actions={
           <>
