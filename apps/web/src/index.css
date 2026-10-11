@@ -32,6 +32,9 @@ body:has(.yarl__root) [data-slot="alert-dialog-content"] {
  */
 [data-slot="dialog-content"]:not([data-plain])
   > [data-slot="dialog-body"]
-  > :is([data-slot="form-actions"], :last-child > [data-slot="form-actions"]):last-child {
+  > :is(
+    [data-slot="form-actions"],
+    :last-child > [data-slot="form-actions"]
+  ):last-child {
   @apply bg-dialog-footer sticky -bottom-5 z-10 -mx-5 -mb-5 flex-row-reverse justify-start border-t px-5 py-3;
 }
