@@ -218,6 +218,30 @@ describe("rule text", () => {
   });
 });
 
+describe("cross-field checks with an invalid side", () => {
+  it.each([
+    [{ schedule: { buildTime: "abc" } }, "schedule.buildTime"],
+    [{ schedule: { postTime: "25:00" } }, "schedule.postTime"],
+    [{ schedule: { buildTime: 9 } }, "schedule.buildTime"],
+    [{ schedule: { minRows: 9 } }, "schedule.minRows"],
+    [{ schedule: { maxRows: "two" } }, "schedule.maxRows"],
+    [{ recap: { slideshowMinPhotos: 2.5 } }, "recap.slideshowMinPhotos"],
+    [{ recap: { photosMax: 0 } }, "recap.photosMax"],
+    [{ impact: { buildTime: "nine" } }, "impact.buildTime"],
+    [{ impact: { postDaysAfterBuild: -1 } }, "impact.postDaysAfterBuild"],
+  ])("%o reports only %s", (value, path) => {
+    expect(issuesOf(value).map((issue) => issue.path)).toEqual([path]);
+  });
+
+  it("still checks a valid pair next to an invalid field", () => {
+    expect(
+      issuesOf({ schedule: { maxRows: 2, minRows: 3, title: "" } }).map(
+        (issue) => issue.path
+      )
+    ).toEqual(["schedule.title", "schedule.maxRows"]);
+  });
+});
+
 describe("parseSocialRules", () => {
   it("treats a missing or blank value as no rules", () => {
     expect(parseSocialRules(undefined)).toEqual({ error: null, rules: {} });

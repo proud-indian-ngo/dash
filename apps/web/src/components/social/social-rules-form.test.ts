@@ -2,8 +2,10 @@ import { describe, expect, it } from "bun:test";
 
 import {
   formToRules,
+  groupRuleIssues,
   ruleDefault,
   rulesToForm,
+  sameRulesForm,
   serializeRules,
 } from "./social-rules-form";
 
@@ -51,7 +53,8 @@ describe("posting rules form", () => {
     form.values["recap.reelMinSeconds"] = "abc";
     const result = formToRules(form);
     expect(result.rules).toBeNull();
-    expect(Object.keys(result.errors ?? {}).sort()).toEqual([
+    expect(result.errors?.form).toEqual([]);
+    expect(Object.keys(result.errors?.fields ?? {}).sort()).toEqual([
       "recap.reelMinSeconds",
       "schedule.maxRows",
       "volunteerCall.postTime",
@@ -73,9 +76,47 @@ describe("posting rules form", () => {
   it("shows the schedule window error on the post time", () => {
     const form = rulesToForm({});
     form.values["schedule.buildTime"] = "18:30";
-    expect(formToRules(form).errors).toEqual({
+    expect(formToRules(form).errors?.fields).toEqual({
       "schedule.postTime":
         "Leave a full hour (HH:00) from the build time until before the post time; the pipeline runs on the hour",
     });
+  });
+
+  it("reports only the field's own error when a time is malformed", () => {
+    const form = rulesToForm({});
+    form.values["schedule.buildTime"] = "abc";
+    expect(formToRules(form).errors).toEqual({
+      fields: { "schedule.buildTime": "Use HH:MM (24-hour)" },
+      form: [],
+    });
+  });
+
+  it("keeps issues no field shows as form-level lines", () => {
+    expect(
+      groupRuleIssues([
+        { message: 'Unrecognized key: "colour"', path: ["schedule"] },
+        { message: "Invalid input", path: [] },
+        { message: "Use true or false", path: ["recap", "held"] },
+        { message: "Use HH:MM (24-hour)", path: ["recap", "postTime"] },
+      ])
+    ).toEqual({
+      fields: { "recap.postTime": "Use HH:MM (24-hour)" },
+      form: [
+        'schedule: Unrecognized key: "colour"',
+        "Invalid input",
+        "recap.held: Use true or false",
+      ],
+    });
+  });
+
+  it("compares form states by their inputs", () => {
+    const a = rulesToForm({ recap: { lookbackDays: 5 } });
+    expect(sameRulesForm(a, rulesToForm({ recap: { lookbackDays: 5 } }))).toBe(
+      true
+    );
+    expect(sameRulesForm(a, rulesToForm({}))).toBe(false);
+    expect(
+      sameRulesForm(rulesToForm({}), rulesToForm({ story: { held: true } }))
+    ).toBe(false);
   });
 });

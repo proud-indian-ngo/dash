@@ -127,11 +127,12 @@ function EventCell({ post }: { post: SocialPostRow }) {
 
 function StatusCell({ post }: { post: SocialPostRow }) {
   const badge = STATUS[post.status];
-  // Held: created as a Buffer draft for the approver (null: not reported).
+  // Held: still a Buffer draft waiting for the approver (null: not reported).
+  const awaitingApproval = post.held === true && canDropSocialPost(post);
   const status = (
     <div className="flex flex-wrap items-center gap-1">
       <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
-      {post.held ? <Tag>Held</Tag> : null}
+      {awaitingApproval ? <Tag>Held</Tag> : null}
     </div>
   );
   if (post.status !== "dropped" || !post.droppedAt) {

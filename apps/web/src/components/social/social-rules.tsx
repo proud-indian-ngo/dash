@@ -15,64 +15,89 @@ import {
   SOCIAL_RULES_CONFIG_KEY,
   SOCIAL_RULES_DEFAULTS,
 } from "@pi-dash/shared/social-api";
-import { mutators } from "@pi-dash/zero/mutators";
-import { useZero } from "@rocicorp/zero/react";
 import { type FormEvent, useState } from "react";
+import { toast } from "sonner";
 
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { handleMutationResult } from "@/lib/mutation-result";
 
 import {
   formToRules,
   RULE_CARDS,
   ruleDefault,
   ruleFieldId,
+  type RulesFormErrors,
   type RulesFormState,
   rulesToForm,
+  sameRulesForm,
   serializeRules,
 } from "./social-rules-form";
+import { useConfigWriter } from "./use-config-writer";
 
 const domId = (key: string) => `social-rule-${key.replace(".", "-")}`;
 
-function useRulesWriter() {
-  const zero = useZero();
-  return async (value: string, successMsg: string) => {
-    const res = await zero.mutate(
-      value
-        ? mutators.appConfig.upsert({ key: SOCIAL_RULES_CONFIG_KEY, value })
-        : mutators.appConfig.remove({ key: SOCIAL_RULES_CONFIG_KEY })
-    ).server;
-    handleMutationResult(res, {
-      entityId: SOCIAL_RULES_CONFIG_KEY,
-      errorMsg: "Couldn't save posting rules",
-      mutation: value ? "appConfig.upsert" : "appConfig.remove",
-      successMsg,
-    });
-    return res.type !== "error";
-  };
-}
+const NO_ERRORS: RulesFormErrors = { fields: {}, form: [] };
+
+const formFor = (value: string) => rulesToForm(parseSocialRules(value).rules);
 
 /**
  * Social page → Settings → Posting rules: times, limits, held flags and copy
  * per post kind, stored as JSON in app_config `social_rules`. Empty fields use
- * the pipeline default shown as the placeholder.
+ * the pipeline default shown as the placeholder. The form is seeded once;
+ * when another admin saves while this form has unsaved edits, a notice offers
+ * to reload instead of discarding them.
  */
 export function SocialRulesSettings({ stored }: { stored: string }) {
-  const writeRules = useRulesWriter();
+  const writeConfig = useConfigWriter();
   const parsed = parseSocialRules(stored);
-  const [form, setForm] = useState<RulesFormState>(() =>
-    rulesToForm(parsed.rules)
-  );
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  // The saved value the form was last seeded from.
+  const [seed, setSeed] = useState(stored);
+  const [form, setForm] = useState<RulesFormState>(() => formFor(stored));
+  const [errors, setErrors] = useState<RulesFormErrors>(NO_ERRORS);
   const [saving, setSaving] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+
+  const dirty = !sameRulesForm(form, formFor(seed));
+  if (!saving && stored !== seed && !dirty) {
+    // Nothing unsaved: follow the synced value.
+    setSeed(stored);
+    setForm(formFor(stored));
+  }
+  const changedElsewhere = !saving && stored !== seed && dirty;
 
   const setValue = (key: string, value: string) => {
     setForm((prev) => ({ ...prev, values: { ...prev.values, [key]: value } }));
     setErrors((prev) => {
-      const { [key]: _cleared, ...rest } = prev;
-      return rest;
+      const { [key]: _cleared, ...fields } = prev.fields;
+      return { ...prev, fields };
     });
+  };
+
+  const handleReload = useEventCallback(() => {
+    setSeed(stored);
+    setForm(formFor(stored));
+    setErrors(NO_ERRORS);
+  });
+
+  /** Write `next`, showing it as saved meanwhile; restore the edits on failure. */
+  const write = async (
+    next: string,
+    nextForm: RulesFormState,
+    successMsg: string
+  ) => {
+    const previous = { form, seed };
+    setSaving(true);
+    setSeed(next);
+    setForm(nextForm);
+    try {
+      const ok = await writeConfig(SOCIAL_RULES_CONFIG_KEY, next, successMsg);
+      if (!ok) {
+        setSeed(previous.seed);
+        setForm(previous.form);
+      }
+      return ok;
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSubmit = useEventCallback(async (event: FormEvent) => {
@@ -82,27 +107,21 @@ export function SocialRulesSettings({ stored }: { stored: string }) {
       setErrors(result.errors);
       return;
     }
-    setErrors({});
+    setErrors(NO_ERRORS);
     const next = serializeRules(result.rules);
     if (next === stored.trim()) {
+      setSeed(stored);
+      setForm(rulesToForm(result.rules));
+      toast.message("Nothing to save");
       return;
     }
-    setSaving(true);
-    try {
-      await writeRules(next, "Posting rules saved");
-    } finally {
-      setSaving(false);
-    }
+    await write(next, rulesToForm(result.rules), "Posting rules saved");
   });
 
   const handleReset = useEventCallback(async () => {
-    setSaving(true);
-    try {
-      if (await writeRules("", "Posting rules reset to defaults")) {
-        setConfirmReset(false);
-      }
-    } finally {
-      setSaving(false);
+    if (await write("", rulesToForm({}), "Posting rules reset to defaults")) {
+      setErrors(NO_ERRORS);
+      setConfirmReset(false);
     }
   });
 
@@ -121,6 +140,25 @@ export function SocialRulesSettings({ stored }: { stored: string }) {
           defaults. Save or reset to replace them.
         </div>
       ) : null}
+      {changedElsewhere ? (
+        <div
+          className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm"
+          role="status"
+        >
+          <span>
+            Someone else saved posting rules. Saving now replaces them with this
+            form.
+          </span>
+          <Button
+            onClick={handleReload}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            Reload
+          </Button>
+        </div>
+      ) : null}
       {RULE_CARDS.map(
         ({ description, fields, heldHint, heldLabel, kind, title }) => {
           const heldId = domId(`${kind}.held`);
@@ -136,7 +174,7 @@ export function SocialRulesSettings({ stored }: { stored: string }) {
                     {fields.map(({ field, hint, label, type }) => {
                       const key = ruleFieldId(kind, field);
                       const id = domId(key);
-                      const error = errors[key];
+                      const error = errors.fields[key];
                       const fallback = ruleDefault(kind, field);
                       return (
                         <div
@@ -152,7 +190,7 @@ export function SocialRulesSettings({ stored }: { stored: string }) {
                             aria-describedby={`${id}-help`}
                             aria-invalid={!!error}
                             id={id}
-                            inputMode={type === "text" ? undefined : "numeric"}
+                            inputMode={type === "int" ? "numeric" : undefined}
                             onChange={(event) =>
                               setValue(key, event.target.value)
                             }
@@ -210,6 +248,13 @@ export function SocialRulesSettings({ stored }: { stored: string }) {
           );
         }
       )}
+      {errors.form.length > 0 ? (
+        <div className="text-destructive text-sm" role="alert">
+          {errors.form.map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+        </div>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         <Button disabled={saving} type="submit" variant="outline">
           Save rules

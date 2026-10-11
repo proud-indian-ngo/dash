@@ -22,13 +22,10 @@ import {
   type SocialPostKindValue,
   socialPostKinds,
 } from "@pi-dash/shared/social-api";
-import { mutators } from "@pi-dash/zero/mutators";
-import { useZero } from "@rocicorp/zero/react";
 import { type FormEvent, useState } from "react";
 
-import { handleMutationResult } from "@/lib/mutation-result";
-
 import { SocialRulesSettings } from "./social-rules";
+import { useConfigWriter } from "./use-config-writer";
 import { useSocialPeople } from "./use-social-people";
 
 const NONE = "__none__";
@@ -68,24 +65,6 @@ type OverrideField = (typeof OVERRIDE_FIELDS)[number]["field"];
 export function isValidOverride(value: string): boolean {
   const trimmed = value.trim();
   return trimmed === "" || NON_NEGATIVE_NUMBER_RE.test(trimmed);
-}
-
-function useConfigWriter() {
-  const zero = useZero();
-  return async (key: string, value: string) => {
-    const trimmed = value.trim();
-    const res = await zero.mutate(
-      trimmed
-        ? mutators.appConfig.upsert({ key, value: trimmed })
-        : mutators.appConfig.remove({ key })
-    ).server;
-    handleMutationResult(res, {
-      entityId: key,
-      errorMsg: "Couldn't save social setting",
-      mutation: trimmed ? "appConfig.upsert" : "appConfig.remove",
-    });
-    return res.type !== "error";
-  };
 }
 
 function ApproverPicker({ value }: { value: string }) {
@@ -349,11 +328,7 @@ export function SocialSettings({
         <h2 className="text-sm font-medium" id="social-rules-heading">
           Posting rules
         </h2>
-        <SocialRulesSettings
-          // Re-seed the form when the saved rules change.
-          key={valueOf(SOCIAL_RULES_CONFIG_KEY)}
-          stored={valueOf(SOCIAL_RULES_CONFIG_KEY)}
-        />
+        <SocialRulesSettings stored={valueOf(SOCIAL_RULES_CONFIG_KEY)} />
       </section>
       <section aria-labelledby="social-digest-heading" className="grid gap-4">
         <h2 className="text-sm font-medium" id="social-digest-heading">

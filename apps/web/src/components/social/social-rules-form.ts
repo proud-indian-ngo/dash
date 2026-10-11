@@ -1,4 +1,5 @@
 import {
+  SOCIAL_RULE_TEXT_MAX,
   SOCIAL_RULES_DEFAULTS,
   type SocialRuleKind,
   type SocialRules,
@@ -7,23 +8,34 @@ import {
 
 type RuleFieldType = "int" | "text" | "time";
 
-interface RuleField {
-  field: string;
+/** A kind's editable fields other than `held` (that one is the switch). */
+type RuleFieldName<K extends SocialRuleKind> = Exclude<
+  keyof (typeof SOCIAL_RULES_DEFAULTS)[K],
+  "held"
+> &
+  string;
+
+interface RuleField<K extends SocialRuleKind> {
+  field: RuleFieldName<K>;
   /** Help text after the default, for limits beyond the field's type. */
   hint?: string;
   label: string;
   type: RuleFieldType;
 }
 
-interface RuleCard {
-  description: string;
-  fields: readonly RuleField[];
-  /** Extra help under the held switch. */
-  heldHint?: string;
-  heldLabel: string;
-  kind: SocialRuleKind;
-  title: string;
-}
+type RuleCard = {
+  [K in SocialRuleKind]: {
+    description: string;
+    fields: readonly RuleField<K>[];
+    /** Extra help under the held switch. */
+    heldHint?: string;
+    heldLabel: string;
+    kind: K;
+    title: string;
+  };
+}[SocialRuleKind];
+
+const TEXT_HINT = `One line, up to ${SOCIAL_RULE_TEXT_MAX} characters.`;
 
 /** One card per post kind on Social page → Settings → Posting rules. */
 export const RULE_CARDS: readonly RuleCard[] = [
@@ -41,7 +53,7 @@ export const RULE_CARDS: readonly RuleCard[] = [
       { field: "maxRows", label: "Maximum rows", type: "int" },
       {
         field: "title",
-        hint: "One line, up to 120 characters.",
+        hint: TEXT_HINT,
         label: "Title",
         type: "text",
       },
@@ -71,7 +83,7 @@ export const RULE_CARDS: readonly RuleCard[] = [
       { field: "reelMinSeconds", label: "Shortest reel (s)", type: "int" },
       {
         field: "closingLine",
-        hint: "One line, up to 120 characters.",
+        hint: TEXT_HINT,
         label: "Closing line",
         type: "text",
       },
@@ -114,7 +126,7 @@ export const RULE_CARDS: readonly RuleCard[] = [
       },
       {
         field: "line",
-        hint: "One line, up to 120 characters.",
+        hint: TEXT_HINT,
         label: "Thank-you line",
         type: "text",
       },
@@ -161,14 +173,43 @@ export function rulesToForm(rules: SocialRules): RulesFormState {
   return { held, values };
 }
 
+export interface RulesFormErrors {
+  /** Issues on a card field, keyed by `kind.field`. */
+  fields: Record<string, string>;
+  /** Issues no field shows (unknown keys, the root), as "path: message". */
+  form: string[];
+}
+
 export type RulesFormResult =
   | { errors: null; rules: SocialRules }
-  | { errors: Record<string, string>; rules: null };
+  | { errors: RulesFormErrors; rules: null };
+
+const FIELD_KEYS = new Set(
+  RULE_CARDS.flatMap(({ fields, kind }) =>
+    fields.map(({ field }) => ruleFieldId(kind, field))
+  )
+);
+
+/** Schema issues → field errors, and form-level lines for the rest. */
+export function groupRuleIssues(
+  issues: readonly { message: string; path: readonly PropertyKey[] }[]
+): RulesFormErrors {
+  const errors: RulesFormErrors = { fields: {}, form: [] };
+  for (const issue of issues) {
+    const key = issue.path.map(String).join(".");
+    if (FIELD_KEYS.has(key)) {
+      errors.fields[key] ??= issue.message;
+    } else {
+      errors.form.push(key ? `${key}: ${issue.message}` : issue.message);
+    }
+  }
+  return errors;
+}
 
 /**
  * Form → rules to store: empty fields and held switches at their default are
  * left out (the pipeline uses its own), then the shared schema validates.
- * Errors are keyed by `kind.field`.
+ * Issues on a card field are keyed by `kind.field`; the rest are form-level.
  */
 export function formToRules(form: RulesFormState): RulesFormResult {
   const draft: Record<string, Record<string, unknown>> = {};
@@ -192,15 +233,23 @@ export function formToRules(form: RulesFormState): RulesFormResult {
   if (parsed.success) {
     return { errors: null, rules: parsed.data };
   }
-  const errors: Record<string, string> = {};
-  for (const issue of parsed.error.issues) {
-    const key = issue.path.join(".");
-    errors[key] ??= issue.message;
-  }
-  return { errors, rules: null };
+  return { errors: groupRuleIssues(parsed.error.issues), rules: null };
 }
 
 /** The app_config value to write; empty means remove the key. */
 export function serializeRules(rules: SocialRules): string {
   return Object.keys(rules).length > 0 ? JSON.stringify(rules) : "";
+}
+
+/** Whether two form states hold the same inputs. */
+export function sameRulesForm(a: RulesFormState, b: RulesFormState): boolean {
+  return (
+    Object.keys(a.held).every(
+      (kind) =>
+        a.held[kind as SocialRuleKind] === b.held[kind as SocialRuleKind]
+    ) &&
+    [...new Set([...Object.keys(a.values), ...Object.keys(b.values)])].every(
+      (key) => (a.values[key] ?? "") === (b.values[key] ?? "")
+    )
+  );
 }

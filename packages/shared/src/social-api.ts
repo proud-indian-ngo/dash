@@ -555,6 +555,39 @@ const ruleText = z
     error: "Use one line without control characters",
   });
 
+const ROWS_RANGE = [1, 6] as const;
+const PHOTOS_RANGE = [1, 12] as const;
+const POST_DAYS_RANGE = [0, 6] as const;
+
+/**
+ * Effective value of a time field for a cross-field check: the value, or the
+ * default when unset; null when the value is invalid, so the check is skipped
+ * and only the field's own issue is reported.
+ */
+function crossTime(value: unknown, fallback: string): string | null {
+  if (value === undefined) {
+    return fallback;
+  }
+  return typeof value === "string" && RULE_TIME_RE.test(value) ? value : null;
+}
+
+/** As `crossTime`, for an integer field with its bounds. */
+function crossInt(
+  value: unknown,
+  fallback: number,
+  [min, max]: readonly [number, number]
+): number | null {
+  if (value === undefined) {
+    return fallback;
+  }
+  return typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= min &&
+    value <= max
+    ? value
+    : null;
+}
+
 const minutesOf = (time: string) =>
   Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
 
@@ -608,16 +641,30 @@ export const socialRulesSchema = z.strictObject({
       buildTime: ruleTime,
       held: ruleHeld,
       line: ruleText,
-      postDaysAfterBuild: ruleInt(0, 6),
+      postDaysAfterBuild: ruleInt(...POST_DAYS_RANGE),
       postTime: ruleTime,
     })
     .partial()
     .refine(
-      (impact) =>
-        (impact.postDaysAfterBuild ??
-          SOCIAL_RULES_DEFAULTS.impact.postDaysAfterBuild) > 0 ||
-        (impact.postTime ?? SOCIAL_RULES_DEFAULTS.impact.postTime) >
-          (impact.buildTime ?? SOCIAL_RULES_DEFAULTS.impact.buildTime),
+      (impact) => {
+        const days = crossInt(
+          impact.postDaysAfterBuild,
+          SOCIAL_RULES_DEFAULTS.impact.postDaysAfterBuild,
+          POST_DAYS_RANGE
+        );
+        const buildTime = crossTime(
+          impact.buildTime,
+          SOCIAL_RULES_DEFAULTS.impact.buildTime
+        );
+        const postTime = crossTime(
+          impact.postTime,
+          SOCIAL_RULES_DEFAULTS.impact.postTime
+        );
+        if (days === null || buildTime === null || postTime === null) {
+          return true;
+        }
+        return days > 0 || postTime > buildTime;
+      },
       {
         error:
           "Post after the build time, or set post days after build to 1 or more",
@@ -630,17 +677,26 @@ export const socialRulesSchema = z.strictObject({
       closingLine: ruleText,
       held: ruleHeld,
       lookbackDays: ruleInt(0, 14),
-      photosMax: ruleInt(1, 12),
+      photosMax: ruleInt(...PHOTOS_RANGE),
       postTime: ruleTime,
       reelMinSeconds: ruleInt(5, 60),
-      slideshowMinPhotos: ruleInt(1, 12),
+      slideshowMinPhotos: ruleInt(...PHOTOS_RANGE),
     })
     .partial()
     .refine(
-      (recap) =>
-        (recap.photosMax ?? SOCIAL_RULES_DEFAULTS.recap.photosMax) >=
-        (recap.slideshowMinPhotos ??
-          SOCIAL_RULES_DEFAULTS.recap.slideshowMinPhotos),
+      (recap) => {
+        const most = crossInt(
+          recap.photosMax,
+          SOCIAL_RULES_DEFAULTS.recap.photosMax,
+          PHOTOS_RANGE
+        );
+        const least = crossInt(
+          recap.slideshowMinPhotos,
+          SOCIAL_RULES_DEFAULTS.recap.slideshowMinPhotos,
+          PHOTOS_RANGE
+        );
+        return most === null || least === null || most >= least;
+      },
       { error: "Use at least the slideshow minimum", path: ["photosMax"] }
     )
     .optional(),
@@ -648,32 +704,59 @@ export const socialRulesSchema = z.strictObject({
     .strictObject({
       buildTime: ruleTime,
       held: ruleHeld,
-      maxRows: ruleInt(1, 6),
-      minRows: ruleInt(1, 6),
+      maxRows: ruleInt(...ROWS_RANGE),
+      minRows: ruleInt(...ROWS_RANGE),
       postTime: ruleTime,
       title: ruleText,
     })
     .partial()
     .refine(
-      (schedule) =>
-        (schedule.minRows ?? SOCIAL_RULES_DEFAULTS.schedule.minRows) <=
-        (schedule.maxRows ?? SOCIAL_RULES_DEFAULTS.schedule.maxRows),
+      (schedule) => {
+        const least = crossInt(
+          schedule.minRows,
+          SOCIAL_RULES_DEFAULTS.schedule.minRows,
+          ROWS_RANGE
+        );
+        const most = crossInt(
+          schedule.maxRows,
+          SOCIAL_RULES_DEFAULTS.schedule.maxRows,
+          ROWS_RANGE
+        );
+        return least === null || most === null || least <= most;
+      },
       { error: "Use at least the minimum rows", path: ["maxRows"] }
     )
     .refine(
-      (schedule) =>
-        (schedule.postTime ?? SOCIAL_RULES_DEFAULTS.schedule.postTime) >
-        (schedule.buildTime ?? SOCIAL_RULES_DEFAULTS.schedule.buildTime),
+      (schedule) => {
+        const buildTime = crossTime(
+          schedule.buildTime,
+          SOCIAL_RULES_DEFAULTS.schedule.buildTime
+        );
+        const postTime = crossTime(
+          schedule.postTime,
+          SOCIAL_RULES_DEFAULTS.schedule.postTime
+        );
+        return buildTime === null || postTime === null || postTime > buildTime;
+      },
       { error: "Post after the build time", path: ["postTime"] }
     )
     .refine(
       (schedule) => {
-        const buildTime =
-          schedule.buildTime ?? SOCIAL_RULES_DEFAULTS.schedule.buildTime;
-        const postTime =
-          schedule.postTime ?? SOCIAL_RULES_DEFAULTS.schedule.postTime;
+        const buildTime = crossTime(
+          schedule.buildTime,
+          SOCIAL_RULES_DEFAULTS.schedule.buildTime
+        );
+        const postTime = crossTime(
+          schedule.postTime,
+          SOCIAL_RULES_DEFAULTS.schedule.postTime
+        );
         // Reported once: an inverted window already failed the check above.
-        return postTime <= buildTime || hasHourMarkBetween(buildTime, postTime);
+        return (
+          buildTime === null ||
+          postTime === null ||
+          postTime <= buildTime ||
+          hasHourMarkBetween(buildTime, postTime)
+        );
       },
       {
         error:

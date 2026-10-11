@@ -81,6 +81,17 @@ if (action === "cleanup") {
   result = { cleaned: true };
 } else if (action === "setup") {
   result = await setup();
+} else if (action === "save-rules") {
+  // Another admin saving posting rules while the page is open.
+  const value = JSON.stringify({ recap: { lookbackDays: 7 } });
+  await db
+    .insert(appConfig)
+    .values({ key: "social_rules", updatedAt: new Date(), value })
+    .onConflictDoUpdate({
+      set: { updatedAt: new Date(), value },
+      target: appConfig.key,
+    });
+  result = { saved: true };
 } else if (action === "inspect") {
   result = await inspect();
 } else {

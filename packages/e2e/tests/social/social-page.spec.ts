@@ -10,7 +10,9 @@ const helperPath = path.resolve(
   "../../helpers/social-page.ts"
 );
 
-async function fixture<T>(action: "cleanup" | "inspect" | "setup") {
+async function fixture<T>(
+  action: "cleanup" | "inspect" | "save-rules" | "setup"
+) {
   const { stdout } = await execFileAsync("bun", ["run", helperPath, action], {
     env: process.env,
   });
@@ -107,6 +109,8 @@ test.describe("Social page", () => {
       await expect(dialog).toContainText("Drop this post?");
       await dialog.getByRole("button", { name: "Drop post" }).click();
       await expect(postRow).toContainText("Dropped", { timeout: 10_000 });
+      // Held marks only drafts still waiting for the approver.
+      await expect(postRow).not.toContainText("Held");
       await expect(
         postRow.getByRole("button", { name: "Row actions" })
       ).toHaveCount(0);
@@ -183,6 +187,25 @@ test.describe("Social page", () => {
         timeout: 15_000,
       });
       await expect(held).not.toBeChecked();
+
+      // Saving an unchanged form says so.
+      await page.getByRole("button", { name: "Save rules" }).click();
+      await expect(page.getByText("Nothing to save")).toBeVisible();
+
+      // Another admin saves while this form has an unsaved edit: the edit
+      // stays and a notice offers to reload.
+      await recap.getByLabel("Closing line").fill("See you next week");
+      await fixture("save-rules");
+      await expect(
+        page.getByText("Someone else saved posting rules.")
+      ).toBeVisible({ timeout: 15_000 });
+      await expect(recap.getByLabel("Closing line")).toHaveValue(
+        "See you next week"
+      );
+      await page.getByRole("button", { name: "Reload" }).click();
+      await expect(recap.getByLabel("Look back (days)")).toHaveValue("7");
+      await expect(recap.getByLabel("Closing line")).toHaveValue("");
+      await expect(recap.getByLabel("Post time")).toHaveValue("");
 
       await page.getByRole("button", { name: "Reset to defaults" }).click();
       const dialog = page.getByRole("alertdialog");
