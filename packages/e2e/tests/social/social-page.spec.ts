@@ -100,6 +100,7 @@ test.describe("Social page", () => {
         .first();
       await expect(postRow).toBeVisible({ timeout: 15_000 });
       await expect(postRow).toContainText("Queued");
+      await expect(postRow).toContainText("Held");
       await postRow.getByRole("button", { name: "Row actions" }).click();
       await page.getByRole("menuitem", { name: "Drop post" }).click();
       const dialog = page.getByRole("alertdialog");

@@ -127,13 +127,20 @@ function EventCell({ post }: { post: SocialPostRow }) {
 
 function StatusCell({ post }: { post: SocialPostRow }) {
   const badge = STATUS[post.status];
+  // Held: created as a Buffer draft for the approver (null: not reported).
+  const status = (
+    <div className="flex flex-wrap items-center gap-1">
+      <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
+      {post.held ? <Tag>Held</Tag> : null}
+    </div>
+  );
   if (post.status !== "dropped" || !post.droppedAt) {
-    return <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>;
+    return status;
   }
   const who = post.droppedByName;
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
-      <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
+      {status}
       <span className="text-muted-foreground truncate text-xs">
         {who ? `${who} · ` : ""}
         {formatIndiaDateTime(post.droppedAt)}

@@ -36,6 +36,7 @@ async function setup() {
     createdAt: now,
     eventId: "e2e-social-page-event",
     eventName: "Social page E2E session",
+    held: true,
     id: ID.post,
     kind: "volunteer-call",
     occurrenceDate: now.toISOString().slice(0, 10),

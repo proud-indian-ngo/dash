@@ -506,6 +506,8 @@ export interface SocialPostInput {
   channel: SocialPostChannel;
   eventId: string;
   eventName: string | null;
+  /** True: created as a Buffer draft for approval; false: scheduled automatically; null: not reported. */
+  held: boolean | null;
   kind: SocialPostKind;
   /** India calendar date (YYYY-MM-DD) of the occurrence; event posts only. */
   occurrenceDate: string | null;
@@ -515,7 +517,8 @@ export interface SocialPostInput {
 
 /**
  * Record a queued post; a repeat of the same post updates status, time,
- * occurrence date and event name. A post dropped on the Social page stays
+ * occurrence date and event name, and `held` when the repeat reports it (a
+ * repeat without it keeps the stored value). A post dropped on the Social page stays
  * dropped unless the repeat reports it `published`.
  */
 export async function upsertSocialPost(
@@ -529,6 +532,7 @@ export async function upsertSocialPost(
     .onConflictDoUpdate({
       set: {
         eventName: input.eventName,
+        held: sql`coalesce(excluded.held, ${socialPost.held})`,
         occurrenceDate: input.occurrenceDate,
         scheduledFor: input.scheduledFor,
         // Dropped on the dashboard stays dropped, unless the generator itself
@@ -551,6 +555,7 @@ const socialPostColumns = {
   channel: socialPost.channel,
   eventId: socialPost.eventId,
   eventName: socialPost.eventName,
+  held: socialPost.held,
   kind: socialPost.kind,
   occurrenceDate: socialPost.occurrenceDate,
   scheduledFor: socialPost.scheduledFor,

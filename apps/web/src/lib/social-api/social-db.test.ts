@@ -102,6 +102,7 @@ const post = {
   channel: "instagram" as const,
   eventId: "db-test-event",
   eventName: null,
+  held: null,
   kind: "recap" as const,
   occurrenceDate: null,
   scheduledFor: new Date("2026-10-12T04:30:00Z"),
@@ -139,6 +140,50 @@ describe("upsertSocialPost after a dashboard drop", () => {
       });
       expect(stored?.status).toBe(expected);
       expect(stored?.droppedAt).not.toBeNull();
+    },
+    60_000
+  );
+});
+
+describe("upsertSocialPost held", () => {
+  dbTest(
+    "stores held, keeps it on a repeat without it and updates it when reported",
+    async () => {
+      const seen: (boolean | null | undefined)[] = [];
+      await rolledBack(async (tx) => {
+        const readHeld = async () => {
+          const [row] = await tx
+            .select({ held: socialPost.held })
+            .from(socialPost)
+            .where(eq(socialPost.bufferPostId, post.bufferPostId));
+          seen.push(row?.held);
+        };
+        await upsertSocialPost(
+          { ...post, held: null, status: "queued" },
+          new Date(),
+          tx
+        );
+        await readHeld();
+        await upsertSocialPost(
+          { ...post, held: true, status: "queued" },
+          new Date(),
+          tx
+        );
+        await readHeld();
+        await upsertSocialPost(
+          { ...post, held: null, status: "approved" },
+          new Date(),
+          tx
+        );
+        await readHeld();
+        await upsertSocialPost(
+          { ...post, held: false, status: "approved" },
+          new Date(),
+          tx
+        );
+        await readHeld();
+      });
+      expect(seen).toEqual([null, true, true, false]);
     },
     60_000
   );

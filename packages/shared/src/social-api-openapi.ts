@@ -159,6 +159,11 @@ const POSTED_PROPERTIES: Record<string, SchemaObject> = {
     maxLength: 200,
     type: "string",
   }),
+  held: nullable({
+    description:
+      "True when the post was created as a Buffer draft for approval, false when it was scheduled automatically; null when not reported. Optional on input; a repeat without it keeps the stored value.",
+    type: "boolean",
+  }),
   kind: {
     enum: ["schedule", "recap", "volunteer-call", "impact", "story"],
     type: "string",
@@ -258,7 +263,7 @@ const RUN_PROPERTIES: Record<string, SchemaObject> = {
   tick: { enum: [...socialRunTickValues], type: "string" },
 };
 
-const POSTED_OPTIONAL_INPUT = new Set(["eventName", "occurrenceDate"]);
+const POSTED_OPTIONAL_INPUT = new Set(["eventName", "held", "occurrenceDate"]);
 
 const json = (schema: SchemaObject | { $ref: string }) => ({
   "application/json": { schema },
