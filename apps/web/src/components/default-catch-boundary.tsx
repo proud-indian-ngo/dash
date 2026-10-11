@@ -1,5 +1,3 @@
-import { Alert01Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
@@ -11,9 +9,11 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { log } from "evlog";
-import { use, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 
-import { AppContext } from "@/context/app-context";
+import { ErrorState } from "@/components/shared/error-state";
+import { StandalonePage } from "@/components/shared/not-found-state";
+import { getErrorReference } from "@/lib/error-reference";
 
 export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
   const router = useRouter();
@@ -21,78 +21,67 @@ export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
     select: (state) => state.id === rootRouteId,
     strict: false,
   });
-
-  const appCtx = use(AppContext);
-  const canSeeErrors = appCtx?.hasPermission("settings.app_config") ?? false;
-
   const canGoBack = useCanGoBack();
-
   const loggedErrorRef = useRef<unknown>(null);
 
   useEffect(() => {
-    if (loggedErrorRef.current !== error) {
-      loggedErrorRef.current = error;
-      log.error({
-        component: "DefaultCatchBoundary",
-        message: error instanceof Error ? error.message : String(error),
-        route: typeof window === "undefined" ? "" : window.location.pathname,
-      });
+    if (loggedErrorRef.current === error) {
+      return;
+    }
+    loggedErrorRef.current = error;
+    const traceId = getErrorReference(error);
+    log.error({
+      component: "DefaultCatchBoundary",
+      message: error instanceof Error ? error.message : String(error),
+      route: typeof window === "undefined" ? "" : window.location.pathname,
+      traceId,
+    });
+    if (error instanceof Error) {
+      import("@/lib/posthog")
+        .then(({ captureException }) => captureException(error, { traceId }))
+        .catch(() => {
+          // Non-critical
+        });
     }
   }, [error]);
 
-  const stableOnClick0 = useEventCallback(async () => {
+  const retry = useEventCallback(async () => {
     await router.invalidate();
   });
-  const stableOnClick1 = useEventCallback(
-    (e: { preventDefault: () => void }) => {
-      e.preventDefault();
-      window.history.back();
-    }
+  const goBack = useEventCallback(() => window.history.back());
+
+  const content = (
+    <ErrorState
+      actions={
+        <>
+          <Button onClick={retry} type="button">
+            Try again
+          </Button>
+          {!isRoot && canGoBack ? (
+            <Button onClick={goBack} type="button" variant="outline">
+              Go back
+            </Button>
+          ) : (
+            <Button
+              nativeButton={false}
+              render={<Link to="/" />}
+              variant="outline"
+            >
+              Go to dashboard
+            </Button>
+          )}
+        </>
+      }
+      error={error}
+    />
   );
 
-  return (
-    <div
-      className="flex min-w-0 flex-1 flex-col items-center justify-center gap-6 p-4"
-      role="alert"
-    >
-      <div className="flex flex-col items-center gap-2 text-center">
-        <HugeiconsIcon
-          className="text-destructive size-10"
-          icon={Alert01Icon}
-          strokeWidth={2}
-        />
-        <h2 className="text-lg font-semibold">This page couldn't load</h2>
-        <p className="text-muted-foreground max-w-md text-sm">
-          We hit an unexpected error. Try again, or head back to the home page
-          if the problem persists.
-        </p>
-        {canSeeErrors ? (
-          <p className="bg-muted text-muted-foreground mt-2 max-w-md rounded-md p-2 font-mono text-xs">
-            {error instanceof Error ? error.message : String(error)}
-          </p>
-        ) : null}
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button onClick={stableOnClick0} type="button">
-          Try Again
-        </Button>
-        {!isRoot && canGoBack ? (
-          <Button
-            nativeButton={false}
-            render={<Link onClick={stableOnClick1} to="/" />}
-            variant="secondary"
-          >
-            Go Back
-          </Button>
-        ) : null}
-        <Button
-          nativeButton={false}
-          render={<Link to="/" />}
-          variant="secondary"
-        >
-          Home
-        </Button>
-      </div>
+  // A root-level failure has no app layout around it, so frame it with the logo.
+  return isRoot ? (
+    <StandalonePage>{content}</StandalonePage>
+  ) : (
+    <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
+      {content}
     </div>
   );
 }

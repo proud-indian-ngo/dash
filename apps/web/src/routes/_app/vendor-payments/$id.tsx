@@ -7,6 +7,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import * as z from "zod";
 
 import { Loader } from "@/components/loader";
+import { RecordNotFound } from "@/components/shared/not-found-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { VendorPaymentDetail } from "@/components/vendor-payments/vendor-payment-detail";
 import { VendorPaymentForm } from "@/components/vendor-payments/vendor-payment-form";
@@ -100,9 +101,11 @@ function VendorPaymentDetailRouteComponent() {
   if (!vendorPayment) {
     return (
       <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
-        <p className="text-muted-foreground text-sm">
-          Vendor payment not found.
-        </p>
+        <RecordNotFound
+          backLabel="Back to vendor payments"
+          backTo="/vendor-payments"
+          noun="Vendor payment"
+        />
       </div>
     );
   }

@@ -29,6 +29,7 @@ import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import { Loader } from "@/components/loader";
+import { RecordNotFound } from "@/components/shared/not-found-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { Tag } from "@/components/shared/status-badge";
 import {
@@ -228,7 +229,11 @@ function RoleEditPage() {
   if (!(roleData && permissionGroups)) {
     return (
       <div className="app-container mx-auto max-w-4xl px-2 py-6 sm:px-4">
-        <p className="text-muted-foreground">Role not found.</p>
+        <RecordNotFound
+          backLabel="Back to roles"
+          backTo="/settings/roles"
+          noun="Role"
+        />
       </div>
     );
   }

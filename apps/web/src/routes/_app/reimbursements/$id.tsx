@@ -9,6 +9,7 @@ import * as z from "zod";
 import { Loader } from "@/components/loader";
 import { ReimbursementDetail } from "@/components/reimbursements/reimbursement-detail";
 import { ReimbursementForm } from "@/components/reimbursements/reimbursement-form";
+import { RecordNotFound } from "@/components/shared/not-found-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { useApp } from "@/context/app-context";
 import type { RequestDetailData, RequestType } from "@/lib/reimbursement-types";
@@ -103,9 +104,11 @@ function ReimbursementDetailRouteComponent() {
   if (!resolved) {
     return (
       <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
-        <p className="text-muted-foreground text-sm">
-          Reimbursement not found.
-        </p>
+        <RecordNotFound
+          backLabel="Back to reimbursements"
+          backTo="/reimbursements"
+          noun="Reimbursement"
+        />
       </div>
     );
   }

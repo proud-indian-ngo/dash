@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppSplatRouteImport } from './routes/_app/$'
 import { Route as AppAnalyticsRouteImport } from './routes/_app/analytics'
 import { Route as AppAuditLogRouteImport } from './routes/_app/audit-log'
 import { Route as AppEventsRouteRouteImport } from './routes/_app/events/route'
@@ -125,6 +126,11 @@ const AuthRoute = AuthRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSplatRoute = AppSplatRouteImport.update({
+  id: '/$',
+  path: '/$',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAnalyticsRoute = AppAnalyticsRouteImport.update({
@@ -669,6 +675,7 @@ export interface FileRoutesByFullPath {
   '/teams': typeof AppTeamsRouteRouteWithChildren
   '/vendor-payments': typeof AppVendorPaymentsRouteRouteWithChildren
   '/vendors': typeof AppVendorsRouteRouteWithChildren
+  '/$': typeof AppSplatRoute
   '/analytics': typeof AppAnalyticsRoute
   '/audit-log': typeof AppAuditLogRoute
   '/export': typeof AppExportRoute
@@ -767,6 +774,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/$': typeof AppSplatRoute
   '/analytics': typeof AppAnalyticsRoute
   '/audit-log': typeof AppAuditLogRoute
   '/export': typeof AppExportRoute
@@ -868,6 +876,7 @@ export interface FileRoutesById {
   '/_app/teams': typeof AppTeamsRouteRouteWithChildren
   '/_app/vendor-payments': typeof AppVendorPaymentsRouteRouteWithChildren
   '/_app/vendors': typeof AppVendorsRouteRouteWithChildren
+  '/_app/$': typeof AppSplatRoute
   '/_app/analytics': typeof AppAnalyticsRoute
   '/_app/audit-log': typeof AppAuditLogRoute
   '/_app/export': typeof AppExportRoute
@@ -975,6 +984,7 @@ export interface FileRouteTypes {
     | '/teams'
     | '/vendor-payments'
     | '/vendors'
+    | '/$'
     | '/analytics'
     | '/audit-log'
     | '/export'
@@ -1073,6 +1083,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/$'
     | '/analytics'
     | '/audit-log'
     | '/export'
@@ -1173,6 +1184,7 @@ export interface FileRouteTypes {
     | '/_app/teams'
     | '/_app/vendor-payments'
     | '/_app/vendors'
+    | '/_app/$'
     | '/_app/analytics'
     | '/_app/audit-log'
     | '/_app/export'
@@ -1331,6 +1343,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/$': {
+      id: '/_app/$'
+      path: '/$'
+      fullPath: '/$'
+      preLoaderRoute: typeof AppSplatRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/analytics': {
@@ -2271,6 +2290,7 @@ interface AppRouteChildren {
   AppTeamsRouteRoute: typeof AppTeamsRouteRouteWithChildren
   AppVendorPaymentsRouteRoute: typeof AppVendorPaymentsRouteRouteWithChildren
   AppVendorsRouteRoute: typeof AppVendorsRouteRouteWithChildren
+  AppSplatRoute: typeof AppSplatRoute
   AppAnalyticsRoute: typeof AppAnalyticsRoute
   AppAuditLogRoute: typeof AppAuditLogRoute
   AppExportRoute: typeof AppExportRoute
@@ -2289,6 +2309,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppTeamsRouteRoute: AppTeamsRouteRouteWithChildren,
   AppVendorPaymentsRouteRoute: AppVendorPaymentsRouteRouteWithChildren,
   AppVendorsRouteRoute: AppVendorsRouteRouteWithChildren,
+  AppSplatRoute: AppSplatRoute,
   AppAnalyticsRoute: AppAnalyticsRoute,
   AppAuditLogRoute: AppAuditLogRoute,
   AppExportRoute: AppExportRoute,
