@@ -55,8 +55,10 @@ const TopVendorsChart = lazy(() =>
     default: m.TopVendorsChart,
   }))
 );
+// Not "event-spending-chart": tracker blockers refuse any URL containing
+// "/analytics/event", which broke this page in dev.
 const EventSpendingChart = lazy(() =>
-  import("@/components/analytics/event-spending-chart").then((m) => ({
+  import("@/components/analytics/spending-by-event-chart").then((m) => ({
     default: m.EventSpendingChart,
   }))
 );
