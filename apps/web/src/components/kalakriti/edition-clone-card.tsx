@@ -336,7 +336,7 @@ export function EditionCloneCard({
       />
 
       <Dialog onOpenChange={handleDialogChange} open={dialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-(--dialog-md)">
           <DialogHeader>
             <DialogTitle>Clone Edition configuration</DialogTitle>
             <DialogDescription>

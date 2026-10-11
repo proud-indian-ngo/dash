@@ -99,7 +99,7 @@ test.describe("Event updates CRUD (admin)", () => {
     const confirmDialog = page.getByRole("alertdialog");
     await expect(confirmDialog).toBeVisible();
     await confirmDialog
-      .getByRole("button", { exact: true, name: "Delete" })
+      .getByRole("button", { exact: true, name: "Delete update" })
       .click();
 
     await expect(page.getByText("Update removed")).toBeVisible({

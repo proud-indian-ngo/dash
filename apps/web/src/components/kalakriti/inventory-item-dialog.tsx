@@ -236,7 +236,7 @@ export function InventoryItemDialog({
       }}
       open={open}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-(--dialog-md)">
         <DialogHeader>
           <DialogTitle>{item ? "Edit item" : "Add inventory item"}</DialogTitle>
           <DialogDescription>

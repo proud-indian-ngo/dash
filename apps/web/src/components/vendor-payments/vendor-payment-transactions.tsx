@@ -298,7 +298,7 @@ export function VendorPaymentTransactions({
       />
 
       <ConfirmDialog
-        confirmLabel="Delete"
+        confirmLabel="Delete transaction"
         description="This will permanently delete this payment record. This action cannot be undone."
         loading={deleteLoading}
         loadingLabel="Deleting..."

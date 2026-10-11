@@ -83,7 +83,10 @@ export function JudgeCompetitionsDialog({
         if (!open) onClose();
       }}
     >
-      <DialogContent aria-label="Assign competitions" className="sm:max-w-md">
+      <DialogContent
+        aria-label="Assign competitions"
+        className="sm:max-w-(--dialog-md)"
+      >
         <DialogHeader>
           <DialogTitle>Assign competitions</DialogTitle>
           <DialogDescription>

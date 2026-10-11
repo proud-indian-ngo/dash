@@ -781,7 +781,7 @@ export function EventFormDialog({
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
-      <DialogContent className="max-h-[90dvh] [scrollbar-width:thin] [scrollbar-color:var(--color-muted-foreground)_transparent] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="sm:max-w-(--dialog-lg)">
         <DialogHeader>
           <DialogTitle>{dialogTitle}</DialogTitle>
           <DialogDescription className="sr-only">

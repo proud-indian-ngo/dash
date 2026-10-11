@@ -25,7 +25,9 @@ test.describe("Reimbursement delete (reimbursement)", () => {
 
     const dialog = page.getByRole("alertdialog");
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByText("Delete reimbursement")).toBeVisible();
+    await expect(
+      dialog.getByRole("heading", { name: "Delete reimbursement" })
+    ).toBeVisible();
     await expect(
       dialog.getByText("permanently delete this reimbursement")
     ).toBeVisible();
@@ -104,7 +106,9 @@ test.describe.skip("Reimbursement delete (advance_payment)", () => {
 
     const dialog = page.getByRole("alertdialog");
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByText("Delete advance payment")).toBeVisible();
+    await expect(
+      dialog.getByRole("heading", { name: "Delete advance payment" })
+    ).toBeVisible();
     await expect(
       dialog.getByText("permanently delete this advance payment")
     ).toBeVisible();

@@ -52,7 +52,10 @@ export function FormActions({
             : state.isSubmitting);
 
         return (
-          <div className={cn("flex flex-wrap gap-2", className)}>
+          <div
+            className={cn("flex flex-wrap gap-2", className)}
+            data-slot="form-actions"
+          >
             <Button
               className={submitClassName}
               disabled={disableSubmit}

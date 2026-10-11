@@ -154,7 +154,7 @@ export function BlankIdCardDownloadDialog({ year }: { year: number }) {
         Download blank ID cards
       </Button>
       <Dialog onOpenChange={handleOpenChange} open={open}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-(--dialog-md)">
           <DialogHeader>
             <DialogTitle>Blank ID cards</DialogTitle>
             <DialogDescription>

@@ -550,7 +550,7 @@ export function CompetitionFormDialog({
   });
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="sm:max-w-(--dialog-lg)">
         <DialogHeader>
           <DialogTitle>
             {competition ? "Edit Competition" : "Add Competition"}

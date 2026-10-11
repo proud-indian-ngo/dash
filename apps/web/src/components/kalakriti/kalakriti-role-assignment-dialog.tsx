@@ -60,7 +60,7 @@ export function KalakritiRoleAssignmentDialog({
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-(--dialog-md)">
         <DialogHeader>
           <DialogTitle>Assign role</DialogTitle>
           <DialogDescription>

@@ -276,7 +276,7 @@ export function ExpenseCategoriesSection() {
       ) : null}
 
       <ConfirmDialog
-        confirmLabel="Delete"
+        confirmLabel="Delete category"
         description={
           rowAction?.kind === "delete"
             ? `"${rowAction.category.name}" will be permanently deleted. Existing submissions using this category won't be affected. This cannot be undone.`

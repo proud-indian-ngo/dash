@@ -306,7 +306,7 @@ function ScheduledMessagesPage() {
       />
 
       <ConfirmDialog
-        confirmLabel="Delete"
+        confirmLabel="Delete message"
         description={
           deleteTarget
             ? "This will permanently delete the scheduled message record. This cannot be undone."

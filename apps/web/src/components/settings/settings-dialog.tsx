@@ -165,7 +165,8 @@ export function SettingsDialog() {
     <Dialog onOpenChange={setSettingsOpen} open={settingsOpen}>
       <DialogContent
         bodyClassName="gap-0 p-0"
-        className="max-h-[85vh] overflow-hidden p-0 md:max-w-[700px] lg:max-w-[800px]"
+        className="max-h-[85vh] *:data-[slot=dialog-body]:gap-0 *:data-[slot=dialog-body]:p-0 md:max-w-[700px] lg:max-w-[800px]"
+        data-plain=""
       >
         <DialogTitle className="sr-only">Settings</DialogTitle>
         <DialogDescription className="sr-only">

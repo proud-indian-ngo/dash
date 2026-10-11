@@ -417,7 +417,7 @@ export function StudentFormDialog(props: StudentFormDialogProps) {
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={props.open}>
-      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="sm:max-w-(--dialog-lg)">
         <DialogHeader>
           <DialogTitle>
             {props.student ? "Edit Student" : "Register Student"}

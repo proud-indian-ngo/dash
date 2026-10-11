@@ -81,7 +81,7 @@ export function AddUrlRow({ onAdd }: AddUrlRowProps) {
         <Button
           disabled={isDisabled}
           onClick={tryAdd}
-          size="sm"
+          size="lg"
           type="button"
           variant="outline"
         >

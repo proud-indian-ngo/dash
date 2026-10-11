@@ -569,14 +569,14 @@ export function EventPhotos({
 
       <ConfirmDialog
         cancelLabel="Keep"
-        confirmLabel="Delete"
+        confirmLabel="Delete photo"
         description="Are you sure you want to delete this? This action cannot be undone."
         loading={deleteAction.isLoading}
         loadingLabel="Deleting..."
         onConfirm={deleteAction.confirm}
         onOpenChange={stableOnOpenChange6}
         open={deleteAction.isOpen}
-        title="Delete"
+        title="Delete photo?"
       />
 
       <ConfirmDialog

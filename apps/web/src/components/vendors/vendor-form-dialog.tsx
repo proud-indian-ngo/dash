@@ -204,7 +204,7 @@ export function VendorFormDialog({
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-(--dialog-md)">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Vendor" : "Add New Vendor"}</DialogTitle>
           <DialogDescription className="sr-only">

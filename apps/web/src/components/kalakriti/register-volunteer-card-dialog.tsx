@@ -86,7 +86,7 @@ export function RegisterVolunteerCardDialog({
       }}
       open
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-(--dialog-md)">
         <DialogHeader>
           <DialogTitle>Register volunteer card</DialogTitle>
           <DialogDescription>

@@ -171,7 +171,10 @@ export function RegisterIdCardDialog({
         Register ID card
       </Button>
       <Dialog onOpenChange={handleOpenChange} open={open}>
-        <DialogContent aria-label="Register ID card" className="sm:max-w-md">
+        <DialogContent
+          aria-label="Register ID card"
+          className="sm:max-w-(--dialog-md)"
+        >
           <DialogHeader>
             <DialogTitle>Register ID card</DialogTitle>
             <DialogDescription>

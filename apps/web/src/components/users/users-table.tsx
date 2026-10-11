@@ -328,6 +328,7 @@ function UserRowActionDialogs({
         description="Set a new password without changing profile details."
         onOpenChange={stableOnOpenChange10}
         open={isPasswordOpen}
+        size="md"
         title={`Reset Password: ${user.name}`}
       >
         {isPasswordOpen ? (
@@ -344,6 +345,7 @@ function UserRowActionDialogs({
         description="Ban this user as a separate admin action."
         onOpenChange={stableOnOpenChange13}
         open={isBanOpen}
+        size="md"
         title={`Ban ${user.name}`}
       >
         {isBanOpen ? (
@@ -360,6 +362,7 @@ function UserRowActionDialogs({
         description="View and update notification preferences for this user."
         onOpenChange={stableOnOpenChange16}
         open={isNotificationsOpen}
+        size="md"
         title={`Notifications: ${user.name}`}
       >
         {isNotificationsOpen ? (

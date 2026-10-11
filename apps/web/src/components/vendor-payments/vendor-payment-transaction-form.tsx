@@ -246,7 +246,7 @@ export function TransactionFormDialog({
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-(--dialog-md)">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

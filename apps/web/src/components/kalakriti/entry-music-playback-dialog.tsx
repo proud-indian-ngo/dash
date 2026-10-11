@@ -49,7 +49,7 @@ export function EntryMusicPlaybackDialog({
   }, []);
   return (
     <Dialog open={true} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-(--dialog-md)">
         <DialogHeader>
           <DialogTitle>Play music</DialogTitle>
           <DialogDescription className="break-all">

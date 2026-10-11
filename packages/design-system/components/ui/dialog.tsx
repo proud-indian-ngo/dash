@@ -51,19 +51,24 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "bg-popover text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-open:zoom-in-95 ring-foreground/10 grid max-w-[calc(100%-2rem)] gap-4 p-4 ring-1 duration-150 ease-(--ease-out-expo) sm:max-w-sm fixed top-1/2 left-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2 outline-none rounded-xl text-sm",
+          "bg-popover text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-open:zoom-in-95 ring-foreground/10 flex max-h-[calc(100dvh-2rem)] max-w-[calc(100%-2rem)] flex-col overflow-hidden ring-1 duration-150 ease-(--ease-out-expo) sm:max-w-(--dialog-sm) fixed top-1/2 left-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2 outline-none rounded-xl text-sm",
           className
         )}
         {...props}
       >
-        {children}
+        <div
+          data-slot="dialog-body"
+          className="grid min-h-0 flex-1 gap-4 overflow-y-auto overscroll-contain px-5 pt-5 pb-5 [scrollbar-width:thin]"
+        >
+          {children}
+        </div>
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
             render={
               <Button
                 variant="ghost"
-                className="absolute top-2 right-2"
+                className="absolute top-3 right-3 z-20"
                 size="icon-sm"
               />
             }
@@ -81,7 +86,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("gap-1 text-left flex flex-col", className)}
+      className={cn("bg-popover sticky -top-5 z-10 -mx-5 -mt-5 gap-1 border-b px-5 pt-4 pb-3.5 pr-12 text-left flex flex-col", className)}
       {...props}
     />
   )
@@ -99,7 +104,7 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end rounded-b-xl",
+        "bg-dialog-footer sticky -bottom-5 z-10 -mx-5 -mb-5 flex flex-col-reverse gap-2 border-t px-5 py-3 sm:flex-row sm:justify-end",
         className
       )}
       {...props}

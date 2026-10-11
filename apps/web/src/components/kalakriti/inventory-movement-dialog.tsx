@@ -177,7 +177,7 @@ export function InventoryMovementDialog({
       }}
       open={open}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-(--dialog-md)">
         <DialogHeader>
           <DialogTitle>
             {KALAKRITI_INVENTORY_LABELS[action]} · {item.name}

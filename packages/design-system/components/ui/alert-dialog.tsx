@@ -52,7 +52,7 @@ function AlertDialogContent({
         data-slot="alert-dialog-content"
         data-size={size}
         className={cn(
-          "data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-open:zoom-in-95 bg-background ring-foreground/10 gap-4 p-4 ring-1 duration-150 ease-(--ease-out-expo) data-[size=default]:max-w-xs data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-sm group/alert-dialog-content fixed top-1/2 left-1/2 z-50 grid w-full -translate-x-1/2 -translate-y-1/2 outline-none rounded-xl",
+          "data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-open:zoom-in-95 bg-popover ring-foreground/10 gap-4 overflow-hidden px-5 pt-5 ring-1 duration-150 ease-(--ease-out-expo) data-[size=default]:max-w-xs data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-(--dialog-sm) group/alert-dialog-content fixed top-1/2 left-1/2 z-50 grid w-full -translate-x-1/2 -translate-y-1/2 outline-none rounded-xl",
           className
         )}
         {...props}
@@ -82,7 +82,7 @@ function AlertDialogFooter({
     <div
       data-slot="alert-dialog-footer"
       className={cn(
-        "flex flex-col-reverse gap-2 group-data-[size=sm]/alert-dialog-content:grid group-data-[size=sm]/alert-dialog-content:grid-cols-2 sm:flex-row sm:justify-end rounded-b-xl",
+        "bg-dialog-footer -mx-5 flex flex-col-reverse gap-2 border-t px-5 py-3 group-data-[size=sm]/alert-dialog-content:grid group-data-[size=sm]/alert-dialog-content:grid-cols-2 sm:flex-row sm:justify-end",
         className
       )}
       {...props}

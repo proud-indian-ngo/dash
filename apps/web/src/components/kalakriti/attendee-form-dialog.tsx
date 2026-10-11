@@ -97,7 +97,7 @@ export function AttendeeFormDialog({
     >
       <DialogContent
         aria-label={`${attendee ? "Edit" : "Add"} ${label}`}
-        className="sm:max-w-md"
+        className="sm:max-w-(--dialog-md)"
       >
         <DialogHeader>
           <DialogTitle>

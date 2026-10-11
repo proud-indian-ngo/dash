@@ -118,7 +118,7 @@ export function GuardianEditDialog({
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-(--dialog-md)">
         <DialogHeader>
           <DialogTitle>Edit Guardian details</DialogTitle>
           <DialogDescription>

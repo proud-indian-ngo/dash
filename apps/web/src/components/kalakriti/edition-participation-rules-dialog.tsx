@@ -121,7 +121,7 @@ export function EditionParticipationRulesDialog({
         </Button>
       )}
       <Dialog onOpenChange={handleOpenChange} open={open}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-(--dialog-md)">
           <DialogHeader>
             <DialogTitle>Edit minimum Competitions</DialogTitle>
             <DialogDescription>
