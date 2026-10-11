@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import {
   SOCIAL_EVENTS_MAX_DAYS,
   SOCIAL_NOTIFY_MAX_LINE_LENGTH,
@@ -5,6 +7,7 @@ import {
   SOCIAL_PHOTOS_MAX,
   SOCIAL_RUN_MAX_MESSAGE_LENGTH,
   SOCIAL_RUN_MAX_MESSAGES,
+  SOCIAL_RULES_DEFAULTS,
   SOCIAL_RUN_RETENTION,
   SOCIAL_TIMEZONE,
   type SocialEvent,
@@ -12,6 +15,7 @@ import {
   type SocialPhoto,
   socialEventStatusValues,
   socialPostKinds,
+  socialRulesSchema,
   socialRunTickValues,
   type SocialSettingsResponse,
 } from "./social-api";
@@ -155,6 +159,11 @@ const POSTED_PROPERTIES: Record<string, SchemaObject> = {
     maxLength: 200,
     type: "string",
   }),
+  held: nullable({
+    description:
+      "True when the post was created as a Buffer draft for approval, false when it was scheduled automatically; null when not reported. Optional on input; a repeat without it keeps the stored value.",
+    type: "boolean",
+  }),
   kind: {
     enum: ["schedule", "recap", "volunteer-call", "impact", "story"],
     type: "string",
@@ -171,6 +180,52 @@ const POSTED_PROPERTIES: Record<string, SchemaObject> = {
   },
 };
 
+const RULE_KIND_DESCRIPTIONS: Record<
+  keyof typeof SOCIAL_RULES_DEFAULTS,
+  string
+> = {
+  impact:
+    "LinkedIn impact post. `postDaysAfterBuild` > 0 or `postTime` > `buildTime`.",
+  recap:
+    "Recap after a session. `photosMax` ≥ `slideshowMinPhotos`. Recaps whose photo consent is not cleared stay held whatever `held` says.",
+  schedule:
+    "Weekly schedule. `minRows` ≤ `maxRows`; `buildTime` < `postTime`, and [`buildTime`, `postTime`) contains a top-of-hour instant (HH:00) because the run is hourly.",
+  story: "Schedule story.",
+  volunteerCall: "Volunteer call before a session (`daysOut` 1–14).",
+};
+
+/**
+ * `rules`, generated from `socialRulesSchema` so bounds cannot drift; each
+ * property's `default` is the pipeline default shown on the Social page.
+ */
+function rulesSchema(): SchemaObject {
+  const { $schema: _draft, ...schema } = z.toJSONSchema(socialRulesSchema, {
+    io: "output",
+  }) as SchemaObject & {
+    properties: Record<string, { properties: Record<string, SchemaObject> }>;
+  };
+  for (const [kind, defaults] of Object.entries(SOCIAL_RULES_DEFAULTS)) {
+    const kindSchema = schema.properties[kind];
+    if (!kindSchema) {
+      continue;
+    }
+    Object.assign(kindSchema, {
+      description:
+        RULE_KIND_DESCRIPTIONS[kind as keyof typeof SOCIAL_RULES_DEFAULTS],
+    });
+    for (const [field, value] of Object.entries(defaults)) {
+      const fieldSchema = kindSchema.properties[field];
+      if (fieldSchema) {
+        fieldSchema.default = value;
+      }
+    }
+  }
+  return {
+    ...schema,
+    description: `Posting rules the run merges over its own defaults; every field is optional and an absent one means the pipeline default. Times are "HH:MM" (24-hour) in ${SOCIAL_TIMEZONE}. Text fields are trimmed, one line, without control characters. Cross-field rules use the default for an unset side. \`{}\` when unset or when the stored value is invalid.`,
+  };
+}
+
 const SETTINGS_PROPERTIES: Record<keyof SocialSettingsResponse, SchemaObject> =
   {
     paused: {
@@ -184,6 +239,7 @@ const SETTINGS_PROPERTIES: Record<keyof SocialSettingsResponse, SchemaObject> =
       type: "array",
       uniqueItems: true,
     },
+    rules: rulesSchema(),
   };
 
 const runMessages = (description: string): SchemaObject => ({
@@ -207,7 +263,7 @@ const RUN_PROPERTIES: Record<string, SchemaObject> = {
   tick: { enum: [...socialRunTickValues], type: "string" },
 };
 
-const POSTED_OPTIONAL_INPUT = new Set(["eventName", "occurrenceDate"]);
+const POSTED_OPTIONAL_INPUT = new Set(["eventName", "held", "occurrenceDate"]);
 
 const json = (schema: SchemaObject | { $ref: string }) => ({
   "application/json": { schema },
@@ -450,17 +506,18 @@ export function buildSocialApiOpenApi(baseUrl: string) {
       "/api/social/v1/settings": {
         get: {
           description:
-            "Read at the start of every run. `paused` stops the whole run; `pausedKinds` skips those kinds. Set on the dashboard Social page (permission `social.manage`).",
+            "Read at the start of every run. `paused` stops the whole run; `pausedKinds` skips those kinds; `rules` overrides posting times, limits, held flags and copy. Set on the dashboard Social page (permission `social.manage`).",
           operationId: "getSocialSettings",
           responses: {
             200: {
               content: json({ $ref: "#/components/schemas/SocialSettings" }),
-              description: "Current pause settings (not cached).",
+              description:
+                "Current pause settings and posting rules (not cached).",
             },
             ...authErrors,
           },
           security: scope("events:read"),
-          summary: "Pipeline pause settings",
+          summary: "Pipeline pause settings and posting rules",
         },
       },
       "/api/social/v1/stats": {

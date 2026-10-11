@@ -31,6 +31,7 @@ const record = {
 const stored = {
   ...record,
   eventName: null,
+  held: null,
   occurrenceDate: null,
   scheduledFor: new Date(record.scheduledFor),
 };
@@ -78,6 +79,12 @@ describe("postedRecordSchema", () => {
     expect(postedRecordSchema.safeParse(record).success).toBe(true);
   });
 
+  it.each([true, false, null])("accepts held %p", (held) => {
+    expect(postedRecordSchema.safeParse({ ...record, held }).success).toBe(
+      true
+    );
+  });
+
   it("accepts a virtual occurrence id", () => {
     expect(
       postedRecordSchema.safeParse({
@@ -97,6 +104,8 @@ describe("postedRecordSchema", () => {
     { occurrenceDate: "2026-13-01" },
     { occurrenceDate: "18 Oct" },
     { eventName: "x".repeat(201) },
+    { held: "true" },
+    { held: 1 },
     { extra: true },
   ])("rejects %o", (change) => {
     expect(postedRecordSchema.safeParse({ ...record, ...change }).success).toBe(
@@ -126,6 +135,7 @@ describe("handleSocialPostedWrite", () => {
       {
         ...record,
         eventName: null,
+        held: null,
         occurrenceDate: null,
         scheduledFor: new Date("2026-10-18T13:30:00Z"),
       },
@@ -161,6 +171,30 @@ describe("handleSocialPostedWrite", () => {
       }),
       NOW
     );
+  });
+
+  it.each([true, false])("stores held %p when given", async (held) => {
+    const { deps, upsertSocialPost } = createDeps();
+    const response = await handleSocialPostedWrite(
+      post({ ...record, held }),
+      deps
+    );
+    expect(response.status).toBe(204);
+    expect(upsertSocialPost).toHaveBeenCalledWith(
+      expect.objectContaining({ held }),
+      NOW
+    );
+  });
+
+  it("refuses a non-boolean held with a 400 naming the field", async () => {
+    const { deps, upsertSocialPost } = createDeps();
+    const response = await handleSocialPostedWrite(
+      post({ ...record, held: "yes" }),
+      deps
+    );
+    expect(response.status).toBe(400);
+    expect((await response.json()).issues[0].path).toBe("held");
+    expect(upsertSocialPost).not.toHaveBeenCalled();
   });
 
   it("requires social:write", async () => {
@@ -213,6 +247,7 @@ describe("handleSocialPostedRead", () => {
         {
           ...record,
           eventName: null,
+          held: null,
           occurrenceDate: null,
           scheduledFor: "2026-10-18T13:30:00.000Z",
         },
@@ -223,6 +258,30 @@ describe("handleSocialPostedRead", () => {
       "social:write",
       "events:read",
     ]);
+  });
+
+  it("round-trips held from POST to GET", async () => {
+    for (const held of [true, false, undefined]) {
+      const rows: unknown[] = [];
+      const { deps } = createDeps({
+        listSocialPosts: mock(async () => rows),
+        upsertSocialPost: mock(async (input: unknown) => {
+          rows.push(input);
+        }),
+      } as unknown as Partial<SocialPostedDeps>);
+      const body = held === undefined ? record : { ...record, held };
+      expect((await handleSocialPostedWrite(post(body), deps)).status).toBe(
+        204
+      );
+      const response = await handleSocialPostedRead(
+        new Request(
+          `https://dash.proudindian.ngo/api/social/v1/posted?eventId=${EVENT_ID}`
+        ),
+        deps
+      );
+      const { posted } = await response.json();
+      expect(posted).toEqual([expect.objectContaining({ held: held ?? null })]);
+    }
   });
 
   it("lists records for a virtual occurrence id", async () => {
@@ -261,6 +320,7 @@ describe("handleSocialPostedRead", () => {
           ...record,
           eventId: `${EVENT_ID}:2026-10-17`,
           eventName: "Spoken English Class",
+          held: null,
           occurrenceDate: "2026-10-17",
           scheduledFor: "2026-10-18T13:30:00.000Z",
         },

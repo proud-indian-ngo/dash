@@ -10,7 +10,7 @@ import { eq, inArray } from "drizzle-orm";
 
 /**
  * Social page fixture: a queued post, a token with events:read and
- * social:write, and no social pause keys. Runs the spec reports carry
+ * social:write, and no social pause keys or posting rules. Runs the spec reports carry
  * `RUN_MARKER` events seen so cleanup removes only them.
  */
 const ID = {
@@ -18,7 +18,7 @@ const ID = {
   token: "019f0000-0040-7000-8000-000000004002",
 } as const;
 const RUN_MARKER = 4321;
-const PAUSE_KEYS = ["social_paused", "social_paused_kinds"];
+const PAUSE_KEYS = ["social_paused", "social_paused_kinds", "social_rules"];
 
 async function cleanup() {
   await db.delete(socialApiToken).where(eq(socialApiToken.id, ID.token));
@@ -36,6 +36,7 @@ async function setup() {
     createdAt: now,
     eventId: "e2e-social-page-event",
     eventName: "Social page E2E session",
+    held: true,
     id: ID.post,
     kind: "volunteer-call",
     occurrenceDate: now.toISOString().slice(0, 10),
@@ -80,6 +81,17 @@ if (action === "cleanup") {
   result = { cleaned: true };
 } else if (action === "setup") {
   result = await setup();
+} else if (action === "save-rules") {
+  // Another admin saving posting rules while the page is open.
+  const value = JSON.stringify({ recap: { lookbackDays: 7 } });
+  await db
+    .insert(appConfig)
+    .values({ key: "social_rules", updatedAt: new Date(), value })
+    .onConflictDoUpdate({
+      set: { updatedAt: new Date(), value },
+      target: appConfig.key,
+    });
+  result = { saved: true };
 } else if (action === "inspect") {
   result = await inspect();
 } else {

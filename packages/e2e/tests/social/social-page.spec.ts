@@ -10,7 +10,9 @@ const helperPath = path.resolve(
   "../../helpers/social-page.ts"
 );
 
-async function fixture<T>(action: "cleanup" | "inspect" | "setup") {
+async function fixture<T>(
+  action: "cleanup" | "inspect" | "save-rules" | "setup"
+) {
   const { stdout } = await execFileAsync("bun", ["run", helperPath, action], {
     env: process.env,
   });
@@ -61,7 +63,7 @@ test.describe("Social page", () => {
           },
           { timeout: 10_000 }
         )
-        .toEqual({ paused: true, pausedKinds: [] });
+        .toEqual({ paused: true, pausedKinds: [], rules: {} });
 
       // Runs: a reported run shows up live, with its skipped reasons.
       const report = await request.post("/api/social/v1/runs", {
@@ -100,12 +102,15 @@ test.describe("Social page", () => {
         .first();
       await expect(postRow).toBeVisible({ timeout: 15_000 });
       await expect(postRow).toContainText("Queued");
+      await expect(postRow).toContainText("Held");
       await postRow.getByRole("button", { name: "Row actions" }).click();
       await page.getByRole("menuitem", { name: "Drop post" }).click();
       const dialog = page.getByRole("alertdialog");
       await expect(dialog).toContainText("Drop this post?");
       await dialog.getByRole("button", { name: "Drop post" }).click();
       await expect(postRow).toContainText("Dropped", { timeout: 10_000 });
+      // Held marks only drafts still waiting for the approver.
+      await expect(postRow).not.toContainText("Held");
       await expect(
         postRow.getByRole("button", { name: "Row actions" })
       ).toHaveCount(0);
@@ -125,6 +130,89 @@ test.describe("Social page", () => {
         timeout: 10_000,
       });
       await expect(postRow).toContainText("IST");
+    } finally {
+      await fixture("cleanup");
+    }
+  });
+
+  test("an admin saves a posting rule and resets the rules", async ({
+    page,
+    request,
+  }) => {
+    test.slow();
+    const { token } = await fixture<{ token: string }>("setup");
+    const auth = { Authorization: `Bearer ${token}` };
+    const rules = async () => {
+      const response = await request.get("/api/social/v1/settings", {
+        headers: auth,
+      });
+      expect(response.status()).toBe(200);
+      return (await response.json()).rules;
+    };
+
+    try {
+      await page.goto("/social?tab=settings");
+      await waitForZeroReady(page);
+      const recap = page
+        .locator("[data-slot=card]")
+        .filter({ hasText: "Recap" })
+        .filter({ hasText: "Closing line" });
+      const postTime = recap.getByLabel("Post time");
+      await expect(postTime).toHaveAttribute("placeholder", "20:00", {
+        timeout: 15_000,
+      });
+      const held = recap.getByRole("switch", {
+        name: "Hold recaps for approval",
+      });
+      await expect(held).toBeChecked();
+
+      // Out-of-range input is refused before anything is written.
+      await recap.getByLabel("Look back (days)").fill("30");
+      await page.getByRole("button", { name: "Save rules" }).click();
+      await expect(
+        recap.getByText("Use a whole number from 0 to 14")
+      ).toBeVisible();
+      await recap.getByLabel("Look back (days)").fill("");
+
+      await postTime.fill("21:15");
+      await held.click();
+      await page.getByRole("button", { name: "Save rules" }).click();
+      await expect
+        .poll(rules, { timeout: 10_000 })
+        .toEqual({ recap: { held: false, postTime: "21:15" } });
+
+      await page.reload();
+      await waitForZeroReady(page);
+      await expect(recap.getByLabel("Post time")).toHaveValue("21:15", {
+        timeout: 15_000,
+      });
+      await expect(held).not.toBeChecked();
+
+      // Saving an unchanged form says so.
+      await page.getByRole("button", { name: "Save rules" }).click();
+      await expect(page.getByText("Nothing to save")).toBeVisible();
+
+      // Another admin saves while this form has an unsaved edit: the edit
+      // stays and a notice offers to reload.
+      await recap.getByLabel("Closing line").fill("See you next week");
+      await fixture("save-rules");
+      await expect(
+        page.getByText("Someone else saved posting rules.")
+      ).toBeVisible({ timeout: 15_000 });
+      await expect(recap.getByLabel("Closing line")).toHaveValue(
+        "See you next week"
+      );
+      await page.getByRole("button", { name: "Reload" }).click();
+      await expect(recap.getByLabel("Look back (days)")).toHaveValue("7");
+      await expect(recap.getByLabel("Closing line")).toHaveValue("");
+      await expect(recap.getByLabel("Post time")).toHaveValue("");
+
+      await page.getByRole("button", { name: "Reset to defaults" }).click();
+      const dialog = page.getByRole("alertdialog");
+      await dialog.getByRole("button", { name: "Reset rules" }).click();
+      await expect.poll(rules, { timeout: 10_000 }).toEqual({});
+      await expect(recap.getByLabel("Post time")).toHaveValue("");
+      await expect(held).toBeChecked();
     } finally {
       await fixture("cleanup");
     }

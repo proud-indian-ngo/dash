@@ -37,6 +37,7 @@ describe("handleSocialSettingsRequest", () => {
     expect(await response.json()).toEqual({
       paused: true,
       pausedKinds: ["recap", "impact"],
+      rules: {},
     });
     expect(deps.authorize).toHaveBeenCalledWith(
       expect.any(Request),
@@ -46,8 +47,38 @@ describe("handleSocialSettingsRequest", () => {
     expect(deps.getAppConfigValues).toHaveBeenCalledWith([
       "social_paused",
       "social_paused_kinds",
+      "social_rules",
     ]);
   });
+
+  it("serves the stored posting rules", async () => {
+    const rules = {
+      recap: { closingLine: "See you soon", held: false },
+      schedule: { maxRows: 5, postTime: "18:30" },
+    };
+    const response = await handleSocialSettingsRequest(
+      request(),
+      createDeps({ social_rules: JSON.stringify(rules) })
+    );
+    expect(response.status).toBe(200);
+    expect((await response.json()).rules).toEqual(rules);
+  });
+
+  it.each(["{broken", '{"schedule":{"minRows":0}}', '{"other":{}}'])(
+    "serves rules {} instead of failing for the invalid value %s",
+    async (value) => {
+      const response = await handleSocialSettingsRequest(
+        request(),
+        createDeps({ social_paused: "true", social_rules: value })
+      );
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({
+        paused: true,
+        pausedKinds: [],
+        rules: {},
+      });
+    }
+  );
 
   it("defaults to running everything when the keys are unset or not true", async () => {
     const configs: Record<string, string>[] = [
@@ -60,7 +91,11 @@ describe("handleSocialSettingsRequest", () => {
         request(),
         createDeps(config)
       );
-      expect(await response.json()).toEqual({ paused: false, pausedKinds: [] });
+      expect(await response.json()).toEqual({
+        paused: false,
+        pausedKinds: [],
+        rules: {},
+      });
     }
   });
 

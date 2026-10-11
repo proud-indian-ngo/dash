@@ -37,6 +37,8 @@ export const postedRecordSchema = z.strictObject({
   eventId: z.string().trim().min(1).max(MAX_ID_LENGTH),
   /** Event name when the post was queued; event posts only. */
   eventName: z.string().trim().max(MAX_EVENT_NAME_LENGTH).nullish(),
+  /** True: created as a Buffer draft for approval; false: scheduled automatically. */
+  held: z.boolean().nullish(),
   kind: z.enum(socialPostKindValues),
   /** India calendar date of the occurrence (YYYY-MM-DD); event posts only. */
   occurrenceDate: z.iso.date().nullish(),
@@ -49,8 +51,12 @@ type PostedRecordInput = z.infer<typeof postedRecordSchema>;
 /** A stored record as the API returns it: unset optional fields are null. */
 export type PostedRecord = Omit<
   PostedRecordInput,
-  "eventName" | "occurrenceDate"
-> & { eventName: string | null; occurrenceDate: string | null };
+  "eventName" | "held" | "occurrenceDate"
+> & {
+  eventName: string | null;
+  held: boolean | null;
+  occurrenceDate: string | null;
+};
 
 const eventIdSchema = z.string().trim().min(1).max(MAX_ID_LENGTH);
 
@@ -139,6 +145,7 @@ export async function handleSocialPostedWrite(
           {
             ...record,
             eventName: record.eventName || null,
+            held: record.held ?? null,
             occurrenceDate: record.occurrenceDate ?? null,
             scheduledFor: new Date(record.scheduledFor),
           },

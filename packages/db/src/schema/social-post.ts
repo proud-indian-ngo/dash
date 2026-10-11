@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   index,
   pgTable,
@@ -36,7 +37,9 @@ export type SocialPostStatus = (typeof socialPostStatusValues)[number];
  * generator sent it (a row id, `${seriesId}:${occDate}` for a virtual
  * occurrence, or a synthetic id for schedule and impact posts), so it is not
  * a foreign key. `occurrence_date` (YYYY-MM-DD) and `event_name` are set for
- * event posts only. `dropped_by` / `dropped_at` are set when someone drops
+ * event posts only. `held` is true when the post was created as a Buffer
+ * draft for approval, false when it was scheduled automatically, and null
+ * when the pipeline did not say. `dropped_by` / `dropped_at` are set when someone drops
  * the post on the Social page (`socialPost.drop`); the pipeline treats
  * `dropped` as final.
  */
@@ -52,6 +55,7 @@ export const socialPost = pgTable(
     }),
     eventId: text("event_id").notNull(),
     eventName: text("event_name"),
+    held: boolean("held"),
     id: uuid("id").primaryKey(),
     kind: text("kind").$type<SocialPostKind>().notNull(),
     occurrenceDate: text("occurrence_date"),
