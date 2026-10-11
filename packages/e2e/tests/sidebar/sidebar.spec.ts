@@ -106,19 +106,36 @@ test.describe("Sidebar navigation", () => {
     ).toBeVisible();
   });
 
-  test("user menu opens dropdown with Settings, Notifications, Log out", async ({
+  test("user menu opens dropdown with Settings and Log out", async ({
     page,
   }) => {
     const sidebar = page.locator("[data-sidebar='sidebar']");
-    await sidebar.locator("[data-sidebar='menu-button']").last().click();
+    await sidebar.getByRole("button", { name: "Account menu" }).click();
 
     await expect(
       page.getByRole("menuitem", { name: "Settings" })
     ).toBeVisible();
-    await expect(
-      page.getByRole("menuitem", { name: "Notifications" })
-    ).toBeVisible();
     await expect(page.getByRole("menuitem", { name: "Log out" })).toBeVisible();
+    // Notifications live behind the bell only.
+    await expect(
+      page.getByRole("menuitem", { name: /Notifications/ })
+    ).toHaveCount(0);
+  });
+
+  test("the bell opens the inbox beside the sidebar", async ({ page }) => {
+    const sidebar = page.locator("[data-sidebar='sidebar']");
+    await sidebar.getByRole("button", { name: /^Notifications/ }).click();
+
+    const inbox = page.getByRole("dialog", { name: "Notifications" });
+    await expect(inbox).toBeVisible();
+    const sidebarBox = await sidebar.boundingBox();
+    const inboxBox = await inbox.boundingBox();
+    expect(inboxBox?.x ?? 0).toBeGreaterThanOrEqual(
+      (sidebarBox?.x ?? 0) + (sidebarBox?.width ?? 0) - 1
+    );
+
+    await page.keyboard.press("Escape");
+    await expect(inbox).toBeHidden();
   });
 
   test("toggle sidebar button works", async ({ page }) => {

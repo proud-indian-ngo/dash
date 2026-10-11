@@ -18,6 +18,7 @@ import { toast } from "sonner";
 
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
+import { NotificationBell } from "@/components/layout/notification-bell";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AppProvider, useApp } from "@/context/app-context";
@@ -156,7 +157,10 @@ function AppLayout() {
                 />
                 {isMobile ? null : <Breadcrumbs />}
               </div>
-              <ThemeToggle />
+              <div className="flex items-center gap-1">
+                {isMobile ? <NotificationBell side="bottom" /> : null}
+                <ThemeToggle />
+              </div>
             </div>
           </header>
           <div className="flex min-w-0 flex-1 flex-col gap-4 px-2 pb-4 sm:px-4">
