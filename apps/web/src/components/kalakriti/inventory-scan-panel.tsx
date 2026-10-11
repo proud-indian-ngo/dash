@@ -168,7 +168,13 @@ export function InventoryScanPanel({
                 placeholder="Enter the ID on the volunteer card"
                 disabled={!ready}
               />
-              <FormActions submitLabel="Find volunteer" disabled={!ready} />
+              <FormActions
+                // Scan panels sit at the screen edge where toasts appear;
+                // keep the action left so a toast never covers the next scan.
+                className="justify-start"
+                submitLabel="Find volunteer"
+                disabled={!ready}
+              />
             </FormLayout>
           </ManualScanEntry>
         </div>
@@ -389,6 +395,9 @@ function InventoryBatchForm({
           placeholder="Optional"
         />
         <FormActions
+          // Scan panels sit at the screen edge where toasts appear;
+          // keep the action left so a toast never covers the next scan.
+          className="justify-start"
           submitLabel={
             action === "dispatch" ? "Dispatch items" : "Return items"
           }

@@ -452,6 +452,9 @@ function ActiveCenterScanSession({
                     placeholder={`KAL-${year}-0001`}
                   />
                   <FormActions
+                    // Scan panels sit at the screen edge where toasts appear;
+                    // keep the action left so a toast never covers the next scan.
+                    className="justify-start"
                     submitLabel="Mark Student"
                     submittingLabel="Marking..."
                     disabled={disabled}
