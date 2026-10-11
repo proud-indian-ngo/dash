@@ -2,11 +2,13 @@ import {
   Progress,
   ProgressLabel,
 } from "@pi-dash/design-system/components/ui/progress";
+import { cn } from "@pi-dash/design-system/lib/utils";
 import {
   KALAKRITI_CENTER_SCAN_STAGES,
   type KalakritiCenterScanStage,
 } from "@pi-dash/shared/kalakriti";
 
+import { isGapMetric } from "@/components/kalakriti/summary-metric-cards";
 import type { KalakritiDashboardSection } from "@/lib/server/kalakriti-dashboard-summary";
 
 const stageLabels: Record<KalakritiCenterScanStage, string> = {
@@ -71,11 +73,20 @@ export function DashboardSectionMetrics({
   return (
     <div className="flex flex-col gap-4">
       {numericMetrics.length ? (
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+        <dl className="grid gap-1.5">
           {numericMetrics.map((metric) => (
-            <div key={metric.id} className="flex flex-col gap-1">
-              <dt className="text-muted-foreground text-xs">{metric.label}</dt>
-              <dd className="text-xl font-semibold tabular-nums">
+            <div
+              key={metric.id}
+              className="flex items-baseline justify-between gap-3 text-sm"
+            >
+              <dt className="text-muted-foreground">{metric.label}</dt>
+              <dd
+                className={cn(
+                  "font-mono font-semibold tabular-nums",
+                  isGapMetric(metric.label, metric.value) &&
+                    "text-warning-foreground"
+                )}
+              >
                 {numberFormatter.format(metric.value)}
               </dd>
             </div>

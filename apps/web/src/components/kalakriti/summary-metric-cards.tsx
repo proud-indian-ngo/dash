@@ -19,13 +19,14 @@ export interface SummaryMetric {
 // action stand out. Waiting counts ("Awaiting lunch") stay neutral.
 const GAP_LABEL = /\b(without|unassigned|below minimum|out of stock|gaps?)\b/i;
 
+/** True for a non-zero gap count that needs someone's attention. */
+export function isGapMetric(label: string, value: unknown) {
+  return typeof value === "number" && value > 0 && GAP_LABEL.test(label);
+}
+
 function toneFor(metric: SummaryMetric): StatusTone | undefined {
   if (metric.tone) return metric.tone;
-  return typeof metric.value === "number" &&
-    metric.value > 0 &&
-    GAP_LABEL.test(metric.label)
-    ? "warning"
-    : undefined;
+  return isGapMetric(metric.label, metric.value) ? "warning" : undefined;
 }
 
 /**

@@ -34,8 +34,6 @@ import {
 } from "@/lib/kalakriti-participation-compliance";
 import type { KalakritiRegistrationDashboardProjection } from "@/lib/server/kalakriti-registration-dashboard";
 
-import { KALAKRITI_SUMMARY_COLORS } from "./summary-colors";
-
 function scopeHeading(
   scope: KalakritiRegistrationDashboardProjection["scope"]
 ) {
@@ -263,7 +261,7 @@ function DashboardProjection({
 
   return (
     <section aria-labelledby={headingId} className="grid gap-3">
-      <Card className={KALAKRITI_SUMMARY_COLORS.work} size="sm">
+      <Card size="sm">
         <CardHeader>
           <CardTitle>
             <h2 id={headingId}>{heading.title}</h2>

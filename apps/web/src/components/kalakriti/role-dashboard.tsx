@@ -59,8 +59,6 @@ import type {
   KalakritiDashboardSummary,
 } from "@/lib/server/kalakriti-dashboard-summary";
 
-import { KALAKRITI_SUMMARY_COLORS } from "./summary-colors";
-
 const snapshotTimeFormatter = new Intl.DateTimeFormat("en-IN", {
   hour: "numeric",
   minute: "2-digit",
@@ -328,7 +326,7 @@ export function RoleDashboard({
         </Alert>
       ) : null}
       {attention.length ? (
-        <Card className={KALAKRITI_SUMMARY_COLORS.attention} size="sm">
+        <Card className="bg-warning/8 ring-warning/35" size="sm">
           <CardHeader>
             <CardTitle>
               <h3>Needs attention</h3>
@@ -390,22 +388,29 @@ export function RoleDashboard({
           ))}
         </nav>
       ) : null}
-      <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+      {sections.some((section) =>
+        sectionActions(section, actions, scans).some(
+          (action) => action.unavailable
+        )
+      ) ? (
+        <p className="text-muted-foreground text-sm">
+          Event-day recording is available when the Edition is Live.
+        </p>
+      ) : null}
+      <div className="grid min-w-0 items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
         {sections.map((section) => {
           const workActions = sectionActions(section, actions, scans);
           return (
-            <Card
-              className={KALAKRITI_SUMMARY_COLORS.work}
-              key={section.id}
-              size="sm"
-            >
+            <Card key={section.id} size="sm">
               <CardHeader>
                 <CardTitle>
                   <h3>{section.title}</h3>
                 </CardTitle>
-                <CardDescription>{section.scopeLabel}</CardDescription>
+                {section.scopeLabel === "Edition" ? null : (
+                  <CardDescription>{section.scopeLabel}</CardDescription>
+                )}
               </CardHeader>
-              <CardContent className="flex flex-1 flex-col gap-5">
+              <CardContent className="flex flex-1 flex-col gap-4">
                 <DashboardSectionMetrics section={section} />
                 {workActions.length ||
                 (section.id === "volunteers" && registerIdCard) ? (
@@ -425,12 +430,6 @@ export function RoleDashboard({
                         onScan={setActivity}
                       />
                     ))}
-                    {workActions.some((action) => action.unavailable) ? (
-                      <p className="text-muted-foreground w-full text-xs">
-                        Event-day recording is available when the Edition is
-                        Live.
-                      </p>
-                    ) : null}
                   </div>
                 ) : null}
               </CardContent>
