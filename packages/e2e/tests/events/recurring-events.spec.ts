@@ -1,7 +1,11 @@
 import { expect, test } from "../../fixtures/test";
 import { pickDate } from "../../helpers/date-time-picker";
 import { openAdvancedSettings } from "../../helpers/event-form";
-import { SANDBOX_TEAM, openSeededTeam } from "../../helpers/team-event";
+import {
+  SANDBOX_TEAM,
+  fillTableSearch,
+  openSeededTeam,
+} from "../../helpers/team-event";
 
 /** Seeded public weekly event in "E2E Updates Team". */
 const SEEDED_RECURRING = "E2E Upcoming Recurring Public";
@@ -47,7 +51,7 @@ test.describe("Recurring events", () => {
     await expect(page.getByText("Event created")).toBeVisible();
 
     // Table should show multiple occurrences of the same event
-    await page.getByPlaceholder("Search events...").fill(eventName);
+    await fillTableSearch(page, "Search events...", eventName);
     const eventCells = page.getByRole("cell").filter({ hasText: eventName });
     await expect(eventCells.first()).toBeVisible({ timeout: 10_000 });
 
@@ -74,7 +78,7 @@ test.describe("Recurring events", () => {
 
   test("recurring event detail shows recurrence info", async ({ page }) => {
     await openSeededTeam(page);
-    await page.getByPlaceholder("Search events...").fill(SEEDED_RECURRING);
+    await fillTableSearch(page, "Search events...", SEEDED_RECURRING);
     const recurringRow = page
       .getByRole("row")
       .filter({ hasText: SEEDED_RECURRING })
@@ -118,7 +122,7 @@ test.describe("Recurring events", () => {
     await dialog.getByRole("button", { exact: true, name: "Create" }).click();
     await expect(dialog).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText("Event created")).toBeVisible();
-    await page.getByPlaceholder("Search events...").fill(eventName);
+    await fillTableSearch(page, "Search events...", eventName);
     await expect(
       page.getByRole("cell").filter({ hasText: eventName }).first()
     ).toBeVisible({ timeout: 10_000 });
