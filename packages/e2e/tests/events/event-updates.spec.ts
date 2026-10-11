@@ -1,5 +1,6 @@
-import { expect, test, waitForZeroReady } from "../../fixtures/test";
-import { ListPage } from "../../pages/list-page";
+import { expect, test } from "../../fixtures/test";
+import { pickDate } from "../../helpers/date-time-picker";
+import { openSeededTeam, openSeededTeamEvent } from "../../helpers/team-event";
 
 test.describe("Event updates CRUD (admin)", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
@@ -11,19 +12,7 @@ test.describe("Event updates CRUD (admin)", () => {
   }) => {
     test.slow();
 
-    // Navigate to teams page
-    await page.goto("/teams");
-    await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
-
-    const teamLink = page.getByRole("link").filter({ hasText: /E2E Team/ });
-    if ((await teamLink.count()) === 0) {
-      test.skip(true, "No E2E team available");
-      return;
-    }
-    await teamLink.first().click();
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
-      timeout: 10_000,
-    });
+    await openSeededTeam(page);
 
     // Create a past event (start time = yesterday) so Updates tab appears
     const pastEventName = `E2E Past Event ${Date.now()}`;
@@ -31,26 +20,25 @@ test.describe("Event updates CRUD (admin)", () => {
     const createDialog = page.getByRole("dialog");
     await expect(createDialog).toBeVisible();
 
-    await createDialog.getByLabel("Name", { exact: true }).fill(pastEventName);
-
-    const yesterday = new Date(Date.now() - 86_400_000);
     await createDialog
-      .getByLabel("Start Time")
-      .fill(yesterday.toISOString().slice(0, 16));
+      .getByRole("textbox", { exact: true, name: "Name" })
+      .fill(pastEventName);
 
-    // Make it public so we can navigate to it
-    await createDialog.getByLabel("Public").check();
+    await pickDate(
+      createDialog,
+      "Start Time",
+      new Date(Date.now() - 86_400_000)
+    );
 
     await createDialog
       .getByRole("button", { exact: true, name: "Create" })
       .click();
     await expect(createDialog).toBeHidden({ timeout: 10_000 });
-    await expect(page.getByText(pastEventName)).toBeVisible({
-      timeout: 10_000,
-    });
 
-    // Click the event name to go to detail page
+    // The list is paged by date, so search for the new event before opening it
+    await page.getByPlaceholder("Search events...").fill(pastEventName);
     const eventCell = page.getByRole("cell").filter({ hasText: pastEventName });
+    await expect(eventCell).toBeVisible({ timeout: 10_000 });
     await eventCell.getByRole("button").first().click();
     await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
 
@@ -77,18 +65,22 @@ test.describe("Event updates CRUD (admin)", () => {
     });
 
     // ---- EDIT UPDATE ----
-    await page
-      .getByRole("button", { exact: true, name: "Edit" })
-      .first()
-      .click();
+    // The page header has its own Edit (for the event); the update's actions
+    // sit in its "Update actions" menu.
+    await page.getByRole("button", { name: "Update actions" }).first().click();
+    await page.getByRole("menuitem", { exact: true, name: "Edit" }).click();
 
-    const editEditor = page.locator("[data-slate-editor]");
+    // The composer stays on the page, so pick the editor holding this update
+    const editEditor = page
+      .locator("[data-slate-editor]")
+      .filter({ hasText: "This is an E2E test update" });
     await expect(editEditor).toBeVisible();
     await editEditor.click();
     await page.keyboard.press("ControlOrMeta+A");
     await page.keyboard.type("Updated E2E test content");
 
-    await page.getByRole("button", { name: "Save" }).click();
+    // The composer's Save comes first; the edited update's Save is last
+    await page.getByRole("button", { name: "Save" }).last().click();
     await expect(page.getByText("Update saved")).toBeVisible({
       timeout: 10_000,
     });
@@ -96,10 +88,8 @@ test.describe("Event updates CRUD (admin)", () => {
     await expect(page.getByText("(edited)")).toBeVisible({ timeout: 10_000 });
 
     // ---- DELETE UPDATE ----
-    await page
-      .getByRole("button", { exact: true, name: "Delete" })
-      .first()
-      .click();
+    await page.getByRole("button", { name: "Update actions" }).first().click();
+    await page.getByRole("menuitem", { exact: true, name: "Delete" }).click();
 
     const confirmDialog = page.getByRole("alertdialog");
     await expect(confirmDialog).toBeVisible();
@@ -107,7 +97,7 @@ test.describe("Event updates CRUD (admin)", () => {
       .getByRole("button", { exact: true, name: "Delete" })
       .click();
 
-    await expect(page.getByText("Update deleted")).toBeVisible({
+    await expect(page.getByText("Update removed")).toBeVisible({
       timeout: 10_000,
     });
 
@@ -125,32 +115,7 @@ test.describe("Event update approval (admin)", () => {
   test("approves a pending update from seeded data", async ({ page }) => {
     test.slow();
 
-    // Navigate to the seeded event through its team's event list
-    await page.goto("/teams");
-    await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible({
-      timeout: 10_000,
-    });
-    await waitForZeroReady(page);
-    // Search so the row is on the first page whatever the fitted page size.
-    await page.getByPlaceholder("Search teams...").fill("E2E Updates Team");
-    await page
-      .getByRole("row")
-      .filter({ hasText: "E2E Updates Team" })
-      .first()
-      .click();
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
-      timeout: 10_000,
-    });
-    await waitForZeroReady(page);
-    await page
-      .getByPlaceholder("Search events...")
-      .fill("E2E Past Event With Pending Update");
-    const eventRow = page
-      .getByRole("row")
-      .filter({ hasText: /E2E Past Event With Pending Update/ });
-    await new ListPage(page).openRowActionAndClick(eventRow.first(), "View");
-    await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
-    await waitForZeroReady(page);
+    await openSeededTeamEvent(page, "E2E Past Event With Pending Update");
 
     // Click Updates tab — should show pending badge
     const updatesTab = page.getByRole("tab", { name: /Updates/ });

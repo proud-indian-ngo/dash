@@ -8,6 +8,7 @@ import {
   type FieldValidatorConfig,
   type FormFieldApi,
   type FormInstance,
+  blurField,
   fieldErrorProps,
   useResolvedForm,
 } from "./form-context";
@@ -45,7 +46,7 @@ function CheckboxFieldControl({
       checked={Boolean(field.state.value)}
       disabled={readonly}
       id={field.name}
-      onBlur={field.handleBlur}
+      onBlur={(event) => blurField(field, event)}
       onCheckedChange={handleCheckedChange}
     />
   );

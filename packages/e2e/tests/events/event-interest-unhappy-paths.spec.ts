@@ -1,4 +1,5 @@
-import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { expect, test } from "../../fixtures/test";
+import { openPublicEvent } from "../../helpers/team-event";
 
 /**
  * Tests API-level guards on eventInterest mutations for volunteers.
@@ -59,35 +60,11 @@ test.describe("Event interest unhappy paths (volunteer)", () => {
   test("express interest UI — show interest button visible on public events for volunteers", async ({
     page,
   }) => {
-    // Regression check: the "Show Interest" button should appear on eligible events
-    await page.goto("/events");
-    await waitForZeroReady(page);
+    // Regression check: a public event outside the volunteer's teams offers
+    // Show Interest on its page.
+    await openPublicEvent(page, "E2E Open Interest Event");
     await expect(
-      page.getByRole("heading", { exact: true, name: "Events" })
+      page.getByRole("button", { exact: true, name: "Show Interest" })
     ).toBeVisible();
-
-    // Find any public event row and open it
-    const eventRows = page.getByRole("table").getByRole("row");
-    const rowCount = await eventRows.count();
-    if (rowCount <= 1) {
-      test.skip(true, "No events visible to volunteer");
-      return;
-    }
-
-    // Click the first data row's event link to navigate to detail
-    const firstEventLink = page.getByRole("table").getByRole("link").first();
-    if (
-      !(await firstEventLink.isVisible({ timeout: 3000 }).catch(() => false))
-    ) {
-      test.skip(true, "No event links visible");
-      return;
-    }
-
-    await firstEventLink.click();
-    await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
-      timeout: 10_000,
-    });
-    // This is a smoke test - just verifying the page loads for a volunteer
   });
 });

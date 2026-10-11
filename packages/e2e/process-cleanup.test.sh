@@ -116,4 +116,44 @@ assert_exit_status 1 0 1
 assert_exit_status 7 7 0
 assert_exit_status 7 7 1
 
+LOCK_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/pi-dash-e2e-lock.XXXXXX")"
+LOCK_DIR="$LOCK_ROOT/run.lock"
+
+# A lock left by an exited process is replaced.
+mkdir "$LOCK_DIR"
+echo 999999 > "$LOCK_DIR/pid"
+acquire_e2e_run_lock "$LOCK_DIR" > /dev/null
+if [ "$(cat "$LOCK_DIR/pid")" = 999999 ]; then
+  echo "ERROR: stale E2E run lock was not replaced"
+  exit 1
+fi
+
+# A live holder keeps the lock until it releases.
+release_e2e_run_lock
+(
+  acquire_e2e_run_lock "$LOCK_DIR" > /dev/null
+  sleep 6
+  release_e2e_run_lock
+) &
+HOLDER_PID=$!
+sleep 1
+if [ "$(cat "$LOCK_DIR/pid")" = "$E2E_RUN_LOCK_PID" ] || [ -n "$E2E_RUN_LOCK_DIR" ]; then
+  echo "ERROR: E2E run lock was taken twice"
+  exit 1
+fi
+acquire_e2e_run_lock "$LOCK_DIR" > /dev/null
+wait "$HOLDER_PID"
+if [ "$(cat "$LOCK_DIR/pid")" != "$E2E_RUN_LOCK_PID" ]; then
+  echo "ERROR: waiting run did not take the released E2E run lock"
+  exit 1
+fi
+
+# Releasing only removes a lock this process holds.
+release_e2e_run_lock
+if [ -d "$LOCK_DIR" ]; then
+  echo "ERROR: E2E run lock was not released"
+  exit 1
+fi
+rm -rf "$LOCK_ROOT"
+
 echo "process and exit cleanup tests passed"

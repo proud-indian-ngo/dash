@@ -31,6 +31,8 @@ export interface FormFieldApi<TValue = unknown> {
     meta: {
       errors: FormFieldError[];
       isBlurred: boolean;
+      /** The value has changed since the form started. */
+      isDirty?: boolean;
       isTouched: boolean;
     };
     value: TValue;
@@ -86,8 +88,52 @@ export function FormContextProvider({
   return <FormContext value={form}>{children}</FormContext>;
 }
 
+export function shouldShowFieldErrors(
+  meta: { isBlurred: boolean },
+  submitted: boolean
+) {
+  return submitted || meta.isBlurred;
+}
+
+/** Controls that close a form: dialog, sheet and drawer close buttons, Cancel. */
+const DISMISS_TARGET =
+  '[data-slot="dialog-close"], [data-slot="sheet-close"], [data-slot="drawer-close"], [data-form-dismiss]';
+
+/** Focus is leaving for a control that closes the form, or for nothing. */
+export function isDismissBlur(next: EventTarget | null): boolean {
+  const element = next as Partial<Pick<Element, "closest">> | null;
+  if (typeof element?.closest !== "function") {
+    return true;
+  }
+  return element.closest(DISMISS_TARGET) !== null;
+}
+
+/**
+ * Blurs a field, except when an untouched field loses focus because the form
+ * is being closed (Cancel, the close button, a click outside). Validating then
+ * flashes an error and shifts the layout under the pointer mid-click. Moving
+ * to Submit or another field still validates, so a disabled Submit always
+ * comes with the error that explains it.
+ */
+export function blurField(
+  field: {
+    handleBlur: () => void;
+    state: { meta: { isDirty?: boolean } };
+  },
+  event?: { relatedTarget: EventTarget | null }
+) {
+  if (
+    event &&
+    !field.state.meta.isDirty &&
+    isDismissBlur(event.relatedTarget)
+  ) {
+    return;
+  }
+  field.handleBlur();
+}
+
 export function getFieldErrorState(field: FormFieldApi, submitted = false) {
-  const showErrors = field.state.meta.isBlurred || submitted;
+  const showErrors = shouldShowFieldErrors(field.state.meta, submitted);
   const hasError = showErrors && field.state.meta.errors.length > 0;
   const errorMessageId = `${field.name}-error`;
   return { errorMessageId, hasError };

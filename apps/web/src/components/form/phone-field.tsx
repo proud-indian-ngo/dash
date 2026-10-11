@@ -5,6 +5,7 @@ import { CustomField } from "./custom-field";
 import {
   type FieldValidatorConfig,
   type FormInstance,
+  blurField,
   fieldErrorProps,
   useResolvedForm,
 } from "./form-context";
@@ -51,7 +52,9 @@ export function PhoneField({
           {...fieldErrorProps(field, resolvedForm.state.submissionAttempts > 0)}
           aria-required={isRequired}
           id={field.name}
-          onBlur={field.handleBlur}
+          onBlur={(event: { relatedTarget: EventTarget | null }) =>
+            blurField(field, event)
+          }
           onChange={field.handleChange}
           value={(field.state.value ?? "") as string}
         />
