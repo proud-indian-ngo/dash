@@ -306,15 +306,25 @@ describe("handleSocialPhotosRequest", () => {
         )
       ).status
     ).toBe(503);
-    expect(
-      (
-        await handleSocialPhotosRequest(
-          photosRequest(),
-          EVENT_ID,
-          createPhotosDeps([], { fetchAssetMetadata: null }).deps
-        )
-      ).status
-    ).toBe(503);
+  });
+
+  it("lists photos without a metadata backfill when Immich is unconfigured", async () => {
+    const { deps, updateSocialPhotoMetadata } = createPhotosDeps(
+      [photo("01", { height: null, width: null })],
+      { fetchAssetMetadata: null }
+    );
+    const response = await handleSocialPhotosRequest(
+      photosRequest(),
+      EVENT_ID,
+      deps
+    );
+    expect(response.status).toBe(200);
+    const { photos } = (await response.json()) as {
+      photos: { width: number }[];
+    };
+    expect(photos).toHaveLength(1);
+    expect(photos[0]?.width).toBe(0);
+    expect(updateSocialPhotoMetadata).not.toHaveBeenCalled();
   });
 });
 

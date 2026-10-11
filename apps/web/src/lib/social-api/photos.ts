@@ -177,7 +177,7 @@ export async function handleSocialPhotosRequest(
     return socialJsonError(400, "Invalid event id");
   }
   const { fetchAssetMetadata, signingSecret } = deps;
-  if (!(signingSecret && fetchAssetMetadata)) {
+  if (!signingSecret) {
     return socialJsonError(503, "Photos are not configured");
   }
   try {
@@ -192,11 +192,15 @@ export async function handleSocialPhotosRequest(
     if (!rows) {
       return socialJsonError(404, "Event not found");
     }
-    const filled = await mapWithConcurrency(
-      rows,
-      SOCIAL_PHOTO_BACKFILL_CONCURRENCY,
-      (row) => backfill(row, deps, fetchAssetMetadata)
-    );
+    // Without Immich the listing still works; the metadata backfill is
+    // skipped and the media proxy answers 503 when a URL is fetched.
+    const filled = fetchAssetMetadata
+      ? await mapWithConcurrency(
+          rows,
+          SOCIAL_PHOTO_BACKFILL_CONCURRENCY,
+          (row) => backfill(row, deps, fetchAssetMetadata)
+        )
+      : rows;
     const nowMs = deps.now();
     const sign = (photoId: string, variant: "original" | "thumbnail") =>
       signSocialMediaUrl({
