@@ -27,6 +27,7 @@ import { MyTeams } from "@/components/dashboard/my-teams";
 import { PendingReviews } from "@/components/dashboard/pending-reviews";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { UpcomingEvents } from "@/components/dashboard/upcoming-events";
+import { PageHeader } from "@/components/shared/page-header";
 import type { StatItem } from "@/components/stats/stats-cards";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { useApp } from "@/context/app-context";
@@ -191,9 +192,7 @@ function WelcomeDashboard() {
 
   return (
     <div className="app-container fade-in-0 animate-in mx-auto max-w-7xl px-2 py-6 duration-150 ease-(--ease-out-expo) sm:px-4">
-      <h1 className="font-display text-2xl font-semibold tracking-tight">
-        Dashboard
-      </h1>
+      <PageHeader title="Dashboard" />
       <Card className="mt-6">
         <CardHeader>
           <CardTitle>Welcome, {session?.user.name}!</CardTitle>
@@ -307,22 +306,21 @@ function OrientedDashboard() {
 
   return (
     <div className="app-container fade-in-0 animate-in mx-auto max-w-7xl px-2 py-6 duration-150 ease-(--ease-out-expo) sm:px-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="font-display text-2xl font-semibold tracking-tight">
-          Dashboard
-        </h1>
-        <div className="flex items-center gap-2">
-          <DateRangeFilter />
-          <Button
-            nativeButton={false}
-            render={<Link to="/reimbursements/new" />}
-            size="sm"
-          >
-            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
-            New Reimbursement
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        actions={
+          <>
+            <DateRangeFilter />
+            <Button
+              nativeButton={false}
+              render={<Link to="/reimbursements/new" />}
+            >
+              <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
+              New Reimbursement
+            </Button>
+          </>
+        }
+        title="Dashboard"
+      />
 
       <div className="mt-4">
         <StatsCards isLoading={isLoading} items={stats} />

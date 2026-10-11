@@ -2,6 +2,7 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import { env } from "@pi-dash/env/web";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
+import { PageHeader } from "@/components/shared/page-header";
 import { VendorPaymentForm } from "@/components/vendor-payments/vendor-payment-form";
 import { assertPermission } from "@/lib/route-guards";
 
@@ -24,12 +25,10 @@ function NewVendorPaymentRouteComponent() {
 
   return (
     <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
-      <h1 className="font-display text-2xl font-semibold tracking-tight">
-        New Vendor Payment
-      </h1>
-      <p className="text-muted-foreground mt-2 text-sm">
-        Fill in the details and add line items for your vendor payment.
-      </p>
+      <PageHeader
+        description="Fill in the details and add line items for your vendor payment."
+        title="New Vendor Payment"
+      />
       <div className="mt-6">
         <VendorPaymentForm
           onCancel={stableOnCancel0}

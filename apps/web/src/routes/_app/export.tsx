@@ -15,6 +15,7 @@ import { log } from "evlog";
 import { type Dispatch, type SetStateAction, useState } from "react";
 import { toast } from "sonner";
 
+import { PageHeader } from "@/components/shared/page-header";
 import { getErrorMessage } from "@/lib/errors";
 import {
   type RequestExportStatus,
@@ -235,13 +236,10 @@ function ExportRouteComponent() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-      <h1 className="font-display text-2xl font-semibold tracking-tight">
-        Export Data
-      </h1>
-      <p className="text-muted-foreground mt-2 text-sm">
-        Export reimbursement, advance payment, and vendor payment data as a ZIP
-        containing CSV files and request attachments for a financial year.
-      </p>
+      <PageHeader
+        description="Export reimbursement, advance payment, and vendor payment data as a ZIP containing CSV files and request attachments for a financial year."
+        title="Export Data"
+      />
 
       <div className="mt-4 grid max-w-md gap-6">
         <fieldset className="grid gap-3">

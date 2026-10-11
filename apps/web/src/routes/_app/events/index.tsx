@@ -5,6 +5,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { EventsCalendarView } from "@/components/events/events-calendar-view";
 import type { PublicEventRow } from "@/components/events/public-events-table";
+import { PageHeader } from "@/components/shared/page-header";
 import { preloadRouteQuery } from "@/lib/route-preload";
 
 export const Route = createFileRoute("/_app/events/")({
@@ -41,9 +42,10 @@ function PublicEventsRouteComponent() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-      <h1 className="font-display text-2xl font-semibold tracking-tight">
-        Events
-      </h1>
+      <PageHeader
+        description="What's coming up across Proud Indian. Show interest in an event to join it."
+        title="Events"
+      />
       <div className="mt-4">
         <EventsCalendarView
           data={data as PublicEventRow[]}

@@ -1,6 +1,5 @@
 import {
   Calendar03Icon,
-  Delete02Icon,
   Edit02Icon,
   PlusSignIcon,
 } from "@hugeicons/core-free-icons";
@@ -26,6 +25,7 @@ import { uuidv7 } from "uuidv7";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
 import { Tag } from "@/components/shared/status-badge";
 import { AddMemberDialog } from "@/components/teams/add-member-dialog";
 import type { EditScope } from "@/components/teams/events/edit-scope-dialog";
@@ -60,47 +60,6 @@ type TeamDialog =
   | { type: "createEvent" }
   | { type: "duplicateEvent"; event: EventDisplayRow }
   | { type: "editEvent"; event: EventDisplayRow };
-
-function TeamHeaderActions({
-  canDelete,
-  canEdit,
-  onDelete,
-  onEdit,
-}: {
-  canDelete: boolean;
-  canEdit: boolean;
-  onDelete: () => void;
-  onEdit: () => void;
-}) {
-  if (!(canEdit || canDelete)) {
-    return null;
-  }
-  return (
-    <div className="flex gap-2">
-      {canEdit ? (
-        <Button onClick={onEdit} size="sm" type="button" variant="outline">
-          <HugeiconsIcon className="size-4" icon={Edit02Icon} strokeWidth={2} />
-          Edit
-        </Button>
-      ) : null}
-      {canDelete ? (
-        <Button
-          onClick={onDelete}
-          size="sm"
-          type="button"
-          variant="destructive"
-        >
-          <HugeiconsIcon
-            className="size-4"
-            icon={Delete02Icon}
-            strokeWidth={2}
-          />
-          Delete
-        </Button>
-      ) : null}
-    </div>
-  );
-}
 
 function buildDuplicateInitialValues(row: EventDisplayRow) {
   return {
@@ -428,30 +387,38 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
   return (
     <AppErrorBoundary level="section">
       <div className="flex flex-col gap-6">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex flex-col gap-1">
-            <h1 className="font-display text-2xl font-semibold tracking-tight">
-              {team.name}
-            </h1>
-            {team.description ? (
-              <p className="text-muted-foreground text-sm">
-                {team.description}
-              </p>
-            ) : null}
-            {team.whatsappGroup ? (
-              <p className="text-muted-foreground text-sm">
-                WhatsApp: {team.whatsappGroup.name}
-              </p>
-            ) : null}
-          </div>
-          <TeamHeaderActions
-            canDelete={canDelete}
-            canEdit={canEdit}
-            onDelete={stableOnDelete0}
-            onEdit={stableOnEdit1}
-          />
-        </div>
+        <PageHeader
+          actions={
+            <>
+              {canEdit ? (
+                <Button onClick={stableOnEdit1} type="button" variant="outline">
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={Edit02Icon}
+                    strokeWidth={2}
+                  />
+                  Edit
+                </Button>
+              ) : null}
+              <PageHeaderMenu
+                actions={[
+                  canDelete && {
+                    destructive: true,
+                    id: "delete",
+                    label: "Delete team",
+                    onSelect: stableOnDelete0,
+                  },
+                ]}
+                title={team.name}
+              />
+            </>
+          }
+          description={team.description}
+          meta={[
+            team.whatsappGroup ? `WhatsApp: ${team.whatsappGroup.name}` : null,
+          ]}
+          title={team.name}
+        />
 
         <Separator />
 

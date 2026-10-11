@@ -10,6 +10,7 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
+import { PageHeader } from "@/components/shared/page-header";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { VendorDetailSheet } from "@/components/vendors/vendor-detail-sheet";
 import { VendorFormDialog } from "@/components/vendors/vendor-form-dialog";
@@ -122,9 +123,20 @@ function VendorsRouteComponent() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-      <h1 className="font-display text-2xl font-semibold tracking-tight">
-        Vendors
-      </h1>
+      <PageHeader
+        actions={
+          <Button onClick={stableOnClick1} type="button">
+            <HugeiconsIcon
+              className="size-4"
+              icon={PlusSignIcon}
+              strokeWidth={2}
+            />
+            Add vendor
+          </Button>
+        }
+        description="Suppliers Proud Indian pays, with their contact and bank details."
+        title="Vendors"
+      />
 
       <div className="mt-4 grid gap-6 *:min-w-0">
         <StatsCards variant="chips" isLoading={isLoading} items={stats} />
@@ -136,16 +148,6 @@ function VendorsRouteComponent() {
           onEdit={handleEdit}
           onUnapprove={handleUnapprove}
           onView={handleView}
-          toolbarActions={
-            <Button onClick={stableOnClick1} size="sm" type="button">
-              <HugeiconsIcon
-                className="size-4"
-                icon={PlusSignIcon}
-                strokeWidth={2}
-              />
-              Add vendor
-            </Button>
-          }
         />
       </div>
 

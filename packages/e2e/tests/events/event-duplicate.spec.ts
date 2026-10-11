@@ -1,4 +1,5 @@
 import { expect, test } from "../../fixtures/test";
+import { clickPageAction } from "../../helpers/page-header";
 import {
   SANDBOX_TEAM,
   openSeededTeam,
@@ -14,12 +15,7 @@ test.describe("Event duplication", () => {
     await openSeededTeamEvent(page, originalEventName, SANDBOX_TEAM);
 
     // Click Duplicate button
-    const duplicateButton = page.getByRole("button", { name: "Duplicate" });
-    if ((await duplicateButton.count()) === 0) {
-      test.skip(true, "Duplicate button not available");
-      return;
-    }
-    await duplicateButton.click();
+    await clickPageAction(page, "Duplicate");
 
     // Verify create dialog opens
     const dialog = page.getByRole("dialog");
@@ -69,12 +65,7 @@ test.describe("Event duplication", () => {
     await openSeededTeamEvent(page, "E2E Sandbox Source Event", SANDBOX_TEAM);
 
     // Click Duplicate
-    const duplicateButton = page.getByRole("button", { name: "Duplicate" });
-    if ((await duplicateButton.count()) === 0) {
-      test.skip(true, "Duplicate button not available");
-      return;
-    }
-    await duplicateButton.click();
+    await clickPageAction(page, "Duplicate");
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible({ timeout: 10_000 });

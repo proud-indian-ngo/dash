@@ -24,6 +24,7 @@ import type {
 } from "@/components/audit/audit-types";
 import { readSelectEquality } from "@/components/data-table/compile-filter-query";
 import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
+import { PageHeader } from "@/components/shared/page-header";
 import { ISO_DATE } from "@/lib/date-formats";
 import { dateRangeSearchParams, resolveDateRange } from "@/lib/date-range";
 import { assertPermission } from "@/lib/route-guards";
@@ -158,9 +159,10 @@ function AuditLogRoute() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-      <h1 className="font-display text-2xl font-semibold tracking-tight">
-        Audit Log
-      </h1>
+      <PageHeader
+        description="A permanent record of who changed what, and when."
+        title="Audit Log"
+      />
       <div className="mt-4">
         {loadError ? (
           <div

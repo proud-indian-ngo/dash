@@ -14,6 +14,7 @@ import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { SelectField } from "@/components/form/select-field";
+import { PageHeader } from "@/components/shared/page-header";
 import {
   editionCalendarStart,
   editionMetadataFormFields,
@@ -110,12 +111,11 @@ function NewKalakritiEditionRoute() {
       >
         Back to Kalakriti
       </Button>
-      <h1 className="font-display mt-4 text-2xl font-semibold tracking-tight">
-        Create Kalakriti Edition
-      </h1>
-      <p className="text-muted-foreground mt-2 text-sm">
-        This creates the yearly workspace and its protected organization event.
-      </p>
+      <PageHeader
+        className="mt-4"
+        description="This creates the yearly workspace and its protected organization event."
+        title="Create Kalakriti Edition"
+      />
 
       <FormLayout className="mt-8 space-y-6" form={form} showSubmitError>
         <div className="grid gap-4 sm:grid-cols-2">

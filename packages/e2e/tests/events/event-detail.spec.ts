@@ -1,4 +1,5 @@
 import { expect, test } from "../../fixtures/test";
+import { openPageAction } from "../../helpers/page-header";
 import { openPublicEvent, openSeededTeamEvent } from "../../helpers/team-event";
 
 /** Seeded public, upcoming event in "E2E Updates Team". */
@@ -32,16 +33,14 @@ test.describe("Event detail page", () => {
     ).toBeVisible();
   });
 
-  test("admin sees Edit and Cancel Event buttons for future events", async ({
+  test("admin sees Edit and Cancel event actions for future events", async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await openSeededTeamEvent(page, PUBLIC_EVENT);
     await expect(page.getByRole("button", { name: "Edit" })).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Cancel Event" })
-    ).toBeVisible();
+    await expect(await openPageAction(page, "Cancel event")).toBeVisible();
   });
 
   test("volunteer can view event detail for public event", async ({

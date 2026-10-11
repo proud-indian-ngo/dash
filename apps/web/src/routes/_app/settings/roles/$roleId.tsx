@@ -29,6 +29,7 @@ import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import { Loader } from "@/components/loader";
+import { PageHeader } from "@/components/shared/page-header";
 import { Tag } from "@/components/shared/status-badge";
 import {
   getAllPermissions,
@@ -247,15 +248,11 @@ function RoleEditPage() {
           Back to roles
         </Link>
       </div>
-      <div className="flex items-center gap-3">
-        <h1 className="font-display text-2xl font-semibold tracking-tight">
-          {roleData.name}
-        </h1>
-        {roleData.isSystem ? <Tag>System</Tag> : null}
-      </div>
-      <p className="text-muted-foreground mt-1 text-sm">
-        Role ID: {roleData.id}
-      </p>
+      <PageHeader
+        badge={roleData.isSystem ? <Tag>System</Tag> : null}
+        meta={[`Role ID: ${roleData.id}`]}
+        title={roleData.name}
+      />
       {isSystemRole ? (
         <div className="border-border bg-muted/50 text-muted-foreground mt-4 rounded-md border p-3 text-sm">
           This system role cannot be modified.

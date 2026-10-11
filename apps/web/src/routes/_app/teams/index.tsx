@@ -9,6 +9,7 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
+import { PageHeader } from "@/components/shared/page-header";
 import { TeamFormDialog } from "@/components/teams/team-form-dialog";
 import { TeamsTable } from "@/components/teams/teams-table";
 import { useApp } from "@/context/app-context";
@@ -50,9 +51,22 @@ function TeamsRouteComponent() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-      <h1 className="font-display text-2xl font-semibold tracking-tight">
-        Teams
-      </h1>
+      <PageHeader
+        actions={
+          hasPermission("teams.create") ? (
+            <Button onClick={stableOnClick1} type="button">
+              <HugeiconsIcon
+                className="size-4"
+                icon={PlusSignIcon}
+                strokeWidth={2}
+              />
+              Add team
+            </Button>
+          ) : null
+        }
+        description="Volunteer teams, their members and the events they run."
+        title="Teams"
+      />
 
       <div className="mt-4 grid gap-6 *:min-w-0">
         <TeamsTable
@@ -60,18 +74,6 @@ function TeamsRouteComponent() {
           isLoading={isLoading}
           onDelete={handleDelete}
           onNavigate={stableOnNavigate0}
-          toolbarActions={
-            hasPermission("teams.create") ? (
-              <Button onClick={stableOnClick1} size="sm" type="button">
-                <HugeiconsIcon
-                  className="size-4"
-                  icon={PlusSignIcon}
-                  strokeWidth={2}
-                />
-                Add team
-              </Button>
-            ) : undefined
-          }
         />
       </div>
 

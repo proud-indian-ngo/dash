@@ -24,6 +24,7 @@ import { uuidv7 } from "uuidv7";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,7 +44,7 @@ import {
 } from "@/functions/event-poll";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useDialogManager } from "@/hooks/use-dialog-manager";
-import { LONG_DATE_TIME } from "@/lib/date-formats";
+import { LONG_DATE_TIME, SHORT_MONTH_DATE_TIME } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 import { AddEventMemberDialog } from "./add-event-member-dialog";
@@ -385,7 +386,6 @@ function EventHeader({
   canCancel,
   canCreate,
   canEdit,
-  canManage,
   canPostPoll,
   event,
   onCancel,
@@ -398,7 +398,6 @@ function EventHeader({
   canCancel: boolean;
   canCreate: boolean;
   canEdit: boolean;
-  canManage: boolean;
   canPostPoll: boolean;
   event: EventRow;
   onCancel: () => void;
@@ -415,48 +414,54 @@ function EventHeader({
   );
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <h1 className="font-display text-2xl font-semibold tracking-tight">
-            {event.name}
-          </h1>
-          <StatusBadge tone={tone}>{label}</StatusBadge>
-        </div>
-        <button
-          className="text-muted-foreground text-left text-sm hover:underline"
-          onClick={stableOnClick1}
-          type="button"
-        >
-          {teamName}
-        </button>
-      </div>
-      {canManage || canCancel || canCreate || canPostPoll || canEdit ? (
-        <div className="flex gap-2">
-          {canCreate ? (
-            <Button onClick={onDuplicate} size="sm" variant="outline">
-              Duplicate
-            </Button>
-          ) : null}
-          {canPostPoll ? (
-            <Button onClick={onPostPoll} size="sm" variant="outline">
-              Post Poll
-            </Button>
-          ) : null}
+    <PageHeader
+      actions={
+        <>
           {canEdit ? (
-            <Button onClick={onEdit} size="sm" variant="outline">
+            <Button onClick={onEdit} type="button" variant="outline">
               <HugeiconsIcon className="size-4" icon={Edit02Icon} />
               Edit
             </Button>
           ) : null}
-          {canCancel ? (
-            <Button onClick={onCancel} size="sm" variant="destructive">
-              Cancel Event
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
+          <PageHeaderMenu
+            actions={[
+              canCreate && {
+                id: "duplicate",
+                label: "Duplicate",
+                onSelect: onDuplicate,
+              },
+              canPostPoll && {
+                id: "post-poll",
+                label: "Post poll",
+                onSelect: onPostPoll,
+              },
+              canCancel && {
+                destructive: true,
+                id: "cancel",
+                label: "Cancel event",
+                onSelect: onCancel,
+              },
+            ]}
+            title={event.name}
+          />
+        </>
+      }
+      badge={<StatusBadge tone={tone}>{label}</StatusBadge>}
+      meta={[
+        teamName ? (
+          <button
+            className="hover:text-foreground text-left hover:underline"
+            key="team"
+            onClick={stableOnClick1}
+            type="button"
+          >
+            {teamName}
+          </button>
+        ) : null,
+        format(new Date(event.startTime), SHORT_MONTH_DATE_TIME),
+      ]}
+      title={event.name}
+    />
   );
 }
 
@@ -1087,7 +1092,6 @@ export function EventDetail({
           canCancel={canCancel}
           canCreate={canCreate}
           canEdit={canEdit}
-          canManage={canManage}
           canPostPoll={canPostPoll}
           event={event}
           onCancel={handleCancelClick}

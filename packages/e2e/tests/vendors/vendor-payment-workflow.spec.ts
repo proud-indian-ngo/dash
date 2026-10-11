@@ -171,7 +171,7 @@ test.describe("Vendor payment workflow (volunteer)", () => {
     const title = await createVolunteerVP(page, "Volunteer");
 
     await expect(page.getByRole("heading", { name: title })).toBeVisible();
-    await page.getByRole("button", { name: "Edit submission" }).click();
+    await page.getByRole("button", { exact: true, name: "Edit" }).click();
 
     await expect(
       page.getByRole("heading", { name: "Edit Vendor Payment" })

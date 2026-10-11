@@ -16,7 +16,7 @@ export class ApprovalDetailPage {
   }
 
   getEditSubmissionButton(): Locator {
-    return this.page.getByRole("button", { name: "Edit submission" });
+    return this.page.getByRole("button", { exact: true, name: "Edit" });
   }
 
   getViewDetailsButton(): Locator {

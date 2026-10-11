@@ -17,6 +17,7 @@ import { FormModal } from "@/components/form/form-modal";
 import { InputField } from "@/components/form/input-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import { RolesTable } from "@/components/roles/roles-table";
+import { PageHeader } from "@/components/shared/page-header";
 import {
   createRole,
   deleteRole,
@@ -131,25 +132,22 @@ function RolesPage() {
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-      <h1 className="font-display text-2xl font-semibold tracking-tight">
-        Roles
-      </h1>
+      <PageHeader
+        actions={
+          <Button onClick={stableOnClick1} type="button">
+            <HugeiconsIcon
+              className="size-4"
+              icon={PlusSignIcon}
+              strokeWidth={2}
+            />
+            Add role
+          </Button>
+        }
+        description="What each role can see and do."
+        title="Roles"
+      />
       <div className="fade-in-0 animate-in fill-mode-backwards mt-4 grid gap-6 duration-200 *:min-w-0">
-        <RolesTable
-          data={roles}
-          isLoading={loading}
-          onDelete={handleDelete}
-          toolbarActions={
-            <Button onClick={stableOnClick1} size="sm" type="button">
-              <HugeiconsIcon
-                className="size-4"
-                icon={PlusSignIcon}
-                strokeWidth={2}
-              />
-              Add role
-            </Button>
-          }
-        />
+        <RolesTable data={roles} isLoading={loading} onDelete={handleDelete} />
       </div>
 
       <FormModal

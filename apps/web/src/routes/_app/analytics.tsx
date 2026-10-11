@@ -15,6 +15,7 @@ import {
 } from "@/components/data-table/filter-fields";
 import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
 import { useMigrateLegacyFilterParams } from "@/components/data-table/use-migrate-legacy-filter-params";
+import { PageHeader } from "@/components/shared/page-header";
 import { StatsCards } from "@/components/stats/stats-cards";
 import {
   dateRangeSearchParams,
@@ -189,22 +190,22 @@ function AnalyticsPage() {
 
   return (
     <div className="app-container fade-in-0 animate-in ease-out-expo mx-auto max-w-7xl px-2 py-6 duration-150 sm:px-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="font-display text-2xl font-semibold tracking-tight">
-          Analytics
-        </h1>
-        <div className="flex items-center gap-2">
-          {hasMultipleCities ? (
-            <DataTableFiltersBar
-              allowAdvanced={false}
-              fields={ANALYTICS_CITY_FILTER_FIELDS}
-              onQueryChange={setQuery}
-              query={query}
-            />
-          ) : null}
-          <DateRangeFilter />
-        </div>
-      </div>
+      <PageHeader
+        actions={
+          <>
+            {hasMultipleCities ? (
+              <DataTableFiltersBar
+                allowAdvanced={false}
+                fields={ANALYTICS_CITY_FILTER_FIELDS}
+                onQueryChange={setQuery}
+                query={query}
+              />
+            ) : null}
+            <DateRangeFilter />
+          </>
+        }
+        title="Analytics"
+      />
 
       <div className="mt-4">
         <StatsCards isLoading={isLoading} items={stats} />
