@@ -71,13 +71,13 @@ test.describe("Event feedback — admin", () => {
 });
 
 test.describe("Event feedback — volunteer", () => {
-  // Submit then edit the same feedback, in order.
-  test.describe.configure({ mode: "serial" });
   test.beforeEach(({ page: _page }, testInfo) => {
     test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
   });
 
-  test("submits anonymous feedback on a past event", async ({ page }) => {
+  // One test: CI shards split tests apart, so editing can't rely on an
+  // earlier test having submitted the feedback.
+  test("submits and then edits own anonymous feedback", async ({ page }) => {
     test.slow();
 
     await openPublicEvent(page, SEEDED_FEEDBACK_EVENT);
@@ -87,60 +87,42 @@ test.describe("Event feedback — volunteer", () => {
     await expect(feedbackTab).toBeVisible({ timeout: 10_000 });
     await feedbackTab.click();
 
-    // Write feedback in the editor and save
-    const feedbackText = `E2E anonymous feedback ${Date.now()}`;
-    const editor = page.locator("[data-slate-editor]").first();
-    await editor.click();
-    await page.keyboard.type(feedbackText);
-    await page.getByRole("button", { name: "Save" }).first().click();
-    await expect(page.getByText("Feedback submitted")).toBeVisible({
-      timeout: 10_000,
-    });
+    // Submit feedback first, unless a retry on the same data already did
+    const panel = page.getByRole("tabpanel", { name: "Feedback" });
+    const editButton = panel.getByRole("button", { exact: true, name: "Edit" });
+    const editor = panel.locator("[data-slate-editor]");
+    await expect(editButton.or(editor)).toBeVisible({ timeout: 10_000 });
+    if (!(await editButton.isVisible())) {
+      const feedbackText = `E2E anonymous feedback ${Date.now()}`;
+      await editor.click();
+      await page.keyboard.type(feedbackText);
+      await panel.getByRole("button", { name: "Save" }).click();
+      await expect(page.getByText("Feedback submitted")).toBeVisible({
+        timeout: 10_000,
+      });
+      await expect(page.getByText(feedbackText)).toBeVisible({
+        timeout: 10_000,
+      });
+    }
 
-    // Verify the submitted feedback content appears
-    await expect(page.getByText(feedbackText)).toBeVisible({
-      timeout: 10_000,
-    });
+    // Click Edit to modify the feedback
+    await editButton.click();
 
-    // Verify Edit button is visible
-    await expect(
-      page.getByRole("button", { exact: true, name: "Edit" })
-    ).toBeVisible();
-  });
-
-  test("edits own anonymous feedback", async ({ page }) => {
-    test.slow();
-
-    await openPublicEvent(page, SEEDED_FEEDBACK_EVENT);
-
-    // Click the Feedback tab
-    const feedbackTab = page.getByRole("tab", { name: /Feedback/ });
-    await expect(feedbackTab).toBeVisible({ timeout: 10_000 });
-    await feedbackTab.click();
-
-    // Click Edit to modify existing feedback
-    await page.getByRole("button", { exact: true, name: "Edit" }).click();
-
-    // Clear and type updated content
+    // Replace the content
     const updatedText = `E2E updated feedback ${Date.now()}`;
-    const editor = page.locator("[data-slate-editor]").first();
     await expect(editor).toBeVisible();
     await editor.click();
     await page.keyboard.press("ControlOrMeta+A");
     await page.keyboard.type(updatedText);
 
     // Save the update
-    await page.getByRole("button", { name: "Save" }).first().click();
+    await panel.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Feedback updated")).toBeVisible({
       timeout: 10_000,
     });
-
-    // Verify updated content appears
     await expect(page.getByText(updatedText)).toBeVisible({
       timeout: 10_000,
     });
-
-    // Verify "(edited)" label appears
     await expect(page.getByText("(edited)")).toBeVisible({ timeout: 10_000 });
   });
 });
