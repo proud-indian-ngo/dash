@@ -64,7 +64,6 @@ function renderStudent(row: StudentTableRow, complete = true) {
       isLoading={false}
       onDelete={noop}
       onEdit={noop}
-      onRegister={noop}
       onView={noop}
     />
   );

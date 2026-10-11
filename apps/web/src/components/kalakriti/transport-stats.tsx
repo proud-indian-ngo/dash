@@ -66,10 +66,10 @@ export function TransportStats({
       className="flex flex-col gap-4"
     >
       <div>
-        <h2 className="text-sm font-semibold" id="transport-stats-title">
+        <h2 className="sr-only" id="transport-stats-title">
           Transport readiness
         </h2>
-        <p className="text-muted-foreground text-xs">{scopeLabel}</p>
+        <p className="sr-only">{scopeLabel}</p>
       </div>
       {!complete && counts ? (
         <p className="text-muted-foreground text-xs" role="status">

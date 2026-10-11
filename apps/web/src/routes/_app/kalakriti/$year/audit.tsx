@@ -238,6 +238,16 @@ function KalakritiAuditPage({
             the current page only.
           </p>
         }
+        actions={
+          <Button onClick={handleRefresh} variant="outline">
+            <HugeiconsIcon
+              className="size-4"
+              icon={ArrowReloadHorizontalIcon}
+              strokeWidth={2}
+            />
+            Refresh
+          </Button>
+        }
       />
       {error && !isLoading ? (
         <div className="border-destructive/30 bg-destructive/5 flex flex-wrap items-center justify-between gap-3 border p-3">
@@ -253,16 +263,6 @@ function KalakritiAuditPage({
         rowCount={total}
         rows={rows}
         timeZone={access.edition.timezone}
-        toolbarActions={
-          <Button onClick={handleRefresh} size="sm" variant="outline">
-            <HugeiconsIcon
-              className="size-4"
-              icon={ArrowReloadHorizontalIcon}
-              strokeWidth={2}
-            />
-            Refresh
-          </Button>
-        }
       />
     </div>
   );

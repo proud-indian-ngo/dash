@@ -150,10 +150,12 @@ function awardRow(page: Page, competition: string, award: string): Locator {
 
 async function expectMetric(page: Page, label: string, value: number) {
   const summary = page.getByRole("group", { name: "Award handover summary" });
-  const metric = summary.locator("dl").filter({
+  const metric = summary.locator('[data-slot="stat-chip"]').filter({
     has: page.getByText(label, { exact: true }),
   });
-  await expect(metric.locator("dd").first()).toHaveText(String(value));
+  await expect(metric.locator('[data-slot="stat-value"]')).toHaveText(
+    String(value)
+  );
 }
 
 async function selectFilter(page: Page, field: string, value: string) {

@@ -59,7 +59,6 @@ it("derives each row action from its actual Center rather than the global create
       onDelete={noop}
       onEdit={noop}
       onView={noop}
-      onRegister={noop}
     />
   );
   expect(captured.compactOnMobile).toBe(true);

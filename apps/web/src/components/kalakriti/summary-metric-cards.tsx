@@ -1,73 +1,67 @@
-import { Button } from "@pi-dash/design-system/components/ui/button";
-import { Card, CardContent } from "@pi-dash/design-system/components/ui/card";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 
-const accents = [
-  "border-t-brand",
-  "border-t-info",
-  "border-t-success",
-  "border-t-warning",
-] as const;
+import type { StatusTone } from "@/components/shared/status-badge";
+import { StatChip } from "@/components/stats/stats-cards";
 
+export interface SummaryMetric {
+  label: string;
+  value: number | string | undefined;
+  /** Filters the table below; the chip becomes a button. */
+  onClick?: () => void;
+  actionLabel?: string;
+  description?: string;
+  /** Tints the chip, e.g. "warning" for a gap that needs attention. */
+  tone?: StatusTone;
+}
+
+// Gap counts ("Without Guardians", "Competitions without Judges", "Below
+// minimum", "Out of stock") are tinted when non-zero so the numbers that need
+// action stand out. Waiting counts ("Awaiting lunch") stay neutral.
+const GAP_LABEL = /\b(without|unassigned|below minimum|out of stock|gaps?)\b/i;
+
+function toneFor(metric: SummaryMetric): StatusTone | undefined {
+  if (metric.tone) return metric.tone;
+  return typeof metric.value === "number" &&
+    metric.value > 0 &&
+    GAP_LABEL.test(metric.label)
+    ? "warning"
+    : undefined;
+}
+
+/**
+ * Kalakriti page counts as the shared stat chips used on every list page.
+ * A chip with `onClick` filters the table; undefined values show a skeleton.
+ */
 export function SummaryMetricCards({
   metrics,
   label,
 }: {
-  metrics: readonly {
-    label: string;
-    value: number | string | undefined;
-    onClick?: () => void;
-    actionLabel?: string;
-    description?: string;
-  }[];
+  metrics: readonly SummaryMetric[];
   label?: string;
 }) {
   return (
-    <div
-      role="group"
-      aria-label={label}
-      className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 lg:grid-cols-[repeat(auto-fit,minmax(180px,1fr))]"
-    >
-      {metrics.map((metric, index) => (
-        <Card
-          className={`bg-card min-w-0 border-t-2 ${accents[index % accents.length]}`}
+    <div aria-label={label} className="flex flex-wrap gap-2" role="group">
+      {metrics.map((metric) => (
+        <StatChip
+          item={{
+            actionLabel: metric.onClick
+              ? (metric.actionLabel ?? `Show ${metric.label.toLowerCase()}`)
+              : undefined,
+            description: metric.description,
+            label: metric.label,
+            onClick: metric.onClick,
+            tone: toneFor(metric),
+            value:
+              metric.value === undefined ? (
+                <Skeleton className="h-4 w-8" />
+              ) : typeof metric.value === "number" ? (
+                metric.value.toLocaleString("en-IN")
+              ) : (
+                metric.value
+              ),
+          }}
           key={metric.label}
-          size="sm"
-        >
-          <CardContent>
-            <dl className="flex h-full flex-col gap-1">
-              <dt className="text-muted-foreground text-xs">{metric.label}</dt>
-              <dd className="font-display flex min-h-11 items-center text-2xl font-semibold tabular-nums sm:min-h-10">
-                {metric.value === undefined ? (
-                  <Skeleton className="h-7 w-16" />
-                ) : metric.onClick ? (
-                  <Button
-                    aria-label={
-                      metric.actionLabel ?? `Show ${metric.label.toLowerCase()}`
-                    }
-                    className="-ml-2 min-h-11 min-w-11 px-2 text-2xl font-semibold tabular-nums sm:min-h-10"
-                    onClick={metric.onClick}
-                    type="button"
-                    variant="link"
-                  >
-                    {typeof metric.value === "number"
-                      ? metric.value.toLocaleString("en-IN")
-                      : metric.value}
-                  </Button>
-                ) : typeof metric.value === "number" ? (
-                  metric.value.toLocaleString("en-IN")
-                ) : (
-                  metric.value
-                )}
-              </dd>
-              {metric.description ? (
-                <dd className="text-muted-foreground text-xs">
-                  {metric.description}
-                </dd>
-              ) : null}
-            </dl>
-          </CardContent>
-        </Card>
+        />
       ))}
     </div>
   );

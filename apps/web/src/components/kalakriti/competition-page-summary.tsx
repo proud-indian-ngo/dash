@@ -49,8 +49,8 @@ export function CompetitionPageSummary({
   return (
     <section className="flex flex-col gap-3" aria-label={title}>
       <header className="space-y-1">
-        <h2 className="text-sm font-semibold">{title}</h2>
-        <p className="text-muted-foreground text-xs">{description}</p>
+        <h2 className="sr-only">{title}</h2>
+        <p className="sr-only">{description}</p>
       </header>
       <SummaryMetricCards
         metrics={metrics.map((metric) => ({

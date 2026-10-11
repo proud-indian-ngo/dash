@@ -352,6 +352,17 @@ function KalakritiStudentsPage() {
       <KalakritiPageHeader
         kicker={`Kalakriti · ${edition.year}`}
         title="Students"
+        actions={
+          writableCenters.length > 0 ? (
+            <Button onClick={handleRegister}>Register student</Button>
+          ) : null
+        }
+        meta={
+          <p>
+            Every Student registered through your Centers, with the Competitions
+            they've entered.
+          </p>
+        }
       />
       {writableCenters.length === 0 ? (
         <KalakritiLockNotice>
@@ -396,7 +407,6 @@ function KalakritiStudentsPage() {
         isLoading={rows.length === 0 && studentsResult.type !== "complete"}
         onDelete={handleDelete}
         onEdit={handleEdit}
-        onRegister={handleRegister}
         onView={handleView}
       />
       {viewingStudent && viewingCenter ? (

@@ -398,6 +398,13 @@ function KalakritiCentersPage() {
       <KalakritiPageHeader
         kicker={`Kalakriti · ${edition.year}`}
         title="Centers"
+        actions={toolbarActions}
+        meta={
+          <p>
+            Schools and communities taking part this Edition, with their
+            registration and transport.
+          </p>
+        }
       />
 
       {canManageCenters && centerStructureLocked ? (
@@ -463,7 +470,6 @@ function KalakritiCentersPage() {
         onRetire={retireAction.trigger}
         onView={handleViewCenter}
         registrationPhaseOpen={edition.lifecycle === "registration_open"}
-        toolbarActions={toolbarActions}
       />
 
       <CenterDetailSheet

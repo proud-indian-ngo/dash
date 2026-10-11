@@ -142,6 +142,12 @@ export function AwardsWorkspace({
       <KalakritiPageHeader
         kicker={`Kalakriti · ${access.edition.year}`}
         title="Awards"
+        meta={
+          <p>
+            Hand over prizes to winners once their Competition's results are
+            published.
+          </p>
+        }
       />
       <p className="text-muted-foreground max-w-3xl text-sm">
         Hand over prizes for published Competition winners and runners-up. Each

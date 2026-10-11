@@ -86,19 +86,18 @@ function KalakritiTransportPage() {
       <KalakritiPageHeader
         kicker={`Kalakriti · ${edition.year}`}
         title="Transport"
+        actions={
+          canScan ? (
+            <Button onClick={() => setScanOpen(true)}>Scan transport</Button>
+          ) : null
+        }
+        meta={
+          <p>
+            One row per vehicle, plus a row for each Center without a vehicle.
+            Pickup times use your local time.
+          </p>
+        }
       />
-      <p className="text-muted-foreground text-sm">
-        One row per vehicle, plus a row for each Center without a vehicle.
-        Pickup times use your local time.
-      </p>
-      {canScan ? (
-        <Button
-          className="min-h-10 max-sm:min-h-11"
-          onClick={() => setScanOpen(true)}
-        >
-          Scan transport
-        </Button>
-      ) : null}
       <TransportStats
         centers={centers}
         complete={result.type === "complete"}

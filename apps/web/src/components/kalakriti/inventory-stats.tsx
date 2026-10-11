@@ -52,10 +52,10 @@ export function InventoryStats({
       className="flex flex-col gap-3"
     >
       <div>
-        <h2 className="text-sm font-semibold" id="inventory-stats-title">
+        <h2 className="sr-only" id="inventory-stats-title">
           Stock in scope
         </h2>
-        <p className="text-muted-foreground text-xs">All authorized items</p>
+        <p className="sr-only">All authorized items</p>
       </div>
       {!complete && counts ? (
         <p className="text-muted-foreground text-xs" role="status">

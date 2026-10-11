@@ -9,19 +9,25 @@ import {
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { Link } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 
 import type { StatusTone } from "@/components/shared/status-badge";
 
 const STAGGER_DELAY_MS = 50;
 
 export interface StatItem {
+  /** Accessible name for a chip that filters on click. */
+  actionLabel?: string;
   description?: string;
   href?: string;
   icon?: IconSvgElement;
   label: string;
+  /** Makes the chip a button, e.g. to filter the table below. */
+  onClick?: () => void;
   /** Tints the KPI chip. Cards stay neutral. */
   tone?: StatusTone;
-  value: string | number;
+  /** A node is allowed so a chip can show a skeleton while loading. */
+  value: ReactNode;
 }
 
 export function StatCard({
@@ -116,7 +122,7 @@ const CHIP_TONE: Record<StatusTone, string> = {
 };
 
 /** A compact KPI chip for pages where a table's view tabs already show counts. */
-function StatChip({ item }: { item: StatItem }) {
+export function StatChip({ item }: { item: StatItem }) {
   const chip = (
     <span
       className={cn(
@@ -138,7 +144,12 @@ function StatChip({ item }: { item: StatItem }) {
       <span className="text-muted-foreground" data-slot="stat-label">
         {item.label}
       </span>
-      <span className="font-mono font-semibold tabular-nums">{item.value}</span>
+      <span
+        className="font-mono font-semibold tabular-nums"
+        data-slot="stat-value"
+      >
+        {item.value}
+      </span>
       {item.description ? (
         <span className="text-muted-foreground font-mono text-xs tabular-nums">
           {item.description}
@@ -154,6 +165,18 @@ function StatChip({ item }: { item: StatItem }) {
       >
         {chip}
       </Link>
+    );
+  }
+  if (item.onClick) {
+    return (
+      <button
+        aria-label={item.actionLabel}
+        className="hover:bg-muted/40 focus-visible:ring-ring/50 rounded-lg transition-colors outline-none focus-visible:ring-3"
+        onClick={item.onClick}
+        type="button"
+      >
+        {chip}
+      </button>
     );
   }
   return chip;

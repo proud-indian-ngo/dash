@@ -161,7 +161,7 @@ export function AttendeesTable({
   onEdit: (row: AttendeeRow) => void;
   onRemove: (row: AttendeeRow) => void;
   onAssign: (row: AttendeeRow) => void;
-  toolbarActions: ReactNode;
+  toolbarActions?: ReactNode;
 }) {
   const columns = useMemo<DataGridColumnDef<AttendeeRow>[]>(() => {
     const text = (

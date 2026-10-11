@@ -188,7 +188,10 @@ function watchOutsideCenter(page: Page) {
     ).toBe(false);
 }
 const foodCount = (page: Page, label: string) =>
-  page.getByText(label, { exact: true }).locator("..").getByRole("definition");
+  page
+    .locator('[data-slot="stat-chip"]')
+    .filter({ has: page.getByText(label, { exact: true }) })
+    .locator('[data-slot="stat-value"]');
 const eligibleMealProgress = (page: Page, meal: "Breakfast" | "Lunch") =>
   page.getByRole("progressbar", {
     name: `${meal} served to currently eligible people`,
@@ -1294,7 +1297,7 @@ async function openGuardianInvite(page: Page, year: number, email: string) {
   await page.goto(`/kalakriti/${year}/guardians`);
   await waitForZeroReady(page);
   await page
-    .getByRole("button", { name: "Invite Guardian", exact: true })
+    .getByRole("button", { name: "Invite guardian", exact: true })
     .click();
   const dialog = page.getByRole("dialog", {
     name: "Invite Guardian",
@@ -1828,7 +1831,7 @@ test("Students directory unions assigned Centers while creation, quota and trans
       // This test exercises the initial wizard itself, before choosing a Center.
       await guardian
         .locator("#main")
-        .getByRole("button", { name: "Register Student", exact: true })
+        .getByRole("button", { name: "Register student", exact: true })
         .click();
       const dialog = guardian.getByRole("dialog", {
         name: "Register Student",
@@ -1892,7 +1895,7 @@ test("Students directory unions assigned Centers while creation, quota and trans
     await waitForZeroReady(guardian);
     await expect(
       guardian
-        .getByRole("button", { name: "Register Student", exact: true })
+        .getByRole("button", { name: "Register student", exact: true })
         .and(guardian.locator(":enabled"))
     ).toHaveCount(0);
     await expect(

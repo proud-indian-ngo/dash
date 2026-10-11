@@ -385,6 +385,25 @@ function CompetitionCatalogPage() {
             manage its Entries and results.
           </p>
         }
+        actions={
+          canManage ? (
+            <Button
+              disabled={
+                categoryViews.length === 0 ||
+                ageCategoryResult.type !== "complete" ||
+                venueResult.type !== "complete"
+              }
+              onClick={handleAddCompetition}
+            >
+              <HugeiconsIcon
+                className="size-4"
+                icon={PlusSignIcon}
+                strokeWidth={2}
+              />
+              Add competition
+            </Button>
+          ) : null
+        }
       />
       <CompetitionPageSummary
         error={summaryError}
@@ -413,7 +432,7 @@ function CompetitionCatalogPage() {
             ).length,
           },
           {
-            label: "Active without Divisions",
+            label: "Without Divisions",
             value: rows.filter(
               (competition) =>
                 competition.cancelledAt === null &&
@@ -472,26 +491,6 @@ function CompetitionCatalogPage() {
         onSetState={handleSetState}
         onView={handleViewCompetition}
         onDetails={handleViewConfiguration}
-        toolbarActions={
-          canManage ? (
-            <Button
-              disabled={
-                categoryViews.length === 0 ||
-                ageCategoryResult.type !== "complete" ||
-                venueResult.type !== "complete"
-              }
-              onClick={handleAddCompetition}
-              size="sm"
-            >
-              <HugeiconsIcon
-                className="size-4"
-                icon={PlusSignIcon}
-                strokeWidth={2}
-              />
-              Add Competition
-            </Button>
-          ) : null
-        }
       />
 
       {canViewConfiguration ? (

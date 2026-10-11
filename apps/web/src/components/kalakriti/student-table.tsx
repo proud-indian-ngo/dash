@@ -1,7 +1,6 @@
 import { Delete02Icon, Edit02Icon, ViewIcon } from "@hugeicons/core-free-icons";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
-import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
@@ -112,7 +111,6 @@ interface StudentTableProps {
   isLoading: boolean;
   onDelete: (student: KalakritiStudentRow) => void;
   onEdit: (student: KalakritiStudentRow) => void;
-  onRegister: () => void;
   onView: (student: KalakritiStudentRow) => void;
 }
 
@@ -135,7 +133,6 @@ export function StudentTable({
   isLoading,
   onDelete,
   onEdit,
-  onRegister,
   onView,
 }: StudentTableProps) {
   const { labels, pending } = useTransportStatusSnapshot({
@@ -364,11 +361,6 @@ export function StudentTable({
         columnsResizable: true,
         columnsVisibility: true,
       }}
-      toolbarActions={
-        canManage ? (
-          <Button onClick={onRegister}>Register Student</Button>
-        ) : null
-      }
     />
   );
 }
