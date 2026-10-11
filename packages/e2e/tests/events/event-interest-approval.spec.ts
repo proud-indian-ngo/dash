@@ -1,99 +1,61 @@
-import type { Page } from "@playwright/test";
-
 import { expect, test } from "../../fixtures/test";
+import { openSeededTeamEvent } from "../../helpers/team-event";
 
-async function navigateToEventWithPendingInterest(
-  page: Page
-): Promise<boolean> {
-  await page.goto("/events");
-  await expect(
-    page.getByRole("heading", { exact: true, name: "Events" })
-  ).toBeVisible({
-    timeout: 10_000,
+const EVENT_NAME = "E2E Upcoming Event With Pending Interests";
+/** The Undo window plus a margin, so the delayed save has run. */
+const SAVE_WAIT_MS = 6000;
+
+test.describe("Event interest approval (admin)", () => {
+  test.describe.configure({ mode: "serial" });
+
+  test.beforeEach(async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
+    test.slow();
+    await openSeededTeamEvent(page, EVENT_NAME);
+    await expect(page.getByText(/Interest Requests \(\d+\)/)).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
-  const eventLink = page
-    .getByRole("table")
-    .getByRole("link")
-    .filter({ hasText: /.+/ });
-  if ((await eventLink.count()) === 0) {
-    return false;
-  }
+  test("approves an interest request, with Undo", async ({ page }) => {
+    const approve = page.getByRole("button", {
+      exact: true,
+      name: "Approve Test Volunteer",
+    });
 
-  const linkCount = await eventLink.count();
+    // Undo cancels the save, so the request stays pending after a reload
+    await approve.click();
+    await expect(page.getByText("Interest approved")).toBeVisible();
+    await expect(approve).toBeHidden();
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect(approve).toBeVisible();
+    await page.waitForTimeout(SAVE_WAIT_MS);
+    await page.reload();
+    await expect(approve).toBeVisible({ timeout: 10_000 });
 
-  const findRequest = async (index: number): Promise<boolean> => {
-    if (index >= Math.min(linkCount, 5)) {
-      return false;
-    }
-    await eventLink.nth(index).click();
-    await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
+    // Approve for real and let the Undo window pass
+    await approve.click();
+    await expect(page.getByText("Interest approved")).toBeVisible();
+    await page.waitForTimeout(SAVE_WAIT_MS);
+    await page.reload();
+    await expect(page.getByText(/Interest Requests \(\d+\)/)).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(approve).toHaveCount(0);
+  });
+
+  test("rejects an interest request", async ({ page }) => {
+    const reject = page.getByRole("button", {
+      exact: true,
+      name: "Reject Test Finance Admin",
+    });
+    await reject.click();
+    await expect(page.getByText("Interest rejected")).toBeVisible();
+    await page.waitForTimeout(SAVE_WAIT_MS);
+    await page.reload();
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
       timeout: 10_000,
     });
-
-    const interestHeading = page.getByText(/Interest Requests \(\d+\)/);
-    if (await interestHeading.isVisible({ timeout: 3000 }).catch(() => false)) {
-      return true;
-    }
-
-    await page.goto("/events");
-    await expect(
-      page.getByRole("heading", { exact: true, name: "Events" })
-    ).toBeVisible({
-      timeout: 10_000,
-    });
-    return findRequest(index + 1);
-  };
-
-  return findRequest(0);
-}
-
-test.describe("Event interest approval (admin)", () => {
-  test.beforeEach(({ page: _page }, testInfo) => {
-    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
-  });
-
-  test("admin approves a pending interest request", async ({ page }) => {
-    test.slow();
-
-    const found = await navigateToEventWithPendingInterest(page);
-    if (!found) {
-      test.skip(
-        true,
-        "No events with pending interest requests — run volunteer interest tests first"
-      );
-      return;
-    }
-
-    const approveButton = page.getByRole("button", {
-      name: /^Approve /,
-    });
-    await expect(approveButton.first()).toBeVisible();
-    await approveButton.first().click();
-
-    await expect(page.getByText("Interest approved")).toBeVisible({
-      timeout: 10_000,
-    });
-  });
-
-  test("admin rejects a pending interest request", async ({ page }) => {
-    test.slow();
-
-    const found = await navigateToEventWithPendingInterest(page);
-    if (!found) {
-      test.skip(true, "No events with pending interest requests");
-      return;
-    }
-
-    const rejectButton = page.getByRole("button", {
-      name: /^Reject /,
-    });
-    await expect(rejectButton.first()).toBeVisible();
-    await rejectButton.first().click();
-
-    await expect(page.getByText("Interest rejected")).toBeVisible({
-      timeout: 10_000,
-    });
+    await expect(reject).toHaveCount(0);
   });
 });

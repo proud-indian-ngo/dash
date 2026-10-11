@@ -32,7 +32,11 @@ import {
 } from "@/lib/form-schemas";
 
 import type { FormInstance } from "./form-context";
-import { useResolvedForm } from "./form-context";
+import {
+  blurField,
+  shouldShowFieldErrors,
+  useResolvedForm,
+} from "./form-context";
 
 interface ArrayFieldApi {
   pushValue: (value: LineItem) => void;
@@ -45,7 +49,7 @@ interface SubFieldApi {
   handleChange: (value: string) => void;
   name: string;
   state: {
-    meta: { errors: unknown[]; isBlurred: boolean };
+    meta: { errors: unknown[]; isBlurred: boolean; isDirty?: boolean };
     value: string;
   };
 }
@@ -82,7 +86,7 @@ interface LineItemRowProps {
 }
 
 function subFieldErrorProps(field: SubFieldApi, submitted: boolean) {
-  const showErrors = field.state.meta.isBlurred || submitted;
+  const showErrors = shouldShowFieldErrors(field.state.meta, submitted);
   const hasError = showErrors && field.state.meta.errors.length > 0;
   const errorId = `${field.name}-error`;
   return { errorId, hasError };
@@ -190,7 +194,7 @@ function LineTextInput({
         aria-label={`${label} for line item ${index + 1}`}
         inputMode={type === "number" ? "decimal" : undefined}
         min={type === "number" ? "0" : undefined}
-        onBlur={field.handleBlur}
+        onBlur={(event) => blurField(field, event)}
         onChange={handleChange}
         placeholder={placeholder}
         step={type === "number" ? "0.01" : undefined}

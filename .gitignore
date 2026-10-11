@@ -82,6 +82,7 @@ packages/e2e/.auth/
 packages/e2e/.test-durations.json
 packages/e2e/shard-lists/
 packages/e2e/test-results/
+packages/e2e/.run-e2e.lock/
 packages/e2e/playwright-report/
 
 # Amp orb runtime files
