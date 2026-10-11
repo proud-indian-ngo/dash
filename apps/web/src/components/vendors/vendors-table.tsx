@@ -478,7 +478,7 @@ export function VendorsTable({
         toolbarActions={toolbarActions}
       />
       <ConfirmDialog
-        confirmLabel="Delete"
+        confirmLabel="Delete vendor"
         description="This will permanently delete this vendor. This action cannot be undone."
         loading={deleteAction.isLoading}
         loadingLabel="Deleting..."

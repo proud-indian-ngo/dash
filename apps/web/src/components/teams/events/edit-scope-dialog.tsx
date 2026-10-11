@@ -53,7 +53,7 @@ export function EditScopeDialog({
 }: EditScopeDialogProps) {
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="sm:max-w-xs">
+      <DialogContent className="sm:max-w-(--dialog-sm)">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription className="sr-only">

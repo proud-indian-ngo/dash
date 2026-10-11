@@ -553,7 +553,7 @@ function CompetitionCatalogPage() {
         open={competitionDialogOpen}
       />
       <ConfirmDialog
-        confirmLabel="Delete"
+        confirmLabel="Delete configuration"
         description={`Delete ${deleteAction.payload?.name ?? "this configuration"}? Referenced records must be retired or cancelled instead.`}
         loading={deleteAction.isLoading}
         onConfirm={deleteAction.confirm}

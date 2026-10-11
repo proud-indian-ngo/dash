@@ -868,7 +868,7 @@ export function EntryFormDialog(props: EntryFormDialogProps) {
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={props.open}>
-      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-xl">
+      <DialogContent className="sm:max-w-(--dialog-lg)">
         <DialogHeader>
           <DialogTitle>{getDialogTitle(props)}</DialogTitle>
           <DialogDescription>{getDialogDescription(props)}</DialogDescription>

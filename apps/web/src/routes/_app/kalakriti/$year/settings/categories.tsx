@@ -198,7 +198,7 @@ function CompetitionCategoriesPage() {
         open={categoryDialogOpen}
       />
       <ConfirmDialog
-        confirmLabel="Delete"
+        confirmLabel="Delete category"
         description={`Delete ${deleteAction.payload?.name ?? "this Category"}? Categories with Competitions must be retired instead.`}
         loading={deleteAction.isLoading}
         onConfirm={deleteAction.confirm}

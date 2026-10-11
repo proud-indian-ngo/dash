@@ -131,7 +131,7 @@ export function CenterFormDialog(props: CenterFormDialogProps) {
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={props.open}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-(--dialog-md)">
         <DialogHeader>
           <DialogTitle>
             {props.center ? "Edit Center" : "Add Center"}

@@ -188,7 +188,7 @@ export function BankingSection() {
       )}
 
       <ConfirmDialog
-        confirmLabel="Delete"
+        confirmLabel="Delete account"
         description="This bank account will be permanently deleted. This cannot be undone."
         onConfirm={stableOnConfirm0}
         onOpenChange={stableOnOpenChange1}

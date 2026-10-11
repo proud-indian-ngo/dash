@@ -235,7 +235,7 @@ export function EventUpdates({
 
       <ConfirmDialog
         cancelLabel="Keep"
-        confirmLabel="Delete"
+        confirmLabel="Delete update"
         description="Are you sure you want to delete this update? This action cannot be undone."
         loading={deleteAction.isLoading}
         loadingLabel="Deleting..."

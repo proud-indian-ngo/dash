@@ -11,6 +11,10 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  /* Dialog widths: confirms, most forms, long forms */
+  --dialog-sm: 25rem;
+  --dialog-md: 30rem;
+  --dialog-lg: 40rem;
   --background: var(--color-white);
   --foreground: var(--color-ink);
   --card: var(--color-white);
@@ -124,6 +128,8 @@
   /* 13px body and control text: Geist reads cramped at 12px, 14px costs too much density */
   --text-sm: 0.8125rem;
   --text-sm--line-height: calc(1.25 / 0.8125);
+  /* Opaque dialog footer band, a step off the popover in both themes */
+  --color-dialog-footer: color-mix(in oklab, var(--popover), var(--foreground) 3%);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-out-quart: cubic-bezier(0.165, 0.84, 0.44, 1);
   --ease-out-sheet: cubic-bezier(0.32, 0.72, 0, 1);

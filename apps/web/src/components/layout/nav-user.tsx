@@ -222,6 +222,7 @@ export function NavUser() {
       <SettingsDialog />
       <Dialog open={notificationsOpen} onOpenChange={setNotificationsOpen}>
         <DialogContent
+          className="sm:max-w-(--dialog-md)"
           aria-labelledby={notificationsTitleId}
           aria-describedby={notificationsDescriptionId}
         >

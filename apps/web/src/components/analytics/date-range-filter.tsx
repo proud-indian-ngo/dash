@@ -101,7 +101,7 @@ export function DateRangeFilter({ onChange }: { onChange?: () => void } = {}) {
   return (
     <div className="flex items-center gap-2">
       <Select onValueChange={handlePresetChange} value={params.range}>
-        <SelectTrigger className="w-auto gap-1.5">
+        <SelectTrigger className="w-auto gap-1.5 data-[size=default]:h-8">
           <HugeiconsIcon
             className="text-muted-foreground size-3.5"
             icon={Calendar03Icon}

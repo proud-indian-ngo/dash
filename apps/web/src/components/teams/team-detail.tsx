@@ -588,7 +588,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
 
         {/* Delete Team Confirmation */}
         <ConfirmDialog
-          confirmLabel="Delete"
+          confirmLabel="Delete team"
           description={`This will permanently delete "${team.name}", remove all members, and delete associated events. This action cannot be undone.`}
           loading={deleteTeam.isLoading}
           loadingLabel="Deleting..."

@@ -122,10 +122,7 @@ export function ResultSection({
               : "Assign results"}
         </DialogTrigger>
       )}
-      <DialogContent
-        className="max-h-[85dvh] overflow-y-auto sm:max-w-md"
-        showCloseButton={!busy}
-      >
+      <DialogContent className="sm:max-w-(--dialog-md)" showCloseButton={!busy}>
         <DialogHeader>
           <DialogTitle>Results</DialogTitle>
           <DialogDescription>

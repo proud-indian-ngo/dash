@@ -256,7 +256,7 @@ export function WhatsAppGroupPickerDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-(--dialog-md)">
         <DialogHeader>
           <DialogTitle>Add WhatsApp Groups</DialogTitle>
           <DialogDescription className="sr-only">

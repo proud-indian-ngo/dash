@@ -293,7 +293,7 @@ export function WhatsAppGroupsSection() {
       />
 
       <ConfirmDialog
-        confirmLabel="Delete"
+        confirmLabel="Delete group"
         description={
           rowAction?.kind === "delete"
             ? `"${rowAction.group.name}" will be permanently deleted. This cannot be undone.`

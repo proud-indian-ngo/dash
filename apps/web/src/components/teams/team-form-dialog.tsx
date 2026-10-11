@@ -182,7 +182,7 @@ export function TeamFormDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-(--dialog-md)">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Team" : "Create Team"}</DialogTitle>
           <DialogDescription className="sr-only">

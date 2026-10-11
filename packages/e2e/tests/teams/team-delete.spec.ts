@@ -73,7 +73,9 @@ test.describe("Team delete", () => {
     // Confirmation dialog
     const dialog = page.getByRole("alertdialog");
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByText("Delete team")).toBeVisible();
+    await expect(
+      dialog.getByRole("heading", { name: "Delete team" })
+    ).toBeVisible();
     await expect(
       dialog.getByText("permanently delete this team")
     ).toBeVisible();

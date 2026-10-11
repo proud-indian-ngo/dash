@@ -101,7 +101,7 @@ export function VenueFormDialog({
   });
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-(--dialog-md)">
         <DialogHeader>
           <DialogTitle>{venue ? "Edit Venue" : "Add Venue"}</DialogTitle>
           <DialogDescription>

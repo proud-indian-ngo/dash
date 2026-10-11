@@ -522,7 +522,7 @@ export function ReimbursementsTable({
         toolbarActions={toolbarActions}
       />
       <ConfirmDialog
-        confirmLabel="Delete"
+        confirmLabel={`Delete ${deleteType}`}
         description={`This will permanently delete this ${deleteType} including all line items and attachments. This action cannot be undone.`}
         loading={deleteLoading}
         loadingLabel="Deleting..."

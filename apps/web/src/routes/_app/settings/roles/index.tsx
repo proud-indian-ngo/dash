@@ -156,6 +156,7 @@ function RolesPage() {
         description="Create a new role. You can assign permissions after creation."
         onOpenChange={setCreateOpen}
         open={createOpen}
+        size="md"
         title="Create Role"
       >
         {createOpen ? (

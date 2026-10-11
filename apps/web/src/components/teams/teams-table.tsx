@@ -253,7 +253,7 @@ export function TeamsTable({
         toolbarActions={toolbarActions}
       />
       <ConfirmDialog
-        confirmLabel="Delete"
+        confirmLabel="Delete team"
         description="This will permanently delete this team and remove all members. This action cannot be undone."
         loading={deleteAction.isLoading}
         loadingLabel="Deleting..."

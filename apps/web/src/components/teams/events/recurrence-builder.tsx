@@ -350,7 +350,7 @@ function ExclusionPicker({
         </Select>
         <Button
           onClick={addExclusion}
-          size="sm"
+          size="lg"
           type="button"
           variant="outline"
         >

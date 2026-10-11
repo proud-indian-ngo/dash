@@ -167,7 +167,7 @@ export function EntryMusicDialog({
         }
       }}
     >
-      <DialogContent className="sm:max-w-md" showCloseButton={false}>
+      <DialogContent className="sm:max-w-(--dialog-md)" showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>
             {musicFiles.length ? "Edit music" : "Upload music"}

@@ -166,7 +166,7 @@ export function EditionMetadataDialog({
         Edit Edition details
       </Button>
       <Dialog onOpenChange={handleOpenChange} open={open}>
-        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
+        <DialogContent className="sm:max-w-(--dialog-md)">
           <DialogHeader>
             <DialogTitle>Edit Edition details</DialogTitle>
             <DialogDescription>

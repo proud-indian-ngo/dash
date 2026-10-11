@@ -31,7 +31,7 @@ export function KalakritiCreateVolunteerDialog({
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-(--dialog-md)">
         <DialogHeader>
           <DialogTitle>Create volunteer</DialogTitle>
           <DialogDescription>

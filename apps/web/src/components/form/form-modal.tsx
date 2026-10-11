@@ -14,6 +14,8 @@ interface FormModalProps {
   description?: string;
   onOpenChange: (open: boolean) => void;
   open: boolean;
+  /** md for short forms; lg (default) for long or two-column forms. */
+  size?: "md" | "lg";
   title: string;
 }
 
@@ -22,19 +24,22 @@ export function FormModal({
   description,
   onOpenChange,
   open,
+  size = "lg",
   title,
 }: FormModalProps) {
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="max-h-[90vh] w-[min(96vw,56rem)] overflow-y-auto sm:max-w-4xl">
-        <div className="flex items-start justify-between gap-3">
-          <DialogHeader className="flex-1 place-items-start text-left">
-            <DialogTitle>{title}</DialogTitle>
-            <DialogDescription className={description ? undefined : "sr-only"}>
-              {description ?? "Complete the form below"}
-            </DialogDescription>
-          </DialogHeader>
-        </div>
+      <DialogContent
+        className={
+          size === "md" ? "sm:max-w-(--dialog-md)" : "sm:max-w-(--dialog-lg)"
+        }
+      >
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className={description ? undefined : "sr-only"}>
+            {description ?? "Complete the form below"}
+          </DialogDescription>
+        </DialogHeader>
         <AppErrorBoundary level="section">{children}</AppErrorBoundary>
       </DialogContent>
     </Dialog>

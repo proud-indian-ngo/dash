@@ -934,7 +934,7 @@ function DataTableWrapperBase<TData extends object>({
               ) : null}
               <CardHeader className="block border-b px-3 py-2.5">
                 <div className="flex flex-col gap-2 @3xl/card-header:flex-row @3xl/card-header:items-center">
-                  <InputGroup className="w-full shrink-0 @3xl/card-header:w-64">
+                  <InputGroup className="h-8 w-full shrink-0 @3xl/card-header:w-64">
                     <InputGroupAddon align="inline-start">
                       <HugeiconsIcon
                         className="size-4"

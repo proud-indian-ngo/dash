@@ -154,7 +154,7 @@ export function AddEventMemberDialog({
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-(--dialog-md)">
         <DialogHeader>
           <DialogTitle>Add Volunteer</DialogTitle>
           <DialogDescription className="sr-only">

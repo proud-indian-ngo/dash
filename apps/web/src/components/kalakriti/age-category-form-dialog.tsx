@@ -239,7 +239,7 @@ export function AgeCategoryFormDialog(props: AgeCategoryFormDialogProps) {
   });
   return (
     <Dialog onOpenChange={handleOpenChange} open={props.open}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-(--dialog-lg)">
         <DialogHeader>
           <DialogTitle>
             {props.category ? "Edit Age Category" : "Add Age Category"}
