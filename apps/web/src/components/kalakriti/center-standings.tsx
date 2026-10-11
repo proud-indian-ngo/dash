@@ -27,7 +27,6 @@ import { getKalakritiStandings } from "@/functions/kalakriti-results";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { handleMutationResult } from "@/lib/mutation-result";
 
-import { KALAKRITI_SUMMARY_COLORS } from "./summary-colors";
 import { useResultSnapshot } from "./use-result-snapshot";
 
 type Standings = Awaited<ReturnType<typeof getKalakritiStandings>>;
@@ -229,11 +228,7 @@ export function CenterStandings({ year }: { year: number }) {
       ? data.centers.filter((center) => center.rank === 1)
       : [];
   return (
-    <Card
-      aria-label="Center standings"
-      className={KALAKRITI_SUMMARY_COLORS.results}
-      size="sm"
-    >
+    <Card aria-label="Center standings" size="sm">
       <CardHeader>
         <CardTitle>
           <h2>Center standings</h2>
