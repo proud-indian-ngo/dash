@@ -191,7 +191,7 @@ function WelcomeDashboard() {
   const { session } = Route.useRouteContext();
 
   return (
-    <div className="app-container fade-in-0 animate-in mx-auto max-w-7xl px-2 py-6 duration-150 ease-(--ease-out-expo) sm:px-4">
+    <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
       <PageHeader title="Dashboard" />
       <Card className="mt-6">
         <CardHeader>
@@ -305,7 +305,7 @@ function OrientedDashboard() {
   });
 
   return (
-    <div className="app-container fade-in-0 animate-in mx-auto max-w-7xl px-2 py-6 duration-150 ease-(--ease-out-expo) sm:px-4">
+    <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
       <PageHeader
         actions={
           <>

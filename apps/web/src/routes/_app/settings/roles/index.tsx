@@ -146,7 +146,7 @@ function RolesPage() {
         description="What each role can see and do."
         title="Roles"
       />
-      <div className="fade-in-0 animate-in fill-mode-backwards mt-4 grid gap-6 duration-200 *:min-w-0">
+      <div className="mt-4 grid gap-6 *:min-w-0">
         <RolesTable data={roles} isLoading={loading} onDelete={handleDelete} />
       </div>
 
