@@ -17,14 +17,19 @@ import {
   CardTitle,
 } from "@pi-dash/design-system/components/ui/card";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { cn } from "@pi-dash/design-system/lib/utils";
 import { Link } from "@tanstack/react-router";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNowStrict } from "date-fns";
+import type { ReactNode } from "react";
 
 import { Tag } from "@/components/shared/status-badge";
 import { formatINR } from "@/lib/form-schemas";
 import { sumAmounts } from "@/lib/stats";
 
-const MAX_ITEMS_PER_GROUP = 5;
+/** Waits longer than this are flagged in the warning tone. */
+const STALE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+/** Event names listed in a row before "and N more". */
+const MAX_EVENT_NAMES = 2;
 
 // --- Types ---
 
@@ -128,240 +133,200 @@ function groupByEvent<
     .sort((a, b) => b.latestAt - a.latestAt);
 }
 
+// --- Counting ---
+
+/**
+ * Items the person can review, counted the way the panel shows them. The
+ * dashboard's "Waiting for you" chip uses this so the two always agree.
+ */
+export function countPendingReviews({
+  advancePayments,
+  eventInterests,
+  eventPhotos,
+  eventUpdates,
+  permissions,
+  reimbursements,
+  vendorPayments,
+}: Omit<PendingReviewsProps, "isLoading">): number {
+  return (
+    (permissions.canApproveRequests
+      ? reimbursements.length + advancePayments.length + vendorPayments.length
+      : 0) +
+    (permissions.canManagePhotos ? eventPhotos.length : 0) +
+    (permissions.canApproveUpdates ? eventUpdates.length : 0) +
+    (permissions.canManageInterest ? eventInterests.length : 0)
+  );
+}
+
+function oldest(items: readonly { createdAt: number }[]): number {
+  return Math.min(...items.map((item) => item.createdAt));
+}
+
+function eventNames(groups: readonly EventGroup[]): string {
+  const names = groups.slice(0, MAX_EVENT_NAMES).map((g) => g.eventName);
+  const more = groups.length - names.length;
+  return more > 0 ? `${names.join(", ")} and ${more} more` : names.join(", ");
+}
+
 // --- Skeleton ---
 
 function PendingReviewsSkeleton() {
   return (
-    <div className="space-y-4">
+    <div className="divide-y">
       {[1, 2, 3].map((i) => (
-        <div className="space-y-2" key={i}>
-          <Skeleton className="h-4 w-40" />
-          <div className="space-y-1.5">
-            {[1, 2].map((j) => (
-              <Skeleton className="h-8 w-full" key={j} />
-            ))}
+        <div className="flex items-center gap-3 px-4 py-3" key={i}>
+          <Skeleton className="size-4 rounded" />
+          <div className="flex-1 space-y-1.5">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-48" />
           </div>
+          <Skeleton className="h-4 w-24" />
         </div>
       ))}
     </div>
   );
 }
 
-// --- Group section ---
+// --- Queue row ---
 
-function GroupHeader({
-  count,
-  icon,
-  iconColor,
-  label,
-}: {
+interface QueueRowProps {
   count: number;
   icon: IconSvgElement;
-  iconColor: string;
   label: string;
-}) {
+  link: ReactNode;
+  oldestAt: number;
+  summary: ReactNode;
+}
+
+/** One kind of work: what it is, how much, how long the oldest has waited. */
+function QueueRow({
+  count,
+  icon,
+  label,
+  link,
+  oldestAt,
+  summary,
+}: QueueRowProps) {
+  const stale = Date.now() - oldestAt > STALE_AFTER_MS;
   return (
-    <div className="flex items-center gap-1.5 pb-1">
+    <div className="hover:bg-muted/40 relative grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 px-4 py-2.5 transition-colors sm:grid-cols-[1rem_minmax(0,1fr)_auto_auto_auto]">
       <HugeiconsIcon
-        className={`size-3.5 ${iconColor}`}
+        className="text-muted-foreground size-4"
         icon={icon}
         strokeWidth={2}
       />
-      <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-        {label}
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium">{label}</p>
+        <p className="text-muted-foreground truncate text-xs">{summary}</p>
+      </div>
+      <span className="font-mono text-sm font-semibold tabular-nums">
+        {count}
       </span>
-      <Tag className="font-mono tabular-nums">{count}</Tag>
+      <span
+        className={cn(
+          "col-start-2 text-xs whitespace-nowrap sm:col-start-auto",
+          stale ? "text-warning-foreground" : "text-muted-foreground"
+        )}
+      >
+        oldest {formatDistanceToNowStrict(oldestAt)}
+      </span>
+      <span className="text-primary col-start-3 row-start-2 flex items-center gap-1 text-xs font-medium whitespace-nowrap sm:col-start-auto sm:row-start-auto">
+        {link}
+      </span>
     </div>
   );
 }
 
-function ViewAllLink({
-  count,
-  to,
-  search,
-}: {
-  count: number;
-  search?: Record<string, string>;
-  to: string;
-}) {
-  if (count <= MAX_ITEMS_PER_GROUP) {
-    return null;
-  }
+/** The row's link stretches over the whole row, so any click opens it. */
+function ReviewLinkLabel() {
   return (
-    <Link
-      className="text-muted-foreground hover:text-foreground flex items-center gap-1 py-1 text-xs transition-colors"
-      search={search}
-      to={to}
-    >
-      View all {count}
+    <>
+      <span className="absolute inset-0" />
+      Review
       <HugeiconsIcon
         className="size-3"
         icon={ArrowRight01Icon}
         strokeWidth={2}
       />
-    </Link>
+    </>
   );
 }
 
-function FinancialGroup({
+function FinancialRow({
   icon,
-  iconColor,
   items,
   label,
-  route,
-  viewAllTo,
+  to,
 }: {
   icon: IconSvgElement;
-  iconColor: string;
-  items: readonly FinancialPendingItem[];
+  items: readonly FinancialPendingItem[] | readonly VendorPaymentPendingItem[];
   label: string;
-  route: string;
-  viewAllTo: string;
+  to: "/reimbursements" | "/vendor-payments";
 }) {
   if (items.length === 0) {
     return null;
   }
-  const displayed = items.slice(0, MAX_ITEMS_PER_GROUP);
-
+  const total = items.reduce(
+    (sum, item) => sum + sumAmounts(item.lineItems),
+    0
+  );
   return (
-    <div>
-      <GroupHeader
-        count={items.length}
-        icon={icon}
-        iconColor={iconColor}
-        label={label}
-      />
-      <div>
-        {displayed.map((item) => (
-          <Link
-            className="hover:bg-muted/50 -mx-2 flex items-center gap-3 rounded-md px-2 py-1.5 transition-colors"
-            key={item.id}
-            params={{ id: item.id }}
-            to={route}
-          >
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{item.title}</p>
-              <p className="text-muted-foreground truncate text-xs">
-                {item.user?.name}
-                {" \u00b7 "}
-                {formatDistanceToNow(item.createdAt, { addSuffix: true })}
-              </p>
-            </div>
-            <span className="shrink-0 text-sm font-medium tabular-nums">
-              {formatINR(sumAmounts(item.lineItems))}
-            </span>
-          </Link>
-        ))}
-      </div>
-      <ViewAllLink
-        count={items.length}
-        search={{ status: "pending" }}
-        to={viewAllTo}
-      />
-    </div>
+    <QueueRow
+      count={items.length}
+      icon={icon}
+      label={label}
+      link={
+        <Link
+          className="inline-flex items-center gap-1"
+          aria-label={`Review ${label.toLowerCase()}`}
+          search={{ status: "pending" }}
+          to={to}
+        >
+          <ReviewLinkLabel />
+        </Link>
+      }
+      oldestAt={oldest(items)}
+      summary={`${formatINR(total)} to approve`}
+    />
   );
 }
 
-function VendorPaymentGroup({
-  items,
-}: {
-  items: readonly VendorPaymentPendingItem[];
-}) {
-  if (items.length === 0) {
-    return null;
-  }
-  const displayed = items.slice(0, MAX_ITEMS_PER_GROUP);
-
-  return (
-    <div>
-      <GroupHeader
-        count={items.length}
-        icon={Store01Icon}
-        iconColor="text-purple-500"
-        label="Vendor Payments"
-      />
-      <div>
-        {displayed.map((item) => (
-          <Link
-            className="hover:bg-muted/50 -mx-2 flex items-center gap-3 rounded-md px-2 py-1.5 transition-colors"
-            key={item.id}
-            params={{ id: item.id }}
-            to="/vendor-payments/$id"
-          >
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">
-                {item.vendor?.name ? `${item.vendor.name} \u2014 ` : ""}
-                {item.title}
-              </p>
-              <p className="text-muted-foreground truncate text-xs">
-                {formatDistanceToNow(item.createdAt, { addSuffix: true })}
-              </p>
-            </div>
-            <span className="shrink-0 text-sm font-medium tabular-nums">
-              {formatINR(sumAmounts(item.lineItems))}
-            </span>
-          </Link>
-        ))}
-      </div>
-      <ViewAllLink
-        count={items.length}
-        search={{ status: "pending" }}
-        to="/vendor-payments"
-      />
-    </div>
-  );
-}
-
-function EventGroupSection({
+function EventRow({
   groups,
   icon,
-  iconColor,
+  items,
   label,
-  noun,
   tab,
 }: {
   groups: EventGroup[];
   icon: IconSvgElement;
-  iconColor: string;
+  items: readonly { createdAt: number }[];
   label: string;
-  noun: string;
-  tab?: "updates" | "photos" | "feedback" | "expenses";
+  tab?: "updates" | "photos";
 }) {
-  if (groups.length === 0) {
+  const latest = groups[0];
+  if (!latest) {
     return null;
   }
-  const totalCount = groups.reduce((sum, g) => sum + g.count, 0);
-  const displayed = groups.slice(0, MAX_ITEMS_PER_GROUP);
-
   return (
-    <div>
-      <GroupHeader
-        count={totalCount}
-        icon={icon}
-        iconColor={iconColor}
-        label={label}
-      />
-      <div>
-        {displayed.map((group) => (
-          <Link
-            className="hover:bg-muted/50 -mx-2 flex items-center gap-3 rounded-md px-2 py-1.5 transition-colors"
-            key={group.eventId}
-            params={{ id: group.eventId }}
-            search={tab ? { tab } : undefined}
-            to="/events/$id"
-          >
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{group.eventName}</p>
-              <p className="text-muted-foreground truncate text-xs">
-                {group.count} {group.count === 1 ? noun : `${noun}s`}
-                {" \u00b7 "}
-                latest by {group.latestPerson}
-              </p>
-            </div>
-          </Link>
-        ))}
-      </div>
-    </div>
+    <QueueRow
+      count={items.length}
+      icon={icon}
+      label={label}
+      link={
+        <Link
+          className="inline-flex items-center gap-1"
+          aria-label={`Review ${label.toLowerCase()} for ${latest.eventName}`}
+          params={{ id: latest.eventId }}
+          search={tab ? { tab } : undefined}
+          to="/events/$id"
+        >
+          <ReviewLinkLabel />
+        </Link>
+      }
+      oldestAt={oldest(items)}
+      summary={eventNames(groups)}
+    />
   );
 }
 
@@ -394,12 +359,21 @@ export function PendingReviews({
     return null;
   }
 
-  // Financial items (already filtered to pending by caller)
-  const pendingReimbursements = canApproveRequests ? reimbursements : [];
-  const pendingAdvancePayments = canApproveRequests ? advancePayments : [];
-  const pendingVendorPayments = canApproveRequests ? vendorPayments : [];
+  const totalCount = countPendingReviews({
+    advancePayments,
+    eventInterests,
+    eventPhotos,
+    eventUpdates,
+    permissions,
+    reimbursements,
+    vendorPayments,
+  });
 
-  // Event items grouped by event (already scoped by Zero query)
+  if (!isLoading && totalCount === 0) {
+    return null;
+  }
+
+  // Event items grouped by event, most recent first (already scoped by Zero)
   const photoGroups = canManagePhotos
     ? groupByEvent(eventPhotos, (p) => p.uploader?.name ?? "Unknown")
     : [];
@@ -410,78 +384,74 @@ export function PendingReviews({
     ? groupByEvent(eventInterests, (i) => i.user?.name ?? "Unknown")
     : [];
 
-  const totalCount =
-    pendingReimbursements.length +
-    pendingAdvancePayments.length +
-    pendingVendorPayments.length +
-    (canManagePhotos ? eventPhotos.length : 0) +
-    (canApproveUpdates ? eventUpdates.length : 0) +
-    (canManageInterest ? eventInterests.length : 0);
-
-  if (!isLoading && totalCount === 0) {
-    return null;
-  }
-
   return (
-    <Card>
-      <CardHeader>
+    <Card aria-label="Waiting for review" className="gap-0 py-0" role="region">
+      <CardHeader className="border-b px-4 py-3">
         <CardTitle className="flex items-center gap-2 text-sm">
           <HugeiconsIcon
-            className="size-4 text-amber-500"
+            className="text-muted-foreground size-4"
             icon={CheckListIcon}
             strokeWidth={2}
           />
-          Pending Reviews
+          Waiting for review
           {totalCount > 0 && (
             <Tag className="font-mono tabular-nums">{totalCount}</Tag>
           )}
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-0">
         {isLoading ? (
           <PendingReviewsSkeleton />
         ) : (
-          <div className="fade-in-0 animate-in space-y-4 duration-150 ease-(--ease-out-expo)">
-            <FinancialGroup
-              icon={Invoice01Icon}
-              iconColor="text-blue-500"
-              items={pendingReimbursements}
-              label="Reimbursements"
-              route="/reimbursements/$id"
-              viewAllTo="/reimbursements"
-            />
-            <FinancialGroup
-              icon={MoneyReceiveSquareIcon}
-              iconColor="text-emerald-500"
-              items={pendingAdvancePayments}
-              label="Advance Payments"
-              route="/reimbursements/$id"
-              viewAllTo="/reimbursements"
-            />
-            <VendorPaymentGroup items={pendingVendorPayments} />
-            <EventGroupSection
-              groups={photoGroups}
-              icon={Camera01Icon}
-              iconColor="text-pink-500"
-              label="Event Photos"
-              noun="photo"
-              tab="photos"
-            />
-            <EventGroupSection
-              groups={updateGroups}
-              icon={Notification01Icon}
-              iconColor="text-orange-500"
-              label="Event Updates"
-              noun="update"
-              tab="updates"
-            />
-            <EventGroupSection
-              groups={interestGroups}
-              icon={UserMultipleIcon}
-              iconColor="text-teal-500"
-              label="Interest Requests"
-              noun="request"
-            />
+          <div className="divide-y">
+            {canApproveRequests ? (
+              <>
+                <FinancialRow
+                  icon={Invoice01Icon}
+                  items={reimbursements}
+                  label="Reimbursements"
+                  to="/reimbursements"
+                />
+                <FinancialRow
+                  icon={MoneyReceiveSquareIcon}
+                  items={advancePayments}
+                  label="Advance payments"
+                  to="/reimbursements"
+                />
+                <FinancialRow
+                  icon={Store01Icon}
+                  items={vendorPayments}
+                  label="Vendor payments"
+                  to="/vendor-payments"
+                />
+              </>
+            ) : null}
+            {canManagePhotos ? (
+              <EventRow
+                groups={photoGroups}
+                icon={Camera01Icon}
+                items={eventPhotos}
+                label="Event photos"
+                tab="photos"
+              />
+            ) : null}
+            {canApproveUpdates ? (
+              <EventRow
+                groups={updateGroups}
+                icon={Notification01Icon}
+                items={eventUpdates}
+                label="Event updates"
+                tab="updates"
+              />
+            ) : null}
+            {canManageInterest ? (
+              <EventRow
+                groups={interestGroups}
+                icon={UserMultipleIcon}
+                items={eventInterests}
+                label="Interest requests"
+              />
+            ) : null}
           </div>
         )}
       </CardContent>
