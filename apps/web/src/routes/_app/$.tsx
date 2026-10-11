@@ -5,6 +5,7 @@ import { env } from "@pi-dash/env/web";
 import {
   createFileRoute,
   Link,
+  notFound,
   useCanGoBack,
   useLocation,
 } from "@tanstack/react-router";
@@ -13,9 +14,12 @@ import { NotFoundState } from "@/components/shared/not-found-state";
 
 // Unknown addresses for signed-in people land here, inside the app layout,
 // so the sidebar and breadcrumbs stay. Signed-out visitors are sent to log in
-// by the _app guard first.
+// by the _app guard first. Throwing notFound keeps the HTTP status a 404.
 export const Route = createFileRoute("/_app/$")({
-  component: AppNotFound,
+  loader: () => {
+    throw notFound();
+  },
+  notFoundComponent: AppNotFound,
   head: () => ({ meta: [{ title: `Page not found | ${env.VITE_APP_NAME}` }] }),
 });
 
