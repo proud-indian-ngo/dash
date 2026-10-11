@@ -103,7 +103,7 @@ test("mobile self actions preserve disabled destructive controls", async ({
   await expect(sheet.getByRole("button", { name: "Delete" })).toBeDisabled();
 });
 
-test("mobile account actions open notifications separately", async ({
+test("on phones the top-bar bell opens notifications", async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "super_admin", "Admin account menu");
@@ -111,17 +111,23 @@ test("mobile account actions open notifications separately", async ({
   await page.goto("/users");
   await waitForZeroReady(page);
 
-  await page.getByRole("button", { name: "Toggle Sidebar" }).click();
-  await page.getByRole("button", { name: "Account menu" }).click();
-  const actions = page.getByRole("dialog", { name: "Account actions" });
-  await expect(actions).toBeVisible();
-  await actions.getByRole("button", { name: "Notifications" }).click();
-  await expect(actions).toBeHidden();
-
+  await page
+    .getByRole("main")
+    .getByRole("button", { name: /^Notifications/ })
+    .click();
   const notifications = page.getByRole("dialog", { name: "Notifications" });
   await expect(notifications).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(notifications).toBeHidden();
+
+  // The account menu no longer duplicates it.
+  await page.getByRole("button", { name: "Toggle Sidebar" }).click();
+  await page.getByRole("button", { name: "Account menu" }).click();
+  const actions = page.getByRole("dialog", { name: "Account actions" });
+  await expect(actions).toBeVisible();
+  await expect(
+    actions.getByRole("button", { name: /Notifications/ })
+  ).toHaveCount(0);
 });
 
 test("resizing an open mobile sheet switches back to a desktop menu", async ({
