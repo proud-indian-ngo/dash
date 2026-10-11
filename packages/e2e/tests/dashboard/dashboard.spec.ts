@@ -1,8 +1,6 @@
 import { expect, test } from "../../fixtures/test";
 
 const ROLES_WITH_VIEW_ALL = new Set(["super_admin", "admin", "finance_admin"]);
-// Roles that hold requests.approve — drives "Pending Reviews" label.
-const ROLES_WITH_APPROVE = new Set(["super_admin", "finance_admin"]);
 
 test.describe("Dashboard", () => {
   test.beforeEach(async ({ page }) => {
@@ -15,44 +13,67 @@ test.describe("Dashboard", () => {
     ).toBeVisible();
   });
 
-  test("shows New Reimbursement button", async ({ page }, testInfo) => {
+  test("shows New reimbursement button", async ({ page }, testInfo) => {
     test.skip(
       testInfo.project.name === "unoriented_volunteer",
       "Unoriented volunteers see orientation prompt instead"
     );
     await expect(
-      page.getByRole("button", { name: "New Reimbursement" })
+      page.getByRole("button", { name: "New reimbursement" })
     ).toBeVisible();
   });
 
-  test("shows stats cards", async ({ page }, testInfo) => {
+  test("shows stat chips", async ({ page }, testInfo) => {
     test.skip(
       testInfo.project.name === "unoriented_volunteer",
       "Unoriented volunteers see orientation prompt instead"
     );
 
-    const main = page.getByRole("main");
+    const labels = page.locator("[data-slot=stat-label]");
     const canViewAllRequests = ROLES_WITH_VIEW_ALL.has(testInfo.project.name);
-    const canApprove = ROLES_WITH_APPROVE.has(testInfo.project.name);
 
     await expect(
-      main.getByRole("link", {
-        name: canViewAllRequests ? /All Reimbursements/ : /My Reimbursements/,
+      labels.filter({
+        hasText: canViewAllRequests
+          ? /^Reimbursements$/
+          : /^My reimbursements$/,
       })
     ).toBeVisible({ timeout: 15_000 });
+    // Reviewers see their queue; everyone else sees their own pending requests.
     await expect(
-      main.getByRole("link", {
-        name: canApprove ? /Pending Reviews/ : /My Pending/,
-      })
+      labels.filter({ hasText: /^(Waiting for you|My pending)$/ })
     ).toBeVisible();
 
     if (canViewAllRequests) {
+      await expect(labels.filter({ hasText: /^Users$/ })).toBeVisible();
       await expect(
-        main.getByRole("link", { name: /Total Users/ })
-      ).toBeVisible();
-      await expect(
-        main.getByRole("link", { name: /Vendor Payments/ })
+        labels.filter({ hasText: /^Vendor payments$/ })
       ).toBeVisible();
     }
+  });
+
+  test("the waiting count matches the review panel", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Reviewer-only test");
+
+    const chip = page
+      .locator("[data-slot=stat-chip]")
+      .filter({ hasText: "Waiting for you" });
+    await expect(chip).toBeVisible({ timeout: 15_000 });
+    const waiting = await chip.locator("[data-slot=stat-value]").innerText();
+
+    const panel = page.getByRole("region", { name: "Waiting for review" });
+    if (waiting === "0") {
+      await expect(panel).toBeHidden();
+      return;
+    }
+    await expect(panel).toBeVisible();
+    await expect(
+      panel.getByText(waiting, { exact: true }).first()
+    ).toBeVisible();
+    await expect(
+      panel.getByRole("link", { name: /^Review / }).first()
+    ).toBeVisible();
   });
 });

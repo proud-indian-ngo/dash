@@ -99,7 +99,7 @@ function toEventActivities(events: readonly EventItem[]): ActivityItem[] {
       id: `event-${event.id}`,
       label: isCancelled
         ? `Cancelled${teamName ? ` · ${teamName}` : ""}`
-        : `New Event${teamName ? ` · ${teamName}` : ""}`,
+        : `New event${teamName ? ` · ${teamName}` : ""}`,
       route: "/events/$id",
       status: null,
       title: event.name,
@@ -140,7 +140,7 @@ function toVendorPaymentActivities(
       entityId: payment.id,
       icon: Store01Icon,
       id: `vp-${payment.id}`,
-      label: "Vendor Payment",
+      label: "Vendor payment",
       route: "/vendor-payments/$id",
       status: payment.status,
       title: vendorName ? `${vendorName} — ${payment.title}` : payment.title,
@@ -150,9 +150,9 @@ function toVendorPaymentActivities(
 
 const GHOST_ACTIVITIES = [
   { amount: "2,500", label: "Reimbursement", title: "Office Supplies" },
-  { label: "New Event", title: "Team Outing" },
+  { label: "New event", title: "Team Outing" },
   { label: "Registration", title: "Workshop" },
-  { amount: "5,000", label: "Vendor Payment", title: "Catering Services" },
+  { amount: "5,000", label: "Vendor payment", title: "Catering Services" },
 ];
 
 function RecentActivityEmpty() {
@@ -267,11 +267,11 @@ export function RecentActivity({
         <CardHeader>
           <CardTitle className="flex items-center gap-1.5 text-sm">
             <HugeiconsIcon
-              className="size-4 text-amber-500"
+              className="text-muted-foreground size-4"
               icon={Clock01Icon}
               strokeWidth={2}
             />
-            Recent Activity
+            Recent activity
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -291,7 +291,7 @@ export function RecentActivity({
     ...toFinancialActivities(
       advancePayments,
       MoneyReceiveSquareIcon,
-      "Advance Payment",
+      "Advance payment",
       "/reimbursements/$id"
     ),
     ...toEventActivities(events),
@@ -306,11 +306,11 @@ export function RecentActivity({
       <CardHeader>
         <CardTitle className="flex items-center gap-1.5 text-sm">
           <HugeiconsIcon
-            className="size-4 text-amber-500"
+            className="text-muted-foreground size-4"
             icon={Clock01Icon}
             strokeWidth={2}
           />
-          Recent Activity
+          Recent activity
         </CardTitle>
       </CardHeader>
       <CardContent>

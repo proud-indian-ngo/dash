@@ -129,11 +129,11 @@ export function MyTeams({
       <CardHeader>
         <CardTitle className="flex items-center gap-1.5 text-sm">
           <HugeiconsIcon
-            className="size-4 text-teal-500"
+            className="text-muted-foreground size-4"
             icon={UserMultipleIcon}
             strokeWidth={2}
           />
-          My Teams
+          My teams
         </CardTitle>
       </CardHeader>
       <CardContent>

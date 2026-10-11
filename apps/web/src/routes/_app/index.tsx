@@ -26,7 +26,10 @@ import { useQueryStates } from "nuqs";
 
 import { DateRangeFilter } from "@/components/analytics/date-range-filter";
 import { MyTeams } from "@/components/dashboard/my-teams";
-import { PendingReviews } from "@/components/dashboard/pending-reviews";
+import {
+  countPendingReviews,
+  PendingReviews,
+} from "@/components/dashboard/pending-reviews";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { UpcomingEvents } from "@/components/dashboard/upcoming-events";
 import { useShortcutModifier } from "@/components/layout/sidebar-toggle";
@@ -42,7 +45,7 @@ import {
 } from "@/lib/date-range";
 import { formatINR } from "@/lib/form-schemas";
 import { preloadRouteQuery } from "@/lib/route-preload";
-import { byStatus, sumTotal, type WithStatusAndLineItems } from "@/lib/stats";
+import { sumTotal, type WithStatusAndLineItems } from "@/lib/stats";
 import { isTeamLead } from "@/lib/team-utils";
 
 // biome-ignore assist/source/useSortedKeys: TanStack Router option order preserves route type inference.
@@ -98,16 +101,19 @@ export const Route = createFileRoute("/_app/")({
 
 interface DashboardStatsInput {
   advancePayments: readonly WithStatusAndLineItems[];
-  canApprove: boolean;
+  canReview: boolean;
   canViewAllRequests: boolean;
   canViewUsers: boolean;
   canViewVendors: boolean;
   events: readonly { startTime: number | null }[];
-  pendingCount: number;
+  /** The person's own pending requests, for people who don't review. */
+  ownPendingCount: number;
   reimbursements: readonly WithStatusAndLineItems[];
   teams: readonly { id: string }[];
   users: readonly { role: string | null }[];
   vendorPayments: readonly WithStatusAndLineItems[];
+  /** Everything in the review panel below, counted the same way. */
+  waitingCount: number;
 }
 
 function computeDashboardStats({
@@ -117,53 +123,43 @@ function computeDashboardStats({
   teams,
   events,
   vendorPayments,
+  canReview,
   canViewAllRequests,
-  canApprove,
   canViewUsers,
   canViewVendors,
-  pendingCount,
+  ownPendingCount,
+  waitingCount,
 }: DashboardStatsInput): StatItem[] {
   const allRequests = [...reimbursements, ...advancePayments];
 
   return [
+    canReview
+      ? {
+          icon: Clock01Icon,
+          label: "Waiting for you",
+          tone: waitingCount > 0 ? ("warning" as const) : undefined,
+          value: waitingCount,
+        }
+      : {
+          href: "/reimbursements?status=pending",
+          icon: Clock01Icon,
+          label: "My pending",
+          value: ownPendingCount,
+        },
     {
       description: formatINR(sumTotal(allRequests)),
       href: "/reimbursements",
       icon: Invoice01Icon,
-      label: canViewAllRequests ? "All Reimbursements" : "My Reimbursements",
+      label: canViewAllRequests ? "Reimbursements" : "My reimbursements",
       value: allRequests.length,
     },
-    {
-      description: "Awaiting review",
-      href: "/reimbursements?status=pending",
-      icon: Clock01Icon,
-      label: canApprove ? "Pending Reviews" : "My Pending",
-      value: pendingCount,
-    },
-    ...(canViewUsers
-      ? [
-          {
-            href: "/users",
-            icon: UserMultipleIcon,
-            label: "Total Users",
-            value: users.length,
-          },
-        ]
-      : [
-          {
-            href: "/teams",
-            icon: UserMultipleIcon,
-            label: "My Teams",
-            value: teams.length,
-          },
-        ]),
     ...(canViewVendors
       ? [
           {
             description: formatINR(sumTotal(vendorPayments)),
-            href: "/vendors",
+            href: "/vendor-payments",
             icon: Store01Icon,
-            label: "Vendor Payments",
+            label: "Vendor payments",
             value: vendorPayments.length,
           },
         ]
@@ -171,12 +167,25 @@ function computeDashboardStats({
           {
             href: "/events",
             icon: Calendar03Icon,
-            label: "Upcoming Events",
+            label: "Upcoming events",
             value: events.filter(
               (e) => e.startTime !== null && e.startTime > Date.now()
             ).length,
           },
         ]),
+    canViewUsers
+      ? {
+          href: "/users",
+          icon: UserMultipleIcon,
+          label: "Users",
+          value: users.length,
+        }
+      : {
+          href: "/teams",
+          icon: UserMultipleIcon,
+          label: "My teams",
+          value: teams.length,
+        },
   ];
 }
 
@@ -288,24 +297,47 @@ function OrientedDashboard() {
     createdAtAccessor
   );
 
-  // Pending count uses unfiltered data — pending items are actionable regardless of age
-  const pendingCount =
-    byStatus(reimbursements, "pending").length +
-    byStatus(advancePayments, "pending").length +
-    byStatus(vendorPayments, "pending").length;
+  // Pending work uses unfiltered data: it's actionable regardless of age.
+  const pendingReimbursements = reimbursements.filter(
+    (item) => item.status === "pending"
+  );
+  const pendingAdvancePayments = advancePayments.filter(
+    (item) => item.status === "pending"
+  );
+  const pendingVendorPayments = vendorPayments.filter(
+    (item) => item.status === "pending"
+  );
+  const reviewPermissions = {
+    canApproveRequests: canApprove,
+    canApproveUpdates,
+    canManageInterest,
+    canManagePhotos,
+  };
+  const canReview = Object.values(reviewPermissions).some(Boolean);
+  const waitingCount = countPendingReviews({
+    advancePayments: pendingAdvancePayments,
+    eventInterests: pendingInterests,
+    eventPhotos: pendingPhotos,
+    eventUpdates: pendingUpdates,
+    permissions: reviewPermissions,
+    reimbursements: pendingReimbursements,
+    vendorPayments: pendingVendorPayments,
+  });
 
   const stats = computeDashboardStats({
     advancePayments: filteredAdvancePayments,
-    canApprove,
+    canReview,
     canViewAllRequests,
     canViewUsers,
     canViewVendors,
     events,
-    pendingCount,
+    ownPendingCount:
+      pendingReimbursements.length + pendingAdvancePayments.length,
     reimbursements: filteredReimbursements,
     teams,
     users,
     vendorPayments: filteredVendorPayments,
+    waitingCount,
   });
 
   return (
@@ -319,7 +351,7 @@ function OrientedDashboard() {
               render={<Link to="/reimbursements/new" />}
             >
               <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
-              New Reimbursement
+              New reimbursement
             </Button>
           </>
         }
@@ -327,42 +359,32 @@ function OrientedDashboard() {
       />
       <SidebarShortcutTip />
 
-      <div className="mt-4">
-        <StatsCards isLoading={isLoading} items={stats} />
-      </div>
-
-      {canViewAllRequests && (
-        <div className="mt-2 flex justify-end">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+        <StatsCards isLoading={isLoading} items={stats} variant="chips" />
+        {canViewAllRequests && (
           <Button
             className="text-muted-foreground"
             nativeButton={false}
             render={<Link to="/analytics" />}
-            size="xs"
+            size="sm"
             variant="ghost"
           >
-            View Analytics
+            Analytics
             <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} />
           </Button>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="mt-6">
         <PendingReviews
-          advancePayments={advancePayments.filter(
-            (a) => a.status === "pending"
-          )}
+          advancePayments={pendingAdvancePayments}
           eventInterests={pendingInterests}
           eventPhotos={pendingPhotos}
           eventUpdates={pendingUpdates}
           isLoading={isLoading}
-          permissions={{
-            canApproveRequests: canApprove,
-            canApproveUpdates,
-            canManageInterest,
-            canManagePhotos,
-          }}
-          reimbursements={reimbursements.filter((r) => r.status === "pending")}
-          vendorPayments={vendorPayments.filter((v) => v.status === "pending")}
+          permissions={reviewPermissions}
+          reimbursements={pendingReimbursements}
+          vendorPayments={pendingVendorPayments}
         />
       </div>
 
