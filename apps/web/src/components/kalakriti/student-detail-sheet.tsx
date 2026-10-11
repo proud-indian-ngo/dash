@@ -12,13 +12,8 @@ import { PersonQrPanel } from "@/components/kalakriti/person-qr-panel";
 import type { KalakritiStudentRow } from "@/components/kalakriti/student-form-dialog";
 import { useTransportStatusSnapshot } from "@/components/kalakriti/use-transport-status-snapshot";
 import { Loader } from "@/components/loader";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/shared/responsive-sheet";
+import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
+import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 
@@ -90,12 +85,10 @@ export function StudentDetailSheet({
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent className="overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>{student.name}</SheetTitle>
-          <SheetDescription>
-            Student details, Center and Competition participation.
-          </SheetDescription>
-        </SheetHeader>
+        <DetailSheetHeader
+          description="Student details, Center and Competition participation."
+          title={student.name}
+        />
         <div className="flex flex-col gap-6 px-6 pb-6">
           <div className="grid gap-3">
             <DetailRow label="Student ID" value={student.humanId} />

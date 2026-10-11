@@ -1,12 +1,15 @@
+import {
+  Archive02Icon,
+  Delete02Icon,
+  Edit02Icon,
+  UserAdd01Icon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/shared/responsive-sheet";
+import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
+import { PageHeaderMenu } from "@/components/shared/page-header";
+import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 
 import { type AttendeeRow, AttendeeStatus } from "./attendees-table";
 import { PersonQrPanel } from "./person-qr-panel";
@@ -39,12 +42,58 @@ export function AttendeeDetailSheet({
         aria-label={attendee?.name ?? "Attendee"}
         className="overflow-y-auto"
       >
-        <SheetHeader>
-          <SheetTitle>{attendee?.name ?? "Attendee"}</SheetTitle>
-          <SheetDescription>
-            Yearly roster details and event-day status.
-          </SheetDescription>
-        </SheetHeader>
+        <DetailSheetHeader
+          actions={
+            attendee && canManage ? (
+              <>
+                <Button
+                  onClick={() => onEdit(attendee)}
+                  type="button"
+                  variant="outline"
+                >
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={Edit02Icon}
+                    strokeWidth={2}
+                  />
+                  Edit
+                </Button>
+                {attendee.kind === "judge" ? (
+                  <Button
+                    onClick={() => onAssign(attendee)}
+                    type="button"
+                    variant="outline"
+                  >
+                    <HugeiconsIcon
+                      className="size-4"
+                      icon={UserAdd01Icon}
+                      strokeWidth={2}
+                    />
+                    Assign competitions
+                  </Button>
+                ) : null}
+                <PageHeaderMenu
+                  actions={[
+                    {
+                      destructive: true,
+                      icon:
+                        attendee.kind === "judge"
+                          ? Delete02Icon
+                          : Archive02Icon,
+                      id: "remove",
+                      label: attendee.kind === "judge" ? "Delete" : "Archive",
+                      onSelect: () => onRemove(attendee),
+                    },
+                  ]}
+                  title={`${attendee.name} actions`}
+                />
+              </>
+            ) : null
+          }
+          className="px-4"
+          description="Yearly roster details and event-day status."
+          title={attendee?.name ?? "Attendee"}
+        />
         {attendee ? (
           <div className="space-y-5 px-4 pb-6">
             <dl className="grid gap-3">
@@ -94,24 +143,6 @@ export function AttendeeDetailSheet({
               </section>
             ) : null}
             <PersonQrPanel id={attendee.id} type={attendee.kind} />
-            {canManage ? (
-              <div className="flex flex-wrap gap-2">
-                <Button onClick={() => onEdit(attendee)} variant="outline">
-                  Edit
-                </Button>
-                {attendee.kind === "judge" ? (
-                  <Button onClick={() => onAssign(attendee)} variant="outline">
-                    Assign competitions
-                  </Button>
-                ) : null}
-                <Button
-                  variant="destructive"
-                  onClick={() => onRemove(attendee)}
-                >
-                  {attendee.kind === "judge" ? "Delete" : "Archive"}
-                </Button>
-              </div>
-            ) : null}
           </div>
         ) : null}
       </SheetContent>

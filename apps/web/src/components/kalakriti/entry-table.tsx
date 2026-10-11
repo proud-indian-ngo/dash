@@ -1,3 +1,4 @@
+import { Edit02Icon, RemoveCircleIcon } from "@hugeicons/core-free-icons";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import {
@@ -106,16 +107,17 @@ function EntryRowActions({
           className="mx-auto"
         />
       }
-      contentClassName="w-40"
       actions={[
         canEdit &&
           entry.participationMode === "group" && {
             id: "edit",
+            icon: Edit02Icon,
             label: "Edit Group",
             onSelect: handleEdit,
           },
         {
           id: "remove",
+          icon: RemoveCircleIcon,
           label: "Remove Entry",
           onSelect: handleRemove,
           destructive: true,

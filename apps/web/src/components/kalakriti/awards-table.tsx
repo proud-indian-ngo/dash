@@ -1,3 +1,8 @@
+import {
+  ArrowTurnBackwardIcon,
+  Award01Icon,
+  ViewIcon,
+} from "@hugeicons/core-free-icons";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type {
   DataGridColumnDef,
@@ -89,10 +94,16 @@ function MemberActions({
       title={`${member.name} actions`}
       trigger={actionTrigger(member.name)}
       actions={[
-        { id: "view", label: "View student ID", onSelect: view },
+        {
+          id: "view",
+          icon: ViewIcon,
+          label: "View student ID",
+          onSelect: view,
+        },
         canWrite && {
           disabled: pending,
           id: member.awarded ? "undo" : "award",
+          icon: member.awarded ? ArrowTurnBackwardIcon : Award01Icon,
           label: member.awarded ? "Undo award" : "Award prize",
           onSelect: setAwarded,
         },
@@ -124,6 +135,7 @@ function GroupActions({
           status !== "awarded" && {
             disabled: pending,
             id: "award-group",
+            icon: Award01Icon,
             label: "Award whole group",
             onSelect: () => onSetGroupAwarded(entry, true),
           },
@@ -131,6 +143,7 @@ function GroupActions({
           status !== "pending" && {
             disabled: pending,
             id: "undo-group",
+            icon: ArrowTurnBackwardIcon,
             label: "Undo whole group",
             onSelect: () => onSetGroupAwarded(entry, false),
           },

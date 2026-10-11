@@ -1,13 +1,16 @@
+import {
+  ArrowTurnBackwardIcon,
+  Archive02Icon,
+  Delete02Icon,
+  Edit02Icon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/shared/responsive-sheet";
+import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
+import { PageHeaderMenu } from "@/components/shared/page-header";
+import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { StatusBadge } from "@/components/shared/status-badge";
 
 import type {
@@ -64,21 +67,54 @@ export function VenueDetailSheet({
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent>
-        <SheetHeader>
-          <SheetTitle>{venue.name}</SheetTitle>
-          <SheetDescription>
-            Venue availability and scheduled Competition usage.
-          </SheetDescription>
-        </SheetHeader>
+        <DetailSheetHeader
+          actions={
+            <>
+              {canEdit ? (
+                <Button onClick={handleEdit} type="button" variant="outline">
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={Edit02Icon}
+                    strokeWidth={2}
+                  />
+                  Edit
+                </Button>
+              ) : null}
+              <PageHeaderMenu
+                actions={[
+                  canManage && {
+                    icon:
+                      venue.retiredAt === null
+                        ? Archive02Icon
+                        : ArrowTurnBackwardIcon,
+                    id: "retire",
+                    label: venue.retiredAt === null ? "Retire" : "Restore",
+                    onSelect: handleRetire,
+                  },
+                  canManage && {
+                    destructive: true,
+                    icon: Delete02Icon,
+                    id: "delete",
+                    label: "Delete venue",
+                    onSelect: handleDelete,
+                  },
+                ]}
+                title={`${venue.name} actions`}
+              />
+            </>
+          }
+          badge={
+            <StatusBadge
+              tone={venue.retiredAt === null ? "success" : "neutral"}
+            >
+              {venue.retiredAt === null ? "Active" : "Retired"}
+            </StatusBadge>
+          }
+          description="Venue availability and scheduled Competition usage."
+          title={venue.name}
+        />
 
         <div className="flex flex-col gap-6 px-6 pb-6">
-          <StatusBadge
-            className="w-fit"
-            tone={venue.retiredAt === null ? "success" : "neutral"}
-          >
-            {venue.retiredAt === null ? "Active" : "Retired"}
-          </StatusBadge>
-
           <div className="grid gap-1">
             <span className="text-muted-foreground text-xs">
               Scheduled Sessions
@@ -87,24 +123,6 @@ export function VenueDetailSheet({
               {venue.sessionCount}
             </span>
           </div>
-
-          {canEdit || canManage ? (
-            <div className="flex flex-wrap gap-2 border-t pt-4">
-              {canEdit ? (
-                <Button onClick={handleEdit}>Edit Venue</Button>
-              ) : null}
-              {canManage ? (
-                <>
-                  <Button onClick={handleRetire} variant="outline">
-                    {venue.retiredAt === null ? "Retire" : "Restore"}
-                  </Button>
-                  <Button onClick={handleDelete} variant="destructive">
-                    Delete
-                  </Button>
-                </>
-              ) : null}
-            </div>
-          ) : null}
         </div>
       </SheetContent>
     </Sheet>

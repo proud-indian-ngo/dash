@@ -1,3 +1,4 @@
+import { UserRemove01Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
@@ -13,13 +14,9 @@ import {
   type RemoveAssignmentPayload,
   type VolunteerRosterItem,
 } from "@/components/kalakriti/volunteers-table";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/shared/responsive-sheet";
+import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
+import { PageHeaderMenu } from "@/components/shared/page-header";
+import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { Tag } from "@/components/shared/status-badge";
 
 function DetailRow({ label, value }: { label: string; value: string | null }) {
@@ -85,12 +82,24 @@ export function VolunteerDetailSheet({
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent className="overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>{volunteer.snapshotName}</SheetTitle>
-          <SheetDescription>
-            Volunteer contact details and Edition responsibilities.
-          </SheetDescription>
-        </SheetHeader>
+        <DetailSheetHeader
+          actions={
+            <PageHeaderMenu
+              actions={[
+                canRemoveFromEdition && {
+                  destructive: true,
+                  icon: UserRemove01Icon,
+                  id: "remove-edition",
+                  label: "Remove from Edition",
+                  onSelect: handleRemoveFromEdition,
+                },
+              ]}
+              title={`${volunteer.snapshotName} actions`}
+            />
+          }
+          description="Volunteer contact details and Edition responsibilities."
+          title={volunteer.snapshotName}
+        />
 
         <div className="flex flex-col gap-6 px-6 pb-6">
           <PersonQrPanel enabled={open} id={volunteer.id} type="volunteer" />
@@ -138,16 +147,6 @@ export function VolunteerDetailSheet({
               </ul>
             )}
           </div>
-
-          {canRemoveFromEdition ? (
-            <Button
-              onClick={handleRemoveFromEdition}
-              type="button"
-              variant="destructive"
-            >
-              Remove from Edition
-            </Button>
-          ) : null}
         </div>
       </SheetContent>
     </Sheet>

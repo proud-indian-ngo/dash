@@ -1,3 +1,10 @@
+import {
+  Archive02Icon,
+  Delete02Icon,
+  Edit02Icon,
+  SlidersHorizontalIcon,
+  ViewIcon,
+} from "@hugeicons/core-free-icons";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
@@ -103,11 +110,22 @@ function RowActions({
         />
       }
       actions={[
-        { id: "view", label: "View details", onSelect: handleView },
-        canEditCenters && { id: "edit", label: "Edit", onSelect: handleEdit },
+        {
+          id: "view",
+          icon: ViewIcon,
+          label: "View details",
+          onSelect: handleView,
+        },
+        canEditCenters && {
+          id: "edit",
+          icon: Edit02Icon,
+          label: "Edit",
+          onSelect: handleEdit,
+        },
         !isRetired &&
           canManageRegistrationControls && {
             id: "registration",
+            icon: SlidersHorizontalIcon,
             label: "Registration controls",
             onSelect: handleRegistrationControls,
             group: "configuration",
@@ -115,12 +133,14 @@ function RowActions({
         !isRetired &&
           canConfigureCenters && {
             id: "retire",
+            icon: Archive02Icon,
             label: "Retire",
             onSelect: handleRetire,
             group: "configuration",
           },
         canConfigureCenters && {
           id: "delete",
+          icon: Delete02Icon,
           label: "Delete",
           onSelect: handleDelete,
           destructive: true,

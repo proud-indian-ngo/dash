@@ -1,3 +1,5 @@
+import { Archive02Icon, Edit02Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { queries } from "@pi-dash/zero/queries";
@@ -6,13 +8,9 @@ import { useQuery } from "@rocicorp/zero/react";
 import type { GuardianRosterItem } from "@/components/kalakriti/guardians-table";
 import { PersonQrPanel } from "@/components/kalakriti/person-qr-panel";
 import { Loader } from "@/components/loader";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/shared/responsive-sheet";
+import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
+import { PageHeaderMenu } from "@/components/shared/page-header";
+import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { StatusBadge } from "@/components/shared/status-badge";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import { hasEffectiveGuardianCheckIn } from "@/lib/kalakriti-guardian-policy";
@@ -78,21 +76,46 @@ export function GuardianDetailSheet({
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent className="overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>{guardian.snapshotName}</SheetTitle>
-          <SheetDescription>
-            Guardian login access and contact details for this Edition.
-          </SheetDescription>
-        </SheetHeader>
+        <DetailSheetHeader
+          actions={
+            canManage && guardian.state === "active" ? (
+              <>
+                <Button onClick={handleEdit} type="button" variant="outline">
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={Edit02Icon}
+                    strokeWidth={2}
+                  />
+                  Edit details
+                </Button>
+                <PageHeaderMenu
+                  actions={[
+                    {
+                      destructive: true,
+                      icon: Archive02Icon,
+                      id: "archive",
+                      label: "Archive access",
+                      onSelect: handleArchive,
+                    },
+                  ]}
+                  title={`${guardian.snapshotName} actions`}
+                />
+              </>
+            ) : null
+          }
+          badge={
+            <StatusBadge
+              className="capitalize"
+              tone={guardian.state === "active" ? "success" : "neutral"}
+            >
+              {guardian.state}
+            </StatusBadge>
+          }
+          description="Guardian login access and contact details for this Edition."
+          title={guardian.snapshotName}
+        />
 
         <div className="flex flex-col gap-6 px-6 pb-6">
-          <StatusBadge
-            className="w-fit capitalize"
-            tone={guardian.state === "active" ? "success" : "neutral"}
-          >
-            {guardian.state}
-          </StatusBadge>
-
           <DetailRow label="Yearly ID" value={guardian.humanId ?? "—"} />
           <DetailRow
             label="Check-in"
@@ -150,22 +173,6 @@ export function GuardianDetailSheet({
               </div>
             ))}
           </section>
-
-          {canManage && guardian.state === "active" ? (
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={handleEdit} type="button">
-                Edit details
-              </Button>
-              <Button
-                className="w-fit"
-                onClick={handleArchive}
-                type="button"
-                variant="outline"
-              >
-                Archive access
-              </Button>
-            </div>
-          ) : null}
         </div>
       </SheetContent>
     </Sheet>

@@ -1,3 +1,9 @@
+import {
+  Cancel01Icon,
+  Copy01Icon,
+  Edit02Icon,
+  ViewIcon,
+} from "@hugeicons/core-free-icons";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
@@ -29,18 +35,24 @@ export function EventActionsMenu({
   return (
     <ResponsiveActionMenu
       title="Event actions"
-      contentClassName="w-32"
       trigger={<RowActionsButton onClick={stableOnClick0} />}
       actions={[
-        { id: "view", label: "View", onSelect: onSelectEvent },
+        { id: "view", icon: ViewIcon, label: "View", onSelect: onSelectEvent },
         canCreate && {
           id: "duplicate",
+          icon: Copy01Icon,
           label: "Duplicate",
           onSelect: onDuplicateEvent,
         },
-        canManage && { id: "edit", label: "Edit", onSelect: onEditEvent },
+        canManage && {
+          id: "edit",
+          icon: Edit02Icon,
+          label: "Edit",
+          onSelect: onEditEvent,
+        },
         canCancel && {
           id: "cancel",
+          icon: Cancel01Icon,
           label: "Cancel",
           onSelect: onCancelEvent,
           destructive: true,

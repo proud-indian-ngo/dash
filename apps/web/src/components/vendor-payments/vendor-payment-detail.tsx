@@ -240,14 +240,8 @@ function VendorPaymentHeader({
           <PageHeaderMenu
             actions={[
               showResetAction && {
-                icon: (
-                  <HugeiconsIcon
-                    className="size-4"
-                    icon={RepeatIcon}
-                    strokeWidth={2}
-                  />
-                ),
                 id: "reset",
+                icon: RepeatIcon,
                 label: "Reset to pending",
                 onSelect: onReset,
               },

@@ -1,3 +1,8 @@
+import {
+  Delete02Icon,
+  Edit02Icon,
+  PlusSignIcon,
+} from "@hugeicons/core-free-icons";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import type { FilterField } from "@pi-dash/design-system/components/reui/filters/filters-types";
@@ -232,16 +237,19 @@ export function TransportTable({
             actions={[
               {
                 id: "add",
+                icon: PlusSignIcon,
                 label: "Add vehicle",
                 onSelect: () => onAdd(row.original),
               },
               !!row.original.assignment && {
                 id: "edit",
+                icon: Edit02Icon,
                 label: "Edit vehicle",
                 onSelect: () => onEdit(row.original),
               },
               !!row.original.assignment && {
                 id: "delete",
+                icon: Delete02Icon,
                 label: "Delete vehicle",
                 onSelect: () => onDelete(row.original),
                 destructive: true,

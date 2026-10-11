@@ -1,3 +1,10 @@
+import {
+  Archive02Icon,
+  ArrowTurnBackwardIcon,
+  Delete02Icon,
+  Edit02Icon,
+  ViewIcon,
+} from "@hugeicons/core-free-icons";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
@@ -69,15 +76,28 @@ function RowActions({
         />
       }
       actions={[
-        { id: "view", label: "View details", onSelect: handleView },
-        canEdit && { id: "edit", label: "Edit Venue", onSelect: handleEdit },
+        {
+          id: "view",
+          icon: ViewIcon,
+          label: "View details",
+          onSelect: handleView,
+        },
+        canEdit && {
+          id: "edit",
+          icon: Edit02Icon,
+          label: "Edit Venue",
+          onSelect: handleEdit,
+        },
         canManage && {
           id: "retire",
+          icon:
+            venue.retiredAt === null ? Archive02Icon : ArrowTurnBackwardIcon,
           label: `${venue.retiredAt === null ? "Retire" : "Restore"} Venue`,
           onSelect: handleRetire,
         },
         canManage && {
           id: "delete",
+          icon: Delete02Icon,
           label: "Delete Venue",
           onSelect: handleDelete,
           destructive: true,

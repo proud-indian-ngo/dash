@@ -1,3 +1,4 @@
+import { Delete02Icon, Edit02Icon, ViewIcon } from "@hugeicons/core-free-icons";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Button } from "@pi-dash/design-system/components/ui/button";
@@ -71,17 +72,23 @@ function StudentRowActions({
     <ResponsiveActionMenu
       title={`${student.name} actions`}
       trigger={<RowActionsButton aria-label={`Actions for ${student.name}`} />}
-      contentClassName="w-44"
       actions={[
-        { id: "view", label: "View details", onSelect: handleView },
+        {
+          id: "view",
+          icon: ViewIcon,
+          label: "View details",
+          onSelect: handleView,
+        },
         canManage && {
           id: "edit",
+          icon: Edit02Icon,
           label: "Edit",
           onSelect: handleEdit,
           group: "manage",
         },
         canManage && {
           id: "delete",
+          icon: Delete02Icon,
           label: canDelete ? "Delete" : "Delete (Entries locked)",
           onSelect: handleDelete,
           disabled: !canDelete,

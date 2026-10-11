@@ -1,17 +1,19 @@
+import { Cancel01Icon, RepeatIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Button } from "@pi-dash/design-system/components/ui/button";
+
 import type { JobRow } from "@/components/jobs/job-stats";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/shared/responsive-sheet";
+import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
+import { PageHeaderMenu } from "@/components/shared/page-header";
+import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { formatTimestamp } from "@/lib/date-formats";
 
 interface JobDetailSheetProps {
   job: JobRow | null;
+  onCancel?: (job: JobRow) => void;
   onOpenChange: (open: boolean) => void;
+  onRetry?: (job: JobRow) => void;
   open: boolean;
 }
 
@@ -47,7 +49,9 @@ export { getStateBadge };
 
 export function JobDetailSheet({
   job,
+  onCancel,
   onOpenChange,
+  onRetry,
   open,
 }: JobDetailSheetProps) {
   if (!job) {
@@ -58,24 +62,49 @@ export function JobDetailSheet({
     );
   }
 
+  const badge = getStateBadge(job.state);
+
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent>
-        <SheetHeader>
-          <SheetTitle className="font-mono text-sm">{job.id}</SheetTitle>
-          <SheetDescription className="sr-only">
-            Job details and payload
-          </SheetDescription>
-        </SheetHeader>
+        <DetailSheetHeader
+          actions={
+            <>
+              {job.state === "failed" && onRetry ? (
+                <Button
+                  onClick={() => onRetry(job)}
+                  type="button"
+                  variant="outline"
+                >
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={RepeatIcon}
+                    strokeWidth={2}
+                  />
+                  Retry
+                </Button>
+              ) : null}
+              <PageHeaderMenu
+                actions={[
+                  (job.state === "created" || job.state === "retry") &&
+                    onCancel && {
+                      destructive: true,
+                      icon: Cancel01Icon,
+                      id: "cancel",
+                      label: "Cancel job",
+                      onSelect: () => onCancel(job),
+                    },
+                ]}
+                title="Job actions"
+              />
+            </>
+          }
+          badge={<StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>}
+          meta={[job.name, formatTimestamp(job.createdOn)]}
+          title={<span className="font-mono text-sm">{job.id}</span>}
+        />
 
         <div className="flex flex-col gap-6 px-6 pb-6">
-          <div className="flex items-center gap-2">
-            {(() => {
-              const badge = getStateBadge(job.state);
-              return <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>;
-            })()}
-          </div>
-
           <div className="grid gap-4">
             <h3 className="text-sm font-medium">Details</h3>
             <div className="grid gap-3 sm:grid-cols-2">

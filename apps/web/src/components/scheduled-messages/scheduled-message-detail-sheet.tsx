@@ -1,7 +1,7 @@
 import {
   Cancel01Icon,
   Delete02Icon,
-  PencilEdit01Icon,
+  Edit02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
@@ -16,13 +16,9 @@ import type {
 import { format } from "date-fns";
 
 import { RecipientSubTable } from "@/components/scheduled-messages/recipient-sub-table";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/shared/responsive-sheet";
+import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
+import { PageHeaderMenu } from "@/components/shared/page-header";
+import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { getAttachmentDownloadHref } from "@/lib/attachment-links";
 import { SHORT_DATE_WITH_SECONDS } from "@/lib/date-formats";
@@ -125,18 +121,47 @@ export function ScheduledMessageDetailSheet({
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent>
-        <SheetHeader>
-          <SheetTitle className="text-sm">Scheduled Message</SheetTitle>
-          <SheetDescription className="sr-only">
-            Scheduled message details
-          </SheetDescription>
-        </SheetHeader>
+        <DetailSheetHeader
+          actions={
+            <>
+              {isPending ? (
+                <Button onClick={onEdit} type="button" variant="outline">
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={Edit02Icon}
+                    strokeWidth={2}
+                  />
+                  Edit
+                </Button>
+              ) : null}
+              <PageHeaderMenu
+                actions={[
+                  isPending
+                    ? {
+                        destructive: true,
+                        icon: Cancel01Icon,
+                        id: "cancel",
+                        label: "Cancel message",
+                        onSelect: onCancel,
+                      }
+                    : {
+                        destructive: true,
+                        icon: Delete02Icon,
+                        id: "delete",
+                        label: "Delete message",
+                        onSelect: onDelete,
+                      },
+                ]}
+                title="Scheduled message actions"
+              />
+            </>
+          }
+          badge={<StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>}
+          meta={[`Scheduled for ${formatTs(message.scheduledAt)}`]}
+          title="Scheduled message"
+        />
 
         <div className="flex flex-col gap-6 px-6 pb-6">
-          <div className="flex items-center gap-2">
-            <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
-          </div>
-
           <div className="grid gap-4">
             <h3 className="text-sm font-medium">Message</h3>
             <p className="text-sm whitespace-pre-wrap">{message.message}</p>
@@ -212,38 +237,6 @@ export function ScheduledMessageDetailSheet({
               </div>
             </div>
           ) : null}
-
-          <div className="flex flex-wrap gap-2 border-t pt-4">
-            {isPending ? (
-              <>
-                <Button onClick={onEdit} size="sm" variant="outline">
-                  <HugeiconsIcon
-                    className="size-4"
-                    icon={PencilEdit01Icon}
-                    strokeWidth={2}
-                  />
-                  Edit
-                </Button>
-                <Button onClick={onCancel} size="sm" variant="outline">
-                  <HugeiconsIcon
-                    className="size-4"
-                    icon={Cancel01Icon}
-                    strokeWidth={2}
-                  />
-                  Cancel message
-                </Button>
-              </>
-            ) : (
-              <Button onClick={onDelete} size="sm" variant="outline">
-                <HugeiconsIcon
-                  className="size-4"
-                  icon={Delete02Icon}
-                  strokeWidth={2}
-                />
-                Delete
-              </Button>
-            )}
-          </div>
         </div>
       </SheetContent>
     </Sheet>

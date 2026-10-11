@@ -109,8 +109,9 @@ test.describe("Scheduled messages (admin)", () => {
       sheet.getByRole("heading", { name: /^Recipients/ })
     ).toBeVisible();
 
-    // Clean up — cancel + delete from sheet actions
-    await sheet.getByRole("button", { name: "Cancel message" }).click();
+    // Clean up — cancel from the sheet header's ⋯ menu
+    await sheet.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { name: "Cancel message" }).click();
     const cancelDialog = page.getByRole("alertdialog");
     await cancelDialog.getByRole("button", { name: "Cancel message" }).click();
     await expect(cancelDialog).toBeHidden({ timeout: 10_000 });

@@ -1,3 +1,10 @@
+import {
+  Archive02Icon,
+  Delete02Icon,
+  Edit02Icon,
+  SlidersHorizontalIcon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { KALAKRITI_RESPONSIBILITY_LABELS } from "@pi-dash/shared/kalakriti";
@@ -6,13 +13,9 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { useMemo } from "react";
 
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/shared/responsive-sheet";
+import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
+import { PageHeaderMenu } from "@/components/shared/page-header";
+import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { StatusBadge } from "@/components/shared/status-badge";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import { getCenterTransportCapabilities } from "@/lib/kalakriti-center-registration-policy";
@@ -316,55 +319,69 @@ export function CenterDetailSheet({
       }}
     >
       <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
-        <SheetHeader>
-          <SheetTitle>
-            {center?.name ?? (complete ? "Center not found" : "Loading Center")}
-          </SheetTitle>
-          <SheetDescription>
-            Center details, registration, assignments, and transport.
-          </SheetDescription>
-        </SheetHeader>
-        <div className="space-y-6 px-4 pb-6">
-          {center ? (
-            <>
-              <div className="flex flex-wrap gap-2">
+        <DetailSheetHeader
+          actions={
+            center ? (
+              <>
                 {canEdit ? (
                   <Button
-                    variant="outline"
-                    size="sm"
                     onClick={() => onEdit(center)}
+                    type="button"
+                    variant="outline"
                   >
+                    <HugeiconsIcon
+                      className="size-4"
+                      icon={Edit02Icon}
+                      strokeWidth={2}
+                    />
                     Edit
                   </Button>
                 ) : null}
                 {canManageRegistrationControls && center.retiredAt === null ? (
                   <Button
-                    variant="outline"
-                    size="sm"
                     onClick={() => onControls(center)}
+                    type="button"
+                    variant="outline"
                   >
+                    <HugeiconsIcon
+                      className="size-4"
+                      icon={SlidersHorizontalIcon}
+                      strokeWidth={2}
+                    />
                     Registration controls
                   </Button>
                 ) : null}
-                {canConfigure && center.retiredAt === null ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onRetire(center)}
-                  >
-                    Retire
-                  </Button>
-                ) : null}
-                {canConfigure ? (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => onDelete(center)}
-                  >
-                    Delete
-                  </Button>
-                ) : null}
-              </div>
+                <PageHeaderMenu
+                  actions={[
+                    canConfigure &&
+                      center.retiredAt === null && {
+                        icon: Archive02Icon,
+                        id: "retire",
+                        label: "Retire",
+                        onSelect: () => onRetire(center),
+                      },
+                    canConfigure && {
+                      destructive: true,
+                      icon: Delete02Icon,
+                      id: "delete",
+                      label: "Delete center",
+                      onSelect: () => onDelete(center),
+                    },
+                  ]}
+                  title={`${center.name} actions`}
+                />
+              </>
+            ) : null
+          }
+          className="px-4"
+          description="Center details, registration, assignments, and transport."
+          title={
+            center?.name ?? (complete ? "Center not found" : "Loading Center")
+          }
+        />
+        <div className="space-y-6 px-4 pb-6">
+          {center ? (
+            <>
               <CenterSheetDetails
                 key={`${access.edition.id}:${center.id}`}
                 center={center}
