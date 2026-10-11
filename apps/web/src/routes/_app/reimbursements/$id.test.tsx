@@ -47,6 +47,9 @@ mock.module("@/components/reimbursements/reimbursement-detail", () => ({
 mock.module("@/components/reimbursements/reimbursement-form", () => ({
   ReimbursementForm: () => null,
 }));
+mock.module("@/components/shared/not-found-state", () => ({
+  RecordNotFound: ({ noun }: { noun: string }) => <span>{noun} not found</span>,
+}));
 mock.module("@/context/app-context", () => ({
   useApp: () => ({ hasPermission: () => false }),
 }));
@@ -75,7 +78,7 @@ describe("reimbursement detail loading", () => {
 
       const html = render();
       expect(html).toContain("Loading request");
-      expect(html).not.toContain("Reimbursement not found.");
+      expect(html).not.toContain("Reimbursement not found");
     }
   );
 
@@ -84,7 +87,7 @@ describe("reimbursement detail loading", () => {
     advancePayment.type = "complete";
 
     const html = render();
-    expect(html).toContain("Reimbursement not found.");
+    expect(html).toContain("Reimbursement not found");
     expect(html).not.toContain("Loading request");
   });
 
@@ -113,7 +116,7 @@ describe("reimbursement detail loading", () => {
           : "Cached advance payment"
       );
       expect(html).not.toContain("Loading request");
-      expect(html).not.toContain("Reimbursement not found.");
+      expect(html).not.toContain("Reimbursement not found");
     }
   );
 });

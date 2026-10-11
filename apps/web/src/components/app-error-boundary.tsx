@@ -6,45 +6,32 @@ import { log } from "evlog";
 import { type ReactNode, use } from "react";
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
 
+import { ErrorState } from "@/components/shared/error-state";
 import { AppContext } from "@/context/app-context";
-import { generateTraceId } from "@/lib/tracing";
+import { getErrorReference } from "@/lib/error-reference";
 
 type Level = "root" | "section" | "inline";
 
 function RootFallback({ error, resetErrorBoundary }: FallbackProps) {
-  const appCtx = use(AppContext);
-  const canSeeErrors = appCtx?.hasPermission("settings.app_config") ?? false;
-  const stableOnClick0 = useEventCallback(() => {
+  const goHome = useEventCallback(() => {
     window.location.href = "/";
   });
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-6 p-4">
-      <div className="flex flex-col items-center gap-2 text-center">
-        <HugeiconsIcon
-          className="text-destructive size-10"
-          icon={Alert01Icon}
-          strokeWidth={2}
-        />
-        <h2 className="text-lg font-semibold">We hit an unexpected error</h2>
-        <p className="text-muted-foreground max-w-md text-sm">
-          This page couldn't load properly. Try again, or head back to the home
-          page if the problem persists.
-        </p>
-        {canSeeErrors ? (
-          <p className="bg-muted text-muted-foreground mt-2 max-w-md rounded-md p-2 font-mono text-xs">
-            {error instanceof Error ? error.message : String(error)}
-          </p>
-        ) : null}
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button onClick={resetErrorBoundary} type="button">
-          Try Again
-        </Button>
-        <Button onClick={stableOnClick0} type="button" variant="secondary">
-          Home
-        </Button>
-      </div>
+    <div className="flex min-w-0 flex-1 items-center justify-center">
+      <ErrorState
+        actions={
+          <>
+            <Button onClick={resetErrorBoundary} type="button">
+              Try again
+            </Button>
+            <Button onClick={goHome} type="button" variant="outline">
+              Go to dashboard
+            </Button>
+          </>
+        }
+        error={error}
+      />
     </div>
   );
 }
@@ -72,7 +59,7 @@ function SectionFallback({ error, resetErrorBoundary }: FallbackProps) {
         type="button"
         variant="outline"
       >
-        Try Again
+        Try again
       </Button>
     </div>
   );
@@ -105,16 +92,16 @@ const FALLBACK_MAP: Record<Level, (props: FallbackProps) => ReactNode> = {
 
 function handleError(error: unknown, info: { componentStack?: string | null }) {
   const message = error instanceof Error ? error.message : String(error);
+  const traceId = getErrorReference(error);
   log.error({
     component: "AppErrorBoundary",
     componentStack: info.componentStack ?? "",
     message,
+    traceId,
   });
   if (error instanceof Error) {
     import("@/lib/posthog")
-      .then(({ captureException }) =>
-        captureException(error, { traceId: generateTraceId() })
-      )
+      .then(({ captureException }) => captureException(error, { traceId }))
       .catch(() => {
         // Non-critical
       });

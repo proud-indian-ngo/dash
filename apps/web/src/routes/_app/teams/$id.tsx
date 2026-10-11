@@ -4,6 +4,7 @@ import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { Loader } from "@/components/loader";
+import { RecordNotFound } from "@/components/shared/not-found-state";
 import { TeamDetail } from "@/components/teams/team-detail";
 import { preloadRouteQuery } from "@/lib/route-preload";
 
@@ -37,7 +38,7 @@ function TeamDetailRouteComponent() {
   if (!team) {
     return (
       <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-        <p className="text-muted-foreground text-sm">Team not found.</p>
+        <RecordNotFound backLabel="Back to teams" backTo="/teams" noun="Team" />
       </div>
     );
   }

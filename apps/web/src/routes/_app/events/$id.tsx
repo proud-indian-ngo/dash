@@ -7,6 +7,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import * as z from "zod";
 
 import { Loader } from "@/components/loader";
+import { RecordNotFound } from "@/components/shared/not-found-state";
 import { EventDetail } from "@/components/teams/events/event-detail";
 import type { EventRow } from "@/components/teams/events/events-table";
 import { applyOccurrenceDate } from "@/components/teams/events/events-table-helpers";
@@ -281,7 +282,11 @@ function EventDetailRouteComponent() {
   if (!event) {
     return (
       <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-        <p className="text-muted-foreground text-sm">Event not found.</p>
+        <RecordNotFound
+          backLabel="Back to events"
+          backTo="/events"
+          noun="Event"
+        />
       </div>
     );
   }
