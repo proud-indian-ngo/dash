@@ -5,6 +5,22 @@ import { ListPage } from "../pages/list-page";
 
 const SEED_TEAM_NAME = "E2E Updates Team";
 
+/**
+ * Types into a data table's search box and waits for the value to reach the
+ * URL. The box writes ?search= 300ms after typing; a click made before that
+ * starts a navigation the late URL update then cancels.
+ */
+export async function fillTableSearch(
+  page: Page,
+  placeholder: string,
+  value: string
+) {
+  await page.getByPlaceholder(placeholder).fill(value);
+  await page.waitForURL(
+    (url) => new URL(url).searchParams.get("search") === value
+  );
+}
+
 /** Opens the seeded team's page, where its events table lives. */
 export async function openSeededTeam(page: Page) {
   await page.goto("/teams");
@@ -13,7 +29,7 @@ export async function openSeededTeam(page: Page) {
   });
   await waitForZeroReady(page);
   // Search so the row is on the first page whatever the fitted page size.
-  await page.getByPlaceholder("Search teams...").fill(SEED_TEAM_NAME);
+  await fillTableSearch(page, "Search teams...", SEED_TEAM_NAME);
   await page
     .getByRole("row")
     .filter({ hasText: SEED_TEAM_NAME })
@@ -31,7 +47,7 @@ export async function openSeededTeam(page: Page) {
  */
 export async function openSeededTeamEvent(page: Page, eventName: string) {
   await openSeededTeam(page);
-  await page.getByPlaceholder("Search events...").fill(eventName);
+  await fillTableSearch(page, "Search events...", eventName);
   const eventRow = page.getByRole("row").filter({ hasText: eventName });
   await new ListPage(page).openRowActionAndClick(eventRow.first(), "View");
   await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
