@@ -158,7 +158,7 @@ All paths are relative to project root.
 | `routes/_app/analytics.tsx` | Analytics dashboard with charts (`requests.view_all` permission guard) |
 | `routes/_app/jobs.tsx` | Background jobs dashboard (`jobs.manage` permission guard) |
 | `routes/_app/audit-log.tsx` | Immutable user-action audit viewer (`audit_log.view` permission guard) |
-| `routes/_app/social.tsx` | Social page: pipeline runs, posted log with Drop, pause switches and social settings (`social.manage` permission guard) |
+| `routes/_app/social.tsx` | Social page: pipeline runs, posted log with Drop, pause switches, posting rules and social settings (`social.manage` permission guard) |
 | `routes/_app/export.tsx` | CSV data export (reimbursements, advance payments, vendor payments) |
 | `routes/_auth/login.tsx` | Login |
 | `routes/_auth/register.tsx` | Registration (`?eventId=` / `?group=` optional) |
@@ -204,7 +204,7 @@ pi-dash event remains read-only outside the Kalakriti module.
 | `components/layout/` | app-sidebar, nav-main, nav-user, team-switcher, breadcrumbs |
 | `components/data-table/` | data-table-wrapper, ReUI Filters adapter (`compile-filter-query`, `use-data-table-filters`, `filter-fields`, `filter-date-editor`, `use-migrate-legacy-filter-params`) |
 | `components/audit/` | audit-log table, row detail sheet, and API response types |
-| `components/social/` | Social page: runs table, posts table (Drop action), social settings (pause switches, digest approver, all-time totals), IST formatting |
+| `components/social/` | Social page: runs table, posts table (Drop action), social settings (pause switches, posting rules, digest approver, all-time totals), IST formatting |
 | `components/users/` | users-table, user-form, password-form, ban-user-form |
 | `components/reimbursements/` | reimbursements-table, reimbursement-form, reimbursement-detail, reimbursement-stats (unified reimbursements + advance payments) |
 | `components/teams/` | teams-table, team-detail, team-form-dialog, add-member-dialog |

@@ -60,7 +60,30 @@ describe("buildSocialApiOpenApi", () => {
     expect(spec.components.schemas.SocialSettings.required.sort()).toEqual([
       "paused",
       "pausedKinds",
+      "rules",
     ]);
+    const rules = spec.components.schemas.SocialSettings.properties.rules as {
+      additionalProperties: boolean;
+      properties: Record<
+        string,
+        { properties: Record<string, Record<string, unknown>> }
+      >;
+    };
+    expect(rules.additionalProperties).toBe(false);
+    expect(Object.keys(rules.properties).sort()).toEqual([
+      "impact",
+      "recap",
+      "schedule",
+      "story",
+      "volunteerCall",
+    ]);
+    expect(rules.properties.schedule?.properties.minRows).toMatchObject({
+      default: 3,
+      maximum: 6,
+      minimum: 1,
+      type: "integer",
+    });
+    expect(rules.properties.recap?.properties.held?.default).toBe(true);
     expect(spec.components.schemas.SocialRunInput.required).toHaveLength(11);
   });
 });

@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import {
   buildPublicSignUpUrl,
   type EventOccurrence,
@@ -513,6 +515,159 @@ export const SOCIAL_PAUSABLE_KINDS = [
 ] as const satisfies readonly SocialPostKindValue[];
 
 /**
+ * app_config key: JSON posting rules (`SocialRules`) the pipeline merges over
+ * its own defaults. Only what an admin set is stored; absent = Worker default.
+ */
+export const SOCIAL_RULES_CONFIG_KEY = "social_rules";
+
+export const SOCIAL_RULE_TEXT_MAX = 120;
+const RULE_TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+const ruleTime = z
+  .string({ error: "Use HH:MM (24-hour)" })
+  .regex(RULE_TIME_RE, { error: "Use HH:MM (24-hour)" });
+const ruleInt = (min: number, max: number) => {
+  const error = `Use a whole number from ${min} to ${max}`;
+  return z.number({ error }).int({ error }).min(min, { error }).max(max, {
+    error,
+  });
+};
+const ruleHeld = z.boolean({ error: "Use true or false" });
+const ruleText = z
+  .string({ error: `Use 1 to ${SOCIAL_RULE_TEXT_MAX} characters` })
+  .trim()
+  .min(1, { error: `Use 1 to ${SOCIAL_RULE_TEXT_MAX} characters` })
+  .max(SOCIAL_RULE_TEXT_MAX, {
+    error: `Use 1 to ${SOCIAL_RULE_TEXT_MAX} characters`,
+  });
+
+/**
+ * Display copy of the pipeline's own defaults (the Worker owns them). Used for
+ * placeholders and for cross-field checks when only one side is set.
+ */
+export const SOCIAL_RULES_DEFAULTS = {
+  impact: {
+    buildTime: "09:00",
+    held: true,
+    line: "Thank you to every Optimist and partner who showed up.",
+    postDaysAfterBuild: 2,
+    postTime: "09:00",
+  },
+  recap: {
+    closingLine: "Thank you for showing up",
+    held: true,
+    lookbackDays: 3,
+    photosMax: 12,
+    postTime: "20:00",
+    reelMinSeconds: 15,
+    slideshowMinPhotos: 3,
+  },
+  schedule: {
+    buildTime: "09:00",
+    held: false,
+    maxRows: 6,
+    minRows: 3,
+    postTime: "19:00",
+    title: "This week with Proud Indian",
+  },
+  story: { held: false },
+  volunteerCall: { daysOut: 4, held: false, postTime: "19:00" },
+} as const;
+
+/** Posting rules, every field optional (`GET settings` → `rules`). */
+export const socialRulesSchema = z.strictObject({
+  impact: z
+    .strictObject({
+      buildTime: ruleTime,
+      held: ruleHeld,
+      line: ruleText,
+      postDaysAfterBuild: ruleInt(0, 6),
+      postTime: ruleTime,
+    })
+    .partial()
+    .optional(),
+  recap: z
+    .strictObject({
+      closingLine: ruleText,
+      held: ruleHeld,
+      lookbackDays: ruleInt(0, 14),
+      photosMax: ruleInt(1, 12),
+      postTime: ruleTime,
+      reelMinSeconds: ruleInt(5, 60),
+      slideshowMinPhotos: ruleInt(1, 12),
+    })
+    .partial()
+    .refine(
+      (recap) =>
+        (recap.photosMax ?? SOCIAL_RULES_DEFAULTS.recap.photosMax) >=
+        (recap.slideshowMinPhotos ??
+          SOCIAL_RULES_DEFAULTS.recap.slideshowMinPhotos),
+      { error: "Use at least the slideshow minimum", path: ["photosMax"] }
+    )
+    .optional(),
+  schedule: z
+    .strictObject({
+      buildTime: ruleTime,
+      held: ruleHeld,
+      maxRows: ruleInt(1, 6),
+      minRows: ruleInt(1, 6),
+      postTime: ruleTime,
+      title: ruleText,
+    })
+    .partial()
+    .refine(
+      (schedule) =>
+        (schedule.minRows ?? SOCIAL_RULES_DEFAULTS.schedule.minRows) <=
+        (schedule.maxRows ?? SOCIAL_RULES_DEFAULTS.schedule.maxRows),
+      { error: "Use at least the minimum rows", path: ["maxRows"] }
+    )
+    .optional(),
+  story: z.strictObject({ held: ruleHeld }).partial().optional(),
+  volunteerCall: z
+    .strictObject({
+      daysOut: ruleInt(0, 14),
+      held: ruleHeld,
+      postTime: ruleTime,
+    })
+    .partial()
+    .optional(),
+});
+export type SocialRules = z.output<typeof socialRulesSchema>;
+export type SocialRuleKind = keyof typeof SOCIAL_RULES_DEFAULTS;
+
+export type SocialRulesParseResult =
+  | { error: null; rules: SocialRules }
+  | { error: string; rules: Record<string, never> };
+
+/**
+ * Stored `social_rules` JSON → rules. Missing is `{}` without an error; bad
+ * JSON or a value outside the contract is `{}` with the reason, so a broken
+ * value falls back to the pipeline defaults instead of failing the request.
+ */
+export function parseSocialRules(
+  raw: string | null | undefined
+): SocialRulesParseResult {
+  if (!raw?.trim()) {
+    return { error: null, rules: {} };
+  }
+  let json: unknown;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    return { error: "social_rules is not valid JSON", rules: {} };
+  }
+  const parsed = socialRulesSchema.safeParse(json);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    return {
+      error: `social_rules ${issue?.path.join(".") || "value"}: ${issue?.message ?? "invalid"}`,
+      rules: {},
+    };
+  }
+  return { error: null, rules: parsed.data };
+}
+
+/**
  * app_config keys holders of `social.manage` may write through
  * `appConfig.upsert` / `appConfig.remove` (everything else still needs
  * `settings.app_config`).
@@ -522,11 +677,13 @@ export const SOCIAL_MANAGE_CONFIG_KEYS: readonly string[] = [
   SOCIAL_PAUSED_KINDS_CONFIG_KEY,
   SOCIAL_APPROVER_CONFIG_KEY,
   ...Object.values(SOCIAL_ALL_TIME_CONFIG_KEYS),
+  SOCIAL_RULES_CONFIG_KEY,
 ];
 
 export interface SocialSettingsResponse {
   paused: boolean;
   pausedKinds: SocialPostKindValue[];
+  rules: SocialRules;
 }
 
 const SOCIAL_POST_KIND_SET = new Set<string>(socialPostKinds);
@@ -544,15 +701,27 @@ export function parseSocialPausedKinds(
   return socialPostKinds.filter((kind) => listed.has(kind));
 }
 
-/** The settings the pipeline reads at the start of every run. */
+/**
+ * The settings the pipeline reads at the start of every run. An invalid
+ * stored `social_rules` value yields `rules: {}` and is reported through
+ * `onInvalidRules` (the API logs it) instead of failing.
+ */
 export function buildSocialSettings(
-  config: ReadonlyMap<string, string>
+  config: ReadonlyMap<string, string>,
+  onInvalidRules?: (reason: string) => void
 ): SocialSettingsResponse {
+  const { error, rules } = parseSocialRules(
+    config.get(SOCIAL_RULES_CONFIG_KEY)
+  );
+  if (error) {
+    onInvalidRules?.(error);
+  }
   return {
     paused: config.get(SOCIAL_PAUSED_CONFIG_KEY)?.trim() === "true",
     pausedKinds: parseSocialPausedKinds(
       config.get(SOCIAL_PAUSED_KINDS_CONFIG_KEY)
     ),
+    rules,
   };
 }
 

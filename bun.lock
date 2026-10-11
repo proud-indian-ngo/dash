@@ -338,6 +338,7 @@
       "version": "0.0.0",
       "dependencies": {
         "rrule": "^2.8.1",
+        "zod": "catalog:",
       },
       "devDependencies": {
         "@pi-dash/config": "workspace:*",

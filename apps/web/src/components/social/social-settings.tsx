@@ -18,6 +18,7 @@ import {
   SOCIAL_PAUSABLE_KINDS,
   SOCIAL_PAUSED_CONFIG_KEY,
   SOCIAL_PAUSED_KINDS_CONFIG_KEY,
+  SOCIAL_RULES_CONFIG_KEY,
   type SocialPostKindValue,
   socialPostKinds,
 } from "@pi-dash/shared/social-api";
@@ -27,6 +28,7 @@ import { type FormEvent, useState } from "react";
 
 import { handleMutationResult } from "@/lib/mutation-result";
 
+import { SocialRulesSettings } from "./social-rules";
 import { useSocialPeople } from "./use-social-people";
 
 const NONE = "__none__";
@@ -315,7 +317,10 @@ function PauseSettings({
   );
 }
 
-/** Social page → Settings: pause switches, digest approver, all-time totals. */
+/**
+ * Social page → Settings: pause switches, posting rules, digest approver and
+ * all-time totals.
+ */
 export function SocialSettings({
   configs,
 }: {
@@ -338,6 +343,16 @@ export function SocialSettings({
         <PauseSettings
           paused={valueOf(SOCIAL_PAUSED_CONFIG_KEY) === "true"}
           pausedKinds={valueOf(SOCIAL_PAUSED_KINDS_CONFIG_KEY)}
+        />
+      </section>
+      <section aria-labelledby="social-rules-heading" className="grid gap-4">
+        <h2 className="text-sm font-medium" id="social-rules-heading">
+          Posting rules
+        </h2>
+        <SocialRulesSettings
+          // Re-seed the form when the saved rules change.
+          key={valueOf(SOCIAL_RULES_CONFIG_KEY)}
+          stored={valueOf(SOCIAL_RULES_CONFIG_KEY)}
         />
       </section>
       <section aria-labelledby="social-digest-heading" className="grid gap-4">

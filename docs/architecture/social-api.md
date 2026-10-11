@@ -27,7 +27,7 @@ All under `apps/web/src/routes/api/social/v1/`; handlers with injectable depende
 | `POST posted` | `social:write` | Upsert on (event id, channel, kind, buffer post id); optional `occurrenceDate` (YYYY-MM-DD) and `eventName` are stored and updated by a repeat; audited as `social.posted.record` with actor role `social-api` (target `teamEvent` only for a bare uuid, `teamEventSeries` with the series id for a composite id, otherwise `socialPost` without an id); 204 |
 | `GET posted?eventId=` or `GET posted?from=&to=` | `social:write` or `events:read` | Exactly one form, else 400. `{ posted: PostedRecord[] }`, `occurrenceDate` and `eventName` null when unset. The window form (same validation as `events`) returns records whose `occurrence_date` is in the window, or whose `occurrence_date` is null and `event_id` is `<uuid>:<YYYY-MM-DD>` with the date in the window |
 | `POST notify` | `social:write` | WhatsApp digest to the approver; 204 |
-| `GET settings` | `events:read` | `{ paused, pausedKinds }` from app_config `social_paused` and `social_paused_kinds` (see [Pause](#pause)); `Cache-Control: no-store` |
+| `GET settings` | `events:read` | `{ paused, pausedKinds, rules }` from app_config `social_paused`, `social_paused_kinds` and `social_rules` (see [Pause](#pause) and [Posting rules](#posting-rules)); `Cache-Control: no-store` |
 | `POST runs` | `social:write` | One pipeline run report (see [Runs](#runs)); 204 |
 | `GET openapi.json` | none | `@pi-dash/shared/social-api-openapi` |
 
@@ -61,6 +61,24 @@ Sessions are `team_event` rows with `social_completed_at` set and `cancelled_at`
 
 `GET settings` is read by the generator at the start of every run. `paused` is true only when `social_paused` is exactly `"true"`; then the hourly run does nothing (no planning, rendering, recording or Buffer queueing). `pausedKinds` lists the kinds in `social_paused_kinds` (comma-separated; unknown values are ignored, order is `schedule`, `recap`, `volunteer-call`, `impact`, `story`) and the run skips posts of those kinds. Posts already queued in Buffer are not touched by a pause; drop them (below) and delete them in Buffer. Parsing lives in `buildSocialSettings` / `parseSocialPausedKinds` (`@pi-dash/shared/social-api`).
 
+### Posting rules
+
+`rules` in `GET settings` carries the posting rules the pipeline merges over its own defaults. Every field is optional; an absent field (or kind) means the pipeline default, so the dashboard stores only what an admin set. Shape (`socialRulesSchema`, strict at both levels):
+
+```
+rules = {
+  schedule:      { buildTime, postTime, minRows, maxRows, held, title },
+  story:         { held },
+  recap:         { postTime, lookbackDays, slideshowMinPhotos, photosMax, reelMinSeconds, held, closingLine },
+  volunteerCall: { postTime, daysOut, held },
+  impact:        { buildTime, postTime, postDaysAfterBuild, held, line }
+}
+```
+
+Times are IST `"HH:MM"` strings (24-hour, any minute). `minRows` / `maxRows` are integers 1–6, `lookbackDays` 0–14, `slideshowMinPhotos` and `photosMax` 1–12, `reelMinSeconds` 5–60, `daysOut` 0–14, `postDaysAfterBuild` 0–6; `held` is a boolean (held posts land in Buffer drafts for the approver); `title`, `closingLine` and `line` are trimmed strings of 1–120 characters. Cross-field checks use the default for the side that is unset: `minRows ≤ maxRows` and `photosMax ≥ slideshowMinPhotos`. The value is stored as JSON in app_config `social_rules` (`SOCIAL_RULES_CONFIG_KEY`). `buildSocialSettings` parses it with `parseSocialRules`; a missing key gives `rules: {}`, and bad JSON or a value outside the schema also gives `rules: {}` while the settings handler logs a `social_rules_invalid` warning, never a 500.
+
+`SOCIAL_RULES_DEFAULTS` is a display copy of the pipeline's defaults (the Worker owns them): schedule build 09:00, post 19:00, 3–6 rows, not held, title "This week with Proud Indian"; story not held; recap post 20:00, look back 3 days, slideshow from 3 photos, at most 12 photos, reels from 15 s, held, closing line "Thank you for showing up"; volunteer call post 19:00, 4 days before the session, not held; impact build 09:00, post 09:00, 2 days after the build, held, line "Thank you to every Optimist and partner who showed up.". The OpenAPI `SocialSettings.rules` schema is generated from `socialRulesSchema` (`z.toJSONSchema`) with these defaults as `default`.
+
 ### Runs
 
 `POST runs` takes `{ startedAt, finishedAt, tick: "hourly" | "digest", eventsSeen, planned, rendered, recorded, dropped, skipped, errors, digestSent }` (strict; counts are non-negative integers, `finishedAt` may not precede `startedAt`). `skipped` and `errors` are refused beyond 1,000 entries or 10,000 characters an entry, and otherwise capped: the first 50 entries are kept, each cut to 500 characters. `insertSocialRun` (`packages/db/src/queries/social-api.ts`) inserts the row into `social_run` and, in the same transaction, deletes everything but the latest 500 rows (by uuidv7 id). The route is not audited: like a scheduled job, it is the pipeline's own telemetry (classified in `audit-entrypoint-coverage.test.ts`).
@@ -83,8 +101,9 @@ Body `{ to: "approver", template: "social-digest", lines }` (1–40 lines, 500 c
 | `social_all_time_reached` | Overrides `allTime.reached` (e.g. `23000`) |
 | `social_paused` | `"true"` pauses the whole pipeline; `"false"` or unset runs it |
 | `social_paused_kinds` | Comma-separated kinds the run skips (e.g. `recap,impact`); unset when none |
+| `social_rules` | JSON posting rules (see [Posting rules](#posting-rules)); unset means every pipeline default |
 
-Set them on the **Social page → Settings** tab (`social.manage`): "Pause all posts", one "Pause … posts" switch per kind (`schedule`, `recap`, `volunteer-call`, `impact`; `story` is reserved and kept if already listed), a picker of active, unbanned users for the approver, and three optional number fields for the all-time totals. Saving a value uses `appConfig.upsert`; clearing a field (or picking "None", or unpausing the last kind) uses `appConfig.remove`, so the API falls back to the computed figure, no paused kinds, or 503 for a missing approver. `appConfig.upsert` / `remove` accept these six keys (`SOCIAL_MANAGE_CONFIG_KEYS` in `@pi-dash/shared/social-api`) from `social.manage`; every other key still needs `settings.app_config`, which may write all keys. API tokens stay in **Settings → API Tokens** (`settings.app_config`).
+Set them on the **Social page → Settings** tab (`social.manage`): "Pause all posts", one "Pause … posts" switch per kind (`schedule`, `recap`, `volunteer-call`, `impact`; `story` is reserved and kept if already listed), a "Posting rules" form below the switches, a picker of active, unbanned users for the approver, and three optional number fields for the all-time totals. Saving a value uses `appConfig.upsert`; clearing a field (or picking "None", or unpausing the last kind) uses `appConfig.remove`, so the API falls back to the computed figure, no paused kinds, or 503 for a missing approver. The posting rules form (`social-rules.tsx`, helpers in `social-rules-form.ts`) has one card per kind (Weekly schedule, Schedule story, Recap, Volunteer call, LinkedIn impact): an empty text field per rule with the default as placeholder and help text, and a "Hold … for approval" switch showing the effective value. "Save rules" validates with `socialRulesSchema` (errors show under each field), leaves out empty fields and switches left at their default, and upserts the JSON; saving with nothing set removes the key. "Reset to defaults" (behind a confirmation) removes `social_rules`. A stored value the schema rejects shows a warning and an empty form. `appConfig.upsert` / `remove` accept these seven keys (`SOCIAL_MANAGE_CONFIG_KEYS` in `@pi-dash/shared/social-api`) from `social.manage`; every other key still needs `settings.app_config`, which may write all keys. API tokens stay in **Settings → API Tokens** (`settings.app_config`).
 
 ## Dashboard UI
 
@@ -94,7 +113,7 @@ Set them on the **Social page → Settings** tab (`social.manage`): "Pause all p
 
 - **Runs** (default): `socialRun.all`, newest first by `started_at`: time (IST), tick, events seen, planned, rendered, recorded, dropped, digest sent and a result badge (OK or the error count). Rows with skipped reasons or errors expand to list them. With no runs, an empty state explains the hourly and daily digest runs.
 - **Posts**: `socialPost.all`, newest first by `scheduled_for`: scheduled for (IST), kind, channel, event (name and occurrence date; a link to `/events/$id` when the event id is a bare uuid), status badge (dropped rows add who and when), Buffer id. Status, kind and channel filters, with status as view tabs. Queued and approved rows have a **Drop post** row action behind a confirmation.
-- **Settings**: the pause switches, the digest approver and the all-time totals (see [app_config keys](#app_config-keys)).
+- **Settings**: the pause switches, the posting rules, the digest approver and the all-time totals (see [app_config keys](#app_config-keys)).
 
 Both Zero queries return nothing without `social.manage`; `social_run` has no mutators. User names never come from synced user rows: the approver picker and the "dropped by" names use the `getSocialPeople` server function (`apps/web/src/functions/social-people.ts`, loader in `apps/web/src/lib/social-people.ts`, `social.manage` or `users.view`), which returns ids and names only: active, unbanned, non-external users as approver candidates, plus the named ids (the current approver) and everyone who dropped a post. Zero 1.9 has no column projection, so `socialPost.all` has no user relation.
 
@@ -122,7 +141,7 @@ The details card lists the effective partners (an exception's own, otherwise its
 | `teamEvent.undoSocialRecap({ eventId, now })` | same as above |
 | `eventPhoto.setDoNotUse({ id, doNotUse })` | approved photos only; `events.manage_photos`, or `events.manage_attendance` / team lead |
 | `teamEvent.create` / `update` / `updateSeries` with `volunteersNeeded`, `partners` | the existing `events.create` / `events.edit` or team lead gates |
-| `appConfig.upsert` / `appConfig.remove` | `settings.app_config` for any key; `social.manage` for the six social keys only (`assertCanWriteAppConfig`) |
+| `appConfig.upsert` / `appConfig.remove` | `settings.app_config` for any key; `social.manage` for the seven social keys only (`assertCanWriteAppConfig`) |
 | `socialPost.drop({ id, now })` | `social.manage`; `queued` or `approved` posts only; stamps `dropped_by` / `dropped_at` |
 
 All go through the central Zero mutation audit; `childrenAttended`, `socialNotes`, `markReady`, `doNotUse`, `partners` and `volunteersNeeded` are allowed as changed-field names (values are never stored). Shared limits live in `@pi-dash/shared/social-recap`.
