@@ -32,7 +32,8 @@ test.describe("Analytics dashboard (admin)", () => {
   test("chart containers render after data loads", async ({ page }) => {
     await expect(
       page
-        .getByRole("region", { name: "Spending by category" })
+        .getByRole("region", { name: "Spending by programme" })
+        .or(page.getByRole("region", { name: "Spending by category" }))
         .or(page.getByRole("region", { name: "Submission trends" }))
         .first()
     ).toBeVisible({ timeout: 15_000 });

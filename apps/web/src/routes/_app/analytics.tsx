@@ -33,6 +33,7 @@ import {
   computeApprovalTimeData,
   computeCategoryData,
   computeEventData,
+  computeProgrammeData,
   computeSubmissionStats,
   computeSubmitterData,
   computeTrendData,
@@ -69,6 +70,11 @@ const EventSpendingChart = lazy(() =>
 const ApprovalTimeChart = lazy(() =>
   import("@/components/analytics/approval-time-chart").then((m) => ({
     default: m.ApprovalTimeChart,
+  }))
+);
+const ProgrammeSpendingChart = lazy(() =>
+  import("@/components/analytics/spending-by-programme-chart").then((m) => ({
+    default: m.ProgrammeSpendingChart,
   }))
 );
 
@@ -190,6 +196,9 @@ function AnalyticsPage() {
   const eventData = computeEventData(
     allFiltered as unknown as Parameters<typeof computeEventData>[0]
   );
+  const programmeData = computeProgrammeData(
+    allFiltered as unknown as Parameters<typeof computeProgrammeData>[0]
+  );
   const approvalTimeData = computeApprovalTimeData(
     allFiltered as unknown as Parameters<typeof computeApprovalTimeData>[0]
   );
@@ -245,6 +254,7 @@ function AnalyticsPage() {
             <div className="mt-6 grid gap-4 *:min-w-0 lg:grid-cols-2">
               <SubmissionTrendsChart data={trendData} />
               <ApprovalTimeChart data={approvalTimeData} />
+              <ProgrammeSpendingChart data={programmeData} />
               <CategoryBreakdownChart data={categoryData} />
               <EventSpendingChart data={eventData} />
               <TopSubmittersChart data={submitterData} />

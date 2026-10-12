@@ -159,7 +159,7 @@ All paths are relative to project root.
 | `routes/_app/settings/roles/index.tsx` | Roles list |
 | `routes/_app/settings/roles/$roleId.tsx` | Role detail (permissions) |
 | `routes/_app/scheduled-messages.tsx` | Scheduled WhatsApp messages (`messages.schedule` permission guard) |
-| `routes/_app/analytics.tsx` | Analytics dashboard with charts (`requests.view_all` permission guard) |
+| `routes/_app/analytics.tsx` | Analytics dashboard with charts, including spending by programme derived from each request's event (`requests.view_all` permission guard) |
 | `routes/_app/jobs.tsx` | Background jobs dashboard (`jobs.manage` permission guard) |
 | `routes/_app/audit-log.tsx` | Immutable user-action audit viewer (`audit_log.view` permission guard) |
 | `routes/_app/social.tsx` | Social page: pipeline runs, posted log with Drop, pause switches, posting rules and social settings (`social.manage` permission guard) |

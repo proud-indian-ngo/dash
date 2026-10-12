@@ -269,6 +269,40 @@ export function computeEventData(
     .slice(0, 10);
 }
 
+export interface ProgrammeDataPoint {
+  amount: number;
+  count: number;
+  name: string;
+}
+
+interface WithProgrammeData {
+  event?: { programme?: { name: string } | null } | null;
+  lineItems: readonly { amount: string | number }[];
+}
+
+export const NO_EVENT_PROGRAMME_LABEL = "No event";
+
+/** Spend per programme, derived from each request's event. Requests without an event are grouped under "No event". */
+export function computeProgrammeData(
+  items: readonly WithProgrammeData[]
+): ProgrammeDataPoint[] {
+  const map = new Map<string, { amount: number; count: number }>();
+
+  for (const item of items) {
+    const name = item.event
+      ? (item.event.programme?.name ?? "Unallocated")
+      : NO_EVENT_PROGRAMME_LABEL;
+    const existing = map.get(name) ?? { amount: 0, count: 0 };
+    existing.amount += sumAmounts(item.lineItems);
+    existing.count += 1;
+    map.set(name, existing);
+  }
+
+  return [...map.entries()]
+    .map(([name, data]) => ({ name, ...data }))
+    .sort((a, b) => b.amount - a.amount);
+}
+
 export interface ApprovalTimeBucket {
   count: number;
   label: string;

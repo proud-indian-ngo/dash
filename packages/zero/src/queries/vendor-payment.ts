@@ -5,23 +5,26 @@ import { can } from "../permissions";
 import { zql } from "../schema";
 
 function withRelated(q: typeof zql.vendorPayment) {
-  return q
-    .related("lineItems", (li) =>
-      li.orderBy("sortOrder", "asc").related("category")
-    )
-    .related("attachments", (a) => a.orderBy("createdAt", "asc"))
-    .related("history", (h) => h.orderBy("createdAt", "asc"))
-    .related("user")
-    .related("vendor")
-    .related("invoiceReviewer")
-    .related("event")
-    .related("transactions", (t) =>
-      t
-        .orderBy("createdAt", "desc")
-        .related("user")
-        .related("attachments", (a) => a.orderBy("createdAt", "asc"))
-        .related("history", (h) => h.orderBy("createdAt", "asc"))
-    );
+  return (
+    q
+      .related("lineItems", (li) =>
+        li.orderBy("sortOrder", "asc").related("category")
+      )
+      .related("attachments", (a) => a.orderBy("createdAt", "asc"))
+      .related("history", (h) => h.orderBy("createdAt", "asc"))
+      .related("user")
+      .related("vendor")
+      .related("invoiceReviewer")
+      // Analytics groups spend by the event's programme.
+      .related("event", (e) => e.related("programme"))
+      .related("transactions", (t) =>
+        t
+          .orderBy("createdAt", "desc")
+          .related("user")
+          .related("attachments", (a) => a.orderBy("createdAt", "asc"))
+          .related("history", (h) => h.orderBy("createdAt", "asc"))
+      )
+  );
 }
 
 export const vendorPaymentQueries = {

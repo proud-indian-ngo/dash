@@ -5,14 +5,17 @@ import { can } from "../permissions";
 import { zql } from "../schema";
 
 function withRelated(q: typeof zql.reimbursement) {
-  return q
-    .related("lineItems", (li) =>
-      li.orderBy("sortOrder", "asc").related("category")
-    )
-    .related("attachments", (a) => a.orderBy("createdAt", "asc"))
-    .related("history", (h) => h.orderBy("createdAt", "asc"))
-    .related("user")
-    .related("event");
+  return (
+    q
+      .related("lineItems", (li) =>
+        li.orderBy("sortOrder", "asc").related("category")
+      )
+      .related("attachments", (a) => a.orderBy("createdAt", "asc"))
+      .related("history", (h) => h.orderBy("createdAt", "asc"))
+      .related("user")
+      // Analytics groups spend by the event's programme.
+      .related("event", (e) => e.related("programme"))
+  );
 }
 
 export const reimbursementQueries = {

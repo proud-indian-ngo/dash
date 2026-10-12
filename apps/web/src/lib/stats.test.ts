@@ -5,6 +5,7 @@ import {
   computeApprovalTimeData,
   computeCategoryData,
   computeEventData,
+  computeProgrammeData,
   computeSubmitterData,
   computeTrendData,
   sumAmounts,
@@ -257,6 +258,36 @@ describe("computeEventData", () => {
   it("skips items with undefined event", () => {
     const item = { event: undefined, lineItems: [{ amount: 100 }] };
     expect(computeEventData([item])).toEqual([]);
+  });
+});
+
+describe("computeProgrammeData", () => {
+  const item = (programme: string | null | undefined, amount: number) => ({
+    event:
+      programme === undefined
+        ? null
+        : { programme: programme === null ? null : { name: programme } },
+    lineItems: [{ amount }],
+  });
+
+  it("groups spend by the event's programme, sorted by amount", () => {
+    const result = computeProgrammeData([
+      item("Education", 100),
+      item("Education", 50),
+      item("Arts and culture", 400),
+    ]);
+    expect(result).toEqual([
+      { amount: 400, count: 1, name: "Arts and culture" },
+      { amount: 150, count: 2, name: "Education" },
+    ]);
+  });
+
+  it("buckets requests without an event and events without a loaded programme", () => {
+    const result = computeProgrammeData([item(undefined, 10), item(null, 20)]);
+    expect(result).toEqual([
+      { amount: 20, count: 1, name: "Unallocated" },
+      { amount: 10, count: 1, name: "No event" },
+    ]);
   });
 });
 
