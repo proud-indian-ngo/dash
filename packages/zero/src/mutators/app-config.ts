@@ -1,4 +1,7 @@
-import { APP_CONFIG_FINANCE_THRESHOLD_KEY } from "@pi-dash/shared/constants";
+import {
+  APP_CONFIG_FINANCE_THRESHOLD_KEY,
+  MAX_PAISE,
+} from "@pi-dash/shared/constants";
 import { SOCIAL_MANAGE_CONFIG_KEYS } from "@pi-dash/shared/social-api";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
@@ -30,6 +33,16 @@ export function assertCanWriteAppConfig(
   throw new Error("Unauthorized");
 }
 
+/** Values that drive finance controls must be whole, safe paise amounts. */
+export function assertValidAppConfigValue(key: string, value: string): void {
+  if (key !== APP_CONFIG_FINANCE_THRESHOLD_KEY) {
+    return;
+  }
+  if (!/^\d{1,16}$/.test(value) || Number(value) > MAX_PAISE) {
+    throw new Error("Threshold must be a whole number of paise");
+  }
+}
+
 export const appConfigMutators = {
   /** Clear an optional key so readers fall back to their default. */
   remove: defineMutator(
@@ -46,6 +59,7 @@ export const appConfigMutators = {
     }),
     async ({ tx, ctx, args }) => {
       assertCanWriteAppConfig(ctx, args.key);
+      assertValidAppConfigValue(args.key, args.value);
       await tx.mutate.appConfig.upsert({
         key: args.key,
         updatedAt: Date.now(),

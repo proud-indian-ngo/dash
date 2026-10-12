@@ -158,6 +158,16 @@ export const COST_CENTRE_IDS = {
 
 export const GENERAL_FUND_ID = "01930000-0000-7000-8000-000000000201";
 
+export const FISCAL_YEAR_IDS = {
+  "2024-25": "01930000-0000-7000-8000-000000000301",
+  "2025-26": "01930000-0000-7000-8000-000000000302",
+  "2026-27": "01930000-0000-7000-8000-000000000303",
+  "2027-28": "01930000-0000-7000-8000-000000000304",
+} as const;
+
+/** Upper bound for any paise value crossing the JavaScript boundary. */
+export const MAX_PAISE = Number.MAX_SAFE_INTEGER;
+
 /** Default finance-approval threshold when no programme override is set. */
 export const APP_CONFIG_FINANCE_THRESHOLD_KEY =
   "finance_threshold_default_paise";

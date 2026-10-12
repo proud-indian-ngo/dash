@@ -13,6 +13,7 @@ import type { Programme } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
+import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 
@@ -27,16 +28,22 @@ import {
   SettingsListItem,
   SettingsRow,
 } from "@/components/settings/settings-ui";
-import { handleMutationResult } from "@/lib/mutation-result";
+import {
+  getMutationResultErrorMessage,
+  handleMutationResult,
+} from "@/lib/mutation-result";
 
 const NO_LEAD = "__none__";
+
+const MAX_RUPEES = 10_000_000_000; // ₹1,000 crore keeps paise within safe integers
 
 const rupees = z
   .string()
   .trim()
   .refine(
-    (v) => v === "" || (/^\d+(\.\d{1,2})?$/.test(v) && Number(v) >= 0),
-    "Enter a whole or two-decimal rupee amount"
+    (v) =>
+      v === "" || (/^\d{1,11}(\.\d{1,2})?$/.test(v) && Number(v) <= MAX_RUPEES),
+    "Enter a rupee amount up to two decimals"
   );
 
 const programmeSchema = z.object({
@@ -68,6 +75,23 @@ function formatPaise(paise: number): string {
     minimumFractionDigits: paise % 100 === 0 ? 0 : 2,
     style: "currency",
   }).format(paise / 100);
+}
+
+/** Show the mutator's own reason (duplicate code, bad lead) under the generic toast. */
+function reportResult(
+  res: { error?: unknown; type: string },
+  options: {
+    entityId: string;
+    errorMsg: string;
+    mutation: string;
+    successMsg: string;
+  }
+) {
+  handleMutationResult(res, { ...options, showErrorToast: false });
+  if (res.type === "error") {
+    const reason = getMutationResultErrorMessage(res.error, "");
+    toast.error(options.errorMsg, reason ? { description: reason } : undefined);
+  }
 }
 
 function rupeesToPaise(value: string): number | null {
@@ -114,6 +138,11 @@ function ProgrammeForm({
           name="code"
         />
         <TextareaField label="Description" name="description" />
+        <InputField
+          description="Short tag used in reports, for example education or arts."
+          label="Cause"
+          name="cause"
+        />
         <SelectField
           label="Programme lead"
           name="leadUserId"
@@ -121,13 +150,13 @@ function ProgrammeForm({
           placeholder="No lead yet"
         />
         <InputField
-          description="Requests above this amount also need finance approval. Leave empty to use the default."
+          description="Requests above this amount also need finance approval. Leave empty to use the default; 0 sends every request to finance."
           inputMode="decimal"
           label="Finance approval threshold (₹)"
           name="financeThreshold"
         />
         <CheckboxField
-          description="Inactive programmes stay on old records but cannot be picked for new events."
+          description="Inactive programmes stay on old records but cannot be picked for new events. Programmes are never deleted."
           label="Active"
           name="active"
         />
@@ -182,6 +211,16 @@ type InlineMode =
   | { kind: "threshold" }
   | null;
 
+function leadLabel(
+  leadUserId: string | null,
+  leadName: string | undefined
+): string {
+  if (!leadUserId) {
+    return "No lead";
+  }
+  return leadName ? `Lead: ${leadName}` : "Lead set (user not loaded)";
+}
+
 function ProgrammeRow({
   defaultThresholdPaise,
   leadName,
@@ -197,7 +236,7 @@ function ProgrammeRow({
   const threshold = programme.financeThresholdPaise ?? defaultThresholdPaise;
   const detailParts = [
     programme.code,
-    leadName ? `Lead: ${leadName}` : "No lead",
+    leadLabel(programme.leadUserId, leadName),
     `Finance above ${formatPaise(threshold)}${programme.financeThresholdPaise === null ? " (default)" : ""}`,
   ];
 
@@ -205,7 +244,7 @@ function ProgrammeRow({
     <SettingsListItem
       actions={
         <Button
-          aria-label="Edit programme"
+          aria-label={`Edit ${programme.name}`}
           onClick={handleEdit}
           size="icon-sm"
           type="button"
@@ -232,7 +271,7 @@ export function ProgrammesSection() {
   const zero = useZero();
   const [programmes] = useQuery(queries.programme.all());
   const [configs] = useQuery(queries.appConfig.all());
-  const [users] = useQuery(queries.user.all());
+  const [users] = useQuery(queries.programme.leadCandidates());
   const [inlineMode, setInlineMode] = useState<InlineMode>(null);
 
   const programmeList = programmes ?? [];
@@ -251,9 +290,9 @@ export function ProgrammesSection() {
 
   const toMutatorArgs = (id: string, values: ProgrammeFormValues) => ({
     active: values.active,
-    cause: values.cause || undefined,
+    cause: values.cause?.trim() || null,
     code: values.code.toUpperCase(),
-    description: values.description || undefined,
+    description: values.description?.trim() || null,
     financeThresholdPaise: rupeesToPaise(values.financeThreshold),
     id,
     leadUserId:
@@ -271,7 +310,7 @@ export function ProgrammesSection() {
         sortOrder: (programmeList.length + 1) * 10,
       })
     ).server;
-    handleMutationResult(res, {
+    reportResult(res, {
       entityId: id,
       errorMsg: "Failed to create programme",
       mutation: "programme.create",
@@ -292,7 +331,7 @@ export function ProgrammesSection() {
         sortOrder: inlineMode.programme.sortOrder ?? 0,
       })
     ).server;
-    handleMutationResult(res, {
+    reportResult(res, {
       entityId: inlineMode.programme.id,
       errorMsg: "Failed to update programme",
       mutation: "programme.update",
@@ -311,7 +350,7 @@ export function ProgrammesSection() {
         value: String(paise),
       })
     ).server;
-    handleMutationResult(res, {
+    reportResult(res, {
       entityId: APP_CONFIG_FINANCE_THRESHOLD_KEY,
       errorMsg: "Failed to update default threshold",
       mutation: "appConfig.upsert",

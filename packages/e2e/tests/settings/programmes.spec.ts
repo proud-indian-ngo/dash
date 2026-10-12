@@ -39,7 +39,7 @@ test.describe("Programmes settings (admin)", () => {
     await expect(row).toBeVisible({ timeout: 10_000 });
     await expect(row).toContainText("₹25,000");
 
-    await row.getByRole("button", { name: "Edit programme" }).click();
+    await row.getByRole("button", { name: `Edit ${name}` }).click();
     await expect(main.getByLabel("Name")).toHaveValue(name, { timeout: 5000 });
     await main.getByLabel("Name").fill(`${name} Edited`);
     await main.getByRole("button", { name: "Save" }).click();
@@ -63,5 +63,26 @@ test.describe("Programmes settings (admin)", () => {
     await expect(main.getByText("Default: ₹12,000")).toBeVisible({
       timeout: 10_000,
     });
+
+    // Restore the seeded default so later specs see the migration value.
+    await main.getByRole("button", { name: "Edit default threshold" }).click();
+    await main
+      .getByLabel("Default finance approval threshold (₹)")
+      .fill("10000");
+    await main.getByRole("button", { name: "Save" }).click();
+    await expect(main.getByText("Default: ₹10,000")).toBeVisible({
+      timeout: 10_000,
+    });
+  });
+
+  test("rejects a duplicate programme code", async ({ page }) => {
+    const main = await openProgrammes(page);
+
+    await main.getByRole("button", { name: "Add programme" }).click();
+    await main.getByLabel("Name").fill(`E2E Dup ${Date.now()}`);
+    await main.getByLabel("Code").fill("EDU");
+    await main.getByRole("button", { name: "Save" }).click();
+
+    await expect(page.getByText("Code EDU is already used")).toBeVisible();
   });
 });

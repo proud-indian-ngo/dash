@@ -15,6 +15,15 @@ export const programmeQueries = {
       ? zql.programme.where("id", "__never_match__")
       : zql.programme.orderBy("sortOrder", "asc").orderBy("name", "asc")
   ),
+  /** Internal, non-banned users who can be named as a programme lead. */
+  leadCandidates: defineQuery(({ ctx }) =>
+    ctx !== null && ctx !== undefined && can(ctx, "finance.manage")
+      ? zql.user
+          .where("role", "!=", "external_user")
+          .where("banned", "!=", true)
+          .orderBy("name", "asc")
+      : zql.user.where("id", "__never_match__")
+  ),
 };
 
 export const costCentreQueries = {
@@ -30,11 +39,12 @@ function financeGuard(ctx: Parameters<typeof can>[0] | null | undefined) {
   return ctx !== null && ctx !== undefined && can(ctx, "finance.view");
 }
 
+/** Full project rows carry sponsor and budget terms, so they need finance.view. */
 export const projectQueries = {
   all: defineQuery(({ ctx }) =>
-    isExternalUser(ctx)
-      ? zql.project.where("id", "__never_match__")
-      : zql.project.orderBy("name", "asc")
+    financeGuard(ctx)
+      ? zql.project.orderBy("name", "asc")
+      : zql.project.where("id", "__never_match__")
   ),
 };
 

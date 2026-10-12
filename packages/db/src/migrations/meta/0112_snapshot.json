@@ -1,6 +1,6 @@
 {
-  "id": "490346f6-1026-4234-8e91-ba1778af92cc",
-  "prevId": "71be9da4-c708-4ff7-8fb7-c4de794d2d1c",
+  "id": "3639d22f-1038-4382-8173-a013372b326f",
+  "prevId": "333822c8-f324-4df8-b763-564449c1826d",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2764,7 +2764,21 @@
           "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "account_head_parent_id_account_head_id_fk": {
+          "name": "account_head_parent_id_account_head_id_fk",
+          "tableFrom": "account_head",
+          "tableTo": "account_head",
+          "columnsFrom": [
+            "parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -2952,14 +2966,23 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
+          "onDelete": "restrict",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "fiscal_period_month_check": {
+          "name": "fiscal_period_month_check",
+          "value": "\"fiscal_period\".\"month\" BETWEEN 1 AND 12"
+        },
+        "fiscal_period_range_check": {
+          "name": "fiscal_period_range_check",
+          "value": "\"fiscal_period\".\"ends_on\" >= \"fiscal_period\".\"starts_on\""
+        }
+      },
       "isRLSEnabled": false
     },
     "public.fiscal_year": {
@@ -3018,7 +3041,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "fiscal_year_range_check": {
+          "name": "fiscal_year_range_check",
+          "value": "\"fiscal_year\".\"ends_on\" > \"fiscal_year\".\"starts_on\""
+        }
+      },
       "isRLSEnabled": false
     },
     "public.fund": {

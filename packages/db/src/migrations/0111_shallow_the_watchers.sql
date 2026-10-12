@@ -37,7 +37,9 @@ CREATE TABLE "fiscal_period" (
 	"fiscal_year_id" uuid NOT NULL,
 	"id" uuid PRIMARY KEY NOT NULL,
 	"month" integer NOT NULL,
-	"starts_on" date NOT NULL
+	"starts_on" date NOT NULL,
+	CONSTRAINT "fiscal_period_month_check" CHECK ("fiscal_period"."month" BETWEEN 1 AND 12),
+	CONSTRAINT "fiscal_period_range_check" CHECK ("fiscal_period"."ends_on" >= "fiscal_period"."starts_on")
 );
 --> statement-breakpoint
 CREATE TABLE "fiscal_year" (
@@ -45,7 +47,8 @@ CREATE TABLE "fiscal_year" (
 	"ends_on" date NOT NULL,
 	"id" uuid PRIMARY KEY NOT NULL,
 	"label" text NOT NULL,
-	"starts_on" date NOT NULL
+	"starts_on" date NOT NULL,
+	CONSTRAINT "fiscal_year_range_check" CHECK ("fiscal_year"."ends_on" > "fiscal_year"."starts_on")
 );
 --> statement-breakpoint
 CREATE TABLE "fund" (
@@ -116,8 +119,9 @@ CREATE TABLE "project" (
 	"updated_at" timestamp NOT NULL
 );
 --> statement-breakpoint
+ALTER TABLE "account_head" ADD CONSTRAINT "account_head_parent_id_account_head_id_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."account_head"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fiscal_period" ADD CONSTRAINT "fiscal_period_closed_by_user_id_fk" FOREIGN KEY ("closed_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "fiscal_period" ADD CONSTRAINT "fiscal_period_fiscal_year_id_fiscal_year_id_fk" FOREIGN KEY ("fiscal_year_id") REFERENCES "public"."fiscal_year"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "fiscal_period" ADD CONSTRAINT "fiscal_period_fiscal_year_id_fiscal_year_id_fk" FOREIGN KEY ("fiscal_year_id") REFERENCES "public"."fiscal_year"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "programme" ADD CONSTRAINT "programme_lead_user_id_user_id_fk" FOREIGN KEY ("lead_user_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "project" ADD CONSTRAINT "project_programme_id_programme_id_fk" FOREIGN KEY ("programme_id") REFERENCES "public"."programme"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "account_head_code_uidx" ON "account_head" USING btree ("code");--> statement-breakpoint

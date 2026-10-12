@@ -128,6 +128,7 @@ import {
   APP_CONFIG_FINANCE_THRESHOLD_KEY,
   COST_CENTRE_IDS,
   DEFAULT_FINANCE_THRESHOLD_PAISE,
+  FISCAL_YEAR_IDS,
   GENERAL_FUND_ID,
   PROGRAMME_IDS,
 } from "@pi-dash/shared/constants";
@@ -613,12 +614,10 @@ async function seedFinanceDimensions(): Promise<void> {
     })
     .onConflictDoNothing();
 
-  const years = [
-    { id: "01930000-0000-7000-8000-000000000301", start: 2024 },
-    { id: "01930000-0000-7000-8000-000000000302", start: 2025 },
-    { id: "01930000-0000-7000-8000-000000000303", start: 2026 },
-    { id: "01930000-0000-7000-8000-000000000304", start: 2027 },
-  ];
+  const years = Object.entries(FISCAL_YEAR_IDS).map(([label, id]) => ({
+    id,
+    start: Number(label.slice(0, 4)),
+  }));
   await db
     .insert(fiscalYear)
     .values(

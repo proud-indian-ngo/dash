@@ -8,9 +8,11 @@ import {
   projectKindValues,
   projectStatusValues,
 } from "@pi-dash/shared/constants";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   bigint,
+  check,
   boolean,
   date,
   index,
@@ -149,7 +151,9 @@ export const accountHead = pgTable(
     description: text("description"),
     id: uuid("id").primaryKey(),
     name: text("name").notNull(),
-    parentId: uuid("parent_id"),
+    parentId: uuid("parent_id").references((): AnyPgColumn => accountHead.id, {
+      onDelete: "restrict",
+    }),
     sortOrder: integer("sort_order").default(0).notNull(),
     tallyLedgerName: text("tally_ledger_name"),
     type: accountHeadTypeEnum("type").notNull(),
@@ -188,7 +192,10 @@ export const fiscalYear = pgTable(
     label: text("label").notNull(),
     startsOn: date("starts_on").notNull(),
   },
-  (t) => [uniqueIndex("fiscal_year_label_uidx").on(t.label)]
+  (t) => [
+    uniqueIndex("fiscal_year_label_uidx").on(t.label),
+    check("fiscal_year_range_check", sql`${t.endsOn} > ${t.startsOn}`),
+  ]
 );
 
 /** Monthly period inside a fiscal year; postings into a closed period are rejected. */
@@ -202,7 +209,7 @@ export const fiscalPeriod = pgTable(
     endsOn: date("ends_on").notNull(),
     fiscalYearId: uuid("fiscal_year_id")
       .notNull()
-      .references(() => fiscalYear.id, { onDelete: "cascade" }),
+      .references(() => fiscalYear.id, { onDelete: "restrict" }),
     id: uuid("id").primaryKey(),
     /** 1 to 12, counted from April. */
     month: integer("month").notNull(),
@@ -211,6 +218,8 @@ export const fiscalPeriod = pgTable(
   (t) => [
     uniqueIndex("fiscal_period_year_month_uidx").on(t.fiscalYearId, t.month),
     index("fiscal_period_startsOn_idx").on(t.startsOn),
+    check("fiscal_period_month_check", sql`${t.month} BETWEEN 1 AND 12`),
+    check("fiscal_period_range_check", sql`${t.endsOn} >= ${t.startsOn}`),
   ]
 );
 
