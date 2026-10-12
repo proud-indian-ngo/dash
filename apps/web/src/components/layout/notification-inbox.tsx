@@ -23,6 +23,18 @@ import { useNavigate } from "@tanstack/react-router";
 import { formatDistanceToNowStrict } from "date-fns";
 import { toast } from "sonner";
 
+// Leading emoji, plus any variation selector or joiner, and the space after.
+const LEADING_EMOJI =
+  /^(?:\p{Extended_Pictographic}|\u{FE0F}|\u{200D}|\p{Emoji_Component}(?=\p{Extended_Pictographic}))+\s*/u;
+
+/**
+ * Notification titles start with an emoji for WhatsApp and email; the inbox
+ * is a product list, so it shows the words alone.
+ */
+export function stripLeadingEmoji(title: string | null): string | null {
+  return title ? title.replace(LEADING_EMOJI, "") : title;
+}
+
 interface NotificationInboxProps {
   onClose: () => void;
 }
@@ -106,7 +118,7 @@ function NotificationItem({
               n.read ? "text-muted-foreground" : "font-semibold"
             )}
           >
-            {n.title}
+            {stripLeadingEmoji(n.title)}
           </p>
           <span className="text-muted-foreground/70 mt-0.5 flex-shrink-0 text-xs">
             {shortTimeAgo(n.createdAt)}

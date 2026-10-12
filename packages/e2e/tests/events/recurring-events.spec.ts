@@ -35,7 +35,7 @@ test.describe("Recurring events", () => {
 
     // Set start time to tomorrow
     const tomorrow = new Date(Date.now() + 86_400_000);
-    await pickDate(dialog, "Start Time", tomorrow);
+    await pickDate(dialog, "Start time", tomorrow);
     await dialog.getByRole("switch", { name: "Public" }).click();
 
     // Select weekly recurrence
@@ -105,7 +105,7 @@ test.describe("Recurring events", () => {
       .fill(eventName);
 
     const tomorrow = new Date(Date.now() + 86_400_000);
-    await pickDate(dialog, "Start Time", tomorrow);
+    await pickDate(dialog, "Start time", tomorrow);
 
     // Select monthly recurrence
     await openAdvancedSettings(dialog);

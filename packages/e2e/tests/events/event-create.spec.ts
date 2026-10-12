@@ -28,8 +28,8 @@ test.describe("Create event (admin)", () => {
     ).toBeVisible();
     await expect(dialog.getByLabel("Description")).toBeVisible();
     await expect(dialog.getByLabel("Location")).toBeVisible();
-    await expect(dialog.getByLabel("Start Time")).toBeVisible();
-    await expect(dialog.getByLabel("End Time")).toBeVisible();
+    await expect(dialog.getByLabel("Start time")).toBeVisible();
+    await expect(dialog.getByLabel("End time")).toBeVisible();
     await expect(dialog.getByRole("switch", { name: "Public" })).toBeVisible();
     await openAdvancedSettings(dialog);
     await expect(dialog.getByText("Recurrence").first()).toBeVisible();
@@ -63,7 +63,7 @@ test.describe("Create event (admin)", () => {
 
     // Set start time to tomorrow
     const tomorrow = new Date(Date.now() + 86_400_000);
-    await pickDate(dialog, "Start Time", tomorrow);
+    await pickDate(dialog, "Start time", tomorrow);
 
     await dialog
       .getByRole("button", { exact: true, name: "Create event" })
@@ -87,7 +87,7 @@ test.describe("Create event (admin)", () => {
       .fill(eventName);
 
     const tomorrow = new Date(Date.now() + 86_400_000);
-    await pickDate(dialog, "Start Time", tomorrow);
+    await pickDate(dialog, "Start time", tomorrow);
 
     // Select weekly recurrence from the builder
     await openAdvancedSettings(dialog);
@@ -121,7 +121,7 @@ test.describe("Create event (admin)", () => {
 
     // Set start time so preview can calculate dates
     const tomorrow = new Date(Date.now() + 86_400_000);
-    await pickDate(dialog, "Start Time", tomorrow);
+    await pickDate(dialog, "Start time", tomorrow);
 
     // Select daily recurrence
     await openAdvancedSettings(dialog);

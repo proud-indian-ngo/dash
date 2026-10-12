@@ -15,7 +15,7 @@ import z from "zod";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
-import { Loader } from "@/components/loader";
+import { FormSkeleton } from "@/components/shared/page-skeleton";
 import { authClient } from "@/lib/auth-client";
 import { registerLinkSearch } from "@/lib/auth-route-policy";
 
@@ -155,7 +155,7 @@ export function LoginForm() {
   });
 
   if (isPending) {
-    return <Loader />;
+    return <FormSkeleton />;
   }
 
   return (

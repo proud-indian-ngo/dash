@@ -13,7 +13,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { createRequestLogger } from "evlog";
 import * as z from "zod";
 
-import { LoginInfoPanel } from "@/components/login/auth-info-panel";
+import { AccountHelpPanel } from "@/components/login/auth-info-panel";
 import { AuthLayout } from "@/components/login/auth-layout";
 
 const verifyEmailToken = createServerFn({ method: "GET" })
@@ -110,7 +110,14 @@ function VerifyEmailPage() {
   const { verificationError } = Route.useRouteContext();
 
   return (
-    <AuthLayout panel={<LoginInfoPanel />}>
+    <AuthLayout
+      panel={
+        <AccountHelpPanel
+          body="Open the link we emailed you to confirm your address and finish setting up your account."
+          title="Confirm your email"
+        />
+      }
+    >
       <div className="flex flex-col items-center gap-4">
         <h1 className="sr-only">Verify Email</h1>
         <p className="text-destructive text-center text-sm">

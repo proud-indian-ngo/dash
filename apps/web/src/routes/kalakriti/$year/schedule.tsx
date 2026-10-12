@@ -215,7 +215,7 @@ function PublicSchedulePage() {
                     className="min-h-11 w-full sm:min-h-10"
                     id="public-schedule-age"
                   >
-                    <SelectValue placeholder="All Ages" />
+                    <SelectValue placeholder="All ages" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>

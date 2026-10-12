@@ -7,6 +7,11 @@ import { createRequestLogger } from "evlog";
 import { sendBulkMessage, sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
 
+/** "1 photo", "3 photos". */
+function countOf(count: number, noun: string): string {
+  return `${count} ${count === 1 ? noun : `${noun}s`}`;
+}
+
 const eventTimeFmt = new Intl.DateTimeFormat("en-IN", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -50,13 +55,13 @@ export async function notifyStaleRequests({
 
   const parts: string[] = [];
   if (counts.reimbursements > 0) {
-    parts.push(`${counts.reimbursements} reimbursement(s)`);
+    parts.push(countOf(counts.reimbursements, "reimbursement"));
   }
   if (counts.advancePayments > 0) {
-    parts.push(`${counts.advancePayments} advance payment(s)`);
+    parts.push(countOf(counts.advancePayments, "advance payment"));
   }
   if (counts.vendorPayments > 0) {
-    parts.push(`${counts.vendorPayments} vendor payment(s)`);
+    parts.push(countOf(counts.vendorPayments, "vendor payment"));
   }
 
   const dateKey = new Date().toISOString().slice(0, 10);
@@ -160,19 +165,19 @@ export async function notifyWhatsAppScanResults({
 
   if (deactivatedUsers.length > 0) {
     parts.push(
-      `Auto-deactivated ${deactivatedUsers.length} user(s) not found in any scanned group:\n${deactivatedUsers.map((u) => `  - ${u.name} (${u.phone})`).join("\n")}`
+      `Auto-deactivated ${countOf(deactivatedUsers.length, "user")} not found in any scanned group:\n${deactivatedUsers.map((u) => `  - ${u.name} (${u.phone})`).join("\n")}`
     );
   }
 
   if (reactivatedUsers.length > 0) {
     parts.push(
-      `Auto-reactivated ${reactivatedUsers.length} user(s) found in scanned groups:\n${reactivatedUsers.map((u) => `  - ${u.name} (${u.phone})`).join("\n")}`
+      `Auto-reactivated ${countOf(reactivatedUsers.length, "user")} found in scanned groups:\n${reactivatedUsers.map((u) => `  - ${u.name} (${u.phone})`).join("\n")}`
     );
   }
 
   for (const group of unregisteredByGroup) {
     parts.push(
-      `${group.phones.length} unregistered phone(s) in "${group.groupName}":\n${group.phones.map((p) => `  - ${p}`).join("\n")}`
+      `${countOf(group.phones.length, "unregistered phone")} in "${group.groupName}":\n${group.phones.map((p) => `  - ${p}`).join("\n")}`
     );
   }
 
@@ -247,7 +252,7 @@ export async function notifyR2CleanupResults({
 
   if (failedKeys.length > 0) {
     parts.push(
-      `Failed to delete ${failedKeys.length} file(s):\n${failedKeys.map((k) => `  - ${k}`).join("\n")}`
+      `Failed to delete ${countOf(failedKeys.length, "file")}:\n${failedKeys.map((k) => `  - ${k}`).join("\n")}`
     );
   }
 
@@ -283,7 +288,7 @@ export async function notifyPhotoApprovalReminder({
 
   const dateKey = new Date().toISOString().slice(0, 10);
 
-  const body = `${pendingCount} photos across ${eventCount} events are waiting for your review.`;
+  const body = `${countOf(pendingCount, "photo")} across ${countOf(eventCount, "event")} ${pendingCount === 1 ? "is" : "are"} waiting for your review.`;
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "Review photos",
     ctaUrl: `${env.APP_URL}/events`,

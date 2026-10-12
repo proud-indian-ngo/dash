@@ -229,7 +229,7 @@ export function StandardReimbursementFields({
       return (
         <CustomField<string | undefined>
           isRequired
-          label="Bank Account"
+          label="Bank account"
           name="bankAccountName"
         >
           {(field) => {
@@ -285,7 +285,7 @@ export function StandardReimbursementFields({
         {requestType === "reimbursement" ? (
           <DateField
             isRequired
-            label="Expense Date"
+            label="Expense date"
             maxDate={new Date()}
             name="expenseDate"
           />

@@ -30,7 +30,7 @@ test.describe("Event edit and cancel (admin)", () => {
     await createDialog.getByLabel("Location").fill("Original Location");
 
     const tomorrow = new Date(Date.now() + 86_400_000);
-    await pickDate(createDialog, "Start Time", tomorrow);
+    await pickDate(createDialog, "Start time", tomorrow);
 
     await createDialog
       .getByRole("button", { exact: true, name: "Create event" })
@@ -86,7 +86,7 @@ test.describe("Event edit and cancel (admin)", () => {
       .fill(eventName);
 
     const nextWeek = new Date(Date.now() + 7 * 86_400_000);
-    await pickDate(createDialog, "Start Time", nextWeek);
+    await pickDate(createDialog, "Start time", nextWeek);
 
     await createDialog
       .getByRole("button", { exact: true, name: "Create event" })
@@ -133,7 +133,7 @@ test.describe("Event edit and cancel (admin)", () => {
       .fill(eventName);
 
     const nextWeek = new Date(Date.now() + 7 * 86_400_000);
-    await pickDate(createDialog, "Start Time", nextWeek);
+    await pickDate(createDialog, "Start time", nextWeek);
 
     await createDialog
       .getByRole("button", { exact: true, name: "Create event" })

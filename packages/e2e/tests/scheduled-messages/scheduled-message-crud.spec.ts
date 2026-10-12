@@ -7,7 +7,7 @@ test.describe("Scheduled messages (admin)", () => {
 
     await page.goto("/scheduled-messages");
     await expect(
-      page.getByRole("heading", { name: "Scheduled Messages" })
+      page.getByRole("heading", { exact: true, level: 1, name: "Messages" })
     ).toBeVisible();
   });
 

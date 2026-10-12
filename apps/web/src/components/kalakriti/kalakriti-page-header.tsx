@@ -40,9 +40,7 @@ export function KalakritiPageHeader({
     <header className="flex flex-col flex-wrap items-start justify-between gap-6 md:flex-row md:items-end">
       <div className="min-w-0">
         {kicker ? (
-          <p className="text-primary text-sm font-medium tracking-[0.16em] uppercase">
-            {kicker}
-          </p>
+          <p className="text-muted-foreground text-sm font-medium">{kicker}</p>
         ) : null}
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="mt-3 text-3xl font-semibold tracking-tight text-balance sm:text-4xl">

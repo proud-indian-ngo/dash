@@ -25,7 +25,7 @@ test.describe("Recurring event exclusion patterns", () => {
 
     // Set start time
     const tomorrow = new Date(Date.now() + 86_400_000);
-    await pickDate(dialog, "Start Time", tomorrow);
+    await pickDate(dialog, "Start time", tomorrow);
 
     // Enable recurrence
     await openAdvancedSettings(dialog);
@@ -123,7 +123,7 @@ test.describe("Recurring event exclusion patterns", () => {
 
     // Set start time
     const tomorrow = new Date(Date.now() + 86_400_000);
-    await pickDate(dialog, "Start Time", tomorrow);
+    await pickDate(dialog, "Start time", tomorrow);
 
     // Select weekly recurrence
     await openAdvancedSettings(dialog);

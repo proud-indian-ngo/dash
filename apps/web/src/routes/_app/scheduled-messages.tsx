@@ -28,7 +28,7 @@ export const Route = createFileRoute("/_app/scheduled-messages")({
   beforeLoad: ({ context }) => assertPermission(context, "messages.schedule"),
   component: ScheduledMessagesPage,
   head: () => ({
-    meta: [{ title: `Scheduled Messages | ${env.VITE_APP_NAME}` }],
+    meta: [{ title: `Messages | ${env.VITE_APP_NAME}` }],
   }),
 });
 
@@ -257,7 +257,7 @@ function ScheduledMessagesPage() {
           </Button>
         }
         description="WhatsApp messages queued to go out later, and how each delivery went."
-        title="Scheduled Messages"
+        title="Messages"
       />
 
       <div className="mt-4 grid gap-6 *:min-w-0">

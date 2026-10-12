@@ -34,7 +34,7 @@ test.describe("Recurring event edit/cancel scope", () => {
       .fill(eventName);
 
     const tomorrow = new Date(Date.now() + 86_400_000);
-    await pickDate(createDialog, "Start Time", tomorrow);
+    await pickDate(createDialog, "Start time", tomorrow);
 
     // Select weekly recurrence
     await openAdvancedSettings(createDialog);
@@ -124,7 +124,7 @@ test.describe("Recurring event edit/cancel scope", () => {
       .fill(eventName);
 
     const tomorrow = new Date(Date.now() + 86_400_000);
-    await pickDate(createDialog, "Start Time", tomorrow);
+    await pickDate(createDialog, "Start time", tomorrow);
 
     // No recurrence selected (default: None)
     await createDialog

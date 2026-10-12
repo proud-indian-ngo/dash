@@ -31,7 +31,7 @@ test.describe("Event updates CRUD (admin)", () => {
 
     await pickDate(
       createDialog,
-      "Start Time",
+      "Start time",
       new Date(Date.now() - 86_400_000)
     );
 

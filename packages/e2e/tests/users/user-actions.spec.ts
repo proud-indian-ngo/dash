@@ -178,16 +178,16 @@ test.describe("User row actions (admin)", () => {
     await openVolunteerActionAndWaitFor(page, "Notifications", dialog);
 
     await expect(
-      dialog.getByRole("switch", { name: "Kalakriti Registration in-app" })
+      dialog.getByRole("checkbox", { name: "Kalakriti Registration in-app" })
     ).toBeVisible();
     await expect(
-      dialog.getByRole("switch", { name: "Kalakriti Registration WhatsApp" })
+      dialog.getByRole("checkbox", { name: "Kalakriti Registration WhatsApp" })
     ).toBeVisible();
     await expect(
-      dialog.getByRole("switch", { name: "Kalakriti Registration email" })
+      dialog.getByRole("checkbox", { name: "Kalakriti Registration email" })
     ).toHaveCount(0);
     await expect(
-      dialog.getByRole("switch", { name: "Kalakriti Schedule email" })
+      dialog.getByRole("checkbox", { name: "Kalakriti Schedule email" })
     ).toHaveCount(0);
   });
 });

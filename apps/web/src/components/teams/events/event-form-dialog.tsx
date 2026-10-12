@@ -572,12 +572,12 @@ function EventFormContent({
                   : undefined
               }
               isRequired
-              label="Start Time"
+              label="Start time"
               name="startTime"
             />
           )}
         </form.Subscribe>
-        <DateTimeField label="End Time" name="endTime" />
+        <DateTimeField label="End time" name="endTime" />
       </div>
 
       {kalakritiEditionId ? null : (
@@ -618,7 +618,7 @@ function EventFormContent({
       )}
 
       <Collapsible onOpenChange={setShowAdvanced} open={showAdvanced}>
-        <CollapsibleTrigger className="text-muted-foreground flex w-full cursor-pointer items-center gap-1.5 pt-2 text-xs font-medium tracking-wider uppercase">
+        <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-1.5 pt-2 text-sm font-medium">
           <HugeiconsIcon
             className="size-3.5 transition-transform duration-150"
             icon={showAdvanced ? ArrowDown01Icon : ArrowRight01Icon}
