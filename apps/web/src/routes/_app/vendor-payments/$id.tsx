@@ -12,6 +12,7 @@ import { DetailPageSkeleton } from "@/components/shared/page-skeleton";
 import { VendorPaymentDetail } from "@/components/vendor-payments/vendor-payment-detail";
 import { VendorPaymentForm } from "@/components/vendor-payments/vendor-payment-form";
 import { useApp } from "@/context/app-context";
+import { useRecordTitle } from "@/hooks/use-record-title";
 import { canEditVendorPaymentSubmission } from "@/lib/request-edit-permissions";
 import { preloadRouteQuery } from "@/lib/route-preload";
 import {
@@ -79,6 +80,7 @@ function VendorPaymentDetailRouteComponent() {
   const { hasPermission } = useApp();
 
   const [vendorPayment, result] = useQuery(queries.vendorPayment.byId({ id }));
+  useRecordTitle(vendorPayment?.title);
 
   const isLoading = !vendorPayment && result.type !== "complete";
   const stableOnCancel0 = useEventCallback(() => {

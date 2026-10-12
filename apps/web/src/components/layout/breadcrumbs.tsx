@@ -12,6 +12,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { Fragment } from "react";
 
 import { useApp } from "@/context/app-context";
+import { useCurrentRecordTitle } from "@/hooks/use-record-title";
 import {
   buildBreadcrumbs,
   getKalakritiEntrySessionRoute,
@@ -57,7 +58,9 @@ export function Breadcrumbs() {
     breadcrumbSession?.competition && breadcrumbSession.ageCategory
       ? `${breadcrumbSession.competition.name} · ${breadcrumbSession.ageCategory.name}`
       : undefined;
+  const recordTitle = useCurrentRecordTitle(pathname);
   const breadcrumbItems = buildBreadcrumbs(navItems, pathname, {
+    recordTitle,
     sessionTitle,
   });
 
@@ -74,7 +77,12 @@ export function Breadcrumbs() {
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
                 {isLast ? (
-                  <BreadcrumbPage>{title}</BreadcrumbPage>
+                  <BreadcrumbPage
+                    className="block max-w-[18rem] truncate"
+                    title={title}
+                  >
+                    {title}
+                  </BreadcrumbPage>
                 ) : (
                   <BreadcrumbLink render={<Link to={path}>{title}</Link>} />
                 )}

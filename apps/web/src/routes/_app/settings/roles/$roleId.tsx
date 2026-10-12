@@ -37,6 +37,7 @@ import {
   getRoleById,
   updateRole,
 } from "@/functions/role-admin";
+import { useRecordTitle } from "@/hooks/use-record-title";
 import { getErrorMessage } from "@/lib/errors";
 
 export const Route = createFileRoute("/_app/settings/roles/$roleId")({
@@ -128,6 +129,7 @@ function RoleEditPage() {
   const updateRoleFn = useServerFn(updateRole);
 
   const [roleData, setRoleData] = useState<RoleData | null>(null);
+  useRecordTitle(roleData?.name);
   const [permissionGroups, setPermissionGroups] =
     useState<PermissionGroups | null>(null);
   const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(

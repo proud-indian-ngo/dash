@@ -13,6 +13,7 @@ import type { EventRow } from "@/components/teams/events/events-table";
 import { applyOccurrenceDate } from "@/components/teams/events/events-table-helpers";
 import type { TeamDetailData } from "@/components/teams/team-detail";
 import { useApp } from "@/context/app-context";
+import { useRecordTitle } from "@/hooks/use-record-title";
 import { preloadRouteQuery } from "@/lib/route-preload";
 import { isTeamLead } from "@/lib/team-utils";
 
@@ -219,6 +220,7 @@ function EventDetailRouteComponent() {
 
   const [eventResult, eventStatus] = useQuery(queries.teamEvent.byId({ id }));
   const event = (eventResult ?? null) as EventRow | null;
+  useRecordTitle(event?.name);
   const [kalakritiEdition] = useQuery(
     queries.kalakritiEdition.byTeamEventId({ teamEventId: id })
   );

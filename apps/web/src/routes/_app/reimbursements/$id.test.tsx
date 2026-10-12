@@ -34,6 +34,7 @@ mock.module("@tanstack/react-router", () => ({
     useRouteContext: () => ({ session: { user: { id: "owner-id" } } }),
     useSearch: () => ({}),
   }),
+  useLocation: () => ({ pathname: "/reimbursements/request-id" }),
   useNavigate: () => () => undefined,
 }));
 mock.module("@/components/shared/page-skeleton", () => ({
