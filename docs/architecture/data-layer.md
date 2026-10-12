@@ -17,6 +17,8 @@ packages/db/src/schema/*.ts  →  drizzle-zero generate  →  packages/zero/src/
 
 Command: `bun run zero:generate` (`drizzle-zero generate -f -s ../db/src/schema/index.ts -o src/schema.ts`).
 
+**jsonb columns.** Import `jsonb` from `packages/db/src/schema/jsonb.ts`, never from `drizzle-orm/pg-core`. With the Bun SQL driver, Drizzle's built-in column JSON-encodes the value and Bun encodes it again, so objects land as jsonb strings; Drizzle reads hide this, but Zero syncs the raw column and clients get a string. The local type sends `$1::text::jsonb`. Raw SQL follows the same rule: bind JSON as `${JSON.stringify(value)}::text::jsonb`, not `::jsonb`, which Bun also double-encodes. Migration `0110` unwrapped rows written before the fix.
+
 ## Mutators
 
 Defined once in `packages/zero/src/mutators/` via `defineMutator()`. Each gets `{ tx, ctx, args }`:

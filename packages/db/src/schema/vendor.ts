@@ -4,7 +4,6 @@ import {
   date,
   index,
   integer,
-  jsonb,
   numeric,
   pgEnum,
   pgTable,
@@ -15,6 +14,7 @@ import {
 
 import { user } from "./auth";
 import { expenseCategory } from "./expense-category";
+import { jsonb } from "./jsonb";
 import { attachmentTypeEnum, cityEnum, historyActionEnum } from "./shared";
 import { teamEvent } from "./team-event";
 import { vendorPaymentTransaction } from "./vendor-payment-transaction";

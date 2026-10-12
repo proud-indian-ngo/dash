@@ -4,12 +4,13 @@ import {
   check,
   index,
   integer,
-  jsonb,
   pgTable,
   text,
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
+
+import { jsonb } from "./jsonb";
 
 export const socialRunTickValues = ["hourly", "digest"] as const;
 export type SocialRunTickValue = (typeof socialRunTickValues)[number];
