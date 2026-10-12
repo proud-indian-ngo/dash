@@ -11,11 +11,10 @@ test.describe("Analytics dashboard (admin)", () => {
     });
   });
 
-  test("renders analytics page with heading and stats cards", async ({
+  test("renders analytics page with heading and stat chips", async ({
     page,
   }) => {
-    // Stats cards section
-    await expect(page.locator("[data-slot='card-title']").first()).toBeVisible({
+    await expect(page.locator("[data-slot='stat-chip']").first()).toBeVisible({
       timeout: 10_000,
     });
   });
@@ -33,9 +32,8 @@ test.describe("Analytics dashboard (admin)", () => {
   test("chart containers render after data loads", async ({ page }) => {
     await expect(
       page
-        .getByText(
-          /Submission Trends|Category Breakdown|Request Submitters|Top Vendors/i
-        )
+        .getByRole("region", { name: "Spending by category" })
+        .or(page.getByRole("region", { name: "Submission trends" }))
         .first()
     ).toBeVisible({ timeout: 15_000 });
   });

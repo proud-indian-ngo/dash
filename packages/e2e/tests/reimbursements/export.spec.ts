@@ -157,7 +157,7 @@ test.describe("Export ZIP (admin)", () => {
   test("vendor payments checkbox shows VP status filters", async ({ page }) => {
     // VP status filters should not be visible initially
     await expect(
-      page.getByRole("checkbox", { name: "Partially Paid" })
+      page.getByRole("checkbox", { name: "Partially paid" })
     ).not.toBeVisible();
 
     // Check vendor payments
@@ -165,7 +165,7 @@ test.describe("Export ZIP (admin)", () => {
 
     // VP status filters should now be visible
     await expect(
-      page.getByRole("checkbox", { name: "Partially Paid" })
+      page.getByRole("checkbox", { name: "Partially paid" })
     ).toBeVisible();
     await expect(
       page.getByRole("checkbox", { exact: true, name: "Paid" })
@@ -177,7 +177,7 @@ test.describe("Export ZIP (admin)", () => {
   }) => {
     await expect(
       page.getByRole("checkbox", {
-        name: "Include transaction details (separate CSV)",
+        name: "Include payment transactions",
       })
     ).not.toBeVisible();
 
@@ -185,7 +185,7 @@ test.describe("Export ZIP (admin)", () => {
 
     await expect(
       page.getByRole("checkbox", {
-        name: "Include transaction details (separate CSV)",
+        name: "Include payment transactions",
       })
     ).toBeVisible();
   });
@@ -199,7 +199,8 @@ test.describe("Export ZIP (admin)", () => {
     await page.getByRole("checkbox", { name: "Vendor Payments" }).click();
 
     const vpStatusGroup = page.getByRole("group", {
-      name: "Vendor payment status",
+      name: "Vendor payments",
+      exact: true,
     });
 
     // Uncheck all VP statuses. Scope to the VP fieldset because request
@@ -208,9 +209,9 @@ test.describe("Export ZIP (admin)", () => {
       "Pending",
       "Approved",
       "Rejected",
-      "Partially Paid",
+      "Partially paid",
       "Paid",
-      "Invoice Pending",
+      "Invoice pending",
       "Completed",
     ].reduce(async (previousClick, status) => {
       await previousClick;
@@ -251,7 +252,7 @@ test.describe("Export ZIP (admin)", () => {
     await page.getByRole("checkbox", { name: "Advance Payments" }).click();
     await page.getByRole("checkbox", { name: "Vendor Payments" }).click();
     const requestStatusGroup = page.getByRole("group", {
-      name: "Reimbursement status",
+      name: "Reimbursements and advance payments",
     });
     await requestStatusGroup
       .getByRole("checkbox", { exact: true, name: "Pending" })

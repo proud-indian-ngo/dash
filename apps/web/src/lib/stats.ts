@@ -126,12 +126,13 @@ export function computeTrendData(
   const timestamps = items
     .filter((i) => i.createdAt !== null)
     .map((i) => i.createdAt as number);
-  if (timestamps.length === 0 || !from || !to) {
+  if (timestamps.length === 0) {
     return [];
   }
 
-  const start = from;
-  const end = to;
+  // "All time" has no bounds; span the data itself instead.
+  const start = from ?? new Date(Math.min(...timestamps));
+  const end = to ?? new Date(Math.max(...timestamps));
 
   const useWeeks = differenceInMonths(end, start) <= 3;
 

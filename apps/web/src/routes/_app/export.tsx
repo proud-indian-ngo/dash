@@ -1,3 +1,5 @@
+import { FileExportIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Checkbox } from "@pi-dash/design-system/components/ui/checkbox";
 import { Label } from "@pi-dash/design-system/components/ui/label";
@@ -15,6 +17,7 @@ import { log } from "evlog";
 import { type Dispatch, type SetStateAction, useState } from "react";
 import { toast } from "sonner";
 
+import { SettingsCard, SettingsRow } from "@/components/settings/settings-ui";
 import { PageHeader } from "@/components/shared/page-header";
 import { getErrorMessage } from "@/lib/errors";
 import {
@@ -63,9 +66,9 @@ type VPStatus = VendorPaymentExportStatus;
 const VP_STATUS_LABELS: Record<VPStatus, string> = {
   approved: "Approved",
   completed: "Completed",
-  invoice_pending: "Invoice Pending",
+  invoice_pending: "Invoice pending",
   paid: "Paid",
-  partially_paid: "Partially Paid",
+  partially_paid: "Partially paid",
   pending: "Pending",
   rejected: "Rejected",
 };
@@ -101,14 +104,17 @@ function StatusCheckbox<T extends string>({
   const handleCheckedChange = useEventCallback(() => onToggle(value));
 
   return (
-    <div className="flex items-center gap-2">
+    <Label
+      className="hover:bg-muted/50 flex h-8 cursor-pointer items-center gap-2 rounded-md border px-2.5 font-normal"
+      htmlFor={id}
+    >
       <Checkbox
         checked={checked}
         id={id}
         onCheckedChange={handleCheckedChange}
       />
-      <Label htmlFor={id}>{label}</Label>
-    </div>
+      {label}
+    </Label>
   );
 }
 
@@ -237,110 +243,156 @@ function ExportRouteComponent() {
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
       <PageHeader
-        description="Export reimbursement, advance payment, and vendor payment data as a ZIP containing CSV files and request attachments for a financial year."
+        description="One financial year as a ZIP: a CSV per kind of request, plus their attachments."
         title="Export data"
       />
 
-      <div className="mt-4 grid max-w-md gap-6">
-        <fieldset className="grid gap-3">
-          <legend className="text-sm font-medium">Data types</legend>
-          <div className="flex items-center gap-2">
+      <div className="mt-6 flex max-w-3xl flex-col gap-6">
+        <SettingsCard title="What to export">
+          <SettingsRow
+            description="Claims paid back to volunteers, with their receipts."
+            title="Reimbursements"
+          >
             <Checkbox
+              aria-label="Reimbursements"
               checked={includeReimbursements}
               id="reimbursements"
               onCheckedChange={handleReimbursementsChange}
             />
-            <Label htmlFor="reimbursements">Reimbursements</Label>
-          </div>
-          <div className="flex items-center gap-2">
+          </SettingsRow>
+          <SettingsRow
+            description="Money paid out before an expense, with its settlement."
+            title="Advance payments"
+          >
             <Checkbox
+              aria-label="Advance payments"
               checked={includeAdvancePayments}
               id="advance-payments"
               onCheckedChange={handleAdvancePaymentsChange}
             />
-            <Label htmlFor="advance-payments">Advance Payments</Label>
-          </div>
-          <div className="flex items-center gap-2">
+          </SettingsRow>
+          <SettingsRow
+            description="Payments to vendors, with quotations and invoices."
+            title="Vendor payments"
+          >
             <Checkbox
+              aria-label="Vendor payments"
               checked={includeVendorPayments}
               id="vendor-payments"
               onCheckedChange={handleVendorPaymentsChange}
             />
-            <Label htmlFor="vendor-payments">Vendor Payments</Label>
-          </div>
-          {Boolean(includeVendorPayments) && (
-            <div className="ml-6 flex items-center gap-2">
+          </SettingsRow>
+          {includeVendorPayments ? (
+            <SettingsRow
+              description="Each recorded payment as a separate CSV."
+              title="Include payment transactions"
+            >
               <Checkbox
+                aria-label="Include payment transactions"
                 checked={includeTransactions}
                 id="include-transactions"
                 onCheckedChange={handleTransactionsChange}
               />
-              <Label htmlFor="include-transactions">
-                Include transaction details (separate CSV)
-              </Label>
-            </div>
+            </SettingsRow>
+          ) : null}
+        </SettingsCard>
+
+        {hasRequestSelection || includeVendorPayments ? (
+          <SettingsCard title="Statuses">
+            {hasRequestSelection ? (
+              <fieldset className="flex flex-col gap-2 px-4 py-3">
+                <legend className="mb-2 text-sm font-medium">
+                  Reimbursements and advance payments
+                </legend>
+                <div className="flex flex-wrap gap-2">
+                  {ALL_STATUSES.map((status) => (
+                    <StatusCheckbox
+                      checked={selectedStatuses.has(status)}
+                      id={`status-${status}`}
+                      key={status}
+                      label={STATUS_LABELS[status]}
+                      onToggle={toggleRequestStatus}
+                      value={status}
+                    />
+                  ))}
+                </div>
+              </fieldset>
+            ) : null}
+            {includeVendorPayments ? (
+              <fieldset className="flex flex-col gap-2 px-4 py-3">
+                <legend className="mb-2 text-sm font-medium">
+                  Vendor payments
+                </legend>
+                <div className="flex flex-wrap gap-2">
+                  {VP_STATUSES.map((status) => (
+                    <StatusCheckbox
+                      checked={selectedVPStatuses.has(status)}
+                      id={`vp-status-${status}`}
+                      key={`vp-${status}`}
+                      label={VP_STATUS_LABELS[status]}
+                      onToggle={toggleVendorPaymentStatus}
+                      value={status}
+                    />
+                  ))}
+                </div>
+              </fieldset>
+            ) : null}
+          </SettingsCard>
+        ) : null}
+
+        <SettingsCard title="Period">
+          <SettingsRow
+            description="April to March. Reimbursements count by expense date; everything else by when it was submitted."
+            title="Financial year"
+          >
+            <Select onValueChange={handleFyChange} value={fyStart}>
+              <SelectTrigger
+                aria-label="Financial year"
+                className="w-40"
+                id="fy-select"
+              >
+                <SelectValue>
+                  {
+                    fyOptions.find((option) => String(option.value) === fyStart)
+                      ?.label
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {fyOptions.map((option) => (
+                  <SelectItem key={option.value} value={String(option.value)}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </SettingsRow>
+        </SettingsCard>
+
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          {hasSelection && !hasValidStatuses ? (
+            <p className="text-muted-foreground text-sm">
+              Pick at least one status.
+            </p>
+          ) : null}
+          {hasSelection ? null : (
+            <p className="text-muted-foreground text-sm">
+              Pick at least one kind of data.
+            </p>
           )}
-        </fieldset>
-
-        {Boolean(hasRequestSelection) && (
-          <fieldset className="grid gap-3">
-            <legend className="text-sm font-medium">
-              Reimbursement status
-            </legend>
-            {ALL_STATUSES.map((status) => (
-              <StatusCheckbox
-                checked={selectedStatuses.has(status)}
-                id={`status-${status}`}
-                key={status}
-                label={STATUS_LABELS[status]}
-                onToggle={toggleRequestStatus}
-                value={status}
-              />
-            ))}
-          </fieldset>
-        )}
-
-        {Boolean(includeVendorPayments) && (
-          <fieldset className="grid gap-3">
-            <legend className="text-sm font-medium">
-              Vendor payment status
-            </legend>
-            {VP_STATUSES.map((status) => (
-              <StatusCheckbox
-                checked={selectedVPStatuses.has(status)}
-                id={`vp-status-${status}`}
-                key={`vp-${status}`}
-                label={VP_STATUS_LABELS[status]}
-                onToggle={toggleVendorPaymentStatus}
-                value={status}
-              />
-            ))}
-          </fieldset>
-        )}
-
-        <div className="grid gap-2">
-          <Label htmlFor="fy-select">Financial Year</Label>
-          <Select onValueChange={handleFyChange} value={fyStart}>
-            <SelectTrigger id="fy-select">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {fyOptions.map((option) => (
-                <SelectItem key={option.value} value={String(option.value)}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Button
+            disabled={!(hasSelection && hasValidStatuses) || isExporting}
+            onClick={handleExport}
+            type="button"
+          >
+            <HugeiconsIcon
+              className="size-4"
+              icon={FileExportIcon}
+              strokeWidth={2}
+            />
+            {isExporting ? "Exporting..." : "Export ZIP"}
+          </Button>
         </div>
-
-        <Button
-          disabled={!(hasSelection && hasValidStatuses) || isExporting}
-          onClick={handleExport}
-          type="button"
-        >
-          {isExporting ? "Exporting..." : "Export ZIP"}
-        </Button>
       </div>
     </div>
   );
