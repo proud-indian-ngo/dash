@@ -107,7 +107,9 @@ test("enforces registration readiness, lifecycle locks, and structural cloning",
     });
     await openDialog.getByRole("button", { name: "Open registration" }).click();
     await expect(
-      page.getByText("Registration opened", { exact: true })
+      page
+        .locator("[data-sonner-toast]")
+        .getByText("Registration opened", { exact: true })
     ).toBeVisible();
     await expect(page.getByRole("alertdialog")).toHaveCount(0);
     await page.getByRole("button", { name: "Lock registration" }).click();
@@ -116,7 +118,9 @@ test("enforces registration readiness, lifecycle locks, and structural cloning",
     });
     await lockDialog.getByRole("button", { name: "Lock registration" }).click();
     await expect(
-      page.getByText("Registration locked", { exact: true })
+      page
+        .locator("[data-sonner-toast]")
+        .getByText("Registration locked", { exact: true })
     ).toBeVisible();
     await expect(page.getByRole("alertdialog")).toHaveCount(0);
 
@@ -150,7 +154,9 @@ test("enforces registration readiness, lifecycle locks, and structural cloning",
       .getByRole("button", { name: "Open registration" })
       .click();
     await expect(
-      page.getByText("Registration opened", { exact: true })
+      page
+        .locator("[data-sonner-toast]")
+        .getByText("Registration opened", { exact: true })
     ).toBeVisible();
     await expect(page.getByRole("alertdialog")).toHaveCount(0);
 
@@ -160,7 +166,9 @@ test("enforces registration readiness, lifecycle locks, and structural cloning",
       .getByRole("button", { name: "Lock registration" })
       .click();
     await expect(
-      page.getByText("Registration locked", { exact: true })
+      page
+        .locator("[data-sonner-toast]")
+        .getByText("Registration locked", { exact: true })
     ).toBeVisible();
     await fixture("invalidate_ready");
     await page.reload();

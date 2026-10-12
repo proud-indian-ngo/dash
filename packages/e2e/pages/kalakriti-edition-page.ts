@@ -125,8 +125,10 @@ export class KalakritiEditionPage {
     ).toBeVisible();
     await expect(dialog).toHaveCount(0);
     await expect(
-      this.page.getByText(`Minimum Competitions: ${minimum}`, { exact: true })
-    ).toBeVisible();
+      this.page.getByRole("region", { name: "Participation rules" })
+    ).toHaveText(
+      new RegExp(`Minimum Competitions per Student.*enters\\.${minimum}$`)
+    );
   }
 
   async editDetails({ name, year }: { name: string; year: number }) {
@@ -154,7 +156,9 @@ export class KalakritiEditionPage {
     ).toBeVisible();
     await expect(dialog).toHaveCount(0);
     await expect(
-      this.page.getByRole("definition").filter({ hasText: name })
+      this.page.getByRole("region", { name: "Edition" }).getByText(name, {
+        exact: true,
+      })
     ).toBeVisible();
   }
 

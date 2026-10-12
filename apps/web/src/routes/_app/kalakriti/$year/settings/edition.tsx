@@ -1,17 +1,12 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@pi-dash/design-system/components/ui/card";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 
 import { EditionMetadataDialog } from "@/components/kalakriti/edition-metadata-dialog";
 import { EditionParticipationRulesDialog } from "@/components/kalakriti/edition-participation-rules-dialog";
+import { SettingsCard, SettingsRow } from "@/components/settings/settings-ui";
+import { FormSkeleton } from "@/components/shared/page-skeleton";
 
 const editionDateFormatter = new Intl.DateTimeFormat("en-IN", {
   day: "numeric",
@@ -62,9 +57,7 @@ function EditionSettingsPage() {
   }
 
   if (!editionDetails) {
-    return (
-      <p className="text-muted-foreground text-sm">Loading Edition settings…</p>
-    );
+    return <FormSkeleton className="max-w-3xl" fields={4} />;
   }
 
   const canEditParticipation =
@@ -72,73 +65,69 @@ function EditionSettingsPage() {
     editionDetails.lifecycle === "registration_open";
   const minTotalCompetitions = editionDetails.minTotalCompetitions ?? 2;
 
+  const value = (text: string) => (
+    <span className="text-sm tabular-nums">{text}</span>
+  );
+
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <Card size="sm">
-        <CardHeader>
-          <CardTitle>Edition details</CardTitle>
-          <CardDescription>
-            Name and key dates for this Edition.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <dl className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <dt className="text-muted-foreground">Name</dt>
-              <dd>{editionDetails.name}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Event date</dt>
-              <dd>
-                {editionDateFormatter.format(
-                  new Date(editionDetails.eventDate)
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Age cutoff</dt>
-              <dd>
-                {editionDateFormatter.format(
-                  new Date(editionDetails.ageCutoffDate)
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Registration closes</dt>
-              <dd>
-                {editionTimestampFormatter.format(
-                  new Date(editionDetails.plannedRegistrationCloseAt)
-                )}
-              </dd>
-            </div>
-          </dl>
-          {editionDetails.lifecycle === "draft" ? (
+    <div className="flex max-w-3xl flex-col gap-8">
+      <SettingsCard
+        action={
+          editionDetails.lifecycle === "draft" ? (
             <EditionMetadataDialog edition={editionDetails} />
-          ) : null}
-        </CardContent>
-      </Card>
-      <Card size="sm">
-        <CardHeader>
-          <CardTitle>Participation rules</CardTitle>
-          <CardDescription>
-            Minimum Entries required per participating Student.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm">
-            Minimum Competitions:{" "}
-            <span className="font-semibold tabular-nums">
-              {minTotalCompetitions}
-            </span>
-          </p>
-          {canEditParticipation ? (
+          ) : null
+        }
+        description={
+          editionDetails.lifecycle === "draft"
+            ? "Name and key dates for this Edition."
+            : "Name and key dates for this Edition. They lock once the Edition leaves draft."
+        }
+        title="Edition"
+      >
+        <SettingsRow title="Name">{value(editionDetails.name)}</SettingsRow>
+        <SettingsRow title="Event date">
+          {value(
+            editionDateFormatter.format(new Date(editionDetails.eventDate))
+          )}
+        </SettingsRow>
+        <SettingsRow
+          description="Students' ages are worked out on this date."
+          title="Age cutoff"
+        >
+          {value(
+            editionDateFormatter.format(new Date(editionDetails.ageCutoffDate))
+          )}
+        </SettingsRow>
+        <SettingsRow title="Registration closes">
+          {value(
+            editionTimestampFormatter.format(
+              new Date(editionDetails.plannedRegistrationCloseAt)
+            )
+          )}
+        </SettingsRow>
+      </SettingsCard>
+
+      <SettingsCard
+        action={
+          canEditParticipation ? (
             <EditionParticipationRulesDialog
               editionId={editionDetails.id}
               minTotalCompetitions={minTotalCompetitions}
             />
-          ) : null}
-        </CardContent>
-      </Card>
+          ) : null
+        }
+        description={
+          canEditParticipation ? undefined : "Locked once registration closes."
+        }
+        title="Participation rules"
+      >
+        <SettingsRow
+          description="The fewest Competitions a participating Student enters."
+          title="Minimum Competitions per Student"
+        >
+          {value(String(minTotalCompetitions))}
+        </SettingsRow>
+      </SettingsCard>
     </div>
   );
 }

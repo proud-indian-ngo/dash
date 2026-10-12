@@ -22,6 +22,7 @@ import {
   CentersTable,
   type CenterTableRow,
 } from "@/components/kalakriti/centers-table";
+import { formatKalakritiLifecycle } from "@/components/kalakriti/kalakriti-lifecycle-badge";
 import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notice";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { PeoplePageSummary } from "@/components/kalakriti/people-page-summary";
@@ -410,8 +411,9 @@ function KalakritiCentersPage() {
       {canManageCenters && centerStructureLocked ? (
         <KalakritiLockNotice>
           Adding, retiring, and deleting Centers is locked while this Edition is{" "}
-          {edition.lifecycle}. Basic Center details remain editable.
-          Registration controls remain available until the Edition goes live.
+          {formatKalakritiLifecycle(edition.lifecycle)}. Basic Center details
+          remain editable. Registration controls remain available until the
+          Edition goes live.
         </KalakritiLockNotice>
       ) : null}
 
