@@ -9,7 +9,7 @@ function scopedAssignments(
   query: Query<"kalakritiJudgeAssignment", typeof schema>,
   editionId: string,
   ctx: Context
-) {
+): Query<"kalakritiJudgeAssignment", typeof schema> {
   const scoped = query.where("editionId", editionId);
   if (can(ctx, "kalakriti.admin")) return scoped;
   return scoped.whereExists("competition", (competition) =>
