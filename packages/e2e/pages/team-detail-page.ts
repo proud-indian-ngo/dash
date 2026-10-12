@@ -20,8 +20,20 @@ export class TeamDetailPage {
   }
 
   getMemberRow(nameOrEmail: string): Locator {
-    // Target inner member row (border-b), not the outer wrapper (rounded-md border)
-    return this.page.locator("div.border-b").filter({ hasText: nameOrEmail });
+    return this.page
+      .locator("[data-slot='team-member-row']")
+      .filter({ hasText: nameOrEmail });
+  }
+
+  /** Opens a member's row menu and picks an item. */
+  private async chooseMemberAction(
+    nameOrEmail: string,
+    item: RegExp | string
+  ): Promise<void> {
+    const memberRow = this.getMemberRow(nameOrEmail);
+    await expect(memberRow).toBeVisible({ timeout: 5000 });
+    await memberRow.getByRole("button", { name: /^Actions for / }).click();
+    await this.page.getByRole("menuitem", { name: item }).click();
   }
 
   getMemberRoleBadge(nameOrEmail: string): Locator {
@@ -52,35 +64,21 @@ export class TeamDetailPage {
     await expect(addDialog).toBeHidden({ timeout: 10_000 });
   }
 
-  /**
-   * Promotes a member (Member → Lead) by clicking their Promote button.
-   */
+  /** Promotes a member (Member → Lead) from their row menu. */
   async promoteMember(nameOrEmail: string): Promise<void> {
-    const memberRow = this.getMemberRow(nameOrEmail);
-    const btn = memberRow.getByRole("button", { name: "Promote" });
-    await expect(btn).toBeVisible({ timeout: 5000 });
-    await btn.click();
+    await this.chooseMemberAction(nameOrEmail, "Promote to lead");
   }
 
-  /**
-   * Demotes a lead (Lead → Member) by clicking their Demote button.
-   * Waits for the button to re-render from "Promote" → "Demote" after a prior role change.
-   */
+  /** Demotes a lead (Lead → Member) from their row menu. */
   async demoteMember(nameOrEmail: string): Promise<void> {
-    const memberRow = this.getMemberRow(nameOrEmail);
-    const btn = memberRow.getByRole("button", { name: "Demote" });
-    await expect(btn).toBeVisible({ timeout: 5000 });
-    await btn.click();
+    await this.chooseMemberAction(nameOrEmail, "Demote to member");
   }
 
   /**
-   * Removes a member by clicking their remove icon and confirming the dialog.
+   * Removes a member from their row menu and confirms the dialog.
    */
   async removeMember(name: string): Promise<void> {
-    const removeBtn = this.page.getByRole("button", {
-      name: `Remove ${name}`,
-    });
-    await removeBtn.click();
+    await this.chooseMemberAction(name, "Remove from team");
 
     const confirmDialog = this.page.getByRole("alertdialog");
     await expect(confirmDialog).toBeVisible();

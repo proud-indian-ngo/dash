@@ -92,7 +92,7 @@ function VendorPaymentDetailRouteComponent() {
 
   if (isLoading) {
     return (
-      <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
+      <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
         <DetailPageSkeleton />
       </div>
     );
@@ -100,7 +100,7 @@ function VendorPaymentDetailRouteComponent() {
 
   if (!vendorPayment) {
     return (
-      <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
+      <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
         <RecordNotFound
           backLabel="Back to vendor payments"
           backTo="/vendor-payments"
@@ -138,7 +138,7 @@ function VendorPaymentDetailRouteComponent() {
     ...(vendorPayment.eventId ? { eventId: vendorPayment.eventId } : {}),
   };
   return (
-    <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
+    <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
       <div
         className="fade-in-0 animate-in duration-150 ease-(--ease-out-expo)"
         key={showEditForm ? "edit" : "view"}

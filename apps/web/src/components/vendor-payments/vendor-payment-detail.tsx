@@ -6,7 +6,6 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
@@ -17,15 +16,16 @@ import { useState } from "react";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
-import { HistoryEntry } from "@/components/reimbursements/reimbursement-history-entry";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
+import {
+  AttachmentList,
+  HistoryCard,
+  RecordDetailLayout,
+  RecordSection,
+  RejectionNote,
+} from "@/components/shared/record-detail";
 import { RequesterMeta } from "@/components/shared/requester-meta";
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
-import {
-  getAttachmentDownloadHref,
-  getAttachmentLabel,
-  getAttachmentPreviewHref,
-} from "@/lib/attachment-links";
 import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { getStatusBadge } from "@/lib/status-badge";
@@ -52,13 +52,12 @@ function VendorPaymentLineItemsTable({
   total: number;
 }) {
   return (
-    <div className="flex flex-col gap-3">
-      <h2 className="text-sm font-medium">Line items</h2>
+    <RecordSection title="Line items">
       {lineItems.length > 0 ? (
-        <div className="overflow-hidden rounded-md border">
+        <div className="overflow-x-auto rounded-lg border">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-muted/50 border-b">
+              <tr className="bg-muted/40 text-muted-foreground border-b text-xs">
                 <th className="px-3 py-2 text-left font-medium">Category</th>
                 <th className="px-3 py-2 text-left font-medium">Description</th>
                 <th className="px-3 py-2 text-right font-medium">Amount</th>
@@ -85,7 +84,7 @@ function VendorPaymentLineItemsTable({
               )}
             </tbody>
             <tfoot>
-              <tr className="bg-muted/50 border-t">
+              <tr className="bg-muted/40 border-t">
                 <td className="px-3 py-2 font-medium" colSpan={2}>
                   Total
                 </td>
@@ -97,86 +96,11 @@ function VendorPaymentLineItemsTable({
           </table>
         </div>
       ) : (
-        <p className="text-muted-foreground text-center text-sm">
+        <p className="text-muted-foreground rounded-lg border border-dashed py-6 text-center text-sm">
           No line items.
         </p>
       )}
-    </div>
-  );
-}
-
-interface QuotationAttachment {
-  filename?: string | null;
-  id: string;
-  mimeType?: string | null;
-  objectKey?: string | null;
-  type: "file" | "url";
-  url?: string | null;
-}
-
-function QuotationAttachmentList({
-  attachments,
-}: {
-  attachments: QuotationAttachment[];
-}) {
-  if (attachments.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="flex flex-col gap-3">
-      <h2 className="text-sm font-medium">Quotation / Supporting Documents</h2>
-      <div className="flex flex-col gap-1.5">
-        {attachments.map((att) => (
-          <div
-            className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-3 py-2"
-            key={att.id}
-          >
-            <span className="min-w-0 truncate text-sm">
-              {getAttachmentLabel(att)}
-            </span>
-            <div className="flex items-center gap-3">
-              {att.type === "url" ? (
-                <a
-                  className="text-primary text-xs font-medium underline-offset-2 hover:underline"
-                  href={getAttachmentPreviewHref(att)}
-                  rel="noopener noreferrer"
-                  target="_blank"
-                >
-                  View link
-                </a>
-              ) : (
-                <>
-                  <a
-                    className="text-primary text-xs font-medium underline-offset-2 hover:underline"
-                    href={getAttachmentPreviewHref(att, {
-                      id: att.id,
-                      kind: "vendorPaymentAttachment",
-                    })}
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  >
-                    Preview
-                  </a>
-                  <a
-                    className="text-primary text-xs font-medium underline-offset-2 hover:underline"
-                    download
-                    href={getAttachmentDownloadHref(att, {
-                      id: att.id,
-                      kind: "vendorPaymentAttachment",
-                    })}
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  >
-                    Download
-                  </a>
-                </>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+    </RecordSection>
   );
 }
 
@@ -208,7 +132,13 @@ function VendorPaymentHeader({
       actions={
         <>
           {showApproveAction ? (
-            <Button onClick={onApprove} type="button">
+            <Button
+              onClick={onApprove}
+              type="button"
+              // Past "pending" this is an admin status override; the step
+              // actually waiting (an invoice, a payment) carries the primary.
+              variant={request.status === "pending" ? "default" : "outline"}
+            >
               <HugeiconsIcon
                 className="size-4"
                 icon={CheckmarkCircle01Icon}
@@ -255,7 +185,7 @@ function VendorPaymentHeader({
         request.user ? (
           <RequesterMeta key="requester" user={request.user} />
         ) : null,
-        request.vendor ? `Vendor: ${request.vendor.name}` : null,
+        request.vendor ? request.vendor.name : null,
         request.city ? capitalize(request.city) : null,
         request.event ? (
           <Link
@@ -370,53 +300,43 @@ export function VendorPaymentDetail({
           tone={tone}
         />
 
-        {/* Vendor details */}
-        <VendorDetailsCard vendor={request.vendor} />
+        <RecordDetailLayout
+          aside={
+            <>
+              <VendorDetailsCard vendor={request.vendor} />
+              <VendorBankCard vendor={request.vendor} />
+              <HistoryCard entries={request.history} />
+            </>
+          }
+        >
+          {request.status === "rejected" && request.rejectionReason ? (
+            <RejectionNote reason={request.rejectionReason} />
+          ) : null}
 
-        {/* Bank account details */}
-        <VendorBankCard vendor={request.vendor} />
+          <VendorPaymentLineItemsTable
+            lineItems={request.lineItems}
+            total={total}
+          />
 
-        {/* Rejection reason */}
-        {request.status === "rejected" && request.rejectionReason ? (
-          <div className="fade-in-0 animate-in border-destructive/40 bg-destructive/10 text-destructive rounded-md border p-3 text-sm duration-150 ease-(--ease-out-expo)">
-            <span className="font-medium">Rejection reason: </span>
-            {request.rejectionReason}
-          </div>
-        ) : null}
+          {quotationAttachments.length > 0 ? (
+            <RecordSection title="Quotation and supporting documents">
+              <AttachmentList
+                attachments={quotationAttachments}
+                kind="vendorPaymentAttachment"
+              />
+            </RecordSection>
+          ) : null}
 
-        <VendorPaymentLineItemsTable
-          lineItems={request.lineItems}
-          total={total}
-        />
+          <VendorPaymentTransactions isOwner={isOwner} request={request} />
 
-        <QuotationAttachmentList attachments={quotationAttachments} />
-
-        {/* Transactions */}
-        <VendorPaymentTransactions isOwner={isOwner} request={request} />
-
-        {/* Invoice section */}
-        <VendorPaymentInvoiceSection
-          canApprove={canApprove}
-          invoiceAttachments={invoiceAttachments}
-          isOwner={isOwner}
-          request={request}
-          status={status}
-        />
-
-        {/* History */}
-        {request.history.length > 0 ? (
-          <>
-            <Separator />
-            <div className="flex flex-col gap-2">
-              <h2 className="text-sm font-medium">History</h2>
-              <div className="flex flex-col">
-                {request.history.map((entry) => (
-                  <HistoryEntry entry={entry} key={entry.id} />
-                ))}
-              </div>
-            </div>
-          </>
-        ) : null}
+          <VendorPaymentInvoiceSection
+            canApprove={canApprove}
+            invoiceAttachments={invoiceAttachments}
+            isOwner={isOwner}
+            request={request}
+            status={status}
+          />
+        </RecordDetailLayout>
 
         <ApproveDialog
           entityId={request.id}

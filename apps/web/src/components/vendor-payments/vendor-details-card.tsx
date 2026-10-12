@@ -1,44 +1,38 @@
 import type { Vendor } from "@pi-dash/zero/schema";
 
+import { DetailsCard, DetailsRow } from "@/components/shared/record-detail";
+
+/** The vendor's contact and tax details, for the right-hand column. */
 export function VendorDetailsCard({ vendor }: { vendor: Vendor | undefined }) {
   if (!vendor) {
     return null;
   }
   return (
-    <div className="rounded-md border p-3">
-      <h2 className="mb-2 text-sm font-medium">Vendor details</h2>
-      <div className="grid gap-1 text-sm sm:grid-cols-2">
-        <div>
-          <span className="text-muted-foreground">Name: </span>
-          {vendor.name}
-        </div>
-        <div>
-          <span className="text-muted-foreground">Phone: </span>
-          {vendor.contactPhone}
-        </div>
-        {vendor.contactEmail ? (
-          <div>
-            <span className="text-muted-foreground">Email: </span>
-            {vendor.contactEmail}
-          </div>
-        ) : null}
-        {vendor.gstNumber ? (
-          <div>
-            <span className="text-muted-foreground">GST: </span>
-            {vendor.gstNumber}
-          </div>
-        ) : null}
-        {vendor.panNumber ? (
-          <div>
-            <span className="text-muted-foreground">PAN: </span>
-            {vendor.panNumber}
-          </div>
-        ) : null}
-      </div>
-    </div>
+    <DetailsCard title="Vendor">
+      <DetailsRow label="Name">{vendor.name}</DetailsRow>
+      {vendor.contactPhone ? (
+        <DetailsRow label="Phone">
+          <span className="tabular-nums">{vendor.contactPhone}</span>
+        </DetailsRow>
+      ) : null}
+      {vendor.contactEmail ? (
+        <DetailsRow label="Email">{vendor.contactEmail}</DetailsRow>
+      ) : null}
+      {vendor.gstNumber ? (
+        <DetailsRow label="GST">
+          <span className="font-mono">{vendor.gstNumber}</span>
+        </DetailsRow>
+      ) : null}
+      {vendor.panNumber ? (
+        <DetailsRow label="PAN">
+          <span className="font-mono">{vendor.panNumber}</span>
+        </DetailsRow>
+      ) : null}
+    </DetailsCard>
   );
 }
 
+/** Where the vendor is paid. Hidden when no bank details are on file. */
 export function VendorBankCard({ vendor }: { vendor: Vendor | undefined }) {
   if (!vendor) {
     return null;
@@ -50,28 +44,18 @@ export function VendorBankCard({ vendor }: { vendor: Vendor | undefined }) {
     return null;
   }
   return (
-    <div className="flex flex-col gap-2 rounded-md border p-3">
-      <h2 className="text-sm font-medium">Bank account details</h2>
-      <div className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-3">
-        {name ? (
-          <div>
-            <p className="text-muted-foreground text-xs">Account name</p>
-            <p className="text-sm">{name}</p>
-          </div>
-        ) : null}
-        {number ? (
-          <div>
-            <p className="text-muted-foreground text-xs">Account number</p>
-            <p className="font-mono text-sm">{number}</p>
-          </div>
-        ) : null}
-        {ifsc ? (
-          <div>
-            <p className="text-muted-foreground text-xs">IFSC code</p>
-            <p className="font-mono text-sm">{ifsc}</p>
-          </div>
-        ) : null}
-      </div>
-    </div>
+    <DetailsCard title="Paid to">
+      {name ? <DetailsRow label="Account name">{name}</DetailsRow> : null}
+      {number ? (
+        <DetailsRow label="Account number">
+          <span className="font-mono">{number}</span>
+        </DetailsRow>
+      ) : null}
+      {ifsc ? (
+        <DetailsRow label="IFSC code">
+          <span className="font-mono">{ifsc}</span>
+        </DetailsRow>
+      ) : null}
+    </DetailsCard>
   );
 }

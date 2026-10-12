@@ -7,7 +7,6 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import {
@@ -20,6 +19,7 @@ import { useState } from "react";
 
 import { RejectDialog } from "@/components/form/reject-dialog";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { RecordSection } from "@/components/shared/record-detail";
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
 import { DATE } from "@/lib/date-formats";
@@ -160,12 +160,15 @@ export function VendorPaymentTransactions({
 
   return (
     <>
-      <Separator />
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium">Payments</h2>
-          {showRecordButton ? (
-            <Button onClick={stableOnClick0} size="sm" type="button">
+      <RecordSection
+        action={
+          showRecordButton ? (
+            <Button
+              onClick={stableOnClick0}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
               <HugeiconsIcon
                 className="size-4"
                 icon={PlusSignIcon}
@@ -173,47 +176,51 @@ export function VendorPaymentTransactions({
               />
               {canApprove ? "Record payment" : "Request payment"}
             </Button>
+          ) : null
+        }
+        title="Payments"
+      >
+        <div className="flex flex-col gap-2 rounded-lg border px-3 py-2.5">
+          <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm tabular-nums">
+            <span>
+              <span className="text-success-foreground font-medium">
+                {formatINR(paidAmount)}
+              </span>{" "}
+              <span className="text-muted-foreground">
+                paid of {formatINR(totalOwed)}
+              </span>
+            </span>
+            <span className="text-muted-foreground">
+              {formatINR(Math.max(0, remaining))} remaining
+            </span>
+          </p>
+          {totalOwed > 0 ? (
+            <div
+              aria-label="Paid so far"
+              aria-valuemax={100}
+              aria-valuemin={0}
+              aria-valuenow={Math.round(
+                Math.min(100, (paidAmount / totalOwed) * 100)
+              )}
+              className="bg-muted h-1.5 overflow-hidden rounded-full"
+              role="progressbar"
+            >
+              <div
+                className="bg-success h-full rounded-full transition-[width] duration-300"
+                style={{
+                  width: `${Math.min(100, (paidAmount / totalOwed) * 100)}%`,
+                }}
+              />
+            </div>
           ) : null}
         </div>
 
-        {/* Progress summary */}
-        <div className="grid grid-cols-3 gap-4 rounded-md border p-3">
-          <div>
-            <p className="text-muted-foreground text-xs">Total Owed</p>
-            <p className="font-medium tabular-nums">{formatINR(totalOwed)}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground text-xs">Paid</p>
-            <p className="text-success-foreground font-medium tabular-nums">
-              {formatINR(paidAmount)}
-            </p>
-          </div>
-          <div>
-            <p className="text-muted-foreground text-xs">Remaining</p>
-            <p className="font-medium tabular-nums">
-              {formatINR(Math.max(0, remaining))}
-            </p>
-          </div>
-        </div>
-
-        {/* Progress bar */}
-        {totalOwed > 0 ? (
-          <div className="bg-muted h-2 overflow-hidden rounded-full">
-            <div
-              className="bg-success h-full rounded-full transition-all duration-300"
-              style={{
-                width: `${Math.min(100, (paidAmount / totalOwed) * 100)}%`,
-              }}
-            />
-          </div>
-        ) : null}
-
         {/* Transactions table */}
         {transactions.length > 0 ? (
-          <div className="overflow-hidden rounded-md border">
+          <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-muted/50 border-b">
+                <tr className="bg-muted/40 text-muted-foreground border-b text-xs">
                   <th className="px-3 py-2 text-right font-medium">Amount</th>
                   <th className="px-3 py-2 text-left font-medium">
                     Description
@@ -253,11 +260,11 @@ export function VendorPaymentTransactions({
             </table>
           </div>
         ) : (
-          <p className="text-muted-foreground text-center text-sm">
+          <p className="text-muted-foreground rounded-lg border border-dashed py-6 text-center text-sm">
             No payments recorded yet.
           </p>
         )}
-      </div>
+      </RecordSection>
 
       <TransactionFormDialog
         canApprove={canApprove}

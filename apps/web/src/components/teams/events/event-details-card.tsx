@@ -1,9 +1,3 @@
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@pi-dash/design-system/components/ui/card";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { formatReminderInterval } from "@pi-dash/shared/event-reminders";
 import { rruleToLabel } from "@pi-dash/zero/rrule-utils";
@@ -12,6 +6,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { format, isSameDay } from "date-fns";
 import upperFirst from "lodash/upperFirst";
 
+import { DetailsCard, DetailsRow } from "@/components/shared/record-detail";
 import { Tag } from "@/components/shared/status-badge";
 import { DATE_TIME, TIME } from "@/lib/date-formats";
 import { formatINR } from "@/lib/form-schemas";
@@ -48,21 +43,6 @@ export function EventLocation({ location }: { location: string }) {
     >
       {location}
     </a>
-  );
-}
-
-function PropertyRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="grid grid-cols-[7rem_minmax(0,1fr)] gap-3 text-sm">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="break-words">{children}</dd>
-    </div>
   );
 }
 
@@ -142,67 +122,58 @@ export function EventDetailsCard({
   );
 
   return (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle>Details</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <dl className="flex flex-col gap-2.5">
-          {recurrence?.rrule ? (
-            <PropertyRow label="Repeats">
-              {upperFirst(rruleToLabel(recurrence.rrule))}
-            </PropertyRow>
-          ) : null}
+    <DetailsCard>
+      {recurrence?.rrule ? (
+        <DetailsRow label="Repeats">
+          {upperFirst(rruleToLabel(recurrence.rrule))}
+        </DetailsRow>
+      ) : null}
 
-          {event.seriesId ? (
-            <PropertyRow label="Series">
-              <button
-                className="text-left hover:underline"
-                onClick={openSeries}
-                type="button"
-              >
-                Part of a recurring series
-              </button>
-            </PropertyRow>
-          ) : null}
+      {event.seriesId ? (
+        <DetailsRow label="Series">
+          <button
+            className="text-left hover:underline"
+            onClick={openSeries}
+            type="button"
+          >
+            Part of a recurring series
+          </button>
+        </DetailsRow>
+      ) : null}
 
-          {volunteersNeeded ? (
-            <PropertyRow label="Volunteers">
-              <span className="tabular-nums">
-                {approvedCount} of {volunteersNeeded} approved
-              </span>
-            </PropertyRow>
-          ) : null}
+      {volunteersNeeded ? (
+        <DetailsRow label="Volunteers">
+          <span className="tabular-nums">
+            {approvedCount} of {volunteersNeeded} approved
+          </span>
+        </DetailsRow>
+      ) : null}
 
-          {partners.length > 0 ? (
-            <PropertyRow label="Partners">
-              <PartnersList partners={partners} />
-            </PropertyRow>
-          ) : null}
+      {partners.length > 0 ? (
+        <DetailsRow label="Partners">
+          <PartnersList partners={partners} />
+        </DetailsRow>
+      ) : null}
 
-          {event.whatsappGroup ? (
-            <PropertyRow label="WhatsApp">
-              {event.whatsappGroup.name}
-            </PropertyRow>
-          ) : null}
+      {event.whatsappGroup ? (
+        <DetailsRow label="WhatsApp">{event.whatsappGroup.name}</DetailsRow>
+      ) : null}
 
-          {canManage && reminders.length > 0 ? (
-            <PropertyRow label="Reminders">
-              <div className="flex flex-wrap gap-1">
-                {reminders.map((m) => (
-                  <Tag key={m}>{formatReminderInterval(m)}</Tag>
-                ))}
-              </div>
-            </PropertyRow>
-          ) : null}
+      {canManage && reminders.length > 0 ? (
+        <DetailsRow label="Reminders">
+          <div className="flex flex-wrap gap-1">
+            {reminders.map((m) => (
+              <Tag key={m}>{formatReminderInterval(m)}</Tag>
+            ))}
+          </div>
+        </DetailsRow>
+      ) : null}
 
-          {canManage && totalExpenses > 0 ? (
-            <PropertyRow label="Expenses">
-              <span className="tabular-nums">{formatINR(totalExpenses)}</span>
-            </PropertyRow>
-          ) : null}
-        </dl>
-      </CardContent>
-    </Card>
+      {canManage && totalExpenses > 0 ? (
+        <DetailsRow label="Expenses">
+          <span className="tabular-nums">{formatINR(totalExpenses)}</span>
+        </DetailsRow>
+      ) : null}
+    </DetailsCard>
   );
 }

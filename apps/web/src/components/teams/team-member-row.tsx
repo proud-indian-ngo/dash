@@ -1,10 +1,14 @@
-import { UserRemoveIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Button } from "@pi-dash/design-system/components/ui/button";
+import {
+  UserIcon,
+  UserRemoveIcon,
+  UserStar01Icon,
+} from "@hugeicons/core-free-icons";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { TeamMember, User } from "@pi-dash/zero/schema";
 import { format } from "date-fns";
 
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { Tag } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
@@ -21,7 +25,7 @@ export interface MemberRowProps {
 
 function getRoleToggleTitle(isSoleLeadSelf: boolean, role: string): string {
   if (isSoleLeadSelf && role === "lead") {
-    return "You are the only lead — promote another member first";
+    return "You're the only lead";
   }
   if (role === "lead") {
     return "Demote to member";
@@ -38,68 +42,68 @@ export function MemberRow({
   onToggleRole,
 }: MemberRowProps) {
   const { user } = member;
-  const stableOnClick0 = useEventCallback(() =>
-    onToggleRole(member.id, member.role ?? "member")
+  const name = user?.name ?? "Unknown user";
+  const role = member.role ?? "member";
+  const handleToggleRole = useEventCallback(() =>
+    onToggleRole(member.id, role)
   );
-  const stableOnClick1 = useEventCallback(() => onRemove(member.id));
+  const handleRemove = useEventCallback(() => onRemove(member.id));
+  const identity = (
+    <>
+      <UserAvatar
+        className="size-6"
+        fallbackClassName="text-[10px]"
+        user={user ?? { name: "?" }}
+      />
+      <span className="truncate text-sm font-medium">{name}</span>
+    </>
+  );
 
   return (
-    <div className="flex items-center justify-between border-b px-3 py-2.5 last:border-0">
+    <li
+      className="flex min-h-11 items-center gap-3 px-3 py-1.5"
+      data-slot="team-member-row"
+    >
       {user ? (
         <UserHoverCard
-          triggerClassName="flex cursor-pointer items-center gap-3 [@media(pointer:coarse)]:pointer-events-none"
+          triggerClassName="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 [@media(pointer:coarse)]:pointer-events-none"
           user={user}
         >
-          <UserAvatar className="size-8" user={user} />
-          <div>
-            <div className="text-sm font-medium">{user.name}</div>
-            <div className="text-muted-foreground text-xs">
-              Joined {format(member.joinedAt, DATE)}
-            </div>
-          </div>
+          {identity}
         </UserHoverCard>
       ) : (
-        <div className="flex items-center gap-3">
-          <UserAvatar className="size-8" user={{ name: "?" }} />
-          <div>
-            <div className="text-sm font-medium">Unknown user</div>
-            <div className="text-muted-foreground text-xs">
-              Joined {format(member.joinedAt, DATE)}
-            </div>
-          </div>
-        </div>
+        <span className="flex min-w-0 flex-1 items-center gap-2.5">
+          {identity}
+        </span>
       )}
-      <div className="flex items-center gap-2">
-        <Tag>{member.role === "lead" ? "Lead" : "Member"}</Tag>
-        {canManage ? (
-          <Button
-            disabled={Boolean(isSoleLeadSelf) && member.role === "lead"}
-            onClick={stableOnClick0}
-            size="sm"
-            title={getRoleToggleTitle(isSoleLeadSelf, member.role ?? "member")}
-            type="button"
-            variant="ghost"
-          >
-            {member.role === "lead" ? "Demote" : "Promote"}
-          </Button>
-        ) : null}
-        {canRemove ? (
-          <Button
-            aria-label={`Remove ${user?.name ?? "member"}`}
-            className="size-8"
-            onClick={stableOnClick1}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="text-destructive size-4"
-              icon={UserRemoveIcon}
-              strokeWidth={2}
-            />
-          </Button>
-        ) : null}
-      </div>
-    </div>
+      <span className="text-muted-foreground hidden shrink-0 text-xs tabular-nums sm:block">
+        Joined {format(member.joinedAt, DATE)}
+      </span>
+      <Tag className="shrink-0">{role === "lead" ? "Lead" : "Member"}</Tag>
+      {canManage || canRemove ? (
+        <ResponsiveActionMenu
+          actions={[
+            canManage && {
+              disabled: isSoleLeadSelf && role === "lead",
+              icon: role === "lead" ? UserIcon : UserStar01Icon,
+              id: "role",
+              label: getRoleToggleTitle(isSoleLeadSelf, role),
+              onSelect: handleToggleRole,
+            },
+            canRemove && {
+              destructive: true,
+              icon: UserRemoveIcon,
+              id: "remove",
+              label: "Remove from team",
+              onSelect: handleRemove,
+            },
+          ]}
+          title={name}
+          trigger={<RowActionsButton aria-label={`Actions for ${name}`} />}
+        />
+      ) : (
+        <span aria-hidden="true" className="size-7 shrink-0" />
+      )}
+    </li>
   );
 }

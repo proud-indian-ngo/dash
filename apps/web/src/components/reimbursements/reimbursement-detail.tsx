@@ -8,7 +8,6 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { VOUCHER_AMOUNT_THRESHOLD } from "@pi-dash/shared/constants";
 import { mutators } from "@pi-dash/zero/mutators";
@@ -19,13 +18,20 @@ import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
 import { reimbursementHeaderMeta } from "@/components/reimbursements/reimbursement-header-meta";
-import { HistoryEntry } from "@/components/reimbursements/reimbursement-history-entry";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
+import {
+  AttachmentList,
+  DetailsCard,
+  DetailsRow,
+  HistoryCard,
+  RecordDetailLayout,
+  RecordSection,
+  RejectionNote,
+} from "@/components/shared/record-detail";
 import { RequesterMeta } from "@/components/shared/requester-meta";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import {
   getAttachmentDownloadHref,
-  getAttachmentLabel,
   getAttachmentPreviewHref,
 } from "@/lib/attachment-links";
 import { formatINR } from "@/lib/form-schemas";
@@ -185,7 +191,11 @@ export function ReimbursementDetail({
           actions={
             <>
               {showApproveAction ? (
-                <Button onClick={stableOnClick0} type="button">
+                <Button
+                  onClick={stableOnClick0}
+                  type="button"
+                  variant={request.status === "pending" ? "default" : "outline"}
+                >
                   <HugeiconsIcon
                     className="size-4"
                     icon={CheckmarkCircle01Icon}
@@ -246,146 +256,76 @@ export function ReimbursementDetail({
           title={request.title}
         />
 
-        {/* Bank account details */}
-        <BankAccountCard request={request} />
+        <RecordDetailLayout
+          aside={
+            <>
+              <BankAccountCard request={request} />
+              <HistoryCard entries={request.history} />
+            </>
+          }
+        >
+          {request.status === "rejected" && request.rejectionReason ? (
+            <RejectionNote reason={request.rejectionReason} />
+          ) : null}
 
-        {/* Rejection reason */}
-        {request.status === "rejected" && request.rejectionReason ? (
-          <div className="fade-in-0 animate-in border-destructive/40 bg-destructive/10 text-destructive ease-out-expo rounded-md border p-3 text-sm duration-150">
-            <span className="font-medium">Rejection reason: </span>
-            {request.rejectionReason}
-          </div>
-        ) : null}
+          <LineItemsTable
+            canApprove={canApprove}
+            generatingVoucherId={generatingVoucherId}
+            onGenerateVoucher={handleGenerateVoucher}
+            request={request}
+            total={total}
+          />
 
-        {/* Payment proof */}
-        {request.status === "approved" && approvalScreenshot ? (
-          <div className="fade-in-0 animate-in ease-out-expo flex flex-col gap-2 duration-150">
-            <h2 className="text-sm font-medium">Payment proof</h2>
-            <div className="flex flex-col items-start gap-1.5">
-              <a
-                href={getAttachmentPreviewHref(
-                  approvalScreenshot,
-                  approvalScreenshotRef
-                )}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                <img
-                  alt="Payment proof"
-                  className="h-24 w-24 rounded-md border object-cover"
-                  height={96}
-                  src={getAttachmentPreviewHref(
+          {request.status === "approved" && approvalScreenshot ? (
+            <RecordSection title="Payment proof">
+              <div className="flex items-center gap-3 rounded-lg border p-2">
+                <a
+                  href={getAttachmentPreviewHref(
                     approvalScreenshot,
                     approvalScreenshotRef
                   )}
-                  width={96}
-                />
-              </a>
-              <a
-                className="text-primary text-xs font-medium underline-offset-2 hover:underline"
-                download
-                href={getAttachmentDownloadHref(
-                  approvalScreenshot,
-                  approvalScreenshotRef
-                )}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                Download
-              </a>
-            </div>
-          </div>
-        ) : null}
-
-        {/* Line items */}
-        <LineItemsTable
-          canApprove={canApprove}
-          generatingVoucherId={generatingVoucherId}
-          onGenerateVoucher={handleGenerateVoucher}
-          request={request}
-          total={total}
-        />
-
-        {/* Attachments */}
-        {request.attachments.length > 0 ? (
-          <div className="flex flex-col gap-3">
-            <h2 className="text-sm font-medium">Attachments</h2>
-            <div className="flex flex-col gap-1.5">
-              {request.attachments.map((att) => (
-                <div
-                  className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-3 py-2"
-                  key={att.id}
+                  rel="noopener noreferrer"
+                  target="_blank"
                 >
-                  <span className="min-w-0 truncate text-sm">
-                    {getAttachmentLabel(att)}
-                  </span>
-                  <div className="flex items-center gap-3">
-                    {att.type === "url" ? (
-                      <a
-                        className="text-primary text-xs font-medium underline-offset-2 hover:underline"
-                        href={getAttachmentPreviewHref(att)}
-                        rel="noopener noreferrer"
-                        target="_blank"
-                      >
-                        View link
-                        <span className="sr-only">
-                          {getAttachmentLabel(att)} (opens in new tab)
-                        </span>
-                      </a>
-                    ) : (
-                      <>
-                        <a
-                          className="text-primary text-xs font-medium underline-offset-2 hover:underline"
-                          href={getAttachmentPreviewHref(att, {
-                            id: att.id,
-                            kind: attachmentKind,
-                          })}
-                          rel="noopener noreferrer"
-                          target="_blank"
-                        >
-                          Preview
-                          <span className="sr-only">
-                            {getAttachmentLabel(att)} (opens in new tab)
-                          </span>
-                        </a>
-                        <a
-                          className="text-primary text-xs font-medium underline-offset-2 hover:underline"
-                          download
-                          href={getAttachmentDownloadHref(att, {
-                            id: att.id,
-                            kind: attachmentKind,
-                          })}
-                          rel="noopener noreferrer"
-                          target="_blank"
-                        >
-                          Download
-                          <span className="sr-only">
-                            {getAttachmentLabel(att)} (opens in new tab)
-                          </span>
-                        </a>
-                      </>
+                  <img
+                    alt="Payment proof"
+                    className="bg-muted size-14 rounded-md border object-cover"
+                    height={56}
+                    src={getAttachmentPreviewHref(
+                      approvalScreenshot,
+                      approvalScreenshotRef
                     )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        {/* History */}
-        {request.history.length > 0 ? (
-          <>
-            <Separator />
-            <div className="flex flex-col gap-2">
-              <h2 className="text-sm font-medium">History</h2>
-              <div className="flex flex-col">
-                {request.history.map((entry) => (
-                  <HistoryEntry entry={entry} key={entry.id} />
-                ))}
+                    width={56}
+                  />
+                </a>
+                <span className="min-w-0 flex-1 text-sm">
+                  Screenshot added when this was approved
+                </span>
+                <a
+                  className="text-primary px-1 text-xs font-medium underline-offset-2 hover:underline"
+                  download
+                  href={getAttachmentDownloadHref(
+                    approvalScreenshot,
+                    approvalScreenshotRef
+                  )}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  Download
+                </a>
               </div>
-            </div>
-          </>
-        ) : null}
+            </RecordSection>
+          ) : null}
+
+          {request.attachments.length > 0 ? (
+            <RecordSection title="Attachments">
+              <AttachmentList
+                attachments={request.attachments}
+                kind={attachmentKind}
+              />
+            </RecordSection>
+          ) : null}
+        </RecordDetailLayout>
 
         <ApproveDialog
           entityId={request.id}
@@ -493,7 +433,7 @@ function VoucherCell({
           icon={FileDownloadIcon}
           strokeWidth={2}
         />
-        {isGenerating ? "Generating..." : "Generate Voucher"}
+        {isGenerating ? "Generating..." : "Generate voucher"}
       </Button>
     );
   }
@@ -518,13 +458,12 @@ function LineItemsTable({
   const showVoucherCol = isReimb && request.status === "approved";
 
   return (
-    <div className="flex flex-col gap-3">
-      <h2 className="text-sm font-medium">Line items</h2>
+    <RecordSection title="Line items">
       {request.lineItems.length > 0 ? (
-        <div className="overflow-hidden rounded-md border">
+        <div className="overflow-x-auto rounded-lg border">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-muted/50 border-b">
+              <tr className="bg-muted/40 text-muted-foreground border-b text-xs">
                 <th className="px-3 py-2 text-left font-medium">Category</th>
                 <th className="px-3 py-2 text-left font-medium">Description</th>
                 <th className="px-3 py-2 text-right font-medium">Amount</th>
@@ -558,7 +497,7 @@ function LineItemsTable({
               ))}
             </tbody>
             <tfoot>
-              <tr className="bg-muted/50 border-t">
+              <tr className="bg-muted/40 border-t">
                 <td
                   className="px-3 py-2 font-medium"
                   colSpan={showVoucherCol ? 2 : 2}
@@ -574,11 +513,11 @@ function LineItemsTable({
           </table>
         </div>
       ) : (
-        <p className="text-muted-foreground text-center text-sm">
+        <p className="text-muted-foreground rounded-lg border border-dashed py-6 text-center text-sm">
           No line items.
         </p>
       )}
-    </div>
+    </RecordSection>
   );
 }
 
@@ -598,28 +537,20 @@ function BankAccountCard({ request }: { request: RequestDetailData }) {
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-md border p-3">
-      <h2 className="text-sm font-medium">Bank account details</h2>
-      <div className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-3">
-        {bank.name ? (
-          <div>
-            <p className="text-muted-foreground text-xs">Account name</p>
-            <p className="text-sm">{bank.name}</p>
-          </div>
-        ) : null}
-        {bank.number ? (
-          <div>
-            <p className="text-muted-foreground text-xs">Account number</p>
-            <p className="font-mono text-sm">{bank.number}</p>
-          </div>
-        ) : null}
-        {bank.ifsc ? (
-          <div>
-            <p className="text-muted-foreground text-xs">IFSC code</p>
-            <p className="font-mono text-sm">{bank.ifsc}</p>
-          </div>
-        ) : null}
-      </div>
-    </div>
+    <DetailsCard title="Paid to">
+      {bank.name ? (
+        <DetailsRow label="Account name">{bank.name}</DetailsRow>
+      ) : null}
+      {bank.number ? (
+        <DetailsRow label="Account number">
+          <span className="font-mono">{bank.number}</span>
+        </DetailsRow>
+      ) : null}
+      {bank.ifsc ? (
+        <DetailsRow label="IFSC code">
+          <span className="font-mono">{bank.ifsc}</span>
+        </DetailsRow>
+      ) : null}
+    </DetailsCard>
   );
 }
