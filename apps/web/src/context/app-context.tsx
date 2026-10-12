@@ -1,5 +1,5 @@
 import type { PermissionId } from "@pi-dash/db/permissions";
-import { createContext, use, useCallback, useMemo, useState } from "react";
+import { createContext, use, useCallback, useMemo } from "react";
 
 import {
   buildNavGroups,
@@ -7,17 +7,6 @@ import {
   type NavGroup,
   type NavItem,
 } from "@/lib/nav-items";
-
-export type Section =
-  | "general"
-  | "profile"
-  | "account"
-  | "notifications"
-  | "banking"
-  | "expense-categories"
-  | "whatsapp-groups"
-  | "api-tokens"
-  | "admin-actions";
 
 interface AppUser {
   email: string;
@@ -32,12 +21,7 @@ interface AppContextValue {
   hasPermission: (permission: PermissionId) => boolean;
   navGroups: NavGroup[];
   navItems: NavItem[];
-  openSettings: (section?: Section) => void;
   permissions: string[];
-  setSettingsOpen: (open: boolean) => void;
-  setSettingsSection: (section: Section) => void;
-  settingsOpen: boolean;
-  settingsSection: Section;
   user: AppUser;
 }
 
@@ -52,9 +36,6 @@ export function AppProvider({
   permissions?: string[];
   user: AppUser;
 }) {
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsSection, setSettingsSection] = useState<Section>("profile");
-
   const navItems = buildNavItems(permissions);
   const navGroups = buildNavGroups(permissions);
 
@@ -66,23 +47,13 @@ export function AppProvider({
     [permissionSet]
   );
 
-  const openSettings = (section: Section = "banking") => {
-    setSettingsSection(section);
-    setSettingsOpen(true);
-  };
-
   return (
     <AppContext
       value={{
         hasPermission,
         navGroups,
         navItems,
-        openSettings,
         permissions,
-        setSettingsOpen,
-        setSettingsSection,
-        settingsOpen,
-        settingsSection,
         user,
       }}
     >

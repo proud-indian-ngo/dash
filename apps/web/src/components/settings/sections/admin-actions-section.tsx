@@ -1,11 +1,11 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { SettingsCard, SettingsRow } from "@/components/settings/settings-ui";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import {
   triggerR2Cleanup,
@@ -80,39 +80,28 @@ export function AdminActionsSection() {
   });
   const stableOnClick1 = useEventCallback(() => setR2CleanupConfirmOpen(true));
 
-  return (
-    <div className="flex flex-col gap-6 p-4">
-      <p className="text-muted-foreground text-sm">
-        Manually trigger background jobs. Results appear on the Jobs page.
-      </p>
+  const openScanConfirm = useEventCallback(() => setScanConfirmOpen(true));
 
-      <div className="space-y-1">
-        <p className="text-sm font-medium">WhatsApp Group Scan</p>
-        <p className="text-muted-foreground text-sm">
-          Scan groups and auto-deactivate users not in any group, reactivate
-          inactive users found in groups, and report unregistered numbers.
-        </p>
-        <div className="pt-2">
+  return (
+    <div className="flex flex-col gap-6">
+      <SettingsCard>
+        <SettingsRow
+          description="Deactivate people who aren't in any group, reactivate inactive people found in one, and report numbers that haven't registered."
+          title="WhatsApp group scan"
+        >
           <Button
             disabled={scanningGroups}
-            onClick={handleR2DryRun}
+            onClick={openScanConfirm}
             size="sm"
             variant="outline"
           >
-            {scanningGroups ? "Triggering..." : "Scan groups"}
+            {scanningGroups ? "Starting..." : "Scan groups"}
           </Button>
-        </div>
-      </div>
-
-      <Separator />
-
-      <div className="space-y-1">
-        <p className="text-sm font-medium">R2 Storage Cleanup</p>
-        <p className="text-muted-foreground text-sm">
-          Find and delete orphaned files in R2 that are not referenced by any
-          database record. Files uploaded in the last 24 hours are skipped.
-        </p>
-        <div className="flex gap-2 pt-2">
+        </SettingsRow>
+        <SettingsRow
+          description="Delete files in storage that no record points to. Files uploaded in the last 24 hours are skipped. Do a dry run first to see the list."
+          title="Storage cleanup"
+        >
           <Button
             disabled={r2Cleaning}
             onClick={handleR2DryRun}
@@ -129,14 +118,14 @@ export function AdminActionsSection() {
           >
             Clean up
           </Button>
-        </div>
-      </div>
+        </SettingsRow>
+      </SettingsCard>
 
       <ConfirmDialog
         confirmLabel="Scan now"
         description="This will scan WhatsApp groups and auto-deactivate users not found in any group, reactivate inactive users found in groups, and report unregistered phone numbers."
         loading={scanningGroups}
-        loadingLabel="Triggering..."
+        loadingLabel="Starting..."
         onConfirm={handleScanGroups}
         onOpenChange={setScanConfirmOpen}
         open={scanConfirmOpen}

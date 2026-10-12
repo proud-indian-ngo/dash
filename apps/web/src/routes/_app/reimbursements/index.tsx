@@ -6,7 +6,7 @@ import { env } from "@pi-dash/env/web";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { log } from "evlog";
 import { toast } from "sonner";
 
@@ -52,7 +52,7 @@ function getMutatorNs(type: RequestRow["type"]) {
 function ReimbursementsRouteComponent() {
   const navigate = useNavigate();
   const zero = useZero();
-  const { hasPermission, openSettings } = useApp();
+  const { hasPermission } = useApp();
 
   const [reimbursements, r1] = useQuery(queries.reimbursement.all());
   const [advancePayments, r2] = useQuery(queries.advancePayment.all());
@@ -112,19 +112,18 @@ function ReimbursementsRouteComponent() {
       {hasPermission("requests.create") ? (
         <TipStrip
           action={
-            <button
+            <Link
               className="underline-offset-2 hover:underline"
-              onClick={() => openSettings("banking")}
-              type="button"
+              to="/settings/bank-accounts"
             >
-              Open Banking
-            </button>
+              Open bank accounts
+            </Link>
           }
           className="mt-4"
           id="reimbursements-bank-account"
         >
-          Add your bank account once in Settings → Banking, and every claim
-          fills it in for you.
+          Add your bank account once in Settings → Bank accounts, and every
+          claim fills it in for you.
         </TipStrip>
       ) : null}
 

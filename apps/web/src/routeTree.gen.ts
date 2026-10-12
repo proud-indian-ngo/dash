@@ -21,6 +21,7 @@ import { Route as AppJobsRouteImport } from './routes/_app/jobs'
 import { Route as AppKalakritiRouteRouteImport } from './routes/_app/kalakriti/route'
 import { Route as AppReimbursementsRouteRouteImport } from './routes/_app/reimbursements/route'
 import { Route as AppScheduledMessagesRouteImport } from './routes/_app/scheduled-messages'
+import { Route as AppSettingsRouteRouteImport } from './routes/_app/settings/route'
 import { Route as AppSocialRouteImport } from './routes/_app/social'
 import { Route as AppTeamsRouteRouteImport } from './routes/_app/teams/route'
 import { Route as AppUsersRouteImport } from './routes/_app/users'
@@ -43,7 +44,17 @@ import { Route as AppKalakritiNewRouteImport } from './routes/_app/kalakriti/new
 import { Route as AppReimbursementsIndexRouteImport } from './routes/_app/reimbursements/index'
 import { Route as AppReimbursementsIdRouteImport } from './routes/_app/reimbursements/$id'
 import { Route as AppReimbursementsNewRouteImport } from './routes/_app/reimbursements/new'
+import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
+import { Route as AppSettingsAccountRouteImport } from './routes/_app/settings/account'
+import { Route as AppSettingsApiTokensRouteImport } from './routes/_app/settings/api-tokens'
+import { Route as AppSettingsBankAccountsRouteImport } from './routes/_app/settings/bank-accounts'
+import { Route as AppSettingsExpenseCategoriesRouteImport } from './routes/_app/settings/expense-categories'
+import { Route as AppSettingsGeneralRouteImport } from './routes/_app/settings/general'
+import { Route as AppSettingsMaintenanceRouteImport } from './routes/_app/settings/maintenance'
+import { Route as AppSettingsNotificationsRouteImport } from './routes/_app/settings/notifications'
+import { Route as AppSettingsProfileRouteImport } from './routes/_app/settings/profile'
 import { Route as AppSettingsRolesRouteRouteImport } from './routes/_app/settings/roles/route'
+import { Route as AppSettingsWhatsappGroupsRouteImport } from './routes/_app/settings/whatsapp-groups'
 import { Route as AppTeamsIndexRouteImport } from './routes/_app/teams/index'
 import { Route as AppTeamsIdRouteImport } from './routes/_app/teams/$id'
 import { Route as AppVendorPaymentsIndexRouteImport } from './routes/_app/vendor-payments/index'
@@ -173,6 +184,11 @@ const AppScheduledMessagesRoute = AppScheduledMessagesRouteImport.update({
   path: '/scheduled-messages',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSettingsRouteRoute = AppSettingsRouteRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppSocialRoute = AppSocialRouteImport.update({
   id: '/social',
   path: '/social',
@@ -283,11 +299,64 @@ const AppReimbursementsNewRoute = AppReimbursementsNewRouteImport.update({
   path: '/new',
   getParentRoute: () => AppReimbursementsRouteRoute,
 } as any)
-const AppSettingsRolesRouteRoute = AppSettingsRolesRouteRouteImport.update({
-  id: '/settings/roles',
-  path: '/settings/roles',
-  getParentRoute: () => AppRoute,
+const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppSettingsRouteRoute,
 } as any)
+const AppSettingsAccountRoute = AppSettingsAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
+const AppSettingsApiTokensRoute = AppSettingsApiTokensRouteImport.update({
+  id: '/api-tokens',
+  path: '/api-tokens',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
+const AppSettingsBankAccountsRoute = AppSettingsBankAccountsRouteImport.update({
+  id: '/bank-accounts',
+  path: '/bank-accounts',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
+const AppSettingsExpenseCategoriesRoute =
+  AppSettingsExpenseCategoriesRouteImport.update({
+    id: '/expense-categories',
+    path: '/expense-categories',
+    getParentRoute: () => AppSettingsRouteRoute,
+  } as any)
+const AppSettingsGeneralRoute = AppSettingsGeneralRouteImport.update({
+  id: '/general',
+  path: '/general',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
+const AppSettingsMaintenanceRoute = AppSettingsMaintenanceRouteImport.update({
+  id: '/maintenance',
+  path: '/maintenance',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
+const AppSettingsNotificationsRoute =
+  AppSettingsNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AppSettingsRouteRoute,
+  } as any)
+const AppSettingsProfileRoute = AppSettingsProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
+const AppSettingsRolesRouteRoute = AppSettingsRolesRouteRouteImport.update({
+  id: '/roles',
+  path: '/roles',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
+const AppSettingsWhatsappGroupsRoute =
+  AppSettingsWhatsappGroupsRouteImport.update({
+    id: '/whatsapp-groups',
+    path: '/whatsapp-groups',
+    getParentRoute: () => AppSettingsRouteRoute,
+  } as any)
 const AppTeamsIndexRoute = AppTeamsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -672,6 +741,7 @@ export interface FileRoutesByFullPath {
   '/events': typeof AppEventsRouteRouteWithChildren
   '/kalakriti': typeof AppKalakritiRouteRouteWithChildren
   '/reimbursements': typeof AppReimbursementsRouteRouteWithChildren
+  '/settings': typeof AppSettingsRouteRouteWithChildren
   '/teams': typeof AppTeamsRouteRouteWithChildren
   '/vendor-payments': typeof AppVendorPaymentsRouteRouteWithChildren
   '/vendors': typeof AppVendorsRouteRouteWithChildren
@@ -698,6 +768,15 @@ export interface FileRoutesByFullPath {
   '/kalakriti/new': typeof AppKalakritiNewRoute
   '/reimbursements/$id': typeof AppReimbursementsIdRoute
   '/reimbursements/new': typeof AppReimbursementsNewRoute
+  '/settings/account': typeof AppSettingsAccountRoute
+  '/settings/api-tokens': typeof AppSettingsApiTokensRoute
+  '/settings/bank-accounts': typeof AppSettingsBankAccountsRoute
+  '/settings/expense-categories': typeof AppSettingsExpenseCategoriesRoute
+  '/settings/general': typeof AppSettingsGeneralRoute
+  '/settings/maintenance': typeof AppSettingsMaintenanceRoute
+  '/settings/notifications': typeof AppSettingsNotificationsRoute
+  '/settings/profile': typeof AppSettingsProfileRoute
+  '/settings/whatsapp-groups': typeof AppSettingsWhatsappGroupsRoute
   '/teams/$id': typeof AppTeamsIdRoute
   '/vendor-payments/$id': typeof AppVendorPaymentsIdRoute
   '/vendor-payments/new': typeof AppVendorPaymentsNewRoute
@@ -716,6 +795,7 @@ export interface FileRoutesByFullPath {
   '/events/': typeof AppEventsIndexRoute
   '/kalakriti/': typeof AppKalakritiIndexRoute
   '/reimbursements/': typeof AppReimbursementsIndexRoute
+  '/settings/': typeof AppSettingsIndexRoute
   '/teams/': typeof AppTeamsIndexRoute
   '/vendor-payments/': typeof AppVendorPaymentsIndexRoute
   '/vendors/': typeof AppVendorsIndexRoute
@@ -795,6 +875,15 @@ export interface FileRoutesByTo {
   '/kalakriti/new': typeof AppKalakritiNewRoute
   '/reimbursements/$id': typeof AppReimbursementsIdRoute
   '/reimbursements/new': typeof AppReimbursementsNewRoute
+  '/settings/account': typeof AppSettingsAccountRoute
+  '/settings/api-tokens': typeof AppSettingsApiTokensRoute
+  '/settings/bank-accounts': typeof AppSettingsBankAccountsRoute
+  '/settings/expense-categories': typeof AppSettingsExpenseCategoriesRoute
+  '/settings/general': typeof AppSettingsGeneralRoute
+  '/settings/maintenance': typeof AppSettingsMaintenanceRoute
+  '/settings/notifications': typeof AppSettingsNotificationsRoute
+  '/settings/profile': typeof AppSettingsProfileRoute
+  '/settings/whatsapp-groups': typeof AppSettingsWhatsappGroupsRoute
   '/teams/$id': typeof AppTeamsIdRoute
   '/vendor-payments/$id': typeof AppVendorPaymentsIdRoute
   '/vendor-payments/new': typeof AppVendorPaymentsNewRoute
@@ -813,6 +902,7 @@ export interface FileRoutesByTo {
   '/events': typeof AppEventsIndexRoute
   '/kalakriti': typeof AppKalakritiIndexRoute
   '/reimbursements': typeof AppReimbursementsIndexRoute
+  '/settings': typeof AppSettingsIndexRoute
   '/teams': typeof AppTeamsIndexRoute
   '/vendor-payments': typeof AppVendorPaymentsIndexRoute
   '/vendors': typeof AppVendorsIndexRoute
@@ -873,6 +963,7 @@ export interface FileRoutesById {
   '/_app/events': typeof AppEventsRouteRouteWithChildren
   '/_app/kalakriti': typeof AppKalakritiRouteRouteWithChildren
   '/_app/reimbursements': typeof AppReimbursementsRouteRouteWithChildren
+  '/_app/settings': typeof AppSettingsRouteRouteWithChildren
   '/_app/teams': typeof AppTeamsRouteRouteWithChildren
   '/_app/vendor-payments': typeof AppVendorPaymentsRouteRouteWithChildren
   '/_app/vendors': typeof AppVendorsRouteRouteWithChildren
@@ -900,6 +991,15 @@ export interface FileRoutesById {
   '/_app/kalakriti/new': typeof AppKalakritiNewRoute
   '/_app/reimbursements/$id': typeof AppReimbursementsIdRoute
   '/_app/reimbursements/new': typeof AppReimbursementsNewRoute
+  '/_app/settings/account': typeof AppSettingsAccountRoute
+  '/_app/settings/api-tokens': typeof AppSettingsApiTokensRoute
+  '/_app/settings/bank-accounts': typeof AppSettingsBankAccountsRoute
+  '/_app/settings/expense-categories': typeof AppSettingsExpenseCategoriesRoute
+  '/_app/settings/general': typeof AppSettingsGeneralRoute
+  '/_app/settings/maintenance': typeof AppSettingsMaintenanceRoute
+  '/_app/settings/notifications': typeof AppSettingsNotificationsRoute
+  '/_app/settings/profile': typeof AppSettingsProfileRoute
+  '/_app/settings/whatsapp-groups': typeof AppSettingsWhatsappGroupsRoute
   '/_app/teams/$id': typeof AppTeamsIdRoute
   '/_app/vendor-payments/$id': typeof AppVendorPaymentsIdRoute
   '/_app/vendor-payments/new': typeof AppVendorPaymentsNewRoute
@@ -918,6 +1018,7 @@ export interface FileRoutesById {
   '/_app/events/': typeof AppEventsIndexRoute
   '/_app/kalakriti/': typeof AppKalakritiIndexRoute
   '/_app/reimbursements/': typeof AppReimbursementsIndexRoute
+  '/_app/settings/': typeof AppSettingsIndexRoute
   '/_app/teams/': typeof AppTeamsIndexRoute
   '/_app/vendor-payments/': typeof AppVendorPaymentsIndexRoute
   '/_app/vendors/': typeof AppVendorsIndexRoute
@@ -981,6 +1082,7 @@ export interface FileRouteTypes {
     | '/events'
     | '/kalakriti'
     | '/reimbursements'
+    | '/settings'
     | '/teams'
     | '/vendor-payments'
     | '/vendors'
@@ -1007,6 +1109,15 @@ export interface FileRouteTypes {
     | '/kalakriti/new'
     | '/reimbursements/$id'
     | '/reimbursements/new'
+    | '/settings/account'
+    | '/settings/api-tokens'
+    | '/settings/bank-accounts'
+    | '/settings/expense-categories'
+    | '/settings/general'
+    | '/settings/maintenance'
+    | '/settings/notifications'
+    | '/settings/profile'
+    | '/settings/whatsapp-groups'
     | '/teams/$id'
     | '/vendor-payments/$id'
     | '/vendor-payments/new'
@@ -1025,6 +1136,7 @@ export interface FileRouteTypes {
     | '/events/'
     | '/kalakriti/'
     | '/reimbursements/'
+    | '/settings/'
     | '/teams/'
     | '/vendor-payments/'
     | '/vendors/'
@@ -1104,6 +1216,15 @@ export interface FileRouteTypes {
     | '/kalakriti/new'
     | '/reimbursements/$id'
     | '/reimbursements/new'
+    | '/settings/account'
+    | '/settings/api-tokens'
+    | '/settings/bank-accounts'
+    | '/settings/expense-categories'
+    | '/settings/general'
+    | '/settings/maintenance'
+    | '/settings/notifications'
+    | '/settings/profile'
+    | '/settings/whatsapp-groups'
     | '/teams/$id'
     | '/vendor-payments/$id'
     | '/vendor-payments/new'
@@ -1122,6 +1243,7 @@ export interface FileRouteTypes {
     | '/events'
     | '/kalakriti'
     | '/reimbursements'
+    | '/settings'
     | '/teams'
     | '/vendor-payments'
     | '/vendors'
@@ -1181,6 +1303,7 @@ export interface FileRouteTypes {
     | '/_app/events'
     | '/_app/kalakriti'
     | '/_app/reimbursements'
+    | '/_app/settings'
     | '/_app/teams'
     | '/_app/vendor-payments'
     | '/_app/vendors'
@@ -1208,6 +1331,15 @@ export interface FileRouteTypes {
     | '/_app/kalakriti/new'
     | '/_app/reimbursements/$id'
     | '/_app/reimbursements/new'
+    | '/_app/settings/account'
+    | '/_app/settings/api-tokens'
+    | '/_app/settings/bank-accounts'
+    | '/_app/settings/expense-categories'
+    | '/_app/settings/general'
+    | '/_app/settings/maintenance'
+    | '/_app/settings/notifications'
+    | '/_app/settings/profile'
+    | '/_app/settings/whatsapp-groups'
     | '/_app/teams/$id'
     | '/_app/vendor-payments/$id'
     | '/_app/vendor-payments/new'
@@ -1226,6 +1358,7 @@ export interface FileRouteTypes {
     | '/_app/events/'
     | '/_app/kalakriti/'
     | '/_app/reimbursements/'
+    | '/_app/settings/'
     | '/_app/teams/'
     | '/_app/vendor-payments/'
     | '/_app/vendors/'
@@ -1408,6 +1541,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppScheduledMessagesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/social': {
       id: '/_app/social'
       path: '/social'
@@ -1562,12 +1702,82 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppReimbursementsNewRouteImport
       parentRoute: typeof AppReimbursementsRouteRoute
     }
+    '/_app/settings/': {
+      id: '/_app/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AppSettingsIndexRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/_app/settings/account': {
+      id: '/_app/settings/account'
+      path: '/account'
+      fullPath: '/settings/account'
+      preLoaderRoute: typeof AppSettingsAccountRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/_app/settings/api-tokens': {
+      id: '/_app/settings/api-tokens'
+      path: '/api-tokens'
+      fullPath: '/settings/api-tokens'
+      preLoaderRoute: typeof AppSettingsApiTokensRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/_app/settings/bank-accounts': {
+      id: '/_app/settings/bank-accounts'
+      path: '/bank-accounts'
+      fullPath: '/settings/bank-accounts'
+      preLoaderRoute: typeof AppSettingsBankAccountsRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/_app/settings/expense-categories': {
+      id: '/_app/settings/expense-categories'
+      path: '/expense-categories'
+      fullPath: '/settings/expense-categories'
+      preLoaderRoute: typeof AppSettingsExpenseCategoriesRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/_app/settings/general': {
+      id: '/_app/settings/general'
+      path: '/general'
+      fullPath: '/settings/general'
+      preLoaderRoute: typeof AppSettingsGeneralRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/_app/settings/maintenance': {
+      id: '/_app/settings/maintenance'
+      path: '/maintenance'
+      fullPath: '/settings/maintenance'
+      preLoaderRoute: typeof AppSettingsMaintenanceRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/_app/settings/notifications': {
+      id: '/_app/settings/notifications'
+      path: '/notifications'
+      fullPath: '/settings/notifications'
+      preLoaderRoute: typeof AppSettingsNotificationsRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/_app/settings/profile': {
+      id: '/_app/settings/profile'
+      path: '/profile'
+      fullPath: '/settings/profile'
+      preLoaderRoute: typeof AppSettingsProfileRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
     '/_app/settings/roles': {
       id: '/_app/settings/roles'
-      path: '/settings/roles'
+      path: '/roles'
       fullPath: '/settings/roles'
       preLoaderRoute: typeof AppSettingsRolesRouteRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/_app/settings/whatsapp-groups': {
+      id: '/_app/settings/whatsapp-groups'
+      path: '/whatsapp-groups'
+      fullPath: '/settings/whatsapp-groups'
+      preLoaderRoute: typeof AppSettingsWhatsappGroupsRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
     }
     '/_app/teams/': {
       id: '/_app/teams/'
@@ -2224,6 +2434,52 @@ const AppReimbursementsRouteRouteWithChildren =
     AppReimbursementsRouteRouteChildren,
   )
 
+interface AppSettingsRolesRouteRouteChildren {
+  AppSettingsRolesRoleIdRoute: typeof AppSettingsRolesRoleIdRoute
+  AppSettingsRolesIndexRoute: typeof AppSettingsRolesIndexRoute
+}
+
+const AppSettingsRolesRouteRouteChildren: AppSettingsRolesRouteRouteChildren = {
+  AppSettingsRolesRoleIdRoute: AppSettingsRolesRoleIdRoute,
+  AppSettingsRolesIndexRoute: AppSettingsRolesIndexRoute,
+}
+
+const AppSettingsRolesRouteRouteWithChildren =
+  AppSettingsRolesRouteRoute._addFileChildren(
+    AppSettingsRolesRouteRouteChildren,
+  )
+
+interface AppSettingsRouteRouteChildren {
+  AppSettingsRolesRouteRoute: typeof AppSettingsRolesRouteRouteWithChildren
+  AppSettingsAccountRoute: typeof AppSettingsAccountRoute
+  AppSettingsApiTokensRoute: typeof AppSettingsApiTokensRoute
+  AppSettingsBankAccountsRoute: typeof AppSettingsBankAccountsRoute
+  AppSettingsExpenseCategoriesRoute: typeof AppSettingsExpenseCategoriesRoute
+  AppSettingsGeneralRoute: typeof AppSettingsGeneralRoute
+  AppSettingsMaintenanceRoute: typeof AppSettingsMaintenanceRoute
+  AppSettingsNotificationsRoute: typeof AppSettingsNotificationsRoute
+  AppSettingsProfileRoute: typeof AppSettingsProfileRoute
+  AppSettingsWhatsappGroupsRoute: typeof AppSettingsWhatsappGroupsRoute
+  AppSettingsIndexRoute: typeof AppSettingsIndexRoute
+}
+
+const AppSettingsRouteRouteChildren: AppSettingsRouteRouteChildren = {
+  AppSettingsRolesRouteRoute: AppSettingsRolesRouteRouteWithChildren,
+  AppSettingsAccountRoute: AppSettingsAccountRoute,
+  AppSettingsApiTokensRoute: AppSettingsApiTokensRoute,
+  AppSettingsBankAccountsRoute: AppSettingsBankAccountsRoute,
+  AppSettingsExpenseCategoriesRoute: AppSettingsExpenseCategoriesRoute,
+  AppSettingsGeneralRoute: AppSettingsGeneralRoute,
+  AppSettingsMaintenanceRoute: AppSettingsMaintenanceRoute,
+  AppSettingsNotificationsRoute: AppSettingsNotificationsRoute,
+  AppSettingsProfileRoute: AppSettingsProfileRoute,
+  AppSettingsWhatsappGroupsRoute: AppSettingsWhatsappGroupsRoute,
+  AppSettingsIndexRoute: AppSettingsIndexRoute,
+}
+
+const AppSettingsRouteRouteWithChildren =
+  AppSettingsRouteRoute._addFileChildren(AppSettingsRouteRouteChildren)
+
 interface AppTeamsRouteRouteChildren {
   AppTeamsIdRoute: typeof AppTeamsIdRoute
   AppTeamsIndexRoute: typeof AppTeamsIndexRoute
@@ -2268,25 +2524,11 @@ const AppVendorsRouteRouteWithChildren = AppVendorsRouteRoute._addFileChildren(
   AppVendorsRouteRouteChildren,
 )
 
-interface AppSettingsRolesRouteRouteChildren {
-  AppSettingsRolesRoleIdRoute: typeof AppSettingsRolesRoleIdRoute
-  AppSettingsRolesIndexRoute: typeof AppSettingsRolesIndexRoute
-}
-
-const AppSettingsRolesRouteRouteChildren: AppSettingsRolesRouteRouteChildren = {
-  AppSettingsRolesRoleIdRoute: AppSettingsRolesRoleIdRoute,
-  AppSettingsRolesIndexRoute: AppSettingsRolesIndexRoute,
-}
-
-const AppSettingsRolesRouteRouteWithChildren =
-  AppSettingsRolesRouteRoute._addFileChildren(
-    AppSettingsRolesRouteRouteChildren,
-  )
-
 interface AppRouteChildren {
   AppEventsRouteRoute: typeof AppEventsRouteRouteWithChildren
   AppKalakritiRouteRoute: typeof AppKalakritiRouteRouteWithChildren
   AppReimbursementsRouteRoute: typeof AppReimbursementsRouteRouteWithChildren
+  AppSettingsRouteRoute: typeof AppSettingsRouteRouteWithChildren
   AppTeamsRouteRoute: typeof AppTeamsRouteRouteWithChildren
   AppVendorPaymentsRouteRoute: typeof AppVendorPaymentsRouteRouteWithChildren
   AppVendorsRouteRoute: typeof AppVendorsRouteRouteWithChildren
@@ -2299,13 +2541,13 @@ interface AppRouteChildren {
   AppSocialRoute: typeof AppSocialRoute
   AppUsersRoute: typeof AppUsersRoute
   AppIndexRoute: typeof AppIndexRoute
-  AppSettingsRolesRouteRoute: typeof AppSettingsRolesRouteRouteWithChildren
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppEventsRouteRoute: AppEventsRouteRouteWithChildren,
   AppKalakritiRouteRoute: AppKalakritiRouteRouteWithChildren,
   AppReimbursementsRouteRoute: AppReimbursementsRouteRouteWithChildren,
+  AppSettingsRouteRoute: AppSettingsRouteRouteWithChildren,
   AppTeamsRouteRoute: AppTeamsRouteRouteWithChildren,
   AppVendorPaymentsRouteRoute: AppVendorPaymentsRouteRouteWithChildren,
   AppVendorsRouteRoute: AppVendorsRouteRouteWithChildren,
@@ -2318,7 +2560,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppSocialRoute: AppSocialRoute,
   AppUsersRoute: AppUsersRoute,
   AppIndexRoute: AppIndexRoute,
-  AppSettingsRolesRouteRoute: AppSettingsRolesRouteRouteWithChildren,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

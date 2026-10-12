@@ -1,6 +1,3 @@
-import { Input } from "@pi-dash/design-system/components/ui/input";
-import { Label } from "@pi-dash/design-system/components/ui/label";
-import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 import z from "zod";
@@ -9,6 +6,7 @@ import { CheckboxField } from "@/components/form/checkbox-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
+import { SettingsCard, SettingsRow } from "@/components/settings/settings-ui";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { authClient } from "@/lib/auth-client";
 
@@ -62,26 +60,17 @@ export function AccountSection() {
   });
 
   return (
-    <div className="flex flex-col gap-6 p-4">
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="account-email">Email</Label>
-        <div className="flex items-center gap-2">
-          <Input
-            className="opacity-60"
-            disabled
-            id="account-email"
-            value={user?.email ?? ""}
-          />
+    <div className="flex flex-col gap-8">
+      <SettingsCard>
+        <SettingsRow description={user?.email ?? ""} title="Sign-in email">
           <StatusBadge tone={user?.emailVerified ? "success" : "warning"}>
             {user?.emailVerified ? "Verified" : "Unverified"}
           </StatusBadge>
-        </div>
-      </div>
+        </SettingsRow>
+      </SettingsCard>
 
-      <Separator />
-
-      <FormLayout className="flex flex-col gap-4" form={form}>
-        <p className="text-xs font-medium">Change password</p>
+      <FormLayout className="flex max-w-md flex-col gap-4" form={form}>
+        <h2 className="text-sm font-medium">Change password</h2>
         <InputField
           label="Current password"
           name="currentPassword"
@@ -97,12 +86,10 @@ export function AccountSection() {
           label="Sign out all other devices"
           name="revokeOtherSessions"
         />
-        <div className="flex justify-end">
-          <FormActions
-            submitLabel="Update password"
-            submittingLabel="Saving..."
-          />
-        </div>
+        <FormActions
+          submitLabel="Update password"
+          submittingLabel="Saving..."
+        />
       </FormLayout>
     </div>
   );

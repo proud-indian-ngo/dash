@@ -5,7 +5,6 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
@@ -16,6 +15,10 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 
+import {
+  SettingsCard,
+  SettingsListItem,
+} from "@/components/settings/settings-ui";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useApp } from "@/context/app-context";
 import { checkWhatsAppConfiguration } from "@/functions/whatsapp-groups";
@@ -42,45 +45,46 @@ function WhatsAppGroupDisplayRow({
   const handleDelete = useEventCallback(() => onDelete(group));
 
   return (
-    <div className="flex items-start justify-between rounded-md border p-3">
-      <div className="flex flex-col gap-0.5">
-        <span className="text-sm font-medium">{group.name}</span>
-        <span className="text-muted-foreground text-xs">{group.jid}</span>
-        {group.description ? (
-          <span className="text-muted-foreground text-xs">
-            {group.description}
-          </span>
-        ) : null}
-      </div>
-      <div className="flex items-center gap-1">
-        <Button
-          aria-label="Edit group"
-          onClick={handleEdit}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <HugeiconsIcon
-            className="size-4"
-            icon={PencilEdit01Icon}
-            strokeWidth={2}
-          />
-        </Button>
-        <Button
-          aria-label="Delete group"
-          onClick={handleDelete}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <HugeiconsIcon
-            className="size-4"
-            icon={Delete02Icon}
-            strokeWidth={2}
-          />
-        </Button>
-      </div>
-    </div>
+    <SettingsListItem
+      actions={
+        <>
+          <Button
+            aria-label="Edit group"
+            onClick={handleEdit}
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          >
+            <HugeiconsIcon
+              className="size-4"
+              icon={PencilEdit01Icon}
+              strokeWidth={2}
+            />
+          </Button>
+          <Button
+            aria-label="Delete group"
+            onClick={handleDelete}
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          >
+            <HugeiconsIcon
+              className="size-4"
+              icon={Delete02Icon}
+              strokeWidth={2}
+            />
+          </Button>
+        </>
+      }
+      detail={
+        <>
+          <span className="font-mono">{group.jid}</span>
+          {group.description ? ` · ${group.description}` : null}
+        </>
+      }
+    >
+      {group.name}
+    </SettingsListItem>
   );
 }
 
@@ -213,77 +217,62 @@ export function WhatsAppGroupsSection() {
   });
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-medium">WhatsApp Groups</p>
-        {showAddButton ? (
-          <Button
-            disabled={wapiConfigured === null}
-            onClick={stableOnClick0}
-            size="sm"
-            type="button"
-          >
-            <HugeiconsIcon
-              className="size-3.5"
-              icon={PlusSignIcon}
-              strokeWidth={2}
+    <div className="flex flex-col gap-8">
+      <SettingsCard
+        action={
+          showAddButton ? (
+            <Button
+              disabled={wapiConfigured === null}
+              onClick={stableOnClick0}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <HugeiconsIcon
+                className="size-3.5"
+                icon={PlusSignIcon}
+                strokeWidth={2}
+              />
+              Add group
+            </Button>
+          ) : null
+        }
+        title={`${groupList.length} ${groupList.length === 1 ? "group" : "groups"}`}
+      >
+        {groupList.map((group) => {
+          const editingGroup =
+            editMode && editMode.group.id === group.id ? editMode.group : null;
+          return editingGroup ? (
+            <div className="bg-muted/30 px-4 py-3" key={group.id}>
+              <h3 className="mb-3 text-sm font-medium">Edit group</h3>
+              <GroupForm
+                initialValues={{
+                  description: editingGroup.description ?? "",
+                  jid: editingGroup.jid,
+                  name: editingGroup.name,
+                }}
+                key={`edit-${group.id}`}
+                onCancel={stableOnCancelEdit}
+                onSubmit={handleUpdate}
+              />
+            </div>
+          ) : (
+            <WhatsAppGroupDisplayRow
+              group={group}
+              key={group.id}
+              onDelete={handleDeleteRequest}
+              onEdit={handleEditRequest}
             />
-            Add group
-          </Button>
-        ) : null}
-      </div>
-
-      {groupList.length > 0 ? (
-        <div className="flex flex-col gap-2">
-          {groupList.map((group) => {
-            const editingGroup =
-              editMode && editMode.group.id === group.id
-                ? editMode.group
-                : null;
-            return (
-              <div key={group.id}>
-                {editingGroup ? (
-                  <div className="rounded-md border p-3">
-                    <p className="mb-3 text-sm font-medium">Edit group</p>
-                    <GroupForm
-                      initialValues={{
-                        description: editingGroup.description ?? "",
-                        jid: editingGroup.jid,
-                        name: editingGroup.name,
-                      }}
-                      key={`edit-${group.id}`}
-                      onCancel={stableOnCancelEdit}
-                      onSubmit={handleUpdate}
-                    />
-                  </div>
-                ) : (
-                  <WhatsAppGroupDisplayRow
-                    group={group}
-                    onDelete={handleDeleteRequest}
-                    onEdit={handleEditRequest}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
-
-      {groupList.length === 0 && !editMode ? (
-        <>
-          <Separator />
-          <p className="text-muted-foreground text-center text-xs">
+          );
+        })}
+        {groupList.length === 0 && !editMode ? (
+          <p className="text-muted-foreground px-4 py-6 text-center text-sm">
             No WhatsApp groups yet.
           </p>
-        </>
-      ) : null}
+        ) : null}
+      </SettingsCard>
 
-      {groupList.length > 0 ? (
-        <>
-          <Separator />
-          <GroupAssignments groups={groupList} />
-        </>
-      ) : null}
+      {groupList.length > 0 ? <GroupAssignments groups={groupList} /> : null}
 
       <WhatsAppGroupPickerDialog
         existingJids={existingJids}

@@ -1,12 +1,5 @@
-import {
-  Mail01Icon,
-  NotificationIcon,
-  WhatsappIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Separator } from "@pi-dash/design-system/components/ui/separator";
+import { Checkbox } from "@pi-dash/design-system/components/ui/checkbox";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
-import { Switch } from "@pi-dash/design-system/components/ui/switch";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
   getTopicChannels,
@@ -53,52 +46,56 @@ function TopicPreferenceRow({ onToggle, topic }: TopicPreferenceRowProps) {
     onToggle(topic.topicId, "whatsapp", checked)
   );
 
+  const cells = [
+    {
+      channel: "inbox",
+      checked: topic.inboxEnabled,
+      label: "in-app",
+      onChange: handleInboxChange,
+    },
+    {
+      channel: "email",
+      checked: topic.emailEnabled,
+      label: "email",
+      onChange: handleEmailChange,
+    },
+    {
+      channel: "whatsapp",
+      checked: topic.whatsappEnabled,
+      label: "WhatsApp",
+      onChange: handleWhatsappChange,
+    },
+  ] as const;
+
   return (
-    <div className="flex items-center justify-between gap-4">
-      <div className="min-w-0 flex-1 space-y-1">
-        <p className="text-sm font-medium">{topic.topicName}</p>
-        <p className="text-muted-foreground text-sm">
+    <tr className="border-t">
+      <th className="py-2.5 pr-2 pl-4 text-left font-normal" scope="row">
+        <span className="block text-sm font-medium">{topic.topicName}</span>
+        <span className="text-muted-foreground block text-xs">
           {topic.required
-            ? "This notification is required and cannot be disabled."
+            ? "Required, can't be turned off."
             : topic.description}
-        </p>
-      </div>
-      <div className="flex shrink-0 items-center gap-6">
-        {topic.channels.includes("inbox") ? (
-          <Switch
-            aria-label={`${topic.group} ${topic.topicName} in-app`}
-            checked={topic.inboxEnabled}
-            disabled={topic.required}
-            id={`${topic.topicId}-inbox`}
-            onCheckedChange={handleInboxChange}
-          />
-        ) : (
-          <div aria-hidden="true" className="w-9" />
-        )}
-        {topic.channels.includes("email") ? (
-          <Switch
-            aria-label={`${topic.group} ${topic.topicName} email`}
-            checked={topic.emailEnabled}
-            disabled={topic.required}
-            id={`${topic.topicId}-email`}
-            onCheckedChange={handleEmailChange}
-          />
-        ) : (
-          <div aria-hidden="true" className="w-9" />
-        )}
-        {topic.channels.includes("whatsapp") ? (
-          <Switch
-            aria-label={`${topic.group} ${topic.topicName} WhatsApp`}
-            checked={topic.whatsappEnabled}
-            disabled={topic.required}
-            id={`${topic.topicId}-whatsapp`}
-            onCheckedChange={handleWhatsappChange}
-          />
-        ) : (
-          <div aria-hidden="true" className="w-9" />
-        )}
-      </div>
-    </div>
+        </span>
+      </th>
+      {cells.map((cell) => (
+        <td className="w-14 text-center sm:w-20" key={cell.channel}>
+          {topic.channels.includes(cell.channel) ? (
+            <Checkbox
+              aria-label={`${topic.group} ${topic.topicName} ${cell.label}`}
+              checked={cell.checked}
+              className="align-middle"
+              disabled={topic.required}
+              id={`${topic.topicId}-${cell.channel}`}
+              onCheckedChange={cell.onChange}
+            />
+          ) : (
+            <span aria-label="Not available" className="text-muted-foreground">
+              –
+            </span>
+          )}
+        </td>
+      ))}
+    </tr>
   );
 }
 
@@ -153,8 +150,8 @@ export function NotificationsSection() {
           errorMsg: "Couldn't update notification preference",
           mutation: "notificationPreference.upsert",
           successMsg: enabled
-            ? "Notification enabled"
-            : "Notification disabled",
+            ? "Notification turned on"
+            : "Notification turned off",
         });
       } catch (error) {
         log.error({
@@ -172,88 +169,70 @@ export function NotificationsSection() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-6 p-4">
-        <Skeleton className="h-4 w-64" />
-        <div className="space-y-6">
-          {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-            <div
-              className="flex items-center justify-between border-b pb-4 last:border-b-0 last:pb-0"
-              key={i}
-            >
-              <div className="space-y-1.5">
-                <Skeleton className="h-4 w-40" />
-                <Skeleton className="h-3 w-64" />
-              </div>
-              <div className="flex gap-6">
-                <Skeleton className="h-5 w-9 rounded-full" />
-                <Skeleton className="h-5 w-9 rounded-full" />
-                <Skeleton className="h-5 w-9 rounded-full" />
-              </div>
+      <div className="divide-y rounded-lg border">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <div className="flex items-center justify-between px-4 py-3" key={i}>
+            <div className="space-y-1.5">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3 w-64" />
             </div>
-          ))}
-        </div>
+            <div className="flex gap-14 pr-6">
+              <Skeleton className="size-4" />
+              <Skeleton className="size-4" />
+              <Skeleton className="size-4" />
+            </div>
+          </div>
+        ))}
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6 p-4">
-      <p className="text-muted-foreground text-sm">
-        Choose which notifications you want to receive.
-      </p>
-
-      {NOTIFICATION_GROUP_ORDER.flatMap((groupName, groupIndex) => {
-        const items = groupedTopics.get(groupName);
-        if (!items || items.length === 0) {
-          return [];
-        }
-        const elements = [
-          groupIndex > 0 && <Separator key={`sep-${groupName}`} />,
-          <div className="space-y-5" key={groupName}>
-            <div className="flex items-center justify-between">
-              <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                {groupName}
-              </p>
-              {groupIndex === 0 && (
-                <div className="flex items-center gap-6">
-                  <div className="flex w-9 items-center justify-center">
-                    <HugeiconsIcon
-                      className="text-muted-foreground"
-                      icon={NotificationIcon}
-                      size={14}
-                      strokeWidth={2}
-                    />
-                  </div>
-                  <div className="flex w-9 items-center justify-center">
-                    <HugeiconsIcon
-                      className="text-muted-foreground"
-                      icon={Mail01Icon}
-                      size={14}
-                      strokeWidth={2}
-                    />
-                  </div>
-                  <div className="flex w-9 items-center justify-center">
-                    <HugeiconsIcon
-                      className="text-muted-foreground"
-                      icon={WhatsappIcon}
-                      size={14}
-                      strokeWidth={2}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-            {items.map((topic) => (
-              <TopicPreferenceRow
-                key={topic.topicId}
-                onToggle={handleToggle}
-                topic={topic}
-              />
-            ))}
-          </div>,
-        ];
-        return elements.filter(Boolean);
-      })}
+    <div className="overflow-hidden rounded-lg border">
+      <table className="w-full text-sm">
+        <thead className="bg-muted/40">
+          <tr>
+            <th className="px-4 py-2 text-left text-xs font-medium" scope="col">
+              Notification
+            </th>
+            <th className="w-14 py-2 text-xs font-medium sm:w-20" scope="col">
+              Inbox
+            </th>
+            <th className="w-14 py-2 text-xs font-medium sm:w-20" scope="col">
+              Email
+            </th>
+            <th className="w-14 py-2 text-xs font-medium sm:w-20" scope="col">
+              WhatsApp
+            </th>
+          </tr>
+        </thead>
+        {NOTIFICATION_GROUP_ORDER.map((groupName) => {
+          const items = groupedTopics.get(groupName);
+          if (!items || items.length === 0) {
+            return null;
+          }
+          return (
+            <tbody key={groupName}>
+              <tr className="border-t">
+                <th
+                  className="text-muted-foreground bg-muted/20 px-4 py-1.5 text-left text-xs font-medium"
+                  colSpan={4}
+                  scope="rowgroup"
+                >
+                  {groupName}
+                </th>
+              </tr>
+              {items.map((topic) => (
+                <TopicPreferenceRow
+                  key={topic.topicId}
+                  onToggle={handleToggle}
+                  topic={topic}
+                />
+              ))}
+            </tbody>
+          );
+        })}
+      </table>
     </div>
   );
 }

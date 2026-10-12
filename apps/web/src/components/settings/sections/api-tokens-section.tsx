@@ -4,6 +4,7 @@ import { Input } from "@pi-dash/design-system/components/ui/input";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { cn } from "@pi-dash/design-system/lib/utils";
 import { SOCIAL_TOKEN_NAME_MAX_LENGTH } from "@pi-dash/shared/social-recap";
 import { useServerFn } from "@tanstack/react-start";
 import { format } from "date-fns";
@@ -229,7 +230,12 @@ function TokenRow({
 }) {
   const handleRevoke = useEventCallback(() => onRevoke(token));
   return (
-    <li className="flex flex-wrap items-start justify-between gap-3 border-b py-3 last:border-b-0">
+    <li
+      className={cn(
+        "flex flex-wrap items-center justify-between gap-3 px-4 py-2.5",
+        token.revokedAt !== null && "text-muted-foreground"
+      )}
+    >
       <div className="grid min-w-0 gap-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium">{token.name}</span>
@@ -248,11 +254,9 @@ function TokenRow({
             </Tag>
           ))}
         </div>
-        <p className="text-muted-foreground text-xs">
-          Created{" "}
-          <span className="font-mono">{formatDate(token.createdAt)}</span> ·
-          Last used{" "}
-          <span className="font-mono">{formatDate(token.lastUsedAt)}</span>
+        <p className="text-muted-foreground text-xs tabular-nums">
+          Created {formatDate(token.createdAt)} · Last used{" "}
+          {formatDate(token.lastUsedAt)}
         </p>
       </div>
       {token.revokedAt === null ? (
@@ -330,31 +334,41 @@ export function ApiTokensSection() {
   });
   const openCreate = useEventCallback(() => setCreateOpen(true));
 
+  const sorted = tokens
+    ? [...tokens].sort(
+        (a, b) =>
+          Number(a.revokedAt !== null) - Number(b.revokedAt !== null) ||
+          b.createdAt - a.createdAt
+      )
+    : null;
+
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <p className="text-muted-foreground max-w-prose text-sm">
-          Bearer tokens for the social API used by the social-artifacts
-          pipeline. Only a hash is stored, so a token is shown once when it is
-          created.
-        </p>
-        <Button onClick={openCreate} type="button">
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="text-sm font-medium">
+          {sorted
+            ? `${sorted.length} ${sorted.length === 1 ? "token" : "tokens"}`
+            : "Tokens"}
+        </h2>
+        <Button onClick={openCreate} size="sm" type="button" variant="outline">
           Create token
         </Button>
       </div>
 
-      {tokens === null ? (
-        <div className="grid gap-2">
+      {sorted === null ? (
+        <div className="grid gap-2 rounded-lg border p-4">
           <Skeleton className="h-4 w-48" />
           <Skeleton className="h-4 w-64" />
         </div>
       ) : null}
-      {tokens?.length === 0 ? (
-        <p className="text-muted-foreground text-sm">No API tokens yet.</p>
+      {sorted?.length === 0 ? (
+        <p className="text-muted-foreground rounded-lg border border-dashed px-4 py-6 text-center text-sm">
+          No API tokens yet.
+        </p>
       ) : null}
-      {tokens && tokens.length > 0 ? (
-        <ul aria-label="API tokens">
-          {tokens.map((token) => (
+      {sorted && sorted.length > 0 ? (
+        <ul aria-label="API tokens" className="divide-y rounded-lg border">
+          {sorted.map((token) => (
             <TokenRow key={token.id} onRevoke={startRevoke} token={token} />
           ))}
         </ul>

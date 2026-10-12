@@ -54,11 +54,29 @@ test.describe("Sidebar navigation", () => {
     }
   });
 
-  test("Roles link visible only for super_admin", async ({
+  test("Roles lives in Settings, only for super_admin", async ({
     page,
   }, testInfo) => {
-    const nav = page.locator("[data-sidebar='content']");
-    const link = nav.getByRole("link", { name: "Roles" });
+    const sidebar = page.locator("[data-sidebar='content']");
+    await expect(sidebar.getByRole("link", { name: "Roles" })).toBeHidden();
+    const sidebarSettings = sidebar.getByRole("link", {
+      exact: true,
+      name: "Settings",
+    });
+    if (testInfo.project.name === "volunteer") {
+      await expect(sidebarSettings).toBeHidden();
+    }
+
+    await page.goto("/settings/profile");
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Profile" })
+    ).toBeVisible();
+    const settingsNav = page.getByRole("navigation", { name: "Settings" });
+    test.skip(
+      !(await settingsNav.isVisible()),
+      "Phones pick sections from a select"
+    );
+    const link = settingsNav.getByRole("link", { name: "Roles" });
     if (testInfo.project.name === "super_admin") {
       await expect(link).toBeVisible();
     } else {

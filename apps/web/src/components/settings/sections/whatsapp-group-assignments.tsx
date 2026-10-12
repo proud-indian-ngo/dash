@@ -1,4 +1,3 @@
-import { Label } from "@pi-dash/design-system/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -12,6 +11,7 @@ import { queries } from "@pi-dash/zero/queries";
 import type { WhatsappGroup } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 
+import { SettingsCard, SettingsRow } from "@/components/settings/settings-ui";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 const ORIENTATION_GROUP_ID = "orientation_group_id";
@@ -56,56 +56,51 @@ export function GroupAssignments({
   });
 
   return (
-    <div className="flex flex-col gap-4">
-      <p className="text-xs font-medium">Group Assignments</p>
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-sm">New volunteer group</Label>
-          <Select
-            onValueChange={stableOnValueChange0}
-            value={orientationGroupId}
+    <SettingsCard title="Where volunteers are added">
+      <SettingsRow
+        description="New volunteers join this group when their account is created."
+        title="New volunteer group"
+      >
+        <Select onValueChange={stableOnValueChange0} value={orientationGroupId}>
+          <SelectTrigger aria-label="New volunteer group" className="w-56">
+            <SelectValue placeholder="Select a group">
+              {groupNameMap.get(orientationGroupId) ?? "Select a group"}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {groups.map((g) => (
+              <SelectItem key={g.id} value={g.id}>
+                {g.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </SettingsRow>
+      <SettingsRow
+        description="Volunteers move here after they finish orientation."
+        title="Orientation completed group"
+      >
+        <Select
+          onValueChange={stableOnValueChange1}
+          value={allVolunteersGroupId}
+        >
+          <SelectTrigger
+            aria-label="Orientation completed group"
+            className="w-56"
           >
-            <SelectTrigger aria-label="New volunteer group">
-              <SelectValue placeholder="Select a group">
-                {groupNameMap.get(orientationGroupId) ?? "Select a group"}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {groups.map((g) => (
-                <SelectItem key={g.id} value={g.id}>
-                  {g.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-muted-foreground text-xs">
-            New volunteers are added to this group when created.
-          </p>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-sm">Orientation completed group</Label>
-          <Select
-            onValueChange={stableOnValueChange1}
-            value={allVolunteersGroupId}
-          >
-            <SelectTrigger aria-label="Orientation completed group">
-              <SelectValue placeholder="Select a group">
-                {groupNameMap.get(allVolunteersGroupId) ?? "Select a group"}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {groups.map((g) => (
-                <SelectItem key={g.id} value={g.id}>
-                  {g.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-muted-foreground text-xs">
-            Volunteers are moved here after completing orientation.
-          </p>
-        </div>
-      </div>
-    </div>
+            <SelectValue placeholder="Select a group">
+              {groupNameMap.get(allVolunteersGroupId) ?? "Select a group"}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {groups.map((g) => (
+              <SelectItem key={g.id} value={g.id}>
+                {g.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </SettingsRow>
+    </SettingsCard>
   );
 }

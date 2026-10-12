@@ -29,6 +29,7 @@ import {
 } from "@hugeicons/core-free-icons";
 
 import type { NavItem } from "@/components/layout/nav-main";
+import { SETTINGS_SECTIONS } from "@/lib/settings-sections";
 
 export type { NavItem } from "@/components/layout/nav-main";
 
@@ -62,6 +63,18 @@ const rolesNavItem: NavItem = {
   ],
   title: "Roles",
   url: "/settings/roles",
+};
+
+// Breadcrumbs only: settings lives in the account menu, not the sidebar.
+const settingsNavItem: NavItem = {
+  icon: Settings01Icon,
+  subItems: SETTINGS_SECTIONS.map((section) => ({
+    isHidden: true,
+    title: section.label,
+    url: section.path,
+  })),
+  title: "Settings",
+  url: "/settings",
 };
 
 const reimbursementsNavItem: NavItem = {
@@ -379,6 +392,7 @@ export function buildNavItems(permissions: string[] = []): NavItem[] {
   if (has(permissions, "settings.roles")) {
     items.push(rolesNavItem);
   }
+  items.push(settingsNavItem);
   if (has(permissions, "jobs.manage")) {
     items.push(jobsNavItem);
   }
@@ -448,9 +462,6 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
   if (has(permissions, "requests.export")) {
     adminItems.push(exportNavItem);
   }
-  if (has(permissions, "settings.roles")) {
-    adminItems.push(rolesNavItem);
-  }
   if (has(permissions, "jobs.manage")) {
     adminItems.push(jobsNavItem);
   }
@@ -459,6 +470,20 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
   }
   if (has(permissions, "messages.schedule")) {
     adminItems.push(scheduledMessagesNavItem);
+  }
+  // Settings sits in the account menu for everyone; people who can open an
+  // Organization section also get it here, opening on the first of those.
+  const firstOrgSection = SETTINGS_SECTIONS.find(
+    (section) =>
+      section.group === "organization" && has(permissions, section.permission)
+  );
+  if (firstOrgSection) {
+    adminItems.push({
+      icon: Settings01Icon,
+      matchPath: "/settings",
+      title: "Settings",
+      url: firstOrgSection.path,
+    });
   }
   if (adminItems.length > 0) {
     groups.push({ items: adminItems, label: "Admin" });

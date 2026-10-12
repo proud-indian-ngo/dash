@@ -8,6 +8,7 @@ import { log } from "evlog";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { SettingsCard, SettingsRow } from "@/components/settings/settings-ui";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { handleMutationResult } from "@/lib/mutation-result";
 
@@ -67,9 +68,8 @@ export function GeneralSection() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-6 p-4">
-        <Skeleton className="h-4 w-48" />
-        <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-6">
+        <div className="flex items-center justify-between rounded-lg border px-4 py-3">
           <div className="space-y-1.5">
             <Skeleton className="h-4 w-40" />
             <Skeleton className="h-3 w-72" />
@@ -80,40 +80,34 @@ export function GeneralSection() {
     );
   }
   return (
-    <div className="flex flex-col gap-6 p-4">
-      <p className="text-muted-foreground text-sm">
-        Global application settings.
-      </p>
-
-      {Boolean(notificationsDisabled) && (
+    <div className="flex flex-col gap-4">
+      {notificationsDisabled ? (
         <div className="border-warning/30 bg-warning/10 text-warning-foreground dark:bg-warning-foreground/10 rounded-md border p-3 text-sm">
-          All notifications are currently disabled. Users will not receive any
-          emails, inbox messages, or WhatsApp messages.
+          All notifications are off. Nobody gets emails, inbox messages or
+          WhatsApp messages until you turn this back on.
         </div>
-      )}
+      ) : null}
 
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0 flex-1 space-y-1">
-          <p className="text-sm font-medium">Disable all notifications</p>
-          <p className="text-muted-foreground text-sm">
-            When enabled, no notifications are sent across all channels (email,
-            inbox, WhatsApp).
-          </p>
-        </div>
-        <Switch
-          aria-label="Disable all notifications"
-          checked={notificationsDisabled}
-          onCheckedChange={handleToggle}
-        />
-      </div>
+      <SettingsCard>
+        <SettingsRow
+          description="Stops every notification on every channel (email, inbox, WhatsApp) for everyone."
+          title="Turn off all notifications"
+        >
+          <Switch
+            aria-label="Disable all notifications"
+            checked={notificationsDisabled}
+            onCheckedChange={handleToggle}
+          />
+        </SettingsRow>
+      </SettingsCard>
 
       <ConfirmDialog
-        confirmLabel="Disable notifications"
-        description="This will stop all notifications (email, inbox, and WhatsApp) for every user. Are you sure?"
+        confirmLabel="Turn off notifications"
+        description="Nobody will get emails, inbox messages or WhatsApp messages until you turn this back on."
         onConfirm={stableOnConfirm0}
         onOpenChange={setConfirmOpen}
         open={confirmOpen}
-        title="Disable all notifications"
+        title="Turn off all notifications?"
       />
     </div>
   );

@@ -1,7 +1,7 @@
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 
 const BANK_TIP =
-  "Add your bank account once in Settings → Banking, and every claim fills it in for you.";
+  "Add your bank account once in Settings → Bank accounts, and every claim fills it in for you.";
 
 test.describe("Tip strip", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
@@ -30,11 +30,13 @@ test.describe("Tip strip", () => {
     const tip = page.getByRole("complementary", { name: "Tip" });
     await expect(tip).toContainText(BANK_TIP);
 
-    await tip.getByRole("button", { name: "Open Banking" }).click();
-    const settings = page.getByRole("dialog");
-    await expect(settings.getByText("Add bank account")).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(settings).toBeHidden();
+    await tip.getByRole("link", { name: "Open bank accounts" }).click();
+    await expect(page).toHaveURL(/\/settings\/bank-accounts$/);
+    await expect(
+      page.getByRole("heading", { name: "Add a bank account" })
+    ).toBeVisible();
+    await page.goBack();
+    await waitForZeroReady(page);
 
     await tip.getByRole("button", { name: "Dismiss tip" }).click();
     await expect(tip).toHaveCount(0);

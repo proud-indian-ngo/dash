@@ -151,6 +151,10 @@ All paths are relative to project root.
 | `routes/_app/vendor-payments/$id.tsx` | Vendor payment detail + transactions |
 | `routes/_app/vendors/route.tsx` | Vendors layout (`assertPermission("vendors.view_all")` guard) |
 | `routes/_app/vendors/index.tsx` | Vendors list |
+| `routes/_app/settings/route.tsx` | Settings layout: nav grouped into You and Organization (`components/settings/settings-layout.tsx`), driven by `lib/settings-sections.ts` |
+| `routes/_app/settings/index.tsx` | Redirects to `/settings/profile` |
+| `routes/_app/settings/{profile,account,notifications,bank-accounts}.tsx` | Personal settings pages |
+| `routes/_app/settings/{general,expense-categories,whatsapp-groups,api-tokens,maintenance}.tsx` | Organization settings pages, each guarded by its permission in `beforeLoad` |
 | `routes/_app/settings/roles/route.tsx` | Roles layout |
 | `routes/_app/settings/roles/index.tsx` | Roles list |
 | `routes/_app/settings/roles/$roleId.tsx` | Role detail (permissions) |
@@ -213,7 +217,7 @@ pi-dash event remains read-only outside the Kalakriti module.
 | `components/events/` | public-events-table |
 | `components/kalakriti/` | Edition configuration, assignments, Guardian access, Competition schedule, Student and Entry registration, scoped dashboards and ZIP exports, and scoped audit tables |
 | `components/teams/events/` | events-table, events-table-helpers (RRULE expansion, display row building), event-form-dialog, event-detail, event-details-card, event-attendance-section, event-updates, event-photos, add-event-member-dialog, show-interest-dialog, interest-requests, recurrence-builder (RRULE form UI), edit-scope-dialog (this/following/all scope selection), event-actions-menu, event-social-recap (post-event "Social recap" card), event-partners-field (partners repeater in the event form) |
-| `components/settings/` | settings-dialog, sections/ (profile, account, banking, expense-categories, whatsapp-groups, notifications, general, api-tokens) |
+| `components/settings/` | settings-layout (nav + `SettingsPage`), settings-ui (`SettingsCard`, `SettingsRow`, `SettingsListItem`), sections/ (profile, account, banking, expense-categories, whatsapp-groups, notifications, general, api-tokens, admin-actions) |
 | `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, phone-field-lazy, textarea-field, checkbox-field, select-field, add-url-row, line-items-editor, attachments-section, reject-dialog, approve-dialog |
 | `components/login/` | auth-layout (split-panel shell), auth-info-panel (info panels for signup/login), login-form, register-form, forgot-password-form, reset-password-form |
 | `components/stats/` | stats-cards (dashboard stats) |
@@ -251,7 +255,7 @@ All hook paths above are prefixed with `apps/web/src/`.
 | `functions/admin-actions.ts` | Audited maintenance and job triggers |
 | `functions/event-poll.ts` | Audited event RSVP poll command |
 | `functions/social-people.ts` | Ids and names for the Social page (approver candidates, droppers) without syncing user rows (`social.manage` or `users.view`) |
-| `functions/social-api-tokens.ts` | Social API token list, audited create (returns the raw token once) and revoke for Settings → API Tokens |
+| `functions/social-api-tokens.ts` | Social API token list, audited create (returns the raw token once) and revoke for Settings → API tokens |
 
 All function paths above are prefixed with `apps/web/src/`.
 
@@ -406,7 +410,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 - **Fixtures**: Import `test` and `expect` from `packages/e2e/fixtures/test.ts` for email fixtures, `kalakritiActors`, and `consoleErrors`. The `page` fixture annotates uncaught browser errors when a test needs a page. API-only tests use `request` without starting a browser page. Use plain `@playwright/test` for unauthenticated tests that do not need the shared fixtures.
 - **Page Object Model**: Shared page objects live in `packages/e2e/pages/`. `RequestPage` composes the request list, form, and approval detail objects; Kalakriti page objects cover Edition creation, Centers, students, competitions, entries, and the public schedule. New feature suites should follow the owning domain's existing pattern.
 - **API authorization tests**: `tests/authorization/api-authorization.spec.ts` tests that admin-only Zero mutations are rejected for volunteer users via the `request` fixture and the live `/api/zero/mutate` endpoint.
-- **Social API tokens**: Settings → API Tokens (`settings.app_config`), or the CLI fallback `scripts/social-token.ts` — `bun run social:token create <name> --scopes …`, `list`, `revoke <id>`; both show the raw token once and store only its sha256.
+- **Social API tokens**: Settings → API tokens (`/settings/api-tokens`) (`settings.app_config`), or the CLI fallback `scripts/social-token.ts` — `bun run social:token create <name> --scopes …`, `list`, `revoke <id>`; both show the raw token once and store only its sha256.
 - **Dev seeding**: `scripts/seed.ts` — comprehensive idempotent seed covering all data models. Run via `bun run seed`. Used by worktree setup and general dev.
 - **E2E seeding**: `packages/e2e/helpers/seed-test-user.ts` creates standard test data plus the idempotent Kalakriti registration-release fixture, including all active role actors and one dormant external actor.
 - **Selectors**: Use accessibility-first selectors (`getByRole`, `getByLabel`, `getByText`). Use `aria-current="date"` via `getByRole("button", { current: "date" })` for calendar today buttons. Avoid CSS class selectors.

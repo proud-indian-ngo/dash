@@ -1,19 +1,8 @@
-import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { expect, test } from "../../fixtures/test";
+import { openSettingsPage } from "../../helpers/settings";
 
-async function openBankingSettings(page: import("@playwright/test").Page) {
-  await page.goto("/");
-  await waitForZeroReady(page);
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-
-  const sidebar = page.locator("[data-sidebar='sidebar']");
-  await sidebar.locator("[data-sidebar='menu-button']").last().click();
-  await page.getByRole("menuitem", { name: "Settings" }).click();
-
-  const dialog = page.getByRole("dialog");
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: "Banking" }).click();
-  await expect(dialog.getByRole("link", { name: "Banking" })).toBeVisible();
-  return dialog;
+function openBankingSettings(page: import("@playwright/test").Page) {
+  return openSettingsPage(page, "/settings/bank-accounts", "Bank accounts");
 }
 
 /** Generate a unique 10-digit account number to avoid collisions across test runs. */
@@ -37,14 +26,14 @@ test.describe("Banking settings — bank account management", () => {
           return;
         }
         const e2eCard = dialog
-          .locator(".rounded-md.border")
+          .locator("[data-slot='settings-list-item']")
           .filter({ hasText: /^E2E / })
           .first();
         if (!(await e2eCard.isVisible({ timeout: 2000 }).catch(() => false))) {
           return;
         }
         const setDefaultBtn = dialog
-          .locator(".rounded-md.border")
+          .locator("[data-slot='settings-list-item']")
           .filter({ hasText: "••••7890" })
           .getByRole("button", { name: "Set default" });
         if (
@@ -131,7 +120,7 @@ test.describe("Banking settings — bank account management", () => {
 
     // Set the new account as default
     const newAccountRow = dialog
-      .locator(".rounded-md.border")
+      .locator("[data-slot='settings-list-item']")
       .filter({ hasText: accountName });
     await newAccountRow.getByRole("button", { name: "Set default" }).click();
 
@@ -162,7 +151,7 @@ test.describe("Banking settings — bank account management", () => {
 
     // Delete the new (non-default) account
     const accountRow = dialog
-      .locator(".rounded-md.border")
+      .locator("[data-slot='settings-list-item']")
       .filter({ hasText: accountName });
     await accountRow.getByRole("button", { name: "Delete account" }).click();
 

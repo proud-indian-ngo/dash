@@ -131,7 +131,7 @@ function RolesPage() {
   const stableOnCancel2 = useEventCallback(() => setCreateOpen(false));
 
   return (
-    <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
+    <div>
       <PageHeader
         actions={
           <Button onClick={stableOnClick1} type="button">

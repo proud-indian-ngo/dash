@@ -5,7 +5,6 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
@@ -20,6 +19,10 @@ import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { TextareaField } from "@/components/form/textarea-field";
+import {
+  SettingsCard,
+  SettingsListItem,
+} from "@/components/settings/settings-ui";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { handleMutationResult } from "@/lib/mutation-result";
 
@@ -85,44 +88,41 @@ function ExpenseCategoryDisplayRow({
   const handleDelete = useEventCallback(() => onDelete(category));
 
   return (
-    <div className="flex items-start justify-between rounded-md border p-3">
-      <div className="flex flex-col gap-0.5">
-        <span className="text-sm font-medium">{category.name}</span>
-        {category.description ? (
-          <span className="text-muted-foreground text-xs">
-            {category.description}
-          </span>
-        ) : null}
-      </div>
-      <div className="flex items-center gap-1">
-        <Button
-          aria-label="Edit category"
-          onClick={handleEdit}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <HugeiconsIcon
-            className="size-4"
-            icon={PencilEdit01Icon}
-            strokeWidth={2}
-          />
-        </Button>
-        <Button
-          aria-label="Delete category"
-          onClick={handleDelete}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <HugeiconsIcon
-            className="size-4"
-            icon={Delete02Icon}
-            strokeWidth={2}
-          />
-        </Button>
-      </div>
-    </div>
+    <SettingsListItem
+      actions={
+        <>
+          <Button
+            aria-label="Edit category"
+            onClick={handleEdit}
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          >
+            <HugeiconsIcon
+              className="size-4"
+              icon={PencilEdit01Icon}
+              strokeWidth={2}
+            />
+          </Button>
+          <Button
+            aria-label="Delete category"
+            onClick={handleDelete}
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          >
+            <HugeiconsIcon
+              className="size-4"
+              icon={Delete02Icon}
+              strokeWidth={2}
+            />
+          </Button>
+        </>
+      }
+      detail={category.description || undefined}
+    >
+      {category.name}
+    </SettingsListItem>
   );
 }
 
@@ -209,71 +209,71 @@ export function ExpenseCategoriesSection() {
     }
   });
 
-  return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-medium">Expense categories</p>
-        {inlineMode ? null : (
-          <Button onClick={stableOnClick0} size="sm" type="button">
-            <HugeiconsIcon
-              className="size-3.5"
-              icon={PlusSignIcon}
-              strokeWidth={2}
-            />
-            Add category
-          </Button>
-        )}
+  const createRow =
+    inlineMode?.kind === "create" ? (
+      <div className="bg-muted/30 px-4 py-3">
+        <h3 className="mb-3 text-sm font-medium">New category</h3>
+        <CategoryForm
+          initialValues={{ description: "", name: "" }}
+          onCancel={stableOnCancel1}
+          onSubmit={handleCreate}
+        />
       </div>
+    ) : null;
 
-      {inlineMode?.kind === "create" ? (
-        <div className="rounded-md border p-3">
-          <p className="mb-3 text-sm font-medium">Add category</p>
-          <CategoryForm
-            initialValues={{ description: "", name: "" }}
-            onCancel={stableOnCancel1}
-            onSubmit={handleCreate}
-          />
-        </div>
-      ) : null}
-
-      {categoryList.length > 0 ? (
-        <div className="flex flex-col gap-2">
-          {categoryList.map((category) => (
-            <div key={category.id}>
-              {inlineMode?.kind === "edit" &&
-              inlineMode.category.id === category.id ? (
-                <div className="rounded-md border p-3">
-                  <p className="mb-3 text-sm font-medium">Edit category</p>
-                  <CategoryForm
-                    initialValues={{
-                      description: category.description ?? "",
-                      name: category.name,
-                    }}
-                    key={`edit-${category.id}`}
-                    onCancel={stableOnCancel1}
-                    onSubmit={handleUpdate}
-                  />
-                </div>
-              ) : (
-                <ExpenseCategoryDisplayRow
-                  category={category}
-                  onDelete={handleDeleteRequest}
-                  onEdit={handleEditRequest}
-                />
-              )}
+  return (
+    <div className="flex flex-col gap-4">
+      <SettingsCard
+        action={
+          inlineMode ? null : (
+            <Button
+              onClick={stableOnClick0}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <HugeiconsIcon
+                className="size-3.5"
+                icon={PlusSignIcon}
+                strokeWidth={2}
+              />
+              Add category
+            </Button>
+          )
+        }
+        title={`${categoryList.length} ${categoryList.length === 1 ? "category" : "categories"}`}
+      >
+        {createRow}
+        {categoryList.map((category) =>
+          inlineMode?.kind === "edit" &&
+          inlineMode.category.id === category.id ? (
+            <div className="bg-muted/30 px-4 py-3" key={category.id}>
+              <h3 className="mb-3 text-sm font-medium">Edit category</h3>
+              <CategoryForm
+                initialValues={{
+                  description: category.description ?? "",
+                  name: category.name,
+                }}
+                key={`edit-${category.id}`}
+                onCancel={stableOnCancel1}
+                onSubmit={handleUpdate}
+              />
             </div>
-          ))}
-        </div>
-      ) : null}
-
-      {categoryList.length === 0 && !inlineMode ? (
-        <>
-          <Separator />
-          <p className="text-muted-foreground text-center text-xs">
+          ) : (
+            <ExpenseCategoryDisplayRow
+              category={category}
+              key={category.id}
+              onDelete={handleDeleteRequest}
+              onEdit={handleEditRequest}
+            />
+          )
+        )}
+        {categoryList.length === 0 && !inlineMode ? (
+          <p className="text-muted-foreground px-4 py-6 text-center text-sm">
             No expense categories yet.
           </p>
-        </>
-      ) : null}
+        ) : null}
+      </SettingsCard>
 
       <ConfirmDialog
         confirmLabel="Delete category"
