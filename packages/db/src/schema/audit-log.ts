@@ -1,12 +1,13 @@
 import {
   index,
-  jsonb,
   pgEnum,
   pgTable,
   text,
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
+
+import { jsonb } from "./jsonb";
 
 export const auditOutcomeValues = [
   "pending",

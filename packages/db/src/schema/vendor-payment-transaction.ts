@@ -2,7 +2,6 @@ import { relations, sql } from "drizzle-orm";
 import {
   check,
   index,
-  jsonb,
   numeric,
   pgEnum,
   pgTable,
@@ -12,6 +11,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
+import { jsonb } from "./jsonb";
 import { attachmentTypeEnum, historyActionEnum } from "./shared";
 import { vendorPayment } from "./vendor";
 

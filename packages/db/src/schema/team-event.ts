@@ -6,7 +6,6 @@ import {
   check,
   index,
   integer,
-  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -19,6 +18,7 @@ import { user } from "./auth";
 import { eventFeedback } from "./event-feedback";
 import { eventInterest } from "./event-interest";
 import { eventPartner } from "./event-partner";
+import { jsonb } from "./jsonb";
 import { reimbursement } from "./reimbursement";
 import { cityEnum, reminderTargetEnum } from "./shared";
 import { team } from "./team";

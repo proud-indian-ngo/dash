@@ -2,7 +2,6 @@ import { relations } from "drizzle-orm";
 import {
   index,
   integer,
-  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -11,6 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
+import { jsonb } from "./jsonb";
 
 export interface ScheduledMessageAttachment {
   fileName: string;

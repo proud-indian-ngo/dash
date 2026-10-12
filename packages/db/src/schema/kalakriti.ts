@@ -16,7 +16,6 @@ import {
   foreignKey,
   index,
   integer,
-  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -27,6 +26,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
+import { jsonb } from "./jsonb";
 import { teamEvent } from "./team-event";
 
 export const kalakritiEditionLifecycleEnum = pgEnum(

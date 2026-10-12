@@ -2,7 +2,6 @@ import { relations } from "drizzle-orm";
 import {
   index,
   integer,
-  jsonb,
   numeric,
   pgEnum,
   pgTable,
@@ -13,6 +12,7 @@ import {
 
 import { user } from "./auth";
 import { expenseCategory } from "./expense-category";
+import { jsonb } from "./jsonb";
 import { attachmentTypeEnum, cityEnum, historyActionEnum } from "./shared";
 
 // Advance-payment-specific enums

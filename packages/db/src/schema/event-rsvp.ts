@@ -1,7 +1,6 @@
 import { relations } from "drizzle-orm";
 import {
   index,
-  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -11,6 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
+import { jsonb } from "./jsonb";
 import { teamEvent } from "./team-event";
 
 const eventRsvpPollSourceValues = ["event_group", "team_group"] as const;

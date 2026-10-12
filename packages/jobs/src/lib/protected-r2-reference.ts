@@ -38,7 +38,7 @@ export async function isProtectedR2ObjectReferenced(
       SELECT 1 FROM event_photo WHERE r2_key = ${r2Key}
       UNION ALL
       SELECT 1 FROM scheduled_message
-      WHERE attachments @> ${JSON.stringify([{ r2Key }])}::jsonb
+      WHERE attachments @> ${JSON.stringify([{ r2Key }])}::text::jsonb
       UNION ALL
       SELECT 1 FROM kalakriti_competition_entry WHERE music_object_key = ${r2Key}
       UNION ALL

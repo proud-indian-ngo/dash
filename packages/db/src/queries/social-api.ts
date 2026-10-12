@@ -623,14 +623,6 @@ export interface SocialRunInput {
 type SocialRunExecutor = Pick<typeof db, "transaction">;
 
 /**
- * A string array as a jsonb array. The Bun SQL driver would otherwise store
- * the serialized array as a jsonb string.
- */
-function jsonbArray(values: readonly string[]) {
-  return sql<string[]>`${JSON.stringify(values)}::text::jsonb`;
-}
-
-/**
  * Store one pipeline run report and delete everything but the latest
  * `SOCIAL_RUN_RETENTION` rows (uuidv7 ids order by insertion). `executor`
  * lets a test run it inside a transaction it rolls back.
@@ -644,9 +636,9 @@ export async function insertSocialRun(
     await tx.insert(socialRun).values({
       ...input,
       createdAt: now,
-      errors: jsonbArray(input.errors),
+      errors: [...input.errors],
       id: uuidv7(),
-      skipped: jsonbArray(input.skipped),
+      skipped: [...input.skipped],
     });
     const kept = tx
       .select({ id: socialRun.id })
