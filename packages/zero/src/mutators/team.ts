@@ -334,7 +334,10 @@ export const teamMutators = {
       if (!existing) {
         throw new Error("Team not found");
       }
-      if (args.programmeId !== undefined) {
+      if (
+        args.programmeId !== undefined &&
+        args.programmeId !== existing.programmeId
+      ) {
         await assertProgrammeSelectable(tx, args.programmeId ?? undefined);
       }
       await tx.mutate.team.update({

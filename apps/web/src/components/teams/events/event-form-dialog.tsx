@@ -236,6 +236,17 @@ function getStartTimeEpoch(value: EventFormValues): number {
   return value.startTime.getTime();
 }
 
+/** Only send a programme when the user changed it, so a missed prefill can never reclassify an event. */
+function changedProgrammeId(
+  value: EventFormValues,
+  initialValues: InitialValues
+): string | undefined {
+  return value.programmeId &&
+    value.programmeId !== (initialValues.programmeId ?? undefined)
+    ? value.programmeId
+    : undefined;
+}
+
 function buildUpdateMutatorArgs(
   id: string,
   value: EventFormValues,
@@ -255,7 +266,7 @@ function buildUpdateMutatorArgs(
     now: Date.now(),
     postEventNudgesEnabled: value.postEventNudgesEnabled,
     postRsvpPoll: value.postRsvpPoll,
-    programmeId: value.programmeId,
+    programmeId: changedProgrammeId(value, initialValues),
     publicArea: value.publicArea?.trim() ?? "",
     reminderIntervals: value.reminderIntervals.length
       ? value.reminderIntervals
@@ -296,7 +307,7 @@ function buildUpdateSeriesArgs(
     now: Date.now(),
     postEventNudgesEnabled: value.postEventNudgesEnabled,
     postRsvpPoll: value.postRsvpPoll,
-    programmeId: value.programmeId,
+    programmeId: changedProgrammeId(value, initialValues),
     publicArea: value.publicArea?.trim() ?? "",
     recurrenceRule: value.rrule
       ? {
@@ -586,7 +597,7 @@ function EventFormContent({
           placeholder="Select city"
         />
         <SelectField
-          description="The cause this event and its spending belong to."
+          description="The cause this event counts towards."
           isRequired
           label="Programme"
           name="programmeId"
@@ -838,7 +849,7 @@ export function EventFormDialog({
   const [formKey, setFormKey] = useState(0);
 
   const [whatsappGroups] = useQuery(queries.whatsappGroup.all());
-  const [programmes] = useQuery(queries.programme.active());
+  const [programmes, programmesResult] = useQuery(queries.programme.all());
   const [allTeams] = useQuery(queries.team.all());
   const [allEvents] = useQuery(queries.teamEvent.allAccessible());
 
@@ -857,17 +868,20 @@ export function EventFormDialog({
     usedGroupIds.delete(initialValues.whatsappGroupId);
   }
 
-  const programmeOptions = programmes.map((p) => ({
-    label: p.name,
-    value: p.id,
-  }));
+  const programmeOptions = programmes
+    .filter((p) => p.active || p.id === initialValues?.programmeId)
+    .map((p) => ({
+      // An event on an inactive programme keeps it until someone changes it.
+      label: p.active ? p.name : `${p.name} (inactive)`,
+      value: p.id,
+    }));
   if (
+    programmesResult.type === "complete" &&
     initialValues?.programmeId &&
     !programmeOptions.some((o) => o.value === initialValues.programmeId)
   ) {
-    // An event on an inactive programme keeps it until someone changes it.
     programmeOptions.push({
-      label: "Current programme (inactive)",
+      label: "Current programme",
       value: initialValues.programmeId,
     });
   }

@@ -2,6 +2,7 @@
 const roleOnlySpecs = {
   super_admin: [
     "events/event-create.spec.ts",
+    "events/event-programme.spec.ts",
     "settings/programmes.spec.ts",
     "events/event-duplicate.spec.ts",
     "events/event-edit-cancel.spec.ts",

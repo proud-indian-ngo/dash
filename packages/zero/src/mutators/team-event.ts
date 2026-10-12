@@ -282,20 +282,47 @@ const recurrenceRuleSchema = z
  * The event's programme: the one asked for if it is active, else the team's
  * programme, else the Unallocated holding programme.
  */
-async function resolveProgrammeId(
+export async function resolveProgrammeId(
   tx: Transaction<Schema>,
   requested: string | undefined,
   teamId: string
 ): Promise<string> {
   if (requested) {
     const programme = await tx.run(zql.programme.where("id", requested).one());
-    if (!programme || programme.active === false) {
+    if (!programme && tx.location === "server") {
+      throw new Error("Programme not found");
+    }
+    if (programme?.active === false) {
       throw new Error("Choose an active programme");
     }
     return requested;
   }
   const team = await tx.run(zql.team.where("id", teamId).one());
   return team?.programmeId ?? PROGRAMME_IDS.unallocated;
+}
+
+/**
+ * A programme change must point at an active programme. On the client the
+ * cache may not hold the row yet, so only the server enforces existence.
+ */
+async function assertProgrammeChange(
+  tx: Transaction<Schema>,
+  current: string | null,
+  requested: string | undefined
+): Promise<void> {
+  if (requested === undefined || requested === current) {
+    return;
+  }
+  const programme = await tx.run(zql.programme.where("id", requested).one());
+  if (!programme) {
+    if (tx.location === "server") {
+      throw new Error("Programme not found");
+    }
+    return;
+  }
+  if (programme.active === false) {
+    throw new Error("Choose an active programme");
+  }
 }
 
 export const teamEventMutators = {
@@ -1299,6 +1326,7 @@ export const teamEventMutators = {
           .one()
       ));
       assertHasPermissionOrTeamLead(ctx, "events.edit", isTeamLead);
+      await assertProgrammeChange(tx, existing.programmeId, args.programmeId);
 
       await tx.mutate.teamEvent.update(buildUpdateFields(args));
       if (args.partners) {
@@ -1435,6 +1463,18 @@ export const teamEventMutators = {
       }
       if (args.mode === "following" && args.originalDate && args.newSeriesId) {
         await assertEventIdAvailable(tx, args.newSeriesId);
+      }
+
+      await assertProgrammeChange(tx, existing.programmeId, args.programmeId);
+      if (
+        args.mode === "all" &&
+        args.programmeId !== undefined &&
+        args.programmeId !== existing.programmeId
+      ) {
+        // Programme changes are future-effective: past occurrences keep theirs.
+        throw new Error(
+          "Change the programme for this and following occurrences instead"
+        );
       }
 
       if (args.mode === "all") {

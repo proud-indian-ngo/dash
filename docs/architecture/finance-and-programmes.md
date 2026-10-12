@@ -312,7 +312,7 @@ Each phase ships with migrations, idempotent seeds in `scripts/seed.ts`, Zero sc
 
 | Question | Answer |
 |---|---|
-| Team to programme mapping | To be proposed from the production team list and confirmed by the founder (see section 7) |
+| Team to programme mapping | Applied provisionally by migration 0114 from the production team names in section 7; the founder's confirmation and the two manual retags (Mumbai-tagged spoken-English event, Mumbai engagements that are Education) are Phase 0 work |
 | Finance threshold | Configurable in Settings; organisation default with per-programme override. Lead-as-claimant goes to finance |
 | Finance roles | One treasurer role; approver may also pay; claimant never approves or pays their own request |
 | give.do | Intermediary only; we issue receipts and file each donor |

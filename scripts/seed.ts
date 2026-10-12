@@ -518,6 +518,14 @@ async function seedCategories(): Promise<void> {
   log(`${CATEGORIES.length} categories ready`);
 }
 
+/** Programme each seeded team belongs to; seeded events inherit it. */
+const TEAM_PROGRAMME: Record<string, string> = {
+  [ID.teamEvents]: PROGRAMME_IDS.communitySupport,
+  [ID.teamKitchen]: PROGRAMME_IDS.communitySupport,
+  [ID.teamLogistics]: PROGRAMME_IDS.communitySupport,
+  [ID.teamTeaching]: PROGRAMME_IDS.education,
+};
+
 // ── 2b. Finance dimensions ───────────────────────────────────────────────────
 
 /** Mirrors migration 0112 so a fresh dev database and production agree. */
@@ -820,6 +828,7 @@ async function seedEvents(userMap: Map<string, string>): Promise<void> {
           isPublic: e.isPublic,
           location: e.location,
           name: e.name,
+          programmeId: TEAM_PROGRAMME[e.teamId] ?? PROGRAMME_IDS.unallocated,
           reminderIntervals: e.reminderIntervals ?? null,
           reminderTarget: e.reminderTarget ?? "group",
           startTime: e.start,
@@ -875,7 +884,10 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
       updatedAt: now,
     })
     .onConflictDoUpdate({
-      set: { managementDomain: "kalakriti" },
+      set: {
+        managementDomain: "kalakriti",
+        programmeId: PROGRAMME_IDS.artsAndCulture,
+      },
       target: teamEvent.id,
     });
 

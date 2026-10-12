@@ -480,7 +480,7 @@ function EventHeader({
           </button>
         ) : null,
         event.programme ? (
-          <span key="programme">{event.programme.name}</span>
+          <span key="programme">Programme · {event.programme.name}</span>
         ) : null,
         formatEventWhen(event.startTime, event.endTime),
         event.location ? (
@@ -833,6 +833,7 @@ function buildEditInitialValues(
     partners: social.partners,
     postEventNudgesEnabled: event.postEventNudgesEnabled,
     postRsvpPoll: !!event.postRsvpPoll,
+    programmeId: event.programmeId,
     publicArea: event.publicArea,
     recurrenceRule: recurrence,
     reminderIntervals: event.reminderIntervals as number[] | null,
@@ -864,6 +865,7 @@ function buildDuplicateInitialValues(
     partners: social.partners,
     postEventNudgesEnabled: event.postEventNudgesEnabled,
     postRsvpPoll: !!event.postRsvpPoll,
+    programmeId: event.programmeId,
     publicArea: event.publicArea,
     recurrenceRule: null,
     reminderIntervals: event.reminderIntervals as number[] | null,
@@ -1355,6 +1357,7 @@ export function EventDetail({
         open={dialog.isOpen("edit")}
         originalDate={scopeOccDate ?? undefined}
         teamId={event.teamId}
+        teamProgrammeId={team?.programmeId}
       />
 
       <EventFormDialog
@@ -1363,6 +1366,7 @@ export function EventDetail({
         onOpenChange={dialog.onOpenChange}
         open={dialog.isOpen("duplicate")}
         teamId={event.teamId}
+        teamProgrammeId={team?.programmeId}
       />
 
       <EditScopeDialog

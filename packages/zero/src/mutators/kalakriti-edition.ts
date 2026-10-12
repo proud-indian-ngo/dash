@@ -726,7 +726,7 @@ export const kalakritiEditionMutators = {
         originalDate: null,
         postEventNudgesEnabled: false,
         postRsvpPoll: false,
-        programmeId: team.programmeId ?? PROGRAMME_IDS.artsAndCulture,
+        programmeId: PROGRAMME_IDS.artsAndCulture,
         recurrenceRule: null,
         reminderIntervals: null,
         reminderTarget: "group",

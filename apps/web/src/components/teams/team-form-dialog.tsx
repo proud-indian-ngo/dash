@@ -83,9 +83,20 @@ export function TeamFormDialog({
   const [submitting, setSubmitting] = useState(false);
 
   const [whatsappGroups] = useQuery(queries.whatsappGroup.all());
-  const [programmes] = useQuery(queries.programme.active());
-  const programmeLabelByValue = new Map(programmes.map((p) => [p.id, p.name]));
-  const programmeItems = [NONE_PROGRAMME, ...programmes.map((p) => p.id)];
+  const [programmes] = useQuery(queries.programme.all());
+  const selectableProgrammes = programmes.filter(
+    (p) => p.active || p.id === initialValues?.programmeId
+  );
+  const programmeLabelByValue = new Map(
+    selectableProgrammes.map((p) => [
+      p.id,
+      p.active ? p.name : `${p.name} (inactive)`,
+    ])
+  );
+  const programmeItems = [
+    NONE_PROGRAMME,
+    ...selectableProgrammes.map((p) => p.id),
+  ];
   const [allTeams] = useQuery(queries.team.all());
   const [allEvents] = useQuery(queries.teamEvent.allAccessible());
 
