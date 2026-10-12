@@ -27,6 +27,7 @@ import {
   vendorPaymentLineItem,
 } from "@pi-dash/db/schema/vendor";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
+import { ensureFinanceDimensions } from "@pi-dash/db/seed-finance-dimensions";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
 import { addDays, addHours, subDays } from "date-fns";
 import dotenv from "dotenv";
@@ -1221,6 +1222,7 @@ async function ensureFilterTestEvents(
 
 async function seed(): Promise<void> {
   await syncPermissions();
+  await ensureFinanceDimensions();
   await verifyReservedPermissionSync();
   log("Synced roles and permissions");
 
