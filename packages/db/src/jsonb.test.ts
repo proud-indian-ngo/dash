@@ -1,7 +1,7 @@
 import { PgDialect, pgTable } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 
-import { jsonb } from "./jsonb";
+import { jsonb } from "./schema/jsonb";
 
 const probe = pgTable("probe", { value: jsonb("value") });
 const column = probe.value;
