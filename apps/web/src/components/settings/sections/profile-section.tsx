@@ -1,6 +1,4 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { Input } from "@pi-dash/design-system/components/ui/input";
-import { Label } from "@pi-dash/design-system/components/ui/label";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import {
@@ -243,36 +241,24 @@ export function ProfileSection() {
   });
 
   return (
-    <FormLayout className="flex flex-col gap-6 p-4" form={form}>
+    <FormLayout className="flex max-w-xl flex-col gap-6" form={form}>
       <AvatarUpload />
 
-      <div className="flex flex-col gap-4">
-        <InputField isRequired label="Name" name="name" />
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="profile-email">Email</Label>
-          <Input
-            className="opacity-60"
-            disabled
-            id="profile-email"
-            value={user?.email ?? ""}
-          />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <InputField isRequired label="Name" name="name" />
         </div>
-      </div>
-
-      <div className="flex flex-col gap-4">
         <PhoneField defaultCountry="IN" label="Phone" name="phone" />
+        <DateField label="Date of birth" name="dob" />
         <SelectField
           label="Gender"
           name="gender"
           options={genderOptions}
           placeholder="Select gender"
         />
-        <DateField label="Date of birth" name="dob" />
       </div>
 
-      <div className="flex justify-end">
-        <FormActions submitLabel="Save changes" submittingLabel="Saving..." />
-      </div>
+      <FormActions submitLabel="Save changes" submittingLabel="Saving..." />
     </FormLayout>
   );
 }

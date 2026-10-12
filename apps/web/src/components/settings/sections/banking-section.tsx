@@ -1,7 +1,6 @@
 import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
@@ -14,6 +13,10 @@ import { uuidv7 } from "uuidv7";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
+import {
+  SettingsCard,
+  SettingsListItem,
+} from "@/components/settings/settings-ui";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Tag } from "@/components/shared/status-badge";
 import { handleMutationResult } from "@/lib/mutation-result";
@@ -36,45 +39,45 @@ function BankAccountListRow({
   const handleDelete = useEventCallback(() => onDelete(account.id));
 
   return (
-    <div className="flex items-start justify-between rounded-md border p-3">
-      <div className="flex flex-col gap-0.5">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">{account.accountName}</span>
-          {account.isDefault ? <Tag>Default</Tag> : null}
-        </div>
-        <span className="text-muted-foreground text-xs">
-          ••••{account.accountNumber.slice(-4)}
-        </span>
-        <span className="text-muted-foreground text-xs">
-          {account.ifscCode}
-        </span>
-      </div>
-      <div className="flex items-center gap-1">
-        {account.isDefault ? null : (
+    <SettingsListItem
+      actions={
+        <>
+          {account.isDefault ? null : (
+            <Button
+              onClick={handleSetDefault}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              Set default
+            </Button>
+          )}
           <Button
-            onClick={handleSetDefault}
-            size="sm"
+            aria-label="Delete account"
+            onClick={handleDelete}
+            size="icon-sm"
             type="button"
             variant="ghost"
           >
-            Set default
+            <HugeiconsIcon
+              className="size-4"
+              icon={Delete02Icon}
+              strokeWidth={2}
+            />
           </Button>
-        )}
-        <Button
-          aria-label="Delete account"
-          onClick={handleDelete}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <HugeiconsIcon
-            className="size-4"
-            icon={Delete02Icon}
-            strokeWidth={2}
-          />
-        </Button>
-      </div>
-    </div>
+        </>
+      }
+      detail={
+        <span className="font-mono tabular-nums">
+          ••••{account.accountNumber.slice(-4)} · {account.ifscCode}
+        </span>
+      }
+    >
+      <span className="flex items-center gap-2">
+        {account.accountName}
+        {account.isDefault ? <Tag>Default</Tag> : null}
+      </span>
+    </SettingsListItem>
   );
 }
 
@@ -151,9 +154,26 @@ export function BankingSection() {
   });
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <FormLayout className="flex flex-col gap-3" form={form}>
-        <p className="text-xs font-medium">Add bank account</p>
+    <div className="flex flex-col gap-8">
+      {accountList.length > 0 ? (
+        <SettingsCard title="Your accounts">
+          {accountList.map((account) => (
+            <BankAccountListRow
+              account={account}
+              key={account.id}
+              onDelete={handleDeleteRequest}
+              onSetDefault={handleSetDefault}
+            />
+          ))}
+        </SettingsCard>
+      ) : (
+        <p className="text-muted-foreground rounded-lg border border-dashed px-4 py-6 text-center text-sm">
+          No bank accounts yet. Add one below so reimbursements can be paid.
+        </p>
+      )}
+
+      <FormLayout className="flex max-w-md flex-col gap-4" form={form}>
+        <h2 className="text-sm font-medium">Add a bank account</h2>
         <InputField label="Account name" name="accountName" />
         <InputField label="Account number" name="accountNumber" />
         <InputField
@@ -162,30 +182,8 @@ export function BankingSection() {
           name="ifscCode"
           placeholder="ABCD0123456"
         />
-        <div className="flex justify-end">
-          <FormActions submitLabel="Add account" submittingLabel="Adding..." />
-        </div>
+        <FormActions submitLabel="Add account" submittingLabel="Adding..." />
       </FormLayout>
-
-      {accountList.length > 0 ? (
-        <>
-          <Separator />
-          <div className="flex flex-col gap-2">
-            {accountList.map((account) => (
-              <BankAccountListRow
-                account={account}
-                key={account.id}
-                onDelete={handleDeleteRequest}
-                onSetDefault={handleSetDefault}
-              />
-            ))}
-          </div>
-        </>
-      ) : (
-        <p className="text-muted-foreground text-center text-xs">
-          No bank accounts added yet.
-        </p>
-      )}
 
       <ConfirmDialog
         confirmLabel="Delete account"

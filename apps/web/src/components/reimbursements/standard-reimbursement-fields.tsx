@@ -15,6 +15,7 @@ import {
 import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { BankAccount, ExpenseCategory } from "@pi-dash/zero/schema";
+import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import { AttachmentsSection } from "@/components/form/attachments-section";
@@ -33,7 +34,6 @@ import { InputField } from "@/components/form/input-field";
 import { LineItemsEditor } from "@/components/form/line-items-editor";
 import type { SelectOption } from "@/components/form/select-field";
 import { SelectField } from "@/components/form/select-field";
-import { useApp } from "@/context/app-context";
 import type { Attachment } from "@/lib/form-schemas";
 import { cityOptions } from "@/lib/form-schemas";
 import type { RequestType } from "@/lib/reimbursement-types";
@@ -143,21 +143,20 @@ function BankAccountSelect({
   );
 }
 
-function OpenBankingSettingsButton({
-  onOpen,
-}: {
-  onOpen: (section: "banking") => void;
-}) {
-  const handleClick = useEventCallback(() => onOpen("banking"));
-
+/**
+ * Opens bank account settings in a new tab, so the claim being written isn't
+ * lost; the new account syncs back into this form's options.
+ */
+function BankAccountsSettingsLink() {
   return (
-    <button
+    <Link
       className="text-foreground underline underline-offset-2"
-      onClick={handleClick}
-      type="button"
+      rel="noopener"
+      target="_blank"
+      to="/settings/bank-accounts"
     >
-      Settings &rarr; Banking
-    </button>
+      Settings &rarr; Bank accounts
+    </Link>
   );
 }
 
@@ -220,7 +219,6 @@ export function StandardReimbursementFields({
   onCancel,
   requestType,
 }: StandardReimbursementFieldsProps) {
-  const { openSettings } = useApp();
   const resolvedForm = useResolvedForm(
     undefined,
     "StandardReimbursementFields"
@@ -267,8 +265,8 @@ export function StandardReimbursementFields({
 
     return (
       <p className="text-muted-foreground text-sm">
-        No bank account found. Add one in{" "}
-        <OpenBankingSettingsButton onOpen={openSettings} /> to receive payments.
+        No bank account found. Add one in <BankAccountsSettingsLink /> to
+        receive payments.
       </p>
     );
   }

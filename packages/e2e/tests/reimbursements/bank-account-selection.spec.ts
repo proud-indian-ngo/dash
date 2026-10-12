@@ -1,34 +1,20 @@
-import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { expect, test } from "../../fixtures/test";
+import { openSettingsPage } from "../../helpers/settings";
 import { ReimbursementPage } from "../../pages/reimbursement-page";
 
 test.slow();
 
-async function openSettings(page: import("@playwright/test").Page) {
-  await page.goto("/");
-  await waitForZeroReady(page);
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-
-  const sidebar = page.locator("[data-sidebar='sidebar']");
-  await sidebar.locator("[data-sidebar='menu-button']").last().click();
-  await page.getByRole("menuitem", { name: "Settings" }).click();
-  await expect(page.getByRole("dialog")).toBeVisible();
+function navigateToBanking(page: import("@playwright/test").Page) {
+  return openSettingsPage(page, "/settings/bank-accounts", "Bank accounts");
 }
 
-async function navigateToBanking(page: import("@playwright/test").Page) {
-  await openSettings(page);
-  const dialog = page.getByRole("dialog");
-  await dialog.getByRole("button", { name: "Banking" }).click();
-  await expect(dialog.getByText("Add bank account")).toBeVisible();
-  return dialog;
-}
-
-/** Locate a bank account card by its last-4 digits within a dialog */
+/** Locate a bank account row by its last-4 digits */
 function accountCard(
   dialog: import("@playwright/test").Locator,
   lastFour: string
 ) {
   return dialog
-    .locator(".rounded-md.border")
+    .locator("[data-slot='settings-list-item']")
     .filter({ hasText: `••••${lastFour}` });
 }
 
@@ -157,7 +143,7 @@ test.describe("Bank account selection with duplicate names", () => {
     const duplicateNumber = `98${Date.now().toString().slice(-8)}`;
     duplicateLast4 = duplicateNumber.slice(-4);
 
-    // Step 1: Add a second bank account with the same name via Settings → Banking
+    // Step 1: Add a second bank account with the same name via Settings → Bank accounts
     const dialog = await navigateToBanking(page);
 
     await dialog.getByLabel("Account name").fill("Test Savings");

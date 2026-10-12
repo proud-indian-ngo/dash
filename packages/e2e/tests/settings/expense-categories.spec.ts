@@ -1,21 +1,12 @@
-import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { expect, test } from "../../fixtures/test";
+import { openSettingsPage } from "../../helpers/settings";
 
-async function openExpenseCategories(page: import("@playwright/test").Page) {
-  await page.goto("/");
-  await waitForZeroReady(page);
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-
-  const sidebar = page.locator("[data-sidebar='sidebar']");
-  await sidebar.locator("[data-sidebar='menu-button']").last().click();
-  await page.getByRole("menuitem", { name: "Settings" }).click();
-
-  const dialog = page.getByRole("dialog");
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: "Expense Categories" }).click();
-  await expect(
-    dialog.getByRole("link", { name: "Expense Categories" })
-  ).toBeVisible();
-  return dialog;
+function openExpenseCategories(page: import("@playwright/test").Page) {
+  return openSettingsPage(
+    page,
+    "/settings/expense-categories",
+    "Expense categories"
+  );
 }
 
 test.describe("Expense Categories settings (admin)", () => {
@@ -38,7 +29,7 @@ test.describe("Expense Categories settings (admin)", () => {
     const categoryName = `E2E Category ${Date.now()}`;
 
     await dialog.getByRole("button", { name: "Add category" }).click();
-    await expect(dialog.getByText("Add category")).toBeVisible();
+    await expect(dialog.getByText("New category")).toBeVisible();
 
     await dialog.getByLabel("Name").fill(categoryName);
     await dialog.getByRole("button", { name: "Save" }).click();
@@ -67,7 +58,7 @@ test.describe("Expense Categories settings (admin)", () => {
 
     // Edit
     const categoryRow = dialog
-      .locator("[class*='border']")
+      .locator("[data-slot='settings-list-item']")
       .filter({ hasText: categoryName });
     await categoryRow.getByRole("button", { name: "Edit category" }).click();
     await expect(dialog.getByText("Edit category")).toBeVisible();
@@ -99,7 +90,7 @@ test.describe("Expense Categories settings (admin)", () => {
 
     // Delete
     const categoryRow = dialog
-      .locator("[class*='border']")
+      .locator("[data-slot='settings-list-item']")
       .filter({ hasText: categoryName });
     await categoryRow.getByRole("button", { name: "Delete category" }).click();
 

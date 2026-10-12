@@ -21,11 +21,11 @@ import {
 } from "@pi-dash/design-system/components/ui/sidebar";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { useZero } from "@rocicorp/zero/react";
+import { useNavigate } from "@tanstack/react-router";
 import { log } from "evlog";
 import { useState } from "react";
 
 import { NotificationBell } from "@/components/layout/notification-bell";
-import { SettingsDialog } from "@/components/settings/settings-dialog";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { useApp } from "@/context/app-context";
@@ -35,9 +35,12 @@ import { authClient } from "@/lib/auth-client";
 export function NavUser() {
   const { isMobile } = useSidebar();
   const zero = useZero();
-  const { user, openSettings } = useApp();
+  const { user } = useApp();
+  const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
-  const stableOnClick1 = useEventCallback(() => openSettings("profile"));
+  const stableOnClick1 = useEventCallback(() =>
+    navigate({ to: "/settings/profile" })
+  );
   const stableOnClick2 = useEventCallback(async () => {
     try {
       await zero.delete();
@@ -142,7 +145,6 @@ export function NavUser() {
           />
         )}
       </SidebarMenuItem>
-      <SettingsDialog />
     </SidebarMenu>
   );
 }

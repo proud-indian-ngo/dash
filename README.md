@@ -72,7 +72,7 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 | Audit log | Immutable user-action history with server-side filters and a viewer restricted by the `audit_log.view` permission |
 | WhatsApp alerts | Optional WhatsApp notifications via self-hosted gateway |
 | CSV export | Export data tables to CSV files |
-| Settings dialog | Profile, account, banking, expense categories, WhatsApp groups, and notification preferences |
+| Settings | One page (`/settings`) with your profile, account, notifications and bank accounts, and, by permission, general settings, roles, expense categories, WhatsApp groups, API tokens and maintenance jobs |
 | Theming | Light/dark mode toggle with system preference detection |
 | Real-time sync | All data tables update live via Zero sync |
 

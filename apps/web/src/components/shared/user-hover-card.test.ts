@@ -49,12 +49,7 @@ function renderHoverCard({
           hasPermission: (permission) => permissions.includes(permission),
           navGroups: [],
           navItems: [],
-          openSettings: () => undefined,
           permissions,
-          setSettingsOpen: () => undefined,
-          setSettingsSection: () => undefined,
-          settingsOpen: false,
-          settingsSection: "profile",
           user: {
             email: "current@example.com",
             id: appUserId,

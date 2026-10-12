@@ -1,20 +1,8 @@
 import { expect, test } from "../../fixtures/test";
+import { openSettingsPage } from "../../helpers/settings";
 
-async function openWhatsAppGroups(page: import("@playwright/test").Page) {
-  await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-
-  const sidebar = page.locator("[data-sidebar='sidebar']");
-  await sidebar.locator("[data-sidebar='menu-button']").last().click();
-  await page.getByRole("menuitem", { name: "Settings" }).click();
-
-  const dialog = page.getByRole("dialog");
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: "WhatsApp Groups" }).click();
-  await expect(
-    dialog.getByRole("link", { name: "WhatsApp Groups" })
-  ).toBeVisible();
-  return dialog;
+function openWhatsAppGroups(page: import("@playwright/test").Page) {
+  return openSettingsPage(page, "/settings/whatsapp-groups", "WhatsApp groups");
 }
 
 // Only admin can access WhatsApp Groups, so volunteer project ignores this via testIgnore
@@ -166,7 +154,7 @@ test.describe("WhatsApp Groups (admin)", () => {
 
     // Edit
     const groupRow = settingsDialog
-      .locator("[class*='border']")
+      .locator("[data-slot='settings-list-item']")
       .filter({ hasText: groupName! });
     await groupRow.getByRole("button", { name: "Edit group" }).click();
     await expect(
@@ -190,7 +178,7 @@ test.describe("WhatsApp Groups (admin)", () => {
 
     // Delete
     const updatedRow = settingsDialog
-      .locator("[class*='border']")
+      .locator("[data-slot='settings-list-item']")
       .filter({ hasText: updatedName });
     await updatedRow.getByRole("button", { name: "Delete group" }).click();
 

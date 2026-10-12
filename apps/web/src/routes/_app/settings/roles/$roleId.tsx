@@ -224,7 +224,7 @@ function RoleEditPage() {
 
   if (loading) {
     return (
-      <div className="app-container mx-auto max-w-4xl px-2 py-6 sm:px-4">
+      <div>
         <DetailPageSkeleton />
       </div>
     );
@@ -232,7 +232,7 @@ function RoleEditPage() {
 
   if (!(roleData && permissionGroups)) {
     return (
-      <div className="app-container mx-auto max-w-4xl px-2 py-6 sm:px-4">
+      <div>
         <RecordNotFound
           backLabel="Back to roles"
           backTo="/settings/roles"
@@ -243,7 +243,7 @@ function RoleEditPage() {
   }
 
   return (
-    <div className="app-container mx-auto max-w-4xl px-2 py-6 sm:px-4">
+    <div>
       <div className="mb-6">
         <Link
           className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm"
