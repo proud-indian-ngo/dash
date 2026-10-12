@@ -8,9 +8,13 @@ export function ProgrammeSpendingChart({
   data: ProgrammeDataPoint[];
 }) {
   return (
-    <ChartCard empty={data.length === 0} title="Spending by programme">
+    <ChartCard
+      description="By the programme of each expense's event. Expenses with no event are shown as one bar."
+      empty={data.length === 0}
+      title="Spending by programme"
+    >
       <RankedBars
-        countNoun="request"
+        countNoun="expense"
         items={data.map((d) => ({ ...d, key: d.name }))}
       />
     </ChartCard>

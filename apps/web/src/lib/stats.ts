@@ -281,8 +281,14 @@ interface WithProgrammeData {
 }
 
 export const NO_EVENT_PROGRAMME_LABEL = "No event";
+/** The event is loaded but its programme row has not synced yet. */
+export const UNKNOWN_PROGRAMME_LABEL = "Programme unknown";
 
-/** Spend per programme, derived from each request's event. Requests without an event are grouped under "No event". */
+/**
+ * Spend per programme, derived from each request's current event. Requests
+ * without an event are grouped under "No event". Buckets are keyed by
+ * programme name, which is unique.
+ */
 export function computeProgrammeData(
   items: readonly WithProgrammeData[]
 ): ProgrammeDataPoint[] {
@@ -290,7 +296,7 @@ export function computeProgrammeData(
 
   for (const item of items) {
     const name = item.event
-      ? (item.event.programme?.name ?? "Unallocated")
+      ? (item.event.programme?.name ?? UNKNOWN_PROGRAMME_LABEL)
       : NO_EVENT_PROGRAMME_LABEL;
     const existing = map.get(name) ?? { amount: 0, count: 0 };
     existing.amount += sumAmounts(item.lineItems);

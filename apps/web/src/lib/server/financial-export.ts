@@ -22,100 +22,24 @@ import { and, eq, gte, inArray, lte, sum } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
 import type { CsvFile } from "@/lib/csv-export";
-import {
-  type ExportAttachmentLink,
-  formatExportAttachmentLinks,
-  groupExportAttachments,
-} from "@/lib/export-attachments";
+import { groupExportAttachments } from "@/lib/export-attachments";
 import type {
   FinancialExportInput,
   RequestExportStatus,
   VendorPaymentExportStatus,
 } from "@/lib/financial-export-contract";
 
-const REQUEST_CSV_HEADERS = [
-  "Type",
-  "Title",
-  "Created By",
-  "Email",
-  "Status",
-  "Total",
-  "City",
-  "Programme",
-  "Expense Date",
-  "Submitted At",
-  "Created At",
-  "Attachments",
-];
-
-const VP_CSV_HEADERS = [
-  "Title",
-  "Vendor",
-  "Programme",
-  "Invoice Number",
-  "Invoice Date",
-  "Created By",
-  "Email",
-  "Status",
-  "Total Amount",
-  "Paid Amount",
-  "Remaining",
-  "Submitted At",
-  "Created At",
-];
-
-const TX_CSV_HEADERS = [
-  "Vendor Payment",
-  "Amount",
-  "Description",
-  "Transaction Date",
-  "Payment Method",
-  "Reference",
-  "Status",
-  "Recorded By",
-];
-
-interface RequestExportRow {
-  attachments: ExportAttachmentLink[];
-  city: string;
-  createdAt: string;
-  createdBy: string;
-  email: string;
-  expenseDate: string;
-  programme: string;
-  status: string;
-  submittedAt: string;
-  title: string;
-  total: string;
-  type: string;
-}
-
-interface VendorPaymentExportRow {
-  createdAt: string;
-  createdBy: string;
-  email: string;
-  invoiceDate: string;
-  invoiceNumber: string;
-  paidAmount: string;
-  programme: string;
-  remaining: string;
-  status: string;
-  submittedAt: string;
-  title: string;
-  totalAmount: string;
-  vendorName: string;
-}
-
-interface TransactionExportRow {
-  amount: string;
-  description: string;
-  paymentMethod: string;
-  paymentReference: string;
-  recordedBy: string;
-  status: string;
-  transactionDate: string;
-  vendorPaymentTitle: string;
-}
+import {
+  REQUEST_CSV_HEADERS,
+  type RequestExportRow,
+  requestRowToArray,
+  type TransactionExportRow,
+  transactionRowToArray,
+  TX_CSV_HEADERS,
+  type VendorPaymentExportRow,
+  vendorPaymentRowToArray,
+  VP_CSV_HEADERS,
+} from "./financial-export-rows";
 
 export interface StoredExportAttachment {
   filename: null | string;
@@ -457,48 +381,6 @@ async function queryVendorPaymentRows(
     })),
   };
 }
-
-const requestRowToArray = (row: RequestExportRow, origin: string): string[] => [
-  row.type,
-  row.title,
-  row.createdBy,
-  row.email,
-  row.status,
-  row.total,
-  row.city,
-  row.programme,
-  row.expenseDate,
-  row.submittedAt,
-  row.createdAt,
-  formatExportAttachmentLinks(row.attachments, origin),
-];
-
-const vendorPaymentRowToArray = (row: VendorPaymentExportRow): string[] => [
-  row.title,
-  row.vendorName,
-  row.programme,
-  row.invoiceNumber,
-  row.invoiceDate,
-  row.createdBy,
-  row.email,
-  row.status,
-  row.totalAmount,
-  row.paidAmount,
-  row.remaining,
-  row.submittedAt,
-  row.createdAt,
-];
-
-const transactionRowToArray = (row: TransactionExportRow): string[] => [
-  row.vendorPaymentTitle,
-  row.amount,
-  row.description,
-  row.transactionDate,
-  row.paymentMethod,
-  row.paymentReference,
-  row.status,
-  row.recordedBy,
-];
 
 const buildDateSuffix = (fyStart: number, today: string): string =>
   `FY${fyStart}-${String(fyStart + 1).slice(2)}_${today}`;

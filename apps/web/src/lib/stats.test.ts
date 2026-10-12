@@ -282,12 +282,27 @@ describe("computeProgrammeData", () => {
     ]);
   });
 
-  it("buckets requests without an event and events without a loaded programme", () => {
-    const result = computeProgrammeData([item(undefined, 10), item(null, 20)]);
-    expect(result).toEqual([
-      { amount: 20, count: 1, name: "Unallocated" },
-      { amount: 10, count: 1, name: "No event" },
+  it("buckets requests without an event and events whose programme has not loaded", () => {
+    const result = computeProgrammeData([
+      item(undefined, 10),
+      item(null, 20),
+      item("Unallocated", 5),
     ]);
+    expect(result).toEqual([
+      { amount: 20, count: 1, name: "Programme unknown" },
+      { amount: 10, count: 1, name: "No event" },
+      { amount: 5, count: 1, name: "Unallocated" },
+    ]);
+  });
+
+  it("sums string amounts the way Zero returns numeric columns", () => {
+    const result = computeProgrammeData([
+      {
+        event: { programme: { name: "Education" } },
+        lineItems: [{ amount: "100.50" }, { amount: "0.50" }],
+      },
+    ]);
+    expect(result).toEqual([{ amount: 101, count: 1, name: "Education" }]);
   });
 });
 
