@@ -184,7 +184,7 @@ export function VendorPaymentTransactions({
           </div>
           <div>
             <p className="text-muted-foreground text-xs">Paid</p>
-            <p className="font-medium text-green-600 tabular-nums">
+            <p className="text-success-foreground font-medium tabular-nums">
               {formatINR(paidAmount)}
             </p>
           </div>
@@ -200,7 +200,7 @@ export function VendorPaymentTransactions({
         {totalOwed > 0 ? (
           <div className="bg-muted h-2 overflow-hidden rounded-full">
             <div
-              className="h-full rounded-full bg-green-600 transition-all duration-300"
+              className="bg-success h-full rounded-full transition-all duration-300"
               style={{
                 width: `${Math.min(100, (paidAmount / totalOwed) * 100)}%`,
               }}
@@ -372,7 +372,7 @@ function TransactionRow({
                 variant="ghost"
               >
                 <HugeiconsIcon
-                  className="size-4 text-green-600"
+                  className="text-success-foreground size-4"
                   icon={CheckmarkCircle01Icon}
                   strokeWidth={2}
                 />

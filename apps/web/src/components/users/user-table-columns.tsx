@@ -199,7 +199,7 @@ export function createUserColumns(
         return (
           <div className="flex min-w-0 items-center gap-1.5">
             <div
-              className={`size-2 shrink-0 rounded-full ${isBanned ? "bg-destructive" : "bg-green-500"}`}
+              className={`size-2 shrink-0 rounded-full ${isBanned ? "bg-destructive" : "bg-success"}`}
             />
             <span className="text-muted-foreground truncate text-sm">
               {isBanned ? "Banned" : "Active"}

@@ -373,7 +373,7 @@ describe("Food table", () => {
       expect(html).toContain(`title="${label}"`);
       expect(html).toContain('role="img"');
       expect(html).toContain(
-        label === "Served" ? "text-green-600" : "text-red-600"
+        label === "Served" ? "text-success-foreground" : "text-destructive"
       );
     }
   });
@@ -423,8 +423,8 @@ describe("Volunteer Checked in column", () => {
       checked.table.columns.filter((column) => column.id === "checkInStatus")
     ).toHaveLength(1);
     for (const [result, label, color] of [
-      [checked, "Checked in", "text-green-600"],
-      [unchecked, "Not checked in", "text-red-600"],
+      [checked, "Checked in", "text-success-foreground"],
+      [unchecked, "Not checked in", "text-destructive"],
     ] as const) {
       expect(result.markup).toContain(`aria-label="${label}"`);
       expect(result.markup).toContain(`title="${label}"`);

@@ -133,7 +133,7 @@ export function SocialRulesSettings({ stored }: { stored: string }) {
       </p>
       {parsed.error ? (
         <div
-          className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
+          className="border-warning/30 bg-warning/10 text-warning-foreground dark:bg-warning-foreground/10 rounded-md border p-3 text-sm"
           role="status"
         >
           The saved posting rules are invalid, so the pipeline uses its

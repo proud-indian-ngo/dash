@@ -135,7 +135,7 @@ function DuplicateWarning({
   }
 
   return (
-    <div className="space-y-3 border border-amber-500/50 bg-amber-50 p-3 text-sm dark:bg-amber-950/20">
+    <div className="border-warning/30 bg-warning/10 dark:bg-warning-foreground/10 space-y-3 rounded-md border p-3 text-sm">
       <p className="font-medium" role="alert">
         {duplicate.name} ({duplicate.humanId}) has the same normalized name and
         date of birth at this Center.

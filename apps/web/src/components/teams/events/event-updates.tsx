@@ -537,7 +537,7 @@ function PendingUpdateCard({
                 variant="ghost"
               >
                 <HugeiconsIcon
-                  className="size-4 text-green-600"
+                  className="text-success-foreground size-4"
                   icon={CheckmarkCircle02Icon}
                   strokeWidth={2}
                 />

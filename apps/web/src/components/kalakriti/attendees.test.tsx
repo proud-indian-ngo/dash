@@ -64,7 +64,7 @@ describe("attendee UI", () => {
             ready
           />
         );
-        expect(positive).toContain("text-green-600 dark:text-green-400");
+        expect(positive).toContain("text-success-foreground");
         expect(positive).toContain("<svg");
         expect(positive).toContain(
           `aria-label="${type === "attendee_check_in" ? "Checked in" : "Served"}"`
@@ -72,7 +72,7 @@ describe("attendee UI", () => {
         const negative = renderToStaticMarkup(
           <AttendeeStatus row={{ ...row, operations: [] }} type={type} ready />
         );
-        expect(negative).toContain("text-red-600 dark:text-red-400");
+        expect(negative).toContain("text-destructive");
         expect(negative).toContain("<svg");
         expect(negative).toContain(
           `aria-label="${type === "attendee_check_in" ? "Not checked in" : "Not served"}"`

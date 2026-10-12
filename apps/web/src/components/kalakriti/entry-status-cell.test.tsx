@@ -88,12 +88,8 @@ describe("Entry Present and Attended cells", () => {
         />
       );
       expect(html).toContain(`1 / 2 ${mode}`);
-      expect(html).toContain(
-        'class="inline-flex text-green-600 dark:text-green-400"'
-      );
-      expect(html).toContain(
-        'class="inline-flex text-red-600 dark:text-red-400"'
-      );
+      expect(html).toContain('class="text-success-foreground inline-flex"');
+      expect(html).toContain('class="text-destructive inline-flex"');
       expect(html).toContain(
         `aria-label="Ananya: ${mode === "present" ? "Present" : "Attended"}"`
       );
@@ -108,7 +104,7 @@ describe("Entry Present and Attended cells", () => {
       <EntryStatusCell entry={row} mode="attended" labels={undefined} />
     );
     expect(html).toContain("Checking attendance");
-    expect(html).not.toContain("text-red-600");
+    expect(html).not.toContain("text-destructive");
   });
   it("puts present and attended icons on each compact student line", () => {
     const group = renderToStaticMarkup(
