@@ -25,7 +25,7 @@ These belong to the brand language only:
 
 ## Use instead
 
-- **Colour.** Use the shadcn utilities (`bg-background`, `bg-card`, `text-muted-foreground`, `border`, `bg-primary`). They already point at the product tokens: white and ink-tinted greys in light mode, neutral charcoal in dark mode. Don't hard-code hex values or reach for brand utilities such as `bg-sky` or `text-ink`.
+- **Colour.** Use the shadcn utilities (`bg-background`, `bg-card`, `text-muted-foreground`, `border`, `bg-primary`). They already point at the product tokens: white and ink-tinted greys in light mode, neutral charcoal in dark mode. Don't hard-code hex values or reach for brand utilities such as `bg-sky` or `text-ink`. Status colour uses the tokens too, never Tailwind's palette (`text-green-600`, `bg-amber-50`): `text-success-foreground` for done or positive text and icons, `bg-success` for dots and bars, `text-destructive` for negative, and `border-warning/30 bg-warning/10 text-warning-foreground` (`dark:bg-warning-foreground/10`) for a warning notice. The tokens already have dark-mode values, so no `dark:` colour pairs are needed.
 - **State.** The active nav item, tab or toggle is sky ink on sky wash (`bg-sidebar-accent text-sidebar-accent-foreground`). One primary button per screen.
 - **Type.** Geist (`font-sans`) for everything people read, at 13px (`text-sm`). Page titles, big numbers and dates use `font-display font-semibold` (Bricolage 600). Amounts, dates, counts, IDs and emails in tables use Paper Mono (`font-mono`), which column `meta.kind` applies automatically.
 - **Status and categories.** `StatusBadge` (soft tint, dot and word, five tones) for anything that can change; `Tag` (grey outline) for fixed labels. Colour never carries meaning alone.

@@ -432,11 +432,11 @@ function VoucherCell({
     return (
       <div className="flex items-center gap-1.5">
         <HugeiconsIcon
-          className="size-3.5 text-emerald-600"
+          className="text-success-foreground size-3.5"
           icon={TickDouble02Icon}
           strokeWidth={2}
         />
-        <span className="text-xs text-emerald-600">Generated</span>
+        <span className="text-success-foreground text-xs">Generated</span>
         {canApprove && isApproved ? (
           <Button
             className="ml-1 h-auto px-1.5 py-0.5 text-xs"

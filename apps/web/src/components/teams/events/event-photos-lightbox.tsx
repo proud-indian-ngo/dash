@@ -74,7 +74,7 @@ export function LightboxFooter({
               variant="secondary"
             >
               <HugeiconsIcon
-                className="size-3.5 text-green-600"
+                className="text-success-foreground size-3.5"
                 icon={CheckmarkCircle02Icon}
                 strokeWidth={2}
               />
@@ -88,7 +88,7 @@ export function LightboxFooter({
               variant="secondary"
             >
               <HugeiconsIcon
-                className="size-3.5 text-red-600"
+                className="text-destructive size-3.5"
                 icon={Cancel01Icon}
                 strokeWidth={2}
               />
@@ -102,7 +102,7 @@ export function LightboxFooter({
               variant="secondary"
             >
               <HugeiconsIcon
-                className="size-3.5 text-red-600"
+                className="text-destructive size-3.5"
                 icon={Delete02Icon}
                 strokeWidth={2}
               />

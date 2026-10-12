@@ -86,7 +86,7 @@ export function GeneralSection() {
       </p>
 
       {Boolean(notificationsDisabled) && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+        <div className="border-warning/30 bg-warning/10 text-warning-foreground dark:bg-warning-foreground/10 rounded-md border p-3 text-sm">
           All notifications are currently disabled. Users will not receive any
           emails, inbox messages, or WhatsApp messages.
         </div>

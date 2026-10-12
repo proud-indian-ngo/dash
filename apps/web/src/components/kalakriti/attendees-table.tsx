@@ -71,8 +71,8 @@ export function AttendeeStatus({
         title={label}
         className={
           yes
-            ? "inline-flex text-green-600 dark:text-green-400"
-            : "inline-flex text-red-600 dark:text-red-400"
+            ? "text-success-foreground inline-flex"
+            : "text-destructive inline-flex"
         }
       >
         <HugeiconsIcon
