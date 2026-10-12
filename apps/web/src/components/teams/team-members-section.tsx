@@ -30,11 +30,16 @@ export function TeamMembersSection({
   const stableOnRemove = useEventCallback((id: string) => onRemoveMember(id));
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-2">
+      <div className="flex min-h-7 items-center justify-between">
         <h2 className="text-sm font-medium">Members ({members.length})</h2>
         {canManage ? (
-          <Button onClick={onAddMember} size="sm" type="button">
+          <Button
+            onClick={onAddMember}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
             <HugeiconsIcon
               className="size-4"
               icon={PlusSignIcon}
@@ -46,7 +51,7 @@ export function TeamMembersSection({
       </div>
 
       {members.length > 0 ? (
-        <div className="overflow-hidden rounded-md border">
+        <ul className="divide-y rounded-lg border">
           {members.map((member) => (
             <MemberRow
               canManage={canManage}
@@ -64,9 +69,9 @@ export function TeamMembersSection({
               onToggleRole={onToggleRole}
             />
           ))}
-        </div>
+        </ul>
       ) : (
-        <p className="text-muted-foreground text-center text-sm">
+        <p className="text-muted-foreground rounded-lg border border-dashed py-6 text-center text-sm">
           No members yet.
         </p>
       )}

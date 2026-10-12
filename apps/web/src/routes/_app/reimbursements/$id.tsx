@@ -95,7 +95,7 @@ function ReimbursementDetailRouteComponent() {
 
   if (isLoading) {
     return (
-      <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
+      <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
         <DetailPageSkeleton />
       </div>
     );
@@ -103,7 +103,7 @@ function ReimbursementDetailRouteComponent() {
 
   if (!resolved) {
     return (
-      <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
+      <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
         <RecordNotFound
           backLabel="Back to reimbursements"
           backTo="/reimbursements"
@@ -177,7 +177,7 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
   const stableOnClick3 = useEventCallback(() => setEditMode(true));
 
   return (
-    <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
+    <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
       <div
         className="fade-in-0 animate-in duration-150 ease-(--ease-out-expo)"
         key={showEditForm ? "edit" : "view"}

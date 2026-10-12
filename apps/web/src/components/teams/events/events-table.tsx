@@ -1,5 +1,4 @@
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import type { ReactNode } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import {
@@ -33,7 +32,6 @@ interface EventsTableProps {
   onDuplicateEvent: (row: EventDisplayRow) => void;
   onEditEvent: (row: EventDisplayRow) => void;
   onSelectEvent: (row: EventDisplayRow) => void;
-  toolbarActions?: ReactNode;
 }
 
 export function EventsTable({
@@ -46,7 +44,6 @@ export function EventsTable({
   onEditEvent,
   onDuplicateEvent,
   onCancelEvent,
-  toolbarActions,
 }: EventsTableProps) {
   useMigrateLegacyEventFilterParams();
   const { end } = getDefaultDateRange();
@@ -86,7 +83,6 @@ export function EventsTable({
         columnsResizable: true,
         columnsVisibility: true,
       }}
-      toolbarActions={toolbarActions}
     />
   );
 }

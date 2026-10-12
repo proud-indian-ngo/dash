@@ -5,7 +5,6 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
@@ -14,12 +13,12 @@ import { useState } from "react";
 
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
-import { useApp } from "@/context/app-context";
 import {
-  getAttachmentDownloadHref,
-  getAttachmentLabel,
-  getAttachmentPreviewHref,
-} from "@/lib/attachment-links";
+  AttachmentList,
+  RecordSection,
+  RejectionNote,
+} from "@/components/shared/record-detail";
+import { useApp } from "@/context/app-context";
 import { DATE } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { mapAttachmentsToFormValues } from "@/lib/submission-mappers";
@@ -44,65 +43,6 @@ interface VendorPaymentInvoiceSectionProps {
   status: string;
 }
 
-function InvoiceAttachmentList({
-  attachments,
-}: {
-  attachments: AttachmentRow[];
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      {attachments.map((att) => (
-        <div
-          className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-3 py-2"
-          key={att.id}
-        >
-          <span className="min-w-0 truncate text-sm">
-            {getAttachmentLabel(att)}
-          </span>
-          <div className="flex items-center gap-3">
-            {att.type === "url" ? (
-              <a
-                className="text-primary text-xs font-medium underline-offset-2 hover:underline"
-                href={getAttachmentPreviewHref(att)}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                View link
-              </a>
-            ) : (
-              <>
-                <a
-                  className="text-primary text-xs font-medium underline-offset-2 hover:underline"
-                  href={getAttachmentPreviewHref(att, {
-                    id: att.id,
-                    kind: "vendorPaymentAttachment",
-                  })}
-                  rel="noopener noreferrer"
-                  target="_blank"
-                >
-                  Preview
-                </a>
-                <a
-                  className="text-primary text-xs font-medium underline-offset-2 hover:underline"
-                  download
-                  href={getAttachmentDownloadHref(att, {
-                    id: att.id,
-                    kind: "vendorPaymentAttachment",
-                  })}
-                  rel="noopener noreferrer"
-                  target="_blank"
-                >
-                  Download
-                </a>
-              </>
-            )}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function InvoiceContent({
   hasInvoiceDetails,
   invoiceAttachments,
@@ -119,42 +59,40 @@ function InvoiceContent({
   return (
     <>
       {rejectionReason ? (
-        <div className="border-destructive/40 bg-destructive/10 text-destructive rounded-md border p-3 text-sm">
-          <span className="font-medium">Invoice rejected: </span>
-          {rejectionReason}
-        </div>
+        <RejectionNote label="Invoice rejected" reason={rejectionReason} />
       ) : null}
 
       {hasInvoiceDetails ? (
-        <div className="grid grid-cols-2 gap-4 rounded-md border p-3">
-          <div>
-            <p className="text-muted-foreground text-xs">Invoice Number</p>
-            <p className="text-sm font-medium">{request.invoiceNumber}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground text-xs">Invoice Date</p>
-            <p className="text-sm font-medium">
-              {request.invoiceDate ? format(request.invoiceDate, DATE) : "—"}
-            </p>
-          </div>
-        </div>
-      ) : null}
-
-      {request.invoiceReviewer && request.invoiceReviewedAt ? (
-        <p className="text-muted-foreground text-sm">
-          Invoice approved by{" "}
-          <span className="text-foreground font-medium">
-            {request.invoiceReviewer.name}
-          </span>{" "}
-          on {format(request.invoiceReviewedAt, DATE)}
+        <p className="text-sm">
+          <span className="text-muted-foreground">Invoice </span>
+          <span className="font-mono font-medium">{request.invoiceNumber}</span>
+          {request.invoiceDate ? (
+            <span className="text-muted-foreground tabular-nums">
+              {" "}
+              · {format(request.invoiceDate, DATE)}
+            </span>
+          ) : null}
+          {request.invoiceReviewer && request.invoiceReviewedAt ? (
+            <span className="text-muted-foreground">
+              {" "}
+              · approved by{" "}
+              <span className="text-foreground">
+                {request.invoiceReviewer.name}
+              </span>{" "}
+              on {format(request.invoiceReviewedAt, DATE)}
+            </span>
+          ) : null}
         </p>
       ) : null}
 
       {invoiceAttachments.length > 0 ? (
-        <InvoiceAttachmentList attachments={invoiceAttachments} />
+        <AttachmentList
+          attachments={invoiceAttachments}
+          kind="vendorPaymentAttachment"
+        />
       ) : null}
       {showEmptyState ? (
-        <p className="text-muted-foreground text-center text-sm">
+        <p className="text-muted-foreground rounded-lg border border-dashed py-6 text-center text-sm">
           No invoice uploaded yet.
         </p>
       ) : null}
@@ -230,37 +168,63 @@ export function VendorPaymentInvoiceSection({
   const showEmptyState = invoiceAttachments.length === 0 && status === "paid";
   return (
     <>
-      <Separator />
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium">Invoice</h2>
-          {showUploadButton ? (
-            <Button
-              onClick={stableOnClick0}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <HugeiconsIcon
-                className="size-4"
-                icon={Upload04Icon}
-                strokeWidth={2}
-              />
-              {wasRejected ? "Resubmit invoice" : "Upload invoice"}
-            </Button>
-          ) : null}
-          {showEditButton ? (
-            <Button
-              onClick={stableOnClick1}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              Edit invoice
-            </Button>
-          ) : null}
-        </div>
-
+      <RecordSection
+        action={
+          <div className="flex flex-wrap justify-end gap-2">
+            {showApproveRejectActions ? (
+              <>
+                <Button onClick={stableOnClick2} size="sm" type="button">
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={CheckmarkCircle01Icon}
+                    strokeWidth={2}
+                  />
+                  Approve invoice
+                </Button>
+                <Button
+                  onClick={stableOnClick3}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={Cancel01Icon}
+                    strokeWidth={2}
+                  />
+                  Reject invoice
+                </Button>
+              </>
+            ) : null}
+            {showUploadButton ? (
+              <Button
+                onClick={stableOnClick0}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <HugeiconsIcon
+                  className="size-4"
+                  icon={Upload04Icon}
+                  strokeWidth={2}
+                />
+                {wasRejected ? "Resubmit invoice" : "Upload invoice"}
+              </Button>
+            ) : null}
+            {showEditButton ? (
+              <Button
+                onClick={stableOnClick1}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                Edit invoice
+              </Button>
+            ) : null}
+          </div>
+        }
+        title="Invoice"
+      >
         <InvoiceContent
           hasInvoiceDetails={hasInvoiceDetails}
           invoiceAttachments={invoiceAttachments}
@@ -268,32 +232,7 @@ export function VendorPaymentInvoiceSection({
           request={request}
           showEmptyState={showEmptyState}
         />
-
-        {showApproveRejectActions ? (
-          <div className="flex gap-2">
-            <Button onClick={stableOnClick2} type="button" variant="default">
-              <HugeiconsIcon
-                className="size-4"
-                icon={CheckmarkCircle01Icon}
-                strokeWidth={2}
-              />
-              Approve invoice
-            </Button>
-            <Button
-              onClick={stableOnClick3}
-              type="button"
-              variant="destructive"
-            >
-              <HugeiconsIcon
-                className="size-4"
-                icon={Cancel01Icon}
-                strokeWidth={2}
-              />
-              Reject invoice
-            </Button>
-          </div>
-        ) : null}
-      </div>
+      </RecordSection>
 
       <InvoiceFormDialog
         initialValues={

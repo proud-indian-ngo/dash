@@ -26,12 +26,5 @@ export function reimbursementHeaderMeta(
       </Link>
     ) : null,
     isReimbursement(request) ? format(request.expenseDate, DATE) : null,
-    request.bankAccountName && request.bankAccountNumber
-      ? `${request.bankAccountName} (••••${
-          request.bankAccountNumber.length >= 4
-            ? request.bankAccountNumber.slice(-4)
-            : request.bankAccountNumber
-        })`
-      : null,
   ];
 }

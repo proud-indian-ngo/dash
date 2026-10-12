@@ -1,12 +1,10 @@
 import {
-  Calendar03Icon,
   Delete02Icon,
   Edit02Icon,
   PlusSignIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { getRefCurrent } from "@pi-dash/design-system/hooks/get-ref-current";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
@@ -27,7 +25,7 @@ import { uuidv7 } from "uuidv7";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
-import { Tag } from "@/components/shared/status-badge";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { TipStrip } from "@/components/shared/tip-strip";
 import { AddMemberDialog } from "@/components/teams/add-member-dialog";
 import type { EditScope } from "@/components/teams/events/edit-scope-dialog";
@@ -392,6 +390,16 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
         <PageHeader
           actions={
             <>
+              {canManage ? (
+                <Button onClick={stableOnClick5} type="button">
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={PlusSignIcon}
+                    strokeWidth={2}
+                  />
+                  Create event
+                </Button>
+              ) : null}
               {canEdit ? (
                 <Button onClick={stableOnEdit1} type="button" variant="outline">
                   <HugeiconsIcon
@@ -418,7 +426,10 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
           }
           description={team.description}
           meta={[
-            team.whatsappGroup ? `WhatsApp: ${team.whatsappGroup.name}` : null,
+            `${team.members.length} ${team.members.length === 1 ? "member" : "members"}`,
+            team.whatsappGroup ? (
+              <span key="whatsapp">WhatsApp · {team.whatsappGroup.name}</span>
+            ) : null,
           ]}
           title={team.name}
         />
@@ -427,8 +438,6 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
             As a team lead, you can add members and create events right here.
           </TipStrip>
         ) : null}
-
-        <Separator />
 
         {/* Members */}
         <TeamMembersSection
@@ -442,23 +451,14 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
           userId={userId}
         />
 
-        <Separator />
-
-        {/* Events */}
-        <div className="flex flex-col gap-3">
-          <h2 className="text-sm font-medium">
-            <HugeiconsIcon
-              aria-hidden="true"
-              className="mr-1 inline size-4"
-              icon={Calendar03Icon}
-              strokeWidth={2}
-            />
+        <section aria-label="Events" className="flex flex-col gap-2">
+          <h2 className="flex min-h-7 items-center gap-2 text-sm font-medium">
             Events
             {pendingInterestCount > 0 ? (
-              <Tag className="ml-2 tabular-nums">
+              <StatusBadge tone="warning">
                 {pendingInterestCount} pending interest
                 {pendingInterestCount === 1 ? "" : "s"}
-              </Tag>
+              </StatusBadge>
             ) : null}
           </h2>
 
@@ -471,20 +471,8 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
             onDuplicateEvent={handleDuplicateEvent}
             onEditEvent={handleEditEvent}
             onSelectEvent={handleSelectEvent}
-            toolbarActions={
-              canManage ? (
-                <Button onClick={stableOnClick5} size="sm" type="button">
-                  <HugeiconsIcon
-                    className="size-4"
-                    icon={PlusSignIcon}
-                    strokeWidth={2}
-                  />
-                  Create event
-                </Button>
-              ) : undefined
-            }
           />
-        </div>
+        </section>
 
         {/* Edit Team Dialog */}
         {canEdit ? (
