@@ -1,4 +1,12 @@
 import { Invoice01Icon } from "@hugeicons/core-free-icons";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@pi-dash/design-system/components/ui/select";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
@@ -8,11 +16,7 @@ import { lazy, Suspense } from "react";
 
 import { DateRangeFilter } from "@/components/analytics/date-range-filter";
 import { readSelectEquality } from "@/components/data-table/compile-filter-query";
-import { DataTableFiltersBar } from "@/components/data-table/data-table-wrapper";
-import {
-  SELECT_IS_ONLY_OPERATORS,
-  selectField,
-} from "@/components/data-table/filter-fields";
+import { selectDataTableView } from "@/components/data-table/data-table-view-tabs";
 import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
 import { useMigrateLegacyFilterParams } from "@/components/data-table/use-migrate-legacy-filter-params";
 import { PageHeader } from "@/components/shared/page-header";
@@ -93,9 +97,6 @@ export const Route = createFileRoute("/_app/analytics")({
   },
 });
 
-const ANALYTICS_CITY_FILTER_FIELDS = [
-  selectField("city", "City", cityOptions, SELECT_IS_ONLY_OPERATORS),
-];
 const LEGACY_ANALYTICS_FILTER_PARAMS = [
   { param: "city", path: "city" },
 ] as const;
@@ -120,6 +121,9 @@ function AnalyticsPage() {
   useMigrateLegacyFilterParams(LEGACY_ANALYTICS_FILTER_PARAMS);
   const { query, setQuery } = useDataTableFilters();
   const cityFilter = readSelectEquality(query, "city");
+  const handleCityChange = useEventCallback((value: string | null) =>
+    setQuery(selectDataTableView(query, "city", value === "all" ? null : value))
+  );
   const dateRange = resolveDateRange(
     dateParams.range,
     dateParams.from,
@@ -196,16 +200,30 @@ function AnalyticsPage() {
         actions={
           <>
             {hasMultipleCities ? (
-              <DataTableFiltersBar
-                allowAdvanced={false}
-                fields={ANALYTICS_CITY_FILTER_FIELDS}
-                onQueryChange={setQuery}
-                query={query}
-              />
+              <Select
+                onValueChange={handleCityChange}
+                value={cityFilter ?? "all"}
+              >
+                <SelectTrigger aria-label="City" className="h-8">
+                  <SelectValue>
+                    {cityOptions.find((option) => option.value === cityFilter)
+                      ?.label ?? "All cities"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All cities</SelectItem>
+                  {cityOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             ) : null}
             <DateRangeFilter />
           </>
         }
+        description="Where the money goes: requests, vendors and events over time."
         title="Analytics"
       />
 
@@ -215,37 +233,22 @@ function AnalyticsPage() {
 
       <Suspense
         fallback={
-          <div className="mt-6 animate-pulse space-y-6">
-            <div className="grid gap-6 lg:grid-cols-2">
-              <div className="bg-muted/50 h-95 rounded-none" />
-              <div className="bg-muted/50 h-95 rounded-none" />
-            </div>
-            <div className="grid gap-6 lg:grid-cols-2">
-              <div className="bg-muted/50 h-95 rounded-none" />
-              <div className="bg-muted/50 h-95 rounded-none" />
-            </div>
-            <div className="grid gap-6 lg:grid-cols-2">
-              <div className="bg-muted/50 h-95 rounded-none" />
-              <div className="bg-muted/50 h-95 rounded-none" />
-            </div>
+          <div className="mt-6 grid animate-pulse gap-4 lg:grid-cols-2">
+            {["a", "b", "c", "d"].map((key) => (
+              <div className="bg-muted/50 h-80 rounded-xl" key={key} />
+            ))}
           </div>
         }
       >
         {Boolean(anyComplete) && (
           <>
-            <div className="mt-6 grid gap-6 lg:grid-cols-2">
+            <div className="mt-6 grid gap-4 *:min-w-0 lg:grid-cols-2">
               <SubmissionTrendsChart data={trendData} />
+              <ApprovalTimeChart data={approvalTimeData} />
               <CategoryBreakdownChart data={categoryData} />
-            </div>
-
-            <div className="mt-6 grid gap-6 lg:grid-cols-2">
+              <EventSpendingChart data={eventData} />
               <TopSubmittersChart data={submitterData} />
               <TopVendorsChart data={vendorData} />
-            </div>
-
-            <div className="mt-6 grid gap-6 lg:grid-cols-2">
-              <EventSpendingChart data={eventData} />
-              <ApprovalTimeChart data={approvalTimeData} />
             </div>
           </>
         )}

@@ -1,19 +1,11 @@
 import type { IconSvgElement } from "@hugeicons/react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@pi-dash/design-system/components/ui/card";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 import type { StatusTone } from "@/components/shared/status-badge";
-
-const STAGGER_DELAY_MS = 50;
 
 export interface StatItem {
   /** Accessible name for a chip that filters on click. */
@@ -28,89 +20,6 @@ export interface StatItem {
   tone?: StatusTone;
   /** A node is allowed so a chip can show a skeleton while loading. */
   value: ReactNode;
-}
-
-export function StatCard({
-  item,
-  animationDelay,
-}: {
-  animationDelay?: number;
-  item: StatItem;
-}) {
-  const card = (
-    <Card className="h-full" size="sm">
-      <CardHeader>
-        <CardTitle className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
-          {item.icon ? (
-            <HugeiconsIcon
-              className="size-3.5"
-              icon={item.icon}
-              strokeWidth={2}
-            />
-          ) : null}
-          {item.label}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="font-display truncate text-2xl font-semibold tracking-tight tabular-nums">
-          {item.value}
-        </div>
-        {Boolean(item.description) && (
-          <p className="text-muted-foreground text-xs">{item.description}</p>
-        )}
-      </CardContent>
-    </Card>
-  );
-
-  const animate = animationDelay !== undefined;
-  const animationClasses = animate
-    ? "fade-in-0 slide-in-from-bottom-1 animate-in animate-blur-in fill-mode-backwards duration-200 ease-(--ease-out-expo)"
-    : "";
-  const animationStyle = animate
-    ? { animationDelay: `${animationDelay}ms` }
-    : undefined;
-
-  if (item.href) {
-    return (
-      <Link
-        className={`hover:bg-muted/40 min-w-0 transition-colors ${animationClasses}`}
-        style={animationStyle}
-        to={item.href}
-      >
-        {card}
-      </Link>
-    );
-  }
-
-  if (!animate) {
-    return card;
-  }
-
-  return (
-    <div className={`min-w-0 ${animationClasses}`} style={animationStyle}>
-      {card}
-    </div>
-  );
-}
-
-function StatsCardsSkeleton() {
-  return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-      {["sk-1", "sk-2", "sk-3", "sk-4"].map((id) => (
-        <Card key={id} size="sm">
-          <CardHeader>
-            <CardTitle>
-              <Skeleton className="h-3 w-20" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Skeleton className="h-7 w-16" />
-            <Skeleton className="mt-1 h-3 w-24" />
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
 }
 
 const CHIP_TONE: Record<StatusTone, string> = {
@@ -192,49 +101,31 @@ function StatChipsSkeleton() {
   );
 }
 
+/** The page's counts as one row of compact chips (swipeable on phones). */
 export function StatsCards({
   className,
   items,
   isLoading,
-  variant = "cards",
 }: {
   className?: string;
   items: StatItem[];
   isLoading?: boolean;
-  /** `chips` is a single compact row, for table pages. */
-  variant?: "cards" | "chips";
 }) {
-  if (variant === "chips") {
-    if (isLoading) {
-      return <StatChipsSkeleton />;
-    }
-    // Phones: one swipeable row that bleeds to the screen edge, instead of a
-    // stack of chips pushing the table down. Wider screens wrap.
-    return (
-      <div
-        className={cn(
-          "flex [scrollbar-width:none] gap-2 overflow-x-auto *:shrink-0 max-sm:-mx-2 max-sm:px-2 sm:flex-wrap [&::-webkit-scrollbar]:hidden",
-          className
-        )}
-        data-slot="stat-chips"
-      >
-        {items.map((item) => (
-          <StatChip item={item} key={item.label} />
-        ))}
-      </div>
-    );
-  }
   if (isLoading) {
-    return <StatsCardsSkeleton />;
+    return <StatChipsSkeleton />;
   }
+  // Phones: one swipeable row that bleeds to the screen edge, instead of a
+  // stack of chips pushing the table down. Wider screens wrap.
   return (
-    <div className={cn("grid grid-cols-2 gap-4 lg:grid-cols-4", className)}>
-      {items.map((item, index) => (
-        <StatCard
-          animationDelay={index * STAGGER_DELAY_MS}
-          item={item}
-          key={item.label}
-        />
+    <div
+      className={cn(
+        "flex [scrollbar-width:none] gap-2 overflow-x-auto *:shrink-0 max-sm:-mx-2 max-sm:px-2 sm:flex-wrap [&::-webkit-scrollbar]:hidden",
+        className
+      )}
+      data-slot="stat-chips"
+    >
+      {items.map((item) => (
+        <StatChip item={item} key={item.label} />
       ))}
     </div>
   );

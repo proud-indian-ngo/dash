@@ -1,10 +1,4 @@
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@pi-dash/design-system/components/ui/card";
-import {
   type ChartConfig,
   ChartContainer,
   ChartTooltip,
@@ -23,13 +17,15 @@ import {
 import { formatINR } from "@/lib/form-schemas";
 import type { TrendDataPoint } from "@/lib/stats";
 
+import { ChartCard } from "./chart-card";
+
 const chartConfig = {
   amount: {
-    color: "var(--color-emerald-500)",
+    color: "var(--chart-5)",
     label: "Amount",
   },
   count: {
-    color: "var(--color-brand)",
+    color: "var(--chart-1)",
     label: "Requests",
   },
 } satisfies ChartConfig;
@@ -39,68 +35,55 @@ export function SubmissionTrendsChart({ data }: { data: TrendDataPoint[] }) {
   const stableFormatter1 = useEventCallback((value: unknown, name: unknown) =>
     name === "amount" ? formatINR(Number(value)) : String(value)
   );
-  if (data.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Submission Trends</CardTitle>
-        </CardHeader>
-        <CardContent className="text-muted-foreground flex h-[300px] items-center justify-center text-sm">
-          No data for this period
-        </CardContent>
-      </Card>
-    );
-  }
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm">Submission Trends</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ChartContainer className="h-[300px] w-full" config={chartConfig}>
-          <ComposedChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis
-              axisLine={false}
-              dataKey="period"
-              fontSize={12}
-              tickLine={false}
-            />
-            <YAxis
-              axisLine={false}
-              fontSize={12}
-              orientation="left"
-              tickLine={false}
-              yAxisId="count"
-            />
-            <YAxis
-              axisLine={false}
-              fontSize={12}
-              orientation="right"
-              tickFormatter={stableTickFormatter0}
-              tickLine={false}
-              yAxisId="amount"
-            />
-            <ChartTooltip
-              content={<ChartTooltipContent formatter={stableFormatter1} />}
-            />
-            <Bar
-              dataKey="count"
-              fill="var(--color-count)"
-              maxBarSize={40}
-              radius={[4, 4, 0, 0]}
-              yAxisId="count"
-            />
-            <Line
-              dataKey="amount"
-              dot={false}
-              stroke="var(--color-amount)"
-              strokeWidth={2}
-              yAxisId="amount"
-            />
-          </ComposedChart>
-        </ChartContainer>
-      </CardContent>
-    </Card>
+    <ChartCard
+      empty={data.length === 0}
+      emptyMessage="Nothing in this period."
+      title="Submission trends"
+    >
+      <ChartContainer className="h-[300px] w-full" config={chartConfig}>
+        <ComposedChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+          <XAxis
+            axisLine={false}
+            dataKey="period"
+            fontSize={12}
+            tickLine={false}
+          />
+          <YAxis
+            axisLine={false}
+            fontSize={12}
+            orientation="left"
+            tickLine={false}
+            yAxisId="count"
+          />
+          <YAxis
+            axisLine={false}
+            fontSize={12}
+            orientation="right"
+            tickFormatter={stableTickFormatter0}
+            tickLine={false}
+            yAxisId="amount"
+          />
+          <ChartTooltip
+            content={<ChartTooltipContent formatter={stableFormatter1} />}
+          />
+          <Bar
+            dataKey="count"
+            fill="var(--color-count)"
+            maxBarSize={40}
+            radius={[4, 4, 0, 0]}
+            yAxisId="count"
+          />
+          <Line
+            dataKey="amount"
+            dot={false}
+            stroke="var(--color-amount)"
+            strokeWidth={2}
+            yAxisId="amount"
+          />
+        </ComposedChart>
+      </ChartContainer>
+    </ChartCard>
   );
 }

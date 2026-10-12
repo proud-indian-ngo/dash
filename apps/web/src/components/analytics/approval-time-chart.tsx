@@ -1,10 +1,4 @@
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@pi-dash/design-system/components/ui/card";
-import {
   type ChartConfig,
   ChartContainer,
   ChartTooltip,
@@ -15,9 +9,11 @@ import { Bar, BarChart, XAxis, YAxis } from "recharts";
 
 import type { ApprovalTimeBucket } from "@/lib/stats";
 
+import { ChartCard } from "./chart-card";
+
 const chartConfig = {
   count: {
-    color: "var(--color-brand)",
+    color: "var(--chart-1)",
     label: "Requests",
   },
 } satisfies ChartConfig;
@@ -29,51 +25,39 @@ export function ApprovalTimeChart({ data }: { data: ApprovalTimeBucket[] }) {
       `${value} ${Number(value) === 1 ? "request" : "requests"}`
   );
 
-  if (!hasData) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Review Time Distribution</CardTitle>
-        </CardHeader>
-        <CardContent className="text-muted-foreground flex h-[300px] items-center justify-center text-sm">
-          No approved or rejected requests for this period
-        </CardContent>
-      </Card>
-    );
-  }
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm">Review Time Distribution</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ChartContainer className="h-[280px] w-full" config={chartConfig}>
-          <BarChart data={data} margin={{ bottom: 4, top: 8 }}>
-            <XAxis
-              axisLine={false}
-              dataKey="label"
-              fontSize={11}
-              tickLine={false}
-            />
-            <YAxis
-              allowDecimals={false}
-              axisLine={false}
-              fontSize={12}
-              tickLine={false}
-              width={30}
-            />
-            <ChartTooltip
-              content={<ChartTooltipContent formatter={stableFormatter0} />}
-            />
-            <Bar
-              dataKey="count"
-              fill="var(--color-count)"
-              maxBarSize={48}
-              radius={[4, 4, 0, 0]}
-            />
-          </BarChart>
-        </ChartContainer>
-      </CardContent>
-    </Card>
+    <ChartCard
+      description="From submission to approval or rejection"
+      empty={!hasData}
+      emptyMessage="No approved or rejected requests in this period."
+      title="Time to review"
+    >
+      <ChartContainer className="h-[280px] w-full" config={chartConfig}>
+        <BarChart data={data} margin={{ bottom: 4, top: 8 }}>
+          <XAxis
+            axisLine={false}
+            dataKey="label"
+            fontSize={11}
+            tickLine={false}
+          />
+          <YAxis
+            allowDecimals={false}
+            axisLine={false}
+            fontSize={12}
+            tickLine={false}
+            width={30}
+          />
+          <ChartTooltip
+            content={<ChartTooltipContent formatter={stableFormatter0} />}
+          />
+          <Bar
+            dataKey="count"
+            fill="var(--color-count)"
+            maxBarSize={48}
+            radius={[4, 4, 0, 0]}
+          />
+        </BarChart>
+      </ChartContainer>
+    </ChartCard>
   );
 }

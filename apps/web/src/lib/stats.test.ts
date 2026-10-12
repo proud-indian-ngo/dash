@@ -95,6 +95,18 @@ describe("computeTrendData", () => {
     expect(computeTrendData([item], null, null)).toEqual([]);
   });
 
+  it("spans the data itself when the range is all time", () => {
+    const jan = new Date(2026, 0, 15).getTime();
+    const jul = new Date(2026, 6, 15).getTime();
+    const result = computeTrendData(
+      [makeItem({ createdAt: jan }), makeItem({ createdAt: jul })],
+      null,
+      null
+    );
+    expect(result).toHaveLength(7);
+    expect(result.reduce((sum, point) => sum + point.count, 0)).toBe(2);
+  });
+
   it("groups items into monthly buckets for ranges > 3 months", () => {
     const jan = new Date(2026, 0, 15).getTime();
     const mar = new Date(2026, 2, 15).getTime();

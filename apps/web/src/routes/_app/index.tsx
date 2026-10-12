@@ -364,7 +364,6 @@ function OrientedDashboard() {
           className="min-w-0 flex-1 max-sm:basis-full"
           isLoading={isLoading}
           items={stats}
-          variant="chips"
         />
         {canViewAllRequests && (
           <Button

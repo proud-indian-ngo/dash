@@ -244,11 +244,7 @@ function UsersRouteComponent() {
       </TipStrip>
 
       <div className="mt-4 grid gap-6 *:min-w-0">
-        <StatsCards
-          variant="chips"
-          isLoading={isLoading}
-          items={computeUserStats(allUsers)}
-        />
+        <StatsCards isLoading={isLoading} items={computeUserStats(allUsers)} />
         <UsersTable
           detailUser={selectedUser}
           isLoading={isLoading}
