@@ -16,6 +16,7 @@ import { createHash } from "node:crypto";
  *   eventPhoto, eventImmichAlbum, eventUpdate,
  *   eventPartner, socialPost, socialRun, socialApiToken,
  *   expenseCategory, bankAccount,
+ *   programme, costCentre, fund, fiscalYear, fiscalPeriod,
  *   reimbursement, reimbursementLineItem, reimbursementAttachment, reimbursementHistory,
  *   advancePayment, advancePaymentLineItem, advancePaymentAttachment, advancePaymentHistory,
  *   vendor, vendorPayment, vendorPaymentLineItem, vendorPaymentAttachment, vendorPaymentHistory,
@@ -47,6 +48,13 @@ import { eventReminderSent } from "@pi-dash/db/schema/event-reminder";
 import { eventRsvpPoll, eventRsvpVote } from "@pi-dash/db/schema/event-rsvp";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
+import {
+  costCentre,
+  fiscalPeriod,
+  fiscalYear,
+  fund,
+  programme,
+} from "@pi-dash/db/schema/finance-dimensions";
 import {
   kalakritiAgeCategory,
   kalakritiAssignment,
@@ -116,6 +124,13 @@ import {
 } from "@pi-dash/db/schema/vendor-payment-transaction";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
+import {
+  APP_CONFIG_FINANCE_THRESHOLD_KEY,
+  COST_CENTRE_IDS,
+  DEFAULT_FINANCE_THRESHOLD_PAISE,
+  GENERAL_FUND_ID,
+  PROGRAMME_IDS,
+} from "@pi-dash/shared/constants";
 import { getKalakritiCenterTransportStatus } from "@pi-dash/zero/kalakriti-center-scan-rules";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
@@ -514,6 +529,135 @@ async function seedCategories(): Promise<void> {
     )
     .onConflictDoNothing();
   log(`${CATEGORIES.length} categories ready`);
+}
+
+// ── 2b. Finance dimensions ───────────────────────────────────────────────────
+
+/** Mirrors migration 0112 so a fresh dev database and production agree. */
+async function seedFinanceDimensions(): Promise<void> {
+  log("Seeding finance dimensions...");
+  const programmes = [
+    {
+      cause: "education",
+      code: "EDU",
+      description:
+        "Classes and learning support for children: art, maths, spoken English.",
+      id: PROGRAMME_IDS.education,
+      name: "Education",
+      sortOrder: 10,
+    },
+    {
+      cause: "arts",
+      code: "ART",
+      description: "Kalakriti and other arts programmes.",
+      id: PROGRAMME_IDS.artsAndCulture,
+      name: "Arts and culture",
+      sortOrder: 20,
+    },
+    {
+      cause: "community",
+      code: "COM",
+      description:
+        "Distribution drives, outings, elder care, environment and corporate engagement days.",
+      id: PROGRAMME_IDS.communitySupport,
+      name: "Community support",
+      sortOrder: 30,
+    },
+    {
+      cause: null,
+      code: "UNALLOC",
+      description:
+        "Holding programme for legacy records with no programme; finance clears it before year close.",
+      id: PROGRAMME_IDS.unallocated,
+      name: "Unallocated",
+      sortOrder: 900,
+    },
+  ];
+  await db
+    .insert(programme)
+    .values(programmes.map((p) => ({ ...p, createdAt: now, updatedAt: now })))
+    .onConflictDoNothing();
+
+  await db
+    .insert(costCentre)
+    .values([
+      {
+        code: "BLR",
+        createdAt: now,
+        id: COST_CENTRE_IDS.bangalore,
+        name: "Bangalore",
+        stateUt: "Karnataka",
+        updatedAt: now,
+      },
+      {
+        active: false,
+        code: "MUM",
+        createdAt: now,
+        id: COST_CENTRE_IDS.mumbai,
+        name: "Mumbai",
+        stateUt: "Maharashtra",
+        updatedAt: now,
+      },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(fund)
+    .values({
+      code: "GEN",
+      createdAt: now,
+      description: "Unrestricted domestic funds.",
+      id: GENERAL_FUND_ID,
+      name: "General Fund (Domestic)",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+
+  const years = [
+    { id: "01930000-0000-7000-8000-000000000301", start: 2024 },
+    { id: "01930000-0000-7000-8000-000000000302", start: 2025 },
+    { id: "01930000-0000-7000-8000-000000000303", start: 2026 },
+    { id: "01930000-0000-7000-8000-000000000304", start: 2027 },
+  ];
+  await db
+    .insert(fiscalYear)
+    .values(
+      years.map((y) => ({
+        endsOn: `${y.start + 1}-03-31`,
+        id: y.id,
+        label: `${y.start}-${String(y.start + 1).slice(2)}`,
+        startsOn: `${y.start}-04-01`,
+      }))
+    )
+    .onConflictDoNothing();
+  const periods = years.flatMap((y, yi) =>
+    Array.from({ length: 12 }, (_, i) => {
+      const month = i + 1;
+      const startMonth = ((3 + i) % 12) + 1; // April = 1
+      const startYear = y.start + (startMonth < 4 ? 1 : 0);
+      const start = new Date(Date.UTC(startYear, startMonth - 1, 1));
+      const end = new Date(Date.UTC(startYear, startMonth, 0));
+      const seq = yi * 12 + month;
+      return {
+        endsOn: end.toISOString().slice(0, 10),
+        fiscalYearId: y.id,
+        id: `01930000-0000-7000-8000-0000004${String(seq).padStart(5, "0")}`,
+        month,
+        startsOn: start.toISOString().slice(0, 10),
+      };
+    })
+  );
+  await db.insert(fiscalPeriod).values(periods).onConflictDoNothing();
+
+  await db
+    .insert(appConfig)
+    .values({
+      key: APP_CONFIG_FINANCE_THRESHOLD_KEY,
+      updatedAt: now,
+      value: String(DEFAULT_FINANCE_THRESHOLD_PAISE),
+    })
+    .onConflictDoNothing();
+  log("Finance dimensions ready");
 }
 
 // ── 3. Bank Accounts ─────────────────────────────────────────────────────────
@@ -2755,6 +2899,7 @@ async function main(): Promise<void> {
   const userMap = await seedUsers();
   await seedAuditLog(userMap);
   await seedCategories();
+  await seedFinanceDimensions();
   await seedBankAccounts(userMap);
   await seedWhatsappGroups();
   await seedTeams(userMap);

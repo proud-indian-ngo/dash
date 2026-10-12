@@ -1,3 +1,4 @@
+import { APP_CONFIG_FINANCE_THRESHOLD_KEY } from "@pi-dash/shared/constants";
 import { SOCIAL_MANAGE_CONFIG_KEYS } from "@pi-dash/shared/social-api";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
@@ -9,7 +10,8 @@ const socialManageKeys = new Set(SOCIAL_MANAGE_CONFIG_KEYS);
 
 /**
  * `settings.app_config` may write every key; `social.manage` may write only
- * the social settings keys shown on the Social page.
+ * the social settings keys shown on the Social page; `finance.manage` may
+ * write only the default finance-approval threshold.
  */
 export function assertCanWriteAppConfig(
   ctx: Context | undefined,
@@ -20,6 +22,9 @@ export function assertCanWriteAppConfig(
     return;
   }
   if (socialManageKeys.has(key) && can(ctx, "social.manage")) {
+    return;
+  }
+  if (key === APP_CONFIG_FINANCE_THRESHOLD_KEY && can(ctx, "finance.manage")) {
     return;
   }
   throw new Error("Unauthorized");

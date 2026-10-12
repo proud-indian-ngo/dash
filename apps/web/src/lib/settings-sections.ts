@@ -1,5 +1,6 @@
 import {
   BankIcon,
+  Briefcase01Icon,
   Key01Icon,
   NotificationIcon,
   SecurityLockIcon,
@@ -71,6 +72,15 @@ export const SETTINGS_SECTIONS = [
     label: "Roles",
     path: "/settings/roles",
     permission: "settings.roles",
+  },
+  {
+    description:
+      "Causes that events and money belong to, with each programme's lead and approval threshold.",
+    group: "organization",
+    icon: Briefcase01Icon,
+    label: "Programmes",
+    path: "/settings/programmes",
+    permission: "finance.manage",
   },
   {
     description: "Categories people pick for each expense line.",

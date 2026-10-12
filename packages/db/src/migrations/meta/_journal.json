@@ -778,6 +778,20 @@
       "when": 1791781192877,
       "tag": "0110_unwrap_double_encoded_jsonb",
       "breakpoints": true
+    },
+    {
+      "idx": 111,
+      "version": "7",
+      "when": 1791840279472,
+      "tag": "0111_confused_psynapse",
+      "breakpoints": true
+    },
+    {
+      "idx": 112,
+      "version": "7",
+      "when": 1791840280472,
+      "tag": "0112_finance_reference_data",
+      "breakpoints": true
     }
   ]
 }

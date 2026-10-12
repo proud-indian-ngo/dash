@@ -9,6 +9,14 @@ import { eventInterestMutators } from "./mutators/event-interest";
 import { eventPhotoMutators } from "./mutators/event-photo";
 import { eventUpdateMutators } from "./mutators/event-update";
 import { expenseCategoryMutators } from "./mutators/expense-category";
+import {
+  accountHeadMutators,
+  costCentreMutators,
+  fundMutators,
+  orgAccountMutators,
+  programmeMutators,
+  projectMutators,
+} from "./mutators/finance-dimensions";
 import { kalakritiAssignmentMutators } from "./mutators/kalakriti-assignment";
 import { kalakritiAttendeeMutators } from "./mutators/kalakriti-attendee";
 import { kalakritiAwardMutators } from "./mutators/kalakriti-award";
@@ -44,7 +52,13 @@ export const mutators = defineMutators({
   eventInterest: eventInterestMutators,
   eventPhoto: eventPhotoMutators,
   eventUpdate: eventUpdateMutators,
+  accountHead: accountHeadMutators,
+  costCentre: costCentreMutators,
   expenseCategory: expenseCategoryMutators,
+  fund: fundMutators,
+  orgAccount: orgAccountMutators,
+  programme: programmeMutators,
+  project: projectMutators,
   kalakritiAssignment: kalakritiAssignmentMutators,
   kalakritiAward: kalakritiAwardMutators,
   kalakritiCenter: kalakritiCenterMutators,

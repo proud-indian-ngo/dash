@@ -11,6 +11,15 @@ import {
 } from "./queries/event-photo";
 import { eventUpdateQueries } from "./queries/event-update";
 import { expenseCategoryQueries } from "./queries/expense-category";
+import {
+  accountHeadQueries,
+  costCentreQueries,
+  fiscalYearQueries,
+  fundQueries,
+  orgAccountQueries,
+  programmeQueries,
+  projectQueries,
+} from "./queries/finance-dimensions";
 import { kalakritiAssignmentQueries } from "./queries/kalakriti-assignment";
 import { kalakritiAttendeeQueries } from "./queries/kalakriti-attendee";
 import { kalakritiCenterQueries } from "./queries/kalakriti-center";
@@ -46,7 +55,14 @@ export const queries = defineQueries({
   eventInterest: eventInterestQueries,
   eventPhoto: eventPhotoQueries,
   eventUpdate: eventUpdateQueries,
+  accountHead: accountHeadQueries,
+  costCentre: costCentreQueries,
   expenseCategory: expenseCategoryQueries,
+  fiscalYear: fiscalYearQueries,
+  fund: fundQueries,
+  orgAccount: orgAccountQueries,
+  programme: programmeQueries,
+  project: projectQueries,
   kalakritiAssignment: kalakritiAssignmentQueries,
   kalakritiCenter: kalakritiCenterQueries,
   kalakritiCompetition: kalakritiCompetitionQueries,
