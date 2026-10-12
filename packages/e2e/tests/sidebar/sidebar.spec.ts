@@ -59,6 +59,13 @@ test.describe("Sidebar navigation", () => {
   }, testInfo) => {
     const sidebar = page.locator("[data-sidebar='content']");
     await expect(sidebar.getByRole("link", { name: "Roles" })).toBeHidden();
+    const sidebarSettings = sidebar.getByRole("link", {
+      exact: true,
+      name: "Settings",
+    });
+    if (testInfo.project.name === "volunteer") {
+      await expect(sidebarSettings).toBeHidden();
+    }
 
     await page.goto("/settings/profile");
     await expect(

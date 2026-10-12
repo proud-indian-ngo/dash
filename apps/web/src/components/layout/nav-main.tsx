@@ -26,6 +26,8 @@ import type { NavGroup } from "@/lib/nav-items";
 export interface NavItem {
   icon?: IconSvgElement;
   isHidden?: boolean;
+  /** The path this item stays active under, when it differs from `url`. */
+  matchPath?: string;
   subItems?: NavItem[];
   title: string;
   url: string;
@@ -39,7 +41,7 @@ function NavMenuItem({
   item: NavItem;
 }) {
   const { pathname } = useLocation();
-  const isActive = activePath === item.url;
+  const isActive = activePath === (item.matchPath ?? item.url);
   const [submenuOpen, setSubmenuOpen] = useState(isActive);
 
   return (
@@ -104,7 +106,9 @@ function NavMenuItem({
 
 export function NavMainGrouped({ groups }: { groups: NavGroup[] }) {
   const activePath = useActivePath(
-    groups.flatMap((group) => group.items.map((item) => item.url))
+    groups.flatMap((group) =>
+      group.items.map((item) => item.matchPath ?? item.url)
+    )
   );
 
   return (
@@ -123,7 +127,7 @@ export function NavMainGrouped({ groups }: { groups: NavGroup[] }) {
               <NavMenuItem
                 activePath={activePath}
                 item={item}
-                key={`${item.url}:${activePath === item.url}`}
+                key={`${item.url}:${activePath === (item.matchPath ?? item.url)}`}
               />
             ))}
           </SidebarMenu>

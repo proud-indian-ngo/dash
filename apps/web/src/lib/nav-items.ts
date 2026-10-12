@@ -471,6 +471,20 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
   if (has(permissions, "messages.schedule")) {
     adminItems.push(scheduledMessagesNavItem);
   }
+  // Settings sits in the account menu for everyone; people who can open an
+  // Organization section also get it here, opening on the first of those.
+  const firstOrgSection = SETTINGS_SECTIONS.find(
+    (section) =>
+      section.group === "organization" && has(permissions, section.permission)
+  );
+  if (firstOrgSection) {
+    adminItems.push({
+      icon: Settings01Icon,
+      matchPath: "/settings",
+      title: "Settings",
+      url: firstOrgSection.path,
+    });
+  }
   if (adminItems.length > 0) {
     groups.push({ items: adminItems, label: "Admin" });
   }

@@ -207,3 +207,34 @@ describe("Kalakriti navigation", () => {
     expect(shouldUseKalakritiNav("/kalakriti/2026", "volunteer")).toBe(true);
   });
 });
+
+describe("Settings in the sidebar", () => {
+  const adminItems = (permissions: string[]) =>
+    buildNavGroups(permissions).find((group) => group.label === "Admin")
+      ?.items ?? [];
+
+  it("adds Settings to Admin, opening the first Organization section", () => {
+    const settings = adminItems(["jobs.manage", "settings.roles"]).find(
+      (item) => item.title === "Settings"
+    );
+    expect(settings?.url).toBe("/settings/roles");
+    expect(settings?.matchPath).toBe("/settings");
+  });
+
+  it("leaves it out for people with only personal settings", () => {
+    expect(
+      adminItems(["jobs.view"]).some((item) => item.title === "Settings")
+    ).toBe(false);
+    expect(
+      buildNavGroups(["requests.view_own"])
+        .flatMap((g) => g.items)
+        .some((item) => item.title === "Settings")
+    ).toBe(false);
+  });
+
+  it("no longer lists Roles in the sidebar", () => {
+    expect(
+      adminItems(["settings.roles"]).some((item) => item.title === "Roles")
+    ).toBe(false);
+  });
+});
