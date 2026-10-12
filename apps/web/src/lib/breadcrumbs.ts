@@ -6,6 +6,8 @@ export interface BreadcrumbEntry {
 }
 
 interface BreadcrumbOptions {
+  /** The open record's name, from `useRecordTitle`; replaces the last crumb. */
+  recordTitle?: string;
   sessionTitle?: string;
 }
 
@@ -31,9 +33,13 @@ function resolveTitle(
     return navItemsMap[path];
   }
 
-  const segments = path.split("/");
-  segments[segments.length - 1] = "$id";
-  return navItemsMap[segments.join("/")];
+  // A record route's last segment is a parameter of any name ($id, $roleId).
+  const parent = path.slice(0, path.lastIndexOf("/") + 1);
+  const match = Object.keys(navItemsMap).find(
+    (url) =>
+      url.startsWith(`${parent}$`) && !url.slice(parent.length).includes("/")
+  );
+  return match ? navItemsMap[match] : undefined;
 }
 
 function buildKalakritiBreadcrumbs(
@@ -152,12 +158,20 @@ export function buildBreadcrumbs(
 
   const navItemsMap = buildNavItemsMap(navItems);
   const pathnames = pathname.split("/").slice(1);
-  return pathnames.reduce<BreadcrumbEntry[]>((items, _segment, index) => {
-    const currentPath = `/${pathnames.slice(0, index + 1).join("/")}`;
-    const title = resolveTitle(navItemsMap, currentPath);
-    if (title) {
-      items.push({ path: currentPath, title });
-    }
-    return items;
-  }, []);
+  const items = pathnames.reduce<BreadcrumbEntry[]>(
+    (crumbs, _segment, index) => {
+      const currentPath = `/${pathnames.slice(0, index + 1).join("/")}`;
+      const title = resolveTitle(navItemsMap, currentPath);
+      if (title) {
+        crumbs.push({ path: currentPath, title });
+      }
+      return crumbs;
+    },
+    []
+  );
+  const last = items.at(-1);
+  if (options.recordTitle && last?.path === pathname) {
+    last.title = options.recordTitle;
+  }
+  return items;
 }

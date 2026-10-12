@@ -12,6 +12,7 @@ import { RecordNotFound } from "@/components/shared/not-found-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { DetailPageSkeleton } from "@/components/shared/page-skeleton";
 import { useApp } from "@/context/app-context";
+import { useRecordTitle } from "@/hooks/use-record-title";
 import type { RequestDetailData, RequestType } from "@/lib/reimbursement-types";
 import { REQUEST_TYPE_LABELS } from "@/lib/reimbursement-types";
 import { canEditRequestSubmission } from "@/lib/request-edit-permissions";
@@ -92,6 +93,7 @@ function useResolvedRequest(id: string): {
 function ReimbursementDetailRouteComponent() {
   const { id } = Route.useParams();
   const { isLoading, resolved } = useResolvedRequest(id);
+  useRecordTitle(resolved?.data.title);
 
   if (isLoading) {
     return (

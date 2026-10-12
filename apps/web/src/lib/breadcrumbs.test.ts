@@ -15,6 +15,37 @@ const navItems: NavItem[] = [
 ];
 
 describe("breadcrumbs", () => {
+  it("names the open record in the last crumb", () => {
+    expect(
+      buildBreadcrumbs(navItems, "/teams/team-1", {
+        recordTitle: "Events & Outreach",
+      })
+    ).toEqual([
+      { path: "/teams", title: "Teams" },
+      { path: "/teams/team-1", title: "Events & Outreach" },
+    ]);
+  });
+
+  it("resolves record routes whose parameter isn't $id", () => {
+    const withRoles: NavItem[] = [
+      {
+        subItems: [
+          {
+            isHidden: true,
+            title: "Edit role",
+            url: "/settings/roles/$roleId",
+          },
+        ],
+        title: "Roles",
+        url: "/settings/roles",
+      },
+    ];
+    expect(buildBreadcrumbs(withRoles, "/settings/roles/admin")).toEqual([
+      { path: "/settings/roles", title: "Roles" },
+      { path: "/settings/roles/admin", title: "Edit role" },
+    ]);
+  });
+
   it("keeps standard dynamic route breadcrumbs", () => {
     expect(buildBreadcrumbs(navItems, "/teams/team-1")).toEqual([
       { path: "/teams", title: "Teams" },
