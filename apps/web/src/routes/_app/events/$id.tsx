@@ -77,7 +77,7 @@ function KalakritiManagedEventBanner({
   edition?: { year: number };
 }) {
   return (
-    <div className="border-primary/30 bg-primary/5 mb-6 flex flex-wrap items-center justify-between gap-4 border p-4">
+    <div className="border-primary/30 bg-primary/5 mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border p-4">
       <div>
         <p className="font-medium">Managed by Kalakriti</p>
         <p className="text-muted-foreground text-sm">
@@ -172,7 +172,9 @@ export const Route = createFileRoute("/_app/events/$id")({
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .optional(),
-    tab: z.enum(["updates", "photos", "feedback", "expenses"]).optional(),
+    tab: z
+      .enum(["volunteers", "updates", "photos", "feedback", "expenses"])
+      .optional(),
   }),
   loader: ({ abortController, context, params }) => {
     preloadRouteQuery(
@@ -273,7 +275,7 @@ function EventDetailRouteComponent() {
 
   if (!event && eventStatus.type !== "complete") {
     return (
-      <div className="flex h-full items-center justify-center pt-8">
+      <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
         <DetailPageSkeleton />
       </div>
     );

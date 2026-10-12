@@ -12,7 +12,7 @@ test.describe("Event interest approval (admin)", () => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
     test.slow();
     await openSeededTeamEvent(page, EVENT_NAME);
-    await expect(page.getByText(/Interest Requests \(\d+\)/)).toBeVisible({
+    await expect(page.getByText(/Interest requests \(\d+\)/)).toBeVisible({
       timeout: 10_000,
     });
   });
@@ -38,7 +38,7 @@ test.describe("Event interest approval (admin)", () => {
     await expect(page.getByText("Interest approved")).toBeVisible();
     await page.waitForTimeout(SAVE_WAIT_MS);
     await page.reload();
-    await expect(page.getByText(/Interest Requests \(\d+\)/)).toBeVisible({
+    await expect(page.getByText(/Interest requests \(\d+\)/)).toBeVisible({
       timeout: 10_000,
     });
     await expect(approve).toHaveCount(0);

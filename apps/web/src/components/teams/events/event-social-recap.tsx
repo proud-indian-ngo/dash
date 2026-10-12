@@ -245,7 +245,7 @@ export function EventSocialRecap({
   });
 
   return (
-    <Card aria-label="Social recap" className="mb-6" role="region" size="sm">
+    <Card aria-label="Social recap" role="region" size="sm">
       <CardHeader>
         <CardTitle>Social recap</CardTitle>
         {isReady && event.socialCompletedAt !== null ? (

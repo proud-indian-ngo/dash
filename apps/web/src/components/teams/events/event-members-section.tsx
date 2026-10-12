@@ -13,6 +13,7 @@ import type { TeamEventMember, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
 import { log } from "evlog";
+import type { ReactNode } from "react";
 
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
@@ -70,32 +71,27 @@ function EventMemberRow({
   const stableOnClick2 = useEventCallback(() => onRemove(member.id));
 
   return (
-    <div className="flex items-center gap-3 rounded-md border p-2">
+    <li className="flex min-h-11 items-center gap-3 px-3 py-1.5">
       {member.user ? (
         <UserHoverCard
-          triggerClassName="flex min-w-0 flex-1 cursor-pointer items-center gap-3 [@media(pointer:coarse)]:pointer-events-none"
+          triggerClassName="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 [@media(pointer:coarse)]:pointer-events-none"
           user={member.user}
         >
           <UserAvatar
-            className="size-8"
-            fallbackClassName="text-xs"
+            className="size-6"
+            fallbackClassName="text-[10px]"
             user={member.user}
           />
-          <div className="min-w-0">
-            <div className="truncate text-sm font-medium">{displayName}</div>
-            <div className="text-muted-foreground text-xs">
-              Added {format(new Date(member.addedAt), DATE)}
-            </div>
-          </div>
+          <span className="truncate text-sm font-medium">{displayName}</span>
         </UserHoverCard>
       ) : (
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium">{displayName}</div>
-          <div className="text-muted-foreground text-xs">
-            Added {format(new Date(member.addedAt), DATE)}
-          </div>
-        </div>
+        <span className="min-w-0 flex-1 truncate text-sm font-medium">
+          {displayName}
+        </span>
       )}
+      <span className="text-muted-foreground hidden shrink-0 text-xs tabular-nums sm:block">
+        Added {format(new Date(member.addedAt), DATE)}
+      </span>
       {canMarkAttendance ? (
         <div className="flex gap-1">
           <Button
@@ -106,7 +102,7 @@ function EventMemberRow({
                 : ""
             }
             onClick={markAllPresent}
-            size="icon"
+            size="icon-sm"
             variant={member.attendance === "present" ? "secondary" : "ghost"}
           >
             <HugeiconsIcon
@@ -118,7 +114,7 @@ function EventMemberRow({
           <Button
             aria-label={`Mark ${displayName} absent`}
             onClick={stableOnClick1}
-            size="icon"
+            size="icon-sm"
             variant={member.attendance === "absent" ? "destructive" : "ghost"}
           >
             <HugeiconsIcon
@@ -133,18 +129,23 @@ function EventMemberRow({
         <Button
           aria-label={`Remove ${displayName}`}
           onClick={stableOnClick2}
-          size="icon"
+          size="icon-sm"
           variant="ghost"
         >
           <HugeiconsIcon className="size-4" icon={UserRemoveIcon} />
         </Button>
       ) : null}
-    </div>
+    </li>
   );
 }
 
+/**
+ * The Volunteers tab: attendance and add actions over one framed list.
+ * `children` sits above it (pending interest requests).
+ */
 export function EventMembersSection({
   canManage,
+  children,
   canMarkAttendance,
   eventId,
   members,
@@ -153,6 +154,7 @@ export function EventMembersSection({
 }: {
   canManage: boolean;
   canMarkAttendance: boolean;
+  children?: ReactNode;
   eventId: string;
   members: EventRow["members"];
   onAddMember: () => void;
@@ -188,56 +190,56 @@ export function EventMembersSection({
   });
 
   return (
-    <>
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium">
-          Volunteers ({members.length})
-          {canMarkAttendance && members.length > 0 ? (
-            <span className="text-muted-foreground">
-              {" "}
-              · {presentCount}/{members.length} present
-            </span>
-          ) : null}
-        </h2>
-        <div className="flex gap-2">
-          {canMarkAttendance && members.length > 0 ? (
-            <Button onClick={markAllPresent} size="sm" variant="outline">
-              <HugeiconsIcon
-                className="size-4"
-                icon={UserGroupIcon}
-                strokeWidth={2}
-              />
-              Mark all present
-            </Button>
-          ) : null}
-          {canManage ? (
-            <Button onClick={onAddMember} size="sm" variant="default">
-              <HugeiconsIcon className="size-4" icon={PlusSignIcon} />
-              Add volunteer
-            </Button>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        {members.map((member) => (
-          <EventMemberRow
-            canManage={canManage}
-            canMarkAttendance={canMarkAttendance}
-            eventId={eventId}
-            key={member.id}
-            member={member}
-            onRemove={onRemoveMember}
-          />
-        ))}
-        {members.length === 0 ? (
-          <p className="text-muted-foreground text-center text-sm">
-            {canMarkAttendance
-              ? "No volunteers to mark attendance for."
-              : "No volunteers yet."}
+    <div className="flex flex-col gap-3">
+      {children}
+      {canMarkAttendance || canManage ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-muted-foreground text-sm tabular-nums">
+            {canMarkAttendance && members.length > 0
+              ? `${presentCount} of ${members.length} present`
+              : null}
           </p>
-        ) : null}
-      </div>
-    </>
+          <div className="flex gap-2">
+            {canMarkAttendance && members.length > 0 ? (
+              <Button onClick={markAllPresent} size="sm" variant="outline">
+                <HugeiconsIcon
+                  className="size-4"
+                  icon={UserGroupIcon}
+                  strokeWidth={2}
+                />
+                Mark all present
+              </Button>
+            ) : null}
+            {canManage ? (
+              <Button onClick={onAddMember} size="sm" variant="default">
+                <HugeiconsIcon className="size-4" icon={PlusSignIcon} />
+                Add volunteer
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {members.length > 0 ? (
+        <ul className="divide-y rounded-lg border">
+          {members.map((member) => (
+            <EventMemberRow
+              canManage={canManage}
+              canMarkAttendance={canMarkAttendance}
+              eventId={eventId}
+              key={member.id}
+              member={member}
+              onRemove={onRemoveMember}
+            />
+          ))}
+        </ul>
+      ) : (
+        <p className="text-muted-foreground py-8 text-center text-sm">
+          {canMarkAttendance
+            ? "No volunteers to mark attendance for."
+            : "No volunteers yet."}
+        </p>
+      )}
+    </div>
   );
 }

@@ -44,10 +44,13 @@ test.describe("Event attendance (admin)", () => {
     await eventCell.getByRole("button").first().click();
     await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
 
-    // Attendance info should be visible in the Volunteers heading
-    await expect(page.getByRole("heading", { name: /Volunteers/ })).toBeVisible(
-      { timeout: 10_000 }
-    );
+    // The Volunteers tab opens first, with its attendance controls
+    await expect(page.getByRole("tab", { name: /Volunteers/ })).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(
+      page.getByText("No volunteers to mark attendance for.")
+    ).toBeVisible();
 
     // Verify Updates tab also visible (confirms event has started)
     await expect(page.getByRole("tab", { name: /Updates/ })).toBeVisible();

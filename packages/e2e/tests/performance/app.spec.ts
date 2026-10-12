@@ -528,7 +528,7 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     await target.goto(`/events/${fixture.leadQueue.eventId}`);
     await expect(
       target.getByRole("heading", {
-        name: `Interest Requests (${queueCount})`,
+        name: `Interest requests (${queueCount})`,
         exact: true,
       })
     ).toBeVisible();

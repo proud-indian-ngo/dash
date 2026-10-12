@@ -68,12 +68,10 @@ test.describe("Event expenses", () => {
     await navigateToPublicEvent(page, "E2E Upcoming Public Bangalore");
 
     await expect(
-      page.getByText(
-        /Post-event updates, photos, and feedback will appear here soon/
-      )
+      page.getByText("Updates, photos and feedback open after the event.")
     ).toBeVisible();
     await expect(page.getByRole("tab", { name: /Updates/ })).not.toBeVisible();
-    await expect(page.getByRole("heading", { name: "Expenses" })).toBeVisible();
+    await page.getByRole("tab", { name: "Expenses" }).click();
     await expect(
       page.getByRole("link", { name: /E2E Upcoming Event Reimbursement/ })
     ).toBeVisible();
