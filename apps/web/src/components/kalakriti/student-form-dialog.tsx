@@ -142,9 +142,11 @@ function DuplicateWarning({
       </p>
       {canOverrideAgeCategory ? (
         <CustomField<boolean>
+          className="flex-row-reverse"
           form={form}
           label="I have reviewed this possible duplicate and approve creating this Student"
           name="duplicateConfirmed"
+          orientation="horizontal"
         >
           {(field) => <DuplicateConfirmationControl field={field} />}
         </CustomField>
@@ -165,7 +167,6 @@ function DuplicateConfirmationControl({
   );
   return (
     <Checkbox
-      aria-label="Confirm possible duplicate"
       checked={field.state.value}
       id={field.name}
       onCheckedChange={handleCheckedChange}

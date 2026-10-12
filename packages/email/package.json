@@ -16,7 +16,7 @@
   "dependencies": {
     "@pi-dash/env": "workspace:*",
     "@react-email/ui": "^6.11.1",
-    "nodemailer": "^10.0.16",
+    "nodemailer": "^10.1.0",
     "react": "catalog:",
     "react-email": "^6.11.1"
   },
