@@ -38,6 +38,7 @@ import {
 import { CompetitionPageSummary } from "@/components/kalakriti/competition-page-summary";
 import { CompetitionReadinessSummary } from "@/components/kalakriti/competition-readiness-summary";
 import { CompetitionsTable } from "@/components/kalakriti/competitions-table";
+import { formatKalakritiLifecycle } from "@/components/kalakriti/kalakriti-lifecycle-badge";
 import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notice";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { useResultSnapshot } from "@/components/kalakriti/use-result-snapshot";
@@ -452,7 +453,7 @@ function CompetitionCatalogPage() {
           {edition.lifecycle === "registration_locked" ||
           edition.lifecycle === "live"
             ? "Competition structure is locked. You can still update names, existing Session times, and Venues, and cancel or restore existing Competitions."
-            : `Configuration is locked while this Edition is ${edition.lifecycle}.`}
+            : `Configuration is locked while this Edition is ${formatKalakritiLifecycle(edition.lifecycle)}.`}
         </KalakritiLockNotice>
       ) : null}
 

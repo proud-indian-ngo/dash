@@ -21,6 +21,7 @@ import type {
   VenueView,
 } from "@/components/kalakriti/competition-config-types";
 import { CompetitionPageSummary } from "@/components/kalakriti/competition-page-summary";
+import { formatKalakritiLifecycle } from "@/components/kalakriti/kalakriti-lifecycle-badge";
 import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notice";
 import { VenueDetailSheet } from "@/components/kalakriti/venue-detail-sheet";
 import {
@@ -177,7 +178,7 @@ function VenuesPage() {
         metrics={[
           { label: "Active Venues", value: activeVenues.length },
           {
-            label: "Unused Active Venues",
+            label: "Unused Venues",
             onClick: showUnused,
             value: unusedVenues.length,
           },
@@ -196,7 +197,8 @@ function VenuesPage() {
       {structuralLocked && canEditVenues ? (
         <KalakritiLockNotice>
           Venue names can still be added and corrected. Retiring or deleting
-          Venues is locked while this Edition is {edition.lifecycle}.
+          Venues is locked while this Edition is{" "}
+          {formatKalakritiLifecycle(edition.lifecycle)}.
         </KalakritiLockNotice>
       ) : null}
       <VenuesTable

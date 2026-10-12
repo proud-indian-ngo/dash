@@ -18,6 +18,7 @@ import {
   AgeCategoryFormDialog,
   type AgeCategoryFormValue,
 } from "@/components/kalakriti/age-category-form-dialog";
+import { formatKalakritiLifecycle } from "@/components/kalakriti/kalakriti-lifecycle-badge";
 import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notice";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
@@ -161,7 +162,8 @@ function KalakritiEligibilityPage() {
       {configurationLocked ? (
         <KalakritiLockNotice>
           Age Categories and Center quotas are locked while registration is
-          locked or this Edition is {edition.lifecycle}.
+          locked or this Edition is{" "}
+          {formatKalakritiLifecycle(edition.lifecycle)}.
         </KalakritiLockNotice>
       ) : null}
 
