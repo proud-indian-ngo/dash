@@ -1,4 +1,4 @@
-import { defineMutator } from "@rocicorp/zero";
+import { defineMutator, type Transaction } from "@rocicorp/zero";
 import z from "zod";
 
 import "../context";
@@ -8,7 +8,21 @@ import {
   assertIsLoggedIn,
   can,
 } from "../permissions";
-import { zql } from "../schema";
+import { type Schema, zql } from "../schema";
+
+/** A team may only point at an active programme. */
+async function assertProgrammeSelectable(
+  tx: Transaction<Schema>,
+  programmeId: string | undefined
+) {
+  if (!programmeId) {
+    return;
+  }
+  const programme = await tx.run(zql.programme.where("id", programmeId).one());
+  if (!programme || programme.active === false) {
+    throw new Error("Choose an active programme");
+  }
+}
 
 export const teamMutators = {
   addMember: defineMutator(
@@ -90,16 +104,19 @@ export const teamMutators = {
       description: z.string().optional(),
       id: z.string(),
       name: z.string().min(1),
+      programmeId: z.string().optional(),
       whatsappGroupId: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "teams.create");
+      await assertProgrammeSelectable(tx, args.programmeId);
       const now = Date.now();
       await tx.mutate.team.insert({
         createdAt: now,
         description: args.description,
         id: args.id,
         name: args.name,
+        programmeId: args.programmeId ?? null,
         updatedAt: now,
         whatsappGroupId: args.whatsappGroupId,
       });
@@ -308,6 +325,7 @@ export const teamMutators = {
       id: z.string(),
       name: z.string().min(1),
       now: z.number(),
+      programmeId: z.string().nullable().optional(),
       whatsappGroupId: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {
@@ -316,10 +334,17 @@ export const teamMutators = {
       if (!existing) {
         throw new Error("Team not found");
       }
+      if (args.programmeId !== undefined) {
+        await assertProgrammeSelectable(tx, args.programmeId ?? undefined);
+      }
       await tx.mutate.team.update({
         description: args.description,
         id: args.id,
         name: args.name,
+        programmeId:
+          args.programmeId === undefined
+            ? existing.programmeId
+            : args.programmeId,
         updatedAt: args.now,
         whatsappGroupId: args.whatsappGroupId,
       });

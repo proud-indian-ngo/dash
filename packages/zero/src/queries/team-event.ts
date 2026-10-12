@@ -64,6 +64,7 @@ export const teamEventQueries = {
     restrictToAccessibleEvents(
       withRelated(zql.teamEvent)
         .related("team")
+        .related("programme")
         // Event detail lists partners and prefills the edit form.
         .related("partners", (p) => p.orderBy("createdAt", "asc")),
       ctx

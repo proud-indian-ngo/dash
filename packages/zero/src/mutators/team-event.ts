@@ -1,9 +1,13 @@
-import { cityValues, reminderTargetValues } from "@pi-dash/shared/constants";
+import {
+  cityValues,
+  PROGRAMME_IDS,
+  reminderTargetValues,
+} from "@pi-dash/shared/constants";
 import {
   REMINDER_PRESET_MINUTES,
   RSVP_POLL_LEAD_PRESET_MINUTES,
 } from "@pi-dash/shared/event-reminders";
-import { defineMutator } from "@rocicorp/zero";
+import { defineMutator, type Transaction } from "@rocicorp/zero";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 
@@ -14,7 +18,7 @@ import {
   can,
 } from "../permissions";
 import type { TeamEvent, TeamEventMember } from "../schema";
-import { zql } from "../schema";
+import { type Schema, zql } from "../schema";
 import { assertEventNotManagedByKalakriti } from "./kalakriti-event-guard";
 import {
   buildUpdateFields,
@@ -154,6 +158,7 @@ export async function resolveJoinTarget(
     originalDate: args.occDate,
     postEventNudgesEnabled: event.postEventNudgesEnabled,
     postRsvpPoll: event.postRsvpPoll,
+    programmeId: event.programmeId,
     publicArea: event.publicArea,
     recurrenceRule: null,
     reminderIntervals: event.reminderIntervals,
@@ -272,6 +277,26 @@ const recurrenceRuleSchema = z
     rrule: z.string(),
   })
   .optional();
+
+/**
+ * The event's programme: the one asked for if it is active, else the team's
+ * programme, else the Unallocated holding programme.
+ */
+async function resolveProgrammeId(
+  tx: Transaction<Schema>,
+  requested: string | undefined,
+  teamId: string
+): Promise<string> {
+  if (requested) {
+    const programme = await tx.run(zql.programme.where("id", requested).one());
+    if (!programme || programme.active === false) {
+      throw new Error("Choose an active programme");
+    }
+    return requested;
+  }
+  const team = await tx.run(zql.team.where("id", teamId).one());
+  return team?.programmeId ?? PROGRAMME_IDS.unallocated;
+}
 
 export const teamEventMutators = {
   addMember: defineMutator(
@@ -658,6 +683,7 @@ export const teamEventMutators = {
       feedbackEnabled: z.boolean().optional(),
       id: z.string(),
       inheritVolunteers: z.boolean().optional(),
+      programmeId: z.string().optional(),
       isPublic: z.boolean().optional(),
       location: z.string().optional(),
       name: z.string().min(1),
@@ -715,6 +741,11 @@ export const teamEventMutators = {
         originalDate: null,
         postEventNudgesEnabled: args.postEventNudgesEnabled,
         postRsvpPoll: args.postRsvpPoll,
+        programmeId: await resolveProgrammeId(
+          tx,
+          args.programmeId,
+          args.teamId
+        ),
         publicArea: args.publicArea,
         recurrenceRule: args.recurrenceRule,
         reminderIntervals: args.reminderIntervals,
@@ -1101,6 +1132,7 @@ export const teamEventMutators = {
         name: series.name,
         originalDate: args.originalDate,
         postRsvpPoll: series.postRsvpPoll,
+        programmeId: series.programmeId,
         publicArea: series.publicArea,
         recurrenceRule: null,
         reminderIntervals: series.reminderIntervals,
@@ -1232,6 +1264,7 @@ export const teamEventMutators = {
       postEventNudgesEnabled: z.boolean().optional(),
       partners: eventPartnersSchema.optional(),
       postRsvpPoll: z.boolean().optional(),
+      programmeId: z.string().optional(),
       publicArea: z.string().max(80).optional(),
       reminderIntervals: reminderIntervalsSchema,
       reminderTarget: reminderTargetSchema,
@@ -1363,6 +1396,7 @@ export const teamEventMutators = {
       postEventNudgesEnabled: z.boolean().optional(),
       partners: eventPartnersSchema.optional(),
       postRsvpPoll: z.boolean().optional(),
+      programmeId: z.string().optional(),
       publicArea: z.string().max(80).optional(),
       recurrenceRule: recurrenceRuleSchema,
       reminderIntervals: reminderIntervalsSchema,

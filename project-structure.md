@@ -332,9 +332,9 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `advancePaymentLineItem` | `packages/db/src/schema/advance-payment.ts` |
 | `advancePaymentAttachment` | `packages/db/src/schema/advance-payment.ts` |
 | `advancePaymentHistory` | `packages/db/src/schema/advance-payment.ts` |
-| `team` | `packages/db/src/schema/team.ts` |
+| `team` | `packages/db/src/schema/team.ts` (optional `programmeId`: default programme for the team's events) |
 | `teamMember` | `packages/db/src/schema/team.ts` |
-| `teamEvent` | `packages/db/src/schema/team-event.ts` |
+| `teamEvent` | `packages/db/src/schema/team-event.ts` (`programmeId` required; defaults to the Unallocated holding programme, backfilled from the team in migration 0114) |
 | `teamEventMember` | `packages/db/src/schema/team-event.ts` |
 | `eventInterest` | `packages/db/src/schema/event-interest.ts` |
 | `eventPhoto` | `packages/db/src/schema/event-photo.ts` |

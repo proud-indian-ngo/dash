@@ -479,6 +479,9 @@ function EventHeader({
             {teamName}
           </button>
         ) : null,
+        event.programme ? (
+          <span key="programme">{event.programme.name}</span>
+        ) : null,
         formatEventWhen(event.startTime, event.endTime),
         event.location ? (
           <EventLocation key="location" location={event.location} />
