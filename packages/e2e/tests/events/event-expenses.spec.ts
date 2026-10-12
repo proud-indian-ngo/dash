@@ -1,28 +1,13 @@
 import type { Page } from "@playwright/test";
 
-import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { expect, test } from "../../fixtures/test";
+import { openPublicEvent } from "../../helpers/team-event";
 
 async function navigateToPublicEvent(page: Page, eventName: string) {
-  await page.goto("/events");
-  await expect(
-    page.getByRole("heading", { exact: true, name: "Events" })
-  ).toBeVisible({
-    timeout: 10_000,
-  });
-  await waitForZeroReady(page);
-
-  await page.getByPlaceholder("Search events...").fill(eventName);
-  await expect(page.getByRole("link", { name: eventName })).toBeVisible({
-    timeout: 10_000,
-  });
-  await page.getByRole("link", { name: eventName }).click();
-  await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
+  await openPublicEvent(page, eventName);
   await expect(
     page.getByRole("heading", { level: 1, name: eventName })
-  ).toBeVisible({
-    timeout: 10_000,
-  });
-  await waitForZeroReady(page);
+  ).toBeVisible({ timeout: 10_000 });
 }
 
 test.describe("Event expenses", () => {

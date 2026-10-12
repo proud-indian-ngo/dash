@@ -23,7 +23,7 @@ test.describe("Public events page", () => {
     });
   });
 
-  test("events page shows calendar layout", async ({ page }, testInfo) => {
+  test("events page shows the agenda toolbar", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await page.goto("/events");
@@ -33,11 +33,10 @@ test.describe("Public events page", () => {
       timeout: 10_000,
     });
 
-    // Calendar and search should be visible
+    await expect(page.getByRole("tab", { name: /^Upcoming/ })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /^Past/ })).toBeVisible();
     await expect(page.getByPlaceholder("Search events...")).toBeVisible();
-    // Filter buttons
-    const showFilter = page.getByText("Show").locator("..");
-    await expect(showFilter.getByRole("button", { name: "All" })).toBeVisible();
+    await expect(page.getByRole("combobox", { name: "Show" })).toBeVisible();
   });
 
   test("sidebar has Events nav item", async ({ page }, testInfo) => {

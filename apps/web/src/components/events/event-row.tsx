@@ -1,29 +1,24 @@
+import { UserGroupIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@pi-dash/design-system/components/ui/card";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { cn } from "@pi-dash/design-system/lib/utils";
 import { mutators } from "@pi-dash/zero/mutators";
 import type { EventInterest } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { format } from "date-fns";
 import type { MouseEvent } from "react";
 import { uuidv7 } from "uuidv7";
 
 import type { PublicDisplayRow } from "@/components/events/public-events-table";
-import { StatusBadge, Tag } from "@/components/shared/status-badge";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
 import { DAY_MONTH, TIME } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
 
-interface EventCardProps {
-  featured?: boolean;
+interface EventRowProps {
+  /** Shows the date beside the time (the Kalakriti highlight has no date heading). */
+  showDate?: boolean;
   myInterests: readonly EventInterest[];
   myTeamIds: ReadonlySet<string>;
   row: PublicDisplayRow;
@@ -77,15 +72,19 @@ function deriveCardActionState(opts: {
   return { kind: "none" };
 }
 
-export function EventCard({
-  featured = false,
+/**
+ * One event on the agenda: time, name, team and place, volunteers, and what
+ * the viewer can do (join, show interest) or has done. The whole row opens
+ * the event; the name is the link for keyboard and screen-reader users.
+ */
+export function EventRow({
   myInterests,
   myTeamIds,
   row,
+  showDate = false,
   userId,
-}: EventCardProps) {
+}: EventRowProps) {
   const zero = useZero();
-  const navigate = useNavigate();
   const { hasPermission } = useApp();
   const now = Date.now();
   const hasStarted = row.startTime <= now;
@@ -161,14 +160,6 @@ export function EventCard({
     }
   );
 
-  const handleCardClick = useEventCallback(() => {
-    navigate({
-      params: { id: row.eventId },
-      search: row.occDate ? { occDate: row.occDate } : {},
-      to: "/events/$id",
-    });
-  });
-
   const renderAction = () => {
     const action = deriveCardActionState({
       canManageInterest,
@@ -183,7 +174,7 @@ export function EventCard({
         return <StatusBadge tone="success">Joined</StatusBadge>;
       case "interestPending":
         return action.started ? (
-          <StatusBadge tone="warning">Interest Pending</StatusBadge>
+          <StatusBadge tone="warning">Interest pending</StatusBadge>
         ) : (
           <CancelInterestButton
             interestId={action.interestId}
@@ -191,18 +182,18 @@ export function EventCard({
           />
         );
       case "interestApproved":
-        return <StatusBadge tone="success">Interest Approved</StatusBadge>;
+        return <StatusBadge tone="success">Interest approved</StatusBadge>;
       case "interestDeclined":
-        return <StatusBadge tone="danger">Interest Declined</StatusBadge>;
+        return <StatusBadge tone="danger">Interest declined</StatusBadge>;
       case "join":
         return (
-          <Button onClick={handleJoinAsMember} size="sm">
+          <Button onClick={handleJoinAsMember} size="sm" variant="outline">
             Join
           </Button>
         );
       case "showInterest":
         return (
-          <Button onClick={handleShowInterest} size="sm">
+          <Button onClick={handleShowInterest} size="sm" variant="outline">
             Show interest
           </Button>
         );
@@ -211,57 +202,52 @@ export function EventCard({
     }
   };
 
+  const meta = [row.team?.name, row.location].filter(Boolean).join(" · ");
+
   return (
-    <Card
-      className={cn(
-        "hover:bg-muted/50 cursor-pointer transition-colors",
-        featured && "border-primary/30 bg-primary/5 hover:bg-primary/10",
-        hasStarted && !isMember && "opacity-60"
-      )}
-      onClick={handleCardClick}
-      size="sm"
-    >
-      <div className="flex">
-        <div className="flex w-20 shrink-0 flex-col items-center justify-center border-r px-2 py-2 text-center">
-          <span className="text-muted-foreground text-xs font-medium uppercase">
-            {format(row.startTime, "EEE")}
-          </span>
-          <span className="text-sm font-semibold uppercase">
+    <li className="hover:bg-muted/50 relative flex min-h-11 items-center gap-3 px-3 py-1.5 transition-colors">
+      <span className="text-muted-foreground w-16 shrink-0 text-xs tabular-nums">
+        {showDate ? (
+          <span className="text-foreground block">
             {format(row.startTime, DAY_MONTH)}
           </span>
-          <span className="text-muted-foreground text-xs">
-            {format(row.startTime, TIME)}
+        ) : null}
+        {format(row.startTime, TIME)}
+      </span>
+      <div className="min-w-0 flex-1 sm:flex sm:items-baseline sm:gap-3">
+        <Link
+          className="block truncate text-sm font-medium after:absolute after:inset-0 hover:underline sm:shrink-0"
+          params={{ id: row.eventId }}
+          search={row.occDate ? { occDate: row.occDate } : {}}
+          to="/events/$id"
+        >
+          {row.name}
+        </Link>
+        {meta ? (
+          <span className="text-muted-foreground block truncate text-xs sm:text-sm">
+            {meta}
           </span>
-        </div>
-        <CardHeader className="min-w-0 flex-1">
-          <CardTitle>
-            <Link
-              className="hover:underline"
-              onClick={handleCardClick}
-              params={{ id: row.eventId }}
-              search={row.occDate ? { occDate: row.occDate } : {}}
-              to="/events/$id"
-            >
-              {row.name}
-            </Link>
-          </CardTitle>
-          <CardDescription className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            {featured ? <Tag>Kalakriti</Tag> : null}
-            {row.team ? <span>{row.team.name}</span> : null}
-            {Boolean(row.location) && (
-              <span className="max-w-48 truncate">{row.location}</span>
-            )}
-            {Boolean(canSeeVolunteers) && (
-              <Tag className="ml-0.5 tabular-nums">
-                {row.members.length}{" "}
-                {row.members.length === 1 ? "volunteer" : "volunteers"}
-              </Tag>
-            )}
-          </CardDescription>
-          <CardAction>{renderAction()}</CardAction>
-        </CardHeader>
+        ) : null}
       </div>
-    </Card>
+      {canSeeVolunteers ? (
+        <span
+          className="text-muted-foreground hidden shrink-0 items-center gap-1 text-xs tabular-nums sm:flex"
+          title={`${row.members.length} ${row.members.length === 1 ? "volunteer" : "volunteers"}`}
+        >
+          <HugeiconsIcon
+            aria-hidden="true"
+            className="size-3.5"
+            icon={UserGroupIcon}
+            strokeWidth={2}
+          />
+          <span className="sr-only">Volunteers:</span>
+          {row.members.length}
+        </span>
+      ) : null}
+      <div className="relative z-10 flex shrink-0 justify-end empty:hidden">
+        {renderAction()}
+      </div>
+    </li>
   );
 }
 
@@ -278,7 +264,7 @@ function CancelInterestButton({
 
   return (
     <Button onClick={handleClick} size="sm" variant="outline">
-      Cancel Interest
+      Cancel interest
     </Button>
   );
 }

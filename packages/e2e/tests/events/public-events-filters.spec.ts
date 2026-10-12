@@ -1,6 +1,21 @@
+import type { Page } from "@playwright/test";
+
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 
-test.describe("Public events list business logic", () => {
+const UPCOMING_PUBLIC = "E2E Upcoming Public Bangalore";
+const UPCOMING_PRIVATE = "E2E Upcoming Private Mumbai";
+const PAST_PUBLIC = "E2E Past Public Mumbai";
+
+function eventLink(page: Page, name: string) {
+  return page.getByRole("link", { exact: true, name });
+}
+
+async function pick(page: Page, select: string, option: string) {
+  await page.getByRole("combobox", { name: select }).click();
+  await page.getByRole("option", { exact: true, name: option }).click();
+}
+
+test.describe("Events agenda", () => {
   test.beforeEach(async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
@@ -11,256 +26,92 @@ test.describe("Public events list business logic", () => {
     await waitForZeroReady(page);
   });
 
-  test("shows events by default with All filter active", async ({ page }) => {
-    // "All" button in Show section should be active (default variant)
-    const showSection = page.getByText("Show", { exact: true }).locator("..");
-    await expect(
-      showSection.getByRole("button", { name: "All" })
-    ).toBeVisible();
-
-    // Events should be visible
-    await expect(page.getByPlaceholder("Search events...")).toBeVisible();
-  });
-
-  test("My Teams filter shows only events from user's teams", async ({
+  test("opens on Upcoming, and Past lists what has happened", async ({
     page,
   }) => {
-    // Count cards before filter
-    const allCards = page.locator("main a[href*='/events/']");
-    const allCount = await allCards.count();
-    if (allCount === 0) {
-      test.skip(true, "No events available");
-      return;
-    }
+    await expect(page.getByRole("tab", { name: /^Upcoming/ })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+    await expect(eventLink(page, UPCOMING_PUBLIC)).toBeVisible();
+    await expect(eventLink(page, PAST_PUBLIC)).toBeHidden();
 
-    // Click "My Teams" filter
-    await page.getByRole("button", { name: "My Teams" }).first().click();
-    await page.waitForTimeout(500);
-
-    // Should show fewer or equal events
-    const filteredCount = await allCards.count();
-    expect(filteredCount).toBeLessThanOrEqual(allCount);
+    await page.getByRole("tab", { name: /^Past/ }).click();
+    await expect(page).toHaveURL(/when=past/);
+    await expect(eventLink(page, PAST_PUBLIC)).toBeVisible();
+    await expect(eventLink(page, UPCOMING_PUBLIC)).toBeHidden();
   });
 
-  test("Public filter shows only public events", async ({ page }) => {
-    await page.getByRole("button", { name: "Public" }).first().click();
-    await page.waitForTimeout(500);
+  test("Show narrows to public events and back", async ({ page }) => {
+    await expect(eventLink(page, UPCOMING_PUBLIC)).toBeVisible();
+    await expect(eventLink(page, UPCOMING_PRIVATE)).toBeVisible();
 
-    // Events should be visible (we have seeded public events)
-    const cards = page.locator("main a[href*='/events/']");
-    expect(await cards.count()).toBeGreaterThan(0);
+    await pick(page, "Show", "Public");
+    await expect(page).toHaveURL(/show=public/);
+    await expect(eventLink(page, UPCOMING_PUBLIC)).toBeVisible();
+    await expect(eventLink(page, UPCOMING_PRIVATE)).toBeHidden();
+
+    await pick(page, "Show", "All events");
+    await expect(eventLink(page, UPCOMING_PRIVATE)).toBeVisible();
   });
 
-  test("switching back to All restores full list", async ({ page }) => {
-    const publicEvent = page.getByRole("link", {
-      name: "E2E Upcoming Public Bangalore",
-      exact: true,
-    });
-    const privateEvent = page.getByRole("link", {
-      name: "E2E Upcoming Private Mumbai",
-      exact: true,
-    });
-    await expect(publicEvent).toBeVisible();
-    await expect(privateEvent).toBeVisible();
+  test("My teams keeps the list to the viewer's teams", async ({ page }) => {
+    const links = page.locator("main a[href*='/events/']");
+    const allCount = await links.count();
 
-    await page.getByRole("button", { name: "Public" }).first().click();
-    await expect(publicEvent).toBeVisible();
-    await expect(privateEvent).toBeHidden();
+    await pick(page, "Show", "My teams");
+    await expect(page).toHaveURL(/show=my-teams/);
+    expect(await links.count()).toBeLessThanOrEqual(allCount);
 
-    const showSection = page.getByText("Show", { exact: true }).locator("..");
-    await showSection.getByRole("button", { name: "All" }).click();
-    await expect(publicEvent).toBeVisible();
-    await expect(privateEvent).toBeVisible();
-  });
-
-  test("This Month shows only events within current month", async ({
-    page,
-  }) => {
-    await page.getByRole("button", { name: "This Month" }).first().click();
-    await page.waitForTimeout(500);
-
-    // Page should still be functional
-    await expect(page.getByPlaceholder("Search events...")).toBeVisible();
-    // URL should have time=this-month
-    expect(page.url()).toContain("time=this-month");
-  });
-
-  test("This Week shows only events within current week", async ({ page }) => {
-    await page.getByRole("button", { name: "This Week" }).first().click();
-    await page.waitForTimeout(500);
-
-    await expect(page.getByPlaceholder("Search events...")).toBeVisible();
-    expect(page.url()).toContain("time=this-week");
-  });
-
-  test("city filter visible when events span multiple cities", async ({
-    page,
-  }) => {
-    // We seeded events in both bangalore and mumbai
-    const cityLabel = page.getByText("City", { exact: true });
-    if ((await cityLabel.count()) === 0) {
-      test.skip(
-        true,
-        "City filter not visible — may need events in multiple cities"
-      );
-      return;
-    }
-
-    await expect(cityLabel.first()).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Bangalore" }).first()
-    ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Mumbai" }).first()
-    ).toBeVisible();
-  });
-
-  test("selecting Bangalore city shows only Bangalore events", async ({
-    page,
-  }) => {
-    const bangaloreButton = page
-      .getByRole("button", { name: "Bangalore" })
-      .first();
-    if (!(await bangaloreButton.isVisible().catch(() => false))) {
-      test.skip(true, "City filter not visible");
-      return;
-    }
-
-    await bangaloreButton.click();
-    await page.waitForTimeout(500);
-
-    expect(page.url()).toContain("city=bangalore");
-
-    // Mumbai event cards should not be visible (ignore sidebar filter buttons)
-    await expect(
-      page.locator("main a[href*='/events/']").getByText("Mumbai")
-    ).toHaveCount(0);
-  });
-
-  test("selecting Mumbai city shows only Mumbai events", async ({ page }) => {
-    const mumbaiButton = page.getByRole("button", { name: "Mumbai" }).first();
-    if (!(await mumbaiButton.isVisible().catch(() => false))) {
-      test.skip(true, "City filter not visible");
-      return;
-    }
-
-    await mumbaiButton.click();
-    await page.waitForTimeout(500);
-
-    expect(page.url()).toContain("city=mumbai");
-  });
-
-  test("search by event name filters cards", async ({ page }) => {
-    const searchInput = page.getByPlaceholder("Search events...");
-    await searchInput.fill("E2E Upcoming Public Bangalore");
-    await page.waitForTimeout(500);
-
-    const main = page.locator("main");
-    await expect(main.getByText("E2E Upcoming Public Bangalore")).toBeVisible();
-  });
-
-  test("search by location filters cards", async ({ page }) => {
-    const searchInput = page.getByPlaceholder("Search events...");
-    await searchInput.fill("MG Road");
-    await page.waitForTimeout(500);
-
-    const main = page.locator("main");
-    await expect(main.getByText("E2E Upcoming Public Bangalore")).toBeVisible();
-  });
-
-  test("clearing search restores filtered view", async ({ page }) => {
-    const searchInput = page.getByPlaceholder("Search events...");
-
-    // Search for something specific
-    await searchInput.fill("E2E Upcoming Public Bangalore");
-    await page.waitForTimeout(300);
-
-    // Clear search
-    await searchInput.clear();
-    await page.waitForTimeout(500);
-
-    // Multiple events should be visible again
-    const cards = page.locator("main a[href*='/events/']");
-    expect(await cards.count()).toBeGreaterThan(1);
-  });
-
-  test("Past Events heading appears when past events exist", async ({
-    page,
-  }) => {
-    // We seeded past events, so "Past Events" heading should appear
-    await expect(page.getByText("Past Events")).toBeVisible();
-  });
-
-  test("upcoming events appear before Past Events heading", async ({
-    page,
-  }) => {
-    const main = page.locator("main");
-    const pastHeading = main.getByText("Past Events");
-    if ((await pastHeading.count()) === 0) {
-      test.skip(true, "No past events heading");
-      return;
-    }
-
-    // Get bounding boxes to verify spatial ordering
-    const pastBox = await pastHeading.boundingBox();
-    expect(pastBox).not.toBeNull();
-
-    // Find an upcoming event card
-    const upcomingCard = main.getByText("E2E Upcoming Public Bangalore");
-    if ((await upcomingCard.count()) > 0) {
-      const upcomingBox = await upcomingCard.boundingBox();
-      expect(upcomingBox).not.toBeNull();
-      // Upcoming should be above past
-      expect(upcomingBox!.y).toBeLessThan(pastBox!.y);
-    }
-  });
-
-  test("Show + City filter intersection works", async ({ page }) => {
-    // Apply "Public" filter
-    await page.getByRole("button", { name: "Public" }).first().click();
-    await page.waitForTimeout(300);
-
-    // Apply city filter if visible
-    const bangaloreButton = page
-      .getByRole("button", { name: "Bangalore" })
-      .first();
-    if (!(await bangaloreButton.isVisible().catch(() => false))) {
-      test.skip(true, "City filter not visible");
-      return;
-    }
-    await bangaloreButton.click();
-    await page.waitForTimeout(500);
-
-    // URL should have both params
-    expect(page.url()).toContain("show=public");
-    expect(page.url()).toContain("city=bangalore");
-  });
-
-  test("filters persist in URL query params", async ({ page }) => {
-    await page.getByRole("button", { name: "My Teams" }).first().click();
-    await page.waitForTimeout(300);
-
-    expect(page.url()).toContain("show=my-teams");
-
-    // Reload page
     await page.reload();
-    await expect(
-      page.getByRole("heading", { exact: true, name: "Events" })
-    ).toBeVisible({ timeout: 10_000 });
-
-    // Filter should still be applied
-    expect(page.url()).toContain("show=my-teams");
+    await expect(page.getByRole("combobox", { name: "Show" })).toHaveText(
+      /My teams/
+    );
   });
 
-  test("loading page with query params applies filters", async ({ page }) => {
-    await page.goto("/events?show=public&city=bangalore");
-    await expect(
-      page.getByRole("heading", { exact: true, name: "Events" })
-    ).toBeVisible({ timeout: 10_000 });
+  test("City narrows to one city", async ({ page }) => {
+    await pick(page, "City", "Bangalore");
+    await expect(page).toHaveURL(/city=bangalore/);
+    await expect(eventLink(page, UPCOMING_PUBLIC)).toBeVisible();
+    await expect(eventLink(page, UPCOMING_PRIVATE)).toBeHidden();
+  });
+
+  test("search matches name and location", async ({ page }) => {
+    const search = page.getByPlaceholder("Search events...");
+    await search.fill("MG Road");
+    await expect(eventLink(page, UPCOMING_PUBLIC)).toBeVisible();
+    await expect(eventLink(page, UPCOMING_PRIVATE)).toBeHidden();
+
+    await search.clear();
+    await expect(eventLink(page, UPCOMING_PRIVATE)).toBeVisible();
+  });
+
+  test("a start date moves Upcoming and can be cleared", async ({ page }) => {
+    const tomorrowPlusWeek = new Date(Date.now() + 8 * 86_400_000);
+    const iso = tomorrowPlusWeek.toISOString().slice(0, 10);
+    await page.goto(`/events?from=${iso}`);
     await waitForZeroReady(page);
 
-    // Verify URL params preserved
-    expect(page.url()).toContain("show=public");
-    expect(page.url()).toContain("city=bangalore");
+    // Both seeded upcoming events start within the next week, so they now
+    // count as past relative to the chosen date.
+    await expect(eventLink(page, UPCOMING_PUBLIC)).toBeHidden();
+    const clear = page.getByRole("button", { name: /Clear date/ });
+    await expect(clear).toBeVisible();
+
+    await clear.click();
+    await expect(page).not.toHaveURL(/from=/);
+    await expect(eventLink(page, UPCOMING_PUBLIC)).toBeVisible();
+  });
+
+  test("query params apply on load", async ({ page }) => {
+    await page.goto("/events?show=public&city=bangalore");
+    await waitForZeroReady(page);
+    await expect(page.getByRole("combobox", { name: "Show" })).toHaveText(
+      /Public/
+    );
+    await expect(page.getByRole("combobox", { name: "City" })).toHaveText(
+      /Bangalore/
+    );
+    await expect(eventLink(page, UPCOMING_PUBLIC)).toBeVisible();
   });
 });

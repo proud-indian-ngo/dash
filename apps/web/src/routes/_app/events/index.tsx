@@ -3,7 +3,7 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { EventsCalendarView } from "@/components/events/events-calendar-view";
+import { EventsAgenda } from "@/components/events/events-agenda";
 import type { PublicEventRow } from "@/components/events/public-events-table";
 import { PageHeader } from "@/components/shared/page-header";
 import { TipStrip } from "@/components/shared/tip-strip";
@@ -51,7 +51,7 @@ function PublicEventsRouteComponent() {
         Show interest in an event, and the team will confirm your spot.
       </TipStrip>
       <div className="mt-4">
-        <EventsCalendarView
+        <EventsAgenda
           data={data as PublicEventRow[]}
           isLoading={isLoading}
           myInterests={myInterests}

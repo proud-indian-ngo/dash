@@ -57,9 +57,8 @@ export async function openSeededTeamEvent(
 }
 
 /**
- * Opens a public event from the /events cards by its name. The page lists the
- * selected month (plus a week either side), so step forward when a seeded
- * event falls in next month.
+ * Opens a public event from the /events agenda by its name. Upcoming lists
+ * the next 90 days; a past event is under the Past tab.
  */
 export async function openPublicEvent(page: Page, eventName: string) {
   await page.goto(`/events?s=${encodeURIComponent(eventName)}`);
@@ -68,14 +67,8 @@ export async function openPublicEvent(page: Page, eventName: string) {
   ).toBeVisible({ timeout: 10_000 });
   await waitForZeroReady(page);
   const link = page.getByRole("link", { exact: true, name: eventName }).first();
-  for (let month = 0; month < 2; month++) {
-    if (await link.isVisible({ timeout: 3000 }).catch(() => false)) {
-      break;
-    }
-    await page
-      .getByRole("button", { name: /next month/i })
-      .first()
-      .click();
+  if (!(await link.isVisible({ timeout: 3000 }).catch(() => false))) {
+    await page.getByRole("tab", { name: /^Past/ }).click();
   }
   await link.click();
   await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
