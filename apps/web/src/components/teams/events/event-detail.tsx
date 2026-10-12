@@ -22,6 +22,7 @@ import {
 } from "@pi-dash/design-system/components/ui/tabs";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { cn } from "@pi-dash/design-system/lib/utils";
 import { env } from "@pi-dash/env/web";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
@@ -30,7 +31,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { log } from "evlog";
 import { parseAsStringLiteral, useQueryState } from "nuqs";
-import { useCallback, useRef, useState } from "react";
+import { type ReactNode, useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 
@@ -62,7 +63,12 @@ import { handleMutationResult } from "@/lib/mutation-result";
 import { AddEventMemberDialog } from "./add-event-member-dialog";
 import type { EditScope } from "./edit-scope-dialog";
 import { EditScopeDialog } from "./edit-scope-dialog";
-import { EventDetailsCard } from "./event-details-card";
+import {
+  EventDetailsCard,
+  EventLocation,
+  formatEventWhen,
+  hasEventDetails,
+} from "./event-details-card";
 import { EventExpenses } from "./event-expenses";
 import { EventFeedbackSection } from "./event-feedback";
 import { EventFormDialog } from "./event-form-dialog";
@@ -70,9 +76,9 @@ import {
   PastInterestBadge,
   VolunteerInterestSection,
 } from "./event-interest-section";
+import { shouldRenderInterestRequests } from "./event-interest-visibility";
 import { EventMembersSection } from "./event-members-section";
 import { EventPhotos } from "./event-photos";
-import { EventQuickStats } from "./event-quick-stats";
 import { deriveSocialRecapMode } from "./event-social-fields";
 import { EventSocialRecap } from "./event-social-recap";
 import { EventUpdates } from "./event-updates";
@@ -92,7 +98,7 @@ const RSVP_POLL_ERROR_MESSAGES = {
   unauthorized: "You are not signed in",
 } satisfies Record<Exclude<PostEventRsvpPollErrorCode, "unknown">, string>;
 
-import type { InterestWithUser } from "./interest-requests";
+import { InterestRequests, type InterestWithUser } from "./interest-requests";
 import { ShowInterestDialog } from "./show-interest-dialog";
 
 const TRAILING_SLASH = /\/$/;
@@ -151,14 +157,10 @@ function deriveImmichUrl(
   return `${immichUrl.replace(TRAILING_SLASH, "")}/albums/${albumId}`;
 }
 
-function getPostEventContentMessage(
-  isPastEvent: boolean,
-  startTime: number | Date
-) {
-  const lead = isPastEvent
-    ? "This event took place on"
-    : "This event is scheduled for";
-  return `${lead} ${format(new Date(startTime), DATE_TIME)}. Post-event updates, photos, and feedback will appear here soon.`;
+function getPostEventContentMessage(isPastEvent: boolean) {
+  return isPastEvent
+    ? "Updates, photos and feedback for this date will appear here soon."
+    : "Updates, photos and feedback open after the event.";
 }
 
 function InterestSection(props: {
@@ -167,7 +169,6 @@ function InterestSection(props: {
   dialog: ReturnType<typeof useDialogManager<EventDialog>>;
   event: EventRow;
   hasStarted: boolean;
-  interests?: readonly InterestWithUser[];
   isMember?: boolean;
   isTeamMember: boolean;
   myInterest?: InterestWithUser | null;
@@ -189,7 +190,6 @@ function InterestSection(props: {
     <VolunteerInterestSection
       canManage={props.canManage}
       canManageInterest={props.canManageInterest}
-      interests={props.interests}
       isMember={props.isMember}
       isPublic={!!props.event.isPublic}
       isTeamMember={props.isTeamMember}
@@ -377,7 +377,7 @@ const STATUS_CONFIG: Record<
 > = {
   cancelled: { label: "Cancelled", tone: "neutral" },
   completed: { label: "Completed", tone: "success" },
-  "in-progress": { label: "In Progress", tone: "info" },
+  "in-progress": { label: "In progress", tone: "info" },
   upcoming: { label: "Upcoming", tone: "info" },
 };
 
@@ -402,6 +402,7 @@ function EventHeader({
   canEdit,
   canPostPoll,
   event,
+  interestActions,
   onCancel,
   onDuplicate,
   onEdit,
@@ -414,6 +415,8 @@ function EventHeader({
   canEdit: boolean;
   canPostPoll: boolean;
   event: EventRow;
+  /** Join, Show interest or Leave, and the viewer's interest status. */
+  interestActions: ReactNode;
   onCancel: () => void;
   onDuplicate: () => void;
   onEdit: () => void;
@@ -431,6 +434,7 @@ function EventHeader({
     <PageHeader
       actions={
         <>
+          {interestActions}
           {canEdit ? (
             <Button onClick={onEdit} type="button" variant="outline">
               <HugeiconsIcon className="size-4" icon={Edit02Icon} />
@@ -475,16 +479,30 @@ function EventHeader({
             {teamName}
           </button>
         ) : null,
-        format(new Date(event.startTime), DATE_TIME),
+        formatEventWhen(event.startTime, event.endTime),
+        event.location ? (
+          <EventLocation key="location" location={event.location} />
+        ) : null,
+        <span key="privacy">{event.isPublic ? "Public" : "Private"}</span>,
       ]}
       title={event.name}
     />
   );
 }
 
+const EVENT_TABS = [
+  "volunteers",
+  "updates",
+  "photos",
+  "feedback",
+  "expenses",
+] as const;
+type EventTab = (typeof EVENT_TABS)[number];
+
 interface EventTabsProps {
   approvedPhotos: Parameters<typeof EventPhotos>[0]["approvedPhotos"];
   approvedUpdates: Parameters<typeof EventUpdates>[0]["approvedUpdates"];
+  canAccessPostEventContent: boolean;
   canApproveUpdates: boolean;
   canManage: boolean;
   canManageFeedback: boolean;
@@ -497,95 +515,143 @@ interface EventTabsProps {
   isMember: boolean;
   isPastEvent: boolean;
   memberCount: number;
+  /** The Volunteers tab body; null hides the tab. */
+  members: ReactNode;
   occDate?: string;
   pendingPhotos: Parameters<typeof EventPhotos>[0]["pendingPhotos"];
   pendingUpdates: Parameters<typeof EventUpdates>[0]["pendingUpdates"];
+  showExpenses: boolean;
 }
 
-function EventTabs({
-  approvedPhotos,
-  approvedUpdates,
-  canApproveUpdates,
-  canManage,
-  canManageFeedback,
-  canManagePhotos,
-  canUploadUpdateImages,
+function availableTabs({
+  canAccessPostEventContent,
   event,
-  feedback,
-  feedbackDeadlinePassed,
-  immichAlbumUrl,
-  isMember,
   isPastEvent,
-  memberCount,
-  occDate,
-  pendingPhotos,
-  pendingUpdates,
-}: EventTabsProps) {
-  const [tab, setTab] = useQueryState(
-    "tab",
-    parseAsStringLiteral([
-      "updates",
-      "photos",
-      "feedback",
-      "expenses",
-    ]).withDefault("updates")
-  );
-  const stableOnValueChange2 = useEventCallback((v: string | null) =>
-    setTab(v as "updates" | "photos" | "feedback" | "expenses")
+  members,
+  showExpenses,
+}: EventTabsProps): EventTab[] {
+  return EVENT_TABS.filter((tab) => {
+    switch (tab) {
+      case "volunteers":
+        return members !== null;
+      case "updates":
+      case "photos":
+        return canAccessPostEventContent;
+      case "feedback":
+        return (
+          canAccessPostEventContent && !!event.feedbackEnabled && isPastEvent
+        );
+      default:
+        return showExpenses;
+    }
+  });
+}
+
+/**
+ * Volunteers first, then what the event produced. Before the event (or for a
+ * series date nobody has opened yet) only Volunteers and any early expenses
+ * show; updates, photos and feedback open once it has happened.
+ */
+function EventTabs(props: EventTabsProps) {
+  const {
+    approvedPhotos,
+    approvedUpdates,
+    canApproveUpdates,
+    canManageFeedback,
+    canManagePhotos,
+    canUploadUpdateImages,
+    event,
+    feedback,
+    feedbackDeadlinePassed,
+    immichAlbumUrl,
+    isMember,
+    memberCount,
+    members,
+    occDate,
+    pendingPhotos,
+    pendingUpdates,
+  } = props;
+  const [tab, setTab] = useQueryState("tab", parseAsStringLiteral(EVENT_TABS));
+  const tabs = availableTabs(props);
+  const activeTab = tab && tabs.includes(tab) ? tab : tabs[0];
+  const handleTabChange = useEventCallback((value: string | null) =>
+    setTab(value === tabs[0] ? null : (value as EventTab))
   );
 
+  if (!activeTab) {
+    return null;
+  }
+
   return (
-    <Tabs onValueChange={stableOnValueChange2} value={tab}>
-      <TabsList>
-        <TabsTrigger value="updates">
-          Updates
-          {approvedUpdates.length > 0 ? ` (${approvedUpdates.length})` : ""}
-          {canApproveUpdates && pendingUpdates.length > 0 ? (
-            <Tag className="font-mono tabular-nums">
-              {pendingUpdates.length}
-            </Tag>
-          ) : null}
-        </TabsTrigger>
-        <TabsTrigger value="photos">
-          Photos &amp; Videos
-          {approvedPhotos.length > 0 ? ` (${approvedPhotos.length})` : ""}
-          {canManagePhotos && pendingPhotos.length > 0 ? (
-            <Tag className="font-mono tabular-nums">{pendingPhotos.length}</Tag>
-          ) : null}
-        </TabsTrigger>
-        {event.feedbackEnabled && isPastEvent ? (
+    <Tabs onValueChange={handleTabChange} value={activeTab}>
+      <TabsList className="max-w-full [scrollbar-width:none] justify-start overflow-x-auto">
+        {tabs.includes("volunteers") ? (
+          <TabsTrigger value="volunteers">
+            Volunteers ({memberCount})
+          </TabsTrigger>
+        ) : null}
+        {tabs.includes("updates") ? (
+          <TabsTrigger value="updates">
+            Updates
+            {approvedUpdates.length > 0 ? ` (${approvedUpdates.length})` : ""}
+            {canApproveUpdates && pendingUpdates.length > 0 ? (
+              <Tag className="font-mono tabular-nums">
+                {pendingUpdates.length}
+              </Tag>
+            ) : null}
+          </TabsTrigger>
+        ) : null}
+        {tabs.includes("photos") ? (
+          <TabsTrigger value="photos">
+            Photos &amp; Videos
+            {approvedPhotos.length > 0 ? ` (${approvedPhotos.length})` : ""}
+            {canManagePhotos && pendingPhotos.length > 0 ? (
+              <Tag className="font-mono tabular-nums">
+                {pendingPhotos.length}
+              </Tag>
+            ) : null}
+          </TabsTrigger>
+        ) : null}
+        {tabs.includes("feedback") ? (
           <TabsTrigger value="feedback">
             Feedback
             {feedback.length > 0 ? ` (${feedback.length})` : ""}
           </TabsTrigger>
         ) : null}
-        {canManage ? (
+        {tabs.includes("expenses") ? (
           <TabsTrigger value="expenses">Expenses</TabsTrigger>
         ) : null}
       </TabsList>
-      <TabsContent value="updates">
-        <EventUpdates
-          approvedUpdates={approvedUpdates}
-          canApproveUpdates={canApproveUpdates}
-          canManage={canManage}
-          canUploadImages={canUploadUpdateImages}
-          eventId={event.id}
-          isMember={isMember}
-          pendingUpdates={pendingUpdates}
-        />
-      </TabsContent>
-      <TabsContent value="photos">
-        <EventPhotos
-          approvedPhotos={approvedPhotos}
-          canManage={canManagePhotos}
-          eventId={event.id}
-          immichAlbumUrl={immichAlbumUrl}
-          isMember={isMember}
-          occDate={occDate}
-          pendingPhotos={pendingPhotos}
-        />
-      </TabsContent>
-      {event.feedbackEnabled && isPastEvent ? (
+      {tabs.includes("volunteers") ? (
+        <TabsContent value="volunteers">{members}</TabsContent>
+      ) : null}
+      {tabs.includes("updates") ? (
+        <TabsContent value="updates">
+          <EventUpdates
+            approvedUpdates={approvedUpdates}
+            canApproveUpdates={canApproveUpdates}
+            canManage={props.canManage}
+            canUploadImages={canUploadUpdateImages}
+            eventId={event.id}
+            isMember={isMember}
+            pendingUpdates={pendingUpdates}
+          />
+        </TabsContent>
+      ) : null}
+      {tabs.includes("photos") ? (
+        <TabsContent value="photos">
+          <EventPhotos
+            approvedPhotos={approvedPhotos}
+            canManage={canManagePhotos}
+            eventId={event.id}
+            immichAlbumUrl={immichAlbumUrl}
+            isMember={isMember}
+            occDate={occDate}
+            pendingPhotos={pendingPhotos}
+          />
+        </TabsContent>
+      ) : null}
+      {tabs.includes("feedback") ? (
         <TabsContent value="feedback">
           <EventFeedbackSection
             canManageFeedback={canManageFeedback}
@@ -597,45 +663,12 @@ function EventTabs({
           />
         </TabsContent>
       ) : null}
-      {canManage ? (
+      {tabs.includes("expenses") ? (
         <TabsContent value="expenses">
           <EventExpenses eventId={event.id} />
         </TabsContent>
       ) : null}
     </Tabs>
-  );
-}
-
-function EventPostEventPanel({
-  canAccessPostEventContent,
-  message,
-  showUpcomingExpenses,
-  ...eventTabsProps
-}: EventTabsProps & {
-  canAccessPostEventContent: boolean;
-  message: string;
-  showUpcomingExpenses: boolean;
-}) {
-  if (canAccessPostEventContent) {
-    return <EventTabs {...eventTabsProps} />;
-  }
-
-  if (showUpcomingExpenses) {
-    return (
-      <div className="flex flex-col gap-6">
-        <p className="text-muted-foreground py-8 text-center text-sm">
-          {message}
-        </p>
-        <div className="flex flex-col gap-3">
-          <h2 className="text-sm font-medium">Expenses</h2>
-          <EventExpenses eventId={eventTabsProps.event.id} />
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <p className="text-muted-foreground py-12 text-center text-sm">{message}</p>
   );
 }
 
@@ -721,7 +754,7 @@ function deriveSocialFacts(event: EventRow, parentEvent: EventRow | undefined) {
 
 function SocialRecapStart({ onStart }: { onStart: () => void }) {
   return (
-    <Card aria-label="Social recap" className="mb-6" role="region" size="sm">
+    <Card aria-label="Social recap" role="region" size="sm">
       <CardHeader>
         <CardTitle>Social recap</CardTitle>
         <CardDescription>
@@ -1167,6 +1200,20 @@ export function EventDetail({
     }
   });
 
+  const showInterestRequests =
+    !hasStarted && shouldRenderInterestRequests(canManageInterest, interests);
+  const showVolunteers =
+    canManageVolunteers || event.members.length > 0 || showInterestRequests;
+  const detailsProps = {
+    approvedCount: socialFacts.approvedCount,
+    canManage,
+    event,
+    partners: socialFacts.partners,
+    totalExpenses,
+    volunteersNeeded: socialFacts.volunteersNeeded,
+  };
+  const showDetails = hasEventDetails(detailsProps);
+
   return (
     <AppErrorBoundary level="section">
       <div className="flex flex-col gap-6">
@@ -1176,6 +1223,20 @@ export function EventDetail({
           canEdit={canEdit}
           canPostPoll={canPostPoll}
           event={event}
+          interestActions={
+            <InterestSection
+              canManage={canManage}
+              canManageInterest={canManageInterest}
+              dialog={dialog}
+              event={event}
+              hasStarted={hasStarted}
+              isMember={isMember}
+              isTeamMember={isTeamMember}
+              myInterest={myInterest}
+              onJoinAsMember={handleJoinAsMember}
+              onLeaveEvent={stableOnLeaveEvent4}
+            />
+          }
           onCancel={handleCancelClick}
           onDuplicate={stableOnDuplicate3}
           onEdit={handleEditClick}
@@ -1184,20 +1245,15 @@ export function EventDetail({
           teamName={team?.name ?? null}
         />
 
-        {/* Mobile-only details card (above tabs) */}
-        <div className="lg:hidden">
-          <EventDetailsCard
-            canManage={canManage}
-            event={event}
-            partners={socialFacts.partners}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-          {/* Main column */}
-          <div className="lg:col-span-3">
+        <div
+          className={cn(
+            "grid grid-cols-1 gap-6",
+            showDetails && "lg:grid-cols-[minmax(0,1fr)_20rem]"
+          )}
+        >
+          <div className="flex min-w-0 flex-col gap-6">
             {event.description ? (
-              <p className="text-muted-foreground mb-6 text-sm whitespace-pre-line">
+              <p className="text-muted-foreground text-sm whitespace-pre-line">
                 {event.description}
               </p>
             ) : null}
@@ -1213,7 +1269,13 @@ export function EventDetail({
               <SocialRecapStart onStart={startSocialRecap} />
             ) : null}
 
-            <EventPostEventPanel
+            {canAccessPostEventContent ? null : (
+              <p className="text-muted-foreground text-sm">
+                {getPostEventContentMessage(isPastEvent)}
+              </p>
+            )}
+
+            <EventTabs
               approvedPhotos={approvedPhotos}
               approvedUpdates={approvedUpdates}
               canAccessPostEventContent={canAccessPostEventContent}
@@ -1229,63 +1291,38 @@ export function EventDetail({
               isMember={!!isMember}
               isPastEvent={isPastEvent}
               memberCount={event.members.length}
-              message={getPostEventContentMessage(isPastEvent, event.startTime)}
+              members={
+                showVolunteers ? (
+                  <EventMembersSection
+                    canManage={canManageVolunteers}
+                    canMarkAttendance={
+                      Boolean(canManageAttendance) && hasStarted
+                    }
+                    eventId={event.id}
+                    members={event.members}
+                    onAddMember={handleAddMemberClick}
+                    onRemoveMember={stableOnRemoveMember5}
+                  >
+                    {showInterestRequests && interests ? (
+                      <InterestRequests interests={interests} />
+                    ) : null}
+                  </EventMembersSection>
+                ) : null
+              }
               occDate={occDate}
               pendingPhotos={pendingPhotos}
               pendingUpdates={pendingUpdates}
-              showUpcomingExpenses={showUpcomingExpenses}
+              showExpenses={
+                canAccessPostEventContent ? canManage : showUpcomingExpenses
+              }
             />
           </div>
 
-          {/* Sidebar */}
-          <aside className="lg:col-span-2 lg:col-start-4 lg:row-start-1">
-            <div className="flex flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-x-hidden lg:overflow-y-clip">
-              <div className="hidden -space-y-px lg:flex lg:flex-col">
-                <EventDetailsCard
-                  canManage={canManage}
-                  event={event}
-                  partners={socialFacts.partners}
-                />
-                {canManage ? (
-                  <EventQuickStats
-                    approvedCount={socialFacts.approvedCount}
-                    volunteersNeeded={socialFacts.volunteersNeeded}
-                    feedbackCount={feedback.length}
-                    hasStarted={hasStarted}
-                    memberCount={event.members.length}
-                    photoCount={approvedPhotos.length}
-                    presentCount={presentCount}
-                    totalExpenses={totalExpenses}
-                  />
-                ) : null}
-              </div>
-
-              <InterestSection
-                canManage={canManage}
-                canManageInterest={canManageInterest}
-                dialog={dialog}
-                event={event}
-                hasStarted={hasStarted}
-                interests={interests}
-                isMember={isMember}
-                isTeamMember={isTeamMember}
-                myInterest={myInterest}
-                onJoinAsMember={handleJoinAsMember}
-                onLeaveEvent={stableOnLeaveEvent4}
-              />
-
-              {canManageVolunteers || event.members.length > 0 ? (
-                <EventMembersSection
-                  canManage={canManageVolunteers}
-                  canMarkAttendance={Boolean(canManageAttendance) && hasStarted}
-                  eventId={event.id}
-                  members={event.members}
-                  onAddMember={handleAddMemberClick}
-                  onRemoveMember={stableOnRemoveMember5}
-                />
-              ) : null}
-            </div>
-          </aside>
+          {showDetails ? (
+            <aside aria-label="Event details">
+              <EventDetailsCard {...detailsProps} />
+            </aside>
+          ) : null}
         </div>
       </div>
 

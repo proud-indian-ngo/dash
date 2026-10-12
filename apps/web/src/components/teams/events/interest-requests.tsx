@@ -1,7 +1,6 @@
 import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import type { EventInterest, User } from "@pi-dash/zero/schema";
@@ -51,15 +50,15 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
   const handleReject = useEventCallback(() => decide("reject"));
 
   return (
-    <div className="flex items-center gap-3 rounded-md border p-2">
+    <li className="flex min-h-11 items-center gap-3 px-3 py-1.5">
       {interest.user ? (
         <UserHoverCard
           triggerClassName="flex min-w-0 flex-1 cursor-pointer items-center gap-3 [@media(pointer:coarse)]:pointer-events-none"
           user={interest.user}
         >
           <UserAvatar
-            className="size-8"
-            fallbackClassName="text-xs"
+            className="size-6"
+            fallbackClassName="text-[10px]"
             user={interest.user}
           />
           <div className="min-w-0">
@@ -95,7 +94,7 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
             aria-label={`Approve ${interest.user?.name ?? "request"}`}
             className="border-success/20 bg-success/10 text-success hover:bg-success/20"
             onClick={handleApprove}
-            size="icon"
+            size="icon-sm"
             variant="outline"
           >
             <HugeiconsIcon
@@ -108,7 +107,7 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
           <Button
             aria-label={`Reject ${interest.user?.name ?? "request"}`}
             onClick={handleReject}
-            size="icon"
+            size="icon-sm"
             variant="destructive"
           >
             <HugeiconsIcon
@@ -126,7 +125,7 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
           {interest.status === "approved" ? "Approved" : "Rejected"}
         </StatusBadge>
       )}
-    </div>
+    </li>
   );
 }
 
@@ -141,16 +140,15 @@ export function InterestRequests({ interests }: InterestRequestsProps) {
   }
 
   return (
-    <>
-      <Separator />
-      <div className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium">
-          Interest Requests ({pendingInterests.length})
-        </h2>
+    <section aria-label="Interest requests" className="flex flex-col gap-2">
+      <h2 className="text-sm font-medium">
+        Interest requests ({pendingInterests.length})
+      </h2>
+      <ul className="divide-y rounded-lg border">
         {pendingInterests.map((interest) => (
           <InterestRow interest={interest} key={interest.id} />
         ))}
-      </div>
-    </>
+      </ul>
+    </section>
   );
 }

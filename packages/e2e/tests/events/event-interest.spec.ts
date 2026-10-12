@@ -59,7 +59,7 @@ test.describe("Event interest requests (admin)", () => {
     test.slow();
     await openSeededTeamEvent(page, PENDING_EVENT);
 
-    await expect(page.getByText(/Interest Requests \(\d+\)/)).toBeVisible({
+    await expect(page.getByText(/Interest requests \(\d+\)/)).toBeVisible({
       timeout: 10_000,
     });
     await expect(
