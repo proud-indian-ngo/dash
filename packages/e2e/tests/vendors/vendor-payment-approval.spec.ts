@@ -47,7 +47,9 @@ test.describe("Vendor payment approval (super_admin + finance_admin)", () => {
     test.slow();
     const title = await createVendorPayment(page, "Approve");
 
-    await expect(page.getByText(title)).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 1, name: title })
+    ).toBeVisible();
     await expectStatus(page, "Pending");
 
     await page.getByRole("button", { name: "Approve" }).first().click();
@@ -60,7 +62,9 @@ test.describe("Vendor payment approval (super_admin + finance_admin)", () => {
     test.slow();
     const title = await createVendorPayment(page, "Reject");
 
-    await expect(page.getByText(title)).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 1, name: title })
+    ).toBeVisible();
     await expectStatus(page, "Pending");
 
     await page.getByRole("button", { name: "Reject" }).click();
