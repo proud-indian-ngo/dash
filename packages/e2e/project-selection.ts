@@ -4,6 +4,7 @@ const roleOnlySpecs = {
     "events/event-create.spec.ts",
     "events/event-programme.spec.ts",
     "settings/programmes.spec.ts",
+    "settings/projects.spec.ts",
     "events/event-duplicate.spec.ts",
     "events/event-edit-cancel.spec.ts",
     "events/event-expenses.spec.ts",
