@@ -102,7 +102,7 @@ export function StudentDetailSheet({
               value={student.gender === "female" ? "Female" : "Male"}
             />
             <DetailRow
-              label="Age category"
+              label="Age Category"
               value={student.ageCategory?.name ?? "Unassigned"}
             />
           </div>

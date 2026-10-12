@@ -743,13 +743,13 @@ function EntryForm({
               <SelectField
                 disabled={musicCount > 0}
                 isRequired
-                label="Competition session"
+                label="Competition Session"
                 name="sessionId"
                 options={sessions.map((session) => ({
                   label: sessionOptionLabel(session, true),
                   value: session.id,
                 }))}
-                placeholder="Choose session"
+                placeholder="Choose Session"
               />
             )}
           </form.Subscribe>

@@ -190,7 +190,7 @@ function PublicSchedulePage() {
                     className="min-h-11 w-full sm:min-h-10"
                     id="public-schedule-venue"
                   >
-                    <SelectValue placeholder="All venues" />
+                    <SelectValue placeholder="All Venues" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
@@ -240,7 +240,7 @@ function PublicSchedulePage() {
                     className="min-h-11 w-full sm:min-h-10"
                     id="public-schedule-category"
                   >
-                    <SelectValue placeholder="All categories" />
+                    <SelectValue placeholder="All Categories" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
