@@ -183,11 +183,11 @@ function TransactionFormContent({
           )}
         </div>
         <InputField label="Description" name="description" />
-        <DateField isRequired label="Transaction Date" name="transactionDate" />
+        <DateField isRequired label="Transaction date" name="transactionDate" />
         {canApprove ? (
           <>
-            <InputField label="Payment Method" name="paymentMethod" />
-            <InputField label="Payment Reference" name="paymentReference" />
+            <InputField label="Payment method" name="paymentMethod" />
+            <InputField label="Payment reference" name="paymentReference" />
           </>
         ) : null}
       </div>

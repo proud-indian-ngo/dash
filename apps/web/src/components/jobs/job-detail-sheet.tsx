@@ -124,7 +124,7 @@ export function JobDetailSheet({
                 value={formatTimestamp(job.completedOn, { seconds: true })}
               />
               <DetailRow
-                label="Scheduled For"
+                label="Scheduled for"
                 value={formatTimestamp(job.startAfter, { seconds: true })}
               />
             </div>
@@ -135,7 +135,7 @@ export function JobDetailSheet({
               <h3 className="text-sm font-medium">Error Info</h3>
               <div className="grid gap-3 sm:grid-cols-2">
                 <DetailRow
-                  label="Retry Count"
+                  label="Retry count"
                   value={`${job.retryCount} / ${job.retryLimit}`}
                 />
               </div>
@@ -145,7 +145,7 @@ export function JobDetailSheet({
           {Boolean(job.output) && (
             <div className="grid gap-4">
               <h3 className="text-sm font-medium">
-                {job.state === "failed" ? "Error Output" : "Output"}
+                {job.state === "failed" ? "Error output" : "Output"}
               </h3>
               <pre className="bg-muted/50 max-h-96 overflow-auto rounded-md border p-3 font-mono text-xs leading-relaxed">
                 {JSON.stringify(job.output, null, 2)}

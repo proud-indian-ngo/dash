@@ -46,7 +46,7 @@ export function AwardStudentDetailSheet({
                 />
                 <DetailRow label="Center" value={entry.centerName} />
                 <DetailRow label="Competition" value={entry.competitionName} />
-                <DetailRow label="Age Category" value={entry.ageCategoryName} />
+                <DetailRow label="Age category" value={entry.ageCategoryName} />
                 <DetailRow
                   label="Award"
                   value={entry.award === "winner" ? "Winner" : "Runner-up"}

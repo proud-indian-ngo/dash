@@ -12,9 +12,9 @@ import type { InterestWithUser } from "./interest-requests";
 import { InterestRequests } from "./interest-requests";
 
 const interestStatusMap = {
-  approved: { label: "Interest Approved", tone: "success" },
-  pending: { label: "Interest Pending", tone: "warning" },
-  rejected: { label: "Interest Declined", tone: "danger" },
+  approved: { label: "Interest approved", tone: "success" },
+  pending: { label: "Interest pending", tone: "warning" },
+  rejected: { label: "Interest declined", tone: "danger" },
 } as const satisfies Record<string, { label: string; tone: StatusTone }>;
 
 export function VolunteerInterestSection({
@@ -93,7 +93,7 @@ export function VolunteerInterestSection({
           </StatusBadge>
           {myInterest.status === "pending" ? (
             <Button onClick={handleCancel} size="sm" variant="ghost">
-              Cancel Interest
+              Cancel interest
             </Button>
           ) : null}
         </div>

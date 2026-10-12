@@ -28,7 +28,7 @@ test.describe("Event attendance (admin)", () => {
       .fill(eventName);
 
     const yesterday = new Date(Date.now() - 86_400_000);
-    await pickDate(createDialog, "Start Time", yesterday);
+    await pickDate(createDialog, "Start time", yesterday);
 
     await createDialog.getByRole("switch", { name: "Public" }).click();
 

@@ -443,7 +443,7 @@ export function KalakritiRoleAssignmentForm({
             return (
               <SelectField
                 isRequired
-                label="Competition Category"
+                label="Competition category"
                 name="competitionCategoryId"
                 options={categories
                   .filter((category) => category.retiredAt === null)

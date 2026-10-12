@@ -63,9 +63,9 @@ export function VendorDetailSheet({
           <div className="grid gap-4">
             <h3 className="text-sm font-medium">Bank Details</h3>
             <div className="grid gap-3 sm:grid-cols-2">
-              <DetailRow label="Account Name" value={vendor.bankAccountName} />
+              <DetailRow label="Account name" value={vendor.bankAccountName} />
               <DetailRow
-                label="Account Number"
+                label="Account number"
                 value={vendor.bankAccountNumber}
               />
               <DetailRow label="IFSC Code" value={vendor.bankAccountIfscCode} />
@@ -84,11 +84,11 @@ export function VendorDetailSheet({
             <h3 className="text-sm font-medium">Payment Summary</h3>
             <div className="grid gap-3 sm:grid-cols-2">
               <DetailRow
-                label="Pending Payments"
+                label="Pending payments"
                 value={String(vendor.pendingCount)}
               />
               <DetailRow
-                label="Active Payments"
+                label="Active payments"
                 value={String(vendor.activeCount)}
               />
               <DetailRow
@@ -96,23 +96,23 @@ export function VendorDetailSheet({
                 value={String(vendor.completedCount)}
               />
               <DetailRow
-                label="Rejected Payments"
+                label="Rejected payments"
                 value={String(vendor.rejectedCount)}
               />
               <DetailRow
-                label="Pending Amount"
+                label="Pending amount"
                 value={formatINR(vendor.pendingAmount)}
               />
               <DetailRow
-                label="Active Amount"
+                label="Active amount"
                 value={formatINR(vendor.activeAmount)}
               />
               <DetailRow
-                label="Completed Amount"
+                label="Completed amount"
                 value={formatINR(vendor.completedAmount)}
               />
               <DetailRow
-                label="Rejected Amount"
+                label="Rejected amount"
                 value={formatINR(vendor.rejectedAmount)}
               />
             </div>

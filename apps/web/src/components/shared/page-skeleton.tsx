@@ -63,3 +63,27 @@ export function TableSkeleton({
     </div>
   );
 }
+
+/** Loading shape for a short form: a few labelled fields and the submit. */
+export function FormSkeleton({
+  className,
+  fields = 2,
+}: {
+  className?: string;
+  fields?: number;
+}) {
+  return (
+    <div aria-busy="true" className={cn("flex flex-col gap-5", className)}>
+      <span className="sr-only" role="status">
+        Loading…
+      </span>
+      {Array.from({ length: fields }, (_, field) => (
+        <div className="flex flex-col gap-2" key={field}>
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+      ))}
+      <Skeleton className="h-9 w-full" />
+    </div>
+  );
+}

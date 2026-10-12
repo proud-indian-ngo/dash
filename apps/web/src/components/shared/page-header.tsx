@@ -45,7 +45,7 @@ export function PageHeader({
     >
       <div className="min-w-0">
         {kicker ? (
-          <p className="text-primary mb-2 text-sm font-medium tracking-[0.16em] uppercase">
+          <p className="text-muted-foreground mb-1 text-sm font-medium">
             {kicker}
           </p>
         ) : null}

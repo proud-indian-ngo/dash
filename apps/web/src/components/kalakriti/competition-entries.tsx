@@ -31,8 +31,8 @@ import { ResultSection } from "@/components/kalakriti/result-section";
 import { ScanDialog } from "@/components/kalakriti/scan-dialog";
 import { useResultSnapshot } from "@/components/kalakriti/use-result-snapshot";
 import { useTransportStatusSnapshot } from "@/components/kalakriti/use-transport-status-snapshot";
-import { Loader } from "@/components/loader";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { TableSkeleton } from "@/components/shared/page-skeleton";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import { getKalakritiNextSlots } from "@/functions/kalakriti-performance-order";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
@@ -238,7 +238,7 @@ export function CompetitionEntries({
     !session &&
     (sessionsResult.type !== "complete" || entriesResult.type !== "complete")
   )
-    return <Loader />;
+    return <TableSkeleton />;
   const participants = [
     ...new Map(
       sessionEntries.flatMap((entry) =>

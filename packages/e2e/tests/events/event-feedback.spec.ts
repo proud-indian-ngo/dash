@@ -33,7 +33,7 @@ test.describe("Event feedback — admin", () => {
       .fill(pastEventName);
 
     const yesterday = new Date(Date.now() - 86_400_000);
-    await pickDate(createDialog, "Start Time", yesterday);
+    await pickDate(createDialog, "Start time", yesterday);
 
     // Make it public so volunteers can see it
     await createDialog.getByRole("switch", { name: "Public" }).click();

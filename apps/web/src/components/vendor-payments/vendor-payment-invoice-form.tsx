@@ -97,8 +97,8 @@ function InvoiceFormContent({
   return (
     <FormLayout form={form}>
       <div className="grid gap-4 sm:grid-cols-2">
-        <InputField isRequired label="Invoice Number" name="invoiceNumber" />
-        <DateField isRequired label="Invoice Date" name="invoiceDate" />
+        <InputField isRequired label="Invoice number" name="invoiceNumber" />
+        <DateField isRequired label="Invoice date" name="invoiceDate" />
       </div>
 
       <form.Field name="attachments">

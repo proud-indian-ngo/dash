@@ -110,7 +110,7 @@ export function UserDetailSheet({
                     }
                   />
                   <DetailRow
-                    label="Last Updated"
+                    label="Last updated"
                     value={
                       user.updatedAt
                         ? format(new Date(user.updatedAt), DATE)

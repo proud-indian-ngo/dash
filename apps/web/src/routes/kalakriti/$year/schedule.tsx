@@ -190,7 +190,7 @@ function PublicSchedulePage() {
                     className="min-h-11 w-full sm:min-h-10"
                     id="public-schedule-venue"
                   >
-                    <SelectValue placeholder="All Venues" />
+                    <SelectValue placeholder="All venues" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
@@ -215,7 +215,7 @@ function PublicSchedulePage() {
                     className="min-h-11 w-full sm:min-h-10"
                     id="public-schedule-age"
                   >
-                    <SelectValue placeholder="All Ages" />
+                    <SelectValue placeholder="All ages" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
@@ -240,7 +240,7 @@ function PublicSchedulePage() {
                     className="min-h-11 w-full sm:min-h-10"
                     id="public-schedule-category"
                   >
-                    <SelectValue placeholder="All Categories" />
+                    <SelectValue placeholder="All categories" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>

@@ -298,7 +298,7 @@ function CompetitionForm({
       >
         <SelectField
           isRequired
-          label="Competition Category"
+          label="Competition category"
           name="competitionCategoryId"
           options={activeCategories.map((category) => ({
             label: category.name,
@@ -308,7 +308,7 @@ function CompetitionForm({
         <CustomField<CompetitionDivisionFormValue[]>
           description="Each selected Age Category is an independently ranked Competition Division."
           isRequired
-          label="Age Categories"
+          label="Age categories"
           name="divisions"
         >
           {(field) => (

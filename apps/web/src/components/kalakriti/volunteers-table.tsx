@@ -27,7 +27,7 @@ import {
   getVolunteerFilterValue,
   removeObsoleteVolunteerFilters,
 } from "@/components/kalakriti/kalakriti-filters";
-import { Loader } from "@/components/loader";
+import { TableSkeleton } from "@/components/shared/page-skeleton";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
@@ -439,7 +439,7 @@ export function VolunteersTable({
   useEffect(() => {
     if (needsFilterMigration) setQuery(normalizedQuery);
   }, [needsFilterMigration, normalizedQuery, setQuery]);
-  if (needsFilterMigration) return <Loader />;
+  if (needsFilterMigration) return <TableSkeleton />;
 
   return (
     <DataTableWrapper<VolunteerRosterItem>

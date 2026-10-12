@@ -89,7 +89,7 @@ test.describe("RSVP poll lead time", () => {
     await dialog
       .getByRole("textbox", { exact: true, name: "Name" })
       .fill(eventName);
-    await pickDate(dialog, "Start Time", new Date(Date.now() + 86_400_000));
+    await pickDate(dialog, "Start time", new Date(Date.now() + 86_400_000));
 
     await enableRsvpPoll(dialog);
     await leadTime(dialog).click();

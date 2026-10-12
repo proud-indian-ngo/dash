@@ -52,9 +52,7 @@ function ExpenseRow({
 function SectionHeader({ title, total }: { title: string; total: number }) {
   return (
     <div className="flex items-center justify-between py-1">
-      <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
-        {title}
-      </p>
+      <p className="text-muted-foreground text-xs font-medium">{title}</p>
       <span className="text-muted-foreground text-xs tabular-nums">
         {formatINR(total)}
       </span>

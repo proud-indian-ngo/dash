@@ -2,7 +2,7 @@ import { env } from "@pi-dash/env/web";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import * as z from "zod";
 
-import { LoginInfoPanel } from "@/components/login/auth-info-panel";
+import { AccountHelpPanel } from "@/components/login/auth-info-panel";
 import { AuthLayout } from "@/components/login/auth-layout";
 import { ResetPasswordForm } from "@/components/login/reset-password-form";
 
@@ -26,7 +26,14 @@ function RouteComponent() {
   const { token, error } = Route.useSearch();
 
   return (
-    <AuthLayout panel={<LoginInfoPanel />}>
+    <AuthLayout
+      panel={
+        <AccountHelpPanel
+          body="Pick one you don't use anywhere else. Once it's saved, log in with it."
+          title="Choose a new password"
+        />
+      }
+    >
       {error || !token ? (
         <div className="flex flex-col items-center gap-4">
           <h1 className="sr-only">Reset password</h1>

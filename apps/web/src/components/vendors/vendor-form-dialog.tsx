@@ -138,12 +138,12 @@ function VendorFormContent({
       <div className="grid gap-4 sm:grid-cols-3">
         <InputField
           isRequired
-          label="Bank Account Name"
+          label="Bank account name"
           name="bankAccountName"
         />
         <InputField
           isRequired
-          label="Account Number"
+          label="Account number"
           name="bankAccountNumber"
         />
         <InputField

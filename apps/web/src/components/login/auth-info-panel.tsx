@@ -105,6 +105,24 @@ export function SignupInfoPanel() {
   );
 }
 
+/** Side panel for password reset: what happens next, not a welcome. */
+export function AccountHelpPanel({
+  body,
+  title,
+}: {
+  body: string;
+  title: string;
+}) {
+  return (
+    <div className="max-w-md space-y-3">
+      <h2 className="font-display text-2xl font-semibold tracking-tight">
+        {title}
+      </h2>
+      <p className="text-muted-foreground">{body}</p>
+    </div>
+  );
+}
+
 export function LoginInfoPanel() {
   return (
     <div className="max-w-md space-y-3">

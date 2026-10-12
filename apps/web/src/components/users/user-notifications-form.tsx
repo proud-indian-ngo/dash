@@ -1,111 +1,16 @@
-import {
-  Mail01Icon,
-  NotificationIcon,
-  WhatsappIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Separator } from "@pi-dash/design-system/components/ui/separator";
-import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
-import { Switch } from "@pi-dash/design-system/components/ui/switch";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import {
-  getTopicChannels,
-  type NotificationChannel,
-  TOPIC_CATALOG,
-} from "@pi-dash/notifications/topics";
+import { getTopicChannels, TOPIC_CATALOG } from "@pi-dash/notifications/topics";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { log } from "evlog";
 import { toast } from "sonner";
 
+import { NotificationPreferenceGrid } from "@/components/settings/notification-preference-grid";
 import { handleMutationResult } from "@/lib/mutation-result";
-import { groupBy, NOTIFICATION_GROUP_ORDER } from "@/lib/notification-helpers";
 
 interface UserNotificationsFormProps {
   userId: string;
-}
-
-interface UserTopicPreferenceRowProps {
-  onToggle: (
-    topicId: string,
-    channel: "email" | "whatsapp" | "inbox",
-    enabled: boolean
-  ) => void;
-  topic: {
-    channels: readonly NotificationChannel[];
-    description: string;
-    emailEnabled: boolean;
-    group: string;
-    inboxEnabled: boolean;
-    required: boolean;
-    topicId: string;
-    topicName: string;
-    whatsappEnabled: boolean;
-  };
-}
-
-function UserTopicPreferenceRow({
-  onToggle,
-  topic,
-}: UserTopicPreferenceRowProps) {
-  const handleInboxChange = useEventCallback((checked: boolean) =>
-    onToggle(topic.topicId, "inbox", checked)
-  );
-  const handleEmailChange = useEventCallback((checked: boolean) =>
-    onToggle(topic.topicId, "email", checked)
-  );
-  const handleWhatsappChange = useEventCallback((checked: boolean) =>
-    onToggle(topic.topicId, "whatsapp", checked)
-  );
-
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <div className="min-w-0 flex-1 space-y-1">
-        <p className="text-sm font-medium">{topic.topicName}</p>
-        <p className="text-muted-foreground text-sm">
-          {topic.required
-            ? "This notification is required and cannot be disabled."
-            : topic.description}
-        </p>
-      </div>
-      <div className="flex shrink-0 items-center gap-6">
-        {topic.channels.includes("inbox") ? (
-          <Switch
-            aria-label={`${topic.group} ${topic.topicName} in-app`}
-            checked={topic.inboxEnabled}
-            disabled={topic.required}
-            id={`${topic.topicId}-inbox`}
-            onCheckedChange={handleInboxChange}
-          />
-        ) : (
-          <div aria-hidden="true" className="w-9" />
-        )}
-        {topic.channels.includes("email") ? (
-          <Switch
-            aria-label={`${topic.group} ${topic.topicName} email`}
-            checked={topic.emailEnabled}
-            disabled={topic.required}
-            id={`${topic.topicId}-email`}
-            onCheckedChange={handleEmailChange}
-          />
-        ) : (
-          <div aria-hidden="true" className="w-9" />
-        )}
-        {topic.channels.includes("whatsapp") ? (
-          <Switch
-            aria-label={`${topic.group} ${topic.topicName} WhatsApp`}
-            checked={topic.whatsappEnabled}
-            disabled={topic.required}
-            id={`${topic.topicId}-whatsapp`}
-            onCheckedChange={handleWhatsappChange}
-          />
-        ) : (
-          <div aria-hidden="true" className="w-9" />
-        )}
-      </div>
-    </div>
-  );
 }
 
 export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
@@ -133,8 +38,6 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
     };
   });
 
-  const groupedTopics = groupBy(topicsWithPrefs, (t) => t.group);
-
   const handleToggle = useEventCallback(
     async (
       topicId: string,
@@ -155,8 +58,8 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
           errorMsg: "Couldn't update notification preference",
           mutation: "notificationPreference.adminUpsert",
           successMsg: enabled
-            ? "Notification enabled"
-            : "Notification disabled",
+            ? "Notification turned on"
+            : "Notification turned off",
         });
       } catch (error) {
         log.error({
@@ -173,86 +76,13 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
     }
   );
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-col gap-6 p-4">
-        <Skeleton className="h-4 w-64" />
-        <div className="space-y-6">
-          {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-            <div
-              className="flex items-center justify-between border-b pb-4 last:border-b-0 last:pb-0"
-              key={i}
-            >
-              <div className="space-y-1.5">
-                <Skeleton className="h-4 w-40" />
-                <Skeleton className="h-3 w-64" />
-              </div>
-              <div className="flex gap-6">
-                <Skeleton className="h-5 w-9 rounded-full" />
-                <Skeleton className="h-5 w-9 rounded-full" />
-                <Skeleton className="h-5 w-9 rounded-full" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-6 p-4">
-      {NOTIFICATION_GROUP_ORDER.flatMap((groupName, groupIndex) => {
-        const items = groupedTopics.get(groupName);
-        if (!items || items.length === 0) {
-          return [];
-        }
-        const elements = [
-          groupIndex > 0 && <Separator key={`sep-${groupName}`} />,
-          <div className="space-y-5" key={groupName}>
-            <div className="flex items-center justify-between">
-              <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                {groupName}
-              </p>
-              {groupIndex === 0 && (
-                <div className="flex items-center gap-6">
-                  <div className="flex w-9 items-center justify-center">
-                    <HugeiconsIcon
-                      className="text-muted-foreground"
-                      icon={NotificationIcon}
-                      size={14}
-                      strokeWidth={2}
-                    />
-                  </div>
-                  <div className="flex w-9 items-center justify-center">
-                    <HugeiconsIcon
-                      className="text-muted-foreground"
-                      icon={Mail01Icon}
-                      size={14}
-                      strokeWidth={2}
-                    />
-                  </div>
-                  <div className="flex w-9 items-center justify-center">
-                    <HugeiconsIcon
-                      className="text-muted-foreground"
-                      icon={WhatsappIcon}
-                      size={14}
-                      strokeWidth={2}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-            {items.map((topic) => (
-              <UserTopicPreferenceRow
-                key={topic.topicId}
-                onToggle={handleToggle}
-                topic={topic}
-              />
-            ))}
-          </div>,
-        ];
-        return elements.filter(Boolean);
-      })}
+    <div className="p-4">
+      <NotificationPreferenceGrid
+        isLoading={isLoading}
+        onToggle={handleToggle}
+        topics={topicsWithPrefs}
+      />
     </div>
   );
 }

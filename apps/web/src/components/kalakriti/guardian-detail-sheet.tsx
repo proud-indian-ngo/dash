@@ -143,35 +143,39 @@ export function GuardianDetailSheet({
                 No Centers assigned.
               </p>
             ) : null}
-            {centers.map((center) => (
-              <div className="grid gap-2 rounded-md border p-3" key={center.id}>
-                <h4 className="text-sm font-medium">{center.name}</h4>
-                <DetailRow
-                  label="Status"
-                  value={center.retiredAt ? "Retired" : "Active"}
-                />
-                <DetailRow
-                  label="Student registration"
-                  value={
-                    center.studentRegistrationEnabled
-                      ? access.edition.lifecycle === "registration_open"
-                        ? "Open"
-                        : "Edition locked"
-                      : "Closed"
-                  }
-                />
-                <DetailRow
-                  label="Entry registration"
-                  value={
-                    center.competitionEntryRegistrationEnabled
-                      ? access.edition.lifecycle === "registration_open"
-                        ? "Open"
-                        : "Edition locked"
-                      : "Closed"
-                  }
-                />
+            {centers.length > 0 ? (
+              <div className="divide-y rounded-lg border">
+                {centers.map((center) => (
+                  <div className="grid gap-2 p-3" key={center.id}>
+                    <h4 className="text-sm font-medium">{center.name}</h4>
+                    <DetailRow
+                      label="Status"
+                      value={center.retiredAt ? "Retired" : "Active"}
+                    />
+                    <DetailRow
+                      label="Student registration"
+                      value={
+                        center.studentRegistrationEnabled
+                          ? access.edition.lifecycle === "registration_open"
+                            ? "Open"
+                            : "Edition locked"
+                          : "Closed"
+                      }
+                    />
+                    <DetailRow
+                      label="Entry registration"
+                      value={
+                        center.competitionEntryRegistrationEnabled
+                          ? access.edition.lifecycle === "registration_open"
+                            ? "Open"
+                            : "Edition locked"
+                          : "Closed"
+                      }
+                    />
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : null}
           </section>
         </div>
       </SheetContent>
