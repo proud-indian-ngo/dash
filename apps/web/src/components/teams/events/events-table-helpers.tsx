@@ -21,19 +21,22 @@ import {
 
 import { parseRuleUntil } from "./rrule-until";
 
+/** A materialized occurrence (an edited or cancelled session of a series). */
+export type ExceptionRow = TeamEvent & {
+  members: ReadonlyArray<TeamEventMember & { user: User | undefined }>;
+  /** Only the team page's list (`teamEvent.byTeam`) loads it. */
+  partners?: readonly EventPartner[];
+  /** Only the team page's list (`teamEvent.byTeam`) loads it. */
+  programme?: Programme | undefined;
+  whatsappGroup: WhatsappGroup | undefined;
+};
+
 export type EventRow = TeamEvent & {
-  exceptions: ReadonlyArray<
-    TeamEvent & {
-      members: ReadonlyArray<TeamEventMember & { user: User | undefined }>;
-      /** Only the team page's list (`teamEvent.byTeam`) loads it. */
-      programme?: Programme | undefined;
-      whatsappGroup: WhatsappGroup | undefined;
-    }
-  >;
+  exceptions: readonly ExceptionRow[];
   /** Loaded by list and detail queries; read for the approved sign-up count. */
   interests?: ReadonlyArray<Pick<EventInterest, "status">>;
   members: ReadonlyArray<TeamEventMember & { user: User | undefined }>;
-  /** Only the detail query (`teamEvent.byId`) loads partners. */
+  /** Loaded by the detail query and the team page's list (`teamEvent.byTeam`). */
   partners?: readonly EventPartner[];
   /** Loaded by the detail query and the team page's list (`teamEvent.byTeam`). */
   programme?: Programme | undefined;
@@ -44,8 +47,10 @@ export type EventRow = TeamEvent & {
 export interface EventDisplayRow {
   /** The effective end time for display. */
   endTime: number | null;
-  /** The underlying event (series parent for virtual, the event itself for real). */
+  /** The underlying event (series parent for virtual and exception rows, the event itself otherwise). */
   event: EventRow;
+  /** The materialized occurrence this row shows, with its own name, place and settings. */
+  exception?: ExceptionRow;
   /** The actual event ID for this row (exception's own ID, or parent ID for virtual/standalone). */
   eventId: string;
   /** Whether this row represents a virtual (non-materialized) occurrence. */
@@ -146,6 +151,7 @@ function expandSeriesEvent(
       endTime: exc.endTime,
       event,
       eventId: exc.id,
+      exception: exc,
       isVirtual: false,
       key: exc.id,
       members: exc.members,
@@ -202,6 +208,11 @@ export function getDefaultDateRange(): { start: Date; end: Date } {
   return { end: addWeeks(start, 4), start };
 }
 
+/** The record whose own details the row shows: the occurrence for an exception row, else the event. */
+export function getRowDetails(row: EventDisplayRow): TeamEvent {
+  return row.exception ?? row.event;
+}
+
 export type EventStatusKey = "upcoming" | "past" | "cancelled";
 
 export function getEventStatusKey(row: EventDisplayRow): EventStatusKey {
@@ -245,7 +256,7 @@ export function searchDisplayRow(row: EventDisplayRow, query: string): boolean {
   if (!q) {
     return true;
   }
-  const e = row.event;
+  const e = getRowDetails(row);
   return [e.name, e.description ?? "", e.location ?? ""]
     .join(" ")
     .toLowerCase()

@@ -35,10 +35,15 @@ function withBaseRelated(q: typeof zql.teamEvent) {
     .related("interests", (i) => i.related("user"));
 }
 
+/** A series' materialized occurrences as every series consumer reads them. */
+function withExceptionRelated(e: typeof zql.teamEvent) {
+  return e
+    .related("members", (m) => m.related("user"))
+    .related("whatsappGroup");
+}
+
 function withRelated(q: typeof zql.teamEvent) {
-  return withBaseRelated(q).related("exceptions", (e) =>
-    e.related("members", (m) => m.related("user")).related("whatsappGroup")
-  );
+  return withBaseRelated(q).related("exceptions", withExceptionRelated);
 }
 
 export const teamEventQueries = {
@@ -99,15 +104,16 @@ export const teamEventQueries = {
     z.object({ teamId: z.string() }),
     ({ args: { teamId }, ctx }) =>
       restrictToAccessibleEvents(
-        // The team page's events table shows and filters by programme. An
-        // edited occurrence can carry its own, so exceptions load it too.
+        // The team page's events table shows and filters by programme, and
+        // its edit form prefills partners. An edited occurrence can carry
+        // its own of both, so exceptions load them too.
         withBaseRelated(zql.teamEvent)
           .related("programme")
+          .related("partners", (p) => p.orderBy("createdAt", "asc"))
           .related("exceptions", (e) =>
-            e
-              .related("members", (m) => m.related("user"))
-              .related("whatsappGroup")
+            withExceptionRelated(e)
               .related("programme")
+              .related("partners", (p) => p.orderBy("createdAt", "asc"))
           ),
         ctx
       )

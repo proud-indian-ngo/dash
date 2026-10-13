@@ -136,6 +136,33 @@ describe("expandSeriesOccurrences", () => {
     expect(virtuals.length).toBeGreaterThan(0);
   });
 
+  describe("outside UTC", () => {
+    const originalTz = process.env.TZ;
+    beforeEach(() => {
+      process.env.TZ = "Asia/Kolkata";
+    });
+    afterEach(() => {
+      process.env.TZ = originalTz;
+    });
+
+    it("marks a series starting before the UTC date changes as seriesParent", () => {
+      // Monday Apr 6, 00:00 in Kolkata is Sunday Apr 5, 18:30 UTC.
+      const start = Date.UTC(2026, 3, 5, 18, 30);
+      const result = expandSeriesOccurrences(
+        weeklyRule,
+        start,
+        start + 3_600_000,
+        [],
+        Date.UTC(2026, 3, 5, 0, 0),
+        Date.UTC(2026, 3, 20, 23, 59)
+      );
+
+      expect(result?.seriesStartDate).toBe("2026-04-05");
+      const parents = result?.occurrences.filter((o) => o.isSeriesParent);
+      expect(parents?.map((o) => o.startTime)).toEqual([start]);
+    });
+  });
+
   it("excludes exception dates from virtual occurrences", () => {
     const result = expandWeekly(Date.UTC(2026, 3, 27, 23, 59), [
       { originalDate: "2026-04-13" },
