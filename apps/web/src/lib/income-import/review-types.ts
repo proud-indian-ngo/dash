@@ -1,0 +1,88 @@
+import type {
+  ImportBatchStatus,
+  ImportRowOutcome,
+} from "@pi-dash/shared/constants";
+
+import type { DuplicateRef, MatchReason, ReviewCategory } from "./classify";
+import type { ImportDateFormat, ImportMapping } from "./fields";
+import type { CellIssue } from "./normalize";
+
+/**
+ * What the server sends the review and batch pages. Client-safe: contact
+ * values come from the uploaded file itself, identifiers are masked, and
+ * existing donors appear by display name only.
+ */
+
+export interface DonorOptionView {
+  label: string;
+  reason: MatchReason;
+  /** "party:<id>" or "row:<rowId>"; "new" is always offered as well. */
+  value: string;
+}
+
+export interface ReviewRowView {
+  amountPaise: number | null;
+  category: ReviewCategory;
+  /** Who the row is for when that is already settled. */
+  donor:
+    | { kind: "existing"; name: string; partyId: string }
+    | { kind: "new"; sharedWithEarlierRow: boolean }
+    | { kind: "undecided" };
+  donorName: string | null;
+  donorOptions: DonorOptionView[];
+  duplicate: Pick<DuplicateRef, "amountPaise" | "reason" | "receivedOn"> | null;
+  email: string | null;
+  errors: CellIssue[];
+  /** ••••1234; never the full identifier. */
+  maskedId: string | null;
+  outcome: ImportRowOutcome;
+  outcomeReason: string | null;
+  /** False once the retention job has removed the uploaded values. */
+  rawAvailable: boolean;
+  receivedOn: string | null;
+  reference: string | null;
+  rowId: string;
+  rowNumber: number;
+  warnings: CellIssue[];
+}
+
+export interface ImportBatchSummaryView {
+  dateFormat: ImportDateFormat;
+  defaultChannel: string;
+  fileName: string;
+  id: string;
+  mapping: ImportMapping | null;
+  rowCount: number;
+  status: ImportBatchStatus;
+}
+
+export interface ReviewResponse {
+  batch: ImportBatchSummaryView;
+  rows: ReviewRowView[];
+  /** No external ID column: dedupe uses a fingerprint of date, amount, name and reference. */
+  weakIdentity: boolean;
+}
+
+export interface CreateBatchResponse {
+  batchId: string;
+  /** An earlier upload of the same file, so the user can expect "Already imported". */
+  earlierUpload: { batchId: string; createdAt: number } | null;
+  headers: string[];
+  mapping: ImportMapping;
+  rowCount: number;
+}
+
+export interface RunResponse {
+  conflicts: number;
+  errors: number;
+  imported: number;
+  linked: number;
+  newDonors: number;
+  skipped: number;
+}
+
+export interface BatchDetailResponse {
+  /** Column headers and up to three values each, for continuing a draft's mapping. */
+  columns: { header: string; samples: string[] }[];
+  review: ReviewResponse | null;
+}

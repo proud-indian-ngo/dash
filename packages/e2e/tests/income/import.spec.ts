@@ -1,0 +1,164 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
+import type { Locator, Page } from "@playwright/test";
+
+import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { clickPageAction } from "../../helpers/page-header";
+
+const ACCOUNT = "E2E Bank Account";
+const FIXTURE = path.resolve(
+  import.meta.dirname,
+  "../../fixtures/income/import-contributions.csv"
+);
+
+/** A PAN unique to this run: five letters, four digits, one letter. */
+function runPan(run: string): string {
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const digits = run.slice(-4).padStart(4, "0");
+  const pick = (n: number) => letters[n % 26] ?? "A";
+  const seed = Number(run.slice(-9));
+  return `${pick(seed)}${pick(seed >> 3)}${pick(seed >> 6)}${pick(seed >> 9)}P${digits}${pick(seed >> 12)}`;
+}
+
+function fixtureCsv(run: string, edit?: (text: string) => string): Buffer {
+  const text = readFileSync(FIXTURE, "utf8")
+    .replaceAll("{RUN}", run)
+    .replaceAll("{PAN}", runPan(run));
+  return Buffer.from(edit ? edit(text) : text, "utf8");
+}
+
+async function uploadAndReview(page: Page, name: string, csv: Buffer) {
+  await page.goto("/income");
+  await waitForZeroReady(page);
+  await clickPageAction(page, "Import contributions");
+  await expect(
+    page.getByRole("heading", { name: "Import contributions" })
+  ).toBeVisible();
+
+  const account = page.getByRole("combobox", { name: "Deposited into" });
+  await account.click();
+  await account.fill(ACCOUNT);
+  await page.getByRole("option").filter({ hasText: ACCOUNT }).first().click();
+  await page
+    .getByTestId("import-file-input")
+    .setInputFiles({ buffer: csv, mimeType: "text/csv", name });
+  await page.getByRole("button", { name: "Continue" }).click();
+
+  // Step 2: the headers map themselves by synonym.
+  await expect(page.locator('[data-column="Donation ID"]')).toContainText(
+    "External donation ID"
+  );
+  await expect(page.locator('[data-column="Amount"]')).toContainText(
+    "Amount (₹)"
+  );
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("tab", { name: /^All 4$/ })).toBeVisible({
+    timeout: 20_000,
+  });
+}
+
+const tab = (page: Page, label: RegExp): Locator =>
+  page.getByRole("tab", { name: label });
+
+test.describe("Income: CSV import", () => {
+  test.beforeEach(({ page: _page }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
+  });
+
+  test("imports a file, then recognises re-uploads and changed rows", async ({
+    page,
+  }) => {
+    test.slow();
+    const run = String(Date.now());
+    const donor = `E2E Import Donor ${run}`;
+
+    await uploadAndReview(page, `donations-${run}.csv`, fixtureCsv(run));
+    await expect(tab(page, /^New donors 2$/)).toBeVisible();
+    await expect(tab(page, /^Errors 1$/)).toBeVisible();
+    await expect(tab(page, /^Already imported 1$/)).toBeVisible();
+    await tab(page, /^Errors 1$/).click();
+    await expect(page.locator('[data-row-number="3"]')).toContainText(
+      "is not an amount"
+    );
+
+    await page.getByRole("button", { name: "Import 2 contributions" }).click();
+    const confirm = page.getByRole("alertdialog");
+    await expect(confirm).toContainText(
+      "2 contributions will be imported, 1 new donor created, 1 row skipped."
+    );
+    await confirm.getByRole("button", { name: "Import" }).click();
+    const result = page.getByTestId("import-result");
+    await expect(result).toContainText("2 contributions imported");
+    await expect(result).toContainText("1 new donor created");
+    await expect(result).toContainText("1 row was already imported");
+
+    await page
+      .getByRole("link", { name: "View imported contributions" })
+      .click();
+    await waitForZeroReady(page);
+    await expect(page.getByRole("row").filter({ hasText: donor })).toHaveCount(
+      2,
+      { timeout: 15_000 }
+    );
+
+    await page.goto("/donors");
+    await waitForZeroReady(page);
+    await page
+      .getByPlaceholder(/Search/)
+      .first()
+      .fill(donor);
+    await expect(page.getByRole("row").filter({ hasText: donor })).toHaveCount(
+      1,
+      { timeout: 15_000 }
+    );
+
+    // The same file again: nothing new, every good row is already imported.
+    await uploadAndReview(page, `donations-${run}-again.csv`, fixtureCsv(run));
+    await expect(tab(page, /^Already imported 3$/)).toBeVisible();
+    await expect(tab(page, /^Errors 1$/)).toBeVisible();
+    await expect(tab(page, /^Ready/)).toHaveCount(0);
+    await expect(tab(page, /^New donors/)).toHaveCount(0);
+
+    // One amount changed under the same donation ID: a conflict, never an overwrite.
+    await uploadAndReview(
+      page,
+      `donations-${run}-changed.csv`,
+      fixtureCsv(run, (text) =>
+        text.replace(
+          `import-${run}@example.com,500,`,
+          `import-${run}@example.com,600,`
+        )
+      )
+    );
+    await expect(tab(page, /^Conflicts 1$/)).toBeVisible();
+    await expect(tab(page, /^Already imported 2$/)).toBeVisible();
+  });
+
+  test("lists the import on the Imports tab and opens its rows", async ({
+    page,
+  }) => {
+    test.slow();
+    const run = String(Date.now() + 7);
+    const file = `imports-tab-${run}.csv`;
+    await uploadAndReview(page, file, fixtureCsv(run));
+    await page.getByRole("button", { name: "Import 2 contributions" }).click();
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: "Import" })
+      .click();
+    await expect(page.getByTestId("import-result")).toBeVisible();
+
+    await page.goto("/income?tab=imports");
+    await waitForZeroReady(page);
+    const row = page.getByRole("row").filter({ hasText: file });
+    await expect(row).toHaveCount(1, { timeout: 15_000 });
+    await expect(row).toContainText("Completed");
+    await row.click();
+    await expect(page.getByRole("heading", { name: file })).toBeVisible();
+    await expect(page.locator('[data-row-number="1"]')).toContainText(
+      "Imported"
+    );
+    await expect(page.locator('[data-row-number="3"]')).toContainText("Error");
+  });
+});

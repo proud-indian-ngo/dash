@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const AUDITED_SERVER_FUNCTIONS = [
+  "createContributionImport",
   "createRole",
   "createSocialApiTokenFn",
   "createUserAdmin",
@@ -15,6 +16,8 @@ const AUDITED_SERVER_FUNCTIONS = [
   "revealPartyIdentifier",
   "revealVendorBankAccount",
   "revokeSocialApiTokenFn",
+  "reviewContributionImport",
+  "runContributionImport",
   "saveDonor",
   "saveVendor",
   "setUserBanAdmin",
@@ -28,6 +31,7 @@ const AUDITED_SERVER_FUNCTIONS = [
 
 const EXEMPT_SERVER_FUNCTIONS = [
   "archiveKalakritiGuardian",
+  "getContributionImport",
   "getEventEditorUploadUrl",
   "getEventPhotoUploadUrl",
   "getKalakritiScorecardUploadUrl",

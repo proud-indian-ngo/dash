@@ -342,3 +342,7 @@ Because `amount` is dropped, deploy the migration, the regenerated Zero schema a
 
 Production has no organisation accounts: the seeded ones are dev-only. Before anyone records a contribution that is not in kind, or any other income, a `finance.manage` user must create the trust's real bank, cash and gateway clearing accounts in Settings → Organisation accounts (`/settings/org-accounts`), with the fund source and, for FCRA accounts, the FCRA role. The "Deposited into" picker is empty until then. Bank account numbers and IFSC are not stored yet.
 
+### CSV imports of contributions
+
+Migration `0120_income_imports` adds `import_batch`, `contribution.import_batch_id` and the server-only `private.import_row`, `private.external_identity` and `private.collection_event`. No new environment variables. Imports need the same organisation accounts as manual entries, and `DATA_ENCRYPTION_KEY` for PANs: without it, imported donors are created without their ID and automatic PAN matching is off. The pg-boss schedule `expire-import-rows` (daily, 2:30 AM IST) disposes of uploaded rows: their raw cells 180 days after a batch's last import, or the rows themselves 30 days after upload for batches never imported.
+
