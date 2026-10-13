@@ -3,6 +3,8 @@
  * end of a sheet so spreadsheets and CA templates keyed by column letter keep
  * working; the Programme column was appended in October 2026.
  */
+import { assertSafePaise, paiseToRupees } from "@pi-dash/shared/money";
+
 import {
   type ExportAttachmentLink,
   formatExportAttachmentLinks,
@@ -138,3 +140,38 @@ export const transactionRowToArray = (row: TransactionExportRow): string[] => [
   row.status,
   row.recordedBy,
 ];
+
+/**
+ * Amounts are stored in paise but the sheets keep the rupee text they had
+ * when the columns were numeric(12,2): request totals and transaction amounts
+ * as two-decimal strings ("1500.00"), vendor payment totals as plain numbers
+ * ("1500", "19.9").
+ */
+
+/** PostgreSQL returns sum(bigint) as a numeric string; null when no rows. */
+export function sumToPaise(value: string | number | null): number {
+  return value === null ? 0 : assertSafePaise(Number(value));
+}
+
+/** Request "Total": "0" when the request has no line items, else "1500.00". */
+export const requestTotalCell = (sum: string | number | null): string =>
+  sum === null ? "0" : paiseToRupees(sumToPaise(sum));
+
+/** Transaction "Amount": "1500.00". */
+export const transactionAmountCell = (amountPaise: number): string =>
+  paiseToRupees(amountPaise);
+
+const shortRupees = (paise: number): string =>
+  String(Number(paiseToRupees(paise)));
+
+/** Vendor payment "Total Amount", "Paid Amount" and "Remaining". */
+export function vendorPaymentAmountCells(
+  totalPaise: number,
+  paidPaise: number
+): Pick<VendorPaymentExportRow, "paidAmount" | "remaining" | "totalAmount"> {
+  return {
+    paidAmount: shortRupees(paidPaise),
+    remaining: shortRupees(Math.max(0, totalPaise - paidPaise)),
+    totalAmount: shortRupees(totalPaise),
+  };
+}

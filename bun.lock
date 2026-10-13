@@ -239,6 +239,7 @@
       "name": "@pi-dash/email",
       "dependencies": {
         "@pi-dash/env": "workspace:*",
+        "@pi-dash/shared": "workspace:*",
         "@react-email/ui": "^6.11.1",
         "nodemailer": "^10.1.0",
         "react": "catalog:",

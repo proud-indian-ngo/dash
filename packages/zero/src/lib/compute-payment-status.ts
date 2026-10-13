@@ -1,28 +1,20 @@
+import { sumPaise } from "@pi-dash/shared/money";
+
 /**
  * Computes the derived vendor payment status based on approved transaction
- * amounts vs total line item amounts.
- *
- * Uses integer cents to avoid floating-point comparison issues.
+ * amounts vs total line item amounts, both in integer paise.
  */
 export function computePaymentStatus(
-  approvedAmounts: readonly (number | string)[],
-  lineItemAmounts: readonly (number | string)[]
+  approvedAmountsPaise: readonly number[],
+  lineItemAmountsPaise: readonly number[]
 ): "approved" | "partially_paid" | "paid" {
-  const toCents = (v: number | string) => Math.round(Number(v) * 100);
+  const approvedTotal = sumPaise(approvedAmountsPaise);
+  const totalOwed = sumPaise(lineItemAmountsPaise);
 
-  const approvedTotalCents = approvedAmounts.reduce(
-    (sum: number, a) => sum + toCents(a),
-    0
-  );
-  const totalOwedCents = lineItemAmounts.reduce(
-    (sum: number, a) => sum + toCents(a),
-    0
-  );
-
-  if (approvedTotalCents <= 0) {
+  if (approvedTotal <= 0) {
     return "approved";
   }
-  if (approvedTotalCents >= totalOwedCents) {
+  if (approvedTotal >= totalOwed) {
     return "paid";
   }
   return "partially_paid";

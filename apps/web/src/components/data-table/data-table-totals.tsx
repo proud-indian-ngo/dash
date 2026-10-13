@@ -3,10 +3,9 @@ import type {
   DataGridTableInstance,
 } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { cn } from "@pi-dash/design-system/lib/utils";
+import { formatPaise } from "@pi-dash/shared/money";
 import type { CSSProperties, ReactNode, RefObject } from "react";
 import { useEffect, useState } from "react";
-
-import { formatINR } from "@/lib/form-schemas";
 
 import { DATA_FONT_CLASS } from "./column-kinds";
 
@@ -107,7 +106,7 @@ export function DataTableTotals<TData extends object>({
   const content = (id: string, index: number): ReactNode => {
     const sum = sums.get(id);
     if (sum !== undefined) {
-      return formatINR(sum);
+      return formatPaise(sum);
     }
     if (index === labelIndex) {
       return `${rows.length} ${rows.length === 1 ? "row" : "rows"}`;

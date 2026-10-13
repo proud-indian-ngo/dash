@@ -1,23 +1,32 @@
-/** Rupee display and input helpers for amounts stored as integer paise. */
+/** Rupee input helpers for optional paise settings (thresholds, budgets). */
+import {
+  assertSafePaise,
+  formatPaise,
+  rupeesToPaise,
+} from "@pi-dash/shared/money";
+
+const wholeRupeeFormat = new Intl.NumberFormat("en-IN", {
+  currency: "INR",
+  maximumFractionDigits: 0,
+  minimumFractionDigits: 0,
+  style: "currency",
+});
 
 /** ₹12,000 for whole rupees, ₹12,000.50 otherwise. */
-export function formatPaise(paise: number): string {
-  const whole = paise % 100 === 0;
-  return new Intl.NumberFormat("en-IN", {
-    currency: "INR",
-    maximumFractionDigits: whole ? 0 : 2,
-    minimumFractionDigits: whole ? 0 : 2,
-    style: "currency",
-  }).format(paise / 100);
+export function formatPaiseCompact(paise: number): string {
+  assertSafePaise(paise);
+  return paise % 100 === 0
+    ? wholeRupeeFormat.format(paise / 100)
+    : formatPaise(paise);
 }
 
 /** "" stays empty (meaning unset); otherwise a rupee string with up to two decimals becomes paise. */
-export function rupeesToPaise(value: string): number | null {
+export function optionalRupeesToPaise(value: string): number | null {
   const trimmed = value.trim();
   if (trimmed === "") {
     return null;
   }
-  return Math.round(Number(trimmed) * 100);
+  return rupeesToPaise(trimmed);
 }
 
 /** Paise to the rupee string an input should show; whole rupees drop the decimals. */

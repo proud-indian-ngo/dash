@@ -5,7 +5,7 @@ import z from "zod";
 import { assertVendorUsable } from "../submission-helpers";
 
 const lineItemSchema = z.object({
-  amount: z.number(),
+  amountPaise: z.number().int(),
   categoryId: z.string(),
   description: z.string().optional(),
   id: z.string(),
@@ -53,7 +53,7 @@ describe("vendorPayment mutator schemas", () => {
         invoiceDate: new Date("2026-01-15").getTime(),
         lineItems: [
           {
-            amount: 1000,
+            amountPaise: 100_000,
             categoryId: "cat-1",
             id: "li-1",
             sortOrder: 0,

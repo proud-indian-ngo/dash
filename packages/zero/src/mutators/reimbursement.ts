@@ -1,6 +1,7 @@
 import {
   cityValues,
   VOUCHER_AMOUNT_THRESHOLD,
+  VOUCHER_AMOUNT_THRESHOLD_PAISE,
 } from "@pi-dash/shared/constants";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
@@ -149,7 +150,8 @@ export const reimbursementMutators = {
         );
         const voucherLineItems = lineItems.filter(
           (li) =>
-            li.generateVoucher && Number(li.amount) <= VOUCHER_AMOUNT_THRESHOLD
+            li.generateVoucher &&
+            li.amountPaise <= VOUCHER_AMOUNT_THRESHOLD_PAISE
         );
 
         ctx.asyncTasks?.push({
@@ -321,7 +323,7 @@ export const reimbursementMutators = {
         zql.reimbursementLineItem.where("id", args.lineItemId).one()
       );
       assertEntityExists(lineItem, "Line item");
-      if (Number(lineItem.amount) > VOUCHER_AMOUNT_THRESHOLD) {
+      if (lineItem.amountPaise > VOUCHER_AMOUNT_THRESHOLD_PAISE) {
         throw new Error(
           `Vouchers can only be generated for items ≤ ₹${VOUCHER_AMOUNT_THRESHOLD}`
         );

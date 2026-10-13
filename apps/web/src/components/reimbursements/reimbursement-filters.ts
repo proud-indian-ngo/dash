@@ -18,6 +18,7 @@ import {
   requestProgrammeName,
   requestProgrammeOptionId,
 } from "@/lib/request-programme";
+import { sumAmounts } from "@/lib/stats";
 
 const STATUS_OPTIONS = [
   { label: "Pending", value: "pending" },
@@ -36,8 +37,9 @@ const LEGACY_REIMBURSEMENT_FILTER_PARAMS = [
   { param: "city", path: "city" },
 ] as const;
 
-function computeTotal(lineItems: RequestRow["lineItems"]): number {
-  return lineItems.reduce((sum, item) => sum + Number(item.amount), 0);
+/** Total in rupees, because the number filter compares what people type in rupees. */
+function computeTotalRupees(lineItems: RequestRow["lineItems"]): number {
+  return sumAmounts(lineItems) / 100;
 }
 
 export function getReimbursementFilterValue(
@@ -62,7 +64,7 @@ export function getReimbursementFilterValue(
     case "submittedAt":
       return row.submittedAt;
     case "total":
-      return computeTotal(row.lineItems);
+      return computeTotalRupees(row.lineItems);
     case "type":
       return row.type;
     default:

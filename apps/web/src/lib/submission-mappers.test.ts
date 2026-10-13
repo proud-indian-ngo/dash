@@ -6,9 +6,9 @@ import {
 } from "./submission-mappers";
 
 describe("mapLineItemsToFormValues", () => {
-  it("maps line items with numeric amounts to strings", () => {
+  it("maps paise amounts to rupee strings", () => {
     const result = mapLineItemsToFormValues([
-      { amount: 150.5, categoryId: "c1", description: "Taxi", id: "1" },
+      { amountPaise: 15_050, categoryId: "c1", description: "Taxi", id: "1" },
     ]);
     expect(result).toEqual([
       {
@@ -23,16 +23,17 @@ describe("mapLineItemsToFormValues", () => {
 
   it("maps null description to empty string", () => {
     const result = mapLineItemsToFormValues([
-      { amount: 100, categoryId: "c1", description: null, id: "1" },
+      { amountPaise: 10_000, categoryId: "c1", description: null, id: "1" },
     ]);
     expect(result.at(0)?.description).toBe("");
   });
 
-  it("handles string amounts", () => {
+  it("drops trailing zero paise like the old number display", () => {
     const result = mapLineItemsToFormValues([
-      { amount: "200", categoryId: "c1", description: "A", id: "1" },
+      { amountPaise: 20_000, categoryId: "c1", description: "A", id: "1" },
+      { amountPaise: 1999, categoryId: "c1", description: "B", id: "2" },
     ]);
-    expect(result.at(0)?.amount).toBe("200");
+    expect(result.map((li) => li.amount)).toEqual(["200", "19.99"]);
   });
 
   it("returns empty array for empty input", () => {

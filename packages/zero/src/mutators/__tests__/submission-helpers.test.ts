@@ -187,7 +187,7 @@ describe("buildLineItemInsert", () => {
     const now = 1_700_000_000_000;
     const result = buildLineItemInsert(
       {
-        amount: 500,
+        amountPaise: 50_000,
         categoryId: "cat-1",
         description: "Test item",
         generateVoucher: false,
@@ -197,7 +197,7 @@ describe("buildLineItemInsert", () => {
       now
     );
     expect(result).toEqual({
-      amount: 500,
+      amountPaise: 50_000,
       categoryId: "cat-1",
       createdAt: now,
       description: "Test item",

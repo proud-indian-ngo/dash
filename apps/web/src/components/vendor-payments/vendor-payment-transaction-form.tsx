@@ -1,4 +1,9 @@
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import {
+  formatPaise,
+  rupeesToPaise,
+  tryRupeesToPaise,
+} from "@pi-dash/shared/money";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
@@ -19,25 +24,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
-import {
-  type Attachment,
-  attachmentSchema,
-  formatINR,
-} from "@/lib/form-schemas";
+import { type Attachment, attachmentSchema } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 
-function buildTransactionFormSchema(remainingAmount?: number) {
+function buildTransactionFormSchema(remainingPaise?: number) {
   return z.object({
     amount: z
       .string()
       .min(1, "Amount is required")
-      .refine((v) => !Number.isNaN(Number(v)) && Number(v) > 0, {
-        message: "Must be a positive number",
+      .refine((v) => (tryRupeesToPaise(v) ?? 0) > 0, {
+        message: "Must be a positive number with at most 2 decimals",
       })
       .refine(
-        (v) => remainingAmount === undefined || Number(v) <= remainingAmount,
+        (v) =>
+          remainingPaise === undefined ||
+          (tryRupeesToPaise(v) ?? 0) <= remainingPaise,
         {
-          message: `Exceeds remaining balance of ${formatINR(remainingAmount ?? 0)}`,
+          message: `Exceeds remaining balance of ${formatPaise(remainingPaise ?? 0)}`,
         }
       ),
     attachments: z.array(attachmentSchema),
@@ -63,7 +66,7 @@ interface TransactionFormDialogProps {
   mode?: "create" | "edit";
   onOpenChange: (open: boolean) => void;
   open: boolean;
-  remainingAmount?: number;
+  remainingPaise?: number;
   transactionId?: string;
   vendorPaymentId: string;
 }
@@ -73,7 +76,7 @@ function TransactionFormContent({
   initialValues,
   mode,
   onOpenChange,
-  remainingAmount,
+  remainingPaise,
   transactionId,
   vendorPaymentId,
 }: {
@@ -81,13 +84,13 @@ function TransactionFormContent({
   initialValues?: TransactionFormValues;
   mode: "create" | "edit";
   onOpenChange: (open: boolean) => void;
-  remainingAmount?: number;
+  remainingPaise?: number;
   transactionId?: string;
   vendorPaymentId: string;
 }) {
   const zero = useZero();
   const entityId = mode === "edit" && transactionId ? transactionId : uuidv7();
-  const schema = buildTransactionFormSchema(remainingAmount);
+  const schema = buildTransactionFormSchema(remainingPaise);
 
   const form = useForm({
     defaultValues: initialValues ?? {
@@ -100,12 +103,12 @@ function TransactionFormContent({
     },
     onSubmit: async ({ value }) => {
       const parsed = schema.parse(value);
-      const amount = Number(parsed.amount);
+      const amountPaise = rupeesToPaise(parsed.amount);
 
       if (mode === "edit" && transactionId) {
         const res = await zero.mutate(
           mutators.vendorPaymentTransaction.update({
-            amount,
+            amountPaise,
             attachments: parsed.attachments,
             description: parsed.description || undefined,
             id: transactionId,
@@ -128,7 +131,7 @@ function TransactionFormContent({
       } else {
         const res = await zero.mutate(
           mutators.vendorPaymentTransaction.create({
-            amount,
+            amountPaise,
             attachments: parsed.attachments,
             description: parsed.description || undefined,
             id: entityId,
@@ -176,9 +179,9 @@ function TransactionFormContent({
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <InputField isRequired label="Amount" name="amount" />
-          {remainingAmount !== undefined && (
+          {remainingPaise !== undefined && (
             <p className="text-muted-foreground mt-1 text-xs">
-              Remaining: {formatINR(remainingAmount)}
+              Remaining: {formatPaise(remainingPaise)}
             </p>
           )}
         </div>
@@ -218,7 +221,7 @@ export function TransactionFormDialog({
   mode = "create",
   onOpenChange,
   open,
-  remainingAmount,
+  remainingPaise,
   transactionId,
   vendorPaymentId,
 }: TransactionFormDialogProps) {
@@ -257,7 +260,7 @@ export function TransactionFormDialog({
           key={formKey}
           mode={mode}
           onOpenChange={onOpenChange}
-          remainingAmount={remainingAmount}
+          remainingPaise={remainingPaise}
           transactionId={transactionId}
           vendorPaymentId={vendorPaymentId}
         />

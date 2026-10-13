@@ -5,11 +5,10 @@ import type {
   DataGridTableInstance,
 } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { cn } from "@pi-dash/design-system/lib/utils";
+import { formatPaise } from "@pi-dash/shared/money";
 import type { ExpandedState } from "@tanstack/react-table";
 import { parseAsString, useQueryState } from "nuqs";
 import type { ReactNode } from "react";
-
-import { formatINR } from "@/lib/form-schemas";
 
 import { DATA_FONT_CLASS } from "./column-kinds";
 import { sumColumns } from "./data-table-totals";
@@ -150,7 +149,7 @@ export function DataTableGroupHeader<TData extends object>({
                   {table.getColumn(columnId)?.columnDef.meta?.headerTitle}
                 </span>
               ) : null}
-              <span className={DATA_FONT_CLASS}>{formatINR(sum)}</span>
+              <span className={DATA_FONT_CLASS}>{formatPaise(sum)}</span>
             </span>
           ))
         : null}

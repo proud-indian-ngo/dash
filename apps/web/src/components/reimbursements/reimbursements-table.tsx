@@ -3,6 +3,7 @@ import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/dat
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { formatPaise } from "@pi-dash/shared/money";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { Link } from "@tanstack/react-router";
@@ -39,7 +40,6 @@ import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { useApp } from "@/context/app-context";
 import { authClient } from "@/lib/auth-client";
 import { DATE } from "@/lib/date-formats";
-import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import {
   isReimbursement,
@@ -48,6 +48,7 @@ import {
 } from "@/lib/reimbursement-types";
 import { canEditRequestSubmission } from "@/lib/request-edit-permissions";
 import { requestProgrammeName } from "@/lib/request-programme";
+import { sumAmounts } from "@/lib/stats";
 import { getStatusBadge } from "@/lib/status-badge";
 
 const TOTAL_COLUMNS = ["total"];
@@ -60,10 +61,6 @@ const REQUEST_MUTATORS = {
   advance_payment: { name: "advancePayment", ns: mutators.advancePayment },
   reimbursement: { name: "reimbursement", ns: mutators.reimbursement },
 } as const;
-
-function computeTotal(lineItems: RequestRow["lineItems"]): number {
-  return lineItems.reduce((sum, item) => sum + Number(item.amount), 0);
-}
 
 const SKELETON_TITLE = <Skeleton className="h-5 w-40" />;
 const SKELETON_CREATED_BY = USER_CELL_SKELETON;
@@ -401,10 +398,10 @@ export function ReimbursementsTable({
       size: 140,
     },
     {
-      accessorFn: (row) => computeTotal(row.lineItems),
+      accessorFn: (row) => sumAmounts(row.lineItems),
       cell: ({ row }) => {
-        const total = computeTotal(row.original.lineItems);
-        return <span className="truncate text-sm">{formatINR(total)}</span>;
+        const total = sumAmounts(row.original.lineItems);
+        return <span className="truncate text-sm">{formatPaise(total)}</span>;
       },
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="Total" visibility={true} />

@@ -35,10 +35,10 @@ import {
 import { DATE } from "@/lib/date-formats";
 import { epochToLocalDate, localDateToIso } from "@/lib/local-date";
 import {
-  formatPaise,
+  formatPaiseCompact,
   isValidRupeesInput,
   paiseToRupeesInput,
-  rupeesToPaise,
+  optionalRupeesToPaise,
 } from "@/lib/paise";
 import { reportMutationResult } from "@/lib/report-mutation-result";
 
@@ -215,7 +215,7 @@ function describeProject(project: Project, programmeName: string | undefined) {
     project.quotedBudgetPaise !== null &&
     project.quotedBudgetPaise !== undefined
   ) {
-    parts.push(`Quoted ${formatPaise(project.quotedBudgetPaise)}`);
+    parts.push(`Quoted ${formatPaiseCompact(project.quotedBudgetPaise)}`);
   }
   return parts.join(" · ");
 }
@@ -303,7 +303,7 @@ export function ProjectsSection() {
     kind: values.kind,
     name: values.name,
     programmeId: values.programmeId,
-    quotedBudgetPaise: rupeesToPaise(values.quotedBudget),
+    quotedBudgetPaise: optionalRupeesToPaise(values.quotedBudget),
     reportDueOn: localDateToIso(values.reportDueOn),
     startsOn: localDateToIso(values.startsOn),
     status: values.status,

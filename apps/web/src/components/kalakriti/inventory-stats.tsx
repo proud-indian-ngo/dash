@@ -1,6 +1,5 @@
+import { formatPaise } from "@pi-dash/shared/money";
 import { useEffect, useMemo, useState } from "react";
-
-import { formatINR } from "@/lib/form-schemas";
 
 import type { InventoryItem } from "./inventory-types";
 import { SummaryMetricCards } from "./summary-metric-cards";
@@ -74,7 +73,7 @@ export function InventoryStats({
           },
           {
             label: "Estimated stock value",
-            value: counts ? formatINR(counts.valuePaise / 100) : undefined,
+            value: counts ? formatPaise(counts.valuePaise) : undefined,
             description: counts
               ? `Prices entered for ${counts.priced} of ${counts.active} active items`
               : undefined,

@@ -1,25 +1,21 @@
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
+import { formatPaise, sumPaise } from "@pi-dash/shared/money";
 
 import type { LineItemDetail } from "../helpers";
 import { getUserIdsWithPermission } from "../helpers";
 import { sendBulkMessage, sendMessage } from "../send-message";
 import type { Topic } from "../topics";
 
-const currencyFormat = new Intl.NumberFormat("en-IN", {
-  currency: "INR",
-  style: "currency",
-});
-
 function computeTotal(items: LineItemDetail[]): number {
-  return items.reduce((sum, item) => sum + Number(item.amount), 0);
+  return sumPaise(items.map((item) => item.amountPaise));
 }
 
 function formatTotalSuffix(items: LineItemDetail[]): string {
   if (items.length === 0) {
     return "";
   }
-  return ` (${currencyFormat.format(computeTotal(items))})`;
+  return ` (${formatPaise(computeTotal(items))})`;
 }
 
 interface SubmissionNotifierConfig {

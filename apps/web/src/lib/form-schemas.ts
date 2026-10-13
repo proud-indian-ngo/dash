@@ -1,4 +1,5 @@
 import { cityValues } from "@pi-dash/shared/constants";
+import { sumPaise, tryRupeesToPaise } from "@pi-dash/shared/money";
 import capitalize from "lodash/capitalize";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
@@ -11,16 +12,11 @@ export const cityOptions = cityValues.map((value) => ({
   value,
 }));
 
-const amountSchema = z
-  .number()
-  .positive("Must be > 0")
-  .multipleOf(0.01, "Must have at most 2 decimals");
-
 export const lineItemSchema = z.object({
   amount: z
     .string()
     .min(1, "Amount required")
-    .refine((value) => amountSchema.safeParse(Number(value)).success, {
+    .refine((value) => (tryRupeesToPaise(value) ?? 0) > 0, {
       message: "Must be > 0 with max 2 decimals",
     }),
   categoryId: z.string().min(1, "Category required"),
@@ -55,14 +51,6 @@ export const newLineItem = (): LineItem => ({
   id: uuidv7(),
 });
 
-export const computeRunningTotal = (lineItems: LineItem[]): number =>
-  lineItems.reduce((sum, item) => {
-    const parsedAmount = Number(item.amount);
-    return sum + (Number.isNaN(parsedAmount) ? 0 : parsedAmount);
-  }, 0);
-
-export const formatINR = (amount: number): string =>
-  new Intl.NumberFormat("en-IN", {
-    currency: "INR",
-    style: "currency",
-  }).format(amount);
+/** Running total in paise of the rupee amounts typed so far; invalid entries count as 0. */
+export const computeRunningTotalPaise = (lineItems: LineItem[]): number =>
+  sumPaise(lineItems.map((item) => tryRupeesToPaise(item.amount) ?? 0));

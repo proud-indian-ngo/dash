@@ -7,6 +7,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { formatPaise } from "@pi-dash/shared/money";
 import { mutators } from "@pi-dash/zero/mutators";
 import { PAST_APPROVAL_STATUSES } from "@pi-dash/zero/vendor-payment-constants";
 import { useZero } from "@rocicorp/zero/react";
@@ -27,8 +28,8 @@ import {
 } from "@/components/shared/record-detail";
 import { RequesterMeta } from "@/components/shared/requester-meta";
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
-import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
+import { sumAmounts } from "@/lib/stats";
 import { getStatusBadge } from "@/lib/status-badge";
 
 import { VendorDetailCards } from "./vendor-details-card";
@@ -68,7 +69,7 @@ function VendorPaymentLineItemsTable({
               {lineItems.map(
                 (item: {
                   id: string;
-                  amount: number | string;
+                  amountPaise: number;
                   description?: string | null;
                   category?: { name: string } | undefined;
                 }) => (
@@ -78,7 +79,7 @@ function VendorPaymentLineItemsTable({
                       {item.description}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">
-                      {formatINR(Number(item.amount))}
+                      {formatPaise(item.amountPaise)}
                     </td>
                   </tr>
                 )
@@ -90,7 +91,7 @@ function VendorPaymentLineItemsTable({
                   Total
                 </td>
                 <td className="px-3 py-2 text-right font-medium tabular-nums">
-                  {formatINR(total)}
+                  {formatPaise(total)}
                 </td>
               </tr>
             </tfoot>
@@ -232,11 +233,7 @@ export function VendorPaymentDetail({
   const showRejectAction = showAdminActions && status !== "rejected";
   const showResetAction = showAdminActions && canResetToPending;
 
-  const total = request.lineItems.reduce(
-    (sum: number, item: { amount: number | string }) =>
-      sum + Number(item.amount),
-    0
-  );
+  const total = sumAmounts(request.lineItems);
 
   const handleApprove = useEventCallback(async (message: string) => {
     const res = await zero.mutate(

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { paiseToRupees } from "@pi-dash/shared/money";
 import {
   Document,
   Image,
@@ -11,7 +12,7 @@ import {
 } from "@react-pdf/renderer";
 
 export interface CashVoucherProps {
-  amount: number;
+  amountPaise: number;
   amountInWords: string;
   approvedBy: string;
   category: string;
@@ -239,7 +240,7 @@ function CashVoucherContent(props: CashVoucherProps) {
             {props.category}
           </Text>
           <Text style={[styles.tableCell, styles.amountCell]}>
-            {props.amount.toFixed(2)}
+            {paiseToRupees(props.amountPaise)}
           </Text>
         </View>
       </View>

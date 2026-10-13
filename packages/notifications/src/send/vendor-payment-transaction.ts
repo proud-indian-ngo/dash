@@ -1,24 +1,20 @@
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
+import { formatPaise } from "@pi-dash/shared/money";
 
 import { getUserIdsWithPermission } from "../helpers";
 import { sendBulkMessage, sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
 
-const currencyFormat = new Intl.NumberFormat("en-IN", {
-  currency: "INR",
-  style: "currency",
-});
-
 export async function notifyVendorPaymentTransactionSubmitted(options: {
-  amount: number;
+  amountPaise: number;
   submitterName: string;
   transactionId: string;
   vendorPaymentId: string;
   vendorPaymentTitle: string;
 }): Promise<void> {
   const approverIds = await getUserIdsWithPermission("requests.approve");
-  const formatted = currencyFormat.format(options.amount);
+  const formatted = formatPaise(options.amountPaise);
   const baseMessage = `${options.submitterName} logged a payment of ${formatted} for "${options.vendorPaymentTitle}".`;
   const fullUrl = `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`;
   const emailHtml = await renderNotificationEmail({
@@ -39,14 +35,14 @@ export async function notifyVendorPaymentTransactionSubmitted(options: {
 }
 
 export async function notifyVendorPaymentTransactionApproved(options: {
-  amount: number;
+  amountPaise: number;
   note?: string;
   submitterId: string;
   transactionId: string;
   vendorPaymentId: string;
   vendorPaymentTitle: string;
 }): Promise<void> {
-  const formatted = currencyFormat.format(options.amount);
+  const formatted = formatPaise(options.amountPaise);
   const baseMessage = `Your ${formatted} payment for "${options.vendorPaymentTitle}" has been approved!`;
   const fullUrl = `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`;
   const emailHtml = await renderNotificationEmail({
@@ -68,14 +64,14 @@ export async function notifyVendorPaymentTransactionApproved(options: {
 }
 
 export async function notifyVendorPaymentTransactionRejected(options: {
-  amount: number;
+  amountPaise: number;
   reason: string;
   submitterId: string;
   transactionId: string;
   vendorPaymentId: string;
   vendorPaymentTitle: string;
 }): Promise<void> {
-  const formatted = currencyFormat.format(options.amount);
+  const formatted = formatPaise(options.amountPaise);
   const baseMessage = `Your ${formatted} payment for "${options.vendorPaymentTitle}" wasn't approved: ${options.reason}`;
   const fullUrl = `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`;
   const emailHtml = await renderNotificationEmail({

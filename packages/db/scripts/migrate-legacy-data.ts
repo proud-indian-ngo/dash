@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { rupeesToPaise } from "@pi-dash/shared/money";
 import { S3Client } from "bun";
 import { eq, ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sql";
@@ -837,7 +838,7 @@ async function insertReimbursementRow(
   });
 
   await tx.insert(schema.reimbursementLineItem).values({
-    amount: r.cost,
+    amountPaise: rupeesToPaise(r.cost),
     categoryId: newCategoryId,
     createdAt,
     description: r.description?.trim() || null,
@@ -1033,7 +1034,7 @@ async function insertAPLineItemsForParent(
   if (catId) {
     await tx.insert(schema.advancePaymentLineItem).values({
       advancePaymentId: newId,
-      amount: ap.total_amount,
+      amountPaise: rupeesToPaise(ap.total_amount),
       categoryId: catId,
       createdAt,
       description: ap.description?.trim() || ap.remarks?.trim() || null,
@@ -1064,7 +1065,7 @@ async function insertAPLineItems(
 
     await tx.insert(schema.advancePaymentLineItem).values({
       advancePaymentId: apId,
-      amount: entry.cost,
+      amountPaise: rupeesToPaise(entry.cost),
       categoryId: newCategoryId,
       createdAt: entryCreatedAt,
       description: entry.remarks?.trim() || null,

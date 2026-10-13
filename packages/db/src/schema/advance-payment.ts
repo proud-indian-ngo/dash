@@ -2,7 +2,7 @@ import { relations } from "drizzle-orm";
 import {
   index,
   integer,
-  numeric,
+  bigint,
   pgEnum,
   pgTable,
   text,
@@ -61,7 +61,7 @@ export const advancePaymentLineItem = pgTable(
     advancePaymentId: uuid("advance_payment_id")
       .notNull()
       .references(() => advancePayment.id, { onDelete: "cascade" }),
-    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    amountPaise: bigint("amount_paise", { mode: "number" }).notNull(),
     categoryId: uuid("category_id")
       .notNull()
       .references(() => expenseCategory.id),

@@ -370,14 +370,14 @@ describe("server mutator upload claims", () => {
           userId: "user-1",
         })
         .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([{ amount: 1000 }])
+        .mockResolvedValueOnce([{ amountPaise: 100_000 }])
         .mockResolvedValueOnce(undefined),
     };
     const sourceKey = "app/attachments/tmp/user-1/upload-id-payment.pdf";
 
     await vendorPaymentTransactionMutators.create.fn({
       args: {
-        amount: 100,
+        amountPaise: 10_000,
         attachments: [
           {
             filename: "payment.pdf",

@@ -33,10 +33,14 @@ import {
   REQUEST_CSV_HEADERS,
   type RequestExportRow,
   requestRowToArray,
+  requestTotalCell,
+  sumToPaise,
+  transactionAmountCell,
   type TransactionExportRow,
   transactionRowToArray,
   TX_CSV_HEADERS,
   type VendorPaymentExportRow,
+  vendorPaymentAmountCells,
   vendorPaymentRowToArray,
   VP_CSV_HEADERS,
 } from "./financial-export-rows";
@@ -218,7 +222,7 @@ async function queryRequestRows(
       status: result.status,
       submittedAt: result.submittedAt?.toISOString() ?? "",
       title: result.title,
-      total: result.total ?? "0",
+      total: requestTotalCell(result.total),
       type: typeLabel,
     })),
   };
@@ -230,7 +234,7 @@ const reimbursementConfig: QueryConfig = {
   attachmentTable: reimbursementAttachment,
   eventIdCol: reimbursement.eventId,
   expenseDateCol: reimbursement.expenseDate,
-  lineItemAmountCol: reimbursementLineItem.amount,
+  lineItemAmountCol: reimbursementLineItem.amountPaise,
   lineItemJoinCol: reimbursementLineItem.reimbursementId,
   lineItemTable: reimbursementLineItem,
   mainTable: reimbursement,
@@ -242,7 +246,7 @@ const advancePaymentConfig: QueryConfig = {
   attachmentJoinCol: advancePaymentAttachment.advancePaymentId,
   attachmentKind: "advancePaymentAttachment",
   attachmentTable: advancePaymentAttachment,
-  lineItemAmountCol: advancePaymentLineItem.amount,
+  lineItemAmountCol: advancePaymentLineItem.amountPaise,
   lineItemJoinCol: advancePaymentLineItem.advancePaymentId,
   lineItemTable: advancePaymentLineItem,
   mainTable: advancePayment,
@@ -270,7 +274,7 @@ async function queryVendorPaymentRows(
       status: vendorPayment.status,
       submittedAt: vendorPayment.submittedAt,
       title: vendorPayment.title,
-      totalAmount: sum(vendorPaymentLineItem.amount),
+      totalAmount: sum(vendorPaymentLineItem.amountPaise),
       vendorName: vendor.name,
     })
     .from(vendorPayment)
@@ -308,7 +312,7 @@ async function queryVendorPaymentRows(
     vendorPaymentIds.length > 0
       ? await db
           .select({
-            paidAmount: sum(vendorPaymentTransaction.amount),
+            paidAmount: sum(vendorPaymentTransaction.amountPaise),
             vendorPaymentId: vendorPaymentTransaction.vendorPaymentId,
           })
           .from(vendorPaymentTransaction)
@@ -326,25 +330,22 @@ async function queryVendorPaymentRows(
   const paidByVendorPaymentId = new Map(
     transactionTotals.map((total) => [
       total.vendorPaymentId,
-      Number(total.paidAmount ?? 0),
+      sumToPaise(total.paidAmount),
     ])
   );
   const rows = results.map((result) => {
-    const total = Number(result.totalAmount ?? 0);
     const paid = paidByVendorPaymentId.get(result.id) ?? 0;
     return {
+      ...vendorPaymentAmountCells(sumToPaise(result.totalAmount), paid),
       createdAt: result.createdAt.toISOString(),
       createdBy: result.createdBy ?? "",
       email: result.email,
       invoiceDate: result.invoiceDate ?? "",
       invoiceNumber: result.invoiceNumber ?? "",
-      paidAmount: String(paid),
       programme: result.programme ?? "",
-      remaining: String(Math.max(0, total - paid)),
       status: result.status,
       submittedAt: result.submittedAt?.toISOString() ?? "",
       title: result.title,
-      totalAmount: String(total),
       vendorName: result.vendorName ?? "",
     };
   });
@@ -354,7 +355,7 @@ async function queryVendorPaymentRows(
   }
   const transactionResults = await db
     .select({
-      amount: vendorPaymentTransaction.amount,
+      amountPaise: vendorPaymentTransaction.amountPaise,
       description: vendorPaymentTransaction.description,
       paymentMethod: vendorPaymentTransaction.paymentMethod,
       paymentReference: vendorPaymentTransaction.paymentReference,
@@ -370,7 +371,7 @@ async function queryVendorPaymentRows(
   return {
     rows,
     transactionRows: transactionResults.map((transaction) => ({
-      amount: String(transaction.amount),
+      amount: transactionAmountCell(transaction.amountPaise),
       description: transaction.description ?? "",
       paymentMethod: transaction.paymentMethod ?? "",
       paymentReference: transaction.paymentReference ?? "",

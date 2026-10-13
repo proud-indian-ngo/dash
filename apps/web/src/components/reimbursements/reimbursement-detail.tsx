@@ -9,7 +9,8 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { VOUCHER_AMOUNT_THRESHOLD } from "@pi-dash/shared/constants";
+import { VOUCHER_AMOUNT_THRESHOLD_PAISE } from "@pi-dash/shared/constants";
+import { formatPaise } from "@pi-dash/shared/money";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useState } from "react";
@@ -34,13 +35,13 @@ import {
   getAttachmentDownloadHref,
   getAttachmentPreviewHref,
 } from "@/lib/attachment-links";
-import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import {
   isReimbursement,
   REQUEST_TYPE_LABELS,
   type RequestDetailData,
 } from "@/lib/reimbursement-types";
+import { sumAmounts } from "@/lib/stats";
 import { getStatusBadge } from "@/lib/status-badge";
 
 interface ReimbursementDetailProps {
@@ -101,10 +102,7 @@ export function ReimbursementDetail({
   const showRejectAction = showAdminActions && request.status !== "rejected";
   const showResetAction = showAdminActions && request.status !== "pending";
 
-  const total = request.lineItems.reduce(
-    (sum, item) => sum + Number(item.amount),
-    0
-  );
+  const total = sumAmounts(request.lineItems);
   const { approvalScreenshotKind, attachmentKind } =
     REQUEST_ASSET_KINDS[request.type];
   const approvalScreenshot = toApprovalScreenshot(
@@ -356,16 +354,17 @@ function VoucherCell({
   isApproved: boolean;
   isGenerating: boolean;
   item: {
-    amount: number | string;
+    amountPaise: number;
     generateVoucher?: boolean | null;
     id: string;
     voucherAttachmentId?: string | null;
   };
   onGenerate: (lineItemId: string) => void;
 }) {
-  const amount = Number(item.amount);
+  const { amountPaise } = item;
   const hasVoucher = !!item.voucherAttachmentId;
-  const isQualifying = amount > 0 && amount <= VOUCHER_AMOUNT_THRESHOLD;
+  const isQualifying =
+    amountPaise > 0 && amountPaise <= VOUCHER_AMOUNT_THRESHOLD_PAISE;
   const handleGenerate = useEventCallback(() => onGenerate(item.id));
 
   if (hasVoucher) {
@@ -480,7 +479,7 @@ function LineItemsTable({
                     {item.description}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
-                    {formatINR(Number(item.amount))}
+                    {formatPaise(item.amountPaise)}
                   </td>
                   {showVoucherCol ? (
                     <td className="px-3 py-2">
@@ -505,7 +504,7 @@ function LineItemsTable({
                   Total
                 </td>
                 <td className="px-3 py-2 text-right font-medium tabular-nums">
-                  {formatINR(total)}
+                  {formatPaise(total)}
                 </td>
                 {showVoucherCol ? <td /> : null}
               </tr>

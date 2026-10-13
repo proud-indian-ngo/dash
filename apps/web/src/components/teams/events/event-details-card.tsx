@@ -1,5 +1,6 @@
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { formatReminderInterval } from "@pi-dash/shared/event-reminders";
+import { formatPaise } from "@pi-dash/shared/money";
 import { rruleToLabel } from "@pi-dash/zero/rrule-utils";
 import type { EventPartner } from "@pi-dash/zero/schema";
 import { useNavigate } from "@tanstack/react-router";
@@ -9,7 +10,6 @@ import upperFirst from "lodash/upperFirst";
 import { DetailsCard, DetailsRow } from "@/components/shared/record-detail";
 import { Tag } from "@/components/shared/status-badge";
 import { DATE_TIME, TIME } from "@/lib/date-formats";
-import { formatINR } from "@/lib/form-schemas";
 
 import type { EventRow } from "./events-table";
 
@@ -171,7 +171,7 @@ export function EventDetailsCard({
 
       {canManage && totalExpenses > 0 ? (
         <DetailsRow label="Expenses">
-          <span className="tabular-nums">{formatINR(totalExpenses)}</span>
+          <span className="tabular-nums">{formatPaise(totalExpenses)}</span>
         </DetailsRow>
       ) : null}
     </DetailsCard>

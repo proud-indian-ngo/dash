@@ -306,7 +306,7 @@ export function buildClaimedAttachmentInsert(
  */
 export function buildLineItemInsert(item: LineItemInput, now: number) {
   return {
-    amount: item.amount,
+    amountPaise: item.amountPaise,
     categoryId: item.categoryId,
     createdAt: now,
     description: item.description,

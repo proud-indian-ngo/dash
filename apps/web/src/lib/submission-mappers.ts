@@ -1,7 +1,14 @@
+import { paiseToRupees } from "@pi-dash/shared/money";
+
 import type { Attachment, LineItem } from "./form-schemas";
 
+/** Paise to the rupee text an edit form starts with: 1500, 19.99, 19.9. */
+function paiseToFormAmount(paise: number): string {
+  return String(Number(paiseToRupees(paise)));
+}
+
 interface RawLineItem {
-  amount: number | string;
+  amountPaise: number;
   categoryId: string;
   description: null | string;
   generateVoucher?: boolean | null;
@@ -21,7 +28,7 @@ export function mapLineItemsToFormValues(
   lineItems: readonly RawLineItem[]
 ): LineItem[] {
   return lineItems.map((li) => ({
-    amount: String(li.amount),
+    amount: paiseToFormAmount(li.amountPaise),
     categoryId: li.categoryId,
     description: li.description ?? "",
     generateVoucher: li.generateVoucher ?? false,
@@ -50,7 +57,7 @@ export function mapAttachmentsToFormValues(
 }
 
 interface RawTransaction {
-  amount: number | string;
+  amountPaise: number;
   attachments?: readonly RawAttachment[];
   description?: null | string;
   paymentMethod?: null | string;
@@ -60,7 +67,7 @@ interface RawTransaction {
 
 export function mapTransactionToFormValues(t: RawTransaction) {
   return {
-    amount: String(t.amount),
+    amount: paiseToFormAmount(t.amountPaise),
     attachments: mapAttachmentsToFormValues(t.attachments ?? []),
     description: t.description ?? "",
     paymentMethod: t.paymentMethod ?? "",

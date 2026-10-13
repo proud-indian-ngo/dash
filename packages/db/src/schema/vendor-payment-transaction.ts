@@ -2,7 +2,7 @@ import { relations, sql } from "drizzle-orm";
 import {
   check,
   index,
-  numeric,
+  bigint,
   pgEnum,
   pgTable,
   text,
@@ -34,7 +34,7 @@ export const vendorPaymentTransactionStatusEnum = pgEnum(
 export const vendorPaymentTransaction = pgTable(
   "vendor_payment_transaction",
   {
-    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    amountPaise: bigint("amount_paise", { mode: "number" }).notNull(),
     createdAt: timestamp("created_at").notNull(),
     description: text("description"),
     id: uuid("id").primaryKey(),

@@ -15,18 +15,19 @@ import {
   CardTitle,
 } from "@pi-dash/design-system/components/ui/card";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { formatPaise } from "@pi-dash/shared/money";
 import { Link } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
 
 import { GhostEmptyState } from "@/components/shared/ghost-empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { formatINR } from "@/lib/form-schemas";
+import { sumAmounts } from "@/lib/stats";
 import { getStatusBadge } from "@/lib/status-badge";
 
 interface FinancialItem {
   createdAt: number;
   id: string;
-  lineItems: readonly { amount: number }[];
+  lineItems: readonly { amountPaise: number }[];
   status: string | null;
   title: string;
 }
@@ -49,13 +50,14 @@ interface EventInterestItem {
 interface VendorPaymentItem {
   createdAt: number;
   id: string;
-  lineItems: readonly { amount: number }[];
+  lineItems: readonly { amountPaise: number }[];
   status: string | null;
   title: string;
   vendor?: { name: string } | undefined;
 }
 
 interface ActivityItem {
+  /** Line-item total in paise. */
   amount?: number;
   createdAt: number;
   entityId: string;
@@ -76,7 +78,7 @@ function toFinancialActivities(
   route: string
 ): ActivityItem[] {
   return items.map((item) => ({
-    amount: item.lineItems.reduce((sum, li) => sum + li.amount, 0),
+    amount: sumAmounts(item.lineItems),
     createdAt: item.createdAt,
     entityId: item.id,
     icon,
@@ -135,7 +137,7 @@ function toVendorPaymentActivities(
   return payments.map((payment) => {
     const vendorName = payment.vendor?.name;
     return {
-      amount: payment.lineItems.reduce((sum, li) => sum + li.amount, 0),
+      amount: sumAmounts(payment.lineItems),
       createdAt: payment.createdAt,
       entityId: payment.id,
       icon: Store01Icon,
@@ -230,7 +232,7 @@ function RecentActivityList({ activities }: { activities: ActivityItem[] }) {
                 {activity.label}
                 {activity.amount !== null &&
                   activity.amount !== undefined &&
-                  ` · ${formatINR(activity.amount)}`}
+                  ` · ${formatPaise(activity.amount)}`}
                 {" · "}
                 {formatDistanceToNow(activity.createdAt, {
                   addSuffix: true,

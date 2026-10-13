@@ -1,3 +1,4 @@
+import { formatPaise, sumPaise } from "@pi-dash/shared/money";
 import {
   Body,
   Button,
@@ -28,11 +29,6 @@ export interface NotificationEmailProps {
   note?: string;
   paragraphs: string[];
 }
-
-const currencyFormat = new Intl.NumberFormat("en-IN", {
-  currency: "INR",
-  style: "currency",
-});
 
 const DEFAULT_APP_NAME = "Proud Indian Dashboard";
 const DEFAULT_APP_URL = "https://dash.proudindian.ngo";
@@ -73,7 +69,7 @@ export default function NotificationEmail({
 }: NotificationEmailProps) {
   const hasLineItems = lineItems && lineItems.length > 0;
   const total = hasLineItems
-    ? lineItems.reduce((sum, item) => sum + Number(item.amount), 0)
+    ? sumPaise(lineItems.map((item) => item.amountPaise))
     : 0;
 
   return (
@@ -147,7 +143,7 @@ export default function NotificationEmail({
                           ? `${item.categoryName}: ${item.description}`
                           : item.categoryName;
                         return (
-                          <tr key={`${item.categoryName}-${item.amount}`}>
+                          <tr key={`${item.categoryName}-${item.amountPaise}`}>
                             <td
                               className={`text-fg px-3 py-2.5 text-[13px] leading-[18px] ${i % 2 === 1 ? "bg-row" : "bg-surface"}`}
                               style={{ borderBottom: "1px solid #e7e4e7" }}
@@ -162,7 +158,7 @@ export default function NotificationEmail({
                                 whiteSpace: "nowrap",
                               }}
                             >
-                              {currencyFormat.format(Number(item.amount))}
+                              {formatPaise(item.amountPaise)}
                             </td>
                           </tr>
                         );
@@ -175,7 +171,7 @@ export default function NotificationEmail({
                           className="text-fg px-3 py-2.5 text-right text-[13px] font-semibold"
                           style={{ fontVariantNumeric: "tabular-nums" }}
                         >
-                          {currencyFormat.format(total)}
+                          {formatPaise(total)}
                         </td>
                       </tr>
                     </tbody>

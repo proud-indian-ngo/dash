@@ -15,12 +15,12 @@ describe("computeReimbursementStats", () => {
 
   it("counts items by status", () => {
     const data = [
-      { lineItems: [{ amount: 100 }], status: "pending" },
-      { lineItems: [{ amount: 200 }], status: "approved" },
-      { lineItems: [{ amount: 300 }], status: "approved" },
-      { lineItems: [{ amount: 50 }], status: "rejected" },
-      { lineItems: [{ amount: 75 }], status: "rejected" },
-      { lineItems: [{ amount: 25 }], status: "rejected" },
+      { lineItems: [{ amountPaise: 100 }], status: "pending" },
+      { lineItems: [{ amountPaise: 200 }], status: "approved" },
+      { lineItems: [{ amountPaise: 300 }], status: "approved" },
+      { lineItems: [{ amountPaise: 50 }], status: "rejected" },
+      { lineItems: [{ amountPaise: 75 }], status: "rejected" },
+      { lineItems: [{ amountPaise: 25 }], status: "rejected" },
     ];
     const stats = computeReimbursementStats(data);
 
@@ -33,30 +33,36 @@ describe("computeReimbursementStats", () => {
   it("sums amounts across line items per entry", () => {
     const data = [
       {
-        lineItems: [{ amount: 100 }, { amount: 200 }, { amount: 300 }],
+        lineItems: [
+          { amountPaise: 10_000 },
+          { amountPaise: 20_000 },
+          { amountPaise: 30_000 },
+        ],
         status: "approved",
       },
     ];
     const stats = computeReimbursementStats(data);
     const totalDesc = stats.at(0)?.description;
-    expect(totalDesc).toContain("600");
+    expect(totalDesc).toBe("₹600.00");
   });
 
   it("formats totals as INR in descriptions", () => {
-    const data = [{ lineItems: [{ amount: 10_000 }], status: "pending" }];
+    const data = [
+      { lineItems: [{ amountPaise: 1_000_000 }], status: "pending" },
+    ];
     const stats = computeReimbursementStats(data);
     const pendingDesc = stats.at(1)?.description;
     expect(pendingDesc).toContain("10,000");
   });
 
-  it("handles string amounts", () => {
-    const data = [{ lineItems: [{ amount: "999.99" }], status: "approved" }];
+  it("formats paise fractions", () => {
+    const data = [{ lineItems: [{ amountPaise: 99_999 }], status: "approved" }];
     const stats = computeReimbursementStats(data);
     expect(stats.at(2)?.description).toContain("999.99");
   });
 
   it("handles null status", () => {
-    const data = [{ lineItems: [{ amount: 500 }], status: null }];
+    const data = [{ lineItems: [{ amountPaise: 500 }], status: null }];
     const stats = computeReimbursementStats(data);
     expect(stats.at(0)?.value).toBe(1);
     expect(stats.at(1)?.value).toBe(0);

@@ -28,10 +28,10 @@ import {
   SettingsRow,
 } from "@/components/settings/settings-ui";
 import {
-  formatPaise,
+  formatPaiseCompact,
   isValidRupeesInput,
   paiseToRupeesInput,
-  rupeesToPaise,
+  optionalRupeesToPaise,
 } from "@/lib/paise";
 import { reportMutationResult } from "@/lib/report-mutation-result";
 
@@ -192,7 +192,7 @@ function ProgrammeRow({
   const detailParts = [
     programme.code,
     leadLabel(programme.leadUserId, leadName),
-    `Finance above ${formatPaise(threshold)}${programme.financeThresholdPaise === null ? " (default)" : ""}`,
+    `Finance above ${formatPaiseCompact(threshold)}${programme.financeThresholdPaise === null ? " (default)" : ""}`,
   ];
 
   return (
@@ -248,7 +248,7 @@ export function ProgrammesSection() {
     cause: values.cause?.trim() || null,
     code: values.code.toUpperCase(),
     description: values.description?.trim() || null,
-    financeThresholdPaise: rupeesToPaise(values.financeThreshold),
+    financeThresholdPaise: optionalRupeesToPaise(values.financeThreshold),
     id,
     leadUserId:
       values.leadUserId && values.leadUserId !== NO_LEAD
@@ -298,7 +298,8 @@ export function ProgrammesSection() {
   });
 
   const handleThreshold = useEventCallback(async (threshold: string) => {
-    const paise = rupeesToPaise(threshold) ?? DEFAULT_FINANCE_THRESHOLD_PAISE;
+    const paise =
+      optionalRupeesToPaise(threshold) ?? DEFAULT_FINANCE_THRESHOLD_PAISE;
     const res = await zero.mutate(
       mutators.appConfig.upsert({
         key: APP_CONFIG_FINANCE_THRESHOLD_KEY,
@@ -339,7 +340,7 @@ export function ProgrammesSection() {
         ) : (
           <SettingsRow
             description="Requests above this amount need finance approval after the programme lead, unless the programme sets its own threshold."
-            title={`Default: ${formatPaise(defaultThresholdPaise)}`}
+            title={`Default: ${formatPaiseCompact(defaultThresholdPaise)}`}
           >
             <Button
               aria-label="Edit default threshold"

@@ -1,6 +1,6 @@
 # Shared (`packages/shared`)
 
-> **Load when**: `@pi-dash/shared`, `ALLOWED_IMAGE_TYPES`, event reminder presets, `REMINDER_PRESET_MINUTES`, client/server constant boundary, cross-package constants.
+> **Load when**: `@pi-dash/shared`, money and paise conversion, `ALLOWED_IMAGE_TYPES`, event reminder presets, `REMINDER_PRESET_MINUTES`, client/server constant boundary, cross-package constants.
 > **Related**: `data-layer.md`, `editor.md`
 
 Cross-package constants, types, and utilities used by both client and server code.
@@ -8,6 +8,7 @@ Cross-package constants, types, and utilities used by both client and server cod
 | File | Contents |
 |---|---|
 | `src/constants.ts` | `ALLOWED_IMAGE_TYPES`, city values, status enums |
+| `src/money.ts` | Paise helpers: `rupeesToPaise` and `tryRupeesToPaise` (exact parsing), `paiseToRupees` (two-decimal text), `formatPaise` (INR display), `sumPaise`, `assertSafePaise`, `paiseSchema` and `positivePaiseSchema` |
 | `src/event-reminders.ts` | `REMINDER_PRESET_MINUTES`, `RSVP_POLL_LEAD_PRESET_MINUTES`, `DEFAULT_RSVP_POLL_LEAD_MINUTES` |
 | `src/scheduled-message.ts` | `MAX_RECIPIENT_RETRIES`, scheduling constants |
 | `src/rrule-expand.ts` | RRULE expansion with exclusion pattern support |

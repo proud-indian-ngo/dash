@@ -5,6 +5,7 @@ import {
   ChartTooltipContent,
 } from "@pi-dash/design-system/components/ui/chart";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { formatPaise } from "@pi-dash/shared/money";
 import {
   Bar,
   CartesianGrid,
@@ -14,7 +15,6 @@ import {
   YAxis,
 } from "recharts";
 
-import { formatINR } from "@/lib/form-schemas";
 import type { TrendDataPoint } from "@/lib/stats";
 
 import { ChartCard } from "./chart-card";
@@ -31,9 +31,9 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function SubmissionTrendsChart({ data }: { data: TrendDataPoint[] }) {
-  const stableTickFormatter0 = useEventCallback((v: number) => formatINR(v));
+  const stableTickFormatter0 = useEventCallback((v: number) => formatPaise(v));
   const stableFormatter1 = useEventCallback((value: unknown, name: unknown) =>
-    name === "amount" ? formatINR(Number(value)) : String(value)
+    name === "amount" ? formatPaise(Number(value)) : String(value)
   );
   return (
     <ChartCard

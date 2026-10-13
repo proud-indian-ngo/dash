@@ -1,3 +1,4 @@
+import { positivePaiseSchema, sumPaise } from "@pi-dash/shared/money";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 
@@ -27,10 +28,7 @@ export const transactionAttachmentKeyPrefixes = (id: string) => [
 ];
 
 const createSchema = z.object({
-  amount: z
-    .number()
-    .positive("Amount must be greater than 0")
-    .multipleOf(0.01, "Amount must have at most 2 decimal places"),
+  amountPaise: positivePaiseSchema,
   attachments: z.array(attachmentSchema),
   description: z.string().trim().optional(),
   id: z.string(),
@@ -41,7 +39,6 @@ const createSchema = z.object({
 });
 
 const fk = (id: string) => ({ vendorPaymentTransactionId: id });
-const toCents = (v: number | string) => Math.round(Number(v) * 100);
 
 abstract class BivariantZeroMutation {
   abstract bivarianceHack(args: unknown): Promise<void>;
@@ -64,7 +61,7 @@ interface VendorPaymentTransactionTx {
 async function assertWithinPaymentCap(
   tx: VendorPaymentTransactionTx,
   vendorPaymentId: string,
-  newAmountCents: number,
+  newAmountPaise: number,
   excludeTransactionId?: string
 ): Promise<void> {
   const allTransactions = await tx.run(
@@ -74,20 +71,22 @@ async function assertWithinPaymentCap(
     zql.vendorPaymentLineItem.where("vendorPaymentId", vendorPaymentId)
   );
 
-  const otherTotalCents = (
-    allTransactions as Array<{
-      id: string;
-      status: string;
-      amount: number | string;
-    }>
-  )
-    .filter((t) => t.status !== "rejected" && t.id !== excludeTransactionId)
-    .reduce((sum: number, t) => sum + toCents(t.amount), 0);
-  const totalOwedCents = (
-    lineItems as Array<{ amount: number | string }>
-  ).reduce((sum: number, li) => sum + toCents(li.amount), 0);
+  const otherTotalPaise = sumPaise(
+    (
+      allTransactions as Array<{
+        id: string;
+        status: string;
+        amountPaise: number;
+      }>
+    )
+      .filter((t) => t.status !== "rejected" && t.id !== excludeTransactionId)
+      .map((t) => t.amountPaise)
+  );
+  const totalOwedPaise = sumPaise(
+    (lineItems as Array<{ amountPaise: number }>).map((li) => li.amountPaise)
+  );
 
-  if (otherTotalCents + newAmountCents > totalOwedCents) {
+  if (sumPaise([otherTotalPaise, newAmountPaise]) > totalOwedPaise) {
     throw new Error("Payment amount exceeds remaining balance");
   }
 }
@@ -101,16 +100,16 @@ export async function recalculateParentStatus(
     zql.vendorPaymentTransaction.where("vendorPaymentId", vendorPaymentId)
   );
   const approvedAmounts = (
-    transactions as Array<{ status: string; amount: number | string }>
+    transactions as Array<{ status: string; amountPaise: number }>
   )
     .filter((t) => t.status === "approved")
-    .map((t) => t.amount);
+    .map((t) => t.amountPaise);
 
   const lineItems = await tx.run(
     zql.vendorPaymentLineItem.where("vendorPaymentId", vendorPaymentId)
   );
-  const lineItemAmounts = (lineItems as Array<{ amount: number | string }>).map(
-    (li) => li.amount
+  const lineItemAmounts = (lineItems as Array<{ amountPaise: number }>).map(
+    (li) => li.amountPaise
   );
 
   const newStatus = computePaymentStatus(approvedAmounts, lineItemAmounts);
@@ -163,12 +162,7 @@ export const vendorPaymentTransactionMutators = {
         );
       }
 
-      await assertWithinPaymentCap(
-        tx,
-        vpId,
-        toCents(entity.amount as number | string),
-        args.id
-      );
+      await assertWithinPaymentCap(tx, vpId, entity.amountPaise, args.id);
 
       const now = Date.now();
 
@@ -199,7 +193,7 @@ export const vendorPaymentTransactionMutators = {
             await enqueue(
               "notify-vpt-approved",
               {
-                amount: Number(entity.amount),
+                amountPaise: entity.amountPaise,
                 note: args.note,
                 submitterId,
                 transactionId,
@@ -269,18 +263,14 @@ export const vendorPaymentTransactionMutators = {
       throw new Error("Cannot record payments against this vendor payment");
     }
 
-    await assertWithinPaymentCap(
-      tx,
-      args.vendorPaymentId,
-      toCents(args.amount)
-    );
+    await assertWithinPaymentCap(tx, args.vendorPaymentId, args.amountPaise);
 
     const now = Date.now();
 
     const isApprover = can(ctx, "requests.approve");
 
     await tx.mutate.vendorPaymentTransaction.insert({
-      amount: args.amount,
+      amountPaise: args.amountPaise,
       createdAt: now,
       description: args.description,
       id: args.id,
@@ -366,7 +356,7 @@ export const vendorPaymentTransactionMutators = {
             await enqueue(
               "notify-vpt-submitted",
               {
-                amount: args.amount,
+                amountPaise: args.amountPaise,
                 submitterName: submitterName ?? "Someone",
                 transactionId,
                 vendorPaymentId: vpId,
@@ -493,7 +483,7 @@ export const vendorPaymentTransactionMutators = {
             await enqueue(
               "notify-vpt-rejected",
               {
-                amount: Number(entity.amount),
+                amountPaise: entity.amountPaise,
                 reason: args.reason,
                 submitterId,
                 transactionId,
@@ -544,7 +534,7 @@ export const vendorPaymentTransactionMutators = {
         await assertWithinPaymentCap(
           tx,
           entity.vendorPaymentId as string,
-          toCents(args.amount),
+          args.amountPaise,
           args.id
         );
       }
@@ -552,7 +542,7 @@ export const vendorPaymentTransactionMutators = {
       const now = Date.now();
 
       await tx.mutate.vendorPaymentTransaction.update({
-        amount: args.amount,
+        amountPaise: args.amountPaise,
         description: args.description,
         id: args.id,
         paymentMethod: args.paymentMethod,

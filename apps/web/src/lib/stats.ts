@@ -4,6 +4,7 @@ import {
   Clock01Icon,
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
+import { formatPaise, sumPaise } from "@pi-dash/shared/money";
 import {
   differenceInMonths,
   eachMonthOfInterval,
@@ -15,21 +16,19 @@ import {
 
 import type { StatItem } from "@/components/stats/stats-cards";
 import { DAY_MONTH } from "@/lib/date-formats";
-import { formatINR } from "@/lib/form-schemas";
 
 export interface WithStatusAndLineItems {
-  lineItems: readonly { amount: string | number }[];
+  lineItems: readonly { amountPaise: number }[];
   status: string | null;
 }
 
-export function sumAmounts(
-  items: readonly { amount: string | number }[]
-): number {
-  return items.reduce((sum, li) => sum + Number(li.amount), 0);
+/** Total of line items in paise. */
+export function sumAmounts(items: readonly { amountPaise: number }[]): number {
+  return sumPaise(items.map((li) => li.amountPaise));
 }
 
 export function sumTotal(data: readonly WithStatusAndLineItems[]): number {
-  return data.reduce((sum, item) => sum + sumAmounts(item.lineItems), 0);
+  return sumPaise(data.map((item) => sumAmounts(item.lineItems)));
 }
 
 export function byStatus(
@@ -40,7 +39,7 @@ export function byStatus(
 }
 
 export function formatTotal(data: readonly WithStatusAndLineItems[]): string {
-  return formatINR(sumTotal(data));
+  return formatPaise(sumTotal(data));
 }
 
 export function computeSubmissionStats(
@@ -83,6 +82,7 @@ export function computeSubmissionStats(
 }
 
 // --- Analytics aggregation ---
+// Every `amount` in these data points is a paise total; charts format it with formatPaise.
 
 export interface TrendDataPoint {
   amount: number;
@@ -112,7 +112,7 @@ export interface VendorDataPoint {
 interface WithAnalyticsData extends WithStatusAndLineItems {
   createdAt: number | null;
   lineItems: readonly {
-    amount: string | number;
+    amountPaise: number;
     category: { name: string } | undefined;
   }[];
   user: { email: string; name: string | null } | undefined;
@@ -180,7 +180,7 @@ export function computeCategoryData(
     for (const li of item.lineItems) {
       const name = li.category?.name ?? "Uncategorized";
       const existing = map.get(name) ?? { amount: 0, count: 0 };
-      existing.amount += Number(li.amount);
+      existing.amount += li.amountPaise;
       existing.count += 1;
       map.set(name, existing);
     }
@@ -241,7 +241,7 @@ export interface EventDataPoint {
 
 interface WithEventData {
   event?: { id: string; name: string } | null;
-  lineItems: readonly { amount: string | number }[];
+  lineItems: readonly { amountPaise: number }[];
 }
 
 export function computeEventData(
@@ -277,7 +277,7 @@ export interface ProgrammeDataPoint {
 
 interface WithProgrammeData {
   event?: { programme?: { name: string } | null } | null;
-  lineItems: readonly { amount: string | number }[];
+  lineItems: readonly { amountPaise: number }[];
 }
 
 export const NO_EVENT_PROGRAMME_LABEL = "No event";

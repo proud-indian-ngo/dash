@@ -148,14 +148,14 @@ export interface NotifyVpInvoiceRejectedPayload {
 
 // Vendor Payment Transaction
 export interface NotifyVptSubmittedPayload {
-  amount: number;
+  amountPaise: number;
   submitterName: string;
   transactionId: string;
   vendorPaymentId: string;
   vendorPaymentTitle: string;
 }
 export interface NotifyVptApprovedPayload {
-  amount: number;
+  amountPaise: number;
   note?: string;
   submitterId: string;
   transactionId: string;
@@ -163,7 +163,7 @@ export interface NotifyVptApprovedPayload {
   vendorPaymentTitle: string;
 }
 export interface NotifyVptRejectedPayload {
-  amount: number;
+  amountPaise: number;
   reason: string;
   submitterId: string;
   transactionId: string;

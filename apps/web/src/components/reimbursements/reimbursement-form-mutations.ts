@@ -1,3 +1,4 @@
+import { rupeesToPaise } from "@pi-dash/shared/money";
 import { mutators } from "@pi-dash/zero/mutators";
 import type { BankAccount } from "@pi-dash/zero/schema";
 import type { useZero } from "@rocicorp/zero/react";
@@ -18,9 +19,9 @@ export function buildMutation(
   existingId: string | undefined,
   bankAccountList: BankAccount[]
 ) {
-  const lineItems = value.lineItems.map((item, index) => ({
+  const lineItems = value.lineItems.map(({ amount, ...item }, index) => ({
     ...item,
-    amount: Number(item.amount),
+    amountPaise: rupeesToPaise(amount),
     sortOrder: index,
   }));
   const { attachments } = value;

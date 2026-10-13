@@ -331,3 +331,9 @@ bun run vendors:backfill-private
 ```
 
 It encrypts each legacy row into `party_private` and `party_bank_account`, deletes it, and prints the migrated and skipped counts. It is safe to rerun; a second run reports `0 migrated`. Editing a vendor before the backfill also migrates that vendor's row. A later migration drops `private.vendor_legacy_details` once production has no rows left in it.
+
+### Money in paise rollout
+
+Migration `0118_money_paise.sql` replaces the `numeric(12,2)` rupee `amount` column with `amount_paise bigint` on `reimbursement_line_item`, `advance_payment_line_item`, `vendor_payment_line_item` and `vendor_payment_transaction`. It runs in the existing `migrate` service: per table it adds the column, backfills `round(amount * 100)`, sets it NOT NULL and drops `amount`, all in the migration transaction. Before touching anything it checks every amount and aborts with `money_paise: an amount has more than two decimal places` if one has more than two; `numeric(12,2)` cannot hold such a value, so this only fires if the column type was changed by hand, and the deploy stops with no data changed.
+
+Because `amount` is dropped, deploy the migration, the regenerated Zero schema and the web build together, as for the vendor parties rollout; old app or Zero workers that still read `amount` fail. Screens, notifications, cash vouchers and the financial-year export show the same rupee values as before. The vendor payment transaction notification jobs now carry `amountPaise`; a job enqueued by the old build and picked up by the new one fails its safe-amount check instead of sending a wrong figure, so let the queue drain before stopping the old workers.

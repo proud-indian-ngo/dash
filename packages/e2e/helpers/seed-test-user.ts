@@ -414,7 +414,7 @@ async function ensureReimbursement(
 
   await db.insert(reimbursementLineItem).values([
     {
-      amount: "250.00",
+      amountPaise: 25000,
       categoryId: category.id,
       createdAt: now,
       description: "Bus fare",
@@ -425,7 +425,7 @@ async function ensureReimbursement(
       updatedAt: now,
     },
     {
-      amount: "150.00",
+      amountPaise: 15000,
       categoryId: category.id,
       createdAt: now,
       description: "Lunch",
@@ -471,7 +471,7 @@ async function ensureUpcomingEventReimbursement(
   });
 
   await db.insert(reimbursementLineItem).values({
-    amount: "275.00",
+    amountPaise: 27500,
     categoryId: category.id,
     createdAt: now,
     description: "Upcoming event supplies",
@@ -596,7 +596,7 @@ async function ensureEventVendorPayment(
   });
 
   await db.insert(vendorPaymentLineItem).values({
-    amount: "625.00",
+    amountPaise: 62500,
     categoryId: category.id,
     createdAt: now,
     description: "Event vendor supplies",
@@ -643,7 +643,7 @@ async function ensureExportVendorPayment(userId: string): Promise<void> {
   });
 
   await db.insert(vendorPaymentLineItem).values({
-    amount: "875.00",
+    amountPaise: 87500,
     categoryId: category.id,
     createdAt,
     description: "Export date filter fixture",

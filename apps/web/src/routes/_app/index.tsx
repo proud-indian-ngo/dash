@@ -19,6 +19,7 @@ import {
 import { Kbd } from "@pi-dash/design-system/components/ui/kbd";
 import { useIsMobile } from "@pi-dash/design-system/hooks/use-mobile";
 import { env } from "@pi-dash/env/web";
+import { formatPaise } from "@pi-dash/shared/money";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
@@ -43,7 +44,6 @@ import {
   filterByDateRange,
   resolveDateRange,
 } from "@/lib/date-range";
-import { formatINR } from "@/lib/form-schemas";
 import { preloadRouteQuery } from "@/lib/route-preload";
 import { sumTotal, type WithStatusAndLineItems } from "@/lib/stats";
 import { isTeamLead } from "@/lib/team-utils";
@@ -147,7 +147,7 @@ function computeDashboardStats({
           value: ownPendingCount,
         },
     {
-      description: formatINR(sumTotal(allRequests)),
+      description: formatPaise(sumTotal(allRequests)),
       href: "/reimbursements",
       icon: Invoice01Icon,
       label: canViewAllRequests ? "Reimbursements" : "My reimbursements",
@@ -156,7 +156,7 @@ function computeDashboardStats({
     ...(canViewVendors
       ? [
           {
-            description: formatINR(sumTotal(vendorPayments)),
+            description: formatPaise(sumTotal(vendorPayments)),
             href: "/vendor-payments",
             icon: Store01Icon,
             label: "Vendor payments",

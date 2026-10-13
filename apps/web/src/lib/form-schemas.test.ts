@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
 
-import { computeRunningTotal, formatINR, lineItemSchema } from "./form-schemas";
+import { computeRunningTotalPaise, lineItemSchema } from "./form-schemas";
 
-describe("computeRunningTotal", () => {
+describe("computeRunningTotalPaise", () => {
   it("sums valid amounts", () => {
     const items = [
       {
@@ -20,11 +20,11 @@ describe("computeRunningTotal", () => {
         id: "2",
       },
     ];
-    expect(computeRunningTotal(items)).toBeCloseTo(300.5);
+    expect(computeRunningTotalPaise(items)).toBe(30_050);
   });
 
   it("returns 0 for empty array", () => {
-    expect(computeRunningTotal([])).toBe(0);
+    expect(computeRunningTotalPaise([])).toBe(0);
   });
 
   it("treats non-numeric amounts as 0", () => {
@@ -51,19 +51,7 @@ describe("computeRunningTotal", () => {
         id: "3",
       },
     ];
-    expect(computeRunningTotal(items)).toBe(50);
-  });
-});
-
-describe("formatINR", () => {
-  it("formats decimal", () => {
-    const result = formatINR(1234.56);
-    expect(result).toContain("1,234.56");
-  });
-
-  it("uses Indian number grouping for lakhs", () => {
-    const result = formatINR(100_000);
-    expect(result).toContain("1,00,000");
+    expect(computeRunningTotalPaise(items)).toBe(5000);
   });
 });
 
@@ -105,6 +93,12 @@ describe("lineItemSchema", () => {
     expect(lineItemSchema.safeParse({ ...valid, amount: "-10" }).success).toBe(
       false
     );
+  });
+
+  it("accepts amounts that float arithmetic would distort", () => {
+    expect(
+      lineItemSchema.safeParse({ ...valid, amount: "19.99" }).success
+    ).toBe(true);
   });
 
   it("rejects amount with more than 2 decimal places", () => {

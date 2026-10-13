@@ -1,4 +1,5 @@
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { rupeesToPaise } from "@pi-dash/shared/money";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type { ExpenseCategory, TeamEvent, Vendor } from "@pi-dash/zero/schema";
@@ -80,9 +81,9 @@ export function VendorPaymentForm({
       const value = vendorPaymentFormSchema.parse(rawValue);
       const id = entityId;
 
-      const lineItems = value.lineItems.map((item, index) => ({
+      const lineItems = value.lineItems.map(({ amount, ...item }, index) => ({
         ...item,
-        amount: Number(item.amount),
+        amountPaise: rupeesToPaise(amount),
         sortOrder: index,
       }));
 

@@ -7,7 +7,7 @@ import {
 
 describe("mutatorLineItemSchema", () => {
   const valid = {
-    amount: 150.5,
+    amountPaise: 15_050,
     categoryId: "cat-1",
     description: "Taxi fare",
     id: "li-1",
@@ -20,19 +20,25 @@ describe("mutatorLineItemSchema", () => {
 
   it("rejects zero amount", () => {
     expect(
-      mutatorLineItemSchema.safeParse({ ...valid, amount: 0 }).success
+      mutatorLineItemSchema.safeParse({ ...valid, amountPaise: 0 }).success
     ).toBe(false);
   });
 
   it("rejects negative amount", () => {
     expect(
-      mutatorLineItemSchema.safeParse({ ...valid, amount: -10 }).success
+      mutatorLineItemSchema.safeParse({ ...valid, amountPaise: -10 }).success
     ).toBe(false);
   });
 
-  it("rejects amount with more than 2 decimal places", () => {
+  it("rejects fractional and unsafe paise", () => {
     expect(
-      mutatorLineItemSchema.safeParse({ ...valid, amount: 10.123 }).success
+      mutatorLineItemSchema.safeParse({ ...valid, amountPaise: 1012.3 }).success
+    ).toBe(false);
+    expect(
+      mutatorLineItemSchema.safeParse({
+        ...valid,
+        amountPaise: Number.MAX_SAFE_INTEGER + 1,
+      }).success
     ).toBe(false);
   });
 
