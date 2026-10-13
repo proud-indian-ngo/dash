@@ -27,6 +27,7 @@ Copy `.env.sample` to `.env` and fill in values. Grouped by category:
 | `DATABASE_URL` | PostgreSQL connection string (pooled) |
 | `ZERO_UPSTREAM_DB` | PostgreSQL connection string (unpooled, for WAL replication) |
 | `BETTER_AUTH_SECRET` | Session encryption secret (min 32 chars) |
+| `DATA_ENCRYPTION_KEY` | Base64 of 32 random bytes (`openssl rand -base64 32`); encrypts finance-private fields such as donor ID numbers. Required in production and passed to the `web` service by `docker-compose.prod.yml`. Rotating it requires re-encrypting stored values |
 | `BETTER_AUTH_URL` | Auth base URL (e.g., `https://dash.example.com`). Also the base of the public events feed's `signUpUrl`; the proudindian.ngo website only accepts links starting with `https://dash.proudindian.ngo/`, so production must use exactly that origin |
 | `CORS_ORIGIN` | Allowed CORS origin (usually same as `BETTER_AUTH_URL`) |
 | `ZERO_ADMIN_PASSWORD` | Zero cache admin password |

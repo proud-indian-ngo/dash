@@ -15,6 +15,7 @@ import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppSplatRouteImport } from './routes/_app/$'
 import { Route as AppAnalyticsRouteImport } from './routes/_app/analytics'
 import { Route as AppAuditLogRouteImport } from './routes/_app/audit-log'
+import { Route as AppDonorsRouteRouteImport } from './routes/_app/donors/route'
 import { Route as AppEventsRouteRouteImport } from './routes/_app/events/route'
 import { Route as AppExportRouteImport } from './routes/_app/export'
 import { Route as AppJobsRouteImport } from './routes/_app/jobs'
@@ -36,6 +37,7 @@ import { Route as ApiAuditLogRouteImport } from './routes/api/audit-log'
 import { Route as ApiAvatarRouteImport } from './routes/api/avatar'
 import { Route as ApiFinancialExportRouteImport } from './routes/api/financial-export'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as AppDonorsIndexRouteImport } from './routes/_app/donors/index'
 import { Route as AppEventsIndexRouteImport } from './routes/_app/events/index'
 import { Route as AppEventsIdRouteImport } from './routes/_app/events/$id'
 import { Route as AppKalakritiIndexRouteImport } from './routes/_app/kalakriti/index'
@@ -156,6 +158,11 @@ const AppAuditLogRoute = AppAuditLogRouteImport.update({
   path: '/audit-log',
   getParentRoute: () => AppRoute,
 } as any)
+const AppDonorsRouteRoute = AppDonorsRouteRouteImport.update({
+  id: '/donors',
+  path: '/donors',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppEventsRouteRoute = AppEventsRouteRouteImport.update({
   id: '/events',
   path: '/events',
@@ -260,6 +267,11 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
   path: '/api/health',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppDonorsIndexRoute = AppDonorsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppDonorsRouteRoute,
 } as any)
 const AppEventsIndexRoute = AppEventsIndexRouteImport.update({
   id: '/',
@@ -750,6 +762,7 @@ const ApiSocialV1MediaPhotoIdVariantRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/donors': typeof AppDonorsRouteRouteWithChildren
   '/events': typeof AppEventsRouteRouteWithChildren
   '/kalakriti': typeof AppKalakritiRouteRouteWithChildren
   '/reimbursements': typeof AppReimbursementsRouteRouteWithChildren
@@ -806,6 +819,7 @@ export interface FileRoutesByFullPath {
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
   '/kalakriti/$year/schedule': typeof KalakritiYearScheduleRoute
+  '/donors/': typeof AppDonorsIndexRoute
   '/events/': typeof AppEventsIndexRoute
   '/kalakriti/': typeof AppKalakritiIndexRoute
   '/reimbursements/': typeof AppReimbursementsIndexRoute
@@ -915,6 +929,7 @@ export interface FileRoutesByTo {
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
   '/kalakriti/$year/schedule': typeof KalakritiYearScheduleRoute
+  '/donors': typeof AppDonorsIndexRoute
   '/events': typeof AppEventsIndexRoute
   '/kalakriti': typeof AppKalakritiIndexRoute
   '/reimbursements': typeof AppReimbursementsIndexRoute
@@ -976,6 +991,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
+  '/_app/donors': typeof AppDonorsRouteRouteWithChildren
   '/_app/events': typeof AppEventsRouteRouteWithChildren
   '/_app/kalakriti': typeof AppKalakritiRouteRouteWithChildren
   '/_app/reimbursements': typeof AppReimbursementsRouteRouteWithChildren
@@ -1033,6 +1049,7 @@ export interface FileRoutesById {
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
   '/kalakriti/$year/schedule': typeof KalakritiYearScheduleRoute
+  '/_app/donors/': typeof AppDonorsIndexRoute
   '/_app/events/': typeof AppEventsIndexRoute
   '/_app/kalakriti/': typeof AppKalakritiIndexRoute
   '/_app/reimbursements/': typeof AppReimbursementsIndexRoute
@@ -1097,6 +1114,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/donors'
     | '/events'
     | '/kalakriti'
     | '/reimbursements'
@@ -1153,6 +1171,7 @@ export interface FileRouteTypes {
     | '/api/zero/mutate'
     | '/api/zero/query'
     | '/kalakriti/$year/schedule'
+    | '/donors/'
     | '/events/'
     | '/kalakriti/'
     | '/reimbursements/'
@@ -1262,6 +1281,7 @@ export interface FileRouteTypes {
     | '/api/zero/mutate'
     | '/api/zero/query'
     | '/kalakriti/$year/schedule'
+    | '/donors'
     | '/events'
     | '/kalakriti'
     | '/reimbursements'
@@ -1322,6 +1342,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/_auth'
+    | '/_app/donors'
     | '/_app/events'
     | '/_app/kalakriti'
     | '/_app/reimbursements'
@@ -1379,6 +1400,7 @@ export interface FileRouteTypes {
     | '/api/zero/mutate'
     | '/api/zero/query'
     | '/kalakriti/$year/schedule'
+    | '/_app/donors/'
     | '/_app/events/'
     | '/_app/kalakriti/'
     | '/_app/reimbursements/'
@@ -1521,6 +1543,13 @@ declare module '@tanstack/react-router' {
       path: '/audit-log'
       fullPath: '/audit-log'
       preLoaderRoute: typeof AppAuditLogRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/donors': {
+      id: '/_app/donors'
+      path: '/donors'
+      fullPath: '/donors'
+      preLoaderRoute: typeof AppDonorsRouteRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/events': {
@@ -1669,6 +1698,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/health'
       preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/donors/': {
+      id: '/_app/donors/'
+      path: '/'
+      fullPath: '/donors/'
+      preLoaderRoute: typeof AppDonorsIndexRouteImport
+      parentRoute: typeof AppDonorsRouteRoute
     }
     '/_app/events/': {
       id: '/_app/events/'
@@ -2310,6 +2346,18 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppDonorsRouteRouteChildren {
+  AppDonorsIndexRoute: typeof AppDonorsIndexRoute
+}
+
+const AppDonorsRouteRouteChildren: AppDonorsRouteRouteChildren = {
+  AppDonorsIndexRoute: AppDonorsIndexRoute,
+}
+
+const AppDonorsRouteRouteWithChildren = AppDonorsRouteRoute._addFileChildren(
+  AppDonorsRouteRouteChildren,
+)
+
 interface AppEventsRouteRouteChildren {
   AppEventsIdRoute: typeof AppEventsIdRoute
   AppEventsIndexRoute: typeof AppEventsIndexRoute
@@ -2567,6 +2615,7 @@ const AppVendorsRouteRouteWithChildren = AppVendorsRouteRoute._addFileChildren(
 )
 
 interface AppRouteChildren {
+  AppDonorsRouteRoute: typeof AppDonorsRouteRouteWithChildren
   AppEventsRouteRoute: typeof AppEventsRouteRouteWithChildren
   AppKalakritiRouteRoute: typeof AppKalakritiRouteRouteWithChildren
   AppReimbursementsRouteRoute: typeof AppReimbursementsRouteRouteWithChildren
@@ -2586,6 +2635,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppDonorsRouteRoute: AppDonorsRouteRouteWithChildren,
   AppEventsRouteRoute: AppEventsRouteRouteWithChildren,
   AppKalakritiRouteRoute: AppKalakritiRouteRouteWithChildren,
   AppReimbursementsRouteRoute: AppReimbursementsRouteRouteWithChildren,

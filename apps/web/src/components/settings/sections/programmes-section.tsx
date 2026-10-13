@@ -17,10 +17,10 @@ import { uuidv7 } from "uuidv7";
 import z from "zod";
 
 import { CheckboxField } from "@/components/form/checkbox-field";
+import { ComboboxField } from "@/components/form/combobox-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
-import { SelectField } from "@/components/form/select-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import {
   SettingsCard,
@@ -97,11 +97,12 @@ function ProgrammeForm({
           label="Cause"
           name="cause"
         />
-        <SelectField
+        <ComboboxField
+          emptyMessage="No matching people."
           label="Programme lead"
           name="leadUserId"
           options={leadOptions}
-          placeholder="No lead yet"
+          placeholder="Search by name"
         />
         <InputField
           description="Requests above this amount also need finance approval. Leave empty to use the default; 0 sends every request to finance."

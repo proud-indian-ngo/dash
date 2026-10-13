@@ -35,6 +35,7 @@ import { kalakritiStudentQueries } from "./queries/kalakriti-student";
 import { kalakritiTransportQueries } from "./queries/kalakriti-transport";
 import { notificationQueries } from "./queries/notification";
 import { notificationPreferenceQueries } from "./queries/notification-preference";
+import { partyQueries } from "./queries/party";
 import { reimbursementQueries } from "./queries/reimbursement";
 import { scheduledMessageQueries } from "./queries/scheduled-message";
 import { socialPostQueries, socialRunQueries } from "./queries/social";
@@ -76,6 +77,7 @@ export const queries = defineQueries({
   notification: notificationQueries,
   notificationPreference: notificationPreferenceQueries,
   orgAccount: orgAccountQueries,
+  party: partyQueries,
   programme: programmeQueries,
   project: projectQueries,
   reimbursement: reimbursementQueries,

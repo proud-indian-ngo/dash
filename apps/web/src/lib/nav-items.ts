@@ -1,5 +1,6 @@
 import {
   AnalyticsUpIcon,
+  FavouriteIcon,
   Award01Icon,
   Audit01Icon,
   Building03Icon,
@@ -113,6 +114,12 @@ const vendorsNavItem: NavItem = {
   icon: Store01Icon,
   title: "Vendors",
   url: "/vendors",
+};
+
+const donorsNavItem: NavItem = {
+  icon: FavouriteIcon,
+  title: "Donors",
+  url: "/donors",
 };
 
 const teamsNavItem: NavItem = {
@@ -380,6 +387,9 @@ export function buildNavItems(permissions: string[] = []): NavItem[] {
   if (has(permissions, "vendors.view_all")) {
     items.push(vendorsNavItem);
   }
+  if (has(permissions, "donors.view")) {
+    items.push(donorsNavItem);
+  }
   if (has(permissions, "users.manage")) {
     items.push(usersNavItem);
   }
@@ -427,6 +437,9 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
   }
   if (hasVendors) {
     financeItems.push(vendorsNavItem);
+  }
+  if (has(permissions, "donors.view")) {
+    financeItems.push(donorsNavItem);
   }
   if (financeItems.length > 0) {
     groups.push({ items: financeItems, label: "Finance" });

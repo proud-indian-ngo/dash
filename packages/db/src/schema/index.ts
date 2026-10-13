@@ -18,6 +18,7 @@ export * from "./kalakriti-awards";
 export * from "./kalakriti-inventory";
 export * from "./kalakriti-results";
 export * from "./notification";
+export * from "./party";
 export * from "./permission";
 export * from "./reimbursement";
 export * from "./scheduled-message";

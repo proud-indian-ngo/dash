@@ -26,6 +26,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
+import { party } from "./party";
 
 export const projectKindEnum = pgEnum("project_kind", projectKindValues);
 export const projectStatusEnum = pgEnum("project_status", projectStatusValues);
@@ -85,7 +86,10 @@ export const project = pgTable(
     endsOn: date("ends_on"),
     id: uuid("id").primaryKey(),
     /** Platform that sourced an engagement (for example Goodera). */
-    intermediaryPartyId: uuid("intermediary_party_id"),
+    intermediaryPartyId: uuid("intermediary_party_id").references(
+      () => party.id,
+      { onDelete: "restrict" }
+    ),
     kind: projectKindEnum("kind").default("other").notNull(),
     name: text("name").notNull(),
     programmeId: uuid("programme_id")
@@ -94,7 +98,9 @@ export const project = pgTable(
     quotedBudgetPaise: bigint("quoted_budget_paise", { mode: "number" }),
     reportDueOn: date("report_due_on"),
     /** Corporate or individual sponsoring an engagement. */
-    sponsorPartyId: uuid("sponsor_party_id"),
+    sponsorPartyId: uuid("sponsor_party_id").references(() => party.id, {
+      onDelete: "restrict",
+    }),
     startsOn: date("starts_on"),
     status: projectStatusEnum("status").default("active").notNull(),
     updatedAt: timestamp("updated_at").notNull(),

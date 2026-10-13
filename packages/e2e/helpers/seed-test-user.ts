@@ -13,7 +13,9 @@ import { eventInterest } from "@pi-dash/db/schema/event-interest";
 import { eventPhoto } from "@pi-dash/db/schema/event-photo";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
+import { party, partyRole } from "@pi-dash/db/schema/party";
 import { role, rolePermission } from "@pi-dash/db/schema/permission";
+import { partyPrivate } from "@pi-dash/db/schema/private/party-private";
 import {
   reimbursement,
   reimbursementAttachment,
@@ -199,6 +201,45 @@ async function ensureAuditLogEntry(superAdminUserId: string): Promise<void> {
     targetType: "user",
     traceId: "00000000000000000000000000000001",
   });
+}
+
+const SEED_DONOR_ID = "01930000-0000-7000-8000-000000000701";
+
+/** A donor with contact details but no identifier, so the seed needs no encryption key. */
+async function ensureDonorParty(userId: string): Promise<void> {
+  const now = new Date();
+  await db
+    .insert(party)
+    .values({
+      createdAt: now,
+      createdBy: userId,
+      displayName: "E2E Seed Donor",
+      id: SEED_DONOR_ID,
+      kind: "person",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(partyRole)
+    .values({
+      active: true,
+      id: "01930000-0000-7000-8000-000000000702",
+      partyId: SEED_DONOR_ID,
+      role: "donor",
+      since: now,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(partyPrivate)
+    .values({
+      assessedOn: "2026-04-01",
+      city: "Bengaluru",
+      email: "seed-donor@pi-dash.test",
+      partyId: SEED_DONOR_ID,
+      updatedAt: now,
+      updatedBy: userId,
+    })
+    .onConflictDoNothing();
 }
 
 async function ensureExpenseCategories(): Promise<void> {
@@ -1276,6 +1317,7 @@ async function seed(): Promise<void> {
   await ensureReimbursement(superAdminUserId, pastEvent.id);
   await ensureR2AuthorizationFixtures();
   await ensureEventVendorPayment(superAdminUserId, pastEvent.id);
+  await ensureDonorParty(superAdminUserId);
   await ensureExportVendorPayment(superAdminUserId);
   await ensureUpcomingEventReimbursement(superAdminUserId, upcomingEvent.id);
 }
