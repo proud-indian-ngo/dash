@@ -42,6 +42,7 @@ import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { ensureFinanceDimensions } from "@pi-dash/db/seed-finance-dimensions";
 import { ensureVendor } from "@pi-dash/db/seed-vendors";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
+import { PROGRAMME_IDS } from "@pi-dash/shared/constants";
 import { eq, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
@@ -717,6 +718,7 @@ async function seedReimbursements(
         createdAt: subDays(r.expenseDate, 2),
         expenseDate: r.expenseDate.toISOString().split("T")[0],
         id,
+        programmeId: PROGRAMME_IDS.education,
         rejectionReason: r.rejectionReason,
         reviewedAt: r.reviewedBy ? past(1) : undefined,
         reviewedBy: r.reviewedBy,
@@ -907,6 +909,7 @@ async function seedVendors(
   await db.insert(vendorPayment).values({
     createdAt: past(15),
     id: vpId,
+    programmeId: PROGRAMME_IDS.communitySupport,
     reviewedAt: past(12),
     reviewedBy: adminId,
     status: "partially_paid",
@@ -997,6 +1000,7 @@ async function seedVendors(
   await db.insert(vendorPayment).values({
     createdAt: past(3),
     id: vp2Id,
+    programmeId: PROGRAMME_IDS.unallocated,
     status: "pending",
     submittedAt: past(2),
     title: "Catering for weekend seva",

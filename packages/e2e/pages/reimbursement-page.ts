@@ -62,7 +62,10 @@ export class ReimbursementPage {
     });
   }
 
-  async createReimbursement(titleSuffix: string): Promise<string> {
+  async createReimbursement(
+    titleSuffix: string,
+    programme = "Education"
+  ): Promise<string> {
     const title = `E2E ${titleSuffix} ${Date.now()}`;
     await this.navigateToNew();
 
@@ -72,6 +75,7 @@ export class ReimbursementPage {
 
     if (this.type === "reimbursement") {
       await this.selectExpenseDate();
+      await this.form.selectProgramme(programme);
     }
 
     await this.form.fillLineItem({
@@ -91,6 +95,7 @@ export class ReimbursementPage {
     await this.form.fillTitle(title);
     await this.form.selectCity("Bangalore");
     await this.selectExpenseDate();
+    await this.form.selectProgramme();
 
     await this.form.fillLineItem({
       amount: "500",

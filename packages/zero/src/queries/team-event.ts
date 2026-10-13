@@ -95,7 +95,11 @@ export const teamEventQueries = {
   byTeam: defineQuery(
     z.object({ teamId: z.string() }),
     ({ args: { teamId }, ctx }) =>
-      restrictToAccessibleEvents(withRelated(zql.teamEvent), ctx)
+      restrictToAccessibleEvents(
+        // The team page's events table shows and filters by programme.
+        withRelated(zql.teamEvent).related("programme"),
+        ctx
+      )
         .where("teamId", teamId)
         .where("cancelledAt", "IS", null)
         .where("seriesId", "IS", null)

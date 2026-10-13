@@ -44,6 +44,8 @@ export function getVendorPaymentFilterValue(
       return row.userId;
     case "event":
       return row.eventId ?? null;
+    case "programme":
+      return row.programmeId;
     case "status":
       return row.status;
     case "submittedAt":
@@ -79,6 +81,15 @@ export function createVendorPaymentFilterFields(
         rows,
         (row) => row.eventId,
         (row) => row.event?.name ?? row.eventId ?? ""
+      )
+    ),
+    selectField(
+      "programme",
+      "Programme",
+      optionsFromRows(
+        rows,
+        (row) => row.programmeId,
+        (row) => row.programme?.name ?? row.programmeId
       )
     ),
     selectField(

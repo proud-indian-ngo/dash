@@ -4,6 +4,7 @@ import type {
   AdvancePaymentHistory,
   AdvancePaymentLineItem,
   ExpenseCategory,
+  Programme,
   Reimbursement,
   ReimbursementAttachment,
   ReimbursementHistory,
@@ -21,6 +22,7 @@ export type ReimbursementRequestRow = Reimbursement & {
   >;
   user: User | undefined;
   event: TeamEvent | undefined;
+  programme: Programme | undefined;
 };
 
 export type AdvancePaymentRequestRow = AdvancePayment & {
@@ -42,6 +44,7 @@ export type ReimbursementDetailData = Reimbursement & {
   history: ReadonlyArray<ReimbursementHistory & { actor?: User | undefined }>;
   user: User | undefined;
   event: TeamEvent | undefined;
+  programme: Programme | undefined;
 };
 
 export type AdvancePaymentDetailData = AdvancePayment & {

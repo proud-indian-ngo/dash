@@ -15,6 +15,7 @@ import {
 
 import { user } from "./auth";
 import { expenseCategory } from "./expense-category";
+import { programme } from "./finance-dimensions";
 import { jsonb } from "./jsonb";
 import { attachmentTypeEnum, cityEnum, historyActionEnum } from "./shared";
 import { teamEvent } from "./team-event";
@@ -44,6 +45,10 @@ export const reimbursement = pgTable(
     }),
     expenseDate: date("expense_date", { mode: "string" }).notNull(),
     id: uuid("id").primaryKey(),
+    /** Programme the money is spent under; one per request (finance design section 3.6). */
+    programmeId: uuid("programme_id")
+      .notNull()
+      .references(() => programme.id, { onDelete: "restrict" }),
     rejectionReason: text("rejection_reason"),
     reviewedAt: timestamp("reviewed_at"),
     reviewedBy: text("reviewed_by").references(() => user.id, {
@@ -61,6 +66,7 @@ export const reimbursement = pgTable(
     index("reimbursement_userId_idx").on(table.userId),
     index("reimbursement_status_idx").on(table.status),
     index("reimbursement_eventId_idx").on(table.eventId),
+    index("reimbursement_programmeId_idx").on(table.programmeId),
     check(
       "reimbursement_rejection_reason_chk",
       sql`((status = 'rejected'::reimbursement_status) AND (rejection_reason IS NOT NULL)) OR ((status <> 'rejected'::reimbursement_status) AND (rejection_reason IS NULL))`
@@ -150,6 +156,10 @@ export const reimbursementRelations = relations(
     }),
     history: many(reimbursementHistory),
     lineItems: many(reimbursementLineItem),
+    programme: one(programme, {
+      fields: [reimbursement.programmeId],
+      references: [programme.id],
+    }),
     reviewer: one(user, {
       fields: [reimbursement.reviewedBy],
       references: [user.id],

@@ -32,6 +32,7 @@ import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { ensureFinanceDimensions } from "@pi-dash/db/seed-finance-dimensions";
 import { ensureVendor } from "@pi-dash/db/seed-vendors";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
+import { PROGRAMME_IDS } from "@pi-dash/shared/constants";
 import { addDays, addHours, subDays } from "date-fns";
 import dotenv from "dotenv";
 import { eq } from "drizzle-orm";
@@ -376,6 +377,18 @@ const plateImageContent = (url: string): string =>
 const plateTextContent = (text: string): string =>
   JSON.stringify([{ children: [{ text }], type: "p" }]);
 
+/** The event's programme, which seeded requests carry on their header. */
+async function eventProgrammeId(eventId?: string): Promise<string> {
+  if (!eventId) {
+    return PROGRAMME_IDS.unallocated;
+  }
+  const event = await db.query.teamEvent.findFirst({
+    columns: { programmeId: true },
+    where: (table, ops) => ops.eq(table.id, eventId),
+  });
+  return event?.programmeId ?? PROGRAMME_IDS.unallocated;
+}
+
 async function ensureReimbursement(
   userId: string,
   eventId?: string
@@ -406,6 +419,7 @@ async function ensureReimbursement(
     eventId,
     expenseDate: "2026-01-15",
     id: SEED_REIMBURSEMENT_ID,
+    programmeId: await eventProgrammeId(eventId),
     status: "pending",
     title: "E2E Seed Reimbursement",
     updatedAt: now,
@@ -464,6 +478,7 @@ async function ensureUpcomingEventReimbursement(
     eventId,
     expenseDate: "2026-01-15",
     id: SEED_UPCOMING_REIMBURSEMENT_ID,
+    programmeId: await eventProgrammeId(eventId),
     status: "approved",
     title: "E2E Upcoming Event Reimbursement",
     updatedAt: now,
@@ -587,6 +602,7 @@ async function ensureEventVendorPayment(
     createdAt: now,
     eventId,
     id: SEED_VENDOR_PAYMENT_ID,
+    programmeId: await eventProgrammeId(eventId),
     status: "pending",
     submittedAt: now,
     title: "E2E Event Vendor Payment",
@@ -634,6 +650,7 @@ async function ensureExportVendorPayment(userId: string): Promise<void> {
     id: SEED_EXPORT_VENDOR_PAYMENT_ID,
     invoiceDate: "2026-01-20",
     invoiceNumber: "E2E-INV-2026-001",
+    programmeId: PROGRAMME_IDS.education,
     status: "completed",
     submittedAt: createdAt,
     title: "E2E Export Vendor Payment",

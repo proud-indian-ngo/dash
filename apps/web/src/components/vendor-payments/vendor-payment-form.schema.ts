@@ -19,6 +19,9 @@ const vendorPaymentBaseFields = {
 
 export const vendorPaymentFormSchema = z.object({
   ...vendorPaymentBaseFields,
+  programmeId: z
+    .string({ error: "Programme is required" })
+    .min(1, "Programme is required"),
   vendorId: z.string().min(1, "Vendor is required"),
 });
 
@@ -30,6 +33,7 @@ export function getVendorPaymentDefaultValues(): VendorPaymentFormValues {
     city: "bangalore",
     eventId: undefined,
     lineItems: [newLineItem()],
+    programmeId: "",
     title: "",
     vendorId: "",
   };

@@ -14,13 +14,16 @@ import {
   INVOICE_UPLOADABLE_STATUSES,
 } from "../vendor-payment-constants";
 import {
+  assertCanChangeProgramme,
   assertCanDelete,
   assertCanModify,
   assertEntityExists,
   assertPending,
+  assertRequestProgrammeSelectable,
   assertVendorUsable,
   buildClaimedAttachmentInsert,
   buildHistoryInsert,
+  buildProgrammeChangeHistory,
   claimUploadedR2ObjectKey,
   createR2ClaimOptions,
   deleteAllRelations,
@@ -62,6 +65,7 @@ const createSchema = z.object({
   eventId: z.string().optional(),
   id: z.string(),
   lineItems: z.array(lineItemSchema),
+  programmeId: z.uuid(),
   title: z.string().min(1),
   vendorId: z.string(),
 });
@@ -263,6 +267,7 @@ export const vendorPaymentMutators = {
       throw new Error("Vendor not found");
     }
     assertVendorUsable(vendor, userId);
+    await assertRequestProgrammeSelectable(tx, args.programmeId);
 
     const now = Date.now();
     const vpFk = { vendorPaymentId: args.id };
@@ -278,6 +283,7 @@ export const vendorPaymentMutators = {
       invoiceRejectionReason: null,
       invoiceReviewedAt: null,
       invoiceReviewedBy: null,
+      programmeId: args.programmeId,
       rejectionReason: null,
       reviewedAt: null,
       reviewedBy: null,
@@ -790,6 +796,15 @@ export const vendorPaymentMutators = {
       throw new Error("Vendor not found");
     }
     assertVendorUsable(vendor, userId, canEditAnyStatus);
+    const programmeChanged = args.programmeId !== entity.programmeId;
+    if (programmeChanged) {
+      assertCanChangeProgramme(ctx, entity);
+      await assertRequestProgrammeSelectable(
+        tx,
+        args.programmeId,
+        entity.programmeId
+      );
+    }
 
     const now = Date.now();
     const vpFk = { vendorPaymentId: args.id };
@@ -798,10 +813,23 @@ export const vendorPaymentMutators = {
       city: args.city,
       eventId: args.eventId,
       id: args.id,
+      programmeId: args.programmeId,
       title: args.title,
       updatedAt: now,
       vendorId: args.vendorId,
     });
+
+    if (programmeChanged) {
+      await tx.mutate.vendorPaymentHistory.insert({
+        ...buildProgrammeChangeHistory(
+          userId,
+          now,
+          entity.programmeId,
+          args.programmeId
+        ),
+        vendorPaymentId: args.id,
+      });
+    }
 
     await replaceRelations(
       vpFk,

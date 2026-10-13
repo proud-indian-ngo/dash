@@ -13,11 +13,14 @@ import {
   mutatorLineItemSchema as lineItemSchema,
 } from "../shared-schemas";
 import {
+  assertCanChangeProgramme,
   assertCanDelete,
   assertCanModify,
   assertEntityExists,
   assertPending,
+  assertRequestProgrammeSelectable,
   buildHistoryInsert,
+  buildProgrammeChangeHistory,
   claimUploadedR2ObjectKey,
   createR2ClaimOptions,
   deleteAllRelations,
@@ -48,6 +51,7 @@ export const createSchema = z.object({
     .refine((n) => n <= Date.now(), "Expense date cannot be in the future"),
   id: z.string(),
   lineItems: z.array(lineItemSchema),
+  programmeId: z.uuid(),
   title: z.string().min(1),
 });
 
@@ -77,6 +81,7 @@ const entityFields = (args: z.infer<typeof createSchema>) => ({
   city: args.city,
   eventId: args.eventId,
   expenseDate: args.expenseDate,
+  programmeId: args.programmeId,
 });
 
 export const reimbursementMutators = {
@@ -196,6 +201,7 @@ export const reimbursementMutators = {
     assertIsLoggedIn(ctx);
     assertHasPermission(ctx, "requests.create");
     const { userId } = ctx;
+    await assertRequestProgrammeSelectable(tx, args.programmeId);
     const now = Date.now();
 
     await tx.mutate.reimbursement.insert({
@@ -464,6 +470,15 @@ export const reimbursementMutators = {
       canEditAnyStatus,
       can(ctx, "requests.edit_own")
     );
+    const programmeChanged = args.programmeId !== entity.programmeId;
+    if (programmeChanged) {
+      assertCanChangeProgramme(ctx, entity);
+      await assertRequestProgrammeSelectable(
+        tx,
+        args.programmeId,
+        entity.programmeId
+      );
+    }
 
     const now = Date.now();
 
@@ -473,6 +488,18 @@ export const reimbursementMutators = {
       updatedAt: now,
       ...entityFields(args),
     });
+
+    if (programmeChanged) {
+      await tx.mutate.reimbursementHistory.insert({
+        ...buildProgrammeChangeHistory(
+          userId,
+          now,
+          entity.programmeId,
+          args.programmeId
+        ),
+        reimbursementId: args.id,
+      });
+    }
 
     await replaceRelations(
       fk(args.id),

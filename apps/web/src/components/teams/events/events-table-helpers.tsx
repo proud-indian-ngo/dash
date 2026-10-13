@@ -33,7 +33,7 @@ export type EventRow = TeamEvent & {
   members: ReadonlyArray<TeamEventMember & { user: User | undefined }>;
   /** Only the detail query (`teamEvent.byId`) loads partners. */
   partners?: readonly EventPartner[];
-  /** Only the detail query loads the programme. */
+  /** Loaded by the detail query and the team page's list (`teamEvent.byTeam`). */
   programme?: Programme | undefined;
   whatsappGroup: WhatsappGroup | undefined;
 };

@@ -1,5 +1,6 @@
 import type {
   ExpenseCategory,
+  Programme,
   TeamEvent,
   User,
   Vendor,
@@ -31,4 +32,5 @@ export type VendorPaymentWithRelations = VendorPayment & {
   vendor: Vendor | undefined;
   transactions: readonly VendorPaymentTransactionWithRelations[];
   event: TeamEvent | undefined;
+  programme: Programme | undefined;
 };

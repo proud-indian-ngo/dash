@@ -14,6 +14,7 @@ function withBase(q: typeof zql.vendorPayment) {
     .related("user")
     .related("vendor")
     .related("invoiceReviewer")
+    .related("programme")
     .related("transactions", (t) =>
       t
         .orderBy("createdAt", "desc")
@@ -27,16 +28,11 @@ function withRelated(q: typeof zql.vendorPayment) {
   return withBase(q).related("event");
 }
 
-/** Analytics groups spend by the event's programme, so the list projection nests it. */
-function withProgramme(q: typeof zql.vendorPayment) {
-  return withBase(q).related("event", (e) => e.related("programme"));
-}
-
 export const vendorPaymentQueries = {
   all: defineQuery(({ ctx }) =>
     ctx !== null && can(ctx, "requests.view_all")
-      ? withProgramme(zql.vendorPayment).orderBy("createdAt", "desc")
-      : withProgramme(zql.vendorPayment)
+      ? withRelated(zql.vendorPayment).orderBy("createdAt", "desc")
+      : withRelated(zql.vendorPayment)
           .where("userId", ctx?.userId)
           .orderBy("createdAt", "desc")
   ),

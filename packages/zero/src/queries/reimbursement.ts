@@ -11,23 +11,19 @@ function withBase(q: typeof zql.reimbursement) {
     )
     .related("attachments", (a) => a.orderBy("createdAt", "asc"))
     .related("history", (h) => h.orderBy("createdAt", "asc"))
-    .related("user");
+    .related("user")
+    .related("programme");
 }
 
 function withRelated(q: typeof zql.reimbursement) {
   return withBase(q).related("event");
 }
 
-/** Analytics groups spend by the event's programme, so the list projection nests it. */
-function withProgramme(q: typeof zql.reimbursement) {
-  return withBase(q).related("event", (e) => e.related("programme"));
-}
-
 export const reimbursementQueries = {
   all: defineQuery(({ ctx }) =>
     ctx !== null && can(ctx, "requests.view_all")
-      ? withProgramme(zql.reimbursement).orderBy("createdAt", "desc")
-      : withProgramme(zql.reimbursement)
+      ? withRelated(zql.reimbursement).orderBy("createdAt", "desc")
+      : withRelated(zql.reimbursement)
           .where("userId", ctx?.userId)
           .orderBy("createdAt", "desc")
   ),

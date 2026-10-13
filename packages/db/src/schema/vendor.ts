@@ -14,6 +14,7 @@ import {
 
 import { user } from "./auth";
 import { expenseCategory } from "./expense-category";
+import { programme } from "./finance-dimensions";
 import { jsonb } from "./jsonb";
 import { party } from "./party";
 import { attachmentTypeEnum, cityEnum, historyActionEnum } from "./shared";
@@ -98,6 +99,10 @@ export const vendorPayment = pgTable(
     invoiceReviewedBy: text("invoice_reviewed_by").references(() => user.id, {
       onDelete: "set null",
     }),
+    /** Programme the money is spent under; one per request (finance design section 3.6). */
+    programmeId: uuid("programme_id")
+      .notNull()
+      .references(() => programme.id, { onDelete: "restrict" }),
     rejectionReason: text("rejection_reason"),
     reviewedAt: timestamp("reviewed_at"),
     reviewedBy: text("reviewed_by").references(() => user.id, {
@@ -119,6 +124,7 @@ export const vendorPayment = pgTable(
     index("vendor_payment_vendorId_idx").on(table.vendorId),
     index("vendor_payment_status_idx").on(table.status),
     index("vendor_payment_eventId_idx").on(table.eventId),
+    index("vendor_payment_programmeId_idx").on(table.programmeId),
     check(
       "vendor_payment_rejection_reason_chk",
       sql`((status = 'rejected'::vendor_payment_status) AND (rejection_reason IS NOT NULL)) OR ((status <> 'rejected'::vendor_payment_status) AND (rejection_reason IS NULL))`
@@ -221,6 +227,10 @@ export const vendorPaymentRelations = relations(
       relationName: "vendor_payment_invoice_reviewer",
     }),
     lineItems: many(vendorPaymentLineItem),
+    programme: one(programme, {
+      fields: [vendorPayment.programmeId],
+      references: [programme.id],
+    }),
     reviewer: one(user, {
       fields: [vendorPayment.reviewedBy],
       references: [user.id],

@@ -134,6 +134,7 @@ function buildInitialValues(resolved: ResolvedRequest) {
         }
       : {}),
     ...("eventId" in request ? { eventId: request.eventId ?? undefined } : {}),
+    ...("programmeId" in request ? { programmeId: request.programmeId } : {}),
     attachments: mapAttachmentsToFormValues(request.attachments),
     lineItems: mapLineItemsToFormValues(request.lineItems),
     ...(expenseDate ? { expenseDate } : {}),

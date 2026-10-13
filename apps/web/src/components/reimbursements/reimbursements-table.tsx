@@ -145,6 +145,7 @@ function searchReimbursement(row: RequestRow, query: string): boolean {
     row.status,
     row.user?.name,
     "event" in row ? row.event?.name : "",
+    "programme" in row ? row.programme?.name : "",
     REQUEST_TYPE_LABELS[row.type],
   ]
     .join(" ")
@@ -318,6 +319,31 @@ export function ReimbursementsTable({
       meta: { headerTitle: "Event", kind: "text", skeleton: SKELETON_TYPE },
       minSize: 120,
       size: 180,
+    },
+    {
+      accessorFn: (row) => (isReimbursement(row) ? row.programme?.name : ""),
+      cell: ({ row }) => {
+        const r = row.original;
+        const name = isReimbursement(r) ? r.programme?.name : undefined;
+        return (
+          <span className="text-muted-foreground truncate text-sm">{name}</span>
+        );
+      },
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Programme"
+          visibility={true}
+        />
+      ),
+      id: "programme",
+      meta: {
+        headerTitle: "Programme",
+        kind: "text",
+        skeleton: SKELETON_TYPE,
+      },
+      minSize: 120,
+      size: 170,
     },
     {
       accessorFn: (row) => row.user?.name,

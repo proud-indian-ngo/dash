@@ -1,9 +1,11 @@
+import type { Transaction } from "@rocicorp/zero";
 import { uuidv7 } from "uuidv7";
 import type z from "zod";
 
 import type { Context } from "../context";
 import { requireEnqueue } from "../context";
-import type { Vendor } from "../schema";
+import { can } from "../permissions";
+import { type Schema, type Vendor, zql } from "../schema";
 import type {
   mutatorAttachmentSchema,
   mutatorLineItemSchema,
@@ -395,6 +397,56 @@ export function assertCanDelete(
   ) {
     throw new Error("Unauthorized");
   }
+}
+
+// --- Request programme ---
+
+/**
+ * A request's programme must exist and be active. A request keeps an
+ * unchanged programme even after it is deactivated. The client cache may not
+ * hold the row yet, so only the server enforces existence.
+ */
+export async function assertRequestProgrammeSelectable(
+  tx: Transaction<Schema>,
+  programmeId: string,
+  currentProgrammeId?: string
+) {
+  if (programmeId === currentProgrammeId) {
+    return;
+  }
+  const programme = await tx.run(zql.programme.where("id", programmeId).one());
+  if (!programme && tx.location === "server") {
+    throw new Error("Programme not found");
+  }
+  if (programme?.active === false) {
+    throw new Error("Choose an active programme");
+  }
+}
+
+/**
+ * Before a request is approved, whoever may edit it may change its programme.
+ * Once it is past pending, only finance (`finance.manage`) may move it.
+ */
+export function assertCanChangeProgramme(
+  ctx: Context,
+  entity: { status: string | null }
+) {
+  if (entity.status !== "pending" && !can(ctx, "finance.manage")) {
+    throw new Error("Only finance can change the programme after approval");
+  }
+}
+
+/** History entry for a programme change; metadata holds programme IDs only. */
+export function buildProgrammeChangeHistory(
+  actorId: string,
+  now: number,
+  from: string,
+  to: string
+) {
+  return {
+    ...buildHistoryInsert(actorId, "updated", now, "Programme changed"),
+    metadata: { field: "programmeId", from, to },
+  };
 }
 
 // --- Relation CRUD helpers ---

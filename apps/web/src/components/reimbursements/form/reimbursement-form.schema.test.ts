@@ -29,6 +29,7 @@ const validReimbursement = {
   city: "bangalore" as const,
   expenseDate: new Date(2025, 5, 1),
   lineItems: [validLineItem],
+  programmeId: "01930000-0000-7000-8000-000000000001",
   title: "Monthly Reimbursement",
   type: "reimbursement" as const,
 };
@@ -54,6 +55,15 @@ describe("reimbursementRequestFormSchema", () => {
   it("accepts valid reimbursement data", () => {
     const result = reimbursementRequestFormSchema.safeParse(validReimbursement);
     expect(result.success).toBe(true);
+  });
+
+  it("requires a programme", () => {
+    const result = reimbursementRequestFormSchema.safeParse({
+      ...validReimbursement,
+      programmeId: "",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe("Programme is required");
   });
 
   it("rejects empty title", () => {

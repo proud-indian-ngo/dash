@@ -49,6 +49,9 @@ test.describe("New reimbursement form", () => {
     await expect(
       errors.filter({ hasText: "Expense date is required" })
     ).toBeVisible();
+    await expect(
+      errors.filter({ hasText: "Programme is required" })
+    ).toBeVisible();
   });
 
   test("remove line item button removes a line item", async () => {
@@ -64,6 +67,7 @@ test.describe("New reimbursement form", () => {
     await reimbursements.form.fillTitle("E2E Test Reimbursement");
     await reimbursements.form.selectCity("Bangalore");
     await reimbursements.selectExpenseDate();
+    await reimbursements.form.selectProgramme();
 
     await reimbursements.form.fillLineItem({
       amount: "500",

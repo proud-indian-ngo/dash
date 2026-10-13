@@ -2,6 +2,7 @@ import type { Page } from "@playwright/test";
 
 import { expect, waitForZeroReady } from "../fixtures/test";
 import { clickUntilDialogCloses } from "./dialog-submit";
+import { selectRequestProgramme } from "./request-programme";
 
 const OVERLAY_SELECTOR = 'div[role="presentation"][data-base-ui-inert]';
 const vendorPaymentDetailUrlPattern =
@@ -108,7 +109,8 @@ async function fillLineItemAndSubmit(
 
 export async function createVendorPayment(
   page: Page,
-  titleSuffix: string
+  titleSuffix: string,
+  programme = "Education"
 ): Promise<string> {
   const title = `E2E VP ${titleSuffix} ${Date.now()}`;
 
@@ -120,6 +122,7 @@ export async function createVendorPayment(
 
   await page.getByLabel("Title").fill(title);
   await selectOrCreateVendor(page, "E2E Vendor");
+  await selectRequestProgramme(page, programme);
   await fillLineItemAndSubmit(page, "Test line item", "5000");
   await page.waitForURL(vendorPaymentDetailUrlPattern, {
     timeout: 15_000,
@@ -138,6 +141,7 @@ export async function createPendingVP(page: Page): Promise<string> {
   const title = `E2E VP Unhappy ${Date.now()}`;
   await page.getByLabel("Title").fill(title);
   await selectOrCreateVendor(page, "E2E Vendor");
+  await selectRequestProgramme(page);
   await fillLineItemAndSubmit(page, "Unhappy path test item", "1000");
   await page.waitForURL(/\/vendor-payments\/[0-9a-f]{8}-/, { timeout: 15_000 });
 
@@ -160,6 +164,7 @@ export async function createVolunteerVP(
 
   await page.getByLabel("Title").fill(title);
   await selectOrCreateVendor(page, "E2E Vendor Vol");
+  await selectRequestProgramme(page);
   await fillLineItemAndSubmit(page, "Vol line item", "1000");
   await page.waitForURL(vendorPaymentDetailUrlPattern, {
     timeout: 15_000,

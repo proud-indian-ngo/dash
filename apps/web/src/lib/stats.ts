@@ -276,18 +276,20 @@ export interface ProgrammeDataPoint {
 }
 
 interface WithProgrammeData {
-  event?: { programme?: { name: string } | null } | null;
   lineItems: readonly { amount: string | number }[];
+  programme?: { name: string } | null;
+  /** Absent on legacy advance payments, which carry no programme. */
+  programmeId?: string | null;
 }
 
-export const NO_EVENT_PROGRAMME_LABEL = "No event";
-/** The event is loaded but its programme row has not synced yet. */
+export const NO_PROGRAMME_LABEL = "No programme";
+/** The request has a programme but its row has not synced yet. */
 export const UNKNOWN_PROGRAMME_LABEL = "Programme unknown";
 
 /**
- * Spend per programme, derived from each request's current event. Requests
- * without an event are grouped under "No event". Buckets are keyed by
- * programme name, which is unique.
+ * Spend per programme, from the programme on each request's header. Legacy
+ * advance payments have none and are grouped under "No programme". Buckets
+ * are keyed by programme name, which is unique.
  */
 export function computeProgrammeData(
   items: readonly WithProgrammeData[]
@@ -295,9 +297,9 @@ export function computeProgrammeData(
   const map = new Map<string, { amount: number; count: number }>();
 
   for (const item of items) {
-    const name = item.event
-      ? (item.event.programme?.name ?? UNKNOWN_PROGRAMME_LABEL)
-      : NO_EVENT_PROGRAMME_LABEL;
+    const name = item.programmeId
+      ? (item.programme?.name ?? UNKNOWN_PROGRAMME_LABEL)
+      : NO_PROGRAMME_LABEL;
     const existing = map.get(name) ?? { amount: 0, count: 0 };
     existing.amount += sumAmounts(item.lineItems);
     existing.count += 1;

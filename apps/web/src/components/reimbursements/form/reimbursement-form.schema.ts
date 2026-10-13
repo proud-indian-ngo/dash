@@ -37,6 +37,9 @@ export const reimbursementRequestFormSchema = z.object({
       (d) => startOfDay(d) <= startOfDay(new Date()),
       "Expense date cannot be in the future"
     ),
+  programmeId: z
+    .string({ error: "Programme is required" })
+    .min(1, "Programme is required"),
   type: z.literal("reimbursement"),
 });
 
@@ -67,6 +70,7 @@ export function getDefaultValues(type: RequestType): RequestFormValues {
     return {
       ...base,
       expenseDate: undefined,
+      programmeId: "",
       type: "reimbursement",
     };
   }

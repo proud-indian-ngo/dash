@@ -29,6 +29,7 @@ import {
 } from "@/components/form/form-context";
 import { InputField } from "@/components/form/input-field";
 import { LineItemsEditor } from "@/components/form/line-items-editor";
+import { RequestProgrammeField } from "@/components/form/request-programme-field";
 import type { SelectOption } from "@/components/form/select-field";
 import { SelectField } from "@/components/form/select-field";
 import { VendorFormDialog } from "@/components/vendors/vendor-form-dialog";
@@ -42,6 +43,7 @@ interface VendorPaymentFieldsProps {
   onCancel: () => void;
   onVendorCreated: (vendorId: string) => void;
   onVendorDialogOpenChange: (open: boolean) => void;
+  programmeOptions: SelectOption[];
   vendorDialogOpen: boolean;
   vendorOptions: { label: string; value: string }[];
 }
@@ -162,6 +164,7 @@ export function VendorPaymentFields({
   isEdit,
   onCancel,
   onVendorCreated,
+  programmeOptions,
   vendorDialogOpen,
   vendorOptions,
   onVendorDialogOpenChange,
@@ -200,6 +203,7 @@ export function VendorPaymentFields({
             <EventSelectField eventOptions={eventOptions} field={field} />
           )}
         </CustomField>
+        <RequestProgrammeField options={programmeOptions} />
       </div>
 
       <Separator />

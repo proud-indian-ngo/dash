@@ -49,6 +49,8 @@ export function getReimbursementFilterValue(
       return isReimbursement(row) ? (row.eventId ?? null) : null;
     case "expenseDate":
       return isReimbursement(row) ? row.expenseDate : null;
+    case "programme":
+      return isReimbursement(row) ? row.programmeId : null;
     case "status":
       return row.status;
     case "submittedAt":
@@ -77,6 +79,16 @@ export function createReimbursementFilterFields(
         (row) => (isReimbursement(row) ? row.eventId : null),
         (row) =>
           isReimbursement(row) ? (row.event?.name ?? row.eventId ?? "") : ""
+      )
+    ),
+    selectField(
+      "programme",
+      "Programme",
+      optionsFromRows(
+        rows,
+        (row) => (isReimbursement(row) ? row.programmeId : null),
+        (row) =>
+          isReimbursement(row) ? (row.programme?.name ?? row.programmeId) : ""
       )
     ),
     selectField(

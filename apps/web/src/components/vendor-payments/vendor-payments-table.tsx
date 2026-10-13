@@ -81,6 +81,7 @@ function searchFn(row: VendorPaymentWithRelations, query: string): boolean {
     row.user?.name,
     row.invoiceNumber,
     row.event?.name,
+    row.programme?.name,
   ]
     .join(" ")
     .toLowerCase()
@@ -291,6 +292,29 @@ export function VendorPaymentsTable({
       meta: { headerTitle: "Event", kind: "text", skeleton: SKELETON_TEXT },
       minSize: 120,
       size: 180,
+    },
+    {
+      accessorFn: (row) => row.programme?.name,
+      cell: ({ row }) => (
+        <span className="text-muted-foreground truncate text-sm">
+          {row.original.programme?.name}
+        </span>
+      ),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Programme"
+          visibility={true}
+        />
+      ),
+      id: "programme",
+      meta: {
+        headerTitle: "Programme",
+        kind: "text",
+        skeleton: SKELETON_TEXT,
+      },
+      minSize: 120,
+      size: 170,
     },
     {
       accessorFn: (row) => row.user?.name,

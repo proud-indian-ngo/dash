@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { PROGRAMME_IDS } from "@pi-dash/shared/constants";
 import { S3Client } from "bun";
 import { eq, ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sql";
@@ -826,6 +827,7 @@ async function insertReimbursementRow(
     city: mapCity(r.city_belongs_to),
     expenseDate: resolveExpenseDate(r),
     id: newId,
+    programmeId: PROGRAMME_IDS.unallocated,
     status,
     title: r.name.trim(),
     userId: newUserId,

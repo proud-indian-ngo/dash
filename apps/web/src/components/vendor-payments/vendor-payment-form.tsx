@@ -10,6 +10,10 @@ import { uuidv7 } from "uuidv7";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { FormLayout } from "@/components/form/form-layout";
+import {
+  useEventProgrammeDefault,
+  useRequestProgrammeOptions,
+} from "@/components/form/request-programme-field";
 import { DATE } from "@/lib/date-formats";
 import { newLineItem } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
@@ -69,7 +73,17 @@ export function VendorPaymentForm({
 
   const [vendorDialogOpen, setVendorDialogOpen] = useState(false);
 
+  const programmeOptions = useRequestProgrammeOptions(
+    initialValues?.programmeId
+  );
+  const handleFieldChange = useEventProgrammeDefault(
+    (eventId) =>
+      eventList.find((e) => e.id === eventId)?.programmeId ?? undefined,
+    initialValues?.eventId ?? undefined
+  );
+
   const form = useForm({
+    listeners: { onChange: handleFieldChange },
     defaultValues: {
       ...getVendorPaymentDefaultValues(),
       ...initialValues,
@@ -92,6 +106,7 @@ export function VendorPaymentForm({
         eventId: value.eventId ?? undefined,
         id,
         lineItems,
+        programmeId: value.programmeId,
         title: value.title,
         vendorId: value.vendorId,
       };
@@ -146,6 +161,7 @@ export function VendorPaymentForm({
                 onCancel={onCancel}
                 onVendorCreated={handleVendorCreated}
                 onVendorDialogOpenChange={handleVendorDialogOpenChange}
+                programmeOptions={programmeOptions}
                 vendorDialogOpen={vendorDialogOpen}
                 vendorOptions={vendorOptions}
               />

@@ -1,6 +1,7 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 
 import { waitForZeroReady } from "../fixtures/test";
+import { selectRequestProgramme } from "../helpers/request-programme";
 
 export class RequestFormPage {
   readonly page: Page;
@@ -52,6 +53,10 @@ export class RequestFormPage {
   async selectCity(cityName: string): Promise<void> {
     await this.getCityInput().click();
     await this.page.getByRole("option", { name: cityName }).click();
+  }
+
+  async selectProgramme(name = "Education"): Promise<void> {
+    await selectRequestProgramme(this.page, name);
   }
 
   async selectBankAccount(timeout = 25_000): Promise<void> {

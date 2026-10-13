@@ -218,6 +218,28 @@ export function createEventsTableColumns({
       size: 120,
     },
     {
+      accessorFn: (row) => row.event.programme?.name,
+      cell: ({ row }) => (
+        <span className="text-muted-foreground truncate text-sm">
+          {row.original.event.programme?.name ?? "\u2014"}
+        </span>
+      ),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Programme"
+          visibility={true}
+        />
+      ),
+      id: "programme",
+      meta: {
+        headerTitle: "Programme",
+        kind: "text",
+        skeleton: SKELETON_LOCATION,
+      },
+      size: 160,
+    },
+    {
       accessorFn: (row) => row.event.isPublic,
       cell: ({ row }) => (
         <Tag>{row.original.event.isPublic ? "Public" : "Private"}</Tag>

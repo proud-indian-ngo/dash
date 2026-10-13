@@ -32,6 +32,7 @@ import {
 } from "@/components/form/form-context";
 import { InputField } from "@/components/form/input-field";
 import { LineItemsEditor } from "@/components/form/line-items-editor";
+import { RequestProgrammeField } from "@/components/form/request-programme-field";
 import type { SelectOption } from "@/components/form/select-field";
 import { SelectField } from "@/components/form/select-field";
 import type { Attachment } from "@/lib/form-schemas";
@@ -49,6 +50,7 @@ interface StandardReimbursementFieldsProps {
   isEdit: boolean;
   onBankAccountSelected: (account: BankAccount) => void;
   onCancel: () => void;
+  programmeOptions: SelectOption[];
   requestType: RequestType;
 }
 
@@ -217,6 +219,7 @@ export function StandardReimbursementFields({
   onBankAccountSelected,
   isEdit,
   onCancel,
+  programmeOptions,
   requestType,
 }: StandardReimbursementFieldsProps) {
   const resolvedForm = useResolvedForm(
@@ -296,6 +299,9 @@ export function StandardReimbursementFields({
               <EventCombobox eventOptions={eventOptions} field={field} />
             )}
           </CustomField>
+        ) : null}
+        {requestType === "reimbursement" ? (
+          <RequestProgrammeField options={programmeOptions} />
         ) : null}
         {renderBankAccountField()}
       </div>
