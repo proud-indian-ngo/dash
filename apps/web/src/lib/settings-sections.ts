@@ -1,6 +1,7 @@
 import {
   BankIcon,
   Briefcase01Icon,
+  FolderLibraryIcon,
   Key01Icon,
   NotificationIcon,
   SecurityLockIcon,
@@ -80,6 +81,15 @@ export const SETTINGS_SECTIONS = [
     icon: Briefcase01Icon,
     label: "Programmes",
     path: "/settings/programmes",
+    permission: "finance.manage",
+  },
+  {
+    description:
+      "Time-boxed pieces of a programme: class years, Kalakriti editions, drives and corporate engagements.",
+    group: "organization",
+    icon: FolderLibraryIcon,
+    label: "Projects",
+    path: "/settings/projects",
     permission: "finance.manage",
   },
   {

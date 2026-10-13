@@ -13,7 +13,6 @@ import type { Programme } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
-import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 
@@ -29,22 +28,18 @@ import {
   SettingsRow,
 } from "@/components/settings/settings-ui";
 import {
-  getMutationResultErrorMessage,
-  handleMutationResult,
-} from "@/lib/mutation-result";
+  formatPaise,
+  isValidRupeesInput,
+  paiseToRupeesInput,
+  rupeesToPaise,
+} from "@/lib/paise";
+import { reportMutationResult } from "@/lib/report-mutation-result";
 
 const NO_LEAD = "__none__";
 
-const MAX_RUPEES = 10_000_000_000; // ₹1,000 crore keeps paise within safe integers
-
 const rupees = z
   .string()
-  .trim()
-  .refine(
-    (v) =>
-      v === "" || (/^\d{1,11}(\.\d{1,2})?$/.test(v) && Number(v) <= MAX_RUPEES),
-    "Enter a rupee amount up to two decimals"
-  );
+  .refine(isValidRupeesInput, "Enter a rupee amount up to two decimals");
 
 const programmeSchema = z.object({
   active: z.boolean(),
@@ -64,49 +59,8 @@ const programmeSchema = z.object({
 type ProgrammeFormValues = z.infer<typeof programmeSchema>;
 
 const thresholdSchema = z.object({
-  threshold: rupees.refine((v) => v !== "", "Enter an amount"),
+  threshold: rupees.refine((v) => v.trim() !== "", "Enter an amount"),
 });
-
-/** ₹12,000 for whole rupees, ₹12,000.50 otherwise. */
-function formatPaise(paise: number): string {
-  return new Intl.NumberFormat("en-IN", {
-    currency: "INR",
-    maximumFractionDigits: paise % 100 === 0 ? 0 : 2,
-    minimumFractionDigits: paise % 100 === 0 ? 0 : 2,
-    style: "currency",
-  }).format(paise / 100);
-}
-
-/** Show the mutator's own reason (duplicate code, bad lead) under the generic toast. */
-function reportResult(
-  res: { error?: unknown; type: string },
-  options: {
-    entityId: string;
-    errorMsg: string;
-    mutation: string;
-    successMsg: string;
-  }
-) {
-  handleMutationResult(res, { ...options, showErrorToast: false });
-  if (res.type === "error") {
-    const reason = getMutationResultErrorMessage(res.error, "");
-    toast.error(options.errorMsg, reason ? { description: reason } : undefined);
-  }
-}
-
-function rupeesToPaise(value: string): number | null {
-  if (value === "") {
-    return null;
-  }
-  return Math.round(Number(value) * 100);
-}
-
-function paiseToRupeesInput(value: number | null | undefined): string {
-  if (value === null || value === undefined) {
-    return "";
-  }
-  return (value / 100).toFixed(value % 100 === 0 ? 0 : 2);
-}
 
 function ProgrammeForm({
   initialValues,
@@ -310,7 +264,7 @@ export function ProgrammesSection() {
         sortOrder: (programmeList.length + 1) * 10,
       })
     ).server;
-    reportResult(res, {
+    reportMutationResult(res, {
       entityId: id,
       errorMsg: "Failed to create programme",
       mutation: "programme.create",
@@ -331,7 +285,7 @@ export function ProgrammesSection() {
         sortOrder: inlineMode.programme.sortOrder ?? 0,
       })
     ).server;
-    reportResult(res, {
+    reportMutationResult(res, {
       entityId: inlineMode.programme.id,
       errorMsg: "Failed to update programme",
       mutation: "programme.update",
@@ -350,7 +304,7 @@ export function ProgrammesSection() {
         value: String(paise),
       })
     ).server;
-    reportResult(res, {
+    reportMutationResult(res, {
       entityId: APP_CONFIG_FINANCE_THRESHOLD_KEY,
       errorMsg: "Failed to update default threshold",
       mutation: "appConfig.upsert",

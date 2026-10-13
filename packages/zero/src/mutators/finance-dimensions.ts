@@ -283,6 +283,9 @@ export const projectMutators = {
     if (!programme.active) {
       throw new Error("Projects cannot be added to an inactive programme");
     }
+    if (args.programmeId === PROGRAMME_IDS.unallocated) {
+      throw new Error("Choose a real programme, not the Unallocated holder");
+    }
     const byCode = await tx.run(
       zql.project.where("code", args.code).where("id", "!=", args.id).one()
     );
