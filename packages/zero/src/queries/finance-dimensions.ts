@@ -2,6 +2,7 @@ import { defineQuery } from "@rocicorp/zero";
 
 import { can, isExternalUser } from "../permissions";
 import { zql } from "../schema";
+import { canSeeIncome } from "./income";
 
 /** Programmes and cost centres are picked on every event, so any internal user may list them. */
 export const programmeQueries = {
@@ -49,6 +50,12 @@ export const projectQueries = {
 };
 
 export const fundQueries = {
+  /** Picker for recording income; names only matter, so donors.view may read it too. */
+  active: defineQuery(({ ctx }) =>
+    canSeeIncome(ctx)
+      ? zql.fund.where("active", true).orderBy("name", "asc")
+      : zql.fund.where("id", "__never_match__")
+  ),
   all: defineQuery(({ ctx }) =>
     financeGuard(ctx)
       ? zql.fund.orderBy("name", "asc")
@@ -65,6 +72,12 @@ export const accountHeadQueries = {
 };
 
 export const orgAccountQueries = {
+  /** Picker for recording income; bank details never sync, so donors.view may read it too. */
+  active: defineQuery(({ ctx }) =>
+    canSeeIncome(ctx)
+      ? zql.orgAccount.where("active", true).orderBy("name", "asc")
+      : zql.orgAccount.where("id", "__never_match__")
+  ),
   all: defineQuery(({ ctx }) =>
     financeGuard(ctx)
       ? zql.orgAccount.orderBy("name", "asc")

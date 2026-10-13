@@ -31,6 +31,7 @@ const EXEMPT_SERVER_FUNCTIONS = [
   "getEventEditorUploadUrl",
   "getEventPhotoUploadUrl",
   "getKalakritiScorecardUploadUrl",
+  "getMissingDonorDetails",
   "getPartyDetails",
   "getProfilePictureUploadUrl",
   "getRequestUploadUrl",

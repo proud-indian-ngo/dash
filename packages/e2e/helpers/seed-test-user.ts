@@ -13,6 +13,8 @@ import { eventInterest } from "@pi-dash/db/schema/event-interest";
 import { eventPhoto } from "@pi-dash/db/schema/event-photo";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
+import { orgAccount } from "@pi-dash/db/schema/finance-dimensions";
+import { contribution } from "@pi-dash/db/schema/income";
 import { party, partyRole } from "@pi-dash/db/schema/party";
 import { role, rolePermission } from "@pi-dash/db/schema/permission";
 import { partyPrivate } from "@pi-dash/db/schema/private/party-private";
@@ -32,7 +34,7 @@ import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { ensureFinanceDimensions } from "@pi-dash/db/seed-finance-dimensions";
 import { ensureVendor } from "@pi-dash/db/seed-vendors";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
-import { addDays, addHours, subDays } from "date-fns";
+import { addDays, addHours, format, subDays } from "date-fns";
 import dotenv from "dotenv";
 import { eq } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
@@ -239,6 +241,68 @@ async function ensureDonorParty(userId: string): Promise<void> {
       partyId: SEED_DONOR_ID,
       updatedAt: now,
       updatedBy: userId,
+    })
+    .onConflictDoNothing();
+}
+
+/** Must match GENERAL_FUND_ID in @pi-dash/shared/constants (seeded by finance dimensions). */
+const GENERAL_FUND_ID = "01930000-0000-7000-8000-000000000201";
+const E2E_ORG_ACCOUNT_ID = "01930000-0000-7000-8000-000000000711";
+const INCOME_DONOR_ID = "01930000-0000-7000-8000-000000000721";
+
+/**
+ * Income fixtures: a deposit account, one ₹12,345 gift from the seed donor
+ * (whose Giving section the specs read, so no spec records against it), and
+ * a second donor the specs record new contributions for.
+ */
+async function ensureIncomeFixtures(userId: string): Promise<void> {
+  const now = new Date();
+  await db
+    .insert(orgAccount)
+    .values({
+      createdAt: now,
+      id: E2E_ORG_ACCOUNT_ID,
+      kind: "bank",
+      name: "E2E Bank Account",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(contribution)
+    .values({
+      amountPaise: 1_234_500,
+      channel: "neft",
+      createdAt: now,
+      createdBy: userId,
+      fundId: GENERAL_FUND_ID,
+      id: "01930000-0000-7000-8000-000000000712",
+      orgAccountId: E2E_ORG_ACCOUNT_ID,
+      partyId: SEED_DONOR_ID,
+      receivedOn: format(now, "yyyy-MM-dd"),
+      reference: "E2E-SEED-UTR",
+      reportingMode: "electronic_or_account_payee",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(party)
+    .values({
+      createdAt: now,
+      createdBy: userId,
+      displayName: "E2E Income Donor",
+      id: INCOME_DONOR_ID,
+      kind: "person",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(partyRole)
+    .values({
+      active: true,
+      id: "01930000-0000-7000-8000-000000000722",
+      partyId: INCOME_DONOR_ID,
+      role: "donor",
+      since: now,
     })
     .onConflictDoNothing();
 }
@@ -1353,6 +1417,7 @@ async function seed(): Promise<void> {
   await ensureEventVendorPayment(superAdminUserId, pastEvent.id);
   await ensureLegacyVendor(superAdminUserId);
   await ensureDonorParty(superAdminUserId);
+  await ensureIncomeFixtures(superAdminUserId);
   await ensureExportVendorPayment(superAdminUserId);
   await ensureUpcomingEventReimbursement(superAdminUserId, upcomingEvent.id);
 }

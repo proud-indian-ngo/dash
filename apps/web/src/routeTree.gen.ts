@@ -18,6 +18,7 @@ import { Route as AppAuditLogRouteImport } from './routes/_app/audit-log'
 import { Route as AppDonorsRouteRouteImport } from './routes/_app/donors/route'
 import { Route as AppEventsRouteRouteImport } from './routes/_app/events/route'
 import { Route as AppExportRouteImport } from './routes/_app/export'
+import { Route as AppIncomeRouteRouteImport } from './routes/_app/income/route'
 import { Route as AppJobsRouteImport } from './routes/_app/jobs'
 import { Route as AppKalakritiRouteRouteImport } from './routes/_app/kalakriti/route'
 import { Route as AppReimbursementsRouteRouteImport } from './routes/_app/reimbursements/route'
@@ -40,6 +41,7 @@ import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as AppDonorsIndexRouteImport } from './routes/_app/donors/index'
 import { Route as AppEventsIndexRouteImport } from './routes/_app/events/index'
 import { Route as AppEventsIdRouteImport } from './routes/_app/events/$id'
+import { Route as AppIncomeIndexRouteImport } from './routes/_app/income/index'
 import { Route as AppKalakritiIndexRouteImport } from './routes/_app/kalakriti/index'
 import { Route as AppKalakritiYearRouteRouteImport } from './routes/_app/kalakriti/$year/route'
 import { Route as AppKalakritiNewRouteImport } from './routes/_app/kalakriti/new'
@@ -173,6 +175,11 @@ const AppExportRoute = AppExportRouteImport.update({
   path: '/export',
   getParentRoute: () => AppRoute,
 } as any)
+const AppIncomeRouteRoute = AppIncomeRouteRouteImport.update({
+  id: '/income',
+  path: '/income',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppJobsRoute = AppJobsRouteImport.update({
   id: '/jobs',
   path: '/jobs',
@@ -282,6 +289,11 @@ const AppEventsIdRoute = AppEventsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
   getParentRoute: () => AppEventsRouteRoute,
+} as any)
+const AppIncomeIndexRoute = AppIncomeIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppIncomeRouteRoute,
 } as any)
 const AppKalakritiIndexRoute = AppKalakritiIndexRouteImport.update({
   id: '/',
@@ -764,6 +776,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/donors': typeof AppDonorsRouteRouteWithChildren
   '/events': typeof AppEventsRouteRouteWithChildren
+  '/income': typeof AppIncomeRouteRouteWithChildren
   '/kalakriti': typeof AppKalakritiRouteRouteWithChildren
   '/reimbursements': typeof AppReimbursementsRouteRouteWithChildren
   '/settings': typeof AppSettingsRouteRouteWithChildren
@@ -821,6 +834,7 @@ export interface FileRoutesByFullPath {
   '/kalakriti/$year/schedule': typeof KalakritiYearScheduleRoute
   '/donors/': typeof AppDonorsIndexRoute
   '/events/': typeof AppEventsIndexRoute
+  '/income/': typeof AppIncomeIndexRoute
   '/kalakriti/': typeof AppKalakritiIndexRoute
   '/reimbursements/': typeof AppReimbursementsIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
@@ -931,6 +945,7 @@ export interface FileRoutesByTo {
   '/kalakriti/$year/schedule': typeof KalakritiYearScheduleRoute
   '/donors': typeof AppDonorsIndexRoute
   '/events': typeof AppEventsIndexRoute
+  '/income': typeof AppIncomeIndexRoute
   '/kalakriti': typeof AppKalakritiIndexRoute
   '/reimbursements': typeof AppReimbursementsIndexRoute
   '/settings': typeof AppSettingsIndexRoute
@@ -993,6 +1008,7 @@ export interface FileRoutesById {
   '/_auth': typeof AuthRouteWithChildren
   '/_app/donors': typeof AppDonorsRouteRouteWithChildren
   '/_app/events': typeof AppEventsRouteRouteWithChildren
+  '/_app/income': typeof AppIncomeRouteRouteWithChildren
   '/_app/kalakriti': typeof AppKalakritiRouteRouteWithChildren
   '/_app/reimbursements': typeof AppReimbursementsRouteRouteWithChildren
   '/_app/settings': typeof AppSettingsRouteRouteWithChildren
@@ -1051,6 +1067,7 @@ export interface FileRoutesById {
   '/kalakriti/$year/schedule': typeof KalakritiYearScheduleRoute
   '/_app/donors/': typeof AppDonorsIndexRoute
   '/_app/events/': typeof AppEventsIndexRoute
+  '/_app/income/': typeof AppIncomeIndexRoute
   '/_app/kalakriti/': typeof AppKalakritiIndexRoute
   '/_app/reimbursements/': typeof AppReimbursementsIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
@@ -1116,6 +1133,7 @@ export interface FileRouteTypes {
     | '/'
     | '/donors'
     | '/events'
+    | '/income'
     | '/kalakriti'
     | '/reimbursements'
     | '/settings'
@@ -1173,6 +1191,7 @@ export interface FileRouteTypes {
     | '/kalakriti/$year/schedule'
     | '/donors/'
     | '/events/'
+    | '/income/'
     | '/kalakriti/'
     | '/reimbursements/'
     | '/settings/'
@@ -1283,6 +1302,7 @@ export interface FileRouteTypes {
     | '/kalakriti/$year/schedule'
     | '/donors'
     | '/events'
+    | '/income'
     | '/kalakriti'
     | '/reimbursements'
     | '/settings'
@@ -1344,6 +1364,7 @@ export interface FileRouteTypes {
     | '/_auth'
     | '/_app/donors'
     | '/_app/events'
+    | '/_app/income'
     | '/_app/kalakriti'
     | '/_app/reimbursements'
     | '/_app/settings'
@@ -1402,6 +1423,7 @@ export interface FileRouteTypes {
     | '/kalakriti/$year/schedule'
     | '/_app/donors/'
     | '/_app/events/'
+    | '/_app/income/'
     | '/_app/kalakriti/'
     | '/_app/reimbursements/'
     | '/_app/settings/'
@@ -1566,6 +1588,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppExportRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/income': {
+      id: '/_app/income'
+      path: '/income'
+      fullPath: '/income'
+      preLoaderRoute: typeof AppIncomeRouteRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/jobs': {
       id: '/_app/jobs'
       path: '/jobs'
@@ -1719,6 +1748,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/events/$id'
       preLoaderRoute: typeof AppEventsIdRouteImport
       parentRoute: typeof AppEventsRouteRoute
+    }
+    '/_app/income/': {
+      id: '/_app/income/'
+      path: '/'
+      fullPath: '/income/'
+      preLoaderRoute: typeof AppIncomeIndexRouteImport
+      parentRoute: typeof AppIncomeRouteRoute
     }
     '/_app/kalakriti/': {
       id: '/_app/kalakriti/'
@@ -2372,6 +2408,18 @@ const AppEventsRouteRouteWithChildren = AppEventsRouteRoute._addFileChildren(
   AppEventsRouteRouteChildren,
 )
 
+interface AppIncomeRouteRouteChildren {
+  AppIncomeIndexRoute: typeof AppIncomeIndexRoute
+}
+
+const AppIncomeRouteRouteChildren: AppIncomeRouteRouteChildren = {
+  AppIncomeIndexRoute: AppIncomeIndexRoute,
+}
+
+const AppIncomeRouteRouteWithChildren = AppIncomeRouteRoute._addFileChildren(
+  AppIncomeRouteRouteChildren,
+)
+
 interface AppKalakritiYearCompetitionsRouteRouteChildren {
   AppKalakritiYearCompetitionsCatalogRoute: typeof AppKalakritiYearCompetitionsCatalogRoute
   AppKalakritiYearCompetitionsCategoriesRoute: typeof AppKalakritiYearCompetitionsCategoriesRoute
@@ -2617,6 +2665,7 @@ const AppVendorsRouteRouteWithChildren = AppVendorsRouteRoute._addFileChildren(
 interface AppRouteChildren {
   AppDonorsRouteRoute: typeof AppDonorsRouteRouteWithChildren
   AppEventsRouteRoute: typeof AppEventsRouteRouteWithChildren
+  AppIncomeRouteRoute: typeof AppIncomeRouteRouteWithChildren
   AppKalakritiRouteRoute: typeof AppKalakritiRouteRouteWithChildren
   AppReimbursementsRouteRoute: typeof AppReimbursementsRouteRouteWithChildren
   AppSettingsRouteRoute: typeof AppSettingsRouteRouteWithChildren
@@ -2637,6 +2686,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppDonorsRouteRoute: AppDonorsRouteRouteWithChildren,
   AppEventsRouteRoute: AppEventsRouteRouteWithChildren,
+  AppIncomeRouteRoute: AppIncomeRouteRouteWithChildren,
   AppKalakritiRouteRoute: AppKalakritiRouteRouteWithChildren,
   AppReimbursementsRouteRoute: AppReimbursementsRouteRouteWithChildren,
   AppSettingsRouteRoute: AppSettingsRouteRouteWithChildren,

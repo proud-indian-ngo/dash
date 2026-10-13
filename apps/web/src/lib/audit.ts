@@ -78,6 +78,21 @@ const SAFE_CHANGED_FIELD_NAMES = new Set([
   "stateUt",
   "tallyLedgerName",
   "type",
+  // Contributions and other income. Names only: reference and description
+  // values never reach the ledger, and notes stay out entirely, as for
+  // inventory.
+  "donationType",
+  "donationTypeDescription",
+  "fundId",
+  "inKindDescription",
+  "inKindValuationBasis",
+  "orgAccountId",
+  "partyId",
+  "projectId",
+  "receivedOn",
+  "reference",
+  "reportingMode",
+  "reportingModeDescription",
   "accountNumber",
   "address",
   "amountPaise",
