@@ -3,9 +3,9 @@ import NotificationEmail from "./notification-email";
 export default function WithLineItems() {
   return (
     <NotificationEmail
-      ctaLabel="View Reimbursement"
+      ctaLabel="Review reimbursement"
       ctaUrl="https://dash.proudindian.ngo/reimbursements/reimb-456"
-      heading="Reimbursement Submitted"
+      heading="New reimbursement to review"
       lineItems={[
         {
           amountPaise: 45000,
@@ -19,6 +19,7 @@ export default function WithLineItems() {
         },
         { amountPaise: 80000, categoryName: "Transport", description: null },
       ]}
+      status={{ label: "Needs review", tone: "warning" }}
       paragraphs={[
         'Rahul Sharma submitted "March Office Supplies" for review.',
       ]}

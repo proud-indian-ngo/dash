@@ -1,21 +1,16 @@
 import { formatPaise, sumPaise } from "@pi-dash/shared/money";
-import {
-  Body,
-  Button,
-  Container,
-  Head,
-  Heading,
-  Hr,
-  Html,
-  Img,
-  Preview,
-  pixelBasedPreset,
-  Section,
-  Tailwind,
-  Text,
-} from "react-email";
+import { Img, Section, Text } from "react-email";
 
-import { EmailFooterBar, EmailPreferencesLink } from "./email-footer";
+import { NotificationFooter } from "./email-footer";
+import {
+  EmailButton,
+  EmailHeading,
+  EmailLayout,
+  type EmailStatus,
+  EmailStatusBadge,
+  EmailText,
+} from "./email-layout";
+import { colors, fonts } from "./theme";
 import type { LineItemDetail } from "./types";
 
 export interface NotificationEmailProps {
@@ -28,208 +23,168 @@ export interface NotificationEmailProps {
   lineItems?: LineItemDetail[];
   note?: string;
   paragraphs: string[];
+  /** Badge above the heading for emails about a state change. */
+  status?: EmailStatus;
 }
 
-const DEFAULT_APP_NAME = "Proud Indian Dashboard";
-const DEFAULT_APP_URL = "https://dash.proudindian.ngo";
+const cell = {
+  borderTop: `1px solid ${colors.line}`,
+  color: colors.ink,
+  fontSize: "13px",
+  lineHeight: "18px",
+  padding: "9px 12px",
+} as const;
 
-const tailwindConfig = {
-  presets: [pixelBasedPreset],
-  theme: {
-    extend: {
-      colors: {
-        bg: "#faf9fb",
-        border: "#e7e4e7",
-        fg: "#0c090c",
-        muted: "#f3f1f3",
-        "muted-fg": "#79697b",
-        primary: "#0086a1",
-        row: "#f8f7f9",
-        subtle: "#a8999e",
-        surface: "#ffffff",
-      },
-      fontFamily: {
-        body: ["Inter", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
-        display: ["Geist", "Inter", "sans-serif"],
-      },
-    },
-  },
-};
+const amountCell = {
+  ...cell,
+  fontFamily: fonts.mono,
+  fontSize: "12.5px",
+  textAlign: "right",
+  whiteSpace: "nowrap",
+} as const;
+
+function LineItems({ items }: { items: LineItemDetail[] }) {
+  const total = sumPaise(items.map((item) => item.amountPaise));
+  return (
+    <table
+      cellPadding="0"
+      cellSpacing="0"
+      role="presentation"
+      style={{
+        border: `1px solid ${colors.line}`,
+        borderCollapse: "separate",
+        borderRadius: "7px",
+        borderSpacing: 0,
+        margin: "4px 0 14px",
+        width: "100%",
+      }}
+    >
+      <tbody>
+        {items.map((item, i) => (
+          <tr key={`${item.categoryName}-${item.amountPaise}-${i}`}>
+            <td style={i === 0 ? { ...cell, borderTop: "none" } : cell}>
+              {item.description
+                ? `${item.categoryName}: ${item.description}`
+                : item.categoryName}
+            </td>
+            <td
+              style={
+                i === 0 ? { ...amountCell, borderTop: "none" } : amountCell
+              }
+            >
+              {formatPaise(item.amountPaise)}
+            </td>
+          </tr>
+        ))}
+        <tr>
+          <td
+            style={{
+              ...cell,
+              backgroundColor: colors.page,
+              borderRadius: "0 0 0 7px",
+              fontWeight: 600,
+            }}
+          >
+            Total
+          </td>
+          <td
+            style={{
+              ...amountCell,
+              backgroundColor: colors.page,
+              borderRadius: "0 0 7px 0",
+              fontWeight: 600,
+            }}
+          >
+            {formatPaise(total)}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  );
+}
 
 export default function NotificationEmail({
-  appName = DEFAULT_APP_NAME,
-  appUrl = DEFAULT_APP_URL,
+  appName,
+  appUrl,
+  ctaLabel,
+  ctaUrl,
   heading,
-  paragraphs,
+  imageUrl,
   lineItems,
   note,
-  ctaUrl,
-  ctaLabel,
-  imageUrl,
+  paragraphs,
+  status,
 }: NotificationEmailProps) {
-  const hasLineItems = lineItems && lineItems.length > 0;
-  const total = hasLineItems
-    ? sumPaise(lineItems.map((item) => item.amountPaise))
-    : 0;
-
   return (
-    <Html lang="en">
-      <Tailwind config={tailwindConfig}>
-        <Head>
-          <style>{`
-            @import url('https://fonts.googleapis.com/css2?family=Geist:wght@500;600&family=Inter:wght@400;500&display=swap');
-          `}</style>
-        </Head>
-        <Preview>{heading}</Preview>
-        <Body className="bg-bg font-body m-0 p-0">
-          <Container className="mx-auto my-10 max-w-[520px] px-4">
-            {/* ── Card ── */}
-            <Section className="border-border border-t-primary bg-surface border border-t-2 border-solid">
-              {/* ── Logo ── */}
-              <Section className="px-8 py-6 text-center">
-                <Img
-                  alt={appName}
-                  className="inline-block"
-                  height="48"
-                  src={`${appUrl}/full-logo-dark.png`}
-                />
-              </Section>
-              <Hr
-                className="m-0"
-                style={{
-                  borderBottom: "none",
-                  borderLeft: "none",
-                  borderRight: "none",
-                  borderTop: "1px solid #e7e4e7",
-                }}
-              />
+    <EmailLayout
+      appName={appName}
+      appUrl={appUrl}
+      footer={<NotificationFooter appUrl={appUrl} />}
+      preview={paragraphs[0] ?? heading}
+    >
+      {status ? <EmailStatusBadge {...status} /> : null}
+      <EmailHeading>{heading}</EmailHeading>
+      {paragraphs.map((text) => (
+        <EmailText key={text}>{text}</EmailText>
+      ))}
 
-              {/* ── Body ── */}
-              <Section className="px-8 pt-7 pb-8">
-                <Heading className="font-display text-fg m-0 mb-1 text-[20px] leading-7 font-semibold tracking-tight">
-                  {heading}
-                </Heading>
+      {lineItems && lineItems.length > 0 ? (
+        <LineItems items={lineItems} />
+      ) : null}
 
-                {paragraphs.map((text) => (
-                  <Text
-                    className="text-muted-fg mt-3 mb-0 text-[14px] leading-[22px]"
-                    key={text}
-                  >
-                    {text}
-                  </Text>
-                ))}
+      {note ? (
+        <Section
+          style={{
+            backgroundColor: colors.wash,
+            borderRadius: "7px",
+            margin: "0 0 16px",
+            padding: "10px 12px",
+          }}
+        >
+          <Text
+            style={{
+              color: colors.ink,
+              fontSize: "13px",
+              lineHeight: "20px",
+              margin: 0,
+            }}
+          >
+            <strong style={{ color: colors.primary, fontWeight: 600 }}>
+              Note
+            </strong>
+            <br />
+            {note}
+          </Text>
+        </Section>
+      ) : null}
 
-                {/* ── Line items ── */}
-                {Boolean(hasLineItems) && (
-                  <table
-                    cellPadding="0"
-                    cellSpacing="0"
-                    className="border-border mt-5 w-full border border-solid"
-                    style={{ borderCollapse: "collapse" }}
-                  >
-                    <thead>
-                      <tr>
-                        <th className="bg-muted text-muted-fg px-3 py-2 text-left text-[12px] font-medium tracking-wider uppercase">
-                          Item
-                        </th>
-                        <th className="bg-muted text-muted-fg px-3 py-2 text-right text-[12px] font-medium tracking-wider uppercase">
-                          Amount
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {lineItems?.map((item, i) => {
-                        const label = item.description
-                          ? `${item.categoryName}: ${item.description}`
-                          : item.categoryName;
-                        return (
-                          <tr key={`${item.categoryName}-${item.amountPaise}`}>
-                            <td
-                              className={`text-fg px-3 py-2.5 text-[13px] leading-[18px] ${i % 2 === 1 ? "bg-row" : "bg-surface"}`}
-                              style={{ borderBottom: "1px solid #e7e4e7" }}
-                            >
-                              {label}
-                            </td>
-                            <td
-                              className={`text-fg px-3 py-2.5 text-right text-[13px] leading-[18px] ${i % 2 === 1 ? "bg-row" : "bg-surface"}`}
-                              style={{
-                                borderBottom: "1px solid #e7e4e7",
-                                fontVariantNumeric: "tabular-nums",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {formatPaise(item.amountPaise)}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      <tr>
-                        <td className="text-fg px-3 py-2.5 text-[13px] font-semibold">
-                          Total
-                        </td>
-                        <td
-                          className="text-fg px-3 py-2.5 text-right text-[13px] font-semibold"
-                          style={{ fontVariantNumeric: "tabular-nums" }}
-                        >
-                          {formatPaise(total)}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                )}
+      {imageUrl ? (
+        <Section style={{ margin: "0 0 16px" }}>
+          <Img
+            alt=""
+            src={imageUrl}
+            style={{
+              border: `1px solid ${colors.line}`,
+              borderRadius: "7px",
+              height: "auto",
+              width: "100%",
+            }}
+          />
+        </Section>
+      ) : null}
 
-                {/* ── Note ── */}
-                {Boolean(note) && (
-                  <Section
-                    className="bg-muted mt-5 px-4 py-3.5"
-                    style={{ borderLeft: "3px solid #0086a1" }}
-                  >
-                    <Text className="text-fg m-0 text-[13px] leading-5">
-                      {note}
-                    </Text>
-                  </Section>
-                )}
-
-                {/* ── Image ── */}
-                {Boolean(imageUrl) && (
-                  <Section className="mt-5">
-                    <Img
-                      alt="Attachment"
-                      className="border-border w-full border border-solid"
-                      height="auto"
-                      src={imageUrl}
-                      width="100%"
-                    />
-                  </Section>
-                )}
-
-                {/* ── CTA ── */}
-                {Boolean(ctaUrl && ctaLabel) && (
-                  <Section className="mt-6">
-                    <Button
-                      className="bg-primary font-display box-border inline-block px-5 py-2.5 text-[13px] font-semibold tracking-wide text-white no-underline"
-                      href={ctaUrl}
-                    >
-                      {ctaLabel}
-                    </Button>
-                  </Section>
-                )}
-              </Section>
-
-              <EmailFooterBar />
-            </Section>
-
-            <EmailPreferencesLink appUrl={appUrl} />
-          </Container>
-        </Body>
-      </Tailwind>
-    </Html>
+      {ctaUrl && ctaLabel ? (
+        <EmailButton href={ctaUrl}>{ctaLabel}</EmailButton>
+      ) : (
+        <Section style={{ height: "4px" }} />
+      )}
+    </EmailLayout>
   );
 }
 
 NotificationEmail.PreviewProps = {
-  ctaLabel: "View Team",
+  ctaLabel: "View team",
   ctaUrl: "https://dash.proudindian.ngo/teams/team-123",
-  heading: "Added to Team",
+  heading: "Added to team",
   paragraphs: ["You've been added to the Bangalore Volunteers team."],
 } satisfies NotificationEmailProps;

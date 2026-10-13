@@ -1,6 +1,7 @@
 import { db } from "@pi-dash/db";
 import { notificationTopicPreference, user } from "@pi-dash/db/schema/auth";
-import { and, eq } from "drizzle-orm";
+import { emailSuppression } from "@pi-dash/db/schema/private/email-suppression";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 export interface ChannelPreferences {
   emailEnabled: boolean;
@@ -51,30 +52,38 @@ export async function getBulkChannelPreferences(
       whatsappEnabled: notificationTopicPreference.whatsappEnabled,
     })
     .from(notificationTopicPreference)
-    .where(eq(notificationTopicPreference.topicId, topicId));
+    .where(
+      and(
+        eq(notificationTopicPreference.topicId, topicId),
+        inArray(notificationTopicPreference.userId, userIds)
+      )
+    );
 
   const map = new Map<string, ChannelPreferences>();
   for (const row of rows) {
-    if (userIds.includes(row.userId)) {
-      map.set(row.userId, {
-        emailEnabled: row.emailEnabled,
-        inboxEnabled: row.inboxEnabled,
-        whatsappEnabled: row.whatsappEnabled,
-      });
-    }
+    map.set(row.userId, {
+      emailEnabled: row.emailEnabled,
+      inboxEnabled: row.inboxEnabled,
+      whatsappEnabled: row.whatsappEnabled,
+    });
   }
   return map;
 }
 
+const suppressedEmail = sql`${emailSuppression.email} = lower(${user.email})`;
+
+/** The user's address, or null when unknown or suppressed (bounced or reported as spam). */
 export async function getUserEmail(userId: string): Promise<string | null> {
   const rows = await db
     .select({ email: user.email })
     .from(user)
-    .where(eq(user.id, userId))
+    .leftJoin(emailSuppression, suppressedEmail)
+    .where(and(eq(user.id, userId), isNull(emailSuppression.email)))
     .limit(1);
   return rows[0]?.email ?? null;
 }
 
+/** Addresses by user id, leaving out unknown and suppressed users. */
 export async function getBulkUserEmails(
   userIds: string[]
 ): Promise<Map<string, string>> {
@@ -82,13 +91,11 @@ export async function getBulkUserEmails(
     return new Map();
   }
 
-  const rows = await db.select({ email: user.email, id: user.id }).from(user);
+  const rows = await db
+    .select({ email: user.email, id: user.id })
+    .from(user)
+    .leftJoin(emailSuppression, suppressedEmail)
+    .where(and(inArray(user.id, userIds), isNull(emailSuppression.email)));
 
-  const map = new Map<string, string>();
-  for (const row of rows) {
-    if (userIds.includes(row.id)) {
-      map.set(row.id, row.email);
-    }
-  }
-  return map;
+  return new Map(rows.map((row) => [row.id, row.email]));
 }

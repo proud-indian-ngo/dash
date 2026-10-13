@@ -202,7 +202,8 @@ Copy `.env.sample` to `.env`. Required variables:
 | Variable | Description |
 |---|---|
 | `RESEND_API_KEY` | Resend API key with sending access (required in production; unset skips sending) |
-| `EMAIL_FROM` | Sender email address on a domain verified in Resend (required in production) |
+| `EMAIL_FROM` | Sender on a domain verified in Resend, bare or as `Name <address>` (required in production) |
+| `RESEND_WEBHOOK_SECRET` | Signing secret (`whsec_…`) of the Resend webhook that reports bounces and spam complaints; unset disables `/api/email/webhook` |
 
 In development both can be left empty: emails are skipped with an `email_not_configured` warning, and verification and password-reset links are logged (`auth_email_not_sent`) so local sign-up still works. To test real delivery, use a separate dev API key and send to `delivered@resend.dev`.
 

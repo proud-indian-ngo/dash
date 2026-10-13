@@ -9,6 +9,8 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { DATE } from "@/lib/date-formats";
 
+import { UserEmailDelivery } from "./user-email-delivery";
+
 interface UserDetailSheetProps {
   /** Header buttons and ⋯ menu; the table supplies the row menu's actions. */
   actions?: ReactNode;
@@ -55,6 +57,8 @@ export function UserDetailSheet({
             />
 
             <div className="flex flex-col gap-6 px-6 pb-6">
+              <UserEmailDelivery userId={user.id} />
+
               <div className="grid gap-4">
                 <h3 className="text-sm font-medium">Profile</h3>
                 <div className="grid gap-3 sm:grid-cols-2">

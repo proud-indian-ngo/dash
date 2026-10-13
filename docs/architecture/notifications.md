@@ -26,7 +26,7 @@ Enqueue calls for side-effects wrapped in `withFireAndForgetLog` → pg-boss fai
 | Channel | Implementation | Config |
 |---|---|---|
 | In-app inbox | `notification` DB table synced via Zero | No external service; real-time via Zero sync |
-| Email | Resend via `@pi-dash/email` | `RESEND_API_KEY`, `EMAIL_FROM` (both required in production; unset elsewhere skips sending with an `email_not_configured` warning) |
+| Email | Resend via `@pi-dash/email` | `RESEND_API_KEY`, `EMAIL_FROM` (both required in production; unset elsewhere skips sending with an `email_not_configured` warning); `RESEND_WEBHOOK_SECRET` for bounce and complaint events |
 | WhatsApp | Self-hosted gateway | `WHATSAPP_API_URL`; per-user opt-in via phone + preference check |
 
 ### Send Flow
@@ -37,7 +37,8 @@ Enqueue calls for side-effects wrapped in `withFireAndForgetLog` → pg-boss fai
 2. Query `notificationTopicPreference` for user's channel preferences (defaults: all enabled).
 3. Three parallel promises:
    - **Inbox**: `insertNotification()` to `notification` table (idempotent via unique `idempotencyKey`).
-   - **Email**: `sendNotificationEmail()` via Resend with `List-Unsubscribe` header and a per-recipient idempotency key (`{key}-email`, `{key}-email-{userId}` for bulk). `sendEmail()` spaces requests 250ms apart and retries `rate_limit_exceeded` up to three times; skipped or failed sends report `false`.
+   - **Email**: `sendNotificationEmail()` (one recipient, key `{key}-email`) or `sendBulkNotificationEmails()` (Resend's batch endpoint, 100 per request, recipients sorted by user id, key `{key}-email-{chunk}`). `sendEmail()` and `sendEmailBatch()` space requests 250ms apart, retry `rate_limit_exceeded` up to three times, time out after 10s, and add a plain-text part generated from the HTML; skipped or failed sends report `false`.
+   - Email lookups (`getUserEmail`, `getBulkUserEmails`) leave out addresses on the suppression list, so suppressed users get inbox and WhatsApp only.
    - **WhatsApp**: `sendWhatsAppMessage()` via the GoWA gateway with a deterministic `Idempotency-Key` request header.
 4. Return `SendMessageResult` with per-channel success status.
 
@@ -45,6 +46,25 @@ Enqueue calls for side-effects wrapped in `withFireAndForgetLog` → pg-boss fai
 editors and the preference mutators enforce that contract, and domain senders
 consume the same lookup. Kalakriti registration, schedule, and transport messages
 use inbox and WhatsApp while honoring each recipient's topic preferences.
+
+### Email templates
+
+`packages/email/src/templates/` uses the product design language as inline hex tokens (`theme.ts`, kept in step with `packages/design-system/styles.css`): the compact lockup (`apps/web/public/email-logo.png`) above a white card on the sidebar grey, an optional `status` badge with the app's five tones, line items as a framed list, the note on the info wash, one sky-ink button. `EmailLayout` frames notification, verification and password-reset emails alike. Preview them with `bun run dev:email` in `packages/email`.
+
+Notification HTML is rendered once per message, with `FOOTER_NOTE_PLACEHOLDER` where each recipient's footer sentence goes. `buildNotificationEmail()` swaps in "You're getting this because you're subscribed to …" with that recipient's signed unsubscribe link, and adds RFC 8058 `List-Unsubscribe` / `List-Unsubscribe-Post` headers. Required topics (Account) get neither.
+
+### Unsubscribe
+
+`packages/notifications/src/unsubscribe.ts` signs `userId\ntopicId` with HMAC-SHA256 under a key derived from `BETTER_AUTH_SECRET`; links don't expire. Two targets carry the same `u`, `t` and `sig` query:
+
+- `POST /api/email/unsubscribe` is the one-click target mail providers call; it turns email off for that topic (`setTopicEmailEnabled`). `resubscribe=1` turns it back on.
+- `/unsubscribe` is the footer link's page. Opening it changes nothing (so link scanners can't unsubscribe anyone); its button and Undo POST to the API route.
+
+Both are unauthenticated and authorised by the signature, so they sit outside the audit ledger like other webhooks.
+
+### Bounces and complaints
+
+Resend posts delivery events to `POST /api/email/webhook`, verified with `RESEND_WEBHOOK_SECRET` (Svix signature, via `standardwebhooks`). Permanent bounces and spam complaints add the address to `private.email_suppression` (`recordEmailSuppression`; a hard bounce replaces a complaint, never the reverse). Notification email skips every suppressed address; verification and password-reset email skip hard bounces only (`isAuthEmailBlocked`), because someone who reported spam still asked for those. The user sheet shows an "Email delivery" section for suppressed users, and `users.edit` holders can **Resume email** (`resumeUserEmail`, audited as `user.email.resume`).
 
 ### In-App Inbox
 

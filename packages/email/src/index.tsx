@@ -8,6 +8,8 @@ import NotificationEmail from "./templates/notification-email";
 import ResetPasswordEmail from "./templates/reset-password-email";
 import VerificationEmail from "./templates/verification-email";
 
+export { FOOTER_NOTE_PLACEHOLDER } from "./templates/email-footer";
+export type { EmailStatus } from "./templates/email-layout";
 export type { NotificationEmailProps } from "./templates/notification-email";
 export type { LineItemDetail } from "./templates/types";
 

@@ -21,6 +21,7 @@
     "@pi-dash/db": "workspace:*",
     "@pi-dash/design-system": "workspace:*",
     "@pi-dash/editor": "workspace:*",
+    "@pi-dash/email": "workspace:*",
     "@pi-dash/env": "workspace:*",
     "@pi-dash/jobs": "workspace:*",
     "@pi-dash/notifications": "workspace:*",

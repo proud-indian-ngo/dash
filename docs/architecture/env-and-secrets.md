@@ -31,7 +31,7 @@ Two Zod-validated env contracts via `@t3-oss/env-core`:
 
 Both import `./index` as a side-effect so tiered loading runs before validation.
 
-**Conditional required**: `DEV_DB_HOST`, `DEV_DB_PASSWORD` required only when `NODE_ENV === "development"`. `RESEND_API_KEY`, `EMAIL_FROM` and `DATA_ENCRYPTION_KEY` required only when `NODE_ENV === "production"`; without the Resend pair, emails are skipped with an `email_not_configured` warning.
+**Conditional required**: `DEV_DB_HOST`, `DEV_DB_PASSWORD` required only when `NODE_ENV === "development"`. `RESEND_API_KEY`, `EMAIL_FROM` and `DATA_ENCRYPTION_KEY` required only when `NODE_ENV === "production"`; without the Resend pair, emails are skipped with an `email_not_configured` warning. `RESEND_WEBHOOK_SECRET` is optional; without it `/api/email/webhook` answers 503 and bounces aren't recorded.
 
 **Defaults baked into schema**: `GRAVATAR_API_BASE_URL`, `GRAVATAR_TIMEOUT_MS`, `ZERO_MUTATE_FORWARD_COOKIES: "true"`, `APP_NAME: "Proud Indian Dashboard"`.
 

@@ -40,9 +40,12 @@ Copy `.env.sample` to `.env` and fill in values. Grouped by category:
 | Variable | Description |
 |---|---|
 | `RESEND_API_KEY` | Resend API key with sending access (required in production; unset skips sending) |
-| `EMAIL_FROM` | Sender email address on a domain verified in Resend (required in production) |
+| `EMAIL_FROM` | Sender on a domain verified in Resend, bare or as `Name <address>` (required in production) |
+| `RESEND_WEBHOOK_SECRET` | Signing secret (`whsec_…`) of the Resend webhook that reports bounces and spam complaints; unset disables `/api/email/webhook` |
 
-Sends are spaced to stay under Resend's default 5 requests per second and rate-limited sends are retried; notification emails carry an idempotency key so job retries don't send twice.
+Sends are spaced to stay under Resend's default 5 requests per second and rate-limited sends are retried; bulk notifications go through Resend's batch endpoint, and notification emails carry idempotency keys so job retries don't send twice.
+
+**Bounce and complaint webhook:** in Resend, add a webhook to `https://<app-host>/api/email/webhook` subscribed to `email.bounced` and `email.complained`, and set its signing secret as `RESEND_WEBHOOK_SECRET`. Hard-bounced and spam-reporting addresses stop getting notification email; an admin can resume it from the user's sheet.
 
 **Migrating from SMTP:** verify the sending domain in Resend (add its SPF and DKIM DNS records), create an API key with sending access, set `RESEND_API_KEY` and `EMAIL_FROM` (replacing the old `SMTP_FROM`), and remove `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` and `SMTP_FROM`. The app refuses to start in production until both new variables are set.
 
@@ -289,6 +292,7 @@ Starts `go-whatsapp-web-multidevice` container on port 3100. Pair via QR code at
 - [ ] `CORS_ORIGIN` and `BETTER_AUTH_URL` match your production domain
 - [ ] `COOKIE_DOMAIN` set if using cross-subdomain cookies
 - [ ] Resend API key and verified sending domain configured for email verification and password reset
+- [ ] Resend webhook (`email.bounced`, `email.complained`) pointing at `/api/email/webhook`, with `RESEND_WEBHOOK_SECRET` set
 - [ ] R2 bucket created and credentials set
 - [ ] R2 lifecycle expires protected `tmp` objects after 24 hours
 - [ ] `VITE_CDN_URL` matches the historical CDN origin until cutover is complete

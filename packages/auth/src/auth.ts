@@ -1,4 +1,5 @@
 import { db } from "@pi-dash/db";
+import { isAuthEmailBlocked } from "@pi-dash/db/queries/email-suppression";
 // biome-ignore lint/performance/noNamespaceImport: intentional
 import * as schema from "@pi-dash/db/schema/auth";
 import { sendResetPasswordEmail, sendVerificationEmail } from "@pi-dash/email";
@@ -295,6 +296,21 @@ async function handleAfterSignIn(ctx: AuthHookContext): Promise<void> {
   }
 }
 
+/** Hard-bounced addresses can't receive mail; log and skip instead of sending. */
+async function skipBouncedAuthEmail(
+  email: string,
+  kind: "reset-password" | "verification"
+): Promise<boolean> {
+  if (!(await isAuthEmailBlocked(email))) {
+    return false;
+  }
+  const log = createRequestLogger({ method: "POST", path: "sendAuthEmail" });
+  log.set({ kind });
+  log.warn("auth_email_suppressed_hard_bounce");
+  log.emit();
+  return true;
+}
+
 export const auth = betterAuth({
   advanced: {
     ...(env.COOKIE_DOMAIN && {
@@ -348,6 +364,9 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: true,
     sendResetPassword: async ({ user, url }) => {
+      if (await skipBouncedAuthEmail(user.email, "reset-password")) {
+        return;
+      }
       await sendResetPasswordEmail(user.email, url);
     },
   },
@@ -361,6 +380,9 @@ export const auth = betterAuth({
       const url = `${env.BETTER_AUTH_URL}/verify-email?token=${data.token}${
         redirect ? `&redirect=${encodeURIComponent(redirect)}` : ""
       }`;
+      if (await skipBouncedAuthEmail(data.user.email, "verification")) {
+        return;
+      }
       await sendVerificationEmail(data.user.email, url);
     },
   },

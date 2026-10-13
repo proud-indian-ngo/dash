@@ -1,3 +1,4 @@
+import { getEmailSuppression } from "@pi-dash/db/queries/email-suppression";
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
 
@@ -220,6 +221,10 @@ export async function sendUserDeletedEmail({
   emailHtml,
   toEmail,
 }: PreparedUserDeletedEmail): Promise<void> {
+  // The user row is gone, so check the suppression list directly.
+  if (await getEmailSuppression(toEmail)) {
+    return;
+  }
   await sendNotificationEmail({
     body: "Your account has been removed by an admin.",
     emailHtml,

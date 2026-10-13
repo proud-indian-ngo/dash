@@ -9,7 +9,7 @@ import {
 import { getUserPhone } from "@pi-dash/whatsapp/users";
 import { createRequestLogger } from "evlog";
 
-import { sendNotificationEmail } from "./email";
+import { sendBulkNotificationEmails, sendNotificationEmail } from "./email";
 import { insertBulkNotifications, insertNotification } from "./inbox";
 import { isNotificationsDisabled } from "./kill-switch";
 import {
@@ -106,6 +106,8 @@ export async function sendMessage({
           idempotencyKey: `${idempotencyKey}-email`,
           title,
           toEmail: email,
+          topic,
+          userId: to,
         })
       : false;
 
@@ -300,29 +302,22 @@ export async function sendBulkMessage({
   })();
 
   const emailPromise = (async (): Promise<boolean> => {
-    const emailRecipients = userIds.filter((uid) => {
+    const recipients = userIds.flatMap((uid) => {
+      const email = emailMap.get(uid);
       const prefs = prefsMap.get(uid) ?? DEFAULTS;
-      return prefs.emailEnabled && emailMap.has(uid);
+      return prefs.emailEnabled && email ? [{ email, userId: uid }] : [];
     });
-    if (emailRecipients.length === 0) {
+    if (recipients.length === 0) {
       return false;
     }
-    const results = await Promise.allSettled(
-      emailRecipients.map((uid) => {
-        const toEmail = emailMap.get(uid);
-        if (!toEmail) {
-          return Promise.resolve(false);
-        }
-        return sendNotificationEmail({
-          body,
-          emailHtml,
-          idempotencyKey: `${idempotencyKey}-email-${uid}`,
-          title,
-          toEmail,
-        });
-      })
-    );
-    return results.some((r) => r.status === "fulfilled" && r.value);
+    return await sendBulkNotificationEmails({
+      body,
+      emailHtml,
+      idempotencyKey: `${idempotencyKey}-email`,
+      recipients,
+      title,
+      topic,
+    });
   })();
 
   const whatsappPromise = (async (): Promise<number> => {

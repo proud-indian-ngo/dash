@@ -21,6 +21,7 @@ vi.mock("./inbox", () => ({
 }));
 
 vi.mock("./email", () => ({
+  sendBulkNotificationEmails: vi.fn(async () => true),
   sendNotificationEmail: vi.fn(async () => true),
 }));
 
@@ -48,10 +49,14 @@ import {
 } from "@pi-dash/whatsapp/preferences";
 import { getUserPhone } from "@pi-dash/whatsapp/users";
 
-import { sendNotificationEmail } from "./email";
+import { sendBulkNotificationEmails, sendNotificationEmail } from "./email";
 import { insertNotification } from "./inbox";
 import { isNotificationsDisabled } from "./kill-switch";
-import { getChannelPreferences } from "./preferences";
+import {
+  getBulkChannelPreferences,
+  getBulkUserEmails,
+  getChannelPreferences,
+} from "./preferences";
 import { captureSends, sendBulkMessage, sendMessage } from "./send-message";
 import { TOPICS } from "./topics";
 
@@ -174,7 +179,43 @@ describe("sendMessage channel allowlist", () => {
     expect(vi.mocked(sendNotificationEmail).mock.calls[0]?.[0]).toMatchObject({
       idempotencyKey: "k-email",
       toEmail: "test@test.com",
+      topic: baseMessage.topic,
+      userId: baseMessage.to,
     });
+  });
+
+  it("batches bulk email to recipients with email on and an address", async () => {
+    vi.mocked(getBulkChannelPreferences).mockResolvedValueOnce(
+      new Map([
+        [
+          "u2",
+          { emailEnabled: false, inboxEnabled: true, whatsappEnabled: true },
+        ],
+      ])
+    );
+    vi.mocked(getBulkUserEmails).mockResolvedValueOnce(
+      new Map([
+        ["u1", "one@test.com"],
+        ["u2", "two@test.com"],
+      ])
+    );
+
+    const result = await sendBulkMessage({
+      body: "b",
+      idempotencyKey: "bulk",
+      title: "t",
+      topic: TOPICS.TEAMS,
+      userIds: ["u1", "u2", "u3"],
+    });
+
+    expect(result.channels.emailQueued).toBe(true);
+    expect(sendBulkNotificationEmails).toHaveBeenCalledWith(
+      expect.objectContaining({
+        idempotencyKey: "bulk-email",
+        recipients: [{ email: "one@test.com", userId: "u1" }],
+        topic: TOPICS.TEAMS,
+      })
+    );
   });
 
   it("honors preferences for allowed channels", async () => {

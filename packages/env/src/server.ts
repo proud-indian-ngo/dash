@@ -3,6 +3,14 @@ import * as z from "zod";
 
 import "./index";
 
+const NAMED_ADDRESS_RE = /^[^<>]+<([^<>\s]+)>$/;
+
+/** A bare address or `Name <address>`, as Resend accepts. */
+function isSenderAddress(value: string): boolean {
+  const address = NAMED_ADDRESS_RE.exec(value.trim())?.[1] ?? value.trim();
+  return z.email().safeParse(address).success;
+}
+
 export const env = createEnv({
   emptyStringAsUndefined: true,
   runtimeEnv: process.env,
@@ -35,9 +43,16 @@ export const env = createEnv({
       process.env.NODE_ENV === "development"
         ? z.string().min(1)
         : z.string().min(1).optional(),
-    /** Sender address on a Resend-verified domain. Required in production; unset skips sending. */
+    /**
+     * Sender on a Resend-verified domain, bare or as `Name <address>`.
+     * Required in production; unset skips sending.
+     */
     EMAIL_FROM: z
-      .email()
+      .string()
+      .refine(
+        isSenderAddress,
+        'EMAIL_FROM must be an address or "Name <address>"'
+      )
       .optional()
       .refine(
         (v) => process.env.NODE_ENV !== "production" || !!v,
@@ -75,6 +90,8 @@ export const env = createEnv({
         (v) => process.env.NODE_ENV !== "production" || !!v,
         "RESEND_API_KEY is required in production"
       ),
+    /** Signing secret (`whsec_…`) of the Resend webhook for bounces and complaints; unset disables `/api/email/webhook`. */
+    RESEND_WEBHOOK_SECRET: z.string().min(1).optional(),
     /** HMAC key for the social API's signed photo links; unset disables photo endpoints. */
     SOCIAL_MEDIA_SIGNING_SECRET: z.string().min(32).optional(),
     VITE_CDN_URL: z.url(),

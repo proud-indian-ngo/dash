@@ -1,23 +1,10 @@
 import {
-  Body,
-  Button,
-  Container,
-  Head,
-  Heading,
-  Hr,
-  Html,
-  Img,
-  Preview,
-  pixelBasedPreset,
-  Section,
-  Tailwind,
-  Text,
-} from "react-email";
-
-import { EmailFooterBar } from "./email-footer";
-
-const DEFAULT_APP_NAME = "Proud Indian Dashboard";
-const DEFAULT_APP_URL = "https://dash.proudindian.ngo";
+  EmailButton,
+  EmailHeading,
+  EmailLayout,
+  EmailLinkFallback,
+  EmailText,
+} from "./email-layout";
 
 interface ResetPasswordEmailProps {
   appName?: string;
@@ -25,98 +12,32 @@ interface ResetPasswordEmailProps {
   url: string;
 }
 
-const tailwindConfig = {
-  presets: [pixelBasedPreset],
-  theme: {
-    extend: {
-      colors: {
-        bg: "#faf9fb",
-        border: "#e7e4e7",
-        fg: "#0c090c",
-        "muted-fg": "#79697b",
-        primary: "#0086a1",
-        subtle: "#a8999e",
-        surface: "#ffffff",
-      },
-      fontFamily: {
-        body: ["Inter", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
-        display: ["Geist", "Inter", "sans-serif"],
-      },
-    },
-  },
-};
-
 export default function ResetPasswordEmail({
-  appName = DEFAULT_APP_NAME,
-  appUrl = DEFAULT_APP_URL,
+  appName,
+  appUrl,
   url,
 }: ResetPasswordEmailProps) {
   return (
-    <Html lang="en">
-      <Tailwind config={tailwindConfig}>
-        <Head>
-          <style>{`
-            @import url('https://fonts.googleapis.com/css2?family=Geist:wght@500;600&family=Inter:wght@400;500&display=swap');
-          `}</style>
-        </Head>
-        <Preview>Reset your password for {appName}</Preview>
-        <Body className="bg-bg font-body m-0 p-0">
-          <Container className="mx-auto my-10 max-w-130 px-4">
-            <Section className="border-border border-t-primary bg-surface border border-t-2 border-solid">
-              {/* ── Logo ── */}
-              <Section className="px-8 py-6 text-center">
-                <Img
-                  alt={appName}
-                  className="inline-block"
-                  height="48"
-                  src={`${appUrl}/full-logo-dark.png`}
-                />
-              </Section>
-              <Hr
-                className="m-0"
-                style={{
-                  borderBottom: "none",
-                  borderLeft: "none",
-                  borderRight: "none",
-                  borderTop: "1px solid #e7e4e7",
-                }}
-              />
-
-              {/* ── Body ── */}
-              <Section className="px-8 pt-7 pb-8">
-                <Heading className="font-display text-fg m-0 mb-1 text-[20px] leading-7 font-semibold tracking-tight">
-                  Reset your password
-                </Heading>
-
-                <Text className="leading-5.5] text-muted-fg mt-3 mb-0 text-[14px]">
-                  We received a request to reset your password. Click the button
-                  below to choose a new one. This link expires in 1 hour.
-                </Text>
-
-                <Section className="mt-6">
-                  <Button
-                    className="bg-primary font-display box-border inline-block px-5 py-2.5 text-[13px] font-semibold tracking-wide text-white no-underline"
-                    href={url}
-                  >
-                    Reset Password
-                  </Button>
-                </Section>
-
-                <Text className="text-subtle mt-5 mb-0 text-[13px] leading-5">
-                  If you didn't request a password reset, you can safely ignore
-                  this email.
-                </Text>
-              </Section>
-
-              <EmailFooterBar />
-            </Section>
-          </Container>
-        </Body>
-      </Tailwind>
-    </Html>
+    <EmailLayout
+      appName={appName}
+      appUrl={appUrl}
+      preview="Choose a new password. The link expires in 1 hour."
+    >
+      <EmailHeading>Reset your password</EmailHeading>
+      <EmailText>
+        We received a request to reset your password. Choose a new one with the
+        button below. The link expires in 1 hour.
+      </EmailText>
+      <EmailButton href={url}>Reset password</EmailButton>
+      <EmailLinkFallback url={url} />
+      <EmailText tone="muted">
+        Didn't ask for this? You can ignore this email; your password stays the
+        same.
+      </EmailText>
+    </EmailLayout>
   );
 }
 
 ResetPasswordEmail.PreviewProps = {
-  url: "https://example.com/reset-password?token=abc123",
+  url: "https://dash.proudindian.ngo/reset-password?token=abc123",
 };

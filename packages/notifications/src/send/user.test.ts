@@ -11,6 +11,12 @@ vi.mock("@pi-dash/email", () => ({
 vi.mock("@pi-dash/env/server", () => ({
   env: { APP_URL: "https://dash.example.test" },
 }));
+vi.mock("@pi-dash/db/queries/email-suppression", () => ({
+  getEmailSuppression: vi.fn(async () => null),
+}));
+vi.mock("../email", () => ({
+  sendNotificationEmail: vi.fn(async () => true),
+}));
 vi.mock("../send-message", () => ({
   sendMessage: mocks.sendMessage,
 }));
