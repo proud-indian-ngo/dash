@@ -133,7 +133,7 @@ function VendorForm({
         if (isSaveConflict(error)) {
           toast.error("Someone else changed this vendor", {
             description:
-              "The latest details are loaded. Review them and save again.",
+              "The latest details are loaded and your unsaved changes were discarded. Re-enter them and save again.",
           });
           onConflict();
           return;

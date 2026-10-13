@@ -218,3 +218,9 @@ export const foreignSourceAssessmentValues = [
 ] as const;
 export type ForeignSourceAssessment =
   (typeof foreignSourceAssessmentValues)[number];
+
+/**
+ * Start of the error a party save throws when someone else saved the record
+ * first; the client matches it to reload the form.
+ */
+export const PARTY_SAVE_CONFLICT_PREFIX = "Someone else changed";

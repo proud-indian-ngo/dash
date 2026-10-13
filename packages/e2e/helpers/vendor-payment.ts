@@ -26,33 +26,41 @@ async function hasSelectedVendor(page: Page): Promise<boolean> {
   return Boolean(value && value !== "Select vendor");
 }
 
-/**
- * Opens the vendor picker and picks the first vendor once Zero has synced the
- * list. Returns false when the list is still empty, so the caller can add one.
- */
-async function selectFirstVendorOption(page: Page): Promise<boolean> {
-  if (await hasSelectedVendor(page)) {
-    return true;
-  }
+/** Opens the vendor picker and waits for Zero to deliver at least one option. */
+async function openVendorPickerWithOptions(page: Page): Promise<boolean> {
   await waitForZeroReady(page).catch(() => {
     // Form pages may already be ready.
   });
-  const vendorTrigger = page.getByRole("combobox", { name: "Vendor" });
-  const options = page.getByRole("option");
-
   await dismissComboboxOverlay(page);
-  await vendorTrigger.click();
+  await page.getByRole("combobox", { name: "Vendor" }).click();
   // The open picker re-renders when Zero delivers the vendor list.
   const hasOption = await expect
-    .poll(() => options.count(), { timeout: 10_000 })
+    .poll(() => page.getByRole("option").count(), { timeout: 10_000 })
     .toBeGreaterThan(0)
     .then(() => true)
     .catch(() => false);
   if (!hasOption) {
     await dismissComboboxOverlay(page);
+  }
+  return hasOption;
+}
+
+/**
+ * Opens the vendor picker and picks the first vendor once Zero has synced the
+ * list. Tries twice, since a slow sync is likelier than an empty list, and
+ * returns false only when both find nothing, so the caller can add one.
+ */
+async function selectFirstVendorOption(page: Page): Promise<boolean> {
+  if (await hasSelectedVendor(page)) {
+    return true;
+  }
+  const hasOption =
+    (await openVendorPickerWithOptions(page)) ||
+    (await openVendorPickerWithOptions(page));
+  if (!hasOption) {
     return false;
   }
-  await options.first().click();
+  await page.getByRole("option").first().click();
   await expect(page.getByRole("listbox")).toBeHidden({ timeout: 10_000 });
   return hasSelectedVendor(page);
 }
