@@ -546,6 +546,7 @@ export interface JobPayloads {
   "close-expired-rsvp-polls": CloseExpiredRsvpPollsPayload;
   "close-rsvp-poll-on-cancel": CloseRsvpPollOnCancelPayload;
   "delete-r2-object": DeleteR2ObjectPayload;
+  "ensure-fiscal-years": Record<string, never>;
   "generate-cash-voucher": GenerateCashVoucherPayload;
   "immich-delete-album": ImmichDeleteAlbumPayload;
   "immich-delete-asset": ImmichDeleteAssetPayload;

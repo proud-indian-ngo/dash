@@ -21,6 +21,8 @@ pg-boss–backed job queue. All async side-effects (notifications, integrations,
 - `process-*` / `remind-*` / `send-*` — event reminders, RSVP polls, digests
 - `immich-*` — photo sync
 - `whatsapp-*` — group management
+- Adding a job: add its payload to `JobPayloads` in `src/types.ts`, its name to `QUEUE_NAMES` in `src/enqueue.ts` (schedules throw at startup for a queue that was never created, and every schedule after it is skipped), `boss.work` in `src/handlers/index.ts`, and the schedule in `src/schedules.ts`.
+- `ensure-fiscal-years` — monthly on the 1st; keeps the current and next fiscal year and their periods present (`packages/db/src/fiscal-years.ts`).
 - `sync-*` — WhatsApp status; `sync-public-events-deploy` (every 5 min, scheduled only when `WEBSITE_DISPATCH_TOKEN` is set, unscheduled otherwise) sends an `events-changed` GitHub `repository_dispatch` to `proud-indian-ngo/website`, whose Actions workflow rebuilds and deploys the site, when the default public events feed changes. The fingerprint is in-memory, so the first run after a restart always deploys; a failed dispatch throws and the next run retries
 - `generate-*` — cash voucher PDF
 - `delete-*` / `cleanup-*` — R2, stale data, old notifications

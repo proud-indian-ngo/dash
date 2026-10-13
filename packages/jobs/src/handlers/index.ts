@@ -8,6 +8,7 @@ import { handleCloseExpiredRsvpPolls } from "./close-expired-rsvp-polls";
 import { handleCloseRsvpPollOnCancel } from "./close-rsvp-poll-on-cancel";
 import { withDefaultOutput } from "./create-handler";
 import { handleDeleteR2Object } from "./delete-r2-object";
+import { handleEnsureFiscalYears } from "./ensure-fiscal-years";
 import { handleGenerateCashVoucher } from "./generate-cash-voucher";
 import { handleImmichDeleteAlbum } from "./immich-delete-album";
 import { handleImmichDeleteAsset } from "./immich-delete-asset";
@@ -444,6 +445,11 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "cleanup-notifications",
     NOTIFY_POLL,
     withDefaultOutput(handleCleanupNotifications)
+  );
+  await boss.work(
+    "ensure-fiscal-years",
+    NOTIFY_POLL,
+    withDefaultOutput(handleEnsureFiscalYears)
   );
   await boss.work(
     "sync-public-events-deploy",

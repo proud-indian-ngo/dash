@@ -7,6 +7,7 @@ import {
   PROGRAMME_IDS,
 } from "@pi-dash/shared/constants";
 
+import { buildFiscalPeriods } from "./fiscal-years";
 import { db } from "./index";
 import { appConfig } from "./schema/app-config";
 import {
@@ -110,6 +111,8 @@ export async function ensureFinanceDimensions(): Promise<void> {
     })
     .onConflictDoNothing();
 
+  // Fixed IDs for the seeded years; a year the ensure job created first keeps
+  // its own ID, so periods are always attached to the row that exists.
   const years = Object.entries(FISCAL_YEAR_IDS).map(([label, id]) => ({
     id,
     start: Number(label.slice(0, 4)),
@@ -124,23 +127,18 @@ export async function ensureFinanceDimensions(): Promise<void> {
         startsOn: `${y.start}-04-01`,
       }))
     )
-    .onConflictDoNothing();
+    .onConflictDoNothing({ target: fiscalYear.label });
+  const existingYears = await db
+    .select({ id: fiscalYear.id, label: fiscalYear.label })
+    .from(fiscalYear);
+  const idByLabel = new Map(existingYears.map((y) => [y.label, y.id]));
   const periods = years.flatMap((y, yi) =>
-    Array.from({ length: 12 }, (_, i) => {
-      const month = i + 1;
-      const startMonth = ((3 + i) % 12) + 1; // April = 1
-      const startYear = y.start + (startMonth < 4 ? 1 : 0);
-      const start = new Date(Date.UTC(startYear, startMonth - 1, 1));
-      const end = new Date(Date.UTC(startYear, startMonth, 0));
-      const seq = yi * 12 + month;
-      return {
-        endsOn: end.toISOString().slice(0, 10),
-        fiscalYearId: y.id,
-        id: `01930000-0000-7000-8000-0000004${String(seq).padStart(5, "0")}`,
-        month,
-        startsOn: start.toISOString().slice(0, 10),
-      };
-    })
+    buildFiscalPeriods(
+      y.start,
+      idByLabel.get(`${y.start}-${String(y.start + 1).slice(2)}`) ?? y.id,
+      (month) =>
+        `01930000-0000-7000-8000-0000004${String(yi * 12 + month).padStart(5, "0")}`
+    )
   );
   await db.insert(fiscalPeriod).values(periods).onConflictDoNothing();
 
