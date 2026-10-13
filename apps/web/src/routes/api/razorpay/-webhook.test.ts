@@ -125,6 +125,24 @@ describe("POST /api/razorpay/webhook", () => {
     expect(response.status).toBe(413);
   });
 
+  it("answers a body the client aborted with 400, never a 500", async () => {
+    const aborted = new ReadableStream<Uint8Array>({
+      pull: () => Promise.reject(new Error("client went away")),
+    });
+    const response = await post(
+      new Request("http://localhost/api/razorpay/webhook", {
+        body: aborted,
+        duplex: "half",
+        method: "POST",
+      } as RequestInit)
+    );
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "Failed to read webhook body",
+    });
+    expect(stage).not.toHaveBeenCalled();
+  });
+
   it("acknowledges but never records a delivery when a test key runs in production", async () => {
     state.setup = enabled({ testInProduction: true });
     const response = await post(requestOf(delivery({})));

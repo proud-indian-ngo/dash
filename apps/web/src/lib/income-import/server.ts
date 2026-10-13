@@ -841,7 +841,7 @@ async function runClaimedBatch(
       );
       await setImportRowsRetention(
         tx,
-        batch.id,
+        batch,
         importedRowRetention(todayInKolkata(now))
       );
       return result;

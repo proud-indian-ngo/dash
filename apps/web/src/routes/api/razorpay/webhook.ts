@@ -13,6 +13,12 @@ import {
 import { databaseErrorFields, sanitizedError } from "@/lib/safe-errors";
 
 const BODY_TIMEOUT_MS = 3000;
+/** A body the route could not read: a client abort is the client's fault, not ours. */
+const BODY_ERRORS = {
+  aborted: { message: "Failed to read webhook body", status: 400 },
+  timeout: { message: "Failed to read webhook body", status: 408 },
+  too_large: { message: "Body too large", status: 413 },
+} as const;
 
 /**
  * Razorpay webhook: the trigger for recording Payment Page donations. A
@@ -20,7 +26,7 @@ const BODY_TIMEOUT_MS = 3000;
  * `private.import_row` and enqueues `razorpay-sync-payment` keyed by the
  * payment ID; the job does the import. One whose payment cannot be read is
  * fetched by ID when the API key secret is set. Bodies over 1 MB are
- * refused with 413. A test key on a production server records nothing.
+ * refused with 413, a stalled body with 408 and an aborted one with 400. A test key on a production server records nothing.
  * Webhooks are outside the audit ledger; logs carry the event, its ID and
  * the payment ID only.
  */
@@ -48,12 +54,10 @@ export const Route = createFileRoute("/api/razorpay/webhook")({
         if (!body.ok) {
           log.warn(`razorpay_webhook_body_${body.reason}`);
           log.emit();
-          return body.reason === "too_large"
-            ? Response.json({ error: "Body too large" }, { status: 413 })
-            : Response.json(
-                { error: "Failed to read webhook body" },
-                { status: 408 }
-              );
+          return Response.json(
+            { error: BODY_ERRORS[body.reason].message },
+            { status: BODY_ERRORS[body.reason].status }
+          );
         }
         const rawBody = body.text;
 

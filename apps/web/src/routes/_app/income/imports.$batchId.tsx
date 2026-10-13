@@ -41,6 +41,7 @@ import {
   IMPORT_BATCH_STATUS_TONES,
 } from "@/lib/income-import/labels";
 import type { BatchDetailResponse } from "@/lib/income-import/review-types";
+import { waitingBreakdown } from "@/lib/income-import/waiting-breakdown";
 
 export const Route = createFileRoute("/_app/income/imports/$batchId")({
   component: ImportBatchPage,
@@ -117,6 +118,7 @@ function ImportBatchPage() {
   const errorCount = batch.errorCount ?? 0;
   const pendingCount = batch.pendingCount ?? 0;
   const isRazorpay = batch.source === "razorpay_api";
+  const waiting = detail?.review ? waitingBreakdown(detail.review.rows) : [];
   const unresolved = batch.rowCount - importedCount - linkedCount;
   const neverImported = importedCount + linkedCount === 0;
   const canContinue =
@@ -258,7 +260,7 @@ function ImportBatchPage() {
           { icon: File01Icon, label: "Rows", value: batch.rowCount },
           {
             icon: Clock01Icon,
-            label: "Needs review",
+            label: "Waiting",
             tone: pendingCount > 0 ? "warning" : "neutral",
             value: pendingCount,
           },
@@ -292,6 +294,19 @@ function ImportBatchPage() {
           },
         ]}
       />
+      {waiting.length > 0 ? (
+        <p
+          className="text-muted-foreground text-sm"
+          data-testid="batch-waiting"
+        >
+          Waiting:{" "}
+          {waiting
+            .map(
+              (group) => `${group.count.toLocaleString("en-IN")} ${group.label}`
+            )
+            .join(" · ")}
+        </p>
+      ) : null}
       {isRazorpay && !batch.orgAccountId ? (
         <p className="text-warning-foreground text-sm" role="status">
           These payments wait for the Razorpay clearing account. Choose it in{" "}

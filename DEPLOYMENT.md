@@ -365,7 +365,7 @@ Setup, test mode first:
 2. Set `RAZORPAY_KEY_ID` (a `rzp_test_…` key while testing), `RAZORPAY_WEBHOOK_SECRET` (any strong random string, e.g. `openssl rand -hex 32`) and, optionally, `RAZORPAY_KEY_SECRET`, then restart the app.
 3. In Settings → Integrations (`/settings/integrations`, `finance.view` to see, `finance.manage` to edit), check the status says "Connected · test mode", copy the webhook URL, choose the clearing account and save. Adjust the notes keys if the Payment Page's field names differ from the defaults.
 4. On the Razorpay dashboard (in the same mode as the key), Settings → Webhooks → Add new webhook: the URL from step 3, the same secret as `RAZORPAY_WEBHOOK_SECRET`, and the events `payment.captured` and `order.paid`. Refund events can be added now; they are acknowledged and ignored until the next release.
-5. Make a test payment on the Payment Page. Settings → Integrations shows the webhook time, and the donation appears on the Income page (or under Needs review on the Imports tab).
+5. Make a test payment on the Payment Page. Settings → Integrations shows the webhook time, and the donation appears on the Income page (or as waiting on the Imports tab).
 
 A test key on a production server stops ingestion: deliveries are acknowledged but nothing is recorded, and the Integrations page shows a blocking error, since test payments would otherwise land in the real books; switch to the `rzp_live_…` key and the live-mode webhook once testing is done. Live and test payments are kept apart by mode, so a test payment never matches a live one. The `razorpay-sync-payment` queue is new; its worker is registered by the web server itself (`apps/web/server/plugins/jobs.ts`).
 

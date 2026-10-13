@@ -515,45 +515,52 @@ interface Retention {
 }
 
 /**
- * After a run: extends the batch's dated rows to the imported rows'
- * retention, and starts it for decided Razorpay rows that had none. Rows
- * still pending with no date keep waiting.
+ * Rows a run's retention applies to. A CSV batch is one upload, so a run
+ * moves every dated row of it to the imported rows' date. A Razorpay day
+ * batch keeps taking payments, so a run only starts the clock for rows that
+ * have just reached an outcome: a payment decided months later never extends
+ * the rows decided before it. Rows still pending with no date keep waiting.
  */
+export function runRetentionScope(
+  batchId: string,
+  source: ImportBatchSource,
+  retainUntil: string
+) {
+  const decidedWithoutDate = and(
+    isNull(importRow.retainUntil),
+    ne(importRow.outcome, "pending")
+  );
+  return and(
+    eq(importRow.batchId, batchId),
+    source === "razorpay_api"
+      ? decidedWithoutDate
+      : or(lt(importRow.retainUntil, retainUntil), decidedWithoutDate)
+  );
+}
+
+/** After a run: sets retention on the rows `runRetentionScope` selects. */
 export async function setImportRowsRetention(
   tx: ImportTx,
-  batchId: string,
+  batch: { id: string; source: ImportBatchSource },
   retention: Retention
 ): Promise<void> {
   await tx
     .update(importRow)
     .set(retention)
-    .where(
-      and(
-        eq(importRow.batchId, batchId),
-        or(
-          lt(importRow.retainUntil, retention.retainUntil),
-          and(isNull(importRow.retainUntil), ne(importRow.outcome, "pending"))
-        )
-      )
-    );
+    .where(runRetentionScope(batch.id, batch.source, retention.retainUntil));
 }
 
-/** Starts retention for the batch's rows that have just reached an outcome. */
+/** Starts retention for a Razorpay batch's rows that have just reached an outcome. */
 export async function startDecidedRowsRetention(
   tx: ImportTx,
   batchId: string,
   retention: Retention
 ): Promise<void> {
-  await tx
-    .update(importRow)
-    .set(retention)
-    .where(
-      and(
-        eq(importRow.batchId, batchId),
-        isNull(importRow.retainUntil),
-        ne(importRow.outcome, "pending")
-      )
-    );
+  await setImportRowsRetention(
+    tx,
+    { id: batchId, source: "razorpay_api" },
+    retention
+  );
 }
 
 /**

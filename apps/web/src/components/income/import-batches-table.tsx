@@ -178,14 +178,14 @@ export function ImportBatchesTable({
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
-          title="Needs review"
+          title="Waiting"
           visibility={true}
         />
       ),
       id: "pending",
       meta: {
         cellClassName: "text-right",
-        headerTitle: "Needs review",
+        headerTitle: "Waiting",
         skeleton: SKELETON_NUMBER,
       },
       size: 130,

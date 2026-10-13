@@ -429,9 +429,10 @@ function ImportsTab({
         >
           <span>
             <span className="font-semibold">
-              Needs review: {pending.toLocaleString("en-IN")}
+              Waiting: {pending.toLocaleString("en-IN")}
             </span>{" "}
-            {pending === 1 ? "row waits" : "rows wait"} for a decision in{" "}
+            {pending === 1 ? "row waits" : "rows wait"} to sync or for a
+            decision in{" "}
             {waitingBatches.length === 1
               ? "1 import"
               : `${waitingBatches.length} imports`}

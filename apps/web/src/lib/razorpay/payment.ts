@@ -125,8 +125,12 @@ export function flattenPayment(
 
 /**
  * Fingerprint of what the donor and Razorpay said about the payment. Refund
- * fields and the notes-key setting are left out, so a later refund or a
- * changed setting never turns a repeated delivery into a conflict.
+ * fields are left out, so a later refund never turns a repeated delivery
+ * into a conflict. The notes are the minimised ones `flattenPayment` kept,
+ * so the hash does depend on the notes-key setting. That is safe: a payment
+ * that reached an outcome is never staged again (a redelivery is found by its
+ * ID or its external identity and leaves the row alone), so a copy flattened
+ * under changed keys is never compared with the stored hash.
  */
 export function razorpayPayloadHash(raw: Readonly<Record<string, string>>) {
   const notes = Object.entries(raw)

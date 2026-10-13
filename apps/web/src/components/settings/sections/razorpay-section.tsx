@@ -285,7 +285,7 @@ export function RazorpaySection() {
           {view.clearingAccountUnusable
             ? "The chosen clearing account is no longer an active gateway clearing account."
             : "No clearing account is chosen."}{" "}
-          Payments are kept and wait in Needs review until one is saved below.
+          Payments are kept and wait until one is saved below.
         </Banner>
       ) : null}
 
@@ -321,7 +321,7 @@ export function RazorpaySection() {
         </SettingsRow>
         <SettingsRow
           description="Payments that wait: to sync, for a clearing account, or for a decision such as a donor whose email matches an existing donor."
-          title="Needs review"
+          title="Waiting"
         >
           <span
             className={

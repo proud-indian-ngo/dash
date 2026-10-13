@@ -212,6 +212,16 @@ describe("readWebhookBody", () => {
     expect(wasCancelled()).toBe(true);
   });
 
+  it("reports a read the client aborted, instead of throwing", async () => {
+    const aborted = new ReadableStream<Uint8Array>({
+      pull: () => Promise.reject(new Error("client went away")),
+    });
+    expect(await readWebhookBody(requestOf(aborted))).toEqual({
+      ok: false,
+      reason: "aborted",
+    });
+  });
+
   it("gives up on a body that stalls, and cancels the stream", async () => {
     let cancelled = false;
     const stalled = new ReadableStream<Uint8Array>({

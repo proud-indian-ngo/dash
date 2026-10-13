@@ -15,13 +15,14 @@ export const MAX_WEBHOOK_BODY_BYTES = 1024 * 1024;
 
 export type WebhookBody =
   | { ok: true; text: string }
-  | { ok: false; reason: "timeout" | "too_large" };
+  | { ok: false; reason: "aborted" | "timeout" | "too_large" };
 
 /**
  * Reads the raw body, refusing it as soon as it passes `maxBytes`: at once
  * when Content-Length says so, else while streaming, so an oversized or
  * endless body is never buffered. A body that stalls past `timeoutMs` is
- * abandoned and the stream cancelled. The timer is always cleared.
+ * abandoned and the stream cancelled. A read that fails (the client
+ * aborted) is `aborted`. The timer is always cleared.
  */
 export async function readWebhookBody(
   request: Request,
@@ -46,7 +47,14 @@ export async function readWebhookBody(
   let size = 0;
   try {
     for (;;) {
-      const next = await Promise.race([reader.read(), timedOut]);
+      const next = await Promise.race([
+        reader.read().catch(() => "aborted" as const),
+        timedOut,
+      ]);
+      if (next === "aborted") {
+        stop();
+        return { ok: false, reason: "aborted" };
+      }
       if (next === "timeout") {
         stop();
         return { ok: false, reason: "timeout" };
