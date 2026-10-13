@@ -19,12 +19,12 @@ import {
   DialogTrigger,
 } from "@pi-dash/design-system/components/ui/dialog";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { formatPaise } from "@pi-dash/shared/money";
 import { useMemo } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
-import { formatINR } from "@/lib/form-schemas";
 import { getKalakritiInventoryPhotoUrl } from "@/lib/kalakriti-inventory-upload";
 
 import type { MovementAction } from "./inventory-movement-dialog";
@@ -158,7 +158,7 @@ export function InventoryItemsTable({
             visibility={true}
           />
         ),
-        cell: ({ row }) => formatINR((row.original.unitPricePaise ?? 0) / 100),
+        cell: ({ row }) => formatPaise(row.original.unitPricePaise ?? 0),
         meta: {
           headerTitle: "Unit price",
           kind: "amount",
@@ -177,8 +177,8 @@ export function InventoryItemsTable({
           />
         ),
         cell: ({ row }) =>
-          formatINR(
-            (row.original.quantity * (row.original.unitPricePaise ?? 0)) / 100
+          formatPaise(
+            row.original.quantity * (row.original.unitPricePaise ?? 0)
           ),
         meta: {
           headerTitle: "Estimated value",

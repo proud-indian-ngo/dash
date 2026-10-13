@@ -9,12 +9,12 @@ export default function ApprovalWithImage() {
       imageUrl="https://placehold.co/400x300/f6f9fc/6b7280?text=Payment+Proof"
       lineItems={[
         {
-          amount: "15000",
+          amountPaise: 1500000,
           categoryName: "Venue",
           description: "Community hall booking",
         },
         {
-          amount: "12500",
+          amountPaise: 1250000,
           categoryName: "Catering",
           description: "Lunch for 50 people",
         },

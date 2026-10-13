@@ -8,6 +8,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { formatPaise, sumPaise } from "@pi-dash/shared/money";
 import { mutators } from "@pi-dash/zero/mutators";
 import {
   INVOICE_LOCKED_STATUSES,
@@ -23,7 +24,6 @@ import { RecordSection } from "@/components/shared/record-detail";
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
 import { DATE } from "@/lib/date-formats";
-import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { getStatusBadge } from "@/lib/status-badge";
 import { mapTransactionToFormValues } from "@/lib/submission-mappers";
@@ -64,22 +64,22 @@ export function VendorPaymentTransactions({
 
   const transactions = request.transactions ?? [];
 
-  const totalOwed = (request.lineItems ?? []).reduce(
-    (sum: number, li: { amount: number | string }) => sum + Number(li.amount),
-    0
+  const totalOwed = sumPaise(
+    (request.lineItems ?? []).map((li) => li.amountPaise)
   );
-  const paidAmount = transactions
-    .filter((t) => t.status === "approved")
-    .reduce(
-      (sum: number, t: { amount: number | string }) => sum + Number(t.amount),
-      0
-    );
+  const paidAmount = sumPaise(
+    transactions
+      .filter((t) => t.status === "approved")
+      .map((t) => t.amountPaise)
+  );
   const remaining = totalOwed - paidAmount;
 
   // Sum of all non-rejected transactions (approved + pending) for cap enforcement
-  const recordableTotal = transactions
-    .filter((t) => t.status !== "rejected")
-    .reduce((sum: number, t) => sum + Number(t.amount), 0);
+  const recordableTotal = sumPaise(
+    transactions
+      .filter((t) => t.status !== "rejected")
+      .map((t) => t.amountPaise)
+  );
   const remainingForCreate = Math.max(0, totalOwed - recordableTotal);
 
   const handleApproveTransaction = useEventCallback(async (id: string) => {
@@ -184,14 +184,14 @@ export function VendorPaymentTransactions({
           <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm tabular-nums">
             <span>
               <span className="text-success-foreground font-medium">
-                {formatINR(paidAmount)}
+                {formatPaise(paidAmount)}
               </span>{" "}
               <span className="text-muted-foreground">
-                paid of {formatINR(totalOwed)}
+                paid of {formatPaise(totalOwed)}
               </span>
             </span>
             <span className="text-muted-foreground">
-              {formatINR(Math.max(0, remaining))} remaining
+              {formatPaise(Math.max(0, remaining))} remaining
             </span>
           </p>
           {totalOwed > 0 ? (
@@ -270,7 +270,7 @@ export function VendorPaymentTransactions({
         canApprove={canApprove}
         onOpenChange={stableFormOpenChange}
         open={formOpen}
-        remainingAmount={remainingForCreate}
+        remainingPaise={remainingForCreate}
         vendorPaymentId={request.id as string}
       />
 
@@ -285,11 +285,11 @@ export function VendorPaymentTransactions({
         mode="edit"
         onOpenChange={stableOnOpenChange1}
         open={editingTransaction !== null}
-        remainingAmount={
+        remainingPaise={
           editingTransaction && editingTransaction.status !== "rejected"
             ? Math.max(
                 0,
-                totalOwed - recordableTotal + Number(editingTransaction.amount)
+                totalOwed - recordableTotal + editingTransaction.amountPaise
               )
             : undefined
         }
@@ -350,7 +350,7 @@ function TransactionRow({
   return (
     <tr className="border-b last:border-0">
       <td className="px-3 py-2 text-right tabular-nums">
-        {formatINR(Number(transaction.amount))}
+        {formatPaise(transaction.amountPaise)}
       </td>
       <td className="text-muted-foreground px-3 py-2">
         {transaction.description ?? "—"}

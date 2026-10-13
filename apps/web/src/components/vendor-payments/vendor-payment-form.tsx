@@ -11,7 +11,7 @@ import { uuidv7 } from "uuidv7";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { FormLayout } from "@/components/form/form-layout";
 import { DATE } from "@/lib/date-formats";
-import { newLineItem } from "@/lib/form-schemas";
+import { newLineItem, toLineItemsPayload } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 import { VendorPaymentFields } from "./vendor-payment-fields";
@@ -80,11 +80,7 @@ export function VendorPaymentForm({
       const value = vendorPaymentFormSchema.parse(rawValue);
       const id = entityId;
 
-      const lineItems = value.lineItems.map((item, index) => ({
-        ...item,
-        amount: Number(item.amount),
-        sortOrder: index,
-      }));
+      const lineItems = toLineItemsPayload(value.lineItems);
 
       const payload = {
         attachments: value.attachments,

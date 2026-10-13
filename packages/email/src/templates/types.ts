@@ -1,5 +1,5 @@
 export interface LineItemDetail {
-  amount: string;
+  amountPaise: number;
   categoryName: string;
   description: string | null;
 }

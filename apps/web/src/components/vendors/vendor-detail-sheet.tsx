@@ -1,11 +1,11 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { formatPaise } from "@pi-dash/shared/money";
 import type { ReactNode } from "react";
 
 import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { formatINR } from "@/lib/form-schemas";
 import { getStatusBadge } from "@/lib/status-badge";
 import type { VendorRow } from "@/lib/vendor-types";
 
@@ -161,19 +161,19 @@ export function VendorDetailSheet({
               />
               <DetailRow
                 label="Pending amount"
-                value={formatINR(vendor.pendingAmount)}
+                value={formatPaise(vendor.pendingAmount)}
               />
               <DetailRow
                 label="Active amount"
-                value={formatINR(vendor.activeAmount)}
+                value={formatPaise(vendor.activeAmount)}
               />
               <DetailRow
                 label="Completed amount"
-                value={formatINR(vendor.completedAmount)}
+                value={formatPaise(vendor.completedAmount)}
               />
               <DetailRow
                 label="Rejected amount"
-                value={formatINR(vendor.rejectedAmount)}
+                value={formatPaise(vendor.rejectedAmount)}
               />
             </div>
           </div>

@@ -659,8 +659,8 @@ async function seedReimbursements(
       city: "bangalore" as const,
       expenseDate: past(10),
       items: [
-        { amount: "1500.00", cat: travelCat, desc: "Bus pass - monthly" },
-        { amount: "450.00", cat: foodCat, desc: "Snacks for kids" },
+        { amountPaise: 150000, cat: travelCat, desc: "Bus pass - monthly" },
+        { amountPaise: 45000, cat: foodCat, desc: "Snacks for kids" },
       ],
       reviewedBy: adminId,
       status: "approved" as const,
@@ -672,11 +672,11 @@ async function seedReimbursements(
       expenseDate: past(5),
       items: [
         {
-          amount: "2200.00",
+          amountPaise: 220000,
           cat: suppliesCat,
           desc: "Crayons and sketch pads",
         },
-        { amount: "350.00", cat: suppliesCat, desc: "Chart papers" },
+        { amountPaise: 35000, cat: suppliesCat, desc: "Chart papers" },
       ],
       status: "pending" as const,
       title: "Art supplies purchase",
@@ -686,7 +686,11 @@ async function seedReimbursements(
       city: "mumbai" as const,
       expenseDate: past(2),
       items: [
-        { amount: "5000.00", cat: suppliesCat, desc: "Community hall deposit" },
+        {
+          amountPaise: 500000,
+          cat: suppliesCat,
+          desc: "Community hall deposit",
+        },
       ],
       status: "pending" as const,
       title: "Venue booking deposit",
@@ -696,7 +700,11 @@ async function seedReimbursements(
       city: "bangalore" as const,
       expenseDate: past(20),
       items: [
-        { amount: "300.00", cat: travelCat, desc: "Auto to wholesale market" },
+        {
+          amountPaise: 30000,
+          cat: travelCat,
+          desc: "Auto to wholesale market",
+        },
       ],
       rejectionReason: "Please submit with receipt",
       reviewedBy: adminId,
@@ -730,7 +738,7 @@ async function seedReimbursements(
       await Promise.all(
         r.items.map((item, i) =>
           db.insert(reimbursementLineItem).values({
-            amount: item.amount,
+            amountPaise: item.amountPaise,
             categoryId: item.cat,
             createdAt: now,
             description: item.desc,
@@ -805,7 +813,7 @@ async function seedAdvancePayments(
 
   await db.insert(advancePaymentLineItem).values({
     advancePaymentId: id,
-    amount: "10000.00",
+    amountPaise: 1000000,
     categoryId: venueCat,
     createdAt: past(7),
     description: "Hall booking advance (50%)",
@@ -815,7 +823,7 @@ async function seedAdvancePayments(
   });
   await db.insert(advancePaymentLineItem).values({
     advancePaymentId: id,
-    amount: "3000.00",
+    amountPaise: 300000,
     categoryId: equipCat,
     createdAt: past(7),
     description: "Sound system rental deposit",
@@ -918,7 +926,7 @@ async function seedVendors(
   });
 
   await db.insert(vendorPaymentLineItem).values({
-    amount: "8500.00",
+    amountPaise: 850000,
     categoryId: printCat,
     createdAt: past(15),
     description: "10 vinyl banners (6x3 ft)",
@@ -928,7 +936,7 @@ async function seedVendors(
     vendorPaymentId: vpId,
   });
   await db.insert(vendorPaymentLineItem).values({
-    amount: "2500.00",
+    amountPaise: 250000,
     categoryId: printCat,
     createdAt: past(15),
     description: "500 flyers (A5)",
@@ -963,7 +971,7 @@ async function seedVendors(
   // Transaction for partial payment
   const txId = uuidv7();
   await db.insert(vendorPaymentTransaction).values({
-    amount: "5000.00",
+    amountPaise: 500000,
     createdAt: past(10),
     description: "First installment via NEFT",
     id: txId,
@@ -1005,7 +1013,7 @@ async function seedVendors(
     vendorId: v2Id,
   });
   await db.insert(vendorPaymentLineItem).values({
-    amount: "15000.00",
+    amountPaise: 1500000,
     categoryId: foodCat,
     createdAt: past(3),
     description: "Lunch for 50 people",

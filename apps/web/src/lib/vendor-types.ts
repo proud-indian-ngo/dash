@@ -1,3 +1,4 @@
+import { sumPaise } from "@pi-dash/shared/money";
 import type { Vendor } from "@pi-dash/zero/schema";
 
 import { sumAmounts } from "@/lib/stats";
@@ -9,6 +10,7 @@ const ACTIVE_STATUSES = new Set([
   "invoice_pending",
 ]);
 
+/** Amounts are line-item totals in paise. */
 export interface VendorPaymentSummary {
   activeAmount: number;
   activeCount: number;
@@ -27,7 +29,7 @@ export function enrichVendorsWithPayments(
   vendorPayments: readonly {
     vendorId: string;
     status: string | null;
-    lineItems: readonly { amount: string | number }[];
+    lineItems: readonly { amountPaise: number }[];
   }[]
 ): VendorRow[] {
   const byVendor = new Map<string, (typeof vendorPayments)[number][]>();
@@ -48,16 +50,13 @@ export function enrichVendorsWithPayments(
     const rejected = payments.filter((p) => p.status === "rejected");
     return {
       ...v,
-      activeAmount: active.reduce((s, p) => s + sumAmounts(p.lineItems), 0),
+      activeAmount: sumPaise(active.map((p) => sumAmounts(p.lineItems))),
       activeCount: active.length,
-      completedAmount: completed.reduce(
-        (s, p) => s + sumAmounts(p.lineItems),
-        0
-      ),
+      completedAmount: sumPaise(completed.map((p) => sumAmounts(p.lineItems))),
       completedCount: completed.length,
-      pendingAmount: pending.reduce((s, p) => s + sumAmounts(p.lineItems), 0),
+      pendingAmount: sumPaise(pending.map((p) => sumAmounts(p.lineItems))),
       pendingCount: pending.length,
-      rejectedAmount: rejected.reduce((s, p) => s + sumAmounts(p.lineItems), 0),
+      rejectedAmount: sumPaise(rejected.map((p) => sumAmounts(p.lineItems))),
       rejectedCount: rejected.length,
     };
   });

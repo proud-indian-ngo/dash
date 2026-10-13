@@ -24,6 +24,7 @@ import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { env } from "@pi-dash/env/web";
+import { sumPaise } from "@pi-dash/shared/money";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
@@ -59,6 +60,7 @@ import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useDialogManager } from "@/hooks/use-dialog-manager";
 import { DATE_TIME } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
+import { sumAmounts } from "@/lib/stats";
 
 import { AddEventMemberDialog } from "./add-event-member-dialog";
 import type { EditScope } from "./edit-scope-dialog";
@@ -784,18 +786,18 @@ function deriveEventState(event: EventRow, isVirtualOccurrence: boolean) {
 
 function calcTotalExpenses(
   reimbursements:
-    | readonly { lineItems: readonly { amount: number }[] }[]
+    | readonly { lineItems: readonly { amountPaise: number }[] }[]
     | null
     | undefined,
   vendorPayments:
-    | readonly { lineItems: readonly { amount: number }[] }[]
+    | readonly { lineItems: readonly { amountPaise: number }[] }[]
     | null
     | undefined
 ): number {
-  return [...(reimbursements ?? []), ...(vendorPayments ?? [])].reduce(
-    (sum, expense) =>
-      sum + expense.lineItems.reduce((s, li) => s + li.amount, 0),
-    0
+  return sumPaise(
+    [...(reimbursements ?? []), ...(vendorPayments ?? [])].map((expense) =>
+      sumAmounts(expense.lineItems)
+    )
   );
 }
 

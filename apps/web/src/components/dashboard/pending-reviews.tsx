@@ -18,12 +18,12 @@ import {
 } from "@pi-dash/design-system/components/ui/card";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { cn } from "@pi-dash/design-system/lib/utils";
+import { formatPaise, sumPaise } from "@pi-dash/shared/money";
 import { Link } from "@tanstack/react-router";
 import { formatDistanceToNowStrict } from "date-fns";
 import type { ReactNode } from "react";
 
 import { Tag } from "@/components/shared/status-badge";
-import { formatINR } from "@/lib/form-schemas";
 import { sumAmounts } from "@/lib/stats";
 
 /** Waits longer than this are flagged in the warning tone. */
@@ -36,7 +36,7 @@ const MAX_EVENT_NAMES = 2;
 interface FinancialPendingItem {
   createdAt: number;
   id: string;
-  lineItems: readonly { amount: string | number }[];
+  lineItems: readonly { amountPaise: number }[];
   title: string;
   user?: { name: string | null } | undefined;
 }
@@ -44,7 +44,7 @@ interface FinancialPendingItem {
 interface VendorPaymentPendingItem {
   createdAt: number;
   id: string;
-  lineItems: readonly { amount: string | number }[];
+  lineItems: readonly { amountPaise: number }[];
   title: string;
   vendor?: { name: string } | undefined;
 }
@@ -266,10 +266,7 @@ function FinancialRow({
   if (items.length === 0) {
     return null;
   }
-  const total = items.reduce(
-    (sum, item) => sum + sumAmounts(item.lineItems),
-    0
-  );
+  const total = sumPaise(items.map((item) => sumAmounts(item.lineItems)));
   return (
     <QueueRow
       count={items.length}
@@ -286,7 +283,7 @@ function FinancialRow({
         </Link>
       }
       oldestAt={oldest(items)}
-      summary={`${formatINR(total)} to approve`}
+      summary={`${formatPaise(total)} to approve`}
     />
   );
 }

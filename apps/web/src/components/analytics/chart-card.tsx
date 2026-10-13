@@ -1,6 +1,5 @@
+import { formatPaise } from "@pi-dash/shared/money";
 import type { ReactNode } from "react";
-
-import { formatINR } from "@/lib/form-schemas";
 
 /**
  * One analytics panel: a sentence-case title, an optional one-line note, and
@@ -73,7 +72,7 @@ export function RankedBars({
               {item.name}
             </span>
             <span className="shrink-0 tabular-nums">
-              <span className="font-medium">{formatINR(item.amount)}</span>
+              <span className="font-medium">{formatPaise(item.amount)}</span>
               <span className="text-muted-foreground text-xs">
                 {" "}
                 · {item.count} {item.count === 1 ? countNoun : `${countNoun}s`}

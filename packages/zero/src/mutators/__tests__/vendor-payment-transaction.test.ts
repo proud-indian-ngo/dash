@@ -1,29 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
+import { MAX_AMOUNT_PAISE } from "@pi-dash/shared/money";
 import z from "zod";
 
-const attachmentSchema = z.object({
-  filename: z.string().optional(),
-  id: z.string(),
-  mimeType: z.string().optional(),
-  objectKey: z.string().optional(),
-  type: z.enum(["file", "url"]),
-  url: z.string().optional(),
-});
-
-const createSchema = z.object({
-  amount: z
-    .number()
-    .positive("Amount must be greater than 0")
-    .multipleOf(0.01, "Amount must have at most 2 decimal places"),
-  attachments: z.array(attachmentSchema),
-  description: z.string().trim().optional(),
-  id: z.string(),
-  paymentMethod: z.string().trim().optional(),
-  paymentReference: z.string().trim().optional(),
-  transactionDate: z.number(),
-  vendorPaymentId: z.string(),
-});
+import { createSchema } from "../vendor-payment-transaction";
 
 const approveSchema = z.object({
   id: z.string(),
@@ -40,7 +20,7 @@ const deleteSchema = z.object({ id: z.string() });
 describe("vendorPaymentTransaction mutator schemas", () => {
   describe("create", () => {
     const validInput = {
-      amount: 500.0,
+      amountPaise: 50_000,
       attachments: [],
       id: "txn-1",
       transactionDate: Date.now(),
@@ -62,27 +42,40 @@ describe("vendorPaymentTransaction mutator schemas", () => {
     });
 
     it("rejects zero amount", () => {
-      expect(createSchema.safeParse({ ...validInput, amount: 0 }).success).toBe(
-        false
-      );
+      expect(
+        createSchema.safeParse({ ...validInput, amountPaise: 0 }).success
+      ).toBe(false);
     });
 
     it("rejects negative amount", () => {
       expect(
-        createSchema.safeParse({ ...validInput, amount: -100 }).success
+        createSchema.safeParse({ ...validInput, amountPaise: -100 }).success
       ).toBe(false);
     });
 
-    it("rejects amount with more than 2 decimal places", () => {
+    it("rejects fractional paise", () => {
       expect(
-        createSchema.safeParse({ ...validInput, amount: 10.123 }).success
+        createSchema.safeParse({ ...validInput, amountPaise: 1012.3 }).success
       ).toBe(false);
     });
 
-    it("accepts amount with exactly 2 decimal places", () => {
+    it("accepts whole paise", () => {
       expect(
-        createSchema.safeParse({ ...validInput, amount: 10.12 }).success
+        createSchema.safeParse({ ...validInput, amountPaise: 1012 }).success
       ).toBe(true);
+    });
+
+    it("caps the amount at the old numeric(12,2) limit", () => {
+      expect(
+        createSchema.safeParse({ ...validInput, amountPaise: MAX_AMOUNT_PAISE })
+          .success
+      ).toBe(true);
+      expect(
+        createSchema.safeParse({
+          ...validInput,
+          amountPaise: MAX_AMOUNT_PAISE + 1,
+        }).success
+      ).toBe(false);
     });
 
     it("rejects missing vendorPaymentId", () => {
@@ -92,7 +85,7 @@ describe("vendorPaymentTransaction mutator schemas", () => {
 
     it("rejects string amount", () => {
       expect(
-        createSchema.safeParse({ ...validInput, amount: "500" }).success
+        createSchema.safeParse({ ...validInput, amountPaise: "500" }).success
       ).toBe(false);
     });
   });

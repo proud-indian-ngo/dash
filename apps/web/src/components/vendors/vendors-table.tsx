@@ -11,6 +11,7 @@ import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/d
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { formatPaise } from "@pi-dash/shared/money";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 
@@ -27,7 +28,6 @@ import {
   useMigrateLegacyVendorFilterParams,
 } from "@/components/vendors/vendor-filters";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
-import { formatINR } from "@/lib/form-schemas";
 import type { VendorRow } from "@/lib/vendor-types";
 
 const TOTAL_COLUMNS = [
@@ -296,7 +296,9 @@ export function VendorsTable({
     {
       accessorFn: (row) => row.pendingAmount,
       cell: ({ row }) => (
-        <span className="text-sm">{formatINR(row.original.pendingAmount)}</span>
+        <span className="text-sm">
+          {formatPaise(row.original.pendingAmount)}
+        </span>
       ),
       header: ({ column }) => (
         <DataGridColumnHeader
@@ -316,7 +318,9 @@ export function VendorsTable({
     {
       accessorFn: (row) => row.activeAmount,
       cell: ({ row }) => (
-        <span className="text-sm">{formatINR(row.original.activeAmount)}</span>
+        <span className="text-sm">
+          {formatPaise(row.original.activeAmount)}
+        </span>
       ),
       header: ({ column }) => (
         <DataGridColumnHeader
@@ -337,7 +341,7 @@ export function VendorsTable({
       accessorFn: (row) => row.completedAmount,
       cell: ({ row }) => (
         <span className="text-sm">
-          {formatINR(row.original.completedAmount)}
+          {formatPaise(row.original.completedAmount)}
         </span>
       ),
       header: ({ column }) => (
@@ -379,7 +383,7 @@ export function VendorsTable({
       accessorFn: (row) => row.rejectedAmount,
       cell: ({ row }) => (
         <span className="text-sm">
-          {formatINR(row.original.rejectedAmount)}
+          {formatPaise(row.original.rejectedAmount)}
         </span>
       ),
       header: ({ column }) => (

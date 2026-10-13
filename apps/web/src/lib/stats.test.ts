@@ -13,14 +13,11 @@ import {
 } from "./stats";
 
 describe("sumAmounts", () => {
-  it("sums numeric amounts", () => {
-    expect(sumAmounts([{ amount: 100 }, { amount: 200.5 }])).toBeCloseTo(300.5);
-  });
-
-  it("sums string amounts", () => {
-    expect(sumAmounts([{ amount: "100" }, { amount: "50.25" }])).toBeCloseTo(
-      150.25
+  it("sums paise exactly", () => {
+    expect(sumAmounts([{ amountPaise: 10_000 }, { amountPaise: 20_050 }])).toBe(
+      30_050
     );
+    expect(sumAmounts([{ amountPaise: 10 }, { amountPaise: 20 }])).toBe(30);
   });
 
   it("returns 0 for empty array", () => {
@@ -31,8 +28,11 @@ describe("sumAmounts", () => {
 describe("sumTotal", () => {
   it("sums line items across submissions", () => {
     const data = [
-      { lineItems: [{ amount: 100 }, { amount: 50 }], status: "pending" },
-      { lineItems: [{ amount: 200 }], status: "approved" },
+      {
+        lineItems: [{ amountPaise: 100 }, { amountPaise: 50 }],
+        status: "pending",
+      },
+      { lineItems: [{ amountPaise: 200 }], status: "approved" },
     ];
     expect(sumTotal(data)).toBe(350);
   });
@@ -73,7 +73,7 @@ function makeItem(overrides: {
     createdAt: overrides.createdAt ?? Date.now(),
     lineItems: [
       {
-        amount: overrides.amount ?? 100,
+        amountPaise: overrides.amount ?? 100,
         category: overrides.category ? { name: overrides.category } : undefined,
       },
     ],
@@ -218,7 +218,7 @@ describe("computeEventData", () => {
   function makeEventItem(eventId: string | null, amount: number) {
     return {
       event: eventId ? { id: eventId, name: `Event ${eventId}` } : null,
-      lineItems: [{ amount }],
+      lineItems: [{ amountPaise: amount }],
     };
   }
 
@@ -256,7 +256,7 @@ describe("computeEventData", () => {
   });
 
   it("skips items with undefined event", () => {
-    const item = { event: undefined, lineItems: [{ amount: 100 }] };
+    const item = { event: undefined, lineItems: [{ amountPaise: 100 }] };
     expect(computeEventData([item])).toEqual([]);
   });
 });
@@ -267,7 +267,7 @@ describe("computeProgrammeData", () => {
       programme === undefined
         ? null
         : { programme: programme === null ? null : { name: programme } },
-    lineItems: [{ amount }],
+    lineItems: [{ amountPaise: amount }],
   });
 
   it("groups spend by the event's programme, sorted by amount", () => {
@@ -293,16 +293,6 @@ describe("computeProgrammeData", () => {
       { amount: 10, count: 1, name: "No event" },
       { amount: 5, count: 1, name: "Unallocated" },
     ]);
-  });
-
-  it("sums string amounts the way Zero returns numeric columns", () => {
-    const result = computeProgrammeData([
-      {
-        event: { programme: { name: "Education" } },
-        lineItems: [{ amount: "100.50" }, { amount: "0.50" }],
-      },
-    ]);
-    expect(result).toEqual([{ amount: 101, count: 1, name: "Education" }]);
   });
 });
 

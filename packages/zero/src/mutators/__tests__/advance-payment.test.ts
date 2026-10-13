@@ -11,7 +11,7 @@ describe("advancePayment mutator schemas", () => {
         id: "ap-1",
         lineItems: [
           {
-            amount: 2000,
+            amountPaise: 200_000,
             categoryId: "cat-1",
             description: "Supplies",
             id: "li-1",

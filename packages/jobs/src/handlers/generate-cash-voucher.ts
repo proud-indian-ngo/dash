@@ -7,7 +7,7 @@ import {
   reimbursementLineItem,
 } from "@pi-dash/db/schema/reimbursement";
 import { env } from "@pi-dash/env/server";
-import { VOUCHER_AMOUNT_THRESHOLD } from "@pi-dash/shared/constants";
+import { qualifiesForCashVoucher } from "@pi-dash/shared/money";
 import { eq, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { uuidv7 } from "uuidv7";
@@ -78,9 +78,9 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
     return;
   }
 
-  const amount = Number(lineItem.amount);
-  if (amount > VOUCHER_AMOUNT_THRESHOLD) {
-    log.set({ amount, event: "amount_exceeds_threshold" });
+  const { amountPaise } = lineItem;
+  if (!qualifiesForCashVoucher(amountPaise)) {
+    log.set({ amountPaise, event: "amount_exceeds_threshold" });
     log.emit();
     return;
   }
@@ -130,11 +130,11 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
 
   const { generateCashVoucherPdf } =
     await import("@pi-dash/pdf/generate-voucher");
-  const { amountToWords } = await import("@pi-dash/pdf/amount-to-words");
+  const { paiseToWords } = await import("@pi-dash/pdf/amount-to-words");
 
   const pdfBuffer = await generateCashVoucherPdf({
-    amount,
-    amountInWords: amountToWords(amount),
+    amountInWords: paiseToWords(amountPaise),
+    amountPaise,
     approvedBy: env.VOUCHER_FINANCE_ADMIN_NAME,
     category: category?.name ?? "Uncategorized",
     date: reimb.expenseDate,

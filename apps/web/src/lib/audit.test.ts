@@ -99,6 +99,15 @@ describe("audit metadata", () => {
     });
   });
 
+  it("records the paise amount field on payment writes", () => {
+    const payment = summarizeZeroMutation(
+      "vendorPaymentTransaction.update",
+      { amountPaise: 50_000, id: TARGET_ID },
+      "actor-1"
+    );
+    expect(payment.metadata?.changedFields).toEqual(["amountPaise", "id"]);
+  });
+
   it("records finance-control fields on programme and config writes", () => {
     const programme = summarizeZeroMutation(
       "programme.update",

@@ -12,7 +12,7 @@ describe("reimbursement mutator schemas", () => {
         id: "r-1",
         lineItems: [
           {
-            amount: 500,
+            amountPaise: 50_000,
             categoryId: "cat-1",
             description: "Travel",
             id: "li-1",

@@ -5,7 +5,7 @@ import {
   date,
   index,
   integer,
-  numeric,
+  bigint,
   pgEnum,
   pgTable,
   text,
@@ -71,7 +71,7 @@ export const reimbursement = pgTable(
 export const reimbursementLineItem = pgTable(
   "reimbursement_line_item",
   {
-    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    amountPaise: bigint("amount_paise", { mode: "number" }).notNull(),
     categoryId: uuid("category_id")
       .notNull()
       .references(() => expenseCategory.id),

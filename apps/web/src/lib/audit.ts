@@ -80,7 +80,7 @@ const SAFE_CHANGED_FIELD_NAMES = new Set([
   "type",
   "accountNumber",
   "address",
-  "amount",
+  "amountPaise",
   "archived",
   "attachments",
   "music",

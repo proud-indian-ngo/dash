@@ -4,9 +4,13 @@ import {
   REQUEST_CSV_HEADERS,
   type RequestExportRow,
   requestRowToArray,
+  requestTotalCell,
+  sumToPaise,
   TX_CSV_HEADERS,
+  transactionAmountCell,
   transactionRowToArray,
   type VendorPaymentExportRow,
+  vendorPaymentAmountCells,
   vendorPaymentRowToArray,
   VP_CSV_HEADERS,
 } from "./financial-export-rows";
@@ -74,5 +78,63 @@ describe("financial export row contract", () => {
     const vendorIndex = VP_CSV_HEADERS.indexOf("Programme");
     expect(vendorIndex).toBe(VP_CSV_HEADERS.length - 1);
     expect(vendorPaymentRowToArray(vendorRow)[vendorIndex]).toBe("");
+  });
+});
+
+describe("financial export amount cells", () => {
+  it("keeps the request total in the two-decimal form numeric(12,2) produced", () => {
+    // PostgreSQL returns sum(bigint) as a numeric string.
+    expect(requestTotalCell("150000")).toBe("1500.00");
+    expect(requestTotalCell("1999")).toBe("19.99");
+    expect(requestTotalCell("5")).toBe("0.05");
+    expect(requestTotalCell(null)).toBe("0");
+  });
+
+  it("keeps the transaction amount in the two-decimal form", () => {
+    expect(transactionAmountCell(150_000)).toBe("1500.00");
+    expect(transactionAmountCell(1)).toBe("0.01");
+  });
+
+  it("keeps vendor payment amounts as plain numbers", () => {
+    expect(vendorPaymentAmountCells(150_000, 50_000)).toEqual({
+      paidAmount: "500",
+      remaining: "1000",
+      totalAmount: "1500",
+    });
+    expect(vendorPaymentAmountCells(1990, 0)).toEqual({
+      paidAmount: "0",
+      remaining: "19.9",
+      totalAmount: "19.9",
+    });
+    expect(vendorPaymentAmountCells(10_000, 12_000).remaining).toBe("0");
+    // Float subtraction used to print 0.009999999999990905 here.
+    expect(vendorPaymentAmountCells(100_001, 100_000).remaining).toBe("0.01");
+  });
+
+  it("pins a full vendor payment row", () => {
+    expect(
+      vendorPaymentRowToArray({
+        ...vendorRow,
+        ...vendorPaymentAmountCells(123_456_789, 23_456_789),
+      })
+    ).toEqual([
+      "Banners",
+      "Print Co",
+      "INV-1",
+      "2026-05-02",
+      "Asha",
+      "asha@example.test",
+      "completed",
+      "1234567.89",
+      "234567.89",
+      "1000000",
+      "2026-05-01T00:00:00.000Z",
+      "2026-05-01T00:00:00.000Z",
+      "",
+    ]);
+  });
+
+  it("rejects a sum outside the safe-integer range", () => {
+    expect(() => sumToPaise("9007199254740993")).toThrow(RangeError);
   });
 });

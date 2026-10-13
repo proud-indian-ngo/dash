@@ -1,15 +1,12 @@
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { formatPaise, sumPaise } from "@pi-dash/shared/money";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { Link } from "@tanstack/react-router";
 
 import { StatusBadge } from "@/components/shared/status-badge";
-import { formatINR } from "@/lib/form-schemas";
+import { sumAmounts } from "@/lib/stats";
 import { getStatusBadge } from "@/lib/status-badge";
-
-function sumLineItems(lineItems: readonly { amount: number }[]): number {
-  return lineItems.reduce((sum, item) => sum + item.amount, 0);
-}
 
 interface ExpenseRowProps {
   href: "/reimbursements/$id" | "/vendor-payments/$id";
@@ -42,7 +39,7 @@ function ExpenseRow({
         ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-3">
-        <span className="text-sm tabular-nums">{formatINR(total)}</span>
+        <span className="text-sm tabular-nums">{formatPaise(total)}</span>
         <StatusBadge tone={tone}>{label}</StatusBadge>
       </div>
     </Link>
@@ -54,7 +51,7 @@ function SectionHeader({ title, total }: { title: string; total: number }) {
     <div className="flex items-center justify-between py-1">
       <p className="text-muted-foreground text-xs font-medium">{title}</p>
       <span className="text-muted-foreground text-xs tabular-nums">
-        {formatINR(total)}
+        {formatPaise(total)}
       </span>
     </div>
   );
@@ -78,15 +75,9 @@ export function EventExpenses({ eventId }: EventExpensesProps) {
   const reimbList = reimbursements ?? [];
   const vpList = vendorPayments ?? [];
 
-  const reimbTotal = reimbList.reduce(
-    (sum, r) => sum + sumLineItems(r.lineItems),
-    0
-  );
-  const vpTotal = vpList.reduce(
-    (sum, vp) => sum + sumLineItems(vp.lineItems),
-    0
-  );
-  const grandTotal = reimbTotal + vpTotal;
+  const reimbTotal = sumPaise(reimbList.map((r) => sumAmounts(r.lineItems)));
+  const vpTotal = sumPaise(vpList.map((vp) => sumAmounts(vp.lineItems)));
+  const grandTotal = sumPaise([reimbTotal, vpTotal]);
 
   if (isLoading) {
     return (
@@ -120,7 +111,7 @@ export function EventExpenses({ eventId }: EventExpensesProps) {
                 status={r.status}
                 submitter={r.user?.name}
                 title={r.title}
-                total={sumLineItems(r.lineItems)}
+                total={sumAmounts(r.lineItems)}
               />
             ))}
           </div>
@@ -139,7 +130,7 @@ export function EventExpenses({ eventId }: EventExpensesProps) {
                 status={vp.status}
                 submitter={vp.vendor?.name ?? vp.user?.name}
                 title={vp.title}
-                total={sumLineItems(vp.lineItems)}
+                total={sumAmounts(vp.lineItems)}
               />
             ))}
           </div>
@@ -150,7 +141,7 @@ export function EventExpenses({ eventId }: EventExpensesProps) {
         <div className="flex items-center justify-between border-t pt-2">
           <p className="text-sm font-semibold">Total</p>
           <p className="text-sm font-semibold tabular-nums">
-            {formatINR(grandTotal)}
+            {formatPaise(grandTotal)}
           </p>
         </div>
       ) : null}

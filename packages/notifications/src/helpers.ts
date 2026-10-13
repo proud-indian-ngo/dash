@@ -16,7 +16,7 @@ import { reimbursementLineItem } from "@pi-dash/db/schema/reimbursement";
 import { vendorPaymentLineItem } from "@pi-dash/db/schema/vendor";
 import { and, asc, eq, isNull, or } from "drizzle-orm";
 export interface LineItemDetail {
-  amount: string;
+  amountPaise: number;
   categoryName: string;
   description: string | null;
 }
@@ -51,7 +51,7 @@ export async function getReimbursementLineItems(
 ): Promise<LineItemDetail[]> {
   return await db
     .select({
-      amount: reimbursementLineItem.amount,
+      amountPaise: reimbursementLineItem.amountPaise,
       categoryName: expenseCategory.name,
       description: reimbursementLineItem.description,
     })
@@ -69,7 +69,7 @@ export async function getAdvancePaymentLineItems(
 ): Promise<LineItemDetail[]> {
   return await db
     .select({
-      amount: advancePaymentLineItem.amount,
+      amountPaise: advancePaymentLineItem.amountPaise,
       categoryName: expenseCategory.name,
       description: advancePaymentLineItem.description,
     })
@@ -87,7 +87,7 @@ export async function getVendorPaymentLineItems(
 ): Promise<LineItemDetail[]> {
   return await db
     .select({
-      amount: vendorPaymentLineItem.amount,
+      amountPaise: vendorPaymentLineItem.amountPaise,
       categoryName: expenseCategory.name,
       description: vendorPaymentLineItem.description,
     })

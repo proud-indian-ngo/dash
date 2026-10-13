@@ -2,6 +2,8 @@ import { mutators } from "@pi-dash/zero/mutators";
 import type { BankAccount } from "@pi-dash/zero/schema";
 import type { useZero } from "@rocicorp/zero/react";
 
+import { toLineItemsPayload } from "@/lib/form-schemas";
+
 import type { RequestFormValues } from "./form/reimbursement-form.schema";
 
 function requireDate(value: Date | undefined, field: string): number {
@@ -18,11 +20,7 @@ export function buildMutation(
   existingId: string | undefined,
   bankAccountList: BankAccount[]
 ) {
-  const lineItems = value.lineItems.map((item, index) => ({
-    ...item,
-    amount: Number(item.amount),
-    sortOrder: index,
-  }));
+  const lineItems = toLineItemsPayload(value.lineItems);
   const { attachments } = value;
   const id = existingId ?? entityId;
 

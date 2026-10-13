@@ -1,3 +1,5 @@
+import { assertSafePaise } from "@pi-dash/shared/money";
+
 const ones = [
   "",
   "One",
@@ -63,13 +65,14 @@ function convertBelowThousand(num: number): string {
   );
 }
 
-export function amountToWords(amount: number): string {
-  if (amount === 0) {
+export function paiseToWords(amountPaise: number): string {
+  assertSafePaise(amountPaise);
+  if (amountPaise === 0) {
     return "Rupees Zero Only";
   }
 
-  const rupees = Math.floor(amount);
-  const paise = Math.round((amount - rupees) * 100);
+  const rupees = Math.floor(amountPaise / 100);
+  const paise = amountPaise % 100;
 
   let rupeesWords = "";
 

@@ -1876,13 +1876,13 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
       id: ID.reimb01,
       items: [
         {
-          amount: "1500.00",
+          amountPaise: 150000,
           cat: ID.catTravel,
           desc: "Bus pass - monthly",
           id: ID.rli01,
         },
         {
-          amount: "450.00",
+          amountPaise: 45000,
           cat: ID.catFood,
           desc: "Snacks for kids",
           generateVoucher: true,
@@ -1902,13 +1902,13 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
       id: ID.reimb02,
       items: [
         {
-          amount: "2200.00",
+          amountPaise: 220000,
           cat: ID.catSupplies,
           desc: "Crayons and sketch pads",
           id: ID.rli03,
         },
         {
-          amount: "350.00",
+          amountPaise: 35000,
           cat: ID.catSupplies,
           desc: "Chart papers",
           id: ID.rli04,
@@ -1925,7 +1925,7 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
       id: ID.reimb03,
       items: [
         {
-          amount: "5000.00",
+          amountPaise: 500000,
           cat: ID.catVenue,
           desc: "Community hall deposit",
           id: ID.rli05,
@@ -1942,7 +1942,7 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
       id: ID.reimb04,
       items: [
         {
-          amount: "300.00",
+          amountPaise: 30000,
           cat: ID.catTravel,
           desc: "Auto to wholesale market",
           id: ID.rli06,
@@ -1985,7 +1985,7 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
           await db
             .insert(reimbursementLineItem)
             .values({
-              amount: item.amount,
+              amountPaise: item.amountPaise,
               categoryId: item.cat,
               createdAt: now,
               description: item.desc,
@@ -2121,7 +2121,7 @@ async function seedAdvancePayments(
     .insert(advancePaymentLineItem)
     .values({
       advancePaymentId: ID.adv01,
-      amount: "10000.00",
+      amountPaise: 1000000,
       categoryId: ID.catVenue,
       createdAt: past(7),
       description: "Hall booking advance (50%)",
@@ -2134,7 +2134,7 @@ async function seedAdvancePayments(
     .insert(advancePaymentLineItem)
     .values({
       advancePaymentId: ID.adv01,
-      amount: "3000.00",
+      amountPaise: 300000,
       categoryId: ID.catEquipment,
       createdAt: past(7),
       description: "Sound system rental deposit",
@@ -2259,7 +2259,7 @@ async function seedVendors(userMap: Map<string, string>): Promise<void> {
   await db
     .insert(vendorPaymentLineItem)
     .values({
-      amount: "8500.00",
+      amountPaise: 850000,
       categoryId: ID.catPrinting,
       createdAt: past(15),
       description: "10 vinyl banners (6x3 ft)",
@@ -2272,7 +2272,7 @@ async function seedVendors(userMap: Map<string, string>): Promise<void> {
   await db
     .insert(vendorPaymentLineItem)
     .values({
-      amount: "2500.00",
+      amountPaise: 250000,
       categoryId: ID.catPrinting,
       createdAt: past(15),
       description: "500 flyers (A5)",
@@ -2350,7 +2350,7 @@ async function seedVendors(userMap: Map<string, string>): Promise<void> {
   await db
     .insert(vendorPaymentTransaction)
     .values({
-      amount: "5000.00",
+      amountPaise: 500000,
       createdAt: past(10),
       description: "First installment via NEFT",
       id: ID2.vpt01,
@@ -2425,7 +2425,7 @@ async function seedVendors(userMap: Map<string, string>): Promise<void> {
   await db
     .insert(vendorPaymentLineItem)
     .values({
-      amount: "15000.00",
+      amountPaise: 1500000,
       categoryId: ID.catFood,
       createdAt: past(3),
       description: "Lunch for 50 people",

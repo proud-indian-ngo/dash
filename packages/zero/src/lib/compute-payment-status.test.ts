@@ -23,20 +23,16 @@ describe("computePaymentStatus", () => {
     expect(computePaymentStatus([600, 500], [1000])).toBe("paid");
   });
 
-  it("handles string amounts", () => {
-    expect(computePaymentStatus(["500.00"], ["1000.00"])).toBe(
-      "partially_paid"
-    );
-    expect(computePaymentStatus(["1000.00"], ["1000.00"])).toBe("paid");
+  it("compares paise exactly (33.33 + 66.67 = 100.00)", () => {
+    expect(computePaymentStatus([3333, 6667], [10_000])).toBe("paid");
+    expect(computePaymentStatus([10, 20], [30])).toBe("paid");
   });
 
-  it("handles floating-point edge case (33.33 + 66.67 = 100.00)", () => {
-    // This is the classic JS float bug: 33.33 + 66.67 !== 100.00 in floats
-    expect(computePaymentStatus(["33.33", "66.67"], ["100.00"])).toBe("paid");
-  });
-
-  it("handles floating-point edge case (0.1 + 0.2)", () => {
-    expect(computePaymentStatus(["0.10", "0.20"], ["0.30"])).toBe("paid");
+  it("rejects fractional or unsafe paise", () => {
+    expect(() => computePaymentStatus([0.5], [100])).toThrow(RangeError);
+    expect(() =>
+      computePaymentStatus([Number.MAX_SAFE_INTEGER, 1], [100])
+    ).toThrow(RangeError);
   });
 
   it("handles multiple line items with multiple payments", () => {
@@ -58,7 +54,7 @@ describe("computePaymentStatus", () => {
   });
 
   it("handles very small amounts correctly", () => {
-    expect(computePaymentStatus(["0.01"], ["0.01"])).toBe("paid");
-    expect(computePaymentStatus(["0.01"], ["0.02"])).toBe("partially_paid");
+    expect(computePaymentStatus([1], [1])).toBe("paid");
+    expect(computePaymentStatus([1], [2])).toBe("partially_paid");
   });
 });

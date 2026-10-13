@@ -20,13 +20,16 @@ import {
   TooltipTrigger,
 } from "@pi-dash/design-system/components/ui/tooltip";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { VOUCHER_AMOUNT_THRESHOLD } from "@pi-dash/shared/constants";
+import {
+  formatPaise,
+  qualifiesForCashVoucher,
+  tryRupeesToPaise,
+} from "@pi-dash/shared/money";
 import type { ExpenseCategory } from "@pi-dash/zero/schema";
 import type { ChangeEvent } from "react";
 
 import {
-  computeRunningTotal,
-  formatINR,
+  computeRunningTotalPaise,
   type LineItem,
   newLineItem,
 } from "@/lib/form-schemas";
@@ -265,8 +268,8 @@ function LineItemRow({
   const handleRemove = useEventCallback(() => removeValue(index));
   const stableSelector0 = useEventCallback((state: unknown) => {
     const items = selectLineItems(state, name);
-    const amt = Number(items[index]?.amount);
-    return !Number.isNaN(amt) && amt > 0 && amt <= VOUCHER_AMOUNT_THRESHOLD;
+    const paise = tryRupeesToPaise(items[index]?.amount ?? "");
+    return paise !== null && qualifiesForCashVoucher(paise);
   });
 
   return (
@@ -392,7 +395,7 @@ export function LineItemsEditor({
     value: category.id,
   }));
   const stableSelector1 = useEventCallback((state: unknown) =>
-    computeRunningTotal(selectLineItems(state, name))
+    computeRunningTotalPaise(selectLineItems(state, name))
   );
 
   return (
@@ -405,7 +408,7 @@ export function LineItemsEditor({
               <span className="text-destructive text-xs"> *</span>
             </div>
             <span className="text-muted-foreground text-xs">
-              Total: {formatINR(total)}
+              Total: {formatPaise(total)}
             </span>
           </div>
         )}

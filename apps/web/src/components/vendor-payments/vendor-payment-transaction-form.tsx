@@ -1,10 +1,10 @@
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { formatPaise } from "@pi-dash/shared/money";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
-import z from "zod";
 
 import { AttachmentsSection } from "@/components/form/attachments-section";
 import { CustomField } from "@/components/form/custom-field";
@@ -19,43 +19,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
-import {
-  type Attachment,
-  attachmentSchema,
-  formatINR,
-} from "@/lib/form-schemas";
+import type { Attachment } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 
-function buildTransactionFormSchema(remainingAmount?: number) {
-  return z.object({
-    amount: z
-      .string()
-      .min(1, "Amount is required")
-      .refine((v) => !Number.isNaN(Number(v)) && Number(v) > 0, {
-        message: "Must be a positive number",
-      })
-      .refine(
-        (v) => remainingAmount === undefined || Number(v) <= remainingAmount,
-        {
-          message: `Exceeds remaining balance of ${formatINR(remainingAmount ?? 0)}`,
-        }
-      ),
-    attachments: z.array(attachmentSchema),
-    description: z.string(),
-    paymentMethod: z.string(),
-    paymentReference: z.string(),
-    transactionDate: z.date({ message: "Date is required" }),
-  });
-}
-
-export interface TransactionFormValues {
-  amount: string;
-  attachments: Attachment[];
-  description: string;
-  paymentMethod: string;
-  paymentReference: string;
-  transactionDate: Date;
-}
+import {
+  buildTransactionFormSchema,
+  type TransactionFormValues,
+  toTransactionPayload,
+} from "./vendor-payment-transaction-form.schema";
 
 interface TransactionFormDialogProps {
   canApprove: boolean;
@@ -63,7 +34,7 @@ interface TransactionFormDialogProps {
   mode?: "create" | "edit";
   onOpenChange: (open: boolean) => void;
   open: boolean;
-  remainingAmount?: number;
+  remainingPaise?: number;
   transactionId?: string;
   vendorPaymentId: string;
 }
@@ -73,7 +44,7 @@ function TransactionFormContent({
   initialValues,
   mode,
   onOpenChange,
-  remainingAmount,
+  remainingPaise,
   transactionId,
   vendorPaymentId,
 }: {
@@ -81,13 +52,13 @@ function TransactionFormContent({
   initialValues?: TransactionFormValues;
   mode: "create" | "edit";
   onOpenChange: (open: boolean) => void;
-  remainingAmount?: number;
+  remainingPaise?: number;
   transactionId?: string;
   vendorPaymentId: string;
 }) {
   const zero = useZero();
   const entityId = mode === "edit" && transactionId ? transactionId : uuidv7();
-  const schema = buildTransactionFormSchema(remainingAmount);
+  const schema = buildTransactionFormSchema(remainingPaise);
 
   const form = useForm({
     defaultValues: initialValues ?? {
@@ -99,19 +70,13 @@ function TransactionFormContent({
       transactionDate: new Date(),
     },
     onSubmit: async ({ value }) => {
-      const parsed = schema.parse(value);
-      const amount = Number(parsed.amount);
+      const payload = toTransactionPayload(schema.parse(value));
 
       if (mode === "edit" && transactionId) {
         const res = await zero.mutate(
           mutators.vendorPaymentTransaction.update({
-            amount,
-            attachments: parsed.attachments,
-            description: parsed.description || undefined,
+            ...payload,
             id: transactionId,
-            paymentMethod: parsed.paymentMethod || undefined,
-            paymentReference: parsed.paymentReference || undefined,
-            transactionDate: parsed.transactionDate.getTime(),
           })
         ).server;
 
@@ -128,13 +93,8 @@ function TransactionFormContent({
       } else {
         const res = await zero.mutate(
           mutators.vendorPaymentTransaction.create({
-            amount,
-            attachments: parsed.attachments,
-            description: parsed.description || undefined,
+            ...payload,
             id: entityId,
-            paymentMethod: parsed.paymentMethod || undefined,
-            paymentReference: parsed.paymentReference || undefined,
-            transactionDate: parsed.transactionDate.getTime(),
             vendorPaymentId,
           })
         ).server;
@@ -176,9 +136,9 @@ function TransactionFormContent({
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <InputField isRequired label="Amount" name="amount" />
-          {remainingAmount !== undefined && (
+          {remainingPaise !== undefined && (
             <p className="text-muted-foreground mt-1 text-xs">
-              Remaining: {formatINR(remainingAmount)}
+              Remaining: {formatPaise(remainingPaise)}
             </p>
           )}
         </div>
@@ -218,7 +178,7 @@ export function TransactionFormDialog({
   mode = "create",
   onOpenChange,
   open,
-  remainingAmount,
+  remainingPaise,
   transactionId,
   vendorPaymentId,
 }: TransactionFormDialogProps) {
@@ -257,7 +217,7 @@ export function TransactionFormDialog({
           key={formKey}
           mode={mode}
           onOpenChange={onOpenChange}
-          remainingAmount={remainingAmount}
+          remainingPaise={remainingPaise}
           transactionId={transactionId}
           vendorPaymentId={vendorPaymentId}
         />

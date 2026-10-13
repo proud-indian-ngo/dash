@@ -64,6 +64,10 @@ Zero = real-time sync via Postgres logical replication:
 
 Zero client init: `apps/web/src/components/zero-init.tsx` via `<ZeroProvider>`. Receives schema, mutators, user context (userId + role), `storageKey="pi-dash"` (namespaces IndexedDB).
 
+## Money
+
+Money columns are integer paise in `bigint` columns named `*_paise` (Drizzle `bigint(..., { mode: "number" })`, TS fields `*Paise`). Drizzle reads them as JavaScript numbers, Zero syncs them as `number`, and mutators and server functions accept them as `number` validated by `paiseSchema` or `positivePaiseSchema` from `@pi-dash/shared/money`, which reject fractions and anything outside the safe-integer range. Forms keep rupee text inputs and convert with `rupeesToPaise` (exact string arithmetic, at most two decimals) when they submit; displays use `formatPaise`; totals use `sumPaise`, which throws if a sum leaves the safe range. PostgreSQL returns `sum()` over a `bigint` column as a numeric string, so server code converts it with `Number` and checks it (see `sumToPaise` in the financial export). Never divide by 100 to compute; divide only to compare against something a person typed in rupees, as the table amount filters do.
+
 ## SSR Loaders
 
 Route loaders use `preloadRouteQuery` from `apps/web/src/lib/route-preload.ts`, passing the optional Zero instance, query and loader abort signal. It uses `zero.preload()` to sync ahead of navigation without materializing JS objects, retains cached data for five minutes, and releases its reference on completion, abort or a 30-second timeout. It does nothing during SSR when Zero is absent. Mounted query hooks own separate references, so releasing a preload does not unsubscribe the page.

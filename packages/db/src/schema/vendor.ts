@@ -4,7 +4,7 @@ import {
   date,
   index,
   integer,
-  numeric,
+  bigint,
   pgEnum,
   pgTable,
   text,
@@ -129,7 +129,7 @@ export const vendorPayment = pgTable(
 export const vendorPaymentLineItem = pgTable(
   "vendor_payment_line_item",
   {
-    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    amountPaise: bigint("amount_paise", { mode: "number" }).notNull(),
     categoryId: uuid("category_id")
       .notNull()
       .references(() => expenseCategory.id),

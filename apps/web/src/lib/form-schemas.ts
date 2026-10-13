@@ -1,4 +1,12 @@
 import { cityValues } from "@pi-dash/shared/constants";
+import {
+  MAX_AMOUNT_MESSAGE,
+  MAX_AMOUNT_PAISE,
+  RUPEES_INPUT_MESSAGE,
+  rupeesToPaise,
+  sumPaise,
+  tryRupeesToPaise,
+} from "@pi-dash/shared/money";
 import capitalize from "lodash/capitalize";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
@@ -11,18 +19,23 @@ export const cityOptions = cityValues.map((value) => ({
   value,
 }));
 
-const amountSchema = z
-  .number()
-  .positive("Must be > 0")
-  .multipleOf(0.01, "Must have at most 2 decimals");
+/** A positive rupee amount typed into a form, within the per-item limit. */
+export const positiveRupeesSchema = z
+  .string()
+  .min(1, "Amount required")
+  .superRefine((value, context) => {
+    const paise = tryRupeesToPaise(value);
+    if (paise === null) {
+      context.addIssue({ code: "custom", message: RUPEES_INPUT_MESSAGE });
+    } else if (paise <= 0) {
+      context.addIssue({ code: "custom", message: "Must be greater than 0" });
+    } else if (paise > MAX_AMOUNT_PAISE) {
+      context.addIssue({ code: "custom", message: MAX_AMOUNT_MESSAGE });
+    }
+  });
 
 export const lineItemSchema = z.object({
-  amount: z
-    .string()
-    .min(1, "Amount required")
-    .refine((value) => amountSchema.safeParse(Number(value)).success, {
-      message: "Must be > 0 with max 2 decimals",
-    }),
+  amount: positiveRupeesSchema,
   categoryId: z.string().min(1, "Category required"),
   description: z.string().trim().min(1, "Description required"),
   generateVoucher: z.boolean().optional(),
@@ -55,14 +68,16 @@ export const newLineItem = (): LineItem => ({
   id: uuidv7(),
 });
 
-export const computeRunningTotal = (lineItems: LineItem[]): number =>
-  lineItems.reduce((sum, item) => {
-    const parsedAmount = Number(item.amount);
-    return sum + (Number.isNaN(parsedAmount) ? 0 : parsedAmount);
-  }, 0);
+/** Running total in paise of the rupee amounts typed so far; invalid entries count as 0. */
+export const computeRunningTotalPaise = (lineItems: LineItem[]): number =>
+  sumPaise(lineItems.map((item) => tryRupeesToPaise(item.amount) ?? 0));
 
-export const formatINR = (amount: number): string =>
-  new Intl.NumberFormat("en-IN", {
-    currency: "INR",
-    style: "currency",
-  }).format(amount);
+/** Validated form line items to mutator line items: rupee text becomes paise, order becomes sortOrder. */
+export const toLineItemsPayload = <T extends { amount: string }>(
+  lineItems: readonly T[]
+): (Omit<T, "amount"> & { amountPaise: number; sortOrder: number })[] =>
+  lineItems.map(({ amount, ...item }, index) => ({
+    ...item,
+    amountPaise: rupeesToPaise(amount),
+    sortOrder: index,
+  }));

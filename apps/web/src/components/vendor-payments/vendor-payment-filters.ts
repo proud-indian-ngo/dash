@@ -13,6 +13,7 @@ import {
   requestProgrammeName,
   requestProgrammeOptionId,
 } from "@/lib/request-programme";
+import { sumAmounts } from "@/lib/stats";
 
 import type { VendorPaymentWithRelations } from "./vendor-payment-types";
 
@@ -31,10 +32,11 @@ const LEGACY_VENDOR_PAYMENT_FILTER_PARAMS = [
   { param: "status", path: "status" },
 ] as const;
 
-function computeTotal(
+/** Total in rupees, because the number filter compares what people type in rupees. */
+function computeTotalRupees(
   lineItems: VendorPaymentWithRelations["lineItems"]
 ): number {
-  return lineItems.reduce((sum, item) => sum + Number(item.amount), 0);
+  return sumAmounts(lineItems) / 100;
 }
 
 export function getVendorPaymentFilterValue(
@@ -56,7 +58,7 @@ export function getVendorPaymentFilterValue(
     case "submittedAt":
       return row.submittedAt;
     case "total":
-      return computeTotal(row.lineItems);
+      return computeTotalRupees(row.lineItems);
     case "vendor":
       return row.vendorId;
     default:
