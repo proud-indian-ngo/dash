@@ -6,7 +6,11 @@ import {
   CollapsibleTrigger,
 } from "@pi-dash/design-system/components/ui/collapsible";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { cityValues, reminderTargetValues } from "@pi-dash/shared/constants";
+import {
+  cityValues,
+  PROGRAMME_IDS,
+  reminderTargetValues,
+} from "@pi-dash/shared/constants";
 import {
   DEFAULT_RSVP_POLL_LEAD_MINUTES,
   RSVP_POLL_LEAD_PRESETS,
@@ -69,6 +73,7 @@ const eventFormSchema = z.object({
   partners: partnersFormSchema,
   postEventNudgesEnabled: z.boolean(),
   postRsvpPoll: z.boolean(),
+  programmeId: z.string().min(1, "Programme is required"),
   publicArea: z
     .string()
     .max(80, "Keep the area under 80 characters")
@@ -137,6 +142,7 @@ interface InitialValues {
   }[];
   postEventNudgesEnabled?: boolean | null;
   postRsvpPoll?: boolean | null;
+  programmeId?: string | null;
   publicArea?: string | null;
   recurrenceRule?: {
     rrule: string;
@@ -161,9 +167,14 @@ interface EventFormDialogProps {
   open: boolean;
   originalDate?: string;
   teamId: string;
+  /** The team's default programme, used when creating a new event. */
+  teamProgrammeId?: string | null;
 }
 
-function getDefaultValues(initialValues?: InitialValues): EventFormValues {
+function getDefaultValues(
+  initialValues: InitialValues | undefined,
+  teamProgrammeId: string | null | undefined
+): EventFormValues {
   return {
     city: (initialValues?.city ?? "bangalore") as (typeof cityValues)[number],
     createWaGroup: false,
@@ -183,6 +194,10 @@ function getDefaultValues(initialValues?: InitialValues): EventFormValues {
     partners: toPartnerFormValues(initialValues?.partners),
     postEventNudgesEnabled: initialValues?.postEventNudgesEnabled ?? false,
     postRsvpPoll: initialValues?.postRsvpPoll ?? false,
+    programmeId:
+      initialValues?.programmeId ??
+      teamProgrammeId ??
+      PROGRAMME_IDS.unallocated,
     publicArea: initialValues?.publicArea ?? undefined,
     reminderIntervals: initialValues?.reminderIntervals ?? [],
     reminderTarget: (initialValues?.reminderTarget ??
@@ -221,6 +236,17 @@ function getStartTimeEpoch(value: EventFormValues): number {
   return value.startTime.getTime();
 }
 
+/** Only send a programme when the user changed it, so a missed prefill can never reclassify an event. */
+function changedProgrammeId(
+  value: EventFormValues,
+  initialValues: InitialValues
+): string | undefined {
+  return value.programmeId &&
+    value.programmeId !== (initialValues.programmeId ?? undefined)
+    ? value.programmeId
+    : undefined;
+}
+
 function buildUpdateMutatorArgs(
   id: string,
   value: EventFormValues,
@@ -240,6 +266,7 @@ function buildUpdateMutatorArgs(
     now: Date.now(),
     postEventNudgesEnabled: value.postEventNudgesEnabled,
     postRsvpPoll: value.postRsvpPoll,
+    programmeId: changedProgrammeId(value, initialValues),
     publicArea: value.publicArea?.trim() ?? "",
     reminderIntervals: value.reminderIntervals.length
       ? value.reminderIntervals
@@ -280,6 +307,7 @@ function buildUpdateSeriesArgs(
     now: Date.now(),
     postEventNudgesEnabled: value.postEventNudgesEnabled,
     postRsvpPoll: value.postRsvpPoll,
+    programmeId: changedProgrammeId(value, initialValues),
     publicArea: value.publicArea?.trim() ?? "",
     recurrenceRule: value.rrule
       ? {
@@ -339,6 +367,7 @@ function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
     now: Date.now(),
     postEventNudgesEnabled: value.postEventNudgesEnabled,
     postRsvpPoll: value.postRsvpPoll,
+    programmeId: value.programmeId,
     publicArea: value.publicArea?.trim() || undefined,
     recurrenceRule,
     reminderIntervals: value.reminderIntervals.length
@@ -442,8 +471,10 @@ function EventFormContent({
   kalakritiEditionId,
   onOpenChange,
   originalDate,
+  programmeOptions,
   teamHasWhatsAppGroup,
   teamId,
+  teamProgrammeId,
   userIsTeamLead,
   waGroupOptions,
 }: {
@@ -453,8 +484,10 @@ function EventFormContent({
   kalakritiEditionId?: string;
   onOpenChange: (open: boolean) => void;
   originalDate?: string;
+  programmeOptions: { label: string; value: string }[];
   teamHasWhatsAppGroup: boolean;
   teamId: string;
+  teamProgrammeId: string | null | undefined;
   userIsTeamLead: boolean;
   waGroupOptions: { label: string; value: string }[];
 }) {
@@ -464,7 +497,7 @@ function EventFormContent({
     hasPermission("events.create_backdated") || userIsTeamLead;
 
   const form = useForm({
-    defaultValues: getDefaultValues(initialValues),
+    defaultValues: getDefaultValues(initialValues, teamProgrammeId),
     onSubmit: async ({ value }) => {
       const { mutation, mutationName } = getMutation(
         zero,
@@ -562,6 +595,14 @@ function EventFormContent({
           name="city"
           options={cityOptions}
           placeholder="Select city"
+        />
+        <SelectField
+          description="The cause this event counts towards."
+          isRequired
+          label="Programme"
+          name="programmeId"
+          options={programmeOptions}
+          placeholder="Select programme"
         />
         <form.Subscribe selector={stableSelector0}>
           {(startTime) => (
@@ -787,6 +828,7 @@ function EventFormContent({
 export function EventFormDialog({
   editScope,
   teamId,
+  teamProgrammeId,
   initialValues,
   kalakritiEditionId,
   mode,
@@ -807,6 +849,7 @@ export function EventFormDialog({
   const [formKey, setFormKey] = useState(0);
 
   const [whatsappGroups] = useQuery(queries.whatsappGroup.all());
+  const [programmes, programmesResult] = useQuery(queries.programme.all());
   const [allTeams] = useQuery(queries.team.all());
   const [allEvents] = useQuery(queries.teamEvent.allAccessible());
 
@@ -823,6 +866,24 @@ export function EventFormDialog({
   }
   if (isEdit && initialValues?.whatsappGroupId) {
     usedGroupIds.delete(initialValues.whatsappGroupId);
+  }
+
+  const programmeOptions = programmes
+    .filter((p) => p.active || p.id === initialValues?.programmeId)
+    .map((p) => ({
+      // An event on an inactive programme keeps it until someone changes it.
+      label: p.active ? p.name : `${p.name} (inactive)`,
+      value: p.id,
+    }));
+  if (
+    programmesResult.type === "complete" &&
+    initialValues?.programmeId &&
+    !programmeOptions.some((o) => o.value === initialValues.programmeId)
+  ) {
+    programmeOptions.push({
+      label: "Current programme",
+      value: initialValues.programmeId,
+    });
   }
 
   const waGroupOptions = [
@@ -864,8 +925,10 @@ export function EventFormDialog({
           key={formKey}
           onOpenChange={onOpenChange}
           originalDate={originalDate}
+          programmeOptions={programmeOptions}
           teamHasWhatsAppGroup={teamHasWhatsAppGroup}
           teamId={teamId}
+          teamProgrammeId={teamProgrammeId}
           userIsTeamLead={userIsTeamLead}
           waGroupOptions={waGroupOptions}
         />

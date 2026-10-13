@@ -10,6 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
+import { programme } from "./finance-dimensions";
 import { teamEvent } from "./team-event";
 import { whatsappGroup } from "./whatsapp-group";
 
@@ -25,6 +26,10 @@ export const team = pgTable("team", {
   description: text("description"),
   id: uuid("id").primaryKey(),
   name: text("name").notNull().unique(),
+  /** Default programme for the team's events; a team is a volunteer group inside a programme. */
+  programmeId: uuid("programme_id").references(() => programme.id, {
+    onDelete: "set null",
+  }),
   updatedAt: timestamp("updated_at").notNull(),
   whatsappGroupId: uuid("whatsapp_group_id")
     .references(() => whatsappGroup.id, { onDelete: "set null" })
@@ -56,6 +61,10 @@ export const teamMember = pgTable(
 export const teamRelations = relations(team, ({ one, many }) => ({
   events: many(teamEvent),
   members: many(teamMember),
+  programme: one(programme, {
+    fields: [team.programmeId],
+    references: [programme.id],
+  }),
   whatsappGroup: one(whatsappGroup, {
     fields: [team.whatsappGroupId],
     references: [whatsappGroup.id],

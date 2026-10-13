@@ -1,6 +1,6 @@
 # Finance and Programmes (design)
 
-> **Status**: design agreed; delivery in progress. Shipped: Phase 1 dimension tables, reference data, `finance.view`/`finance.manage`, and the Programmes settings page. Not yet shipped: `programme_id` on teams and events, cost centres replacing the city enum, the treasurer role, the Zero sync allowlist, and everything from Phase 2 onward. Decisions were agreed with the founder on 13 October 2026 and revised through two rounds of independent design review the same day. Supersedes the expense-only model in `vendor-payments.md` and `cash-vouchers.md` once delivered.
+> **Status**: design agreed; delivery in progress. Shipped: Phase 1 dimension tables, reference data, `finance.view`/`finance.manage`, and the Programmes settings page. Also shipped: `programme_id` on teams and events with the production backfill (migration 0114). Not yet shipped: `project_id` on events, cost centres replacing the city enum, the treasurer role, the Zero sync allowlist, and everything from Phase 2 onward. Decisions were agreed with the founder on 13 October 2026 and revised through two rounds of independent design review the same day. Supersedes the expense-only model in `vendor-payments.md` and `cash-vouchers.md` once delivered.
 > **Load when**: finance redesign, programme, project, fund, posting, ledger entry, account movement, account head, contribution, donor, receipt, Form 113/114 (formerly 10BD/10BE), FC-4, FCRA, grant, budget, approval policy, withholding/TDS, GST, in-kind, retention, legal hold.
 > **Related**: `vendor-payments.md`, `cash-vouchers.md`, `authorization.md`, `data-layer.md`, `recurring-events.md`, `jobs.md`, `kalakriti-registration.md`
 
@@ -312,7 +312,7 @@ Each phase ships with migrations, idempotent seeds in `scripts/seed.ts`, Zero sc
 
 | Question | Answer |
 |---|---|
-| Team to programme mapping | To be proposed from the production team list and confirmed by the founder (see section 7) |
+| Team to programme mapping | Applied provisionally by migration 0114 from the production team names in section 7; the founder's confirmation and the two manual retags (Mumbai-tagged spoken-English event, Mumbai engagements that are Education) are Phase 0 work |
 | Finance threshold | Configurable in Settings; organisation default with per-programme override. Lead-as-claimant goes to finance |
 | Finance roles | One treasurer role; approver may also pay; claimant never approves or pays their own request |
 | give.do | Intermediary only; we issue receipts and file each donor |

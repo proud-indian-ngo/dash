@@ -518,6 +518,14 @@ async function seedCategories(): Promise<void> {
   log(`${CATEGORIES.length} categories ready`);
 }
 
+/** Programme each seeded team belongs to; seeded events inherit it. */
+const TEAM_PROGRAMME: Record<string, string> = {
+  [ID.teamEvents]: PROGRAMME_IDS.communitySupport,
+  [ID.teamKitchen]: PROGRAMME_IDS.communitySupport,
+  [ID.teamLogistics]: PROGRAMME_IDS.communitySupport,
+  [ID.teamTeaching]: PROGRAMME_IDS.education,
+};
+
 // ── 2b. Finance dimensions ───────────────────────────────────────────────────
 
 /** Mirrors migration 0112 so a fresh dev database and production agree. */
@@ -642,6 +650,7 @@ async function seedTeams(userMap: Map<string, string>): Promise<void> {
         { id: ID.tm03, role: "member" as const, uid: v2 },
       ],
       name: "Teaching",
+      programmeId: PROGRAMME_IDS.education,
       waId: ID.waTeaching,
     },
     {
@@ -651,6 +660,7 @@ async function seedTeams(userMap: Map<string, string>): Promise<void> {
         { id: ID.tm05, role: "member" as const, uid: v1 },
       ],
       name: "Kitchen",
+      programmeId: PROGRAMME_IDS.communitySupport,
       waId: ID.waKitchen,
     },
     {
@@ -662,6 +672,7 @@ async function seedTeams(userMap: Map<string, string>): Promise<void> {
         { id: ID.tm09, role: "member" as const, uid: v3 },
       ],
       name: "Events & Outreach",
+      programmeId: PROGRAMME_IDS.communitySupport,
       waId: ID.waCoordinators,
     },
     {
@@ -672,6 +683,7 @@ async function seedTeams(userMap: Map<string, string>): Promise<void> {
         { id: ID.tm12, role: "member" as const, uid: v3 },
       ],
       name: "Logistics",
+      programmeId: PROGRAMME_IDS.communitySupport,
       waId: null,
     },
   ];
@@ -685,6 +697,7 @@ async function seedTeams(userMap: Map<string, string>): Promise<void> {
           description: `The ${t.name} team`,
           id: t.id,
           name: t.name,
+          programmeId: t.programmeId,
           updatedAt: now,
           whatsappGroupId: t.waId ?? undefined,
         })
@@ -815,6 +828,7 @@ async function seedEvents(userMap: Map<string, string>): Promise<void> {
           isPublic: e.isPublic,
           location: e.location,
           name: e.name,
+          programmeId: TEAM_PROGRAMME[e.teamId] ?? PROGRAMME_IDS.unallocated,
           reminderIntervals: e.reminderIntervals ?? null,
           reminderTarget: e.reminderTarget ?? "group",
           startTime: e.start,
@@ -864,12 +878,16 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
       isPublic: false,
       managementDomain: "kalakriti",
       name: "Kalakriti 2027",
+      programmeId: PROGRAMME_IDS.artsAndCulture,
       startTime: eventDate,
       teamId: ID.teamEvents,
       updatedAt: now,
     })
     .onConflictDoUpdate({
-      set: { managementDomain: "kalakriti" },
+      set: {
+        managementDomain: "kalakriti",
+        programmeId: PROGRAMME_IDS.artsAndCulture,
+      },
       target: teamEvent.id,
     });
 

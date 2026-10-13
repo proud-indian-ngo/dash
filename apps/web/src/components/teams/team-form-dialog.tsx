@@ -30,6 +30,7 @@ import {
 import { handleMutationResult } from "@/lib/mutation-result";
 
 const NONE_WHATSAPP_GROUP = "__none__";
+const NONE_PROGRAMME = "__none__";
 
 function getTeamSuccessMsg(isEdit: boolean, createWaGroup: boolean): string {
   if (isEdit) {
@@ -53,6 +54,7 @@ interface TeamFormDialogProps {
     id: string;
     name: string;
     description: string | null;
+    programmeId: string | null;
     whatsappGroupId: string | null;
   };
   onOpenChange: (open: boolean) => void;
@@ -74,10 +76,27 @@ export function TeamFormDialog({
   const [whatsappGroupId, setWhatsappGroupId] = useState(
     initialValues?.whatsappGroupId
   );
+  const [programmeId, setProgrammeId] = useState(
+    initialValues?.programmeId ?? ""
+  );
   const [createWaGroup, setCreateWaGroup] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const [whatsappGroups] = useQuery(queries.whatsappGroup.all());
+  const [programmes] = useQuery(queries.programme.all());
+  const selectableProgrammes = programmes.filter(
+    (p) => p.active || p.id === initialValues?.programmeId
+  );
+  const programmeLabelByValue = new Map(
+    selectableProgrammes.map((p) => [
+      p.id,
+      p.active ? p.name : `${p.name} (inactive)`,
+    ])
+  );
+  const programmeItems = [
+    NONE_PROGRAMME,
+    ...selectableProgrammes.map((p) => p.id),
+  ];
   const [allTeams] = useQuery(queries.team.all());
   const [allEvents] = useQuery(queries.teamEvent.allAccessible());
 
@@ -113,6 +132,7 @@ export function TeamFormDialog({
       setName(initialValues ? initialValues.name : "");
       setDescription(initialValues?.description ?? "");
       setWhatsappGroupId(initialValues?.whatsappGroupId);
+      setProgrammeId(initialValues?.programmeId ?? "");
       setCreateWaGroup(false);
     }
   }, [open, initialValues]);
@@ -132,6 +152,7 @@ export function TeamFormDialog({
             id: initialValues.id,
             name: trimmedName,
             now: Date.now(),
+            programmeId: programmeId || null,
             whatsappGroupId: whatsappGroupId || undefined,
           })
         )
@@ -141,6 +162,7 @@ export function TeamFormDialog({
             description: description.trim() || undefined,
             id: uuidv7(),
             name: trimmedName,
+            programmeId: programmeId || undefined,
             whatsappGroupId: whatsappGroupId || undefined,
           })
         );
@@ -179,6 +201,15 @@ export function TeamFormDialog({
     }
   });
   const stableOnClick5 = useEventCallback(() => onOpenChange(false));
+  const programmeItemToLabel = useEventCallback((value: string | null) => {
+    if (value === NONE_PROGRAMME) {
+      return "None";
+    }
+    return value ? (programmeLabelByValue.get(value) ?? value) : "";
+  });
+  const handleProgrammeChange = useEventCallback((value: string | null) => {
+    setProgrammeId(value === NONE_PROGRAMME || !value ? "" : value);
+  });
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
@@ -236,6 +267,43 @@ export function TeamFormDialog({
                 </ComboboxContent>
               </Combobox>
             </div>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="team-programme">Programme</Label>
+            <Combobox
+              items={programmeItems}
+              itemToStringLabel={programmeItemToLabel}
+              onValueChange={handleProgrammeChange}
+              value={programmeId || NONE_PROGRAMME}
+            >
+              <ComboboxInput
+                aria-label="Programme"
+                className="w-full"
+                id="team-programme"
+                placeholder="None"
+              />
+              <ComboboxContent className="w-fit max-w-[min(32rem,var(--available-width))] min-w-[var(--anchor-width)]">
+                <ComboboxList>
+                  {(itemValue) => (
+                    <ComboboxItem
+                      className="items-start"
+                      key={itemValue}
+                      value={itemValue}
+                    >
+                      <span className="block min-w-0 break-words whitespace-normal">
+                        {itemValue === NONE_PROGRAMME
+                          ? "None"
+                          : programmeLabelByValue.get(itemValue)}
+                      </span>
+                    </ComboboxItem>
+                  )}
+                </ComboboxList>
+                <ComboboxEmpty>No matching programmes.</ComboboxEmpty>
+              </ComboboxContent>
+            </Combobox>
+            <p className="text-muted-foreground text-xs">
+              New events in this team default to this programme.
+            </p>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="team-description">Description</Label>

@@ -10,6 +10,7 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type {
+  Programme,
   Team,
   TeamMember,
   User,
@@ -46,6 +47,7 @@ import { isTeamLead } from "@/lib/team-utils";
 
 export type TeamDetailData = Team & {
   members: ReadonlyArray<TeamMember & { user: User | undefined }>;
+  programme?: Programme | undefined;
   whatsappGroup: WhatsappGroup | undefined;
 };
 
@@ -75,6 +77,7 @@ function buildDuplicateInitialValues(row: EventDisplayRow) {
     name: `Copy of ${row.event.name}`,
     postEventNudgesEnabled: row.event.postEventNudgesEnabled,
     postRsvpPoll: !!row.event.postRsvpPoll,
+    programmeId: row.event.programmeId,
     publicArea: row.event.publicArea,
     recurrenceRule: null,
     reminderIntervals: row.event.reminderIntervals as number[] | null,
@@ -100,6 +103,7 @@ function buildEditInitialValues(row: EventDisplayRow) {
     name: row.event.name,
     postEventNudgesEnabled: row.event.postEventNudgesEnabled,
     postRsvpPoll: !!row.event.postRsvpPoll,
+    programmeId: row.event.programmeId,
     publicArea: row.event.publicArea,
     recurrenceRule: row.event.recurrenceRule as {
       rrule: string;
@@ -426,6 +430,9 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
           }
           description={team.description}
           meta={[
+            team.programme ? (
+              <span key="programme">Programme · {team.programme.name}</span>
+            ) : null,
             `${team.members.length} ${team.members.length === 1 ? "member" : "members"}`,
             team.whatsappGroup ? (
               <span key="whatsapp">WhatsApp · {team.whatsappGroup.name}</span>
@@ -481,6 +488,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
               description: team.description,
               id: team.id,
               name: team.name,
+              programmeId: team.programmeId,
               whatsappGroupId: team.whatsappGroupId,
             }}
             onOpenChange={dialog.onOpenChange}
@@ -505,6 +513,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
             onOpenChange={dialog.onOpenChange}
             open={dialog.isOpen("createEvent")}
             teamId={team.id}
+            teamProgrammeId={team.programmeId}
           />
         ) : null}
 
@@ -518,6 +527,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
             onOpenChange={dialog.onOpenChange}
             open
             teamId={team.id}
+            teamProgrammeId={team.programmeId}
           />
         ) : null}
 
@@ -546,6 +556,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
             open
             originalDate={editEventData.event.originalDate ?? undefined}
             teamId={team.id}
+            teamProgrammeId={team.programmeId}
           />
         ) : null}
 

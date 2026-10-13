@@ -1,4 +1,8 @@
-import { cityValues, reminderTargetValues } from "@pi-dash/shared/constants";
+import {
+  cityValues,
+  PROGRAMME_IDS,
+  reminderTargetValues,
+} from "@pi-dash/shared/constants";
 import {
   REMINDER_PRESET_MINUTES,
   RSVP_POLL_LEAD_PRESET_MINUTES,
@@ -722,6 +726,7 @@ export const kalakritiEditionMutators = {
         originalDate: null,
         postEventNudgesEnabled: false,
         postRsvpPoll: false,
+        programmeId: PROGRAMME_IDS.artsAndCulture,
         recurrenceRule: null,
         reminderIntervals: null,
         reminderTarget: "group",

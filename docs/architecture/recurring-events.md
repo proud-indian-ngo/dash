@@ -52,6 +52,10 @@ Series edits like `all` and `following` can shift the parent's DTSTART or trunca
 
 To keep them visible, the team detail display applies **no range filter** to exception rows — every non-cancelled exception renders, regardless of how its timestamps relate to the current RRULE.
 
+## Programme on occurrences
+
+Every path that writes an occurrence row copies `programmeId` from the series: `buildExceptionInsert`, the following-split insert, self-join, the background materialiser (`packages/jobs/src/lib/materialize-occurrences.ts`) and the RSVP-poll materialiser; `register-interest-db.ts` copies all columns. A programme change is future-effective: `updateSeries` rejects it in `all` scope, so callers use `following` (a split) or `this` (an exception). Already-materialised occurrences keep their own value.
+
 ## Self-Join Materialization
 
 `teamEvent.joinAsMember` lets regular team members self-join an event without `events.edit` or team-lead perms. For a virtual occurrence, client passes `{occDate, materializedId}` — server materializes the exception row server-side (bypasses `teamEvent.materialize` perm gate) and inserts the `teamEventMember` row pointing to it. Uses the (`seriesId`, `originalDate`) unique index to dedupe concurrent joins.

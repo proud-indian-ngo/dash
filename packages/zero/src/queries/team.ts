@@ -33,9 +33,10 @@ export const teamQueries = {
       return withRelated(zql.team).where("id", "__never_match__").one();
     }
     if (ctx !== null && can(ctx, "teams.view_all")) {
-      return withRelated(zql.team).where("id", id).one();
+      return withRelated(zql.team).related("programme").where("id", id).one();
     }
     return withRelated(zql.team)
+      .related("programme")
       .where("id", id)
       .whereExists("members", (m) => m.where("userId", ctx?.userId))
       .one();

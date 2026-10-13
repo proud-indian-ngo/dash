@@ -1,3 +1,4 @@
+import { PROGRAMME_IDS } from "@pi-dash/shared/constants";
 import { DEFAULT_RSVP_POLL_LEAD_MINUTES } from "@pi-dash/shared/event-reminders";
 import { relations, sql } from "drizzle-orm";
 import {
@@ -18,6 +19,7 @@ import { user } from "./auth";
 import { eventFeedback } from "./event-feedback";
 import { eventInterest } from "./event-interest";
 import { eventPartner } from "./event-partner";
+import { programme } from "./finance-dimensions";
 import { jsonb } from "./jsonb";
 import { reimbursement } from "./reimbursement";
 import { cityEnum, reminderTargetEnum } from "./shared";
@@ -56,6 +58,11 @@ export const teamEvent = pgTable(
       .default(true)
       .notNull(),
     postRsvpPoll: boolean("post_rsvp_poll").default(false).notNull(),
+    /** Cause the event belongs to. Defaults to the Unallocated holding programme so legacy inserts stay valid; the app always sets it. */
+    programmeId: uuid("programme_id")
+      .notNull()
+      .default(PROGRAMME_IDS.unallocated)
+      .references(() => programme.id, { onDelete: "restrict" }),
     /** Coarse, admin-confirmed area shown on the public website (never the raw location). */
     publicArea: text("public_area"),
     recurrenceRule: jsonb("recurrence_rule").$type<{
@@ -94,6 +101,7 @@ export const teamEvent = pgTable(
       .on(table.startTime.desc(), table.id.asc())
       .where(sql`cancelled_at IS NULL AND series_id IS NULL`),
     index("team_event_teamId_idx").on(table.teamId),
+    index("team_event_programmeId_idx").on(table.programmeId),
     index("team_event_seriesId_idx").on(table.seriesId),
     index("team_event_seriesId_id_idx").on(table.seriesId, table.id.asc()),
     // PostgreSQL treats each NULL as distinct in unique indexes, so rows with
@@ -154,6 +162,10 @@ export const teamEventRelations = relations(teamEvent, ({ one, many }) => ({
   }),
   exceptions: many(teamEvent, { relationName: "seriesExceptions" }),
   feedback: many(eventFeedback),
+  programme: one(programme, {
+    fields: [teamEvent.programmeId],
+    references: [programme.id],
+  }),
   interests: many(eventInterest),
   members: many(teamEventMember),
   partners: many(eventPartner),

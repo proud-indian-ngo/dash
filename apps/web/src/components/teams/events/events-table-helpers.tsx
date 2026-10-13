@@ -4,6 +4,7 @@ import { rruleToLabel } from "@pi-dash/zero/rrule-utils";
 import type {
   EventInterest,
   EventPartner,
+  Programme,
   TeamEvent,
   TeamEventMember,
   User,
@@ -32,6 +33,8 @@ export type EventRow = TeamEvent & {
   members: ReadonlyArray<TeamEventMember & { user: User | undefined }>;
   /** Only the detail query (`teamEvent.byId`) loads partners. */
   partners?: readonly EventPartner[];
+  /** Only the detail query loads the programme. */
+  programme?: Programme | undefined;
   whatsappGroup: WhatsappGroup | undefined;
 };
 

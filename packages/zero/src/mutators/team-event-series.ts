@@ -48,6 +48,7 @@ export function buildExceptionInsert(
     postRsvpPoll: boolean;
     rsvpPollLeadMinutes: number;
     postEventNudgesEnabled: boolean;
+    programmeId: string;
     reminderIntervals: number[] | null;
     reminderTarget: string;
     whatsappGroupId: string;
@@ -77,6 +78,7 @@ export function buildExceptionInsert(
     postEventNudgesEnabled:
       overrides.postEventNudgesEnabled ?? series.postEventNudgesEnabled,
     postRsvpPoll: overrides.postRsvpPoll ?? series.postRsvpPoll,
+    programmeId: overrides.programmeId ?? series.programmeId,
     // A cleared area ("") stores null, so the session shows the series' area.
     publicArea:
       overrides.publicArea === undefined
@@ -114,6 +116,7 @@ export interface UpdateArgs {
   now: number;
   postEventNudgesEnabled?: boolean;
   postRsvpPoll?: boolean;
+  programmeId?: string;
   publicArea?: string;
   reminderIntervals?: number[] | null;
   reminderTarget?: ReminderTarget;
@@ -135,6 +138,7 @@ export function buildUpdateFields(args: UpdateArgs) {
       publicArea: args.publicArea || null,
     }),
     ...(args.city !== undefined && { city: args.city }),
+    ...(args.programmeId !== undefined && { programmeId: args.programmeId }),
     ...(args.startTime !== undefined && { startTime: args.startTime }),
     ...(args.endTime !== undefined && { endTime: args.endTime }),
     ...(args.isPublic !== undefined && { isPublic: args.isPublic }),
@@ -234,6 +238,7 @@ export async function updateSeriesThis(
     feedbackEnabled?: boolean;
     feedbackDeadline?: number | null;
     postRsvpPoll?: boolean;
+    programmeId?: string;
     rsvpPollLeadMinutes?: number;
     postEventNudgesEnabled?: boolean;
     reminderIntervals?: number[] | null;
@@ -268,6 +273,7 @@ export async function updateSeriesThis(
           name: args.name,
           postEventNudgesEnabled: args.postEventNudgesEnabled,
           postRsvpPoll: args.postRsvpPoll,
+          programmeId: args.programmeId,
           publicArea: args.publicArea,
           reminderIntervals: args.reminderIntervals,
           reminderTarget: args.reminderTarget,
@@ -300,6 +306,7 @@ export async function updateSeriesFollowing(
     postRsvpPoll?: boolean;
     rsvpPollLeadMinutes?: number;
     postEventNudgesEnabled?: boolean;
+    programmeId?: string;
     reminderIntervals?: number[] | null;
     reminderTarget?: ReminderTarget;
     whatsappGroupId?: string;
@@ -352,6 +359,7 @@ export async function updateSeriesFollowing(
     reminderTarget: args.reminderTarget ?? existing.reminderTarget ?? "group",
     rsvpPollLeadMinutes:
       args.rsvpPollLeadMinutes ?? existing.rsvpPollLeadMinutes,
+    programmeId: args.programmeId ?? existing.programmeId,
     seriesId: null,
     startTime: args.startTime ?? existing.startTime,
     teamId: existing.teamId,

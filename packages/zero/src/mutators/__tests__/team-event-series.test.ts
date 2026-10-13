@@ -57,6 +57,7 @@ const SERIES_BASE = {
   originalDate: null,
   postEventNudgesEnabled: true,
   postRsvpPoll: false,
+  programmeId: "prog-1",
   publicArea: "Iblur",
   recurrenceRule: { rrule: "FREQ=WEEKLY" },
   reminderIntervals: [60, 1440],
@@ -84,6 +85,21 @@ describe("buildExceptionInsert", () => {
         publicArea: "HSR Layout",
       }).publicArea
     ).toBe("HSR Layout");
+  });
+
+  it("moves an occurrence to another programme only when asked", () => {
+    expect(
+      buildExceptionInsert("exc-2", SERIES_BASE, "2026-04-15", "u", NOW, {
+        programmeId: "prog-2",
+      }).programmeId
+    ).toBe("prog-2");
+    expect(buildUpdateFields({ id: "e", now: NOW })).not.toHaveProperty(
+      "programmeId"
+    );
+    expect(
+      buildUpdateFields({ id: "e", now: NOW, programmeId: "prog-2" })
+        .programmeId
+    ).toBe("prog-2");
   });
 
   it("clears a public area to null on update", () => {
@@ -121,6 +137,7 @@ describe("buildExceptionInsert", () => {
     expect(result.reminderTarget).toBe("group");
     expect(result.postEventNudgesEnabled).toBe(true);
     expect(result.whatsappGroupId).toBe("wg-1");
+    expect(result.programmeId).toBe("prog-1");
     expect(result.inheritVolunteers).toBe(false);
     expect(result.createdBy).toBe("user-2");
     expect(result.createdAt).toBe(NOW + 1000);

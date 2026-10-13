@@ -30,6 +30,7 @@ test.describe("Create event (admin)", () => {
     await expect(dialog.getByLabel("Location")).toBeVisible();
     await expect(dialog.getByLabel("Start time")).toBeVisible();
     await expect(dialog.getByLabel("End time")).toBeVisible();
+    await expect(dialog.getByLabel("Programme")).toBeVisible();
     await expect(dialog.getByRole("switch", { name: "Public" })).toBeVisible();
     await openAdvancedSettings(dialog);
     await expect(dialog.getByText("Recurrence").first()).toBeVisible();
