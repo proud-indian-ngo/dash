@@ -27,7 +27,7 @@ export const transactionAttachmentKeyPrefixes = (id: string) => [
   `attachments/${id}/`,
 ];
 
-const createSchema = z.object({
+export const createSchema = z.object({
   amountPaise: positivePaiseSchema,
   attachments: z.array(attachmentSchema),
   description: z.string().trim().optional(),

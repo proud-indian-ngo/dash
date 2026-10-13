@@ -1,5 +1,4 @@
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { rupeesToPaise } from "@pi-dash/shared/money";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type { ExpenseCategory, TeamEvent, Vendor } from "@pi-dash/zero/schema";
@@ -12,7 +11,7 @@ import { uuidv7 } from "uuidv7";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { FormLayout } from "@/components/form/form-layout";
 import { DATE } from "@/lib/date-formats";
-import { newLineItem } from "@/lib/form-schemas";
+import { newLineItem, toLineItemsPayload } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 import { VendorPaymentFields } from "./vendor-payment-fields";
@@ -81,11 +80,7 @@ export function VendorPaymentForm({
       const value = vendorPaymentFormSchema.parse(rawValue);
       const id = entityId;
 
-      const lineItems = value.lineItems.map(({ amount, ...item }, index) => ({
-        ...item,
-        amountPaise: rupeesToPaise(amount),
-        sortOrder: index,
-      }));
+      const lineItems = toLineItemsPayload(value.lineItems);
 
       const payload = {
         attachments: value.attachments,

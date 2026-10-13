@@ -1,15 +1,10 @@
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import {
-  formatPaise,
-  rupeesToPaise,
-  tryRupeesToPaise,
-} from "@pi-dash/shared/money";
+import { formatPaise } from "@pi-dash/shared/money";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
-import z from "zod";
 
 import { AttachmentsSection } from "@/components/form/attachments-section";
 import { CustomField } from "@/components/form/custom-field";
@@ -24,41 +19,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
-import { type Attachment, attachmentSchema } from "@/lib/form-schemas";
+import type { Attachment } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 
-function buildTransactionFormSchema(remainingPaise?: number) {
-  return z.object({
-    amount: z
-      .string()
-      .min(1, "Amount is required")
-      .refine((v) => (tryRupeesToPaise(v) ?? 0) > 0, {
-        message: "Must be a positive number with at most 2 decimals",
-      })
-      .refine(
-        (v) =>
-          remainingPaise === undefined ||
-          (tryRupeesToPaise(v) ?? 0) <= remainingPaise,
-        {
-          message: `Exceeds remaining balance of ${formatPaise(remainingPaise ?? 0)}`,
-        }
-      ),
-    attachments: z.array(attachmentSchema),
-    description: z.string(),
-    paymentMethod: z.string(),
-    paymentReference: z.string(),
-    transactionDate: z.date({ message: "Date is required" }),
-  });
-}
-
-export interface TransactionFormValues {
-  amount: string;
-  attachments: Attachment[];
-  description: string;
-  paymentMethod: string;
-  paymentReference: string;
-  transactionDate: Date;
-}
+import {
+  buildTransactionFormSchema,
+  type TransactionFormValues,
+  toTransactionPayload,
+} from "./vendor-payment-transaction-form.schema";
 
 interface TransactionFormDialogProps {
   canApprove: boolean;
@@ -102,19 +70,13 @@ function TransactionFormContent({
       transactionDate: new Date(),
     },
     onSubmit: async ({ value }) => {
-      const parsed = schema.parse(value);
-      const amountPaise = rupeesToPaise(parsed.amount);
+      const payload = toTransactionPayload(schema.parse(value));
 
       if (mode === "edit" && transactionId) {
         const res = await zero.mutate(
           mutators.vendorPaymentTransaction.update({
-            amountPaise,
-            attachments: parsed.attachments,
-            description: parsed.description || undefined,
+            ...payload,
             id: transactionId,
-            paymentMethod: parsed.paymentMethod || undefined,
-            paymentReference: parsed.paymentReference || undefined,
-            transactionDate: parsed.transactionDate.getTime(),
           })
         ).server;
 
@@ -131,13 +93,8 @@ function TransactionFormContent({
       } else {
         const res = await zero.mutate(
           mutators.vendorPaymentTransaction.create({
-            amountPaise,
-            attachments: parsed.attachments,
-            description: parsed.description || undefined,
+            ...payload,
             id: entityId,
-            paymentMethod: parsed.paymentMethod || undefined,
-            paymentReference: parsed.paymentReference || undefined,
-            transactionDate: parsed.transactionDate.getTime(),
             vendorPaymentId,
           })
         ).server;

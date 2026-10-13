@@ -7,7 +7,7 @@ import {
   reimbursementLineItem,
 } from "@pi-dash/db/schema/reimbursement";
 import { env } from "@pi-dash/env/server";
-import { VOUCHER_AMOUNT_THRESHOLD_PAISE } from "@pi-dash/shared/constants";
+import { qualifiesForCashVoucher } from "@pi-dash/shared/money";
 import { eq, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { uuidv7 } from "uuidv7";
@@ -79,7 +79,7 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
   }
 
   const { amountPaise } = lineItem;
-  if (amountPaise > VOUCHER_AMOUNT_THRESHOLD_PAISE) {
+  if (!qualifiesForCashVoucher(amountPaise)) {
     log.set({ amountPaise, event: "amount_exceeds_threshold" });
     log.emit();
     return;

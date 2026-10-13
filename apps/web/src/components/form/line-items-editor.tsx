@@ -20,8 +20,11 @@ import {
   TooltipTrigger,
 } from "@pi-dash/design-system/components/ui/tooltip";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { VOUCHER_AMOUNT_THRESHOLD_PAISE } from "@pi-dash/shared/constants";
-import { formatPaise, tryRupeesToPaise } from "@pi-dash/shared/money";
+import {
+  formatPaise,
+  qualifiesForCashVoucher,
+  tryRupeesToPaise,
+} from "@pi-dash/shared/money";
 import type { ExpenseCategory } from "@pi-dash/zero/schema";
 import type { ChangeEvent } from "react";
 
@@ -266,9 +269,7 @@ function LineItemRow({
   const stableSelector0 = useEventCallback((state: unknown) => {
     const items = selectLineItems(state, name);
     const paise = tryRupeesToPaise(items[index]?.amount ?? "");
-    return (
-      paise !== null && paise > 0 && paise <= VOUCHER_AMOUNT_THRESHOLD_PAISE
-    );
+    return paise !== null && qualifiesForCashVoucher(paise);
   });
 
   return (

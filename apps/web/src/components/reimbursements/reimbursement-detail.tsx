@@ -9,8 +9,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { VOUCHER_AMOUNT_THRESHOLD_PAISE } from "@pi-dash/shared/constants";
-import { formatPaise } from "@pi-dash/shared/money";
+import { formatPaise, qualifiesForCashVoucher } from "@pi-dash/shared/money";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useState } from "react";
@@ -363,8 +362,7 @@ function VoucherCell({
 }) {
   const { amountPaise } = item;
   const hasVoucher = !!item.voucherAttachmentId;
-  const isQualifying =
-    amountPaise > 0 && amountPaise <= VOUCHER_AMOUNT_THRESHOLD_PAISE;
+  const isQualifying = qualifiesForCashVoucher(amountPaise);
   const handleGenerate = useEventCallback(() => onGenerate(item.id));
 
   if (hasVoucher) {

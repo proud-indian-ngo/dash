@@ -3,7 +3,19 @@ import { describe, expect, it } from "bun:test";
 import {
   mapAttachmentsToFormValues,
   mapLineItemsToFormValues,
+  paiseToFormAmount,
 } from "./submission-mappers";
+
+describe("paiseToFormAmount", () => {
+  it("prefills exact rupee text without trailing zeros", () => {
+    expect(paiseToFormAmount(1999)).toBe("19.99");
+    expect(paiseToFormAmount(150_000)).toBe("1500");
+    expect(paiseToFormAmount(150_050)).toBe("1500.5");
+    expect(paiseToFormAmount(1)).toBe("0.01");
+    expect(paiseToFormAmount(10)).toBe("0.1");
+    expect(paiseToFormAmount(100)).toBe("1");
+  });
+});
 
 describe("mapLineItemsToFormValues", () => {
   it("maps paise amounts to rupee strings", () => {

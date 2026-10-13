@@ -58,6 +58,7 @@ export function SubmissionTrendsChart({ data }: { data: TrendDataPoint[] }) {
             yAxisId="count"
           />
           <YAxis
+            allowDecimals={false}
             axisLine={false}
             fontSize={12}
             orientation="right"

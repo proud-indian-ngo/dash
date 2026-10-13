@@ -2,9 +2,12 @@ import { paiseToRupees } from "@pi-dash/shared/money";
 
 import type { Attachment, LineItem } from "./form-schemas";
 
+const TRAILING_FRACTION_ZEROS = /\.?0+$/;
+
 /** Paise to the rupee text an edit form starts with: 1500, 19.99, 19.9. */
-function paiseToFormAmount(paise: number): string {
-  return String(Number(paiseToRupees(paise)));
+export function paiseToFormAmount(paise: number): string {
+  // paiseToRupees always has two decimals, so trimming zeros only touches the fraction.
+  return paiseToRupees(paise).replace(TRAILING_FRACTION_ZEROS, "");
 }
 
 interface RawLineItem {

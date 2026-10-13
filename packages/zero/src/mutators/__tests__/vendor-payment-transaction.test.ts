@@ -1,27 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
-import { positivePaiseSchema } from "@pi-dash/shared/money";
+import { MAX_AMOUNT_PAISE } from "@pi-dash/shared/money";
 import z from "zod";
 
-const attachmentSchema = z.object({
-  filename: z.string().optional(),
-  id: z.string(),
-  mimeType: z.string().optional(),
-  objectKey: z.string().optional(),
-  type: z.enum(["file", "url"]),
-  url: z.string().optional(),
-});
-
-const createSchema = z.object({
-  amountPaise: positivePaiseSchema,
-  attachments: z.array(attachmentSchema),
-  description: z.string().trim().optional(),
-  id: z.string(),
-  paymentMethod: z.string().trim().optional(),
-  paymentReference: z.string().trim().optional(),
-  transactionDate: z.number(),
-  vendorPaymentId: z.string(),
-});
+import { createSchema } from "../vendor-payment-transaction";
 
 const approveSchema = z.object({
   id: z.string(),
@@ -81,6 +63,19 @@ describe("vendorPaymentTransaction mutator schemas", () => {
       expect(
         createSchema.safeParse({ ...validInput, amountPaise: 1012 }).success
       ).toBe(true);
+    });
+
+    it("caps the amount at the old numeric(12,2) limit", () => {
+      expect(
+        createSchema.safeParse({ ...validInput, amountPaise: MAX_AMOUNT_PAISE })
+          .success
+      ).toBe(true);
+      expect(
+        createSchema.safeParse({
+          ...validInput,
+          amountPaise: MAX_AMOUNT_PAISE + 1,
+        }).success
+      ).toBe(false);
     });
 
     it("rejects missing vendorPaymentId", () => {

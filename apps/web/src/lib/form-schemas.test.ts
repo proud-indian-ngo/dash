@@ -1,6 +1,14 @@
 import { describe, expect, it } from "bun:test";
 
-import { computeRunningTotalPaise, lineItemSchema } from "./form-schemas";
+import { MAX_AMOUNT_PAISE } from "@pi-dash/shared/money";
+
+import {
+  computeRunningTotalPaise,
+  lineItemSchema,
+  newLineItem,
+  positiveRupeesSchema,
+  toLineItemsPayload,
+} from "./form-schemas";
 
 describe("computeRunningTotalPaise", () => {
   it("sums valid amounts", () => {
@@ -105,5 +113,56 @@ describe("lineItemSchema", () => {
     expect(
       lineItemSchema.safeParse({ ...valid, amount: "10.123" }).success
     ).toBe(false);
+  });
+});
+
+const issue = (value: string) =>
+  positiveRupeesSchema.safeParse(value).error?.issues[0]?.message;
+
+describe("positiveRupeesSchema", () => {
+  it("accepts rupee amounts with up to 2 decimals", () => {
+    for (const ok of ["19.99", "1500", "5.", ".5", "0.01", "9999999999.99"]) {
+      expect(positiveRupeesSchema.safeParse(ok).success).toBe(true);
+    }
+  });
+
+  it("explains the accepted format", () => {
+    for (const bad of ["1e3", "1.234", "abc", ".", "1,000"]) {
+      expect(issue(bad)).toBe(
+        "Enter an amount in rupees with up to 2 decimals"
+      );
+    }
+    expect(issue("")).toBe("Amount required");
+    expect(issue("0")).toBe("Must be greater than 0");
+  });
+
+  it("caps an amount at the old numeric(12,2) limit", () => {
+    expect(issue("10000000000")).toBe(
+      "Amount can be at most ₹9,99,99,99,999.99"
+    );
+  });
+});
+
+describe("toLineItemsPayload", () => {
+  it("converts rupee text to paise and numbers the items", () => {
+    const items = [
+      { ...newLineItem(), amount: "19.99", categoryId: "c1", id: "a" },
+      { ...newLineItem(), amount: "1500", categoryId: "c1", id: "b" },
+    ];
+    const payload = toLineItemsPayload(items);
+    expect(payload.map((li) => li.amountPaise)).toEqual([1999, 150_000]);
+    expect(payload.map((li) => li.sortOrder)).toEqual([0, 1]);
+    expect(payload[0]).not.toHaveProperty("amount");
+  });
+});
+
+describe("computeRunningTotalPaise with capped items", () => {
+  it("totals several max-value items without leaving the safe range", () => {
+    const max = "9999999999.99";
+    const items = Array.from({ length: 20 }, () => ({
+      ...newLineItem(),
+      amount: max,
+    }));
+    expect(computeRunningTotalPaise(items)).toBe(20 * MAX_AMOUNT_PAISE);
   });
 });

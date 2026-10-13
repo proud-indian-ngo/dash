@@ -147,23 +147,28 @@ export interface NotifyVpInvoiceRejectedPayload {
 }
 
 // Vendor Payment Transaction
-export interface NotifyVptSubmittedPayload {
-  amountPaise: number;
+// TODO(remove after the paise release): drop the legacy rupee `amount` and make
+// `amountPaise` required. New jobs carry `amountPaise` only; `amount` is read
+// from jobs enqueued by the previous build.
+interface VptAmountPayload {
+  /** @deprecated Rupees, from jobs enqueued before the paise release. */
+  amount?: number;
+  amountPaise?: number;
+}
+export interface NotifyVptSubmittedPayload extends VptAmountPayload {
   submitterName: string;
   transactionId: string;
   vendorPaymentId: string;
   vendorPaymentTitle: string;
 }
-export interface NotifyVptApprovedPayload {
-  amountPaise: number;
+export interface NotifyVptApprovedPayload extends VptAmountPayload {
   note?: string;
   submitterId: string;
   transactionId: string;
   vendorPaymentId: string;
   vendorPaymentTitle: string;
 }
-export interface NotifyVptRejectedPayload {
-  amountPaise: number;
+export interface NotifyVptRejectedPayload extends VptAmountPayload {
   reason: string;
   submitterId: string;
   transactionId: string;

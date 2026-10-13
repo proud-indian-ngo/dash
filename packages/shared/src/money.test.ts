@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   assertSafePaise,
   formatPaise,
+  MAX_AMOUNT_PAISE,
   paiseSchema,
   paiseToRupees,
   positivePaiseSchema,
+  qualifiesForCashVoucher,
   rupeesToPaise,
   sumPaise,
   tryRupeesToPaise,
@@ -23,6 +25,13 @@ describe("rupeesToPaise", () => {
     expect(rupeesToPaise("-0")).toBe(0);
   });
 
+  it("accepts a bare leading or trailing decimal point", () => {
+    expect(rupeesToPaise("5.")).toBe(500);
+    expect(rupeesToPaise(".5")).toBe(50);
+    expect(rupeesToPaise(".05")).toBe(5);
+    expect(rupeesToPaise("-.5")).toBe(-50);
+  });
+
   it("parses numbers through their decimal form", () => {
     expect(rupeesToPaise(19.99)).toBe(1999);
     expect(rupeesToPaise(0.29)).toBe(29);
@@ -37,8 +46,10 @@ describe("rupeesToPaise", () => {
       "abc",
       "1e3",
       "1,000",
-      ".5",
-      "5.",
+      ".",
+      "-",
+      "-.",
+      ".123",
       "₹5",
       "NaN",
     ]) {
@@ -126,5 +137,30 @@ describe("sumPaise and schemas", () => {
     );
     expect(positivePaiseSchema.safeParse(0).success).toBe(false);
     expect(positivePaiseSchema.safeParse(1).success).toBe(true);
+  });
+
+  it("caps amounts at the old numeric(12,2) limit", () => {
+    expect(rupeesToPaise("9999999999.99")).toBe(MAX_AMOUNT_PAISE);
+    expect(paiseSchema.safeParse(MAX_AMOUNT_PAISE).success).toBe(true);
+    expect(positivePaiseSchema.safeParse(MAX_AMOUNT_PAISE).success).toBe(true);
+    expect(paiseSchema.safeParse(MAX_AMOUNT_PAISE + 1).success).toBe(false);
+    expect(positivePaiseSchema.safeParse(MAX_AMOUNT_PAISE + 1).success).toBe(
+      false
+    );
+  });
+
+  it("sums and formats a total of many max-value items", () => {
+    const total = sumPaise(Array.from({ length: 50 }, () => MAX_AMOUNT_PAISE));
+    expect(total).toBe(49_999_999_999_950);
+    expect(formatPaise(total)).toBe("₹4,99,99,99,99,999.50");
+  });
+});
+
+describe("qualifiesForCashVoucher", () => {
+  it("allows items up to ₹1,000", () => {
+    expect(qualifiesForCashVoucher(100_000)).toBe(true);
+    expect(qualifiesForCashVoucher(1)).toBe(true);
+    expect(qualifiesForCashVoucher(100_001)).toBe(false);
+    expect(qualifiesForCashVoucher(0)).toBe(false);
   });
 });
