@@ -3,9 +3,7 @@ import {
   directoryRoleValues,
   type ForeignSourceAssessment,
   type PartyFillField,
-  partyFillFieldValues,
   type PartyIdType,
-  type PartyKind,
 } from "@pi-dash/shared/constants";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
@@ -18,6 +16,7 @@ import {
   visibleTail,
 } from "../encryption";
 import {
+  buildFillSave,
   fillValuesPresent,
   PartyConflictError,
   type PartyFillValues,
@@ -25,6 +24,7 @@ import {
   resolveAssessedOn,
   resolveSaveMode,
   resolveSecret,
+  type SavePartyInput,
 } from "../party-save-rules";
 import { party, partyRole } from "../schema/party";
 import { partyPrivate } from "../schema/private/party-private";
@@ -35,6 +35,7 @@ export {
   PartyConflictError,
   type PartyFillValues,
   partyDetailGaps,
+  type SavePartyInput,
 };
 
 /** Associated data binding an encrypted identifier to its party. */
@@ -108,34 +109,6 @@ export async function revealPartyIdNumber(
   return row?.encrypted
     ? decryptSecret(row.encrypted, partyIdNumberContext(partyId))
     : null;
-}
-
-export interface SavePartyInput {
-  addressLine1: string;
-  addressLine2: string;
-  assessmentNote: string;
-  city: string;
-  country: string;
-  displayName: string;
-  email: string;
-  /** The party row's updatedAt the editor loaded; null on create. A newer row rejects the save. */
-  expectedPartyUpdatedAt: number | null;
-  /** The private row's updatedAt the editor loaded; null when it loaded none. */
-  expectedUpdatedAt: number | null;
-  foreignSourceAssessment: ForeignSourceAssessment;
-  /** Client-generated on create so a retried request is idempotent. */
-  id: string;
-  /** Blank keeps a stored identifier of the same type; a value replaces it. */
-  idNumber: string;
-  idType: PartyIdType;
-  kind: PartyKind;
-  legalName: string;
-  mode: "create" | "update";
-  nationality: string;
-  phone: string;
-  pincode: string;
-  roles: readonly DirectoryRole[];
-  state: string;
 }
 
 /** Calendar day in India, where the trust keeps its books. */
@@ -371,14 +344,6 @@ export async function fillMissingPartyDetails(
     .from(partyPrivate)
     .where(eq(partyPrivate.partyId, partyId))
     .limit(1);
-  const gaps = partyDetailGaps(existing ?? null);
-  const present = fillValuesPresent(values, options);
-  const fill = partyFillFieldValues.filter(
-    (field) => gaps[field] && present[field]
-  );
-  if (fill.length === 0) {
-    return [];
-  }
   const roles = await tx
     .select({ role: partyRole.role })
     .from(partyRole)
@@ -389,47 +354,16 @@ export async function fillMissingPartyDetails(
         inArray(partyRole.role, [...directoryRoleValues])
       )
     );
-  const fills = new Set(fill);
-  const keep = (value: string | null | undefined) => value ?? "";
-  const address = fills.has("address");
-  let id: { idNumber: string; idType: PartyIdType };
-  if (fills.has("idNumber")) {
-    id = { idNumber: values.idNumber, idType: values.idType };
-  } else if (existing?.idNumberEncrypted) {
-    // Blank with the stored type keeps the stored identifier.
-    id = { idNumber: "", idType: existing.idType };
-  } else {
-    id = { idNumber: "", idType: "none" };
-  }
-  await savePartyInTransaction(
-    tx,
-    {
-      addressLine1: address
-        ? values.addressLine1
-        : keep(existing?.addressLine1),
-      addressLine2: address
-        ? values.addressLine2
-        : keep(existing?.addressLine2),
-      assessmentNote: keep(existing?.assessmentNote),
-      city: address ? values.city : keep(existing?.city),
-      country: existing?.country ?? "IN",
-      displayName: existingParty.displayName,
-      email: fills.has("email") ? values.email : keep(existing?.email),
-      expectedPartyUpdatedAt: existingParty.updatedAt.getTime(),
-      expectedUpdatedAt: existing ? existing.updatedAt.getTime() : null,
-      foreignSourceAssessment: existing?.foreignSourceAssessment ?? "domestic",
-      id: partyId,
-      ...id,
-      kind: existingParty.kind,
-      legalName: keep(existingParty.legalName),
-      mode: "update",
-      nationality: keep(existing?.nationality),
-      phone: fills.has("phone") ? values.phone : keep(existing?.phone),
-      pincode: address ? values.pincode : keep(existing?.pincode),
-      roles: roles.map((r) => r.role as DirectoryRole),
-      state: address ? values.state : keep(existing?.state),
-    },
-    actorId
+  const save = buildFillSave(
+    existingParty,
+    existing ?? null,
+    roles.map((r) => r.role as DirectoryRole),
+    values,
+    options
   );
-  return fill;
+  if (!save) {
+    return [];
+  }
+  await savePartyInTransaction(tx, save.input, actorId);
+  return save.fill;
 }

@@ -48,6 +48,8 @@ async function uploadAndReview(page: Page, name: string, csv: Buffer) {
   await page.getByLabel("Source").click();
   await page.getByRole("option", { exact: true, name: "Generic CSV" }).click();
   const account = page.getByRole("combobox", { name: "Deposited into" });
+  // The give.do account was only give.do's default, so it is cleared.
+  await expect(account).toHaveValue("");
   await account.click();
   await account.fill(ACCOUNT);
   await page.getByRole("option").filter({ hasText: ACCOUNT }).first().click();

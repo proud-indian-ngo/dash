@@ -1,8 +1,11 @@
 import {
+  type DirectoryRole,
   type ForeignSourceAssessment,
   PARTY_SAVE_CONFLICT_PREFIX,
   type PartyFillField,
+  partyFillFieldValues,
   type PartyIdType,
+  type PartyKind,
 } from "@pi-dash/shared/constants";
 
 /**
@@ -16,6 +19,34 @@ export class PartyConflictError extends Error {
     super(message);
     this.name = "PartyConflictError";
   }
+}
+
+export interface SavePartyInput {
+  addressLine1: string;
+  addressLine2: string;
+  assessmentNote: string;
+  city: string;
+  country: string;
+  displayName: string;
+  email: string;
+  /** The party row's updatedAt the editor loaded; null on create. A newer row rejects the save. */
+  expectedPartyUpdatedAt: number | null;
+  /** The private row's updatedAt the editor loaded; null when it loaded none. */
+  expectedUpdatedAt: number | null;
+  foreignSourceAssessment: ForeignSourceAssessment;
+  /** Client-generated on create so a retried request is idempotent. */
+  id: string;
+  /** Blank keeps a stored identifier of the same type; a value replaces it. */
+  idNumber: string;
+  idType: PartyIdType;
+  kind: PartyKind;
+  legalName: string;
+  mode: "create" | "update";
+  nationality: string;
+  phone: string;
+  pincode: string;
+  roles: readonly DirectoryRole[];
+  state: string;
 }
 
 export interface ExistingPartyRow {
@@ -198,6 +229,10 @@ export function resolveBankAccount(
   throw new Error("Enter the account number");
 }
 
+/** Whitespace counts as no value, as `nullIfBlank` stores it. */
+const isFilled = (value: string | null | undefined): boolean =>
+  Boolean(value?.trim());
+
 /** Which fill fields a donor has no value for; a donor without private details lacks them all. */
 export function partyDetailGaps(
   row: {
@@ -213,15 +248,15 @@ export function partyDetailGaps(
 ): Record<PartyFillField, boolean> {
   return {
     address: !(
-      row?.addressLine1 ||
-      row?.addressLine2 ||
-      row?.city ||
-      row?.state ||
-      row?.pincode
+      isFilled(row?.addressLine1) ||
+      isFilled(row?.addressLine2) ||
+      isFilled(row?.city) ||
+      isFilled(row?.state) ||
+      isFilled(row?.pincode)
     ),
-    email: !row?.email,
-    idNumber: !row?.idNumberEncrypted,
-    phone: !row?.phone,
+    email: !isFilled(row?.email),
+    idNumber: !isFilled(row?.idNumberEncrypted),
+    phone: !isFilled(row?.phone),
   };
 }
 
@@ -244,16 +279,105 @@ export function fillValuesPresent(
   options: { canStoreIds: boolean }
 ): Record<PartyFillField, boolean> {
   return {
-    address: Boolean(
-      values.addressLine1 ||
-      values.addressLine2 ||
-      values.city ||
-      values.state ||
-      values.pincode
-    ),
-    email: values.email !== "",
+    address:
+      isFilled(values.addressLine1) ||
+      isFilled(values.addressLine2) ||
+      isFilled(values.city) ||
+      isFilled(values.state) ||
+      isFilled(values.pincode),
+    email: isFilled(values.email),
     idNumber:
-      options.canStoreIds && values.idType !== "none" && values.idNumber !== "",
-    phone: values.phone !== "",
+      options.canStoreIds &&
+      values.idType !== "none" &&
+      isFilled(values.idNumber),
+    phone: isFilled(values.phone),
+  };
+}
+
+/** The stored private row as far as filling it needs. */
+export type ExistingFillRow = Pick<
+  ExistingPrivateRow,
+  "foreignSourceAssessment" | "idNumberEncrypted" | "idType" | "updatedAt"
+> & {
+  addressLine1: string | null;
+  addressLine2: string | null;
+  assessmentNote: string | null;
+  city: string | null;
+  country: string;
+  email: string | null;
+  nationality: string | null;
+  phone: string | null;
+  pincode: string | null;
+  state: string | null;
+};
+
+/**
+ * The save that fills a party's empty fields from an imported row: only the
+ * gaps take the row's values, the address only as a whole when no line is
+ * stored, and everything else (identifier, country, nationality, assessment,
+ * legal name, roles) goes back as stored, so the save changes nothing else.
+ * Null when there is nothing to fill.
+ */
+export function buildFillSave(
+  existingParty: {
+    displayName: string;
+    id: string;
+    kind: PartyKind;
+    legalName: string | null;
+    updatedAt: Date;
+  },
+  existing: ExistingFillRow | null,
+  roles: readonly DirectoryRole[],
+  values: PartyFillValues,
+  options: { canStoreIds: boolean }
+): { fill: PartyFillField[]; input: SavePartyInput } | null {
+  const gaps = partyDetailGaps(existing);
+  const present = fillValuesPresent(values, options);
+  const fill = partyFillFieldValues.filter(
+    (field) => gaps[field] && present[field]
+  );
+  if (fill.length === 0) {
+    return null;
+  }
+  const fills = new Set(fill);
+  const keep = (value: string | null | undefined) => value ?? "";
+  const address = fills.has("address");
+  let id: { idNumber: string; idType: PartyIdType };
+  if (fills.has("idNumber")) {
+    id = { idNumber: values.idNumber, idType: values.idType };
+  } else if (existing?.idNumberEncrypted) {
+    // Blank with the stored type keeps the stored identifier.
+    id = { idNumber: "", idType: existing.idType };
+  } else {
+    id = { idNumber: "", idType: "none" };
+  }
+  return {
+    fill,
+    input: {
+      addressLine1: address
+        ? values.addressLine1
+        : keep(existing?.addressLine1),
+      addressLine2: address
+        ? values.addressLine2
+        : keep(existing?.addressLine2),
+      assessmentNote: keep(existing?.assessmentNote),
+      city: address ? values.city : keep(existing?.city),
+      country: existing?.country ?? "IN",
+      displayName: existingParty.displayName,
+      email: fills.has("email") ? values.email : keep(existing?.email),
+      expectedPartyUpdatedAt: existingParty.updatedAt.getTime(),
+      expectedUpdatedAt: existing ? existing.updatedAt.getTime() : null,
+      foreignSourceAssessment: existing?.foreignSourceAssessment ?? "domestic",
+      id: existingParty.id,
+      ...id,
+      kind: existingParty.kind,
+      legalName: keep(existingParty.legalName),
+      mode: "update",
+      nationality: keep(existing?.nationality),
+      phone: fills.has("phone") ? values.phone : keep(existing?.phone),
+      pincode: address ? values.pincode : keep(existing?.pincode),
+      roles,
+      state: address ? values.state : keep(existing?.state),
+    },
   };
 }

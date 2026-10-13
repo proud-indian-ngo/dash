@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildFillSave,
+  type ExistingFillRow,
   fillValuesPresent,
   PartyConflictError,
   partyDetailGaps,
@@ -312,6 +314,12 @@ describe("partyDetailGaps", () => {
     });
   });
 
+  it("treats whitespace as no value", () => {
+    expect(
+      partyDetailGaps({ ...empty, city: "  ", email: " ", phone: "\t" })
+    ).toEqual({ address: true, email: true, idNumber: true, phone: true });
+  });
+
   it("counts any address line as an address, so lines are never mixed", () => {
     expect(partyDetailGaps({ ...empty, city: "Pune" }).address).toBe(false);
     expect(
@@ -352,5 +360,163 @@ describe("fillValuesPresent", () => {
         { canStoreIds: true }
       ).idNumber
     ).toBe(false);
+  });
+});
+
+describe("buildFillSave", () => {
+  const partyRow = {
+    displayName: "Asha Rao",
+    id: "party-1",
+    kind: "person" as const,
+    legalName: "Asha R. Rao",
+    updatedAt: t0,
+  };
+  const stored: ExistingFillRow = {
+    addressLine1: null,
+    addressLine2: null,
+    assessmentNote: "Indian passport seen",
+    city: null,
+    country: "GB",
+    email: "asha@example.com",
+    foreignSourceAssessment: "foreign",
+    idNumberEncrypted: "v1:stored",
+    idType: "passport",
+    nationality: "Indian",
+    phone: null,
+    pincode: null,
+    state: null,
+    updatedAt: t1,
+  };
+  const row = {
+    addressLine1: "12 MG Road",
+    addressLine2: "",
+    city: "Pune",
+    email: "other@example.com",
+    idNumber: "ABCDE1234F",
+    idType: "pan" as const,
+    phone: "+919800000000",
+    pincode: "411001",
+    state: "MH",
+  };
+  const roles = ["donor", "sponsor"] as const;
+
+  it("takes only the gaps from the row and passes the rest through", () => {
+    const save = buildFillSave(partyRow, stored, roles, row, {
+      canStoreIds: true,
+    });
+    expect(save?.fill).toEqual(["address", "phone"]);
+    expect(save?.input).toEqual({
+      addressLine1: "12 MG Road",
+      addressLine2: "",
+      assessmentNote: "Indian passport seen",
+      city: "Pune",
+      country: "GB",
+      displayName: "Asha Rao",
+      email: "asha@example.com",
+      expectedPartyUpdatedAt: t0.getTime(),
+      expectedUpdatedAt: t1.getTime(),
+      foreignSourceAssessment: "foreign",
+      id: "party-1",
+      idNumber: "",
+      idType: "passport",
+      kind: "person",
+      legalName: "Asha R. Rao",
+      mode: "update",
+      nationality: "Indian",
+      phone: "+919800000000",
+      pincode: "411001",
+      roles,
+      state: "MH",
+    });
+  });
+
+  it("keeps a stored identifier through resolveSecret's blank-keeps rule", () => {
+    const save = buildFillSave(partyRow, stored, roles, row, {
+      canStoreIds: true,
+    });
+    if (!save) {
+      throw new Error("expected a save");
+    }
+    const encrypt = () => {
+      throw new Error("must not re-encrypt");
+    };
+    expect(
+      resolveSecret(save.input, { ...stored, idNumberLast4: "1234" }, encrypt)
+    ).toEqual({
+      cleared: false,
+      idNumberEncrypted: "v1:stored",
+      idNumberLast4: "1234",
+    });
+  });
+
+  it("fills the identifier with the row's type when none is stored", () => {
+    const save = buildFillSave(
+      partyRow,
+      { ...stored, idNumberEncrypted: null, idType: "none" },
+      roles,
+      row,
+      { canStoreIds: true }
+    );
+    expect(save?.fill).toContain("idNumber");
+    expect(save?.input).toMatchObject({
+      idNumber: "ABCDE1234F",
+      idType: "pan",
+    });
+  });
+
+  it("leaves a partial stored address untouched", () => {
+    const partial = { ...stored, addressLine2: "Near the temple", city: "" };
+    const save = buildFillSave(partyRow, partial, roles, row, {
+      canStoreIds: true,
+    });
+    expect(save?.fill).toEqual(["phone"]);
+    expect(save?.input).toMatchObject({
+      addressLine1: "",
+      addressLine2: "Near the temple",
+      city: "",
+      pincode: "",
+      state: "",
+    });
+  });
+
+  it("treats blank and whitespace values on either side as empty", () => {
+    const blankRow = {
+      ...row,
+      addressLine1: " ",
+      city: "",
+      email: "  ",
+      phone: "\t",
+      pincode: "",
+      state: "",
+    };
+    expect(
+      buildFillSave(partyRow, stored, roles, blankRow, { canStoreIds: true })
+    ).toBeNull();
+    const save = buildFillSave(
+      partyRow,
+      { ...stored, email: "   " },
+      roles,
+      { ...blankRow, email: "new@example.com" },
+      { canStoreIds: true }
+    );
+    expect(save?.fill).toEqual(["email"]);
+    expect(save?.input.email).toBe("new@example.com");
+  });
+
+  it("starts from defaults for a party without private details", () => {
+    const save = buildFillSave(partyRow, null, [], row, {
+      canStoreIds: false,
+    });
+    expect(save?.fill).toEqual(["address", "email", "phone"]);
+    expect(save?.input).toMatchObject({
+      assessmentNote: "",
+      country: "IN",
+      expectedUpdatedAt: null,
+      foreignSourceAssessment: "domestic",
+      idNumber: "",
+      idType: "none",
+      nationality: "",
+      roles: [],
+    });
   });
 });

@@ -21,7 +21,7 @@ import {
   type ImportDateFormat,
   type ImportMapping,
   type ImportMappingTarget,
-  isMappingUsable,
+  mappingProblem,
   REQUIRED_IMPORT_FIELDS,
   sourceRules,
   WEAK_IDENTITY_WARNING,
@@ -83,6 +83,12 @@ function MappingIssues({ mapping }: { mapping: ImportMapping }) {
   if (check.duplicates.length > 0) {
     lines.push({
       text: `Mapped more than once: ${check.duplicates.map((f) => IMPORT_FIELD_LABELS[f]).join(", ")}.`,
+      tone: "text-destructive",
+    });
+  }
+  if (check.unmappedCurrency) {
+    lines.push({
+      text: `Map "${check.unmappedCurrency}" to Currency: left out, every row would import as rupees.`,
       tone: "text-destructive",
     });
   }
@@ -176,8 +182,9 @@ export function MapStep({
     } satisfies MapValues as MapValues,
     onSubmit: async ({ value }) => {
       const mapping = toMapping(value.columns);
-      if (!isMappingUsable(checkMapping(mapping))) {
-        setError("Map donor name, amount and received on, each to one column.");
+      const problem = mappingProblem(checkMapping(mapping));
+      if (problem) {
+        setError(problem);
         return;
       }
       setError(null);

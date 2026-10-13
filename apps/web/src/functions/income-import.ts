@@ -23,6 +23,7 @@ import type {
   RunResponse,
 } from "@/lib/income-import/review-types";
 import {
+  countChosenFills,
   createImportBatch,
   getImportBatchDetail,
   reviewImportBatch,
@@ -151,6 +152,8 @@ export const runContributionImport = createServerFn({ method: "POST" })
       throw new Error("Unauthorized");
     }
     const { session } = context;
+    // Existing donors the run will fill, planned from the stored rows.
+    const fillMissingCount = await countChosenFills(data);
     return await runSessionAuditedAction(
       session,
       context.headers,
@@ -158,10 +161,7 @@ export const runContributionImport = createServerFn({ method: "POST" })
         action: "import_batch.run",
         metadata: {
           decisionCount: Object.keys(data.decisions).length,
-          // Existing donors accepted with "Fill missing details" left on.
-          fillMissingCount: Object.values(data.decisions).filter(
-            (d) => d.donor?.startsWith("party:") && d.fillMissing !== false
-          ).length,
+          fillMissingCount,
         },
         target: { id: data.batchId, type: "import_batch" },
       },

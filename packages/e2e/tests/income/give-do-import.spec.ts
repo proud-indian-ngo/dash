@@ -63,11 +63,12 @@ function fixtureCsv(run: Run): Buffer {
 
 /**
  * A later export with one new gift from the donor who gave no PAN the first
- * time, now with a PAN: matched by email, so the PAN can be filled in.
+ * time, now with a PAN and a new address: matched by email, so the PAN can
+ * be filled in while the stored address stays.
  */
 function laterExportCsv(run: Run): Buffer {
   const [header] = readFileSync(FIXTURE, "utf8").split("\n");
-  const row = `02/07/2024,10:00,LC{RUN}B2,INR,600,GiveDo NoPan {RUN},nopan-{RUN}@example.com,{PHONE_B},4 Sample Road,,Pune,Maharashtra,India,411001,"4 Sample Road, Pune, Maharashtra, India, 411001",${run.pans.B},ONE-TIME,,`;
+  const row = `02/07/2024,10:00,LC{RUN}B2,INR,600,GiveDo NoPan {RUN},nopan-{RUN}@example.com,{PHONE_B},77 Moved Lane,,Mumbai,Maharashtra,India,400001,"77 Moved Lane, Mumbai, Maharashtra, India, 400001",${run.pans.B},ONE-TIME,,`;
   return Buffer.from(fill(run, `${header}\n${row}\n`), "utf8");
 }
 
@@ -230,7 +231,8 @@ test.describe("Income: give.do import", () => {
     await expect(page.getByText(`•••• ${run.pans.B.slice(-4)}`)).toBeVisible({
       timeout: 10_000,
     });
-    // The address it already had is kept.
+    // The address it already had is kept, not replaced by the new file's.
     await expect(page.getByText("4 Sample Road")).toBeVisible();
+    await expect(page.getByText("77 Moved Lane")).toHaveCount(0);
   });
 });

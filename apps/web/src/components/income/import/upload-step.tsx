@@ -200,6 +200,8 @@ export function UploadStep({
     funds.find((f) => f.id === GENERAL_FUND_ID)?.id ?? funds[0]?.id;
 
   const giveDoAccountId = defaultGiveDoAccount(accounts)?.id;
+  // The account the form filled in for give.do, until the user picks one.
+  const autoFilledAccount = useRef(giveDoAccountId);
 
   // give.do is the usual source, so an upload starts as one.
   const form = useForm({
@@ -220,13 +222,25 @@ export function UploadStep({
             formApi.setFieldValue("defaultChannel", "upi");
           }
           const giveDo = defaultGiveDoAccount(accounts);
-          if (
-            source === "give_do_csv" &&
-            giveDo &&
-            !formApi.getFieldValue("orgAccountId")
-          ) {
+          const account = formApi.getFieldValue("orgAccountId");
+          if (source === "give_do_csv" && giveDo && !account) {
+            autoFilledAccount.current = giveDo.id;
             formApi.setFieldValue("orgAccountId", giveDo.id);
+          } else if (
+            source !== "give_do_csv" &&
+            account &&
+            account === autoFilledAccount.current
+          ) {
+            // give.do's account was our default, not a choice for this file.
+            autoFilledAccount.current = undefined;
+            formApi.setFieldValue("orgAccountId", undefined);
           }
+        }
+        if (
+          fieldApi.name === "orgAccountId" &&
+          formApi.getFieldValue("orgAccountId") !== autoFilledAccount.current
+        ) {
+          autoFilledAccount.current = undefined;
         }
         if (fieldApi.name === "projectId") {
           const project = projects.find(
@@ -308,6 +322,7 @@ export function UploadStep({
       form.getFieldValue("source") === "give_do_csv" &&
       !form.getFieldValue("orgAccountId")
     ) {
+      autoFilledAccount.current = giveDoAccountId;
       form.setFieldValue("orgAccountId", giveDoAccountId);
     }
   }, [form, giveDoAccountId]);

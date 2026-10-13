@@ -177,6 +177,7 @@ mock.module("@pi-dash/db/queries/income-import", () => ({
 
 const { DrizzleQueryError } = await import("drizzle-orm/errors");
 const {
+  countChosenFills,
   createImportBatch,
   GIVE_DO_COLLECTION_NOTE,
   getImportBatchDetail,
@@ -419,6 +420,42 @@ describe("runImportBatch for give.do", () => {
       "user-1"
     );
     expect(calls.fills).toEqual([]);
+  });
+
+  it("counts only the fills the run would make, whatever the request claims", async () => {
+    emailMatches = new Map([
+      ["known@example.com", [{ name: "Known", partyId: "p-known" }]],
+    ]);
+    rows = () => [
+      giveDoRow({
+        "Donor Email": "known@example.com",
+        "Transaction ID": "LC1",
+      }),
+      giveDoRow({
+        "Donor Email": "known@example.com",
+        "Transaction ID": "LC2",
+      }),
+      giveDoRow({ "Transaction ID": "LC3" }),
+    ];
+    const count = (decisions: Record<string, object>) =>
+      countChosenFills({ batchId: BATCH, decisions });
+    expect(
+      await count({
+        [ROW_ID(0)]: { donor: "party:p-known" },
+        // Skipped: imports nothing, so fills nothing.
+        [ROW_ID(1)]: { contribution: "skip", donor: "party:p-known" },
+        // A party nobody proposed for this row.
+        [ROW_ID(2)]: { donor: "party:p-other" },
+        // Not a row of this batch.
+        "0190a000-0000-7000-8000-000000000999": { donor: "party:p-known" },
+      })
+    ).toBe(1);
+    expect(
+      await count({
+        [ROW_ID(0)]: { donor: "party:p-known", fillMissing: false },
+      })
+    ).toBe(0);
+    expect(await count({ [ROW_ID(0)]: { donor: "new" } })).toBe(0);
   });
 
   it("leaves generic batches without an intermediary", async () => {

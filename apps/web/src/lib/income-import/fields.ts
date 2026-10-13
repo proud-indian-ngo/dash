@@ -165,7 +165,9 @@ export const GIVE_DO_HEADERS = GIVE_DO_COLUMNS.map(([header]) => header);
 const PRESETS: Partial<
   Record<ImportBatchSource, ReadonlyMap<string, ImportMappingTarget>>
 > = {
-  give_do_csv: new Map(GIVE_DO_COLUMNS),
+  give_do_csv: new Map(
+    GIVE_DO_COLUMNS.map(([header, target]) => [headerKey(header), target])
+  ),
 };
 
 /**
@@ -199,7 +201,7 @@ export function sourceRules(source: ImportBatchSource): SourceRules {
   };
 }
 
-const GIVE_DO_ACCOUNT_NAME = /give|giveindia/i;
+const GIVE_DO_ACCOUNT_NAME = /give/i;
 
 /** The active give.do clearing account to default a give.do upload to, if there is one. */
 export function defaultGiveDoAccount<T extends { kind: string; name: string }>(
@@ -210,25 +212,30 @@ export function defaultGiveDoAccount<T extends { kind: string; name: string }>(
   );
 }
 
-/** Expected columns the file lacks, and columns the source does not have. */
+/**
+ * Expected columns the file lacks, and columns the source does not have,
+ * compared as `headerKey` does, so "DONOR PAN" is the Donor PAN column.
+ */
 export function compareHeaders(
   headers: readonly string[],
   expected: readonly string[]
 ): { extra: string[]; missing: string[] } {
-  const present = new Set(headers.map((h) => h.trim()));
-  const known = new Set(expected);
+  const present = new Set(headers.map(headerKey));
+  const known = new Set(expected.map(headerKey));
   return {
-    extra: headers.filter((h) => !known.has(h.trim())),
-    missing: expected.filter((h) => !present.has(h)),
+    extra: headers.filter((h) => !known.has(headerKey(h))),
+    missing: expected.filter((h) => !present.has(headerKey(h))),
   };
 }
 
 /**
  * Suggest a mapping for a file's headers: a column the source's preset
- * names exactly gets the preset field; otherwise it keeps what the last
- * batch from the same source mapped it to, or is matched by synonym. A
- * field is filled at most once; later columns that would repeat it are
- * ignored.
+ * names (compared as `headerKey` does) gets the preset field; otherwise it
+ * keeps what the last batch from the same source mapped it to, or is
+ * matched by synonym. A currency column is never left out because an
+ * earlier batch left it out: that mapping may predate the currency field,
+ * and foreign money must not import as rupees. A field is filled at most
+ * once; later columns that would repeat it are ignored.
  */
 export function suggestMapping(
   headers: readonly string[],
@@ -241,7 +248,7 @@ export function suggestMapping(
   const isField = (value: string | undefined): value is ImportFieldKey =>
     (IMPORT_FIELD_KEYS as readonly string[]).includes(value ?? "");
   for (const header of headers) {
-    const fixed = preset?.get(header.trim());
+    const fixed = preset?.get(headerKey(header));
     if (fixed !== undefined && (fixed === IGNORE_FIELD || !used.has(fixed))) {
       if (fixed !== IGNORE_FIELD) {
         used.add(fixed);
@@ -250,7 +257,7 @@ export function suggestMapping(
       continue;
     }
     const remembered = previous?.[header];
-    if (remembered === IGNORE_FIELD) {
+    if (remembered === IGNORE_FIELD && !isCurrencyHeader(header)) {
       mapping[header] = IGNORE_FIELD;
       continue;
     }
@@ -267,14 +274,25 @@ export function suggestMapping(
   return mapping;
 }
 
+/** Whether a header names a currency column, such as give.do's "Donation Currency". */
+function isCurrencyHeader(header: string): boolean {
+  return SYNONYM_INDEX.get(headerKey(header)) === "currency";
+}
+
 export interface MappingCheck {
   /** Fields chosen for more than one column. */
   duplicates: ImportFieldKey[];
   missing: ImportFieldKey[];
+  /**
+   * A currency column the file has while no column fills Currency. Leaving
+   * it out would import every row as rupees, foreign gifts included.
+   */
+  unmappedCurrency: string | null;
   /** True when no external ID is mapped, so dedupe falls back to a fingerprint. */
   weakIdentity: boolean;
 }
 
+/** `mapping` holds every column of the file, mapped or left out. */
 export function checkMapping(mapping: ImportMapping): MappingCheck {
   const counts = new Map<ImportFieldKey, number>();
   for (const target of Object.values(mapping)) {
@@ -285,12 +303,22 @@ export function checkMapping(mapping: ImportMapping): MappingCheck {
   return {
     duplicates: [...counts].filter(([, n]) => n > 1).map(([field]) => field),
     missing: REQUIRED_IMPORT_FIELDS.filter((field) => !counts.has(field)),
+    unmappedCurrency: counts.has("currency")
+      ? null
+      : (Object.keys(mapping).find(isCurrencyHeader) ?? null),
     weakIdentity: !counts.has("externalId"),
   };
 }
 
-export function isMappingUsable(check: MappingCheck): boolean {
-  return check.missing.length === 0 && check.duplicates.length === 0;
+/** Why the mapping cannot be reviewed, or null when it can. */
+export function mappingProblem(check: MappingCheck): string | null {
+  if (check.missing.length > 0 || check.duplicates.length > 0) {
+    return "Map donor name, amount and received on, each to one column.";
+  }
+  if (check.unmappedCurrency) {
+    return `Map "${check.unmappedCurrency}" to Currency, so gifts in other currencies are not imported as rupees.`;
+  }
+  return null;
 }
 
 export const DATE_FORMAT_VALUES = ["dmy", "ymd", "mdy"] as const;

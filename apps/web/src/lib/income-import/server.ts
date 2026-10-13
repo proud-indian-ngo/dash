@@ -69,7 +69,7 @@ import {
   IMPORT_PARSER_VERSION,
   type ImportDateFormat,
   type ImportMapping,
-  isMappingUsable,
+  mappingProblem,
   sourceRules,
   suggestMapping,
 } from "./fields";
@@ -687,10 +687,9 @@ async function saveReview(input: ReviewInput): Promise<ReviewResponse> {
   const mapping = Object.fromEntries(
     Object.entries(input.mapping).filter(([header]) => headers.has(header))
   ) as ImportMapping;
-  if (!isMappingUsable(checkMapping(mapping))) {
-    throw new ImportInputError(
-      "Map donor name, amount and received on, each to one column"
-    );
+  const problem = mappingProblem(checkMapping(mapping));
+  if (problem) {
+    throw new ImportInputError(problem);
   }
   const settings = withSourceRules(batch.source, {
     dateFormat: input.dateFormat,
@@ -850,6 +849,47 @@ export async function runImportBatch(
     input.batchId,
     async () => await runClaimedBatch(input, actorId)
   );
+}
+
+/**
+ * How many rows the decisions would fill an existing donor's empty details
+ * on, planned from the stored rows exactly as the run plans them, so the
+ * run's audit count reflects the server's plan rather than the request.
+ * Counts only. A batch that cannot run counts none; the run reports why.
+ */
+export async function countChosenFills(input: {
+  batchId: string;
+  decisions: Record<string, RowDecision>;
+}): Promise<number> {
+  // Only an accepted existing donor can fill, so most runs skip the pass.
+  const choosesExisting = Object.values(input.decisions).some((d) =>
+    d.donor?.startsWith("party:")
+  );
+  if (!choosesExisting) {
+    return 0;
+  }
+  return await withImportSafeErrors("run", input.batchId, async () => {
+    const batch = await getImportBatch(input.batchId);
+    const settings =
+      batch && batch.status !== "expired" ? settingsOf(batch) : null;
+    if (!(batch && settings)) {
+      return 0;
+    }
+    const classification = await classifyBatch(
+      await listImportRows(batch.id),
+      await rowRulesFor(batch, settings)
+    );
+    let fills = 0;
+    for (const plan of planRows(
+      classification.classified,
+      input.decisions
+    ).values()) {
+      if (plan.action === "import" && plan.fill) {
+        fills += 1;
+      }
+    }
+    return fills;
+  });
 }
 
 async function runClaimedBatch(

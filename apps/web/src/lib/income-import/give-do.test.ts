@@ -95,6 +95,24 @@ describe("give.do preset", () => {
     });
   });
 
+  it("matches the preset's headers however the file cases or spaces them", () => {
+    const mapping = suggestMapping(
+      ["DONOR PAN", "donation currency", "Transaction_ID"],
+      { "DONOR PAN": "notes" },
+      "give_do_csv"
+    );
+    expect(mapping).toEqual({
+      "DONOR PAN": "idNumber",
+      Transaction_ID: "externalId",
+      "donation currency": "currency",
+    });
+    const headers = GIVE_DO_HEADERS.map((h) => h.toUpperCase());
+    expect(compareHeaders(headers, GIVE_DO_HEADERS)).toEqual({
+      extra: [],
+      missing: [],
+    });
+  });
+
   it("fixes day-first dates, the give.do channel and PAN as the ID type", () => {
     expect(giveDo).toEqual({
       expectedHeaders: GIVE_DO_HEADERS,
@@ -124,6 +142,11 @@ describe("give.do preset", () => {
       { id: "gd", kind: "gateway_clearing", name: "GiveIndia clearing" },
     ];
     expect(defaultGiveDoAccount(accounts)?.id).toBe("gd");
+    expect(
+      defaultGiveDoAccount([
+        { id: "gd2", kind: "gateway_clearing", name: "give.do clearing" },
+      ])?.id
+    ).toBe("gd2");
     expect(defaultGiveDoAccount(accounts.slice(0, 2))).toBeUndefined();
   });
 });

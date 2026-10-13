@@ -10,6 +10,7 @@ import {
   canGive,
   contributionRuleIssues,
   isContributionEditable,
+  PLATFORM_INTERMEDIARY_PARTY_IDS,
   todayInKolkata,
 } from "@pi-dash/shared/income";
 import { positivePaiseSchema } from "@pi-dash/shared/money";
@@ -140,6 +141,11 @@ async function assertContributor(tx: Tx, partyId: string) {
       roles.map((r) => r.role)
     )
   ) {
+    if (PLATFORM_INTERMEDIARY_PARTY_IDS.includes(partyId)) {
+      throw new Error(
+        "GiveIndia is a donation platform, not a donor. Record the person who gave."
+      );
+    }
     throw new Error(
       "Pick a party with an active donor, sponsor, grantor or intermediary role"
     );
