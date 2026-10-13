@@ -225,7 +225,8 @@ export ZERO_LAZY_STARTUP=false
 export SOCIAL_MEDIA_SIGNING_SECRET="${SOCIAL_MEDIA_SIGNING_SECRET:-e2e-social-media-signing-secret-0000}"
 
 # Razorpay in test mode with a fixed webhook secret, and no key secret, so the
-# job uses the signed webhook copy and never calls Razorpay.
+# job uses the signed webhook copy and never calls Razorpay. Keep in step with
+# the e2e job env in .github/workflows/ci.yml.
 export RAZORPAY_KEY_ID="rzp_test_e2e0000000000"
 export RAZORPAY_WEBHOOK_SECRET="${E2E_RAZORPAY_WEBHOOK_SECRET:-e2e-razorpay-webhook-secret}"
 export RAZORPAY_KEY_SECRET=""
