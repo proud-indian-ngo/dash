@@ -123,5 +123,21 @@ test.describe("Team events programme (admin)", () => {
     );
     await editDialog.getByRole("button", { name: "Cancel" }).click();
     await expect(editDialog).toBeHidden();
+
+    // So does editing this and following events from the occurrence's page.
+    await new ListPage(page).openRowActionAndClick(seriesRows, "View");
+    await expect(page).toHaveURL(/\/events\//);
+    await page.getByRole("button", { exact: true, name: "Edit" }).click();
+    await page
+      .getByRole("button", { name: "This and following events" })
+      .click();
+    await expect(
+      editDialog.getByRole("heading", { name: "Edit Event" })
+    ).toBeVisible();
+    await expect(editDialog.getByLabel("Programme")).toHaveValue(
+      "Community support"
+    );
+    await editDialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(editDialog).toBeHidden();
   });
 });
