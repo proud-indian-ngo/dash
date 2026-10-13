@@ -26,6 +26,7 @@ import { uuidv7 } from "uuidv7";
 import z from "zod";
 
 import { CheckboxField } from "@/components/form/checkbox-field";
+import { ComboboxField } from "@/components/form/combobox-field";
 import { DateTimeField } from "@/components/form/date-time-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
@@ -596,13 +597,14 @@ function EventFormContent({
           options={cityOptions}
           placeholder="Select city"
         />
-        <SelectField
+        <ComboboxField
           description="The cause this event counts towards."
+          emptyMessage="No matching programmes."
           isRequired
           label="Programme"
           name="programmeId"
           options={programmeOptions}
-          placeholder="Select programme"
+          placeholder="Search programmes"
         />
         <form.Subscribe selector={stableSelector0}>
           {(startTime) => (
