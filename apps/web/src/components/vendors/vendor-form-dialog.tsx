@@ -87,6 +87,9 @@ function VendorForm({
   const { details, identifiersAvailable } = context;
   // Fixed for the life of the form so a retried create cannot duplicate.
   const [vendorId] = useState(() => vendor?.id ?? uuidv7());
+  // The version this editor started from. Reading the live synced row at
+  // submit would let a concurrent edit slip past the version check.
+  const [loadedUpdatedAt] = useState(() => vendor?.updatedAt ?? null);
   const storedBank = details?.bank ?? null;
 
   const form = useForm({
@@ -98,7 +101,7 @@ function VendorForm({
       }
       const input: SaveVendorInput = {
         ...value,
-        expectedPartyUpdatedAt: vendor?.updatedAt ?? null,
+        expectedPartyUpdatedAt: loadedUpdatedAt,
         expectedUpdatedAt: details?.updatedAt ?? null,
         id: vendorId,
         mode: isEdit ? "update" : "create",

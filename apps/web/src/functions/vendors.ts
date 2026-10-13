@@ -8,13 +8,14 @@ import {
   saveVendor as saveVendorRows,
   type VendorPrivateView,
 } from "@pi-dash/db/queries/vendor-party";
-import { vendor } from "@pi-dash/db/schema/vendor";
+import { vendor, vendorPayment } from "@pi-dash/db/schema/vendor";
 import { createServerFn } from "@tanstack/react-start";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import z from "zod";
 
 import { assertServerPermission } from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
+import { canRevealVendorBank, canViewVendorDetails } from "@/lib/vendor-access";
 import { saveVendorSchema } from "@/lib/vendor-schema";
 import { authMiddleware } from "@/middleware/auth";
 
@@ -44,30 +45,18 @@ async function findVendor(vendorId: string) {
   return row ?? null;
 }
 
-/**
- * Who may see a vendor's contact and masked bank details: anyone who sees
- * every vendor or may edit them; for approved vendors, anyone who sees
- * approved vendors or records payments to them; and the creator of a pending
- * vendor, who entered the details.
- */
-function canViewVendor(
-  permissions: readonly string[],
-  userId: string,
-  row: { createdBy: string; status: string | null }
-): boolean {
-  if (
-    permissions.includes("vendors.view_all") ||
-    permissions.includes("vendors.edit")
-  ) {
-    return true;
-  }
-  if (row.status === "approved") {
-    return (
-      permissions.includes("vendors.view_approved") ||
-      permissions.includes("requests.record_payment")
-    );
-  }
-  return row.createdBy === userId;
+async function hasOwnPaymentTo(vendorId: string, userId: string) {
+  const [row] = await db
+    .select({ id: vendorPayment.id })
+    .from(vendorPayment)
+    .where(
+      and(
+        eq(vendorPayment.vendorId, vendorId),
+        eq(vendorPayment.userId, userId)
+      )
+    )
+    .limit(1);
+  return row !== undefined;
 }
 
 /** POST so the personal data in the response is never cached along the way. */
@@ -93,7 +82,9 @@ export const getVendorDetails = createServerFn({ method: "POST" })
       return { details: null, identifiersAvailable: hasEncryptionKey() };
     }
     const row = await findVendor(data.vendorId);
-    if (!(row && canViewVendor(permissions, context.session.user.id, row))) {
+    if (
+      !(row && canViewVendorDetails(permissions, context.session.user.id, row))
+    ) {
       throw new Error("Forbidden");
     }
     return {
@@ -103,8 +94,8 @@ export const getVendorDetails = createServerFn({ method: "POST" })
   });
 
 /**
- * The full bank account, for finance staff and, once the vendor is approved,
- * for whoever records the payment. Every reveal is recorded in the audit ledger.
+ * The full bank account, for finance staff, approvers and whoever raised a
+ * payment request to this vendor. Every reveal is recorded in the audit ledger.
  */
 export const revealVendorBankAccount = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
@@ -114,16 +105,11 @@ export const revealVendorBankAccount = createServerFn({ method: "POST" })
       throw new Error("Unauthorized");
     }
     const permissions = await permissionsOf(context.session);
-    if (!permissions.includes("finance.view_sensitive")) {
-      const row = await findVendor(data.vendorId);
-      if (
-        !(
-          row?.status === "approved" &&
-          permissions.includes("requests.record_payment")
-        )
-      ) {
-        throw new Error("Forbidden");
-      }
+    const ownsPayment =
+      permissions.includes("requests.record_payment") &&
+      (await hasOwnPaymentTo(data.vendorId, context.session.user.id));
+    if (!canRevealVendorBank(permissions, ownsPayment)) {
+      throw new Error("Forbidden");
     }
     return await runSessionAuditedAction(
       context.session,
@@ -174,7 +160,9 @@ export const deleteVendor = createServerFn({ method: "POST" })
     if (!context.session) {
       throw new Error("Unauthorized");
     }
-    await runSessionAuditedAction(
+    // A party that also holds another role keeps its party row; the outcome
+    // says which happened. Either way it is the same audited vendor.delete.
+    const removed = await runSessionAuditedAction(
       context.session,
       context.headers,
       {
@@ -183,5 +171,5 @@ export const deleteVendor = createServerFn({ method: "POST" })
       },
       async () => await deleteVendorRows(data.vendorId)
     );
-    return { vendorId: data.vendorId };
+    return { removed, vendorId: data.vendorId };
   });

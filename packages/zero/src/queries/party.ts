@@ -1,3 +1,4 @@
+import { directoryRoleValues } from "@pi-dash/shared/constants";
 import { defineQuery } from "@rocicorp/zero";
 import z from "zod";
 
@@ -12,16 +13,26 @@ function canSeeParties(ctx: Parameters<typeof can>[0] | null | undefined) {
   );
 }
 
+/**
+ * Parties with an active directory role. Vendors are parties too, but they
+ * belong to the vendors page and stay out of the donor directory unless they
+ * also hold a directory role.
+ */
+const directoryParties = () =>
+  zql.party.whereExists("roles", (role) =>
+    role.where("active", true).where("role", "IN", [...directoryRoleValues])
+  );
+
 /** Identity rows only; contact, ID and bank details come from server functions. */
 export const partyQueries = {
   all: defineQuery(({ ctx }) =>
     canSeeParties(ctx)
-      ? zql.party.related("roles").orderBy("displayName", "asc")
+      ? directoryParties().related("roles").orderBy("displayName", "asc")
       : zql.party.where("id", "__never_match__").related("roles")
   ),
   byId: defineQuery(z.object({ id: z.string() }), ({ args: { id }, ctx }) =>
     canSeeParties(ctx)
-      ? zql.party.where("id", id).related("roles").one()
+      ? directoryParties().where("id", id).related("roles").one()
       : zql.party.where("id", "__never_match__").related("roles").one()
   ),
 };

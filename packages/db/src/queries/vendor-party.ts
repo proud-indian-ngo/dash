@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 import { db } from "..";
@@ -21,7 +21,27 @@ import {
 } from "../schema/private/party-private";
 import { vendorLegacyDetails } from "../schema/private/vendor-legacy";
 import { vendor, vendorPayment } from "../schema/vendor";
-import { nullIfBlank, partyIdNumberContext } from "./party-private";
+import {
+  lockPartyId,
+  nullIfBlank,
+  partyIdNumberContext,
+} from "./party-private";
+
+/*
+ * Lock order. Every write path here locks a vendor's rows in this order, so
+ * two of them can only queue behind each other, never deadlock:
+ *
+ *   1. `pg_advisory_xact_lock(hashtext(id))` (saves only; serialises two
+ *      creates of the same ID, before any row exists to lock)
+ *   2. `party`
+ *   3. `vendor`
+ *   4. `vendor_legacy_details`
+ *   5. `party_private`
+ *   6. `party_bank_account`
+ *
+ * The donor save in party-private.ts takes the same advisory lock and then
+ * `party` first, so it serialises with these too.
+ */
 
 export { PartyConflictError };
 
@@ -261,6 +281,7 @@ export async function saveVendor(
   const name = input.name.trim();
 
   return await db.transaction(async (tx) => {
+    await lockPartyId(tx, vendorId);
     const [existingParty] = await tx
       .select()
       .from(party)
@@ -271,6 +292,12 @@ export async function saveVendor(
       .select()
       .from(vendor)
       .where(eq(vendor.id, vendorId))
+      .limit(1)
+      .for("update");
+    const [legacy] = await tx
+      .select()
+      .from(vendorLegacyDetails)
+      .where(eq(vendorLegacyDetails.vendorId, vendorId))
       .limit(1)
       .for("update");
     const [existingPrivate] = await tx
@@ -289,12 +316,6 @@ export async function saveVendor(
         )
       )
       .orderBy(desc(partyBankAccount.createdAt))
-      .for("update");
-    const [legacy] = await tx
-      .select()
-      .from(vendorLegacyDetails)
-      .where(eq(vendorLegacyDetails.vendorId, vendorId))
-      .limit(1)
       .for("update");
 
     if (existingParty && !existingVendor) {
@@ -447,12 +468,25 @@ export async function saveVendor(
   });
 }
 
+/** What a delete removed: the whole party, or only its vendor side. */
+export type DeleteVendorOutcome = "party" | "vendor";
+
 /**
- * Removes a vendor and its party. Refused while any payment request points at
- * it, because payment history must keep its counterparty.
+ * Removes a vendor. Refused while any payment request points at it, because
+ * payment history must keep its counterparty. A party that holds another
+ * active role (a donor who also supplies goods) keeps its party and private
+ * rows; only the vendor row, its vendor role and its bank accounts go.
  */
-export async function deleteVendor(vendorId: string): Promise<void> {
-  await db.transaction(async (tx) => {
+export async function deleteVendor(
+  vendorId: string
+): Promise<DeleteVendorOutcome> {
+  return await db.transaction(async (tx) => {
+    await tx
+      .select({ id: party.id })
+      .from(party)
+      .where(eq(party.id, vendorId))
+      .limit(1)
+      .for("update");
     const [existing] = await tx
       .select({ id: vendor.id })
       .from(vendor)
@@ -470,16 +504,37 @@ export async function deleteVendor(vendorId: string): Promise<void> {
     if (payment) {
       throw new Error("Cannot delete vendor with existing payment requests");
     }
-    await tx
-      .delete(partyBankAccount)
-      .where(eq(partyBankAccount.partyId, vendorId));
-    await tx.delete(partyPrivate).where(eq(partyPrivate.partyId, vendorId));
+    const [otherRole] = await tx
+      .select({ id: partyRole.id })
+      .from(partyRole)
+      .where(
+        and(
+          eq(partyRole.partyId, vendorId),
+          eq(partyRole.active, true),
+          ne(partyRole.role, "vendor")
+        )
+      )
+      .limit(1);
+
     await tx
       .delete(vendorLegacyDetails)
       .where(eq(vendorLegacyDetails.vendorId, vendorId));
     await tx.delete(vendor).where(eq(vendor.id, vendorId));
+    await tx
+      .delete(partyBankAccount)
+      .where(eq(partyBankAccount.partyId, vendorId));
+    if (otherRole) {
+      await tx
+        .delete(partyRole)
+        .where(
+          and(eq(partyRole.partyId, vendorId), eq(partyRole.role, "vendor"))
+        );
+      return "vendor";
+    }
+    await tx.delete(partyPrivate).where(eq(partyPrivate.partyId, vendorId));
     await tx.delete(partyRole).where(eq(partyRole.partyId, vendorId));
     await tx.delete(party).where(eq(party.id, vendorId));
+    return "party";
   });
 }
 
@@ -505,6 +560,13 @@ export async function backfillVendorPrivate(): Promise<BackfillVendorPrivateResu
   let skipped = 0;
   for (const { vendorId } of rows) {
     const outcome = await db.transaction(async (tx) => {
+      // Same first lock as saveVendor, so the two queue instead of deadlocking.
+      await tx
+        .select({ id: party.id })
+        .from(party)
+        .where(eq(party.id, vendorId))
+        .limit(1)
+        .for("update");
       const [legacy] = await tx
         .select()
         .from(vendorLegacyDetails)

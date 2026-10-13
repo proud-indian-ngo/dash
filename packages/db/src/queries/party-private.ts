@@ -5,7 +5,7 @@ import {
   type PartyIdType,
   type PartyKind,
 } from "@pi-dash/shared/constants";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 import { db } from "..";
@@ -23,6 +23,7 @@ import {
 } from "../party-save-rules";
 import { party, partyRole } from "../schema/party";
 import { partyPrivate } from "../schema/private/party-private";
+import { vendor } from "../schema/vendor";
 
 export { PartyConflictError };
 
@@ -145,6 +146,17 @@ export interface SavePartyResult {
   view: PartyPrivateView;
 }
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Serialises saves of one party ID for the rest of the transaction. Taken
+ * before any row lock, so a resent create waits for the first and then
+ * resolves as a retry instead of failing on the primary key.
+ */
+export async function lockPartyId(tx: Tx, partyId: string): Promise<void> {
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${partyId}))`);
+}
+
 export const nullIfBlank = (value: string): string | null =>
   value.trim() === "" ? null : value.trim();
 
@@ -164,6 +176,7 @@ export async function saveParty(
   const partyId = input.id;
 
   return await db.transaction(async (tx) => {
+    await lockPartyId(tx, partyId);
     const [existingParty] = await tx
       .select()
       .from(party)
@@ -208,6 +221,11 @@ export async function saveParty(
         .update(party)
         .set({ ...identity, updatedAt: now })
         .where(eq(party.id, partyId));
+      // A party that is also a vendor keeps its supplier name in step.
+      await tx
+        .update(vendor)
+        .set({ name: identity.displayName, updatedAt: now })
+        .where(eq(vendor.id, partyId));
     } else {
       await tx.insert(party).values({
         ...identity,

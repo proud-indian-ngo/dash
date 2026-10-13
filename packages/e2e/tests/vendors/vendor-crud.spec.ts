@@ -130,6 +130,49 @@ test.describe("Vendor management (admin)", () => {
       timeout: 10_000,
     });
   });
+
+  test("editing a legacy vendor keeps its bank account", async ({ page }) => {
+    const vendorName = "E2E Legacy Vendor";
+    const masked = "•••• 9876";
+    const list = new ListPage(page);
+    const sheet = page.getByRole("dialog").filter({ hasText: "Bank details" });
+
+    await page.getByPlaceholder("Search vendors...").fill(vendorName);
+    const row = page.getByRole("row").filter({ hasText: vendorName }).first();
+    await expect(row).toBeVisible({ timeout: 10_000 });
+
+    await list.openRowActionAndClick(row, "View");
+    await expect(sheet.getByText(masked)).toBeVisible({ timeout: 10_000 });
+    await sheet.getByRole("button", { name: "Reveal" }).click();
+    await expect(sheet.getByText("1234509876")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(sheet).toBeHidden();
+
+    // Account number and PAN stay blank, so the save must carry the stored
+    // ones over from the legacy row.
+    const email = `legacy-${Date.now()}@example.com`;
+    await list.openRowActionAndClick(row, "Edit");
+    const editDialog = page.getByRole("dialog");
+    await expect(
+      editDialog.getByRole("heading", { name: "Edit vendor" })
+    ).toBeVisible();
+    await expect(
+      editDialog.getByRole("textbox", { name: "Account Number" })
+    ).toHaveValue("");
+    await expect(
+      editDialog.getByRole("textbox", { name: "PAN Number" })
+    ).toHaveValue("");
+    await editDialog.getByRole("textbox", { name: "Email" }).fill(email);
+    await clickUntilDialogCloses(editDialog, "Save changes");
+
+    await list.openRowActionAndClick(row, "View");
+    await expect(sheet.getByText(email, { exact: true })).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(sheet.getByText(masked)).toBeVisible();
+    await sheet.getByRole("button", { name: "Reveal" }).click();
+    await expect(sheet.getByText("1234509876")).toBeVisible();
+  });
 });
 
 test.describe("Vendor route access (volunteer)", () => {

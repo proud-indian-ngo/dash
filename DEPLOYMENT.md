@@ -322,7 +322,9 @@ Apply both ordered results migrations (Entry composite uniqueness, then result t
 
 Migration `0116_vendor_parties.sql` turns every vendor into a party (same UUID, kind organisation, `vendor` role) and moves its contact, PAN and bank details out of the replicated `vendor` table into the server-only `private.vendor_legacy_details`, dropping the old columns in the same step so they stop syncing at once. Because columns are dropped, deploy the migration, the regenerated Zero schema and the web build together; old app or Zero workers that still read the dropped columns fail. Until the backfill runs, the app reads the legacy rows as a fallback, so vendor screens and payments keep working.
 
-After the deploy that includes migration 0116, run once with `DATA_ENCRYPTION_KEY` configured:
+`DATA_ENCRYPTION_KEY` is a prerequisite for this deploy, not only for the backfill: creating any vendor stores its bank account number encrypted, and editing a legacy vendor that has a PAN or bank account number migrates them into encrypted columns, so both fail without the key. Set it in the app environment first (see the environment variable table above for how to generate one), then deploy.
+
+The backfill is the second step. After the deploy that includes migrations 0116 and 0117, run once:
 
 ```bash
 bun run vendors:backfill-private

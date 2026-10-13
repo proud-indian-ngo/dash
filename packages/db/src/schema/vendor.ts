@@ -62,9 +62,10 @@ export const vendor = pgTable(
   "vendor",
   {
     createdAt: timestamp("created_at").notNull(),
-    createdBy: text("created_by")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    /** Null once the user who added the vendor is deleted; the vendor stays. */
+    createdBy: text("created_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     gstNumber: text("gst_number"),
     id: uuid("id")
       .primaryKey()

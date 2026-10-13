@@ -303,7 +303,7 @@ export function VendorPaymentDetail({
         <RecordDetailLayout
           aside={
             <>
-              <VendorDetailCards vendor={request.vendor} />
+              <VendorDetailCards isOwner={isOwner} vendor={request.vendor} />
               <HistoryCard entries={request.history} />
             </>
           }

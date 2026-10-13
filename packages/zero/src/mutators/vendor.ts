@@ -29,10 +29,11 @@ export const vendorMutators = {
         updatedAt: Date.now(),
       });
 
-      if (tx.location === "server") {
+      // Nobody to tell once the creator's account has been deleted.
+      const creatorId = vendor.createdBy;
+      if (tx.location === "server" && creatorId) {
         const vendorId = args.id;
         const vendorName = vendor.name;
-        const creatorId = vendor.createdBy as string;
         ctx.asyncTasks?.push({
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
@@ -79,10 +80,11 @@ export const vendorMutators = {
         updatedAt: Date.now(),
       });
 
-      if (tx.location === "server") {
+      // Nobody to tell once the creator's account has been deleted.
+      const creatorId = vendor.createdBy;
+      if (tx.location === "server" && creatorId) {
         const vendorId = args.id;
         const vendorName = vendor.name;
-        const creatorId = vendor.createdBy as string;
         ctx.asyncTasks?.push({
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");

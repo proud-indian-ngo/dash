@@ -44,7 +44,7 @@ export function VendorDetailSheet({
 }: VendorDetailSheetProps) {
   const vendorId = vendor?.id ?? null;
   const { retry, state } = useVendorDetails(vendorId, open, version);
-  const canReveal = useCanRevealVendorBank(vendor?.status ?? null);
+  const canReveal = useCanRevealVendorBank();
 
   if (!vendor) {
     return (
@@ -85,6 +85,11 @@ export function VendorDetailSheet({
                 Try again
               </Button>
             </div>
+          ) : null}
+          {state.kind === "forbidden" ? (
+            <p className="text-muted-foreground text-sm">
+              This vendor's details are not available to you.
+            </p>
           ) : null}
           {state.kind === "ready" ? (
             <>

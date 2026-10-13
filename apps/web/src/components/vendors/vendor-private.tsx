@@ -11,12 +11,15 @@ import {
   revealVendorBankAccount,
   type VendorDetailsResponse,
 } from "@/functions/vendors";
+import { canRevealVendorBank } from "@/lib/vendor-access";
 
 export type VendorDetails = VendorDetailsResponse["details"];
 
 export type VendorDetailsState =
   | { kind: "loading" }
   | { kind: "error" }
+  /** The server refused: this user may not see the vendor's details. */
+  | { kind: "forbidden" }
   | { details: VendorDetails; kind: "ready" };
 
 /**
@@ -55,7 +58,13 @@ export function useVendorDetails(
           component: "useVendorDetails",
         });
         if (!cancelled) {
-          setState({ kind: "error" });
+          // assertServerPermission and the vendor rules throw "Forbidden".
+          setState({
+            kind:
+              error instanceof Error && error.message === "Forbidden"
+                ? "forbidden"
+                : "error",
+          });
         }
       });
     return () => {
@@ -67,16 +76,13 @@ export function useVendorDetails(
 }
 
 /**
- * Finance staff may reveal any vendor's account; whoever records payments may
- * reveal an approved vendor's, since they need it to pay. The server applies
- * the same rule.
+ * Whether to offer Reveal. Mirrors `canRevealVendorBank`, which the server
+ * enforces; `ownsPaymentToVendor` is only known on a payment the current user
+ * raised, so elsewhere record-payment holders do not see the button.
  */
-export function useCanRevealVendorBank(status: string | null): boolean {
-  const { hasPermission } = useApp();
-  return (
-    hasPermission("finance.view_sensitive") ||
-    (status === "approved" && hasPermission("requests.record_payment"))
-  );
+export function useCanRevealVendorBank(ownsPaymentToVendor = false): boolean {
+  const { permissions } = useApp();
+  return canRevealVendorBank(permissions, ownsPaymentToVendor);
 }
 
 export function maskedAccount(last4: string | null): string {

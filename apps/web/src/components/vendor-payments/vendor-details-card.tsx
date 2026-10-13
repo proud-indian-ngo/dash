@@ -15,9 +15,16 @@ import {
  * right-hand column. Name and GSTIN come from the synced row at once; the
  * private details load through the server, with the account number masked.
  */
-export function VendorDetailCards({ vendor }: { vendor: Vendor | undefined }) {
+export function VendorDetailCards({
+  isOwner,
+  vendor,
+}: {
+  /** Whether the current user raised this payment request. */
+  isOwner: boolean;
+  vendor: Vendor | undefined;
+}) {
   const { retry, state } = useVendorDetails(vendor?.id ?? null, !!vendor);
-  const canReveal = useCanRevealVendorBank(vendor?.status ?? null);
+  const canReveal = useCanRevealVendorBank(isOwner);
   if (!vendor) {
     return null;
   }
@@ -40,6 +47,11 @@ export function VendorDetailCards({ vendor }: { vendor: Vendor | undefined }) {
                 Try again
               </Button>
             </span>
+          </DetailsRow>
+        ) : null}
+        {state.kind === "forbidden" ? (
+          <DetailsRow label="Contact">
+            <span className="text-muted-foreground">Not available to you</span>
           </DetailsRow>
         ) : null}
         {details?.phone ? (
