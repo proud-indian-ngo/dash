@@ -15,8 +15,16 @@ import {
   hasEncryptionKey,
   visibleTail,
 } from "../encryption";
+import {
+  PartyConflictError,
+  resolveAssessedOn,
+  resolveSaveMode,
+  resolveSecret,
+} from "../party-save-rules";
 import { party, partyRole } from "../schema/party";
 import { partyPrivate } from "../schema/private/party-private";
+
+export { PartyConflictError };
 
 const idContext = (partyId: string) => `party_private.id_number:${partyId}`;
 
@@ -97,8 +105,10 @@ export interface SavePartyInput {
   country: string;
   displayName: string;
   email: string;
-  /** The private row's updatedAt the editor loaded; a newer row rejects the save. */
-  expectedUpdatedAt?: number;
+  /** The party row's updatedAt the editor loaded; null on create. A newer row rejects the save. */
+  expectedPartyUpdatedAt: number | null;
+  /** The private row's updatedAt the editor loaded; null when it loaded none. */
+  expectedUpdatedAt: number | null;
   foreignSourceAssessment: ForeignSourceAssessment;
   /** Client-generated on create so a retried request is idempotent. */
   id: string;
@@ -115,13 +125,6 @@ export interface SavePartyInput {
   state: string;
 }
 
-export class PartyConflictError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "PartyConflictError";
-  }
-}
-
 /** Calendar day in India, where the trust keeps its books. */
 function istToday(now: Date): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -133,6 +136,8 @@ function istToday(now: Date): string {
 }
 
 export interface SavePartyResult {
+  /** True when this save removed a stored identifier. */
+  clearedIdentifier: boolean;
   created: boolean;
   partyId: string;
   view: PartyPrivateView;
@@ -143,8 +148,10 @@ const nullIfBlank = (value: string): string | null =>
 
 /**
  * Create or update a party, its directory roles and its private details in one
- * transaction, so a failed step never leaves a half-saved donor. Private
- * values never leave this module except through `revealPartyIdNumber`.
+ * transaction, so a failed step never leaves a half-saved donor. The party and
+ * private rows are locked while the version checks run, so two editors cannot
+ * both pass them. Private values never leave this module except through
+ * `revealPartyIdNumber`.
  */
 export async function saveParty(
   input: SavePartyInput,
@@ -159,16 +166,42 @@ export async function saveParty(
       .select()
       .from(party)
       .where(eq(party.id, partyId))
-      .limit(1);
-    if (input.mode === "update" && !existingParty) {
-      throw new Error("Party not found");
+      .limit(1)
+      .for("update");
+    const [existingPrivate] = await tx
+      .select()
+      .from(partyPrivate)
+      .where(eq(partyPrivate.partyId, partyId))
+      .limit(1)
+      .for("update");
+    const mode = resolveSaveMode(
+      {
+        actorId,
+        expectedPartyUpdatedAt: input.expectedPartyUpdatedAt,
+        expectedUpdatedAt: input.expectedUpdatedAt,
+        mode: input.mode,
+      },
+      existingParty ?? null,
+      existingPrivate ?? null
+    );
+    if (mode.kind === "retry") {
+      if (!existingPrivate) {
+        throw new Error("Party details could not be saved");
+      }
+      return {
+        clearedIdentifier: false,
+        created: true,
+        partyId,
+        view: toView(existingPrivate),
+      };
     }
+
     const identity = {
       displayName: input.displayName.trim(),
       kind: input.kind,
       legalName: nullIfBlank(input.legalName),
     };
-    if (existingParty) {
+    if (mode.kind === "update") {
       await tx
         .update(party)
         .set({ ...identity, updatedAt: now })
@@ -213,69 +246,32 @@ export async function saveParty(
       }
     }
 
-    const [existingPrivate] = await tx
-      .select()
-      .from(partyPrivate)
-      .where(eq(partyPrivate.partyId, partyId))
-      .limit(1);
-    if (
-      existingPrivate &&
-      input.expectedUpdatedAt !== undefined &&
-      existingPrivate.updatedAt.getTime() !== input.expectedUpdatedAt
-    ) {
-      throw new PartyConflictError(
-        "Someone else changed this donor while you were editing. Reload and try again."
-      );
-    }
-
-    const idNumber = input.idNumber.trim().toUpperCase();
-    let secret: {
-      idNumberEncrypted: string | null;
-      idNumberLast4: string | null;
-    };
-    if (input.idType === "none") {
-      secret = { idNumberEncrypted: null, idNumberLast4: null };
-    } else if (idNumber) {
+    const secret = resolveSecret(input, existingPrivate ?? null, (plain) => {
       if (!hasEncryptionKey()) {
         throw new Error(
           "Identifiers cannot be stored right now; ask an administrator to configure encryption"
         );
       }
-      secret = {
-        idNumberEncrypted: encryptSecret(idNumber, idContext(partyId)),
-        idNumberLast4: visibleTail(idNumber),
+      return {
+        encrypted: encryptSecret(plain, idContext(partyId)),
+        last4: visibleTail(plain),
       };
-    } else if (
-      existingPrivate?.idNumberEncrypted &&
-      existingPrivate.idType === input.idType
-    ) {
-      secret = {
-        idNumberEncrypted: existingPrivate.idNumberEncrypted,
-        idNumberLast4: existingPrivate.idNumberLast4,
-      };
-    } else {
-      throw new Error("Enter the identifier or set the ID type to none");
-    }
-    // The assessment date records when someone decided domestic or foreign;
-    // "pending" means no decision yet, so it carries no date.
-    const assessmentChanged =
-      existingPrivate?.foreignSourceAssessment !==
-      input.foreignSourceAssessment;
-    let assessedOn: string | null = existingPrivate?.assessedOn ?? null;
-    if (input.foreignSourceAssessment === "pending") {
-      assessedOn = null;
-    } else if (assessmentChanged || !existingPrivate) {
-      assessedOn = today;
-    }
+    });
     const values = {
       addressLine1: nullIfBlank(input.addressLine1),
       addressLine2: nullIfBlank(input.addressLine2),
-      assessedOn,
+      assessedOn: resolveAssessedOn(
+        input.foreignSourceAssessment,
+        existingPrivate ?? null,
+        today
+      ),
       assessmentNote: nullIfBlank(input.assessmentNote),
       city: nullIfBlank(input.city),
       country: input.country.trim().toUpperCase() || "IN",
       email: nullIfBlank(input.email),
       foreignSourceAssessment: input.foreignSourceAssessment,
+      idNumberEncrypted: secret.idNumberEncrypted,
+      idNumberLast4: secret.idNumberLast4,
       idType: input.idType,
       nationality: nullIfBlank(input.nationality),
       phone: nullIfBlank(input.phone),
@@ -284,15 +280,9 @@ export async function saveParty(
     };
     const [row] = await tx
       .insert(partyPrivate)
-      .values({
-        ...values,
-        ...secret,
-        partyId,
-        updatedAt: now,
-        updatedBy: actorId,
-      })
+      .values({ ...values, partyId, updatedAt: now, updatedBy: actorId })
       .onConflictDoUpdate({
-        set: { ...values, ...secret, updatedAt: now, updatedBy: actorId },
+        set: { ...values, updatedAt: now, updatedBy: actorId },
         target: partyPrivate.partyId,
       })
       .returning();
@@ -300,7 +290,8 @@ export async function saveParty(
       throw new Error("Party details could not be saved");
     }
     return {
-      created: !existingParty,
+      clearedIdentifier: secret.cleared,
+      created: mode.kind === "create",
       partyId,
       view: toView(row),
     };

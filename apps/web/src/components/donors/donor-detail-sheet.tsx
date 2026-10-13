@@ -113,10 +113,11 @@ export function DonorDetailSheet({
 
   useEffect(() => {
     if (!(open && partyId)) {
-      setState({ kind: "loading" });
       return;
     }
     let cancelled = false;
+    // Reset on open, not on close, so the sheet does not flash skeletons
+    // during the close animation.
     setState({ kind: "loading" });
     loadDetails({ data: { partyId } })
       .then((response) => {

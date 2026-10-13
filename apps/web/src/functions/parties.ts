@@ -83,7 +83,10 @@ export const saveDonor = createServerFn({ method: "POST" })
       throw new Error("Unauthorized");
     }
     const { session } = context;
-    // Clearing a stored identifier is irreversible, so it gets its own action ID.
+    // Clearing a stored identifier is irreversible, so it gets its own action
+    // ID. The read happens before the audit row is opened, which is safe
+    // because saveParty rejects the save if the private row changed after the
+    // editor loaded it, so the action can never describe a different state.
     const current =
       data.mode === "update" && data.idType === "none"
         ? await getPartyPrivate(data.id)

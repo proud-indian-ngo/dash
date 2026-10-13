@@ -64,12 +64,18 @@ const assessmentOptions = foreignSourceAssessmentValues.map((value) => ({
 /** The form keeps roles as booleans so each is a checkbox; the server gets a list. */
 type DonorFormValues = Omit<
   SaveDonorInput,
-  "expectedUpdatedAt" | "id" | "mode" | "roles"
+  "expectedPartyUpdatedAt" | "expectedUpdatedAt" | "id" | "mode" | "roles"
 > &
   Record<`role_${DirectoryRole}`, boolean>;
 
 const formSchema = donorFieldsSchema
-  .omit({ expectedUpdatedAt: true, id: true, mode: true, roles: true })
+  .omit({
+    expectedPartyUpdatedAt: true,
+    expectedUpdatedAt: true,
+    id: true,
+    mode: true,
+    roles: true,
+  })
   .extend({
     role_donor: z.boolean(),
     role_grantor: z.boolean(),
@@ -155,7 +161,8 @@ function toInput(
   };
   return {
     ...rest,
-    expectedUpdatedAt: details?.updatedAt,
+    expectedPartyUpdatedAt: party?.updatedAt ?? null,
+    expectedUpdatedAt: details?.updatedAt ?? null,
     id: partyId,
     mode: party ? "update" : "create",
     roles: DIRECTORY_ROLES.filter((role) => flags[role]),
@@ -326,10 +333,11 @@ export function DonorFormDialog({
 
   useEffect(() => {
     if (!open) {
-      setState({ kind: "loading" });
       return;
     }
     let cancelled = false;
+    // Reset on open, not on close, so the content does not flash to a
+    // loading state during the close animation.
     setState({ kind: "loading" });
     loadDetails({ data: { partyId } })
       .then((context) => {

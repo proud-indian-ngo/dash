@@ -60,7 +60,6 @@ const SAFE_CHANGED_FIELD_NAMES = new Set([
   "active",
   "cause",
   "code",
-
   "endsOn",
   "fcraRole",
   "financeThresholdPaise",

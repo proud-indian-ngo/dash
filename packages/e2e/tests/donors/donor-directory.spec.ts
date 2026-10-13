@@ -23,6 +23,12 @@ test.describe("Donor directory (admin)", () => {
     await dialog.getByRole("textbox", { name: "City" }).fill("Bengaluru");
     await dialog.getByLabel("ID type").click();
     await page.getByRole("option", { exact: true, name: "PAN" }).click();
+    // A type without a number is refused before anything is sent.
+    await dialog.getByRole("button", { name: "Add donor" }).click();
+    await expect(
+      page.getByText("Enter the ID number or set the ID type to none")
+    ).toBeVisible();
+    await expect(dialog).toBeVisible();
     await dialog.getByRole("textbox", { name: "ID number" }).fill("ABCDE1234F");
     await clickUntilDialogCloses(dialog, "Add donor");
 
@@ -65,6 +71,21 @@ test.describe("Donor directory (admin without finance)", () => {
     await expect(page.getByRole("button", { name: "Add donor" })).toHaveCount(
       0
     );
+
+    // Contact details load for a viewer, but the identifier reveal and the
+    // edit action need the finance permissions this role lacks.
+    const list = new ListPage(page);
+    await page.getByPlaceholder("Search donors...").fill("E2E Seed Donor");
+    const row = page.getByRole("row").filter({ hasText: "E2E Seed Donor" });
+    await expect(row).toBeVisible({ timeout: 10_000 });
+    await list.openRowActionAndClick(row, "View");
+    await expect(page.getByText("seed-donor@pi-dash.test")).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByRole("button", { name: "Reveal" })).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { exact: true, name: "Edit" })
+    ).toHaveCount(0);
   });
 });
 

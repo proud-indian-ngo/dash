@@ -10,6 +10,8 @@ const base = {
   country: "in",
   displayName: "Asha Rao",
   email: "",
+  expectedPartyUpdatedAt: null,
+  expectedUpdatedAt: null,
   foreignSourceAssessment: "domestic" as const,
   id: "01930000-0000-7000-8000-000000000501",
   idNumber: "",

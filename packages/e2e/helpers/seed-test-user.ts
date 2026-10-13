@@ -203,7 +203,7 @@ async function ensureAuditLogEntry(superAdminUserId: string): Promise<void> {
   });
 }
 
-const SEED_DONOR_ID = "e2e00000-0000-0000-0000-000000000701";
+const SEED_DONOR_ID = "01930000-0000-7000-8000-000000000701";
 
 /** A donor with contact details but no identifier, so the seed needs no encryption key. */
 async function ensureDonorParty(userId: string): Promise<void> {
@@ -223,7 +223,7 @@ async function ensureDonorParty(userId: string): Promise<void> {
     .insert(partyRole)
     .values({
       active: true,
-      id: "e2e00000-0000-0000-0000-000000000702",
+      id: "01930000-0000-7000-8000-000000000702",
       partyId: SEED_DONOR_ID,
       role: "donor",
       since: now,
@@ -232,6 +232,7 @@ async function ensureDonorParty(userId: string): Promise<void> {
   await db
     .insert(partyPrivate)
     .values({
+      assessedOn: "2026-04-01",
       city: "Bengaluru",
       email: "seed-donor@pi-dash.test",
       partyId: SEED_DONOR_ID,
