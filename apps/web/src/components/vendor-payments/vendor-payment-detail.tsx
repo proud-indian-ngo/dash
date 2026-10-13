@@ -8,6 +8,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
+import { PAST_APPROVAL_STATUSES } from "@pi-dash/zero/vendor-payment-constants";
 import { useZero } from "@rocicorp/zero/react";
 import { Link } from "@tanstack/react-router";
 import capitalize from "lodash/capitalize";
@@ -303,7 +304,12 @@ export function VendorPaymentDetail({
         <RecordDetailLayout
           aside={
             <>
-              <VendorDetailCards isOwner={isOwner} vendor={request.vendor} />
+              <VendorDetailCards
+                ownsApprovedPayment={
+                  isOwner && PAST_APPROVAL_STATUSES.has(request.status ?? "")
+                }
+                vendor={request.vendor}
+              />
               <HistoryCard entries={request.history} />
             </>
           }

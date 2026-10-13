@@ -9,8 +9,9 @@ import {
   type VendorPrivateView,
 } from "@pi-dash/db/queries/vendor-party";
 import { vendor, vendorPayment } from "@pi-dash/db/schema/vendor";
+import { PAST_APPROVAL_STATUSES } from "@pi-dash/zero/vendor-payment-constants";
 import { createServerFn } from "@tanstack/react-start";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import z from "zod";
 
 import { assertServerPermission } from "@/lib/api-auth";
@@ -45,6 +46,7 @@ async function findVendor(vendorId: string) {
   return row ?? null;
 }
 
+/** Mirrors `paymentAllowsVendorReveal`: an own payment request past approval. */
 async function hasOwnPaymentTo(vendorId: string, userId: string) {
   const [row] = await db
     .select({ id: vendorPayment.id })
@@ -52,7 +54,10 @@ async function hasOwnPaymentTo(vendorId: string, userId: string) {
     .where(
       and(
         eq(vendorPayment.vendorId, vendorId),
-        eq(vendorPayment.userId, userId)
+        eq(vendorPayment.userId, userId),
+        inArray(vendorPayment.status, [
+          ...PAST_APPROVAL_STATUSES,
+        ] as (typeof vendorPayment.status.enumValues)[number][])
       )
     )
     .limit(1);
@@ -95,7 +100,8 @@ export const getVendorDetails = createServerFn({ method: "POST" })
 
 /**
  * The full bank account, for finance staff, approvers and whoever raised a
- * payment request to this vendor. Every reveal is recorded in the audit ledger.
+ * payment request to this vendor that has since been approved. Every reveal is
+ * recorded in the audit ledger.
  */
 export const revealVendorBankAccount = createServerFn({ method: "POST" })
   .middleware([authMiddleware])

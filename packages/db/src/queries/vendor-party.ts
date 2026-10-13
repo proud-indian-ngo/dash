@@ -1,4 +1,4 @@
-import { and, desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq, ne, or } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 import { db } from "..";
@@ -14,6 +14,8 @@ import {
   resolveSaveMode,
   resolveSecret,
 } from "../party-save-rules";
+import { user } from "../schema/auth";
+import { project } from "../schema/finance-dimensions";
 import { party, partyRole } from "../schema/party";
 import {
   partyBankAccount,
@@ -28,19 +30,22 @@ import {
 } from "./party-private";
 
 /*
- * Lock order. Every write path here locks a vendor's rows in this order, so
- * two of them can only queue behind each other, never deadlock:
+ * Lock order. Every writer of a vendor's rows (saveParty in party-private.ts,
+ * saveVendor, deleteVendor, backfillVendorPrivate) first takes
+ * `pg_advisory_xact_lock(hashtext(id))` and then `party FOR UPDATE`. Those two
+ * locks are what serialise them: the advisory lock covers creates, before any
+ * row exists to lock, and whoever holds the party row holds the vendor.
  *
- *   1. `pg_advisory_xact_lock(hashtext(id))` (saves only; serialises two
- *      creates of the same ID, before any row exists to lock)
- *   2. `party`
+ * The order of the later locks is listed for consistency:
+ *
  *   3. `vendor`
  *   4. `vendor_legacy_details`
  *   5. `party_private`
  *   6. `party_bank_account`
  *
- * The donor save in party-private.ts takes the same advisory lock and then
- * `party` first, so it serialises with these too.
+ * saveParty locks `party_private` before it touches the `vendor` row, against
+ * this order. That is safe because it already holds the party lock, so no
+ * other writer can be holding the later rows.
  */
 
 export { PartyConflictError };
@@ -477,10 +482,38 @@ export type DeleteVendorOutcome = "party" | "vendor";
  * active role (a donor who also supplies goods) keeps its party and private
  * rows; only the vendor row, its vendor role and its bank accounts go.
  */
+/**
+ * Projects and logins point at a party with restricting foreign keys; refuse
+ * the delete with a readable message instead of a 23503 from Postgres.
+ */
+async function assertPartyUnreferenced(tx: Tx, partyId: string) {
+  const [projectRef] = await tx
+    .select({ id: project.id })
+    .from(project)
+    .where(
+      or(
+        eq(project.sponsorPartyId, partyId),
+        eq(project.intermediaryPartyId, partyId)
+      )
+    )
+    .limit(1);
+  const [userRef] = await tx
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.partyId, partyId))
+    .limit(1);
+  if (projectRef || userRef) {
+    throw new Error(
+      "This vendor is linked to a project or user; unlink it first"
+    );
+  }
+}
+
 export async function deleteVendor(
   vendorId: string
 ): Promise<DeleteVendorOutcome> {
   return await db.transaction(async (tx) => {
+    await lockPartyId(tx, vendorId);
     await tx
       .select({ id: party.id })
       .from(party)
@@ -504,22 +537,24 @@ export async function deleteVendor(
     if (payment) {
       throw new Error("Cannot delete vendor with existing payment requests");
     }
+    // Any other role, even an inactive one, keeps the party: its history
+    // (a lapsed donor, say) still belongs to that identity.
     const [otherRole] = await tx
       .select({ id: partyRole.id })
       .from(partyRole)
-      .where(
-        and(
-          eq(partyRole.partyId, vendorId),
-          eq(partyRole.active, true),
-          ne(partyRole.role, "vendor")
-        )
-      )
+      .where(and(eq(partyRole.partyId, vendorId), ne(partyRole.role, "vendor")))
       .limit(1);
+    if (!otherRole) {
+      await assertPartyUnreferenced(tx, vendorId);
+    }
 
     await tx
       .delete(vendorLegacyDetails)
       .where(eq(vendorLegacyDetails.vendorId, vendorId));
     await tx.delete(vendor).where(eq(vendor.id, vendorId));
+    // Deleted for the whole party because only vendors store bank accounts
+    // today. Once donors get bank details the rows need a purpose column, and
+    // this delete must be scoped to the vendor's accounts.
     await tx
       .delete(partyBankAccount)
       .where(eq(partyBankAccount.partyId, vendorId));
@@ -560,7 +595,8 @@ export async function backfillVendorPrivate(): Promise<BackfillVendorPrivateResu
   let skipped = 0;
   for (const { vendorId } of rows) {
     const outcome = await db.transaction(async (tx) => {
-      // Same first lock as saveVendor, so the two queue instead of deadlocking.
+      // Same first locks as saveVendor, so the two queue instead of deadlocking.
+      await lockPartyId(tx, vendorId);
       await tx
         .select({ id: party.id })
         .from(party)

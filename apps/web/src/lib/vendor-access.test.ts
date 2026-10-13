@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { canRevealVendorBank, canViewVendorDetails } from "./vendor-access";
+import {
+  canRevealVendorBank,
+  canViewVendorDetails,
+  paymentAllowsVendorReveal,
+} from "./vendor-access";
 
 const CREATOR = "user-creator";
 const OTHER = "user-other";
@@ -85,5 +89,35 @@ describe("canRevealVendorBank", () => {
     expect(
       canRevealVendorBank(["vendors.edit", "vendors.view_all"], false)
     ).toBe(false);
+  });
+});
+
+describe("paymentAllowsVendorReveal", () => {
+  const recorder = ["requests.record_payment"];
+  const reveal = (payment: { status: string; userId: string }) =>
+    canRevealVendorBank(recorder, paymentAllowsVendorReveal(CREATOR, payment));
+
+  it("refuses an own pending payment", () => {
+    expect(reveal({ status: "pending", userId: CREATOR })).toBe(false);
+  });
+
+  it("refuses an own rejected payment", () => {
+    expect(reveal({ status: "rejected", userId: CREATOR })).toBe(false);
+  });
+
+  it("allows an own payment past approval", () => {
+    for (const status of [
+      "approved",
+      "partially_paid",
+      "paid",
+      "invoice_pending",
+      "completed",
+    ]) {
+      expect(reveal({ status, userId: CREATOR })).toBe(true);
+    }
+  });
+
+  it("refuses someone else's approved payment", () => {
+    expect(reveal({ status: "approved", userId: OTHER })).toBe(false);
   });
 });

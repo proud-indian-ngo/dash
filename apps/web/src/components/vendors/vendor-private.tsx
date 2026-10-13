@@ -78,7 +78,8 @@ export function useVendorDetails(
 /**
  * Whether to offer Reveal. Mirrors `canRevealVendorBank`, which the server
  * enforces; `ownsPaymentToVendor` is only known on a payment the current user
- * raised, so elsewhere record-payment holders do not see the button.
+ * raised that is past approval, so elsewhere record-payment holders do not
+ * see the button.
  */
 export function useCanRevealVendorBank(ownsPaymentToVendor = false): boolean {
   const { permissions } = useApp();

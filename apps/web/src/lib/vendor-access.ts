@@ -1,3 +1,5 @@
+import { PAST_APPROVAL_STATUSES } from "@pi-dash/zero/vendor-payment-constants";
+
 /**
  * Who may read a vendor's private details and reveal its bank account. The
  * server functions in `functions/vendors.ts` enforce these rules; the vendor
@@ -37,10 +39,29 @@ export function canViewVendorDetails(
   return row.createdBy !== null && row.createdBy === userId;
 }
 
+export interface VendorPaymentAccessRow {
+  status: string;
+  userId: string;
+}
+
+/**
+ * Whether this payment request lets `userId` reveal the vendor's account: they
+ * raised it and it has been approved. A pending request does not count, so a
+ * throwaway request cannot unlock the account.
+ */
+export function paymentAllowsVendorReveal(
+  userId: string,
+  payment: VendorPaymentAccessRow
+): boolean {
+  return (
+    payment.userId === userId && PAST_APPROVAL_STATUSES.has(payment.status)
+  );
+}
+
 /**
  * The full account number: finance staff and approvers, who pay vendors, and
- * whoever records payments once they have raised a payment request to this
- * vendor themselves.
+ * whoever records payments once a payment request they raised to this vendor
+ * has been approved (see `paymentAllowsVendorReveal`).
  */
 export function canRevealVendorBank(
   permissions: readonly string[],

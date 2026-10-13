@@ -516,6 +516,8 @@ async function ensureR2AuthorizationFixtures(): Promise<void> {
  * A vendor whose details still sit in the pre-party legacy table, as they do
  * in production until the backfill runs. Editing it migrates the row, so once
  * party details exist a later run leaves it alone.
+ * It only exercises the legacy fallback on a fresh database, which run-e2e.sh
+ * guarantees by starting with `down -v`.
  */
 async function ensureLegacyVendor(userId: string): Promise<void> {
   await ensureVendor({

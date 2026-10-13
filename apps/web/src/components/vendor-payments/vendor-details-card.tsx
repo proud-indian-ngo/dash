@@ -16,15 +16,15 @@ import {
  * private details load through the server, with the account number masked.
  */
 export function VendorDetailCards({
-  isOwner,
+  ownsApprovedPayment,
   vendor,
 }: {
-  /** Whether the current user raised this payment request. */
-  isOwner: boolean;
+  /** Whether the current user raised this payment request and it is past approval. */
+  ownsApprovedPayment: boolean;
   vendor: Vendor | undefined;
 }) {
   const { retry, state } = useVendorDetails(vendor?.id ?? null, !!vendor);
-  const canReveal = useCanRevealVendorBank(isOwner);
+  const canReveal = useCanRevealVendorBank(ownsApprovedPayment);
   if (!vendor) {
     return null;
   }
