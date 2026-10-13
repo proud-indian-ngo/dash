@@ -79,11 +79,39 @@ function buildEventEditInitialValues(
 }
 
 /**
+ * Whether `editScope` would save to a series parent that has not loaded yet:
+ * the form would otherwise overwrite the series with the occurrence's values.
+ */
+export function isSeriesScopeUnavailable(
+  viewed: Pick<TeamEvent, "seriesId">,
+  seriesParent: unknown,
+  editScope: EditScope | null
+) {
+  return (
+    !!viewed.seriesId &&
+    !seriesParent &&
+    (editScope === "following" || editScope === "all")
+  );
+}
+
+/**
  * Edit form values for `viewed` (an event, a series parent, an edited
  * occurrence or a virtual one) in `editScope`. Pass the series parent as
- * `seriesParent` when `viewed` is an occurrence.
+ * `seriesParent` when `viewed` is an occurrence. Returns null for a series
+ * scope on an edited occurrence whose series parent has not loaded.
  */
 export function buildScopedEditInitialValues(
+  viewed: PrefillEvent,
+  seriesParent: PrefillEvent | undefined,
+  editScope: EditScope | null
+) {
+  if (isSeriesScopeUnavailable(viewed, seriesParent, editScope)) {
+    return null;
+  }
+  return buildLoadedScopedEditInitialValues(viewed, seriesParent, editScope);
+}
+
+function buildLoadedScopedEditInitialValues(
   viewed: PrefillEvent,
   seriesParent: PrefillEvent | undefined,
   editScope: EditScope | null
@@ -165,15 +193,19 @@ export function buildRowEditInitialValues(
   row: EventDisplayRow,
   editScope: EditScope | null
 ) {
-  return {
-    ...buildScopedEditInitialValues(
+  const values = {
+    // A row always carries its series parent.
+    ...buildLoadedScopedEditInitialValues(
       row.exception ?? row.event,
       row.exception ? row.event : undefined,
       editScope
     ),
-    endTime: row.endTime,
     id: row.eventId,
     seriesId: row.seriesId,
-    startTime: row.startTime,
   };
+  // "all" saves the series parent's times, so keep them: the row's would
+  // move the series start to this occurrence.
+  return editScope === "all"
+    ? values
+    : { ...values, endTime: row.endTime, startTime: row.startTime };
 }

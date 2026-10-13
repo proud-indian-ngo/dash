@@ -231,4 +231,67 @@ test.describe("Team events programme (admin)", () => {
     await editDialog.getByRole("button", { name: "Cancel" }).click();
     await expect(editDialog).toBeHidden();
   });
+
+  test("editing all events from a later occurrence keeps the series start", async ({
+    page,
+  }) => {
+    test.slow();
+    await openSeededTeam(page, SANDBOX_TEAM);
+    const eventName = `E2E Series Start ${Date.now()}`;
+    const description = `E2E series description ${Date.now()}`;
+
+    await page.getByRole("button", { name: "Create event" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog
+      .getByRole("textbox", { exact: true, name: "Name" })
+      .fill(eventName);
+    await pickDate(dialog, "Start time", new Date(Date.now() + 86_400_000));
+    await openAdvancedSettings(dialog);
+    await dialog.getByText("None (one-time)").click();
+    await page.getByRole("option", { name: "Weekly" }).click();
+    await dialog
+      .getByRole("button", { exact: true, name: "Create event" })
+      .click();
+    await expect(dialog).toBeHidden({ timeout: 10_000 });
+    await waitForToastsToClear(page);
+
+    const table = page.getByRole("table");
+    const seriesRows = table.getByRole("row").filter({ hasText: eventName });
+    await fillTableSearch(page, "Search events...", eventName);
+    await expect(seriesRows.nth(2)).toBeVisible({ timeout: 10_000 });
+    const rowCount = await seriesRows.count();
+    // The first row is the series start: its date and time.
+    const firstRowText = (await seriesRows.first().textContent()) ?? "";
+    const laterRowText = (await seriesRows.nth(2).textContent()) ?? "";
+    expect(firstRowText).not.toBe(laterRowText);
+
+    // Edit the whole series from a later occurrence, changing only the
+    // description.
+    await new ListPage(page).openRowActionAndClick(seriesRows.nth(2), "Edit");
+    await page
+      .getByRole("button", { name: "All events in the series" })
+      .click();
+    const editDialog = page.getByRole("dialog");
+    await expect(
+      editDialog.getByRole("heading", { name: "Edit Event" })
+    ).toBeVisible();
+    await editDialog.getByLabel("Description").fill(description);
+    await editDialog.getByRole("button", { name: "Save changes" }).click();
+    await expect(editDialog).toBeHidden({ timeout: 10_000 });
+    await waitForToastsToClear(page);
+
+    // The series still starts on its first date at its time.
+    await expect(seriesRows).toHaveCount(rowCount);
+    await expect(seriesRows.first()).toHaveText(firstRowText);
+    await expect(seriesRows.nth(2)).toHaveText(laterRowText);
+
+    // And the description saved to the series.
+    await new ListPage(page).openRowActionAndClick(seriesRows.first(), "Edit");
+    await page
+      .getByRole("button", { name: "All events in the series" })
+      .click();
+    await expect(editDialog.getByLabel("Description")).toHaveValue(description);
+    await editDialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(editDialog).toBeHidden();
+  });
 });

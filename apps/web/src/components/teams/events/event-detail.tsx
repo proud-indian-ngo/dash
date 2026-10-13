@@ -78,6 +78,7 @@ import {
   buildEventDuplicateInitialValues,
   buildScopedEditInitialValues,
   deriveSocialFacts,
+  isSeriesScopeUnavailable,
 } from "./event-form-initial-values";
 import {
   PastInterestBadge,
@@ -109,6 +110,8 @@ import { InterestRequests, type InterestWithUser } from "./interest-requests";
 import { ShowInterestDialog } from "./show-interest-dialog";
 
 const TRAILING_SLASH = /\/$/;
+
+const SERIES_SCOPES: EditScope[] = ["following", "all"];
 
 function buildCancelMutation(
   zero: ReturnType<typeof useZero>,
@@ -997,6 +1000,17 @@ export function EventDetail({
   const { feedbackDeadlinePassed, presentCount } = deriveEventMetrics(event);
 
   const socialFacts = deriveSocialFacts(event, parentEvent);
+  // The series scopes save to the series parent, which loads separately.
+  const seriesScopesLoading = isSeriesScopeUnavailable(
+    event,
+    parentEvent,
+    "all"
+  );
+  const editInitialValues = buildScopedEditInitialValues(
+    event,
+    parentEvent,
+    editScope
+  );
   const socialRecapMode = deriveSocialRecapMode({
     canManageAttendance,
     // teamEvent.materialize requires events.edit or team lead.
@@ -1251,6 +1265,7 @@ export function EventDetail({
       </div>
 
       <EditScopeDialog
+        disabledScopes={seriesScopesLoading ? SERIES_SCOPES : undefined}
         onOpenChange={setEditScopeDialogOpen}
         onSelect={handleEditScopeSelect}
         open={editScopeDialogOpen}
@@ -1266,14 +1281,10 @@ export function EventDetail({
 
       <EventFormDialog
         editScope={editScope ?? undefined}
-        initialValues={buildScopedEditInitialValues(
-          event,
-          parentEvent,
-          editScope
-        )}
+        initialValues={editInitialValues ?? undefined}
         kalakritiEditionId={kalakritiEditionId}
         onOpenChange={stableOnOpenChange6}
-        open={dialog.isOpen("edit")}
+        open={dialog.isOpen("edit") && editInitialValues !== null}
         originalDate={scopeOccDate ?? undefined}
         teamId={event.teamId}
         teamProgrammeId={team?.programmeId}

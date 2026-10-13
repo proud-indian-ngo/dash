@@ -187,7 +187,7 @@ describe("buildRowEditInitialValues", () => {
       exceptionRow.event,
       "this"
     );
-    expect(teamPage).toEqual(eventPage);
+    expect(eventPage).toEqual(teamPage);
   });
 
   it.each(["following", "all"] as const)(
@@ -206,12 +206,28 @@ describe("buildRowEditInitialValues", () => {
         publicArea: "Indiranagar",
         recurrenceRule: { rrule: "FREQ=WEEKLY;BYDAY=SA;COUNT=3" },
         seriesId: "series-1",
-        startTime: OCC_START,
+        startTime: scope === "all" ? SERIES_START : OCC_START,
         volunteersNeeded: 6,
       });
       expect(values.partners.map((p) => p.name)).toEqual(["Series partner"]);
     }
   );
+
+  it('keeps the series\' times for "all" so the series start does not move', () => {
+    const { exceptionRow, virtualRow } = rowsFor();
+    for (const row of [exceptionRow, virtualRow]) {
+      const values = buildRowEditInitialValues(row, "all");
+      expect(values.startTime).toBe(SERIES_START);
+      expect(values.endTime).toBe(SERIES_START + 2 * HOUR);
+    }
+  });
+
+  it('starts a "following" split at the row\'s occurrence', () => {
+    const { virtualRow } = rowsFor();
+    const values = buildRowEditInitialValues(virtualRow, "following");
+    expect(values.startTime).toBe(virtualRow.startTime);
+    expect(values.endTime).toBe(virtualRow.endTime);
+  });
 
   it("prefills a virtual occurrence from its series at the occurrence's time", () => {
     const { virtualRow } = rowsFor();
@@ -270,7 +286,7 @@ describe("buildScopedEditInitialValues", () => {
         recurrenceRule: { rrule: "FREQ=WEEKLY;BYDAY=SA;COUNT=3" },
         volunteersNeeded: 6,
       });
-      expect(values.partners.map((p) => p.name)).toEqual(["Series partner"]);
+      expect(values?.partners.map((p) => p.name)).toEqual(["Series partner"]);
     }
   );
 
@@ -281,8 +297,32 @@ describe("buildScopedEditInitialValues", () => {
       exceptionRow.event,
       "following"
     );
-    expect(values.startTime).toBe(OCC_START);
-    expect(values.endTime).toBe(OCC_START + 3 * HOUR);
+    expect(values?.startTime).toBe(OCC_START);
+    expect(values?.endTime).toBe(OCC_START + 3 * HOUR);
+  });
+
+  it.each(["following", "all"] as const)(
+    'refuses "%s" from an edited occurrence whose series has not loaded',
+    (scope) => {
+      const { exceptionRow } = rowsFor();
+      expect(
+        buildScopedEditInitialValues(
+          exceptionRow.exception as ExceptionRow,
+          undefined,
+          scope
+        )
+      ).toBeNull();
+    }
+  );
+
+  it('prefills "this" from an edited occurrence before its series loads', () => {
+    const { exceptionRow } = rowsFor();
+    const values = buildScopedEditInitialValues(
+      exceptionRow.exception as ExceptionRow,
+      undefined,
+      "this"
+    );
+    expect(values?.name).toBe("Renamed session");
   });
 
   it('keeps the series\' times for "all"', () => {
@@ -292,8 +332,8 @@ describe("buildScopedEditInitialValues", () => {
       exceptionRow.event,
       "all"
     );
-    expect(values.startTime).toBe(SERIES_START);
-    expect(values.endTime).toBe(SERIES_START + 2 * HOUR);
+    expect(values?.startTime).toBe(SERIES_START);
+    expect(values?.endTime).toBe(SERIES_START + 2 * HOUR);
   });
 });
 
