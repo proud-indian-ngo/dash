@@ -47,6 +47,15 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     { expireInSeconds: 3600, retryLimit: 2, tz: IST_TIMEZONE }
   );
 
+  // Monthly on 1st at 5:00 AM IST — make sure the current and next fiscal
+  // year exist with their periods (the January run creates next April's year)
+  await boss.schedule(
+    "ensure-fiscal-years",
+    "0 5 1 * *",
+    {},
+    { expireInSeconds: 600, retryLimit: 2, tz: IST_TIMEZONE }
+  );
+
   // Monthly on 1st at 3:00 AM IST — clean up stale scheduled message recipients
   await boss.schedule(
     "cleanup-stale-scheduled-recipients",
