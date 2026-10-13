@@ -2,8 +2,10 @@ import { PencilEdit01Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
+  PROGRAMME_IDS,
   type ProjectKind,
   projectKindValues,
   type ProjectStatus,
@@ -30,6 +32,7 @@ import {
   SettingsListItem,
 } from "@/components/settings/settings-ui";
 import { DATE } from "@/lib/date-formats";
+import { epochToLocalDate, localDateToIso } from "@/lib/local-date";
 import {
   formatPaise,
   isValidRupeesInput,
@@ -88,19 +91,27 @@ const projectSchema = z
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
 
-/** Zero holds `date` columns as UTC-midnight epochs; show them as local calendar days. */
-function epochToLocalDate(value: number | null | undefined): Date | undefined {
-  if (value === null || value === undefined) {
-    return undefined;
-  }
-  const iso = new Date(value).toISOString().slice(0, 10);
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y as number, (m as number) - 1, d as number);
-}
+/** Projects run years ahead; the pickers default to the current month otherwise. */
+const FAR_FUTURE_MONTH = new Date(new Date().getFullYear() + 10, 11, 1);
 
-function dateToIso(value: Date | undefined): string | null {
-  return value ? format(value, "yyyy-MM-dd") : null;
-}
+/** Field-level so the message shows even while other fields are still invalid. */
+const endsOnValidators = {
+  onChange: ({
+    fieldApi,
+    value,
+  }: {
+    fieldApi: {
+      form: { getFieldValue: (name: "startsOn") => Date | undefined };
+    };
+    value: Date | undefined;
+  }) => {
+    const startsOn = fieldApi.form.getFieldValue("startsOn");
+    return value && startsOn && value < startsOn
+      ? "End date must be on or after the start date"
+      : undefined;
+  },
+  onChangeListenTo: ["startsOn"],
+};
 
 function ProjectForm({
   initialValues,
@@ -151,15 +162,28 @@ function ProjectForm({
             name="status"
             options={statusOptions}
           />
-          <DateField label="Starts on" name="startsOn" />
-          <DateField label="Ends on" name="endsOn" />
+          <DateField
+            endMonth={FAR_FUTURE_MONTH}
+            label="Starts on"
+            name="startsOn"
+          />
+          <DateField
+            endMonth={FAR_FUTURE_MONTH}
+            label="Ends on"
+            name="endsOn"
+            validators={endsOnValidators as never}
+          />
           <InputField
             description="For engagements: the amount quoted to the sponsor."
             inputMode="decimal"
             label="Quoted budget (₹)"
             name="quotedBudget"
           />
-          <DateField label="Report due on" name="reportDueOn" />
+          <DateField
+            endMonth={FAR_FUTURE_MONTH}
+            label="Report due on"
+            name="reportDueOn"
+          />
         </div>
         <TextareaField label="Description" name="description" />
         <FormActions
@@ -255,27 +279,31 @@ function toFormValues(project: Project): ProjectFormValues {
 
 export function ProjectsSection() {
   const zero = useZero();
-  const [projects] = useQuery(queries.project.all());
-  const [programmes] = useQuery(queries.programme.all());
+  const [projects, projectsResult] = useQuery(queries.project.all());
+  const [programmes, programmesResult] = useQuery(queries.programme.all());
   const [inlineMode, setInlineMode] = useState<InlineMode>(null);
 
   const projectList = projects ?? [];
+  const isLoading =
+    projectList.length === 0 && projectsResult.type !== "complete";
+  const programmesLoaded = programmesResult.type === "complete";
   const programmeNames = new Map((programmes ?? []).map((p) => [p.id, p.name]));
+  // New projects need a real cause; the Unallocated holder is for legacy records only.
   const programmeOptions = (programmes ?? [])
-    .filter((p) => p.active)
+    .filter((p) => p.active && p.id !== PROGRAMME_IDS.unallocated)
     .map((p) => ({ label: p.name, value: p.id }));
 
   const toMutatorArgs = (id: string, values: ProjectFormValues) => ({
     code: values.code.toUpperCase(),
     description: values.description?.trim() || null,
-    endsOn: dateToIso(values.endsOn),
+    endsOn: localDateToIso(values.endsOn),
     id,
     kind: values.kind,
     name: values.name,
     programmeId: values.programmeId,
     quotedBudgetPaise: rupeesToPaise(values.quotedBudget),
-    reportDueOn: dateToIso(values.reportDueOn),
-    startsOn: dateToIso(values.startsOn),
+    reportDueOn: localDateToIso(values.reportDueOn),
+    startsOn: localDateToIso(values.startsOn),
     status: values.status,
   });
 
@@ -319,6 +347,15 @@ export function ProjectsSection() {
     setInlineMode({ kind: "edit", project })
   );
 
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-3 rounded-lg border px-4 py-3">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-4 w-72" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <SettingsCard
@@ -350,7 +387,7 @@ export function ProjectsSection() {
                 description: "",
                 kind: "other",
                 name: "",
-                programmeId: programmeOptions[0]?.value ?? "",
+                programmeId: "",
                 quotedBudget: "",
                 status: "active",
               }}
@@ -376,7 +413,9 @@ export function ProjectsSection() {
                     : [
                         ...programmeOptions,
                         {
-                          label: `${programmeNames.get(project.programmeId) ?? "Current programme"} (inactive)`,
+                          label: programmesLoaded
+                            ? `${programmeNames.get(project.programmeId) ?? "Current programme"} (inactive)`
+                            : "Current programme",
                           value: project.programmeId,
                         },
                       ]

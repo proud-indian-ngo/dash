@@ -154,7 +154,7 @@ All paths are relative to project root.
 | `routes/_app/settings/route.tsx` | Settings layout: nav grouped into You and Organization (`components/settings/settings-layout.tsx`), driven by `lib/settings-sections.ts` |
 | `routes/_app/settings/index.tsx` | Redirects to `/settings/profile` |
 | `routes/_app/settings/{profile,account,notifications,bank-accounts}.tsx` | Personal settings pages |
-| `routes/_app/settings/{general,programmes,projects,expense-categories,whatsapp-groups,api-tokens,maintenance}.tsx` | Organization settings pages, each guarded by its permission in `beforeLoad`; Programmes (`finance.manage`) edits cause-based programmes, their leads and finance-approval thresholds |
+| `routes/_app/settings/{general,programmes,projects,expense-categories,whatsapp-groups,api-tokens,maintenance}.tsx` | Organization settings pages, each guarded by its permission in `beforeLoad`; Programmes (`finance.manage`) edits cause-based programmes, their leads and finance-approval thresholds; Projects (`finance.manage`) edits time-boxed projects under a programme |
 | `routes/_app/settings/roles/route.tsx` | Roles layout |
 | `routes/_app/settings/roles/index.tsx` | Roles list |
 | `routes/_app/settings/roles/$roleId.tsx` | Role detail (permissions) |

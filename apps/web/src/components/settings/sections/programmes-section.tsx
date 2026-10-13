@@ -59,7 +59,7 @@ const programmeSchema = z.object({
 type ProgrammeFormValues = z.infer<typeof programmeSchema>;
 
 const thresholdSchema = z.object({
-  threshold: rupees.refine((v) => v !== "", "Enter an amount"),
+  threshold: rupees.refine((v) => v.trim() !== "", "Enter an amount"),
 });
 
 function ProgrammeForm({

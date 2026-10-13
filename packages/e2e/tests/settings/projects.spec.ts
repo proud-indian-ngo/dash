@@ -1,4 +1,5 @@
 import { expect, test } from "../../fixtures/test";
+import { pickDate } from "../../helpers/date-time-picker";
 import { openSettingsPage } from "../../helpers/settings";
 
 test.describe("Projects settings (admin)", () => {
@@ -14,13 +15,21 @@ test.describe("Projects settings (admin)", () => {
 
     await main.getByRole("button", { name: "Add project" }).click();
     await expect(main.getByText("New project")).toBeVisible();
-    await main.getByLabel("Name").fill(name);
-    await main.getByLabel("Code").fill(`P${String(stamp).slice(-6)}`);
+    await main.getByRole("textbox", { exact: true, name: "Name" }).fill(name);
+    await main
+      .getByRole("textbox", { exact: true, name: "Code" })
+      .fill(`P${String(stamp).slice(-6)}`);
     await main.getByLabel("Programme").click();
-    await page.getByRole("option", { name: "Education" }).click();
+    await page.getByRole("option", { exact: true, name: "Education" }).click();
     await main.getByLabel("Kind").click();
-    await page.getByRole("option", { name: "Class" }).click();
-    await main.getByLabel("Quoted budget (₹)").fill("15000");
+    await page.getByRole("option", { exact: true, name: "Class" }).click();
+    // A future month proves the picker is not capped at the current month.
+    const nextYear = new Date();
+    nextYear.setFullYear(nextYear.getFullYear() + 1, 2, 15);
+    await pickDate(main, "Ends on", nextYear);
+    await main
+      .getByRole("textbox", { exact: true, name: "Quoted budget (₹)" })
+      .fill("15000");
     await main.getByRole("button", { name: "Save" }).click();
 
     await expect(page.getByText("Project created")).toBeVisible();
@@ -30,10 +39,17 @@ test.describe("Projects settings (admin)", () => {
     await expect(row).toBeVisible({ timeout: 10_000 });
     await expect(row).toContainText("Education");
     await expect(row).toContainText("₹15,000");
+    await expect(row).toContainText(`${nextYear.getFullYear()}`);
 
     await row.getByRole("button", { name: `Edit ${name}` }).click();
-    await expect(main.getByLabel("Name")).toHaveValue(name, { timeout: 5000 });
-    await main.getByLabel("Name").fill(`${name} Edited`);
+    await expect(
+      main.getByRole("textbox", { exact: true, name: "Name" })
+    ).toHaveValue(name, {
+      timeout: 5000,
+    });
+    await main
+      .getByRole("textbox", { exact: true, name: "Name" })
+      .fill(`${name} Edited`);
     await main.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Project updated")).toBeVisible();
     await expect(main.getByText(`${name} Edited`)).toBeVisible({
