@@ -23,12 +23,16 @@ import {
   resolveImportSettings,
   setImportRowOutcome,
   setImportRowsRetention,
+  startDecidedRowsRetention,
   type StoredIdentity,
   updateImportBatch,
   withImportTransaction,
 } from "@pi-dash/db/queries/income-import";
 import { savePartyInTransaction } from "@pi-dash/db/queries/party-private";
-import { markImportRowWaiting } from "@pi-dash/db/queries/razorpay-import";
+import {
+  findClearingAccount,
+  markImportRowWaiting,
+} from "@pi-dash/db/queries/razorpay-import";
 import type {
   ContributionChannel,
   ImportBatchSource,
@@ -889,6 +893,15 @@ async function executePlans(
       result[plan.action === "error" ? "errors" : "conflicts"] += 1;
       continue;
     }
+    if (
+      plan.action === "skip" &&
+      plan.reason === "undecided" &&
+      ctx.batch.source === "razorpay_api"
+    ) {
+      // A payment left undecided keeps waiting, with its values, for review.
+      await markImportRowWaiting(ctx.tx, row.rowId, "needs_review");
+      continue;
+    }
     if (plan.action === "skip") {
       await setImportRowOutcome(ctx.tx, row.rowId, {
         ...decided,
@@ -1024,6 +1037,7 @@ async function executePlans(
 /** What happened to one staged row of an API batch. */
 export type StagedRowResult =
   | ReviewCategory
+  | "clearing_account_inactive"
   | "no_clearing_account"
   | "already_decided";
 
@@ -1032,7 +1046,9 @@ export type StagedRowResult =
  * import transaction. Rows that need no decision (a known donor by PAN, or
  * a new donor) import at once; rows that need a reviewer stay pending with
  * reason `needs_review`, conflicts and errors are recorded, and without a
- * clearing account every row waits. The batch's counters are refreshed.
+ * clearing account, or when the batch's account has since been deactivated,
+ * every row waits. Rows that reached an outcome start their retention, and
+ * the batch's counters are refreshed.
  */
 export async function importStagedRows(
   tx: ImportTx,
@@ -1050,10 +1066,16 @@ export async function importStagedRows(
     results.set(id, "already_decided");
   }
   let newDonors = 0;
-  if (!(batch.orgAccountId && settings)) {
+  const account = batch.orgAccountId
+    ? await findClearingAccount(batch.orgAccountId, tx)
+    : null;
+  if (!(batch.orgAccountId && settings && account)) {
+    const reason = batch.orgAccountId
+      ? "clearing_account_inactive"
+      : "no_clearing_account";
     for (const record of waiting) {
-      await markImportRowWaiting(tx, record.id, "no_clearing_account");
-      results.set(record.id, "no_clearing_account");
+      await markImportRowWaiting(tx, record.id, reason);
+      results.set(record.id, reason);
     }
   } else if (waiting.length > 0) {
     const classification = await classifyBatch(
@@ -1090,6 +1112,11 @@ export async function importStagedRows(
     );
     newDonors = result.newDonors;
   }
+  await startDecidedRowsRetention(
+    tx,
+    batch.id,
+    importedRowRetention(todayInKolkata(now))
+  );
   const counts = await countImportBatchRows(tx, batch.id);
   await updateImportBatch(
     batch.id,

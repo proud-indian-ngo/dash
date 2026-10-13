@@ -8,7 +8,12 @@ import type { ImportFieldKey } from "@/lib/income-import/fields";
 import { keyedHash } from "@/lib/income-import/identity";
 import type { CellIssue, NormalizeResult } from "@/lib/income-import/normalize";
 
-import { type NotesField, type NotesKeys, notesKey } from "./notes-keys";
+import {
+  DEFAULT_NOTES_KEYS,
+  type NotesField,
+  type NotesKeys,
+  notesKey,
+} from "./notes-keys";
 
 /**
  * Server-only (node:crypto). A Razorpay payment as pi-dash stores and reads
@@ -65,13 +70,22 @@ const FLAT_FIELDS = [
 ] as const satisfies readonly (keyof RazorpayPayment)[];
 
 const NOTES_PREFIX = "notes.";
+/** At most this many notes are kept from one payment. */
+export const MAX_STORED_NOTES = 20;
+/** A kept note's value is cut to this many characters. */
+export const MAX_NOTE_VALUE_LENGTH = 500;
 
 /**
- * The payment as an import row: allow-listed fields and every note, as
- * strings under dot keys. Card, bank and VPA details are never kept.
+ * The payment as an import row: allow-listed fields as strings under their
+ * names, and only the notes whose key is one the settings or the defaults
+ * read (compared as `notesKey` does), at most 20, each cut to 500
+ * characters. Other notes, and card, bank and VPA details, are never kept,
+ * so a key added to the settings later cannot be read from payments staged
+ * before it: data minimisation wins over re-reading old payments.
  */
 export function flattenPayment(
-  payment: RazorpayPayment
+  payment: RazorpayPayment,
+  keys: NotesKeys
 ): Record<string, string> {
   const raw: Record<string, string> = {};
   for (const field of FLAT_FIELDS) {
@@ -81,10 +95,29 @@ export function flattenPayment(
     }
   }
   if (payment.notes && !Array.isArray(payment.notes)) {
+    const wanted = new Set(
+      [...Object.values(keys), ...Object.values(DEFAULT_NOTES_KEYS)]
+        .flat()
+        .map(notesKey)
+    );
+    let kept = 0;
     for (const [key, value] of Object.entries(payment.notes)) {
-      if (value !== null && value !== undefined && String(value) !== "") {
-        raw[`${NOTES_PREFIX}${key}`] = String(value);
+      if (kept >= MAX_STORED_NOTES) {
+        break;
       }
+      if (
+        value === null ||
+        value === undefined ||
+        String(value) === "" ||
+        !wanted.has(notesKey(key))
+      ) {
+        continue;
+      }
+      raw[`${NOTES_PREFIX}${key}`] = String(value).slice(
+        0,
+        MAX_NOTE_VALUE_LENGTH
+      );
+      kept += 1;
     }
   }
   return raw;

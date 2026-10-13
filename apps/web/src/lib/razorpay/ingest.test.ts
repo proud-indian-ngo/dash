@@ -29,6 +29,12 @@ function deps(found: RazorpayPayment | null = PAYMENT) {
   return {
     calls,
     deps: {
+      fail: mock(
+        async (id: string, day: string, mode: string, reason: string) => {
+          calls.push(`fail:${id}:${day}:${mode}:${reason}`);
+          return true;
+        }
+      ),
       fetchPayment: mock(async () => {
         calls.push("fetch");
         return found;
@@ -79,17 +85,71 @@ describe("syncRazorpayPayment", () => {
     ]);
   });
 
-  it("records nothing for a payment the API does not know or that is not captured", async () => {
+  it("records a payment the API does not know, or that is not captured, as an error on its row", async () => {
     const key = { id: "rzp_test_x", secret: "k" };
     const missing = deps(null);
     expect(await syncRazorpayPayment(INPUT, enabled(key), missing.deps)).toBe(
       "not_found"
     );
-    expect(missing.calls).toEqual(["fetch"]);
+    expect(missing.calls).toEqual([
+      "fetch",
+      "fail:pay_Test0001:2026-10-12:test:not_found",
+    ]);
     const refunded = deps({ ...PAYMENT, status: "refunded" });
-    expect(await syncRazorpayPayment(INPUT, enabled(key), refunded.deps)).toBe(
-      "not_captured"
-    );
-    expect(refunded.calls).toEqual(["fetch"]);
+    const statuses: string[] = [];
+    expect(
+      await syncRazorpayPayment(
+        INPUT,
+        enabled(key),
+        refunded.deps,
+        (status) => {
+          statuses.push(status);
+        }
+      )
+    ).toBe("not_captured");
+    // The row is looked up on the payment's own India day.
+    expect(refunded.calls).toEqual([
+      "fetch",
+      "fail:pay_Test0001:2026-10-13:test:not_captured",
+    ]);
+    expect(statuses).toEqual(["refunded"]);
+  });
+
+  it("refuses everything with a test key on a production server", async () => {
+    const { calls, deps: d } = deps();
+    expect(
+      await syncRazorpayPayment(
+        INPUT,
+        {
+          ...enabled({ id: "rzp_test_x", secret: "k" }),
+          testInProduction: true,
+        },
+        d
+      )
+    ).toBe("test_mode_refused");
+    expect(calls).toEqual([]);
+  });
+
+  it("fetches by ID alone when the webhook could not read the payment", async () => {
+    const key = { id: "rzp_test_x", secret: "k" };
+    const { calls, deps: d } = deps();
+    expect(
+      await syncRazorpayPayment({ paymentId: "pay_Test0001" }, enabled(key), d)
+    ).toBe("ready");
+    expect(calls).toEqual([
+      "fetch",
+      "stage",
+      "process:pay_Test0001:2026-10-13:test",
+    ]);
+    // Without a key there is nothing to fetch and nothing staged.
+    const keyless = deps();
+    expect(
+      await syncRazorpayPayment(
+        { paymentId: "pay_Test0001" },
+        enabled(null),
+        keyless.deps
+      )
+    ).toBe("not_staged");
+    expect(keyless.calls).toEqual([]);
   });
 });

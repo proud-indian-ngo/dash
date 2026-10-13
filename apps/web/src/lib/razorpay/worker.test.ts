@@ -24,9 +24,9 @@ describe("handleRazorpaySyncPayment", () => {
       sync
     );
     expect(result).toEqual({ outcomes: ["ready", "ready"] });
-    expect(sync.mock.calls).toEqual([
-      [{ day: "2026-10-12", paymentId: "pay_A" }],
-      [{ day: "2026-10-12", paymentId: "pay_B" }],
+    expect(sync.mock.calls.map(([input]) => input)).toEqual([
+      { day: "2026-10-12", paymentId: "pay_A" },
+      { day: "2026-10-12", paymentId: "pay_B" },
     ]);
   });
 
@@ -34,12 +34,34 @@ describe("handleRazorpaySyncPayment", () => {
     const sync = mock(async (_input: unknown): Promise<"ready"> => {
       throw new Error('Failed query params: {"email":"asha@example.test"}');
     });
-    const failure = await handleRazorpaySyncPayment([job("pay_A")], sync).catch(
-      (error: unknown) => error
-    );
+    const giveUp = mock(async () => true);
+    const failure = await handleRazorpaySyncPayment(
+      [{ ...job("pay_A"), retryCount: 1, retryLimit: 3 }],
+      sync,
+      giveUp
+    ).catch((error: unknown) => error);
     expect(failure).toBeInstanceOf(Error);
     expect((failure as Error).message).toBe(
       "razorpay_payment_sync_failed: Error"
     );
+    // Retries are left: the row stays queued.
+    expect(giveUp).not.toHaveBeenCalled();
+  });
+
+  it("marks the payment sync_failed when the last retry fails", async () => {
+    const sync = mock(async (_input: unknown): Promise<"ready"> => {
+      throw new Error("Razorpay API answered 503");
+    });
+    const giveUp = mock(async (_input: unknown) => true);
+    await expect(
+      handleRazorpaySyncPayment(
+        [{ ...job("pay_A"), retryCount: 3, retryLimit: 3 }],
+        sync,
+        giveUp
+      )
+    ).rejects.toThrow("razorpay_payment_sync_failed");
+    expect(giveUp.mock.calls).toEqual([
+      [{ day: "2026-10-12", paymentId: "pay_A" }],
+    ]);
   });
 });

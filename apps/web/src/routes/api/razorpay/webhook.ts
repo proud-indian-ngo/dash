@@ -6,6 +6,7 @@ import { createRequestLogger } from "evlog";
 import { razorpaySetup } from "@/lib/razorpay/config";
 import { stageRazorpayPayment } from "@/lib/razorpay/ingest";
 import {
+  readWebhookBody,
   routeRazorpayEvent,
   verifyRazorpaySignature,
 } from "@/lib/razorpay/webhook";
@@ -17,8 +18,11 @@ const BODY_TIMEOUT_MS = 3000;
  * Razorpay webhook: the trigger for recording Payment Page donations. A
  * verified `payment.captured` or `order.paid` stages the payment in
  * `private.import_row` and enqueues `razorpay-sync-payment` keyed by the
- * payment ID; the job does the import. Webhooks are outside the audit
- * ledger; logs carry the event, its ID and the payment ID only.
+ * payment ID; the job does the import. One whose payment cannot be read is
+ * fetched by ID when the API key secret is set. Bodies over 1 MB are
+ * refused with 413. A test key on a production server records nothing.
+ * Webhooks are outside the audit ledger; logs carry the event, its ID and
+ * the payment ID only.
  */
 export const Route = createFileRoute("/api/razorpay/webhook")({
   server: {
@@ -38,24 +42,20 @@ export const Route = createFileRoute("/api/razorpay/webhook")({
           );
         }
 
-        let rawBody: string;
-        try {
-          rawBody = await Promise.race([
-            request.text(),
-            new Promise<string>((_, reject) => {
-              setTimeout(() => {
-                reject(new Error("razorpay_webhook_body_timeout"));
-              }, BODY_TIMEOUT_MS);
-            }),
-          ]);
-        } catch (error) {
-          log.error(sanitizedError(error, "razorpay_webhook_body"));
+        const body = await readWebhookBody(request, {
+          timeoutMs: BODY_TIMEOUT_MS,
+        });
+        if (!body.ok) {
+          log.warn(`razorpay_webhook_body_${body.reason}`);
           log.emit();
-          return Response.json(
-            { error: "Failed to read webhook body" },
-            { status: 408 }
-          );
+          return body.reason === "too_large"
+            ? Response.json({ error: "Body too large" }, { status: 413 })
+            : Response.json(
+                { error: "Failed to read webhook body" },
+                { status: 408 }
+              );
         }
+        const rawBody = body.text;
 
         const signature = request.headers.get("x-razorpay-signature");
         log.set({
@@ -68,9 +68,9 @@ export const Route = createFileRoute("/api/razorpay/webhook")({
           return Response.json({ error: "Invalid signature" }, { status: 401 });
         }
 
-        let body: unknown;
+        let parsed: unknown;
         try {
-          body = JSON.parse(rawBody);
+          parsed = JSON.parse(rawBody);
         } catch {
           log.warn("invalid_webhook_json");
           log.emit();
@@ -87,7 +87,40 @@ export const Route = createFileRoute("/api/razorpay/webhook")({
           log.error(sanitizedError(error, "razorpay_last_webhook_at"));
         }
 
-        const action = routeRazorpayEvent(body);
+        const action = routeRazorpayEvent(parsed, setup.apiKey !== null);
+        if (setup.testInProduction) {
+          // A test key in production would put test payments in the real
+          // books: acknowledged so Razorpay stops retrying, never recorded.
+          log.set({
+            event: action.event,
+            outcome: "test_mode_refused",
+            paymentId:
+              action.action === "stage" ? action.payment.id : action.paymentId,
+          });
+          log.warn("test mode refused");
+          log.emit();
+          return Response.json({ ok: true }, { status: 200 });
+        }
+        if (action.action === "fetch") {
+          log.set({ event: action.event, paymentId: action.paymentId });
+          try {
+            const jobId = await enqueue(
+              "razorpay-sync-payment",
+              { paymentId: action.paymentId },
+              { singletonKey: action.paymentId }
+            );
+            log.set({ outcome: "fetch_queued", queued: jobId !== null });
+            log.emit();
+            return Response.json({ ok: true }, { status: 200 });
+          } catch (error) {
+            log.error(sanitizedError(error, "razorpay_enqueue_failed"));
+            log.emit();
+            return Response.json(
+              { error: "Failed to record the payment" },
+              { status: 500 }
+            );
+          }
+        }
         if (action.action === "ignore") {
           log.set({
             event: action.event,

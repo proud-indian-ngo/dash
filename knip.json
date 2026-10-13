@@ -30,6 +30,7 @@
         "helpers/kalakriti-centers.ts",
         "helpers/kalakriti-transport.ts",
         "helpers/kalakriti-inventory.ts",
+        "helpers/razorpay.ts",
         "helpers/kalakriti-event-day-transport.ts",
         "helpers/kalakriti-station-subject.ts",
         "helpers/kalakriti-person-qr.ts",

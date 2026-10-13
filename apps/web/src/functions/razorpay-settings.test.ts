@@ -40,7 +40,7 @@ mock.module("@/lib/razorpay/settings", () => ({
     if (saveError) {
       throw saveError;
     }
-    return { attachedBatchCount: 2 };
+    return { attachedBatchCount: 2, requeuedCount: 1 };
   },
 }));
 mock.module("@tanstack/react-start", () => ({
@@ -98,6 +98,7 @@ describe("Razorpay settings server functions", () => {
     granted = ["finance.manage"];
     expect(await call(fns.updateRazorpaySettings, SAVE)).toEqual({
       attachedBatchCount: 2,
+      requeuedCount: 1,
     });
     expect(serviceCalls).toEqual(["save"]);
     expect(audits).toEqual([
@@ -107,6 +108,12 @@ describe("Razorpay settings server functions", () => {
         target: { type: "razorpay_settings" },
       },
     ]);
+  });
+
+  it("audits a save of the notes keys alone as that field only", async () => {
+    granted = ["finance.manage"];
+    await call(fns.updateRazorpaySettings, { notesKeys: {} });
+    expect(audits[0]?.metadata).toEqual({ changedFields: ["notesKeys"] });
   });
 
   it("replaces a query error with a generic one and keeps setting errors", async () => {

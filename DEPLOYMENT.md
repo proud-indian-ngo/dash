@@ -357,7 +357,7 @@ Migration `0120_income_imports` adds `import_batch`, `contribution.import_batch_
 
 ### Razorpay Payment Page donations
 
-Migration `0123_razorpay_imports` adds the `razorpay_api` import source and the `razorpay` identity provider, `import_batch.pending_count`, and lets a Razorpay batch exist before a clearing account is chosen (`org_account_id` stays required for CSV batches by a check constraint). Ingestion is off until both `RAZORPAY_KEY_ID` and `RAZORPAY_WEBHOOK_SECRET` are set; nothing else changes until then.
+Migration `0123_razorpay_imports` adds the `razorpay_api` import source and the `razorpay` identity provider, `import_batch.pending_count`, makes `private.import_row.retain_until` nullable (a Razorpay payment has no retention date until it has an outcome), and lets a Razorpay batch exist before a clearing account is chosen (`org_account_id` stays required for CSV batches by a check constraint). Ingestion is off until both `RAZORPAY_KEY_ID` and `RAZORPAY_WEBHOOK_SECRET` are set; nothing else changes until then.
 
 Setup, test mode first:
 
@@ -367,5 +367,5 @@ Setup, test mode first:
 4. On the Razorpay dashboard (in the same mode as the key), Settings → Webhooks → Add new webhook: the URL from step 3, the same secret as `RAZORPAY_WEBHOOK_SECRET`, and the events `payment.captured` and `order.paid`. Refund events can be added now; they are acknowledged and ignored until the next release.
 5. Make a test payment on the Payment Page. Settings → Integrations shows the webhook time, and the donation appears on the Income page (or under Needs review on the Imports tab).
 
-A test key on a production server shows a red warning on the Integrations page, since test payments would land in the real books; switch to the `rzp_live_…` key and the live-mode webhook once testing is done. Live and test payments are kept apart by mode, so a test payment never matches a live one. The `razorpay-sync-payment` queue is new; its worker is registered by the web server itself (`apps/web/server/plugins/jobs.ts`).
+A test key on a production server stops ingestion: deliveries are acknowledged but nothing is recorded, and the Integrations page shows a blocking error, since test payments would otherwise land in the real books; switch to the `rzp_live_…` key and the live-mode webhook once testing is done. Live and test payments are kept apart by mode, so a test payment never matches a live one. The `razorpay-sync-payment` queue is new; its worker is registered by the web server itself (`apps/web/server/plugins/jobs.ts`).
 

@@ -1,5 +1,5 @@
 {
-  "id": "8f98210b-408d-4fd0-9751-317438ea5f6a",
+  "id": "0436f8b6-01af-4a71-9f7f-03fd7c5d463f",
   "prevId": "236b292f-237d-49e0-bbf0-26d36feb0f03",
   "version": "7",
   "dialect": "postgresql",
@@ -14118,7 +14118,7 @@
           "name": "retain_until",
           "type": "date",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "retention_basis": {
           "name": "retention_basis",

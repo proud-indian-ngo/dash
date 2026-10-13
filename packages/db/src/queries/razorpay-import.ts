@@ -1,15 +1,33 @@
-import { and, desc, eq, inArray, isNull, max, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  max,
+  notExists,
+  or,
+  sql,
+} from "drizzle-orm";
 
 import { db } from "..";
+import {
+  awaitingOutcomeRetention,
+  importedRowRetention,
+} from "../import-retention";
 import { appConfig } from "../schema/app-config";
 import { orgAccount } from "../schema/finance-dimensions";
 import { importBatch } from "../schema/import-batch";
-import { importRow } from "../schema/private/imports";
+import { externalIdentity, importRow } from "../schema/private/imports";
 import type {
   ImportBatchRow,
   ImportRowRecord,
   ImportTx,
+  WaitingReason,
 } from "./income-import";
+
+type Reader = Pick<typeof db, "select">;
 
 /**
  * Database access for Razorpay Payment Page ingestion. Payments are staged
@@ -24,8 +42,10 @@ export const RAZORPAY_CONFIG_KEYS = {
   notesKeys: "razorpay_notes_keys",
 } as const;
 
-export async function readRazorpayConfig(): Promise<Map<string, string>> {
-  const rows = await db
+export async function readRazorpayConfig(
+  executor: Reader = db
+): Promise<Map<string, string>> {
+  const rows = await executor
     .select({ key: appConfig.key, value: appConfig.value })
     .from(appConfig)
     .where(inArray(appConfig.key, Object.values(RAZORPAY_CONFIG_KEYS)));
@@ -51,9 +71,10 @@ export async function writeRazorpayConfig(
 
 /** The account if it can take Razorpay money: active and a gateway clearing account. */
 export async function findClearingAccount(
-  id: string
+  id: string,
+  executor: Reader = db
 ): Promise<{ id: string; name: string } | null> {
-  const [row] = await db
+  const [row] = await executor
     .select({ id: orgAccount.id, name: orgAccount.name })
     .from(orgAccount)
     .where(
@@ -112,11 +133,13 @@ export async function insertRazorpayBatch(
 
 /**
  * The staged row of a payment, looked up in the batches of its day only (a
- * payment's day never changes). Rows whose raw values expired are not
- * found; their external identity still prevents a second contribution.
+ * payment's day never changes): by the payment ID in its values, or, once
+ * retention has nulled those, by the external identity the row was imported
+ * or linked under. A pending row is never nulled, so a payment that is still
+ * waiting is always found and a redelivery never stages it twice.
  */
 export async function findRazorpayPaymentRow(
-  executor: Pick<typeof db, "select">,
+  executor: Reader,
   key: string,
   paymentId: string
 ): Promise<(ImportRowRecord & { batch: ImportBatchRow }) | null> {
@@ -128,7 +151,22 @@ export async function findRazorpayPaymentRow(
       and(
         eq(importBatch.source, "razorpay_api"),
         eq(importBatch.fileHash, key),
-        sql`${importRow.raw}->>'id' = ${paymentId}`
+        or(
+          sql`${importRow.raw}->>'id' = ${paymentId}`,
+          inArray(
+            importRow.externalIdentityId,
+            executor
+              .select({ id: externalIdentity.id })
+              .from(externalIdentity)
+              .where(
+                and(
+                  eq(externalIdentity.provider, "razorpay"),
+                  eq(externalIdentity.entityType, "payment"),
+                  eq(externalIdentity.externalId, paymentId)
+                )
+              )
+          )
+        )
       )
     )
     .orderBy(importRow.createdAt)
@@ -136,10 +174,10 @@ export async function findRazorpayPaymentRow(
   return row ? { ...row.row, batch: row.batch } : null;
 }
 
-/** Adds a row at the end of a batch and counts it. */
+/** Adds a pending row at the end of a batch and counts it as waiting. */
 export async function appendImportRow(
   tx: ImportTx,
-  values: Omit<typeof importRow.$inferInsert, "rowNumber">
+  values: Omit<typeof importRow.$inferInsert, "outcome" | "rowNumber">
 ): Promise<void> {
   const [last] = await tx
     .select({ n: max(importRow.rowNumber) })
@@ -151,17 +189,18 @@ export async function appendImportRow(
   await tx
     .update(importBatch)
     .set({
+      pendingCount: sql`${importBatch.pendingCount} + 1`,
       rowCount: sql`${importBatch.rowCount} + 1`,
       updatedAt: new Date(),
     })
     .where(eq(importBatch.id, values.batchId));
 }
 
-/** Leaves a row pending with the reason it waits; it counts as needing review. */
+/** Leaves a row pending with the reason it waits; it counts as waiting. */
 export async function markImportRowWaiting(
   tx: ImportTx,
   rowId: string,
-  reason: "needs_review" | "no_clearing_account"
+  reason: WaitingReason
 ): Promise<void> {
   await tx
     .update(importRow)
@@ -182,9 +221,117 @@ export async function replacePendingRaw(
     .where(and(eq(importRow.id, rowId), eq(importRow.outcome, "pending")));
 }
 
-/** Points Razorpay batches opened before a clearing account was chosen at it. */
+/**
+ * Records that a staged payment cannot be imported: Razorpay does not know
+ * it, or it is no longer captured. Its retention starts, as for any row
+ * with an outcome.
+ */
+export async function failPendingPaymentRow(
+  tx: ImportTx,
+  rowId: string,
+  reason: "not_captured" | "not_found",
+  now: Date,
+  today: string
+): Promise<boolean> {
+  const rows = await tx
+    .update(importRow)
+    .set({
+      ...importedRowRetention(today),
+      decidedAt: now,
+      decidedBy: null,
+      outcome: "error",
+      outcomeReason: reason,
+    })
+    .where(and(eq(importRow.id, rowId), eq(importRow.outcome, "pending")))
+    .returning({ id: importRow.id });
+  return rows.length > 0;
+}
+
+/** Outcome reasons a later captured copy of the payment can clear. */
+export const REOPENABLE_REASONS = ["not_captured", "not_found"] as const;
+
+/**
+ * Puts a payment that failed for want of a captured copy back in the
+ * queue with the new copy: pending, waiting, kept until it has an outcome.
+ */
+export async function reopenFailedPaymentRow(
+  tx: ImportTx,
+  rowId: string,
+  raw: Record<string, string>,
+  rawHash: string
+): Promise<void> {
+  const { legalHold: _, ...retention } = awaitingOutcomeRetention();
+  await tx
+    .update(importRow)
+    .set({
+      ...retention,
+      decidedAt: null,
+      decidedBy: null,
+      outcome: "pending",
+      outcomeReason: "queued",
+      raw,
+      rawHash,
+    })
+    .where(
+      and(
+        eq(importRow.id, rowId),
+        eq(importRow.outcome, "error"),
+        inArray(importRow.outcomeReason, [...REOPENABLE_REASONS])
+      )
+    );
+}
+
+/**
+ * Payments waiting for one of these reasons, with the key of their batch,
+ * so their sync jobs can be queued again.
+ */
+export async function listWaitingPayments(
+  reasons: readonly WaitingReason[]
+): Promise<{ batchKey: string; paymentId: string }[]> {
+  const rows = await db
+    .select({
+      batchKey: importBatch.fileHash,
+      paymentId: sql<string | null>`${importRow.raw}->>'id'`,
+    })
+    .from(importRow)
+    .innerJoin(importBatch, eq(importBatch.id, importRow.batchId))
+    .where(
+      and(
+        eq(importBatch.source, "razorpay_api"),
+        eq(importRow.outcome, "pending"),
+        inArray(importRow.outcomeReason, [...reasons])
+      )
+    );
+  return rows.flatMap((row) =>
+    row.paymentId ? [{ batchKey: row.batchKey, paymentId: row.paymentId }] : []
+  );
+}
+
+/** Razorpay payments waiting, by reason, for the settings page. */
+export async function countRazorpayWaitingByReason(): Promise<
+  Map<string, number>
+> {
+  const rows = await db
+    .select({ n: count(), reason: importRow.outcomeReason })
+    .from(importRow)
+    .innerJoin(importBatch, eq(importBatch.id, importRow.batchId))
+    .where(
+      and(
+        eq(importBatch.source, "razorpay_api"),
+        eq(importRow.outcome, "pending")
+      )
+    )
+    .groupBy(importRow.outcomeReason);
+  return new Map(rows.map((row) => [row.reason ?? "", Number(row.n)]));
+}
+
+/**
+ * Points Razorpay batches at the chosen account when they have none, or
+ * when theirs is no longer an active gateway clearing account. Contributions
+ * already imported keep the account they were recorded into.
+ */
 export async function attachClearingAccount(
-  tx: Pick<typeof db, "update">,
+  tx: Pick<typeof db, "select" | "update">,
   accountId: string
 ): Promise<number> {
   const rows = await tx
@@ -193,7 +340,21 @@ export async function attachClearingAccount(
     .where(
       and(
         eq(importBatch.source, "razorpay_api"),
-        isNull(importBatch.orgAccountId)
+        or(
+          isNull(importBatch.orgAccountId),
+          notExists(
+            tx
+              .select({ one: sql`1` })
+              .from(orgAccount)
+              .where(
+                and(
+                  eq(orgAccount.id, importBatch.orgAccountId),
+                  eq(orgAccount.active, true),
+                  eq(orgAccount.kind, "gateway_clearing")
+                )
+              )
+          )
+        )
       )
     )
     .returning({ id: importBatch.id });

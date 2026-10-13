@@ -549,8 +549,11 @@ export interface CleanupR2OrphansPayload {
  * job; the payment itself is staged in private.import_row.
  */
 export interface RazorpaySyncPaymentPayload {
-  /** yyyy-MM-dd, the India day of the payment's creation. */
-  day: string;
+  /**
+   * yyyy-MM-dd, the India day of the payment's creation. Absent when the
+   * webhook could not read the payment; the job then fetches it by ID.
+   */
+  day?: string;
   paymentId: string;
 }
 

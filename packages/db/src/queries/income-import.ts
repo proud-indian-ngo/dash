@@ -14,6 +14,8 @@ import {
   gte,
   inArray,
   isNotNull,
+  isNull,
+  lt,
   lte,
   ne,
   or,
@@ -506,14 +508,21 @@ export async function setImportRowOutcome(
   await tx.update(importRow).set(patch).where(eq(importRow.id, id));
 }
 
+interface Retention {
+  retainUntil: string;
+  retentionBasis: string;
+  retentionPolicyVersion: string;
+}
+
+/**
+ * After a run: extends the batch's dated rows to the imported rows'
+ * retention, and starts it for decided Razorpay rows that had none. Rows
+ * still pending with no date keep waiting.
+ */
 export async function setImportRowsRetention(
   tx: ImportTx,
   batchId: string,
-  retention: {
-    retainUntil: string;
-    retentionBasis: string;
-    retentionPolicyVersion: string;
-  }
+  retention: Retention
 ): Promise<void> {
   await tx
     .update(importRow)
@@ -521,36 +530,81 @@ export async function setImportRowsRetention(
     .where(
       and(
         eq(importRow.batchId, batchId),
-        sql`${importRow.retainUntil} < ${retention.retainUntil}`
+        or(
+          lt(importRow.retainUntil, retention.retainUntil),
+          and(isNull(importRow.retainUntil), ne(importRow.outcome, "pending"))
+        )
+      )
+    );
+}
+
+/** Starts retention for the batch's rows that have just reached an outcome. */
+export async function startDecidedRowsRetention(
+  tx: ImportTx,
+  batchId: string,
+  retention: Retention
+): Promise<void> {
+  await tx
+    .update(importRow)
+    .set(retention)
+    .where(
+      and(
+        eq(importRow.batchId, batchId),
+        isNull(importRow.retainUntil),
+        ne(importRow.outcome, "pending")
       )
     );
 }
 
 /**
- * Outcome reasons of rows that wait for a reviewer: a Razorpay payment held
- * for review or for a clearing account, or a row a run left undecided.
+ * Outcome reasons of rows that wait for a decision. Razorpay payments wait
+ * while queued for their sync job, after the job gave up (`sync_failed`),
+ * for a reviewer, or for an active clearing account; a CSV row a reviewer
+ * left undecided is `skipped` with reason `undecided` and waits too.
  */
 export const NEEDS_REVIEW_REASONS = [
+  "clearing_account_inactive",
   "needs_review",
   "no_clearing_account",
+  "queued",
+  "sync_failed",
   "undecided",
 ] as const;
+export type WaitingReason = (typeof NEEDS_REVIEW_REASONS)[number];
 
-/**
- * The batch's synced counters from its rows. Rows waiting for a decision
- * count as pending, not skipped, so every row is counted exactly once.
- */
-export async function countImportBatchRows(
-  tx: ImportTx,
-  batchId: string
-): Promise<{
+export interface ImportBatchCounts {
   conflictCount: number;
   errorCount: number;
   importedCount: number;
   linkedCount: number;
   pendingCount: number;
   skippedCount: number;
-}> {
+}
+
+/**
+ * The batch's counters from its outcome counts. Every pending row waits,
+ * whatever its reason, and so do skipped rows left undecided; each row is
+ * counted exactly once.
+ */
+export function batchCounts(
+  counts: Readonly<Record<ImportRowOutcome, number>>,
+  skippedWaiting: number
+): ImportBatchCounts {
+  return {
+    conflictCount: counts.conflict,
+    errorCount: counts.error,
+    importedCount: counts.imported,
+    linkedCount: counts.linked_existing,
+    pendingCount: counts.pending + skippedWaiting,
+    skippedCount: counts.skipped - skippedWaiting,
+  };
+}
+
+/** The batch's synced counters from its rows. */
+export async function countImportBatchRows(
+  tx: ImportTx,
+  batchId: string
+): Promise<ImportBatchCounts> {
   const counts = await countImportOutcomes(tx, batchId);
   const [waiting] = await tx
     .select({ n: count() })
@@ -558,19 +612,11 @@ export async function countImportBatchRows(
     .where(
       and(
         eq(importRow.batchId, batchId),
-        inArray(importRow.outcome, ["pending", "skipped"]),
+        eq(importRow.outcome, "skipped"),
         inArray(importRow.outcomeReason, [...NEEDS_REVIEW_REASONS])
       )
     );
-  const pendingCount = Number(waiting?.n ?? 0);
-  return {
-    conflictCount: counts.conflict,
-    errorCount: counts.error,
-    importedCount: counts.imported,
-    linkedCount: counts.linked_existing,
-    pendingCount,
-    skippedCount: counts.skipped + counts.pending - pendingCount,
-  };
+  return batchCounts(counts, Number(waiting?.n ?? 0));
 }
 
 /** Recounts a batch's rows by outcome. */

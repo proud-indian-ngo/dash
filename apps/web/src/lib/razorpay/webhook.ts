@@ -8,6 +8,64 @@ import { type RazorpayPayment, razorpayPaymentSchema } from "./payment";
  */
 
 const HEX_SIGNATURE = /^[0-9a-f]{64}$/i;
+const PAYMENT_ID = /^pay_\w{1,40}$/;
+
+/** Razorpay's deliveries are a few kilobytes; anything over this is refused. */
+export const MAX_WEBHOOK_BODY_BYTES = 1024 * 1024;
+
+export type WebhookBody =
+  | { ok: true; text: string }
+  | { ok: false; reason: "timeout" | "too_large" };
+
+/**
+ * Reads the raw body, refusing it as soon as it passes `maxBytes`: at once
+ * when Content-Length says so, else while streaming, so an oversized or
+ * endless body is never buffered. A body that stalls past `timeoutMs` is
+ * abandoned and the stream cancelled. The timer is always cleared.
+ */
+export async function readWebhookBody(
+  request: Request,
+  { maxBytes = MAX_WEBHOOK_BODY_BYTES, timeoutMs = 3000 } = {}
+): Promise<WebhookBody> {
+  const declared = Number(request.headers.get("content-length") ?? "");
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    return { ok: false, reason: "too_large" };
+  }
+  if (!request.body) {
+    return { ok: true, text: "" };
+  }
+  const reader = request.body.getReader();
+  const stop = () => {
+    reader.cancel().catch(() => undefined);
+  };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<"timeout">((resolve) => {
+    timer = setTimeout(() => resolve("timeout"), timeoutMs);
+  });
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const next = await Promise.race([reader.read(), timedOut]);
+      if (next === "timeout") {
+        stop();
+        return { ok: false, reason: "timeout" };
+      }
+      if (next.done) {
+        break;
+      }
+      size += next.value.byteLength;
+      if (size > maxBytes) {
+        stop();
+        return { ok: false, reason: "too_large" };
+      }
+      chunks.push(next.value);
+    }
+  } finally {
+    clearTimeout(timer);
+  }
+  return { ok: true, text: Buffer.concat(chunks).toString("utf8") };
+}
 
 /**
  * `X-Razorpay-Signature` is the hex HMAC-SHA256 of the raw body with the
@@ -39,6 +97,8 @@ const REFUND_EVENTS = new Set([
 
 export type WebhookAction =
   | { action: "stage"; event: string; payment: RazorpayPayment }
+  /** The payment could not be read, but its ID could: the job fetches it from the API. */
+  | { action: "fetch"; event: string; paymentId: string }
   | {
       action: "ignore";
       event: string;
@@ -61,10 +121,15 @@ const paymentIdOf = (body: unknown): string | null => {
 
 /**
  * What a verified delivery asks for. `payment.captured` and `order.paid`
- * stage their payment; everything else, including `payment.failed` (a
- * capture can still follow) and refunds, is acknowledged and ignored.
+ * stage their payment; one pi-dash cannot read is fetched by ID when the
+ * API key secret is set (`canFetch`), and otherwise ignored. Everything
+ * else, including `payment.failed` (a capture can still follow) and
+ * refunds, is acknowledged and ignored.
  */
-export function routeRazorpayEvent(body: unknown): WebhookAction {
+export function routeRazorpayEvent(
+  body: unknown,
+  canFetch = false
+): WebhookAction {
   const event =
     typeof (body as { event?: unknown } | null)?.event === "string"
       ? (body as { event: string }).event
@@ -86,7 +151,9 @@ export function routeRazorpayEvent(body: unknown): WebhookAction {
       ?.entity
   );
   if (!parsed.success) {
-    return { action: "ignore", event, paymentId, reason: "malformed_payment" };
+    return canFetch && paymentId && PAYMENT_ID.test(paymentId)
+      ? { action: "fetch", event, paymentId }
+      : { action: "ignore", event, paymentId, reason: "malformed_payment" };
   }
   if (parsed.data.status !== "captured") {
     return { action: "ignore", event, paymentId, reason: "not_captured" };

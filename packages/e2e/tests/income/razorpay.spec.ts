@@ -1,14 +1,44 @@
+import { execFile } from "node:child_process";
 import { createHmac } from "node:crypto";
+import path from "node:path";
+import { promisify } from "node:util";
 
 import type { APIRequestContext, Page } from "@playwright/test";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 
+const execFileAsync = promisify(execFile);
+
+/** Runs a database read in helpers/razorpay.ts under Bun. */
+async function fixture<T>(action: string, arg = ""): Promise<T> {
+  const { stdout } = await execFileAsync(
+    "bun",
+    [
+      "run",
+      path.resolve(import.meta.dirname, "../../helpers/razorpay.ts"),
+      action,
+      arg,
+    ],
+    { env: process.env }
+  );
+  return JSON.parse(stdout.trim()) as T;
+}
+
+const paymentRows = (paymentId: string) =>
+  fixture<{ outcome: string; reason: string | null }[]>("rows", paymentId);
+const paymentContributions = (paymentId: string) =>
+  fixture<number>("contributions", paymentId);
+const syncJobsSettled = (paymentId: string) =>
+  fixture<boolean>("settled", paymentId);
+
 /**
  * Razorpay Payment Page ingestion end to end: signed webhooks in, donors and
  * contributions out. run-e2e.sh sets a test key id and webhook secret and no
  * key secret, so the job uses the signed webhook copy and never calls
- * Razorpay.
+ * Razorpay. Everything a run creates carries the run's ID (payment IDs,
+ * email, phone, names), and outcomes are read from the database, so a retry
+ * never trips over an earlier attempt's rows. The global clearing account
+ * setting is put back afterwards.
  */
 
 const SECRET =
@@ -28,6 +58,7 @@ function capturedEvent(
   event: "order.paid" | "payment.captured",
   payment: {
     amount: number;
+    contact: string;
     email: string;
     id: string;
     notes: Record<string, string>;
@@ -44,7 +75,6 @@ function capturedEvent(
         entity: {
           ...payment,
           captured: true,
-          contact: "+919800000000",
           created_at: Math.floor(Date.now() / 1000),
           currency: "INR",
           entity: "payment",
@@ -77,6 +107,16 @@ async function post(
   });
 }
 
+/** An Indian mobile number unique to the run. */
+const runPhone = (run: string) => `+9198${run.slice(-8)}`;
+
+/** Waits until the payment's sync jobs have all finished. */
+async function settled(paymentId: string) {
+  await expect
+    .poll(() => syncJobsSettled(paymentId), { timeout: 30_000 })
+    .toBe(true);
+}
+
 async function contributionRows(page: Page, donor: string) {
   await page.goto("/income");
   await waitForZeroReady(page);
@@ -85,6 +125,22 @@ async function contributionRows(page: Page, donor: string) {
 }
 
 test.describe("Income: Razorpay Payment Page", () => {
+  // Only the super_admin project runs these tests, so only it touches the
+  // global setting; other projects' workers must not restore a stale value.
+  let clearingBefore: string | null | undefined;
+
+  test.beforeAll(async ({ browserName: _browserName }, testInfo) => {
+    if (testInfo.project.name === "super_admin") {
+      clearingBefore = await fixture<string | null>("read-clearing");
+    }
+  });
+
+  test.afterAll(async () => {
+    if (clearingBefore !== undefined) {
+      await fixture("restore-clearing", clearingBefore ?? "");
+    }
+  });
+
   test.beforeEach(({ page: _page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
   });
@@ -94,6 +150,7 @@ test.describe("Income: Razorpay Payment Page", () => {
   }) => {
     const body = capturedEvent("payment.captured", {
       amount: 10_000,
+      contact: "+919800000000",
       email: "unsigned@example.test",
       id: `pay_E2EUnsigned${Date.now()}`,
       notes: { name: "Never Recorded" },
@@ -106,6 +163,9 @@ test.describe("Income: Razorpay Payment Page", () => {
     expect((await post(request, "{not json")).status()).toBe(400);
     const refund = JSON.stringify({ event: "refund.processed", payload: {} });
     expect((await post(request, refund)).status()).toBe(200);
+    // Over 1 MB: refused before the signature is even checked.
+    const huge = JSON.stringify({ padding: "x".repeat(1024 * 1024) });
+    expect((await post(request, huge)).status()).toBe(413);
   });
 
   test("records a donation once, and holds a contact-only match for review", async ({
@@ -140,46 +200,62 @@ test.describe("Income: Razorpay Payment Page", () => {
     await expect(page.getByText("Razorpay settings saved")).toBeVisible();
 
     // A new donor with a PAN: imported at once, as a new donor.
+    const firstId = `pay_E2E${run}`;
     const first = capturedEvent("payment.captured", {
       amount: 50_000,
+      contact: runPhone(run),
       email,
-      id: `pay_E2E${run}`,
+      id: firstId,
       notes: { "Full Name": donor, "PAN Number": runPan(run) },
     });
     expect((await post(request, first)).status()).toBe(200);
+    await expect
+      .poll(() => paymentRows(firstId), { timeout: 30_000 })
+      .toEqual([{ outcome: "imported", reason: null }]);
     await expect(await contributionRows(page, donor)).toHaveCount(1, {
       timeout: 30_000,
     });
     await expect(await contributionRows(page, donor)).toContainText("₹500.00");
 
-    // Redelivered, and announced again as order.paid: still one contribution.
+    // Redelivered, and announced again as order.paid: once their jobs have
+    // run, still one row and one contribution.
     expect((await post(request, first)).status()).toBe(200);
     const asOrder = first.replace('"payment.captured"', '"order.paid"');
     expect((await post(request, asOrder)).status()).toBe(200);
+    await settled(firstId);
+    expect(await paymentRows(firstId)).toEqual([
+      { outcome: "imported", reason: null },
+    ]);
+    expect(await paymentContributions(firstId)).toBe(1);
 
     // Same email, no PAN: proposed as that donor, so it waits for review.
+    const secondId = `pay_E2E${run}b`;
     const second = capturedEvent("payment.captured", {
       amount: 75_000,
+      contact: runPhone(run),
       email,
-      id: `pay_E2E${run}b`,
+      id: secondId,
       notes: { name: `E2E Razorpay Second ${run}` },
     });
     expect((await post(request, second)).status()).toBe(200);
-
-    await page.goto("/income?tab=imports");
-    await waitForZeroReady(page);
-    await expect(page.getByTestId("imports-needs-review")).toContainText(
-      /Needs review: \d+/,
-      { timeout: 30_000 }
-    );
-    // The redeliveries were processed before the later payment: one gift only.
+    await expect
+      .poll(() => paymentRows(secondId), { timeout: 30_000 })
+      .toEqual([{ outcome: "pending", reason: "needs_review" }]);
+    expect(await paymentContributions(secondId)).toBe(0);
     await expect(await contributionRows(page, donor)).toHaveCount(1);
 
     await page.goto("/income?tab=imports");
     await waitForZeroReady(page);
+    // The batch of today's India day, which holds this run's payments.
+    const today = new Date().toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+    });
     const batch = page
       .getByRole("row")
-      .filter({ hasText: /Razorpay payments, .* \(test mode\)/ })
+      .filter({ hasText: `Razorpay payments, ${today} (test mode)` })
       .first();
     await batch.click();
     await page.getByRole("button", { name: /^Review \d+ payments?$/ }).click();
@@ -196,6 +272,10 @@ test.describe("Income: Razorpay Payment Page", () => {
     await expect(page.getByTestId("import-result")).toContainText(
       "1 contribution imported"
     );
+    expect(await paymentRows(secondId)).toEqual([
+      { outcome: "imported", reason: null },
+    ]);
+    expect(await paymentContributions(secondId)).toBe(1);
 
     // Both gifts now belong to the first donor; no second donor was made.
     await expect(await contributionRows(page, donor)).toHaveCount(2, {

@@ -35,16 +35,17 @@ import type { RazorpaySettingsView } from "@/lib/razorpay/settings";
 const formSchema = z.object({
   address: z.string(),
   city: z.string(),
-  clearingAccountId: z
-    .string()
-    .optional()
-    .refine(Boolean, "Pick the account Razorpay settles into"),
+  // Optional: the notes keys can be saved before an account is chosen.
+  clearingAccountId: z.string().optional(),
   name: z.string(),
   pan: z.string(),
   pincode: z.string(),
   state: z.string(),
 });
 type FormValues = z.input<typeof formSchema>;
+
+const plural = (n: number) =>
+  `${n.toLocaleString("en-IN")} ${n === 1 ? "payment is" : "payments are"}`;
 
 const formatTime = (epoch: number) =>
   new Date(epoch).toLocaleString("en-IN", {
@@ -127,14 +128,16 @@ function SettingsForm({
       try {
         const result = await save({
           data: {
-            clearingAccountId: value.clearingAccountId ?? "",
+            ...(value.clearingAccountId
+              ? { clearingAccountId: value.clearingAccountId }
+              : {}),
             notesKeys,
           },
         });
         toast.success("Razorpay settings saved", {
           description:
-            result.attachedBatchCount > 0
-              ? "Payments that were waiting for the account can now be imported from Income → Imports."
+            result.requeuedCount > 0 || result.attachedBatchCount > 0
+              ? "Payments that were waiting for the account are being recorded now."
               : undefined,
         });
         onSaved();
@@ -167,7 +170,6 @@ function SettingsForm({
             }
             disabled={!canManage}
             emptyMessage="No active gateway clearing accounts."
-            isRequired
             label="Razorpay clearing account"
             name="clearingAccountId"
             options={clearingAccounts.map((a) => ({
@@ -259,9 +261,23 @@ export function RazorpaySection() {
     <div className="flex flex-col gap-6">
       {view.testInProduction ? (
         <Banner tone="danger">
-          A Razorpay test key is configured on this production server. Test
-          payments will be recorded in the real books. Replace RAZORPAY_KEY_ID
-          with a live key once testing is done.
+          Payments are not being recorded. A Razorpay test key is configured on
+          this production server, so every delivery is refused to keep test
+          payments out of the real books. Replace RAZORPAY_KEY_ID with a live
+          key.
+        </Banner>
+      ) : null}
+      {view.inactiveAccountCount > 0 ? (
+        <Banner tone="warning">
+          {plural(view.inactiveAccountCount)} waiting because the clearing
+          account they were opened with has been deactivated. Save an active
+          clearing account below to record them.
+        </Banner>
+      ) : null}
+      {view.syncFailedCount > 0 ? (
+        <Banner tone="warning">
+          {plural(view.syncFailedCount)} could not be synced with Razorpay after
+          several tries. Review them from Income → Imports.
         </Banner>
       ) : null}
       {view.configured && !view.clearingAccountId ? (
@@ -304,7 +320,7 @@ export function RazorpaySection() {
           </span>
         </SettingsRow>
         <SettingsRow
-          description="Payments that wait for a decision, such as a donor whose email matches an existing donor."
+          description="Payments that wait: to sync, for a clearing account, or for a decision such as a donor whose email matches an existing donor."
           title="Needs review"
         >
           <span

@@ -11,6 +11,8 @@ import { DEFAULT_NOTES_KEYS, type NotesKeys } from "./notes-keys";
 import {
   flattenPayment,
   istDayOf,
+  MAX_NOTE_VALUE_LENGTH,
+  MAX_STORED_NOTES,
   normalizeRazorpayRow,
   parseRazorpayBatchKey,
   type RazorpayPayment,
@@ -41,15 +43,18 @@ const payment = (
 });
 
 const normalize = (p: RazorpayPayment, keys: NotesKeys = DEFAULT_NOTES_KEYS) =>
-  normalizeRazorpayRow(flattenPayment(p), keys);
+  normalizeRazorpayRow(flattenPayment(p, keys), keys);
 
 describe("flattenPayment", () => {
   it("keeps allow-listed fields and notes as strings under dot keys", () => {
-    const raw = flattenPayment({
-      ...payment(),
-      // Card details from the API never reach the row.
-      ...({ card: { last4: "1111" }, vpa: "asha@upi" } as object),
-    } as RazorpayPayment);
+    const raw = flattenPayment(
+      {
+        ...payment(),
+        // Card details from the API never reach the row.
+        ...({ card: { last4: "1111" }, vpa: "asha@upi" } as object),
+      } as RazorpayPayment,
+      DEFAULT_NOTES_KEYS
+    );
     expect(raw).toMatchObject({
       amount: "250050",
       contact: "+919876543210",
@@ -65,10 +70,62 @@ describe("flattenPayment", () => {
   });
 
   it("drops null fields and Razorpay's empty notes array", () => {
-    const raw = flattenPayment(payment({ fee: null, notes: [], tax: null }));
+    const raw = flattenPayment(
+      payment({ fee: null, notes: [], tax: null }),
+      DEFAULT_NOTES_KEYS
+    );
     expect(raw).not.toHaveProperty("fee");
     expect(raw).not.toHaveProperty("tax");
     expect(Object.keys(raw).some((k) => k.startsWith("notes."))).toBe(false);
+  });
+});
+
+describe("flattenPayment: notes kept", () => {
+  const notesOf = (raw: Record<string, string>) =>
+    Object.keys(raw).filter((k) => k.startsWith("notes."));
+
+  it("keeps only notes whose key the settings or defaults read, ignoring case and punctuation", () => {
+    const keys: NotesKeys = { ...DEFAULT_NOTES_KEYS, name: ["Donor Name"] };
+    const raw = flattenPayment(
+      payment({
+        notes: {
+          "DONOR-NAME": "Asha Rao",
+          "Full Name": "Also Asha",
+          "Mother's maiden name": "Kept out",
+          "PAN Number": PAN,
+          purpose: "In memory of a relative",
+        },
+      }),
+      keys
+    );
+    expect(notesOf(raw).sort()).toEqual([
+      "notes.DONOR-NAME",
+      "notes.Full Name",
+      "notes.PAN Number",
+    ]);
+  });
+
+  it("keeps at most 20 notes and cuts each value to 500 characters", () => {
+    const many = Object.fromEntries(
+      Array.from({ length: 30 }, (_, i) => [`k${i}`, "v"])
+    );
+    const keys: NotesKeys = {
+      ...DEFAULT_NOTES_KEYS,
+      address: Object.keys(many).slice(0, 8),
+      city: Object.keys(many).slice(8, 16),
+      state: Object.keys(many).slice(16, 24),
+      pincode: Object.keys(many).slice(24, 30),
+    };
+    const raw = flattenPayment(
+      payment({ notes: { ...many, address: "x".repeat(900) } }),
+      keys
+    );
+    expect(notesOf(raw)).toHaveLength(MAX_STORED_NOTES);
+    const long = flattenPayment(
+      payment({ notes: { address: "x".repeat(900) } }),
+      DEFAULT_NOTES_KEYS
+    );
+    expect(long["notes.address"]).toHaveLength(MAX_NOTE_VALUE_LENGTH);
   });
 });
 
@@ -174,7 +231,8 @@ describe("normalizeRazorpayRow", () => {
 });
 
 describe("razorpayPayloadHash", () => {
-  const hash = (p: RazorpayPayment) => razorpayPayloadHash(flattenPayment(p));
+  const hash = (p: RazorpayPayment) =>
+    razorpayPayloadHash(flattenPayment(p, DEFAULT_NOTES_KEYS));
 
   it("is the same for a repeated delivery, whatever the notes order or refund state", () => {
     const first = hash(payment());
@@ -191,7 +249,7 @@ describe("razorpayPayloadHash", () => {
     ).toBe(first);
     expect(
       razorpayPayloadHash({
-        ...flattenPayment(payment()),
+        ...flattenPayment(payment(), DEFAULT_NOTES_KEYS),
         amount_refunded: "250050",
         refund_status: "full",
         status: "refunded",
@@ -237,7 +295,7 @@ describe("donor rules for Razorpay payments (shared classification)", () => {
     phoneMatches: new Map(),
   };
   const input = (p: RazorpayPayment, rowNumber = 1): ClassifyRowInput => {
-    const raw = flattenPayment(p);
+    const raw = flattenPayment(p, DEFAULT_NOTES_KEYS);
     return {
       id: `row-${rowNumber}`,
       identityKey: `razorpay\u0000test\u0000payment\u0000${p.id}`,

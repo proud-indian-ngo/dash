@@ -15,8 +15,8 @@ import { authMiddleware } from "@/middleware/auth";
 
 /**
  * Settings → Integrations → Razorpay. finance.view reads the status (a read,
- * not audited); finance.manage saves the clearing account and notes keys,
- * audited with field names and counts only. Query errors are logged by
+ * not audited); finance.manage saves the clearing account, the notes keys
+ * or both, audited with the changed field names only. Query errors are logged by
  * code only and reach the browser as a generic message.
  */
 
@@ -41,23 +41,37 @@ export const getRazorpaySettings = createServerFn({ method: "POST" })
     return await safely("read", getRazorpaySettingsView);
   });
 
+const settingsInput = z
+  .object({
+    clearingAccountId: z.uuid().optional(),
+    notesKeys: notesKeysSchema.optional(),
+  })
+  .refine(
+    (input) => input.clearingAccountId !== undefined || input.notesKeys,
+    "Nothing to save"
+  );
+
 export const updateRazorpaySettings = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator(
-    z.object({ clearingAccountId: z.uuid(), notesKeys: notesKeysSchema })
-  )
+  .validator(settingsInput)
   .handler(
-    async ({ context, data }): Promise<{ attachedBatchCount: number }> => {
+    async ({
+      context,
+      data,
+    }): Promise<{ attachedBatchCount: number; requeuedCount: number }> => {
       await assertServerPermission(context.session, "finance.manage");
       if (!context.session) {
         throw new Error("Unauthorized");
       }
+      const changedFields = (
+        ["clearingAccountId", "notesKeys"] as const
+      ).filter((field) => data[field] !== undefined);
       return await runSessionAuditedAction(
         context.session,
         context.headers,
         {
           action: "razorpay_settings.update",
-          metadata: { changedFields: ["clearingAccountId", "notesKeys"] },
+          metadata: { changedFields },
           target: { type: "razorpay_settings" },
         },
         async () => await safely("save", () => saveRazorpaySettings(data))

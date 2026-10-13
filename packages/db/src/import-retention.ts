@@ -30,6 +30,12 @@ import { importRow } from "./schema/private/imports";
  * so it is first reset to `failed`, after which it can be retried or expires
  * like any other failed batch; a Razorpay batch goes back to `completed`.
  *
+ * Razorpay payments are staged with no retention date and get the imported
+ * rows' 180 days once they reach an outcome (imported, linked, skipped or
+ * error), so a payment waiting for review or a clearing account keeps its
+ * values for as long as it waits. No pending row is ever nulled, in any
+ * batch.
+ *
  * Rows under legal hold are skipped. Contributions, external identities and
  * collection events are never touched here.
  *
@@ -46,6 +52,8 @@ export const IMPORTED_ROW_RETENTION_DAYS = 180;
 export const UNIMPORTED_ROW_RETENTION_DAYS = 30;
 export const RETENTION_BASIS_UNIMPORTED = "import_payload_not_imported";
 export const RETENTION_BASIS_IMPORTED = "import_payload_imported";
+export const RETENTION_BASIS_AWAITING_OUTCOME =
+  "import_payload_awaiting_outcome";
 /** A batch `importing` for longer than this belongs to a run that died. */
 export const STALE_IMPORTING_MS = 24 * 60 * 60 * 1000;
 
@@ -82,6 +90,16 @@ export function importedRowRetention(today: string) {
   };
 }
 
+/** Retention columns for a Razorpay payment as it is staged: kept until it has an outcome. */
+export function awaitingOutcomeRetention() {
+  return {
+    legalHold: false,
+    retainUntil: null,
+    retentionBasis: RETENTION_BASIS_AWAITING_OUTCOME,
+    retentionPolicyVersion: IMPORT_RETENTION_POLICY_VERSION,
+  };
+}
+
 export interface ImportRetentionResult {
   deletedRows: number;
   expiredBatches: number;
@@ -109,6 +127,17 @@ type RetentionTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 /** Rows whose retention date has passed and that are not under legal hold. */
 export const importRowDue = (today: string) =>
   and(lt(importRow.retainUntil, today), eq(importRow.legalHold, false));
+
+/**
+ * Rows whose raw cells can be nulled today: due, still holding cells, and
+ * decided. A pending row still needs its cells to be imported.
+ */
+export const rawNullable = (today: string) =>
+  and(
+    importRowDue(today),
+    isNotNull(importRow.raw),
+    ne(importRow.outcome, "pending")
+  );
 
 /** Batches nothing was ever imported from; their rows are deleted, not kept. */
 export const neverImported = () =>
@@ -189,8 +218,7 @@ function statementsFor(tx: RetentionTx): ImportRetentionStatements {
         .set({ raw: null })
         .where(
           and(
-            importRowDue(today),
-            isNotNull(importRow.raw),
+            rawNullable(today),
             inArray(
               importRow.batchId,
               tx
