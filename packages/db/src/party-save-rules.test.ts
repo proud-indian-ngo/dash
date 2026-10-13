@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   PartyConflictError,
   resolveAssessedOn,
+  resolveBankAccount,
   resolveSaveMode,
   resolveSecret,
 } from "./party-save-rules";
@@ -217,5 +218,58 @@ describe("resolveAssessedOn", () => {
         today
       )
     ).toBe(today);
+  });
+});
+
+describe("resolveSaveMode noun", () => {
+  it("names the record in conflict messages", () => {
+    expect(() =>
+      resolveSaveMode(
+        create,
+        partyRow({ createdBy: "someone-else" }),
+        null,
+        "vendor"
+      )
+    ).toThrow("A vendor with this ID already exists");
+    expect(() =>
+      resolveSaveMode(
+        update(null, t0.getTime()),
+        partyRow(),
+        privateRow(),
+        "vendor"
+      )
+    ).toThrow("Someone else changed this vendor");
+  });
+});
+
+describe("resolveBankAccount", () => {
+  it("replaces with a given number, trimmed", () => {
+    expect(resolveBankAccount(" 1234567890 ", { id: "a1" }, null)).toEqual({
+      accountNumber: "1234567890",
+      kind: "replace",
+    });
+  });
+
+  it("keeps the active account when the number is blank", () => {
+    expect(resolveBankAccount("", { id: "a1" }, "999")).toEqual({
+      accountId: "a1",
+      kind: "keep",
+    });
+  });
+
+  it("carries a legacy number over when nothing is active", () => {
+    expect(resolveBankAccount("  ", null, "55556666")).toEqual({
+      accountNumber: "55556666",
+      kind: "replace",
+    });
+  });
+
+  it("asks for a number when there is nothing to keep", () => {
+    expect(() => resolveBankAccount("", null, null)).toThrow(
+      "Enter the account number"
+    );
+    expect(() => resolveBankAccount("", null, "  ")).toThrow(
+      "Enter the account number"
+    );
   });
 });

@@ -26,7 +26,9 @@ import { partyPrivate } from "../schema/private/party-private";
 
 export { PartyConflictError };
 
-const idContext = (partyId: string) => `party_private.id_number:${partyId}`;
+/** Associated data binding an encrypted identifier to its party. */
+export const partyIdNumberContext = (partyId: string) =>
+  `party_private.id_number:${partyId}`;
 
 /** What the directory may show: contact details and a masked identifier. */
 export interface PartyPrivateView {
@@ -93,7 +95,7 @@ export async function revealPartyIdNumber(
     .where(eq(partyPrivate.partyId, partyId))
     .limit(1);
   return row?.encrypted
-    ? decryptSecret(row.encrypted, idContext(partyId))
+    ? decryptSecret(row.encrypted, partyIdNumberContext(partyId))
     : null;
 }
 
@@ -143,7 +145,7 @@ export interface SavePartyResult {
   view: PartyPrivateView;
 }
 
-const nullIfBlank = (value: string): string | null =>
+export const nullIfBlank = (value: string): string | null =>
   value.trim() === "" ? null : value.trim();
 
 /**
@@ -253,7 +255,7 @@ export async function saveParty(
         );
       }
       return {
-        encrypted: encryptSecret(plain, idContext(partyId)),
+        encrypted: encryptSecret(plain, partyIdNumberContext(partyId)),
         last4: visibleTail(plain),
       };
     });

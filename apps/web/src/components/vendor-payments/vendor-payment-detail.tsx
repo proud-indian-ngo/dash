@@ -30,7 +30,7 @@ import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { getStatusBadge } from "@/lib/status-badge";
 
-import { VendorBankCard, VendorDetailsCard } from "./vendor-details-card";
+import { VendorDetailCards } from "./vendor-details-card";
 import { VendorPaymentInvoiceSection } from "./vendor-payment-invoice-section";
 import { VendorPaymentTransactions } from "./vendor-payment-transactions";
 import type { VendorPaymentWithRelations } from "./vendor-payment-types";
@@ -303,8 +303,7 @@ export function VendorPaymentDetail({
         <RecordDetailLayout
           aside={
             <>
-              <VendorDetailsCard vendor={request.vendor} />
-              <VendorBankCard vendor={request.vendor} />
+              <VendorDetailCards vendor={request.vendor} />
               <HistoryCard entries={request.history} />
             </>
           }

@@ -24,12 +24,12 @@ import {
 import { team, teamMember } from "@pi-dash/db/schema/team";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import {
-  vendor,
   vendorPayment,
   vendorPaymentLineItem,
 } from "@pi-dash/db/schema/vendor";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { ensureFinanceDimensions } from "@pi-dash/db/seed-finance-dimensions";
+import { ensureVendor } from "@pi-dash/db/seed-vendors";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
 import { addDays, addHours, subDays } from "date-fns";
 import dotenv from "dotenv";
@@ -514,26 +514,22 @@ async function ensureEventVendorPayment(
   userId: string,
   eventId: string
 ): Promise<void> {
-  const existingVendor = await db.query.vendor.findFirst({
-    where: (table, ops) => ops.eq(table.id, SEED_VENDOR_ID),
-  });
   const now = new Date();
-
-  const vendorId = existingVendor?.id ?? SEED_VENDOR_ID;
-  if (!existingVendor) {
-    await db.insert(vendor).values({
+  const vendorId = SEED_VENDOR_ID;
+  // Idempotent, so an older database also gains the private details.
+  await ensureVendor({
+    createdAt: now,
+    createdBy: userId,
+    id: vendorId,
+    name: "E2E Event Vendor",
+    private: {
       bankAccountIfscCode: "TEST0000002",
       bankAccountName: "E2E Vendor Account",
       bankAccountNumber: "9876543210",
       contactPhone: "+919999999999",
-      createdAt: now,
-      createdBy: userId,
-      id: SEED_VENDOR_ID,
-      name: "E2E Event Vendor",
-      status: "approved",
-      updatedAt: now,
-    });
-  }
+    },
+    status: "approved",
+  });
 
   const existingPayment = await db.query.vendorPayment.findFirst({
     where: (table, ops) => ops.eq(table.id, SEED_VENDOR_PAYMENT_ID),

@@ -150,7 +150,7 @@ All paths are relative to project root.
 | `routes/_app/vendor-payments/new.tsx` | New vendor payment form |
 | `routes/_app/vendor-payments/$id.tsx` | Vendor payment detail + transactions |
 | `routes/_app/vendors/route.tsx` | Vendors layout (`assertPermission("vendors.view_all")` guard) |
-| `routes/_app/vendors/index.tsx` | Vendors list |
+| `routes/_app/vendors/index.tsx` | Vendors list; create, edit and delete through `functions/vendors.ts`, approval through Zero |
 | `routes/_app/settings/route.tsx` | Settings layout: nav grouped into You and Organization (`components/settings/settings-layout.tsx`), driven by `lib/settings-sections.ts` |
 | `routes/_app/settings/index.tsx` | Redirects to `/settings/profile` |
 | `routes/_app/settings/{profile,account,notifications,bank-accounts}.tsx` | Personal settings pages |
@@ -218,6 +218,7 @@ pi-dash event remains read-only outside the Kalakriti module.
 | `components/events/` | public-events-table |
 | `components/kalakriti/` | Edition configuration, assignments, Guardian access, Competition schedule, Student and Entry registration, scoped dashboards and ZIP exports, and scoped audit tables |
 | `components/teams/events/` | events-table, events-table-helpers (RRULE expansion, display row building), event-form-dialog, event-detail, event-details-card, event-attendance-section, event-updates, event-photos, add-event-member-dialog, show-interest-dialog, interest-requests, recurrence-builder (RRULE form UI), edit-scope-dialog (this/following/all scope selection), event-actions-menu, event-social-recap (post-event "Social recap" card), event-partners-field (partners repeater in the event form) |
+| `components/vendors/` | vendors-table, vendor-form-dialog (loads private details, then one audited `saveVendor` writes party, profile, private details and bank account), vendor-detail-sheet (masked account with audited Reveal), vendor-private (`useVendorDetails`, reveal rule, `VendorAccountNumber`), shared with the payment page's vendor cards |
 | `components/donors/` | donors-table, donor-form-dialog (one audited `saveDonor` server function writes identity, roles and private details in a transaction), donor-detail-sheet (masked identifier, audited Reveal), party-row |
 | `components/settings/` | settings-layout (nav + `SettingsPage`), settings-ui (`SettingsCard`, `SettingsRow`, `SettingsListItem`), sections/ (profile, account, banking, programmes, projects, expense-categories, whatsapp-groups, notifications, general, api-tokens, admin-actions) |
 | `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, phone-field-lazy, textarea-field, checkbox-field, select-field, add-url-row, line-items-editor, attachments-section, reject-dialog, approve-dialog |
@@ -336,6 +337,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `advancePaymentHistory` | `packages/db/src/schema/advance-payment.ts` |
 | `party`, `partyRole` | `packages/db/src/schema/party.ts` (identity and roles; synced through Zero) |
 | `partyPrivate`, `partyBankAccount` | `packages/db/src/schema/private/party-private.ts` (contact, ID and bank details in the Postgres schema `private`; never in the Zero schema or the zero-cache replica; identifiers encrypted with `DATA_ENCRYPTION_KEY`) |
+| `vendorLegacyDetails` | `packages/db/src/schema/private/vendor-legacy.ts` (vendor details moved out of `vendor` by migration 0116, read as a fallback until `bun run vendors:backfill-private` encrypts them into the party tables; dropped once empty) |
 | `team` | `packages/db/src/schema/team.ts` (optional `programmeId`: default programme for the team's events) |
 | `teamMember` | `packages/db/src/schema/team.ts` |
 | `teamEvent` | `packages/db/src/schema/team-event.ts` (`programmeId` required; defaults to the Unallocated holding programme, backfilled from the team in migration 0114) |
@@ -414,6 +416,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 - **Fixtures**: Import `test` and `expect` from `packages/e2e/fixtures/test.ts` for email fixtures, `kalakritiActors`, and `consoleErrors`. The `page` fixture annotates uncaught browser errors when a test needs a page. API-only tests use `request` without starting a browser page. Use plain `@playwright/test` for unauthenticated tests that do not need the shared fixtures.
 - **Page Object Model**: Shared page objects live in `packages/e2e/pages/`. `RequestPage` composes the request list, form, and approval detail objects; Kalakriti page objects cover Edition creation, Centers, students, competitions, entries, and the public schedule. New feature suites should follow the owning domain's existing pattern.
 - **API authorization tests**: `tests/authorization/api-authorization.spec.ts` tests that admin-only Zero mutations are rejected for volunteer users via the `request` fixture and the live `/api/zero/mutate` endpoint.
+- **Vendor details backfill**: `scripts/backfill-vendor-private.ts` — `bun run vendors:backfill-private` encrypts rows left in `private.vendor_legacy_details` by migration 0116 into the party tables; idempotent, needs `DATA_ENCRYPTION_KEY`.
 - **Social API tokens**: Settings → API tokens (`/settings/api-tokens`) (`settings.app_config`), or the CLI fallback `scripts/social-token.ts` — `bun run social:token create <name> --scopes …`, `list`, `revoke <id>`; both show the raw token once and store only its sha256.
 - **Dev seeding**: `scripts/seed.ts` — comprehensive idempotent seed covering all data models. Run via `bun run seed`. Used by worktree setup and general dev.
 - **E2E seeding**: `packages/e2e/helpers/seed-test-user.ts` creates standard test data plus the idempotent Kalakriti registration-release fixture, including all active role actors and one dormant external actor.
@@ -486,7 +489,7 @@ Split by domain in `packages/zero/src/mutators/`. Each file exports a mutators o
 
 ### Vendor Payment Workflow
 
-Vendors have a two-stage lifecycle: `pending` → `approved`. Any authenticated user can create a vendor (non-admins are server-forced to `pending` status). Payments can be created against approved vendors or the user's own pending vendors. The payment form includes an inline "Add New Vendor" dialog that creates a pending vendor and auto-selects it. When an admin approves a vendor payment, the linked vendor is auto-approved if still pending. Admins can approve or unapprove vendors; unapproval is blocked when the vendor has existing payment requests. The `/vendors` admin route is admin-only via `assertPermission("vendors.view_all")` guard.
+Vendors have a two-stage lifecycle: `pending` → `approved`. Each vendor is a party with the `vendor` role; the synced `vendor` row holds name, GSTIN and status, and contact, PAN and bank details live in the private party tables, read and written through `apps/web/src/functions/vendors.ts` and `packages/db/src/queries/vendor-party.ts` (see `docs/architecture/vendor-payments.md`). Anyone with `vendors.create` can create a vendor; new vendors start `pending`. Payments can be created against approved vendors or the user's own pending vendors. The payment form includes an inline "Add New Vendor" dialog that creates a pending vendor and auto-selects it. When an admin approves a vendor payment, the linked vendor is auto-approved if still pending. Admins can approve or unapprove vendors; unapproval is blocked when the vendor has existing payment requests. The `/vendors` admin route is admin-only via `assertPermission("vendors.view_all")` guard.
 
 **Vendor payments** have their own standalone section at `/vendor-payments` (separate from reimbursements). Status lifecycle: `pending` → `approved` → `partially_paid` → `paid` (or `rejected`). The transition from `approved` to `partially_paid`/`paid` happens automatically when payment transactions are approved.
 

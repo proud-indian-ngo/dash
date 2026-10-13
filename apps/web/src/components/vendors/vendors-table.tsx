@@ -43,9 +43,6 @@ const STATUS_BADGE_MAP: Record<string, { label: string; tone: StatusTone }> = {
 };
 
 const SKELETON_NAME = <Skeleton className="h-5 w-40" />;
-const SKELETON_PHONE = <Skeleton className="h-5 w-28" />;
-const SKELETON_EMAIL = <Skeleton className="h-5 w-36" />;
-const SKELETON_BANK = <Skeleton className="h-5 w-44" />;
 const SKELETON_STATUS = <Skeleton className="h-6 w-16" />;
 const SKELETON_COUNT = <Skeleton className="h-5 w-8" />;
 const SKELETON_AMOUNT = <Skeleton className="h-5 w-24" />;
@@ -173,10 +170,7 @@ function searchVendor(row: VendorRow, query: string): boolean {
   if (!q) {
     return true;
   }
-  return [row.name, row.contactPhone, row.contactEmail ?? "", row.status]
-    .join(" ")
-    .toLowerCase()
-    .includes(q);
+  return [row.name, row.status ?? ""].join(" ").toLowerCase().includes(q);
 }
 
 interface VendorsTableProps {
@@ -185,17 +179,22 @@ interface VendorsTableProps {
   detailVendor?: VendorRow | null;
   isLoading?: boolean;
   onApprove?: (vendor: VendorRow) => void;
-  onDelete: (id: string) => Promise<{ type: string }>;
+  onDelete: (
+    id: string
+  ) => Promise<{ error?: { message?: string }; type: string }>;
   onDetailOpenChange?: (open: boolean) => void;
   onEdit: (vendor: VendorRow) => void;
   onUnapprove?: (vendor: VendorRow) => void;
   onView: (vendor: VendorRow) => void;
   toolbarActions?: ReactNode;
+  /** Bumped by the page after a save so the open detail sheet reloads. */
+  detailsVersion?: number;
 }
 
 export function VendorsTable({
   data,
   detailVendor = null,
+  detailsVersion = 0,
   isLoading,
   onApprove,
   onDelete,
@@ -211,7 +210,8 @@ export function VendorsTable({
       const res = await onDelete(id);
       return res;
     },
-    onError: () => toast.error("Couldn't delete vendor"),
+    onError: (message) =>
+      toast.error("Couldn't delete vendor", { description: message }),
   });
   const handleDeleteRequest = useEventCallback((id: string) =>
     deleteAction.trigger(id)
@@ -236,58 +236,6 @@ export function VendorsTable({
         skeleton: SKELETON_NAME,
       },
       size: 200,
-    },
-    {
-      accessorFn: (row) => row.contactPhone,
-      cell: ({ row }) => (
-        <span className="truncate text-sm">{row.original.contactPhone}</span>
-      ),
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Phone" visibility={true} />
-      ),
-      id: "contactPhone",
-      meta: { headerTitle: "Phone", kind: "phone", skeleton: SKELETON_PHONE },
-      size: 150,
-    },
-    {
-      accessorFn: (row) => row.contactEmail,
-      cell: ({ row }) => (
-        <span className="text-muted-foreground truncate text-sm">
-          {row.original.contactEmail ?? "—"}
-        </span>
-      ),
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="Email" visibility={true} />
-      ),
-      id: "contactEmail",
-      meta: { headerTitle: "Email", kind: "email", skeleton: SKELETON_EMAIL },
-      size: 200,
-    },
-    {
-      accessorFn: (row) => row.bankAccountName,
-      cell: ({ row }) => (
-        <span className="truncate text-sm">
-          {row.original.bankAccountName} (••••
-          {row.original.bankAccountNumber.length >= 4
-            ? row.original.bankAccountNumber.slice(-4)
-            : row.original.bankAccountNumber}
-          )
-        </span>
-      ),
-      header: ({ column }) => (
-        <DataGridColumnHeader
-          column={column}
-          title="Bank Account"
-          visibility={true}
-        />
-      ),
-      id: "bankAccount",
-      meta: {
-        headerTitle: "Bank Account",
-        kind: "text",
-        skeleton: SKELETON_BANK,
-      },
-      size: 220,
     },
     {
       accessorFn: (row) => row.pendingCount,
@@ -538,7 +486,7 @@ export function VendorsTable({
         searchFn={searchVendor}
         searchPlaceholder="Search vendors..."
         totals={TOTAL_COLUMNS}
-        storageKey="vendors_table_state_v3"
+        storageKey="vendors_table_state_v4"
         tableLayout={{
           columnsDraggable: true,
           columnsPinnable: true,
@@ -562,6 +510,7 @@ export function VendorsTable({
         onOpenChange={(open) => onDetailOpenChange?.(open)}
         open={Boolean(detailVendor)}
         vendor={detailVendor}
+        version={detailsVersion}
       />
       <ConfirmDialog
         confirmLabel="Delete vendor"

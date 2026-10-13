@@ -46,9 +46,11 @@ test.describe("Vendor management (admin)", () => {
     await dialog
       .getByRole("textbox", { name: "Bank Account Name" })
       .fill("Test Bank Account");
+    const accountNumber = Date.now().toString().slice(-10).padStart(10, "1");
+    const masked = `•••• ${accountNumber.slice(-4)}`;
     await dialog
       .getByRole("textbox", { name: "Account Number" })
-      .fill(Date.now().toString().slice(-10).padStart(10, "1"));
+      .fill(accountNumber);
     await dialog
       .getByRole("textbox", { name: "IFSC Code" })
       .fill("SBIN0001234");
@@ -58,9 +60,21 @@ test.describe("Vendor management (admin)", () => {
     await expect(list.getRowByText(vendorName).first()).toBeVisible({
       timeout: 10_000,
     });
+    const row = page.getByRole("row").filter({ hasText: vendorName }).first();
+
+    // The sheet shows the account masked; Reveal and Hide toggle the full number.
+    await list.openRowActionAndClick(row, "View");
+    const sheet = page.getByRole("dialog").filter({ hasText: "Bank details" });
+    await expect(sheet.getByText(masked)).toBeVisible({ timeout: 10_000 });
+    await expect(sheet.getByText(accountNumber)).toHaveCount(0);
+    await sheet.getByRole("button", { name: "Reveal" }).click();
+    await expect(sheet.getByText(accountNumber)).toBeVisible();
+    await sheet.getByRole("button", { name: "Hide" }).click();
+    await expect(sheet.getByText(masked)).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(sheet).toBeHidden();
 
     // Edit — use dropdown menu (row actions)
-    const row = page.getByRole("row").filter({ hasText: vendorName }).first();
     await list.openRowActionAndClick(row, "Edit");
 
     const editDialog = page.getByRole("dialog");
@@ -72,6 +86,13 @@ test.describe("Vendor management (admin)", () => {
     await expect(
       editDialog.getByRole("textbox", { exact: true, name: "Name" })
     ).toHaveValue(vendorName);
+    // The stored number is never sent back; leaving it blank keeps it.
+    await expect(
+      editDialog.getByRole("textbox", { name: "Account Number" })
+    ).toHaveValue("");
+    await expect(
+      editDialog.getByText(`Stored, ending ${accountNumber.slice(-4)}`)
+    ).toBeVisible();
     await editDialog
       .getByRole("textbox", { exact: true, name: "Name" })
       .fill(editedName);
@@ -80,6 +101,19 @@ test.describe("Vendor management (admin)", () => {
     await expect(list.getRowByText(editedName).first()).toBeVisible({
       timeout: 10_000,
     });
+    const editedRowForView = page
+      .getByRole("row")
+      .filter({ hasText: editedName })
+      .first();
+    await list.openRowActionAndClick(editedRowForView, "View");
+    const editedSheet = page
+      .getByRole("dialog")
+      .filter({ hasText: "Bank details" });
+    await expect(editedSheet.getByText(masked)).toBeVisible({
+      timeout: 10_000,
+    });
+    await page.keyboard.press("Escape");
+    await expect(editedSheet).toBeHidden();
 
     // Delete — use dropdown menu (row actions)
     const editedRow = page

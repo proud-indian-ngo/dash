@@ -56,7 +56,9 @@ export type SaveMode =
 export function resolveSaveMode(
   input: SaveModeInput,
   existingParty: ExistingPartyRow | null,
-  existingPrivate: Pick<ExistingPrivateRow, "updatedAt"> | null
+  existingPrivate: Pick<ExistingPrivateRow, "updatedAt"> | null,
+  /** What the record is called in conflict messages. */
+  noun = "donor"
 ): SaveMode {
   if (input.mode === "create") {
     if (!existingParty) {
@@ -71,7 +73,7 @@ export function resolveSaveMode(
       (existingPrivate === null ||
         existingPrivate.updatedAt.getTime() === createdAt);
     if (!untouched) {
-      throw new PartyConflictError("A donor with this ID already exists");
+      throw new PartyConflictError(`A ${noun} with this ID already exists`);
     }
     return { kind: "retry" };
   }
@@ -87,7 +89,7 @@ export function resolveSaveMode(
         existingPrivate.updatedAt.getTime() !== input.expectedUpdatedAt);
   if (stale) {
     throw new PartyConflictError(
-      "Someone else changed this donor while you were editing. Reload and try again."
+      `Someone else changed this ${noun} while you were editing. Reload and try again.`
     );
   }
   return { kind: "update" };
@@ -158,4 +160,34 @@ export function resolveAssessedOn(
   }
   // Rows seeded or imported without a date get one the first time they are saved.
   return existing.assessedOn ?? today;
+}
+
+export type BankAccountPlan =
+  /** Encrypt this number into a new active account; older accounts are deactivated. */
+  | { accountNumber: string; kind: "replace" }
+  /** Keep the active account's number; only its name and IFSC change. */
+  | { accountId: string; kind: "keep" };
+
+/**
+ * Which bank account a save leaves active: a given number replaces, a blank
+ * one keeps the active account, and with neither, a number still waiting in
+ * the pre-party legacy row is carried over.
+ */
+export function resolveBankAccount(
+  accountNumber: string,
+  active: { id: string } | null,
+  legacyAccountNumber: string | null
+): BankAccountPlan {
+  const given = accountNumber.trim();
+  if (given) {
+    return { accountNumber: given, kind: "replace" };
+  }
+  if (active) {
+    return { accountId: active.id, kind: "keep" };
+  }
+  const legacy = legacyAccountNumber?.trim();
+  if (legacy) {
+    return { accountNumber: legacy, kind: "replace" };
+  }
+  throw new Error("Enter the account number");
 }

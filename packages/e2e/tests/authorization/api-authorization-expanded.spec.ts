@@ -64,12 +64,6 @@ test.describe("API authorization — expanded mutations rejected for volunteer",
     });
   });
 
-  test("vendor.delete rejected for volunteer", async ({ request, baseURL }) => {
-    await assertUnauthorized(request, baseURL, "vendor.delete", {
-      id: FAKE_ID,
-    });
-  });
-
   // ── Vendor Payment ───────────────────────────────────────────────────────────
 
   test("vendorPayment.approve rejected for volunteer", async ({

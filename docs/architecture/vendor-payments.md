@@ -44,3 +44,9 @@ pending → approved → partially_paid → paid → invoice_pending → complet
 - `"invoice"` — uploaded post-payment
 
 Create/update mutators only touch `quotation`. Invoice mutators only touch `invoice`.
+
+## Vendor Details
+
+A vendor is a party with the `vendor` role; the synced `vendor` row holds only name, GSTIN and approval status. Contact details, PAN and the bank account live in the server-only `private` schema (`party_private`, `party_bank_account`, with PAN and account number AES-GCM encrypted) and never reach Zero. Vendor screens and the payment page's Vendor and Paid to cards load them through `getVendorDetails` in `apps/web/src/functions/vendors.ts`, with the account number masked to its last four digits. Create, edit and delete go through the audited `saveVendor` and `deleteVendor` server functions; approval stays on the Zero `vendor.approve`/`vendor.unapprove` mutators.
+
+Revealing the full account number (`revealVendorBankAccount`, audited as `vendor.bank_account.reveal`) is allowed for `finance.view_sensitive`, and for `requests.record_payment` holders when the vendor is approved, since the person paying needs the number. Details are visible to `vendors.view_all` and `vendors.edit`; for approved vendors also to `vendors.view_approved` and `requests.record_payment`; and to the creator of a pending vendor.

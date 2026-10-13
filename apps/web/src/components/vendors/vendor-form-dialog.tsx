@@ -1,9 +1,11 @@
+import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { mutators } from "@pi-dash/zero/mutators";
 import type { Vendor } from "@pi-dash/zero/schema";
-import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
-import { useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { log } from "evlog";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 
 import { FormActions } from "@/components/form/form-actions";
@@ -17,99 +19,136 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
-import { handleMutationResult } from "@/lib/mutation-result";
-import { vendorFormSchema } from "@/lib/validators";
+import {
+  getVendorDetails,
+  saveVendor,
+  type VendorDetailsResponse,
+} from "@/functions/vendors";
+import {
+  type SaveVendorInput,
+  saveVendorSchema,
+  vendorFieldsSchema,
+} from "@/lib/vendor-schema";
 
-interface VendorFormValues {
-  address: string;
-  bankAccountIfscCode: string;
-  bankAccountName: string;
-  bankAccountNumber: string;
-  contactEmail: string;
-  contactPhone: string;
-  gstNumber: string;
-  name: string;
-  panNumber: string;
-}
+type VendorFormValues = Omit<
+  SaveVendorInput,
+  "expectedPartyUpdatedAt" | "expectedUpdatedAt" | "id" | "mode"
+>;
 
-function getDefaultValues(vendor: Vendor | null): VendorFormValues {
+const formSchema = vendorFieldsSchema.omit({
+  expectedPartyUpdatedAt: true,
+  expectedUpdatedAt: true,
+  id: true,
+  mode: true,
+});
+
+const KEY_MISSING_HINT =
+  "Cannot be stored until the encryption key is configured";
+
+function valuesFor(
+  vendor: Vendor | null,
+  details: VendorDetailsResponse["details"]
+): VendorFormValues {
   return {
-    address: vendor?.address ?? "",
-    bankAccountIfscCode: vendor?.bankAccountIfscCode ?? "",
-    bankAccountName: vendor?.bankAccountName ?? "",
-    bankAccountNumber: vendor?.bankAccountNumber ?? "",
-    contactEmail: vendor?.contactEmail ?? "",
-    contactPhone: vendor?.contactPhone ?? "",
+    address: details?.address ?? "",
+    bankAccountIfscCode: details?.bank?.ifscCode ?? "",
+    bankAccountName: details?.bank?.accountName ?? "",
+    // Stored secrets never come back to the browser; blank keeps them.
+    bankAccountNumber: "",
+    contactEmail: details?.email ?? "",
+    contactPhone: details?.phone ?? "",
     gstNumber: vendor?.gstNumber ?? "",
     name: vendor?.name ?? "",
-    panNumber: vendor?.panNumber ?? "",
+    panNumber: "",
   };
 }
 
-function buildVendorPayload(fields: VendorFormValues, existingId?: string) {
-  return {
-    address: fields.address.trim() || undefined,
-    bankAccountIfscCode: fields.bankAccountIfscCode.trim().toUpperCase(),
-    bankAccountName: fields.bankAccountName.trim(),
-    bankAccountNumber: fields.bankAccountNumber.trim(),
-    contactEmail: fields.contactEmail.trim() || undefined,
-    contactPhone: fields.contactPhone.trim(),
-    gstNumber: fields.gstNumber.trim().toUpperCase() || undefined,
-    id: existingId ?? uuidv7(),
-    name: fields.name.trim(),
-    panNumber: fields.panNumber.trim().toUpperCase() || undefined,
-  };
+function storedHint(last4: string | null, noun: string): string {
+  return `Stored${last4 ? `, ending ${last4}` : ""}. Leave blank to keep it, or enter a new ${noun} to replace it.`;
 }
 
-function VendorFormContent({
-  isEdit,
+function VendorForm({
+  context,
   mode,
   onCreated,
   onOpenChange,
+  onSaved,
   vendor,
 }: {
-  isEdit: boolean;
+  context: VendorDetailsResponse;
   mode: "admin" | "inline";
   onCreated?: (id: string) => void;
   onOpenChange: (open: boolean) => void;
+  onSaved?: (id: string) => void;
   vendor: Vendor | null;
 }) {
-  const zero = useZero();
+  const save = useServerFn(saveVendor);
+  const isEdit = vendor !== null;
+  const { details, identifiersAvailable } = context;
+  // Fixed for the life of the form so a retried create cannot duplicate.
+  const [vendorId] = useState(() => vendor?.id ?? uuidv7());
+  const storedBank = details?.bank ?? null;
 
   const form = useForm({
-    defaultValues: getDefaultValues(vendor),
+    defaultValues: valuesFor(vendor, details),
     onSubmit: async ({ value }) => {
-      const payload = buildVendorPayload(value, vendor?.id);
-
-      const createPayload =
-        mode === "inline"
-          ? { ...payload, status: "pending" as const }
-          : payload;
-
-      const mutation = isEdit
-        ? zero.mutate(mutators.vendor.update(payload))
-        : zero.mutate(mutators.vendor.create(createPayload));
-
-      const res = await mutation.server;
-      handleMutationResult(res, {
-        entityId: payload.id,
-        errorMsg: isEdit ? "Couldn't update vendor" : "Couldn't create vendor",
-        mutation: `vendor.${isEdit ? "update" : "create"}`,
-        successMsg: isEdit ? "Vendor updated" : "Vendor created",
-      });
-      if (res.type !== "error") {
+      if (!(value.bankAccountNumber.trim() || storedBank)) {
+        toast.error("Enter the account number");
+        return;
+      }
+      const input: SaveVendorInput = {
+        ...value,
+        expectedPartyUpdatedAt: vendor?.updatedAt ?? null,
+        expectedUpdatedAt: details?.updatedAt ?? null,
+        id: vendorId,
+        mode: isEdit ? "update" : "create",
+      };
+      const check = saveVendorSchema.safeParse(input);
+      if (!check.success) {
+        toast.error(check.error.issues[0]?.message ?? "Check the form");
+        return;
+      }
+      try {
+        const result = await save({ data: check.data });
+        toast.success(isEdit ? "Vendor updated" : "Vendor created");
         if (!isEdit) {
-          onCreated?.(payload.id);
+          onCreated?.(result.vendorId);
         }
+        onSaved?.(result.vendorId);
         onOpenChange(false);
+      } catch (error) {
+        log.error({
+          action: isEdit ? "vendor.update" : "vendor.create",
+          caughtError: error instanceof Error ? error.message : String(error),
+          component: "VendorFormDialog",
+          mode,
+        });
+        toast.error(
+          isEdit ? "Couldn't update vendor" : "Couldn't create vendor",
+          {
+            description:
+              error instanceof Error ? error.message : "Something went wrong",
+          }
+        );
       }
     },
-    validators: {
-      onChange: vendorFormSchema,
-      onSubmit: vendorFormSchema,
-    },
+    validators: { onChange: formSchema, onSubmit: formSchema },
   });
-  const stableOnCancel0 = useEventCallback(() => onOpenChange(false));
+  const cancel = useEventCallback(() => onOpenChange(false));
+
+  let accountHint: string | undefined;
+  let panHint: string | undefined;
+  if (!identifiersAvailable) {
+    accountHint = KEY_MISSING_HINT;
+    panHint = KEY_MISSING_HINT;
+  } else {
+    if (storedBank) {
+      accountHint = storedHint(storedBank.accountNumberLast4, "number");
+    }
+    if (details?.hasPan) {
+      panHint = storedHint(details.panLast4, "PAN");
+    }
+  }
 
   return (
     <FormLayout form={form}>
@@ -142,7 +181,9 @@ function VendorFormContent({
           name="bankAccountName"
         />
         <InputField
-          isRequired
+          description={accountHint}
+          disabled={!identifiersAvailable}
+          isRequired={!storedBank}
           label="Account number"
           name="bankAccountNumber"
         />
@@ -161,6 +202,8 @@ function VendorFormContent({
           placeholder="22AAAAA0000A1Z5"
         />
         <InputField
+          description={panHint}
+          disabled={!identifiersAvailable}
           label="PAN Number"
           name="panNumber"
           placeholder="ABCDE1234F"
@@ -169,7 +212,7 @@ function VendorFormContent({
 
       <FormActions
         disableWhenInvalid={false}
-        onCancel={stableOnCancel0}
+        onCancel={cancel}
         submitLabel={isEdit ? "Save changes" : "Add vendor"}
         submittingLabel={isEdit ? "Saving..." : "Creating..."}
       />
@@ -177,10 +220,17 @@ function VendorFormContent({
   );
 }
 
+type LoadState =
+  | { kind: "loading" }
+  | { kind: "error" }
+  | { kind: "ready"; context: VendorDetailsResponse };
+
 interface VendorFormDialogProps {
   mode?: "admin" | "inline";
   onCreated?: (id: string) => void;
   onOpenChange: (open: boolean) => void;
+  /** Called after any successful save, so open detail views can reload. */
+  onSaved?: (id: string) => void;
   open: boolean;
   vendor: Vendor | null;
 }
@@ -189,21 +239,82 @@ export function VendorFormDialog({
   mode = "admin",
   onCreated,
   onOpenChange,
+  onSaved,
   open,
   vendor,
 }: VendorFormDialogProps) {
   const isEdit = !!vendor;
+  const loadDetails = useServerFn(getVendorDetails);
+  const [state, setState] = useState<LoadState>({ kind: "loading" });
+  const [attempt, setAttempt] = useState(0);
+  // Bumped on every load so each opening starts a fresh form, with a new ID on create.
   const [formKey, setFormKey] = useState(0);
+  const vendorId = vendor?.id ?? null;
 
-  const handleOpenChange = useEventCallback((nextOpen: boolean) => {
-    if (nextOpen) {
-      setFormKey((k) => k + 1);
+  useEffect(() => {
+    if (!open) {
+      return;
     }
-    onOpenChange(nextOpen);
-  });
+    let cancelled = false;
+    // Reset on open, not on close, so the content does not flash to a
+    // loading state during the close animation.
+    setState({ kind: "loading" });
+    setFormKey((k) => k + 1);
+    loadDetails({ data: { vendorId } })
+      .then((context) => {
+        if (!cancelled) {
+          setState({ context, kind: "ready" });
+        }
+      })
+      .catch((error: unknown) => {
+        log.error({
+          action: "vendor.loadDetails",
+          caughtError: error instanceof Error ? error.message : String(error),
+          component: "VendorFormDialog",
+        });
+        if (!cancelled) {
+          // Never show an empty form for an existing vendor: saving it would
+          // wipe the stored details.
+          setState({ kind: "error" });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, vendorId, attempt, loadDetails]);
+
+  const retry = useEventCallback(() => setAttempt((n) => n + 1));
+
+  let body: React.ReactNode;
+  if (state.kind === "ready") {
+    body = (
+      <VendorForm
+        context={state.context}
+        key={`${vendorId ?? "new"}-${formKey}`}
+        mode={mode}
+        onCreated={onCreated}
+        onOpenChange={onOpenChange}
+        onSaved={onSaved}
+        vendor={vendor}
+      />
+    );
+  } else if (state.kind === "error") {
+    body = (
+      <div className="flex flex-col items-start gap-3 px-1 py-4">
+        <p className="text-destructive text-sm">
+          Couldn't load the vendor's details.
+        </p>
+        <Button onClick={retry} size="sm" type="button" variant="outline">
+          Try again
+        </Button>
+      </div>
+    );
+  } else {
+    body = <p className="text-muted-foreground px-1 py-6 text-sm">Loading…</p>;
+  }
 
   return (
-    <Dialog onOpenChange={handleOpenChange} open={open}>
+    <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="sm:max-w-(--dialog-md)">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit vendor" : "Add vendor"}</DialogTitle>
@@ -217,14 +328,7 @@ export function VendorFormDialog({
             your payment request is approved.
           </p>
         )}
-        <VendorFormContent
-          isEdit={isEdit}
-          key={formKey}
-          mode={mode}
-          onCreated={onCreated}
-          onOpenChange={onOpenChange}
-          vendor={vendor}
-        />
+        {open ? body : null}
       </DialogContent>
     </Dialog>
   );
