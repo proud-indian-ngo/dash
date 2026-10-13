@@ -211,6 +211,16 @@ describe("appConfig key gating", () => {
     ).rejects.toThrow("Unauthorized");
   });
 
+  it("lets finance.manage write only the finance threshold key", () => {
+    const ctx = { permissions: ["finance.manage"], userId: "u" };
+    expect(() =>
+      assertCanWriteAppConfig(ctx as never, "finance_threshold_default_paise")
+    ).not.toThrow();
+    expect(() =>
+      assertCanWriteAppConfig(ctx as never, "notifications_disabled")
+    ).toThrow("Unauthorized");
+  });
+
   it("lets settings.app_config write any key", () => {
     const ctx = { permissions: ["settings.app_config"], userId: "u" };
     for (const key of ["notifications_disabled", "social_paused"]) {

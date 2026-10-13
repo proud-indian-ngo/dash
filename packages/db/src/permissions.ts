@@ -389,6 +389,22 @@ export const PERMISSIONS = [
     id: "audit_log.view",
     name: "View Audit Log",
   },
+
+  // ── Finance ──
+  {
+    category: "finance",
+    description:
+      "See programmes, projects, funds, account heads, cost centres and fiscal periods",
+    id: "finance.view",
+    name: "View Finance Setup",
+  },
+  {
+    category: "finance",
+    description:
+      "Manage programmes, projects, funds, account heads, cost centres, organisation accounts, fiscal periods and approval thresholds",
+    id: "finance.manage",
+    name: "Manage Finance Setup",
+  },
 ] as const;
 
 export type PermissionId = (typeof PERMISSIONS)[number]["id"];
@@ -458,6 +474,7 @@ const adminExcluded = new Set<PermissionId>([
   "settings.roles",
   "settings.expense_categories",
   "settings.whatsapp_groups",
+  "finance.manage",
   "jobs.manage",
   "system.alerts",
 ]);

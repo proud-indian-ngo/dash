@@ -88,3 +88,87 @@ export type HistoryAction = (typeof historyActionValues)[number];
 
 export const reminderTargetValues = ["participants", "group", "both"] as const;
 export type ReminderTarget = (typeof reminderTargetValues)[number];
+
+// ── Finance dimensions ──────────────────────────────────────────────────────
+
+export const projectKindValues = [
+  "class",
+  "edition",
+  "drive",
+  "engagement",
+  "other",
+] as const;
+export type ProjectKind = (typeof projectKindValues)[number];
+
+export const projectStatusValues = ["planned", "active", "closed"] as const;
+export type ProjectStatus = (typeof projectStatusValues)[number];
+
+export const fundSourceValues = ["domestic", "fcra"] as const;
+export type FundSource = (typeof fundSourceValues)[number];
+
+export const fundRestrictionValues = [
+  "unrestricted",
+  "restricted",
+  "designated",
+] as const;
+export type FundRestriction = (typeof fundRestrictionValues)[number];
+
+export const accountHeadTypeValues = [
+  "income",
+  "expense",
+  "asset",
+  "liability",
+] as const;
+export type AccountHeadType = (typeof accountHeadTypeValues)[number];
+
+export const orgAccountKindValues = [
+  "bank",
+  "cash",
+  "gateway_clearing",
+] as const;
+export type OrgAccountKind = (typeof orgAccountKindValues)[number];
+
+export const fcraRoleValues = ["none", "receipt", "utilisation"] as const;
+export type FcraRole = (typeof fcraRoleValues)[number];
+
+export const organisationRegistrationTypeValues = [
+  "pan",
+  "tan",
+  "12ab",
+  "80g",
+  "fcra",
+  "csr1",
+  "darpan",
+] as const;
+export type OrganisationRegistrationType =
+  (typeof organisationRegistrationTypeValues)[number];
+
+/** Fixed IDs for reference rows created by migration and seed. */
+export const PROGRAMME_IDS = {
+  artsAndCulture: "01930000-0000-7000-8000-000000000002",
+  communitySupport: "01930000-0000-7000-8000-000000000003",
+  education: "01930000-0000-7000-8000-000000000001",
+  unallocated: "01930000-0000-7000-8000-000000000009",
+} as const;
+
+export const COST_CENTRE_IDS = {
+  bangalore: "01930000-0000-7000-8000-000000000101",
+  mumbai: "01930000-0000-7000-8000-000000000102",
+} as const;
+
+export const GENERAL_FUND_ID = "01930000-0000-7000-8000-000000000201";
+
+export const FISCAL_YEAR_IDS = {
+  "2024-25": "01930000-0000-7000-8000-000000000301",
+  "2025-26": "01930000-0000-7000-8000-000000000302",
+  "2026-27": "01930000-0000-7000-8000-000000000303",
+  "2027-28": "01930000-0000-7000-8000-000000000304",
+} as const;
+
+/** Upper bound for any paise value crossing the JavaScript boundary. */
+export const MAX_PAISE = Number.MAX_SAFE_INTEGER;
+
+/** Default finance-approval threshold when no programme override is set. */
+export const APP_CONFIG_FINANCE_THRESHOLD_KEY =
+  "finance_threshold_default_paise";
+export const DEFAULT_FINANCE_THRESHOLD_PAISE = 10_000_00;

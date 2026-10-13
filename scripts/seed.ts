@@ -16,6 +16,7 @@ import { createHash } from "node:crypto";
  *   eventPhoto, eventImmichAlbum, eventUpdate,
  *   eventPartner, socialPost, socialRun, socialApiToken,
  *   expenseCategory, bankAccount,
+ *   programme, costCentre, fund, fiscalYear, fiscalPeriod,
  *   reimbursement, reimbursementLineItem, reimbursementAttachment, reimbursementHistory,
  *   advancePayment, advancePaymentLineItem, advancePaymentAttachment, advancePaymentHistory,
  *   vendor, vendorPayment, vendorPaymentLineItem, vendorPaymentAttachment, vendorPaymentHistory,
@@ -115,6 +116,7 @@ import {
   vendorPaymentTransactionHistory,
 } from "@pi-dash/db/schema/vendor-payment-transaction";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
+import { ensureFinanceDimensions } from "@pi-dash/db/seed-finance-dimensions";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
 import { getKalakritiCenterTransportStatus } from "@pi-dash/zero/kalakriti-center-scan-rules";
 import { and, eq, isNull, sql } from "drizzle-orm";
@@ -514,6 +516,15 @@ async function seedCategories(): Promise<void> {
     )
     .onConflictDoNothing();
   log(`${CATEGORIES.length} categories ready`);
+}
+
+// ── 2b. Finance dimensions ───────────────────────────────────────────────────
+
+/** Mirrors migration 0112 so a fresh dev database and production agree. */
+async function seedFinanceDimensions(): Promise<void> {
+  log("Seeding finance dimensions...");
+  await ensureFinanceDimensions();
+  log("Finance dimensions ready");
 }
 
 // ── 3. Bank Accounts ─────────────────────────────────────────────────────────
@@ -2755,6 +2766,7 @@ async function main(): Promise<void> {
   const userMap = await seedUsers();
   await seedAuditLog(userMap);
   await seedCategories();
+  await seedFinanceDimensions();
   await seedBankAccounts(userMap);
   await seedWhatsappGroups();
   await seedTeams(userMap);

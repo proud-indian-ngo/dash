@@ -1,6 +1,6 @@
 # Finance and Programmes (design)
 
-> **Status**: proposed design, not yet implemented. Decisions were agreed with the founder on 13 October 2026 and revised through two rounds of independent design review the same day. Supersedes the expense-only model in `vendor-payments.md` and `cash-vouchers.md` once delivered.
+> **Status**: design agreed; delivery in progress. Shipped: Phase 1 dimension tables, reference data, `finance.view`/`finance.manage`, and the Programmes settings page. Not yet shipped: `programme_id` on teams and events, cost centres replacing the city enum, the treasurer role, the Zero sync allowlist, and everything from Phase 2 onward. Decisions were agreed with the founder on 13 October 2026 and revised through two rounds of independent design review the same day. Supersedes the expense-only model in `vendor-payments.md` and `cash-vouchers.md` once delivered.
 > **Load when**: finance redesign, programme, project, fund, posting, ledger entry, account movement, account head, contribution, donor, receipt, Form 113/114 (formerly 10BD/10BE), FC-4, FCRA, grant, budget, approval policy, withholding/TDS, GST, in-kind, retention, legal hold.
 > **Related**: `vendor-payments.md`, `cash-vouchers.md`, `authorization.md`, `data-layer.md`, `recurring-events.md`, `jobs.md`, `kalakriti-registration.md`
 
@@ -349,4 +349,5 @@ Backfill facts from production that shape Phase 0:
 
 ## 8. Remaining open items
 
-1. CA to confirm how engagement fee income is treated under section 12AB (business incidental to the objects and its ceiling), and that no GST registration is needed at current fee volumes. The design assumes no GST on issued invoices; vendor invoices still record the GST vendors charge us.
+1. Fiscal years are seeded through 2027-28 only. Before April 2028 a `fiscalYear.ensure` mutator or a scheduled job must create the next year and its periods.
+2. CA to confirm how engagement fee income is treated under section 12AB (business incidental to the objects and its ceiling), and that no GST registration is needed at current fee volumes. The design assumes no GST on issued invoices; vendor invoices still record the GST vendors charge us.

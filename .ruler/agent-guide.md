@@ -70,7 +70,7 @@ Read the named chapter directly when its detailed behavior is needed; do not rea
 | Permissions, roles, authorization checks | `docs/architecture/authorization.md` |
 | Recurring events and RRULE | `docs/architecture/recurring-events.md` |
 | Social API, bearer tokens, signed photo links, posted log, social digest, Social page, pause switches, posting rules, run reports | `docs/architecture/social-api.md` |
-| Finance redesign: programmes, projects, funds, ledger entries, account heads, contributions, donors, receipts, Form 10BD/10BE, FC-4, budgets, approval policy, advance settlement, in-kind, retention classes | `docs/architecture/finance-and-programmes.md` |
+| Finance redesign: programmes, projects, funds, ledger entries, account heads, contributions, donors, receipts, Form 113/114 (formerly 10BD/10BE), FC-4, budgets, approval policy, advance settlement, in-kind, retention classes | `docs/architecture/finance-and-programmes.md` |
 | Vendor payments and invoice approval | `docs/architecture/vendor-payments.md` |
 | pg-boss, notifications, WhatsApp delivery | `docs/architecture/notifications.md`, `docs/architecture/jobs.md` |
 | R2 uploads, attachments, Immich | `docs/architecture/file-uploads.md` |

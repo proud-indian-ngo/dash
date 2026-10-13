@@ -1,3 +1,7 @@
+import {
+  APP_CONFIG_FINANCE_THRESHOLD_KEY,
+  MAX_PAISE,
+} from "@pi-dash/shared/constants";
 import { SOCIAL_MANAGE_CONFIG_KEYS } from "@pi-dash/shared/social-api";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
@@ -9,7 +13,8 @@ const socialManageKeys = new Set(SOCIAL_MANAGE_CONFIG_KEYS);
 
 /**
  * `settings.app_config` may write every key; `social.manage` may write only
- * the social settings keys shown on the Social page.
+ * the social settings keys shown on the Social page; `finance.manage` may
+ * write only the default finance-approval threshold.
  */
 export function assertCanWriteAppConfig(
   ctx: Context | undefined,
@@ -22,7 +27,20 @@ export function assertCanWriteAppConfig(
   if (socialManageKeys.has(key) && can(ctx, "social.manage")) {
     return;
   }
+  if (key === APP_CONFIG_FINANCE_THRESHOLD_KEY && can(ctx, "finance.manage")) {
+    return;
+  }
   throw new Error("Unauthorized");
+}
+
+/** Values that drive finance controls must be whole, safe paise amounts. */
+export function assertValidAppConfigValue(key: string, value: string): void {
+  if (key !== APP_CONFIG_FINANCE_THRESHOLD_KEY) {
+    return;
+  }
+  if (!/^\d{1,16}$/.test(value) || Number(value) > MAX_PAISE) {
+    throw new Error("Threshold must be a whole number of paise");
+  }
 }
 
 export const appConfigMutators = {
@@ -41,6 +59,7 @@ export const appConfigMutators = {
     }),
     async ({ tx, ctx, args }) => {
       assertCanWriteAppConfig(ctx, args.key);
+      assertValidAppConfigValue(args.key, args.value);
       await tx.mutate.appConfig.upsert({
         key: args.key,
         updatedAt: Date.now(),

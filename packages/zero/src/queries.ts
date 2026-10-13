@@ -11,6 +11,15 @@ import {
 } from "./queries/event-photo";
 import { eventUpdateQueries } from "./queries/event-update";
 import { expenseCategoryQueries } from "./queries/expense-category";
+import {
+  accountHeadQueries,
+  costCentreQueries,
+  fiscalYearQueries,
+  fundQueries,
+  orgAccountQueries,
+  programmeQueries,
+  projectQueries,
+} from "./queries/finance-dimensions";
 import { kalakritiAssignmentQueries } from "./queries/kalakriti-assignment";
 import { kalakritiAttendeeQueries } from "./queries/kalakriti-attendee";
 import { kalakritiCenterQueries } from "./queries/kalakriti-center";
@@ -38,17 +47,23 @@ import { vendorPaymentTransactionQueries } from "./queries/vendor-payment-transa
 import { whatsappGroupQueries } from "./queries/whatsapp-group";
 
 export const queries = defineQueries({
+  accountHead: accountHeadQueries,
   advancePayment: advancePaymentQueries,
   appConfig: appConfigQueries,
   bankAccount: bankAccountQueries,
+  costCentre: costCentreQueries,
   eventFeedback: eventFeedbackQueries,
   eventImmichAlbum: eventImmichAlbumQueries,
   eventInterest: eventInterestQueries,
   eventPhoto: eventPhotoQueries,
   eventUpdate: eventUpdateQueries,
   expenseCategory: expenseCategoryQueries,
+  fiscalYear: fiscalYearQueries,
+  fund: fundQueries,
   kalakritiAssignment: kalakritiAssignmentQueries,
+  kalakritiAttendee: kalakritiAttendeeQueries,
   kalakritiCenter: kalakritiCenterQueries,
+  kalakritiCenterScan: kalakritiCenterScanQueries,
   kalakritiCompetition: kalakritiCompetitionQueries,
   kalakritiEdition: kalakritiEditionQueries,
   kalakritiEligibility: kalakritiEligibilityQueries,
@@ -57,11 +72,12 @@ export const queries = defineQueries({
   kalakritiGuardian: kalakritiGuardianQueries,
   kalakritiInventory: kalakritiInventoryQueries,
   kalakritiStudent: kalakritiStudentQueries,
-  kalakritiCenterScan: kalakritiCenterScanQueries,
-  kalakritiAttendee: kalakritiAttendeeQueries,
   kalakritiTransport: kalakritiTransportQueries,
   notification: notificationQueries,
   notificationPreference: notificationPreferenceQueries,
+  orgAccount: orgAccountQueries,
+  programme: programmeQueries,
+  project: projectQueries,
   reimbursement: reimbursementQueries,
   scheduledMessage: scheduledMessageQueries,
   socialPost: socialPostQueries,

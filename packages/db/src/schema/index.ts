@@ -12,6 +12,7 @@ export * from "./event-reminder";
 export * from "./event-rsvp";
 export * from "./event-update";
 export * from "./expense-category";
+export * from "./finance-dimensions";
 export * from "./kalakriti";
 export * from "./kalakriti-awards";
 export * from "./kalakriti-inventory";

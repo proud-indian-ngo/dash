@@ -154,7 +154,7 @@ All paths are relative to project root.
 | `routes/_app/settings/route.tsx` | Settings layout: nav grouped into You and Organization (`components/settings/settings-layout.tsx`), driven by `lib/settings-sections.ts` |
 | `routes/_app/settings/index.tsx` | Redirects to `/settings/profile` |
 | `routes/_app/settings/{profile,account,notifications,bank-accounts}.tsx` | Personal settings pages |
-| `routes/_app/settings/{general,expense-categories,whatsapp-groups,api-tokens,maintenance}.tsx` | Organization settings pages, each guarded by its permission in `beforeLoad` |
+| `routes/_app/settings/{general,programmes,expense-categories,whatsapp-groups,api-tokens,maintenance}.tsx` | Organization settings pages, each guarded by its permission in `beforeLoad`; Programmes (`finance.manage`) edits cause-based programmes, their leads and finance-approval thresholds |
 | `routes/_app/settings/roles/route.tsx` | Roles layout |
 | `routes/_app/settings/roles/index.tsx` | Roles list |
 | `routes/_app/settings/roles/$roleId.tsx` | Role detail (permissions) |
@@ -217,7 +217,7 @@ pi-dash event remains read-only outside the Kalakriti module.
 | `components/events/` | public-events-table |
 | `components/kalakriti/` | Edition configuration, assignments, Guardian access, Competition schedule, Student and Entry registration, scoped dashboards and ZIP exports, and scoped audit tables |
 | `components/teams/events/` | events-table, events-table-helpers (RRULE expansion, display row building), event-form-dialog, event-detail, event-details-card, event-attendance-section, event-updates, event-photos, add-event-member-dialog, show-interest-dialog, interest-requests, recurrence-builder (RRULE form UI), edit-scope-dialog (this/following/all scope selection), event-actions-menu, event-social-recap (post-event "Social recap" card), event-partners-field (partners repeater in the event form) |
-| `components/settings/` | settings-layout (nav + `SettingsPage`), settings-ui (`SettingsCard`, `SettingsRow`, `SettingsListItem`), sections/ (profile, account, banking, expense-categories, whatsapp-groups, notifications, general, api-tokens, admin-actions) |
+| `components/settings/` | settings-layout (nav + `SettingsPage`), settings-ui (`SettingsCard`, `SettingsRow`, `SettingsListItem`), sections/ (profile, account, banking, programmes, expense-categories, whatsapp-groups, notifications, general, api-tokens, admin-actions) |
 | `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, phone-field-lazy, textarea-field, checkbox-field, select-field, add-url-row, line-items-editor, attachments-section, reject-dialog, approve-dialog |
 | `components/login/` | auth-layout (split-panel shell), auth-info-panel (info panels for signup/login), login-form, register-form, forgot-password-form, reset-password-form |
 | `components/stats/` | stats-cards (dashboard stats) |

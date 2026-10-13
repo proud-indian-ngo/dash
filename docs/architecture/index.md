@@ -27,7 +27,7 @@ Chapters intentionally sharded so loading stays cheap.
 | Caching & Rate Limit | `caching.md` | `getCachedAuth`, `invalidateAuthCache`, permission cache TTL, `checkRateLimit`, 429 response, HMR-reset cache, `Retry-After` |
 | E2E Testing | `e2e-testing.md` | `packages/e2e`, Playwright global setup, seed helpers, `.auth` state, `shard-by-duration`, `run-e2e.sh`, duration reporter |
 | Design Language | `design-language.md` | visual design, brand, colours, fonts, Bricolage, Paper Mono, `@proudindian/design`, pi-design, `.pi-*` classes, StatusBadge/Tag, restyling, "make it look like the website" |
-| Finance & Programmes (design) | `finance-and-programmes.md` | finance redesign, programme, project, fund, ledger entry, account head, contribution, donor, receipt, Form 10BD/10BE, FC-4, FCRA, budget, approval policy, advance settlement, in-kind, retention class |
+| Finance & Programmes (design) | `finance-and-programmes.md` | finance redesign, programme, project, fund, ledger entry, account head, contribution, donor, receipt, Form 113/114 (formerly 10BD/10BE), FC-4, FCRA, budget, approval policy, advance settlement, in-kind, retention class |
 | Kalakriti Registration | `kalakriti-registration.md` | Kalakriti Edition access, Guardian identity, Center controls, eligibility, Competitions, Students, Entries, lifecycle, public schedule, dashboards, audit, scoped exports |
 
 ## Load Rules

@@ -53,6 +53,7 @@ import { Route as AppSettingsGeneralRouteImport } from './routes/_app/settings/g
 import { Route as AppSettingsMaintenanceRouteImport } from './routes/_app/settings/maintenance'
 import { Route as AppSettingsNotificationsRouteImport } from './routes/_app/settings/notifications'
 import { Route as AppSettingsProfileRouteImport } from './routes/_app/settings/profile'
+import { Route as AppSettingsProgrammesRouteImport } from './routes/_app/settings/programmes'
 import { Route as AppSettingsRolesRouteRouteImport } from './routes/_app/settings/roles/route'
 import { Route as AppSettingsWhatsappGroupsRouteImport } from './routes/_app/settings/whatsapp-groups'
 import { Route as AppTeamsIndexRouteImport } from './routes/_app/teams/index'
@@ -344,6 +345,11 @@ const AppSettingsNotificationsRoute =
 const AppSettingsProfileRoute = AppSettingsProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
+const AppSettingsProgrammesRoute = AppSettingsProgrammesRouteImport.update({
+  id: '/programmes',
+  path: '/programmes',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
 const AppSettingsRolesRouteRoute = AppSettingsRolesRouteRouteImport.update({
@@ -776,6 +782,7 @@ export interface FileRoutesByFullPath {
   '/settings/maintenance': typeof AppSettingsMaintenanceRoute
   '/settings/notifications': typeof AppSettingsNotificationsRoute
   '/settings/profile': typeof AppSettingsProfileRoute
+  '/settings/programmes': typeof AppSettingsProgrammesRoute
   '/settings/whatsapp-groups': typeof AppSettingsWhatsappGroupsRoute
   '/teams/$id': typeof AppTeamsIdRoute
   '/vendor-payments/$id': typeof AppVendorPaymentsIdRoute
@@ -883,6 +890,7 @@ export interface FileRoutesByTo {
   '/settings/maintenance': typeof AppSettingsMaintenanceRoute
   '/settings/notifications': typeof AppSettingsNotificationsRoute
   '/settings/profile': typeof AppSettingsProfileRoute
+  '/settings/programmes': typeof AppSettingsProgrammesRoute
   '/settings/whatsapp-groups': typeof AppSettingsWhatsappGroupsRoute
   '/teams/$id': typeof AppTeamsIdRoute
   '/vendor-payments/$id': typeof AppVendorPaymentsIdRoute
@@ -999,6 +1007,7 @@ export interface FileRoutesById {
   '/_app/settings/maintenance': typeof AppSettingsMaintenanceRoute
   '/_app/settings/notifications': typeof AppSettingsNotificationsRoute
   '/_app/settings/profile': typeof AppSettingsProfileRoute
+  '/_app/settings/programmes': typeof AppSettingsProgrammesRoute
   '/_app/settings/whatsapp-groups': typeof AppSettingsWhatsappGroupsRoute
   '/_app/teams/$id': typeof AppTeamsIdRoute
   '/_app/vendor-payments/$id': typeof AppVendorPaymentsIdRoute
@@ -1117,6 +1126,7 @@ export interface FileRouteTypes {
     | '/settings/maintenance'
     | '/settings/notifications'
     | '/settings/profile'
+    | '/settings/programmes'
     | '/settings/whatsapp-groups'
     | '/teams/$id'
     | '/vendor-payments/$id'
@@ -1224,6 +1234,7 @@ export interface FileRouteTypes {
     | '/settings/maintenance'
     | '/settings/notifications'
     | '/settings/profile'
+    | '/settings/programmes'
     | '/settings/whatsapp-groups'
     | '/teams/$id'
     | '/vendor-payments/$id'
@@ -1339,6 +1350,7 @@ export interface FileRouteTypes {
     | '/_app/settings/maintenance'
     | '/_app/settings/notifications'
     | '/_app/settings/profile'
+    | '/_app/settings/programmes'
     | '/_app/settings/whatsapp-groups'
     | '/_app/teams/$id'
     | '/_app/vendor-payments/$id'
@@ -1763,6 +1775,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/settings/profile'
       preLoaderRoute: typeof AppSettingsProfileRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/_app/settings/programmes': {
+      id: '/_app/settings/programmes'
+      path: '/programmes'
+      fullPath: '/settings/programmes'
+      preLoaderRoute: typeof AppSettingsProgrammesRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
     '/_app/settings/roles': {
@@ -2459,6 +2478,7 @@ interface AppSettingsRouteRouteChildren {
   AppSettingsMaintenanceRoute: typeof AppSettingsMaintenanceRoute
   AppSettingsNotificationsRoute: typeof AppSettingsNotificationsRoute
   AppSettingsProfileRoute: typeof AppSettingsProfileRoute
+  AppSettingsProgrammesRoute: typeof AppSettingsProgrammesRoute
   AppSettingsWhatsappGroupsRoute: typeof AppSettingsWhatsappGroupsRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
 }
@@ -2473,6 +2493,7 @@ const AppSettingsRouteRouteChildren: AppSettingsRouteRouteChildren = {
   AppSettingsMaintenanceRoute: AppSettingsMaintenanceRoute,
   AppSettingsNotificationsRoute: AppSettingsNotificationsRoute,
   AppSettingsProfileRoute: AppSettingsProfileRoute,
+  AppSettingsProgrammesRoute: AppSettingsProgrammesRoute,
   AppSettingsWhatsappGroupsRoute: AppSettingsWhatsappGroupsRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
 }

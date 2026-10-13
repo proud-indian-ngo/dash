@@ -40,6 +40,7 @@ import {
   vendorPaymentTransactionHistory,
 } from "@pi-dash/db/schema/vendor-payment-transaction";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
+import { ensureFinanceDimensions } from "@pi-dash/db/seed-finance-dimensions";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
 import { eq, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
@@ -1054,6 +1055,7 @@ async function main(): Promise<void> {
   process.stdout.write("=== Seeding Dev Data ===\n");
 
   await syncPermissions();
+  await ensureFinanceDimensions();
   log("Permissions synced");
 
   const userMap = await seedUsers();

@@ -9,6 +9,14 @@ import { eventInterestMutators } from "./mutators/event-interest";
 import { eventPhotoMutators } from "./mutators/event-photo";
 import { eventUpdateMutators } from "./mutators/event-update";
 import { expenseCategoryMutators } from "./mutators/expense-category";
+import {
+  accountHeadMutators,
+  costCentreMutators,
+  fundMutators,
+  orgAccountMutators,
+  programmeMutators,
+  projectMutators,
+} from "./mutators/finance-dimensions";
 import { kalakritiAssignmentMutators } from "./mutators/kalakriti-assignment";
 import { kalakritiAttendeeMutators } from "./mutators/kalakriti-attendee";
 import { kalakritiAwardMutators } from "./mutators/kalakriti-award";
@@ -36,31 +44,37 @@ import { vendorPaymentTransactionMutators } from "./mutators/vendor-payment-tran
 import { whatsappGroupMutators } from "./mutators/whatsapp-group";
 
 export const mutators = defineMutators({
+  accountHead: accountHeadMutators,
   advancePayment: advancePaymentMutators,
   appConfig: appConfigMutators,
   bankAccount: bankAccountMutators,
+  costCentre: costCentreMutators,
   eventFeedback: eventFeedbackMutators,
   eventImmichAlbum: eventImmichAlbumMutators,
   eventInterest: eventInterestMutators,
   eventPhoto: eventPhotoMutators,
   eventUpdate: eventUpdateMutators,
   expenseCategory: expenseCategoryMutators,
+  fund: fundMutators,
   kalakritiAssignment: kalakritiAssignmentMutators,
+  kalakritiAttendee: kalakritiAttendeeMutators,
   kalakritiAward: kalakritiAwardMutators,
   kalakritiCenter: kalakritiCenterMutators,
+  kalakritiCenterScan: kalakritiCenterScanMutators,
   kalakritiCompetition: kalakritiCompetitionMutators,
   kalakritiEdition: kalakritiEditionMutators,
   kalakritiEligibility: kalakritiEligibilityMutators,
   kalakritiEntry: kalakritiEntryMutators,
   kalakritiInventory: kalakritiInventoryMutators,
-  kalakritiCenterScan: kalakritiCenterScanMutators,
   kalakritiOperation: kalakritiOperationMutators,
-  kalakritiStudent: kalakritiStudentMutators,
   kalakritiResult: kalakritiResultMutators,
-  kalakritiAttendee: kalakritiAttendeeMutators,
+  kalakritiStudent: kalakritiStudentMutators,
   kalakritiTransport: kalakritiTransportMutators,
   notification: notificationMutators,
   notificationPreference: notificationPreferenceMutators,
+  orgAccount: orgAccountMutators,
+  programme: programmeMutators,
+  project: projectMutators,
   reimbursement: reimbursementMutators,
   scheduledMessage: scheduledMessageMutators,
   socialPost: socialPostMutators,

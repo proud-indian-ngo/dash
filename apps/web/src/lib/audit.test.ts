@@ -99,6 +99,37 @@ describe("audit metadata", () => {
     });
   });
 
+  it("records finance-control fields on programme and config writes", () => {
+    const programme = summarizeZeroMutation(
+      "programme.update",
+      {
+        active: false,
+        code: "EDU",
+        financeThresholdPaise: 2_500_000,
+        id: TARGET_ID,
+        leadUserId: "actor-1",
+        name: "Education",
+      },
+      "actor-1"
+    );
+    expect(programme.metadata?.changedFields).toEqual([
+      "active",
+      "code",
+      "financeThresholdPaise",
+      "id",
+      "leadUserId",
+      "name",
+    ]);
+
+    const config = summarizeZeroMutation(
+      "appConfig.upsert",
+      { key: "finance_threshold_default_paise", value: "1200000" },
+      "actor-1"
+    );
+    expect(config.metadata?.changedFields).toEqual(["key", "value"]);
+    expect(JSON.stringify(config)).not.toContain("1200000");
+  });
+
   it("keeps IDs and field names without storing sensitive values", () => {
     const summary = summarizeZeroMutation(
       "user.update",
