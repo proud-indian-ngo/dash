@@ -74,7 +74,8 @@ describe("contribution statuses", () => {
     expect(isContributionEditable("refunded")).toBe(false);
   });
 
-  it("does not count refunded or reversed money as received", () => {
+  it("does not count pending, refunded or reversed money as received", () => {
+    expect(countsAsReceived("pending")).toBe(false);
     expect(countsAsReceived("received")).toBe(true);
     expect(countsAsReceived("receipted")).toBe(true);
     expect(countsAsReceived("refunded")).toBe(false);

@@ -20,8 +20,11 @@ import {
 } from "@pi-dash/design-system/components/ui/tabs";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
-import { currentFinancialYear } from "@pi-dash/shared/income";
-import { isContributionEditable } from "@pi-dash/shared/income";
+import {
+  currentFinancialYear,
+  INCOME_PERMISSIONS,
+  isContributionEditable,
+} from "@pi-dash/shared/income";
 import { formatPaise } from "@pi-dash/shared/money";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
@@ -36,7 +39,10 @@ import { useDataTableFilters } from "@/components/data-table/use-data-table-filt
 import { ContributionDetailSheet } from "@/components/income/contribution-detail-sheet";
 import { MISSING_DETAILS_VALUE } from "@/components/income/contribution-filters";
 import { ContributionFormDialog } from "@/components/income/contribution-form-dialog";
-import { computeContributionYearStats } from "@/components/income/contribution-stats";
+import {
+  computeContributionYearStats,
+  contributionsSignature,
+} from "@/components/income/contribution-stats";
 import { ContributionsTable } from "@/components/income/contributions-table";
 import type {
   ContributionRow,
@@ -73,10 +79,24 @@ export const Route = createFileRoute("/_app/income/")({
   },
 });
 
-/** Donors this year who lack an ID number or address; server-only, so a server function. */
-function useMissingDonorDetails(enabled: boolean, refreshKey: number) {
+/**
+ * Donors with money received this year who lack an ID number or address;
+ * server-only, so a server function. Refetched when the contributions change
+ * (`refreshKey`) and when the window regains focus, since donor details are
+ * edited elsewhere.
+ */
+function useMissingDonorDetails(enabled: boolean, refreshKey: string) {
   const load = useServerFn(getMissingDonorDetails);
   const [state, setState] = useState<MissingDonorDetailsResponse | null>(null);
+  const [focusCount, setFocusCount] = useState(0);
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+    const onFocus = () => setFocusCount((n) => n + 1);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [enabled]);
   useEffect(() => {
     if (!enabled) {
       return;
@@ -98,7 +118,7 @@ function useMissingDonorDetails(enabled: boolean, refreshKey: number) {
     return () => {
       cancelled = true;
     };
-  }, [enabled, refreshKey, load]);
+  }, [enabled, refreshKey, focusCount, load]);
   return state;
 }
 
@@ -119,8 +139,8 @@ function ContributionsTab({
   const fy = currentFinancialYear();
   const stats = computeContributionYearStats(rows, fy);
   const missing = useMissingDonorDetails(
-    hasPermission("donors.view"),
-    rows.length
+    INCOME_PERMISSIONS.some((permission) => hasPermission(permission)),
+    contributionsSignature(rows)
   );
   const missingIds = missing ? new Set(missing.partyIds) : EMPTY_SET;
   const { setQuery } = useDataTableFilters();

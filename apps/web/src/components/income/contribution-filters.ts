@@ -9,7 +9,11 @@ import {
   CONTRIBUTION_CHANNEL_LABELS,
   CONTRIBUTION_SOURCE_LABELS,
   CONTRIBUTION_STATUS_LABELS,
+  countsAsReceived,
+  currentFinancialYear,
   DONATION_TYPE_LABELS,
+  type FinancialYearRange,
+  isInFinancialYear,
 } from "@pi-dash/shared/income";
 
 import {
@@ -34,8 +38,25 @@ const LEGACY_CONTRIBUTION_FILTER_PARAMS = [
   { param: "donor", path: "donor" },
 ] as const;
 
+/**
+ * Whether a row is one the "Missing donor details" stat counts: received this
+ * financial year from a donor who lacks an ID or address.
+ */
+export function isMissingDetailsRow(
+  row: { partyId: string; receivedOn: number; status: string | null },
+  missingPartyIds: ReadonlySet<string>,
+  fy: FinancialYearRange
+): boolean {
+  return (
+    missingPartyIds.has(row.partyId) &&
+    isInFinancialYear(row.receivedOn, fy) &&
+    countsAsReceived(row.status ?? "received")
+  );
+}
+
 export function getContributionFilterValue(
-  missingPartyIds: ReadonlySet<string>
+  missingPartyIds: ReadonlySet<string>,
+  fy: FinancialYearRange = currentFinancialYear()
 ) {
   return (row: ContributionRow, path: string[]): unknown => {
     const [key] = path;
@@ -43,7 +64,9 @@ export function getContributionFilterValue(
       case "channel":
         return row.channel;
       case "details":
-        return missingPartyIds.has(row.partyId) ? MISSING_DETAILS_VALUE : null;
+        return isMissingDetailsRow(row, missingPartyIds, fy)
+          ? MISSING_DETAILS_VALUE
+          : null;
       case "donationType":
         return row.donationType;
       case "donor":
@@ -102,7 +125,10 @@ export function createContributionFilterFields(
       options(contributionSourceValues, CONTRIBUTION_SOURCE_LABELS)
     ),
     selectField("details", "Donor details", [
-      { label: "Missing ID or address", value: MISSING_DETAILS_VALUE },
+      {
+        label: "Missing ID or address (received this year)",
+        value: MISSING_DETAILS_VALUE,
+      },
     ]),
   ];
 }

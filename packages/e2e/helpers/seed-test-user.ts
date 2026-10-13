@@ -34,7 +34,7 @@ import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { ensureFinanceDimensions } from "@pi-dash/db/seed-finance-dimensions";
 import { ensureVendor } from "@pi-dash/db/seed-vendors";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
-import { addDays, addHours, format, subDays } from "date-fns";
+import { addDays, addHours, subDays } from "date-fns";
 import dotenv from "dotenv";
 import { eq } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
@@ -258,6 +258,14 @@ const INCOME_SPONSOR_ID = "01930000-0000-7000-8000-000000000723";
  */
 async function ensureIncomeFixtures(userId: string): Promise<void> {
   const now = new Date();
+  // Today in India, where the financial year is counted, so the seed gift is
+  // always in the current year that the Missing donor details stat covers.
+  const todayInIndia = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+  }).format(now);
   await db
     .insert(orgAccount)
     .values({
@@ -279,12 +287,17 @@ async function ensureIncomeFixtures(userId: string): Promise<void> {
       id: "01930000-0000-7000-8000-000000000712",
       orgAccountId: E2E_ORG_ACCOUNT_ID,
       partyId: SEED_DONOR_ID,
-      receivedOn: format(now, "yyyy-MM-dd"),
+      receivedOn: todayInIndia,
       reference: "E2E-SEED-UTR",
       reportingMode: "electronic_or_account_payee",
+      status: "received",
       updatedAt: now,
     })
-    .onConflictDoNothing();
+    // A reused database keeps the gift received and in the current year.
+    .onConflictDoUpdate({
+      set: { receivedOn: todayInIndia, status: "received", updatedAt: now },
+      target: contribution.id,
+    });
   await db
     .insert(party)
     .values({

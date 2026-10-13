@@ -4,6 +4,7 @@ import { financialYearOf } from "@pi-dash/shared/income";
 
 import {
   computeContributionYearStats,
+  contributionsSignature,
   computeDonorGiving,
 } from "./contribution-stats";
 
@@ -48,11 +49,11 @@ const rows = [
 ];
 
 describe("computeContributionYearStats", () => {
-  it("counts this financial year's gifts except refunds and reversals", () => {
+  it("counts this financial year's received gifts, not pending, refunded or reversed", () => {
     expect(computeContributionYearStats(rows, fy)).toEqual({
-      count: 3,
-      donorCount: 2,
-      receivedPaise: 850_00,
+      count: 2,
+      donorCount: 1,
+      receivedPaise: 350_00,
     });
   });
 
@@ -66,6 +67,15 @@ describe("computeContributionYearStats", () => {
 });
 
 describe("computeDonorGiving", () => {
+  it("leaves pending gifts out of a donor's giving", () => {
+    const donorC = rows.filter((row) => row.partyId === "c");
+    expect(computeDonorGiving(donorC, fy)).toEqual({
+      lastGiftOn: null,
+      lifetimePaise: 0,
+      yearPaise: 0,
+    });
+  });
+
   it("sums lifetime and this-year giving and finds the last gift", () => {
     const donorA = rows.filter((row) => row.partyId === "a");
     expect(computeDonorGiving(donorA, fy)).toEqual({
@@ -78,5 +88,55 @@ describe("computeDonorGiving", () => {
       lifetimePaise: 0,
       yearPaise: 0,
     });
+  });
+});
+
+describe("contributionsSignature", () => {
+  interface Row {
+    id: string;
+    partyId: string;
+    receivedOn: number;
+    status: string;
+    updatedAt: number;
+  }
+  const base: Row[] = [
+    {
+      id: "c1",
+      partyId: "a",
+      receivedOn: day("2026-04-01"),
+      status: "received",
+      updatedAt: 1,
+    },
+    {
+      id: "c2",
+      partyId: "b",
+      receivedOn: day("2026-05-01"),
+      status: "pending",
+      updatedAt: 2,
+    },
+  ];
+
+  it("is stable for the same rows", () => {
+    expect(contributionsSignature(base)).toBe(
+      contributionsSignature(base.map((row) => ({ ...row })))
+    );
+  });
+
+  it("changes when a row's donor, date, status or edit time changes", () => {
+    const before = contributionsSignature(base);
+    const changed = (patch: Partial<Row>) =>
+      contributionsSignature(
+        base.map((row, i) => (i === 0 ? { ...row, ...patch } : row))
+      );
+    expect(changed({ partyId: "z" })).not.toBe(before);
+    expect(changed({ receivedOn: day("2026-04-02") })).not.toBe(before);
+    expect(changed({ status: "refunded" })).not.toBe(before);
+    expect(changed({ updatedAt: 3 })).not.toBe(before);
+  });
+
+  it("changes when a row is added or removed", () => {
+    expect(contributionsSignature(base.slice(0, 1))).not.toBe(
+      contributionsSignature(base)
+    );
   });
 });

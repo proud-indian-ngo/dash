@@ -3,6 +3,7 @@ import type { Locator, Page } from "@playwright/test";
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { clickUntilDialogCloses } from "../../helpers/dialog-submit";
 import { openSettingsPage } from "../../helpers/settings";
+import { ListPage } from "../../pages/list-page";
 
 const SPONSOR = "E2E Income Sponsor";
 
@@ -101,8 +102,21 @@ test.describe("Organisation accounts settings (admin)", () => {
     await expect(page.getByText("Account updated")).toBeVisible();
     await expect(accountRow).toContainText("Inactive", { timeout: 10_000 });
 
+    // Editing the gift still names the retired account, marked inactive.
     await page.goto("/income");
     await waitForZeroReady(page);
+    await page.getByPlaceholder("Search donor or reference...").fill(reference);
+    const editedGift = page.getByRole("row").filter({ hasText: SPONSOR });
+    await expect(editedGift).toHaveCount(1, { timeout: 10_000 });
+    await new ListPage(page).openRowActionAndClick(editedGift, "Edit");
+    const edit = page.getByRole("dialog", { name: "Edit contribution" });
+    await expect(edit).toBeVisible();
+    await expect(
+      edit.getByRole("combobox", { name: "Deposited into" })
+    ).toHaveValue(`${name} (inactive)`, { timeout: 10_000 });
+    await edit.getByRole("button", { name: "Cancel" }).click();
+    await expect(edit).toBeHidden();
+
     await page.getByRole("button", { name: "Record contribution" }).click();
     const next = page.getByRole("dialog", { name: "Record contribution" });
     const account = next.getByRole("combobox", { name: "Deposited into" });

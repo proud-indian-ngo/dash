@@ -96,16 +96,17 @@ export function isContributionEditable(status: string): boolean {
   return (EDITABLE_CONTRIBUTION_STATUSES as readonly string[]).includes(status);
 }
 
-/** Statuses that no longer count as money received. */
-export const CONTRIBUTION_EXCLUDED_STATUSES: readonly ContributionStatus[] = [
-  "refunded",
-  "reversed",
+/**
+ * Statuses that count as money received. Pending money has not arrived yet,
+ * and refunded or reversed money has gone back, so neither counts.
+ */
+export const CONTRIBUTION_RECEIVED_STATUSES: readonly ContributionStatus[] = [
+  "received",
+  "receipted",
 ];
 
 export function countsAsReceived(status: string): boolean {
-  return !(CONTRIBUTION_EXCLUDED_STATUSES as readonly string[]).includes(
-    status
-  );
+  return (CONTRIBUTION_RECEIVED_STATUSES as readonly string[]).includes(status);
 }
 
 export interface ContributionRuleInput {

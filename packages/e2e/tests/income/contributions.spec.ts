@@ -202,6 +202,23 @@ test.describe("Income: contributions (finance)", () => {
     await expect(await findRow(page, reference, "₹300.00")).toHaveCount(1);
   });
 
+  test("counts the seed donor, who has no ID, under Missing donor details", async ({
+    page,
+  }) => {
+    const stat = page.getByRole("button", {
+      name: "Show donors missing ID or address",
+    });
+    await expect(stat).toBeVisible({ timeout: 10_000 });
+    const value = stat.locator("[data-slot='stat-value']");
+    await expect(value).toHaveText(/^[1-9]\d*$/, { timeout: 10_000 });
+
+    // The stat filters the table to this year's received gifts from them.
+    await stat.click();
+    await expect(
+      page.getByRole("row").filter({ hasText: "E2E Seed Donor" })
+    ).toHaveCount(1, { timeout: 10_000 });
+  });
+
   test("records other income", async ({ page }) => {
     const description = `E2E interest ${Date.now()}`;
     await clickPageAction(page, "Record other income");

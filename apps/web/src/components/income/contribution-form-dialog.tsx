@@ -56,6 +56,7 @@ import {
 import { paiseToRupeesInput } from "@/lib/paise";
 
 import type { ContributionRow } from "./income-types";
+import { withCurrentOption } from "./picker-options";
 
 const enumOptions = <T extends string>(
   values: readonly T[],
@@ -200,7 +201,8 @@ function toMutatorArgs(id: string, value: FormValues) {
   };
 }
 
-function usePickerOptions() {
+/** Active records to pick from, plus whatever the edited row already uses. */
+function usePickerOptions(row: ContributionRow | null) {
   const { hasPermission } = useApp();
   const [parties] = useQuery(queries.party.all());
   const [accounts] = useQuery(queries.orgAccount.active());
@@ -211,20 +213,43 @@ function usePickerOptions() {
     enabled: hasPermission("finance.view"),
   });
   const programmeNames = new Map(programmes.map((p) => [p.id, p.name]));
+  const projectLabel = (name: string, programmeName: string | undefined) =>
+    `${name} (${programmeName ?? "No programme"})`;
   return {
-    accountOptions: accounts.map((a) => ({ label: a.name, value: a.id })),
-    donorOptions: contributorOptions(parties),
-    fundOptions: funds.map((f) => ({ label: f.name, value: f.id })),
+    accountOptions: withCurrentOption(
+      accounts.map((a) => ({ label: a.name, value: a.id })),
+      row?.orgAccountId,
+      row?.orgAccount?.name
+    ),
+    donorOptions: withCurrentOption(
+      contributorOptions(parties),
+      row?.partyId,
+      row?.party?.displayName
+    ),
+    fundOptions: withCurrentOption(
+      funds.map((f) => ({ label: f.name, value: f.id })),
+      row?.fundId,
+      row?.fund?.name
+    ),
     funds,
-    programmeOptions: programmes
-      .filter((p) => p.id !== PROGRAMME_IDS.unallocated)
-      .map((p) => ({ label: p.name, value: p.id })),
-    projectOptions: projects
-      .filter((p) => p.status !== "closed")
-      .map((p) => ({
-        label: `${p.name} (${programmeNames.get(p.programmeId) ?? "No programme"})`,
-        value: p.id,
-      })),
+    programmeOptions: withCurrentOption(
+      programmes
+        .filter((p) => p.id !== PROGRAMME_IDS.unallocated)
+        .map((p) => ({ label: p.name, value: p.id })),
+      row?.programmeId,
+      row?.programme?.name
+    ),
+    projectOptions: withCurrentOption(
+      projects
+        .filter((p) => p.status !== "closed")
+        .map((p) => ({
+          label: projectLabel(p.name, programmeNames.get(p.programmeId)),
+          value: p.id,
+        })),
+      // Without finance.view the project never syncs, so the field stays hidden.
+      row?.project ? row.projectId : null,
+      row?.project ? projectLabel(row.project.name, row.programme?.name) : null
+    ),
     projects,
   };
 }
@@ -245,7 +270,7 @@ function ContributionForm({
   // Fixed for the life of the form so a retried save cannot duplicate.
   const [id] = useState(() => contribution?.id ?? uuidv7());
   const [donorDialogOpen, setDonorDialogOpen] = useState(false);
-  const picker = usePickerOptions();
+  const picker = usePickerOptions(contribution);
   const defaultFundId =
     picker.funds.find((f) => f.id === GENERAL_FUND_ID)?.id ??
     picker.funds[0]?.id;

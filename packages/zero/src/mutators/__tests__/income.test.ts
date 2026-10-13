@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import { PROGRAMME_IDS } from "@pi-dash/shared/constants";
+
 import {
   matchesScope,
   type ScopeAst,
@@ -42,6 +44,7 @@ function createDb(
     programme: [
       { active: true, id: "prog-edu" },
       { active: true, id: "prog-arts" },
+      { active: true, id: PROGRAMME_IDS.unallocated },
     ],
     project: [{ id: "proj-k3", programmeId: "prog-arts" }],
     ...seed,
@@ -274,6 +277,27 @@ describe("contribution mutators", () => {
         })
       )
     ).rejects.toThrow("The project belongs to a different programme");
+  });
+
+  it("refuses the Unallocated programme on create and update", async () => {
+    const db = createDb();
+    await expect(
+      run(
+        contributionMutators.create,
+        db,
+        donorsCtx,
+        contribution({ programmeId: PROGRAMME_IDS.unallocated })
+      )
+    ).rejects.toThrow("not the Unallocated holder");
+    await run(contributionMutators.create, db, donorsCtx, contribution());
+    await expect(
+      run(
+        contributionMutators.update,
+        db,
+        donorsCtx,
+        contribution({ programmeId: PROGRAMME_IDS.unallocated })
+      )
+    ).rejects.toThrow("not the Unallocated holder");
   });
 
   it("drops fields the channel, mode and type do not use", async () => {

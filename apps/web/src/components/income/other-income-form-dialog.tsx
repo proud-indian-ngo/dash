@@ -38,6 +38,7 @@ import {
 import { paiseToRupeesInput } from "@/lib/paise";
 
 import type { OtherIncomeRow } from "./income-types";
+import { withCurrentOption } from "./picker-options";
 
 const kindOptions = otherIncomeKindValues.map((value) => ({
   label: OTHER_INCOME_KIND_LABELS[value],
@@ -81,6 +82,17 @@ function OtherIncomeForm({
   const [funds] = useQuery(queries.fund.active());
   const defaultFundId =
     funds.find((f) => f.id === GENERAL_FUND_ID)?.id ?? funds[0]?.id;
+  // Active records only, plus whatever the edited row already uses.
+  const accountOptions = withCurrentOption(
+    accounts.map((a) => ({ label: a.name, value: a.id })),
+    income?.orgAccountId,
+    income?.orgAccount?.name
+  );
+  const fundOptions = withCurrentOption(
+    funds.map((f) => ({ label: f.name, value: f.id })),
+    income?.fundId,
+    income?.fund?.name
+  );
 
   const defaultValues: FormValues = income
     ? {
@@ -160,15 +172,15 @@ function OtherIncomeForm({
           isRequired
           label="Deposited into"
           name="orgAccountId"
-          options={accounts.map((a) => ({ label: a.name, value: a.id }))}
+          options={accountOptions}
           placeholder="Search accounts..."
         />
-        {funds.length > 1 ? (
+        {fundOptions.length > 1 ? (
           <SelectField
             isRequired
             label="Fund"
             name="fundId"
-            options={funds.map((f) => ({ label: f.name, value: f.id }))}
+            options={fundOptions}
           />
         ) : null}
       </div>

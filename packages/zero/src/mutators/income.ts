@@ -3,6 +3,7 @@ import {
   contributionReportingModeValues,
   donationTypeValues,
   otherIncomeKindValues,
+  PROGRAMME_IDS,
 } from "@pi-dash/shared/constants";
 import {
   CONTRIBUTOR_ROLES,
@@ -159,7 +160,10 @@ async function assertAccountAndFund(
   assertActive(fund, "Fund", previous?.fundId === next.fundId);
 }
 
-/** A project fixes the programme: it must match when both are given, and fills it in otherwise. */
+/**
+ * A project fixes the programme: it must match when both are given, and fills
+ * it in otherwise. The Unallocated holder is for spending, not gifts.
+ */
 async function resolveProgramme(
   tx: Tx,
   next: { programmeId: string | null; projectId: string | null },
@@ -175,6 +179,11 @@ async function resolveProgramme(
       throw new Error("The project belongs to a different programme");
     }
     programmeId = project.programmeId;
+  }
+  if (programmeId === PROGRAMME_IDS.unallocated) {
+    throw new Error(
+      "Choose a real programme, or leave it blank, not the Unallocated holder"
+    );
   }
   if (programmeId) {
     const programme = await tx.run(
