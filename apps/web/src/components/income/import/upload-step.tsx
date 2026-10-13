@@ -35,6 +35,7 @@ import {
 } from "@/lib/income-import/fields";
 import { CsvParseError, parseCsv } from "@/lib/income-import/parse-csv";
 
+import { applyDepositAccountDefault } from "./deposit-account";
 import type { WizardBatch } from "./wizard-types";
 
 const pick = (message: string) =>
@@ -200,8 +201,8 @@ export function UploadStep({
     funds.find((f) => f.id === GENERAL_FUND_ID)?.id ?? funds[0]?.id;
 
   const giveDoAccountId = defaultGiveDoAccount(accounts)?.id;
-  // The account the form filled in for give.do, until the user picks one.
-  const autoFilledAccount = useRef(giveDoAccountId);
+  // Once the user picks an account, the source no longer sets it.
+  const userPickedAccount = useRef(false);
 
   // give.do is the usual source, so an upload starts as one.
   const form = useForm({
@@ -221,26 +222,14 @@ export function UploadStep({
           } else if (formApi.getFieldValue("defaultChannel") === "give_do") {
             formApi.setFieldValue("defaultChannel", "upi");
           }
-          const giveDo = defaultGiveDoAccount(accounts);
-          const account = formApi.getFieldValue("orgAccountId");
-          if (source === "give_do_csv" && giveDo && !account) {
-            autoFilledAccount.current = giveDo.id;
-            formApi.setFieldValue("orgAccountId", giveDo.id);
-          } else if (
-            source !== "give_do_csv" &&
-            account &&
-            account === autoFilledAccount.current
-          ) {
-            // give.do's account was our default, not a choice for this file.
-            autoFilledAccount.current = undefined;
-            formApi.setFieldValue("orgAccountId", undefined);
-          }
+          applyDepositAccountDefault(
+            formApi,
+            giveDoAccountId,
+            userPickedAccount.current
+          );
         }
-        if (
-          fieldApi.name === "orgAccountId" &&
-          formApi.getFieldValue("orgAccountId") !== autoFilledAccount.current
-        ) {
-          autoFilledAccount.current = undefined;
+        if (fieldApi.name === "orgAccountId") {
+          userPickedAccount.current = true;
         }
         if (fieldApi.name === "projectId") {
           const project = projects.find(
@@ -315,16 +304,13 @@ export function UploadStep({
     validators: { onSubmit: formSchema },
   });
 
-  // Accounts can sync after the form mounts; fill the give.do account then.
+  // Accounts can sync after the form mounts, and after the source changes.
   useEffect(() => {
-    if (
-      giveDoAccountId &&
-      form.getFieldValue("source") === "give_do_csv" &&
-      !form.getFieldValue("orgAccountId")
-    ) {
-      autoFilledAccount.current = giveDoAccountId;
-      form.setFieldValue("orgAccountId", giveDoAccountId);
-    }
+    applyDepositAccountDefault(
+      form,
+      giveDoAccountId,
+      userPickedAccount.current
+    );
   }, [form, giveDoAccountId]);
 
   const handleFile = useEventCallback((chosen: File) => {
