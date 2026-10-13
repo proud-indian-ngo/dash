@@ -172,3 +172,40 @@ export const MAX_PAISE = Number.MAX_SAFE_INTEGER;
 export const APP_CONFIG_FINANCE_THRESHOLD_KEY =
   "finance_threshold_default_paise";
 export const DEFAULT_FINANCE_THRESHOLD_PAISE = 10_000_00;
+
+// ── Parties ─────────────────────────────────────────────────────────────────
+
+export const partyKindValues = ["person", "organisation"] as const;
+export type PartyKind = (typeof partyKindValues)[number];
+
+export const partyRoleValues = [
+  "donor",
+  "sponsor",
+  "grantor",
+  "intermediary",
+  "vendor",
+  "volunteer",
+  "judge",
+  "partner",
+] as const;
+export type PartyRole = (typeof partyRoleValues)[number];
+
+/** Identity types the donation statement (Form 113) accepts, plus none. */
+export const partyIdTypeValues = [
+  "pan",
+  "passport",
+  "voter_id",
+  "driving_licence",
+  "ration_card",
+  "tax_id_foreign",
+  "none",
+] as const;
+export type PartyIdType = (typeof partyIdTypeValues)[number];
+
+export const foreignSourceAssessmentValues = [
+  "domestic",
+  "foreign",
+  "pending",
+] as const;
+export type ForeignSourceAssessment =
+  (typeof foreignSourceAssessmentValues)[number];

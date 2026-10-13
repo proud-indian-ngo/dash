@@ -159,6 +159,7 @@ All paths are relative to project root.
 | `routes/_app/settings/roles/index.tsx` | Roles list |
 | `routes/_app/settings/roles/$roleId.tsx` | Role detail (permissions) |
 | `routes/_app/scheduled-messages.tsx` | Scheduled WhatsApp messages (`messages.schedule` permission guard) |
+| `routes/_app/donors/` | Donor and sponsor directory (`donors.view`), with identity through Zero and private details through `functions/parties.ts` |
 | `routes/_app/analytics.tsx` | Analytics dashboard with charts, including spending by programme derived from each request's event (`requests.view_all` permission guard) |
 | `routes/_app/jobs.tsx` | Background jobs dashboard (`jobs.manage` permission guard) |
 | `routes/_app/audit-log.tsx` | Immutable user-action audit viewer (`audit_log.view` permission guard) |
@@ -217,6 +218,7 @@ pi-dash event remains read-only outside the Kalakriti module.
 | `components/events/` | public-events-table |
 | `components/kalakriti/` | Edition configuration, assignments, Guardian access, Competition schedule, Student and Entry registration, scoped dashboards and ZIP exports, and scoped audit tables |
 | `components/teams/events/` | events-table, events-table-helpers (RRULE expansion, display row building), event-form-dialog, event-detail, event-details-card, event-attendance-section, event-updates, event-photos, add-event-member-dialog, show-interest-dialog, interest-requests, recurrence-builder (RRULE form UI), edit-scope-dialog (this/following/all scope selection), event-actions-menu, event-social-recap (post-event "Social recap" card), event-partners-field (partners repeater in the event form) |
+| `components/donors/` | donors-table, donor-form-dialog, donor-detail-sheet, party-row |
 | `components/settings/` | settings-layout (nav + `SettingsPage`), settings-ui (`SettingsCard`, `SettingsRow`, `SettingsListItem`), sections/ (profile, account, banking, programmes, projects, expense-categories, whatsapp-groups, notifications, general, api-tokens, admin-actions) |
 | `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, phone-field-lazy, textarea-field, checkbox-field, select-field, add-url-row, line-items-editor, attachments-section, reject-dialog, approve-dialog |
 | `components/login/` | auth-layout (split-panel shell), auth-info-panel (info panels for signup/login), login-form, register-form, forgot-password-form, reset-password-form |
@@ -332,6 +334,8 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `advancePaymentLineItem` | `packages/db/src/schema/advance-payment.ts` |
 | `advancePaymentAttachment` | `packages/db/src/schema/advance-payment.ts` |
 | `advancePaymentHistory` | `packages/db/src/schema/advance-payment.ts` |
+| `party`, `partyRole` | `packages/db/src/schema/party.ts` (identity and roles; synced through Zero) |
+| `partyPrivate`, `partyBankAccount` | `packages/db/src/schema/private/party-private.ts` (contact, ID and bank details; server-only, never in the Zero schema; identifiers encrypted with `DATA_ENCRYPTION_KEY`) |
 | `team` | `packages/db/src/schema/team.ts` (optional `programmeId`: default programme for the team's events) |
 | `teamMember` | `packages/db/src/schema/team.ts` |
 | `teamEvent` | `packages/db/src/schema/team-event.ts` (`programmeId` required; defaults to the Unallocated holding programme, backfilled from the team in migration 0114) |

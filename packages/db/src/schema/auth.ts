@@ -9,6 +9,7 @@ import {
   text,
   timestamp,
   uniqueIndex,
+  uuid,
 } from "drizzle-orm/pg-core";
 
 import { notification } from "./notification";
@@ -34,6 +35,8 @@ export const user = pgTable("user", {
   isActive: boolean("is_active").default(true).notNull(),
   isOnWhatsapp: boolean("is_on_whatsapp").default(false).notNull(),
   name: text("name").notNull(),
+  /** Finance identity for this login, set on first finance interaction. */
+  partyId: uuid("party_id"),
   phone: text("phone").unique(),
   registrationGroup: text("registration_group"),
   role: text("role")

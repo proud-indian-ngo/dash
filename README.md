@@ -67,6 +67,7 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 | Anonymous feedback | Collect anonymous feedback from event participants after events complete, with configurable deadlines and admin visibility |
 | File attachments | Upload files to Cloudflare R2; authorize reads against persisted request, avatar, event, or message records |
 | Bank accounts | Users manage bank accounts for request payouts |
+| Donors | Directory of donors, sponsors, grantors and intermediaries; contact and ID details stay server-side and identifiers are encrypted |
 | Programmes | Cause-based programmes with a lead and a finance-approval threshold; the first piece of the finance redesign (`docs/architecture/finance-and-programmes.md`) |
 | Expense categories | Admin-managed categories for request line items |
 | Notifications | Self-owned multi-channel notifications (in-app inbox, email, WhatsApp); per-user topic preferences |

@@ -16,7 +16,7 @@ import { createHash } from "node:crypto";
  *   eventPhoto, eventImmichAlbum, eventUpdate,
  *   eventPartner, socialPost, socialRun, socialApiToken,
  *   expenseCategory, bankAccount,
- *   programme, costCentre, fund, fiscalYear, fiscalPeriod,
+ *   programme, costCentre, fund, fiscalYear, fiscalPeriod, party, partyRole,
  *   reimbursement, reimbursementLineItem, reimbursementAttachment, reimbursementHistory,
  *   advancePayment, advancePaymentLineItem, advancePaymentAttachment, advancePaymentHistory,
  *   vendor, vendorPayment, vendorPaymentLineItem, vendorPaymentAttachment, vendorPaymentHistory,
@@ -88,6 +88,7 @@ import {
   kalakritiResultsState,
 } from "@pi-dash/db/schema/kalakriti-results";
 import { notification } from "@pi-dash/db/schema/notification";
+import { party, partyRole } from "@pi-dash/db/schema/party";
 import {
   reimbursement,
   reimbursementAttachment,
@@ -533,6 +534,58 @@ async function seedFinanceDimensions(): Promise<void> {
   log("Seeding finance dimensions...");
   await ensureFinanceDimensions();
   log("Finance dimensions ready");
+}
+
+// ── 2c. Parties ──────────────────────────────────────────────────────────────
+
+const PARTIES = [
+  {
+    displayName: "Asha Rao",
+    id: "01930000-0000-7000-8000-000000000501",
+    kind: "person" as const,
+    roleId: "01930000-0000-7000-8000-000000000511",
+    roles: ["donor"] as const,
+  },
+  {
+    displayName: "Goodera",
+    id: "01930000-0000-7000-8000-000000000502",
+    kind: "organisation" as const,
+    legalName: "Goodera Technologies Private Limited",
+    roleId: "01930000-0000-7000-8000-000000000512",
+    roles: ["intermediary"] as const,
+  },
+];
+
+/** Identity rows only; contact and ID details are entered through the app. */
+async function seedParties(adminId: string): Promise<void> {
+  log("Seeding parties...");
+  await db
+    .insert(party)
+    .values(
+      PARTIES.map((p) => ({
+        createdAt: now,
+        createdBy: adminId,
+        displayName: p.displayName,
+        id: p.id,
+        kind: p.kind,
+        legalName: "legalName" in p ? p.legalName : null,
+        updatedAt: now,
+      }))
+    )
+    .onConflictDoNothing();
+  await db
+    .insert(partyRole)
+    .values(
+      PARTIES.map((p) => ({
+        active: true,
+        id: p.roleId,
+        partyId: p.id,
+        role: p.roles[0],
+        since: now,
+      }))
+    )
+    .onConflictDoNothing();
+  log(`${PARTIES.length} parties ready`);
 }
 
 // ── 3. Bank Accounts ─────────────────────────────────────────────────────────
@@ -2785,6 +2838,7 @@ async function main(): Promise<void> {
   await seedAuditLog(userMap);
   await seedCategories();
   await seedFinanceDimensions();
+  await seedParties(getUser(userMap, "admin@pi-dash.dev"));
   await seedBankAccounts(userMap);
   await seedWhatsappGroups();
   await seedTeams(userMap);

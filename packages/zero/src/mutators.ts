@@ -33,6 +33,7 @@ import { kalakritiStudentMutators } from "./mutators/kalakriti-student";
 import { kalakritiTransportMutators } from "./mutators/kalakriti-transport";
 import { notificationMutators } from "./mutators/notification";
 import { notificationPreferenceMutators } from "./mutators/notification-preference";
+import { partyMutators } from "./mutators/party";
 import { reimbursementMutators } from "./mutators/reimbursement";
 import { scheduledMessageMutators } from "./mutators/scheduled-message";
 import { socialPostMutators } from "./mutators/social-post";
@@ -73,6 +74,7 @@ export const mutators = defineMutators({
   notification: notificationMutators,
   notificationPreference: notificationPreferenceMutators,
   orgAccount: orgAccountMutators,
+  party: partyMutators,
   programme: programmeMutators,
   project: projectMutators,
   reimbursement: reimbursementMutators,

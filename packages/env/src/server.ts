@@ -15,6 +15,8 @@ export const env = createEnv({
     BETTER_AUTH_SECRET: z.string().min(32),
     BETTER_AUTH_URL: z.url(),
     COOKIE_DOMAIN: z.string().min(1).optional(),
+    /** Base64 32-byte key for finance-private fields (PAN, bank numbers). */
+    DATA_ENCRYPTION_KEY: z.string().min(1).optional(),
     CORS_ORIGIN: z.url(),
     DATABASE_URL: z.string().min(1),
     DEV_DB_HOST:

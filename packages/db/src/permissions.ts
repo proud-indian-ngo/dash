@@ -405,6 +405,28 @@ export const PERMISSIONS = [
     id: "finance.manage",
     name: "Manage Finance Setup",
   },
+  {
+    category: "finance",
+    description:
+      "Reveal finance-private values such as donor ID numbers and bank account numbers",
+    id: "finance.view_sensitive",
+    name: "View Sensitive Finance Data",
+  },
+
+  // ── Donors ──
+  {
+    category: "donors",
+    description: "See the donor and sponsor directory",
+    id: "donors.view",
+    name: "View Donors",
+  },
+  {
+    category: "donors",
+    description:
+      "Create and edit donors and sponsors, including their contact, ID and bank details",
+    id: "donors.manage",
+    name: "Manage Donors",
+  },
 ] as const;
 
 export type PermissionId = (typeof PERMISSIONS)[number]["id"];
@@ -475,6 +497,8 @@ const adminExcluded = new Set<PermissionId>([
   "settings.expense_categories",
   "settings.whatsapp_groups",
   "finance.manage",
+  "finance.view_sensitive",
+  "donors.manage",
   "jobs.manage",
   "system.alerts",
 ]);

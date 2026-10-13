@@ -7,5 +7,7 @@ export default defineConfig({
   },
   dialect: "postgresql",
   out: "./src/migrations",
-  schema: "./src/schema",
+  // Includes the server-only tables under schema/private, which the Zero
+  // generator never sees because they are not exported from schema/index.ts.
+  schema: ["./src/schema", "./src/schema/private"],
 });
