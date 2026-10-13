@@ -51,6 +51,8 @@ export const IMPORT_OUTCOME_REASON_LABELS: Record<string, string> = {
   donor_details_invalid: "The donor's details could not be saved",
   duplicate_of_skipped_row: "Same as a row that was skipped",
   invalid_cells: "Fix the file and upload it again",
+  needs_review: "Waiting for a reviewer's decision",
+  no_clearing_account: "Waiting for the Razorpay clearing account",
   skipped_by_user: "Skipped",
   undecided: "Left for review",
 };

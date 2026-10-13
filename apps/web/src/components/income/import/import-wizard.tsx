@@ -158,20 +158,28 @@ function ResultSummary({
 /**
  * The four-step importer. A new import starts at Upload; the batch page
  * passes an existing batch to continue a draft or retry unresolved rows,
- * which starts at Map columns.
+ * which starts at Map columns. A batch with no columns to map (Razorpay
+ * payments) passes its review and starts at Review.
  */
 export function ImportWizard({
   initialBatch = null,
+  initialReview = null,
   onCancel,
 }: {
   initialBatch?: WizardBatch | null;
+  initialReview?: ReviewResponse | null;
   onCancel: () => void;
 }) {
   const formId = useId();
   const run = useServerFn(runContributionImport);
-  const [step, setStep] = useState<StepId>(initialBatch ? "map" : "upload");
+  const [step, setStep] = useState<StepId>(() => {
+    if (initialReview) {
+      return "review";
+    }
+    return initialBatch ? "map" : "upload";
+  });
   const [batch, setBatch] = useState<WizardBatch | null>(initialBatch);
-  const [review, setReview] = useState<ReviewResponse | null>(null);
+  const [review, setReview] = useState<ReviewResponse | null>(initialReview);
   const [decisions, setDecisions] = useState<Record<string, RowDecision>>({});
   const [busy, setBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -201,7 +209,7 @@ export function ImportWizard({
       setDecisions((current) => ({ ...current, [rowId]: decision }))
   );
   const back = useEventCallback(() => {
-    if (step === "review") {
+    if (step === "review" && !initialReview) {
       setStep("map");
     } else if (step === "map" && !initialBatch) {
       setBatch(null);
@@ -240,7 +248,7 @@ export function ImportWizard({
 
   return (
     <div className="grid gap-6 pb-24">
-      <StepsHeader current={step} />
+      {initialReview ? null : <StepsHeader current={step} />}
       {batch && step !== "upload" ? (
         <p className="text-muted-foreground text-sm">
           {batch.fileName} · {plural(batch.rowCount, "row", "rows")}
@@ -307,7 +315,9 @@ export function ImportWizard({
                 icon={ArrowLeft01Icon}
                 strokeWidth={2}
               />
-              {step === "upload" || (step === "map" && initialBatch)
+              {step === "upload" ||
+              (step === "map" && initialBatch) ||
+              (step === "review" && initialReview)
                 ? "Cancel"
                 : "Back"}
             </Button>

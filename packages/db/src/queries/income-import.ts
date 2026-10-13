@@ -495,7 +495,8 @@ export async function setImportRowOutcome(
   patch: {
     contributionId?: string | null;
     decidedAt: Date;
-    decidedBy: string;
+    /** Null when the system decided (a Razorpay payment imported on arrival). */
+    decidedBy: string | null;
     externalIdentityId?: string | null;
     outcome: ImportRowOutcome;
     outcomeReason: string | null;
@@ -523,6 +524,53 @@ export async function setImportRowsRetention(
         sql`${importRow.retainUntil} < ${retention.retainUntil}`
       )
     );
+}
+
+/**
+ * Outcome reasons of rows that wait for a reviewer: a Razorpay payment held
+ * for review or for a clearing account, or a row a run left undecided.
+ */
+export const NEEDS_REVIEW_REASONS = [
+  "needs_review",
+  "no_clearing_account",
+  "undecided",
+] as const;
+
+/**
+ * The batch's synced counters from its rows. Rows waiting for a decision
+ * count as pending, not skipped, so every row is counted exactly once.
+ */
+export async function countImportBatchRows(
+  tx: ImportTx,
+  batchId: string
+): Promise<{
+  conflictCount: number;
+  errorCount: number;
+  importedCount: number;
+  linkedCount: number;
+  pendingCount: number;
+  skippedCount: number;
+}> {
+  const counts = await countImportOutcomes(tx, batchId);
+  const [waiting] = await tx
+    .select({ n: count() })
+    .from(importRow)
+    .where(
+      and(
+        eq(importRow.batchId, batchId),
+        inArray(importRow.outcome, ["pending", "skipped"]),
+        inArray(importRow.outcomeReason, [...NEEDS_REVIEW_REASONS])
+      )
+    );
+  const pendingCount = Number(waiting?.n ?? 0);
+  return {
+    conflictCount: counts.conflict,
+    errorCount: counts.error,
+    importedCount: counts.imported,
+    linkedCount: counts.linked_existing,
+    pendingCount,
+    skippedCount: counts.skipped + counts.pending - pendingCount,
+  };
 }
 
 /** Recounts a batch's rows by outcome. */

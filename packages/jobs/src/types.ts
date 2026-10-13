@@ -544,6 +544,16 @@ export interface CleanupR2OrphansPayload {
 
 // -- Payload map ---------------------------------------------------------------
 
+/**
+ * A Razorpay payment to record. Only the ID and its India day travel in the
+ * job; the payment itself is staged in private.import_row.
+ */
+export interface RazorpaySyncPaymentPayload {
+  /** yyyy-MM-dd, the India day of the payment's creation. */
+  day: string;
+  paymentId: string;
+}
+
 export interface JobPayloads {
   "cleanup-notifications": Record<string, never>;
   "cleanup-r2-orphans": CleanupR2OrphansPayload;
@@ -613,6 +623,7 @@ export interface JobPayloads {
   "notify-vpt-rejected": NotifyVptRejectedPayload;
   "notify-vpt-submitted": NotifyVptSubmittedPayload;
   "process-event-reminders": ProcessEventRemindersPayload;
+  "razorpay-sync-payment": RazorpaySyncPaymentPayload;
   "process-post-event-reminders": ProcessPostEventRemindersPayload;
   "remind-feedback-deadline": RemindFeedbackDeadlinePayload;
   "remind-kalakriti-registration-close": RemindKalakritiRegistrationClosePayload;

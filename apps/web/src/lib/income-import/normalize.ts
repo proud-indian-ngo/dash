@@ -51,6 +51,9 @@ export interface NormalizedRow {
   donorName: string;
   email: string;
   externalId: string;
+  /** Gateway charges in paise; only API sources such as Razorpay set them. */
+  gatewayFeePaise?: number;
+  gatewayTaxPaise?: number;
   idNumber: string;
   /** "none" when the row has no usable identifier. */
   idType: PartyIdType;

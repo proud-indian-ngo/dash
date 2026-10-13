@@ -224,6 +224,12 @@ export ZERO_LAZY_STARTUP=false
 # Social API photo links need a signing secret; a fixed test value is fine.
 export SOCIAL_MEDIA_SIGNING_SECRET="${SOCIAL_MEDIA_SIGNING_SECRET:-e2e-social-media-signing-secret-0000}"
 
+# Razorpay in test mode with a fixed webhook secret, and no key secret, so the
+# job uses the signed webhook copy and never calls Razorpay.
+export RAZORPAY_KEY_ID="rzp_test_e2e0000000000"
+export RAZORPAY_WEBHOOK_SECRET="${E2E_RAZORPAY_WEBHOOK_SECRET:-e2e-razorpay-webhook-secret}"
+export RAZORPAY_KEY_SECRET=""
+
 # Keep dotenv in child processes from restoring the development service URL.
 export WHATSAPP_API_URL=""
 export WHATSAPP_AUTH_USER=""

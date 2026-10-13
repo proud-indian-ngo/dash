@@ -5,7 +5,7 @@ import {
 } from "@pi-dash/db/import-retention";
 import {
   claimImportBatch,
-  countImportOutcomes,
+  countImportBatchRows,
   findBatchByFileHash,
   findContributorsByContact,
   findContributorsByIdentifier,
@@ -28,6 +28,7 @@ import {
   withImportTransaction,
 } from "@pi-dash/db/queries/income-import";
 import { savePartyInTransaction } from "@pi-dash/db/queries/party-private";
+import { markImportRowWaiting } from "@pi-dash/db/queries/razorpay-import";
 import type {
   ContributionChannel,
   ImportBatchSource,
@@ -37,6 +38,7 @@ import { createRequestLogger } from "evlog";
 import { uuidv7 } from "uuidv7";
 
 import { saveDonorSchema } from "@/lib/donor-schema";
+import { razorpayRowRules } from "@/lib/razorpay/rules";
 
 import {
   type ClassifiedRow,
@@ -45,6 +47,7 @@ import {
   donorChoiceValue,
   type ExistingIdentity,
   planRows,
+  type ReviewCategory,
   type RowDecision,
   type RowPlan,
 } from "./classify";
@@ -60,6 +63,7 @@ import {
   fileHash,
   identityKey,
   payloadHash,
+  type RowIdentity,
   rawRowHash,
   rowIdentity,
 } from "./identity";
@@ -68,6 +72,7 @@ import {
   donorSaveInput,
   maskIdentifier,
   maskIdentifiers,
+  type NormalizedRow,
   type NormalizeResult,
   normalizeRow,
 } from "./normalize";
@@ -98,6 +103,21 @@ const STALE_RUN_MS = 15 * 60 * 1000;
 export const COLLECTION_PURPOSE = "donation receipt and statutory filing";
 export const GENERIC_CSV_COLLECTION_NOTE =
   "collected directly by the organisation; notice version not recorded";
+export const RAZORPAY_COLLECTION_NOTE =
+  "donor submitted details on our Razorpay Payment Page";
+
+/** How each source's donors came to give their details (DPDP collection record). */
+const COLLECTION_BY_SOURCE: Record<
+  ImportBatchSource,
+  { channel: string; note: string }
+> = {
+  generic_csv: { channel: "generic_csv", note: GENERIC_CSV_COLLECTION_NOTE },
+  give_do_csv: { channel: "give_do_csv", note: GENERIC_CSV_COLLECTION_NOTE },
+  razorpay_api: {
+    channel: "razorpay_payment_page",
+    note: RAZORPAY_COLLECTION_NOTE,
+  },
+};
 
 export class ImportInputError extends Error {
   constructor(message: string) {
@@ -269,8 +289,57 @@ interface ClassifySettings {
   mapping: ImportMapping;
 }
 
+/**
+ * How a batch's stored rows become contributions. CSV batches read their
+ * cells through the saved mapping; Razorpay batches read a flattened payment
+ * and identify it by payment ID.
+ */
+export interface RowRules {
+  identity: (row: NormalizedRow) => RowIdentity;
+  normalize: (raw: Readonly<Record<string, string>>) => NormalizeResult;
+  payloadHash: (
+    row: NormalizedRow,
+    raw: Readonly<Record<string, string>>
+  ) => string;
+  /** No provider ID, so re-uploads are matched by a fingerprint. */
+  weakIdentity: boolean;
+}
+
+function csvRowRules(
+  batch: ImportBatchRow,
+  settings: ClassifySettings,
+  today: string
+): RowRules {
+  const { orgAccountId } = batch;
+  return {
+    identity: (row) => {
+      if (!orgAccountId) {
+        throw new Error("A CSV batch always has an account");
+      }
+      return rowIdentity(row, batch.source, orgAccountId);
+    },
+    normalize: (raw) =>
+      normalizeRow(raw, settings.mapping, {
+        dateFormat: settings.dateFormat,
+        defaultChannel: settings.defaultChannel,
+        today,
+      }),
+    payloadHash: (row) => payloadHash(row),
+    weakIdentity: checkMapping(settings.mapping).weakIdentity,
+  };
+}
+
+async function rowRulesFor(
+  batch: ImportBatchRow,
+  settings: ClassifySettings
+): Promise<RowRules> {
+  return batch.source === "razorpay_api"
+    ? await razorpayRowRules(batch)
+    : csvRowRules(batch, settings, todayInKolkata());
+}
+
 interface PreparedRow {
-  identity: ReturnType<typeof rowIdentity> | null;
+  identity: RowIdentity | null;
   normalized: NormalizeResult | null;
   payloadHash: string | null;
   record: ImportRowRecord;
@@ -283,6 +352,10 @@ interface Classification {
 }
 
 function settingsOf(batch: ImportBatchRow): ClassifySettings | null {
+  // Razorpay rows are payments, not mapped cells.
+  if (batch.source === "razorpay_api") {
+    return { dateFormat: "ymd", defaultChannel: "razorpay", mapping: {} };
+  }
   if (!(batch.mapping && batch.dateFormat)) {
     return null;
   }
@@ -296,17 +369,12 @@ function settingsOf(batch: ImportBatchRow): ClassifySettings | null {
 /** The row's normalised values, with a parse problem of the CSV row as an error. */
 function normalizeRecord(
   record: ImportRowRecord,
-  settings: ClassifySettings,
-  today: string
+  rules: RowRules
 ): NormalizeResult | null {
   if (!record.raw) {
     return null;
   }
-  const normalized = normalizeRow(record.raw, settings.mapping, {
-    dateFormat: settings.dateFormat,
-    defaultChannel: settings.defaultChannel,
-    today,
-  });
+  const normalized = rules.normalize(record.raw);
   const issue = record.parseIssue as CsvRowIssue | null;
   if (issue && CSV_ROW_ISSUE_MESSAGES[issue]) {
     normalized.errors.unshift({
@@ -323,22 +391,24 @@ function normalizeRecord(
  * state the run's lock protects.
  */
 async function classifyBatch(
-  batch: ImportBatchRow,
   records: readonly ImportRowRecord[],
-  settings: ClassifySettings,
+  rules: RowRules,
   executor?: ImportTx
 ): Promise<Classification> {
-  const today = todayInKolkata();
   const prepared = new Map<string, PreparedRow>();
   for (const record of records) {
-    const normalized = normalizeRecord(record, settings, today);
-    const usable = normalized !== null && normalized.errors.length === 0;
+    const normalized = normalizeRecord(record, rules);
+    const usable =
+      record.raw !== null &&
+      normalized !== null &&
+      normalized.errors.length === 0;
     prepared.set(record.id, {
-      identity: usable
-        ? rowIdentity(normalized.row, batch.source, batch.orgAccountId)
-        : null,
+      identity: usable ? rules.identity(normalized.row) : null,
       normalized,
-      payloadHash: usable ? payloadHash(normalized.row) : null,
+      payloadHash:
+        usable && record.raw
+          ? rules.payloadHash(normalized.row, record.raw)
+          : null,
       record,
     });
   }
@@ -495,7 +565,8 @@ function toRowView(
 function toReviewResponse(
   batch: ImportBatchRow,
   settings: ClassifySettings,
-  classification: Classification
+  classification: Classification,
+  weakIdentity: boolean
 ): ReviewResponse {
   const firstNewKeyRow = new Map<
     string,
@@ -538,7 +609,7 @@ function toReviewResponse(
         repeatOf(row)
       )
     ),
-    weakIdentity: checkMapping(settings.mapping).weakIdentity,
+    weakIdentity,
   };
 }
 
@@ -578,6 +649,9 @@ async function saveReview(input: ReviewInput): Promise<ReviewResponse> {
   if (batch.status === "importing") {
     throw new ImportInputError("This batch is importing right now");
   }
+  if (batch.source === "razorpay_api") {
+    throw new ImportInputError("Razorpay payments have no columns to map");
+  }
   const records = await listImportRows(batch.id);
   const headers = new Set(Object.keys(records.find((r) => r.raw)?.raw ?? {}));
   const mapping = Object.fromEntries(
@@ -593,7 +667,8 @@ async function saveReview(input: ReviewInput): Promise<ReviewResponse> {
     defaultChannel: input.defaultChannel,
     mapping,
   };
-  const classification = await classifyBatch(batch, records, settings);
+  const rules = await rowRulesFor(batch, settings);
+  const classification = await classifyBatch(records, rules);
   const status = batch.status === "draft" ? "reviewed" : batch.status;
   await updateImportBatch(batch.id, {
     dateFormat: input.dateFormat,
@@ -601,7 +676,12 @@ async function saveReview(input: ReviewInput): Promise<ReviewResponse> {
     mapping,
     status,
   });
-  return toReviewResponse({ ...batch, status }, settings, classification);
+  return toReviewResponse(
+    { ...batch, status },
+    settings,
+    classification,
+    rules.weakIdentity
+  );
 }
 
 /** An identifier cell for display: its last four characters at most. */
@@ -673,10 +753,16 @@ async function loadBatchDetail(
   if (!settings || batch.status === "expired") {
     return { columns, review: null };
   }
-  const classification = await classifyBatch(batch, records, settings);
+  const rules = await rowRulesFor(batch, settings);
+  const classification = await classifyBatch(records, rules);
   return {
     columns,
-    review: toReviewResponse(batch, settings, classification),
+    review: toReviewResponse(
+      batch,
+      settings,
+      classification,
+      rules.weakIdentity
+    ),
   };
 }
 
@@ -686,10 +772,12 @@ const OUTCOME_FOR_PLAN = {
 } as const;
 
 interface RunContext {
-  actorId: string;
+  /** Null when the system imports (a Razorpay payment on arrival). */
+  actorId: string | null;
   batch: ImportBatchRow;
   canStoreIds: boolean;
   now: Date;
+  orgAccountId: string;
   programmeId: string | null;
   tx: ImportTx;
 }
@@ -736,6 +824,11 @@ async function runClaimedBatch(
   if (!settingsOf(current)) {
     throw new ImportInputError("Review the rows before importing");
   }
+  if (!current.orgAccountId) {
+    throw new ImportInputError(
+      "Choose the Razorpay clearing account in Settings first"
+    );
+  }
   const claimed = await claimImportBatch(
     current.id,
     new Date(Date.now() - STALE_RUN_MS)
@@ -751,7 +844,12 @@ async function runClaimedBatch(
     if (!settings) {
       throw new ImportInputError("Review the rows before importing");
     }
-    const { programmeId } = await resolveImportSettings(batch);
+    // An account is only ever attached, never removed, so the check above holds.
+    const orgAccountId = batch.orgAccountId ?? current.orgAccountId;
+    const { programmeId } = await resolveImportSettings({
+      ...batch,
+      orgAccountId,
+    });
     return await withImportTransaction(async (tx) => {
       const now = new Date();
       const ctx: RunContext = {
@@ -759,24 +857,24 @@ async function runClaimedBatch(
         batch,
         canStoreIds: hasEncryptionKey(),
         now,
+        orgAccountId,
         programmeId,
         tx,
       };
       const records = await listImportRows(batch.id, tx);
-      const classification = await classifyBatch(batch, records, settings, tx);
+      const classification = await classifyBatch(
+        records,
+        await rowRulesFor(batch, settings),
+        tx
+      );
       const plans = planRows(classification.classified, input.decisions);
       const result = await executePlans(ctx, classification, plans);
-      const counts = await countImportOutcomes(tx, batch.id);
       await updateImportBatch(
         batch.id,
         {
+          ...(await countImportBatchRows(tx, batch.id)),
           completedAt: now,
-          conflictCount: counts.conflict,
-          errorCount: counts.error,
-          importedCount: counts.imported,
-          linkedCount: counts.linked_existing,
           newDonorCount: batch.newDonorCount + result.newDonors,
-          skippedCount: counts.skipped + counts.pending,
           status: "completed",
         },
         tx
@@ -899,10 +997,11 @@ async function executePlans(
       result.errors += 1;
       continue;
     }
+    const collection = COLLECTION_BY_SOURCE[ctx.batch.source];
     await recordImportCollectionEvent(ctx.tx, {
-      channel: ctx.batch.source,
+      channel: collection.channel,
       createdBy: ctx.actorId,
-      evidenceNote: GENERIC_CSV_COLLECTION_NOTE,
+      evidenceNote: collection.note,
       id: uuidv7(),
       importBatchId: ctx.batch.id,
       noticeVersion: null,
@@ -922,10 +1021,12 @@ async function executePlans(
         createdBy: ctx.actorId,
         donationType: normalized.donationType,
         fundId: ctx.batch.fundId,
+        gatewayFeePaise: normalized.gatewayFeePaise ?? 0,
+        gatewayTaxPaise: normalized.gatewayTaxPaise ?? 0,
         id: contributionId,
         importBatchId: ctx.batch.id,
         notes: normalized.notes || null,
-        orgAccountId: ctx.batch.orgAccountId,
+        orgAccountId: ctx.orgAccountId,
         partyId,
         programmeId: ctx.programmeId,
         projectId: ctx.batch.projectId,
@@ -959,4 +1060,89 @@ async function executePlans(
     result.imported += 1;
   }
   return result;
+}
+
+/** What happened to one staged row of an API batch. */
+export type StagedRowResult =
+  | ReviewCategory
+  | "no_clearing_account"
+  | "already_decided";
+
+/**
+ * Imports staged rows of an API batch as the system, inside the caller's
+ * import transaction. Rows that need no decision (a known donor by PAN, or
+ * a new donor) import at once; rows that need a reviewer stay pending with
+ * reason `needs_review`, conflicts and errors are recorded, and without a
+ * clearing account every row waits. The batch's counters are refreshed.
+ */
+export async function importStagedRows(
+  tx: ImportTx,
+  batch: ImportBatchRow,
+  rowIds: ReadonlySet<string>,
+  now: Date = new Date()
+): Promise<Map<string, StagedRowResult>> {
+  const results = new Map<string, StagedRowResult>();
+  const settings = settingsOf(batch);
+  const records = await listImportRows(batch.id, tx);
+  const waiting = records.filter(
+    (r) => rowIds.has(r.id) && r.outcome === "pending" && r.raw
+  );
+  for (const id of rowIds) {
+    results.set(id, "already_decided");
+  }
+  let newDonors = 0;
+  if (!(batch.orgAccountId && settings)) {
+    for (const record of waiting) {
+      await markImportRowWaiting(tx, record.id, "no_clearing_account");
+      results.set(record.id, "no_clearing_account");
+    }
+  } else if (waiting.length > 0) {
+    const classification = await classifyBatch(
+      records,
+      await rowRulesFor(batch, settings),
+      tx
+    );
+    const plans = planRows(classification.classified, {});
+    const auto = new Map<string, RowPlan>();
+    for (const row of classification.classified) {
+      const plan = plans.get(row.rowId);
+      if (!(plan && waiting.some((r) => r.id === row.rowId))) {
+        continue;
+      }
+      results.set(row.rowId, row.category);
+      if (row.category === "needs_review") {
+        await markImportRowWaiting(tx, row.rowId, "needs_review");
+      } else if (row.category !== "done") {
+        auto.set(row.rowId, plan);
+      }
+    }
+    const result = await executePlans(
+      {
+        actorId: null,
+        batch,
+        canStoreIds: hasEncryptionKey(),
+        now,
+        orgAccountId: batch.orgAccountId,
+        programmeId: batch.programmeId,
+        tx,
+      },
+      classification,
+      auto
+    );
+    newDonors = result.newDonors;
+  }
+  const counts = await countImportBatchRows(tx, batch.id);
+  await updateImportBatch(
+    batch.id,
+    {
+      ...counts,
+      ...(counts.importedCount + counts.linkedCount >
+      batch.importedCount + batch.linkedCount
+        ? { completedAt: now }
+        : {}),
+      newDonorCount: batch.newDonorCount + newDonors,
+    },
+    tx
+  );
+  return results;
 }

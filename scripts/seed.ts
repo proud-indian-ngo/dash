@@ -677,6 +677,16 @@ async function seedIncome(adminId: string): Promise<void> {
     .insert(orgAccount)
     .values(ORG_ACCOUNTS.map((a) => ({ ...a, createdAt: now, updatedAt: now })))
     .onConflictDoNothing();
+  // Dev only: Razorpay payments land in the seeded clearing account once
+  // RAZORPAY_KEY_ID and RAZORPAY_WEBHOOK_SECRET are set.
+  await db
+    .insert(appConfig)
+    .values({
+      key: "razorpay_clearing_account_id",
+      updatedAt: now,
+      value: ORG_ACCOUNTS[1]?.id as string,
+    })
+    .onConflictDoNothing();
   await db
     .insert(contribution)
     .values(

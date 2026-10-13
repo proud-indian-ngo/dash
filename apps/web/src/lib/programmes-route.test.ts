@@ -12,10 +12,14 @@ mock.module("@/components/settings/sections/org-accounts-section", () => ({
 mock.module("@/components/settings/sections/projects-section", () => ({
   ProjectsSection: () => null,
 }));
+mock.module("@/components/settings/sections/razorpay-section", () => ({
+  RazorpaySection: () => null,
+}));
 mock.module("@/components/settings/settings-layout", () => ({
   SettingsPage: () => null,
 }));
 
+import { Route as IntegrationsRoute } from "@/routes/_app/settings/integrations";
 import { Route as OrgAccountsRoute } from "@/routes/_app/settings/org-accounts";
 import { Route as ProgrammesRoute } from "@/routes/_app/settings/programmes";
 import { Route as ProjectsRoute } from "@/routes/_app/settings/projects";
@@ -53,6 +57,20 @@ describe("programmes settings route guard", () => {
 describe("organisation accounts settings route guard", () => {
   it("requires finance.view", () => {
     const { beforeLoad } = OrgAccountsRoute.options;
+    for (const permissions of [[], ["donors.view"], ["donors.manage"]]) {
+      expect(() =>
+        beforeLoad?.({ context: { permissions } } as never)
+      ).toThrow();
+    }
+    expect(() =>
+      beforeLoad?.({ context: { permissions: ["finance.view"] } } as never)
+    ).not.toThrow();
+  });
+});
+
+describe("integrations settings route guard", () => {
+  it("requires finance.view, which finance.manage roles also hold", () => {
+    const { beforeLoad } = IntegrationsRoute.options;
     for (const permissions of [[], ["donors.view"], ["donors.manage"]]) {
       expect(() =>
         beforeLoad?.({ context: { permissions } } as never)

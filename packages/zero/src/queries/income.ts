@@ -72,8 +72,11 @@ export const contributionQueries = {
   }),
 };
 
-/** Years of monthly imports from a few sources fit well under this. */
-export const IMPORT_BATCH_LIST_LIMIT = 500;
+/**
+ * Razorpay opens one batch per day with payments, so this holds several
+ * years of those alongside monthly uploads from a few sources.
+ */
+export const IMPORT_BATCH_LIST_LIMIT = 2000;
 
 /**
  * CSV import batches for the Imports tab: settings and counts only, since
