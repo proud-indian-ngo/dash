@@ -10,4 +10,5 @@ export default defineConfig({
   // Includes the server-only tables under schema/private, which the Zero
   // generator never sees because they are not exported from schema/index.ts.
   schema: ["./src/schema", "./src/schema/private"],
+  schemaFilter: ["public", "private"],
 });

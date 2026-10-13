@@ -1,5 +1,5 @@
 {
-  "id": "63cf9c6c-40bc-47cb-b5b0-e0fa3d49eff6",
+  "id": "8b4ef733-5b9b-4413-8eea-f2c7e8ab375c",
   "prevId": "56a99f14-d4f6-4455-a8e2-977673c972b7",
   "version": "7",
   "dialect": "postgresql",
@@ -12887,9 +12887,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.party_bank_account": {
+    "private.party_bank_account": {
       "name": "party_bank_account",
-      "schema": "",
+      "schema": "private",
       "columns": {
         "account_name": {
           "name": "account_name",
@@ -12985,9 +12985,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.party_private": {
+    "private.party_private": {
       "name": "party_private",
-      "schema": "",
+      "schema": "private",
       "columns": {
         "address_line1": {
           "name": "address_line1",
@@ -13035,7 +13035,7 @@
         "foreign_source_assessment": {
           "name": "foreign_source_assessment",
           "type": "foreign_source_assessment",
-          "typeSchema": "public",
+          "typeSchema": "private",
           "primaryKey": false,
           "notNull": true,
           "default": "'domestic'"
@@ -13055,7 +13055,7 @@
         "id_type": {
           "name": "id_type",
           "type": "party_id_type",
-          "typeSchema": "public",
+          "typeSchema": "private",
           "primaryKey": false,
           "notNull": true,
           "default": "'none'"
@@ -13566,18 +13566,18 @@
         "rejected"
       ]
     },
-    "public.foreign_source_assessment": {
+    "private.foreign_source_assessment": {
       "name": "foreign_source_assessment",
-      "schema": "public",
+      "schema": "private",
       "values": [
         "domestic",
         "foreign",
         "pending"
       ]
     },
-    "public.party_id_type": {
+    "private.party_id_type": {
       "name": "party_id_type",
-      "schema": "public",
+      "schema": "private",
       "values": [
         "pan",
         "passport",
@@ -13589,7 +13589,9 @@
       ]
     }
   },
-  "schemas": {},
+  "schemas": {
+    "private": "private"
+  },
   "sequences": {},
   "roles": {},
   "policies": {},

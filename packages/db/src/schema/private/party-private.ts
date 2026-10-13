@@ -6,8 +6,7 @@ import {
   boolean,
   date,
   index,
-  pgEnum,
-  pgTable,
+  pgSchema,
   text,
   timestamp,
   uuid,
@@ -17,20 +16,26 @@ import { user } from "../auth";
 import { party } from "../party";
 
 /**
- * Finance-private party data. These tables are deliberately not exported from
- * `schema/index.ts`, so drizzle-zero never generates them and they never sync
- * to the browser. Contact details are read through server functions guarded
- * by `donors.view`, the full identifier by `finance.view_sensitive`, and writes
- * by `donors.manage`.
+ * Finance-private party data. These tables live in the Postgres schema
+ * `private`, which zero-cache's publication (scoped to `public`) never
+ * replicates, and they are not exported from `schema/index.ts`, so
+ * drizzle-zero never generates them either. Contact details are read through
+ * server functions guarded by `donors.view`, the full identifier by
+ * `finance.view_sensitive`, and writes by `donors.manage`.
  */
 
-export const partyIdTypeEnum = pgEnum("party_id_type", partyIdTypeValues);
-export const foreignSourceAssessmentEnum = pgEnum(
+export const privateSchema = pgSchema("private");
+
+export const partyIdTypeEnum = privateSchema.enum(
+  "party_id_type",
+  partyIdTypeValues
+);
+export const foreignSourceAssessmentEnum = privateSchema.enum(
   "foreign_source_assessment",
   foreignSourceAssessmentValues
 );
 
-export const partyPrivate = pgTable("party_private", {
+export const partyPrivate = privateSchema.table("party_private", {
   addressLine1: text("address_line1"),
   addressLine2: text("address_line2"),
   assessedOn: date("assessed_on"),
@@ -62,7 +67,7 @@ export const partyPrivate = pgTable("party_private", {
   }),
 });
 
-export const partyBankAccount = pgTable(
+export const partyBankAccount = privateSchema.table(
   "party_bank_account",
   {
     accountName: text("account_name").notNull(),

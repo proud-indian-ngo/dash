@@ -335,7 +335,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `advancePaymentAttachment` | `packages/db/src/schema/advance-payment.ts` |
 | `advancePaymentHistory` | `packages/db/src/schema/advance-payment.ts` |
 | `party`, `partyRole` | `packages/db/src/schema/party.ts` (identity and roles; synced through Zero) |
-| `partyPrivate`, `partyBankAccount` | `packages/db/src/schema/private/party-private.ts` (contact, ID and bank details; server-only, never in the Zero schema; identifiers encrypted with `DATA_ENCRYPTION_KEY`) |
+| `partyPrivate`, `partyBankAccount` | `packages/db/src/schema/private/party-private.ts` (contact, ID and bank details in the Postgres schema `private`; never in the Zero schema or the zero-cache replica; identifiers encrypted with `DATA_ENCRYPTION_KEY`) |
 | `team` | `packages/db/src/schema/team.ts` (optional `programmeId`: default programme for the team's events) |
 | `teamMember` | `packages/db/src/schema/team.ts` |
 | `teamEvent` | `packages/db/src/schema/team-event.ts` (`programmeId` required; defaults to the Unallocated holding programme, backfilled from the team in migration 0114) |

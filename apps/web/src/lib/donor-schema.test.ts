@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { saveDonorSchema } from "./donor-schema";
+import { needsIdNumber, saveDonorSchema } from "./donor-schema";
 
 const base = {
   addressLine1: "",
@@ -11,10 +11,12 @@ const base = {
   displayName: "Asha Rao",
   email: "",
   foreignSourceAssessment: "domestic" as const,
+  id: "01930000-0000-7000-8000-000000000501",
   idNumber: "",
   idType: "none" as const,
   kind: "person" as const,
   legalName: "",
+  mode: "create" as const,
   nationality: "",
   phone: "",
   pincode: "",
@@ -48,6 +50,24 @@ describe("saveDonorSchema", () => {
     expect(saveDonorSchema.safeParse({ ...base, idType: "pan" }).success).toBe(
       true
     );
+  });
+
+  it("needs an identifier unless none or a kept stored one", () => {
+    expect(needsIdNumber({ idNumber: "", idType: "none" }, null)).toBe(false);
+    expect(needsIdNumber({ idNumber: "", idType: "pan" }, null)).toBe(true);
+    expect(needsIdNumber({ idNumber: "X", idType: "pan" }, null)).toBe(false);
+    expect(
+      needsIdNumber(
+        { idNumber: "", idType: "pan" },
+        { hasIdNumber: true, idType: "pan" }
+      )
+    ).toBe(false);
+    expect(
+      needsIdNumber(
+        { idNumber: "", idType: "passport" },
+        { hasIdNumber: true, idType: "pan" }
+      )
+    ).toBe(true);
   });
 
   it("requires a role, a valid phone and a two-letter country", () => {

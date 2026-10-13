@@ -97,19 +97,39 @@ export interface SavePartyInput {
   country: string;
   displayName: string;
   email: string;
+  /** The private row's updatedAt the editor loaded; a newer row rejects the save. */
+  expectedUpdatedAt?: number;
   foreignSourceAssessment: ForeignSourceAssessment;
-  /** Absent on create. */
-  id?: string;
+  /** Client-generated on create so a retried request is idempotent. */
+  id: string;
   /** Blank keeps a stored identifier of the same type; a value replaces it. */
   idNumber: string;
   idType: PartyIdType;
   kind: PartyKind;
   legalName: string;
+  mode: "create" | "update";
   nationality: string;
   phone: string;
   pincode: string;
   roles: readonly DirectoryRole[];
   state: string;
+}
+
+export class PartyConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PartyConflictError";
+  }
+}
+
+/** Calendar day in India, where the trust keeps its books. */
+function istToday(now: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+  }).format(now);
 }
 
 export interface SavePartyResult {
@@ -131,13 +151,18 @@ export async function saveParty(
   actorId: string
 ): Promise<SavePartyResult> {
   const now = new Date();
-  const today = now.toISOString().slice(0, 10);
-  const partyId = input.id ?? uuidv7();
+  const today = istToday(now);
+  const partyId = input.id;
 
   return await db.transaction(async (tx) => {
-    const [existingParty] = input.id
-      ? await tx.select().from(party).where(eq(party.id, input.id)).limit(1)
-      : [];
+    const [existingParty] = await tx
+      .select()
+      .from(party)
+      .where(eq(party.id, partyId))
+      .limit(1);
+    if (input.mode === "update" && !existingParty) {
+      throw new Error("Party not found");
+    }
     const identity = {
       displayName: input.displayName.trim(),
       kind: input.kind,
@@ -193,6 +218,15 @@ export async function saveParty(
       .from(partyPrivate)
       .where(eq(partyPrivate.partyId, partyId))
       .limit(1);
+    if (
+      existingPrivate &&
+      input.expectedUpdatedAt !== undefined &&
+      existingPrivate.updatedAt.getTime() !== input.expectedUpdatedAt
+    ) {
+      throw new PartyConflictError(
+        "Someone else changed this donor while you were editing. Reload and try again."
+      );
+    }
 
     const idNumber = input.idNumber.trim().toUpperCase();
     let secret: {
@@ -204,7 +238,7 @@ export async function saveParty(
     } else if (idNumber) {
       if (!hasEncryptionKey()) {
         throw new Error(
-          "Identifiers cannot be stored until DATA_ENCRYPTION_KEY is configured"
+          "Identifiers cannot be stored right now; ask an administrator to configure encryption"
         );
       }
       secret = {
@@ -222,15 +256,21 @@ export async function saveParty(
     } else {
       throw new Error("Enter the identifier or set the ID type to none");
     }
+    // The assessment date records when someone decided domestic or foreign;
+    // "pending" means no decision yet, so it carries no date.
     const assessmentChanged =
       existingPrivate?.foreignSourceAssessment !==
       input.foreignSourceAssessment;
+    let assessedOn: string | null = existingPrivate?.assessedOn ?? null;
+    if (input.foreignSourceAssessment === "pending") {
+      assessedOn = null;
+    } else if (assessmentChanged || !existingPrivate) {
+      assessedOn = today;
+    }
     const values = {
       addressLine1: nullIfBlank(input.addressLine1),
       addressLine2: nullIfBlank(input.addressLine2),
-      assessedOn: assessmentChanged
-        ? today
-        : (existingPrivate?.assessedOn ?? today),
+      assessedOn,
       assessmentNote: nullIfBlank(input.assessmentNote),
       city: nullIfBlank(input.city),
       country: input.country.trim().toUpperCase() || "IN",

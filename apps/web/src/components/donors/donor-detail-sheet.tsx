@@ -107,10 +107,13 @@ export function DonorDetailSheet({
 }) {
   const loadDetails = useServerFn(getPartyDetails);
   const [state, setState] = useState<LoadState>({ kind: "loading" });
+  const [attempt, setAttempt] = useState(0);
   const partyId = party?.id ?? null;
+  const retry = useEventCallback(() => setAttempt((n) => n + 1));
 
   useEffect(() => {
     if (!(open && partyId)) {
+      setState({ kind: "loading" });
       return;
     }
     let cancelled = false;
@@ -134,7 +137,7 @@ export function DonorDetailSheet({
     return () => {
       cancelled = true;
     };
-  }, [open, partyId, version, loadDetails]);
+  }, [open, partyId, version, attempt, loadDetails]);
 
   const handleEdit = useEventCallback(() => {
     if (party) {
@@ -201,9 +204,14 @@ export function DonorDetailSheet({
             </div>
           ) : null}
           {state.kind === "error" ? (
-            <p className="text-destructive text-sm">
-              Couldn't load this donor's details.
-            </p>
+            <div className="flex flex-col items-start gap-2">
+              <p className="text-destructive text-sm">
+                Couldn't load this donor's details.
+              </p>
+              <Button onClick={retry} size="sm" type="button" variant="outline">
+                Try again
+              </Button>
+            </div>
           ) : null}
           {state.kind === "ready" ? (
             <>

@@ -11,6 +11,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { uuidv7 } from "uuidv7";
 import z from "zod";
 
 import { CheckboxField } from "@/components/form/checkbox-field";
@@ -39,6 +40,7 @@ import {
   type DirectoryRole,
   donorFieldsSchema,
   ID_TYPE_LABELS,
+  needsIdNumber,
   panCheck,
   type SaveDonorInput,
   saveDonorSchema,
@@ -60,11 +62,14 @@ const assessmentOptions = foreignSourceAssessmentValues.map((value) => ({
 }));
 
 /** The form keeps roles as booleans so each is a checkbox; the server gets a list. */
-type DonorFormValues = Omit<SaveDonorInput, "id" | "roles"> &
+type DonorFormValues = Omit<
+  SaveDonorInput,
+  "expectedUpdatedAt" | "id" | "mode" | "roles"
+> &
   Record<`role_${DirectoryRole}`, boolean>;
 
 const formSchema = donorFieldsSchema
-  .omit({ id: true, roles: true })
+  .omit({ expectedUpdatedAt: true, id: true, mode: true, roles: true })
   .extend({
     role_donor: z.boolean(),
     role_grantor: z.boolean(),
@@ -135,7 +140,9 @@ function valuesFor(
 }
 
 function toInput(
+  partyId: string,
   party: PartyRow | null,
+  details: PartyDetailsResponse["details"],
   value: DonorFormValues
 ): SaveDonorInput {
   const { role_donor, role_grantor, role_intermediary, role_sponsor, ...rest } =
@@ -148,7 +155,9 @@ function toInput(
   };
   return {
     ...rest,
-    id: party?.id,
+    expectedUpdatedAt: details?.updatedAt,
+    id: partyId,
+    mode: party ? "update" : "create",
     roles: DIRECTORY_ROLES.filter((role) => flags[role]),
   };
 }
@@ -167,11 +176,17 @@ function DonorForm({
   const save = useServerFn(saveDonor);
   const isEdit = party !== null;
   const details = context.details;
+  // Fixed for the life of the form so a retried create cannot duplicate.
+  const [partyId] = useState(() => party?.id ?? uuidv7());
 
   const form = useForm({
     defaultValues: party ? valuesFor(party, details) : emptyValues(),
     onSubmit: async ({ value }) => {
-      const input = toInput(party, value);
+      if (needsIdNumber(value, details)) {
+        toast.error("Enter the ID number or set the ID type to none");
+        return;
+      }
+      const input = toInput(partyId, party, details, value);
       const check = saveDonorSchema.safeParse(input);
       if (!check.success) {
         toast.error(check.error.issues[0]?.message ?? "Check the form");
@@ -207,7 +222,7 @@ function DonorForm({
     idHint =
       "Identifiers cannot be stored until the encryption key is configured.";
   } else if (isEdit && details?.hasIdNumber) {
-    idHint = `Stored${details.idNumberLast4 ? `, ending ${details.idNumberLast4}` : ""}. Leave blank to keep it; change the ID type to replace it.`;
+    idHint = `Stored${details.idNumberLast4 ? `, ending ${details.idNumberLast4}` : ""}. Leave blank to keep it, or enter a new number to replace it.`;
   }
 
   return (
@@ -256,7 +271,12 @@ function DonorForm({
 
       <FormSectionHeading>Identity and source</FormSectionHeading>
       <div className="grid gap-4 sm:grid-cols-2">
-        <SelectField label="ID type" name="idType" options={idTypeOptions} />
+        <SelectField
+          disabled={!context.identifiersAvailable}
+          label="ID type"
+          name="idType"
+          options={idTypeOptions}
+        />
         <InputField
           description={idHint}
           disabled={!context.identifiersAvailable}
@@ -306,6 +326,7 @@ export function DonorFormDialog({
 
   useEffect(() => {
     if (!open) {
+      setState({ kind: "loading" });
       return;
     }
     let cancelled = false;

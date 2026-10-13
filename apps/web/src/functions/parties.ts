@@ -5,8 +5,8 @@ import {
   revealPartyIdNumber,
   saveParty,
 } from "@pi-dash/db/queries/party-private";
+import { resolvePermissions } from "@pi-dash/db/queries/resolve-permissions";
 import { createServerFn } from "@tanstack/react-start";
-import { uuidv7 } from "uuidv7";
 import z from "zod";
 
 import { assertServerPermission } from "@/lib/api-auth";
@@ -33,7 +33,21 @@ export const getPartyDetails = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(z.object({ partyId: z.uuid().nullable() }))
   .handler(async ({ context, data }): Promise<PartyDetailsResponse> => {
-    await assertServerPermission(context.session, "donors.view");
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    // Managing implies seeing, so a role with only donors.manage can open the form.
+    const permissions = await resolvePermissions(
+      context.session.user.role ?? "unoriented_volunteer"
+    );
+    if (
+      !(
+        permissions.includes("donors.view") ||
+        permissions.includes("donors.manage")
+      )
+    ) {
+      throw new Error("Forbidden");
+    }
     return {
       details: data.partyId ? await getPartyPrivate(data.partyId) : null,
       identifiersAvailable: hasEncryptionKey(),
@@ -69,15 +83,22 @@ export const saveDonor = createServerFn({ method: "POST" })
       throw new Error("Unauthorized");
     }
     const { session } = context;
-    const partyId = data.id ?? uuidv7();
+    // Clearing a stored identifier is irreversible, so it gets its own action ID.
+    const current =
+      data.mode === "update" && data.idType === "none"
+        ? await getPartyPrivate(data.id)
+        : null;
+    let action = "party.update";
+    if (data.mode === "create") {
+      action = "party.create";
+    } else if (current?.hasIdNumber) {
+      action = "party.identifier.clear";
+    }
     const result = await runSessionAuditedAction(
       session,
       context.headers,
-      {
-        action: data.id ? "party.update" : "party.create",
-        target: { id: partyId, type: "party" },
-      },
-      async () => await saveParty({ ...data, id: partyId }, session.user.id)
+      { action, target: { id: data.id, type: "party" } },
+      async () => await saveParty(data, session.user.id)
     );
     return {
       created: result.created,

@@ -80,7 +80,6 @@ echo "Seeding test data..."
 (cd packages/e2e && \
   DATABASE_URL="$DB_URL" \
   BETTER_AUTH_SECRET="${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}" \
-  DATA_ENCRYPTION_KEY="$DATA_ENCRYPTION_KEY" \
   BETTER_AUTH_URL="${BETTER_AUTH_URL:-http://localhost:3001}" \
   SKIP_VALIDATION=true \
   bun run helpers/seed-dev-data.ts) || echo "⚠ Seed failed (non-critical)"
