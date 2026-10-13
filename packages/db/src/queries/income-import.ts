@@ -2,10 +2,19 @@ import type {
   ExternalIdentityProvider,
   ImportBatchSource,
   ImportRowOutcome,
+  PartyFillField,
   PartyIdType,
 } from "@pi-dash/shared/constants";
-import { PROGRAMME_IDS } from "@pi-dash/shared/constants";
-import { CONTRIBUTOR_ROLES } from "@pi-dash/shared/income";
+import {
+  GIVE_INDIA_PARTY_ID,
+  GIVE_INDIA_PARTY_NAME,
+  PROGRAMME_IDS,
+} from "@pi-dash/shared/constants";
+import {
+  CONTRIBUTOR_ROLES,
+  GIVER_ROLES,
+  PLATFORM_INTERMEDIARY_PARTY_IDS,
+} from "@pi-dash/shared/income";
 import {
   and,
   count,
@@ -18,9 +27,11 @@ import {
   lt,
   lte,
   ne,
+  notInArray,
   or,
   sql,
 } from "drizzle-orm";
+import { uuidv7 } from "uuidv7";
 
 import { db } from "..";
 import { decryptSecret, hasEncryptionKey } from "../encryption";
@@ -44,7 +55,7 @@ import {
   partyPrivate,
   phoneDigitsKey,
 } from "../schema/private/party-private";
-import { partyIdNumberContext } from "./party-private";
+import { partyDetailGaps, partyIdNumberContext } from "./party-private";
 
 /**
  * Database access for CSV imports of contributions. Raw rows and donor
@@ -239,12 +250,18 @@ export interface MatchedParty {
   partyId: string;
 }
 
-/** Parties that can give: an active donor, sponsor, grantor or intermediary role. */
+/**
+ * Parties that can give: an active donor, sponsor, grantor or intermediary
+ * role, except that a donation platform such as GiveIndia needs a giver role
+ * of its own (`canGive`).
+ */
 const isContributor = sql`exists (
   select 1 from ${partyRole}
   where ${partyRole.partyId} = ${partyPrivate.partyId}
     and ${partyRole.active} = true
     and ${inArray(partyRole.role, [...CONTRIBUTOR_ROLES])}
+    and (${inArray(partyRole.role, [...GIVER_ROLES])}
+      or ${notInArray(partyRole.partyId, [...PLATFORM_INTERMEDIARY_PARTY_IDS])})
 )`;
 
 /**
@@ -367,6 +384,72 @@ export async function findContributorsByContact(
     }
   }
   return { byEmail, byPhone };
+}
+
+/** For each party, which fill fields it has no value for. */
+export async function findPartyDetailGaps(
+  partyIds: readonly string[],
+  executor: Reader = db
+): Promise<Map<string, Record<PartyFillField, boolean>>> {
+  const ids = [...new Set(partyIds)];
+  const gaps = new Map<string, Record<PartyFillField, boolean>>();
+  if (ids.length === 0) {
+    return gaps;
+  }
+  const rows = await executor
+    .select({
+      addressLine1: partyPrivate.addressLine1,
+      addressLine2: partyPrivate.addressLine2,
+      city: partyPrivate.city,
+      email: partyPrivate.email,
+      idNumberEncrypted: partyPrivate.idNumberEncrypted,
+      partyId: partyPrivate.partyId,
+      phone: partyPrivate.phone,
+      pincode: partyPrivate.pincode,
+      state: partyPrivate.state,
+    })
+    .from(partyPrivate)
+    .where(inArray(partyPrivate.partyId, ids));
+  const byParty = new Map(rows.map((row) => [row.partyId, row]));
+  for (const id of ids) {
+    gaps.set(id, partyDetailGaps(byParty.get(id) ?? null));
+  }
+  return gaps;
+}
+
+/**
+ * Makes sure GiveIndia exists as an organisation with an active intermediary
+ * role, under its fixed ID. Safe to call on every give.do run: an existing
+ * party and role are left as they are, even if renamed or deactivated.
+ */
+export async function ensureGiveIndiaParty(
+  tx: ImportTx,
+  actorId: string,
+  now: Date
+): Promise<string> {
+  await tx
+    .insert(party)
+    .values({
+      createdAt: now,
+      createdBy: actorId,
+      displayName: GIVE_INDIA_PARTY_NAME,
+      id: GIVE_INDIA_PARTY_ID,
+      kind: "organisation",
+      legalName: null,
+      updatedAt: now,
+    })
+    .onConflictDoNothing({ target: party.id });
+  await tx
+    .insert(partyRole)
+    .values({
+      active: true,
+      id: uuidv7(),
+      partyId: GIVE_INDIA_PARTY_ID,
+      role: "intermediary",
+      since: now,
+    })
+    .onConflictDoNothing({ target: [partyRole.partyId, partyRole.role] });
+  return GIVE_INDIA_PARTY_ID;
 }
 
 export interface DuplicateCandidate {

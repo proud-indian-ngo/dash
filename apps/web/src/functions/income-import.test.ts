@@ -136,7 +136,15 @@ describe("contribution import server functions", () => {
     });
     await call(fns.runContributionImport, {
       batchId: BATCH,
-      decisions: { [BATCH]: { donor: "new" } },
+      decisions: {
+        [BATCH]: { donor: "new" },
+        // An accepted email match with "Fill missing details" left on.
+        "0190a000-0000-7000-8000-000000000002": { donor: "party:p-1" },
+        "0190a000-0000-7000-8000-000000000003": {
+          donor: "party:p-2",
+          fillMissing: false,
+        },
+      },
     });
     expect(audits).toEqual([
       {
@@ -146,7 +154,7 @@ describe("contribution import server functions", () => {
       },
       {
         action: "import_batch.run",
-        metadata: { decisionCount: 1 },
+        metadata: { decisionCount: 3, fillMissingCount: 1 },
         target: { id: BATCH, type: "import_batch" },
       },
     ]);

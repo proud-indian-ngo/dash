@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  fillValuesPresent,
   PartyConflictError,
+  partyDetailGaps,
   resolveAssessedOn,
   resolveBankAccount,
   resolveSaveMode,
@@ -286,5 +288,69 @@ describe("resolveBankAccount", () => {
     expect(() => resolveBankAccount("", null, "  ")).toThrow(
       "Enter the account number"
     );
+  });
+});
+
+describe("partyDetailGaps", () => {
+  const empty = {
+    addressLine1: null,
+    addressLine2: null,
+    city: null,
+    email: null,
+    idNumberEncrypted: null,
+    phone: null,
+    pincode: null,
+    state: null,
+  };
+
+  it("treats a donor without private details as lacking everything", () => {
+    expect(partyDetailGaps(null)).toEqual({
+      address: true,
+      email: true,
+      idNumber: true,
+      phone: true,
+    });
+  });
+
+  it("counts any address line as an address, so lines are never mixed", () => {
+    expect(partyDetailGaps({ ...empty, city: "Pune" }).address).toBe(false);
+    expect(
+      partyDetailGaps({ ...empty, email: "a@example.com", phone: "+91" })
+    ).toEqual({ address: true, email: false, idNumber: true, phone: false });
+    expect(
+      partyDetailGaps({ ...empty, idNumberEncrypted: "v1:x" }).idNumber
+    ).toBe(false);
+  });
+});
+
+describe("fillValuesPresent", () => {
+  const values = {
+    addressLine1: "",
+    addressLine2: "",
+    city: "",
+    email: "a@example.com",
+    idNumber: "ABCDE1234F",
+    idType: "pan" as const,
+    phone: "",
+    pincode: "560001",
+    state: "",
+  };
+
+  it("offers an ID number only when identifiers can be stored", () => {
+    expect(fillValuesPresent(values, { canStoreIds: true })).toEqual({
+      address: true,
+      email: true,
+      idNumber: true,
+      phone: false,
+    });
+    expect(fillValuesPresent(values, { canStoreIds: false }).idNumber).toBe(
+      false
+    );
+    expect(
+      fillValuesPresent(
+        { ...values, idNumber: "", idType: "none" },
+        { canStoreIds: true }
+      ).idNumber
+    ).toBe(false);
   });
 });

@@ -13,6 +13,8 @@ import type {
 export type ContributionRow = Contribution & {
   fund?: Fund | null;
   importBatch?: ImportBatch | null;
+  /** The platform that passed the gift on, such as GiveIndia for give.do. */
+  intermediary?: Party | null;
   orgAccount?: OrgAccount | null;
   party?: Party | null;
   programme?: Programme | null;

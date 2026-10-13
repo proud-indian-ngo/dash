@@ -6,11 +6,13 @@ import {
 import {
   claimImportBatch,
   countImportBatchRows,
+  ensureGiveIndiaParty,
   findBatchByFileHash,
   findContributorsByContact,
   findContributorsByIdentifier,
   findDuplicateCandidates,
   findExternalIdentities,
+  findPartyDetailGaps,
   getImportBatch,
   type ImportBatchRow,
   type ImportRowRecord,
@@ -28,14 +30,21 @@ import {
   updateImportBatch,
   withImportTransaction,
 } from "@pi-dash/db/queries/income-import";
-import { savePartyInTransaction } from "@pi-dash/db/queries/party-private";
+import {
+  fillMissingPartyDetails,
+  fillValuesPresent,
+  savePartyInTransaction,
+} from "@pi-dash/db/queries/party-private";
 import {
   findClearingAccount,
   markImportRowWaiting,
 } from "@pi-dash/db/queries/razorpay-import";
-import type {
-  ContributionChannel,
-  ImportBatchSource,
+import {
+  type ContributionChannel,
+  type ImportBatchSource,
+  type PartyFillField,
+  partyFillFieldValues,
+  type PartyIdType,
 } from "@pi-dash/shared/constants";
 import { defaultReportingMode, todayInKolkata } from "@pi-dash/shared/income";
 import { uuidv7 } from "uuidv7";
@@ -61,6 +70,7 @@ import {
   type ImportDateFormat,
   type ImportMapping,
   isMappingUsable,
+  sourceRules,
   suggestMapping,
 } from "./fields";
 import {
@@ -107,6 +117,8 @@ const STALE_RUN_MS = 15 * 60 * 1000;
 export const COLLECTION_PURPOSE = "donation receipt and statutory filing";
 export const GENERIC_CSV_COLLECTION_NOTE =
   "collected directly by the organisation; notice version not recorded";
+export const GIVE_DO_COLLECTION_NOTE =
+  "donor gave details to give.do (GiveIndia) and saw GiveIndia's notice, not ours";
 export const RAZORPAY_COLLECTION_NOTE =
   "donor submitted details on our Razorpay Payment Page";
 
@@ -116,7 +128,7 @@ const COLLECTION_BY_SOURCE: Record<
   { channel: string; note: string }
 > = {
   generic_csv: { channel: "generic_csv", note: GENERIC_CSV_COLLECTION_NOTE },
-  give_do_csv: { channel: "give_do_csv", note: GENERIC_CSV_COLLECTION_NOTE },
+  give_do_csv: { channel: "give_do_csv", note: GIVE_DO_COLLECTION_NOTE },
   razorpay_api: {
     channel: "razorpay_payment_page",
     note: RAZORPAY_COLLECTION_NOTE,
@@ -191,17 +203,20 @@ async function storeImportBatch(
   actorId: string
 ): Promise<CreateBatchResponse> {
   const settings = await resolveImportSettings(input);
+  const rules = sourceRules(input.source);
   const now = new Date();
   const today = todayInKolkata(now);
   const hash = fileHash(input.csv);
   const mapping = suggestMapping(
     parsed.headers,
-    await latestImportMapping(input.source)
+    await latestImportMapping(input.source),
+    input.source
   );
   await insertImportBatch(
     {
       createdAt: now,
-      defaultChannel: input.defaultChannel,
+      dateFormat: rules.fixedDateFormat,
+      defaultChannel: rules.fixedChannel ?? input.defaultChannel,
       fileHash: hash,
       fileName: input.fileName,
       fundId: input.fundId,
@@ -242,6 +257,8 @@ async function storeImportBatch(
 interface ClassifySettings {
   dateFormat: ImportDateFormat;
   defaultChannel: ContributionChannel;
+  /** ID type for ID numbers without an ID type cell; give.do's column holds PANs. */
+  idType: PartyIdType | null;
   mapping: ImportMapping;
 }
 
@@ -278,6 +295,7 @@ function csvRowRules(
       normalizeRow(raw, settings.mapping, {
         dateFormat: settings.dateFormat,
         defaultChannel: settings.defaultChannel,
+        idType: settings.idType,
         today,
       }),
     payloadHash: (row) => payloadHash(row),
@@ -303,23 +321,47 @@ interface PreparedRow {
 
 interface Classification {
   classified: ClassifiedRow[];
+  /** For donors proposed by email or phone: the details each has no value for. */
+  gaps: Map<string, Record<PartyFillField, boolean>>;
   prepared: Map<string, PreparedRow>;
   storedIdentities: Map<string, StoredIdentity>;
+}
+
+/**
+ * The date format and channel the reviewer chose, unless the source fixes
+ * them, as give.do does.
+ */
+function withSourceRules(
+  source: ImportBatchSource,
+  chosen: Omit<ClassifySettings, "idType">
+): ClassifySettings {
+  const rules = sourceRules(source);
+  return {
+    dateFormat: rules.fixedDateFormat ?? chosen.dateFormat,
+    defaultChannel: rules.fixedChannel ?? chosen.defaultChannel,
+    idType: rules.idType,
+    mapping: chosen.mapping,
+  };
 }
 
 function settingsOf(batch: ImportBatchRow): ClassifySettings | null {
   // Razorpay rows are payments, not mapped cells.
   if (batch.source === "razorpay_api") {
-    return { dateFormat: "ymd", defaultChannel: "razorpay", mapping: {} };
+    return {
+      dateFormat: "ymd",
+      defaultChannel: "razorpay",
+      idType: null,
+      mapping: {},
+    };
   }
   if (!(batch.mapping && batch.dateFormat)) {
     return null;
   }
-  return {
+  return withSourceRules(batch.source, {
     dateFormat: batch.dateFormat as ImportDateFormat,
     defaultChannel: batch.defaultChannel as ContributionChannel,
     mapping: batch.mapping as ImportMapping,
-  };
+  });
 }
 
 /** The row's normalised values, with a parse problem of the CSV row as an error. */
@@ -444,7 +486,13 @@ async function classifyBatch(
     idMatches,
     phoneMatches: contact.byPhone,
   });
-  return { classified, prepared, storedIdentities };
+  const proposed = classified.flatMap((row) =>
+    row.donorOptions.flatMap((o) =>
+      o.kind === "existing" && o.reason !== "id_number" ? [o.partyId] : []
+    )
+  );
+  const gaps = await findPartyDetailGaps(proposed, executor);
+  return { classified, gaps, prepared, storedIdentities };
 }
 
 const maskIssue = (issue: CellIssue): CellIssue => ({
@@ -457,6 +505,25 @@ const shown = (value: string | undefined) =>
   value ? maskIdentifiers(value) : null;
 
 /**
+ * Which of a proposed donor's empty details this row would fill: field
+ * names only, never the values.
+ */
+function fillsFor(
+  partyId: string,
+  row: NormalizeResult["row"] | null,
+  gaps: Classification["gaps"]
+): PartyFillField[] {
+  const missing = gaps.get(partyId);
+  if (!(row && missing)) {
+    return [];
+  }
+  const present = fillValuesPresent(row, { canStoreIds: hasEncryptionKey() });
+  return partyFillFieldValues.filter(
+    (field) => missing[field] && present[field]
+  );
+}
+
+/**
  * One row for the review and batch pages. Names, emails and references are
  * shown to donor viewers as in the Donors directory; identifiers only ever
  * as their last four characters, and any PAN- or Aadhaar-shaped text in
@@ -466,7 +533,8 @@ function toRowView(
   row: ClassifiedRow,
   prepared: PreparedRow | undefined,
   firstNewKeyRow: Map<string, { rowId: string; rowNumber: number }>,
-  repeatOf: ReviewRowView["repeatOf"]
+  repeatOf: ReviewRowView["repeatOf"],
+  gaps: Classification["gaps"]
 ): ReviewRowView {
   const normalized = prepared?.normalized?.row ?? null;
   let donor: ReviewRowView["donor"] = { kind: "undecided" };
@@ -488,6 +556,10 @@ function toRowView(
     donor,
     donorName: shown(normalized?.donorName),
     donorOptions: row.donorOptions.map((option) => ({
+      fills:
+        option.kind === "existing" && option.reason !== "id_number"
+          ? fillsFor(option.partyId, normalized, gaps)
+          : [],
       label:
         option.kind === "existing"
           ? option.name
@@ -555,6 +627,7 @@ function toReviewResponse(
       id: batch.id,
       mapping: settings.mapping,
       rowCount: batch.rowCount,
+      source: batch.source,
       status: batch.status,
     },
     rows: classification.classified.map((row) =>
@@ -562,7 +635,8 @@ function toReviewResponse(
         row,
         classification.prepared.get(row.rowId),
         firstNewKeyRow,
-        repeatOf(row)
+        repeatOf(row),
+        classification.gaps
       )
     ),
     weakIdentity,
@@ -618,17 +692,17 @@ async function saveReview(input: ReviewInput): Promise<ReviewResponse> {
       "Map donor name, amount and received on, each to one column"
     );
   }
-  const settings: ClassifySettings = {
+  const settings = withSourceRules(batch.source, {
     dateFormat: input.dateFormat,
     defaultChannel: input.defaultChannel,
     mapping,
-  };
+  });
   const rules = await rowRulesFor(batch, settings);
   const classification = await classifyBatch(records, rules);
   const status = batch.status === "draft" ? "reviewed" : batch.status;
   await updateImportBatch(batch.id, {
-    dateFormat: input.dateFormat,
-    defaultChannel: input.defaultChannel,
+    dateFormat: settings.dateFormat,
+    defaultChannel: settings.defaultChannel,
     mapping,
     status,
   });
@@ -655,7 +729,7 @@ function columnSamples(
 ): BatchDetailResponse["columns"] {
   const headers = Object.keys(withRaw[0]?.raw ?? {});
   const saved = (batch.mapping ?? {}) as ImportMapping;
-  const suggested = suggestMapping(headers, null);
+  const suggested = suggestMapping(headers, null, batch.source);
   return headers.map((header) => {
     const isId =
       saved[header] === "idNumber" || suggested[header] === "idNumber";
@@ -736,6 +810,8 @@ interface RunContext {
   actorId: string | null;
   batch: ImportBatchRow;
   canStoreIds: boolean;
+  /** The platform that passed the money on: GiveIndia for give.do batches. */
+  intermediaryPartyId: string | null;
   now: Date;
   orgAccountId: string;
   programmeId: string | null;
@@ -816,6 +892,10 @@ async function runClaimedBatch(
         actorId,
         batch,
         canStoreIds: hasEncryptionKey(),
+        intermediaryPartyId:
+          batch.source === "give_do_csv"
+            ? await ensureGiveIndiaParty(tx, actorId, now)
+            : null,
         now,
         orgAccountId,
         programmeId,
@@ -863,12 +943,14 @@ async function executePlans(
   const result: RunResponse = {
     conflicts: 0,
     errors: 0,
+    filledDonors: 0,
     imported: 0,
     linked: 0,
     newDonors: 0,
     repeated: 0,
     skipped: 0,
   };
+  const filledParties = new Set<string>();
   const partyByKey = new Map<string, string>();
   const createdByRow = new Map<
     string,
@@ -950,6 +1032,19 @@ async function executePlans(
     let partyId: string | null = null;
     if (plan.donor.kind === "existing") {
       partyId = plan.donor.partyId;
+      if (plan.fill) {
+        const filled = await fillMissingPartyDetails(
+          ctx.tx,
+          partyId,
+          normalized,
+          ctx.actorId,
+          { canStoreIds: ctx.canStoreIds }
+        );
+        if (filled.length > 0 && !filledParties.has(partyId)) {
+          filledParties.add(partyId);
+          result.filledDonors += 1;
+        }
+      }
     } else {
       partyId = partyByKey.get(plan.donor.key) ?? null;
       if (!partyId) {
@@ -997,6 +1092,7 @@ async function executePlans(
         gatewayTaxPaise: normalized.gatewayTaxPaise ?? 0,
         id: contributionId,
         importBatchId: ctx.batch.id,
+        intermediaryPartyId: ctx.intermediaryPartyId,
         notes: normalized.notes || null,
         orgAccountId: ctx.orgAccountId,
         partyId,
@@ -1102,6 +1198,7 @@ export async function importStagedRows(
         actorId: null,
         batch,
         canStoreIds: hasEncryptionKey(),
+        intermediaryPartyId: null,
         now,
         orgAccountId: batch.orgAccountId,
         programmeId: batch.programmeId,

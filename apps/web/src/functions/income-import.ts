@@ -134,6 +134,7 @@ export const getContributionImport = createServerFn({ method: "POST" })
 const decisionSchema = z.object({
   contribution: z.enum(["import", "skip"]).optional(),
   donor: z.string().max(80).optional(),
+  fillMissing: z.boolean().optional(),
 });
 
 export const runContributionImport = createServerFn({ method: "POST" })
@@ -155,7 +156,13 @@ export const runContributionImport = createServerFn({ method: "POST" })
       context.headers,
       {
         action: "import_batch.run",
-        metadata: { decisionCount: Object.keys(data.decisions).length },
+        metadata: {
+          decisionCount: Object.keys(data.decisions).length,
+          // Existing donors accepted with "Fill missing details" left on.
+          fillMissingCount: Object.values(data.decisions).filter(
+            (d) => d.donor?.startsWith("party:") && d.fillMissing !== false
+          ).length,
+        },
         target: { id: data.batchId, type: "import_batch" },
       },
       async () => await runImportBatch(data, session.user.id)

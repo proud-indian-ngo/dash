@@ -1,3 +1,5 @@
+import type { ImportBatchSource } from "@pi-dash/shared/constants";
+
 import type {
   ImportDateFormat,
   ImportMapping,
@@ -14,4 +16,5 @@ export interface WizardBatch {
   fileName: string;
   mapping: ImportMapping;
   rowCount: number;
+  source: ImportBatchSource;
 }

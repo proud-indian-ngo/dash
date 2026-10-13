@@ -93,6 +93,13 @@ function ResultSummary({
   const lines = [
     plural(result.imported, "contribution imported", "contributions imported"),
     plural(result.newDonors, "new donor created", "new donors created"),
+    result.filledDonors > 0
+      ? plural(
+          result.filledDonors,
+          "existing donor's missing details filled",
+          "existing donors' missing details filled"
+        )
+      : null,
     result.linked > 0
       ? plural(
           result.linked,
@@ -357,6 +364,9 @@ export function ImportWizard({
               : "",
             summary.repeats > 0
               ? `${plural(summary.repeats, "row repeats an earlier row and is", "rows repeat earlier rows and are")} counted once.`
+              : "",
+            summary.fills > 0
+              ? `${plural(summary.fills, "existing donor gets", "existing donors get")} missing details filled.`
               : "",
             summary.conflicts > 0
               ? `${plural(summary.conflicts, "conflict stays", "conflicts stay")} as they are.`

@@ -159,6 +159,14 @@ export const COST_CENTRE_IDS = {
 
 export const GENERAL_FUND_ID = "01930000-0000-7000-8000-000000000201";
 
+/**
+ * GiveIndia, which runs give.do and passes its donors' gifts on: recorded as
+ * the intermediary of every give.do contribution, never as the giver.
+ * Created by the first give.do import and by the seed.
+ */
+export const GIVE_INDIA_PARTY_ID = "01930000-0000-7000-8000-000000000401";
+export const GIVE_INDIA_PARTY_NAME = "GiveIndia (give.do)";
+
 export const FISCAL_YEAR_IDS = {
   "2024-25": "01930000-0000-7000-8000-000000000301",
   "2025-26": "01930000-0000-7000-8000-000000000302",
@@ -219,6 +227,19 @@ export const foreignSourceAssessmentValues = [
 ] as const;
 export type ForeignSourceAssessment =
   (typeof foreignSourceAssessmentValues)[number];
+
+/**
+ * Donor details an import may add to an existing donor where the donor has
+ * none: the ID number, the address (all of its lines together), email and
+ * phone. Stored values are never replaced.
+ */
+export const partyFillFieldValues = [
+  "idNumber",
+  "address",
+  "email",
+  "phone",
+] as const;
+export type PartyFillField = (typeof partyFillFieldValues)[number];
 
 /**
  * Start of the error a party save throws when someone else saved the record

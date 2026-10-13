@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import { GIVE_INDIA_PARTY_ID } from "@pi-dash/shared/constants";
+
 import { contributorOptions, type PartyRow } from "./party-row";
 
 function party(
@@ -40,5 +42,28 @@ describe("contributorOptions", () => {
         party("Vendor", [{ active: true, role: "vendor" }]),
       ])
     ).toEqual([]);
+  });
+
+  it("never offers GiveIndia as a giver unless it holds a giver role", () => {
+    const giveIndia = (roles: { active: boolean; role: string }[]) => ({
+      ...party("GiveIndia (give.do)", roles),
+      id: GIVE_INDIA_PARTY_ID,
+    });
+    expect(
+      contributorOptions([giveIndia([{ active: true, role: "intermediary" }])])
+    ).toEqual([]);
+    expect(
+      contributorOptions([
+        giveIndia([
+          { active: true, role: "intermediary" },
+          { active: true, role: "donor" },
+        ]),
+      ])
+    ).toEqual([
+      {
+        label: "GiveIndia (give.do) (Intermediary, Donor)",
+        value: GIVE_INDIA_PARTY_ID,
+      },
+    ]);
   });
 });

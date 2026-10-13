@@ -1,6 +1,7 @@
 import {
   type ForeignSourceAssessment,
   PARTY_SAVE_CONFLICT_PREFIX,
+  type PartyFillField,
   type PartyIdType,
 } from "@pi-dash/shared/constants";
 
@@ -195,4 +196,64 @@ export function resolveBankAccount(
     return { accountNumber: legacy, kind: "replace" };
   }
   throw new Error("Enter the account number");
+}
+
+/** Which fill fields a donor has no value for; a donor without private details lacks them all. */
+export function partyDetailGaps(
+  row: {
+    addressLine1: string | null;
+    addressLine2: string | null;
+    city: string | null;
+    email: string | null;
+    idNumberEncrypted: string | null;
+    phone: string | null;
+    pincode: string | null;
+    state: string | null;
+  } | null
+): Record<PartyFillField, boolean> {
+  return {
+    address: !(
+      row?.addressLine1 ||
+      row?.addressLine2 ||
+      row?.city ||
+      row?.state ||
+      row?.pincode
+    ),
+    email: !row?.email,
+    idNumber: !row?.idNumberEncrypted,
+    phone: !row?.phone,
+  };
+}
+
+/** Details from an imported row that may fill a donor's empty fields. */
+export interface PartyFillValues {
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  email: string;
+  idNumber: string;
+  idType: PartyIdType;
+  phone: string;
+  pincode: string;
+  state: string;
+}
+
+/** The fill fields `values` has something for. */
+export function fillValuesPresent(
+  values: PartyFillValues,
+  options: { canStoreIds: boolean }
+): Record<PartyFillField, boolean> {
+  return {
+    address: Boolean(
+      values.addressLine1 ||
+      values.addressLine2 ||
+      values.city ||
+      values.state ||
+      values.pincode
+    ),
+    email: values.email !== "",
+    idNumber:
+      options.canStoreIds && values.idType !== "none" && values.idNumber !== "",
+    phone: values.phone !== "",
+  };
 }

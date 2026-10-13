@@ -2,6 +2,8 @@ import {
   type DirectoryRole,
   directoryRoleValues,
   type ForeignSourceAssessment,
+  type PartyFillField,
+  partyFillFieldValues,
   type PartyIdType,
   type PartyKind,
 } from "@pi-dash/shared/constants";
@@ -16,7 +18,10 @@ import {
   visibleTail,
 } from "../encryption";
 import {
+  fillValuesPresent,
   PartyConflictError,
+  type PartyFillValues,
+  partyDetailGaps,
   resolveAssessedOn,
   resolveSaveMode,
   resolveSecret,
@@ -25,7 +30,12 @@ import { party, partyRole } from "../schema/party";
 import { partyPrivate } from "../schema/private/party-private";
 import { vendor } from "../schema/vendor";
 
-export { PartyConflictError };
+export {
+  fillValuesPresent,
+  PartyConflictError,
+  type PartyFillValues,
+  partyDetailGaps,
+};
 
 /** Associated data binding an encrypted identifier to its party. */
 export const partyIdNumberContext = (partyId: string) =>
@@ -330,4 +340,96 @@ export async function savePartyInTransaction(
     partyId,
     view: toView(row),
   };
+}
+
+/**
+ * Adds an imported row's details to an existing party only where the party
+ * has none, through `savePartyInTransaction` with the rows' versions, so
+ * identifiers are encrypted as in the donor form and nothing stored is
+ * replaced. The address fills as a whole, never line by line. Returns the
+ * fields filled; an empty list writes nothing.
+ */
+export async function fillMissingPartyDetails(
+  tx: Tx,
+  partyId: string,
+  values: PartyFillValues,
+  actorId: string | null,
+  options: { canStoreIds: boolean }
+): Promise<PartyFillField[]> {
+  // Taken before reading, so the versions read here are the ones the save checks.
+  await lockPartyId(tx, partyId);
+  const [existingParty] = await tx
+    .select()
+    .from(party)
+    .where(eq(party.id, partyId))
+    .limit(1);
+  if (!existingParty) {
+    return [];
+  }
+  const [existing] = await tx
+    .select()
+    .from(partyPrivate)
+    .where(eq(partyPrivate.partyId, partyId))
+    .limit(1);
+  const gaps = partyDetailGaps(existing ?? null);
+  const present = fillValuesPresent(values, options);
+  const fill = partyFillFieldValues.filter(
+    (field) => gaps[field] && present[field]
+  );
+  if (fill.length === 0) {
+    return [];
+  }
+  const roles = await tx
+    .select({ role: partyRole.role })
+    .from(partyRole)
+    .where(
+      and(
+        eq(partyRole.partyId, partyId),
+        eq(partyRole.active, true),
+        inArray(partyRole.role, [...directoryRoleValues])
+      )
+    );
+  const fills = new Set(fill);
+  const keep = (value: string | null | undefined) => value ?? "";
+  const address = fills.has("address");
+  let id: { idNumber: string; idType: PartyIdType };
+  if (fills.has("idNumber")) {
+    id = { idNumber: values.idNumber, idType: values.idType };
+  } else if (existing?.idNumberEncrypted) {
+    // Blank with the stored type keeps the stored identifier.
+    id = { idNumber: "", idType: existing.idType };
+  } else {
+    id = { idNumber: "", idType: "none" };
+  }
+  await savePartyInTransaction(
+    tx,
+    {
+      addressLine1: address
+        ? values.addressLine1
+        : keep(existing?.addressLine1),
+      addressLine2: address
+        ? values.addressLine2
+        : keep(existing?.addressLine2),
+      assessmentNote: keep(existing?.assessmentNote),
+      city: address ? values.city : keep(existing?.city),
+      country: existing?.country ?? "IN",
+      displayName: existingParty.displayName,
+      email: fills.has("email") ? values.email : keep(existing?.email),
+      expectedPartyUpdatedAt: existingParty.updatedAt.getTime(),
+      expectedUpdatedAt: existing ? existing.updatedAt.getTime() : null,
+      foreignSourceAssessment: existing?.foreignSourceAssessment ?? "domestic",
+      id: partyId,
+      ...id,
+      kind: existingParty.kind,
+      legalName: keep(existingParty.legalName),
+      mode: "update",
+      nationality: keep(existing?.nationality),
+      phone: fills.has("phone") ? values.phone : keep(existing?.phone),
+      pincode: address ? values.pincode : keep(existing?.pincode),
+      roles: roles.map((r) => r.role as DirectoryRole),
+      state: address ? values.state : keep(existing?.state),
+    },
+    actorId
+  );
+  return fill;
 }

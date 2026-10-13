@@ -365,10 +365,12 @@ describe("planRows", () => {
     expect(plans.get(rows[1]?.id ?? "")).toEqual({
       action: "import",
       donor: { kind: "existing", partyId: "p-1" },
+      fill: true,
     });
     expect(plans.get(rows[2]?.id ?? "")).toEqual({
       action: "import",
       donor: { key: `row:${rows[2]?.id}`, kind: "new" },
+      fill: false,
     });
     expect(summarizePlans(plans.values())).toEqual({
       conflicts: 0,
@@ -404,6 +406,7 @@ describe("planRows", () => {
     expect(plans.get(b.id)).toEqual({
       action: "import",
       donor: { key: `row:${a.id}`, kind: "new" },
+      fill: false,
     });
     expect(summarizePlans(plans.values()).newDonors).toBe(1);
   });
@@ -441,6 +444,7 @@ describe("planRows", () => {
       expect(plans.get(a.id)).toEqual({
         action: "import",
         donor: { key: `row:${a.id}`, kind: "new" },
+        fill: false,
       });
       expect(plans.get(b.id)).toEqual(plans.get(a.id));
       expect(summarizePlans(plans.values())).toMatchObject({
@@ -456,8 +460,9 @@ describe("planRows", () => {
         action: "import",
         donor: { kind: "existing", partyId: "p-d" },
       } as const;
-      expect(plans.get(a.id)).toEqual(toD);
-      expect(plans.get(b.id)).toEqual(toD);
+      // Only the row where the email match was accepted fills details.
+      expect(plans.get(a.id)).toEqual({ ...toD, fill: true });
+      expect(plans.get(b.id)).toEqual({ ...toD, fill: false });
       expect(summarizePlans(plans.values()).newDonors).toBe(0);
     });
 
@@ -476,6 +481,7 @@ describe("planRows", () => {
       expect(plans.get(b.id)).toEqual({
         action: "import",
         donor: { kind: "existing", partyId: "p-d" },
+        fill: false,
       });
     });
   });
@@ -531,7 +537,9 @@ describe("summarizeReview", () => {
   it("counts imports, new donors and skips as the confirmation shows them", () => {
     const review = view({
       category: "needs_review",
-      donorOptions: [{ label: "A", reason: "email", value: "party:p" }],
+      donorOptions: [
+        { fills: [], label: "A", reason: "email", value: "party:p" },
+      ],
     });
     const creator = view({
       category: "new_donor",
@@ -561,6 +569,7 @@ describe("summarizeReview", () => {
       conflicts: 1,
       errors: 1,
       existingDonors: 1,
+      fills: 0,
       imports: 3,
       links: 1,
       newDonors: 1,
@@ -592,6 +601,7 @@ describe("summarizeReview", () => {
       category: "needs_review",
       donorOptions: [
         {
+          fills: [],
           label: "New donor from row 1",
           reason: "email",
           value: `row:${creator.rowId}`,
@@ -613,7 +623,9 @@ describe("summarizeReview", () => {
   it("counts a new donor chosen on one row and followed by a same-ID row once", () => {
     const first = view({
       category: "needs_review",
-      donorOptions: [{ label: "D", reason: "email", value: "party:p" }],
+      donorOptions: [
+        { fills: [], label: "D", reason: "email", value: "party:p" },
+      ],
     });
     const follower = view({
       category: "needs_review",
@@ -643,6 +655,7 @@ describe("review wording", () => {
       conflicts: 0,
       errors: 0,
       existingDonors: 0,
+      fills: 0,
       imports: 0,
       links: 0,
       newDonors: 0,

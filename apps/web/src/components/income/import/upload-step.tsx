@@ -7,8 +7,15 @@ import { CONTRIBUTION_CHANNEL_LABELS } from "@pi-dash/shared/income";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
+import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { type ChangeEvent, type DragEvent, useRef, useState } from "react";
+import {
+  type ChangeEvent,
+  type DragEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import z from "zod";
 
 import { ComboboxField } from "@/components/form/combobox-field";
@@ -18,10 +25,13 @@ import { useApp } from "@/context/app-context";
 import { createContributionImport } from "@/functions/income-import";
 import {
   AVAILABLE_IMPORT_SOURCES,
+  defaultGiveDoAccount,
+  GIVE_DO_HEADERS,
   IMPORT_CHANNEL_VALUES,
   IMPORT_SOURCE_LABELS,
   MAX_IMPORT_FILE_BYTES,
   MAX_IMPORT_ROWS,
+  sourceRules,
 } from "@/lib/income-import/fields";
 import { CsvParseError, parseCsv } from "@/lib/income-import/parse-csv";
 
@@ -140,6 +150,32 @@ function FileDrop({
   );
 }
 
+function FileNeeds({ source }: { source: FormValues["source"] }) {
+  if (source === "give_do_csv") {
+    return (
+      <div className="bg-muted/40 rounded-lg p-4 text-sm">
+        <p className="font-medium">What the file needs</p>
+        <p className="text-muted-foreground mt-1">
+          The donations export from the give.do dashboard, unchanged. Its
+          columns are matched for you: {GIVE_DO_HEADERS.join(", ")}. Gifts in a
+          currency other than INR are not imported.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="bg-muted/40 rounded-lg p-4 text-sm">
+      <p className="font-medium">What the file needs</p>
+      <p className="text-muted-foreground mt-1">
+        One row per donation with a header row. Required: donor name, amount and
+        the date it was received. Recommended: the donation or transaction ID
+        (so uploading the same file twice never doubles a gift), PAN, email,
+        phone and address. You match the columns in the next step.
+      </p>
+    </div>
+  );
+}
+
 /** Step 1: where the money went and the file itself. Stores the upload as a draft batch. */
 export function UploadStep({
   formId,
@@ -163,14 +199,35 @@ export function UploadStep({
   const defaultFundId =
     funds.find((f) => f.id === GENERAL_FUND_ID)?.id ?? funds[0]?.id;
 
+  const giveDoAccountId = defaultGiveDoAccount(accounts)?.id;
+
+  // give.do is the usual source, so an upload starts as one.
   const form = useForm({
     defaultValues: {
-      defaultChannel: "upi",
+      defaultChannel: "give_do",
       fundId: defaultFundId,
-      source: "generic_csv",
+      orgAccountId: giveDoAccountId,
+      source: "give_do_csv",
     } as FormValues,
     listeners: {
       onChange: ({ fieldApi, formApi }) => {
+        if (fieldApi.name === "source") {
+          const source = formApi.getFieldValue("source");
+          const fixed = sourceRules(source).fixedChannel;
+          if (fixed) {
+            formApi.setFieldValue("defaultChannel", fixed);
+          } else if (formApi.getFieldValue("defaultChannel") === "give_do") {
+            formApi.setFieldValue("defaultChannel", "upi");
+          }
+          const giveDo = defaultGiveDoAccount(accounts);
+          if (
+            source === "give_do_csv" &&
+            giveDo &&
+            !formApi.getFieldValue("orgAccountId")
+          ) {
+            formApi.setFieldValue("orgAccountId", giveDo.id);
+          }
+        }
         if (fieldApi.name === "projectId") {
           const project = projects.find(
             (p) => p.id === formApi.getFieldValue("projectId")
@@ -231,6 +288,7 @@ export function UploadStep({
           fileName: file.name,
           mapping: result.mapping,
           rowCount: result.rowCount,
+          source: value.source,
         });
       } catch (error) {
         setFileError(
@@ -243,6 +301,17 @@ export function UploadStep({
     validators: { onSubmit: formSchema },
   });
 
+  // Accounts can sync after the form mounts; fill the give.do account then.
+  useEffect(() => {
+    if (
+      giveDoAccountId &&
+      form.getFieldValue("source") === "give_do_csv" &&
+      !form.getFieldValue("orgAccountId")
+    ) {
+      form.setFieldValue("orgAccountId", giveDoAccountId);
+    }
+  }, [form, giveDoAccountId]);
+
   const handleFile = useEventCallback((chosen: File) => {
     setFile(chosen);
     setFileError(null);
@@ -252,20 +321,38 @@ export function UploadStep({
     <FormLayout form={form} id={formId}>
       <div className="grid gap-4 sm:grid-cols-2">
         <SelectField
-          description="give.do exports arrive in a later update."
           isRequired
           label="Source"
           name="source"
           options={sourceOptions}
         />
-        <ComboboxField
-          emptyMessage="No active accounts. Add one in Settings → Organisation accounts."
-          isRequired
-          label="Deposited into"
-          name="orgAccountId"
-          options={accounts.map((a) => ({ label: a.name, value: a.id }))}
-          placeholder="Search accounts..."
-        />
+        <form.Subscribe selector={(state) => state.values.source}>
+          {(source) => (
+            <ComboboxField
+              description={
+                source === "give_do_csv" && !defaultGiveDoAccount(accounts) ? (
+                  <>
+                    No give.do clearing account yet. Add one of kind gateway
+                    clearing named for give.do in{" "}
+                    <Link
+                      className="text-primary underline-offset-4 hover:underline"
+                      to="/settings/org-accounts"
+                    >
+                      Settings → Organisation accounts
+                    </Link>
+                    , or pick the account the money reached.
+                  </>
+                ) : undefined
+              }
+              emptyMessage="No active accounts. Add one in Settings → Organisation accounts."
+              isRequired
+              label="Deposited into"
+              name="orgAccountId"
+              options={accounts.map((a) => ({ label: a.name, value: a.id }))}
+              placeholder="Search accounts..."
+            />
+          )}
+        </form.Subscribe>
         {funds.length > 1 ? (
           <SelectField
             isRequired
@@ -274,13 +361,19 @@ export function UploadStep({
             options={funds.map((f) => ({ label: f.name, value: f.id }))}
           />
         ) : null}
-        <SelectField
-          description="Used for rows without a channel column."
-          isRequired
-          label="Channel"
-          name="defaultChannel"
-          options={channelOptions}
-        />
+        <form.Subscribe selector={(state) => state.values.source}>
+          {(source) =>
+            sourceRules(source).fixedChannel ? null : (
+              <SelectField
+                description="Used for rows without a channel column."
+                isRequired
+                label="Channel"
+                name="defaultChannel"
+                options={channelOptions}
+              />
+            )
+          }
+        </form.Subscribe>
         <form.Subscribe selector={(state) => state.values.projectId}>
           {(projectId) => (
             <ComboboxField
@@ -312,15 +405,9 @@ export function UploadStep({
         ) : null}
       </div>
       <FileDrop error={fileError} file={file} onFile={handleFile} />
-      <div className="bg-muted/40 rounded-lg p-4 text-sm">
-        <p className="font-medium">What the file needs</p>
-        <p className="text-muted-foreground mt-1">
-          One row per donation with a header row. Required: donor name, amount
-          and the date it was received. Recommended: the donation or transaction
-          ID (so uploading the same file twice never doubles a gift), PAN,
-          email, phone and address. You match the columns in the next step.
-        </p>
-      </div>
+      <form.Subscribe selector={(state) => state.values.source}>
+        {(source) => <FileNeeds source={source} />}
+      </form.Subscribe>
     </FormLayout>
   );
 }

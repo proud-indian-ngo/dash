@@ -1,6 +1,7 @@
 import type {
   ImportBatchStatus,
   ImportRowOutcome,
+  PartyFillField,
 } from "@pi-dash/shared/constants";
 
 import type { StatusTone } from "@/components/shared/status-badge";
@@ -92,3 +93,18 @@ export const MATCH_REASON_LABELS: Record<MatchReason, string> = {
   id_number: "same ID number",
   phone: "same phone",
 };
+
+export const FILL_FIELD_LABELS: Record<PartyFillField, string> = {
+  address: "address",
+  email: "email",
+  idNumber: "PAN / ID number",
+  phone: "phone",
+};
+
+/** "PAN / ID number, address and phone". */
+export function fillFieldsText(fields: readonly PartyFillField[]): string {
+  const labels = fields.map((f) => FILL_FIELD_LABELS[f]);
+  return labels.length > 1
+    ? `${labels.slice(0, -1).join(", ")} and ${labels.at(-1)}`
+    : (labels[0] ?? "");
+}

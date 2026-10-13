@@ -10,6 +10,7 @@ import { SelectField } from "@/components/form/select-field";
 import { reviewContributionImport } from "@/functions/income-import";
 import {
   checkMapping,
+  compareHeaders,
   DATE_FORMAT_LABELS,
   DATE_FORMAT_VALUES,
   IGNORE_FIELD,
@@ -22,6 +23,7 @@ import {
   type ImportMappingTarget,
   isMappingUsable,
   REQUIRED_IMPORT_FIELDS,
+  sourceRules,
   WEAK_IDENTITY_WARNING,
 } from "@/lib/income-import/fields";
 import type { ReviewResponse } from "@/lib/income-import/review-types";
@@ -104,6 +106,48 @@ function MappingIssues({ mapping }: { mapping: ImportMapping }) {
   );
 }
 
+/** For a source with a known export format: the columns the file lacks or adds. */
+function ExpectedColumns({ batch }: { batch: WizardBatch }) {
+  const expected = sourceRules(batch.source).expectedHeaders;
+  if (!expected) {
+    return null;
+  }
+  const { extra, missing } = compareHeaders(
+    batch.columns.map((c) => c.header),
+    expected
+  );
+  if (missing.length === 0 && extra.length === 0) {
+    return (
+      <p className="text-muted-foreground text-sm" role="status">
+        All {expected.length} give.do columns found and matched. Check the
+        fields below before you continue.
+      </p>
+    );
+  }
+  return (
+    <div
+      className="bg-muted/40 grid gap-1 rounded-lg p-4 text-sm"
+      data-testid="expected-columns"
+      role="status"
+    >
+      <p className="font-medium">
+        This file differs from the give.do export format
+      </p>
+      {missing.length > 0 ? (
+        <p className="text-warning-foreground">
+          Missing columns: {missing.join(", ")}.
+        </p>
+      ) : null}
+      {extra.length > 0 ? (
+        <p className="text-muted-foreground">
+          Columns give.do does not export: {extra.join(", ")}. Map them below or
+          leave them out.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 /** Step 2: which file column fills which field, and how the file writes dates. */
 export function MapStep({
   batch,
@@ -117,6 +161,7 @@ export function MapStep({
   onReviewed: (review: ReviewResponse) => void;
 }) {
   const review = useServerFn(reviewContributionImport);
+  const rules = sourceRules(batch.source);
   const [error, setError] = useState<string | null>(null);
   const form = useForm({
     defaultValues: {
@@ -124,8 +169,10 @@ export function MapStep({
         header: c.header,
         target: batch.mapping[c.header] ?? IGNORE_FIELD,
       })),
-      dateFormat: batch.dateFormat ?? guessDateFormat(batch),
-      defaultChannel: batch.defaultChannel as ImportChannel,
+      dateFormat:
+        rules.fixedDateFormat ?? batch.dateFormat ?? guessDateFormat(batch),
+      defaultChannel: (rules.fixedChannel ??
+        batch.defaultChannel) as ImportChannel,
     } satisfies MapValues as MapValues,
     onSubmit: async ({ value }) => {
       const mapping = toMapping(value.columns);
@@ -158,21 +205,29 @@ export function MapStep({
 
   return (
     <FormLayout form={form} id={formId}>
+      <ExpectedColumns batch={batch} />
       <div className="grid gap-4 sm:grid-cols-2">
         <SelectField
-          description="Only numeric dates such as 03/04/2026 depend on this."
+          description={
+            rules.fixedDateFormat
+              ? "give.do writes dates as day/month/year."
+              : "Only numeric dates such as 03/04/2026 depend on this."
+          }
+          disabled={rules.fixedDateFormat !== null}
           isRequired
           label="Dates in the file are written as"
           name="dateFormat"
           options={dateFormatOptions}
         />
-        <SelectField
-          description="Used for rows without a channel column or value."
-          isRequired
-          label="Channel"
-          name="defaultChannel"
-          options={channelOptions}
-        />
+        {rules.fixedChannel ? null : (
+          <SelectField
+            description="Used for rows without a channel column or value."
+            isRequired
+            label="Channel"
+            name="defaultChannel"
+            options={channelOptions}
+          />
+        )}
       </div>
       <div className="ring-border rounded-lg ring-1">
         <div className="text-muted-foreground hidden grid-cols-[1fr_1.2fr_1fr] gap-4 border-b px-4 py-2 text-xs font-medium sm:grid">

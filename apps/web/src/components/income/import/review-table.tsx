@@ -1,4 +1,5 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { Checkbox } from "@pi-dash/design-system/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -26,6 +27,7 @@ import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import type { ReviewCategory, RowDecision } from "@/lib/income-import/classify";
 import { IMPORT_FIELD_LABELS } from "@/lib/income-import/fields";
 import {
+  fillFieldsText,
   IMPORT_OUTCOME_REASON_LABELS,
   IMPORT_ROW_OUTCOME_LABELS,
   IMPORT_ROW_OUTCOME_TONES,
@@ -208,6 +210,9 @@ function DecisionCell({
   if (row.category !== "needs_review") {
     return null;
   }
+  const chosen = row.donorOptions.find((o) => o.value === decision?.donor);
+  const fills = chosen?.fills ?? [];
+  const fillId = `fill-missing-${row.rowId}`;
   return (
     <div className="grid gap-1.5">
       {row.sameDonorAs ? (
@@ -218,7 +223,18 @@ function DecisionCell({
       {row.donorOptions.length > 0 ? (
         <ChoiceSelect
           label={`Donor for row ${row.rowNumber}`}
-          onChange={(donor) => onDecide(row.rowId, { ...decision, donor })}
+          onChange={(donor) => {
+            const option = row.donorOptions.find((o) => o.value === donor);
+            // On by default whenever the chosen donor has details to fill.
+            onDecide(row.rowId, {
+              ...decision,
+              donor,
+              fillMissing:
+                (option?.fills.length ?? 0) > 0
+                  ? (decision?.fillMissing ?? true)
+                  : false,
+            });
+          }}
           options={[
             ...row.donorOptions.map((o) => ({
               label: `${o.label} (${MATCH_REASON_LABELS[o.reason]})`,
@@ -229,6 +245,28 @@ function DecisionCell({
           placeholder="Choose the donor"
           value={decision?.donor}
         />
+      ) : null}
+      {fills.length > 0 ? (
+        <label className="flex items-start gap-2 text-xs" htmlFor={fillId}>
+          <Checkbox
+            aria-label={`Fill missing details for row ${row.rowNumber}`}
+            checked={decision?.fillMissing !== false}
+            id={fillId}
+            onCheckedChange={(checked) =>
+              onDecide(row.rowId, {
+                ...decision,
+                fillMissing: checked === true,
+              })
+            }
+          />
+          <span>
+            <span className="font-medium">Fill missing details</span>
+            <span className="text-muted-foreground block">
+              Adds the {fillFieldsText(fills)} from this row; nothing stored is
+              replaced.
+            </span>
+          </span>
+        </label>
       ) : null}
       {row.duplicate ? (
         <ChoiceSelect

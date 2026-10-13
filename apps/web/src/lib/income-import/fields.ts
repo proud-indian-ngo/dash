@@ -22,6 +22,7 @@ export const IMPORT_FIELD_KEYS = [
   "pincode",
   "country",
   "amount",
+  "currency",
   "receivedOn",
   "reference",
   "externalId",
@@ -51,6 +52,7 @@ export const IMPORT_FIELD_LABELS: Record<ImportFieldKey, string> = {
   channel: "Channel",
   city: "City",
   country: "Country",
+  currency: "Currency",
   donationType: "Donation type",
   donorName: "Donor name",
   email: "Email",
@@ -85,6 +87,7 @@ const SYNONYMS: Record<ImportFieldKey, readonly string[]> = {
   channel: ["channel", "mode", "paymentmode", "paymentmethod", "method"],
   city: ["city", "town"],
   country: ["country"],
+  currency: ["currency", "donationcurrency", "currencycode"],
   donationType: ["donationtype", "type", "category"],
   donorName: [
     "name",
@@ -128,20 +131,124 @@ const SYNONYM_INDEX = new Map<string, ImportFieldKey>(
 );
 
 /**
- * Suggest a mapping for a file's headers: a column keeps what the last batch
- * from the same source mapped it to, otherwise it is matched by synonym. A
+ * The columns of a give.do (GiveIndia) donations export, in file order, and
+ * the field each fills. Time, the joined address, the subscription columns
+ * and marketing tags fill nothing but stay in the stored row.
+ */
+export const GIVE_DO_COLUMNS: readonly (readonly [
+  string,
+  ImportMappingTarget,
+])[] = [
+  ["Date", "receivedOn"],
+  ["Time", IGNORE_FIELD],
+  ["Transaction ID", "externalId"],
+  ["Donation Currency", "currency"],
+  ["Donation Amount", "amount"],
+  ["Donor Name", "donorName"],
+  ["Donor Email", "email"],
+  ["Donor Mobile Number", "phone"],
+  ["Donor Address Line 1", "addressLine1"],
+  ["Donor Address Line 2", "addressLine2"],
+  ["Donor City", "city"],
+  ["Donor State", "state"],
+  ["Donor Country", "country"],
+  ["Donor Zipcode / Pincode", "pincode"],
+  ["Donor Complete Address", IGNORE_FIELD],
+  ["Donor PAN", "idNumber"],
+  ["Subscription Type", IGNORE_FIELD],
+  ["Parent Donation", IGNORE_FIELD],
+  ["tags", IGNORE_FIELD],
+];
+
+export const GIVE_DO_HEADERS = GIVE_DO_COLUMNS.map(([header]) => header);
+
+const PRESETS: Partial<
+  Record<ImportBatchSource, ReadonlyMap<string, ImportMappingTarget>>
+> = {
+  give_do_csv: new Map(GIVE_DO_COLUMNS),
+};
+
+/**
+ * What a source fixes regardless of the mapping step: give.do exports write
+ * dates day-first, every row arrived through give.do, and the Donor PAN
+ * column holds PANs only.
+ */
+export interface SourceRules {
+  /** The file's columns, so the mapping step can flag missing and extra ones. */
+  expectedHeaders: readonly string[] | null;
+  fixedChannel: ImportChannel | null;
+  fixedDateFormat: ImportDateFormat | null;
+  /** ID type for ID numbers when no ID type column is mapped. */
+  idType: "pan" | null;
+}
+
+export function sourceRules(source: ImportBatchSource): SourceRules {
+  if (source === "give_do_csv") {
+    return {
+      expectedHeaders: GIVE_DO_HEADERS,
+      fixedChannel: "give_do",
+      fixedDateFormat: "dmy",
+      idType: "pan",
+    };
+  }
+  return {
+    expectedHeaders: null,
+    fixedChannel: null,
+    fixedDateFormat: null,
+    idType: null,
+  };
+}
+
+const GIVE_DO_ACCOUNT_NAME = /give|giveindia/i;
+
+/** The active give.do clearing account to default a give.do upload to, if there is one. */
+export function defaultGiveDoAccount<T extends { kind: string; name: string }>(
+  accounts: readonly T[]
+): T | undefined {
+  return accounts.find(
+    (a) => a.kind === "gateway_clearing" && GIVE_DO_ACCOUNT_NAME.test(a.name)
+  );
+}
+
+/** Expected columns the file lacks, and columns the source does not have. */
+export function compareHeaders(
+  headers: readonly string[],
+  expected: readonly string[]
+): { extra: string[]; missing: string[] } {
+  const present = new Set(headers.map((h) => h.trim()));
+  const known = new Set(expected);
+  return {
+    extra: headers.filter((h) => !known.has(h.trim())),
+    missing: expected.filter((h) => !present.has(h)),
+  };
+}
+
+/**
+ * Suggest a mapping for a file's headers: a column the source's preset
+ * names exactly gets the preset field; otherwise it keeps what the last
+ * batch from the same source mapped it to, or is matched by synonym. A
  * field is filled at most once; later columns that would repeat it are
  * ignored.
  */
 export function suggestMapping(
   headers: readonly string[],
-  previous: Readonly<Record<string, string>> | null
+  previous: Readonly<Record<string, string>> | null,
+  source: ImportBatchSource = "generic_csv"
 ): ImportMapping {
   const used = new Set<ImportFieldKey>();
   const mapping: ImportMapping = {};
+  const preset = PRESETS[source];
   const isField = (value: string | undefined): value is ImportFieldKey =>
     (IMPORT_FIELD_KEYS as readonly string[]).includes(value ?? "");
   for (const header of headers) {
+    const fixed = preset?.get(header.trim());
+    if (fixed !== undefined && (fixed === IGNORE_FIELD || !used.has(fixed))) {
+      if (fixed !== IGNORE_FIELD) {
+        used.add(fixed);
+      }
+      mapping[header] = fixed;
+      continue;
+    }
     const remembered = previous?.[header];
     if (remembered === IGNORE_FIELD) {
       mapping[header] = IGNORE_FIELD;
@@ -195,8 +302,9 @@ export const DATE_FORMAT_LABELS: Record<ImportDateFormat, string> = {
   ymd: "Year-Month-Day (2026-03-31)",
 };
 
-/** Sources the importer offers today; give.do arrives once its export format is confirmed. */
+/** Sources the importer offers. */
 export const AVAILABLE_IMPORT_SOURCES = [
+  "give_do_csv",
   "generic_csv",
 ] as const satisfies readonly ImportBatchSource[];
 
@@ -217,12 +325,12 @@ export const IMPORT_SOURCE_LABELS: Record<ImportBatchSource, string> = {
   razorpay_api: "Razorpay",
 };
 
-/** Bumped whenever parsing or normalisation changes what a row turns into. */
 /** Shown at mapping and review when no external ID column is mapped. */
 export const WEAK_IDENTITY_WARNING =
   "No external donation ID or transaction ID column is mapped, so rows are told apart only by date, amount, donor name and reference. Two identical gifts (same donor, date and amount, and no reference) will be treated as one: the second is marked already imported and not added. Map an ID column if the file has one.";
 
-export const IMPORT_PARSER_VERSION = 1;
+/** Bumped whenever parsing or normalisation changes what a row turns into. */
+export const IMPORT_PARSER_VERSION = 2;
 
 export const MAX_IMPORT_FILE_BYTES = 5 * 1024 * 1024;
 export const MAX_IMPORT_ROWS = 5000;

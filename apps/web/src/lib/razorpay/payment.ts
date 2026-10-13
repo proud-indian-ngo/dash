@@ -6,7 +6,12 @@ import z from "zod";
 import { PAN_PATTERN } from "@/lib/donor-schema";
 import type { ImportFieldKey } from "@/lib/income-import/fields";
 import { keyedHash } from "@/lib/income-import/identity";
-import type { CellIssue, NormalizeResult } from "@/lib/income-import/normalize";
+import {
+  type CellIssue,
+  FOREIGN_CURRENCY_MESSAGE,
+  isRupeeCurrency,
+  type NormalizeResult,
+} from "@/lib/income-import/normalize";
 
 import {
   DEFAULT_NOTES_KEYS,
@@ -251,12 +256,8 @@ export function normalizeRazorpayRow(
   const id = raw.id ?? "";
 
   let amountPaise = integerOf(raw.amount);
-  if (raw.currency !== "INR") {
-    errors.push({
-      field: "amount",
-      message:
-        "Not paid in INR; only INR payments import, so record it by hand",
-    });
+  if (!isRupeeCurrency(raw.currency ?? "")) {
+    errors.push({ field: "currency", message: FOREIGN_CURRENCY_MESSAGE });
     amountPaise = null;
   } else if (amountPaise === null || amountPaise <= 0) {
     errors.push({ field: "amount", message: "Amount is missing" });

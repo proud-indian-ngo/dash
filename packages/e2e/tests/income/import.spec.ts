@@ -44,6 +44,9 @@ async function uploadAndReview(page: Page, name: string, csv: Buffer) {
     page.getByRole("heading", { name: "Import contributions" })
   ).toBeVisible();
 
+  // Uploads start as give.do; these files are generic spreadsheets.
+  await page.getByLabel("Source").click();
+  await page.getByRole("option", { exact: true, name: "Generic CSV" }).click();
   const account = page.getByRole("combobox", { name: "Deposited into" });
   await account.click();
   await account.fill(ACCOUNT);

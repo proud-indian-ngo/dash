@@ -250,6 +250,8 @@ const GENERAL_FUND_ID = "01930000-0000-7000-8000-000000000201";
 const E2E_ORG_ACCOUNT_ID = "01930000-0000-7000-8000-000000000711";
 /** The account the Razorpay spec picks as its clearing account. */
 const E2E_RAZORPAY_CLEARING_ID = "01930000-0000-7000-8000-000000000713";
+/** The account a give.do upload defaults to. */
+const E2E_GIVE_DO_ACCOUNT_ID = "01930000-0000-7000-8000-000000000714";
 const INCOME_DONOR_ID = "01930000-0000-7000-8000-000000000721";
 const INCOME_SPONSOR_ID = "01930000-0000-7000-8000-000000000723";
 
@@ -275,6 +277,17 @@ async function ensureIncomeFixtures(userId: string): Promise<void> {
       id: E2E_ORG_ACCOUNT_ID,
       kind: "bank",
       name: "E2E Bank Account",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  // The account a give.do upload defaults to.
+  await db
+    .insert(orgAccount)
+    .values({
+      createdAt: now,
+      id: E2E_GIVE_DO_ACCOUNT_ID,
+      kind: "gateway_clearing",
+      name: "E2E give.do clearing",
       updatedAt: now,
     })
     .onConflictDoNothing();
