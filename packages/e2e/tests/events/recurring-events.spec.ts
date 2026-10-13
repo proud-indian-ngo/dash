@@ -87,7 +87,7 @@ test.describe("Recurring events", () => {
       .first();
     await recurringRow.getByRole("button").first().click();
     await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
-    await expect(page.getByText("Recurrence").first()).toBeVisible({
+    await expect(page.getByText("Repeats").first()).toBeVisible({
       timeout: 10_000,
     });
   });
