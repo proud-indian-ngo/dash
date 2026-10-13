@@ -212,5 +212,23 @@ test.describe("Team events programme (admin)", () => {
     await new ListPage(page).openRowActionAndClick(renamedRows, "View");
     await expect(page).toHaveURL(/\/events\//);
     await expect(page.getByRole("heading", { name: renamed })).toBeVisible();
+
+    // Editing the whole series from the occurrence's page shows the series'
+    // name and its weekly rule.
+    await page.getByRole("button", { exact: true, name: "Edit" }).click();
+    await page
+      .getByRole("button", { name: "All events in the series" })
+      .click();
+    await expect(nameField).toHaveValue(eventName);
+    await expect(editDialog.getByLabel("Location")).toHaveValue(
+      "E2E Series Hall"
+    );
+    await openAdvancedSettings(editDialog);
+    await expect(
+      editDialog.getByRole("combobox").filter({ hasText: /^Weekly$/ })
+    ).toBeVisible();
+    await expect(editDialog.getByText("On days")).toBeVisible();
+    await editDialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(editDialog).toBeHidden();
   });
 });

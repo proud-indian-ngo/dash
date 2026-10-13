@@ -3,9 +3,9 @@ import { describe, expect, it } from "bun:test";
 import type { EventPartner, TeamEvent } from "@pi-dash/zero/schema";
 
 import {
-  buildEventEditInitialValues,
   buildRowDuplicateInitialValues,
   buildRowEditInitialValues,
+  buildScopedEditInitialValues,
 } from "./event-form-initial-values";
 import type { EventRow, ExceptionRow } from "./events-table-helpers";
 import {
@@ -182,17 +182,12 @@ describe("buildRowEditInitialValues", () => {
     const { exceptionRow } = rowsFor();
     const exception = exceptionRow.exception as ExceptionRow;
     const teamPage = buildRowEditInitialValues(exceptionRow, "this");
-    const eventPage = buildEventEditInitialValues(
+    const eventPage = buildScopedEditInitialValues(
       exception,
-      null,
       exceptionRow.event,
       "this"
     );
-    // The form hides recurrence for "this", so only that input differs.
-    expect({ ...teamPage, recurrenceRule: null }).toEqual({
-      ...eventPage,
-      recurrenceRule: null,
-    });
+    expect(teamPage).toEqual(eventPage);
   });
 
   it.each(["following", "all"] as const)(
@@ -250,6 +245,55 @@ describe("buildRowEditInitialValues", () => {
       volunteersNeeded: 6,
     });
     expect(values.partners.map((p) => p.name)).toEqual(["One-off partner"]);
+  });
+});
+
+describe("buildScopedEditInitialValues", () => {
+  it.each(["following", "all"] as const)(
+    'prefills the series\' details and rule for "%s" from an edited occurrence',
+    (scope) => {
+      const { exceptionRow } = rowsFor();
+      const values = buildScopedEditInitialValues(
+        exceptionRow.exception as ExceptionRow,
+        exceptionRow.event,
+        scope
+      );
+      expect(values).toMatchObject({
+        city: "bangalore",
+        description: "Series description",
+        id: "series-1",
+        isPublic: true,
+        location: "Series hall",
+        name: "Weekly class",
+        programmeId: "programme-series",
+        publicArea: "Indiranagar",
+        recurrenceRule: { rrule: "FREQ=WEEKLY;BYDAY=SA;COUNT=3" },
+        volunteersNeeded: 6,
+      });
+      expect(values.partners.map((p) => p.name)).toEqual(["Series partner"]);
+    }
+  );
+
+  it('starts a "following" split at the edited occurrence', () => {
+    const { exceptionRow } = rowsFor();
+    const values = buildScopedEditInitialValues(
+      exceptionRow.exception as ExceptionRow,
+      exceptionRow.event,
+      "following"
+    );
+    expect(values.startTime).toBe(OCC_START);
+    expect(values.endTime).toBe(OCC_START + 3 * HOUR);
+  });
+
+  it('keeps the series\' times for "all"', () => {
+    const { exceptionRow } = rowsFor();
+    const values = buildScopedEditInitialValues(
+      exceptionRow.exception as ExceptionRow,
+      exceptionRow.event,
+      "all"
+    );
+    expect(values.startTime).toBe(SERIES_START);
+    expect(values.endTime).toBe(SERIES_START + 2 * HOUR);
   });
 });
 

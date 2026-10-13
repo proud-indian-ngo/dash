@@ -76,7 +76,7 @@ import { EventFeedbackSection } from "./event-feedback";
 import { EventFormDialog } from "./event-form-dialog";
 import {
   buildEventDuplicateInitialValues,
-  buildEventEditInitialValues,
+  buildScopedEditInitialValues,
   deriveSocialFacts,
 } from "./event-form-initial-values";
 import {
@@ -795,11 +795,7 @@ function deriveEventMetrics(event: EventDetailProps["event"]) {
   const presentCount = event.members.filter(
     (m) => m.attendance === "present"
   ).length;
-  const recurrence = event.recurrenceRule as
-    | { rrule: string; exdates?: string[] }
-    | null
-    | undefined;
-  return { feedbackDeadlinePassed, presentCount, recurrence };
+  return { feedbackDeadlinePassed, presentCount };
 }
 
 export function EventDetail({
@@ -998,8 +994,7 @@ export function EventDetail({
     canManage &&
     (eventReimbursements.length > 0 || eventVendorPayments.length > 0);
 
-  const { feedbackDeadlinePassed, presentCount, recurrence } =
-    deriveEventMetrics(event);
+  const { feedbackDeadlinePassed, presentCount } = deriveEventMetrics(event);
 
   const socialFacts = deriveSocialFacts(event, parentEvent);
   const socialRecapMode = deriveSocialRecapMode({
@@ -1271,10 +1266,9 @@ export function EventDetail({
 
       <EventFormDialog
         editScope={editScope ?? undefined}
-        initialValues={buildEventEditInitialValues(
-          editScope === "all" && parentEvent ? parentEvent : event,
-          recurrence,
-          editScope === "all" ? undefined : parentEvent,
+        initialValues={buildScopedEditInitialValues(
+          event,
+          parentEvent,
           editScope
         )}
         kalakritiEditionId={kalakritiEditionId}

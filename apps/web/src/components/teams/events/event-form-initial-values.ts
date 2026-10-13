@@ -39,7 +39,7 @@ export function deriveSocialFacts(
  * Edit form values for `event`. Pass the series parent as `seriesParent` when
  * `event` is an occurrence, so inherited partners and target show.
  */
-export function buildEventEditInitialValues(
+function buildEventEditInitialValues(
   event: PrefillEvent,
   recurrence: RecurrenceRule,
   seriesParent: PrefillEvent | undefined,
@@ -76,6 +76,40 @@ export function buildEventEditInitialValues(
     volunteersNeeded: social.volunteersNeeded,
     whatsappGroupId: event.whatsappGroupId,
   };
+}
+
+/**
+ * Edit form values for `viewed` (an event, a series parent, an edited
+ * occurrence or a virtual one) in `editScope`. Pass the series parent as
+ * `seriesParent` when `viewed` is an occurrence.
+ */
+export function buildScopedEditInitialValues(
+  viewed: PrefillEvent,
+  seriesParent: PrefillEvent | undefined,
+  editScope: EditScope | null
+) {
+  // The recurrence is always the series': an edited occurrence has none.
+  const recurrence = (seriesParent ?? viewed).recurrenceRule as RecurrenceRule;
+  // "following" and "all" save to the series parent, so show its details.
+  // "this" shows the occurrence's own.
+  if (!(seriesParent && (editScope === "following" || editScope === "all"))) {
+    return buildEventEditInitialValues(
+      viewed,
+      recurrence,
+      seriesParent,
+      editScope
+    );
+  }
+  const values = buildEventEditInitialValues(
+    seriesParent,
+    recurrence,
+    undefined,
+    editScope
+  );
+  // A "following" split starts the new series at this occurrence.
+  return editScope === "following"
+    ? { ...values, endTime: viewed.endTime, startTime: viewed.startTime }
+    : values;
 }
 
 /** Create form values copying `event` as a new one-off event. */
@@ -131,17 +165,10 @@ export function buildRowEditInitialValues(
   row: EventDisplayRow,
   editScope: EditScope | null
 ) {
-  // "following" and "all" save to the series parent, so show its details.
-  // "this" on an edited occurrence shows the occurrence's own.
-  const occurrence =
-    editScope === "following" || editScope === "all"
-      ? undefined
-      : row.exception;
   return {
-    ...buildEventEditInitialValues(
-      occurrence ?? row.event,
-      row.event.recurrenceRule as { rrule: string; exdates?: string[] } | null,
-      occurrence ? row.event : undefined,
+    ...buildScopedEditInitialValues(
+      row.exception ?? row.event,
+      row.exception ? row.event : undefined,
       editScope
     ),
     endTime: row.endTime,
