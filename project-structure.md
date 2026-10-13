@@ -221,7 +221,7 @@ pi-dash event remains read-only outside the Kalakriti module.
 | `components/vendors/` | vendors-table, vendor-form-dialog (loads private details, then one audited `saveVendor` writes party, profile, private details and bank account), vendor-detail-sheet (masked account with audited Reveal), vendor-private (`useVendorDetails`, `useCanRevealVendorBank` over `lib/vendor-access.ts`, `VendorAccountNumber`), shared with the payment page's vendor cards |
 | `components/donors/` | donors-table, donor-form-dialog (one audited `saveDonor` server function writes identity, roles and private details in a transaction), donor-detail-sheet (masked identifier, audited Reveal), party-row |
 | `components/settings/` | settings-layout (nav + `SettingsPage`), settings-ui (`SettingsCard`, `SettingsRow`, `SettingsListItem`), sections/ (profile, account, banking, programmes, projects, expense-categories, whatsapp-groups, notifications, general, api-tokens, admin-actions) |
-| `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, phone-field-lazy, textarea-field, checkbox-field, select-field, combobox-field, request-programme-field (programme picker for reimbursements and vendor payments, defaulted from the event), add-url-row, line-items-editor, attachments-section, reject-dialog, approve-dialog |
+| `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, phone-field-lazy, textarea-field, checkbox-field, select-field, combobox-field, add-url-row, line-items-editor, attachments-section, reject-dialog, approve-dialog |
 | `components/login/` | auth-layout (split-panel shell), auth-info-panel (info panels for signup/login), login-form, register-form, forgot-password-form, reset-password-form |
 | `components/stats/` | stats-cards (dashboard stats) |
 | `components/` (root) | loader, default-catch-boundary, default-not-found, theme-toggle, zero-init, dev-tools |
@@ -280,6 +280,7 @@ All function paths above are prefixed with `apps/web/src/`.
 | `lib/stats.ts` | Shared stat computation helpers |
 | `lib/status-badge.ts` | Status → badge variant mapping |
 | `lib/submission-mappers.ts` | Map Zero rows to form/display models |
+| `lib/request-programme.ts` | A request's programme derived from its event ("No event" without one) for the request tables and filters |
 | `lib/save-conflict.ts` | Detects the party save version conflict so donor and vendor forms reload the details |
 | `lib/nav-items.ts` | Nav items by user role |
 | `lib/route-guards.ts` | Route protection utilities |

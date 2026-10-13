@@ -138,7 +138,6 @@ function VendorPaymentDetailRouteComponent() {
     title: vendorPayment.title as string,
     vendorId: vendorPayment.vendorId as string,
     ...(vendorPayment.eventId ? { eventId: vendorPayment.eventId } : {}),
-    programmeId: vendorPayment.programmeId,
   };
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">

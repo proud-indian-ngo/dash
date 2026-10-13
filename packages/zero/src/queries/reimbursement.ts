@@ -11,19 +11,23 @@ function withBase(q: typeof zql.reimbursement) {
     )
     .related("attachments", (a) => a.orderBy("createdAt", "asc"))
     .related("history", (h) => h.orderBy("createdAt", "asc"))
-    .related("user")
-    .related("programme");
+    .related("user");
 }
 
 function withRelated(q: typeof zql.reimbursement) {
   return withBase(q).related("event");
 }
 
+/** Analytics, the tables and the request header show the event's programme, so it is nested. */
+function withProgramme(q: typeof zql.reimbursement) {
+  return withBase(q).related("event", (e) => e.related("programme"));
+}
+
 export const reimbursementQueries = {
   all: defineQuery(({ ctx }) =>
     ctx !== null && can(ctx, "requests.view_all")
-      ? withRelated(zql.reimbursement).orderBy("createdAt", "desc")
-      : withRelated(zql.reimbursement)
+      ? withProgramme(zql.reimbursement).orderBy("createdAt", "desc")
+      : withProgramme(zql.reimbursement)
           .where("userId", ctx?.userId)
           .orderBy("createdAt", "desc")
   ),
@@ -51,8 +55,8 @@ export const reimbursementQueries = {
     }),
     ({ args: { id }, ctx }) =>
       ctx !== null && can(ctx, "requests.view_all")
-        ? withRelated(zql.reimbursement).where("id", id).one()
-        : withRelated(zql.reimbursement)
+        ? withProgramme(zql.reimbursement).where("id", id).one()
+        : withProgramme(zql.reimbursement)
             .where("id", id)
             .where("userId", ctx?.userId)
             .one()

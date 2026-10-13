@@ -13,6 +13,10 @@ import {
   REQUEST_TYPE_LABELS,
   type RequestRow,
 } from "@/lib/reimbursement-types";
+import {
+  requestProgrammeId,
+  requestProgrammeName,
+} from "@/lib/request-programme";
 
 const STATUS_OPTIONS = [
   { label: "Pending", value: "pending" },
@@ -50,7 +54,7 @@ export function getReimbursementFilterValue(
     case "expenseDate":
       return isReimbursement(row) ? row.expenseDate : null;
     case "programme":
-      return isReimbursement(row) ? row.programmeId : null;
+      return requestProgrammeId(isReimbursement(row) ? row.event : undefined);
     case "status":
       return row.status;
     case "submittedAt":
@@ -86,9 +90,10 @@ export function createReimbursementFilterFields(
       "Programme",
       optionsFromRows(
         rows,
-        (row) => (isReimbursement(row) ? row.programmeId : null),
         (row) =>
-          isReimbursement(row) ? (row.programme?.name ?? row.programmeId) : ""
+          requestProgrammeId(isReimbursement(row) ? row.event : undefined),
+        (row) =>
+          requestProgrammeName(isReimbursement(row) ? row.event : undefined)
       )
     ),
     selectField(

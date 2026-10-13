@@ -42,6 +42,7 @@ import { DATE } from "@/lib/date-formats";
 import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { canEditVendorPaymentSubmission } from "@/lib/request-edit-permissions";
+import { requestProgrammeName } from "@/lib/request-programme";
 import { getStatusBadge } from "@/lib/status-badge";
 
 import type { VendorPaymentWithRelations } from "./vendor-payment-types";
@@ -81,7 +82,7 @@ function searchFn(row: VendorPaymentWithRelations, query: string): boolean {
     row.user?.name,
     row.invoiceNumber,
     row.event?.name,
-    row.programme?.name,
+    row.event?.programme?.name,
   ]
     .join(" ")
     .toLowerCase()
@@ -294,10 +295,10 @@ export function VendorPaymentsTable({
       size: 180,
     },
     {
-      accessorFn: (row) => row.programme?.name,
+      accessorFn: (row) => requestProgrammeName(row.event),
       cell: ({ row }) => (
         <span className="text-muted-foreground truncate text-sm">
-          {row.original.programme?.name}
+          {requestProgrammeName(row.original.event)}
         </span>
       ),
       header: ({ column }) => (

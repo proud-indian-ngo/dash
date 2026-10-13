@@ -11,6 +11,7 @@ import {
   reimbursementAttachment,
   reimbursementLineItem,
 } from "@pi-dash/db/schema/reimbursement";
+import { teamEvent } from "@pi-dash/db/schema/team-event";
 import {
   vendor,
   vendorPayment,
@@ -69,8 +70,8 @@ interface QueryConfig {
   attachmentJoinCol: AnyPgColumn;
   attachmentKind: "advancePaymentAttachment" | "reimbursementAttachment";
   attachmentTable: AttachmentTable;
-  /** Set when the request carries a programme on its header. */
-  programmeIdCol?: AnyPgColumn;
+  /** Set when the request links to an event, which carries the programme. */
+  eventIdCol?: AnyPgColumn;
   expenseDateCol?: AnyPgColumn;
   lineItemAmountCol: AnyPgColumn;
   lineItemJoinCol: AnyPgColumn;
@@ -142,7 +143,7 @@ async function queryRequestRows(
     selectFields.expenseDate = config.expenseDateCol;
     groupByFields.push(config.expenseDateCol);
   }
-  if (config.programmeIdCol) {
+  if (config.eventIdCol) {
     selectFields.programme = programme.name;
     groupByFields.push(programme.name);
   }
@@ -153,8 +154,10 @@ async function queryRequestRows(
     .innerJoin(user, eq(mainTable.userId, user.id))
     .leftJoin(lineItemTable, eq(config.lineItemJoinCol, mainTable.id))
     .$dynamic();
-  if (config.programmeIdCol) {
-    query = query.leftJoin(programme, eq(config.programmeIdCol, programme.id));
+  if (config.eventIdCol) {
+    query = query
+      .leftJoin(teamEvent, eq(config.eventIdCol, teamEvent.id))
+      .leftJoin(programme, eq(teamEvent.programmeId, programme.id));
   }
   const results = (await query
     .where(
@@ -225,12 +228,12 @@ const reimbursementConfig: QueryConfig = {
   attachmentJoinCol: reimbursementAttachment.reimbursementId,
   attachmentKind: "reimbursementAttachment",
   attachmentTable: reimbursementAttachment,
+  eventIdCol: reimbursement.eventId,
   expenseDateCol: reimbursement.expenseDate,
   lineItemAmountCol: reimbursementLineItem.amount,
   lineItemJoinCol: reimbursementLineItem.reimbursementId,
   lineItemTable: reimbursementLineItem,
   mainTable: reimbursement,
-  programmeIdCol: reimbursement.programmeId,
   requestType: "reimbursements",
   typeLabel: "Reimbursement",
 };
@@ -273,7 +276,8 @@ async function queryVendorPaymentRows(
     .from(vendorPayment)
     .innerJoin(user, eq(vendorPayment.userId, user.id))
     .innerJoin(vendor, eq(vendorPayment.vendorId, vendor.id))
-    .leftJoin(programme, eq(vendorPayment.programmeId, programme.id))
+    .leftJoin(teamEvent, eq(vendorPayment.eventId, teamEvent.id))
+    .leftJoin(programme, eq(teamEvent.programmeId, programme.id))
     .leftJoin(
       vendorPaymentLineItem,
       eq(vendorPaymentLineItem.vendorPaymentId, vendorPayment.id)

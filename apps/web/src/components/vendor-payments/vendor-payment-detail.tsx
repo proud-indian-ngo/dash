@@ -198,8 +198,10 @@ function VendorPaymentHeader({
             {request.event.name}
           </Link>
         ) : null,
-        request.programme ? (
-          <span key="programme">Programme · {request.programme.name}</span>
+        request.event?.programme ? (
+          <span key="programme">
+            Programme · {request.event.programme.name}
+          </span>
         ) : null,
       ]}
       title={request.title}

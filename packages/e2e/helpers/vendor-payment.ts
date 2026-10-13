@@ -2,7 +2,7 @@ import type { Page } from "@playwright/test";
 
 import { expect, waitForZeroReady } from "../fixtures/test";
 import { clickUntilDialogCloses } from "./dialog-submit";
-import { selectRequestProgramme } from "./request-programme";
+import { selectRequestEvent } from "./request-event";
 
 const OVERLAY_SELECTOR = 'div[role="presentation"][data-base-ui-inert]';
 const vendorPaymentDetailUrlPattern =
@@ -26,33 +26,35 @@ async function hasSelectedVendor(page: Page): Promise<boolean> {
   return Boolean(value && value !== "Select vendor");
 }
 
+/**
+ * Opens the vendor picker and picks the first vendor once Zero has synced the
+ * list. Returns false when the list is still empty, so the caller can add one.
+ */
 async function selectFirstVendorOption(page: Page): Promise<boolean> {
+  if (await hasSelectedVendor(page)) {
+    return true;
+  }
+  await waitForZeroReady(page).catch(() => {
+    // Form pages may already be ready.
+  });
   const vendorTrigger = page.getByRole("combobox", { name: "Vendor" });
-  const firstOption = page.getByRole("option").first();
+  const options = page.getByRole("option");
 
-  const trySelect = async (attempt: number): Promise<boolean> => {
-    if (await hasSelectedVendor(page)) {
-      return true;
-    }
+  await dismissComboboxOverlay(page);
+  await vendorTrigger.click();
+  // The open picker re-renders when Zero delivers the vendor list.
+  const hasOption = await expect
+    .poll(() => options.count(), { timeout: 10_000 })
+    .toBeGreaterThan(0)
+    .then(() => true)
+    .catch(() => false);
+  if (!hasOption) {
     await dismissComboboxOverlay(page);
-    await vendorTrigger.click();
-    if (await firstOption.isVisible({ timeout: 10_000 }).catch(() => false)) {
-      await firstOption.click();
-      await expect(page.getByRole("listbox")).toBeHidden({ timeout: 10_000 });
-      return true;
-    }
-
-    await dismissComboboxOverlay(page);
-    await waitForZeroReady(page).catch(() => {
-      // Form pages may already be ready.
-    });
-    if (attempt >= 2) {
-      return false;
-    }
-    return trySelect(attempt + 1);
-  };
-
-  return await trySelect(0);
+    return false;
+  }
+  await options.first().click();
+  await expect(page.getByRole("listbox")).toBeHidden({ timeout: 10_000 });
+  return hasSelectedVendor(page);
 }
 
 async function selectOrCreateVendor(page: Page, vendorNamePrefix: string) {
@@ -110,7 +112,7 @@ async function fillLineItemAndSubmit(
 export async function createVendorPayment(
   page: Page,
   titleSuffix: string,
-  programme = "Education"
+  event?: { city: string; name: string }
 ): Promise<string> {
   const title = `E2E VP ${titleSuffix} ${Date.now()}`;
 
@@ -122,7 +124,9 @@ export async function createVendorPayment(
 
   await page.getByLabel("Title").fill(title);
   await selectOrCreateVendor(page, "E2E Vendor");
-  await selectRequestProgramme(page, programme);
+  if (event) {
+    await selectRequestEvent(page, event.name, event.city);
+  }
   await fillLineItemAndSubmit(page, "Test line item", "5000");
   await page.waitForURL(vendorPaymentDetailUrlPattern, {
     timeout: 15_000,
@@ -141,7 +145,6 @@ export async function createPendingVP(page: Page): Promise<string> {
   const title = `E2E VP Unhappy ${Date.now()}`;
   await page.getByLabel("Title").fill(title);
   await selectOrCreateVendor(page, "E2E Vendor");
-  await selectRequestProgramme(page);
   await fillLineItemAndSubmit(page, "Unhappy path test item", "1000");
   await page.waitForURL(/\/vendor-payments\/[0-9a-f]{8}-/, { timeout: 15_000 });
 
@@ -164,7 +167,6 @@ export async function createVolunteerVP(
 
   await page.getByLabel("Title").fill(title);
   await selectOrCreateVendor(page, "E2E Vendor Vol");
-  await selectRequestProgramme(page);
   await fillLineItemAndSubmit(page, "Vol line item", "1000");
   await page.waitForURL(vendorPaymentDetailUrlPattern, {
     timeout: 15_000,

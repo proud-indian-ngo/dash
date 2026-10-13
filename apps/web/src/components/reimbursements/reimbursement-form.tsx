@@ -13,10 +13,6 @@ import { uuidv7 } from "uuidv7";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { FormLayout } from "@/components/form/form-layout";
-import {
-  useEventProgrammeDefault,
-  useRequestProgrammeOptions,
-} from "@/components/form/request-programme-field";
 import { DATE } from "@/lib/date-formats";
 import { newLineItem } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
@@ -134,20 +130,8 @@ function ReimbursementFormInner({
     type: requestType,
   } as RequestFormValues;
 
-  const initialProgrammeId =
-    initialValues && "programmeId" in initialValues
-      ? initialValues.programmeId
-      : undefined;
-  const programmeOptions = useRequestProgrammeOptions(initialProgrammeId);
-  const handleFieldChange = useEventProgrammeDefault(
-    (eventId) =>
-      eventList.find((e) => e.id === eventId)?.programmeId ?? undefined,
-    initialValues?.eventId ?? undefined
-  );
-
   const form = useForm({
     defaultValues,
-    listeners: { onChange: handleFieldChange },
     onSubmit: async ({ value: rawValue }) => {
       const value = requestFormSchema.parse(rawValue);
       const id = entityId;
@@ -244,7 +228,6 @@ function ReimbursementFormInner({
               isEdit={isEdit}
               onBankAccountSelected={handleBankAccountSelected}
               onCancel={onCancel}
-              programmeOptions={programmeOptions}
               requestType={requestType}
             />
           );

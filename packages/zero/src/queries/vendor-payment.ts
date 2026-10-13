@@ -14,7 +14,6 @@ function withBase(q: typeof zql.vendorPayment) {
     .related("user")
     .related("vendor")
     .related("invoiceReviewer")
-    .related("programme")
     .related("transactions", (t) =>
       t
         .orderBy("createdAt", "desc")
@@ -28,11 +27,16 @@ function withRelated(q: typeof zql.vendorPayment) {
   return withBase(q).related("event");
 }
 
+/** Analytics, the tables and the request header show the event's programme, so it is nested. */
+function withProgramme(q: typeof zql.vendorPayment) {
+  return withBase(q).related("event", (e) => e.related("programme"));
+}
+
 export const vendorPaymentQueries = {
   all: defineQuery(({ ctx }) =>
     ctx !== null && can(ctx, "requests.view_all")
-      ? withRelated(zql.vendorPayment).orderBy("createdAt", "desc")
-      : withRelated(zql.vendorPayment)
+      ? withProgramme(zql.vendorPayment).orderBy("createdAt", "desc")
+      : withProgramme(zql.vendorPayment)
           .where("userId", ctx?.userId)
           .orderBy("createdAt", "desc")
   ),
@@ -61,8 +65,8 @@ export const vendorPaymentQueries = {
     }),
     ({ args: { id }, ctx }) =>
       ctx !== null && can(ctx, "requests.view_all")
-        ? withRelated(zql.vendorPayment).where("id", id).one()
-        : withRelated(zql.vendorPayment)
+        ? withProgramme(zql.vendorPayment).where("id", id).one()
+        : withProgramme(zql.vendorPayment)
             .where("id", id)
             .where("userId", ctx?.userId)
             .one()

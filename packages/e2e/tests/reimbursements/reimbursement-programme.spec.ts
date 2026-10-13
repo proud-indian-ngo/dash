@@ -1,5 +1,6 @@
 import { expect, test } from "../../fixtures/test";
 import { applyQuickFilter } from "../../helpers/quick-filters";
+import { PROGRAMME_EVENT } from "../../helpers/request-event";
 import { ReimbursementPage } from "../../pages/reimbursement-page";
 
 test.describe("Reimbursement programme", () => {
@@ -10,49 +11,50 @@ test.describe("Reimbursement programme", () => {
     reimbursements = new ReimbursementPage(page, "reimbursement");
   });
 
-  test("picking an event fills the programme from the event", async ({
+  test("the list shows the event's programme and filters by it", async ({
     page,
   }) => {
-    await reimbursements.navigateToNew();
-    await reimbursements.form.selectCity("Bangalore");
-    const eventInput = page.getByRole("combobox", { name: "Event" });
-    await eventInput.click();
-    await eventInput.fill("E2E Upcoming Public Bangalore");
-    await page
-      .getByRole("option")
-      .filter({ hasText: "E2E Upcoming Public Bangalore" })
-      .first()
-      .click();
-
-    await expect(page.getByRole("combobox", { name: "Programme" })).toHaveValue(
-      "Unallocated"
-    );
-  });
-
-  test("the list shows the programme and filters by it", async ({ page }) => {
     test.slow();
     const tag = `Prog${Date.now()}`;
-    const education = await reimbursements.createReimbursement(
-      `${tag} Edu`,
-      "Education"
+    const withEvent = await reimbursements.createReimbursement(
+      `${tag} Event`,
+      PROGRAMME_EVENT
     );
-    await expect(page.getByText("Programme · Education")).toBeVisible();
-    const arts = await reimbursements.createReimbursement(
-      `${tag} Arts`,
-      "Arts and culture"
+    await expect(
+      page.getByText(`Programme · ${PROGRAMME_EVENT.programme}`)
+    ).toBeVisible();
+    const withoutEvent = await reimbursements.createReimbursement(
+      `${tag} None`
     );
+    await expect(page.getByText(/Programme ·/)).toHaveCount(0);
 
     await reimbursements.navigateToList();
     await reimbursements.list
       .getSearchInput("Search reimbursements...")
       .fill(tag);
-    const educationRow = reimbursements.list.getRowByText(education);
-    const artsRow = reimbursements.list.getRowByText(arts);
-    await expect(educationRow).toContainText("Education");
-    await expect(artsRow).toContainText("Arts and culture");
+    const eventRow = reimbursements.list.getRowByText(withEvent);
+    const noEventRow = reimbursements.list.getRowByText(withoutEvent);
+    await expect(eventRow).toContainText(PROGRAMME_EVENT.programme);
+    await expect(noEventRow).toContainText("No event");
 
-    await applyQuickFilter(page, "Programme", "Education");
-    await expect(educationRow).toBeVisible();
-    await expect(artsRow).toHaveCount(0);
+    await applyQuickFilter(page, "Programme", PROGRAMME_EVENT.programme);
+    await expect(eventRow).toBeVisible();
+    await expect(noEventRow).toHaveCount(0);
+  });
+
+  test("the programme filter finds requests without an event", async ({
+    page,
+  }) => {
+    const title = await reimbursements.createReimbursement(
+      `Prog${Date.now()} None`
+    );
+    await reimbursements.navigateToList();
+    await applyQuickFilter(page, "Programme", "No event");
+    await reimbursements.list
+      .getSearchInput("Search reimbursements...")
+      .fill(title);
+    await expect(reimbursements.list.getRowByText(title)).toContainText(
+      "No event"
+    );
   });
 });

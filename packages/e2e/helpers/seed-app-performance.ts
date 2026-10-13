@@ -1,6 +1,5 @@
 import { writeSync } from "node:fs";
 
-import { PROGRAMME_IDS } from "@pi-dash/shared/constants";
 import { eq, sql } from "drizzle-orm";
 
 import { TOPICS } from "../../notifications/src/topics";
@@ -9,13 +8,6 @@ const id = (number: number) =>
   `019f0000-2191-7000-8000-${number.toString(16).padStart(12, "0")}`;
 
 const eventExpenseCount = 200;
-const requestProgrammeIds = [
-  PROGRAMME_IDS.education,
-  PROGRAMME_IDS.artsAndCulture,
-  PROGRAMME_IDS.communitySupport,
-] as const;
-const requestProgrammeId = (index: number) =>
-  requestProgrammeIds[index % requestProgrammeIds.length];
 const approvedVendorCount = 100;
 
 const counts = {
@@ -470,7 +462,6 @@ export async function seedAppPerformance() {
                   : 1 + (index % (counts.events - 1))
               ),
               userId: ownerId(index),
-              programmeId: requestProgrammeId(index),
               title: `Synthetic reimbursement ${index + 1}`,
               expenseDate: day,
               city: "bangalore" as const,
@@ -591,7 +582,6 @@ export async function seedAppPerformance() {
               ),
               vendorId: id(5000 + (index % approvedVendorCount)),
               userId: ownerId(index),
-              programmeId: requestProgrammeId(index),
               title: `Synthetic vendor payment ${index + 1}`,
               city: "bangalore" as const,
               status: "pending" as const,

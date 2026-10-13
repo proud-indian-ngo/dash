@@ -8,6 +8,10 @@ import {
 } from "@/components/data-table/filter-fields";
 import { useMigrateLegacyFilterParams } from "@/components/data-table/use-migrate-legacy-filter-params";
 import { cityOptions } from "@/lib/form-schemas";
+import {
+  requestProgrammeId,
+  requestProgrammeName,
+} from "@/lib/request-programme";
 
 import type { VendorPaymentWithRelations } from "./vendor-payment-types";
 
@@ -45,7 +49,7 @@ export function getVendorPaymentFilterValue(
     case "event":
       return row.eventId ?? null;
     case "programme":
-      return row.programmeId;
+      return requestProgrammeId(row.event);
     case "status":
       return row.status;
     case "submittedAt":
@@ -88,8 +92,8 @@ export function createVendorPaymentFilterFields(
       "Programme",
       optionsFromRows(
         rows,
-        (row) => row.programmeId,
-        (row) => row.programme?.name ?? row.programmeId
+        (row) => requestProgrammeId(row.event),
+        (row) => requestProgrammeName(row.event)
       )
     ),
     selectField(

@@ -1874,7 +1874,6 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
       expenseDate: past(10),
       historyIds: [ID.rh01, ID.rh02, ID.rh03],
       id: ID.reimb01,
-      programmeId: PROGRAMME_IDS.education,
       items: [
         {
           amount: "1500.00",
@@ -1901,7 +1900,6 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
       expenseDate: past(5),
       historyIds: [ID.rh04, ID.rh05],
       id: ID.reimb02,
-      programmeId: PROGRAMME_IDS.communitySupport,
       items: [
         {
           amount: "2200.00",
@@ -1925,7 +1923,6 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
       expenseDate: past(2),
       historyIds: [ID.rh06],
       id: ID.reimb03,
-      programmeId: PROGRAMME_IDS.communitySupport,
       items: [
         {
           amount: "5000.00",
@@ -1943,7 +1940,6 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
       expenseDate: past(20),
       historyIds: [ID.rh07, ID.rh08],
       id: ID.reimb04,
-      programmeId: PROGRAMME_IDS.education,
       items: [
         {
           amount: "300.00",
@@ -1973,7 +1969,6 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
           eventId: r.eventId,
           expenseDate: r.expenseDate.toISOString().slice(0, 10),
           id: r.id,
-          programmeId: r.programmeId,
           rejectionReason: r.rejectionReason,
           reviewedAt: r.reviewedBy ? past(1) : null,
           reviewedBy: r.reviewedBy,
@@ -2250,7 +2245,6 @@ async function seedVendors(userMap: Map<string, string>): Promise<void> {
       createdAt: past(15),
       eventId: ID.evOutreach,
       id: ID2.vp01,
-      programmeId: PROGRAMME_IDS.communitySupport,
       reviewedAt: past(12),
       reviewedBy: adminId,
       status: "partially_paid",
@@ -2420,7 +2414,6 @@ async function seedVendors(userMap: Map<string, string>): Promise<void> {
       city: "mumbai",
       createdAt: past(3),
       id: ID2.vp02,
-      programmeId: PROGRAMME_IDS.unallocated,
       status: "pending",
       submittedAt: past(2),
       title: "Catering for weekend seva",

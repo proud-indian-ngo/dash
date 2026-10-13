@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 
 import { waitForZeroReady } from "../fixtures/test";
+import { selectRequestEvent } from "../helpers/request-event";
 import { ApprovalDetailPage } from "./approval-detail-page";
 import { ListPage } from "./list-page";
 import { RequestFormPage } from "./request-form-page";
@@ -64,18 +65,21 @@ export class ReimbursementPage {
 
   async createReimbursement(
     titleSuffix: string,
-    programme = "Education"
+    event?: { city: string; name: string }
   ): Promise<string> {
     const title = `E2E ${titleSuffix} ${Date.now()}`;
     await this.navigateToNew();
 
     await this.form.selectBankAccount();
     await this.form.fillTitle(title);
-    await this.form.selectCity("Bangalore");
+    if (event) {
+      await selectRequestEvent(this.page, event.name, event.city);
+    } else {
+      await this.form.selectCity("Bangalore");
+    }
 
     if (this.type === "reimbursement") {
       await this.selectExpenseDate();
-      await this.form.selectProgramme(programme);
     }
 
     await this.form.fillLineItem({
@@ -95,7 +99,6 @@ export class ReimbursementPage {
     await this.form.fillTitle(title);
     await this.form.selectCity("Bangalore");
     await this.selectExpenseDate();
-    await this.form.selectProgramme();
 
     await this.form.fillLineItem({
       amount: "500",

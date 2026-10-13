@@ -53,7 +53,6 @@ export function buildMutation(
     const reimbPayload = {
       ...basePayload,
       expenseDate: requireDate(value.expenseDate, "expenseDate"),
-      programmeId: value.programmeId,
       ...(value.eventId ? { eventId: value.eventId } : {}),
     };
     return existingId

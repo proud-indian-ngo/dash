@@ -263,12 +263,14 @@ describe("computeEventData", () => {
 
 describe("computeProgrammeData", () => {
   const item = (programme: string | null | undefined, amount: number) => ({
+    event:
+      programme === undefined
+        ? null
+        : { programme: programme === null ? null : { name: programme } },
     lineItems: [{ amount }],
-    programme: programme ? { name: programme } : null,
-    programmeId: programme === undefined ? undefined : "programme-id",
   });
 
-  it("groups spend by the request's programme, sorted by amount", () => {
+  it("groups spend by the event's programme, sorted by amount", () => {
     const result = computeProgrammeData([
       item("Education", 100),
       item("Education", 50),
@@ -280,7 +282,7 @@ describe("computeProgrammeData", () => {
     ]);
   });
 
-  it("buckets requests without a programme and programmes that have not loaded", () => {
+  it("buckets requests without an event and events whose programme has not loaded", () => {
     const result = computeProgrammeData([
       item(undefined, 10),
       item(null, 20),
@@ -288,7 +290,7 @@ describe("computeProgrammeData", () => {
     ]);
     expect(result).toEqual([
       { amount: 20, count: 1, name: "Programme unknown" },
-      { amount: 10, count: 1, name: "No programme" },
+      { amount: 10, count: 1, name: "No event" },
       { amount: 5, count: 1, name: "Unallocated" },
     ]);
   });
@@ -296,9 +298,8 @@ describe("computeProgrammeData", () => {
   it("sums string amounts the way Zero returns numeric columns", () => {
     const result = computeProgrammeData([
       {
+        event: { programme: { name: "Education" } },
         lineItems: [{ amount: "100.50" }, { amount: "0.50" }],
-        programme: { name: "Education" },
-        programmeId: "programme-id",
       },
     ]);
     expect(result).toEqual([{ amount: 101, count: 1, name: "Education" }]);

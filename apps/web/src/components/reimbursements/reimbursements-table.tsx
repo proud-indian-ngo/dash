@@ -47,6 +47,7 @@ import {
   type RequestRow,
 } from "@/lib/reimbursement-types";
 import { canEditRequestSubmission } from "@/lib/request-edit-permissions";
+import { requestProgrammeName } from "@/lib/request-programme";
 import { getStatusBadge } from "@/lib/status-badge";
 
 const TOTAL_COLUMNS = ["total"];
@@ -145,7 +146,7 @@ function searchReimbursement(row: RequestRow, query: string): boolean {
     row.status,
     row.user?.name,
     "event" in row ? row.event?.name : "",
-    "programme" in row ? row.programme?.name : "",
+    "event" in row ? row.event?.programme?.name : "",
     REQUEST_TYPE_LABELS[row.type],
   ]
     .join(" ")
@@ -321,12 +322,14 @@ export function ReimbursementsTable({
       size: 180,
     },
     {
-      accessorFn: (row) => (isReimbursement(row) ? row.programme?.name : ""),
+      accessorFn: (row) =>
+        requestProgrammeName(isReimbursement(row) ? row.event : undefined),
       cell: ({ row }) => {
         const r = row.original;
-        const name = isReimbursement(r) ? r.programme?.name : undefined;
         return (
-          <span className="text-muted-foreground truncate text-sm">{name}</span>
+          <span className="text-muted-foreground truncate text-sm">
+            {requestProgrammeName(isReimbursement(r) ? r.event : undefined)}
+          </span>
         );
       },
       header: ({ column }) => (

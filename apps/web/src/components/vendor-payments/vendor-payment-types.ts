@@ -1,7 +1,5 @@
 import type {
   ExpenseCategory,
-  Programme,
-  TeamEvent,
   User,
   Vendor,
   VendorPayment,
@@ -12,6 +10,8 @@ import type {
   VendorPaymentTransactionAttachment,
   VendorPaymentTransactionHistory,
 } from "@pi-dash/zero/schema";
+
+import type { RequestEvent } from "@/lib/request-programme";
 
 export type VendorPaymentTransactionWithRelations = VendorPaymentTransaction & {
   user: User | undefined;
@@ -31,6 +31,5 @@ export type VendorPaymentWithRelations = VendorPayment & {
   user: User | undefined;
   vendor: Vendor | undefined;
   transactions: readonly VendorPaymentTransactionWithRelations[];
-  event: TeamEvent | undefined;
-  programme: Programme | undefined;
+  event: RequestEvent | undefined;
 };
