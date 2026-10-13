@@ -285,11 +285,12 @@ test.describe("Team events programme (admin)", () => {
     await expect(seriesRows.first()).toHaveText(firstRowText);
     await expect(seriesRows.nth(2)).toHaveText(laterRowText);
 
-    // And the description saved to the series.
+    // And the description saved to the series. The series start row edits
+    // the series itself, without asking for a scope.
     await new ListPage(page).openRowActionAndClick(seriesRows.first(), "Edit");
-    await page
-      .getByRole("button", { name: "All events in the series" })
-      .click();
+    await expect(
+      editDialog.getByRole("heading", { name: "Edit Event" })
+    ).toBeVisible();
     await expect(editDialog.getByLabel("Description")).toHaveValue(description);
     await editDialog.getByRole("button", { name: "Cancel" }).click();
     await expect(editDialog).toBeHidden();
