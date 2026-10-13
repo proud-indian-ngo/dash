@@ -11,6 +11,7 @@ import { cityOptions } from "@/lib/form-schemas";
 import {
   requestProgrammeId,
   requestProgrammeName,
+  requestProgrammeOptionId,
 } from "@/lib/request-programme";
 
 import type { VendorPaymentWithRelations } from "./vendor-payment-types";
@@ -92,7 +93,7 @@ export function createVendorPaymentFilterFields(
       "Programme",
       optionsFromRows(
         rows,
-        (row) => requestProgrammeId(row.event),
+        (row) => requestProgrammeOptionId(row.event),
         (row) => requestProgrammeName(row.event)
       )
     ),

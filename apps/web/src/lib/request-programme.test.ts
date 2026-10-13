@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { requestProgrammeId, requestProgrammeName } from "./request-programme";
+import {
+  requestProgrammeId,
+  requestProgrammeName,
+  requestProgrammeOptionId,
+} from "./request-programme";
 
 describe("request programme", () => {
   it("takes the programme from the request's event", () => {
@@ -16,5 +20,18 @@ describe("request programme", () => {
 
   it("leaves the name empty while the event's programme loads", () => {
     expect(requestProgrammeName({ programme: undefined })).toBe("");
+  });
+
+  it("keeps a loading programme out of the filter options", () => {
+    expect(
+      requestProgrammeOptionId({ programme: undefined, programmeId: "p-1" })
+    ).toBeUndefined();
+    expect(
+      requestProgrammeOptionId({
+        programme: { name: "Education" },
+        programmeId: "p-1",
+      })
+    ).toBe("p-1");
+    expect(requestProgrammeOptionId(undefined)).toBe("no-event");
   });
 });

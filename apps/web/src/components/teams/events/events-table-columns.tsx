@@ -218,10 +218,10 @@ export function createEventsTableColumns({
       size: 120,
     },
     {
-      accessorFn: (row) => row.event.programme?.name,
+      accessorFn: (row) => row.programme?.name,
       cell: ({ row }) => (
         <span className="text-muted-foreground truncate text-sm">
-          {row.original.event.programme?.name ?? "\u2014"}
+          {row.original.programme?.name ?? "\u2014"}
         </span>
       ),
       header: ({ column }) => (

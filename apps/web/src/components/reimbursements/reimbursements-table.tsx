@@ -323,12 +323,13 @@ export function ReimbursementsTable({
     },
     {
       accessorFn: (row) =>
-        requestProgrammeName(isReimbursement(row) ? row.event : undefined),
+        isReimbursement(row) ? requestProgrammeName(row.event) : "",
       cell: ({ row }) => {
         const r = row.original;
+        // Advances have no event link, so no programme applies.
         return (
           <span className="text-muted-foreground truncate text-sm">
-            {requestProgrammeName(isReimbursement(r) ? r.event : undefined)}
+            {isReimbursement(r) ? requestProgrammeName(r.event) : "\u2014"}
           </span>
         );
       },

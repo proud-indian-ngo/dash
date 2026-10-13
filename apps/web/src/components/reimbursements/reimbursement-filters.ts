@@ -16,6 +16,7 @@ import {
 import {
   requestProgrammeId,
   requestProgrammeName,
+  requestProgrammeOptionId,
 } from "@/lib/request-programme";
 
 const STATUS_OPTIONS = [
@@ -54,7 +55,8 @@ export function getReimbursementFilterValue(
     case "expenseDate":
       return isReimbursement(row) ? row.expenseDate : null;
     case "programme":
-      return requestProgrammeId(isReimbursement(row) ? row.event : undefined);
+      // Advances have no event link, so they sit outside every bucket.
+      return isReimbursement(row) ? requestProgrammeId(row.event) : null;
     case "status":
       return row.status;
     case "submittedAt":
@@ -91,9 +93,10 @@ export function createReimbursementFilterFields(
       optionsFromRows(
         rows,
         (row) =>
-          requestProgrammeId(isReimbursement(row) ? row.event : undefined),
-        (row) =>
-          requestProgrammeName(isReimbursement(row) ? row.event : undefined)
+          isReimbursement(row)
+            ? requestProgrammeOptionId(row.event)
+            : undefined,
+        (row) => (isReimbursement(row) ? requestProgrammeName(row.event) : "")
       )
     ),
     selectField(

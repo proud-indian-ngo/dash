@@ -42,7 +42,7 @@ export function getEventFilterValue(
     case "members":
       return row.members.length;
     case "programme":
-      return row.event.programmeId;
+      return row.programmeId;
     case "recurrence":
       return row.event.recurrenceRule ? "recurring" : "one-time";
     case "startTime":
@@ -69,8 +69,9 @@ export function createEventFilterFields(
       "Programme",
       optionsFromRows(
         rows,
-        (row) => row.event.programmeId,
-        (row) => row.event.programme?.name ?? row.event.programmeId ?? ""
+        // A programme still loading has no label; leave it out until it does.
+        (row) => row.programme?.id,
+        (row) => row.programme?.name ?? ""
       )
     ),
     dateField("startTime", "Date/Time"),
