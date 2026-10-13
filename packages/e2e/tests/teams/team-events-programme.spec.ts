@@ -109,5 +109,19 @@ test.describe("Team events programme (admin)", () => {
     await fillTableSearch(page, "Search events...", eventName);
     await expect(seriesRows).toHaveCount(1);
     await expect(seriesRows).toContainText("Education");
+
+    // Editing the whole series from that occurrence shows the series' programme.
+    await new ListPage(page).openRowActionAndClick(seriesRows, "Edit");
+    await page
+      .getByRole("button", { name: "All events in the series" })
+      .click();
+    await expect(
+      editDialog.getByRole("heading", { name: "Edit Event" })
+    ).toBeVisible();
+    await expect(editDialog.getByLabel("Programme")).toHaveValue(
+      "Community support"
+    );
+    await editDialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(editDialog).toBeHidden();
   });
 });
