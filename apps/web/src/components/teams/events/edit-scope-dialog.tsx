@@ -20,6 +20,8 @@ const SCOPE_LABELS: Record<EditScope, string> = {
 const ALL_SCOPES: EditScope[] = ["this", "following", "all"];
 
 interface EditScopeDialogProps {
+  /** Scope options shown but not selectable yet. */
+  disabledScopes?: EditScope[];
   onOpenChange: (open: boolean) => void;
   onSelect: (scope: EditScope) => void;
   open: boolean;
@@ -29,22 +31,30 @@ interface EditScopeDialogProps {
 }
 
 function ScopeButton({
+  disabled,
   onSelect,
   scope,
 }: {
+  disabled: boolean;
   onSelect: (scope: EditScope) => void;
   scope: EditScope;
 }) {
   const handleClick = useEventCallback(() => onSelect(scope));
 
   return (
-    <Button className="justify-start" onClick={handleClick} variant="outline">
+    <Button
+      className="justify-start"
+      disabled={disabled}
+      onClick={handleClick}
+      variant="outline"
+    >
       {SCOPE_LABELS[scope]}
     </Button>
   );
 }
 
 export function EditScopeDialog({
+  disabledScopes,
   onOpenChange,
   onSelect,
   open,
@@ -62,7 +72,12 @@ export function EditScopeDialog({
         </DialogHeader>
         <div className="flex flex-col gap-2">
           {scopes.map((scope) => (
-            <ScopeButton key={scope} onSelect={onSelect} scope={scope} />
+            <ScopeButton
+              disabled={disabledScopes?.includes(scope) ?? false}
+              key={scope}
+              onSelect={onSelect}
+              scope={scope}
+            />
           ))}
         </div>
       </DialogContent>

@@ -4,7 +4,6 @@ import {
   type RecurrenceRule,
   type VirtualOccurrence,
 } from "@pi-dash/shared/rrule-expand";
-import { format } from "date-fns";
 
 export interface ExpandedOccurrence {
   date: string;
@@ -47,7 +46,8 @@ export function expandSeriesOccurrences(
     exceptionDates
   );
 
-  const seriesStartDate = format(new Date(startTime), "yyyy-MM-dd");
+  // Occurrence dates are UTC calendar dates, so the series start must be too.
+  const seriesStartDate = new Date(startTime).toISOString().slice(0, 10);
 
   const occurrences: ExpandedOccurrence[] = virtualOccs.map((occ) => ({
     date: occ.date,

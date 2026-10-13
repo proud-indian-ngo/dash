@@ -8,7 +8,10 @@ import {
 } from "@/components/data-table/filter-fields";
 import { useMigrateLegacyFilterParams } from "@/components/data-table/use-migrate-legacy-filter-params";
 import type { EventDisplayRow } from "@/components/teams/events/events-table-helpers";
-import { getEventStatusKey } from "@/components/teams/events/events-table-helpers";
+import {
+  getEventStatusKey,
+  getRowDetails,
+} from "@/components/teams/events/events-table-helpers";
 import { cityOptions } from "@/lib/form-schemas";
 
 const EVENT_STATUS_OPTIONS = [
@@ -38,7 +41,7 @@ export function getEventFilterValue(
   const [key] = path;
   switch (key) {
     case "city":
-      return row.event.city;
+      return getRowDetails(row).city;
     case "members":
       return row.members.length;
     case "programme":
@@ -50,7 +53,7 @@ export function getEventFilterValue(
     case "status":
       return getEventStatusKey(row);
     case "visibility":
-      return row.event.isPublic ? "public" : "private";
+      return getRowDetails(row).isPublic ? "public" : "private";
     default:
       return;
   }

@@ -32,11 +32,16 @@ import { AddMemberDialog } from "@/components/teams/add-member-dialog";
 import type { EditScope } from "@/components/teams/events/edit-scope-dialog";
 import { EditScopeDialog } from "@/components/teams/events/edit-scope-dialog";
 import { EventFormDialog } from "@/components/teams/events/event-form-dialog";
+import {
+  buildRowDuplicateInitialValues,
+  buildRowEditInitialValues,
+} from "@/components/teams/events/event-form-initial-values";
 import type {
   EventDisplayRow,
   EventRow,
 } from "@/components/teams/events/events-table";
 import { EventsTable } from "@/components/teams/events/events-table";
+import { getRowDetails } from "@/components/teams/events/events-table-helpers";
 import { TeamFormDialog } from "@/components/teams/team-form-dialog";
 import { TeamMembersSection } from "@/components/teams/team-members-section";
 import { useApp } from "@/context/app-context";
@@ -62,68 +67,6 @@ type TeamDialog =
   | { type: "createEvent" }
   | { type: "duplicateEvent"; event: EventDisplayRow }
   | { type: "editEvent"; event: EventDisplayRow };
-
-function buildDuplicateInitialValues(row: EventDisplayRow) {
-  return {
-    city: row.event.city,
-    description: row.event.description,
-    endTime: row.endTime,
-    feedbackDeadline: row.event.feedbackDeadline,
-    feedbackEnabled: !!row.event.feedbackEnabled,
-    id: row.eventId,
-    inheritVolunteers: !row.seriesId && !!row.event.inheritVolunteers,
-    isPublic: row.event.isPublic,
-    location: row.event.location,
-    name: `Copy of ${row.event.name}`,
-    postEventNudgesEnabled: row.event.postEventNudgesEnabled,
-    postRsvpPoll: !!row.event.postRsvpPoll,
-    programmeId: row.programmeId,
-    publicArea: row.event.publicArea,
-    recurrenceRule: null,
-    reminderIntervals: row.event.reminderIntervals as number[] | null,
-    reminderTarget: row.event.reminderTarget as string,
-    rsvpPollLeadMinutes: row.event.rsvpPollLeadMinutes,
-    seriesId: null,
-    startTime: row.startTime,
-    whatsappGroupId: null,
-  };
-}
-
-function buildEditInitialValues(
-  row: EventDisplayRow,
-  editScope: EditScope | null
-) {
-  return {
-    city: row.event.city,
-    description: row.event.description,
-    endTime: row.endTime,
-    feedbackDeadline: row.event.feedbackDeadline,
-    feedbackEnabled: !!row.event.feedbackEnabled,
-    id: row.eventId,
-    inheritVolunteers: !!row.event.inheritVolunteers,
-    isPublic: row.event.isPublic,
-    location: row.event.location,
-    name: row.event.name,
-    postEventNudgesEnabled: row.event.postEventNudgesEnabled,
-    postRsvpPoll: !!row.event.postRsvpPoll,
-    // "following" and "all" save to the series parent, so show its programme.
-    programmeId:
-      editScope === "following" || editScope === "all"
-        ? row.event.programmeId
-        : row.programmeId,
-    publicArea: row.event.publicArea,
-    recurrenceRule: row.event.recurrenceRule as {
-      rrule: string;
-      exdates?: string[];
-    } | null,
-    reminderIntervals: row.event.reminderIntervals as number[] | null,
-    reminderTarget: row.event.reminderTarget as string,
-    rsvpPollLeadMinutes: row.event.rsvpPollLeadMinutes,
-    seriesId: row.seriesId,
-    startTime: row.startTime,
-    whatsappGroupId: row.event.whatsappGroupId,
-  };
-}
 
 function useEditEventScope(
   dialog: ReturnType<typeof useDialogManager<TeamDialog>>
@@ -527,7 +470,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
         {/* Duplicate Event Dialog */}
         {duplicateEventData ? (
           <EventFormDialog
-            initialValues={buildDuplicateInitialValues(
+            initialValues={buildRowDuplicateInitialValues(
               duplicateEventData.event
             )}
             mode="create"
@@ -558,7 +501,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
         {editEventData ? (
           <EventFormDialog
             editScope={editScope ?? undefined}
-            initialValues={buildEditInitialValues(
+            initialValues={buildRowEditInitialValues(
               editEventData.event,
               editScope
             )}
@@ -598,7 +541,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
         <ConfirmDialog
           cancelLabel="Keep event"
           confirmLabel="Cancel event"
-          description={`Are you sure you want to cancel "${cancelEvent.payload?.event.name}"? This action cannot be undone and all members will be notified.`}
+          description={`Are you sure you want to cancel "${cancelEvent.payload ? getRowDetails(cancelEvent.payload).name : ""}"? This action cannot be undone and all members will be notified.`}
           loading={cancelEvent.isLoading}
           loadingLabel="Cancelling..."
           onConfirm={cancelEvent.confirm}
