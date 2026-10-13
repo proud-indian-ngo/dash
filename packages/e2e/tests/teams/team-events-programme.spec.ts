@@ -140,4 +140,77 @@ test.describe("Team events programme (admin)", () => {
     await editDialog.getByRole("button", { name: "Cancel" }).click();
     await expect(editDialog).toBeHidden();
   });
+  test("an occurrence edited twice on its own keeps its own name", async ({
+    page,
+  }) => {
+    test.slow();
+    await openSeededTeam(page, SANDBOX_TEAM);
+    const eventName = `E2E Occurrence Name ${Date.now()}`;
+    const renamed = `${eventName} Renamed`;
+    const ownHall = `E2E Own Hall ${Date.now()}`;
+
+    await page.getByRole("button", { name: "Create event" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog
+      .getByRole("textbox", { exact: true, name: "Name" })
+      .fill(eventName);
+    await dialog.getByLabel("Location").fill("E2E Series Hall");
+    await pickDate(dialog, "Start time", new Date(Date.now() + 86_400_000));
+    await openAdvancedSettings(dialog);
+    await dialog.getByText("None (one-time)").click();
+    await page.getByRole("option", { name: "Weekly" }).click();
+    await dialog
+      .getByRole("button", { exact: true, name: "Create event" })
+      .click();
+    await expect(dialog).toBeHidden({ timeout: 10_000 });
+    await waitForToastsToClear(page);
+
+    const table = page.getByRole("table");
+    const seriesRows = table.getByRole("row").filter({ hasText: eventName });
+    const renamedRows = table.getByRole("row").filter({ hasText: renamed });
+    await fillTableSearch(page, "Search events...", eventName);
+    await expect(seriesRows.nth(1)).toBeVisible({ timeout: 10_000 });
+
+    // The first row is the series parent; rename only the next occurrence.
+    await new ListPage(page).openRowActionAndClick(seriesRows.nth(1), "Edit");
+    await page.getByRole("button", { name: "This event only" }).click();
+    const editDialog = page.getByRole("dialog");
+    const nameField = editDialog.getByRole("textbox", {
+      exact: true,
+      name: "Name",
+    });
+    await expect(nameField).toHaveValue(eventName);
+    await nameField.fill(renamed);
+    await editDialog.getByRole("button", { name: "Save changes" }).click();
+    await expect(editDialog).toBeHidden({ timeout: 10_000 });
+    await waitForToastsToClear(page);
+
+    await expect(renamedRows).toHaveCount(1);
+    await expect(seriesRows.first()).not.toContainText(renamed);
+
+    // Editing it again prefills its own name, so changing only the location
+    // keeps the rename.
+    await fillTableSearch(page, "Search events...", renamed);
+    await expect(renamedRows).toHaveCount(1);
+    await new ListPage(page).openRowActionAndClick(renamedRows, "Edit");
+    await page.getByRole("button", { name: "This event only" }).click();
+    await expect(nameField).toHaveValue(renamed);
+    await expect(editDialog.getByLabel("Location")).toHaveValue(
+      "E2E Series Hall"
+    );
+    await editDialog.getByLabel("Location").fill(ownHall);
+    await editDialog.getByRole("button", { name: "Save changes" }).click();
+    await expect(editDialog).toBeHidden({ timeout: 10_000 });
+    await waitForToastsToClear(page);
+
+    await expect(renamedRows).toHaveCount(1);
+    await expect(renamedRows).toContainText(ownHall);
+    await fillTableSearch(page, "Search events...", eventName);
+    await expect(renamedRows).toHaveCount(1);
+    await expect(seriesRows.filter({ hasText: ownHall })).toHaveCount(1);
+
+    await new ListPage(page).openRowActionAndClick(renamedRows, "View");
+    await expect(page).toHaveURL(/\/events\//);
+    await expect(page.getByRole("heading", { name: renamed })).toBeVisible();
+  });
 });

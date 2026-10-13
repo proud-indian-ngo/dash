@@ -99,15 +99,18 @@ export const teamEventQueries = {
     z.object({ teamId: z.string() }),
     ({ args: { teamId }, ctx }) =>
       restrictToAccessibleEvents(
-        // The team page's events table shows and filters by programme. An
-        // edited occurrence can carry its own, so exceptions load it too.
+        // The team page's events table shows and filters by programme, and
+        // its edit form prefills partners. An edited occurrence can carry
+        // its own of both, so exceptions load them too.
         withBaseRelated(zql.teamEvent)
           .related("programme")
+          .related("partners", (p) => p.orderBy("createdAt", "asc"))
           .related("exceptions", (e) =>
             e
               .related("members", (m) => m.related("user"))
               .related("whatsappGroup")
               .related("programme")
+              .related("partners", (p) => p.orderBy("createdAt", "asc"))
           ),
         ctx
       )

@@ -27,6 +27,8 @@ Zero queries filter `seriesId IS NULL` → only series parents + standalone even
 
 `buildEventDisplayRows` (`apps/web/src/components/teams/events/events-table-helpers.tsx`) expands each series over its **own** range: `[event.startTime, ruleUntil ?? callerRangeEnd]`. Bounded series (with `UNTIL`) always render every occurrence regardless of the caller's window; unbounded series are capped by the caller's `rangeEnd`. Exceptions have no upper bound — see "Post-split orphan exceptions" below.
 
+An exception row keeps `event` as the series parent (for `seriesId`, recurrence and edit scopes) and carries the materialized occurrence as `exception`. Name, location, city, visibility, search and filters read `getRowDetails(row)`, which is the occurrence's own record. The edit prefill comes from `event-form-initial-values.ts`, shared with the event page. "This event" prefills the occurrence's own values, and its partners and volunteer target fall back to the series' when it has none. "This and following" and "All events" prefill the series parent's values.
+
 ## Edit/Cancel Scope
 
 Google Calendar-style scope selection ("This event" / "This and following" / "All events"):

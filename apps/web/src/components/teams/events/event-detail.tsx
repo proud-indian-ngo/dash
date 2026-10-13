@@ -75,6 +75,11 @@ import { EventExpenses } from "./event-expenses";
 import { EventFeedbackSection } from "./event-feedback";
 import { EventFormDialog } from "./event-form-dialog";
 import {
+  buildEventDuplicateInitialValues,
+  buildEventEditInitialValues,
+  deriveSocialFacts,
+} from "./event-form-initial-values";
+import {
   PastInterestBadge,
   VolunteerInterestSection,
 } from "./event-interest-section";
@@ -740,23 +745,6 @@ function useEventDetailQueries(
   };
 }
 
-/**
- * Partners and the volunteer target as the social API reports them: an
- * exception row falls back to its series parent when it has none of its own.
- */
-function deriveSocialFacts(event: EventRow, parentEvent: EventRow | undefined) {
-  const own = event.partners ?? [];
-  const inherited = event.seriesId ? (parentEvent?.partners ?? []) : [];
-  return {
-    approvedCount: (event.interests ?? []).filter(
-      (interest) => interest.status === "approved"
-    ).length,
-    partners: own.length > 0 ? own : inherited,
-    volunteersNeeded:
-      event.volunteersNeeded ?? parentEvent?.volunteersNeeded ?? null,
-  };
-}
-
 function SocialRecapStart({ onStart }: { onStart: () => void }) {
   return (
     <Card aria-label="Social recap" role="region" size="sm">
@@ -812,77 +800,6 @@ function deriveEventMetrics(event: EventDetailProps["event"]) {
     | null
     | undefined;
   return { feedbackDeadlinePassed, presentCount, recurrence };
-}
-
-function buildEditInitialValues(
-  event: EventRow,
-  recurrence: { rrule: string; exdates?: string[] } | null | undefined,
-  seriesParent: EventRow | undefined,
-  editScope: EditScope | null
-) {
-  // Prefill what the row shows today, including what an exception inherits.
-  const social = deriveSocialFacts(event, seriesParent);
-  return {
-    city: event.city,
-    description: event.description,
-    endTime: event.endTime,
-    feedbackDeadline: event.feedbackDeadline,
-    feedbackEnabled: !!event.feedbackEnabled,
-    id: event.id,
-    inheritVolunteers: !!event.inheritVolunteers,
-    isPublic: !!event.isPublic,
-    location: event.location,
-    name: event.name,
-    partners: social.partners,
-    postEventNudgesEnabled: event.postEventNudgesEnabled,
-    postRsvpPoll: !!event.postRsvpPoll,
-    // "following" saves to the series parent, so show its programme.
-    programmeId:
-      editScope === "following" && seriesParent
-        ? seriesParent.programmeId
-        : event.programmeId,
-    publicArea: event.publicArea,
-    recurrenceRule: recurrence,
-    reminderIntervals: event.reminderIntervals as number[] | null,
-    reminderTarget: event.reminderTarget as string,
-    rsvpPollLeadMinutes: event.rsvpPollLeadMinutes,
-    seriesId: event.seriesId,
-    startTime: event.startTime,
-    volunteersNeeded: social.volunteersNeeded,
-    whatsappGroupId: event.whatsappGroupId,
-  };
-}
-
-function buildDuplicateInitialValues(
-  event: EventRow,
-  seriesParent: EventRow | undefined
-) {
-  const social = deriveSocialFacts(event, seriesParent);
-  return {
-    city: event.city,
-    description: event.description,
-    endTime: event.endTime,
-    feedbackDeadline: event.feedbackDeadline,
-    feedbackEnabled: !!event.feedbackEnabled,
-    id: event.id,
-    inheritVolunteers: !event.seriesId && !!event.inheritVolunteers,
-    isPublic: !!event.isPublic,
-    location: event.location,
-    name: `Copy of ${event.name}`,
-    partners: social.partners,
-    postEventNudgesEnabled: event.postEventNudgesEnabled,
-    postRsvpPoll: !!event.postRsvpPoll,
-    programmeId: event.programmeId,
-    publicArea: event.publicArea,
-    recurrenceRule: null,
-    reminderIntervals: event.reminderIntervals as number[] | null,
-    reminderTarget: event.reminderTarget as string,
-    rsvpPollLeadMinutes: event.rsvpPollLeadMinutes,
-    seriesId: null,
-    startTime: event.startTime,
-    volunteersNeeded: social.volunteersNeeded,
-    whatsappGroupId: null,
-  };
 }
 
 export function EventDetail({
@@ -1354,7 +1271,7 @@ export function EventDetail({
 
       <EventFormDialog
         editScope={editScope ?? undefined}
-        initialValues={buildEditInitialValues(
+        initialValues={buildEventEditInitialValues(
           editScope === "all" && parentEvent ? parentEvent : event,
           recurrence,
           editScope === "all" ? undefined : parentEvent,
@@ -1369,7 +1286,7 @@ export function EventDetail({
       />
 
       <EventFormDialog
-        initialValues={buildDuplicateInitialValues(event, parentEvent)}
+        initialValues={buildEventDuplicateInitialValues(event, parentEvent)}
         mode="create"
         onOpenChange={dialog.onOpenChange}
         open={dialog.isOpen("duplicate")}

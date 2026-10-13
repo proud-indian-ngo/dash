@@ -11,6 +11,7 @@ import type { EventDisplayRow } from "@/components/teams/events/events-table-hel
 import {
   getEventStatus,
   getRecurrenceLabel,
+  getRowDetails,
   SKELETON_BADGE,
   SKELETON_COUNT,
   SKELETON_DATETIME,
@@ -59,7 +60,7 @@ function EventNameButton({
       onClick={handleClick}
       type="button"
     >
-      {row.event.name}
+      {getRowDetails(row).name}
     </button>
   );
 }
@@ -82,7 +83,8 @@ function EventActionsCell({
   return (
     <EventActionsMenu
       canCancel={
-        canManage && (canCancelPast || row.event.startTime > Date.now())
+        canManage &&
+        (canCancelPast || getRowDetails(row).startTime > Date.now())
       }
       canCreate={canCreate}
       canManage={canManage}
@@ -105,7 +107,7 @@ export function createEventsTableColumns({
 }: ColumnCallbacks): DataGridColumnDef<EventDisplayRow>[] {
   return [
     {
-      accessorFn: (row) => row.event.name,
+      accessorFn: (row) => getRowDetails(row).name,
       cell: ({ row }) => {
         const seriesIcon = getSeriesIcon(row.original);
         return (
@@ -178,10 +180,10 @@ export function createEventsTableColumns({
       size: 180,
     },
     {
-      accessorFn: (row) => row.event.location,
+      accessorFn: (row) => getRowDetails(row).location,
       cell: ({ row }) => (
         <span className="text-muted-foreground truncate text-sm">
-          {row.original.event.location || "\u2014"}
+          {getRowDetails(row.original).location || "\u2014"}
         </span>
       ),
       header: ({ column }) => (
@@ -200,10 +202,10 @@ export function createEventsTableColumns({
       size: 140,
     },
     {
-      accessorFn: (row) => row.event.city,
+      accessorFn: (row) => getRowDetails(row).city,
       cell: ({ row }) => (
         <span className="text-muted-foreground truncate text-sm capitalize">
-          {row.original.event.city || "\u2014"}
+          {getRowDetails(row.original).city || "\u2014"}
         </span>
       ),
       header: ({ column }) => (
@@ -240,9 +242,9 @@ export function createEventsTableColumns({
       size: 160,
     },
     {
-      accessorFn: (row) => row.event.isPublic,
+      accessorFn: (row) => getRowDetails(row).isPublic,
       cell: ({ row }) => (
-        <Tag>{row.original.event.isPublic ? "Public" : "Private"}</Tag>
+        <Tag>{getRowDetails(row.original).isPublic ? "Public" : "Private"}</Tag>
       ),
       enableSorting: false,
       header: ({ column }) => (
