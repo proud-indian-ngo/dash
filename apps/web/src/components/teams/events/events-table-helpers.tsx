@@ -25,6 +25,8 @@ export type EventRow = TeamEvent & {
   exceptions: ReadonlyArray<
     TeamEvent & {
       members: ReadonlyArray<TeamEventMember & { user: User | undefined }>;
+      /** Only the team page's list (`teamEvent.byTeam`) loads it. */
+      programme?: Programme | undefined;
       whatsappGroup: WhatsappGroup | undefined;
     }
   >;
@@ -33,7 +35,7 @@ export type EventRow = TeamEvent & {
   members: ReadonlyArray<TeamEventMember & { user: User | undefined }>;
   /** Only the detail query (`teamEvent.byId`) loads partners. */
   partners?: readonly EventPartner[];
-  /** Only the detail query loads the programme. */
+  /** Loaded by the detail query and the team page's list (`teamEvent.byTeam`). */
   programme?: Programme | undefined;
   whatsappGroup: WhatsappGroup | undefined;
 };
@@ -54,6 +56,10 @@ export interface EventDisplayRow {
   members: ReadonlyArray<TeamEventMember & { user: User | undefined }>;
   /** The original date for this occurrence (for edits/cancels). */
   originalDate: string | null;
+  /** The row's programme: an edited occurrence's own, else the event's. */
+  programme: Programme | undefined;
+  /** Id of `programme`, available before the relation loads. */
+  programmeId: string | null;
   /** The series parent (if this row is part of a series). */
   seriesId: string | null;
   /** The effective start time for display (virtual startTime or real startTime). */
@@ -105,6 +111,8 @@ function expandSeriesEvent(
       key: event.id,
       members: event.members,
       originalDate: null,
+      programme: event.programme,
+      programmeId: event.programmeId,
       seriesId: null,
       startTime: event.startTime,
     });
@@ -121,6 +129,8 @@ function expandSeriesEvent(
       members:
         occ.isSeriesParent || event.inheritVolunteers ? event.members : [],
       originalDate: occ.isSeriesParent ? null : occ.date,
+      programme: event.programme,
+      programmeId: event.programmeId,
       seriesId: occ.isSeriesParent ? null : event.id,
       startTime: occ.startTime,
       virtual: occ.isSeriesParent ? undefined : virtualOcc,
@@ -140,6 +150,8 @@ function expandSeriesEvent(
       key: exc.id,
       members: exc.members,
       originalDate: exc.originalDate,
+      programme: exc.programme,
+      programmeId: exc.programmeId,
       seriesId: event.id,
       startTime: exc.startTime,
     });
@@ -165,6 +177,8 @@ export function buildEventDisplayRows(
         key: event.id,
         members: event.members,
         originalDate: null,
+        programme: event.programme,
+        programmeId: event.programmeId,
         seriesId: null,
         startTime: event.startTime,
       });

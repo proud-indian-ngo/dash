@@ -61,3 +61,21 @@ export async function assertServerPermission(
     throw new Error("Forbidden");
   }
 }
+
+/**
+ * Assert that the session user has at least one of the given permissions, or
+ * throw a 403 Error.
+ */
+export async function assertServerAnyPermission(
+  session: { user: { id: string; role?: string | null } } | null | undefined,
+  permissionIds: readonly PermissionId[]
+): Promise<void> {
+  if (!session) {
+    throw new Error("Unauthorized");
+  }
+  const role = session.user.role ?? "unoriented_volunteer";
+  const permissions = await resolvePermissions(role);
+  if (!permissionIds.some((id) => permissions.includes(id))) {
+    throw new Error("Forbidden");
+  }
+}

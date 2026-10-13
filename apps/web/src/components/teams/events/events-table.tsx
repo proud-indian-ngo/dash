@@ -68,7 +68,7 @@ export function EventsTable({
       emptyMessage="No events found."
       compactOnMobile
       filter={{
-        fields: createEventFilterFields(),
+        fields: createEventFilterFields(displayRows),
         getValue: getEventFilterValue,
       }}
       getRowId={stableGetRowId0}

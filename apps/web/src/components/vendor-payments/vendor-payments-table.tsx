@@ -42,6 +42,7 @@ import { DATE } from "@/lib/date-formats";
 import { formatINR } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { canEditVendorPaymentSubmission } from "@/lib/request-edit-permissions";
+import { requestProgrammeName } from "@/lib/request-programme";
 import { getStatusBadge } from "@/lib/status-badge";
 
 import type { VendorPaymentWithRelations } from "./vendor-payment-types";
@@ -81,6 +82,7 @@ function searchFn(row: VendorPaymentWithRelations, query: string): boolean {
     row.user?.name,
     row.invoiceNumber,
     row.event?.name,
+    row.event?.programme?.name,
   ]
     .join(" ")
     .toLowerCase()
@@ -291,6 +293,29 @@ export function VendorPaymentsTable({
       meta: { headerTitle: "Event", kind: "text", skeleton: SKELETON_TEXT },
       minSize: 120,
       size: 180,
+    },
+    {
+      accessorFn: (row) => requestProgrammeName(row.event),
+      cell: ({ row }) => (
+        <span className="text-muted-foreground truncate text-sm">
+          {requestProgrammeName(row.original.event)}
+        </span>
+      ),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Programme"
+          visibility={true}
+        />
+      ),
+      id: "programme",
+      meta: {
+        headerTitle: "Programme",
+        kind: "text",
+        skeleton: SKELETON_TEXT,
+      },
+      minSize: 120,
+      size: 170,
     },
     {
       accessorFn: (row) => row.user?.name,

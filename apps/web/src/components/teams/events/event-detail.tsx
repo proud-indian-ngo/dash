@@ -815,7 +815,8 @@ function deriveEventMetrics(event: EventDetailProps["event"]) {
 function buildEditInitialValues(
   event: EventRow,
   recurrence: { rrule: string; exdates?: string[] } | null | undefined,
-  seriesParent: EventRow | undefined
+  seriesParent: EventRow | undefined,
+  editScope: EditScope | null
 ) {
   // Prefill what the row shows today, including what an exception inherits.
   const social = deriveSocialFacts(event, seriesParent);
@@ -833,7 +834,11 @@ function buildEditInitialValues(
     partners: social.partners,
     postEventNudgesEnabled: event.postEventNudgesEnabled,
     postRsvpPoll: !!event.postRsvpPoll,
-    programmeId: event.programmeId,
+    // "following" saves to the series parent, so show its programme.
+    programmeId:
+      editScope === "following" && seriesParent
+        ? seriesParent.programmeId
+        : event.programmeId,
     publicArea: event.publicArea,
     recurrenceRule: recurrence,
     reminderIntervals: event.reminderIntervals as number[] | null,
@@ -1350,7 +1355,8 @@ export function EventDetail({
         initialValues={buildEditInitialValues(
           editScope === "all" && parentEvent ? parentEvent : event,
           recurrence,
-          editScope === "all" ? undefined : parentEvent
+          editScope === "all" ? undefined : parentEvent,
+          editScope
         )}
         kalakritiEditionId={kalakritiEditionId}
         onOpenChange={stableOnOpenChange6}

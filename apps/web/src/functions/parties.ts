@@ -5,11 +5,13 @@ import {
   revealPartyIdNumber,
   saveParty,
 } from "@pi-dash/db/queries/party-private";
-import { resolvePermissions } from "@pi-dash/db/queries/resolve-permissions";
 import { createServerFn } from "@tanstack/react-start";
 import z from "zod";
 
-import { assertServerPermission } from "@/lib/api-auth";
+import {
+  assertServerAnyPermission,
+  assertServerPermission,
+} from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
 import { saveDonorSchema } from "@/lib/donor-schema";
 import { authMiddleware } from "@/middleware/auth";
@@ -33,21 +35,11 @@ export const getPartyDetails = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(z.object({ partyId: z.uuid().nullable() }))
   .handler(async ({ context, data }): Promise<PartyDetailsResponse> => {
-    if (!context.session) {
-      throw new Error("Unauthorized");
-    }
     // Managing implies seeing, so a role with only donors.manage can open the form.
-    const permissions = await resolvePermissions(
-      context.session.user.role ?? "unoriented_volunteer"
-    );
-    if (
-      !(
-        permissions.includes("donors.view") ||
-        permissions.includes("donors.manage")
-      )
-    ) {
-      throw new Error("Forbidden");
-    }
+    await assertServerAnyPermission(context.session, [
+      "donors.view",
+      "donors.manage",
+    ]);
     return {
       details: data.partyId ? await getPartyPrivate(data.partyId) : null,
       identifiersAvailable: hasEncryptionKey(),

@@ -13,6 +13,11 @@ import {
   REQUEST_TYPE_LABELS,
   type RequestRow,
 } from "@/lib/reimbursement-types";
+import {
+  requestProgrammeId,
+  requestProgrammeName,
+  requestProgrammeOptionId,
+} from "@/lib/request-programme";
 
 const STATUS_OPTIONS = [
   { label: "Pending", value: "pending" },
@@ -49,6 +54,9 @@ export function getReimbursementFilterValue(
       return isReimbursement(row) ? (row.eventId ?? null) : null;
     case "expenseDate":
       return isReimbursement(row) ? row.expenseDate : null;
+    case "programme":
+      // Advances have no event link, so they sit outside every bucket.
+      return isReimbursement(row) ? requestProgrammeId(row.event) : null;
     case "status":
       return row.status;
     case "submittedAt":
@@ -77,6 +85,18 @@ export function createReimbursementFilterFields(
         (row) => (isReimbursement(row) ? row.eventId : null),
         (row) =>
           isReimbursement(row) ? (row.event?.name ?? row.eventId ?? "") : ""
+      )
+    ),
+    selectField(
+      "programme",
+      "Programme",
+      optionsFromRows(
+        rows,
+        (row) =>
+          isReimbursement(row)
+            ? requestProgrammeOptionId(row.event)
+            : undefined,
+        (row) => (isReimbursement(row) ? requestProgrammeName(row.event) : "")
       )
     ),
     selectField(

@@ -24,6 +24,7 @@ import {
   saveVendor,
   type VendorDetailsResponse,
 } from "@/functions/vendors";
+import { isSaveConflict } from "@/lib/save-conflict";
 import {
   type SaveVendorInput,
   saveVendorSchema,
@@ -70,6 +71,7 @@ function storedHint(last4: string | null, noun: string): string {
 function VendorForm({
   context,
   mode,
+  onConflict,
   onCreated,
   onOpenChange,
   onSaved,
@@ -77,6 +79,8 @@ function VendorForm({
 }: {
   context: VendorDetailsResponse;
   mode: "admin" | "inline";
+  /** Reloads the details after someone else saved the vendor first. */
+  onConflict: () => void;
   onCreated?: (id: string) => void;
   onOpenChange: (open: boolean) => void;
   onSaved?: (id: string) => void;
@@ -126,6 +130,14 @@ function VendorForm({
           component: "VendorFormDialog",
           mode,
         });
+        if (isSaveConflict(error)) {
+          toast.error("Someone else changed this vendor", {
+            description:
+              "The latest details are loaded and your unsaved changes were discarded. Re-enter them and save again.",
+          });
+          onConflict();
+          return;
+        }
         toast.error(
           isEdit ? "Couldn't update vendor" : "Couldn't create vendor",
           {
@@ -295,6 +307,7 @@ export function VendorFormDialog({
         context={state.context}
         key={`${vendorId ?? "new"}-${formKey}`}
         mode={mode}
+        onConflict={retry}
         onCreated={onCreated}
         onOpenChange={onOpenChange}
         onSaved={onSaved}

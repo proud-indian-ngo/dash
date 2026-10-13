@@ -28,14 +28,17 @@ export function restrictToAccessibleEvents<T extends typeof zql.teamEvent>(
   ) as T;
 }
 
-function withRelated(q: typeof zql.teamEvent) {
+function withBaseRelated(q: typeof zql.teamEvent) {
   return q
     .related("members", (m) => m.related("user"))
     .related("whatsappGroup")
-    .related("interests", (i) => i.related("user"))
-    .related("exceptions", (e) =>
-      e.related("members", (m) => m.related("user")).related("whatsappGroup")
-    );
+    .related("interests", (i) => i.related("user"));
+}
+
+function withRelated(q: typeof zql.teamEvent) {
+  return withBaseRelated(q).related("exceptions", (e) =>
+    e.related("members", (m) => m.related("user")).related("whatsappGroup")
+  );
 }
 
 export const teamEventQueries = {
@@ -95,7 +98,19 @@ export const teamEventQueries = {
   byTeam: defineQuery(
     z.object({ teamId: z.string() }),
     ({ args: { teamId }, ctx }) =>
-      restrictToAccessibleEvents(withRelated(zql.teamEvent), ctx)
+      restrictToAccessibleEvents(
+        // The team page's events table shows and filters by programme. An
+        // edited occurrence can carry its own, so exceptions load it too.
+        withBaseRelated(zql.teamEvent)
+          .related("programme")
+          .related("exceptions", (e) =>
+            e
+              .related("members", (m) => m.related("user"))
+              .related("whatsappGroup")
+              .related("programme")
+          ),
+        ctx
+      )
         .where("teamId", teamId)
         .where("cancelledAt", "IS", null)
         .where("seriesId", "IS", null)

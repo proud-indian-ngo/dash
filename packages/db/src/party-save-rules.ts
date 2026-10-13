@@ -1,6 +1,7 @@
-import type {
-  ForeignSourceAssessment,
-  PartyIdType,
+import {
+  type ForeignSourceAssessment,
+  PARTY_SAVE_CONFLICT_PREFIX,
+  type PartyIdType,
 } from "@pi-dash/shared/constants";
 
 /**
@@ -89,7 +90,7 @@ export function resolveSaveMode(
         existingPrivate.updatedAt.getTime() !== input.expectedUpdatedAt);
   if (stale) {
     throw new PartyConflictError(
-      `Someone else changed this ${noun} while you were editing. Reload and try again.`
+      `${PARTY_SAVE_CONFLICT_PREFIX} this ${noun} while you were editing. Reload and try again.`
     );
   }
   return { kind: "update" };

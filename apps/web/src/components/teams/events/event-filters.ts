@@ -3,6 +3,7 @@ import type { FilterField } from "@pi-dash/design-system/components/reui/filters
 import {
   dateField,
   numberField,
+  optionsFromRows,
   selectField,
 } from "@/components/data-table/filter-fields";
 import { useMigrateLegacyFilterParams } from "@/components/data-table/use-migrate-legacy-filter-params";
@@ -40,6 +41,8 @@ export function getEventFilterValue(
       return row.event.city;
     case "members":
       return row.members.length;
+    case "programme":
+      return row.programmeId;
     case "recurrence":
       return row.event.recurrenceRule ? "recurring" : "one-time";
     case "startTime":
@@ -53,12 +56,24 @@ export function getEventFilterValue(
   }
 }
 
-export function createEventFilterFields(): FilterField[] {
+export function createEventFilterFields(
+  rows: readonly EventDisplayRow[]
+): FilterField[] {
   return [
     selectField("status", "Status", EVENT_STATUS_OPTIONS),
     selectField("visibility", "Visibility", EVENT_VISIBILITY_OPTIONS),
     selectField("recurrence", "Recurrence", EVENT_RECURRENCE_OPTIONS),
     selectField("city", "City", cityOptions),
+    selectField(
+      "programme",
+      "Programme",
+      optionsFromRows(
+        rows,
+        // A programme still loading has no label; leave it out until it does.
+        (row) => row.programme?.id,
+        (row) => row.programme?.name ?? ""
+      )
+    ),
     dateField("startTime", "Date/Time"),
     numberField("members", "Volunteers"),
   ];

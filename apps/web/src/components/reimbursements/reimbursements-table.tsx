@@ -47,6 +47,7 @@ import {
   type RequestRow,
 } from "@/lib/reimbursement-types";
 import { canEditRequestSubmission } from "@/lib/request-edit-permissions";
+import { requestProgrammeName } from "@/lib/request-programme";
 import { getStatusBadge } from "@/lib/status-badge";
 
 const TOTAL_COLUMNS = ["total"];
@@ -145,6 +146,7 @@ function searchReimbursement(row: RequestRow, query: string): boolean {
     row.status,
     row.user?.name,
     "event" in row ? row.event?.name : "",
+    "event" in row ? row.event?.programme?.name : "",
     REQUEST_TYPE_LABELS[row.type],
   ]
     .join(" ")
@@ -318,6 +320,34 @@ export function ReimbursementsTable({
       meta: { headerTitle: "Event", kind: "text", skeleton: SKELETON_TYPE },
       minSize: 120,
       size: 180,
+    },
+    {
+      accessorFn: (row) =>
+        isReimbursement(row) ? requestProgrammeName(row.event) : "",
+      cell: ({ row }) => {
+        const r = row.original;
+        // Advances have no event link, so no programme applies.
+        return (
+          <span className="text-muted-foreground truncate text-sm">
+            {isReimbursement(r) ? requestProgrammeName(r.event) : "\u2014"}
+          </span>
+        );
+      },
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Programme"
+          visibility={true}
+        />
+      ),
+      id: "programme",
+      meta: {
+        headerTitle: "Programme",
+        kind: "text",
+        skeleton: SKELETON_TYPE,
+      },
+      minSize: 120,
+      size: 170,
     },
     {
       accessorFn: (row) => row.user?.name,

@@ -77,7 +77,7 @@ function buildDuplicateInitialValues(row: EventDisplayRow) {
     name: `Copy of ${row.event.name}`,
     postEventNudgesEnabled: row.event.postEventNudgesEnabled,
     postRsvpPoll: !!row.event.postRsvpPoll,
-    programmeId: row.event.programmeId,
+    programmeId: row.programmeId,
     publicArea: row.event.publicArea,
     recurrenceRule: null,
     reminderIntervals: row.event.reminderIntervals as number[] | null,
@@ -89,7 +89,10 @@ function buildDuplicateInitialValues(row: EventDisplayRow) {
   };
 }
 
-function buildEditInitialValues(row: EventDisplayRow) {
+function buildEditInitialValues(
+  row: EventDisplayRow,
+  editScope: EditScope | null
+) {
   return {
     city: row.event.city,
     description: row.event.description,
@@ -103,7 +106,11 @@ function buildEditInitialValues(row: EventDisplayRow) {
     name: row.event.name,
     postEventNudgesEnabled: row.event.postEventNudgesEnabled,
     postRsvpPoll: !!row.event.postRsvpPoll,
-    programmeId: row.event.programmeId,
+    // "following" and "all" save to the series parent, so show its programme.
+    programmeId:
+      editScope === "following" || editScope === "all"
+        ? row.event.programmeId
+        : row.programmeId,
     publicArea: row.event.publicArea,
     recurrenceRule: row.event.recurrenceRule as {
       rrule: string;
@@ -551,7 +558,10 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
         {editEventData ? (
           <EventFormDialog
             editScope={editScope ?? undefined}
-            initialValues={buildEditInitialValues(editEventData.event)}
+            initialValues={buildEditInitialValues(
+              editEventData.event,
+              editScope
+            )}
             onOpenChange={stableOnOpenChange6}
             open
             originalDate={editEventData.event.originalDate ?? undefined}

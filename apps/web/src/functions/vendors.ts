@@ -14,7 +14,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { and, eq, inArray } from "drizzle-orm";
 import z from "zod";
 
-import { assertServerPermission } from "@/lib/api-auth";
+import {
+  assertServerAnyPermission,
+  assertServerPermission,
+} from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
 import { canRevealVendorBank, canViewVendorDetails } from "@/lib/vendor-access";
 import { saveVendorSchema } from "@/lib/vendor-schema";
@@ -72,20 +75,16 @@ export const getVendorDetails = createServerFn({ method: "POST" })
     if (!context.session) {
       throw new Error("Unauthorized");
     }
-    const permissions = await permissionsOf(context.session);
     if (data.vendorId === null) {
       // The create form only needs to know whether identifiers can be stored.
-      if (
-        !(
-          permissions.includes("vendors.create") ||
-          permissions.includes("vendors.view_all") ||
-          permissions.includes("vendors.view_approved")
-        )
-      ) {
-        throw new Error("Forbidden");
-      }
+      await assertServerAnyPermission(context.session, [
+        "vendors.create",
+        "vendors.view_all",
+        "vendors.view_approved",
+      ]);
       return { details: null, identifiersAvailable: hasEncryptionKey() };
     }
+    const permissions = await permissionsOf(context.session);
     const row = await findVendor(data.vendorId);
     if (
       !(row && canViewVendorDetails(permissions, context.session.user.id, row))

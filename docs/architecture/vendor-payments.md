@@ -25,7 +25,7 @@ pending → approved → partially_paid → paid → invoice_pending → complet
 
 ## Phase 1 — Payment
 
-1. Volunteer (or admin) creates VP: title, vendor, line items, quotation attachments.
+1. Volunteer (or admin) creates VP: title, vendor, line items, quotation attachments. A payment has no programme of its own: the vendor payments table shows and filters by its event's programme ("No event" without one). A programme on the payment document itself waits for the posting layer in `finance-and-programmes.md`.
 2. Admin approves/rejects VP.
 3. Transactions recorded against VP. Creator is admin → auto-approved. Else → separate approval.
 4. `recalculateParentStatus()` transitions VP: `approved` → `partially_paid` → `paid` based on approved transaction totals vs line item totals.

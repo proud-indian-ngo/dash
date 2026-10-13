@@ -25,6 +25,9 @@ export function reimbursementHeaderMeta(
         {request.event.name}
       </Link>
     ) : null,
+    isReimbursement(request) && request.event?.programme ? (
+      <span key="programme">Programme · {request.event.programme.name}</span>
+    ) : null,
     isReimbursement(request) ? format(request.expenseDate, DATE) : null,
   ];
 }

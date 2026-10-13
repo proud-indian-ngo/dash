@@ -27,7 +27,7 @@ function withRelated(q: typeof zql.vendorPayment) {
   return withBase(q).related("event");
 }
 
-/** Analytics groups spend by the event's programme, so the list projection nests it. */
+/** Analytics, the tables and the request header show the event's programme, so it is nested. */
 function withProgramme(q: typeof zql.vendorPayment) {
   return withBase(q).related("event", (e) => e.related("programme"));
 }
@@ -65,8 +65,8 @@ export const vendorPaymentQueries = {
     }),
     ({ args: { id }, ctx }) =>
       ctx !== null && can(ctx, "requests.view_all")
-        ? withRelated(zql.vendorPayment).where("id", id).one()
-        : withRelated(zql.vendorPayment)
+        ? withProgramme(zql.vendorPayment).where("id", id).one()
+        : withProgramme(zql.vendorPayment)
             .where("id", id)
             .where("userId", ctx?.userId)
             .one()
