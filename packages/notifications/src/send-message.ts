@@ -103,6 +103,7 @@ export async function sendMessage({
       ? sendNotificationEmail({
           body,
           emailHtml,
+          idempotencyKey: `${idempotencyKey}-email`,
           title,
           toEmail: email,
         })
@@ -312,7 +313,13 @@ export async function sendBulkMessage({
         if (!toEmail) {
           return Promise.resolve(false);
         }
-        return sendNotificationEmail({ body, emailHtml, title, toEmail });
+        return sendNotificationEmail({
+          body,
+          emailHtml,
+          idempotencyKey: `${idempotencyKey}-email-${uid}`,
+          title,
+          toEmail,
+        });
       })
     );
     return results.some((r) => r.status === "fulfilled" && r.value);

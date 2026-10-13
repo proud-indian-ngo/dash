@@ -11,19 +11,20 @@
   },
   "scripts": {
     "check:types": "tsc --noEmit --checkers 2",
-    "dev:email": "email dev -p 3100 --dir src/templates"
+    "dev:email": "email dev -p 3100 --dir src/templates",
+    "test:unit": "bun --bun vitest run"
   },
   "dependencies": {
     "@pi-dash/env": "workspace:*",
     "@pi-dash/shared": "workspace:*",
     "@react-email/ui": "^6.11.1",
-    "nodemailer": "^10.1.0",
+    "evlog": "catalog:",
     "react": "catalog:",
-    "react-email": "^6.11.1"
+    "react-email": "^6.11.1",
+    "resend": "^6.32.1"
   },
   "devDependencies": {
     "@pi-dash/config": "workspace:*",
-    "@types/nodemailer": "^8.0.2",
     "@types/react": "catalog:",
     "typescript": "catalog:"
   }

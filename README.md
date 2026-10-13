@@ -18,7 +18,7 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 - **Drizzle ORM** — TypeScript-first ORM with migrations
 - **PostgreSQL** — primary database
 - **WhatsApp** — optional self-hosted WhatsApp gateway via go-whatsapp-web-multidevice
-- **React Email + Nodemailer** — transactional and notification email
+- **React Email + Resend** — transactional and notification email
 - **Zero-synced inbox** — self-owned in-app notifications with real-time sync
 - **Plate** — rich-text editor for event updates (bold, italic, lists, inline images)
 - **Cloudflare R2** — S3-compatible object storage for file attachments
@@ -96,7 +96,7 @@ pi-dash/
 ├── packages/
 │   ├── auth/               # Better-Auth config & admin seed script
 │   ├── db/                 # Drizzle schema, migrations, Docker Compose
-│   ├── email/              # React Email templates + Nodemailer transport
+│   ├── email/              # React Email templates + Resend transport
 │   ├── env/                # Zod-validated env contracts (server + web)
 │   ├── config/             # Shared TypeScript & tooling config
 │   ├── design-system/      # shadcn/ui + reui components, theme provider
@@ -197,15 +197,14 @@ Copy `.env.sample` to `.env`. Required variables:
 | `ZERO_MUTATE_URL` | Zero mutate endpoint URL |
 | `ZERO_QUERY_URL` | Zero query endpoint URL |
 
-### SMTP (email)
+### Email (Resend)
 
 | Variable | Description |
 |---|---|
-| `SMTP_HOST` | SMTP server hostname |
-| `SMTP_PORT` | SMTP port (default `587`) |
-| `SMTP_USER` | SMTP username |
-| `SMTP_PASS` | SMTP password |
-| `SMTP_FROM` | Sender email address |
+| `RESEND_API_KEY` | Resend API key with sending access (required in production; unset skips sending) |
+| `EMAIL_FROM` | Sender email address on a domain verified in Resend (required in production) |
+
+In development both can be left empty: emails are skipped with an `email_not_configured` warning, and verification and password-reset links are logged (`auth_email_not_sent`) so local sign-up still works. To test real delivery, use a separate dev API key and send to `delivered@resend.dev`.
 
 ### Cloudflare R2 (file storage)
 

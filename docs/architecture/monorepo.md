@@ -10,7 +10,7 @@ Turborepo monorepo. Bun package manager.
 | `apps/web` | Full-stack app — React + TanStack Start (SSR, file-based routing) |
 | `packages/auth` | Better Auth config, admin seed script |
 | `packages/db` | Drizzle ORM schema, migrations, Docker Compose (Postgres, WhatsApp) |
-| `packages/email` | React Email templates + Nodemailer transport |
+| `packages/email` | React Email templates + Resend transport |
 | `packages/env` | Zod-validated env contracts (`server.ts`, `web.ts`) via t3-env |
 | `packages/config` | Shared TypeScript & tooling config |
 | `packages/design-system` | shadcn/ui + reui components, theme provider |

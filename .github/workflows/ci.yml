@@ -37,10 +37,6 @@ jobs:
           CORS_ORIGIN=http://localhost:3001
           DATABASE_URL=postgres://postgres:postgres@localhost:5432/ci
           GRAVATAR_API_KEY=ci
-          SMTP_FROM=ci@test.local
-          SMTP_HOST=localhost
-          SMTP_PASS=ci
-          SMTP_USER=ci
           VITE_CDN_URL=http://localhost:3001/cdn
           VITE_ZERO_URL=ws://localhost:4848
           R2_ACCESS_KEY=ci

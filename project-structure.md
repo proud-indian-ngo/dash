@@ -307,12 +307,12 @@ All lib paths above are prefixed with `apps/web/src/`.
 |---|---|
 | `packages/auth/` | `src/index.ts` (auth config), `src/seed-admin.ts` (lightweight admin-only seed), `src/register-event*.ts` (`?eventId=` invite enrollment), `src/register-interest*.ts` (website sign-up interest filed on first email verification, with session materialization), `src/verification-redirect.ts` (event redirect carried through verification emails) |
 | `packages/db/` | `src/kalakriti-orientation.ts` (transactional conditional role promotion and session revocation), `src/schema/` (Drizzle tables), `src/migrations/`, `src/permissions.ts` (code-defined permission registry), `src/queries/resolve-permissions.ts` (resolve user permissions with cache), `src/queries/public-events.ts` (public events feed and register-banner lookups), `src/queries/social-api.ts` and `src/queries/social-api-token.ts` (social API reads, posted log, run reports with 500-row retention, tokens), `src/sync-permissions.ts` (sync permission registry to DB), `docker-compose.yml` (postgres, postgres-test, postgres-migration, whatsapp), `scripts/migrate-legacy-data.ts` |
-| `packages/email/` | `src/mailer.ts` (Nodemailer transport), `src/templates/` (verification-email, reset-password-email) |
+| `packages/email/` | `src/mailer.ts` (Resend transport), `src/templates/` (verification-email, reset-password-email) |
 | `packages/env/` | `src/server.ts` (server env), `src/web.ts` (client env) |
 | `packages/config/` | Shared TypeScript & tooling config |
 | `packages/shared/` | Client-safe constants and types shared across packages (e.g., `cityValues`, `attachmentTypeValues`, `historyActionValues`, `money` paise conversion and formatting, `event-reminders` presets/formatting, `rrule-expand` series expansion) — no heavy dependencies |
 | `packages/design-system/` | `components/ui/` (shadcn), `components/reui/` (custom: data-grid, badge, alert), `hooks/`, `lib/` (theme-provider, utils) |
-| `packages/notifications/` | `src/send/` (reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, user, submission, team, team-event, event-interest, event-update, event-photo, event-feedback, Kalakriti registration, and Kalakriti schedule), `src/send-message.ts` (core send/bulk send), `src/inbox.ts` (DB insert), `src/email.ts` (nodemailer send), `src/topics.ts` (10 topics + `TOPIC_CATALOG`), `src/preferences.ts` (channel preference lookup), `src/helpers.ts` |
+| `packages/notifications/` | `src/send/` (reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, user, submission, team, team-event, event-interest, event-update, event-photo, event-feedback, Kalakriti registration, and Kalakriti schedule), `src/send-message.ts` (core send/bulk send), `src/inbox.ts` (DB insert), `src/email.ts` (Resend send), `src/topics.ts` (10 topics + `TOPIC_CATALOG`), `src/preferences.ts` (channel preference lookup), `src/helpers.ts` |
 | `packages/jobs/` | pg-boss job queue — `src/boss.ts` (singleton), `src/producer.ts` (explicit-target CLI producer without handlers or schedules), `src/enqueue.ts` (typed `enqueue()` + payload types), `src/handlers/` (job handlers), `src/handlers/r2.ts` (shared R2 S3 client), `src/schedules.ts` (cron schedules), `src/handlers/create-handler.ts` (handler factory), `src/lib/` (shared utils: `reminder-sentinel.ts`, `materialize-occurrences.ts`, `rrule-expand.ts` re-export, `weekly-digest-utils.ts`). `send-scheduled-whatsapp` uses a dedicated dead letter queue (`dead-letter-scheduled-whatsapp`) to avoid hijacking the shared `dead-letter` queue. **Cron schedules**: `process-event-reminders` (every 15 min), `process-post-event-reminders` (hourly), `send-weekly-events-digest` (Monday 7 AM IST), `sync-public-events-deploy` (every 5 min, only when `WEBSITE_DISPATCH_TOKEN` is set), plus existing schedules. **Subpath exports**: `@pi-dash/jobs/enqueue` is a lean entry point (payload types + `enqueue()` only, no handler deps) used by mutators; `@pi-dash/jobs` (barrel) is for server-only code. |
 | `packages/observability/` | `src/index.ts` — `withTaskLog()` (retry + evlog for mutator async tasks), `withFireAndForgetLog()` (fire-and-forget with logging) |
 | `packages/pdf/` | Server-side PDF generation using @react-pdf/renderer. `src/cash-voucher.tsx` (cash voucher), `src/kalakriti-id-cards.tsx` (four-per-A4 person cards), `src/kalakriti-id-card-layout.ts` (text fitting), `src/generate-kalakriti-id-cards.tsx` (PDF buffer builder), `assets/` (logos, signature). `scripts/preview-kalakriti-id-cards.ts` generates a five-role sample |
@@ -387,7 +387,7 @@ All lib paths above are prefixed with `apps/web/src/`.
 - **Sending**: Notification functions in `src/send/` (reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, user, submission, team, team-event, event-interest, event-update, event-photo, event-feedback, reminders — pre-event, feedback nudge, attendance, photo upload). Triggered server-side from Zero mutators via `ctx.asyncTasks?.push()` or from pg-boss cron handlers.
 - **Core**: `src/send-message.ts` provides `sendMessage()` and `sendBulkMessage()` with inbox, email, and WhatsApp channels + idempotency keys. `topic` is required on all sends.
 - **Inbox**: `src/inbox.ts` inserts to `notification` DB table (idempotent via unique key). Zero syncs to client in real-time. `NotificationInbox` component in sidebar user menu.
-- **Email**: `src/email.ts` sends via nodemailer with `List-Unsubscribe` header. Uses SMTP config from `packages/env`.
+- **Email**: `src/email.ts` sends via Resend with `List-Unsubscribe` header. Uses Resend config from `packages/env`.
 - **Topics**: 8 granular topics defined in `src/topics.ts` (ACCOUNT, REQUESTS_SUBMISSIONS, REQUESTS_STATUS, TEAMS, EVENTS_SCHEDULE, EVENTS_INTEREST, EVENTS_PHOTOS, EVENTS_FEEDBACK). `TOPIC_CATALOG` provides metadata (description, group, `requiredPermission`) for the settings UI.
 - **Preferences**: Per-topic, per-channel (inbox + email + WhatsApp) toggles stored in `notification_topic_preference` table. Zero mutators (`notificationPreference.upsert`, `notificationPreference.adminUpsert`) handle updates. All preferences checked at send-time from DB. Required topics cannot be disabled (server-side guard). Settings UI filters topics by user permissions via `requiredPermission`.
 - **WhatsApp**: Separate `packages/whatsapp/` package handles gateway client, groups, and messaging; requires `WHATSAPP_API_URL` env var to be set.
@@ -565,7 +565,7 @@ dry-run before disabling public R2/CDN access.
 1. Zero mutator performs data change (e.g., approve reimbursement)
 2. Mutator pushes async task via `ctx.asyncTasks?.push()` on server
 3. `routes/api/zero/mutate.ts` awaits `beforeCommitTasks` inside the transaction, then starts `asyncTasks` as logged fire-and-forget work after commit
-4. Notification function in `packages/notifications/src/send/` inserts to DB (inbox) + sends email via nodemailer
+4. Notification function in `packages/notifications/src/send/` inserts to DB (inbox) + sends email via Resend
 5. Client-side inbox synced in real-time via Zero
 
 ### Structured Logging (evlog)
@@ -620,7 +620,7 @@ Use `mcp__context7__query-docs` with these library IDs to fetch up-to-date docum
 | Biome | `/biomejs/biome` |
 | Turborepo | `/vercel/turborepo` |
 | React Email | `/resend/react-email` |
-| Nodemailer | `/nodemailer/nodemailer` |
+| Resend | `/resend/resend-node` |
 | nuqs | `/47ng/nuqs` |
 | dnd-kit | `/clauderic/dnd-kit` |
 | t3-env | `/t3-oss/t3-env` |
