@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 import { todayInKolkata } from "@pi-dash/shared/income";
 import { MAX_AMOUNT_MESSAGE, MAX_AMOUNT_PAISE } from "@pi-dash/shared/money";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
@@ -7,6 +5,7 @@ import z from "zod";
 
 import { PAN_PATTERN } from "@/lib/donor-schema";
 import type { ImportFieldKey } from "@/lib/income-import/fields";
+import { keyedHash } from "@/lib/income-import/identity";
 import type { CellIssue, NormalizeResult } from "@/lib/income-import/normalize";
 
 import { type NotesField, type NotesKeys, notesKey } from "./notes-keys";
@@ -91,9 +90,6 @@ export function flattenPayment(
   return raw;
 }
 
-const sha256 = (text: string) =>
-  createHash("sha256").update(text, "utf8").digest("hex");
-
 /**
  * Fingerprint of what the donor and Razorpay said about the payment. Refund
  * fields and the notes-key setting are left out, so a later refund or a
@@ -103,7 +99,8 @@ export function razorpayPayloadHash(raw: Readonly<Record<string, string>>) {
   const notes = Object.entries(raw)
     .filter(([key]) => key.startsWith(NOTES_PREFIX))
     .sort(([a], [b]) => a.localeCompare(b));
-  return sha256(
+  return keyedHash(
+    "razorpay-payload",
     JSON.stringify([
       raw.id,
       raw.amount,
@@ -116,10 +113,6 @@ export function razorpayPayloadHash(raw: Readonly<Record<string, string>>) {
       notes,
     ])
   );
-}
-
-export function rawHashOf(raw: Readonly<Record<string, string>>): string {
-  return sha256(JSON.stringify(Object.entries(raw)));
 }
 
 /** India calendar day of a unix-seconds timestamp. */
@@ -224,7 +217,8 @@ export function normalizeRazorpayRow(
   if (raw.currency !== "INR") {
     errors.push({
       field: "amount",
-      message: `Paid in ${raw.currency || "an unknown currency"}; only INR payments import, so record it by hand`,
+      message:
+        "Not paid in INR; only INR payments import, so record it by hand",
     });
     amountPaise = null;
   } else if (amountPaise === null || amountPaise <= 0) {
@@ -304,6 +298,7 @@ export function normalizeRazorpayRow(
       addressLine2: "",
       amountPaise,
       channel: "razorpay",
+      channelFromFile: true,
       city: notes.city,
       country: "IN",
       donationType: "voluntary",

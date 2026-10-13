@@ -13,6 +13,7 @@ import {
   importRowDue,
   neverImported,
   STALE_IMPORTING_MS,
+  apiBatch,
   staleImporting,
   uploadedRowRetention,
 } from "./import-retention";
@@ -204,6 +205,13 @@ describe("import row retention", () => {
     expect(query.sql).toContain('"updated_at" <');
     expect(query.params[0]).toBe("importing");
     expect(STALE_IMPORTING_MS).toBe(24 * 60 * 60 * 1000);
+  });
+
+  it("resets a dead run's Razorpay batch apart from CSV batches", () => {
+    const condition = apiBatch();
+    const query = new PgDialect().sqlToQuery(condition);
+    expect(query.sql).toContain('"source" =');
+    expect(query.params).toEqual(["razorpay_api"]);
   });
 
   it("lets a dead run's batch be retried or expire instead of losing its rows", async () => {

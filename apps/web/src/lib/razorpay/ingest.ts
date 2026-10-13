@@ -16,6 +16,7 @@ import { todayInKolkata } from "@pi-dash/shared/income";
 import { uuidv7 } from "uuidv7";
 
 import { IMPORT_PARSER_VERSION } from "@/lib/income-import/fields";
+import { rawRowHash } from "@/lib/income-import/identity";
 import {
   importStagedRows,
   type StagedRowResult,
@@ -28,7 +29,6 @@ import {
   istDayOf,
   type RazorpayMode,
   type RazorpayPayment,
-  rawHashOf,
   razorpayBatchKey,
   razorpayBatchName,
 } from "./payment";
@@ -70,7 +70,7 @@ export async function stageRazorpayPayment(
   now: Date = new Date()
 ): Promise<StageResult> {
   const raw = flattenPayment(payment);
-  const rawHash = rawHashOf(raw);
+  const rawHash = rawRowHash(raw);
   const day = istDayOf(payment.created_at);
   const key = razorpayBatchKey(mode, day);
   const clearingAccountId = await configuredClearingAccountId();

@@ -69,6 +69,7 @@ mock.module("@pi-dash/db/queries/party-private", () => ({
 }));
 mock.module("@pi-dash/db/queries/income-import", () => ({
   claimImportBatch: noop,
+  countImportBatchRows: noop,
   countImportOutcomes: noop,
   findBatchByFileHash: noop,
   findContributorsByContact: async () => ({

@@ -120,7 +120,9 @@ describe("normalizeRazorpayRow", () => {
 
   it("refuses payments not in INR or not captured", () => {
     const usd = normalize(payment({ currency: "USD" }));
-    expect(usd.errors.map((e) => e.message).join()).toContain("Paid in USD");
+    expect(usd.errors.map((e) => e.message).join()).toContain(
+      "Not paid in INR"
+    );
     expect(usd.row.amountPaise).toBeNull();
     expect(normalize(payment({ status: "refunded" })).errors).toHaveLength(1);
   });

@@ -5,11 +5,11 @@ import { createRequestLogger } from "evlog";
 
 import { razorpaySetup } from "@/lib/razorpay/config";
 import { stageRazorpayPayment } from "@/lib/razorpay/ingest";
-import { sanitizedError } from "@/lib/razorpay/safe-error";
 import {
   routeRazorpayEvent,
   verifyRazorpaySignature,
 } from "@/lib/razorpay/webhook";
+import { databaseErrorFields, sanitizedError } from "@/lib/safe-errors";
 
 const BODY_TIMEOUT_MS = 3000;
 
@@ -49,7 +49,7 @@ export const Route = createFileRoute("/api/razorpay/webhook")({
             }),
           ]);
         } catch (error) {
-          log.error(error instanceof Error ? error : String(error));
+          log.error(sanitizedError(error, "razorpay_webhook_body"));
           log.emit();
           return Response.json(
             { error: "Failed to read webhook body" },
@@ -83,7 +83,7 @@ export const Route = createFileRoute("/api/razorpay/webhook")({
           });
         } catch (error) {
           // Only the settings page's "last received" reads this; carry on.
-          log.set({ lastWebhookAtSaved: false });
+          log.set({ lastWebhookAtSaved: false, ...databaseErrorFields(error) });
           log.error(sanitizedError(error, "razorpay_last_webhook_at"));
         }
 
@@ -112,6 +112,7 @@ export const Route = createFileRoute("/api/razorpay/webhook")({
           return Response.json({ ok: true }, { status: 200 });
         } catch (error) {
           // A 5xx makes Razorpay retry; staging and the job are idempotent.
+          log.set(databaseErrorFields(error));
           log.error(sanitizedError(error, "razorpay_stage_failed"));
           log.emit();
           return Response.json(

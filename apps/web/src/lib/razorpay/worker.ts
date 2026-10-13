@@ -3,9 +3,10 @@ import { withDefaultOutput } from "@pi-dash/jobs/handlers/create-handler";
 import type { RazorpaySyncPaymentPayload } from "@pi-dash/jobs/types";
 import { createRequestLogger } from "evlog";
 
+import { databaseErrorFields, sanitizedError } from "@/lib/safe-errors";
+
 import { razorpaySetup } from "./config";
 import { type SyncOutcome, syncRazorpayPayment } from "./ingest";
-import { sanitizedError } from "./safe-error";
 
 /**
  * Server-only. The `razorpay-sync-payment` worker. It lives in the web app,
@@ -42,7 +43,10 @@ export async function handleRazorpaySyncPayment(
     } catch (error) {
       // pg-boss stores the thrown error, so it gets the sanitised one too.
       const safe = sanitizedError(error, "razorpay_payment_sync_failed");
-      log.set({ event: "razorpay_payment_sync_failed" });
+      log.set({
+        event: "razorpay_payment_sync_failed",
+        ...databaseErrorFields(error),
+      });
       log.error(safe);
       log.emit();
       throw safe;

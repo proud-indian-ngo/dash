@@ -26,13 +26,20 @@ mock.module("@/lib/audit", () => ({
     return await execute();
   },
 }));
+class RazorpaySettingsError extends Error {}
+let saveError: unknown = null;
+
 mock.module("@/lib/razorpay/settings", () => ({
+  RazorpaySettingsError,
   getRazorpaySettingsView: async () => {
     serviceCalls.push("view");
     return { configured: true };
   },
   saveRazorpaySettings: async () => {
     serviceCalls.push("save");
+    if (saveError) {
+      throw saveError;
+    }
     return { attachedBatchCount: 2 };
   },
 }));
@@ -65,6 +72,7 @@ describe("Razorpay settings server functions", () => {
     granted = [];
     audits = [];
     serviceCalls = [];
+    saveError = null;
   });
 
   it("needs finance.view to read and does nothing when denied", async () => {
@@ -99,5 +107,24 @@ describe("Razorpay settings server functions", () => {
         target: { type: "razorpay_settings" },
       },
     ]);
+  });
+
+  it("replaces a query error with a generic one and keeps setting errors", async () => {
+    granted = ["finance.manage"];
+    saveError = Object.assign(
+      new Error('Failed query: update "app_config" params: secret-ish'),
+      { code: "23505" }
+    );
+    const error = await call(fns.updateRazorpaySettings, SAVE).then(
+      () => null,
+      (e: unknown) => e as Error
+    );
+    expect(error?.message).toBe("Razorpay settings couldn't be saved.");
+    expect(error?.cause).toBeUndefined();
+
+    saveError = new RazorpaySettingsError("Choose an active clearing account");
+    await expect(call(fns.updateRazorpaySettings, SAVE)).rejects.toThrow(
+      "Choose an active clearing account"
+    );
   });
 });

@@ -28,7 +28,7 @@ import { importRow } from "./schema/private/imports";
  * Rows of a batch in `importing` are never nulled or deleted: a retry needs
  * them. A batch left `importing` for over a day belongs to a run that died,
  * so it is first reset to `failed`, after which it can be retried or expires
- * like any other failed batch.
+ * like any other failed batch; a Razorpay batch goes back to `completed`.
  *
  * Rows under legal hold are skipped. Contributions, external identities and
  * collection events are never touched here.
@@ -129,6 +129,13 @@ export const staleImporting = (staleBefore: Date) =>
     lt(importBatch.updatedAt, staleBefore)
   );
 
+/**
+ * Razorpay batches: payments keep arriving into them and their rows are kept
+ * like imported ones, so between runs they are always `completed`, and a
+ * dead run's batch goes back to `completed`, never `failed`.
+ */
+export const apiBatch = () => eq(importBatch.source, "razorpay_api");
+
 function statementsFor(tx: RetentionTx): ImportRetentionStatements {
   const unimportedBatchIds = () =>
     tx.select({ id: importBatch.id }).from(importBatch).where(neverImported());
@@ -146,12 +153,17 @@ function statementsFor(tx: RetentionTx): ImportRetentionStatements {
       return deleted.length;
     },
     failStaleImports: async (staleBefore) => {
+      const resumed = await tx
+        .update(importBatch)
+        .set({ status: "completed", updatedAt: new Date() })
+        .where(and(staleImporting(staleBefore), apiBatch()))
+        .returning({ id: importBatch.id });
       const failed = await tx
         .update(importBatch)
         .set({ status: "failed", updatedAt: new Date() })
-        .where(staleImporting(staleBefore))
+        .where(and(staleImporting(staleBefore), not(apiBatch())))
         .returning({ id: importBatch.id });
-      return failed.length;
+      return resumed.length + failed.length;
     },
     markEmptyBatchesExpired: async () => {
       const expired = await tx
