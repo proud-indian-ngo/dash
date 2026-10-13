@@ -27,6 +27,22 @@ export class CsvParseError extends Error {
   }
 }
 
+const NOT_UTF8_MESSAGE =
+  "This file isn't CSV UTF-8. In Excel use Save As → CSV UTF-8.";
+
+/**
+ * A UTF-16 file (Excel's "Unicode Text") read as UTF-8 starts with its byte
+ * order mark turned into replacement characters and has a NUL between every
+ * letter. A NUL also cannot be stored, so any file with one is refused.
+ */
+function isNotUtf8Text(text: string): boolean {
+  return (
+    text.includes("\u0000") ||
+    text.startsWith("\uFFFE") ||
+    text.startsWith("\uFFFD\uFFFD")
+  );
+}
+
 /**
  * Header names made unique and non-empty, so every column can be mapped:
  * a blank header becomes "Column 3", a repeated one "Amount (2)".
@@ -42,12 +58,16 @@ function uniqueHeaders(raw: readonly string[]): string[] {
 }
 
 /**
- * Parses CSV text into header-keyed rows. Handles a byte-order mark, quoted
+ * Parses CSV text into header-keyed rows. Refuses text that is not UTF-8
+ * (see isNotUtf8Text). Handles a byte-order mark, quoted
  * commas and newlines, and comma, semicolon or tab delimiters; skips blank
  * lines. Both the browser (for the mapping preview) and the server (the copy
  * that is stored) call it, so they always agree.
  */
 export function parseCsv(text: string): ParsedCsv {
+  if (isNotUtf8Text(text)) {
+    throw new CsvParseError(NOT_UTF8_MESSAGE);
+  }
   const input = text.startsWith("﻿") ? text.slice(1) : text;
   const data: string[][] = [];
   const quoteErrors = new Set<number>();

@@ -19,6 +19,7 @@ import {
 } from "@/lib/donor-schema";
 
 import {
+  DATE_FORMAT_LABELS,
   IGNORE_FIELD,
   IMPORT_FIELD_KEYS,
   type ImportDateFormat,
@@ -101,7 +102,7 @@ export function parseAmount(
   const grouped =
     INDIAN_GROUPED.test(cleaned) || INTERNATIONAL_GROUPED.test(cleaned);
   if (!(grouped || PLAIN_NUMBER.test(cleaned))) {
-    return { error: `"${text}" is not an amount` };
+    return { error: "Amount is not a number; write it like 1,00,000.50" };
   }
   const paise = tryRupeesToPaise(cleaned.replaceAll(",", ""));
   if (paise === null) {
@@ -168,7 +169,9 @@ export function parseDate(
   if (value === "") {
     return { error: "Date is missing" };
   }
-  const invalid = { error: `"${text}" is not a date` };
+  const invalid = {
+    error: `Received on is not a date; use ${DATE_FORMAT_LABELS[format]}`,
+  };
   let parts: [number, number, number] | null = null;
   const named = DAY_MONTH_NAME.exec(value);
   const monthFirst = MONTH_NAME_DAY.exec(value);
@@ -188,7 +191,8 @@ export function parseDate(
     } else if (c.length === 4) {
       if (format === "ymd") {
         return {
-          error: `"${text}" is not Year-Month-Day; check the date format`,
+          error:
+            "Received on is not Year-Month-Day (2026-03-31); check the date format",
         };
       }
       parts =
@@ -196,7 +200,7 @@ export function parseDate(
           ? [Number(c), Number(a), Number(b)]
           : [Number(c), Number(b), Number(a)];
     } else {
-      return { error: `"${text}" needs a four-digit year` };
+      return { error: "Received on needs a four-digit year" };
     }
   }
   if (!parts) {
@@ -324,7 +328,8 @@ function resolveIdentifier(
     if (!idType || idType === "none") {
       warnings.push({
         field: "idType",
-        message: `Unknown ID type "${typeText}"; the donor is saved without an ID`,
+        message:
+          "Unknown ID type; use PAN, passport, voter ID, driving licence, ration card or foreign tax ID. The donor is saved without an ID",
       });
       return none;
     }
@@ -389,7 +394,8 @@ export function normalizeRow(
     } else {
       errors.push({
         field: "donationType",
-        message: `Unknown donation type "${get("donationType")}"; use voluntary, corpus, specific grant or CSR`,
+        message:
+          "Unknown donation type; use voluntary, corpus, specific grant or CSR",
       });
     }
   }
@@ -404,7 +410,8 @@ export function normalizeRow(
     } else {
       errors.push({
         field: "channel",
-        message: `Unknown channel "${get("channel")}"; use UPI, NEFT, cheque, cash, Razorpay or give.do`,
+        message:
+          "Unknown channel; use UPI, NEFT, cheque, cash, Razorpay or give.do",
       });
     }
   }
@@ -436,7 +443,7 @@ export function normalizeRow(
     } else {
       errors.push({
         field: "country",
-        message: `Unknown country "${countryText}"; use a two-letter code such as IN`,
+        message: "Unknown country; use a two-letter code such as IN",
       });
     }
   }
@@ -542,13 +549,26 @@ export function maskIdentifier(idNumber: string): string | null {
   return idNumber.length >= 8 ? `••••${idNumber.slice(-4)}` : null;
 }
 
-// A PAN anywhere in a value, also with spaces inside or in lower case.
-const PAN_ANYWHERE = /[a-z]{5}\s*\d{4}\s*[a-z]/gi;
+// A PAN anywhere in a value, also in lower case or with spaces or hyphens inside.
+const PAN_ANYWHERE = /[a-z]{5}[\s-]*\d{4}[\s-]*[a-z]/gi;
+// Twelve digits on their own, run together or in 4-4-4 groups split by a
+// space or hyphen: Aadhaar-shaped.
+const TWELVE_DIGITS_ANYWHERE = /(?<!\d)\d{4}[\s-]?\d{4}[\s-]?\d{4}(?!\d)/g;
+
+const lastFour = (value: string) =>
+  maskIdentifier(value.replaceAll(/[\s-]/g, "").toUpperCase()) ?? "••••";
 
 /** Masks every PAN-shaped run in `text` to its last four characters. */
-export function maskPans(text: string): string {
-  return text.replace(
-    PAN_ANYWHERE,
-    (pan) => maskIdentifier(pan.replaceAll(/\s/g, "").toUpperCase()) ?? "••••"
-  );
+function maskPans(text: string): string {
+  return text.replace(PAN_ANYWHERE, lastFour);
+}
+
+/** Masks every Aadhaar-shaped run of twelve digits in `text` to its last four. */
+function maskTwelveDigits(text: string): string {
+  return text.replace(TWELVE_DIGITS_ANYWHERE, lastFour);
+}
+
+/** A value for display: PAN- and Aadhaar-shaped runs reduced to their last four characters. */
+export function maskIdentifiers(text: string): string {
+  return maskTwelveDigits(maskPans(text));
 }

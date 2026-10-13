@@ -17,8 +17,10 @@ import type { NormalizedRow } from "./normalize";
  * Row hashes are keyed (HMAC-SHA256 under a key derived from
  * DATA_ENCRYPTION_KEY), so a stored hash cannot be checked against guessed
  * names, amounts or PANs without the key. Each stored value carries the
- * scheme as a prefix ("h1:"); a new key or algorithm gets a new prefix, and
- * lookups can then compute both while old rows age out.
+ * scheme as a prefix ("h1:"); the prefix names the algorithm, not the key.
+ * A different key (the BETTER_AUTH_SECRET fallback replaced by
+ * DATA_ENCRYPTION_KEY, or a new DATA_ENCRYPTION_KEY) changes every hash:
+ * see "Import hashes and the key" in docs/architecture/finance-and-programmes.md.
  */
 
 const IMPORT_HASH_SCHEME = "h1";

@@ -33,6 +33,7 @@ import type {
   ImportBatchSource,
 } from "@pi-dash/shared/constants";
 import { defaultReportingMode, todayInKolkata } from "@pi-dash/shared/income";
+import { createRequestLogger } from "evlog";
 import { uuidv7 } from "uuidv7";
 
 import { saveDonorSchema } from "@/lib/donor-schema";
@@ -66,12 +67,13 @@ import {
   type CellIssue,
   donorSaveInput,
   maskIdentifier,
-  maskPans,
+  maskIdentifiers,
   type NormalizeResult,
   normalizeRow,
 } from "./normalize";
 import {
   CSV_ROW_ISSUE_MESSAGES,
+  CsvParseError,
   type CsvRowIssue,
   type ParsedCsv,
 } from "./parse-csv";
@@ -104,6 +106,83 @@ export class ImportInputError extends Error {
   }
 }
 
+export const IMPORT_SAVE_FAILED_MESSAGE =
+  "The import couldn't be saved. Nothing was changed.";
+export const IMPORT_LOAD_FAILED_MESSAGE = "The import couldn't be loaded.";
+
+const SQLSTATE = /^[0-9A-Z]{5}$/;
+const DB_NAME = /^[a-z_][a-z0-9_]{0,62}$/i;
+
+/**
+ * What can be logged about a failed query: the Postgres error code and the
+ * names of the constraint and table, read from the error or its cause. A
+ * query error's message carries the statement's parameters, which here are
+ * row cells, so the message, detail and params are never read.
+ */
+function databaseErrorFields(error: unknown): Record<string, string> {
+  const fields: Record<string, string> = {};
+  let current: unknown = error;
+  for (let depth = 0; depth < 4 && current instanceof Object; depth += 1) {
+    const e = current as Record<string, unknown>;
+    for (const candidate of [e.errno, e.code]) {
+      if (
+        !fields.sqlState &&
+        typeof candidate === "string" &&
+        SQLSTATE.test(candidate)
+      ) {
+        fields.sqlState = candidate;
+      }
+    }
+    for (const name of ["constraint", "table"] as const) {
+      const value = e[name];
+      if (!fields[name] && typeof value === "string" && DB_NAME.test(value)) {
+        fields[name] = value;
+      }
+    }
+    current = e.cause;
+  }
+  return fields;
+}
+
+/**
+ * Runs one step of an import and lets only messages written for the user
+ * through. Anything else, typically a query error quoting row cells, is
+ * logged by code and constraint only and replaced by a generic error with
+ * no cause, so neither the logs, the audit runner nor the browser sees it.
+ */
+async function withSafeErrors<T>(
+  step: "create" | "review" | "run" | "detail",
+  batchId: string,
+  work: () => Promise<T>
+): Promise<T> {
+  try {
+    return await work();
+  } catch (error) {
+    if (error instanceof ImportInputError || error instanceof CsvParseError) {
+      throw error;
+    }
+    const safe = new Error(
+      step === "detail"
+        ? IMPORT_LOAD_FAILED_MESSAGE
+        : IMPORT_SAVE_FAILED_MESSAGE
+    );
+    const log = createRequestLogger({ method: "POST", path: "income-import" });
+    log.set({
+      batchId,
+      errorName:
+        error instanceof Error && DB_NAME.test(error.name)
+          ? error.name
+          : typeof error,
+      event: "import_step_failed",
+      step,
+      ...databaseErrorFields(error),
+    });
+    log.error(safe);
+    log.emit();
+    throw safe;
+  }
+}
+
 export interface CreateBatchInput {
   csv: string;
   defaultChannel: ContributionChannel;
@@ -121,10 +200,23 @@ export async function createImportBatch(
   parsed: ParsedCsv,
   actorId: string
 ): Promise<CreateBatchResponse> {
+  const batchId = uuidv7();
+  return await withSafeErrors(
+    "create",
+    batchId,
+    async () => await storeImportBatch(batchId, input, parsed, actorId)
+  );
+}
+
+async function storeImportBatch(
+  batchId: string,
+  input: CreateBatchInput,
+  parsed: ParsedCsv,
+  actorId: string
+): Promise<CreateBatchResponse> {
   const settings = await resolveImportSettings(input);
   const now = new Date();
   const today = todayInKolkata(now);
-  const batchId = uuidv7();
   const hash = fileHash(input.csv);
   const mapping = suggestMapping(
     parsed.headers,
@@ -331,17 +423,18 @@ async function classifyBatch(
 
 const maskIssue = (issue: CellIssue): CellIssue => ({
   ...issue,
-  message: maskPans(issue.message),
+  message: maskIdentifiers(issue.message),
 });
 
-/** A cell value for the browser: never a whole PAN, wherever it sits. */
-const shown = (value: string | undefined) => (value ? maskPans(value) : null);
+/** A cell value for the browser: never a whole PAN or Aadhaar-shaped number, wherever it sits. */
+const shown = (value: string | undefined) =>
+  value ? maskIdentifiers(value) : null;
 
 /**
  * One row for the review and batch pages. Names, emails and references are
  * shown to donor viewers as in the Donors directory; identifiers only ever
- * as their last four characters, and any PAN-shaped text in another cell or
- * message is masked the same way.
+ * as their last four characters, and any PAN- or Aadhaar-shaped text in
+ * another cell or message is masked the same way.
  */
 function toRowView(
   row: ClassifiedRow,
@@ -441,6 +534,14 @@ export interface ReviewInput {
 export async function reviewImportBatch(
   input: ReviewInput
 ): Promise<ReviewResponse> {
+  return await withSafeErrors(
+    "review",
+    input.batchId,
+    async () => await saveReview(input)
+  );
+}
+
+async function saveReview(input: ReviewInput): Promise<ReviewResponse> {
   const batch = await requireBatch(input.batchId);
   if (batch.status === "importing") {
     throw new ImportInputError("This batch is importing right now");
@@ -478,7 +579,7 @@ const maskIdSample = (value: string) =>
 /**
  * Column headers with up to three sample values, for continuing the mapping.
  * Values of a column mapped (or that would be auto-mapped) to the ID number
- * are masked, and so is any PAN-shaped value in another column.
+ * are masked, and so is any PAN- or Aadhaar-shaped value in another column.
  */
 function columnSamples(
   batch: ImportBatchRow,
@@ -496,7 +597,7 @@ function columnSamples(
         .map((r) => r.raw?.[header] ?? "")
         .filter(Boolean)
         .slice(0, 3)
-        .map((value) => (isId ? maskIdSample(value) : maskPans(value))),
+        .map((value) => (isId ? maskIdSample(value) : maskIdentifiers(value))),
     };
   });
 }
@@ -508,6 +609,17 @@ function columnSamples(
  * something left to import, and never to donor viewers.
  */
 export async function getImportBatchDetail(
+  batchId: string,
+  access: { canManage: boolean }
+): Promise<BatchDetailResponse> {
+  return await withSafeErrors(
+    "detail",
+    batchId,
+    async () => await loadBatchDetail(batchId, access)
+  );
+}
+
+async function loadBatchDetail(
   batchId: string,
   access: { canManage: boolean }
 ): Promise<BatchDetailResponse> {
@@ -574,6 +686,17 @@ async function createDonor(
  * is, and a retry processes whatever is still unresolved.
  */
 export async function runImportBatch(
+  input: { batchId: string; decisions: Record<string, RowDecision> },
+  actorId: string
+): Promise<RunResponse> {
+  return await withSafeErrors(
+    "run",
+    input.batchId,
+    async () => await runClaimedBatch(input, actorId)
+  );
+}
+
+async function runClaimedBatch(
   input: { batchId: string; decisions: Record<string, RowDecision> },
   actorId: string
 ): Promise<RunResponse> {

@@ -8,14 +8,19 @@ import {
   IMPORT_RUN_LOCK,
   type ImportRetentionStatements,
   type ImportRetentionStore,
+  importedAndIdle,
   importedRowRetention,
   importRowDue,
+  neverImported,
+  STALE_IMPORTING_MS,
+  staleImporting,
   uploadedRowRetention,
 } from "./import-retention";
 
 function fakeStore(counts: {
   deleted: number;
   expired: number;
+  failed?: number;
   nulled: number;
 }) {
   const calls: string[] = [];
@@ -23,6 +28,10 @@ function fakeStore(counts: {
     deleteUnimportedRows: async (today) => {
       calls.push(`delete:${today}`);
       return counts.deleted;
+    },
+    failStaleImports: async (staleBefore) => {
+      calls.push(`fail:${staleBefore.toISOString()}`);
+      return counts.failed ?? 0;
     },
     markEmptyBatchesExpired: async () => {
       calls.push("expire");
@@ -83,16 +92,24 @@ describe("import row retention", () => {
     });
   });
 
-  it("nulls imported rows, deletes never-imported rows, then marks emptied batches expired", async () => {
-    const { calls, store } = fakeStore({ deleted: 4, expired: 1, nulled: 7 });
-    const result = await expireImportRows("2026-10-13", store);
+  it("fails dead runs, nulls imported rows, deletes never-imported rows, then marks emptied batches expired", async () => {
+    const { calls, store } = fakeStore({
+      deleted: 4,
+      expired: 1,
+      failed: 1,
+      nulled: 7,
+    });
+    const now = new Date("2026-10-13T06:00:00Z");
+    const result = await expireImportRows("2026-10-13", store, now);
     expect(result).toEqual({
       deletedRows: 4,
       expiredBatches: 1,
+      failedStaleBatches: 1,
       nulledRows: 7,
     });
     expect(calls).toEqual([
       "lock",
+      `fail:${new Date(now.getTime() - STALE_IMPORTING_MS).toISOString()}`,
       "null:2026-10-13",
       "delete:2026-10-13",
       "expire",
@@ -118,6 +135,7 @@ describe("import row retention", () => {
         await lock(
           async () =>
             await work({
+              failStaleImports: async () => 0,
               deleteUnimportedRows: async () => {
                 if (batch.status !== "failed" || batch.importedCount > 0) {
                   return 0;
@@ -152,8 +170,81 @@ describe("import row retention", () => {
     expect(await expireImportRows("2026-10-13", store)).toEqual({
       deletedRows: 0,
       expiredBatches: 0,
+      failedStaleBatches: 0,
       nulledRows: 0,
     });
+  });
+
+  it("never nulls or deletes rows of a batch that is importing", () => {
+    const dialect = new PgDialect();
+    const imported = importedAndIdle();
+    const unimported = neverImported();
+    if (!(imported && unimported)) {
+      throw new Error("Expected conditions");
+    }
+    const nulling = dialect.sqlToQuery(imported);
+    expect(nulling.sql).toContain('"status" <>');
+    expect(nulling.params).toContain("importing");
+    // Deletion only ever looks at draft, reviewed and failed batches.
+    const deleting = dialect.sqlToQuery(unimported);
+    expect(deleting.params).not.toContain("importing");
+    expect(deleting.params).toEqual(
+      expect.arrayContaining(["draft", "reviewed", "failed"])
+    );
+  });
+
+  it("treats a batch importing since before the cutoff as a dead run", () => {
+    const cutoff = new Date("2026-10-12T06:00:00Z");
+    const condition = staleImporting(cutoff);
+    if (!condition) {
+      throw new Error("Expected a condition");
+    }
+    const query = new PgDialect().sqlToQuery(condition);
+    expect(query.sql).toContain('"status" =');
+    expect(query.sql).toContain('"updated_at" <');
+    expect(query.params[0]).toBe("importing");
+    expect(STALE_IMPORTING_MS).toBe(24 * 60 * 60 * 1000);
+  });
+
+  it("lets a dead run's batch be retried or expire instead of losing its rows", async () => {
+    // Crashed mid-run 30 days ago: status stuck at importing, nothing imported.
+    const batch = { importedCount: 0, status: "importing" as string };
+    const rows = new Map([["r1", { raw: "cells" as string | null }]]);
+    const store: ImportRetentionStore = {
+      locked: async (work) =>
+        await work({
+          deleteUnimportedRows: async () => {
+            if (batch.status !== "failed" || batch.importedCount > 0) {
+              return 0;
+            }
+            const n = rows.size;
+            rows.clear();
+            return n;
+          },
+          failStaleImports: async () => {
+            if (batch.status !== "importing") {
+              return 0;
+            }
+            batch.status = "failed";
+            return 1;
+          },
+          markEmptyBatchesExpired: async () => 0,
+          nullImportedRaw: async () => {
+            if (batch.status === "importing" || batch.importedCount === 0) {
+              return 0;
+            }
+            for (const row of rows.values()) {
+              row.raw = null;
+            }
+            return rows.size;
+          },
+        }),
+    };
+    const result = await expireImportRows("2026-11-30", store);
+    expect(result.failedStaleBatches).toBe(1);
+    expect(result.nulledRows).toBe(0);
+    expect(batch.status).toBe("failed");
+    expect(result.deletedRows).toBe(1);
   });
 
   it("only treats rows past their date and not under legal hold as due", () => {

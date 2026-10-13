@@ -6,6 +6,8 @@ const BATCH = "0190a000-0000-7000-8000-000000000001";
 
 let status = "completed";
 let outcomes: string[] = [];
+let insertBatch: () => Promise<void> = async () => undefined;
+const logged: unknown[] = [];
 
 const batchRow = () => ({
   dateFormat: "dmy",
@@ -44,6 +46,15 @@ const rawRows = () => [
 
 const noop = async () => undefined;
 
+mock.module("evlog", () => ({
+  createRequestLogger: () => ({
+    emit: () => undefined,
+    error: (value: unknown) => logged.push({ error: value }),
+    set: (fields: Record<string, unknown>) => logged.push(fields),
+    warn: (value: unknown) => logged.push({ warn: value }),
+  }),
+}));
+
 mock.module("@pi-dash/db/import-retention", () => ({
   importedRowRetention: () => ({}),
   uploadedRowRetention: () => ({}),
@@ -63,7 +74,7 @@ mock.module("@pi-dash/db/queries/income-import", () => ({
   findDuplicateCandidates: async () => [],
   findExternalIdentities: async () => [],
   getImportBatch: async () => batchRow(),
-  insertImportBatch: noop,
+  insertImportBatch: async () => await insertBatch(),
   insertImportedContribution: noop,
   latestImportMapping: noop,
   listImportRows: async () =>
@@ -76,14 +87,98 @@ mock.module("@pi-dash/db/queries/income-import", () => ({
       rowNumber: index + 1,
     })),
   recordImportCollectionEvent: noop,
-  resolveImportSettings: noop,
+  resolveImportSettings: async () => ({ programmeId: null }),
   setImportRowOutcome: noop,
   setImportRowsRetention: noop,
   updateImportBatch: noop,
   withImportTransaction: noop,
 }));
 
-const { getImportBatchDetail } = await import("./server");
+const { DrizzleQueryError } = await import("drizzle-orm/errors");
+const {
+  createImportBatch,
+  getImportBatchDetail,
+  IMPORT_SAVE_FAILED_MESSAGE,
+  ImportInputError,
+} = await import("./server");
+const { parseCsv } = await import("./parse-csv");
+
+describe("createImportBatch errors", () => {
+  const csv = `Name,Amount,PAN\nAsha,100,${PAN}\n`;
+  const input = {
+    csv,
+    defaultChannel: "upi" as const,
+    fileName: "gifts.csv",
+    fundId: "0190a000-0000-7000-8000-0000000000f1",
+    orgAccountId: "0190a000-0000-7000-8000-0000000000aa",
+    programmeId: null,
+    projectId: null,
+    source: "generic_csv" as const,
+  };
+
+  beforeEach(() => {
+    logged.length = 0;
+  });
+
+  it("replaces a query error quoting row cells with a generic one, and logs codes only", async () => {
+    const driverError = Object.assign(
+      new Error(`invalid input syntax: "${PAN}"`),
+      {
+        code: "ERR_POSTGRES_SERVER_ERROR",
+        constraint: "import_row_batch_id_fkey",
+        detail: `Key (raw)=(${PAN}) is bad`,
+        errno: "22P05",
+        name: "PostgresError",
+        table: "import_row",
+      }
+    );
+    const queryError = new DrizzleQueryError(
+      "insert into private.import_row (raw) values ($1, $2)",
+      ["Asha", PAN],
+      driverError
+    );
+    expect(queryError.message).toContain(PAN);
+    insertBatch = async () => {
+      throw queryError;
+    };
+    const error = await createImportBatch(input, parseCsv(csv), "user-1").then(
+      () => null,
+      (e: unknown) => e
+    );
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toBe(IMPORT_SAVE_FAILED_MESSAGE);
+    expect((error as Error).cause).toBeUndefined();
+    expect(String((error as Error).stack)).not.toContain(PAN);
+
+    const payload = JSON.stringify(logged, (_key, value) =>
+      value instanceof Error
+        ? { message: value.message, stack: value.stack }
+        : value
+    );
+    expect(payload).not.toContain(PAN);
+    expect(payload).not.toContain("params");
+    expect(payload).not.toContain("Failed query");
+    expect(logged).toContainEqual(
+      expect.objectContaining({
+        constraint: "import_row_batch_id_fkey",
+        event: "import_step_failed",
+        sqlState: "22P05",
+        step: "create",
+        table: "import_row",
+      })
+    );
+  });
+
+  it("lets errors written for the user through unchanged", async () => {
+    insertBatch = async () => {
+      throw new ImportInputError("Choose an active fund");
+    };
+    await expect(
+      createImportBatch(input, parseCsv(csv), "user-1")
+    ).rejects.toThrow("Choose an active fund");
+    expect(logged).toEqual([]);
+  });
+});
 
 describe("getImportBatchDetail", () => {
   beforeEach(() => {

@@ -5,7 +5,7 @@ import { saveDonorSchema } from "@/lib/donor-schema";
 import { checkMapping, IGNORE_FIELD, suggestMapping } from "./fields";
 import {
   donorSaveInput,
-  maskPans,
+  maskIdentifiers,
   normalizeRow,
   parseAmount,
   parseDate,
@@ -51,6 +51,20 @@ describe("parseCsv", () => {
   it("refuses files without data rows", () => {
     expect(() => parseCsv("Name,Amount\n")).toThrow(CsvParseError);
     expect(() => parseCsv("")).toThrow(CsvParseError);
+  });
+
+  it("refuses a file with a NUL or a UTF-16 byte order mark", () => {
+    const message =
+      "This file isn't CSV UTF-8. In Excel use Save As → CSV UTF-8.";
+    expect(() => parseCsv("Name,Amount\nAsha\u0000,100")).toThrow(message);
+    // Excel "Unicode Text" (UTF-16 LE) decoded as UTF-8.
+    const utf16 = new TextDecoder("utf-8").decode(
+      new Uint8Array([0xff, 0xfe, 0x4e, 0x00, 0x61, 0x00, 0x0a, 0x00])
+    );
+    expect(() => parseCsv(utf16)).toThrow(message);
+    expect(() => parseCsv("\uFFFEName,Amount\nAsha,100")).toThrow(
+      CsvParseError
+    );
   });
 
   it("samples the first non-empty values", () => {
@@ -295,12 +309,58 @@ describe("normalizeRow", () => {
       "receivedOn",
     ]);
   });
+
+  it("never quotes a cell in an error or warning", () => {
+    const cells = {
+      Amount: "Asha 9876543210",
+      Channel: "ABCDE1234F",
+      Country: "Mumbai 400001",
+      Date: "12 Main Road",
+      Email: "",
+      IdType: "secret-type",
+      Name: "Asha",
+      PAN: "X1",
+      Phone: "",
+      Type: "Flat 4B",
+    };
+    const result = normalizeRow(
+      cells,
+      { ...mapping, Country: "country", IdType: "idType" },
+      options
+    );
+    const messages = [...result.errors, ...result.warnings]
+      .map((issue) => issue.message)
+      .join("\n");
+    expect(result.errors.length).toBeGreaterThanOrEqual(4);
+    for (const value of Object.values(cells).filter((v) => v.length > 2)) {
+      if (value !== "Asha") {
+        expect(messages).not.toContain(value);
+      }
+    }
+    expect(parseDate("31/31/2026", "dmy")).toEqual({
+      error: "Received on is not a date; use Day/Month/Year (31/03/2026)",
+    });
+    expect(parseAmount("12 Main Road")).toEqual({
+      error: "Amount is not a number; write it like 1,00,000.50",
+    });
+  });
 });
 
-describe("maskPans", () => {
+describe("maskIdentifiers", () => {
   it("masks PAN-shaped text anywhere, in any case or spacing", () => {
-    expect(maskPans("ABCDE1234F")).toBe("••••234F");
-    expect(maskPans("pan: abcde 1234 f, ok")).toBe("pan: ••••234F, ok");
-    expect(maskPans("UTR 123456")).toBe("UTR 123456");
+    expect(maskIdentifiers("ABCDE1234F")).toBe("••••234F");
+    expect(maskIdentifiers("pan: abcde 1234 f, ok")).toBe("pan: ••••234F, ok");
+    expect(maskIdentifiers("ABCDE-1234-F")).toBe("••••234F");
+    expect(maskIdentifiers("abcde - 1234 - f")).toBe("••••234F");
+    expect(maskIdentifiers("UTR 123456")).toBe("UTR 123456");
+  });
+
+  it("masks Aadhaar-shaped runs of twelve digits", () => {
+    expect(maskIdentifiers("1234 5678 9012")).toBe("••••9012");
+    expect(maskIdentifiers("id 1234-5678-9012.")).toBe("id ••••9012.");
+    expect(maskIdentifiers("123456789012")).toBe("••••9012");
+    // Not twelve digits on their own: phone numbers and longer references.
+    expect(maskIdentifiers("+91 98765 43210")).toBe("+91 98765 43210");
+    expect(maskIdentifiers("1234567890123")).toBe("1234567890123");
   });
 });

@@ -87,7 +87,7 @@ test.describe("Income: CSV import", () => {
     await expect(tab(page, /^Already imported 1$/)).toBeVisible();
     await tab(page, /^Errors 1$/).click();
     await expect(page.locator('[data-row-number="3"]')).toContainText(
-      "is not an amount"
+      "Amount is not a number"
     );
 
     await page.getByRole("button", { name: "Import 2 contributions" }).click();

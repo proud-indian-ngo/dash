@@ -1,5 +1,15 @@
 import type { ImportBatchStatus } from "@pi-dash/shared/constants";
-import { and, eq, inArray, isNotNull, lt, notExists, sql } from "drizzle-orm";
+import {
+  and,
+  eq,
+  inArray,
+  isNotNull,
+  lt,
+  ne,
+  not,
+  notExists,
+  sql,
+} from "drizzle-orm";
 
 import { db } from ".";
 import { importBatch } from "./schema/import-batch";
@@ -14,6 +24,11 @@ import { importRow } from "./schema/private/imports";
  * - rows of a batch never imported (draft, reviewed, or failed with nothing
  *   imported): 30 days after upload, then the rows are deleted and the batch
  *   is marked expired.
+ *
+ * Rows of a batch in `importing` are never nulled or deleted: a retry needs
+ * them. A batch left `importing` for over a day belongs to a run that died,
+ * so it is first reset to `failed`, after which it can be retried or expires
+ * like any other failed batch.
  *
  * Rows under legal hold are skipped. Contributions, external identities and
  * collection events are never touched here.
@@ -31,6 +46,8 @@ export const IMPORTED_ROW_RETENTION_DAYS = 180;
 export const UNIMPORTED_ROW_RETENTION_DAYS = 30;
 export const RETENTION_BASIS_UNIMPORTED = "import_payload_not_imported";
 export const RETENTION_BASIS_IMPORTED = "import_payload_imported";
+/** A batch `importing` for longer than this belongs to a run that died. */
+export const STALE_IMPORTING_MS = 24 * 60 * 60 * 1000;
 
 /** Statuses a batch can be in without any run having committed. */
 export const UNIMPORTED_BATCH_STATUSES: readonly ImportBatchStatus[] = [
@@ -68,12 +85,14 @@ export function importedRowRetention(today: string) {
 export interface ImportRetentionResult {
   deletedRows: number;
   expiredBatches: number;
+  failedStaleBatches: number;
   nulledRows: number;
 }
 
-/** The three statements the expiry runs. */
+/** The statements the expiry runs. */
 export interface ImportRetentionStatements {
   deleteUnimportedRows: (today: string) => Promise<number>;
+  failStaleImports: (staleBefore: Date) => Promise<number>;
   markEmptyBatchesExpired: () => Promise<number>;
   nullImportedRaw: (today: string) => Promise<number>;
 }
@@ -92,11 +111,22 @@ export const importRowDue = (today: string) =>
   and(lt(importRow.retainUntil, today), eq(importRow.legalHold, false));
 
 /** Batches nothing was ever imported from; their rows are deleted, not kept. */
-const neverImported = () =>
+export const neverImported = () =>
   and(
     inArray(importBatch.status, [...UNIMPORTED_BATCH_STATUSES]),
     eq(importBatch.importedCount, 0),
     eq(importBatch.linkedCount, 0)
+  );
+
+/** Batches something was imported from and no run holds; their raw cells are nulled when due. */
+export const importedAndIdle = () =>
+  and(ne(importBatch.status, "importing"), not(neverImported() ?? sql`false`));
+
+/** Batches a run claimed before `staleBefore` and never finished. */
+export const staleImporting = (staleBefore: Date) =>
+  and(
+    eq(importBatch.status, "importing"),
+    lt(importBatch.updatedAt, staleBefore)
   );
 
 function statementsFor(tx: RetentionTx): ImportRetentionStatements {
@@ -114,6 +144,14 @@ function statementsFor(tx: RetentionTx): ImportRetentionStatements {
         )
         .returning({ id: importRow.id });
       return deleted.length;
+    },
+    failStaleImports: async (staleBefore) => {
+      const failed = await tx
+        .update(importBatch)
+        .set({ status: "failed", updatedAt: new Date() })
+        .where(staleImporting(staleBefore))
+        .returning({ id: importBatch.id });
+      return failed.length;
     },
     markEmptyBatchesExpired: async () => {
       const expired = await tx
@@ -141,7 +179,13 @@ function statementsFor(tx: RetentionTx): ImportRetentionStatements {
           and(
             importRowDue(today),
             isNotNull(importRow.raw),
-            sql`${importRow.batchId} not in (${unimportedBatchIds()})`
+            inArray(
+              importRow.batchId,
+              tx
+                .select({ id: importBatch.id })
+                .from(importBatch)
+                .where(importedAndIdle())
+            )
           )
         )
         .returning({ id: importRow.id });
@@ -160,19 +204,24 @@ export const databaseImportRetentionStore: ImportRetentionStore = {
 
 /**
  * Applies the policy for one day. Idempotent: a second run the same day
- * finds nothing left to do. Batches still importing are treated as imported,
- * so their raw rows are only ever nulled, never deleted.
+ * finds nothing left to do. Batches still importing keep their rows; one
+ * importing for over a day is reset to failed first, so it is judged as a
+ * failed batch from then on.
  */
 export async function expireImportRows(
   today: string,
-  store: ImportRetentionStore = databaseImportRetentionStore
+  store: ImportRetentionStore = databaseImportRetentionStore,
+  now: Date = new Date()
 ): Promise<ImportRetentionResult> {
   return await store.locked(async (statements) => {
+    const failedStaleBatches = await statements.failStaleImports(
+      new Date(now.getTime() - STALE_IMPORTING_MS)
+    );
     const nulledRows = await statements.nullImportedRaw(today);
     const deletedRows = await statements.deleteUnimportedRows(today);
     // Run even when nothing was deleted today, so a batch whose rows went in
     // an earlier, interrupted run is still marked.
     const expiredBatches = await statements.markEmptyBatchesExpired();
-    return { deletedRows, expiredBatches, nulledRows };
+    return { deletedRows, expiredBatches, failedStaleBatches, nulledRows };
   });
 }

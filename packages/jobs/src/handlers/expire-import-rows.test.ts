@@ -6,7 +6,12 @@ const days: string[] = [];
 mock.module("@pi-dash/db/import-retention", () => ({
   expireImportRows: async (today: string) => {
     days.push(today);
-    return { deletedRows: 3, expiredBatches: 1, nulledRows: 5 };
+    return {
+      deletedRows: 3,
+      expiredBatches: 1,
+      failedStaleBatches: 2,
+      nulledRows: 5,
+    };
   },
 }));
 mock.module("evlog", () => ({
@@ -32,6 +37,7 @@ describe("handleExpireImportRows", () => {
     expect(result).toEqual({
       deletedRows: 3,
       expiredBatches: 1,
+      failedStaleBatches: 2,
       nulledRows: 5,
     });
     expect(logged).toEqual([
@@ -39,6 +45,7 @@ describe("handleExpireImportRows", () => {
         deletedRows: 3,
         event: "import_rows_expired",
         expiredBatches: 1,
+        failedStaleBatches: 2,
         nulledRows: 5,
       },
     ]);
