@@ -42,7 +42,7 @@ Goal: pi-dash keeps the full operational financial record year-round, organised 
 | Beneficiaries | Service contacts per event, never unique people | Avoids collecting children's identity data |
 | CA handoff | XLSX workbook, one sheet per export, plus the CSV ZIP | CA preference |
 | Ownership | The founder owns monthly imports, reconciliation, donor-data follow-up, legacy evidence and filing readiness until a treasurer volunteer is named | Current reality |
-| Corporate engagements | A corporate volunteering day is a **project** of kind `engagement` under its cause programme, with a sponsor party, an optional intermediary party (Goodera), a quoted budget and a report obligation. Money arrives either as a CSR grant under agreement (a contribution) or against **our invoice** (fee income, a receivable). Fee income is never in the donation filing | Production data: most Mumbai events were corporate engagements sourced through Goodera; JP Morgan and IDFC paid by CSR grant or against invoice |
+| Corporate engagements | A corporate volunteering day is a **project** of kind `engagement` under its cause programme, with a sponsor party, an optional intermediary party (Goodera), a quoted budget and a report obligation. The money is booked as a donation in the audited accounts (see section 8), so it enters as a contribution with `donation_type` csr or other; the sponsor's invoice request is an acknowledgement document, not fee income | Production data: most Mumbai events were corporate engagements sourced through Goodera; JP Morgan and IDFC paid by CSR grant or against invoice |
 | Receivables | `issued_invoice` records what we bill to Goodera or a corporate, with no GST (the trust is not GST-registered); receipts allocate against it; tax deducted by the payer is recorded as TDS receivable for matching with Form 26AS | We are paid net of TDS; the CA needs the gross and the credit |
 | Paid facilitators | A per-event contractor is a vendor party with withholding on each payment; the same pattern applies if Bangalore hires one | Mumbai used one paid contractor per event |
 | Mumbai | Chapter closed. Cost centre Mumbai becomes inactive; its history stays reportable | Founder, 13 October 2026 |
@@ -312,7 +312,13 @@ Each phase ships with migrations, idempotent seeds in `scripts/seed.ts`, Zero sc
 
 | Question | Answer |
 |---|---|
-| Team to programme mapping | Applied provisionally by migration 0114 from the production team names in section 7; the founder's confirmation and the two manual retags (Mumbai-tagged spoken-English event, Mumbai engagements that are Education) are Phase 0 work |
+| Team to programme mapping | Confirmed by the founder on 14 October 2026 as applied by migration 0114. The two manual retags are approved for the Phase 0 script: the Mumbai-tagged spoken-English cupboard donation moves to Community support; the JP Morgan and IDFC school transformation, STEM and maths-kit engagements move to Education |
+| Legacy requests without an event | The Phase 0 script assigns the submitter's team programme where the submitter is in exactly one team; the rest stay on Unallocated for finance to clear |
+| Lead as claimant | The lead step is skipped and finance approves regardless of amount |
+| Moving an event between programmes | A team lead may change it until a reimbursement or vendor payment links to the event; after that only `finance.manage` can |
+| New fiscal years | A scheduled pg-boss job each January creates the next April-to-March year and its periods |
+| Account head ledger names | Use the pi-dash names as they are; the CA keys from what pi-dash provides and keeps no separate system |
+| CA handoff | XLSX workbook only; no Tally XML |
 | Finance threshold | Configurable in Settings; organisation default with per-programme override. Lead-as-claimant goes to finance |
 | Finance roles | One treasurer role; approver may also pay; claimant never approves or pays their own request |
 | give.do | Intermediary only; we issue receipts and file each donor |
@@ -349,5 +355,6 @@ Backfill facts from production that shape Phase 0:
 
 ## 8. Remaining open items
 
-1. Fiscal years are seeded through 2027-28 only. Before April 2028 a `fiscalYear.ensure` mutator or a scheduled job must create the next year and its periods.
-2. CA to confirm how engagement fee income is treated under section 12AB (business incidental to the objects and its ceiling), and that no GST registration is needed at current fee volumes. The design assumes no GST on issued invoices; vendor invoices still record the GST vendors charge us.
+1. Fiscal years are seeded through 2027-28 only. A scheduled job (decided 14 October 2026) must create the next year and its periods each January; it is not built yet.
+2. Engagement receipts are donations, not fee income. The audited statements for 2023-24, 2024-25 and 2025-26 (GVNKA & Associates) show all income under "Donations received" with no service or fee line, and the accounting policy recognises donations on receipt. So Goodera and corporate engagement money enters as `contribution` with `donation_type = csr` (direct corporate) or `other` (via Goodera) and a sponsor on the engagement project. `issued_invoice` is kept only as the document the sponsor asks for before paying; it does not recognise income, and the receivables rows in section 3.4 and the posting table are downgraded to "acknowledgement sent, no posting until the contribution is received". The section 12AB incidental-business question therefore does not arise unless the CA changes the treatment.
+3. CA to confirm how engagement fee income is treated under section 12AB (business incidental to the objects and its ceiling), and that no GST registration is needed at current fee volumes. The design assumes no GST on issued invoices; vendor invoices still record the GST vendors charge us.
