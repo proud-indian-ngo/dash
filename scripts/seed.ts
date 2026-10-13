@@ -106,7 +106,6 @@ import { socialRun } from "@pi-dash/db/schema/social-run";
 import { team, teamMember } from "@pi-dash/db/schema/team";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import {
-  vendor,
   vendorPayment,
   vendorPaymentAttachment,
   vendorPaymentHistory,
@@ -119,7 +118,9 @@ import {
 } from "@pi-dash/db/schema/vendor-payment-transaction";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { ensureFinanceDimensions } from "@pi-dash/db/seed-finance-dimensions";
+import { ensureVendor } from "@pi-dash/db/seed-vendors";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
+import { PROGRAMME_IDS } from "@pi-dash/shared/constants";
 import { getKalakritiCenterTransportStatus } from "@pi-dash/zero/kalakriti-center-scan-rules";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
@@ -2199,44 +2200,42 @@ async function seedVendors(userMap: Map<string, string>): Promise<void> {
   const v1 = getUser(userMap, "volunteer1@pi-dash.dev");
 
   // Vendor 1 — Approved
-  await db
-    .insert(vendor)
-    .values({
+  await ensureVendor({
+    createdAt: past(60),
+    createdBy: leadId,
+    gstNumber: "29AABCQ1234F1ZA",
+    id: ID2.vendor01,
+    name: "QuickPrint Solutions",
+    private: {
       address: "42 MG Road, Bangalore",
       bankAccountIfscCode: "HDFC0007890",
       bankAccountName: "QuickPrint Solutions",
       bankAccountNumber: "7771234567890",
       contactEmail: "info@quickprint.dev",
       contactPhone: "+919800011122",
-      createdAt: past(60),
-      createdBy: leadId,
-      gstNumber: "29AABCQ1234F1ZA",
-      id: ID2.vendor01,
-      name: "QuickPrint Solutions",
-      status: "approved",
-      updatedAt: past(55),
-    })
-    .onConflictDoNothing();
+    },
+    status: "approved",
+    updatedAt: past(55),
+  });
 
   // Vendor 2 — Pending
-  await db
-    .insert(vendor)
-    .values({
+  await ensureVendor({
+    createdAt: past(5),
+    createdBy: v1,
+    id: ID2.vendor02,
+    name: "Fresh Kitchen Caterers",
+    private: {
       address: "15 Food Street, Bangalore",
       bankAccountIfscCode: "ICIC0008901",
       bankAccountName: "Fresh Kitchen Caterers",
       bankAccountNumber: "8881234567891",
       contactEmail: "orders@freshkitchen.dev",
       contactPhone: "+919800033344",
-      createdAt: past(5),
-      createdBy: v1,
-      id: ID2.vendor02,
-      name: "Fresh Kitchen Caterers",
       panNumber: "AABCF1234G",
-      status: "pending",
-      updatedAt: past(5),
-    })
-    .onConflictDoNothing();
+    },
+    status: "pending",
+    updatedAt: past(5),
+  });
 
   // Vendor Payment 1 — partially paid
   await db

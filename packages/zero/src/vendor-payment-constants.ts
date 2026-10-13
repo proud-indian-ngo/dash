@@ -19,3 +19,12 @@ export const INVOICE_LOCKED_STATUSES = new Set<string>([
   "invoice_pending",
   "completed",
 ]);
+
+/**
+ * Statuses past approval. A volunteer who raised a payment request in one of
+ * these statuses may reveal the vendor's full bank account to pay it.
+ */
+export const PAST_APPROVAL_STATUSES = new Set<string>([
+  ...PAYABLE_STATUSES,
+  ...INVOICE_LOCKED_STATUSES,
+]);

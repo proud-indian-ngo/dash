@@ -4,3 +4,4 @@
  * `../index.ts`, so anything exported from here never reaches the browser.
  */
 export * from "./party-private";
+export * from "./vendor-legacy";

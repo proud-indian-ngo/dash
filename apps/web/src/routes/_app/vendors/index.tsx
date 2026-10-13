@@ -8,13 +8,17 @@ import { queries } from "@pi-dash/zero/queries";
 import type { Vendor } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { log } from "evlog";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { PageHeader } from "@/components/shared/page-header";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { VendorFormDialog } from "@/components/vendors/vendor-form-dialog";
 import { computeVendorPaymentStats } from "@/components/vendors/vendor-stats";
 import { VendorsTable } from "@/components/vendors/vendors-table";
+import { deleteVendor } from "@/functions/vendors";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { preloadRouteQuery } from "@/lib/route-preload";
 import { enrichVendorsWithPayments, type VendorRow } from "@/lib/vendor-types";
@@ -40,6 +44,8 @@ export const Route = createFileRoute("/_app/vendors/")({
 
 function VendorsRouteComponent() {
   const zero = useZero();
+  const removeVendor = useServerFn(deleteVendor);
+  const [detailsVersion, setDetailsVersion] = useState(0);
   const [vendors, vendorsResult] = useQuery(queries.vendor.all());
   const [vendorPayments, vpResult] = useQuery(queries.vendorPayment.all());
   const isLoading =
@@ -62,14 +68,26 @@ function VendorsRouteComponent() {
     : null;
 
   const handleDelete = useEventCallback(async (id: string) => {
-    const res = await zero.mutate(mutators.vendor.delete({ id })).server;
-    handleMutationResult(res, {
-      entityId: id,
-      errorMsg: "Couldn't delete vendor",
-      mutation: "vendor.delete",
-      successMsg: "Vendor deleted",
-    });
-    return res;
+    try {
+      await removeVendor({ data: { vendorId: id } });
+      toast.success("Vendor deleted");
+      setViewingVendorId((current) => (current === id ? null : current));
+      return { type: "success" };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Something went wrong";
+      log.error({
+        action: "vendor.delete",
+        caughtError: message,
+        component: "VendorsRoute",
+        entityId: id,
+      });
+      return { error: { message }, type: "error" };
+    }
+  });
+
+  const handleSaved = useEventCallback(() => {
+    setDetailsVersion((v) => v + 1);
   });
 
   const handleApprove = useEventCallback(async (vendor: VendorRow) => {
@@ -142,6 +160,7 @@ function VendorsRouteComponent() {
         <VendorsTable
           data={vendorRows}
           detailVendor={viewingVendor}
+          detailsVersion={detailsVersion}
           isLoading={isLoading}
           onApprove={handleApprove}
           onDelete={handleDelete}
@@ -154,6 +173,7 @@ function VendorsRouteComponent() {
 
       <VendorFormDialog
         onOpenChange={stableOnOpenChange2}
+        onSaved={handleSaved}
         open={formOpen}
         vendor={editingVendor}
       />

@@ -44,3 +44,13 @@ pending → approved → partially_paid → paid → invoice_pending → complet
 - `"invoice"` — uploaded post-payment
 
 Create/update mutators only touch `quotation`. Invoice mutators only touch `invoice`.
+
+## Vendor Details
+
+A vendor is a party with the `vendor` role; the synced `vendor` row holds only name, GSTIN and approval status. Contact details, PAN and the bank account live in the server-only `private` schema (`party_private`, `party_bank_account`, with PAN and account number AES-GCM encrypted) and never reach Zero. Vendor screens and the payment page's Vendor and Paid to cards load them through `getVendorDetails` in `apps/web/src/functions/vendors.ts`, with the account number masked to its last four digits. Create, edit and delete go through the audited `saveVendor` and `deleteVendor` server functions; approval stays on the Zero `vendor.approve`/`vendor.unapprove` mutators.
+
+Revealing the full account number (`revealVendorBankAccount`, audited as `vendor.bank_account.reveal`) is allowed for `finance.view_sensitive` and `requests.approve` (approvers pay vendors), and for `requests.record_payment` holders who raised a payment request to that vendor themselves. Details are visible to `vendors.view_all`, `vendors.edit` and `requests.approve` (approvers review payments to pending vendors); for approved vendors also to `vendors.view_approved` and `requests.record_payment`; and to the creator of a pending vendor. Both rules live in `apps/web/src/lib/vendor-access.ts`; the server functions enforce them and the screens use them only to decide what to show. A refused details load shows "Not available to you" instead of a retry.
+
+`vendor.created_by` is set to null when the creator's account is deleted (migration 0117), so the vendor and its payment history stay; approval notifications are then skipped.
+
+Deleting a vendor whose party also holds another active role (for example a donor) removes only the `vendor` row, its `vendor` role and its bank accounts; the party and its private details stay for the other role. The Donors directory (`party.all`, `party.byId`) lists only parties with an active donor, sponsor, grantor or intermediary role, so vendor-only parties stay off it, and a donor save renames the matching `vendor` row so the two names cannot drift. Saves of one party ID serialise on `pg_advisory_xact_lock(hashtext(id))` before any row lock; the lock order for every vendor write path is documented at the top of `packages/db/src/queries/vendor-party.ts`.

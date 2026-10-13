@@ -111,6 +111,7 @@ export async function seedAppPerformance() {
     await import("@pi-dash/db/schema/advance-payment");
   const { vendor, vendorPayment, vendorPaymentHistory, vendorPaymentLineItem } =
     await import("@pi-dash/db/schema/vendor");
+  const { party } = await import("@pi-dash/db/schema/party");
   const { vendorPaymentTransaction, vendorPaymentTransactionHistory } =
     await import("@pi-dash/db/schema/vendor-payment-transaction");
 
@@ -417,16 +418,25 @@ export async function seedAppPerformance() {
         }))
       )
       .onConflictDoNothing({ target: expenseCategory.id });
+    // Vendors are parties; the synthetic ones carry no private details.
+    await tx
+      .insert(party)
+      .values(
+        Array.from({ length: counts.vendors }, (_, index) => ({
+          id: id(5000 + index),
+          kind: "organisation" as const,
+          displayName: `Synthetic performance vendor ${index + 1}`,
+          createdAt: now,
+          updatedAt: now,
+        }))
+      )
+      .onConflictDoNothing({ target: party.id });
     await tx
       .insert(vendor)
       .values(
         Array.from({ length: counts.vendors }, (_, index) => ({
           id: id(5000 + index),
           name: `Synthetic performance vendor ${index + 1}`,
-          bankAccountIfscCode: "TEST0000001",
-          bankAccountName: "Synthetic Test Account",
-          bankAccountNumber: `000000${String(index + 1).padStart(6, "0")}`,
-          contactPhone: `+910000${String(index + 1).padStart(6, "0")}`,
           createdBy: index < approvedVendorCount ? admin.id : ownerId(index),
           status:
             index < approvedVendorCount

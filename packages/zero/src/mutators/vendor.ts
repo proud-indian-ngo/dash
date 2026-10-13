@@ -2,10 +2,14 @@ import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 
 import "../context";
-import { assertHasPermission, can } from "../permissions";
+import { assertHasPermission } from "../permissions";
 import { zql } from "../schema";
-import { GST_REGEX, IFSC_REGEX, PAN_REGEX } from "../vendor-patterns";
 
+/**
+ * Only approval moves through Zero. Creating, editing and deleting a vendor
+ * write private party tables the browser never sees, so they go through the
+ * audited server functions in `apps/web/src/functions/vendors.ts`.
+ */
 export const vendorMutators = {
   approve: defineMutator(
     z.object({ id: z.string() }),
@@ -25,10 +29,11 @@ export const vendorMutators = {
         updatedAt: Date.now(),
       });
 
-      if (tx.location === "server") {
+      // Nobody to tell once the creator's account has been deleted.
+      const creatorId = vendor.createdBy;
+      if (tx.location === "server" && creatorId) {
         const vendorId = args.id;
         const vendorName = vendor.name;
-        const creatorId = vendor.createdBy as string;
         ctx.asyncTasks?.push({
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
@@ -45,69 +50,6 @@ export const vendorMutators = {
           meta: { creatorId, mutator: "approveVendor", vendorId },
         });
       }
-    }
-  ),
-  create: defineMutator(
-    z.object({
-      address: z.string().optional(),
-      bankAccountIfscCode: z.string().regex(IFSC_REGEX),
-      bankAccountName: z.string().min(1),
-      bankAccountNumber: z.string().min(1),
-      contactEmail: z.email().optional(),
-      contactPhone: z.string().min(1),
-      gstNumber: z
-        .union([z.literal(""), z.string().regex(GST_REGEX)])
-        .optional(),
-      id: z.string(),
-      name: z.string().min(1),
-      panNumber: z
-        .union([z.literal(""), z.string().regex(PAN_REGEX)])
-        .optional(),
-      status: z.enum(["pending", "approved"]).optional(),
-    }),
-    async ({ tx, ctx, args }) => {
-      assertHasPermission(ctx, "vendors.create");
-      const { userId } = ctx;
-      const canAutoApprove = can(ctx, "vendors.approve");
-      const status = canAutoApprove ? args.status : "pending";
-      const now = Date.now();
-
-      await tx.mutate.vendor.insert({
-        address: args.address,
-        bankAccountIfscCode: args.bankAccountIfscCode,
-        bankAccountName: args.bankAccountName,
-        bankAccountNumber: args.bankAccountNumber,
-        contactEmail: args.contactEmail || null,
-        contactPhone: args.contactPhone,
-        createdAt: now,
-        createdBy: userId,
-        gstNumber: args.gstNumber || null,
-        id: args.id,
-        name: args.name,
-        panNumber: args.panNumber || null,
-        status,
-        updatedAt: now,
-      });
-    }
-  ),
-
-  delete: defineMutator(
-    z.object({ id: z.string() }),
-    async ({ tx, ctx, args }) => {
-      assertHasPermission(ctx, "vendors.delete");
-      const vendor = await tx.run(zql.vendor.where("id", args.id).one());
-      if (!vendor) {
-        throw new Error("Vendor not found");
-      }
-
-      const payments = await tx.run(
-        zql.vendorPayment.where("vendorId", args.id)
-      );
-      if (payments.length > 0) {
-        throw new Error("Cannot delete vendor with existing payment requests");
-      }
-
-      await tx.mutate.vendor.delete({ id: args.id });
     }
   ),
 
@@ -138,10 +80,11 @@ export const vendorMutators = {
         updatedAt: Date.now(),
       });
 
-      if (tx.location === "server") {
+      // Nobody to tell once the creator's account has been deleted.
+      const creatorId = vendor.createdBy;
+      if (tx.location === "server" && creatorId) {
         const vendorId = args.id;
         const vendorName = vendor.name;
-        const creatorId = vendor.createdBy as string;
         ctx.asyncTasks?.push({
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
@@ -158,48 +101,6 @@ export const vendorMutators = {
           meta: { creatorId, mutator: "unapproveVendor", vendorId },
         });
       }
-    }
-  ),
-
-  update: defineMutator(
-    z.object({
-      address: z.string().optional(),
-      bankAccountIfscCode: z.string().regex(IFSC_REGEX),
-      bankAccountName: z.string().min(1),
-      bankAccountNumber: z.string().min(1),
-      contactEmail: z.email().optional(),
-      contactPhone: z.string().min(1),
-      gstNumber: z
-        .union([z.literal(""), z.string().regex(GST_REGEX)])
-        .optional(),
-      id: z.string(),
-      name: z.string().min(1),
-      panNumber: z
-        .union([z.literal(""), z.string().regex(PAN_REGEX)])
-        .optional(),
-    }),
-    async ({ tx, ctx, args }) => {
-      assertHasPermission(ctx, "vendors.edit");
-      const vendor = await tx.run(zql.vendor.where("id", args.id).one());
-      if (!vendor) {
-        throw new Error("Vendor not found");
-      }
-
-      const now = Date.now();
-
-      await tx.mutate.vendor.update({
-        address: args.address,
-        bankAccountIfscCode: args.bankAccountIfscCode,
-        bankAccountName: args.bankAccountName,
-        bankAccountNumber: args.bankAccountNumber,
-        contactEmail: args.contactEmail || null,
-        contactPhone: args.contactPhone,
-        gstNumber: args.gstNumber || null,
-        id: args.id,
-        name: args.name,
-        panNumber: args.panNumber || null,
-        updatedAt: now,
-      });
     }
   ),
 };

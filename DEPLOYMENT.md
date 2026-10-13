@@ -317,3 +317,17 @@ The application disables PostgreSQL event triggers only on its dedicated pg-boss
 ### Kalakriti results rollout
 
 Apply both ordered results migrations (Entry composite uniqueness, then result tables) before deploying the matching generated Zero schema and web build. Existing Editions start without results; there is no historical score backfill. Add the 24-hour R2 lifecycle expiry for `<R2_KEY_PREFIX>/kalakriti-scorecards/tmp/` before enabling scorecard uploads. Durable scorecards, including files retained by old result revisions, must not expire.
+
+### Vendor parties rollout
+
+Migration `0116_vendor_parties.sql` turns every vendor into a party (same UUID, kind organisation, `vendor` role) and moves its contact, PAN and bank details out of the replicated `vendor` table into the server-only `private.vendor_legacy_details`, dropping the old columns in the same step so they stop syncing at once. Because columns are dropped, deploy the migration, the regenerated Zero schema and the web build together; old app or Zero workers that still read the dropped columns fail. Until the backfill runs, the app reads the legacy rows as a fallback, so vendor screens and payments keep working.
+
+`DATA_ENCRYPTION_KEY` is a prerequisite for this deploy, not only for the backfill: creating any vendor stores its bank account number encrypted, and editing a legacy vendor that has a PAN or bank account number migrates them into encrypted columns, so both fail without the key. Set it in the app environment first (see the environment variable table above for how to generate one), then deploy.
+
+The backfill is the second step. After the deploy that includes migrations 0116 and 0117, run once:
+
+```bash
+bun run vendors:backfill-private
+```
+
+It encrypts each legacy row into `party_private` and `party_bank_account`, deletes it, and prints the migrated and skipped counts. It is safe to rerun; a second run reports `0 migrated`. Editing a vendor before the backfill also migrates that vendor's row. A later migration drops `private.vendor_legacy_details` once production has no rows left in it.
