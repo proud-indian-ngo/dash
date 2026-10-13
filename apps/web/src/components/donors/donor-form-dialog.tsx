@@ -45,6 +45,7 @@ import {
   type SaveDonorInput,
   saveDonorSchema,
 } from "@/lib/donor-schema";
+import { isSaveConflict } from "@/lib/save-conflict";
 
 import { type PartyRow, ROLE_LABELS } from "./party-row";
 
@@ -171,11 +172,14 @@ function toInput(
 
 function DonorForm({
   context,
+  onConflict,
   onOpenChange,
   onSaved,
   party,
 }: {
   context: PartyDetailsResponse;
+  /** Reloads the details after someone else saved the donor first. */
+  onConflict: () => void;
   onOpenChange: (open: boolean) => void;
   onSaved: (partyId: string) => void;
   party: PartyRow | null;
@@ -210,6 +214,14 @@ function DonorForm({
           caughtError: error instanceof Error ? error.message : String(error),
           component: "DonorFormDialog",
         });
+        if (isSaveConflict(error)) {
+          toast.error("Someone else changed this donor", {
+            description:
+              "The latest details are loaded. Review them and save again.",
+          });
+          onConflict();
+          return;
+        }
         toast.error(
           isEdit ? "Couldn't update donor" : "Couldn't create donor",
           {
@@ -372,7 +384,9 @@ export function DonorFormDialog({
     body = (
       <DonorForm
         context={state.context}
-        key={partyId ?? "new"}
+        // A reload after a conflict remounts the form with the fresh details.
+        key={`${partyId ?? "new"}-${attempt}`}
+        onConflict={retry}
         onOpenChange={onOpenChange}
         onSaved={onSaved}
         party={party}
