@@ -31,6 +31,7 @@ import { uuidv7 } from "uuidv7";
 import z from "zod";
 
 import { DonorFormDialog } from "@/components/donors/donor-form-dialog";
+import { contributorOptions } from "@/components/donors/party-row";
 import { ComboboxField } from "@/components/form/combobox-field";
 import { DateField } from "@/components/form/date-field";
 import { FormLayout } from "@/components/form/form-layout";
@@ -212,9 +213,7 @@ function usePickerOptions() {
   const programmeNames = new Map(programmes.map((p) => [p.id, p.name]));
   return {
     accountOptions: accounts.map((a) => ({ label: a.name, value: a.id })),
-    donorOptions: parties
-      .filter((p) => p.roles.some((r) => r.active && r.role === "donor"))
-      .map((p) => ({ label: p.displayName, value: p.id })),
+    donorOptions: contributorOptions(parties),
     fundOptions: funds.map((f) => ({ label: f.name, value: f.id })),
     funds,
     programmeOptions: programmes

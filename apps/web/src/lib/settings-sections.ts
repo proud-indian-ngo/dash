@@ -11,6 +11,7 @@ import {
   Tag01Icon,
   ToolsIcon,
   UserIcon,
+  Wallet01Icon,
 } from "@hugeicons/core-free-icons";
 import type { PermissionId } from "@pi-dash/db/permissions";
 
@@ -91,6 +92,15 @@ export const SETTINGS_SECTIONS = [
     label: "Projects",
     path: "/settings/projects",
     permission: "finance.manage",
+  },
+  {
+    description:
+      "The bank, cash and gateway accounts income is deposited into.",
+    group: "organization",
+    icon: Wallet01Icon,
+    label: "Organisation accounts",
+    path: "/settings/org-accounts",
+    permission: "finance.view",
   },
   {
     description: "Categories people pick for each expense line.",

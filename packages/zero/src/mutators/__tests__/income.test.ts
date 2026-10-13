@@ -30,6 +30,14 @@ function createDb(
       { active: true, id: "r1", partyId: "donor-1", role: "donor" },
       { active: false, id: "r2", partyId: "lapsed-1", role: "donor" },
       { active: true, id: "r3", partyId: "vendor-1", role: "vendor" },
+      { active: true, id: "r4", partyId: "sponsor-1", role: "sponsor" },
+      { active: true, id: "r5", partyId: "grantor-1", role: "grantor" },
+      {
+        active: true,
+        id: "r6",
+        partyId: "goodera-1",
+        role: "intermediary",
+      },
     ],
     programme: [
       { active: true, id: "prog-edu" },
@@ -192,7 +200,7 @@ describe("contribution mutators", () => {
     });
   });
 
-  it("refuses a party without an active donor role", async () => {
+  it("refuses a party without an active giver role", async () => {
     const db = createDb();
     for (const partyId of ["lapsed-1", "vendor-1", "missing"]) {
       await expect(
@@ -202,8 +210,27 @@ describe("contribution mutators", () => {
           donorsCtx,
           contribution({ partyId })
         )
-      ).rejects.toThrow("Pick a party with an active donor role");
+      ).rejects.toThrow(
+        "Pick a party with an active donor, sponsor, grantor or intermediary role"
+      );
     }
+  });
+
+  it("accepts sponsors, grantors and intermediaries as givers", async () => {
+    const db = createDb();
+    for (const partyId of ["sponsor-1", "grantor-1", "goodera-1"]) {
+      await run(
+        contributionMutators.create,
+        db,
+        donorsCtx,
+        contribution({ id: `c-${partyId}`, partyId })
+      );
+    }
+    expect(db.tables.contribution?.map((c) => c.partyId)).toEqual([
+      "sponsor-1",
+      "grantor-1",
+      "goodera-1",
+    ]);
   });
 
   it("refuses inactive or missing accounts and funds", async () => {

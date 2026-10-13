@@ -6,8 +6,11 @@ let ranges: { endsOn: string; startsOn: string }[] = [];
 
 mock.module("@/middleware/auth", () => ({ authMiddleware: {} }));
 mock.module("@/lib/api-auth", () => ({
-  assertServerPermission: async (_session: unknown, permission: string) => {
-    permissionChecks.push(permission);
+  assertServerAnyPermission: async (
+    _session: unknown,
+    permissions: readonly string[]
+  ) => {
+    permissionChecks.push(...permissions);
     if (!allowed) {
       throw new Error("Forbidden");
     }
@@ -48,12 +51,17 @@ describe("getMissingDonorDetails", () => {
     ranges = [];
   });
 
-  it("requires donors.view and never queries when denied", async () => {
+  it("requires a donors or finance permission and never queries when denied", async () => {
     allowed = false;
     await expect(
       handler({ context: { session: { user: { id: "u" } } } })
     ).rejects.toThrow("Forbidden");
-    expect(permissionChecks).toEqual(["donors.view"]);
+    expect(permissionChecks).toEqual([
+      "donors.view",
+      "finance.view",
+      "donors.manage",
+      "finance.manage",
+    ]);
     expect(ranges).toEqual([]);
   });
 

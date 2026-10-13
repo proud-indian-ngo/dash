@@ -1,17 +1,21 @@
+import { INCOME_PERMISSIONS } from "@pi-dash/shared/income";
 import { defineQuery } from "@rocicorp/zero";
 import z from "zod";
 
 import { can } from "../permissions";
 import { zql } from "../schema";
 
-/** Whether a viewer may read contributions, other income and their pickers. */
+/**
+ * Whether a viewer may read contributions, other income and their pickers.
+ * Managing implies seeing, so either manage permission admits too.
+ */
 export function canSeeIncome(
   ctx: Parameters<typeof can>[0] | null | undefined
 ) {
   return (
     ctx !== null &&
     ctx !== undefined &&
-    (can(ctx, "donors.view") || can(ctx, "finance.view"))
+    INCOME_PERMISSIONS.some((permission) => can(ctx, permission))
   );
 }
 

@@ -5,6 +5,7 @@ import {
   otherIncomeKindValues,
 } from "@pi-dash/shared/constants";
 import {
+  CONTRIBUTOR_ROLES,
   contributionRuleIssues,
   isContributionEditable,
   todayInKolkata,
@@ -124,16 +125,18 @@ function assertActive(
   }
 }
 
-async function assertDonor(tx: Tx, partyId: string) {
+async function assertContributor(tx: Tx, partyId: string) {
   const role = await tx.run(
     zql.partyRole
       .where("partyId", partyId)
-      .where("role", "donor")
+      .where("role", "IN", [...CONTRIBUTOR_ROLES])
       .where("active", true)
       .one()
   );
   if (!role) {
-    throw new Error("Pick a party with an active donor role");
+    throw new Error(
+      "Pick a party with an active donor, sponsor, grantor or intermediary role"
+    );
   }
 }
 
@@ -198,7 +201,7 @@ export const contributionMutators = {
     assertHasPermission(ctx, "donors.manage");
     const values = normalizeContribution(args);
     if (tx.location === "server") {
-      await assertDonor(tx, values.partyId);
+      await assertContributor(tx, values.partyId);
       await assertAccountAndFund(tx, values);
       values.programmeId = await resolveProgramme(tx, values);
     }
@@ -230,7 +233,7 @@ export const contributionMutators = {
     const values = normalizeContribution(args);
     if (tx.location === "server") {
       if (values.partyId !== existing.partyId) {
-        await assertDonor(tx, values.partyId);
+        await assertContributor(tx, values.partyId);
       }
       await assertAccountAndFund(tx, values, existing);
       values.programmeId = await resolveProgramme(tx, values, existing);

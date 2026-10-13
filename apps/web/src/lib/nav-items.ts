@@ -29,6 +29,7 @@ import {
   UserGroupIcon,
   UserIcon,
 } from "@hugeicons/core-free-icons";
+import { INCOME_PERMISSIONS } from "@pi-dash/shared/income";
 
 import type { NavItem } from "@/components/layout/nav-main";
 import { SETTINGS_SECTIONS } from "@/lib/settings-sections";
@@ -397,7 +398,7 @@ export function buildNavItems(permissions: string[] = []): NavItem[] {
   if (has(permissions, "donors.view")) {
     items.push(donorsNavItem);
   }
-  if (hasAny(permissions, "donors.view", "finance.view")) {
+  if (hasAny(permissions, ...INCOME_PERMISSIONS)) {
     items.push(incomeNavItem);
   }
   if (has(permissions, "users.manage")) {
@@ -451,7 +452,7 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
   if (has(permissions, "donors.view")) {
     financeItems.push(donorsNavItem);
   }
-  if (hasAny(permissions, "donors.view", "finance.view")) {
+  if (hasAny(permissions, ...INCOME_PERMISSIONS)) {
     financeItems.push(incomeNavItem);
   }
   if (financeItems.length > 0) {

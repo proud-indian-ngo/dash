@@ -10,6 +10,21 @@ import type {
   DonationType,
   OtherIncomeKind,
 } from "./constants";
+import { directoryRoleValues } from "./constants";
+
+/**
+ * Roles that may give a contribution: individual donors, CSR sponsors,
+ * grantors, and intermediaries such as Goodera that pass CSR money on.
+ */
+export const CONTRIBUTOR_ROLES = directoryRoleValues;
+
+/** Any of these opens the Income page; managing implies seeing. */
+export const INCOME_PERMISSIONS = [
+  "donors.view",
+  "finance.view",
+  "donors.manage",
+  "finance.manage",
+] as const;
 
 export const CONTRIBUTION_CHANNEL_LABELS: Record<ContributionChannel, string> =
   {

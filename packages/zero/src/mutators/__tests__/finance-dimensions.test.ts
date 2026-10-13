@@ -8,6 +8,8 @@ import {
 } from "../../queries/query-scope-test-utils";
 import {
   accountHeadMutators,
+  orgAccountInputSchema,
+  orgAccountMutators,
   programmeMutators,
   projectMutators,
 } from "../finance-dimensions";
@@ -17,6 +19,7 @@ type Row = Record<string, unknown>;
 function createDb(seed: Partial<Record<string, Row[]>> = {}) {
   const tables: Record<string, Row[]> = {
     accountHead: [],
+    orgAccount: [],
     programme: [],
     project: [],
     user: [],
@@ -255,5 +258,108 @@ describe("account head mutators", () => {
     await expect(
       run(accountHeadMutators.update, db, financeCtx, head({ parentId: "h-2" }))
     ).rejects.toThrow("cycle");
+  });
+});
+
+describe("organisation account mutators", () => {
+  const account = (overrides: Row = {}): Row => ({
+    id: "acc-1",
+    kind: "bank",
+    name: "HDFC current",
+    ...overrides,
+  });
+
+  it("requires finance.manage", async () => {
+    const db = createDb();
+    await expect(
+      run(orgAccountMutators.create, db, volunteerCtx, account())
+    ).rejects.toThrow();
+    await expect(
+      run(orgAccountMutators.create, db, undefined, account())
+    ).rejects.toThrow();
+    expect(db.writes).toEqual([]);
+  });
+
+  it("creates an active domestic account by default", async () => {
+    const db = createDb();
+    await run(orgAccountMutators.create, db, financeCtx, account());
+    expect(db.tables.orgAccount?.[0]).toMatchObject({
+      active: true,
+      fcraRole: "none",
+      fundSource: "domestic",
+      kind: "bank",
+      name: "HDFC current",
+    });
+  });
+
+  it("rejects an empty name, unknown kind or unknown fund source", () => {
+    for (const overrides of [
+      { name: "  " },
+      { kind: "wallet" },
+      { fundSource: "foreign" },
+      { fcraRole: "both" },
+    ]) {
+      expect(orgAccountInputSchema.safeParse(account(overrides)).success).toBe(
+        false
+      );
+    }
+    expect(orgAccountInputSchema.safeParse(account()).success).toBe(true);
+  });
+
+  it("rejects a name another account already uses", async () => {
+    const db = createDb({ orgAccount: [account()] });
+    await expect(
+      run(orgAccountMutators.create, db, financeCtx, account({ id: "acc-2" }))
+    ).rejects.toThrow('Name "HDFC current" is already used');
+  });
+
+  it("keeps an FCRA role only on FCRA accounts", async () => {
+    const db = createDb();
+    await run(
+      orgAccountMutators.create,
+      db,
+      financeCtx,
+      account({ fcraRole: "receipt", fundSource: "fcra" })
+    );
+    await run(
+      orgAccountMutators.create,
+      db,
+      financeCtx,
+      account({ fcraRole: "receipt", id: "acc-2", name: "Cash box" })
+    );
+    expect(db.tables.orgAccount?.map((a) => a.fcraRole)).toEqual([
+      "receipt",
+      "none",
+    ]);
+
+    await run(
+      orgAccountMutators.update,
+      db,
+      financeCtx,
+      account({ fcraRole: "receipt", fundSource: "domestic" })
+    );
+    expect(db.tables.orgAccount?.[0]).toMatchObject({
+      fcraRole: "none",
+      fundSource: "domestic",
+    });
+  });
+
+  it("deactivates instead of deleting", async () => {
+    const db = createDb({ orgAccount: [account({ active: true })] });
+    expect("delete" in orgAccountMutators).toBe(false);
+    await run(
+      orgAccountMutators.update,
+      db,
+      financeCtx,
+      account({ active: false })
+    );
+    expect(db.tables.orgAccount?.[0]?.active).toBe(false);
+  });
+
+  it("refuses to update a missing account", async () => {
+    const db = createDb();
+    await expect(
+      run(orgAccountMutators.update, db, financeCtx, account())
+    ).rejects.toThrow("Organisation account not found");
   });
 });

@@ -119,7 +119,7 @@ test.describe("Income: contributions (finance)", () => {
     await clickUntilDialogCloses(donorDialog, "Add donor");
 
     await expect(dialog.getByRole("combobox", { name: "Donor" })).toHaveValue(
-      donorName,
+      `${donorName} (Donor)`,
       { timeout: 10_000 }
     );
     await fillGift(page, dialog, { amount: "999", reference });

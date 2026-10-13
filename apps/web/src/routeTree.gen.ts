@@ -56,6 +56,7 @@ import { Route as AppSettingsExpenseCategoriesRouteImport } from './routes/_app/
 import { Route as AppSettingsGeneralRouteImport } from './routes/_app/settings/general'
 import { Route as AppSettingsMaintenanceRouteImport } from './routes/_app/settings/maintenance'
 import { Route as AppSettingsNotificationsRouteImport } from './routes/_app/settings/notifications'
+import { Route as AppSettingsOrgAccountsRouteImport } from './routes/_app/settings/org-accounts'
 import { Route as AppSettingsProfileRouteImport } from './routes/_app/settings/profile'
 import { Route as AppSettingsProgrammesRouteImport } from './routes/_app/settings/programmes'
 import { Route as AppSettingsProjectsRouteImport } from './routes/_app/settings/projects'
@@ -367,6 +368,11 @@ const AppSettingsNotificationsRoute =
     path: '/notifications',
     getParentRoute: () => AppSettingsRouteRoute,
   } as any)
+const AppSettingsOrgAccountsRoute = AppSettingsOrgAccountsRouteImport.update({
+  id: '/org-accounts',
+  path: '/org-accounts',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
 const AppSettingsProfileRoute = AppSettingsProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -813,6 +819,7 @@ export interface FileRoutesByFullPath {
   '/settings/general': typeof AppSettingsGeneralRoute
   '/settings/maintenance': typeof AppSettingsMaintenanceRoute
   '/settings/notifications': typeof AppSettingsNotificationsRoute
+  '/settings/org-accounts': typeof AppSettingsOrgAccountsRoute
   '/settings/profile': typeof AppSettingsProfileRoute
   '/settings/programmes': typeof AppSettingsProgrammesRoute
   '/settings/projects': typeof AppSettingsProjectsRoute
@@ -924,6 +931,7 @@ export interface FileRoutesByTo {
   '/settings/general': typeof AppSettingsGeneralRoute
   '/settings/maintenance': typeof AppSettingsMaintenanceRoute
   '/settings/notifications': typeof AppSettingsNotificationsRoute
+  '/settings/org-accounts': typeof AppSettingsOrgAccountsRoute
   '/settings/profile': typeof AppSettingsProfileRoute
   '/settings/programmes': typeof AppSettingsProgrammesRoute
   '/settings/projects': typeof AppSettingsProjectsRoute
@@ -1046,6 +1054,7 @@ export interface FileRoutesById {
   '/_app/settings/general': typeof AppSettingsGeneralRoute
   '/_app/settings/maintenance': typeof AppSettingsMaintenanceRoute
   '/_app/settings/notifications': typeof AppSettingsNotificationsRoute
+  '/_app/settings/org-accounts': typeof AppSettingsOrgAccountsRoute
   '/_app/settings/profile': typeof AppSettingsProfileRoute
   '/_app/settings/programmes': typeof AppSettingsProgrammesRoute
   '/_app/settings/projects': typeof AppSettingsProjectsRoute
@@ -1170,6 +1179,7 @@ export interface FileRouteTypes {
     | '/settings/general'
     | '/settings/maintenance'
     | '/settings/notifications'
+    | '/settings/org-accounts'
     | '/settings/profile'
     | '/settings/programmes'
     | '/settings/projects'
@@ -1281,6 +1291,7 @@ export interface FileRouteTypes {
     | '/settings/general'
     | '/settings/maintenance'
     | '/settings/notifications'
+    | '/settings/org-accounts'
     | '/settings/profile'
     | '/settings/programmes'
     | '/settings/projects'
@@ -1402,6 +1413,7 @@ export interface FileRouteTypes {
     | '/_app/settings/general'
     | '/_app/settings/maintenance'
     | '/_app/settings/notifications'
+    | '/_app/settings/org-accounts'
     | '/_app/settings/profile'
     | '/_app/settings/programmes'
     | '/_app/settings/projects'
@@ -1852,6 +1864,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/settings/notifications'
       preLoaderRoute: typeof AppSettingsNotificationsRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/_app/settings/org-accounts': {
+      id: '/_app/settings/org-accounts'
+      path: '/org-accounts'
+      fullPath: '/settings/org-accounts'
+      preLoaderRoute: typeof AppSettingsOrgAccountsRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
     '/_app/settings/profile': {
@@ -2592,6 +2611,7 @@ interface AppSettingsRouteRouteChildren {
   AppSettingsGeneralRoute: typeof AppSettingsGeneralRoute
   AppSettingsMaintenanceRoute: typeof AppSettingsMaintenanceRoute
   AppSettingsNotificationsRoute: typeof AppSettingsNotificationsRoute
+  AppSettingsOrgAccountsRoute: typeof AppSettingsOrgAccountsRoute
   AppSettingsProfileRoute: typeof AppSettingsProfileRoute
   AppSettingsProgrammesRoute: typeof AppSettingsProgrammesRoute
   AppSettingsProjectsRoute: typeof AppSettingsProjectsRoute
@@ -2608,6 +2628,7 @@ const AppSettingsRouteRouteChildren: AppSettingsRouteRouteChildren = {
   AppSettingsGeneralRoute: AppSettingsGeneralRoute,
   AppSettingsMaintenanceRoute: AppSettingsMaintenanceRoute,
   AppSettingsNotificationsRoute: AppSettingsNotificationsRoute,
+  AppSettingsOrgAccountsRoute: AppSettingsOrgAccountsRoute,
   AppSettingsProfileRoute: AppSettingsProfileRoute,
   AppSettingsProgrammesRoute: AppSettingsProgrammesRoute,
   AppSettingsProjectsRoute: AppSettingsProjectsRoute,

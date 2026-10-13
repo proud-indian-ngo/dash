@@ -49,13 +49,15 @@ describe("Kalakriti navigation", () => {
       expect(new Set(icons).size).toBe(icons.length);
     }
   });
-  it("shows Income after Donors for donor or finance viewers only", () => {
+  it("shows Income after Donors for donor or finance viewers and managers only", () => {
     const financeTitles = (permissions: string[]) =>
       buildNavGroups(permissions)
         .find((group) => group.label === "Finance")
         ?.items.map((item) => item.title) ?? [];
     expect(financeTitles(["donors.view"])).toEqual(["Donors", "Income"]);
     expect(financeTitles(["finance.view"])).toEqual(["Income"]);
+    expect(financeTitles(["donors.manage"])).toContain("Income");
+    expect(financeTitles(["finance.manage"])).toContain("Income");
     expect(financeTitles(["requests.view_own"])).not.toContain("Income");
   });
   it.each([

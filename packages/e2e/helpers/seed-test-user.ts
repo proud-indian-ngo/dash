@@ -249,11 +249,12 @@ async function ensureDonorParty(userId: string): Promise<void> {
 const GENERAL_FUND_ID = "01930000-0000-7000-8000-000000000201";
 const E2E_ORG_ACCOUNT_ID = "01930000-0000-7000-8000-000000000711";
 const INCOME_DONOR_ID = "01930000-0000-7000-8000-000000000721";
+const INCOME_SPONSOR_ID = "01930000-0000-7000-8000-000000000723";
 
 /**
  * Income fixtures: a deposit account, one ₹12,345 gift from the seed donor
  * (whose Giving section the specs read, so no spec records against it), and
- * a second donor the specs record new contributions for.
+ * a second donor the specs record new contributions for, and a sponsor.
  */
 async function ensureIncomeFixtures(userId: string): Promise<void> {
   const now = new Date();
@@ -302,6 +303,28 @@ async function ensureIncomeFixtures(userId: string): Promise<void> {
       id: "01930000-0000-7000-8000-000000000722",
       partyId: INCOME_DONOR_ID,
       role: "donor",
+      since: now,
+    })
+    .onConflictDoNothing();
+  // CSR money comes from sponsors, so a sponsor can be the giver too.
+  await db
+    .insert(party)
+    .values({
+      createdAt: now,
+      createdBy: userId,
+      displayName: "E2E Income Sponsor",
+      id: INCOME_SPONSOR_ID,
+      kind: "organisation",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(partyRole)
+    .values({
+      active: true,
+      id: "01930000-0000-7000-8000-000000000724",
+      partyId: INCOME_SPONSOR_ID,
+      role: "sponsor",
       since: now,
     })
     .onConflictDoNothing();

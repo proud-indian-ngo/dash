@@ -1,8 +1,11 @@
 import { listDonorsMissingFilingDetails } from "@pi-dash/db/queries/income";
-import { currentFinancialYear } from "@pi-dash/shared/income";
+import {
+  currentFinancialYear,
+  INCOME_PERMISSIONS,
+} from "@pi-dash/shared/income";
 import { createServerFn } from "@tanstack/react-start";
 
-import { assertServerPermission } from "@/lib/api-auth";
+import { assertServerAnyPermission } from "@/lib/api-auth";
 import { authMiddleware } from "@/middleware/auth";
 
 export interface MissingDonorDetailsResponse {
@@ -21,7 +24,7 @@ export interface MissingDonorDetailsResponse {
 export const getMissingDonorDetails = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .handler(async ({ context }): Promise<MissingDonorDetailsResponse> => {
-    await assertServerPermission(context.session, "donors.view");
+    await assertServerAnyPermission(context.session, INCOME_PERMISSIONS);
     const fy = currentFinancialYear();
     const partyIds = await listDonorsMissingFilingDetails(fy);
     return { count: partyIds.length, financialYear: fy.label, partyIds };
