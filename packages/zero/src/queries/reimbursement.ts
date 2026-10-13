@@ -4,22 +4,30 @@ import z from "zod";
 import { can } from "../permissions";
 import { zql } from "../schema";
 
-function withRelated(q: typeof zql.reimbursement) {
+function withBase(q: typeof zql.reimbursement) {
   return q
     .related("lineItems", (li) =>
       li.orderBy("sortOrder", "asc").related("category")
     )
     .related("attachments", (a) => a.orderBy("createdAt", "asc"))
     .related("history", (h) => h.orderBy("createdAt", "asc"))
-    .related("user")
-    .related("event");
+    .related("user");
+}
+
+function withRelated(q: typeof zql.reimbursement) {
+  return withBase(q).related("event");
+}
+
+/** Analytics groups spend by the event's programme, so the list projection nests it. */
+function withProgramme(q: typeof zql.reimbursement) {
+  return withBase(q).related("event", (e) => e.related("programme"));
 }
 
 export const reimbursementQueries = {
   all: defineQuery(({ ctx }) =>
     ctx !== null && can(ctx, "requests.view_all")
-      ? withRelated(zql.reimbursement).orderBy("createdAt", "desc")
-      : withRelated(zql.reimbursement)
+      ? withProgramme(zql.reimbursement).orderBy("createdAt", "desc")
+      : withProgramme(zql.reimbursement)
           .where("userId", ctx?.userId)
           .orderBy("createdAt", "desc")
   ),

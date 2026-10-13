@@ -5,11 +5,13 @@ import {
   advancePaymentLineItem,
 } from "@pi-dash/db/schema/advance-payment";
 import { user } from "@pi-dash/db/schema/auth";
+import { programme } from "@pi-dash/db/schema/finance-dimensions";
 import {
   reimbursement,
   reimbursementAttachment,
   reimbursementLineItem,
 } from "@pi-dash/db/schema/reimbursement";
+import { teamEvent } from "@pi-dash/db/schema/team-event";
 import {
   vendor,
   vendorPayment,
@@ -20,96 +22,24 @@ import { and, eq, gte, inArray, lte, sum } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
 import type { CsvFile } from "@/lib/csv-export";
-import {
-  type ExportAttachmentLink,
-  formatExportAttachmentLinks,
-  groupExportAttachments,
-} from "@/lib/export-attachments";
+import { groupExportAttachments } from "@/lib/export-attachments";
 import type {
   FinancialExportInput,
   RequestExportStatus,
   VendorPaymentExportStatus,
 } from "@/lib/financial-export-contract";
 
-const REQUEST_CSV_HEADERS = [
-  "Type",
-  "Title",
-  "Created By",
-  "Email",
-  "Status",
-  "Total",
-  "City",
-  "Expense Date",
-  "Submitted At",
-  "Created At",
-  "Attachments",
-];
-
-const VP_CSV_HEADERS = [
-  "Title",
-  "Vendor",
-  "Invoice Number",
-  "Invoice Date",
-  "Created By",
-  "Email",
-  "Status",
-  "Total Amount",
-  "Paid Amount",
-  "Remaining",
-  "Submitted At",
-  "Created At",
-];
-
-const TX_CSV_HEADERS = [
-  "Vendor Payment",
-  "Amount",
-  "Description",
-  "Transaction Date",
-  "Payment Method",
-  "Reference",
-  "Status",
-  "Recorded By",
-];
-
-interface RequestExportRow {
-  attachments: ExportAttachmentLink[];
-  city: string;
-  createdAt: string;
-  createdBy: string;
-  email: string;
-  expenseDate: string;
-  status: string;
-  submittedAt: string;
-  title: string;
-  total: string;
-  type: string;
-}
-
-interface VendorPaymentExportRow {
-  createdAt: string;
-  createdBy: string;
-  email: string;
-  invoiceDate: string;
-  invoiceNumber: string;
-  paidAmount: string;
-  remaining: string;
-  status: string;
-  submittedAt: string;
-  title: string;
-  totalAmount: string;
-  vendorName: string;
-}
-
-interface TransactionExportRow {
-  amount: string;
-  description: string;
-  paymentMethod: string;
-  paymentReference: string;
-  recordedBy: string;
-  status: string;
-  transactionDate: string;
-  vendorPaymentTitle: string;
-}
+import {
+  REQUEST_CSV_HEADERS,
+  type RequestExportRow,
+  requestRowToArray,
+  type TransactionExportRow,
+  transactionRowToArray,
+  TX_CSV_HEADERS,
+  type VendorPaymentExportRow,
+  vendorPaymentRowToArray,
+  VP_CSV_HEADERS,
+} from "./financial-export-rows";
 
 export interface StoredExportAttachment {
   filename: null | string;
@@ -140,6 +70,8 @@ interface QueryConfig {
   attachmentJoinCol: AnyPgColumn;
   attachmentKind: "advancePaymentAttachment" | "reimbursementAttachment";
   attachmentTable: AttachmentTable;
+  /** Set when the request links to an event, which carries the programme. */
+  eventIdCol?: AnyPgColumn;
   expenseDateCol?: AnyPgColumn;
   lineItemAmountCol: AnyPgColumn;
   lineItemJoinCol: AnyPgColumn;
@@ -156,6 +88,7 @@ interface RawResultRow {
   email: string;
   expenseDate?: string | null;
   id: string;
+  programme?: string | null;
   status: string;
   submittedAt: Date | null;
   title: string;
@@ -210,12 +143,23 @@ async function queryRequestRows(
     selectFields.expenseDate = config.expenseDateCol;
     groupByFields.push(config.expenseDateCol);
   }
+  if (config.eventIdCol) {
+    selectFields.programme = programme.name;
+    groupByFields.push(programme.name);
+  }
 
-  const results = (await db
+  let query = db
     .select(selectFields)
     .from(mainTable)
     .innerJoin(user, eq(mainTable.userId, user.id))
     .leftJoin(lineItemTable, eq(config.lineItemJoinCol, mainTable.id))
+    .$dynamic();
+  if (config.eventIdCol) {
+    query = query
+      .leftJoin(teamEvent, eq(config.eventIdCol, teamEvent.id))
+      .leftJoin(programme, eq(teamEvent.programmeId, programme.id));
+  }
+  const results = (await query
     .where(
       and(
         dateRangeFilter,
@@ -270,6 +214,7 @@ async function queryRequestRows(
       createdBy: result.createdBy ?? "",
       email: result.email,
       expenseDate: result.expenseDate ?? "",
+      programme: result.programme ?? "",
       status: result.status,
       submittedAt: result.submittedAt?.toISOString() ?? "",
       title: result.title,
@@ -283,6 +228,7 @@ const reimbursementConfig: QueryConfig = {
   attachmentJoinCol: reimbursementAttachment.reimbursementId,
   attachmentKind: "reimbursementAttachment",
   attachmentTable: reimbursementAttachment,
+  eventIdCol: reimbursement.eventId,
   expenseDateCol: reimbursement.expenseDate,
   lineItemAmountCol: reimbursementLineItem.amount,
   lineItemJoinCol: reimbursementLineItem.reimbursementId,
@@ -320,6 +266,7 @@ async function queryVendorPaymentRows(
       id: vendorPayment.id,
       invoiceDate: vendorPayment.invoiceDate,
       invoiceNumber: vendorPayment.invoiceNumber,
+      programme: programme.name,
       status: vendorPayment.status,
       submittedAt: vendorPayment.submittedAt,
       title: vendorPayment.title,
@@ -329,6 +276,8 @@ async function queryVendorPaymentRows(
     .from(vendorPayment)
     .innerJoin(user, eq(vendorPayment.userId, user.id))
     .innerJoin(vendor, eq(vendorPayment.vendorId, vendor.id))
+    .leftJoin(teamEvent, eq(vendorPayment.eventId, teamEvent.id))
+    .leftJoin(programme, eq(teamEvent.programmeId, programme.id))
     .leftJoin(
       vendorPaymentLineItem,
       eq(vendorPaymentLineItem.vendorPaymentId, vendorPayment.id)
@@ -350,7 +299,8 @@ async function queryVendorPaymentRows(
       vendorPayment.createdAt,
       user.name,
       user.email,
-      vendor.name
+      vendor.name,
+      programme.name
     );
 
   const vendorPaymentIds = results.map((result) => result.id);
@@ -389,6 +339,7 @@ async function queryVendorPaymentRows(
       invoiceDate: result.invoiceDate ?? "",
       invoiceNumber: result.invoiceNumber ?? "",
       paidAmount: String(paid),
+      programme: result.programme ?? "",
       remaining: String(Math.max(0, total - paid)),
       status: result.status,
       submittedAt: result.submittedAt?.toISOString() ?? "",
@@ -430,46 +381,6 @@ async function queryVendorPaymentRows(
     })),
   };
 }
-
-const requestRowToArray = (row: RequestExportRow, origin: string): string[] => [
-  row.type,
-  row.title,
-  row.createdBy,
-  row.email,
-  row.status,
-  row.total,
-  row.city,
-  row.expenseDate,
-  row.submittedAt,
-  row.createdAt,
-  formatExportAttachmentLinks(row.attachments, origin),
-];
-
-const vendorPaymentRowToArray = (row: VendorPaymentExportRow): string[] => [
-  row.title,
-  row.vendorName,
-  row.invoiceNumber,
-  row.invoiceDate,
-  row.createdBy,
-  row.email,
-  row.status,
-  row.totalAmount,
-  row.paidAmount,
-  row.remaining,
-  row.submittedAt,
-  row.createdAt,
-];
-
-const transactionRowToArray = (row: TransactionExportRow): string[] => [
-  row.vendorPaymentTitle,
-  row.amount,
-  row.description,
-  row.transactionDate,
-  row.paymentMethod,
-  row.paymentReference,
-  row.status,
-  row.recordedBy,
-];
 
 const buildDateSuffix = (fyStart: number, today: string): string =>
   `FY${fyStart}-${String(fyStart + 1).slice(2)}_${today}`;

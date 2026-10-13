@@ -29,6 +29,12 @@ test.describe("Analytics dashboard (admin)", () => {
     ).toBeVisible({ timeout: 5000 });
   });
 
+  test("spending by programme renders", async ({ page }) => {
+    await expect(
+      page.getByRole("region", { name: "Spending by programme" })
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
   test("chart containers render after data loads", async ({ page }) => {
     await expect(
       page
