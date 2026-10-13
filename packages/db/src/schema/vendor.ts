@@ -15,6 +15,7 @@ import {
 import { user } from "./auth";
 import { expenseCategory } from "./expense-category";
 import { jsonb } from "./jsonb";
+import { party } from "./party";
 import { attachmentTypeEnum, cityEnum, historyActionEnum } from "./shared";
 import { teamEvent } from "./team-event";
 import { vendorPaymentTransaction } from "./vendor-payment-transaction";
@@ -50,24 +51,25 @@ export const attachmentPurposeEnum = pgEnum(
   attachmentPurposeValues
 );
 
-// Vendor table
+/**
+ * A vendor is a party with the `vendor` role; this row is its supplier
+ * profile (approval status and GSTIN), with the same ID as the party. Contact,
+ * PAN and bank details live in the private party tables
+ * (`schema/private/party-private.ts`) and are read through server functions,
+ * so they never sync to the browser.
+ */
 export const vendor = pgTable(
   "vendor",
   {
-    address: text("address"),
-    bankAccountIfscCode: text("bank_account_ifsc_code").notNull(),
-    bankAccountName: text("bank_account_name").notNull(),
-    bankAccountNumber: text("bank_account_number").notNull(),
-    contactEmail: text("contact_email"),
-    contactPhone: text("contact_phone").notNull(),
     createdAt: timestamp("created_at").notNull(),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     gstNumber: text("gst_number"),
-    id: uuid("id").primaryKey(),
+    id: uuid("id")
+      .primaryKey()
+      .references(() => party.id, { onDelete: "restrict" }),
     name: text("name").notNull(),
-    panNumber: text("pan_number"),
     status: vendorStatusEnum("status").default("pending").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
   },
@@ -195,6 +197,10 @@ export const vendorRelations = relations(vendor, ({ one, many }) => ({
   creator: one(user, {
     fields: [vendor.createdBy],
     references: [user.id],
+  }),
+  party: one(party, {
+    fields: [vendor.id],
+    references: [party.id],
   }),
   vendorPayments: many(vendorPayment),
 }));
