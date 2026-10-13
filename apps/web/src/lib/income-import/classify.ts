@@ -98,6 +98,12 @@ export interface ClassifiedRow {
   linkTo: { contributionId: string } | { rowId: string } | null;
   rowId: string;
   rowNumber: number;
+  /**
+   * An earlier row of the file with the same ID number whose donor is still
+   * to be chosen: this row gets whatever donor that row gets, so one ID
+   * number never becomes two donors.
+   */
+  sameDonorAs: { rowId: string; rowNumber: number } | null;
   warnings: CellIssue[];
 }
 
@@ -157,12 +163,20 @@ interface FileDonor {
   rowNumber: number;
 }
 
+/** The first row of the file with an ID number, which later rows with it follow. */
+interface FirstWithId {
+  candidatePartyIds: string[];
+  donor: DonorPlan;
+  rowId: string;
+  rowNumber: number;
+}
+
 export function classifyRows(
   rows: readonly ClassifyRowInput[],
   context: ClassifyContext
 ): ClassifiedRow[] {
   const seenIdentities = new Map<string, { hash: string; rowId: string }>();
-  const newDonorsById = new Map<string, string>();
+  const firstById = new Map<string, FirstWithId>();
   const fileDonors: FileDonor[] = [];
   const ordered = [...rows].sort((a, b) => a.rowNumber - b.rowNumber);
 
@@ -176,6 +190,7 @@ export function classifyRows(
       linkTo: null,
       rowId: input.id,
       rowNumber: input.rowNumber,
+      sameDonorAs: null,
       warnings: input.normalized?.warnings ?? [],
     };
     if (input.outcome === "imported" || input.outcome === "linked_existing") {
@@ -226,10 +241,22 @@ export function classifyRows(
     const idKey =
       row.idType === "none" ? null : idMatchKey(row.idType, row.idNumber);
     const idParties = idKey ? (context.idMatches.get(idKey) ?? []) : [];
+    const firstWithId = idKey ? firstById.get(idKey) : undefined;
     let donor: DonorPlan = { kind: "undecided" };
     let options: DonorOption[] = [];
+    let sameDonorAs: ClassifiedRow["sameDonorAs"] = null;
 
-    if (idParties.length === 1 && idParties[0]) {
+    if (firstWithId) {
+      // The ID number appeared earlier in the file: same person, same donor.
+      if (firstWithId.donor.kind === "undecided") {
+        sameDonorAs = {
+          rowId: firstWithId.rowId,
+          rowNumber: firstWithId.rowNumber,
+        };
+      } else {
+        donor = firstWithId.donor;
+      }
+    } else if (idParties.length === 1 && idParties[0]) {
       donor = { kind: "existing", ...idParties[0] };
     } else if (idParties.length > 1) {
       // Two donors share the identifier: never pick one automatically.
@@ -238,8 +265,6 @@ export function classifyRows(
         ...p,
         reason: "id_number" as const,
       }));
-    } else if (idKey && newDonorsById.has(idKey)) {
-      donor = { key: newDonorsById.get(idKey) ?? "", kind: "new" };
     } else {
       const contactParties = [
         ...(row.email ? (context.emailMatches.get(row.email) ?? []) : []).map(
@@ -268,11 +293,7 @@ export function classifyRows(
         });
       }
       if (options.length === 0) {
-        const key = idKey ? `id:${idKey}` : `row:${input.id}`;
-        donor = { key, kind: "new" };
-        if (idKey) {
-          newDonorsById.set(idKey, key);
-        }
+        donor = { key: idKey ? `id:${idKey}` : `row:${input.id}`, kind: "new" };
       }
     }
     fileDonors.push({
@@ -283,17 +304,27 @@ export function classifyRows(
       rowNumber: input.rowNumber,
     });
 
-    const candidateParties = [
-      ...(donor.kind === "existing" ? [donor.partyId] : []),
-      ...options.flatMap((o) => (o.kind === "existing" ? [o.partyId] : [])),
-    ];
+    const candidateParties = firstWithId
+      ? firstWithId.candidatePartyIds
+      : [
+          ...(donor.kind === "existing" ? [donor.partyId] : []),
+          ...options.flatMap((o) => (o.kind === "existing" ? [o.partyId] : [])),
+        ];
+    if (idKey && !firstWithId) {
+      firstById.set(idKey, {
+        candidatePartyIds: candidateParties,
+        donor,
+        rowId: input.id,
+        rowNumber: input.rowNumber,
+      });
+    }
     const duplicate = findDuplicate(
       row,
       candidateParties,
       context.existingContributions
     );
     let category: ReviewCategory = "ready";
-    if (options.length > 0 || duplicate) {
+    if (options.length > 0 || duplicate || sameDonorAs) {
       category = "needs_review";
     } else if (donor.kind === "new") {
       category = "new_donor";
@@ -304,6 +335,7 @@ export function classifyRows(
       donor,
       donorOptions: options,
       duplicate,
+      sameDonorAs,
     };
   });
 }
@@ -341,20 +373,54 @@ export const donorChoiceValue = (option: DonorOption): DonorChoice =>
     ? `party:${option.partyId}`
     : `row:${option.rowId}`;
 
+type ResolvedDonor =
+  | { kind: "existing"; partyId: string }
+  | { kind: "new"; key: string };
+
+/** Who a row's contribution belongs to after the reviewer's choice, or null while undecided. */
+function resolveDonor(
+  row: ClassifiedRow,
+  decision: RowDecision,
+  resolved: ReadonlyMap<string, ResolvedDonor>
+): ResolvedDonor | null {
+  if (row.donor.kind === "existing") {
+    return { kind: "existing", partyId: row.donor.partyId };
+  }
+  if (row.donor.kind === "new") {
+    return { key: row.donor.key, kind: "new" };
+  }
+  if (row.sameDonorAs) {
+    return resolved.get(row.sameDonorAs.rowId) ?? null;
+  }
+  if (decision.donor === "new") {
+    return { key: `row:${row.rowId}`, kind: "new" };
+  }
+  const option = row.donorOptions.find(
+    (o) => donorChoiceValue(o) === decision.donor
+  );
+  if (!option) {
+    return null;
+  }
+  if (option.kind === "existing") {
+    return { kind: "existing", partyId: option.partyId };
+  }
+  return (
+    resolved.get(option.rowId) ?? { key: `row:${option.rowId}`, kind: "new" }
+  );
+}
+
 /**
  * Applies the reviewer's choices to classified rows. Rows that still need a
  * choice and did not get one are skipped, never guessed. A row that joins an
- * earlier row's new donor shares its key, so one donor is created.
+ * earlier row's donor, by choice or by the same ID number, gets that row's
+ * resolution (even when that row itself is skipped), so one donor is created.
  */
 export function planRows(
   classified: readonly ClassifiedRow[],
   decisions: Readonly<Record<string, RowDecision>>
 ): Map<string, RowPlan> {
   const plans = new Map<string, RowPlan>();
-  const resolvedDonor = new Map<
-    string,
-    { kind: "existing"; partyId: string } | { kind: "new"; key: string }
-  >();
+  const resolvedDonor = new Map<string, ResolvedDonor>();
 
   for (const row of classified) {
     const decision = decisions[row.rowId] ?? {};
@@ -373,54 +439,20 @@ export function planRows(
         default:
           break;
       }
+      const donor = resolveDonor(row, decision, resolvedDonor);
+      if (donor) {
+        resolvedDonor.set(row.rowId, donor);
+      }
       if (decision.contribution === "skip") {
         return { action: "skip", reason: "skipped_by_user" };
       }
       if (row.duplicate && decision.contribution !== "import") {
         return { action: "skip", reason: "undecided" };
       }
-      if (row.donor.kind === "existing") {
-        return {
-          action: "import",
-          donor: { kind: "existing", partyId: row.donor.partyId },
-        };
-      }
-      if (row.donor.kind === "new") {
-        return {
-          action: "import",
-          donor: { key: row.donor.key, kind: "new" },
-        };
-      }
-      const choice = decision.donor;
-      if (choice === "new") {
-        return {
-          action: "import",
-          donor: { key: `row:${row.rowId}`, kind: "new" },
-        };
-      }
-      const option = row.donorOptions.find(
-        (o) => donorChoiceValue(o) === choice
-      );
-      if (!option) {
-        return { action: "skip", reason: "undecided" };
-      }
-      if (option.kind === "existing") {
-        return {
-          action: "import",
-          donor: { kind: "existing", partyId: option.partyId },
-        };
-      }
-      return {
-        action: "import",
-        donor: resolvedDonor.get(option.rowId) ?? {
-          key: `row:${option.rowId}`,
-          kind: "new",
-        },
-      };
+      return donor
+        ? { action: "import", donor }
+        : { action: "skip", reason: "undecided" };
     })();
-    if (plan.action === "import") {
-      resolvedDonor.set(row.rowId, plan.donor);
-    }
     plans.set(row.rowId, plan);
   }
   return plans;

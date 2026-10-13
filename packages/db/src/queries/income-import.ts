@@ -22,6 +22,7 @@ import {
 
 import { db } from "..";
 import { decryptSecret, hasEncryptionKey } from "../encryption";
+import { IMPORT_RUN_LOCK } from "../import-retention";
 import {
   fund,
   orgAccount,
@@ -36,7 +37,11 @@ import {
   externalIdentity,
   importRow,
 } from "../schema/private/imports";
-import { partyPrivate } from "../schema/private/party-private";
+import {
+  emailKey,
+  partyPrivate,
+  phoneDigitsKey,
+} from "../schema/private/party-private";
 import { partyIdNumberContext } from "./party-private";
 
 /**
@@ -48,6 +53,8 @@ import { partyIdNumberContext } from "./party-private";
 export type ImportTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export type ImportBatchRow = typeof importBatch.$inferSelect;
 export type ImportRowRecord = typeof importRow.$inferSelect;
+/** The pooled connection, or the run's transaction so reads see its writes and lock. */
+type Reader = Pick<typeof db, "select">;
 
 const INSERT_CHUNK = 500;
 
@@ -245,7 +252,8 @@ const isContributor = sql`exists (
  * here and compared. Returns nothing when the encryption key is missing.
  */
 export async function findContributorsByIdentifier(
-  identifiers: readonly { idNumber: string; idType: PartyIdType }[]
+  identifiers: readonly { idNumber: string; idType: PartyIdType }[],
+  executor: Reader = db
 ): Promise<Map<string, MatchedParty[]>> {
   const matches = new Map<string, MatchedParty[]>();
   const wanted = identifiers.filter((i) => i.idType !== "none" && i.idNumber);
@@ -258,7 +266,7 @@ export async function findContributorsByIdentifier(
     ),
   ];
   const types = [...new Set(wanted.map((i) => i.idType))];
-  const candidates = await db
+  const candidates = await executor
     .select({
       encrypted: partyPrivate.idNumberEncrypted,
       idType: partyPrivate.idType,
@@ -307,7 +315,8 @@ const digits = (phone: string) => phone.replaceAll(/\D/g, "");
 /** Contributors whose stored email or phone equals one in the file; these only become proposals. */
 export async function findContributorsByContact(
   emails: readonly string[],
-  phones: readonly string[]
+  phones: readonly string[],
+  executor: Reader = db
 ): Promise<{
   byEmail: Map<string, MatchedParty[]>;
   byPhone: Map<string, MatchedParty[]>;
@@ -321,18 +330,18 @@ export async function findContributorsByContact(
   if (emailSet.length === 0 && phoneByDigits.size === 0) {
     return { byEmail, byPhone };
   }
-  const phoneDigits = sql`regexp_replace(coalesce(${partyPrivate.phone}, ''), '\\D', '', 'g')`;
+  // The same expressions as the party_private indexes, so the lookups use them.
+  const email = emailKey(partyPrivate.email);
+  const phoneDigits = phoneDigitsKey(partyPrivate.phone);
   const conditions = [
-    emailSet.length > 0
-      ? inArray(sql`lower(${partyPrivate.email})`, emailSet)
-      : undefined,
+    emailSet.length > 0 ? inArray(email, emailSet) : undefined,
     phoneByDigits.size > 0
       ? inArray(phoneDigits, [...phoneByDigits.keys()])
       : undefined,
   ].filter((c) => c !== undefined);
-  const rows = await db
+  const rows = await executor
     .select({
-      email: sql<string | null>`lower(${partyPrivate.email})`,
+      email: sql<string | null>`${email}`,
       name: party.displayName,
       partyId: partyPrivate.partyId,
       phoneDigits: sql<string>`${phoneDigits}`,
@@ -370,12 +379,15 @@ export interface DuplicateCandidate {
  * Contributions that could be the same gift as a row: from a candidate
  * donor in the file's date range, or with a matching reference.
  */
-export async function findDuplicateCandidates(input: {
-  from: string;
-  partyIds: readonly string[];
-  references: readonly string[];
-  to: string;
-}): Promise<DuplicateCandidate[]> {
+export async function findDuplicateCandidates(
+  input: {
+    from: string;
+    partyIds: readonly string[];
+    references: readonly string[];
+    to: string;
+  },
+  executor: Reader = db
+): Promise<DuplicateCandidate[]> {
   const conditions = [
     input.partyIds.length > 0
       ? and(
@@ -385,7 +397,8 @@ export async function findDuplicateCandidates(input: {
         )
       : undefined,
     input.references.length > 0
-      ? inArray(sql`lower(${contribution.reference})`, [
+      ? // Matches the contribution_reference_lower_idx expression.
+        inArray(sql`lower(${contribution.reference})`, [
           ...new Set(input.references.map((r) => r.toLowerCase())),
         ])
       : undefined,
@@ -393,7 +406,7 @@ export async function findDuplicateCandidates(input: {
   if (conditions.length === 0) {
     return [];
   }
-  return await db
+  return await executor
     .select({
       amountPaise: contribution.amountPaise,
       id: contribution.id,
@@ -447,9 +460,7 @@ export async function withImportTransaction<T>(
   run: (tx: ImportTx) => Promise<T>
 ): Promise<T> {
   return await db.transaction(async (tx) => {
-    await tx.execute(
-      sql`select pg_advisory_xact_lock(hashtext('income-import-run'))`
-    );
+    await tx.execute(IMPORT_RUN_LOCK);
     return await run(tx);
   });
 }
@@ -463,26 +474,19 @@ export async function insertImportedContribution(
   await tx.insert(externalIdentity).values(identity);
 }
 
-/** One collection record per donor per batch; a retried run adds none. */
+/** One collection record per donor per batch (a unique index); a retried run adds none. */
 export async function recordImportCollectionEvent(
   tx: ImportTx,
   values: typeof collectionEvent.$inferInsert & { importBatchId: string }
 ): Promise<boolean> {
-  const [existing] = await tx
-    .select({ id: collectionEvent.id })
-    .from(collectionEvent)
-    .where(
-      and(
-        eq(collectionEvent.partyId, values.partyId),
-        eq(collectionEvent.importBatchId, values.importBatchId)
-      )
-    )
-    .limit(1);
-  if (existing) {
-    return false;
-  }
-  await tx.insert(collectionEvent).values(values);
-  return true;
+  const inserted = await tx
+    .insert(collectionEvent)
+    .values(values)
+    .onConflictDoNothing({
+      target: [collectionEvent.partyId, collectionEvent.importBatchId],
+    })
+    .returning({ id: collectionEvent.id });
+  return inserted.length > 0;
 }
 
 export async function setImportRowOutcome(

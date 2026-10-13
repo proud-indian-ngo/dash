@@ -5,6 +5,8 @@ import {
   addDays,
   expireImportRows,
   IMPORT_RETENTION_POLICY_VERSION,
+  IMPORT_RUN_LOCK,
+  type ImportRetentionStatements,
   type ImportRetentionStore,
   importedRowRetention,
   importRowDue,
@@ -17,7 +19,7 @@ function fakeStore(counts: {
   nulled: number;
 }) {
   const calls: string[] = [];
-  const store: ImportRetentionStore = {
+  const statements: ImportRetentionStatements = {
     deleteUnimportedRows: async (today) => {
       calls.push(`delete:${today}`);
       return counts.deleted;
@@ -31,7 +33,33 @@ function fakeStore(counts: {
       return counts.nulled;
     },
   };
+  const store: ImportRetentionStore = {
+    locked: async (work) => {
+      calls.push("lock");
+      const result = await work(statements);
+      calls.push("unlock");
+      return result;
+    },
+  };
   return { calls, store };
+}
+
+/** A one-holder lock standing in for the advisory lock. */
+function fakeLock() {
+  let tail = Promise.resolve();
+  return async <T>(work: () => Promise<T>): Promise<T> => {
+    const previous = tail;
+    let release = () => undefined as void;
+    tail = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      return await work();
+    } finally {
+      release();
+    }
+  };
 }
 
 describe("import row retention", () => {
@@ -63,7 +91,60 @@ describe("import row retention", () => {
       expiredBatches: 1,
       nulledRows: 7,
     });
-    expect(calls).toEqual(["null:2026-10-13", "delete:2026-10-13", "expire"]);
+    expect(calls).toEqual([
+      "lock",
+      "null:2026-10-13",
+      "delete:2026-10-13",
+      "expire",
+      "unlock",
+    ]);
+  });
+
+  it("takes the same advisory lock as an import run", () => {
+    const query = new PgDialect().sqlToQuery(IMPORT_RUN_LOCK);
+    expect(query.sql).toBe(
+      "select pg_advisory_xact_lock(hashtext('income-import-run'))"
+    );
+  });
+
+  it("never deletes rows of a batch whose run is committing at that moment", async () => {
+    // A failed batch, past its 30 days, being retried: the run holds the
+    // lock and commits while the expiry is waiting for it.
+    const batch = { importedCount: 0, status: "failed" };
+    const rows = new Set(["r1", "r2"]);
+    const lock = fakeLock();
+    const store: ImportRetentionStore = {
+      locked: async (work) =>
+        await lock(
+          async () =>
+            await work({
+              deleteUnimportedRows: async () => {
+                if (batch.status !== "failed" || batch.importedCount > 0) {
+                  return 0;
+                }
+                const n = rows.size;
+                rows.clear();
+                return n;
+              },
+              markEmptyBatchesExpired: async () => 0,
+              nullImportedRaw: async () => 0,
+            })
+        ),
+    };
+    let releaseRun = () => undefined as void;
+    const runHolding = new Promise<void>((resolve) => {
+      releaseRun = resolve;
+    });
+    const run = lock(async () => {
+      await runHolding;
+      batch.status = "completed";
+      batch.importedCount = 2;
+    });
+    const expiry = expireImportRows("2026-12-31", store);
+    releaseRun();
+    await run;
+    expect((await expiry).deletedRows).toBe(0);
+    expect(rows.size).toBe(2);
   });
 
   it("is idempotent: a second run with nothing due changes nothing", async () => {

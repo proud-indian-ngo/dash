@@ -63,11 +63,18 @@ import {
   rowIdentity,
 } from "./identity";
 import {
+  type CellIssue,
+  donorSaveInput,
   maskIdentifier,
+  maskPans,
   type NormalizeResult,
   normalizeRow,
 } from "./normalize";
-import type { ParsedCsv } from "./parse-csv";
+import {
+  CSV_ROW_ISSUE_MESSAGES,
+  type CsvRowIssue,
+  type ParsedCsv,
+} from "./parse-csv";
 import type {
   BatchDetailResponse,
   CreateBatchResponse,
@@ -146,6 +153,7 @@ export async function createImportBatch(
       batchId,
       createdAt: now,
       id: uuidv7(),
+      parseIssue: parsed.rowIssues[index] ?? null,
       raw,
       rawHash: rawRowHash(raw),
       rowNumber: index + 1,
@@ -193,22 +201,45 @@ function settingsOf(batch: ImportBatchRow): ClassifySettings | null {
   };
 }
 
-/** Normalises every row and looks up what already exists, then classifies. */
+/** The row's normalised values, with a parse problem of the CSV row as an error. */
+function normalizeRecord(
+  record: ImportRowRecord,
+  settings: ClassifySettings,
+  today: string
+): NormalizeResult | null {
+  if (!record.raw) {
+    return null;
+  }
+  const normalized = normalizeRow(record.raw, settings.mapping, {
+    dateFormat: settings.dateFormat,
+    defaultChannel: settings.defaultChannel,
+    today,
+  });
+  const issue = record.parseIssue as CsvRowIssue | null;
+  if (issue && CSV_ROW_ISSUE_MESSAGES[issue]) {
+    normalized.errors.unshift({
+      field: "row",
+      message: CSV_ROW_ISSUE_MESSAGES[issue],
+    });
+  }
+  return normalized;
+}
+
+/**
+ * Normalises every row and looks up what already exists, then classifies.
+ * During a run `executor` is the run's transaction, so the lookups see the
+ * state the run's lock protects.
+ */
 async function classifyBatch(
   batch: ImportBatchRow,
   records: readonly ImportRowRecord[],
-  settings: ClassifySettings
+  settings: ClassifySettings,
+  executor?: ImportTx
 ): Promise<Classification> {
   const today = todayInKolkata();
   const prepared = new Map<string, PreparedRow>();
   for (const record of records) {
-    const normalized = record.raw
-      ? normalizeRow(record.raw, settings.mapping, {
-          dateFormat: settings.dateFormat,
-          defaultChannel: settings.defaultChannel,
-          today,
-        })
-      : null;
+    const normalized = normalizeRecord(record, settings, today);
     const usable = normalized !== null && normalized.errors.length === 0;
     prepared.set(record.id, {
       identity: usable
@@ -231,7 +262,8 @@ async function classifyBatch(
           provider: firstIdentity.provider,
           providerAccount: firstIdentity.providerAccount,
         },
-        usable.map((p) => p.identity?.externalId ?? "")
+        usable.map((p) => p.identity?.externalId ?? ""),
+        executor
       )
     : [];
   const storedIdentities = new Map<string, StoredIdentity>();
@@ -249,11 +281,13 @@ async function classifyBatch(
 
   const rows = usable.map((p) => p.normalized.row);
   const idMatches = await findContributorsByIdentifier(
-    rows.map((r) => ({ idNumber: r.idNumber, idType: r.idType }))
+    rows.map((r) => ({ idNumber: r.idNumber, idType: r.idType })),
+    executor
   );
   const contact = await findContributorsByContact(
     rows.map((r) => r.email),
-    rows.map((r) => r.phone)
+    rows.map((r) => r.phone),
+    executor
   );
   const partyIds = [
     ...[...idMatches.values()].flat(),
@@ -266,12 +300,15 @@ async function classifyBatch(
     .sort();
   const existingContributions =
     dates.length > 0
-      ? await findDuplicateCandidates({
-          from: dates[0] ?? "",
-          partyIds,
-          references: rows.map((r) => r.reference).filter(Boolean),
-          to: dates.at(-1) ?? "",
-        })
+      ? await findDuplicateCandidates(
+          {
+            from: dates[0] ?? "",
+            partyIds,
+            references: rows.map((r) => r.reference).filter(Boolean),
+            to: dates.at(-1) ?? "",
+          },
+          executor
+        )
       : [];
 
   const inputs: ClassifyRowInput[] = [...prepared.values()].map((p) => ({
@@ -292,6 +329,20 @@ async function classifyBatch(
   return { classified, prepared, storedIdentities };
 }
 
+const maskIssue = (issue: CellIssue): CellIssue => ({
+  ...issue,
+  message: maskPans(issue.message),
+});
+
+/** A cell value for the browser: never a whole PAN, wherever it sits. */
+const shown = (value: string | undefined) => (value ? maskPans(value) : null);
+
+/**
+ * One row for the review and batch pages. Names, emails and references are
+ * shown to donor viewers as in the Donors directory; identifiers only ever
+ * as their last four characters, and any PAN-shaped text in another cell or
+ * message is masked the same way.
+ */
 function toRowView(
   row: ClassifiedRow,
   prepared: PreparedRow | undefined,
@@ -312,7 +363,7 @@ function toRowView(
     amountPaise: normalized?.amountPaise ?? null,
     category: row.category,
     donor,
-    donorName: normalized?.donorName || null,
+    donorName: shown(normalized?.donorName),
     donorOptions: row.donorOptions.map((option) => ({
       label:
         option.kind === "existing"
@@ -328,17 +379,18 @@ function toRowView(
           receivedOn: row.duplicate.receivedOn,
         }
       : null,
-    email: normalized?.email || null,
-    errors: row.errors,
+    email: shown(normalized?.email),
+    errors: row.errors.map(maskIssue),
     maskedId: normalized ? maskIdentifier(normalized.idNumber) : null,
     outcome: prepared?.record.outcome ?? "pending",
     outcomeReason: prepared?.record.outcomeReason ?? null,
     rawAvailable: Boolean(prepared?.record.raw),
     receivedOn: normalized?.receivedOn ?? null,
-    reference: normalized?.reference || null,
+    reference: shown(normalized?.reference),
     rowId: row.rowId,
     rowNumber: row.rowNumber,
-    warnings: row.warnings,
+    sameDonorAs: row.sameDonorAs,
+    warnings: row.warnings.map(maskIssue),
   };
 }
 
@@ -419,9 +471,45 @@ export async function reviewImportBatch(
   return toReviewResponse({ ...batch, status }, settings, classification);
 }
 
-/** The batch page: a read-only classification with the saved mapping, or the columns if none is saved yet. */
+/** An identifier cell for display: its last four characters at most. */
+const maskIdSample = (value: string) =>
+  maskIdentifier(value.replaceAll(/\s/g, "").toUpperCase()) ?? "••••";
+
+/**
+ * Column headers with up to three sample values, for continuing the mapping.
+ * Values of a column mapped (or that would be auto-mapped) to the ID number
+ * are masked, and so is any PAN-shaped value in another column.
+ */
+function columnSamples(
+  batch: ImportBatchRow,
+  withRaw: readonly ImportRowRecord[]
+): BatchDetailResponse["columns"] {
+  const headers = Object.keys(withRaw[0]?.raw ?? {});
+  const saved = (batch.mapping ?? {}) as ImportMapping;
+  const suggested = suggestMapping(headers, null);
+  return headers.map((header) => {
+    const isId =
+      saved[header] === "idNumber" || suggested[header] === "idNumber";
+    return {
+      header,
+      samples: withRaw
+        .map((r) => r.raw?.[header] ?? "")
+        .filter(Boolean)
+        .slice(0, 3)
+        .map((value) => (isId ? maskIdSample(value) : maskPans(value))),
+    };
+  });
+}
+
+/**
+ * The batch page: a read-only classification with the saved mapping, and
+ * for donor managers the columns to continue or retry the import with.
+ * Columns carry sample cells, so they are sent only while there is
+ * something left to import, and never to donor viewers.
+ */
 export async function getImportBatchDetail(
-  batchId: string
+  batchId: string,
+  access: { canManage: boolean }
 ): Promise<BatchDetailResponse> {
   const batch = await getImportBatch(batchId);
   if (!batch) {
@@ -429,14 +517,14 @@ export async function getImportBatchDetail(
   }
   const records = await listImportRows(batch.id);
   const withRaw = records.filter((r) => r.raw);
-  const headers = Object.keys(withRaw[0]?.raw ?? {});
-  const columns = headers.map((header) => ({
-    header,
-    samples: withRaw
-      .map((r) => r.raw?.[header] ?? "")
-      .filter(Boolean)
-      .slice(0, 3),
-  }));
+  const resumable =
+    batch.status !== "expired" &&
+    batch.status !== "importing" &&
+    withRaw.some(
+      (r) => r.outcome !== "imported" && r.outcome !== "linked_existing"
+    );
+  const columns =
+    access.canManage && resumable ? columnSamples(batch, withRaw) : [];
   const settings = settingsOf(batch);
   if (!settings || batch.status === "expired") {
     return { columns, review: null };
@@ -462,36 +550,17 @@ interface RunContext {
   tx: ImportTx;
 }
 
-/** Creates the donor for a new-donor key through the audited party save path. */
+/**
+ * Creates the donor for a new-donor key through the audited party save path.
+ * normalizeRow already ran the same rules, so a failure here is unexpected.
+ */
 async function createDonor(
   ctx: RunContext,
   normalized: NormalizeResult["row"]
 ): Promise<string | null> {
-  const withId = ctx.canStoreIds && normalized.idType !== "none";
-  const parsed = saveDonorSchema.safeParse({
-    addressLine1: normalized.addressLine1,
-    addressLine2: normalized.addressLine2,
-    assessmentNote: "",
-    city: normalized.city,
-    country: normalized.country,
-    displayName: normalized.donorName,
-    email: normalized.email,
-    expectedPartyUpdatedAt: null,
-    expectedUpdatedAt: null,
-    foreignSourceAssessment:
-      normalized.country === "IN" ? "domestic" : "pending",
-    id: uuidv7(),
-    idNumber: withId ? normalized.idNumber : "",
-    idType: withId ? normalized.idType : "none",
-    kind: "person",
-    legalName: "",
-    mode: "create",
-    nationality: "",
-    phone: normalized.phone,
-    pincode: normalized.pincode,
-    roles: ["donor"],
-    state: normalized.state,
-  });
+  const parsed = saveDonorSchema.safeParse(
+    donorSaveInput(normalized, { id: uuidv7(), withId: ctx.canStoreIds })
+  );
   if (!parsed.success) {
     return null;
   }
@@ -508,20 +577,26 @@ export async function runImportBatch(
   input: { batchId: string; decisions: Record<string, RowDecision> },
   actorId: string
 ): Promise<RunResponse> {
-  const batch = await requireBatch(input.batchId);
-  const settings = settingsOf(batch);
-  if (!settings) {
+  const current = await requireBatch(input.batchId);
+  if (!settingsOf(current)) {
     throw new ImportInputError("Review the rows before importing");
   }
-  const { programmeId } = await resolveImportSettings(batch);
   const claimed = await claimImportBatch(
-    batch.id,
+    current.id,
     new Date(Date.now() - STALE_RUN_MS)
   );
   if (!claimed) {
     throw new ImportInputError("This batch is already importing");
   }
+  // From here on the claimed row is the truth: a review that saved a new
+  // mapping between the read above and the claim is what gets imported.
+  const batch = claimed;
+  const settings = settingsOf(batch);
   try {
+    if (!settings) {
+      throw new ImportInputError("Review the rows before importing");
+    }
+    const { programmeId } = await resolveImportSettings(batch);
     return await withImportTransaction(async (tx) => {
       const now = new Date();
       const ctx: RunContext = {
@@ -533,7 +608,7 @@ export async function runImportBatch(
         tx,
       };
       const records = await listImportRows(batch.id, tx);
-      const classification = await classifyBatch(batch, records, settings);
+      const classification = await classifyBatch(batch, records, settings, tx);
       const plans = planRows(classification.classified, input.decisions);
       const result = await executePlans(ctx, classification, plans);
       const counts = await countImportOutcomes(tx, batch.id);

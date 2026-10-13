@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, mock } from "bun:test";
 let granted: string[] = [];
 let audits: { action: string; metadata?: unknown; target?: unknown }[] = [];
 let serviceCalls: string[] = [];
+let detailAccess: unknown[] = [];
 
 const deny = (permissions: readonly string[]) => {
   if (!permissions.some((p) => granted.includes(p))) {
@@ -16,6 +17,11 @@ mock.module("@/lib/api-auth", () => ({
     deny(permissions),
   assertServerPermission: async (_s: unknown, permission: string) =>
     deny([permission]),
+  buildSessionContext: async () => ({
+    permissions: granted,
+    role: "r",
+    userId: "u-1",
+  }),
 }));
 mock.module("@/lib/audit", () => ({
   runSessionAuditedAction: async (
@@ -33,8 +39,9 @@ mock.module("@/lib/income-import/server", () => ({
     serviceCalls.push("create");
     return { batchId: "b" };
   },
-  getImportBatchDetail: async () => {
+  getImportBatchDetail: async (_id: string, access: unknown) => {
     serviceCalls.push("detail");
+    detailAccess.push(access);
     return { columns: [], review: null };
   },
   reviewImportBatch: async () => {
@@ -76,6 +83,7 @@ describe("contribution import server functions", () => {
     granted = [];
     audits = [];
     serviceCalls = [];
+    detailAccess = [];
   });
 
   it("needs donors.manage to upload, review or import, and does nothing when denied", async () => {
@@ -151,7 +159,10 @@ describe("contribution import server functions", () => {
     ).rejects.toThrow("Forbidden");
     granted = ["donors.view"];
     await call(fns.getContributionImport, { batchId: BATCH });
-    expect(serviceCalls).toEqual(["detail"]);
+    granted = ["donors.manage"];
+    await call(fns.getContributionImport, { batchId: BATCH });
+    expect(serviceCalls).toEqual(["detail", "detail"]);
+    expect(detailAccess).toEqual([{ canManage: false }, { canManage: true }]);
     expect(audits).toEqual([]);
   });
 });

@@ -32,6 +32,7 @@ import {
   MATCH_REASON_LABELS,
   REVIEW_CATEGORY_LABELS,
 } from "@/lib/income-import/labels";
+import type { CellIssue } from "@/lib/income-import/normalize";
 import type { ReviewRowView } from "@/lib/income-import/review-types";
 
 const PAGE = 200;
@@ -75,6 +76,9 @@ const formatDate = (iso: string) =>
     year: "numeric",
   });
 
+const issueLabel = (field: CellIssue["field"]) =>
+  field === "row" ? "Row" : IMPORT_FIELD_LABELS[field];
+
 function DonorCell({ row }: { row: ReviewRowView }) {
   if (!row.rawAvailable) {
     return (
@@ -85,7 +89,9 @@ function DonorCell({ row }: { row: ReviewRowView }) {
   }
   const secondary = [row.email, row.maskedId].filter(Boolean).join(" · ");
   let donorNote: string | null = null;
-  if (row.donor.kind === "existing") {
+  if (row.sameDonorAs) {
+    donorNote = `Same donor as row ${row.sameDonorAs.rowNumber} (same ID number)`;
+  } else if (row.donor.kind === "existing") {
     donorNote = `Existing donor: ${row.donor.name}`;
   } else if (row.donor.kind === "new") {
     donorNote = row.donor.sharedWithEarlierRow
@@ -112,11 +118,11 @@ function DonorCell({ row }: { row: ReviewRowView }) {
 function MessagesCell({ row }: { row: ReviewRowView }) {
   const messages = [
     ...row.errors.map((e) => ({
-      text: `${IMPORT_FIELD_LABELS[e.field]}: ${e.message}`,
+      text: `${issueLabel(e.field)}: ${e.message}`,
       tone: "text-destructive",
     })),
     ...row.warnings.map((w) => ({
-      text: `${IMPORT_FIELD_LABELS[w.field]}: ${w.message}`,
+      text: `${issueLabel(w.field)}: ${w.message}`,
       tone: "text-warning-foreground",
     })),
   ];
@@ -199,6 +205,11 @@ function DecisionCell({
   }
   return (
     <div className="grid gap-1.5">
+      {row.sameDonorAs ? (
+        <p className="text-muted-foreground text-xs">
+          Donor is chosen on row {row.sameDonorAs.rowNumber}
+        </p>
+      ) : null}
       {row.donorOptions.length > 0 ? (
         <ChoiceSelect
           label={`Donor for row ${row.rowNumber}`}

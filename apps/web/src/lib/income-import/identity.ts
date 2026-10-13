@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 
+import { keyedDigest } from "@pi-dash/db/encryption";
 import type {
   ExternalIdentityEntityType,
   ExternalIdentityProvider,
@@ -12,7 +13,20 @@ import type { NormalizedRow } from "./normalize";
  * Server-only (node:crypto). How an imported row is identified across
  * uploads, and how its content is fingerprinted to tell an identical
  * re-upload from a changed one.
+ *
+ * Row hashes are keyed (HMAC-SHA256 under a key derived from
+ * DATA_ENCRYPTION_KEY), so a stored hash cannot be checked against guessed
+ * names, amounts or PANs without the key. Each stored value carries the
+ * scheme as a prefix ("h1:"); a new key or algorithm gets a new prefix, and
+ * lookups can then compute both while old rows age out.
  */
+
+const IMPORT_HASH_SCHEME = "h1";
+const IMPORT_HASH_INFO = "pi-dash import hash v1";
+
+/** A keyed hash of `text` for one purpose, prefixed with the scheme. */
+const keyedHash = (purpose: string, text: string) =>
+  `${IMPORT_HASH_SCHEME}:${keyedDigest(IMPORT_HASH_INFO, `${purpose}\u0000${text}`)}`;
 
 export interface RowIdentity {
   entityType: ExternalIdentityEntityType;
@@ -22,9 +36,6 @@ export interface RowIdentity {
   /** No external ID in the file, so the ID is a fingerprint of the row. */
   weak: boolean;
 }
-
-const sha256 = (text: string) =>
-  createHash("sha256").update(text, "utf8").digest("hex");
 
 const PROVIDER_BY_SOURCE: Record<ImportBatchSource, ExternalIdentityProvider> =
   {
@@ -63,7 +74,11 @@ export function rowIdentity(
     fold(row.donorName),
     fold(row.reference),
   ].join("|");
-  return { ...base, externalId: `fp1:${sha256(fingerprint)}`, weak: true };
+  return {
+    ...base,
+    externalId: `fp:${keyedHash("fingerprint", fingerprint)}`,
+    weak: true,
+  };
 }
 
 export function identityKey(
@@ -83,9 +98,13 @@ export function identityKey(
 /**
  * Fingerprint of everything the row would write: a re-upload with the same
  * hash links to the earlier contribution, a different hash is a conflict.
+ * The channel counts only when the file states it: the batch default is a
+ * setting of the upload, so uploading the same file again with another
+ * default must not turn every row into a conflict.
  */
 export function payloadHash(row: NormalizedRow): string {
-  return sha256(
+  return keyedHash(
+    "payload",
     JSON.stringify([
       row.receivedOn,
       row.amountPaise,
@@ -95,16 +114,17 @@ export function payloadHash(row: NormalizedRow): string {
       row.idNumber,
       fold(row.reference),
       row.donationType,
-      row.channel,
+      row.channelFromFile ? row.channel : null,
     ])
   );
 }
 
 /** Hash of the uploaded cells in header order. */
 export function rawRowHash(raw: Readonly<Record<string, string>>): string {
-  return sha256(JSON.stringify(Object.entries(raw)));
+  return keyedHash("raw", JSON.stringify(Object.entries(raw)));
 }
 
+/** Plain SHA-256 of the whole file, only to spot the same file uploaded twice. */
 export function fileHash(text: string): string {
-  return sha256(text);
+  return createHash("sha256").update(text, "utf8").digest("hex");
 }

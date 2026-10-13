@@ -21,6 +21,7 @@ function row(overrides: Partial<NormalizedRow> = {}): NormalizedRow {
     addressLine2: "",
     amountPaise: 100_000,
     channel: "upi",
+    channelFromFile: false,
     city: "",
     country: "IN",
     donationType: "voluntary",
@@ -94,7 +95,8 @@ describe("rowIdentity", () => {
     );
     const c = rowIdentity(row({ amountPaise: 1 }), "generic_csv", ACCOUNT);
     expect(a.weak).toBe(true);
-    expect(a.externalId).toStartWith("fp1:");
+    expect(a.externalId).toStartWith("fp:h1:");
+    expect(a.externalId).toMatch(/^fp:h1:[0-9a-f]{64}$/);
     expect(a.externalId).toBe(b.externalId);
     expect(a.externalId).not.toBe(c.externalId);
   });
@@ -102,6 +104,21 @@ describe("rowIdentity", () => {
   it("changes the payload hash when the amount changes", () => {
     expect(payloadHash(row())).toBe(payloadHash(row()));
     expect(payloadHash(row())).not.toBe(payloadHash(row({ amountPaise: 5 })));
+  });
+
+  it("keys hashes so a stored hash is not the plain SHA-256 of the row", () => {
+    const hash = payloadHash(row({ idNumber: "ABCDE1234F", idType: "pan" }));
+    expect(hash).toMatch(/^h1:[0-9a-f]{64}$/);
+    expect(hash).not.toContain("ABCDE1234F");
+  });
+
+  it("ignores the batch default channel but not a channel the file states", () => {
+    expect(payloadHash(row({ channel: "upi" }))).toBe(
+      payloadHash(row({ channel: "neft" }))
+    );
+    expect(
+      payloadHash(row({ channel: "upi", channelFromFile: true }))
+    ).not.toBe(payloadHash(row({ channel: "neft", channelFromFile: true })));
   });
 });
 
@@ -230,6 +247,32 @@ describe("classifyRows", () => {
     ]);
   });
 
+  it("makes a later row with the same ID number follow an undecided first row", () => {
+    const context = emptyContext();
+    context.emailMatches = new Map([
+      ["d@x.in", [{ name: "Dev", partyId: "p-d" }]],
+    ]);
+    const a = input(
+      row({
+        email: "d@x.in",
+        externalId: "S1",
+        idNumber: "ABCDE1234F",
+        idType: "pan",
+      })
+    );
+    const b = input(
+      row({ externalId: "S2", idNumber: "ABCDE1234F", idType: "pan" })
+    );
+    const [first, second] = classifyRows([a, b], context);
+    expect(first?.category).toBe("needs_review");
+    expect(second?.category).toBe("needs_review");
+    expect(second?.donorOptions).toEqual([]);
+    expect(second?.sameDonorAs).toEqual({
+      rowId: a.id,
+      rowNumber: a.rowNumber,
+    });
+  });
+
   it("proposes a possible duplicate by reference or by donor, day and amount", () => {
     const context = emptyContext();
     context.idMatches = new Map([
@@ -337,6 +380,78 @@ describe("planRows", () => {
     expect(summarizePlans(plans.values()).newDonors).toBe(1);
   });
 
+  describe("one ID number, one donor", () => {
+    // A: PAN X and an email that matches existing donor D, so it needs review.
+    // B: the same PAN X and no contact details.
+    const setup = () => {
+      const context = emptyContext();
+      context.emailMatches = new Map([
+        ["d@x.in", [{ name: "Dev", partyId: "p-d" }]],
+      ]);
+      const a = input(
+        row({
+          email: "d@x.in",
+          externalId: "P1",
+          idNumber: "ABCDE1234F",
+          idType: "pan",
+        })
+      );
+      const b = input(
+        row({
+          amountPaise: 2500,
+          externalId: "P2",
+          idNumber: "ABCDE1234F",
+          idType: "pan",
+        })
+      );
+      return { a, b, classified: classifyRows([a, b], context) };
+    };
+
+    it("creates exactly one new donor when the reviewer picks New donor", () => {
+      const { a, b, classified } = setup();
+      const plans = planRows(classified, { [a.id]: { donor: "new" } });
+      expect(plans.get(a.id)).toEqual({
+        action: "import",
+        donor: { key: `row:${a.id}`, kind: "new" },
+      });
+      expect(plans.get(b.id)).toEqual(plans.get(a.id));
+      expect(summarizePlans(plans.values())).toMatchObject({
+        imports: 2,
+        newDonors: 1,
+      });
+    });
+
+    it("links both rows to the existing donor the reviewer picks", () => {
+      const { a, b, classified } = setup();
+      const plans = planRows(classified, { [a.id]: { donor: "party:p-d" } });
+      const toD = {
+        action: "import",
+        donor: { kind: "existing", partyId: "p-d" },
+      } as const;
+      expect(plans.get(a.id)).toEqual(toD);
+      expect(plans.get(b.id)).toEqual(toD);
+      expect(summarizePlans(plans.values()).newDonors).toBe(0);
+    });
+
+    it("keeps the second row back until the first row's donor is chosen", () => {
+      const { a, b, classified } = setup();
+      const plans = planRows(classified, { [b.id]: { donor: "new" } });
+      expect(plans.get(a.id)).toEqual({ action: "skip", reason: "undecided" });
+      expect(plans.get(b.id)).toEqual({ action: "skip", reason: "undecided" });
+    });
+
+    it("still follows the first row's donor when that row is skipped", () => {
+      const { a, b, classified } = setup();
+      const plans = planRows(classified, {
+        [a.id]: { contribution: "skip", donor: "party:p-d" },
+      });
+      expect(plans.get(b.id)).toEqual({
+        action: "import",
+        donor: { kind: "existing", partyId: "p-d" },
+      });
+    });
+  });
+
   it("needs an explicit import for a possible duplicate", () => {
     const context = emptyContext();
     context.existingContributions = [
@@ -379,6 +494,7 @@ describe("summarizeReview", () => {
     reference: null,
     rowId: crypto.randomUUID(),
     rowNumber: 1,
+    sameDonorAs: null,
     warnings: [],
     ...overrides,
   });
@@ -421,5 +537,23 @@ describe("summarizeReview", () => {
       skips: 0,
       undecided: 0,
     });
+  });
+
+  it("counts a new donor chosen on one row and followed by a same-ID row once", () => {
+    const first = view({
+      category: "needs_review",
+      donorOptions: [{ label: "D", reason: "email", value: "party:p" }],
+    });
+    const follower = view({
+      category: "needs_review",
+      sameDonorAs: { rowId: first.rowId, rowNumber: first.rowNumber },
+    });
+    expect(summarizeReview([first, follower], {})).toMatchObject({
+      imports: 0,
+      undecided: 2,
+    });
+    expect(
+      summarizeReview([first, follower], { [first.rowId]: { donor: "new" } })
+    ).toMatchObject({ imports: 2, newDonors: 1, undecided: 0 });
   });
 });

@@ -103,6 +103,8 @@ export const importRow = privateSchema.table(
     outcome: importRowOutcomeEnum("outcome").default("pending").notNull(),
     /** A short code such as "duplicate_skipped"; never row content. */
     outcomeReason: text("outcome_reason"),
+    /** Why the parser could not read the row cleanly ("malformed_quotes", "extra_cells"); such rows can only be skipped. */
+    parseIssue: text("parse_issue"),
     partyId: uuid("party_id").references(() => party.id, {
       onDelete: "set null",
     }),
@@ -147,5 +149,11 @@ export const collectionEvent = privateSchema.table(
     processingBasis: processingBasisEnum("processing_basis").notNull(),
     purpose: text("purpose").notNull(),
   },
-  (t) => [index("collection_event_partyId_idx").on(t.partyId)]
+  (t) => [
+    // One record per donor per import batch; also serves lookups by party.
+    uniqueIndex("collection_event_party_batch_uidx").on(
+      t.partyId,
+      t.importBatchId
+    ),
+  ]
 );

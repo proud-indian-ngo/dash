@@ -1,7 +1,15 @@
 import { describe, expect, it } from "bun:test";
 
+import { saveDonorSchema } from "@/lib/donor-schema";
+
 import { checkMapping, IGNORE_FIELD, suggestMapping } from "./fields";
-import { normalizeRow, parseAmount, parseDate } from "./normalize";
+import {
+  donorSaveInput,
+  maskPans,
+  normalizeRow,
+  parseAmount,
+  parseDate,
+} from "./normalize";
 import { CsvParseError, parseCsv, sampleValues } from "./parse-csv";
 
 describe("parseCsv", () => {
@@ -19,6 +27,21 @@ describe("parseCsv", () => {
     const parsed = parseCsv("Amount,,Amount\n1,2,3\n\n,,\n4,5,6\n");
     expect(parsed.headers).toEqual(["Amount", "Column 2", "Amount (2)"]);
     expect(parsed.rows).toHaveLength(2);
+  });
+
+  it("flags a row with an unclosed quote instead of silently merging lines", () => {
+    const parsed = parseCsv(
+      'Name,Amount,Date\nAsha,1,01/10/2026\nDev,"2,02/10/2026\nRavi,3,03/10/2026\n'
+    );
+    expect(parsed.rows).toHaveLength(2);
+    expect(parsed.rowIssues).toEqual([null, "malformed_quotes"]);
+  });
+
+  it("flags extra non-blank cells beyond the header, not trailing blank ones", () => {
+    const parsed = parseCsv(
+      "Name,Amount,Date\nAsha,1,000,01/10/2026\nDev,2,02/10/2026,,\n"
+    );
+    expect(parsed.rowIssues).toEqual(["extra_cells", null]);
   });
 
   it("reads semicolon-separated files", () => {
@@ -203,6 +226,52 @@ describe("normalizeRow", () => {
     });
   });
 
+  it("errors on an ID number the donor form would refuse", () => {
+    const result = normalizeRow(
+      {
+        Amount: "10",
+        Channel: "",
+        Date: "01/10/2026",
+        Email: "",
+        IdType: "passport",
+        Name: "Asha",
+        PAN: "P".repeat(41),
+        Phone: "",
+        Type: "",
+      },
+      { ...mapping, IdType: "idType" },
+      options
+    );
+    expect(result.errors.map((e) => e.field)).toContain("idNumber");
+  });
+
+  it("gives the donor form exactly what a valid row would save", () => {
+    const result = normalizeRow(
+      {
+        Amount: "10",
+        Channel: "",
+        Date: "01/10/2026",
+        Email: "a@x.in",
+        Name: "Asha",
+        PAN: "ABCDE1234F",
+        Phone: "9876543210",
+        Type: "",
+      },
+      mapping,
+      options
+    );
+    expect(result.errors).toEqual([]);
+    const donor = donorSaveInput(result.row, {
+      id: "0190a000-0000-7000-8000-000000000001",
+      withId: true,
+    });
+    expect(saveDonorSchema.safeParse(donor).success).toBe(true);
+    expect(donor).toMatchObject({ idNumber: "ABCDE1234F", idType: "pan" });
+    expect(
+      donorSaveInput(result.row, { id: donor.id, withId: false })
+    ).toMatchObject({ idNumber: "", idType: "none" });
+  });
+
   it("errors on a missing name, a bad amount, a future date or an unknown type", () => {
     const result = normalizeRow(
       {
@@ -225,5 +294,13 @@ describe("normalizeRow", () => {
       "donorName",
       "receivedOn",
     ]);
+  });
+});
+
+describe("maskPans", () => {
+  it("masks PAN-shaped text anywhere, in any case or spacing", () => {
+    expect(maskPans("ABCDE1234F")).toBe("••••234F");
+    expect(maskPans("pan: abcde 1234 f, ok")).toBe("pan: ••••234F, ok");
+    expect(maskPans("UTR 123456")).toBe("UTR 123456");
   });
 });

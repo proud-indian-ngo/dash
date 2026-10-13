@@ -4,6 +4,7 @@ import z from "zod";
 import {
   assertServerAnyPermission,
   assertServerPermission,
+  buildSessionContext,
 } from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
 import {
@@ -109,7 +110,9 @@ export const reviewContributionImport = createServerFn({ method: "POST" })
 /**
  * The batch page's rows. Rows carry donor names and contact details from the
  * file, so they need donors.view or donors.manage; finance-only roles see the
- * synced counts instead. A read, so it is not audited.
+ * synced counts instead. Identifiers are always masked; the column samples
+ * used to continue an import go to donors.manage only. A read, so it is not
+ * audited.
  */
 export const getContributionImport = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
@@ -119,7 +122,13 @@ export const getContributionImport = createServerFn({ method: "POST" })
       "donors.view",
       "donors.manage",
     ]);
-    return await getImportBatchDetail(data.batchId);
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    const { permissions } = await buildSessionContext(context.session);
+    return await getImportBatchDetail(data.batchId, {
+      canManage: permissions.includes("donors.manage"),
+    });
   });
 
 const decisionSchema = z.object({

@@ -1,5 +1,5 @@
 {
-  "id": "c48d9c58-47ce-4d51-96f1-20d27855d9f9",
+  "id": "0ae9676b-e4c2-415a-a88f-f619cbec09ec",
   "prevId": "570a4f46-2127-4ea3-be55-6c3d4fa822ce",
   "version": "7",
   "dialect": "postgresql",
@@ -4153,6 +4153,21 @@
               "expression": "import_batch_id",
               "isExpression": false,
               "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "contribution_reference_lower_idx": {
+          "name": "contribution_reference_lower_idx",
+          "columns": [
+            {
+              "expression": "lower(\"reference\")",
+              "asc": true,
+              "isExpression": true,
               "nulls": "last"
             }
           ],
@@ -13714,17 +13729,23 @@
         }
       },
       "indexes": {
-        "collection_event_partyId_idx": {
-          "name": "collection_event_partyId_idx",
+        "collection_event_party_batch_uidx": {
+          "name": "collection_event_party_batch_uidx",
           "columns": [
             {
               "expression": "party_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
+            },
+            {
+              "expression": "import_batch_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
             }
           ],
-          "isUnique": false,
+          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -13966,6 +13987,12 @@
         },
         "outcome_reason": {
           "name": "outcome_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "parse_issue": {
+          "name": "parse_issue",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -14341,7 +14368,38 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "party_private_email_lower_idx": {
+          "name": "party_private_email_lower_idx",
+          "columns": [
+            {
+              "expression": "lower(\"email\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "party_private_phone_digits_idx": {
+          "name": "party_private_phone_digits_idx",
+          "columns": [
+            {
+              "expression": "regexp_replace(coalesce(\"phone\", ''), '\\D', '', 'g')",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "party_private_party_id_party_id_fk": {
           "name": "party_private_party_id_party_id_fk",

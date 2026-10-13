@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -12,13 +13,20 @@ const FIXTURE = path.resolve(
   "../../fixtures/income/import-contributions.csv"
 );
 
-/** A PAN unique to this run: five letters, four digits, one letter. */
+/**
+ * A PAN for this run (five letters, four digits, one letter) from a hash of
+ * the run ID, so about 3 × 10¹² values: an earlier run's donor will not match.
+ */
 function runPan(run: string): string {
-  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  const digits = run.slice(-4).padStart(4, "0");
-  const pick = (n: number) => letters[n % 26] ?? "A";
-  const seed = Number(run.slice(-9));
-  return `${pick(seed)}${pick(seed >> 3)}${pick(seed >> 6)}${pick(seed >> 9)}P${digits}${pick(seed >> 12)}`;
+  const bytes = createHash("sha256").update(run).digest();
+  const letter = (i: number) =>
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[(bytes[i] ?? 0) % 26] ?? "A";
+  const digit = (i: number) => String((bytes[i] ?? 0) % 10);
+  return (
+    [0, 1, 2, 3, 4].map(letter).join("") +
+    [5, 6, 7, 8].map(digit).join("") +
+    letter(9)
+  );
 }
 
 function fixtureCsv(run: string, edit?: (text: string) => string): Buffer {
@@ -70,7 +78,7 @@ test.describe("Income: CSV import", () => {
     page,
   }) => {
     test.slow();
-    const run = String(Date.now());
+    const run = `${Date.now()}-${randomUUID().slice(0, 8)}`;
     const donor = `E2E Import Donor ${run}`;
 
     await uploadAndReview(page, `donations-${run}.csv`, fixtureCsv(run));

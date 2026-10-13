@@ -127,6 +127,8 @@ export const contribution = pgTable(
     index("contribution_receivedOn_idx").on(t.receivedOn),
     index("contribution_status_idx").on(t.status),
     index("contribution_importBatchId_idx").on(t.importBatchId),
+    // Duplicate checks for imports compare references case-insensitively.
+    index("contribution_reference_lower_idx").on(sql`lower(${t.reference})`),
     check("contribution_amount_positive", sql`${t.amountPaise} > 0`),
     check(
       "contribution_gateway_charges_nonnegative",

@@ -217,6 +217,10 @@ export const IMPORT_SOURCE_LABELS: Record<ImportBatchSource, string> = {
 };
 
 /** Bumped whenever parsing or normalisation changes what a row turns into. */
+/** Shown at mapping and review when no external ID column is mapped. */
+export const WEAK_IDENTITY_WARNING =
+  "No external donation ID or transaction ID column is mapped, so rows are told apart only by date, amount, donor name and reference. Two identical gifts (same donor, date and amount, and no reference) will be treated as one: the second is marked already imported and not added. Map an ID column if the file has one.";
+
 export const IMPORT_PARSER_VERSION = 1;
 
 export const MAX_IMPORT_FILE_BYTES = 5 * 1024 * 1024;

@@ -17,7 +17,14 @@ import { importRow } from "./schema/private/imports";
  *
  * Rows under legal hold are skipped. Contributions, external identities and
  * collection events are never touched here.
+ *
+ * The expiry holds the same advisory lock as an import run, so it never sees
+ * a batch halfway through a run: rows of a batch whose run commits at that
+ * moment are judged by the committed status and counts, never deleted.
  */
+
+/** Serialises import runs with each other and with the retention expiry; transaction-scoped. */
+export const IMPORT_RUN_LOCK = sql`select pg_advisory_xact_lock(hashtext('income-import-run'))`;
 
 export const IMPORT_RETENTION_POLICY_VERSION = "import-rows-2026-10";
 export const IMPORTED_ROW_RETENTION_DAYS = 180;
@@ -64,12 +71,21 @@ export interface ImportRetentionResult {
   nulledRows: number;
 }
 
-/** The three statements the expiry runs; injectable so the rules can be tested without a database. */
-export interface ImportRetentionStore {
+/** The three statements the expiry runs. */
+export interface ImportRetentionStatements {
   deleteUnimportedRows: (today: string) => Promise<number>;
   markEmptyBatchesExpired: () => Promise<number>;
   nullImportedRaw: (today: string) => Promise<number>;
 }
+
+/** Runs the statements in one transaction under the import-run lock; injectable so the rules can be tested without a database. */
+export interface ImportRetentionStore {
+  locked: <T>(
+    work: (statements: ImportRetentionStatements) => Promise<T>
+  ) => Promise<T>;
+}
+
+type RetentionTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /** Rows whose retention date has passed and that are not under legal hold. */
 export const importRowDue = (today: string) =>
@@ -83,54 +99,63 @@ const neverImported = () =>
     eq(importBatch.linkedCount, 0)
   );
 
-const unimportedBatchIds = () =>
-  db.select({ id: importBatch.id }).from(importBatch).where(neverImported());
-
-export const databaseImportRetentionStore: ImportRetentionStore = {
-  deleteUnimportedRows: async (today) => {
-    const deleted = await db
-      .delete(importRow)
-      .where(
-        and(
-          importRowDue(today),
-          inArray(importRow.batchId, unimportedBatchIds())
-        )
-      )
-      .returning({ id: importRow.id });
-    return deleted.length;
-  },
-  markEmptyBatchesExpired: async () => {
-    const expired = await db
-      .update(importBatch)
-      .set({ status: "expired", updatedAt: new Date() })
-      .where(
-        and(
-          neverImported(),
-          notExists(
-            db
-              .select({ one: sql`1` })
-              .from(importRow)
-              .where(eq(importRow.batchId, importBatch.id))
+function statementsFor(tx: RetentionTx): ImportRetentionStatements {
+  const unimportedBatchIds = () =>
+    tx.select({ id: importBatch.id }).from(importBatch).where(neverImported());
+  return {
+    deleteUnimportedRows: async (today) => {
+      const deleted = await tx
+        .delete(importRow)
+        .where(
+          and(
+            importRowDue(today),
+            inArray(importRow.batchId, unimportedBatchIds())
           )
         )
-      )
-      .returning({ id: importBatch.id });
-    return expired.length;
-  },
-  nullImportedRaw: async (today) => {
-    const nulled = await db
-      .update(importRow)
-      .set({ raw: null })
-      .where(
-        and(
-          importRowDue(today),
-          isNotNull(importRow.raw),
-          sql`${importRow.batchId} not in (${unimportedBatchIds()})`
+        .returning({ id: importRow.id });
+      return deleted.length;
+    },
+    markEmptyBatchesExpired: async () => {
+      const expired = await tx
+        .update(importBatch)
+        .set({ status: "expired", updatedAt: new Date() })
+        .where(
+          and(
+            neverImported(),
+            notExists(
+              tx
+                .select({ one: sql`1` })
+                .from(importRow)
+                .where(eq(importRow.batchId, importBatch.id))
+            )
+          )
         )
-      )
-      .returning({ id: importRow.id });
-    return nulled.length;
-  },
+        .returning({ id: importBatch.id });
+      return expired.length;
+    },
+    nullImportedRaw: async (today) => {
+      const nulled = await tx
+        .update(importRow)
+        .set({ raw: null })
+        .where(
+          and(
+            importRowDue(today),
+            isNotNull(importRow.raw),
+            sql`${importRow.batchId} not in (${unimportedBatchIds()})`
+          )
+        )
+        .returning({ id: importRow.id });
+      return nulled.length;
+    },
+  };
+}
+
+export const databaseImportRetentionStore: ImportRetentionStore = {
+  locked: async (work) =>
+    await db.transaction(async (tx) => {
+      await tx.execute(IMPORT_RUN_LOCK);
+      return await work(statementsFor(tx));
+    }),
 };
 
 /**
@@ -142,10 +167,12 @@ export async function expireImportRows(
   today: string,
   store: ImportRetentionStore = databaseImportRetentionStore
 ): Promise<ImportRetentionResult> {
-  const nulledRows = await store.nullImportedRaw(today);
-  const deletedRows = await store.deleteUnimportedRows(today);
-  // Run even when nothing was deleted today, so a batch whose rows went in
-  // an earlier, interrupted run is still marked.
-  const expiredBatches = await store.markEmptyBatchesExpired();
-  return { deletedRows, expiredBatches, nulledRows };
+  return await store.locked(async (statements) => {
+    const nulledRows = await statements.nullImportedRaw(today);
+    const deletedRows = await statements.deleteUnimportedRows(today);
+    // Run even when nothing was deleted today, so a batch whose rows went in
+    // an earlier, interrupted run is still marked.
+    const expiredBatches = await statements.markEmptyBatchesExpired();
+    return { deletedRows, expiredBatches, nulledRows };
+  });
 }

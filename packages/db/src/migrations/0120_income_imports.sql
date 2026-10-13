@@ -66,6 +66,7 @@ CREATE TABLE "private"."import_row" (
 	"legal_hold" boolean DEFAULT false NOT NULL,
 	"outcome" "private"."import_row_outcome" DEFAULT 'pending' NOT NULL,
 	"outcome_reason" text,
+	"parse_issue" text,
 	"party_id" uuid,
 	"raw" jsonb,
 	"raw_hash" text NOT NULL,
@@ -92,10 +93,13 @@ ALTER TABLE "private"."import_row" ADD CONSTRAINT "import_row_external_identity_
 ALTER TABLE "private"."import_row" ADD CONSTRAINT "import_row_party_id_party_id_fk" FOREIGN KEY ("party_id") REFERENCES "public"."party"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "import_batch_createdAt_idx" ON "import_batch" USING btree ("created_at");--> statement-breakpoint
 CREATE INDEX "import_batch_source_idx" ON "import_batch" USING btree ("source");--> statement-breakpoint
-CREATE INDEX "collection_event_partyId_idx" ON "private"."collection_event" USING btree ("party_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "collection_event_party_batch_uidx" ON "private"."collection_event" USING btree ("party_id","import_batch_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "external_identity_key_uidx" ON "private"."external_identity" USING btree ("provider","provider_account","entity_type","external_id");--> statement-breakpoint
 CREATE INDEX "external_identity_contributionId_idx" ON "private"."external_identity" USING btree ("contribution_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "import_row_batch_row_uidx" ON "private"."import_row" USING btree ("batch_id","row_number");--> statement-breakpoint
 CREATE INDEX "import_row_retainUntil_idx" ON "private"."import_row" USING btree ("retain_until");--> statement-breakpoint
 ALTER TABLE "contribution" ADD CONSTRAINT "contribution_import_batch_id_import_batch_id_fk" FOREIGN KEY ("import_batch_id") REFERENCES "public"."import_batch"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "contribution_importBatchId_idx" ON "contribution" USING btree ("import_batch_id");
+CREATE INDEX "contribution_importBatchId_idx" ON "contribution" USING btree ("import_batch_id");--> statement-breakpoint
+CREATE INDEX "contribution_reference_lower_idx" ON "contribution" USING btree (lower("reference"));--> statement-breakpoint
+CREATE INDEX "party_private_email_lower_idx" ON "private"."party_private" USING btree (lower("email"));--> statement-breakpoint
+CREATE INDEX "party_private_phone_digits_idx" ON "private"."party_private" USING btree (regexp_replace(coalesce("phone", ''), '\D', '', 'g'));

@@ -1,4 +1,10 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHmac,
+  hkdfSync,
+  randomBytes,
+} from "node:crypto";
 
 import { env } from "@pi-dash/env/server";
 
@@ -70,4 +76,40 @@ export function decryptSecret(stored: string, context: string): string {
 /** The tail shown in clear beside an encrypted value; short values are not shown at all. */
 export function visibleTail(value: string): string | null {
   return value.length >= 8 ? value.slice(-4) : null;
+}
+
+const derivedKeys = new Map<string, Buffer>();
+
+/**
+ * A 32-byte key for one purpose, derived from DATA_ENCRYPTION_KEY with HKDF
+ * so it is never the encryption key itself; `info` names the purpose and
+ * its version (for example "pi-dash import hash v1"). Outside production,
+ * where the data key is optional, it derives from BETTER_AUTH_SECRET instead
+ * so development and tests still work; production requires the data key.
+ */
+export function derivedKey(info: string): Buffer {
+  const cached = derivedKeys.get(info);
+  if (cached) {
+    return cached;
+  }
+  let material: Buffer;
+  if (hasEncryptionKey()) {
+    material = loadKey();
+  } else if (process.env.NODE_ENV !== "production" && env.BETTER_AUTH_SECRET) {
+    material = Buffer.from(env.BETTER_AUTH_SECRET, "utf8");
+  } else {
+    throw new Error("DATA_ENCRYPTION_KEY is not set");
+  }
+  const key = Buffer.from(
+    hkdfSync("sha256", material, Buffer.alloc(0), info, 32)
+  );
+  derivedKeys.set(info, key);
+  return key;
+}
+
+/** HMAC-SHA256 of `text` under the key for `info`, hex encoded. */
+export function keyedDigest(info: string, text: string): string {
+  return createHmac("sha256", derivedKey(info))
+    .update(text, "utf8")
+    .digest("hex");
 }

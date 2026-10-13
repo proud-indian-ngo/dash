@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { runContributionImport } from "@/functions/income-import";
 import type { RowDecision } from "@/lib/income-import/classify";
+import { WEAK_IDENTITY_WARNING } from "@/lib/income-import/fields";
 import { summarizeReview } from "@/lib/income-import/review-summary";
 import type {
   ReviewResponse,
@@ -260,8 +261,7 @@ export function ImportWizard({
         <div className="grid gap-4">
           {review.weakIdentity ? (
             <p className="text-warning-foreground text-sm">
-              No external donation ID is mapped, so re-uploads are matched by
-              date, amount, donor name and reference.
+              {WEAK_IDENTITY_WARNING}
             </p>
           ) : null}
           {summary && summary.undecided > 0 ? (

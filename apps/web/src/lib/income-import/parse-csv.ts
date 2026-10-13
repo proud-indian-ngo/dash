@@ -2,8 +2,20 @@ import Papa from "papaparse";
 
 import { MAX_IMPORT_ROWS } from "./fields";
 
+/** A data row the parser could not read cleanly; it can only be skipped. */
+export type CsvRowIssue = "extra_cells" | "malformed_quotes";
+
+export const CSV_ROW_ISSUE_MESSAGES: Record<CsvRowIssue, string> = {
+  extra_cells:
+    "The row has more cells than the header; a comma inside a value may need quotes",
+  malformed_quotes:
+    "A quote in this row is not closed or is misplaced; later lines may have been read into it",
+};
+
 export interface ParsedCsv {
   headers: string[];
+  /** Per data row, what was wrong with it as CSV, or null. */
+  rowIssues: (CsvRowIssue | null)[];
   /** One record per data row, keyed by header; cells trimmed. */
   rows: Record<string, string>[];
 }
@@ -37,19 +49,31 @@ function uniqueHeaders(raw: readonly string[]): string[] {
  */
 export function parseCsv(text: string): ParsedCsv {
   const input = text.startsWith("﻿") ? text.slice(1) : text;
-  const result = Papa.parse<string[]>(input, {
+  const data: string[][] = [];
+  const quoteErrors = new Set<number>();
+  let fatal = false;
+  // Step mode reports errors per row, so each can be tied to the row it broke.
+  Papa.parse<string[]>(input, {
     delimitersToGuess: [",", ";", "\t"],
     skipEmptyLines: "greedy",
+    step: (result) => {
+      for (const error of result.errors) {
+        if (error.type === "Quotes") {
+          quoteErrors.add(data.length);
+        }
+        if (error.type === "Quotes" || error.code === "UndetectableDelimiter") {
+          fatal = true;
+        }
+      }
+      data.push(result.data);
+    },
   });
-  const fatal = result.errors.find(
-    (error) => error.type === "Quotes" || error.code === "UndetectableDelimiter"
-  );
-  if (fatal && result.data.length <= 1) {
+  if (fatal && data.length <= 1) {
     throw new CsvParseError(
       "The file could not be read as CSV. Save it as CSV (comma separated) and try again."
     );
   }
-  const [headerRow, ...dataRows] = result.data;
+  const [headerRow, ...dataRows] = data;
   if (!headerRow || headerRow.every((cell) => cell.trim() === "")) {
     throw new CsvParseError("The file has no header row.");
   }
@@ -69,7 +93,16 @@ export function parseCsv(text: string): ParsedCsv {
     }
     return record;
   });
-  return { headers, rows };
+  // Blank trailing cells ("a,b,c,") are common in spreadsheet exports and harmless.
+  const rowIssues = dataRows.map((cells, index): CsvRowIssue | null => {
+    if (quoteErrors.has(index + 1)) {
+      return "malformed_quotes";
+    }
+    return cells.slice(headers.length).some((cell) => cell.trim() !== "")
+      ? "extra_cells"
+      : null;
+  });
+  return { headers, rowIssues, rows };
 }
 
 /** Up to `count` non-empty values of a column, for the mapping preview. */

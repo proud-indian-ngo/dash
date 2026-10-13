@@ -12,10 +12,15 @@ import {
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import z from "zod";
 
-import { PAN_PATTERN } from "@/lib/donor-schema";
+import {
+  PAN_PATTERN,
+  type SaveDonorInput,
+  saveDonorSchema,
+} from "@/lib/donor-schema";
 
 import {
   IGNORE_FIELD,
+  IMPORT_FIELD_KEYS,
   type ImportDateFormat,
   type ImportFieldKey,
   type ImportMapping,
@@ -27,7 +32,8 @@ import {
  */
 
 export interface CellIssue {
-  field: ImportFieldKey;
+  /** "row" for a problem with the row as a whole, such as broken CSV quoting. */
+  field: ImportFieldKey | "row";
   message: string;
 }
 
@@ -36,6 +42,8 @@ export interface NormalizedRow {
   addressLine2: string;
   amountPaise: number | null;
   channel: ContributionChannel;
+  /** False when the channel is the batch default rather than a cell of the file. */
+  channelFromFile: boolean;
   city: string;
   country: string;
   donationType: DonationType;
@@ -283,6 +291,7 @@ const LIMITS: Partial<Record<ImportFieldKey, number>> = {
   city: 80,
   donorName: 160,
   externalId: 200,
+  idNumber: 40,
   notes: 1000,
   pincode: 12,
   reference: 120,
@@ -386,10 +395,12 @@ export function normalizeRow(
   }
 
   let channel = options.defaultChannel;
+  let channelFromFile = false;
   if (get("channel") !== "") {
     const mapped = CHANNEL_ALIASES[key(get("channel"))];
     if (mapped) {
       channel = mapped;
+      channelFromFile = true;
     } else {
       errors.push({
         field: "channel",
@@ -436,33 +447,108 @@ export function normalizeRow(
     warnings
   );
 
-  return {
-    errors,
-    row: {
-      addressLine1: get("addressLine1"),
-      addressLine2: get("addressLine2"),
-      amountPaise,
-      channel,
-      city: get("city"),
-      country,
-      donationType,
-      donorName,
-      email,
-      externalId: get("externalId"),
-      idNumber: identifier.idNumber,
-      idType: identifier.idType,
-      notes: get("notes"),
-      phone,
-      pincode: get("pincode"),
-      receivedOn,
-      reference: get("reference"),
-      state: get("state"),
-    },
-    warnings,
+  const row: NormalizedRow = {
+    addressLine1: get("addressLine1"),
+    addressLine2: get("addressLine2"),
+    amountPaise,
+    channel,
+    channelFromFile,
+    city: get("city"),
+    country,
+    donationType,
+    donorName,
+    email,
+    externalId: get("externalId"),
+    idNumber: identifier.idNumber,
+    idType: identifier.idType,
+    notes: get("notes"),
+    phone,
+    pincode: get("pincode"),
+    receivedOn,
+    reference: get("reference"),
+    state: get("state"),
   };
+  if (errors.length === 0) {
+    errors.push(...donorIssues(row));
+  }
+  return { errors, row, warnings };
+}
+
+/** Donor form fields that differ in name from the import field they come from. */
+const DONOR_FIELD_TO_IMPORT: Partial<Record<string, ImportFieldKey>> = {
+  displayName: "donorName",
+};
+
+/**
+ * The donor a row would create, as the donor form would submit it. `withId`
+ * is false when identifiers cannot be stored here (no encryption key).
+ */
+export function donorSaveInput(
+  row: NormalizedRow,
+  options: { id: string; withId: boolean }
+): SaveDonorInput {
+  const withId = options.withId && row.idType !== "none";
+  return {
+    addressLine1: row.addressLine1,
+    addressLine2: row.addressLine2,
+    assessmentNote: "",
+    city: row.city,
+    country: row.country,
+    displayName: row.donorName,
+    email: row.email,
+    expectedPartyUpdatedAt: null,
+    expectedUpdatedAt: null,
+    foreignSourceAssessment: row.country === "IN" ? "domestic" : "pending",
+    id: options.id,
+    idNumber: withId ? row.idNumber : "",
+    idType: withId ? row.idType : "none",
+    kind: "person",
+    legalName: "",
+    mode: "create",
+    nationality: "",
+    phone: row.phone,
+    pincode: row.pincode,
+    roles: ["donor"],
+    state: row.state,
+  };
+}
+
+const PLACEHOLDER_ID = "00000000-0000-7000-8000-000000000000";
+
+/**
+ * Runs the donor form's rules on the donor a row would create, so a row
+ * shown as importable cannot fail when the donor is saved.
+ */
+function donorIssues(row: NormalizedRow): CellIssue[] {
+  const parsed = saveDonorSchema.safeParse(
+    donorSaveInput(row, { id: PLACEHOLDER_ID, withId: true })
+  );
+  if (parsed.success) {
+    return [];
+  }
+  return parsed.error.issues.map((issue) => {
+    const name = String(issue.path[0] ?? "");
+    const field =
+      DONOR_FIELD_TO_IMPORT[name] ??
+      ((IMPORT_FIELD_KEYS as readonly string[]).includes(name)
+        ? (name as ImportFieldKey)
+        : "row");
+    return { field, message: `Not accepted for a donor: ${issue.message}` };
+  });
 }
 
 /** Last four characters for display; nothing for short values. */
 export function maskIdentifier(idNumber: string): string | null {
   return idNumber.length >= 8 ? `••••${idNumber.slice(-4)}` : null;
+}
+
+// A PAN anywhere in a value, also with spaces inside or in lower case.
+const PAN_ANYWHERE = /[a-z]{5}\s*\d{4}\s*[a-z]/gi;
+
+/** Masks every PAN-shaped run in `text` to its last four characters. */
+export function maskPans(text: string): string {
+  return text.replace(
+    PAN_ANYWHERE,
+    (pan) => maskIdentifier(pan.replaceAll(/\s/g, "").toUpperCase()) ?? "••••"
+  );
 }

@@ -43,6 +43,8 @@ export interface ReviewRowView {
   reference: string | null;
   rowId: string;
   rowNumber: number;
+  /** An earlier row with the same ID number; this row gets the donor chosen there. */
+  sameDonorAs: { rowId: string; rowNumber: number } | null;
   warnings: CellIssue[];
 }
 

@@ -22,6 +22,7 @@ import {
   type ImportMappingTarget,
   isMappingUsable,
   REQUIRED_IMPORT_FIELDS,
+  WEAK_IDENTITY_WARNING,
 } from "@/lib/income-import/fields";
 import type { ReviewResponse } from "@/lib/income-import/review-types";
 
@@ -85,7 +86,7 @@ function MappingIssues({ mapping }: { mapping: ImportMapping }) {
   }
   if (check.weakIdentity) {
     lines.push({
-      text: "No external donation ID is mapped. Re-uploads are then recognised by date, amount, donor name and reference, so two identical gifts on one day count as one.",
+      text: WEAK_IDENTITY_WARNING,
       tone: "text-warning-foreground",
     });
   }
