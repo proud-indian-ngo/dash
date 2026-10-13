@@ -17,6 +17,7 @@ import {
   programmeMutators,
   projectMutators,
 } from "./mutators/finance-dimensions";
+import { contributionMutators, otherIncomeMutators } from "./mutators/income";
 import { kalakritiAssignmentMutators } from "./mutators/kalakriti-assignment";
 import { kalakritiAttendeeMutators } from "./mutators/kalakriti-attendee";
 import { kalakritiAwardMutators } from "./mutators/kalakriti-award";
@@ -48,6 +49,7 @@ export const mutators = defineMutators({
   advancePayment: advancePaymentMutators,
   appConfig: appConfigMutators,
   bankAccount: bankAccountMutators,
+  contribution: contributionMutators,
   costCentre: costCentreMutators,
   eventFeedback: eventFeedbackMutators,
   eventImmichAlbum: eventImmichAlbumMutators,
@@ -73,6 +75,7 @@ export const mutators = defineMutators({
   notification: notificationMutators,
   notificationPreference: notificationPreferenceMutators,
   orgAccount: orgAccountMutators,
+  otherIncome: otherIncomeMutators,
   programme: programmeMutators,
   project: projectMutators,
   reimbursement: reimbursementMutators,

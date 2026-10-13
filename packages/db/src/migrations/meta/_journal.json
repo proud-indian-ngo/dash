@@ -834,6 +834,13 @@
       "when": 1791895956280,
       "tag": "0118_money_paise",
       "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1791905059660,
+      "tag": "0119_contributions_other_income",
+      "breakpoints": true
     }
   ]
 }

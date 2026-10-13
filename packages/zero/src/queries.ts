@@ -20,6 +20,7 @@ import {
   programmeQueries,
   projectQueries,
 } from "./queries/finance-dimensions";
+import { contributionQueries, otherIncomeQueries } from "./queries/income";
 import { kalakritiAssignmentQueries } from "./queries/kalakriti-assignment";
 import { kalakritiAttendeeQueries } from "./queries/kalakriti-attendee";
 import { kalakritiCenterQueries } from "./queries/kalakriti-center";
@@ -52,6 +53,7 @@ export const queries = defineQueries({
   advancePayment: advancePaymentQueries,
   appConfig: appConfigQueries,
   bankAccount: bankAccountQueries,
+  contribution: contributionQueries,
   costCentre: costCentreQueries,
   eventFeedback: eventFeedbackQueries,
   eventImmichAlbum: eventImmichAlbumQueries,
@@ -77,6 +79,7 @@ export const queries = defineQueries({
   notification: notificationQueries,
   notificationPreference: notificationPreferenceQueries,
   orgAccount: orgAccountQueries,
+  otherIncome: otherIncomeQueries,
   party: partyQueries,
   programme: programmeQueries,
   project: projectQueries,

@@ -18,6 +18,7 @@ import { Route as AppAuditLogRouteImport } from './routes/_app/audit-log'
 import { Route as AppDonorsRouteRouteImport } from './routes/_app/donors/route'
 import { Route as AppEventsRouteRouteImport } from './routes/_app/events/route'
 import { Route as AppExportRouteImport } from './routes/_app/export'
+import { Route as AppIncomeRouteRouteImport } from './routes/_app/income/route'
 import { Route as AppJobsRouteImport } from './routes/_app/jobs'
 import { Route as AppKalakritiRouteRouteImport } from './routes/_app/kalakriti/route'
 import { Route as AppReimbursementsRouteRouteImport } from './routes/_app/reimbursements/route'
@@ -40,6 +41,7 @@ import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as AppDonorsIndexRouteImport } from './routes/_app/donors/index'
 import { Route as AppEventsIndexRouteImport } from './routes/_app/events/index'
 import { Route as AppEventsIdRouteImport } from './routes/_app/events/$id'
+import { Route as AppIncomeIndexRouteImport } from './routes/_app/income/index'
 import { Route as AppKalakritiIndexRouteImport } from './routes/_app/kalakriti/index'
 import { Route as AppKalakritiYearRouteRouteImport } from './routes/_app/kalakriti/$year/route'
 import { Route as AppKalakritiNewRouteImport } from './routes/_app/kalakriti/new'
@@ -54,6 +56,7 @@ import { Route as AppSettingsExpenseCategoriesRouteImport } from './routes/_app/
 import { Route as AppSettingsGeneralRouteImport } from './routes/_app/settings/general'
 import { Route as AppSettingsMaintenanceRouteImport } from './routes/_app/settings/maintenance'
 import { Route as AppSettingsNotificationsRouteImport } from './routes/_app/settings/notifications'
+import { Route as AppSettingsOrgAccountsRouteImport } from './routes/_app/settings/org-accounts'
 import { Route as AppSettingsProfileRouteImport } from './routes/_app/settings/profile'
 import { Route as AppSettingsProgrammesRouteImport } from './routes/_app/settings/programmes'
 import { Route as AppSettingsProjectsRouteImport } from './routes/_app/settings/projects'
@@ -173,6 +176,11 @@ const AppExportRoute = AppExportRouteImport.update({
   path: '/export',
   getParentRoute: () => AppRoute,
 } as any)
+const AppIncomeRouteRoute = AppIncomeRouteRouteImport.update({
+  id: '/income',
+  path: '/income',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppJobsRoute = AppJobsRouteImport.update({
   id: '/jobs',
   path: '/jobs',
@@ -283,6 +291,11 @@ const AppEventsIdRoute = AppEventsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AppEventsRouteRoute,
 } as any)
+const AppIncomeIndexRoute = AppIncomeIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppIncomeRouteRoute,
+} as any)
 const AppKalakritiIndexRoute = AppKalakritiIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -355,6 +368,11 @@ const AppSettingsNotificationsRoute =
     path: '/notifications',
     getParentRoute: () => AppSettingsRouteRoute,
   } as any)
+const AppSettingsOrgAccountsRoute = AppSettingsOrgAccountsRouteImport.update({
+  id: '/org-accounts',
+  path: '/org-accounts',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
 const AppSettingsProfileRoute = AppSettingsProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -764,6 +782,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/donors': typeof AppDonorsRouteRouteWithChildren
   '/events': typeof AppEventsRouteRouteWithChildren
+  '/income': typeof AppIncomeRouteRouteWithChildren
   '/kalakriti': typeof AppKalakritiRouteRouteWithChildren
   '/reimbursements': typeof AppReimbursementsRouteRouteWithChildren
   '/settings': typeof AppSettingsRouteRouteWithChildren
@@ -800,6 +819,7 @@ export interface FileRoutesByFullPath {
   '/settings/general': typeof AppSettingsGeneralRoute
   '/settings/maintenance': typeof AppSettingsMaintenanceRoute
   '/settings/notifications': typeof AppSettingsNotificationsRoute
+  '/settings/org-accounts': typeof AppSettingsOrgAccountsRoute
   '/settings/profile': typeof AppSettingsProfileRoute
   '/settings/programmes': typeof AppSettingsProgrammesRoute
   '/settings/projects': typeof AppSettingsProjectsRoute
@@ -821,6 +841,7 @@ export interface FileRoutesByFullPath {
   '/kalakriti/$year/schedule': typeof KalakritiYearScheduleRoute
   '/donors/': typeof AppDonorsIndexRoute
   '/events/': typeof AppEventsIndexRoute
+  '/income/': typeof AppIncomeIndexRoute
   '/kalakriti/': typeof AppKalakritiIndexRoute
   '/reimbursements/': typeof AppReimbursementsIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
@@ -910,6 +931,7 @@ export interface FileRoutesByTo {
   '/settings/general': typeof AppSettingsGeneralRoute
   '/settings/maintenance': typeof AppSettingsMaintenanceRoute
   '/settings/notifications': typeof AppSettingsNotificationsRoute
+  '/settings/org-accounts': typeof AppSettingsOrgAccountsRoute
   '/settings/profile': typeof AppSettingsProfileRoute
   '/settings/programmes': typeof AppSettingsProgrammesRoute
   '/settings/projects': typeof AppSettingsProjectsRoute
@@ -931,6 +953,7 @@ export interface FileRoutesByTo {
   '/kalakriti/$year/schedule': typeof KalakritiYearScheduleRoute
   '/donors': typeof AppDonorsIndexRoute
   '/events': typeof AppEventsIndexRoute
+  '/income': typeof AppIncomeIndexRoute
   '/kalakriti': typeof AppKalakritiIndexRoute
   '/reimbursements': typeof AppReimbursementsIndexRoute
   '/settings': typeof AppSettingsIndexRoute
@@ -993,6 +1016,7 @@ export interface FileRoutesById {
   '/_auth': typeof AuthRouteWithChildren
   '/_app/donors': typeof AppDonorsRouteRouteWithChildren
   '/_app/events': typeof AppEventsRouteRouteWithChildren
+  '/_app/income': typeof AppIncomeRouteRouteWithChildren
   '/_app/kalakriti': typeof AppKalakritiRouteRouteWithChildren
   '/_app/reimbursements': typeof AppReimbursementsRouteRouteWithChildren
   '/_app/settings': typeof AppSettingsRouteRouteWithChildren
@@ -1030,6 +1054,7 @@ export interface FileRoutesById {
   '/_app/settings/general': typeof AppSettingsGeneralRoute
   '/_app/settings/maintenance': typeof AppSettingsMaintenanceRoute
   '/_app/settings/notifications': typeof AppSettingsNotificationsRoute
+  '/_app/settings/org-accounts': typeof AppSettingsOrgAccountsRoute
   '/_app/settings/profile': typeof AppSettingsProfileRoute
   '/_app/settings/programmes': typeof AppSettingsProgrammesRoute
   '/_app/settings/projects': typeof AppSettingsProjectsRoute
@@ -1051,6 +1076,7 @@ export interface FileRoutesById {
   '/kalakriti/$year/schedule': typeof KalakritiYearScheduleRoute
   '/_app/donors/': typeof AppDonorsIndexRoute
   '/_app/events/': typeof AppEventsIndexRoute
+  '/_app/income/': typeof AppIncomeIndexRoute
   '/_app/kalakriti/': typeof AppKalakritiIndexRoute
   '/_app/reimbursements/': typeof AppReimbursementsIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
@@ -1116,6 +1142,7 @@ export interface FileRouteTypes {
     | '/'
     | '/donors'
     | '/events'
+    | '/income'
     | '/kalakriti'
     | '/reimbursements'
     | '/settings'
@@ -1152,6 +1179,7 @@ export interface FileRouteTypes {
     | '/settings/general'
     | '/settings/maintenance'
     | '/settings/notifications'
+    | '/settings/org-accounts'
     | '/settings/profile'
     | '/settings/programmes'
     | '/settings/projects'
@@ -1173,6 +1201,7 @@ export interface FileRouteTypes {
     | '/kalakriti/$year/schedule'
     | '/donors/'
     | '/events/'
+    | '/income/'
     | '/kalakriti/'
     | '/reimbursements/'
     | '/settings/'
@@ -1262,6 +1291,7 @@ export interface FileRouteTypes {
     | '/settings/general'
     | '/settings/maintenance'
     | '/settings/notifications'
+    | '/settings/org-accounts'
     | '/settings/profile'
     | '/settings/programmes'
     | '/settings/projects'
@@ -1283,6 +1313,7 @@ export interface FileRouteTypes {
     | '/kalakriti/$year/schedule'
     | '/donors'
     | '/events'
+    | '/income'
     | '/kalakriti'
     | '/reimbursements'
     | '/settings'
@@ -1344,6 +1375,7 @@ export interface FileRouteTypes {
     | '/_auth'
     | '/_app/donors'
     | '/_app/events'
+    | '/_app/income'
     | '/_app/kalakriti'
     | '/_app/reimbursements'
     | '/_app/settings'
@@ -1381,6 +1413,7 @@ export interface FileRouteTypes {
     | '/_app/settings/general'
     | '/_app/settings/maintenance'
     | '/_app/settings/notifications'
+    | '/_app/settings/org-accounts'
     | '/_app/settings/profile'
     | '/_app/settings/programmes'
     | '/_app/settings/projects'
@@ -1402,6 +1435,7 @@ export interface FileRouteTypes {
     | '/kalakriti/$year/schedule'
     | '/_app/donors/'
     | '/_app/events/'
+    | '/_app/income/'
     | '/_app/kalakriti/'
     | '/_app/reimbursements/'
     | '/_app/settings/'
@@ -1566,6 +1600,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppExportRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/income': {
+      id: '/_app/income'
+      path: '/income'
+      fullPath: '/income'
+      preLoaderRoute: typeof AppIncomeRouteRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/jobs': {
       id: '/_app/jobs'
       path: '/jobs'
@@ -1720,6 +1761,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEventsIdRouteImport
       parentRoute: typeof AppEventsRouteRoute
     }
+    '/_app/income/': {
+      id: '/_app/income/'
+      path: '/'
+      fullPath: '/income/'
+      preLoaderRoute: typeof AppIncomeIndexRouteImport
+      parentRoute: typeof AppIncomeRouteRoute
+    }
     '/_app/kalakriti/': {
       id: '/_app/kalakriti/'
       path: '/'
@@ -1816,6 +1864,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/settings/notifications'
       preLoaderRoute: typeof AppSettingsNotificationsRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/_app/settings/org-accounts': {
+      id: '/_app/settings/org-accounts'
+      path: '/org-accounts'
+      fullPath: '/settings/org-accounts'
+      preLoaderRoute: typeof AppSettingsOrgAccountsRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
     '/_app/settings/profile': {
@@ -2372,6 +2427,18 @@ const AppEventsRouteRouteWithChildren = AppEventsRouteRoute._addFileChildren(
   AppEventsRouteRouteChildren,
 )
 
+interface AppIncomeRouteRouteChildren {
+  AppIncomeIndexRoute: typeof AppIncomeIndexRoute
+}
+
+const AppIncomeRouteRouteChildren: AppIncomeRouteRouteChildren = {
+  AppIncomeIndexRoute: AppIncomeIndexRoute,
+}
+
+const AppIncomeRouteRouteWithChildren = AppIncomeRouteRoute._addFileChildren(
+  AppIncomeRouteRouteChildren,
+)
+
 interface AppKalakritiYearCompetitionsRouteRouteChildren {
   AppKalakritiYearCompetitionsCatalogRoute: typeof AppKalakritiYearCompetitionsCatalogRoute
   AppKalakritiYearCompetitionsCategoriesRoute: typeof AppKalakritiYearCompetitionsCategoriesRoute
@@ -2544,6 +2611,7 @@ interface AppSettingsRouteRouteChildren {
   AppSettingsGeneralRoute: typeof AppSettingsGeneralRoute
   AppSettingsMaintenanceRoute: typeof AppSettingsMaintenanceRoute
   AppSettingsNotificationsRoute: typeof AppSettingsNotificationsRoute
+  AppSettingsOrgAccountsRoute: typeof AppSettingsOrgAccountsRoute
   AppSettingsProfileRoute: typeof AppSettingsProfileRoute
   AppSettingsProgrammesRoute: typeof AppSettingsProgrammesRoute
   AppSettingsProjectsRoute: typeof AppSettingsProjectsRoute
@@ -2560,6 +2628,7 @@ const AppSettingsRouteRouteChildren: AppSettingsRouteRouteChildren = {
   AppSettingsGeneralRoute: AppSettingsGeneralRoute,
   AppSettingsMaintenanceRoute: AppSettingsMaintenanceRoute,
   AppSettingsNotificationsRoute: AppSettingsNotificationsRoute,
+  AppSettingsOrgAccountsRoute: AppSettingsOrgAccountsRoute,
   AppSettingsProfileRoute: AppSettingsProfileRoute,
   AppSettingsProgrammesRoute: AppSettingsProgrammesRoute,
   AppSettingsProjectsRoute: AppSettingsProjectsRoute,
@@ -2617,6 +2686,7 @@ const AppVendorsRouteRouteWithChildren = AppVendorsRouteRoute._addFileChildren(
 interface AppRouteChildren {
   AppDonorsRouteRoute: typeof AppDonorsRouteRouteWithChildren
   AppEventsRouteRoute: typeof AppEventsRouteRouteWithChildren
+  AppIncomeRouteRoute: typeof AppIncomeRouteRouteWithChildren
   AppKalakritiRouteRoute: typeof AppKalakritiRouteRouteWithChildren
   AppReimbursementsRouteRoute: typeof AppReimbursementsRouteRouteWithChildren
   AppSettingsRouteRoute: typeof AppSettingsRouteRouteWithChildren
@@ -2637,6 +2707,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppDonorsRouteRoute: AppDonorsRouteRouteWithChildren,
   AppEventsRouteRoute: AppEventsRouteRouteWithChildren,
+  AppIncomeRouteRoute: AppIncomeRouteRouteWithChildren,
   AppKalakritiRouteRoute: AppKalakritiRouteRouteWithChildren,
   AppReimbursementsRouteRoute: AppReimbursementsRouteRouteWithChildren,
   AppSettingsRouteRoute: AppSettingsRouteRouteWithChildren,

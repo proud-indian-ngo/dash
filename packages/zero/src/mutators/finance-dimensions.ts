@@ -1,6 +1,8 @@
 import {
   accountHeadTypeValues,
+  type FcraRole,
   fcraRoleValues,
+  type FundSource,
   fundRestrictionValues,
   fundSourceValues,
   MAX_PAISE,
@@ -87,7 +89,7 @@ const accountHeadInput = z.object({
   type: z.enum(accountHeadTypeValues),
 });
 
-const orgAccountInput = z.object({
+export const orgAccountInputSchema = z.object({
   active: z.boolean().optional(),
   fcraRole: z.enum(fcraRoleValues).optional(),
   fundSource: z.enum(fundSourceValues).optional(),
@@ -568,33 +570,47 @@ export const accountHeadMutators = {
   }),
 };
 
+/** An FCRA role only means something on an FCRA account; domestic ones store none. */
+function fcraRoleFor(fundSource: FundSource, fcraRole: FcraRole): FcraRole {
+  return fundSource === "fcra" ? fcraRole : "none";
+}
+
+/**
+ * Accounts are never deleted: contributions and other income point at them,
+ * so an account that is no longer used is deactivated through update.
+ */
 export const orgAccountMutators = {
-  create: defineMutator(orgAccountInput, async ({ tx, ctx, args }) => {
+  create: defineMutator(orgAccountInputSchema, async ({ tx, ctx, args }) => {
     assertHasPermission(ctx, "finance.manage");
     await assertNameFree(tx, args);
     const now = Date.now();
+    const fundSource = args.fundSource ?? "domestic";
     await tx.mutate.orgAccount.insert({
       active: args.active ?? true,
       createdAt: now,
-      fcraRole: args.fcraRole ?? "none",
-      fundSource: args.fundSource ?? "domestic",
+      fcraRole: fcraRoleFor(fundSource, args.fcraRole ?? "none"),
+      fundSource,
       id: args.id,
       kind: args.kind,
       name: args.name,
       updatedAt: now,
     });
   }),
-  update: defineMutator(orgAccountInput, async ({ tx, ctx, args }) => {
+  update: defineMutator(orgAccountInputSchema, async ({ tx, ctx, args }) => {
     assertHasPermission(ctx, "finance.manage");
     const existing = await tx.run(zql.orgAccount.where("id", args.id).one());
     if (!existing) {
       throw new Error("Organisation account not found");
     }
     await assertNameFree(tx, args);
+    const fundSource = args.fundSource ?? existing.fundSource ?? "domestic";
     await tx.mutate.orgAccount.update({
       active: args.active ?? existing.active ?? true,
-      fcraRole: args.fcraRole ?? existing.fcraRole,
-      fundSource: args.fundSource ?? existing.fundSource,
+      fcraRole: fcraRoleFor(
+        fundSource,
+        args.fcraRole ?? existing.fcraRole ?? "none"
+      ),
+      fundSource,
       id: args.id,
       kind: args.kind,
       name: args.name,

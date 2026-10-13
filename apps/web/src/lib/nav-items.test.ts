@@ -29,6 +29,8 @@ describe("Kalakriti navigation", () => {
       "events.view_all",
       "requests.view_all",
       "vendors.view_all",
+      "donors.view",
+      "finance.view",
       "teams.view_all",
       "kalakriti.view",
       "users.manage",
@@ -46,6 +48,17 @@ describe("Kalakriti navigation", () => {
       expect(icons.every(Boolean)).toBe(true);
       expect(new Set(icons).size).toBe(icons.length);
     }
+  });
+  it("shows Income after Donors for donor or finance viewers and managers only", () => {
+    const financeTitles = (permissions: string[]) =>
+      buildNavGroups(permissions)
+        .find((group) => group.label === "Finance")
+        ?.items.map((item) => item.title) ?? [];
+    expect(financeTitles(["donors.view"])).toEqual(["Donors", "Income"]);
+    expect(financeTitles(["finance.view"])).toEqual(["Income"]);
+    expect(financeTitles(["donors.manage"])).toContain("Income");
+    expect(financeTitles(["finance.manage"])).toContain("Income");
+    expect(financeTitles(["requests.view_own"])).not.toContain("Income");
   });
   it.each([
     ["/kalakriti", true],

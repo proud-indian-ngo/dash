@@ -225,3 +225,61 @@ export type ForeignSourceAssessment =
  * first; the client matches it to reload the form.
  */
 export const PARTY_SAVE_CONFLICT_PREFIX = "Someone else changed";
+
+// ── Income ──────────────────────────────────────────────────────────────────
+
+/** How a contribution reached the trust. */
+export const contributionChannelValues = [
+  "razorpay",
+  "give_do",
+  "upi",
+  "neft",
+  "cheque",
+  "cash",
+  "in_kind",
+] as const;
+export type ContributionChannel = (typeof contributionChannelValues)[number];
+
+/** Mode of receipt as the donation statement (Form 113) lists it. */
+export const contributionReportingModeValues = [
+  "cash",
+  "electronic_or_account_payee",
+  "in_kind",
+  "other",
+] as const;
+export type ContributionReportingMode =
+  (typeof contributionReportingModeValues)[number];
+
+/** Donation type as the donation statement (Form 113) lists it. */
+export const donationTypeValues = [
+  "corpus",
+  "voluntary",
+  "specific_grant",
+  "csr",
+  "other",
+] as const;
+export type DonationType = (typeof donationTypeValues)[number];
+
+export const deductionEligibleValues = ["yes", "no", "unknown"] as const;
+export type DeductionEligible = (typeof deductionEligibleValues)[number];
+
+export const contributionStatusValues = [
+  "pending",
+  "received",
+  "receipted",
+  "refunded",
+  "reversed",
+] as const;
+export type ContributionStatus = (typeof contributionStatusValues)[number];
+
+export const contributionSourceValues = ["manual", "import"] as const;
+export type ContributionSource = (typeof contributionSourceValues)[number];
+
+/** Income that is not a donation and never enters donation filings. */
+export const otherIncomeKindValues = [
+  "interest",
+  "grant_return",
+  "asset_income",
+  "misc",
+] as const;
+export type OtherIncomeKind = (typeof otherIncomeKindValues)[number];

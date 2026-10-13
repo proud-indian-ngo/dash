@@ -21,6 +21,7 @@ import {
   HomeIcon,
   Invoice01Icon,
   Message01Icon,
+  MoneyReceive01Icon,
   SecurityLockIcon,
   Settings01Icon,
   Store01Icon,
@@ -28,6 +29,7 @@ import {
   UserGroupIcon,
   UserIcon,
 } from "@hugeicons/core-free-icons";
+import { INCOME_PERMISSIONS } from "@pi-dash/shared/income";
 
 import type { NavItem } from "@/components/layout/nav-main";
 import { SETTINGS_SECTIONS } from "@/lib/settings-sections";
@@ -120,6 +122,12 @@ const donorsNavItem: NavItem = {
   icon: FavouriteIcon,
   title: "Donors",
   url: "/donors",
+};
+
+const incomeNavItem: NavItem = {
+  icon: MoneyReceive01Icon,
+  title: "Income",
+  url: "/income",
 };
 
 const teamsNavItem: NavItem = {
@@ -390,6 +398,9 @@ export function buildNavItems(permissions: string[] = []): NavItem[] {
   if (has(permissions, "donors.view")) {
     items.push(donorsNavItem);
   }
+  if (hasAny(permissions, ...INCOME_PERMISSIONS)) {
+    items.push(incomeNavItem);
+  }
   if (has(permissions, "users.manage")) {
     items.push(usersNavItem);
   }
@@ -440,6 +451,9 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
   }
   if (has(permissions, "donors.view")) {
     financeItems.push(donorsNavItem);
+  }
+  if (hasAny(permissions, ...INCOME_PERMISSIONS)) {
+    financeItems.push(incomeNavItem);
   }
   if (financeItems.length > 0) {
     groups.push({ items: financeItems, label: "Finance" });

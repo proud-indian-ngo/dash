@@ -108,6 +108,54 @@ describe("audit metadata", () => {
     expect(payment.metadata?.changedFields).toEqual(["amountPaise", "id"]);
   });
 
+  it("records contribution field names and ids but never their text", () => {
+    const partyId = "0190a000-0000-7000-8000-0000000000a1";
+    const fundId = "0190a000-0000-7000-8000-0000000000a2";
+    const orgAccountId = "0190a000-0000-7000-8000-0000000000a3";
+    const summary = summarizeZeroMutation(
+      "contribution.create",
+      {
+        amountPaise: 500_000,
+        channel: "upi",
+        donationType: "other",
+        donationTypeDescription: "Sponsorship of the annual day",
+        fundId,
+        id: TARGET_ID,
+        notes: "Called the donor on 3 Oct",
+        orgAccountId,
+        partyId,
+        receivedOn: "2026-10-01",
+        reference: "UTR998877",
+        reportingMode: "electronic_or_account_payee",
+      },
+      "actor-1"
+    );
+    expect(summary.metadata.changedFields).toEqual([
+      "amountPaise",
+      "channel",
+      "donationType",
+      "donationTypeDescription",
+      "fundId",
+      "id",
+      "orgAccountId",
+      "partyId",
+      "receivedOn",
+      "reference",
+      "reportingMode",
+    ]);
+    expect(summary.metadata.relatedIds).toEqual({
+      fundId,
+      id: TARGET_ID,
+      orgAccountId,
+      partyId,
+    });
+    expect(summary.target).toEqual({ id: TARGET_ID, type: "contribution" });
+    const serialized = JSON.stringify(summary);
+    for (const secret of ["UTR998877", "Called the donor", "Sponsorship"]) {
+      expect(serialized).not.toContain(secret);
+    }
+  });
+
   it("records finance-control fields on programme and config writes", () => {
     const programme = summarizeZeroMutation(
       "programme.update",

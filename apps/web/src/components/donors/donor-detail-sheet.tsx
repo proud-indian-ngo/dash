@@ -19,6 +19,7 @@ import {
 } from "@/functions/parties";
 import { ASSESSMENT_LABELS, ID_TYPE_LABELS } from "@/lib/donor-schema";
 
+import { DonorGivingSection } from "./donor-giving-section";
 import { activeRoleLabels, type PartyRow } from "./party-row";
 
 type Details = PartyDetailsResponse["details"];
@@ -256,6 +257,7 @@ export function DonorDetailSheet({
               </div>
             </>
           ) : null}
+          <DonorGivingSection partyId={party.id} />
         </div>
       </SheetContent>
     </Sheet>

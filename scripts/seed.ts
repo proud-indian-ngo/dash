@@ -17,6 +17,7 @@ import { createHash } from "node:crypto";
  *   eventPartner, socialPost, socialRun, socialApiToken,
  *   expenseCategory, bankAccount,
  *   programme, costCentre, fund, fiscalYear, fiscalPeriod, party, partyRole, partyPrivate,
+ *   orgAccount, contribution, otherIncome,
  *   reimbursement, reimbursementLineItem, reimbursementAttachment, reimbursementHistory,
  *   advancePayment, advancePaymentLineItem, advancePaymentAttachment, advancePaymentHistory,
  *   vendor, vendorPayment, vendorPaymentLineItem, vendorPaymentAttachment, vendorPaymentHistory,
@@ -48,6 +49,8 @@ import { eventReminderSent } from "@pi-dash/db/schema/event-reminder";
 import { eventRsvpPoll, eventRsvpVote } from "@pi-dash/db/schema/event-rsvp";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
+import { orgAccount } from "@pi-dash/db/schema/finance-dimensions";
+import { contribution, otherIncome } from "@pi-dash/db/schema/income";
 import {
   kalakritiAgeCategory,
   kalakritiAssignment,
@@ -120,7 +123,7 @@ import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { ensureFinanceDimensions } from "@pi-dash/db/seed-finance-dimensions";
 import { ensureVendor } from "@pi-dash/db/seed-vendors";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
-import { PROGRAMME_IDS } from "@pi-dash/shared/constants";
+import { GENERAL_FUND_ID, PROGRAMME_IDS } from "@pi-dash/shared/constants";
 import { getKalakritiCenterTransportStatus } from "@pi-dash/zero/kalakriti-center-scan-rules";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
@@ -600,6 +603,102 @@ async function seedParties(adminId: string): Promise<void> {
     })
     .onConflictDoNothing();
   log(`${PARTIES.length} parties ready`);
+}
+
+// ── 2d. Income ───────────────────────────────────────────────────────────────
+
+/** Dev-only organisation accounts; production accounts are set up by finance. */
+const ORG_ACCOUNTS = [
+  {
+    id: "01930000-0000-7000-8000-000000000601",
+    kind: "bank" as const,
+    name: "HDFC current account",
+  },
+  {
+    id: "01930000-0000-7000-8000-000000000602",
+    kind: "gateway_clearing" as const,
+    name: "Razorpay clearing",
+  },
+  {
+    id: "01930000-0000-7000-8000-000000000603",
+    kind: "cash" as const,
+    name: "Petty cash",
+  },
+];
+
+const DONOR_ID = PARTIES[0]?.id as string;
+
+const CONTRIBUTIONS = [
+  {
+    amountPaise: 2_500_000,
+    channel: "neft" as const,
+    id: "01930000-0000-7000-8000-000000000611",
+    orgAccountId: ORG_ACCOUNTS[0]?.id,
+    programmeId: PROGRAMME_IDS.education,
+    receivedOn: "2026-05-12",
+    reference: "UTR-SEED-0001",
+    reportingMode: "electronic_or_account_payee" as const,
+  },
+  {
+    amountPaise: 500_000,
+    channel: "razorpay" as const,
+    id: "01930000-0000-7000-8000-000000000612",
+    orgAccountId: ORG_ACCOUNTS[1]?.id,
+    programmeId: null,
+    receivedOn: "2026-08-15",
+    reference: "pay_SEED0002",
+    reportingMode: "electronic_or_account_payee" as const,
+  },
+  {
+    amountPaise: 200_000,
+    channel: "cash" as const,
+    id: "01930000-0000-7000-8000-000000000613",
+    orgAccountId: ORG_ACCOUNTS[2]?.id,
+    programmeId: PROGRAMME_IDS.communitySupport,
+    receivedOn: "2025-12-20",
+    reference: null,
+    reportingMode: "cash" as const,
+  },
+];
+
+async function seedIncome(adminId: string): Promise<void> {
+  log("Seeding income...");
+  await db
+    .insert(orgAccount)
+    .values(ORG_ACCOUNTS.map((a) => ({ ...a, createdAt: now, updatedAt: now })))
+    .onConflictDoNothing();
+  await db
+    .insert(contribution)
+    .values(
+      CONTRIBUTIONS.map((c) => ({
+        ...c,
+        createdAt: now,
+        createdBy: adminId,
+        fundId: GENERAL_FUND_ID,
+        orgAccountId: c.orgAccountId ?? null,
+        partyId: DONOR_ID,
+        updatedAt: now,
+      }))
+    )
+    .onConflictDoNothing();
+  await db
+    .insert(otherIncome)
+    .values({
+      amountPaise: 184_250,
+      createdAt: now,
+      createdBy: adminId,
+      description: "Savings interest, Q1",
+      fundId: GENERAL_FUND_ID,
+      id: "01930000-0000-7000-8000-000000000621",
+      kind: "interest",
+      orgAccountId: ORG_ACCOUNTS[0]?.id as string,
+      receivedOn: "2026-06-30",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  log(
+    `${ORG_ACCOUNTS.length} org accounts, ${CONTRIBUTIONS.length} contributions and 1 other income ready`
+  );
 }
 
 // ── 3. Bank Accounts ─────────────────────────────────────────────────────────
@@ -2851,6 +2950,7 @@ async function main(): Promise<void> {
   await seedCategories();
   await seedFinanceDimensions();
   await seedParties(getUser(userMap, "admin@pi-dash.dev"));
+  await seedIncome(getUser(userMap, "admin@pi-dash.dev"));
   await seedBankAccounts(userMap);
   await seedWhatsappGroups();
   await seedTeams(userMap);
