@@ -1,12 +1,24 @@
-import type {
-  ForeignSourceAssessment,
-  PartyIdType,
+import {
+  type DirectoryRole,
+  directoryRoleValues,
+  type ForeignSourceAssessment,
+  type PartyIdType,
+  type PartyKind,
 } from "@pi-dash/shared/constants";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
+import { uuidv7 } from "uuidv7";
 
 import { db } from "..";
-import { decryptSecret, encryptSecret, last4 } from "../encryption";
+import {
+  decryptSecret,
+  encryptSecret,
+  hasEncryptionKey,
+  visibleTail,
+} from "../encryption";
+import { party, partyRole } from "../schema/party";
 import { partyPrivate } from "../schema/private/party-private";
+
+const idContext = (partyId: string) => `party_private.id_number:${partyId}`;
 
 /** What the directory may show: contact details and a masked identifier. */
 export interface PartyPrivateView {
@@ -18,6 +30,8 @@ export interface PartyPrivateView {
   country: string;
   email: string | null;
   foreignSourceAssessment: ForeignSourceAssessment;
+  /** Whether an identifier is stored at all; the tail may still be hidden for short values. */
+  hasIdNumber: boolean;
   idNumberLast4: string | null;
   idType: PartyIdType;
   nationality: string | null;
@@ -26,24 +40,6 @@ export interface PartyPrivateView {
   pincode: string | null;
   state: string | null;
   updatedAt: number;
-}
-
-export interface PartyPrivateInput {
-  addressLine1?: string | null;
-  addressLine2?: string | null;
-  assessedOn?: string | null;
-  assessmentNote?: string | null;
-  city?: string | null;
-  country?: string;
-  email?: string | null;
-  foreignSourceAssessment?: ForeignSourceAssessment;
-  /** Full identifier; stored encrypted. `undefined` keeps the stored value, `null` clears it. */
-  idNumber?: string | null;
-  idType?: PartyIdType;
-  nationality?: string | null;
-  phone?: string | null;
-  pincode?: string | null;
-  state?: string | null;
 }
 
 function toView(row: typeof partyPrivate.$inferSelect): PartyPrivateView {
@@ -56,6 +52,7 @@ function toView(row: typeof partyPrivate.$inferSelect): PartyPrivateView {
     country: row.country,
     email: row.email,
     foreignSourceAssessment: row.foreignSourceAssessment,
+    hasIdNumber: row.idNumberEncrypted !== null,
     idNumberLast4: row.idNumberLast4,
     idType: row.idType,
     nationality: row.nationality,
@@ -87,55 +84,185 @@ export async function revealPartyIdNumber(
     .from(partyPrivate)
     .where(eq(partyPrivate.partyId, partyId))
     .limit(1);
-  return row?.encrypted ? decryptSecret(row.encrypted) : null;
+  return row?.encrypted
+    ? decryptSecret(row.encrypted, idContext(partyId))
+    : null;
 }
 
-/** Field names that changed, for the audit ledger; never the values. */
-export async function upsertPartyPrivate(
-  partyId: string,
-  input: PartyPrivateInput,
-  updatedBy: string
-): Promise<{ changedFields: string[]; view: PartyPrivateView }> {
+export interface SavePartyInput {
+  addressLine1: string;
+  addressLine2: string;
+  assessmentNote: string;
+  city: string;
+  country: string;
+  displayName: string;
+  email: string;
+  foreignSourceAssessment: ForeignSourceAssessment;
+  /** Absent on create. */
+  id?: string;
+  /** Blank keeps a stored identifier of the same type; a value replaces it. */
+  idNumber: string;
+  idType: PartyIdType;
+  kind: PartyKind;
+  legalName: string;
+  nationality: string;
+  phone: string;
+  pincode: string;
+  roles: readonly DirectoryRole[];
+  state: string;
+}
+
+export interface SavePartyResult {
+  created: boolean;
+  partyId: string;
+  view: PartyPrivateView;
+}
+
+const nullIfBlank = (value: string): string | null =>
+  value.trim() === "" ? null : value.trim();
+
+/**
+ * Create or update a party, its directory roles and its private details in one
+ * transaction, so a failed step never leaves a half-saved donor. Private
+ * values never leave this module except through `revealPartyIdNumber`.
+ */
+export async function saveParty(
+  input: SavePartyInput,
+  actorId: string
+): Promise<SavePartyResult> {
   const now = new Date();
-  const idNumber = input.idNumber?.trim();
-  const secret =
-    input.idNumber === undefined
-      ? {}
-      : idNumber
-        ? {
-            idNumberEncrypted: encryptSecret(idNumber),
-            idNumberLast4: last4(idNumber),
-          }
-        : { idNumberEncrypted: null, idNumberLast4: null };
-  const values = {
-    addressLine1: input.addressLine1 ?? null,
-    addressLine2: input.addressLine2 ?? null,
-    assessedOn: input.assessedOn ?? null,
-    assessmentNote: input.assessmentNote ?? null,
-    city: input.city ?? null,
-    country: input.country ?? "IN",
-    email: input.email ?? null,
-    foreignSourceAssessment: input.foreignSourceAssessment ?? "domestic",
-    idType: input.idType ?? "none",
-    nationality: input.nationality ?? null,
-    phone: input.phone ?? null,
-    pincode: input.pincode ?? null,
-    state: input.state ?? null,
-    ...secret,
-  };
-  const [row] = await db
-    .insert(partyPrivate)
-    .values({ ...values, partyId, updatedAt: now, updatedBy })
-    .onConflictDoUpdate({
-      set: { ...values, updatedAt: now, updatedBy },
-      target: partyPrivate.partyId,
-    })
-    .returning();
-  if (!row) {
-    throw new Error("Party private details could not be saved");
-  }
-  const changedFields = Object.keys(values).filter(
-    (k) => k !== "idNumberEncrypted"
-  );
-  return { changedFields, view: toView(row) };
+  const today = now.toISOString().slice(0, 10);
+  const partyId = input.id ?? uuidv7();
+
+  return await db.transaction(async (tx) => {
+    const [existingParty] = input.id
+      ? await tx.select().from(party).where(eq(party.id, input.id)).limit(1)
+      : [];
+    const identity = {
+      displayName: input.displayName.trim(),
+      kind: input.kind,
+      legalName: nullIfBlank(input.legalName),
+    };
+    if (existingParty) {
+      await tx
+        .update(party)
+        .set({ ...identity, updatedAt: now })
+        .where(eq(party.id, partyId));
+    } else {
+      await tx.insert(party).values({
+        ...identity,
+        createdAt: now,
+        createdBy: actorId,
+        id: partyId,
+        updatedAt: now,
+      });
+    }
+
+    const wanted = new Set<DirectoryRole>(input.roles);
+    const currentRoles = await tx
+      .select()
+      .from(partyRole)
+      .where(
+        and(
+          eq(partyRole.partyId, partyId),
+          inArray(partyRole.role, [...directoryRoleValues])
+        )
+      );
+    const byRole = new Map(currentRoles.map((r) => [r.role, r]));
+    for (const role of directoryRoleValues) {
+      const current = byRole.get(role);
+      const want = wanted.has(role);
+      if (current && current.active !== want) {
+        await tx
+          .update(partyRole)
+          .set({ active: want })
+          .where(eq(partyRole.id, current.id));
+      } else if (!current && want) {
+        await tx.insert(partyRole).values({
+          active: true,
+          id: uuidv7(),
+          partyId,
+          role,
+          since: now,
+        });
+      }
+    }
+
+    const [existingPrivate] = await tx
+      .select()
+      .from(partyPrivate)
+      .where(eq(partyPrivate.partyId, partyId))
+      .limit(1);
+
+    const idNumber = input.idNumber.trim().toUpperCase();
+    let secret: {
+      idNumberEncrypted: string | null;
+      idNumberLast4: string | null;
+    };
+    if (input.idType === "none") {
+      secret = { idNumberEncrypted: null, idNumberLast4: null };
+    } else if (idNumber) {
+      if (!hasEncryptionKey()) {
+        throw new Error(
+          "Identifiers cannot be stored until DATA_ENCRYPTION_KEY is configured"
+        );
+      }
+      secret = {
+        idNumberEncrypted: encryptSecret(idNumber, idContext(partyId)),
+        idNumberLast4: visibleTail(idNumber),
+      };
+    } else if (
+      existingPrivate?.idNumberEncrypted &&
+      existingPrivate.idType === input.idType
+    ) {
+      secret = {
+        idNumberEncrypted: existingPrivate.idNumberEncrypted,
+        idNumberLast4: existingPrivate.idNumberLast4,
+      };
+    } else {
+      throw new Error("Enter the identifier or set the ID type to none");
+    }
+    const assessmentChanged =
+      existingPrivate?.foreignSourceAssessment !==
+      input.foreignSourceAssessment;
+    const values = {
+      addressLine1: nullIfBlank(input.addressLine1),
+      addressLine2: nullIfBlank(input.addressLine2),
+      assessedOn: assessmentChanged
+        ? today
+        : (existingPrivate?.assessedOn ?? today),
+      assessmentNote: nullIfBlank(input.assessmentNote),
+      city: nullIfBlank(input.city),
+      country: input.country.trim().toUpperCase() || "IN",
+      email: nullIfBlank(input.email),
+      foreignSourceAssessment: input.foreignSourceAssessment,
+      idType: input.idType,
+      nationality: nullIfBlank(input.nationality),
+      phone: nullIfBlank(input.phone),
+      pincode: nullIfBlank(input.pincode),
+      state: nullIfBlank(input.state),
+    };
+    const [row] = await tx
+      .insert(partyPrivate)
+      .values({
+        ...values,
+        ...secret,
+        partyId,
+        updatedAt: now,
+        updatedBy: actorId,
+      })
+      .onConflictDoUpdate({
+        set: { ...values, ...secret, updatedAt: now, updatedBy: actorId },
+        target: partyPrivate.partyId,
+      })
+      .returning();
+    if (!row) {
+      throw new Error("Party details could not be saved");
+    }
+    return {
+      created: !existingParty,
+      partyId,
+      view: toView(row),
+    };
+  });
 }

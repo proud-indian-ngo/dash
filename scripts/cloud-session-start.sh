@@ -23,6 +23,8 @@ if [ ! -f .env ]; then
 DEV_DB_PASSWORD=${DEV_DB_PASSWORD:-db@1234}
 DATABASE_URL=postgres://postgres:${DEV_DB_PASSWORD:-db@1234}@localhost:5432/pi-dash
 BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-}
+# Dev-only key for finance-private fields; production sets its own.
+DATA_ENCRYPTION_KEY=${DATA_ENCRYPTION_KEY:-$(openssl rand -base64 32)}
 BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:3001}
 SKIP_VALIDATION=true
 ENVFILE
@@ -78,6 +80,7 @@ echo "Seeding test data..."
 (cd packages/e2e && \
   DATABASE_URL="$DB_URL" \
   BETTER_AUTH_SECRET="${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}" \
+  DATA_ENCRYPTION_KEY="$DATA_ENCRYPTION_KEY" \
   BETTER_AUTH_URL="${BETTER_AUTH_URL:-http://localhost:3001}" \
   SKIP_VALIDATION=true \
   bun run helpers/seed-dev-data.ts) || echo "⚠ Seed failed (non-critical)"

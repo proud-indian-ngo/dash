@@ -190,6 +190,15 @@ export const partyRoleValues = [
 ] as const;
 export type PartyRole = (typeof partyRoleValues)[number];
 
+/** Roles the donor directory manages; other roles come from their own workflows. */
+export const directoryRoleValues = [
+  "donor",
+  "sponsor",
+  "grantor",
+  "intermediary",
+] as const;
+export type DirectoryRole = (typeof directoryRoleValues)[number];
+
 /** Identity types the donation statement (Form 113) accepts, plus none. */
 export const partyIdTypeValues = [
   "pan",

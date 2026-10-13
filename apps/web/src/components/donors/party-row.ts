@@ -15,15 +15,6 @@ export const ROLE_LABELS: Record<PartyRoleValue, string> = {
   volunteer: "Volunteer",
 };
 
-/** Roles the directory manages; the rest are set by their own workflows. */
-export const DIRECTORY_ROLES = [
-  "donor",
-  "sponsor",
-  "grantor",
-  "intermediary",
-] as const satisfies readonly PartyRoleValue[];
-export type DirectoryRole = (typeof DIRECTORY_ROLES)[number];
-
 export function activeRoleLabels(row: PartyRow): string[] {
   return row.roles
     .filter((r) => r.active)

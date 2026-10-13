@@ -40,6 +40,7 @@ function DonorsRouteComponent() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<PartyRow | null>(null);
   const [viewingId, setViewingId] = useState<string | null>(null);
+  const [detailsVersion, setDetailsVersion] = useState(0);
   const viewing = viewingId
     ? (rows.find((p) => p.id === viewingId) ?? null)
     : null;
@@ -58,6 +59,12 @@ function DonorsRouteComponent() {
   const handleDetailOpenChange = useEventCallback((open: boolean) => {
     if (!open) {
       setViewingId(null);
+    }
+  });
+  const handleSaved = useEventCallback((partyId: string) => {
+    setDetailsVersion((n) => n + 1);
+    if (!viewingId) {
+      setViewingId(partyId);
     }
   });
   const handleFormOpenChange = useEventCallback((open: boolean) => {
@@ -82,7 +89,7 @@ function DonorsRouteComponent() {
             </Button>
           ) : null
         }
-        description="People and organisations that give, sponsor or route money to the trust. Contact and ID details stay on the server and are shown here only to finance."
+        description="People and organisations that give, sponsor or route money to the trust. Contact details stay on the server; identifiers are masked and only finance can reveal them."
         title="Donors"
       />
       <div className="mt-6">
@@ -96,6 +103,7 @@ function DonorsRouteComponent() {
       </div>
       <DonorFormDialog
         onOpenChange={handleFormOpenChange}
+        onSaved={handleSaved}
         open={formOpen}
         party={editing}
       />
@@ -105,6 +113,7 @@ function DonorsRouteComponent() {
         onOpenChange={handleDetailOpenChange}
         open={viewing !== null}
         party={viewing}
+        version={detailsVersion}
       />
     </div>
   );

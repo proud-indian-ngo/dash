@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
   date,
   index,
@@ -13,6 +14,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { notification } from "./notification";
+import { party } from "./party";
 import { role } from "./permission";
 
 export type UserRole = string;
@@ -36,7 +38,9 @@ export const user = pgTable("user", {
   isOnWhatsapp: boolean("is_on_whatsapp").default(false).notNull(),
   name: text("name").notNull(),
   /** Finance identity for this login, set on first finance interaction. */
-  partyId: uuid("party_id"),
+  partyId: uuid("party_id").references((): AnyPgColumn => party.id, {
+    onDelete: "restrict",
+  }),
   phone: text("phone").unique(),
   registrationGroup: text("registration_group"),
   role: text("role")

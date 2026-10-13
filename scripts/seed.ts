@@ -16,7 +16,7 @@ import { createHash } from "node:crypto";
  *   eventPhoto, eventImmichAlbum, eventUpdate,
  *   eventPartner, socialPost, socialRun, socialApiToken,
  *   expenseCategory, bankAccount,
- *   programme, costCentre, fund, fiscalYear, fiscalPeriod, party, partyRole,
+ *   programme, costCentre, fund, fiscalYear, fiscalPeriod, party, partyRole, partyPrivate,
  *   reimbursement, reimbursementLineItem, reimbursementAttachment, reimbursementHistory,
  *   advancePayment, advancePaymentLineItem, advancePaymentAttachment, advancePaymentHistory,
  *   vendor, vendorPayment, vendorPaymentLineItem, vendorPaymentAttachment, vendorPaymentHistory,
@@ -89,6 +89,7 @@ import {
 } from "@pi-dash/db/schema/kalakriti-results";
 import { notification } from "@pi-dash/db/schema/notification";
 import { party, partyRole } from "@pi-dash/db/schema/party";
+import { partyPrivate } from "@pi-dash/db/schema/private/party-private";
 import {
   reimbursement,
   reimbursementAttachment,
@@ -584,6 +585,18 @@ async function seedParties(adminId: string): Promise<void> {
         since: now,
       }))
     )
+    .onConflictDoNothing();
+  // Contact details without an identifier, so the seed works without DATA_ENCRYPTION_KEY.
+  await db
+    .insert(partyPrivate)
+    .values({
+      city: "Bengaluru",
+      email: "asha.rao@example.test",
+      partyId: PARTIES[0]?.id as string,
+      state: "Karnataka",
+      updatedAt: now,
+      updatedBy: adminId,
+    })
     .onConflictDoNothing();
   log(`${PARTIES.length} parties ready`);
 }

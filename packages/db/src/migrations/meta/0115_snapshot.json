@@ -1,5 +1,5 @@
 {
-  "id": "c16be292-5cc9-4f3d-806f-0bc968222c40",
+  "id": "63cf9c6c-40bc-47cb-b5b0-e0fa3d49eff6",
   "prevId": "56a99f14-d4f6-4455-a8e2-977673c972b7",
   "version": "7",
   "dialect": "postgresql",
@@ -1146,6 +1146,19 @@
       },
       "indexes": {},
       "foreignKeys": {
+        "user_party_id_party_id_fk": {
+          "name": "user_party_id_party_id_fk",
+          "tableFrom": "user",
+          "tableTo": "party",
+          "columnsFrom": [
+            "party_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
         "user_role_role_id_fk": {
           "name": "user_role_role_id_fk",
           "tableFrom": "user",
@@ -3574,12 +3587,38 @@
         }
       },
       "foreignKeys": {
+        "project_intermediary_party_id_party_id_fk": {
+          "name": "project_intermediary_party_id_party_id_fk",
+          "tableFrom": "project",
+          "tableTo": "party",
+          "columnsFrom": [
+            "intermediary_party_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
         "project_programme_id_programme_id_fk": {
           "name": "project_programme_id_programme_id_fk",
           "tableFrom": "project",
           "tableTo": "programme",
           "columnsFrom": [
             "programme_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "project_sponsor_party_id_party_id_fk": {
+          "name": "project_sponsor_party_id_party_id_fk",
+          "tableFrom": "project",
+          "tableTo": "party",
+          "columnsFrom": [
+            "sponsor_party_id"
           ],
           "columnsTo": [
             "id"
@@ -12936,7 +12975,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
+          "onDelete": "restrict",
           "onUpdate": "no action"
         }
       },
@@ -13076,7 +13115,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
+          "onDelete": "restrict",
           "onUpdate": "no action"
         },
         "party_private_updated_by_user_id_fk": {

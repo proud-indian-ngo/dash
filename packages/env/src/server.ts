@@ -15,8 +15,18 @@ export const env = createEnv({
     BETTER_AUTH_SECRET: z.string().min(32),
     BETTER_AUTH_URL: z.url(),
     COOKIE_DOMAIN: z.string().min(1).optional(),
-    /** Base64 32-byte key for finance-private fields (PAN, bank numbers). */
-    DATA_ENCRYPTION_KEY: z.string().min(1).optional(),
+    /** Base64 32-byte key for finance-private fields (PAN, bank numbers). Required in production. */
+    DATA_ENCRYPTION_KEY: z
+      .string()
+      .refine(
+        (v) => Buffer.from(v, "base64").length === 32,
+        "DATA_ENCRYPTION_KEY must be base64 of 32 bytes"
+      )
+      .optional()
+      .refine(
+        (v) => process.env.NODE_ENV !== "production" || !!v,
+        "DATA_ENCRYPTION_KEY is required in production"
+      ),
     CORS_ORIGIN: z.url(),
     DATABASE_URL: z.string().min(1),
     DEV_DB_HOST:

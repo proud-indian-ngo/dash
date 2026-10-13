@@ -2,19 +2,26 @@ import { Edit02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { useServerFn } from "@tanstack/react-start";
+import { log } from "evlog";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { useApp } from "@/context/app-context";
-import { getPartyDetails, revealPartyIdentifier } from "@/functions/parties";
+import {
+  getPartyDetails,
+  type PartyDetailsResponse,
+  revealPartyIdentifier,
+} from "@/functions/parties";
+import { ASSESSMENT_LABELS, ID_TYPE_LABELS } from "@/lib/donor-schema";
 
 import { activeRoleLabels, type PartyRow } from "./party-row";
 
-type Details = Awaited<ReturnType<typeof getPartyDetails>>;
+type Details = PartyDetailsResponse["details"];
 
 function DetailRow({ label, value }: { label: string; value: string | null }) {
   return (
@@ -29,7 +36,7 @@ function IdentifierRow({
   details,
   partyId,
 }: {
-  details: Details;
+  details: NonNullable<Details>;
   partyId: string;
 }) {
   const { hasPermission } = useApp();
@@ -40,34 +47,36 @@ function IdentifierRow({
       const result = await reveal({ data: { partyId } });
       setRevealed(result.idNumber ?? "");
     } catch (error) {
-      toast.error("Couldn't reveal the identifier", {
-        description: error instanceof Error ? error.message : undefined,
+      log.error({
+        action: "donor.reveal",
+        caughtError: error instanceof Error ? error.message : String(error),
+        component: "DonorDetailSheet",
       });
+      toast.error("Couldn't reveal the identifier");
     }
   });
-  if (!details || details.idType === "none") {
+  const handleHide = useEventCallback(() => setRevealed(null));
+  if (details.idType === "none") {
     return <DetailRow label="ID" value={null} />;
   }
-  const masked = details.idNumberLast4
-    ? `•••• ${details.idNumberLast4}`
+  const masked = details.hasIdNumber
+    ? `•••• ${details.idNumberLast4 ?? ""}`.trim()
     : "not recorded";
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-muted-foreground text-xs">
-        {details.idType.toUpperCase().replace("_", " ")}
+        {ID_TYPE_LABELS[details.idType]}
       </span>
       <span className="flex items-center gap-2 text-sm">
         {revealed ?? masked}
-        {revealed === null &&
-        details.idNumberLast4 &&
-        hasPermission("finance.view_sensitive") ? (
+        {details.hasIdNumber && hasPermission("finance.view_sensitive") ? (
           <Button
-            onClick={handleReveal}
+            onClick={revealed === null ? handleReveal : handleHide}
             size="sm"
             type="button"
             variant="outline"
           >
-            Reveal
+            {revealed === null ? "Reveal" : "Hide"}
           </Button>
         ) : null}
       </span>
@@ -75,40 +84,57 @@ function IdentifierRow({
   );
 }
 
+type LoadState =
+  | { kind: "loading" }
+  | { kind: "error" }
+  | { kind: "ready"; details: Details };
+
 export function DonorDetailSheet({
   canManage,
   onEdit,
   onOpenChange,
   open,
   party,
+  /** Bumped by the page after a save so the sheet reloads. */
+  version,
 }: {
   canManage: boolean;
   onEdit: (party: PartyRow) => void;
   onOpenChange: (open: boolean) => void;
   open: boolean;
   party: PartyRow | null;
+  version: number;
 }) {
   const loadDetails = useServerFn(getPartyDetails);
-  const [details, setDetails] = useState<Details>(null);
-  const partyId = party?.id;
+  const [state, setState] = useState<LoadState>({ kind: "loading" });
+  const partyId = party?.id ?? null;
 
   useEffect(() => {
     if (!(open && partyId)) {
       return;
     }
     let cancelled = false;
-    setDetails(null);
+    setState({ kind: "loading" });
     loadDetails({ data: { partyId } })
-      .then((d) => {
+      .then((response) => {
         if (!cancelled) {
-          setDetails(d);
+          setState({ details: response.details, kind: "ready" });
         }
       })
-      .catch(() => undefined);
+      .catch((error: unknown) => {
+        log.error({
+          action: "donor.loadDetails",
+          caughtError: error instanceof Error ? error.message : String(error),
+          component: "DonorDetailSheet",
+        });
+        if (!cancelled) {
+          setState({ kind: "error" });
+        }
+      });
     return () => {
       cancelled = true;
     };
-  }, [open, partyId, loadDetails]);
+  }, [open, partyId, version, loadDetails]);
 
   const handleEdit = useEventCallback(() => {
     if (party) {
@@ -123,6 +149,7 @@ export function DonorDetailSheet({
       </Sheet>
     );
   }
+  const details = state.kind === "ready" ? state.details : null;
   const address = [
     details?.addressLine1,
     details?.addressLine2,
@@ -166,40 +193,60 @@ export function DonorDetailSheet({
           title={party.displayName}
         />
         <div className="flex flex-col gap-6 px-6 pb-6">
-          <div className="grid gap-4">
-            <h3 className="text-sm font-medium">Contact</h3>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <DetailRow label="Email" value={details?.email ?? null} />
-              <DetailRow label="Phone" value={details?.phone ?? null} />
-              <DetailRow label="Address" value={address || null} />
+          {state.kind === "loading" ? (
+            <div className="flex flex-col gap-3">
+              <Skeleton className="h-4 w-48" />
+              <Skeleton className="h-4 w-64" />
+              <Skeleton className="h-4 w-40" />
             </div>
-          </div>
-          <div className="grid gap-4">
-            <h3 className="text-sm font-medium">Identity and source</h3>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <IdentifierRow details={details} partyId={party.id} />
-              <DetailRow
-                label="Source"
-                value={
-                  details
-                    ? details.foreignSourceAssessment === "foreign"
-                      ? "Foreign source"
-                      : details.foreignSourceAssessment === "pending"
-                        ? "Not assessed yet"
-                        : "Domestic"
-                    : null
-                }
-              />
-              <DetailRow
-                label="Nationality"
-                value={details?.nationality ?? null}
-              />
-              <DetailRow
-                label="Assessment note"
-                value={details?.assessmentNote ?? null}
-              />
-            </div>
-          </div>
+          ) : null}
+          {state.kind === "error" ? (
+            <p className="text-destructive text-sm">
+              Couldn't load this donor's details.
+            </p>
+          ) : null}
+          {state.kind === "ready" ? (
+            <>
+              <div className="grid gap-4">
+                <h3 className="text-sm font-medium">Contact</h3>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <DetailRow label="Email" value={details?.email ?? null} />
+                  <DetailRow label="Phone" value={details?.phone ?? null} />
+                  <DetailRow label="Address" value={address || null} />
+                </div>
+              </div>
+              <div className="grid gap-4">
+                <h3 className="text-sm font-medium">Identity and source</h3>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {details ? (
+                    <IdentifierRow
+                      details={details}
+                      key={`${party.id}-${details.updatedAt}`}
+                      partyId={party.id}
+                    />
+                  ) : (
+                    <DetailRow label="ID" value={null} />
+                  )}
+                  <DetailRow
+                    label="Source"
+                    value={
+                      details
+                        ? ASSESSMENT_LABELS[details.foreignSourceAssessment]
+                        : null
+                    }
+                  />
+                  <DetailRow
+                    label="Nationality"
+                    value={details?.nationality ?? null}
+                  />
+                  <DetailRow
+                    label="Assessment note"
+                    value={details?.assessmentNote ?? null}
+                  />
+                </div>
+              </div>
+            </>
+          ) : null}
         </div>
       </SheetContent>
     </Sheet>

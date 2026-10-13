@@ -1,20 +1,16 @@
+import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
-  type ForeignSourceAssessment,
   foreignSourceAssessmentValues,
-  type PartyIdType,
   partyIdTypeValues,
   type PartyKind,
   partyKindValues,
-  type PartyRole,
 } from "@pi-dash/shared/constants";
-import { mutators } from "@pi-dash/zero/mutators";
-import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { useServerFn } from "@tanstack/react-start";
+import { log } from "evlog";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { uuidv7 } from "uuidv7";
 import z from "zod";
 
 import { CheckboxField } from "@/components/form/checkbox-field";
@@ -22,6 +18,7 @@ import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { FormSectionHeading } from "@/components/form/form-section";
 import { InputField } from "@/components/form/input-field";
+import { PhoneField } from "@/components/form/phone-field-lazy";
 import { SelectField } from "@/components/form/select-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import {
@@ -31,31 +28,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
-import { getPartyDetails, savePartyDetails } from "@/functions/parties";
-import { getMutationResultErrorMessage } from "@/lib/mutation-result";
-
 import {
+  getPartyDetails,
+  type PartyDetailsResponse,
+  saveDonor,
+} from "@/functions/parties";
+import {
+  ASSESSMENT_LABELS,
   DIRECTORY_ROLES,
   type DirectoryRole,
-  type PartyRow,
-  ROLE_LABELS,
-} from "./party-row";
+  donorFieldsSchema,
+  ID_TYPE_LABELS,
+  panCheck,
+  type SaveDonorInput,
+  saveDonorSchema,
+} from "@/lib/donor-schema";
 
-const ID_TYPE_LABELS: Record<PartyIdType, string> = {
-  driving_licence: "Driving licence",
-  none: "None",
-  pan: "PAN",
-  passport: "Passport",
-  ration_card: "Ration card",
-  tax_id_foreign: "Foreign tax ID",
-  voter_id: "Voter ID",
-};
-
-const ASSESSMENT_LABELS: Record<ForeignSourceAssessment, string> = {
-  domestic: "Domestic",
-  foreign: "Foreign source",
-  pending: "Not assessed yet",
-};
+import { type PartyRow, ROLE_LABELS } from "./party-row";
 
 const kindOptions = partyKindValues.map((value) => ({
   label: value === "organisation" ? "Organisation" : "Person",
@@ -70,48 +59,24 @@ const assessmentOptions = foreignSourceAssessmentValues.map((value) => ({
   value,
 }));
 
-const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+/** The form keeps roles as booleans so each is a checkbox; the server gets a list. */
+type DonorFormValues = Omit<SaveDonorInput, "id" | "roles"> &
+  Record<`role_${DirectoryRole}`, boolean>;
 
-const donorSchema = z
-  .object({
-    addressLine1: z.string().trim().max(200),
-    addressLine2: z.string().trim().max(200),
-    assessmentNote: z.string().trim().max(500),
-    city: z.string().trim().max(80),
-    country: z.string().trim().length(2, "Two-letter country code"),
-    displayName: z.string().trim().min(1, "Name is required").max(160),
-    email: z.union([z.literal(""), z.email("Invalid email address")]),
-    foreignSourceAssessment: z.enum(foreignSourceAssessmentValues),
-    idNumber: z.string().trim().max(40),
-    idType: z.enum(partyIdTypeValues),
-    kind: z.enum(partyKindValues),
-    legalName: z.string().trim().max(200),
-    nationality: z.string().trim().max(60),
-    phone: z.string().trim().max(32),
-    pincode: z.string().trim().max(12),
-    roleDonor: z.boolean(),
-    roleGrantor: z.boolean(),
-    roleIntermediary: z.boolean(),
-    roleSponsor: z.boolean(),
-    state: z.string().trim().max(80),
+const formSchema = donorFieldsSchema
+  .omit({ id: true, roles: true })
+  .extend({
+    role_donor: z.boolean(),
+    role_grantor: z.boolean(),
+    role_intermediary: z.boolean(),
+    role_sponsor: z.boolean(),
   })
+  .refine(panCheck.check, { message: panCheck.message, path: ["idNumber"] })
   .refine(
-    (v) => v.idType !== "pan" || v.idNumber === "" || PAN_RE.test(v.idNumber),
-    { message: "Invalid PAN (e.g. ABCDE1234F)", path: ["idNumber"] }
-  )
-  .refine(
-    (v) => v.roleDonor || v.roleSponsor || v.roleGrantor || v.roleIntermediary,
-    { message: "Pick at least one role", path: ["roleDonor"] }
+    (v) =>
+      v.role_donor || v.role_sponsor || v.role_grantor || v.role_intermediary,
+    { message: "Pick at least one role", path: ["role_donor"] }
   );
-
-type DonorFormValues = z.infer<typeof donorSchema>;
-
-const ROLE_FIELDS: Record<DirectoryRole, keyof DonorFormValues> = {
-  donor: "roleDonor",
-  grantor: "roleGrantor",
-  intermediary: "roleIntermediary",
-  sponsor: "roleSponsor",
-};
 
 function emptyValues(): DonorFormValues {
   return {
@@ -130,19 +95,20 @@ function emptyValues(): DonorFormValues {
     nationality: "",
     phone: "",
     pincode: "",
-    roleDonor: true,
-    roleGrantor: false,
-    roleIntermediary: false,
-    roleSponsor: false,
+    role_donor: true,
+    role_grantor: false,
+    role_intermediary: false,
+    role_sponsor: false,
     state: "",
   };
 }
 
-type Details = Awaited<ReturnType<typeof getPartyDetails>>;
-
-function valuesFor(party: PartyRow, details: Details): DonorFormValues {
+function valuesFor(
+  party: PartyRow,
+  details: PartyDetailsResponse["details"]
+): DonorFormValues {
   const active = new Set(
-    party.roles.filter((r) => r.active).map((r) => r.role as PartyRole)
+    party.roles.filter((r) => r.active).map((r) => r.role)
   );
   return {
     ...emptyValues(),
@@ -154,122 +120,95 @@ function valuesFor(party: PartyRow, details: Details): DonorFormValues {
     displayName: party.displayName,
     email: details?.email ?? "",
     foreignSourceAssessment: details?.foreignSourceAssessment ?? "domestic",
-    idNumber: "",
     idType: details?.idType ?? "none",
     kind: party.kind as PartyKind,
     legalName: party.legalName ?? "",
     nationality: details?.nationality ?? "",
     phone: details?.phone ?? "",
     pincode: details?.pincode ?? "",
-    roleDonor: active.has("donor"),
-    roleGrantor: active.has("grantor"),
-    roleIntermediary: active.has("intermediary"),
-    roleSponsor: active.has("sponsor"),
+    role_donor: active.has("donor"),
+    role_grantor: active.has("grantor"),
+    role_intermediary: active.has("intermediary"),
+    role_sponsor: active.has("sponsor"),
     state: details?.state ?? "",
   };
 }
 
+function toInput(
+  party: PartyRow | null,
+  value: DonorFormValues
+): SaveDonorInput {
+  const { role_donor, role_grantor, role_intermediary, role_sponsor, ...rest } =
+    value;
+  const flags: Record<DirectoryRole, boolean> = {
+    donor: role_donor,
+    grantor: role_grantor,
+    intermediary: role_intermediary,
+    sponsor: role_sponsor,
+  };
+  return {
+    ...rest,
+    id: party?.id,
+    roles: DIRECTORY_ROLES.filter((role) => flags[role]),
+  };
+}
+
 function DonorForm({
-  details,
+  context,
   onOpenChange,
+  onSaved,
   party,
 }: {
-  details: Details;
+  context: PartyDetailsResponse;
   onOpenChange: (open: boolean) => void;
+  onSaved: (partyId: string) => void;
   party: PartyRow | null;
 }) {
-  const zero = useZero();
-  const saveDetails = useServerFn(savePartyDetails);
+  const save = useServerFn(saveDonor);
   const isEdit = party !== null;
+  const details = context.details;
 
   const form = useForm({
     defaultValues: party ? valuesFor(party, details) : emptyValues(),
     onSubmit: async ({ value }) => {
-      const id = party?.id ?? uuidv7();
-      const wanted = DIRECTORY_ROLES.filter(
-        (role) => value[ROLE_FIELDS[role]] === true
-      );
-      const identity = isEdit
-        ? zero.mutate(
-            mutators.party.update({
-              displayName: value.displayName,
-              id,
-              kind: value.kind,
-              legalName: value.legalName || null,
-            })
-          )
-        : zero.mutate(
-            mutators.party.create({
-              displayName: value.displayName,
-              id,
-              kind: value.kind,
-              legalName: value.legalName || null,
-              roleIds: wanted.map(() => uuidv7()),
-              roles: wanted,
-            })
-          );
-      const res = await identity.server;
-      if (res.type === "error") {
+      const input = toInput(party, value);
+      const check = saveDonorSchema.safeParse(input);
+      if (!check.success) {
+        toast.error(check.error.issues[0]?.message ?? "Check the form");
+        return;
+      }
+      try {
+        const result = await save({ data: check.data });
+        toast.success(isEdit ? "Donor updated" : "Donor created");
+        onSaved(result.partyId);
+        onOpenChange(false);
+      } catch (error) {
+        log.error({
+          action: isEdit ? "donor.update" : "donor.create",
+          caughtError: error instanceof Error ? error.message : String(error),
+          component: "DonorFormDialog",
+        });
         toast.error(
           isEdit ? "Couldn't update donor" : "Couldn't create donor",
           {
-            description: getMutationResultErrorMessage(res.error, ""),
+            description:
+              error instanceof Error ? error.message : "Something went wrong",
           }
         );
-        return;
       }
-      if (isEdit && party) {
-        for (const role of DIRECTORY_ROLES) {
-          const had = party.roles.some((r) => r.role === role && r.active);
-          const want = wanted.includes(role);
-          if (had !== want) {
-            await zero.mutate(
-              mutators.party.setRole({
-                active: want,
-                id: uuidv7(),
-                partyId: id,
-                role,
-              })
-            ).server;
-          }
-        }
-      }
-      try {
-        await saveDetails({
-          data: {
-            addressLine1: value.addressLine1,
-            addressLine2: value.addressLine2,
-            assessmentNote: value.assessmentNote,
-            city: value.city,
-            country: value.country.toUpperCase(),
-            email: value.email,
-            foreignSourceAssessment: value.foreignSourceAssessment,
-            // Blank keeps the stored identifier; "None" clears it server-side.
-            idNumber: value.idNumber ? value.idNumber.toUpperCase() : undefined,
-            idType: value.idType,
-            nationality: value.nationality,
-            partyId: id,
-            phone: value.phone,
-            pincode: value.pincode,
-            state: value.state,
-          },
-        });
-      } catch (error) {
-        toast.error("Saved the donor but not their details", {
-          description: error instanceof Error ? error.message : undefined,
-        });
-        return;
-      }
-      toast.success(isEdit ? "Donor updated" : "Donor created");
-      onOpenChange(false);
     },
-    validators: { onChange: donorSchema, onSubmit: donorSchema },
+    validators: { onChange: formSchema, onSubmit: formSchema },
   });
   const cancel = useEventCallback(() => onOpenChange(false));
-  const idHint =
-    details?.idNumberLast4 && isEdit
-      ? `Stored, ending ${details.idNumberLast4}. Leave blank to keep it.`
-      : "Needed for the donation statement (Form 113) when the donor claims a deduction.";
+
+  let idHint =
+    "Needed for the donation statement (Form 113) when the donor claims a deduction.";
+  if (!context.identifiersAvailable) {
+    idHint =
+      "Identifiers cannot be stored until the encryption key is configured.";
+  } else if (isEdit && details?.hasIdNumber) {
+    idHint = `Stored${details.idNumberLast4 ? `, ending ${details.idNumberLast4}` : ""}. Leave blank to keep it; change the ID type to replace it.`;
+  }
 
   return (
     <FormLayout form={form}>
@@ -294,7 +233,7 @@ function DonorForm({
           <CheckboxField
             key={role}
             label={ROLE_LABELS[role]}
-            name={ROLE_FIELDS[role]}
+            name={`role_${role}`}
           />
         ))}
       </div>
@@ -302,19 +241,28 @@ function DonorForm({
       <FormSectionHeading>Contact</FormSectionHeading>
       <div className="grid gap-4 sm:grid-cols-2">
         <InputField label="Email" name="email" type="email" />
-        <InputField label="Phone" name="phone" />
+        <PhoneField defaultCountry="IN" label="Phone" name="phone" />
         <InputField label="Address line 1" name="addressLine1" />
         <InputField label="Address line 2" name="addressLine2" />
         <InputField label="City" name="city" />
         <InputField label="State" name="state" />
         <InputField label="PIN code" name="pincode" />
-        <InputField label="Country" name="country" placeholder="IN" />
+        <InputField
+          description="Two-letter code, for example IN."
+          label="Country"
+          name="country"
+        />
       </div>
 
       <FormSectionHeading>Identity and source</FormSectionHeading>
       <div className="grid gap-4 sm:grid-cols-2">
         <SelectField label="ID type" name="idType" options={idTypeOptions} />
-        <InputField description={idHint} label="ID number" name="idNumber" />
+        <InputField
+          description={idHint}
+          disabled={!context.identifiersAvailable}
+          label="ID number"
+          name="idNumber"
+        />
         <SelectField
           description="Foreign-source money needs FCRA registration before it can be accepted."
           label="Source"
@@ -335,43 +283,84 @@ function DonorForm({
   );
 }
 
+type LoadState =
+  | { kind: "loading" }
+  | { kind: "error"; message: string }
+  | { kind: "ready"; context: PartyDetailsResponse };
+
 export function DonorFormDialog({
   onOpenChange,
+  onSaved,
   open,
   party,
 }: {
   onOpenChange: (open: boolean) => void;
+  onSaved: (partyId: string) => void;
   open: boolean;
   party: PartyRow | null;
 }) {
   const loadDetails = useServerFn(getPartyDetails);
-  const [details, setDetails] = useState<Details | "loading">("loading");
+  const [state, setState] = useState<LoadState>({ kind: "loading" });
+  const [attempt, setAttempt] = useState(0);
+  const partyId = party?.id ?? null;
 
   useEffect(() => {
     if (!open) {
       return;
     }
-    if (!party) {
-      setDetails(null);
-      return;
-    }
     let cancelled = false;
-    setDetails("loading");
-    loadDetails({ data: { partyId: party.id } })
-      .then((d) => {
+    setState({ kind: "loading" });
+    loadDetails({ data: { partyId } })
+      .then((context) => {
         if (!cancelled) {
-          setDetails(d);
+          setState({ context, kind: "ready" });
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        log.error({
+          action: "donor.loadDetails",
+          caughtError: error instanceof Error ? error.message : String(error),
+          component: "DonorFormDialog",
+        });
         if (!cancelled) {
-          setDetails(null);
+          // Never show an empty form for an existing donor: saving it would
+          // wipe the stored details.
+          setState({
+            kind: "error",
+            message: "Couldn't load the donor's details.",
+          });
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [open, party, loadDetails]);
+  }, [open, partyId, attempt, loadDetails]);
+
+  const retry = useEventCallback(() => setAttempt((n) => n + 1));
+
+  let body: React.ReactNode;
+  if (state.kind === "ready") {
+    body = (
+      <DonorForm
+        context={state.context}
+        key={partyId ?? "new"}
+        onOpenChange={onOpenChange}
+        onSaved={onSaved}
+        party={party}
+      />
+    );
+  } else if (state.kind === "error") {
+    body = (
+      <div className="flex flex-col items-start gap-3 px-1 py-4">
+        <p className="text-destructive text-sm">{state.message}</p>
+        <Button onClick={retry} size="sm" type="button" variant="outline">
+          Try again
+        </Button>
+      </div>
+    );
+  } else {
+    body = <p className="text-muted-foreground px-1 py-6 text-sm">Loading…</p>;
+  }
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
@@ -382,16 +371,7 @@ export function DonorFormDialog({
             {party ? "Edit donor details" : "Add a donor or sponsor"}
           </DialogDescription>
         </DialogHeader>
-        {open && details !== "loading" ? (
-          <DonorForm
-            details={details}
-            key={party?.id ?? "new"}
-            onOpenChange={onOpenChange}
-            party={party}
-          />
-        ) : (
-          <p className="text-muted-foreground px-1 py-6 text-sm">Loading…</p>
-        )}
+        {open ? body : null}
       </DialogContent>
     </Dialog>
   );

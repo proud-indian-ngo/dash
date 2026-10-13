@@ -39,6 +39,32 @@ test.describe("Donor directory (admin)", () => {
     await expect(page.getByText("•••• 234F")).toBeVisible();
     await page.getByRole("button", { name: "Reveal" }).click();
     await expect(page.getByText("ABCDE1234F")).toBeVisible();
+    await page.getByRole("button", { name: "Hide" }).click();
+    await expect(page.getByText("•••• 234F")).toBeVisible();
+
+    // Editing with a blank ID number keeps the stored identifier.
+    await page.getByRole("button", { exact: true, name: "Edit" }).click();
+    const editDialog = page.getByRole("dialog", { name: "Edit donor" });
+    await expect(
+      editDialog.getByRole("textbox", { exact: true, name: "Name" })
+    ).toHaveValue(name, { timeout: 10_000 });
+    await editDialog.getByRole("textbox", { name: "City" }).fill("Mysuru");
+    await clickUntilDialogCloses(editDialog, "Save changes");
+    await expect(page.getByText("Mysuru")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("•••• 234F")).toBeVisible();
+  });
+});
+
+test.describe("Donor directory (admin without finance)", () => {
+  test("admin sees donors but cannot add or reveal", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    await page.goto("/donors");
+    await expect(page.getByRole("heading", { name: "Donors" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add donor" })).toHaveCount(
+      0
+    );
   });
 });
 

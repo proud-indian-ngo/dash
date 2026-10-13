@@ -19,7 +19,7 @@ describe("finance permissions by role", () => {
     expect(FINANCE_ADMIN_PERMISSIONS).toContain("donors.manage");
   });
 
-  it("lets admin see donors but not their private details", () => {
+  it("lets admin see donors and contact details but not manage them or reveal identifiers", () => {
     expect(ADMIN_PERMISSIONS).toContain("donors.view");
     expect(ADMIN_PERMISSIONS).not.toContain("donors.manage");
     expect(ADMIN_PERMISSIONS).not.toContain("finance.view_sensitive");

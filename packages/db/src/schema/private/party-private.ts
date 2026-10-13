@@ -19,8 +19,9 @@ import { party } from "../party";
 /**
  * Finance-private party data. These tables are deliberately not exported from
  * `schema/index.ts`, so drizzle-zero never generates them and they never sync
- * to the browser. Reads and writes go through server functions guarded by
- * `finance.view_sensitive` and `donors.manage`.
+ * to the browser. Contact details are read through server functions guarded
+ * by `donors.view`, the full identifier by `finance.view_sensitive`, and writes
+ * by `donors.manage`.
  */
 
 export const partyIdTypeEnum = pgEnum("party_id_type", partyIdTypeValues);
@@ -48,9 +49,10 @@ export const partyPrivate = pgTable("party_private", {
   idNumberLast4: text("id_number_last4"),
   idType: partyIdTypeEnum("id_type").default("none").notNull(),
   nationality: text("nationality"),
+  /** Restrict: identity evidence is disposed of by the retention process, never by a cascade. */
   partyId: uuid("party_id")
     .primaryKey()
-    .references(() => party.id, { onDelete: "cascade" }),
+    .references(() => party.id, { onDelete: "restrict" }),
   phone: text("phone"),
   pincode: text("pincode"),
   state: text("state"),
@@ -73,7 +75,7 @@ export const partyBankAccount = pgTable(
     ifscCode: text("ifsc_code").notNull(),
     partyId: uuid("party_id")
       .notNull()
-      .references(() => party.id, { onDelete: "cascade" }),
+      .references(() => party.id, { onDelete: "restrict" }),
     updatedAt: timestamp("updated_at").notNull(),
   },
   (t) => [index("party_bank_account_partyId_idx").on(t.partyId)]
