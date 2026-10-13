@@ -7,10 +7,16 @@ import {
 } from "./fiscal-years";
 
 describe("fiscal year helpers", () => {
-  it("names the April-to-March year by its starting calendar year", () => {
-    expect(fiscalYearStartFor(new Date(2026, 3, 1))).toBe(2026);
-    expect(fiscalYearStartFor(new Date(2027, 2, 31))).toBe(2026);
-    expect(fiscalYearStartFor(new Date(2027, 0, 15))).toBe(2026);
+  it("names the April-to-March year by its starting calendar year in IST", () => {
+    expect(fiscalYearStartFor(new Date("2026-04-01T00:00:00+05:30"))).toBe(
+      2026
+    );
+    expect(fiscalYearStartFor(new Date("2027-03-31T23:59:00+05:30"))).toBe(
+      2026
+    );
+    expect(fiscalYearStartFor(new Date("2027-01-15T12:00:00Z"))).toBe(2026);
+    // 23:30 UTC on 31 March is already 1 April in India.
+    expect(fiscalYearStartFor(new Date("2027-03-31T23:30:00Z"))).toBe(2027);
     expect(fiscalYearLabel(2026)).toBe("2026-27");
     expect(fiscalYearLabel(2099)).toBe("2099-00");
   });

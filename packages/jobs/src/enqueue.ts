@@ -13,6 +13,7 @@ export const QUEUE_NAMES: JobName[] = [
   "close-expired-rsvp-polls",
   "close-rsvp-poll-on-cancel",
   "delete-r2-object",
+  "ensure-fiscal-years",
   "generate-cash-voucher",
   "immich-delete-album",
   "immich-delete-asset",

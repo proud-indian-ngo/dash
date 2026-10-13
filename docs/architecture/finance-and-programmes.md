@@ -355,6 +355,6 @@ Backfill facts from production that shape Phase 0:
 
 ## 8. Remaining open items
 
-1. Fiscal years: the `ensure-fiscal-years` job runs on the 1st of every month and keeps the current and next April-to-March year present with their periods, so the January run creates the year that starts in April. Closed.
+1. Fiscal years: the `ensure-fiscal-years` job runs on the 1st of every month and keeps the current and next April-to-March year present with their periods, so a year exists from the April a year before it starts. Closed.
 2. Engagement receipts are donations, not fee income. The audited statements for 2023-24, 2024-25 and 2025-26 (GVNKA & Associates) show all income under "Donations received" with no service or fee line, and the accounting policy recognises donations on receipt. So Goodera and corporate engagement money enters as `contribution` with `donation_type = csr` (direct corporate) or `other` (via Goodera) and a sponsor on the engagement project. `issued_invoice` is kept only as the document the sponsor asks for before paying; it does not recognise income, and the receivables rows in section 3.4 and the posting table are downgraded to "acknowledgement sent, no posting until the contribution is received". The section 12AB incidental-business question therefore does not arise unless the CA changes the treatment.
 3. GST: not needed as of now (founder, 14 October 2026). Issued acknowledgements carry no GST; vendor invoices still record the GST vendors charge us. Revisit only if the trust starts making taxable supplies.

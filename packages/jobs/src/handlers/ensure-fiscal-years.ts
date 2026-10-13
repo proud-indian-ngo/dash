@@ -3,7 +3,9 @@ import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 
 /** Keeps the current and next fiscal year (with their periods) present, so postings always have a period. */
-export async function handleEnsureFiscalYears(_jobs: Job[]): Promise<void> {
+export async function handleEnsureFiscalYears(
+  _jobs: Job[]
+): Promise<{ created: string[] }> {
   const log = createRequestLogger({
     method: "JOB",
     path: "ensure-fiscal-years",
@@ -11,4 +13,5 @@ export async function handleEnsureFiscalYears(_jobs: Job[]): Promise<void> {
   const created = await ensureUpcomingFiscalYears();
   log.set({ created, event: "fiscal_years_ensured" });
   log.emit();
+  return { created };
 }
