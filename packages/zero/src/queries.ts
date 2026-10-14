@@ -3,7 +3,6 @@ import { defineQueries } from "@rocicorp/zero";
 import { advancePaymentQueries } from "./queries/advance-payment";
 import { appConfigQueries } from "./queries/app-config";
 import { bankAccountQueries } from "./queries/bank-account";
-import { contributionBankStatusQueries } from "./queries/contribution-bank-status";
 import { eventFeedbackQueries } from "./queries/event-feedback";
 import { eventInterestQueries } from "./queries/event-interest";
 import {
@@ -56,7 +55,6 @@ import { vendorPaymentTransactionQueries } from "./queries/vendor-payment-transa
 import { whatsappGroupQueries } from "./queries/whatsapp-group";
 
 export const queries = defineQueries({
-  contributionBankStatus: contributionBankStatusQueries,
   accountHead: accountHeadQueries,
   advancePayment: advancePaymentQueries,
   appConfig: appConfigQueries,

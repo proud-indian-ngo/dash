@@ -12,19 +12,18 @@ import {
 
 const workbook = () => Buffer.from(generatePayoutFixture());
 
-function replaceInSheet(
+function replaceInFile(
   input: Buffer,
-  sheet: 1 | 2,
+  path: string,
   from: string,
   to: string
 ): Buffer {
   const files = unzipSync(input);
-  const path = `xl/worksheets/sheet${sheet}.xml`;
-  const sheetData = files[path];
-  if (!sheetData) {
+  const fileData = files[path];
+  if (!fileData) {
     throw new Error(`Test workbook does not contain ${path}`);
   }
-  const source = strFromU8(sheetData);
+  const source = strFromU8(fileData);
   if (!source.includes(from)) {
     throw new Error(`Test workbook does not contain ${from}`);
   }
@@ -35,6 +34,36 @@ function replaceInSheet(
       mtime: new Date("1980-01-01T00:00:00Z"),
     })
   );
+}
+
+function replaceInSheet(
+  input: Buffer,
+  sheet: 1 | 2,
+  from: string,
+  to: string
+): Buffer {
+  return replaceInFile(input, `xl/worksheets/sheet${sheet}.xml`, from, to);
+}
+
+function setDeclaredUncompressedSize(
+  input: Buffer,
+  fileName: string,
+  uncompressedBytes: number
+): Buffer {
+  const changed = Buffer.from(input);
+  const name = Buffer.from(fileName);
+  const centralNameOffset = changed.lastIndexOf(name);
+  const centralHeaderOffset = centralNameOffset - 46;
+  if (
+    centralNameOffset < 0 ||
+    changed.readUInt32LE(centralHeaderOffset) !== 0x0201_4b50
+  ) {
+    throw new Error(`Test archive has no central entry for ${fileName}`);
+  }
+  const localHeaderOffset = changed.readUInt32LE(centralHeaderOffset + 42);
+  changed.writeUInt32LE(uncompressedBytes, centralHeaderOffset + 24);
+  changed.writeUInt32LE(uncompressedBytes, localHeaderOffset + 22);
+  return changed;
 }
 
 async function parsedRows() {
@@ -76,6 +105,159 @@ describe("parseGiveDoPayout", () => {
   it("accepts base64 input", async () => {
     const result = await parseGiveDoPayout(workbook().toString("base64"));
     expect(result.utr).toBe("GIVEDO20261012");
+  });
+
+  it("reads unstyled numeric dates with the workbook's 1900 or 1904 epoch", async () => {
+    const epoch1900 = replaceInSheet(
+      workbook(),
+      1,
+      '<c r="A2" s="1"><v>46306</v></c>',
+      '<c r="A2"><v>46306</v></c>'
+    );
+    expect(
+      (await parseGiveDoPayout(epoch1900)).donations.rows.map((row) => row.Date)
+    ).toEqual(["11/10/2026", "12/10/2026"]);
+
+    const early1900 = replaceInSheet(
+      workbook(),
+      1,
+      '<c r="A2" s="1"><v>46306</v></c>',
+      '<c r="A2"><v>1</v></c>'
+    );
+    expect((await parseGiveDoPayout(early1900)).donations.rows[0]?.Date).toBe(
+      "01/01/1900"
+    );
+
+    const fictionalLeapDay = replaceInSheet(
+      workbook(),
+      1,
+      '<c r="A2" s="1"><v>46306</v></c>',
+      '<c r="A2"><v>60</v></c>'
+    );
+    await expect(parseGiveDoPayout(fictionalLeapDay)).rejects.toThrow(
+      "The workbook contains an invalid date cell."
+    );
+
+    const epoch1904 = replaceInFile(
+      replaceInSheet(
+        workbook(),
+        1,
+        '<c r="A2" s="1"><v>46306</v></c>',
+        '<c r="A2"><v>44844</v></c>'
+      ),
+      "xl/workbook.xml",
+      "<sheets>",
+      '<workbookPr date1904="1"/><sheets>'
+    );
+    expect(
+      (await parseGiveDoPayout(epoch1904)).donations.rows.map((row) => row.Date)
+    ).toEqual(["11/10/2026", "12/10/2026"]);
+  });
+
+  it("rejects a highly compressible archive before reading its sheets", async () => {
+    const files = unzipSync(workbook());
+    files["xl/highly-compressible.bin"] = new Uint8Array(1024 * 1024).fill(65);
+    const compressed = Buffer.from(
+      zipSync(files, {
+        level: 9,
+        mtime: new Date("1980-01-01T00:00:00Z"),
+      })
+    );
+
+    expect(compressed.byteLength).toBeLessThan(20_000);
+    await expect(parseGiveDoPayout(compressed)).rejects.toThrow(
+      "The XLSX workbook exceeds the safe archive limits."
+    );
+  });
+
+  it("enforces per-entry and total expanded sizes from ZIP metadata", async () => {
+    const files = unzipSync(workbook());
+    files["padding/large.bin"] = new Uint8Array([1]);
+    const oneEntry = Buffer.from(
+      zipSync(files, {
+        level: 0,
+        mtime: new Date("1980-01-01T00:00:00Z"),
+      })
+    );
+    await expect(
+      parseGiveDoPayout(
+        setDeclaredUncompressedSize(
+          oneEntry,
+          "padding/large.bin",
+          25 * 1024 * 1024 + 1
+        )
+      )
+    ).rejects.toThrow("The XLSX workbook exceeds the safe archive limits.");
+
+    files["padding/one.bin"] = new Uint8Array([1]);
+    files["padding/two.bin"] = new Uint8Array([2]);
+    files["padding/three.bin"] = new Uint8Array([3]);
+    let combined: Buffer = Buffer.from(
+      zipSync(files, {
+        level: 0,
+        mtime: new Date("1980-01-01T00:00:00Z"),
+      })
+    );
+    for (const name of [
+      "padding/one.bin",
+      "padding/two.bin",
+      "padding/three.bin",
+    ]) {
+      combined = setDeclaredUncompressedSize(combined, name, 17 * 1024 * 1024);
+    }
+    await expect(parseGiveDoPayout(combined)).rejects.toThrow(
+      "The XLSX workbook exceeds the safe archive limits."
+    );
+  });
+
+  it("rejects forged small expanded sizes before the workbook reader", async () => {
+    const files = unzipSync(workbook());
+    const fileName = "padding/forged.bin";
+    files[fileName] = new Uint8Array(1024 * 1024).fill(65);
+    const compressed = Buffer.from(
+      zipSync(files, {
+        level: 9,
+        mtime: new Date("1980-01-01T00:00:00Z"),
+      })
+    );
+    const centralNameOffset = compressed.lastIndexOf(Buffer.from(fileName));
+    const compressedBytes = compressed.readUInt32LE(
+      centralNameOffset - 46 + 20
+    );
+    const forged = setDeclaredUncompressedSize(
+      compressed,
+      fileName,
+      compressedBytes * 50
+    );
+
+    await expect(parseGiveDoPayout(forged)).rejects.toThrow(
+      "The file could not be read as an XLSX workbook."
+    );
+  });
+
+  it("rejects excessive entries and unsupported ZIP64 metadata", async () => {
+    const files = unzipSync(workbook());
+    for (let index = 0; index < 1000; index += 1) {
+      files[`padding/${index}`] = new Uint8Array();
+    }
+    await expect(
+      parseGiveDoPayout(
+        Buffer.from(
+          zipSync(files, {
+            level: 0,
+            mtime: new Date("1980-01-01T00:00:00Z"),
+          })
+        )
+      )
+    ).rejects.toThrow("The XLSX workbook exceeds the safe archive limits.");
+
+    const zip64 = workbook();
+    const endRecord = zip64.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+    expect(endRecord).toBeGreaterThanOrEqual(0);
+    zip64.writeUInt16LE(0xffff, endRecord + 10);
+    await expect(parseGiveDoPayout(zip64)).rejects.toThrow(
+      "ZIP64 XLSX workbooks are not supported."
+    );
   });
 
   it("requires the exact Donations headers", async () => {

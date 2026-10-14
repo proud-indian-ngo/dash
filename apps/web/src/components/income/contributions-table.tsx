@@ -1,6 +1,7 @@
 import { Delete02Icon, Edit02Icon, ViewIcon } from "@hugeicons/core-free-icons";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
+import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type {
@@ -16,8 +17,12 @@ import {
   isContributionEditable,
 } from "@pi-dash/shared/income";
 import { formatPaise } from "@pi-dash/shared/money";
+import { parseAsString, useQueryState } from "nuqs";
+import { useEffect, useMemo } from "react";
 
+import { removeFilterPath } from "@/components/data-table/compile-filter-query";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { Tag } from "@/components/shared/status-badge";
@@ -25,8 +30,11 @@ import { useApp } from "@/context/app-context";
 
 import { formatReceivedOn } from "./contribution-detail-sheet";
 import {
+  contributionBankScope,
   createContributionFilterFields,
   getContributionFilterValue,
+  hasReachedBankFilter,
+  searchContribution,
   useMigrateLegacyContributionFilterParams,
 } from "./contribution-filters";
 import { ContributionStatusBadge } from "./contribution-status";
@@ -41,17 +49,6 @@ const SKELETON_DATE = <Skeleton className="h-5 w-24" />;
 const SKELETON_NAME = <Skeleton className="h-5 w-40" />;
 const SKELETON_AMOUNT = <Skeleton className="h-5 w-24" />;
 const SKELETON_TAG = <Skeleton className="h-5 w-20" />;
-
-function searchContribution(row: ContributionRow, query: string): boolean {
-  const q = query.trim().toLowerCase();
-  if (!q) {
-    return true;
-  }
-  return [donorName(row), row.reference ?? ""]
-    .join(" ")
-    .toLowerCase()
-    .includes(q);
-}
 
 function RowActions({
   canManage,
@@ -125,7 +122,19 @@ export function ContributionsTable({
   const { hasPermission } = useApp();
   const seesBankEvidence =
     hasPermission("finance.view") || hasPermission("finance.manage");
-  const bank = useContributionBankEvidence(seesBankEvidence);
+  const { query, setQuery } = useDataTableFilters();
+  const [searchQuery] = useQueryState("search", parseAsString.withDefault(""));
+  const bankFilterActive = hasReachedBankFilter(query);
+  useEffect(() => {
+    if (bankFilterActive && !seesBankEvidence) {
+      setQuery(removeFilterPath(query, "reachedBank"));
+    }
+  }, [bankFilterActive, query, seesBankEvidence, setQuery]);
+  const bankScope = useMemo(
+    () => contributionBankScope(data, query, missingPartyIds, searchQuery),
+    [data, missingPartyIds, query, searchQuery]
+  );
+  const bank = useContributionBankEvidence(seesBankEvidence, bankScope);
   const getRowId = useEventCallback((row: ContributionRow) => row.id);
 
   const columns: DataGridColumnDef<ContributionRow>[] = [
@@ -314,15 +323,34 @@ export function ContributionsTable({
       data={data}
       emptyMessage="No contributions match."
       filter={{
+        applyLocally:
+          !(bank.isLoading || bank.error) &&
+          (seesBankEvidence || !bankFilterActive),
         fields: createContributionFilterFields(data, seesBankEvidence),
         getValue: getContributionFilterValue(missingPartyIds, bank.evidence),
       }}
       getRowId={getRowId}
-      isLoading={isLoading || bank.isLoading}
+      isLoading={isLoading || bank.isLoading || bank.error}
       onRowClick={onView}
       searchFn={searchContribution}
       searchPlaceholder="Search donor or reference..."
       storageKey="contributions_table_state_v1"
+      toolbarFilters={
+        bank.isLoading ? (
+          <span className="text-muted-foreground text-sm" role="status">
+            Loading bank status...
+          </span>
+        ) : bank.error ? (
+          <Button
+            onClick={bank.retry}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            Bank status unavailable. Retry
+          </Button>
+        ) : null
+      }
       tableLayout={{
         columnsDraggable: true,
         columnsPinnable: true,

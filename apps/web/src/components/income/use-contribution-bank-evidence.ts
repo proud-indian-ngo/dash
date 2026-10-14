@@ -1,48 +1,78 @@
-import { queries } from "@pi-dash/zero/queries";
-import { useQuery } from "@rocicorp/zero/react";
-import { useMemo } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { log } from "evlog";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { getContributionBankEvidence } from "@/functions/income";
+
+import {
+  type ContributionBankEvidenceRequest,
+  type LoadedContributionBankEvidence,
+  selectContributionBankEvidence,
+} from "./contribution-bank-evidence-state";
 import type { ContributionBankEvidence } from "./contribution-filters";
 
-const EMPTY_IDS: ReadonlySet<string> = new Set();
-const EMPTY_EVIDENCE: ContributionBankEvidence = {
-  matchedContributionIds: EMPTY_IDS,
-  processedContributionIds: EMPTY_IDS,
-};
-
-/** Finance-only evidence used to derive whether each contribution reached bank. */
-export function useContributionBankEvidence(enabled: boolean): {
+/** Finance-only evidence used to derive whether scoped contributions reached bank. */
+export function useContributionBankEvidence(
+  enabled: boolean,
+  contributionIds: readonly string[]
+): {
+  error: boolean;
   evidence: ContributionBankEvidence;
   isLoading: boolean;
+  retry: () => void;
 } {
-  const [settlementItems, settlementResult] = useQuery(
-    queries.contributionBankStatus.processedPaymentItems(),
-    { enabled }
+  const load = useServerFn(getContributionBankEvidence);
+  const active = enabled && contributionIds.length > 0;
+  const [retryCount, setRetryCount] = useState(0);
+  const retry = useCallback(() => setRetryCount((count) => count + 1), []);
+  const scopeKey = contributionIds.join(",");
+  const request = useMemo<ContributionBankEvidenceRequest>(
+    () => ({ contributionIds: scopeKey ? scopeKey.split(",") : [] }),
+    [active, retryCount, scopeKey]
   );
-  const [statementLines, statementResult] = useQuery(
-    queries.contributionBankStatus.matchedContributionLines(),
-    { enabled }
+  const [loaded, setLoaded] = useState<LoadedContributionBankEvidence | null>(
+    null
   );
-  const evidence = useMemo<ContributionBankEvidence>(() => {
-    if (!enabled) {
-      return EMPTY_EVIDENCE;
+  const [failedRequest, setFailedRequest] =
+    useState<ContributionBankEvidenceRequest | null>(null);
+
+  useEffect(() => {
+    if (!active) {
+      return;
     }
-    return {
-      matchedContributionIds: new Set(
-        statementLines.flatMap((line) =>
-          line.matchedContributionId ? [line.matchedContributionId] : []
-        )
-      ),
-      processedContributionIds: new Set(
-        settlementItems.flatMap((item) =>
-          item.contributionId ? [item.contributionId] : []
-        )
-      ),
+    let cancelled = false;
+    load({ data: { contributionIds: [...request.contributionIds] } })
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+        setLoaded({
+          evidence: {
+            matchedContributionIds: new Set(result.matchedContributionIds),
+            processedContributionIds: new Set(result.processedContributionIds),
+          },
+          request,
+        });
+        setFailedRequest(null);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          log.error({
+            action: "income.contributionBankEvidence",
+            component: "ContributionsTable",
+          });
+          setFailedRequest(request);
+        }
+      });
+    return () => {
+      cancelled = true;
     };
-  }, [enabled, settlementItems, statementLines]);
-  const isLoading =
-    enabled &&
-    ((settlementItems.length === 0 && settlementResult.type !== "complete") ||
-      (statementLines.length === 0 && statementResult.type !== "complete"));
-  return { evidence, isLoading };
+  }, [active, load, request]);
+
+  const selected = useMemo(
+    () =>
+      selectContributionBankEvidence(active, request, loaded, failedRequest),
+    [active, failedRequest, loaded, request]
+  );
+  return { ...selected, retry };
 }

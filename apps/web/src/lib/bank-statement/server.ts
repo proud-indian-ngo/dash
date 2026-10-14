@@ -36,6 +36,7 @@ import {
   setStatementRowOutcomes,
   type StatementLineRecord,
   type StatementTx,
+  unmatchedCreditAccountIdsForAmount,
   updateStatementLine,
   withStatementTransaction,
 } from "@pi-dash/db/queries/statement-lines";
@@ -634,6 +635,35 @@ export async function refreshMatches(
     }
   }
   return result;
+}
+
+/** Re-plans active bank accounts that can contain an exact match for a payout. */
+export async function refreshMatchesForSettlementAmountIn(
+  tx: StatementTx,
+  amountPaise: number,
+  actorId: string | null,
+  now: Date
+): Promise<MatchRunResult> {
+  const result: MatchRunResult = { matched: 0, suggested: 0 };
+  const accountIds = await unmatchedCreditAccountIdsForAmount(tx, amountPaise);
+  for (const orgAccountId of accountIds) {
+    const refreshed = await refreshMatches(tx, orgAccountId, actorId, now);
+    result.matched += refreshed.matched;
+    result.suggested += refreshed.suggested;
+  }
+  return result;
+}
+
+/** Refreshes payout matches after its import transaction has committed. */
+export async function refreshMatchesForSettlementAmount(
+  amountPaise: number,
+  actorId: string | null,
+  now: Date
+): Promise<MatchRunResult> {
+  return await withStatementTransaction(
+    async (tx) =>
+      await refreshMatchesForSettlementAmountIn(tx, amountPaise, actorId, now)
+  );
 }
 
 /** "Find matches" for one bank account. */

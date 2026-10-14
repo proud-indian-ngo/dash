@@ -131,15 +131,10 @@ async function importBankCredit(page: Page, run: PayoutRun) {
     .click();
   const result = page.getByTestId("statement-import-result");
   await expect(result).toContainText("1 line imported");
-  await expect(result).toContainText("1 line matched");
+  await expect(result).toContainText("0 lines matched");
   await page.getByRole("link", { name: "Review the lines" }).click();
   await waitForZeroReady(page);
-  await page.getByRole("tab", { name: "Matched 1" }).click();
-  const line = page.getByTestId("statement-line").filter({
-    hasText: run.utr,
-  });
-  await expect(line).toContainText("give.do settlement");
-  await expect(line).toContainText("UTR matches");
+  return page.url();
 }
 
 async function openContribution(page: Page, donor: string) {
@@ -153,12 +148,13 @@ async function openContribution(page: Page, donor: string) {
 }
 
 test.describe("Income: give.do payout", () => {
-  test("imports unknown donations, matches the bank credit and remains idempotent", async ({
+  test("matches an earlier bank credit, imports donations and remains idempotent", async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
     test.slow();
     const run = newPayoutRun();
+    const bankUrl = await importBankCredit(page, run);
 
     await uploadPayout(page, run);
     const totals = page.getByTestId("payout-totals");
@@ -215,12 +211,40 @@ test.describe("Income: give.do payout", () => {
       await page.keyboard.press("Escape");
     }
 
-    await importBankCredit(page, run);
+    await page.goto(bankUrl);
+    await waitForZeroReady(page);
+    await page.getByRole("tab", { name: "Matched 1" }).click();
+    const line = page.getByTestId("statement-line").filter({
+      hasText: run.utr,
+    });
+    await expect(line).toContainText("give.do settlement");
+    await expect(line).toContainText("UTR matches");
 
+    const evidenceGate = Promise.withResolvers<void>();
+    let evidenceRequested = false;
+    await page.route("**/_serverFn/**", async (route) => {
+      if (route.request().postData()?.includes("contributionIds")) {
+        evidenceRequested = true;
+        await evidenceGate.promise;
+      }
+      await route.continue();
+    });
     await page.goto("/income");
     await waitForZeroReady(page);
     await page.getByPlaceholder("Search donor or reference...").fill(run.id);
+    await expect(
+      page.getByRole("row").filter({ hasText: run.donorOne })
+    ).toHaveCount(1);
+    expect(evidenceRequested).toBe(false);
     await applyQuickFilter(page, "Reached bank", "Yes");
+    await expect.poll(() => evidenceRequested).toBe(true);
+    await expect(
+      page.getByRole("status").filter({ hasText: "Loading bank status..." })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("row").filter({ hasText: run.donorOne })
+    ).toHaveCount(0);
+    evidenceGate.resolve();
     await expect(
       page.getByRole("row").filter({ hasText: run.donorOne })
     ).toHaveCount(1, { timeout: 15_000 });
@@ -232,6 +256,7 @@ test.describe("Income: give.do payout", () => {
     await waitForZeroReady(page);
     await page.getByPlaceholder("Search donor or reference...").fill(run.id);
     await applyQuickFilter(page, "Reached bank", "Not yet");
+    await expect(page.getByText("Loading bank status...")).toHaveCount(0);
     await expect(
       page.getByRole("row").filter({ hasText: run.donorOne })
     ).toHaveCount(0, { timeout: 15_000 });
@@ -239,6 +264,7 @@ test.describe("Income: give.do payout", () => {
       page.getByRole("row").filter({ hasText: run.donorTwo })
     ).toHaveCount(0);
 
+    await page.unroute("**/_serverFn/**");
     await uploadPayout(page, run);
     await expect(page.getByRole("status")).toContainText(
       "Already imported. This UTR already has a settlement; importing again creates no duplicates."

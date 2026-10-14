@@ -21,6 +21,7 @@ import {
   GIVE_DO_PAYOUT_DONATION_HEADERS,
   GIVE_DO_PAYOUT_DONATIONS_SHEET,
 } from "./fields";
+import { inspectXlsxArchive, XlsxArchiveValidationError } from "./xlsx-archive";
 
 type RawRow = Record<string, string>;
 
@@ -223,12 +224,33 @@ function dateText(date: Date): string {
   return `${day}/${month}/${date.getUTCFullYear()}`;
 }
 
-function cellText(cell: CellValue | null): string {
+function excelDateText(serial: number, epoch1904: boolean): string {
+  if (!Number.isFinite(serial)) {
+    return fail("The workbook contains an invalid date cell.");
+  }
+  if (!epoch1904 && serial >= 60 && serial < 61) {
+    return fail("The workbook contains an invalid date cell.");
+  }
+  const serial1900 = serial + (epoch1904 ? 1462 : 0);
+  const unixEpochOffset = serial1900 < 60 ? 25_568 : 25_569;
+  return dateText(
+    new Date(Math.floor((serial1900 - unixEpochOffset) * 86_400_000))
+  );
+}
+
+function cellText(
+  cell: CellValue | null,
+  excelDate = false,
+  epoch1904 = false
+): string {
   if (cell === null || cell === undefined) {
     return "";
   }
   if (cell instanceof Date) {
     return dateText(cell);
+  }
+  if (excelDate && typeof cell === "number") {
+    return excelDateText(cell, epoch1904);
   }
   return String(cell).trim();
 }
@@ -236,10 +258,11 @@ function cellText(cell: CellValue | null): string {
 function parsedSheet(
   data: SheetData,
   expectedHeaders: readonly string[],
-  sheetName: string
+  sheetName: string,
+  epoch1904: boolean
 ): ParsedCsv {
   const [headerCells, ...dataRows] = data;
-  const headerTexts = headerCells?.map(cellText) ?? [];
+  const headerTexts = headerCells?.map((cell) => cellText(cell)) ?? [];
   const headers = headerTexts.slice(0, expectedHeaders.length);
   if (
     headers.length !== expectedHeaders.length ||
@@ -265,7 +288,7 @@ function parsedSheet(
     return Object.fromEntries(
       headers.map((header, cellIndex) => [
         header,
-        cellText(cells[cellIndex] ?? null),
+        cellText(cells[cellIndex] ?? null, header === "Date", epoch1904),
       ])
     );
   });
@@ -368,11 +391,17 @@ export async function parseGiveDoPayout(
   input: Buffer | string
 ): Promise<ParsedGiveDoPayout> {
   let sheets: { data: SheetData<number>; sheet: string }[];
+  let epoch1904: boolean;
   try {
-    sheets = await readExcelFile<number>(workbookBytes(input));
+    const bytes = workbookBytes(input);
+    ({ epoch1904 } = inspectXlsxArchive(bytes));
+    sheets = await readExcelFile<number>(bytes);
   } catch (error) {
     if (error instanceof GiveDoPayoutParseError) {
       throw error;
+    }
+    if (error instanceof XlsxArchiveValidationError) {
+      return fail(error.message);
     }
     return fail("The file could not be read as an XLSX workbook.");
   }
@@ -390,12 +419,14 @@ export async function parseGiveDoPayout(
   const donations = parsedSheet(
     donationSheet.data,
     GIVE_DO_PAYOUT_DONATION_HEADERS,
-    GIVE_DO_PAYOUT_DONATIONS_SHEET
+    GIVE_DO_PAYOUT_DONATIONS_SHEET,
+    epoch1904
   );
   const campaignLevel = parsedSheet(
     campaignSheet.data,
     GIVE_DO_PAYOUT_CAMPAIGN_HEADERS,
-    GIVE_DO_PAYOUT_CAMPAIGN_SHEET
+    GIVE_DO_PAYOUT_CAMPAIGN_SHEET,
+    epoch1904
   );
   const payout = payoutFromRows(donations.rows);
   validateCampaigns(donations.rows, campaignLevel.rows, payout);

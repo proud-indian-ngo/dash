@@ -275,6 +275,29 @@ export async function loadMatchInputs(
   return { contributions, lines, settlements };
 }
 
+/** Active bank accounts with an unmatched credit that could equal this payout. */
+export async function unmatchedCreditAccountIdsForAmount(
+  executor: Reader,
+  amountPaise: number
+): Promise<string[]> {
+  const rows = await executor
+    .select({ orgAccountId: statementLine.orgAccountId })
+    .from(statementLine)
+    .innerJoin(orgAccount, eq(orgAccount.id, statementLine.orgAccountId))
+    .where(
+      and(
+        eq(statementLine.amountPaise, amountPaise),
+        eq(statementLine.direction, "credit"),
+        eq(statementLine.matchStatus, "unmatched"),
+        eq(orgAccount.active, true),
+        eq(orgAccount.kind, "bank")
+      )
+    )
+    .groupBy(statementLine.orgAccountId)
+    .orderBy(statementLine.orgAccountId);
+  return rows.map((row) => row.orgAccountId);
+}
+
 export interface LineMatchWrite {
   kind: Extract<
     StatementLineMatchKind,

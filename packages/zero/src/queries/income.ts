@@ -1,4 +1,4 @@
-import { INCOME_PERMISSIONS } from "@pi-dash/shared/income";
+import { INCOME_LIST_LIMIT, INCOME_PERMISSIONS } from "@pi-dash/shared/income";
 import { defineQuery } from "@rocicorp/zero";
 import z from "zod";
 
@@ -18,13 +18,6 @@ export function canSeeIncome(
     INCOME_PERMISSIONS.some((permission) => can(ctx, permission))
   );
 }
-
-/**
- * Upper bound on the Income page's local dataset: several years at the
- * trust's one to two thousand gifts a year, so the current financial year
- * and its stats are always complete.
- */
-export const INCOME_LIST_LIMIT = 5000;
 
 /** Per-donor history on the donor sheet. */
 export const DONOR_GIVING_LIMIT = 1000;

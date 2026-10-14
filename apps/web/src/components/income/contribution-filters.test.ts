@@ -1,8 +1,18 @@
 import { describe, expect, it } from "bun:test";
 
+import {
+  createFilterQuery,
+  createFilterRule,
+} from "@pi-dash/design-system/components/reui/filters/filters-query";
 import { financialYearOf } from "@pi-dash/shared/income";
 
-import { isMissingDetailsRow, reachedBankValue } from "./contribution-filters";
+import {
+  contributionBankScope,
+  hasReachedBankFilter,
+  isMissingDetailsRow,
+  reachedBankValue,
+} from "./contribution-filters";
+import type { ContributionRow } from "./income-types";
 
 const fy = financialYearOf("2026-10-13");
 const missing = new Set(["a"]);
@@ -97,5 +107,72 @@ describe("reachedBankValue", () => {
         )
       ).toBe("not_yet");
     }
+  });
+});
+
+describe("contributionBankScope", () => {
+  const rule = (path: string, value: string) =>
+    createFilterRule({
+      id: `${path}-${value}`,
+      operator: "is",
+      path: [path],
+      value,
+    });
+
+  it("fetches only rows matching the non-bank filters", () => {
+    const query = createFilterQuery([
+      rule("status", "received"),
+      rule("reachedBank", "yes"),
+    ]);
+    const rows = [
+      { id: "received", status: "received" },
+      { id: "pending", status: "pending" },
+    ] as ContributionRow[];
+
+    expect(hasReachedBankFilter(query)).toBe(true);
+    expect(contributionBankScope(rows, query, new Set(), "", fy)).toEqual([
+      "received",
+    ]);
+  });
+
+  it("does not request evidence without an active bank filter", () => {
+    expect(
+      contributionBankScope(
+        [{ id: "received", status: "received" }] as ContributionRow[],
+        createFilterQuery([rule("status", "received")]),
+        new Set(),
+        "",
+        fy
+      )
+    ).toEqual([]);
+  });
+
+  it("keeps OR scopes conservative and then applies the table search", () => {
+    const query = createFilterQuery(
+      [rule("status", "received"), rule("reachedBank", "yes")],
+      "or"
+    );
+    const rows = [
+      {
+        id: "received",
+        party: { displayName: "Asha" },
+        reference: "first",
+        status: "received",
+      },
+      {
+        id: "pending",
+        party: { displayName: "Priya" },
+        reference: "second",
+        status: "pending",
+      },
+    ] as ContributionRow[];
+
+    expect(contributionBankScope(rows, query, new Set(), "", fy)).toEqual([
+      "received",
+      "pending",
+    ]);
+    expect(contributionBankScope(rows, query, new Set(), "priya", fy)).toEqual([
+      "pending",
+    ]);
   });
 });

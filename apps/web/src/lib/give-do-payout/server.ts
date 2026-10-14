@@ -23,7 +23,9 @@ import {
 import { gatewaySettlement } from "@pi-dash/db/schema/gateway-settlement";
 import { todayInKolkata } from "@pi-dash/shared/income";
 import { eq } from "drizzle-orm";
+import { createRequestLogger } from "evlog";
 
+import { refreshMatchesForSettlementAmount } from "@/lib/bank-statement/server";
 import type { RowDecision } from "@/lib/income-import/classify";
 import {
   createImportBatch,
@@ -31,7 +33,11 @@ import {
   importPayoutContributionsIn,
   reviewPayoutContributions,
 } from "@/lib/income-import/server";
-import { withSafeErrors } from "@/lib/safe-errors";
+import {
+  databaseErrorFields,
+  safeErrorName,
+  withSafeErrors,
+} from "@/lib/safe-errors";
 
 import {
   GiveDoPayoutParseError,
@@ -57,6 +63,36 @@ export function withPayoutSafeErrors<T>(
     },
     work
   );
+}
+
+async function refreshBankMatchesSafely(
+  amountPaise: number,
+  settlementId: string,
+  actorId: string,
+  now: Date
+): Promise<void> {
+  const log = createRequestLogger({ method: "POST", path: "give-do-payout" });
+  log.set({
+    actorId,
+    event: "give_do_payout_bank_match_refresh",
+    settlementId,
+  });
+  try {
+    const result = await refreshMatchesForSettlementAmount(
+      amountPaise,
+      actorId,
+      now
+    );
+    log.set({
+      matchedCount: result.matched,
+      suggestedCount: result.suggested,
+    });
+  } catch (error) {
+    log.set({ errorName: safeErrorName(error), ...databaseErrorFields(error) });
+    log.error(new Error("give.do payout bank match refresh failed"));
+  } finally {
+    log.emit();
+  }
 }
 
 export async function createPayoutBatch(
@@ -166,8 +202,12 @@ export async function runPayoutBatch(
     if (!batch) {
       throw new ImportInputError("This payout is already importing.");
     }
+    let completed: {
+      payoutAmountPaise: number;
+      response: PayoutRunResult;
+    };
     try {
-      return await withImportTransaction(async (tx) => {
+      completed = await withImportTransaction(async (tx) => {
         await requireGiveDoClearingAccount(orgAccountId, tx, true);
         const now = new Date();
         const rows = await listImportRows(batch.id, tx);
@@ -241,11 +281,20 @@ export async function runPayoutBatch(
           batch,
           importedRowRetention(todayInKolkata(now))
         );
-        return response;
+        return { payoutAmountPaise: payout.amountPaise, response };
       });
     } catch (error) {
       await updateImportBatch(batch.id, { status: "failed" });
       throw error;
     }
+    if (!completed.response.alreadyImported) {
+      await refreshBankMatchesSafely(
+        completed.payoutAmountPaise,
+        completed.response.settlementId,
+        actorId,
+        new Date()
+      );
+    }
+    return completed.response;
   });
 }

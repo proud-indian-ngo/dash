@@ -1,4 +1,14 @@
-import type { FilterField } from "@pi-dash/design-system/components/reui/filters/filters-types";
+import {
+  flattenFilterRules,
+  isFilterGroup,
+  isFilterRule,
+  isFilterRuleComplete,
+} from "@pi-dash/design-system/components/reui/filters/filters-query";
+import type {
+  FilterField,
+  FilterNode,
+  FilterQuery,
+} from "@pi-dash/design-system/components/reui/filters/filters-types";
 import {
   contributionChannelValues,
   contributionSourceValues,
@@ -16,6 +26,10 @@ import {
   isInFinancialYear,
 } from "@pi-dash/shared/income";
 
+import {
+  compileFilterQuery,
+  removeFilterPath,
+} from "@/components/data-table/compile-filter-query";
 import {
   dateField,
   optionsFromRows,
@@ -131,6 +145,74 @@ export function getContributionFilterValue(
         return;
     }
   };
+}
+
+export function hasReachedBankFilter(query: FilterQuery): boolean {
+  return flattenFilterRules(query).some(
+    (rule) =>
+      rule.path[0] === "reachedBank" &&
+      isFilterRuleComplete(rule) &&
+      (rule.operator === "empty" ||
+        rule.operator === "not_empty" ||
+        (Array.isArray(rule.value)
+          ? rule.value.length > 0
+          : rule.value !== null &&
+            rule.value !== undefined &&
+            rule.value !== ""))
+  );
+}
+
+function containsReachedBank(node: FilterNode): boolean {
+  if (isFilterRule(node)) {
+    return node.path[0] === "reachedBank";
+  }
+  return isFilterGroup(node) && node.rules.some(containsReachedBank);
+}
+
+function hasReachedBankInsideOr(node: FilterQuery): boolean {
+  if (node.combinator === "or" && node.rules.some(containsReachedBank)) {
+    return true;
+  }
+  return node.rules.some(
+    (child) => isFilterGroup(child) && hasReachedBankInsideOr(child)
+  );
+}
+
+export function searchContribution(
+  row: ContributionRow,
+  query: string
+): boolean {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) {
+    return true;
+  }
+  return [donorName(row), row.reference ?? ""]
+    .join(" ")
+    .toLowerCase()
+    .includes(normalized);
+}
+
+/** IDs that can match the current query before Reached bank is evaluated. */
+export function contributionBankScope(
+  rows: readonly ContributionRow[],
+  query: FilterQuery,
+  missingPartyIds: ReadonlySet<string>,
+  searchQuery = "",
+  fy: FinancialYearRange = currentFinancialYear()
+): string[] {
+  if (!hasReachedBankFilter(query)) {
+    return [];
+  }
+  const matches = hasReachedBankInsideOr(query)
+    ? () => true
+    : compileFilterQuery(
+        removeFilterPath(query, "reachedBank"),
+        getContributionFilterValue(missingPartyIds, EMPTY_BANK_EVIDENCE, fy)
+      );
+  return rows
+    .filter(matches)
+    .filter((row) => searchContribution(row, searchQuery))
+    .map((row) => row.id);
 }
 
 export function createContributionFilterFields(

@@ -45,6 +45,7 @@ const AUDITED_SERVER_FUNCTIONS = [
 const EXEMPT_SERVER_FUNCTIONS = [
   "archiveKalakritiGuardian",
   "getBankStatementSummary",
+  "getContributionBankEvidence",
   "getContributionImport",
   "getGiveDoPayoutImport",
   "getContributionSettlementLock",
