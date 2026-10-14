@@ -5,7 +5,7 @@ import { strFromU8, unzipSync } from "fflate";
 
 import { generatePayoutFixture } from "../../../../../packages/e2e/fixtures/give-do/generate";
 import { parseGiveDoPayout } from "./parse";
-import { sanitizeXlsxArchive } from "./xlsx-archive";
+import { sanitizeXlsxArchive, workbookUsesDate1904 } from "./xlsx-archive";
 
 const UNREADABLE = "The file could not be read as an XLSX workbook.";
 
@@ -270,5 +270,37 @@ describe("hostile XLSX archives", () => {
     ]);
     const result = await parseGiveDoPayout(buildZip(fixtureEntries(), comment));
     expect(result.donations.rows).toEqual(await legitimateRows());
+  });
+});
+
+describe("workbookUsesDate1904", () => {
+  it("reads the flag from the first workbookPr start tag", () => {
+    expect(workbookUsesDate1904('<workbook><workbookPr date1904="1"/>')).toBe(
+      true
+    );
+    expect(
+      workbookUsesDate1904(
+        "<x:workbook><x:workbookPr date1904='true'></x:workbookPr>"
+      )
+    ).toBe(true);
+    expect(
+      workbookUsesDate1904(
+        '<workbookPr date1904="0"/><workbookPr date1904="1"/>'
+      )
+    ).toBe(false);
+    expect(workbookUsesDate1904('<workbookPrX date1904="1"/>')).toBe(false);
+    expect(workbookUsesDate1904('workbookPr date1904="1"/>')).toBe(false);
+    expect(workbookUsesDate1904("<workbook/>")).toBe(false);
+  });
+
+  it("stays linear on repeated unclosed workbookPr tags", () => {
+    const hostile = "<workbookPr ".repeat(500_000);
+    const startedAt = performance.now();
+    expect(workbookUsesDate1904(hostile)).toBe(false);
+    expect(workbookUsesDate1904(`${hostile}>`)).toBe(false);
+    expect(workbookUsesDate1904(`<w:${"a:workbookPr ".repeat(400_000)}`)).toBe(
+      false
+    );
+    expect(performance.now() - startedAt).toBeLessThan(100);
   });
 });

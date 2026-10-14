@@ -315,6 +315,33 @@ describe("parseGiveDoPayout", () => {
     await expect(parseGiveDoPayout(changed)).rejects.toThrow(
       FOREIGN_CURRENCY_MESSAGE
     );
+
+    // One genuinely foreign donation: converted from USD on the second row.
+    const foreignRow = replaceInSheet(
+      workbook(),
+      1,
+      '<c r="U3" t="inlineStr"><is><t xml:space="preserve">INR</t>',
+      '<c r="U3" t="inlineStr"><is><t xml:space="preserve">USD</t>'
+    );
+    await expect(parseGiveDoPayout(foreignRow)).rejects.toThrow(
+      FOREIGN_CURRENCY_MESSAGE
+    );
+  });
+
+  it("imports domestic rows whose converted columns repeat INR", async () => {
+    const result = await parseGiveDoPayout(workbook());
+    expect(
+      result.donations.rows.map((row) => [
+        row["Converted Currency (If International)"],
+        row["Converted Amount (If International)"],
+      ])
+    ).toEqual([
+      ["INR", "1000"],
+      ["INR", "500"],
+    ]);
+
+    const spaced = replaceInSheet(workbook(), 2, ">INR<", "> inr <");
+    expect((await parseGiveDoPayout(spaced)).utr).toBe("GIVEDO20261012");
   });
 
   it("caps decoded bytes and hides workbook-parser details", async () => {
@@ -397,8 +424,14 @@ describe("payoutFromRows", () => {
     expect(() => payoutFromRows(rows)).toThrow(FOREIGN_CURRENCY_MESSAGE);
 
     rows[0]!["Donation Currency"] = "INR";
-    rows[0]!["Converted Currency (If International)"] = "INR";
+    rows[0]!["Converted Currency (If International)"] = "USD";
     expect(() => payoutFromRows(rows)).toThrow(FOREIGN_CURRENCY_MESSAGE);
+
+    for (const domestic of ["INR", " inr ", ""]) {
+      rows[0]!["Donation Currency"] = " Inr ";
+      rows[0]!["Converted Currency (If International)"] = domestic;
+      expect(payoutFromRows(rows).grossPaise).toBe(150_000);
+    }
   });
 
   it("caps retained rows before inspecting their contents", async () => {

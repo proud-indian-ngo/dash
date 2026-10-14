@@ -56,6 +56,10 @@ export class GiveDoPayoutParseError extends Error {
 const UTR_PATTERN = /^[a-z0-9]+$/i;
 const DATE_PATTERN = /^(\d{2})\/(\d{2})\/(\d{4})$/;
 
+function isInr(value: string | undefined): boolean {
+  return (value ?? "").trim().toUpperCase() === "INR";
+}
+
 function fail(message: string): never {
   throw new GiveDoPayoutParseError(message);
 }
@@ -163,9 +167,14 @@ export function payoutFromRows(rows: readonly RawRow[]): GiveDoPayoutTotals {
     if (!validDate(row.Date ?? "")) {
       fail(`The Donations sheet has an invalid date at row ${rowNumber}.`);
     }
+    // give.do fills the converted columns with INR on domestic donations too,
+    // so only a non-INR currency in either column marks a foreign donation.
+    const convertedCurrency = (
+      row["Converted Currency (If International)"] ?? ""
+    ).trim();
     if (
-      (row["Donation Currency"] ?? "").trim().toUpperCase() !== "INR" ||
-      (row["Converted Currency (If International)"] ?? "").trim() !== ""
+      !isInr(row["Donation Currency"]) ||
+      (convertedCurrency !== "" && !isInr(convertedCurrency))
     ) {
       fail(FOREIGN_CURRENCY_MESSAGE);
     }
@@ -343,7 +352,7 @@ function validateCampaigns(
         "The Campaign Level sheet contains a campaign absent from Donations."
       );
     }
-    if ((row.Currency ?? "").trim().toUpperCase() !== "INR") {
+    if (!isInr(row.Currency)) {
       fail(FOREIGN_CURRENCY_MESSAGE);
     }
     if ((row.UTR ?? "").trim() !== payout.utr) {

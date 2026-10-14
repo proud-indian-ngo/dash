@@ -112,8 +112,9 @@ export function generatePayoutFixture(): Uint8Array {
       "",
       "INR",
       1000,
-      "",
-      "",
+      // give.do fills these with INR on domestic donations too.
+      "INR",
+      1000,
       25,
       975,
       utr,
@@ -139,8 +140,9 @@ export function generatePayoutFixture(): Uint8Array {
       "",
       "INR",
       500,
-      "",
-      "",
+      // give.do fills these with INR on domestic donations too.
+      "INR",
+      500,
       12,
       488,
       utr,

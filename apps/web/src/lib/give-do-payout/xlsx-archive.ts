@@ -386,6 +386,55 @@ function extractEntry(bytes: Buffer, entry: ArchiveEntry): Buffer {
   return expanded;
 }
 
+const WORKBOOK_PR = "workbookPr";
+const MAX_PREFIX_CHARS = 64;
+const MAX_WORKBOOK_PR_TAG_CHARS = 4096;
+const PREFIX_CHAR = /[\w.-]/;
+const TAG_NAME_END = /[\s/>]/;
+const DATE_1904_ATTRIBUTE = /\bdate1904\s*=\s*["'](?:1|true)["']/i;
+
+/** Whether `name` at `at` opens a start tag: `<workbookPr` or `<prefix:workbookPr`. */
+function opensStartTag(xml: string, at: number): boolean {
+  let before = at - 1;
+  if (xml[before] === ":") {
+    const limit = Math.max(0, before - 1 - MAX_PREFIX_CHARS);
+    let cursor = before - 1;
+    while (cursor >= limit && PREFIX_CHAR.test(xml[cursor] ?? "")) {
+      cursor -= 1;
+    }
+    if (cursor === before - 1) {
+      return false;
+    }
+    before = cursor;
+  }
+  return (
+    xml[before] === "<" && TAG_NAME_END.test(xml[at + WORKBOOK_PR.length] ?? "")
+  );
+}
+
+/**
+ * Reads the 1904 date-system flag from the first `workbookPr` start tag with a
+ * linear scan; a backtracking regex over the whole part is quadratic on
+ * repeated unclosed tags.
+ */
+export function workbookUsesDate1904(xml: string): boolean {
+  let from = 0;
+  for (;;) {
+    const at = xml.indexOf(WORKBOOK_PR, from);
+    if (at < 0) {
+      return false;
+    }
+    if (opensStartTag(xml, at)) {
+      const end = xml.indexOf(">", at);
+      if (end < 0 || end - at > MAX_WORKBOOK_PR_TAG_CHARS) {
+        return false;
+      }
+      return DATE_1904_ATTRIBUTE.test(xml.slice(at + WORKBOOK_PR.length, end));
+    }
+    from = at + WORKBOOK_PR.length;
+  }
+}
+
 export interface SanitizedXlsxArchive {
   epoch1904: boolean;
   /**
@@ -424,10 +473,7 @@ export function sanitizeXlsxArchive(bytes: Buffer): SanitizedXlsxArchive {
     return invalidArchive();
   }
   return {
-    epoch1904:
-      /<(?:[\w.-]+:)?workbookPr\b[^>]*\bdate1904\s*=\s*["'](?:1|true)["']/i.test(
-        Buffer.from(workbookXml).toString("utf8")
-      ),
+    epoch1904: workbookUsesDate1904(Buffer.from(workbookXml).toString("utf8")),
     workbook: Buffer.from(
       zipSync(parts, { level: 0, mtime: new Date("1980-01-01T00:00:00Z") })
     ),
