@@ -15,6 +15,7 @@ import { lazy, Suspense, useEffect } from "react";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ZeroInit } from "@/components/zero-init";
+import { reloadForChunkError } from "@/lib/chunk-load-error";
 import type { RouterContext } from "@/router";
 
 // In dev, Vite injects CSS via HMR — no <link> needed (and avoids ?t= hydration mismatch).
@@ -89,6 +90,14 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 
 function RootDocument() {
   useEffect(() => {
+    // Vite's preload helper fails when a deploy removed the chunks this tab
+    // was built against; reload onto the current build. The error still
+    // propagates (no preventDefault) so a blocked reload reaches the boundary
+    // as a recognisable chunk error rather than an undefined module.
+    const onPreloadError = (event: Event) => {
+      reloadForChunkError((event as Event & { payload?: unknown }).payload);
+    };
+    window.addEventListener("vite:preloadError", onPreloadError);
     import("@/lib/client-logger")
       .then(({ initClientLogger }) => initClientLogger())
       .catch(() => {
@@ -99,6 +108,8 @@ function RootDocument() {
       .catch(() => {
         // Non-critical
       });
+    return () =>
+      window.removeEventListener("vite:preloadError", onPreloadError);
   }, []);
 
   return (

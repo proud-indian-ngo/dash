@@ -8,11 +8,26 @@ import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
 
 import { ErrorState } from "@/components/shared/error-state";
 import { AppContext } from "@/context/app-context";
+import { isChunkLoadError, reloadForChunkError } from "@/lib/chunk-load-error";
 import { getErrorReference } from "@/lib/error-reference";
 
 type Level = "root" | "section" | "inline";
 
-function RootFallback({ error, resetErrorBoundary }: FallbackProps) {
+// React.lazy caches a failed import, so resetting the boundary cannot recover
+// from a chunk error; only a full reload can.
+function useRetry({ error, resetErrorBoundary }: FallbackProps) {
+  return useEventCallback(() => {
+    if (isChunkLoadError(error)) {
+      window.location.reload();
+      return;
+    }
+    resetErrorBoundary();
+  });
+}
+
+function RootFallback(props: FallbackProps) {
+  const { error } = props;
+  const retry = useRetry(props);
   const goHome = useEventCallback(() => {
     window.location.href = "/";
   });
@@ -22,7 +37,7 @@ function RootFallback({ error, resetErrorBoundary }: FallbackProps) {
       <ErrorState
         actions={
           <>
-            <Button onClick={resetErrorBoundary} type="button">
+            <Button onClick={retry} type="button">
               Try again
             </Button>
             <Button onClick={goHome} type="button" variant="outline">
@@ -36,7 +51,9 @@ function RootFallback({ error, resetErrorBoundary }: FallbackProps) {
   );
 }
 
-function SectionFallback({ error, resetErrorBoundary }: FallbackProps) {
+function SectionFallback(props: FallbackProps) {
+  const { error } = props;
+  const retry = useRetry(props);
   const appCtx = use(AppContext);
   const canSeeErrors = appCtx?.hasPermission("settings.app_config") ?? false;
 
@@ -53,19 +70,16 @@ function SectionFallback({ error, resetErrorBoundary }: FallbackProps) {
           ? error.message
           : "An unexpected error occurred. Please try again."}
       </p>
-      <Button
-        onClick={resetErrorBoundary}
-        size="sm"
-        type="button"
-        variant="outline"
-      >
+      <Button onClick={retry} size="sm" type="button" variant="outline">
         Try again
       </Button>
     </div>
   );
 }
 
-function InlineFallback({ error, resetErrorBoundary }: FallbackProps) {
+function InlineFallback(props: FallbackProps) {
+  const { error } = props;
+  const retry = useRetry(props);
   const appCtx = use(AppContext);
   const canSeeErrors = appCtx?.hasPermission("settings.app_config") ?? false;
 
@@ -75,7 +89,7 @@ function InlineFallback({ error, resetErrorBoundary }: FallbackProps) {
       {canSeeErrors && error instanceof Error ? `: ${error.message}` : ""}{" "}
       <button
         className="underline underline-offset-2"
-        onClick={resetErrorBoundary}
+        onClick={retry}
         type="button"
       >
         Retry
@@ -91,6 +105,9 @@ const FALLBACK_MAP: Record<Level, (props: FallbackProps) => ReactNode> = {
 };
 
 function handleError(error: unknown, info: { componentStack?: string | null }) {
+  if (isChunkLoadError(error) && reloadForChunkError(error)) {
+    return;
+  }
   const message = error instanceof Error ? error.message : String(error);
   const traceId = getErrorReference(error);
   log.error({

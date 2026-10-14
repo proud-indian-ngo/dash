@@ -261,6 +261,10 @@ node apps/web/dist/server/index.mjs
 
 Runs on port 3001 by default.
 
+#### Static assets and caching
+
+Build chunks under `/assets/*` have content-hashed names and are served with `cache-control: public, max-age=31536000, immutable`. A request for a chunk the running build doesn't have (a tab or container from another deploy) gets a `404` with `cache-control: no-store`, so a missing chunk is never cached; the client reloads once onto the current build. Keep Cloudflare respecting the origin's `Cache-Control` on `/assets/*` (no edge TTL override). If a bad response under `/assets/*` was ever cached, purge `/assets/*` in Cloudflare; affected browsers need a hard refresh.
+
 ### Zero Cache
 
 The `zero-cache` process runs separately, connecting to Postgres via logical replication and serving WebSocket connections to clients:
@@ -306,6 +310,7 @@ Starts `go-whatsapp-web-multidevice` container on port 3100. Pair via QR code at
 - [ ] `WEBSITE_DISPATCH_TOKEN` set (fine-grained GitHub token, `proud-indian-ngo/website` only, Contents: read and write) if the public website should rebuild when events change; the website's `PUBLIC_EVENTS_URL` is `https://dash.proudindian.ngo/api/public/events`
 - [ ] Razorpay Payment Page donations: `RAZORPAY_KEY_ID`, `RAZORPAY_WEBHOOK_SECRET` (and optionally `RAZORPAY_KEY_SECRET`) set, the dashboard webhook added and the clearing account chosen (see "Razorpay Payment Page donations" below)
 - [ ] `SOCIAL_MEDIA_SIGNING_SECRET` set and a social API token created (`bun run social:token create social-artifacts --scopes events:read,photos:read,signups:read,social:write`) if the social pipeline is in use; app_config `social_approver_user_id` names the digest recipient (see `docs/architecture/social-api.md`)
+- [ ] Cloudflare respects the origin `Cache-Control` for `/assets/*` (see "Static assets and caching")
 - [ ] The app origin is only reachable through Cloudflare: `/api/public/events` rate-limits by `cf-connecting-ip`, which a client could forge if the origin were exposed directly
 
 ## CI Pipeline
