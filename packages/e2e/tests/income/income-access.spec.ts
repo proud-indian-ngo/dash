@@ -1,4 +1,10 @@
+import { execFile } from "node:child_process";
+import path from "node:path";
+import { promisify } from "node:util";
+
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
+
+const execFileAsync = promisify(execFile);
 
 test.describe("Income access", () => {
   test("admin without donors.manage sees income but cannot record", async ({
@@ -23,6 +29,8 @@ test.describe("Income access", () => {
       page.getByRole("button", { name: "More actions" })
     ).toHaveCount(0);
     await expect(page.getByRole("tab", { name: "Imports" })).toBeVisible();
+    // finance.view: settlements are visible.
+    await expect(page.getByRole("tab", { name: "Settlements" })).toBeVisible();
   });
 
   test("admin without donors.manage cannot open the importer", async ({
@@ -53,5 +61,56 @@ test.describe("Income access", () => {
     await expect(
       page.getByRole("button", { name: "Import past payments" })
     ).toHaveCount(0);
+  });
+
+  test("a role with donors.view only sees income but not settlements", async ({
+    baseURL,
+    browser,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    const { stdout } = await execFileAsync(
+      "bun",
+      [
+        "run",
+        path.resolve(import.meta.dirname, "../../helpers/razorpay.ts"),
+        "donors-viewer",
+      ],
+      { env: process.env }
+    );
+    const viewer = JSON.parse(stdout.trim()) as {
+      email: string;
+      password: string;
+    };
+    const context = await browser.newContext({
+      baseURL,
+      storageState: { cookies: [], origins: [] },
+    });
+    try {
+      const page = await context.newPage();
+      await page.goto("/login");
+      await page.getByLabel("Email").fill(viewer.email);
+      await page.getByLabel("Password").fill(viewer.password);
+      await page.getByRole("button", { exact: true, name: "Log in" }).click();
+      await page.waitForURL((url) => url.pathname !== "/login");
+
+      await page.goto("/income?tab=settlements");
+      await waitForZeroReady(page);
+      await expect(
+        page.getByRole("heading", { exact: true, name: "Income" })
+      ).toBeVisible();
+      await expect(
+        page.getByRole("tab", { name: "Contributions" })
+      ).toBeVisible();
+      await expect(page.getByRole("tab", { name: "Settlements" })).toHaveCount(
+        0
+      );
+      // The settlements URL falls back to the contributions tab.
+      await expect(
+        page.getByRole("tab", { name: "Contributions" })
+      ).toHaveAttribute("aria-selected", "true");
+      await expect(page.getByText("Awaiting settlement")).toHaveCount(0);
+    } finally {
+      await context.close();
+    }
   });
 });

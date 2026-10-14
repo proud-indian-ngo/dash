@@ -20,6 +20,7 @@ import {
   programmeQueries,
   projectQueries,
 } from "./queries/finance-dimensions";
+import { gatewaySettlementQueries } from "./queries/gateway-settlement";
 import {
   contributionQueries,
   importBatchQueries,
@@ -67,6 +68,7 @@ export const queries = defineQueries({
   expenseCategory: expenseCategoryQueries,
   fiscalYear: fiscalYearQueries,
   fund: fundQueries,
+  gatewaySettlement: gatewaySettlementQueries,
   importBatch: importBatchQueries,
   kalakritiAssignment: kalakritiAssignmentQueries,
   kalakritiAttendee: kalakritiAttendeeQueries,

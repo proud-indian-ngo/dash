@@ -28,6 +28,7 @@ import { PageHeaderMenu } from "@/components/shared/page-header";
 import { DetailsRow } from "@/components/shared/record-detail";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { Tag } from "@/components/shared/status-badge";
+import { useApp } from "@/context/app-context";
 import { DATE, DATE_TIME } from "@/lib/date-formats";
 import { epochToLocalDate } from "@/lib/local-date";
 
@@ -36,6 +37,12 @@ import {
   refundedOfLabel,
 } from "./contribution-status";
 import { type ContributionRow, donorName } from "./income-types";
+import {
+  type ContributionSettlement,
+  useContributionSettlement,
+  useSettlementLock,
+} from "./settlements/contribution-settlement";
+import { shortId } from "./settlements/settlement-types";
 
 function withDescription(label: string, description: string | null) {
   return description ? `${label}: ${description}` : label;
@@ -88,6 +95,27 @@ function RefundsList({
   );
 }
 
+/**
+ * "Settled on 16 Oct 2026 · setl_…9xYz (UTR …)" for a processed
+ * settlement, "Settlement pending" for one not processed yet, otherwise
+ * "Not settled yet".
+ */
+export function settledLabel(state: ContributionSettlement): string {
+  if (state.kind === "loading") {
+    return "…";
+  }
+  if (state.kind === "none") {
+    return "Not settled yet";
+  }
+  if (state.kind === "pending") {
+    return `Settlement pending · ${shortId(state.settlement.externalId)}`;
+  }
+  const { settlement } = state;
+  return `Settled on ${formatReceivedOn(settlement.settledOn)} · ${shortId(settlement.externalId)}${
+    settlement.utr ? ` (UTR ${settlement.utr})` : ""
+  }`;
+}
+
 export function ContributionDetailSheet({
   canDelete,
   canEdit,
@@ -105,6 +133,21 @@ export function ContributionDetailSheet({
   onEdit: (contribution: ContributionRow) => void;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { hasPermission } = useApp();
+  const seesSettlements =
+    hasPermission("finance.view") || hasPermission("finance.manage");
+  const isRazorpayGift =
+    contribution !== null && razorpayPaymentUrl(contribution) !== null;
+  // Razorpay gifts only: when Razorpay paid it out to the bank.
+  const settlement = useContributionSettlement(
+    contribution?.id ?? null,
+    seesSettlements && isRazorpayGift
+  );
+  // Paid out by a processed settlement (or not known yet): no Delete.
+  const settlementLock = useSettlementLock(
+    contribution?.id ?? null,
+    isRazorpayGift
+  );
   if (!contribution) {
     return (
       <Sheet onOpenChange={onOpenChange} open={false}>
@@ -161,6 +204,17 @@ export function ContributionDetailSheet({
     ["Programme", row.programme?.name ?? "—"],
     ["Project", row.project?.name ?? "—"],
     ["Reference", row.reference ?? "—"],
+    // Razorpay gifts only: when Razorpay paid it out to the bank.
+    ...(razorpayUrl && seesSettlements
+      ? ([
+          [
+            "Settlement",
+            <span data-testid="contribution-settled" key="settled">
+              {settledLabel(settlement)}
+            </span>,
+          ],
+        ] as [string, ReactNode][])
+      : []),
     ["Notes", row.notes ?? "—"],
     [
       "Source",
@@ -212,7 +266,7 @@ export function ContributionDetailSheet({
                     Edit
                   </Button>
                 ) : null}
-                {canEdit && canDelete ? (
+                {canEdit && canDelete && settlementLock === "unlocked" ? (
                   <PageHeaderMenu
                     actions={[
                       {

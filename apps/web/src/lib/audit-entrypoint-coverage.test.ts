@@ -37,6 +37,7 @@ const AUDITED_SERVER_FUNCTIONS = [
 const EXEMPT_SERVER_FUNCTIONS = [
   "archiveKalakritiGuardian",
   "getContributionImport",
+  "getContributionSettlementLock",
   "getEventEditorUploadUrl",
   "getEventPhotoUploadUrl",
   "getKalakritiScorecardUploadUrl",
@@ -46,6 +47,7 @@ const EXEMPT_SERVER_FUNCTIONS = [
   "getRazorpaySettings",
   "getRequestUploadUrl",
   "getScheduledMessageUploadUrl",
+  "getSettlementSummary",
   "getUserEmailSuppression",
   "getVendorDetails",
   "inviteKalakritiGuardian",

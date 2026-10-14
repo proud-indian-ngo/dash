@@ -56,6 +56,7 @@ import type {
 } from "@/components/income/income-types";
 import { OtherIncomeFormDialog } from "@/components/income/other-income-form-dialog";
 import { OtherIncomeTable } from "@/components/income/other-income-table";
+import { SettlementsTab } from "@/components/income/settlements/settlements-tab";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { NotFoundState } from "@/components/shared/not-found-state";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
@@ -68,7 +69,12 @@ import {
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { preloadRouteQuery } from "@/lib/route-preload";
 
-const INCOME_TABS = ["contributions", "other", "imports"] as const;
+const INCOME_TABS = [
+  "contributions",
+  "other",
+  "imports",
+  "settlements",
+] as const;
 type IncomeTab = (typeof INCOME_TABS)[number];
 
 export const Route = createFileRoute("/_app/income/")({
@@ -465,10 +471,17 @@ function IncomeRouteComponent() {
   const { hasPermission } = useApp();
   const canManageContributions = hasPermission("donors.manage");
   const canManageOtherIncome = hasPermission("finance.manage");
-  const [tab, setTab] = useQueryState(
+  // Settlements are finance records: not shown to donors.view alone.
+  const canSeeSettlements =
+    hasPermission("finance.view") || hasPermission("finance.manage");
+  const [requestedTab, setTab] = useQueryState(
     "tab",
     parseAsStringLiteral(INCOME_TABS).withDefault("contributions")
   );
+  const tab =
+    requestedTab === "settlements" && !canSeeSettlements
+      ? "contributions"
+      : requestedTab;
   const handleTabChange = useEventCallback((value: string | null) =>
     setTab(value as IncomeTab)
   );
@@ -526,6 +539,9 @@ function IncomeRouteComponent() {
           <TabsTrigger value="contributions">Contributions</TabsTrigger>
           <TabsTrigger value="other">Other income</TabsTrigger>
           <TabsTrigger value="imports">Imports</TabsTrigger>
+          {canSeeSettlements ? (
+            <TabsTrigger value="settlements">Settlements</TabsTrigger>
+          ) : null}
         </TabsList>
         <TabsContent
           className="mt-4 grid gap-6 *:min-w-0"
@@ -548,6 +564,14 @@ function IncomeRouteComponent() {
             onImport={openImport}
           />
         </TabsContent>
+        {canSeeSettlements ? (
+          <TabsContent
+            className="mt-4 grid gap-6 *:min-w-0"
+            value="settlements"
+          >
+            <SettlementsTab />
+          </TabsContent>
+        ) : null}
       </Tabs>
       <ContributionFormDialog
         contribution={null}

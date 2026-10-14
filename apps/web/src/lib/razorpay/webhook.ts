@@ -6,6 +6,7 @@ import {
   razorpayPaymentSchema,
 } from "./payment";
 import { REFUND_ID, razorpayRefundSchema } from "./refund-schema";
+import { SETTLEMENT_ID } from "./settlement-schema";
 
 /**
  * Server-only. Verifying a Razorpay webhook delivery and deciding what it
@@ -107,6 +108,8 @@ const OTHER_REFUND_EVENTS = new Set([
   "refund.failed",
   "refund.speed_changed",
 ]);
+/** A payout to the bank; recorded only with the key secret, which lists its lines. */
+const SETTLEMENT_PROCESSED = "settlement.processed";
 
 /** The verified webhook's copy of a refund: amount, time and status only. */
 export interface RefundCopy {
@@ -128,6 +131,8 @@ export type WebhookAction =
       paymentId: string;
       refundId: string;
     }
+  /** A processed settlement; the job fetches it and the lines it covered. */
+  | { action: "settlement"; event: string; settlementId: string }
   | {
       action: "ignore";
       event: string;
@@ -135,9 +140,12 @@ export type WebhookAction =
       reason:
         | "malformed_payment"
         | "malformed_refund"
+        | "malformed_settlement"
         | "not_captured"
         | "refund_not_processed"
+        | "settlements_need_key_secret"
         | "unhandled_event";
+      settlementId?: string;
     };
 
 const paymentIdOf = (body: unknown): string | null => {
@@ -222,10 +230,46 @@ function routeRefund(
 }
 
 /**
+ * A `settlement.processed` delivery: its settlement ID for the job to
+ * fetch. Without the key secret the settlement's lines cannot be listed,
+ * so it is acknowledged and not recorded.
+ */
+function routeSettlement(
+  body: unknown,
+  event: string,
+  canFetch: boolean
+): WebhookAction {
+  const id = (
+    body as {
+      payload?: { settlement?: { entity?: { id?: unknown } } };
+    } | null
+  )?.payload?.settlement?.entity?.id;
+  if (!(typeof id === "string" && SETTLEMENT_ID.test(id))) {
+    return {
+      action: "ignore",
+      event,
+      paymentId: null,
+      reason: "malformed_settlement",
+    };
+  }
+  if (!canFetch) {
+    return {
+      action: "ignore",
+      event,
+      paymentId: null,
+      reason: "settlements_need_key_secret",
+      settlementId: id,
+    };
+  }
+  return { action: "settlement", event, settlementId: id };
+}
+
+/**
  * What a verified delivery asks for. `payment.captured` and `order.paid`
  * stage their payment; one pi-dash cannot read is fetched by ID when the
  * API key secret is set (`canFetch`), and otherwise ignored.
- * `refund.processed` queues its refund. Everything else, including
+ * `refund.processed` queues its refund, and `settlement.processed` (key
+ * secret only) its settlement. Everything else, including
  * `payment.failed` (a capture can still follow) and the other refund
  * events, is acknowledged and ignored.
  */
@@ -240,6 +284,9 @@ export function routeRazorpayEvent(
   const paymentId = paymentIdOf(body);
   if (event === REFUND_PROCESSED) {
     return routeRefund(body, event, canFetch);
+  }
+  if (event === SETTLEMENT_PROCESSED) {
+    return routeSettlement(body, event, canFetch);
   }
   if (OTHER_REFUND_EVENTS.has(event)) {
     return {

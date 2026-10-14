@@ -10,6 +10,7 @@ const {
   daysBetween,
   indiaDayWindow,
   isRealIsoDay,
+  parseReconcileState,
   recentRange,
   runRazorpayReconcile,
 } = await import("./reconcile");
@@ -20,6 +21,7 @@ import type { StageResult } from "./ingest";
 import type { RazorpayPayment } from "./payment";
 import type { ReconcileDeps, ReconcileState } from "./reconcile";
 import type { RazorpayRefund } from "./refund-schema";
+import { emptySettlementTally, type SettlementTally } from "./settlement";
 
 const unix = (iso: string) => Date.parse(iso) / 1000;
 
@@ -149,6 +151,8 @@ const refund = (id: string, paymentId: string): RazorpayRefund => ({
 
 interface Harness {
   calls: string[];
+  /** Days whose settlements were synced, in order. */
+  settledDays: string[];
   deps: ReconcileDeps;
   last: ReconcileState[];
   recounted: string[][];
@@ -162,8 +166,10 @@ function harness({
   staged = {},
   stale = [],
   clockStep = 0,
+  settlements = {},
 }: {
   clockStep?: number;
+  settlements?: Record<string, Partial<SettlementTally>>;
   failListOn?: string;
   payments?: Record<string, RazorpayPayment[]>;
   refunds?: Record<string, RazorpayRefund[]>;
@@ -174,6 +180,7 @@ function harness({
   const last: ReconcileState[] = [];
   const runs: (ReconcileState | null)[] = [];
   const recounted: string[][] = [];
+  const settledDays: string[] = [];
   let clock = Date.parse("2026-10-14T06:00:00Z");
   const dayOf = (window: UnixWindow) =>
     new Date((window.from + 19_800) * 1000).toISOString().slice(0, 10);
@@ -229,6 +236,13 @@ function harness({
       saveRun: async (state) => {
         runs.push(state ? structuredClone(state) : null);
       },
+      settlements: async (day) => {
+        settledDays.push(day);
+        return {
+          pages: 0,
+          tally: { ...emptySettlementTally(), ...settlements[day] },
+        };
+      },
       stage: async (p) => {
         calls.push(`stage:${p.id}`);
         return {
@@ -255,6 +269,7 @@ function harness({
     last,
     recounted,
     runs,
+    settledDays,
   };
 }
 
@@ -331,6 +346,11 @@ describe("runRazorpayReconcile", () => {
         refundsChanged: 0,
         refundsWaiting: 1,
         retried: 0,
+        settlementLinesLinked: 0,
+        settlementLinesUnlinked: 0,
+        settlementsChanged: 0,
+        settlementsFound: 0,
+        settlementsNew: 0,
         waiting: 1,
       },
       listed: true,
@@ -513,5 +533,92 @@ describe("runRazorpayReconcile", () => {
         slow.deps
       )
     ).toMatchObject({ errorCode: "time_limit", status: "failed" });
+  });
+
+  it("records each day's settlements after its payments and refunds, and counts them", async () => {
+    const h = harness({
+      payments: { "2026-10-13": [payment("pay_New")] },
+      settlements: {
+        "2026-10-13": {
+          changed: 1,
+          errors: 1,
+          found: 2,
+          linked: 3,
+          new: 1,
+          unlinked: 1,
+        },
+      },
+    });
+    const settle = h.deps.settlements;
+    const seenSets = new Set<Map<string, number>>();
+    h.deps.settlements = async (day, client, mode, logFailure, seen) => {
+      h.calls.push(`settlements:${day}`);
+      seenSets.add(seen);
+      return await settle(day, client, mode, logFailure, seen);
+    };
+    const outcome = await runRazorpayReconcile(
+      { reason: "scheduled" },
+      enabled(),
+      h.deps
+    );
+    expect(h.settledDays).toEqual([
+      "2026-10-11",
+      "2026-10-12",
+      "2026-10-13",
+      "2026-10-14",
+    ]);
+    const day = h.calls.filter((c) => c.endsWith("2026-10-13"));
+    expect(day).toEqual([
+      "payments:2026-10-13",
+      "refunds:2026-10-13",
+      "settlements:2026-10-13",
+    ]);
+    // One set for the whole run, so a settlement seen on two days counts once.
+    expect(seenSets.size).toBe(1);
+    expect(outcome.status === "ok" ? outcome.counts : null).toMatchObject({
+      errors: 1,
+      settlementLinesLinked: 3,
+      settlementLinesUnlinked: 1,
+      settlementsChanged: 1,
+      settlementsFound: 2,
+      settlementsNew: 1,
+    });
+  });
+
+  it("syncs no settlements without the key secret", async () => {
+    const h = harness();
+    await runRazorpayReconcile({ reason: "manual" }, enabled(null), h.deps);
+    expect(h.settledDays).toEqual([]);
+  });
+
+  it("refuses settlements with a test key in production", async () => {
+    const h = harness();
+    await runRazorpayReconcile(
+      { reason: "scheduled" },
+      enabled(KEY, true),
+      h.deps
+    );
+    expect(h.settledDays).toEqual([]);
+  });
+});
+
+describe("parseReconcileState", () => {
+  it("fills settlement counts missing from a run saved before settlements", () => {
+    const saved = JSON.stringify({
+      counts: { checked: 3, errors: 0, new: 1 },
+      from: "2026-10-11",
+      reason: "scheduled",
+      status: "ok",
+      to: "2026-10-14",
+      updatedAt: "2026-10-14T06:00:00Z",
+      windowsDone: 4,
+      windowsTotal: 4,
+    });
+    expect(parseReconcileState(saved)?.counts).toMatchObject({
+      checked: 3,
+      settlementLinesUnlinked: 0,
+      settlementsFound: 0,
+      settlementsNew: 0,
+    });
   });
 });

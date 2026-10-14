@@ -6,6 +6,7 @@ const {
   handleRazorpayReconcile,
   handleRazorpaySyncPayment,
   handleRazorpaySyncRefund,
+  handleRazorpaySyncSettlement,
 } = await import("./worker");
 const { RefundNotProcessedError } = await import("./refund");
 
@@ -154,5 +155,37 @@ describe("handleRazorpayReconcile", () => {
       )
     ).rejects.toThrow("razorpay_reconcile_failed: Error");
     expect(clearRun).toHaveBeenCalled();
+  });
+});
+
+describe("handleRazorpaySyncSettlement", () => {
+  it("syncs each job by settlement ID only", async () => {
+    const sync = mock(async (_input: unknown) => ({
+      outcome: "no_key_secret" as const,
+    }));
+    const result = await handleRazorpaySyncSettlement(
+      [
+        {
+          data: { __traceId: "t", settlementId: "setl_A" } as never,
+          id: "j",
+        },
+      ],
+      sync
+    );
+    expect(result).toEqual({ outcomes: [{ outcome: "no_key_secret" }] });
+    expect(sync.mock.calls.map(([input]) => input)).toEqual([
+      { settlementId: "setl_A" },
+    ]);
+  });
+
+  it("rethrows a failure for retry, sanitised", async () => {
+    await expect(
+      handleRazorpaySyncSettlement(
+        [{ data: { settlementId: "setl_A" }, id: "j" }],
+        async () => {
+          throw new Error("Failed query params: setl_A");
+        }
+      )
+    ).rejects.toThrow("razorpay_settlement_sync_failed: Error");
   });
 });

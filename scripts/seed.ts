@@ -19,6 +19,7 @@ import { createHash } from "node:crypto";
  *   expenseCategory, bankAccount,
  *   programme, costCentre, fund, fiscalYear, fiscalPeriod, party, partyRole, partyPrivate,
  *   orgAccount, contribution, contributionRefund, otherIncome,
+ *   gatewaySettlement, gatewaySettlementItem,
  *   importBatch, importRow, externalIdentity, collectionEvent,
  *   reimbursement, reimbursementLineItem, reimbursementAttachment, reimbursementHistory,
  *   advancePayment, advancePaymentLineItem, advancePaymentAttachment, advancePaymentHistory,
@@ -53,6 +54,10 @@ import { eventRsvpPoll, eventRsvpVote } from "@pi-dash/db/schema/event-rsvp";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
 import { orgAccount } from "@pi-dash/db/schema/finance-dimensions";
+import {
+  gatewaySettlement,
+  gatewaySettlementItem,
+} from "@pi-dash/db/schema/gateway-settlement";
 import { importBatch } from "@pi-dash/db/schema/import-batch";
 import {
   contribution,
@@ -737,6 +742,53 @@ async function seedIncome(adminId: string): Promise<void> {
       source: "razorpay",
     })
     .onConflictDoNothing();
+  // A Razorpay settlement (test mode) that paid out the Razorpay gift less
+  // its refund, so Income → Settlements has a row and a breakdown.
+  await db
+    .insert(gatewaySettlement)
+    .values({
+      amountPaise: 400_000,
+      createdAt: now,
+      externalId: "setl_SEED0001",
+      feesPaise: 0,
+      grossPaise: 500_000,
+      paymentCount: 1,
+      refundsPaise: 100_000,
+      id: "01930000-0000-7000-8000-000000000631",
+      itemCount: 2,
+      orgAccountId: ORG_ACCOUNTS[1]?.id as string,
+      provider: "razorpay",
+      providerAccount: "test",
+      settledOn: "2026-08-21",
+      status: "processed",
+      taxPaise: 0,
+      updatedAt: now,
+      utr: "SEEDUTR0001",
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(gatewaySettlementItem)
+    .values([
+      {
+        contributionId: "01930000-0000-7000-8000-000000000612",
+        creditPaise: 500_000,
+        externalId: "pay_SEED0002",
+        id: "01930000-0000-7000-8000-000000000632",
+        settledAt: new Date("2026-08-21T04:30:00Z"),
+        settlementId: "01930000-0000-7000-8000-000000000631",
+        type: "payment" as const,
+      },
+      {
+        contributionRefundId: "01930000-0000-7000-8000-000000000614",
+        debitPaise: 100_000,
+        externalId: "rfnd_SEED0002",
+        id: "01930000-0000-7000-8000-000000000633",
+        settledAt: new Date("2026-08-21T04:30:00Z"),
+        settlementId: "01930000-0000-7000-8000-000000000631",
+        type: "refund" as const,
+      },
+    ])
+    .onConflictDoNothing();
   await db
     .insert(otherIncome)
     .values({
@@ -754,7 +806,7 @@ async function seedIncome(adminId: string): Promise<void> {
     .onConflictDoNothing();
   await seedImportBatch(adminId);
   log(
-    `${ORG_ACCOUNTS.length} org accounts, ${CONTRIBUTIONS.length} contributions, 1 refund, 1 other income and 1 import ready`
+    `${ORG_ACCOUNTS.length} org accounts, ${CONTRIBUTIONS.length} contributions, 1 refund, 1 settlement, 1 other income and 1 import ready`
   );
 }
 

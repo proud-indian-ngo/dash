@@ -11,6 +11,7 @@ import {
   pendingRefund,
 } from "../schema/private/imports";
 import { type ImportTx, withImportTransaction } from "./income-import";
+import { linkSettlementLinesForRefund } from "./razorpay-settlements";
 
 /**
  * Database side of Razorpay refunds. A processed refund is recorded once
@@ -217,6 +218,8 @@ async function applyIn(
       .where(eq(contribution.id, target.id));
   }
   await forgetPending(tx, refund.mode, refund.refundId);
+  // A settlement synced before the refund was recorded lists it unlinked.
+  await linkSettlementLinesForRefund(tx, refund.mode, refund.refundId);
   return {
     contributionId: target.id,
     result: "applied",

@@ -15,6 +15,7 @@ import {
   countPendingRefunds,
   countRefundsNeedingAttention,
 } from "@pi-dash/db/queries/razorpay-refunds";
+import { razorpaySettlementStatus } from "@pi-dash/db/queries/razorpay-settlements";
 import { env } from "@pi-dash/env/server";
 import { enqueue } from "@pi-dash/jobs/enqueue";
 import type { RazorpayReconcilePayload } from "@pi-dash/jobs/types";
@@ -45,6 +46,7 @@ export const RAZORPAY_WEBHOOK_EVENTS = [
   "payment.captured",
   "order.paid",
   "refund.processed",
+  "settlement.processed",
 ] as const;
 
 /**
@@ -69,6 +71,24 @@ export function backfillUnavailableReason(setup: RazorpaySetup): string | null {
   }
   if (setup.enabled && !setup.apiKey) {
     return "Set RAZORPAY_KEY_SECRET on the server to import past payments; without it Sync now only retries payments stuck in the queue, and webhooks keep recording payments.";
+  }
+  return null;
+}
+
+/**
+ * Why settlements are not recorded, in one line, or null when they are.
+ * They need the key secret: only the API lists the payments a payout
+ * covered.
+ */
+export function settlementsUnavailableReason(
+  setup: RazorpaySetup
+): string | null {
+  const sync = syncUnavailableReason(setup);
+  if (sync) {
+    return sync;
+  }
+  if (setup.enabled && !setup.apiKey) {
+    return "Needs RAZORPAY_KEY_SECRET on the server: settlements and the payments they covered come from the Razorpay API.";
   }
   return null;
 }
@@ -103,6 +123,17 @@ export interface RazorpaySettingsView {
   };
   /** Refunds the founder should look at. */
   refundAttention: { afterReceipt: number; amountChanged: number };
+  /** Settlements recorded for this mode. */
+  settlements: {
+    /** India date of the latest settlement recorded, yyyy-MM-dd. */
+    lastSettledOn: string | null;
+    /** When a settlement was last written, epoch milliseconds. */
+    lastSyncedAt: number | null;
+    /** One line for why settlements are off; null when they are recorded. */
+    unavailableReason: string | null;
+    /** Payment and refund lines waiting for their payment or refund. */
+    unlinked: number;
+  };
   /** Payments whose sync job gave up; they wait to be imported by hand. */
   syncFailedCount: number;
   testInProduction: boolean;
@@ -124,6 +155,9 @@ export async function getRazorpaySettingsView(
   const base = (env.APP_URL ?? env.BETTER_AUTH_URL).replace(/\/+$/, "");
   const waiting = await countRazorpayWaitingByReason();
   const attention = await countRefundsNeedingAttention();
+  const settlements = setup.enabled
+    ? await razorpaySettlementStatus(setup.mode)
+    : { lastSettledOn: null, lastSyncedAt: null, unlinked: 0 };
   return {
     clearingAccountId: account?.id ?? null,
     clearingAccountUnusable: Boolean(storedAccount) && !account,
@@ -148,6 +182,12 @@ export async function getRazorpaySettingsView(
       syncUnavailableReason: syncUnavailableReason(setup),
     },
     refundAttention: attention,
+    settlements: {
+      lastSettledOn: settlements.lastSettledOn,
+      lastSyncedAt: settlements.lastSyncedAt?.getTime() ?? null,
+      unavailableReason: settlementsUnavailableReason(setup),
+      unlinked: settlements.unlinked,
+    },
     syncFailedCount: waiting.get("sync_failed") ?? 0,
     testInProduction: setup.enabled && setup.testInProduction,
     webhookEvents: RAZORPAY_WEBHOOK_EVENTS,

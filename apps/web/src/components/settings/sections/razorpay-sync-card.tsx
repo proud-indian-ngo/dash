@@ -69,6 +69,11 @@ export function lastSyncLine(last: Run | null): string {
   if (last.counts.refundsApplied > 0) {
     parts.push(count(last.counts.refundsApplied, "refund", "refunds"));
   }
+  if (last.counts.settlementsFound > 0) {
+    parts.push(
+      `${count(last.counts.settlementsFound, "settlement", "settlements")} (${last.counts.settlementsNew.toLocaleString("en-IN")} new)`
+    );
+  }
   parts.push(count(last.counts.errors, "error", "errors"));
   return parts.join(" · ");
 }
@@ -231,7 +236,7 @@ export function RazorpaySyncCard({
     reconcile.syncUnavailableReason ?? reconcile.backfillUnavailableReason;
   return (
     <SettingsCard
-      description="Catches payments and refunds whose webhooks were missed, and retries payments stuck in the queue. It also runs on its own every 6 hours over the last 3 days."
+      description="Catches payments and refunds whose webhooks were missed, records settlements, and retries payments stuck in the queue. It also runs on its own every 6 hours over the last 3 days."
       title="Sync with Razorpay"
     >
       {unavailable ? (
@@ -278,8 +283,8 @@ export function RazorpaySyncCard({
               <p className="text-sm font-medium">Import past payments</p>
               <p className="text-muted-foreground text-sm">
                 Records Payment Page donations made before the webhook was set
-                up, up to {MAX_DAYS} days at a time. Payments already recorded
-                are left as they are.
+                up, and the settlements that paid them out, up to {MAX_DAYS}{" "}
+                days at a time. Payments already recorded are left as they are.
               </p>
             </div>
             <ImportPastForm

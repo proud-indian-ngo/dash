@@ -54,6 +54,48 @@ const formatTime = (epoch: number) =>
     timeStyle: "short",
   });
 
+const formatDay = (iso: string) =>
+  new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+    year: "numeric",
+  });
+
+/** "Last 16 Oct 2026 · synced 17 Oct, 10:05", "None yet" or "Off". */
+export function settlementsLine(
+  settlements: RazorpaySettingsView["settlements"]
+): string {
+  if (settlements.unavailableReason) {
+    return "Off";
+  }
+  if (!settlements.lastSettledOn) {
+    return "None yet";
+  }
+  const synced = settlements.lastSyncedAt
+    ? ` · synced ${new Date(settlements.lastSyncedAt).toLocaleString("en-IN", {
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        month: "short",
+      })}`
+    : "";
+  return `Last ${formatDay(settlements.lastSettledOn)}${synced}`;
+}
+
+function settlementsDescription(
+  settlements: RazorpaySettingsView["settlements"]
+): string {
+  if (settlements.unavailableReason) {
+    return settlements.unavailableReason;
+  }
+  const waiting =
+    settlements.unlinked > 0
+      ? ` ${settlements.unlinked === 1 ? "1 payment or refund it covered is" : `${settlements.unlinked.toLocaleString("en-IN")} payments or refunds they covered are`} not imported yet; each is linked when it is.`
+      : "";
+  return `Payouts to the bank, recorded by each sync and when Razorpay announces one. See them under Income → Settlements.${waiting}`;
+}
+
 /** Why refunds need a look; each count is shown only when it is not zero. */
 function attentionText(attention: RazorpaySettingsView["refundAttention"]) {
   const lines: string[] = [];
@@ -339,6 +381,17 @@ export function RazorpaySection() {
         >
           <span className="text-sm">
             {view.fetchesFromApi ? "Razorpay API" : "Webhook"}
+          </span>
+        </SettingsRow>
+        <SettingsRow
+          description={settlementsDescription(view.settlements)}
+          title="Settlements"
+        >
+          <span
+            className="text-sm tabular-nums"
+            data-testid="razorpay-settlements-status"
+          >
+            {settlementsLine(view.settlements)}
           </span>
         </SettingsRow>
         <SettingsRow title="Last webhook received">

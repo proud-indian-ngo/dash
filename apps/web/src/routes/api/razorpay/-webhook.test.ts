@@ -182,4 +182,32 @@ describe("POST /api/razorpay/webhook", () => {
     expect(stage).not.toHaveBeenCalled();
     expect(enqueue).not.toHaveBeenCalled();
   });
+  it("queues a signed settlement.processed by settlement ID with the key secret, and only acknowledges it without", async () => {
+    const body = JSON.stringify({
+      event: "settlement.processed",
+      payload: {
+        settlement: {
+          entity: {
+            amount: 1524,
+            created_at: 1_763_019_089,
+            id: "setl_Rf8uva1MU98B4l",
+            status: "processed",
+            utr: "AXISCN1153863727",
+          },
+        },
+      },
+    });
+    expect((await post(requestOf(body))).status).toBe(200);
+    expect(enqueue).not.toHaveBeenCalled();
+
+    state.setup = enabled({ apiKey: { id: "rzp_test_x", secret: "k" } });
+    expect((await post(requestOf(body))).status).toBe(200);
+    expect(enqueue.mock.calls).toEqual([
+      [
+        "razorpay-sync-settlement",
+        { settlementId: "setl_Rf8uva1MU98B4l" },
+        { singletonKey: "setl_Rf8uva1MU98B4l" },
+      ],
+    ]);
+  });
 });

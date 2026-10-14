@@ -213,7 +213,9 @@ async function resolveProgramme(
 /**
  * Locks the contribution row on the server, so a refund the server applies
  * meanwhile (which locks it too) waits for this edit, and the refund check
- * below still holds when the edit is written.
+ * below still holds when the edit is written. Linking a settlement line to
+ * the contribution takes a key-share lock on this row (its foreign key), so
+ * it waits too and the settled check holds as well.
  */
 async function lockContribution(tx: Tx, id: string): Promise<void> {
   if (tx.location !== "server") {
@@ -237,7 +239,19 @@ async function requireEditableContribution(tx: Tx, id: string) {
   const refund = await tx.run(
     zql.contributionRefund.where("contributionId", id).one()
   );
-  return { existing, hasRefund: refund !== undefined };
+  // Razorpay paid its payment out to the bank: what it reported is fixed too.
+  const settled = await tx.run(
+    zql.gatewaySettlementItem
+      .where("contributionId", id)
+      .where("type", "payment")
+      .whereExists("settlement", (s) => s.where("status", "processed"))
+      .one()
+  );
+  return {
+    existing,
+    hasRefund: refund !== undefined,
+    isSettled: settled !== undefined,
+  };
 }
 
 export const contributionMutators = {
@@ -267,23 +281,34 @@ export const contributionMutators = {
 
   delete: defineMutator(idInput, async ({ tx, ctx, args }) => {
     assertHasPermission(ctx, "donors.manage");
-    const { hasRefund } = await requireEditableContribution(tx, args.id);
+    const { hasRefund, isSettled } = await requireEditableContribution(
+      tx,
+      args.id
+    );
     if (hasRefund) {
       throw new Error("A contribution with a refund can't be deleted");
+    }
+    if (isSettled) {
+      throw new Error(
+        "Razorpay has settled this contribution to the bank, so it can't be deleted"
+      );
     }
     await tx.mutate.contribution.delete({ id: args.id });
   }),
 
   update: defineMutator(contributionInputSchema, async ({ tx, ctx, args }) => {
     assertHasPermission(ctx, "donors.manage");
-    const { existing, hasRefund } = await requireEditableContribution(
-      tx,
-      args.id
-    );
+    const { existing, hasRefund, isSettled } =
+      await requireEditableContribution(tx, args.id);
     const values = normalizeContribution(args);
     if (hasRefund && refundLockedChanges(existing, values).length > 0) {
       throw new Error(
         "A refund is recorded against this contribution, so its amount, donor, date, account and channel can't change"
+      );
+    }
+    if (isSettled && refundLockedChanges(existing, values).length > 0) {
+      throw new Error(
+        "Razorpay has settled this contribution to the bank, so its amount, donor, date, account and channel can't change"
       );
     }
     if (tx.location === "server") {

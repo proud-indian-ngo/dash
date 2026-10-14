@@ -169,6 +169,15 @@ const QUEUE_OVERRIDES: Partial<
     retryDelayMax: 60 * 60,
     retryLimit: 8,
   },
+  // Keyed by settlement ID. Retries cover an API failure (1 minute
+  // doubling to 1 hour); a settlement synced twice is recorded once.
+  "razorpay-sync-settlement": {
+    policy: "stately",
+    retryBackoff: true,
+    retryDelay: 60,
+    retryDelayMax: 60 * 60,
+    retryLimit: 8,
+  },
   "send-scheduled-whatsapp": { deadLetter: DEAD_LETTER_SCHEDULED_WHATSAPP },
   "whatsapp-create-group": { expireInSeconds: 1800 },
 };

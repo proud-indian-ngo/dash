@@ -1,6 +1,17 @@
+import { auth } from "@pi-dash/auth";
 import { db } from "@pi-dash/db";
+import {
+  recordRazorpaySettlement,
+  type SettlementToRecord,
+} from "@pi-dash/db/queries/razorpay-settlements";
 import { appConfig } from "@pi-dash/db/schema/app-config";
+import { user } from "@pi-dash/db/schema/auth";
+import {
+  gatewaySettlement,
+  gatewaySettlementItem,
+} from "@pi-dash/db/schema/gateway-settlement";
 import { contribution, contributionRefund } from "@pi-dash/db/schema/income";
+import { role, rolePermission } from "@pi-dash/db/schema/permission";
 import { importRow, pendingRefund } from "@pi-dash/db/schema/private/imports";
 import { count, eq, sql } from "drizzle-orm";
 
@@ -9,8 +20,10 @@ import { count, eq, sql } from "drizzle-orm";
  * Playwright's Node runner cannot load `@pi-dash/db`: the staged rows and
  * contributions of one payment, its contribution's refunds and status,
  * whether its sync or refund jobs have settled, and the
- * global clearing account setting the spec changes and puts back. Prints
- * one JSON value.
+ * global clearing account setting the spec changes and puts back. Also
+ * records a settlement through the real write path (E2E has no API key
+ * secret, so nothing can fetch one from Razorpay), reads its lines' links,
+ * and makes a user whose role has donors.view only. Prints one JSON value.
  */
 
 const CLEARING_KEY = "razorpay_clearing_account_id";
@@ -112,6 +125,102 @@ async function restoreClearingSetting(value: string | null): Promise<void> {
     });
 }
 
+/**
+ * Records a test-mode settlement as the sync would, so its lines link to
+ * whatever payments and refunds are already recorded.
+ */
+async function recordSettlement(json: string) {
+  const input = JSON.parse(json) as Omit<
+    SettlementToRecord,
+    "lines" | "settlementFeePaise" | "settlementTaxPaise" | "unreadableLines"
+  > &
+    Partial<
+      Pick<
+        SettlementToRecord,
+        "settlementFeePaise" | "settlementTaxPaise" | "unreadableLines"
+      >
+    > & {
+      lines: (Omit<SettlementToRecord["lines"][number], "settledAt"> & {
+        settledAt: string;
+      })[];
+    };
+  return await recordRazorpaySettlement({
+    settlementFeePaise: null,
+    settlementTaxPaise: null,
+    unreadableLines: 0,
+    ...input,
+    lines: input.lines.map((line) => ({
+      ...line,
+      settledAt: new Date(line.settledAt),
+    })),
+  });
+}
+
+/** Each line of a settlement and whether it is linked. */
+async function settlementLinks(externalId: string) {
+  return await db
+    .select({
+      externalId: gatewaySettlementItem.externalId,
+      linked: sql<boolean>`(${gatewaySettlementItem.contributionId} is not null or ${gatewaySettlementItem.contributionRefundId} is not null)`,
+    })
+    .from(gatewaySettlementItem)
+    .innerJoin(
+      gatewaySettlement,
+      eq(gatewaySettlement.id, gatewaySettlementItem.settlementId)
+    )
+    .where(eq(gatewaySettlement.externalId, externalId))
+    .orderBy(gatewaySettlementItem.externalId);
+}
+
+const DONORS_VIEWER_ROLE = "e2e_donors_viewer";
+const DONORS_VIEWER = {
+  email: "e2e-donors-viewer@pi-dash.test",
+  password: "E2eDonorsViewer123!",
+};
+
+/** A user whose only permission is donors.view, for the Settlements tab's denial. */
+async function donorsViewer() {
+  await db
+    .insert(role)
+    .values({
+      description: "E2E: sees donors and income, not finance",
+      id: DONORS_VIEWER_ROLE,
+      isSystem: false,
+      name: "E2E Donors Viewer",
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(rolePermission)
+    .values({ permissionId: "donors.view", roleId: DONORS_VIEWER_ROLE })
+    .onConflictDoNothing();
+  let existing = await db.query.user.findFirst({
+    columns: { id: true },
+    where: eq(user.email, DONORS_VIEWER.email),
+  });
+  if (!existing) {
+    await auth.api.createUser({
+      body: { ...DONORS_VIEWER, name: "E2E Donors Viewer" },
+    });
+    existing = await db.query.user.findFirst({
+      columns: { id: true },
+      where: eq(user.email, DONORS_VIEWER.email),
+    });
+  }
+  if (!existing) {
+    throw new Error("Unable to create the donors viewer");
+  }
+  await db
+    .update(user)
+    .set({
+      banned: false,
+      emailVerified: true,
+      isActive: true,
+      role: DONORS_VIEWER_ROLE,
+    })
+    .where(eq(user.id, existing.id));
+  return DONORS_VIEWER;
+}
+
 const [action, arg = ""] = process.argv.slice(2);
 let result: unknown;
 if (action === "rows") {
@@ -126,6 +235,12 @@ if (action === "rows") {
   result = await pendingRefunds(arg);
 } else if (action === "refund-settled") {
   result = await refundJobsSettled(arg);
+} else if (action === "record-settlement") {
+  result = await recordSettlement(arg);
+} else if (action === "settlement-links") {
+  result = await settlementLinks(arg);
+} else if (action === "donors-viewer") {
+  result = await donorsViewer();
 } else if (action === "read-clearing") {
   result = await readClearingSetting();
 } else if (action === "restore-clearing") {

@@ -588,6 +588,15 @@ export interface RazorpayReconcilePayload {
   to?: string;
 }
 
+/**
+ * A Razorpay settlement to record, keyed by settlement ID: queued by a
+ * signed `settlement.processed` webhook. The job fetches the settlement and
+ * its lines from the API (key secret only).
+ */
+export interface RazorpaySyncSettlementPayload {
+  settlementId: string;
+}
+
 export interface JobPayloads {
   "cleanup-notifications": Record<string, never>;
   "cleanup-r2-orphans": CleanupR2OrphansPayload;
@@ -661,6 +670,7 @@ export interface JobPayloads {
   "razorpay-reconcile": RazorpayReconcilePayload;
   "razorpay-sync-payment": RazorpaySyncPaymentPayload;
   "razorpay-sync-refund": RazorpaySyncRefundPayload;
+  "razorpay-sync-settlement": RazorpaySyncSettlementPayload;
   "process-post-event-reminders": ProcessPostEventRemindersPayload;
   "remind-feedback-deadline": RemindFeedbackDeadlinePayload;
   "remind-kalakriti-registration-close": RemindKalakritiRegistrationClosePayload;

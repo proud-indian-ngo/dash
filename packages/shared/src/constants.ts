@@ -301,6 +301,30 @@ export const contributionRefundSourceValues = ["razorpay", "manual"] as const;
 export type ContributionRefundSource =
   (typeof contributionRefundSourceValues)[number];
 
+/** Who paid a gateway settlement out of its clearing balance. */
+export const gatewaySettlementProviderValues = ["razorpay"] as const;
+export type GatewaySettlementProvider =
+  (typeof gatewaySettlementProviderValues)[number];
+
+/** Razorpay's settlement states; `processed` means the bank transfer was started. */
+export const gatewaySettlementStatusValues = [
+  "created",
+  "processed",
+  "failed",
+] as const;
+export type GatewaySettlementStatus =
+  (typeof gatewaySettlementStatusValues)[number];
+
+/** What a settlement line settled, as Razorpay's settlement recon reports it. */
+export const gatewaySettlementItemTypeValues = [
+  "payment",
+  "refund",
+  "transfer",
+  "adjustment",
+] as const;
+export type GatewaySettlementItemType =
+  (typeof gatewaySettlementItemTypeValues)[number];
+
 /** Income that is not a donation and never enters donation filings. */
 export const otherIncomeKindValues = [
   "interest",
