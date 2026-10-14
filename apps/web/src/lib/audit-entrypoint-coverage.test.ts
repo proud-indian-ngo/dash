@@ -19,9 +19,11 @@ const AUDITED_SERVER_FUNCTIONS = [
   "deleteTemporaryUpload",
   "deleteUserAdmin",
   "deleteVendor",
+  "emailContributionReceipt",
   "findBankStatementMatches",
   "exportDonationsReturn",
   "importPastRazorpayPayments",
+  "issueContributionReceipts",
   "postEventRsvpPoll",
   "resumeUserEmail",
   "revealPartyIdentifier",
@@ -45,6 +47,7 @@ const AUDITED_SERVER_FUNCTIONS = [
   "updateStatementLine",
   "updateUserAdmin",
   "uploadPhotoToImmich",
+  "voidContributionReceipt",
 ];
 
 const EXEMPT_SERVER_FUNCTIONS = [
@@ -61,6 +64,7 @@ const EXEMPT_SERVER_FUNCTIONS = [
   "getMissingDonorDetails",
   "getPartyDetails",
   "getProfilePictureUploadUrl",
+  "getReceiptCandidates",
   "getRazorpaySettings",
   "getRequestUploadUrl",
   "getScheduledMessageUploadUrl",

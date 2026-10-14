@@ -411,3 +411,13 @@ Migration `0135_ledger_income` adds `ledger_source_state` (with the `ledger_sour
 1. Post the opening balances first if they aren't (the deploy steps above).
 2. A finance admin opens Finance → Books and chooses **Post pending** once. This is the backfill from 1 April 2026: every contribution, refund, other income, processed payout and marked transfer since then posts. It works for 20 seconds in the request and hands the rest to the `ledger-post-pending` job; the daily run catches anything left. Running it again is safe.
 3. Check the "Waiting to post" list on Books. A payout waits for its bank account when more than one bank account is active and its bank statement line isn't matched (match the line on Bank statements); a bank line marked as a transfer before this release waits for its other account (unmatch it and mark it again, picking the fixed deposit or the other bank account).
+
+### Donation receipts
+
+Migration `0136_donation_receipts` adds `contribution_receipt` (synced through Zero) and, in schema `private`, `contribution_receipt_counter` and `contribution_receipt_snapshot`. Deploy it with the regenerated Zero schema and the web build. No new environment variables or services; the new pg-boss queue `send-contribution-receipt` is created on start. Receipts with the 80G line need `DATA_ENCRYPTION_KEY` (already required for donor IDs); emailing needs `RESEND_API_KEY` and `EMAIL_FROM`.
+
+The new permission `donors.receipt` goes to every finance admin and super admin automatically; admins don't get it. After the deploy, a finance admin:
+
+1. Fills in Settings → Organisation accounts → Donation receipts: the trust's registered name, address, PAN, and the signatory's name and designation (printed on every receipt; never seed the real values).
+2. Checks the 80G registration (URN and date) under Donations return in the same page.
+3. Has the CA confirm the receipt wording marked CA TO CONFIRM in `packages/shared/src/receipts.ts` before the first receipt is sent.

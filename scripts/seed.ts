@@ -3597,6 +3597,26 @@ async function seedAppConfig(): Promise<void> {
     { key: "social_all_time_optimists", value: "3600" },
     { key: "social_all_time_hours", value: "14000" },
     { key: "social_all_time_reached", value: "23000" },
+    // Fake receipt particulars and 80G registration so receipts can be
+    // issued in development; finance enters the real ones in Settings.
+    {
+      key: "donation_receipt_settings",
+      value: JSON.stringify({
+        orgAddress: "1 Example Road, Bengaluru, Karnataka 560001",
+        orgName: "Example Trust (development)",
+        orgPan: "AAATE0000E",
+        signatoryDesignation: "Treasurer",
+        signatoryName: "Dev Signatory",
+      }),
+    },
+    {
+      key: "donations_return_registration",
+      value: JSON.stringify({
+        sectionCode: "Section 80G",
+        urn: "DEVURN0000000000",
+        urnIssuedOn: "2021-04-01",
+      }),
+    },
   ];
 
   await db

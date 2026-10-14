@@ -23,6 +23,7 @@ import {
 import { gatewaySettlementQueries } from "./queries/gateway-settlement";
 import {
   contributionQueries,
+  contributionReceiptQueries,
   importBatchQueries,
   otherIncomeQueries,
 } from "./queries/income";
@@ -61,6 +62,7 @@ export const queries = defineQueries({
   appConfig: appConfigQueries,
   bankAccount: bankAccountQueries,
   contribution: contributionQueries,
+  contributionReceipt: contributionReceiptQueries,
   costCentre: costCentreQueries,
   eventFeedback: eventFeedbackQueries,
   eventImmichAlbum: eventImmichAlbumQueries,

@@ -1,3 +1,4 @@
+import { loadLiveReceiptNumbers } from "@pi-dash/db/queries/contribution-receipts";
 import {
   loadReturnFacts,
   loadReturnRegistration,
@@ -18,6 +19,11 @@ import {
   REPORTING_MODE_LABELS,
 } from "@pi-dash/shared/income";
 import { paiseToRupees } from "@pi-dash/shared/money";
+import {
+  RECEIPT_ISSUER_LABELS,
+  RECEIPTING_START_DAY,
+  receiptIssuerFor,
+} from "@pi-dash/shared/receipts";
 
 import { buildCsv } from "@/lib/csv-export";
 import { ID_TYPE_LABELS } from "@/lib/donor-schema";
@@ -127,8 +133,32 @@ export const ALL_GIFTS_HEADERS = [
   "Tax certificate",
   "Status",
   "Reason",
+  "Receipt issued by",
+  "Receipt number",
   "Contribution ID",
 ];
+
+/**
+ * Who receipts the gift under the fixed policy, and pi-dash's receipt number
+ * when it issued one. Direct gifts from before the start date were receipted
+ * outside pi-dash.
+ */
+export function receiptIssuerCells(
+  gift: { channel: Parameters<typeof receiptIssuerFor>[0]; receivedOn: string },
+  receiptNumber: string | undefined
+): [string, string] {
+  const issuer = receiptIssuerFor(gift.channel);
+  if (issuer === null) {
+    return ["", ""];
+  }
+  if (issuer !== "pi_dash") {
+    return [RECEIPT_ISSUER_LABELS[issuer], ""];
+  }
+  if (gift.receivedOn < RECEIPTING_START_DAY) {
+    return ["Outside pi-dash", ""];
+  }
+  return [RECEIPT_ISSUER_LABELS.pi_dash, receiptNumber ?? "Not issued yet"];
+}
 
 function maskedId(
   idType: PartyIdType,
@@ -147,6 +177,9 @@ export async function buildAllGiftsFile(
 ): Promise<BuiltReturnFile> {
   const facts = await loadReturnFacts(fy, "validate");
   const { gifts } = assessReturn(facts.gifts, facts.donors);
+  const receiptNumbers = await loadLiveReceiptNumbers(
+    facts.gifts.map((gift) => gift.id)
+  );
   const rows = facts.gifts.map((gift, index) => {
     const assessed = gifts[index];
     const donor = facts.donors.get(gift.partyId);
@@ -179,6 +212,7 @@ export async function buildAllGiftsFile(
       TAX_CERTIFICATE_LABELS[gift.deductionEligible],
       label.status,
       reason,
+      ...receiptIssuerCells(gift, receiptNumbers.get(gift.id)),
       gift.id,
     ];
   });
