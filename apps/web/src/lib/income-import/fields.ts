@@ -348,6 +348,7 @@ export const IMPORT_CHANNEL_VALUES = [
 export type ImportChannel = (typeof IMPORT_CHANNEL_VALUES)[number];
 
 export const IMPORT_SOURCE_LABELS: Record<ImportBatchSource, string> = {
+  bank_csv: "Bank statement (CSV)",
   generic_csv: "Generic CSV",
   give_do_csv: "give.do",
   razorpay_api: "Razorpay",

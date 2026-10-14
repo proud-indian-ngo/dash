@@ -1,5 +1,6 @@
 import {
   Alert02Icon,
+  BankIcon,
   Coins01Icon,
   FileImportIcon,
   MoneyAdd01Icon,
@@ -403,6 +404,14 @@ function ImportsTab({
   const rows = batches as ImportBatchRow[];
   const isLoading = rows.length === 0 && result.type !== "complete";
   const open = useEventCallback((row: ImportBatchRow) => {
+    // A bank statement's lines live on the Bank statements page.
+    if (row.source === "bank_csv") {
+      navigate({
+        search: row.orgAccountId ? { account: row.orgAccountId } : {},
+        to: "/income/bank",
+      });
+      return;
+    }
     navigate({ params: { batchId: row.id }, to: "/income/imports/$batchId" });
   });
 
@@ -496,6 +505,9 @@ function IncomeRouteComponent() {
   const openImport = useEventCallback(() => {
     navigate({ to: "/income/import" });
   });
+  const openBank = useEventCallback(() => {
+    navigate({ to: "/income/bank" });
+  });
   const menuActions = [
     canManageContributions && {
       icon: FileImportIcon,
@@ -508,6 +520,12 @@ function IncomeRouteComponent() {
       id: "other-income",
       label: "Record other income",
       onSelect: openOther,
+    },
+    canSeeSettlements && {
+      icon: BankIcon,
+      id: "bank-statements",
+      label: "Bank statements",
+      onSelect: openBank,
     },
   ].filter((action) => action !== false);
 

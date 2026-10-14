@@ -45,6 +45,7 @@ import { partyQueries } from "./queries/party";
 import { reimbursementQueries } from "./queries/reimbursement";
 import { scheduledMessageQueries } from "./queries/scheduled-message";
 import { socialPostQueries, socialRunQueries } from "./queries/social";
+import { statementLineQueries } from "./queries/statement-line";
 import { teamQueries } from "./queries/team";
 import { teamEventQueries } from "./queries/team-event";
 import { userQueries } from "./queries/user";
@@ -94,6 +95,7 @@ export const queries = defineQueries({
   scheduledMessage: scheduledMessageQueries,
   socialPost: socialPostQueries,
   socialRun: socialRunQueries,
+  statementLine: statementLineQueries,
   team: teamQueries,
   teamEvent: teamEventQueries,
   user: userQueries,

@@ -36,35 +36,54 @@ const receivedOn = z.iso
   .date()
   .refine((v) => v <= todayInKolkata(), "Date cannot be in the future");
 
+const contributionFields = {
+  amountPaise: positivePaiseSchema,
+  channel: z.enum(contributionChannelValues),
+  donationType: z.enum(donationTypeValues),
+  donationTypeDescription: optionalText(200),
+  fundId: z.string().min(1),
+  id: z.string().min(1),
+  inKindDescription: optionalText(500),
+  inKindValuationBasis: optionalText(500),
+  notes: optionalText(1000),
+  orgAccountId: z.string().min(1).nullable().optional(),
+  partyId: z.string().min(1),
+  programmeId: z.string().min(1).nullable().optional(),
+  projectId: z.string().min(1).nullable().optional(),
+  receivedOn,
+  reference: optionalText(120),
+  reportingMode: z.enum(contributionReportingModeValues),
+  reportingModeDescription: optionalText(200),
+};
+
+function refineContribution(
+  value: Parameters<typeof contributionRuleIssues>[0],
+  context: z.RefinementCtx
+) {
+  for (const issue of contributionRuleIssues(value)) {
+    context.addIssue({
+      code: "custom",
+      message: issue.message,
+      path: [issue.path],
+    });
+  }
+}
+
 export const contributionInputSchema = z
+  .object(contributionFields)
+  .superRefine(refineContribution);
+
+/**
+ * A new contribution, optionally recorded from a bank statement credit
+ * ("Record as donation"): the line is then matched to it in the same
+ * transaction, which also needs finance.manage.
+ */
+export const contributionCreateSchema = z
   .object({
-    amountPaise: positivePaiseSchema,
-    channel: z.enum(contributionChannelValues),
-    donationType: z.enum(donationTypeValues),
-    donationTypeDescription: optionalText(200),
-    fundId: z.string().min(1),
-    id: z.string().min(1),
-    inKindDescription: optionalText(500),
-    inKindValuationBasis: optionalText(500),
-    notes: optionalText(1000),
-    orgAccountId: z.string().min(1).nullable().optional(),
-    partyId: z.string().min(1),
-    programmeId: z.string().min(1).nullable().optional(),
-    projectId: z.string().min(1).nullable().optional(),
-    receivedOn,
-    reference: optionalText(120),
-    reportingMode: z.enum(contributionReportingModeValues),
-    reportingModeDescription: optionalText(200),
+    ...contributionFields,
+    statementLineId: z.string().min(1).nullable().optional(),
   })
-  .superRefine((value, context) => {
-    for (const issue of contributionRuleIssues(value)) {
-      context.addIssue({
-        code: "custom",
-        message: issue.message,
-        path: [issue.path],
-      });
-    }
-  });
+  .superRefine(refineContribution);
 
 export type ContributionInput = z.infer<typeof contributionInputSchema>;
 
@@ -254,10 +273,84 @@ async function requireEditableContribution(tx: Tx, id: string) {
   };
 }
 
+/** Channels of money deposited straight into a bank account. */
+const DIRECT_DEPOSIT_CHANNELS: readonly string[] = [
+  "upi",
+  "neft",
+  "cheque",
+  "cash",
+];
+
+/**
+ * On the server, takes the lock every statement line write takes
+ * (`STATEMENT_LINE_LOCK` in @pi-dash/db), so matching never races this.
+ */
+async function lockStatementLines(tx: Tx): Promise<void> {
+  if (tx.location !== "server") {
+    return;
+  }
+  const { sql } = await import("drizzle-orm");
+  await requireServerTransaction(tx as unknown as LockableKalakritiTx).execute(
+    sql`select pg_advisory_xact_lock(hashtext('statement-line-match'))`
+  );
+}
+
+/**
+ * The bank line a new contribution is recorded from: an unmatched credit of
+ * the same amount into the same account. Checked on the server; the client
+ * only applies the match optimistically when it has the line.
+ */
+async function requireRecordableLine(
+  tx: Tx,
+  lineId: string,
+  values: { amountPaise: number; channel: string; orgAccountId: string | null }
+) {
+  await lockStatementLines(tx);
+  const line = await tx.run(zql.statementLine.where("id", lineId).one());
+  if (tx.location !== "server") {
+    return line;
+  }
+  if (!line) {
+    throw new Error("Bank statement line not found");
+  }
+  if (line.matchStatus !== "unmatched" || line.direction !== "credit") {
+    throw new Error("This bank line is already matched or ignored");
+  }
+  if (line.amountPaise !== values.amountPaise) {
+    throw new Error("The amount must equal the bank line's");
+  }
+  if (line.orgAccountId !== values.orgAccountId) {
+    throw new Error("Deposited into must be the bank line's account");
+  }
+  if (!DIRECT_DEPOSIT_CHANNELS.includes(values.channel)) {
+    throw new Error(
+      "A donation in a bank statement came by UPI, NEFT, cheque or cash"
+    );
+  }
+  return line;
+}
+
+/** On the server: the bank line this contribution is matched to, if any. */
+async function matchedLine(tx: Tx, contributionId: string) {
+  if (tx.location !== "server") {
+    return undefined;
+  }
+  return await tx.run(
+    zql.statementLine.where("matchedContributionId", contributionId).one()
+  );
+}
+
 export const contributionMutators = {
-  create: defineMutator(contributionInputSchema, async ({ tx, ctx, args }) => {
+  create: defineMutator(contributionCreateSchema, async ({ tx, ctx, args }) => {
     assertHasPermission(ctx, "donors.manage");
-    const values = normalizeContribution(args);
+    if (args.statementLineId) {
+      assertHasPermission(ctx, "finance.manage");
+    }
+    const { statementLineId, ...input } = args;
+    const values = normalizeContribution(input);
+    const line = statementLineId
+      ? await requireRecordableLine(tx, statementLineId, values)
+      : undefined;
     if (tx.location === "server") {
       await assertContributor(tx, values.partyId);
       await assertAccountAndFund(tx, values);
@@ -277,6 +370,22 @@ export const contributionMutators = {
       status: "received",
       updatedAt: now,
     });
+    if (statementLineId && line) {
+      await tx.mutate.statementLine.update({
+        id: statementLineId,
+        matchedAt: now,
+        matchedBy: ctx.userId,
+        matchedContributionId: args.id,
+        matchKind: "contribution",
+        matchReason: "manual",
+        matchStatus: "matched",
+        suggestedContributionId: null,
+        suggestedKind: null,
+        suggestedSettlementId: null,
+        suggestionReason: null,
+        updatedAt: now,
+      });
+    }
   }),
 
   delete: defineMutator(idInput, async ({ tx, ctx, args }) => {
@@ -291,6 +400,11 @@ export const contributionMutators = {
     if (isSettled) {
       throw new Error(
         "Razorpay has settled this contribution to the bank, so it can't be deleted"
+      );
+    }
+    if (await matchedLine(tx, args.id)) {
+      throw new Error(
+        "This contribution is matched to a bank statement line. Unmatch the line first."
       );
     }
     await tx.mutate.contribution.delete({ id: args.id });
@@ -309,6 +423,15 @@ export const contributionMutators = {
     if (isSettled && refundLockedChanges(existing, values).length > 0) {
       throw new Error(
         "Razorpay has settled this contribution to the bank, so its amount, donor, date, account and channel can't change"
+      );
+    }
+    if (
+      (values.amountPaise !== existing.amountPaise ||
+        values.orgAccountId !== (existing.orgAccountId ?? null)) &&
+      (await matchedLine(tx, args.id))
+    ) {
+      throw new Error(
+        "This contribution is matched to a bank statement line, so its amount and account can't change. Unmatch the line first."
       );
     }
     if (tx.location === "server") {

@@ -20,7 +20,7 @@ import { createHash } from "node:crypto";
  *   programme, costCentre, fund, fiscalYear, fiscalPeriod, party, partyRole, partyPrivate,
  *   orgAccount, contribution, contributionRefund, otherIncome,
  *   gatewaySettlement, gatewaySettlementItem,
- *   importBatch, importRow, externalIdentity, collectionEvent,
+ *   importBatch, importRow, externalIdentity, collectionEvent, statementLine,
  *   reimbursement, reimbursementLineItem, reimbursementAttachment, reimbursementHistory,
  *   advancePayment, advancePaymentLineItem, advancePaymentAttachment, advancePaymentHistory,
  *   vendor, vendorPayment, vendorPaymentLineItem, vendorPaymentAttachment, vendorPaymentHistory,
@@ -125,6 +125,7 @@ import {
 import { socialApiToken } from "@pi-dash/db/schema/social-api-token";
 import { socialPost } from "@pi-dash/db/schema/social-post";
 import { socialRun } from "@pi-dash/db/schema/social-run";
+import { statementLine } from "@pi-dash/db/schema/statement-line";
 import { team, teamMember } from "@pi-dash/db/schema/team";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import {
@@ -805,9 +806,96 @@ async function seedIncome(adminId: string): Promise<void> {
     })
     .onConflictDoNothing();
   await seedImportBatch(adminId);
+  await seedStatementLines(adminId);
   log(
-    `${ORG_ACCOUNTS.length} org accounts, ${CONTRIBUTIONS.length} contributions, 1 refund, 1 settlement, 1 other income and 1 import ready`
+    `${ORG_ACCOUNTS.length} org accounts, ${CONTRIBUTIONS.length} contributions, 1 refund, 1 settlement, 1 other income, 1 import and ${STATEMENT_LINES.length} bank statement lines ready`
   );
+}
+
+/**
+ * Lines of the HDFC account's statement, so Bank statements has one of each
+ * state: the Razorpay settlement and the NEFT gift matched, a give.do payout
+ * waiting as a suggestion, bank interest ignored, and an unmatched debit.
+ * Synthetic: hashes are fixed seed values, not the keyed import hash.
+ */
+const STATEMENT_LINES = [
+  {
+    amountPaise: 2_500_000,
+    balancePaise: 12_500_000,
+    direction: "credit" as const,
+    id: "01930000-0000-7000-8000-000000000641",
+    matchedContributionId: "01930000-0000-7000-8000-000000000611",
+    matchKind: "contribution" as const,
+    matchReason: "reference",
+    matchStatus: "matched" as const,
+    narration: "NEFT CR-UTR-SEED-0001-ASHA RAO",
+    reference: "UTR-SEED-0001",
+    valueOn: "2026-05-12",
+  },
+  {
+    amountPaise: 400_000,
+    balancePaise: 12_900_000,
+    direction: "credit" as const,
+    id: "01930000-0000-7000-8000-000000000642",
+    matchedSettlementId: "01930000-0000-7000-8000-000000000631",
+    matchKind: "settlement" as const,
+    matchReason: "utr",
+    matchStatus: "matched" as const,
+    narration: "NEFT CR-SEEDUTR0001-RAZORPAY SOFTWARE PVT LTD",
+    reference: "SEEDUTR0001",
+    valueOn: "2026-08-22",
+  },
+  {
+    amountPaise: 184_250,
+    balancePaise: 13_084_250,
+    direction: "credit" as const,
+    id: "01930000-0000-7000-8000-000000000643",
+    ignoredReason: "bank_interest" as const,
+    matchStatus: "ignored" as const,
+    narration: "CREDIT INTEREST CAPITALISED",
+    reference: null,
+    valueOn: "2026-06-30",
+  },
+  {
+    amountPaise: 750_000,
+    balancePaise: 13_834_250,
+    direction: "credit" as const,
+    id: "01930000-0000-7000-8000-000000000644",
+    matchStatus: "unmatched" as const,
+    narration: "NEFT CR-GIVE INDIA FOUNDATION-PAYOUT SEP",
+    reference: "GIVEINDIASEED01",
+    suggestedKind: "giveindia_payout" as const,
+    suggestionReason: "giveindia_narration",
+    valueOn: "2026-09-05",
+  },
+  {
+    amountPaise: 1_200_000,
+    balancePaise: 12_634_250,
+    direction: "debit" as const,
+    id: "01930000-0000-7000-8000-000000000645",
+    matchStatus: "unmatched" as const,
+    narration: "NEFT DR-HALL RENT SEPTEMBER",
+    reference: "RENTSEED09",
+    valueOn: "2026-09-10",
+  },
+];
+
+async function seedStatementLines(adminId: string): Promise<void> {
+  await db
+    .insert(statementLine)
+    .values(
+      STATEMENT_LINES.map((line, index) => ({
+        ...line,
+        createdAt: now,
+        lineHash: `seed:${line.id}`,
+        matchedAt: line.matchStatus === "unmatched" ? null : now,
+        matchedBy: line.matchStatus === "unmatched" ? null : adminId,
+        orgAccountId: ORG_ACCOUNTS[0]?.id as string,
+        position: index + 1,
+        updatedAt: now,
+      }))
+    )
+    .onConflictDoNothing();
 }
 
 const SEED_IMPORT = {

@@ -1,0 +1,595 @@
+import type {
+  ImportRowOutcome,
+  StatementLineMatchKind,
+} from "@pi-dash/shared/constants";
+import { CONTRIBUTION_RECEIVED_STATUSES } from "@pi-dash/shared/income";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  lte,
+  sql,
+} from "drizzle-orm";
+
+import { db } from "..";
+import { orgAccount } from "../schema/finance-dimensions";
+import { gatewaySettlement } from "../schema/gateway-settlement";
+import { importBatch } from "../schema/import-batch";
+import { contribution } from "../schema/income";
+import { party } from "../schema/party";
+import { importRow } from "../schema/private/imports";
+import { statementLine } from "../schema/statement-line";
+
+/**
+ * Database access for bank statement lines: storing an upload's lines,
+ * the candidates matching looks at, and the match, ignore and unmatch
+ * writes. Narration never leaves this module except to the server functions
+ * that send it to finance.view holders.
+ */
+
+export type StatementTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type StatementLineRecord = typeof statementLine.$inferSelect;
+type Reader = Pick<typeof db, "select">;
+
+const CHUNK = 500;
+
+/**
+ * Serialises every write to statement lines (imports, matching and the
+ * reviewer's actions), so two of them never pick the same settlement or
+ * contribution for different lines. Transaction-scoped.
+ */
+export const STATEMENT_LINE_LOCK = sql`select pg_advisory_xact_lock(hashtext('statement-line-match'))`;
+
+export async function withStatementTransaction<T>(
+  work: (tx: StatementTx) => Promise<T>
+): Promise<T> {
+  return await db.transaction(async (tx) => {
+    await tx.execute(STATEMENT_LINE_LOCK);
+    return await work(tx);
+  });
+}
+
+/** Channels of money deposited straight into a bank account. */
+export const DIRECT_DEPOSIT_CHANNELS = [
+  "upi",
+  "neft",
+  "cheque",
+  "cash",
+] as const;
+
+export async function findBankAccount(
+  id: string,
+  executor: Reader = db
+): Promise<{ active: boolean; kind: string; name: string } | null> {
+  const [row] = await executor
+    .select({
+      active: orgAccount.active,
+      kind: orgAccount.kind,
+      name: orgAccount.name,
+    })
+    .from(orgAccount)
+    .where(eq(orgAccount.id, id));
+  return row ?? null;
+}
+
+/** The mapping and date format of the latest reviewed statement for this account. */
+export async function latestBankMapping(orgAccountId: string): Promise<{
+  dateFormat: string | null;
+  mapping: Record<string, string>;
+} | null> {
+  const [row] = await db
+    .select({
+      dateFormat: importBatch.dateFormat,
+      mapping: importBatch.mapping,
+    })
+    .from(importBatch)
+    .where(
+      and(
+        eq(importBatch.source, "bank_csv"),
+        eq(importBatch.orgAccountId, orgAccountId),
+        isNotNull(importBatch.mapping)
+      )
+    )
+    .orderBy(desc(importBatch.updatedAt))
+    .limit(1);
+  return row?.mapping
+    ? {
+        dateFormat: row.dateFormat,
+        mapping: row.mapping as Record<string, string>,
+      }
+    : null;
+}
+
+/** Which of these line hashes the account already has. */
+export async function findExistingLineHashes(
+  orgAccountId: string,
+  hashes: readonly string[],
+  executor: Reader = db
+): Promise<Set<string>> {
+  const found = new Set<string>();
+  const unique = [...new Set(hashes)];
+  for (let i = 0; i < unique.length; i += CHUNK) {
+    const rows = await executor
+      .select({ lineHash: statementLine.lineHash })
+      .from(statementLine)
+      .where(
+        and(
+          eq(statementLine.orgAccountId, orgAccountId),
+          inArray(statementLine.lineHash, unique.slice(i, i + CHUNK))
+        )
+      );
+    for (const row of rows) {
+      found.add(row.lineHash);
+    }
+  }
+  return found;
+}
+
+/** Inserts lines the account does not have yet; returns the hashes inserted. */
+export async function insertStatementLines(
+  tx: StatementTx,
+  rows: (typeof statementLine.$inferInsert)[]
+): Promise<Set<string>> {
+  const inserted = new Set<string>();
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const result = await tx
+      .insert(statementLine)
+      .values(rows.slice(i, i + CHUNK))
+      .onConflictDoNothing({
+        target: [statementLine.orgAccountId, statementLine.lineHash],
+      })
+      .returning({ lineHash: statementLine.lineHash });
+    for (const row of result) {
+      inserted.add(row.lineHash);
+    }
+  }
+  return inserted;
+}
+
+/** Sets one outcome on many import rows at once. */
+export async function setStatementRowOutcomes(
+  tx: StatementTx,
+  ids: readonly string[],
+  patch: {
+    decidedAt: Date;
+    decidedBy: string | null;
+    outcome: ImportRowOutcome;
+    outcomeReason: string | null;
+  }
+): Promise<void> {
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    await tx
+      .update(importRow)
+      .set(patch)
+      .where(inArray(importRow.id, ids.slice(i, i + CHUNK)));
+  }
+}
+
+export interface MatchInputs {
+  contributions: {
+    amountPaise: number;
+    id: string;
+    receivedOn: string;
+    reference: string | null;
+  }[];
+  lines: StatementLineRecord[];
+  settlements: {
+    amountPaise: number;
+    id: string;
+    settledOn: string;
+    utr: string | null;
+  }[];
+}
+
+/** Settlements and contributions no line is matched to. */
+const settlementUnmatched = sql`not exists (
+  select 1 from ${statementLine} sl where sl.matched_settlement_id = ${gatewaySettlement.id}
+)`;
+const contributionUnmatched = sql`not exists (
+  select 1 from ${statementLine} sl where sl.matched_contribution_id = ${contribution.id}
+)`;
+
+/**
+ * The account's unmatched lines and what they could match: processed
+ * settlements no line holds (any date: a UTR is evidence on its own), and
+ * contributions deposited straight into this account, received, held by no
+ * line and dated within `window`.
+ */
+export async function loadMatchInputs(
+  tx: StatementTx,
+  orgAccountId: string,
+  window: (lines: StatementLineRecord[]) => { from: string; to: string } | null
+): Promise<MatchInputs> {
+  const lines = await tx
+    .select()
+    .from(statementLine)
+    .where(
+      and(
+        eq(statementLine.orgAccountId, orgAccountId),
+        eq(statementLine.matchStatus, "unmatched")
+      )
+    )
+    .orderBy(asc(statementLine.valueOn), asc(statementLine.id));
+  const credits = lines.filter((line) => line.direction === "credit");
+  const range = window(credits);
+  if (!range) {
+    return { contributions: [], lines, settlements: [] };
+  }
+  const settlements = await tx
+    .select({
+      amountPaise: gatewaySettlement.amountPaise,
+      id: gatewaySettlement.id,
+      settledOn: gatewaySettlement.settledOn,
+      utr: gatewaySettlement.utr,
+    })
+    .from(gatewaySettlement)
+    .where(and(eq(gatewaySettlement.status, "processed"), settlementUnmatched));
+  const contributions = await tx
+    .select({
+      amountPaise: contribution.amountPaise,
+      id: contribution.id,
+      receivedOn: contribution.receivedOn,
+      reference: contribution.reference,
+    })
+    .from(contribution)
+    .where(
+      and(
+        eq(contribution.orgAccountId, orgAccountId),
+        inArray(contribution.channel, [...DIRECT_DEPOSIT_CHANNELS]),
+        inArray(contribution.status, [...CONTRIBUTION_RECEIVED_STATUSES]),
+        gte(contribution.receivedOn, range.from),
+        lte(contribution.receivedOn, range.to),
+        contributionUnmatched
+      )
+    );
+  return { contributions, lines, settlements };
+}
+
+export interface LineMatchWrite {
+  kind: Extract<
+    StatementLineMatchKind,
+    "contribution" | "giveindia_payout" | "settlement"
+  >;
+  reason: string;
+  targetId: string | null;
+}
+
+const matchColumns = (target: LineMatchWrite) => ({
+  matchedContributionId:
+    target.kind === "contribution" ? target.targetId : null,
+  matchedSettlementId: target.kind === "settlement" ? target.targetId : null,
+  matchKind: target.kind,
+  matchReason: target.reason,
+});
+
+const clearedSuggestion = {
+  suggestedContributionId: null,
+  suggestedKind: null,
+  suggestedSettlementId: null,
+  suggestionReason: null,
+};
+
+/** Matches an unmatched line; false when it was no longer unmatched. */
+export async function matchLine(
+  tx: StatementTx,
+  lineId: string,
+  target: LineMatchWrite,
+  actorId: string | null,
+  now: Date
+): Promise<boolean> {
+  const updated = await tx
+    .update(statementLine)
+    .set({
+      ...matchColumns(target),
+      ...clearedSuggestion,
+      ignoredReason: null,
+      matchedAt: now,
+      matchedBy: actorId,
+      matchStatus: "matched",
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(statementLine.id, lineId),
+        eq(statementLine.matchStatus, "unmatched")
+      )
+    )
+    .returning({ id: statementLine.id });
+  return updated.length > 0;
+}
+
+/** Stores a line's suggestion, or clears it. */
+export async function setLineSuggestion(
+  tx: StatementTx,
+  lineId: string,
+  target: LineMatchWrite | null,
+  now: Date
+): Promise<void> {
+  await tx
+    .update(statementLine)
+    .set(
+      target
+        ? {
+            suggestedContributionId:
+              target.kind === "contribution" ? target.targetId : null,
+            suggestedKind: target.kind,
+            suggestedSettlementId:
+              target.kind === "settlement" ? target.targetId : null,
+            suggestionReason: target.reason,
+            updatedAt: now,
+          }
+        : { ...clearedSuggestion, updatedAt: now }
+    )
+    .where(
+      and(
+        eq(statementLine.id, lineId),
+        eq(statementLine.matchStatus, "unmatched")
+      )
+    );
+}
+
+/** The line, locked for the rest of the transaction. */
+export async function lockStatementLine(
+  tx: StatementTx,
+  id: string
+): Promise<StatementLineRecord | null> {
+  const [row] = await tx
+    .select()
+    .from(statementLine)
+    .where(eq(statementLine.id, id))
+    .for("update");
+  return row ?? null;
+}
+
+export async function updateStatementLine(
+  tx: StatementTx,
+  id: string,
+  patch: Partial<typeof statementLine.$inferInsert>
+): Promise<void> {
+  await tx.update(statementLine).set(patch).where(eq(statementLine.id, id));
+}
+
+/** Puts a line back to unmatched, with no suggestion. */
+export async function resetStatementLine(
+  tx: StatementTx,
+  id: string,
+  now: Date
+): Promise<void> {
+  await updateStatementLine(tx, id, {
+    ...clearedSuggestion,
+    ignoredReason: null,
+    matchedAt: null,
+    matchedBy: null,
+    matchedContributionId: null,
+    matchedSettlementId: null,
+    matchKind: null,
+    matchReason: null,
+    matchStatus: "unmatched",
+    updatedAt: now,
+  });
+}
+
+/** Another line already holds this settlement or contribution. */
+export async function isTargetMatched(
+  executor: Reader,
+  kind: "contribution" | "settlement",
+  targetId: string
+): Promise<boolean> {
+  const column =
+    kind === "settlement"
+      ? statementLine.matchedSettlementId
+      : statementLine.matchedContributionId;
+  const [row] = await executor
+    .select({ id: statementLine.id })
+    .from(statementLine)
+    .where(eq(column, targetId))
+    .limit(1);
+  return row !== undefined;
+}
+
+export async function findSettlementForMatch(
+  executor: Reader,
+  id: string
+): Promise<{ amountPaise: number; status: string } | null> {
+  const [row] = await executor
+    .select({
+      amountPaise: gatewaySettlement.amountPaise,
+      status: gatewaySettlement.status,
+    })
+    .from(gatewaySettlement)
+    .where(eq(gatewaySettlement.id, id));
+  return row ?? null;
+}
+
+export async function findContributionForMatch(
+  executor: Reader,
+  id: string
+): Promise<{
+  amountPaise: number;
+  channel: string;
+  orgAccountId: string | null;
+  status: string;
+} | null> {
+  const [row] = await executor
+    .select({
+      amountPaise: contribution.amountPaise,
+      channel: contribution.channel,
+      orgAccountId: contribution.orgAccountId,
+      status: contribution.status,
+    })
+    .from(contribution)
+    .where(eq(contribution.id, id));
+  return row ?? null;
+}
+
+export interface LinkCandidates {
+  contributions: {
+    amountPaise: number;
+    donorName: string;
+    id: string;
+    receivedOn: string;
+    reference: string | null;
+  }[];
+  settlements: {
+    amountPaise: number;
+    externalId: string;
+    id: string;
+    settledOn: string;
+    utr: string | null;
+  }[];
+}
+
+const LINK_CANDIDATE_LIMIT = 500;
+
+/**
+ * What a credit line of this account could be linked to by hand: the
+ * account's direct-deposit contributions and processed settlements no line
+ * holds, nearest the line's date first.
+ */
+export async function findLinkCandidates(
+  orgAccountId: string,
+  valueOn: string
+): Promise<LinkCandidates> {
+  const nearest = (column: typeof contribution.receivedOn) =>
+    sql`abs(${column} - ${valueOn}::date)`;
+  const contributions = await db
+    .select({
+      amountPaise: contribution.amountPaise,
+      donorName: party.displayName,
+      id: contribution.id,
+      receivedOn: contribution.receivedOn,
+      reference: contribution.reference,
+    })
+    .from(contribution)
+    .innerJoin(party, eq(party.id, contribution.partyId))
+    .where(
+      and(
+        eq(contribution.orgAccountId, orgAccountId),
+        inArray(contribution.channel, [...DIRECT_DEPOSIT_CHANNELS]),
+        inArray(contribution.status, [...CONTRIBUTION_RECEIVED_STATUSES]),
+        contributionUnmatched
+      )
+    )
+    .orderBy(nearest(contribution.receivedOn), asc(contribution.id))
+    .limit(LINK_CANDIDATE_LIMIT);
+  const settlements = await db
+    .select({
+      amountPaise: gatewaySettlement.amountPaise,
+      externalId: gatewaySettlement.externalId,
+      id: gatewaySettlement.id,
+      settledOn: gatewaySettlement.settledOn,
+      utr: gatewaySettlement.utr,
+    })
+    .from(gatewaySettlement)
+    .where(and(eq(gatewaySettlement.status, "processed"), settlementUnmatched))
+    .orderBy(
+      sql`abs(${gatewaySettlement.settledOn} - ${valueOn}::date)`,
+      asc(gatewaySettlement.id)
+    )
+    .limit(LINK_CANDIDATE_LIMIT);
+  return { contributions, settlements };
+}
+
+export interface StatementSummary {
+  /** Balance printed on the latest line that has one, and its date. */
+  closing: { balancePaise: number; valueOn: string } | null;
+  creditCount: number;
+  creditsMatchedCount: number;
+  /** give.do gifts received less give.do payouts matched to bank lines. */
+  giveDoClearingPaise: number;
+  lineCount: number;
+  suggestionCount: number;
+  unmatchedCount: number;
+}
+
+/** The figures above an account's lines. */
+export async function statementSummary(
+  orgAccountId: string
+): Promise<StatementSummary> {
+  const [counts] = await db
+    .select({
+      credits: sql<number>`count(*) filter (where ${statementLine.direction} = 'credit')::int`,
+      creditsMatched: sql<number>`count(*) filter (where ${statementLine.direction} = 'credit' and ${statementLine.matchStatus} = 'matched')::int`,
+      lines: sql<number>`count(*)::int`,
+      suggestions: sql<number>`count(*) filter (where ${statementLine.matchStatus} = 'unmatched' and ${statementLine.suggestedKind} is not null)::int`,
+      unmatched: sql<number>`count(*) filter (where ${statementLine.matchStatus} = 'unmatched')::int`,
+    })
+    .from(statementLine)
+    .where(eq(statementLine.orgAccountId, orgAccountId));
+  const [closing] = await db
+    .select({
+      balancePaise: statementLine.balancePaise,
+      valueOn: statementLine.valueOn,
+    })
+    .from(statementLine)
+    .leftJoin(importBatch, eq(importBatch.id, statementLine.importBatchId))
+    .where(
+      and(
+        eq(statementLine.orgAccountId, orgAccountId),
+        isNotNull(statementLine.balancePaise)
+      )
+    )
+    .orderBy(
+      desc(statementLine.valueOn),
+      sql`${importBatch.createdAt} desc nulls last`,
+      desc(statementLine.position)
+    )
+    .limit(1);
+  return {
+    closing:
+      closing && closing.balancePaise !== null
+        ? { balancePaise: closing.balancePaise, valueOn: closing.valueOn }
+        : null,
+    creditCount: Number(counts?.credits ?? 0),
+    creditsMatchedCount: Number(counts?.creditsMatched ?? 0),
+    giveDoClearingPaise: await giveDoClearingPaise(),
+    lineCount: Number(counts?.lines ?? 0),
+    suggestionCount: Number(counts?.suggestions ?? 0),
+    unmatchedCount: Number(counts?.unmatched ?? 0),
+  };
+}
+
+/**
+ * give.do (GiveIndia) clearing as pi-dash sees it: gifts received through
+ * give.do less the payouts matched to bank lines. No per-gift allocation
+ * yet.
+ */
+export async function giveDoClearingPaise(): Promise<number> {
+  const [gifts] = await db
+    .select({
+      total: sql<string>`coalesce(sum(${contribution.amountPaise}), 0)`,
+    })
+    .from(contribution)
+    .where(
+      and(
+        eq(contribution.channel, "give_do"),
+        inArray(contribution.status, [...CONTRIBUTION_RECEIVED_STATUSES])
+      )
+    );
+  const [payouts] = await db
+    .select({
+      total: sql<string>`coalesce(sum(${statementLine.amountPaise}), 0)`,
+    })
+    .from(statementLine)
+    .where(
+      and(
+        eq(statementLine.matchStatus, "matched"),
+        eq(statementLine.matchKind, "giveindia_payout")
+      )
+    );
+  return Number(gifts?.total ?? 0) - Number(payouts?.total ?? 0);
+}
+
+export async function getStatementLine(
+  id: string
+): Promise<StatementLineRecord | null> {
+  const [row] = await db
+    .select()
+    .from(statementLine)
+    .where(eq(statementLine.id, id));
+  return row ?? null;
+}

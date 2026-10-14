@@ -36,9 +36,9 @@ const STEPS = [
   { id: "review", label: "Review" },
   { id: "done", label: "Import" },
 ] as const;
-type StepId = (typeof STEPS)[number]["id"];
+export type StepId = (typeof STEPS)[number]["id"];
 
-function StepsHeader({ current }: { current: StepId }) {
+export function StepsHeader({ current }: { current: StepId }) {
   // On the result screen every step is complete.
   const index =
     current === "done"

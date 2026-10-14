@@ -91,6 +91,17 @@ export const contributionQueries = {
  */
 export const IMPORT_BATCH_LIST_LIMIT = 2000;
 
+/** Bank statement uploads are finance records; donor roles alone don't see them. */
+function importBatchesFor(ctx: Parameters<typeof can>[0] | null | undefined) {
+  const financeViewer =
+    ctx !== null &&
+    ctx !== undefined &&
+    (can(ctx, "finance.view") || can(ctx, "finance.manage"));
+  return financeViewer
+    ? zql.importBatch
+    : zql.importBatch.where("source", "!=", "bank_csv");
+}
+
 /**
  * CSV import batches for the Imports tab: settings and counts only, since
  * the rows themselves never sync. The uploader's name comes from the user
@@ -99,7 +110,7 @@ export const IMPORT_BATCH_LIST_LIMIT = 2000;
 export const importBatchQueries = {
   byId: defineQuery(z.object({ id: z.string() }), ({ args: { id }, ctx }) =>
     canSeeIncome(ctx)
-      ? zql.importBatch
+      ? importBatchesFor(ctx)
           .where("id", id)
           .related("uploadedByUser")
           .related("orgAccount")
@@ -114,7 +125,7 @@ export const importBatchQueries = {
   ),
   list: defineQuery(({ ctx }) =>
     canSeeIncome(ctx)
-      ? zql.importBatch
+      ? importBatchesFor(ctx)
           .related("uploadedByUser")
           .related("orgAccount")
           .orderBy("createdAt", "desc")

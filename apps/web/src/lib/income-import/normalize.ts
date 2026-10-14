@@ -177,14 +177,15 @@ function isoIfValid(year: number, month: number, day: number): string | null {
  */
 export function parseDate(
   text: string,
-  format: ImportDateFormat
+  format: ImportDateFormat,
+  label = "Received on"
 ): { error: string } | { iso: string } {
   const value = text.trim().replace(TIME_SUFFIX, "");
   if (value === "") {
     return { error: "Date is missing" };
   }
   const invalid = {
-    error: `Received on is not a date; use ${DATE_FORMAT_LABELS[format]}`,
+    error: `${label} is not a date; use ${DATE_FORMAT_LABELS[format]}`,
   };
   let parts: [number, number, number] | null = null;
   const named = DAY_MONTH_NAME.exec(value);
@@ -205,8 +206,7 @@ export function parseDate(
     } else if (c.length === 4) {
       if (format === "ymd") {
         return {
-          error:
-            "Received on is not Year-Month-Day (2026-03-31); check the date format",
+          error: `${label} is not Year-Month-Day (2026-03-31); check the date format`,
         };
       }
       parts =
@@ -214,7 +214,7 @@ export function parseDate(
           ? [Number(c), Number(a), Number(b)]
           : [Number(c), Number(b), Number(a)];
     } else {
-      return { error: "Received on needs a four-digit year" };
+      return { error: `${label} needs a four-digit year` };
     }
   }
   if (!parts) {

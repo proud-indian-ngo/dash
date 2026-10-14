@@ -64,7 +64,7 @@ const channelOptions = IMPORT_CHANNEL_VALUES.map((value) => ({
   value,
 }));
 
-function FileDrop({
+export function FileDrop({
   error,
   file,
   onFile,
