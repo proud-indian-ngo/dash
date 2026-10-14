@@ -122,6 +122,9 @@ Two consequences the CA should see:
 
 ## 4. Questions for the CA
 
+Founder's answers (14 October 2026) are shown under each question as **Founder**; the CA confirms or corrects them.
+
+
 1. **Which day counts as "receipt" for gateway donations, and gross or net?** The accounting policy says "Donations are recognised on receipt basis". pi-dash's design records a Razorpay or give.do gift as income on the day the gateway captures it, at the full amount, with the gateway's fee as an expense, and treats the later payout into the bank as a transfer (section 3).
    1. Please confirm whether "receipt" for a gateway gift is the **capture date** (the donor paid the gateway) or the **bank credit date** (the gateway paid the trust).
    2. Please confirm whether you want gifts shown **gross with the fee as an expense** (pi-dash's design) or **net of fees**.
@@ -129,16 +132,23 @@ Two consequences the CA should see:
    4. **Proposal** for those gifts, if 3 is confirmed: pi-dash posts them in FY 2026-27, dated the day the payout reached the bank, as income at the full amount with the fee as expense, and the payout as a transfer the same day, so the clearing balance opens and stays at zero. pi-dash will list every such gift from its Razorpay and give.do payout records.
    5. Linked question: pi-dash's donations return (Form 113) for FY 2026-27 currently leaves out every gift dated before 1 April 2026, on the basis that it was receipted and filed outside pi-dash. If the gifts in 3 are FY 2026-27 receipts, should they go into the FY 2026-27 donations return instead, and were 80G receipts already issued for them?
    6. A refund in FY 2026-27 of a gift received before 1 April 2026: **Proposal**: post it as a reduction of FY 2026-27 donation income, dated the refund day. Please confirm or advise.
+   - **Founder**: the donor's payment date (capture date), shown gross with the gateway fee as an expense. Because the audited balance sheet shows no gateway balance at 31 March 2026, the cutover rule in item 4 still applies to gifts captured in March 2026 and paid out in April 2026: they are FY 2026-27 income, dated their payout day, so no gift falls between the two years.
 2. **Income presentation.** The audited statements show all income as "Donations received", including money from corporate engagements, and the finance chapter keeps that treatment (section 8 item 2). Should the FY 2026-27 workbook keep a single "Donations received" line, or do you want sub-lines (such as CSR, through Goodera, individual)? pi-dash records the donation type and channel on every gift, so either is possible.
 3. **Expense heads.** The receipts and payments account lists payments by activity (Mumbai School Transformation, Kalakriti 2.0, gift distribution, students' school fees, Art with Elderly – JP Morgan, volunteer t-shirts, PI Community Centre, audit fees, website hosting, transportation, and others). pi-dash tags every expense with a programme, an optional project (an edition, a class, a drive or a corporate engagement), an optional event, and an account head taken from today's expense categories (Resource Cost, Procurement, Transportation, Food or Refreshment, Logistics, Others, Scholarship). Are you happy to build those activity lines from the programme, project and event columns plus the account head in the workbook? If you need fixed heads (audit fees, website hosting, depreciation), please list them and pi-dash will add them as account heads.
 4. **Depreciation.** **Proposal**: you keep calculating depreciation at year end, as now, and pi-dash records your figure as one adjustment per asset (permission `finance.adjust`, with a reason quoting your schedule), so pi-dash's asset lines agree with your books. pi-dash does not compute depreciation itself.
+   - **Founder**: the CA calculates it at year end (the proposal).
 5. **Audit fee provision of 10,000.** **Proposal**: when the FY 2025-26 audit fee is paid in FY 2026-27, the payment clears the opening liability and is not FY 2026-27 expense. The FY 2026-27 audit fee is provided for by you at year end, recorded in pi-dash as an adjustment. Please confirm.
+   - **Founder**: treat the payment as FY 2026-27 expense. For the CA: the opening balance carries a 10,000 audit fee liability; if the payment is booked as expense, that liability has to be written back (or the opening figure changed), otherwise it stays on the balance sheet and the fee is counted twice. Please advise which.
 6. **Column headers in the signed I&E.** The income and expenditure account's column headers read "31-March-2025" and "31-March-2024", although the figures are for FY 2025-26 and FY 2024-25. Is a corrected copy needed for the record?
 7. **Opening figures.** Please confirm every amount in section 2, the per-asset WDV rates (and gross and accumulated depreciation per asset, if available), and that there were no payables, advances, receivables or gateway balances at 31 March 2026.
 8. **Tax deducted at source on payments.** pi-dash can record TDS withheld on a vendor or contractor payment (for example a contractor paid per event) and the later payment to the government. Does the trust deduct TDS on any payments today, and under which sections? If none, the withholding fields stay unused.
+   - **Founder**: the trust deducts no TDS today; the withholding fields stay unused.
 9. **Fixed deposit.** How is FD interest received (credited to the current account, or added to the deposit), and should interest be recorded as it is credited (cash) or accrued at year end, as the accounting policy suggests? Please share the FD's start date, maturity date and rate so renewals can be recorded.
+   - **Founder**: please advise (open).
 10. **CSR money.** A company's CSR gift is recorded as a donation (Specific grant) in the donations return. Should CSR receipts sit in the General Fund like other donations, or in a separate restricted fund that tracks how the money is spent against the CSR agreement?
+   - **Founder**: General Fund, like other donations; spending is tracked through programme and project.
 11. **80G receipt numbering.** Razorpay and give.do already send receipts for their gifts, so pi-dash will number receipts only for direct bank transfers. Is a series such as `PI/2026-27/0001` (one series per financial year, no gaps) acceptable, and does any receipt issued by hand since 1 April 2026 need to be carried into it?
+   - **Founder**: yes, `PI/2026-27/0001`, starting at 0001; no receipts were issued by hand since 1 April 2026.
 
 ## 5. CA handoff workbook (XLSX)
 
