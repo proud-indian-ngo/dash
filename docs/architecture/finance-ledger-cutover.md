@@ -106,7 +106,7 @@ Restated from the trigger table in `finance-and-programmes.md` section 3.8:
 | An acknowledgement or invoice is sent to a corporate or Goodera | Nothing (section 8 item 2 of the finance chapter: engagement money is a donation, recognised when received) | Nothing |
 | A donor is refunded | Donation income reduced | Refund out of the account it is paid from |
 | An in-kind gift arrives | In-kind income at fair value, and either an expense when it is used or an asset when it is kept | Nothing, labelled in-kind in the CA's workbook |
-| A reimbursement is approved (it has already been paid; the payment screenshot is attached) | Expense per line | Out of the account it was paid from, on the payment date (default: approval date) |
+| A reimbursement is approved (it has already been paid; the payment screenshot is attached) | Expense per line | Out of the main bank account (the trust deals in no cash), on the payment date (default: approval date) |
 | A vendor payment is paid and the payment confirmed | Nothing (already recognised) | Out of the account it was paid from |
 | A vendor invoice is accepted | Expense (or an asset for equipment) at the invoice amount less any GST we can recover, and the recoverable GST as an asset. The trust is not GST-registered, so today this is the full invoice amount | Nothing |
 | Tax is deducted from a vendor payment (TDS) | Nothing; the amount owed to the government is tracked on the deduction | Nothing |
