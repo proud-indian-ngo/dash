@@ -848,6 +848,13 @@
       "when": 1791918061023,
       "tag": "0120_clear_loners",
       "breakpoints": true
+    },
+    {
+      "idx": 121,
+      "version": "7",
+      "when": 1791950593294,
+      "tag": "0121_flashy_lady_mastermind",
+      "breakpoints": true
     }
   ]
 }

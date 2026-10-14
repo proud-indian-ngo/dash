@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  freezeEmailBatchRecipients: vi.fn(),
   sendEmail: vi.fn(),
   sendEmailBatch: vi.fn(),
 }));
 
 vi.mock("@pi-dash/db", () => ({ db: {} }));
+vi.mock("@pi-dash/db/queries/email-batch-recipients", () => ({
+  freezeEmailBatchRecipients: mocks.freezeEmailBatchRecipients,
+}));
 vi.mock("@pi-dash/env/server", () => ({
   env: {
     APP_URL: "https://dash.test",
@@ -79,6 +83,9 @@ describe("buildNotificationEmail", () => {
 describe("sendBulkNotificationEmails", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.freezeEmailBatchRecipients.mockImplementation(
+      async (_key: string, recipients: unknown) => recipients
+    );
   });
 
   it("sorts recipients so retried jobs build the same chunks", async () => {
@@ -126,5 +133,63 @@ describe("sendBulkNotificationEmails", () => {
         topic: TOPICS.TEAMS,
       })
     ).resolves.toBe(false);
+  });
+
+  it("resends the first attempt's recipients when the job is retried", async () => {
+    mocks.freezeEmailBatchRecipients.mockResolvedValueOnce([
+      { email: "a@test.com", userId: "user-a" },
+      { email: "b@test.com", userId: "user-b" },
+    ]);
+    mocks.sendEmailBatch.mockResolvedValueOnce({
+      failures: [],
+      sent: 2,
+      skipped: false,
+    });
+
+    // user-b unsubscribed between attempts; user-c joined.
+    await sendBulkNotificationEmails({
+      body: "b",
+      idempotencyKey: "bulk-email",
+      recipients: [
+        { email: "c@test.com", userId: "user-c" },
+        { email: "a@test.com", userId: "user-a" },
+      ],
+      title: "t",
+      topic: TOPICS.TEAMS,
+    });
+
+    expect(mocks.freezeEmailBatchRecipients).toHaveBeenCalledWith(
+      "bulk-email",
+      [
+        { email: "a@test.com", userId: "user-a" },
+        { email: "c@test.com", userId: "user-c" },
+      ]
+    );
+    const [messages] = mocks.sendEmailBatch.mock.calls[0] ?? [];
+    expect(messages.map((m: { to: string }) => m.to)).toEqual([
+      "a@test.com",
+      "b@test.com",
+    ]);
+  });
+
+  it("sends to the current recipients when the snapshot fails", async () => {
+    mocks.freezeEmailBatchRecipients.mockRejectedValueOnce(new Error("db"));
+    mocks.sendEmailBatch.mockResolvedValueOnce({
+      failures: [],
+      sent: 1,
+      skipped: false,
+    });
+
+    await expect(
+      sendBulkNotificationEmails({
+        body: "b",
+        idempotencyKey: "k",
+        recipients: [{ email: "a@test.com", userId: "user-a" }],
+        title: "t",
+        topic: TOPICS.TEAMS,
+      })
+    ).resolves.toBe(true);
+    const [messages] = mocks.sendEmailBatch.mock.calls[0] ?? [];
+    expect(messages.map((m: { to: string }) => m.to)).toEqual(["a@test.com"]);
   });
 });

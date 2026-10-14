@@ -1,3 +1,4 @@
+import { freezeEmailBatchRecipients } from "@pi-dash/db/queries/email-batch-recipients";
 import { FOOTER_NOTE_PLACEHOLDER } from "@pi-dash/email";
 import {
   EmailSendError,
@@ -106,9 +107,34 @@ export async function sendNotificationEmail(
 }
 
 /**
+ * The recipients for this send: those of the first attempt when the job is a
+ * retry. Resend rejects a reused idempotency key whose payload changed, so a
+ * retry must not pick up preference or bounce changes made in between.
+ * Falls back to the current list when the snapshot can't be read or written.
+ */
+async function stableRecipients(
+  idempotencyKey: string,
+  recipients: { email: string; userId: string }[]
+): Promise<{ email: string; userId: string }[]> {
+  const sorted = [...recipients].sort((a, b) =>
+    a.userId.localeCompare(b.userId)
+  );
+  try {
+    return await freezeEmailBatchRecipients(idempotencyKey, sorted);
+  } catch (error) {
+    logEmailError(error, {
+      handler: "sendBulkNotificationEmails",
+      step: "freeze_recipients",
+    });
+    return sorted;
+  }
+}
+
+/**
  * Sends one notification to many recipients through Resend's batch endpoint.
- * Recipients are sorted by user id so a retried job rebuilds the same chunks
- * and Resend dedupes them. True when at least one email was accepted.
+ * A retried job resends the first attempt's recipients in the same order, so
+ * it rebuilds the same chunks and Resend dedupes them. True when at least one
+ * email was accepted.
  */
 export async function sendBulkNotificationEmails(options: {
   body: string;
@@ -118,18 +144,20 @@ export async function sendBulkNotificationEmails(options: {
   title: string;
   topic: string;
 }): Promise<boolean> {
-  const messages = [...options.recipients]
-    .sort((a, b) => a.userId.localeCompare(b.userId))
-    .map((recipient) =>
-      buildNotificationEmail({
-        body: options.body,
-        emailHtml: options.emailHtml,
-        title: options.title,
-        toEmail: recipient.email,
-        topic: options.topic,
-        userId: recipient.userId,
-      })
-    );
+  const recipients = await stableRecipients(
+    options.idempotencyKey,
+    options.recipients
+  );
+  const messages = recipients.map((recipient) =>
+    buildNotificationEmail({
+      body: options.body,
+      emailHtml: options.emailHtml,
+      title: options.title,
+      toEmail: recipient.email,
+      topic: options.topic,
+      userId: recipient.userId,
+    })
+  );
   try {
     const result = await sendEmailBatch(messages, options.idempotencyKey);
     for (const failure of result.failures) {
