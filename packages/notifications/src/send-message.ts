@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
 import { env } from "@pi-dash/env/server";
+import type { DigestRow } from "@pi-dash/shared/notification-digest";
 import { sendWhatsAppMessage } from "@pi-dash/whatsapp/messaging";
 import {
   getEnabledUserPhonesForTopic,
@@ -9,6 +10,8 @@ import {
 import { getUserPhone } from "@pi-dash/whatsapp/users";
 import { createRequestLogger } from "evlog";
 
+import { type HeldRecipient, holdNotification } from "./batching";
+import { buildWhatsAppText } from "./digest";
 import { sendBulkNotificationEmails, sendNotificationEmail } from "./email";
 import { insertBulkNotifications, insertNotification } from "./inbox";
 import { isNotificationsDisabled } from "./kill-switch";
@@ -18,15 +21,22 @@ import {
   getChannelPreferences,
   getUserEmail,
 } from "./preferences";
-import type { NotificationChannel, Topic } from "./topics";
+import { isBatchedTopic, type NotificationChannel, type Topic } from "./topics";
 
 export interface SendMessageOptions {
   body: string;
   channels?: readonly NotificationChannel[];
   clickAction?: string;
+  /** How this reads as a row when it's batched into a digest. */
+  digest?: DigestRow;
   emailHtml?: string;
   idempotencyKey: string;
   imageUrl?: string;
+  /**
+   * Send email and WhatsApp now even in a batched topic: for messages that
+   * go stale within the batching window (a reminder, a cancellation).
+   */
+  immediate?: boolean;
   title: string;
   to: string;
   topic: Topic;
@@ -34,6 +44,8 @@ export interface SendMessageOptions {
 
 export interface SendMessageResult {
   channels: { inboxQueued: boolean; emailQueued: boolean; whatsapp: boolean };
+  /** Email and WhatsApp were held for the batching window, not sent yet. */
+  held: boolean;
   idempotencyKey: string;
   suppressedByKillSwitch: boolean;
   title: string;
@@ -54,7 +66,9 @@ export async function sendMessage({
   emailHtml,
   idempotencyKey,
   clickAction,
+  digest,
   imageUrl,
+  immediate,
   topic,
   channels,
 }: SendMessageOptions): Promise<SendMessageResult> {
@@ -70,6 +84,7 @@ export async function sendMessage({
     log.emit();
     const suppressed: SendMessageResult = {
       channels: { emailQueued: false, inboxQueued: false, whatsapp: false },
+      held: false,
       idempotencyKey,
       suppressedByKillSwitch: true,
       title,
@@ -98,8 +113,21 @@ export async function sendMessage({
         })
       : false;
 
+  const held = !immediate && isBatchedTopic(topic);
+  const wantsEmail =
+    (channels?.includes("email") ?? true) && prefs.emailEnabled && !!email;
+  const wantsWhatsApp = channels?.includes("whatsapp") ?? true;
+  const whatsappText = buildWhatsAppText({
+    appName: env.APP_NAME,
+    appUrl: env.APP_URL,
+    body,
+    clickAction,
+    imageUrl,
+    title,
+  });
+
   const emailPromise =
-    (channels?.includes("email") ?? true) && prefs.emailEnabled && email
+    !held && wantsEmail && email
       ? sendNotificationEmail({
           body,
           emailHtml,
@@ -112,7 +140,7 @@ export async function sendMessage({
       : false;
 
   const whatsappPromise = (async (): Promise<boolean> => {
-    if (!(channels?.includes("whatsapp") ?? true)) {
+    if (!wantsWhatsApp) {
       return false;
     }
     try {
@@ -123,15 +151,10 @@ export async function sendMessage({
       if (!(phone && topicEnabled)) {
         return false;
       }
-      const appUrl = env.APP_URL;
-      const whatsappBody =
-        clickAction && appUrl
-          ? `${body}\n\nView: ${appUrl}${clickAction}`
-          : body;
-      const footer = appUrl ? `\n\n_Sent by ${env.APP_NAME}_(${appUrl})` : "";
-      const imageSuffix = imageUrl ? `\n\nPayment proof: ${imageUrl}` : "";
-      const fullMessage = `*${title}*\n\n${whatsappBody}${imageSuffix}${footer}`;
-      await sendWhatsAppMessage(phone, fullMessage, {
+      if (held) {
+        return true;
+      }
+      await sendWhatsAppMessage(phone, whatsappText, {
         idempotencyKey: `${idempotencyKey}-whatsapp-${to}`,
       });
       return true;
@@ -151,18 +174,38 @@ export async function sendMessage({
     }
   })();
 
-  const [inboxQueued, emailQueued, whatsappSent] = await Promise.all([
+  const [inboxQueued, emailQueued, whatsappReady] = await Promise.all([
     inboxPromise,
     emailPromise,
     whatsappPromise,
   ]);
 
+  // For batched topics the WhatsApp check above only decides who's held.
+  const heldRecipients: HeldRecipient[] = [
+    ...(wantsEmail ? [{ channel: "email" as const, userId: to }] : []),
+    ...(whatsappReady ? [{ channel: "whatsapp" as const, userId: to }] : []),
+  ];
+  const heldOk = held
+    ? await holdNotification({
+        body,
+        clickAction,
+        digest,
+        emailHtml,
+        idempotencyKey,
+        recipients: heldRecipients,
+        title,
+        topic,
+        whatsappText,
+      })
+    : false;
+
   const result: SendMessageResult = {
     channels: {
-      emailQueued: Boolean(emailQueued),
+      emailQueued: held ? heldOk && wantsEmail : Boolean(emailQueued),
       inboxQueued: Boolean(inboxQueued),
-      whatsapp: whatsappSent,
+      whatsapp: held ? heldOk && whatsappReady : whatsappReady,
     },
+    held: heldOk,
     idempotencyKey,
     suppressedByKillSwitch: false,
     title,
@@ -176,8 +219,12 @@ export async function sendMessage({
 interface SendBulkMessageOptions {
   body: string;
   clickAction?: string;
+  /** How this reads as a row when it's batched into a digest. */
+  digest?: DigestRow;
   emailHtml?: string;
   idempotencyKey: string;
+  /** See `SendMessageOptions.immediate`. */
+  immediate?: boolean;
   inboxBody?: string;
   /** Skip individual WhatsApp DMs — use when sending to a group separately. */
   skipWhatsApp?: boolean;
@@ -192,6 +239,8 @@ export interface SendBulkMessageResult {
     emailQueued: boolean;
     whatsappRecipients: number;
   };
+  /** Email and WhatsApp were held for the batching window, not sent yet. */
+  held: boolean;
   idempotencyKey: string;
   skippedEmpty: boolean;
   suppressedByKillSwitch: boolean;
@@ -221,7 +270,9 @@ export async function sendBulkMessage({
   body,
   emailHtml,
   clickAction,
+  digest,
   idempotencyKey,
+  immediate,
   inboxBody,
   skipWhatsApp,
   topic,
@@ -233,6 +284,7 @@ export async function sendBulkMessage({
         inboxQueued: false,
         whatsappRecipients: 0,
       },
+      held: false,
       idempotencyKey,
       skippedEmpty: true,
       suppressedByKillSwitch: false,
@@ -260,6 +312,7 @@ export async function sendBulkMessage({
         inboxQueued: false,
         whatsappRecipients: 0,
       },
+      held: false,
       idempotencyKey,
       skippedEmpty: false,
       suppressedByKillSwitch: true,
@@ -301,13 +354,23 @@ export async function sendBulkMessage({
     return count > 0;
   })();
 
+  const held = !immediate && isBatchedTopic(topic);
+  const emailRecipients = userIds.flatMap((uid) => {
+    const email = emailMap.get(uid);
+    const prefs = prefsMap.get(uid) ?? DEFAULTS;
+    return prefs.emailEnabled && email ? [{ email, userId: uid }] : [];
+  });
+  const whatsappText = buildWhatsAppText({
+    appName: env.APP_NAME,
+    appUrl: env.APP_URL,
+    body,
+    clickAction,
+    title,
+  });
+
   const emailPromise = (async (): Promise<boolean> => {
-    const recipients = userIds.flatMap((uid) => {
-      const email = emailMap.get(uid);
-      const prefs = prefsMap.get(uid) ?? DEFAULTS;
-      return prefs.emailEnabled && email ? [{ email, userId: uid }] : [];
-    });
-    if (recipients.length === 0) {
+    const recipients = emailRecipients;
+    if (held || recipients.length === 0) {
       return false;
     }
     return await sendBulkNotificationEmails({
@@ -320,32 +383,27 @@ export async function sendBulkMessage({
     });
   })();
 
-  const whatsappPromise = (async (): Promise<number> => {
+  // For batched topics this only finds who's held: the ids, sent nothing.
+  const whatsappPromise = (async (): Promise<string[]> => {
     if (skipWhatsApp) {
-      return 0;
+      return [];
     }
     try {
       const phoneMap = await getEnabledUserPhonesForTopic(userIds, topic);
-      if (phoneMap.size === 0) {
-        return 0;
+      if (held || phoneMap.size === 0) {
+        return [...phoneMap.keys()];
       }
-
-      const appUrl = env.APP_URL;
-      const whatsappBody =
-        clickAction && appUrl
-          ? `${body}\n\nView: ${appUrl}${clickAction}`
-          : body;
-      const footer = appUrl ? `\n\n_Sent by ${env.APP_NAME}_(${appUrl})` : "";
-      const fullMessage = `*${title}*\n\n${whatsappBody}${footer}`;
 
       const results = await Promise.allSettled(
         [...phoneMap.entries()].map(([userId, phone]) =>
-          sendWhatsAppMessage(phone, fullMessage, {
+          sendWhatsAppMessage(phone, whatsappText, {
             idempotencyKey: `${idempotencyKey}-whatsapp-${userId}`,
           })
         )
       );
-      return results.filter((r) => r.status === "fulfilled").length;
+      return [...phoneMap.keys()].filter(
+        (_, i) => results[i]?.status === "fulfilled"
+      );
     } catch (error) {
       const log = createRequestLogger();
       log.set({
@@ -358,22 +416,46 @@ export async function sendBulkMessage({
       });
       log.error(error instanceof Error ? error : String(error));
       log.emit();
-      return 0;
+      return [];
     }
   })();
 
-  const [inboxQueued, emailQueued, whatsappRecipients] = await Promise.all([
+  const [inboxQueued, emailQueued, whatsappUserIds] = await Promise.all([
     inboxPromise,
     emailPromise,
     whatsappPromise,
   ]);
 
+  const heldOk = held
+    ? await holdNotification({
+        body,
+        clickAction,
+        digest,
+        emailHtml,
+        idempotencyKey,
+        recipients: [
+          ...emailRecipients.map((r) => ({
+            channel: "email" as const,
+            userId: r.userId,
+          })),
+          ...whatsappUserIds.map((userId) => ({
+            channel: "whatsapp" as const,
+            userId,
+          })),
+        ],
+        title,
+        topic,
+        whatsappText,
+      })
+    : false;
+
   const result: SendBulkMessageResult = {
     channels: {
-      emailQueued,
+      emailQueued: held ? heldOk && emailRecipients.length > 0 : emailQueued,
       inboxQueued,
-      whatsappRecipients,
+      whatsappRecipients: held && !heldOk ? 0 : whatsappUserIds.length,
     },
+    held: heldOk,
     idempotencyKey,
     skippedEmpty: false,
     suppressedByKillSwitch: false,

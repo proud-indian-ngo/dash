@@ -27,6 +27,8 @@ function resolveAmountPaise(options: TransactionAmount): number {
   );
 }
 
+const VENDOR_PAYMENTS_PATH = "/vendor-payments";
+
 export async function notifyVendorPaymentTransactionSubmitted(
   options: TransactionAmount & {
     submitterName: string;
@@ -36,7 +38,8 @@ export async function notifyVendorPaymentTransactionSubmitted(
   }
 ): Promise<void> {
   const approverIds = await getUserIdsWithPermission("requests.approve");
-  const formatted = formatPaise(resolveAmountPaise(options));
+  const amountPaise = resolveAmountPaise(options);
+  const formatted = formatPaise(amountPaise);
   const baseMessage = `${options.submitterName} logged a payment of ${formatted} for "${options.vendorPaymentTitle}".`;
   const fullUrl = `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`;
   const emailHtml = await renderNotificationEmail({
@@ -48,6 +51,14 @@ export async function notifyVendorPaymentTransactionSubmitted(
   await sendBulkMessage({
     body: baseMessage,
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
+    digest: {
+      actionLabel: "Review",
+      amountPaise,
+      list: { label: "Review vendor payments", path: VENDOR_PAYMENTS_PATH },
+      meta: `Logged by ${options.submitterName}`,
+      name: options.vendorPaymentTitle,
+      status: { label: "Needs review", tone: "warning" },
+    },
     emailHtml,
     idempotencyKey: `vpt-submitted-${options.transactionId}`,
     title: "💰 New payment logged",
@@ -65,7 +76,8 @@ export async function notifyVendorPaymentTransactionApproved(
     vendorPaymentTitle: string;
   }
 ): Promise<void> {
-  const formatted = formatPaise(resolveAmountPaise(options));
+  const amountPaise = resolveAmountPaise(options);
+  const formatted = formatPaise(amountPaise);
   const baseMessage = `Your ${formatted} payment for "${options.vendorPaymentTitle}" has been approved!`;
   const fullUrl = `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`;
   const emailHtml = await renderNotificationEmail({
@@ -78,6 +90,13 @@ export async function notifyVendorPaymentTransactionApproved(
   await sendMessage({
     body: `${baseMessage}${options.note ? `\n\nMessage: ${options.note}` : ""}`,
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
+    digest: {
+      amountPaise,
+      list: { label: "View vendor payments", path: VENDOR_PAYMENTS_PATH },
+      meta: options.note ? `Note: ${options.note}` : "Payment approved",
+      name: options.vendorPaymentTitle,
+      status: { label: "Approved", tone: "success" },
+    },
     emailHtml,
     idempotencyKey: `vpt-approved-${options.transactionId}-${options.submitterId}`,
     title: "✅ Payment approved!",
@@ -95,7 +114,8 @@ export async function notifyVendorPaymentTransactionRejected(
     vendorPaymentTitle: string;
   }
 ): Promise<void> {
-  const formatted = formatPaise(resolveAmountPaise(options));
+  const amountPaise = resolveAmountPaise(options);
+  const formatted = formatPaise(amountPaise);
   const baseMessage = `Your ${formatted} payment for "${options.vendorPaymentTitle}" wasn't approved: ${options.reason}`;
   const fullUrl = `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`;
   const emailHtml = await renderNotificationEmail({
@@ -107,6 +127,13 @@ export async function notifyVendorPaymentTransactionRejected(
   await sendMessage({
     body: baseMessage,
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
+    digest: {
+      amountPaise,
+      list: { label: "View vendor payments", path: VENDOR_PAYMENTS_PATH },
+      meta: `Reason: ${options.reason}`,
+      name: options.vendorPaymentTitle,
+      status: { label: "Not approved", tone: "danger" },
+    },
     emailHtml,
     idempotencyKey: `vpt-rejected-${options.transactionId}-${options.submitterId}`,
     title: "↩️ Payment not approved",

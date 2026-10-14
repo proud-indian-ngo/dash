@@ -11,6 +11,7 @@ import { handleDeleteR2Object } from "./delete-r2-object";
 import { handleEnsureFiscalYears } from "./ensure-fiscal-years";
 import { handleExpireEventInterests } from "./expire-event-interests";
 import { handleExpireImportRows } from "./expire-import-rows";
+import { handleFlushHeldNotifications } from "./flush-held-notifications";
 import { handleGenerateCashVoucher } from "./generate-cash-voucher";
 import { handleImmichDeleteAlbum } from "./immich-delete-album";
 import { handleImmichDeleteAsset } from "./immich-delete-asset";
@@ -141,6 +142,16 @@ const QUEUE_OVERRIDES: Partial<
   Record<JobName | typeof DEAD_LETTER_QUEUE, Partial<Omit<Queue, "name">>>
 > = {
   "cleanup-r2-orphans": { expireInSeconds: 3600 },
+  // One queued or running flush at a time; a minute's run that finds one
+  // busy is dropped. Not retried, with a heartbeat, so a dead worker frees
+  // the slot within a minute or two. Each run sends only what it claimed,
+  // and a run that outlives its expiry stops between groups, so runs don't
+  // send the same batch; unsent claims pass to a later run after a lease.
+  "flush-held-notifications": {
+    heartbeatSeconds: 60,
+    policy: "exclusive",
+    retryLimit: 0,
+  },
   "immich-sync-photo": { expireInSeconds: 1800 },
   // One queued and one active job per payment (singletonKey = payment ID),
   // so repeated deliveries collapse. The worker is registered by the web
@@ -488,6 +499,11 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "ensure-fiscal-years",
     NOTIFY_POLL,
     withDefaultOutput(handleEnsureFiscalYears)
+  );
+  await boss.work(
+    "flush-held-notifications",
+    NOTIFY_POLL,
+    withDefaultOutput(handleFlushHeldNotifications)
   );
   await boss.work(
     "expire-import-rows",

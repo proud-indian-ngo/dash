@@ -1,3 +1,5 @@
+import type { DigestRow } from "@pi-dash/shared/notification-digest";
+
 import { sendMessage } from "../send-message";
 import { getTopicChannels, TOPICS } from "../topics";
 
@@ -28,6 +30,7 @@ export async function notifyKalakritiRegistrationLifecycle({
     body: copy.body,
     channels: getTopicChannels(TOPICS.KALAKRITI_REGISTRATION),
     clickAction: `/kalakriti/${year}`,
+    digest: { meta: "Registration", name: editionName, status: copy.status },
     idempotencyKey: `kalakriti-registration-${editionId}-${transition}-${transitionRevision}-${recipientUserId}`,
     title: copy.title,
     to: recipientUserId,
@@ -110,6 +113,11 @@ export async function notifyKalakritiGuardianReactivated({
     body: `Your Guardian access for ${editionName} is active again.`,
     channels: getTopicChannels(TOPICS.KALAKRITI_REGISTRATION),
     clickAction: `/kalakriti/${year}`,
+    digest: {
+      meta: "Your Guardian access is active again",
+      name: editionName,
+      status: { label: "Restored", tone: "success" },
+    },
     idempotencyKey: `kalakriti-guardian-reactivated-${editionId}-${membershipId}-${recipientUserId}`,
     title: "Kalakriti Guardian access restored",
     to: recipientUserId,
@@ -120,21 +128,24 @@ export async function notifyKalakritiGuardianReactivated({
 function registrationCopy(
   editionName: string,
   transition: KalakritiRegistrationTransition
-): { body: string; title: string } {
+): { body: string; status: DigestRow["status"]; title: string } {
   switch (transition) {
     case "registration_open":
       return {
         body: `Registration is now open for ${editionName}.`,
+        status: { label: "Open", tone: "success" },
         title: "Kalakriti registration open",
       };
     case "registration_close_reminder":
       return {
         body: `Registration for ${editionName} closes soon.`,
+        status: { label: "Closing soon", tone: "warning" },
         title: "Kalakriti registration closing soon",
       };
     case "registration_closed":
       return {
         body: `Registration for ${editionName} is now closed.`,
+        status: { label: "Closed", tone: "neutral" },
         title: "Kalakriti registration closed",
       };
     default:

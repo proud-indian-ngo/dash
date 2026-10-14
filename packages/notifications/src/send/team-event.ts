@@ -28,6 +28,21 @@ function formatEventDetails(
   return parts.join("");
 }
 
+const whenFormat = new Intl.DateTimeFormat("en-IN", {
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  month: "short",
+  timeZone: "Asia/Kolkata",
+  weekday: "short",
+});
+
+/** "Fri, 17 Oct, 6:00 pm · Community hall", for a digest row. */
+function eventWhenWhere(startTime: number, location?: string | null): string {
+  const date = whenFormat.format(new Date(startTime));
+  return location ? `${date} · ${location}` : date;
+}
+
 interface AddedToEventOptions {
   eventId: string;
   eventName: string;
@@ -96,6 +111,12 @@ export async function notifyAddedToEvent({
   await sendMessage({
     body: `You've been added to ${eventName}${formatEventDetails(startTime, location)} — see you there!`,
     clickAction: `/events/${eventId}`,
+    digest: {
+      list: { label: "View events", path: "/events" },
+      meta: eventWhenWhere(startTime, location),
+      name: eventName,
+      status: { label: "Added", tone: "success" },
+    },
     emailHtml,
     idempotencyKey: `event-member-added-${eventId}-${userId}`,
     title: "✅ You're in!",
@@ -122,6 +143,12 @@ export async function notifyUsersAddedToEvent({
   await sendBulkMessage({
     body: `You've been added to ${eventName}${formatEventDetails(startTime, location)} — see you there!`,
     clickAction: `/events/${eventId}`,
+    digest: {
+      list: { label: "View events", path: "/events" },
+      meta: eventWhenWhere(startTime, location),
+      name: eventName,
+      status: { label: "Added", tone: "success" },
+    },
     emailHtml,
     idempotencyKey: `event-members-added-${eventId}-${[...userIds].sort((a, b) => a.localeCompare(b)).join(",")}`,
     title: "✅ You're in!",
@@ -145,6 +172,12 @@ export async function notifyRemovedFromEvent({
   await sendMessage({
     body: `You've been removed from ${eventName}.`,
     clickAction: `/teams/${teamId}`,
+    digest: {
+      list: { label: "View events", path: "/events" },
+      meta: "You've been removed",
+      name: eventName,
+      status: { label: "Removed", tone: "neutral" },
+    },
     emailHtml,
     idempotencyKey: `event-member-removed-${eventId}-${userId}`,
     title: "📅 Event update",
@@ -172,6 +205,12 @@ export async function notifyEventCreated({
   await sendBulkMessage({
     body: `${eventName} is happening${formatEventDetails(startTime, location)} — mark your calendar!`,
     clickAction: `/teams/${teamId}`,
+    digest: {
+      list: { label: "View events", path: "/events" },
+      meta: eventWhenWhere(startTime, location),
+      name: eventName,
+      status: { label: "New", tone: "info" },
+    },
     emailHtml,
     idempotencyKey: `event-created-${eventId}`,
     skipWhatsApp: true,
@@ -235,8 +274,16 @@ export async function notifyEventUpdated({
   await sendBulkMessage({
     body: bodyText,
     clickAction: `/teams/${teamId}`,
+    digest: {
+      list: { label: "View events", path: "/events" },
+      meta: eventWhenWhere(startTime, location),
+      name: eventName,
+      status: { label: "Updated", tone: "info" },
+    },
     emailHtml,
     idempotencyKey: `event-updated-${eventId}-${updatedAt}`,
+    // A changed time or place matters to people already on their way.
+    immediate: true,
     title: "📅 Event update",
     topic: TOPICS.EVENTS_SCHEDULE,
     userIds: eventMemberIds,
@@ -259,8 +306,14 @@ export async function notifyEventCancelled({
   await sendBulkMessage({
     body: `${eventName} has been cancelled.`,
     clickAction: `/teams/${teamId}`,
+    digest: {
+      list: { label: "View events", path: "/events" },
+      name: eventName,
+      status: { label: "Cancelled", tone: "danger" },
+    },
     emailHtml,
     idempotencyKey: `event-cancelled-${eventId}-${cancelledAt}`,
+    immediate: true,
     title: "❌ Event cancelled",
     topic: TOPICS.EVENTS_SCHEDULE,
     userIds: eventMemberIds,

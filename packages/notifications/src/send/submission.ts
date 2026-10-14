@@ -22,6 +22,8 @@ interface SubmissionNotifierConfig {
   entityLabel: string;
   getLineItems: (entityId: string) => Promise<LineItemDetail[]>;
   idempotencyPrefix: string;
+  /** Plural noun for the list page, e.g. "reimbursements". */
+  listNoun: string;
   routePrefix: string;
   statusTopic: Topic;
   submittedTopic: Topic;
@@ -55,12 +57,14 @@ export interface SubmissionNotifier {
 
 export function createSubmissionNotifier({
   entityLabel,
+  listNoun,
   routePrefix,
   idempotencyPrefix,
   getLineItems,
   submittedTopic,
   statusTopic,
 }: SubmissionNotifierConfig): SubmissionNotifier {
+  const listPath = `/${routePrefix}`;
   return {
     async notifyApproved({ entityId, title, submitterId, note }) {
       const lineItems = await getLineItems(entityId);
@@ -79,6 +83,13 @@ export function createSubmissionNotifier({
       await sendMessage({
         body: `${baseMessage}${totalSuffix}${note ? `\n\nMessage: ${note}` : ""}`,
         clickAction: `/${routePrefix}/${entityId}`,
+        digest: {
+          amountPaise: computeTotal(lineItems),
+          list: { label: `View ${listNoun}`, path: listPath },
+          meta: note ? `${entityLabel} · Note: ${note}` : entityLabel,
+          name: title,
+          status: { label: "Approved", tone: "success" },
+        },
         emailHtml,
         idempotencyKey: `${idempotencyPrefix}-approved-${entityId}-${submitterId}`,
         title: `✅ ${entityLabel} approved!`,
@@ -103,6 +114,13 @@ export function createSubmissionNotifier({
       await sendMessage({
         body: `${baseMessage} ${reason}${totalSuffix}`,
         clickAction: `/${routePrefix}/${entityId}`,
+        digest: {
+          amountPaise: computeTotal(lineItems),
+          list: { label: `View ${listNoun}`, path: listPath },
+          meta: `${entityLabel} · Reason: ${reason}`,
+          name: title,
+          status: { label: "Not approved", tone: "danger" },
+        },
         emailHtml,
         idempotencyKey: `${idempotencyPrefix}-rejected-${entityId}-${submitterId}`,
         title: `↩️ ${entityLabel} not approved`,
@@ -129,6 +147,14 @@ export function createSubmissionNotifier({
       await sendBulkMessage({
         body: `${baseMessage}${totalSuffix}`,
         clickAction: `/${routePrefix}/${entityId}`,
+        digest: {
+          actionLabel: "Review",
+          amountPaise: computeTotal(lineItems),
+          list: { label: `Review ${listNoun}`, path: listPath },
+          meta: `${submitterName} · ${entityLabel}`,
+          name: title,
+          status: { label: "Needs review", tone: "warning" },
+        },
         emailHtml,
         idempotencyKey: `${idempotencyPrefix}-submitted-${entityId}`,
         title: `👀 New ${entityLabel.toLowerCase()} to review`,

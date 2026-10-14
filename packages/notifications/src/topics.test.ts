@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   getTopicChannels,
+  isBatchedTopic,
   TOPIC_CATALOG,
   TOPICS,
   topicSupportsChannel,
@@ -49,5 +50,20 @@ describe("TOPIC_CATALOG", () => {
       "email",
       "whatsapp",
     ]);
+  });
+});
+
+describe("isBatchedTopic", () => {
+  it("sends only Account and Kalakriti schedule and transport immediately", () => {
+    const immediate = TOPIC_CATALOG.filter((t) => !isBatchedTopic(t.id)).map(
+      (t) => t.id
+    );
+    expect(immediate.sort()).toEqual(
+      [
+        TOPICS.ACCOUNT,
+        TOPICS.KALAKRITI_SCHEDULE,
+        TOPICS.KALAKRITI_TRANSPORT,
+      ].sort()
+    );
   });
 });

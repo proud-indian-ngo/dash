@@ -615,6 +615,7 @@ export interface JobPayloads {
   "ensure-fiscal-years": Record<string, never>;
   "expire-event-interests": ExpireEventInterestsPayload;
   "expire-import-rows": Record<string, never>;
+  "flush-held-notifications": Record<string, never>;
   "generate-cash-voucher": GenerateCashVoucherPayload;
   "immich-delete-album": ImmichDeleteAlbumPayload;
   "immich-delete-asset": ImmichDeleteAssetPayload;

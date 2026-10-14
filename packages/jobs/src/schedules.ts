@@ -54,6 +54,15 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     { expireInSeconds: 600, retryLimit: 2, tz: IST_TIMEZONE }
   );
 
+  // Every minute — send email and WhatsApp held for the batching window,
+  // as the original message or as a digest
+  await boss.schedule(
+    "flush-held-notifications",
+    "* * * * *",
+    {},
+    { expireInSeconds: 600, retryLimit: 0, tz: IST_TIMEZONE }
+  );
+
   // Monthly on 1st at 4:00 AM IST — clean up orphaned R2 objects
   await boss.schedule(
     "cleanup-r2-orphans",

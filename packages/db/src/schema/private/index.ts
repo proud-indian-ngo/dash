@@ -8,3 +8,4 @@ export * from "./email-suppression";
 export * from "./party-private";
 export * from "./vendor-legacy";
 export * from "./imports";
+export * from "./held-notification";

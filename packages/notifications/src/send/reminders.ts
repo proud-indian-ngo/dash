@@ -76,6 +76,12 @@ export async function notifyStaleRequests({
   await sendMessage({
     body,
     clickAction: "/",
+    digest: {
+      actionLabel: "Review",
+      meta: `${parts.join(", ")} waiting 3+ days`,
+      name: "Requests waiting for review",
+      status: { label: "Overdue", tone: "warning" },
+    },
     emailHtml,
     idempotencyKey: `stale-requests-reminder-${userId}-${dateKey}`,
     title: "⏰ Requests need attention",
@@ -101,8 +107,14 @@ export async function notifyFeedbackDeadline({
   await sendMessage({
     body,
     clickAction: `/events/${eventId}`,
+    digest: {
+      actionLabel: "Share feedback",
+      list: { label: "View events", path: "/events" },
+      meta: "Feedback closes tomorrow",
+      name: eventName,
+    },
     emailHtml,
-    idempotencyKey: `feedback-deadline-${eventId}-${dateKey}`,
+    idempotencyKey: `feedback-deadline-${eventId}-${userId}-${dateKey}`,
     title: "⏰ Last chance for feedback",
     to: userId,
     topic: TOPICS.EVENTS_FEEDBACK,
@@ -298,6 +310,11 @@ export async function notifyPhotoApprovalReminder({
   await sendBulkMessage({
     body,
     clickAction: "/events",
+    digest: {
+      actionLabel: "Review",
+      meta: `Across ${countOf(eventCount, "event")}`,
+      name: `${countOf(pendingCount, "photo")} waiting for review`,
+    },
     emailHtml,
     idempotencyKey: `photo-approval-reminder-${dateKey}`,
     title: "👀 Photos need review",
@@ -337,8 +354,15 @@ export async function notifyEventReminder({
   await sendMessage({
     body,
     clickAction: `/events/${eventId}`,
+    digest: {
+      list: { label: "View events", path: "/events" },
+      meta: `Starts in ${label} · ${when}${location ? ` · ${location}` : ""}`,
+      name: eventName,
+    },
     emailHtml,
     idempotencyKey: `event-reminder-${eventId}-${intervalMinutes}-${userId}`,
+    // "Starts in 30 min" is wrong five minutes later.
+    immediate: true,
     title: "⏰ Coming up!",
     to: userId,
     topic: TOPICS.EVENTS_SCHEDULE,
@@ -405,6 +429,12 @@ export async function notifyFeedbackNudge({
   await sendMessage({
     body,
     clickAction: `/events/${eventId}`,
+    digest: {
+      actionLabel: "Share feedback",
+      list: { label: "View events", path: "/events" },
+      meta: "How was it? Share your feedback",
+      name: eventName,
+    },
     emailHtml,
     idempotencyKey: `feedback-nudge-${eventId}-${userId}`,
     title: "💬 How was it?",
@@ -434,6 +464,12 @@ export async function notifyAttendanceNotMarked({
   await sendMessage({
     body,
     clickAction: `/events/${eventId}`,
+    digest: {
+      actionLabel: "Mark attendance",
+      list: { label: "View events", path: "/events" },
+      meta: "Attendance not marked yet",
+      name: eventName,
+    },
     emailHtml,
     idempotencyKey: `attendance-reminder-${eventId}-${userId}`,
     title: "📋 Attendance reminder",
@@ -466,6 +502,12 @@ export async function notifyPhotoUploadNudge({
   await sendBulkMessage({
     body,
     clickAction: `/events/${eventId}`,
+    digest: {
+      actionLabel: "Upload photos",
+      list: { label: "View events", path: "/events" },
+      meta: "Got photos? Upload them for the team",
+      name: eventName,
+    },
     emailHtml,
     idempotencyKey: `photo-nudge-${eventId}`,
     title: "📸 Got pics?",

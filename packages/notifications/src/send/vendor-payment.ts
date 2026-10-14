@@ -1,6 +1,8 @@
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
 import type { VendorPaymentNoInvoiceReason } from "@pi-dash/shared/constants";
+import { sumPaise } from "@pi-dash/shared/money";
+import type { DigestRow } from "@pi-dash/shared/notification-digest";
 import { NO_INVOICE_REASON_LABELS } from "@pi-dash/shared/vendor-payment";
 
 import {
@@ -11,10 +13,16 @@ import { sendBulkMessage, sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
 import { createSubmissionNotifier } from "./submission";
 
+const VENDOR_PAYMENTS_LIST: DigestRow["list"] = {
+  label: "View vendor payments",
+  path: "/vendor-payments",
+};
+
 const notifier = createSubmissionNotifier({
   entityLabel: "Vendor Payment",
   getLineItems: getVendorPaymentLineItems,
   idempotencyPrefix: "vendor-payment",
+  listNoun: "vendor payments",
   routePrefix: "vendor-payments",
   statusTopic: TOPICS.REQUESTS_STATUS,
   submittedTopic: TOPICS.REQUESTS_SUBMISSIONS,
@@ -68,7 +76,10 @@ export async function notifyVendorPaymentInvoiceSubmitted(options: {
   vendorPaymentId: string;
   vendorPaymentTitle: string;
 }): Promise<void> {
-  const approverIds = await getUserIdsWithPermission("requests.approve");
+  const [approverIds, lineItems] = await Promise.all([
+    getUserIdsWithPermission("requests.approve"),
+    getVendorPaymentLineItems(options.vendorPaymentId),
+  ]);
   const heading = options.noInvoiceReason
     ? "Payment without invoice"
     : "New invoice";
@@ -85,9 +96,27 @@ export async function notifyVendorPaymentInvoiceSubmitted(options: {
     heading,
     paragraphs: [body],
   });
+  const proofCount = options.proofAttachmentCount ?? 0;
+  const proofMeta =
+    proofCount > 0
+      ? `${proofCount} proof ${proofCount === 1 ? "file" : "files"}`
+      : "No proof";
   await sendBulkMessage({
     body,
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
+    digest: {
+      actionLabel: "Review",
+      amountPaise:
+        lineItems.length > 0
+          ? sumPaise(lineItems.map((item) => item.amountPaise))
+          : undefined,
+      list: { label: "Review vendor payments", path: "/vendor-payments" },
+      meta: options.noInvoiceReason
+        ? `${options.submitterName} · ${NO_INVOICE_REASON_LABELS[options.noInvoiceReason]} · ${proofMeta}`
+        : `${options.submitterName} · Invoice uploaded`,
+      name: options.vendorPaymentTitle,
+      status: { label: "Needs review", tone: "warning" },
+    },
     emailHtml,
     idempotencyKey: `vp-invoice-submitted-${options.vendorPaymentId}-${options.timestamp}`,
     title: `📄 ${heading}`,
@@ -121,6 +150,18 @@ export async function notifyVendorPaymentInvoiceApproved(options: {
   await sendMessage({
     body,
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
+    digest: {
+      list: VENDOR_PAYMENTS_LIST,
+      meta: options.note
+        ? `Note: ${options.note}`
+        : options.noInvoiceReason
+          ? "Closed without an invoice"
+          : "Invoice approved",
+      name: options.vendorPaymentTitle,
+      status: options.noInvoiceReason
+        ? { label: "Completed", tone: "success" }
+        : { label: "Approved", tone: "success" },
+    },
     emailHtml,
     idempotencyKey: `vp-invoice-approved-${options.vendorPaymentId}`,
     title: `✅ ${heading}`,
@@ -153,6 +194,12 @@ export async function notifyVendorPaymentInvoiceRejected(options: {
   await sendMessage({
     body,
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
+    digest: {
+      list: VENDOR_PAYMENTS_LIST,
+      meta: `Reason: ${options.reason}`,
+      name: options.vendorPaymentTitle,
+      status: { label: "Not approved", tone: "danger" },
+    },
     emailHtml,
     idempotencyKey: `vp-invoice-rejected-${options.vendorPaymentId}-${options.timestamp}`,
     title: `↩️ ${heading}`,
@@ -176,6 +223,12 @@ export async function notifyVpFullyPaid(options: {
   await sendMessage({
     body,
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
+    digest: {
+      list: VENDOR_PAYMENTS_LIST,
+      meta: "All payments are in",
+      name: options.title,
+      status: { label: "Paid", tone: "success" },
+    },
     emailHtml,
     idempotencyKey: `vp-fully-paid-${options.vendorPaymentId}`,
     title: "🎉 All paid up!",
@@ -201,6 +254,12 @@ export async function notifyVptCascadeRejected(options: {
   await sendMessage({
     body,
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
+    digest: {
+      list: VENDOR_PAYMENTS_LIST,
+      meta: `${options.transactionCount} pending transactions · Reason: ${options.rejectionReason}`,
+      name: options.title,
+      status: { label: "Not approved", tone: "danger" },
+    },
     emailHtml,
     idempotencyKey: `vpt-cascade-rejected-${options.vendorPaymentId}`,
     title: "↩️ Transactions not approved",

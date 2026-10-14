@@ -8,14 +8,8 @@ import {
 } from "@pi-dash/email/mailer";
 import { createRequestLogger } from "evlog";
 
+import { stripLeadingEmoji } from "./text";
 import { buildUnsubscribeLinks, getUnsubscribableTopic } from "./unsubscribe";
-
-const LEADING_EMOJI_RE =
-  /^[\p{Emoji_Presentation}\p{Extended_Pictographic}]️?\s*/u;
-
-export function stripLeadingEmoji(text: string): string {
-  return text.replace(LEADING_EMOJI_RE, "");
-}
 
 function escapeHtml(text: string): string {
   return text

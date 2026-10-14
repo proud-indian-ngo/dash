@@ -27,22 +27,25 @@ describe("Kalakriti notifications", () => {
       "revision-open",
       "Kalakriti registration open",
       "Registration is now open for Kalakriti 2028.",
+      { label: "Open", tone: "success" },
     ],
     [
       "registration_close_reminder",
       "1735603200000",
       "Kalakriti registration closing soon",
       "Registration for Kalakriti 2028 closes soon.",
+      { label: "Closing soon", tone: "warning" },
     ],
     [
       "registration_closed",
       "revision-closed",
       "Kalakriti registration closed",
       "Registration for Kalakriti 2028 is now closed.",
+      { label: "Closed", tone: "neutral" },
     ],
   ] as const)(
     "sends %s lifecycle copy through inbox and WhatsApp",
-    async (transition, transitionRevision, title, body) => {
+    async (transition, transitionRevision, title, body, status) => {
       await notifyKalakritiRegistrationLifecycle({
         editionId: "edition-1",
         editionName: "Kalakriti 2028",
@@ -56,6 +59,7 @@ describe("Kalakriti notifications", () => {
         body,
         channels: ["inbox", "whatsapp"],
         clickAction: "/kalakriti/2028",
+        digest: { meta: "Registration", name: "Kalakriti 2028", status },
         idempotencyKey: `kalakriti-registration-edition-1-${transition}-${transitionRevision}-user-1`,
         title,
         to: "user-1",
@@ -120,6 +124,11 @@ describe("Kalakriti notifications", () => {
       body: "Your Guardian access for Kalakriti 2028 is active again.",
       channels: ["inbox", "whatsapp"],
       clickAction: "/kalakriti/2028",
+      digest: {
+        meta: "Your Guardian access is active again",
+        name: "Kalakriti 2028",
+        status: { label: "Restored", tone: "success" },
+      },
       idempotencyKey:
         "kalakriti-guardian-reactivated-edition-1-membership-1-user-1",
       title: "Kalakriti Guardian access restored",

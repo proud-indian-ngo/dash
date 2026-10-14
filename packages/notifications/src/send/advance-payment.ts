@@ -6,6 +6,7 @@ const notifier = createSubmissionNotifier({
   entityLabel: "Advance Payment",
   getLineItems: getAdvancePaymentLineItems,
   idempotencyPrefix: "advance-payment",
+  listNoun: "reimbursements",
   routePrefix: "reimbursements",
   statusTopic: TOPICS.REQUESTS_STATUS,
   submittedTopic: TOPICS.REQUESTS_SUBMISSIONS,

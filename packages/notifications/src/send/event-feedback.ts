@@ -30,6 +30,12 @@ export async function notifyEventFeedbackOpen({
   await sendBulkMessage({
     body: `Anonymous feedback is open for ${eventName} — share your honest thoughts, it's completely anonymous.`,
     clickAction: `/events/${eventId}`,
+    digest: {
+      actionLabel: "Share feedback",
+      list: { label: "View events", path: "/events" },
+      meta: "Anonymous feedback is open",
+      name: eventName,
+    },
     emailHtml,
     idempotencyKey: `event-feedback-open-${eventId}`,
     title: "💬 Your feedback matters",

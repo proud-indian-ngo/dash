@@ -44,6 +44,11 @@ export async function notifyTeamUpdated({
   await sendBulkMessage({
     body: `${teamName} just got an update — take a look!`,
     clickAction: `/teams/${teamId}`,
+    digest: {
+      list: { label: "View teams", path: "/teams" },
+      meta: "Team details updated",
+      name: teamName,
+    },
     emailHtml,
     idempotencyKey: `team-updated-${teamId}-${updatedAt}`,
     title: "📋 Team update",
@@ -66,6 +71,11 @@ export async function notifyTeamDeleted({
   await sendBulkMessage({
     body: `${teamName} has been removed.`,
     clickAction: "/teams",
+    digest: {
+      list: { label: "View teams", path: "/teams" },
+      name: teamName,
+      status: { label: "Removed", tone: "neutral" },
+    },
     emailHtml,
     idempotencyKey: `team-deleted-${teamName}-${deletedAt}`,
     title: "📋 Team removed",
@@ -88,6 +98,12 @@ export async function notifyAddedToTeam({
   await sendMessage({
     body: `You've been added to ${teamName} — welcome aboard!`,
     clickAction: `/teams/${teamId}`,
+    digest: {
+      list: { label: "View teams", path: "/teams" },
+      meta: "You've been added",
+      name: teamName,
+      status: { label: "Joined", tone: "success" },
+    },
     emailHtml,
     idempotencyKey: `team-member-added-${teamId}-${userId}`,
     title: "🙌 You're on the team!",
@@ -110,6 +126,12 @@ export async function notifyRemovedFromTeam({
   await sendMessage({
     body: `You've been moved out of ${teamName}.`,
     clickAction: "/teams",
+    digest: {
+      list: { label: "View teams", path: "/teams" },
+      meta: "You've been moved out",
+      name: teamName,
+      status: { label: "Removed", tone: "neutral" },
+    },
     emailHtml,
     idempotencyKey: `team-member-removed-${teamName}-${userId}-${removedAt}`,
     title: "📋 Team change",
@@ -146,6 +168,11 @@ export async function notifyTeamRoleChanged({
   await sendMessage({
     body: bodyText,
     clickAction: `/teams/${teamId}`,
+    digest: {
+      list: { label: "View teams", path: "/teams" },
+      meta: isLead ? "You're now a lead" : "You're now a member",
+      name: teamName,
+    },
     emailHtml,
     idempotencyKey: `team-role-changed-${teamId}-${userId}-${newRole}`,
     title: `${titleEmoji} ${heading}`,

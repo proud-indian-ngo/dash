@@ -73,7 +73,7 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 | Organisation accounts | The trust's bank, cash and gateway clearing accounts that income is deposited into, with fund source and FCRA role, and the 80G registration the donations return carries, managed in Settings |
 | Programmes | Cause-based programmes with a lead and a finance-approval threshold; the first piece of the finance redesign (`docs/architecture/finance-and-programmes.md`) |
 | Expense categories | Admin-managed categories for request line items |
-| Notifications | Self-owned multi-channel notifications (in-app inbox, email, WhatsApp); per-user topic preferences |
+| Notifications | Self-owned multi-channel notifications (in-app inbox, email, WhatsApp); per-user topic preferences; email and WhatsApp batched over 5 minutes into one digest per person and topic |
 | Audit log | Immutable user-action history with server-side filters and a viewer restricted by the `audit_log.view` permission |
 | WhatsApp alerts | Optional WhatsApp notifications via self-hosted gateway |
 | CSV export | Export data tables to CSV files |

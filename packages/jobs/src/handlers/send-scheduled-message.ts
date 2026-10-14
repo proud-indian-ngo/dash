@@ -39,6 +39,8 @@ export async function handleSendScheduledMessage(
         clickAction,
         emailHtml,
         idempotencyKey,
+        // Already scheduled for when it should arrive.
+        immediate: true,
         title,
         to: userId,
         topic,

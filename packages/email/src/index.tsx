@@ -3,6 +3,9 @@ import { createRequestLogger } from "evlog";
 import { render } from "react-email";
 
 import { sendEmail } from "./mailer";
+import NotificationDigestEmail, {
+  type NotificationDigestEmailProps,
+} from "./templates/notification-digest";
 import type { NotificationEmailProps } from "./templates/notification-email";
 import NotificationEmail from "./templates/notification-email";
 import ResetPasswordEmail from "./templates/reset-password-email";
@@ -10,6 +13,7 @@ import VerificationEmail from "./templates/verification-email";
 
 export { FOOTER_NOTE_PLACEHOLDER } from "./templates/email-footer";
 export type { EmailStatus } from "./templates/email-layout";
+export type { NotificationDigestEmailProps } from "./templates/notification-digest";
 export type { NotificationEmailProps } from "./templates/notification-email";
 export type { LineItemDetail } from "./templates/types";
 
@@ -58,5 +62,17 @@ export function renderNotificationEmail(
 ): Promise<string> {
   return render(
     <NotificationEmail appName={env.APP_NAME} appUrl={env.APP_URL} {...props} />
+  );
+}
+
+export function renderNotificationDigestEmail(
+  props: NotificationDigestEmailProps
+): Promise<string> {
+  return render(
+    <NotificationDigestEmail
+      appName={env.APP_NAME}
+      appUrl={env.APP_URL}
+      {...props}
+    />
   );
 }
