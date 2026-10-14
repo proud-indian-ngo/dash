@@ -10,6 +10,7 @@ import {
   mutatorLineItemSchema as lineItemSchema,
 } from "../shared-schemas";
 import {
+  assertApprovalScreenshot,
   assertCanDelete,
   assertCanModify,
   assertEntityExists,
@@ -72,19 +73,18 @@ export const advancePaymentMutators = {
 
       const now = Date.now();
       const requestedApprovalScreenshotKey =
-        args.approvalScreenshotKey ?? entity.approvalScreenshotKey ?? undefined;
-      const approvalScreenshotKey = requestedApprovalScreenshotKey
-        ? claimUploadedR2ObjectKey(
-            requestedApprovalScreenshotKey,
-            createR2ClaimOptions(ctx, tx.location, {
-              durablePrefix: `advance-payments/${args.id}/approval-screenshots`,
-              existingObjectKeys: entity.approvalScreenshotKey
-                ? new Set([entity.approvalScreenshotKey])
-                : undefined,
-              subfolder: "approval-screenshots",
-            })
-          )
-        : undefined;
+        args.approvalScreenshotKey || entity.approvalScreenshotKey;
+      assertApprovalScreenshot(requestedApprovalScreenshotKey);
+      const approvalScreenshotKey = claimUploadedR2ObjectKey(
+        requestedApprovalScreenshotKey,
+        createR2ClaimOptions(ctx, tx.location, {
+          durablePrefix: `advance-payments/${args.id}/approval-screenshots`,
+          existingObjectKeys: entity.approvalScreenshotKey
+            ? new Set([entity.approvalScreenshotKey])
+            : undefined,
+          subfolder: "approval-screenshots",
+        })
+      );
 
       if (
         entity.approvalScreenshotKey &&

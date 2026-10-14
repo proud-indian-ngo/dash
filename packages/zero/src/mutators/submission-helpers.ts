@@ -369,6 +369,22 @@ export function assertPending(
   }
 }
 
+export const APPROVAL_SCREENSHOT_REQUIRED_MESSAGE =
+  "Attach the payment screenshot to approve";
+
+/**
+ * Approval means the claimant has already been paid, so the approver must
+ * attach the payment screenshot as evidence. Accepts a newly uploaded key or
+ * the one already stored on the record.
+ */
+export function assertApprovalScreenshot(
+  key: string | null | undefined
+): asserts key is string {
+  if (!key?.trim()) {
+    throw new Error(APPROVAL_SCREENSHOT_REQUIRED_MESSAGE);
+  }
+}
+
 export function assertCanModify(
   entity: { userId: string | null; status: string | null },
   userId: string,

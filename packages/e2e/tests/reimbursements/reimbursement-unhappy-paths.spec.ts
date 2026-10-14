@@ -30,14 +30,10 @@ test.describe("Reimbursement unhappy paths (admin)", () => {
     test.slow();
     const reimbursements = new ReimbursementPage(page, "reimbursement");
 
-    // Create and approve a reimbursement
+    // An approved reimbursement without a payment screenshot, like those
+    // approved before the screenshot was required, stays editable.
     await reimbursements.createReimbursement("Unhappy Edit Test");
-    await expect(reimbursements.detail.getApproveButton()).toBeVisible();
-    await reimbursements.detail.approve();
-    await expect(page.getByText("Reimbursement approved")).toBeVisible();
-    await expect(reimbursements.detail.getStatusBadge("Approved")).toBeVisible({
-      timeout: 10_000,
-    });
+    await reimbursements.approveInDatabase();
 
     await expect(reimbursements.detail.getEditSubmissionButton()).toBeVisible();
   });
@@ -48,14 +44,8 @@ test.describe("Reimbursement unhappy paths (admin)", () => {
     test.slow();
     const reimbursements = new ReimbursementPage(page, "reimbursement");
 
-    // Create and approve a reimbursement
     await reimbursements.createReimbursement("Unhappy Delete Test");
-    await expect(reimbursements.detail.getApproveButton()).toBeVisible();
-    await reimbursements.detail.approve();
-    await expect(page.getByText("Reimbursement approved")).toBeVisible();
-    await expect(reimbursements.detail.getStatusBadge("Approved")).toBeVisible({
-      timeout: 10_000,
-    });
+    await reimbursements.approveInDatabase();
 
     // Navigate back to list and check approved row
     await reimbursements.navigateToList();
@@ -83,29 +73,16 @@ test.describe("Reimbursement unhappy paths (admin)", () => {
     }
   });
 
-  test("API: approving already-approved reimbursement succeeds for super admin", async ({
+  test("API: approving without a payment screenshot is rejected", async ({
     page,
     baseURL,
   }) => {
     test.slow();
     const reimbursements = new ReimbursementPage(page, "reimbursement");
 
-    // Create and approve reimbursement via UI to get a real ID
-    await reimbursements.createReimbursement("API Double Approve");
-    await expect(reimbursements.detail.getApproveButton()).toBeVisible();
-    await reimbursements.detail.approve();
-    await expect(page.getByText("Reimbursement approved")).toBeVisible();
+    await reimbursements.createReimbursement("API Approve No Screenshot");
+    const reimbursementId = reimbursements.currentRequestId();
 
-    // Extract the reimbursement ID from the URL
-    const url = page.url();
-    const match = url.match(/\/reimbursements\/([a-z0-9-]+)/);
-    if (!match) {
-      test.skip(true, "Could not extract reimbursement ID from URL");
-      return;
-    }
-    const [, reimbursementId] = match;
-
-    // Try to approve again via API
     const body = buildMutateBody("reimbursement.approve", {
       id: reimbursementId,
     });
@@ -115,7 +92,35 @@ test.describe("Reimbursement unhappy paths (admin)", () => {
     );
     expect(response.ok()).toBe(true);
     const json = await response.json();
-    expect(json.mutations).toBeDefined();
-    expect(json.mutations[0]?.result?.error).not.toBe("app");
+    expect(json.mutations[0]?.result).toMatchObject({
+      error: "app",
+      message: "Attach the payment screenshot to approve",
+    });
+    await expect(reimbursements.detail.getStatusBadge("Pending")).toBeVisible();
+  });
+
+  test("API: re-approving an approved reimbursement without a screenshot is rejected", async ({
+    page,
+    baseURL,
+  }) => {
+    test.slow();
+    const reimbursements = new ReimbursementPage(page, "reimbursement");
+
+    await reimbursements.createReimbursement("API Double Approve");
+    await reimbursements.approveInDatabase();
+
+    const body = buildMutateBody("reimbursement.approve", {
+      id: reimbursements.currentRequestId(),
+    });
+    const response = await page.request.post(
+      `${baseURL}/api/zero/mutate?schema=zero_0&appID=zero`,
+      { data: body }
+    );
+    expect(response.ok()).toBe(true);
+    const json = await response.json();
+    expect(json.mutations[0]?.result).toMatchObject({
+      error: "app",
+      message: "Attach the payment screenshot to approve",
+    });
   });
 });

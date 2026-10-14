@@ -564,6 +564,7 @@ export function ReimbursementsTable({
       <ApproveDialog
         entityId={review.row?.id ?? ""}
         entityLabel={reviewLabel}
+        hasExistingScreenshot={Boolean(review.row?.approvalScreenshotKey)}
         onConfirm={handleApprove}
         onOpenChange={review.handleOpenChange}
         open={review.approveOpen}

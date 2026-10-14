@@ -9,7 +9,7 @@ test.describe("Reimbursements grouped by status", () => {
     reimbursements = new ReimbursementPage(page, "reimbursement");
   });
 
-  test("groups rows, collapses a group and approves a pending row inline", async ({
+  test("groups rows, collapses a group and opens the inline approve dialog", async ({
     page,
   }) => {
     const title = await reimbursements.createReimbursement("Group Approve");
@@ -34,15 +34,18 @@ test.describe("Reimbursements grouped by status", () => {
     await page.getByRole("button", { name: "Expand Pending" }).click();
     await expect(row).toBeVisible();
 
+    // Approving promotes the payment screenshot in R2, which CI does not
+    // have; the detail spec covers the full approval where R2 is available.
+    await reimbursements.detail.stubScreenshotUpload();
     await row.getByRole("button", { name: `Approve ${title}` }).click();
     const dialog = page.getByRole("alertdialog");
     await expect(dialog.getByText("Approve reimbursement?")).toBeVisible();
-    await dialog.getByRole("button", { name: "Approve" }).click();
-
-    await expect(page.getByText("Reimbursement approved")).toBeVisible();
-    await expect(
-      row.getByRole("button", { name: `Approve ${title}` })
-    ).toBeHidden({ timeout: 10_000 });
+    const approve = dialog.getByRole("button", { name: "Approve" });
+    await expect(approve).toBeDisabled();
+    await reimbursements.detail.attachPaymentScreenshot(dialog);
+    await expect(approve).toBeEnabled();
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden();
 
     await page.getByRole("button", { name: "Group by status" }).click();
     await expect(statusHeader).toBeVisible();

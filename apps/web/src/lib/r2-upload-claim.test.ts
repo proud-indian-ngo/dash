@@ -68,7 +68,7 @@ beforeEach(() => {
 
 describe("copyR2Object", () => {
   it("rejects claimed music sizes that differ from stored bytes", async () => {
-    s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    s3.exists.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
     s3.stat.mockResolvedValue({ size: 1024, type: "audio/mpeg" });
     await expect(
       copyR2Object(
@@ -85,7 +85,7 @@ describe("copyR2Object", () => {
   });
 
   it("validates metadata on an existing music target during retries", async () => {
-    s3.exists.mockResolvedValueOnce(true);
+    s3.exists.mockResolvedValue(true);
     s3.stat.mockResolvedValue({ size: 1024, type: "audio/mpeg" });
     await expect(
       copyR2Object({ ...input, mimeType: "audio/mpeg", byteSize: 512 }, deps)
@@ -93,23 +93,49 @@ describe("copyR2Object", () => {
     expect(writer.write).not.toHaveBeenCalled();
   });
   it("copies a temporary object without deleting the retryable source", async () => {
-    s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    s3.exists.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
 
     await copyR2Object(input, deps);
 
-    expect(s3.exists).toHaveBeenNthCalledWith(1, input.targetKey);
-    expect(s3.exists).toHaveBeenNthCalledWith(2, input.sourceKey);
+    expect(s3.exists).toHaveBeenNthCalledWith(1, input.sourceKey);
+    expect(s3.exists).toHaveBeenNthCalledWith(2, input.targetKey);
+    expect(s3.exists).toHaveBeenCalledTimes(2);
     expect(writer.write).toHaveBeenCalled();
     expect(writer.end).toHaveBeenCalledWith();
   });
 
   it("treats an existing durable target as an idempotent success", async () => {
-    s3.exists.mockResolvedValueOnce(true);
+    s3.exists.mockResolvedValue(true);
 
     await copyR2Object(input, deps);
 
-    expect(s3.exists).toHaveBeenCalledTimes(1);
+    expect(s3.exists).toHaveBeenCalledTimes(2);
     expect(s3.file).not.toHaveBeenCalled();
+    expect(writer.write).not.toHaveBeenCalled();
+  });
+
+  it("rejects a missing temporary source even when the durable target exists", async () => {
+    s3.exists.mockImplementation((key: string) =>
+      Promise.resolve(key === input.targetKey)
+    );
+
+    await expect(copyR2Object(input, deps)).rejects.toThrow(
+      "Temporary upload not found"
+    );
+    expect(s3.exists).toHaveBeenCalledWith(input.sourceKey);
+    expect(s3.stat).not.toHaveBeenCalled();
+    expect(writer.write).not.toHaveBeenCalled();
+  });
+
+  it("revalidates an existing durable key in place without a temporary source", async () => {
+    const durableKey =
+      "app/approval-screenshots/reimbursements/request-1/approval-screenshots/proof.png";
+    s3.exists.mockResolvedValue(true);
+
+    await copyR2Object({ sourceKey: durableKey, targetKey: durableKey }, deps);
+
+    expect(s3.exists).toHaveBeenCalledTimes(1);
+    expect(s3.exists).toHaveBeenCalledWith(durableKey);
     expect(writer.write).not.toHaveBeenCalled();
   });
 
@@ -123,7 +149,7 @@ describe("copyR2Object", () => {
   });
 
   it("rejects an oversized approval screenshot from stored metadata", async () => {
-    s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    s3.exists.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
     s3.stat.mockResolvedValue({
       size: MAX_APPROVAL_SCREENSHOT_SIZE_BYTES + 1,
       type: "image/png",
@@ -144,7 +170,7 @@ describe("copyR2Object", () => {
   });
 
   it("rejects an unsupported event-photo MIME type", async () => {
-    s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    s3.exists.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
     s3.stat.mockResolvedValue({
       size: MAX_IMAGE_SIZE_BYTES,
       type: "application/pdf",
@@ -164,7 +190,7 @@ describe("copyR2Object", () => {
   });
 
   it("rejects stored content types that differ from mutation input", async () => {
-    s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    s3.exists.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
     s3.stat.mockResolvedValue({ size: 1024, type: "image/png" });
 
     await expect(copyR2Object(input, deps)).rejects.toThrow(
@@ -174,7 +200,7 @@ describe("copyR2Object", () => {
   });
 
   it("rejects an empty stored object", async () => {
-    s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    s3.exists.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
     s3.stat.mockResolvedValue({ size: 0, type: "application/pdf" });
 
     await expect(copyR2Object(input, deps)).rejects.toThrow("empty");
@@ -182,7 +208,7 @@ describe("copyR2Object", () => {
   });
 
   it("rejects when the streamed object is larger than the validated metadata", async () => {
-    s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    s3.exists.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
     s3.stat.mockResolvedValue({ size: 1, type: "application/pdf" });
     streamedSize = 2;
 
@@ -190,7 +216,7 @@ describe("copyR2Object", () => {
   });
 
   it("accepts a valid scheduled-message MIME type outside request uploads", async () => {
-    s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    s3.exists.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
     s3.stat.mockResolvedValue({ size: 1024, type: "audio/mpeg" });
 
     await copyR2Object(
@@ -206,7 +232,7 @@ describe("copyR2Object", () => {
   });
 
   it("accepts Kalakriti music MIME types on the dedicated prefix", async () => {
-    s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    s3.exists.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
     s3.stat.mockResolvedValue({ size: 1024, type: "audio/mpeg" });
 
     await copyR2Object(
@@ -260,7 +286,7 @@ describe("copyR2Object", () => {
   ])(
     "enforces stored size for $sourceKey",
     async ({ maxSize, mimeType, sourceKey }) => {
-      s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+      s3.exists.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
       s3.stat.mockResolvedValue({ size: maxSize, type: mimeType });
       streamedSize = maxSize;
 
@@ -271,7 +297,7 @@ describe("copyR2Object", () => {
       expect(writer.write).toHaveBeenCalled();
 
       mock.clearAllMocks();
-      s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+      s3.exists.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
       s3.stat.mockResolvedValue({ size: maxSize + 1, type: mimeType });
       await expect(
         copyR2Object(
@@ -294,7 +320,7 @@ describe("copyR2Object", () => {
   ])(
     "rejects unsupported stored MIME metadata for %s",
     async (sourceKey, mimeType) => {
-      s3.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+      s3.exists.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
       s3.stat.mockResolvedValue({ size: 1024, type: mimeType });
 
       await expect(

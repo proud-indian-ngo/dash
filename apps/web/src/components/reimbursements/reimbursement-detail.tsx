@@ -327,6 +327,7 @@ export function ReimbursementDetail({
         <ApproveDialog
           entityId={request.id}
           entityLabel={typeLabel.toLowerCase()}
+          hasExistingScreenshot={Boolean(request.approvalScreenshotKey)}
           onConfirm={handleApprove}
           onOpenChange={setApproveOpen}
           open={approveOpen}

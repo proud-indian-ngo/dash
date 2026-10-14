@@ -75,6 +75,10 @@ test.describe("Cash voucher", () => {
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
+    test.skip(
+      Boolean(process.env.CI),
+      "Approving promotes the payment screenshot in R2, which CI does not have"
+    );
     test.slow();
 
     await reimbursements.createReimbursementWithVoucher("Voucher Approval");
@@ -99,13 +103,7 @@ test.describe("Cash voucher", () => {
     test.slow();
 
     await reimbursements.createReimbursement("No Voucher");
-
-    await expect(reimbursements.detail.getApproveButton()).toBeVisible();
-    await reimbursements.detail.approve();
-
-    await expect(page.getByText("Reimbursement approved")).toBeVisible({
-      timeout: 15_000,
-    });
+    await reimbursements.approveInDatabase();
 
     // Since createReimbursement uses amount "100" (≤ 1000) without opt-in,
     // the "Generate Voucher" button should appear for the qualifying line item

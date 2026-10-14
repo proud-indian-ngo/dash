@@ -1,4 +1,5 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { FieldDescription } from "@pi-dash/design-system/components/ui/field";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { getRefCurrent } from "@pi-dash/design-system/hooks/get-ref-current";
@@ -29,6 +30,8 @@ import {
 interface ApproveDialogProps {
   entityId: string;
   entityLabel: string;
+  /** The record already holds a payment screenshot that approval can reuse. */
+  hasExistingScreenshot?: boolean;
   hideScreenshot?: boolean;
   onConfirm: (message: string, screenshotKey?: string) => Promise<boolean>;
   onOpenChange: (open: boolean) => void;
@@ -38,6 +41,7 @@ interface ApproveDialogProps {
 export function ApproveDialog({
   entityId,
   entityLabel,
+  hasExistingScreenshot = false,
   hideScreenshot = false,
   onConfirm,
   onOpenChange,
@@ -48,6 +52,7 @@ export function ApproveDialog({
   const [uploading, setUploading] = useState(false);
   const [screenshotKey, setScreenshotKey] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [replacing, setReplacing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const cleanup = useEventCallback(() => {
@@ -69,6 +74,7 @@ export function ApproveDialog({
     setMessage("");
     setScreenshotKey(null);
     setPreviewUrl(null);
+    setReplacing(false);
     setSubmitting(false);
     setUploading(false);
   });
@@ -156,6 +162,7 @@ export function ApproveDialog({
     setScreenshotKey(null);
     setPreviewUrl(null);
   });
+  const handleReplaceScreenshot = useEventCallback(() => setReplacing(true));
   const stableOnOpenChange0 = useEventCallback((isOpen: boolean) => {
     if (!isOpen && submitting) {
       return;
@@ -192,6 +199,13 @@ export function ApproveDialog({
     (event: React.ChangeEvent<HTMLTextAreaElement>) =>
       setMessage(event.target.value)
   );
+  const missingScreenshot = !(
+    hideScreenshot ||
+    screenshotKey ||
+    hasExistingScreenshot
+  );
+  const showExistingScreenshot =
+    hasExistingScreenshot && !replacing && !previewUrl;
   let actionLabel = "Approve";
   if (uploading) {
     actionLabel = "Uploading…";
@@ -205,8 +219,9 @@ export function ApproveDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Approve {entityLabel}?</AlertDialogTitle>
           <AlertDialogDescription>
-            This action will approve the {entityLabel} and notify the submitter.
-            You can optionally add a message and payment proof.
+            {hideScreenshot
+              ? `This action will approve the ${entityLabel} and notify the submitter. You can optionally add a message.`
+              : `Approve only after the claimant has been paid. This will approve the ${entityLabel} and notify the submitter.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="flex flex-col gap-2">
@@ -222,12 +237,29 @@ export function ApproveDialog({
         {hideScreenshot ? null : (
           <div className="flex flex-col gap-2">
             <Label htmlFor="approval-screenshot">
-              Payment proof (optional)
+              Payment screenshot
+              <span aria-hidden="true" className="text-destructive">
+                {" "}
+                *
+              </span>
             </Label>
+            {showExistingScreenshot ? (
+              <div className="flex items-center gap-3">
+                <p className="text-sm">Payment screenshot already attached</p>
+                <Button
+                  onClick={handleReplaceScreenshot}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  Replace
+                </Button>
+              </div>
+            ) : null}
             {previewUrl ? (
               <div className="flex items-start gap-3">
                 <img
-                  alt="Payment proof preview"
+                  alt="Payment screenshot preview"
                   className="h-20 w-20 rounded-md border object-cover"
                   height={80}
                   src={previewUrl}
@@ -242,9 +274,12 @@ export function ApproveDialog({
                   Remove
                 </Button>
               </div>
-            ) : (
+            ) : null}
+            {showExistingScreenshot || previewUrl ? null : (
               <input
                 accept="image/jpeg,image/png,image/webp"
+                aria-describedby="approval-screenshot-description"
+                aria-required={!hasExistingScreenshot}
                 className="file:bg-muted text-sm file:mr-2 file:rounded-md file:border-0 file:px-3 file:py-1.5 file:text-sm file:font-medium"
                 disabled={uploading}
                 id="approval-screenshot"
@@ -253,6 +288,9 @@ export function ApproveDialog({
                 type="file"
               />
             )}
+            <FieldDescription id="approval-screenshot-description">
+              Attach the screenshot of the payment to the claimant
+            </FieldDescription>
           </div>
         )}
         <AlertDialogFooter>
@@ -260,7 +298,7 @@ export function ApproveDialog({
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction
-            disabled={uploading || submitting}
+            disabled={uploading || submitting || missingScreenshot}
             onClick={stableOnClick2}
           >
             {actionLabel}

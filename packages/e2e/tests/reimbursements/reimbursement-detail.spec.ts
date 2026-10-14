@@ -49,8 +49,67 @@ test.describe("Reimbursement detail (reimbursement)", () => {
     await expect(reimbursements.detail.getRejectButton()).toBeHidden();
   });
 
+  test("approve needs the payment screenshot", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
+
+    await reimbursements.createReimbursement("Approve Needs Screenshot");
+    await reimbursements.detail.stubScreenshotUpload();
+    await reimbursements.detail.getApproveButton().click();
+    const dialog = reimbursements.detail.getAlertDialog();
+    const approve = dialog.getByRole("button", { name: "Approve" });
+
+    await expect(
+      dialog.getByText("Attach the screenshot of the payment to the claimant")
+    ).toBeVisible();
+    await expect(approve).toBeDisabled();
+
+    await reimbursements.detail.attachPaymentScreenshot(dialog);
+    await expect(approve).toBeEnabled();
+
+    await dialog.getByRole("button", { name: "Remove" }).click();
+    await expect(approve).toBeDisabled();
+
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(reimbursements.detail.getStatusBadge("Pending")).toBeVisible();
+    await expect(page.getByText("Reimbursement approved")).toBeHidden();
+  });
+
+  test("approve reuses a payment screenshot already on the record", async ({
+    page: _page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
+
+    await reimbursements.createReimbursement("Approve Existing Screenshot");
+    await reimbursements.rejectWithStoredScreenshotInDatabase();
+    await reimbursements.detail.stubScreenshotUpload();
+    await reimbursements.detail.getApproveButton().click();
+    const dialog = reimbursements.detail.getAlertDialog();
+    const approve = dialog.getByRole("button", { name: "Approve" });
+
+    await expect(
+      dialog.getByText("Payment screenshot already attached")
+    ).toBeVisible();
+    await expect(approve).toBeEnabled();
+
+    await dialog.getByRole("button", { name: "Replace" }).click();
+    await expect(dialog.getByLabel("Payment screenshot")).toBeVisible();
+    await expect(approve).toBeEnabled();
+    await reimbursements.detail.attachPaymentScreenshot(dialog);
+    await expect(approve).toBeEnabled();
+
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(
+      reimbursements.detail.getStatusBadge("Rejected")
+    ).toBeVisible();
+  });
+
   test("admin approves a pending reimbursement", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
+    test.skip(
+      Boolean(process.env.CI),
+      "Approving promotes the payment screenshot in R2, which CI does not have"
+    );
 
     await reimbursements.createReimbursement("Approv Flow Test");
 
@@ -171,10 +230,33 @@ test.describe.skip("Reimbursement detail (advance_payment)", () => {
     await expect(page.getByText("Expense Date")).toBeHidden();
   });
 
+  test("approving an advance payment needs the payment screenshot", async ({
+    page: _page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
+
+    await reimbursements.createReimbursement("AP Approve Needs Screenshot");
+    await reimbursements.detail.stubScreenshotUpload();
+    await reimbursements.detail.getApproveButton().click();
+    const dialog = reimbursements.detail.getAlertDialog();
+    const approve = dialog.getByRole("button", { name: "Approve" });
+
+    await expect(approve).toBeDisabled();
+    await reimbursements.detail.attachPaymentScreenshot(dialog);
+    await expect(approve).toBeEnabled();
+
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(reimbursements.detail.getStatusBadge("Pending")).toBeVisible();
+  });
+
   test("admin approves a pending advance payment", async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
+    test.skip(
+      Boolean(process.env.CI),
+      "Approving promotes the payment screenshot in R2, which CI does not have"
+    );
 
     await reimbursements.createReimbursement("AP Approve Flow");
 
