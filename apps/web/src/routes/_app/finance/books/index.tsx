@@ -91,7 +91,7 @@ function BooksPage() {
     defaultYear(books.years, books.today);
   const accounts = booksAccounts(books);
 
-  if (books.isLoading && !year) {
+  if (books.isLoading) {
     return (
       <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
         <PageHeader title="Books" />
@@ -199,6 +199,7 @@ function BooksPage() {
                   onSelect: openOpening,
                 },
                 !closed &&
+                  year.startsOn <= books.today &&
                   hasPermission("finance.close_year") && {
                     icon: SquareLock01Icon,
                     id: "close",

@@ -3554,14 +3554,27 @@ async function seedAppConfig(): Promise<void> {
 /**
  * Fake opening balances for FY 2026-27 so the Books page has something to
  * show in development. Never the trust's real figures: those are entered by
- * the treasurer from the audited statements. Skipped when any opening
- * balance already stands for the year (for example one entered by hand).
+ * a finance admin from the audited statements. Skipped when the seed's
+ * document exists (posted or reversed) or another one stands for the year.
  */
 const SEED_OPENING_BALANCE_ID = "01930000-0000-7000-8000-000000000820";
 
 async function seedBooks(adminId: string): Promise<void> {
   log("Seeding fake opening balances...");
   const fiscalYearId = FISCAL_YEAR_IDS["2026-27"];
+  const [seeded] = await db
+    .select({ reversalPostingId: openingBalance.reversalPostingId })
+    .from(openingBalance)
+    .where(eq(openingBalance.id, SEED_OPENING_BALANCE_ID))
+    .limit(1);
+  if (seeded) {
+    log(
+      seeded.reversalPostingId
+        ? "Seed opening balances were reversed; leaving the books as they are"
+        : "Seed opening balances already posted"
+    );
+    return;
+  }
   const [standing] = await db
     .select({ id: openingBalance.id })
     .from(openingBalance)
@@ -3573,7 +3586,7 @@ async function seedBooks(adminId: string): Promise<void> {
     )
     .limit(1);
   if (standing) {
-    log("Opening balances already posted");
+    log("Other opening balances already stand; not seeding fake ones");
     return;
   }
   const bankId = ORG_ACCOUNTS[0]?.id as string;

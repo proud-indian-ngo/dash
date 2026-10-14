@@ -4,7 +4,6 @@ import {
   ADMIN_PERMISSIONS,
   FINANCE_ADMIN_PERMISSIONS,
   PERMISSION_IDS,
-  TREASURER_PERMISSIONS,
   VOLUNTEER_BASELINE_PERMISSIONS,
 } from "./permissions";
 
@@ -32,7 +31,7 @@ describe("finance permissions by role", () => {
     expect(VOLUNTEER_BASELINE_PERMISSIONS).not.toContain("finance.manage");
   });
 
-  it("keeps the treasurer's book-keeping permissions off admin and on finance_admin", () => {
+  it("gives finance admins, not admins, the book-keeping permissions", () => {
     const books = [
       "finance.post_opening",
       "finance.close_year",
@@ -43,9 +42,7 @@ describe("finance permissions by role", () => {
       expect(PERMISSION_IDS.has(id)).toBe(true);
       expect(ADMIN_PERMISSIONS).not.toContain(id);
       expect(FINANCE_ADMIN_PERMISSIONS).toContain(id);
-      expect(TREASURER_PERMISSIONS).toContain(id);
       expect(VOLUNTEER_BASELINE_PERMISSIONS).not.toContain(id);
     }
-    expect(TREASURER_PERMISSIONS).toContain("finance.view");
   });
 });

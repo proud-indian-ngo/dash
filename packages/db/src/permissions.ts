@@ -498,21 +498,6 @@ export const EXTERNAL_USER_PERMISSIONS: readonly PermissionId[] = [
   "kalakriti.view",
 ];
 
-/**
- * The Treasurer role keeps the books: posts opening balances, closes and
- * reopens the year, records adjustments, and reads the books. Created once
- * as an ordinary editable role, so admins can change or reassign it in
- * Settings → Roles; pi-dash never names the people who hold it.
- */
-export const TREASURER_ROLE_ID = "treasurer";
-export const TREASURER_PERMISSIONS: readonly PermissionId[] = [
-  "finance.view",
-  "finance.post_opening",
-  "finance.close_year",
-  "finance.reopen_year",
-  "finance.adjust",
-];
-
 /** Role IDs that are immutable system roles (permissions managed in code, not editable via UI) */
 export const ADMIN_TIER_ROLES = new Set([
   "super_admin",

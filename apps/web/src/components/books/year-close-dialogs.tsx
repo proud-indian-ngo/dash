@@ -1,4 +1,8 @@
-import { Alert02Icon, CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
+import {
+  Alert02Icon,
+  CheckmarkCircle02Icon,
+  InformationCircleIcon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type {
   CloseCheck,
@@ -40,12 +44,16 @@ const CHECK_LABELS: Record<CloseCheckId, { fail: string; pass: string }> = {
     pass: "Bank statements imported to the year end",
   },
   clearing_balances: {
-    fail: "Razorpay or give.do clearing isn't at zero",
-    pass: "Razorpay and give.do clearing at zero",
+    fail: "Clearing balances at year end",
+    pass: "Clearing balances at year end",
   },
   opening_balances: {
     fail: "Opening balances not posted",
     pass: "Opening balances posted",
+  },
+  previous_year_closed: {
+    fail: "The previous year isn't closed",
+    pass: "The previous year is closed",
   },
   unposted_sources: {
     fail: "Records waiting to post",
@@ -60,8 +68,19 @@ const CHECK_LABELS: Record<CloseCheckId, { fail: string; pass: string }> = {
 const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "Something went wrong";
 
+function checkIcon(check: CloseCheck) {
+  // The clearing balances are shown for the treasurer to judge, not graded.
+  if (check.id === "clearing_balances") {
+    return { className: "text-muted-foreground", icon: InformationCircleIcon };
+  }
+  return check.ok
+    ? { className: "text-success-foreground", icon: CheckmarkCircle02Icon }
+    : { className: "text-warning-foreground", icon: Alert02Icon };
+}
+
 function CheckRow({ check }: { check: CloseCheck }) {
   const label = CHECK_LABELS[check.id];
+  const icon = checkIcon(check);
   return (
     <li
       className="flex gap-3 px-3 py-2.5 text-sm"
@@ -69,11 +88,8 @@ function CheckRow({ check }: { check: CloseCheck }) {
       data-testid={`close-check-${check.id}`}
     >
       <HugeiconsIcon
-        className={cn(
-          "mt-0.5 size-4 shrink-0",
-          check.ok ? "text-success-foreground" : "text-warning-foreground"
-        )}
-        icon={check.ok ? CheckmarkCircle02Icon : Alert02Icon}
+        className={cn("mt-0.5 size-4 shrink-0", icon.className)}
+        icon={icon.icon}
         strokeWidth={2}
       />
       <span className="min-w-0">

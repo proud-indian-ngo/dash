@@ -90,6 +90,50 @@ describe("cashBook", () => {
   });
 });
 
+describe("cashBook ordering and openings", () => {
+  it("orders same-day movements by id, so a reversal and repost run in order", () => {
+    const book = cashBook(
+      [
+        // Out of order on purpose; ids are time-ordered.
+        { ...move("0003", "2026-04-01", "in", 900), kind: "opening" as const },
+        { ...move("0001", "2026-04-01", "in", 1000), kind: "opening" as const },
+        {
+          ...move("0002", "2026-04-01", "out", 1000),
+          kind: "opening" as const,
+        },
+        { ...move("0004", "2026-04-01", "in", 50), kind: "receipt" as const },
+      ],
+      "bank",
+      FY
+    );
+    expect(book.rows.map((r) => [r.id, r.balancePaise])).toEqual([
+      ["0001", 1000],
+      ["0002", 0],
+      ["0003", 900],
+      ["0004", 950],
+    ]);
+  });
+
+  it("folds the year's opening movements into the opening balance", () => {
+    const book = cashBook(
+      [
+        { ...move("0001", "2026-04-01", "in", 1000), kind: "opening" as const },
+        { ...move("0002", "2026-05-01", "in", 200), kind: "receipt" as const },
+        { ...move("0003", "2026-06-01", "out", 50), kind: "payout" as const },
+      ],
+      "bank",
+      FY
+    );
+    expect(book).toMatchObject({
+      closingPaise: 1150,
+      inPaise: 200,
+      netPaise: 150,
+      openingPaise: 1000,
+      outPaise: 50,
+    });
+  });
+});
+
 describe("incomeExpenditure", () => {
   it("nets decreases and groups by head or programme", () => {
     const entries = [

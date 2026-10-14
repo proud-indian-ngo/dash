@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import { LEDGER_ACCOUNT_HEAD_IDS } from "@pi-dash/shared/constants";
+
 import {
   matchesScope,
   type ScopeAst,
@@ -19,6 +21,7 @@ type Row = Record<string, unknown>;
 function createDb(seed: Partial<Record<string, Row[]>> = {}) {
   const tables: Record<string, Row[]> = {
     accountHead: [],
+    ledgerEntry: [],
     orgAccount: [],
     programme: [],
     project: [],
@@ -258,6 +261,58 @@ describe("account head mutators", () => {
     await expect(
       run(accountHeadMutators.update, db, financeCtx, head({ parentId: "h-2" }))
     ).rejects.toThrow("cycle");
+  });
+
+  it("keeps a head the books post under on its type and active", async () => {
+    const db = createDb({
+      accountHead: [head()],
+      ledgerEntry: [{ accountHeadId: "h-1", id: "e-1" }],
+    });
+    await expect(
+      run(accountHeadMutators.update, db, financeCtx, head({ type: "income" }))
+    ).rejects.toThrow("its type can't change");
+    await expect(
+      run(accountHeadMutators.update, db, financeCtx, head({ active: false }))
+    ).rejects.toThrow("can't be deactivated");
+    await run(
+      accountHeadMutators.update,
+      db,
+      financeCtx,
+      head({ name: "Programme expenses" })
+    );
+    expect(db.tables.accountHead?.[0]).toMatchObject({
+      name: "Programme expenses",
+    });
+  });
+
+  it("protects the books' reference heads even before anything posts", async () => {
+    const fundBalance = head({
+      code: "FUND_BALANCE",
+      id: LEDGER_ACCOUNT_HEAD_IDS.fundBalance,
+      name: "Fund balance",
+      type: "fund",
+    });
+    const db = createDb({ accountHead: [fundBalance] });
+    await expect(
+      run(accountHeadMutators.update, db, financeCtx, {
+        ...fundBalance,
+        active: false,
+      })
+    ).rejects.toThrow("can't be deactivated");
+  });
+
+  it("lets an unused head change type or be deactivated", async () => {
+    const db = createDb({ accountHead: [head()] });
+    await run(
+      accountHeadMutators.update,
+      db,
+      financeCtx,
+      head({ active: false, type: "income" })
+    );
+    expect(db.tables.accountHead?.[0]).toMatchObject({
+      active: false,
+      type: "income",
+    });
   });
 });
 

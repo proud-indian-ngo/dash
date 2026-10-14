@@ -33,15 +33,15 @@ import { closeYear, reopenYear, yearCloseChecklist } from "./year-close";
 
 /**
  * Database-backed checks of the posting engine. Opt in with
- * LEDGER_TEST_DATABASE_URL pointing exactly at localhost:5462 (the wt1
- * worktree database, migrated and seeded). Every test runs in a transaction
+ * LEDGER_TEST_DATABASE_URL pointing at a local, migrated and seeded
+ * database (a worktree's isolated database). Every test runs in a transaction
  * that is rolled back, with synthetic records and fake amounts only.
  */
 
 const databaseUrl = process.env.LEDGER_TEST_DATABASE_URL;
 const localDatabase =
   databaseUrl !== undefined &&
-  /^postgres(?:ql)?:\/\/[^/]*@(localhost|127\.0\.0\.1|\[::1\]):5462\//.test(
+  /^postgres(?:ql)?:\/\/[^/]*@(localhost|127\.0\.0\.1|\[::1\]):\d+\//.test(
     databaseUrl
   );
 
@@ -122,7 +122,11 @@ async function foundation(tx: LedgerTx) {
     .onConflictDoNothing();
   // A clean 2026-27 for this transaction only.
   await tx.update(fiscalYear).set({ closedAt: null, closedBy: null });
+  // Earlier opening balances are final; only a maintenance session may
+  // clear them, and only inside this rolled-back transaction.
+  await tx.execute(sql`SET LOCAL pi_dash.ledger_maintenance = 'on'`);
   await tx.delete(openingBalance);
+  await tx.execute(sql`SET LOCAL pi_dash.ledger_maintenance = 'off'`);
   const [year] = await tx
     .select()
     .from(fiscalYear)
@@ -244,19 +248,39 @@ it.skipIf(!localDatabase)(
   }
 );
 
+// The year 2026-27 has ended by then.
+const AFTER_YEAR_END = new Date("2027-04-02T06:00:00Z");
+
 it.skipIf(!localDatabase)(
-  "refuses a closed year until it is reopened, keeping the history",
+  "closes only an ended year with its opening balances, then refuses postings until reopened",
   async () => {
     await inRolledBackTransaction(async (tx) => {
       const ids = await foundation(tx);
-      // The cutover year needs its opening balances before it can close.
+      // Not ended yet: blocked even with everything else in place.
+      const running = await yearCloseChecklist(tx, ids.yearId, NOW);
+      expect(running.canClose).toBe(false);
+      expect(running.checks.find((c) => c.id === "year_ended")).toMatchObject({
+        ok: false,
+        required: true,
+      });
       expect(
-        await codeOf(() => closeYear(tx, ids.yearId, { actorId: ids.user }))
+        await codeOf(() =>
+          closeYear(tx, ids.yearId, { actorId: ids.user, now: NOW })
+        )
+      ).toBe("invalid");
+      // Ended, but the cutover year still needs its opening balances.
+      expect(
+        await codeOf(() =>
+          closeYear(tx, ids.yearId, {
+            actorId: ids.user,
+            now: AFTER_YEAR_END,
+          })
+        )
       ).toBe("invalid");
       await postOpeningBalance(
         tx,
         {
-          caConfirmedOn: "2026-10-01",
+          caConfirmedOn: "2026-04-15",
           caName: "Test CA",
           fiscalYearId: ids.yearId,
           id: uuidv7(),
@@ -267,12 +291,20 @@ it.skipIf(!localDatabase)(
         },
         { actorId: ids.user, now: NOW }
       );
-      const checklist = await yearCloseChecklist(tx, ids.yearId, NOW);
-      expect(checklist.canClose).toBe(true);
-      expect(checklist.checks.find((c) => c.id === "year_ended")?.ok).toBe(
-        false
+      const checklist = await yearCloseChecklist(
+        tx,
+        ids.yearId,
+        AFTER_YEAR_END
       );
-      await closeYear(tx, ids.yearId, { actorId: ids.user, now: NOW });
+      expect(checklist.canClose).toBe(true);
+      // The pre-cutover 2025-26 is not the books' business.
+      expect(
+        checklist.checks.some((c) => c.id === "previous_year_closed")
+      ).toBe(false);
+      await closeYear(tx, ids.yearId, {
+        actorId: ids.user,
+        now: AFTER_YEAR_END,
+      });
       expect(
         await codeOf(() =>
           post(tx, receipt(ids.bank), { actorId: ids.user, now: NOW })
@@ -290,7 +322,7 @@ it.skipIf(!localDatabase)(
       await reopenYear(
         tx,
         { fiscalYearId: ids.yearId, reason: "CA found a missing receipt" },
-        { actorId: ids.user, now: NOW }
+        { actorId: ids.user, now: AFTER_YEAR_END }
       );
       const { created } = await post(tx, receipt(ids.bank), {
         actorId: ids.user,
@@ -314,6 +346,72 @@ it.skipIf(!localDatabase)(
 );
 
 it.skipIf(!localDatabase)(
+  "closes years in order and reopens them in reverse order",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const [next] = await tx
+        .select()
+        .from(fiscalYear)
+        .where(eq(fiscalYear.startsOn, "2027-04-01"));
+      if (!next) {
+        throw new Error("Seed 2027-28 first");
+      }
+      const afterNextEnd = new Date("2028-04-02T06:00:00Z");
+      // 2027-28 waits for 2026-27.
+      const blocked = await yearCloseChecklist(tx, next.id, afterNextEnd);
+      expect(
+        blocked.checks.find((c) => c.id === "previous_year_closed")
+      ).toMatchObject({ ok: false, required: true });
+      expect(
+        await codeOf(() =>
+          closeYear(tx, next.id, { actorId: ids.user, now: afterNextEnd })
+        )
+      ).toBe("invalid");
+      await postOpeningBalance(
+        tx,
+        {
+          caConfirmedOn: "2026-04-15",
+          caName: "Test CA",
+          fiscalYearId: ids.yearId,
+          id: uuidv7(),
+          lines: [
+            { amountPaise: 1000, kind: "account", orgAccountId: ids.bank },
+            { amountPaise: 1000, fundId: GENERAL_FUND_ID, kind: "fund" },
+          ],
+        },
+        { actorId: ids.user, now: NOW }
+      );
+      await closeYear(tx, ids.yearId, {
+        actorId: ids.user,
+        now: AFTER_YEAR_END,
+      });
+      await closeYear(tx, next.id, { actorId: ids.user, now: afterNextEnd });
+      // 2026-27 can't reopen while 2027-28 is closed.
+      expect(
+        await codeOf(() =>
+          reopenYear(
+            tx,
+            { fiscalYearId: ids.yearId, reason: "Late correction" },
+            { actorId: ids.user }
+          )
+        )
+      ).toBe("invalid");
+      await reopenYear(
+        tx,
+        { fiscalYearId: next.id, reason: "Late correction" },
+        { actorId: ids.user }
+      );
+      await reopenYear(
+        tx,
+        { fiscalYearId: ids.yearId, reason: "Late correction" },
+        { actorId: ids.user }
+      );
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
   "posts balanced opening balances once and allows a corrected repost after reversal",
   async () => {
     await inRolledBackTransaction(async (tx) => {
@@ -327,7 +425,7 @@ it.skipIf(!localDatabase)(
         { amountPaise: 1000, fundId: GENERAL_FUND_ID, kind: "fund" as const },
       ];
       const input = {
-        caConfirmedOn: "2026-10-01",
+        caConfirmedOn: "2026-04-15",
         caName: "Test CA",
         fiscalYearId: ids.yearId,
         id: uuidv7(),
@@ -349,6 +447,15 @@ it.skipIf(!localDatabase)(
       expect(
         await postOpeningBalance(tx, input, { actorId: ids.user })
       ).toEqual(document);
+      expect(
+        await codeOf(() =>
+          postOpeningBalance(
+            tx,
+            { ...input, caConfirmedOn: "2026-05-01", id: uuidv7() },
+            { actorId: ids.user, now: new Date("2026-04-30T06:00:00Z") }
+          )
+        )
+      ).toBe("invalid_date");
       expect(
         await codeOf(() =>
           postOpeningBalance(
@@ -381,8 +488,21 @@ it.skipIf(!localDatabase)(
   }
 );
 
+/** Runs a statement that must be refused, inside a savepoint. */
+async function refusal(tx: LedgerTx, run: () => Promise<unknown>) {
+  await tx.execute(sql`SAVEPOINT refusal`);
+  let message = "";
+  try {
+    await run();
+  } catch (error) {
+    message = String((error as Error).cause ?? error);
+  }
+  await tx.execute(sql`ROLLBACK TO SAVEPOINT refusal`);
+  return message;
+}
+
 it.skipIf(!localDatabase)(
-  "refuses updates and deletes of posted rows in the database",
+  "refuses updates, deletes and truncates of the books in the database",
   async () => {
     await inRolledBackTransaction(async (tx) => {
       const ids = await foundation(tx);
@@ -390,28 +510,79 @@ it.skipIf(!localDatabase)(
         actorId: ids.user,
         now: NOW,
       });
-      await tx.execute(sql`SAVEPOINT immutability`);
-      let message = "";
-      try {
-        await tx
-          .update(accountMovement)
-          .set({ amountPaise: 1 })
-          .where(eq(accountMovement.postingId, created.id));
-      } catch (error) {
-        message = String((error as Error).cause ?? error);
-      }
-      expect(message).toContain("append-only");
-      await tx.execute(sql`ROLLBACK TO SAVEPOINT immutability`);
-      message = "";
-      try {
-        await tx
-          .delete(ledgerEntry)
-          .where(eq(ledgerEntry.postingId, created.id));
-      } catch (error) {
-        message = String((error as Error).cause ?? error);
-      }
-      expect(message).toContain("append-only");
-      await tx.execute(sql`ROLLBACK TO SAVEPOINT immutability`);
+      expect(
+        await refusal(tx, () =>
+          tx
+            .update(accountMovement)
+            .set({ amountPaise: 1 })
+            .where(eq(accountMovement.postingId, created.id))
+        )
+      ).toContain("append-only");
+      expect(
+        await refusal(tx, () =>
+          tx.delete(ledgerEntry).where(eq(ledgerEntry.postingId, created.id))
+        )
+      ).toContain("append-only");
+      expect(
+        await refusal(tx, () => tx.execute(sql`TRUNCATE "movement_allocation"`))
+      ).toContain("TRUNCATE");
+
+      const document = await postOpeningBalance(
+        tx,
+        {
+          caConfirmedOn: "2026-04-15",
+          caName: "Test CA",
+          fiscalYearId: ids.yearId,
+          id: uuidv7(),
+          lines: [
+            { amountPaise: 1000, kind: "account", orgAccountId: ids.bank },
+            { amountPaise: 1000, fundId: GENERAL_FUND_ID, kind: "fund" },
+          ],
+        },
+        { actorId: ids.user, now: NOW }
+      );
+      expect(
+        await refusal(tx, () =>
+          tx
+            .update(openingBalance)
+            .set({ caName: "Someone else" })
+            .where(eq(openingBalance.id, document.id))
+        )
+      ).toContain("Opening balances are final");
+      expect(
+        await refusal(tx, () =>
+          tx.delete(openingBalance).where(eq(openingBalance.id, document.id))
+        )
+      ).toContain("Opening balances are final");
+      // A deleted login's reference may become NULL.
+      await tx
+        .update(openingBalance)
+        .set({ createdBy: null })
+        .where(eq(openingBalance.id, document.id));
+
+      await closeYear(tx, ids.yearId, {
+        actorId: ids.user,
+        now: AFTER_YEAR_END,
+      });
+      expect(
+        await refusal(tx, () =>
+          tx
+            .update(fiscalYearEvent)
+            .set({ reason: "Rewritten" })
+            .where(eq(fiscalYearEvent.fiscalYearId, ids.yearId))
+        )
+      ).toContain("append-only");
+      expect(
+        await refusal(tx, () =>
+          tx
+            .delete(fiscalYearEvent)
+            .where(eq(fiscalYearEvent.fiscalYearId, ids.yearId))
+        )
+      ).toContain("append-only");
+      await tx
+        .update(fiscalYearEvent)
+        .set({ actorId: null })
+        .where(eq(fiscalYearEvent.fiscalYearId, ids.yearId));
     });
   }
 );

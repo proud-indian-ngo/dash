@@ -939,6 +939,13 @@
       "when": 1792039805000,
       "tag": "0133_ledger_append_only",
       "breakpoints": true
+    },
+    {
+      "idx": 134,
+      "version": "7",
+      "when": 1792039810000,
+      "tag": "0134_ledger_guards",
+      "breakpoints": true
     }
   ]
 }

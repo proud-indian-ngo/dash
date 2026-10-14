@@ -1,7 +1,18 @@
 import { todayInKolkata } from "@pi-dash/shared/income";
 import { LEDGER_CUTOVER_ON } from "@pi-dash/shared/ledger";
 import { formatPaise } from "@pi-dash/shared/money";
-import { and, eq, isNull, lte, max, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  gt,
+  isNotNull,
+  isNull,
+  lt,
+  lte,
+  max,
+  sql,
+} from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 import { fiscalYear, orgAccount } from "../schema/finance-dimensions";
@@ -17,17 +28,23 @@ import { LedgerError } from "./rules";
 /**
  * Year close (the ledger closes at year end only). Closing stamps the year,
  * after which the engine refuses any posting dated in it; reopening needs
- * its own permission and a reason, kept in `fiscal_year_event`. The
- * checklist shows what to look at first; only "opening balances posted"
- * blocks the close, the rest are warnings the treasurer judges.
+ * its own permission and a reason, kept in `fiscal_year_event`.
+ *
+ * Blocking: the year has ended, the previous year in the books is closed,
+ * and (in the cutover year) the opening balances are posted. A later year
+ * that is closed blocks reopening an earlier one. The rest of the checklist
+ * is for the treasurer to judge: records waiting to post (always none until
+ * income and expenses post), bank statements reaching the year end, and the
+ * clearing balances at year end (payouts in transit are normal).
  */
 
 export type CloseCheckId =
+  | "year_ended"
+  | "previous_year_closed"
   | "opening_balances"
   | "unposted_sources"
   | "bank_statements"
-  | "clearing_balances"
-  | "year_ended";
+  | "clearing_balances";
 
 export interface CloseCheck {
   /** Short facts for the row, such as "HDFC current account: to 31 Mar 2027". */
@@ -47,6 +64,23 @@ export interface YearCloseChecklist {
   label: string;
 }
 
+const BLOCKER_MESSAGES: Partial<Record<CloseCheckId, string>> = {
+  opening_balances: "Post the opening balances before closing the year",
+  previous_year_closed: "Close the previous year first",
+  year_ended: "A year can be closed only after it has ended",
+};
+
+/** The year before this one, if the books keep it (it ends on or after the cutover). */
+async function previousBooksYear(tx: LedgerTx, startsOn: string) {
+  const [previous] = await tx
+    .select()
+    .from(fiscalYear)
+    .where(lt(fiscalYear.startsOn, startsOn))
+    .orderBy(desc(fiscalYear.startsOn))
+    .limit(1);
+  return previous && previous.endsOn >= LEDGER_CUTOVER_ON ? previous : null;
+}
+
 export async function yearCloseChecklist(
   tx: LedgerTx,
   fiscalYearId: string,
@@ -60,7 +94,24 @@ export async function yearCloseChecklist(
   if (!year) {
     throw new LedgerError("not_found", "That financial year doesn't exist");
   }
-  const checks: CloseCheck[] = [];
+  const checks: CloseCheck[] = [
+    {
+      details: [],
+      id: "year_ended",
+      ok: todayInKolkata(now) > year.endsOn,
+      required: true,
+    },
+  ];
+
+  const previous = await previousBooksYear(tx, year.startsOn);
+  if (previous) {
+    checks.push({
+      details: [previous.label],
+      id: "previous_year_closed",
+      ok: previous.closedAt !== null,
+      required: true,
+    });
+  }
 
   // Only the cutover year opens from entered balances; later years carry on.
   if (year.startsOn === LEDGER_CUTOVER_ON) {
@@ -109,6 +160,8 @@ export async function yearCloseChecklist(
     required: false,
   });
 
+  // Shown for the treasurer to check, never a failure: money a gateway has
+  // collected but not yet paid out is normal at year end.
   const clearing = await tx
     .select({
       balance: sql<string>`coalesce(sum(case when ${accountMovement.direction} = 'in' then ${accountMovement.amountPaise} else -${accountMovement.amountPaise} end), 0)`,
@@ -125,21 +178,13 @@ export async function yearCloseChecklist(
     .where(eq(orgAccount.kind, "gateway_clearing"))
     .groupBy(orgAccount.id, orgAccount.name)
     .orderBy(orgAccount.name);
-  const clearingBalances = clearing.map((c) => ({
-    name: c.name,
-    paise: Number(c.balance),
-  }));
   checks.push({
-    details: clearingBalances.map((c) => `${c.name}: ${formatPaise(c.paise)}`),
+    details: clearing.map(
+      (c) =>
+        `${formatPaise(Number(c.balance))} in ${c.name} at year end; payouts in transit are normal`
+    ),
     id: "clearing_balances",
-    ok: clearingBalances.every((c) => c.paise === 0),
-    required: false,
-  });
-
-  checks.push({
-    details: [],
-    id: "year_ended",
-    ok: todayInKolkata(now) > year.endsOn,
+    ok: true,
     required: false,
   });
 
@@ -178,10 +223,11 @@ export async function closeYear(
   }
   const now = context.now ?? new Date();
   const checklist = await yearCloseChecklist(tx, fiscalYearId, now);
-  if (!checklist.canClose) {
+  const blocker = checklist.checks.find((c) => c.required && !c.ok);
+  if (blocker) {
     throw new LedgerError(
       "invalid",
-      `Post ${year.label}'s opening balances before closing it`
+      BLOCKER_MESSAGES[blocker.id] ?? `${year.label} can't be closed yet`
     );
   }
   await tx
@@ -212,6 +258,23 @@ export async function reopenYear(
   const year = await lockYear(tx, input.fiscalYearId);
   if (!year.closedAt) {
     throw new LedgerError("invalid", `${year.label} is not closed`);
+  }
+  const [laterClosed] = await tx
+    .select({ label: fiscalYear.label })
+    .from(fiscalYear)
+    .where(
+      and(
+        gt(fiscalYear.startsOn, year.startsOn),
+        isNotNull(fiscalYear.closedAt)
+      )
+    )
+    .orderBy(fiscalYear.startsOn)
+    .limit(1);
+  if (laterClosed) {
+    throw new LedgerError(
+      "invalid",
+      `Reopen ${laterClosed.label} first: a later year is closed`
+    );
   }
   const now = context.now ?? new Date();
   await tx

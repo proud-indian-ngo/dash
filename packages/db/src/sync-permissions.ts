@@ -7,8 +7,6 @@ import {
   FINANCE_ADMIN_PERMISSIONS,
   PERMISSIONS,
   SYSTEM_ONLY_PERMISSION_IDS,
-  TREASURER_PERMISSIONS,
-  TREASURER_ROLE_ID,
   UNORIENTED_VOLUNTEER_PERMISSIONS,
   VOLUNTEER_BASELINE_PERMISSIONS,
 } from "./permissions";
@@ -136,33 +134,6 @@ export async function syncPermissions(): Promise<void> {
           requiredPermissions.map((permissionId) => ({
             permissionId,
             roleId: "volunteer",
-          }))
-        )
-        .onConflictDoNothing();
-    }
-  });
-
-  // The Treasurer role is created once with the book-keeping permissions;
-  // afterwards it is an ordinary role that admins edit or remove.
-  await db.transaction(async (tx) => {
-    const created = await tx
-      .insert(role)
-      .values({
-        description:
-          "Keeps the books: opening balances, year close and reopen, adjustments",
-        id: TREASURER_ROLE_ID,
-        isSystem: false,
-        name: "Treasurer",
-      })
-      .onConflictDoNothing()
-      .returning({ id: role.id });
-    if (created.length > 0) {
-      await tx
-        .insert(rolePermission)
-        .values(
-          TREASURER_PERMISSIONS.map((permissionId) => ({
-            permissionId,
-            roleId: TREASURER_ROLE_ID,
           }))
         )
         .onConflictDoNothing();

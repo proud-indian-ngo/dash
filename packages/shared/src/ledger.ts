@@ -138,7 +138,10 @@ export function openingBalanceCheck(
 export interface BookMovement {
   amountPaise: number;
   direction: MovementDirection;
+  /** Time-ordered (uuidv7), so it orders same-day movements. */
   id: string;
+  /** `opening` movements are the year's opening balance, not money in. */
+  kind?: MovementKind;
   /** yyyy-MM-dd */
   occurredOn: string;
   orgAccountId: string;
@@ -188,9 +191,11 @@ export interface CashBook<T extends BookMovement> {
 }
 
 /**
- * One account's movements in a range, oldest first, with a running balance
- * that starts from everything before the range. Same-day movements keep
- * their given order after a stable sort by date.
+ * One account's movements in a range, oldest first (by date, then by the
+ * time-ordered id, so a same-day reversal and repost keep their order),
+ * with a running balance that starts from everything before the range.
+ * Opening movements dated in the range (the cutover's opening balances and
+ * their reversals) count towards the opening balance, not money in or out.
  */
 export function cashBook<T extends BookMovement>(
   movements: readonly T[],
@@ -199,8 +204,12 @@ export function cashBook<T extends BookMovement>(
 ): CashBook<T> {
   const mine = movements
     .filter((m) => m.orgAccountId === orgAccountId)
-    .sort((a, b) => a.occurredOn.localeCompare(b.occurredOn));
+    .sort(
+      (a, b) =>
+        a.occurredOn.localeCompare(b.occurredOn) || a.id.localeCompare(b.id)
+    );
   let balance = 0;
+  let openingPaise = 0;
   let inPaise = 0;
   let outPaise = 0;
   const rows: CashBookRow<T>[] = [];
@@ -208,23 +217,30 @@ export function cashBook<T extends BookMovement>(
     if (m.occurredOn > range.endsOn) {
       break;
     }
-    balance += movementSignedPaise(m.direction, m.amountPaise);
+    const signed = movementSignedPaise(m.direction, m.amountPaise);
+    balance += signed;
     if (m.occurredOn < range.startsOn) {
+      openingPaise += signed;
       continue;
     }
-    if (m.direction === "in") {
+    if (m.kind === "opening") {
+      openingPaise += signed;
+    } else if (m.direction === "in") {
       inPaise += m.amountPaise;
     } else {
       outPaise += m.amountPaise;
     }
-    rows.push({ ...m, balancePaise: balance, month: m.occurredOn.slice(0, 7) });
+    rows.push({
+      ...m,
+      balancePaise: balance,
+      month: m.occurredOn.slice(0, 7),
+    });
   }
-  const netPaise = inPaise - outPaise;
   return {
     closingPaise: balance,
     inPaise,
-    netPaise,
-    openingPaise: balance - netPaise,
+    netPaise: inPaise - outPaise,
+    openingPaise,
     outPaise,
     rows,
   };

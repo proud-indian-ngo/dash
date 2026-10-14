@@ -1,5 +1,6 @@
 import { Undo02Icon, FileValidationIcon } from "@hugeicons/core-free-icons";
 import { env } from "@pi-dash/env/web";
+import { LEDGER_ACCOUNT_HEAD_IDS } from "@pi-dash/shared/constants";
 import { epochDayToIso } from "@pi-dash/shared/income";
 import {
   BOOKS_VIEW_PERMISSIONS,
@@ -154,6 +155,25 @@ function OpeningBalancesPage() {
     );
   }
 
+  const headTypes = new Map(books.heads.map((h) => [h.id, h.type]));
+  const referenceDataMissing = [
+    [LEDGER_ACCOUNT_HEAD_IDS.fixedAssets, "asset"],
+    [LEDGER_ACCOUNT_HEAD_IDS.auditFeesPayable, "liability"],
+    [LEDGER_ACCOUNT_HEAD_IDS.fundBalance, "fund"],
+  ].some(([id, type]) => headTypes.get(id as string) !== type);
+  if (referenceDataMissing) {
+    return (
+      <div className={container}>
+        <PageHeader title="Opening balances" />
+        <NotFoundState
+          description="The Fixed assets, Audit fees payable or Fund balance account head couldn't be created, usually because another head already uses its code. Ask an administrator to check the server log."
+          icon={FileValidationIcon}
+          title="Books reference data missing"
+        />
+      </div>
+    );
+  }
+
   const formAccounts = books.accounts
     .filter((a) => a.active && a.kind !== "cash")
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -176,7 +196,7 @@ function OpeningBalancesPage() {
           />
         ) : (
           <NotFoundState
-            description="The treasurer enters them from the audited statements."
+            description="A finance admin enters them from the audited statements."
             icon={FileValidationIcon}
             title="No opening balances yet"
           />

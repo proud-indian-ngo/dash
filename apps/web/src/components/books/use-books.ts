@@ -48,9 +48,9 @@ export interface BooksPosting {
  */
 export function useBooks() {
   const [yearRows, yearsResult] = useQuery(queries.fiscalYear.all());
-  const [accounts] = useQuery(queries.orgAccount.all());
-  const [heads] = useQuery(queries.accountHead.all());
-  const [funds] = useQuery(queries.fund.all());
+  const [accounts, accountsResult] = useQuery(queries.orgAccount.all());
+  const [heads, headsResult] = useQuery(queries.accountHead.all());
+  const [funds, fundsResult] = useQuery(queries.fund.all());
   const [programmes] = useQuery(queries.programme.all());
   const [movementRows, movementsResult] = useQuery(queries.ledger.movements());
   const [entryRows, entriesResult] = useQuery(queries.ledger.entries());
@@ -83,19 +83,25 @@ export function useBooks() {
     postingId: m.postingId,
     reversal: Boolean(m.reversesMovementId),
   }));
-  const entries: BooksEntryRow[] = entryRows.map((e) => ({
-    accountHeadId: e.accountHeadId,
-    amountPaise: e.amountPaise,
-    economicOn: epochDayToIso(e.economicOn),
-    effect: e.effect as LedgerEffect,
-    fundId: e.fundId,
-    headType: headType.get(e.accountHeadId) ?? "expense",
-    id: e.id,
-    memo: e.memo ?? null,
-    postingId: e.postingId,
-    programmeId: e.programmeId ?? null,
-    reversal: Boolean(e.reversesEntryId),
-  }));
+  // An entry whose head hasn't synced yet is left out rather than guessed.
+  const entries: BooksEntryRow[] = entryRows.flatMap((e) => {
+    const type = headType.get(e.accountHeadId);
+    return type ? [{ ...toEntry(e), headType: type }] : [];
+  });
+  function toEntry(e: (typeof entryRows)[number]) {
+    return {
+      accountHeadId: e.accountHeadId,
+      amountPaise: e.amountPaise,
+      economicOn: epochDayToIso(e.economicOn),
+      effect: e.effect as LedgerEffect,
+      fundId: e.fundId,
+      id: e.id,
+      memo: e.memo ?? null,
+      postingId: e.postingId,
+      programmeId: e.programmeId ?? null,
+      reversal: Boolean(e.reversesEntryId),
+    };
+  }
   const postings = new Map<string, BooksPosting>(
     postingRows.map((p) => [
       p.id,
@@ -114,7 +120,11 @@ export function useBooks() {
     entries,
     funds,
     heads,
+    // Balances need every head, account and fund before they mean anything.
     isLoading:
+      (heads.length === 0 && headsResult.type !== "complete") ||
+      (accounts.length === 0 && accountsResult.type !== "complete") ||
+      (funds.length === 0 && fundsResult.type !== "complete") ||
       (yearRows.length === 0 && yearsResult.type !== "complete") ||
       (movementRows.length === 0 && movementsResult.type !== "complete") ||
       (entryRows.length === 0 && entriesResult.type !== "complete") ||

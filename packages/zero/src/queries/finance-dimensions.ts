@@ -3,6 +3,7 @@ import { defineQuery } from "@rocicorp/zero";
 import { can, isExternalUser } from "../permissions";
 import { zql } from "../schema";
 import { canSeeIncome } from "./income";
+import { canSeeBooks } from "./ledger";
 
 /** Programmes and cost centres are picked on every event, so any internal user may list them. */
 export const programmeQueries = {
@@ -40,6 +41,16 @@ function financeGuard(ctx: Parameters<typeof can>[0] | null | undefined) {
   return ctx !== null && ctx !== undefined && can(ctx, "finance.view");
 }
 
+/**
+ * Funds, account heads, organisation accounts and fiscal years also back
+ * the books pages, which whoever may post the opening balances can open.
+ */
+function canReadFinanceSetup(
+  ctx: Parameters<typeof can>[0] | null | undefined
+) {
+  return financeGuard(ctx) || canSeeBooks(ctx);
+}
+
 /** Full project rows carry sponsor and budget terms, so they need finance.view. */
 export const projectQueries = {
   all: defineQuery(({ ctx }) =>
@@ -57,7 +68,7 @@ export const fundQueries = {
       : zql.fund.where("id", "__never_match__")
   ),
   all: defineQuery(({ ctx }) =>
-    financeGuard(ctx)
+    canReadFinanceSetup(ctx)
       ? zql.fund.orderBy("name", "asc")
       : zql.fund.where("id", "__never_match__")
   ),
@@ -65,7 +76,7 @@ export const fundQueries = {
 
 export const accountHeadQueries = {
   all: defineQuery(({ ctx }) =>
-    financeGuard(ctx)
+    canReadFinanceSetup(ctx)
       ? zql.accountHead.orderBy("sortOrder", "asc").orderBy("name", "asc")
       : zql.accountHead.where("id", "__never_match__")
   ),
@@ -79,7 +90,7 @@ export const orgAccountQueries = {
       : zql.orgAccount.where("id", "__never_match__")
   ),
   all: defineQuery(({ ctx }) =>
-    financeGuard(ctx)
+    canReadFinanceSetup(ctx)
       ? zql.orgAccount.orderBy("name", "asc")
       : zql.orgAccount.where("id", "__never_match__")
   ),
@@ -87,7 +98,7 @@ export const orgAccountQueries = {
 
 export const fiscalYearQueries = {
   all: defineQuery(({ ctx }) =>
-    financeGuard(ctx)
+    canReadFinanceSetup(ctx)
       ? zql.fiscalYear.orderBy("startsOn", "desc").related("periods")
       : zql.fiscalYear.where("id", "__never_match__")
   ),

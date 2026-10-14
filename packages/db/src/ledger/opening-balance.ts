@@ -2,6 +2,7 @@ import {
   GENERAL_FUND_ID,
   LEDGER_ACCOUNT_HEAD_IDS,
 } from "@pi-dash/shared/constants";
+import { todayInKolkata } from "@pi-dash/shared/income";
 import {
   LEDGER_CUTOVER_ON,
   LEDGER_SOURCE_TYPES,
@@ -9,7 +10,7 @@ import {
   openingBalanceCheck,
   POSTING_ACTIONS,
 } from "@pi-dash/shared/ledger";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import {
   accountHead,
@@ -190,6 +191,31 @@ async function assertReferences(
   }
 }
 
+/** The heads opening lines post under must exist with their types. */
+async function assertReferenceData(tx: LedgerTx) {
+  const required = [
+    { id: LEDGER_ACCOUNT_HEAD_IDS.fixedAssets, type: "asset" },
+    { id: LEDGER_ACCOUNT_HEAD_IDS.auditFeesPayable, type: "liability" },
+    { id: LEDGER_ACCOUNT_HEAD_IDS.fundBalance, type: "fund" },
+  ];
+  const rows = await tx
+    .select({ id: accountHead.id, type: accountHead.type })
+    .from(accountHead)
+    .where(
+      inArray(
+        accountHead.id,
+        required.map((r) => r.id)
+      )
+    );
+  const typeById = new Map(rows.map((r) => [r.id, r.type]));
+  if (required.some((r) => typeById.get(r.id) !== r.type)) {
+    throw new LedgerError(
+      "invalid",
+      "Books reference data missing: the Fixed assets, Audit fees payable or Fund balance account head couldn't be created. Ask an administrator to check the server log."
+    );
+  }
+}
+
 /** Writes the document and its posting; a repeat of the same id returns it. */
 export async function postOpeningBalance(
   tx: LedgerTx,
@@ -203,6 +229,17 @@ export async function postOpeningBalance(
   if (!isIsoDay(input.caConfirmedOn)) {
     throw new LedgerError("invalid_date", "Enter the date the CA confirmed");
   }
+  if (input.caConfirmedOn > todayInKolkata(context.now ?? new Date())) {
+    throw new LedgerError(
+      "invalid_date",
+      "The CA's confirmation date can't be in the future"
+    );
+  }
+  // One opening-balance post per year at a time: a double submit waits and
+  // then finds the first one; a second document finds the standing one.
+  await tx.execute(
+    sql`SELECT pg_advisory_xact_lock(hashtextextended(${`ledger:opening_balance_year:${input.fiscalYearId}`}, 0))`
+  );
   const [year] = await tx
     .select()
     .from(fiscalYear)
@@ -242,6 +279,7 @@ export async function postOpeningBalance(
     );
   }
   const postingInput = buildOpeningPosting(input, year.startsOn);
+  await assertReferenceData(tx);
   await assertReferences(tx, input.lines);
   const { posting } = await post(tx, postingInput, {
     actorId: context.actorId,

@@ -1,3 +1,7 @@
+import { execFile } from "node:child_process";
+import path from "node:path";
+import { promisify } from "node:util";
+
 import type { Page } from "@playwright/test";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
@@ -11,6 +15,21 @@ import { clickPageAction, openPageAction } from "../../helpers/page-header";
  */
 
 const YEAR = "2026-27";
+const execFileAsync = promisify(execFile);
+
+/** Runs a step of `helpers/books.ts` against the test database. */
+async function books(...args: string[]): Promise<Record<string, string>> {
+  const { stdout } = await execFileAsync(
+    "bun",
+    [
+      "run",
+      path.resolve(import.meta.dirname, "../../helpers/books.ts"),
+      ...args,
+    ],
+    { env: process.env }
+  );
+  return JSON.parse(stdout.trim()) as Record<string, string>;
+}
 
 async function reverseIfPosted(page: Page) {
   await page.goto("/finance/books/opening");
@@ -32,7 +51,7 @@ async function reverseIfPosted(page: Page) {
 test.describe("Books (treasurer)", () => {
   test.describe.configure({ mode: "serial" });
 
-  test("posts balanced opening balances, refuses unbalanced ones, then closes and reopens the year", async ({
+  test("posts balanced opening balances, refuses unbalanced ones, keeps a running year open and reopens a closed one", async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "finance_admin", "Treasurer test");
@@ -98,29 +117,57 @@ test.describe("Books (treasurer)", () => {
         .getByTestId("books-account-balance")
     ).toHaveText("₹2,000.00");
 
-    // Close the year from its checklist.
+    // A running year can't be closed: the checklist says why.
     await clickPageAction(page, `Close ${YEAR}`);
     const closeDialog = page.getByRole("dialog");
     await expect(
       closeDialog.getByTestId("close-check-opening_balances")
     ).toHaveAttribute("data-ok", "true");
-    await closeDialog.getByRole("button", { name: `Close ${YEAR}` }).click();
-    await expect(page.getByText(`${YEAR} closed`)).toBeVisible();
-    await expect(page.getByTestId("year-status")).toHaveText("Closed");
-    await expect(page.getByTestId("year-history")).toContainText("Closed");
+    await expect(
+      closeDialog.getByTestId("close-check-year_ended")
+    ).toHaveAttribute("data-ok", "false");
+    await expect(
+      closeDialog.getByTestId("close-check-clearing_balances")
+    ).toContainText("payouts in transit are normal");
+    await expect(
+      closeDialog.getByRole("button", { name: `Close ${YEAR}` })
+    ).toBeDisabled();
+    await closeDialog.getByRole("button", { name: "Cancel" }).click();
 
-    // Reopen with a reason.
-    await clickPageAction(page, `Reopen ${YEAR}`);
-    const reopenDialog = page.getByRole("dialog");
-    await reopenDialog
-      .getByLabel("Reason")
-      .fill("E2E: CA asked for a correction");
-    await reopenDialog.getByRole("button", { name: `Reopen ${YEAR}` }).click();
-    await expect(page.getByText(`${YEAR} reopened`)).toBeVisible();
-    await expect(page.getByTestId("year-status")).toHaveText("Open");
-    await expect(page.getByTestId("year-history")).toContainText(
-      "E2E: CA asked for a correction"
-    );
+    // Closed after year end (by the real close, run as of that day), the
+    // year reopens here with a reason.
+    try {
+      await books("close-year", YEAR);
+
+      // The database itself refuses edits to the posted books
+      // (with a close event to protect too).
+      const guards = await books("probe-guards");
+      expect(guards).toEqual(
+        Object.fromEntries(Object.keys(guards).map((key) => [key, "refused"]))
+      );
+      expect(Object.keys(guards).length).toBeGreaterThan(5);
+
+      await page.reload();
+      await waitForZeroReady(page);
+      await expect(page.getByTestId("year-status")).toHaveText("Closed");
+      await expect(page.getByTestId("year-history")).toContainText("Closed");
+      await clickPageAction(page, `Reopen ${YEAR}`);
+      const reopenDialog = page.getByRole("dialog");
+      await reopenDialog
+        .getByLabel("Reason")
+        .fill("E2E: CA asked for a correction");
+      await reopenDialog
+        .getByRole("button", { name: `Reopen ${YEAR}` })
+        .click();
+      await expect(page.getByText(`${YEAR} reopened`)).toBeVisible();
+      await expect(page.getByTestId("year-status")).toHaveText("Open");
+      await expect(page.getByTestId("year-history")).toContainText(
+        "E2E: CA asked for a correction"
+      );
+    } finally {
+      // Never leave the shared test database with a closed year.
+      await books("reopen-year", YEAR);
+    }
 
     // The posted document is read-only.
     await page.goto("/finance/books/opening");

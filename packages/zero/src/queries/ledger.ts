@@ -1,19 +1,30 @@
 import { defineQuery } from "@rocicorp/zero";
 
+import { can } from "../permissions";
 import { zql } from "../schema";
-import { canSeeSettlements } from "./gateway-settlement";
 
 /**
  * The books: postings, recognition entries, cash-book movements, opening
  * balances and year close history. Finance records, so only finance.view
- * and finance.manage holders read them (not donors.view). Read-only: every
- * write goes through the server-side posting engine.
+ * and finance.manage holders, and whoever may post the opening balances,
+ * read them (not donors.view). Read-only: every write goes through the
+ * server-side posting engine.
  *
  * The books views sum across years (a balance is everything up to a date),
  * so each list is the whole book, newest first. A volunteer-run trust
  * writes a few thousand rows a year; the limit leaves decades of headroom.
  */
-export const canSeeBooks = canSeeSettlements;
+export function canSeeBooks(
+  ctx: Parameters<typeof can>[0] | null | undefined
+): boolean {
+  return (
+    ctx !== null &&
+    ctx !== undefined &&
+    (can(ctx, "finance.view") ||
+      can(ctx, "finance.manage") ||
+      can(ctx, "finance.post_opening"))
+  );
+}
 
 const BOOK_LIST_LIMIT = 50_000;
 const NEVER = "__never_match__";
@@ -56,7 +67,8 @@ export const ledgerQueries = {
   yearEvents: defineQuery(({ ctx }) => {
     const events = zql.fiscalYearEvent
       .related("actor")
-      .orderBy("occurredAt", "desc");
+      // Time-ordered IDs give the order the events happened in.
+      .orderBy("id", "desc");
     return canSeeBooks(ctx) ? events : events.where("id", NEVER);
   }),
 };
