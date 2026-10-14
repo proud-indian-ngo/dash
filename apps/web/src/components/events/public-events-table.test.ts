@@ -9,7 +9,9 @@ import {
 
 import {
   type PublicEventRow,
+  rowMapUrl,
   rowMatchesPublicFilters,
+  rowPlace,
   selectUpcomingPublicKalakritiEvent,
   toPublicDisplayRow,
 } from "./public-events-table";
@@ -118,9 +120,12 @@ describe("toPublicDisplayRow", () => {
       members: [],
       name: "Kalakriti 2027",
       occDate: null,
+      publicArea: null,
+      recurrenceRule: null,
       startTime: Date.UTC(2027, 10, 21),
       team: { id: "team-events", name: "Events" },
       teamId: "team-events",
+      volunteersNeeded: null,
     });
   });
 });
@@ -148,5 +153,40 @@ describe("rowMatchesPublicFilters", () => {
     expect(
       rowMatchesPublicFilters(row, "all", "all", "workshop", eventsTeam)
     ).toBe(false);
+  });
+});
+
+describe("rowPlace and rowMapUrl", () => {
+  const place = (
+    location: string | null,
+    publicArea: string | null,
+    city: string | null = "bangalore"
+  ) => ({ city, location, publicArea });
+
+  it("prefers a typed address and has no map link for it", () => {
+    const row = place("PI Center, Indiranagar", "Indiranagar");
+    expect(rowPlace(row)).toBe("PI Center, Indiranagar");
+    expect(rowMapUrl(row)).toBeNull();
+  });
+
+  it("falls back to the area and city when the location is a link", () => {
+    const row = place("https://maps.app.goo.gl/abc", "Indiranagar");
+    expect(rowPlace(row)).toBe("Indiranagar, Bengaluru");
+    expect(rowMapUrl(row)).toBe("https://maps.app.goo.gl/abc");
+  });
+
+  it("uses the city alone without an area, and the area without a city", () => {
+    expect(rowPlace(place(null, null))).toBe("Bengaluru");
+    expect(rowPlace(place(null, "Gubbachi", null))).toBe("Gubbachi");
+    expect(rowPlace(place(null, null, null))).toBeNull();
+  });
+
+  it("lets search match the place shown on the row", () => {
+    const row = toPublicDisplayRow(
+      event({ id: "kk-2", location: "https://maps.app.goo.gl/abc" })
+    );
+    expect(
+      rowMatchesPublicFilters(row, "all", "all", "bengaluru", new Set())
+    ).toBe(true);
   });
 });

@@ -1,3 +1,4 @@
+import { toPublicArea } from "@pi-dash/shared/public-events";
 import type { TeamEvent, TeamEventMember } from "@pi-dash/zero/schema";
 import { addWeeks } from "date-fns";
 
@@ -22,12 +23,37 @@ export interface PublicDisplayRow {
   members: readonly TeamEventMember[];
   name: string;
   occDate: string | null;
+  /** Admin-set neighbourhood, shown instead of a raw map link. */
+  publicArea: string | null;
+  /** RRULE of the series the row belongs to; null for one-off events. */
+  recurrenceRule: string | null;
   startTime: number;
   team: { id: string; name: string } | undefined;
   teamId: string;
+  volunteersNeeded: number | null;
 }
 
 export type PublicEventFilter = "all" | "my-teams" | "public";
+
+const URL_PATTERN = /^https?:\/\//i;
+
+/** The row's location when it is a link, shown as "Map". */
+export function rowMapUrl(row: Pick<PublicDisplayRow, "location">) {
+  return row.location && URL_PATTERN.test(row.location) ? row.location : null;
+}
+
+/**
+ * Where the row says the event is: a typed address beats the coarse area,
+ * and a bare map link falls back to the area and city.
+ */
+export function rowPlace(
+  row: Pick<PublicDisplayRow, "city" | "location" | "publicArea">
+): string | null {
+  if (row.location && !rowMapUrl(row)) {
+    return row.location;
+  }
+  return row.city ? toPublicArea(row.publicArea, row.city) : row.publicArea;
+}
 
 export function selectUpcomingPublicKalakritiEvent(
   events: readonly PublicEventRow[],
@@ -65,9 +91,12 @@ export function toPublicDisplayRow(event: PublicEventRow): PublicDisplayRow {
     members: event.members,
     name: event.name,
     occDate: null,
+    publicArea: event.publicArea ?? null,
+    recurrenceRule: event.recurrenceRule?.rrule ?? null,
     startTime: event.startTime,
     team: event.team,
     teamId: event.teamId,
+    volunteersNeeded: event.volunteersNeeded ?? null,
   };
 }
 
@@ -91,7 +120,7 @@ export function rowMatchesPublicFilters(
   if (!query) {
     return true;
   }
-  return [row.name, row.location, row.team?.name, row.city]
+  return [row.name, row.location, rowPlace(row), row.team?.name, row.city]
     .join(" ")
     .toLowerCase()
     .includes(query);
@@ -145,7 +174,9 @@ function expandSeriesRows(
         members: exc.members,
         name: exc.name,
         occDate: exc.originalDate,
+        publicArea: exc.publicArea,
         startTime: exc.startTime,
+        volunteersNeeded: exc.volunteersNeeded,
       });
     }
   }
@@ -169,8 +200,11 @@ export function buildPublicDisplayRows(
       location: event.location,
       members: event.members,
       name: event.name,
+      publicArea: event.publicArea,
+      recurrenceRule: event.recurrenceRule?.rrule ?? null,
       team: event.team,
       teamId: event.teamId,
+      volunteersNeeded: event.volunteersNeeded,
     };
 
     if (!event.recurrenceRule) {

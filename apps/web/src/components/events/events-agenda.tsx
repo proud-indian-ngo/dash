@@ -57,7 +57,7 @@ import { TableSkeleton } from "@/components/shared/page-skeleton";
 import { DATE, ISO_DATE } from "@/lib/date-formats";
 
 /** Days of events each tab shows before "Show more". */
-const WINDOW_DAYS = 90;
+const WINDOW_DAYS = 30;
 
 const WHEN_VALUES = ["upcoming", "past"] as const;
 type When = (typeof WHEN_VALUES)[number];
@@ -124,15 +124,31 @@ function groupByDay(rows: readonly PublicDisplayRow[]) {
   return [...groups.entries()];
 }
 
-function emptyMessage(when: When, show: PublicEventFilter): string {
+function emptyMessage(
+  when: When,
+  show: PublicEventFilter,
+  days: number
+): string {
   const scope = {
     all: "events",
     "my-teams": "events from your teams",
     public: "public events",
   }[show];
   return when === "upcoming"
-    ? `No upcoming ${scope} in the next ${WINDOW_DAYS} days.`
-    : `No past ${scope} in the last ${WINDOW_DAYS} days.`;
+    ? `No upcoming ${scope} in the next ${days} days.`
+    : `No past ${scope} in the last ${days} days.`;
+}
+
+/** "Show next 30 days · 12 events", so people know what expanding adds. */
+function showMoreLabel(when: When, count: number): string {
+  const range =
+    when === "upcoming"
+      ? `Show next ${WINDOW_DAYS} days`
+      : `Show previous ${WINDOW_DAYS} days`;
+  if (count === 0) {
+    return range;
+  }
+  return `${range} · ${count} ${count === 1 ? "event" : "events"}`;
 }
 
 /** "Show 1 past event", so a search that only matches the other tab says so. */
@@ -148,19 +164,23 @@ interface EventsAgendaProps {
   isLoading?: boolean;
   myInterests: readonly EventInterest[];
   myTeamIds: ReadonlySet<string>;
+  /** Pending interest requests per event id, for people who review them. */
+  pendingInterestCounts?: ReadonlyMap<string, number>;
   userId: string;
 }
 
 /**
  * The events agenda: Upcoming and Past tabs over day headings, each day one
  * framed list of compact rows. Search, team scope and city sit on one toolbar
- * line; the date picker jumps the list to a day.
+ * line; the date picker jumps the list to a day. Each tab starts with the next
+ * (or last) `WINDOW_DAYS` and grows by that much at a time.
  */
 export function EventsAgenda({
   data,
   isLoading,
   myInterests,
   myTeamIds,
+  pendingInterestCounts,
   userId,
 }: EventsAgendaProps) {
   const [when, setWhen] = useQueryState(
@@ -210,6 +230,29 @@ export function EventsAgenda({
     .sort((a, b) => b.startTime - a.startTime);
   const visible = when === "upcoming" ? upcoming : past;
   const otherCount = when === "upcoming" ? past.length : upcoming.length;
+  const windowEnd =
+    when === "upcoming" ? addDays(anchor, span) : subDays(anchor, span);
+
+  // Events the next "Show more" would add, so the button can say how many.
+  const moreCount = useMemo(() => {
+    // The bound next to the current window is exclusive, so no event counts twice.
+    const [start, end] =
+      when === "upcoming"
+        ? [
+            addDays(anchor, span).getTime() + 1,
+            addDays(anchor, span + WINDOW_DAYS).getTime(),
+          ]
+        : [
+            subDays(anchor, span + WINDOW_DAYS).getTime(),
+            subDays(anchor, span).getTime() - 1,
+          ];
+    return buildPublicDisplayRows(data, start, end)
+      .filter((row) =>
+        rowMatchesPublicFilters(row, show, city, search, myTeamIds)
+      )
+      .filter((row) => isUpcoming(row, anchor) === (when === "upcoming"))
+      .length;
+  }, [anchor, city, data, myTeamIds, search, show, span, when]);
 
   const hasMultipleCities =
     new Set(data.map((event) => event.city).filter(Boolean)).size > 1;
@@ -398,6 +441,9 @@ export function EventsAgenda({
                 <EventRow
                   myInterests={myInterests}
                   myTeamIds={myTeamIds}
+                  pendingInterestCount={pendingInterestCounts?.get(
+                    featured.eventId
+                  )}
                   row={featured}
                   showDate
                   userId={userId}
@@ -410,7 +456,7 @@ export function EventsAgenda({
             <ul className="overflow-hidden rounded-lg border">
               {groupByDay(visible).map(([day, dayRows]) => (
                 <li className="[&:last-child>ul]:border-b-0" key={day}>
-                  <h2 className="bg-muted/60 text-muted-foreground border-b px-3 py-1.5 text-xs font-medium">
+                  <h2 className="bg-muted/60 text-muted-foreground border-b px-3 py-1.5 text-xs font-medium sm:px-4">
                     {formatDayHeading(parse(day, ISO_DATE, new Date()))}
                   </h2>
                   <ul className="divide-y border-b">
@@ -419,6 +465,9 @@ export function EventsAgenda({
                         key={`${row.eventId}-${row.startTime}`}
                         myInterests={myInterests}
                         myTeamIds={myTeamIds}
+                        pendingInterestCount={pendingInterestCounts?.get(
+                          row.eventId
+                        )}
                         row={row}
                         userId={userId}
                       />
@@ -431,7 +480,7 @@ export function EventsAgenda({
 
           {visible.length === 0 ? (
             <div className="text-muted-foreground flex flex-col items-center gap-2 py-8 text-center text-sm">
-              <p>{emptyMessage(when, show)}</p>
+              <p>{emptyMessage(when, show, span)}</p>
               {otherCount > 0 ? (
                 <Button onClick={switchTab} size="sm" variant="outline">
                   {otherTabLabel(when, otherCount)}
@@ -440,10 +489,14 @@ export function EventsAgenda({
             </div>
           ) : null}
 
-          <div className="flex justify-center">
-            <Button onClick={showMore} size="sm" variant="ghost">
-              Show {WINDOW_DAYS} more days
+          <div className="flex flex-col items-center gap-1.5">
+            <Button onClick={showMore} size="sm" variant="outline">
+              {showMoreLabel(when, moreCount)}
             </Button>
+            <p className="text-muted-foreground text-xs">
+              {when === "upcoming" ? "Showing until" : "Showing since"}{" "}
+              {format(windowEnd, DATE)}
+            </p>
           </div>
         </div>
       )}
