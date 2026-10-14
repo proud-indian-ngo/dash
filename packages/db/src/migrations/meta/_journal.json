@@ -925,6 +925,20 @@
       "when": 1792008354269,
       "tag": "0131_held_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 132,
+      "version": "7",
+      "when": 1792039800000,
+      "tag": "0132_ledger_books",
+      "breakpoints": true
+    },
+    {
+      "idx": 133,
+      "version": "7",
+      "when": 1792039805000,
+      "tag": "0133_ledger_append_only",
+      "breakpoints": true
     }
   ]
 }

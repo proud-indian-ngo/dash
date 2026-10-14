@@ -1,6 +1,6 @@
 # Finance Phase 0: ledger cutover contracts
 
-> **Status**: draft for founder and CA review (14 October 2026). Nothing here is built yet; it fixes what Phase 3 (posting controls and activation) builds and what Phase 4 exports. Items marked **Proposal** need sign-off; items under "Questions for the CA" need an answer before the ledger is switched on.
+> **Status**: draft for founder and CA review (14 October 2026). Phase 3 layer 1 builds the opening-balance document, the `deposit` account kind and the year close (founder go-ahead 14 October 2026; see "Books (layer 3-1)" in `finance-and-programmes.md`); the rest fixes what later Phase 3 layers build and what Phase 4 exports. Items marked **Proposal** need sign-off; items under "Questions for the CA" need an answer before the ledger is switched on.
 > **Load when**: ledger cutover, opening balances, posting rules in plain language, backfill of FY 2026-27, CA handoff workbook columns, fixed deposit account, audited FY 2025-26 figures.
 > **Related**: `finance-and-programmes.md` (sections 2, 3.8, 3.13 and 5), `vendor-payments.md`
 
@@ -61,17 +61,17 @@ From the audited balance sheet at 31 March 2026, in rupees.
 
 **Balancing check**: assets 4,00,648 + 7,00,000 + 4,391 = **11,05,039**; funds and liabilities 1,001 + 10,94,038 + 10,000 = **11,05,039**. The General Fund is the opening 4,45,052 plus the FY 2025-26 surplus of 6,48,986.
 
-**Proposal**: the opening balances are entered as one opening-balance document listing every line above. It cannot be posted unless its assets equal its funds plus liabilities, and it carries the CA's confirmation (name and date) before posting. Today's posting table (`finance-and-programmes.md` section 3.8) has only "opening in" movements for cash; this document extends it to the fund, liability and asset lines, which are recognition-side opening lines with no money movement.
+**Built (layer 3-1)**: the treasurer (`finance.post_opening`) enters the figures at Finance → Books → Opening balances (`/finance/books/opening`); pi-dash never seeds or hard-codes them. The document lists the accounts, one line per fixed asset (its name in the line), the liabilities and each fund; account lines become opening movements, the rest opening entries under the `Fixed assets`, `Audit fees payable` and `Fund balance` heads. A correction reverses the whole document and posts a new one. The evidence upload of the signed statements is not built yet. Original proposal: the opening balances are entered as one opening-balance document listing every line above. It cannot be posted unless its assets equal its funds plus liabilities, and it carries the CA's confirmation (name and date) before posting. Today's posting table (`finance-and-programmes.md` section 3.8) has only "opening in" movements for cash; this document extends it to the fund, liability and asset lines, which are recognition-side opening lines with no money movement.
 
 ### The fixed deposit
 
-pi-dash's account kinds today are bank, cash and gateway clearing. **Proposal**: add a `deposit` kind for fixed deposits, so the FD:
+**Built (layer 3-1)**: org accounts have a `deposit` kind for fixed deposits ("Fixed deposit" in Settings → Organisation accounts), so the FD:
 
 - never appears as a "deposited into" choice for donations and never takes bank statement imports;
 - gets its money only by transfer: placing an FD is a transfer out of the current account into the FD account, and a maturity or premature closure is a transfer back;
 - earns interest that is recorded as other income (`other_income`, kind interest), never as a donation.
 
-Fallback if the CA or founder prefers no schema change: a bank-kind account named "Fixed deposit", with the same rules kept by practice rather than by the system.
+The contribution form, the contribution mutator and income imports refuse a deposit account, and bank statements only list bank accounts. Transfers between the current account and the FD post from layer 3-3 onwards.
 
 The audited figures show FD interest of 3,817 as income on accrual. No accrued interest receivable appears at 31 March 2026, so nothing opens for it.
 

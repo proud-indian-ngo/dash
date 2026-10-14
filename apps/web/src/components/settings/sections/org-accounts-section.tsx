@@ -42,6 +42,7 @@ import { reportMutationResult } from "@/lib/report-mutation-result";
 const KIND_LABELS: Record<OrgAccountKind, string> = {
   bank: "Bank",
   cash: "Cash",
+  deposit: "Fixed deposit",
   gateway_clearing: "Gateway clearing",
 };
 

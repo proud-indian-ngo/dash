@@ -336,7 +336,9 @@ function usePickerOptions(row: ContributionRow | null) {
     `${name} (${programmeName ?? "No programme"})`;
   return {
     accountOptions: withCurrentOption(
-      accounts.map((a) => ({ label: a.name, value: a.id })),
+      accounts
+        .filter((a) => a.kind !== "deposit")
+        .map((a) => ({ label: a.name, value: a.id })),
       row?.orgAccountId,
       row?.orgAccount?.name
     ),

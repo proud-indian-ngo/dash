@@ -213,7 +213,8 @@ async function assertContributor(tx: Tx, partyId: string) {
 async function assertAccountAndFund(
   tx: Tx,
   next: { fundId: string; orgAccountId: string | null },
-  previous?: { fundId: string; orgAccountId: string | null }
+  previous?: { fundId: string; orgAccountId: string | null },
+  options: { donation?: boolean } = {}
 ) {
   if (next.orgAccountId) {
     const account = await tx.run(
@@ -224,6 +225,10 @@ async function assertAccountAndFund(
       "Account",
       previous?.orgAccountId === next.orgAccountId
     );
+    // A fixed deposit gets money only by transfer, never a donation.
+    if (options.donation && account?.kind === "deposit") {
+      throw new Error("A donation can't be deposited into a fixed deposit");
+    }
   }
   const fund = await tx.run(zql.fund.where("id", next.fundId).one());
   assertActive(fund, "Fund", previous?.fundId === next.fundId);
@@ -396,7 +401,7 @@ export const contributionMutators = {
       : undefined;
     if (tx.location === "server") {
       await assertContributor(tx, values.partyId);
-      await assertAccountAndFund(tx, values);
+      await assertAccountAndFund(tx, values, undefined, { donation: true });
       values.programmeId = await resolveProgramme(tx, values);
     }
     const now = Date.now();
@@ -482,7 +487,7 @@ export const contributionMutators = {
       if (values.partyId !== existing.partyId) {
         await assertContributor(tx, values.partyId);
       }
-      await assertAccountAndFund(tx, values, existing);
+      await assertAccountAndFund(tx, values, existing, { donation: true });
       values.programmeId = await resolveProgramme(tx, values, existing);
     }
     await tx.mutate.contribution.update({

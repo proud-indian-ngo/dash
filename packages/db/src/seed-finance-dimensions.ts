@@ -9,6 +9,7 @@ import {
 
 import { buildFiscalPeriods } from "./fiscal-years";
 import { db } from "./index";
+import { ensureLedgerReferenceData } from "./ledger/reference-data";
 import { appConfig } from "./schema/app-config";
 import {
   costCentre,
@@ -24,6 +25,8 @@ import {
  * approval threshold. Migration 0112 inserts the same rows in production;
  * environments built with `drizzle-kit push` (CI, fresh dev databases) call
  * this instead. Every insert ignores conflicts, so it is safe to re-run.
+ * It also ensures the books' fund and account heads, which production gets
+ * from the server-start plugin.
  */
 export async function ensureFinanceDimensions(): Promise<void> {
   const now = new Date();
@@ -150,4 +153,6 @@ export async function ensureFinanceDimensions(): Promise<void> {
       value: String(DEFAULT_FINANCE_THRESHOLD_PAISE),
     })
     .onConflictDoNothing();
+
+  await ensureLedgerReferenceData();
 }

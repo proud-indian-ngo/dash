@@ -412,6 +412,32 @@ export const PERMISSIONS = [
     id: "finance.view_sensitive",
     name: "View Sensitive Finance Data",
   },
+  {
+    category: "finance",
+    description:
+      "Enter and post the CA-confirmed opening balances, and reverse them for a correction",
+    id: "finance.post_opening",
+    name: "Post Opening Balances",
+  },
+  {
+    category: "finance",
+    description: "Close a financial year so nothing more posts into it",
+    id: "finance.close_year",
+    name: "Close Financial Year",
+  },
+  {
+    category: "finance",
+    description: "Reopen a closed financial year, with a reason",
+    id: "finance.reopen_year",
+    name: "Reopen Financial Year",
+  },
+  {
+    category: "finance",
+    description:
+      "Record manual adjustments to the books, with a mandatory reason",
+    id: "finance.adjust",
+    name: "Adjust the Books",
+  },
 
   // ── Donors ──
   {
@@ -472,6 +498,21 @@ export const EXTERNAL_USER_PERMISSIONS: readonly PermissionId[] = [
   "kalakriti.view",
 ];
 
+/**
+ * The Treasurer role keeps the books: posts opening balances, closes and
+ * reopens the year, records adjustments, and reads the books. Created once
+ * as an ordinary editable role, so admins can change or reassign it in
+ * Settings → Roles; pi-dash never names the people who hold it.
+ */
+export const TREASURER_ROLE_ID = "treasurer";
+export const TREASURER_PERMISSIONS: readonly PermissionId[] = [
+  "finance.view",
+  "finance.post_opening",
+  "finance.close_year",
+  "finance.reopen_year",
+  "finance.adjust",
+];
+
 /** Role IDs that are immutable system roles (permissions managed in code, not editable via UI) */
 export const ADMIN_TIER_ROLES = new Set([
   "super_admin",
@@ -498,6 +539,10 @@ const adminExcluded = new Set<PermissionId>([
   "settings.whatsapp_groups",
   "finance.manage",
   "finance.view_sensitive",
+  "finance.post_opening",
+  "finance.close_year",
+  "finance.reopen_year",
+  "finance.adjust",
   "donors.manage",
   "jobs.manage",
   "system.alerts",

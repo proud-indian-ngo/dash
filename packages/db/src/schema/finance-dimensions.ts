@@ -191,7 +191,11 @@ export const orgAccount = pgTable(
 export const fiscalYear = pgTable(
   "fiscal_year",
   {
+    /** Set by the year close; postings into a closed year are refused. */
     closedAt: timestamp("closed_at"),
+    closedBy: text("closed_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     endsOn: date("ends_on").notNull(),
     id: uuid("id").primaryKey(),
     /** For example "2026-27". */
