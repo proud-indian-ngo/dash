@@ -5,6 +5,7 @@ import type {
   DonationType,
 } from "@pi-dash/shared/constants";
 import {
+  hasReturnAddress,
   idNumberLooksValid,
   joinReturnAddress,
   parseReturnRegistration,
@@ -14,14 +15,24 @@ import {
   type ReturnDonorFacts,
   type ReturnGiftFacts,
 } from "@pi-dash/shared/donations-return";
-import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  eq,
+  gte,
+  inArray,
+  lte,
+  notInArray,
+  sql,
+} from "drizzle-orm";
 
 import { db } from "..";
-import { decryptSecret } from "../encryption";
+import { decryptSecret, hasEncryptionKey } from "../encryption";
 import { appConfig } from "../schema/app-config";
 import { importBatch } from "../schema/import-batch";
 import { contribution, contributionRefund } from "../schema/income";
 import { party } from "../schema/party";
+import { importRow } from "../schema/private/imports";
 import { partyPrivate } from "../schema/private/party-private";
 import { partyIdNumberContext } from "./party-private";
 
@@ -35,7 +46,6 @@ import { partyIdNumberContext } from "./party-private";
 
 /** A gift with the fields the page and the CA's file show beside its outcome. */
 export interface ReturnGiftRow extends ReturnGiftFacts {
-  channel: ContributionChannel;
   eligibilityReason: string | null;
 }
 
@@ -50,6 +60,11 @@ export interface ReturnDonorExport {
 
 export interface ReturnFacts {
   donors: Map<string, ReturnDonorFacts>;
+  /**
+   * False when DATA_ENCRYPTION_KEY is not set: stored IDs cannot be checked
+   * (left unchecked, not marked invalid) and cannot be exported.
+   */
+  identifiersAvailable: boolean;
   exportDetails: Map<string, ReturnDonorExport>;
   gifts: ReturnGiftRow[];
 }
@@ -122,8 +137,9 @@ export async function loadReturnFacts(
   const partyIds = [...new Set(gifts.map((gift) => gift.partyId))];
   const donors = new Map<string, ReturnDonorFacts>();
   const exportDetails = new Map<string, ReturnDonorExport>();
+  const identifiersAvailable = hasEncryptionKey();
   if (partyIds.length === 0) {
-    return { donors, exportDetails, gifts };
+    return { donors, exportDetails, gifts, identifiersAvailable };
   }
   const parties = await db
     .select({
@@ -146,13 +162,18 @@ export async function loadReturnFacts(
     const encrypted = details?.idNumberEncrypted ?? null;
     let idValid: boolean | null = null;
     let idNumber: string | null = null;
-    if (encrypted && idType !== "none" && idMode !== "none") {
+    if (
+      encrypted &&
+      idType !== "none" &&
+      idMode !== "none" &&
+      identifiersAvailable
+    ) {
       const read = readIdNumber(row.id, encrypted, idType);
       idValid = read.valid;
       idNumber = idMode === "reveal" ? read.value : null;
     }
     donors.set(row.id, {
-      hasAddress: !blank(details?.addressLine1),
+      hasAddress: details ? hasReturnAddress(details) : false,
       hasIdNumber: encrypted !== null,
       hasName: !blank(row.displayName),
       idType,
@@ -174,17 +195,26 @@ export async function loadReturnFacts(
       name: (row.legalName?.trim() || row.displayName).trim(),
     });
   }
-  return { donors, exportDetails, gifts };
+  return { donors, exportDetails, gifts, identifiersAvailable };
 }
 
-/** Rows waiting in imports (queued, needing review, without an account): not contributions yet. */
+/**
+ * Import rows still pending (queued, needing review, without an account, or
+ * left undecided) in batches that are neither expired nor failed: gifts not
+ * yet contributions.
+ */
 export async function countImportRowsWaiting(): Promise<number> {
   const [row] = await db
-    .select({
-      total: sql<string>`coalesce(sum(${importBatch.pendingCount}), 0)`,
-    })
-    .from(importBatch);
-  return Number(row?.total ?? 0);
+    .select({ total: count() })
+    .from(importRow)
+    .innerJoin(importBatch, eq(importBatch.id, importRow.batchId))
+    .where(
+      and(
+        eq(importRow.outcome, "pending"),
+        notInArray(importBatch.status, ["expired", "failed"])
+      )
+    );
+  return row?.total ?? 0;
 }
 
 /** The organisation's 80G registration from app_config; null until finance sets it. */

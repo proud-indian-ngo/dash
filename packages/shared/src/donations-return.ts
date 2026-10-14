@@ -12,6 +12,7 @@
  * current template before every upload.
  */
 import type {
+  ContributionChannel,
   ContributionReportingMode,
   DeductionEligible,
   DonationType,
@@ -21,6 +22,7 @@ import {
   countsAsReceived,
   type FinancialYearRange,
   financialYearOf,
+  PLATFORM_INTERMEDIARY_PARTY_IDS,
   todayInKolkata,
 } from "./income";
 import { paiseToRupees, sumPaise } from "./money";
@@ -109,6 +111,7 @@ export const RETURN_EXCLUSION_LABELS: Record<ReturnExclusion, string> = {
 
 /** What keeps a gift that belongs in the return out of the upload file. */
 export const returnBlockValues = [
+  "intermediary_as_donor",
   "missing_name",
   "missing_address",
   "missing_id",
@@ -117,8 +120,9 @@ export const returnBlockValues = [
 export type ReturnBlock = (typeof returnBlockValues)[number];
 
 export const RETURN_BLOCK_LABELS: Record<ReturnBlock, string> = {
+  intermediary_as_donor: "Donation platform recorded as the donor",
   invalid_id: "ID number doesn't look valid",
-  missing_address: "No address",
+  missing_address: "No address with PIN code",
   missing_id: "No ID number",
   missing_name: "No name",
 };
@@ -138,13 +142,19 @@ export const ELIGIBILITY_REASON_PRESETS = [
 
 export const ELIGIBILITY_REASON_MAX = 120;
 
-/** What the return needs to know about a donor. Never carries the ID number itself. */
+/**
+ * What the return needs to know about a donor. Never carries the ID number
+ * itself. `hasAddress` means address line 1 and a PIN code (`hasReturnAddress`).
+ */
 export interface ReturnDonorFacts {
   hasAddress: boolean;
   hasIdNumber: boolean;
   hasName: boolean;
   idType: PartyIdType;
-  /** False when a stored ID fails its format check or cannot be read; null when not checked. */
+  /**
+   * False when a stored ID fails its format check or cannot be decrypted;
+   * null when not checked (no encryption key, or not asked for).
+   */
   idValid: boolean | null;
   partyId: string;
   taxCertificateOptOut: boolean;
@@ -153,6 +163,7 @@ export interface ReturnDonorFacts {
 /** What the return needs to know about a gift. */
 export interface ReturnGiftFacts {
   amountPaise: number;
+  channel: ContributionChannel;
   currency: string;
   deductionEligible: DeductionEligible;
   donationType: DonationType;
@@ -170,6 +181,41 @@ export type GiftOutcome =
   | { kind: "excluded"; reason: ReturnExclusion }
   | { kind: "ready" }
   | { blocks: ReturnBlock[]; kind: "blocked" };
+
+/**
+ * An address the return accepts: the first line and a PIN code. The state is
+ * optional because the Razorpay page does not ask for it. Used by the
+ * readiness page, the Income stat and the import alike.
+ */
+export function hasReturnAddress(details: {
+  addressLine1?: string | null;
+  pincode?: string | null;
+}): boolean {
+  return Boolean(details.addressLine1?.trim() && details.pincode?.trim());
+}
+
+/**
+ * The mode a gift is reported under: a cash or in-kind channel decides it
+ * even when the stored mode says otherwise, so neither the ₹2,000 cash
+ * limit nor the in-kind exclusion can be dodged by the mode alone.
+ */
+export function effectiveReportingMode(gift: {
+  channel: ContributionChannel;
+  reportingMode: ContributionReportingMode;
+}): ContributionReportingMode {
+  if (gift.channel === "in_kind") {
+    return "in_kind";
+  }
+  if (gift.channel === "cash") {
+    return "cash";
+  }
+  return gift.reportingMode;
+}
+
+/** Whether a party is a donation platform (GiveIndia) rather than a giver. */
+export function isPlatformIntermediary(partyId: string): boolean {
+  return PLATFORM_INTERMEDIARY_PARTY_IDS.includes(partyId);
+}
 
 /** Name and address matter for every received gift, in the return or not (section 115BBC). */
 export function donorDetailBlocks(
@@ -228,13 +274,11 @@ export function classifyGift(
   if (gift.currency.trim().toUpperCase() !== "INR") {
     return { kind: "excluded", reason: "foreign_currency" };
   }
-  if (gift.reportingMode === "in_kind") {
+  const mode = effectiveReportingMode(gift);
+  if (mode === "in_kind") {
     return { kind: "excluded", reason: "in_kind" };
   }
-  if (
-    gift.reportingMode === "cash" &&
-    gift.amountPaise > CASH_DEDUCTION_LIMIT_PAISE
-  ) {
+  if (mode === "cash" && gift.amountPaise > CASH_DEDUCTION_LIMIT_PAISE) {
     return { kind: "excluded", reason: "cash_over_limit" };
   }
   if (gift.deductionEligible === "no") {
@@ -242,6 +286,10 @@ export function classifyGift(
   }
   if (gift.deductionEligible === "unknown" && donor?.taxCertificateOptOut) {
     return { kind: "excluded", reason: "donor_declined" };
+  }
+  // GiveIndia passes gifts on; the real donor must be recorded instead.
+  if (isPlatformIntermediary(gift.partyId)) {
+    return { blocks: ["intermediary_as_donor"], kind: "blocked" };
   }
   const blocks = returnBlocks(donor);
   return blocks.length > 0 ? { blocks, kind: "blocked" } : { kind: "ready" };
@@ -293,7 +341,10 @@ export function assessReturn(
       );
     return {
       id: gift.id,
-      missingDonorDetails: received && donorDetailBlocks(donor).length > 0,
+      missingDonorDetails:
+        received &&
+        !isPlatformIntermediary(gift.partyId) &&
+        donorDetailBlocks(donor).length > 0,
       netPaise: outcome.kind === "waiting" ? 0 : netGiftPaise(gift),
       outcome,
       partyId: gift.partyId,
@@ -361,6 +412,11 @@ export function missingDonorDetailsPartyIds(
 export const PAN_PATTERN = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 const GENERIC_ID_PATTERN = /^[A-Z0-9]{5,20}$/;
 
+/** An ID number as checked and exported: upper case, no spaces, hyphens or slashes. */
+export function normalizeIdNumber(value: string): string {
+  return value.toUpperCase().replace(/[\s/-]/g, "");
+}
+
 /**
  * A format check on a decrypted ID number, run on the server only. PAN has a
  * fixed shape; the other documents vary, so they only need 5 to 20 letters
@@ -370,7 +426,7 @@ export function idNumberLooksValid(
   idType: PartyIdType,
   value: string
 ): boolean {
-  const compact = value.toUpperCase().replace(/[\s/-]/g, "");
+  const compact = normalizeIdNumber(value);
   if (idType === "none") {
     return false;
   }
@@ -402,18 +458,41 @@ export function returnIdCode(idType: PartyIdType): string | null {
   return idType === "none" ? null : RETURN_ID_CODES[idType];
 }
 
-/**
- * The Donation Type code for ordinary (voluntary) gifts. UNDECIDED: the
- * founder is confirming whether ordinary donations were filed as "Others"
- * or "Specific grant"; flip this one constant if it is the latter.
- */
-export const VOLUNTARY_DONATION_TYPE_CODE: "Others" | "Specific grant" =
-  "Others";
+/** The Donation Type drop-down's values (column J). */
+export const RETURN_DONATION_TYPE_VALUES = [
+  "Corpus",
+  "Specific grant",
+  "Others",
+] as const;
+export type ReturnDonationTypeCode =
+  (typeof RETURN_DONATION_TYPE_VALUES)[number];
 
-/** Donation Type drop-down (column J): "Corpus", "Specific grant" or "Others". */
-export const RETURN_DONATION_TYPE_CODES: Record<DonationType, string> = {
+/**
+ * The code for ordinary (voluntary) gifts: "Specific grant", as the trust
+ * filed every donation for FY 2025-26 (give.do and direct transfers;
+ * founder, 14 October 2026). One constant to change if the CA advises
+ * otherwise.
+ */
+export const VOLUNTARY_DONATION_TYPE_CODE: ReturnDonationTypeCode =
+  "Specific grant";
+
+/**
+ * The code for CSR gifts: "Specific grant", as a company's CSR gift was
+ * filed for FY 2025-26. Whether CSR gifts belong in the return at all is
+ * for the CA (the readiness page lists them).
+ */
+export const CSR_DONATION_TYPE_CODE: ReturnDonationTypeCode = "Specific grant";
+
+/**
+ * Donation Type per our donation type. "Others" is kept for gifts marked
+ * "other" (with a description); nothing ordinary maps to it.
+ */
+export const RETURN_DONATION_TYPE_CODES: Record<
+  DonationType,
+  ReturnDonationTypeCode
+> = {
   corpus: "Corpus",
-  csr: "Others",
+  csr: CSR_DONATION_TYPE_CODE,
   other: "Others",
   specific_grant: "Specific grant",
   voluntary: VOLUNTARY_DONATION_TYPE_CODE,
@@ -542,7 +621,9 @@ export function joinReturnAddress(
 /** A ready gift with what the upload file needs about its donor (server only). */
 export interface ReturnExportGift {
   address: string;
+  channel: ContributionChannel;
   donationType: DonationType;
+  giftId: string;
   idNumber: string;
   idType: PartyIdType;
   name: string;
@@ -563,16 +644,24 @@ export interface ReturnExportRow {
   partyId: string;
 }
 
-/** One row per donor, donation type code and mode of receipt code. */
+/**
+ * One row per donor, donation type code and mode of receipt code. Cash
+ * gifts are never added together: the ₹2,000 limit applies to each
+ * donation, so each cash gift is its own row.
+ */
 export function returnRowKey(gift: {
+  channel: ContributionChannel;
   donationType: DonationType;
+  id: string;
   partyId: string;
   reportingMode: ContributionReportingMode;
 }): string {
+  const mode = effectiveReportingMode(gift);
   return [
     gift.partyId,
     RETURN_DONATION_TYPE_CODES[gift.donationType],
-    RETURN_MODE_CODES[gift.reportingMode],
+    RETURN_MODE_CODES[mode],
+    ...(mode === "cash" ? [gift.id] : []),
   ].join("|");
 }
 
@@ -586,7 +675,7 @@ export function aggregateReturnRows(
     if (!idCode) {
       throw new Error("A gift without an ID type cannot be exported");
     }
-    const key = returnRowKey(gift);
+    const key = returnRowKey({ ...gift, id: gift.giftId });
     const existing = rows.get(key);
     if (existing) {
       existing.amountPaise = sumPaise([existing.amountPaise, gift.netPaise]);
@@ -599,8 +688,8 @@ export function aggregateReturnRows(
       donationTypeCode: RETURN_DONATION_TYPE_CODES[gift.donationType],
       giftCount: 1,
       idCode,
-      idNumber: gift.idNumber,
-      modeCode: RETURN_MODE_CODES[gift.reportingMode],
+      idNumber: normalizeIdNumber(gift.idNumber),
+      modeCode: RETURN_MODE_CODES[effectiveReportingMode(gift)],
       name: gift.name,
       partyId: gift.partyId,
     });

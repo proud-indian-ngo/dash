@@ -147,6 +147,7 @@ function ChecklistRowItem({
   onOpenGift,
   partyName,
   row,
+  showNet,
   target,
 }: {
   gift: ContributionRow | undefined;
@@ -154,6 +155,7 @@ function ChecklistRowItem({
   onOpenGift: (giftId: string) => void;
   partyName: string;
   row: ChecklistRow;
+  showNet: boolean;
   target: ChecklistSection["target"];
 }) {
   const channel = gift
@@ -169,9 +171,11 @@ function ChecklistRowItem({
         <span className="text-muted-foreground truncate text-xs tabular-nums">
           {[
             gift ? formatReceivedOn(gift.receivedOn) : null,
-            formatPaise(gift?.amountPaise ?? row.netPaise),
+            showNet
+              ? `${formatPaise(row.netPaise)} net of ${formatPaise(row.refundedPaise)} refunded`
+              : formatPaise(gift?.amountPaise ?? row.netPaise),
             channel,
-            row.note,
+            showNet ? null : row.note,
           ]
             .filter(Boolean)
             .join(" · ")}
@@ -396,6 +400,7 @@ export function DonationsReturnPage() {
             onOpenGift={setViewingGiftId}
             partyName={partyName(row.partyId)}
             row={row}
+            showNet={section.showNet ?? false}
             target={section.target}
           />
         ))}
@@ -425,6 +430,7 @@ export function DonationsReturnPage() {
                   disabled={
                     exporting !== null ||
                     !data?.registrationReady ||
+                    !data?.identifiersAvailable ||
                     (summary?.readyCount ?? 0) === 0
                   }
                   onClick={exportUpload}
@@ -516,6 +522,16 @@ export function DonationsReturnPage() {
                 {formatPaise(summary.readyPaise)}.
               </p>
             </section>
+
+            {data.identifiersAvailable ? null : (
+              <div
+                className="border-warning/30 bg-warning/10 text-warning-foreground dark:bg-warning-foreground/10 rounded-md border p-3 text-sm"
+                role="status"
+              >
+                Identifiers unavailable (encryption key not set). ID numbers
+                can't be checked or exported until an administrator sets it.
+              </div>
+            )}
 
             {data.registrationReady ? null : (
               <div

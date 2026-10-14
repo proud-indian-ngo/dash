@@ -56,6 +56,7 @@ let facts = () => ({
       },
     ],
   ]),
+  identifiersAvailable: true,
   gifts: [
     gift({ id: "g1" }),
     gift({ amountPaise: 50_000, id: "g2", refundedPaise: 10_000 }),
@@ -114,9 +115,52 @@ describe("buildUploadFile", () => {
       "Sr. No.,Pre Acknowledgement Number,ID Code,Unique Identification Number,Section Code,Unique Registration Number (URN),Date of Issuance of Unique Registration Number,Name of donor,Address of donor,Donation Type,Mode of receipt,Amount of donation (Indian Rupees)"
     );
     expect(lines[1]).toBe(
-      `1,,Permanent Account Number,${PAN},Section 80G,AAATP1234AF20214,28-05-2021,Asha Rao,"Flat 2, ""Rose Villa"", Bengaluru, 560001",Others,Electronic modes including account payee cheque/draft,1400.00`
+      `1,,Permanent Account Number,${PAN},Section 80G,AAATP1234AF20214,28-05-2021,Asha Rao,"Flat 2, ""Rose Villa"", Bengaluru, 560001",Specific grant,Electronic modes including account payee cheque/draft,1400.00`
     );
     expect(lines).toHaveLength(2);
+  });
+
+  it("writes each cash gift on its own row and normalises ID numbers", async () => {
+    const original = facts;
+    facts = () => {
+      const base = original();
+      const p1 = base.exportDetails.get("p1");
+      if (p1) {
+        p1.idNumber = "abcde 1234-f";
+        p1.name = "-Asha";
+      }
+      return {
+        ...base,
+        gifts: [
+          gift({ channel: "cash", id: "c1", reportingMode: "cash" }),
+          gift({ channel: "cash", id: "c2", reportingMode: "cash" }),
+        ],
+      };
+    };
+    try {
+      const built = await buildUploadFile(fy);
+      expect(built.rowCount).toBe(2);
+      const lines = built.file.csv.split("\n");
+      expect(lines[1]).toContain(`Permanent Account Number,${PAN},`);
+      // No formula apostrophe in the portal file.
+      expect(lines[1]).toContain(",-Asha,");
+      expect(lines[1]?.endsWith(",Cash,1000.00")).toBe(true);
+      expect(lines[2]?.startsWith("2,")).toBe(true);
+    } finally {
+      facts = original;
+    }
+  });
+
+  it("refuses without the encryption key", async () => {
+    const original = facts;
+    facts = () => ({ ...original(), identifiersAvailable: false });
+    try {
+      await expect(buildUploadFile(fy)).rejects.toThrow(
+        "Identifiers unavailable"
+      );
+    } finally {
+      facts = original;
+    }
   });
 
   it("refuses when no gift is ready", async () => {
@@ -143,14 +187,15 @@ describe("buildAllGiftsFile", () => {
     expect(idModes).toEqual(["validate"]);
     expect(built.rowCount).toBe(4);
     expect(built.file.csv).not.toContain(PAN);
-    const lines = built.file.csv.split("\n");
+    expect(built.file.csv.startsWith("\uFEFF")).toBe(true);
+    const lines = built.file.csv.slice(1).split("\n");
     expect(lines[0]?.split(",")).toEqual([
       "Received on",
       "Donor",
       "ID (last 4)",
-      "Amount (₹)",
-      "Refunded (₹)",
-      "Net (₹)",
+      "Amount (INR)",
+      "Refunded (INR)",
+      "Net (INR)",
       "Channel",
       "Mode of receipt",
       "Donation type",

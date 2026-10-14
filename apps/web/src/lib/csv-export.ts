@@ -13,8 +13,17 @@ export interface DownloadArtifact {
   filename: string;
 }
 
-function escapeCsvValue(raw: string): string {
-  const value = CSV_FORMULA_PREFIX.test(raw) ? `'${raw}` : raw;
+export interface CsvOptions {
+  /**
+   * Prefix cells that a spreadsheet would run as a formula with an
+   * apostrophe (default on). Off only for files a portal reads as data,
+   * where the apostrophe would change the value.
+   */
+  formulaGuard?: boolean;
+}
+
+function escapeCsvValue(raw: string, formulaGuard: boolean): string {
+  const value = formulaGuard && CSV_FORMULA_PREFIX.test(raw) ? `'${raw}` : raw;
   if (
     value.includes(",") ||
     value.includes('"') ||
@@ -27,10 +36,16 @@ function escapeCsvValue(raw: string): string {
   return value;
 }
 
-export function buildCsv(headers: string[], rows: string[][]): string {
+export function buildCsv(
+  headers: string[],
+  rows: string[][],
+  options: CsvOptions = {}
+): string {
+  const guard = options.formulaGuard ?? true;
+  const escape = (value: string) => escapeCsvValue(value, guard);
   const lines = [
-    headers.map(escapeCsvValue).join(","),
-    ...rows.map((row) => row.map(escapeCsvValue).join(",")),
+    headers.map(escape).join(","),
+    ...rows.map((row) => row.map(escape).join(",")),
   ];
   return lines.join("\n");
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { GIVE_INDIA_PARTY_ID } from "./constants";
 import {
   aggregateReturnRows,
   assessReturn,
@@ -17,6 +18,9 @@ import {
   RETURN_DONATION_TYPE_CODES,
   RETURN_ID_CODES,
   RETURN_MODE_CODES,
+  effectiveReportingMode,
+  hasReturnAddress,
+  normalizeIdNumber,
   type ReturnDonorFacts,
   VOLUNTARY_DONATION_TYPE_CODE,
   type ReturnExportGift,
@@ -45,6 +49,7 @@ const donor = (
 
 const gift = (overrides: Partial<ReturnGiftFacts> = {}): ReturnGiftFacts => ({
   amountPaise: 500_000,
+  channel: "upi",
   currency: "INR",
   deductionEligible: "unknown",
   donationType: "voluntary",
@@ -171,6 +176,43 @@ describe("classifyGift", () => {
     ).toEqual({ kind: "ready" });
   });
 
+  it("judges cash and in kind by the channel as well as the mode", () => {
+    expect(
+      classifyGift(
+        gift({
+          amountPaise: CASH_DEDUCTION_LIMIT_PAISE + 1,
+          channel: "cash",
+          reportingMode: "electronic_or_account_payee",
+        }),
+        donor()
+      )
+    ).toEqual({ kind: "excluded", reason: "cash_over_limit" });
+    expect(
+      classifyGift(
+        gift({ channel: "in_kind", reportingMode: "other" }),
+        donor()
+      )
+    ).toEqual({ kind: "excluded", reason: "in_kind" });
+    expect(
+      effectiveReportingMode({ channel: "cash", reportingMode: "other" })
+    ).toBe("cash");
+    expect(
+      effectiveReportingMode({ channel: "upi", reportingMode: "other" })
+    ).toBe("other");
+  });
+
+  it("blocks a gift recorded against a donation platform", () => {
+    expect(
+      classifyGift(gift({ partyId: GIVE_INDIA_PARTY_ID }), undefined)
+    ).toEqual({ blocks: ["intermediary_as_donor"], kind: "blocked" });
+    const { gifts } = assessReturn(
+      [gift({ partyId: GIVE_INDIA_PARTY_ID })],
+      new Map()
+    );
+    // Not counted as a donor with missing details: the fix is the donor.
+    expect(missingDonorDetailsPartyIds(gifts)).toEqual([]);
+  });
+
   it("follows the donor's opt-out unless the gift says otherwise", () => {
     const optedOut = donor({ taxCertificateOptOut: true });
     expect(classifyGift(gift(), optedOut)).toEqual({
@@ -280,6 +322,10 @@ describe("assessReturn and missing donor details", () => {
 });
 
 describe("idNumberLooksValid", () => {
+  it("normalises an ID number as it is checked and exported", () => {
+    expect(normalizeIdNumber(" abcde-1234/f ")).toBe("ABCDE1234F");
+  });
+
   it("checks a PAN's shape and the other documents loosely", () => {
     expect(idNumberLooksValid("pan", "ABCDE1234F")).toBe(true);
     expect(idNumberLooksValid("pan", "abcde1234f")).toBe(true);
@@ -298,8 +344,10 @@ describe("upload file", () => {
   const readyGift = (
     overrides: Partial<ReturnExportGift> = {}
   ): ReturnExportGift => ({
-    address: "1 MG Road, Bengaluru, Karnataka, 560001",
+    address: "1 MG Road, Bengaluru, Karnataka, India, 560001",
+    channel: "upi",
     donationType: "voluntary",
+    giftId: "g1",
     idNumber: "ABCDE1234F",
     idType: "pan",
     name: "Asha Rao",
@@ -331,13 +379,15 @@ describe("upload file", () => {
     expect(returnIdCode("voter_id")).toBe("Elector's photo identity number");
     expect(returnIdCode("none")).toBeNull();
     expect(RETURN_ID_CODES.aadhaar).toBe("Aadhaar Number");
-    expect(VOLUNTARY_DONATION_TYPE_CODE).toBe("Others");
+    // The trust filed every donation for FY 2025-26, CSR included, as
+    // "Specific grant".
+    expect(VOLUNTARY_DONATION_TYPE_CODE).toBe("Specific grant");
     expect(RETURN_DONATION_TYPE_CODES).toEqual({
       corpus: "Corpus",
-      csr: "Others",
+      csr: "Specific grant",
       other: "Others",
       specific_grant: "Specific grant",
-      voluntary: "Others",
+      voluntary: "Specific grant",
     });
     expect(RETURN_MODE_CODES).toEqual({
       cash: "Cash",
@@ -348,17 +398,26 @@ describe("upload file", () => {
     });
   });
 
-  it("aggregates by donor, donation type code and mode code", () => {
-    expect(returnRowKey(readyGift())).toBe(
-      returnRowKey(readyGift({ donationType: "csr" }))
+  it("aggregates by donor, donation type code and mode code, cash gifts one by one", () => {
+    const key = (overrides: Partial<ReturnExportGift>) => {
+      const value = readyGift(overrides);
+      return returnRowKey({ ...value, id: value.giftId });
+    };
+    expect(key({})).toBe(key({ donationType: "csr", giftId: "g2" }));
+    expect(key({})).not.toBe(key({ donationType: "other" }));
+    // Cash gifts are never added together: the limit is per donation.
+    expect(key({ reportingMode: "cash" })).not.toBe(
+      key({ giftId: "g2", reportingMode: "cash" })
     );
-    expect(returnRowKey(readyGift())).not.toBe(
-      returnRowKey(readyGift({ donationType: "corpus" }))
+    expect(key({ channel: "cash" })).not.toBe(
+      key({ channel: "cash", giftId: "g2" })
     );
+    expect(key({})).not.toBe(key({ donationType: "corpus" }));
     const rows = aggregateReturnRows([
       readyGift(),
-      readyGift({ donationType: "csr", netPaise: 50_000 }),
-      readyGift({ netPaise: 20_000, reportingMode: "cash" }),
+      readyGift({ donationType: "csr", giftId: "g2", netPaise: 50_000 }),
+      readyGift({ giftId: "g3", netPaise: 20_000, reportingMode: "cash" }),
+      readyGift({ giftId: "g4", netPaise: 10_000, reportingMode: "cash" }),
       readyGift({
         idNumber: "ZZZZZ9999Z",
         name: "Bina Shah",
@@ -374,6 +433,7 @@ describe("upload file", () => {
       ])
     ).toEqual([
       ["Asha Rao", "Cash", 20_000, 1],
+      ["Asha Rao", "Cash", 10_000, 1],
       [
         "Asha Rao",
         "Electronic modes including account payee cheque/draft",
@@ -412,8 +472,8 @@ describe("upload file", () => {
         "AAATP1234AF20214",
         "28-05-2021",
         "Asha Rao",
-        "1 MG Road, Bengaluru, Karnataka, 560001",
-        "Others",
+        "1 MG Road, Bengaluru, Karnataka, India, 560001",
+        "Specific grant",
         "Electronic modes including account payee cheque/draft",
         "1000.00",
       ],
@@ -423,6 +483,18 @@ describe("upload file", () => {
   it("formats amounts in rupees with two decimals", () => {
     expect(formatReturnAmount(123_456)).toBe("1234.56");
     expect(formatReturnAmount(100)).toBe("1.00");
+  });
+
+  it("needs address line 1 and a PIN code for an address", () => {
+    expect(
+      hasReturnAddress({ addressLine1: "1 MG Road", pincode: "560001" })
+    ).toBe(true);
+    expect(hasReturnAddress({ addressLine1: "1 MG Road", pincode: " " })).toBe(
+      false
+    );
+    expect(hasReturnAddress({ addressLine1: null, pincode: "560001" })).toBe(
+      false
+    );
   });
 
   it("names India as the portal does", () => {
@@ -491,7 +563,7 @@ describe("giftOutcomeLabel", () => {
         kind: "blocked",
       })
     ).toEqual({
-      reason: "No ID number; No address",
+      reason: "No ID number; No address with PIN code",
       status: "Needs attention",
     });
     expect(

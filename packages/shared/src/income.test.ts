@@ -194,6 +194,28 @@ describe("contributionRuleIssues", () => {
     expect(contributionRuleIssues(base)).toEqual([]);
   });
 
+  it("fixes the reporting mode of cash and in-kind gifts", () => {
+    expect(
+      contributionRuleIssues({ ...base, channel: "cash" }).map((i) => i.path)
+    ).toEqual(["reportingMode"]);
+    expect(
+      contributionRuleIssues({
+        ...base,
+        channel: "cash",
+        reportingMode: "cash",
+      })
+    ).toEqual([]);
+    expect(
+      contributionRuleIssues({
+        ...base,
+        channel: "in_kind",
+        inKindDescription: "Books",
+        inKindValuationBasis: "Invoice",
+        orgAccountId: null,
+      }).map((i) => i.path)
+    ).toEqual(["reportingMode"]);
+  });
+
   it("requires a reason when a gift is excluded from the donations return", () => {
     expect(
       contributionRuleIssues({ ...base, deductionEligible: "no" }).map(

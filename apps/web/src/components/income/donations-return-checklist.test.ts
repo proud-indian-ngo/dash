@@ -9,6 +9,7 @@ const gift = (
   outcome: ReadinessGift["outcome"],
   overrides: Partial<ReadinessGift> = {}
 ): ReadinessGift => ({
+  donationType: "voluntary",
   id,
   missingDonorDetails: false,
   netPaise: 100_000,
@@ -41,6 +42,13 @@ describe("buildChecklist", () => {
     gift("pending", { kind: "waiting" }),
     gift("excluded", { kind: "excluded", reason: "gift_excluded" }),
     gift("partly", { kind: "ready" }, { refundedPaise: 20_000 }),
+    gift("platform", { blocks: ["intermediary_as_donor"], kind: "blocked" }),
+    gift("csr", { kind: "ready" }, { donationType: "csr" }),
+    gift(
+      "csr-excluded",
+      { kind: "excluded", reason: "gift_excluded" },
+      { donationType: "csr" }
+    ),
   ];
   const sections = buildChecklist(
     gifts,
@@ -49,17 +57,21 @@ describe("buildChecklist", () => {
 
   it("keeps the checklist order", () => {
     expect(sections.map((section) => section.id)).toEqual([
+      "intermediary",
       "missing_id",
       "missing_details",
       "invalid_id",
       "waiting",
       "excluded",
       "partly_refunded",
+      "csr",
     ]);
     expect(sections.map((section) => section.kind)).toEqual([
       "blocking",
       "blocking",
       "blocking",
+      "blocking",
+      "info",
       "info",
       "info",
       "info",
@@ -78,8 +90,18 @@ describe("buildChecklist", () => {
     expect(ids(sections, "excluded")).toEqual([
       "opted-out-no-address",
       "excluded",
+      "csr-excluded",
     ]);
     expect(ids(sections, "partly_refunded")).toEqual(["partly"]);
+    expect(ids(sections, "intermediary")).toEqual(["platform"]);
+    // Only CSR gifts in the return, with their count and total.
+    expect(ids(sections, "csr")).toEqual(["csr"]);
+    expect(
+      sections.find((section) => section.id === "csr")?.description
+    ).toMatch(/^1 included \(₹1,000\.00\)\. A company's CSR spending/);
+    expect(
+      sections.find((section) => section.id === "partly_refunded")?.showNet
+    ).toBe(true);
   });
 
   it("explains exclusions, with the gift's own reason", () => {
@@ -87,6 +109,7 @@ describe("buildChecklist", () => {
     expect(excluded?.rows.map((row) => row.note)).toEqual([
       "Donor doesn't want a tax certificate",
       "Gift excluded: Not a donation",
+      "Gift excluded",
     ]);
   });
 

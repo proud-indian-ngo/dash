@@ -3,6 +3,7 @@ import {
   loadReturnFacts,
   loadReturnRegistration,
 } from "@pi-dash/db/queries/donations-return";
+import type { DonationType } from "@pi-dash/shared/constants";
 import {
   assessReturn,
   type GiftOutcome,
@@ -68,6 +69,8 @@ function requireYear(label: string) {
 }
 
 export interface ReadinessGift {
+  /** For the CSR check; CSR gifts are flagged for the CA. */
+  donationType: DonationType;
   id: string;
   netPaise: number;
   outcome: GiftOutcome;
@@ -84,6 +87,8 @@ export interface DonationsReturnReadiness {
   exportRowCount: number;
   financialYear: string;
   gifts: ReadinessGift[];
+  /** False when the encryption key is missing: IDs are unchecked and can't be exported. */
+  identifiersAvailable: boolean;
   /** Import rows waiting to sync or for a decision; not contributions yet. */
   importRowsWaiting: number;
   /** Whether the 80G registration the upload file needs is set. */
@@ -113,7 +118,9 @@ export const getDonationsReturnReadiness = createServerFn({ method: "POST" })
         endsOn: fy.endsOn,
         exportRowCount,
         financialYear: fy.label,
-        gifts: gifts.map((gift) => ({
+        identifiersAvailable: facts.identifiersAvailable,
+        gifts: gifts.map((gift, index) => ({
+          donationType: facts.gifts[index]?.donationType ?? "voluntary",
           id: gift.id,
           missingDonorDetails: gift.missingDonorDetails,
           netPaise: gift.netPaise,

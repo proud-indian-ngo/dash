@@ -25,7 +25,9 @@ import { ID_TYPE_LABELS } from "@/lib/donor-schema";
 /**
  * Server only: builds the donations return files. ID numbers are decrypted
  * here for the upload file and never logged; the CA's file shows only their
- * last four characters.
+ * last four characters. The upload file is written exactly as the portal
+ * reads it (no byte order mark, no formula apostrophes); the CA's file is
+ * for a spreadsheet, so it has both and says INR rather than ₹.
  */
 
 /** A refusal written for the person exporting; any other error is hidden. */
@@ -63,6 +65,11 @@ export async function buildUploadFile(
     );
   }
   const facts = await loadReturnFacts(fy, "reveal");
+  if (!facts.identifiersAvailable) {
+    throw new DonationsReturnError(
+      "Identifiers unavailable (encryption key not set)."
+    );
+  }
   const { gifts } = assessReturn(facts.gifts, facts.donors);
   const ready: ReturnExportGift[] = [];
   facts.gifts.forEach((gift, index) => {
@@ -78,8 +85,11 @@ export async function buildUploadFile(
     }
     ready.push({
       address: details.address,
+      channel: gift.channel,
       donationType: gift.donationType,
-      idNumber: details.idNumber.toUpperCase().replace(/\s+/g, ""),
+      giftId: gift.id,
+      // Normalised in aggregateReturnRows, as the validity check does.
+      idNumber: details.idNumber,
       idType: donor.idType,
       name: details.name,
       netPaise: assessed.netPaise,
@@ -96,7 +106,7 @@ export async function buildUploadFile(
   const cells = returnFileCells(rows, registration);
   return {
     file: {
-      csv: buildCsv(cells.headers, cells.rows),
+      csv: buildCsv(cells.headers, cells.rows, { formulaGuard: false }),
       filename: fileName(fy, "upload"),
     },
     giftCount: ready.length,
@@ -108,9 +118,9 @@ export const ALL_GIFTS_HEADERS = [
   "Received on",
   "Donor",
   "ID (last 4)",
-  "Amount (₹)",
-  "Refunded (₹)",
-  "Net (₹)",
+  "Amount (INR)",
+  "Refunded (INR)",
+  "Net (INR)",
   "Channel",
   "Mode of receipt",
   "Donation type",
@@ -174,7 +184,8 @@ export async function buildAllGiftsFile(
   });
   return {
     file: {
-      csv: buildCsv(ALL_GIFTS_HEADERS, rows),
+      // A byte order mark so spreadsheet apps read the file as UTF-8.
+      csv: `\uFEFF${buildCsv(ALL_GIFTS_HEADERS, rows)}`,
       filename: fileName(fy, "all-gifts"),
     },
     giftCount: rows.length,

@@ -76,6 +76,7 @@ mock.module("@pi-dash/db/queries/donations-return", () => ({
       ],
     ]),
     exportDetails: new Map(),
+    identifiersAvailable: true,
     gifts: [
       {
         amountPaise: 100_000,
@@ -229,11 +230,13 @@ describe("getDonationsReturnReadiness", () => {
     expect(result.financialYear).toBe("2026-27");
     expect(result.dueOn).toBe("2027-05-31");
     expect(result.summary.readyCount).toBe(2);
-    // Voluntary and CSR are both "Others", so one upload row.
+    // Voluntary and CSR are both "Specific grant", so one upload row.
     expect(result.exportRowCount).toBe(1);
     expect(result.importRowsWaiting).toBe(4);
     expect(result.registrationReady).toBe(false);
+    expect(result.identifiersAvailable).toBe(true);
     expect(Object.keys(result.gifts[0] ?? {}).sort()).toEqual([
+      "donationType",
       "id",
       "missingDonorDetails",
       "netPaise",

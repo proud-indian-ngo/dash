@@ -168,7 +168,7 @@ test.describe("Donations return (finance)", () => {
       '"12, MG Road, Bengaluru, Karnataka, India, 560001"'
     );
     expect(readyRow).toContain(
-      "Others,Electronic modes including account payee cheque/draft,2500.00"
+      "Specific grant,Electronic modes including account payee cheque/draft,2500.00"
     );
     // Blocked and opted-out donors never reach the upload file.
     expect(rows.some((row) => row.includes(RETURN_DONOR))).toBe(false);

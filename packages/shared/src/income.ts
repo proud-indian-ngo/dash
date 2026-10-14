@@ -262,9 +262,10 @@ export interface RuleIssue {
 const blank = (value: string | null | undefined) => !value?.trim();
 
 /**
- * Cross-field rules: "other" needs a description, in-kind needs what was
- * given and how it was valued and has no account, everything else needs the
- * account it was deposited into.
+ * Cross-field rules: "other" needs a description, cash and in-kind channels
+ * fix the reporting mode, in-kind needs what was given and how it was valued
+ * and has no account, everything else needs the account it was deposited
+ * into, and excluding a gift from the donations return needs a reason.
  */
 export function contributionRuleIssues(v: ContributionRuleInput): RuleIssue[] {
   const issues: RuleIssue[] = [];
@@ -278,6 +279,20 @@ export function contributionRuleIssues(v: ContributionRuleInput): RuleIssue[] {
     issues.push({
       message: "Describe the donation type",
       path: "donationTypeDescription",
+    });
+  }
+  // A cash or in-kind channel fixes the mode, so the donations return can
+  // never report such a gift under another mode.
+  if (v.channel === "cash" && v.reportingMode !== "cash") {
+    issues.push({
+      message: "A cash gift is reported as cash",
+      path: "reportingMode",
+    });
+  }
+  if (v.channel === "in_kind" && v.reportingMode !== "in_kind") {
+    issues.push({
+      message: "An in-kind gift is reported as in kind",
+      path: "reportingMode",
     });
   }
   if (v.deductionEligible === "no" && blank(v.eligibilityReason)) {

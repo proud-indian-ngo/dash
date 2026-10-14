@@ -4,6 +4,7 @@ import {
   RETURN_EXCLUSION_LABELS,
   type ReturnBlock,
 } from "@pi-dash/shared/donations-return";
+import { formatPaise, sumPaise } from "@pi-dash/shared/money";
 
 import type { ReadinessGift } from "@/functions/donations-return";
 
@@ -14,12 +15,14 @@ import type { ReadinessGift } from "@/functions/donations-return";
  */
 
 export type ChecklistSectionId =
+  | "intermediary"
   | "missing_id"
   | "missing_details"
   | "invalid_id"
   | "waiting"
   | "excluded"
-  | "partly_refunded";
+  | "partly_refunded"
+  | "csr";
 
 /** Blocking sections stop gifts reaching the upload file; the rest are for information. */
 export type ChecklistKind = "blocking" | "info";
@@ -38,6 +41,8 @@ export interface ChecklistRow {
 
 export interface ChecklistSection {
   description: string;
+  /** Rows show the amount less refunds rather than the gift's amount. */
+  showNet?: boolean;
   id: ChecklistSectionId;
   kind: ChecklistKind;
   rows: ChecklistRow[];
@@ -71,8 +76,8 @@ function detailsNote(gift: ReadinessGift): string {
   }
   // An excluded gift carries no blocks; the donor still lacks name or address.
   return gift.outcome.kind === "excluded"
-    ? `Name or address missing · ${RETURN_EXCLUSION_LABELS[gift.outcome.reason]}`
-    : "Name or address missing";
+    ? `Name or address with PIN code missing · ${RETURN_EXCLUSION_LABELS[gift.outcome.reason]}`
+    : "Name or address with PIN code missing";
 }
 
 export function buildChecklist(
@@ -92,6 +97,17 @@ export function buildChecklist(
   return [
     {
       description:
+        "Gifts recorded against a donation platform such as GiveIndia. Record the person who gave instead; the platform is only the intermediary.",
+      id: "intermediary",
+      kind: "blocking",
+      rows: gifts
+        .filter((gift) => hasBlock(gift.outcome, "intermediary_as_donor"))
+        .map((gift) => toRow(gift)),
+      target: "gift",
+      title: "Donation platform recorded as the donor",
+    },
+    {
+      description:
         "A PAN, or a passport, voter ID, driving licence or ration card number. These gifts can't go in the return until it is added.",
       id: "missing_id",
       kind: "blocking",
@@ -103,14 +119,14 @@ export function buildChecklist(
     },
     {
       description:
-        "A gift without the donor's name and address counts as anonymous for tax (section 115BBC), so this matters even for donors who don't want a certificate.",
+        "A gift without the donor's name and an address with PIN code counts as anonymous for tax (section 115BBC), so this matters even for donors who don't want a certificate.",
       id: "missing_details",
       kind: "blocking",
       rows: gifts
         .filter((gift) => gift.missingDonorDetails)
         .map((gift) => toRow(gift, detailsNote(gift))),
       target: "donor",
-      title: "Donors without a name or address",
+      title: "Donors without a name or an address with PIN code",
     },
     {
       description:
@@ -153,10 +169,28 @@ export function buildChecklist(
       rows: gifts
         .filter((gift) => inReturn(gift.outcome) && gift.refundedPaise > 0)
         .map((gift) => toRow(gift, "Net of refunds")),
+      showNet: true,
       target: "gift",
       title: "Partly refunded gifts",
     },
+    csrSection(gifts),
   ];
+}
+
+/** CSR gifts in the return, for the CA to decide on. */
+function csrSection(gifts: readonly ReadinessGift[]): ChecklistSection {
+  const rows = gifts
+    .filter((gift) => inReturn(gift.outcome) && gift.donationType === "csr")
+    .map((gift) => toRow(gift, "CSR"));
+  const total = sumPaise(rows.map((row) => row.netPaise));
+  return {
+    description: `${rows.length} included (${formatPaise(total)}). A company's CSR spending usually can't be claimed under 80G; ask your CA whether to include them.`,
+    id: "csr",
+    kind: "info",
+    rows,
+    target: "gift",
+    title: "CSR gifts",
+  };
 }
 
 /** Distinct donors among a section's rows. */
