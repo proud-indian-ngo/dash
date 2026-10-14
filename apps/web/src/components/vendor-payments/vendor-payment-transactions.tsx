@@ -12,7 +12,7 @@ import { formatPaise, sumPaise } from "@pi-dash/shared/money";
 import { mutators } from "@pi-dash/zero/mutators";
 import {
   INVOICE_LOCKED_STATUSES,
-  RECORDABLE_STATUSES,
+  PAYABLE_STATUSES,
 } from "@pi-dash/zero/vendor-payment-constants";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
@@ -57,12 +57,16 @@ export function VendorPaymentTransactions({
   const isInvoiceLocked = INVOICE_LOCKED_STATUSES.has(request.status as string);
   const canEditAll = hasPermission("requests.edit_all") && !isInvoiceLocked;
   const canDeleteAll = hasPermission("requests.delete_all") && !isInvoiceLocked;
+  const isAwaitingApproval = request.status === "pending";
   const showRecordButton =
     canRecord &&
-    RECORDABLE_STATUSES.has(request.status as string) &&
+    PAYABLE_STATUSES.has(request.status as string) &&
     (isOwner || canApprove);
 
   const transactions = request.transactions ?? [];
+  // Payments are reviewed only once the request itself is approved.
+  const canReviewPayments = canApprove && !isAwaitingApproval;
+  const hasPendingPayments = transactions.some((t) => t.status === "pending");
 
   const totalOwed = sumPaise(
     (request.lineItems ?? []).map((li) => li.amountPaise)
@@ -154,7 +158,7 @@ export function VendorPaymentTransactions({
     }
   });
 
-  if (!RECORDABLE_STATUSES.has(request.status as string)) {
+  if (!(isAwaitingApproval || PAYABLE_STATUSES.has(request.status as string))) {
     return null;
   }
 
@@ -243,7 +247,7 @@ export function VendorPaymentTransactions({
                   return (
                     <TransactionRow
                       badge={badge}
-                      canApprove={canApprove}
+                      canApprove={canReviewPayments}
                       canDeleteTxn={canDeleteTxn}
                       canEditTxn={canEditTxn}
                       isPending={isPending}
@@ -261,9 +265,16 @@ export function VendorPaymentTransactions({
           </div>
         ) : (
           <p className="text-muted-foreground rounded-lg border border-dashed py-6 text-center text-sm">
-            No payments recorded yet.
+            {isAwaitingApproval
+              ? "Payments can be recorded after this request is approved."
+              : "No payments recorded yet."}
           </p>
         )}
+        {isAwaitingApproval && hasPendingPayments ? (
+          <p className="text-muted-foreground text-sm">
+            Approve the request to review its payments.
+          </p>
+        ) : null}
       </RecordSection>
 
       <TransactionFormDialog

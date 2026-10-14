@@ -76,10 +76,11 @@ export const vendorPaymentMutators = {
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "requests.approve");
       const { userId } = ctx;
-      const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
-      assertPending(entity, "vendor payment", "approved", canEditAnyStatus);
+      // Review applies only to pending requests, even for admins who can edit
+      // any status; they reset a request to pending to review it again.
+      assertPending(entity, "vendor payment", "approved");
 
       const now = Date.now();
       const requestedApprovalScreenshotKey =
@@ -138,6 +139,10 @@ export const vendorPaymentMutators = {
         vendorPaymentId: args.id,
       });
 
+      // Requests from before payments needed approval can already hold
+      // approved payments; move them on to partially_paid or paid.
+      const newStatus = await recalculateParentStatus(tx, args.id, now);
+
       if (tx.location === "server") {
         const { title, userId: ownerId } = entity;
         const { id } = args;
@@ -188,6 +193,28 @@ export const vendorPaymentMutators = {
               mutator: "approveVendorPayment:autoApproveVendor",
               vendorCreatorId,
               vendorId,
+            },
+          });
+        }
+
+        // Notify the owner when approval lands an already paid request on paid
+        if (newStatus === "paid") {
+          ctx.asyncTasks?.push({
+            fn: async () => {
+              const { enqueue } = await import("@pi-dash/jobs/enqueue");
+              await enqueue(
+                "notify-vp-fully-paid",
+                {
+                  submitterId: ownerId,
+                  title,
+                  vendorPaymentId: id,
+                },
+                { traceId: ctx.traceId }
+              );
+            },
+            meta: {
+              mutator: "approveVendorPayment:vpFullyPaid",
+              vendorPaymentId: id,
             },
           });
         }
@@ -412,10 +439,24 @@ export const vendorPaymentMutators = {
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "requests.approve");
       const { userId } = ctx;
-      const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
-      assertPending(entity, "vendor payment", "rejected", canEditAnyStatus);
+      // Review applies only to pending requests, even for admins who can edit
+      // any status; they reset a request to pending to review it again.
+      assertPending(entity, "vendor payment", "rejected");
+
+      // Money already went out on requests paid before approval was required;
+      // rejecting would hide those payments, so the request must be approved.
+      const approvedTransactions = await tx.run(
+        zql.vendorPaymentTransaction
+          .where("vendorPaymentId", args.id)
+          .where("status", "approved")
+      );
+      if (approvedTransactions.length > 0) {
+        throw new Error(
+          "This request already has approved payments; approve it instead"
+        );
+      }
 
       const now = Date.now();
       await tx.mutate.vendorPayment.update({
@@ -588,8 +629,11 @@ export const vendorPaymentMutators = {
         throw new Error("Vendor payment is already pending");
       }
 
+      // Rejected payments stay as history and do not block a reset.
       const transactions = await tx.run(
-        zql.vendorPaymentTransaction.where("vendorPaymentId", args.id)
+        zql.vendorPaymentTransaction
+          .where("vendorPaymentId", args.id)
+          .where("status", "!=", "rejected")
       );
       if (transactions.length > 0) {
         throw new Error(

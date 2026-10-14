@@ -1,14 +1,11 @@
-/** Vendor payment statuses that allow recording/approving transactions. */
+/**
+ * Vendor payment statuses that allow recording/approving transactions. A
+ * payment is recorded only after the request is approved.
+ */
 export const PAYABLE_STATUSES = new Set<string>([
   "approved",
   "partially_paid",
   "paid",
-]);
-
-/** Statuses where recording a payment transaction is allowed (includes pending). */
-export const RECORDABLE_STATUSES = new Set<string>([
-  "pending",
-  ...PAYABLE_STATUSES,
 ]);
 
 /** Statuses where invoice upload is allowed. */

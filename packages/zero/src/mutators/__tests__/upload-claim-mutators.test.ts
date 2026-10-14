@@ -365,7 +365,7 @@ describe("server mutator upload claims", () => {
       },
       run: mock()
         .mockResolvedValueOnce({
-          status: "pending",
+          status: "approved",
           title: "Venue",
           userId: "user-1",
         })
@@ -498,7 +498,10 @@ describe("server mutator upload claims", () => {
           userId: "owner-1",
           vendorId: "vendor-1",
         })
-        .mockResolvedValueOnce({ id: "vendor-1", status: "approved" }),
+        .mockResolvedValueOnce({ id: "vendor-1", status: "approved" })
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce({ status: "approved" }),
     };
 
     await vendorPaymentMutators.approve.fn({
