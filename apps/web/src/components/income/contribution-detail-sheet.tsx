@@ -12,6 +12,7 @@ import {
   CONTRIBUTION_SOURCE_LABELS,
   DONATION_TYPE_LABELS,
   REPORTING_MODE_LABELS,
+  refundSummary,
 } from "@pi-dash/shared/income";
 import { formatPaise } from "@pi-dash/shared/money";
 import { format } from "date-fns";
@@ -25,7 +26,10 @@ import { Tag } from "@/components/shared/status-badge";
 import { DATE, DATE_TIME } from "@/lib/date-formats";
 import { epochToLocalDate } from "@/lib/local-date";
 
-import { ContributionStatusBadge } from "./contribution-status";
+import {
+  ContributionStatusBadge,
+  refundedOfLabel,
+} from "./contribution-status";
 import { type ContributionRow, donorName } from "./income-types";
 
 function withDescription(label: string, description: string | null) {
@@ -106,9 +110,18 @@ export function ContributionDetailSheet({
   const row = contribution;
   const channel =
     CONTRIBUTION_CHANNEL_LABELS[row.channel as ContributionChannel];
+  const refunded = refundSummary(row);
   const facts: [string, ReactNode][] = [
     ["Donor", donorName(row)],
     ["Amount", formatPaise(row.amountPaise)],
+    ...(refunded
+      ? ([
+          [
+            "Refunded",
+            refundedOfLabel(refunded.refundedPaise, row.amountPaise),
+          ],
+        ] as [string, ReactNode][])
+      : []),
     ["Received on", formatReceivedOn(row.receivedOn)],
     ["Channel", channel],
     ...(row.intermediary

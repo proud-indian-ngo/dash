@@ -198,21 +198,22 @@ export function netReceivedPaise(contribution: NetReceivedInput): number {
 }
 
 /**
- * The refund to show beside a contribution's status when the status does
- * not already say it: "Partly refunded" while only some has gone back, and
- * "Refunded" when refunds cover a contribution whose status stays (a
- * receipted one). Null when nothing was refunded or the status is
- * `refunded`. Derived, never stored.
+ * How a contribution's refunds show next to its status: whether it reads
+ * "Partly refunded" instead of its stored status (some, not all, has gone
+ * back and the status is not `refunded`), and how much was refunded, for a
+ * tooltip or a detail row. Null when nothing was refunded. Derived, never
+ * stored; a receipted contribution its refunds cover keeps "Receipted".
  */
-export function refundNote(
+export function refundSummary(
   contribution: NetReceivedInput
-): { label: "Partly refunded" | "Refunded"; refundedPaise: number } | null {
+): { partly: boolean; refundedPaise: number } | null {
   const refunded = refundedPaise(contribution.refunds);
-  if (refunded <= 0 || contribution.status === "refunded") {
+  if (refunded <= 0) {
     return null;
   }
   return {
-    label: refunded < contribution.amountPaise ? "Partly refunded" : "Refunded",
+    partly:
+      contribution.status !== "refunded" && refunded < contribution.amountPaise,
     refundedPaise: refunded,
   };
 }

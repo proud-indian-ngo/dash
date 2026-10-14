@@ -1,16 +1,17 @@
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@pi-dash/design-system/components/ui/tooltip";
 import type { ContributionStatus } from "@pi-dash/shared/constants";
 import {
   CONTRIBUTION_STATUS_LABELS,
   type NetReceivedInput,
-  refundNote,
+  refundSummary,
 } from "@pi-dash/shared/income";
 import { formatPaise } from "@pi-dash/shared/money";
 
-import {
-  StatusBadge,
-  type StatusTone,
-  Tag,
-} from "@/components/shared/status-badge";
+import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 
 const STATUS_TONE: Record<ContributionStatus, StatusTone> = {
   pending: "warning",
@@ -20,35 +21,51 @@ const STATUS_TONE: Record<ContributionStatus, StatusTone> = {
   reversed: "neutral",
 };
 
+/** "₹100.00 of ₹1,000.00 refunded". */
+export function refundedOfLabel(
+  refundedPaise: number,
+  amountPaise: number
+): string {
+  return `${formatPaise(refundedPaise)} of ${formatPaise(amountPaise)} refunded`;
+}
+
 /**
- * The contribution's status, and, when some of it was refunded but the
- * status does not say so, "Partly refunded ₹X" beside it (derived from its
- * refunds, never stored).
+ * One badge per contribution. While some, not all, of it has been refunded
+ * it reads "Partly refunded" (derived from its refunds, never stored);
+ * otherwise its status. When anything was refunded, the amount is in a
+ * tooltip on the badge, so the cell stays one line.
  */
 export function ContributionStatusBadge({
   refund,
   status,
 }: {
-  /** The contribution with its refunds, to show a partial refund. */
+  /** The contribution with its refunds, to show what was refunded. */
   refund?: NetReceivedInput;
   status: string | null;
 }) {
   const value = (status ?? "received") as ContributionStatus;
-  const note = refund ? refundNote(refund) : null;
-  const badge = (
-    <StatusBadge tone={STATUS_TONE[value] ?? "neutral"}>
+  const summary = refund ? refundSummary(refund) : null;
+  const badge = summary?.partly ? (
+    <StatusBadge data-testid="contribution-status" tone="warning">
+      Partly refunded
+    </StatusBadge>
+  ) : (
+    <StatusBadge
+      data-testid="contribution-status"
+      tone={STATUS_TONE[value] ?? "neutral"}
+    >
       {CONTRIBUTION_STATUS_LABELS[value] ?? value}
     </StatusBadge>
   );
-  if (!note) {
+  if (!(summary && refund)) {
     return badge;
   }
   return (
-    <span className="inline-flex min-w-0 flex-wrap items-center gap-1.5">
-      {badge}
-      <Tag data-testid="contribution-refund-note">
-        {`${note.label} ${formatPaise(note.refundedPaise)}`}
-      </Tag>
-    </span>
+    <Tooltip>
+      <TooltipTrigger render={badge} />
+      <TooltipContent>
+        {refundedOfLabel(summary.refundedPaise, refund.amountPaise)}
+      </TooltipContent>
+    </Tooltip>
   );
 }

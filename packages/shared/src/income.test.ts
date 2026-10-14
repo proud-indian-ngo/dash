@@ -13,7 +13,7 @@ import {
   netReceivedPaise,
   refundedPaise,
   refundLockedChanges,
-  refundNote,
+  refundSummary,
   todayInKolkata,
 } from "./income";
 
@@ -139,15 +139,19 @@ describe("net received", () => {
     );
   });
 
-  it("notes a partial refund, or a full one the status does not show", () => {
-    expect(refundNote(gift("received"))).toBeNull();
-    expect(refundNote(gift("received", [20_000]))).toEqual({
-      label: "Partly refunded",
+  it("reads partly refunded only while some, not all, has gone back", () => {
+    expect(refundSummary(gift("received"))).toBeNull();
+    expect(refundSummary(gift("received", [20_000]))).toEqual({
+      partly: true,
       refundedPaise: 20_000,
     });
-    expect(refundNote(gift("refunded", [50_000]))).toBeNull();
-    expect(refundNote(gift("receipted", [50_000]))).toEqual({
-      label: "Refunded",
+    expect(refundSummary(gift("refunded", [50_000]))).toEqual({
+      partly: false,
+      refundedPaise: 50_000,
+    });
+    // A receipted gift its refunds cover keeps its status.
+    expect(refundSummary(gift("receipted", [50_000]))).toEqual({
+      partly: false,
       refundedPaise: 50_000,
     });
   });

@@ -387,10 +387,17 @@ test.describe("Income: Razorpay Payment Page", () => {
         status: "received",
       });
     const row = (await contributionRows(page, donor)).first();
-    await expect(row).toContainText("Partly refunded ₹200.00", {
-      timeout: 15_000,
-    });
+    // One badge, the amount in its tooltip.
+    const status = row.getByTestId("contribution-status");
+    await expect(status).toHaveText("Partly refunded", { timeout: 15_000 });
+    await status.hover();
+    await expect(page.locator('[data-slot="tooltip-content"]')).toHaveText(
+      "₹200.00 of ₹500.00 refunded"
+    );
     await row.getByText(donor).click();
+    await expect(
+      page.getByRole("dialog").getByText("₹200.00 of ₹500.00 refunded")
+    ).toBeVisible();
     await expect(page.getByTestId("contribution-refunds")).toContainText(
       `rfnd_E2EA${run}`
     );
@@ -419,8 +426,10 @@ test.describe("Income: Razorpay Payment Page", () => {
       })
       .toBe("refunded");
     const refundedRow = (await contributionRows(page, donor)).first();
-    await expect(refundedRow).toContainText("Refunded", { timeout: 15_000 });
-    await expect(refundedRow).not.toContainText("Partly refunded");
+    await expect(refundedRow.getByTestId("contribution-status")).toHaveText(
+      "Refunded",
+      { timeout: 15_000 }
+    );
   });
 
   test("holds a refund that arrives before its payment and applies it at import", async ({
