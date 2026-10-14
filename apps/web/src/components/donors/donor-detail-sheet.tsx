@@ -189,6 +189,9 @@ export function DonorDetailSheet({
                   {label}
                 </Badge>
               ))}
+              {party.taxCertificateOptOut ? (
+                <Badge variant="outline">No tax certificate</Badge>
+              ) : null}
             </span>
           }
           meta={[

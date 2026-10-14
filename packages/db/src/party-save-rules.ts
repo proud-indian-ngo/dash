@@ -47,6 +47,12 @@ export interface SavePartyInput {
   pincode: string;
   roles: readonly DirectoryRole[];
   state: string;
+  /**
+   * The donor doesn't want a tax certificate (80G). Left out (imports,
+   * filling missing details), a save keeps the stored choice; a new party
+   * starts without it.
+   */
+  taxCertificateOptOut?: boolean;
 }
 
 export interface ExistingPartyRow {

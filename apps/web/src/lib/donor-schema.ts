@@ -7,13 +7,14 @@ import {
   partyIdTypeValues,
   partyKindValues,
 } from "@pi-dash/shared/constants";
+import { PAN_PATTERN } from "@pi-dash/shared/donations-return";
 import { isValidPhoneNumber } from "libphonenumber-js";
 import z from "zod";
 
 export const DIRECTORY_ROLES = directoryRoleValues;
 export type { DirectoryRole };
 
-export const PAN_PATTERN = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+export { PAN_PATTERN };
 
 export const ID_TYPE_LABELS: Record<PartyIdType, string> = {
   driving_licence: "Driving licence",
@@ -68,6 +69,8 @@ export const donorFieldsSchema = z.object({
   pincode: text(12),
   roles: z.array(z.enum(directoryRoleValues)).min(1, "Pick at least one role"),
   state: text(80),
+  /** Doesn't want a tax certificate (80G); left out, a save keeps the stored choice. */
+  taxCertificateOptOut: z.boolean().optional(),
 });
 
 /** An identifier is needed unless the type is none or a stored one of the same type is kept. */
