@@ -1,5 +1,7 @@
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
+import type { VendorPaymentNoInvoiceReason } from "@pi-dash/shared/constants";
+import { NO_INVOICE_REASON_LABELS } from "@pi-dash/shared/vendor-payment";
 
 import {
   getUserIdsWithPermission,
@@ -59,18 +61,28 @@ export async function notifyVendorPaymentRejected(options: {
 }
 
 export async function notifyVendorPaymentInvoiceSubmitted(options: {
+  noInvoiceReason?: VendorPaymentNoInvoiceReason;
+  proofAttachmentCount?: number;
   submitterName: string;
   timestamp: number;
   vendorPaymentId: string;
   vendorPaymentTitle: string;
 }): Promise<void> {
   const approverIds = await getUserIdsWithPermission("requests.approve");
-  const body = `${options.submitterName} uploaded an invoice for "${options.vendorPaymentTitle}" — time to review.`;
+  const heading = options.noInvoiceReason
+    ? "Payment without invoice"
+    : "New invoice";
+  const proofSummary = options.proofAttachmentCount
+    ? ` with ${options.proofAttachmentCount} proof ${options.proofAttachmentCount === 1 ? "file" : "files"}`
+    : ". No proof attached";
+  const body = options.noInvoiceReason
+    ? `${options.submitterName} says "${options.vendorPaymentTitle}" has no invoice (${NO_INVOICE_REASON_LABELS[options.noInvoiceReason]})${proofSummary} — time to review.`
+    : `${options.submitterName} uploaded an invoice for "${options.vendorPaymentTitle}" — time to review.`;
   const fullUrl = `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`;
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "View payment",
     ctaUrl: fullUrl,
-    heading: "New invoice",
+    heading,
     paragraphs: [body],
   });
   await sendBulkMessage({
@@ -78,25 +90,31 @@ export async function notifyVendorPaymentInvoiceSubmitted(options: {
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
     emailHtml,
     idempotencyKey: `vp-invoice-submitted-${options.vendorPaymentId}-${options.timestamp}`,
-    title: "📄 New invoice",
+    title: `📄 ${heading}`,
     topic: TOPICS.REQUESTS_SUBMISSIONS,
     userIds: approverIds,
   });
 }
 
 export async function notifyVendorPaymentInvoiceApproved(options: {
+  noInvoiceReason?: VendorPaymentNoInvoiceReason;
   note?: string;
   submitterId: string;
   vendorPaymentId: string;
   vendorPaymentTitle: string;
 }): Promise<void> {
-  const baseBody = `Your invoice for "${options.vendorPaymentTitle}" has been approved!`;
+  const heading = options.noInvoiceReason
+    ? "Payment completed!"
+    : "Invoice approved!";
+  const baseBody = options.noInvoiceReason
+    ? `"${options.vendorPaymentTitle}" has been approved without an invoice and is complete!`
+    : `Your invoice for "${options.vendorPaymentTitle}" has been approved!`;
   const body = `${baseBody}${options.note ? ` Note: ${options.note}` : ""}`;
   const fullUrl = `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`;
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "View payment",
     ctaUrl: fullUrl,
-    heading: "Invoice approved!",
+    heading,
     note: options.note,
     paragraphs: [baseBody],
   });
@@ -105,25 +123,31 @@ export async function notifyVendorPaymentInvoiceApproved(options: {
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
     emailHtml,
     idempotencyKey: `vp-invoice-approved-${options.vendorPaymentId}`,
-    title: "✅ Invoice approved!",
+    title: `✅ ${heading}`,
     to: options.submitterId,
     topic: TOPICS.REQUESTS_STATUS,
   });
 }
 
 export async function notifyVendorPaymentInvoiceRejected(options: {
+  noInvoiceReason?: VendorPaymentNoInvoiceReason;
   reason: string;
   submitterId: string;
   timestamp: number;
   vendorPaymentId: string;
   vendorPaymentTitle: string;
 }): Promise<void> {
-  const body = `Your invoice for "${options.vendorPaymentTitle}" wasn't approved: ${options.reason}`;
+  const heading = options.noInvoiceReason
+    ? "No-invoice request not approved"
+    : "Invoice not approved";
+  const body = options.noInvoiceReason
+    ? `Closing "${options.vendorPaymentTitle}" without an invoice wasn't approved: ${options.reason}`
+    : `Your invoice for "${options.vendorPaymentTitle}" wasn't approved: ${options.reason}`;
   const fullUrl = `${env.APP_URL}/vendor-payments/${options.vendorPaymentId}`;
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "View payment",
     ctaUrl: fullUrl,
-    heading: "Invoice not approved",
+    heading,
     paragraphs: [body],
   });
   await sendMessage({
@@ -131,7 +155,7 @@ export async function notifyVendorPaymentInvoiceRejected(options: {
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
     emailHtml,
     idempotencyKey: `vp-invoice-rejected-${options.vendorPaymentId}-${options.timestamp}`,
-    title: "↩️ Invoice not approved",
+    title: `↩️ ${heading}`,
     to: options.submitterId,
     topic: TOPICS.REQUESTS_STATUS,
   });

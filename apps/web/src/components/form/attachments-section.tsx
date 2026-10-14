@@ -47,7 +47,10 @@ import {
 import { uploadSingleAttachment } from "./attachment-upload";
 
 interface AttachmentsSectionProps {
+  /** Help text under the label, such as what the files should prove. */
+  description?: string;
   fileDownloadKind?: AttachmentRowDownloadKind;
+  label?: string;
   onChange: (attachments: Attachment[]) => void;
   value: Attachment[];
   vendorPaymentInvoiceId?: string;
@@ -157,7 +160,9 @@ function AttachmentRow({
 }
 
 export function AttachmentsSection({
+  description,
   fileDownloadKind,
+  label = "Attachments",
   onChange,
   value,
   vendorPaymentInvoiceId,
@@ -340,11 +345,14 @@ export function AttachmentsSection({
       </span>
 
       <div className="flex items-center justify-between gap-2">
-        <Label className="text-sm font-medium">Attachments</Label>
+        <Label className="text-sm font-medium">{label}</Label>
         <span className="text-muted-foreground text-xs">
           Files: {fileAttachments.length}/{MAX_ATTACHMENT_FILES}
         </span>
       </div>
+      {description ? (
+        <p className="text-muted-foreground -mt-2 text-xs">{description}</p>
+      ) : null}
 
       <input
         accept={ATTACHMENT_ACCEPT}

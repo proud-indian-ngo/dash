@@ -87,6 +87,15 @@ export const historyActionValues = [
 ] as const;
 export type HistoryAction = (typeof historyActionValues)[number];
 
+/** Why a paid vendor payment closes without a vendor invoice. */
+export const vendorPaymentNoInvoiceReasonValues = [
+  "rent",
+  "statutory",
+  "other",
+] as const;
+export type VendorPaymentNoInvoiceReason =
+  (typeof vendorPaymentNoInvoiceReasonValues)[number];
+
 export const reminderTargetValues = ["participants", "group", "both"] as const;
 export type ReminderTarget = (typeof reminderTargetValues)[number];
 

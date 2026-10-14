@@ -20,8 +20,8 @@ pending → approved → partially_paid → paid → invoice_pending → complet
 | `rejected` | Admin rejected (terminal unless resubmitted) |
 | `partially_paid` | Some transactions approved, total < line items |
 | `paid` | All transactions approved, total >= line items |
-| `invoice_pending` | Invoice uploaded, awaiting admin approval |
-| `completed` | Invoice approved (terminal) |
+| `invoice_pending` | Invoice uploaded (or no-invoice reason given), awaiting admin approval |
+| `completed` | Invoice or no-invoice submission approved (terminal) |
 
 ## Phase 1 — Payment
 
@@ -32,17 +32,23 @@ pending → approved → partially_paid → paid → invoice_pending → complet
 
 ## Phase 2 — Invoice
 
-5. Status `paid` → owner (or admin) uploads invoice: number, date, attachments with `purpose: "invoice"`.
-6. Status → `invoice_pending`.
-7. Admin approves → `completed`. Rejects → reverts to `paid` with `invoiceRejectionReason` set.
-8. Owner can resubmit invoice on rejection (calls `submitInvoice` again).
+5. Status `paid` → owner (or admin) opens **Add invoice or reason** and answers **Do you have an invoice?** with one of two kinds:
+   - **Yes, upload invoice**: invoice number, invoice date and at least one attachment with `purpose: "invoice"`.
+   - **No invoice** (rent, tax and the like): a reason, `rent` ("Rent / lease"), `statutory` ("Tax / statutory payment") or `other` ("Other"); a required document date; and an optional proof attachment with `purpose: "invoice"`. The date label is "Receipt or challan date", or "Date" for Other. The form defaults it to the latest approved payment's `transactionDate`. The reason and note are stored in the nullable `vendor_payment.no_invoice_reason` (enum `vendor_payment_no_invoice_reason`) and `no_invoice_note` columns (migration 0130). The document date for both kinds is stored in `invoice_date`. The form encodes its calendar day as UTC midnight for Zero and converts it back to a local calendar date for display and editing, so saving does not shift the day. The values are `vendorPaymentNoInvoiceReasonValues` in `@pi-dash/shared/constants`, and the labels and proof rule are in `@pi-dash/shared/vendor-payment`. The note is limited to 500 characters. It is optional for rent and statutory payments and required for Other; `noInvoiceDetailsError` enforces this in the form and mutators. When there is no proof, the detail page shows "No proof attached" so the approver sees it before approving.
+6. `submitInvoice` and `updateInvoice` take a discriminated union on `kind` (`"invoice"` | `"no_invoice"`). For compatibility with clients from the previous release, a missing `kind` is temporarily preprocessed as `"invoice"`; remove this shim after the next release. Each kind clears the other kind's exclusive columns. The `vendor_payment_invoice_or_no_invoice_chk` database check forbids an invoice number together with a no-invoice reason, while `invoice_date` is valid for and required by the mutators for both kinds. A submission moves the request to `invoice_pending`. The history entry stays `invoice_submitted` / `invoice_updated`, with `metadata.invoiceKind` (and `noInvoiceReason`) and, for no invoice, a note naming the reason.
+7. Admin approval moves the request to `completed`; rejection reverts it to `paid` with `invoiceRejectionReason` set. For no-invoice submissions, the actions are **Approve without invoice** and **Reject reason**, with the matching "Closed without invoice" and "Reason rejected" confirmations. Invoice wording is unchanged. The submission notification names the no-invoice reason and says either "No proof attached" or "with N proof file(s)".
+8. Owner can resubmit either kind on rejection by calling `submitInvoice` again. An admin uses **Edit details** for an existing submission. The action opening the dialog determines its mode: initial submission and resubmission call `submitInvoice`, while editing calls `updateInvoice`, regardless of edit permission. Editing a completed request within the same kind keeps it `completed` and preserves its review. Changing kind moves it back to `invoice_pending`, clears `invoiceReviewedAt` and `invoiceReviewedBy`, and notifies approvers so the replacement needs approval. `invoice_updated` history metadata records `invoiceKind`, `oldInvoiceKind` and `newInvoiceKind` for the change.
+
+Switching kind replaces the request's `invoice` attachments with the ones submitted: the form opens with the current files, so files the user keeps stay on the request and files they remove are deleted, as in any invoice edit.
+
+The detail page shows "No invoice — <reason>" with the document date, note and files under "Proof". The financial-year export puts that text in the Invoice Number column and the stored `invoice_date` in the Invoice Date column. Both kinds fall in the financial year of `invoice_date`; there is no latest-approved-payment fallback.
 
 ## Status repair
 
 Before payments needed an approved request, a request could be paid while still `pending`, and an admin approval from any status reset a paid or invoiced request to `approved`. `bun run vendor-payments:repair-status` (`scripts/repair-vendor-payment-status.ts`, rules in `packages/zero/src/lib/vendor-payment-status-repair.ts`) lists the requests whose status disagrees with their data and is a dry run by default; `--apply --actor <email>` corrects them and writes an `updated` history entry by that user. That history entry is the only trace of a script change: scripts do not write `audit_log`, by design. The script warns when the actor lacks `requests.edit_all_statuses`.
 
-- `approved`, `partially_paid` or `paid` → the status the approved payments give, or `invoice_pending` / `completed` when an unrejected invoice is on file. A rejected invoice stays at `paid`.
-- `completed` only when the invoice approval is current. `submitInvoice` and `updateInvoice` do not clear `invoiceReviewedAt`, so the planner compares it with the latest `invoice_submitted` or `invoice_updated` history entry; `updatedAt` is not used because every payment and status change moves it. A review earlier than that entry, or an invoice with no such entry, is listed for review by hand.
+- `approved`, `partially_paid` or `paid` → the status the approved payments give, or `invoice_pending` / `completed` when an unrejected invoice is on file. A no-invoice reason counts as an invoice on file. A rejected invoice stays at `paid`.
+- `completed` only when the invoice approval is current. A kind-changing `updateInvoice` clears `invoiceReviewedAt` and moves the request to `invoice_pending`; a same-kind edit keeps both the completed status and review fields. For legacy data, the planner compares `invoiceReviewedAt` with the latest `invoice_submitted` or `invoice_updated` history entry; `updatedAt` is not used because every payment and status change moves it. A review earlier than that entry, or invoice details with no such entry, is listed for review by hand.
 - `pending` with approved payments is only listed; approve it in the app.
 - `rejected` with approved payments is listed for review by hand and never changed.
 - An unrejected invoice on a request whose payments no longer cover the line items is listed for review by hand.
@@ -53,7 +59,7 @@ The output ends with the requests moved (or, in a dry run, that would move) to `
 
 `vendorPaymentAttachment.purpose`:
 - `"quotation"` — uploaded at creation
-- `"invoice"` — uploaded post-payment
+- `"invoice"` — uploaded post-payment: the vendor invoice, or the proof for a payment without one
 
 Create/update mutators only touch `quotation`. Invoice mutators only touch `invoice`.
 

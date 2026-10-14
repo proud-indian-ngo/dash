@@ -227,7 +227,7 @@ export function VendorPaymentDetail({
     status !== "pending" &&
     // Rejected payments stay as history and do not block a reset.
     request.transactions.every((t) => t.status === "rejected") &&
-    !(request.invoiceNumber || request.invoiceDate);
+    !(request.invoiceNumber || request.invoiceDate || request.noInvoiceReason);
   const showApproveAction = canApprove && status === "pending";
   // A request paid before approval was required can only be approved.
   const showRejectAction =

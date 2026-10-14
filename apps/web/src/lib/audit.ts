@@ -157,6 +157,8 @@ const SAFE_CHANGED_FIELD_NAMES = new Set([
   "mimeType",
   "mode",
   "name",
+  "noInvoiceNote",
+  "noInvoiceReason",
   "newAmountCents",
   "note",
   "occDate",

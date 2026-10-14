@@ -13,6 +13,8 @@ export interface VendorPaymentRepairInput {
    */
   latestInvoiceSubmittedAt: Date | number | null;
   lineItemAmountsPaise: readonly number[];
+  /** Set when the request closes without an invoice; counts as one on file. */
+  noInvoiceReason: string | null;
   status: string;
 }
 
@@ -69,10 +71,12 @@ export function planVendorPaymentRepair(
     return { kind: "ok" };
   }
 
-  // A rejected invoice keeps its number and returns the request to `paid`
-  // until the owner resubmits, so only an unrejected invoice moves it on.
+  // A rejected invoice keeps its number (or no-invoice reason) and returns
+  // the request to `paid` until the owner resubmits, so only an unrejected
+  // one moves it on.
   const hasOpenInvoice = Boolean(
-    input.invoiceNumber && !input.invoiceRejectionReason
+    (input.invoiceNumber || input.noInvoiceReason) &&
+    !input.invoiceRejectionReason
   );
   if (hasOpenInvoice && paymentStatus !== "paid") {
     return { kind: "review", paymentStatus, reason: "invoice_not_fully_paid" };

@@ -18,6 +18,7 @@ import {
   vendorPaymentLineItem,
 } from "@pi-dash/db/schema/vendor";
 import { vendorPaymentTransaction } from "@pi-dash/db/schema/vendor-payment-transaction";
+import { formatNoInvoice } from "@pi-dash/shared/vendor-payment";
 import { and, eq, gte, inArray, lte, sum } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
@@ -270,6 +271,7 @@ async function queryVendorPaymentRows(
       id: vendorPayment.id,
       invoiceDate: vendorPayment.invoiceDate,
       invoiceNumber: vendorPayment.invoiceNumber,
+      noInvoiceReason: vendorPayment.noInvoiceReason,
       programme: programme.name,
       status: vendorPayment.status,
       submittedAt: vendorPayment.submittedAt,
@@ -298,6 +300,7 @@ async function queryVendorPaymentRows(
       vendorPayment.title,
       vendorPayment.invoiceNumber,
       vendorPayment.invoiceDate,
+      vendorPayment.noInvoiceReason,
       vendorPayment.status,
       vendorPayment.submittedAt,
       vendorPayment.createdAt,
@@ -341,7 +344,10 @@ async function queryVendorPaymentRows(
       createdBy: result.createdBy ?? "",
       email: result.email,
       invoiceDate: result.invoiceDate ?? "",
-      invoiceNumber: result.invoiceNumber ?? "",
+      // A payment without an invoice shows its reason in the number column.
+      invoiceNumber:
+        result.invoiceNumber ??
+        (result.noInvoiceReason ? formatNoInvoice(result.noInvoiceReason) : ""),
       programme: result.programme ?? "",
       status: result.status,
       submittedAt: result.submittedAt?.toISOString() ?? "",

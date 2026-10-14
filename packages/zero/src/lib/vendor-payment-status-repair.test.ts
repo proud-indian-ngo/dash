@@ -9,6 +9,7 @@ const base = {
   invoiceReviewedAt: null,
   latestInvoiceSubmittedAt: null,
   lineItemAmountsPaise: [10_000],
+  noInvoiceReason: null,
   status: "approved",
 };
 
@@ -198,5 +199,56 @@ describe("planVendorPaymentRepair", () => {
         })
       ).toEqual({ kind: "ok" });
     }
+  });
+
+  describe("a request closed without an invoice", () => {
+    it("moves to invoice_pending like an unreviewed invoice", () => {
+      expect(
+        planVendorPaymentRepair({
+          ...base,
+          approvedTransactionAmountsPaise: [10_000],
+          noInvoiceReason: "rent",
+        })
+      ).toEqual({ kind: "fix", status: "invoice_pending" });
+    });
+
+    it("moves to completed once its approval is current", () => {
+      expect(
+        planVendorPaymentRepair({
+          ...base,
+          approvedTransactionAmountsPaise: [10_000],
+          invoiceReviewedAt: new Date(2),
+          latestInvoiceSubmittedAt: new Date(1),
+          noInvoiceReason: "statutory",
+          status: "paid",
+        })
+      ).toEqual({ kind: "fix", status: "completed" });
+    });
+
+    it("stays at paid once rejected", () => {
+      expect(
+        planVendorPaymentRepair({
+          ...base,
+          approvedTransactionAmountsPaise: [10_000],
+          invoiceRejectionReason: "Attach the receipt",
+          noInvoiceReason: "rent",
+          status: "paid",
+        })
+      ).toEqual({ kind: "ok" });
+    });
+
+    it("is flagged when payments no longer cover the line items", () => {
+      expect(
+        planVendorPaymentRepair({
+          ...base,
+          approvedTransactionAmountsPaise: [4000],
+          noInvoiceReason: "other",
+        })
+      ).toEqual({
+        kind: "review",
+        paymentStatus: "partially_paid",
+        reason: "invoice_not_fully_paid",
+      });
+    });
   });
 });

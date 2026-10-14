@@ -337,20 +337,29 @@ const ID2 = {
   // Vendors
   vendor01: "019d52c3-0000-7000-8000-000000000001",
   vendor02: "019d52c3-0000-7000-8000-000000000002",
+  vendor03: "019d52c3-0000-7000-8000-000000000022",
   vp01: "019d52c3-0000-7000-8000-000000000003",
   vp02: "019d52c3-0000-7000-8000-000000000004",
+  vp03: "019d52c3-0000-7000-8000-000000000023",
   vpA01: "019d52c3-0000-7000-8000-000000000008",
   vpA02: "019d52c3-0000-7000-8000-000000000009",
+  vpA03: "019d52c3-0000-7000-8000-000000000024",
   vpH01: "019d52c3-0000-7000-8000-00000000000a",
   vpH02: "019d52c3-0000-7000-8000-00000000000b",
   vpH03: "019d52c3-0000-7000-8000-00000000000c",
   vpH04: "019d52c3-0000-7000-8000-00000000000d",
   vpH05: "019d52c3-0000-7000-8000-00000000000e",
+  vpH06: "019d52c3-0000-7000-8000-000000000025",
+  vpH07: "019d52c3-0000-7000-8000-000000000026",
+  vpH08: "019d52c3-0000-7000-8000-000000000027",
+  vpH09: "019d52c3-0000-7000-8000-000000000028",
   vpLi01: "019d52c3-0000-7000-8000-000000000005",
   vpLi02: "019d52c3-0000-7000-8000-000000000006",
   vpLi03: "019d52c3-0000-7000-8000-000000000007",
+  vpLi04: "019d52c3-0000-7000-8000-000000000029",
   // Vendor payment transaction
   vpt01: "019d52c3-0000-7000-8000-00000000000f",
+  vpt02: "019d52c3-0000-7000-8000-00000000002a",
   vptA01: "019d52c3-0000-7000-8000-000000000010",
   vptH01: "019d52c3-0000-7000-8000-000000000011",
   vptH02: "019d52c3-0000-7000-8000-000000000012",
@@ -3000,7 +3009,135 @@ async function seedVendors(userMap: Map<string, string>): Promise<void> {
     })
   );
 
-  log("2 vendors, 2 payments, 1 transaction seeded");
+  // Vendor 3 — Approved landlord
+  await ensureVendor({
+    createdAt: past(90),
+    createdBy: adminId,
+    id: ID2.vendor03,
+    name: "Lakeview Properties",
+    private: {
+      address: "7 Lake Road, Bangalore",
+      bankAccountIfscCode: "SBIN0004567",
+      bankAccountName: "Lakeview Properties",
+      bankAccountNumber: "6661234567892",
+      contactPhone: "+919800055566",
+    },
+    status: "approved",
+    updatedAt: past(90),
+  });
+
+  // Vendor Payment 3 — rent, completed without an invoice
+  await db
+    .insert(vendorPayment)
+    .values({
+      city: "bangalore",
+      createdAt: past(30),
+      id: ID2.vp03,
+      invoiceDate: past(25).toISOString().slice(0, 10),
+      invoiceReviewedAt: past(20),
+      invoiceReviewedBy: adminId,
+      noInvoiceNote: "Monthly office rent; the landlord issues a receipt only.",
+      noInvoiceReason: "rent",
+      reviewedAt: past(28),
+      reviewedBy: adminId,
+      status: "completed",
+      submittedAt: past(29),
+      title: "Office rent",
+      updatedAt: past(20),
+      userId: adminId,
+      vendorId: ID2.vendor03,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(vendorPaymentLineItem)
+    .values({
+      amountPaise: 2_500_000,
+      categoryId: ID.catVenue,
+      createdAt: past(30),
+      description: "Office rent for the month",
+      id: ID2.vpLi04,
+      sortOrder: 0,
+      updatedAt: past(30),
+      vendorPaymentId: ID2.vp03,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(vendorPaymentTransaction)
+    .values({
+      amountPaise: 2_500_000,
+      createdAt: past(25),
+      description: "Rent via NEFT",
+      id: ID2.vpt02,
+      paymentMethod: "NEFT",
+      paymentReference: "NEFT-REF-002",
+      reviewedAt: past(25),
+      reviewedBy: adminId,
+      status: "approved",
+      transactionDate: past(25),
+      updatedAt: past(25),
+      userId: adminId,
+      vendorPaymentId: ID2.vp03,
+    })
+    .onConflictDoNothing();
+  // The rent receipt is the proof, kept with the invoice attachments.
+  await db
+    .insert(vendorPaymentAttachment)
+    .values({
+      createdAt: past(22),
+      filename: "lakeview-rent-receipt.pdf",
+      id: ID2.vpA03,
+      mimeType: "application/pdf",
+      objectKey: "dev/vendors/lakeview-rent-receipt.pdf",
+      purpose: "invoice",
+      type: "file",
+      vendorPaymentId: ID2.vp03,
+    })
+    .onConflictDoNothing();
+  await Promise.all(
+    [
+      {
+        action: "created" as const,
+        actor: adminId,
+        at: past(30),
+        id: ID2.vpH06,
+      },
+      {
+        action: "approved" as const,
+        actor: adminId,
+        at: past(28),
+        id: ID2.vpH07,
+      },
+      {
+        action: "invoice_submitted" as const,
+        actor: adminId,
+        at: past(22),
+        id: ID2.vpH08,
+        metadata: { invoiceKind: "no_invoice", noInvoiceReason: "rent" },
+        note: "No invoice: Rent / lease",
+      },
+      {
+        action: "invoice_approved" as const,
+        actor: adminId,
+        at: past(20),
+        id: ID2.vpH09,
+      },
+    ].map(async (h) => {
+      await db
+        .insert(vendorPaymentHistory)
+        .values({
+          action: h.action,
+          actorId: h.actor,
+          createdAt: h.at,
+          id: h.id,
+          metadata: "metadata" in h ? h.metadata : undefined,
+          note: "note" in h ? h.note : undefined,
+          vendorPaymentId: ID2.vp03,
+        })
+        .onConflictDoNothing();
+    })
+  );
+
+  log("3 vendors, 3 payments, 2 transactions seeded");
 }
 
 // ── 11. Scheduled Messages ───────────────────────────────────────────────────
