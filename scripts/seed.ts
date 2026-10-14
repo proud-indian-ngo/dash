@@ -18,6 +18,7 @@ import { createHash } from "node:crypto";
  *   expenseCategory, bankAccount,
  *   programme, costCentre, fund, fiscalYear, fiscalPeriod, party, partyRole, partyPrivate,
  *   orgAccount, contribution, otherIncome,
+ *   importBatch, importRow, externalIdentity, collectionEvent,
  *   reimbursement, reimbursementLineItem, reimbursementAttachment, reimbursementHistory,
  *   advancePayment, advancePaymentLineItem, advancePaymentAttachment, advancePaymentHistory,
  *   vendor, vendorPayment, vendorPaymentLineItem, vendorPaymentAttachment, vendorPaymentHistory,
@@ -28,6 +29,7 @@ import { createHash } from "node:crypto";
 
 import { auth } from "@pi-dash/auth";
 import { db } from "@pi-dash/db";
+import { importedRowRetention } from "@pi-dash/db/import-retention";
 import {
   advancePayment,
   advancePaymentAttachment,
@@ -50,6 +52,7 @@ import { eventRsvpPoll, eventRsvpVote } from "@pi-dash/db/schema/event-rsvp";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
 import { orgAccount } from "@pi-dash/db/schema/finance-dimensions";
+import { importBatch } from "@pi-dash/db/schema/import-batch";
 import { contribution, otherIncome } from "@pi-dash/db/schema/income";
 import {
   kalakritiAgeCategory,
@@ -92,6 +95,11 @@ import {
 } from "@pi-dash/db/schema/kalakriti-results";
 import { notification } from "@pi-dash/db/schema/notification";
 import { party, partyRole } from "@pi-dash/db/schema/party";
+import {
+  collectionEvent,
+  externalIdentity,
+  importRow,
+} from "@pi-dash/db/schema/private/imports";
 import { partyPrivate } from "@pi-dash/db/schema/private/party-private";
 import {
   reimbursement,
@@ -696,9 +704,118 @@ async function seedIncome(adminId: string): Promise<void> {
       updatedAt: now,
     })
     .onConflictDoNothing();
+  await seedImportBatch(adminId);
   log(
-    `${ORG_ACCOUNTS.length} org accounts, ${CONTRIBUTIONS.length} contributions and 1 other income ready`
+    `${ORG_ACCOUNTS.length} org accounts, ${CONTRIBUTIONS.length} contributions, 1 other income and 1 import ready`
   );
+}
+
+const SEED_IMPORT = {
+  batchId: "01930000-0000-7000-8000-000000000631",
+  contributionId: "01930000-0000-7000-8000-000000000632",
+  identityId: "01930000-0000-7000-8000-000000000633",
+  rowId: "01930000-0000-7000-8000-000000000634",
+};
+
+/** One finished CSV import of one gift, so the Imports tab and batch page have something to show. */
+async function seedImportBatch(adminId: string): Promise<void> {
+  const raw = {
+    Amount: "1,000.00",
+    Date: "01/09/2026",
+    "Donation ID": "SEED-IMPORT-1",
+    "Donor Name": PARTIES[0]?.displayName ?? "Seed donor",
+  };
+  await db
+    .insert(importBatch)
+    .values({
+      completedAt: now,
+      createdAt: now,
+      dateFormat: "dmy",
+      defaultChannel: "upi",
+      fileHash: "seed",
+      fileName: "seed-donations.csv",
+      fundId: GENERAL_FUND_ID,
+      id: SEED_IMPORT.batchId,
+      importedCount: 1,
+      mapping: {
+        Amount: "amount",
+        Date: "receivedOn",
+        "Donation ID": "externalId",
+        "Donor Name": "donorName",
+      },
+      orgAccountId: ORG_ACCOUNTS[0]?.id as string,
+      parserVersion: 1,
+      rowCount: 1,
+      source: "generic_csv",
+      status: "completed",
+      updatedAt: now,
+      uploadedBy: adminId,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(contribution)
+    .values({
+      amountPaise: 100_000,
+      channel: "upi",
+      createdAt: now,
+      createdBy: adminId,
+      fundId: GENERAL_FUND_ID,
+      id: SEED_IMPORT.contributionId,
+      importBatchId: SEED_IMPORT.batchId,
+      orgAccountId: ORG_ACCOUNTS[0]?.id as string,
+      partyId: DONOR_ID,
+      receivedOn: "2026-09-01",
+      reportingMode: "electronic_or_account_payee",
+      source: "import",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(externalIdentity)
+    .values({
+      contributionId: SEED_IMPORT.contributionId,
+      createdAt: now,
+      entityType: "payment",
+      externalId: "SEED-IMPORT-1",
+      id: SEED_IMPORT.identityId,
+      payloadHash: "seed",
+      provider: "generic",
+      providerAccount: ORG_ACCOUNTS[0]?.id as string,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(importRow)
+    .values({
+      ...importedRowRetention(now.toISOString().slice(0, 10)),
+      batchId: SEED_IMPORT.batchId,
+      contributionId: SEED_IMPORT.contributionId,
+      createdAt: now,
+      decidedAt: now,
+      decidedBy: adminId,
+      externalIdentityId: SEED_IMPORT.identityId,
+      id: SEED_IMPORT.rowId,
+      outcome: "imported",
+      partyId: DONOR_ID,
+      raw,
+      rawHash: "seed",
+      rowNumber: 1,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(collectionEvent)
+    .values({
+      channel: "generic_csv",
+      createdBy: adminId,
+      evidenceNote:
+        "collected directly by the organisation; notice version not recorded",
+      id: "01930000-0000-7000-8000-000000000635",
+      importBatchId: SEED_IMPORT.batchId,
+      occurredAt: now,
+      partyId: DONOR_ID,
+      processingBasis: "voluntary_provision_7a",
+      purpose: "donation receipt and statutory filing",
+    })
+    .onConflictDoNothing();
 }
 
 // ── 3. Bank Accounts ─────────────────────────────────────────────────────────

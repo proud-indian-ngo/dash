@@ -22,6 +22,15 @@ test.describe("Income access", () => {
     await expect(
       page.getByRole("button", { name: "More actions" })
     ).toHaveCount(0);
+    await expect(page.getByRole("tab", { name: "Imports" })).toBeVisible();
+  });
+
+  test("admin without donors.manage cannot open the importer", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    await page.goto("/income/import");
+    await expect(page).not.toHaveURL(/\/income\/import/);
   });
 
   test("a role without donors.view or finance.view is redirected", async ({

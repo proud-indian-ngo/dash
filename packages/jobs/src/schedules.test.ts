@@ -14,6 +14,7 @@ describe("registerSchedules", () => {
     };
     await registerSchedules(boss as never);
     expect(scheduled).toContain("ensure-fiscal-years");
+    expect(scheduled).toContain("expire-import-rows");
     const queues = new Set<string>(QUEUE_NAMES);
     for (const name of scheduled) {
       expect(queues.has(name)).toBe(true);

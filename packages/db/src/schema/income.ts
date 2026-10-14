@@ -22,6 +22,7 @@ import {
 
 import { user } from "./auth";
 import { fund, orgAccount, programme, project } from "./finance-dimensions";
+import { importBatch } from "./import-batch";
 import { party } from "./party";
 
 export const contributionChannelEnum = pgEnum(
@@ -84,6 +85,10 @@ export const contribution = pgTable(
       .default(0)
       .notNull(),
     id: uuid("id").primaryKey(),
+    /** The CSV import that created it, for filtering by batch; null when recorded by hand. */
+    importBatchId: uuid("import_batch_id").references(() => importBatch.id, {
+      onDelete: "restrict",
+    }),
     inKindDescription: text("in_kind_description"),
     inKindValuationBasis: text("in_kind_valuation_basis"),
     /** Platform the gift came through (give.do, a donor-advised fund). */
@@ -121,6 +126,9 @@ export const contribution = pgTable(
     index("contribution_partyId_idx").on(t.partyId),
     index("contribution_receivedOn_idx").on(t.receivedOn),
     index("contribution_status_idx").on(t.status),
+    index("contribution_importBatchId_idx").on(t.importBatchId),
+    // Duplicate checks for imports compare references case-insensitively.
+    index("contribution_reference_lower_idx").on(sql`lower(${t.reference})`),
     check("contribution_amount_positive", sql`${t.amountPaise} > 0`),
     check(
       "contribution_gateway_charges_nonnegative",
@@ -166,6 +174,10 @@ export const contributionRelations = relations(contribution, ({ one }) => ({
     references: [user.id],
   }),
   fund: one(fund, { fields: [contribution.fundId], references: [fund.id] }),
+  importBatch: one(importBatch, {
+    fields: [contribution.importBatchId],
+    references: [importBatch.id],
+  }),
   intermediary: one(party, {
     fields: [contribution.intermediaryPartyId],
     references: [party.id],
