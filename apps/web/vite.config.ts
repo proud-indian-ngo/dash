@@ -38,6 +38,9 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
   const reactCompiler = await babel({
     presets: [appReactCompilerPreset()],
   });
+  // One ID per build, served by /api/version so open tabs can notice a
+  // deploy (see lib/build-id.ts).
+  const buildId = mode === "production" ? Date.now().toString(36) : "dev";
 
   return {
     build: {
@@ -79,6 +82,9 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
           },
         },
       },
+    },
+    define: {
+      __BUILD_ID__: JSON.stringify(buildId),
     },
     optimizeDeps: {
       exclude: ["bun"],

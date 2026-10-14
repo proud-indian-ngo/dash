@@ -16,6 +16,7 @@ import { lazy, Suspense, useEffect } from "react";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ZeroInit } from "@/components/zero-init";
 import { reloadForChunkError } from "@/lib/chunk-load-error";
+import { watchForNewVersion } from "@/lib/new-version";
 import type { RouterContext } from "@/router";
 
 // In dev, Vite injects CSS via HMR — no <link> needed (and avoids ?t= hydration mismatch).
@@ -98,6 +99,7 @@ function RootDocument() {
       reloadForChunkError((event as Event & { payload?: unknown }).payload);
     };
     window.addEventListener("vite:preloadError", onPreloadError);
+    const stopWatchingVersion = watchForNewVersion();
     import("@/lib/client-logger")
       .then(({ initClientLogger }) => initClientLogger())
       .catch(() => {
@@ -108,8 +110,10 @@ function RootDocument() {
       .catch(() => {
         // Non-critical
       });
-    return () =>
+    return () => {
       window.removeEventListener("vite:preloadError", onPreloadError);
+      stopWatchingVersion();
+    };
   }, []);
 
   return (
