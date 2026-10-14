@@ -15,6 +15,14 @@ let insertBatch: () => Promise<void> = async () => undefined;
 const logged: unknown[] = [];
 let source = "generic_csv";
 let rows: () => Record<string, string>[];
+let storedIdentities: {
+  contributionId: string;
+  externalId: string;
+  id: string;
+  payloadHash: string;
+}[] = [];
+let payoutLinks: unknown[][] = [];
+let writtenOutcomes: { id: string; values: Record<string, unknown> }[] = [];
 
 const GENERIC_MAPPING = {
   Amount: "amount",
@@ -30,16 +38,20 @@ const GIVE_DO_MAPPING = {
   "Donor Name": "donorName",
   "Donor PAN": "idNumber",
   "Transaction ID": "externalId",
-};
+} as const;
 
 const batchRow = () => ({
   dateFormat: "dmy",
-  defaultChannel: source === "give_do_csv" ? "give_do" : "upi",
+  defaultChannel:
+    source === "give_do_csv" || source === "give_do_payout" ? "give_do" : "upi",
   fileName: "gifts.csv",
   fundId: "0190a000-0000-7000-8000-0000000000bb",
   id: BATCH,
   mapping:
-    mapping ?? (source === "give_do_csv" ? GIVE_DO_MAPPING : GENERIC_MAPPING),
+    mapping ??
+    (source === "give_do_csv" || source === "give_do_payout"
+      ? GIVE_DO_MAPPING
+      : GENERIC_MAPPING),
   newDonorCount: 0,
   orgAccountId: "0190a000-0000-7000-8000-0000000000aa",
   projectId: null,
@@ -50,6 +62,7 @@ const batchRow = () => ({
 
 /** What a run wrote, recorded by the mocked queries. */
 let calls: {
+  contributionTxs: unknown[];
   contributions: Record<string, unknown>[];
   ensured: number;
   events: Record<string, unknown>[];
@@ -94,6 +107,11 @@ mock.module("@pi-dash/db/import-retention", () => ({
   importedRowRetention: () => ({}),
   uploadedRowRetention: () => ({}),
 }));
+mock.module("@pi-dash/db/queries/give-do-payouts", () => ({
+  linkGiveDoSettlementPaymentsIn: async (...args: unknown[]) => {
+    payoutLinks.push(args);
+  },
+}));
 mock.module("@pi-dash/db/queries/party-private", () => ({
   fillMissingPartyDetails: async (_tx: unknown, partyId: string) => {
     calls.fills.push(partyId);
@@ -132,7 +150,7 @@ mock.module("@pi-dash/db/queries/income-import", () => ({
   }),
   findContributorsByIdentifier: async () => new Map(),
   findDuplicateCandidates: async () => [],
-  findExternalIdentities: async () => [],
+  findExternalIdentities: async () => storedIdentities,
   findPartyDetailGaps: async (ids: string[]) =>
     new Map(
       ids.map((id) => [
@@ -143,9 +161,10 @@ mock.module("@pi-dash/db/queries/income-import", () => ({
   getImportBatch: async () => batchRow(),
   insertImportBatch: async () => await insertBatch(),
   insertImportedContribution: async (
-    _tx: unknown,
+    tx: unknown,
     values: Record<string, unknown>
   ) => {
+    calls.contributionTxs.push(tx);
     calls.contributions.push(values);
   },
   latestImportMapping: noop,
@@ -167,7 +186,13 @@ mock.module("@pi-dash/db/queries/income-import", () => ({
     return true;
   },
   resolveImportSettings: async () => ({ programmeId: null }),
-  setImportRowOutcome: noop,
+  setImportRowOutcome: async (
+    _tx: unknown,
+    id: string,
+    values: Record<string, unknown>
+  ) => {
+    writtenOutcomes.push({ id, values });
+  },
   setImportRowsRetention: noop,
   startDecidedRowsRetention: noop,
   updateImportBatch: noop,
@@ -183,6 +208,9 @@ const {
   getImportBatchDetail,
   IMPORT_SAVE_FAILED_MESSAGE,
   ImportInputError,
+  importPayoutContributionsIn,
+  reviewImportBatch,
+  reviewPayoutContributions,
   runImportBatch,
 } = await import("./server");
 const { parseCsv } = await import("./parse-csv");
@@ -194,7 +222,37 @@ beforeEach(() => {
   mapping = null;
   contributionIds = [];
   emailMatches = new Map();
-  calls = { contributions: [], ensured: 0, events: [], fills: [], saves: 0 };
+  storedIdentities = [];
+  payoutLinks = [];
+  writtenOutcomes = [];
+  calls = {
+    contributionTxs: [],
+    contributions: [],
+    ensured: 0,
+    events: [],
+    fills: [],
+    saves: 0,
+  };
+});
+
+describe("give.do payout boundary", () => {
+  it("keeps payout batches out of generic review, run and detail", async () => {
+    source = "give_do_payout";
+    await expect(
+      reviewImportBatch({
+        batchId: BATCH,
+        dateFormat: "dmy",
+        defaultChannel: "give_do",
+        mapping: GIVE_DO_MAPPING,
+      })
+    ).rejects.toBeInstanceOf(ImportInputError);
+    await expect(
+      runImportBatch({ batchId: BATCH, decisions: {} }, "u-1")
+    ).rejects.toBeInstanceOf(ImportInputError);
+    await expect(
+      getImportBatchDetail(BATCH, { canManage: true })
+    ).rejects.toThrow("open it from Settlements");
+  });
 });
 
 describe("createImportBatch errors", () => {
@@ -474,6 +532,156 @@ describe("runImportBatch for give.do", () => {
     await runImportBatch({ batchId: BATCH, decisions: {} }, "user-1");
     expect(calls.ensured).toBe(0);
     expect(calls.contributions[0]).toMatchObject({ intermediaryPartyId: null });
+  });
+});
+
+describe("give.do payout contribution pipeline", () => {
+  const now = new Date("2026-10-14T06:00:00.000Z");
+  const tx = { payout: true } as never;
+  const payoutBatch = () =>
+    batchRow() as Parameters<typeof reviewPayoutContributions>[0];
+
+  beforeEach(() => {
+    source = "give_do_payout";
+    status = "reviewed";
+    outcomes = [];
+    rows = () => [giveDoRow({ "Transaction ID": "LC-PAYOUT-1" })];
+  });
+
+  it("reviews and imports unknown gifts inside the caller transaction", async () => {
+    const review = await reviewPayoutContributions(payoutBatch());
+    expect(review.rows).toHaveLength(1);
+    expect(review.rows[0]?.category).toBe("new_donor");
+
+    const result = await importPayoutContributionsIn(
+      tx,
+      payoutBatch(),
+      "user-1",
+      {},
+      true,
+      now
+    );
+    expect(result).toMatchObject({ imported: 1, newDonors: 1, skipped: 0 });
+    expect(calls.contributionTxs).toEqual([tx]);
+    expect(calls.contributions[0]).toMatchObject({
+      channel: "give_do",
+      intermediaryPartyId: GIVE_INDIA_PARTY_ID,
+      source: "import",
+    });
+    expect(calls.events[0]).toMatchObject({
+      channel: "give_do_csv",
+      evidenceNote: GIVE_DO_COLLECTION_NOTE,
+    });
+    expect(payoutLinks).toHaveLength(1);
+  });
+
+  it("skips unknown gifts when importing them is turned off", async () => {
+    const result = await importPayoutContributionsIn(
+      tx,
+      payoutBatch(),
+      "user-1",
+      {},
+      false,
+      now
+    );
+    expect(result).toMatchObject({ imported: 0, skipped: 1 });
+    expect(calls.contributions).toEqual([]);
+    expect(writtenOutcomes[0]?.values).toMatchObject({
+      outcome: "skipped",
+      outcomeReason: "skipped_by_user",
+    });
+  });
+
+  it("links a known transaction despite changed donor descriptions", async () => {
+    storedIdentities = [
+      {
+        contributionId: "contribution-existing",
+        externalId: "LC-PAYOUT-1",
+        id: "identity-existing",
+        payloadHash: "h1:earlier-payload",
+      },
+    ];
+    rows = () => [
+      giveDoRow({
+        "Donor Name": "Name changed after the original import",
+        "Transaction ID": "LC-PAYOUT-1",
+      }),
+    ];
+    const review = await reviewPayoutContributions(payoutBatch());
+    expect(review.rows[0]?.category).toBe("already_imported");
+
+    const result = await importPayoutContributionsIn(
+      tx,
+      payoutBatch(),
+      "user-1",
+      {},
+      true,
+      now
+    );
+    expect(result).toMatchObject({ imported: 0, linked: 1 });
+    expect(calls.contributions).toEqual([]);
+    expect(writtenOutcomes[0]).toMatchObject({
+      values: {
+        contributionId: "contribution-existing",
+        externalIdentityId: "identity-existing",
+        outcome: "linked_existing",
+      },
+    });
+    expect(payoutLinks).toHaveLength(1);
+  });
+
+  it("rejects unresolved rows before writing when unknown imports are on", async () => {
+    emailMatches = new Map([
+      [
+        "ambiguous@example.com",
+        [
+          { name: "First match", partyId: "p-first" },
+          { name: "Second match", partyId: "p-second" },
+        ],
+      ],
+    ]);
+    rows = () => [
+      giveDoRow({
+        "Donor Email": "ambiguous@example.com",
+        "Donor PAN": "",
+        "Transaction ID": "LC-PAYOUT-1",
+      }),
+    ];
+    await expect(
+      importPayoutContributionsIn(tx, payoutBatch(), "user-1", {}, true, now)
+    ).rejects.toThrow("Resolve the donation rows");
+    expect(calls).toEqual({
+      contributionTxs: [],
+      contributions: [],
+      ensured: 0,
+      events: [],
+      fills: [],
+      saves: 0,
+    });
+    expect(writtenOutcomes).toEqual([]);
+    expect(payoutLinks).toEqual([]);
+  });
+
+  it("reuses the accepted donor fill-missing path", async () => {
+    emailMatches = new Map([
+      ["known@example.com", [{ name: "Known", partyId: "p-known" }]],
+    ]);
+    rows = () => [
+      giveDoRow({
+        "Donor Email": "known@example.com",
+        "Transaction ID": "LC-PAYOUT-1",
+      }),
+    ];
+    const result = await importPayoutContributionsIn(
+      tx,
+      payoutBatch(),
+      "user-1",
+      { [ROW_ID(0)]: { donor: "party:p-known" } },
+      true,
+      now
+    );
+    expect(result).toMatchObject({ filledDonors: 1, imported: 1 });
+    expect(calls.fills).toEqual(["p-known"]);
   });
 });
 

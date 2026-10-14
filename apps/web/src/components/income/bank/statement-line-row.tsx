@@ -27,6 +27,7 @@ import {
   IGNORE_REASON_LABELS,
   matchKindLabel,
   matchReasonLabel,
+  settlementProviderLabel,
 } from "@/lib/bank-statement/labels";
 
 export type StatementLineRow = StatementLine & {
@@ -49,7 +50,7 @@ export interface LineActions {
 }
 
 function settlementLabel(settlement: GatewaySettlement): string {
-  return `Razorpay settlement ${formatReceivedOn(settlement.settledOn)} · ${formatPaise(settlement.amountPaise)}`;
+  return `${settlementProviderLabel(settlement.provider)} settlement ${formatReceivedOn(settlement.settledOn)} · ${formatPaise(settlement.amountPaise)}`;
 }
 
 function contributionLabel(

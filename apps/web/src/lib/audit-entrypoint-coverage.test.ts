@@ -5,6 +5,7 @@ import { join, relative } from "node:path";
 const AUDITED_SERVER_FUNCTIONS = [
   "createBankStatementImport",
   "createContributionImport",
+  "createGiveDoPayoutImport",
   "createRole",
   "createSocialApiTokenFn",
   "createUserAdmin",
@@ -25,6 +26,7 @@ const AUDITED_SERVER_FUNCTIONS = [
   "reviewContributionImport",
   "runBankStatementImport",
   "runContributionImport",
+  "runGiveDoPayoutImport",
   "saveDonor",
   "saveVendor",
   "setUserBanAdmin",
@@ -43,7 +45,9 @@ const AUDITED_SERVER_FUNCTIONS = [
 const EXEMPT_SERVER_FUNCTIONS = [
   "archiveKalakritiGuardian",
   "getBankStatementSummary",
+  "getContributionBankEvidence",
   "getContributionImport",
+  "getGiveDoPayoutImport",
   "getContributionSettlementLock",
   "getDonationsReturnReadiness",
   "getEventEditorUploadUrl",

@@ -406,6 +406,10 @@ function ImportsTab({
   const rows = batches as ImportBatchRow[];
   const isLoading = rows.length === 0 && result.type !== "complete";
   const open = useEventCallback((row: ImportBatchRow) => {
+    if (row.source === "give_do_payout") {
+      navigate({ search: { batch: row.id }, to: "/income/payout/import" });
+      return;
+    }
     // A bank statement's lines live on the Bank statements page.
     if (row.source === "bank_csv") {
       navigate({
@@ -507,6 +511,9 @@ function IncomeRouteComponent() {
   const openImport = useEventCallback(() => {
     navigate({ to: "/income/import" });
   });
+  const openPayoutImport = useEventCallback(() => {
+    navigate({ to: "/income/payout/import" });
+  });
   const openBank = useEventCallback(() => {
     navigate({ to: "/income/bank" });
   });
@@ -514,6 +521,13 @@ function IncomeRouteComponent() {
     navigate({ to: "/income/return" });
   });
   const menuActions = [
+    canManageContributions &&
+      canManageOtherIncome && {
+        icon: FileImportIcon,
+        id: "import-payout",
+        label: "Import give.do payout",
+        onSelect: openPayoutImport,
+      },
     {
       icon: FileValidationIcon,
       id: "donations-return",
@@ -545,7 +559,18 @@ function IncomeRouteComponent() {
       <PageHeader
         actions={
           <>
-            {canManageContributions ? (
+            {tab === "settlements" &&
+            canManageContributions &&
+            canManageOtherIncome ? (
+              <Button onClick={openPayoutImport} type="button">
+                <HugeiconsIcon
+                  className="size-4"
+                  icon={FileImportIcon}
+                  strokeWidth={2}
+                />
+                Import give.do payout
+              </Button>
+            ) : canManageContributions ? (
               <Button onClick={openContribution} type="button">
                 <HugeiconsIcon
                   className="size-4"

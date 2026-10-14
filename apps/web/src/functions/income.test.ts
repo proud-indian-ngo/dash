@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-let allowed = true;
+let granted: string[] = [];
+let evidenceCalls: string[][] = [];
 let permissionChecks: string[] = [];
 let ranges: { endsOn: string; startsOn: string }[] = [];
 
@@ -11,9 +12,24 @@ mock.module("@/lib/api-auth", () => ({
     permissions: readonly string[]
   ) => {
     permissionChecks.push(...permissions);
-    if (!allowed) {
+    if (!permissions.some((permission) => granted.includes(permission))) {
       throw new Error("Forbidden");
     }
+  },
+  assertServerPermission: async (_session: unknown, permission: string) => {
+    permissionChecks.push(permission);
+    if (!granted.includes(permission)) {
+      throw new Error("Forbidden");
+    }
+  },
+}));
+mock.module("@pi-dash/db/queries/contribution-bank-evidence", () => ({
+  contributionBankEvidence: async (ids: string[]) => {
+    evidenceCalls.push(ids);
+    return {
+      matchedContributionIds: ids.slice(0, 1),
+      processedContributionIds: ids.slice(1),
+    };
   },
 }));
 mock.module("@pi-dash/db/queries/income", () => ({
@@ -39,22 +55,31 @@ mock.module("@tanstack/react-start", () => ({
   },
 }));
 
-const { getMissingDonorDetails } = await import("./income");
-const handler = getMissingDonorDetails as unknown as (input: {
+const fns = await import("./income");
+type Handler = (input: {
+  context: { session: unknown };
+  data: { contributionIds: string[] };
+}) => Promise<unknown>;
+const call = (ids: string[]) =>
+  (fns.getContributionBankEvidence as unknown as Handler)({
+    context: { session: {} },
+    data: { contributionIds: ids },
+  });
+
+const missingDetailsHandler = fns.getMissingDonorDetails as unknown as (input: {
   context: { session: unknown };
 }) => Promise<{ count: number; financialYear: string; partyIds: string[] }>;
 
 describe("getMissingDonorDetails", () => {
   beforeEach(() => {
-    allowed = true;
+    granted = [];
     permissionChecks = [];
     ranges = [];
   });
 
   it("requires a donors or finance permission and never queries when denied", async () => {
-    allowed = false;
     await expect(
-      handler({ context: { session: { user: { id: "u" } } } })
+      missingDetailsHandler({ context: { session: { user: { id: "u" } } } })
     ).rejects.toThrow("Forbidden");
     expect(permissionChecks).toEqual([
       "donors.view",
@@ -66,7 +91,8 @@ describe("getMissingDonorDetails", () => {
   });
 
   it("returns the count and party IDs for the current financial year", async () => {
-    const result = await handler({
+    granted = ["donors.view"];
+    const result = await missingDetailsHandler({
       context: { session: { user: { id: "u" } } },
     });
     expect(result.count).toBe(2);
@@ -82,5 +108,30 @@ describe("getMissingDonorDetails", () => {
     expect(result.financialYear).toBe(
       `${range?.startsOn.slice(0, 4)}-${range?.endsOn.slice(2, 4)}`
     );
+  });
+});
+
+describe("getContributionBankEvidence", () => {
+  beforeEach(() => {
+    granted = [];
+    evidenceCalls = [];
+    permissionChecks = [];
+  });
+
+  it("requires finance permission before querying", async () => {
+    granted = ["donors.manage"];
+    await expect(call(["a"])).rejects.toThrow("Forbidden");
+    expect(evidenceCalls).toEqual([]);
+  });
+
+  it("allows finance.view or finance.manage and preserves the requested scope", async () => {
+    granted = ["finance.view"];
+    await expect(call(["a", "b"])).resolves.toEqual({
+      matchedContributionIds: ["a"],
+      processedContributionIds: ["b"],
+    });
+    granted = ["finance.manage"];
+    await call(["c"]);
+    expect(evidenceCalls).toEqual([["a", "b"], ["c"]]);
   });
 });

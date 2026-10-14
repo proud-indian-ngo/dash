@@ -3,6 +3,7 @@ import {
   importedRowRetention,
   uploadedRowRetention,
 } from "@pi-dash/db/import-retention";
+import { linkGiveDoSettlementPaymentsIn } from "@pi-dash/db/queries/give-do-payouts";
 import {
   claimImportBatch,
   countImportBatchRows,
@@ -134,6 +135,7 @@ const COLLECTION_BY_SOURCE: Record<
   bank_csv: { channel: "bank_csv", note: GENERIC_CSV_COLLECTION_NOTE },
   generic_csv: { channel: "generic_csv", note: GENERIC_CSV_COLLECTION_NOTE },
   give_do_csv: { channel: "give_do_csv", note: GIVE_DO_COLLECTION_NOTE },
+  give_do_payout: { channel: "give_do_csv", note: GIVE_DO_COLLECTION_NOTE },
   razorpay_api: {
     channel: "razorpay_payment_page",
     note: RAZORPAY_COLLECTION_NOTE,
@@ -281,6 +283,7 @@ export interface RowRules {
   ) => string;
   /** No provider ID, so re-uploads are matched by a fingerprint. */
   weakIdentity: boolean;
+  linkExistingById?: boolean;
 }
 
 function csvRowRules(
@@ -305,6 +308,7 @@ function csvRowRules(
       }),
     payloadHash: (row) => payloadHash(row),
     weakIdentity: checkMapping(settings.mapping).weakIdentity,
+    linkExistingById: batch.source === "give_do_payout",
   };
 }
 
@@ -481,7 +485,11 @@ async function classifyBatch(
     identityKey: p.identity ? identityKey(p.identity) : null,
     normalized: p.normalized,
     outcome: p.record.outcome,
-    payloadHash: p.payloadHash,
+    payloadHash:
+      rules.linkExistingById && p.identity
+        ? (storedIdentities.get(identityKey(p.identity))?.payloadHash ??
+          p.payloadHash)
+        : p.payloadHash,
     rowNumber: p.record.rowNumber,
   }));
   const classified = classifyRows(inputs, {
@@ -650,7 +658,11 @@ function toReviewResponse(
 
 async function requireBatch(batchId: string): Promise<ImportBatchRow> {
   const batch = await getImportBatch(batchId);
-  if (!batch || batch.source === "bank_csv") {
+  if (
+    !batch ||
+    batch.source === "bank_csv" ||
+    batch.source === "give_do_payout"
+  ) {
     throw new ImportInputError("Import not found");
   }
   if (batch.status === "expired") {
@@ -776,6 +788,11 @@ async function loadBatchDetail(
   if (batch.source === "bank_csv") {
     throw new ImportInputError(
       "This is a bank statement; open it from Bank statements"
+    );
+  }
+  if (batch.source === "give_do_payout") {
+    throw new ImportInputError(
+      "This is a give.do payout; open it from Settlements"
     );
   }
   const records = await listImportRows(batch.id);
@@ -1004,6 +1021,14 @@ async function afterContribution(
   ctx: RunContext,
   identity: { externalId: string; provider: string; providerAccount: string }
 ): Promise<void> {
+  if (identity.provider === "give_do") {
+    await linkGiveDoSettlementPaymentsIn(
+      ctx.tx,
+      identity.providerAccount,
+      identity.externalId
+    );
+    return;
+  }
   if (ctx.batch.source !== "razorpay_api" || identity.provider !== "razorpay") {
     return;
   }
@@ -1320,4 +1345,70 @@ export async function importStagedRows(
     tx
   );
   return results;
+}
+
+/** Reuses donor classification for the separately authorized payout importer. */
+export async function reviewPayoutContributions(
+  batch: ImportBatchRow
+): Promise<ReviewResponse> {
+  const settings = settingsOf(batch);
+  if (batch.source !== "give_do_payout" || !settings) {
+    throw new ImportInputError("Payout import not found");
+  }
+  const rules = await rowRulesFor(batch, settings);
+  return toReviewResponse(
+    batch,
+    settings,
+    await classifyBatch(await listImportRows(batch.id), rules),
+    false
+  );
+}
+
+/** Imports the chosen gifts inside the payout's transaction and shared import lock. */
+export async function importPayoutContributionsIn(
+  tx: ImportTx,
+  batch: ImportBatchRow,
+  actorId: string,
+  decisions: Record<string, RowDecision>,
+  importUnknown: boolean,
+  now: Date
+): Promise<RunResponse> {
+  const settings = settingsOf(batch);
+  if (!(batch.source === "give_do_payout" && settings && batch.orgAccountId)) {
+    throw new ImportInputError("Payout import not found");
+  }
+  const classification = await classifyBatch(
+    await listImportRows(batch.id, tx),
+    await rowRulesFor(batch, settings),
+    tx
+  );
+  const plans = planRows(classification.classified, decisions);
+  for (const [id, plan] of plans) {
+    if (!importUnknown && plan.action !== "link" && plan.action !== "done") {
+      plans.set(id, { action: "skip", reason: "skipped_by_user" });
+    } else if (
+      importUnknown &&
+      (plan.action === "error" ||
+        plan.action === "conflict" ||
+        (plan.action === "skip" && plan.reason === "undecided"))
+    ) {
+      throw new ImportInputError(
+        "Resolve the donation rows before importing this payout, or leave unknown donations unlinked."
+      );
+    }
+  }
+  return executePlans(
+    {
+      actorId,
+      batch,
+      canStoreIds: hasEncryptionKey(),
+      intermediaryPartyId: await ensureGiveIndiaParty(tx, actorId, now),
+      now,
+      orgAccountId: batch.orgAccountId,
+      programmeId: batch.programmeId,
+      tx,
+    },
+    classification,
+    plans
+  );
 }

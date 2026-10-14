@@ -53,6 +53,9 @@ export const INCOME_PERMISSIONS = [
   "finance.manage",
 ] as const;
 
+/** Upper bound on the Income page's local contribution dataset. */
+export const INCOME_LIST_LIMIT = 5000;
+
 export const CONTRIBUTION_CHANNEL_LABELS: Record<ContributionChannel, string> =
   {
     cash: "Cash",

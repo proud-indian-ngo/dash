@@ -91,6 +91,7 @@ import { Route as KalakritiYearScheduleRouteImport } from './routes/kalakriti/$y
 import { Route as AppIncomeBankIndexRouteImport } from './routes/_app/income/bank/index'
 import { Route as AppIncomeBankImportRouteImport } from './routes/_app/income/bank/import'
 import { Route as AppIncomeImportsBatchIdRouteImport } from './routes/_app/income/imports.$batchId'
+import { Route as AppIncomePayoutImportRouteImport } from './routes/_app/income/payout/import'
 import { Route as AppKalakritiYearIndexRouteImport } from './routes/_app/kalakriti/$year/index'
 import { Route as AppKalakritiYearAuditRouteImport } from './routes/_app/kalakriti/$year/audit'
 import { Route as AppKalakritiYearAwardsRouteImport } from './routes/_app/kalakriti/$year/awards'
@@ -554,6 +555,11 @@ const AppIncomeImportsBatchIdRoute = AppIncomeImportsBatchIdRouteImport.update({
   path: '/imports/$batchId',
   getParentRoute: () => AppIncomeRouteRoute,
 } as any)
+const AppIncomePayoutImportRoute = AppIncomePayoutImportRouteImport.update({
+  id: '/payout/import',
+  path: '/payout/import',
+  getParentRoute: () => AppIncomeRouteRoute,
+} as any)
 const AppKalakritiYearIndexRoute = AppKalakritiYearIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -920,6 +926,7 @@ export interface FileRoutesByFullPath {
   '/kalakriti/$year/settings': typeof AppKalakritiYearSettingsRouteRouteWithChildren
   '/income/bank/import': typeof AppIncomeBankImportRoute
   '/income/imports/$batchId': typeof AppIncomeImportsBatchIdRoute
+  '/income/payout/import': typeof AppIncomePayoutImportRoute
   '/kalakriti/$year/audit': typeof AppKalakritiYearAuditRoute
   '/kalakriti/$year/awards': typeof AppKalakritiYearAwardsRoute
   '/kalakriti/$year/eligibility': typeof AppKalakritiYearEligibilityRoute
@@ -1040,6 +1047,7 @@ export interface FileRoutesByTo {
   '/api/jobs': typeof ApiJobsIndexRoute
   '/income/bank/import': typeof AppIncomeBankImportRoute
   '/income/imports/$batchId': typeof AppIncomeImportsBatchIdRoute
+  '/income/payout/import': typeof AppIncomePayoutImportRoute
   '/kalakriti/$year/audit': typeof AppKalakritiYearAuditRoute
   '/kalakriti/$year/awards': typeof AppKalakritiYearAwardsRoute
   '/kalakriti/$year/eligibility': typeof AppKalakritiYearEligibilityRoute
@@ -1175,6 +1183,7 @@ export interface FileRoutesById {
   '/_app/kalakriti/$year/settings': typeof AppKalakritiYearSettingsRouteRouteWithChildren
   '/_app/income/bank/import': typeof AppIncomeBankImportRoute
   '/_app/income/imports/$batchId': typeof AppIncomeImportsBatchIdRoute
+  '/_app/income/payout/import': typeof AppIncomePayoutImportRoute
   '/_app/kalakriti/$year/audit': typeof AppKalakritiYearAuditRoute
   '/_app/kalakriti/$year/awards': typeof AppKalakritiYearAwardsRoute
   '/_app/kalakriti/$year/eligibility': typeof AppKalakritiYearEligibilityRoute
@@ -1310,6 +1319,7 @@ export interface FileRouteTypes {
     | '/kalakriti/$year/settings'
     | '/income/bank/import'
     | '/income/imports/$batchId'
+    | '/income/payout/import'
     | '/kalakriti/$year/audit'
     | '/kalakriti/$year/awards'
     | '/kalakriti/$year/eligibility'
@@ -1430,6 +1440,7 @@ export interface FileRouteTypes {
     | '/api/jobs'
     | '/income/bank/import'
     | '/income/imports/$batchId'
+    | '/income/payout/import'
     | '/kalakriti/$year/audit'
     | '/kalakriti/$year/awards'
     | '/kalakriti/$year/eligibility'
@@ -1564,6 +1575,7 @@ export interface FileRouteTypes {
     | '/_app/kalakriti/$year/settings'
     | '/_app/income/bank/import'
     | '/_app/income/imports/$batchId'
+    | '/_app/income/payout/import'
     | '/_app/kalakriti/$year/audit'
     | '/_app/kalakriti/$year/awards'
     | '/_app/kalakriti/$year/eligibility'
@@ -2235,6 +2247,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIncomeImportsBatchIdRouteImport
       parentRoute: typeof AppIncomeRouteRoute
     }
+    '/_app/income/payout/import': {
+      id: '/_app/income/payout/import'
+      path: '/payout/import'
+      fullPath: '/income/payout/import'
+      preLoaderRoute: typeof AppIncomePayoutImportRouteImport
+      parentRoute: typeof AppIncomeRouteRoute
+    }
     '/_app/kalakriti/$year/': {
       id: '/_app/kalakriti/$year/'
       path: '/'
@@ -2627,6 +2646,7 @@ interface AppIncomeRouteRouteChildren {
   AppIncomeIndexRoute: typeof AppIncomeIndexRoute
   AppIncomeBankImportRoute: typeof AppIncomeBankImportRoute
   AppIncomeImportsBatchIdRoute: typeof AppIncomeImportsBatchIdRoute
+  AppIncomePayoutImportRoute: typeof AppIncomePayoutImportRoute
   AppIncomeBankIndexRoute: typeof AppIncomeBankIndexRoute
 }
 
@@ -2636,6 +2656,7 @@ const AppIncomeRouteRouteChildren: AppIncomeRouteRouteChildren = {
   AppIncomeIndexRoute: AppIncomeIndexRoute,
   AppIncomeBankImportRoute: AppIncomeBankImportRoute,
   AppIncomeImportsBatchIdRoute: AppIncomeImportsBatchIdRoute,
+  AppIncomePayoutImportRoute: AppIncomePayoutImportRoute,
   AppIncomeBankIndexRoute: AppIncomeBankIndexRoute,
 }
 

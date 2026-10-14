@@ -42,6 +42,7 @@ import {
 import { type ContributionRow, donorName } from "./income-types";
 import {
   type ContributionSettlement,
+  isGatewayContribution,
   useContributionSettlement,
   useSettlementLock,
 } from "./settlements/contribution-settlement";
@@ -139,17 +140,17 @@ export function ContributionDetailSheet({
   const { hasPermission } = useApp();
   const seesSettlements =
     hasPermission("finance.view") || hasPermission("finance.manage");
-  const isRazorpayGift =
-    contribution !== null && razorpayPaymentUrl(contribution) !== null;
-  // Razorpay gifts only: when Razorpay paid it out to the bank.
+  const isGatewayGift =
+    contribution !== null && isGatewayContribution(contribution);
+  // Gateway gifts only: when the provider paid it out to the bank.
   const settlement = useContributionSettlement(
     contribution?.id ?? null,
-    seesSettlements && isRazorpayGift
+    seesSettlements && isGatewayGift
   );
   // Paid out by a processed settlement (or not known yet): no Delete.
   const settlementLock = useSettlementLock(
     contribution?.id ?? null,
-    isRazorpayGift
+    isGatewayGift
   );
   if (!contribution) {
     return (
@@ -226,8 +227,8 @@ export function ContributionDetailSheet({
           ],
         ] as [string, ReactNode][])
       : []),
-    // Razorpay gifts only: when Razorpay paid it out to the bank.
-    ...(razorpayUrl && seesSettlements
+    // Gateway gifts only: when the provider paid it out to the bank.
+    ...(isGatewayGift && seesSettlements
       ? ([
           [
             "Settlement",

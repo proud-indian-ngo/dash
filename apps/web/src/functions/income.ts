@@ -1,9 +1,12 @@
+import { contributionBankEvidence } from "@pi-dash/db/queries/contribution-bank-evidence";
 import { listDonorsMissingFilingDetails } from "@pi-dash/db/queries/income";
 import {
   currentFinancialYear,
+  INCOME_LIST_LIMIT,
   INCOME_PERMISSIONS,
 } from "@pi-dash/shared/income";
 import { createServerFn } from "@tanstack/react-start";
+import z from "zod";
 
 import { assertServerAnyPermission } from "@/lib/api-auth";
 import { authMiddleware } from "@/middleware/auth";
@@ -14,6 +17,22 @@ export interface MissingDonorDetailsResponse {
   financialYear: string;
   partyIds: string[];
 }
+
+const contributionBankEvidenceInput = z.object({
+  contributionIds: z.array(z.uuid()).max(INCOME_LIST_LIMIT),
+});
+
+/** Finance-only read used by the Income table's derived Reached bank filter. */
+export const getContributionBankEvidence = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(contributionBankEvidenceInput)
+  .handler(async ({ context, data }) => {
+    await assertServerAnyPermission(context.session, [
+      "finance.view",
+      "finance.manage",
+    ]);
+    return await contributionBankEvidence(data.contributionIds);
+  });
 
 /**
  * Donors whose details hold up this financial year's donations return, for

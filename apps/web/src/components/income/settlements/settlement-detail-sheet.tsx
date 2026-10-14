@@ -30,6 +30,7 @@ import {
   SETTLEMENT_LINE_LABELS,
   SETTLEMENT_STATUS_LABELS,
   SETTLEMENT_STATUS_TONES,
+  settlementProviderLabel,
   type SettlementDetail,
   type SettlementLineRow,
 } from "./settlement-types";
@@ -101,7 +102,13 @@ function lineParty(line: SettlementLineRow): ReactNode {
   return null;
 }
 
-function Lines({ lines }: { lines: readonly SettlementLineRow[] }) {
+function Lines({
+  lines,
+  provider,
+}: {
+  lines: readonly SettlementLineRow[];
+  provider: string;
+}) {
   return (
     <section
       aria-label="Settled lines"
@@ -138,7 +145,9 @@ function Lines({ lines }: { lines: readonly SettlementLineRow[] }) {
                   </span>
                 ) : null}
                 {hasFeeMismatch(line, line.contribution) ? (
-                  <Tag title="Razorpay's fee here differs from the fee recorded on the contribution">
+                  <Tag
+                    title={`${settlementProviderLabel(provider)}'s fee here differs from the fee recorded on the contribution`}
+                  >
                     Fee differs
                   </Tag>
                 ) : null}
@@ -162,17 +171,17 @@ function SettlementBody({ settlement }: { settlement: SettlementDetail }) {
   const expected = expectedNetPaise(breakdown, settlement);
   const addsUp = expected === settlement.amountPaise;
   const unreadable = settlement.unreadableLineCount ?? 0;
+  const provider = settlementProviderLabel(settlement.provider);
 
   return (
     <>
       {lines.length === 0 ? (
         <Warning testId="settlement-no-lines">
-          Razorpay hasn't listed what this payout covered yet; the next sync
-          fetches it.
+          {provider} hasn't listed what this payout covered yet.
         </Warning>
       ) : addsUp ? null : (
         <Warning testId="settlement-mismatch">
-          The lines add up to {formatPaise(expected)}, but Razorpay paid{" "}
+          The lines add up to {formatPaise(expected)}, but {provider} paid{" "}
           {formatPaise(settlement.amountPaise)}.
           {unreadable > 0
             ? " Some of its lines could not be read; see below."
@@ -182,14 +191,14 @@ function SettlementBody({ settlement }: { settlement: SettlementDetail }) {
       {unreadable > 0 ? (
         <Warning testId="settlement-unreadable">
           At least {unreadable.toLocaleString("en-IN")}{" "}
-          {unreadable === 1 ? "line" : "lines"} not readable: Razorpay listed
+          {unreadable === 1 ? "line" : "lines"} not readable: {provider} listed
           lines for this settlement in another currency or a shape pi-dash
           doesn't read, so they aren't counted here.
         </Warning>
       ) : null}
       {settlement.amountChanged ? (
         <Warning testId="settlement-amount-changed">
-          Razorpay later reported this settlement with a different amount; the
+          {provider} later reported this settlement with a different amount; the
           first amount is kept.
         </Warning>
       ) : null}
@@ -203,7 +212,7 @@ function SettlementBody({ settlement }: { settlement: SettlementDetail }) {
       ) : null}
       {feeMismatches > 0 ? (
         <Warning testId="settlement-fee-mismatch">
-          Razorpay's fee differs from the contribution's recorded fee on{" "}
+          {provider}'s fee differs from the contribution's recorded fee on{" "}
           {feeMismatches === 1
             ? "1 payment"
             : `${feeMismatches.toLocaleString("en-IN")} payments`}
@@ -220,7 +229,7 @@ function SettlementBody({ settlement }: { settlement: SettlementDetail }) {
           sign="+"
         />
         <BreakdownRow label="Fees" paise={breakdown.feesPaise} sign="−" />
-        <BreakdownRow label="GST on fees" paise={breakdown.taxPaise} sign="−" />
+        <BreakdownRow label="Tax on fees" paise={breakdown.taxPaise} sign="−" />
         {breakdown.refundsPaise === 0 ? null : (
           <BreakdownRow
             label={`Refunds (${breakdown.refundCount.toLocaleString("en-IN")})`}
@@ -266,21 +275,23 @@ function SettlementBody({ settlement }: { settlement: SettlementDetail }) {
         <DetailsRow label="In bank">
           <SettlementInBank settlementId={settlement.id} />
         </DetailsRow>
+        <DetailsRow label="Provider">{provider}</DetailsRow>
         <DetailsRow label="Mode">
           {settlement.providerAccount === "test" ? "Test" : "Live"}
         </DetailsRow>
       </dl>
-      {lines.length > 0 ? <Lines lines={lines} /> : null}
+      {lines.length > 0 ? (
+        <Lines lines={lines} provider={settlement.provider} />
+      ) : null}
     </>
   );
 }
 
 /**
- * A settlement's sheet: what Razorpay paid into the bank and how it adds up
+ * A settlement's sheet: what a gateway paid into the bank and how it adds up
  * (gross − fees − GST − refunds ± adjustments − instant settlement fee =
  * net paid), with every line
- * it covered. Read-only; Razorpay documents no dashboard link for a
- * settlement, so there is none.
+ * it covered. Read-only.
  */
 export function SettlementDetailSheet({
   onOpenChange,

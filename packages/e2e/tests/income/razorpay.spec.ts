@@ -181,11 +181,11 @@ async function settled(paymentId: string) {
     .toBe(true);
 }
 
-/** The "Awaiting settlement" figure on the Settlements tab, in paise. */
+/** The Razorpay awaiting-settlement figure on the Settlements tab, in paise. */
 async function awaitingSettlement(page: Page): Promise<number> {
   const chip = page
     .locator('[data-slot="stat-chip"]')
-    .filter({ hasText: "Awaiting settlement" });
+    .filter({ hasText: "Awaiting from Razorpay" });
   const value = chip.locator('[data-slot="stat-value"]');
   await expect(value).not.toHaveText("—", { timeout: 15_000 });
   const text = await value.innerText();
@@ -619,7 +619,9 @@ test.describe("Income: Razorpay Payment Page", () => {
     await expect(
       page.getByTestId("settled-payments-not-imported")
     ).toContainText("settled payment");
-    await page.getByPlaceholder("Search settlement ID or UTR...").fill(utr);
+    await page
+      .getByPlaceholder("Search provider, settlement ID or UTR...")
+      .fill(utr);
     const settlementRow = page.getByRole("row").filter({ hasText: utr });
     await expect(settlementRow).toHaveCount(1, { timeout: 15_000 });
     await expect(settlementRow).toContainText("₹790.53");

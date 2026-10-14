@@ -18,7 +18,7 @@ export function canSeeSettlements(
   );
 }
 
-/** Several years of daily Razorpay payouts. */
+/** Several years of gateway payouts. */
 export const SETTLEMENT_LIST_LIMIT = 3000;
 
 export const gatewaySettlementQueries = {
@@ -61,16 +61,25 @@ export const gatewaySettlementQueries = {
             .related("settlement")
   ),
   /**
-   * The Settlements tab for one mode (the server's), newest first. Totals
-   * are stored on the settlement, so only the lines still waiting for their
-   * payment or refund come along, for the "N unlinked" tag.
+   * The Settlements tab: give.do live payouts plus Razorpay in the server's
+   * configured mode, newest first. An empty Razorpay account still returns
+   * give.do. Totals are stored on the settlement, so only unlinked payment
+   * or refund lines come along for the "N unlinked" tag.
    */
   list: defineQuery(
     z.object({ providerAccount: z.string() }),
     ({ args: { providerAccount }, ctx }) =>
       canSeeSettlements(ctx)
         ? zql.gatewaySettlement
-            .where("providerAccount", providerAccount)
+            .where(({ and, cmp, or }) =>
+              or(
+                and(cmp("provider", "give_do"), cmp("providerAccount", "live")),
+                and(
+                  cmp("provider", "razorpay"),
+                  cmp("providerAccount", providerAccount)
+                )
+              )
+            )
             .related("items", (items) =>
               items.where(({ and, cmp, or }) =>
                 or(

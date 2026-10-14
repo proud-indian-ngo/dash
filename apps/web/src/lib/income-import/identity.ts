@@ -45,6 +45,7 @@ const PROVIDER_BY_SOURCE: Record<ImportBatchSource, ExternalIdentityProvider> =
     bank_csv: "generic",
     generic_csv: "generic",
     give_do_csv: "give_do",
+    give_do_payout: "give_do",
     razorpay_api: "razorpay",
   };
 
