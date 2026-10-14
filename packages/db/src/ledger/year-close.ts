@@ -199,7 +199,15 @@ export async function yearCloseChecklist(
   };
 }
 
+/**
+ * Closes and reopens serialise on one lock across all years: closing a year
+ * reads the previous year's state and reopening reads the later years', so
+ * without it closing 2027-28 and reopening 2026-27 could both commit.
+ */
 async function lockYear(tx: LedgerTx, fiscalYearId: string) {
+  await tx.execute(
+    sql`SELECT pg_advisory_xact_lock(hashtextextended('ledger:year_close', 0))`
+  );
   const [year] = await tx
     .select()
     .from(fiscalYear)

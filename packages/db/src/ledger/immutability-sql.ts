@@ -3,7 +3,11 @@
  * by immutability.test.ts) and `ensureLedgerTriggers` (immutability.ts).
  */
 
-/** Bumped whenever a function body below changes. */
+/**
+ * Bumped whenever anything below changes, together with a new custom
+ * migration named `NNNN_ledger_guards_<version>` generated from this file
+ * (immutability.test.ts checks the latest one).
+ */
 export const LEDGER_GUARD_VERSION = "pi-dash ledger guards v2";
 
 export const LEDGER_FUNCTION_STATEMENTS: readonly string[] = [

@@ -4,7 +4,7 @@ import {
   LEDGER_ACCOUNT_HEAD_IDS,
 } from "@pi-dash/shared/constants";
 import { SQL } from "bun";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sql";
 import { uuidv7 } from "uuidv7";
 import { expect, it } from "vitest";
@@ -586,3 +586,135 @@ it.skipIf(!localDatabase)(
     });
   }
 );
+
+// ── Concurrency ──────────────────────────────────────────────────────────────
+// These need committed state seen by several connections, so they commit and
+// then put the database back (removing their own year history with the
+// maintenance switch). They need the 2026-27 opening balances to stand (the
+// dev seed posts fake ones). In this file so they never run alongside the
+// rolled-back tests above, whose open transactions hold the year rows.
+
+function connect() {
+  const client = new SQL(databaseUrl as string, { max: 2 });
+  return { client, database: drizzle({ client, schema }) };
+}
+
+it.skipIf(!localDatabase)(
+  "installs the guards once when several servers start together",
+  async () => {
+    // Imported here: the module reads the app's database settings on load.
+    const { ensureLedgerTriggers } = await import("./immutability");
+    const setup = connect();
+    const runners = Array.from({ length: 4 }, connect);
+    try {
+      // An outdated version makes every start want to replace the functions.
+      await setup.database.execute(
+        sql`COMMENT ON FUNCTION "ledger_reject_change"() IS 'outdated'`
+      );
+      const results = await Promise.all(
+        runners.map(({ database }) => ensureLedgerTriggers(database as never))
+      );
+      const replaced = results.filter((r) => r.includes("functions"));
+      expect(replaced).toHaveLength(1);
+      expect(results.filter((r) => r.length === 0)).toHaveLength(3);
+      expect(await ensureLedgerTriggers(setup.database as never)).toEqual([]);
+    } finally {
+      await Promise.all(
+        [setup, ...runners].map(({ client }) => client.close())
+      );
+    }
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "never lets closing a later year and reopening an earlier one both commit",
+  async () => {
+    const { client, database } = connect();
+    const other = connect();
+    const startedAt = new Date();
+    const afterFirstEnd = new Date("2027-04-02T06:00:00Z");
+    const afterSecondEnd = new Date("2028-04-02T06:00:00Z");
+    const years = await database
+      .select()
+      .from(fiscalYear)
+      .where(inArray(fiscalYear.label, ["2026-27", "2027-28"]))
+      .orderBy(fiscalYear.startsOn);
+    const [first, second] = years;
+    const [someone] = await database
+      .select({ id: user.id })
+      .from(user)
+      .limit(1);
+    const [opening] = first
+      ? await database
+          .select({ id: openingBalance.id })
+          .from(openingBalance)
+          .where(
+            and(
+              eq(openingBalance.fiscalYearId, first.id),
+              isNull(openingBalance.reversalPostingId)
+            )
+          )
+      : [];
+    if (!(first && second && someone && opening)) {
+      throw new Error("Seed the books first (bun run seed)");
+    }
+    const actor = { actorId: someone.id };
+    try {
+      await database.transaction((tx) =>
+        closeYear(tx as unknown as LedgerTx, first.id, {
+          ...actor,
+          now: afterFirstEnd,
+        })
+      );
+      // Race: close 2027-28 (needs 2026-27 closed) against reopening
+      // 2026-27 (needs 2027-28 open).
+      const outcomes = await Promise.allSettled([
+        database.transaction((tx) =>
+          closeYear(tx as unknown as LedgerTx, second.id, {
+            ...actor,
+            now: afterSecondEnd,
+          })
+        ),
+        other.database.transaction((tx) =>
+          reopenYear(
+            tx as unknown as LedgerTx,
+            { fiscalYearId: first.id, reason: "Concurrency test" },
+            actor
+          )
+        ),
+      ]);
+      expect(outcomes.filter((o) => o.status === "fulfilled")).toHaveLength(1);
+      const after = await database
+        .select({ closedAt: fiscalYear.closedAt, id: fiscalYear.id })
+        .from(fiscalYear)
+        .where(inArray(fiscalYear.id, [first.id, second.id]));
+      const closed = new Map(after.map((y) => [y.id, y.closedAt !== null]));
+      // Either both closed (the close won) or neither (the reopen won):
+      // never 2027-28 closed on top of an open 2026-27.
+      expect(closed.get(second.id) && !closed.get(first.id)).toBe(false);
+    } finally {
+      await database.transaction(async (tx) => {
+        await tx.execute(sql`SET LOCAL pi_dash.ledger_maintenance = 'on'`);
+        await tx
+          .update(fiscalYear)
+          .set({ closedAt: null, closedBy: null })
+          .where(inArray(fiscalYear.id, [first.id, second.id]));
+        await tx
+          .delete(fiscalYearEvent)
+          .where(
+            and(
+              inArray(fiscalYearEvent.fiscalYearId, [first.id, second.id]),
+              gte(fiscalYearEvent.id, uuidv7AtOrBefore(startedAt))
+            )
+          );
+      });
+      await Promise.all([client.close(), other.client.close()]);
+    }
+  }
+);
+
+/** The smallest uuidv7 for an instant, to select rows created since then. */
+function uuidv7AtOrBefore(at: Date): string {
+  const hex = at.getTime().toString(16).padStart(12, "0");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-7000-8000-000000000000`;
+}
