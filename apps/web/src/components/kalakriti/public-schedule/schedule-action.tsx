@@ -1,18 +1,41 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Link } from "@tanstack/react-router";
 
+type ScheduleActionKind = "dashboard" | "showInterest" | "signUp" | "none";
+
+/**
+ * What the schedule offers its viewer. Interest closes when the linked event
+ * is cancelled or starts, so a viewer without Kalakriti access is offered
+ * nothing then.
+ */
+export function scheduleActionKind({
+  hasKalakritiAccess,
+  interestClosed,
+  isAuthenticated,
+}: {
+  hasKalakritiAccess: boolean;
+  interestClosed: boolean;
+  isAuthenticated: boolean;
+}): ScheduleActionKind {
+  if (hasKalakritiAccess) {
+    return "dashboard";
+  }
+  if (interestClosed) {
+    return "none";
+  }
+  return isAuthenticated ? "showInterest" : "signUp";
+}
+
 export function ScheduleAction({
   eventId,
-  hasKalakritiAccess,
-  isAuthenticated,
+  kind,
   year,
 }: {
   eventId: string;
-  hasKalakritiAccess: boolean;
-  isAuthenticated: boolean;
+  kind: Exclude<ScheduleActionKind, "none">;
   year: number;
 }) {
-  if (hasKalakritiAccess) {
+  if (kind === "dashboard") {
     return (
       <Button
         nativeButton={false}
@@ -23,7 +46,7 @@ export function ScheduleAction({
     );
   }
 
-  if (isAuthenticated) {
+  if (kind === "showInterest") {
     return (
       <Button
         nativeButton={false}

@@ -16,6 +16,8 @@ import { useApp } from "@/context/app-context";
 import { DAY_MONTH, TIME } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
 
+import { deriveCardActionState } from "./event-row-action";
+
 interface EventRowProps {
   /** Shows the date beside the time (the Kalakriti highlight has no date heading). */
   showDate?: boolean;
@@ -23,53 +25,6 @@ interface EventRowProps {
   myTeamIds: ReadonlySet<string>;
   row: PublicDisplayRow;
   userId: string;
-}
-
-type CardActionState =
-  | { kind: "joined" }
-  | { kind: "interestPending"; interestId: string; started: boolean }
-  | { kind: "interestApproved" }
-  | { kind: "interestDeclined" }
-  | { kind: "join" }
-  | { kind: "showInterest" }
-  | { kind: "none" };
-
-function deriveCardActionState(opts: {
-  isMember: boolean;
-  interest: EventInterest | undefined;
-  hasStarted: boolean;
-  canManageInterest: boolean;
-  isOwnTeam: boolean;
-  isPublic: boolean | null;
-}): CardActionState {
-  if (opts.isMember) {
-    return { kind: "joined" };
-  }
-  if (opts.interest) {
-    if (opts.interest.status === "pending") {
-      return {
-        interestId: opts.interest.id,
-        kind: "interestPending",
-        started: opts.hasStarted,
-      };
-    }
-    if (opts.interest.status === "approved") {
-      return { kind: "interestApproved" };
-    }
-    if (opts.interest.status === "rejected") {
-      return { kind: "interestDeclined" };
-    }
-  }
-  if (opts.hasStarted || opts.canManageInterest) {
-    return { kind: "none" };
-  }
-  if (opts.isOwnTeam) {
-    return { kind: "join" };
-  }
-  if (opts.isPublic) {
-    return { kind: "showInterest" };
-  }
-  return { kind: "none" };
 }
 
 /**
@@ -185,6 +140,8 @@ export function EventRow({
         return <StatusBadge tone="success">Interest approved</StatusBadge>;
       case "interestDeclined":
         return <StatusBadge tone="danger">Interest declined</StatusBadge>;
+      case "interestNotReviewed":
+        return <StatusBadge tone="neutral">Not reviewed</StatusBadge>;
       case "join":
         return (
           <Button onClick={handleJoinAsMember} size="sm" variant="outline">

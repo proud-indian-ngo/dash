@@ -10,5 +10,15 @@ export const getKalakritiPublicSchedule = createServerFn({ method: "GET" })
   .validator(kalakritiPublicScheduleYearSchema)
   .handler(async ({ data: year }) => {
     const schedule = await readKalakritiPublicSchedule(year);
-    return schedule ? kalakritiPublicScheduleSchema.parse(schedule) : null;
+    if (!schedule) {
+      return null;
+    }
+    return {
+      ...kalakritiPublicScheduleSchema.parse(schedule),
+      // Interest closes when the linked event is cancelled or starts, as in
+      // eventInterest.create.
+      interestClosed:
+        schedule.edition.eventCancelled ||
+        schedule.edition.eventStartAt <= Date.now(),
+    };
   });

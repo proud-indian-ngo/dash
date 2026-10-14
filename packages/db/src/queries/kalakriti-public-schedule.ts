@@ -10,6 +10,7 @@ import {
   kalakritiEdition,
   kalakritiVenue,
 } from "../schema/kalakriti";
+import { teamEvent } from "../schema/team-event";
 
 const PUBLIC_EDITION_LIFECYCLES = [
   "registration_open",
@@ -21,7 +22,9 @@ const PUBLIC_EDITION_LIFECYCLES = [
 export async function getKalakritiPublicSchedule(year: number) {
   const [edition] = await db
     .select({
+      eventCancelledAt: teamEvent.cancelledAt,
       eventDate: kalakritiEdition.eventDate,
+      eventStartTime: teamEvent.startTime,
       id: kalakritiEdition.id,
       name: kalakritiEdition.name,
       teamEventId: kalakritiEdition.teamEventId,
@@ -29,6 +32,7 @@ export async function getKalakritiPublicSchedule(year: number) {
       year: kalakritiEdition.year,
     })
     .from(kalakritiEdition)
+    .innerJoin(teamEvent, eq(teamEvent.id, kalakritiEdition.teamEventId))
     .where(
       and(
         eq(kalakritiEdition.year, year),
@@ -103,8 +107,12 @@ export async function getKalakritiPublicSchedule(year: number) {
 
   return {
     edition: {
+      // Not in the public allowlist; the schedule page reads these to stop
+      // offering interest once the linked event is cancelled or has started.
+      eventCancelled: edition.eventCancelledAt !== null,
       eventDate: edition.eventDate,
       eventId: edition.teamEventId,
+      eventStartAt: edition.eventStartTime.getTime(),
       name: edition.name,
       timezone: edition.timezone,
       year: edition.year,

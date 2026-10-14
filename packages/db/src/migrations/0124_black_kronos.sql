@@ -1,0 +1,1 @@
+ALTER TYPE "public"."event_interest_status" ADD VALUE 'expired';

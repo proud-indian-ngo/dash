@@ -188,7 +188,8 @@ function InterestSection(props: {
   const stableOnShowInterest0 = useEventCallback(() =>
     props.dialog.open({ type: "interest" })
   );
-  if (props.hasStarted) {
+  // Interest closes when the event starts or is cancelled.
+  if (props.hasStarted || props.event.cancelledAt) {
     return (
       <PastInterestBadge
         isMember={props.isMember}

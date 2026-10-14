@@ -20,6 +20,7 @@ import { Link } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
 
 import { GhostEmptyState } from "@/components/shared/ghost-empty-state";
+import type { StatusTone } from "@/components/shared/status-badge";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { sumAmounts } from "@/lib/stats";
 import { getStatusBadge } from "@/lib/status-badge";
@@ -66,10 +67,18 @@ interface ActivityItem {
   label: string;
   route: string;
   status?: string | null;
+  /** Replaces the generic badge for `status`. */
+  statusBadge?: { label: string; tone: StatusTone };
   title: string;
 }
 
 const MAX_ITEMS = 5;
+
+/** An interest closed by the daily job: the event started before review. */
+const INTEREST_NOT_REVIEWED_BADGE = {
+  label: "Not reviewed",
+  tone: "neutral",
+} as const;
 
 function toFinancialActivities(
   items: readonly FinancialItem[],
@@ -125,6 +134,10 @@ function toRegistrationActivities(
         label: "Registration",
         route: "/events/$id",
         status: interest.status,
+        statusBadge:
+          interest.status === "expired"
+            ? INTEREST_NOT_REVIEWED_BADGE
+            : undefined,
         title: interest.event.name,
       },
     ];
@@ -204,9 +217,9 @@ function RecentActivityList({ activities }: { activities: ActivityItem[] }) {
   return (
     <div className="space-y-3">
       {activities.map((activity) => {
-        const statusInfo = activity.status
-          ? getStatusBadge(activity.status)
-          : null;
+        const statusInfo =
+          activity.statusBadge ??
+          (activity.status ? getStatusBadge(activity.status) : null);
         return (
           <Link
             className="hover:bg-muted/50 -mx-2 flex items-start gap-3 rounded-md px-2 py-1 transition-colors"

@@ -93,3 +93,33 @@ export const triggerR2Cleanup = createServerFn({ method: "POST" })
       }
     );
   });
+
+export const triggerEventInterestExpiry = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    return await runSessionAuditedAction(
+      context.session,
+      context.headers,
+      { action: "admin.event_interest_expiry.trigger" },
+      async () => {
+        const session = await ensurePermission(context, "jobs.manage");
+        const log = createRequestLogger({
+          method: "POST",
+          path: "triggerEventInterestExpiry",
+        });
+        log.set({ userId: session.user.id });
+        try {
+          await enqueue("expire-event-interests", {});
+          log.set({ event: "expiry_enqueued" });
+          log.emit();
+        } catch (error) {
+          log.error(error instanceof Error ? error : String(error));
+          log.emit();
+          throw error;
+        }
+      }
+    );
+  });

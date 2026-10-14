@@ -16,6 +16,7 @@ export const eventInterestStatusEnum = pgEnum("event_interest_status", [
   "pending",
   "approved",
   "rejected",
+  "expired",
 ]);
 
 export const eventInterest = pgTable(
