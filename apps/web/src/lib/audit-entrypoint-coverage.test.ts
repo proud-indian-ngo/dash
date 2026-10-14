@@ -12,6 +12,7 @@ const AUDITED_SERVER_FUNCTIONS = [
   "deleteTemporaryUpload",
   "deleteUserAdmin",
   "deleteVendor",
+  "importPastRazorpayPayments",
   "postEventRsvpPoll",
   "resumeUserEmail",
   "revealPartyIdentifier",
@@ -23,6 +24,7 @@ const AUDITED_SERVER_FUNCTIONS = [
   "saveVendor",
   "setUserBanAdmin",
   "setUserPasswordAdmin",
+  "syncRazorpayNow",
   "triggerEventInterestExpiry",
   "triggerR2Cleanup",
   "triggerWhatsAppGroupScan",
@@ -66,7 +68,7 @@ const CLASSIFIED_API_POST_FILES = [
   "routes/api/social/v1/posted.ts",
   "routes/api/social/v1/runs.ts",
   // Webhook: verified by signature, outside the audit ledger; it stages the
-  // payment and enqueues the import job.
+  // payment and enqueues the import job, or enqueues the refund job.
   "routes/api/razorpay/webhook.ts",
   "routes/api/whatsapp/webhook.ts",
   "routes/api/zero/mutate.ts",

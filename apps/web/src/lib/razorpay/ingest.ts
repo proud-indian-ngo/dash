@@ -31,17 +31,19 @@ import {
   type StagedRowResult,
 } from "@/lib/income-import/server";
 
-import { fetchRazorpayPayment } from "./api";
+import { createRazorpayClient, fetchRazorpayPayment } from "./api";
 import type { RazorpaySetup } from "./config";
 import { parseNotesKeys } from "./notes-keys";
 import {
   flattenPayment,
+  isCapturedPayment,
   istDayOf,
   type RazorpayMode,
   type RazorpayPayment,
   razorpayBatchKey,
   razorpayBatchName,
 } from "./payment";
+import { applyPaymentRefunds, type RefundTally } from "./refund";
 
 /**
  * Server-only. Getting a Razorpay payment into the books, in two idempotent
@@ -66,6 +68,8 @@ import {
 export interface StageResult {
   batchId: string;
   day: string;
+  /** False when the payment already has an outcome, so there is nothing to process. */
+  pending: boolean;
   rowId: string;
   staged: "existing" | "new" | "refreshed" | "reopened";
 }
@@ -115,7 +119,13 @@ export async function stageRazorpayPayment(
         await refreshCounts(tx, existing.batchId);
         staged = "reopened";
       }
-      return { batchId: existing.batchId, day, rowId: existing.id, staged };
+      return {
+        batchId: existing.batchId,
+        day,
+        pending: existing.outcome === "pending" || staged === "reopened",
+        rowId: existing.id,
+        staged,
+      };
     }
     const batch =
       (await findRazorpayBatch(tx, key)) ??
@@ -142,12 +152,14 @@ export async function stageRazorpayPayment(
       ...awaitingOutcomeRetention(),
       batchId: batch.id,
       createdAt: now,
+      // Kept after retention nulls the values, so the payment is found again.
+      externalId: payment.id,
       id: rowId,
       outcomeReason: "queued",
       raw,
       rawHash,
     });
-    return { batchId: batch.id, day, rowId, staged: "new" };
+    return { batchId: batch.id, day, pending: true, rowId, staged: "new" };
   });
 }
 
@@ -244,13 +256,26 @@ export type SyncOutcome =
   | "test_mode_refused";
 
 export interface SyncDeps {
+  /** Applies a refunded payment's refunds once it has been processed. */
+  applyRefunds?: (
+    paymentId: string,
+    key: { id: string; secret: string },
+    mode: RazorpayMode
+  ) => Promise<RefundTally>;
   fail: typeof failRazorpayPayment;
   fetchPayment: typeof fetchRazorpayPayment;
   process: typeof processRazorpayPayment;
   stage: typeof stageRazorpayPayment;
 }
 
+const defaultApplyRefunds: NonNullable<SyncDeps["applyRefunds"]> = async (
+  paymentId,
+  key,
+  mode
+) => await applyPaymentRefunds(paymentId, createRazorpayClient(key), mode);
+
 const SYNC_DEPS: SyncDeps = {
+  applyRefunds: defaultApplyRefunds,
   fail: failRazorpayPayment,
   fetchPayment: fetchRazorpayPayment,
   process: processRazorpayPayment,
@@ -261,15 +286,18 @@ const SYNC_DEPS: SyncDeps = {
  * The `razorpay-sync-payment` job. With an API key the payment is fetched
  * from Razorpay, the source of truth, and staged (or refreshed); without
  * one the copy the verified webhook staged is used. A payment Razorpay does
- * not know, or no longer has captured, becomes an error row with that
- * reason; `onStatus` hears Razorpay's status word for the log. A test key
- * on a production server records nothing.
+ * not know, or never captured, becomes an error row with that reason; a
+ * captured payment later refunded (status `refunded`) is still recorded,
+ * and once processed its refunds are fetched and applied (`onRefunds`
+ * hears the tally). `onStatus` hears Razorpay's status word for the log. A
+ * test key on a production server records nothing.
  */
 export async function syncRazorpayPayment(
   input: { day?: string; paymentId: string },
   setup: RazorpaySetup,
-  deps: SyncDeps = SYNC_DEPS,
-  onStatus: (status: string) => void = () => undefined
+  overrides: Partial<SyncDeps> = {},
+  onStatus: (status: string) => void = () => undefined,
+  onRefunds: (tally: RefundTally) => void = () => undefined
 ): Promise<SyncOutcome> {
   if (!setup.enabled) {
     return "disabled";
@@ -277,6 +305,7 @@ export async function syncRazorpayPayment(
   if (setup.testInProduction) {
     return "test_mode_refused";
   }
+  const deps: SyncDeps = { ...SYNC_DEPS, ...overrides };
   let { day } = input;
   if (setup.apiKey) {
     const payment = await deps.fetchPayment(input.paymentId, setup.apiKey);
@@ -286,7 +315,7 @@ export async function syncRazorpayPayment(
       }
       return "not_found";
     }
-    if (payment.status !== "captured") {
+    if (!isCapturedPayment(payment)) {
       onStatus(payment.status);
       await deps.fail(
         input.paymentId,
@@ -296,7 +325,19 @@ export async function syncRazorpayPayment(
       );
       return "not_captured";
     }
-    ({ day } = await deps.stage(payment, setup.mode));
+    const staged = await deps.stage(payment, setup.mode);
+    const outcome = await deps.process(input.paymentId, staged.day, setup.mode);
+    if ((payment.amount_refunded ?? 0) > 0) {
+      onStatus(payment.status);
+      onRefunds(
+        await (deps.applyRefunds ?? defaultApplyRefunds)(
+          payment.id,
+          setup.apiKey,
+          setup.mode
+        )
+      );
+    }
+    return outcome;
   }
   if (!day) {
     return "not_staged";

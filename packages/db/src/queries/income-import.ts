@@ -1,4 +1,5 @@
 import type {
+  ExternalIdentityEntityType,
   ExternalIdentityProvider,
   ImportBatchSource,
   ImportRowOutcome,
@@ -211,7 +212,7 @@ export interface StoredIdentity {
 
 export async function findExternalIdentities(
   key: {
-    entityType: "payment";
+    entityType: ExternalIdentityEntityType;
     provider: ExternalIdentityProvider;
     providerAccount: string;
   },
@@ -690,11 +691,24 @@ export function batchCounts(
   };
 }
 
-/** The batch's synced counters from its rows. */
+/**
+ * Locks the batch row until the caller's transaction ends. Taken before a
+ * recount, so a payment staged meanwhile (which adds one to the counters
+ * under the same row lock) is either counted or added after the recount is
+ * written, never lost under it.
+ */
+export const lockImportBatchSql = (batchId: string) =>
+  sql`select ${importBatch.id} from ${importBatch} where ${importBatch.id} = ${batchId} for update`;
+
+/**
+ * The batch's synced counters from its rows. Locks the batch row first (see
+ * `lockImportBatchSql`); callers write the counters in the same transaction.
+ */
 export async function countImportBatchRows(
   tx: ImportTx,
   batchId: string
 ): Promise<ImportBatchCounts> {
+  await tx.execute(lockImportBatchSql(batchId));
   const counts = await countImportOutcomes(tx, batchId);
   const [waiting] = await tx
     .select({ n: count() })

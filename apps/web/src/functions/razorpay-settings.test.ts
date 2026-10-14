@@ -42,6 +42,24 @@ mock.module("@/lib/razorpay/settings", () => ({
     }
     return { attachedBatchCount: 2, requeuedCount: 1 };
   },
+  requestRazorpayReconcile: async (request: {
+    from?: string;
+    reason: string;
+    to?: string;
+  }) => {
+    serviceCalls.push(`reconcile:${request.reason}`);
+    if (saveError) {
+      throw saveError;
+    }
+    return request.reason === "backfill"
+      ? { days: 3, from: request.from, to: request.to }
+      : { days: 4, from: "2026-10-11", to: "2026-10-14" };
+  },
+}));
+mock.module("@/lib/razorpay/reconcile", () => ({
+  dayCount: (from: string, to: string) =>
+    from === "2026-04-01" && to === "2026-04-03" ? 3 : 0,
+  isRealIsoDay: () => true,
 }));
 mock.module("@tanstack/react-start", () => ({
   createServerFn: () => {
@@ -133,5 +151,67 @@ describe("Razorpay settings server functions", () => {
     await expect(call(fns.updateRazorpaySettings, SAVE)).rejects.toThrow(
       "Choose an active clearing account"
     );
+  });
+
+  it("needs finance.manage to sync now or import past payments", async () => {
+    granted = ["finance.view", "donors.manage"];
+    await expect(call(fns.syncRazorpayNow)).rejects.toThrow("Forbidden");
+    await expect(
+      call(fns.importPastRazorpayPayments, {
+        from: "2026-04-01",
+        to: "2026-04-03",
+      })
+    ).rejects.toThrow("Forbidden");
+    expect(serviceCalls).toEqual([]);
+    expect(audits).toEqual([]);
+  });
+
+  it("audits Sync now with no payload and returns the window", async () => {
+    granted = ["finance.manage"];
+    expect(await call(fns.syncRazorpayNow)).toEqual({
+      days: 4,
+      from: "2026-10-11",
+      to: "2026-10-14",
+    });
+    expect(serviceCalls).toEqual(["reconcile:manual"]);
+    expect(audits).toEqual([
+      { action: "razorpay.sync", target: { type: "razorpay_settings" } },
+    ]);
+  });
+
+  it("audits an import of past payments with the window's dates only", async () => {
+    granted = ["finance.manage"];
+    expect(
+      await call(fns.importPastRazorpayPayments, {
+        from: "2026-04-01",
+        to: "2026-04-03",
+      })
+    ).toEqual({ days: 3, from: "2026-04-01", to: "2026-04-03" });
+    expect(serviceCalls).toEqual(["reconcile:backfill"]);
+    expect(audits).toEqual([
+      {
+        action: "razorpay.backfill",
+        metadata: { days: 3, from: "2026-04-01", to: "2026-04-03" },
+        target: { type: "razorpay_settings" },
+      },
+    ]);
+  });
+
+  it("keeps a refusal's message and hides a query error's", async () => {
+    granted = ["finance.manage"];
+    saveError = new RazorpaySettingsError(
+      "A Razorpay sync is already running."
+    );
+    await expect(call(fns.syncRazorpayNow)).rejects.toThrow(
+      "A Razorpay sync is already running."
+    );
+    saveError = Object.assign(new Error("Failed query: insert pgboss"), {
+      code: "57014",
+    });
+    const error = await call(fns.syncRazorpayNow).then(
+      () => null,
+      (e: unknown) => e as Error
+    );
+    expect(error?.message).toBe("The Razorpay sync couldn't be started.");
   });
 });

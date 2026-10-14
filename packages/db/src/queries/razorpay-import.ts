@@ -5,9 +5,11 @@ import {
   eq,
   inArray,
   isNull,
+  lt,
   max,
   notExists,
   or,
+  type SQL,
   sql,
 } from "drizzle-orm";
 
@@ -20,11 +22,14 @@ import { appConfig } from "../schema/app-config";
 import { orgAccount } from "../schema/finance-dimensions";
 import { importBatch } from "../schema/import-batch";
 import { externalIdentity, importRow } from "../schema/private/imports";
-import type {
-  ImportBatchRow,
-  ImportRowRecord,
-  ImportTx,
-  WaitingReason,
+import {
+  countImportBatchRows,
+  type ImportBatchRow,
+  type ImportRowRecord,
+  type ImportTx,
+  updateImportBatch,
+  type WaitingReason,
+  withImportTransaction,
 } from "./income-import";
 
 type Reader = Pick<typeof db, "select">;
@@ -38,8 +43,12 @@ type Reader = Pick<typeof db, "select">;
 
 export const RAZORPAY_CONFIG_KEYS = {
   clearingAccountId: "razorpay_clearing_account_id",
+  /** JSON: the last finished reconcile run (window, counts, ok or failed); no personal data. */
+  lastReconcile: "razorpay_last_reconcile",
   lastWebhookAt: "razorpay_last_webhook_at",
   notesKeys: "razorpay_notes_keys",
+  /** JSON: the reconcile run queued or running now, with its progress; empty when none. */
+  reconcileRun: "razorpay_reconcile_run",
 } as const;
 
 export async function readRazorpayConfig(
@@ -132,11 +141,29 @@ export async function insertRazorpayBatch(
 }
 
 /**
+ * How a payment's staged row is recognised: by the payment ID kept in
+ * `external_id` (which survives retention), by the ID in its values (rows
+ * staged before `external_id` existed), or by the external identity it was
+ * imported or linked under.
+ */
+export function razorpayPaymentRowMatch(paymentId: string): SQL {
+  return or(
+    eq(importRow.externalId, paymentId),
+    sql`${importRow.raw}->>'id' = ${paymentId}`,
+    sql`${importRow.externalIdentityId} in (
+      select ${externalIdentity.id} from ${externalIdentity}
+      where ${externalIdentity.provider} = 'razorpay'
+        and ${externalIdentity.entityType} = 'payment'
+        and ${externalIdentity.externalId} = ${paymentId}
+    )`
+  ) as SQL;
+}
+
+/**
  * The staged row of a payment, looked up in the batches of its day only (a
- * payment's day never changes): by the payment ID in its values, or, once
- * retention has nulled those, by the external identity the row was imported
- * or linked under. A pending row is never nulled, so a payment that is still
- * waiting is always found and a redelivery never stages it twice.
+ * payment's day never changes). A row keeps its payment ID in `external_id`
+ * after retention nulls its values, so a payment that was skipped or failed
+ * is found again and a redelivery or a backfill never stages it twice.
  */
 export async function findRazorpayPaymentRow(
   executor: Reader,
@@ -151,22 +178,7 @@ export async function findRazorpayPaymentRow(
       and(
         eq(importBatch.source, "razorpay_api"),
         eq(importBatch.fileHash, key),
-        or(
-          sql`${importRow.raw}->>'id' = ${paymentId}`,
-          inArray(
-            importRow.externalIdentityId,
-            executor
-              .select({ id: externalIdentity.id })
-              .from(externalIdentity)
-              .where(
-                and(
-                  eq(externalIdentity.provider, "razorpay"),
-                  eq(externalIdentity.entityType, "payment"),
-                  eq(externalIdentity.externalId, paymentId)
-                )
-              )
-          )
-        )
+        razorpayPaymentRowMatch(paymentId)
       )
     )
     .orderBy(importRow.createdAt)
@@ -370,4 +382,116 @@ export async function countRazorpayPending(): Promise<number> {
     .from(importBatch)
     .where(eq(importBatch.source, "razorpay_api"));
   return Number(row?.n ?? 0);
+}
+
+/**
+ * Payments stuck waiting on their sync: queued for longer than a job could
+ * take (a job that expired, or a fetch-by-ID job that never staged a day),
+ * or left `sync_failed` after the job's last retry. The reconcile run syncs
+ * each once more.
+ */
+export async function listStaleRazorpayRows(
+  stagedBefore: Date
+): Promise<{ batchId: string; batchKey: string; paymentId: string }[]> {
+  const rows = await db
+    .select({
+      batchId: importBatch.id,
+      batchKey: importBatch.fileHash,
+      paymentId: sql<string | null>`${importRow.raw}->>'id'`,
+    })
+    .from(importRow)
+    .innerJoin(importBatch, eq(importBatch.id, importRow.batchId))
+    .where(
+      and(
+        eq(importBatch.source, "razorpay_api"),
+        eq(importRow.outcome, "pending"),
+        inArray(importRow.outcomeReason, ["queued", "sync_failed"]),
+        lt(importRow.createdAt, stagedBefore)
+      )
+    )
+    .orderBy(importRow.createdAt);
+  return rows.flatMap((row) =>
+    row.paymentId
+      ? [
+          {
+            batchId: row.batchId,
+            batchKey: row.batchKey,
+            paymentId: row.paymentId,
+          },
+        ]
+      : []
+  );
+}
+
+/**
+ * Recounts each batch's synced counters from its rows, serialised with the
+ * import runs, so a count a racing job and webhook left one off is put
+ * right.
+ */
+export async function recountImportBatches(
+  batchIds: Iterable<string>
+): Promise<number> {
+  let recounted = 0;
+  for (const batchId of new Set(batchIds)) {
+    await withImportTransaction(async (tx) => {
+      await updateImportBatch(
+        batchId,
+        await countImportBatchRows(tx, batchId),
+        tx
+      );
+    });
+    recounted += 1;
+  }
+  return recounted;
+}
+
+/**
+ * Whether pg-boss holds an open `razorpay-reconcile` job (queued, retrying
+ * or running). The queue allows one at a time, so this is what decides
+ * whether a new run can be sent.
+ */
+export async function hasOpenReconcileJob(): Promise<boolean> {
+  try {
+    const [row] = await db.execute<{ one: number }>(
+      sql`select 1 as one from pgboss.job
+          where name = 'razorpay-reconcile'
+            and state in ('created', 'retry', 'active')
+          limit 1`
+    );
+    return row !== undefined;
+  } catch (error) {
+    // Before pg-boss has created its schema there can be no job. The
+    // Postgres code sits on the error or, through drizzle, on its cause.
+    let current: unknown = error;
+    for (let depth = 0; depth < 4 && current instanceof Object; depth += 1) {
+      const e = current as { cause?: unknown; code?: unknown; errno?: unknown };
+      if ([e.code, e.errno].some((c) => c === "42P01" || c === "3F000")) {
+        return false;
+      }
+      current = e.cause;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Writes a Razorpay setting only while it still holds `expected`, so a
+ * request putting back its own state never overwrites another's.
+ */
+export async function replaceRazorpayConfigIf(
+  name: keyof typeof RAZORPAY_CONFIG_KEYS,
+  expected: string,
+  value: string
+): Promise<boolean> {
+  const rows = await db
+    .update(appConfig)
+    .set({ updatedAt: new Date(), value })
+    .where(
+      and(
+        eq(appConfig.key, RAZORPAY_CONFIG_KEYS[name]),
+        eq(appConfig.value, expected)
+      )
+    )
+    .returning({ key: appConfig.key });
+  return rows.length > 0;
 }

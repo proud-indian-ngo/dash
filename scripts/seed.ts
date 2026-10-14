@@ -18,7 +18,7 @@ import { createHash } from "node:crypto";
  *   eventPartner, socialPost, socialRun, socialApiToken,
  *   expenseCategory, bankAccount,
  *   programme, costCentre, fund, fiscalYear, fiscalPeriod, party, partyRole, partyPrivate,
- *   orgAccount, contribution, otherIncome,
+ *   orgAccount, contribution, contributionRefund, otherIncome,
  *   importBatch, importRow, externalIdentity, collectionEvent,
  *   reimbursement, reimbursementLineItem, reimbursementAttachment, reimbursementHistory,
  *   advancePayment, advancePaymentLineItem, advancePaymentAttachment, advancePaymentHistory,
@@ -54,7 +54,11 @@ import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
 import { orgAccount } from "@pi-dash/db/schema/finance-dimensions";
 import { importBatch } from "@pi-dash/db/schema/import-batch";
-import { contribution, otherIncome } from "@pi-dash/db/schema/income";
+import {
+  contribution,
+  contributionRefund,
+  otherIncome,
+} from "@pi-dash/db/schema/income";
 import {
   kalakritiAgeCategory,
   kalakritiAssignment,
@@ -719,6 +723,20 @@ async function seedIncome(adminId: string): Promise<void> {
       }))
     )
     .onConflictDoNothing();
+  // A partial refund of the Razorpay gift, so the Income table shows
+  // "Partly refunded" and its sheet lists the refund.
+  await db
+    .insert(contributionRefund)
+    .values({
+      amountPaise: 100_000,
+      contributionId: "01930000-0000-7000-8000-000000000612",
+      createdAt: now,
+      id: "01930000-0000-7000-8000-000000000614",
+      reference: "rfnd_SEED0002",
+      refundedOn: "2026-08-20",
+      source: "razorpay",
+    })
+    .onConflictDoNothing();
   await db
     .insert(otherIncome)
     .values({
@@ -736,7 +754,7 @@ async function seedIncome(adminId: string): Promise<void> {
     .onConflictDoNothing();
   await seedImportBatch(adminId);
   log(
-    `${ORG_ACCOUNTS.length} org accounts, ${CONTRIBUTIONS.length} contributions, 1 other income and 1 import ready`
+    `${ORG_ACCOUNTS.length} org accounts, ${CONTRIBUTIONS.length} contributions, 1 refund, 1 other income and 1 import ready`
   );
 }
 

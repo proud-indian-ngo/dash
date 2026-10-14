@@ -44,6 +44,16 @@ import { importRow } from "./schema/private/imports";
  * moment are judged by the committed status and counts, never deleted.
  */
 
+/** Copies a Razorpay row's payment ID into `external_id` before retention nulls `raw`. */
+export const keepRazorpayPaymentIdSql = sql`update ${importRow}
+  set ${sql.identifier("external_id")} = ${importRow.raw}->>'id'
+  where ${importRow.externalId} is null
+    and ${importRow.raw} is not null
+    and ${importRow.batchId} in (
+      select ${importBatch.id} from ${importBatch}
+      where ${importBatch.source} = 'razorpay_api'
+    )`;
+
 /** Serialises import runs with each other and with the retention expiry; transaction-scoped. */
 export const IMPORT_RUN_LOCK = sql`select pg_advisory_xact_lock(hashtext('income-import-run'))`;
 
@@ -213,6 +223,10 @@ function statementsFor(tx: RetentionTx): ImportRetentionStatements {
       return expired.length;
     },
     nullImportedRaw: async (today) => {
+      // A Razorpay row keeps its payment ID, so the payment is never staged
+      // again once its values are gone (rows staged before external_id
+      // existed get it here).
+      await tx.execute(keepRazorpayPaymentIdSql);
       const nulled = await tx
         .update(importRow)
         .set({ raw: null })

@@ -1,4 +1,8 @@
-import { Delete02Icon, Edit02Icon } from "@hugeicons/core-free-icons";
+import {
+  Delete02Icon,
+  Edit02Icon,
+  LinkSquare02Icon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import type {
@@ -11,7 +15,9 @@ import {
   CONTRIBUTION_CHANNEL_LABELS,
   CONTRIBUTION_SOURCE_LABELS,
   DONATION_TYPE_LABELS,
+  razorpayPaymentUrl,
   REPORTING_MODE_LABELS,
+  refundSummary,
 } from "@pi-dash/shared/income";
 import { formatPaise } from "@pi-dash/shared/money";
 import { format } from "date-fns";
@@ -21,10 +27,14 @@ import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
 import { PageHeaderMenu } from "@/components/shared/page-header";
 import { DetailsRow } from "@/components/shared/record-detail";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
+import { Tag } from "@/components/shared/status-badge";
 import { DATE, DATE_TIME } from "@/lib/date-formats";
 import { epochToLocalDate } from "@/lib/local-date";
 
-import { ContributionStatusBadge } from "./contribution-status";
+import {
+  ContributionStatusBadge,
+  refundedOfLabel,
+} from "./contribution-status";
 import { type ContributionRow, donorName } from "./income-types";
 
 function withDescription(label: string, description: string | null) {
@@ -36,13 +46,58 @@ export function formatReceivedOn(epoch: number): string {
   return date ? format(date, DATE) : "—";
 }
 
+/** Refunds recorded against the contribution: date, amount and reference. */
+function RefundsList({
+  refunds,
+}: {
+  refunds: NonNullable<ContributionRow["refunds"]>;
+}) {
+  return (
+    <section aria-label="Refunds" className="flex flex-col gap-2 px-6 pb-6">
+      <h3 className="text-sm font-medium">Refunds</h3>
+      <ul
+        className="divide-y rounded-lg border"
+        data-testid="contribution-refunds"
+      >
+        {refunds.map((refund) => (
+          <li
+            className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+            key={refund.id}
+          >
+            <span className="flex min-w-0 flex-col">
+              <span className="font-mono tabular-nums">
+                {formatPaise(refund.amountPaise)}
+              </span>
+              <span className="text-muted-foreground truncate text-xs">
+                {formatReceivedOn(refund.refundedOn)}
+                {refund.reference ? ` · ${refund.reference}` : ""}
+              </span>
+            </span>
+            {refund.refundAfterReceipt || refund.amountChanged ? (
+              <span className="flex shrink-0 gap-1">
+                {refund.refundAfterReceipt ? (
+                  <Tag>Refund after receipt</Tag>
+                ) : null}
+                {refund.amountChanged ? <Tag>Amount changed</Tag> : null}
+              </span>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export function ContributionDetailSheet({
+  canDelete,
   canEdit,
   contribution,
   onDelete,
   onEdit,
   onOpenChange,
 }: {
+  /** donors.manage, an editable status and no refunds. */
+  canDelete: boolean;
   /** donors.manage and an editable status. */
   canEdit: boolean;
   contribution: ContributionRow | null;
@@ -60,9 +115,20 @@ export function ContributionDetailSheet({
   const row = contribution;
   const channel =
     CONTRIBUTION_CHANNEL_LABELS[row.channel as ContributionChannel];
+  const refunded = refundSummary(row);
+  // A Razorpay import's reference is its payment ID: link to its dashboard page.
+  const razorpayUrl = razorpayPaymentUrl(row);
   const facts: [string, ReactNode][] = [
     ["Donor", donorName(row)],
     ["Amount", formatPaise(row.amountPaise)],
+    ...(refunded
+      ? ([
+          [
+            "Refunded",
+            refundedOfLabel(refunded.refundedPaise, row.amountPaise),
+          ],
+        ] as [string, ReactNode][])
+      : []),
     ["Received on", formatReceivedOn(row.receivedOn)],
     ["Channel", channel],
     ...(row.intermediary
@@ -110,36 +176,60 @@ export function ContributionDetailSheet({
       <SheetContent>
         <DetailSheetHeader
           actions={
-            canEdit ? (
+            canEdit || razorpayUrl ? (
               <>
-                <Button
-                  onClick={() => onEdit(row)}
-                  type="button"
-                  variant="outline"
-                >
-                  <HugeiconsIcon
-                    className="size-4"
-                    icon={Edit02Icon}
-                    strokeWidth={2}
+                {razorpayUrl ? (
+                  <Button
+                    data-testid="open-in-razorpay"
+                    render={
+                      <a
+                        href={razorpayUrl}
+                        rel="noopener noreferrer"
+                        target="_blank"
+                      />
+                    }
+                    variant="outline"
+                  >
+                    <HugeiconsIcon
+                      className="size-4"
+                      icon={LinkSquare02Icon}
+                      strokeWidth={2}
+                    />
+                    Open in Razorpay
+                  </Button>
+                ) : null}
+                {canEdit ? (
+                  <Button
+                    onClick={() => onEdit(row)}
+                    type="button"
+                    variant="outline"
+                  >
+                    <HugeiconsIcon
+                      className="size-4"
+                      icon={Edit02Icon}
+                      strokeWidth={2}
+                    />
+                    Edit
+                  </Button>
+                ) : null}
+                {canEdit && canDelete ? (
+                  <PageHeaderMenu
+                    actions={[
+                      {
+                        destructive: true,
+                        icon: Delete02Icon,
+                        id: "delete",
+                        label: "Delete contribution",
+                        onSelect: () => onDelete(row),
+                      },
+                    ]}
+                    title="Contribution actions"
                   />
-                  Edit
-                </Button>
-                <PageHeaderMenu
-                  actions={[
-                    {
-                      destructive: true,
-                      icon: Delete02Icon,
-                      id: "delete",
-                      label: "Delete contribution",
-                      onSelect: () => onDelete(row),
-                    },
-                  ]}
-                  title="Contribution actions"
-                />
+                ) : null}
               </>
             ) : null
           }
-          badge={<ContributionStatusBadge status={row.status} />}
+          badge={<ContributionStatusBadge refund={row} status={row.status} />}
           meta={[donorName(row), formatReceivedOn(row.receivedOn), channel]}
           title={formatPaise(row.amountPaise)}
         />
@@ -150,6 +240,9 @@ export function ContributionDetailSheet({
             </DetailsRow>
           ))}
         </dl>
+        {row.refunds && row.refunds.length > 0 ? (
+          <RefundsList refunds={row.refunds} />
+        ) : null}
       </SheetContent>
     </Sheet>
   );

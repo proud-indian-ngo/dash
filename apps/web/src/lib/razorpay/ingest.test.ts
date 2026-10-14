@@ -48,6 +48,7 @@ function deps(found: RazorpayPayment | null = PAYMENT) {
         return {
           batchId: "b",
           day: "2026-10-13",
+          pending: true,
           rowId: "r",
           staged: "existing" as const,
         };
@@ -113,6 +114,53 @@ describe("syncRazorpayPayment", () => {
       "fail:pay_Test0001:2026-10-13:test:not_captured",
     ]);
     expect(statuses).toEqual(["refunded"]);
+  });
+
+  it("records a captured payment refunded since, then applies its refunds", async () => {
+    const key = { id: "rzp_test_x", secret: "k" };
+    const refunded = deps({
+      ...PAYMENT,
+      amount_refunded: 20_000,
+      captured: true,
+      status: "refunded",
+    });
+    const tallies: unknown[] = [];
+    const applyRefunds = mock(async () => {
+      refunded.calls.push("refunds");
+      return { applied: 1, changed: 0, waiting: 0 };
+    });
+    expect(
+      await syncRazorpayPayment(
+        INPUT,
+        enabled(key),
+        { ...refunded.deps, applyRefunds },
+        () => undefined,
+        (tally) => {
+          tallies.push(tally);
+        }
+      )
+    ).toBe("ready");
+    expect(refunded.calls).toEqual([
+      "fetch",
+      "stage",
+      "process:pay_Test0001:2026-10-13:test",
+      "refunds",
+    ]);
+    expect(applyRefunds).toHaveBeenCalledWith("pay_Test0001", key, "test");
+    expect(tallies).toEqual([{ applied: 1, changed: 0, waiting: 0 }]);
+  });
+
+  it("does not look up refunds of a payment with none", async () => {
+    const key = { id: "rzp_test_x", secret: "k" };
+    const { calls, deps: d } = deps({ ...PAYMENT, amount_refunded: 0 });
+    const applyRefunds = mock(async () => ({
+      applied: 0,
+      changed: 0,
+      waiting: 0,
+    }));
+    await syncRazorpayPayment(INPUT, enabled(key), { ...d, applyRefunds });
+    expect(applyRefunds).not.toHaveBeenCalled();
+    expect(calls).toHaveLength(3);
   });
 
   it("refuses everything with a test key on a production server", async () => {

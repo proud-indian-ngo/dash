@@ -11,6 +11,7 @@ import {
   contributionRuleIssues,
   isContributionEditable,
   PLATFORM_INTERMEDIARY_PARTY_IDS,
+  refundLockedChanges,
   todayInKolkata,
 } from "@pi-dash/shared/income";
 import { positivePaiseSchema } from "@pi-dash/shared/money";
@@ -20,6 +21,10 @@ import z from "zod";
 import "../context";
 import { assertHasPermission } from "../permissions";
 import { type Schema, zql } from "../schema";
+import {
+  type LockableKalakritiTx,
+  requireServerTransaction,
+} from "./kalakriti-row-locks";
 
 type Tx = Transaction<Schema>;
 
@@ -205,7 +210,23 @@ async function resolveProgramme(
   return programmeId;
 }
 
+/**
+ * Locks the contribution row on the server, so a refund the server applies
+ * meanwhile (which locks it too) waits for this edit, and the refund check
+ * below still holds when the edit is written.
+ */
+async function lockContribution(tx: Tx, id: string): Promise<void> {
+  if (tx.location !== "server") {
+    return;
+  }
+  const { sql } = await import("drizzle-orm");
+  await requireServerTransaction(tx as unknown as LockableKalakritiTx).execute(
+    sql`select 1 from contribution where id = ${id} for update`
+  );
+}
+
 async function requireEditableContribution(tx: Tx, id: string) {
+  await lockContribution(tx, id);
   const existing = await tx.run(zql.contribution.where("id", id).one());
   if (!existing) {
     throw new Error("Contribution not found");
@@ -213,7 +234,10 @@ async function requireEditableContribution(tx: Tx, id: string) {
   if (!isContributionEditable(existing.status ?? "received")) {
     throw new Error("Only pending or received contributions can be changed");
   }
-  return existing;
+  const refund = await tx.run(
+    zql.contributionRefund.where("contributionId", id).one()
+  );
+  return { existing, hasRefund: refund !== undefined };
 }
 
 export const contributionMutators = {
@@ -243,14 +267,25 @@ export const contributionMutators = {
 
   delete: defineMutator(idInput, async ({ tx, ctx, args }) => {
     assertHasPermission(ctx, "donors.manage");
-    await requireEditableContribution(tx, args.id);
+    const { hasRefund } = await requireEditableContribution(tx, args.id);
+    if (hasRefund) {
+      throw new Error("A contribution with a refund can't be deleted");
+    }
     await tx.mutate.contribution.delete({ id: args.id });
   }),
 
   update: defineMutator(contributionInputSchema, async ({ tx, ctx, args }) => {
     assertHasPermission(ctx, "donors.manage");
-    const existing = await requireEditableContribution(tx, args.id);
+    const { existing, hasRefund } = await requireEditableContribution(
+      tx,
+      args.id
+    );
     const values = normalizeContribution(args);
+    if (hasRefund && refundLockedChanges(existing, values).length > 0) {
+      throw new Error(
+        "A refund is recorded against this contribution, so its amount, donor, date, account and channel can't change"
+      );
+    }
     if (tx.location === "server") {
       if (values.partyId !== existing.partyId) {
         await assertContributor(tx, values.partyId);

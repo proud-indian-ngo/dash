@@ -5,6 +5,7 @@ import {
   processingBasisValues,
 } from "@pi-dash/shared/constants";
 import {
+  bigint,
   boolean,
   date,
   index,
@@ -95,6 +96,12 @@ export const importRow = privateSchema.table(
     decidedBy: text("decided_by").references(() => user.id, {
       onDelete: "set null",
     }),
+    /**
+     * The provider's ID of the row (a Razorpay payment ID), kept when the
+     * retention job nulls `raw`, so a payment that reached any outcome is
+     * always found again and never staged twice. Null for CSV rows.
+     */
+    externalId: text("external_id"),
     externalIdentityId: uuid("external_identity_id").references(
       () => externalIdentity.id,
       { onDelete: "set null" }
@@ -122,6 +129,48 @@ export const importRow = privateSchema.table(
   (t) => [
     uniqueIndex("import_row_batch_row_uidx").on(t.batchId, t.rowNumber),
     index("import_row_retainUntil_idx").on(t.retainUntil),
+    index("import_row_externalId_idx").on(t.externalId),
+  ]
+);
+
+/**
+ * A provider refund seen before the payment it refunds became a
+ * contribution: the verified copy (IDs, amount, time; no personal data),
+ * kept until the payment is imported or linked, when the import
+ * transaction applies it, or until a later sync applies it. Removed once
+ * recorded against the contribution.
+ */
+export const pendingRefund = privateSchema.table(
+  "pending_refund",
+  {
+    amountPaise: bigint("amount_paise", { mode: "number" }).notNull(),
+    createdAt: timestamp("created_at").notNull(),
+    currency: text("currency").notNull(),
+    id: uuid("id").primaryKey(),
+    /** The refunded payment's ID at the provider. */
+    paymentId: text("payment_id").notNull(),
+    /** Fingerprint of the refund, as its external identity will store it. */
+    payloadHash: text("payload_hash").notNull(),
+    provider: externalIdentityProviderEnum("provider").notNull(),
+    /** For Razorpay, the mode (`live` or `test`). */
+    providerAccount: text("provider_account").notNull(),
+    /** When the provider made the refund. */
+    refundedAt: timestamp("refunded_at").notNull(),
+    /** The provider's refund ID. */
+    refundId: text("refund_id").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("pending_refund_key_uidx").on(
+      t.provider,
+      t.providerAccount,
+      t.refundId
+    ),
+    index("pending_refund_payment_idx").on(
+      t.provider,
+      t.providerAccount,
+      t.paymentId
+    ),
   ]
 );
 

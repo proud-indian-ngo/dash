@@ -1,5 +1,6 @@
 import {
   contributionChannelValues,
+  contributionRefundSourceValues,
   contributionReportingModeValues,
   contributionSourceValues,
   contributionStatusValues,
@@ -10,6 +11,7 @@ import {
 import { relations, sql } from "drizzle-orm";
 import {
   bigint,
+  boolean,
   check,
   date,
   index,
@@ -17,6 +19,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -45,6 +48,10 @@ export const contributionStatusEnum = pgEnum(
 export const contributionSourceEnum = pgEnum(
   "contribution_source",
   contributionSourceValues
+);
+export const contributionRefundSourceEnum = pgEnum(
+  "contribution_refund_source",
+  contributionRefundSourceValues
 );
 export const otherIncomeKindEnum = pgEnum(
   "other_income_kind",
@@ -141,6 +148,53 @@ export const contribution = pgTable(
   ]
 );
 
+/**
+ * Money given back on a contribution. Written only by the server (the
+ * Razorpay refund sync); synced through Zero, read-only, to the same income
+ * permissions as contributions. Holds IDs, an amount and a date, no personal
+ * data. The provider's refund ID is also an external identity (entity type
+ * `refund`) pointing at the contribution, which makes applying it
+ * idempotent; the posting layer will later point it at a refund movement
+ * instead. No posting and no movement is made now.
+ */
+export const contributionRefund = pgTable(
+  "contribution_refund",
+  {
+    amountPaise: bigint("amount_paise", { mode: "number" }).notNull(),
+    /**
+     * The provider later reported this refund with another amount; the first
+     * amount is kept. Needs the founder's look.
+     */
+    amountChanged: boolean("amount_changed").default(false).notNull(),
+    contributionId: uuid("contribution_id")
+      .notNull()
+      .references(() => contribution.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at").notNull(),
+    id: uuid("id").primaryKey(),
+    /** The provider's refund ID (Razorpay `rfnd_…`). */
+    reference: text("reference"),
+    /**
+     * The refund came after the contribution was receipted, whose status is
+     * then left alone. Needs the founder's look.
+     */
+    refundAfterReceipt: boolean("refund_after_receipt")
+      .default(false)
+      .notNull(),
+    /** India date of the refund. */
+    refundedOn: date("refunded_on").notNull(),
+    source: contributionRefundSourceEnum("source").notNull(),
+  },
+  (t) => [
+    index("contribution_refund_contributionId_idx").on(t.contributionId),
+    // One row per provider refund.
+    uniqueIndex("contribution_refund_source_reference_uidx").on(
+      t.source,
+      t.reference
+    ),
+    check("contribution_refund_amount_positive", sql`${t.amountPaise} > 0`),
+  ]
+);
+
 /** Interest, grant returns and other income that is not a donation. */
 export const otherIncome = pgTable(
   "other_income",
@@ -168,39 +222,53 @@ export const otherIncome = pgTable(
   ]
 );
 
-export const contributionRelations = relations(contribution, ({ one }) => ({
-  createdByUser: one(user, {
-    fields: [contribution.createdBy],
-    references: [user.id],
-  }),
-  fund: one(fund, { fields: [contribution.fundId], references: [fund.id] }),
-  importBatch: one(importBatch, {
-    fields: [contribution.importBatchId],
-    references: [importBatch.id],
-  }),
-  intermediary: one(party, {
-    fields: [contribution.intermediaryPartyId],
-    references: [party.id],
-    relationName: "contributionIntermediary",
-  }),
-  orgAccount: one(orgAccount, {
-    fields: [contribution.orgAccountId],
-    references: [orgAccount.id],
-  }),
-  party: one(party, {
-    fields: [contribution.partyId],
-    references: [party.id],
-    relationName: "contributionDonor",
-  }),
-  programme: one(programme, {
-    fields: [contribution.programmeId],
-    references: [programme.id],
-  }),
-  project: one(project, {
-    fields: [contribution.projectId],
-    references: [project.id],
-  }),
-}));
+export const contributionRelations = relations(
+  contribution,
+  ({ many, one }) => ({
+    createdByUser: one(user, {
+      fields: [contribution.createdBy],
+      references: [user.id],
+    }),
+    fund: one(fund, { fields: [contribution.fundId], references: [fund.id] }),
+    importBatch: one(importBatch, {
+      fields: [contribution.importBatchId],
+      references: [importBatch.id],
+    }),
+    intermediary: one(party, {
+      fields: [contribution.intermediaryPartyId],
+      references: [party.id],
+      relationName: "contributionIntermediary",
+    }),
+    orgAccount: one(orgAccount, {
+      fields: [contribution.orgAccountId],
+      references: [orgAccount.id],
+    }),
+    party: one(party, {
+      fields: [contribution.partyId],
+      references: [party.id],
+      relationName: "contributionDonor",
+    }),
+    programme: one(programme, {
+      fields: [contribution.programmeId],
+      references: [programme.id],
+    }),
+    project: one(project, {
+      fields: [contribution.projectId],
+      references: [project.id],
+    }),
+    refunds: many(contributionRefund),
+  })
+);
+
+export const contributionRefundRelations = relations(
+  contributionRefund,
+  ({ one }) => ({
+    contribution: one(contribution, {
+      fields: [contributionRefund.contributionId],
+      references: [contribution.id],
+    }),
+  })
+);
 
 export const otherIncomeRelations = relations(otherIncome, ({ one }) => ({
   createdByUser: one(user, {

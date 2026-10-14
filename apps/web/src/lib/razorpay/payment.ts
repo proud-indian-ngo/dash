@@ -39,6 +39,10 @@ const scalar = z.union([z.string(), z.number(), z.boolean()]).nullish();
 /** The fields of a payment entity pi-dash reads; anything else is ignored. */
 export const razorpayPaymentSchema = z.object({
   amount: z.number().int(),
+  /** Paise refunded so far; refunds are applied separately. */
+  amount_refunded: z.number().int().nullish(),
+  /** False for a payment never captured, even one later auto-refunded. */
+  captured: z.boolean().nullish(),
   contact: scalar,
   created_at: z.number().int(),
   currency: z.string(),
@@ -63,6 +67,7 @@ const FLAT_FIELDS = [
   "amount",
   "currency",
   "status",
+  "captured",
   "method",
   "order_id",
   "description",
@@ -155,6 +160,26 @@ export function razorpayPayloadHash(raw: Readonly<Record<string, string>>) {
       notes,
     ])
   );
+}
+
+/**
+ * Whether the payment's money was captured, so it is a gift to record. A
+ * captured payment that was later refunded (status `refunded`, `captured`
+ * true) still is: its refunds are applied separately. An authorised payment
+ * Razorpay auto-refunded without capture has `captured` false and is not.
+ * Copies staged before `captured` was kept fall back to the status.
+ */
+export function isCapturedPayment(payment: {
+  captured?: boolean | string | null;
+  status?: string | null;
+}): boolean {
+  if (payment.captured === true || payment.captured === "true") {
+    return true;
+  }
+  if (payment.captured === false || payment.captured === "false") {
+    return false;
+  }
+  return payment.status === "captured";
 }
 
 /** India calendar day of a unix-seconds timestamp. */
@@ -266,7 +291,7 @@ export function normalizeRazorpayRow(
     errors.push({ field: "amount", message: MAX_AMOUNT_MESSAGE });
     amountPaise = null;
   }
-  if (raw.status !== "captured") {
+  if (!isCapturedPayment(raw)) {
     errors.push({
       field: "externalId",
       message: "The payment is not captured",

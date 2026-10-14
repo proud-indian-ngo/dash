@@ -25,6 +25,25 @@ const payment = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+const refund = (overrides: Record<string, unknown> = {}) => ({
+  acquirer_data: { arn: "never-read" },
+  amount: 20_000,
+  created_at: 1_791_950_000,
+  currency: "INR",
+  entity: "refund",
+  id: "rfnd_Test0001",
+  notes: [],
+  payment_id: "pay_Test0001",
+  status: "processed",
+  ...overrides,
+});
+
+const refundEvent = (entity: unknown) => ({
+  entity: "event",
+  event: "refund.processed",
+  payload: { payment: { entity: payment() }, refund: { entity } },
+});
+
 const event = (name: string, entity: unknown = payment()) => ({
   entity: "event",
   event: name,
@@ -94,18 +113,74 @@ describe("routeRazorpayEvent", () => {
     });
   });
 
-  it("acknowledges refund events without acting on them yet", () => {
+  it("acknowledges refund events other than processed without acting on them", () => {
     for (const name of [
       "refund.created",
-      "refund.processed",
       "refund.failed",
       "refund.speed_changed",
     ]) {
       expect(routeRazorpayEvent(event(name))).toMatchObject({
         action: "ignore",
-        reason: "refund_not_handled_yet",
+        reason: "refund_not_processed",
       });
     }
+  });
+
+  it("queues a processed refund with its amount, time and status", () => {
+    expect(routeRazorpayEvent(refundEvent(refund()), false)).toEqual({
+      action: "refund",
+      copy: {
+        amount: 20_000,
+        createdAt: 1_791_950_000,
+        currency: "INR",
+        status: "processed",
+      },
+      event: "refund.processed",
+      paymentId: "pay_Test0001",
+      refundId: "rfnd_Test0001",
+    });
+  });
+
+  it("fetches an unreadable processed refund by ID only with the key secret", () => {
+    const broken = refundEvent(refund({ amount: "lots" }));
+    expect(routeRazorpayEvent(broken, true)).toEqual({
+      action: "refund",
+      copy: null,
+      event: "refund.processed",
+      paymentId: "pay_Test0001",
+      refundId: "rfnd_Test0001",
+    });
+    expect(routeRazorpayEvent(broken, false)).toMatchObject({
+      action: "ignore",
+      paymentId: "pay_Test0001",
+      reason: "malformed_refund",
+    });
+    expect(
+      routeRazorpayEvent({ event: "refund.processed", payload: {} }, true)
+    ).toMatchObject({ action: "ignore", reason: "malformed_refund" });
+  });
+
+  it("stages a captured payment that was refunded since, but not one never captured", () => {
+    expect(
+      routeRazorpayEvent(
+        event(
+          "payment.captured",
+          payment({
+            amount_refunded: 50_000,
+            captured: true,
+            status: "refunded",
+          })
+        )
+      )
+    ).toMatchObject({ action: "stage" });
+    expect(
+      routeRazorpayEvent(
+        event(
+          "payment.captured",
+          payment({ captured: false, status: "refunded" })
+        )
+      )
+    ).toMatchObject({ action: "ignore", reason: "not_captured" });
   });
 
   it("ignores a payment event whose payment is not captured or unreadable", () => {

@@ -39,6 +39,7 @@ import {
   findClearingAccount,
   markImportRowWaiting,
 } from "@pi-dash/db/queries/razorpay-import";
+import { applyPendingRefunds } from "@pi-dash/db/queries/razorpay-refunds";
 import {
   type ContributionChannel,
   type ImportBatchSource,
@@ -50,6 +51,7 @@ import { defaultReportingMode, todayInKolkata } from "@pi-dash/shared/income";
 import { uuidv7 } from "uuidv7";
 
 import { saveDonorSchema } from "@/lib/donor-schema";
+import { queueRefundChecks } from "@/lib/razorpay/after-review";
 import { razorpayRowRules } from "@/lib/razorpay/rules";
 import { withSafeErrors } from "@/lib/safe-errors";
 
@@ -809,6 +811,8 @@ interface RunContext {
   actorId: string | null;
   batch: ImportBatchRow;
   canStoreIds: boolean;
+  /** Razorpay payment IDs this run imported or linked, to check their refunds after it. */
+  imported?: string[];
   /** The platform that passed the money on: GiveIndia for give.do batches. */
   intermediaryPartyId: string | null;
   now: Date;
@@ -926,12 +930,14 @@ async function runClaimedBatch(
       ...batch,
       orgAccountId,
     });
-    return await withImportTransaction(async (tx) => {
+    const imported: string[] = [];
+    const response = await withImportTransaction(async (tx) => {
       const now = new Date();
       const ctx: RunContext = {
         actorId,
         batch,
         canStoreIds: hasEncryptionKey(),
+        imported,
         intermediaryPartyId:
           batch.source === "give_do_csv"
             ? await ensureGiveIndiaParty(tx, actorId, now)
@@ -966,6 +972,11 @@ async function runClaimedBatch(
       );
       return result;
     });
+    if (batch.source === "razorpay_api") {
+      // Refunds that came while these payments waited for review.
+      queueRefundChecks(batch.fileHash, imported);
+    }
+    return response;
   } catch (error) {
     // A Razorpay batch stays `completed`: its payments keep arriving.
     await updateImportBatch(batch.id, {
@@ -973,6 +984,28 @@ async function runClaimedBatch(
     });
     throw error;
   }
+}
+
+/**
+ * Once a Razorpay payment's row is imported or linked: apply the refunds
+ * held for that payment in this same transaction, and remember its ID so
+ * its refunds can be checked against the API after the run.
+ */
+async function afterContribution(
+  ctx: RunContext,
+  identity: { externalId: string; provider: string; providerAccount: string }
+): Promise<void> {
+  if (ctx.batch.source !== "razorpay_api" || identity.provider !== "razorpay") {
+    return;
+  }
+  await applyPendingRefunds(
+    ctx.tx,
+    identity.providerAccount,
+    identity.externalId,
+    (at) => todayInKolkata(at),
+    ctx.now
+  );
+  ctx.imported?.push(identity.externalId);
 }
 
 async function executePlans(
@@ -1061,6 +1094,9 @@ async function executePlans(
         outcomeReason: null,
       });
       result["contributionId" in plan.to ? "linked" : "repeated"] += 1;
+      if (prepared.identity) {
+        await afterContribution(ctx, prepared.identity);
+      }
       continue;
     }
 
@@ -1157,6 +1193,7 @@ async function executePlans(
       }
     );
     createdByRow.set(row.rowId, { contributionId, identityId });
+    await afterContribution(ctx, identity);
     await setImportRowOutcome(ctx.tx, row.rowId, {
       ...decided,
       contributionId,

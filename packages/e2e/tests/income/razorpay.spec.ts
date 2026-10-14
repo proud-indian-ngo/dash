@@ -30,6 +30,15 @@ const paymentContributions = (paymentId: string) =>
   fixture<number>("contributions", paymentId);
 const syncJobsSettled = (paymentId: string) =>
   fixture<boolean>("settled", paymentId);
+const paymentRefunds = (paymentId: string) =>
+  fixture<{
+    refunds: { amountPaise: number; reference: string | null }[];
+    status: string | null;
+  }>("refunds", paymentId);
+const refundJobsSettled = (refundId: string) =>
+  fixture<boolean>("refund-settled", refundId);
+const pendingRefunds = (paymentId: string) =>
+  fixture<number>("pending-refunds", paymentId);
 
 /**
  * Razorpay Payment Page ingestion end to end: signed webhooks in, donors and
@@ -45,6 +54,8 @@ const SECRET =
   process.env.RAZORPAY_WEBHOOK_SECRET ?? "e2e-razorpay-webhook-secret";
 const WEBHOOK = "/api/razorpay/webhook";
 const CLEARING = "E2E Razorpay Clearing";
+/** The seeded clearing account (helpers/seed-test-user.ts). */
+const E2E_CLEARING_ID = "01930000-0000-7000-8000-000000000713";
 
 /** A PAN unique to this run: five letters, four digits, one letter. */
 function runPan(run: string): string {
@@ -88,6 +99,49 @@ function capturedEvent(
   });
 }
 
+function refundEvent(refund: {
+  amount: number;
+  id: string;
+  paymentId: string;
+}) {
+  const now = Math.floor(Date.now() / 1000);
+  return JSON.stringify({
+    account_id: "acc_E2E",
+    contains: ["refund", "payment"],
+    created_at: now,
+    entity: "event",
+    event: "refund.processed",
+    payload: {
+      payment: {
+        entity: {
+          amount: 50_000,
+          captured: true,
+          created_at: now,
+          currency: "INR",
+          entity: "payment",
+          id: refund.paymentId,
+          status: "refunded",
+        },
+      },
+      refund: {
+        entity: {
+          acquirer_data: { arn: null },
+          amount: refund.amount,
+          created_at: now,
+          currency: "INR",
+          entity: "refund",
+          id: refund.id,
+          notes: [],
+          payment_id: refund.paymentId,
+          speed_processed: "normal",
+          speed_requested: "normal",
+          status: "processed",
+        },
+      },
+    },
+  });
+}
+
 const sign = (body: string, secret = SECRET) =>
   createHmac("sha256", secret).update(body).digest("hex");
 
@@ -125,6 +179,9 @@ async function contributionRows(page: Page, donor: string) {
 }
 
 test.describe("Income: Razorpay Payment Page", () => {
+  // One worker runs these in order: they share the global clearing account
+  // setting, which is read once and put back once.
+  test.describe.configure({ mode: "serial" });
   // Only the super_admin project runs these tests, so only it touches the
   // global setting; other projects' workers must not restore a stale value.
   let clearingBefore: string | null | undefined;
@@ -290,5 +347,177 @@ test.describe("Income: Razorpay Payment Page", () => {
     await expect(
       page.getByRole("row").filter({ hasText: `E2E Razorpay Second ${run}` })
     ).toHaveCount(0);
+  });
+
+  test("applies signed refunds: partly refunded, then refunded, once each", async ({
+    page,
+    request,
+  }) => {
+    test.slow();
+    const run = String(Date.now());
+    const donor = `E2E Razorpay Refund ${run}`;
+    const paymentId = `pay_E2ERefund${run}`;
+    await fixture("restore-clearing", E2E_CLEARING_ID);
+
+    // A gift of ₹500 imported at once (new donor with a PAN).
+    const paid = capturedEvent("payment.captured", {
+      amount: 50_000,
+      contact: runPhone(run),
+      email: `rzp-refund-${run}@example.test`,
+      id: paymentId,
+      notes: { "Full Name": donor, "PAN Number": runPan(run) },
+    });
+    expect((await post(request, paid)).status()).toBe(200);
+    await expect
+      .poll(() => paymentRows(paymentId), { timeout: 30_000 })
+      .toEqual([{ outcome: "imported", reason: null }]);
+
+    // ₹200 refunded: recorded from the webhook copy (no key secret in E2E),
+    // and the gift stays received, shown as partly refunded.
+    const firstRefund = refundEvent({
+      amount: 20_000,
+      id: `rfnd_E2EA${run}`,
+      paymentId,
+    });
+    expect((await post(request, firstRefund)).status()).toBe(200);
+    await expect
+      .poll(() => paymentRefunds(paymentId), { timeout: 30_000 })
+      .toEqual({
+        refunds: [{ amountPaise: 20_000, reference: `rfnd_E2EA${run}` }],
+        status: "received",
+      });
+    const row = (await contributionRows(page, donor)).first();
+    // One badge, the amount in its tooltip.
+    const status = row.getByTestId("contribution-status");
+    await expect(status).toHaveText("Partly refunded", { timeout: 15_000 });
+    await status.hover();
+    await expect(page.locator('[data-slot="tooltip-content"]')).toHaveText(
+      "₹200.00 of ₹500.00 refunded"
+    );
+    await row.getByText(donor).click();
+    await expect(
+      page.getByRole("dialog").getByText("₹200.00 of ₹500.00 refunded")
+    ).toBeVisible();
+    // The sheet links the payment to its Razorpay dashboard page.
+    const openInRazorpay = page.getByTestId("open-in-razorpay");
+    await expect(openInRazorpay).toHaveAttribute(
+      "href",
+      `https://dashboard.razorpay.com/app/payments/${paymentId}`
+    );
+    await expect(openInRazorpay).toHaveAttribute("target", "_blank");
+    await expect(page.getByTestId("contribution-refunds")).toContainText(
+      `rfnd_E2EA${run}`
+    );
+    await expect(page.getByTestId("contribution-refunds")).toContainText(
+      "₹200.00"
+    );
+    await page.keyboard.press("Escape");
+
+    // Delivered again: still one refund.
+    expect((await post(request, firstRefund)).status()).toBe(200);
+    await expect
+      .poll(() => refundJobsSettled(`rfnd_E2EA${run}`), { timeout: 30_000 })
+      .toBe(true);
+    expect((await paymentRefunds(paymentId)).refunds).toHaveLength(1);
+
+    // The other ₹300 refunded: the gift is refunded now.
+    const secondRefund = refundEvent({
+      amount: 30_000,
+      id: `rfnd_E2EB${run}`,
+      paymentId,
+    });
+    expect((await post(request, secondRefund)).status()).toBe(200);
+    await expect
+      .poll(async () => (await paymentRefunds(paymentId)).status, {
+        timeout: 30_000,
+      })
+      .toBe("refunded");
+    const refundedRow = (await contributionRows(page, donor)).first();
+    await expect(refundedRow.getByTestId("contribution-status")).toHaveText(
+      "Refunded",
+      { timeout: 15_000 }
+    );
+  });
+
+  test("a manual contribution has no Razorpay link", async ({ page }) => {
+    const row = (await contributionRows(page, "E2E Seed Donor")).first();
+    await row.getByText("E2E Seed Donor").click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByTestId("open-in-razorpay")).toHaveCount(0);
+  });
+
+  test("holds a refund that arrives before its payment and applies it at import", async ({
+    page,
+    request,
+  }) => {
+    test.slow();
+    const run = String(Date.now());
+    const donor = `E2E Razorpay Early Refund ${run}`;
+    const paymentId = `pay_E2EEarly${run}`;
+    const refundId = `rfnd_E2EEarly${run}`;
+    await fixture("restore-clearing", E2E_CLEARING_ID);
+
+    // The refund first: nothing to apply it to, so it is held.
+    expect(
+      (
+        await post(
+          request,
+          refundEvent({ amount: 50_000, id: refundId, paymentId })
+        )
+      ).status()
+    ).toBe(200);
+    await expect
+      .poll(() => refundJobsSettled(refundId), { timeout: 30_000 })
+      .toBe(true);
+    expect(await pendingRefunds(paymentId)).toBe(1);
+    await page.goto("/settings/integrations");
+    await waitForZeroReady(page);
+    await expect(page.getByTestId("razorpay-pending-refunds")).toContainText(
+      "waiting for"
+    );
+
+    // Then the payment: imported, and the held refund applied in the same
+    // transaction, so the gift is refunded at once.
+    const paid = capturedEvent("payment.captured", {
+      amount: 50_000,
+      contact: runPhone(run),
+      email: `rzp-early-${run}@example.test`,
+      id: paymentId,
+      notes: { "Full Name": donor, "PAN Number": runPan(run) },
+    });
+    expect((await post(request, paid)).status()).toBe(200);
+    await expect
+      .poll(() => paymentRefunds(paymentId), { timeout: 30_000 })
+      .toEqual({
+        refunds: [{ amountPaise: 50_000, reference: refundId }],
+        status: "refunded",
+      });
+    expect(await pendingRefunds(paymentId)).toBe(0);
+  });
+
+  test("without the key secret, Sync now retries stuck payments and Import past payments is off", async ({
+    page,
+  }) => {
+    test.slow();
+    await page.goto("/settings/integrations");
+    await waitForZeroReady(page);
+    await expect(page.getByTestId("razorpay-sync-unavailable")).toContainText(
+      "RAZORPAY_KEY_SECRET"
+    );
+    await expect(
+      page.getByRole("button", { name: "Import past payments" })
+    ).toBeDisabled();
+    await expect(page.getByText("refund.processed")).toBeVisible();
+
+    const syncNow = page.getByRole("button", { name: "Sync now" });
+    await expect(syncNow).toBeEnabled();
+    await syncNow.click();
+    await expect(page.getByText("Syncing with Razorpay")).toBeVisible();
+    // The run finishes without listing anything from Razorpay.
+    await expect(page.getByTestId("razorpay-last-sync")).toContainText(
+      "stuck payments retried",
+      { timeout: 60_000 }
+    );
+    await expect(syncNow).toBeEnabled({ timeout: 15_000 });
   });
 });

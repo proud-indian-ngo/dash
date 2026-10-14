@@ -7,8 +7,14 @@ import {
   defaultReportingMode,
   epochDayToIso,
   financialYearOf,
+  isContributionDeletable,
   isContributionEditable,
   isInFinancialYear,
+  netReceivedPaise,
+  refundedPaise,
+  refundLockedChanges,
+  razorpayPaymentUrl,
+  refundSummary,
   todayInKolkata,
 } from "./income";
 
@@ -74,12 +80,105 @@ describe("contribution statuses", () => {
     expect(isContributionEditable("refunded")).toBe(false);
   });
 
+  it("keeps a refunded contribution editable but no longer deletable", () => {
+    expect(isContributionDeletable("received", [])).toBe(true);
+    expect(isContributionDeletable("received", [{ id: "r" }])).toBe(false);
+    expect(isContributionDeletable("receipted", [])).toBe(false);
+  });
+
+  it("names the refund-locked fields an edit would change", () => {
+    const existing = {
+      amountPaise: 100,
+      channel: "razorpay",
+      orgAccountId: "a",
+      partyId: "p",
+      receivedOn: 1,
+    };
+    expect(refundLockedChanges(existing, { ...existing })).toEqual([]);
+    expect(
+      refundLockedChanges(existing, {
+        ...existing,
+        amountPaise: 99,
+        orgAccountId: null,
+      })
+    ).toEqual(["amountPaise", "orgAccountId"]);
+  });
+
   it("does not count pending, refunded or reversed money as received", () => {
     expect(countsAsReceived("pending")).toBe(false);
     expect(countsAsReceived("received")).toBe(true);
     expect(countsAsReceived("receipted")).toBe(true);
     expect(countsAsReceived("refunded")).toBe(false);
     expect(countsAsReceived("reversed")).toBe(false);
+  });
+});
+
+describe("net received", () => {
+  const gift = (status: string, refunds: number[] = []) => ({
+    amountPaise: 50_000,
+    refunds: refunds.map((amountPaise) => ({ amountPaise })),
+    status,
+  });
+
+  it("takes partial refunds off received and receipted gifts", () => {
+    expect(netReceivedPaise(gift("received"))).toBe(50_000);
+    expect(netReceivedPaise(gift("received", [10_000, 5000]))).toBe(35_000);
+    expect(netReceivedPaise(gift("receipted", [20_000]))).toBe(30_000);
+    expect(refundedPaise([{ amountPaise: 1 }, { amountPaise: 2 }])).toBe(3);
+    expect(refundedPaise(null)).toBe(0);
+  });
+
+  it("counts nothing for pending, refunded or reversed gifts, and never goes below zero", () => {
+    expect(netReceivedPaise(gift("pending"))).toBe(0);
+    expect(netReceivedPaise(gift("refunded", [50_000]))).toBe(0);
+    expect(netReceivedPaise(gift("reversed"))).toBe(0);
+    // A refund after receipt keeps the status; the money still went back.
+    expect(netReceivedPaise(gift("receipted", [60_000]))).toBe(0);
+    // Refunds not loaded: the whole amount, as before refunds existed.
+    expect(netReceivedPaise({ amountPaise: 1000, status: "received" })).toBe(
+      1000
+    );
+  });
+
+  it("reads partly refunded only while some, not all, has gone back", () => {
+    expect(refundSummary(gift("received"))).toBeNull();
+    expect(refundSummary(gift("received", [20_000]))).toEqual({
+      partly: true,
+      refundedPaise: 20_000,
+    });
+    expect(refundSummary(gift("refunded", [50_000]))).toEqual({
+      partly: false,
+      refundedPaise: 50_000,
+    });
+    // A receipted gift its refunds cover keeps its status.
+    expect(refundSummary(gift("receipted", [50_000]))).toEqual({
+      partly: false,
+      refundedPaise: 50_000,
+    });
+  });
+});
+
+describe("razorpayPaymentUrl", () => {
+  it("links a contribution imported from Razorpay to its dashboard page", () => {
+    expect(
+      razorpayPaymentUrl({
+        channel: "razorpay",
+        reference: "pay_Abc123",
+        source: "import",
+      })
+    ).toBe("https://dashboard.razorpay.com/app/payments/pay_Abc123");
+  });
+
+  it("does not link manual entries, other channels or other references", () => {
+    for (const contribution of [
+      { channel: "razorpay", reference: "pay_Abc123", source: "manual" },
+      { channel: "upi", reference: "pay_Abc123", source: "import" },
+      { channel: "razorpay", reference: "UTR-1", source: "import" },
+      { channel: "razorpay", reference: "pay_x/../y", source: "import" },
+      { channel: "razorpay", reference: null, source: "import" },
+    ]) {
+      expect(razorpayPaymentUrl(contribution)).toBeNull();
+    }
   });
 });
 

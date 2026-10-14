@@ -10,6 +10,7 @@ import {
 import { DEFAULT_NOTES_KEYS, type NotesKeys } from "./notes-keys";
 import {
   flattenPayment,
+  isCapturedPayment,
   istDayOf,
   MAX_NOTE_VALUE_LENGTH,
   MAX_STORED_NOTES,
@@ -184,6 +185,34 @@ describe("normalizeRazorpayRow", () => {
     expect(usd.errors.map((e) => e.message).join()).not.toContain("USD");
     expect(usd.row.amountPaise).toBeNull();
     expect(normalize(payment({ status: "refunded" })).errors).toHaveLength(1);
+  });
+
+  it("imports a captured payment refunded since, but not one never captured", () => {
+    const refunded = normalize(
+      payment({ amount_refunded: 250_050, captured: true, status: "refunded" })
+    );
+    expect(refunded.errors).toEqual([]);
+    expect(refunded.row.amountPaise).toBe(250_050);
+    expect(
+      normalize(payment({ captured: false, status: "refunded" })).errors
+    ).toHaveLength(1);
+    expect(
+      normalize(payment({ captured: false, status: "authorized" })).errors
+    ).toHaveLength(1);
+  });
+
+  it("tells a captured payment by its captured flag, falling back to the status", () => {
+    expect(isCapturedPayment({ captured: true, status: "refunded" })).toBe(
+      true
+    );
+    expect(isCapturedPayment({ captured: "true", status: "refunded" })).toBe(
+      true
+    );
+    expect(isCapturedPayment({ captured: false, status: "captured" })).toBe(
+      false
+    );
+    expect(isCapturedPayment({ status: "captured" })).toBe(true);
+    expect(isCapturedPayment({ status: "refunded" })).toBe(false);
   });
 
   it("reads notes through the configured keys, ignoring case and punctuation", () => {

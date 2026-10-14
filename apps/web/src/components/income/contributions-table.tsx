@@ -12,6 +12,7 @@ import {
   CONTRIBUTION_CHANNEL_LABELS,
   CONTRIBUTION_SOURCE_LABELS,
   DONATION_TYPE_LABELS,
+  isContributionDeletable,
   isContributionEditable,
 } from "@pi-dash/shared/income";
 import { formatPaise } from "@pi-dash/shared/money";
@@ -68,6 +69,9 @@ function RowActions({
   );
   const editable =
     canManage && isContributionEditable(row.status ?? "received");
+  // A refund recorded against it keeps the contribution: edit, never delete.
+  const deletable =
+    canManage && isContributionDeletable(row.status ?? "received", row.refunds);
   return (
     <ResponsiveActionMenu
       actions={[
@@ -83,7 +87,7 @@ function RowActions({
           label: "Edit",
           onSelect: () => onEdit(row),
         },
-        editable && {
+        deletable && {
           destructive: true,
           group: "destructive",
           icon: Delete02Icon,
@@ -235,7 +239,10 @@ export function ContributionsTable({
     {
       accessorFn: (row) => row.status,
       cell: ({ row }) => (
-        <ContributionStatusBadge status={row.original.status} />
+        <ContributionStatusBadge
+          refund={row.original}
+          status={row.original.status}
+        />
       ),
       header: ({ column }) => (
         <DataGridColumnHeader
@@ -250,7 +257,7 @@ export function ContributionsTable({
         kind: "status",
         skeleton: SKELETON_TAG,
       },
-      size: 120,
+      size: 150,
     },
     {
       accessorFn: (row) => row.source,

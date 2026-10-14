@@ -11,6 +11,7 @@ import type {
   OtherIncomeKind,
 } from "./constants";
 import { directoryRoleValues, GIVE_INDIA_PARTY_ID } from "./constants";
+import { sumPaise } from "./money";
 
 /**
  * Roles that may give a contribution: individual donors, CSR sponsors,
@@ -122,6 +123,39 @@ export function isContributionEditable(status: string): boolean {
 }
 
 /**
+ * What a recorded refund fixes on a contribution: the facts the provider
+ * reported (amount, giver, date, account, channel). Status follows the
+ * refunds and the contribution can no longer be deleted; programme,
+ * project, fund, notes and the other classification fields stay editable.
+ */
+export const REFUND_LOCKED_FIELDS = [
+  "amountPaise",
+  "partyId",
+  "receivedOn",
+  "orgAccountId",
+  "channel",
+] as const;
+export type RefundLockedField = (typeof REFUND_LOCKED_FIELDS)[number];
+
+/** The refund-locked fields an edit would change; empty when it may go ahead. */
+export function refundLockedChanges(
+  existing: Record<RefundLockedField, unknown>,
+  next: Record<RefundLockedField, unknown>
+): RefundLockedField[] {
+  return REFUND_LOCKED_FIELDS.filter(
+    (field) => (existing[field] ?? null) !== (next[field] ?? null)
+  );
+}
+
+/** Whether a contribution may be deleted: editable and no refund recorded against it. */
+export function isContributionDeletable(
+  status: string,
+  refunds?: readonly unknown[] | null
+): boolean {
+  return isContributionEditable(status) && (refunds?.length ?? 0) === 0;
+}
+
+/**
  * Statuses that count as money received. Pending money has not arrived yet,
  * and refunded or reversed money has gone back, so neither counts.
  */
@@ -132,6 +166,77 @@ export const CONTRIBUTION_RECEIVED_STATUSES: readonly ContributionStatus[] = [
 
 export function countsAsReceived(status: string): boolean {
   return (CONTRIBUTION_RECEIVED_STATUSES as readonly string[]).includes(status);
+}
+
+/** A contribution with the refunds recorded against it (none, when not loaded). */
+export interface NetReceivedInput {
+  amountPaise: number;
+  refunds?: readonly { amountPaise: number }[] | null;
+  status: string | null;
+}
+
+/** Total refunded against a contribution, in paise. */
+export function refundedPaise(refunds: NetReceivedInput["refunds"]): number {
+  return sumPaise((refunds ?? []).map((refund) => refund.amountPaise));
+}
+
+/**
+ * Money a contribution still brings in: its amount less its refunds when its
+ * status counts as received, otherwise nothing. A full refund already moves
+ * the status to `refunded`; this takes off partial refunds and never goes
+ * below zero (a refund after receipt leaves the status alone). Used by the
+ * Income stats, the donor sheet's Giving section and the server query alike.
+ */
+export function netReceivedPaise(contribution: NetReceivedInput): number {
+  if (!countsAsReceived(contribution.status ?? "received")) {
+    return 0;
+  }
+  return Math.max(
+    0,
+    contribution.amountPaise - refundedPaise(contribution.refunds)
+  );
+}
+
+/**
+ * How a contribution's refunds show next to its status: whether it reads
+ * "Partly refunded" instead of its stored status (some, not all, has gone
+ * back and the status is not `refunded`), and how much was refunded, for a
+ * tooltip or a detail row. Null when nothing was refunded. Derived, never
+ * stored; a receipted contribution its refunds cover keeps "Receipted".
+ */
+export function refundSummary(
+  contribution: NetReceivedInput
+): { partly: boolean; refundedPaise: number } | null {
+  const refunded = refundedPaise(contribution.refunds);
+  if (refunded <= 0) {
+    return null;
+  }
+  return {
+    partly:
+      contribution.status !== "refunded" && refunded < contribution.amountPaise,
+    refundedPaise: refunded,
+  };
+}
+
+const RAZORPAY_PAYMENT_ID = /^pay_[A-Za-z0-9]{1,40}$/;
+
+/**
+ * The Razorpay dashboard page of a contribution imported from Razorpay, or
+ * null. Such a contribution's reference is its payment ID, so nothing
+ * private is needed. The dashboard opens in whichever mode (live or test)
+ * the person has selected there; Razorpay enforces its own login.
+ */
+export function razorpayPaymentUrl(contribution: {
+  channel: string;
+  reference?: string | null;
+  source?: string | null;
+}): string | null {
+  const reference = contribution.reference ?? "";
+  return contribution.channel === "razorpay" &&
+    contribution.source === "import" &&
+    RAZORPAY_PAYMENT_ID.test(reference)
+    ? `https://dashboard.razorpay.com/app/payments/${reference}`
+    : null;
 }
 
 export interface ContributionRuleInput {

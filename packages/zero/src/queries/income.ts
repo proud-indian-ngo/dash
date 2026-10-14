@@ -30,17 +30,21 @@ export const INCOME_LIST_LIMIT = 5000;
 export const DONOR_GIVING_LIMIT = 1000;
 
 export const contributionQueries = {
-  /** Donor sheet "Giving" section: amounts, dates and status only. */
+  /**
+   * Donor sheet "Giving" section: amounts, dates and status only, with the
+   * refunds that take partial refunds off the totals.
+   */
   byParty: defineQuery(
     z.object({ partyId: z.string() }),
     ({ args: { partyId }, ctx }) =>
       canSeeIncome(ctx)
         ? zql.contribution
             .where("partyId", partyId)
+            .related("refunds")
             .orderBy("receivedOn", "desc")
             .orderBy("id", "desc")
             .limit(DONOR_GIVING_LIMIT)
-        : zql.contribution.where("id", "__never_match__")
+        : zql.contribution.where("id", "__never_match__").related("refunds")
   ),
   /** The Income page table, newest first. */
   list: defineQuery(({ ctx }) => {
@@ -53,24 +57,31 @@ export const contributionQueries = {
         .related("orgAccount")
         .related("fund")
         .related("importBatch")
-        .related("intermediary");
+        .related("intermediary")
+        .related("refunds");
     }
     // Full project rows carry sponsor and budget terms, so the project name
     // only joins for finance.view, as in projectQueries.
     const seesProjects = can(ctx, "finance.view");
-    return zql.contribution
-      .related("party")
-      .related("programme")
-      .related("project", (p) =>
-        seesProjects ? p : p.where("id", "__never_match__")
-      )
-      .related("orgAccount")
-      .related("fund")
-      .related("importBatch")
-      .related("intermediary")
-      .orderBy("receivedOn", "desc")
-      .orderBy("id", "desc")
-      .limit(INCOME_LIST_LIMIT);
+    return (
+      zql.contribution
+        .related("party")
+        .related("programme")
+        .related("project", (p) =>
+          seesProjects ? p : p.where("id", "__never_match__")
+        )
+        .related("orgAccount")
+        .related("fund")
+        .related("importBatch")
+        .related("intermediary")
+        // Refunds are written only by the server; read-only here.
+        .related("refunds", (r) =>
+          r.orderBy("refundedOn", "asc").orderBy("id", "asc")
+        )
+        .orderBy("receivedOn", "desc")
+        .orderBy("id", "desc")
+        .limit(INCOME_LIST_LIMIT)
+    );
   }),
 };
 

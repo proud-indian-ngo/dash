@@ -1,6 +1,11 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-import { type RazorpayPayment, razorpayPaymentSchema } from "./payment";
+import {
+  isCapturedPayment,
+  type RazorpayPayment,
+  razorpayPaymentSchema,
+} from "./payment";
+import { REFUND_ID, razorpayRefundSchema } from "./refund-schema";
 
 /**
  * Server-only. Verifying a Razorpay webhook delivery and deciding what it
@@ -95,26 +100,43 @@ export function verifyRazorpaySignature(
 
 /** Events that carry a captured payment to record. */
 const PAYMENT_EVENTS = new Set(["payment.captured", "order.paid"]);
-/** Refunds arrive in the next layer; until then they are acknowledged and logged. */
-const REFUND_EVENTS = new Set([
+/** Only a processed refund gives money back; the others are acknowledged and logged. */
+const REFUND_PROCESSED = "refund.processed";
+const OTHER_REFUND_EVENTS = new Set([
   "refund.created",
   "refund.failed",
-  "refund.processed",
   "refund.speed_changed",
 ]);
+
+/** The verified webhook's copy of a refund: amount, time and status only. */
+export interface RefundCopy {
+  amount: number;
+  createdAt: number;
+  currency: string;
+  status: string;
+}
 
 export type WebhookAction =
   | { action: "stage"; event: string; payment: RazorpayPayment }
   /** The payment could not be read, but its ID could: the job fetches it from the API. */
   | { action: "fetch"; event: string; paymentId: string }
+  /** A processed refund to apply; without a readable copy the job fetches it. */
+  | {
+      action: "refund";
+      copy: RefundCopy | null;
+      event: string;
+      paymentId: string;
+      refundId: string;
+    }
   | {
       action: "ignore";
       event: string;
       paymentId: string | null;
       reason:
         | "malformed_payment"
+        | "malformed_refund"
         | "not_captured"
-        | "refund_not_handled_yet"
+        | "refund_not_processed"
         | "unhandled_event";
     };
 
@@ -127,12 +149,85 @@ const paymentIdOf = (body: unknown): string | null => {
   return typeof id === "string" ? id : null;
 };
 
+interface RefundIds {
+  paymentId: string | null;
+  refundId: string | null;
+}
+
+const refundIdsOf = (body: unknown): RefundIds => {
+  const entity = (
+    body as {
+      payload?: {
+        refund?: { entity?: { id?: unknown; payment_id?: unknown } };
+      };
+    } | null
+  )?.payload?.refund?.entity;
+  return {
+    paymentId:
+      typeof entity?.payment_id === "string" ? entity.payment_id : null,
+    refundId: typeof entity?.id === "string" ? entity.id : null,
+  };
+};
+
+/**
+ * A `refund.processed` delivery: the refund with its copy, or, when the copy
+ * cannot be read but its IDs can, the IDs alone for the job to fetch (only
+ * with the API key secret).
+ */
+function routeRefund(
+  body: unknown,
+  event: string,
+  canFetch: boolean
+): WebhookAction {
+  const parsed = razorpayRefundSchema.safeParse(
+    (body as { payload?: { refund?: { entity?: unknown } } }).payload?.refund
+      ?.entity
+  );
+  if (parsed.success) {
+    return {
+      action: "refund",
+      copy: {
+        amount: parsed.data.amount,
+        createdAt: parsed.data.created_at,
+        currency: parsed.data.currency,
+        status: parsed.data.status,
+      },
+      event,
+      paymentId: parsed.data.payment_id,
+      refundId: parsed.data.id,
+    };
+  }
+  const ids = refundIdsOf(body);
+  if (
+    canFetch &&
+    ids.refundId &&
+    REFUND_ID.test(ids.refundId) &&
+    ids.paymentId &&
+    PAYMENT_ID.test(ids.paymentId)
+  ) {
+    return {
+      action: "refund",
+      copy: null,
+      event,
+      paymentId: ids.paymentId,
+      refundId: ids.refundId,
+    };
+  }
+  return {
+    action: "ignore",
+    event,
+    paymentId: ids.paymentId,
+    reason: "malformed_refund",
+  };
+}
+
 /**
  * What a verified delivery asks for. `payment.captured` and `order.paid`
  * stage their payment; one pi-dash cannot read is fetched by ID when the
- * API key secret is set (`canFetch`), and otherwise ignored. Everything
- * else, including `payment.failed` (a capture can still follow) and
- * refunds, is acknowledged and ignored.
+ * API key secret is set (`canFetch`), and otherwise ignored.
+ * `refund.processed` queues its refund. Everything else, including
+ * `payment.failed` (a capture can still follow) and the other refund
+ * events, is acknowledged and ignored.
  */
 export function routeRazorpayEvent(
   body: unknown,
@@ -143,12 +238,15 @@ export function routeRazorpayEvent(
       ? (body as { event: string }).event
       : "";
   const paymentId = paymentIdOf(body);
-  if (REFUND_EVENTS.has(event)) {
+  if (event === REFUND_PROCESSED) {
+    return routeRefund(body, event, canFetch);
+  }
+  if (OTHER_REFUND_EVENTS.has(event)) {
     return {
       action: "ignore",
       event,
-      paymentId,
-      reason: "refund_not_handled_yet",
+      paymentId: paymentId ?? refundIdsOf(body).paymentId,
+      reason: "refund_not_processed",
     };
   }
   if (!PAYMENT_EVENTS.has(event)) {
@@ -163,7 +261,7 @@ export function routeRazorpayEvent(
       ? { action: "fetch", event, paymentId }
       : { action: "ignore", event, paymentId, reason: "malformed_payment" };
   }
-  if (parsed.data.status !== "captured") {
+  if (!isCapturedPayment(parsed.data)) {
     return { action: "ignore", event, paymentId, reason: "not_captured" };
   }
   return { action: "stage", event, payment: parsed.data };

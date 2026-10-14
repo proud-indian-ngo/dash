@@ -267,6 +267,11 @@ function ContributionForm({
 }) {
   const zero = useZero();
   const isEdit = contribution !== null;
+  // A refund recorded against it fixes what the provider reported.
+  const refundLocked = (contribution?.refunds?.length ?? 0) > 0;
+  const lockedNote = refundLocked
+    ? "Fixed: a refund is recorded against this contribution."
+    : undefined;
   // Fixed for the life of the form so a retried save cannot duplicate.
   const [id] = useState(() => contribution?.id ?? uuidv7());
   const [donorDialogOpen, setDonorDialogOpen] = useState(false);
@@ -345,6 +350,8 @@ function ContributionForm({
         <div className="flex items-end gap-2">
           <div className="min-w-0 flex-1">
             <ComboboxField
+              description={lockedNote}
+              disabled={refundLocked}
               emptyMessage="No donors match. Add a new donor instead."
               isRequired
               label="Donor"
@@ -353,7 +360,12 @@ function ContributionForm({
               placeholder="Search donors..."
             />
           </div>
-          <Button onClick={openDonorDialog} type="button" variant="outline">
+          <Button
+            disabled={refundLocked}
+            onClick={openDonorDialog}
+            type="button"
+            variant="outline"
+          >
             <HugeiconsIcon
               className="size-4"
               icon={UserAdd01Icon}
@@ -363,14 +375,21 @@ function ContributionForm({
           </Button>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <InputField isRequired label="Amount (₹)" name="amount" />
+          <InputField
+            disabled={refundLocked}
+            isRequired
+            label="Amount (₹)"
+            name="amount"
+          />
           <DateField
+            disabled={refundLocked}
             isRequired
             label="Received on"
             maxDate={new Date()}
             name="receivedOn"
           />
           <SelectField
+            disabled={refundLocked}
             isRequired
             label="Channel"
             name="channel"
@@ -417,6 +436,7 @@ function ContributionForm({
                 </>
               ) : (
                 <ComboboxField
+                  disabled={refundLocked}
                   emptyMessage="No active accounts."
                   isRequired
                   label="Deposited into"

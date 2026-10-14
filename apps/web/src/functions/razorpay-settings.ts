@@ -4,10 +4,12 @@ import z from "zod";
 import { assertServerPermission } from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
 import { notesKeysSchema } from "@/lib/razorpay/notes-keys";
+import { dayCount, isRealIsoDay } from "@/lib/razorpay/reconcile";
 import {
   getRazorpaySettingsView,
   RazorpaySettingsError,
   type RazorpaySettingsView,
+  requestRazorpayReconcile,
   saveRazorpaySettings,
 } from "@/lib/razorpay/settings";
 import { withSafeErrors } from "@/lib/safe-errors";
@@ -16,19 +18,26 @@ import { authMiddleware } from "@/middleware/auth";
 /**
  * Settings → Integrations → Razorpay. finance.view reads the status (a read,
  * not audited); finance.manage saves the clearing account, the notes keys
- * or both, audited with the changed field names only. Query errors are logged by
- * code only and reach the browser as a generic message.
+ * or both, audited with the changed field names only, and queues a sync
+ * ("Sync now", `razorpay.sync`) or an import of past payments
+ * (`razorpay.backfill`), audited with the window's dates and day count.
+ * Sync now without the key secret only syncs payments stuck in the queue.
+ * Query errors are logged by code only and reach the browser as a generic
+ * message.
  */
 
-const safely = <T>(step: "read" | "save", work: () => Promise<T>) =>
+const MESSAGES = {
+  read: "Razorpay settings couldn't be loaded.",
+  save: "Razorpay settings couldn't be saved.",
+  sync: "The Razorpay sync couldn't be started.",
+} as const;
+
+const safely = <T>(step: keyof typeof MESSAGES, work: () => Promise<T>) =>
   withSafeErrors(
     {
       fields: { event: "razorpay_settings_failed", step },
       isUserFacing: (error) => error instanceof RazorpaySettingsError,
-      message:
-        step === "read"
-          ? "Razorpay settings couldn't be loaded."
-          : "Razorpay settings couldn't be saved.",
+      message: MESSAGES[step],
       path: "razorpay-settings",
     },
     work
@@ -78,3 +87,67 @@ export const updateRazorpaySettings = createServerFn({ method: "POST" })
       );
     }
   );
+
+export interface ReconcileQueued {
+  days: number;
+  from: string;
+  to: string;
+}
+
+/** Sync now: queues a reconcile of the last three days. */
+export const syncRazorpayNow = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<ReconcileQueued> => {
+    await assertServerPermission(context.session, "finance.manage");
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    return await runSessionAuditedAction(
+      context.session,
+      context.headers,
+      {
+        action: "razorpay.sync",
+        target: { type: "razorpay_settings" },
+      },
+      async () =>
+        await safely("sync", () =>
+          requestRazorpayReconcile({ reason: "manual" })
+        )
+    );
+  });
+
+/** A real calendar day, so 2026-02-31 is refused before anything runs. */
+const isoDay = z.string().refine(isRealIsoDay, "Not a real date");
+
+/** Import past payments: queues a reconcile of a chosen range of India days. */
+export const importPastRazorpayPayments = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ from: isoDay, to: isoDay }))
+  .handler(async ({ context, data }): Promise<ReconcileQueued> => {
+    await assertServerPermission(context.session, "finance.manage");
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    return await runSessionAuditedAction(
+      context.session,
+      context.headers,
+      {
+        action: "razorpay.backfill",
+        metadata: {
+          // Counted, not listed: the range is only checked once the run is asked for.
+          days: dayCount(data.from, data.to),
+          from: data.from,
+          to: data.to,
+        },
+        target: { type: "razorpay_settings" },
+      },
+      async () =>
+        await safely("sync", () =>
+          requestRazorpayReconcile({
+            from: data.from,
+            reason: "backfill",
+            to: data.to,
+          })
+        )
+    );
+  });

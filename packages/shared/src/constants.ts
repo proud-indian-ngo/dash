@@ -296,6 +296,11 @@ export type ContributionStatus = (typeof contributionStatusValues)[number];
 export const contributionSourceValues = ["manual", "import"] as const;
 export type ContributionSource = (typeof contributionSourceValues)[number];
 
+/** Where a refund of a contribution came from; manual entry comes later. */
+export const contributionRefundSourceValues = ["razorpay", "manual"] as const;
+export type ContributionRefundSource =
+  (typeof contributionRefundSourceValues)[number];
+
 /** Income that is not a donation and never enters donation filings. */
 export const otherIncomeKindValues = [
   "interest",
@@ -354,7 +359,8 @@ export const externalIdentityProviderValues = [
 export type ExternalIdentityProvider =
   (typeof externalIdentityProviderValues)[number];
 
-export const externalIdentityEntityTypeValues = ["payment"] as const;
+/** A payment became a contribution; a refund was applied to one. */
+export const externalIdentityEntityTypeValues = ["payment", "refund"] as const;
 export type ExternalIdentityEntityType =
   (typeof externalIdentityEntityTypeValues)[number];
 
