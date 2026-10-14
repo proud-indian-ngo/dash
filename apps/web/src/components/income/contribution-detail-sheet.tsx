@@ -1,4 +1,8 @@
-import { Delete02Icon, Edit02Icon } from "@hugeicons/core-free-icons";
+import {
+  Delete02Icon,
+  Edit02Icon,
+  LinkSquare02Icon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import type {
@@ -11,6 +15,7 @@ import {
   CONTRIBUTION_CHANNEL_LABELS,
   CONTRIBUTION_SOURCE_LABELS,
   DONATION_TYPE_LABELS,
+  razorpayPaymentUrl,
   REPORTING_MODE_LABELS,
   refundSummary,
 } from "@pi-dash/shared/income";
@@ -111,6 +116,8 @@ export function ContributionDetailSheet({
   const channel =
     CONTRIBUTION_CHANNEL_LABELS[row.channel as ContributionChannel];
   const refunded = refundSummary(row);
+  // A Razorpay import's reference is its payment ID: link to its dashboard page.
+  const razorpayUrl = razorpayPaymentUrl(row);
   const facts: [string, ReactNode][] = [
     ["Donor", donorName(row)],
     ["Amount", formatPaise(row.amountPaise)],
@@ -169,21 +176,43 @@ export function ContributionDetailSheet({
       <SheetContent>
         <DetailSheetHeader
           actions={
-            canEdit ? (
+            canEdit || razorpayUrl ? (
               <>
-                <Button
-                  onClick={() => onEdit(row)}
-                  type="button"
-                  variant="outline"
-                >
-                  <HugeiconsIcon
-                    className="size-4"
-                    icon={Edit02Icon}
-                    strokeWidth={2}
-                  />
-                  Edit
-                </Button>
-                {canDelete ? (
+                {razorpayUrl ? (
+                  <Button
+                    data-testid="open-in-razorpay"
+                    render={
+                      <a
+                        href={razorpayUrl}
+                        rel="noopener noreferrer"
+                        target="_blank"
+                      />
+                    }
+                    variant="outline"
+                  >
+                    <HugeiconsIcon
+                      className="size-4"
+                      icon={LinkSquare02Icon}
+                      strokeWidth={2}
+                    />
+                    Open in Razorpay
+                  </Button>
+                ) : null}
+                {canEdit ? (
+                  <Button
+                    onClick={() => onEdit(row)}
+                    type="button"
+                    variant="outline"
+                  >
+                    <HugeiconsIcon
+                      className="size-4"
+                      icon={Edit02Icon}
+                      strokeWidth={2}
+                    />
+                    Edit
+                  </Button>
+                ) : null}
+                {canEdit && canDelete ? (
                   <PageHeaderMenu
                     actions={[
                       {

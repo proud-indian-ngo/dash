@@ -398,6 +398,13 @@ test.describe("Income: Razorpay Payment Page", () => {
     await expect(
       page.getByRole("dialog").getByText("₹200.00 of ₹500.00 refunded")
     ).toBeVisible();
+    // The sheet links the payment to its Razorpay dashboard page.
+    const openInRazorpay = page.getByTestId("open-in-razorpay");
+    await expect(openInRazorpay).toHaveAttribute(
+      "href",
+      `https://dashboard.razorpay.com/app/payments/${paymentId}`
+    );
+    await expect(openInRazorpay).toHaveAttribute("target", "_blank");
     await expect(page.getByTestId("contribution-refunds")).toContainText(
       `rfnd_E2EA${run}`
     );
@@ -430,6 +437,13 @@ test.describe("Income: Razorpay Payment Page", () => {
       "Refunded",
       { timeout: 15_000 }
     );
+  });
+
+  test("a manual contribution has no Razorpay link", async ({ page }) => {
+    const row = (await contributionRows(page, "E2E Seed Donor")).first();
+    await row.getByText("E2E Seed Donor").click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByTestId("open-in-razorpay")).toHaveCount(0);
   });
 
   test("holds a refund that arrives before its payment and applies it at import", async ({

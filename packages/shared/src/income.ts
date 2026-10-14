@@ -218,6 +218,27 @@ export function refundSummary(
   };
 }
 
+const RAZORPAY_PAYMENT_ID = /^pay_[A-Za-z0-9]{1,40}$/;
+
+/**
+ * The Razorpay dashboard page of a contribution imported from Razorpay, or
+ * null. Such a contribution's reference is its payment ID, so nothing
+ * private is needed. The dashboard opens in whichever mode (live or test)
+ * the person has selected there; Razorpay enforces its own login.
+ */
+export function razorpayPaymentUrl(contribution: {
+  channel: string;
+  reference?: string | null;
+  source?: string | null;
+}): string | null {
+  const reference = contribution.reference ?? "";
+  return contribution.channel === "razorpay" &&
+    contribution.source === "import" &&
+    RAZORPAY_PAYMENT_ID.test(reference)
+    ? `https://dashboard.razorpay.com/app/payments/${reference}`
+    : null;
+}
+
 export interface ContributionRuleInput {
   channel: ContributionChannel;
   donationType: DonationType;

@@ -13,6 +13,7 @@ import {
   netReceivedPaise,
   refundedPaise,
   refundLockedChanges,
+  razorpayPaymentUrl,
   refundSummary,
   todayInKolkata,
 } from "./income";
@@ -154,6 +155,30 @@ describe("net received", () => {
       partly: false,
       refundedPaise: 50_000,
     });
+  });
+});
+
+describe("razorpayPaymentUrl", () => {
+  it("links a contribution imported from Razorpay to its dashboard page", () => {
+    expect(
+      razorpayPaymentUrl({
+        channel: "razorpay",
+        reference: "pay_Abc123",
+        source: "import",
+      })
+    ).toBe("https://dashboard.razorpay.com/app/payments/pay_Abc123");
+  });
+
+  it("does not link manual entries, other channels or other references", () => {
+    for (const contribution of [
+      { channel: "razorpay", reference: "pay_Abc123", source: "manual" },
+      { channel: "upi", reference: "pay_Abc123", source: "import" },
+      { channel: "razorpay", reference: "UTR-1", source: "import" },
+      { channel: "razorpay", reference: "pay_x/../y", source: "import" },
+      { channel: "razorpay", reference: null, source: "import" },
+    ]) {
+      expect(razorpayPaymentUrl(contribution)).toBeNull();
+    }
   });
 });
 
