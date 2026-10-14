@@ -2,6 +2,13 @@ import path from "node:path";
 
 import { auth } from "@pi-dash/auth";
 import { db } from "@pi-dash/db";
+import {
+  encryptSecret,
+  hasEncryptionKey,
+  visibleTail,
+} from "@pi-dash/db/encryption";
+import { partyIdNumberContext } from "@pi-dash/db/queries/party-private";
+import { appConfig } from "@pi-dash/db/schema/app-config";
 import { auditLog } from "@pi-dash/db/schema/audit-log";
 import { user } from "@pi-dash/db/schema/auth";
 import { bankAccount } from "@pi-dash/db/schema/bank-account";
@@ -366,6 +373,129 @@ async function ensureIncomeFixtures(userId: string): Promise<void> {
       since: now,
     })
     .onConflictDoNothing();
+}
+
+const RETURN_DONOR_ID = "01930000-0000-7000-8000-000000000731";
+const READY_DONOR_ID = "01930000-0000-7000-8000-000000000733";
+/** Must match the PAN the donations return spec expects in the upload file. */
+const READY_DONOR_PAN = "AAAPE1234E";
+
+/**
+ * Donations return fixtures, each with one gift today (so always in the
+ * current financial year): a donor with neither ID nor address, whose
+ * tax-certificate switch the spec flips (reset here on every run), and a
+ * donor with a PAN and an address whose gift is ready for the upload file
+ * (only when DATA_ENCRYPTION_KEY is set, as in CI and local runs). The 80G
+ * registration is cleared so the spec enters it through Settings.
+ */
+async function ensureReturnFixtures(userId: string): Promise<void> {
+  const now = new Date();
+  const todayInIndia = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+  }).format(now);
+  const donors = [
+    {
+      contributionId: "01930000-0000-7000-8000-000000000735",
+      id: RETURN_DONOR_ID,
+      name: "E2E Return Donor",
+      roleId: "01930000-0000-7000-8000-000000000732",
+    },
+    {
+      contributionId: "01930000-0000-7000-8000-000000000736",
+      id: READY_DONOR_ID,
+      name: "E2E Ready Donor",
+      roleId: "01930000-0000-7000-8000-000000000734",
+    },
+  ];
+  for (const donor of donors) {
+    await db
+      .insert(party)
+      .values({
+        createdAt: now,
+        createdBy: userId,
+        displayName: donor.name,
+        id: donor.id,
+        kind: "person",
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        set: { taxCertificateOptOut: false, updatedAt: now },
+        target: party.id,
+      });
+    await db
+      .insert(partyRole)
+      .values({
+        active: true,
+        id: donor.roleId,
+        partyId: donor.id,
+        role: "donor",
+        since: now,
+      })
+      .onConflictDoNothing();
+    await db
+      .insert(contribution)
+      .values({
+        amountPaise: 250_000,
+        channel: "upi",
+        createdAt: now,
+        createdBy: userId,
+        fundId: GENERAL_FUND_ID,
+        id: donor.contributionId,
+        orgAccountId: E2E_ORG_ACCOUNT_ID,
+        partyId: donor.id,
+        receivedOn: todayInIndia,
+        reference: `E2E-RETURN-${donor.contributionId.slice(-3)}`,
+        reportingMode: "electronic_or_account_payee",
+        status: "received",
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        set: {
+          deductionEligible: "unknown",
+          eligibilityReason: null,
+          receivedOn: todayInIndia,
+          status: "received",
+          updatedAt: now,
+        },
+        target: contribution.id,
+      });
+  }
+  // No ID and no address.
+  await db
+    .insert(partyPrivate)
+    .values({
+      email: "return-donor@pi-dash.test",
+      partyId: RETURN_DONOR_ID,
+      updatedAt: now,
+      updatedBy: userId,
+    })
+    .onConflictDoNothing();
+  if (hasEncryptionKey()) {
+    const values = {
+      addressLine1: "12, MG Road",
+      city: "Bengaluru",
+      idNumberEncrypted: encryptSecret(
+        READY_DONOR_PAN,
+        partyIdNumberContext(READY_DONOR_ID)
+      ),
+      idNumberLast4: visibleTail(READY_DONOR_PAN),
+      idType: "pan" as const,
+      pincode: "560001",
+      state: "Karnataka",
+      updatedAt: now,
+      updatedBy: userId,
+    };
+    await db
+      .insert(partyPrivate)
+      .values({ ...values, partyId: READY_DONOR_ID })
+      .onConflictDoUpdate({ set: values, target: partyPrivate.partyId });
+  }
+  await db
+    .delete(appConfig)
+    .where(eq(appConfig.key, "donations_return_registration"));
 }
 
 async function ensureExpenseCategories(): Promise<void> {
@@ -1479,6 +1609,7 @@ async function seed(): Promise<void> {
   await ensureLegacyVendor(superAdminUserId);
   await ensureDonorParty(superAdminUserId);
   await ensureIncomeFixtures(superAdminUserId);
+  await ensureReturnFixtures(superAdminUserId);
   await ensureExportVendorPayment(superAdminUserId);
   await ensureUpcomingEventReimbursement(superAdminUserId, upcomingEvent.id);
 }

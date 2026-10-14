@@ -194,6 +194,24 @@ describe("contributionRuleIssues", () => {
     expect(contributionRuleIssues(base)).toEqual([]);
   });
 
+  it("requires a reason when a gift is excluded from the donations return", () => {
+    expect(
+      contributionRuleIssues({ ...base, deductionEligible: "no" }).map(
+        (i) => i.path
+      )
+    ).toEqual(["eligibilityReason"]);
+    expect(
+      contributionRuleIssues({
+        ...base,
+        deductionEligible: "no",
+        eligibilityReason: "Donor declined",
+      })
+    ).toEqual([]);
+    expect(
+      contributionRuleIssues({ ...base, deductionEligible: "yes" })
+    ).toEqual([]);
+  });
+
   it("requires the deposit account unless the gift is in kind", () => {
     expect(
       contributionRuleIssues({ ...base, orgAccountId: null }).map((i) => i.path)

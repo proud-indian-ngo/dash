@@ -532,6 +532,102 @@ describe("contribution mutators", () => {
       run(contributionMutators.delete, db, donorsCtx, { id: "c-1" })
     ).rejects.toThrow("can't be deleted");
     expect(db.tables.contribution).toHaveLength(1);
+    // The tax certificate choice is classification, so it stays editable.
+    await run(
+      contributionMutators.update,
+      db,
+      donorsCtx,
+      contribution({
+        channel: "razorpay",
+        deductionEligible: "no",
+        eligibilityReason: "Donor declined",
+        fundId: "fund-2",
+        notes: "Kept",
+      })
+    );
+    expect(db.tables.contribution?.[0]).toMatchObject({
+      deductionEligible: "no",
+      eligibilityReason: "Donor declined",
+    });
+  });
+
+  it("stores the tax certificate choice and requires a reason to exclude", async () => {
+    expect(parse(contribution({ deductionEligible: "no" })).success).toBe(
+      false
+    );
+    const db = createDb();
+    await run(contributionMutators.create, db, donorsCtx, contribution());
+    expect(db.tables.contribution?.[0]).toMatchObject({
+      deductionEligible: "unknown",
+      eligibilityReason: null,
+    });
+    await run(
+      contributionMutators.update,
+      db,
+      donorsCtx,
+      contribution({
+        deductionEligible: "no",
+        eligibilityReason: " Not a donation ",
+      })
+    );
+    expect(db.tables.contribution?.[0]).toMatchObject({
+      deductionEligible: "no",
+      eligibilityReason: "Not a donation",
+    });
+    // Left out, an update keeps the stored choice.
+    await run(contributionMutators.update, db, donorsCtx, contribution());
+    expect(db.tables.contribution?.[0]).toMatchObject({
+      deductionEligible: "no",
+      eligibilityReason: "Not a donation",
+    });
+    // Include drops a stale reason.
+    await run(
+      contributionMutators.update,
+      db,
+      donorsCtx,
+      contribution({ deductionEligible: "yes", eligibilityReason: "old" })
+    );
+    expect(db.tables.contribution?.[0]).toMatchObject({
+      deductionEligible: "yes",
+      eligibilityReason: null,
+    });
+  });
+
+  it("lets the tax certificate choice change on a refunded import", async () => {
+    const db = createDb({
+      contribution: [
+        {
+          amountPaise: 500_000,
+          channel: "upi",
+          deductionEligible: "unknown",
+          eligibilityReason: null,
+          fundId: "fund-1",
+          id: "c-1",
+          orgAccountId: "acc-1",
+          partyId: "donor-1",
+          programmeId: null,
+          receivedOn: Date.UTC(2026, 9, 1),
+          source: "import",
+          status: "received",
+        },
+      ],
+      contributionRefund: [
+        { amountPaise: 100_000, contributionId: "c-1", id: "r-1" },
+      ],
+    });
+    await run(
+      contributionMutators.update,
+      db,
+      donorsCtx,
+      contribution({
+        deductionEligible: "no",
+        eligibilityReason: "Donor declined",
+      })
+    );
+    expect(db.tables.contribution?.[0]).toMatchObject({
+      deductionEligible: "no",
+      eligibilityReason: "Donor declined",
+    });
   });
 
   it("keeps a since-retired account on an edit that does not change it", async () => {

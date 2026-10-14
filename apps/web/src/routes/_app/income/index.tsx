@@ -3,6 +3,7 @@ import {
   BankIcon,
   Coins01Icon,
   FileImportIcon,
+  FileValidationIcon,
   MoneyAdd01Icon,
   MoneyReceive01Icon,
   PlusSignIcon,
@@ -508,7 +509,16 @@ function IncomeRouteComponent() {
   const openBank = useEventCallback(() => {
     navigate({ to: "/income/bank" });
   });
+  const openReturn = useEventCallback(() => {
+    navigate({ to: "/income/return" });
+  });
   const menuActions = [
+    {
+      icon: FileValidationIcon,
+      id: "donations-return",
+      label: "Donations return",
+      onSelect: openReturn,
+    },
     canManageContributions && {
       icon: FileImportIcon,
       id: "import",

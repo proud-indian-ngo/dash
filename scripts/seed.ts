@@ -584,6 +584,24 @@ const PARTIES = [
     roleId: "01930000-0000-7000-8000-000000000512",
     roles: ["intermediary"] as const,
   },
+  // Donations return fixtures: a donor who doesn't want a tax certificate
+  // (left out of the return, but name and address still needed) and one
+  // without an address (listed under "Missing donor details").
+  {
+    displayName: "Kiran Mehta",
+    id: "01930000-0000-7000-8000-000000000503",
+    kind: "person" as const,
+    roleId: "01930000-0000-7000-8000-000000000513",
+    roles: ["donor"] as const,
+    taxCertificateOptOut: true,
+  },
+  {
+    displayName: "Ravi Kumar",
+    id: "01930000-0000-7000-8000-000000000504",
+    kind: "person" as const,
+    roleId: "01930000-0000-7000-8000-000000000514",
+    roles: ["donor"] as const,
+  },
   // The intermediary of every give.do contribution; the first give.do import creates it in production.
   {
     displayName: GIVE_INDIA_PARTY_NAME,
@@ -593,6 +611,9 @@ const PARTIES = [
     roles: ["intermediary"] as const,
   },
 ];
+
+const OPTED_OUT_DONOR_ID = "01930000-0000-7000-8000-000000000503";
+const NO_ADDRESS_DONOR_ID = "01930000-0000-7000-8000-000000000504";
 
 /** Identity rows only; contact and ID details are entered through the app. */
 async function seedParties(adminId: string): Promise<void> {
@@ -607,6 +628,8 @@ async function seedParties(adminId: string): Promise<void> {
         id: p.id,
         kind: p.kind,
         legalName: "legalName" in p ? p.legalName : null,
+        taxCertificateOptOut:
+          "taxCertificateOptOut" in p ? p.taxCertificateOptOut : false,
         updatedAt: now,
       }))
     )
@@ -626,14 +649,34 @@ async function seedParties(adminId: string): Promise<void> {
   // Contact details without an identifier, so the seed works without DATA_ENCRYPTION_KEY.
   await db
     .insert(partyPrivate)
-    .values({
-      city: "Bengaluru",
-      email: "asha.rao@example.test",
-      partyId: PARTIES[0]?.id as string,
-      state: "Karnataka",
-      updatedAt: now,
-      updatedBy: adminId,
-    })
+    .values([
+      {
+        city: "Bengaluru",
+        email: "asha.rao@example.test",
+        partyId: PARTIES[0]?.id as string,
+        state: "Karnataka",
+        updatedAt: now,
+        updatedBy: adminId,
+      },
+      // Opted out: has an address, no ID number, and is not asked for one.
+      {
+        addressLine1: "14 Residency Road",
+        city: "Bengaluru",
+        email: "kiran.mehta@example.test",
+        partyId: OPTED_OUT_DONOR_ID,
+        pincode: "560025",
+        state: "Karnataka",
+        updatedAt: now,
+        updatedBy: adminId,
+      },
+      // No address: blocks the donations return.
+      {
+        email: "ravi.kumar@example.test",
+        partyId: NO_ADDRESS_DONOR_ID,
+        updatedAt: now,
+        updatedBy: adminId,
+      },
+    ])
     .onConflictDoNothing();
   log(`${PARTIES.length} parties ready`);
 }
@@ -699,6 +742,32 @@ const CONTRIBUTIONS = [
   },
 ];
 
+/** One gift each from the donations return fixtures, this financial year. */
+const RETURN_FIXTURE_CONTRIBUTIONS = [
+  {
+    amountPaise: 1_000_000,
+    channel: "upi" as const,
+    id: "01930000-0000-7000-8000-000000000615",
+    orgAccountId: ORG_ACCOUNTS[0]?.id,
+    partyId: OPTED_OUT_DONOR_ID,
+    programmeId: null,
+    receivedOn: "2026-07-04",
+    reference: "UTR-SEED-0015",
+    reportingMode: "electronic_or_account_payee" as const,
+  },
+  {
+    amountPaise: 300_000,
+    channel: "neft" as const,
+    id: "01930000-0000-7000-8000-000000000616",
+    orgAccountId: ORG_ACCOUNTS[0]?.id,
+    partyId: NO_ADDRESS_DONOR_ID,
+    programmeId: PROGRAMME_IDS.education,
+    receivedOn: "2026-09-10",
+    reference: "UTR-SEED-0016",
+    reportingMode: "electronic_or_account_payee" as const,
+  },
+];
+
 async function seedIncome(adminId: string): Promise<void> {
   log("Seeding income...");
   await db
@@ -725,6 +794,19 @@ async function seedIncome(adminId: string): Promise<void> {
         fundId: GENERAL_FUND_ID,
         orgAccountId: c.orgAccountId ?? null,
         partyId: DONOR_ID,
+        updatedAt: now,
+      }))
+    )
+    .onConflictDoNothing();
+  await db
+    .insert(contribution)
+    .values(
+      RETURN_FIXTURE_CONTRIBUTIONS.map((c) => ({
+        ...c,
+        createdAt: now,
+        createdBy: adminId,
+        fundId: GENERAL_FUND_ID,
+        orgAccountId: c.orgAccountId ?? null,
         updatedAt: now,
       }))
     )
@@ -808,7 +890,7 @@ async function seedIncome(adminId: string): Promise<void> {
   await seedImportBatch(adminId);
   await seedStatementLines(adminId);
   log(
-    `${ORG_ACCOUNTS.length} org accounts, ${CONTRIBUTIONS.length} contributions, 1 refund, 1 settlement, 1 other income, 1 import and ${STATEMENT_LINES.length} bank statement lines ready`
+    `${ORG_ACCOUNTS.length} org accounts, ${CONTRIBUTIONS.length + RETURN_FIXTURE_CONTRIBUTIONS.length} contributions, 1 refund, 1 settlement, 1 other income, 1 import and ${STATEMENT_LINES.length} bank statement lines ready`
   );
 }
 

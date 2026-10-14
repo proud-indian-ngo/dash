@@ -7,6 +7,7 @@ import type {
   ContributionReportingMode,
   ContributionSource,
   ContributionStatus,
+  DeductionEligible,
   DonationType,
   OtherIncomeKind,
 } from "./constants";
@@ -241,8 +242,11 @@ export function razorpayPaymentUrl(contribution: {
 
 export interface ContributionRuleInput {
   channel: ContributionChannel;
+  /** The gift's tax certificate choice; "no" (Exclude) needs a reason. */
+  deductionEligible?: DeductionEligible | null;
   donationType: DonationType;
   donationTypeDescription?: string | null;
+  eligibilityReason?: string | null;
   inKindDescription?: string | null;
   inKindValuationBasis?: string | null;
   orgAccountId?: string | null;
@@ -274,6 +278,12 @@ export function contributionRuleIssues(v: ContributionRuleInput): RuleIssue[] {
     issues.push({
       message: "Describe the donation type",
       path: "donationTypeDescription",
+    });
+  }
+  if (v.deductionEligible === "no" && blank(v.eligibilityReason)) {
+    issues.push({
+      message: "Say why this gift is left out of the donations return",
+      path: "eligibilityReason",
     });
   }
   if (v.channel === "in_kind") {

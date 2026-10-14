@@ -25,9 +25,12 @@ test.describe("Income access", () => {
     await expect(
       page.getByRole("button", { name: "Record contribution" })
     ).toHaveCount(0);
-    // finance.view: the menu only leads to Bank statements.
+    // finance.view: the menu leads to the donations return and bank statements.
     await page.getByRole("button", { name: "More actions" }).click();
-    await expect(page.getByRole("menuitem")).toHaveText(["Bank statements"]);
+    await expect(page.getByRole("menuitem")).toHaveText([
+      "Donations return",
+      "Bank statements",
+    ]);
     await page.keyboard.press("Escape");
     await expect(page.getByRole("tab", { name: "Imports" })).toBeVisible();
     // finance.view: settlements are visible.

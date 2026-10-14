@@ -96,7 +96,7 @@ export const SETTINGS_SECTIONS = [
   },
   {
     description:
-      "The bank, cash and gateway accounts income is deposited into.",
+      "The bank, cash and gateway accounts income is deposited into, and the 80G registration the donations return carries.",
     group: "organization",
     icon: Wallet01Icon,
     label: "Organisation accounts",

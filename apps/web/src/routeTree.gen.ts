@@ -44,6 +44,7 @@ import { Route as AppEventsIndexRouteImport } from './routes/_app/events/index'
 import { Route as AppEventsIdRouteImport } from './routes/_app/events/$id'
 import { Route as AppIncomeIndexRouteImport } from './routes/_app/income/index'
 import { Route as AppIncomeImportRouteImport } from './routes/_app/income/import'
+import { Route as AppIncomeReturnRouteImport } from './routes/_app/income/return'
 import { Route as AppKalakritiIndexRouteImport } from './routes/_app/kalakriti/index'
 import { Route as AppKalakritiYearRouteRouteImport } from './routes/_app/kalakriti/$year/route'
 import { Route as AppKalakritiNewRouteImport } from './routes/_app/kalakriti/new'
@@ -313,6 +314,11 @@ const AppIncomeIndexRoute = AppIncomeIndexRouteImport.update({
 const AppIncomeImportRoute = AppIncomeImportRouteImport.update({
   id: '/import',
   path: '/import',
+  getParentRoute: () => AppIncomeRouteRoute,
+} as any)
+const AppIncomeReturnRoute = AppIncomeReturnRouteImport.update({
+  id: '/return',
+  path: '/return',
   getParentRoute: () => AppIncomeRouteRoute,
 } as any)
 const AppKalakritiIndexRoute = AppKalakritiIndexRouteImport.update({
@@ -865,6 +871,7 @@ export interface FileRoutesByFullPath {
   '/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
   '/events/$id': typeof AppEventsIdRoute
   '/income/import': typeof AppIncomeImportRoute
+  '/income/return': typeof AppIncomeReturnRoute
   '/kalakriti/new': typeof AppKalakritiNewRoute
   '/reimbursements/$id': typeof AppReimbursementsIdRoute
   '/reimbursements/new': typeof AppReimbursementsNewRoute
@@ -986,6 +993,7 @@ export interface FileRoutesByTo {
   '/api/health': typeof ApiHealthRoute
   '/events/$id': typeof AppEventsIdRoute
   '/income/import': typeof AppIncomeImportRoute
+  '/income/return': typeof AppIncomeReturnRoute
   '/kalakriti/new': typeof AppKalakritiNewRoute
   '/reimbursements/$id': typeof AppReimbursementsIdRoute
   '/reimbursements/new': typeof AppReimbursementsNewRoute
@@ -1118,6 +1126,7 @@ export interface FileRoutesById {
   '/_app/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
   '/_app/events/$id': typeof AppEventsIdRoute
   '/_app/income/import': typeof AppIncomeImportRoute
+  '/_app/income/return': typeof AppIncomeReturnRoute
   '/_app/kalakriti/new': typeof AppKalakritiNewRoute
   '/_app/reimbursements/$id': typeof AppReimbursementsIdRoute
   '/_app/reimbursements/new': typeof AppReimbursementsNewRoute
@@ -1252,6 +1261,7 @@ export interface FileRouteTypes {
     | '/settings/roles'
     | '/events/$id'
     | '/income/import'
+    | '/income/return'
     | '/kalakriti/new'
     | '/reimbursements/$id'
     | '/reimbursements/new'
@@ -1373,6 +1383,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/events/$id'
     | '/income/import'
+    | '/income/return'
     | '/kalakriti/new'
     | '/reimbursements/$id'
     | '/reimbursements/new'
@@ -1504,6 +1515,7 @@ export interface FileRouteTypes {
     | '/_app/settings/roles'
     | '/_app/events/$id'
     | '/_app/income/import'
+    | '/_app/income/return'
     | '/_app/kalakriti/new'
     | '/_app/reimbursements/$id'
     | '/_app/reimbursements/new'
@@ -1892,6 +1904,13 @@ declare module '@tanstack/react-router' {
       path: '/import'
       fullPath: '/income/import'
       preLoaderRoute: typeof AppIncomeImportRouteImport
+      parentRoute: typeof AppIncomeRouteRoute
+    }
+    '/_app/income/return': {
+      id: '/_app/income/return'
+      path: '/return'
+      fullPath: '/income/return'
+      preLoaderRoute: typeof AppIncomeReturnRouteImport
       parentRoute: typeof AppIncomeRouteRoute
     }
     '/_app/kalakriti/': {
@@ -2604,6 +2623,7 @@ const AppEventsRouteRouteWithChildren = AppEventsRouteRoute._addFileChildren(
 
 interface AppIncomeRouteRouteChildren {
   AppIncomeImportRoute: typeof AppIncomeImportRoute
+  AppIncomeReturnRoute: typeof AppIncomeReturnRoute
   AppIncomeIndexRoute: typeof AppIncomeIndexRoute
   AppIncomeBankImportRoute: typeof AppIncomeBankImportRoute
   AppIncomeImportsBatchIdRoute: typeof AppIncomeImportsBatchIdRoute
@@ -2612,6 +2632,7 @@ interface AppIncomeRouteRouteChildren {
 
 const AppIncomeRouteRouteChildren: AppIncomeRouteRouteChildren = {
   AppIncomeImportRoute: AppIncomeImportRoute,
+  AppIncomeReturnRoute: AppIncomeReturnRoute,
   AppIncomeIndexRoute: AppIncomeIndexRoute,
   AppIncomeBankImportRoute: AppIncomeBankImportRoute,
   AppIncomeImportsBatchIdRoute: AppIncomeImportsBatchIdRoute,
