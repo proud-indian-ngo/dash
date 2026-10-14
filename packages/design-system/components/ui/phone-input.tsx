@@ -92,7 +92,7 @@ function CountrySelect({
         render={
           <Button
             aria-label="Select country"
-            className="h-9 pointer-coarse:h-10 rounded-r-none border-r-0 px-2.5"
+            className="h-9 pointer-coarse:h-10 rounded-r-none border-r-0 border-control px-2.5 dark:border-control"
             disabled={isDisabled}
             type="button"
             variant="outline"
