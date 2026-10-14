@@ -1,5 +1,3 @@
-import type { ContributionRefundAttention } from "@pi-dash/shared/constants";
-
 /**
  * What recording one provider refund does to a contribution, decided from
  * what is already stored. Pure, so the rules are unit-tested; the query in
@@ -8,11 +6,14 @@ import type { ContributionRefundAttention } from "@pi-dash/shared/constants";
  *
  * - The refund's identity seen before with the same fingerprint: nothing.
  * - Seen before with another fingerprint (Razorpay reports another amount):
- *   flag the stored refund, never overwrite it.
+ *   flag the stored refund once, never overwrite it.
  * - New: record it. Once the refunds cover the amount, a pending or
  *   received contribution becomes `refunded`; a receipted one keeps its
- *   status and the refund is flagged; a reversed or already refunded one
- *   only gets the record.
+ *   status and the refund is flagged as after receipt; a reversed or
+ *   already refunded one only gets the record.
+ *
+ * The two flags are separate columns, so flagging a changed amount never
+ * clears "after receipt".
  */
 
 export type RefundPlan =
@@ -20,15 +21,15 @@ export type RefundPlan =
   | { action: "flag_changed" }
   | {
       action: "record";
-      attention: ContributionRefundAttention | null;
+      refundAfterReceipt: boolean;
       /** Set when the contribution's status changes. */
       status: "refunded" | null;
     };
 
 export interface RefundPlanInput {
   contribution: { amountPaise: number; status: string };
-  /** The stored identity's fingerprint, when the refund was seen before. */
-  knownPayloadHash: string | null;
+  /** The stored refund, when its identity was seen before. */
+  known: { amountChanged: boolean; payloadHash: string } | null;
   refund: { amountPaise: number; payloadHash: string };
   /** Sum of the refunds already recorded against the contribution. */
   refundedBeforePaise: number;
@@ -38,8 +39,10 @@ export interface RefundPlanInput {
 const REFUNDABLE_STATUSES = new Set(["pending", "received"]);
 
 export function planRefund(input: RefundPlanInput): RefundPlan {
-  if (input.knownPayloadHash !== null) {
-    return input.knownPayloadHash === input.refund.payloadHash
+  if (input.known) {
+    // A change already flagged is not news a second time.
+    return input.known.payloadHash === input.refund.payloadHash ||
+      input.known.amountChanged
       ? { action: "already_applied" }
       : { action: "flag_changed" };
   }
@@ -48,7 +51,7 @@ export function planRefund(input: RefundPlanInput): RefundPlan {
     input.refundedBeforePaise + input.refund.amountPaise >= amountPaise;
   return {
     action: "record",
-    attention: status === "receipted" ? "refund_after_receipt" : null,
+    refundAfterReceipt: status === "receipted",
     status: covered && REFUNDABLE_STATUSES.has(status) ? "refunded" : null,
   };
 }

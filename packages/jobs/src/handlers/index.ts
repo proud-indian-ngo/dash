@@ -147,24 +147,27 @@ const QUEUE_OVERRIDES: Partial<
   // server, which owns the import rules (apps/web/server/plugins/jobs.ts).
   // One queued or running reconcile at a time (no singletonKey, so the
   // whole queue): a second send, scheduled or from Settings, is refused,
-  // and runs never overlap. A backfill can take a while; the handler stops
-  // itself before this expiry, and an expired run is not retried, so an
-  // expired job never runs alongside a new one.
+  // and runs never overlap. The worker sends a heartbeat every 30 seconds,
+  // so a run whose process died fails within a minute or two instead of
+  // looking busy until its 4-hour expiry; the handler stops itself before
+  // that expiry, and a failed or expired run is not retried, so it never
+  // runs alongside a new one.
   "razorpay-reconcile": {
     expireInSeconds: 4 * 60 * 60,
+    heartbeatSeconds: 60,
     policy: "exclusive",
     retryLimit: 0,
   },
   "razorpay-sync-payment": { policy: "stately" },
-  // Keyed by refund ID. A refund whose payment is not imported yet throws
-  // and is retried with backoff (1 minute doubling to 1 hour) for about a
-  // day; the reconcile run picks up the rest.
+  // Keyed by refund ID. A refund whose payment is not imported yet is held
+  // for it and the job ends; retries are for a refund the API does not show
+  // as processed yet, or a failure (1 minute doubling to 1 hour).
   "razorpay-sync-refund": {
     policy: "stately",
     retryBackoff: true,
     retryDelay: 60,
     retryDelayMax: 60 * 60,
-    retryLimit: 26,
+    retryLimit: 8,
   },
   "send-scheduled-whatsapp": { deadLetter: DEAD_LETTER_SCHEDULED_WHATSAPP },
   "whatsapp-create-group": { expireInSeconds: 1800 },

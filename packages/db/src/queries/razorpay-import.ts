@@ -9,6 +9,7 @@ import {
   max,
   notExists,
   or,
+  type SQL,
   sql,
 } from "drizzle-orm";
 
@@ -140,11 +141,29 @@ export async function insertRazorpayBatch(
 }
 
 /**
+ * How a payment's staged row is recognised: by the payment ID kept in
+ * `external_id` (which survives retention), by the ID in its values (rows
+ * staged before `external_id` existed), or by the external identity it was
+ * imported or linked under.
+ */
+export function razorpayPaymentRowMatch(paymentId: string): SQL {
+  return or(
+    eq(importRow.externalId, paymentId),
+    sql`${importRow.raw}->>'id' = ${paymentId}`,
+    sql`${importRow.externalIdentityId} in (
+      select ${externalIdentity.id} from ${externalIdentity}
+      where ${externalIdentity.provider} = 'razorpay'
+        and ${externalIdentity.entityType} = 'payment'
+        and ${externalIdentity.externalId} = ${paymentId}
+    )`
+  ) as SQL;
+}
+
+/**
  * The staged row of a payment, looked up in the batches of its day only (a
- * payment's day never changes): by the payment ID in its values, or, once
- * retention has nulled those, by the external identity the row was imported
- * or linked under. A pending row is never nulled, so a payment that is still
- * waiting is always found and a redelivery never stages it twice.
+ * payment's day never changes). A row keeps its payment ID in `external_id`
+ * after retention nulls its values, so a payment that was skipped or failed
+ * is found again and a redelivery or a backfill never stages it twice.
  */
 export async function findRazorpayPaymentRow(
   executor: Reader,
@@ -159,22 +178,7 @@ export async function findRazorpayPaymentRow(
       and(
         eq(importBatch.source, "razorpay_api"),
         eq(importBatch.fileHash, key),
-        or(
-          sql`${importRow.raw}->>'id' = ${paymentId}`,
-          inArray(
-            importRow.externalIdentityId,
-            executor
-              .select({ id: externalIdentity.id })
-              .from(externalIdentity)
-              .where(
-                and(
-                  eq(externalIdentity.provider, "razorpay"),
-                  eq(externalIdentity.entityType, "payment"),
-                  eq(externalIdentity.externalId, paymentId)
-                )
-              )
-          )
-        )
+        razorpayPaymentRowMatch(paymentId)
       )
     )
     .orderBy(importRow.createdAt)
@@ -439,4 +443,55 @@ export async function recountImportBatches(
     recounted += 1;
   }
   return recounted;
+}
+
+/**
+ * Whether pg-boss holds an open `razorpay-reconcile` job (queued, retrying
+ * or running). The queue allows one at a time, so this is what decides
+ * whether a new run can be sent.
+ */
+export async function hasOpenReconcileJob(): Promise<boolean> {
+  try {
+    const [row] = await db.execute<{ one: number }>(
+      sql`select 1 as one from pgboss.job
+          where name = 'razorpay-reconcile'
+            and state in ('created', 'retry', 'active')
+          limit 1`
+    );
+    return row !== undefined;
+  } catch (error) {
+    // Before pg-boss has created its schema there can be no job. The
+    // Postgres code sits on the error or, through drizzle, on its cause.
+    let current: unknown = error;
+    for (let depth = 0; depth < 4 && current instanceof Object; depth += 1) {
+      const e = current as { cause?: unknown; code?: unknown; errno?: unknown };
+      if ([e.code, e.errno].some((c) => c === "42P01" || c === "3F000")) {
+        return false;
+      }
+      current = e.cause;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Writes a Razorpay setting only while it still holds `expected`, so a
+ * request putting back its own state never overwrites another's.
+ */
+export async function replaceRazorpayConfigIf(
+  name: keyof typeof RAZORPAY_CONFIG_KEYS,
+  expected: string,
+  value: string
+): Promise<boolean> {
+  const rows = await db
+    .update(appConfig)
+    .set({ updatedAt: new Date(), value })
+    .where(
+      and(
+        eq(appConfig.key, RAZORPAY_CONFIG_KEYS[name]),
+        eq(appConfig.value, expected)
+      )
+    )
+    .returning({ key: appConfig.key });
+  return rows.length > 0;
 }

@@ -37,6 +37,8 @@ const paymentRefunds = (paymentId: string) =>
   }>("refunds", paymentId);
 const refundJobsSettled = (refundId: string) =>
   fixture<boolean>("refund-settled", refundId);
+const pendingRefunds = (paymentId: string) =>
+  fixture<number>("pending-refunds", paymentId);
 
 /**
  * Razorpay Payment Page ingestion end to end: signed webhooks in, donors and
@@ -421,19 +423,78 @@ test.describe("Income: Razorpay Payment Page", () => {
     await expect(refundedRow).not.toContainText("Partly refunded");
   });
 
-  test("Sync now and Import past payments are off without the key secret", async ({
+  test("holds a refund that arrives before its payment and applies it at import", async ({
+    page,
+    request,
+  }) => {
+    test.slow();
+    const run = String(Date.now());
+    const donor = `E2E Razorpay Early Refund ${run}`;
+    const paymentId = `pay_E2EEarly${run}`;
+    const refundId = `rfnd_E2EEarly${run}`;
+    await fixture("restore-clearing", E2E_CLEARING_ID);
+
+    // The refund first: nothing to apply it to, so it is held.
+    expect(
+      (
+        await post(
+          request,
+          refundEvent({ amount: 50_000, id: refundId, paymentId })
+        )
+      ).status()
+    ).toBe(200);
+    await expect
+      .poll(() => refundJobsSettled(refundId), { timeout: 30_000 })
+      .toBe(true);
+    expect(await pendingRefunds(paymentId)).toBe(1);
+    await page.goto("/settings/integrations");
+    await waitForZeroReady(page);
+    await expect(page.getByTestId("razorpay-pending-refunds")).toContainText(
+      "waiting for"
+    );
+
+    // Then the payment: imported, and the held refund applied in the same
+    // transaction, so the gift is refunded at once.
+    const paid = capturedEvent("payment.captured", {
+      amount: 50_000,
+      contact: runPhone(run),
+      email: `rzp-early-${run}@example.test`,
+      id: paymentId,
+      notes: { "Full Name": donor, "PAN Number": runPan(run) },
+    });
+    expect((await post(request, paid)).status()).toBe(200);
+    await expect
+      .poll(() => paymentRefunds(paymentId), { timeout: 30_000 })
+      .toEqual({
+        refunds: [{ amountPaise: 50_000, reference: refundId }],
+        status: "refunded",
+      });
+    expect(await pendingRefunds(paymentId)).toBe(0);
+  });
+
+  test("without the key secret, Sync now retries stuck payments and Import past payments is off", async ({
     page,
   }) => {
+    test.slow();
     await page.goto("/settings/integrations");
     await waitForZeroReady(page);
     await expect(page.getByTestId("razorpay-sync-unavailable")).toContainText(
       "RAZORPAY_KEY_SECRET"
     );
-    await expect(page.getByTestId("razorpay-last-sync")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Sync now" })).toBeDisabled();
     await expect(
       page.getByRole("button", { name: "Import past payments" })
     ).toBeDisabled();
     await expect(page.getByText("refund.processed")).toBeVisible();
+
+    const syncNow = page.getByRole("button", { name: "Sync now" });
+    await expect(syncNow).toBeEnabled();
+    await syncNow.click();
+    await expect(page.getByText("Syncing with Razorpay")).toBeVisible();
+    // The run finishes without listing anything from Razorpay.
+    await expect(page.getByTestId("razorpay-last-sync")).toContainText(
+      "stuck payments retried",
+      { timeout: 60_000 }
+    );
+    await expect(syncNow).toBeEnabled({ timeout: 15_000 });
   });
 });

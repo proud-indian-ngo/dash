@@ -2,7 +2,7 @@ import { RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { currentFinancialYear } from "@pi-dash/shared/income";
+import { currentFinancialYear, todayInKolkata } from "@pi-dash/shared/income";
 import { useForm } from "@tanstack/react-form";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
@@ -50,11 +50,22 @@ export function lastSyncLine(last: Run | null): string {
   if (last.status === "failed") {
     return `${when} · Couldn't finish; it runs again on its own`;
   }
-  const parts = [
-    when,
-    count(last.counts.checked, "payment checked", "payments checked"),
-    `${last.counts.new.toLocaleString("en-IN")} new`,
-  ];
+  const parts = [when];
+  if (last.listed) {
+    parts.push(
+      count(last.counts.checked, "payment checked", "payments checked"),
+      `${last.counts.new.toLocaleString("en-IN")} new`
+    );
+  }
+  if (last.counts.retried > 0 || !last.listed) {
+    parts.push(
+      count(
+        last.counts.retried,
+        "stuck payment retried",
+        "stuck payments retried"
+      )
+    );
+  }
   if (last.counts.refundsApplied > 0) {
     parts.push(count(last.counts.refundsApplied, "refund", "refunds"));
   }
@@ -71,6 +82,9 @@ export function activeLine(active: Run): string {
     ? `Syncing… ${active.windowsDone.toLocaleString("en-IN")} of ${count(active.windowsTotal, "day", "days")}`
     : "Syncing…";
 }
+
+/** India's today as a local date for the picker, whatever the browser's timezone. */
+const indiaToday = () => isoToLocalDate(todayInKolkata());
 
 const isoToLocalDate = (iso: string) => {
   const [y, m, d] = iso.split("-").map(Number);
@@ -107,7 +121,7 @@ function ImportPastForm({
   onQueued: () => void;
 }) {
   const importPast = useServerFn(importPastRazorpayPayments);
-  const today = new Date();
+  const today = indiaToday();
   const form = useForm({
     defaultValues: {
       from: isoToLocalDate(currentFinancialYear().startsOn),
@@ -171,8 +185,10 @@ function ImportPastForm({
 
 /**
  * Settings → Integrations: "Sync now" and "Import past payments", with the
- * run in progress or the last result. Both need finance.manage and the API
- * key secret; without the secret they stay visible but off, with the reason.
+ * run in progress (as pg-boss holds it) or the last result. Both need
+ * finance.manage. Without the key secret, Sync now only retries payments
+ * stuck in the queue, and Import past payments stays visible but off, with
+ * the reason.
  */
 export function RazorpaySyncCard({
   canManage,
@@ -186,7 +202,8 @@ export function RazorpaySyncCard({
   const syncNow = useServerFn(syncRazorpayNow);
   const [starting, setStarting] = useState(false);
   const busy = starting || reconcile.active !== null;
-  const off = reconcile.unavailableReason !== null;
+  const syncOff = reconcile.syncUnavailableReason !== null;
+  const backfillOff = reconcile.backfillUnavailableReason !== null;
 
   const handleSync = useEventCallback(async () => {
     setStarting(true);
@@ -203,22 +220,26 @@ export function RazorpaySyncCard({
       toast.error("Couldn't start the sync", {
         description: error instanceof Error ? error.message : undefined,
       });
+      // Another run may be holding the queue: show it.
+      onChanged();
     } finally {
       setStarting(false);
     }
   });
 
+  const unavailable =
+    reconcile.syncUnavailableReason ?? reconcile.backfillUnavailableReason;
   return (
     <SettingsCard
-      description="Catches payments and refunds whose webhooks were missed. It also runs on its own every 6 hours over the last 3 days."
+      description="Catches payments and refunds whose webhooks were missed, and retries payments stuck in the queue. It also runs on its own every 6 hours over the last 3 days."
       title="Sync with Razorpay"
     >
-      {off ? (
+      {unavailable ? (
         <p
           className="text-muted-foreground px-4 py-3 text-sm"
           data-testid="razorpay-sync-unavailable"
         >
-          {reconcile.unavailableReason}
+          {unavailable}
         </p>
       ) : null}
       <SettingsRow title={reconcile.active ? "Sync" : "Last sync"}>
@@ -231,11 +252,15 @@ export function RazorpaySyncCard({
       {canManage ? (
         <>
           <SettingsRow
-            description="Checks today and the 3 days before."
+            description={
+              reconcile.listsFromApi
+                ? "Checks today and the 3 days before."
+                : "Retries payments stuck in the queue; without the key secret it can't list payments from Razorpay."
+            }
             title="Sync now"
           >
             <Button
-              disabled={off || busy}
+              disabled={syncOff || busy}
               onClick={handleSync}
               type="button"
               variant="outline"
@@ -257,7 +282,10 @@ export function RazorpaySyncCard({
                 are left as they are.
               </p>
             </div>
-            <ImportPastForm disabled={off || busy} onQueued={onChanged} />
+            <ImportPastForm
+              disabled={backfillOff || busy}
+              onQueued={onChanged}
+            />
           </div>
         </>
       ) : null}

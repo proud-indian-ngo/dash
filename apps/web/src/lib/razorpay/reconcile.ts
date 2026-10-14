@@ -5,6 +5,9 @@ import {
 } from "@pi-dash/db/queries/razorpay-import";
 import type { RazorpayReconcilePayload } from "@pi-dash/jobs/types";
 import { todayInKolkata } from "@pi-dash/shared/income";
+import { createRequestLogger } from "evlog";
+
+import { databaseErrorFields, sanitizedError } from "@/lib/safe-errors";
 
 import {
   createRazorpayClient,
@@ -33,15 +36,17 @@ import {
 } from "./refund";
 
 /**
- * Server-only. The `razorpay-reconcile` run: catches payments and refunds
- * whose webhooks were missed, and imports past payments (backfill). It
- * walks India days one at a time, lists each day's payments and refunds
- * from the API (sequentially, paced, backing off on 429), and puts every
- * captured payment through the webhook's own path (same staging, identity
- * and rules), so a webhook and a reconcile never count a payment twice.
- * Before that it syncs payments stuck queued or `sync_failed` for over an
- * hour, and afterwards recounts every batch it touched. Its progress and
- * last result live in app_config as dates and counts only.
+ * Server-only. The `razorpay-reconcile` run. First it syncs payments stuck
+ * queued or `sync_failed` for over an hour (from the API with the key
+ * secret, otherwise from their staged webhook copy). Then, with the key
+ * secret only, it catches payments and refunds whose webhooks were missed,
+ * or imports past payments (backfill): it walks India days one at a time,
+ * lists each day's payments and refunds from the API (sequentially, paced,
+ * backing off on 429), and puts every captured payment through the
+ * webhook's own path (same staging, identity and rules), so a webhook and a
+ * reconcile never count a payment twice. Afterwards it recounts every batch
+ * it touched. Its progress and last result live in app_config as dates and
+ * counts only.
  */
 
 export type ReconcileReason = RazorpayReconcilePayload["reason"];
@@ -56,8 +61,8 @@ export const STALE_AFTER_MS = 60 * 60 * 1000;
 export const RUN_TIME_LIMIT_MS = 3.5 * 60 * 60 * 1000;
 /** Least gap between two API calls of a run. */
 const API_GAP_MS = 250;
-/** A run whose progress has not moved for this long is taken as dead. */
-export const RUN_STALE_MS = 30 * 60 * 1000;
+/** The stuck-payment pass writes its progress this often. */
+const STALE_PROGRESS_EVERY = 10;
 
 const INDIA_OFFSET_SECONDS = 5.5 * 60 * 60;
 const DAY_SECONDS = 24 * 60 * 60;
@@ -77,7 +82,7 @@ export interface ReconcileCounts {
   refundsApplied: number;
   /** Refunds seen again with another amount; flagged. */
   refundsChanged: number;
-  /** Refunds whose payment is not a contribution yet. */
+  /** Refunds whose payment is not a contribution yet; held for it. */
   refundsWaiting: number;
   /** Stuck payments synced again. */
   retried: number;
@@ -105,7 +110,11 @@ export interface ReconcileState {
   errorCode?: string;
   finishedAt?: string;
   from: string;
+  /** False when the run had no key secret and only synced stuck payments. */
+  listed: boolean;
   reason: ReconcileReason;
+  /** Tells a request's own queued state from another request's. */
+  requestId?: string;
   startedAt?: string;
   status: "failed" | "ok" | "queued" | "running";
   to: string;
@@ -130,6 +139,11 @@ export function addDays(day: string, n: number): string {
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
 }
 
+/** Whether `day` is a real yyyy-MM-dd date (not 2026-02-31). */
+export function isRealIsoDay(day: string): boolean {
+  return ISO_DAY.test(day) && addDays(day, 0) === day;
+}
+
 /** Days from `from` to `to`, both included; empty when `from` is later. */
 export function daysBetween(from: string, to: string): string[] {
   const days: string[] = [];
@@ -139,11 +153,15 @@ export function daysBetween(from: string, to: string): string[] {
   return days;
 }
 
-/** One India day as unix seconds, midnight to 23:59:59 IST. */
+/**
+ * One India day as unix seconds, from its midnight IST to the next day's
+ * midnight. Razorpay's `to` is inclusive, so a payment at exactly midnight
+ * is listed by both days; staging is idempotent, so that is harmless.
+ */
 export function indiaDayWindow(day: string): UnixWindow {
   const [y, m, d] = dayParts(day);
   const from = Date.UTC(y, m - 1, d) / 1000 - INDIA_OFFSET_SECONDS;
-  return { from, to: from + DAY_SECONDS - 1 };
+  return { from, to: from + DAY_SECONDS };
 }
 
 /** The scheduled and "Sync now" range: today and the three days before. */
@@ -161,8 +179,8 @@ export function backfillRangeError(
   to: string,
   now: Date = new Date()
 ): string | null {
-  if (!(ISO_DAY.test(from) && ISO_DAY.test(to))) {
-    return "Pick a From and a To date";
+  if (!(isRealIsoDay(from) && isRealIsoDay(to))) {
+    return "Pick a real From and To date";
   }
   if (from > to) {
     return "From must be on or before To";
@@ -187,25 +205,43 @@ export function parseReconcileState(
   try {
     const parsed = JSON.parse(value) as ReconcileState | null;
     return parsed && typeof parsed === "object" && "status" in parsed
-      ? parsed
+      ? { ...parsed, listed: parsed.listed ?? true }
       : null;
   } catch {
     return null;
   }
 }
 
-/** A queued or running run that is still alive (its progress moved lately). */
+/**
+ * The run in progress, as pg-boss sees it: only while the queue holds an
+ * open job (queued, retrying or running) is a run active. Its progress comes
+ * from app_config when that shows one queued or running; otherwise (the
+ * schedule sent it and it has not written yet) it shows as queued. A run
+ * whose process died loses its job within a couple of heartbeats, so it
+ * never blocks Sync now for long.
+ */
 export function activeRun(
   run: ReconcileState | null,
+  openJob: boolean,
   now: Date = new Date()
 ): ReconcileState | null {
-  if (!(run && (run.status === "queued" || run.status === "running"))) {
+  if (!openJob) {
     return null;
   }
-  const updated = Date.parse(run.updatedAt);
-  return Number.isNaN(updated) || now.getTime() - updated > RUN_STALE_MS
-    ? null
-    : run;
+  if (run && (run.status === "queued" || run.status === "running")) {
+    return run;
+  }
+  return {
+    counts: emptyCounts(),
+    from: "",
+    listed: true,
+    reason: "scheduled",
+    status: "queued",
+    to: "",
+    updatedAt: now.toISOString(),
+    windowsDone: 0,
+    windowsTotal: 0,
+  };
 }
 
 export async function saveReconcileRun(
@@ -216,6 +252,24 @@ export async function saveReconcileRun(
 
 async function saveLastReconcile(last: ReconcileState): Promise<void> {
   await writeRazorpayConfig({ lastReconcile: JSON.stringify(last) });
+}
+
+/** Logs one payment's or refund's failure with its IDs and safe error fields only. */
+function logItemFailure(
+  item: { paymentId?: string; refundId?: string },
+  error: unknown
+): void {
+  const log = createRequestLogger({
+    method: "JOB",
+    path: "razorpay-reconcile",
+  });
+  log.set({
+    event: "razorpay_reconcile_item_failed",
+    ...item,
+    ...databaseErrorFields(error),
+  });
+  log.error(sanitizedError(error, "razorpay_reconcile_item_failed"));
+  log.emit();
 }
 
 // ── The run ─────────────────────────────────────────────────────────────────
@@ -229,6 +283,7 @@ export interface ReconcileDeps {
   applyRefund: typeof applyRefund;
   client: (key: { id: string; secret: string }) => RazorpayClient;
   listStale: typeof listStaleRazorpayRows;
+  logFailure: typeof logItemFailure;
   now: () => Date;
   process: typeof processRazorpayPayment;
   recount: typeof recountImportBatches;
@@ -238,7 +293,11 @@ export interface ReconcileDeps {
     payment: Parameters<typeof stageRazorpayPayment>[0],
     mode: RazorpayMode
   ) => Promise<StageResult>;
-  syncStale: (input: { day: string; paymentId: string }) => Promise<unknown>;
+  /** Syncs a stuck payment: through the run's paced client, or from its staged copy without one. */
+  syncStale: (
+    input: { day: string; paymentId: string },
+    client: RazorpayClient | null
+  ) => Promise<unknown>;
 }
 
 export const reconcileDeps = (setup: RazorpaySetup): ReconcileDeps => ({
@@ -247,19 +306,33 @@ export const reconcileDeps = (setup: RazorpaySetup): ReconcileDeps => ({
   applyRefund,
   client: (key) => createRazorpayClient(key, { gapMs: API_GAP_MS }),
   listStale: listStaleRazorpayRows,
+  logFailure: logItemFailure,
   now: () => new Date(),
   process: processRazorpayPayment,
   recount: recountImportBatches,
   saveLast: saveLastReconcile,
   saveRun: saveReconcileRun,
   stage: (payment, mode) => stageRazorpayPayment(payment, mode),
-  syncStale: (input) => syncRazorpayPayment(input, setup),
+  syncStale: (input, client) =>
+    syncRazorpayPayment(
+      input,
+      setup,
+      client
+        ? {
+            applyRefunds: async (paymentId, _key, mode) =>
+              await applyPaymentRefunds(paymentId, client, mode),
+            fetchPayment: async (paymentId) =>
+              await client.fetchPayment(paymentId),
+          }
+        : {}
+    ),
 });
 
 export type ReconcileOutcome =
   | {
       counts: ReconcileCounts;
       errorCode?: string;
+      listed: boolean;
       pages: number;
       status: "failed" | "ok";
       windowsDone: number;
@@ -308,6 +381,72 @@ function addTally(counts: ReconcileCounts, tally: RefundTally): void {
   counts.refundsWaiting += tally.waiting;
 }
 
+/** Lists one India day's payments and refunds and puts them through. */
+async function reconcileDay(
+  day: string,
+  client: RazorpayClient,
+  mode: RazorpayMode,
+  deps: ReconcileDeps,
+  counts: ReconcileCounts,
+  touched: Set<string>
+): Promise<number> {
+  const window = indiaDayWindow(day);
+  const payments = await client.listPayments(window);
+  counts.checked += payments.items.length + payments.unreadable;
+  counts.errors += payments.unreadable;
+  for (const payment of payments.items) {
+    if (!isCapturedPayment(payment)) {
+      continue;
+    }
+    try {
+      const staged = await deps.stage(payment, mode);
+      touched.add(staged.batchId);
+      if (staged.staged === "new" || staged.staged === "reopened") {
+        counts.new += 1;
+      } else {
+        counts.known += 1;
+      }
+      if (staged.pending) {
+        const outcome = await deps.process(payment.id, staged.day, mode);
+        if (IMPORTED.has(outcome)) {
+          counts.imported += 1;
+        } else if (WAITING.has(outcome)) {
+          counts.waiting += 1;
+        }
+      }
+      if ((payment.amount_refunded ?? 0) > 0) {
+        addTally(
+          counts,
+          await deps.applyPaymentRefunds(payment.id, client, mode)
+        );
+      }
+    } catch (error) {
+      if (error instanceof RazorpayApiError) {
+        throw error;
+      }
+      counts.errors += 1;
+      deps.logFailure({ paymentId: payment.id }, error);
+    }
+  }
+
+  const refunds = await client.listRefunds(window);
+  counts.errors += refunds.unreadable;
+  const tally = emptyRefundTally();
+  for (const refund of refunds.items) {
+    try {
+      tallyRefund(tally, await deps.applyRefund(refund, mode));
+    } catch (error) {
+      counts.errors += 1;
+      deps.logFailure(
+        { paymentId: refund.payment_id, refundId: refund.id },
+        error
+      );
+    }
+  }
+  addTally(counts, tally);
+  return payments.pages + refunds.pages;
+}
+
 export async function runRazorpayReconcile(
   input: RazorpayReconcilePayload,
   setup: RazorpaySetup,
@@ -316,7 +455,10 @@ export async function runRazorpayReconcile(
   if (!setup.enabled) {
     return { reason: "disabled", status: "skipped" };
   }
-  if (setup.testInProduction || !setup.apiKey) {
+  if (
+    setup.testInProduction ||
+    (input.reason === "backfill" && !setup.apiKey)
+  ) {
     // A run queued from Settings must not look as if it is still running.
     await deps.saveRun(null);
     return {
@@ -329,12 +471,15 @@ export async function runRazorpayReconcile(
   const range =
     input.from && input.to ? { from: input.from, to: input.to } : null;
   const { from, to } = range ?? recentRange(started);
-  const days = daysBetween(from, to).slice(0, MAX_BACKFILL_DAYS);
+  const client = setup.apiKey ? deps.client(setup.apiKey) : null;
+  // Without the key secret there is nothing to list: stuck payments only.
+  const days = client ? daysBetween(from, to).slice(0, MAX_BACKFILL_DAYS) : [];
   const counts = emptyCounts();
   const touched = new Set<string>();
   const state: ReconcileState = {
     counts,
     from,
+    listed: client !== null,
     reason: input.reason,
     startedAt: started.toISOString(),
     status: "running",
@@ -347,6 +492,11 @@ export async function runRazorpayReconcile(
   const progress = async () => {
     state.updatedAt = deps.now().toISOString();
     await deps.saveRun(state);
+  };
+  const withinBudget = () => {
+    if (deps.now().getTime() - started.getTime() > RUN_TIME_LIMIT_MS) {
+      throw new TimeLimitError();
+    }
   };
   const finish = async (status: "failed" | "ok", errorCode?: string) => {
     const finishedAt = deps.now().toISOString();
@@ -362,6 +512,7 @@ export async function runRazorpayReconcile(
     return {
       counts,
       ...(errorCode ? { errorCode } : {}),
+      listed: state.listed,
       pages,
       status,
       windowsDone: state.windowsDone,
@@ -375,78 +526,40 @@ export async function runRazorpayReconcile(
     const stale = await deps.listStale(
       new Date(started.getTime() - STALE_AFTER_MS)
     );
+    let synced = 0;
     for (const row of stale) {
+      withinBudget();
       const key = parseRazorpayBatchKey(row.batchKey);
       if (!key || key.mode !== mode) {
         continue;
       }
       touched.add(row.batchId);
       try {
-        await deps.syncStale({ day: key.day, paymentId: row.paymentId });
+        await deps.syncStale(
+          { day: key.day, paymentId: row.paymentId },
+          client
+        );
         counts.retried += 1;
-      } catch {
+      } catch (error) {
+        if (error instanceof RazorpayApiError) {
+          throw error;
+        }
         counts.errors += 1;
+        deps.logFailure({ paymentId: row.paymentId }, error);
+      }
+      synced += 1;
+      if (synced % STALE_PROGRESS_EVERY === 0) {
+        await progress();
       }
     }
 
-    const client = deps.client(setup.apiKey);
-    for (const day of days) {
-      if (deps.now().getTime() - started.getTime() > RUN_TIME_LIMIT_MS) {
-        throw new TimeLimitError();
+    if (client) {
+      for (const day of days) {
+        withinBudget();
+        pages += await reconcileDay(day, client, mode, deps, counts, touched);
+        state.windowsDone += 1;
+        await progress();
       }
-      const window = indiaDayWindow(day);
-      const payments = await client.listPayments(window);
-      pages += payments.pages;
-      counts.checked += payments.items.length + payments.unreadable;
-      counts.errors += payments.unreadable;
-      for (const payment of payments.items) {
-        if (!isCapturedPayment(payment)) {
-          continue;
-        }
-        try {
-          const staged = await deps.stage(payment, mode);
-          touched.add(staged.batchId);
-          if (staged.staged === "new" || staged.staged === "reopened") {
-            counts.new += 1;
-          } else {
-            counts.known += 1;
-          }
-          if (staged.pending) {
-            const outcome = await deps.process(payment.id, staged.day, mode);
-            if (IMPORTED.has(outcome)) {
-              counts.imported += 1;
-            } else if (WAITING.has(outcome)) {
-              counts.waiting += 1;
-            }
-          }
-          if ((payment.amount_refunded ?? 0) > 0) {
-            addTally(
-              counts,
-              await deps.applyPaymentRefunds(payment.id, client, mode)
-            );
-          }
-        } catch (error) {
-          if (error instanceof RazorpayApiError) {
-            throw error;
-          }
-          counts.errors += 1;
-        }
-      }
-
-      const refunds = await client.listRefunds(window);
-      pages += refunds.pages;
-      counts.errors += refunds.unreadable;
-      const tally = emptyRefundTally();
-      for (const refund of refunds.items) {
-        try {
-          tallyRefund(tally, await deps.applyRefund(refund, mode));
-        } catch {
-          counts.errors += 1;
-        }
-      }
-      addTally(counts, tally);
-      state.windowsDone += 1;
-      await progress();
     }
   } catch (error) {
     await recountQuietly(deps, touched);

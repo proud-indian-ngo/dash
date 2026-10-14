@@ -4,6 +4,7 @@ import z from "zod";
 import { assertServerPermission } from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
 import { notesKeysSchema } from "@/lib/razorpay/notes-keys";
+import { daysBetween, isRealIsoDay } from "@/lib/razorpay/reconcile";
 import {
   getRazorpaySettingsView,
   RazorpaySettingsError,
@@ -20,6 +21,7 @@ import { authMiddleware } from "@/middleware/auth";
  * or both, audited with the changed field names only, and queues a sync
  * ("Sync now", `razorpay.sync`) or an import of past payments
  * (`razorpay.backfill`), audited with the window's dates and day count.
+ * Sync now without the key secret only syncs payments stuck in the queue.
  * Query errors are logged by code only and reach the browser as a generic
  * message.
  */
@@ -114,17 +116,13 @@ export const syncRazorpayNow = createServerFn({ method: "POST" })
     );
   });
 
-const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+/** A real calendar day, so 2026-02-31 is refused before anything runs. */
+const isoDay = z.string().refine(isRealIsoDay, "Not a real date");
 
 /** Import past payments: queues a reconcile of a chosen range of India days. */
 export const importPastRazorpayPayments = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator(
-    z.object({
-      from: z.string().regex(ISO_DAY),
-      to: z.string().regex(ISO_DAY),
-    })
-  )
+  .validator(z.object({ from: isoDay, to: isoDay }))
   .handler(async ({ context, data }): Promise<ReconcileQueued> => {
     await assertServerPermission(context.session, "finance.manage");
     if (!context.session) {
@@ -135,7 +133,11 @@ export const importPastRazorpayPayments = createServerFn({ method: "POST" })
       context.headers,
       {
         action: "razorpay.backfill",
-        metadata: { from: data.from, to: data.to },
+        metadata: {
+          days: daysBetween(data.from, data.to).length,
+          from: data.from,
+          to: data.to,
+        },
         target: { type: "razorpay_settings" },
       },
       async () =>

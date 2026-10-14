@@ -22,6 +22,7 @@ function createDb(
 ) {
   const tables: Record<string, Row[]> = {
     contribution: [],
+    contributionRefund: [],
     fund: [{ active: true, id: "fund-1" }],
     orgAccount: [
       { active: true, id: "acc-1" },
@@ -56,6 +57,8 @@ function createDb(
     ...seed,
   };
   const writes: { action: string; row: Row; table: string }[] = [];
+  /** Row locks the server run took, as rendered SQL. */
+  const locks: string[] = [];
   const tableApi = (table: string) => ({
     delete: async (row: Row) => {
       writes.push({ action: "delete", row, table });
@@ -75,6 +78,21 @@ function createDb(
     },
   });
   const tx = {
+    dbTransaction: {
+      wrappedTransaction: {
+        execute: async (query: { queryChunks?: unknown[] }) => {
+          locks.push(
+            (query.queryChunks ?? [])
+              .map((chunk) =>
+                typeof chunk === "object" && chunk && "value" in chunk
+                  ? (chunk as { value: string[] }).value.join("")
+                  : String(chunk)
+              )
+              .join("?")
+          );
+        },
+      },
+    },
     location,
     mutate: Object.fromEntries(
       Object.keys(tables).map((table) => [table, tableApi(table)])
@@ -90,7 +108,7 @@ function createDb(
       return query.format.singular ? result[0] : result;
     },
   };
-  return { tables, tx, writes };
+  return { locks, tables, tx, writes };
 }
 
 async function run(
@@ -379,6 +397,64 @@ describe("contribution mutators", () => {
     ).rejects.toThrow("Only pending or received contributions can be changed");
     await run(contributionMutators.delete, db, donorsCtx, { id: "c-1" });
     expect(db.tables.contribution?.map((c) => c.id)).toEqual(["c-9"]);
+  });
+
+  it("locks the contribution, and with a refund keeps what the provider reported", async () => {
+    const recorded = {
+      amountPaise: 500_000,
+      channel: "upi",
+      fundId: "fund-1",
+      id: "c-1",
+      orgAccountId: "acc-1",
+      partyId: "donor-1",
+      programmeId: null,
+      receivedOn: Date.UTC(2026, 9, 1),
+      status: "received",
+    };
+    const db = createDb({
+      contribution: [recorded],
+      contributionRefund: [
+        { amountPaise: 100_000, contributionId: "c-1", id: "r-1" },
+      ],
+      fund: [
+        { active: true, id: "fund-1" },
+        { active: true, id: "fund-2" },
+      ],
+    });
+    // Classification still changes: programme, fund, notes.
+    await run(
+      contributionMutators.update,
+      db,
+      donorsCtx,
+      contribution({
+        fundId: "fund-2",
+        notes: "Recurring",
+        programmeId: "prog-edu",
+      })
+    );
+    expect(db.tables.contribution?.[0]).toMatchObject({
+      amountPaise: 500_000,
+      fundId: "fund-2",
+      notes: "Recurring",
+      programmeId: "prog-edu",
+    });
+    expect(db.locks[0]).toContain("for update");
+
+    for (const change of [
+      { amountPaise: 400_000 },
+      { partyId: "sponsor-1" },
+      { receivedOn: "2026-10-02" },
+      { channel: "neft", reportingMode: "electronic_or_account_payee" },
+      { orgAccountId: "acc-2" },
+    ]) {
+      await expect(
+        run(contributionMutators.update, db, donorsCtx, contribution(change))
+      ).rejects.toThrow("refund is recorded");
+    }
+    await expect(
+      run(contributionMutators.delete, db, donorsCtx, { id: "c-1" })
+    ).rejects.toThrow("can't be deleted");
+    expect(db.tables.contribution).toHaveLength(1);
   });
 
   it("keeps a since-retired account on an edit that does not change it", async () => {

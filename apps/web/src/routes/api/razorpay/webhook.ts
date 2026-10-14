@@ -5,6 +5,7 @@ import { createRequestLogger } from "evlog";
 
 import { razorpaySetup } from "@/lib/razorpay/config";
 import { stageRazorpayPayment } from "@/lib/razorpay/ingest";
+import { holdWebhookRefund } from "@/lib/razorpay/refund";
 import {
   readWebhookBody,
   routeRazorpayEvent,
@@ -137,6 +138,18 @@ export const Route = createFileRoute("/api/razorpay/webhook")({
             refundId: action.refundId,
           });
           try {
+            // Held first, so the refund survives a job that never runs.
+            const held = action.copy
+              ? await holdWebhookRefund(
+                  {
+                    copy: action.copy,
+                    paymentId: action.paymentId,
+                    refundId: action.refundId,
+                  },
+                  setup.mode
+                )
+              : false;
+            log.set({ held });
             const jobId = await enqueue(
               "razorpay-sync-refund",
               {
@@ -150,7 +163,8 @@ export const Route = createFileRoute("/api/razorpay/webhook")({
             log.emit();
             return Response.json({ ok: true }, { status: 200 });
           } catch (error) {
-            log.error(sanitizedError(error, "razorpay_enqueue_failed"));
+            log.set(databaseErrorFields(error));
+            log.error(sanitizedError(error, "razorpay_refund_failed"));
             log.emit();
             return Response.json(
               { error: "Failed to record the refund" },

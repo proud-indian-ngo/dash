@@ -1,7 +1,7 @@
 import { db } from "@pi-dash/db";
 import { appConfig } from "@pi-dash/db/schema/app-config";
 import { contribution, contributionRefund } from "@pi-dash/db/schema/income";
-import { importRow } from "@pi-dash/db/schema/private/imports";
+import { importRow, pendingRefund } from "@pi-dash/db/schema/private/imports";
 import { count, eq, sql } from "drizzle-orm";
 
 /**
@@ -68,6 +68,15 @@ async function paymentRefunds(paymentId: string): Promise<{
   return { refunds, status: gift.status };
 }
 
+/** Refunds held for a payment that is not imported yet. */
+async function pendingRefunds(paymentId: string): Promise<number> {
+  const [row] = await db
+    .select({ n: count() })
+    .from(pendingRefund)
+    .where(eq(pendingRefund.paymentId, paymentId));
+  return Number(row?.n ?? 0);
+}
+
 /** True once no refund job for the refund is queued, retrying or running. */
 async function refundJobsSettled(refundId: string): Promise<boolean> {
   const [row] = await db.execute<{ n: number }>(
@@ -113,6 +122,8 @@ if (action === "rows") {
   result = await syncJobsSettled(arg);
 } else if (action === "refunds") {
   result = await paymentRefunds(arg);
+} else if (action === "pending-refunds") {
+  result = await pendingRefunds(arg);
 } else if (action === "refund-settled") {
   result = await refundJobsSettled(arg);
 } else if (action === "read-clearing") {

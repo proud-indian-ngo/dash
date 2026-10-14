@@ -150,7 +150,7 @@ function normalizeEdition(edition: {
   };
 }
 
-function requireServerTransaction(tx: LockableKalakritiTx) {
+export function requireServerTransaction(tx: LockableKalakritiTx) {
   const transaction = tx.dbTransaction?.wrappedTransaction;
   if (!transaction) {
     throw new Error("Server transaction is unavailable");

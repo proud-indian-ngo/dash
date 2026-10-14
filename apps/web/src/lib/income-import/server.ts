@@ -39,6 +39,7 @@ import {
   findClearingAccount,
   markImportRowWaiting,
 } from "@pi-dash/db/queries/razorpay-import";
+import { applyPendingRefunds } from "@pi-dash/db/queries/razorpay-refunds";
 import {
   type ContributionChannel,
   type ImportBatchSource,
@@ -810,7 +811,7 @@ interface RunContext {
   actorId: string | null;
   batch: ImportBatchRow;
   canStoreIds: boolean;
-  /** External IDs of the rows this run imported (Razorpay payment IDs for a Razorpay batch). */
+  /** Razorpay payment IDs this run imported or linked, to check their refunds after it. */
   imported?: string[];
   /** The platform that passed the money on: GiveIndia for give.do batches. */
   intermediaryPartyId: string | null;
@@ -985,6 +986,28 @@ async function runClaimedBatch(
   }
 }
 
+/**
+ * Once a Razorpay payment's row is imported or linked: apply the refunds
+ * held for that payment in this same transaction, and remember its ID so
+ * its refunds can be checked against the API after the run.
+ */
+async function afterContribution(
+  ctx: RunContext,
+  identity: { externalId: string; provider: string; providerAccount: string }
+): Promise<void> {
+  if (ctx.batch.source !== "razorpay_api" || identity.provider !== "razorpay") {
+    return;
+  }
+  await applyPendingRefunds(
+    ctx.tx,
+    identity.providerAccount,
+    identity.externalId,
+    (at) => todayInKolkata(at),
+    ctx.now
+  );
+  ctx.imported?.push(identity.externalId);
+}
+
 async function executePlans(
   ctx: RunContext,
   classification: Classification,
@@ -1071,6 +1094,9 @@ async function executePlans(
         outcomeReason: null,
       });
       result["contributionId" in plan.to ? "linked" : "repeated"] += 1;
+      if (prepared.identity) {
+        await afterContribution(ctx, prepared.identity);
+      }
       continue;
     }
 
@@ -1167,7 +1193,7 @@ async function executePlans(
       }
     );
     createdByRow.set(row.rowId, { contributionId, identityId });
-    ctx.imported?.push(identity.externalId);
+    await afterContribution(ctx, identity);
     await setImportRowOutcome(ctx.tx, row.rowId, {
       ...decided,
       contributionId,

@@ -118,19 +118,41 @@ export const EDITABLE_CONTRIBUTION_STATUSES: readonly ContributionStatus[] = [
   "received",
 ];
 
+export function isContributionEditable(status: string): boolean {
+  return (EDITABLE_CONTRIBUTION_STATUSES as readonly string[]).includes(status);
+}
+
 /**
- * Whether a contribution may still be edited or deleted: pending or
- * received, and no refund recorded against it (its amount is the
- * provider's, and the refunds point at it).
+ * What a recorded refund fixes on a contribution: the facts the provider
+ * reported (amount, giver, date, account, channel). Status follows the
+ * refunds and the contribution can no longer be deleted; programme,
+ * project, fund, notes and the other classification fields stay editable.
  */
-export function isContributionEditable(
+export const REFUND_LOCKED_FIELDS = [
+  "amountPaise",
+  "partyId",
+  "receivedOn",
+  "orgAccountId",
+  "channel",
+] as const;
+export type RefundLockedField = (typeof REFUND_LOCKED_FIELDS)[number];
+
+/** The refund-locked fields an edit would change; empty when it may go ahead. */
+export function refundLockedChanges(
+  existing: Record<RefundLockedField, unknown>,
+  next: Record<RefundLockedField, unknown>
+): RefundLockedField[] {
+  return REFUND_LOCKED_FIELDS.filter(
+    (field) => (existing[field] ?? null) !== (next[field] ?? null)
+  );
+}
+
+/** Whether a contribution may be deleted: editable and no refund recorded against it. */
+export function isContributionDeletable(
   status: string,
   refunds?: readonly unknown[] | null
 ): boolean {
-  return (
-    (EDITABLE_CONTRIBUTION_STATUSES as readonly string[]).includes(status) &&
-    (refunds?.length ?? 0) === 0
-  );
+  return isContributionEditable(status) && (refunds?.length ?? 0) === 0;
 }
 
 /**

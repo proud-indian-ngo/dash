@@ -152,6 +152,8 @@ export async function stageRazorpayPayment(
       ...awaitingOutcomeRetention(),
       batchId: batch.id,
       createdAt: now,
+      // Kept after retention nulls the values, so the payment is found again.
+      externalId: payment.id,
       id: rowId,
       outcomeReason: "queued",
       raw,
@@ -293,7 +295,7 @@ const SYNC_DEPS: SyncDeps = {
 export async function syncRazorpayPayment(
   input: { day?: string; paymentId: string },
   setup: RazorpaySetup,
-  deps: SyncDeps = SYNC_DEPS,
+  overrides: Partial<SyncDeps> = {},
   onStatus: (status: string) => void = () => undefined,
   onRefunds: (tally: RefundTally) => void = () => undefined
 ): Promise<SyncOutcome> {
@@ -303,6 +305,7 @@ export async function syncRazorpayPayment(
   if (setup.testInProduction) {
     return "test_mode_refused";
   }
+  const deps: SyncDeps = { ...SYNC_DEPS, ...overrides };
   let { day } = input;
   if (setup.apiKey) {
     const payment = await deps.fetchPayment(input.paymentId, setup.apiKey);

@@ -1,6 +1,8 @@
 import {
   applyRazorpayRefund,
+  holdRazorpayRefund,
   type RefundApplyResult,
+  type RefundToApply,
 } from "@pi-dash/db/queries/razorpay-refunds";
 import type { RazorpaySyncRefundPayload } from "@pi-dash/jobs/types";
 
@@ -17,10 +19,11 @@ import {
 /**
  * Server-only. Applying Razorpay refunds to the contributions their payments
  * became. Only `processed` refunds count. A refund whose payment is not a
- * contribution yet (still queued, or waiting for review) is not recorded
- * now: its job retries with backoff for about a day, the reconcile run's
- * refund listing picks up refunds of the last three days, and, with the key
- * secret, importing the payment later fetches and applies its refunds.
+ * contribution yet (still queued, or waiting for review) is held in
+ * `private.pending_refund` and applied by the transaction that imports or
+ * links the payment; nothing has to retry for it. With the key secret, a
+ * payment synced or reconciled that Razorpay reports as refunded also has
+ * its refunds fetched and applied.
  */
 
 export type RefundOutcome = RefundApplyResult | "not_processed";
@@ -35,6 +38,53 @@ const REFUND_DEPS: RefundDeps = {
   client: (key) => createRazorpayClient(key),
 };
 
+const toApply = (
+  refund: RazorpayRefund,
+  mode: RazorpayMode
+): RefundToApply => ({
+  amountPaise: refund.amount,
+  currency: refund.currency,
+  mode,
+  paymentId: refund.payment_id,
+  payloadHash: refundPayloadHash(refund),
+  refundedAt: new Date(refund.created_at * 1000),
+  refundedOn: refundDayOf(refund),
+  refundId: refund.id,
+});
+
+/**
+ * Keeps the verified webhook copy of a processed refund until it is
+ * recorded, before its job is queued; another status is not kept.
+ */
+export async function holdWebhookRefund(
+  refund: {
+    copy: {
+      amount: number;
+      createdAt: number;
+      currency: string;
+      status: string;
+    };
+    paymentId: string;
+    refundId: string;
+  },
+  mode: RazorpayMode,
+  hold: typeof holdRazorpayRefund = holdRazorpayRefund
+): Promise<boolean> {
+  const parsed = razorpayRefundSchema.safeParse({
+    amount: refund.copy.amount,
+    created_at: refund.copy.createdAt,
+    currency: refund.copy.currency,
+    id: refund.refundId,
+    payment_id: refund.paymentId,
+    status: refund.copy.status,
+  });
+  if (!(parsed.success && parsed.data.status === "processed")) {
+    return false;
+  }
+  await hold(toApply(parsed.data, mode));
+  return true;
+}
+
 /** Records one refund Razorpay reported, if it is processed. */
 export async function applyRefund(
   refund: RazorpayRefund,
@@ -44,14 +94,7 @@ export async function applyRefund(
   if (refund.status !== "processed") {
     return "not_processed";
   }
-  const outcome = await apply({
-    amountPaise: refund.amount,
-    mode,
-    paymentId: refund.payment_id,
-    payloadHash: refundPayloadHash(refund),
-    refundedOn: refundDayOf(refund),
-    refundId: refund.id,
-  });
+  const outcome = await apply(toApply(refund, mode));
   return outcome.result;
 }
 
@@ -96,11 +139,14 @@ export async function applyPaymentRefunds(
   return tally;
 }
 
-/** Thrown so pg-boss retries a refund whose payment is not imported yet. */
-export class RefundWaitingError extends Error {
+/**
+ * Thrown so pg-boss retries a refund the webhook said was processed but the
+ * API does not show as processed yet.
+ */
+export class RefundNotProcessedError extends Error {
   constructor() {
-    super("The refunded payment is not imported yet");
-    this.name = "RefundWaitingError";
+    super("The refund is not processed at Razorpay yet");
+    this.name = "RefundNotProcessedError";
   }
 }
 
@@ -129,11 +175,13 @@ function refundFromCopy(
 }
 
 /**
- * The `razorpay-sync-refund` job. With the key secret the refund is
- * fetched from Razorpay, the source of truth; without it the verified
- * webhook copy in the job is used. A refund whose payment is not imported
- * yet throws `RefundWaitingError`, so the job retries later. A test key on
- * a production server records nothing.
+ * The `razorpay-sync-refund` job, queued by a `refund.processed` webhook.
+ * With the key secret the refund is fetched from Razorpay, the source of
+ * truth; one the API does not show as processed yet throws
+ * `RefundNotProcessedError` so the job retries. Without the secret the
+ * verified webhook copy in the job is used. A refund whose payment is not
+ * imported yet is held for it (`payment_not_imported`) and the job ends. A
+ * test key on a production server records nothing.
  */
 export async function syncRazorpayRefund(
   input: RazorpaySyncRefundPayload,
@@ -152,9 +200,9 @@ export async function syncRazorpayRefund(
   if (!refund) {
     return "not_found";
   }
-  const outcome = await applyRefund(refund, setup.mode, deps.apply);
-  if (outcome === "payment_not_imported") {
-    throw new RefundWaitingError();
+  if (refund.status !== "processed" && setup.apiKey) {
+    throw new RefundNotProcessedError();
   }
-  return outcome;
+  // A copy that is not processed is `not_processed` and records nothing.
+  return await applyRefund(refund, setup.mode, deps.apply);
 }

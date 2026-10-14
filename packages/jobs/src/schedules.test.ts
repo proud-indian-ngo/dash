@@ -55,23 +55,34 @@ describe("registerSchedules", () => {
     return { scheduled, unscheduled };
   };
 
-  it("schedules the Razorpay reconcile only with the key secret, and never a test key in production", async () => {
-    const live = await withEnv({
-      NODE_ENV: "production",
-      RAZORPAY_KEY_ID: "rzp_live_x",
-      RAZORPAY_KEY_SECRET: "k",
-      RAZORPAY_WEBHOOK_SECRET: "w",
-    });
-    expect(live.scheduled).toContainEqual({
-      data: { reason: "scheduled" },
-      name: "razorpay-reconcile",
-    });
+  it("schedules the Razorpay reconcile whenever ingestion is on, never a test key in production", async () => {
+    for (const env of [
+      {
+        NODE_ENV: "production",
+        RAZORPAY_KEY_ID: "rzp_live_x",
+        RAZORPAY_KEY_SECRET: "k",
+        RAZORPAY_WEBHOOK_SECRET: "w",
+      },
+      // Without the key secret it still syncs stuck payments.
+      {
+        NODE_ENV: "production",
+        RAZORPAY_KEY_ID: "rzp_live_x",
+        RAZORPAY_KEY_SECRET: undefined,
+        RAZORPAY_WEBHOOK_SECRET: "w",
+      },
+    ]) {
+      const on = await withEnv(env);
+      expect(on.scheduled).toContainEqual({
+        data: { reason: "scheduled" },
+        name: "razorpay-reconcile",
+      });
+    }
 
     for (const env of [
       {
         RAZORPAY_KEY_ID: "rzp_live_x",
-        RAZORPAY_KEY_SECRET: undefined,
-        RAZORPAY_WEBHOOK_SECRET: "w",
+        RAZORPAY_KEY_SECRET: "k",
+        RAZORPAY_WEBHOOK_SECRET: undefined,
       },
       {
         NODE_ENV: "production",

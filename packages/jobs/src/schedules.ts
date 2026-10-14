@@ -7,17 +7,15 @@ const hasWebsiteDispatchToken = (): boolean =>
 const IST_TIMEZONE = "Asia/Kolkata";
 
 /**
- * Razorpay reconcile runs only when ingestion is on with the API key secret
- * (it lists payments from the API), and never with a test key on a
- * production server. The job checks again before it runs.
+ * Razorpay reconcile runs whenever ingestion is on (key id and webhook
+ * secret), never with a test key on a production server. Without the key
+ * secret it only syncs payments stuck in the queue and recounts their
+ * batches; with it, it also lists payments and refunds from the API. The
+ * job checks again before it runs.
  */
 const razorpayReconcileOn = (): boolean => {
   const keyId = process.env.RAZORPAY_KEY_ID ?? "";
-  const configured = Boolean(
-    keyId &&
-    process.env.RAZORPAY_WEBHOOK_SECRET &&
-    process.env.RAZORPAY_KEY_SECRET
-  );
+  const configured = Boolean(keyId && process.env.RAZORPAY_WEBHOOK_SECRET);
   const testInProduction =
     keyId.startsWith("rzp_test_") && process.env.NODE_ENV === "production";
   return configured && !testInProduction;
@@ -146,8 +144,9 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     { expireInSeconds: 600, retryLimit: 2, tz: IST_TIMEZONE }
   );
 
-  // Every 6 hours — catch Razorpay payments and refunds whose webhooks were
-  // missed, over the last three days
+  // Every 6 hours — sync Razorpay payments stuck in the queue and, with the
+  // key secret, catch payments and refunds whose webhooks were missed, over
+  // the last three days
   if (razorpayReconcileOn()) {
     await boss.schedule(
       "razorpay-reconcile",

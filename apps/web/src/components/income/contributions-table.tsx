@@ -12,6 +12,7 @@ import {
   CONTRIBUTION_CHANNEL_LABELS,
   CONTRIBUTION_SOURCE_LABELS,
   DONATION_TYPE_LABELS,
+  isContributionDeletable,
   isContributionEditable,
 } from "@pi-dash/shared/income";
 import { formatPaise } from "@pi-dash/shared/money";
@@ -67,7 +68,10 @@ function RowActions({
     (e: { stopPropagation: () => void }) => e.stopPropagation()
   );
   const editable =
-    canManage && isContributionEditable(row.status ?? "received", row.refunds);
+    canManage && isContributionEditable(row.status ?? "received");
+  // A refund recorded against it keeps the contribution: edit, never delete.
+  const deletable =
+    canManage && isContributionDeletable(row.status ?? "received", row.refunds);
   return (
     <ResponsiveActionMenu
       actions={[
@@ -83,7 +87,7 @@ function RowActions({
           label: "Edit",
           onSelect: () => onEdit(row),
         },
-        editable && {
+        deletable && {
           destructive: true,
           group: "destructive",
           icon: Delete02Icon,

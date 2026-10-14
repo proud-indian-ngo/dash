@@ -7,7 +7,7 @@ const {
   handleRazorpaySyncPayment,
   handleRazorpaySyncRefund,
 } = await import("./worker");
-const { RefundWaitingError } = await import("./refund");
+const { RefundNotProcessedError } = await import("./refund");
 
 const job = (paymentId: string) => ({
   data: { day: "2026-10-12", paymentId },
@@ -96,13 +96,13 @@ describe("handleRazorpaySyncRefund", () => {
     });
   });
 
-  it("throws a refund whose payment is not imported back to pg-boss to retry", async () => {
+  it("throws a refund not processed yet back to pg-boss to retry", async () => {
     const sync = mock(async (_input: unknown): Promise<"applied"> => {
-      throw new RefundWaitingError();
+      throw new RefundNotProcessedError();
     });
     await expect(
       handleRazorpaySyncRefund([refundJob], sync)
-    ).rejects.toBeInstanceOf(RefundWaitingError);
+    ).rejects.toBeInstanceOf(RefundNotProcessedError);
   });
 
   it("sanitises any other failure", async () => {

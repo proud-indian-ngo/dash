@@ -43,7 +43,7 @@ describe("registerHandlers", () => {
     );
   });
 
-  it("runs one Razorpay reconcile at a time, never retried, and keys refunds by ID with a day of retries", async () => {
+  it("runs one Razorpay reconcile at a time, never retried, with a heartbeat, and keys refunds by ID", async () => {
     const createQueue = mock().mockResolvedValue(undefined);
     const work = mock().mockResolvedValue(undefined);
 
@@ -53,6 +53,7 @@ describe("registerHandlers", () => {
       "razorpay-reconcile",
       expect.objectContaining({
         expireInSeconds: 4 * 60 * 60,
+        heartbeatSeconds: 60,
         policy: "exclusive",
         retryLimit: 0,
       })
@@ -63,7 +64,7 @@ describe("registerHandlers", () => {
         policy: "stately",
         retryBackoff: true,
         retryDelayMax: 3600,
-        retryLimit: 26,
+        retryLimit: 8,
       })
     );
     const workers = work.mock.calls.map(([name]) => name);

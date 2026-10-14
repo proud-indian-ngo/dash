@@ -56,6 +56,11 @@ mock.module("@/lib/razorpay/settings", () => ({
       : { days: 4, from: "2026-10-11", to: "2026-10-14" };
   },
 }));
+mock.module("@/lib/razorpay/reconcile", () => ({
+  daysBetween: (from: string, to: string) =>
+    from === "2026-04-01" && to === "2026-04-03" ? [1, 2, 3] : [],
+  isRealIsoDay: () => true,
+}));
 mock.module("@tanstack/react-start", () => ({
   createServerFn: () => {
     const builder = {
@@ -186,7 +191,7 @@ describe("Razorpay settings server functions", () => {
     expect(audits).toEqual([
       {
         action: "razorpay.backfill",
-        metadata: { from: "2026-04-01", to: "2026-04-03" },
+        metadata: { days: 3, from: "2026-04-01", to: "2026-04-03" },
         target: { type: "razorpay_settings" },
       },
     ]);

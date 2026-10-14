@@ -4,8 +4,12 @@ mock.module("@pi-dash/db", () => ({ db: {} }));
 
 import type { RefundToApply } from "@pi-dash/db/queries/razorpay-refunds";
 
-const { applyPaymentRefunds, RefundWaitingError, syncRazorpayRefund } =
-  await import("./refund");
+const {
+  applyPaymentRefunds,
+  holdWebhookRefund,
+  RefundNotProcessedError,
+  syncRazorpayRefund,
+} = await import("./refund");
 
 import type { RazorpayClient } from "./api";
 import type { RazorpaySetup } from "./config";
@@ -60,12 +64,7 @@ function deps(
     deps: {
       apply: async (refund: RefundToApply) => {
         applied.push(refund);
-        return {
-          attention: null,
-          contributionId: "c",
-          result,
-          statusChanged: false,
-        };
+        return { contributionId: "c", result, statusChanged: false };
       },
       client: () => client,
     },
@@ -109,9 +108,11 @@ describe("syncRazorpayRefund", () => {
     expect(d.applied).toHaveLength(1);
     expect(d.applied[0]).toMatchObject({
       amountPaise: 20_000,
+      currency: "INR",
       mode: "test",
       paymentId: "pay_Test0001",
       refundId: "rfnd_Test0001",
+      refundedAt: new Date("2026-10-12T19:00:00Z"),
       // The India date of the refund.
       refundedOn: "2026-10-13",
     });
@@ -160,10 +161,26 @@ describe("syncRazorpayRefund", () => {
     ).toBe("amount_changed");
   });
 
-  it("throws to retry later when the refunded payment is not imported yet", async () => {
+  it("ends with the refund held when its payment is not imported yet", async () => {
+    expect(
+      await syncRazorpayRefund(
+        JOB,
+        enabled(null),
+        deps("payment_not_imported").deps
+      )
+    ).toBe("payment_not_imported");
+  });
+
+  it("retries when the API does not show the refund as processed yet", async () => {
+    const d = deps("applied", { ...REFUND, status: "pending" });
     await expect(
-      syncRazorpayRefund(JOB, enabled(null), deps("payment_not_imported").deps)
-    ).rejects.toBeInstanceOf(RefundWaitingError);
+      syncRazorpayRefund(
+        JOB,
+        enabled({ id: "rzp_test_x", secret: "k" }),
+        d.deps
+      )
+    ).rejects.toBeInstanceOf(RefundNotProcessedError);
+    expect(d.applied).toEqual([]);
   });
 
   it("gives the same fingerprint to the webhook copy and the API copy", async () => {
@@ -211,5 +228,30 @@ describe("applyPaymentRefunds", () => {
         waiting.deps.apply
       )
     ).toEqual({ applied: 0, changed: 0, waiting: 2 });
+  });
+});
+
+describe("holdWebhookRefund", () => {
+  it("keeps a processed webhook copy before its job runs, and nothing else", async () => {
+    const held: RefundToApply[] = [];
+    const hold = async (refund: RefundToApply) => {
+      held.push(refund);
+    };
+    expect(await holdWebhookRefund(JOB, "live", hold)).toBe(true);
+    expect(held[0]).toMatchObject({
+      amountPaise: 20_000,
+      mode: "live",
+      paymentId: "pay_Test0001",
+      refundId: "rfnd_Test0001",
+      refundedOn: "2026-10-13",
+    });
+    expect(
+      await holdWebhookRefund(
+        { ...JOB, copy: { ...JOB.copy, status: "failed" } },
+        "live",
+        hold
+      )
+    ).toBe(false);
+    expect(held).toHaveLength(1);
   });
 });

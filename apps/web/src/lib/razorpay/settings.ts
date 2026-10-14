@@ -3,17 +3,23 @@ import {
   countRazorpayPending,
   countRazorpayWaitingByReason,
   findClearingAccount,
+  hasOpenReconcileJob,
   listWaitingPayments,
   RAZORPAY_CONFIG_KEYS,
   readRazorpayConfig,
+  replaceRazorpayConfigIf,
   withRazorpayStageTransaction,
   writeRazorpayConfig,
 } from "@pi-dash/db/queries/razorpay-import";
-import { countRefundsNeedingAttention } from "@pi-dash/db/queries/razorpay-refunds";
+import {
+  countPendingRefunds,
+  countRefundsNeedingAttention,
+} from "@pi-dash/db/queries/razorpay-refunds";
 import { env } from "@pi-dash/env/server";
 import { enqueue } from "@pi-dash/jobs/enqueue";
 import type { RazorpayReconcilePayload } from "@pi-dash/jobs/types";
 import { withFireAndForgetLog } from "@pi-dash/observability";
+import { uuidv7 } from "uuidv7";
 
 import { type RazorpaySetup, razorpaySetup } from "./config";
 import { type NotesKeys, parseNotesKeys } from "./notes-keys";
@@ -26,7 +32,6 @@ import {
   parseReconcileState,
   type ReconcileState,
   recentRange,
-  saveReconcileRun,
 } from "./reconcile";
 
 /**
@@ -43,21 +48,27 @@ export const RAZORPAY_WEBHOOK_EVENTS = [
 ] as const;
 
 /**
- * Why "Sync now" and "Import past payments" are off, in one line, or null
- * when they can run: they list payments from the API, so they need the key
- * secret, and a test key never syncs on a production server.
+ * Why "Sync now" is off, in one line, or null when it can run. Without the
+ * key secret it still runs, but only syncs payments stuck in the queue.
  */
-export function reconcileUnavailableReason(
-  setup: RazorpaySetup
-): string | null {
+export function syncUnavailableReason(setup: RazorpaySetup): string | null {
   if (!setup.enabled) {
     return "Razorpay is not configured on this server.";
   }
   if (setup.testInProduction) {
     return "A test key can't sync on a production server.";
   }
-  if (!setup.apiKey) {
-    return "Set RAZORPAY_KEY_SECRET on the server to sync with Razorpay; webhooks keep recording payments without it.";
+  return null;
+}
+
+/** Why "Import past payments" is off: it lists payments, so it needs the key secret. */
+export function backfillUnavailableReason(setup: RazorpaySetup): string | null {
+  const sync = syncUnavailableReason(setup);
+  if (sync) {
+    return sync;
+  }
+  if (setup.enabled && !setup.apiKey) {
+    return "Set RAZORPAY_KEY_SECRET on the server to import past payments; without it Sync now only retries payments stuck in the queue, and webhooks keep recording payments.";
   }
   return null;
 }
@@ -76,13 +87,19 @@ export interface RazorpaySettingsView {
   mode: "live" | "test" | null;
   notesKeys: NotesKeys;
   pendingCount: number;
+  /** Refunds held until their payment is imported. */
+  pendingRefundCount: number;
   /** Sync now and Import past payments, and the run in progress or last finished. */
   reconcile: {
-    /** The run queued or running now, if it is alive. */
+    /** The run queued or running now, as pg-boss holds it. */
     active: ReconcileState | null;
+    /** One line for why Import past payments is off; null when it can run. */
+    backfillUnavailableReason: string | null;
     last: ReconcileState | null;
-    /** One line for why the actions are off; null when they can run. */
-    unavailableReason: string | null;
+    /** True when a sync lists payments and refunds from the API (the key secret is set). */
+    listsFromApi: boolean;
+    /** One line for why Sync now is off; null when it can run. */
+    syncUnavailableReason: string | null;
   };
   /** Refunds the founder should look at. */
   refundAttention: { afterReceipt: number; amountChanged: number };
@@ -117,17 +134,18 @@ export async function getRazorpaySettingsView(
     mode: setup.enabled ? setup.mode : null,
     notesKeys: parseNotesKeys(config.get(RAZORPAY_CONFIG_KEYS.notesKeys)),
     pendingCount: await countRazorpayPending(),
+    pendingRefundCount: await countPendingRefunds(),
     reconcile: {
       active: activeRun(
-        parseReconcileState(config.get(RAZORPAY_CONFIG_KEYS.reconcileRun))
+        parseReconcileState(config.get(RAZORPAY_CONFIG_KEYS.reconcileRun)),
+        await hasOpenReconcileJob()
       ),
+      backfillUnavailableReason: backfillUnavailableReason(setup),
       last: parseReconcileState(config.get(RAZORPAY_CONFIG_KEYS.lastReconcile)),
-      unavailableReason: reconcileUnavailableReason(setup),
+      listsFromApi: setup.enabled && setup.apiKey !== null,
+      syncUnavailableReason: syncUnavailableReason(setup),
     },
-    refundAttention: {
-      afterReceipt: attention.get("refund_after_receipt") ?? 0,
-      amountChanged: attention.get("amount_changed") ?? 0,
-    },
+    refundAttention: attention,
     syncFailedCount: waiting.get("sync_failed") ?? 0,
     testInProduction: setup.enabled && setup.testInProduction,
     webhookEvents: RAZORPAY_WEBHOOK_EVENTS,
@@ -210,10 +228,13 @@ const enqueueReconcile = async (
 
 /**
  * Queues a reconcile run from Settings: "Sync now" over the last three
- * days, or "Import past payments" over a chosen range of at most 400 days.
- * Refused when the actions are off or a run is already queued or running
- * (the queue holds one at a time, so a refused send says so too). The run
- * is shown as queued until the job picks it up.
+ * days (without the key secret it only syncs payments stuck in the queue),
+ * or "Import past payments" over a chosen range of at most 400 days (key
+ * secret only). Refused while pg-boss holds an open run; the queue holds
+ * one at a time, so a refused send says so too. The run shows as queued
+ * from before the send, so the job's own progress is never overwritten; a
+ * refused send puts back what was there, unless another request has
+ * written since.
  */
 export async function requestRazorpayReconcile(
   request: ReconcileRequest,
@@ -221,9 +242,13 @@ export async function requestRazorpayReconcile(
   queue: (
     payload: RazorpayReconcilePayload
   ) => Promise<string | null> = enqueueReconcile,
-  now: Date = new Date()
+  now: Date = new Date(),
+  openJob: () => Promise<boolean> = hasOpenReconcileJob
 ): Promise<{ days: number; from: string; to: string }> {
-  const unavailable = reconcileUnavailableReason(setup);
+  const unavailable =
+    request.reason === "backfill"
+      ? backfillUnavailableReason(setup)
+      : syncUnavailableReason(setup);
   if (unavailable) {
     throw new RazorpaySettingsError(unavailable);
   }
@@ -235,41 +260,38 @@ export async function requestRazorpayReconcile(
     }
     range = { from: request.from, to: request.to };
   }
-  const config = await readRazorpayConfig();
   const busy = new RazorpaySettingsError(
     "A Razorpay sync is already running. Try again when it has finished."
   );
-  if (
-    activeRun(
-      parseReconcileState(config.get(RAZORPAY_CONFIG_KEYS.reconcileRun)),
-      now
-    )
-  ) {
+  if (await openJob()) {
     throw busy;
   }
-  // Shown as queued before the send, so the job's own progress, written as
-  // soon as it starts, is never overwritten; put back if the send fails.
+  const config = await readRazorpayConfig();
   const previous = config.get(RAZORPAY_CONFIG_KEYS.reconcileRun) ?? "";
-  const days = daysBetween(range.from, range.to).length;
-  await saveReconcileRun({
+  const listed = setup.enabled && setup.apiKey !== null;
+  const days = listed ? daysBetween(range.from, range.to).length : 0;
+  const queued = JSON.stringify({
     counts: emptyCounts(),
     from: range.from,
+    listed,
     reason: request.reason,
+    requestId: uuidv7(),
     status: "queued",
     to: range.to,
     updatedAt: now.toISOString(),
     windowsDone: 0,
     windowsTotal: days,
-  });
+  } satisfies ReconcileState);
+  await writeRazorpayConfig({ reconcileRun: queued });
   let jobId: string | null;
   try {
     jobId = await queue({ ...range, reason: request.reason });
   } catch (error) {
-    await writeRazorpayConfig({ reconcileRun: previous });
+    await replaceRazorpayConfigIf("reconcileRun", queued, previous);
     throw error;
   }
   if (!jobId) {
-    await writeRazorpayConfig({ reconcileRun: previous });
+    await replaceRazorpayConfigIf("reconcileRun", queued, previous);
     throw busy;
   }
   return { days, ...range };

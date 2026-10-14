@@ -37,11 +37,6 @@ export function formatReceivedOn(epoch: number): string {
   return date ? format(date, DATE) : "—";
 }
 
-const ATTENTION_LABELS: Record<string, string> = {
-  amount_changed: "Amount changed",
-  refund_after_receipt: "Refund after receipt",
-};
-
 /** Refunds recorded against the contribution: date, amount and reference. */
 function RefundsList({
   refunds,
@@ -69,10 +64,13 @@ function RefundsList({
                 {refund.reference ? ` · ${refund.reference}` : ""}
               </span>
             </span>
-            {refund.attention ? (
-              <Tag>
-                {ATTENTION_LABELS[refund.attention] ?? refund.attention}
-              </Tag>
+            {refund.refundAfterReceipt || refund.amountChanged ? (
+              <span className="flex shrink-0 gap-1">
+                {refund.refundAfterReceipt ? (
+                  <Tag>Refund after receipt</Tag>
+                ) : null}
+                {refund.amountChanged ? <Tag>Amount changed</Tag> : null}
+              </span>
             ) : null}
           </li>
         ))}
@@ -82,6 +80,7 @@ function RefundsList({
 }
 
 export function ContributionDetailSheet({
+  canDelete,
   canEdit,
   contribution,
   onDelete,
@@ -89,6 +88,8 @@ export function ContributionDetailSheet({
   onOpenChange,
 }: {
   /** donors.manage, an editable status and no refunds. */
+  canDelete: boolean;
+  /** donors.manage and an editable status. */
   canEdit: boolean;
   contribution: ContributionRow | null;
   onDelete: (contribution: ContributionRow) => void;
@@ -169,18 +170,20 @@ export function ContributionDetailSheet({
                   />
                   Edit
                 </Button>
-                <PageHeaderMenu
-                  actions={[
-                    {
-                      destructive: true,
-                      icon: Delete02Icon,
-                      id: "delete",
-                      label: "Delete contribution",
-                      onSelect: () => onDelete(row),
-                    },
-                  ]}
-                  title="Contribution actions"
-                />
+                {canDelete ? (
+                  <PageHeaderMenu
+                    actions={[
+                      {
+                        destructive: true,
+                        icon: Delete02Icon,
+                        id: "delete",
+                        label: "Delete contribution",
+                        onSelect: () => onDelete(row),
+                      },
+                    ]}
+                    title="Contribution actions"
+                  />
+                ) : null}
               </>
             ) : null
           }

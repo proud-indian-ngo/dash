@@ -301,18 +301,6 @@ export const contributionRefundSourceValues = ["razorpay", "manual"] as const;
 export type ContributionRefundSource =
   (typeof contributionRefundSourceValues)[number];
 
-/**
- * Why a refund needs the founder's look: it hit a receipted contribution
- * (whose status is never changed), or the provider later reported the same
- * refund with a different amount (never overwritten).
- */
-export const contributionRefundAttentionValues = [
-  "refund_after_receipt",
-  "amount_changed",
-] as const;
-export type ContributionRefundAttention =
-  (typeof contributionRefundAttentionValues)[number];
-
 /** Income that is not a donation and never enters donation filings. */
 export const otherIncomeKindValues = [
   "interest",

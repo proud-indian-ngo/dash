@@ -4,6 +4,7 @@ const calls: string[] = [];
 let accountActive = true;
 const config = new Map<string, string>();
 const written: Record<string, string>[] = [];
+const replaced: { expected: string; value: string }[] = [];
 
 mock.module("@pi-dash/db", () => ({ db: {} }));
 mock.module("@pi-dash/env/server", () => ({
@@ -15,8 +16,14 @@ mock.module("@pi-dash/observability", () => ({
 }));
 const noop = async () => undefined;
 mock.module("@pi-dash/db/queries/razorpay-refunds", () => ({
+  applyPendingRefunds: noop,
   applyRazorpayRefund: noop,
-  countRefundsNeedingAttention: async () => new Map(),
+  holdRazorpayRefund: noop,
+  countPendingRefunds: async () => 0,
+  countRefundsNeedingAttention: async () => ({
+    afterReceipt: 0,
+    amountChanged: 0,
+  }),
 }));
 mock.module("@pi-dash/db/queries/razorpay-import", () => ({
   appendImportRow: noop,
@@ -24,6 +31,7 @@ mock.module("@pi-dash/db/queries/razorpay-import", () => ({
   findRazorpayBatch: noop,
   findRazorpayPaymentRow: noop,
   insertRazorpayBatch: noop,
+  hasOpenReconcileJob: async () => false,
   listStaleRazorpayRows: async () => [],
   markImportRowWaiting: noop,
   recountImportBatches: async () => 0,
@@ -50,6 +58,14 @@ mock.module("@pi-dash/db/queries/razorpay-import", () => ({
     reconcileRun: "razorpay_reconcile_run",
   },
   readRazorpayConfig: async () => config,
+  replaceRazorpayConfigIf: async (
+    _name: string,
+    expected: string,
+    value: string
+  ) => {
+    replaced.push({ expected, value });
+    return true;
+  },
   withRazorpayStageTransaction: async (run: (tx: unknown) => unknown) => {
     calls.push("lock");
     return await run({});
@@ -121,37 +137,67 @@ describe("requestRazorpayReconcile", () => {
     testInProduction: false,
     webhookSecret: "w",
   };
+  const idle = async () => false;
 
   beforeEach(() => {
     config.clear();
     written.length = 0;
+    replaced.length = 0;
   });
 
-  it("is refused without the key secret or with a test key in production", async () => {
+  it("is refused with a test key in production", async () => {
     const queue = mock(async () => "job");
-    await expect(
-      requestRazorpayReconcile(
-        { reason: "manual" },
-        { ...KEYED, apiKey: null },
-        queue,
-        NOW
-      )
-    ).rejects.toThrow("RAZORPAY_KEY_SECRET");
     await expect(
       requestRazorpayReconcile(
         { reason: "manual" },
         { ...KEYED, testInProduction: true },
         queue,
-        NOW
+        NOW,
+        idle
       )
     ).rejects.toThrow("test key");
     expect(queue).not.toHaveBeenCalled();
   });
 
+  it("without the key secret, syncs stuck payments only and refuses a backfill", async () => {
+    const queue = mock(async (_payload: unknown) => "job");
+    const keyless = { ...KEYED, apiKey: null };
+    expect(
+      await requestRazorpayReconcile(
+        { reason: "manual" },
+        keyless,
+        queue,
+        NOW,
+        idle
+      )
+    ).toEqual({ days: 0, from: "2026-10-11", to: "2026-10-14" });
+    expect(JSON.parse(written[0]?.reconcileRun ?? "{}")).toMatchObject({
+      listed: false,
+      status: "queued",
+      windowsTotal: 0,
+    });
+    await expect(
+      requestRazorpayReconcile(
+        { from: "2026-04-01", reason: "backfill", to: "2026-04-02" },
+        keyless,
+        queue,
+        NOW,
+        idle
+      )
+    ).rejects.toThrow("RAZORPAY_KEY_SECRET");
+    expect(queue).toHaveBeenCalledTimes(1);
+  });
+
   it("queues the last three days, shown as queued", async () => {
     const queue = mock(async (_payload: unknown) => "job");
     expect(
-      await requestRazorpayReconcile({ reason: "manual" }, KEYED, queue, NOW)
+      await requestRazorpayReconcile(
+        { reason: "manual" },
+        KEYED,
+        queue,
+        NOW,
+        idle
+      )
     ).toEqual({ days: 4, from: "2026-10-11", to: "2026-10-14" });
     expect(queue.mock.calls[0]?.[0]).toEqual({
       from: "2026-10-11",
@@ -159,70 +205,69 @@ describe("requestRazorpayReconcile", () => {
       to: "2026-10-14",
     });
     expect(JSON.parse(written[0]?.reconcileRun ?? "{}")).toMatchObject({
+      listed: true,
       status: "queued",
       windowsDone: 0,
       windowsTotal: 4,
     });
   });
 
-  it("checks a backfill range before queueing it", async () => {
+  it("checks a backfill range, real dates included, before queueing it", async () => {
     const queue = mock(async () => "job");
-    await expect(
-      requestRazorpayReconcile(
-        { from: "2025-01-01", reason: "backfill", to: "2026-10-14" },
-        KEYED,
-        queue,
-        NOW
-      )
-    ).rejects.toThrow("400 days");
+    for (const [from, to, message] of [
+      ["2025-01-01", "2026-10-14", "400 days"],
+      ["2026-02-31", "2026-03-02", "real"],
+    ] as const) {
+      await expect(
+        requestRazorpayReconcile(
+          { from, reason: "backfill", to },
+          KEYED,
+          queue,
+          NOW,
+          idle
+        )
+      ).rejects.toThrow(message);
+    }
     expect(queue).not.toHaveBeenCalled();
     expect(
       await requestRazorpayReconcile(
         { from: "2026-04-01", reason: "backfill", to: "2026-10-14" },
         KEYED,
         queue,
-        NOW
+        NOW,
+        idle
       )
     ).toEqual({ days: 197, from: "2026-04-01", to: "2026-10-14" });
   });
 
-  it("is refused while a run is active, and puts the state back when the queue holds one", async () => {
-    config.set(
-      "razorpay_reconcile_run",
-      JSON.stringify({
-        counts: {},
-        from: "2026-10-11",
-        reason: "scheduled",
-        status: "running",
-        to: "2026-10-14",
-        updatedAt: "2026-10-14T05:55:00Z",
-        windowsDone: 1,
-        windowsTotal: 4,
-      })
-    );
+  it("is refused while pg-boss holds a run, and a refused send puts back only its own state", async () => {
     const queue = mock(async () => "job");
     await expect(
-      requestRazorpayReconcile({ reason: "manual" }, KEYED, queue, NOW)
+      requestRazorpayReconcile(
+        { reason: "manual" },
+        KEYED,
+        queue,
+        NOW,
+        async () => true
+      )
     ).rejects.toThrow("already running");
     expect(queue).not.toHaveBeenCalled();
+    expect(written).toEqual([]);
 
-    // A run whose progress stopped long ago is not active; the queue still
-    // refuses while its job exists, and the old state is put back.
-    const stale = config.get("razorpay_reconcile_run") ?? "";
-    config.set(
-      "razorpay_reconcile_run",
-      stale.replace("2026-10-14T05:55:00Z", "2026-10-14T01:00:00Z")
-    );
+    // The queue refuses (another request won the race): the previous value
+    // is put back only where our own queued state still stands.
+    config.set("razorpay_reconcile_run", "previous");
     await expect(
       requestRazorpayReconcile(
         { reason: "manual" },
         KEYED,
         async () => null,
-        NOW
+        NOW,
+        idle
       )
     ).rejects.toThrow("already running");
-    expect(written.at(-1)?.reconcileRun).toBe(
-      config.get("razorpay_reconcile_run")
-    );
+    expect(replaced).toEqual([
+      { expected: written[0]?.reconcileRun ?? "", value: "previous" },
+    ]);
   });
 });

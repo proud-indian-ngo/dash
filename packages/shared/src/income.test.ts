@@ -7,10 +7,12 @@ import {
   defaultReportingMode,
   epochDayToIso,
   financialYearOf,
+  isContributionDeletable,
   isContributionEditable,
   isInFinancialYear,
   netReceivedPaise,
   refundedPaise,
+  refundLockedChanges,
   refundNote,
   todayInKolkata,
 } from "./income";
@@ -77,9 +79,28 @@ describe("contribution statuses", () => {
     expect(isContributionEditable("refunded")).toBe(false);
   });
 
-  it("locks a contribution once a refund is recorded against it", () => {
-    expect(isContributionEditable("received", [])).toBe(true);
-    expect(isContributionEditable("received", [{ id: "r" }])).toBe(false);
+  it("keeps a refunded contribution editable but no longer deletable", () => {
+    expect(isContributionDeletable("received", [])).toBe(true);
+    expect(isContributionDeletable("received", [{ id: "r" }])).toBe(false);
+    expect(isContributionDeletable("receipted", [])).toBe(false);
+  });
+
+  it("names the refund-locked fields an edit would change", () => {
+    const existing = {
+      amountPaise: 100,
+      channel: "razorpay",
+      orgAccountId: "a",
+      partyId: "p",
+      receivedOn: 1,
+    };
+    expect(refundLockedChanges(existing, { ...existing })).toEqual([]);
+    expect(
+      refundLockedChanges(existing, {
+        ...existing,
+        amountPaise: 99,
+        orgAccountId: null,
+      })
+    ).toEqual(["amountPaise", "orgAccountId"]);
   });
 
   it("does not count pending, refunded or reversed money as received", () => {

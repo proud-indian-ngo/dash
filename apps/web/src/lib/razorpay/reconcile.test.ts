@@ -8,6 +8,7 @@ const {
   backfillRangeError,
   daysBetween,
   indiaDayWindow,
+  isRealIsoDay,
   recentRange,
   runRazorpayReconcile,
 } = await import("./reconcile");
@@ -25,9 +26,10 @@ describe("India day windows", () => {
   it("covers one India day, midnight to 23:59:59 IST", () => {
     const window = indiaDayWindow("2026-10-13");
     expect(window.from).toBe(unix("2026-10-12T18:30:00Z"));
-    expect(window.to).toBe(unix("2026-10-13T18:29:59Z"));
-    // Consecutive days meet without a gap or an overlap.
-    expect(indiaDayWindow("2026-10-14").from).toBe(window.to + 1);
+    // Up to the next midnight IST: Razorpay's `to` is inclusive, so a
+    // payment at exactly midnight is listed twice, which staging absorbs.
+    expect(window.to).toBe(unix("2026-10-13T18:30:00Z"));
+    expect(indiaDayWindow("2026-10-14").from).toBe(window.to);
   });
 
   it("walks a range day by day across month and year ends", () => {
@@ -64,33 +66,41 @@ describe("India day windows", () => {
     );
     expect(backfillRangeError("2025-09-10", "2026-10-14", now)).toBeNull();
     expect(backfillRangeError("", "2026-10-14", now)).not.toBeNull();
+    expect(backfillRangeError("2026-02-31", "2026-03-02", now)).toContain(
+      "real"
+    );
+    expect(isRealIsoDay("2026-02-28")).toBe(true);
+    expect(isRealIsoDay("2026-02-29")).toBe(false);
+    expect(isRealIsoDay("2028-02-29")).toBe(true);
+    expect(isRealIsoDay("2026-13-01")).toBe(false);
   });
 });
 
 describe("activeRun", () => {
-  const run = (status: ReconcileState["status"], updatedAt: string) =>
+  const run = (status: ReconcileState["status"]) =>
     ({
       counts: {} as ReconcileState["counts"],
       from: "2026-10-11",
+      listed: true,
       reason: "manual",
       status,
       to: "2026-10-14",
-      updatedAt,
-      windowsDone: 0,
+      updatedAt: "2026-10-14T09:50:00Z",
+      windowsDone: 1,
       windowsTotal: 4,
     }) satisfies ReconcileState;
-  const now = new Date("2026-10-14T10:00:00Z");
 
-  it("is a queued or running run whose progress moved in the last half hour", () => {
-    expect(activeRun(run("running", "2026-10-14T09:50:00Z"), now)).not.toBe(
-      null
-    );
-    expect(activeRun(run("queued", "2026-10-14T09:59:00Z"), now)).not.toBe(
-      null
-    );
-    expect(activeRun(run("running", "2026-10-14T09:00:00Z"), now)).toBeNull();
-    expect(activeRun(run("ok", "2026-10-14T09:59:00Z"), now)).toBeNull();
-    expect(activeRun(null, now)).toBeNull();
+  it("is active only while pg-boss holds an open job", () => {
+    expect(activeRun(run("running"), true)).toMatchObject({
+      status: "running",
+      windowsDone: 1,
+    });
+    // The process died: its state still says running, but the job is gone.
+    expect(activeRun(run("running"), false)).toBeNull();
+    // Sent by the schedule, before it wrote anything: shown as queued.
+    expect(activeRun(run("ok"), true)).toMatchObject({ status: "queued" });
+    expect(activeRun(null, true)).toMatchObject({ status: "queued" });
+    expect(activeRun(null, false)).toBeNull();
   });
 });
 
@@ -190,6 +200,9 @@ function harness({
       },
       client: () => client,
       listStale: async () => stale,
+      logFailure: (item) => {
+        calls.push(`failed:${item.refundId ?? item.paymentId}`);
+      },
       now: () => {
         clock += clockStep;
         return new Date(clock);
@@ -219,8 +232,10 @@ function harness({
           ...staged[p.id],
         };
       },
-      syncStale: async (input) => {
-        calls.push(`stale:${input.paymentId}:${input.day}`);
+      syncStale: async (input, client) => {
+        calls.push(
+          `stale:${input.paymentId}:${input.day}:${client ? "api" : "copy"}`
+        );
         if (input.paymentId === "pay_Broken") {
           throw new Error("still failing");
         }
@@ -234,7 +249,7 @@ function harness({
 }
 
 describe("runRazorpayReconcile", () => {
-  it("does nothing when Razorpay is off, without a key secret, or with a test key in production", async () => {
+  it("does nothing when Razorpay is off, with a test key in production, or a backfill without a key secret", async () => {
     const off = harness();
     expect(
       await runRazorpayReconcile(
@@ -248,7 +263,7 @@ describe("runRazorpayReconcile", () => {
     const keyless = harness();
     expect(
       await runRazorpayReconcile(
-        { reason: "manual" },
+        { from: "2026-04-01", reason: "backfill", to: "2026-04-02" },
         enabled(null),
         keyless.deps
       )
@@ -308,6 +323,7 @@ describe("runRazorpayReconcile", () => {
         retried: 0,
         waiting: 1,
       },
+      listed: true,
       pages: 8,
       status: "ok",
       windowsDone: 4,
@@ -381,15 +397,45 @@ describe("runRazorpayReconcile", () => {
       enabled(),
       h.deps
     );
+    // Through the run's paced client.
     expect(h.calls.filter((c) => c.startsWith("stale:"))).toEqual([
-      "stale:pay_Stuck:2026-10-01",
-      "stale:pay_Broken:2026-09-30",
+      "stale:pay_Stuck:2026-10-01:api",
+      "stale:pay_Broken:2026-09-30:api",
     ]);
+    expect(h.calls).toContain("failed:pay_Broken");
     expect(outcome).toMatchObject({
       counts: { errors: 1, retried: 1 },
       status: "ok",
     });
     expect(h.recounted).toEqual([["batch-old", "batch-older"]]);
+  });
+
+  it("without the key secret, syncs stuck payments from their staged copy and lists nothing", async () => {
+    const h = harness({
+      payments: { "2026-10-13": [payment("pay_New")] },
+      stale: [
+        {
+          batchId: "batch-old",
+          batchKey: "razorpay:test:2026-10-01",
+          paymentId: "pay_Stuck",
+        },
+      ],
+    });
+    const outcome = await runRazorpayReconcile(
+      { reason: "scheduled" },
+      enabled(null),
+      h.deps
+    );
+    expect(outcome).toMatchObject({
+      counts: { checked: 0, retried: 1 },
+      listed: false,
+      pages: 0,
+      status: "ok",
+      windowsTotal: 0,
+    });
+    expect(h.calls).toEqual(["stale:pay_Stuck:2026-10-01:copy"]);
+    expect(h.recounted).toEqual([["batch-old"]]);
+    expect(h.last[0]).toMatchObject({ listed: false, status: "ok" });
   });
 
   it("stops on an API error and records a safe code, keeping the counts so far", async () => {
@@ -426,5 +472,35 @@ describe("runRazorpayReconcile", () => {
       status: "failed",
     });
     expect(outcome.status === "failed" && outcome.windowsDone).toBeLessThan(5);
+  });
+
+  it("checks its time budget in the stuck-payment pass and writes progress", async () => {
+    const stale = Array.from({ length: 25 }, (_, i) => ({
+      batchId: "batch-old",
+      batchKey: "razorpay:test:2026-10-01",
+      paymentId: `pay_S${i}`,
+    }));
+    const quick = harness({ stale });
+    await runRazorpayReconcile(
+      { reason: "scheduled" },
+      enabled(null),
+      quick.deps
+    );
+    // Start, every ten payments, then cleared.
+    expect(quick.runs.map((r) => r?.counts.retried ?? null)).toEqual([
+      0,
+      10,
+      20,
+      null,
+    ]);
+
+    const slow = harness({ clockStep: 60 * 60 * 1000, stale });
+    expect(
+      await runRazorpayReconcile(
+        { reason: "scheduled" },
+        enabled(null),
+        slow.deps
+      )
+    ).toMatchObject({ errorCode: "time_limit", status: "failed" });
   });
 });

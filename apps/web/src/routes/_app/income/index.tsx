@@ -24,6 +24,7 @@ import { env } from "@pi-dash/env/web";
 import {
   currentFinancialYear,
   INCOME_PERMISSIONS,
+  isContributionDeletable,
   isContributionEditable,
 } from "@pi-dash/shared/income";
 import { formatPaise } from "@pi-dash/shared/money";
@@ -251,10 +252,15 @@ function ContributionsTab({
         onView={handleView}
       />
       <ContributionDetailSheet
+        canDelete={
+          canManage &&
+          viewing !== null &&
+          isContributionDeletable(viewing.status ?? "received", viewing.refunds)
+        }
         canEdit={
           canManage &&
           viewing !== null &&
-          isContributionEditable(viewing.status ?? "received", viewing.refunds)
+          isContributionEditable(viewing.status ?? "received")
         }
         contribution={viewing}
         onDelete={handleDelete}

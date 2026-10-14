@@ -21,7 +21,7 @@ import {
   saveReconcileRun,
 } from "./reconcile";
 import {
-  RefundWaitingError,
+  RefundNotProcessedError,
   type RefundSyncOutcome,
   syncRazorpayRefund,
 } from "./refund";
@@ -124,8 +124,9 @@ export async function handleRazorpaySyncPayment(
 }
 
 /**
- * Applies refunds. A refund whose payment is not imported yet is logged as
- * waiting (not an error) and thrown again, so pg-boss retries it later.
+ * Applies refunds. A refund whose payment is not imported yet is held for
+ * it (outcome `payment_not_imported`); one the API does not show as
+ * processed yet is thrown again so pg-boss retries it.
  */
 export async function handleRazorpaySyncRefund(
   jobs: readonly Job<RazorpaySyncRefundPayload>[],
@@ -148,12 +149,12 @@ export async function handleRazorpaySyncRefund(
       log.emit();
       outcomes.push(outcome);
     } catch (error) {
-      if (error instanceof RefundWaitingError) {
+      if (error instanceof RefundNotProcessedError) {
         log.set({
-          event: "razorpay_refund_waiting",
+          event: "razorpay_refund_not_processed_yet",
           lastAttempt: isLastAttempt(job),
-          outcome: "payment_not_imported",
         });
+        log.warn("refund not processed yet; retrying");
         log.emit();
         throw error;
       }

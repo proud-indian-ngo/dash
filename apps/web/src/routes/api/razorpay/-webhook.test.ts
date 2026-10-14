@@ -33,6 +33,9 @@ mock.module("@/lib/razorpay/config", () => ({
 mock.module("@/lib/razorpay/ingest", () => ({
   stageRazorpayPayment: stage,
 }));
+mock.module("@/lib/razorpay/refund", () => ({
+  holdWebhookRefund: async () => true,
+}));
 
 await import("./webhook");
 

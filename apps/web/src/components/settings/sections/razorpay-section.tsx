@@ -364,6 +364,21 @@ export function RazorpaySection() {
             </span>
           </SettingsRow>
         ) : null}
+        {view.pendingRefundCount > 0 ? (
+          <SettingsRow
+            description="Razorpay refunded these before their payment was recorded; each is applied when its payment is imported."
+            title="Refunds waiting"
+          >
+            <span
+              className="text-sm tabular-nums"
+              data-testid="razorpay-pending-refunds"
+            >
+              {view.pendingRefundCount === 1
+                ? "1 refund waiting for its payment"
+                : `${view.pendingRefundCount.toLocaleString("en-IN")} refunds waiting for their payment`}
+            </span>
+          </SettingsRow>
+        ) : null}
         <SettingsRow
           description="Payments that wait: to sync, for a clearing account, or for a decision such as a donor whose email matches an existing donor."
           title="Waiting"

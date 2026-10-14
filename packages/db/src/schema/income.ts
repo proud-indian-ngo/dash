@@ -1,6 +1,5 @@
 import {
   contributionChannelValues,
-  contributionRefundAttentionValues,
   contributionRefundSourceValues,
   contributionReportingModeValues,
   contributionSourceValues,
@@ -12,6 +11,7 @@ import {
 import { relations, sql } from "drizzle-orm";
 import {
   bigint,
+  boolean,
   check,
   date,
   index,
@@ -19,6 +19,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -51,10 +52,6 @@ export const contributionSourceEnum = pgEnum(
 export const contributionRefundSourceEnum = pgEnum(
   "contribution_refund_source",
   contributionRefundSourceValues
-);
-export const contributionRefundAttentionEnum = pgEnum(
-  "contribution_refund_attention",
-  contributionRefundAttentionValues
 );
 export const otherIncomeKindEnum = pgEnum(
   "other_income_kind",
@@ -164,8 +161,11 @@ export const contributionRefund = pgTable(
   "contribution_refund",
   {
     amountPaise: bigint("amount_paise", { mode: "number" }).notNull(),
-    /** Set when the founder should look: a refund after receipt, or a changed amount. */
-    attention: contributionRefundAttentionEnum("attention"),
+    /**
+     * The provider later reported this refund with another amount; the first
+     * amount is kept. Needs the founder's look.
+     */
+    amountChanged: boolean("amount_changed").default(false).notNull(),
     contributionId: uuid("contribution_id")
       .notNull()
       .references(() => contribution.id, { onDelete: "restrict" }),
@@ -173,12 +173,24 @@ export const contributionRefund = pgTable(
     id: uuid("id").primaryKey(),
     /** The provider's refund ID (Razorpay `rfnd_…`). */
     reference: text("reference"),
+    /**
+     * The refund came after the contribution was receipted, whose status is
+     * then left alone. Needs the founder's look.
+     */
+    refundAfterReceipt: boolean("refund_after_receipt")
+      .default(false)
+      .notNull(),
     /** India date of the refund. */
     refundedOn: date("refunded_on").notNull(),
     source: contributionRefundSourceEnum("source").notNull(),
   },
   (t) => [
     index("contribution_refund_contributionId_idx").on(t.contributionId),
+    // One row per provider refund.
+    uniqueIndex("contribution_refund_source_reference_uidx").on(
+      t.source,
+      t.reference
+    ),
     check("contribution_refund_amount_positive", sql`${t.amountPaise} > 0`),
   ]
 );
