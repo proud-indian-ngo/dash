@@ -347,6 +347,68 @@ export interface SettlementSummary {
   settledThisYearPaise: number;
 }
 
+export interface GiveDoSettlementSummary {
+  /** Received give.do gifts not linked to a processed give.do payout, net of fees. */
+  awaitingPaise: number;
+  feesThisYearPaise: number;
+  settledThisYearPaise: number;
+}
+
+/**
+ * give.do settlement figures. Unlike Razorpay, give.do has no configured
+ * server mode: payouts always use provider account `live`. Awaiting is
+ * derived per contribution so an imported gift leaves the balance only when
+ * its payment item is part of a processed give.do payout.
+ */
+export async function giveDoSettlementSummary(
+  fy: { endsOn: string; startsOn: string },
+  executor: Reader = db
+): Promise<GiveDoSettlementSummary> {
+  const inProcessedSettlement = sql`exists (
+    select 1 from ${gatewaySettlementItem} i
+    inner join ${gatewaySettlement} s on s.id = i.settlement_id
+    where i.type = 'payment'
+      and i.contribution_id = ${contribution.id}
+      and s.provider = 'give_do'
+      and s.provider_account = 'live'
+      and s.status = 'processed'
+  )`;
+  const [gifts] = await executor
+    .select({
+      net: sql<string>`coalesce(sum(${contribution.amountPaise} - ${contribution.gatewayFeePaise} - ${contribution.gatewayTaxPaise}), 0)`,
+    })
+    .from(contribution)
+    .where(
+      and(
+        eq(contribution.channel, "give_do"),
+        sql`${contribution.status} in ('received', 'receipted')`,
+        sql`not ${inProcessedSettlement}`
+      )
+    );
+
+  const s = gatewaySettlement;
+  const inYear = sql`${s.settledOn} between ${fy.startsOn} and ${fy.endsOn}`;
+  const [settled] = await executor
+    .select({
+      fees: sql<string>`coalesce(sum(${s.feesPaise} + ${s.taxPaise} + coalesce(${s.settlementFeePaise}, 0) + coalesce(${s.settlementTaxPaise}, 0)) filter (where ${inYear}), 0)`,
+      year: sql<string>`coalesce(sum(${s.amountPaise}) filter (where ${inYear}), 0)`,
+    })
+    .from(s)
+    .where(
+      and(
+        eq(s.provider, "give_do"),
+        eq(s.providerAccount, "live"),
+        eq(s.status, "processed")
+      )
+    );
+
+  return {
+    awaitingPaise: Number(gifts?.net ?? 0),
+    feesThisYearPaise: Number(settled?.fees ?? 0),
+    settledThisYearPaise: Number(settled?.year ?? 0),
+  };
+}
+
 /**
  * The Income page's settlement figures for one mode. Awaiting settlement is
  * worked out per line rather than as a running balance, so payments that

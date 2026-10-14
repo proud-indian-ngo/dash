@@ -175,7 +175,7 @@ function summaryItems(
           : dash,
     },
     {
-      hint: "give.do gifts received, less give.do payouts matched to bank lines. Payouts are not split across gifts yet.",
+      hint: "Gross give.do gifts received, less net imported settlements and legacy payouts matched to bank lines. Processing fees remain in this figure.",
       icon: Coins01Icon,
       label: "give.do clearing",
       value: summary ? formatPaise(summary.giveDoClearingPaise) : dash,

@@ -165,6 +165,14 @@ export const GIVE_DO_HEADERS = GIVE_DO_COLUMNS.map(([header]) => header);
 const PRESETS: Partial<
   Record<ImportBatchSource, ReadonlyMap<string, ImportMappingTarget>>
 > = {
+  give_do_payout: new Map([
+    ...GIVE_DO_COLUMNS.map(
+      ([header, target]) => [headerKey(header), target] as const
+    ),
+    [headerKey("Donor Phone"), "phone"],
+    [headerKey("Donor Town / State"), "state"],
+    [headerKey("UTR"), IGNORE_FIELD],
+  ]),
   give_do_csv: new Map(
     GIVE_DO_COLUMNS.map(([header, target]) => [headerKey(header), target])
   ),
@@ -185,7 +193,7 @@ export interface SourceRules {
 }
 
 export function sourceRules(source: ImportBatchSource): SourceRules {
-  if (source === "give_do_csv") {
+  if (source === "give_do_csv" || source === "give_do_payout") {
     return {
       expectedHeaders: GIVE_DO_HEADERS,
       fixedChannel: "give_do",
@@ -351,6 +359,7 @@ export const IMPORT_SOURCE_LABELS: Record<ImportBatchSource, string> = {
   bank_csv: "Bank statement (CSV)",
   generic_csv: "Generic CSV",
   give_do_csv: "give.do",
+  give_do_payout: "give.do payout",
   razorpay_api: "Razorpay",
 };
 

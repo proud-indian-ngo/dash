@@ -49,6 +49,13 @@ export const SETTLEMENT_LINE_LABELS: Record<GatewaySettlementItemType, string> =
     transfer: "Transfer",
   };
 
+export const settlementProviderLabel = (provider: string): string =>
+  provider === "give_do"
+    ? "give.do"
+    : provider === "razorpay"
+      ? "Razorpay"
+      : provider;
+
 /** "setl_ABC…XYZ": long IDs shortened for a table cell. */
 export function shortId(id: string): string {
   return id.length > 16 ? `${id.slice(0, 9)}…${id.slice(-4)}` : id;

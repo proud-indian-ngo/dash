@@ -25,7 +25,6 @@ import {
   contributionRuleIssues,
   DONATION_TYPE_LABELS,
   defaultReportingMode,
-  razorpayPaymentUrl,
   REPORTING_MODE_LABELS,
 } from "@pi-dash/shared/income";
 import { rupeesToPaise } from "@pi-dash/shared/money";
@@ -65,7 +64,10 @@ import { paiseToRupeesInput } from "@/lib/paise";
 
 import type { ContributionRow } from "./income-types";
 import { withCurrentOption } from "./picker-options";
-import { useSettlementLock } from "./settlements/contribution-settlement";
+import {
+  isGatewayContribution,
+  useSettlementLock,
+} from "./settlements/contribution-settlement";
 
 const enumOptions = <T extends string>(
   values: readonly T[],
@@ -386,21 +388,23 @@ function ContributionForm({
 }) {
   const zero = useZero();
   const isEdit = contribution !== null;
-  // A refund recorded against it, or a processed Razorpay settlement that
+  // A refund recorded against it, or a processed gateway settlement that
   // paid it out, fixes what the provider reported; until the settlement is
   // known the fields stay fixed.
   const settlementLock = useSettlementLock(
     contribution?.id ?? null,
-    contribution !== null && razorpayPaymentUrl(contribution) !== null
+    contribution !== null && isGatewayContribution(contribution)
   );
   const hasRefund = (contribution?.refunds?.length ?? 0) > 0;
   const refundLocked = hasRefund || settlementLock !== "unlocked";
+  const settlementProvider =
+    contribution?.channel === "give_do" ? "give.do" : "Razorpay";
   const lockedNote = hasRefund
     ? "Fixed: a refund is recorded against this contribution."
     : refundLocked
       ? settlementLock === "locked"
-        ? "Fixed: Razorpay has settled this contribution to the bank."
-        : "Fixed until pi-dash has checked whether Razorpay settled it."
+        ? `Fixed: ${settlementProvider} has settled this contribution to the bank.`
+        : `Fixed until pi-dash has checked whether ${settlementProvider} settled it.`
       : undefined;
   // Fixed for the life of the form so a retried save cannot duplicate.
   const [id] = useState(() => contribution?.id ?? uuidv7());

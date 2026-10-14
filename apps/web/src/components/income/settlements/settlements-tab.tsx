@@ -31,6 +31,9 @@ import { SettlementsTable } from "./settlements-table";
 export const AWAITING_SETTLEMENT_HINT =
   "Razorpay gifts in pi-dash that no processed settlement has paid out yet (each gift less Razorpay's fee and GST), less their refunds that no processed settlement has taken back yet. A gift recorded by hand and linked to a Razorpay payment has no fee recorded, so it counts in full until settled.";
 
+export const GIVE_DO_AWAITING_SETTLEMENT_HINT =
+  "give.do gifts in pi-dash that no processed payout has paid out yet, each gift less give.do's recorded charge.";
+
 /** Changes whenever a settlement is added or its amount or status changes. */
 const settlementsSignature = (rows: readonly SettlementRow[]) =>
   rows
@@ -79,18 +82,17 @@ function useSettlementSummary(refreshKey: string) {
 }
 
 /**
- * Income → Settlements (finance.view or finance.manage): Razorpay payouts
- * from the clearing balance to the bank, with what is still awaiting
- * settlement.
+ * Income → Settlements (finance.view or finance.manage): gateway payouts
+ * from the clearing balances to the bank, with what each provider still
+ * owes.
  */
 export function SettlementsTab() {
   // The server's mode decides which settlements show, as for the figures.
   const [mode, setMode] = useState<"live" | "test" | null>(null);
   const [settlements, result] = useQuery(
-    queries.gatewaySettlement.list({ providerAccount: mode ?? "" }),
-    { enabled: mode !== null }
+    queries.gatewaySettlement.list({ providerAccount: mode ?? "" })
   );
-  const rows = mode ? (settlements as SettlementRow[]) : [];
+  const rows = settlements as SettlementRow[];
   const { failed, retry, summary } = useSettlementSummary(
     settlementsSignature(rows)
   );
@@ -101,7 +103,7 @@ export function SettlementsTab() {
   }, [summary]);
   const isLoading =
     (summary === null && !failed) ||
-    (mode !== null && rows.length === 0 && result.type !== "complete");
+    (rows.length === 0 && result.type !== "complete");
   const [openId, setOpenId] = useState<string | null>(null);
   const open = useEventCallback((row: SettlementRow) => setOpenId(row.id));
 
@@ -109,21 +111,35 @@ export function SettlementsTab() {
     {
       hint: AWAITING_SETTLEMENT_HINT,
       icon: MoneyExchange03Icon,
-      label: "Awaiting settlement",
+      label: "Awaiting from Razorpay",
       value:
         summary === null || summary.awaitingPaise === null
           ? "—"
           : formatPaise(summary.awaitingPaise),
     },
     {
+      hint: GIVE_DO_AWAITING_SETTLEMENT_HINT,
+      icon: MoneyExchange03Icon,
+      label: "Awaiting from give.do",
+      value: summary ? formatPaise(summary.giveDoAwaitingPaise) : "—",
+    },
+    {
       icon: BankIcon,
       label: `Settled ${summary?.financialYear ?? "this year"}`,
-      value: summary ? formatPaise(summary.settledThisYearPaise) : "—",
+      value: summary
+        ? formatPaise(
+            summary.settledThisYearPaise + summary.giveDoSettledThisYearPaise
+          )
+        : "—",
     },
     {
       icon: Invoice03Icon,
       label: `Fees ${summary?.financialYear ?? "this year"}`,
-      value: summary ? formatPaise(summary.feesThisYearPaise) : "—",
+      value: summary
+        ? formatPaise(
+            summary.feesThisYearPaise + summary.giveDoFeesThisYearPaise
+          )
+        : "—",
     },
   ];
 
@@ -177,8 +193,8 @@ export function SettlementsTab() {
         <NotFoundState
           description={
             summary?.mode === null
-              ? "Razorpay is not configured on this server."
-              : "Payouts Razorpay makes from donations into the bank appear here once a sync has listed them. They need RAZORPAY_KEY_SECRET on the server."
+              ? "No give.do payouts have been imported, and Razorpay is not configured on this server."
+              : "Gateway payouts into the bank appear here after a give.do payout import or Razorpay sync."
           }
           icon={Coins01Icon}
           title="No settlements yet"

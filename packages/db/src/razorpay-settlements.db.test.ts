@@ -5,6 +5,7 @@ import { uuidv7 } from "uuidv7";
 import { expect, it } from "vitest";
 
 import {
+  giveDoSettlementSummary,
   linkSettlementLinesForPayment,
   razorpaySettlementSummary,
   recordSettlementIn,
@@ -99,12 +100,13 @@ async function foundation(tx: Tx) {
   return ids;
 }
 
-/** A Razorpay gift: a contribution and, unless `identity` is null, its payment identity. */
+/** A gateway gift and, when supplied, its Razorpay payment identity. */
 async function gift(
   tx: Tx,
   base: Awaited<ReturnType<typeof foundation>>,
   values: {
     amountPaise: number;
+    channel?: "give_do" | "razorpay";
     feePaise?: number;
     identity: { mode: string; paymentId: string } | null;
     status?: "received" | "receipted" | "refunded" | "reversed";
@@ -114,7 +116,7 @@ async function gift(
   const id = uuidv7();
   await tx.insert(contribution).values({
     amountPaise: values.amountPaise,
-    channel: "razorpay",
+    channel: values.channel ?? "razorpay",
     createdAt: NOW,
     fundId: base.fund,
     gatewayFeePaise: values.feePaise ?? 0,
@@ -455,6 +457,106 @@ it.skipIf(!localDatabase)(
         feesThisYearPaise: 1239,
         settledPaymentsNotImported: 1,
         settledThisYearPaise: 45_820,
+      });
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "works out give.do awaiting per gift and financial-year payout totals",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const base = await foundation(tx);
+      await gift(tx, base, {
+        amountPaise: 20_000,
+        channel: "give_do",
+        feePaise: 1000,
+        identity: null,
+      });
+      const paid = await gift(tx, base, {
+        amountPaise: 30_000,
+        channel: "give_do",
+        feePaise: 1500,
+        identity: null,
+      });
+      const inCreatedPayout = await gift(tx, base, {
+        amountPaise: 10_000,
+        channel: "give_do",
+        feePaise: 500,
+        identity: null,
+      });
+      await gift(tx, base, {
+        amountPaise: 99_000,
+        channel: "give_do",
+        identity: null,
+        status: "reversed",
+      });
+
+      const processedId = uuidv7();
+      await tx.insert(gatewaySettlement).values({
+        amountPaise: 28_500,
+        createdAt: NOW,
+        externalId: "UTR-GIVEDO-PROCESSED",
+        feesPaise: 1500,
+        grossPaise: 30_000,
+        id: processedId,
+        itemCount: 1,
+        orgAccountId: base.account,
+        paymentCount: 1,
+        provider: "give_do",
+        providerAccount: "live",
+        settledOn: "2026-10-12",
+        status: "processed",
+        updatedAt: NOW,
+        utr: "UTRGIVEDOPROCESSED",
+      });
+      await tx.insert(gatewaySettlementItem).values({
+        contributionId: paid,
+        creditPaise: 28_500,
+        externalId: "LC-GIVEDO-PAID",
+        feePaise: 1500,
+        id: uuidv7(),
+        settledAt: NOW,
+        settlementId: processedId,
+        type: "payment",
+      });
+
+      const createdId = uuidv7();
+      await tx.insert(gatewaySettlement).values({
+        amountPaise: 9500,
+        createdAt: NOW,
+        externalId: "UTR-GIVEDO-CREATED",
+        feesPaise: 500,
+        grossPaise: 10_000,
+        id: createdId,
+        itemCount: 1,
+        orgAccountId: base.account,
+        paymentCount: 1,
+        provider: "give_do",
+        providerAccount: "live",
+        settledOn: "2026-10-13",
+        status: "created",
+        updatedAt: NOW,
+      });
+      await tx.insert(gatewaySettlementItem).values({
+        contributionId: inCreatedPayout,
+        creditPaise: 9500,
+        externalId: "LC-GIVEDO-CREATED",
+        feePaise: 500,
+        id: uuidv7(),
+        settledAt: NOW,
+        settlementId: createdId,
+        type: "payment",
+      });
+
+      const summary = await giveDoSettlementSummary(
+        { endsOn: "2027-03-31", startsOn: "2026-04-01" },
+        tx
+      );
+      expect(summary).toEqual({
+        awaitingPaise: 19_000 + 9500,
+        feesThisYearPaise: 1500,
+        settledThisYearPaise: 28_500,
       });
     });
   }

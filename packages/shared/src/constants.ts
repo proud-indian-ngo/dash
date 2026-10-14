@@ -302,7 +302,7 @@ export type ContributionRefundSource =
   (typeof contributionRefundSourceValues)[number];
 
 /** Who paid a gateway settlement out of its clearing balance. */
-export const gatewaySettlementProviderValues = ["razorpay"] as const;
+export const gatewaySettlementProviderValues = ["razorpay", "give_do"] as const;
 export type GatewaySettlementProvider =
   (typeof gatewaySettlementProviderValues)[number];
 
@@ -342,6 +342,7 @@ export type OtherIncomeKind = (typeof otherIncomeKindValues)[number];
  * statements: their rows become statement lines, never donations directly.
  */
 export const importBatchSourceValues = [
+  "give_do_payout",
   "give_do_csv",
   "generic_csv",
   "razorpay_api",

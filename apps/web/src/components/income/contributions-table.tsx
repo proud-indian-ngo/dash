@@ -21,6 +21,7 @@ import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { Tag } from "@/components/shared/status-badge";
+import { useApp } from "@/context/app-context";
 
 import { formatReceivedOn } from "./contribution-detail-sheet";
 import {
@@ -34,6 +35,7 @@ import {
   donorName,
   programmeLabel,
 } from "./income-types";
+import { useContributionBankEvidence } from "./use-contribution-bank-evidence";
 
 const SKELETON_DATE = <Skeleton className="h-5 w-24" />;
 const SKELETON_NAME = <Skeleton className="h-5 w-40" />;
@@ -120,6 +122,10 @@ export function ContributionsTable({
   onView: (row: ContributionRow) => void;
 }) {
   useMigrateLegacyContributionFilterParams();
+  const { hasPermission } = useApp();
+  const seesBankEvidence =
+    hasPermission("finance.view") || hasPermission("finance.manage");
+  const bank = useContributionBankEvidence(seesBankEvidence);
   const getRowId = useEventCallback((row: ContributionRow) => row.id);
 
   const columns: DataGridColumnDef<ContributionRow>[] = [
@@ -308,11 +314,11 @@ export function ContributionsTable({
       data={data}
       emptyMessage="No contributions match."
       filter={{
-        fields: createContributionFilterFields(data),
-        getValue: getContributionFilterValue(missingPartyIds),
+        fields: createContributionFilterFields(data, seesBankEvidence),
+        getValue: getContributionFilterValue(missingPartyIds, bank.evidence),
       }}
       getRowId={getRowId}
-      isLoading={isLoading}
+      isLoading={isLoading || bank.isLoading}
       onRowClick={onView}
       searchFn={searchContribution}
       searchPlaceholder="Search donor or reference..."

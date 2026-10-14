@@ -1,4 +1,5 @@
 import {
+  giveDoSettlementSummary,
   isContributionSettlementLocked,
   razorpaySettlementSummary,
 } from "@pi-dash/db/queries/razorpay-settlements";
@@ -22,6 +23,9 @@ export interface SettlementSummaryResponse {
    */
   awaitingPaise: number | null;
   feesThisYearPaise: number;
+  giveDoAwaitingPaise: number;
+  giveDoFeesThisYearPaise: number;
+  giveDoSettledThisYearPaise: number;
   /** For example "2026-27". */
   financialYear: string;
   /** The mode the figures are for; null when Razorpay is not configured. */
@@ -46,26 +50,33 @@ export const getSettlementSummary = createServerFn({ method: "POST" })
     ]);
     const fy = currentFinancialYear();
     const setup = razorpaySetup();
-    if (!setup.enabled) {
-      return {
-        awaitingPaise: null,
-        feesThisYearPaise: 0,
-        financialYear: fy.label,
-        mode: null,
-        settledPaymentsNotImported: 0,
-        settledThisYearPaise: 0,
-      };
-    }
-    const summary = await withSafeErrors(
+    const summaries = await withSafeErrors(
       {
         fields: { event: "settlement_summary_failed" },
         isUserFacing: () => false,
         message: "Settlement figures couldn't be loaded.",
         path: "razorpay-settlements",
       },
-      () => razorpaySettlementSummary(setup.mode, fy)
+      async () => {
+        const [giveDo, razorpay] = await Promise.all([
+          giveDoSettlementSummary(fy),
+          setup.enabled ? razorpaySettlementSummary(setup.mode, fy) : null,
+        ]);
+        return { giveDo, razorpay };
+      }
     );
-    return { ...summary, financialYear: fy.label, mode: setup.mode };
+    return {
+      awaitingPaise: summaries.razorpay?.awaitingPaise ?? null,
+      feesThisYearPaise: summaries.razorpay?.feesThisYearPaise ?? 0,
+      financialYear: fy.label,
+      giveDoAwaitingPaise: summaries.giveDo.awaitingPaise,
+      giveDoFeesThisYearPaise: summaries.giveDo.feesThisYearPaise,
+      giveDoSettledThisYearPaise: summaries.giveDo.settledThisYearPaise,
+      mode: setup.enabled ? setup.mode : null,
+      settledPaymentsNotImported:
+        summaries.razorpay?.settledPaymentsNotImported ?? 0,
+      settledThisYearPaise: summaries.razorpay?.settledThisYearPaise ?? 0,
+    };
   });
 
 /**

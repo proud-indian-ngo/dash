@@ -23,7 +23,10 @@ import {
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
 import { getStatementLinkCandidates } from "@/functions/bank-statements";
-import { IGNORE_REASON_LABELS } from "@/lib/bank-statement/labels";
+import {
+  IGNORE_REASON_LABELS,
+  settlementProviderLabel,
+} from "@/lib/bank-statement/labels";
 import type { LinkCandidatesResponse } from "@/lib/bank-statement/types";
 import { DATE } from "@/lib/date-formats";
 
@@ -207,7 +210,7 @@ const linkSchema = z.object({
 function linkOptions(candidates: LinkCandidatesResponse) {
   return [
     ...candidates.settlements.map((s) => ({
-      label: `Razorpay settlement · ${formatIsoDate(s.settledOn)} · ${formatPaise(s.amountPaise)}${s.utr ? ` · UTR ${s.utr}` : ""}`,
+      label: `${settlementProviderLabel(s.provider)} settlement · ${formatIsoDate(s.settledOn)} · ${formatPaise(s.amountPaise)}${s.utr ? ` · UTR ${s.utr}` : ""}`,
       value: `settlement:${s.id}`,
     })),
     ...candidates.contributions.map((c) => ({
@@ -268,7 +271,7 @@ function LinkForm({
   return (
     <FormLayout form={form}>
       <ComboboxField
-        description="Unmatched Razorpay settlements, and donations recorded as deposited into this account. The amount must equal the line's."
+        description="Unmatched gateway settlements, and donations recorded as deposited into this account. The amount must equal the line's."
         emptyMessage={candidates ? "Nothing unmatched to link." : "Loading..."}
         isRequired
         label="Settlement or donation"

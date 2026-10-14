@@ -711,6 +711,19 @@ const DONOR_ID = PARTIES[0]?.id as string;
 
 const CONTRIBUTIONS = [
   {
+    amountPaise: 100_000,
+    channel: "give_do" as const,
+    gatewayFeePaise: 5000,
+    id: "01930000-0000-7000-8000-000000000650",
+    intermediaryPartyId: GIVE_INDIA_PARTY_ID,
+    orgAccountId: ORG_ACCOUNTS[2]?.id,
+    programmeId: PROGRAMME_IDS.education,
+    receivedOn: "2026-09-01",
+    reference: null,
+    reportingMode: "electronic_or_account_payee" as const,
+    source: "import" as const,
+  },
+  {
     amountPaise: 2_500_000,
     channel: "neft" as const,
     id: "01930000-0000-7000-8000-000000000611",
@@ -887,10 +900,58 @@ async function seedIncome(adminId: string): Promise<void> {
       updatedAt: now,
     })
     .onConflictDoNothing();
+  await db
+    .insert(externalIdentity)
+    .values({
+      contributionId: "01930000-0000-7000-8000-000000000650",
+      createdAt: now,
+      entityType: "payment",
+      externalId: "LCSEEDGIVEDO0001",
+      id: "01930000-0000-7000-8000-000000000651",
+      payloadHash: "seed",
+      provider: "give_do",
+      providerAccount: ORG_ACCOUNTS[2]?.id as string,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(gatewaySettlement)
+    .values({
+      amountPaise: 95_000,
+      createdAt: now,
+      externalId: "GIVEDOSEED202609",
+      feesPaise: 5000,
+      grossPaise: 100_000,
+      id: "01930000-0000-7000-8000-000000000652",
+      itemCount: 1,
+      orgAccountId: ORG_ACCOUNTS[2]?.id as string,
+      paymentCount: 1,
+      provider: "give_do",
+      providerAccount: "live",
+      settledOn: "2026-09-05",
+      status: "processed",
+      taxPaise: 0,
+      updatedAt: now,
+      utr: "GIVEDOSEED202609",
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(gatewaySettlementItem)
+    .values({
+      contributionId: "01930000-0000-7000-8000-000000000650",
+      creditPaise: 95_000,
+      externalId: "LCSEEDGIVEDO0001",
+      feePaise: 5000,
+      id: "01930000-0000-7000-8000-000000000653",
+      settledAt: new Date("2026-09-05T00:00:00+05:30"),
+      settlementId: "01930000-0000-7000-8000-000000000652",
+      taxPaise: 0,
+      type: "payment",
+    })
+    .onConflictDoNothing();
   await seedImportBatch(adminId);
   await seedStatementLines(adminId);
   log(
-    `${ORG_ACCOUNTS.length} org accounts, ${CONTRIBUTIONS.length + RETURN_FIXTURE_CONTRIBUTIONS.length} contributions, 1 refund, 1 settlement, 1 other income, 1 import and ${STATEMENT_LINES.length} bank statement lines ready`
+    `${ORG_ACCOUNTS.length} org accounts, ${CONTRIBUTIONS.length + RETURN_FIXTURE_CONTRIBUTIONS.length} contributions, 1 refund, 2 settlements, 1 other income, 1 import and ${STATEMENT_LINES.length} bank statement lines ready`
   );
 }
 

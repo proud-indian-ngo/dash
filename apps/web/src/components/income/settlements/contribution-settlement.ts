@@ -9,7 +9,7 @@ import { useApp } from "@/context/app-context";
 import { getContributionSettlementLock } from "@/functions/razorpay-settlements";
 
 /**
- * Where a Razorpay gift stands with its payout: paid out by a processed
+ * Where a gateway gift stands with its payout: paid out by a processed
  * settlement (the newest, if more than one), waiting in a settlement that
  * is not processed yet, or not in any (a failed settlement counts as none).
  */
@@ -18,6 +18,14 @@ export type ContributionSettlement =
   | { kind: "none" }
   | { kind: "pending"; settlement: GatewaySettlement }
   | { kind: "settled"; settlement: GatewaySettlement };
+
+export function isGatewayContribution(contribution: {
+  channel: string;
+}): boolean {
+  return (
+    contribution.channel === "razorpay" || contribution.channel === "give_do"
+  );
+}
 
 export function contributionSettlementOf(
   lines: readonly { settlement?: GatewaySettlement | null }[]
@@ -61,7 +69,7 @@ export function useContributionSettlement(
 }
 
 /**
- * Whether a Razorpay gift's reported fields are fixed and Delete hidden
+ * Whether a gateway gift's reported fields are fixed and Delete hidden
  * because a processed settlement paid it out, matching the Zero mutator.
  * Finance holders read it from the synced settlement; others ask the
  * server. While unknown (`checking`: loading, or the check failed) the
@@ -72,12 +80,12 @@ export type SettlementLock = "checking" | "locked" | "unlocked";
 
 export function useSettlementLock(
   contributionId: string | null,
-  isRazorpayGift: boolean
+  isGatewayGift: boolean
 ): SettlementLock {
   const { hasPermission } = useApp();
   const seesSettlements =
     hasPermission("finance.view") || hasPermission("finance.manage");
-  const active = isRazorpayGift && contributionId !== null;
+  const active = isGatewayGift && contributionId !== null;
   const synced = useContributionSettlement(
     contributionId,
     active && seesSettlements

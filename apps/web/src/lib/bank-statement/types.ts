@@ -113,6 +113,7 @@ export interface LinkCandidatesResponse {
     amountPaise: number;
     externalId: string;
     id: string;
+    provider: string;
     settledOn: string;
     utr: string | null;
   }[];

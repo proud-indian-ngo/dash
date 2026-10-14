@@ -37,12 +37,13 @@ export const gatewaySettlementItemTypeEnum = pgEnum(
 
 /**
  * Money a payment gateway paid out of its clearing balance into the bank.
- * Written only by the server (the Razorpay settlement sync); synced through
+ * Written only by the server (gateway sync or payout import); synced through
  * Zero, read-only, to finance.view and finance.manage holders. Holds IDs,
  * amounts, dates and the bank reference (UTR), no personal data. A
- * settlement never creates or changes a contribution, and makes no posting
- * or movement yet (the posting layer will turn it into a transfer out of
- * clearing and into the bank).
+ * settlement makes no posting or movement yet. The give.do payout importer
+ * can also import missing gifts and fill evidence-backed fees in its transaction.
+ * The posting layer will turn a settlement into a transfer out of
+ * clearing and into the bank.
  */
 export const gatewaySettlement = pgTable(
   "gateway_settlement",

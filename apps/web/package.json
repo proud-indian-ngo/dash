@@ -53,6 +53,7 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-error-boundary": "^6.1.6",
+    "read-excel-file": "^9.3.12",
     "recharts": "^3.10.1",
     "sonner": "catalog:",
     "uuidv7": "catalog:",

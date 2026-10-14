@@ -21,6 +21,7 @@ import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import {
   SETTLEMENT_STATUS_LABELS,
   SETTLEMENT_STATUS_TONES,
+  settlementProviderLabel,
   type SettlementRow,
   shortId,
 } from "./settlement-types";
@@ -54,7 +55,11 @@ function getFilterValue(row: SettlementRow, path: string[]) {
 function searchSettlement(row: SettlementRow, query: string): boolean {
   const q = query.trim().toLowerCase();
   return (
-    !q || [row.externalId, row.utr ?? ""].join(" ").toLowerCase().includes(q)
+    !q ||
+    [settlementProviderLabel(row.provider), row.externalId, row.utr ?? ""]
+      .join(" ")
+      .toLowerCase()
+      .includes(q)
   );
 }
 
@@ -87,8 +92,8 @@ function moneyColumn(
 }
 
 /**
- * The Income page's Settlements tab: one row per payout from the Razorpay
- * clearing balance to the bank, its lines summed. Read-only.
+ * The Income page's Settlements tab: one row per gateway payout to the bank,
+ * with its lines summed. Read-only.
  */
 export function SettlementsTable({
   data,
@@ -101,6 +106,20 @@ export function SettlementsTable({
 }) {
   const getRowId = useEventCallback((row: SettlementRow) => row.id);
   const columns: DataGridColumnDef<SettlementRow>[] = [
+    {
+      accessorFn: (row) => settlementProviderLabel(row.provider),
+      cell: ({ row }) => settlementProviderLabel(row.original.provider),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Provider"
+          visibility={true}
+        />
+      ),
+      id: "provider",
+      meta: { headerTitle: "Provider", skeleton: SKELETON_TEXT },
+      size: 110,
+    },
     {
       accessorFn: (row) => row.settledOn,
       cell: ({ row }) => formatReceivedOn(row.original.settledOn),
@@ -171,7 +190,7 @@ export function SettlementsTable({
     moneyColumn("gross", "Gross", (row) => row.grossPaise ?? 0),
     moneyColumn(
       "fees",
-      "Fees + GST",
+      "Fees + tax",
       (row) =>
         (row.feesPaise ?? 0) + (row.taxPaise ?? 0) + settlementOwnFeePaise(row)
     ),
@@ -242,7 +261,7 @@ export function SettlementsTable({
       isLoading={isLoading}
       onRowClick={onOpen}
       searchFn={searchSettlement}
-      searchPlaceholder="Search settlement ID or UTR..."
+      searchPlaceholder="Search provider, settlement ID or UTR..."
       searchQueryKey="settlementSearch"
       storageKey="settlements_table_state_v1"
       tableLayout={{

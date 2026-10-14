@@ -317,7 +317,8 @@ export function ReviewTable({
     (row) =>
       (tab === "all" || row.category === tab) && (!issuesOnly || hasIssues(row))
   );
-  const showDecisions = !readOnly && tab !== "error" && tab !== "done";
+  const showDecisions =
+    !readOnly && Boolean(onDecide) && tab !== "error" && tab !== "done";
 
   return (
     <div className="grid gap-3">

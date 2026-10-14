@@ -12,6 +12,7 @@ import {
   inArray,
   isNotNull,
   lte,
+  or,
   sql,
 } from "drizzle-orm";
 
@@ -189,11 +190,26 @@ export interface MatchInputs {
 const settlementUnmatched = sql`not exists (
   select 1 from ${statementLine} sl where sl.matched_settlement_id = ${gatewaySettlement.id}
 )`;
-/** Processed payouts of the server's Razorpay mode that no line holds. */
-const settlementCandidate = (mode: string) =>
+/**
+ * Processed payouts that no statement line holds: give.do's live account,
+ * plus Razorpay only in the mode configured on this server.
+ */
+const settlementCandidate = (mode: string | null) =>
   and(
-    eq(gatewaySettlement.provider, "razorpay"),
-    eq(gatewaySettlement.providerAccount, mode),
+    or(
+      and(
+        eq(gatewaySettlement.provider, "give_do"),
+        eq(gatewaySettlement.providerAccount, "live")
+      ),
+      ...(mode
+        ? [
+            and(
+              eq(gatewaySettlement.provider, "razorpay"),
+              eq(gatewaySettlement.providerAccount, mode)
+            ),
+          ]
+        : [])
+    ),
     eq(gatewaySettlement.status, "processed"),
     settlementUnmatched
   );
@@ -229,17 +245,15 @@ export async function loadMatchInputs(
   if (!range) {
     return { contributions: [], lines, settlements: [] };
   }
-  const settlements = mode
-    ? await tx
-        .select({
-          amountPaise: gatewaySettlement.amountPaise,
-          id: gatewaySettlement.id,
-          settledOn: gatewaySettlement.settledOn,
-          utr: gatewaySettlement.utr,
-        })
-        .from(gatewaySettlement)
-        .where(settlementCandidate(mode))
-    : [];
+  const settlements = await tx
+    .select({
+      amountPaise: gatewaySettlement.amountPaise,
+      id: gatewaySettlement.id,
+      settledOn: gatewaySettlement.settledOn,
+      utr: gatewaySettlement.utr,
+    })
+    .from(gatewaySettlement)
+    .where(settlementCandidate(mode));
   const contributions = await tx
     .select({
       amountPaise: contribution.amountPaise,
@@ -403,23 +417,32 @@ export async function isTargetMatched(
   return row !== undefined;
 }
 
-/** A processed settlement of the server's Razorpay mode, or null. */
+/** A processed give.do payout or settlement of the server's Razorpay mode. */
 export async function findSettlementForMatch(
   executor: Reader,
   id: string,
   mode: string | null
 ): Promise<{ amountPaise: number } | null> {
-  if (!mode) {
-    return null;
-  }
   const [row] = await executor
     .select({ amountPaise: gatewaySettlement.amountPaise })
     .from(gatewaySettlement)
     .where(
       and(
         eq(gatewaySettlement.id, id),
-        eq(gatewaySettlement.provider, "razorpay"),
-        eq(gatewaySettlement.providerAccount, mode),
+        or(
+          and(
+            eq(gatewaySettlement.provider, "give_do"),
+            eq(gatewaySettlement.providerAccount, "live")
+          ),
+          ...(mode
+            ? [
+                and(
+                  eq(gatewaySettlement.provider, "razorpay"),
+                  eq(gatewaySettlement.providerAccount, mode)
+                ),
+              ]
+            : [])
+        ),
         eq(gatewaySettlement.status, "processed")
       )
     );
@@ -459,6 +482,7 @@ export interface LinkCandidates {
     amountPaise: number;
     externalId: string;
     id: string;
+    provider: string;
     settledOn: string;
     utr: string | null;
   }[];
@@ -468,9 +492,8 @@ const LINK_CANDIDATE_LIMIT = 500;
 
 /**
  * What a credit line of this account could be linked to by hand: the
- * account's direct-deposit contributions and the server's mode's processed
- * settlements of the line's amount that no line holds, nearest the line's
- * date first.
+ * account's direct-deposit contributions and eligible processed settlements
+ * of the line's amount that no line holds, nearest the line's date first.
  */
 export async function findLinkCandidates(
   line: { amountPaise: number; orgAccountId: string; valueOn: string },
@@ -500,14 +523,12 @@ export async function findLinkCandidates(
     )
     .orderBy(nearest(contribution.receivedOn), asc(contribution.id))
     .limit(LINK_CANDIDATE_LIMIT);
-  if (!mode) {
-    return { contributions, settlements: [] };
-  }
   const settlements = await db
     .select({
       amountPaise: gatewaySettlement.amountPaise,
       externalId: gatewaySettlement.externalId,
       id: gatewaySettlement.id,
+      provider: gatewaySettlement.provider,
       settledOn: gatewaySettlement.settledOn,
       utr: gatewaySettlement.utr,
     })
@@ -586,13 +607,11 @@ export async function statementSummary(
   };
 }
 
-/**
- * give.do (GiveIndia) clearing as pi-dash sees it: gifts received through
- * give.do less the payouts matched to bank lines. No per-gift allocation
- * yet.
- */
-export async function giveDoClearingPaise(): Promise<number> {
-  const [gifts] = await db
+/** give.do gifts less imported settlements and legacy payouts matched to bank lines. */
+export async function giveDoClearingPaise(
+  executor: Reader = db
+): Promise<number> {
+  const [gifts] = await executor
     .select({
       total: sql<string>`coalesce(sum(${contribution.amountPaise}), 0)`,
     })
@@ -603,15 +622,26 @@ export async function giveDoClearingPaise(): Promise<number> {
         inArray(contribution.status, [...CONTRIBUTION_RECEIVED_STATUSES])
       )
     );
-  const [payouts] = await db
+  const [payouts] = await executor
     .select({
       total: sql<string>`coalesce(sum(${statementLine.amountPaise}), 0)`,
     })
     .from(statementLine)
+    .leftJoin(
+      gatewaySettlement,
+      eq(gatewaySettlement.id, statementLine.matchedSettlementId)
+    )
     .where(
       and(
         eq(statementLine.matchStatus, "matched"),
-        eq(statementLine.matchKind, "giveindia_payout")
+        or(
+          eq(statementLine.matchKind, "giveindia_payout"),
+          and(
+            eq(statementLine.matchKind, "settlement"),
+            eq(gatewaySettlement.provider, "give_do"),
+            eq(gatewaySettlement.providerAccount, "live")
+          )
+        )
       )
     );
   return Number(gifts?.total ?? 0) - Number(payouts?.total ?? 0);

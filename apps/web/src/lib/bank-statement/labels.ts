@@ -10,7 +10,7 @@ export const MATCH_KIND_LABELS: Record<StatementLineMatchKind, string> = {
   contribution: "Donation",
   giveindia_payout: "give.do payout",
   other: "Other",
-  settlement: "Razorpay settlement",
+  settlement: "Settlement",
   transfer: "Transfer between own accounts",
 };
 
@@ -56,6 +56,13 @@ export const matchKindLabel = (value: string | null | undefined) =>
   matchKindFrom(value) ?? "—";
 export const matchReasonLabel = (value: string | null | undefined) =>
   reasonFrom(value) ?? "";
+
+export const settlementProviderLabel = (provider: string | null | undefined) =>
+  provider === "give_do"
+    ? "give.do"
+    : provider === "razorpay"
+      ? "Razorpay"
+      : "Gateway";
 
 /**
  * A guess at a credit's contribution channel from the bank's narration:

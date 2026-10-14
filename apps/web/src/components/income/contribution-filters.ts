@@ -32,6 +32,41 @@ import {
 /** Filter value for donors flagged by the "Missing donor details" stat. */
 export const MISSING_DETAILS_VALUE = "missing";
 
+type ReachedBankValue = "yes" | "not_yet" | "not_applicable";
+
+export interface ContributionBankEvidence {
+  matchedContributionIds: ReadonlySet<string>;
+  processedContributionIds: ReadonlySet<string>;
+}
+
+const EMPTY_BANK_EVIDENCE: ContributionBankEvidence = {
+  matchedContributionIds: new Set(),
+  processedContributionIds: new Set(),
+};
+
+/** Derived from processed payout items and matched statement lines. */
+export function reachedBankValue(
+  row: Pick<ContributionRow, "channel" | "id" | "orgAccountId">,
+  evidence: ContributionBankEvidence
+): ReachedBankValue {
+  if (
+    evidence.processedContributionIds.has(row.id) ||
+    evidence.matchedContributionIds.has(row.id)
+  ) {
+    return "yes";
+  }
+  if (row.channel === "razorpay" || row.channel === "give_do") {
+    return "not_yet";
+  }
+  if (
+    row.channel === "in_kind" ||
+    (row.channel === "cash" && !row.orgAccountId)
+  ) {
+    return "not_applicable";
+  }
+  return "not_yet";
+}
+
 const options = <T extends string>(
   values: readonly T[],
   labels: Record<T, string>
@@ -64,6 +99,7 @@ export function isMissingDetailsRow(
 
 export function getContributionFilterValue(
   missingPartyIds: ReadonlySet<string>,
+  bankEvidence: ContributionBankEvidence = EMPTY_BANK_EVIDENCE,
   fy: FinancialYearRange = currentFinancialYear()
 ) {
   return (row: ContributionRow, path: string[]): unknown => {
@@ -83,6 +119,8 @@ export function getContributionFilterValue(
         return row.partyId;
       case "programme":
         return row.programmeId;
+      case "reachedBank":
+        return reachedBankValue(row, bankEvidence);
       case "receivedOn":
         return row.receivedOn;
       case "source":
@@ -96,9 +134,10 @@ export function getContributionFilterValue(
 }
 
 export function createContributionFilterFields(
-  rows: readonly ContributionRow[]
+  rows: readonly ContributionRow[],
+  includeReachedBank = false
 ): FilterField[] {
-  return [
+  const fields: FilterField[] = [
     selectField(
       "status",
       "Status",
@@ -150,6 +189,18 @@ export function createContributionFilterFields(
       },
     ]),
   ];
+  if (includeReachedBank) {
+    fields.splice(
+      1,
+      0,
+      selectField("reachedBank", "Reached bank", [
+        { label: "Yes", value: "yes" },
+        { label: "Not yet", value: "not_yet" },
+        { label: "Not applicable", value: "not_applicable" },
+      ])
+    );
+  }
+  return fields;
 }
 
 export function useMigrateLegacyContributionFilterParams() {
