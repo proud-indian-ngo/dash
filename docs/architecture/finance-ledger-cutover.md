@@ -135,6 +135,10 @@ Two consequences the CA should see:
 5. **Audit fee provision of 10,000.** **Proposal**: when the FY 2025-26 audit fee is paid in FY 2026-27, the payment clears the opening liability and is not FY 2026-27 expense. The FY 2026-27 audit fee is provided for by you at year end, recorded in pi-dash as an adjustment. Please confirm.
 6. **Column headers in the signed I&E.** The income and expenditure account's column headers read "31-March-2025" and "31-March-2024", although the figures are for FY 2025-26 and FY 2024-25. Is a corrected copy needed for the record?
 7. **Opening figures.** Please confirm every amount in section 2, the per-asset WDV rates (and gross and accumulated depreciation per asset, if available), and that there were no payables, advances, receivables or gateway balances at 31 March 2026.
+8. **Tax deducted at source on payments.** pi-dash can record TDS withheld on a vendor or contractor payment (for example a contractor paid per event) and the later payment to the government. Does the trust deduct TDS on any payments today, and under which sections? If none, the withholding fields stay unused.
+9. **Fixed deposit.** How is FD interest received (credited to the current account, or added to the deposit), and should interest be recorded as it is credited (cash) or accrued at year end, as the accounting policy suggests? Please share the FD's start date, maturity date and rate so renewals can be recorded.
+10. **CSR money.** A company's CSR gift is recorded as a donation (Specific grant) in the donations return. Should CSR receipts sit in the General Fund like other donations, or in a separate restricted fund that tracks how the money is spent against the CSR agreement?
+11. **80G receipt numbering.** Razorpay and give.do already send receipts for their gifts, so pi-dash will number receipts only for direct bank transfers. Is a series such as `PI/2026-27/0001` (one series per financial year, no gaps) acceptable, and does any receipt issued by hand since 1 April 2026 need to be carried into it?
 
 ## 5. CA handoff workbook (XLSX)
 
