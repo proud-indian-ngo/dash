@@ -27,7 +27,7 @@ import { parseRazorpayBatchKey } from "./payment";
 import {
   activeRun,
   backfillRangeError,
-  daysBetween,
+  dayCount,
   emptyCounts,
   parseReconcileState,
   type ReconcileState,
@@ -87,8 +87,8 @@ export interface RazorpaySettingsView {
   mode: "live" | "test" | null;
   notesKeys: NotesKeys;
   pendingCount: number;
-  /** Refunds held until their payment is imported. */
-  pendingRefundCount: number;
+  /** Refunds held for this mode: waiting for their payment, or for a payment that was not imported. */
+  pendingRefunds: { notImported: number; waiting: number };
   /** Sync now and Import past payments, and the run in progress or last finished. */
   reconcile: {
     /** The run queued or running now, as pg-boss holds it. */
@@ -134,7 +134,9 @@ export async function getRazorpaySettingsView(
     mode: setup.enabled ? setup.mode : null,
     notesKeys: parseNotesKeys(config.get(RAZORPAY_CONFIG_KEYS.notesKeys)),
     pendingCount: await countRazorpayPending(),
-    pendingRefundCount: await countPendingRefunds(),
+    pendingRefunds: setup.enabled
+      ? await countPendingRefunds(setup.mode)
+      : { notImported: 0, waiting: 0 },
     reconcile: {
       active: activeRun(
         parseReconcileState(config.get(RAZORPAY_CONFIG_KEYS.reconcileRun)),
@@ -269,7 +271,7 @@ export async function requestRazorpayReconcile(
   const config = await readRazorpayConfig();
   const previous = config.get(RAZORPAY_CONFIG_KEYS.reconcileRun) ?? "";
   const listed = setup.enabled && setup.apiKey !== null;
-  const days = listed ? daysBetween(range.from, range.to).length : 0;
+  const days = listed ? dayCount(range.from, range.to) : 0;
   const queued = JSON.stringify({
     counts: emptyCounts(),
     from: range.from,

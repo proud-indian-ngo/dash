@@ -6,6 +6,7 @@ const {
   activeRun,
   addDays,
   backfillRangeError,
+  dayCount,
   daysBetween,
   indiaDayWindow,
   isRealIsoDay,
@@ -73,6 +74,13 @@ describe("India day windows", () => {
     expect(isRealIsoDay("2026-02-29")).toBe(false);
     expect(isRealIsoDay("2028-02-29")).toBe(true);
     expect(isRealIsoDay("2026-13-01")).toBe(false);
+    // Counted without listing, so a huge range costs nothing.
+    expect(dayCount("2026-04-01", "2026-10-14")).toBe(197);
+    expect(dayCount("2026-10-14", "2026-10-13")).toBe(0);
+    expect(dayCount("1000-01-01", "9999-12-31")).toBeGreaterThan(400);
+    expect(backfillRangeError("1000-01-01", "2026-10-14", now)).toContain(
+      "400"
+    );
   });
 });
 
@@ -239,7 +247,9 @@ function harness({
         if (input.paymentId === "pay_Broken") {
           throw new Error("still failing");
         }
-        return "new_donor";
+        return input.paymentId === "pay_Stuck"
+          ? { applied: 1, changed: 0, waiting: 0 }
+          : { applied: 0, changed: 0, waiting: 0 };
       },
     },
     last,
@@ -403,8 +413,9 @@ describe("runRazorpayReconcile", () => {
       "stale:pay_Broken:2026-09-30:api",
     ]);
     expect(h.calls).toContain("failed:pay_Broken");
+    // A refund applied while re-syncing counts too.
     expect(outcome).toMatchObject({
-      counts: { errors: 1, retried: 1 },
+      counts: { errors: 1, refundsApplied: 1, retried: 1 },
       status: "ok",
     });
     expect(h.recounted).toEqual([["batch-old", "batch-older"]]);

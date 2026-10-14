@@ -5,13 +5,14 @@ import { type RazorpaySetup, razorpaySetup } from "./config";
 import { parseRazorpayBatchKey } from "./payment";
 
 /**
- * Server-only. After a reviewer imports Razorpay payments, their refunds
- * still need applying: a refund that arrived while its payment waited for
- * review found no contribution. With the API key secret, each imported
- * payment's sync job is queued again (keyed by payment ID); it finds the
- * payment already decided, and applies its refunds when Razorpay says some
- * of it was refunded. Without the key secret the refund jobs' own retries
- * apply them.
+ * Server-only. After a reviewer imports or links Razorpay payments: the
+ * refunds already held for them (`private.pending_refund`) were applied in
+ * the run's own transaction, but Razorpay may know refunds that never
+ * reached pi-dash. With the API key secret, each such payment's sync job is
+ * queued again (keyed by payment ID); it finds the payment already decided,
+ * and fetches and applies its refunds when Razorpay says some of it was
+ * refunded. Without the key secret there is nothing to fetch; held refunds
+ * are all there is.
  */
 export function queueRefundChecks(
   batchKey: string,

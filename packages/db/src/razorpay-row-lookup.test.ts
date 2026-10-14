@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { keepRazorpayPaymentIdSql } from "./import-retention";
 import { lockImportBatchSql } from "./queries/income-import";
 import { razorpayPaymentRowMatch } from "./queries/razorpay-import";
+import { heldRefundWaitingSql } from "./queries/razorpay-refunds";
 
 const render = (query: Parameters<PgDialect["sqlToQuery"]>[0]) =>
   new PgDialect().sqlToQuery(query);
@@ -34,5 +35,21 @@ describe("batch recount", () => {
     const { sql, params } = render(lockImportBatchSql("b-1"));
     expect(sql).toMatch(/where "import_batch"\."id" = \$1 for update$/);
     expect(params).toEqual(["b-1"]);
+  });
+});
+
+describe("held refunds waiting for their payment", () => {
+  it("waits only while the payment's row is pending or not staged in this mode", () => {
+    const { sql } = render(heldRefundWaitingSql);
+    expect(sql).toMatch(/^not exists \(/);
+    expect(sql).toContain(
+      `'razorpay:' || "private"."pending_refund"."provider_account" || ':%'`
+    );
+    expect(sql).toContain(
+      '"import_row"."external_id" = "private"."pending_refund"."payment_id"'
+    );
+    expect(sql).toContain(`"import_row"."outcome" <> 'pending'`);
+    // A reopenable error still waits.
+    expect(sql).toContain("in ('not_found', 'not_captured')");
   });
 });

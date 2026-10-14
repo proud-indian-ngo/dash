@@ -4,7 +4,7 @@ import z from "zod";
 import { assertServerPermission } from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
 import { notesKeysSchema } from "@/lib/razorpay/notes-keys";
-import { daysBetween, isRealIsoDay } from "@/lib/razorpay/reconcile";
+import { dayCount, isRealIsoDay } from "@/lib/razorpay/reconcile";
 import {
   getRazorpaySettingsView,
   RazorpaySettingsError,
@@ -134,7 +134,8 @@ export const importPastRazorpayPayments = createServerFn({ method: "POST" })
       {
         action: "razorpay.backfill",
         metadata: {
-          days: daysBetween(data.from, data.to).length,
+          // Counted, not listed: the range is only checked once the run is asked for.
+          days: dayCount(data.from, data.to),
           from: data.from,
           to: data.to,
         },

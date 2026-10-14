@@ -144,6 +144,16 @@ export function isRealIsoDay(day: string): boolean {
   return ISO_DAY.test(day) && addDays(day, 0) === day;
 }
 
+/** How many days from `from` to `to`, both included (0 when `from` is later), without listing them. */
+export function dayCount(from: string, to: string): number {
+  const [fy, fm, fd] = dayParts(from);
+  const [ty, tm, td] = dayParts(to);
+  const days =
+    (Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) /
+    (DAY_SECONDS * 1000);
+  return Math.max(0, days + 1);
+}
+
 /** Days from `from` to `to`, both included; empty when `from` is later. */
 export function daysBetween(from: string, to: string): string[] {
   const days: string[] = [];
@@ -188,7 +198,7 @@ export function backfillRangeError(
   if (to > todayInKolkata(now)) {
     return "To can't be in the future";
   }
-  if (daysBetween(from, to).length > MAX_BACKFILL_DAYS) {
+  if (dayCount(from, to) > MAX_BACKFILL_DAYS) {
     return `Import at most ${MAX_BACKFILL_DAYS} days at a time`;
   }
   return null;
@@ -293,11 +303,14 @@ export interface ReconcileDeps {
     payment: Parameters<typeof stageRazorpayPayment>[0],
     mode: RazorpayMode
   ) => Promise<StageResult>;
-  /** Syncs a stuck payment: through the run's paced client, or from its staged copy without one. */
+  /**
+   * Syncs a stuck payment, through the run's paced client or from its
+   * staged copy without one, and tallies the refunds it applied.
+   */
   syncStale: (
     input: { day: string; paymentId: string },
     client: RazorpayClient | null
-  ) => Promise<unknown>;
+  ) => Promise<RefundTally>;
 }
 
 export const reconcileDeps = (setup: RazorpaySetup): ReconcileDeps => ({
@@ -313,8 +326,9 @@ export const reconcileDeps = (setup: RazorpaySetup): ReconcileDeps => ({
   saveLast: saveLastReconcile,
   saveRun: saveReconcileRun,
   stage: (payment, mode) => stageRazorpayPayment(payment, mode),
-  syncStale: (input, client) =>
-    syncRazorpayPayment(
+  syncStale: async (input, client) => {
+    let tally = emptyRefundTally();
+    await syncRazorpayPayment(
       input,
       setup,
       client
@@ -324,8 +338,14 @@ export const reconcileDeps = (setup: RazorpaySetup): ReconcileDeps => ({
             fetchPayment: async (paymentId) =>
               await client.fetchPayment(paymentId),
           }
-        : {}
-    ),
+        : {},
+      undefined,
+      (applied) => {
+        tally = applied;
+      }
+    );
+    return tally;
+  },
 });
 
 export type ReconcileOutcome =
@@ -535,9 +555,12 @@ export async function runRazorpayReconcile(
       }
       touched.add(row.batchId);
       try {
-        await deps.syncStale(
-          { day: key.day, paymentId: row.paymentId },
-          client
+        addTally(
+          counts,
+          await deps.syncStale(
+            { day: key.day, paymentId: row.paymentId },
+            client
+          )
         );
         counts.retried += 1;
       } catch (error) {

@@ -19,7 +19,7 @@ mock.module("@pi-dash/db/queries/razorpay-refunds", () => ({
   applyPendingRefunds: noop,
   applyRazorpayRefund: noop,
   holdRazorpayRefund: noop,
-  countPendingRefunds: async () => 0,
+  countPendingRefunds: async () => ({ notImported: 0, waiting: 0 }),
   countRefundsNeedingAttention: async () => ({
     afterReceipt: 0,
     amountChanged: 0,

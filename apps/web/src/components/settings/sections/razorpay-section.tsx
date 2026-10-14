@@ -364,18 +364,24 @@ export function RazorpaySection() {
             </span>
           </SettingsRow>
         ) : null}
-        {view.pendingRefundCount > 0 ? (
+        {view.pendingRefunds.waiting + view.pendingRefunds.notImported > 0 ? (
           <SettingsRow
             description="Razorpay refunded these before their payment was recorded; each is applied when its payment is imported."
             title="Refunds waiting"
           >
-            <span
-              className="text-sm tabular-nums"
-              data-testid="razorpay-pending-refunds"
-            >
-              {view.pendingRefundCount === 1
-                ? "1 refund waiting for its payment"
-                : `${view.pendingRefundCount.toLocaleString("en-IN")} refunds waiting for their payment`}
+            <span className="flex flex-col items-end text-sm tabular-nums">
+              <span data-testid="razorpay-pending-refunds">
+                {view.pendingRefunds.waiting === 1
+                  ? "1 refund waiting for its payment"
+                  : `${view.pendingRefunds.waiting.toLocaleString("en-IN")} refunds waiting for their payment`}
+              </span>
+              {view.pendingRefunds.notImported > 0 ? (
+                <span className="text-muted-foreground text-xs">
+                  {view.pendingRefunds.notImported === 1
+                    ? "1 refund for a payment that was not imported"
+                    : `${view.pendingRefunds.notImported.toLocaleString("en-IN")} refunds for payments that were not imported`}
+                </span>
+              ) : null}
             </span>
           </SettingsRow>
         ) : null}

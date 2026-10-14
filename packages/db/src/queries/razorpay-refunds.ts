@@ -3,8 +3,13 @@ import { uuidv7 } from "uuidv7";
 
 import { db } from "..";
 import { planRefund } from "../refund-rules";
+import { importBatch } from "../schema/import-batch";
 import { contribution, contributionRefund } from "../schema/income";
-import { externalIdentity, pendingRefund } from "../schema/private/imports";
+import {
+  externalIdentity,
+  importRow,
+  pendingRefund,
+} from "../schema/private/imports";
 import { type ImportTx, withImportTransaction } from "./income-import";
 
 /**
@@ -332,8 +337,46 @@ export async function countRefundsNeedingAttention(): Promise<{
   };
 }
 
-/** Refunds held until their payment is imported, for the settings page. */
-export async function countPendingRefunds(): Promise<number> {
-  const [row] = await db.select({ n: count() }).from(pendingRefund);
-  return Number(row?.n ?? 0);
+/**
+ * Whether a held refund's payment can still become a contribution: its row
+ * is pending, or not staged at all yet. A payment whose row reached an
+ * outcome that will not import it (skipped, a conflict, or an error other
+ * than the reopenable `not_found` / `not_captured`), or was imported and
+ * then had its contribution deleted, is not waited for.
+ */
+export const heldRefundWaitingSql = sql`not exists (
+  select 1 from ${importRow}
+  inner join ${importBatch} on ${importBatch.id} = ${importRow.batchId}
+  where ${importBatch.source} = 'razorpay_api'
+    and ${importBatch.fileHash} like 'razorpay:' || ${pendingRefund.providerAccount} || ':%'
+    and (${importRow.externalId} = ${pendingRefund.paymentId}
+      or ${importRow.raw}->>'id' = ${pendingRefund.paymentId})
+    and ${importRow.outcome} <> 'pending'
+    and not (${importRow.outcome} = 'error'
+      and ${importRow.outcomeReason} in ('not_found', 'not_captured'))
+)`;
+
+/**
+ * Refunds held for payments of this mode, for the settings page: those
+ * still waiting for their payment, and those whose payment will not be
+ * imported (kept, in case the row is reopened or retried).
+ */
+export async function countPendingRefunds(
+  mode: string
+): Promise<{ notImported: number; waiting: number }> {
+  const [row] = await db
+    .select({
+      total: count(),
+      waiting: sql<number>`(count(*) filter (where ${heldRefundWaitingSql}))::int`,
+    })
+    .from(pendingRefund)
+    .where(
+      and(
+        eq(pendingRefund.provider, "razorpay"),
+        eq(pendingRefund.providerAccount, mode)
+      )
+    );
+  const total = Number(row?.total ?? 0);
+  const waiting = Number(row?.waiting ?? 0);
+  return { notImported: total - waiting, waiting };
 }

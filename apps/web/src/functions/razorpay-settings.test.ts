@@ -57,8 +57,8 @@ mock.module("@/lib/razorpay/settings", () => ({
   },
 }));
 mock.module("@/lib/razorpay/reconcile", () => ({
-  daysBetween: (from: string, to: string) =>
-    from === "2026-04-01" && to === "2026-04-03" ? [1, 2, 3] : [],
+  dayCount: (from: string, to: string) =>
+    from === "2026-04-01" && to === "2026-04-03" ? 3 : 0,
   isRealIsoDay: () => true,
 }));
 mock.module("@tanstack/react-start", () => ({
