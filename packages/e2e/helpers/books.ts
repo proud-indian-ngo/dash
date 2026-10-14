@@ -286,24 +286,16 @@ async function fixPayout(id: string) {
   return { id };
 }
 
-async function postingsOf(sourceId: string) {
-  const rows = await db
-    .select({ action: posting.action })
-    .from(posting)
-    .where(eq(posting.sourceId, sourceId))
-    .orderBy(asc(posting.createdAt), asc(posting.id));
-  return rows.map((r) => r.action);
-}
-
-const [action, label = "2026-27"] = process.argv.slice(2);
-let result: unknown;
-if (action === "close-year") {
-  const year = await yearByLabel(label);
-  const dayAfter = new Date(`${year.endsOn}T00:00:00Z`);
-  dayAfter.setUTCDate(dayAfter.getUTCDate() + 2);
-  const actorId = await anyUserId();
-  // Every record of the year looked at first (as the Books close does), so
-  // none counts as not looked at.
+/**
+ * Posts every record of the year first (as the Books close does), so none
+ * counts as not looked at, then sets aside what other specs left waiting
+ * and closes, in one transaction.
+ */
+async function closeAfterPosting(
+  year: { endsOn: string; id: string; startsOn: string },
+  actorId: string,
+  dayAfter: Date
+) {
   const swept = await postPendingForYear(year.id, {
     actorId,
     deadline: Date.now() + 60_000,
@@ -314,7 +306,7 @@ if (action === "close-year") {
     },
   });
   process.stderr.write(`close-year posting: ${JSON.stringify(swept)}\n`);
-  result = await db.transaction(async (tx) => {
+  return await db.transaction(async (tx) => {
     // Set aside (not deleted: a source with no state row counts as not
     // looked at, which blocks the close too).
     await tx
@@ -334,6 +326,36 @@ if (action === "close-year") {
     );
     return await closeYear(tx, year.id, { actorId, now: dayAfter });
   });
+}
+
+async function postingsOf(sourceId: string) {
+  const rows = await db
+    .select({ action: posting.action })
+    .from(posting)
+    .where(eq(posting.sourceId, sourceId))
+    .orderBy(asc(posting.createdAt), asc(posting.id));
+  return rows.map((r) => r.action);
+}
+
+const [action, label = "2026-27"] = process.argv.slice(2);
+let result: unknown;
+if (action === "close-year") {
+  const year = await yearByLabel(label);
+  const dayAfter = new Date(`${year.endsOn}T00:00:00Z`);
+  dayAfter.setUTCDate(dayAfter.getUTCDate() + 2);
+  const actorId = await anyUserId();
+  // Other specs keep recording gifts while this runs, so a record can
+  // arrive between the posting and the close: try a few times.
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      result = await closeAfterPosting(year, actorId, dayAfter);
+      break;
+    } catch (error) {
+      if (attempt >= 3) {
+        throw error;
+      }
+    }
+  }
 } else if (action === "reopen-year") {
   const year = await yearByLabel(label);
   result = year.closedAt

@@ -31,6 +31,7 @@ import {
   loadMatchInputs,
   lockStatementLine,
   matchLine,
+  pairTransferLine,
   resetStatementLine,
   setLineSuggestion,
   setStatementRowOutcomes,
@@ -807,7 +808,7 @@ async function assertTransferAccount(
 function ledgerSourcesOf(
   line: Pick<
     StatementLineRecord,
-    "id" | "matchedSettlementId" | "matchKind"
+    "id" | "matchedSettlementId" | "matchKind" | "transferPairLineId"
   > | null
 ): LedgerSourceRef[] {
   if (!line) {
@@ -819,6 +820,15 @@ function ledgerSourcesOf(
       : []),
     ...(line.matchKind === "transfer"
       ? [{ sourceId: line.id, sourceType: "statement_transfer" as const }]
+      : []),
+    // Its pair decides which side posts, so it posts again too.
+    ...(line.transferPairLineId
+      ? [
+          {
+            sourceId: line.transferPairLineId,
+            sourceType: "statement_transfer" as const,
+          },
+        ]
       : []),
   ];
 }
@@ -921,6 +931,9 @@ async function applyAction(
         suggestedSettlementId: null,
         suggestionReason: null,
       });
+      // The other bank's own line for this transfer, if already marked:
+      // paired one-to-one so the books post the transfer once.
+      await pairTransferLine(tx, line.id, now);
       return;
     }
     case "ignore": {

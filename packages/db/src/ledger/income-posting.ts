@@ -13,6 +13,7 @@ import {
 import {
   and,
   asc,
+  type SQL,
   eq,
   gte,
   inArray,
@@ -387,6 +388,7 @@ async function statementTransferFacts(
       matchStatus: statementLine.matchStatus,
       orgAccountId: statementLine.orgAccountId,
       otherId: other.id,
+      pairId: statementLine.transferPairLineId,
       otherKind: other.kind,
       reference: statementLine.reference,
       valueOn: statementLine.valueOn,
@@ -400,10 +402,15 @@ async function statementTransferFacts(
   }
   const isTransfer =
     row.matchStatus === "matched" && row.matchKind === "transfer";
-  const counterpart =
-    isTransfer && row.otherId
-      ? await transferCounterpart(tx, { ...row, otherId: row.otherId })
-      : null;
+  // The other bank's line it was paired with when marked (one-to-one).
+  const [counterpart] =
+    isTransfer && row.pairId
+      ? await tx
+          .select({ id: statementLine.id, matchedAt: statementLine.matchedAt })
+          .from(statementLine)
+          .where(eq(statementLine.id, row.pairId))
+          .limit(1)
+      : [];
   return {
     amountPaise: row.amountPaise,
     counterpart: counterpart
@@ -427,51 +434,6 @@ async function statementTransferFacts(
     reference: row.reference,
     valueOn: row.valueOn,
   };
-}
-
-/** Days either side within which two lines can be one transfer's two sides. */
-const TRANSFER_PAIR_DAYS = 5;
-
-/**
- * The other account's statement line for the same transfer: opposite
- * direction, same amount, within a few days, marked as a transfer back to
- * this line's account. The nearest in date, then the first marked.
- */
-async function transferCounterpart(
-  tx: LedgerTx,
-  line: {
-    amountPaise: number;
-    direction: "credit" | "debit";
-    id: string;
-    orgAccountId: string;
-    otherId: string;
-    valueOn: string;
-  }
-) {
-  const [row] = await tx
-    .select({ id: statementLine.id, matchedAt: statementLine.matchedAt })
-    .from(statementLine)
-    .where(
-      and(
-        eq(statementLine.orgAccountId, line.otherId),
-        eq(statementLine.transferOrgAccountId, line.orgAccountId),
-        eq(statementLine.matchStatus, "matched"),
-        eq(statementLine.matchKind, "transfer"),
-        eq(
-          statementLine.direction,
-          line.direction === "debit" ? "credit" : "debit"
-        ),
-        eq(statementLine.amountPaise, line.amountPaise),
-        sql`abs(${statementLine.valueOn} - ${line.valueOn}::date) <= ${TRANSFER_PAIR_DAYS}`
-      )
-    )
-    .orderBy(
-      sql`abs(${statementLine.valueOn} - ${line.valueOn}::date)`,
-      asc(statementLine.matchedAt),
-      asc(statementLine.id)
-    )
-    .limit(1);
-  return row ?? null;
 }
 
 /** What the books should hold for a source, from its current record. */
@@ -609,6 +571,8 @@ interface StateInput {
   message?: string | null;
   postedOn?: string | null;
   reason: string | null;
+  /** What the look saw (`sourceWatermark`); null makes the next sweep look again. */
+  sourceUpdatedAt?: Date | null;
   status: LedgerSourceStatus;
 }
 
@@ -625,6 +589,7 @@ async function saveState(
     message: state.message ?? null,
     postedOn: state.postedOn ?? null,
     reason: state.reason,
+    sourceUpdatedAt: state.sourceUpdatedAt ?? null,
     status: state.status,
   };
   await tx
@@ -706,6 +671,8 @@ export async function postIncomeSource(
   const now = context.now ?? new Date();
   await shareYearCloseLock(tx);
   await lockSource(tx, source);
+  // Read before the record: a change committed after this look moves it.
+  const seen = await readWatermark(tx, source);
   let plan = await planIncomeSource(tx, source);
   if (plan.kind === "post" && (await missingHeads(tx, headsOf(plan)))) {
     plan = {
@@ -720,7 +687,12 @@ export async function postIncomeSource(
     await saveState(
       tx,
       source,
-      { economicOn: plan.economicOn, reason: plan.reason, status: "waiting" },
+      {
+        economicOn: plan.economicOn,
+        reason: plan.reason,
+        sourceUpdatedAt: seen,
+        status: "waiting",
+      },
       now
     );
     return { posted: 0, reason: plan.reason, reversed: 0, status: "waiting" };
@@ -766,6 +738,7 @@ export async function postIncomeSource(
   if (redo.size === 0) {
     return await settle(tx, source, plan, standing, now, {
       economicOn,
+      seen,
       posted: 0,
       reversed: 0,
     });
@@ -811,6 +784,7 @@ export async function postIncomeSource(
     const after = await standingPostings(tx, source);
     return await settle(tx, source, plan, after.standing, now, {
       economicOn,
+      seen,
       ...counts,
     });
   } catch (error) {
@@ -828,6 +802,7 @@ export async function postIncomeSource(
         economicOn,
         message: error.code === "closed_year" ? null : error.message,
         reason,
+        sourceUpdatedAt: seen,
         status: "waiting",
       },
       now
@@ -843,7 +818,12 @@ async function settle(
   plan: SourcePlan,
   standing: readonly Standing[],
   now: Date,
-  done: { economicOn: string | null; posted: number; reversed: number }
+  done: {
+    economicOn: string | null;
+    posted: number;
+    reversed: number;
+    seen: Date | null;
+  }
 ): Promise<IncomePostingResult> {
   if (plan.kind === "none") {
     if (plan.reason === LEDGER_SKIP_REASONS.deleted) {
@@ -852,11 +832,21 @@ async function settle(
       await saveState(
         tx,
         source,
-        { economicOn: null, reason: plan.reason, status: "none" },
+        {
+          economicOn: null,
+          reason: plan.reason,
+          sourceUpdatedAt: done.seen,
+          status: "none",
+        },
         now
       );
     }
-    return { ...done, reason: plan.reason, status: "none" };
+    return {
+      posted: done.posted,
+      reason: plan.reason,
+      reversed: done.reversed,
+      status: "none",
+    };
   }
   const postedOn =
     standing
@@ -871,6 +861,7 @@ async function settle(
       economicOn: done.economicOn,
       postedOn,
       reason: null,
+      sourceUpdatedAt: done.seen,
       status: "posted",
     },
     now
@@ -964,40 +955,76 @@ export async function relatedIncomeSources(
     ];
   }
   if (source.sourceType === LEDGER_SOURCE_TYPES.statementTransfer) {
-    // The other side of a transfer between two bank accounts: which side
-    // posts depends on both, so marking or unmatching one rechecks the other.
+    // Its pair: which side posts depends on both.
     const [line] = await tx
-      .select()
+      .select({ pairId: statementLine.transferPairLineId })
       .from(statementLine)
       .where(eq(statementLine.id, source.sourceId))
       .limit(1);
-    if (!line) {
-      return [];
-    }
-    const others = await tx
-      .select({ id: statementLine.id })
-      .from(statementLine)
-      .where(
-        and(
-          eq(statementLine.transferOrgAccountId, line.orgAccountId),
-          eq(statementLine.matchKind, "transfer"),
-          eq(
-            statementLine.direction,
-            line.direction === "debit" ? "credit" : "debit"
-          ),
-          eq(statementLine.amountPaise, line.amountPaise),
-          sql`abs(${statementLine.valueOn} - ${line.valueOn}::date) <= ${TRANSFER_PAIR_DAYS}`
-        )
-      );
-    return others.map((o) => ({
-      sourceId: o.id,
-      sourceType: LEDGER_SOURCE_TYPES.statementTransfer,
-    }));
+    return line?.pairId
+      ? [
+          {
+            sourceId: line.pairId,
+            sourceType: LEDGER_SOURCE_TYPES.statementTransfer,
+          },
+        ]
+      : [];
   }
   return [];
 }
 
 // ── The sweep ───────────────────────────────────────────────────────────────
+
+/**
+ * When a source's record, or anything its posting reads, last changed: the
+ * record's own timestamp, the gift behind a refund or payout line, the
+ * account other income went into, a payout's matched bank line and the
+ * bank accounts. Null when the record is gone. Stored on each look
+ * (`source_updated_at`) and compared by the incremental sweep.
+ */
+function sourceWatermark(type: IncomeSourceType, id: SQL): SQL {
+  switch (type) {
+    case LEDGER_SOURCE_TYPES.contribution:
+      return sql`(select wc.updated_at from ${contribution} wc where wc.id = ${id})`;
+    case LEDGER_SOURCE_TYPES.contributionRefund:
+      return sql`(select greatest(wr.created_at, wc.updated_at) from ${contributionRefund} wr
+        join ${contribution} wc on wc.id = wr.contribution_id where wr.id = ${id})`;
+    case LEDGER_SOURCE_TYPES.otherIncome:
+      return sql`(select greatest(wo.updated_at, wa.updated_at) from ${otherIncome} wo
+        join ${orgAccount} wa on wa.id = wo.org_account_id where wo.id = ${id})`;
+    case LEDGER_SOURCE_TYPES.gatewaySettlement:
+      return sql`(select greatest(
+          wg.updated_at,
+          (select max(wc.updated_at) from ${gatewaySettlementItem} wi
+            join ${contribution} wc on wc.id = wi.contribution_id
+            where wi.settlement_id = wg.id),
+          (select max(wl.updated_at) from ${statementLine} wl
+            where wl.matched_settlement_id = wg.id),
+          (select max(wa.updated_at) from ${orgAccount} wa where wa.kind = 'bank'),
+          (select max(wr.created_at) from ${gatewaySettlementItem} wi
+            join ${contributionRefund} wr on wr.id = wi.contribution_refund_id
+            where wi.settlement_id = wg.id)
+        ) from ${gatewaySettlement} wg where wg.id = ${id})`;
+    case LEDGER_SOURCE_TYPES.statementTransfer:
+      return sql`(select greatest(wl.updated_at,
+          (select wp.updated_at from ${statementLine} wp where wp.id = wl.transfer_pair_line_id))
+        from ${statementLine} wl where wl.id = ${id})`;
+    default:
+      return sql`null::timestamp`;
+  }
+}
+
+/** The watermark of one source, read in the posting's transaction. */
+async function readWatermark(
+  tx: LedgerTx,
+  source: IncomeSource
+): Promise<Date | null> {
+  const rows = (await tx.execute(
+    sql`select ${sourceWatermark(source.sourceType, sql`${source.sourceId}::uuid`)} as at`
+  )) as unknown as { at: Date | string | null }[];
+  const at = rows[0]?.at ?? null;
+  return at === null ? null : new Date(at);
+}
 
 export interface ListOptions {
   /**
@@ -1030,24 +1057,21 @@ export async function listIncomeSources(
   const T = LEDGER_SOURCE_TYPES;
   const from = options.range?.startsOn ?? LEDGER_CUTOVER_ON;
   const to = options.range?.endsOn ?? "9999-12-31";
-  // A payout's bank day can be a few days after its settlement date.
-  const changed = (
-    type: string,
-    idColumn: ReturnType<typeof sql>,
-    since: ReturnType<typeof sql>
-  ) =>
+  // Skips a source whose state saw its record as it is now.
+  const changed = (type: IncomeSourceType, idColumn: SQL) =>
     options.incremental
       ? sql`and not exists (
           select 1 from ${ledgerSourceState} st
           where st.source_type = ${type} and st.source_id = ${idColumn}
-            and st.status <> 'waiting' and st.checked_at >= ${since})`
+            and st.status <> 'waiting'
+            and st.source_updated_at >= ${sourceWatermark(type, idColumn)})`
       : sql``;
 
   const gifts = rowsOf(
     await tx.execute(sql`
       select c.id from ${contribution} c
       where (c.received_on between ${from} and ${to}
-          ${changed(T.contribution, sql`c.id`, sql`c.updated_at`)})
+          ${changed(T.contribution, sql`c.id`)})
         or (c.received_on < ${LEDGER_CUTOVER_ON} and exists (
           select 1 from ${gatewaySettlementItem} i
           join ${gatewaySettlement} g on g.id = i.settlement_id
@@ -1059,7 +1083,7 @@ export async function listIncomeSources(
       select r.id from ${contributionRefund} r
       join ${contribution} c on c.id = r.contribution_id
       where (r.refunded_on between ${from} and ${to}
-          ${changed(T.contributionRefund, sql`r.id`, sql`greatest(r.created_at, c.updated_at)`)})
+          ${changed(T.contributionRefund, sql`r.id`)})
         or (r.refunded_on < ${LEDGER_CUTOVER_ON} and exists (
           select 1 from ${gatewaySettlementItem} i
           join ${gatewaySettlement} g on g.id = i.settlement_id
@@ -1071,29 +1095,14 @@ export async function listIncomeSources(
       select o.id from ${otherIncome} o
       join ${orgAccount} a on a.id = o.org_account_id
       where o.received_on between ${from} and ${to}
-        ${changed(T.otherIncome, sql`o.id`, sql`greatest(o.updated_at, a.updated_at)`)}`)
+        ${changed(T.otherIncome, sql`o.id`)}`)
   );
   const payouts = rowsOf(
     await tx.execute(sql`
       select g.id from ${gatewaySettlement} g
       where g.status = 'processed'
         and g.settled_on >= ${from}::date - 10 and g.settled_on <= ${to}
-        ${changed(
-          T.gatewaySettlement,
-          sql`g.id`,
-          sql`greatest(
-            g.updated_at,
-            (select max(c.updated_at) from ${gatewaySettlementItem} i
-              join ${contribution} c on c.id = i.contribution_id
-              where i.settlement_id = g.id),
-            (select max(l.updated_at) from ${statementLine} l
-              where l.matched_settlement_id = g.id),
-            (select max(a.updated_at) from ${orgAccount} a where a.kind = 'bank'),
-            (select max(r.created_at) from ${gatewaySettlementItem} i
-              join ${contributionRefund} r on r.id = i.contribution_refund_id
-              where i.settlement_id = g.id)
-          )`
-        )}`)
+        ${changed(T.gatewaySettlement, sql`g.id`)}`)
   );
   const transfers = rowsOf(
     await tx.execute(sql`
@@ -1118,13 +1127,15 @@ export async function listIncomeSources(
               select 1 from ${ledgerSourceState} st
               where st.source_type = p.source_type and st.source_id = p.source_id
                 and st.status <> 'waiting'
-                and st.checked_at >= coalesce((
-                  select greatest(c.updated_at) from ${contribution} c where c.id = p.source_id
-                  union all select o.updated_at from ${otherIncome} o where o.id = p.source_id
-                  union all select l.updated_at from ${statementLine} l where l.id = p.source_id
-                  union all select g.updated_at from ${gatewaySettlement} g where g.id = p.source_id
-                  union all select r.created_at from ${contributionRefund} r where r.id = p.source_id
-                  limit 1), 'infinity'::timestamp))`
+                and st.source_updated_at >= coalesce(case p.source_type
+                  ${sql.join(
+                    INCOME_SOURCE_TYPES.map(
+                      (t) =>
+                        sql`when ${t} then ${sourceWatermark(t, sql`p.source_id`)}`
+                    ),
+                    sql` `
+                  )}
+                  end, 'infinity'::timestamp))`
           : sql``
       }`);
   const waiting = await tx

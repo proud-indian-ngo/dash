@@ -592,10 +592,9 @@ export interface StatementTransferFacts {
   /** Still matched as a transfer. */
   isTransfer: boolean;
   /**
-   * The other account's own statement line for the same transfer (opposite
-   * direction, same amount, marked as a transfer back to this account), if
-   * any, and whether this line was marked first: only the first-marked
-   * side posts, so the pair posts once.
+   * The other bank account's own line for the same transfer, paired with
+   * this one when the second side was marked (one-to-one), and whether this
+   * line was marked first: only the first-marked side posts.
    */
   counterpart: { thisMarkedFirst: boolean } | null;
   orgAccountId: string;

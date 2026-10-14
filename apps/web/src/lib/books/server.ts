@@ -51,9 +51,9 @@ const safely = <T>(step: keyof typeof MESSAGES, work: () => Promise<T>) =>
 const YEAR_POSTING_BUDGET_MS = 15_000;
 
 /**
- * Posts the year's income records first (bounded), so the checklist's
- * "waiting to post" reflects the records as they are now; anything not
- * reached still counts as not looked at.
+ * Before a close: posts the year's income records first (bounded), so the
+ * "waiting to post" check reflects the records as they are now; anything
+ * not reached still counts as not looked at.
  */
 const postYearFirst = async (fiscalYearId: string, actorId: string | null) => {
   await postPendingForYear(fiscalYearId, {
@@ -62,14 +62,16 @@ const postYearFirst = async (fiscalYearId: string, actorId: string | null) => {
   });
 };
 
+/**
+ * A read: never posts. Records no posting run has looked at yet show as
+ * "not looked at yet"; closing the year posts them first.
+ */
 export const loadYearCloseChecklist = (
-  fiscalYearId: string,
-  actorId: string | null = null
+  fiscalYearId: string
 ): Promise<YearCloseChecklist> =>
-  safely("checklist", async () => {
-    await postYearFirst(fiscalYearId, actorId);
-    return await db.transaction((tx) => yearCloseChecklist(tx, fiscalYearId));
-  });
+  safely("checklist", () =>
+    db.transaction((tx) => yearCloseChecklist(tx, fiscalYearId))
+  );
 
 export const postOpeningBalances = (
   input: OpeningBalanceInput,

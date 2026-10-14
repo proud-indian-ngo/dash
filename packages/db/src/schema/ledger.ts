@@ -318,6 +318,11 @@ export const ledgerSourceState = pgTable(
     reason: text("reason"),
     sourceId: uuid("source_id").notNull(),
     sourceType: text("source_type").notNull(),
+    /**
+     * When the record (and what it depends on) last changed, as seen by
+     * this look: an incremental sweep skips the source until that moves.
+     */
+    sourceUpdatedAt: timestamp("source_updated_at"),
     status: ledgerSourceStatusEnum("status").notNull(),
   },
   (t) => [

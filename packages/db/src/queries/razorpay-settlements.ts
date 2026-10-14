@@ -95,7 +95,10 @@ async function linkPaymentLines(
     "paymentId" in filter
       ? sql`and i.external_id = ${filter.paymentId}`
       : sql`and i.settlement_id = ${filter.settlementId}`;
+  // The payout's own row is touched too, so the books' incremental
+  // posting sees that its lines changed.
   const rows = await tx.execute(sql`
+    with linked as (
     update ${gatewaySettlementItem} i
     set contribution_id = ei.contribution_id
     from ${gatewaySettlement} s, ${externalIdentity} ei
@@ -109,7 +112,12 @@ async function linkPaymentLines(
       and ei.entity_type = 'payment'
       and ei.external_id = i.external_id
       ${narrow}
-    returning i.id`);
+    returning i.id, i.settlement_id),
+    touched as (
+      update ${gatewaySettlement} g set updated_at = now()
+      where g.id in (select settlement_id from linked)
+    )
+    select id from linked`);
   return countOf(rows);
 }
 
@@ -123,7 +131,10 @@ async function linkRefundLines(
     "refundId" in filter
       ? sql`and i.external_id = ${filter.refundId}`
       : sql`and i.settlement_id = ${filter.settlementId}`;
+  // The payout's own row is touched too, so the books' incremental
+  // posting sees that its lines changed.
   const rows = await tx.execute(sql`
+    with linked as (
     update ${gatewaySettlementItem} i
     set contribution_refund_id = r.id
     from ${gatewaySettlement} s, ${contributionRefund} r
@@ -135,7 +146,12 @@ async function linkRefundLines(
       and r.source = 'razorpay'
       and r.reference = i.external_id
       ${narrow}
-    returning i.id`);
+    returning i.id, i.settlement_id),
+    touched as (
+      update ${gatewaySettlement} g set updated_at = now()
+      where g.id in (select settlement_id from linked)
+    )
+    select id from linked`);
   return countOf(rows);
 }
 

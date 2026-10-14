@@ -6,6 +6,7 @@ import {
 } from "@pi-dash/shared/constants";
 import { relations, sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   bigint,
   check,
   date,
@@ -138,6 +139,16 @@ export const statementLine = pgTable(
       () => orgAccount.id,
       { onDelete: "restrict" }
     ),
+    /**
+     * The other account's own line for the same transfer between two bank
+     * accounts, paired when the second side is marked (each line in at most
+     * one pair, both sides pointing at each other); only the side marked
+     * first posts. Cleared from both sides on unmatch.
+     */
+    transferPairLineId: uuid("transfer_pair_line_id").references(
+      (): AnyPgColumn => statementLine.id,
+      { onDelete: "set null" }
+    ),
     /** An unmatched line's best candidate, for a reviewer to accept or turn down. */
     suggestedKind: statementLineMatchKindEnum("suggested_kind"),
     suggestedSettlementId: uuid("suggested_settlement_id").references(
@@ -176,6 +187,13 @@ export const statementLine = pgTable(
         and (coalesce(${t.matchKind}::text, '') = 'settlement') = (${t.matchedSettlementId} is not null)
         and (coalesce(${t.matchKind}::text, '') = 'contribution') = (${t.matchedContributionId} is not null)
         and (${t.matchStatus}::text = 'ignored') = (${t.ignoredReason} is not null)`
+    ),
+    uniqueIndex("statement_line_transfer_pair_uidx")
+      .on(t.transferPairLineId)
+      .where(sql`${t.transferPairLineId} is not null`),
+    check(
+      "statement_line_transfer_pair",
+      sql`${t.transferPairLineId} is null or (coalesce(${t.matchKind}::text, '') = 'transfer' and ${t.transferPairLineId} <> ${t.id})`
     ),
     check(
       "statement_line_transfer_account",

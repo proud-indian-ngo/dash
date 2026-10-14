@@ -701,6 +701,27 @@ it.skipIf(!localDatabase)(
         throw new Error("Seed the books first (bun run seed)");
       }
       const actor = { actorId: someone.id };
+      // The seeded income records count as looked at for this test (else a
+      // freshly seeded database can't close 2026-27); removed afterwards.
+      const marked = await database.transaction(async (tx) => {
+        const sources = await listIncomeSources(tx as unknown as LedgerTx);
+        if (sources.length === 0) {
+          return [];
+        }
+        const inserted = await tx
+          .insert(ledgerSourceState)
+          .values(
+            sources.map((source) => ({
+              ...source,
+              checkedAt: startedAt,
+              id: uuidv7(),
+              status: "none" as const,
+            }))
+          )
+          .onConflictDoNothing()
+          .returning({ id: ledgerSourceState.id });
+        return inserted.map((r) => r.id);
+      });
       try {
         await database.transaction((tx) =>
           closeYear(tx as unknown as LedgerTx, first.id, {
@@ -752,6 +773,11 @@ it.skipIf(!localDatabase)(
               )
             );
         });
+        if (marked.length > 0) {
+          await database
+            .delete(ledgerSourceState)
+            .where(inArray(ledgerSourceState.id, marked));
+        }
         await Promise.all([client.close(), other.client.close()]);
       }
     })

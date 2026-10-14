@@ -780,8 +780,28 @@ it.skipIf(!localDatabase)(
   }
 );
 
+/** Marks a line as a transfer to another account and pairs it, as the bank page does. */
+async function markTransfer(
+  tx: LedgerTx,
+  lineId: string,
+  otherAccountId: string,
+  at: Date
+) {
+  const { pairTransferLine } = await import("../queries/statement-lines");
+  await tx
+    .update(statementLine)
+    .set({
+      matchedAt: at,
+      matchKind: "transfer",
+      matchStatus: "matched",
+      transferOrgAccountId: otherAccountId,
+    })
+    .where(eq(statementLine.id, lineId));
+  await pairTransferLine(tx as never, lineId, at);
+}
+
 it.skipIf(!localDatabase)(
-  "posts a bank-to-bank transfer from the side marked first, never both",
+  "posts each of two equal bank-to-bank transfers once, whatever order their sides are marked in",
   async () => {
     await inRolledBackTransaction(async (tx) => {
       const ids = await foundation(tx);
@@ -793,37 +813,116 @@ it.skipIf(!localDatabase)(
         name: `Income test second bank ${second}`,
         updatedAt: NOW,
       });
-      // Only the receiving bank's credit is marked: it posts both legs.
-      const credit = await addLine(tx, second, {
+      // Two ₹300 transfers from the first bank to the second.
+      const creditJul2 = await addLine(tx, second, {
         direction: "credit",
-        matchedAt: NOW,
-        matchKind: "transfer",
-        matchStatus: "matched",
-        transferOrgAccountId: ids.bank,
+        valueOn: "2026-07-02",
       });
-      await run(tx, transferSource(credit));
-      // The sending bank's debit, marked later, posts nothing more.
-      const debit = await addLine(tx, ids.bank, {
-        matchedAt: new Date(NOW.getTime() + 60_000),
-        matchKind: "transfer",
-        matchStatus: "matched",
-        transferOrgAccountId: second,
-        valueOn: "2026-06-30",
+      const debitJul3 = await addLine(tx, ids.bank, { valueOn: "2026-07-03" });
+      const debitJul1 = await addLine(tx, ids.bank, { valueOn: "2026-07-01" });
+      const creditJul4 = await addLine(tx, second, {
+        direction: "credit",
+        valueOn: "2026-07-04",
       });
-      expect(await run(tx, transferSource(debit))).toMatchObject({
-        reason: "other_side_posts",
-        status: "none",
+      const order: [string, string][] = [
+        [creditJul2, ids.bank],
+        [debitJul3, second],
+        [debitJul1, second],
+        [creditJul4, ids.bank],
+      ];
+      for (const [index, [lineId, other]] of order.entries()) {
+        await markTransfer(
+          tx,
+          lineId,
+          other,
+          new Date(NOW.getTime() + index * 60_000)
+        );
+        await run(tx, transferSource(lineId));
+        for (const related of await relatedIncomeSources(
+          tx,
+          transferSource(lineId)
+        )) {
+          await run(tx, related);
+        }
+      }
+      const outcomes = [];
+      for (const [lineId] of order) {
+        outcomes.push((await run(tx, transferSource(lineId))).status);
+      }
+      // Each pair posts once, from its first-marked side.
+      expect(outcomes.filter((o) => o === "posted")).toHaveLength(2);
+      expect(await balanceOf(tx, ids.bank)).toBe(-60_000);
+      expect(await balanceOf(tx, second)).toBe(60_000);
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "posts a transfer marked only on the receiving bank's side",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const second = uuidv7();
+      await tx.insert(orgAccount).values({
+        createdAt: NOW,
+        id: second,
+        kind: "bank",
+        name: `Income test second bank ${second}`,
+        updatedAt: NOW,
       });
+      const credit = await addLine(tx, second, { direction: "credit" });
+      await markTransfer(tx, credit, ids.bank, NOW);
       expect(await run(tx, transferSource(credit))).toMatchObject({
-        posted: 0,
-        reversed: 0,
+        posted: 1,
         status: "posted",
       });
       expect(await balanceOf(tx, second)).toBe(30_000);
       expect(await balanceOf(tx, ids.bank)).toBe(-30_000);
-      expect(await relatedIncomeSources(tx, transferSource(credit))).toEqual([
-        transferSource(debit),
-      ]);
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "reposts a payout in an incremental sweep after its bank line is unmatched",
+  async () => {
+    const { resetStatementLine } = await import("../queries/statement-lines");
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const payout = await addSettlement(
+        tx,
+        ids,
+        { amountPaise: 50_000, settledOn: "2026-05-12" },
+        []
+      );
+      const lineId = await addLine(tx, ids.bank, {
+        amountPaise: 50_000,
+        direction: "credit",
+        matchedAt: NOW,
+        matchedSettlementId: payout,
+        matchKind: "settlement",
+        matchStatus: "matched",
+        valueOn: "2026-05-14",
+      });
+      const source: IncomeSource = {
+        sourceId: payout,
+        sourceType: "gateway_settlement",
+      };
+      await run(tx, source);
+      const listed = async () =>
+        (await listIncomeSources(tx, { incremental: true })).some(
+          (s) => s.sourceId === payout
+        );
+      expect(await listed()).toBe(false);
+      await resetStatementLine(
+        tx as never,
+        lineId,
+        new Date(NOW.getTime() + 60_000)
+      );
+      expect(await listed()).toBe(true);
+      expect(await run(tx, source)).toMatchObject({ posted: 1, reversed: 1 });
+      expect((await postingsOf(tx, payout)).at(-1)?.economicOn).toBe(
+        "2026-05-12"
+      );
     });
   }
 );

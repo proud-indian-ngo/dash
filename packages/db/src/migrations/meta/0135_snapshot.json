@@ -1,5 +1,5 @@
 {
-  "id": "4bc403f0-606c-47b6-95aa-8c807a4c90e1",
+  "id": "ddcd060d-3da4-47bc-91b8-853b84e4841f",
   "prevId": "35e14e86-00c2-4583-bd61-6e2ef5b24a23",
   "version": "7",
   "dialect": "postgresql",
@@ -11411,6 +11411,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "source_updated_at": {
+          "name": "source_updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
         "status": {
           "name": "status",
           "type": "ledger_source_status",
@@ -13645,6 +13651,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "transfer_pair_line_id": {
+          "name": "transfer_pair_line_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "suggested_kind": {
           "name": "suggested_kind",
           "type": "statement_line_match_kind",
@@ -13796,6 +13808,22 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "statement_line_transfer_pair_uidx": {
+          "name": "statement_line_transfer_pair_uidx",
+          "columns": [
+            {
+              "expression": "transfer_pair_line_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"statement_line\".\"transfer_pair_line_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -13890,6 +13918,19 @@
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
+        "statement_line_transfer_pair_line_id_statement_line_id_fk": {
+          "name": "statement_line_transfer_pair_line_id_statement_line_id_fk",
+          "tableFrom": "statement_line",
+          "tableTo": "statement_line",
+          "columnsFrom": [
+            "transfer_pair_line_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
         "statement_line_suggested_settlement_id_gateway_settlement_id_fk": {
           "name": "statement_line_suggested_settlement_id_gateway_settlement_id_fk",
           "tableFrom": "statement_line",
@@ -13915,6 +13956,10 @@
         "statement_line_match_consistent": {
           "name": "statement_line_match_consistent",
           "value": "(\"statement_line\".\"match_status\"::text = 'matched') = (\"statement_line\".\"match_kind\" is not null)\n        and (coalesce(\"statement_line\".\"match_kind\"::text, '') = 'settlement') = (\"statement_line\".\"matched_settlement_id\" is not null)\n        and (coalesce(\"statement_line\".\"match_kind\"::text, '') = 'contribution') = (\"statement_line\".\"matched_contribution_id\" is not null)\n        and (\"statement_line\".\"match_status\"::text = 'ignored') = (\"statement_line\".\"ignored_reason\" is not null)"
+        },
+        "statement_line_transfer_pair": {
+          "name": "statement_line_transfer_pair",
+          "value": "\"statement_line\".\"transfer_pair_line_id\" is null or (coalesce(\"statement_line\".\"match_kind\"::text, '') = 'transfer' and \"statement_line\".\"transfer_pair_line_id\" <> \"statement_line\".\"id\")"
         },
         "statement_line_transfer_account": {
           "name": "statement_line_transfer_account",
