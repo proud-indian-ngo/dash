@@ -36,7 +36,7 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
-import { parseAsStringLiteral, useQueryState } from "nuqs";
+import { parseAsString, parseAsStringLiteral, useQueryState } from "nuqs";
 import { useEffect, useState } from "react";
 
 import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
@@ -160,11 +160,20 @@ function ContributionsTab({
   const missingIds = missing ? new Set(missing.partyIds) : EMPTY_SET;
   const { setQuery } = useDataTableFilters();
 
-  const [viewingId, setViewingId] = useState<string | null>(null);
+  // In the URL, so the books can link to a gift (or to a refund's gift).
+  const [viewingId, setViewingId] = useQueryState(
+    "contribution",
+    parseAsString
+  );
+  const [refundId, setRefundId] = useQueryState("refund", parseAsString);
   const [editing, setEditing] = useState<ContributionRow | null>(null);
   const viewing = viewingId
     ? (rows.find((row) => row.id === viewingId) ?? null)
-    : null;
+    : refundId
+      ? (rows.find((row) =>
+          (row.refunds ?? []).some((refund) => refund.id === refundId)
+        ) ?? null)
+      : null;
 
   const deleteAction = useConfirmAction<ContributionRow>({
     mutationMeta: {
@@ -277,6 +286,7 @@ function ContributionsTab({
         onOpenChange={(open) => {
           if (!open) {
             setViewingId(null);
+            setRefundId(null);
           }
         }}
       />

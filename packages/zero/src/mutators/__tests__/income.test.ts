@@ -836,3 +836,78 @@ describe("recording a donation from a bank statement line", () => {
     expect(db.writes.at(-1)?.table).toBe("contribution");
   });
 });
+
+describe("queueing the books after a change", () => {
+  const withQueue = (base: Row) => {
+    const sent: unknown[][] = [];
+    const ctx = {
+      ...base,
+      asyncTasks: [] as { fn: () => Promise<void>; meta: Row }[],
+      enqueue: async (...args: unknown[]) => {
+        sent.push(args);
+        return "job";
+      },
+      traceId: "trace-1",
+    };
+    return { ctx, sent };
+  };
+
+  it("queues the posting of a gift after it is recorded, changed or deleted", async () => {
+    const db = createDb();
+    const { ctx, sent } = withQueue(donorsCtx);
+    await run(contributionMutators.create, db, ctx, contribution());
+    await run(
+      contributionMutators.update,
+      db,
+      ctx,
+      contribution({ programmeId: "prog-edu" })
+    );
+    await run(contributionMutators.delete, db, ctx, { id: "c-1" });
+    expect(ctx.asyncTasks.map((task) => task.meta.mutator)).toEqual([
+      "contribution.create",
+      "contribution.update",
+      "contribution.delete",
+    ]);
+    // Nothing is queued until the transaction has committed.
+    expect(sent).toEqual([]);
+    for (const task of ctx.asyncTasks) {
+      await task.fn();
+    }
+    expect(sent[0]).toEqual([
+      "ledger-post-source",
+      { sourceId: "c-1", sourceType: "contribution" },
+      { singletonKey: "contribution:c-1", traceId: "trace-1" },
+    ]);
+    expect(sent).toHaveLength(3);
+  });
+
+  it("queues the posting of other income", async () => {
+    const db = createDb();
+    const { ctx, sent } = withQueue(financeCtx);
+    await run(otherIncomeMutators.create, db, ctx, {
+      amountPaise: 12_345,
+      fundId: "fund-1",
+      id: "oi-1",
+      kind: "interest",
+      orgAccountId: "acc-1",
+      receivedOn: "2026-09-30",
+    });
+    for (const task of ctx.asyncTasks) {
+      await task.fn();
+    }
+    expect(sent).toEqual([
+      [
+        "ledger-post-source",
+        { sourceId: "oi-1", sourceType: "other_income" },
+        { singletonKey: "other_income:oi-1", traceId: "trace-1" },
+      ],
+    ]);
+  });
+
+  it("queues nothing from the client's optimistic run", async () => {
+    const db = createDb({}, "client");
+    const { ctx } = withQueue(donorsCtx);
+    await run(contributionMutators.create, db, ctx, contribution());
+    expect(ctx.asyncTasks).toEqual([]);
+  });
+});

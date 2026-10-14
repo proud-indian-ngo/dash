@@ -2,10 +2,11 @@ import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
 
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { pickDate } from "../../helpers/date-time-picker";
+import { clickUntilDialogCloses } from "../../helpers/dialog-submit";
 import { clickPageAction, openPageAction } from "../../helpers/page-header";
 
 /*
@@ -18,7 +19,9 @@ const YEAR = "2026-27";
 const execFileAsync = promisify(execFile);
 
 /** Runs a step of `helpers/books.ts` against the test database. */
-async function books(...args: string[]): Promise<Record<string, string>> {
+async function books<T = Record<string, string>>(
+  ...args: string[]
+): Promise<T> {
   const { stdout } = await execFileAsync(
     "bun",
     [
@@ -28,7 +31,32 @@ async function books(...args: string[]): Promise<Record<string, string>> {
     ],
     { env: process.env }
   );
-  return JSON.parse(stdout.trim()) as Record<string, string>;
+  return JSON.parse(stdout.trim()) as T;
+}
+
+/** An account in the books' accounts rail, by name. */
+const railAccount = (page: Page, name: string) =>
+  page.getByTestId("books-account").filter({ hasText: name });
+
+async function postPending(page: Page) {
+  await clickPageAction(page, "Post pending");
+  await expect(
+    page.getByText(/^(Posted: |The books are up to date)/).first()
+  ).toBeVisible({ timeout: 30_000 });
+}
+
+async function pickOption(
+  scope: Locator,
+  page: Page,
+  label: string,
+  text: string
+) {
+  const combobox = scope.getByRole("combobox", { name: label });
+  await combobox.click();
+  await combobox.fill(text);
+  const option = page.getByRole("option").filter({ hasText: text }).first();
+  await expect(option).toBeVisible({ timeout: 10_000 });
+  await option.click();
 }
 
 async function reverseIfPosted(page: Page) {
@@ -91,12 +119,8 @@ test.describe("Books (treasurer)", () => {
     await expect(page).toHaveURL(/\/finance\/books\?tab=balance/);
     await waitForZeroReady(page);
     await expect(page.getByTestId("balance-check")).toHaveText("Balances");
-    await expect(page.getByTestId("balance-assets-total")).toHaveText(
-      "₹3,050.00"
-    );
-    await expect(page.getByTestId("balance-funds-total")).toHaveText(
-      "₹2,950.00"
-    );
+    // Income from other specs posts too (layer 3-2), so the asset and fund
+    // totals move with it; the liabilities are the document's alone.
     await expect(page.getByTestId("balance-liabilities-total")).toHaveText(
       "₹100.00"
     );
@@ -178,6 +202,148 @@ test.describe("Books (treasurer)", () => {
     await expect(
       page.getByRole("button", { name: "Post opening balances" })
     ).toHaveCount(0);
+  });
+
+  // Income posting (layer 3-2). In the same serial group as the year close
+  // above: both close and reopen the shared 2026-27.
+  test("posts a gift with its fee, its payout and a transfer to the FD, and follows a programme edit", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "finance_admin", "Treasurer test");
+    test.setTimeout(120_000);
+    const run = `${Date.now()}${testInfo.retry}`;
+    const fixture = await books("income-fixture", run);
+
+    await page.goto("/finance/books");
+    await waitForZeroReady(page);
+    await postPending(page);
+
+    // The gift went into clearing gross, the fee and the payout came out:
+    // clearing is back at zero and the bank holds the net and the UPI gift.
+    await expect(
+      railAccount(page, fixture.clearingName).getByTestId(
+        "books-account-balance"
+      )
+    ).toHaveText("₹0.00", { timeout: 15_000 });
+    await expect(
+      railAccount(page, fixture.bankName).getByTestId("books-account-balance")
+    ).toHaveText("₹1,476.40");
+    await railAccount(page, fixture.clearingName).click();
+    const cashBook = page.getByTestId("cash-book");
+    await expect(
+      cashBook.getByRole("row").filter({ hasText: "Receipt" })
+    ).toContainText("₹1,000.00");
+    await expect(
+      cashBook.getByRole("row").filter({ hasText: "Fee" })
+    ).toContainText("₹23.60");
+    await expect(
+      cashBook.getByRole("row").filter({ hasText: "Transfer" })
+    ).toContainText("₹976.40");
+
+    // The line links back to its gift, whose sheet says it is in the books.
+    // On a narrow screen the table is compact: expand the row first.
+    const receipt = cashBook.getByRole("row").filter({ hasText: "Receipt" });
+    const expand = receipt.getByRole("button", { name: "Expand row" });
+    if (await expand.isVisible()) {
+      await expand.click();
+    }
+    await cashBook.getByRole("link", { name: "Contribution" }).first().click();
+    await expect(page).toHaveURL(/contribution=/);
+    await expect(page.getByTestId("in-the-books")).toContainText("posted", {
+      timeout: 15_000,
+    });
+
+    // A transfer from the bank to the fixed deposit posts both legs.
+    await page.goto(`/income/bank?account=${fixture.bankId}&tab=out`);
+    await waitForZeroReady(page);
+    const debit = page
+      .getByTestId("statement-line")
+      .filter({ hasText: "₹300.00" });
+    await expect(debit).toBeVisible({ timeout: 15_000 });
+    await debit.getByRole("button", { name: "Line actions" }).click();
+    await page.getByRole("menuitem", { name: "Mark as transfer" }).click();
+    const transfer = page.getByRole("dialog", { name: "Mark as transfer" });
+    await transfer.getByRole("combobox", { name: "Other account" }).click();
+    await page.getByRole("option", { name: "E2E Fixed deposit" }).click();
+    await clickUntilDialogCloses(transfer, "Mark as transfer");
+
+    // A programme edit reverses and reposts the recognition only.
+    await page.goto(`/income?contribution=${fixture.upiGiftId}`);
+    await waitForZeroReady(page);
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Edit" })
+      .click();
+    const edit = page.getByRole("dialog", { name: "Edit contribution" });
+    await pickOption(edit, page, "Programme", "Arts and culture");
+    await clickUntilDialogCloses(edit, "Save changes");
+
+    await page.goto("/finance/books");
+    await waitForZeroReady(page);
+    await postPending(page);
+    await expect
+      .poll(() => books<string[]>("postings", fixture.upiGiftId), {
+        timeout: 30_000,
+      })
+      .toEqual(["recognise", "cash", "reverse:recognise", "recognise"]);
+    await expect
+      .poll(() => books<string[]>("postings", fixture.transferLineId), {
+        timeout: 30_000,
+      })
+      .toEqual(["cash"]);
+    await expect(
+      railAccount(page, fixture.bankName).getByTestId("books-account-balance")
+    ).toHaveText("₹1,176.40", { timeout: 15_000 });
+    // The bank's money didn't move with the programme edit: one receipt.
+    await railAccount(page, fixture.bankName).click();
+    await expect(
+      cashBook.getByRole("row").filter({ hasText: "Receipt" })
+    ).toHaveCount(1);
+    await page.getByRole("tab", { name: "Income & expenditure" }).click();
+    await page
+      .getByTestId("income-expenditure")
+      .getByRole("row")
+      .filter({ hasText: "Donations received" })
+      .click();
+    await expect(page.getByRole("dialog")).toContainText("Reversal");
+  });
+
+  test("lists a gift waiting for a closed year, and posts it once the year reopens", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "finance_admin", "Treasurer test");
+    test.setTimeout(120_000);
+    const run = `${Date.now()}${testInfo.retry}`;
+    const fixture = await books("income-fixture", run);
+    await page.goto("/finance/books");
+    await waitForZeroReady(page);
+    await postPending(page);
+    try {
+      await books("close-year", YEAR);
+      const gift = await books("gift", fixture.bankId, "2026-08-01");
+      await page.reload();
+      await waitForZeroReady(page);
+      await postPending(page);
+      const banner = page.getByTestId("waiting-to-post");
+      await expect(banner).toContainText("Waiting to post", {
+        timeout: 15_000,
+      });
+      await banner.getByRole("button", { name: "Show" }).click();
+      const waiting = page.getByTestId("waiting-list");
+      await expect(waiting).toContainText("Year closed");
+      await expect(waiting).toContainText("1 Aug 2026");
+      await page.keyboard.press("Escape");
+
+      await books("reopen-year", YEAR);
+      await page.reload();
+      await waitForZeroReady(page);
+      await postPending(page);
+      await expect
+        .poll(() => books<string[]>("postings", gift.id), { timeout: 30_000 })
+        .toEqual(["recognise", "cash"]);
+    } finally {
+      await books("reopen-year", YEAR);
+    }
   });
 });
 

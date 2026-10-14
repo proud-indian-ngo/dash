@@ -161,7 +161,7 @@ function NoteForm({
   );
 }
 
-/** A short note on a line; also used to mark a transfer between own accounts. */
+/** A short note on a line. */
 export function LineNoteDialog({
   description,
   initial,
@@ -193,6 +193,95 @@ export function LineNoteDialog({
             onCancel={cancel}
             onSubmit={onSubmit}
             submitLabel={submitLabel}
+          />
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const transferSchema = z.object({
+  note: z.string().trim().max(200),
+  otherAccountId: z
+    .string()
+    .optional()
+    .refine((value) => Boolean(value), "Pick the other account"),
+});
+
+function TransferForm({
+  accounts,
+  onCancel,
+  onSubmit,
+}: {
+  accounts: readonly { id: string; name: string }[];
+  onCancel: () => void;
+  onSubmit: (otherAccountId: string, note: string) => Promise<void>;
+}) {
+  const form = useForm({
+    defaultValues: {
+      note: "",
+      otherAccountId: accounts.length === 1 ? accounts[0]?.id : undefined,
+    } as z.input<typeof transferSchema>,
+    onSubmit: async ({ value }) => {
+      if (value.otherAccountId) {
+        await onSubmit(value.otherAccountId, value.note);
+      }
+    },
+    validators: { onSubmit: transferSchema },
+  });
+  return (
+    <FormLayout form={form}>
+      <SelectField
+        description="Where the money went to or came from. The books post both sides of the transfer."
+        isRequired
+        label="Other account"
+        name="otherAccountId"
+        options={accounts.map((a) => ({ label: a.name, value: a.id }))}
+        placeholder="Pick an account"
+      />
+      <InputField label="Note" name="note" />
+      <FormActions
+        disableWhenInvalid={false}
+        onCancel={onCancel}
+        submitLabel="Mark as transfer"
+        submittingLabel="Saving..."
+      />
+    </FormLayout>
+  );
+}
+
+/**
+ * "Mark as transfer": money moved between the trust's own accounts (the
+ * current account and the fixed deposit), with the other account picked so
+ * the books can post both legs.
+ */
+export function TransferLineDialog({
+  accounts,
+  onOpenChange,
+  onSubmit,
+  open,
+}: {
+  accounts: readonly { id: string; name: string }[];
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (otherAccountId: string, note: string) => Promise<void>;
+  open: boolean;
+}) {
+  const cancel = useEventCallback(() => onOpenChange(false));
+  return (
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent className="sm:max-w-(--dialog-sm)">
+        <DialogHeader>
+          <DialogTitle>Mark as transfer</DialogTitle>
+          <DialogDescription>
+            Money moved between the trust's own accounts. It needs no other
+            match.
+          </DialogDescription>
+        </DialogHeader>
+        {open ? (
+          <TransferForm
+            accounts={accounts}
+            onCancel={cancel}
+            onSubmit={onSubmit}
           />
         ) : null}
       </DialogContent>

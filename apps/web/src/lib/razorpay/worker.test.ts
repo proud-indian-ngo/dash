@@ -72,6 +72,84 @@ describe("handleRazorpaySyncPayment", () => {
   });
 });
 
+describe("queueing the books", () => {
+  it("queues the books for each synced payment, refund and recorded settlement", async () => {
+    const books = mock(async (_id: string) => undefined);
+    await handleRazorpaySyncPayment(
+      [job("pay_A")],
+      async () => "ready" as const,
+      async () => true,
+      books
+    );
+    await handleRazorpaySyncRefund(
+      [{ data: { paymentId: "pay_A", refundId: "rfnd_A" }, id: "r" }],
+      async () => "applied" as never,
+      books
+    );
+    await handleRazorpaySyncSettlement(
+      [{ data: { settlementId: "setl_A" }, id: "s" }],
+      async () => ({
+        created: true,
+        lines: 1,
+        linked: 1,
+        outcome: "recorded" as const,
+        unlinked: 0,
+      }),
+      books
+    );
+    await handleRazorpaySyncSettlement(
+      [{ data: { settlementId: "setl_B" }, id: "t" }],
+      async () => ({ outcome: "no_key_secret" as const }),
+      books
+    );
+    expect(books.mock.calls.map(([id]) => id)).toEqual([
+      "pay_A",
+      "rfnd_A",
+      "setl_A",
+    ]);
+  });
+
+  it("never fails a sync when the books can't be queued", async () => {
+    const result = await handleRazorpaySyncPayment(
+      [job("pay_A")],
+      async () => "ready" as const,
+      async () => true,
+      async () => {
+        throw new Error("database down");
+      }
+    );
+    expect(result).toEqual({ outcomes: ["ready"] });
+  });
+
+  it("sweeps the books after a reconcile run, not after a skipped one", async () => {
+    const sweep = mock(() => undefined);
+    await handleRazorpayReconcile(
+      [{ data: { reason: "scheduled" }, id: "j" }],
+      async () => ({
+        reason: "no_key_secret" as const,
+        status: "skipped" as const,
+      }),
+      async () => undefined,
+      sweep
+    );
+    expect(sweep).not.toHaveBeenCalled();
+    await handleRazorpayReconcile(
+      [{ data: { reason: "scheduled" }, id: "k" }],
+      async () =>
+        ({
+          counts: {},
+          pages: 1,
+          status: "completed",
+          windowsDone: 1,
+          windowsTotal: 1,
+        }) as never,
+      async () => undefined,
+      sweep
+    );
+    expect(sweep).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("handleRazorpaySyncRefund", () => {
   const refundJob = {
     data: {

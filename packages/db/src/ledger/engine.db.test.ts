@@ -23,6 +23,7 @@ import {
   accountMovement,
   fiscalYearEvent,
   ledgerEntry,
+  ledgerSourceState,
   openingBalance,
   posting,
 } from "../schema/ledger";
@@ -122,6 +123,8 @@ async function foundation(tx: LedgerTx) {
     .onConflictDoNothing();
   // A clean 2026-27 for this transaction only.
   await tx.update(fiscalYear).set({ closedAt: null, closedBy: null });
+  // Nothing waiting to post, whatever the database's own records are doing.
+  await tx.delete(ledgerSourceState);
   // Earlier opening balances are final; only a maintenance session may
   // clear them, and only inside this rolled-back transaction.
   await tx.execute(sql`SET LOCAL pi_dash.ledger_maintenance = 'on'`);

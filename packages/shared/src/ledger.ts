@@ -46,25 +46,121 @@ export type FiscalYearEventAction =
   (typeof fiscalYearEventActionValues)[number];
 
 /**
- * Source documents that post. Later layers add their own (contribution,
- * settlement, reimbursement, vendor payment, adjustment).
+ * Source documents that post. Layer 3-3 adds the expense side
+ * (reimbursement, vendor payment, adjustment).
  */
 export const LEDGER_SOURCE_TYPES = {
+  contribution: "contribution",
+  contributionRefund: "contribution_refund",
+  gatewaySettlement: "gateway_settlement",
   openingBalance: "opening_balance",
+  otherIncome: "other_income",
+  /** A bank statement line marked as a transfer between the trust's own accounts. */
+  statementTransfer: "statement_transfer",
 } as const;
 export type LedgerSourceType =
   (typeof LEDGER_SOURCE_TYPES)[keyof typeof LEDGER_SOURCE_TYPES];
 
+/** The sources income posting handles (layer 3-2), posted by the server only. */
+export const INCOME_SOURCE_TYPES = [
+  LEDGER_SOURCE_TYPES.contribution,
+  LEDGER_SOURCE_TYPES.contributionRefund,
+  LEDGER_SOURCE_TYPES.otherIncome,
+  LEDGER_SOURCE_TYPES.gatewaySettlement,
+  LEDGER_SOURCE_TYPES.statementTransfer,
+] as const;
+export type IncomeSourceType = (typeof INCOME_SOURCE_TYPES)[number];
+
+export const isIncomeSourceType = (value: string): value is IncomeSourceType =>
+  (INCOME_SOURCE_TYPES as readonly string[]).includes(value);
+
+export const LEDGER_SOURCE_LABELS: Record<LedgerSourceType, string> = {
+  contribution: "Contribution",
+  contribution_refund: "Refund",
+  gateway_settlement: "Settlement",
+  opening_balance: "Opening balances",
+  other_income: "Other income",
+  statement_transfer: "Transfer",
+};
+
 export const POSTING_ACTIONS = {
+  /** Cash-book part of an income source: money in, out or across accounts. */
+  cash: "cash",
   post: "post",
+  /** Recognition part of an income source: income and expense entries. */
+  recognise: "recognise",
   reverse: "reverse",
 } as const;
+
+/**
+ * Where an income source stands in the books (`ledger_source_state`):
+ * `posted` (its postings stand and match the record), `waiting` (it should
+ * post but can't yet; the reason says why) or `none` (nothing posts for it,
+ * such as a pending gift or one dated before the cutover).
+ */
+export const ledgerSourceStatusValues = ["posted", "waiting", "none"] as const;
+export type LedgerSourceStatus = (typeof ledgerSourceStatusValues)[number];
+
+/** Why a source waits to post. */
+export const LEDGER_WAIT_REASONS = {
+  closedYear: "year_closed",
+  error: "error",
+  noBankAccount: "pick_bank_account",
+  noClearingAccount: "no_clearing_account",
+  noOtherAccount: "pick_other_account",
+  referenceDataMissing: "reference_data_missing",
+} as const;
+export type LedgerWaitReason =
+  (typeof LEDGER_WAIT_REASONS)[keyof typeof LEDGER_WAIT_REASONS];
+
+export const LEDGER_WAIT_REASON_LABELS: Record<LedgerWaitReason, string> = {
+  error: "Couldn't post",
+  no_clearing_account: "The settlement has no clearing account",
+  pick_bank_account:
+    "Pick the bank account: match the payout's bank statement line",
+  pick_other_account: "Pick the other account of the transfer",
+  reference_data_missing: "Books reference data missing",
+  year_closed: "Year closed",
+};
+
+/** Why nothing posts for a source; shown on its sheet. */
+export const LEDGER_SKIP_REASONS = {
+  beforeCutover: "before_cutover",
+  deleted: "deleted",
+  notProcessed: "not_processed",
+  notReceived: "not_received",
+  otherSidePosts: "other_side_posts",
+} as const;
+export type LedgerSkipReason =
+  (typeof LEDGER_SKIP_REASONS)[keyof typeof LEDGER_SKIP_REASONS];
+
+export const LEDGER_SKIP_REASON_LABELS: Record<LedgerSkipReason, string> = {
+  before_cutover:
+    "Dated before 1 Apr 2026: the audited opening balances already contain it",
+  deleted: "Deleted",
+  not_processed: "Not processed yet",
+  not_received: "Not received yet",
+  other_side_posts: "Posted from the other account's statement line",
+};
+
+/** The words for a source's state: its wait or skip reason. */
+export function ledgerReasonLabel(reason: string | null | undefined): string {
+  if (!reason) {
+    return "";
+  }
+  return (
+    (LEDGER_WAIT_REASON_LABELS as Record<string, string>)[reason] ??
+    (LEDGER_SKIP_REASON_LABELS as Record<string, string>)[reason] ??
+    reason.replaceAll("_", " ")
+  );
+}
 
 /** Permissions of the treasurer's book-keeping actions. */
 export const BOOKS_PERMISSIONS = {
   adjust: "finance.adjust",
   closeYear: "finance.close_year",
   postOpening: "finance.post_opening",
+  postPending: "finance.post_pending",
   reopenYear: "finance.reopen_year",
 } as const;
 

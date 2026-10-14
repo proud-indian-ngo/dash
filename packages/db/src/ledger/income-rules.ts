@@ -1,0 +1,614 @@
+import {
+  GENERAL_FUND_ID,
+  LEDGER_ACCOUNT_HEAD_IDS,
+} from "@pi-dash/shared/constants";
+import {
+  LEDGER_CUTOVER_ON,
+  LEDGER_SKIP_REASONS,
+  LEDGER_WAIT_REASONS,
+  type LedgerSkipReason,
+  type LedgerWaitReason,
+  POSTING_ACTIONS,
+} from "@pi-dash/shared/ledger";
+
+import type { EntryInput, MovementInput } from "./rules";
+
+/**
+ * Income posting rules (finance Phase 3, layer 3-2), in plain functions of
+ * a source's facts. Every rule the chartered accountant may change lives in
+ * this one module, so a change is a one-place edit:
+ *
+ * - Gateway gifts (Razorpay, give.do) are income on the donor's payment
+ *   date at the full amount; the money goes into the gateway's clearing
+ *   account. Razorpay's fee and GST are an expense at the gift; give.do's
+ *   charges are an expense when the payout file reports them.
+ * - Direct gifts (UPI, NEFT, cheque, and cash should it ever occur) are
+ *   income into the account they were deposited in.
+ * - In-kind gifts are in-kind income and an equal in-kind consumption
+ *   expense, with no money movement (first release: in-kind as consumed).
+ * - A refund reduces donation income with the gift's dimensions and takes
+ *   the money out of the gift's account (clearing for gateway gifts).
+ * - Other income is FD interest (kind interest, or anything credited to a
+ *   fixed deposit) or other income, into its account.
+ * - A processed gateway payout is a transfer of the net amount out of
+ *   clearing into the bank, on the day it reached the bank (the matched
+ *   bank line's date, else the settlement date), into the matched line's
+ *   account, else the account it was already posted to, else the only
+ *   active bank account; an instant settlement fee is an expense, and so
+ *   are a Razorpay line's charges when its gift was recorded with none.
+ * - A bank line marked as a transfer between own accounts posts both legs
+ *   once the other account is picked.
+ * - Cutover: nothing dated before 1 April 2026 posts, except a gateway gift
+ *   captured earlier whose payout reached the bank on or after it: that
+ *   gift posts as FY 2026-27 income on the payout's bank day, so the
+ *   clearing account opens and stays at zero (founder answer, CA to
+ *   confirm).
+ *
+ * No TDS and no cash handling: the trust deducts none and keeps no cash.
+ * Every source posts in up to two parts: `recognise` (income and expense
+ * entries) and `cash` (movements). A change that touches only the
+ * recognition (programme, project, fund, donor, donation type) reverses and
+ * reposts that part alone, so a classification correction never moves money.
+ */
+
+export const GATEWAY_CHANNELS: readonly string[] = ["razorpay", "give_do"];
+
+/** The entries and movements of one part of a source's posting. */
+export interface PlanPart {
+  action: string;
+  economicOn: string;
+  entries: EntryInput[];
+  movements: MovementInput[];
+}
+
+export type SourcePlan =
+  /** Nothing should stand in the books for it; anything standing is reversed. */
+  | { kind: "none"; reason: LedgerSkipReason }
+  /** It should post but can't yet; whatever stands is left alone. */
+  | { economicOn: string | null; kind: "wait"; reason: LedgerWaitReason }
+  | {
+      /** Settlement lines the books can't use, for a person to look at. */
+      attention: number;
+      economicOn: string;
+      kind: "post";
+      parts: PlanPart[];
+    };
+
+const none = (reason: LedgerSkipReason): SourcePlan => ({
+  kind: "none",
+  reason,
+});
+
+/** Drops empty parts; a source with nothing left posts nothing. */
+function post(
+  economicOn: string,
+  parts: PlanPart[],
+  attention = 0
+): SourcePlan {
+  const kept = parts.filter(
+    (p) => p.entries.length > 0 || p.movements.length > 0
+  );
+  return { attention, economicOn, kind: "post", parts: kept };
+}
+
+/** The heads the rules post under, for the reference data check. */
+export function headsOf(plan: SourcePlan): string[] {
+  if (plan.kind !== "post") {
+    return [];
+  }
+  return [
+    ...new Set(
+      plan.parts.flatMap((p) => p.entries.map((e) => e.accountHeadId))
+    ),
+  ];
+}
+
+// ── Contributions ───────────────────────────────────────────────────────────
+
+/** Statuses of a gift that has been received; pending gifts don't post. */
+const RECEIVED_STATUSES: readonly string[] = [
+  "received",
+  "receipted",
+  "refunded",
+  "reversed",
+];
+
+export interface GiftDimensions {
+  fundId: string;
+  partyId: string;
+  programmeId: string | null;
+  projectId: string | null;
+}
+
+export interface ContributionFacts extends GiftDimensions {
+  amountPaise: number;
+  channel: string;
+  gatewayFeePaise: number;
+  gatewayTaxPaise: number;
+  id: string;
+  orgAccountId: string | null;
+  receivedOn: string;
+  reference: string | null;
+  /**
+   * The earliest day a processed payout that settled this gift reached the
+   * bank, for the cutover exception; null when no processed payout has.
+   */
+  settledBankOn: string | null;
+  status: string;
+}
+
+const dimensionsOf = (gift: GiftDimensions) => ({
+  fundId: gift.fundId,
+  partyId: gift.partyId,
+  programmeId: gift.programmeId,
+  projectId: gift.projectId,
+});
+
+/**
+ * The day a gift posts on: its received date, or for a gateway gift
+ * captured before the cutover, the day its payout reached the bank when
+ * that is on or after the cutover. Null when it doesn't post.
+ */
+export function contributionPostingDay(
+  gift: Pick<ContributionFacts, "channel" | "receivedOn" | "settledBankOn">
+): string | null {
+  if (gift.receivedOn >= LEDGER_CUTOVER_ON) {
+    return gift.receivedOn;
+  }
+  if (
+    GATEWAY_CHANNELS.includes(gift.channel) &&
+    gift.settledBankOn !== null &&
+    gift.settledBankOn >= LEDGER_CUTOVER_ON
+  ) {
+    return gift.settledBankOn;
+  }
+  return null;
+}
+
+export function contributionPlan(gift: ContributionFacts | null): SourcePlan {
+  if (!gift) {
+    return none(LEDGER_SKIP_REASONS.deleted);
+  }
+  if (!RECEIVED_STATUSES.includes(gift.status)) {
+    return none(LEDGER_SKIP_REASONS.notReceived);
+  }
+  const day = contributionPostingDay(gift);
+  if (!day) {
+    return none(LEDGER_SKIP_REASONS.beforeCutover);
+  }
+  const dims = dimensionsOf(gift);
+
+  if (gift.channel === "in_kind") {
+    return post(day, [
+      {
+        action: POSTING_ACTIONS.recognise,
+        economicOn: day,
+        entries: [
+          {
+            ...dims,
+            accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.inKindDonations,
+            amountPaise: gift.amountPaise,
+            effect: "increase",
+            medium: "in_kind",
+          },
+          {
+            ...dims,
+            accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.inKindConsumed,
+            amountPaise: gift.amountPaise,
+            effect: "increase",
+            medium: "in_kind",
+          },
+        ],
+        movements: [],
+      },
+    ]);
+  }
+
+  if (!gift.orgAccountId) {
+    // The database refuses a money gift without an account; nothing to post.
+    return none(LEDGER_SKIP_REASONS.notReceived);
+  }
+  const entries: EntryInput[] = [
+    {
+      ...dims,
+      accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.donationsReceived,
+      amountPaise: gift.amountPaise,
+      effect: "increase",
+    },
+  ];
+  const movements: MovementInput[] = [
+    {
+      amountPaise: gift.amountPaise,
+      direction: "in",
+      kind: "receipt",
+      orgAccountId: gift.orgAccountId,
+      paymentReference: gift.reference,
+    },
+  ];
+  // Razorpay reports its fee and GST with the payment. give.do's charges
+  // arrive with its payout file and post with the payout, so a fee filled
+  // on a give.do gift from that file is not posted again here.
+  const chargesPaise = gift.gatewayFeePaise + gift.gatewayTaxPaise;
+  if (gift.channel === "razorpay" && chargesPaise > 0) {
+    entries.push({
+      ...dims,
+      accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.gatewayCharges,
+      amountPaise: chargesPaise,
+      effect: "increase",
+      memo: "Razorpay fee and GST",
+    });
+    movements.push({
+      amountPaise: chargesPaise,
+      direction: "out",
+      kind: "fee",
+      memo: "Razorpay fee and GST",
+      orgAccountId: gift.orgAccountId,
+      paymentReference: gift.reference,
+    });
+  }
+  return post(day, [
+    {
+      action: POSTING_ACTIONS.recognise,
+      economicOn: day,
+      entries,
+      movements: [],
+    },
+    { action: POSTING_ACTIONS.cash, economicOn: day, entries: [], movements },
+  ]);
+}
+
+// ── Refunds ─────────────────────────────────────────────────────────────────
+
+export interface RefundFacts {
+  amountPaise: number;
+  gift: Pick<ContributionFacts, "channel" | "orgAccountId"> & GiftDimensions;
+  id: string;
+  reference: string | null;
+  refundedOn: string;
+}
+
+/**
+ * A refund dated on or after the cutover posts on its own day, even for a
+ * gift received before it (a reduction of FY 2026-27 income; CA proposal).
+ */
+export function refundPlan(refund: RefundFacts | null): SourcePlan {
+  if (!refund) {
+    return none(LEDGER_SKIP_REASONS.deleted);
+  }
+  if (refund.refundedOn < LEDGER_CUTOVER_ON) {
+    return none(LEDGER_SKIP_REASONS.beforeCutover);
+  }
+  const { gift } = refund;
+  if (gift.channel === "in_kind" || !gift.orgAccountId) {
+    return none(LEDGER_SKIP_REASONS.notReceived);
+  }
+  const day = refund.refundedOn;
+  return post(day, [
+    {
+      action: POSTING_ACTIONS.recognise,
+      economicOn: day,
+      entries: [
+        {
+          ...dimensionsOf(gift),
+          accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.donationsReceived,
+          amountPaise: refund.amountPaise,
+          effect: "decrease",
+          memo: "Refund",
+        },
+      ],
+      movements: [],
+    },
+    {
+      action: POSTING_ACTIONS.cash,
+      economicOn: day,
+      entries: [],
+      movements: [
+        {
+          amountPaise: refund.amountPaise,
+          direction: "out",
+          kind: "refund",
+          orgAccountId: gift.orgAccountId,
+          paymentReference: refund.reference,
+        },
+      ],
+    },
+  ]);
+}
+
+// ── Other income ────────────────────────────────────────────────────────────
+
+export interface OtherIncomeFacts {
+  /** The kind of account it was received into. */
+  accountKind: string;
+  amountPaise: number;
+  fundId: string;
+  id: string;
+  kind: string;
+  orgAccountId: string;
+  receivedOn: string;
+}
+
+/** FD interest for interest or anything credited to a fixed deposit; other income otherwise. */
+export function otherIncomeHead(
+  income: Pick<OtherIncomeFacts, "accountKind" | "kind">
+): string {
+  return income.kind === "interest" || income.accountKind === "deposit"
+    ? LEDGER_ACCOUNT_HEAD_IDS.fdInterest
+    : LEDGER_ACCOUNT_HEAD_IDS.otherIncome;
+}
+
+export function otherIncomePlan(income: OtherIncomeFacts | null): SourcePlan {
+  if (!income) {
+    return none(LEDGER_SKIP_REASONS.deleted);
+  }
+  if (income.receivedOn < LEDGER_CUTOVER_ON) {
+    return none(LEDGER_SKIP_REASONS.beforeCutover);
+  }
+  const day = income.receivedOn;
+  return post(day, [
+    {
+      action: POSTING_ACTIONS.recognise,
+      economicOn: day,
+      entries: [
+        {
+          accountHeadId: otherIncomeHead(income),
+          amountPaise: income.amountPaise,
+          effect: "increase",
+          fundId: income.fundId,
+        },
+      ],
+      movements: [],
+    },
+    {
+      action: POSTING_ACTIONS.cash,
+      economicOn: day,
+      entries: [],
+      movements: [
+        {
+          amountPaise: income.amountPaise,
+          direction: "in",
+          kind: "receipt",
+          orgAccountId: income.orgAccountId,
+        },
+      ],
+    },
+  ]);
+}
+
+// ── Gateway settlements ─────────────────────────────────────────────────────
+
+export interface SettlementItemFacts {
+  /** The linked gift's dimensions; null when the line is linked to no gift. */
+  gift: GiftDimensions | null;
+  /** Fee plus GST recorded on the linked gift itself (Razorpay posts it there). */
+  giftChargesPaise: number;
+  feePaise: number;
+  /** Linked to a recorded refund. */
+  refundLinked: boolean;
+  taxPaise: number;
+  type: string;
+}
+
+export interface SettlementFacts {
+  /** Active bank accounts, for a payout whose bank line isn't matched. */
+  activeBankAccountIds: string[];
+  amountPaise: number;
+  /** The bank statement line matched to it, if any. */
+  bankLine: { orgAccountId: string; valueOn: string } | null;
+  /** The clearing account it paid out of. */
+  clearingAccountId: string | null;
+  id: string;
+  items: SettlementItemFacts[];
+  /**
+   * The bank account its standing posting paid into, if posted: kept when
+   * no bank line is matched, so adding a bank account later doesn't move
+   * or hold up payouts already in the books.
+   */
+  postedBankAccountId: string | null;
+  provider: string;
+  settledOn: string;
+  settlementFeePaise: number | null;
+  settlementTaxPaise: number | null;
+  status: string;
+  utr: string | null;
+}
+
+/** The day a payout reached the bank: its matched bank line's date, else its settlement date. */
+export const settlementBankDay = (
+  settlement: Pick<SettlementFacts, "bankLine" | "settledOn">
+): string => settlement.bankLine?.valueOn ?? settlement.settledOn;
+
+/** Lines the books can't use: adjustments, transfers and lines linked to no gift or refund. */
+export function settlementAttention(items: readonly SettlementItemFacts[]) {
+  return items.filter((item) => {
+    if (item.type === "payment") {
+      return item.gift === null;
+    }
+    if (item.type === "refund") {
+      return !item.refundLinked;
+    }
+    return true;
+  }).length;
+}
+
+export function settlementPlan(settlement: SettlementFacts | null): SourcePlan {
+  if (!settlement) {
+    return none(LEDGER_SKIP_REASONS.deleted);
+  }
+  if (settlement.status !== "processed") {
+    return none(LEDGER_SKIP_REASONS.notProcessed);
+  }
+  const day = settlementBankDay(settlement);
+  if (day < LEDGER_CUTOVER_ON) {
+    return none(LEDGER_SKIP_REASONS.beforeCutover);
+  }
+  const clearing = settlement.clearingAccountId;
+  if (!clearing) {
+    return {
+      economicOn: day,
+      kind: "wait",
+      reason: LEDGER_WAIT_REASONS.noClearingAccount,
+    };
+  }
+  const bank =
+    settlement.bankLine?.orgAccountId ??
+    settlement.postedBankAccountId ??
+    (settlement.activeBankAccountIds.length === 1
+      ? settlement.activeBankAccountIds[0]
+      : null);
+  if (!bank) {
+    return {
+      economicOn: day,
+      kind: "wait",
+      reason: LEDGER_WAIT_REASONS.noBankAccount,
+    };
+  }
+
+  const provider = settlement.provider === "give_do" ? "give.do" : "Razorpay";
+  const entries: EntryInput[] = [];
+  const movements: MovementInput[] = [];
+  if (settlement.amountPaise > 0) {
+    movements.push(
+      {
+        amountPaise: settlement.amountPaise,
+        direction: "out",
+        kind: "transfer",
+        orgAccountId: clearing,
+        paymentReference: settlement.utr,
+        transferId: settlement.id,
+      },
+      {
+        amountPaise: settlement.amountPaise,
+        direction: "in",
+        kind: "transfer",
+        orgAccountId: bank,
+        paymentReference: settlement.utr,
+        transferId: settlement.id,
+      }
+    );
+  }
+  // Razorpay's fee on an instant settlement, taken on top of its lines' fees.
+  const payoutFeePaise =
+    (settlement.settlementFeePaise ?? 0) + (settlement.settlementTaxPaise ?? 0);
+  if (payoutFeePaise > 0) {
+    entries.push({
+      accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.gatewayCharges,
+      amountPaise: payoutFeePaise,
+      effect: "increase",
+      fundId: GENERAL_FUND_ID,
+      memo: `${provider} instant settlement fee and GST`,
+    });
+    movements.push({
+      amountPaise: payoutFeePaise,
+      direction: "out",
+      kind: "fee",
+      memo: `${provider} instant settlement fee and GST`,
+      orgAccountId: clearing,
+      paymentReference: settlement.utr,
+    });
+  }
+  // give.do reports its charges per gift in the payout file only, so they
+  // post here. Razorpay's post at the gift, except for a gift recorded with
+  // no fee (one recorded by hand and linked to its payment later): its
+  // charges post here from the payout's line, so clearing still nets to zero.
+  for (const item of settlement.items) {
+    const chargesPaise = item.feePaise + item.taxPaise;
+    if (item.type !== "payment" || !item.gift || chargesPaise <= 0) {
+      continue;
+    }
+    if (settlement.provider !== "give_do" && item.giftChargesPaise > 0) {
+      continue;
+    }
+    const memo = `${provider} charges`;
+    entries.push({
+      ...dimensionsOf(item.gift),
+      accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.gatewayCharges,
+      amountPaise: chargesPaise,
+      effect: "increase",
+      memo,
+    });
+    movements.push({
+      amountPaise: chargesPaise,
+      direction: "out",
+      kind: "fee",
+      memo,
+      orgAccountId: clearing,
+      paymentReference: settlement.utr,
+    });
+  }
+  return post(
+    day,
+    [
+      {
+        action: POSTING_ACTIONS.recognise,
+        economicOn: day,
+        entries,
+        movements: [],
+      },
+      { action: POSTING_ACTIONS.cash, economicOn: day, entries: [], movements },
+    ],
+    settlementAttention(settlement.items)
+  );
+}
+
+// ── Transfers between own accounts ──────────────────────────────────────────
+
+export interface StatementTransferFacts {
+  amountPaise: number;
+  direction: "credit" | "debit";
+  id: string;
+  /** Still matched as a transfer. */
+  isTransfer: boolean;
+  orgAccountId: string;
+  /** The other account and its kind, once picked. */
+  other: { id: string; kind: string } | null;
+  reference: string | null;
+  valueOn: string;
+}
+
+/**
+ * Both legs of a transfer between the trust's own accounts, from the bank
+ * line marked as one, once the other account is picked. Between two bank
+ * accounts (each with its own statement) only the debit line posts, so the
+ * pair is posted once.
+ */
+export function statementTransferPlan(
+  line: StatementTransferFacts | null
+): SourcePlan {
+  if (!line?.isTransfer) {
+    return none(LEDGER_SKIP_REASONS.deleted);
+  }
+  if (line.valueOn < LEDGER_CUTOVER_ON) {
+    return none(LEDGER_SKIP_REASONS.beforeCutover);
+  }
+  if (!line.other) {
+    return {
+      economicOn: line.valueOn,
+      kind: "wait",
+      reason: LEDGER_WAIT_REASONS.noOtherAccount,
+    };
+  }
+  if (line.direction === "credit" && line.other.kind === "bank") {
+    return none(LEDGER_SKIP_REASONS.otherSidePosts);
+  }
+  const out = line.direction === "debit" ? line.orgAccountId : line.other.id;
+  const into = line.direction === "debit" ? line.other.id : line.orgAccountId;
+  const day = line.valueOn;
+  const leg = {
+    amountPaise: line.amountPaise,
+    kind: "transfer" as const,
+    paymentReference: line.reference,
+    transferId: line.id,
+  };
+  return post(day, [
+    {
+      action: POSTING_ACTIONS.cash,
+      economicOn: day,
+      entries: [],
+      movements: [
+        { ...leg, direction: "out", orgAccountId: out },
+        { ...leg, direction: "in", orgAccountId: into },
+      ],
+    },
+  ]);
+}

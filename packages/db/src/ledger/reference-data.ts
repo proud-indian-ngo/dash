@@ -60,6 +60,56 @@ export const LEDGER_REFERENCE_HEADS = [
     tallyLedgerName: "Interest on FD",
     type: "income" as const,
   },
+  // Income posting (layer 3-2).
+  {
+    code: "DONATIONS_RECEIVED",
+    description:
+      "Donations at the full amount the donor gave, by any channel; refunds reduce it.",
+    id: LEDGER_ACCOUNT_HEAD_IDS.donationsReceived,
+    name: "Donations received",
+    sortOrder: 500,
+    tallyLedgerName: "Donations Received",
+    type: "income" as const,
+  },
+  {
+    code: "IN_KIND_DONATIONS",
+    description: "Gifts in kind at their fair value.",
+    id: LEDGER_ACCOUNT_HEAD_IDS.inKindDonations,
+    name: "In-kind donations",
+    sortOrder: 510,
+    tallyLedgerName: "In-kind Donations",
+    type: "income" as const,
+  },
+  {
+    code: "OTHER_INCOME",
+    description:
+      "Income that is not a donation or FD interest: grant returns, asset income and other receipts.",
+    id: LEDGER_ACCOUNT_HEAD_IDS.otherIncome,
+    name: "Other income",
+    sortOrder: 520,
+    tallyLedgerName: "Other Income",
+    type: "income" as const,
+  },
+  {
+    code: "IN_KIND_CONSUMED",
+    description:
+      "Gifts in kind used in the programmes, at the value they were received at.",
+    id: LEDGER_ACCOUNT_HEAD_IDS.inKindConsumed,
+    name: "In-kind consumed",
+    sortOrder: 600,
+    tallyLedgerName: "In-kind Consumed",
+    type: "expense" as const,
+  },
+  {
+    code: "GATEWAY_CHARGES",
+    description:
+      "Razorpay and give.do fees and the GST on them, and instant settlement fees.",
+    id: LEDGER_ACCOUNT_HEAD_IDS.gatewayCharges,
+    name: "Gateway charges",
+    sortOrder: 610,
+    tallyLedgerName: "Payment Gateway Charges",
+    type: "expense" as const,
+  },
 ] as const;
 
 const CORPUS_FUND = {

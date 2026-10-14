@@ -1,4 +1,6 @@
+import type { SweepResult } from "@pi-dash/db/ledger/income-posting";
 import type { YearCloseChecklist } from "@pi-dash/db/ledger/year-close";
+import { countWaitingLedgerSources } from "@pi-dash/db/queries/ledger-sources";
 import { createServerFn } from "@tanstack/react-start";
 import z from "zod";
 
@@ -11,6 +13,8 @@ import {
   closeFiscalYear,
   loadYearCloseChecklist,
   postOpeningBalances,
+  postPendingNow,
+  queuePostingAfterReopen,
   reopenFiscalYear,
   reverseOpeningBalances,
 } from "@/lib/books/server";
@@ -137,7 +141,7 @@ export const reopenFiscalYearFn = createServerFn({ method: "POST" })
       throw new Error("Unauthorized");
     }
     const { session } = context;
-    return await runSessionAuditedAction(
+    const result = await runSessionAuditedAction(
       session,
       context.headers,
       {
@@ -145,5 +149,33 @@ export const reopenFiscalYearFn = createServerFn({ method: "POST" })
         target: { id: data.fiscalYearId, type: "fiscal_year" },
       },
       () => reopenFiscalYear(data, session.user.id)
+    );
+    queuePostingAfterReopen(session.user.id);
+    return result;
+  });
+
+/**
+ * "Post pending" on the Books page: posts every income record that isn't
+ * up to date in the books (finance.post_pending). Audited with the number
+ * of records waiting when it started; what it posted stays in the books.
+ */
+export const postPendingFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<SweepResult> => {
+    await assertServerPermission(context.session, "finance.post_pending");
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    const { session } = context;
+    const waitingCount = await countWaitingLedgerSources();
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "books.post_pending",
+        metadata: { waitingCount },
+        target: { type: "books" },
+      },
+      () => postPendingNow(session.user.id)
     );
   });

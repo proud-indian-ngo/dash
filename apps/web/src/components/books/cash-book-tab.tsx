@@ -11,11 +11,9 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import {
   cashBook,
   type DateRange,
-  LEDGER_SOURCE_TYPES,
   MOVEMENT_KIND_LABELS,
 } from "@pi-dash/shared/ledger";
 import { formatPaise } from "@pi-dash/shared/money";
-import { Link } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 
 import { useDataTableGroupBy } from "@/components/data-table/data-table-group";
@@ -23,7 +21,8 @@ import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { Tag } from "@/components/shared/status-badge";
 import { StatsCards } from "@/components/stats/stats-cards";
 
-import { formatDay, formatMonth, sourceLabel } from "./labels";
+import { formatDay, formatMonth } from "./labels";
+import { SourceLink } from "./source-link";
 import type { BooksMovementRow, BooksPosting } from "./use-books";
 
 type CashBookRow = ReturnType<
@@ -44,17 +43,9 @@ function searchMovement(row: CashBookRow, query: string): boolean {
 }
 
 function SourceCell({ posting }: { posting: BooksPosting | undefined }) {
-  if (posting?.sourceType === LEDGER_SOURCE_TYPES.openingBalance) {
-    return (
-      <Link
-        className="underline-offset-4 hover:underline"
-        to="/finance/books/opening"
-      >
-        {sourceLabel(posting.sourceType)}
-      </Link>
-    );
-  }
-  return <span>{sourceLabel(posting?.sourceType)}</span>;
+  return (
+    <SourceLink sourceId={posting?.sourceId} sourceType={posting?.sourceType} />
+  );
 }
 
 /**

@@ -1,6 +1,6 @@
 # Finance Phase 0: ledger cutover contracts
 
-> **Status**: draft for founder and CA review (14 October 2026). Phase 3 layer 1 builds the opening-balance document, the `deposit` account kind and the year close (founder go-ahead 14 October 2026; see "Books (layer 3-1)" in `finance-and-programmes.md`); the rest fixes what later Phase 3 layers build and what Phase 4 exports. Items marked **Proposal** need sign-off; items under "Questions for the CA" need an answer before the ledger is switched on.
+> **Status**: draft for founder and CA review (14 October 2026). Phase 3 layer 1 builds the opening-balance document, the `deposit` account kind and the year close (founder go-ahead 14 October 2026; see "Books (layer 3-1)" in `finance-and-programmes.md`); layer 3-2 implements the income rows of section 3 with the founder's answers in section 4, still pending the CA's confirmation (see "Income posting (layer 3-2)"); the rest fixes what later Phase 3 layers build and what Phase 4 exports. Items marked **Proposal** need sign-off; items under "Questions for the CA" need an answer before the ledger is switched on.
 > **Load when**: ledger cutover, opening balances, posting rules in plain language, backfill of FY 2026-27, CA handoff workbook columns, fixed deposit account, audited FY 2025-26 figures.
 > **Related**: `finance-and-programmes.md` (sections 2, 3.8, 3.13 and 5), `vendor-payments.md`
 
@@ -114,6 +114,18 @@ Restated from the trigger table in `finance-and-programmes.md` section 3.8:
 | Money moves between the trust's own accounts (bank to FD, FD to bank, cash to bank) | Nothing | Out of one account and into the other, linked |
 | A mistake is corrected | The wrong entry reversed and the right one added | Only if money really moved |
 | Opening balances at 1 April 2026 | Opening fund, liability and asset lines (section 2) | Opening amounts into the bank and FD accounts |
+
+**Implemented for income (layer 3-2, founder answers, CA confirmation pending).** The income rows above post automatically, by the rules in `packages/db/src/ledger/income-rules.ts` (one module, so a change the CA asks for is a one-place edit):
+
+- A gateway gift is income on the donor's payment date at the full amount. Razorpay's fee and GST are an expense at the gift; give.do's charges are an expense on the payout day, from the payout file. No TDS, no cash.
+- A gift captured before 1 April 2026 whose payout reached the bank on or after it posts on the payout's bank day as FY 2026-27 income (question 1, item 4); one paid out before 1 April never posts.
+- The payout is a transfer of the net amount out of the clearing account into the bank account its bank statement line is matched to (else the only active bank account), on that line's date (else the settlement date).
+- A refund dated on or after 1 April 2026 reduces FY 2026-27 donation income on its own day, even for an earlier gift (question 1, item 6).
+- An in-kind gift is in-kind income and an equal in-kind consumption expense (used as received; keeping it as an asset comes later).
+- FD interest (other income of kind interest, or anything credited to the fixed deposit) is `Interest on fixed deposit`, as it is credited; question 9 (accrual) is still open.
+- Moving money between the current account and the FD posts once the reviewer marks the bank line as a transfer and picks the other account.
+- A correction is a reversal plus a new posting. A classification change (programme, project, fund, donor) reverses and reposts the income line only; a change to the amount, date or account reverses and reposts the money too.
+- Records that can't post yet (year closed, the bank account not known, a missing account head) wait on the Books page's "Waiting to post" list with the reason; closing a year is blocked while any of its records wait.
 
 Two consequences the CA should see:
 

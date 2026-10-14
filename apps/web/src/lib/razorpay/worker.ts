@@ -1,3 +1,8 @@
+import {
+  contributionIdsForRazorpayPayment,
+  refundIdsForRazorpayRefund,
+  settlementIdsForRazorpaySettlement,
+} from "@pi-dash/db/queries/ledger-sources";
 import type { getBossInstance } from "@pi-dash/jobs/boss-instance";
 import { withDefaultOutput } from "@pi-dash/jobs/handlers/create-handler";
 import type {
@@ -8,6 +13,12 @@ import type {
 } from "@pi-dash/jobs/types";
 import { createRequestLogger } from "evlog";
 
+import {
+  contributionSource,
+  queueLedgerPosting,
+  queueLedgerSweep,
+  settlementSource,
+} from "@/lib/ledger-posting";
 import { databaseErrorFields, sanitizedError } from "@/lib/safe-errors";
 
 import { razorpaySetup } from "./config";
@@ -77,6 +88,49 @@ const defaultGiveUp: GiveUp = async ({ day, paymentId }) => {
     : false;
 };
 
+/**
+ * Queues the books for what a sync recorded (finance layer 3-2). A failed
+ * lookup is logged and left to the daily sweep; it never fails the sync.
+ */
+type QueueBooks = (id: string) => Promise<void>;
+
+const queuePaymentBooks: QueueBooks = async (paymentId) => {
+  queueLedgerPosting(
+    (await contributionIdsForRazorpayPayment(paymentId)).map(contributionSource)
+  );
+};
+
+const queueRefundBooks: QueueBooks = async (refundId) => {
+  queueLedgerPosting(
+    (await refundIdsForRazorpayRefund(refundId)).map((id) => ({
+      sourceId: id,
+      sourceType: "contribution_refund" as const,
+    }))
+  );
+};
+
+const queueSettlementBooks: QueueBooks = async (settlementId) => {
+  queueLedgerPosting(
+    (await settlementIdsForRazorpaySettlement(settlementId)).map(
+      settlementSource
+    )
+  );
+};
+
+async function queueBooksSafely(
+  queue: QueueBooks,
+  id: string,
+  log: { set: (fields: Record<string, unknown>) => void }
+) {
+  try {
+    await queue(id);
+  } catch (error) {
+    log.set({
+      booksQueueError: sanitizedError(error, "ledger_queue_failed").message,
+    });
+  }
+}
+
 /** pg-boss counts retries from zero, so the last attempt runs with retryCount = retryLimit. */
 const isLastAttempt = (job: Job<unknown>) =>
   job.retryLimit !== undefined && (job.retryCount ?? 0) >= job.retryLimit;
@@ -85,7 +139,8 @@ export async function handleRazorpaySyncPayment(
   jobs: readonly SyncJob[],
   sync: Sync = (input, onStatus, onRefunds) =>
     syncRazorpayPayment(input, razorpaySetup(), undefined, onStatus, onRefunds),
-  giveUp: GiveUp = defaultGiveUp
+  giveUp: GiveUp = defaultGiveUp,
+  queueBooks: QueueBooks = queuePaymentBooks
 ): Promise<{ outcomes: SyncOutcome[] }> {
   const outcomes: SyncOutcome[] = [];
   for (const job of jobs) {
@@ -102,6 +157,7 @@ export async function handleRazorpaySyncPayment(
           log.set({ refunds: tally });
         }
       );
+      await queueBooksSafely(queueBooks, paymentId, log);
       log.set({ event: "razorpay_payment_synced", outcome });
       log.emit();
       outcomes.push(outcome);
@@ -140,7 +196,8 @@ export async function handleRazorpaySyncRefund(
   jobs: readonly Job<RazorpaySyncRefundPayload>[],
   sync: (input: RazorpaySyncRefundPayload) => Promise<RefundSyncOutcome> = (
     input
-  ) => syncRazorpayRefund(input, razorpaySetup())
+  ) => syncRazorpayRefund(input, razorpaySetup()),
+  queueBooks: QueueBooks = queueRefundBooks
 ): Promise<{ outcomes: RefundSyncOutcome[] }> {
   const outcomes: RefundSyncOutcome[] = [];
   for (const job of jobs) {
@@ -153,6 +210,7 @@ export async function handleRazorpaySyncRefund(
         paymentId,
         refundId,
       });
+      await queueBooksSafely(queueBooks, refundId, log);
       log.set({ event: "razorpay_refund_synced", outcome });
       log.emit();
       outcomes.push(outcome);
@@ -190,7 +248,8 @@ export async function handleRazorpaySyncSettlement(
   sync: (
     input: RazorpaySyncSettlementPayload
   ) => Promise<SettlementSyncOutcome> = (input) =>
-    syncRazorpaySettlement(input, razorpaySetup())
+    syncRazorpaySettlement(input, razorpaySetup()),
+  queueBooks: QueueBooks = queueSettlementBooks
 ): Promise<{ outcomes: SettlementSyncOutcome[] }> {
   const outcomes: SettlementSyncOutcome[] = [];
   for (const job of jobs) {
@@ -199,6 +258,9 @@ export async function handleRazorpaySyncSettlement(
     log.set({ jobId: job.id, settlementId });
     try {
       const outcome = await sync({ settlementId });
+      if (outcome.outcome === "recorded") {
+        await queueBooksSafely(queueBooks, settlementId, log);
+      }
       log.set({ event: "razorpay_settlement_synced", ...outcome });
       log.emit();
       outcomes.push(outcome);
@@ -232,7 +294,8 @@ export async function handleRazorpayReconcile(
   run: (input: RazorpayReconcilePayload) => Promise<ReconcileOutcome> = (
     input
   ) => runRazorpayReconcile(input, razorpaySetup()),
-  clearRun: () => Promise<void> = () => saveReconcileRun(null)
+  clearRun: () => Promise<void> = () => saveReconcileRun(null),
+  queueSweep: () => void = () => queueLedgerSweep("after_import")
 ): Promise<{ outcomes: ReconcileOutcome[] }> {
   const outcomes: ReconcileOutcome[] = [];
   for (const job of jobs) {
@@ -262,6 +325,10 @@ export async function handleRazorpayReconcile(
       );
       if (outcome.status === "failed") {
         log.warn("razorpay reconcile failed");
+      }
+      // A run can record many payments and refunds: post them in one sweep.
+      if (outcome.status !== "skipped") {
+        queueSweep();
       }
       log.emit();
       outcomes.push(outcome);

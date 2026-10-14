@@ -129,6 +129,15 @@ export const statementLine = pgTable(
       () => contribution.id,
       { onDelete: "set null" }
     ),
+    /**
+     * The trust's other account in a transfer (the fixed deposit, another
+     * bank account): set only with match kind `transfer`, so the books can
+     * post both legs.
+     */
+    transferOrgAccountId: uuid("transfer_org_account_id").references(
+      () => orgAccount.id,
+      { onDelete: "restrict" }
+    ),
     /** An unmatched line's best candidate, for a reviewer to accept or turn down. */
     suggestedKind: statementLineMatchKindEnum("suggested_kind"),
     suggestedSettlementId: uuid("suggested_settlement_id").references(
@@ -167,6 +176,10 @@ export const statementLine = pgTable(
         and (coalesce(${t.matchKind}::text, '') = 'settlement') = (${t.matchedSettlementId} is not null)
         and (coalesce(${t.matchKind}::text, '') = 'contribution') = (${t.matchedContributionId} is not null)
         and (${t.matchStatus}::text = 'ignored') = (${t.ignoredReason} is not null)`
+    ),
+    check(
+      "statement_line_transfer_account",
+      sql`${t.transferOrgAccountId} is null or (coalesce(${t.matchKind}::text, '') = 'transfer' and ${t.transferOrgAccountId} <> ${t.orgAccountId})`
     ),
     // Settlements, contributions and give.do payouts are money in.
     check(

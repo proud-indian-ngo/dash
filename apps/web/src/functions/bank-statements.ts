@@ -185,7 +185,12 @@ const actionSchema = z.discriminatedUnion("action", [
     targetId: z.uuid(),
   }),
   z.object({ action: z.literal("giveindia"), lineId }),
-  z.object({ action: z.literal("transfer"), lineId, note: noteSchema }),
+  z.object({
+    action: z.literal("transfer"),
+    lineId,
+    note: noteSchema,
+    otherAccountId: z.uuid().nullish(),
+  }),
   z.object({
     action: z.literal("ignore"),
     lineId,

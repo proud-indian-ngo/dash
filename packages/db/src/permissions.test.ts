@@ -37,6 +37,7 @@ describe("finance permissions by role", () => {
       "finance.close_year",
       "finance.reopen_year",
       "finance.adjust",
+      "finance.post_pending",
     ];
     for (const id of books) {
       expect(PERMISSION_IDS.has(id)).toBe(true);

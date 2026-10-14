@@ -29,7 +29,8 @@ import { Tag } from "@/components/shared/status-badge";
 import { StatsCards } from "@/components/stats/stats-cards";
 
 import { formatDay } from "./labels";
-import type { BooksEntryRow } from "./use-books";
+import { SourceLink } from "./source-link";
+import type { BooksEntryRow, BooksPosting } from "./use-books";
 
 const VIEWS = ["head", "programme"] as const;
 type View = (typeof VIEWS)[number];
@@ -56,12 +57,14 @@ export function IncomeExpenditureTab({
   entries,
   headNames,
   isLoading,
+  postings,
   programmeNames,
   range,
 }: {
   entries: readonly BooksEntryRow[];
   headNames: ReadonlyMap<string, string>;
   isLoading: boolean;
+  postings: ReadonlyMap<string, BooksPosting>;
   programmeNames: ReadonlyMap<string, string>;
   range: DateRange;
 }) {
@@ -232,22 +235,33 @@ export function IncomeExpenditureTab({
                 title={open.label}
               />
               <ul className="mx-6 mb-6 divide-y rounded-lg border">
-                {drill.map((e) => (
-                  <li
-                    className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm"
-                    key={e.id}
-                  >
-                    <span className="min-w-0">
-                      <span className="block">{formatDay(e.economicOn)}</span>
-                      <span className="text-muted-foreground block truncate">
-                        {e.memo ?? (e.reversal ? "Reversal" : "—")}
+                {drill.map((e) => {
+                  const source = postings.get(e.postingId);
+                  return (
+                    <li
+                      className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm"
+                      key={e.id}
+                    >
+                      <span className="min-w-0">
+                        <span className="block">
+                          {formatDay(e.economicOn)}
+                          {" · "}
+                          <SourceLink
+                            sourceId={source?.sourceId}
+                            sourceType={source?.sourceType}
+                          />
+                        </span>
+                        <span className="text-muted-foreground block truncate">
+                          {e.memo ?? (e.reversal ? "Reversal" : "—")}
+                          {e.memo && e.reversal ? " (reversal)" : ""}
+                        </span>
                       </span>
-                    </span>
-                    <span className="shrink-0 font-mono tabular-nums">
-                      {formatPaise(signedPaise(e.effect, e.amountPaise))}
-                    </span>
-                  </li>
-                ))}
+                      <span className="shrink-0 font-mono tabular-nums">
+                        {formatPaise(signedPaise(e.effect, e.amountPaise))}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             </>
           ) : null}

@@ -2,6 +2,7 @@ import {
   fiscalYearEventActionValues,
   ledgerEffectValues,
   ledgerMediumValues,
+  ledgerSourceStatusValues,
   movementDirectionValues,
   movementKindValues,
 } from "@pi-dash/shared/ledger";
@@ -58,6 +59,10 @@ export const accountMovementKindEnum = pgEnum(
 export const fiscalYearEventActionEnum = pgEnum(
   "fiscal_year_event_action",
   fiscalYearEventActionValues
+);
+export const ledgerSourceStatusEnum = pgEnum(
+  "ledger_source_status",
+  ledgerSourceStatusValues
 );
 
 /**
@@ -284,6 +289,41 @@ export const fiscalYearEvent = pgTable(
     reason: text("reason"),
   },
   (t) => [index("fiscal_year_event_year_idx").on(t.fiscalYearId, t.occurredAt)]
+);
+
+/**
+ * Where each income source stands in the books, written by the server-side
+ * income posting (packages/db/src/ledger/income-posting.ts) every time it
+ * looks at a source: `posted` with the day its latest posting was made,
+ * `waiting` with the reason it can't post yet, or `none` with why nothing
+ * posts. Operational state, not the books: it is updated in place and is
+ * not under the ledger's append-only guards. Synced read-only through Zero
+ * to book readers, for the Books page's "Waiting to post" list and the
+ * "In the books" line on contribution and settlement sheets.
+ */
+export const ledgerSourceState = pgTable(
+  "ledger_source_state",
+  {
+    /** Settlement lines the books can't use (adjustments, lines not linked to a gift). */
+    attentionCount: integer("attention_count").default(0).notNull(),
+    checkedAt: timestamp("checked_at").notNull(),
+    /** The business date the source posts on (or would), for the year it belongs to. */
+    economicOn: date("economic_on"),
+    id: uuid("id").primaryKey(),
+    /** A refusal from the books, safe to show; null otherwise. */
+    message: text("message"),
+    /** The India day its latest posting was made. */
+    postedOn: date("posted_on"),
+    /** A `LEDGER_WAIT_REASONS` or `LEDGER_SKIP_REASONS` code. */
+    reason: text("reason"),
+    sourceId: uuid("source_id").notNull(),
+    sourceType: text("source_type").notNull(),
+    status: ledgerSourceStatusEnum("status").notNull(),
+  },
+  (t) => [
+    uniqueIndex("ledger_source_state_source_uidx").on(t.sourceType, t.sourceId),
+    index("ledger_source_state_status_idx").on(t.status, t.economicOn),
+  ]
 );
 
 export const postingRelations = relations(posting, ({ many, one }) => ({

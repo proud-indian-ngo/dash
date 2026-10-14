@@ -1,4 +1,6 @@
 import { db } from "@pi-dash/db";
+import type { SweepResult } from "@pi-dash/db/ledger/income-posting";
+import { postPendingIncome } from "@pi-dash/db/ledger/income-runner";
 import {
   type OpeningBalanceInput,
   postOpeningBalance,
@@ -12,6 +14,7 @@ import {
   yearCloseChecklist,
 } from "@pi-dash/db/ledger/year-close";
 
+import { queueLedgerSweep } from "@/lib/ledger-posting";
 import { withSafeErrors } from "@/lib/safe-errors";
 
 /**
@@ -25,6 +28,7 @@ const MESSAGES = {
   checklist: "The year-close checklist couldn't be loaded.",
   close: "The year couldn't be closed.",
   postOpening: "The opening balances couldn't be posted.",
+  postPending: "The waiting records couldn't be posted.",
   reopen: "The year couldn't be reopened.",
   reverseOpening: "The opening balances couldn't be reversed.",
 } as const;
@@ -75,3 +79,28 @@ export const reopenFiscalYear = (
   safely("reopen", () =>
     db.transaction((tx) => reopenYear(tx, input, { actorId }))
   );
+
+/** How long "Post pending" works in the request before the job takes over. */
+const POST_PENDING_BUDGET_MS = 20_000;
+
+/**
+ * "Post pending": posts every income record not up to date in the books,
+ * one transaction per record, for up to 20 seconds; what is left is handed
+ * to the `ledger-post-pending` job, so a large backfill never times out.
+ */
+export const postPendingNow = (actorId: string): Promise<SweepResult> =>
+  safely("postPending", async () => {
+    const result = await postPendingIncome({
+      actorId,
+      deadline: Date.now() + POST_PENDING_BUDGET_MS,
+    });
+    if (result.remaining > 0) {
+      queueLedgerSweep("manual", actorId);
+    }
+    return result;
+  });
+
+/** After a year reopens, what waited for it posts. */
+export const queuePostingAfterReopen = (actorId: string) => {
+  queueLedgerSweep("manual", actorId);
+};

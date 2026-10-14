@@ -1,4 +1,5 @@
 import { defineQuery } from "@rocicorp/zero";
+import z from "zod";
 
 import { can } from "../permissions";
 import { zql } from "../schema";
@@ -62,6 +63,40 @@ export const ledgerQueries = {
           .orderBy("id", "desc")
           .limit(BOOK_LIST_LIMIT)
       : zql.posting.where("id", NEVER)
+  ),
+  /**
+   * Where income sources stand in the books: waiting ones for the Books
+   * page's "Waiting to post" list (a handful, never the whole table).
+   */
+  waiting: defineQuery(({ ctx }) =>
+    canSeeBooks(ctx)
+      ? zql.ledgerSourceState
+          .where("status", "waiting")
+          .orderBy("economicOn", "asc")
+          .orderBy("id", "asc")
+          .limit(BOOK_LIST_LIMIT)
+      : zql.ledgerSourceState.where("id", NEVER)
+  ),
+  /** Payouts with lines the books can't use (adjustments, lines linked to no gift). */
+  needsAttention: defineQuery(({ ctx }) =>
+    canSeeBooks(ctx)
+      ? zql.ledgerSourceState
+          .where("attentionCount", ">", 0)
+          .orderBy("economicOn", "asc")
+          .orderBy("id", "asc")
+          .limit(BOOK_LIST_LIMIT)
+      : zql.ledgerSourceState.where("id", NEVER)
+  ),
+  /** One source's state in the books, for its sheet. */
+  sourceState: defineQuery(
+    z.object({ sourceId: z.string(), sourceType: z.string() }),
+    ({ args, ctx }) =>
+      canSeeBooks(ctx)
+        ? zql.ledgerSourceState
+            .where("sourceType", args.sourceType)
+            .where("sourceId", args.sourceId)
+            .one()
+        : zql.ledgerSourceState.where("id", NEVER).one()
   ),
   /** Year close and reopen history, with who did it (name only is read). */
   yearEvents: defineQuery(({ ctx }) => {

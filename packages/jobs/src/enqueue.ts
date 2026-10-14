@@ -21,6 +21,8 @@ export const QUEUE_NAMES: JobName[] = [
   "immich-delete-album",
   "immich-delete-asset",
   "immich-sync-photo",
+  "ledger-post-pending",
+  "ledger-post-source",
   "notify-added-to-event",
   "notify-added-to-team",
   "notify-advance-payment-approved",

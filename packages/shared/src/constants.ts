@@ -185,9 +185,14 @@ export const CORPUS_FUND_ID = "01930000-0000-7000-8000-000000000202";
 /** Account heads the books need from day one (ledger reference data). */
 export const LEDGER_ACCOUNT_HEAD_IDS = {
   auditFeesPayable: "01930000-0000-7000-8000-000000000802",
+  donationsReceived: "01930000-0000-7000-8000-000000000805",
   fdInterest: "01930000-0000-7000-8000-000000000804",
   fixedAssets: "01930000-0000-7000-8000-000000000801",
   fundBalance: "01930000-0000-7000-8000-000000000803",
+  gatewayCharges: "01930000-0000-7000-8000-000000000808",
+  inKindConsumed: "01930000-0000-7000-8000-000000000807",
+  inKindDonations: "01930000-0000-7000-8000-000000000806",
+  otherIncome: "01930000-0000-7000-8000-000000000809",
 } as const;
 
 /**
