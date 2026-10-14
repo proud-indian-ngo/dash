@@ -18,6 +18,7 @@ import { ComboboxField } from "@/components/form/combobox-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
+import { RazorpaySyncCard } from "@/components/settings/sections/razorpay-sync-card";
 import { SettingsCard, SettingsRow } from "@/components/settings/settings-ui";
 import { useApp } from "@/context/app-context";
 import {
@@ -52,6 +53,22 @@ const formatTime = (epoch: number) =>
     dateStyle: "medium",
     timeStyle: "short",
   });
+
+/** Why refunds need a look; each count is shown only when it is not zero. */
+function attentionText(attention: RazorpaySettingsView["refundAttention"]) {
+  const lines: string[] = [];
+  if (attention.afterReceipt > 0) {
+    lines.push(
+      `${attention.afterReceipt === 1 ? "A refund was" : `${attention.afterReceipt.toLocaleString("en-IN")} refunds were`} made after the gift was receipted; the receipt was left as it is.`
+    );
+  }
+  if (attention.amountChanged > 0) {
+    lines.push(
+      `Razorpay reported ${attention.amountChanged === 1 ? "a refund" : `${attention.amountChanged.toLocaleString("en-IN")} refunds`} again with a different amount; the first amount was kept.`
+    );
+  }
+  return lines.join(" ");
+}
 
 function Banner({
   children,
@@ -212,6 +229,16 @@ export function RazorpaySection() {
   const [refresh, setRefresh] = useState(0);
   const reload = useEventCallback(() => setRefresh((n) => n + 1));
 
+  // While a sync runs, refresh its progress every few seconds.
+  const syncing = view !== null && view.reconcile.active !== null;
+  useEffect(() => {
+    if (!syncing) {
+      return;
+    }
+    const timer = setInterval(reload, 3000);
+    return () => clearInterval(timer);
+  }, [reload, syncing]);
+
   useEffect(() => {
     let cancelled = false;
     load()
@@ -319,6 +346,24 @@ export function RazorpaySection() {
             {view.lastWebhookAt ? formatTime(view.lastWebhookAt) : "Never"}
           </span>
         </SettingsRow>
+        {view.refundAttention.afterReceipt +
+          view.refundAttention.amountChanged >
+        0 ? (
+          <SettingsRow
+            description={attentionText(view.refundAttention)}
+            title="Needs attention"
+          >
+            <span
+              className="text-warning-foreground text-sm font-semibold tabular-nums"
+              data-testid="razorpay-refund-attention"
+            >
+              {(
+                view.refundAttention.afterReceipt +
+                view.refundAttention.amountChanged
+              ).toLocaleString("en-IN")}
+            </span>
+          </SettingsRow>
+        ) : null}
         <SettingsRow
           description="Payments that wait: to sync, for a clearing account, or for a decision such as a donor whose email matches an existing donor."
           title="Waiting"
@@ -359,6 +404,14 @@ export function RazorpaySection() {
           </span>
         </SettingsRow>
       </SettingsCard>
+
+      {view.configured ? (
+        <RazorpaySyncCard
+          canManage={canManage}
+          onChanged={reload}
+          reconcile={view.reconcile}
+        />
+      ) : null}
 
       <SettingsForm canManage={canManage} onSaved={reload} view={view} />
     </div>

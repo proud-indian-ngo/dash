@@ -296,6 +296,23 @@ export type ContributionStatus = (typeof contributionStatusValues)[number];
 export const contributionSourceValues = ["manual", "import"] as const;
 export type ContributionSource = (typeof contributionSourceValues)[number];
 
+/** Where a refund of a contribution came from; manual entry comes later. */
+export const contributionRefundSourceValues = ["razorpay", "manual"] as const;
+export type ContributionRefundSource =
+  (typeof contributionRefundSourceValues)[number];
+
+/**
+ * Why a refund needs the founder's look: it hit a receipted contribution
+ * (whose status is never changed), or the provider later reported the same
+ * refund with a different amount (never overwritten).
+ */
+export const contributionRefundAttentionValues = [
+  "refund_after_receipt",
+  "amount_changed",
+] as const;
+export type ContributionRefundAttention =
+  (typeof contributionRefundAttentionValues)[number];
+
 /** Income that is not a donation and never enters donation filings. */
 export const otherIncomeKindValues = [
   "interest",
@@ -354,7 +371,8 @@ export const externalIdentityProviderValues = [
 export type ExternalIdentityProvider =
   (typeof externalIdentityProviderValues)[number];
 
-export const externalIdentityEntityTypeValues = ["payment"] as const;
+/** A payment became a contribution; a refund was applied to one. */
+export const externalIdentityEntityTypeValues = ["payment", "refund"] as const;
 export type ExternalIdentityEntityType =
   (typeof externalIdentityEntityTypeValues)[number];
 

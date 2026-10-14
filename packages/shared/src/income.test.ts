@@ -9,6 +9,9 @@ import {
   financialYearOf,
   isContributionEditable,
   isInFinancialYear,
+  netReceivedPaise,
+  refundedPaise,
+  refundNote,
   todayInKolkata,
 } from "./income";
 
@@ -74,12 +77,58 @@ describe("contribution statuses", () => {
     expect(isContributionEditable("refunded")).toBe(false);
   });
 
+  it("locks a contribution once a refund is recorded against it", () => {
+    expect(isContributionEditable("received", [])).toBe(true);
+    expect(isContributionEditable("received", [{ id: "r" }])).toBe(false);
+  });
+
   it("does not count pending, refunded or reversed money as received", () => {
     expect(countsAsReceived("pending")).toBe(false);
     expect(countsAsReceived("received")).toBe(true);
     expect(countsAsReceived("receipted")).toBe(true);
     expect(countsAsReceived("refunded")).toBe(false);
     expect(countsAsReceived("reversed")).toBe(false);
+  });
+});
+
+describe("net received", () => {
+  const gift = (status: string, refunds: number[] = []) => ({
+    amountPaise: 50_000,
+    refunds: refunds.map((amountPaise) => ({ amountPaise })),
+    status,
+  });
+
+  it("takes partial refunds off received and receipted gifts", () => {
+    expect(netReceivedPaise(gift("received"))).toBe(50_000);
+    expect(netReceivedPaise(gift("received", [10_000, 5000]))).toBe(35_000);
+    expect(netReceivedPaise(gift("receipted", [20_000]))).toBe(30_000);
+    expect(refundedPaise([{ amountPaise: 1 }, { amountPaise: 2 }])).toBe(3);
+    expect(refundedPaise(null)).toBe(0);
+  });
+
+  it("counts nothing for pending, refunded or reversed gifts, and never goes below zero", () => {
+    expect(netReceivedPaise(gift("pending"))).toBe(0);
+    expect(netReceivedPaise(gift("refunded", [50_000]))).toBe(0);
+    expect(netReceivedPaise(gift("reversed"))).toBe(0);
+    // A refund after receipt keeps the status; the money still went back.
+    expect(netReceivedPaise(gift("receipted", [60_000]))).toBe(0);
+    // Refunds not loaded: the whole amount, as before refunds existed.
+    expect(netReceivedPaise({ amountPaise: 1000, status: "received" })).toBe(
+      1000
+    );
+  });
+
+  it("notes a partial refund, or a full one the status does not show", () => {
+    expect(refundNote(gift("received"))).toBeNull();
+    expect(refundNote(gift("received", [20_000]))).toEqual({
+      label: "Partly refunded",
+      refundedPaise: 20_000,
+    });
+    expect(refundNote(gift("refunded", [50_000]))).toBeNull();
+    expect(refundNote(gift("receipted", [50_000]))).toEqual({
+      label: "Refunded",
+      refundedPaise: 50_000,
+    });
   });
 });
 

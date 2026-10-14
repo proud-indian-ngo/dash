@@ -50,6 +50,7 @@ import { defaultReportingMode, todayInKolkata } from "@pi-dash/shared/income";
 import { uuidv7 } from "uuidv7";
 
 import { saveDonorSchema } from "@/lib/donor-schema";
+import { queueRefundChecks } from "@/lib/razorpay/after-review";
 import { razorpayRowRules } from "@/lib/razorpay/rules";
 import { withSafeErrors } from "@/lib/safe-errors";
 
@@ -809,6 +810,8 @@ interface RunContext {
   actorId: string | null;
   batch: ImportBatchRow;
   canStoreIds: boolean;
+  /** External IDs of the rows this run imported (Razorpay payment IDs for a Razorpay batch). */
+  imported?: string[];
   /** The platform that passed the money on: GiveIndia for give.do batches. */
   intermediaryPartyId: string | null;
   now: Date;
@@ -926,12 +929,14 @@ async function runClaimedBatch(
       ...batch,
       orgAccountId,
     });
-    return await withImportTransaction(async (tx) => {
+    const imported: string[] = [];
+    const response = await withImportTransaction(async (tx) => {
       const now = new Date();
       const ctx: RunContext = {
         actorId,
         batch,
         canStoreIds: hasEncryptionKey(),
+        imported,
         intermediaryPartyId:
           batch.source === "give_do_csv"
             ? await ensureGiveIndiaParty(tx, actorId, now)
@@ -966,6 +971,11 @@ async function runClaimedBatch(
       );
       return result;
     });
+    if (batch.source === "razorpay_api") {
+      // Refunds that came while these payments waited for review.
+      queueRefundChecks(batch.fileHash, imported);
+    }
+    return response;
   } catch (error) {
     // A Razorpay batch stays `completed`: its payments keep arriving.
     await updateImportBatch(batch.id, {
@@ -1157,6 +1167,7 @@ async function executePlans(
       }
     );
     createdByRow.set(row.rowId, { contributionId, identityId });
+    ctx.imported?.push(identity.externalId);
     await setImportRowOutcome(ctx.tx, row.rowId, {
       ...decided,
       contributionId,

@@ -41,4 +41,17 @@ test.describe("Income access", () => {
     await expect(page).not.toHaveURL(/\/income/);
     await expect(page.getByRole("link", { name: "Income" })).toHaveCount(0);
   });
+
+  test("finance.view sees the Razorpay sync status but cannot sync or import", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    await page.goto("/settings/integrations");
+    await waitForZeroReady(page);
+    await expect(page.getByTestId("razorpay-last-sync")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sync now" })).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Import past payments" })
+    ).toHaveCount(0);
+  });
 });

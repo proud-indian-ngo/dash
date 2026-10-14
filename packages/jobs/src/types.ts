@@ -560,6 +560,34 @@ export interface RazorpaySyncPaymentPayload {
   paymentId: string;
 }
 
+/**
+ * A Razorpay refund to apply, keyed by refund ID. `copy` is the verified
+ * webhook's amount, time and status, used when no API key secret is set;
+ * with one the job fetches the refund. IDs, an amount and times only.
+ */
+export interface RazorpaySyncRefundPayload {
+  copy?: {
+    amount: number;
+    /** Unix seconds. */
+    createdAt: number;
+    currency: string;
+    status: string;
+  };
+  paymentId: string;
+  refundId: string;
+}
+
+/**
+ * A Razorpay reconcile run over India days `from` to `to` (yyyy-MM-dd,
+ * both included). The schedule sends no days: the run then takes the last
+ * three days.
+ */
+export interface RazorpayReconcilePayload {
+  from?: string;
+  reason: "backfill" | "manual" | "scheduled";
+  to?: string;
+}
+
 export interface JobPayloads {
   "cleanup-notifications": Record<string, never>;
   "cleanup-r2-orphans": CleanupR2OrphansPayload;
@@ -630,7 +658,9 @@ export interface JobPayloads {
   "notify-vpt-rejected": NotifyVptRejectedPayload;
   "notify-vpt-submitted": NotifyVptSubmittedPayload;
   "process-event-reminders": ProcessEventRemindersPayload;
+  "razorpay-reconcile": RazorpayReconcilePayload;
   "razorpay-sync-payment": RazorpaySyncPaymentPayload;
+  "razorpay-sync-refund": RazorpaySyncRefundPayload;
   "process-post-event-reminders": ProcessPostEventRemindersPayload;
   "remind-feedback-deadline": RemindFeedbackDeadlinePayload;
   "remind-kalakriti-registration-close": RemindKalakritiRegistrationClosePayload;

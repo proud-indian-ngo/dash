@@ -5,6 +5,7 @@ import {
   eq,
   inArray,
   isNull,
+  lt,
   max,
   notExists,
   or,
@@ -20,11 +21,14 @@ import { appConfig } from "../schema/app-config";
 import { orgAccount } from "../schema/finance-dimensions";
 import { importBatch } from "../schema/import-batch";
 import { externalIdentity, importRow } from "../schema/private/imports";
-import type {
-  ImportBatchRow,
-  ImportRowRecord,
-  ImportTx,
-  WaitingReason,
+import {
+  countImportBatchRows,
+  type ImportBatchRow,
+  type ImportRowRecord,
+  type ImportTx,
+  updateImportBatch,
+  type WaitingReason,
+  withImportTransaction,
 } from "./income-import";
 
 type Reader = Pick<typeof db, "select">;
@@ -38,8 +42,12 @@ type Reader = Pick<typeof db, "select">;
 
 export const RAZORPAY_CONFIG_KEYS = {
   clearingAccountId: "razorpay_clearing_account_id",
+  /** JSON: the last finished reconcile run (window, counts, ok or failed); no personal data. */
+  lastReconcile: "razorpay_last_reconcile",
   lastWebhookAt: "razorpay_last_webhook_at",
   notesKeys: "razorpay_notes_keys",
+  /** JSON: the reconcile run queued or running now, with its progress; empty when none. */
+  reconcileRun: "razorpay_reconcile_run",
 } as const;
 
 export async function readRazorpayConfig(
@@ -370,4 +378,65 @@ export async function countRazorpayPending(): Promise<number> {
     .from(importBatch)
     .where(eq(importBatch.source, "razorpay_api"));
   return Number(row?.n ?? 0);
+}
+
+/**
+ * Payments stuck waiting on their sync: queued for longer than a job could
+ * take (a job that expired, or a fetch-by-ID job that never staged a day),
+ * or left `sync_failed` after the job's last retry. The reconcile run syncs
+ * each once more.
+ */
+export async function listStaleRazorpayRows(
+  stagedBefore: Date
+): Promise<{ batchId: string; batchKey: string; paymentId: string }[]> {
+  const rows = await db
+    .select({
+      batchId: importBatch.id,
+      batchKey: importBatch.fileHash,
+      paymentId: sql<string | null>`${importRow.raw}->>'id'`,
+    })
+    .from(importRow)
+    .innerJoin(importBatch, eq(importBatch.id, importRow.batchId))
+    .where(
+      and(
+        eq(importBatch.source, "razorpay_api"),
+        eq(importRow.outcome, "pending"),
+        inArray(importRow.outcomeReason, ["queued", "sync_failed"]),
+        lt(importRow.createdAt, stagedBefore)
+      )
+    )
+    .orderBy(importRow.createdAt);
+  return rows.flatMap((row) =>
+    row.paymentId
+      ? [
+          {
+            batchId: row.batchId,
+            batchKey: row.batchKey,
+            paymentId: row.paymentId,
+          },
+        ]
+      : []
+  );
+}
+
+/**
+ * Recounts each batch's synced counters from its rows, serialised with the
+ * import runs, so a count a racing job and webhook left one off is put
+ * right.
+ */
+export async function recountImportBatches(
+  batchIds: Iterable<string>
+): Promise<number> {
+  let recounted = 0;
+  for (const batchId of new Set(batchIds)) {
+    await withImportTransaction(async (tx) => {
+      await updateImportBatch(
+        batchId,
+        await countImportBatchRows(tx, batchId),
+        tx
+      );
+    });
+    recounted += 1;
+  }
+  return recounted;
 }

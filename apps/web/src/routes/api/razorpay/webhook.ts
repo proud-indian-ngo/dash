@@ -25,7 +25,9 @@ const BODY_ERRORS = {
  * verified `payment.captured` or `order.paid` stages the payment in
  * `private.import_row` and enqueues `razorpay-sync-payment` keyed by the
  * payment ID; the job does the import. One whose payment cannot be read is
- * fetched by ID when the API key secret is set. Bodies over 1 MB are
+ * fetched by ID when the API key secret is set. A `refund.processed`
+ * enqueues `razorpay-sync-refund` keyed by the refund ID, carrying the
+ * refund's amount, time and status for when there is no key secret. Bodies over 1 MB are
  * refused with 413, a stalled body with 408 and an aborted one with 400. A test key on a production server records nothing.
  * Webhooks are outside the audit ledger; logs carry the event, its ID and
  * the payment ID only.
@@ -100,6 +102,9 @@ export const Route = createFileRoute("/api/razorpay/webhook")({
             outcome: "test_mode_refused",
             paymentId:
               action.action === "stage" ? action.payment.id : action.paymentId,
+            ...(action.action === "refund"
+              ? { refundId: action.refundId }
+              : {}),
           });
           log.warn("test mode refused");
           log.emit();
@@ -121,6 +126,34 @@ export const Route = createFileRoute("/api/razorpay/webhook")({
             log.emit();
             return Response.json(
               { error: "Failed to record the payment" },
+              { status: 500 }
+            );
+          }
+        }
+        if (action.action === "refund") {
+          log.set({
+            event: action.event,
+            paymentId: action.paymentId,
+            refundId: action.refundId,
+          });
+          try {
+            const jobId = await enqueue(
+              "razorpay-sync-refund",
+              {
+                ...(action.copy ? { copy: action.copy } : {}),
+                paymentId: action.paymentId,
+                refundId: action.refundId,
+              },
+              { singletonKey: action.refundId }
+            );
+            log.set({ outcome: "refund_queued", queued: jobId !== null });
+            log.emit();
+            return Response.json({ ok: true }, { status: 200 });
+          } catch (error) {
+            log.error(sanitizedError(error, "razorpay_enqueue_failed"));
+            log.emit();
+            return Response.json(
+              { error: "Failed to record the refund" },
               { status: 500 }
             );
           }

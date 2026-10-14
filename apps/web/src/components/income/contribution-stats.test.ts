@@ -66,6 +66,41 @@ describe("computeContributionYearStats", () => {
   });
 });
 
+describe("partial refunds", () => {
+  const refunded = [
+    {
+      amountPaise: 100_00,
+      partyId: "a",
+      receivedOn: day("2026-04-01"),
+      refunds: [{ amountPaise: 40_00 }],
+      status: "received",
+    },
+    {
+      amountPaise: 250_00,
+      partyId: "a",
+      receivedOn: day("2025-09-10"),
+      refunds: [{ amountPaise: 50_00 }, { amountPaise: 25_00 }],
+      status: "receipted",
+    },
+  ];
+
+  it("come off this year's received total, while the gift still counts", () => {
+    expect(computeContributionYearStats(refunded, fy)).toEqual({
+      count: 1,
+      donorCount: 1,
+      receivedPaise: 60_00,
+    });
+  });
+
+  it("come off a donor's lifetime and this-year giving", () => {
+    expect(computeDonorGiving(refunded, fy)).toEqual({
+      lastGiftOn: day("2026-04-01"),
+      lifetimePaise: 235_00,
+      yearPaise: 60_00,
+    });
+  });
+});
+
 describe("computeDonorGiving", () => {
   it("leaves pending gifts out of a donor's giving", () => {
     const donorC = rows.filter((row) => row.partyId === "c");

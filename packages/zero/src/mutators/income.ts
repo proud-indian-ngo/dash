@@ -213,6 +213,12 @@ async function requireEditableContribution(tx: Tx, id: string) {
   if (!isContributionEditable(existing.status ?? "received")) {
     throw new Error("Only pending or received contributions can be changed");
   }
+  const refund = await tx.run(
+    zql.contributionRefund.where("contributionId", id).one()
+  );
+  if (refund) {
+    throw new Error("A contribution with a refund can't be changed");
+  }
   return existing;
 }
 

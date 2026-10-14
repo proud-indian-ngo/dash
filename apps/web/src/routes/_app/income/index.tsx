@@ -254,7 +254,7 @@ function ContributionsTab({
         canEdit={
           canManage &&
           viewing !== null &&
-          isContributionEditable(viewing.status ?? "received")
+          isContributionEditable(viewing.status ?? "received", viewing.refunds)
         }
         contribution={viewing}
         onDelete={handleDelete}

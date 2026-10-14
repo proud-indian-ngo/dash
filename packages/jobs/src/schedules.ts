@@ -6,6 +6,23 @@ const hasWebsiteDispatchToken = (): boolean =>
 
 const IST_TIMEZONE = "Asia/Kolkata";
 
+/**
+ * Razorpay reconcile runs only when ingestion is on with the API key secret
+ * (it lists payments from the API), and never with a test key on a
+ * production server. The job checks again before it runs.
+ */
+const razorpayReconcileOn = (): boolean => {
+  const keyId = process.env.RAZORPAY_KEY_ID ?? "";
+  const configured = Boolean(
+    keyId &&
+    process.env.RAZORPAY_WEBHOOK_SECRET &&
+    process.env.RAZORPAY_KEY_SECRET
+  );
+  const testInProduction =
+    keyId.startsWith("rzp_test_") && process.env.NODE_ENV === "production";
+  return configured && !testInProduction;
+};
+
 export async function registerSchedules(boss: PgBoss): Promise<void> {
   // Daily at 8:00 AM IST — remind approvers about stale pending requests
   await boss.schedule(
@@ -128,6 +145,19 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     {},
     { expireInSeconds: 600, retryLimit: 2, tz: IST_TIMEZONE }
   );
+
+  // Every 6 hours — catch Razorpay payments and refunds whose webhooks were
+  // missed, over the last three days
+  if (razorpayReconcileOn()) {
+    await boss.schedule(
+      "razorpay-reconcile",
+      "15 */6 * * *",
+      { reason: "scheduled" },
+      { expireInSeconds: 4 * 60 * 60, retryLimit: 0, tz: IST_TIMEZONE }
+    );
+  } else {
+    await boss.unschedule("razorpay-reconcile");
+  }
 
   // Every 5 minutes — rebuild proudindian.ngo when the public events feed changes
   if (hasWebsiteDispatchToken()) {

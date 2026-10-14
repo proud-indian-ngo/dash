@@ -1,5 +1,6 @@
 import type {
   Contribution,
+  ContributionRefund,
   Fund,
   ImportBatch,
   OrgAccount,
@@ -19,6 +20,8 @@ export type ContributionRow = Contribution & {
   party?: Party | null;
   programme?: Programme | null;
   project?: Project | null;
+  /** Refunds recorded against it, oldest first; written only by the server. */
+  refunds?: readonly ContributionRefund[];
 };
 
 export type OtherIncomeRow = OtherIncome & {

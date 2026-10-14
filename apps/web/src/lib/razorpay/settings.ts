@@ -9,13 +9,25 @@ import {
   withRazorpayStageTransaction,
   writeRazorpayConfig,
 } from "@pi-dash/db/queries/razorpay-import";
+import { countRefundsNeedingAttention } from "@pi-dash/db/queries/razorpay-refunds";
 import { env } from "@pi-dash/env/server";
 import { enqueue } from "@pi-dash/jobs/enqueue";
+import type { RazorpayReconcilePayload } from "@pi-dash/jobs/types";
 import { withFireAndForgetLog } from "@pi-dash/observability";
 
 import { type RazorpaySetup, razorpaySetup } from "./config";
 import { type NotesKeys, parseNotesKeys } from "./notes-keys";
 import { parseRazorpayBatchKey } from "./payment";
+import {
+  activeRun,
+  backfillRangeError,
+  daysBetween,
+  emptyCounts,
+  parseReconcileState,
+  type ReconcileState,
+  recentRange,
+  saveReconcileRun,
+} from "./reconcile";
 
 /**
  * Server-only. What the Settings → Integrations page shows and saves. Only
@@ -27,7 +39,28 @@ import { parseRazorpayBatchKey } from "./payment";
 export const RAZORPAY_WEBHOOK_EVENTS = [
   "payment.captured",
   "order.paid",
+  "refund.processed",
 ] as const;
+
+/**
+ * Why "Sync now" and "Import past payments" are off, in one line, or null
+ * when they can run: they list payments from the API, so they need the key
+ * secret, and a test key never syncs on a production server.
+ */
+export function reconcileUnavailableReason(
+  setup: RazorpaySetup
+): string | null {
+  if (!setup.enabled) {
+    return "Razorpay is not configured on this server.";
+  }
+  if (setup.testInProduction) {
+    return "A test key can't sync on a production server.";
+  }
+  if (!setup.apiKey) {
+    return "Set RAZORPAY_KEY_SECRET on the server to sync with Razorpay; webhooks keep recording payments without it.";
+  }
+  return null;
+}
 
 export interface RazorpaySettingsView {
   /** The configured account when it is still an active gateway clearing account. */
@@ -43,6 +76,16 @@ export interface RazorpaySettingsView {
   mode: "live" | "test" | null;
   notesKeys: NotesKeys;
   pendingCount: number;
+  /** Sync now and Import past payments, and the run in progress or last finished. */
+  reconcile: {
+    /** The run queued or running now, if it is alive. */
+    active: ReconcileState | null;
+    last: ReconcileState | null;
+    /** One line for why the actions are off; null when they can run. */
+    unavailableReason: string | null;
+  };
+  /** Refunds the founder should look at. */
+  refundAttention: { afterReceipt: number; amountChanged: number };
   /** Payments whose sync job gave up; they wait to be imported by hand. */
   syncFailedCount: number;
   testInProduction: boolean;
@@ -63,6 +106,7 @@ export async function getRazorpaySettingsView(
   );
   const base = (env.APP_URL ?? env.BETTER_AUTH_URL).replace(/\/+$/, "");
   const waiting = await countRazorpayWaitingByReason();
+  const attention = await countRefundsNeedingAttention();
   return {
     clearingAccountId: account?.id ?? null,
     clearingAccountUnusable: Boolean(storedAccount) && !account,
@@ -73,6 +117,17 @@ export async function getRazorpaySettingsView(
     mode: setup.enabled ? setup.mode : null,
     notesKeys: parseNotesKeys(config.get(RAZORPAY_CONFIG_KEYS.notesKeys)),
     pendingCount: await countRazorpayPending(),
+    reconcile: {
+      active: activeRun(
+        parseReconcileState(config.get(RAZORPAY_CONFIG_KEYS.reconcileRun))
+      ),
+      last: parseReconcileState(config.get(RAZORPAY_CONFIG_KEYS.lastReconcile)),
+      unavailableReason: reconcileUnavailableReason(setup),
+    },
+    refundAttention: {
+      afterReceipt: attention.get("refund_after_receipt") ?? 0,
+      amountChanged: attention.get("amount_changed") ?? 0,
+    },
     syncFailedCount: waiting.get("sync_failed") ?? 0,
     testInProduction: setup.enabled && setup.testInProduction,
     webhookEvents: RAZORPAY_WEBHOOK_EVENTS,
@@ -143,4 +198,79 @@ function queueSync(payments: { day: string; paymentId: string }[]): void {
       }
     );
   }
+}
+
+export type ReconcileRequest =
+  | { reason: "manual" }
+  | { from: string; reason: "backfill"; to: string };
+
+const enqueueReconcile = async (
+  payload: RazorpayReconcilePayload
+): Promise<string | null> => await enqueue("razorpay-reconcile", payload);
+
+/**
+ * Queues a reconcile run from Settings: "Sync now" over the last three
+ * days, or "Import past payments" over a chosen range of at most 400 days.
+ * Refused when the actions are off or a run is already queued or running
+ * (the queue holds one at a time, so a refused send says so too). The run
+ * is shown as queued until the job picks it up.
+ */
+export async function requestRazorpayReconcile(
+  request: ReconcileRequest,
+  setup: RazorpaySetup = razorpaySetup(),
+  queue: (
+    payload: RazorpayReconcilePayload
+  ) => Promise<string | null> = enqueueReconcile,
+  now: Date = new Date()
+): Promise<{ days: number; from: string; to: string }> {
+  const unavailable = reconcileUnavailableReason(setup);
+  if (unavailable) {
+    throw new RazorpaySettingsError(unavailable);
+  }
+  let range = recentRange(now);
+  if (request.reason === "backfill") {
+    const problem = backfillRangeError(request.from, request.to, now);
+    if (problem) {
+      throw new RazorpaySettingsError(problem);
+    }
+    range = { from: request.from, to: request.to };
+  }
+  const config = await readRazorpayConfig();
+  const busy = new RazorpaySettingsError(
+    "A Razorpay sync is already running. Try again when it has finished."
+  );
+  if (
+    activeRun(
+      parseReconcileState(config.get(RAZORPAY_CONFIG_KEYS.reconcileRun)),
+      now
+    )
+  ) {
+    throw busy;
+  }
+  // Shown as queued before the send, so the job's own progress, written as
+  // soon as it starts, is never overwritten; put back if the send fails.
+  const previous = config.get(RAZORPAY_CONFIG_KEYS.reconcileRun) ?? "";
+  const days = daysBetween(range.from, range.to).length;
+  await saveReconcileRun({
+    counts: emptyCounts(),
+    from: range.from,
+    reason: request.reason,
+    status: "queued",
+    to: range.to,
+    updatedAt: now.toISOString(),
+    windowsDone: 0,
+    windowsTotal: days,
+  });
+  let jobId: string | null;
+  try {
+    jobId = await queue({ ...range, reason: request.reason });
+  } catch (error) {
+    await writeRazorpayConfig({ reconcileRun: previous });
+    throw error;
+  }
+  if (!jobId) {
+    await writeRazorpayConfig({ reconcileRun: previous });
+    throw busy;
+  }
+  return { days, ...range };
 }

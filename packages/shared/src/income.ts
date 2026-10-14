@@ -11,6 +11,7 @@ import type {
   OtherIncomeKind,
 } from "./constants";
 import { directoryRoleValues, GIVE_INDIA_PARTY_ID } from "./constants";
+import { sumPaise } from "./money";
 
 /**
  * Roles that may give a contribution: individual donors, CSR sponsors,
@@ -117,8 +118,19 @@ export const EDITABLE_CONTRIBUTION_STATUSES: readonly ContributionStatus[] = [
   "received",
 ];
 
-export function isContributionEditable(status: string): boolean {
-  return (EDITABLE_CONTRIBUTION_STATUSES as readonly string[]).includes(status);
+/**
+ * Whether a contribution may still be edited or deleted: pending or
+ * received, and no refund recorded against it (its amount is the
+ * provider's, and the refunds point at it).
+ */
+export function isContributionEditable(
+  status: string,
+  refunds?: readonly unknown[] | null
+): boolean {
+  return (
+    (EDITABLE_CONTRIBUTION_STATUSES as readonly string[]).includes(status) &&
+    (refunds?.length ?? 0) === 0
+  );
 }
 
 /**
@@ -132,6 +144,55 @@ export const CONTRIBUTION_RECEIVED_STATUSES: readonly ContributionStatus[] = [
 
 export function countsAsReceived(status: string): boolean {
   return (CONTRIBUTION_RECEIVED_STATUSES as readonly string[]).includes(status);
+}
+
+/** A contribution with the refunds recorded against it (none, when not loaded). */
+export interface NetReceivedInput {
+  amountPaise: number;
+  refunds?: readonly { amountPaise: number }[] | null;
+  status: string | null;
+}
+
+/** Total refunded against a contribution, in paise. */
+export function refundedPaise(refunds: NetReceivedInput["refunds"]): number {
+  return sumPaise((refunds ?? []).map((refund) => refund.amountPaise));
+}
+
+/**
+ * Money a contribution still brings in: its amount less its refunds when its
+ * status counts as received, otherwise nothing. A full refund already moves
+ * the status to `refunded`; this takes off partial refunds and never goes
+ * below zero (a refund after receipt leaves the status alone). Used by the
+ * Income stats, the donor sheet's Giving section and the server query alike.
+ */
+export function netReceivedPaise(contribution: NetReceivedInput): number {
+  if (!countsAsReceived(contribution.status ?? "received")) {
+    return 0;
+  }
+  return Math.max(
+    0,
+    contribution.amountPaise - refundedPaise(contribution.refunds)
+  );
+}
+
+/**
+ * The refund to show beside a contribution's status when the status does
+ * not already say it: "Partly refunded" while only some has gone back, and
+ * "Refunded" when refunds cover a contribution whose status stays (a
+ * receipted one). Null when nothing was refunded or the status is
+ * `refunded`. Derived, never stored.
+ */
+export function refundNote(
+  contribution: NetReceivedInput
+): { label: "Partly refunded" | "Refunded"; refundedPaise: number } | null {
+  const refunded = refundedPaise(contribution.refunds);
+  if (refunded <= 0 || contribution.status === "refunded") {
+    return null;
+  }
+  return {
+    label: refunded < contribution.amountPaise ? "Partly refunded" : "Refunded",
+    refundedPaise: refunded,
+  };
 }
 
 export interface ContributionRuleInput {

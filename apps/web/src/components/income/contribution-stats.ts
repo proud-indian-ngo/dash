@@ -2,6 +2,7 @@ import {
   countsAsReceived,
   type FinancialYearRange,
   isInFinancialYear,
+  netReceivedPaise,
 } from "@pi-dash/shared/income";
 import { sumPaise } from "@pi-dash/shared/money";
 
@@ -9,6 +10,8 @@ interface StatInput {
   amountPaise: number;
   partyId: string;
   receivedOn: number;
+  /** Refunds recorded against it; partial refunds come off the totals. */
+  refunds?: readonly { amountPaise: number }[] | null;
   status: string | null;
 }
 
@@ -18,7 +21,10 @@ export interface ContributionYearStats {
   receivedPaise: number;
 }
 
-/** This financial year's money in: pending, refunded and reversed gifts do not count. */
+/**
+ * This financial year's money in: pending, refunded and reversed gifts do
+ * not count, and partial refunds come off (`netReceivedPaise`).
+ */
 export function computeContributionYearStats(
   rows: readonly StatInput[],
   fy: FinancialYearRange
@@ -31,7 +37,7 @@ export function computeContributionYearStats(
   return {
     count: inYear.length,
     donorCount: new Set(inYear.map((row) => row.partyId)).size,
-    receivedPaise: sumPaise(inYear.map((row) => row.amountPaise)),
+    receivedPaise: sumPaise(inYear.map((row) => netReceivedPaise(row))),
   };
 }
 
@@ -41,7 +47,7 @@ export interface DonorGivingSummary {
   yearPaise: number;
 }
 
-/** Lifetime and this-year totals for one donor's contributions. */
+/** Lifetime and this-year totals for one donor's contributions, net of refunds. */
 export function computeDonorGiving(
   rows: readonly StatInput[],
   fy: FinancialYearRange
@@ -55,11 +61,11 @@ export function computeDonorGiving(
         latest === null || row.receivedOn > latest ? row.receivedOn : latest,
       null
     ),
-    lifetimePaise: sumPaise(counted.map((row) => row.amountPaise)),
+    lifetimePaise: sumPaise(counted.map((row) => netReceivedPaise(row))),
     yearPaise: sumPaise(
       counted
         .filter((row) => isInFinancialYear(row.receivedOn, fy))
-        .map((row) => row.amountPaise)
+        .map((row) => netReceivedPaise(row))
     ),
   };
 }
@@ -68,6 +74,7 @@ interface SignatureInput {
   id: string;
   partyId: string;
   receivedOn: number;
+  refunds?: readonly { amountPaise: number }[] | null;
   status: string | null;
   updatedAt: number | null;
 }
@@ -90,7 +97,7 @@ export function contributionsSignature(
   };
   for (const row of rows) {
     mix(
-      `${row.id}|${row.partyId}|${row.receivedOn}|${row.status ?? ""}|${row.updatedAt ?? ""};`
+      `${row.id}|${row.partyId}|${row.receivedOn}|${row.status ?? ""}|${row.updatedAt ?? ""}|${row.refunds?.length ?? 0};`
     );
   }
   return `${rows.length}:${(hash >>> 0).toString(36)}`;

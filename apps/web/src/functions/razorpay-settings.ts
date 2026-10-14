@@ -8,6 +8,7 @@ import {
   getRazorpaySettingsView,
   RazorpaySettingsError,
   type RazorpaySettingsView,
+  requestRazorpayReconcile,
   saveRazorpaySettings,
 } from "@/lib/razorpay/settings";
 import { withSafeErrors } from "@/lib/safe-errors";
@@ -16,19 +17,25 @@ import { authMiddleware } from "@/middleware/auth";
 /**
  * Settings → Integrations → Razorpay. finance.view reads the status (a read,
  * not audited); finance.manage saves the clearing account, the notes keys
- * or both, audited with the changed field names only. Query errors are logged by
- * code only and reach the browser as a generic message.
+ * or both, audited with the changed field names only, and queues a sync
+ * ("Sync now", `razorpay.sync`) or an import of past payments
+ * (`razorpay.backfill`), audited with the window's dates and day count.
+ * Query errors are logged by code only and reach the browser as a generic
+ * message.
  */
 
-const safely = <T>(step: "read" | "save", work: () => Promise<T>) =>
+const MESSAGES = {
+  read: "Razorpay settings couldn't be loaded.",
+  save: "Razorpay settings couldn't be saved.",
+  sync: "The Razorpay sync couldn't be started.",
+} as const;
+
+const safely = <T>(step: keyof typeof MESSAGES, work: () => Promise<T>) =>
   withSafeErrors(
     {
       fields: { event: "razorpay_settings_failed", step },
       isUserFacing: (error) => error instanceof RazorpaySettingsError,
-      message:
-        step === "read"
-          ? "Razorpay settings couldn't be loaded."
-          : "Razorpay settings couldn't be saved.",
+      message: MESSAGES[step],
       path: "razorpay-settings",
     },
     work
@@ -78,3 +85,66 @@ export const updateRazorpaySettings = createServerFn({ method: "POST" })
       );
     }
   );
+
+export interface ReconcileQueued {
+  days: number;
+  from: string;
+  to: string;
+}
+
+/** Sync now: queues a reconcile of the last three days. */
+export const syncRazorpayNow = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<ReconcileQueued> => {
+    await assertServerPermission(context.session, "finance.manage");
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    return await runSessionAuditedAction(
+      context.session,
+      context.headers,
+      {
+        action: "razorpay.sync",
+        target: { type: "razorpay_settings" },
+      },
+      async () =>
+        await safely("sync", () =>
+          requestRazorpayReconcile({ reason: "manual" })
+        )
+    );
+  });
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Import past payments: queues a reconcile of a chosen range of India days. */
+export const importPastRazorpayPayments = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    z.object({
+      from: z.string().regex(ISO_DAY),
+      to: z.string().regex(ISO_DAY),
+    })
+  )
+  .handler(async ({ context, data }): Promise<ReconcileQueued> => {
+    await assertServerPermission(context.session, "finance.manage");
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    return await runSessionAuditedAction(
+      context.session,
+      context.headers,
+      {
+        action: "razorpay.backfill",
+        metadata: { from: data.from, to: data.to },
+        target: { type: "razorpay_settings" },
+      },
+      async () =>
+        await safely("sync", () =>
+          requestRazorpayReconcile({
+            from: data.from,
+            reason: "backfill",
+            to: data.to,
+          })
+        )
+    );
+  });

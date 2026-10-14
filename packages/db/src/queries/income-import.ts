@@ -1,4 +1,5 @@
 import type {
+  ExternalIdentityEntityType,
   ExternalIdentityProvider,
   ImportBatchSource,
   ImportRowOutcome,
@@ -211,7 +212,7 @@ export interface StoredIdentity {
 
 export async function findExternalIdentities(
   key: {
-    entityType: "payment";
+    entityType: ExternalIdentityEntityType;
     provider: ExternalIdentityProvider;
     providerAccount: string;
   },

@@ -2,7 +2,12 @@ import { describe, expect, it, mock } from "bun:test";
 
 mock.module("@pi-dash/db", () => ({ db: {} }));
 
-const { handleRazorpaySyncPayment } = await import("./worker");
+const {
+  handleRazorpayReconcile,
+  handleRazorpaySyncPayment,
+  handleRazorpaySyncRefund,
+} = await import("./worker");
+const { RefundWaitingError } = await import("./refund");
 
 const job = (paymentId: string) => ({
   data: { day: "2026-10-12", paymentId },
@@ -63,5 +68,91 @@ describe("handleRazorpaySyncPayment", () => {
     expect(giveUp.mock.calls).toEqual([
       [{ day: "2026-10-12", paymentId: "pay_A" }],
     ]);
+  });
+});
+
+describe("handleRazorpaySyncRefund", () => {
+  const refundJob = {
+    data: {
+      __traceId: "t",
+      copy: { amount: 500, createdAt: 1, currency: "INR", status: "processed" },
+      paymentId: "pay_A",
+      refundId: "rfnd_A",
+    } as never,
+    id: "job-rfnd_A",
+    retryCount: 0,
+    retryLimit: 26,
+  };
+
+  it("applies each refund by its IDs and webhook copy only", async () => {
+    const sync = mock(async (_input: unknown) => "applied" as const);
+    expect(await handleRazorpaySyncRefund([refundJob], sync)).toEqual({
+      outcomes: ["applied"],
+    });
+    expect(sync.mock.calls[0]?.[0]).toEqual({
+      copy: { amount: 500, createdAt: 1, currency: "INR", status: "processed" },
+      paymentId: "pay_A",
+      refundId: "rfnd_A",
+    });
+  });
+
+  it("throws a refund whose payment is not imported back to pg-boss to retry", async () => {
+    const sync = mock(async (_input: unknown): Promise<"applied"> => {
+      throw new RefundWaitingError();
+    });
+    await expect(
+      handleRazorpaySyncRefund([refundJob], sync)
+    ).rejects.toBeInstanceOf(RefundWaitingError);
+  });
+
+  it("sanitises any other failure", async () => {
+    const sync = mock(async (_input: unknown): Promise<"applied"> => {
+      throw new Error("Failed query params: rfnd_A 500");
+    });
+    await expect(handleRazorpaySyncRefund([refundJob], sync)).rejects.toThrow(
+      "razorpay_refund_sync_failed: Error"
+    );
+  });
+});
+
+describe("handleRazorpayReconcile", () => {
+  it("runs the window and reason it was given", async () => {
+    const run = mock(async (_input: unknown) => ({
+      reason: "no_key_secret" as const,
+      status: "skipped" as const,
+    }));
+    await handleRazorpayReconcile(
+      [
+        {
+          data: {
+            __traceId: "t",
+            from: "2026-04-01",
+            reason: "backfill",
+            to: "2026-04-02",
+          } as never,
+          id: "j",
+        },
+        { data: { reason: "scheduled" }, id: "k" },
+      ],
+      run
+    );
+    expect(run.mock.calls.map(([input]) => input)).toEqual([
+      { from: "2026-04-01", reason: "backfill", to: "2026-04-02" },
+      { reason: "scheduled" },
+    ]);
+  });
+
+  it("clears the running state and sanitises a crash", async () => {
+    const clearRun = mock(async () => undefined);
+    await expect(
+      handleRazorpayReconcile(
+        [{ data: { reason: "manual" }, id: "j" }],
+        async () => {
+          throw new Error("Failed query params: pay_X");
+        },
+        clearRun
+      )
+    ).rejects.toThrow("razorpay_reconcile_failed: Error");
+    expect(clearRun).toHaveBeenCalled();
   });
 });

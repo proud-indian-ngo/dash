@@ -67,7 +67,7 @@ function RowActions({
     (e: { stopPropagation: () => void }) => e.stopPropagation()
   );
   const editable =
-    canManage && isContributionEditable(row.status ?? "received");
+    canManage && isContributionEditable(row.status ?? "received", row.refunds);
   return (
     <ResponsiveActionMenu
       actions={[
@@ -235,7 +235,10 @@ export function ContributionsTable({
     {
       accessorFn: (row) => row.status,
       cell: ({ row }) => (
-        <ContributionStatusBadge status={row.original.status} />
+        <ContributionStatusBadge
+          refund={row.original}
+          status={row.original.status}
+        />
       ),
       header: ({ column }) => (
         <DataGridColumnHeader
@@ -250,7 +253,7 @@ export function ContributionsTable({
         kind: "status",
         skeleton: SKELETON_TAG,
       },
-      size: 120,
+      size: 150,
     },
     {
       accessorFn: (row) => row.source,

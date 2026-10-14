@@ -21,6 +21,7 @@ import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
 import { PageHeaderMenu } from "@/components/shared/page-header";
 import { DetailsRow } from "@/components/shared/record-detail";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
+import { Tag } from "@/components/shared/status-badge";
 import { DATE, DATE_TIME } from "@/lib/date-formats";
 import { epochToLocalDate } from "@/lib/local-date";
 
@@ -36,6 +37,50 @@ export function formatReceivedOn(epoch: number): string {
   return date ? format(date, DATE) : "—";
 }
 
+const ATTENTION_LABELS: Record<string, string> = {
+  amount_changed: "Amount changed",
+  refund_after_receipt: "Refund after receipt",
+};
+
+/** Refunds recorded against the contribution: date, amount and reference. */
+function RefundsList({
+  refunds,
+}: {
+  refunds: NonNullable<ContributionRow["refunds"]>;
+}) {
+  return (
+    <section aria-label="Refunds" className="flex flex-col gap-2 px-6 pb-6">
+      <h3 className="text-sm font-medium">Refunds</h3>
+      <ul
+        className="divide-y rounded-lg border"
+        data-testid="contribution-refunds"
+      >
+        {refunds.map((refund) => (
+          <li
+            className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+            key={refund.id}
+          >
+            <span className="flex min-w-0 flex-col">
+              <span className="font-mono tabular-nums">
+                {formatPaise(refund.amountPaise)}
+              </span>
+              <span className="text-muted-foreground truncate text-xs">
+                {formatReceivedOn(refund.refundedOn)}
+                {refund.reference ? ` · ${refund.reference}` : ""}
+              </span>
+            </span>
+            {refund.attention ? (
+              <Tag>
+                {ATTENTION_LABELS[refund.attention] ?? refund.attention}
+              </Tag>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export function ContributionDetailSheet({
   canEdit,
   contribution,
@@ -43,7 +88,7 @@ export function ContributionDetailSheet({
   onEdit,
   onOpenChange,
 }: {
-  /** donors.manage and an editable status. */
+  /** donors.manage, an editable status and no refunds. */
   canEdit: boolean;
   contribution: ContributionRow | null;
   onDelete: (contribution: ContributionRow) => void;
@@ -139,7 +184,7 @@ export function ContributionDetailSheet({
               </>
             ) : null
           }
-          badge={<ContributionStatusBadge status={row.status} />}
+          badge={<ContributionStatusBadge refund={row} status={row.status} />}
           meta={[donorName(row), formatReceivedOn(row.receivedOn), channel]}
           title={formatPaise(row.amountPaise)}
         />
@@ -150,6 +195,9 @@ export function ContributionDetailSheet({
             </DetailsRow>
           ))}
         </dl>
+        {row.refunds && row.refunds.length > 0 ? (
+          <RefundsList refunds={row.refunds} />
+        ) : null}
       </SheetContent>
     </Sheet>
   );

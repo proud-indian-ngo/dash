@@ -88,7 +88,7 @@ export function DonorGivingSection({ partyId }: { partyId: string }) {
                     }
                   </span>
                 </span>
-                <ContributionStatusBadge status={gift.status} />
+                <ContributionStatusBadge refund={gift} status={gift.status} />
               </li>
             ))}
           </ul>
