@@ -15,13 +15,18 @@ import {
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
 import { voidContributionReceipt } from "@/functions/contribution-receipts";
+import { containsIdentifier } from "@/lib/income-import/normalize";
 
 const voidSchema = z.object({
   reason: z
     .string()
     .trim()
     .min(VOID_REASON_MIN, "Say why the receipt is voided")
-    .max(VOID_REASON_MAX),
+    .max(VOID_REASON_MAX)
+    .refine(
+      (reason) => !containsIdentifier(reason),
+      "Don't include ID numbers in the reason"
+    ),
 });
 
 const errorMessage = (error: unknown) =>
@@ -58,7 +63,7 @@ function VoidForm({
   return (
     <FormLayout form={form}>
       <TextareaField
-        description="Kept with the receipt and printed on its PDF."
+        description="Kept with the receipt and printed on its PDF. Don't include ID numbers."
         isRequired
         label="Reason"
         name="reason"

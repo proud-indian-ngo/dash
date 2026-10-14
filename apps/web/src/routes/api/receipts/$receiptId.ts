@@ -55,7 +55,9 @@ export async function handleReceiptPdf(
         action: "contribution_receipt.download",
         target: { id: receiptId.data, type: "contribution_receipt" },
       },
-      () => deps.render(receiptId.data)
+      () => deps.render(receiptId.data),
+      // Nothing was revealed for a receipt that doesn't exist.
+      (result) => (result ? undefined : "failure")
     );
     if (!rendered) {
       return Response.json({ error: "Not found" }, { status: 404 });

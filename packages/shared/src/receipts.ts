@@ -24,6 +24,7 @@ import {
   isPlatformIntermediary,
   type ReturnDonorFacts,
 } from "./donations-return";
+import { INCOME_PERMISSIONS } from "./income";
 
 /** Gifts received before this day were receipted outside pi-dash. */
 export const RECEIPTING_START_DAY = "2026-04-01";
@@ -444,6 +445,19 @@ export const RECEIPT_VIEW_PERMISSIONS = [
   "donors.manage",
   "donors.receipt",
 ] as const;
+
+/**
+ * Receipts are read on the Income page, so a reader needs an income
+ * permission as well; `donors.receipt` alone opens nothing.
+ */
+export function canReadReceipts(
+  hasPermission: (permission: string) => boolean
+): boolean {
+  return (
+    INCOME_PERMISSIONS.some(hasPermission) &&
+    RECEIPT_VIEW_PERMISSIONS.some(hasPermission)
+  );
+}
 
 /** The donor's ID as printed: the type's label and the number. */
 export const RECEIPT_ID_TYPE_LABELS: Record<

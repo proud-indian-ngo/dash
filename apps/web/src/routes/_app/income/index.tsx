@@ -11,6 +11,7 @@ import {
   UserLove01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import type { PermissionId } from "@pi-dash/db/permissions";
 import {
   createFilterQuery,
   createFilterRule,
@@ -31,7 +32,7 @@ import {
   isContributionEditable,
 } from "@pi-dash/shared/income";
 import { formatPaise } from "@pi-dash/shared/money";
-import { RECEIPT_VIEW_PERMISSIONS } from "@pi-dash/shared/receipts";
+import { canReadReceipts } from "@pi-dash/shared/receipts";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
@@ -281,7 +282,11 @@ function ContributionsTab({
         canDelete={
           canManage &&
           viewing !== null &&
-          isContributionDeletable(viewing.status ?? "received", viewing.refunds)
+          isContributionDeletable(
+            viewing.status ?? "received",
+            viewing.refunds,
+            viewing.receipts
+          )
         }
         canEdit={
           canManage &&
@@ -511,8 +516,8 @@ function IncomeRouteComponent() {
     "tab",
     parseAsStringLiteral(INCOME_TABS).withDefault("contributions")
   );
-  const canSeeReceipts = RECEIPT_VIEW_PERMISSIONS.some((permission) =>
-    hasPermission(permission)
+  const canSeeReceipts = canReadReceipts((permission) =>
+    hasPermission(permission as PermissionId)
   );
   const canIssueReceipts = hasPermission("donors.receipt");
   const tab =
@@ -520,18 +525,20 @@ function IncomeRouteComponent() {
     (requestedTab === "receipts" && !canSeeReceipts)
       ? "contributions"
       : requestedTab;
-  // "Issue receipts (N)": direct gifts ready for a receipt, refreshed as
+  const [issueOpen, setIssueOpen] = useState(false);
+  // "Issue receipts (N)": direct gifts ready for a receipt, loaded only on
+  // the Receipts tab (the dialog loads its own on open) and refreshed as
   // contributions change (issuing marks them Receipted).
   const [contributionRows] = useQuery(queries.contribution.list());
   const candidates = useReceiptCandidates(
-    canIssueReceipts,
+    canIssueReceipts && tab === "receipts" && !issueOpen,
     null,
     contributionsSignature(contributionRows as ContributionRow[])
   );
-  const readyCount = candidates?.eligible.length ?? 0;
   const issueLabel =
-    candidates === null ? "Issue receipts" : `Issue receipts (${readyCount})`;
-  const [issueOpen, setIssueOpen] = useState(false);
+    candidates === null
+      ? "Issue receipts"
+      : `Issue receipts (${candidates.eligible.length})`;
   const openIssue = useEventCallback(() => setIssueOpen(true));
   const handleTabChange = useEventCallback((value: string | null) =>
     setTab(value as IncomeTab)

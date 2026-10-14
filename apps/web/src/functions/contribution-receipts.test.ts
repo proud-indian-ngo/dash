@@ -6,6 +6,7 @@ const RECEIPT = "0190a000-0000-7000-8000-000000000002";
 let granted: string[] = [];
 let audits: {
   action: string;
+  finalMetadata?: unknown;
   finalTarget?: unknown;
   metadata?: unknown;
   target?: unknown;
@@ -26,18 +27,21 @@ mock.module("@/lib/api-auth", () => ({
     deny([permission]),
 }));
 mock.module("@/lib/audit", () => ({
+  MAX_ID_VALUES: 50,
   runSessionAuditedAction: async (
     _session: unknown,
     _headers: unknown,
     options: { action: string; metadata?: unknown; target?: unknown },
     execute: () => Promise<unknown>,
     _classify?: unknown,
-    resolveTarget?: (result: unknown) => unknown
+    resolveTarget?: (result: unknown) => unknown,
+    resolveMetadata?: (result: unknown) => unknown
   ) => {
     const result = await execute();
     audits.push({
       ...options,
       ...(resolveTarget ? { finalTarget: resolveTarget(result) } : {}),
+      ...(resolveMetadata ? { finalMetadata: resolveMetadata(result) } : {}),
     });
     return result;
   },
@@ -121,6 +125,11 @@ describe("receipt server functions", () => {
     expect(audits).toEqual([
       {
         action: "contribution_receipt.issue",
+        finalMetadata: {
+          contributionIds: [GIFT],
+          issuedCount: 1,
+          skippedCount: 0,
+        },
         finalTarget: { id: RECEIPT, type: "contribution_receipt" },
         metadata: { requestedCount: 1 },
         target: { type: "contribution_receipt" },

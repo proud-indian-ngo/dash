@@ -4,7 +4,7 @@ import {
 } from "@pi-dash/db/queries/contribution-receipts";
 import { getEmailSuppression } from "@pi-dash/db/queries/email-suppression";
 import { renderDonationReceiptEmail } from "@pi-dash/email";
-import { sendEmail } from "@pi-dash/email/mailer";
+import { EmailSendError, sendEmail } from "@pi-dash/email/mailer";
 import { formatPaise } from "@pi-dash/shared/money";
 import { formatReceiptDate } from "@pi-dash/shared/receipts";
 
@@ -14,6 +14,7 @@ import { createNotifyHandler } from "./create-handler";
 
 export type ReceiptEmailOutcome =
   | "sent"
+  | "already_sent"
   | "not_configured"
   | "missing"
   | "voided"
@@ -75,13 +76,25 @@ export async function sendContributionReceipt(
     orgName: document.org.name,
     receivedOn: formatReceiptDate(document.gift.receivedOn),
   });
-  const status = await deps.send({
-    attachments: [{ content: rendered.pdf, filename: rendered.filename }],
-    html,
-    idempotencyKey: `receipt-${data.receiptId}-${data.requestId}`,
-    subject: `Your donation receipt ${document.number}`,
-    to: target.email,
-  });
+  let status: Awaited<ReturnType<typeof deps.send>>;
+  try {
+    status = await deps.send({
+      attachments: [{ content: rendered.pdf, filename: rendered.filename }],
+      html,
+      idempotencyKey: `receipt-${data.receiptId}-${data.requestId}`,
+      subject: `Your donation receipt ${document.number}`,
+      to: target.email,
+    });
+  } catch (error) {
+    // Resend answers 409 when this idempotency key was already used: the
+    // retry's email went out on an earlier attempt (the PDF is byte-for-byte
+    // the same), so record it as sent rather than failing the job.
+    if (error instanceof EmailSendError && error.statusCode === 409) {
+      await deps.markEmailed(data.receiptId, new Date());
+      return { outcome: "already_sent" };
+    }
+    throw error;
+  }
   if (status !== "sent") {
     return { outcome: "not_configured" };
   }

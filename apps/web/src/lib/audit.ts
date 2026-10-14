@@ -35,7 +35,9 @@ export interface AuditStore {
   finalize: (
     id: string,
     outcome: FinalAuditOutcome,
-    target?: AuditTarget
+    target?: AuditTarget,
+    /** Replaces the pending row's metadata; counts known only afterwards. */
+    metadata?: AuditMetadata
   ) => Promise<void>;
   insert: (entry: ReturnType<typeof buildAuditEntry>) => Promise<void>;
 }
@@ -45,7 +47,7 @@ interface SessionLike {
   user: { id: string; name?: string | null; role?: string | null };
 }
 
-const MAX_ID_VALUES = 50;
+export const MAX_ID_VALUES = 50;
 const MAX_CHANGED_FIELDS = 100;
 const MAX_FIELD_NAME_LENGTH = 80;
 const FINALIZE_ATTEMPTS = 3;
@@ -345,12 +347,13 @@ function auditFailureLog(
 }
 
 const databaseAuditStore: AuditStore = {
-  async finalize(id, outcome, target) {
+  async finalize(id, outcome, target, metadata) {
     const finalTarget = sanitizeAuditTarget(target);
     const updated = await db
       .update(auditLog)
       .set({
         completedAt: new Date(),
+        ...(metadata ? { metadata } : {}),
         outcome,
         ...(finalTarget?.id ? { targetId: finalTarget.id } : {}),
         ...(finalTarget?.type ? { targetType: finalTarget.type } : {}),
@@ -373,7 +376,9 @@ export function createAuditedActionRunner(store: AuditStore) {
     classifyResult?: (result: T) => FinalAuditOutcome | undefined,
     resolveSuccessTarget?: (
       result: T
-    ) => AuditTarget | undefined | Promise<AuditTarget | undefined>
+    ) => AuditTarget | undefined | Promise<AuditTarget | undefined>,
+    /** Bounded counts and IDs known only once the action has run. */
+    resolveSuccessMetadata?: (result: T) => AuditMetadata | undefined
   ): Promise<T> {
     const auditId = uuidv7();
     try {
@@ -408,7 +413,15 @@ export function createAuditedActionRunner(store: AuditStore) {
         outcome === "success"
           ? await resolveSuccessTarget?.(result)
           : undefined;
-      await finalizeWithRetry(store, auditId, outcome, finalTarget);
+      const extra =
+        outcome === "success" ? resolveSuccessMetadata?.(result) : undefined;
+      await finalizeWithRetry(
+        store,
+        auditId,
+        outcome,
+        finalTarget,
+        extra ? { ...options.metadata, ...extra } : undefined
+      );
     } catch (error) {
       auditFailureLog("audit_finalize_failed", options, error, auditId);
       throw new AuditFinalizationError(
@@ -425,10 +438,13 @@ async function finalizeWithRetry(
   id: string,
   outcome: FinalAuditOutcome,
   target?: AuditTarget,
+  metadata?: AuditMetadata,
   attemptsRemaining = FINALIZE_ATTEMPTS
 ): Promise<void> {
   try {
-    if (target) {
+    if (metadata) {
+      await store.finalize(id, outcome, target, metadata);
+    } else if (target) {
       await store.finalize(id, outcome, target);
     } else {
       await store.finalize(id, outcome);
@@ -437,7 +453,14 @@ async function finalizeWithRetry(
     if (attemptsRemaining <= 1) {
       throw error;
     }
-    await finalizeWithRetry(store, id, outcome, target, attemptsRemaining - 1);
+    await finalizeWithRetry(
+      store,
+      id,
+      outcome,
+      target,
+      metadata,
+      attemptsRemaining - 1
+    );
   }
 }
 
@@ -451,7 +474,8 @@ export async function runSessionAuditedAction<T>(
   classifyResult?: (result: T) => FinalAuditOutcome | undefined,
   resolveSuccessTarget?: (
     result: T
-  ) => AuditTarget | undefined | Promise<AuditTarget | undefined>
+  ) => AuditTarget | undefined | Promise<AuditTarget | undefined>,
+  resolveSuccessMetadata?: (result: T) => AuditMetadata | undefined
 ): Promise<T> {
   const actor = await buildAuditActor(session);
   const target = await resolveSessionAuditTarget(
@@ -473,7 +497,8 @@ export async function runSessionAuditedAction<T>(
             await resolveSuccessTarget(result),
             session.user.id
           )
-      : undefined
+      : undefined,
+    resolveSuccessMetadata
   );
 }
 

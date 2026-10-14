@@ -11,7 +11,16 @@ mock.module("@pi-dash/db/queries/email-suppression", () => ({
 mock.module("@pi-dash/email", () => ({
   renderDonationReceiptEmail: async () => "",
 }));
+class EmailSendError extends Error {
+  readonly statusCode: number | null;
+  constructor(code: string, message: string, statusCode: number | null) {
+    super(`Resend ${code}: ${message}`);
+    this.statusCode = statusCode;
+  }
+}
+
 mock.module("@pi-dash/email/mailer", () => ({
+  EmailSendError,
   sendEmail: async () => "skipped",
 }));
 mock.module("./create-handler", () => ({
@@ -111,6 +120,38 @@ describe("sendContributionReceipt", () => {
       )
     ).toEqual({ outcome: "suppressed" });
     expect(sent).toHaveLength(0);
+    expect(marked).toHaveLength(0);
+  });
+
+  it("records a 409 idempotency conflict as already sent", async () => {
+    expect(
+      await sendContributionReceipt(
+        payload,
+        deps({
+          send: async () => {
+            throw new EmailSendError(
+              "invalid_idempotent_request",
+              "Key already used",
+              409
+            );
+          },
+        })
+      )
+    ).toEqual({ outcome: "already_sent" });
+    expect(marked).toEqual(["r1"]);
+  });
+
+  it("lets other Resend failures throw for a retry", async () => {
+    await expect(
+      sendContributionReceipt(
+        payload,
+        deps({
+          send: async () => {
+            throw new EmailSendError("internal_server_error", "Down", 500);
+          },
+        })
+      )
+    ).rejects.toThrow("Down");
     expect(marked).toHaveLength(0);
   });
 

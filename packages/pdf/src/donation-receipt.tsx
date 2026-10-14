@@ -154,6 +154,11 @@ function donationWording(gift: DonationReceiptProps["gift"]): string {
     : wording;
 }
 
+/** Midnight UTC of the issue day: the PDF's creation and modification date. */
+function documentDate(isoDay: string): Date {
+  return new Date(`${isoDay}T00:00:00Z`);
+}
+
 export function DonationReceipt(props: DonationReceiptProps) {
   const { donor, gift, org, registration, signatory } = props;
   const purpose = [gift.programmeName, gift.projectName]
@@ -162,7 +167,11 @@ export function DonationReceipt(props: DonationReceiptProps) {
   return (
     <Document
       author={org.name}
+      // Fixed dates keep the bytes the same on every render, so a retried
+      // email attaches the identical file under the same idempotency key.
+      creationDate={documentDate(props.issuedOn)}
       creator="pi-dash"
+      modificationDate={documentDate(props.issuedOn)}
       producer="pi-dash"
       subject={`${RECEIPT_TITLE} ${props.number}`}
       title={props.number}

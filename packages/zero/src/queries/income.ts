@@ -1,5 +1,5 @@
 import { INCOME_LIST_LIMIT, INCOME_PERMISSIONS } from "@pi-dash/shared/income";
-import { RECEIPT_VIEW_PERMISSIONS } from "@pi-dash/shared/receipts";
+import { canReadReceipts } from "@pi-dash/shared/receipts";
 import { defineQuery } from "@rocicorp/zero";
 import z from "zod";
 
@@ -22,7 +22,8 @@ export function canSeeIncome(
 
 /**
  * Whether a viewer may read donation receipts: finance roles, donor managers
- * and receipt issuers. Receipts hold numbers, dates and actors only.
+ * and receipt issuers, who must also be able to see income. Receipts hold
+ * numbers, dates and actors only.
  */
 export function canSeeReceipts(
   ctx: Parameters<typeof can>[0] | null | undefined
@@ -30,7 +31,7 @@ export function canSeeReceipts(
   return (
     ctx !== null &&
     ctx !== undefined &&
-    RECEIPT_VIEW_PERMISSIONS.some((permission) => can(ctx, permission))
+    canReadReceipts((permission) => can(ctx, permission as never))
   );
 }
 

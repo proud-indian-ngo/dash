@@ -2,6 +2,9 @@ import { Alert02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type { ReceiptCandidate } from "@pi-dash/db/queries/contribution-receipts";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { Input } from "@pi-dash/design-system/components/ui/input";
+import { Label } from "@pi-dash/design-system/components/ui/label";
+import { todayInKolkata } from "@pi-dash/shared/income";
 import { formatPaise } from "@pi-dash/shared/money";
 import {
   MAX_RECEIPTS_PER_ISSUE,
@@ -126,8 +129,11 @@ export function IssueReceiptsDialog({
   const candidates = useReceiptCandidates(open, contributionIds, "");
   const issue = useServerFn(issueContributionReceipts);
   const [issuing, setIssuing] = useState(false);
-  const eligible = candidates?.eligible ?? [];
-  const blocked = candidates?.blocked ?? [];
+  // "Received up to": issue in tranches, such as one month at a time.
+  const [upTo, setUpTo] = useState("");
+  const inRange = (gift: ReceiptCandidate) => !upTo || gift.receivedOn <= upTo;
+  const eligible = (candidates?.eligible ?? []).filter(inRange);
+  const blocked = (candidates?.blocked ?? []).filter(inRange);
   const other = candidates?.other ?? [];
   const gaps = candidates?.configGaps ?? [];
   // One issue covers at most MAX_RECEIPTS_PER_ISSUE gifts, oldest first;
@@ -166,7 +172,15 @@ export function IssueReceiptsDialog({
   };
 
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
+    <Dialog
+      onOpenChange={(next) => {
+        if (!next) {
+          setUpTo("");
+        }
+        onOpenChange(next);
+      }}
+      open={open}
+    >
       <DialogContent className="sm:max-w-(--dialog-md)">
         <DialogHeader>
           <DialogTitle>Issue receipts</DialogTitle>
@@ -176,6 +190,31 @@ export function IssueReceiptsDialog({
             gifts were received; nothing is emailed until you choose to.
           </DialogDescription>
         </DialogHeader>
+        {contributionIds === null ? (
+          <div className="flex items-center gap-3">
+            <Label className="shrink-0" htmlFor="receipts-received-up-to">
+              Received up to
+            </Label>
+            <Input
+              className="w-44"
+              id="receipts-received-up-to"
+              max={todayInKolkata()}
+              onChange={(event) => setUpTo(event.target.value)}
+              type="date"
+              value={upTo}
+            />
+            {upTo ? (
+              <Button
+                onClick={() => setUpTo("")}
+                size="sm"
+                type="button"
+                variant="ghost"
+              >
+                All dates
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
         {candidates ? (
           <div
             className="flex max-h-[60vh] flex-col gap-4 overflow-y-auto"

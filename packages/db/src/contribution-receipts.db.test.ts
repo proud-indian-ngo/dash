@@ -11,6 +11,7 @@ import { encryptSecret } from "./encryption";
 import {
   allocateReceiptSequence,
   issueReceiptsIn,
+  ReceiptError,
   type ReceiptTx,
   voidReceiptIn,
 } from "./queries/contribution-receipts";
@@ -88,7 +89,11 @@ const REGISTRATION = JSON.stringify({
 
 type Db = ReturnType<typeof connect>["database"] | ReceiptTx;
 
-async function ensureSettings(tx: Db) {
+/**
+ * The test's settings. Rolled-back tests overwrite whatever is stored;
+ * committed tests only add what is missing (and remove it afterwards).
+ */
+async function ensureSettings(tx: Db, overwrite: boolean) {
   const existing = await tx
     .select({ key: appConfig.key })
     .from(appConfig)
@@ -106,6 +111,11 @@ async function ensureSettings(tx: Db) {
     if (!existing.some((row) => row.key === key)) {
       await tx.insert(appConfig).values({ key, updatedAt: NOW, value });
       added.push(key);
+    } else if (overwrite) {
+      await tx
+        .update(appConfig)
+        .set({ updatedAt: NOW, value })
+        .where(eq(appConfig.key, key));
     }
   }
   return added;
@@ -173,7 +183,7 @@ async function gift(
   return id;
 }
 
-async function foundation(tx: Db): Promise<Fixture> {
+async function foundation(tx: Db, committed = false): Promise<Fixture> {
   const [someone] = await tx.select({ id: user.id }).from(user).limit(1);
   if (!someone) {
     throw new Error("Seed a user first");
@@ -186,7 +196,7 @@ async function foundation(tx: Db): Promise<Fixture> {
     name: `Receipt test bank ${accountId}`,
     updatedAt: NOW,
   });
-  const addedConfig = await ensureSettings(tx);
+  const addedConfig = await ensureSettings(tx, !committed);
   return { accountId, actorId: someone.id, addedConfig, partyIds: [] };
 }
 
@@ -383,12 +393,51 @@ it.skipIf(!localDatabase)(
   }
 );
 
+/** Removes what a committed test wrote, in foreign-key order. */
+async function removeCommitted(
+  database: ReturnType<typeof connect>["database"],
+  fixture: Fixture,
+  gifts: string[]
+) {
+  const receipts = await database
+    .select({ id: contributionReceipt.id })
+    .from(contributionReceipt)
+    .where(inArray(contributionReceipt.contributionId, gifts));
+  const receiptIds = receipts.map((r) => r.id);
+  if (receiptIds.length > 0) {
+    await database
+      .delete(contributionReceiptSnapshot)
+      .where(inArray(contributionReceiptSnapshot.receiptId, receiptIds));
+    await database
+      .delete(contributionReceipt)
+      .where(inArray(contributionReceipt.id, receiptIds));
+  }
+  await database
+    .delete(contributionReceiptCounter)
+    .where(eq(contributionReceiptCounter.fiscalYear, FY));
+  if (gifts.length > 0) {
+    await database.delete(contribution).where(inArray(contribution.id, gifts));
+  }
+  if (fixture.partyIds.length > 0) {
+    await database
+      .delete(partyPrivate)
+      .where(inArray(partyPrivate.partyId, fixture.partyIds));
+    await database.delete(party).where(inArray(party.id, fixture.partyIds));
+  }
+  await database.delete(orgAccount).where(eq(orgAccount.id, fixture.accountId));
+  if (fixture.addedConfig.length > 0) {
+    await database
+      .delete(appConfig)
+      .where(inArray(appConfig.key, fixture.addedConfig));
+  }
+}
+
 it.skipIf(!localDatabase)(
   "never duplicates or skips a number when issues run in parallel",
   async () => {
     const { client, database } = connect(6);
     const fixture: Fixture = await database.transaction(async (tx) =>
-      foundation(tx as unknown as ReceiptTx)
+      foundation(tx as unknown as ReceiptTx, true)
     );
     const gifts: string[] = [];
     try {
@@ -430,41 +479,110 @@ it.skipIf(!localDatabase)(
       );
       expect(new Set(receipted).size).toBe(12);
     } finally {
-      const receipts = await database
+      await removeCommitted(database, fixture, gifts);
+      await client.close();
+    }
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "rolls every number of a batch back when the batch fails",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const fixture = await foundation(tx);
+      const person = await donor(tx, fixture);
+      const a = await gift(tx, fixture, person);
+      const b = await gift(tx, fixture, person);
+      // The server function runs one transaction per batch; any error after
+      // numbers were allocated (here a refusal raised once both are issued)
+      // undoes all of them.
+      await tx
+        .transaction(async (batch) => {
+          const result = await issueReceiptsIn(
+            batch as unknown as ReceiptTx,
+            { actorId: fixture.actorId, contributionIds: [a, b] },
+            { now: NOW }
+          );
+          expect(result.issued).toHaveLength(2);
+          throw new ReceiptError("Refused mid-batch");
+        })
+        .catch((error: unknown) => {
+          expect(error).toBeInstanceOf(ReceiptError);
+        });
+      expect(await statusOf(tx, a)).toBe("received");
+      const receipts = await tx
         .select({ id: contributionReceipt.id })
         .from(contributionReceipt)
-        .where(inArray(contributionReceipt.contributionId, gifts));
-      const receiptIds = receipts.map((r) => r.id);
-      if (receiptIds.length > 0) {
-        await database
-          .delete(contributionReceiptSnapshot)
-          .where(inArray(contributionReceiptSnapshot.receiptId, receiptIds));
-        await database
-          .delete(contributionReceipt)
-          .where(inArray(contributionReceipt.id, receiptIds));
-      }
-      await database
-        .delete(contributionReceiptCounter)
-        .where(eq(contributionReceiptCounter.fiscalYear, FY));
-      if (gifts.length > 0) {
-        await database
-          .delete(contribution)
-          .where(inArray(contribution.id, gifts));
-      }
-      if (fixture.partyIds.length > 0) {
-        await database
-          .delete(partyPrivate)
-          .where(inArray(partyPrivate.partyId, fixture.partyIds));
-        await database.delete(party).where(inArray(party.id, fixture.partyIds));
-      }
-      await database
-        .delete(orgAccount)
-        .where(eq(orgAccount.id, fixture.accountId));
-      if (fixture.addedConfig.length > 0) {
-        await database
-          .delete(appConfig)
-          .where(inArray(appConfig.key, fixture.addedConfig));
-      }
+        .where(inArray(contributionReceipt.contributionId, [a, b]));
+      expect(receipts).toEqual([]);
+      const next = await issueReceiptsIn(
+        tx,
+        { actorId: fixture.actorId, contributionIds: [a] },
+        { now: NOW }
+      );
+      expect(next.issued[0]?.number).toBe(`PI/${FY}/0001`);
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "an issue racing a void waits for it and receipts the gift afresh",
+  async () => {
+    const { client, database } = connect(4);
+    const fixture: Fixture = await database.transaction(async (tx) =>
+      foundation(tx as unknown as ReceiptTx, true)
+    );
+    const gifts: string[] = [];
+    try {
+      await database.transaction(async (tx) => {
+        const person = await donor(tx as unknown as ReceiptTx, fixture);
+        gifts.push(await gift(tx as unknown as ReceiptTx, fixture, person));
+      });
+      const [giftId] = gifts as [string];
+      const first = await database.transaction((tx) =>
+        issueReceiptsIn(
+          tx as unknown as ReceiptTx,
+          { actorId: fixture.actorId, contributionIds: [giftId] },
+          { now: NOW }
+        )
+      );
+      const receiptId = first.issued[0]?.id as string;
+
+      // The void holds the gift's row lock until it commits; the issue
+      // started meanwhile waits, then sees the gift Received again.
+      const release = Promise.withResolvers<void>();
+      const voided = Promise.withResolvers<void>();
+      const voiding = database.transaction(async (tx) => {
+        await voidReceiptIn(
+          tx as unknown as ReceiptTx,
+          { actorId: fixture.actorId, reason: "Wrong donor", receiptId },
+          { now: NOW }
+        );
+        voided.resolve();
+        await release.promise;
+      });
+      await voided.promise;
+      const issuing = database.transaction((tx) =>
+        issueReceiptsIn(
+          tx as unknown as ReceiptTx,
+          { actorId: fixture.actorId, contributionIds: [giftId] },
+          { now: NOW }
+        )
+      );
+      // Give the issue time to block on the lock before the void commits.
+      await Bun.sleep(200);
+      release.resolve();
+      await voiding;
+      const second = await issuing;
+      expect(second.issued.map((r) => r.number)).toEqual([`PI/${FY}/0002`]);
+      const live = await database
+        .select({ id: contributionReceipt.id })
+        .from(contributionReceipt)
+        .where(eq(contributionReceipt.contributionId, giftId));
+      expect(live).toHaveLength(2);
+      expect(await statusOf(database, giftId)).toBe("receipted");
+    } finally {
+      await removeCommitted(database, fixture, gifts);
       await client.close();
     }
   }

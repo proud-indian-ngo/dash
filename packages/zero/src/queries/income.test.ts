@@ -25,15 +25,19 @@ describe("canSeeIncome", () => {
 });
 
 describe("canSeeReceipts", () => {
-  it("admits finance roles, donor managers and receipt issuers", () => {
+  it("admits finance roles, donor managers and receipt issuers who see income", () => {
     for (const permission of [
       "finance.view",
       "finance.manage",
       "donors.manage",
-      "donors.receipt",
     ]) {
       expect(canSeeReceipts(ctx([permission]))).toBe(true);
     }
+    expect(canSeeReceipts(ctx(["donors.view", "donors.receipt"]))).toBe(true);
+  });
+
+  it("opens nothing with donors.receipt alone", () => {
+    expect(canSeeReceipts(ctx(["donors.receipt"]))).toBe(false);
   });
 
   it("refuses donor viewers alone and anonymous viewers", () => {

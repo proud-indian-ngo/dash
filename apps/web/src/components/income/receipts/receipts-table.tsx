@@ -79,10 +79,12 @@ export function ReceiptStatusBadge({
 
 /** Download, Email and Void for one receipt; issuers only. */
 export function receiptActions({
+  emailing,
   onEmail,
   onVoid,
   row,
 }: {
+  emailing: boolean;
   onEmail: (row: ReceiptRow) => void;
   onVoid: (row: ReceiptRow) => void;
   row: ReceiptRow;
@@ -100,6 +102,7 @@ export function receiptActions({
     ...(live
       ? [
           {
+            disabled: emailing,
             icon: Mail01Icon,
             id: "email",
             label: "Email receipt",
@@ -119,6 +122,7 @@ export function receiptActions({
 }
 
 function RowActions(props: {
+  emailing: boolean;
   onEmail: (row: ReceiptRow) => void;
   onVoid: (row: ReceiptRow) => void;
   row: ReceiptRow;
@@ -142,7 +146,10 @@ export function ReceiptsTable({
   onEmail,
   onView,
   onVoid,
+  sendingId,
 }: {
+  /** The receipt whose email is being queued, if any. */
+  sendingId: string | null;
   /** donors.receipt: download, email and void. */
   canIssue: boolean;
   data: ReceiptRow[];
@@ -262,6 +269,7 @@ export function ReceiptsTable({
           {
             cell: ({ row }) => (
               <RowActions
+                emailing={sendingId !== null}
                 onEmail={onEmail}
                 onVoid={onVoid}
                 row={row.original}

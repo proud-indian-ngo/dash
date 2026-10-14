@@ -10,6 +10,7 @@ import {
   suggestMapping,
 } from "./fields";
 import {
+  containsIdentifier,
   donorSaveInput,
   maskIdentifiers,
   normalizeRow,
@@ -388,6 +389,14 @@ describe("normalizeRow", () => {
     expect(parseAmount("12 Main Road")).toEqual({
       error: "Amount is not a number; write it like 1,00,000.50",
     });
+  });
+});
+
+describe("containsIdentifier", () => {
+  it("spots PAN- and Aadhaar-shaped text in free text", () => {
+    expect(containsIdentifier("Wrong PAN abcde1234f on it")).toBe(true);
+    expect(containsIdentifier("Aadhaar 1234 5678 9012")).toBe(true);
+    expect(containsIdentifier("Issued to the wrong donor")).toBe(false);
   });
 });
 

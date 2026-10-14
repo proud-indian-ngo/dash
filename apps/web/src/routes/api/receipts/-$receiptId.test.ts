@@ -26,10 +26,12 @@ function deps(granted: boolean, audits: unknown[] = []): Deps {
       _session: unknown,
       _headers: unknown,
       options: unknown,
-      execute: () => Promise<unknown>
+      execute: () => Promise<unknown>,
+      classify?: (result: unknown) => unknown
     ) => {
-      audits.push(options);
-      return await execute();
+      const result = await execute();
+      audits.push({ options, outcome: classify?.(result) ?? "success" });
+      return result;
     }) as Deps["audit"],
     getSession: (async () => ({
       session: { user: { id: "u-1", role: "finance_admin" } },
@@ -58,8 +60,11 @@ describe("receipt PDF download", () => {
     expect(response.headers.get("Cache-Control")).toContain("no-store");
     expect(audits).toEqual([
       {
-        action: "contribution_receipt.download",
-        target: { id: RECEIPT, type: "contribution_receipt" },
+        options: {
+          action: "contribution_receipt.download",
+          target: { id: RECEIPT, type: "contribution_receipt" },
+        },
+        outcome: "success",
       },
     ]);
   });
@@ -79,9 +84,15 @@ describe("receipt PDF download", () => {
     expect((await handleReceiptPdf(request, "nope", deps(true))).status).toBe(
       400
     );
-    const missing = { ...deps(true), render: (async () => null) as never };
+    const audits: unknown[] = [];
+    const missing = {
+      ...deps(true, audits),
+      render: (async () => null) as never,
+    };
     expect((await handleReceiptPdf(request, RECEIPT, missing)).status).toBe(
       404
     );
+    // A missing receipt is audited as a failure, not a reveal.
+    expect(audits).toMatchObject([{ outcome: "failure" }]);
   });
 });

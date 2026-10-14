@@ -74,10 +74,11 @@ export function ReceiptsTab({
         onEmail={handleEmail}
         onView={handleView}
         onVoid={handleVoid}
+        sendingId={sendingId}
       />
       <ReceiptDetailSheet
         canIssue={canIssue}
-        emailing={sendingId !== null && sendingId === viewing?.id}
+        emailing={sendingId !== null}
         onEmail={handleEmail}
         onOpenChange={(open) => {
           if (!open) {

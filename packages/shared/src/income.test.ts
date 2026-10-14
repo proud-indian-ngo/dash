@@ -84,6 +84,9 @@ describe("contribution statuses", () => {
     expect(isContributionDeletable("received", [])).toBe(true);
     expect(isContributionDeletable("received", [{ id: "r" }])).toBe(false);
     expect(isContributionDeletable("receipted", [])).toBe(false);
+    // A voided receipt still keeps the gift.
+    expect(isContributionDeletable("received", [], [{ id: "r" }])).toBe(false);
+    expect(isContributionDeletable("received", [], [])).toBe(true);
   });
 
   it("names the refund-locked fields an edit would change", () => {

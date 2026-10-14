@@ -51,6 +51,12 @@ describe("donation receipt PDF", () => {
     expect(text).toContain("(PI/2026-27/0001)");
   });
 
+  it("renders the same bytes every time", async () => {
+    const first = await generateDonationReceiptPdf(sampleReceipt);
+    const second = await generateDonationReceiptPdf(sampleReceipt);
+    expect(second.equals(first)).toBe(true);
+  });
+
   it("renders a voided receipt without the 80G line", async () => {
     const pdf = await generateDonationReceiptPdf({
       ...sampleReceipt,

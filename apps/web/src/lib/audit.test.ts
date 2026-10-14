@@ -499,6 +499,22 @@ describe("audited action runner", () => {
     });
   });
 
+  it("merges counts known only after the action into the final metadata", async () => {
+    await createAuditedActionRunner(store)(
+      { ...options, metadata: { requestedCount: 3 } },
+      async () => ({ issued: 2 }),
+      undefined,
+      undefined,
+      (result) => ({ issuedCount: result.issued })
+    );
+    expect(store.finalize).toHaveBeenCalledWith(
+      expect.any(String),
+      "success",
+      undefined,
+      { issuedCount: 2, requestedCount: 3 }
+    );
+  });
+
   it("retries finalization and leaves pending when it cannot finish", async () => {
     store.finalize.mockRejectedValue(new Error("database unavailable"));
 

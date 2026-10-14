@@ -11,7 +11,8 @@ import { createServerFn } from "@tanstack/react-start";
 import z from "zod";
 
 import { assertServerPermission } from "@/lib/api-auth";
-import { runSessionAuditedAction } from "@/lib/audit";
+import { MAX_ID_VALUES, runSessionAuditedAction } from "@/lib/audit";
+import { containsIdentifier } from "@/lib/income-import/normalize";
 import {
   issueReceipts,
   loadCandidates,
@@ -71,7 +72,14 @@ export const issueContributionReceipts = createServerFn({ method: "POST" })
       (result) =>
         result.issued.length === 1 && result.issued[0]
           ? { id: result.issued[0].id, type: "contribution_receipt" }
-          : undefined
+          : undefined,
+      (result) => ({
+        contributionIds: result.issued
+          .slice(0, MAX_ID_VALUES)
+          .map((receipt) => receipt.contributionId),
+        issuedCount: result.issued.length,
+        skippedCount: result.skipped.length,
+      })
     );
   });
 
@@ -83,7 +91,11 @@ export const voidContributionReceipt = createServerFn({ method: "POST" })
         .string()
         .trim()
         .min(VOID_REASON_MIN, "Say why")
-        .max(VOID_REASON_MAX),
+        .max(VOID_REASON_MAX)
+        .refine(
+          (reason) => !containsIdentifier(reason),
+          "Don't include ID numbers in the reason"
+        ),
       receiptId: z.uuid(),
     })
   )

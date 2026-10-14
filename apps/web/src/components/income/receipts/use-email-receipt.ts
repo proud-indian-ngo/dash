@@ -12,6 +12,10 @@ export function useEmailReceipt() {
   const email = useServerFn(emailContributionReceipt);
   const [sendingId, setSendingId] = useState<string | null>(null);
   const send = async (receipt: { id: string; number: string }) => {
+    // One request at a time: a double click must not queue two emails.
+    if (sendingId !== null) {
+      return;
+    }
     setSendingId(receipt.id);
     try {
       await email({ data: { receiptId: receipt.id } });

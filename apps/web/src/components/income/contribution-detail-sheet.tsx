@@ -4,6 +4,7 @@ import {
   LinkSquare02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import type { PermissionId } from "@pi-dash/db/permissions";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import type {
   ContributionChannel,
@@ -22,7 +23,7 @@ import {
   refundSummary,
 } from "@pi-dash/shared/income";
 import { formatPaise } from "@pi-dash/shared/money";
-import { RECEIPT_VIEW_PERMISSIONS } from "@pi-dash/shared/receipts";
+import { canReadReceipts } from "@pi-dash/shared/receipts";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
 
@@ -143,8 +144,8 @@ export function ContributionDetailSheet({
   const { hasPermission } = useApp();
   const seesSettlements =
     hasPermission("finance.view") || hasPermission("finance.manage");
-  const seesReceipts = RECEIPT_VIEW_PERMISSIONS.some((permission) =>
-    hasPermission(permission)
+  const seesReceipts = canReadReceipts((permission) =>
+    hasPermission(permission as PermissionId)
   );
   const canIssueReceipts = hasPermission("donors.receipt");
   const isGatewayGift =
