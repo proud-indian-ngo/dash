@@ -43,6 +43,7 @@ import { Route as AppDonorsIndexRouteImport } from './routes/_app/donors/index'
 import { Route as AppEventsIndexRouteImport } from './routes/_app/events/index'
 import { Route as AppEventsIdRouteImport } from './routes/_app/events/$id'
 import { Route as AppIncomeIndexRouteImport } from './routes/_app/income/index'
+import { Route as AppIncomeImportRouteImport } from './routes/_app/income/import'
 import { Route as AppKalakritiIndexRouteImport } from './routes/_app/kalakriti/index'
 import { Route as AppKalakritiYearRouteRouteImport } from './routes/_app/kalakriti/$year/route'
 import { Route as AppKalakritiNewRouteImport } from './routes/_app/kalakriti/new'
@@ -84,6 +85,7 @@ import { Route as ApiWhatsappWebhookRouteImport } from './routes/api/whatsapp/we
 import { Route as ApiZeroMutateRouteImport } from './routes/api/zero/mutate'
 import { Route as ApiZeroQueryRouteImport } from './routes/api/zero/query'
 import { Route as KalakritiYearScheduleRouteImport } from './routes/kalakriti/$year/schedule'
+import { Route as AppIncomeImportsBatchIdRouteImport } from './routes/_app/income/imports.$batchId'
 import { Route as AppKalakritiYearIndexRouteImport } from './routes/_app/kalakriti/$year/index'
 import { Route as AppKalakritiYearAuditRouteImport } from './routes/_app/kalakriti/$year/audit'
 import { Route as AppKalakritiYearAwardsRouteImport } from './routes/_app/kalakriti/$year/awards'
@@ -304,6 +306,11 @@ const AppIncomeIndexRoute = AppIncomeIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppIncomeRouteRoute,
 } as any)
+const AppIncomeImportRoute = AppIncomeImportRouteImport.update({
+  id: '/import',
+  path: '/import',
+  getParentRoute: () => AppIncomeRouteRoute,
+} as any)
 const AppKalakritiIndexRoute = AppKalakritiIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -511,6 +518,11 @@ const KalakritiYearScheduleRoute = KalakritiYearScheduleRouteImport.update({
   id: '/kalakriti/$year/schedule',
   path: '/kalakriti/$year/schedule',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppIncomeImportsBatchIdRoute = AppIncomeImportsBatchIdRouteImport.update({
+  id: '/imports/$batchId',
+  path: '/imports/$batchId',
+  getParentRoute: () => AppIncomeRouteRoute,
 } as any)
 const AppKalakritiYearIndexRoute = AppKalakritiYearIndexRouteImport.update({
   id: '/',
@@ -828,6 +840,7 @@ export interface FileRoutesByFullPath {
   '/kalakriti/$year': typeof AppKalakritiYearRouteRouteWithChildren
   '/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
   '/events/$id': typeof AppEventsIdRoute
+  '/income/import': typeof AppIncomeImportRoute
   '/kalakriti/new': typeof AppKalakritiNewRoute
   '/reimbursements/$id': typeof AppReimbursementsIdRoute
   '/reimbursements/new': typeof AppReimbursementsNewRoute
@@ -872,6 +885,7 @@ export interface FileRoutesByFullPath {
   '/api/jobs/': typeof ApiJobsIndexRoute
   '/kalakriti/$year/competitions': typeof AppKalakritiYearCompetitionsRouteRouteWithChildren
   '/kalakriti/$year/settings': typeof AppKalakritiYearSettingsRouteRouteWithChildren
+  '/income/imports/$batchId': typeof AppIncomeImportsBatchIdRoute
   '/kalakriti/$year/audit': typeof AppKalakritiYearAuditRoute
   '/kalakriti/$year/awards': typeof AppKalakritiYearAwardsRoute
   '/kalakriti/$year/eligibility': typeof AppKalakritiYearEligibilityRoute
@@ -943,6 +957,7 @@ export interface FileRoutesByTo {
   '/api/financial-export': typeof ApiFinancialExportRoute
   '/api/health': typeof ApiHealthRoute
   '/events/$id': typeof AppEventsIdRoute
+  '/income/import': typeof AppIncomeImportRoute
   '/kalakriti/new': typeof AppKalakritiNewRoute
   '/reimbursements/$id': typeof AppReimbursementsIdRoute
   '/reimbursements/new': typeof AppReimbursementsNewRoute
@@ -985,6 +1000,7 @@ export interface FileRoutesByTo {
   '/vendor-payments': typeof AppVendorPaymentsIndexRoute
   '/vendors': typeof AppVendorsIndexRoute
   '/api/jobs': typeof ApiJobsIndexRoute
+  '/income/imports/$batchId': typeof AppIncomeImportsBatchIdRoute
   '/kalakriti/$year/audit': typeof AppKalakritiYearAuditRoute
   '/kalakriti/$year/awards': typeof AppKalakritiYearAwardsRoute
   '/kalakriti/$year/eligibility': typeof AppKalakritiYearEligibilityRoute
@@ -1069,6 +1085,7 @@ export interface FileRoutesById {
   '/_app/kalakriti/$year': typeof AppKalakritiYearRouteRouteWithChildren
   '/_app/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
   '/_app/events/$id': typeof AppEventsIdRoute
+  '/_app/income/import': typeof AppIncomeImportRoute
   '/_app/kalakriti/new': typeof AppKalakritiNewRoute
   '/_app/reimbursements/$id': typeof AppReimbursementsIdRoute
   '/_app/reimbursements/new': typeof AppReimbursementsNewRoute
@@ -1113,6 +1130,7 @@ export interface FileRoutesById {
   '/api/jobs/': typeof ApiJobsIndexRoute
   '/_app/kalakriti/$year/competitions': typeof AppKalakritiYearCompetitionsRouteRouteWithChildren
   '/_app/kalakriti/$year/settings': typeof AppKalakritiYearSettingsRouteRouteWithChildren
+  '/_app/income/imports/$batchId': typeof AppIncomeImportsBatchIdRoute
   '/_app/kalakriti/$year/audit': typeof AppKalakritiYearAuditRoute
   '/_app/kalakriti/$year/awards': typeof AppKalakritiYearAwardsRoute
   '/_app/kalakriti/$year/eligibility': typeof AppKalakritiYearEligibilityRoute
@@ -1197,6 +1215,7 @@ export interface FileRouteTypes {
     | '/kalakriti/$year'
     | '/settings/roles'
     | '/events/$id'
+    | '/income/import'
     | '/kalakriti/new'
     | '/reimbursements/$id'
     | '/reimbursements/new'
@@ -1241,6 +1260,7 @@ export interface FileRouteTypes {
     | '/api/jobs/'
     | '/kalakriti/$year/competitions'
     | '/kalakriti/$year/settings'
+    | '/income/imports/$batchId'
     | '/kalakriti/$year/audit'
     | '/kalakriti/$year/awards'
     | '/kalakriti/$year/eligibility'
@@ -1312,6 +1332,7 @@ export interface FileRouteTypes {
     | '/api/financial-export'
     | '/api/health'
     | '/events/$id'
+    | '/income/import'
     | '/kalakriti/new'
     | '/reimbursements/$id'
     | '/reimbursements/new'
@@ -1354,6 +1375,7 @@ export interface FileRouteTypes {
     | '/vendor-payments'
     | '/vendors'
     | '/api/jobs'
+    | '/income/imports/$batchId'
     | '/kalakriti/$year/audit'
     | '/kalakriti/$year/awards'
     | '/kalakriti/$year/eligibility'
@@ -1437,6 +1459,7 @@ export interface FileRouteTypes {
     | '/_app/kalakriti/$year'
     | '/_app/settings/roles'
     | '/_app/events/$id'
+    | '/_app/income/import'
     | '/_app/kalakriti/new'
     | '/_app/reimbursements/$id'
     | '/_app/reimbursements/new'
@@ -1481,6 +1504,7 @@ export interface FileRouteTypes {
     | '/api/jobs/'
     | '/_app/kalakriti/$year/competitions'
     | '/_app/kalakriti/$year/settings'
+    | '/_app/income/imports/$batchId'
     | '/_app/kalakriti/$year/audit'
     | '/_app/kalakriti/$year/awards'
     | '/_app/kalakriti/$year/eligibility'
@@ -1814,6 +1838,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIncomeIndexRouteImport
       parentRoute: typeof AppIncomeRouteRoute
     }
+    '/_app/income/import': {
+      id: '/_app/income/import'
+      path: '/import'
+      fullPath: '/income/import'
+      preLoaderRoute: typeof AppIncomeImportRouteImport
+      parentRoute: typeof AppIncomeRouteRoute
+    }
     '/_app/kalakriti/': {
       id: '/_app/kalakriti/'
       path: '/'
@@ -2100,6 +2131,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/kalakriti/$year/schedule'
       preLoaderRoute: typeof KalakritiYearScheduleRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/income/imports/$batchId': {
+      id: '/_app/income/imports/$batchId'
+      path: '/imports/$batchId'
+      fullPath: '/income/imports/$batchId'
+      preLoaderRoute: typeof AppIncomeImportsBatchIdRouteImport
+      parentRoute: typeof AppIncomeRouteRoute
     }
     '/_app/kalakriti/$year/': {
       id: '/_app/kalakriti/$year/'
@@ -2488,11 +2526,15 @@ const AppEventsRouteRouteWithChildren = AppEventsRouteRoute._addFileChildren(
 )
 
 interface AppIncomeRouteRouteChildren {
+  AppIncomeImportRoute: typeof AppIncomeImportRoute
   AppIncomeIndexRoute: typeof AppIncomeIndexRoute
+  AppIncomeImportsBatchIdRoute: typeof AppIncomeImportsBatchIdRoute
 }
 
 const AppIncomeRouteRouteChildren: AppIncomeRouteRouteChildren = {
+  AppIncomeImportRoute: AppIncomeImportRoute,
   AppIncomeIndexRoute: AppIncomeIndexRoute,
+  AppIncomeImportsBatchIdRoute: AppIncomeImportsBatchIdRoute,
 }
 
 const AppIncomeRouteRouteWithChildren = AppIncomeRouteRoute._addFileChildren(

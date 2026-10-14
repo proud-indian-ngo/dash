@@ -1,6 +1,7 @@
 import {
   Alert02Icon,
   Coins01Icon,
+  FileImportIcon,
   MoneyAdd01Icon,
   MoneyReceive01Icon,
   PlusSignIcon,
@@ -29,7 +30,7 @@ import { formatPaise } from "@pi-dash/shared/money";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { parseAsStringLiteral, useQueryState } from "nuqs";
@@ -44,6 +45,10 @@ import {
   contributionsSignature,
 } from "@/components/income/contribution-stats";
 import { ContributionsTable } from "@/components/income/contributions-table";
+import {
+  type ImportBatchRow,
+  ImportBatchesTable,
+} from "@/components/income/import-batches-table";
 import type {
   ContributionRow,
   OtherIncomeRow,
@@ -62,7 +67,7 @@ import {
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { preloadRouteQuery } from "@/lib/route-preload";
 
-const INCOME_TABS = ["contributions", "other"] as const;
+const INCOME_TABS = ["contributions", "other", "imports"] as const;
 type IncomeTab = (typeof INCOME_TABS)[number];
 
 export const Route = createFileRoute("/_app/income/")({
@@ -374,6 +379,45 @@ function OtherIncomeTab({
   );
 }
 
+function ImportsTab({
+  canImport,
+  onImport,
+}: {
+  canImport: boolean;
+  onImport: () => void;
+}) {
+  const navigate = useNavigate();
+  const [batches, result] = useQuery(queries.importBatch.list());
+  const rows = batches as ImportBatchRow[];
+  const isLoading = rows.length === 0 && result.type !== "complete";
+  const open = useEventCallback((row: ImportBatchRow) => {
+    navigate({ params: { batchId: row.id }, to: "/income/imports/$batchId" });
+  });
+
+  if (!isLoading && rows.length === 0) {
+    return (
+      <NotFoundState
+        actions={
+          canImport ? (
+            <Button onClick={onImport} type="button">
+              <HugeiconsIcon
+                className="size-4"
+                icon={FileImportIcon}
+                strokeWidth={2}
+              />
+              Import contributions
+            </Button>
+          ) : null
+        }
+        description="Upload a spreadsheet of donations; each upload is listed here with what it imported."
+        icon={FileImportIcon}
+        title="No imports yet"
+      />
+    );
+  }
+  return <ImportBatchesTable data={rows} isLoading={isLoading} onOpen={open} />;
+}
+
 function IncomeRouteComponent() {
   const { hasPermission } = useApp();
   const canManageContributions = hasPermission("donors.manage");
@@ -392,6 +436,24 @@ function IncomeRouteComponent() {
     setTab("other");
     setOtherOpen(true);
   });
+  const navigate = useNavigate();
+  const openImport = useEventCallback(() => {
+    navigate({ to: "/income/import" });
+  });
+  const menuActions = [
+    canManageContributions && {
+      icon: FileImportIcon,
+      id: "import",
+      label: "Import contributions",
+      onSelect: openImport,
+    },
+    canManageOtherIncome && {
+      icon: MoneyAdd01Icon,
+      id: "other-income",
+      label: "Record other income",
+      onSelect: openOther,
+    },
+  ].filter((action) => action !== false);
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
@@ -408,18 +470,8 @@ function IncomeRouteComponent() {
                 Record contribution
               </Button>
             ) : null}
-            {canManageOtherIncome ? (
-              <PageHeaderMenu
-                actions={[
-                  {
-                    icon: MoneyAdd01Icon,
-                    id: "other-income",
-                    label: "Record other income",
-                    onSelect: openOther,
-                  },
-                ]}
-                title="Income actions"
-              />
+            {menuActions.length > 0 ? (
+              <PageHeaderMenu actions={menuActions} title="Income actions" />
             ) : null}
           </>
         }
@@ -430,6 +482,7 @@ function IncomeRouteComponent() {
         <TabsList>
           <TabsTrigger value="contributions">Contributions</TabsTrigger>
           <TabsTrigger value="other">Other income</TabsTrigger>
+          <TabsTrigger value="imports">Imports</TabsTrigger>
         </TabsList>
         <TabsContent
           className="mt-4 grid gap-6 *:min-w-0"
@@ -444,6 +497,12 @@ function IncomeRouteComponent() {
           <OtherIncomeTab
             canManage={canManageOtherIncome}
             onRecord={openOther}
+          />
+        </TabsContent>
+        <TabsContent className="mt-4 grid gap-6 *:min-w-0" value="imports">
+          <ImportsTab
+            canImport={canManageContributions}
+            onImport={openImport}
           />
         </TabsContent>
       </Tabs>

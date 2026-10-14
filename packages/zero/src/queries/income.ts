@@ -51,7 +51,8 @@ export const contributionQueries = {
         .related("programme")
         .related("project")
         .related("orgAccount")
-        .related("fund");
+        .related("fund")
+        .related("importBatch");
     }
     // Full project rows carry sponsor and budget terms, so the project name
     // only joins for finance.view, as in projectQueries.
@@ -64,10 +65,50 @@ export const contributionQueries = {
       )
       .related("orgAccount")
       .related("fund")
+      .related("importBatch")
       .orderBy("receivedOn", "desc")
       .orderBy("id", "desc")
       .limit(INCOME_LIST_LIMIT);
   }),
+};
+
+/** Years of monthly imports from a few sources fit well under this. */
+export const IMPORT_BATCH_LIST_LIMIT = 500;
+
+/**
+ * CSV import batches for the Imports tab: settings and counts only, since
+ * the rows themselves never sync. The uploader's name comes from the user
+ * row, as on other pages.
+ */
+export const importBatchQueries = {
+  byId: defineQuery(z.object({ id: z.string() }), ({ args: { id }, ctx }) =>
+    canSeeIncome(ctx)
+      ? zql.importBatch
+          .where("id", id)
+          .related("uploadedByUser")
+          .related("orgAccount")
+          .related("fund")
+          .one()
+      : zql.importBatch
+          .where("id", "__never_match__")
+          .related("uploadedByUser")
+          .related("orgAccount")
+          .related("fund")
+          .one()
+  ),
+  list: defineQuery(({ ctx }) =>
+    canSeeIncome(ctx)
+      ? zql.importBatch
+          .related("uploadedByUser")
+          .related("orgAccount")
+          .orderBy("createdAt", "desc")
+          .orderBy("id", "desc")
+          .limit(IMPORT_BATCH_LIST_LIMIT)
+      : zql.importBatch
+          .where("id", "__never_match__")
+          .related("uploadedByUser")
+          .related("orgAccount")
+  ),
 };
 
 export const otherIncomeQueries = {

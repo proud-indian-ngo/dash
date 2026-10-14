@@ -56,6 +56,14 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     { expireInSeconds: 600, retryLimit: 2, tz: IST_TIMEZONE }
   );
 
+  // Daily at 2:30 AM IST — apply the retention policy to uploaded import rows
+  await boss.schedule(
+    "expire-import-rows",
+    "30 2 * * *",
+    {},
+    { expireInSeconds: 600, retryLimit: 2, tz: IST_TIMEZONE }
+  );
+
   // Monthly on 1st at 3:00 AM IST — clean up stale scheduled message recipients
   await boss.schedule(
     "cleanup-stale-scheduled-recipients",

@@ -26,7 +26,7 @@ Runs in git worktrees that weren't explicitly set up. Goal: make `claude --workt
 
 Two Zod-validated env contracts via `@t3-oss/env-core`:
 
-- **`packages/env/src/server.ts`** — server-only secrets. Includes `DATABASE_URL`, `BETTER_AUTH_SECRET` (min 32 chars), `DATA_ENCRYPTION_KEY` (optional base64 32-byte key for finance-private fields, see `packages/db/src/encryption.ts`), Resend, R2 credentials, WhatsApp, Immich API keys.
+- **`packages/env/src/server.ts`** — server-only secrets. Includes `DATABASE_URL`, `BETTER_AUTH_SECRET` (min 32 chars), `DATA_ENCRYPTION_KEY` (optional base64 32-byte key for finance-private fields, see `packages/db/src/encryption.ts`; it also keys the contribution-import hashes, which outside production fall back to a key derived from `BETTER_AUTH_SECRET`. Switching from that fallback to `DATA_ENCRYPTION_KEY`, or changing the production key, silently changes those hashes: re-uploads of files without an external ID column stop being recognised as already imported, and rows with external IDs show as "changed since imported" conflicts. The `h1:` prefix on the hashes names the scheme, not the key, so there is no rotation path; see "Import hashes and the key" in `finance-and-programmes.md`), Resend, R2 credentials, WhatsApp, Immich API keys.
 - **`packages/env/src/web.ts`** — client-visible `VITE_*` vars only. Enforces public/private split at the type level.
 
 Both import `./index` as a side-effect so tiered loading runs before validation.

@@ -171,149 +171,162 @@ export async function saveParty(
   input: SavePartyInput,
   actorId: string
 ): Promise<SavePartyResult> {
+  return await db.transaction(
+    async (tx) => await savePartyInTransaction(tx, input, actorId)
+  );
+}
+
+/**
+ * `saveParty` inside a caller's transaction, so a CSV import creates its new
+ * donors through the same validation and encryption and rolls them back
+ * with the rest of the run.
+ */
+export async function savePartyInTransaction(
+  tx: Tx,
+  input: SavePartyInput,
+  actorId: string
+): Promise<SavePartyResult> {
   const now = new Date();
   const today = istToday(now);
   const partyId = input.id;
 
-  return await db.transaction(async (tx) => {
-    await lockPartyId(tx, partyId);
-    const [existingParty] = await tx
-      .select()
-      .from(party)
-      .where(eq(party.id, partyId))
-      .limit(1)
-      .for("update");
-    const [existingPrivate] = await tx
-      .select()
-      .from(partyPrivate)
-      .where(eq(partyPrivate.partyId, partyId))
-      .limit(1)
-      .for("update");
-    const mode = resolveSaveMode(
-      {
-        actorId,
-        expectedPartyUpdatedAt: input.expectedPartyUpdatedAt,
-        expectedUpdatedAt: input.expectedUpdatedAt,
-        mode: input.mode,
-      },
-      existingParty ?? null,
-      existingPrivate ?? null
-    );
-    if (mode.kind === "retry") {
-      if (!existingPrivate) {
-        throw new Error("Party details could not be saved");
-      }
-      return {
-        clearedIdentifier: false,
-        created: true,
-        partyId,
-        view: toView(existingPrivate),
-      };
-    }
-
-    const identity = {
-      displayName: input.displayName.trim(),
-      kind: input.kind,
-      legalName: nullIfBlank(input.legalName),
-    };
-    if (mode.kind === "update") {
-      await tx
-        .update(party)
-        .set({ ...identity, updatedAt: now })
-        .where(eq(party.id, partyId));
-      // A party that is also a vendor keeps its supplier name in step.
-      await tx
-        .update(vendor)
-        .set({ name: identity.displayName, updatedAt: now })
-        .where(eq(vendor.id, partyId));
-    } else {
-      await tx.insert(party).values({
-        ...identity,
-        createdAt: now,
-        createdBy: actorId,
-        id: partyId,
-        updatedAt: now,
-      });
-    }
-
-    const wanted = new Set<DirectoryRole>(input.roles);
-    const currentRoles = await tx
-      .select()
-      .from(partyRole)
-      .where(
-        and(
-          eq(partyRole.partyId, partyId),
-          inArray(partyRole.role, [...directoryRoleValues])
-        )
-      );
-    const byRole = new Map(currentRoles.map((r) => [r.role, r]));
-    for (const role of directoryRoleValues) {
-      const current = byRole.get(role);
-      const want = wanted.has(role);
-      if (current && current.active !== want) {
-        await tx
-          .update(partyRole)
-          .set({ active: want })
-          .where(eq(partyRole.id, current.id));
-      } else if (!current && want) {
-        await tx.insert(partyRole).values({
-          active: true,
-          id: uuidv7(),
-          partyId,
-          role,
-          since: now,
-        });
-      }
-    }
-
-    const secret = resolveSecret(input, existingPrivate ?? null, (plain) => {
-      if (!hasEncryptionKey()) {
-        throw new Error(
-          "Identifiers cannot be stored right now; ask an administrator to configure encryption"
-        );
-      }
-      return {
-        encrypted: encryptSecret(plain, partyIdNumberContext(partyId)),
-        last4: visibleTail(plain),
-      };
-    });
-    const values = {
-      addressLine1: nullIfBlank(input.addressLine1),
-      addressLine2: nullIfBlank(input.addressLine2),
-      assessedOn: resolveAssessedOn(
-        input.foreignSourceAssessment,
-        existingPrivate ?? null,
-        today
-      ),
-      assessmentNote: nullIfBlank(input.assessmentNote),
-      city: nullIfBlank(input.city),
-      country: input.country.trim().toUpperCase() || "IN",
-      email: nullIfBlank(input.email),
-      foreignSourceAssessment: input.foreignSourceAssessment,
-      idNumberEncrypted: secret.idNumberEncrypted,
-      idNumberLast4: secret.idNumberLast4,
-      idType: input.idType,
-      nationality: nullIfBlank(input.nationality),
-      phone: nullIfBlank(input.phone),
-      pincode: nullIfBlank(input.pincode),
-      state: nullIfBlank(input.state),
-    };
-    const [row] = await tx
-      .insert(partyPrivate)
-      .values({ ...values, partyId, updatedAt: now, updatedBy: actorId })
-      .onConflictDoUpdate({
-        set: { ...values, updatedAt: now, updatedBy: actorId },
-        target: partyPrivate.partyId,
-      })
-      .returning();
-    if (!row) {
+  await lockPartyId(tx, partyId);
+  const [existingParty] = await tx
+    .select()
+    .from(party)
+    .where(eq(party.id, partyId))
+    .limit(1)
+    .for("update");
+  const [existingPrivate] = await tx
+    .select()
+    .from(partyPrivate)
+    .where(eq(partyPrivate.partyId, partyId))
+    .limit(1)
+    .for("update");
+  const mode = resolveSaveMode(
+    {
+      actorId,
+      expectedPartyUpdatedAt: input.expectedPartyUpdatedAt,
+      expectedUpdatedAt: input.expectedUpdatedAt,
+      mode: input.mode,
+    },
+    existingParty ?? null,
+    existingPrivate ?? null
+  );
+  if (mode.kind === "retry") {
+    if (!existingPrivate) {
       throw new Error("Party details could not be saved");
     }
     return {
-      clearedIdentifier: secret.cleared,
-      created: mode.kind === "create",
+      clearedIdentifier: false,
+      created: true,
       partyId,
-      view: toView(row),
+      view: toView(existingPrivate),
+    };
+  }
+
+  const identity = {
+    displayName: input.displayName.trim(),
+    kind: input.kind,
+    legalName: nullIfBlank(input.legalName),
+  };
+  if (mode.kind === "update") {
+    await tx
+      .update(party)
+      .set({ ...identity, updatedAt: now })
+      .where(eq(party.id, partyId));
+    // A party that is also a vendor keeps its supplier name in step.
+    await tx
+      .update(vendor)
+      .set({ name: identity.displayName, updatedAt: now })
+      .where(eq(vendor.id, partyId));
+  } else {
+    await tx.insert(party).values({
+      ...identity,
+      createdAt: now,
+      createdBy: actorId,
+      id: partyId,
+      updatedAt: now,
+    });
+  }
+
+  const wanted = new Set<DirectoryRole>(input.roles);
+  const currentRoles = await tx
+    .select()
+    .from(partyRole)
+    .where(
+      and(
+        eq(partyRole.partyId, partyId),
+        inArray(partyRole.role, [...directoryRoleValues])
+      )
+    );
+  const byRole = new Map(currentRoles.map((r) => [r.role, r]));
+  for (const role of directoryRoleValues) {
+    const current = byRole.get(role);
+    const want = wanted.has(role);
+    if (current && current.active !== want) {
+      await tx
+        .update(partyRole)
+        .set({ active: want })
+        .where(eq(partyRole.id, current.id));
+    } else if (!current && want) {
+      await tx.insert(partyRole).values({
+        active: true,
+        id: uuidv7(),
+        partyId,
+        role,
+        since: now,
+      });
+    }
+  }
+
+  const secret = resolveSecret(input, existingPrivate ?? null, (plain) => {
+    if (!hasEncryptionKey()) {
+      throw new Error(
+        "Identifiers cannot be stored right now; ask an administrator to configure encryption"
+      );
+    }
+    return {
+      encrypted: encryptSecret(plain, partyIdNumberContext(partyId)),
+      last4: visibleTail(plain),
     };
   });
+  const values = {
+    addressLine1: nullIfBlank(input.addressLine1),
+    addressLine2: nullIfBlank(input.addressLine2),
+    assessedOn: resolveAssessedOn(
+      input.foreignSourceAssessment,
+      existingPrivate ?? null,
+      today
+    ),
+    assessmentNote: nullIfBlank(input.assessmentNote),
+    city: nullIfBlank(input.city),
+    country: input.country.trim().toUpperCase() || "IN",
+    email: nullIfBlank(input.email),
+    foreignSourceAssessment: input.foreignSourceAssessment,
+    idNumberEncrypted: secret.idNumberEncrypted,
+    idNumberLast4: secret.idNumberLast4,
+    idType: input.idType,
+    nationality: nullIfBlank(input.nationality),
+    phone: nullIfBlank(input.phone),
+    pincode: nullIfBlank(input.pincode),
+    state: nullIfBlank(input.state),
+  };
+  const [row] = await tx
+    .insert(partyPrivate)
+    .values({ ...values, partyId, updatedAt: now, updatedBy: actorId })
+    .onConflictDoUpdate({
+      set: { ...values, updatedAt: now, updatedBy: actorId },
+      target: partyPrivate.partyId,
+    })
+    .returning();
+  if (!row) {
+    throw new Error("Party details could not be saved");
+  }
+  return {
+    clearedIdentifier: secret.cleared,
+    created: mode.kind === "create",
+    partyId,
+    view: toView(row),
+  };
 }
