@@ -1,4 +1,4 @@
-import { Alert02Icon } from "@hugeicons/core-free-icons";
+import { Alert02Icon, RefreshIcon } from "@hugeicons/core-free-icons";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { type ReactNode, use } from "react";
@@ -6,12 +6,17 @@ import { toast } from "sonner";
 
 import { NotFoundState } from "@/components/shared/not-found-state";
 import { AppContext } from "@/context/app-context";
+import { isChunkLoadError } from "@/lib/chunk-load-error";
 import { getErrorReference } from "@/lib/error-reference";
+
+export const CHUNK_ERROR_DESCRIPTION =
+  "pi-dash was updated while this page was open. Reload to get the latest version. If this keeps appearing, hard refresh with Ctrl+Shift+R (Cmd+Shift+R on a Mac).";
 
 /**
  * The page-level error block: the shared "nothing here" layout in the danger
  * tone, a reference people can copy and send us, and the raw message for
- * admins only.
+ * admins only. A chunk that failed to load after a deploy is not a bug to
+ * report, so it gets reload guidance instead.
  */
 export function ErrorState({
   actions,
@@ -29,6 +34,17 @@ export function ErrorState({
       .then(() => toast.success("Reference copied"))
       .catch(() => toast.error("Couldn't copy the reference"));
   });
+
+  if (isChunkLoadError(error)) {
+    return (
+      <NotFoundState
+        actions={actions}
+        description={CHUNK_ERROR_DESCRIPTION}
+        icon={RefreshIcon}
+        title="A new version is available"
+      />
+    );
+  }
 
   return (
     <NotFoundState

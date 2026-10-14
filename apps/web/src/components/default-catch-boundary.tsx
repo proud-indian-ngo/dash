@@ -65,7 +65,7 @@ export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
       actions={
         <>
           <Button onClick={retry} type="button">
-            Try again
+            {chunkLoadFailed ? "Reload" : "Try again"}
           </Button>
           {!isRoot && canGoBack ? (
             <Button onClick={goBack} type="button" variant="outline">
