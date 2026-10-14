@@ -82,9 +82,20 @@ test.describe("Income: CSV import", () => {
     const donor = `E2E Import Donor ${run}`;
 
     await uploadAndReview(page, `donations-${run}.csv`, fixtureCsv(run));
-    await expect(tab(page, /^New donors 2$/)).toBeVisible();
+    // Row 4 repeats row 1 inside the same file: nothing is imported yet.
+    await expect(page.getByTestId("import-review-summary")).toHaveText(
+      "2 gifts to import · 1 new donor · 1 repeated in file · 1 error"
+    );
+    await expect(tab(page, /^New donor 2$/)).toBeVisible();
     await expect(tab(page, /^Errors 1$/)).toBeVisible();
-    await expect(tab(page, /^Already imported 1$/)).toBeVisible();
+    await expect(tab(page, /^Repeated in file 1$/)).toBeVisible();
+    await expect(tab(page, /^Already imported/)).toHaveCount(0);
+    const repeat = page.locator('[data-row-number="4"]');
+    await expect(repeat).toContainText("Repeated in file");
+    await expect(repeat).toContainText("Same as row 1; counted once");
+    const second = page.locator('[data-row-number="2"]');
+    await expect(second).toContainText("New donor");
+    await expect(second).toContainText("Same donor as row 1");
     await tab(page, /^Errors 1$/).click();
     await expect(page.locator('[data-row-number="3"]')).toContainText(
       "Amount is not a number"
@@ -93,13 +104,15 @@ test.describe("Income: CSV import", () => {
     await page.getByRole("button", { name: "Import 2 contributions" }).click();
     const confirm = page.getByRole("alertdialog");
     await expect(confirm).toContainText(
-      "2 contributions will be imported, 1 new donor created, 1 row skipped."
+      "2 contributions will be imported, 1 new donor created, 1 row skipped. 1 row repeats an earlier row and is counted once."
     );
     await confirm.getByRole("button", { name: "Import" }).click();
     const result = page.getByTestId("import-result");
     await expect(result).toContainText("2 contributions imported");
     await expect(result).toContainText("1 new donor created");
-    await expect(result).toContainText("1 row was already imported");
+    await expect(result).toContainText(
+      "1 row repeated an earlier row and was counted once"
+    );
 
     await page
       .getByRole("link", { name: "View imported contributions" })
@@ -126,7 +139,11 @@ test.describe("Income: CSV import", () => {
     await expect(tab(page, /^Already imported 3$/)).toBeVisible();
     await expect(tab(page, /^Errors 1$/)).toBeVisible();
     await expect(tab(page, /^Ready/)).toHaveCount(0);
-    await expect(tab(page, /^New donors/)).toHaveCount(0);
+    await expect(tab(page, /^New donor/)).toHaveCount(0);
+    await expect(tab(page, /^Repeated in file/)).toHaveCount(0);
+    await expect(page.locator('[data-row-number="4"]')).toContainText(
+      "Already imported"
+    );
 
     // One amount changed under the same donation ID: a conflict, never an overwrite.
     await uploadAndReview(
@@ -168,5 +185,8 @@ test.describe("Income: CSV import", () => {
       "Imported"
     );
     await expect(page.locator('[data-row-number="3"]')).toContainText("Error");
+    const repeat = page.locator('[data-row-number="4"]');
+    await expect(repeat).toContainText("Repeated in file");
+    await expect(repeat).toContainText("Same as row 1; counted once");
   });
 });

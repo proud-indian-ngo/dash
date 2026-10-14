@@ -17,6 +17,7 @@ export const REVIEW_CATEGORIES = [
   "needs_review",
   "conflict",
   "already_imported",
+  "repeated_in_file",
   "error",
   "done",
 ] as const;
@@ -94,8 +95,13 @@ export interface ClassifiedRow {
   duplicate: DuplicateRef | null;
   errors: CellIssue[];
   identityKey: string | null;
-  /** For already_imported: the earlier contribution, or the earlier row of this file that creates it. */
+  /**
+   * For already_imported, the contribution an earlier upload created; for
+   * repeated_in_file, the earlier row of this file that creates it.
+   */
   linkTo: { contributionId: string } | { rowId: string } | null;
+  /** For repeated_in_file: the earlier row of this file it repeats. */
+  repeatOf: { rowId: string; rowNumber: number } | null;
   rowId: string;
   rowNumber: number;
   /**
@@ -175,7 +181,10 @@ export function classifyRows(
   rows: readonly ClassifyRowInput[],
   context: ClassifyContext
 ): ClassifiedRow[] {
-  const seenIdentities = new Map<string, { hash: string; rowId: string }>();
+  const seenIdentities = new Map<
+    string,
+    { hash: string; rowId: string; rowNumber: number }
+  >();
   const firstById = new Map<string, FirstWithId>();
   const fileDonors: FileDonor[] = [];
   const ordered = [...rows].sort((a, b) => a.rowNumber - b.rowNumber);
@@ -188,6 +197,7 @@ export function classifyRows(
       errors: input.normalized?.errors ?? [],
       identityKey: input.identityKey,
       linkTo: null,
+      repeatOf: null,
       rowId: input.id,
       rowNumber: input.rowNumber,
       sameDonorAs: null,
@@ -198,6 +208,7 @@ export function classifyRows(
         seenIdentities.set(input.identityKey, {
           hash: input.payloadHash,
           rowId: input.id,
+          rowNumber: input.rowNumber,
         });
       }
       return { ...base, category: "done" };
@@ -228,14 +239,16 @@ export function classifyRows(
       return earlier.hash === input.payloadHash
         ? {
             ...base,
-            category: "already_imported",
+            category: "repeated_in_file",
             linkTo: { rowId: earlier.rowId },
+            repeatOf: { rowId: earlier.rowId, rowNumber: earlier.rowNumber },
           }
         : { ...base, category: "conflict" };
     }
     seenIdentities.set(input.identityKey, {
       hash: input.payloadHash,
       rowId: input.id,
+      rowNumber: input.rowNumber,
     });
 
     const idKey =
@@ -433,6 +446,7 @@ export function planRows(
         case "conflict":
           return { action: "conflict" };
         case "already_imported":
+        case "repeated_in_file":
           return row.linkTo
             ? { action: "link", to: row.linkTo }
             : { action: "conflict" };

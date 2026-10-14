@@ -31,6 +31,7 @@ import {
   IMPORT_ROW_OUTCOME_TONES,
   MATCH_REASON_LABELS,
   REVIEW_CATEGORY_LABELS,
+  REVIEW_ROW_STATUS_LABELS,
 } from "@/lib/income-import/labels";
 import type { CellIssue } from "@/lib/income-import/normalize";
 import type { ReviewRowView } from "@/lib/income-import/review-types";
@@ -45,6 +46,7 @@ const CATEGORY_TONES: Record<ReviewCategory, StatusTone> = {
   needs_review: "warning",
   new_donor: "info",
   ready: "success",
+  repeated_in_file: "neutral",
 };
 
 const TAB_ORDER: readonly ReviewCategory[] = [
@@ -53,6 +55,7 @@ const TAB_ORDER: readonly ReviewCategory[] = [
   "needs_review",
   "conflict",
   "already_imported",
+  "repeated_in_file",
   "error",
   "done",
 ];
@@ -88,15 +91,16 @@ function DonorCell({ row }: { row: ReviewRowView }) {
     );
   }
   const secondary = [row.email, row.maskedId].filter(Boolean).join(" · ");
+  // The status badge already says "New donor"; a note only adds detail.
   let donorNote: string | null = null;
-  if (row.sameDonorAs) {
+  if (row.repeatOf) {
+    donorNote = `Same as row ${row.repeatOf.rowNumber}; counted once`;
+  } else if (row.sameDonorAs) {
     donorNote = `Same donor as row ${row.sameDonorAs.rowNumber} (same ID number)`;
   } else if (row.donor.kind === "existing") {
     donorNote = `Existing donor: ${row.donor.name}`;
-  } else if (row.donor.kind === "new") {
-    donorNote = row.donor.sharedWithEarlierRow
-      ? "New donor (same as an earlier row)"
-      : "New donor";
+  } else if (row.donor.kind === "new" && row.donor.createdOnRow) {
+    donorNote = `Same donor as row ${row.donor.createdOnRow.rowNumber}`;
   }
   return (
     <div className="min-w-0">
@@ -345,11 +349,13 @@ export function ReviewTable({
                   <div className="grid gap-1">
                     {readOnly ? (
                       <StatusBadge tone={IMPORT_ROW_OUTCOME_TONES[row.outcome]}>
-                        {IMPORT_ROW_OUTCOME_LABELS[row.outcome]}
+                        {row.outcome === "linked_existing" && row.repeatOf
+                          ? REVIEW_ROW_STATUS_LABELS.repeated_in_file
+                          : IMPORT_ROW_OUTCOME_LABELS[row.outcome]}
                       </StatusBadge>
                     ) : (
                       <StatusBadge tone={CATEGORY_TONES[row.category]}>
-                        {REVIEW_CATEGORY_LABELS[row.category]}
+                        {REVIEW_ROW_STATUS_LABELS[row.category]}
                       </StatusBadge>
                     )}
                     <MessagesCell row={row} />

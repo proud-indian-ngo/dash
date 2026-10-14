@@ -9,8 +9,9 @@ import {
   summarizePlans,
 } from "./classify";
 import { identityKey, payloadHash, rowIdentity } from "./identity";
+import { REVIEW_CATEGORY_LABELS, REVIEW_ROW_STATUS_LABELS } from "./labels";
 import type { NormalizedRow } from "./normalize";
-import { summarizeReview } from "./review-summary";
+import { reviewSummaryLine, summarizeReview } from "./review-summary";
 import type { ReviewRowView } from "./review-types";
 
 const ACCOUNT = "0190a000-0000-7000-8000-0000000000aa";
@@ -172,17 +173,44 @@ describe("classifyRows", () => {
     expect(result[3]?.linkTo).toEqual({ contributionId: "c-4" });
   });
 
-  it("links an identical repeat inside the file and flags a changed one", () => {
+  it("marks an identical repeat inside the file and flags a changed one", () => {
     const first = input(row({ externalId: "X" }));
     const same = input(row({ externalId: "X" }));
     const different = input(row({ amountPaise: 1, externalId: "X" }));
     const result = classifyRows([first, same, different], emptyContext());
     expect(result.map((r) => r.category)).toEqual([
       "new_donor",
-      "already_imported",
+      "repeated_in_file",
       "conflict",
     ]);
     expect(result[1]?.linkTo).toEqual({ rowId: first.id });
+    expect(result[1]?.repeatOf).toEqual({
+      rowId: first.id,
+      rowNumber: first.rowNumber,
+    });
+    // The repeat still links to the earlier row's contribution.
+    expect(planRows(result, {}).get(same.id)).toEqual({
+      action: "link",
+      to: { rowId: first.id },
+    });
+  });
+
+  it("calls a row from an earlier upload already imported, not repeated", () => {
+    const seen = input(row({ externalId: "U" }));
+    const again = input(row({ externalId: "U" }));
+    const context = emptyContext();
+    context.identities = new Map([
+      [
+        seen.identityKey ?? "",
+        { contributionId: "c-u", payloadHash: seen.payloadHash ?? "" },
+      ],
+    ]);
+    const result = classifyRows([seen, again], context);
+    expect(result.map((r) => r.category)).toEqual([
+      "already_imported",
+      "already_imported",
+    ]);
+    expect(result.map((r) => r.repeatOf)).toEqual([null, null]);
   });
 
   it("only proposes donors matched by email or phone, never picks them", () => {
@@ -492,6 +520,7 @@ describe("summarizeReview", () => {
     rawAvailable: true,
     receivedOn: "2026-10-01",
     reference: null,
+    repeatOf: null,
     rowId: crypto.randomUUID(),
     rowNumber: 1,
     sameDonorAs: null,
@@ -504,18 +533,26 @@ describe("summarizeReview", () => {
       category: "needs_review",
       donorOptions: [{ label: "A", reason: "email", value: "party:p" }],
     });
+    const creator = view({
+      category: "new_donor",
+      donor: { createdOnRow: null, kind: "new" },
+    });
     const rows = [
-      view({ category: "ready" }),
       view({
-        category: "new_donor",
-        donor: { kind: "new", sharedWithEarlierRow: false },
+        category: "ready",
+        donor: { kind: "existing", name: "P", partyId: "p" },
       }),
+      creator,
       view({
         category: "new_donor",
-        donor: { kind: "new", sharedWithEarlierRow: true },
+        donor: {
+          createdOnRow: { rowId: creator.rowId, rowNumber: 2 },
+          kind: "new",
+        },
       }),
       view({ category: "error" }),
       view({ category: "already_imported" }),
+      view({ category: "repeated_in_file", repeatOf: { rowNumber: 2 } }),
       view({ category: "conflict" }),
       view({ category: "done" }),
       review,
@@ -523,20 +560,54 @@ describe("summarizeReview", () => {
     expect(summarizeReview(rows, {})).toEqual({
       conflicts: 1,
       errors: 1,
+      existingDonors: 1,
       imports: 3,
       links: 1,
       newDonors: 1,
+      repeats: 1,
       skips: 1,
       undecided: 1,
     });
     expect(
       summarizeReview(rows, { [review.rowId]: { donor: "new" } })
     ).toMatchObject({
+      existingDonors: 1,
       imports: 4,
       newDonors: 2,
       skips: 0,
       undecided: 0,
     });
+    // Choosing the donor already on record adds no donor.
+    expect(
+      summarizeReview(rows, { [review.rowId]: { donor: "party:p" } })
+    ).toMatchObject({ existingDonors: 1, imports: 4, newDonors: 1 });
+  });
+
+  it("counts a row pointed at an earlier row's new donor once, even if that row is skipped", () => {
+    const creator = view({
+      category: "new_donor",
+      donor: { createdOnRow: null, kind: "new" },
+    });
+    const joiner = view({
+      category: "needs_review",
+      donorOptions: [
+        {
+          label: "New donor from row 1",
+          reason: "email",
+          value: `row:${creator.rowId}`,
+        },
+      ],
+    });
+    const choice = { donor: `row:${creator.rowId}` };
+    expect(
+      summarizeReview([creator, joiner], { [joiner.rowId]: choice })
+    ).toMatchObject({ imports: 2, newDonors: 1 });
+    expect(
+      summarizeReview([creator, joiner], {
+        [creator.rowId]: { contribution: "skip" },
+        [joiner.rowId]: choice,
+      })
+    ).toMatchObject({ imports: 1, newDonors: 1, skips: 1 });
   });
 
   it("counts a new donor chosen on one row and followed by a same-ID row once", () => {
@@ -555,5 +626,51 @@ describe("summarizeReview", () => {
     expect(
       summarizeReview([first, follower], { [first.rowId]: { donor: "new" } })
     ).toMatchObject({ imports: 2, newDonors: 1, undecided: 0 });
+  });
+});
+
+describe("review wording", () => {
+  it("labels a row's badge in the singular and names the repeat", () => {
+    expect(REVIEW_ROW_STATUS_LABELS.new_donor).toBe("New donor");
+    expect(REVIEW_CATEGORY_LABELS.new_donor).toBe("New donor");
+    expect(REVIEW_ROW_STATUS_LABELS.repeated_in_file).toBe("Repeated in file");
+    expect(REVIEW_CATEGORY_LABELS.repeated_in_file).toBe("Repeated in file");
+    expect(REVIEW_CATEGORY_LABELS.already_imported).toBe("Already imported");
+  });
+
+  it("writes the summary line without zero parts", () => {
+    const empty = {
+      conflicts: 0,
+      errors: 0,
+      existingDonors: 0,
+      imports: 0,
+      links: 0,
+      newDonors: 0,
+      repeats: 0,
+      skips: 0,
+      undecided: 0,
+    };
+    expect(reviewSummaryLine(empty)).toBe("");
+    expect(
+      reviewSummaryLine({
+        ...empty,
+        errors: 1,
+        imports: 3,
+        newDonors: 2,
+        repeats: 1,
+      })
+    ).toBe("3 gifts to import · 2 new donors · 1 repeated in file · 1 error");
+    expect(
+      reviewSummaryLine({
+        ...empty,
+        conflicts: 2,
+        existingDonors: 1,
+        imports: 1,
+        links: 4,
+        undecided: 2,
+      })
+    ).toBe(
+      "1 gift to import · 1 existing donor · 2 need review · 4 already imported · 2 conflicts"
+    );
   });
 });

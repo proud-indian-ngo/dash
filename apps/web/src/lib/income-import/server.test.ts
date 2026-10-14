@@ -6,27 +6,31 @@ const BATCH = "0190a000-0000-7000-8000-000000000001";
 
 let status = "completed";
 let outcomes: string[] = [];
+let contributionIds: (string | null)[] = [];
 let insertBatch: () => Promise<void> = async () => undefined;
 const logged: unknown[] = [];
+
+const defaultMapping = {
+  Amount: "amount",
+  Date: "receivedOn",
+  Name: "donorName",
+  "Tax ID": "idNumber",
+};
+let mapping: Record<string, string> = defaultMapping;
 
 const batchRow = () => ({
   dateFormat: "dmy",
   defaultChannel: "upi",
   fileName: "gifts.csv",
   id: BATCH,
-  mapping: {
-    Amount: "amount",
-    Date: "receivedOn",
-    Name: "donorName",
-    "Tax ID": "idNumber",
-  },
+  mapping,
   orgAccountId: "0190a000-0000-7000-8000-0000000000aa",
-  rowCount: 2,
+  rowCount: rawRows().length,
   source: "generic_csv",
   status,
 });
 
-const rawRows = () => [
+const defaultRows = () => [
   {
     Amount: "100",
     Date: "01/10/2026",
@@ -43,6 +47,7 @@ const rawRows = () => [
     "Tax ID": "",
   },
 ];
+let rawRows: () => Record<string, string>[] = defaultRows;
 
 const noop = async () => undefined;
 
@@ -79,6 +84,7 @@ mock.module("@pi-dash/db/queries/income-import", () => ({
   latestImportMapping: noop,
   listImportRows: async () =>
     rawRows().map((raw, index) => ({
+      contributionId: contributionIds[index] ?? null,
       id: `0190a000-0000-7000-8000-00000000010${index}`,
       outcome: outcomes[index] ?? "pending",
       outcomeReason: null,
@@ -102,6 +108,7 @@ const {
   ImportInputError,
 } = await import("./server");
 const { parseCsv } = await import("./parse-csv");
+const { reviewSummaryLine, summarizeReview } = await import("./review-summary");
 
 describe("createImportBatch errors", () => {
   const csv = `Name,Amount,PAN\nAsha,100,${PAN}\n`;
@@ -184,6 +191,9 @@ describe("getImportBatchDetail", () => {
   beforeEach(() => {
     status = "completed";
     outcomes = ["imported", "error"];
+    contributionIds = [];
+    mapping = defaultMapping;
+    rawRows = defaultRows;
   });
 
   for (const canManage of [false, true]) {
@@ -223,5 +233,84 @@ describe("getImportBatchDetail", () => {
     expect(
       (await getImportBatchDetail(BATCH, { canManage: true })).columns
     ).toEqual([]);
+  });
+});
+
+describe("review of a file that repeats a row", () => {
+  // The founder's test file: TEST-001 appears twice, Alpha gives twice
+  // under one PAN, and TEST-004 has no usable amount.
+  const csv = [
+    "Donation ID,Donor Name,PAN,Email,Phone,Amount,Date,Reference",
+    'TEST-001,Test Donor Alpha,ABCPA1234F,alpha.test@example.com,+919800000001,"1,250.00",01/10/2026,UTR0001',
+    "TEST-002,Test Donor Alpha,ABCPA1234F,alpha.test@example.com,+919800000001,500,05/10/2026,UTR0002",
+    "TEST-003,Test Donor Beta,,beta.test@example.com,,2000,07/10/2026,UTR0003",
+    "TEST-004,Test Donor Broken,,,,abc,08/10/2026,UTR0004",
+    'TEST-001,Test Donor Alpha,ABCPA1234F,alpha.test@example.com,+919800000001,"1,250.00",01/10/2026,UTR0001',
+  ].join("\n");
+
+  beforeEach(() => {
+    status = "draft";
+    outcomes = [];
+    contributionIds = [];
+    mapping = {
+      Amount: "amount",
+      Date: "receivedOn",
+      "Donation ID": "externalId",
+      "Donor Name": "donorName",
+      Email: "email",
+      PAN: "idNumber",
+      Phone: "phone",
+      Reference: "reference",
+    };
+    rawRows = () => parseCsv(csv).rows;
+  });
+
+  it("shows the repeat as repeated in file and counts each donor once", async () => {
+    const rows =
+      (await getImportBatchDetail(BATCH, { canManage: true })).review?.rows ??
+      [];
+    expect(rows.map((r) => r.category)).toEqual([
+      "new_donor",
+      "new_donor",
+      "new_donor",
+      "error",
+      "repeated_in_file",
+    ]);
+    expect(
+      rows.map((r) => r.donor.kind === "new" && r.donor.createdOnRow?.rowNumber)
+    ).toEqual([undefined, 1, undefined, false, false]);
+    expect(rows[4]?.repeatOf).toEqual({ rowNumber: 1 });
+    const summary = summarizeReview(rows, {});
+    expect(summary).toMatchObject({
+      errors: 1,
+      imports: 3,
+      links: 0,
+      newDonors: 2,
+      repeats: 1,
+    });
+    expect(reviewSummaryLine(summary)).toBe(
+      "3 gifts to import · 2 new donors · 1 repeated in file · 1 error"
+    );
+  });
+
+  it("still knows the repeat after the import linked it", async () => {
+    outcomes = ["imported", "imported", "imported", "error", "linked_existing"];
+    contributionIds = ["c-1", "c-2", "c-3", null, "c-1"];
+    const rows =
+      (await getImportBatchDetail(BATCH, { canManage: true })).review?.rows ??
+      [];
+    expect(rows.map((r) => r.repeatOf?.rowNumber ?? null)).toEqual([
+      null,
+      null,
+      null,
+      null,
+      1,
+    ]);
+    // Linked to a contribution from another upload: already imported.
+    contributionIds = ["c-1", "c-2", "c-3", null, "c-9"];
+    const again =
+      (await getImportBatchDetail(BATCH, { canManage: true })).review?.rows ??
+      [];
+    expect(again[4]?.repeatOf).toBeNull();
   });
 });

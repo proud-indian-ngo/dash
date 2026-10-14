@@ -4,9 +4,15 @@ import type { ReviewRowView } from "./review-types";
 export interface ReviewSummary {
   conflicts: number;
   errors: number;
+  /** Distinct donors already on record that the imported gifts go to. */
+  existingDonors: number;
   imports: number;
+  /** Rows an earlier upload already imported; they are linked, not imported again. */
   links: number;
+  /** Distinct donors the import creates. */
   newDonors: number;
+  /** Rows that repeat an earlier row of the file; the gift is counted once. */
+  repeats: number;
   skips: number;
   /** Needs-review rows still without a choice; they are skipped unless decided. */
   undecided: number;
@@ -28,11 +34,46 @@ export function isDecided(
   return donorOk && duplicateOk;
 }
 
+/** "party:<id>" for a donor on record, "new:<rowId>" for one the row creates. */
+type DonorRef = string;
+
 /**
- * The confirmation's counts, mirroring the server's plan: rows already
- * imported in this batch are not counted again, and needs-review rows
- * without a choice are skipped. A new donor chosen on one row and followed
- * by later rows with the same ID number is counted once.
+ * Who a row's gift goes to, mirroring the server's plan: a later row of a
+ * new donor, or one that follows an earlier row's choice, shares that row's
+ * donor, even when that row itself is skipped.
+ */
+function resolveDonor(
+  row: ReviewRowView,
+  decision: RowDecision | undefined,
+  resolved: ReadonlyMap<string, DonorRef>
+): DonorRef | null {
+  if (row.donor.kind === "existing") {
+    return `party:${row.donor.partyId}`;
+  }
+  if (row.donor.kind === "new") {
+    return `new:${row.donor.createdOnRow?.rowId ?? row.rowId}`;
+  }
+  if (row.sameDonorAs) {
+    return resolved.get(row.sameDonorAs.rowId) ?? null;
+  }
+  const choice = decision?.donor;
+  if (!choice) {
+    return null;
+  }
+  if (choice === "new") {
+    return `new:${row.rowId}`;
+  }
+  if (choice.startsWith("row:")) {
+    const rowId = choice.slice("row:".length);
+    return resolved.get(rowId) ?? `new:${rowId}`;
+  }
+  return choice;
+}
+
+/**
+ * The review's counts, mirroring the server's plan: rows already imported
+ * in this batch are not counted again, needs-review rows without a choice
+ * are skipped, and each donor is counted once however many rows it has.
  */
 export function summarizeReview(
   rows: readonly ReviewRowView[],
@@ -41,60 +82,75 @@ export function summarizeReview(
   const summary: ReviewSummary = {
     conflicts: 0,
     errors: 0,
+    existingDonors: 0,
     imports: 0,
     links: 0,
     newDonors: 0,
+    repeats: 0,
     skips: 0,
     undecided: 0,
   };
-  const chosenNew = new Set<string>();
+  const resolved = new Map<string, DonorRef>();
+  const donors = new Set<DonorRef>();
   for (const row of rows) {
     const decision = decisions[row.rowId];
     switch (row.category) {
       case "done":
-        break;
+        continue;
       case "error":
         summary.errors += 1;
-        break;
+        continue;
       case "conflict":
         summary.conflicts += 1;
-        break;
+        continue;
       case "already_imported":
         summary.links += 1;
-        break;
-      case "ready":
-        summary.imports += 1;
-        break;
-      case "new_donor":
-        summary.imports += 1;
-        if (row.donor.kind === "new" && !row.donor.sharedWithEarlierRow) {
-          summary.newDonors += 1;
-        }
-        break;
-      case "needs_review":
-        if (!isDecided(row, decisions)) {
-          summary.undecided += 1;
-          summary.skips += 1;
-        } else if (decision?.contribution === "skip") {
-          summary.skips += 1;
-        } else {
-          summary.imports += 1;
-          const chooser = row.sameDonorAs?.rowId ?? row.rowId;
-          const newOwnDonor =
-            row.donorOptions.length === 0 &&
-            row.donor.kind === "new" &&
-            !row.donor.sharedWithEarlierRow;
-          if (decisions[chooser]?.donor === "new") {
-            chosenNew.add(chooser);
-          } else if (newOwnDonor) {
-            summary.newDonors += 1;
-          }
-        }
-        break;
+        continue;
+      case "repeated_in_file":
+        summary.repeats += 1;
+        continue;
       default:
         break;
     }
+    const donor = resolveDonor(row, decision, resolved);
+    if (donor) {
+      resolved.set(row.rowId, donor);
+    }
+    if (row.category === "needs_review" && !isDecided(row, decisions)) {
+      summary.undecided += 1;
+      summary.skips += 1;
+    } else if (decision?.contribution === "skip" || !donor) {
+      summary.skips += 1;
+    } else {
+      summary.imports += 1;
+      donors.add(donor);
+    }
   }
-  summary.newDonors += chosenNew.size;
+  for (const donor of donors) {
+    if (donor.startsWith("new:")) {
+      summary.newDonors += 1;
+    } else {
+      summary.existingDonors += 1;
+    }
+  }
   return summary;
+}
+
+const count = (n: number, one: string, many: string) =>
+  n > 0 ? `${n.toLocaleString("en-IN")} ${n === 1 ? one : many}` : null;
+
+/** One line above the review tabs, e.g. "3 gifts to import · 2 new donors · 1 error". */
+export function reviewSummaryLine(summary: ReviewSummary): string {
+  return [
+    count(summary.imports, "gift to import", "gifts to import"),
+    count(summary.newDonors, "new donor", "new donors"),
+    count(summary.existingDonors, "existing donor", "existing donors"),
+    count(summary.undecided, "needs review", "need review"),
+    count(summary.links, "already imported", "already imported"),
+    count(summary.repeats, "repeated in file", "repeated in file"),
+    count(summary.conflicts, "conflict", "conflicts"),
+    count(summary.errors, "error", "errors"),
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }

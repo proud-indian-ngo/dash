@@ -439,18 +439,22 @@ const shown = (value: string | undefined) =>
 function toRowView(
   row: ClassifiedRow,
   prepared: PreparedRow | undefined,
-  firstNewKeyRow: Map<string, string>
+  firstNewKeyRow: Map<string, { rowId: string; rowNumber: number }>,
+  repeatOf: ReviewRowView["repeatOf"]
 ): ReviewRowView {
   const normalized = prepared?.normalized?.row ?? null;
   let donor: ReviewRowView["donor"] = { kind: "undecided" };
   if (row.donor.kind === "existing") {
     donor = row.donor;
   } else if (row.donor.kind === "new") {
-    const first = firstNewKeyRow.get(row.donor.key);
+    const first = firstNewKeyRow.get(row.donor.key) ?? null;
     if (!first) {
-      firstNewKeyRow.set(row.donor.key, row.rowId);
+      firstNewKeyRow.set(row.donor.key, {
+        rowId: row.rowId,
+        rowNumber: row.rowNumber,
+      });
     }
-    donor = { kind: "new", sharedWithEarlierRow: Boolean(first) };
+    donor = { createdOnRow: first, kind: "new" };
   }
   return {
     amountPaise: normalized?.amountPaise ?? null,
@@ -480,6 +484,7 @@ function toRowView(
     rawAvailable: Boolean(prepared?.record.raw),
     receivedOn: normalized?.receivedOn ?? null,
     reference: shown(normalized?.reference),
+    repeatOf,
     rowId: row.rowId,
     rowNumber: row.rowNumber,
     sameDonorAs: row.sameDonorAs,
@@ -492,7 +497,29 @@ function toReviewResponse(
   settings: ClassifySettings,
   classification: Classification
 ): ReviewResponse {
-  const firstNewKeyRow = new Map<string, string>();
+  const firstNewKeyRow = new Map<
+    string,
+    { rowId: string; rowNumber: number }
+  >();
+  // After a run, a row that repeated an earlier row of the file is linked to
+  // the contribution that row imported.
+  const importedBy = new Map<string, number>();
+  for (const { record } of classification.prepared.values()) {
+    if (record.outcome === "imported" && record.contributionId) {
+      importedBy.set(record.contributionId, record.rowNumber);
+    }
+  }
+  const repeatOf = (row: ClassifiedRow): ReviewRowView["repeatOf"] => {
+    if (row.repeatOf) {
+      return { rowNumber: row.repeatOf.rowNumber };
+    }
+    const record = classification.prepared.get(row.rowId)?.record;
+    const earlier =
+      record?.outcome === "linked_existing" && record.contributionId
+        ? importedBy.get(record.contributionId)
+        : undefined;
+    return earlier === undefined ? null : { rowNumber: earlier };
+  };
   return {
     batch: {
       dateFormat: settings.dateFormat,
@@ -504,7 +531,12 @@ function toReviewResponse(
       status: batch.status,
     },
     rows: classification.classified.map((row) =>
-      toRowView(row, classification.prepared.get(row.rowId), firstNewKeyRow)
+      toRowView(
+        row,
+        classification.prepared.get(row.rowId),
+        firstNewKeyRow,
+        repeatOf(row)
+      )
     ),
     weakIdentity: checkMapping(settings.mapping).weakIdentity,
   };
@@ -773,6 +805,7 @@ async function executePlans(
     imported: 0,
     linked: 0,
     newDonors: 0,
+    repeated: 0,
     skipped: 0,
   };
   const partyByKey = new Map<string, string>();
@@ -835,7 +868,7 @@ async function executePlans(
         outcome: "linked_existing",
         outcomeReason: null,
       });
-      result.linked += 1;
+      result["contributionId" in plan.to ? "linked" : "repeated"] += 1;
       continue;
     }
 

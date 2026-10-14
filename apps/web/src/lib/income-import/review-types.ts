@@ -26,7 +26,11 @@ export interface ReviewRowView {
   /** Who the row is for when that is already settled. */
   donor:
     | { kind: "existing"; name: string; partyId: string }
-    | { kind: "new"; sharedWithEarlierRow: boolean }
+    | {
+        /** The earlier row that creates this new donor; null on the row that does. */
+        createdOnRow: { rowId: string; rowNumber: number } | null;
+        kind: "new";
+      }
     | { kind: "undecided" };
   donorName: string | null;
   donorOptions: DonorOptionView[];
@@ -41,6 +45,11 @@ export interface ReviewRowView {
   rawAvailable: boolean;
   receivedOn: string | null;
   reference: string | null;
+  /**
+   * The earlier row of this file this row repeats; it links to that row's
+   * contribution, so the gift is counted once.
+   */
+  repeatOf: { rowNumber: number } | null;
   rowId: string;
   rowNumber: number;
   /** An earlier row with the same ID number; this row gets the donor chosen there. */
@@ -80,6 +89,8 @@ export interface RunResponse {
   imported: number;
   linked: number;
   newDonors: number;
+  /** Rows linked to the contribution of an earlier row of the same file. */
+  repeated: number;
   skipped: number;
 }
 

@@ -55,14 +55,28 @@ export const IMPORT_OUTCOME_REASON_LABELS: Record<string, string> = {
   undecided: "Left for review",
 };
 
+/** Tab labels; each tab counts rows. */
 export const REVIEW_CATEGORY_LABELS: Record<ReviewCategory, string> = {
   already_imported: "Already imported",
   conflict: "Conflicts",
   done: "Imported",
   error: "Errors",
   needs_review: "Needs review",
-  new_donor: "New donors",
+  new_donor: "New donor",
   ready: "Ready",
+  repeated_in_file: "Repeated in file",
+};
+
+/** The status badge of one row. */
+export const REVIEW_ROW_STATUS_LABELS: Record<ReviewCategory, string> = {
+  already_imported: "Already imported",
+  conflict: "Conflict",
+  done: "Imported",
+  error: "Error",
+  needs_review: "Needs review",
+  new_donor: "New donor",
+  ready: "Ready",
+  repeated_in_file: "Repeated in file",
 };
 
 export const MATCH_REASON_LABELS: Record<MatchReason, string> = {

@@ -16,7 +16,10 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { runContributionImport } from "@/functions/income-import";
 import type { RowDecision } from "@/lib/income-import/classify";
 import { WEAK_IDENTITY_WARNING } from "@/lib/income-import/fields";
-import { summarizeReview } from "@/lib/income-import/review-summary";
+import {
+  reviewSummaryLine,
+  summarizeReview,
+} from "@/lib/income-import/review-summary";
 import type {
   ReviewResponse,
   RunResponse,
@@ -95,6 +98,13 @@ function ResultSummary({
           result.linked,
           "row was already imported",
           "rows were already imported"
+        )
+      : null,
+    result.repeated > 0
+      ? plural(
+          result.repeated,
+          "row repeated an earlier row and was counted once",
+          "rows repeated earlier rows and were counted once"
         )
       : null,
     result.conflicts > 0
@@ -225,7 +235,8 @@ export function ImportWizard({
   });
 
   const summary = review ? summarizeReview(review.rows, decisions) : null;
-  const canImport = summary !== null && summary.imports + summary.links > 0;
+  const canImport =
+    summary !== null && summary.imports + summary.links + summary.repeats > 0;
 
   return (
     <div className="grid gap-6 pb-24">
@@ -259,6 +270,11 @@ export function ImportWizard({
       ) : null}
       {step === "review" && review ? (
         <div className="grid gap-4">
+          {summary ? (
+            <p className="text-sm" data-testid="import-review-summary">
+              {reviewSummaryLine(summary)}
+            </p>
+          ) : null}
           {review.weakIdentity ? (
             <p className="text-warning-foreground text-sm">
               {WEAK_IDENTITY_WARNING}
@@ -328,6 +344,9 @@ export function ImportWizard({
             `${plural(summary.imports, "contribution", "contributions")} will be imported, ${plural(summary.newDonors, "new donor", "new donors")} created, ${plural(summary.skips + summary.errors, "row", "rows")} skipped.`,
             summary.links > 0
               ? `${plural(summary.links, "row is", "rows are")} already imported and will be linked.`
+              : "",
+            summary.repeats > 0
+              ? `${plural(summary.repeats, "row repeats an earlier row and is", "rows repeat earlier rows and are")} counted once.`
               : "",
             summary.conflicts > 0
               ? `${plural(summary.conflicts, "conflict stays", "conflicts stay")} as they are.`
