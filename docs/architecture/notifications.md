@@ -26,7 +26,7 @@ Enqueue calls for side-effects wrapped in `withFireAndForgetLog` → pg-boss fai
 | Channel | Implementation | Config |
 |---|---|---|
 | In-app inbox | `notification` DB table synced via Zero | No external service; real-time via Zero sync |
-| Email | Nodemailer via `@pi-dash/email` | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` |
+| Email | Resend via `@pi-dash/email` | `RESEND_API_KEY`, `EMAIL_FROM` (both required in production; unset elsewhere skips sending with an `email_not_configured` warning) |
 | WhatsApp | Self-hosted gateway | `WHATSAPP_API_URL`; per-user opt-in via phone + preference check |
 
 ### Send Flow
@@ -37,7 +37,7 @@ Enqueue calls for side-effects wrapped in `withFireAndForgetLog` → pg-boss fai
 2. Query `notificationTopicPreference` for user's channel preferences (defaults: all enabled).
 3. Three parallel promises:
    - **Inbox**: `insertNotification()` to `notification` table (idempotent via unique `idempotencyKey`).
-   - **Email**: `sendNotificationEmail()` via nodemailer with `List-Unsubscribe` header.
+   - **Email**: `sendNotificationEmail()` via Resend with `List-Unsubscribe` header and a per-recipient idempotency key (`{key}-email`, `{key}-email-{userId}` for bulk). `sendEmail()` spaces requests 250ms apart and retries `rate_limit_exceeded` up to three times; skipped or failed sends report `false`.
    - **WhatsApp**: `sendWhatsAppMessage()` via the GoWA gateway with a deterministic `Idempotency-Key` request header.
 4. Return `SendMessageResult` with per-channel success status.
 

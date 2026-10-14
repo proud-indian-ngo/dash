@@ -1,7 +1,8 @@
 import { env } from "@pi-dash/env/server";
+import { createRequestLogger } from "evlog";
 import { render } from "react-email";
 
-import { transporter } from "./mailer";
+import { sendEmail } from "./mailer";
 import type { NotificationEmailProps } from "./templates/notification-email";
 import NotificationEmail from "./templates/notification-email";
 import ResetPasswordEmail from "./templates/reset-password-email";
@@ -10,28 +11,44 @@ import VerificationEmail from "./templates/verification-email";
 export type { NotificationEmailProps } from "./templates/notification-email";
 export type { LineItemDetail } from "./templates/types";
 
+// Without Resend configured (dev), log the link so local sign-up and password
+// reset can still be completed. Production always has Resend configured.
+function logSkippedAuthLink(kind: string, to: string, url: string) {
+  if (process.env.NODE_ENV === "production") {
+    return;
+  }
+  const log = createRequestLogger({ method: "POST", path: "sendAuthEmail" });
+  log.set({ kind, to, url });
+  log.warn("auth_email_not_sent");
+  log.emit();
+}
+
 export async function sendVerificationEmail(to: string, url: string) {
   const html = await render(
     <VerificationEmail appName={env.APP_NAME} appUrl={env.APP_URL} url={url} />
   );
-  await transporter.sendMail({
-    from: env.SMTP_FROM,
+  const status = await sendEmail({
     html,
     subject: "Verify your email address",
     to,
   });
+  if (status === "skipped") {
+    logSkippedAuthLink("verification", to, url);
+  }
 }
 
 export async function sendResetPasswordEmail(to: string, url: string) {
   const html = await render(
     <ResetPasswordEmail appName={env.APP_NAME} appUrl={env.APP_URL} url={url} />
   );
-  await transporter.sendMail({
-    from: env.SMTP_FROM,
+  const status = await sendEmail({
     html,
     subject: "Reset your password",
     to,
   });
+  if (status === "skipped") {
+    logSkippedAuthLink("reset-password", to, url);
+  }
 }
 
 export function renderNotificationEmail(

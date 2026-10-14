@@ -35,6 +35,14 @@ export const env = createEnv({
       process.env.NODE_ENV === "development"
         ? z.string().min(1)
         : z.string().min(1).optional(),
+    /** Sender address on a Resend-verified domain. Required in production; unset skips sending. */
+    EMAIL_FROM: z
+      .email()
+      .optional()
+      .refine(
+        (v) => process.env.NODE_ENV !== "production" || !!v,
+        "EMAIL_FROM is required in production"
+      ),
     GRAVATAR_API_BASE_URL: z.url().default("https://api.gravatar.com/v3"),
     GRAVATAR_API_KEY: z.string().min(1),
     GRAVATAR_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
@@ -58,11 +66,15 @@ export const env = createEnv({
     R2_BUCKET_NAME: z.string().min(1),
     R2_KEY_PREFIX: z.string().min(1),
     R2_SECRET_ACCESS_KEY: z.string().min(1),
-    SMTP_FROM: z.email(),
-    SMTP_HOST: z.string().min(1),
-    SMTP_PASS: z.string().min(1),
-    SMTP_PORT: z.coerce.number().default(587),
-    SMTP_USER: z.string().min(1),
+    /** Required in production; unset skips sending. */
+    RESEND_API_KEY: z
+      .string()
+      .min(1)
+      .optional()
+      .refine(
+        (v) => process.env.NODE_ENV !== "production" || !!v,
+        "RESEND_API_KEY is required in production"
+      ),
     /** HMAC key for the social API's signed photo links; unset disables photo endpoints. */
     SOCIAL_MEDIA_SIGNING_SECRET: z.string().min(32).optional(),
     VITE_CDN_URL: z.url(),

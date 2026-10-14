@@ -1,4 +1,4 @@
-import { transporter } from "@pi-dash/email/mailer";
+import { EmailSendError, sendEmail } from "@pi-dash/email/mailer";
 import { env } from "@pi-dash/env/server";
 import { createRequestLogger } from "evlog";
 
@@ -12,29 +12,36 @@ export function stripLeadingEmoji(text: string): string {
 interface SendNotificationEmailOptions {
   body: string;
   emailHtml?: string;
+  /** Deterministic per recipient, so a retried job doesn't send the email twice. */
+  idempotencyKey?: string;
   title: string;
   toEmail: string;
 }
 
+/** True only when Resend accepted the email; false when skipped or failed. */
 export async function sendNotificationEmail(
   options: SendNotificationEmailOptions
 ): Promise<boolean> {
   try {
-    await transporter.sendMail({
-      from: env.SMTP_FROM,
+    const status = await sendEmail({
       headers: {
         "List-Unsubscribe": `<${env.APP_URL}/settings/notifications>`,
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       },
       html: options.emailHtml ?? `<p>${options.body}</p>`,
+      idempotencyKey: options.idempotencyKey,
       subject: stripLeadingEmoji(options.title),
       to: options.toEmail,
     });
-    return true;
+    return status === "sent";
   } catch (error) {
     const log = createRequestLogger();
     log.set({
       handler: "sendNotificationEmail",
+      ...(error instanceof EmailSendError && {
+        resendError: error.code,
+        statusCode: error.statusCode,
+      }),
       subject: stripLeadingEmoji(options.title),
       to: options.toEmail,
     });

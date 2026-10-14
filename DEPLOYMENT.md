@@ -12,7 +12,7 @@
 External services (optional based on features):
 
 - **Cloudflare R2** — file storage
-- **SMTP server** — transactional email (verification, password reset, notifications)
+- **Resend** — transactional email (verification, password reset, notifications)
 - **Immich** — photo album management
 - **WhatsApp gateway** — self-hosted `go-whatsapp-web-multidevice`
 
@@ -35,15 +35,16 @@ Copy `.env.sample` to `.env` and fill in values. Grouped by category:
 | `ZERO_QUERY_URL` | Zero query endpoint (e.g., `https://dash.example.com/api/zero/query`) |
 | `VITE_ZERO_URL` | Public URL for zero-cache (e.g., `https://zero.example.com`) |
 
-### SMTP
+### Email (Resend)
 
 | Variable | Description |
 |---|---|
-| `SMTP_HOST` | SMTP server hostname |
-| `SMTP_PORT` | SMTP port (default `587`) |
-| `SMTP_USER` | SMTP username |
-| `SMTP_PASS` | SMTP password |
-| `SMTP_FROM` | Sender email address |
+| `RESEND_API_KEY` | Resend API key with sending access (required in production; unset skips sending) |
+| `EMAIL_FROM` | Sender email address on a domain verified in Resend (required in production) |
+
+Sends are spaced to stay under Resend's default 5 requests per second and rate-limited sends are retried; notification emails carry an idempotency key so job retries don't send twice.
+
+**Migrating from SMTP:** verify the sending domain in Resend (add its SPF and DKIM DNS records), create an API key with sending access, set `RESEND_API_KEY` and `EMAIL_FROM` (replacing the old `SMTP_FROM`), and remove `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` and `SMTP_FROM`. The app refuses to start in production until both new variables are set.
 
 ### Storage (Cloudflare R2)
 
@@ -287,7 +288,7 @@ Starts `go-whatsapp-web-multidevice` container on port 3100. Pair via QR code at
 - [ ] `VITE_ZERO_URL` is publicly accessible (clients connect directly)
 - [ ] `CORS_ORIGIN` and `BETTER_AUTH_URL` match your production domain
 - [ ] `COOKIE_DOMAIN` set if using cross-subdomain cookies
-- [ ] SMTP configured for email verification and password reset
+- [ ] Resend API key and verified sending domain configured for email verification and password reset
 - [ ] R2 bucket created and credentials set
 - [ ] R2 lifecycle expires protected `tmp` objects after 24 hours
 - [ ] `VITE_CDN_URL` matches the historical CDN origin until cutover is complete

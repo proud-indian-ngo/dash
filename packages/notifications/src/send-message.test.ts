@@ -168,6 +168,15 @@ describe("sendMessage channel allowlist", () => {
     ).toBe("k-inbox");
   });
 
+  it("gives each email a stable per-message idempotency key", async () => {
+    await sendMessage({ ...baseMessage, channels: ["email"] });
+
+    expect(vi.mocked(sendNotificationEmail).mock.calls[0]?.[0]).toMatchObject({
+      idempotencyKey: "k-email",
+      toEmail: "test@test.com",
+    });
+  });
+
   it("honors preferences for allowed channels", async () => {
     vi.mocked(getChannelPreferences).mockResolvedValue({
       emailEnabled: true,
