@@ -93,7 +93,10 @@ test.describe("Organisation accounts settings (admin)", () => {
     const accountRow = settings
       .locator("[data-slot='settings-list-item']")
       .filter({ hasText: name });
-    await accountRow.getByRole("button", { name: `Edit ${name}` }).click();
+    await accountRow
+      .getByRole("button", { name: `Actions for ${name}` })
+      .click();
+    await page.getByRole("menuitem", { name: "Edit" }).click();
     await expect(
       settings.getByRole("textbox", { exact: true, name: "Name" })
     ).toHaveValue(name, { timeout: 5000 });

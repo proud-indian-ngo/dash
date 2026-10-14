@@ -338,13 +338,14 @@ export type OtherIncomeKind = (typeof otherIncomeKindValues)[number];
 
 /**
  * Where an import batch came from. `razorpay_api` batches are opened by the
- * Razorpay webhook, one per India day; bank and UPI statements join later
- * and their rows never become donations directly.
+ * Razorpay webhook, one per India day. `bank_csv` batches are bank
+ * statements: their rows become statement lines, never donations directly.
  */
 export const importBatchSourceValues = [
   "give_do_csv",
   "generic_csv",
   "razorpay_api",
+  "bank_csv",
 ] as const;
 export type ImportBatchSource = (typeof importBatchSourceValues)[number];
 
@@ -387,6 +388,62 @@ export type ExternalIdentityProvider =
 export const externalIdentityEntityTypeValues = ["payment", "refund"] as const;
 export type ExternalIdentityEntityType =
   (typeof externalIdentityEntityTypeValues)[number];
+
+// ── Bank statements ─────────────────────────────────────────────────────────
+
+/** Money into the account (credit) or out of it (debit), as the bank prints it. */
+export const statementLineDirectionValues = ["credit", "debit"] as const;
+export type StatementLineDirection =
+  (typeof statementLineDirectionValues)[number];
+
+/**
+ * unmatched: nothing explains the line yet (it may carry a suggestion).
+ * matched: tied to what explains it. ignored: set aside with a reason.
+ */
+export const statementLineMatchStatusValues = [
+  "unmatched",
+  "matched",
+  "ignored",
+] as const;
+export type StatementLineMatchStatus =
+  (typeof statementLineMatchStatusValues)[number];
+
+/**
+ * What a matched line is: a gateway settlement paid out to the bank, a
+ * contribution deposited straight into it, a give.do (GiveIndia) payout, a
+ * transfer between the trust's own accounts, or something else (debits,
+ * until expense matching comes with the ledger).
+ */
+export const statementLineMatchKindValues = [
+  "settlement",
+  "contribution",
+  "giveindia_payout",
+  "transfer",
+  "other",
+] as const;
+export type StatementLineMatchKind =
+  (typeof statementLineMatchKindValues)[number];
+
+/** Why a line was matched or suggested; a short code, never line content. */
+export const statementLineMatchReasonValues = [
+  "utr",
+  "reference",
+  "amount_date",
+  "giveindia_narration",
+  "manual",
+] as const;
+export type StatementLineMatchReason =
+  (typeof statementLineMatchReasonValues)[number];
+
+/** Why a line was set aside. */
+export const statementLineIgnoreReasonValues = [
+  "bank_interest",
+  "reversal",
+  "not_ours",
+  "other",
+] as const;
+export type StatementLineIgnoreReason =
+  (typeof statementLineIgnoreReasonValues)[number];
 
 /** DPDP Act processing basis for a collection of personal data. */
 export const processingBasisValues = [

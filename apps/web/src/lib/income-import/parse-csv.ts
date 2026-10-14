@@ -57,6 +57,15 @@ function uniqueHeaders(raw: readonly string[]): string[] {
   });
 }
 
+export interface ParseCsvOptions {
+  /**
+   * Index of the header row among the file's non-blank rows; rows above it
+   * (a bank export's account details and period) are dropped, never stored.
+   * The first row when absent.
+   */
+  findHeaderRow?: (rows: readonly (readonly string[])[]) => number;
+}
+
 /**
  * Parses CSV text into header-keyed rows. Refuses text that is not UTF-8
  * (see isNotUtf8Text). Handles a byte-order mark, quoted
@@ -64,7 +73,7 @@ function uniqueHeaders(raw: readonly string[]): string[] {
  * lines. Both the browser (for the mapping preview) and the server (the copy
  * that is stored) call it, so they always agree.
  */
-export function parseCsv(text: string): ParsedCsv {
+export function parseCsv(text: string, options?: ParseCsvOptions): ParsedCsv {
   if (isNotUtf8Text(text)) {
     throw new CsvParseError(NOT_UTF8_MESSAGE);
   }
@@ -93,7 +102,8 @@ export function parseCsv(text: string): ParsedCsv {
       "The file could not be read as CSV. Save it as CSV (comma separated) and try again."
     );
   }
-  const [headerRow, ...dataRows] = data;
+  const headerIndex = Math.max(0, options?.findHeaderRow?.(data) ?? 0);
+  const [headerRow, ...dataRows] = data.slice(headerIndex);
   if (!headerRow || headerRow.every((cell) => cell.trim() === "")) {
     throw new CsvParseError("The file has no header row.");
   }
@@ -115,7 +125,7 @@ export function parseCsv(text: string): ParsedCsv {
   });
   // Blank trailing cells ("a,b,c,") are common in spreadsheet exports and harmless.
   const rowIssues = dataRows.map((cells, index): CsvRowIssue | null => {
-    if (quoteErrors.has(index + 1)) {
+    if (quoteErrors.has(index + headerIndex + 1)) {
       return "malformed_quotes";
     }
     return cells.slice(headers.length).some((cell) => cell.trim() !== "")

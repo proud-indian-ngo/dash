@@ -18,6 +18,7 @@ import { useQuery } from "@rocicorp/zero/react";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
 
+import { SettlementInBank } from "@/components/income/bank/in-bank-fact";
 import { formatReceivedOn } from "@/components/income/contribution-detail-sheet";
 import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
 import { DetailsRow } from "@/components/shared/record-detail";
@@ -261,6 +262,9 @@ function SettlementBody({ settlement }: { settlement: SettlementDetail }) {
         </DetailsRow>
         <DetailsRow label="UTR">
           <span className="font-mono text-xs">{settlement.utr ?? "—"}</span>
+        </DetailsRow>
+        <DetailsRow label="In bank">
+          <SettlementInBank settlementId={settlement.id} />
         </DetailsRow>
         <DetailsRow label="Mode">
           {settlement.providerAccount === "test" ? "Test" : "Live"}

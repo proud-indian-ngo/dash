@@ -177,14 +177,15 @@ function isoIfValid(year: number, month: number, day: number): string | null {
  */
 export function parseDate(
   text: string,
-  format: ImportDateFormat
+  format: ImportDateFormat,
+  label = "Received on"
 ): { error: string } | { iso: string } {
   const value = text.trim().replace(TIME_SUFFIX, "");
   if (value === "") {
     return { error: "Date is missing" };
   }
   const invalid = {
-    error: `Received on is not a date; use ${DATE_FORMAT_LABELS[format]}`,
+    error: `${label} is not a date; use ${DATE_FORMAT_LABELS[format]}`,
   };
   let parts: [number, number, number] | null = null;
   const named = DAY_MONTH_NAME.exec(value);
@@ -205,8 +206,7 @@ export function parseDate(
     } else if (c.length === 4) {
       if (format === "ymd") {
         return {
-          error:
-            "Received on is not Year-Month-Day (2026-03-31); check the date format",
+          error: `${label} is not Year-Month-Day (2026-03-31); check the date format`,
         };
       }
       parts =
@@ -214,7 +214,7 @@ export function parseDate(
           ? [Number(c), Number(a), Number(b)]
           : [Number(c), Number(b), Number(a)];
     } else {
-      return { error: "Received on needs a four-digit year" };
+      return { error: `${label} needs a four-digit year` };
     }
   }
   if (!parts) {
@@ -569,7 +569,9 @@ export function maskIdentifier(idNumber: string): string | null {
   return idNumber.length >= 8 ? `••••${idNumber.slice(-4)}` : null;
 }
 
-// A PAN anywhere in a value, also in lower case or with spaces or hyphens inside.
+// A PAN anywhere in a value, also in lower case, with spaces or hyphens
+// inside, or glued to other letters and digits ("PANABCDE1234F"). Masking a
+// look-alike in display text is harmless; missing a PAN is not.
 const PAN_ANYWHERE = /[a-z]{5}[\s-]*\d{4}[\s-]*[a-z]/gi;
 // Twelve digits on their own, run together or in 4-4-4 groups split by a
 // space or hyphen: Aadhaar-shaped.

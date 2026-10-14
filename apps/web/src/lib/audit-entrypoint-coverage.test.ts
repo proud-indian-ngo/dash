@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const AUDITED_SERVER_FUNCTIONS = [
+  "createBankStatementImport",
   "createContributionImport",
   "createRole",
   "createSocialApiTokenFn",
@@ -12,13 +13,16 @@ const AUDITED_SERVER_FUNCTIONS = [
   "deleteTemporaryUpload",
   "deleteUserAdmin",
   "deleteVendor",
+  "findBankStatementMatches",
   "importPastRazorpayPayments",
   "postEventRsvpPoll",
   "resumeUserEmail",
   "revealPartyIdentifier",
   "revealVendorBankAccount",
   "revokeSocialApiTokenFn",
+  "reviewBankStatementImport",
   "reviewContributionImport",
+  "runBankStatementImport",
   "runContributionImport",
   "saveDonor",
   "saveVendor",
@@ -30,12 +34,14 @@ const AUDITED_SERVER_FUNCTIONS = [
   "triggerWhatsAppGroupScan",
   "updateRazorpaySettings",
   "updateRole",
+  "updateStatementLine",
   "updateUserAdmin",
   "uploadPhotoToImmich",
 ];
 
 const EXEMPT_SERVER_FUNCTIONS = [
   "archiveKalakritiGuardian",
+  "getBankStatementSummary",
   "getContributionImport",
   "getContributionSettlementLock",
   "getEventEditorUploadUrl",
@@ -48,6 +54,7 @@ const EXEMPT_SERVER_FUNCTIONS = [
   "getRequestUploadUrl",
   "getScheduledMessageUploadUrl",
   "getSettlementSummary",
+  "getStatementLinkCandidates",
   "getUserEmailSuppression",
   "getVendorDetails",
   "inviteKalakritiGuardian",

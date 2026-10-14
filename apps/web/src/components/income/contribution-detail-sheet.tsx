@@ -32,6 +32,7 @@ import { useApp } from "@/context/app-context";
 import { DATE, DATE_TIME } from "@/lib/date-formats";
 import { epochToLocalDate } from "@/lib/local-date";
 
+import { ContributionInBank } from "./bank/in-bank-fact";
 import {
   ContributionStatusBadge,
   refundedOfLabel,
@@ -204,6 +205,16 @@ export function ContributionDetailSheet({
     ["Programme", row.programme?.name ?? "—"],
     ["Project", row.project?.name ?? "—"],
     ["Reference", row.reference ?? "—"],
+    // Money deposited straight into a bank account: the statement line.
+    ...(seesSettlements &&
+    ["upi", "neft", "cheque", "cash"].includes(row.channel ?? "")
+      ? ([
+          [
+            "In bank",
+            <ContributionInBank contributionId={row.id} key="in-bank" />,
+          ],
+        ] as [string, ReactNode][])
+      : []),
     // Razorpay gifts only: when Razorpay paid it out to the bank.
     ...(razorpayUrl && seesSettlements
       ? ([

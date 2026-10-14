@@ -400,6 +400,19 @@ describe("maskIdentifiers", () => {
     expect(maskIdentifiers("UTR 123456")).toBe("UTR 123456");
   });
 
+  it("masks a PAN glued to other letters and digits", () => {
+    for (const text of [
+      "PANABCDE1234F",
+      "ASHAKABCDE1234F",
+      "ABCDE1234F1",
+      "1ABCDE1234F",
+      "NEFT-ABCDE1234FREF",
+    ]) {
+      expect(maskIdentifiers(text)).not.toContain("ABCDE1234F");
+      expect(maskIdentifiers(text)).toContain("••••");
+    }
+  });
+
   it("masks Aadhaar-shaped runs of twelve digits", () => {
     expect(maskIdentifiers("1234 5678 9012")).toBe("••••9012");
     expect(maskIdentifiers("id 1234-5678-9012.")).toBe("id ••••9012.");

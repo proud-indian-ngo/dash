@@ -1,4 +1,9 @@
-import { PencilEdit01Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import {
+  BankIcon,
+  MoreHorizontalIcon,
+  PencilEdit01Icon,
+  PlusSignIcon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
@@ -16,6 +21,7 @@ import { queries } from "@pi-dash/zero/queries";
 import type { OrgAccount } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
+import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
@@ -29,6 +35,7 @@ import {
   SettingsCard,
   SettingsListItem,
 } from "@/components/settings/settings-ui";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { useApp } from "@/context/app-context";
 import { reportMutationResult } from "@/lib/report-mutation-result";
 
@@ -167,24 +174,47 @@ function OrgAccountRow({
   canManage: boolean;
   onEdit: (account: OrgAccount) => void;
 }) {
+  const navigate = useNavigate();
   const handleEdit = useEventCallback(() => onEdit(account));
+  const openStatements = useEventCallback(() =>
+    navigate({ search: { account: account.id }, to: "/income/bank" })
+  );
+  const isBank = account.kind === "bank";
   return (
     <SettingsListItem
       actions={
-        canManage ? (
-          <Button
-            aria-label={`Edit ${account.name}`}
-            onClick={handleEdit}
-            size="icon-sm"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4"
-              icon={PencilEdit01Icon}
-              strokeWidth={2}
-            />
-          </Button>
+        canManage || isBank ? (
+          <ResponsiveActionMenu
+            actions={[
+              canManage && {
+                icon: PencilEdit01Icon,
+                id: "edit",
+                label: "Edit",
+                onSelect: handleEdit,
+              },
+              isBank && {
+                icon: BankIcon,
+                id: "bank-statements",
+                label: "Bank statements",
+                onSelect: openStatements,
+              },
+            ]}
+            title={account.name}
+            trigger={
+              <Button
+                aria-label={`Actions for ${account.name}`}
+                size="icon-sm"
+                type="button"
+                variant="ghost"
+              >
+                <HugeiconsIcon
+                  className="size-4"
+                  icon={MoreHorizontalIcon}
+                  strokeWidth={2}
+                />
+              </Button>
+            }
+          />
         ) : null
       }
       detail={accountDetail(account)}

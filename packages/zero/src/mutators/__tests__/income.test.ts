@@ -440,7 +440,9 @@ describe("contribution mutators", () => {
       notes: "Recurring",
       programmeId: "prog-edu",
     });
-    expect(db.locks[0]).toContain("for update");
+    // The statement line lock first, then the contribution row.
+    expect(db.locks[0]).toContain("statement-line-match");
+    expect(db.locks[1]).toContain("for update");
 
     for (const change of [
       { amountPaise: 400_000 },
@@ -612,5 +614,129 @@ describe("other income mutators", () => {
         income({ orgAccountId: "acc-old" })
       )
     ).rejects.toThrow("Account is not active");
+  });
+});
+
+describe("recording a donation from a bank statement line", () => {
+  const bothCtx = {
+    permissions: ["donors.manage", "finance.manage"],
+    role: "finance_admin",
+    userId: "fin-1",
+  };
+  const statementLine = (overrides: Row = {}): Row => ({
+    amountPaise: 500_000,
+    direction: "credit",
+    id: "line-1",
+    matchStatus: "unmatched",
+    orgAccountId: "acc-1",
+    ...overrides,
+  });
+
+  it("needs finance.manage as well as donors.manage", async () => {
+    const db = createDb({ statementLine: [statementLine()] });
+    await expect(
+      run(
+        contributionMutators.create,
+        db,
+        donorsCtx,
+        contribution({ statementLineId: "line-1" })
+      )
+    ).rejects.toThrow("Unauthorized");
+    expect(db.writes).toEqual([]);
+  });
+
+  it("matches the line to the new contribution in the same transaction", async () => {
+    const db = createDb({ statementLine: [statementLine()] });
+    await run(
+      contributionMutators.create,
+      db,
+      bothCtx,
+      contribution({ statementLineId: "line-1" })
+    );
+    expect(db.writes.map((w) => w.table)).toEqual([
+      "contribution",
+      "statementLine",
+    ]);
+    expect(db.tables.statementLine?.[0]).toMatchObject({
+      matchedBy: "fin-1",
+      matchedContributionId: "c-1",
+      matchKind: "contribution",
+      matchReason: "manual",
+      matchStatus: "matched",
+    });
+    expect(db.locks.some((lock) => lock.includes("statement-line-match"))).toBe(
+      true
+    );
+  });
+
+  it("refuses another amount or account, a matched line or a gateway channel", async () => {
+    for (const [line, args] of [
+      [statementLine({ amountPaise: 1 }), {}],
+      [statementLine({ orgAccountId: "acc-old" }), {}],
+      [statementLine({ matchStatus: "matched" }), {}],
+      [statementLine({ direction: "debit" }), {}],
+      [statementLine(), { channel: "razorpay" }],
+    ] as [Row, Row][]) {
+      const db = createDb({ statementLine: [line] });
+      await expect(
+        run(
+          contributionMutators.create,
+          db,
+          bothCtx,
+          contribution({ statementLineId: "line-1", ...args })
+        )
+      ).rejects.toThrow();
+      expect(db.writes).toEqual([]);
+    }
+  });
+
+  it("keeps a matched contribution from being deleted or changing amount", async () => {
+    const seed = {
+      contribution: [{ ...contribution(), status: "received" }],
+      statementLine: [
+        statementLine({
+          matchedContributionId: "c-1",
+          matchStatus: "matched",
+        }),
+      ],
+    };
+    const db = createDb(seed);
+    await expect(
+      run(contributionMutators.delete, db, donorsCtx, { id: "c-1" })
+    ).rejects.toThrow("Unmatch the line first");
+    await expect(
+      run(
+        contributionMutators.update,
+        db,
+        donorsCtx,
+        contribution({ amountPaise: 600_000 })
+      )
+    ).rejects.toThrow("Unmatch the line first");
+    await expect(
+      run(
+        contributionMutators.update,
+        db,
+        donorsCtx,
+        contribution({ channel: "razorpay" })
+      )
+    ).rejects.toThrow("Unmatch the line first");
+    // The statement line lock comes before the contribution row lock, as
+    // matching takes them, so the two never deadlock.
+    const order = db.locks.map((lock) =>
+      lock.includes("statement-line-match")
+        ? "lines"
+        : lock.includes("for update")
+          ? "row"
+          : "other"
+    );
+    expect(order.slice(0, 2)).toEqual(["lines", "row"]);
+    // Other fields still change.
+    await run(
+      contributionMutators.update,
+      db,
+      donorsCtx,
+      contribution({ notes: "thanks" })
+    );
+    expect(db.writes.at(-1)?.table).toBe("contribution");
   });
 });

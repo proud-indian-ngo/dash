@@ -130,6 +130,8 @@ const COLLECTION_BY_SOURCE: Record<
   ImportBatchSource,
   { channel: string; note: string }
 > = {
+  // Never used: statement lines create no donors.
+  bank_csv: { channel: "bank_csv", note: GENERIC_CSV_COLLECTION_NOTE },
   generic_csv: { channel: "generic_csv", note: GENERIC_CSV_COLLECTION_NOTE },
   give_do_csv: { channel: "give_do_csv", note: GIVE_DO_COLLECTION_NOTE },
   razorpay_api: {
@@ -648,7 +650,7 @@ function toReviewResponse(
 
 async function requireBatch(batchId: string): Promise<ImportBatchRow> {
   const batch = await getImportBatch(batchId);
-  if (!batch) {
+  if (!batch || batch.source === "bank_csv") {
     throw new ImportInputError("Import not found");
   }
   if (batch.status === "expired") {
@@ -770,6 +772,11 @@ async function loadBatchDetail(
   const batch = await getImportBatch(batchId);
   if (!batch) {
     throw new ImportInputError("Import not found");
+  }
+  if (batch.source === "bank_csv") {
+    throw new ImportInputError(
+      "This is a bank statement; open it from Bank statements"
+    );
   }
   const records = await listImportRows(batch.id);
   const withRaw = records.filter((r) => r.raw);

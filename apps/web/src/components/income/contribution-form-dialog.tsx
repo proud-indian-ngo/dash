@@ -69,6 +69,10 @@ const channelOptions = enumOptions(
   contributionChannelValues,
   CONTRIBUTION_CHANNEL_LABELS
 );
+/** A bank statement credit came by UPI, NEFT, cheque or cash. */
+const directChannelOptions = channelOptions.filter((option) =>
+  ["upi", "neft", "cheque", "cash"].includes(option.value)
+);
 const reportingModeOptions = enumOptions(
   contributionReportingModeValues,
   REPORTING_MODE_LABELS
@@ -126,6 +130,40 @@ const formSchema = z
   });
 
 type FormValues = z.input<typeof formSchema>;
+
+/**
+ * A bank statement credit a donation is recorded from: its amount, account,
+ * date, a channel guessed from the narration, and its reference. Saving
+ * matches the line to the new contribution in the same transaction.
+ */
+export interface StatementLinePrefill {
+  amountPaise: number;
+  channel: ContributionChannel;
+  id: string;
+  orgAccountId: string;
+  reference: string | null;
+  /** The reference was read from the narration, so it is only a suggestion. */
+  referenceFromNarration: boolean;
+  /** yyyy-MM-dd */
+  valueOn: string;
+}
+
+function valuesFromLine(
+  fundId: string | undefined,
+  line: StatementLinePrefill
+): FormValues {
+  return {
+    ...emptyValues(fundId, null),
+    amount: paiseToRupeesInput(line.amountPaise),
+    channel: line.channel,
+    orgAccountId: line.orgAccountId,
+    receivedOn: new Date(`${line.valueOn}T00:00:00`),
+    reference: line.reference ?? "",
+    reportingMode: defaultReportingMode(
+      line.channel
+    ) as ContributionReportingMode,
+  };
+}
 
 /** Kept by "Save and record another" so a batch of gifts is quick to enter. */
 export interface CarriedValues {
@@ -259,11 +297,13 @@ function usePickerOptions(row: ContributionRow | null) {
 function ContributionForm({
   carried,
   contribution,
+  fromLine,
   onOpenChange,
   onRecordAnother,
 }: {
   carried: CarriedValues | null;
   contribution: ContributionRow | null;
+  fromLine: StatementLinePrefill | null;
   onOpenChange: (open: boolean) => void;
   onRecordAnother: (carried: CarriedValues) => void;
 }) {
@@ -296,7 +336,9 @@ function ContributionForm({
   const form = useForm({
     defaultValues: contribution
       ? valuesFor(contribution)
-      : emptyValues(defaultFundId, carried),
+      : fromLine
+        ? valuesFromLine(defaultFundId, fromLine)
+        : emptyValues(defaultFundId, carried),
     listeners: {
       onChange: ({ fieldApi, formApi }) => {
         if (fieldApi.name === "channel") {
@@ -316,14 +358,21 @@ function ContributionForm({
       const args = toMutatorArgs(id, value);
       const mutation = isEdit
         ? mutators.contribution.update(args)
-        : mutators.contribution.create(args);
+        : mutators.contribution.create({
+            ...args,
+            statementLineId: fromLine?.id ?? null,
+          });
       const res = await zero.mutate(mutation).server;
       handleMutationResult(res, {
         entityId: id,
         errorMsg: "Couldn't save contribution",
         mutation: isEdit ? "contribution.update" : "contribution.create",
         showErrorToast: false,
-        successMsg: isEdit ? "Contribution updated" : "Contribution recorded",
+        successMsg: isEdit
+          ? "Contribution updated"
+          : fromLine
+            ? "Donation recorded and matched to the bank line"
+            : "Contribution recorded",
       });
       if (res.type === "error") {
         toast.error("Couldn't save contribution", {
@@ -389,7 +438,8 @@ function ContributionForm({
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <InputField
-            disabled={refundLocked}
+            description={fromLine ? "From the bank line." : undefined}
+            disabled={refundLocked || fromLine !== null}
             isRequired
             label="Amount (₹)"
             name="amount"
@@ -406,7 +456,7 @@ function ContributionForm({
             isRequired
             label="Channel"
             name="channel"
-            options={channelOptions}
+            options={fromLine ? directChannelOptions : channelOptions}
           />
           <SelectField
             description="Filled in from the channel; change it if the donation statement needs another mode."
@@ -449,7 +499,8 @@ function ContributionForm({
                 </>
               ) : (
                 <ComboboxField
-                  disabled={refundLocked}
+                  description={fromLine ? "From the bank line." : undefined}
+                  disabled={refundLocked || fromLine !== null}
                   emptyMessage="No active accounts."
                   isRequired
                   label="Deposited into"
@@ -501,7 +552,11 @@ function ContributionForm({
         <FormSectionHeading>Reference</FormSectionHeading>
         <div className="grid gap-4">
           <InputField
-            description="UTR, cheque number or gateway payment ID."
+            description={
+              fromLine?.referenceFromNarration
+                ? "Read from the bank's narration, so it may be wrong: clear it if it isn't this payment's UTR or reference."
+                : "UTR, cheque number or gateway payment ID."
+            }
             label="Reference"
             name="reference"
           />
@@ -523,7 +578,7 @@ function ContributionForm({
               >
                 Cancel
               </Button>
-              {isEdit ? null : (
+              {isEdit || fromLine ? null : (
                 <Button
                   disabled={isSubmitting}
                   onClick={saveAndAnother}
@@ -559,10 +614,13 @@ function ContributionForm({
 
 export function ContributionFormDialog({
   contribution,
+  fromLine = null,
   onOpenChange,
   open,
 }: {
   contribution: ContributionRow | null;
+  /** Record a donation from this bank statement credit, and match the line. */
+  fromLine?: StatementLinePrefill | null;
   onOpenChange: (open: boolean) => void;
   open: boolean;
 }) {
@@ -587,7 +645,11 @@ export function ContributionFormDialog({
       <DialogContent className="sm:max-w-(--dialog-lg)">
         <DialogHeader>
           <DialogTitle>
-            {isEdit ? "Edit contribution" : "Record contribution"}
+            {isEdit
+              ? "Edit contribution"
+              : fromLine
+                ? "Record donation from bank line"
+                : "Record contribution"}
           </DialogTitle>
           <DialogDescription className="sr-only">
             {isEdit
@@ -599,7 +661,8 @@ export function ContributionFormDialog({
           <ContributionForm
             carried={carried}
             contribution={contribution}
-            key={`${contribution?.id ?? "new"}-${formKey}`}
+            fromLine={fromLine}
+            key={`${contribution?.id ?? fromLine?.id ?? "new"}-${formKey}`}
             onOpenChange={handleOpenChange}
             onRecordAnother={handleRecordAnother}
           />

@@ -41,6 +41,8 @@ export interface RowIdentity {
 
 const PROVIDER_BY_SOURCE: Record<ImportBatchSource, ExternalIdentityProvider> =
   {
+    // Never used: statement lines are identified by their line hash.
+    bank_csv: "generic",
     generic_csv: "generic",
     give_do_csv: "give_do",
     razorpay_api: "razorpay",
