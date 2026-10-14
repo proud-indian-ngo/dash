@@ -1,4 +1,5 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { FieldDescription } from "@pi-dash/design-system/components/ui/field";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { getRefCurrent } from "@pi-dash/design-system/hooks/get-ref-current";
@@ -192,6 +193,7 @@ export function ApproveDialog({
     (event: React.ChangeEvent<HTMLTextAreaElement>) =>
       setMessage(event.target.value)
   );
+  const missingScreenshot = !(hideScreenshot || screenshotKey);
   let actionLabel = "Approve";
   if (uploading) {
     actionLabel = "Uploading…";
@@ -205,8 +207,9 @@ export function ApproveDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Approve {entityLabel}?</AlertDialogTitle>
           <AlertDialogDescription>
-            This action will approve the {entityLabel} and notify the submitter.
-            You can optionally add a message and payment proof.
+            {hideScreenshot
+              ? `This action will approve the ${entityLabel} and notify the submitter. You can optionally add a message.`
+              : `Approve only after the claimant has been paid. This will approve the ${entityLabel} and notify the submitter.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="flex flex-col gap-2">
@@ -222,12 +225,16 @@ export function ApproveDialog({
         {hideScreenshot ? null : (
           <div className="flex flex-col gap-2">
             <Label htmlFor="approval-screenshot">
-              Payment proof (optional)
+              Payment screenshot
+              <span aria-hidden="true" className="text-destructive">
+                {" "}
+                *
+              </span>
             </Label>
             {previewUrl ? (
               <div className="flex items-start gap-3">
                 <img
-                  alt="Payment proof preview"
+                  alt="Payment screenshot preview"
                   className="h-20 w-20 rounded-md border object-cover"
                   height={80}
                   src={previewUrl}
@@ -245,6 +252,8 @@ export function ApproveDialog({
             ) : (
               <input
                 accept="image/jpeg,image/png,image/webp"
+                aria-describedby="approval-screenshot-description"
+                aria-required
                 className="file:bg-muted text-sm file:mr-2 file:rounded-md file:border-0 file:px-3 file:py-1.5 file:text-sm file:font-medium"
                 disabled={uploading}
                 id="approval-screenshot"
@@ -253,6 +262,9 @@ export function ApproveDialog({
                 type="file"
               />
             )}
+            <FieldDescription id="approval-screenshot-description">
+              Attach the screenshot of the payment to the claimant
+            </FieldDescription>
           </div>
         )}
         <AlertDialogFooter>
@@ -260,7 +272,7 @@ export function ApproveDialog({
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction
-            disabled={uploading || submitting}
+            disabled={uploading || submitting || missingScreenshot}
             onClick={stableOnClick2}
           >
             {actionLabel}

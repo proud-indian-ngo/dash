@@ -1,3 +1,7 @@
+import { execFile } from "node:child_process";
+import path from "node:path";
+import { promisify } from "node:util";
+
 import { expect, type Page } from "@playwright/test";
 
 import { waitForZeroReady } from "../fixtures/test";
@@ -10,6 +14,13 @@ import { RequestFormPage } from "./request-form-page";
 type RequestType = "reimbursement" | "advance_payment";
 const reimbursementDetailUrlPattern =
   /\/reimbursements\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+const execFileAsync = promisify(execFile);
+const REQUEST_APPROVAL_SCRIPT = path.resolve(
+  import.meta.dirname,
+  "../helpers/request-approval.ts"
+);
+const REQUEST_ID_PATTERN = /\/reimbursements\/([0-9a-f-]{36})$/;
 
 export class ReimbursementPage {
   readonly page: Page;
@@ -60,6 +71,36 @@ export class ReimbursementPage {
     await waitForZeroReady(this.page);
     await expect(this.page.getByRole("heading", { name: title })).toBeVisible({
       timeout: 30_000,
+    });
+  }
+
+  currentRequestId(): string {
+    const id = REQUEST_ID_PATTERN.exec(new URL(this.page.url()).pathname)?.[1];
+    if (!id) {
+      throw new Error(`Not on a request detail page: ${this.page.url()}`);
+    }
+    return id;
+  }
+
+  /**
+   * Marks the open request approved in the database, for specs that need an
+   * approved request but not the approval itself. Approving in the app needs
+   * the payment screenshot promoted in R2, which CI does not have.
+   */
+  async approveInDatabase(): Promise<void> {
+    await execFileAsync(
+      "bun",
+      [
+        "run",
+        REQUEST_APPROVAL_SCRIPT,
+        "approve",
+        this.type === "reimbursement" ? "reimbursement" : "advance-payment",
+        this.currentRequestId(),
+      ],
+      { env: process.env }
+    );
+    await expect(this.detail.getStatusBadge("Approved")).toBeVisible({
+      timeout: 15_000,
     });
   }
 

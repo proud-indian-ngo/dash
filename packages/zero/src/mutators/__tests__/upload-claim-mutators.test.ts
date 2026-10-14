@@ -891,3 +891,103 @@ describe("server mutator upload claims", () => {
     );
   });
 });
+
+describe("approval screenshot requirement", () => {
+  const cases = [
+    {
+      entity: "reimbursement",
+      mutators: reimbursementMutators,
+      tableName: "reimbursement",
+    },
+    {
+      entity: "advance payment",
+      mutators: advancePaymentMutators,
+      tableName: "advancePayment",
+    },
+  ] as const;
+
+  const pendingTx = (tableName: string, update = mock()) => ({
+    location: "server",
+    mutate: {
+      [tableName]: { update },
+      [`${tableName}History`]: { insert: mock() },
+    },
+    run: mock()
+      .mockResolvedValueOnce({
+        approvalScreenshotKey: null,
+        status: "pending",
+        title: "Travel",
+        userId: "owner-1",
+      })
+      .mockResolvedValueOnce([]),
+  });
+
+  for (const { entity, mutators, tableName } of cases) {
+    it(`rejects approving a ${entity} without a payment screenshot`, async () => {
+      const update = mock();
+      const ctx = serverContext(["requests.approve"]);
+
+      await expect(
+        mutators.approve.fn({
+          args: { id: "request-1" },
+          ctx,
+          tx: pendingTx(tableName, update),
+        } as never)
+      ).rejects.toThrow("Attach the payment screenshot to approve");
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it(`rejects approving a ${entity} with an empty screenshot key`, async () => {
+      const update = mock();
+      const ctx = serverContext(["requests.approve"]);
+
+      await expect(
+        mutators.approve.fn({
+          args: { approvalScreenshotKey: "", id: "request-1" },
+          ctx,
+          tx: pendingTx(tableName, update),
+        } as never)
+      ).rejects.toThrow("Attach the payment screenshot to approve");
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it(`approves a ${entity} with a newly uploaded payment screenshot`, async () => {
+      const update = mock();
+      const ctx = serverContext(["requests.approve"]);
+
+      await mutators.approve.fn({
+        args: {
+          approvalScreenshotKey:
+            "app/approval-screenshots/tmp/user-1/upload-id-proof.png",
+          id: "request-1",
+        },
+        ctx,
+        tx: pendingTx(tableName, update),
+      } as never);
+
+      expect(update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          approvalScreenshotKey: expect.stringContaining(
+            "/request-1/approval-screenshots/upload-id-proof.png"
+          ),
+          status: "approved",
+        })
+      );
+    });
+
+    it(`rejects a ${entity} without a payment screenshot`, async () => {
+      const update = mock();
+      const ctx = serverContext(["requests.approve"]);
+
+      await mutators.reject.fn({
+        args: { id: "request-1", reason: "Missing bill" },
+        ctx,
+        tx: pendingTx(tableName, update),
+      } as never);
+
+      expect(update).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "request-1", status: "rejected" })
+      );
+    });
+  }
+});

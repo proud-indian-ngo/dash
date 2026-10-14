@@ -34,6 +34,13 @@ Protected temp subfolders: `attachments`, `approval-screenshots`, `kalakriti-inv
 `photos`, `scheduled-messages`. Avatar and editor uploads remain dedicated durable
 signers under `avatars` and `updates`.
 
+Approving a reimbursement or advance payment requires a payment screenshot:
+approval is given only after the claimant has been paid, and the screenshot is
+the payment evidence. The `approve` mutators reject the transition to approved
+unless the call carries a newly uploaded `approval-screenshots` key or the
+record already holds one. Rejecting, resetting and editing do not need it, and
+requests approved before the rule keep their missing screenshot.
+
 Vendor-payment invoice signing accepts the payment ID only to authorize the
 payment owner or a user with `requests.approve` or `requests.edit_all`; the
 generated key remains under the current user's `attachments/tmp/` prefix.
