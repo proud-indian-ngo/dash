@@ -112,6 +112,15 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     { expireInSeconds: 600, retryLimit: 2, tz: IST_TIMEZONE }
   );
 
+  // Daily at midnight IST — expire interest requests still pending when their
+  // event started (no notifications)
+  await boss.schedule(
+    "expire-event-interests",
+    "0 0 * * *",
+    {},
+    { expireInSeconds: 600, retryLimit: 2, tz: IST_TIMEZONE }
+  );
+
   // Monday at 7:00 AM IST — weekly upcoming events digest
   await boss.schedule(
     "send-weekly-events-digest",

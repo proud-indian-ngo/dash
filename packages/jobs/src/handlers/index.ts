@@ -9,6 +9,7 @@ import { handleCloseRsvpPollOnCancel } from "./close-rsvp-poll-on-cancel";
 import { withDefaultOutput } from "./create-handler";
 import { handleDeleteR2Object } from "./delete-r2-object";
 import { handleEnsureFiscalYears } from "./ensure-fiscal-years";
+import { handleExpireEventInterests } from "./expire-event-interests";
 import { handleExpireImportRows } from "./expire-import-rows";
 import { handleGenerateCashVoucher } from "./generate-cash-voucher";
 import { handleImmichDeleteAlbum } from "./immich-delete-album";
@@ -525,6 +526,11 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "close-expired-rsvp-polls",
     NOTIFY_POLL,
     withDefaultOutput(handleCloseExpiredRsvpPolls)
+  );
+  await boss.work(
+    "expire-event-interests",
+    NOTIFY_POLL,
+    withDefaultOutput((jobs) => handleExpireEventInterests(jobs))
   );
   await boss.work(
     "close-rsvp-poll-on-cancel",

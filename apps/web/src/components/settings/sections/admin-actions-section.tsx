@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { SettingsCard, SettingsRow } from "@/components/settings/settings-ui";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import {
+  triggerEventInterestExpiry,
   triggerR2Cleanup,
   triggerWhatsAppGroupScan,
 } from "@/functions/admin-actions";
@@ -16,11 +17,14 @@ import { getErrorMessage } from "@/lib/errors";
 export function AdminActionsSection() {
   const scanWhatsAppGroups = useServerFn(triggerWhatsAppGroupScan);
   const r2Cleanup = useServerFn(triggerR2Cleanup);
+  const expireInterests = useServerFn(triggerEventInterestExpiry);
 
   const [scanningGroups, setScanningGroups] = useState(false);
   const [scanConfirmOpen, setScanConfirmOpen] = useState(false);
   const [r2CleanupConfirmOpen, setR2CleanupConfirmOpen] = useState(false);
   const [r2Cleaning, setR2Cleaning] = useState(false);
+  const [expiringInterests, setExpiringInterests] = useState(false);
+  const [expiryConfirmOpen, setExpiryConfirmOpen] = useState(false);
 
   const handleScanGroups = useEventCallback(async () => {
     setScanningGroups(true);
@@ -78,6 +82,25 @@ export function AdminActionsSection() {
       setR2CleanupConfirmOpen(false);
     }
   });
+  const handleExpireInterests = useEventCallback(async () => {
+    setExpiringInterests(true);
+    try {
+      await expireInterests();
+      toast.success("Expiry started — check the Jobs page for the count");
+    } catch (error) {
+      log.error({
+        action: "triggerEventInterestExpiry",
+        component: "AdminActionsSection",
+        error: getErrorMessage(error),
+      });
+      toast.error("Couldn't start expiry");
+    } finally {
+      setExpiringInterests(false);
+      setExpiryConfirmOpen(false);
+    }
+  });
+  const openExpiryConfirm = useEventCallback(() => setExpiryConfirmOpen(true));
+
   const stableOnClick1 = useEventCallback(() => setR2CleanupConfirmOpen(true));
 
   const openScanConfirm = useEventCallback(() => setScanConfirmOpen(true));
@@ -119,7 +142,31 @@ export function AdminActionsSection() {
             Clean up
           </Button>
         </SettingsRow>
+        <SettingsRow
+          description="Close interest requests still pending for events that have started. Volunteers see them as not reviewed. Runs every night at midnight."
+          title="Expire interest requests"
+        >
+          <Button
+            disabled={expiringInterests}
+            onClick={openExpiryConfirm}
+            size="sm"
+            variant="outline"
+          >
+            {expiringInterests ? "Starting..." : "Run now"}
+          </Button>
+        </SettingsRow>
       </SettingsCard>
+
+      <ConfirmDialog
+        confirmLabel="Expire requests"
+        description="Every interest request still pending for an event that has started will be marked not reviewed. Leads can no longer approve them. No one is notified."
+        loading={expiringInterests}
+        loadingLabel="Starting..."
+        onConfirm={handleExpireInterests}
+        onOpenChange={setExpiryConfirmOpen}
+        open={expiryConfirmOpen}
+        title="Expire pending interest requests?"
+      />
 
       <ConfirmDialog
         confirmLabel="Scan now"

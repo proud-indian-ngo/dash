@@ -113,6 +113,75 @@ describe("event interest status transitions", () => {
   });
 });
 
+describe("expired event interest", () => {
+  const expired = {
+    eventId: "event-1",
+    id: "interest-1",
+    status: "expired",
+    userId: "volunteer-1",
+  };
+  const manager = {
+    permissions: ["events.manage_interest"],
+    role: "admin",
+    userId: "admin-1",
+  };
+
+  function txReturning(interest: typeof expired) {
+    const update = mock();
+    const remove = mock();
+    const tx = {
+      location: "server",
+      mutate: {
+        eventInterest: { delete: remove, update },
+        teamEventMember: { insert: mock() },
+      },
+      run: mock(async () => interest),
+    };
+    return { remove, tx, update };
+  }
+
+  it("cannot be approved", async () => {
+    const { tx, update } = txReturning(expired);
+    await expect(
+      eventInterestMutators.approve.fn({
+        args: { id: "interest-1", now: 1_700_000_000_000 },
+        ctx: manager,
+        tx,
+      } as unknown as Parameters<typeof eventInterestMutators.approve.fn>[0])
+    ).rejects.toThrow("Interest is not pending");
+    expect(update).not.toHaveBeenCalled();
+    expect(tx.mutate.teamEventMember.insert).not.toHaveBeenCalled();
+  });
+
+  it("cannot be rejected", async () => {
+    const { tx, update } = txReturning(expired);
+    await expect(
+      eventInterestMutators.reject.fn({
+        args: { id: "interest-1", now: 1_700_000_000_000 },
+        ctx: manager,
+        tx,
+      } as unknown as Parameters<typeof eventInterestMutators.reject.fn>[0])
+    ).rejects.toThrow("Interest is not pending");
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("cannot be cancelled by the volunteer", async () => {
+    const { remove, tx } = txReturning(expired);
+    await expect(
+      eventInterestMutators.cancel.fn({
+        args: { id: "interest-1" },
+        ctx: {
+          permissions: ["events.view_own"],
+          role: "volunteer",
+          userId: "volunteer-1",
+        },
+        tx,
+      } as unknown as Parameters<typeof eventInterestMutators.cancel.fn>[0])
+    ).rejects.toThrow("Only pending interests can be cancelled");
+    expect(remove).not.toHaveBeenCalled();
+  });
+});
+
 describe("Kalakriti event interest", () => {
   it("accepts interest in a public Kalakriti event", async () => {
     const insertInterest = mock();

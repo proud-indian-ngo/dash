@@ -13,6 +13,8 @@ import { InterestRequests } from "./interest-requests";
 
 const interestStatusMap = {
   approved: { label: "Interest approved", tone: "success" },
+  // Closed by the daily job: the event started before anyone reviewed it.
+  expired: { label: "Not reviewed", tone: "neutral" },
   pending: { label: "Interest pending", tone: "warning" },
   rejected: { label: "Interest declined", tone: "danger" },
 } as const satisfies Record<string, { label: string; tone: StatusTone }>;

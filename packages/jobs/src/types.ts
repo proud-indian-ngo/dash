@@ -69,6 +69,9 @@ export interface NotifyReimbursementRejectedPayload {
   title: string;
 }
 
+// Event interest lifecycle
+export type ExpireEventInterestsPayload = Record<string, never>;
+
 // RSVP Poll Lifecycle
 export interface CloseExpiredRsvpPollsPayload {
   triggeredAt: string;
@@ -565,6 +568,7 @@ export interface JobPayloads {
   "close-rsvp-poll-on-cancel": CloseRsvpPollOnCancelPayload;
   "delete-r2-object": DeleteR2ObjectPayload;
   "ensure-fiscal-years": Record<string, never>;
+  "expire-event-interests": ExpireEventInterestsPayload;
   "expire-import-rows": Record<string, never>;
   "generate-cash-voucher": GenerateCashVoucherPayload;
   "immich-delete-album": ImmichDeleteAlbumPayload;

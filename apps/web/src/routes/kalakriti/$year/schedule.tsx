@@ -23,7 +23,10 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
-import { ScheduleAction } from "@/components/kalakriti/public-schedule/schedule-action";
+import {
+  ScheduleAction,
+  scheduleActionKind,
+} from "@/components/kalakriti/public-schedule/schedule-action";
 import { ScheduleItem } from "@/components/kalakriti/public-schedule/schedule-item";
 import { ScheduleNotFound } from "@/components/kalakriti/public-schedule/schedule-not-found";
 import { getKalakritiEditionAccess } from "@/functions/kalakriti-access";
@@ -60,6 +63,7 @@ export const Route = createFileRoute("/kalakriti/$year/schedule")({
     return {
       publicSchedule: schedule,
       scheduleViewer: {
+        interestClosed: schedule.interestClosed,
         hasKalakritiAccess: Boolean(access),
         isAuthenticated: Boolean(session),
       },
@@ -87,6 +91,7 @@ function formatEventDate(eventDate: string) {
 function PublicSchedulePage() {
   const { publicSchedule: schedule, scheduleViewer } = Route.useRouteContext();
   const { edition, sessions } = schedule;
+  const actionKind = scheduleActionKind(scheduleViewer);
   const timeFormatter = useMemo(
     () =>
       new Intl.DateTimeFormat("en-IN", {
@@ -126,12 +131,13 @@ function PublicSchedulePage() {
         <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 sm:py-14">
           <KalakritiPageHeader
             actions={
-              <ScheduleAction
-                eventId={edition.eventId}
-                hasKalakritiAccess={scheduleViewer.hasKalakritiAccess}
-                isAuthenticated={scheduleViewer.isAuthenticated}
-                year={edition.year}
-              />
+              actionKind === "none" ? null : (
+                <ScheduleAction
+                  eventId={edition.eventId}
+                  kind={actionKind}
+                  year={edition.year}
+                />
+              )
             }
             kicker="Public schedule"
             meta={

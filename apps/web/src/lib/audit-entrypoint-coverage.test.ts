@@ -23,6 +23,7 @@ const AUDITED_SERVER_FUNCTIONS = [
   "saveVendor",
   "setUserBanAdmin",
   "setUserPasswordAdmin",
+  "triggerEventInterestExpiry",
   "triggerR2Cleanup",
   "triggerWhatsAppGroupScan",
   "updateRazorpaySettings",
