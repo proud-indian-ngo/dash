@@ -10,6 +10,7 @@ import {
   createRazorpayClient,
   type RazorpayClient,
   type ReconDay,
+  type ReconListing,
   type UnixWindow,
 } from "./api";
 import type { RazorpaySetup } from "./config";
@@ -66,10 +67,14 @@ export function reconDayOf(day: string): ReconDay {
   };
 }
 
-const nextDay = (day: string) => {
+const shiftDay = (day: string, n: number) => {
   const { day: d, month, year } = reconDayOf(day);
-  return new Date(Date.UTC(year, month - 1, d + 1)).toISOString().slice(0, 10);
+  return new Date(Date.UTC(year, month - 1, d + n)).toISOString().slice(0, 10);
 };
+
+/** Whether a recon line is in a currency other than rupees, so it is not recorded. */
+const isForeign = (item: RazorpayReconItem) =>
+  Boolean(item.currency && item.currency.toUpperCase() !== "INR");
 
 /**
  * A recon line as a settlement line, or null when it is not one: not
@@ -83,7 +88,7 @@ export function toSettlementLine(
   if (item.settled === false || !item.settlement_id) {
     return null;
   }
-  if (item.currency && item.currency.toUpperCase() !== "INR") {
+  if (isForeign(item)) {
     return null;
   }
   const tax = item.tax ?? 0;
@@ -99,28 +104,43 @@ export function toSettlementLine(
   };
 }
 
+/**
+ * A settlement and the recon lines naming it, as pi-dash records them.
+ * Lines in another currency, and lines the recon returned in a shape
+ * pi-dash cannot read, are counted as unreadable. The settlement's own
+ * `fees` (an instant settlement's charge, GST included) is kept net of its
+ * `tax`; Razorpay reports 0 for a normal settlement, kept as none.
+ */
 export function toSettlementRecord(
   settlement: RazorpaySettlement,
-  items: readonly RazorpayReconItem[],
+  recon: Pick<ReconListing, "items" | "unreadableBySettlement">,
   mode: RazorpayMode
 ): SettlementToRecord {
   const lines: SettlementLineToRecord[] = [];
-  for (const item of items) {
-    if (item.settlement_id !== settlement.id) {
+  let unreadable = recon.unreadableBySettlement.get(settlement.id) ?? 0;
+  for (const item of recon.items) {
+    if (item.settlement_id !== settlement.id || item.settled === false) {
       continue;
     }
     const line = toSettlementLine(item, settlement.created_at);
     if (line) {
       lines.push(line);
+    } else if (isForeign(item)) {
+      unreadable += 1;
     }
   }
+  const fees = settlement.fees ?? 0;
+  const tax = settlement.tax ?? 0;
   return {
     amountPaise: settlement.amount,
     externalId: settlement.id,
     lines,
     mode,
     settledOn: istDayOf(settlement.created_at),
+    settlementFeePaise: fees > 0 ? Math.max(0, fees - tax) : null,
+    settlementTaxPaise: fees > 0 ? tax : null,
     status: settlement.status,
+    unreadableLines: unreadable,
     utr: settlement.utr ?? null,
   };
 }
@@ -130,13 +150,24 @@ export interface SettlementDeps {
   record: typeof recordRazorpaySettlement;
 }
 
+/**
+ * Records a settlement and adds it to the tally. A settlement already
+ * recorded earlier in the same run (listed on one day, its lines reported
+ * on the next) adds only the lines it linked, so it is counted once.
+ */
 async function recordInto(
   tally: SettlementTally,
   record: SettlementToRecord,
-  deps: SettlementDeps
+  deps: SettlementDeps,
+  seen: Set<string>
 ): Promise<void> {
   try {
     const result = await deps.record(record);
+    tally.linked += result.linked;
+    if (seen.has(record.externalId)) {
+      return;
+    }
+    seen.add(record.externalId);
     tally.found += 1;
     if (result.created) {
       tally.new += 1;
@@ -144,7 +175,6 @@ async function recordInto(
     if (result.amountChanged) {
       tally.changed += 1;
     }
-    tally.linked += result.linked;
     tally.unlinked += result.unlinked;
   } catch (error) {
     tally.errors += 1;
@@ -155,15 +185,17 @@ async function recordInto(
 /**
  * One India day of a reconcile run: the settlements created that day and
  * the lines settled that day, grouped by settlement. A settlement the
- * listing missed but the recon names is fetched by ID. Returns the tally
- * and the pages fetched; an API failure stops the run.
+ * listing missed but the recon names is fetched by ID. `seen` carries the
+ * settlements a run has already counted. Returns the tally and the pages
+ * fetched; an API failure stops the run.
  */
 export async function syncSettlementsForDay(
   day: string,
   window: UnixWindow,
   client: RazorpayClient,
   mode: RazorpayMode,
-  deps: SettlementDeps
+  deps: SettlementDeps,
+  seen: Set<string> = new Set()
 ): Promise<{ pages: number; tally: SettlementTally }> {
   const tally = emptySettlementTally();
   const listed = await client.listSettlements(window);
@@ -194,8 +226,9 @@ export async function syncSettlementsForDay(
   for (const settlement of settlements.values()) {
     await recordInto(
       tally,
-      toSettlementRecord(settlement, recon.items, mode),
-      deps
+      toSettlementRecord(settlement, recon, mode),
+      deps,
+      seen
     );
   }
   return { pages, tally };
@@ -226,12 +259,25 @@ const SINGLE_DEPS: SingleSettlementDeps = {
 };
 
 /**
+ * Thrown so pg-boss retries a processed settlement whose lines the recon
+ * does not list yet; recording it with none would say nothing was covered.
+ */
+export class SettlementLinesNotReadyError extends Error {
+  constructor() {
+    super("Razorpay's recon does not list the settlement's lines yet");
+    this.name = "SettlementLinesNotReadyError";
+  }
+}
+
+/**
  * The `razorpay-sync-settlement` job, queued by a `settlement.processed`
  * webhook: fetches the settlement, then the recon of the India day it was
- * settled (and of the next day when that day lists none of its lines,
- * since a settlement made just before midnight may be reported then), and
- * records it. Needs the key secret; a test key on a production server
- * records nothing.
+ * settled, and when that lists none of its lines the next day (a payout
+ * just before midnight may be reported then, if that day has begun) and the
+ * day before. A processed settlement still without lines throws
+ * `SettlementLinesNotReadyError`, so the job retries with backoff; one not
+ * processed yet is recorded as it is. Needs the key secret; a test key on a
+ * production server records nothing.
  */
 export async function syncRazorpaySettlement(
   input: RazorpaySyncSettlementPayload,
@@ -253,18 +299,28 @@ export async function syncRazorpaySettlement(
     return { outcome: "not_found" };
   }
   const day = istDayOf(settlement.created_at);
-  let record = toSettlementRecord(
-    settlement,
-    (await client.listSettlementRecon(reconDayOf(day))).items,
-    setup.mode
-  );
-  const following = nextDay(day);
-  if (record.lines.length === 0 && following <= todayInKolkata(deps.now())) {
+  const following = shiftDay(day, 1);
+  const days = [
+    day,
+    ...(following <= todayInKolkata(deps.now()) ? [following] : []),
+    shiftDay(day, -1),
+  ];
+  let record: SettlementToRecord | null = null;
+  for (const candidate of days) {
     record = toSettlementRecord(
       settlement,
-      (await client.listSettlementRecon(reconDayOf(following))).items,
+      await client.listSettlementRecon(reconDayOf(candidate)),
       setup.mode
     );
+    if (record.lines.length > 0) {
+      break;
+    }
+  }
+  if (
+    !record ||
+    (record.lines.length === 0 && settlement.status === "processed")
+  ) {
+    throw new SettlementLinesNotReadyError();
   }
   const result = await deps.record(record);
   return {

@@ -1,5 +1,5 @@
 {
-  "id": "f8750ad9-10ac-46b6-ad3a-f92e653af596",
+  "id": "36edf98f-d991-4c0c-8a5a-6d37474b05e8",
   "prevId": "69b1d552-8753-45bc-b72f-8bd26c2e5739",
   "version": "7",
   "dialect": "postgresql",
@@ -3669,6 +3669,13 @@
           "notNull": true,
           "default": 0
         },
+        "gross_paise": {
+          "name": "gross_paise",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "id": {
           "name": "id",
           "type": "uuid",
@@ -3677,6 +3684,13 @@
         },
         "item_count": {
           "name": "item_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "payment_count": {
+          "name": "payment_count",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
@@ -3695,6 +3709,13 @@
           "primaryKey": false,
           "notNull": true
         },
+        "refunds_paise": {
+          "name": "refunds_paise",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "provider_account": {
           "name": "provider_account",
           "type": "text",
@@ -3707,6 +3728,18 @@
           "primaryKey": false,
           "notNull": true
         },
+        "settlement_fee_paise": {
+          "name": "settlement_fee_paise",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "settlement_tax_paise": {
+          "name": "settlement_tax_paise",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
         "status": {
           "name": "status",
           "type": "gateway_settlement_status",
@@ -3717,6 +3750,13 @@
         "tax_paise": {
           "name": "tax_paise",
           "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "unreadable_line_count": {
+          "name": "unreadable_line_count",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "default": 0
@@ -3799,7 +3839,7 @@
       "checkConstraints": {
         "gateway_settlement_amounts_nonnegative": {
           "name": "gateway_settlement_amounts_nonnegative",
-          "value": "\"gateway_settlement\".\"amount_paise\" >= 0 AND \"gateway_settlement\".\"fees_paise\" >= 0 AND \"gateway_settlement\".\"tax_paise\" >= 0"
+          "value": "\"gateway_settlement\".\"amount_paise\" >= 0 AND \"gateway_settlement\".\"fees_paise\" >= 0 AND \"gateway_settlement\".\"tax_paise\" >= 0 AND \"gateway_settlement\".\"gross_paise\" >= 0 AND \"gateway_settlement\".\"refunds_paise\" >= 0 AND coalesce(\"gateway_settlement\".\"settlement_fee_paise\", 0) >= 0 AND coalesce(\"gateway_settlement\".\"settlement_tax_paise\", 0) >= 0"
         }
       },
       "isRLSEnabled": false

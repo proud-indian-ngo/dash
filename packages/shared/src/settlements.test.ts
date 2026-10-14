@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  expectedNetPaise,
   hasFeeMismatch,
   isUnlinkedLine,
   lineAmountPaise,
   settlementBreakdown,
+  settlementOwnFeePaise,
 } from "./settlements";
 
 /**
@@ -115,14 +117,36 @@ describe("hasFeeMismatch", () => {
 
   it("flags a payment whose fee or GST differs from the contribution's", () => {
     expect(
-      hasFeeMismatch(line, { gatewayFeePaise: 2000, gatewayTaxPaise: 360 })
+      hasFeeMismatch(line, {
+        gatewayFeePaise: 2000,
+        gatewayTaxPaise: 360,
+        source: "import",
+      })
     ).toBe(false);
     expect(
-      hasFeeMismatch(line, { gatewayFeePaise: 1990, gatewayTaxPaise: 360 })
+      hasFeeMismatch(line, {
+        gatewayFeePaise: 1990,
+        gatewayTaxPaise: 360,
+        source: "import",
+      })
     ).toBe(true);
     expect(
-      hasFeeMismatch(line, { gatewayFeePaise: 2000, gatewayTaxPaise: 0 })
+      hasFeeMismatch(line, {
+        gatewayFeePaise: 2000,
+        gatewayTaxPaise: 0,
+        source: "import",
+      })
     ).toBe(true);
+  });
+
+  it("never flags a contribution recorded by hand and linked to the payment later", () => {
+    expect(
+      hasFeeMismatch(line, {
+        gatewayFeePaise: 0,
+        gatewayTaxPaise: 0,
+        source: "manual",
+      })
+    ).toBe(false);
   });
 
   it("never flags an unlinked payment or another kind of line", () => {
@@ -149,5 +173,28 @@ describe("isUnlinkedLine", () => {
     );
     expect(isUnlinkedLine({ type: "adjustment" })).toBe(false);
     expect(isUnlinkedLine({ type: "transfer" })).toBe(false);
+  });
+});
+
+describe("instant settlement fee", () => {
+  it("comes off the lines' net before it is compared with the payout", () => {
+    const b = settlementBreakdown([
+      {
+        creditPaise: 200_000,
+        debitPaise: 0,
+        feePaise: 0,
+        taxPaise: 0,
+        type: "payment",
+      },
+    ]);
+    const own = { settlementFeePaise: 500, settlementTaxPaise: 90 };
+    expect(settlementOwnFeePaise(own)).toBe(590);
+    expect(expectedNetPaise(b, own)).toBe(199_410);
+    expect(
+      expectedNetPaise(b, {
+        settlementFeePaise: null,
+        settlementTaxPaise: null,
+      })
+    ).toBe(200_000);
   });
 });

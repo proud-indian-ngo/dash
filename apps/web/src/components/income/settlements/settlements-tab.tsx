@@ -8,6 +8,7 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import { formatPaise } from "@pi-dash/shared/money";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
+import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useEffect, useState } from "react";
@@ -24,7 +25,7 @@ import type { SettlementRow } from "./settlement-types";
 import { SettlementsTable } from "./settlements-table";
 
 export const AWAITING_SETTLEMENT_HINT =
-  "Imported Razorpay gifts' gross, less Razorpay's fees and GST on them, less their refunds, less what Razorpay has already paid out in processed settlements.";
+  "Razorpay gifts in pi-dash that no processed settlement has paid out yet (each gift less Razorpay's fee and GST), less their refunds that no processed settlement has taken back yet.";
 
 /** Changes whenever a settlement is added or its amount or status changes. */
 const settlementsSignature = (rows: readonly SettlementRow[]) =>
@@ -68,10 +69,22 @@ function useSettlementSummary(refreshKey: string) {
  * settlement.
  */
 export function SettlementsTab() {
-  const [settlements, result] = useQuery(queries.gatewaySettlement.list());
-  const rows = settlements as SettlementRow[];
-  const isLoading = rows.length === 0 && result.type !== "complete";
+  // The server's mode decides which settlements show, as for the figures.
+  const [mode, setMode] = useState<"live" | "test" | null>(null);
+  const [settlements, result] = useQuery(
+    queries.gatewaySettlement.list({ providerAccount: mode ?? "" }),
+    { enabled: mode !== null }
+  );
+  const rows = mode ? (settlements as SettlementRow[]) : [];
   const summary = useSettlementSummary(settlementsSignature(rows));
+  useEffect(() => {
+    if (summary) {
+      setMode(summary.mode);
+    }
+  }, [summary]);
+  const isLoading =
+    summary === null ||
+    (mode !== null && rows.length === 0 && result.type !== "complete");
   const [openId, setOpenId] = useState<string | null>(null);
   const open = useEventCallback((row: SettlementRow) => setOpenId(row.id));
 
@@ -81,7 +94,7 @@ export function SettlementsTab() {
       icon: MoneyExchange03Icon,
       label: "Awaiting settlement",
       value:
-        summary?.awaitingPaise === null || summary === null
+        summary === null || summary.awaitingPaise === null
           ? "—"
           : formatPaise(summary.awaitingPaise),
     },
@@ -97,12 +110,39 @@ export function SettlementsTab() {
     },
   ];
 
+  const notImported = summary?.settledPaymentsNotImported ?? 0;
+  const notImportedLine =
+    notImported > 0 ? (
+      <p
+        className="text-muted-foreground text-sm"
+        data-testid="settled-payments-not-imported"
+      >
+        {notImported === 1
+          ? "1 settled payment isn't in pi-dash yet"
+          : `${notImported.toLocaleString("en-IN")} settled payments aren't in pi-dash yet`}
+        , so Awaiting settlement leaves {notImported === 1 ? "it" : "them"} out.
+        Bring {notImported === 1 ? "it" : "them"} in with{" "}
+        <Link
+          className="text-foreground underline underline-offset-4"
+          to="/settings/integrations"
+        >
+          Import past payments
+        </Link>
+        .
+      </p>
+    ) : null;
+
   if (!isLoading && rows.length === 0) {
     return (
       <>
         <StatsCards items={items} />
+        {notImportedLine}
         <NotFoundState
-          description="Payouts Razorpay makes from donations into the bank appear here once a sync has listed them. They need RAZORPAY_KEY_SECRET on the server."
+          description={
+            summary?.mode === null
+              ? "Razorpay is not configured on this server."
+              : "Payouts Razorpay makes from donations into the bank appear here once a sync has listed them. They need RAZORPAY_KEY_SECRET on the server."
+          }
           icon={Coins01Icon}
           title="No settlements yet"
         />
@@ -113,6 +153,7 @@ export function SettlementsTab() {
   return (
     <>
       <StatsCards isLoading={isLoading} items={items} />
+      {notImportedLine}
       <SettlementsTable data={rows} isLoading={isLoading} onOpen={open} />
       <SettlementDetailSheet
         onOpenChange={(isOpen) => {

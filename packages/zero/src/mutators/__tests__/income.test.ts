@@ -24,6 +24,8 @@ function createDb(
     contribution: [],
     contributionRefund: [],
     fund: [{ active: true, id: "fund-1" }],
+    gatewaySettlement: [],
+    gatewaySettlementItem: [],
     orgAccount: [
       { active: true, id: "acc-1" },
       { active: false, id: "acc-old" },
@@ -450,6 +452,79 @@ describe("contribution mutators", () => {
       await expect(
         run(contributionMutators.update, db, donorsCtx, contribution(change))
       ).rejects.toThrow("refund is recorded");
+    }
+    await expect(
+      run(contributionMutators.delete, db, donorsCtx, { id: "c-1" })
+    ).rejects.toThrow("can't be deleted");
+    expect(db.tables.contribution).toHaveLength(1);
+  });
+
+  it("keeps what Razorpay reported once a processed settlement paid the gift out", async () => {
+    const recorded = {
+      amountPaise: 500_000,
+      channel: "razorpay",
+      fundId: "fund-1",
+      id: "c-1",
+      orgAccountId: "acc-1",
+      partyId: "donor-1",
+      programmeId: null,
+      receivedOn: Date.UTC(2026, 9, 1),
+      status: "received",
+    };
+    const line = {
+      contributionId: "c-1",
+      id: "line-1",
+      settlementId: "s-1",
+      type: "payment",
+    };
+    // A settlement not processed yet locks nothing.
+    const pending = createDb({
+      contribution: [{ ...recorded }],
+      gatewaySettlement: [{ id: "s-1", status: "created" }],
+      gatewaySettlementItem: [line],
+    });
+    await run(
+      contributionMutators.update,
+      pending,
+      donorsCtx,
+      contribution({ amountPaise: 400_000, channel: "razorpay" })
+    );
+    expect(pending.tables.contribution?.[0]?.amountPaise).toBe(400_000);
+
+    const db = createDb({
+      contribution: [{ ...recorded }],
+      fund: [
+        { active: true, id: "fund-1" },
+        { active: true, id: "fund-2" },
+      ],
+      gatewaySettlement: [{ id: "s-1", status: "processed" }],
+      gatewaySettlementItem: [line],
+    });
+    await run(
+      contributionMutators.update,
+      db,
+      donorsCtx,
+      contribution({ channel: "razorpay", fundId: "fund-2", notes: "Kept" })
+    );
+    expect(db.tables.contribution?.[0]).toMatchObject({
+      fundId: "fund-2",
+      notes: "Kept",
+    });
+    for (const change of [
+      { amountPaise: 400_000 },
+      { partyId: "sponsor-1" },
+      { receivedOn: "2026-10-02" },
+      { channel: "upi" },
+      { orgAccountId: "acc-2" },
+    ]) {
+      await expect(
+        run(
+          contributionMutators.update,
+          db,
+          donorsCtx,
+          contribution({ channel: "razorpay", ...change })
+        )
+      ).rejects.toThrow("Razorpay has settled");
     }
     await expect(
       run(contributionMutators.delete, db, donorsCtx, { id: "c-1" })

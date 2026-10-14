@@ -10,7 +10,9 @@ import z from "zod";
  * fetch by ID, fetch recon; the `settlement.processed` webhook).
  */
 
-export const SETTLEMENT_ID = /^setl_\w{1,40}$/;
+/** A settlement (`setl_…`) or an instant, on-demand settlement (`setlod_…`). */
+export const SETTLEMENT_ID = /^setl(?:od)?_\w{1,40}$/;
+export const ONDEMAND_SETTLEMENT_ID = /^setlod_\w{1,40}$/;
 
 const paise = z.number().int().nonnegative();
 
@@ -26,6 +28,37 @@ export const razorpaySettlementSchema = z.object({
   utr: z.string().max(100).nullish(),
 });
 export type RazorpaySettlement = z.infer<typeof razorpaySettlementSchema>;
+
+/** An instant settlement's states, read as a settlement's. */
+const ONDEMAND_STATUS: Record<string, RazorpaySettlement["status"]> = {
+  processed: "processed",
+  reversed: "failed",
+};
+
+/**
+ * An instant (on-demand) settlement (`GET /v1/settlements/ondemand/:id`),
+ * read as a settlement: `amount_settled` is what reached the bank, after
+ * its `fees` (GST included) and `tax`. Its payouts carry the UTRs; none is
+ * read here.
+ */
+export const razorpayOndemandSettlementSchema = z
+  .object({
+    amount_settled: paise,
+    created_at: z.number().int(),
+    fees: paise.nullish(),
+    id: z.string().regex(ONDEMAND_SETTLEMENT_ID),
+    status: z.string(),
+    tax: paise.nullish(),
+  })
+  .transform((o): RazorpaySettlement => ({
+    amount: o.amount_settled,
+    created_at: o.created_at,
+    fees: o.fees,
+    id: o.id,
+    status: ONDEMAND_STATUS[o.status] ?? "created",
+    tax: o.tax,
+    utr: null,
+  }));
 
 export const razorpayReconItemSchema = z.object({
   /** Added to the payout (a payment's credit is its amount less the fee and GST). */

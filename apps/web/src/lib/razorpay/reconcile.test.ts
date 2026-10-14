@@ -550,9 +550,11 @@ describe("runRazorpayReconcile", () => {
       },
     });
     const settle = h.deps.settlements;
-    h.deps.settlements = async (day, client, mode, logFailure) => {
+    const seenSets = new Set<Set<string>>();
+    h.deps.settlements = async (day, client, mode, logFailure, seen) => {
       h.calls.push(`settlements:${day}`);
-      return await settle(day, client, mode, logFailure);
+      seenSets.add(seen);
+      return await settle(day, client, mode, logFailure, seen);
     };
     const outcome = await runRazorpayReconcile(
       { reason: "scheduled" },
@@ -571,6 +573,8 @@ describe("runRazorpayReconcile", () => {
       "refunds:2026-10-13",
       "settlements:2026-10-13",
     ]);
+    // One set for the whole run, so a settlement seen on two days counts once.
+    expect(seenSets.size).toBe(1);
     expect(outcome.status === "ok" ? outcome.counts : null).toMatchObject({
       errors: 1,
       settlementLinesLinked: 3,

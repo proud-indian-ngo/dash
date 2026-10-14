@@ -84,21 +84,57 @@ export function settlementBreakdown(
   return out;
 }
 
-/** Whether a payment line's fee or GST differs from what the contribution stored. */
+/**
+ * Whether a payment line's fee or GST differs from what the contribution
+ * stored. Only a contribution the Razorpay import created carries
+ * Razorpay's fee; one recorded by hand and linked to the payment later
+ * holds none, so it is never flagged.
+ */
 export function hasFeeMismatch(
   line: { feePaise: Paise; taxPaise: Paise; type: string },
   contribution:
-    | { gatewayFeePaise?: number | null; gatewayTaxPaise?: number | null }
+    | {
+        gatewayFeePaise?: number | null;
+        gatewayTaxPaise?: number | null;
+        source?: string | null;
+      }
     | null
     | undefined
 ): boolean {
-  if (line.type !== "payment" || !contribution) {
+  if (line.type !== "payment" || contribution?.source !== "import") {
     return false;
   }
   return (
     (line.feePaise ?? 0) !== (contribution.gatewayFeePaise ?? 0) ||
     (line.taxPaise ?? 0) !== (contribution.gatewayTaxPaise ?? 0)
   );
+}
+
+/**
+ * The payout's own fee and GST (an instant settlement), taken from it on top
+ * of its lines.
+ */
+export function settlementOwnFeePaise(settlement: {
+  settlementFeePaise?: number | null;
+  settlementTaxPaise?: number | null;
+}): number {
+  return (
+    (settlement.settlementFeePaise ?? 0) + (settlement.settlementTaxPaise ?? 0)
+  );
+}
+
+/**
+ * What a settlement's lines say reached the bank: their net, less the
+ * payout's own fee. Compared with the amount Razorpay paid.
+ */
+export function expectedNetPaise(
+  breakdown: Pick<SettlementBreakdown, "netPaise">,
+  settlement: {
+    settlementFeePaise?: number | null;
+    settlementTaxPaise?: number | null;
+  }
+): number {
+  return breakdown.netPaise - settlementOwnFeePaise(settlement);
 }
 
 /** A payment or refund line not yet tied to its contribution or refund. */

@@ -1,4 +1,4 @@
-import { and, eq, max, sql } from "drizzle-orm";
+import { and, eq, max, type SQL, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 import { db } from "..";
@@ -54,7 +54,13 @@ export interface SettlementToRecord {
   mode: string;
   /** India date of the settlement. */
   settledOn: string;
+  /** The payout's own fee (an instant settlement), excluding GST; null when none was reported. */
+  settlementFeePaise: number | null;
+  /** GST on the payout's own fee. */
+  settlementTaxPaise: number | null;
   status: SettlementStatus;
+  /** Recon lines naming it that could not be read (another currency, an unknown shape). */
+  unreadableLines: number;
   utr: string | null;
 }
 
@@ -168,7 +174,17 @@ async function currentClearingAccountId(tx: ImportTx): Promise<string | null> {
   return (await findClearingAccount(row.value, tx))?.id ?? null;
 }
 
-async function recordIn(
+/**
+ * Records one settlement and its lines inside a transaction that holds the
+ * import run lock. The settlement is upserted: its status and a newly
+ * reported UTR are taken (a UTR is never blanked), an amount reported
+ * differently sets `amount_changed` and keeps the first amount, and the
+ * payout's own fee is taken when reported. Lines are upserted by their
+ * unique key and never deleted. Unlinked lines are linked, and the totals
+ * (gross, refunds, fees, GST, counts) are worked out again from the lines.
+ * Exported for the database-backed tests.
+ */
+export async function recordSettlementIn(
   tx: ImportTx,
   input: SettlementToRecord,
   now: Date
@@ -200,9 +216,16 @@ async function recordIn(
       .set({
         amountChanged,
         status: input.status,
+        unreadableLineCount: sql`greatest(${gatewaySettlement.unreadableLineCount}, ${input.unreadableLines})`,
         updatedAt: now,
         // A UTR, once known, is never blanked by a later copy without one.
         ...(input.utr ? { utr: input.utr } : {}),
+        ...(input.settlementFeePaise === null
+          ? {}
+          : {
+              settlementFeePaise: input.settlementFeePaise,
+              settlementTaxPaise: input.settlementTaxPaise ?? 0,
+            }),
       })
       .where(eq(gatewaySettlement.id, settlementId));
   } else {
@@ -216,7 +239,13 @@ async function recordIn(
       provider: "razorpay",
       providerAccount: input.mode,
       settledOn: input.settledOn,
+      settlementFeePaise: input.settlementFeePaise,
+      settlementTaxPaise:
+        input.settlementFeePaise === null
+          ? null
+          : (input.settlementTaxPaise ?? 0),
       status: input.status,
+      unreadableLineCount: input.unreadableLines,
       updatedAt: now,
       utr: input.utr,
     });
@@ -256,22 +285,30 @@ async function recordIn(
     (await linkPaymentLines(tx, input.mode, { settlementId })) +
     (await linkRefundLines(tx, input.mode, { settlementId }));
 
+  const i = gatewaySettlementItem;
+  const amountOf = sql`(${i.creditPaise} - ${i.debitPaise} + ${i.feePaise} + ${i.taxPaise})`;
   const [totals] = await tx
     .select({
-      fees: sql<string>`coalesce(sum(${gatewaySettlementItem.feePaise}), 0)`,
+      fees: sql<string>`coalesce(sum(${i.feePaise}), 0)`,
+      gross: sql<string>`coalesce(sum(${amountOf}) filter (where ${i.type} = 'payment'), 0)`,
       items: sql<number>`count(*)::int`,
-      tax: sql<string>`coalesce(sum(${gatewaySettlementItem.taxPaise}), 0)`,
+      payments: sql<number>`(count(*) filter (where ${i.type} = 'payment'))::int`,
+      refunds: sql<string>`coalesce(sum(-${amountOf}) filter (where ${i.type} = 'refund'), 0)`,
+      tax: sql<string>`coalesce(sum(${i.taxPaise}), 0)`,
       unlinked: sql<number>`(count(*) filter (where
-        (${gatewaySettlementItem.type} = 'payment' and ${gatewaySettlementItem.contributionId} is null)
-        or (${gatewaySettlementItem.type} = 'refund' and ${gatewaySettlementItem.contributionRefundId} is null)))::int`,
+        (${i.type} = 'payment' and ${i.contributionId} is null)
+        or (${i.type} = 'refund' and ${i.contributionRefundId} is null)))::int`,
     })
-    .from(gatewaySettlementItem)
-    .where(eq(gatewaySettlementItem.settlementId, settlementId));
+    .from(i)
+    .where(eq(i.settlementId, settlementId));
   await tx
     .update(gatewaySettlement)
     .set({
       feesPaise: Number(totals?.fees ?? 0),
+      grossPaise: Math.max(0, Number(totals?.gross ?? 0)),
       itemCount: Number(totals?.items ?? 0),
+      paymentCount: Number(totals?.payments ?? 0),
+      refundsPaise: Math.max(0, Number(totals?.refunds ?? 0)),
       taxPaise: Number(totals?.tax ?? 0),
     })
     .where(eq(gatewaySettlement.id, settlementId));
@@ -291,24 +328,42 @@ export async function recordRazorpaySettlement(
   now: Date = new Date()
 ): Promise<SettlementRecordResult> {
   return await withImportTransaction(
-    async (tx) => await recordIn(tx, input, now)
+    async (tx) => await recordSettlementIn(tx, input, now)
   );
+}
+
+type Reader = Pick<typeof db, "select">;
+
+export interface SettlementSummary {
+  /**
+   * What Razorpay still owes the trust, line by line: imported Razorpay
+   * gifts not yet in a processed settlement (gross less fee and GST), less
+   * their refunds not yet in one.
+   */
+  awaitingPaise: number;
+  feesThisYearPaise: number;
+  /** Payment lines of processed settlements whose payment is not in pi-dash. */
+  settledPaymentsNotImported: number;
+  settledThisYearPaise: number;
 }
 
 /**
  * The Income page's settlement figures for one mode. Awaiting settlement is
- * the clearing balance pi-dash can see: the Razorpay gifts it imported (each
- * counted once, gross less the fee and GST Razorpay took), less their
- * refunds, less every processed settlement's net payout.
+ * worked out per line rather than as a running balance, so payments that
+ * were never imported, deleted contributions and adjustments do not pull it
+ * off: the net (amount less Razorpay's fee and GST) of every contribution
+ * with a Razorpay payment identity of this mode whose status is received,
+ * receipted or refunded and whose payment has no line in a processed
+ * settlement, less every refund of those contributions with no line in a
+ * processed settlement. A fully refunded gift counts too, so its refund is
+ * set against it. Settled payments whose payment is not in pi-dash are
+ * counted separately.
  */
 export async function razorpaySettlementSummary(
   mode: string,
-  fy: { endsOn: string; startsOn: string }
-): Promise<{
-  awaitingPaise: number;
-  feesThisYearPaise: number;
-  settledThisYearPaise: number;
-}> {
+  fy: { endsOn: string; startsOn: string },
+  executor: Reader = db
+): Promise<SettlementSummary> {
   const razorpayGift = sql`exists (
     select 1 from ${externalIdentity} ei
     where ei.contribution_id = ${contribution.id}
@@ -316,13 +371,27 @@ export async function razorpaySettlementSummary(
       and ei.provider_account = ${mode}
       and ei.entity_type = 'payment'
   )`;
-  const [gifts] = await db
+  const inProcessedSettlement = (line: SQL) => sql`exists (
+    select 1 from ${gatewaySettlementItem} i
+    inner join ${gatewaySettlement} s on s.id = i.settlement_id
+    where ${line}
+      and s.provider = 'razorpay'
+      and s.provider_account = ${mode}
+      and s.status = 'processed'
+  )`;
+  const [gifts] = await executor
     .select({
       net: sql<string>`coalesce(sum(${contribution.amountPaise} - ${contribution.gatewayFeePaise} - ${contribution.gatewayTaxPaise}), 0)`,
     })
     .from(contribution)
-    .where(razorpayGift);
-  const [refunds] = await db
+    .where(
+      and(
+        razorpayGift,
+        sql`${contribution.status} in ('received', 'receipted', 'refunded')`,
+        sql`not ${inProcessedSettlement(sql`i.type = 'payment' and i.contribution_id = ${contribution.id}`)}`
+      )
+    );
+  const [refunds] = await executor
     .select({
       total: sql<string>`coalesce(sum(${contributionRefund.amountPaise}), 0)`,
     })
@@ -331,27 +400,44 @@ export async function razorpaySettlementSummary(
       contribution,
       eq(contribution.id, contributionRefund.contributionId)
     )
-    .where(razorpayGift);
-  const [settled] = await db
-    .select({
-      all: sql<string>`coalesce(sum(${gatewaySettlement.amountPaise}), 0)`,
-      fees: sql<string>`coalesce(sum(${gatewaySettlement.feesPaise} + ${gatewaySettlement.taxPaise}) filter (where ${gatewaySettlement.settledOn} between ${fy.startsOn} and ${fy.endsOn}), 0)`,
-      year: sql<string>`coalesce(sum(${gatewaySettlement.amountPaise}) filter (where ${gatewaySettlement.settledOn} between ${fy.startsOn} and ${fy.endsOn}), 0)`,
-    })
-    .from(gatewaySettlement)
     .where(
       and(
-        eq(gatewaySettlement.provider, "razorpay"),
-        eq(gatewaySettlement.providerAccount, mode),
-        eq(gatewaySettlement.status, "processed")
+        razorpayGift,
+        sql`not ${inProcessedSettlement(sql`i.type = 'refund' and i.contribution_refund_id = ${contributionRefund.id}`)}`
+      )
+    );
+  const s = gatewaySettlement;
+  const inYear = sql`${s.settledOn} between ${fy.startsOn} and ${fy.endsOn}`;
+  const [settled] = await executor
+    .select({
+      fees: sql<string>`coalesce(sum(${s.feesPaise} + ${s.taxPaise} + coalesce(${s.settlementFeePaise}, 0) + coalesce(${s.settlementTaxPaise}, 0)) filter (where ${inYear}), 0)`,
+      year: sql<string>`coalesce(sum(${s.amountPaise}) filter (where ${inYear}), 0)`,
+    })
+    .from(s)
+    .where(
+      and(
+        eq(s.provider, "razorpay"),
+        eq(s.providerAccount, mode),
+        eq(s.status, "processed")
+      )
+    );
+  const [missing] = await executor
+    .select({ n: sql<number>`count(*)::int` })
+    .from(gatewaySettlementItem)
+    .innerJoin(s, eq(s.id, gatewaySettlementItem.settlementId))
+    .where(
+      and(
+        eq(s.provider, "razorpay"),
+        eq(s.providerAccount, mode),
+        eq(s.status, "processed"),
+        eq(gatewaySettlementItem.type, "payment"),
+        sql`${gatewaySettlementItem.contributionId} is null`
       )
     );
   return {
-    awaitingPaise:
-      Number(gifts?.net ?? 0) -
-      Number(refunds?.total ?? 0) -
-      Number(settled?.all ?? 0),
+    awaitingPaise: Number(gifts?.net ?? 0) - Number(refunds?.total ?? 0),
     feesThisYearPaise: Number(settled?.fees ?? 0),
+    settledPaymentsNotImported: Number(missing?.n ?? 0),
     settledThisYearPaise: Number(settled?.year ?? 0),
   };
 }

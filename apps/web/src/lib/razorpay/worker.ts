@@ -27,6 +27,7 @@ import {
   syncRazorpayRefund,
 } from "./refund";
 import {
+  SettlementLinesNotReadyError,
   type SettlementSyncOutcome,
   syncRazorpaySettlement,
 } from "./settlement";
@@ -180,9 +181,9 @@ export async function handleRazorpaySyncRefund(
 }
 
 /**
- * Records a settlement a webhook announced. A failure (the API, the
- * database) is thrown so pg-boss retries it; logs carry the settlement ID
- * and counts only.
+ * Records a settlement a webhook announced. A processed settlement whose
+ * lines are not listed yet, or a failure (the API, the database), is thrown
+ * so pg-boss retries it; logs carry the settlement ID and counts only.
  */
 export async function handleRazorpaySyncSettlement(
   jobs: readonly Job<RazorpaySyncSettlementPayload>[],
@@ -202,6 +203,15 @@ export async function handleRazorpaySyncSettlement(
       log.emit();
       outcomes.push(outcome);
     } catch (error) {
+      if (error instanceof SettlementLinesNotReadyError) {
+        log.set({
+          event: "razorpay_settlement_lines_not_ready",
+          lastAttempt: isLastAttempt(job),
+        });
+        log.warn("settlement lines not listed yet; retrying");
+        log.emit();
+        throw error;
+      }
       const safe = sanitizedError(error, "razorpay_settlement_sync_failed");
       log.set({
         event: "razorpay_settlement_sync_failed",

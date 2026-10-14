@@ -332,7 +332,8 @@ export interface ReconcileDeps {
     day: string,
     client: RazorpayClient,
     mode: RazorpayMode,
-    logFailure: SettlementDeps["logFailure"]
+    logFailure: SettlementDeps["logFailure"],
+    seen: Set<string>
   ) => Promise<{ pages: number; tally: SettlementTally }>;
   stage: (
     payment: Parameters<typeof stageRazorpayPayment>[0],
@@ -360,11 +361,15 @@ export const reconcileDeps = (setup: RazorpaySetup): ReconcileDeps => ({
   recount: recountImportBatches,
   saveLast: saveLastReconcile,
   saveRun: saveReconcileRun,
-  settlements: (day, client, mode, logFailure) =>
-    syncSettlementsForDay(day, indiaDayWindow(day), client, mode, {
-      logFailure,
-      record: recordRazorpaySettlement,
-    }),
+  settlements: (day, client, mode, logFailure, seen) =>
+    syncSettlementsForDay(
+      day,
+      indiaDayWindow(day),
+      client,
+      mode,
+      { logFailure, record: recordRazorpaySettlement },
+      seen
+    ),
   stage: (payment, mode) => stageRazorpayPayment(payment, mode),
   syncStale: async (input, client) => {
     let tally = emptyRefundTally();
@@ -448,7 +453,8 @@ async function reconcileDay(
   mode: RazorpayMode,
   deps: ReconcileDeps,
   counts: ReconcileCounts,
-  touched: Set<string>
+  touched: Set<string>,
+  settlementsSeen: Set<string>
 ): Promise<number> {
   const window = indiaDayWindow(day);
   const payments = await client.listPayments(window);
@@ -506,7 +512,13 @@ async function reconcileDay(
   addTally(counts, tally);
 
   // Settlements last: the payments and refunds they name are recorded by now.
-  const settled = await deps.settlements(day, client, mode, deps.logFailure);
+  const settled = await deps.settlements(
+    day,
+    client,
+    mode,
+    deps.logFailure,
+    settlementsSeen
+  );
   counts.errors += settled.tally.errors;
   counts.settlementsFound += settled.tally.found;
   counts.settlementsNew += settled.tally.new;
@@ -545,6 +557,8 @@ export async function runRazorpayReconcile(
   const days = client ? daysBetween(from, to).slice(0, MAX_BACKFILL_DAYS) : [];
   const counts = emptyCounts();
   const touched = new Set<string>();
+  // A settlement listed on one day and reported on the next counts once.
+  const settlementsSeen = new Set<string>();
   const state: ReconcileState = {
     counts,
     from,
@@ -628,7 +642,15 @@ export async function runRazorpayReconcile(
     if (client) {
       for (const day of days) {
         withinBudget();
-        pages += await reconcileDay(day, client, mode, deps, counts, touched);
+        pages += await reconcileDay(
+          day,
+          client,
+          mode,
+          deps,
+          counts,
+          touched,
+          settlementsSeen
+        );
         state.windowsDone += 1;
         await progress();
       }

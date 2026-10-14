@@ -181,6 +181,18 @@ async function settled(paymentId: string) {
     .toBe(true);
 }
 
+/** The "Awaiting settlement" figure on the Settlements tab, in paise. */
+async function awaitingSettlement(page: Page): Promise<number> {
+  const chip = page
+    .locator('[data-slot="stat-chip"]')
+    .filter({ hasText: "Awaiting settlement" });
+  const value = chip.locator('[data-slot="stat-value"]');
+  await expect(value).not.toHaveText("—", { timeout: 15_000 });
+  const text = await value.innerText();
+  const digits = text.replace(/[^\d-]/g, "");
+  return Number(digits);
+}
+
 async function contributionRows(page: Page, donor: string) {
   await page.goto("/income");
   await waitForZeroReady(page);
@@ -532,23 +544,32 @@ test.describe("Income: Razorpay Payment Page", () => {
       .poll(() => paymentRows(settledId), { timeout: 30_000 })
       .toEqual([{ outcome: "imported", reason: null }]);
 
-    // Not settled yet: the sheet says so.
+    // Not settled yet: the sheet says so, and it can still be deleted.
     const row = (await contributionRows(page, donor)).first();
     await expect(row).toBeVisible({ timeout: 15_000 });
     await row.getByText(donor).click();
     await expect(page.getByTestId("contribution-settled")).toHaveText(
       "Not settled yet"
     );
+    await expect(
+      page.getByRole("dialog").getByRole("button", { name: "More actions" })
+    ).toHaveCount(1);
     await page.keyboard.press("Escape");
 
-    // Razorpay pays it out with a ₹300 payment not imported yet and a ₹10
-    // adjustment: 488.20 + 292.92 + 10.00 = ₹791.12.
+    // Awaiting settlement before the payout: it includes this gift's ₹488.20.
+    await page.goto("/income?tab=settlements");
+    await waitForZeroReady(page);
+    const awaitingBefore = await awaitingSettlement(page);
+
+    // Razorpay pays it out with a ₹300 payment not imported yet, a ₹10
+    // adjustment and an instant settlement fee of ₹0.59:
+    // 488.20 + 292.92 + 10.00 − 0.59 = ₹790.53.
     const settledAt = new Date().toISOString();
     const today = new Date().toLocaleDateString("en-CA", {
       timeZone: "Asia/Kolkata",
     });
     const recorded = await recordSettlement({
-      amountPaise: 79_112,
+      amountPaise: 79_053,
       externalId: settlementId,
       lines: [
         {
@@ -581,20 +602,29 @@ test.describe("Income: Razorpay Payment Page", () => {
       ],
       mode: "test",
       settledOn: today,
+      settlementFeePaise: 50,
+      settlementTaxPaise: 9,
       status: "processed",
       utr,
     });
     expect(recorded).toMatchObject({ created: true, linked: 1, unlinked: 1 });
 
-    await page.goto("/income?tab=settlements");
+    await page.reload();
     await waitForZeroReady(page);
-    await expect(page.getByText("Awaiting settlement")).toBeVisible();
+    // The settled gift no longer awaits settlement; the payment pi-dash
+    // lacks is counted apart.
+    await expect
+      .poll(() => awaitingSettlement(page), { timeout: 15_000 })
+      .toBe(awaitingBefore - 48_820);
+    await expect(
+      page.getByTestId("settled-payments-not-imported")
+    ).toContainText("settled payment");
     await page.getByPlaceholder("Search settlement ID or UTR...").fill(utr);
     const settlementRow = page.getByRole("row").filter({ hasText: utr });
     await expect(settlementRow).toHaveCount(1, { timeout: 15_000 });
-    await expect(settlementRow).toContainText("₹791.12");
+    await expect(settlementRow).toContainText("₹790.53");
     await expect(settlementRow).toContainText("₹800.00");
-    await expect(settlementRow).toContainText("₹18.88");
+    await expect(settlementRow).toContainText("₹19.47");
     await expect(settlementRow).toContainText("1 unlinked");
     await expect(settlementRow.getByTestId("settlement-status")).toHaveText(
       "Processed"
@@ -608,8 +638,10 @@ test.describe("Income: Razorpay Payment Page", () => {
     await expect(breakdown).toContainText("− ₹16.00");
     await expect(breakdown).toContainText("− ₹2.88");
     await expect(breakdown).toContainText("+ ₹10.00");
+    await expect(breakdown).toContainText("Instant settlement fee");
+    await expect(breakdown).toContainText("− ₹0.59");
     await expect(breakdown).toContainText("Net paid");
-    await expect(breakdown).toContainText("₹791.12");
+    await expect(breakdown).toContainText("= ₹790.53");
     await expect(page.getByTestId("settlement-mismatch")).toHaveCount(0);
     await expect(page.getByTestId("settlement-fee-mismatch")).toHaveCount(0);
     await expect(page.getByTestId("settlement-unlinked")).toBeVisible();
@@ -648,6 +680,10 @@ test.describe("Income: Razorpay Payment Page", () => {
     await expect(page.getByTestId("contribution-settled")).toContainText(
       `(UTR ${utr})`
     );
+    // Settled: what Razorpay reported is fixed, so it can't be deleted.
+    await expect(
+      page.getByRole("dialog").getByRole("button", { name: "More actions" })
+    ).toHaveCount(0);
   });
 
   test("without the key secret, Sync now retries stuck payments and Import past payments is off", async ({

@@ -9,9 +9,9 @@ import { authMiddleware } from "@/middleware/auth";
 
 export interface SettlementSummaryResponse {
   /**
-   * Razorpay's clearing balance as pi-dash sees it: imported Razorpay gifts'
-   * gross less their fees and GST, less their refunds, less every processed
-   * settlement's net. Null when Razorpay is not configured.
+   * What Razorpay still owes, line by line: Razorpay gifts in pi-dash not
+   * yet in a processed settlement (each less its fee and GST), less their
+   * refunds not yet in one. Null when Razorpay is not configured.
    */
   awaitingPaise: number | null;
   feesThisYearPaise: number;
@@ -19,14 +19,16 @@ export interface SettlementSummaryResponse {
   financialYear: string;
   /** The mode the figures are for; null when Razorpay is not configured. */
   mode: "live" | "test" | null;
+  /** Payment lines of processed settlements whose payment is not in pi-dash. */
+  settledPaymentsNotImported: number;
   settledThisYearPaise: number;
 }
 
 /**
- * The Settlements tab's figures, for finance.view or finance.manage. The
- * clearing balance needs the payments' external identities, which are
- * server-only, so it is worked out here for the server's Razorpay mode. A
- * read, so it is not audited.
+ * The Settlements tab's figures and the server's Razorpay mode (the tab
+ * lists that mode's settlements), for finance.view or finance.manage.
+ * Awaiting settlement needs the payments' external identities, which are
+ * server-only, so it is worked out here. A read, so it is not audited.
  */
 export const getSettlementSummary = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
@@ -43,6 +45,7 @@ export const getSettlementSummary = createServerFn({ method: "POST" })
         feesThisYearPaise: 0,
         financialYear: fy.label,
         mode: null,
+        settledPaymentsNotImported: 0,
         settledThisYearPaise: 0,
       };
     }

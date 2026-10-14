@@ -7,17 +7,23 @@ CREATE TABLE "gateway_settlement" (
 	"created_at" timestamp NOT NULL,
 	"external_id" text NOT NULL,
 	"fees_paise" bigint DEFAULT 0 NOT NULL,
+	"gross_paise" bigint DEFAULT 0 NOT NULL,
 	"id" uuid PRIMARY KEY NOT NULL,
 	"item_count" integer DEFAULT 0 NOT NULL,
+	"payment_count" integer DEFAULT 0 NOT NULL,
 	"org_account_id" uuid,
 	"provider" "gateway_settlement_provider" NOT NULL,
+	"refunds_paise" bigint DEFAULT 0 NOT NULL,
 	"provider_account" text NOT NULL,
 	"settled_on" date NOT NULL,
+	"settlement_fee_paise" bigint,
+	"settlement_tax_paise" bigint,
 	"status" "gateway_settlement_status" NOT NULL,
 	"tax_paise" bigint DEFAULT 0 NOT NULL,
+	"unreadable_line_count" integer DEFAULT 0 NOT NULL,
 	"updated_at" timestamp NOT NULL,
 	"utr" text,
-	CONSTRAINT "gateway_settlement_amounts_nonnegative" CHECK ("gateway_settlement"."amount_paise" >= 0 AND "gateway_settlement"."fees_paise" >= 0 AND "gateway_settlement"."tax_paise" >= 0)
+	CONSTRAINT "gateway_settlement_amounts_nonnegative" CHECK ("gateway_settlement"."amount_paise" >= 0 AND "gateway_settlement"."fees_paise" >= 0 AND "gateway_settlement"."tax_paise" >= 0 AND "gateway_settlement"."gross_paise" >= 0 AND "gateway_settlement"."refunds_paise" >= 0 AND coalesce("gateway_settlement"."settlement_fee_paise", 0) >= 0 AND coalesce("gateway_settlement"."settlement_tax_paise", 0) >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "gateway_settlement_item" (

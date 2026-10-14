@@ -6,10 +6,12 @@ import type {
 } from "@pi-dash/shared/constants";
 import { formatPaise } from "@pi-dash/shared/money";
 import {
+  expectedNetPaise,
   hasFeeMismatch,
   isUnlinkedLine,
   lineAmountPaise,
   settlementBreakdown,
+  settlementOwnFeePaise,
 } from "@pi-dash/shared/settlements";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
@@ -155,7 +157,10 @@ function SettlementBody({ settlement }: { settlement: SettlementDetail }) {
   const feeMismatches = lines.filter((line) =>
     hasFeeMismatch(line, line.contribution)
   ).length;
-  const addsUp = breakdown.netPaise === settlement.amountPaise;
+  const ownFee = settlementOwnFeePaise(settlement);
+  const expected = expectedNetPaise(breakdown, settlement);
+  const addsUp = expected === settlement.amountPaise;
+  const unreadable = settlement.unreadableLineCount ?? 0;
 
   return (
     <>
@@ -166,10 +171,23 @@ function SettlementBody({ settlement }: { settlement: SettlementDetail }) {
         </Warning>
       ) : addsUp ? null : (
         <Warning testId="settlement-mismatch">
-          The lines add up to {formatPaise(breakdown.netPaise)}, but Razorpay
-          paid {formatPaise(settlement.amountPaise)}.
+          The lines add up to {formatPaise(expected)}, but Razorpay paid{" "}
+          {formatPaise(settlement.amountPaise)}.
+          {unreadable > 0
+            ? " Some of its lines could not be read; see below."
+            : ""}
         </Warning>
       )}
+      {unreadable > 0 ? (
+        <Warning testId="settlement-unreadable">
+          {unreadable === 1
+            ? "1 line"
+            : `${unreadable.toLocaleString("en-IN")} lines`}{" "}
+          not readable: Razorpay listed {unreadable === 1 ? "a line" : "lines"}{" "}
+          for this settlement in another currency or a shape pi-dash doesn't
+          read, so {unreadable === 1 ? "it isn't" : "they aren't"} counted here.
+        </Warning>
+      ) : null}
       {settlement.amountChanged ? (
         <Warning testId="settlement-amount-changed">
           Razorpay later reported this settlement with a different amount; the
@@ -225,6 +243,13 @@ function SettlementBody({ settlement }: { settlement: SettlementDetail }) {
             sign="±"
           />
         )}
+        {ownFee === 0 ? null : (
+          <BreakdownRow
+            label="Instant settlement fee"
+            paise={ownFee}
+            sign="−"
+          />
+        )}
         <BreakdownRow
           label="Net paid"
           paise={settlement.amountPaise}
@@ -250,7 +275,8 @@ function SettlementBody({ settlement }: { settlement: SettlementDetail }) {
 
 /**
  * A settlement's sheet: what Razorpay paid into the bank and how it adds up
- * (gross − fees − GST − refunds ± adjustments = net paid), with every line
+ * (gross − fees − GST − refunds ± adjustments − instant settlement fee =
+ * net paid), with every line
  * it covered. Read-only; Razorpay documents no dashboard link for a
  * settlement, so there is none.
  */

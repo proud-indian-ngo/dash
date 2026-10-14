@@ -11,7 +11,7 @@ import type {
 
 import type { StatusTone } from "@/components/shared/status-badge";
 
-/** A settlement as the Settlements tab query returns it. */
+/** A settlement as the Settlements tab query returns it: only its unlinked lines come along. */
 export type SettlementRow = GatewaySettlement & {
   items?: readonly GatewaySettlementItem[];
 };

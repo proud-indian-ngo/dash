@@ -4,6 +4,7 @@ mock.module("@pi-dash/db", () => ({ db: {} }));
 
 const {
   reconDayOf,
+  SettlementLinesNotReadyError,
   syncRazorpaySettlement,
   syncSettlementsForDay,
   toSettlementLine,
@@ -16,6 +17,7 @@ import { createRazorpayClient, type RazorpayClient } from "./api";
 import type { RazorpaySetup } from "./config";
 import {
   type RazorpayReconItem,
+  razorpayOndemandSettlementSchema,
   razorpayReconItemSchema,
   razorpaySettlementSchema,
 } from "./settlement-schema";
@@ -119,6 +121,15 @@ const DOC_SETTLEMENT = {
 const recon = (raw: unknown): RazorpayReconItem =>
   razorpayReconItemSchema.parse(raw);
 
+/** A recon listing of readable lines, with unreadable ones counted per settlement. */
+const listing = (
+  items: unknown[],
+  unreadable: Record<string, number> = {}
+) => ({
+  items: items.map(recon),
+  unreadableBySettlement: new Map(Object.entries(unreadable)),
+});
+
 describe("settlement parsing", () => {
   it("reads Razorpay's documented settlement and recon fields", () => {
     expect(razorpaySettlementSchema.parse(DOC_SETTLEMENT)).toEqual({
@@ -195,14 +206,14 @@ describe("settlement lines", () => {
   it("dates a settlement in India and keeps only its own lines", () => {
     const record = toSettlementRecord(
       razorpaySettlementSchema.parse(DOC_SETTLEMENT),
-      [
-        ...DOC_RECON.map(recon),
-        recon({
+      listing([
+        ...DOC_RECON,
+        {
           ...DOC_RECON[0],
           entity_id: "pay_Other",
           settlement_id: "setl_Other",
-        }),
-      ],
+        },
+      ]),
       "live"
     );
     // 1568176960 is 11 Sep 2019, 10:12 IST.
@@ -210,6 +221,72 @@ describe("settlement lines", () => {
     expect(record.lines).toHaveLength(4);
     expect(record.utr).toBe("1568176960vxp0rj");
     expect(record.status).toBe("processed");
+    // A normal settlement has no fee of its own.
+    expect(record.settlementFeePaise).toBeNull();
+    expect(record.settlementTaxPaise).toBeNull();
+    expect(record.unreadableLines).toBe(0);
+  });
+
+  it("counts lines it cannot read: another currency, or a shape it does not know", () => {
+    const record = toSettlementRecord(
+      razorpaySettlementSchema.parse(DOC_SETTLEMENT),
+      listing(
+        [
+          ...DOC_RECON,
+          { ...DOC_RECON[0], currency: "USD", entity_id: "pay_Usd" },
+          { ...DOC_RECON[0], entity_id: "pay_Unsettled", settled: false },
+        ],
+        { setl_DGlQ1Rj8os78Ec: 2, setl_Other: 5 }
+      ),
+      "live"
+    );
+    expect(record.lines).toHaveLength(4);
+    expect(record.unreadableLines).toBe(3);
+  });
+
+  it("keeps an instant settlement's own fee net of its GST", () => {
+    const record = toSettlementRecord(
+      razorpaySettlementSchema.parse({ ...DOC_SETTLEMENT, fees: 590, tax: 90 }),
+      listing([]),
+      "live"
+    );
+    expect(record.settlementFeePaise).toBe(500);
+    expect(record.settlementTaxPaise).toBe(90);
+  });
+
+  it("reads Razorpay's documented instant settlement as a settlement", () => {
+    expect(
+      razorpayOndemandSettlementSchema.parse({
+        amount_pending: 0,
+        amount_requested: 200_000,
+        amount_reversed: 0,
+        amount_settled: 199_410,
+        created_at: 1_596_771_429,
+        currency: "INR",
+        description: "Need this to make vendor payments.",
+        entity: "settlement.ondemand",
+        fees: 590,
+        id: "setlod_FNj7g2YS5J67Rz",
+        notes: { notes_key_1: "Tea, Earl Grey, Hot" },
+        settle_full_balance: false,
+        status: "processed",
+        tax: 90,
+      })
+    ).toEqual({
+      amount: 199_410,
+      created_at: 1_596_771_429,
+      fees: 590,
+      id: "setlod_FNj7g2YS5J67Rz",
+      status: "processed",
+      tax: 90,
+      utr: null,
+    });
+    expect(
+      razorpayReconItemSchema.safeParse({
+        ...DOC_RECON[0],
+        settlement_id: "setlod_FNj7g2YS5J67Rz",
+      }).success
+    ).toBe(true);
   });
 
   it("turns an India day into the recon query", () => {
@@ -257,6 +334,7 @@ function fakeClient({
         items: (reconByDay[key] ?? []).map(recon),
         pages: 1,
         unreadable: 0,
+        unreadableBySettlement: new Map<string, number>(),
       };
     },
     listSettlements: async () => {
@@ -353,6 +431,31 @@ describe("syncSettlementsForDay", () => {
     expect(tally.found).toBe(0);
     expect(failures).toEqual(["setl_DGlQ1Rj8os78Ec"]);
   });
+
+  it("counts a settlement once when a run sees it on two days", async () => {
+    const { client } = fakeClient({ reconByDay: { "2019-09-11": DOC_RECON } });
+    const { record } = recorded();
+    const seen = new Set<string>();
+    const deps = { logFailure: () => undefined, record };
+    const first = await syncSettlementsForDay(
+      "2019-09-11",
+      { from: 1, to: 2 },
+      client,
+      "test",
+      deps,
+      seen
+    );
+    const second = await syncSettlementsForDay(
+      "2019-09-11",
+      { from: 1, to: 2 },
+      client,
+      "test",
+      deps,
+      seen
+    );
+    expect(first.tally).toMatchObject({ found: 1, new: 1, unlinked: 1 });
+    expect(second.tally).toMatchObject({ found: 0, new: 0, unlinked: 0 });
+  });
 });
 
 describe("syncRazorpaySettlement", () => {
@@ -428,6 +531,54 @@ describe("syncRazorpaySettlement", () => {
     expect(outcome).toMatchObject({ lines: 4, outcome: "recorded" });
   });
 
+  it("tries the day before too, and retries a processed settlement whose lines are not listed yet", async () => {
+    const { calls, client } = fakeClient({
+      fetched: { setl_DGlQ1Rj8os78Ec: DOC_SETTLEMENT },
+      reconByDay: { "2019-09-10": DOC_RECON },
+    });
+    const { record } = recorded();
+    expect(
+      await syncRazorpaySettlement(
+        { settlementId: "setl_DGlQ1Rj8os78Ec" },
+        enabled(),
+        { client: () => client, now, record }
+      )
+    ).toMatchObject({ lines: 4, outcome: "recorded" });
+    expect(calls.slice(1)).toEqual([
+      "recon:2019-09-11",
+      "recon:2019-09-12",
+      "recon:2019-09-10",
+    ]);
+
+    const empty = fakeClient({
+      fetched: { setl_DGlQ1Rj8os78Ec: DOC_SETTLEMENT },
+    });
+    const none = recorded();
+    await expect(
+      syncRazorpaySettlement(
+        { settlementId: "setl_DGlQ1Rj8os78Ec" },
+        enabled(),
+        { client: () => empty.client, now, record: none.record }
+      )
+    ).rejects.toBeInstanceOf(SettlementLinesNotReadyError);
+    expect(none.record).not.toHaveBeenCalled();
+
+    // One not processed yet is recorded without lines.
+    const created = fakeClient({
+      fetched: {
+        setl_DGlQ1Rj8os78Ec: { ...DOC_SETTLEMENT, status: "created" },
+      },
+    });
+    const createdRecord = recorded();
+    expect(
+      await syncRazorpaySettlement(
+        { settlementId: "setl_DGlQ1Rj8os78Ec" },
+        enabled(),
+        { client: () => created.client, now, record: createdRecord.record }
+      )
+    ).toMatchObject({ lines: 0, outcome: "recorded" });
+  });
+
   it("records nothing for a settlement Razorpay does not know", async () => {
     const { client } = fakeClient();
     const { record } = recorded();
@@ -468,6 +619,50 @@ describe("settlement API calls", () => {
     expect(urls).toEqual([
       "https://api.razorpay.com/v1/settlements/recon/combined?count=1000&day=11&month=9&year=2019&skip=0",
       "https://api.razorpay.com/v1/settlements/recon/combined?count=1000&day=11&month=9&year=2019&skip=1000",
+    ]);
+  });
+
+  it("fetches an instant settlement from its own endpoint", async () => {
+    const urls: string[] = [];
+    const fetchImpl = (async (url: string) => {
+      urls.push(url);
+      return json({
+        amount_settled: 199_410,
+        created_at: 1_596_771_429,
+        fees: 590,
+        id: "setlod_FNj7g2YS5J67Rz",
+        status: "reversed",
+        tax: 90,
+      });
+    }) as unknown as typeof fetch;
+    const settlement = await createRazorpayClient(KEY, {
+      fetchImpl,
+    }).fetchSettlement("setlod_FNj7g2YS5J67Rz");
+    expect(urls).toEqual([
+      "https://api.razorpay.com/v1/settlements/ondemand/setlod_FNj7g2YS5J67Rz",
+    ]);
+    // Reversed: the money went back to the balance, so it was not paid out.
+    expect(settlement).toMatchObject({ amount: 199_410, status: "failed" });
+  });
+
+  it("counts the recon lines it cannot read by the settlement they name", async () => {
+    const fetchImpl = (async () =>
+      json({
+        entity: "collection",
+        items: [
+          DOC_RECON[0],
+          { ...DOC_RECON[0], credit: "lots" },
+          { settlement_id: "setl_DGlQ1Rj8os78Ec", type: "odd" },
+          { nothing: true },
+        ],
+      })) as unknown as typeof fetch;
+    const listed = await createRazorpayClient(KEY, {
+      fetchImpl,
+    }).listSettlementRecon({ day: 11, month: 9, year: 2019 });
+    expect(listed.items).toHaveLength(1);
+    expect(listed.unreadable).toBe(3);
+    expect([...listed.unreadableBySettlement]).toEqual([
+      ["setl_DGlQ1Rj8os78Ec", 2],
     ]);
   });
 

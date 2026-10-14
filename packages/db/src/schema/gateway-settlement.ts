@@ -59,21 +59,41 @@ export const gatewaySettlement = pgTable(
     externalId: text("external_id").notNull(),
     /** Fees, excluding GST, on its lines. */
     feesPaise: bigint("fees_paise", { mode: "number" }).default(0).notNull(),
+    /** Payments it settled, before fees: the sum of its payment lines' amounts. */
+    grossPaise: bigint("gross_paise", { mode: "number" }).default(0).notNull(),
     id: uuid("id").primaryKey(),
     /** Lines stored for it: payments, refunds, transfers and adjustments. */
     itemCount: integer("item_count").default(0).notNull(),
+    paymentCount: integer("payment_count").default(0).notNull(),
     /** The clearing account it paid out of, as configured when first seen. */
     orgAccountId: uuid("org_account_id").references(() => orgAccount.id, {
       onDelete: "restrict",
     }),
     provider: gatewaySettlementProviderEnum("provider").notNull(),
+    /** Refunds it paid back out of the payout: the sum of its refund lines' amounts. */
+    refundsPaise: bigint("refunds_paise", { mode: "number" })
+      .default(0)
+      .notNull(),
     /** Which account at the provider: Razorpay's live or test mode. */
     providerAccount: text("provider_account").notNull(),
     /** India date of the settlement. */
     settledOn: date("settled_on").notNull(),
+    /**
+     * Razorpay's fee on the payout itself (an instant settlement), excluding
+     * GST; null when Razorpay reported none. Taken out of the payout on top
+     * of its lines' fees.
+     */
+    settlementFeePaise: bigint("settlement_fee_paise", { mode: "number" }),
+    /** GST on the payout's own fee. */
+    settlementTaxPaise: bigint("settlement_tax_paise", { mode: "number" }),
     status: gatewaySettlementStatusEnum("status").notNull(),
     /** GST on its lines' fees. */
     taxPaise: bigint("tax_paise", { mode: "number" }).default(0).notNull(),
+    /**
+     * Recon lines naming it that pi-dash could not read (another currency,
+     * or a shape it does not know), so its lines may not add up.
+     */
+    unreadableLineCount: integer("unreadable_line_count").default(0).notNull(),
     updatedAt: timestamp("updated_at").notNull(),
     /** Bank reference of the payout, to match the bank statement. */
     utr: text("utr"),
@@ -87,7 +107,7 @@ export const gatewaySettlement = pgTable(
     index("gateway_settlement_settledOn_idx").on(t.settledOn),
     check(
       "gateway_settlement_amounts_nonnegative",
-      sql`${t.amountPaise} >= 0 AND ${t.feesPaise} >= 0 AND ${t.taxPaise} >= 0`
+      sql`${t.amountPaise} >= 0 AND ${t.feesPaise} >= 0 AND ${t.taxPaise} >= 0 AND ${t.grossPaise} >= 0 AND ${t.refundsPaise} >= 0 AND coalesce(${t.settlementFeePaise}, 0) >= 0 AND coalesce(${t.settlementTaxPaise}, 0) >= 0`
     ),
   ]
 );

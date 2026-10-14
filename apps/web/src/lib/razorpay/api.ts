@@ -1,8 +1,10 @@
 import { type RazorpayPayment, razorpayPaymentSchema } from "./payment";
 import { type RazorpayRefund, razorpayRefundSchema } from "./refund-schema";
 import {
+  ONDEMAND_SETTLEMENT_ID,
   type RazorpayReconItem,
   type RazorpaySettlement,
+  razorpayOndemandSettlementSchema,
   razorpayReconItemSchema,
   razorpaySettlementSchema,
 } from "./settlement-schema";
@@ -61,6 +63,12 @@ export interface Listing<T> {
   unreadable: number;
 }
 
+/** The settlement recon, with the settlements its unreadable lines named. */
+export interface ReconListing extends Listing<RazorpayReconItem> {
+  /** Settlement ID to how many of its lines could not be read. */
+  unreadableBySettlement: Map<string, number>;
+}
+
 /** One India day, as the settlement recon takes it. */
 export interface ReconDay {
   day: number;
@@ -76,7 +84,7 @@ export interface RazorpayClient {
   listPayments(window: UnixWindow): Promise<Listing<RazorpayPayment>>;
   listRefunds(window: UnixWindow): Promise<Listing<RazorpayRefund>>;
   /** Lines settled on one day: payments, refunds, transfers and adjustments. */
-  listSettlementRecon(day: ReconDay): Promise<Listing<RazorpayReconItem>>;
+  listSettlementRecon(day: ReconDay): Promise<ReconListing>;
   listSettlements(window: UnixWindow): Promise<Listing<RazorpaySettlement>>;
 }
 
@@ -112,7 +120,8 @@ interface Parser<T> {
 
 function parseCollection<T>(
   body: unknown,
-  schema: Parser<T>
+  schema: Parser<T>,
+  onUnreadable?: (raw: unknown) => void
 ): { count: number; items: T[]; unreadable: number } {
   const raw = (body as { items?: unknown } | null)?.items;
   if (!Array.isArray(raw)) {
@@ -126,6 +135,7 @@ function parseCollection<T>(
       items.push(parsed.data);
     } else {
       unreadable += 1;
+      onUnreadable?.(item);
     }
   }
   return { count: raw.length, items, unreadable };
@@ -185,9 +195,11 @@ export function createRazorpayClient(
     window: UnixWindow | null,
     schema: Parser<T>,
     {
+      onUnreadable,
       pageSize = PAGE_SIZE,
       query = {},
     }: {
+      onUnreadable?: (raw: unknown) => void;
       pageSize?: number;
       query?: Record<string, number>;
     } = {}
@@ -204,7 +216,7 @@ export function createRazorpayClient(
       if (body === null) {
         break;
       }
-      const page = parseCollection(body, schema);
+      const page = parseCollection(body, schema, onUnreadable);
       listing.items.push(...page.items);
       listing.unreadable += page.unreadable;
       if (page.count < pageSize) {
@@ -253,18 +265,43 @@ export function createRazorpayClient(
         razorpayRefundSchema
       ),
     fetchSettlement: (settlementId) =>
-      one(
-        `/settlements/${encodeURIComponent(settlementId)}`,
-        razorpaySettlementSchema,
-        "settlement"
-      ),
+      ONDEMAND_SETTLEMENT_ID.test(settlementId)
+        ? one(
+            `/settlements/ondemand/${encodeURIComponent(settlementId)}`,
+            razorpayOndemandSettlementSchema,
+            "settlement"
+          )
+        : one(
+            `/settlements/${encodeURIComponent(settlementId)}`,
+            razorpaySettlementSchema,
+            "settlement"
+          ),
     listPayments: (window) => list("/payments", window, razorpayPaymentSchema),
     listRefunds: (window) => list("/refunds", window, razorpayRefundSchema),
-    listSettlementRecon: ({ day, month, year }) =>
-      list("/settlements/recon/combined", null, razorpayReconItemSchema, {
-        pageSize: RECON_PAGE_SIZE,
-        query: { day, month, year },
-      }),
+    listSettlementRecon: async ({ day, month, year }) => {
+      // Only the settlement an unreadable line names is kept, to count it.
+      const unreadableBySettlement = new Map<string, number>();
+      const listing = await list(
+        "/settlements/recon/combined",
+        null,
+        razorpayReconItemSchema,
+        {
+          onUnreadable: (raw) => {
+            const id = (raw as { settlement_id?: unknown } | null)
+              ?.settlement_id;
+            if (typeof id === "string" && id.length <= 60) {
+              unreadableBySettlement.set(
+                id,
+                (unreadableBySettlement.get(id) ?? 0) + 1
+              );
+            }
+          },
+          pageSize: RECON_PAGE_SIZE,
+          query: { day, month, year },
+        }
+      );
+      return { ...listing, unreadableBySettlement };
+    },
     listSettlements: (window) =>
       list("/settlements", window, razorpaySettlementSchema),
   };

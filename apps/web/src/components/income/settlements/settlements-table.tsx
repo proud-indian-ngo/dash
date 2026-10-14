@@ -10,8 +10,7 @@ import {
 import { formatPaise } from "@pi-dash/shared/money";
 import {
   isUnlinkedLine,
-  type SettlementBreakdown,
-  settlementBreakdown,
+  settlementOwnFeePaise,
 } from "@pi-dash/shared/settlements";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
@@ -57,17 +56,6 @@ function searchSettlement(row: SettlementRow, query: string): boolean {
   return (
     !q || [row.externalId, row.utr ?? ""].join(" ").toLowerCase().includes(q)
   );
-}
-
-/** Breakdowns are worked out once per row per render of the table. */
-const breakdowns = new WeakMap<SettlementRow, SettlementBreakdown>();
-function breakdownOf(row: SettlementRow): SettlementBreakdown {
-  let found = breakdowns.get(row);
-  if (!found) {
-    found = settlementBreakdown(row.items ?? []);
-    breakdowns.set(row, found);
-  }
-  return found;
 }
 
 const unlinkedOf = (row: SettlementRow) =>
@@ -151,7 +139,7 @@ export function SettlementsTable({
       size: 170,
     },
     {
-      accessorFn: (row) => breakdownOf(row).paymentCount,
+      accessorFn: (row) => row.paymentCount ?? 0,
       cell: ({ row }) => {
         const unlinked = unlinkedOf(row.original);
         return (
@@ -161,7 +149,7 @@ export function SettlementsTable({
                 {unlinked.toLocaleString("en-IN")} unlinked
               </Tag>
             ) : null}
-            {breakdownOf(row.original).paymentCount.toLocaleString("en-IN")}
+            {(row.original.paymentCount ?? 0).toLocaleString("en-IN")}
           </span>
         );
       },
@@ -180,13 +168,14 @@ export function SettlementsTable({
       },
       size: 150,
     },
-    moneyColumn("gross", "Gross", (row) => breakdownOf(row).grossPaise),
+    moneyColumn("gross", "Gross", (row) => row.grossPaise ?? 0),
     moneyColumn(
       "fees",
       "Fees + GST",
-      (row) => breakdownOf(row).feesPaise + breakdownOf(row).taxPaise
+      (row) =>
+        (row.feesPaise ?? 0) + (row.taxPaise ?? 0) + settlementOwnFeePaise(row)
     ),
-    moneyColumn("refunds", "Refunds", (row) => breakdownOf(row).refundsPaise),
+    moneyColumn("refunds", "Refunds", (row) => row.refundsPaise ?? 0),
     {
       ...moneyColumn("net", "Net paid", (row) => row.amountPaise),
       meta: {

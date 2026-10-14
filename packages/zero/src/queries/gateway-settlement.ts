@@ -61,16 +61,33 @@ export const gatewaySettlementQueries = {
             .related("settlement")
   ),
   /**
-   * The Settlements tab, newest first. Lines come along without their
-   * contributions: the table only sums and counts them.
+   * The Settlements tab for one mode (the server's), newest first. Totals
+   * are stored on the settlement, so only the lines still waiting for their
+   * payment or refund come along, for the "N unlinked" tag.
    */
-  list: defineQuery(({ ctx }) =>
-    canSeeSettlements(ctx)
-      ? zql.gatewaySettlement
-          .related("items")
-          .orderBy("settledOn", "desc")
-          .orderBy("id", "desc")
-          .limit(SETTLEMENT_LIST_LIMIT)
-      : zql.gatewaySettlement.where("id", "__never_match__").related("items")
+  list: defineQuery(
+    z.object({ providerAccount: z.string() }),
+    ({ args: { providerAccount }, ctx }) =>
+      canSeeSettlements(ctx)
+        ? zql.gatewaySettlement
+            .where("providerAccount", providerAccount)
+            .related("items", (items) =>
+              items.where(({ and, cmp, or }) =>
+                or(
+                  and(
+                    cmp("type", "payment"),
+                    cmp("contributionId", "IS", null)
+                  ),
+                  and(
+                    cmp("type", "refund"),
+                    cmp("contributionRefundId", "IS", null)
+                  )
+                )
+              )
+            )
+            .orderBy("settledOn", "desc")
+            .orderBy("id", "desc")
+            .limit(SETTLEMENT_LIST_LIMIT)
+        : zql.gatewaySettlement.where("id", "__never_match__").related("items")
   ),
 };

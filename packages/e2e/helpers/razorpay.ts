@@ -130,12 +130,24 @@ async function restoreClearingSetting(value: string | null): Promise<void> {
  * whatever payments and refunds are already recorded.
  */
 async function recordSettlement(json: string) {
-  const input = JSON.parse(json) as Omit<SettlementToRecord, "lines"> & {
-    lines: (Omit<SettlementToRecord["lines"][number], "settledAt"> & {
-      settledAt: string;
-    })[];
-  };
+  const input = JSON.parse(json) as Omit<
+    SettlementToRecord,
+    "lines" | "settlementFeePaise" | "settlementTaxPaise" | "unreadableLines"
+  > &
+    Partial<
+      Pick<
+        SettlementToRecord,
+        "settlementFeePaise" | "settlementTaxPaise" | "unreadableLines"
+      >
+    > & {
+      lines: (Omit<SettlementToRecord["lines"][number], "settledAt"> & {
+        settledAt: string;
+      })[];
+    };
   return await recordRazorpaySettlement({
+    settlementFeePaise: null,
+    settlementTaxPaise: null,
+    unreadableLines: 0,
     ...input,
     lines: input.lines.map((line) => ({
       ...line,
