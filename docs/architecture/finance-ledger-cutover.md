@@ -36,7 +36,7 @@ The ledger is switched on in Phase 3, months after 1 April 2026. Activity in bet
 | give.do payouts and their lines | Income → Settlements, `gateway_settlement` (provider give.do) | Money moving from give.do to the bank |
 | Bank statement lines, credits and debits, with closing balance | Bank statements page, `statement_line` | Proof that money reached or left the bank |
 | Other income (such as FD interest) | Income page, `other_income` | Other income |
-| Approved reimbursements | Reimbursements, status approved | Expense. Note: pi-dash records approval, not the payment itself, so the payment needs a bank debit line or the founder's proof (section 6) |
+| Approved reimbursements | Reimbursements, status approved, with the payment screenshot attached at approval | Expense and payment. Approval is given only after the claimant has been paid, and the approver attaches the payment screenshot, so an approved reimbursement is a paid one: the screenshot is the payment evidence and the approval date is the default payment date. Approved reimbursements without a screenshot (older records) are listed for the founder (section 6) |
 | Vendor payments and their recorded payment transactions (date, method, reference) | Vendor payments, `vendor_payment_transaction` | Expense and the payment |
 | Legacy advance payments | Read-only history | Nothing posts from them (advances were discontinued). The audited balance sheet shows no advances outstanding at 31 March 2026 |
 
@@ -106,8 +106,8 @@ Restated from the trigger table in `finance-and-programmes.md` section 3.8:
 | An acknowledgement or invoice is sent to a corporate or Goodera | Nothing (section 8 item 2 of the finance chapter: engagement money is a donation, recognised when received) | Nothing |
 | A donor is refunded | Donation income reduced | Refund out of the account it is paid from |
 | An in-kind gift arrives | In-kind income at fair value, and either an expense when it is used or an asset when it is kept | Nothing, labelled in-kind in the CA's workbook |
-| A reimbursement is approved | Expense per line | Nothing yet |
-| A reimbursement or vendor payment is paid and the payment confirmed | Nothing (already recognised) | Out of the account it was paid from |
+| A reimbursement is approved (it has already been paid; the payment screenshot is attached) | Expense per line | Out of the account it was paid from, on the payment date (default: approval date) |
+| A vendor payment is paid and the payment confirmed | Nothing (already recognised) | Out of the account it was paid from |
 | A vendor invoice is accepted | Expense (or an asset for equipment) at the invoice amount less any GST we can recover, and the recoverable GST as an asset. The trust is not GST-registered, so today this is the full invoice amount | Nothing |
 | Tax is deducted from a vendor payment (TDS) | Nothing; the amount owed to the government is tracked on the deduction | Nothing |
 | The deducted tax is paid to the government | Nothing | Out of the bank, as a tax payment |
@@ -150,7 +150,7 @@ One workbook per financial year, one sheet per export (`finance-and-programmes.m
 
 ## 6. What the founder supplies
 
-1. **Payments since 1 April 2026 without proof in pi-dash.** pi-dash will generate the list: approved reimbursements (pi-dash records the approval but not the payment) and vendor payments with no payment transaction or no matching bank debit line. For each, the founder gives the payment date, the account it was paid from and the bank reference, or marks it unpaid.
+1. **Payments since 1 April 2026 without proof in pi-dash.** pi-dash will generate the list: approved reimbursements with no payment screenshot attached (older records; newer approvals carry the screenshot as payment proof) and vendor payments with no payment transaction or no matching bank debit line. For each, the founder gives the payment date, the account it was paid from and the bank reference, or marks it unpaid.
 2. **Accounts in Settings → Organisation accounts.** Confirm the current account and add the fixed deposit as its own account (section 2), so the opening balances have somewhere to go.
 3. **Bank statements from 1 April 2026** for the current account, imported on the Bank statements page, so every backfilled payment and gift can be matched.
 4. **Fixed deposit evidence**: the FD's start date, amount, maturity date and interest credited since 1 April 2026.
