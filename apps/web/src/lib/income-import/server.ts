@@ -5,7 +5,7 @@ import {
 } from "@pi-dash/db/import-retention";
 import {
   claimImportBatch,
-  countImportOutcomes,
+  countImportBatchRows,
   findBatchByFileHash,
   findContributorsByContact,
   findContributorsByIdentifier,
@@ -23,20 +23,26 @@ import {
   resolveImportSettings,
   setImportRowOutcome,
   setImportRowsRetention,
+  startDecidedRowsRetention,
   type StoredIdentity,
   updateImportBatch,
   withImportTransaction,
 } from "@pi-dash/db/queries/income-import";
 import { savePartyInTransaction } from "@pi-dash/db/queries/party-private";
+import {
+  findClearingAccount,
+  markImportRowWaiting,
+} from "@pi-dash/db/queries/razorpay-import";
 import type {
   ContributionChannel,
   ImportBatchSource,
 } from "@pi-dash/shared/constants";
 import { defaultReportingMode, todayInKolkata } from "@pi-dash/shared/income";
-import { createRequestLogger } from "evlog";
 import { uuidv7 } from "uuidv7";
 
 import { saveDonorSchema } from "@/lib/donor-schema";
+import { razorpayRowRules } from "@/lib/razorpay/rules";
+import { withSafeErrors } from "@/lib/safe-errors";
 
 import {
   type ClassifiedRow,
@@ -45,6 +51,7 @@ import {
   donorChoiceValue,
   type ExistingIdentity,
   planRows,
+  type ReviewCategory,
   type RowDecision,
   type RowPlan,
 } from "./classify";
@@ -60,6 +67,7 @@ import {
   fileHash,
   identityKey,
   payloadHash,
+  type RowIdentity,
   rawRowHash,
   rowIdentity,
 } from "./identity";
@@ -68,6 +76,7 @@ import {
   donorSaveInput,
   maskIdentifier,
   maskIdentifiers,
+  type NormalizedRow,
   type NormalizeResult,
   normalizeRow,
 } from "./normalize";
@@ -98,6 +107,21 @@ const STALE_RUN_MS = 15 * 60 * 1000;
 export const COLLECTION_PURPOSE = "donation receipt and statutory filing";
 export const GENERIC_CSV_COLLECTION_NOTE =
   "collected directly by the organisation; notice version not recorded";
+export const RAZORPAY_COLLECTION_NOTE =
+  "donor submitted details on our Razorpay Payment Page";
+
+/** How each source's donors came to give their details (DPDP collection record). */
+const COLLECTION_BY_SOURCE: Record<
+  ImportBatchSource,
+  { channel: string; note: string }
+> = {
+  generic_csv: { channel: "generic_csv", note: GENERIC_CSV_COLLECTION_NOTE },
+  give_do_csv: { channel: "give_do_csv", note: GENERIC_CSV_COLLECTION_NOTE },
+  razorpay_api: {
+    channel: "razorpay_payment_page",
+    note: RAZORPAY_COLLECTION_NOTE,
+  },
+};
 
 export class ImportInputError extends Error {
   constructor(message: string) {
@@ -110,77 +134,29 @@ export const IMPORT_SAVE_FAILED_MESSAGE =
   "The import couldn't be saved. Nothing was changed.";
 export const IMPORT_LOAD_FAILED_MESSAGE = "The import couldn't be loaded.";
 
-const SQLSTATE = /^[0-9A-Z]{5}$/;
-const DB_NAME = /^[a-z_][a-z0-9_]{0,62}$/i;
-
-/**
- * What can be logged about a failed query: the Postgres error code and the
- * names of the constraint and table, read from the error or its cause. A
- * query error's message carries the statement's parameters, which here are
- * row cells, so the message, detail and params are never read.
- */
-function databaseErrorFields(error: unknown): Record<string, string> {
-  const fields: Record<string, string> = {};
-  let current: unknown = error;
-  for (let depth = 0; depth < 4 && current instanceof Object; depth += 1) {
-    const e = current as Record<string, unknown>;
-    for (const candidate of [e.errno, e.code]) {
-      if (
-        !fields.sqlState &&
-        typeof candidate === "string" &&
-        SQLSTATE.test(candidate)
-      ) {
-        fields.sqlState = candidate;
-      }
-    }
-    for (const name of ["constraint", "table"] as const) {
-      const value = e[name];
-      if (!fields[name] && typeof value === "string" && DB_NAME.test(value)) {
-        fields[name] = value;
-      }
-    }
-    current = e.cause;
-  }
-  return fields;
-}
-
 /**
  * Runs one step of an import and lets only messages written for the user
- * through. Anything else, typically a query error quoting row cells, is
- * logged by code and constraint only and replaced by a generic error with
- * no cause, so neither the logs, the audit runner nor the browser sees it.
+ * through; anything else, typically a query error quoting row cells, is
+ * logged by code and constraint only and replaced by a generic error.
  */
-async function withSafeErrors<T>(
+async function withImportSafeErrors<T>(
   step: "create" | "review" | "run" | "detail",
   batchId: string,
   work: () => Promise<T>
 ): Promise<T> {
-  try {
-    return await work();
-  } catch (error) {
-    if (error instanceof ImportInputError || error instanceof CsvParseError) {
-      throw error;
-    }
-    const safe = new Error(
-      step === "detail"
-        ? IMPORT_LOAD_FAILED_MESSAGE
-        : IMPORT_SAVE_FAILED_MESSAGE
-    );
-    const log = createRequestLogger({ method: "POST", path: "income-import" });
-    log.set({
-      batchId,
-      errorName:
-        error instanceof Error && DB_NAME.test(error.name)
-          ? error.name
-          : typeof error,
-      event: "import_step_failed",
-      step,
-      ...databaseErrorFields(error),
-    });
-    log.error(safe);
-    log.emit();
-    throw safe;
-  }
+  return await withSafeErrors(
+    {
+      fields: { batchId, event: "import_step_failed", step },
+      isUserFacing: (error) =>
+        error instanceof ImportInputError || error instanceof CsvParseError,
+      message:
+        step === "detail"
+          ? IMPORT_LOAD_FAILED_MESSAGE
+          : IMPORT_SAVE_FAILED_MESSAGE,
+      path: "income-import",
+    },
+    work
+  );
 }
 
 export interface CreateBatchInput {
@@ -201,7 +177,7 @@ export async function createImportBatch(
   actorId: string
 ): Promise<CreateBatchResponse> {
   const batchId = uuidv7();
-  return await withSafeErrors(
+  return await withImportSafeErrors(
     "create",
     batchId,
     async () => await storeImportBatch(batchId, input, parsed, actorId)
@@ -269,8 +245,57 @@ interface ClassifySettings {
   mapping: ImportMapping;
 }
 
+/**
+ * How a batch's stored rows become contributions. CSV batches read their
+ * cells through the saved mapping; Razorpay batches read a flattened payment
+ * and identify it by payment ID.
+ */
+export interface RowRules {
+  identity: (row: NormalizedRow) => RowIdentity;
+  normalize: (raw: Readonly<Record<string, string>>) => NormalizeResult;
+  payloadHash: (
+    row: NormalizedRow,
+    raw: Readonly<Record<string, string>>
+  ) => string;
+  /** No provider ID, so re-uploads are matched by a fingerprint. */
+  weakIdentity: boolean;
+}
+
+function csvRowRules(
+  batch: ImportBatchRow,
+  settings: ClassifySettings,
+  today: string
+): RowRules {
+  const { orgAccountId } = batch;
+  return {
+    identity: (row) => {
+      if (!orgAccountId) {
+        throw new Error("A CSV batch always has an account");
+      }
+      return rowIdentity(row, batch.source, orgAccountId);
+    },
+    normalize: (raw) =>
+      normalizeRow(raw, settings.mapping, {
+        dateFormat: settings.dateFormat,
+        defaultChannel: settings.defaultChannel,
+        today,
+      }),
+    payloadHash: (row) => payloadHash(row),
+    weakIdentity: checkMapping(settings.mapping).weakIdentity,
+  };
+}
+
+async function rowRulesFor(
+  batch: ImportBatchRow,
+  settings: ClassifySettings
+): Promise<RowRules> {
+  return batch.source === "razorpay_api"
+    ? await razorpayRowRules(batch)
+    : csvRowRules(batch, settings, todayInKolkata());
+}
+
 interface PreparedRow {
-  identity: ReturnType<typeof rowIdentity> | null;
+  identity: RowIdentity | null;
   normalized: NormalizeResult | null;
   payloadHash: string | null;
   record: ImportRowRecord;
@@ -283,6 +308,10 @@ interface Classification {
 }
 
 function settingsOf(batch: ImportBatchRow): ClassifySettings | null {
+  // Razorpay rows are payments, not mapped cells.
+  if (batch.source === "razorpay_api") {
+    return { dateFormat: "ymd", defaultChannel: "razorpay", mapping: {} };
+  }
   if (!(batch.mapping && batch.dateFormat)) {
     return null;
   }
@@ -296,17 +325,12 @@ function settingsOf(batch: ImportBatchRow): ClassifySettings | null {
 /** The row's normalised values, with a parse problem of the CSV row as an error. */
 function normalizeRecord(
   record: ImportRowRecord,
-  settings: ClassifySettings,
-  today: string
+  rules: RowRules
 ): NormalizeResult | null {
   if (!record.raw) {
     return null;
   }
-  const normalized = normalizeRow(record.raw, settings.mapping, {
-    dateFormat: settings.dateFormat,
-    defaultChannel: settings.defaultChannel,
-    today,
-  });
+  const normalized = rules.normalize(record.raw);
   const issue = record.parseIssue as CsvRowIssue | null;
   if (issue && CSV_ROW_ISSUE_MESSAGES[issue]) {
     normalized.errors.unshift({
@@ -323,22 +347,24 @@ function normalizeRecord(
  * state the run's lock protects.
  */
 async function classifyBatch(
-  batch: ImportBatchRow,
   records: readonly ImportRowRecord[],
-  settings: ClassifySettings,
+  rules: RowRules,
   executor?: ImportTx
 ): Promise<Classification> {
-  const today = todayInKolkata();
   const prepared = new Map<string, PreparedRow>();
   for (const record of records) {
-    const normalized = normalizeRecord(record, settings, today);
-    const usable = normalized !== null && normalized.errors.length === 0;
+    const normalized = normalizeRecord(record, rules);
+    const usable =
+      record.raw !== null &&
+      normalized !== null &&
+      normalized.errors.length === 0;
     prepared.set(record.id, {
-      identity: usable
-        ? rowIdentity(normalized.row, batch.source, batch.orgAccountId)
-        : null,
+      identity: usable ? rules.identity(normalized.row) : null,
       normalized,
-      payloadHash: usable ? payloadHash(normalized.row) : null,
+      payloadHash:
+        usable && record.raw
+          ? rules.payloadHash(normalized.row, record.raw)
+          : null,
       record,
     });
   }
@@ -495,7 +521,8 @@ function toRowView(
 function toReviewResponse(
   batch: ImportBatchRow,
   settings: ClassifySettings,
-  classification: Classification
+  classification: Classification,
+  weakIdentity: boolean
 ): ReviewResponse {
   const firstNewKeyRow = new Map<
     string,
@@ -538,7 +565,7 @@ function toReviewResponse(
         repeatOf(row)
       )
     ),
-    weakIdentity: checkMapping(settings.mapping).weakIdentity,
+    weakIdentity,
   };
 }
 
@@ -566,7 +593,7 @@ export interface ReviewInput {
 export async function reviewImportBatch(
   input: ReviewInput
 ): Promise<ReviewResponse> {
-  return await withSafeErrors(
+  return await withImportSafeErrors(
     "review",
     input.batchId,
     async () => await saveReview(input)
@@ -577,6 +604,9 @@ async function saveReview(input: ReviewInput): Promise<ReviewResponse> {
   const batch = await requireBatch(input.batchId);
   if (batch.status === "importing") {
     throw new ImportInputError("This batch is importing right now");
+  }
+  if (batch.source === "razorpay_api") {
+    throw new ImportInputError("Razorpay payments have no columns to map");
   }
   const records = await listImportRows(batch.id);
   const headers = new Set(Object.keys(records.find((r) => r.raw)?.raw ?? {}));
@@ -593,7 +623,8 @@ async function saveReview(input: ReviewInput): Promise<ReviewResponse> {
     defaultChannel: input.defaultChannel,
     mapping,
   };
-  const classification = await classifyBatch(batch, records, settings);
+  const rules = await rowRulesFor(batch, settings);
+  const classification = await classifyBatch(records, rules);
   const status = batch.status === "draft" ? "reviewed" : batch.status;
   await updateImportBatch(batch.id, {
     dateFormat: input.dateFormat,
@@ -601,7 +632,12 @@ async function saveReview(input: ReviewInput): Promise<ReviewResponse> {
     mapping,
     status,
   });
-  return toReviewResponse({ ...batch, status }, settings, classification);
+  return toReviewResponse(
+    { ...batch, status },
+    settings,
+    classification,
+    rules.weakIdentity
+  );
 }
 
 /** An identifier cell for display: its last four characters at most. */
@@ -644,7 +680,7 @@ export async function getImportBatchDetail(
   batchId: string,
   access: { canManage: boolean }
 ): Promise<BatchDetailResponse> {
-  return await withSafeErrors(
+  return await withImportSafeErrors(
     "detail",
     batchId,
     async () => await loadBatchDetail(batchId, access)
@@ -667,16 +703,26 @@ async function loadBatchDetail(
     withRaw.some(
       (r) => r.outcome !== "imported" && r.outcome !== "linked_existing"
     );
+  // Razorpay rows are payments with nothing to map, so their cells are
+  // never sent as samples.
   const columns =
-    access.canManage && resumable ? columnSamples(batch, withRaw) : [];
+    access.canManage && resumable && batch.source !== "razorpay_api"
+      ? columnSamples(batch, withRaw)
+      : [];
   const settings = settingsOf(batch);
   if (!settings || batch.status === "expired") {
     return { columns, review: null };
   }
-  const classification = await classifyBatch(batch, records, settings);
+  const rules = await rowRulesFor(batch, settings);
+  const classification = await classifyBatch(records, rules);
   return {
     columns,
-    review: toReviewResponse(batch, settings, classification),
+    review: toReviewResponse(
+      batch,
+      settings,
+      classification,
+      rules.weakIdentity
+    ),
   };
 }
 
@@ -686,10 +732,12 @@ const OUTCOME_FOR_PLAN = {
 } as const;
 
 interface RunContext {
-  actorId: string;
+  /** Null when the system imports (a Razorpay payment on arrival). */
+  actorId: string | null;
   batch: ImportBatchRow;
   canStoreIds: boolean;
   now: Date;
+  orgAccountId: string;
   programmeId: string | null;
   tx: ImportTx;
 }
@@ -721,7 +769,7 @@ export async function runImportBatch(
   input: { batchId: string; decisions: Record<string, RowDecision> },
   actorId: string
 ): Promise<RunResponse> {
-  return await withSafeErrors(
+  return await withImportSafeErrors(
     "run",
     input.batchId,
     async () => await runClaimedBatch(input, actorId)
@@ -735,6 +783,11 @@ async function runClaimedBatch(
   const current = await requireBatch(input.batchId);
   if (!settingsOf(current)) {
     throw new ImportInputError("Review the rows before importing");
+  }
+  if (!current.orgAccountId) {
+    throw new ImportInputError(
+      "Choose the Razorpay clearing account in Settings first"
+    );
   }
   const claimed = await claimImportBatch(
     current.id,
@@ -751,7 +804,12 @@ async function runClaimedBatch(
     if (!settings) {
       throw new ImportInputError("Review the rows before importing");
     }
-    const { programmeId } = await resolveImportSettings(batch);
+    // An account is only ever attached, never removed, so the check above holds.
+    const orgAccountId = batch.orgAccountId ?? current.orgAccountId;
+    const { programmeId } = await resolveImportSettings({
+      ...batch,
+      orgAccountId,
+    });
     return await withImportTransaction(async (tx) => {
       const now = new Date();
       const ctx: RunContext = {
@@ -759,37 +817,40 @@ async function runClaimedBatch(
         batch,
         canStoreIds: hasEncryptionKey(),
         now,
+        orgAccountId,
         programmeId,
         tx,
       };
       const records = await listImportRows(batch.id, tx);
-      const classification = await classifyBatch(batch, records, settings, tx);
+      const classification = await classifyBatch(
+        records,
+        await rowRulesFor(batch, settings),
+        tx
+      );
       const plans = planRows(classification.classified, input.decisions);
       const result = await executePlans(ctx, classification, plans);
-      const counts = await countImportOutcomes(tx, batch.id);
       await updateImportBatch(
         batch.id,
         {
+          ...(await countImportBatchRows(tx, batch.id)),
           completedAt: now,
-          conflictCount: counts.conflict,
-          errorCount: counts.error,
-          importedCount: counts.imported,
-          linkedCount: counts.linked_existing,
           newDonorCount: batch.newDonorCount + result.newDonors,
-          skippedCount: counts.skipped + counts.pending,
           status: "completed",
         },
         tx
       );
       await setImportRowsRetention(
         tx,
-        batch.id,
+        batch,
         importedRowRetention(todayInKolkata(now))
       );
       return result;
     });
   } catch (error) {
-    await updateImportBatch(batch.id, { status: "failed" });
+    // A Razorpay batch stays `completed`: its payments keep arriving.
+    await updateImportBatch(batch.id, {
+      status: batch.source === "razorpay_api" ? "completed" : "failed",
+    });
     throw error;
   }
 }
@@ -830,6 +891,15 @@ async function executePlans(
         outcomeReason: reason,
       });
       result[plan.action === "error" ? "errors" : "conflicts"] += 1;
+      continue;
+    }
+    if (
+      plan.action === "skip" &&
+      plan.reason === "undecided" &&
+      ctx.batch.source === "razorpay_api"
+    ) {
+      // A payment left undecided keeps waiting, with its values, for review.
+      await markImportRowWaiting(ctx.tx, row.rowId, "needs_review");
       continue;
     }
     if (plan.action === "skip") {
@@ -899,10 +969,11 @@ async function executePlans(
       result.errors += 1;
       continue;
     }
+    const collection = COLLECTION_BY_SOURCE[ctx.batch.source];
     await recordImportCollectionEvent(ctx.tx, {
-      channel: ctx.batch.source,
+      channel: collection.channel,
       createdBy: ctx.actorId,
-      evidenceNote: GENERIC_CSV_COLLECTION_NOTE,
+      evidenceNote: collection.note,
       id: uuidv7(),
       importBatchId: ctx.batch.id,
       noticeVersion: null,
@@ -922,10 +993,12 @@ async function executePlans(
         createdBy: ctx.actorId,
         donationType: normalized.donationType,
         fundId: ctx.batch.fundId,
+        gatewayFeePaise: normalized.gatewayFeePaise ?? 0,
+        gatewayTaxPaise: normalized.gatewayTaxPaise ?? 0,
         id: contributionId,
         importBatchId: ctx.batch.id,
         notes: normalized.notes || null,
-        orgAccountId: ctx.batch.orgAccountId,
+        orgAccountId: ctx.orgAccountId,
         partyId,
         programmeId: ctx.programmeId,
         projectId: ctx.batch.projectId,
@@ -959,4 +1032,103 @@ async function executePlans(
     result.imported += 1;
   }
   return result;
+}
+
+/** What happened to one staged row of an API batch. */
+export type StagedRowResult =
+  | ReviewCategory
+  | "clearing_account_inactive"
+  | "no_clearing_account"
+  | "already_decided";
+
+/**
+ * Imports staged rows of an API batch as the system, inside the caller's
+ * import transaction. Rows that need no decision (a known donor by PAN, or
+ * a new donor) import at once; rows that need a reviewer stay pending with
+ * reason `needs_review`, conflicts and errors are recorded, and without a
+ * clearing account, or when the batch's account has since been deactivated,
+ * every row waits. Rows that reached an outcome start their retention, and
+ * the batch's counters are refreshed.
+ */
+export async function importStagedRows(
+  tx: ImportTx,
+  batch: ImportBatchRow,
+  rowIds: ReadonlySet<string>,
+  now: Date = new Date()
+): Promise<Map<string, StagedRowResult>> {
+  const results = new Map<string, StagedRowResult>();
+  const settings = settingsOf(batch);
+  const records = await listImportRows(batch.id, tx);
+  const waiting = records.filter(
+    (r) => rowIds.has(r.id) && r.outcome === "pending" && r.raw
+  );
+  for (const id of rowIds) {
+    results.set(id, "already_decided");
+  }
+  let newDonors = 0;
+  const account = batch.orgAccountId
+    ? await findClearingAccount(batch.orgAccountId, tx)
+    : null;
+  if (!(batch.orgAccountId && settings && account)) {
+    const reason = batch.orgAccountId
+      ? "clearing_account_inactive"
+      : "no_clearing_account";
+    for (const record of waiting) {
+      await markImportRowWaiting(tx, record.id, reason);
+      results.set(record.id, reason);
+    }
+  } else if (waiting.length > 0) {
+    const classification = await classifyBatch(
+      records,
+      await rowRulesFor(batch, settings),
+      tx
+    );
+    const plans = planRows(classification.classified, {});
+    const auto = new Map<string, RowPlan>();
+    for (const row of classification.classified) {
+      const plan = plans.get(row.rowId);
+      if (!(plan && waiting.some((r) => r.id === row.rowId))) {
+        continue;
+      }
+      results.set(row.rowId, row.category);
+      if (row.category === "needs_review") {
+        await markImportRowWaiting(tx, row.rowId, "needs_review");
+      } else if (row.category !== "done") {
+        auto.set(row.rowId, plan);
+      }
+    }
+    const result = await executePlans(
+      {
+        actorId: null,
+        batch,
+        canStoreIds: hasEncryptionKey(),
+        now,
+        orgAccountId: batch.orgAccountId,
+        programmeId: batch.programmeId,
+        tx,
+      },
+      classification,
+      auto
+    );
+    newDonors = result.newDonors;
+  }
+  await startDecidedRowsRetention(
+    tx,
+    batch.id,
+    importedRowRetention(todayInKolkata(now))
+  );
+  const counts = await countImportBatchRows(tx, batch.id);
+  await updateImportBatch(
+    batch.id,
+    {
+      ...counts,
+      ...(counts.importedCount + counts.linkedCount >
+      batch.importedCount + batch.linkedCount
+        ? { completedAt: now }
+        : {}),
+      newDonorCount: batch.newDonorCount + newDonors,
+    },
+    tx
+  );
+  return results;
 }

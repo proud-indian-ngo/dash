@@ -149,7 +149,9 @@ export function ImportBatchesTable({
     },
     {
       accessorFn: (row) => row.uploadedByUser?.name ?? "",
-      cell: ({ row }) => row.original.uploadedByUser?.name ?? "—",
+      cell: ({ row }) =>
+        row.original.uploadedByUser?.name ??
+        (row.original.source === "razorpay_api" ? "Automatic" : "—"),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -160,6 +162,33 @@ export function ImportBatchesTable({
       id: "uploadedBy",
       meta: { headerTitle: "Uploaded by", skeleton: SKELETON_TEXT },
       size: 160,
+    },
+    {
+      accessorFn: (row) => row.pendingCount ?? 0,
+      cell: ({ row }) => {
+        const pending = row.original.pendingCount ?? 0;
+        return pending > 0 ? (
+          <StatusBadge tone="warning">
+            {pending.toLocaleString("en-IN")}
+          </StatusBadge>
+        ) : (
+          <span className="text-muted-foreground tabular-nums">0</span>
+        );
+      },
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Waiting"
+          visibility={true}
+        />
+      ),
+      id: "pending",
+      meta: {
+        cellClassName: "text-right",
+        headerTitle: "Waiting",
+        skeleton: SKELETON_NUMBER,
+      },
+      size: 130,
     },
     countColumn("imported", "Imported", (row) => row.importedCount ?? 0),
     countColumn("linked", "Already in", (row) => row.linkedCount ?? 0),

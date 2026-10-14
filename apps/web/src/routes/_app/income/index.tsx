@@ -415,7 +415,44 @@ function ImportsTab({
       />
     );
   }
-  return <ImportBatchesTable data={rows} isLoading={isLoading} onOpen={open} />;
+  const pending = rows.reduce((sum, row) => sum + (row.pendingCount ?? 0), 0);
+  const waitingBatches = rows.filter((row) => (row.pendingCount ?? 0) > 0);
+  // Newest first, so the last is the oldest still waiting.
+  const oldestWaiting = waitingBatches.at(-1);
+  return (
+    <>
+      {pending > 0 ? (
+        <div
+          className="border-warning/30 bg-warning/10 text-warning-foreground dark:bg-warning-foreground/10 flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm"
+          data-testid="imports-needs-review"
+          role="status"
+        >
+          <span>
+            <span className="font-semibold">
+              Waiting: {pending.toLocaleString("en-IN")}
+            </span>{" "}
+            {pending === 1 ? "row waits" : "rows wait"} to sync or for a
+            decision in{" "}
+            {waitingBatches.length === 1
+              ? "1 import"
+              : `${waitingBatches.length} imports`}
+            .
+          </span>
+          {oldestWaiting ? (
+            <Button
+              onClick={() => open(oldestWaiting)}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              Open the oldest
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+      <ImportBatchesTable data={rows} isLoading={isLoading} onOpen={open} />
+    </>
+  );
 }
 
 function IncomeRouteComponent() {

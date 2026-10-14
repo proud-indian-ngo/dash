@@ -4,6 +4,7 @@ import {
   FolderLibraryIcon,
   Key01Icon,
   NotificationIcon,
+  PlugSocketIcon,
   SecurityLockIcon,
   Settings01Icon,
   ShieldIcon,
@@ -100,6 +101,15 @@ export const SETTINGS_SECTIONS = [
     icon: Wallet01Icon,
     label: "Organisation accounts",
     path: "/settings/org-accounts",
+    permission: "finance.view",
+  },
+  {
+    description:
+      "Payment gateways that record donations automatically, starting with Razorpay.",
+    group: "organization",
+    icon: PlugSocketIcon,
+    label: "Integrations",
+    path: "/settings/integrations",
     permission: "finance.view",
   },
   {

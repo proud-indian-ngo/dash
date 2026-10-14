@@ -27,4 +27,19 @@ describe("registerHandlers", () => {
       ])
     );
   });
+
+  it("creates the Razorpay sync queue one-per-payment and leaves its worker to the web server", async () => {
+    const createQueue = mock().mockResolvedValue(undefined);
+    const work = mock().mockResolvedValue(undefined);
+
+    await registerHandlers({ createQueue, work } as unknown as PgBoss);
+
+    expect(createQueue).toHaveBeenCalledWith(
+      "razorpay-sync-payment",
+      expect.objectContaining({ policy: "stately" })
+    );
+    expect(work.mock.calls.map(([name]) => name)).not.toContain(
+      "razorpay-sync-payment"
+    );
+  });
 });

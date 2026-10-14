@@ -123,6 +123,9 @@ Files required: `packages/pdf/assets/logo.png` and `packages/pdf/assets/signatur
 | `IMMICH_API_KEY` | Immich API key |
 | `VITE_IMMICH_URL` | Public Immich URL; blank to disable |
 | `IMMICH_INTERNAL_URL` | Optional direct/internal Immich URL used by server-side jobs (photo sync, delete) to bypass Cloudflare 100 MB body limit. Example: `http://immich-server:2283` on shared Docker network. Falls back to `VITE_IMMICH_URL` when unset. |
+| `RAZORPAY_KEY_ID` | Razorpay key id (`rzp_live_…` or `rzp_test_…`). With `RAZORPAY_WEBHOOK_SECRET` it turns on Payment Page ingestion; its prefix decides live or test mode. Not secret by itself, but keep it with the others. |
+| `RAZORPAY_WEBHOOK_SECRET` | The secret set on the Razorpay dashboard webhook; every delivery is verified against it. Unset turns ingestion off (the webhook answers 404). Treat as a secret. |
+| `RAZORPAY_KEY_SECRET` | Optional. When set, the sync job fetches each payment from the Razorpay API (the source of truth); when unset, it uses the signed webhook copy. Treat as a secret. |
 | `SOCIAL_MEDIA_SIGNING_SECRET` | HMAC key (at least 32 characters, e.g. `openssl rand -hex 32`) for the 36-hour signed photo links of the social API (`/api/social/v1/events/{id}/photos` and `/api/social/v1/media/...`). Unset makes both return 503. Rotating it invalidates links already handed out. Treat as a secret. |
 | `GRAVATAR_API_KEY` | Gravatar REST API key |
 | `GRAVATAR_API_BASE_URL` | Gravatar API base URL (default `https://api.gravatar.com/v3`) |
@@ -301,6 +304,7 @@ Starts `go-whatsapp-web-multidevice` container on port 3100. Pair via QR code at
 - [ ] WhatsApp gateway running and paired (if using WhatsApp alerts)
 - [ ] Immich server accessible (if using photo management)
 - [ ] `WEBSITE_DISPATCH_TOKEN` set (fine-grained GitHub token, `proud-indian-ngo/website` only, Contents: read and write) if the public website should rebuild when events change; the website's `PUBLIC_EVENTS_URL` is `https://dash.proudindian.ngo/api/public/events`
+- [ ] Razorpay Payment Page donations: `RAZORPAY_KEY_ID`, `RAZORPAY_WEBHOOK_SECRET` (and optionally `RAZORPAY_KEY_SECRET`) set, the dashboard webhook added and the clearing account chosen (see "Razorpay Payment Page donations" below)
 - [ ] `SOCIAL_MEDIA_SIGNING_SECRET` set and a social API token created (`bun run social:token create social-artifacts --scopes events:read,photos:read,signups:read,social:write`) if the social pipeline is in use; app_config `social_approver_user_id` names the digest recipient (see `docs/architecture/social-api.md`)
 - [ ] The app origin is only reachable through Cloudflare: `/api/public/events` rate-limits by `cf-connecting-ip`, which a client could forge if the origin were exposed directly
 
@@ -350,4 +354,18 @@ Production has no organisation accounts: the seeded ones are dev-only. Before an
 ### CSV imports of contributions
 
 Migration `0120_income_imports` adds `import_batch`, `contribution.import_batch_id` and the server-only `private.import_row`, `private.external_identity` and `private.collection_event`. No new environment variables. Imports need the same organisation accounts as manual entries, and `DATA_ENCRYPTION_KEY` for PANs: without it, imported donors are created without their ID and automatic PAN matching is off. The pg-boss schedule `expire-import-rows` (daily, 2:30 AM IST) disposes of uploaded rows: their raw cells 180 days after a batch's last import, or the rows themselves 30 days after upload for batches never imported.
+
+### Razorpay Payment Page donations
+
+Migration `0123_razorpay_imports` adds the `razorpay_api` import source and the `razorpay` identity provider, `import_batch.pending_count`, makes `private.import_row.retain_until` nullable (a Razorpay payment has no retention date until it has an outcome), and lets a Razorpay batch exist before a clearing account is chosen (`org_account_id` stays required for CSV batches by a check constraint). Ingestion is off until both `RAZORPAY_KEY_ID` and `RAZORPAY_WEBHOOK_SECRET` are set; nothing else changes until then.
+
+Setup, test mode first:
+
+1. In Settings → Organisation accounts, create a gateway clearing account for Razorpay (for example "Razorpay clearing").
+2. Set `RAZORPAY_KEY_ID` (a `rzp_test_…` key while testing), `RAZORPAY_WEBHOOK_SECRET` (any strong random string, e.g. `openssl rand -hex 32`) and, optionally, `RAZORPAY_KEY_SECRET`, then restart the app.
+3. In Settings → Integrations (`/settings/integrations`, `finance.view` to see, `finance.manage` to edit), check the status says "Connected · test mode", copy the webhook URL, choose the clearing account and save. Adjust the notes keys if the Payment Page's field names differ from the defaults.
+4. On the Razorpay dashboard (in the same mode as the key), Settings → Webhooks → Add new webhook: the URL from step 3, the same secret as `RAZORPAY_WEBHOOK_SECRET`, and the events `payment.captured` and `order.paid`. Refund events can be added now; they are acknowledged and ignored until the next release.
+5. Make a test payment on the Payment Page. Settings → Integrations shows the webhook time, and the donation appears on the Income page (or as waiting on the Imports tab).
+
+A test key on a production server stops ingestion: deliveries are acknowledged but nothing is recorded, and the Integrations page shows a blocking error, since test payments would otherwise land in the real books; switch to the `rzp_live_…` key and the live-mode webhook once testing is done. Live and test payments are kept apart by mode, so a test payment never matches a live one. The `razorpay-sync-payment` queue is new; its worker is registered by the web server itself (`apps/web/server/plugins/jobs.ts`).
 

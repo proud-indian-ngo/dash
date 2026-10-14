@@ -142,7 +142,8 @@ function MessagesCell({ row }: { row: ReviewRowView }) {
       tone: "text-warning-foreground",
     });
   }
-  if (row.outcome !== "pending" && row.outcomeReason) {
+  // CSV rows are pending without a reason; Razorpay rows say why they wait.
+  if (row.outcomeReason) {
     messages.push({
       text:
         IMPORT_OUTCOME_REASON_LABELS[row.outcomeReason] ?? row.outcomeReason,

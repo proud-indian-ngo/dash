@@ -14,6 +14,8 @@ import {
   gte,
   inArray,
   isNotNull,
+  isNull,
+  lt,
   lte,
   ne,
   or,
@@ -495,7 +497,8 @@ export async function setImportRowOutcome(
   patch: {
     contributionId?: string | null;
     decidedAt: Date;
-    decidedBy: string;
+    /** Null when the system decided (a Razorpay payment imported on arrival). */
+    decidedBy: string | null;
     externalIdentityId?: string | null;
     outcome: ImportRowOutcome;
     outcomeReason: string | null;
@@ -505,24 +508,122 @@ export async function setImportRowOutcome(
   await tx.update(importRow).set(patch).where(eq(importRow.id, id));
 }
 
+interface Retention {
+  retainUntil: string;
+  retentionBasis: string;
+  retentionPolicyVersion: string;
+}
+
+/**
+ * Rows a run's retention applies to. A CSV batch is one upload, so a run
+ * moves every dated row of it to the imported rows' date. A Razorpay day
+ * batch keeps taking payments, so a run only starts the clock for rows that
+ * have just reached an outcome: a payment decided months later never extends
+ * the rows decided before it. Rows still pending with no date keep waiting.
+ */
+export function runRetentionScope(
+  batchId: string,
+  source: ImportBatchSource,
+  retainUntil: string
+) {
+  const decidedWithoutDate = and(
+    isNull(importRow.retainUntil),
+    ne(importRow.outcome, "pending")
+  );
+  return and(
+    eq(importRow.batchId, batchId),
+    source === "razorpay_api"
+      ? decidedWithoutDate
+      : or(lt(importRow.retainUntil, retainUntil), decidedWithoutDate)
+  );
+}
+
+/** After a run: sets retention on the rows `runRetentionScope` selects. */
 export async function setImportRowsRetention(
   tx: ImportTx,
-  batchId: string,
-  retention: {
-    retainUntil: string;
-    retentionBasis: string;
-    retentionPolicyVersion: string;
-  }
+  batch: { id: string; source: ImportBatchSource },
+  retention: Retention
 ): Promise<void> {
   await tx
     .update(importRow)
     .set(retention)
+    .where(runRetentionScope(batch.id, batch.source, retention.retainUntil));
+}
+
+/** Starts retention for a Razorpay batch's rows that have just reached an outcome. */
+export async function startDecidedRowsRetention(
+  tx: ImportTx,
+  batchId: string,
+  retention: Retention
+): Promise<void> {
+  await setImportRowsRetention(
+    tx,
+    { id: batchId, source: "razorpay_api" },
+    retention
+  );
+}
+
+/**
+ * Outcome reasons of rows that wait for a decision. Razorpay payments wait
+ * while queued for their sync job, after the job gave up (`sync_failed`),
+ * for a reviewer, or for an active clearing account; a CSV row a reviewer
+ * left undecided is `skipped` with reason `undecided` and waits too.
+ */
+export const NEEDS_REVIEW_REASONS = [
+  "clearing_account_inactive",
+  "needs_review",
+  "no_clearing_account",
+  "queued",
+  "sync_failed",
+  "undecided",
+] as const;
+export type WaitingReason = (typeof NEEDS_REVIEW_REASONS)[number];
+
+export interface ImportBatchCounts {
+  conflictCount: number;
+  errorCount: number;
+  importedCount: number;
+  linkedCount: number;
+  pendingCount: number;
+  skippedCount: number;
+}
+
+/**
+ * The batch's counters from its outcome counts. Every pending row waits,
+ * whatever its reason, and so do skipped rows left undecided; each row is
+ * counted exactly once.
+ */
+export function batchCounts(
+  counts: Readonly<Record<ImportRowOutcome, number>>,
+  skippedWaiting: number
+): ImportBatchCounts {
+  return {
+    conflictCount: counts.conflict,
+    errorCount: counts.error,
+    importedCount: counts.imported,
+    linkedCount: counts.linked_existing,
+    pendingCount: counts.pending + skippedWaiting,
+    skippedCount: counts.skipped - skippedWaiting,
+  };
+}
+
+/** The batch's synced counters from its rows. */
+export async function countImportBatchRows(
+  tx: ImportTx,
+  batchId: string
+): Promise<ImportBatchCounts> {
+  const counts = await countImportOutcomes(tx, batchId);
+  const [waiting] = await tx
+    .select({ n: count() })
+    .from(importRow)
     .where(
       and(
         eq(importRow.batchId, batchId),
-        sql`${importRow.retainUntil} < ${retention.retainUntil}`
+        eq(importRow.outcome, "skipped"),
+        inArray(importRow.outcomeReason, [...NEEDS_REVIEW_REASONS])
       )
     );
+  return batchCounts(counts, Number(waiting?.n ?? 0));
 }
 
 /** Recounts a batch's rows by outcome. */

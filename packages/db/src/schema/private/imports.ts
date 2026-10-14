@@ -75,10 +75,11 @@ export const externalIdentity = privateSchema.table(
 );
 
 /**
- * One row of an uploaded file. `raw` holds the row as uploaded and is the
- * only copy of the file; the retention job nulls it (imported batches) or
- * deletes the row (batches never imported) once `retain_until` passes,
- * unless `legal_hold` is set.
+ * One row of an uploaded file, or one Razorpay payment. `raw` holds the row
+ * as uploaded and is the only copy of the file; the retention job nulls it
+ * (imported batches) or deletes the row (batches never imported) once
+ * `retain_until` passes, unless `legal_hold` is set. A pending row is never
+ * nulled: it still needs its values to be imported.
  */
 export const importRow = privateSchema.table(
   "import_row",
@@ -111,7 +112,8 @@ export const importRow = privateSchema.table(
     /** File column header to cell text; null once the retention job has run. */
     raw: jsonb("raw").$type<Record<string, string>>(),
     rawHash: text("raw_hash").notNull(),
-    retainUntil: date("retain_until").notNull(),
+    /** Null while a Razorpay payment waits for an outcome; set once it has one. */
+    retainUntil: date("retain_until"),
     retentionBasis: text("retention_basis").notNull(),
     retentionPolicyVersion: text("retention_policy_version").notNull(),
     /** 1-based data row, not counting the header. */

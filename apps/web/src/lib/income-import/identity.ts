@@ -27,7 +27,7 @@ const IMPORT_HASH_SCHEME = "h1";
 const IMPORT_HASH_INFO = "pi-dash import hash v1";
 
 /** A keyed hash of `text` for one purpose, prefixed with the scheme. */
-const keyedHash = (purpose: string, text: string) =>
+export const keyedHash = (purpose: string, text: string) =>
   `${IMPORT_HASH_SCHEME}:${keyedDigest(IMPORT_HASH_INFO, `${purpose}\u0000${text}`)}`;
 
 export interface RowIdentity {
@@ -43,6 +43,7 @@ const PROVIDER_BY_SOURCE: Record<ImportBatchSource, ExternalIdentityProvider> =
   {
     generic_csv: "generic",
     give_do_csv: "give_do",
+    razorpay_api: "razorpay",
   };
 
 const fold = (value: string) =>

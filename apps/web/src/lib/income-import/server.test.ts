@@ -61,6 +61,7 @@ mock.module("evlog", () => ({
 }));
 
 mock.module("@pi-dash/db/import-retention", () => ({
+  awaitingOutcomeRetention: () => ({}),
   importedRowRetention: () => ({}),
   uploadedRowRetention: () => ({}),
 }));
@@ -69,6 +70,7 @@ mock.module("@pi-dash/db/queries/party-private", () => ({
 }));
 mock.module("@pi-dash/db/queries/income-import", () => ({
   claimImportBatch: noop,
+  countImportBatchRows: noop,
   countImportOutcomes: noop,
   findBatchByFileHash: noop,
   findContributorsByContact: async () => ({
@@ -96,6 +98,7 @@ mock.module("@pi-dash/db/queries/income-import", () => ({
   resolveImportSettings: async () => ({ programmeId: null }),
   setImportRowOutcome: noop,
   setImportRowsRetention: noop,
+  startDecidedRowsRetention: noop,
   updateImportBatch: noop,
   withImportTransaction: noop,
 }));

@@ -25,6 +25,7 @@ const AUDITED_SERVER_FUNCTIONS = [
   "setUserPasswordAdmin",
   "triggerR2Cleanup",
   "triggerWhatsAppGroupScan",
+  "updateRazorpaySettings",
   "updateRole",
   "updateUserAdmin",
   "uploadPhotoToImmich",
@@ -39,6 +40,7 @@ const EXEMPT_SERVER_FUNCTIONS = [
   "getMissingDonorDetails",
   "getPartyDetails",
   "getProfilePictureUploadUrl",
+  "getRazorpaySettings",
   "getRequestUploadUrl",
   "getScheduledMessageUploadUrl",
   "getUserEmailSuppression",
@@ -62,6 +64,9 @@ const CLASSIFIED_API_POST_FILES = [
   "routes/api/social/v1/notify.ts",
   "routes/api/social/v1/posted.ts",
   "routes/api/social/v1/runs.ts",
+  // Webhook: verified by signature, outside the audit ledger; it stages the
+  // payment and enqueues the import job.
+  "routes/api/razorpay/webhook.ts",
   "routes/api/whatsapp/webhook.ts",
   "routes/api/zero/mutate.ts",
   "routes/api/zero/query.ts",

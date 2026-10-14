@@ -12,7 +12,7 @@ const t0 = new Date("2026-10-13T06:00:00Z");
 const t1 = new Date("2026-10-13T07:00:00Z");
 const actor = "user-1";
 const partyRow = (
-  overrides: Partial<{ createdBy: string; updatedAt: Date }> = {}
+  overrides: Partial<{ createdBy: string | null; updatedAt: Date }> = {}
 ) => ({
   createdAt: t0,
   createdBy: actor,
@@ -64,6 +64,21 @@ describe("resolveSaveMode", () => {
     expect(() => resolveSaveMode(create, partyRow(), privateRow(t1))).toThrow(
       PartyConflictError
     );
+  });
+
+  it("never treats a system save as a retry, even of an untouched system-created party", () => {
+    const systemCreate = { ...create, actorId: null };
+    // A system import always mints a fresh uuidv7, so it creates.
+    expect(resolveSaveMode(systemCreate, null, null)).toEqual({
+      kind: "create",
+    });
+    // Should an ID ever collide, an unrelated party is refused, not reused.
+    expect(() =>
+      resolveSaveMode(systemCreate, partyRow({ createdBy: null }), privateRow())
+    ).toThrow(PartyConflictError);
+    expect(() =>
+      resolveSaveMode(systemCreate, partyRow({ createdBy: null }), null)
+    ).toThrow(PartyConflictError);
   });
 
   it("rejects an update of a missing party", () => {

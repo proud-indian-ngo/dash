@@ -1,6 +1,7 @@
 import {
   Alert02Icon,
   CheckmarkCircle02Icon,
+  Clock01Icon,
   File01Icon,
   Link01Icon,
   RefreshIcon,
@@ -40,6 +41,7 @@ import {
   IMPORT_BATCH_STATUS_TONES,
 } from "@/lib/income-import/labels";
 import type { BatchDetailResponse } from "@/lib/income-import/review-types";
+import { waitingBreakdown } from "@/lib/income-import/waiting-breakdown";
 
 export const Route = createFileRoute("/_app/income/imports/$batchId")({
   component: ImportBatchPage,
@@ -89,6 +91,7 @@ function ImportBatchPage() {
   const [batch, result] = useQuery(queries.importBatch.byId({ id: batchId }));
   const [refresh, setRefresh] = useState(0);
   const [continuing, setContinuing] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
   const { detail, failed } = useBatchDetail(batchId, canSeeRows, refresh);
 
   if (!batch) {
@@ -113,15 +116,27 @@ function ImportBatchPage() {
   const linkedCount = batch.linkedCount ?? 0;
   const conflictCount = batch.conflictCount ?? 0;
   const errorCount = batch.errorCount ?? 0;
+  const pendingCount = batch.pendingCount ?? 0;
+  const isRazorpay = batch.source === "razorpay_api";
+  const waiting = detail?.review ? waitingBreakdown(detail.review.rows) : [];
   const unresolved = batch.rowCount - importedCount - linkedCount;
   const neverImported = importedCount + linkedCount === 0;
   const canContinue =
     canManage &&
+    !isRazorpay &&
     detail !== null &&
     status !== "expired" &&
     status !== "importing" &&
     unresolved > 0 &&
     detail.columns.length > 0;
+  // Razorpay payments have no columns to map: review starts from the rows.
+  const canReview =
+    canManage &&
+    isRazorpay &&
+    Boolean(batch.orgAccountId) &&
+    detail?.review != null &&
+    status !== "importing" &&
+    pendingCount > 0;
   const wizardBatch: WizardBatch | null = detail
     ? {
         batchId: batch.id,
@@ -134,6 +149,27 @@ function ImportBatchPage() {
         rowCount: batch.rowCount,
       }
     : null;
+
+  if (reviewing && wizardBatch && detail?.review) {
+    return (
+      <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
+        <PageHeader
+          description="Choose the donor for each payment, or skip it. Payments left undecided stay here for later."
+          title="Review Razorpay payments"
+        />
+        <div className="mt-6">
+          <ImportWizard
+            initialBatch={wizardBatch}
+            initialReview={detail.review}
+            onCancel={() => {
+              setReviewing(false);
+              setRefresh((n) => n + 1);
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   if (continuing && wizardBatch) {
     return (
@@ -174,6 +210,17 @@ function ImportBatchPage() {
                 View contributions
               </Button>
             ) : null}
+            {canReview ? (
+              <Button onClick={() => setReviewing(true)} type="button">
+                <HugeiconsIcon
+                  className="size-4"
+                  icon={Clock01Icon}
+                  strokeWidth={2}
+                />
+                Review {pendingCount.toLocaleString("en-IN")}{" "}
+                {pendingCount === 1 ? "payment" : "payments"}
+              </Button>
+            ) : null}
             {canContinue ? (
               <Button onClick={() => setContinuing(true)} type="button">
                 <HugeiconsIcon
@@ -202,7 +249,7 @@ function ImportBatchPage() {
         }
         meta={[
           IMPORT_SOURCE_LABELS[batch.source as ImportBatchSource],
-          `Uploaded ${uploaded}`,
+          `${isRazorpay ? "Opened" : "Uploaded"} ${uploaded}`,
           batch.uploadedByUser?.name ? `by ${batch.uploadedByUser.name}` : null,
           batch.orgAccount?.name ? `into ${batch.orgAccount.name}` : null,
         ]}
@@ -211,6 +258,12 @@ function ImportBatchPage() {
       <StatsCards
         items={[
           { icon: File01Icon, label: "Rows", value: batch.rowCount },
+          {
+            icon: Clock01Icon,
+            label: "Waiting",
+            tone: pendingCount > 0 ? "warning" : "neutral",
+            value: pendingCount,
+          },
           {
             icon: CheckmarkCircle02Icon,
             label: "Imported",
@@ -241,6 +294,28 @@ function ImportBatchPage() {
           },
         ]}
       />
+      {waiting.length > 0 ? (
+        <p
+          className="text-muted-foreground text-sm"
+          data-testid="batch-waiting"
+        >
+          Waiting:{" "}
+          {waiting
+            .map(
+              (group) => `${group.count.toLocaleString("en-IN")} ${group.label}`
+            )
+            .join(" · ")}
+        </p>
+      ) : null}
+      {isRazorpay && !batch.orgAccountId ? (
+        <p className="text-warning-foreground text-sm" role="status">
+          These payments wait for the Razorpay clearing account. Choose it in{" "}
+          <Link className="underline" to="/settings/integrations">
+            Settings → Integrations
+          </Link>
+          , then review them here.
+        </p>
+      ) : null}
       {status === "expired" ? (
         <p className="text-muted-foreground text-sm">
           This upload was never imported, so its rows were deleted after 30

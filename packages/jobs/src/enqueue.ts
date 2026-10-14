@@ -76,6 +76,7 @@ export const QUEUE_NAMES: JobName[] = [
   "notify-vpt-submitted",
   "process-event-reminders",
   "process-post-event-reminders",
+  "razorpay-sync-payment",
   "send-event-rsvp-polls",
   "remind-feedback-deadline",
   "remind-kalakriti-registration-close",

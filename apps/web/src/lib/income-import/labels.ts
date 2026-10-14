@@ -48,10 +48,18 @@ export const IMPORT_ROW_OUTCOME_TONES: Record<ImportRowOutcome, StatusTone> = {
 export const IMPORT_OUTCOME_REASON_LABELS: Record<string, string> = {
   changed_since_imported:
     "Imported before with different details; edit the contribution by hand if needed",
+  clearing_account_inactive:
+    "Waiting: the Razorpay clearing account was deactivated; choose an active one in Settings → Integrations",
   donor_details_invalid: "The donor's details could not be saved",
   duplicate_of_skipped_row: "Same as a row that was skipped",
   invalid_cells: "Fix the file and upload it again",
+  needs_review: "Waiting for a reviewer's decision",
+  no_clearing_account: "Waiting for the Razorpay clearing account",
+  not_captured: "Razorpay no longer has this payment as captured",
+  not_found: "Razorpay does not know this payment",
+  queued: "Waiting to sync with Razorpay",
   skipped_by_user: "Skipped",
+  sync_failed: "Couldn't sync with Razorpay; import it here",
   undecided: "Left for review",
 };
 

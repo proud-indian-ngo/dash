@@ -7,6 +7,7 @@ const roleOnlySpecs = {
     "settings/projects.spec.ts",
     "settings/org-accounts.spec.ts",
     "income/import.spec.ts",
+    "income/razorpay.spec.ts",
     "events/event-duplicate.spec.ts",
     "events/event-edit-cancel.spec.ts",
     "events/event-expenses.spec.ts",

@@ -141,6 +141,10 @@ const QUEUE_OVERRIDES: Partial<
 > = {
   "cleanup-r2-orphans": { expireInSeconds: 3600 },
   "immich-sync-photo": { expireInSeconds: 1800 },
+  // One queued and one active job per payment (singletonKey = payment ID),
+  // so repeated deliveries collapse. The worker is registered by the web
+  // server, which owns the import rules (apps/web/server/plugins/jobs.ts).
+  "razorpay-sync-payment": { policy: "stately" },
   "send-scheduled-whatsapp": { deadLetter: DEAD_LETTER_SCHEDULED_WHATSAPP },
   "whatsapp-create-group": { expireInSeconds: 1800 },
 };

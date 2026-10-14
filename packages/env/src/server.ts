@@ -76,6 +76,21 @@ export const env = createEnv({
       .default(120),
     POSTHOG_API_KEY: z.string().min(1).optional(),
     POSTHOG_HOST: z.url().default("https://us.i.posthog.com"),
+    /**
+     * Razorpay key id (rzp_live_… or rzp_test_…). With RAZORPAY_WEBHOOK_SECRET
+     * it turns on Payment Page ingestion; its prefix decides live or test mode.
+     */
+    RAZORPAY_KEY_ID: z
+      .string()
+      .regex(
+        /^rzp_(live|test)_\w+$/,
+        "RAZORPAY_KEY_ID must start with rzp_live_ or rzp_test_"
+      )
+      .optional(),
+    /** Optional: lets the sync job fetch each payment from the Razorpay API instead of trusting the webhook copy. */
+    RAZORPAY_KEY_SECRET: z.string().min(1).optional(),
+    /** The secret set on the Razorpay dashboard webhook; signs every delivery. */
+    RAZORPAY_WEBHOOK_SECRET: z.string().min(1).optional(),
     R2_ACCESS_KEY: z.string().min(1),
     R2_ACCOUNT_ID: z.string().min(1),
     R2_BUCKET_NAME: z.string().min(1),

@@ -179,12 +179,13 @@ export async function saveParty(
 /**
  * `saveParty` inside a caller's transaction, so a CSV import creates its new
  * donors through the same validation and encryption and rolls them back
- * with the rest of the run.
+ * with the rest of the run. `actorId` is null when the system saves (a
+ * Razorpay payment imported on arrival).
  */
 export async function savePartyInTransaction(
   tx: Tx,
   input: SavePartyInput,
-  actorId: string
+  actorId: string | null
 ): Promise<SavePartyResult> {
   const now = new Date();
   const today = istToday(now);

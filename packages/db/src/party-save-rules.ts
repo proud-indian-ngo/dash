@@ -33,7 +33,8 @@ export interface ExistingPrivateRow {
 }
 
 export interface SaveModeInput {
-  actorId: string;
+  /** Null for a system save, which never counts as a retry. */
+  actorId: string | null;
   /** The private row's updatedAt the editor loaded; null when it loaded none. */
   expectedUpdatedAt: number | null;
   /** The party row's updatedAt the editor loaded; null on create. */
@@ -66,9 +67,12 @@ export function resolveSaveMode(
       return { kind: "create" };
     }
     // A retried create finds rows written in one go by the same actor and
-    // untouched since. Anything else is someone reusing an ID.
+    // untouched since. Anything else is someone reusing an ID. System saves
+    // always use a fresh ID and have no actor to compare, so an existing
+    // party is never theirs.
     const createdAt = existingParty.createdAt.getTime();
     const untouched =
+      input.actorId !== null &&
       existingParty.createdBy === input.actorId &&
       existingParty.updatedAt.getTime() === createdAt &&
       (existingPrivate === null ||

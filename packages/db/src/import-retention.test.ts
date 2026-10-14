@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 
@@ -13,6 +14,10 @@ import {
   importRowDue,
   neverImported,
   STALE_IMPORTING_MS,
+  apiBatch,
+  awaitingOutcomeRetention,
+  RETENTION_BASIS_AWAITING_OUTCOME,
+  rawNullable,
   staleImporting,
   uploadedRowRetention,
 } from "./import-retention";
@@ -206,6 +211,13 @@ describe("import row retention", () => {
     expect(STALE_IMPORTING_MS).toBe(24 * 60 * 60 * 1000);
   });
 
+  it("resets a dead run's Razorpay batch apart from CSV batches", () => {
+    const condition = apiBatch();
+    const query = new PgDialect().sqlToQuery(condition);
+    expect(query.sql).toContain('"source" =');
+    expect(query.params).toEqual(["razorpay_api"]);
+  });
+
   it("lets a dead run's batch be retried or expire instead of losing its rows", async () => {
     // Crashed mid-run 30 days ago: status stuck at importing, nothing imported.
     const batch = { importedCount: 0, status: "importing" as string };
@@ -256,5 +268,31 @@ describe("import row retention", () => {
     expect(query.sql).toContain('"retain_until" <');
     expect(query.sql).toContain('"legal_hold" =');
     expect(query.params).toEqual(["2026-10-13", false]);
+  });
+
+  it("stages a Razorpay payment with no retention date, so it is never due while it waits", () => {
+    expect(awaitingOutcomeRetention()).toEqual({
+      legalHold: false,
+      retainUntil: null,
+      retentionBasis: RETENTION_BASIS_AWAITING_OUTCOME,
+      retentionPolicyVersion: IMPORT_RETENTION_POLICY_VERSION,
+    });
+    // A null date never compares as past: "retain_until" < today is null.
+    const due = new PgDialect().sqlToQuery(
+      importRowDue("2027-01-01") ?? sql`false`
+    );
+    expect(due.sql).toContain('"retain_until" <');
+  });
+
+  it("never nulls the cells of a pending row, in any batch", () => {
+    const condition = rawNullable("2026-10-13");
+    if (!condition) {
+      throw new Error("Expected a condition");
+    }
+    const query = new PgDialect().sqlToQuery(condition);
+    expect(query.sql).toContain('"retain_until" <');
+    expect(query.sql).toContain('"raw" is not null');
+    expect(query.sql).toContain('"outcome" <>');
+    expect(query.params).toEqual(["2026-10-13", false, "pending"]);
   });
 });

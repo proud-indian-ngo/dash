@@ -56,6 +56,7 @@ import { Route as AppSettingsApiTokensRouteImport } from './routes/_app/settings
 import { Route as AppSettingsBankAccountsRouteImport } from './routes/_app/settings/bank-accounts'
 import { Route as AppSettingsExpenseCategoriesRouteImport } from './routes/_app/settings/expense-categories'
 import { Route as AppSettingsGeneralRouteImport } from './routes/_app/settings/general'
+import { Route as AppSettingsIntegrationsRouteImport } from './routes/_app/settings/integrations'
 import { Route as AppSettingsMaintenanceRouteImport } from './routes/_app/settings/maintenance'
 import { Route as AppSettingsNotificationsRouteImport } from './routes/_app/settings/notifications'
 import { Route as AppSettingsOrgAccountsRouteImport } from './routes/_app/settings/org-accounts'
@@ -81,6 +82,7 @@ import { Route as ApiLogIngestRouteImport } from './routes/api/log/ingest'
 import { Route as ApiMediaEventUpdateRouteImport } from './routes/api/media/event-update'
 import { Route as ApiPublicEventsRouteImport } from './routes/api/public/events'
 import { Route as ApiPublicOpenapiDotjsonRouteImport } from './routes/api/public/openapi[.]json'
+import { Route as ApiRazorpayWebhookRouteImport } from './routes/api/razorpay/webhook'
 import { Route as ApiWhatsappWebhookRouteImport } from './routes/api/whatsapp/webhook'
 import { Route as ApiZeroMutateRouteImport } from './routes/api/zero/mutate'
 import { Route as ApiZeroQueryRouteImport } from './routes/api/zero/query'
@@ -372,6 +374,11 @@ const AppSettingsGeneralRoute = AppSettingsGeneralRouteImport.update({
   path: '/general',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
+const AppSettingsIntegrationsRoute = AppSettingsIntegrationsRouteImport.update({
+  id: '/integrations',
+  path: '/integrations',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
 const AppSettingsMaintenanceRoute = AppSettingsMaintenanceRouteImport.update({
   id: '/maintenance',
   path: '/maintenance',
@@ -497,6 +504,11 @@ const ApiPublicEventsRoute = ApiPublicEventsRouteImport.update({
 const ApiPublicOpenapiDotjsonRoute = ApiPublicOpenapiDotjsonRouteImport.update({
   id: '/api/public/openapi.json',
   path: '/api/public/openapi.json',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRazorpayWebhookRoute = ApiRazorpayWebhookRouteImport.update({
+  id: '/api/razorpay/webhook',
+  path: '/api/razorpay/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiWhatsappWebhookRoute = ApiWhatsappWebhookRouteImport.update({
@@ -849,6 +861,7 @@ export interface FileRoutesByFullPath {
   '/settings/bank-accounts': typeof AppSettingsBankAccountsRoute
   '/settings/expense-categories': typeof AppSettingsExpenseCategoriesRoute
   '/settings/general': typeof AppSettingsGeneralRoute
+  '/settings/integrations': typeof AppSettingsIntegrationsRoute
   '/settings/maintenance': typeof AppSettingsMaintenanceRoute
   '/settings/notifications': typeof AppSettingsNotificationsRoute
   '/settings/org-accounts': typeof AppSettingsOrgAccountsRoute
@@ -869,6 +882,7 @@ export interface FileRoutesByFullPath {
   '/api/media/event-update': typeof ApiMediaEventUpdateRoute
   '/api/public/events': typeof ApiPublicEventsRoute
   '/api/public/openapi.json': typeof ApiPublicOpenapiDotjsonRoute
+  '/api/razorpay/webhook': typeof ApiRazorpayWebhookRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
@@ -966,6 +980,7 @@ export interface FileRoutesByTo {
   '/settings/bank-accounts': typeof AppSettingsBankAccountsRoute
   '/settings/expense-categories': typeof AppSettingsExpenseCategoriesRoute
   '/settings/general': typeof AppSettingsGeneralRoute
+  '/settings/integrations': typeof AppSettingsIntegrationsRoute
   '/settings/maintenance': typeof AppSettingsMaintenanceRoute
   '/settings/notifications': typeof AppSettingsNotificationsRoute
   '/settings/org-accounts': typeof AppSettingsOrgAccountsRoute
@@ -986,6 +1001,7 @@ export interface FileRoutesByTo {
   '/api/media/event-update': typeof ApiMediaEventUpdateRoute
   '/api/public/events': typeof ApiPublicEventsRoute
   '/api/public/openapi.json': typeof ApiPublicOpenapiDotjsonRoute
+  '/api/razorpay/webhook': typeof ApiRazorpayWebhookRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
@@ -1094,6 +1110,7 @@ export interface FileRoutesById {
   '/_app/settings/bank-accounts': typeof AppSettingsBankAccountsRoute
   '/_app/settings/expense-categories': typeof AppSettingsExpenseCategoriesRoute
   '/_app/settings/general': typeof AppSettingsGeneralRoute
+  '/_app/settings/integrations': typeof AppSettingsIntegrationsRoute
   '/_app/settings/maintenance': typeof AppSettingsMaintenanceRoute
   '/_app/settings/notifications': typeof AppSettingsNotificationsRoute
   '/_app/settings/org-accounts': typeof AppSettingsOrgAccountsRoute
@@ -1114,6 +1131,7 @@ export interface FileRoutesById {
   '/api/media/event-update': typeof ApiMediaEventUpdateRoute
   '/api/public/events': typeof ApiPublicEventsRoute
   '/api/public/openapi.json': typeof ApiPublicOpenapiDotjsonRoute
+  '/api/razorpay/webhook': typeof ApiRazorpayWebhookRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
@@ -1224,6 +1242,7 @@ export interface FileRouteTypes {
     | '/settings/bank-accounts'
     | '/settings/expense-categories'
     | '/settings/general'
+    | '/settings/integrations'
     | '/settings/maintenance'
     | '/settings/notifications'
     | '/settings/org-accounts'
@@ -1244,6 +1263,7 @@ export interface FileRouteTypes {
     | '/api/media/event-update'
     | '/api/public/events'
     | '/api/public/openapi.json'
+    | '/api/razorpay/webhook'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
@@ -1341,6 +1361,7 @@ export interface FileRouteTypes {
     | '/settings/bank-accounts'
     | '/settings/expense-categories'
     | '/settings/general'
+    | '/settings/integrations'
     | '/settings/maintenance'
     | '/settings/notifications'
     | '/settings/org-accounts'
@@ -1361,6 +1382,7 @@ export interface FileRouteTypes {
     | '/api/media/event-update'
     | '/api/public/events'
     | '/api/public/openapi.json'
+    | '/api/razorpay/webhook'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
@@ -1468,6 +1490,7 @@ export interface FileRouteTypes {
     | '/_app/settings/bank-accounts'
     | '/_app/settings/expense-categories'
     | '/_app/settings/general'
+    | '/_app/settings/integrations'
     | '/_app/settings/maintenance'
     | '/_app/settings/notifications'
     | '/_app/settings/org-accounts'
@@ -1488,6 +1511,7 @@ export interface FileRouteTypes {
     | '/api/media/event-update'
     | '/api/public/events'
     | '/api/public/openapi.json'
+    | '/api/razorpay/webhook'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
@@ -1574,6 +1598,7 @@ export interface RootRouteChildren {
   ApiMediaEventUpdateRoute: typeof ApiMediaEventUpdateRoute
   ApiPublicEventsRoute: typeof ApiPublicEventsRoute
   ApiPublicOpenapiDotjsonRoute: typeof ApiPublicOpenapiDotjsonRoute
+  ApiRazorpayWebhookRoute: typeof ApiRazorpayWebhookRoute
   ApiWhatsappWebhookRoute: typeof ApiWhatsappWebhookRoute
   ApiZeroMutateRoute: typeof ApiZeroMutateRoute
   ApiZeroQueryRoute: typeof ApiZeroQueryRoute
@@ -1929,6 +1954,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsGeneralRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
+    '/_app/settings/integrations': {
+      id: '/_app/settings/integrations'
+      path: '/integrations'
+      fullPath: '/settings/integrations'
+      preLoaderRoute: typeof AppSettingsIntegrationsRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
     '/_app/settings/maintenance': {
       id: '/_app/settings/maintenance'
       path: '/maintenance'
@@ -2102,6 +2134,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/openapi.json'
       fullPath: '/api/public/openapi.json'
       preLoaderRoute: typeof ApiPublicOpenapiDotjsonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/razorpay/webhook': {
+      id: '/api/razorpay/webhook'
+      path: '/api/razorpay/webhook'
+      fullPath: '/api/razorpay/webhook'
+      preLoaderRoute: typeof ApiRazorpayWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/whatsapp/webhook': {
@@ -2711,6 +2750,7 @@ interface AppSettingsRouteRouteChildren {
   AppSettingsBankAccountsRoute: typeof AppSettingsBankAccountsRoute
   AppSettingsExpenseCategoriesRoute: typeof AppSettingsExpenseCategoriesRoute
   AppSettingsGeneralRoute: typeof AppSettingsGeneralRoute
+  AppSettingsIntegrationsRoute: typeof AppSettingsIntegrationsRoute
   AppSettingsMaintenanceRoute: typeof AppSettingsMaintenanceRoute
   AppSettingsNotificationsRoute: typeof AppSettingsNotificationsRoute
   AppSettingsOrgAccountsRoute: typeof AppSettingsOrgAccountsRoute
@@ -2728,6 +2768,7 @@ const AppSettingsRouteRouteChildren: AppSettingsRouteRouteChildren = {
   AppSettingsBankAccountsRoute: AppSettingsBankAccountsRoute,
   AppSettingsExpenseCategoriesRoute: AppSettingsExpenseCategoriesRoute,
   AppSettingsGeneralRoute: AppSettingsGeneralRoute,
+  AppSettingsIntegrationsRoute: AppSettingsIntegrationsRoute,
   AppSettingsMaintenanceRoute: AppSettingsMaintenanceRoute,
   AppSettingsNotificationsRoute: AppSettingsNotificationsRoute,
   AppSettingsOrgAccountsRoute: AppSettingsOrgAccountsRoute,
@@ -2890,6 +2931,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMediaEventUpdateRoute: ApiMediaEventUpdateRoute,
   ApiPublicEventsRoute: ApiPublicEventsRoute,
   ApiPublicOpenapiDotjsonRoute: ApiPublicOpenapiDotjsonRoute,
+  ApiRazorpayWebhookRoute: ApiRazorpayWebhookRoute,
   ApiWhatsappWebhookRoute: ApiWhatsappWebhookRoute,
   ApiZeroMutateRoute: ApiZeroMutateRoute,
   ApiZeroQueryRoute: ApiZeroQueryRoute,

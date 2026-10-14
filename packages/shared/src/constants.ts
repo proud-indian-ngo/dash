@@ -287,10 +287,15 @@ export type OtherIncomeKind = (typeof otherIncomeKindValues)[number];
 // ── Imports ─────────────────────────────────────────────────────────────────
 
 /**
- * Where an import batch came from. Razorpay (API), bank and UPI statements
- * join later; their rows never become donations directly.
+ * Where an import batch came from. `razorpay_api` batches are opened by the
+ * Razorpay webhook, one per India day; bank and UPI statements join later
+ * and their rows never become donations directly.
  */
-export const importBatchSourceValues = ["give_do_csv", "generic_csv"] as const;
+export const importBatchSourceValues = [
+  "give_do_csv",
+  "generic_csv",
+  "razorpay_api",
+] as const;
 export type ImportBatchSource = (typeof importBatchSourceValues)[number];
 
 /**
@@ -320,7 +325,11 @@ export const importRowOutcomeValues = [
 export type ImportRowOutcome = (typeof importRowOutcomeValues)[number];
 
 /** Who issued an external ID; `generic` covers spreadsheets with no provider. */
-export const externalIdentityProviderValues = ["give_do", "generic"] as const;
+export const externalIdentityProviderValues = [
+  "give_do",
+  "generic",
+  "razorpay",
+] as const;
 export type ExternalIdentityProvider =
   (typeof externalIdentityProviderValues)[number];
 

@@ -214,6 +214,7 @@ export type ImportChannel = (typeof IMPORT_CHANNEL_VALUES)[number];
 export const IMPORT_SOURCE_LABELS: Record<ImportBatchSource, string> = {
   generic_csv: "Generic CSV",
   give_do_csv: "give.do",
+  razorpay_api: "Razorpay",
 };
 
 /** Bumped whenever parsing or normalisation changes what a row turns into. */
