@@ -181,11 +181,11 @@ async function settled(paymentId: string) {
     .toBe(true);
 }
 
-/** The "Awaiting settlement" figure on the Settlements tab, in paise. */
+/** The Razorpay awaiting-settlement figure on the Settlements tab, in paise. */
 async function awaitingSettlement(page: Page): Promise<number> {
   const chip = page
     .locator('[data-slot="stat-chip"]')
-    .filter({ hasText: "Awaiting settlement" });
+    .filter({ hasText: "Awaiting from Razorpay" });
   const value = chip.locator('[data-slot="stat-value"]');
   await expect(value).not.toHaveText("—", { timeout: 15_000 });
   const text = await value.innerText();

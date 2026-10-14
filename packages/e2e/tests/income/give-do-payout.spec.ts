@@ -27,7 +27,7 @@ interface PayoutRun {
 }
 
 function newPayoutRun(): PayoutRun {
-  const id = `${Date.now()}${randomUUID().replaceAll("-", "").slice(0, 8)}`;
+  const id = `payout${Date.now()}${randomUUID().replaceAll("-", "").slice(0, 8)}`;
   const phoneSuffix = String(Date.now()).slice(-8);
   const donorOne = `E2E Payout Donor One ${id}`;
   const donorTwo = `E2E Payout Donor Two ${id}`;
