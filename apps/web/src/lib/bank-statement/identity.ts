@@ -5,7 +5,8 @@ import type { NormalizedStatementLine } from "./normalize";
 /**
  * Server-only (keyed hashes). How a statement line is recognised across
  * uploads: a keyed hash (`h1:`, the import hashing scheme) of the account,
- * date, direction, amount, reference, folded narration and printed balance,
+ * date, direction, amount, reference, folded narration as printed (not
+ * masked) and printed balance,
  * plus the line's occurrence among identical lines of the same file. Two
  * identical ₹500 UPI credits on one day are lines 1 and 2 in every upload
  * that has both, so overlapping uploads (1-31 Oct, then 15 Oct-15 Nov)
@@ -26,7 +27,7 @@ export function lineBaseKey(
     line.direction,
     line.amountPaise,
     fold(line.reference),
-    fold(line.narration),
+    fold(line.hashNarration),
     line.balancePaise,
   ]);
 }
@@ -53,4 +54,32 @@ export function statementLineHashes(
     seen.set(base, occurrence);
     return statementLineHash(base, occurrence);
   });
+}
+
+/**
+ * Lines in file order oldest first: a file whose first line is dated after
+ * its last is listed newest first and is turned round, so `position` grows
+ * with time within a file. A file whose lines all share a date keeps the
+ * order it was given in, so its last line gives the closing balance.
+ */
+export function positionsFor(
+  rows: readonly {
+    line: Pick<NormalizedStatementLine, "valueOn"> | null;
+    record: { id: string; rowNumber: number };
+  }[]
+): Map<string, number> {
+  const lines = rows.filter((r) => r.line);
+  const first = lines[0]?.line?.valueOn ?? "";
+  const last = lines.at(-1)?.line?.valueOn ?? "";
+  const newestFirst = first > last;
+  const positions = new Map<string, number>();
+  for (const row of rows) {
+    positions.set(
+      row.record.id,
+      newestFirst
+        ? rows.length - row.record.rowNumber + 1
+        : row.record.rowNumber
+    );
+  }
+  return positions;
 }

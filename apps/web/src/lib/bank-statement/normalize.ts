@@ -33,6 +33,11 @@ export interface StatementCellIssue {
 
 export interface NormalizedStatementLine {
   amountPaise: number;
+  /**
+   * The narration as printed, for the line hash only (a keyed HMAC): never
+   * stored, logged or sent to the browser.
+   */
+  hashNarration: string;
   /** Running balance as printed, signed (an overdraft is negative). */
   balancePaise: number | null;
   direction: StatementLineDirection;
@@ -70,7 +75,8 @@ export const MAX_NARRATION_LENGTH = 500;
 export const MAX_REFERENCE_LENGTH = 120;
 
 const CURRENCY = /^(?:₹|rs\.?|inr)\s*/i;
-const TRAILING_SIDE = /\s*\b(cr|dr)\.?$/i;
+// "250.00 Cr", "250.00Cr", "1,234.00(Cr)", "500 Dr."
+const TRAILING_SIDE = /\s*\(?\s*(cr|dr)\.?\s*\)?$/i;
 const PLAIN = /^\d+(?:\.\d+)?$/;
 const INDIAN_GROUPED = /^\d{1,2}(?:,\d{2})*,\d{3}(?:\.\d+)?$/;
 const INTERNATIONAL_GROUPED = /^\d{1,3}(?:,\d{3})+(?:\.\d+)?$/;
@@ -147,6 +153,7 @@ export function parseDrCr(text: string): StatementLineDirection | null {
 }
 
 // "01/10/26", "01-Oct-26": banks often print two-digit years.
+const TIME_SUFFIX = /(?:[T\s]\d{1,2}:\d{2}.*)$/;
 const TWO_DIGIT_YEAR = /^(\d{1,2})([-/. ])([a-z]{3,9}|\d{1,2})\2(\d{2})$/i;
 
 /** A statement date to yyyy-MM-dd; a two-digit year is read as 20yy. */
@@ -154,7 +161,8 @@ export function parseStatementDate(
   text: string,
   format: ImportDateFormat
 ): { error: string } | { iso: string } {
-  const value = text.trim();
+  // A trailing time ("01/10/26 10:30") goes before the year is read.
+  const value = text.trim().replace(TIME_SUFFIX, "");
   const short = TWO_DIGIT_YEAR.exec(value);
   const expanded =
     short && format !== "ymd"
@@ -198,6 +206,21 @@ function splitAmount(debitText: string, creditText: string): Signed {
         field: "row",
         message: "Both a withdrawal and a deposit are filled",
       },
+      kind: "error",
+    };
+  }
+  if ("paise" in credit && (credit.paise < 0 || credit.side === "debit")) {
+    return {
+      error: {
+        field: "credit",
+        message: "A deposit can't be negative or marked Dr",
+      },
+      kind: "error",
+    };
+  }
+  if ("paise" in debit && debit.side === "credit") {
+    return {
+      error: { field: "debit", message: "A withdrawal can't be marked Cr" },
       kind: "error",
     };
   }
@@ -281,6 +304,34 @@ function readBalance(
   return balance.side === "debit" ? -Math.abs(balance.paise) : balance.paise;
 }
 
+// A bank reference after the payment rail: "UPI/412345678901/…",
+// "NEFT CR-HDFCN52026101412345678-…".
+const RAIL = /\b(?:UPI|IMPS|NEFT|RTGS)\b/i;
+const REFERENCE_TOKEN = /^[A-Z0-9]{10,22}$/;
+
+/**
+ * The first UTR- or RRN-like token after UPI, IMPS, NEFT or RTGS in a
+ * narration: 10 to 22 letters and digits with at least six digits. Read
+ * from the narration as printed, before masking, for lines whose file has
+ * no reference.
+ */
+export function referenceFromNarration(narration: string): string {
+  const rail = RAIL.exec(narration);
+  if (!rail) {
+    return "";
+  }
+  const tokens = narration
+    .slice(rail.index + rail[0].length)
+    .toUpperCase()
+    .split(/[^A-Z0-9]+/);
+  return (
+    tokens.find(
+      (token) =>
+        REFERENCE_TOKEN.test(token) && (token.match(/\d/g)?.length ?? 0) >= 6
+    ) ?? ""
+  );
+}
+
 export function normalizeStatementRow(
   raw: Readonly<Record<string, string>>,
   mapping: BankMapping,
@@ -289,11 +340,26 @@ export function normalizeStatementRow(
   const values = pick(raw, mapping);
   const get = (field: BankFieldKey) => values[field] ?? "";
 
-  const date = parseStatementDate(get("valueOn"), options.dateFormat);
-  if ("error" in date) {
-    return { kind: "skip", reason: "no_date" };
-  }
+  const dateText = get("valueOn");
+  const date = parseStatementDate(dateText, options.dateFormat);
   const amount = readAmount(options.layout, get);
+  if ("error" in date) {
+    // A heading, account details or a totals line: no date at all.
+    if (!/\d/.test(dateText)) {
+      return { kind: "skip", reason: "no_date" };
+    }
+    if (amount.kind === "none") {
+      return { kind: "skip", reason: "no_amount" };
+    }
+    // A transaction whose date can't be read: shown, never dropped quietly.
+    return {
+      errors: [
+        { field: "valueOn", message: date.error },
+        ...(amount.kind === "error" ? [amount.error] : []),
+      ],
+      kind: "error",
+    };
+  }
   if (amount.kind === "none") {
     return { kind: "skip", reason: "no_amount" };
   }
@@ -310,17 +376,19 @@ export function normalizeStatementRow(
   const warnings: StatementCellIssue[] = [];
   const balancePaise =
     get("balance") === "" ? null : readBalance(get("balance"), warnings);
+  const narration = get("narration");
   return {
     kind: "line",
     line: {
       amountPaise: amount.paise,
       balancePaise,
       direction: amount.direction,
-      narration: maskIdentifiers(get("narration")).slice(
+      hashNarration: narration,
+      narration: maskIdentifiers(narration).slice(0, MAX_NARRATION_LENGTH),
+      reference: (get("reference") || referenceFromNarration(narration)).slice(
         0,
-        MAX_NARRATION_LENGTH
+        MAX_REFERENCE_LENGTH
       ),
-      reference: get("reference").slice(0, MAX_REFERENCE_LENGTH),
       valueOn: date.iso,
     },
     warnings,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { statementLineHashes } from "./identity";
+import { positionsFor, statementLineHashes } from "./identity";
 import {
   candidateWindow,
   GIVEINDIA_DISMISS_KEY,
@@ -86,6 +86,48 @@ describe("settlement matching", () => {
     });
   });
 
+  it("never matches again what the reviewer unmatched or turned down", () => {
+    for (const [lineOverrides, settlements, contributions] of [
+      [
+        { dismissed: ["setl-1"], reference: "AXISCN0123456789" },
+        [settlement],
+        [],
+      ],
+      [
+        {
+          amountPaise: 500_000,
+          dismissed: ["gift-1"],
+          reference: "UPI412345678901",
+          valueOn: "2026-10-15",
+        },
+        [],
+        [gift],
+      ],
+    ] as const) {
+      const plans = planStatementMatches({
+        contributions,
+        lines: [line(lineOverrides)],
+        settlements,
+      });
+      expect(plans.get("line-1")).toEqual({ kind: "none" });
+    }
+  });
+
+  it("matches a UTR only as a whole token", () => {
+    const plans = planStatementMatches({
+      contributions: [],
+      lines: [line({ narration: "NEFT CR-XAXISCN0123456789-RAZORPAY" })],
+      settlements: [settlement],
+    });
+    expect(plans.get("line-1")?.kind).not.toBe("match");
+    const inReference = planStatementMatches({
+      contributions: [],
+      lines: [line({ reference: "NEFT/AXISCN0123456789/RAZORPAY" })],
+      settlements: [settlement],
+    });
+    expect(inReference.get("line-1")?.kind).toBe("match");
+  });
+
   it("does not suggest a settlement the reviewer turned down", () => {
     const plans = planStatementMatches({
       contributions: [],
@@ -127,6 +169,23 @@ describe("contribution matching", () => {
         targetId: "gift-1",
       },
     });
+  });
+
+  it("matches a reference token, but never on short or all-zero references", () => {
+    const token = planStatementMatches({
+      contributions: [{ ...gift, reference: "412345678901" }],
+      lines: [{ ...credit, reference: "UPI/412345678901/ASHA" }],
+      settlements: [],
+    });
+    expect(token.get("line-1")?.kind).toBe("match");
+    for (const reference of ["0000", "123"]) {
+      const weak = planStatementMatches({
+        contributions: [{ ...gift, reference }],
+        lines: [{ ...credit, reference }],
+        settlements: [],
+      });
+      expect(weak.get("line-1")?.kind).toBe("suggest");
+    }
   });
 
   it("suggests when one side has no reference, never when they differ", () => {
@@ -214,18 +273,24 @@ describe("give.do payouts", () => {
 });
 
 describe("helpers", () => {
-  it("compares references without punctuation or leading zeros", () => {
-    expect(sameReference("000123", "123")).toBe(true);
+  it("compares references by token, without punctuation or leading zeros", () => {
+    expect(sameReference("000456789", "456789")).toBe(true);
     expect(sameReference("UTR: axis-1", "AXIS1")).toBe(false);
-    expect(sameReference("axis-1", "AXIS1")).toBe(true);
+    expect(sameReference("axis-12", "AXIS12")).toBe(true);
+    expect(sameReference("NEFT", "NEFT")).toBe(false);
     expect(sameReference("", "")).toBe(false);
   });
 
-  it("needs a long UTR to find it inside a narration", () => {
-    expect(lineHasUtr({ narration: "X 1234 Y", reference: null }, "1234")).toBe(
-      false
+  it("finds a UTR as a whole token of the reference or narration", () => {
+    expect(
+      lineHasUtr({ narration: "X AXIS1234 Y", reference: null }, "AXIS1234")
+    ).toBe(true);
+    expect(
+      lineHasUtr({ narration: "XAXIS1234Y", reference: null }, "AXIS1234")
+    ).toBe(false);
+    expect(lineHasUtr({ narration: "", reference: "UTR-1234" }, "1234")).toBe(
+      true
     );
-    expect(lineHasUtr({ narration: "", reference: "1234" }, "1234")).toBe(true);
   });
 
   it("widens the window by three days each side", () => {
@@ -241,6 +306,7 @@ describe("line identity", () => {
     amountPaise: 50_000,
     balancePaise: null,
     direction: "credit",
+    hashNarration: "UPI-ASHA",
     narration: "UPI-ASHA",
     reference: "",
     valueOn: "2026-10-01",
@@ -252,7 +318,12 @@ describe("line identity", () => {
   });
 
   it("hashes the same lines the same in an overlapping upload", () => {
-    const later = { ...base, narration: "RENT", valueOn: "2026-10-20" };
+    const later = {
+      ...base,
+      hashNarration: "RENT",
+      narration: "RENT",
+      valueOn: "2026-10-20",
+    };
     const october = statementLineHashes("acc-1", [base, base, later]);
     const overlap = statementLineHashes("acc-1", [
       null,
@@ -272,11 +343,54 @@ describe("line identity", () => {
       { ...base, balancePaise: 100 },
     ]);
     const [spaced] = statementLineHashes("acc-1", [
-      { ...base, narration: "upi-asha " },
+      { ...base, hashNarration: "upi-asha " },
     ]);
     expect(otherAccount).not.toBe(plain);
     expect(withBalance).not.toBe(plain);
     expect(spaced).toBe(plain);
     expect(plain?.startsWith("h1:")).toBe(true);
+  });
+});
+
+describe("line identity and masking", () => {
+  it("hashes the narration as printed, so lines that mask alike stay apart", () => {
+    const line = (pan: string) => ({
+      amountPaise: 50_000,
+      balancePaise: null,
+      direction: "credit" as const,
+      hashNarration: `NEFT ${pan}`,
+      narration: "NEFT ••••234F",
+      reference: "",
+      valueOn: "2026-10-01",
+    });
+    const [a, b] = statementLineHashes("acc-1", [
+      line("ABCDE1234F"),
+      line("ZYXWV1234F"),
+    ]);
+    expect(a).not.toBe(b);
+  });
+});
+
+describe("file order", () => {
+  const row = (rowNumber: number, valueOn: string | null) => ({
+    line: valueOn ? { valueOn } : null,
+    record: { id: `r${rowNumber}`, rowNumber },
+  });
+
+  it("turns a newest-first file round and keeps a one-day file as given", () => {
+    const newestFirst = positionsFor([
+      row(1, null),
+      row(2, "2026-10-05"),
+      row(3, "2026-10-01"),
+    ]);
+    expect(newestFirst.get("r2")).toBeGreaterThan(newestFirst.get("r3") ?? 0);
+    const oneDay = positionsFor([
+      row(1, "2026-10-05"),
+      row(2, "2026-10-05"),
+      row(3, "2026-10-05"),
+    ]);
+    expect([oneDay.get("r1"), oneDay.get("r2"), oneDay.get("r3")]).toEqual([
+      1, 2, 3,
+    ]);
   });
 });

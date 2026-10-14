@@ -18,7 +18,10 @@ import {
 import {
   actOnStatementLine,
   createStatementBatch,
+  describeStatementAction,
   findStatementMatches,
+  previewStatementMatches,
+  previewStatementRun,
   reviewStatementBatch,
   runStatementBatch,
   statementLinkCandidates,
@@ -126,12 +129,20 @@ export const runBankStatementImport = createServerFn({ method: "POST" })
       throw new Error("Unauthorized");
     }
     const { session } = context;
+    // Counts the run is about to write, planned from the stored rows.
+    const planned = await previewStatementRun(data.batchId);
     return await runSessionAuditedAction(
       session,
       context.headers,
       {
         action: "import_batch.run",
-        metadata: { source: "bank_csv" },
+        metadata: {
+          errorCount: planned.error,
+          existingCount: planned.existing,
+          newLineCount: planned.new,
+          skippedCount: planned.skipped,
+          source: "bank_csv",
+        },
         target: { id: data.batchId, type: "import_batch" },
       },
       async () => await runStatementBatch(data, session.user.id)
@@ -147,11 +158,16 @@ export const findBankStatementMatches = createServerFn({ method: "POST" })
       throw new Error("Unauthorized");
     }
     const { session } = context;
+    const planned = await previewStatementMatches(data.orgAccountId);
     return await runSessionAuditedAction(
       session,
       context.headers,
       {
         action: "statement_line.find_matches",
+        metadata: {
+          matchCount: planned.matched,
+          suggestionCount: planned.suggested,
+        },
         target: { id: data.orgAccountId, type: "org_account" },
       },
       async () => await findStatementMatches(data.orgAccountId, session.user.id)
@@ -182,23 +198,33 @@ const actionSchema = z.discriminatedUnion("action", [
 
 type ActionInput = z.infer<typeof actionSchema>;
 
-/** Audit metadata for an action: kinds, reasons and IDs, never the note. */
-function actionMetadata(
+const relatedIdKey = (kind: string) =>
+  kind === "settlement" ? "settlementId" : "contributionId";
+
+/**
+ * Audit metadata for an action: kinds, reasons and record IDs, never the
+ * note or line content. Accept and unmatch name what they tie or untie,
+ * read from the line before the action.
+ */
+async function actionMetadata(
   input: ActionInput
-): Record<string, string | Record<string, string>> {
+): Promise<Record<string, string | Record<string, string>>> {
   if (input.action === "link") {
     return {
       kind: input.kind,
-      relatedIds: {
-        [input.kind === "settlement" ? "settlementId" : "contributionId"]:
-          input.targetId,
-      },
+      relatedIds: { [relatedIdKey(input.kind)]: input.targetId },
     };
   }
   if (input.action === "ignore") {
     return { reason: input.reason };
   }
-  return {};
+  const { kind, targetId } = await describeStatementAction(input);
+  return {
+    ...(kind ? { kind } : {}),
+    ...(kind && targetId
+      ? { relatedIds: { [relatedIdKey(kind)]: targetId } }
+      : {}),
+  };
 }
 
 /**
@@ -220,7 +246,7 @@ export const updateStatementLine = createServerFn({ method: "POST" })
       context.headers,
       {
         action: `statement_line.${data.action}`,
-        metadata: actionMetadata(data),
+        metadata: await actionMetadata(data),
         target: { id: data.lineId, type: "statement_line" },
       },
       async () => await actOnStatementLine(data, session.user.id)

@@ -189,6 +189,14 @@ export interface MatchInputs {
 const settlementUnmatched = sql`not exists (
   select 1 from ${statementLine} sl where sl.matched_settlement_id = ${gatewaySettlement.id}
 )`;
+/** Processed payouts of the server's Razorpay mode that no line holds. */
+const settlementCandidate = (mode: string) =>
+  and(
+    eq(gatewaySettlement.provider, "razorpay"),
+    eq(gatewaySettlement.providerAccount, mode),
+    eq(gatewaySettlement.status, "processed"),
+    settlementUnmatched
+  );
 const contributionUnmatched = sql`not exists (
   select 1 from ${statementLine} sl where sl.matched_contribution_id = ${contribution.id}
 )`;
@@ -200,8 +208,10 @@ const contributionUnmatched = sql`not exists (
  * line and dated within `window`.
  */
 export async function loadMatchInputs(
-  tx: StatementTx,
+  tx: Reader,
   orgAccountId: string,
+  /** Razorpay's live or test mode on this server; null when Razorpay is off. */
+  mode: string | null,
   window: (lines: StatementLineRecord[]) => { from: string; to: string } | null
 ): Promise<MatchInputs> {
   const lines = await tx
@@ -219,15 +229,17 @@ export async function loadMatchInputs(
   if (!range) {
     return { contributions: [], lines, settlements: [] };
   }
-  const settlements = await tx
-    .select({
-      amountPaise: gatewaySettlement.amountPaise,
-      id: gatewaySettlement.id,
-      settledOn: gatewaySettlement.settledOn,
-      utr: gatewaySettlement.utr,
-    })
-    .from(gatewaySettlement)
-    .where(and(eq(gatewaySettlement.status, "processed"), settlementUnmatched));
+  const settlements = mode
+    ? await tx
+        .select({
+          amountPaise: gatewaySettlement.amountPaise,
+          id: gatewaySettlement.id,
+          settledOn: gatewaySettlement.settledOn,
+          utr: gatewaySettlement.utr,
+        })
+        .from(gatewaySettlement)
+        .where(settlementCandidate(mode))
+    : [];
   const contributions = await tx
     .select({
       amountPaise: contribution.amountPaise,
@@ -391,17 +403,26 @@ export async function isTargetMatched(
   return row !== undefined;
 }
 
+/** A processed settlement of the server's Razorpay mode, or null. */
 export async function findSettlementForMatch(
   executor: Reader,
-  id: string
-): Promise<{ amountPaise: number; status: string } | null> {
+  id: string,
+  mode: string | null
+): Promise<{ amountPaise: number } | null> {
+  if (!mode) {
+    return null;
+  }
   const [row] = await executor
-    .select({
-      amountPaise: gatewaySettlement.amountPaise,
-      status: gatewaySettlement.status,
-    })
+    .select({ amountPaise: gatewaySettlement.amountPaise })
     .from(gatewaySettlement)
-    .where(eq(gatewaySettlement.id, id));
+    .where(
+      and(
+        eq(gatewaySettlement.id, id),
+        eq(gatewaySettlement.provider, "razorpay"),
+        eq(gatewaySettlement.providerAccount, mode),
+        eq(gatewaySettlement.status, "processed")
+      )
+    );
   return row ?? null;
 }
 
@@ -447,13 +468,15 @@ const LINK_CANDIDATE_LIMIT = 500;
 
 /**
  * What a credit line of this account could be linked to by hand: the
- * account's direct-deposit contributions and processed settlements no line
- * holds, nearest the line's date first.
+ * account's direct-deposit contributions and the server's mode's processed
+ * settlements of the line's amount that no line holds, nearest the line's
+ * date first.
  */
 export async function findLinkCandidates(
-  orgAccountId: string,
-  valueOn: string
+  line: { amountPaise: number; orgAccountId: string; valueOn: string },
+  mode: string | null
 ): Promise<LinkCandidates> {
+  const { amountPaise, orgAccountId, valueOn } = line;
   const nearest = (column: typeof contribution.receivedOn) =>
     sql`abs(${column} - ${valueOn}::date)`;
   const contributions = await db
@@ -469,6 +492,7 @@ export async function findLinkCandidates(
     .where(
       and(
         eq(contribution.orgAccountId, orgAccountId),
+        eq(contribution.amountPaise, amountPaise),
         inArray(contribution.channel, [...DIRECT_DEPOSIT_CHANNELS]),
         inArray(contribution.status, [...CONTRIBUTION_RECEIVED_STATUSES]),
         contributionUnmatched
@@ -476,6 +500,9 @@ export async function findLinkCandidates(
     )
     .orderBy(nearest(contribution.receivedOn), asc(contribution.id))
     .limit(LINK_CANDIDATE_LIMIT);
+  if (!mode) {
+    return { contributions, settlements: [] };
+  }
   const settlements = await db
     .select({
       amountPaise: gatewaySettlement.amountPaise,
@@ -485,7 +512,12 @@ export async function findLinkCandidates(
       utr: gatewaySettlement.utr,
     })
     .from(gatewaySettlement)
-    .where(and(eq(gatewaySettlement.status, "processed"), settlementUnmatched))
+    .where(
+      and(
+        settlementCandidate(mode),
+        eq(gatewaySettlement.amountPaise, amountPaise)
+      )
+    )
     .orderBy(
       sql`abs(${gatewaySettlement.settledOn} - ${valueOn}::date)`,
       asc(gatewaySettlement.id)
@@ -502,7 +534,10 @@ export interface StatementSummary {
   /** give.do gifts received less give.do payouts matched to bank lines. */
   giveDoClearingPaise: number;
   lineCount: number;
+  /** Unmatched debits: noted, ignored or marked as transfers until the ledger. */
+  moneyOutCount: number;
   suggestionCount: number;
+  /** Unmatched credits: what is left to review. */
   unmatchedCount: number;
 }
 
@@ -516,7 +551,8 @@ export async function statementSummary(
       creditsMatched: sql<number>`count(*) filter (where ${statementLine.direction} = 'credit' and ${statementLine.matchStatus} = 'matched')::int`,
       lines: sql<number>`count(*)::int`,
       suggestions: sql<number>`count(*) filter (where ${statementLine.matchStatus} = 'unmatched' and ${statementLine.suggestedKind} is not null)::int`,
-      unmatched: sql<number>`count(*) filter (where ${statementLine.matchStatus} = 'unmatched')::int`,
+      moneyOut: sql<number>`count(*) filter (where ${statementLine.matchStatus} = 'unmatched' and ${statementLine.direction} = 'debit')::int`,
+      unmatched: sql<number>`count(*) filter (where ${statementLine.matchStatus} = 'unmatched' and ${statementLine.direction} = 'credit')::int`,
     })
     .from(statementLine)
     .where(eq(statementLine.orgAccountId, orgAccountId));
@@ -548,6 +584,7 @@ export async function statementSummary(
     creditsMatchedCount: Number(counts?.creditsMatched ?? 0),
     giveDoClearingPaise: await giveDoClearingPaise(),
     lineCount: Number(counts?.lines ?? 0),
+    moneyOutCount: Number(counts?.moneyOut ?? 0),
     suggestionCount: Number(counts?.suggestions ?? 0),
     unmatchedCount: Number(counts?.unmatched ?? 0),
   };

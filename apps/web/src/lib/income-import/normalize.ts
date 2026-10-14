@@ -569,8 +569,11 @@ export function maskIdentifier(idNumber: string): string | null {
   return idNumber.length >= 8 ? `••••${idNumber.slice(-4)}` : null;
 }
 
-// A PAN anywhere in a value, also in lower case or with spaces or hyphens inside.
-const PAN_ANYWHERE = /[a-z]{5}[\s-]*\d{4}[\s-]*[a-z]/gi;
+// A PAN anywhere in a value, also in lower case or with spaces or hyphens
+// inside, but not part of a longer run of letters and digits (a UTR such as
+// "AXISCN0123456789" is not a PAN).
+const PAN_ANYWHERE =
+  /(?<![a-z0-9])[a-z]{5}[\s-]*\d{4}[\s-]*[a-z](?![a-z0-9])/gi;
 // Twelve digits on their own, run together or in 4-4-4 groups split by a
 // space or hyphen: Aadhaar-shaped.
 const TWELVE_DIGITS_ANYWHERE = /(?<!\d)\d{4}[\s-]?\d{4}[\s-]?\d{4}(?!\d)/g;

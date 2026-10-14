@@ -37,6 +37,17 @@ const service =
 mock.module("@/lib/bank-statement/server", () => ({
   actOnStatementLine: service("act", { lineId: "l" }),
   createStatementBatch: service("create", { batchId: "b" }),
+  describeStatementAction: async (input: { action: string }) =>
+    input.action === "accept"
+      ? { kind: "settlement", targetId: "0190a000-0000-7000-8000-000000000009" }
+      : {},
+  previewStatementMatches: async () => ({ matched: 2, suggested: 1 }),
+  previewStatementRun: async () => ({
+    error: 0,
+    existing: 2,
+    new: 5,
+    skipped: 4,
+  }),
   findStatementMatches: service("match", { matched: 0, suggested: 0 }),
   reviewStatementBatch: service("review"),
   runStatementBatch: service("run"),
@@ -185,13 +196,43 @@ describe("bank statement server functions", () => {
     expect(serviceCalls.map((c) => c.name)).toEqual(["act", "act", "act"]);
   });
 
-  it("audits Find matches against the account", async () => {
+  it("audits Find matches and a run with planned counts", async () => {
     granted = ["finance.manage"];
     await call(fns.findBankStatementMatches, { orgAccountId: ID });
+    await call(fns.runBankStatementImport, { batchId: ID });
     expect(audits).toEqual([
       {
         action: "statement_line.find_matches",
+        metadata: { matchCount: 2, suggestionCount: 1 },
         target: { id: ID, type: "org_account" },
+      },
+      {
+        action: "import_batch.run",
+        metadata: {
+          errorCount: 0,
+          existingCount: 2,
+          newLineCount: 5,
+          skippedCount: 4,
+          source: "bank_csv",
+        },
+        target: { id: ID, type: "import_batch" },
+      },
+    ]);
+  });
+
+  it("audits an accepted suggestion with its kind and record", async () => {
+    granted = ["finance.manage"];
+    await call(fns.updateStatementLine, { action: "accept", lineId: LINE });
+    expect(audits).toEqual([
+      {
+        action: "statement_line.accept",
+        metadata: {
+          kind: "settlement",
+          relatedIds: {
+            settlementId: "0190a000-0000-7000-8000-000000000009",
+          },
+        },
+        target: { id: LINE, type: "statement_line" },
       },
     ]);
   });

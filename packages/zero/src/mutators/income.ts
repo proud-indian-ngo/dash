@@ -330,11 +330,15 @@ async function requireRecordableLine(
   return line;
 }
 
-/** On the server: the bank line this contribution is matched to, if any. */
+/**
+ * On the server: the bank line this contribution is matched to, if any,
+ * read under the statement line lock, so a match made meanwhile is seen.
+ */
 async function matchedLine(tx: Tx, contributionId: string) {
   if (tx.location !== "server") {
     return undefined;
   }
+  await lockStatementLines(tx);
   return await tx.run(
     zql.statementLine.where("matchedContributionId", contributionId).one()
   );
@@ -427,11 +431,12 @@ export const contributionMutators = {
     }
     if (
       (values.amountPaise !== existing.amountPaise ||
-        values.orgAccountId !== (existing.orgAccountId ?? null)) &&
+        values.orgAccountId !== (existing.orgAccountId ?? null) ||
+        !DIRECT_DEPOSIT_CHANNELS.includes(values.channel)) &&
       (await matchedLine(tx, args.id))
     ) {
       throw new Error(
-        "This contribution is matched to a bank statement line, so its amount and account can't change. Unmatch the line first."
+        "This contribution is matched to a bank statement line, so its amount and account can't change and its channel stays UPI, NEFT, cheque or cash. Unmatch the line first."
       );
     }
     if (tx.location === "server") {

@@ -379,6 +379,52 @@ function ResultSummary({
   );
 }
 
+/**
+ * Why rows were skipped, so a wrong date format or amount mapping is
+ * noticed before importing: skipped rows are normally only headings,
+ * opening balances and totals.
+ */
+function SkippedBreakdown({ rows }: { rows: StatementReviewResponse["rows"] }) {
+  const noDate = rows.filter((r) => r.skipReason === "no_date").length;
+  const noAmount = rows.filter((r) => r.skipReason === "no_amount").length;
+  const badDates = rows.filter(
+    (r) => r.category === "error" && r.errors.some((e) => e.field === "valueOn")
+  ).length;
+  if (noDate + noAmount + badDates === 0) {
+    return null;
+  }
+  const parts = [
+    noDate > 0 ? plural(noDate, "row has no date", "rows have no date") : null,
+    noAmount > 0
+      ? plural(noAmount, "row has no amount", "rows have no amount")
+      : null,
+  ].filter(Boolean);
+  return (
+    <div
+      className={
+        badDates > 0
+          ? "border-warning/30 bg-warning/10 text-warning-foreground dark:bg-warning-foreground/10 rounded-md border p-3 text-sm"
+          : "text-muted-foreground text-sm"
+      }
+      data-testid="statement-skipped-breakdown"
+      role="status"
+    >
+      {parts.length > 0 ? (
+        <p>
+          Skipped: {parts.join(", ")}. These are usually headings, opening
+          balances and totals; check the Skipped tab.
+        </p>
+      ) : null}
+      {badDates > 0 ? (
+        <p>
+          {plural(badDates, "row has a date", "rows have dates")} that can't be
+          read with the chosen format. Go back and check the date format.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 /** Upload, map, review and import one bank statement. */
 export function BankImportWizard({
   defaultAccountId,
@@ -483,6 +529,7 @@ export function BankImportWizard({
             {plural(counts.skipped, "row skipped", "rows skipped")},{" "}
             {plural(counts.error, "error", "errors")}.
           </p>
+          <SkippedBreakdown rows={review.rows} />
           <StatementReviewTable rows={review.rows} />
         </div>
       ) : null}

@@ -82,14 +82,25 @@ function SuggestionCard({
   canManage: boolean;
   line: StatementLineRow;
 }) {
-  const reason = matchReasonLabel(line.suggestionReason);
+  // A settlement whose UTR the line carries but whose amount differs can't
+  // be matched whole: the card says so and offers no Match.
+  const amountDiffers =
+    line.suggestedKind === "settlement" &&
+    line.suggestedSettlement !== null &&
+    line.suggestedSettlement !== undefined &&
+    line.suggestedSettlement.amountPaise !== line.amountPaise;
+  const reason = amountDiffers
+    ? `UTR matches, amount differs: ${formatPaise(line.suggestedSettlement?.amountPaise ?? 0)} vs ${formatPaise(line.amountPaise)} in the bank`
+    : matchReasonLabel(line.suggestionReason);
   return (
     <div
       className="bg-info/5 ring-info/25 grid gap-2 rounded-lg p-3 text-sm ring-1 ring-inset"
       data-testid="statement-suggestion"
     >
       <div className="min-w-0">
-        <div className="text-muted-foreground text-xs">Suggested match</div>
+        <div className="text-muted-foreground text-xs">
+          {amountDiffers ? "Possibly related" : "Suggested match"}
+        </div>
         <div className="truncate font-medium">
           {targetLabel(
             line.suggestedKind,
@@ -103,13 +114,15 @@ function SuggestionCard({
       </div>
       {canManage ? (
         <div className="flex flex-wrap gap-2">
-          <Button
-            onClick={() => actions.onAccept(line)}
-            size="sm"
-            type="button"
-          >
-            Match
-          </Button>
+          {amountDiffers ? null : (
+            <Button
+              onClick={() => actions.onAccept(line)}
+              size="sm"
+              type="button"
+            >
+              Match
+            </Button>
+          )}
           <Button
             onClick={() => actions.onDismiss(line)}
             size="sm"

@@ -122,9 +122,10 @@ test.describe("Income: bank statements", () => {
     await expect(
       page.getByRole("heading", { exact: true, name: "Bank statements" })
     ).toBeVisible();
-    await expect(page.getByRole("tab", { name: "To review 3" })).toBeVisible({
+    await expect(page.getByRole("tab", { name: "To review 2" })).toBeVisible({
       timeout: 15_000,
     });
+    await expect(page.getByRole("tab", { name: "Money out 1" })).toBeVisible();
     await page.getByRole("tab", { name: "Matched 2" }).click();
     await expect(line(page, `E2EUTR${run}`)).toContainText(
       "Razorpay settlement"
@@ -167,7 +168,12 @@ test.describe("Income: bank statements", () => {
       timeout: 15_000,
     });
 
-    // The debit is set aside.
+    await expect(
+      page.getByText("All money in is matched or ignored")
+    ).toBeVisible({ timeout: 15_000 });
+
+    // The debit waits under Money out and is set aside.
+    await page.getByRole("tab", { name: /^Money out/ }).click();
     const debit = line(page, `PRINTING ${run}`);
     await expect(debit).toContainText("Expense matching comes with the ledger");
     await debit.getByRole("button", { name: "Line actions" }).click();
@@ -175,9 +181,9 @@ test.describe("Income: bank statements", () => {
     const ignore = page.getByRole("dialog", { name: "Ignore this line?" });
     await ignore.getByRole("button", { name: "Ignore line" }).click();
     await expect(ignore).toBeHidden();
-    await expect(
-      page.getByText("All lines are matched or ignored")
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("No money out left to note")).toBeVisible({
+      timeout: 15_000,
+    });
 
     const stored = await fixture<StoredLine[]>(
       "bank-statements",

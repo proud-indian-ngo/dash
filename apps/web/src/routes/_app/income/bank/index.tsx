@@ -66,7 +66,7 @@ import type {
 } from "@/lib/bank-statement/types";
 import { assertAnyPermission } from "@/lib/route-guards";
 
-const LINE_TABS = ["review", "matched", "ignored", "all"] as const;
+const LINE_TABS = ["review", "out", "matched", "ignored", "all"] as const;
 type LineTab = (typeof LINE_TABS)[number];
 
 const ALL_MONTHS = "all";
@@ -82,8 +82,12 @@ export const Route = createFileRoute("/_app/income/bank/")({
 });
 
 const inTab = (line: StatementLineRow, tab: LineTab) => {
+  // Unmatched credits wait for review; unmatched debits wait for the ledger.
   if (tab === "review") {
-    return line.matchStatus === "unmatched";
+    return line.matchStatus === "unmatched" && line.direction === "credit";
+  }
+  if (tab === "out") {
+    return line.matchStatus === "unmatched" && line.direction === "debit";
   }
   if (tab === "matched") {
     return line.matchStatus === "matched";
@@ -178,6 +182,19 @@ function summaryItems(
   ];
 }
 
+function emptyTitle(lineCount: number, tab: LineTab): string {
+  if (lineCount === 0) {
+    return "No statement lines yet";
+  }
+  if (tab === "review") {
+    return "All money in is matched or ignored";
+  }
+  if (tab === "out") {
+    return "No money out left to note";
+  }
+  return "No lines";
+}
+
 const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "Something went wrong";
 
@@ -189,14 +206,21 @@ function BankStatementsPage() {
   const act = useServerFn(updateStatementLine);
   const findMatches = useServerFn(findBankStatementMatches);
 
-  const [accounts, accountsResult] = useQuery(queries.orgAccount.active());
-  const banks = accounts.filter((account) => account.kind === "bank");
+  // Inactive accounts too, so a closed account's lines stay reachable.
+  const [banks, accountsResult] = useQuery(
+    queries.statementLine.bankAccounts()
+  );
   const [requestedAccount, setAccount] = useQueryState(
     "account",
     parseAsString
   );
   const accountId =
-    banks.find((b) => b.id === requestedAccount)?.id ?? banks[0]?.id ?? null;
+    banks.find((b) => b.id === requestedAccount)?.id ??
+    banks.find((b) => b.active)?.id ??
+    banks[0]?.id ??
+    null;
+  const bankLabel = (bank: (typeof banks)[number]) =>
+    bank.active ? bank.name : `${bank.name} (inactive)`;
   const [month, setMonth] = useQueryState(
     "month",
     parseAsString.withDefault(ALL_MONTHS)
@@ -352,14 +376,16 @@ function BankStatementsPage() {
             >
               <SelectTrigger aria-label="Bank account" className="w-64">
                 <SelectValue placeholder="Bank account">
-                  {banks.find((b) => b.id === accountId)?.name ??
-                    "Bank account"}
+                  {(() => {
+                    const bank = banks.find((b) => b.id === accountId);
+                    return bank ? bankLabel(bank) : "Bank account";
+                  })()}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {banks.map((bank) => (
                   <SelectItem key={bank.id} value={bank.id}>
-                    {bank.name}
+                    {bankLabel(bank)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -398,6 +424,7 @@ function BankStatementsPage() {
               <TabsTrigger value="review">
                 To review {counts.review}
               </TabsTrigger>
+              <TabsTrigger value="out">Money out {counts.out}</TabsTrigger>
               <TabsTrigger value="matched">
                 Matched {counts.matched}
               </TabsTrigger>
@@ -422,17 +449,11 @@ function BankStatementsPage() {
                   : "Nothing here for this month."
               }
               icon={
-                tab === "review" && lines.length > 0
+                (tab === "review" || tab === "out") && lines.length > 0
                   ? CheckmarkCircle02Icon
                   : BankIcon
               }
-              title={
-                lines.length === 0
-                  ? "No statement lines yet"
-                  : tab === "review"
-                    ? "All lines are matched or ignored"
-                    : "No lines"
-              }
+              title={emptyTitle(lines.length, tab)}
             />
           ) : (
             <ul

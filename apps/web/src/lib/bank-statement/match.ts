@@ -72,39 +72,49 @@ export const normalizeRef = (value: string | null | undefined) =>
   (value ?? "").toUpperCase().replaceAll(/[^A-Z0-9]/g, "");
 
 /** A reference for equality: cheque numbers lose leading zeros. */
-const comparableRef = (value: string | null | undefined) => {
-  const ref = normalizeRef(value);
-  return /^\d+$/.test(ref) ? ref.replace(/^0+(?=\d)/, "") : ref;
-};
+const comparableRef = (ref: string) =>
+  /^\d+$/.test(ref) ? ref.replace(/^0+(?=\d)/, "") : ref;
 
+/**
+ * Strong enough to match on: at least four characters, with a digit, and
+ * not all zeros. Words such as "NEFT" or "UPI" never pair two payments.
+ */
+const usableRef = (ref: string) =>
+  ref.length >= 4 && /\d/.test(ref) && !/^0+$/.test(ref);
+
+/**
+ * The comparable forms of a reference: the whole value with punctuation
+ * removed, and each of its alphanumeric tokens ("UPI/412345678901/ASHA"
+ * gives "412345678901"); only usable ones.
+ */
+function referenceForms(value: string | null | undefined): Set<string> {
+  const text = (value ?? "").toUpperCase();
+  const forms = [normalizeRef(text), ...text.split(/[^A-Z0-9]+/)];
+  return new Set(forms.filter(usableRef).map(comparableRef));
+}
+
+/** Whether two references name the same payment, by whole tokens. */
 export function sameReference(
   a: string | null | undefined,
   b: string | null | undefined
 ): boolean {
-  const left = comparableRef(a);
-  return left !== "" && left === comparableRef(b);
+  const right = referenceForms(b);
+  return [...referenceForms(a)].some((form) => right.has(form));
 }
 
-const MIN_UTR_IN_NARRATION = 8;
-
-/** Whether the line carries this UTR, in its reference or its narration. */
+/** Whether the line carries this UTR as a whole token of its reference or narration. */
 export function lineHasUtr(
   line: Pick<LineToMatch, "narration" | "reference">,
   utr: string | null
 ): boolean {
   const wanted = normalizeRef(utr);
-  if (wanted === "") {
+  if (!usableRef(wanted)) {
     return false;
   }
-  if (normalizeRef(line.reference) === wanted) {
-    return true;
-  }
-  if (wanted.length < MIN_UTR_IN_NARRATION) {
-    return false;
-  }
-  const tokens = line.narration.toUpperCase().split(/[^A-Z0-9]+/);
+  const wantedForm = comparableRef(wanted);
   return (
-    tokens.includes(wanted) || normalizeRef(line.narration).includes(wanted)
+    referenceForms(line.reference).has(wantedForm) ||
+    referenceForms(line.narration).has(wantedForm)
   );
 }
 
@@ -159,9 +169,11 @@ export function planStatementMatches(
 
   // Pass 1: exact evidence, before any suggestion can take a target.
   for (const line of credits) {
+    // A record the reviewer turned down or unmatched never comes back.
+    const free = (id: string) => !(used.has(id) || line.dismissed.includes(id));
     const settlement = input.settlements.find(
       (s) =>
-        !used.has(s.id) &&
+        free(s.id) &&
         s.amountPaise === line.amountPaise &&
         lineHasUtr(line, s.utr)
     );
@@ -175,7 +187,7 @@ export function planStatementMatches(
     }
     const contribution = input.contributions.find(
       (c) =>
-        !used.has(c.id) &&
+        free(c.id) &&
         c.amountPaise === line.amountPaise &&
         withinWindow(c.receivedOn, line.valueOn) &&
         sameReference(c.reference, line.reference)
@@ -239,8 +251,8 @@ export function planStatementMatches(
           withinWindow(c.receivedOn, line.valueOn) &&
           // Different references mean different payments.
           !(
-            normalizeRef(c.reference) &&
-            normalizeRef(line.reference) &&
+            referenceForms(c.reference).size > 0 &&
+            referenceForms(line.reference).size > 0 &&
             !sameReference(c.reference, line.reference)
           )
       ),

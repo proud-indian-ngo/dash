@@ -18,6 +18,15 @@ const NEVER = "__never_match__";
 
 export const statementLineQueries = {
   /**
+   * The bank accounts statements can be viewed for, inactive ones too, so
+   * the lines of a closed account stay reachable.
+   */
+  bankAccounts: defineQuery(({ ctx }) =>
+    canSeeStatementLines(ctx)
+      ? zql.orgAccount.where("kind", "bank").orderBy("name", "asc")
+      : zql.orgAccount.where("id", NEVER)
+  ),
+  /**
    * One bank account's lines, newest first, with what each is matched to
    * or suggested for: the settlement, or the contribution and its donor's
    * name.

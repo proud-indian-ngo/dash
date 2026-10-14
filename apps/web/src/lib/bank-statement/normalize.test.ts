@@ -49,6 +49,7 @@ describe("amount layouts", () => {
         amountPaise: 250_000,
         balancePaise: 10_250_000,
         direction: "credit",
+        hashNarration: "NEFT CR-ASHA RAO",
         narration: "NEFT CR-ASHA RAO",
         reference: "000123",
         valueOn: "2026-10-01",
@@ -63,6 +64,18 @@ describe("amount layouts", () => {
     });
     expect(debit.kind === "line" && debit.line.direction).toBe("debit");
     expect(debit.kind === "line" && debit.line.amountPaise).toBe(1_500_000);
+  });
+
+  it("refuses a negative or Dr-marked deposit and a Cr-marked withdrawal", () => {
+    for (const cells of [
+      { "Deposit Amt.": "-500.00" } as Record<string, string>,
+      { "Deposit Amt.": "500.00 Dr" },
+      { "Withdrawal Amt.": "500.00 Cr" },
+    ]) {
+      expect(split({ Date: "02/10/2026", Narration: "x", ...cells }).kind).toBe(
+        "error"
+      );
+    }
   });
 
   it("refuses a row with both a withdrawal and a deposit", () => {
@@ -144,6 +157,18 @@ describe("amount layouts", () => {
       paise: 10_000_050,
       side: null,
     });
+    expect(parseStatementAmount("250.00Cr")).toEqual({
+      paise: 25_000,
+      side: "credit",
+    });
+    expect(parseStatementAmount("1,234.00(Cr)")).toEqual({
+      paise: 123_400,
+      side: "credit",
+    });
+    expect(parseStatementAmount("500 Dr.")).toEqual({
+      paise: 50_000,
+      side: "debit",
+    });
     expect(parseStatementAmount("12.345")).toHaveProperty("error");
     expect(parseStatementAmount("abc")).toHaveProperty("error");
   });
@@ -169,7 +194,22 @@ describe("dates", () => {
     expect(parseStatementDate("01-Oct-26", "dmy")).toEqual({
       iso: "2026-10-01",
     });
+    expect(parseStatementDate("01/10/26 10:30", "dmy")).toEqual({
+      iso: "2026-10-01",
+    });
     expect(parseStatementDate("31/02/2026", "dmy")).toHaveProperty("error");
+  });
+
+  it("shows a transaction whose date can't be read as an error, not a skip", () => {
+    const wrongFormat = normalizeStatementRow(
+      { Date: "10/31/2026", "Deposit Amt.": "500", Narration: "x" },
+      SPLIT,
+      { dateFormat: "dmy", layout: "split", today: TODAY }
+    );
+    expect(wrongFormat.kind).toBe("error");
+    expect(wrongFormat.kind === "error" && wrongFormat.errors[0]?.field).toBe(
+      "valueOn"
+    );
   });
 
   it("refuses a date in the future", () => {
@@ -228,6 +268,42 @@ describe("masking", () => {
     expect(result.kind === "line" && result.line.reference).toBe(
       "UTR123456789012"
     );
+  });
+});
+
+describe("references", () => {
+  it("takes a reference from the narration when the file has none", () => {
+    const upi = split({
+      Date: "05/10/2026",
+      "Deposit Amt.": "500",
+      Narration: "UPI/412345678901/PAYMENT FROM ASHA/asha@okaxis",
+    });
+    expect(upi.kind === "line" && upi.line.reference).toBe("412345678901");
+    // The narration itself is masked; the reference is kept for matching.
+    expect(upi.kind === "line" && upi.line.narration).toBe(
+      "UPI/••••8901/PAYMENT FROM ASHA/asha@okaxis"
+    );
+    const neft = split({
+      Date: "05/10/2026",
+      "Deposit Amt.": "500",
+      Narration: "NEFT CR-HDFCN52026101412345678-ASHA RAO",
+    });
+    expect(neft.kind === "line" && neft.line.reference).toBe(
+      "HDFCN52026101412345678"
+    );
+    const given = split({
+      "Chq./Ref.No.": "000123",
+      Date: "05/10/2026",
+      "Deposit Amt.": "500",
+      Narration: "UPI/412345678901/X",
+    });
+    expect(given.kind === "line" && given.line.reference).toBe("000123");
+    const none = split({
+      Date: "05/10/2026",
+      "Deposit Amt.": "500",
+      Narration: "CASH DEPOSIT BRANCH",
+    });
+    expect(none.kind === "line" && none.line.reference).toBe("");
   });
 });
 
@@ -290,5 +366,6 @@ describe("give.do payouts", () => {
     expect(isGiveIndiaNarration("IMPS/GIVEINDIA/PAYOUT")).toBe(true);
     expect(isGiveIndiaNarration("give.do settlement")).toBe(true);
     expect(isGiveIndiaNarration("UPI-GIVE DONATION")).toBe(false);
+    expect(isGiveIndiaNarration("FORGIVE INDIANA")).toBe(false);
   });
 });

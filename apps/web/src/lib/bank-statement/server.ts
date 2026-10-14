@@ -1,3 +1,4 @@
+import { db } from "@pi-dash/db";
 import {
   IMPORT_RUN_LOCK,
   importedRowRetention,
@@ -53,6 +54,7 @@ import {
 import { fileHash, rawRowHash } from "@/lib/income-import/identity";
 import { maskIdentifiers } from "@/lib/income-import/normalize";
 import { CsvParseError, type ParsedCsv } from "@/lib/income-import/parse-csv";
+import { razorpaySetup } from "@/lib/razorpay/config";
 import { withSafeErrors } from "@/lib/safe-errors";
 
 import {
@@ -62,7 +64,7 @@ import {
   checkBankMapping,
   suggestBankMapping,
 } from "./fields";
-import { statementLineHashes } from "./identity";
+import { positionsFor, statementLineHashes } from "./identity";
 import {
   candidateWindow,
   GIVEINDIA_DISMISS_KEY,
@@ -96,6 +98,12 @@ import type {
 
 /** A run left `importing` this long ago is assumed dead and may be taken over. */
 const STALE_RUN_MS = 15 * 60 * 1000;
+
+/** Razorpay's live or test mode on this server; settlements of the other mode never match. */
+function razorpayMode(): string | null {
+  const setup = razorpaySetup();
+  return setup.enabled ? setup.mode : null;
+}
 
 export class StatementInputError extends Error {
   constructor(message: string) {
@@ -398,29 +406,6 @@ export async function reviewStatementBatch(input: {
   });
 }
 
-/**
- * Lines in file order oldest first: a file listed newest first is turned
- * round, so `position` always grows with time within a file.
- */
-function positionsFor(
-  rows: readonly ClassifiedStatementRow[]
-): Map<string, number> {
-  const lines = rows.filter((r) => r.line);
-  const first = lines[0]?.line?.valueOn ?? "";
-  const last = lines.at(-1)?.line?.valueOn ?? "";
-  const newestFirst = first > last;
-  const positions = new Map<string, number>();
-  for (const row of rows) {
-    positions.set(
-      row.record.id,
-      newestFirst
-        ? rows.length - row.record.rowNumber + 1
-        : row.record.rowNumber
-    );
-  }
-  return positions;
-}
-
 /** Imports the batch's undecided rows as statement lines, then matches the account. */
 export async function runStatementBatch(
   input: { batchId: string },
@@ -466,15 +451,19 @@ export async function runStatementBatch(
             r.line && r.hash
               ? [
                   {
-                    ...r.line,
+                    amountPaise: r.line.amountPaise,
+                    balancePaise: r.line.balancePaise,
                     createdAt: now,
+                    direction: r.line.direction,
                     id: uuidv7(),
                     importBatchId: batch.id,
                     lineHash: r.hash,
+                    narration: r.line.narration,
                     orgAccountId,
                     position: positions.get(r.record.id) ?? r.record.rowNumber,
                     reference: r.line.reference || null,
                     updatedAt: now,
+                    valueOn: r.line.valueOn,
                   },
                 ]
               : []
@@ -558,18 +547,16 @@ const planTarget = (plan: LinePlan): LineMatchWrite | null =>
         targetId: plan.target.targetId,
       };
 
-/**
- * Matches the account's open credit lines: exact evidence matches, the rest
- * get a suggestion or lose a stale one. `actorId` is who ran the import or
- * "Find matches".
- */
-export async function refreshMatches(
-  tx: StatementTx,
-  orgAccountId: string,
-  actorId: string | null,
-  now: Date = new Date()
-): Promise<MatchRunResult> {
-  const inputs = await loadMatchInputs(tx, orgAccountId, candidateWindow);
+async function planAccount(
+  reader: Parameters<typeof loadMatchInputs>[0],
+  orgAccountId: string
+) {
+  const inputs = await loadMatchInputs(
+    reader,
+    orgAccountId,
+    razorpayMode(),
+    candidateWindow
+  );
   const plans = planStatementMatches({
     contributions: inputs.contributions,
     lines: inputs.lines.map((line) => ({
@@ -583,6 +570,45 @@ export async function refreshMatches(
     })),
     settlements: inputs.settlements,
   });
+  return { inputs, plans };
+}
+
+const countPlans = (plans: ReadonlyMap<string, LinePlan>): MatchRunResult => {
+  const counts: MatchRunResult = { matched: 0, suggested: 0 };
+  for (const plan of plans.values()) {
+    if (plan.kind === "match") {
+      counts.matched += 1;
+    } else if (plan.kind === "suggest") {
+      counts.suggested += 1;
+    }
+  }
+  return counts;
+};
+
+/**
+ * What "Find matches" would do for an account, read before it runs, for its
+ * audit entry (counts only).
+ */
+export async function previewStatementMatches(
+  orgAccountId: string
+): Promise<MatchRunResult> {
+  return await withStatementSafeErrors("match", async () => {
+    return countPlans((await planAccount(db, orgAccountId)).plans);
+  });
+}
+
+/**
+ * Matches the account's open credit lines: exact evidence matches, the rest
+ * get a suggestion or lose a stale one. `actorId` is who ran the import or
+ * "Find matches".
+ */
+export async function refreshMatches(
+  tx: StatementTx,
+  orgAccountId: string,
+  actorId: string | null,
+  now: Date = new Date()
+): Promise<MatchRunResult> {
+  const { inputs, plans } = await planAccount(tx, orgAccountId);
   const result: MatchRunResult = { matched: 0, suggested: 0 };
   for (const line of inputs.lines) {
     const plan = plans.get(line.id) ?? { kind: "none" };
@@ -641,8 +667,12 @@ async function assertTarget(
       `The amounts differ (${formatPaise(amountPaise)} against ${formatPaise(line.amountPaise)} in the bank). Matching part of a line comes with the ledger.`
     );
   if (kind === "settlement") {
-    const settlement = await findSettlementForMatch(tx, targetId);
-    if (!settlement || settlement.status !== "processed") {
+    const settlement = await findSettlementForMatch(
+      tx,
+      targetId,
+      razorpayMode()
+    );
+    if (!settlement) {
       throw new StatementInputError("Settlement not found or not paid out");
     }
     if (settlement.amountPaise !== line.amountPaise) {
@@ -841,8 +871,18 @@ async function applyAction(
       return;
     }
     case "note": {
+      const note = trimNote(input.note);
+      if (
+        !note &&
+        line.matchStatus === "ignored" &&
+        line.ignoredReason === "other"
+      ) {
+        throw new StatementInputError(
+          "A line ignored for another reason keeps its note"
+        );
+      }
       await updateStatementLine(tx, line.id, {
-        note: trimNote(input.note),
+        note,
         updatedAt: now,
       });
       return;
@@ -883,6 +923,75 @@ export async function statementLinkCandidates(
     if (line.direction !== "credit") {
       return { contributions: [], settlements: [] };
     }
-    return await findLinkCandidates(line.orgAccountId, line.valueOn);
+    return await findLinkCandidates(line, razorpayMode());
+  });
+}
+
+/**
+ * What an action ties the line to, for its audit entry (kind and record ID,
+ * never line content): the suggestion an accept takes, the match an
+ * unmatch undoes, or a give.do payout.
+ */
+export async function describeStatementAction(
+  input: StatementLineAction
+): Promise<{ kind?: string; targetId?: string }> {
+  if (
+    input.action !== "accept" &&
+    input.action !== "unmatch" &&
+    input.action !== "giveindia"
+  ) {
+    return {};
+  }
+  if (input.action === "giveindia") {
+    return { kind: "giveindia_payout" };
+  }
+  return await withStatementSafeErrors("describe", async () => {
+    const line = await getStatementLine(input.lineId);
+    if (!line) {
+      return {};
+    }
+    const kind =
+      input.action === "accept" ? line.suggestedKind : line.matchKind;
+    const targetId =
+      input.action === "accept"
+        ? (line.suggestedSettlementId ?? line.suggestedContributionId)
+        : (line.matchedSettlementId ?? line.matchedContributionId);
+    return {
+      ...(kind ? { kind } : {}),
+      ...(targetId ? { targetId } : {}),
+    };
+  });
+}
+
+/**
+ * The rows a run would import, by what happens to them, read before it
+ * runs, for its audit entry (counts only).
+ */
+export async function previewStatementRun(
+  batchId: string
+): Promise<Record<StatementRowCategory, number>> {
+  return await withStatementSafeErrors("run", async () => {
+    const counts: Record<StatementRowCategory, number> = {
+      error: 0,
+      existing: 0,
+      new: 0,
+      skipped: 0,
+    };
+    const batch = await requireStatementBatch(batchId);
+    const settings = settingsOf(batch);
+    if (!settings) {
+      return counts;
+    }
+    const rows = await classifyStatementRows(
+      batch,
+      await listImportRows(batch.id),
+      settings
+    );
+    for (const row of rows) {
+      if (row.record.raw && row.record.outcome === "pending") {
+        counts[row.category] += 1;
+      }
+    }
+    return counts;
   });
 }

@@ -69,6 +69,10 @@ const channelOptions = enumOptions(
   contributionChannelValues,
   CONTRIBUTION_CHANNEL_LABELS
 );
+/** A bank statement credit came by UPI, NEFT, cheque or cash. */
+const directChannelOptions = channelOptions.filter((option) =>
+  ["upi", "neft", "cheque", "cash"].includes(option.value)
+);
 const reportingModeOptions = enumOptions(
   contributionReportingModeValues,
   REPORTING_MODE_LABELS
@@ -450,7 +454,7 @@ function ContributionForm({
             isRequired
             label="Channel"
             name="channel"
-            options={channelOptions}
+            options={fromLine ? directChannelOptions : channelOptions}
           />
           <SelectField
             description="Filled in from the channel; change it if the donation statement needs another mode."

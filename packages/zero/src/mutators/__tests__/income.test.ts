@@ -710,6 +710,17 @@ describe("recording a donation from a bank statement line", () => {
         contribution({ amountPaise: 600_000 })
       )
     ).rejects.toThrow("Unmatch the line first");
+    await expect(
+      run(
+        contributionMutators.update,
+        db,
+        donorsCtx,
+        contribution({ channel: "razorpay" })
+      )
+    ).rejects.toThrow("Unmatch the line first");
+    expect(db.locks.some((lock) => lock.includes("statement-line-match"))).toBe(
+      true
+    );
     // Other fields still change.
     await run(
       contributionMutators.update,
