@@ -109,12 +109,15 @@ export const LEDGER_WAIT_REASONS = {
   noClearingAccount: "no_clearing_account",
   noOtherAccount: "pick_other_account",
   referenceDataMissing: "reference_data_missing",
+  /** Only in the year-close checklist: a record no posting run has seen. */
+  unchecked: "unchecked",
 } as const;
 export type LedgerWaitReason =
   (typeof LEDGER_WAIT_REASONS)[keyof typeof LEDGER_WAIT_REASONS];
 
 export const LEDGER_WAIT_REASON_LABELS: Record<LedgerWaitReason, string> = {
   error: "Couldn't post",
+  unchecked: "Not looked at yet: post pending",
   no_clearing_account: "The settlement has no clearing account",
   pick_bank_account:
     "Pick the bank account: match the payout's bank statement line",
@@ -130,6 +133,7 @@ export const LEDGER_SKIP_REASONS = {
   notProcessed: "not_processed",
   notReceived: "not_received",
   otherSidePosts: "other_side_posts",
+  unmatched: "unmatched",
 } as const;
 export type LedgerSkipReason =
   (typeof LEDGER_SKIP_REASONS)[keyof typeof LEDGER_SKIP_REASONS];
@@ -139,8 +143,9 @@ export const LEDGER_SKIP_REASON_LABELS: Record<LedgerSkipReason, string> = {
     "Dated before 1 Apr 2026: the audited opening balances already contain it",
   deleted: "Deleted",
   not_processed: "Not processed yet",
-  not_received: "Not received yet",
+  not_received: "Not received, or reversed",
   other_side_posts: "Posted from the other account's statement line",
+  unmatched: "No longer marked as a transfer",
 };
 
 /** The words for a source's state: its wait or skip reason. */

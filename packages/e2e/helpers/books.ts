@@ -1,5 +1,10 @@
 import { db } from "@pi-dash/db";
-import { closeYear, reopenYear } from "@pi-dash/db/ledger/year-close";
+import { postPendingForYear } from "@pi-dash/db/ledger/income-runner";
+import {
+  closeYear,
+  reopenYear,
+  yearCloseChecklist,
+} from "@pi-dash/db/ledger/year-close";
 import { user } from "@pi-dash/db/schema/auth";
 import { fiscalYear, orgAccount } from "@pi-dash/db/schema/finance-dimensions";
 import {
@@ -18,10 +23,12 @@ import { uuidv7 } from "uuidv7";
  *
  * - `close-year <label>`: closes the year through the real close, as if
  *   run the day after it ended (a running year can't be closed in the UI).
- *   Records other specs left waiting to post in that year (a payout among
- *   several E2E bank accounts waits for its bank account) are cleared from
- *   the waiting list first, in the same transaction: this spec tests the
- *   close, and the waiting check has its own database test.
+ *   The year's records are posted first, as the Books close does; records
+ *   other specs leave waiting in that year (a payout among several E2E
+ *   bank accounts waits for its bank account) are then set aside in the
+ *   close's transaction: these tests are about the
+ *   close, and "won't close a year while one of its records waits" covers
+ *   the waiting check.
  * - `income-fixture <run>`: a bank account and a Razorpay clearing account
  *   of this run, a Razorpay gift of 1,000 with a fee of 20 and GST of 3.60,
  *   its processed payout of 976.40 matched to a bank line the next day, a
@@ -29,6 +36,11 @@ import { uuidv7 } from "uuidv7";
  *   debit of 300 to mark as a transfer to the fixed deposit.
  * - `gift <accountId> <day>`: one more UPI gift of 250 into that account.
  * - `postings <sourceId>`: the actions posted for a source, oldest first.
+ * - `waiting-payout <run>`: a processed payout with no clearing account,
+ *   which waits to post ("no clearing account").
+ * - `fix-payout <id>`: gives that payout a clearing account of its own.
+ * - `close-year-strict <label>`: tries the real close as if the day after
+ *   the year ended, without clearing anything, and reports the refusal.
  * - `reopen-year <label>`: reopens it if it is closed (test cleanup).
  * - `probe-guards`: tries to change and remove posted books rows, each in
  *   a rolled-back savepoint, and reports which statements the database
@@ -185,7 +197,8 @@ async function incomeFixture(run: string) {
   });
   await db.insert(gatewaySettlementItem).values({
     contributionId: razorpayGiftId,
-    creditPaise: 100_000,
+    // The line's net, as Razorpay's recon reports it.
+    creditPaise: 97_640,
     externalId: `pay_E2EBOOKS${run}`,
     feePaise: 2000,
     id: uuidv7(),
@@ -239,6 +252,40 @@ async function incomeFixture(run: string) {
   };
 }
 
+async function waitingPayout(run: string) {
+  const now = new Date();
+  const id = uuidv7();
+  await db.insert(gatewaySettlement).values({
+    amountPaise: 12_300,
+    createdAt: now,
+    externalId: `setl_E2EWAIT${run}`,
+    id,
+    provider: "razorpay",
+    providerAccount: "test",
+    settledOn: "2026-07-02",
+    status: "processed",
+    updatedAt: now,
+  });
+  return { id };
+}
+
+async function fixPayout(id: string) {
+  const now = new Date();
+  const clearingId = uuidv7();
+  await db.insert(orgAccount).values({
+    createdAt: now,
+    id: clearingId,
+    kind: "gateway_clearing",
+    name: `E2E Books fixed clearing ${clearingId}`,
+    updatedAt: now,
+  });
+  await db
+    .update(gatewaySettlement)
+    .set({ orgAccountId: clearingId, updatedAt: now })
+    .where(eq(gatewaySettlement.id, id));
+  return { id };
+}
+
 async function postingsOf(sourceId: string) {
   const rows = await db
     .select({ action: posting.action })
@@ -255,9 +302,24 @@ if (action === "close-year") {
   const dayAfter = new Date(`${year.endsOn}T00:00:00Z`);
   dayAfter.setUTCDate(dayAfter.getUTCDate() + 2);
   const actorId = await anyUserId();
+  // Every record of the year looked at first (as the Books close does), so
+  // none counts as not looked at.
+  const swept = await postPendingForYear(year.id, {
+    actorId,
+    deadline: Date.now() + 60_000,
+    onFailure: (source, error) => {
+      process.stderr.write(
+        `close-year: ${source.sourceType} ${source.sourceId} failed: ${String(error)}\n`
+      );
+    },
+  });
+  process.stderr.write(`close-year posting: ${JSON.stringify(swept)}\n`);
   result = await db.transaction(async (tx) => {
+    // Set aside (not deleted: a source with no state row counts as not
+    // looked at, which blocks the close too).
     await tx
-      .delete(ledgerSourceState)
+      .update(ledgerSourceState)
+      .set({ reason: null, status: "none" })
       .where(
         and(
           eq(ledgerSourceState.status, "waiting"),
@@ -265,6 +327,11 @@ if (action === "close-year") {
           lte(ledgerSourceState.economicOn, year.endsOn)
         )
       );
+    const checklist = await yearCloseChecklist(tx, year.id, dayAfter);
+    // Shown when the close refuses, to say which check held it up.
+    process.stderr.write(
+      `close-year checklist: ${JSON.stringify(checklist.checks)}\n`
+    );
     return await closeYear(tx, year.id, { actorId, now: dayAfter });
   });
 } else if (action === "reopen-year") {
@@ -280,6 +347,25 @@ if (action === "close-year") {
     : { label, reopened: false };
 } else if (action === "probe-guards") {
   result = await probeGuards();
+} else if (action === "close-year-strict") {
+  const year = await yearByLabel(label);
+  const dayAfter = new Date(`${year.endsOn}T00:00:00Z`);
+  dayAfter.setUTCDate(dayAfter.getUTCDate() + 2);
+  const actorId = await anyUserId();
+  try {
+    await db.transaction((tx) =>
+      closeYear(tx, year.id, { actorId, now: dayAfter })
+    );
+    result = { closed: true };
+  } catch (error) {
+    result = {
+      refused: error instanceof Error ? error.message : String(error),
+    };
+  }
+} else if (action === "waiting-payout") {
+  result = await waitingPayout(label);
+} else if (action === "fix-payout") {
+  result = await fixPayout(label);
 } else if (action === "income-fixture") {
   result = await incomeFixture(label);
 } else if (action === "gift") {

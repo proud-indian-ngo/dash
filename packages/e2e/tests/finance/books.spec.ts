@@ -345,6 +345,33 @@ test.describe("Books (treasurer)", () => {
       await books("reopen-year", YEAR);
     }
   });
+
+  test("won't close a year while one of its records waits to post", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "finance_admin", "Treasurer test");
+    test.setTimeout(120_000);
+    const run = `${Date.now()}${testInfo.retry}`;
+    const payout = await books("waiting-payout", run);
+    try {
+      await page.goto("/finance/books");
+      await waitForZeroReady(page);
+      await postPending(page);
+      const banner = page.getByTestId("waiting-to-post");
+      await banner.getByRole("button", { name: "Show" }).click();
+      await expect(page.getByTestId("waiting-list")).toContainText(
+        "The settlement has no clearing account",
+        { timeout: 15_000 }
+      );
+      await page.keyboard.press("Escape");
+      // The real close, run as of the day after the year ended, refuses.
+      const close = await books("close-year-strict", YEAR);
+      expect(close.refused).toContain("waiting to post");
+    } finally {
+      await books("fix-payout", payout.id);
+      await books("reopen-year", YEAR);
+    }
+  });
 });
 
 test.describe("Books (readers)", () => {

@@ -2,6 +2,7 @@ import {
   contributionIdsForRazorpayPayment,
   refundIdsForRazorpayRefund,
   settlementIdsForRazorpaySettlement,
+  settlementIdsLinkedTo,
 } from "@pi-dash/db/queries/ledger-sources";
 import type { getBossInstance } from "@pi-dash/jobs/boss-instance";
 import { withDefaultOutput } from "@pi-dash/jobs/handlers/create-handler";
@@ -95,18 +96,26 @@ const defaultGiveUp: GiveUp = async ({ day, paymentId }) => {
 type QueueBooks = (id: string) => Promise<void>;
 
 const queuePaymentBooks: QueueBooks = async (paymentId) => {
-  queueLedgerPosting(
-    (await contributionIdsForRazorpayPayment(paymentId)).map(contributionSource)
-  );
+  const contributionIds = await contributionIdsForRazorpayPayment(paymentId);
+  // A payout line linked to the gift by this sync posts again too.
+  const payouts = await settlementIdsLinkedTo({ contributionIds });
+  queueLedgerPosting([
+    ...contributionIds.map(contributionSource),
+    ...payouts.map(settlementSource),
+  ]);
 };
 
 const queueRefundBooks: QueueBooks = async (refundId) => {
-  queueLedgerPosting(
-    (await refundIdsForRazorpayRefund(refundId)).map((id) => ({
+  const refundIds = await refundIdsForRazorpayRefund(refundId);
+  // A payout's refund line linked by this sync posts again too.
+  const payouts = await settlementIdsLinkedTo({ refundIds });
+  queueLedgerPosting([
+    ...refundIds.map((id) => ({
       sourceId: id,
       sourceType: "contribution_refund" as const,
-    }))
-  );
+    })),
+    ...payouts.map(settlementSource),
+  ]);
 };
 
 const queueSettlementBooks: QueueBooks = async (settlementId) => {

@@ -16,7 +16,6 @@ import {
   eq,
   gte,
   inArray,
-  isNotNull,
   isNull,
   lt,
   lte,
@@ -110,12 +109,27 @@ async function lockSource(tx: LedgerTx, source: IncomeSource) {
   );
 }
 
+/**
+ * Shares the year close's lock (`ledger:year_close`, taken exclusively by
+ * `closeYear`), so a close never reads the waiting list while a source is
+ * being posted or recorded as waiting. Taken first, before any period row
+ * is read, so the order is always this lock, then the year rows.
+ */
+async function shareYearCloseLock(tx: LedgerTx) {
+  await tx.execute(
+    sql`SELECT pg_advisory_xact_lock_shared(hashtextextended('ledger:year_close', 0))`
+  );
+}
+
 // ── Facts ───────────────────────────────────────────────────────────────────
 
-/** Earliest day a processed payout that settled the gift reached the bank. */
-async function giftSettledBankOn(
+/**
+ * Earliest day a processed payout that settled the gift (a payment line) or
+ * took back the refund (a refund line) reached the bank.
+ */
+async function settledBankOn(
   tx: LedgerTx,
-  contributionId: string
+  link: { contributionId: string } | { contributionRefundId: string }
 ): Promise<string | null> {
   const [row] = await tx
     .select({
@@ -135,8 +149,18 @@ async function giftSettledBankOn(
     )
     .where(
       and(
-        eq(gatewaySettlementItem.contributionId, contributionId),
-        eq(gatewaySettlementItem.type, "payment"),
+        "contributionId" in link
+          ? and(
+              eq(gatewaySettlementItem.contributionId, link.contributionId),
+              eq(gatewaySettlementItem.type, "payment")
+            )
+          : and(
+              eq(
+                gatewaySettlementItem.contributionRefundId,
+                link.contributionRefundId
+              ),
+              eq(gatewaySettlementItem.type, "refund")
+            ),
         eq(gatewaySettlement.status, "processed")
       )
     );
@@ -156,9 +180,9 @@ async function contributionFacts(
     return null;
   }
   // Only a gateway gift captured before the cutover needs its payout day.
-  const settledBankOn =
+  const giftSettledOn =
     row.receivedOn < LEDGER_CUTOVER_ON && GATEWAY_CHANNELS.includes(row.channel)
-      ? await giftSettledBankOn(tx, id)
+      ? await settledBankOn(tx, { contributionId: id })
       : null;
   return {
     amountPaise: row.amountPaise,
@@ -173,7 +197,7 @@ async function contributionFacts(
     projectId: row.projectId,
     receivedOn: row.receivedOn,
     reference: row.reference,
-    settledBankOn,
+    settledBankOn: giftSettledOn,
     status: row.status,
   };
 }
@@ -218,6 +242,12 @@ async function refundFacts(
     id: row.id,
     reference: row.reference,
     refundedOn: row.refundedOn,
+    // Only a gateway refund made before the cutover needs its payout day.
+    settledBankOn:
+      row.refundedOn < LEDGER_CUTOVER_ON &&
+      GATEWAY_CHANNELS.includes(row.channel)
+        ? await settledBankOn(tx, { contributionRefundId: id })
+        : null,
   };
 }
 
@@ -352,6 +382,7 @@ async function statementTransferFacts(
       amountPaise: statementLine.amountPaise,
       direction: statementLine.direction,
       id: statementLine.id,
+      matchedAt: statementLine.matchedAt,
       matchKind: statementLine.matchKind,
       matchStatus: statementLine.matchStatus,
       orgAccountId: statementLine.orgAccountId,
@@ -367,11 +398,27 @@ async function statementTransferFacts(
   if (!row) {
     return null;
   }
+  const isTransfer =
+    row.matchStatus === "matched" && row.matchKind === "transfer";
+  const counterpart =
+    isTransfer && row.otherId
+      ? await transferCounterpart(tx, { ...row, otherId: row.otherId })
+      : null;
   return {
     amountPaise: row.amountPaise,
+    counterpart: counterpart
+      ? {
+          thisMarkedFirst:
+            (row.matchedAt?.getTime() ?? 0) <
+              (counterpart.matchedAt?.getTime() ?? 0) ||
+            ((row.matchedAt?.getTime() ?? 0) ===
+              (counterpart.matchedAt?.getTime() ?? 0) &&
+              row.id < counterpart.id),
+        }
+      : null,
     direction: row.direction,
     id: row.id,
-    isTransfer: row.matchStatus === "matched" && row.matchKind === "transfer",
+    isTransfer,
     orgAccountId: row.orgAccountId,
     other:
       row.otherId && row.otherKind
@@ -380,6 +427,51 @@ async function statementTransferFacts(
     reference: row.reference,
     valueOn: row.valueOn,
   };
+}
+
+/** Days either side within which two lines can be one transfer's two sides. */
+const TRANSFER_PAIR_DAYS = 5;
+
+/**
+ * The other account's statement line for the same transfer: opposite
+ * direction, same amount, within a few days, marked as a transfer back to
+ * this line's account. The nearest in date, then the first marked.
+ */
+async function transferCounterpart(
+  tx: LedgerTx,
+  line: {
+    amountPaise: number;
+    direction: "credit" | "debit";
+    id: string;
+    orgAccountId: string;
+    otherId: string;
+    valueOn: string;
+  }
+) {
+  const [row] = await tx
+    .select({ id: statementLine.id, matchedAt: statementLine.matchedAt })
+    .from(statementLine)
+    .where(
+      and(
+        eq(statementLine.orgAccountId, line.otherId),
+        eq(statementLine.transferOrgAccountId, line.orgAccountId),
+        eq(statementLine.matchStatus, "matched"),
+        eq(statementLine.matchKind, "transfer"),
+        eq(
+          statementLine.direction,
+          line.direction === "debit" ? "credit" : "debit"
+        ),
+        eq(statementLine.amountPaise, line.amountPaise),
+        sql`abs(${statementLine.valueOn} - ${line.valueOn}::date) <= ${TRANSFER_PAIR_DAYS}`
+      )
+    )
+    .orderBy(
+      sql`abs(${statementLine.valueOn} - ${line.valueOn}::date)`,
+      asc(statementLine.matchedAt),
+      asc(statementLine.id)
+    )
+    .limit(1);
+  return row ?? null;
 }
 
 /** What the books should hold for a source, from its current record. */
@@ -435,7 +527,8 @@ function movementCanon(m: MovementInput, day: string): Canon {
     m.kind,
     m.occurredOn ?? day,
     m.transferId ?? null,
-    m.paymentReference ?? null,
+    // Not the payment reference: a reference-only change isn't worth a
+    // reversal; the next real repost carries the new one.
     m.memo ?? null,
     m.bankValueOn ?? null,
   ];
@@ -588,6 +681,9 @@ async function missingHeads(tx: LedgerTx, ids: readonly string[]) {
 function reversalReason(source: IncomeSource, plan: SourcePlan): string {
   const label = LEDGER_SOURCE_LABELS[source.sourceType].toLowerCase();
   if (plan.kind === "none") {
+    if (plan.reason === LEDGER_SKIP_REASONS.unmatched) {
+      return "The bank line was unmatched";
+    }
     return plan.reason === LEDGER_SKIP_REASONS.deleted
       ? `The ${label} was deleted`
       : `The ${label} no longer posts: ${ledgerReasonLabel(plan.reason)}`;
@@ -608,6 +704,7 @@ export async function postIncomeSource(
   context: Context
 ): Promise<IncomePostingResult> {
   const now = context.now ?? new Date();
+  await shareYearCloseLock(tx);
   await lockSource(tx, source);
   let plan = await planIncomeSource(tx, source);
   if (plan.kind === "post" && (await missingHeads(tx, headsOf(plan)))) {
@@ -791,8 +888,9 @@ async function settle(
 /**
  * Sources whose books depend on this one, posted after it: a gift's
  * refunds and payouts (their charges carry its programme and fund, and a
- * Razorpay payout posts a line's charges only when the gift has none), and
- * a payout's gifts captured before the cutover (they post on its bank day).
+ * Razorpay payout posts a line's charges only when the gift has none), a
+ * payout's gifts and refunds from before the cutover (they post on its
+ * bank day), and the other side of a transfer between two bank accounts.
  */
 export async function relatedIncomeSources(
   tx: LedgerTx,
@@ -841,9 +939,59 @@ export async function relatedIncomeSources(
           lt(contribution.receivedOn, LEDGER_CUTOVER_ON)
         )
       );
-    return gifts.map((g) => ({
-      sourceId: g.id,
-      sourceType: LEDGER_SOURCE_TYPES.contribution,
+    const refunds = await tx
+      .selectDistinct({ id: contributionRefund.id })
+      .from(gatewaySettlementItem)
+      .innerJoin(
+        contributionRefund,
+        eq(contributionRefund.id, gatewaySettlementItem.contributionRefundId)
+      )
+      .where(
+        and(
+          eq(gatewaySettlementItem.settlementId, source.sourceId),
+          lt(contributionRefund.refundedOn, LEDGER_CUTOVER_ON)
+        )
+      );
+    return [
+      ...gifts.map((g) => ({
+        sourceId: g.id,
+        sourceType: LEDGER_SOURCE_TYPES.contribution,
+      })),
+      ...refunds.map((r) => ({
+        sourceId: r.id,
+        sourceType: LEDGER_SOURCE_TYPES.contributionRefund,
+      })),
+    ];
+  }
+  if (source.sourceType === LEDGER_SOURCE_TYPES.statementTransfer) {
+    // The other side of a transfer between two bank accounts: which side
+    // posts depends on both, so marking or unmatching one rechecks the other.
+    const [line] = await tx
+      .select()
+      .from(statementLine)
+      .where(eq(statementLine.id, source.sourceId))
+      .limit(1);
+    if (!line) {
+      return [];
+    }
+    const others = await tx
+      .select({ id: statementLine.id })
+      .from(statementLine)
+      .where(
+        and(
+          eq(statementLine.transferOrgAccountId, line.orgAccountId),
+          eq(statementLine.matchKind, "transfer"),
+          eq(
+            statementLine.direction,
+            line.direction === "debit" ? "credit" : "debit"
+          ),
+          eq(statementLine.amountPaise, line.amountPaise),
+          sql`abs(${statementLine.valueOn} - ${line.valueOn}::date) <= ${TRANSFER_PAIR_DAYS}`
+        )
+      );
+    return others.map((o) => ({
+      sourceId: o.id,
+      sourceType: LEDGER_SOURCE_TYPES.statementTransfer,
     }));
   }
   return [];
@@ -851,61 +999,134 @@ export async function relatedIncomeSources(
 
 // ── The sweep ───────────────────────────────────────────────────────────────
 
+export interface ListOptions {
+  /**
+   * Only sources that may have changed since their last look: no state row,
+   * waiting, or a record (or what it depends on) updated after the state
+   * was last checked. Gateway records from before the cutover and transfer
+   * lines are always looked at (few, and they depend on other records).
+   */
+  incremental?: boolean;
+  /** Only sources dated in this range (each by its own date), for a year close. */
+  range?: { endsOn: string; startsOn: string };
+}
+
+type Row = { id: string };
+
+const rowsOf = (result: unknown) =>
+  (result as Row[]).map((r) => ({ id: String(r.id) }));
+
 /**
  * Every income source the books may need to look at: everything dated in
- * the posting window (from the cutover), gateway gifts a processed payout
- * settled (the cutover exception), every source with postings (to follow
- * edits and deletions), and everything waiting. Ordered for a stable,
- * resumable run.
+ * the posting window (from the cutover), gateway gifts and refunds a
+ * processed payout settled (the cutover exception), every source with
+ * standing postings whose record is gone (to reverse it), and everything
+ * waiting. Ordered for a stable, resumable run.
  */
-export async function listIncomeSources(tx: LedgerTx): Promise<IncomeSource[]> {
-  const settledGifts = tx
-    .select({ id: gatewaySettlementItem.contributionId })
-    .from(gatewaySettlementItem)
-    .innerJoin(
-      gatewaySettlement,
-      eq(gatewaySettlement.id, gatewaySettlementItem.settlementId)
-    )
-    .where(
-      and(
-        eq(gatewaySettlement.status, "processed"),
-        isNotNull(gatewaySettlementItem.contributionId)
-      )
-    );
-  const gifts = await tx
-    .select({ id: contribution.id })
-    .from(contribution)
-    .where(
-      or(
-        gte(contribution.receivedOn, LEDGER_CUTOVER_ON),
-        inArray(contribution.id, settledGifts)
-      )
-    );
-  const refunds = await tx
-    .select({ id: contributionRefund.id })
-    .from(contributionRefund)
-    .where(gte(contributionRefund.refundedOn, LEDGER_CUTOVER_ON));
-  const incomes = await tx
-    .select({ id: otherIncome.id })
-    .from(otherIncome)
-    .where(gte(otherIncome.receivedOn, LEDGER_CUTOVER_ON));
-  const payouts = await tx
-    .select({ id: gatewaySettlement.id })
-    .from(gatewaySettlement)
-    .where(eq(gatewaySettlement.status, "processed"));
-  const transfers = await tx
-    .select({ id: statementLine.id })
-    .from(statementLine)
-    .where(
-      and(
-        eq(statementLine.matchKind, "transfer"),
-        gte(statementLine.valueOn, LEDGER_CUTOVER_ON)
-      )
-    );
-  const posted = await tx
-    .selectDistinct({ id: posting.sourceId, type: posting.sourceType })
-    .from(posting)
-    .where(inArray(posting.sourceType, [...INCOME_SOURCE_TYPES]));
+export async function listIncomeSources(
+  tx: LedgerTx,
+  options: ListOptions = {}
+): Promise<IncomeSource[]> {
+  const T = LEDGER_SOURCE_TYPES;
+  const from = options.range?.startsOn ?? LEDGER_CUTOVER_ON;
+  const to = options.range?.endsOn ?? "9999-12-31";
+  // A payout's bank day can be a few days after its settlement date.
+  const changed = (
+    type: string,
+    idColumn: ReturnType<typeof sql>,
+    since: ReturnType<typeof sql>
+  ) =>
+    options.incremental
+      ? sql`and not exists (
+          select 1 from ${ledgerSourceState} st
+          where st.source_type = ${type} and st.source_id = ${idColumn}
+            and st.status <> 'waiting' and st.checked_at >= ${since})`
+      : sql``;
+
+  const gifts = rowsOf(
+    await tx.execute(sql`
+      select c.id from ${contribution} c
+      where (c.received_on between ${from} and ${to}
+          ${changed(T.contribution, sql`c.id`, sql`c.updated_at`)})
+        or (c.received_on < ${LEDGER_CUTOVER_ON} and exists (
+          select 1 from ${gatewaySettlementItem} i
+          join ${gatewaySettlement} g on g.id = i.settlement_id
+          where i.contribution_id = c.id and g.status = 'processed'
+            and g.settled_on >= ${from}::date - 10 and g.settled_on <= ${to}))`)
+  );
+  const refunds = rowsOf(
+    await tx.execute(sql`
+      select r.id from ${contributionRefund} r
+      join ${contribution} c on c.id = r.contribution_id
+      where (r.refunded_on between ${from} and ${to}
+          ${changed(T.contributionRefund, sql`r.id`, sql`greatest(r.created_at, c.updated_at)`)})
+        or (r.refunded_on < ${LEDGER_CUTOVER_ON} and exists (
+          select 1 from ${gatewaySettlementItem} i
+          join ${gatewaySettlement} g on g.id = i.settlement_id
+          where i.contribution_refund_id = r.id and g.status = 'processed'
+            and g.settled_on >= ${from}::date - 10 and g.settled_on <= ${to}))`)
+  );
+  const incomes = rowsOf(
+    await tx.execute(sql`
+      select o.id from ${otherIncome} o
+      join ${orgAccount} a on a.id = o.org_account_id
+      where o.received_on between ${from} and ${to}
+        ${changed(T.otherIncome, sql`o.id`, sql`greatest(o.updated_at, a.updated_at)`)}`)
+  );
+  const payouts = rowsOf(
+    await tx.execute(sql`
+      select g.id from ${gatewaySettlement} g
+      where g.status = 'processed'
+        and g.settled_on >= ${from}::date - 10 and g.settled_on <= ${to}
+        ${changed(
+          T.gatewaySettlement,
+          sql`g.id`,
+          sql`greatest(
+            g.updated_at,
+            (select max(c.updated_at) from ${gatewaySettlementItem} i
+              join ${contribution} c on c.id = i.contribution_id
+              where i.settlement_id = g.id),
+            (select max(l.updated_at) from ${statementLine} l
+              where l.matched_settlement_id = g.id),
+            (select max(a.updated_at) from ${orgAccount} a where a.kind = 'bank'),
+            (select max(r.created_at) from ${gatewaySettlementItem} i
+              join ${contributionRefund} r on r.id = i.contribution_refund_id
+              where i.settlement_id = g.id)
+          )`
+        )}`)
+  );
+  const transfers = rowsOf(
+    await tx.execute(sql`
+      select l.id from ${statementLine} l
+      where l.match_kind = 'transfer' and l.value_on between ${from} and ${to}`)
+  );
+  // Standing postings whose record is gone, or whose record no longer
+  // qualifies above (unmatched, back to pending): looked at to reverse them.
+  const standing = await tx.execute(sql`
+    select distinct p.source_type as type, p.source_id as id
+    from ${posting} p
+    where p.source_type in (${sql.join(
+      INCOME_SOURCE_TYPES.map((t) => sql`${t}`),
+      sql`, `
+    )})
+      and p.reverses_posting_id is null
+      and p.economic_on between ${from} and ${to}
+      and not exists (select 1 from ${posting} r where r.reverses_posting_id = p.id)
+      ${
+        options.incremental
+          ? sql`and not exists (
+              select 1 from ${ledgerSourceState} st
+              where st.source_type = p.source_type and st.source_id = p.source_id
+                and st.status <> 'waiting'
+                and st.checked_at >= coalesce((
+                  select greatest(c.updated_at) from ${contribution} c where c.id = p.source_id
+                  union all select o.updated_at from ${otherIncome} o where o.id = p.source_id
+                  union all select l.updated_at from ${statementLine} l where l.id = p.source_id
+                  union all select g.updated_at from ${gatewaySettlement} g where g.id = p.source_id
+                  union all select r.created_at from ${contributionRefund} r where r.id = p.source_id
+                  limit 1), 'infinity'::timestamp))`
+          : sql``
+      }`);
   const waiting = await tx
     .select({
       id: ledgerSourceState.sourceId,
@@ -914,7 +1135,6 @@ export async function listIncomeSources(tx: LedgerTx): Promise<IncomeSource[]> {
     .from(ledgerSourceState)
     .where(eq(ledgerSourceState.status, "waiting"));
 
-  const T = LEDGER_SOURCE_TYPES;
   const all: IncomeSource[] = [
     ...gifts.map((r) => ({ sourceId: r.id, sourceType: T.contribution })),
     ...refunds.map((r) => ({
@@ -930,9 +1150,12 @@ export async function listIncomeSources(tx: LedgerTx): Promise<IncomeSource[]> {
       sourceId: r.id,
       sourceType: T.statementTransfer,
     })),
-    ...[...posted, ...waiting].flatMap((r) =>
+    ...[
+      ...(standing as unknown as { id: string; type: string }[]),
+      ...waiting,
+    ].flatMap((r) =>
       (INCOME_SOURCE_TYPES as readonly string[]).includes(r.type)
-        ? [{ sourceId: r.id, sourceType: r.type as IncomeSourceType }]
+        ? [{ sourceId: String(r.id), sourceType: r.type as IncomeSourceType }]
         : []
     ),
   ];
@@ -975,15 +1198,22 @@ export type TransactionRunner = <T>(
  * an up-to-date source writes nothing. Stops at the deadline (epoch ms),
  * leaving the rest for the next run.
  */
-export async function sweepIncomeSources(options: {
-  actorId: string | null;
-  deadline?: number;
-  now?: () => Date;
-  onFailure?: (source: IncomeSource, error: unknown) => void;
-  run: TransactionRunner;
-}): Promise<SweepResult> {
+export async function sweepIncomeSources(
+  options: ListOptions & {
+    actorId: string | null;
+    deadline?: number;
+    now?: () => Date;
+    onFailure?: (source: IncomeSource, error: unknown) => void;
+    run: TransactionRunner;
+  }
+): Promise<SweepResult> {
   const clock = options.now ?? (() => new Date());
-  const sources = await options.run((tx) => listIncomeSources(tx));
+  const sources = await options.run((tx) =>
+    listIncomeSources(tx, {
+      incremental: options.incremental,
+      range: options.range,
+    })
+  );
   const result: SweepResult = {
     checked: 0,
     failed: 0,
@@ -1051,4 +1281,33 @@ export async function waitingByReason(
     )
     .groupBy(ledgerSourceState.reason);
   return new Map(rows.map((r) => [r.reason ?? "", Number(r.count)]));
+}
+
+/**
+ * Sources dated in the range that should post (or reverse) but have no
+ * state row yet, so the year close can't miss a record no job has looked
+ * at.
+ */
+export async function uncheckedSources(
+  tx: LedgerTx,
+  range: { endsOn: string; startsOn: string }
+): Promise<number> {
+  const sources = await listIncomeSources(tx, { range });
+  if (sources.length === 0) {
+    return 0;
+  }
+  const known = await tx
+    .select({
+      id: ledgerSourceState.sourceId,
+      type: ledgerSourceState.sourceType,
+    })
+    .from(ledgerSourceState)
+    .where(
+      inArray(
+        ledgerSourceState.sourceId,
+        sources.map((x) => x.sourceId)
+      )
+    );
+  const seen = new Set(known.map((k) => `${k.type}:${k.id}`));
+  return sources.filter((x) => !seen.has(sourceKey(x))).length;
 }

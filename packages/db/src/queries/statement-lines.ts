@@ -418,6 +418,8 @@ export async function resetStatementLine(
     matchKind: null,
     matchReason: null,
     matchStatus: "unmatched",
+    // The check allows the other account only on a transfer match.
+    transferOrgAccountId: null,
     updatedAt: now,
   });
 }

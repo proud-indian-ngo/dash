@@ -37,12 +37,16 @@ import type { EntryInput, MovementInput } from "./rules";
  *   active bank account; an instant settlement fee is an expense, and so
  *   are a Razorpay line's charges when its gift was recorded with none.
  * - A bank line marked as a transfer between own accounts posts both legs
- *   once the other account is picked.
+ *   once the other account is picked; between two bank accounts, from the
+ *   side marked first.
  * - Cutover: nothing dated before 1 April 2026 posts, except a gateway gift
  *   captured earlier whose payout reached the bank on or after it: that
  *   gift posts as FY 2026-27 income on the payout's bank day, so the
  *   clearing account opens and stays at zero (founder answer, CA to
- *   confirm).
+ *   confirm). A refund of such a gift made before 1 April that the same
+ *   kind of payout took back posts on that payout's bank day too, for the
+ *   same reason: the audited balance sheet holds no gateway balance at 31
+ *   March 2026 (founder rule, CA to confirm).
  *
  * No TDS and no cash handling: the trust deducts none and keeps no cash.
  * Every source posts in up to two parts: `recognise` (income and expense
@@ -105,12 +109,16 @@ export function headsOf(plan: SourcePlan): string[] {
 
 // ── Contributions ───────────────────────────────────────────────────────────
 
-/** Statuses of a gift that has been received; pending gifts don't post. */
+/**
+ * Statuses of a gift whose receipt posts. Pending gifts haven't arrived and
+ * reversed ones were taken back, so neither posts (as `countsAsReceived`
+ * leaves them out of income). A refunded gift posts its receipt; its
+ * refunds post separately.
+ */
 const RECEIVED_STATUSES: readonly string[] = [
   "received",
   "receipted",
   "refunded",
-  "reversed",
 ];
 
 export interface GiftDimensions {
@@ -265,24 +273,48 @@ export interface RefundFacts {
   id: string;
   reference: string | null;
   refundedOn: string;
+  /**
+   * The earliest day a processed payout that took this refund back reached
+   * the bank, for the cutover exception; null when none has.
+   */
+  settledBankOn: string | null;
 }
 
 /**
- * A refund dated on or after the cutover posts on its own day, even for a
- * gift received before it (a reduction of FY 2026-27 income; CA proposal).
+ * The day a refund posts on: its own date from the cutover, even for a
+ * gift received before it (a reduction of FY 2026-27 income; CA proposal);
+ * or, for a gateway refund made before the cutover, the bank day of the
+ * payout that took it back when that is on or after the cutover (mirrors
+ * the gift's exception; CA to confirm). Null when it doesn't post.
  */
+export function refundPostingDay(
+  refund: Pick<RefundFacts, "gift" | "refundedOn" | "settledBankOn">
+): string | null {
+  if (refund.refundedOn >= LEDGER_CUTOVER_ON) {
+    return refund.refundedOn;
+  }
+  if (
+    GATEWAY_CHANNELS.includes(refund.gift.channel) &&
+    refund.settledBankOn !== null &&
+    refund.settledBankOn >= LEDGER_CUTOVER_ON
+  ) {
+    return refund.settledBankOn;
+  }
+  return null;
+}
+
 export function refundPlan(refund: RefundFacts | null): SourcePlan {
   if (!refund) {
     return none(LEDGER_SKIP_REASONS.deleted);
   }
-  if (refund.refundedOn < LEDGER_CUTOVER_ON) {
+  const day = refundPostingDay(refund);
+  if (!day) {
     return none(LEDGER_SKIP_REASONS.beforeCutover);
   }
   const { gift } = refund;
   if (gift.channel === "in_kind" || !gift.orgAccountId) {
     return none(LEDGER_SKIP_REASONS.notReceived);
   }
-  const day = refund.refundedOn;
   return post(day, [
     {
       action: POSTING_ACTIONS.recognise,
@@ -559,6 +591,13 @@ export interface StatementTransferFacts {
   id: string;
   /** Still matched as a transfer. */
   isTransfer: boolean;
+  /**
+   * The other account's own statement line for the same transfer (opposite
+   * direction, same amount, marked as a transfer back to this account), if
+   * any, and whether this line was marked first: only the first-marked
+   * side posts, so the pair posts once.
+   */
+  counterpart: { thisMarkedFirst: boolean } | null;
   orgAccountId: string;
   /** The other account and its kind, once picked. */
   other: { id: string; kind: string } | null;
@@ -569,14 +608,18 @@ export interface StatementTransferFacts {
 /**
  * Both legs of a transfer between the trust's own accounts, from the bank
  * line marked as one, once the other account is picked. Between two bank
- * accounts (each with its own statement) only the debit line posts, so the
- * pair is posted once.
+ * accounts, each with its own statement, both lines may be marked: only
+ * the one marked first posts (either side), so the pair posts once; a line
+ * whose counterpart isn't marked posts on its own.
  */
 export function statementTransferPlan(
   line: StatementTransferFacts | null
 ): SourcePlan {
-  if (!line?.isTransfer) {
+  if (!line) {
     return none(LEDGER_SKIP_REASONS.deleted);
+  }
+  if (!line.isTransfer) {
+    return none(LEDGER_SKIP_REASONS.unmatched);
   }
   if (line.valueOn < LEDGER_CUTOVER_ON) {
     return none(LEDGER_SKIP_REASONS.beforeCutover);
@@ -588,7 +631,7 @@ export function statementTransferPlan(
       reason: LEDGER_WAIT_REASONS.noOtherAccount,
     };
   }
-  if (line.direction === "credit" && line.other.kind === "bank") {
+  if (line.counterpart && !line.counterpart.thisMarkedFirst) {
     return none(LEDGER_SKIP_REASONS.otherSidePosts);
   }
   const out = line.direction === "debit" ? line.orgAccountId : line.other.id;

@@ -189,7 +189,8 @@ const actionSchema = z.discriminatedUnion("action", [
     action: z.literal("transfer"),
     lineId,
     note: noteSchema,
-    otherAccountId: z.uuid().nullish(),
+    // Required: the books post both sides of the transfer.
+    otherAccountId: z.uuid(),
   }),
   z.object({
     action: z.literal("ignore"),

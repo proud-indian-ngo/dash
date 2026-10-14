@@ -150,6 +150,13 @@ describe("contributions", () => {
     ]);
   });
 
+  it("posts nothing for a reversed gift", () => {
+    expect(contributionPlan(gift({ status: "reversed" }))).toEqual({
+      kind: "none",
+      reason: "not_received",
+    });
+  });
+
   it("posts nothing for a pending gift", () => {
     expect(contributionPlan(gift({ status: "pending" }))).toEqual({
       kind: "none",
@@ -219,6 +226,7 @@ describe("refunds", () => {
     id: "00000000-0000-7000-8000-000000000f01",
     reference: "rfnd_1",
     refundedOn: "2026-05-20",
+    settledBankOn: null,
     ...over,
   });
 
@@ -244,6 +252,20 @@ describe("refunds", () => {
 
   it("posts nothing for a refund before the cutover", () => {
     expect(refundPlan(refund({ refundedOn: "2026-03-15" })).kind).toBe("none");
+    expect(
+      refundPlan(
+        refund({ refundedOn: "2026-03-15", settledBankOn: "2026-03-20" })
+      ).kind
+    ).toBe("none");
+  });
+
+  it("posts a gateway refund of 31 Mar taken back by a 2 Apr payout on 2 Apr", () => {
+    const plan = posted(
+      refundPlan(
+        refund({ refundedOn: "2026-03-31", settledBankOn: "2026-04-02" })
+      )
+    );
+    expect(plan.economicOn).toBe("2026-04-02");
   });
 });
 
@@ -490,6 +512,7 @@ describe("gateway settlements", () => {
       id: "00000000-0000-7000-8000-000000000f09",
       reference: null,
       refundedOn: "2026-05-11",
+      settledBankOn: null,
     });
     const payout = settlementPlan(settlement({ amountPaise: 97_640 - 10_000 }));
     expect(balances([rzpGift, rzpRefund, payout]).get(RZP)).toBe(0);
@@ -501,6 +524,7 @@ describe("transfers between own accounts", () => {
     over: Partial<StatementTransferFacts> = {}
   ): StatementTransferFacts => ({
     amountPaise: 700_000_00,
+    counterpart: null,
     direction: "debit",
     id: "00000000-0000-7000-8000-000000000f04",
     isTransfer: true,
@@ -530,20 +554,38 @@ describe("transfers between own accounts", () => {
     expect(statementTransferPlan(line({ other: null })).kind).toBe("wait");
   });
 
-  it("posts a transfer between two bank accounts from the debit side only", () => {
+  it("posts a bank-to-bank transfer from whichever side was marked first, never both", () => {
+    const otherBank = {
+      id: "00000000-0000-7000-8000-0000000000b9",
+      kind: "bank",
+    };
+    // Only the credit side is marked: it posts.
+    expect(
+      statementTransferPlan(
+        line({ counterpart: null, direction: "credit", other: otherBank })
+      ).kind
+    ).toBe("post");
+    // Both marked: the first posts, the second doesn't.
     expect(
       statementTransferPlan(
         line({
+          counterpart: { thisMarkedFirst: true },
           direction: "credit",
-          other: { id: "00000000-0000-7000-8000-0000000000b9", kind: "bank" },
+          other: otherBank,
         })
+      ).kind
+    ).toBe("post");
+    expect(
+      statementTransferPlan(
+        line({ counterpart: { thisMarkedFirst: false }, other: otherBank })
       )
     ).toEqual({ kind: "none", reason: "other_side_posts" });
   });
 
   it("posts nothing once unmatched", () => {
-    expect(statementTransferPlan(line({ isTransfer: false })).kind).toBe(
-      "none"
-    );
+    expect(statementTransferPlan(line({ isTransfer: false }))).toEqual({
+      kind: "none",
+      reason: "unmatched",
+    });
   });
 });

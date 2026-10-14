@@ -119,11 +119,13 @@ Restated from the trigger table in `finance-and-programmes.md` section 3.8:
 
 - A gateway gift is income on the donor's payment date at the full amount. Razorpay's fee and GST are an expense at the gift; give.do's charges are an expense on the payout day, from the payout file. No TDS, no cash.
 - A gift captured before 1 April 2026 whose payout reached the bank on or after it posts on the payout's bank day as FY 2026-27 income (question 1, item 4); one paid out before 1 April never posts.
+- A refund made before 1 April 2026 of such a gift, taken back by a payout that reached the bank on or after 1 April, posts on that payout's bank day too, for the same reason (no gateway balance at 31 March 2026). Founder rule; **CA to confirm**.
 - The payout is a transfer of the net amount out of the clearing account into the bank account its bank statement line is matched to (else the only active bank account), on that line's date (else the settlement date).
 - A refund dated on or after 1 April 2026 reduces FY 2026-27 donation income on its own day, even for an earlier gift (question 1, item 6).
 - An in-kind gift is in-kind income and an equal in-kind consumption expense (used as received; keeping it as an asset comes later).
 - FD interest (other income of kind interest, or anything credited to the fixed deposit) is `Interest on fixed deposit`, as it is credited; question 9 (accrual) is still open.
-- Moving money between the current account and the FD posts once the reviewer marks the bank line as a transfer and picks the other account.
+- Moving money between the current account and the FD posts once the reviewer marks the bank line as a transfer and picks the other account; between two bank accounts, from whichever side is marked first, once.
+- A reversed gift posts nothing (like a pending one); a refunded gift posts its receipt and its refunds.
 - A correction is a reversal plus a new posting. A classification change (programme, project, fund, donor) reverses and reposts the income line only; a change to the amount, date or account reverses and reposts the money too.
 - Records that can't post yet (year closed, the bank account not known, a missing account head) wait on the Books page's "Waiting to post" list with the reason; closing a year is blocked while any of its records wait.
 

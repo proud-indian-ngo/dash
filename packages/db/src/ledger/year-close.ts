@@ -1,5 +1,9 @@
 import { todayInKolkata } from "@pi-dash/shared/income";
-import { LEDGER_CUTOVER_ON, ledgerReasonLabel } from "@pi-dash/shared/ledger";
+import {
+  LEDGER_CUTOVER_ON,
+  LEDGER_WAIT_REASONS,
+  ledgerReasonLabel,
+} from "@pi-dash/shared/ledger";
 import { formatPaise } from "@pi-dash/shared/money";
 import {
   and,
@@ -23,7 +27,7 @@ import {
 } from "../schema/ledger";
 import { statementLine } from "../schema/statement-line";
 import type { LedgerTx } from "./engine";
-import { waitingByReason } from "./income-posting";
+import { uncheckedSources, waitingByReason } from "./income-posting";
 import { LedgerError } from "./rules";
 
 /**
@@ -138,10 +142,13 @@ export async function yearCloseChecklist(
 
   // Records waiting to post into this year (income from layer 3-2; the
   // expense side joins in layer 3-3). Blocking: a closed year can't take them.
-  const waiting = await waitingByReason(tx, {
-    endsOn: year.endsOn,
-    startsOn: year.startsOn,
-  });
+  const range = { endsOn: year.endsOn, startsOn: year.startsOn };
+  const waiting = await waitingByReason(tx, range);
+  // A record no posting run has looked at yet counts as waiting too.
+  const unchecked = await uncheckedSources(tx, range);
+  if (unchecked > 0) {
+    waiting.set(LEDGER_WAIT_REASONS.unchecked, unchecked);
+  }
   checks.push({
     details: [...waiting.entries()]
       .sort(([a], [b]) => a.localeCompare(b))

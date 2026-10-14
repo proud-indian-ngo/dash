@@ -906,10 +906,8 @@ async function applyAction(
     }
     case "transfer": {
       requireUnmatched(line);
-      const otherAccountId = input.otherAccountId ?? null;
-      if (otherAccountId) {
-        await assertTransferAccount(tx, line, otherAccountId);
-      }
+      const { otherAccountId } = input;
+      await assertTransferAccount(tx, line, otherAccountId);
       await updateStatementLine(tx, line.id, {
         ...matched,
         ignoredReason: null,

@@ -53,9 +53,25 @@ export async function handleLedgerPostSource(
   return { outcomes };
 }
 
+/** A sweep stops after this long; the queue expires after an hour. */
+const SWEEP_BUDGET_MS = 45 * 60 * 1000;
+
+/**
+ * The scheduled run looks only at what may have changed, except on Sundays
+ * (India time), when it looks at everything.
+ */
+export function isFullSweepDay(reason: string, at: Date): boolean {
+  const weekday = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    weekday: "short",
+  }).format(at);
+  return reason === "scheduled" && weekday === "Sun";
+}
+
 export async function handleLedgerPostPending(
   jobs: Job<LedgerPostPendingPayload>[],
-  run: typeof postPendingIncome = postPendingIncome
+  run: typeof postPendingIncome = postPendingIncome,
+  now: () => Date = () => new Date()
 ): Promise<{ results: SweepResult[] }> {
   const results: SweepResult[] = [];
   for (const job of jobs) {
@@ -65,8 +81,13 @@ export async function handleLedgerPostPending(
     });
     log.set({ jobId: job.id, reason: job.data.reason });
     const failures: string[] = [];
+    const full = job.data.full ?? isFullSweepDay(job.data.reason, now());
+    log.set({ full });
     const result = await run({
       actorId: job.data.actorId ?? null,
+      // Stop well before the queue's expiry; the next run picks up the rest.
+      deadline: now().getTime() + SWEEP_BUDGET_MS,
+      incremental: !full,
       onFailure: (source, error) => {
         failures.push(`${source.sourceType}:${source.sourceId}`);
         log.set({

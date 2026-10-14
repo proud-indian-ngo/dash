@@ -37,6 +37,7 @@ import { statementLine } from "../schema/statement-line";
 import type { LedgerTx } from "./engine";
 import {
   type IncomeSource,
+  listIncomeSources,
   postIncomeSource,
   relatedIncomeSources,
   sweepIncomeSources,
@@ -64,6 +65,11 @@ async function inRolledBackTransaction(run: (tx: LedgerTx) => Promise<void>) {
   const database = drizzle({ client, schema });
   try {
     await database.transaction(async (tx) => {
+      // One books test transaction at a time across test files: they all
+      // reset the same years and take the year-close lock.
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtextextended('ledger:db-tests', 0))`
+      );
       await run(tx as unknown as LedgerTx);
       throw new Rollback();
     });
@@ -94,6 +100,7 @@ async function foundation(tx: LedgerTx) {
   }
   const ids = {
     bank: uuidv7(),
+    fd: uuidv7(),
     giveDo: uuidv7(),
     party: uuidv7(),
     razorpay: uuidv7(),
@@ -110,6 +117,7 @@ async function foundation(tx: LedgerTx) {
         [ids.bank, "bank"],
         [ids.razorpay, "gateway_clearing"],
         [ids.giveDo, "gateway_clearing"],
+        [ids.fd, "deposit"],
       ] as const
     ).map(([id, kind]) => ({
       createdAt: NOW,
@@ -141,6 +149,19 @@ async function foundation(tx: LedgerTx) {
   });
   await tx.update(fiscalYear).set({ closedAt: null, closedBy: null });
   await tx.delete(ledgerSourceState);
+  // The database's own income records count as looked at, so only this
+  // test's records can hold up a year close.
+  const existing = await listIncomeSources(tx);
+  if (existing.length > 0) {
+    await tx.insert(ledgerSourceState).values(
+      existing.map((source) => ({
+        ...source,
+        checkedAt: NOW,
+        id: uuidv7(),
+        status: "none" as const,
+      }))
+    );
+  }
   const programmes = await tx
     .select({ id: programme.id })
     .from(programme)
@@ -695,6 +716,217 @@ it.skipIf(!localDatabase)(
           )
         );
       expect(states).toEqual([{ status: "posted" }, { status: "posted" }]);
+    });
+  }
+);
+
+async function addLine(
+  tx: LedgerTx,
+  orgAccountId: string,
+  over: Partial<typeof statementLine.$inferInsert>
+) {
+  const id = uuidv7();
+  await tx.insert(statementLine).values({
+    amountPaise: 30_000,
+    createdAt: NOW,
+    direction: "debit",
+    id,
+    lineHash: `test-${id}`,
+    orgAccountId,
+    position: 1,
+    updatedAt: NOW,
+    valueOn: "2026-07-01",
+    ...over,
+  });
+  return id;
+}
+
+const transferSource = (sourceId: string): IncomeSource => ({
+  sourceId,
+  sourceType: "statement_transfer",
+});
+
+it.skipIf(!localDatabase)(
+  "posts a transfer to the FD, and reverses it when the line is unmatched",
+  async () => {
+    // Imported here: the module opens the app database's client lazily.
+    const { resetStatementLine } = await import("../queries/statement-lines");
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const lineId = await addLine(tx, ids.bank, {
+        matchedAt: NOW,
+        matchKind: "transfer",
+        matchStatus: "matched",
+        transferOrgAccountId: ids.fd,
+      });
+      expect(await run(tx, transferSource(lineId))).toMatchObject({
+        posted: 1,
+        status: "posted",
+      });
+      expect(await balanceOf(tx, ids.fd)).toBe(30_000);
+      expect(await balanceOf(tx, ids.bank)).toBe(-30_000);
+      // Unmatching clears the other account too (the check would refuse it).
+      await resetStatementLine(tx as never, lineId, NOW);
+      expect(await run(tx, transferSource(lineId))).toMatchObject({
+        reason: "unmatched",
+        reversed: 1,
+        status: "none",
+      });
+      expect(await balanceOf(tx, ids.fd)).toBe(0);
+      expect((await postingsOf(tx, lineId)).at(-1)?.reason).toBe(
+        "The bank line was unmatched"
+      );
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "posts a bank-to-bank transfer from the side marked first, never both",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const second = uuidv7();
+      await tx.insert(orgAccount).values({
+        createdAt: NOW,
+        id: second,
+        kind: "bank",
+        name: `Income test second bank ${second}`,
+        updatedAt: NOW,
+      });
+      // Only the receiving bank's credit is marked: it posts both legs.
+      const credit = await addLine(tx, second, {
+        direction: "credit",
+        matchedAt: NOW,
+        matchKind: "transfer",
+        matchStatus: "matched",
+        transferOrgAccountId: ids.bank,
+      });
+      await run(tx, transferSource(credit));
+      // The sending bank's debit, marked later, posts nothing more.
+      const debit = await addLine(tx, ids.bank, {
+        matchedAt: new Date(NOW.getTime() + 60_000),
+        matchKind: "transfer",
+        matchStatus: "matched",
+        transferOrgAccountId: second,
+        valueOn: "2026-06-30",
+      });
+      expect(await run(tx, transferSource(debit))).toMatchObject({
+        reason: "other_side_posts",
+        status: "none",
+      });
+      expect(await run(tx, transferSource(credit))).toMatchObject({
+        posted: 0,
+        reversed: 0,
+        status: "posted",
+      });
+      expect(await balanceOf(tx, second)).toBe(30_000);
+      expect(await balanceOf(tx, ids.bank)).toBe(-30_000);
+      expect(await relatedIncomeSources(tx, transferSource(credit))).toEqual([
+        transferSource(debit),
+      ]);
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "posts a 31 Mar refund of a 30 Mar gift on its 2 Apr payout day, leaving clearing at zero",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const giftId = await addGift(tx, ids, {
+        channel: "razorpay",
+        gatewayFeePaise: 2000,
+        gatewayTaxPaise: 360,
+        orgAccountId: ids.razorpay,
+        receivedOn: "2026-03-30",
+      });
+      const refundId = uuidv7();
+      await tx.insert(contributionRefund).values({
+        amountPaise: 10_000,
+        contributionId: giftId,
+        createdAt: NOW,
+        id: refundId,
+        reference: `rfnd_${refundId}`,
+        refundedOn: "2026-03-31",
+        source: "razorpay",
+      });
+      const payout = await addSettlement(
+        tx,
+        ids,
+        { amountPaise: 87_640, settledOn: "2026-04-02" },
+        [
+          {
+            contributionId: giftId,
+            creditPaise: 97_640,
+            feePaise: 2000,
+            taxPaise: 360,
+          },
+          {
+            contributionRefundId: refundId,
+            debitPaise: 10_000,
+            type: "refund",
+          },
+        ]
+      );
+      const payoutSource: IncomeSource = {
+        sourceId: payout,
+        sourceType: "gateway_settlement",
+      };
+      expect(await relatedIncomeSources(tx, payoutSource)).toEqual([
+        gift(giftId),
+        { sourceId: refundId, sourceType: "contribution_refund" },
+      ]);
+      await run(tx, payoutSource);
+      await run(tx, gift(giftId));
+      expect(
+        await run(tx, { sourceId: refundId, sourceType: "contribution_refund" })
+      ).toMatchObject({ status: "posted" });
+      expect((await postingsOf(tx, refundId))[0]?.economicOn).toBe(
+        "2026-04-02"
+      );
+      expect(await balanceOf(tx, ids.razorpay)).toBe(0);
+      expect(await balanceOf(tx, ids.bank)).toBe(87_640);
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "counts a record no posting run has looked at against the year close",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      await addGift(tx, ids);
+      const checklist = await yearCloseChecklist(
+        tx,
+        ids.yearId,
+        new Date("2027-04-02T06:00:00Z")
+      );
+      const check = checklist.checks.find((c) => c.id === "unposted_sources");
+      expect(check?.ok).toBe(false);
+      expect(check?.details.some((d) => d.includes("Not looked at yet"))).toBe(
+        true
+      );
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "skips unchanged sources in an incremental sweep",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const id = await addGift(tx, ids);
+      await run(tx, gift(id));
+      const listed = async () =>
+        (await listIncomeSources(tx, { incremental: true })).some(
+          (s) => s.sourceId === id
+        );
+      expect(await listed()).toBe(false);
+      await tx
+        .update(contribution)
+        .set({ updatedAt: new Date(NOW.getTime() + 60_000) })
+        .where(eq(contribution.id, id));
+      expect(await listed()).toBe(true);
     });
   }
 );

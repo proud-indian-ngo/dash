@@ -1,8 +1,13 @@
+import { LEDGER_CUTOVER_ON } from "@pi-dash/shared/ledger";
+import { eq } from "drizzle-orm";
+
 import { db } from "..";
+import { fiscalYear } from "../schema/finance-dimensions";
 import type { LedgerTx } from "./engine";
 import {
   type IncomePostingResult,
   type IncomeSource,
+  type ListOptions,
   postIncomeSource,
   recordIncomeSourceFailure,
   relatedIncomeSources,
@@ -47,10 +52,36 @@ export async function postIncomeSourceNow(
 }
 
 /** Posts everything not up to date, stopping at the deadline (epoch ms). */
-export async function postPendingIncome(options: {
-  actorId: string | null;
-  deadline?: number;
-  onFailure?: (source: IncomeSource, error: unknown) => void;
-}): Promise<SweepResult> {
+export async function postPendingIncome(
+  options: ListOptions & {
+    actorId: string | null;
+    deadline?: number;
+    onFailure?: (source: IncomeSource, error: unknown) => void;
+  }
+): Promise<SweepResult> {
   return await sweepIncomeSources({ ...options, run: inTransaction });
+}
+
+/**
+ * Before a year-close checklist is read or the year closed: posts every
+ * source dated in that year, bounded by the deadline, so the waiting check
+ * reflects the records as they are now.
+ */
+export async function postPendingForYear(
+  fiscalYearId: string,
+  options: {
+    actorId: string | null;
+    deadline: number;
+    onFailure?: (source: IncomeSource, error: unknown) => void;
+  }
+): Promise<SweepResult | null> {
+  const [year] = await db
+    .select({ endsOn: fiscalYear.endsOn, startsOn: fiscalYear.startsOn })
+    .from(fiscalYear)
+    .where(eq(fiscalYear.id, fiscalYearId))
+    .limit(1);
+  if (!year || year.endsOn < LEDGER_CUTOVER_ON) {
+    return null;
+  }
+  return await postPendingIncome({ ...options, range: year });
 }

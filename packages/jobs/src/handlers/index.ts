@@ -178,13 +178,16 @@ const QUEUE_OVERRIDES: Partial<
   // (singletonKey = "type:id"), so a burst of edits collapses and an edit
   // made while a job runs queues one more.
   "ledger-post-source": { policy: "stately" },
-  // At most one sweep running and one more queued, whoever asked for it:
-  // a request made while a sweep runs still gets its own pass afterwards,
-  // and a burst of requests collapses into it. A large backfill gets an hour.
+  // One sweep running at a time (singleton), whoever asked for it: a
+  // request made meanwhile waits its turn. The worker sends a heartbeat, so
+  // only a dead run expires, and it is not retried (the next run covers
+  // it), so an expiry never starts a second sweep alongside a live one.
+  // The sweep stops itself after 45 minutes.
   "ledger-post-pending": {
     expireInSeconds: 60 * 60,
-    policy: "stately",
-    retryLimit: 1,
+    heartbeatSeconds: 60,
+    policy: "singleton",
+    retryLimit: 0,
   },
   "razorpay-sync-payment": { policy: "stately" },
   // Keyed by refund ID. A refund whose payment is not imported yet is held

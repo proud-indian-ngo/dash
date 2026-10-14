@@ -623,6 +623,11 @@ export interface LedgerPostSourcePayload {
  */
 export interface LedgerPostPendingPayload {
   actorId?: string;
+  /**
+   * Look at every source, not only those that may have changed since
+   * their last look. The Sunday scheduled run is full.
+   */
+  full?: boolean;
   reason: "after_import" | "manual" | "scheduled";
 }
 

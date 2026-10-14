@@ -96,7 +96,7 @@ export type StatementLineAction =
       lineId: string;
       note: string | null;
       /** The trust's other account (the fixed deposit, another bank account), so the books can post it. */
-      otherAccountId?: string | null;
+      otherAccountId: string;
     }
   | {
       action: "ignore";

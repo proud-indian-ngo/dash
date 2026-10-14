@@ -1,6 +1,9 @@
 import { db } from "@pi-dash/db";
 import type { SweepResult } from "@pi-dash/db/ledger/income-posting";
-import { postPendingIncome } from "@pi-dash/db/ledger/income-runner";
+import {
+  postPendingForYear,
+  postPendingIncome,
+} from "@pi-dash/db/ledger/income-runner";
 import {
   type OpeningBalanceInput,
   postOpeningBalance,
@@ -44,12 +47,29 @@ const safely = <T>(step: keyof typeof MESSAGES, work: () => Promise<T>) =>
     work
   );
 
+/** How long the year's posting may run before its checklist is read. */
+const YEAR_POSTING_BUDGET_MS = 15_000;
+
+/**
+ * Posts the year's income records first (bounded), so the checklist's
+ * "waiting to post" reflects the records as they are now; anything not
+ * reached still counts as not looked at.
+ */
+const postYearFirst = async (fiscalYearId: string, actorId: string | null) => {
+  await postPendingForYear(fiscalYearId, {
+    actorId,
+    deadline: Date.now() + YEAR_POSTING_BUDGET_MS,
+  });
+};
+
 export const loadYearCloseChecklist = (
-  fiscalYearId: string
+  fiscalYearId: string,
+  actorId: string | null = null
 ): Promise<YearCloseChecklist> =>
-  safely("checklist", () =>
-    db.transaction((tx) => yearCloseChecklist(tx, fiscalYearId))
-  );
+  safely("checklist", async () => {
+    await postYearFirst(fiscalYearId, actorId);
+    return await db.transaction((tx) => yearCloseChecklist(tx, fiscalYearId));
+  });
 
 export const postOpeningBalances = (
   input: OpeningBalanceInput,
@@ -68,9 +88,12 @@ export const reverseOpeningBalances = (
   );
 
 export const closeFiscalYear = (fiscalYearId: string, actorId: string) =>
-  safely("close", () =>
-    db.transaction((tx) => closeYear(tx, fiscalYearId, { actorId }))
-  );
+  safely("close", async () => {
+    await postYearFirst(fiscalYearId, actorId);
+    return await db.transaction((tx) =>
+      closeYear(tx, fiscalYearId, { actorId })
+    );
+  });
 
 export const reopenFiscalYear = (
   input: { fiscalYearId: string; reason: string },
@@ -90,9 +113,12 @@ const POST_PENDING_BUDGET_MS = 20_000;
  */
 export const postPendingNow = (actorId: string): Promise<SweepResult> =>
   safely("postPending", async () => {
+    // Records unchanged since their last look are skipped; the Sunday run
+    // and the year close look at everything.
     const result = await postPendingIncome({
       actorId,
       deadline: Date.now() + POST_PENDING_BUDGET_MS,
+      incremental: true,
     });
     if (result.remaining > 0) {
       queueLedgerSweep("manual", actorId);

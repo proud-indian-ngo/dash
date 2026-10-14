@@ -1017,7 +1017,7 @@ async function seedIncome(adminId: string): Promise<void> {
     .insert(gatewaySettlementItem)
     .values({
       contributionId: "01930000-0000-7000-8000-000000000617",
-      creditPaise: 300_000,
+      creditPaise: 292_920,
       externalId: "pay_SEED0003",
       feePaise: 6000,
       id: "01930000-0000-7000-8000-000000000661",
