@@ -28,6 +28,7 @@ Chapters intentionally sharded so loading stays cheap.
 | E2E Testing | `e2e-testing.md` | `packages/e2e`, Playwright global setup, seed helpers, `.auth` state, `shard-by-duration`, `run-e2e.sh`, duration reporter |
 | Design Language | `design-language.md` | visual design, brand, colours, fonts, Bricolage, Paper Mono, `@proudindian/design`, pi-design, `.pi-*` classes, StatusBadge/Tag, restyling, "make it look like the website" |
 | Finance & Programmes (design) | `finance-and-programmes.md` | finance redesign, programme, project, fund, ledger entry, account head, contribution, donor, receipt, Form 113/114 (formerly 10BD/10BE), FC-4, FCRA, budget, approval policy, advance settlement, in-kind, retention class |
+| Finance ledger cutover (Phase 0) | `finance-ledger-cutover.md` | ledger cutover, opening balances, audited FY 2025-26 figures, fixed deposit, backfill, posting rules in plain language, CA questions, CA handoff workbook |
 | Kalakriti Registration | `kalakriti-registration.md` | Kalakriti Edition access, Guardian identity, Center controls, eligibility, Competitions, Students, Entries, lifecycle, public schedule, dashboards, audit, scoped exports |
 
 ## Load Rules
