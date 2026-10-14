@@ -268,16 +268,7 @@ export const advancePaymentMutators = {
       assertPending(entity, "advance payment", "rejected", canEditAnyStatus);
 
       const now = Date.now();
-      enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
-        keyPrefixes: advancePaymentApprovalKeyPrefixes(args.id),
-        meta: {
-          advancePaymentId: args.id,
-          mutator: "advancePayment.reject:approvalScreenshot",
-        },
-      });
-
       await tx.mutate.advancePayment.update({
-        approvalScreenshotKey: null,
         id: args.id,
         rejectionReason: args.reason,
         reviewedAt: now,

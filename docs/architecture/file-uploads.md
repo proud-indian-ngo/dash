@@ -42,9 +42,11 @@ A new key must sit under the approver's own
 `<R2_KEY_PREFIX>/approval-screenshots/tmp/<userId>/` folder, and the claim
 checks the stored object's type and size against the approval-screenshot
 limits; a temporary key that no longer exists is refused even when its durable
-target does. Rejecting and resetting to pending clear the stored screenshot and
-queue the file for deletion, so the next approval needs a fresh one. Editing
-does not need it, and requests approved before the rule keep their missing
+target does. Rejecting keeps the stored screenshot, since it is evidence that
+money was paid, and a later re-approval can reuse it; the approve dialog then
+shows it as already attached with an optional Replace. Resetting to pending
+clears the stored screenshot and queues the file for deletion. Editing does not
+need a screenshot, and requests approved before the rule keep their missing
 screenshot.
 
 Vendor-payment invoice signing accepts the payment ID only to authorize the

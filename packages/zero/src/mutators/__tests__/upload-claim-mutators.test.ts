@@ -928,7 +928,7 @@ describe("approval screenshot requirement", () => {
       : "app/approval-screenshots/advance-payments/request-1/approval-screenshots/proof.png";
 
   for (const { entity, mutators, tableName } of cases) {
-    it(`clears and queues deletion of the stored screenshot when a ${entity} is rejected`, async () => {
+    it(`keeps the stored payment screenshot when an approved ${entity} is rejected`, async () => {
       const update = mock();
       const ctx = serverContext([
         "requests.approve",
@@ -956,20 +956,53 @@ describe("approval screenshot requirement", () => {
       } as never);
 
       expect(update).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "request-1", status: "rejected" })
+      );
+      expect(update.mock.calls[0]?.[0]).not.toHaveProperty(
+        "approvalScreenshotKey"
+      );
+      // Only the claimant notification is queued; no cleanup of the screenshot.
+      expect(ctx.asyncTasks?.map((task) => task.meta.mutator)).toEqual([
+        tableName === "reimbursement"
+          ? "rejectReimbursement"
+          : "rejectAdvancePayment",
+      ]);
+    });
+
+    it(`re-approves a rejected ${entity} with its stored payment screenshot`, async () => {
+      const update = mock();
+      const ctx = serverContext([
+        "requests.approve",
+        "requests.edit_all_statuses",
+      ]);
+      const storedKey = durableScreenshotKey(tableName);
+      const tx = {
+        location: "server",
+        mutate: {
+          [tableName]: { update },
+          [`${tableName}History`]: { insert: mock() },
+        },
+        run: mock()
+          .mockResolvedValueOnce({
+            approvalScreenshotKey: storedKey,
+            status: "rejected",
+            title: "Travel",
+            userId: "owner-1",
+          })
+          .mockResolvedValueOnce([]),
+      };
+
+      await mutators.approve.fn({
+        args: { id: "request-1" },
+        ctx,
+        tx,
+      } as never);
+
+      expect(update).toHaveBeenCalledWith(
         expect.objectContaining({
-          approvalScreenshotKey: null,
-          status: "rejected",
+          approvalScreenshotKey: storedKey,
+          status: "approved",
         })
-      );
-      const cleanup = ctx.asyncTasks?.find((task) =>
-        String(task.meta.mutator).endsWith(".reject:approvalScreenshot")
-      );
-      expect(cleanup).toBeDefined();
-      await cleanup?.fn();
-      expect(enqueue).toHaveBeenCalledWith(
-        "delete-r2-object",
-        { mode: "if-unreferenced", r2Key: storedKey },
-        expect.objectContaining({ startAfter: "30 seconds" })
       );
     });
 

@@ -80,11 +80,43 @@ async function approve(type: string, id: string) {
   return { id, reviewedBy: reviewer, status: "approved" };
 }
 
+/**
+ * Marks a reimbursement rejected after it was approved with a payment
+ * screenshot: the stored key stays, as rejecting keeps the payment evidence.
+ * The key only has to look durable; specs read the approve dialog, not R2.
+ */
+async function rejectWithScreenshot(id: string) {
+  const reviewer = await reviewerId();
+  const now = new Date();
+  const prefix = process.env.R2_KEY_PREFIX ?? "attachments";
+  const approvalScreenshotKey = `${prefix}/approval-screenshots/reimbursements/${id}/approval-screenshots/e2e-proof.png`;
+  const [row] = await db
+    .update(reimbursement)
+    .set({
+      approvalScreenshotKey,
+      rejectionReason: "E2E rejected after payment",
+      reviewedAt: now,
+      reviewedBy: reviewer,
+      status: "rejected",
+      updatedAt: now,
+    })
+    .where(eq(reimbursement.id, id))
+    .returning({ id: reimbursement.id });
+  if (!row) {
+    throw new Error(`Reimbursement ${id} not found`);
+  }
+  return { approvalScreenshotKey, id, status: "rejected" };
+}
+
 const [action, type = "", id = ""] = process.argv.slice(2);
-if (action !== "approve") {
+let result: unknown;
+if (action === "approve") {
+  result = await approve(type, id);
+} else if (action === "reject-with-screenshot" && type === "reimbursement") {
+  result = await rejectWithScreenshot(id);
+} else {
   throw new Error("Unknown request approval fixture action");
 }
-const result = await approve(type, id);
 await new Promise<void>((resolve, reject) => {
   process.stdout.write(`${JSON.stringify(result)}\n`, (error) =>
     error ? reject(error) : resolve()

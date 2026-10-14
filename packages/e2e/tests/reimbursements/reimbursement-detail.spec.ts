@@ -75,6 +75,35 @@ test.describe("Reimbursement detail (reimbursement)", () => {
     await expect(page.getByText("Reimbursement approved")).toBeHidden();
   });
 
+  test("approve reuses a payment screenshot already on the record", async ({
+    page: _page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
+
+    await reimbursements.createReimbursement("Approve Existing Screenshot");
+    await reimbursements.rejectWithStoredScreenshotInDatabase();
+    await reimbursements.detail.stubScreenshotUpload();
+    await reimbursements.detail.getApproveButton().click();
+    const dialog = reimbursements.detail.getAlertDialog();
+    const approve = dialog.getByRole("button", { name: "Approve" });
+
+    await expect(
+      dialog.getByText("Payment screenshot already attached")
+    ).toBeVisible();
+    await expect(approve).toBeEnabled();
+
+    await dialog.getByRole("button", { name: "Replace" }).click();
+    await expect(dialog.getByLabel("Payment screenshot")).toBeVisible();
+    await expect(approve).toBeEnabled();
+    await reimbursements.detail.attachPaymentScreenshot(dialog);
+    await expect(approve).toBeEnabled();
+
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(
+      reimbursements.detail.getStatusBadge("Rejected")
+    ).toBeVisible();
+  });
+
   test("admin approves a pending reimbursement", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
     test.skip(

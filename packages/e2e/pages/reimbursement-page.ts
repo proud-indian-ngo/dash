@@ -88,20 +88,35 @@ export class ReimbursementPage {
    * the payment screenshot promoted in R2, which CI does not have.
    */
   async approveInDatabase(): Promise<void> {
+    await this.runApprovalFixture("approve");
+    await expect(this.detail.getStatusBadge("Approved")).toBeVisible({
+      timeout: 15_000,
+    });
+  }
+
+  /**
+   * Marks the open reimbursement rejected while it keeps a stored payment
+   * screenshot, as when an approved request is later rejected.
+   */
+  async rejectWithStoredScreenshotInDatabase(): Promise<void> {
+    await this.runApprovalFixture("reject-with-screenshot");
+    await expect(this.detail.getStatusBadge("Rejected")).toBeVisible({
+      timeout: 15_000,
+    });
+  }
+
+  private async runApprovalFixture(action: string): Promise<void> {
     await execFileAsync(
       "bun",
       [
         "run",
         REQUEST_APPROVAL_SCRIPT,
-        "approve",
+        action,
         this.type === "reimbursement" ? "reimbursement" : "advance-payment",
         this.currentRequestId(),
       ],
       { env: process.env }
     );
-    await expect(this.detail.getStatusBadge("Approved")).toBeVisible({
-      timeout: 15_000,
-    });
   }
 
   async createReimbursement(
