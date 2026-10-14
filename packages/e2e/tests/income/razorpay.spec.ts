@@ -619,7 +619,9 @@ test.describe("Income: Razorpay Payment Page", () => {
     await expect(
       page.getByTestId("settled-payments-not-imported")
     ).toContainText("settled payment");
-    await page.getByPlaceholder("Search settlement ID or UTR...").fill(utr);
+    await page
+      .getByPlaceholder("Search provider, settlement ID or UTR...")
+      .fill(utr);
     const settlementRow = page.getByRole("row").filter({ hasText: utr });
     await expect(settlementRow).toHaveCount(1, { timeout: 15_000 });
     await expect(settlementRow).toContainText("₹790.53");
