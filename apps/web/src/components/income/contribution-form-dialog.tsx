@@ -8,11 +8,18 @@ import {
   contributionChannelValues,
   type ContributionReportingMode,
   contributionReportingModeValues,
+  type DeductionEligible,
+  deductionEligibleValues,
   type DonationType,
   donationTypeValues,
   GENERAL_FUND_ID,
   PROGRAMME_IDS,
 } from "@pi-dash/shared/constants";
+import {
+  ELIGIBILITY_REASON_MAX,
+  ELIGIBILITY_REASON_PRESETS,
+  TAX_CERTIFICATE_LABELS,
+} from "@pi-dash/shared/donations-return";
 import {
   CONTRIBUTION_CHANNEL_LABELS,
   contributionRuleIssues,
@@ -81,6 +88,44 @@ const donationTypeOptions = enumOptions(
   donationTypeValues,
   DONATION_TYPE_LABELS
 );
+// Follow donor first: it is the default.
+const taxCertificateOptions = enumOptions(
+  ["unknown", "yes", "no"] as const satisfies readonly DeductionEligible[],
+  TAX_CERTIFICATE_LABELS
+);
+
+/** The reason picker's value for a reason typed by hand. */
+const OTHER_REASON = "other";
+const reasonOptions = [
+  ...ELIGIBILITY_REASON_PRESETS.map((reason) => ({
+    label: reason,
+    value: reason as string,
+  })),
+  { label: "Other", value: OTHER_REASON },
+];
+
+/** Splits a stored reason into the picker's choice and the typed text. */
+function reasonParts(reason: string | null | undefined): {
+  eligibilityReasonChoice: string;
+  eligibilityReasonOther: string;
+} {
+  const value = reason?.trim() ?? "";
+  if (value === "") {
+    return { eligibilityReasonChoice: "", eligibilityReasonOther: "" };
+  }
+  return (ELIGIBILITY_REASON_PRESETS as readonly string[]).includes(value)
+    ? { eligibilityReasonChoice: value, eligibilityReasonOther: "" }
+    : { eligibilityReasonChoice: OTHER_REASON, eligibilityReasonOther: value };
+}
+
+function reasonFrom(value: {
+  eligibilityReasonChoice: string;
+  eligibilityReasonOther: string;
+}): string {
+  return value.eligibilityReasonChoice === OTHER_REASON
+    ? value.eligibilityReasonOther.trim()
+    : value.eligibilityReasonChoice;
+}
 
 const text = (max: number) => z.string().trim().max(max);
 /** A required picker: empty until chosen, so the input type allows undefined. */
@@ -99,8 +144,11 @@ const formSchema = z
   .object({
     amount: positiveRupeesSchema,
     channel: z.enum(contributionChannelValues),
+    deductionEligible: z.enum(deductionEligibleValues),
     donationType: z.enum(donationTypeValues),
     donationTypeDescription: text(200),
+    eligibilityReasonChoice: z.string(),
+    eligibilityReasonOther: text(ELIGIBILITY_REASON_MAX),
     fundId: pick("Pick a fund"),
     inKindDescription: text(500),
     inKindValuationBasis: text(500),
@@ -126,6 +174,24 @@ const formSchema = z
         message: issue.message,
         path: [issue.path],
       });
+    }
+    if (value.deductionEligible === "no") {
+      if (value.eligibilityReasonChoice === "") {
+        context.addIssue({
+          code: "custom",
+          message: "Say why this gift is left out",
+          path: ["eligibilityReasonChoice"],
+        });
+      } else if (
+        value.eligibilityReasonChoice === OTHER_REASON &&
+        value.eligibilityReasonOther.trim() === ""
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "Describe the reason",
+          path: ["eligibilityReasonOther"],
+        });
+      }
     }
   });
 
@@ -180,8 +246,11 @@ function emptyValues(
   return {
     amount: "",
     channel,
+    deductionEligible: "unknown" as DeductionEligible,
     donationType: "voluntary" as DonationType,
     donationTypeDescription: "",
+    eligibilityReasonChoice: "",
+    eligibilityReasonOther: "",
     fundId,
     inKindDescription: "",
     inKindValuationBasis: "",
@@ -201,8 +270,13 @@ function valuesFor(row: ContributionRow): FormValues {
   return {
     amount: paiseToRupeesInput(row.amountPaise),
     channel: row.channel as ContributionChannel,
+    deductionEligible: (row.deductionEligible ??
+      "unknown") as DeductionEligible,
     donationType: (row.donationType ?? "voluntary") as DonationType,
     donationTypeDescription: row.donationTypeDescription ?? "",
+    ...reasonParts(
+      row.deductionEligible === "no" ? row.eligibilityReason : null
+    ),
     fundId: row.fundId,
     inKindDescription: row.inKindDescription ?? "",
     inKindValuationBasis: row.inKindValuationBasis ?? "",
@@ -222,8 +296,11 @@ function toMutatorArgs(id: string, value: FormValues) {
   return {
     amountPaise: rupeesToPaise(value.amount),
     channel: value.channel,
+    deductionEligible: value.deductionEligible,
     donationType: value.donationType,
     donationTypeDescription: value.donationTypeDescription || null,
+    eligibilityReason:
+      value.deductionEligible === "no" ? reasonFrom(value) || null : null,
     fundId: value.fundId ?? "",
     id,
     inKindDescription: value.inKindDescription || null,
@@ -469,12 +546,21 @@ function ContributionForm({
         <form.Subscribe
           selector={(state) => ({
             channel: state.values.channel,
+            deductionEligible: state.values.deductionEligible,
             donationType: state.values.donationType,
+            reasonChoice: state.values.eligibilityReasonChoice,
             projectId: state.values.projectId,
             reportingMode: state.values.reportingMode,
           })}
         >
-          {({ channel, donationType, projectId, reportingMode }) => (
+          {({
+            channel,
+            deductionEligible,
+            donationType,
+            projectId,
+            reasonChoice,
+            reportingMode,
+          }) => (
             <div className="grid gap-4 sm:grid-cols-2">
               {reportingMode === "other" ? (
                 <InputField
@@ -520,6 +606,28 @@ function ContributionForm({
                   isRequired
                   label="Donation type description"
                   name="donationTypeDescription"
+                />
+              ) : null}
+              <SelectField
+                description="Whether this gift goes in the donations return (Form 113). Follow donor uses the donor's own choice."
+                label="Tax certificate"
+                name="deductionEligible"
+                options={taxCertificateOptions}
+              />
+              {deductionEligible === "no" ? (
+                <SelectField
+                  isRequired
+                  label="Reason"
+                  name="eligibilityReasonChoice"
+                  options={reasonOptions}
+                  placeholder="Why it is left out"
+                />
+              ) : null}
+              {deductionEligible === "no" && reasonChoice === OTHER_REASON ? (
+                <InputField
+                  isRequired
+                  label="Describe the reason"
+                  name="eligibilityReasonOther"
                 />
               ) : null}
               {picker.fundOptions.length > 1 ? (

@@ -206,7 +206,7 @@ test.describe("Income: contributions (finance)", () => {
     page,
   }) => {
     const stat = page.getByRole("button", {
-      name: "Show donors missing ID or address",
+      name: "Show donors missing details for the donations return",
     });
     await expect(stat).toBeVisible({ timeout: 10_000 });
     const value = stat.locator("[data-slot='stat-value']");

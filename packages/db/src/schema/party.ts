@@ -32,6 +32,14 @@ export const party = pgTable(
     id: uuid("id").primaryKey(),
     kind: partyKindEnum("kind").notNull(),
     legalName: text("legal_name"),
+    /**
+     * The donor doesn't want a tax certificate (80G): their gifts stay out of
+     * the donations return unless a gift says otherwise. A preference, not
+     * private data; name and address are still needed.
+     */
+    taxCertificateOptOut: boolean("tax_certificate_opt_out")
+      .default(false)
+      .notNull(),
     updatedAt: timestamp("updated_at").notNull(),
   },
   (t) => [index("party_displayName_idx").on(t.displayName)]

@@ -1,10 +1,13 @@
 import {
   contributionChannelValues,
   contributionReportingModeValues,
+  type DeductionEligible,
+  deductionEligibleValues,
   donationTypeValues,
   otherIncomeKindValues,
   PROGRAMME_IDS,
 } from "@pi-dash/shared/constants";
+import { ELIGIBILITY_REASON_MAX } from "@pi-dash/shared/donations-return";
 import {
   CONTRIBUTOR_ROLES,
   canGive,
@@ -39,8 +42,16 @@ const receivedOn = z.iso
 const contributionFields = {
   amountPaise: positivePaiseSchema,
   channel: z.enum(contributionChannelValues),
+  /**
+   * Tax certificate: unknown follows the donor's choice, yes includes the
+   * gift in the donations return, no excludes it with a reason. Left out,
+   * an update keeps the stored choice. A classification field, so it stays
+   * editable under refund, settlement and bank-line locks.
+   */
+  deductionEligible: z.enum(deductionEligibleValues).optional(),
   donationType: z.enum(donationTypeValues),
   donationTypeDescription: optionalText(200),
+  eligibilityReason: optionalText(ELIGIBILITY_REASON_MAX),
   fundId: z.string().min(1),
   id: z.string().min(1),
   inKindDescription: optionalText(500),
@@ -108,6 +119,29 @@ const orNull = (value: string | null | undefined) => {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
 };
+
+/** The tax certificate choice to store; a reason is kept only for an exclusion. */
+function normalizeEligibility(
+  args: Pick<ContributionInput, "deductionEligible" | "eligibilityReason">,
+  current: {
+    deductionEligible: string;
+    eligibilityReason: string | null;
+  } | null
+): { deductionEligible: DeductionEligible; eligibilityReason: string | null } {
+  if (args.deductionEligible === undefined) {
+    return current
+      ? {
+          deductionEligible: current.deductionEligible as DeductionEligible,
+          eligibilityReason: current.eligibilityReason,
+        }
+      : { deductionEligible: "unknown", eligibilityReason: null };
+  }
+  return {
+    deductionEligible: args.deductionEligible,
+    eligibilityReason:
+      args.deductionEligible === "no" ? orNull(args.eligibilityReason) : null,
+  };
+}
 
 /** Only keep the fields the chosen channel, mode and type actually use. */
 function normalizeContribution(args: ContributionInput) {
@@ -371,7 +405,7 @@ export const contributionMutators = {
       createdAt: now,
       createdBy: ctx.userId,
       currency: "INR",
-      deductionEligible: "unknown",
+      ...normalizeEligibility(args, null),
       gatewayFeePaise: 0,
       gatewayTaxPaise: 0,
       id: args.id,
@@ -453,6 +487,10 @@ export const contributionMutators = {
     }
     await tx.mutate.contribution.update({
       ...values,
+      ...normalizeEligibility(args, {
+        deductionEligible: existing.deductionEligible ?? "unknown",
+        eligibilityReason: existing.eligibilityReason ?? null,
+      }),
       id: args.id,
       updatedAt: Date.now(),
     });

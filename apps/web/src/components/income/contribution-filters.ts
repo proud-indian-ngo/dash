@@ -48,7 +48,7 @@ const LEGACY_CONTRIBUTION_FILTER_PARAMS = [
 
 /**
  * Whether a row is one the "Missing donor details" stat counts: received this
- * financial year from a donor who lacks an ID or address.
+ * financial year from a donor whose details hold up the donations return.
  */
 export function isMissingDetailsRow(
   row: { partyId: string; receivedOn: number; status: string | null },
@@ -145,7 +145,7 @@ export function createContributionFilterFields(
     ),
     selectField("details", "Donor details", [
       {
-        label: "Missing ID or address (received this year)",
+        label: "Missing donor details (received this year)",
         value: MISSING_DETAILS_VALUE,
       },
     ]),

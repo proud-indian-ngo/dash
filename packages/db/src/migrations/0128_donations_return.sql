@@ -1,0 +1,1 @@
+ALTER TABLE "party" ADD COLUMN "tax_certificate_opt_out" boolean DEFAULT false NOT NULL;

@@ -1,6 +1,7 @@
 import { env } from "@pi-dash/env/web";
 import { createFileRoute } from "@tanstack/react-router";
 
+import { DonationsReturnSection } from "@/components/settings/sections/donations-return-section";
 import { OrgAccountsSection } from "@/components/settings/sections/org-accounts-section";
 import { SettingsPage } from "@/components/settings/settings-layout";
 import { assertPermission } from "@/lib/route-guards";
@@ -24,7 +25,10 @@ export const Route = createFileRoute("/_app/settings/org-accounts")({
 function OrgAccountsSettingsPage() {
   return (
     <SettingsPage path={PATH}>
-      <OrgAccountsSection />
+      <div className="flex flex-col gap-6">
+        <OrgAccountsSection />
+        <DonationsReturnSection />
+      </div>
     </SettingsPage>
   );
 }

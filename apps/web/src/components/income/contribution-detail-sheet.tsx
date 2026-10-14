@@ -9,8 +9,10 @@ import type {
   ContributionChannel,
   ContributionReportingMode,
   ContributionSource,
+  DeductionEligible,
   DonationType,
 } from "@pi-dash/shared/constants";
+import { TAX_CERTIFICATE_LABELS } from "@pi-dash/shared/donations-return";
 import {
   CONTRIBUTION_CHANNEL_LABELS,
   CONTRIBUTION_SOURCE_LABELS,
@@ -190,6 +192,15 @@ export function ContributionDetailSheet({
       withDescription(
         DONATION_TYPE_LABELS[(row.donationType ?? "voluntary") as DonationType],
         row.donationTypeDescription
+      ),
+    ],
+    [
+      "Tax certificate",
+      withDescription(
+        TAX_CERTIFICATE_LABELS[
+          (row.deductionEligible ?? "unknown") as DeductionEligible
+        ],
+        row.deductionEligible === "no" ? (row.eligibilityReason ?? null) : null
       ),
     ],
     ...(row.channel === "in_kind"

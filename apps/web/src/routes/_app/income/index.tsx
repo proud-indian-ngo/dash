@@ -3,6 +3,7 @@ import {
   BankIcon,
   Coins01Icon,
   FileImportIcon,
+  FileValidationIcon,
   MoneyAdd01Icon,
   MoneyReceive01Icon,
   PlusSignIcon,
@@ -93,7 +94,8 @@ export const Route = createFileRoute("/_app/income/")({
 });
 
 /**
- * Donors with money received this year who lack an ID number or address;
+ * Donors whose details hold up this year's donations return (see
+ * `getMissingDonorDetails`);
  * server-only, so a server function. Refetched when the contributions change
  * (`refreshKey`) and when the window regains focus, since donor details are
  * edited elsewhere.
@@ -215,7 +217,7 @@ function ContributionsTab({
   ];
   if (missing) {
     items.push({
-      actionLabel: "Show donors missing ID or address",
+      actionLabel: "Show donors missing details for the donations return",
       icon: Alert02Icon,
       label: "Missing donor details",
       onClick: filterMissing,
@@ -508,7 +510,16 @@ function IncomeRouteComponent() {
   const openBank = useEventCallback(() => {
     navigate({ to: "/income/bank" });
   });
+  const openReturn = useEventCallback(() => {
+    navigate({ to: "/income/return" });
+  });
   const menuActions = [
+    {
+      icon: FileValidationIcon,
+      id: "donations-return",
+      label: "Donations return",
+      onSelect: openReturn,
+    },
     canManageContributions && {
       icon: FileImportIcon,
       id: "import",

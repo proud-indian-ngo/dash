@@ -81,8 +81,10 @@ const SAFE_CHANGED_FIELD_NAMES = new Set([
   // Contributions and other income. Names only: reference and description
   // values never reach the ledger, and notes stay out entirely, as for
   // inventory.
+  "deductionEligible",
   "donationType",
   "donationTypeDescription",
+  "eligibilityReason",
   "fundId",
   "inKindDescription",
   "inKindValuationBasis",

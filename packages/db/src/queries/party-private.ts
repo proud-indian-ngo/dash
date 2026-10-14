@@ -213,6 +213,9 @@ export async function savePartyInTransaction(
     displayName: input.displayName.trim(),
     kind: input.kind,
     legalName: nullIfBlank(input.legalName),
+    ...(input.taxCertificateOptOut === undefined
+      ? {}
+      : { taxCertificateOptOut: input.taxCertificateOptOut }),
   };
   if (mode.kind === "update") {
     await tx

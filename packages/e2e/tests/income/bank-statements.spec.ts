@@ -258,9 +258,9 @@ test.describe("Income: bank statements", () => {
       await expect(
         page.getByRole("heading", { exact: true, name: "Income" })
       ).toBeVisible();
-      await expect(
-        page.getByRole("button", { name: "More actions" })
-      ).toHaveCount(0);
+      // The page menu offers the donations return, never bank statements.
+      await page.getByRole("button", { name: "More actions" }).click();
+      await expect(page.getByRole("menuitem")).toHaveText(["Donations return"]);
     } finally {
       await context.close();
     }

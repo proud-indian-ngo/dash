@@ -82,6 +82,7 @@ const formSchema = donorFieldsSchema
     role_grantor: z.boolean(),
     role_intermediary: z.boolean(),
     role_sponsor: z.boolean(),
+    taxCertificateOptOut: z.boolean(),
   })
   .refine(panCheck.check, { message: panCheck.message, path: ["idNumber"] })
   .refine(
@@ -112,6 +113,7 @@ function emptyValues(): DonorFormValues {
     role_intermediary: false,
     role_sponsor: false,
     state: "",
+    taxCertificateOptOut: false,
   };
 }
 
@@ -143,6 +145,7 @@ function valuesFor(
     role_intermediary: active.has("intermediary"),
     role_sponsor: active.has("sponsor"),
     state: details?.state ?? "",
+    taxCertificateOptOut: party.taxCertificateOptOut ?? false,
   };
 }
 
@@ -311,6 +314,11 @@ function DonorForm({
         <InputField label="Nationality" name="nationality" />
       </div>
       <TextareaField label="Assessment note" name="assessmentNote" rows={2} />
+      <CheckboxField
+        description="Their gifts are left out of the donations return. Name and address are still needed. Applies to all their gifts this year, including ones Razorpay or give.do already receipted; they won't get a Form 114."
+        label="Doesn't want a tax certificate (80G)"
+        name="taxCertificateOptOut"
+      />
 
       <FormActions
         disableWhenInvalid={false}

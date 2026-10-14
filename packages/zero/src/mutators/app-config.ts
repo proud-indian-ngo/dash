@@ -2,6 +2,10 @@ import {
   APP_CONFIG_FINANCE_THRESHOLD_KEY,
   MAX_PAISE,
 } from "@pi-dash/shared/constants";
+import {
+  parseReturnRegistration,
+  RETURN_REGISTRATION_CONFIG_KEY,
+} from "@pi-dash/shared/donations-return";
 import { SOCIAL_MANAGE_CONFIG_KEYS } from "@pi-dash/shared/social-api";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
@@ -14,7 +18,8 @@ const socialManageKeys = new Set(SOCIAL_MANAGE_CONFIG_KEYS);
 /**
  * `settings.app_config` may write every key; `social.manage` may write only
  * the social settings keys shown on the Social page; `finance.manage` may
- * write only the default finance-approval threshold.
+ * write only the default finance-approval threshold and the 80G
+ * registration used by the donations return.
  */
 export function assertCanWriteAppConfig(
   ctx: Context | undefined,
@@ -27,7 +32,11 @@ export function assertCanWriteAppConfig(
   if (socialManageKeys.has(key) && can(ctx, "social.manage")) {
     return;
   }
-  if (key === APP_CONFIG_FINANCE_THRESHOLD_KEY && can(ctx, "finance.manage")) {
+  if (
+    (key === APP_CONFIG_FINANCE_THRESHOLD_KEY ||
+      key === RETURN_REGISTRATION_CONFIG_KEY) &&
+    can(ctx, "finance.manage")
+  ) {
     return;
   }
   throw new Error("Unauthorized");
@@ -35,6 +44,14 @@ export function assertCanWriteAppConfig(
 
 /** Values that drive finance controls must be whole, safe paise amounts. */
 export function assertValidAppConfigValue(key: string, value: string): void {
+  if (key === RETURN_REGISTRATION_CONFIG_KEY) {
+    if (!parseReturnRegistration(value)) {
+      throw new Error(
+        "The 80G registration needs a URN, its date of issue and a section code"
+      );
+    }
+    return;
+  }
   if (key !== APP_CONFIG_FINANCE_THRESHOLD_KEY) {
     return;
   }

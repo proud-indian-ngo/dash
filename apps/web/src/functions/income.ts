@@ -16,8 +16,11 @@ export interface MissingDonorDetailsResponse {
 }
 
 /**
- * Donors who gave this financial year but lack an ID number or an address,
- * for the Income page's "Missing donor details" stat. Private details are
+ * Donors whose details hold up this financial year's donations return, for
+ * the Income page's "Missing donor details" stat, by the same rules as the
+ * readiness page (`listDonorsMissingFilingDetails`): a gift in the return
+ * without the donor's ID number, or any received gift without the donor's
+ * name or an address with PIN code, opted out or not. Private details are
  * server-only, so this returns the count and party IDs, never the details.
  * A read, so it is not audited.
  */
