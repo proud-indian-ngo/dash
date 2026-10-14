@@ -37,9 +37,15 @@ signers under `avatars` and `updates`.
 Approving a reimbursement or advance payment requires a payment screenshot:
 approval is given only after the claimant has been paid, and the screenshot is
 the payment evidence. The `approve` mutators reject the transition to approved
-unless the call carries a newly uploaded `approval-screenshots` key or the
-record already holds one. Rejecting, resetting and editing do not need it, and
-requests approved before the rule keep their missing screenshot.
+unless the call carries a newly uploaded key or the record already holds one.
+A new key must sit under the approver's own
+`<R2_KEY_PREFIX>/approval-screenshots/tmp/<userId>/` folder, and the claim
+checks the stored object's type and size against the approval-screenshot
+limits; a temporary key that no longer exists is refused even when its durable
+target does. Rejecting and resetting to pending clear the stored screenshot and
+queue the file for deletion, so the next approval needs a fresh one. Editing
+does not need it, and requests approved before the rule keep their missing
+screenshot.
 
 Vendor-payment invoice signing accepts the payment ID only to authorize the
 payment owner or a user with `requests.approve` or `requests.edit_all`; the

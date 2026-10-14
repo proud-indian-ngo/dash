@@ -35,6 +35,8 @@ export interface CopyR2ObjectInput {
   targetKey: string;
 }
 
+const TEMPORARY_KEY_PATTERN = /\/tmp\//;
+
 const normalizeMimeType = (mimeType: string): string =>
   mimeType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
 
@@ -141,6 +143,14 @@ export async function copyR2Object(
   deps = defaultDeps
 ): Promise<void> {
   const s3 = await deps.getS3();
+  // A temporary key must still exist even when its durable target does, so a
+  // made-up temporary key cannot re-reference an earlier claimed object.
+  const sourceIsTemporary =
+    input.sourceKey !== input.targetKey &&
+    TEMPORARY_KEY_PATTERN.test(input.sourceKey);
+  if (sourceIsTemporary && !(await s3.exists(input.sourceKey))) {
+    throw new Error("Temporary upload not found");
+  }
   if (await s3.exists(input.targetKey)) {
     if (input.byteSize !== undefined) {
       const target = await s3.stat(input.targetKey);
@@ -154,7 +164,7 @@ export async function copyR2Object(
     }
     return;
   }
-  if (!(await s3.exists(input.sourceKey))) {
+  if (!(sourceIsTemporary || (await s3.exists(input.sourceKey)))) {
     throw new Error("Temporary upload not found");
   }
   const source = await s3.stat(input.sourceKey);
