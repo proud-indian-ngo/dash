@@ -103,6 +103,16 @@ test.describe("Events agenda", () => {
     await expect(eventLink(page, UPCOMING_PUBLIC)).toBeVisible();
   });
 
+  test("starts with 30 days and loads 30 more on request", async ({ page }) => {
+    const until = page.getByText(/^Showing until /);
+    await expect(until).toBeVisible();
+    const before = await until.textContent();
+
+    await page.getByRole("button", { name: /^Show next 30 days/ }).click();
+    await expect(until).not.toHaveText(before ?? "");
+    await expect(eventLink(page, UPCOMING_PUBLIC)).toBeVisible();
+  });
+
   test("query params apply on load", async ({ page }) => {
     await page.goto("/events?show=public&city=bangalore");
     await waitForZeroReady(page);

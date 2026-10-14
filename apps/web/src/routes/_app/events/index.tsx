@@ -2,12 +2,16 @@ import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useMemo } from "react";
 
+import { countReviewableInterests } from "@/components/events/event-row-action";
 import { EventsAgenda } from "@/components/events/events-agenda";
 import type { PublicEventRow } from "@/components/events/public-events-table";
 import { PageHeader } from "@/components/shared/page-header";
 import { TipStrip } from "@/components/shared/tip-strip";
+import { useApp } from "@/context/app-context";
 import { preloadRouteQuery } from "@/lib/route-preload";
+import { isTeamLead } from "@/lib/team-utils";
 
 export const Route = createFileRoute("/_app/events/")({
   component: PublicEventsRouteComponent,
@@ -39,7 +43,21 @@ function PublicEventsRouteComponent() {
   const isLoading = data.length === 0 && result.type !== "complete";
   const [myInterests] = useQuery(queries.eventInterest.byCurrentUser());
   const [myTeams] = useQuery(queries.team.byCurrentUser());
-  const myTeamIds = new Set(myTeams.map((t) => t.id));
+  const myTeamIds = useMemo(() => new Set(myTeams.map((t) => t.id)), [myTeams]);
+  const { hasPermission } = useApp();
+  // Reviewers see how many interest requests each event is waiting on.
+  const canReviewInterest =
+    hasPermission("events.manage_interest") ||
+    myTeams.some((t) => isTeamLead(t.members, session.user.id));
+  // The dashboard's query on purpose: it shares the cached sync, and its
+  // related event gives the start time the badge needs.
+  const [pendingInterests] = useQuery(queries.eventInterest.allPending(), {
+    enabled: canReviewInterest,
+  });
+  const pendingInterestCounts = useMemo(
+    () => countReviewableInterests(pendingInterests, Date.now()),
+    [pendingInterests]
+  );
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
@@ -56,6 +74,7 @@ function PublicEventsRouteComponent() {
           isLoading={isLoading}
           myInterests={myInterests}
           myTeamIds={myTeamIds}
+          pendingInterestCounts={pendingInterestCounts}
           userId={session.user.id}
         />
       </div>
