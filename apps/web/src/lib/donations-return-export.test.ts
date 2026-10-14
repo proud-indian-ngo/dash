@@ -81,8 +81,12 @@ mock.module("@pi-dash/db/queries/donations-return", () => ({
   loadReturnRegistration: async () => registration,
 }));
 
-const { buildAllGiftsFile, buildUploadFile, DonationsReturnError } =
-  await import("./donations-return-export");
+const {
+  buildAllGiftsFile,
+  buildUploadFile,
+  DonationsReturnError,
+  loadAllGiftsRows,
+} = await import("./donations-return-export");
 
 const fy = {
   endsOn: "2027-03-31",
@@ -217,5 +221,24 @@ describe("buildAllGiftsFile", () => {
     expect(lines[2]).toContain("500.00,100.00,400.00");
     expect(lines[3]).toContain("Needs attention,No ID number");
     expect(lines[4]).toContain("Excluded,Gift excluded: Not a donation");
+  });
+});
+
+describe("loadAllGiftsRows (CA workbook)", () => {
+  beforeEach(() => {
+    idModes = [];
+  });
+
+  it("masks every ID to its last four characters", async () => {
+    const rows = await loadAllGiftsRows(fy);
+    expect(idModes).toEqual(["validate"]);
+    expect(JSON.stringify(rows)).not.toContain(PAN);
+    expect(rows[0]?.id).toBe("PAN ending 234F");
+    expect([rows[0]?.receiptIssuer, rows[0]?.receiptNumber]).toEqual([
+      "pi-dash",
+      "PI/2026-27/0001",
+    ]);
+    // A donor without an ID stays blank.
+    expect(rows[2]?.id).toBe("");
   });
 });

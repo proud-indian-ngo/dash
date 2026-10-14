@@ -421,3 +421,7 @@ The new permission `donors.receipt` goes to every finance admin and super admin 
 1. Fills in Settings → Organisation accounts → Donation receipts: the trust's registered name, address, PAN, and the signatory's name and designation (printed on every receipt; never seed the real values).
 2. Checks the 80G registration (URN and date) under Donations return in the same page.
 3. Has the CA confirm the receipt wording marked CA TO CONFIRM in `packages/shared/src/receipts.ts` before the first receipt is sent.
+
+### CA handoff workbook (books layer 3-5)
+
+Nothing to configure: no migration, environment variable, service or queue. The web app gains the server-only `write-excel-file` dependency, installed by the existing `bun install` layer. After the deploy a finance admin can download the workbook from Finance → Books → ⋯ → Download CA workbook (XLSX) once the opening balances are posted.

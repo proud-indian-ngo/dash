@@ -57,6 +57,7 @@
     "recharts": "^3.10.1",
     "sonner": "catalog:",
     "uuidv7": "catalog:",
+    "write-excel-file": "^4.1.1",
     "yet-another-react-lightbox": "^3.32.2",
     "zod": "catalog:"
   },

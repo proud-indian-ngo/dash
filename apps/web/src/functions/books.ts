@@ -7,6 +7,7 @@ import z from "zod";
 import {
   assertServerAnyPermission,
   assertServerPermission,
+  buildSessionContext,
 } from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
 import {
@@ -18,6 +19,7 @@ import {
   reopenFiscalYear,
   reverseOpeningBalances,
 } from "@/lib/books/server";
+import { buildCaWorkbook, type CaWorkbookFile } from "@/lib/ca-workbook/server";
 import { authMiddleware } from "@/middleware/auth";
 
 /**
@@ -177,5 +179,58 @@ export const postPendingFn = createServerFn({ method: "POST" })
         target: { type: "books" },
       },
       () => postPendingNow(session.user.id)
+    );
+  });
+
+/**
+ * The CA handoff workbook (XLSX) for one financial year: the books and the
+ * donations return's gift list. Needs `finance.view` or `finance.manage`.
+ * Donor IDs are always masked to their last four characters (the Form 113
+ * upload file is where full IDs go). The donor list sheet is included only
+ * for holders of a donor permission or `finance.view_sensitive`; for
+ * anyone else it is a one-line note. Audited as `books.ca_workbook.export`
+ * with the year, the row counts and whether the donor list was included,
+ * because it can carry donor data in bulk.
+ */
+const DONOR_LIST_PERMISSIONS = [
+  "donors.view",
+  "donors.manage",
+  "finance.view_sensitive",
+];
+
+export const exportCaWorkbook = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ fiscalYearId: z.uuid() }))
+  .handler(async ({ context, data }): Promise<CaWorkbookFile> => {
+    await assertServerAnyPermission(context.session, [
+      "finance.view",
+      "finance.manage",
+    ]);
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    const { session } = context;
+    const { permissions } = await buildSessionContext(session);
+    // Built in memory first so the ledger row can carry the counts; nothing
+    // leaves the server until the audited action returns it.
+    const built = await buildCaWorkbook({
+      fiscalYearId: data.fiscalYearId,
+      includeDonors: DONOR_LIST_PERMISSIONS.some((p) =>
+        permissions.includes(p)
+      ),
+    });
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "books.ca_workbook.export",
+        metadata: {
+          ...built.counts,
+          donorListIncluded: built.donorListIncluded,
+          financialYear: built.financialYear,
+        },
+        target: { id: data.fiscalYearId, type: "fiscal_year" },
+      },
+      async () => built.file
     );
   });

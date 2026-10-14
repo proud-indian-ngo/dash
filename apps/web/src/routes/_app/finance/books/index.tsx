@@ -1,6 +1,7 @@
 import {
   Book02Icon,
   BookUploadIcon,
+  FileDownloadIcon,
   FileValidationIcon,
   SquareLock01Icon,
   SquareUnlock01Icon,
@@ -38,6 +39,11 @@ import { useState } from "react";
 
 import { AccountsRail } from "@/components/books/accounts-rail";
 import { BalanceSummaryTab } from "@/components/books/balance-summary-tab";
+import {
+  CaWorkbookLabel,
+  caWorkbookBlocker,
+  useCaWorkbookDownload,
+} from "@/components/books/ca-workbook";
 import { CashBookTab } from "@/components/books/cash-book-tab";
 import { IncomeExpenditureTab } from "@/components/books/income-expenditure-tab";
 import { formatDay } from "@/components/books/labels";
@@ -92,6 +98,7 @@ function BooksPage() {
   const { post: postPending, posting } = usePostPending();
   const canPostPending = hasPermission("finance.post_pending");
   const [reopening, setReopening] = useState(false);
+  const workbook = useCaWorkbookDownload();
 
   const year =
     books.years.find((y) => y.label === yearParam) ??
@@ -159,6 +166,19 @@ function BooksPage() {
     movements: books.movements,
   });
 
+  // The workbook starts from the cutover year's opening balances.
+  const openingPosted = books.openingBalances.some(
+    (o) =>
+      !o.reversalPostingId &&
+      books.years.some(
+        (y) => y.id === o.fiscalYearId && y.startsOn === LEDGER_CUTOVER_ON
+      )
+  );
+  const workbookBlocker = caWorkbookBlocker({
+    openingPosted,
+    startsBeforeCutover: year.startsOn < LEDGER_CUTOVER_ON,
+  });
+
   const lastEvent = yearEvents.find((e) => e.fiscalYearId === year.id);
   const canPostOpening = hasPermission("finance.post_opening");
   const openOpening = () => navigate({ to: "/finance/books/opening" });
@@ -205,6 +225,17 @@ function BooksPage() {
                   id: "post-pending",
                   label: posting ? "Posting..." : "Post pending",
                   onSelect: postPending,
+                },
+                {
+                  disabled: workbook.downloading || workbookBlocker !== null,
+                  icon: FileDownloadIcon,
+                  id: "ca-workbook",
+                  label: workbook.downloading ? (
+                    "Building workbook..."
+                  ) : (
+                    <CaWorkbookLabel blocker={workbookBlocker} />
+                  ),
+                  onSelect: () => workbook.download(year.id),
                 },
                 {
                   icon: FileValidationIcon,
