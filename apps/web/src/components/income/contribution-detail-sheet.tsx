@@ -40,6 +40,7 @@ import { type ContributionRow, donorName } from "./income-types";
 import {
   type ContributionSettlement,
   useContributionSettlement,
+  useSettlementLock,
 } from "./settlements/contribution-settlement";
 import { shortId } from "./settlements/settlement-types";
 
@@ -141,6 +142,11 @@ export function ContributionDetailSheet({
   const settlement = useContributionSettlement(
     contribution?.id ?? null,
     seesSettlements && isRazorpayGift
+  );
+  // Paid out by a processed settlement (or not known yet): no Delete.
+  const settlementLock = useSettlementLock(
+    contribution?.id ?? null,
+    isRazorpayGift
   );
   if (!contribution) {
     return (
@@ -260,7 +266,7 @@ export function ContributionDetailSheet({
                     Edit
                   </Button>
                 ) : null}
-                {canEdit && canDelete && settlement.kind !== "settled" ? (
+                {canEdit && canDelete && settlementLock === "unlocked" ? (
                   <PageHeaderMenu
                     actions={[
                       {

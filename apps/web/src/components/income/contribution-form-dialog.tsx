@@ -58,7 +58,7 @@ import { paiseToRupeesInput } from "@/lib/paise";
 
 import type { ContributionRow } from "./income-types";
 import { withCurrentOption } from "./picker-options";
-import { useContributionSettlement } from "./settlements/contribution-settlement";
+import { useSettlementLock } from "./settlements/contribution-settlement";
 
 const enumOptions = <T extends string>(
   values: readonly T[],
@@ -269,22 +269,21 @@ function ContributionForm({
 }) {
   const zero = useZero();
   const isEdit = contribution !== null;
-  const { hasPermission } = useApp();
   // A refund recorded against it, or a processed Razorpay settlement that
-  // paid it out, fixes what the provider reported. Settlements sync only
-  // to finance holders; the server checks for everyone else.
-  const settlement = useContributionSettlement(
+  // paid it out, fixes what the provider reported; until the settlement is
+  // known the fields stay fixed.
+  const settlementLock = useSettlementLock(
     contribution?.id ?? null,
-    contribution !== null &&
-      razorpayPaymentUrl(contribution) !== null &&
-      (hasPermission("finance.view") || hasPermission("finance.manage"))
+    contribution !== null && razorpayPaymentUrl(contribution) !== null
   );
   const hasRefund = (contribution?.refunds?.length ?? 0) > 0;
-  const refundLocked = hasRefund || settlement.kind === "settled";
+  const refundLocked = hasRefund || settlementLock !== "unlocked";
   const lockedNote = hasRefund
     ? "Fixed: a refund is recorded against this contribution."
     : refundLocked
-      ? "Fixed: Razorpay has settled this contribution to the bank."
+      ? settlementLock === "locked"
+        ? "Fixed: Razorpay has settled this contribution to the bank."
+        : "Fixed until pi-dash has checked whether Razorpay settled it."
       : undefined;
   // Fixed for the life of the form so a retried save cannot duplicate.
   const [id] = useState(() => contribution?.id ?? uuidv7());

@@ -1,6 +1,13 @@
-import { razorpaySettlementSummary } from "@pi-dash/db/queries/razorpay-settlements";
-import { currentFinancialYear } from "@pi-dash/shared/income";
+import {
+  isContributionSettlementLocked,
+  razorpaySettlementSummary,
+} from "@pi-dash/db/queries/razorpay-settlements";
+import {
+  currentFinancialYear,
+  INCOME_PERMISSIONS,
+} from "@pi-dash/shared/income";
 import { createServerFn } from "@tanstack/react-start";
+import z from "zod";
 
 import { assertServerAnyPermission } from "@/lib/api-auth";
 import { razorpaySetup } from "@/lib/razorpay/config";
@@ -59,4 +66,28 @@ export const getSettlementSummary = createServerFn({ method: "POST" })
       () => razorpaySettlementSummary(setup.mode, fy)
     );
     return { ...summary, financialYear: fy.label, mode: setup.mode };
+  });
+
+/**
+ * Whether a processed Razorpay settlement has paid a contribution out, so
+ * the form and sheet can fix its reported fields and hide Delete for
+ * people who cannot sync settlements (donors.view or donors.manage without
+ * finance.view). Only the yes or no leaves the server. A read, so it is
+ * not audited.
+ */
+export const getContributionSettlementLock = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ contributionId: z.uuid() }))
+  .handler(async ({ context, data }): Promise<{ locked: boolean }> => {
+    await assertServerAnyPermission(context.session, INCOME_PERMISSIONS);
+    const locked = await withSafeErrors(
+      {
+        fields: { event: "settlement_lock_failed" },
+        isUserFacing: () => false,
+        message: "The contribution's settlement couldn't be checked.",
+        path: "razorpay-settlements",
+      },
+      () => isContributionSettlementLocked(data.contributionId)
+    );
+    return { locked };
   });

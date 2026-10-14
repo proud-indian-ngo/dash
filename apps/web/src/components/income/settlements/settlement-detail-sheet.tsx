@@ -180,12 +180,10 @@ function SettlementBody({ settlement }: { settlement: SettlementDetail }) {
       )}
       {unreadable > 0 ? (
         <Warning testId="settlement-unreadable">
-          {unreadable === 1
-            ? "1 line"
-            : `${unreadable.toLocaleString("en-IN")} lines`}{" "}
-          not readable: Razorpay listed {unreadable === 1 ? "a line" : "lines"}{" "}
-          for this settlement in another currency or a shape pi-dash doesn't
-          read, so {unreadable === 1 ? "it isn't" : "they aren't"} counted here.
+          At least {unreadable.toLocaleString("en-IN")}{" "}
+          {unreadable === 1 ? "line" : "lines"} not readable: Razorpay listed
+          lines for this settlement in another currency or a shape pi-dash
+          doesn't read, so they aren't counted here.
         </Warning>
       ) : null}
       {settlement.amountChanged ? (

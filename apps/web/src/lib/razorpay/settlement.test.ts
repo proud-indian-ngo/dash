@@ -277,6 +277,7 @@ describe("settlement lines", () => {
       created_at: 1_596_771_429,
       fees: 590,
       id: "setlod_FNj7g2YS5J67Rz",
+      instantInProgress: false,
       status: "processed",
       tax: 90,
       utr: null,
@@ -432,10 +433,10 @@ describe("syncSettlementsForDay", () => {
     expect(failures).toEqual(["setl_DGlQ1Rj8os78Ec"]);
   });
 
-  it("counts a settlement once when a run sees it on two days", async () => {
+  it("counts a settlement once when a run sees it on two days, ending with its latest unlinked lines", async () => {
     const { client } = fakeClient({ reconByDay: { "2019-09-11": DOC_RECON } });
     const { record } = recorded();
-    const seen = new Set<string>();
+    const seen = new Map<string, number>();
     const deps = { logFailure: () => undefined, record };
     const first = await syncSettlementsForDay(
       "2019-09-11",
@@ -455,6 +456,82 @@ describe("syncSettlementsForDay", () => {
     );
     expect(first.tally).toMatchObject({ found: 1, new: 1, unlinked: 1 });
     expect(second.tally).toMatchObject({ found: 0, new: 0, unlinked: 0 });
+
+    // First recorded with no lines on one day, its lines reported the next:
+    // the unlinked lines found then still count.
+    const late = new Map<string, number>();
+    const unlinkedByCall = [0, 2];
+    const lateRecord = async (input: SettlementToRecord) => ({
+      amountChanged: false,
+      created: true,
+      linked: 0,
+      settlementId: `id-${input.externalId}`,
+      unlinked: unlinkedByCall.shift() ?? 0,
+    });
+    const day1 = await syncSettlementsForDay(
+      "2019-09-11",
+      { from: 1, to: 2 },
+      fakeClient().client,
+      "test",
+      { logFailure: () => undefined, record: lateRecord },
+      late
+    );
+    const day2 = await syncSettlementsForDay(
+      "2019-09-12",
+      { from: 3, to: 4 },
+      fakeClient({
+        fetched: { setl_DGlQ1Rj8os78Ec: DOC_SETTLEMENT },
+        listed: [],
+        reconByDay: { "2019-09-12": DOC_RECON },
+      }).client,
+      "test",
+      { logFailure: () => undefined, record: lateRecord },
+      late
+    );
+    expect(day1.tally.unlinked + day2.tally.unlinked).toBe(2);
+    expect(day1.tally.found + day2.tally.found).toBe(1);
+  });
+
+  it("leaves an instant settlement still in progress for a later sync", async () => {
+    const { client } = fakeClient({
+      listed: [],
+      reconByDay: {
+        "2019-09-11": [
+          { ...DOC_RECON[0], settlement_id: "setlod_FNj7g2YS5J67Rz" },
+        ],
+      },
+    });
+    (client as { fetchSettlement: unknown }).fetchSettlement = async () =>
+      razorpayOndemandSettlementSchema.parse({
+        amount_settled: 100_000,
+        created_at: 1_568_176_960,
+        fees: 590,
+        id: "setlod_FNj7g2YS5J67Rz",
+        status: "partially_processed",
+        tax: 90,
+      });
+    const { record } = recorded();
+    const { tally } = await syncSettlementsForDay(
+      "2019-09-11",
+      { from: 1, to: 2 },
+      client,
+      "test",
+      { logFailure: () => undefined, record }
+    );
+    expect(record).not.toHaveBeenCalled();
+    expect(tally.found).toBe(0);
+    expect(
+      await syncRazorpaySettlement(
+        { settlementId: "setlod_FNj7g2YS5J67Rz" },
+        enabled(),
+        {
+          client: () => client,
+          now: () => new Date("2019-09-20T06:00:00Z"),
+          record,
+        }
+      )
+    ).toEqual({ outcome: "instant_in_progress" });
+    expect(record).not.toHaveBeenCalled();
   });
 });
 

@@ -550,7 +550,7 @@ describe("runRazorpayReconcile", () => {
       },
     });
     const settle = h.deps.settlements;
-    const seenSets = new Set<Set<string>>();
+    const seenSets = new Set<Map<string, number>>();
     h.deps.settlements = async (day, client, mode, logFailure, seen) => {
       h.calls.push(`settlements:${day}`);
       seenSets.add(seen);

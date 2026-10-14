@@ -151,23 +151,27 @@ export interface SettlementDeps {
 }
 
 /**
- * Records a settlement and adds it to the tally. A settlement already
- * recorded earlier in the same run (listed on one day, its lines reported
- * on the next) adds only the lines it linked, so it is counted once.
+ * Records a settlement and adds it to the tally. `seen` holds, for each
+ * settlement the run has recorded, its unlinked lines then. A settlement
+ * recorded again in the same run (listed on one day, its lines reported on
+ * the next) is not counted again: it adds the lines it linked and the
+ * change in its unlinked lines, so the run ends with its latest count.
  */
 async function recordInto(
   tally: SettlementTally,
   record: SettlementToRecord,
   deps: SettlementDeps,
-  seen: Set<string>
+  seen: Map<string, number>
 ): Promise<void> {
   try {
     const result = await deps.record(record);
     tally.linked += result.linked;
-    if (seen.has(record.externalId)) {
+    const before = seen.get(record.externalId);
+    seen.set(record.externalId, result.unlinked);
+    if (before !== undefined) {
+      tally.unlinked += result.unlinked - before;
       return;
     }
-    seen.add(record.externalId);
     tally.found += 1;
     if (result.created) {
       tally.new += 1;
@@ -185,9 +189,10 @@ async function recordInto(
 /**
  * One India day of a reconcile run: the settlements created that day and
  * the lines settled that day, grouped by settlement. A settlement the
- * listing missed but the recon names is fetched by ID. `seen` carries the
- * settlements a run has already counted. Returns the tally and the pages
- * fetched; an API failure stops the run.
+ * listing missed but the recon names is fetched by ID; an instant
+ * settlement still in progress is left for a later sync. `seen` carries
+ * the settlements a run has already counted. Returns the tally and the
+ * pages fetched; an API failure stops the run.
  */
 export async function syncSettlementsForDay(
   day: string,
@@ -195,7 +200,7 @@ export async function syncSettlementsForDay(
   client: RazorpayClient,
   mode: RazorpayMode,
   deps: SettlementDeps,
-  seen: Set<string> = new Set()
+  seen: Map<string, number> = new Map()
 ): Promise<{ pages: number; tally: SettlementTally }> {
   const tally = emptySettlementTally();
   const listed = await client.listSettlements(window);
@@ -224,6 +229,9 @@ export async function syncSettlementsForDay(
     }
   }
   for (const settlement of settlements.values()) {
+    if (settlement.instantInProgress) {
+      continue;
+    }
     await recordInto(
       tally,
       toSettlementRecord(settlement, recon, mode),
@@ -243,7 +251,12 @@ export type SettlementSyncOutcome =
       unlinked: number;
     }
   | {
-      outcome: "disabled" | "no_key_secret" | "not_found" | "test_mode_refused";
+      outcome:
+        | "disabled"
+        | "instant_in_progress"
+        | "no_key_secret"
+        | "not_found"
+        | "test_mode_refused";
     };
 
 export interface SingleSettlementDeps {
@@ -297,6 +310,10 @@ export async function syncRazorpaySettlement(
   const settlement = await client.fetchSettlement(input.settlementId);
   if (!settlement) {
     return { outcome: "not_found" };
+  }
+  if (settlement.instantInProgress) {
+    // Its amount is not final; a later sync or webhook records it.
+    return { outcome: "instant_in_progress" };
   }
   const day = istDayOf(settlement.created_at);
   const following = shiftDay(day, 1);

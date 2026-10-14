@@ -386,11 +386,13 @@ it.skipIf(!localDatabase)(
       });
       await refund(tx, pending, "rfnd_Settled", 3000);
       // Not counted: reversed, another mode, and a gift with no Razorpay payment.
-      await gift(tx, base, {
+      // A reversed gift's refund is not counted either.
+      const reversed = await gift(tx, base, {
         amountPaise: 7000,
         identity: { mode, paymentId: "pay_Reversed" },
         status: "reversed",
       });
+      await refund(tx, reversed, "rfnd_Reversed", 7000);
       await gift(tx, base, {
         amountPaise: 9000,
         identity: { mode: `${mode}-other`, paymentId: "pay_Other" },

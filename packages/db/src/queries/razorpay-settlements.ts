@@ -355,9 +355,11 @@ export interface SettlementSummary {
  * with a Razorpay payment identity of this mode whose status is received,
  * receipted or refunded and whose payment has no line in a processed
  * settlement, less every refund of those contributions with no line in a
- * processed settlement. A fully refunded gift counts too, so its refund is
- * set against it. Settled payments whose payment is not in pi-dash are
- * counted separately.
+ * processed settlement (Razorpay refunds only, of gifts counted above). A
+ * fully refunded gift counts too, so its refund is set against it. A gift
+ * recorded by hand and linked to a Razorpay payment holds no fee, so it
+ * counts gross until settled. Settled payments whose payment is not in
+ * pi-dash are counted separately.
  */
 export async function razorpaySettlementSummary(
   mode: string,
@@ -379,6 +381,7 @@ export async function razorpaySettlementSummary(
       and s.provider_account = ${mode}
       and s.status = 'processed'
   )`;
+  const counted = sql`${contribution.status} in ('received', 'receipted', 'refunded')`;
   const [gifts] = await executor
     .select({
       net: sql<string>`coalesce(sum(${contribution.amountPaise} - ${contribution.gatewayFeePaise} - ${contribution.gatewayTaxPaise}), 0)`,
@@ -387,7 +390,7 @@ export async function razorpaySettlementSummary(
     .where(
       and(
         razorpayGift,
-        sql`${contribution.status} in ('received', 'receipted', 'refunded')`,
+        counted,
         sql`not ${inProcessedSettlement(sql`i.type = 'payment' and i.contribution_id = ${contribution.id}`)}`
       )
     );
@@ -403,6 +406,8 @@ export async function razorpaySettlementSummary(
     .where(
       and(
         razorpayGift,
+        counted,
+        eq(contributionRefund.source, "razorpay"),
         sql`not ${inProcessedSettlement(sql`i.type = 'refund' and i.contribution_refund_id = ${contributionRefund.id}`)}`
       )
     );
@@ -480,4 +485,31 @@ export async function razorpaySettlementStatus(mode: string): Promise<{
     lastSyncedAt: row?.lastSyncedAt ?? null,
     unlinked: Number(lines?.n ?? 0),
   };
+}
+
+/**
+ * Whether a processed settlement has paid this contribution out, which
+ * fixes its amount, donor, date, account and channel and blocks its
+ * deletion (the Zero mutator checks the same). For people who cannot sync
+ * settlements.
+ */
+export async function isContributionSettlementLocked(
+  contributionId: string
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: gatewaySettlementItem.id })
+    .from(gatewaySettlementItem)
+    .innerJoin(
+      gatewaySettlement,
+      eq(gatewaySettlement.id, gatewaySettlementItem.settlementId)
+    )
+    .where(
+      and(
+        eq(gatewaySettlementItem.contributionId, contributionId),
+        eq(gatewaySettlementItem.type, "payment"),
+        eq(gatewaySettlement.status, "processed")
+      )
+    )
+    .limit(1);
+  return row !== undefined;
 }

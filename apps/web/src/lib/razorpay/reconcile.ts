@@ -333,7 +333,7 @@ export interface ReconcileDeps {
     client: RazorpayClient,
     mode: RazorpayMode,
     logFailure: SettlementDeps["logFailure"],
-    seen: Set<string>
+    seen: Map<string, number>
   ) => Promise<{ pages: number; tally: SettlementTally }>;
   stage: (
     payment: Parameters<typeof stageRazorpayPayment>[0],
@@ -454,7 +454,7 @@ async function reconcileDay(
   deps: ReconcileDeps,
   counts: ReconcileCounts,
   touched: Set<string>,
-  settlementsSeen: Set<string>
+  settlementsSeen: Map<string, number>
 ): Promise<number> {
   const window = indiaDayWindow(day);
   const payments = await client.listPayments(window);
@@ -558,7 +558,7 @@ export async function runRazorpayReconcile(
   const counts = emptyCounts();
   const touched = new Set<string>();
   // A settlement listed on one day and reported on the next counts once.
-  const settlementsSeen = new Set<string>();
+  const settlementsSeen = new Map<string, number>();
   const state: ReconcileState = {
     counts,
     from,

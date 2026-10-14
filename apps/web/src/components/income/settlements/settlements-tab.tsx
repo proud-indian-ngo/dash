@@ -1,9 +1,13 @@
 import {
+  Alert02Icon,
   BankIcon,
   Coins01Icon,
   Invoice03Icon,
   MoneyExchange03Icon,
+  RefreshIcon,
 } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { formatPaise } from "@pi-dash/shared/money";
 import { queries } from "@pi-dash/zero/queries";
@@ -25,7 +29,7 @@ import type { SettlementRow } from "./settlement-types";
 import { SettlementsTable } from "./settlements-table";
 
 export const AWAITING_SETTLEMENT_HINT =
-  "Razorpay gifts in pi-dash that no processed settlement has paid out yet (each gift less Razorpay's fee and GST), less their refunds that no processed settlement has taken back yet.";
+  "Razorpay gifts in pi-dash that no processed settlement has paid out yet (each gift less Razorpay's fee and GST), less their refunds that no processed settlement has taken back yet. A gift recorded by hand and linked to a Razorpay payment has no fee recorded, so it counts in full until settled.";
 
 /** Changes whenever a settlement is added or its amount or status changes. */
 const settlementsSignature = (rows: readonly SettlementRow[]) =>
@@ -36,20 +40,27 @@ const settlementsSignature = (rows: readonly SettlementRow[]) =>
 /**
  * The figures above the table. The clearing balance needs server-only
  * identities, so it comes from a server function, fetched again when the
- * settlements change.
+ * settlements change or on Retry. `failed` is set when the last load
+ * failed; figures loaded before stay.
  */
 function useSettlementSummary(refreshKey: string) {
   const load = useServerFn(getSettlementSummary);
   const [state, setState] = useState<SettlementSummaryResponse | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let cancelled = false;
     load()
       .then((result) => {
         if (!cancelled) {
           setState(result);
+          setFailed(false);
         }
       })
       .catch((error: unknown) => {
+        if (!cancelled) {
+          setFailed(true);
+        }
         log.error({
           action: "income.settlementSummary",
           caughtError: error instanceof Error ? error.message : String(error),
@@ -59,8 +70,12 @@ function useSettlementSummary(refreshKey: string) {
     return () => {
       cancelled = true;
     };
-  }, [refreshKey, load]);
-  return state;
+  }, [refreshKey, load, attempt]);
+  const retry = useEventCallback(() => {
+    setFailed(false);
+    setAttempt((n) => n + 1);
+  });
+  return { failed, retry, summary: state };
 }
 
 /**
@@ -76,14 +91,16 @@ export function SettlementsTab() {
     { enabled: mode !== null }
   );
   const rows = mode ? (settlements as SettlementRow[]) : [];
-  const summary = useSettlementSummary(settlementsSignature(rows));
+  const { failed, retry, summary } = useSettlementSummary(
+    settlementsSignature(rows)
+  );
   useEffect(() => {
     if (summary) {
       setMode(summary.mode);
     }
   }, [summary]);
   const isLoading =
-    summary === null ||
+    (summary === null && !failed) ||
     (mode !== null && rows.length === 0 && result.type !== "complete");
   const [openId, setOpenId] = useState<string | null>(null);
   const open = useEventCallback((row: SettlementRow) => setOpenId(row.id));
@@ -109,6 +126,26 @@ export function SettlementsTab() {
       value: summary ? formatPaise(summary.feesThisYearPaise) : "—",
     },
   ];
+
+  if (summary === null && failed) {
+    return (
+      <NotFoundState
+        actions={
+          <Button onClick={retry} type="button" variant="outline">
+            <HugeiconsIcon
+              className="size-4"
+              icon={RefreshIcon}
+              strokeWidth={2}
+            />
+            Retry
+          </Button>
+        }
+        description="Settlements and their figures couldn't be loaded."
+        icon={Alert02Icon}
+        title="Couldn't load settlements"
+      />
+    );
+  }
 
   const notImported = summary?.settledPaymentsNotImported ?? 0;
   const notImportedLine =

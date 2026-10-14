@@ -27,9 +27,16 @@ export const razorpaySettlementSchema = z.object({
   tax: paise.nullish(),
   utr: z.string().max(100).nullish(),
 });
-export type RazorpaySettlement = z.infer<typeof razorpaySettlementSchema>;
+export type RazorpaySettlement = z.infer<typeof razorpaySettlementSchema> & {
+  /**
+   * An instant settlement still on its way (created, initiated or partly
+   * processed): its amount is not final, so it is not recorded until it is
+   * processed or reversed.
+   */
+  instantInProgress?: boolean;
+};
 
-/** An instant settlement's states, read as a settlement's. */
+/** An instant settlement's final states, read as a settlement's. */
 const ONDEMAND_STATUS: Record<string, RazorpaySettlement["status"]> = {
   processed: "processed",
   reversed: "failed",
@@ -55,6 +62,7 @@ export const razorpayOndemandSettlementSchema = z
     created_at: o.created_at,
     fees: o.fees,
     id: o.id,
+    instantInProgress: !(o.status in ONDEMAND_STATUS),
     status: ONDEMAND_STATUS[o.status] ?? "created",
     tax: o.tax,
     utr: null,
