@@ -127,8 +127,14 @@ test.describe("Income: give.do import", () => {
     await expect(page.getByRole("tab", { name: /^All 6$/ })).toBeVisible({
       timeout: 20_000,
     });
-    await expect(tab(page, /^New donors 5$/)).toBeVisible();
+    await expect(page.getByTestId("import-review-summary")).toHaveText(
+      "5 gifts to import · 4 new donors · 1 error"
+    );
+    await expect(tab(page, /^New donor 5$/)).toBeVisible();
     await expect(tab(page, /^Errors 1$/)).toBeVisible();
+    await expect(page.locator('[data-row-number="3"]')).toContainText(
+      "Same donor as row 1"
+    );
     await tab(page, /^Errors 1$/).click();
     await expect(page.locator('[data-row-number="5"]')).toContainText(
       "Foreign currency: FCRA is not activated"
@@ -169,7 +175,7 @@ test.describe("Income: give.do import", () => {
       timeout: 20_000,
     });
     await expect(tab(page, /^Errors 1$/)).toBeVisible();
-    await expect(tab(page, /^New donors/)).toHaveCount(0);
+    await expect(tab(page, /^New donor/)).toHaveCount(0);
   });
 
   test("fills a returning donor's missing PAN when their email match is accepted", async ({
@@ -181,7 +187,7 @@ test.describe("Income: give.do import", () => {
 
     await uploadGiveDo(page, `give-do-${run.id}.csv`, fixtureCsv(run));
     await page.getByRole("button", { name: "Continue" }).click();
-    await expect(tab(page, /^New donors 5$/)).toBeVisible({ timeout: 20_000 });
+    await expect(tab(page, /^New donor 5$/)).toBeVisible({ timeout: 20_000 });
     await page.getByRole("button", { name: "Import 5 contributions" }).click();
     await page
       .getByRole("alertdialog")
@@ -209,6 +215,9 @@ test.describe("Income: give.do import", () => {
     });
     await expect(fillMissing).toBeChecked();
     await expect(row).toContainText("Adds the PAN / ID number from this row");
+    await expect(page.getByTestId("import-review-summary")).toHaveText(
+      "1 gift to import · 1 existing donor"
+    );
 
     await page.getByRole("button", { name: "Import 1 contribution" }).click();
     const confirm = page.getByRole("alertdialog");
