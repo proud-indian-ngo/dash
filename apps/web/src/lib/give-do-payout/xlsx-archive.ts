@@ -1,6 +1,6 @@
-import { inflateRawSync } from "node:zlib";
+import { crc32, inflateRawSync } from "node:zlib";
 
-import { strFromU8, unzipSync } from "fflate";
+import { zipSync } from "fflate";
 
 const CENTRAL_DIRECTORY_SIGNATURE = 0x0201_4b50;
 const DATA_DESCRIPTOR_SIGNATURE = 0x0807_4b50;
@@ -234,7 +234,8 @@ function validateCentralDirectory(bytes: Buffer): ArchiveEntry[] {
     if (
       startingDisk !== 0 ||
       nameLength === 0 ||
-      (flags & 0x0001) !== 0 ||
+      // Traditional, strong and central-directory encryption.
+      (flags & 0x2041) !== 0 ||
       (method !== 0 && method !== 8)
     ) {
       invalidArchive();
@@ -314,45 +315,121 @@ function validateCentralDirectory(bytes: Buffer): ArchiveEntry[] {
   if (expectedOffset !== centralDirectoryOffset) {
     invalidArchive();
   }
-  for (const entry of entries) {
-    if (entry.method === 0) {
-      if (entry.compressedBytes !== entry.uncompressedBytes) {
-        invalidArchive();
-      }
-      continue;
-    }
-    try {
-      const expanded = inflateRawSync(
-        bytes.subarray(
-          entry.dataOffset,
-          entry.dataOffset + entry.compressedBytes
-        ),
-        { maxOutputLength: entry.uncompressedBytes + 1 }
-      );
-      if (expanded.byteLength !== entry.uncompressedBytes) {
-        invalidArchive();
-      }
-    } catch {
-      invalidArchive();
-    }
-  }
   return entries;
 }
 
-export function inspectXlsxArchive(bytes: Buffer): { epoch1904: boolean } {
-  validateCentralDirectory(bytes);
-  const files = unzipSync(bytes, {
-    filter: (file) => file.name === "xl/workbook.xml",
-  });
-  const workbook = files["xl/workbook.xml"];
-  if (!workbook) {
+// The entries read-excel-file unpacks (its `filterZipArchiveEntry`).
+const PARSER_ENTRY_PATTERN = /\.xml(?:\.rels)?$/;
+const SAFE_ENTRY_NAME_PATTERN = /^[\w.\-[\]/%@~!$&'()+,;=]+$/;
+
+/** Returns the part name when the workbook reader needs this entry. */
+function parserEntryName(entry: ArchiveEntry): string | null {
+  const name = entry.name.toString("latin1");
+  if (!PARSER_ENTRY_PATTERN.test(name)) {
+    return null;
+  }
+  // Workbook part names are plain ASCII paths; anything else could decode
+  // differently in another reader, so it is rejected outright.
+  if (
+    !SAFE_ENTRY_NAME_PATTERN.test(name) ||
+    name.startsWith("/") ||
+    name.split("/").some((segment) => segment === ".." || segment === ".")
+  ) {
+    invalidArchive();
+  }
+  return name;
+}
+
+/**
+ * Inflates one entry from the validated central-directory record. The deflate
+ * stream must end exactly at the declared compressed size, expand to exactly
+ * the declared size and match the declared CRC-32.
+ */
+function extractEntry(bytes: Buffer, entry: ArchiveEntry): Buffer {
+  const data = bytes.subarray(
+    entry.dataOffset,
+    entry.dataOffset + entry.compressedBytes
+  );
+  let expanded: Buffer;
+  if (entry.method === 0) {
+    // A stored entry's end can only be found from its declared size, so a
+    // streaming reader would scan for a descriptor instead; reject that pairing.
+    if (
+      entry.compressedBytes !== entry.uncompressedBytes ||
+      (entry.flags & 0x0008) !== 0
+    ) {
+      invalidArchive();
+    }
+    expanded = data;
+  } else {
+    let result: { buffer: Buffer; engine: { bytesWritten: number } };
+    // `info: true` returns the engine too; @types/node has no overload for it.
+    try {
+      result = inflateRawSync(data, {
+        info: true,
+        maxOutputLength: entry.uncompressedBytes + 1,
+      }) as unknown as typeof result;
+    } catch {
+      return invalidArchive();
+    }
+    if (result.engine.bytesWritten !== entry.compressedBytes) {
+      invalidArchive();
+    }
+    expanded = result.buffer;
+  }
+  if (
+    expanded.byteLength !== entry.uncompressedBytes ||
+    crc32(expanded) !== entry.crc32
+  ) {
+    invalidArchive();
+  }
+  return expanded;
+}
+
+export interface SanitizedXlsxArchive {
+  epoch1904: boolean;
+  /**
+   * A freshly built ZIP holding only the validated, already-inflated parts the
+   * workbook reader uses. The uploaded bytes never reach another ZIP parser.
+   */
+  workbook: Buffer;
+}
+
+/**
+ * Validates an uploaded XLSX archive from its central directory, inflates every
+ * entry under exact size, CRC and stream-end checks, and rebuilds a clean
+ * archive from the workbook XML parts. Hidden local headers, fake data
+ * descriptors, trailing bytes after a deflate stream and comment tricks are
+ * either rejected or simply absent from the rebuilt archive.
+ */
+export function sanitizeXlsxArchive(bytes: Buffer): SanitizedXlsxArchive {
+  const entries = validateCentralDirectory(bytes);
+  const parts: Record<string, Uint8Array> = {};
+  let extractedBytes = 0;
+  for (const entry of entries) {
+    const name = parserEntryName(entry);
+    const expanded = extractEntry(bytes, entry);
+    extractedBytes += expanded.byteLength;
+    if (extractedBytes > MAX_EXPANDED_BYTES) {
+      throw new XlsxArchiveValidationError(
+        "The XLSX workbook exceeds the safe archive limits."
+      );
+    }
+    if (name !== null) {
+      parts[name] = expanded;
+    }
+  }
+  const workbookXml = parts["xl/workbook.xml"];
+  if (!workbookXml) {
     return invalidArchive();
   }
-  const workbookXml = strFromU8(workbook);
   return {
     epoch1904:
       /<(?:[\w.-]+:)?workbookPr\b[^>]*\bdate1904\s*=\s*["'](?:1|true)["']/i.test(
-        workbookXml
+        Buffer.from(workbookXml).toString("utf8")
       ),
+    workbook: Buffer.from(
+      zipSync(parts, { level: 0, mtime: new Date("1980-01-01T00:00:00Z") })
+    ),
   };
 }

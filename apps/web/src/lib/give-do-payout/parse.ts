@@ -21,7 +21,10 @@ import {
   GIVE_DO_PAYOUT_DONATION_HEADERS,
   GIVE_DO_PAYOUT_DONATIONS_SHEET,
 } from "./fields";
-import { inspectXlsxArchive, XlsxArchiveValidationError } from "./xlsx-archive";
+import {
+  sanitizeXlsxArchive,
+  XlsxArchiveValidationError,
+} from "./xlsx-archive";
 
 type RawRow = Record<string, string>;
 
@@ -394,8 +397,10 @@ export async function parseGiveDoPayout(
   let epoch1904: boolean;
   try {
     const bytes = workbookBytes(input);
-    ({ epoch1904 } = inspectXlsxArchive(bytes));
-    sheets = await readExcelFile<number>(bytes);
+    // Only the rebuilt archive reaches the workbook reader, never the upload.
+    const sanitized = sanitizeXlsxArchive(bytes);
+    epoch1904 = sanitized.epoch1904;
+    sheets = await readExcelFile<number>(sanitized.workbook);
   } catch (error) {
     if (error instanceof GiveDoPayoutParseError) {
       throw error;
