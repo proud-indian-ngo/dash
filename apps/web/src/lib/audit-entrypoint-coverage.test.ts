@@ -13,6 +13,7 @@ const AUDITED_SERVER_FUNCTIONS = [
   "deleteUserAdmin",
   "deleteVendor",
   "postEventRsvpPoll",
+  "resumeUserEmail",
   "revealPartyIdentifier",
   "revealVendorBankAccount",
   "revokeSocialApiTokenFn",
@@ -40,6 +41,7 @@ const EXEMPT_SERVER_FUNCTIONS = [
   "getProfilePictureUploadUrl",
   "getRequestUploadUrl",
   "getScheduledMessageUploadUrl",
+  "getUserEmailSuppression",
   "getVendorDetails",
   "inviteKalakritiGuardian",
   "updateKalakritiGuardian",
@@ -47,6 +49,10 @@ const EXEMPT_SERVER_FUNCTIONS = [
 
 const CLASSIFIED_API_POST_FILES = [
   "routes/api/auth/$.ts",
+  // Unauthenticated: Resend's signed webhook records bounces and complaints;
+  // unsubscribe is authorised by the signed link in the email, not a session.
+  "routes/api/email/unsubscribe.ts",
+  "routes/api/email/webhook.ts",
   "routes/api/jobs/$id/cancel.ts",
   "routes/api/jobs/$id/retry.ts",
   "routes/api/jobs/index.ts",

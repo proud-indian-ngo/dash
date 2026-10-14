@@ -74,6 +74,7 @@ export function createSubmissionNotifier({
         lineItems,
         note: note ?? undefined,
         paragraphs: [baseMessage],
+        status: { label: "Approved", tone: "success" },
       });
       await sendMessage({
         body: `${baseMessage}${totalSuffix}${note ? `\n\nMessage: ${note}` : ""}`,
@@ -97,6 +98,7 @@ export function createSubmissionNotifier({
         heading: `${entityLabel} not approved`,
         lineItems,
         paragraphs: [baseMessage, `Reason: ${reason}`],
+        status: { label: "Not approved", tone: "danger" },
       });
       await sendMessage({
         body: `${baseMessage} ${reason}${totalSuffix}`,
@@ -122,6 +124,7 @@ export function createSubmissionNotifier({
         heading: `New ${entityLabel.toLowerCase()} to review`,
         lineItems,
         paragraphs: [baseMessage],
+        status: { label: "Needs review", tone: "warning" },
       });
       await sendBulkMessage({
         body: `${baseMessage}${totalSuffix}`,

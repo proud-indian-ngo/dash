@@ -3,9 +3,9 @@ import NotificationEmail from "./notification-email";
 export default function ApprovalWithImage() {
   return (
     <NotificationEmail
-      ctaLabel="View Advance Payment"
+      ctaLabel="View advance payment"
       ctaUrl="https://dash.proudindian.ngo/advance-payments/ap-789"
-      heading="Advance Payment Approved"
+      heading="Advance payment approved"
       imageUrl="https://placehold.co/400x300/f6f9fc/6b7280?text=Payment+Proof"
       lineItems={[
         {
@@ -20,6 +20,7 @@ export default function ApprovalWithImage() {
         },
       ]}
       note="Payment has been processed via NEFT. Please check your account within 2 business days."
+      status={{ label: "Approved", tone: "success" }}
       paragraphs={[
         'Your advance payment "Event Venue Booking" has been approved.',
       ]}

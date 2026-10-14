@@ -8,6 +8,7 @@ import { createHash } from "node:crypto";
  *
  * Seeded tables:
  *   user, account (auto-created by auth.api.createUser), notificationTopicPreference,
+ *   emailSuppression,
  *   auditLog,
  *   role, permission, rolePermission (via syncPermissions),
  *   appConfig, whatsappGroup,
@@ -95,6 +96,7 @@ import {
 } from "@pi-dash/db/schema/kalakriti-results";
 import { notification } from "@pi-dash/db/schema/notification";
 import { party, partyRole } from "@pi-dash/db/schema/party";
+import { emailSuppression } from "@pi-dash/db/schema/private/email-suppression";
 import {
   collectionEvent,
   externalIdentity,
@@ -2880,6 +2882,22 @@ async function seedNotificationPreferences(
   log(`${prefs.length} notification preferences seeded`);
 }
 
+// ── 12a. Email suppressions ──────────────────────────────────────────────────
+
+/** One spam complaint, so the user sheet's "Email delivery" section has data. */
+async function seedEmailSuppressions(): Promise<void> {
+  log("Seeding email suppressions...");
+  await db
+    .insert(emailSuppression)
+    .values({
+      email: "volunteer3@pi-dash.dev",
+      reason: "complaint",
+      resendEmailId: "seed-complaint",
+    })
+    .onConflictDoNothing();
+  log("1 email suppression seeded");
+}
+
 // ── 13a. Notifications ──────────────────────────────────────────────────────
 
 async function seedNotifications(userMap: Map<string, string>): Promise<void> {
@@ -3081,6 +3099,7 @@ async function main(): Promise<void> {
   await seedVendors(userMap);
   await seedScheduledMessages(userMap);
   await seedNotificationPreferences(userMap);
+  await seedEmailSuppressions();
   await seedNotifications(userMap);
   await seedAppConfig();
 

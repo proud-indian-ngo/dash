@@ -12,6 +12,7 @@
   "dependencies": {
     "@pi-dash/auth": "workspace:*",
     "@pi-dash/db": "workspace:*",
+    "@pi-dash/notifications": "workspace:*",
     "better-auth": "catalog:",
     "date-fns": "catalog:",
     "dotenv": "catalog:",

@@ -1,92 +1,37 @@
-import { Column, Hr, Img, Link, Row, Section, Text } from "react-email";
+import { Link, Text } from "react-email";
 
-const socials = [
-  {
-    icon: "https://img.icons8.com/ios-filled/24/79697b/facebook-new.png",
-    name: "Facebook",
-    url: "https://www.facebook.com/proudIndianbengaluru",
-  },
-  {
-    icon: "https://img.icons8.com/ios-filled/24/79697b/instagram-new.png",
-    name: "Instagram",
-    url: "https://www.instagram.com/proudindian_ngo/",
-  },
-  {
-    icon: "https://img.icons8.com/ios-filled/24/79697b/linkedin.png",
-    name: "LinkedIn",
-    url: "https://www.linkedin.com/company/proud-indian",
-  },
-  {
-    icon: "https://img.icons8.com/ios-filled/24/79697b/youtube-play.png",
-    name: "YouTube",
-    url: "https://www.youtube.com/@ProudIndianngo",
-  },
-] as const;
+import { colors, DEFAULT_APP_URL } from "./theme";
 
-/** Attribution row with copyright + social icons. Sits inside the card. */
-export function EmailFooterBar() {
-  const year = new Date().getFullYear();
+/**
+ * Stand-in for the per-recipient "why you got this / unsubscribe" sentence.
+ * Notification HTML is rendered once per message, so the sender swaps this
+ * for each recipient's signed unsubscribe link (`withFooterNote`).
+ */
+export const FOOTER_NOTE_PLACEHOLDER = "%%PI_EMAIL_FOOTER_NOTE%%";
 
-  return (
-    <>
-      <Hr
-        className="m-0"
-        style={{
-          borderBottom: "none",
-          borderLeft: "none",
-          borderRight: "none",
-          borderTop: "1px solid #e7e4e7",
-        }}
-      />
-      <Section className="px-8 py-4">
-        <Row>
-          <Column className="align-middle">
-            <Text className="text-subtle m-0 text-[12px] leading-4">
-              &copy;{year} Proud Indian NGO
-            </Text>
-          </Column>
-          <Column className="text-right align-middle">
-            {socials.map((social, i) => (
-              <Link
-                className="no-underline"
-                href={social.url}
-                key={social.name}
-                style={{ marginLeft: i > 0 ? "10px" : "0" }}
-              >
-                <Img
-                  alt={social.name}
-                  className="inline-block"
-                  height="16"
-                  src={social.icon}
-                  width="16"
-                />
-              </Link>
-            ))}
-          </Column>
-        </Row>
-      </Section>
-    </>
-  );
-}
-
-interface EmailPreferencesLinkProps {
+/** Under the card of notification emails only. */
+export function NotificationFooter({
+  appUrl = DEFAULT_APP_URL,
+}: {
   appUrl?: string;
-}
-
-/** Preferences link. Sits outside the card, for notification emails only. */
-export function EmailPreferencesLink({
-  appUrl = "https://dash.proudindian.ngo",
-}: EmailPreferencesLinkProps) {
+}) {
   return (
-    <Section className="pt-3.5">
-      <Text className="text-subtle m-0 text-[11px] leading-4">
-        <Link
-          className="text-subtle underline"
-          href={`${appUrl}/settings/notifications`}
-        >
-          Manage notification preferences
-        </Link>
-      </Text>
-    </Section>
+    <Text
+      style={{
+        color: colors.muted,
+        fontSize: "12px",
+        lineHeight: "18px",
+        margin: 0,
+        padding: "16px 4px 0",
+      }}
+    >
+      {FOOTER_NOTE_PLACEHOLDER}
+      <Link
+        href={`${appUrl}/settings/notifications`}
+        style={{ color: colors.muted, textDecoration: "underline" }}
+      >
+        Notification settings
+      </Link>
+    </Text>
   );
 }

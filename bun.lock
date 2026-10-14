@@ -42,6 +42,7 @@
         "@pi-dash/db": "workspace:*",
         "@pi-dash/design-system": "workspace:*",
         "@pi-dash/editor": "workspace:*",
+        "@pi-dash/email": "workspace:*",
         "@pi-dash/env": "workspace:*",
         "@pi-dash/jobs": "workspace:*",
         "@pi-dash/notifications": "workspace:*",
@@ -179,6 +180,7 @@
       "dependencies": {
         "@pi-dash/auth": "workspace:*",
         "@pi-dash/db": "workspace:*",
+        "@pi-dash/notifications": "workspace:*",
         "better-auth": "catalog:",
         "date-fns": "catalog:",
         "dotenv": "catalog:",
@@ -247,6 +249,7 @@
         "react": "catalog:",
         "react-email": "^6.11.1",
         "resend": "^6.32.1",
+        "standardwebhooks": "1.1.1",
       },
       "devDependencies": {
         "@pi-dash/config": "workspace:*",

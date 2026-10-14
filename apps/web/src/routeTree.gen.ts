@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AuthRouteImport } from './routes/_auth'
+import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppSplatRouteImport } from './routes/_app/$'
 import { Route as AppAnalyticsRouteImport } from './routes/_app/analytics'
@@ -71,6 +72,8 @@ import { Route as AppVendorPaymentsNewRouteImport } from './routes/_app/vendor-p
 import { Route as AppVendorsIndexRouteImport } from './routes/_app/vendors/index'
 import { Route as ApiAttachmentsDownloadRouteImport } from './routes/api/attachments/download'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiEmailUnsubscribeRouteImport } from './routes/api/email/unsubscribe'
+import { Route as ApiEmailWebhookRouteImport } from './routes/api/email/webhook'
 import { Route as ApiJobsIndexRouteImport } from './routes/api/jobs/index'
 import { Route as ApiJobsIdRouteImport } from './routes/api/jobs/$id'
 import { Route as ApiJobsStatsRouteImport } from './routes/api/jobs/stats'
@@ -141,6 +144,11 @@ const AppRoute = AppRouteImport.update({
 } as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/_auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UnsubscribeRoute = UnsubscribeRouteImport.update({
+  id: '/unsubscribe',
+  path: '/unsubscribe',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -444,6 +452,16 @@ const ApiAttachmentsDownloadRoute = ApiAttachmentsDownloadRouteImport.update({
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiEmailUnsubscribeRoute = ApiEmailUnsubscribeRouteImport.update({
+  id: '/api/email/unsubscribe',
+  path: '/api/email/unsubscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiEmailWebhookRoute = ApiEmailWebhookRouteImport.update({
+  id: '/api/email/webhook',
+  path: '/api/email/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiJobsIndexRoute = ApiJobsIndexRouteImport.update({
@@ -792,6 +810,7 @@ const ApiSocialV1MediaPhotoIdVariantRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/unsubscribe': typeof UnsubscribeRoute
   '/donors': typeof AppDonorsRouteRouteWithChildren
   '/events': typeof AppEventsRouteRouteWithChildren
   '/income': typeof AppIncomeRouteRouteWithChildren
@@ -842,6 +861,8 @@ export interface FileRoutesByFullPath {
   '/vendor-payments/new': typeof AppVendorPaymentsNewRoute
   '/api/attachments/download': typeof ApiAttachmentsDownloadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/email/unsubscribe': typeof ApiEmailUnsubscribeRoute
+  '/api/email/webhook': typeof ApiEmailWebhookRoute
   '/api/jobs/$id': typeof ApiJobsIdRouteWithChildren
   '/api/jobs/stats': typeof ApiJobsStatsRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
@@ -917,6 +938,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/unsubscribe': typeof UnsubscribeRoute
   '/$': typeof AppSplatRoute
   '/analytics': typeof AppAnalyticsRoute
   '/audit-log': typeof AppAuditLogRoute
@@ -956,6 +978,8 @@ export interface FileRoutesByTo {
   '/vendor-payments/new': typeof AppVendorPaymentsNewRoute
   '/api/attachments/download': typeof ApiAttachmentsDownloadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/email/unsubscribe': typeof ApiEmailUnsubscribeRoute
+  '/api/email/webhook': typeof ApiEmailWebhookRoute
   '/api/jobs/$id': typeof ApiJobsIdRouteWithChildren
   '/api/jobs/stats': typeof ApiJobsStatsRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
@@ -1030,6 +1054,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
+  '/unsubscribe': typeof UnsubscribeRoute
   '/_app/donors': typeof AppDonorsRouteRouteWithChildren
   '/_app/events': typeof AppEventsRouteRouteWithChildren
   '/_app/income': typeof AppIncomeRouteRouteWithChildren
@@ -1081,6 +1106,8 @@ export interface FileRoutesById {
   '/_app/vendor-payments/new': typeof AppVendorPaymentsNewRoute
   '/api/attachments/download': typeof ApiAttachmentsDownloadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/email/unsubscribe': typeof ApiEmailUnsubscribeRoute
+  '/api/email/webhook': typeof ApiEmailWebhookRoute
   '/api/jobs/$id': typeof ApiJobsIdRouteWithChildren
   '/api/jobs/stats': typeof ApiJobsStatsRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
@@ -1158,6 +1185,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/unsubscribe'
     | '/donors'
     | '/events'
     | '/income'
@@ -1208,6 +1236,8 @@ export interface FileRouteTypes {
     | '/vendor-payments/new'
     | '/api/attachments/download'
     | '/api/auth/$'
+    | '/api/email/unsubscribe'
+    | '/api/email/webhook'
     | '/api/jobs/$id'
     | '/api/jobs/stats'
     | '/api/log/ingest'
@@ -1283,6 +1313,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/unsubscribe'
     | '/$'
     | '/analytics'
     | '/audit-log'
@@ -1322,6 +1353,8 @@ export interface FileRouteTypes {
     | '/vendor-payments/new'
     | '/api/attachments/download'
     | '/api/auth/$'
+    | '/api/email/unsubscribe'
+    | '/api/email/webhook'
     | '/api/jobs/$id'
     | '/api/jobs/stats'
     | '/api/log/ingest'
@@ -1395,6 +1428,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/_auth'
+    | '/unsubscribe'
     | '/_app/donors'
     | '/_app/events'
     | '/_app/income'
@@ -1446,6 +1480,8 @@ export interface FileRouteTypes {
     | '/_app/vendor-payments/new'
     | '/api/attachments/download'
     | '/api/auth/$'
+    | '/api/email/unsubscribe'
+    | '/api/email/webhook'
     | '/api/jobs/$id'
     | '/api/jobs/stats'
     | '/api/log/ingest'
@@ -1523,12 +1559,15 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
+  UnsubscribeRoute: typeof UnsubscribeRoute
   ApiAuditLogRoute: typeof ApiAuditLogRoute
   ApiAvatarRoute: typeof ApiAvatarRoute
   ApiFinancialExportRoute: typeof ApiFinancialExportRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiAttachmentsDownloadRoute: typeof ApiAttachmentsDownloadRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiEmailUnsubscribeRoute: typeof ApiEmailUnsubscribeRoute
+  ApiEmailWebhookRoute: typeof ApiEmailWebhookRoute
   ApiJobsIdRoute: typeof ApiJobsIdRouteWithChildren
   ApiJobsStatsRoute: typeof ApiJobsStatsRoute
   ApiLogIngestRoute: typeof ApiLogIngestRoute
@@ -1573,6 +1612,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/unsubscribe': {
+      id: '/unsubscribe'
+      path: '/unsubscribe'
+      fullPath: '/unsubscribe'
+      preLoaderRoute: typeof UnsubscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/': {
@@ -1993,6 +2039,20 @@ declare module '@tanstack/react-router' {
       path: '/api/auth/$'
       fullPath: '/api/auth/$'
       preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/email/unsubscribe': {
+      id: '/api/email/unsubscribe'
+      path: '/api/email/unsubscribe'
+      fullPath: '/api/email/unsubscribe'
+      preLoaderRoute: typeof ApiEmailUnsubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/email/webhook': {
+      id: '/api/email/webhook'
+      path: '/api/email/webhook'
+      fullPath: '/api/email/webhook'
+      preLoaderRoute: typeof ApiEmailWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/jobs/': {
@@ -2815,12 +2875,15 @@ const ApiSocialV1EventsRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
+  UnsubscribeRoute: UnsubscribeRoute,
   ApiAuditLogRoute: ApiAuditLogRoute,
   ApiAvatarRoute: ApiAvatarRoute,
   ApiFinancialExportRoute: ApiFinancialExportRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiAttachmentsDownloadRoute: ApiAttachmentsDownloadRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiEmailUnsubscribeRoute: ApiEmailUnsubscribeRoute,
+  ApiEmailWebhookRoute: ApiEmailWebhookRoute,
   ApiJobsIdRoute: ApiJobsIdRouteWithChildren,
   ApiJobsStatsRoute: ApiJobsStatsRoute,
   ApiLogIngestRoute: ApiLogIngestRoute,
