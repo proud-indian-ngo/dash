@@ -13,6 +13,7 @@ import { useEffect, useRef } from "react";
 
 import { ErrorState } from "@/components/shared/error-state";
 import { StandalonePage } from "@/components/shared/not-found-state";
+import { isChunkLoadError, reloadForChunkError } from "@/lib/chunk-load-error";
 import { getErrorReference } from "@/lib/error-reference";
 
 export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
@@ -22,6 +23,7 @@ export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
     strict: false,
   });
   const canGoBack = useCanGoBack();
+  const chunkLoadFailed = isChunkLoadError(error);
   const loggedErrorRef = useRef<unknown>(null);
 
   useEffect(() => {
@@ -29,6 +31,10 @@ export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
       return;
     }
     loggedErrorRef.current = error;
+    // A chunk from another deploy failed to load: only a full reload recovers.
+    if (chunkLoadFailed && reloadForChunkError(error)) {
+      return;
+    }
     const traceId = getErrorReference(error);
     log.error({
       component: "DefaultCatchBoundary",
@@ -43,9 +49,13 @@ export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
           // Non-critical
         });
     }
-  }, [error]);
+  }, [chunkLoadFailed, error]);
 
   const retry = useEventCallback(async () => {
+    if (chunkLoadFailed) {
+      window.location.reload();
+      return;
+    }
     await router.invalidate();
   });
   const goBack = useEventCallback(() => window.history.back());

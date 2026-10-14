@@ -64,6 +64,7 @@ All paths are relative to project root.
 | `apps/web/vitest.config.ts` | Unit test config for web app |
 | `apps/web/src/components/data-table/data-table-wrapper.tsx`, `apps/web/src/components/data-table/{column-fill,use-column-fill}.ts` | Shared table rendering and viewport-aware last-unpinned-column fill, separate from persisted preferred widths |
 | `apps/web/vite.config.ts`, `apps/web/src/lib/dev/react-compiler-preset.ts` | Vite build configuration; keeps imperative ReUI sizing renderers outside React Compiler so resized widths and pin offsets stay current |
+| `apps/web/server/middleware/missing-asset.ts`, `apps/web/server/plugins/asset-cache.ts` | Unmatched `/assets/*` requests (chunks from another deploy) get a `no-store` 404 instead of reaching app routes; Nitro's `/assets/**` immutable header stays on successful responses only. Nitro runs `server/middleware` in filename order after its static handler |
 
 ### Routes
 
@@ -275,6 +276,7 @@ All function paths above are prefixed with `apps/web/src/`.
 | File | Purpose |
 |---|---|
 | `lib/api-auth.ts` | API route auth helpers |
+| `lib/chunk-load-error.ts` | Detects failed chunk imports after a deploy and reloads once per chunk per session; used by both error boundaries and the `vite:preloadError` listener in `__root.tsx` |
 | `lib/audit.ts` | Audit actor snapshots, sanitized mutation summaries, and audited-action runners |
 | `lib/auth-client.ts` | Better-auth client with admin plugin |
 | `lib/avatar.ts` | Avatar URL builder (DiceBear) |
