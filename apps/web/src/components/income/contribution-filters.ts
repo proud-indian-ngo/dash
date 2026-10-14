@@ -23,7 +23,11 @@ import {
 } from "@/components/data-table/filter-fields";
 import { useMigrateLegacyFilterParams } from "@/components/data-table/use-migrate-legacy-filter-params";
 
-import { type ContributionRow, donorName } from "./income-types";
+import {
+  type ContributionRow,
+  donorName,
+  importBatchLabel,
+} from "./income-types";
 
 /** Filter value for donors flagged by the "Missing donor details" stat. */
 export const MISSING_DETAILS_VALUE = "missing";
@@ -33,9 +37,13 @@ const options = <T extends string>(
   labels: Record<T, string>
 ) => values.map((value) => ({ label: labels[value], value }));
 
-/** `/income?donor=<partyId>` (the donor sheet's link) opens filtered to that donor. */
+/**
+ * `/income?donor=<partyId>` (the donor sheet's link) and
+ * `/income?batch=<batchId>` (an import's result link) open filtered.
+ */
 const LEGACY_CONTRIBUTION_FILTER_PARAMS = [
   { param: "donor", path: "donor" },
+  { param: "batch", path: "batch" },
 ] as const;
 
 /**
@@ -61,6 +69,8 @@ export function getContributionFilterValue(
   return (row: ContributionRow, path: string[]): unknown => {
     const [key] = path;
     switch (key) {
+      case "batch":
+        return row.importBatchId;
       case "channel":
         return row.channel;
       case "details":
@@ -123,6 +133,15 @@ export function createContributionFilterFields(
       "source",
       "Source",
       options(contributionSourceValues, CONTRIBUTION_SOURCE_LABELS)
+    ),
+    selectField(
+      "batch",
+      "Import",
+      optionsFromRows(
+        rows,
+        (row) => row.importBatchId,
+        (row) => (row.importBatch ? importBatchLabel(row.importBatch) : "")
+      )
     ),
     selectField("details", "Donor details", [
       {

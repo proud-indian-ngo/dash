@@ -13,6 +13,7 @@ export * from "./event-rsvp";
 export * from "./event-update";
 export * from "./expense-category";
 export * from "./finance-dimensions";
+export * from "./import-batch";
 export * from "./income";
 export * from "./kalakriti";
 export * from "./kalakriti-awards";

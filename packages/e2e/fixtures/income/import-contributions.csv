@@ -1,0 +1,5 @@
+Donation ID,Donor Name,PAN,Email,Amount,Date
+{RUN}-1,E2E Import Donor {RUN},{PAN},import-{RUN}@example.com,"1,250.00",01/04/2026
+{RUN}-2,E2E Import Donor {RUN},{PAN},import-{RUN}@example.com,500,02/04/2026
+{RUN}-3,E2E Import Broken {RUN},,,abc,03/04/2026
+{RUN}-1,E2E Import Donor {RUN},{PAN},import-{RUN}@example.com,"1,250.00",01/04/2026

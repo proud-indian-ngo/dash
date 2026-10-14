@@ -283,3 +283,55 @@ export const otherIncomeKindValues = [
   "misc",
 ] as const;
 export type OtherIncomeKind = (typeof otherIncomeKindValues)[number];
+
+// ── Imports ─────────────────────────────────────────────────────────────────
+
+/**
+ * Where an import batch came from. Razorpay (API), bank and UPI statements
+ * join later; their rows never become donations directly.
+ */
+export const importBatchSourceValues = ["give_do_csv", "generic_csv"] as const;
+export type ImportBatchSource = (typeof importBatchSourceValues)[number];
+
+/**
+ * draft: uploaded, not reviewed. reviewed: mapping saved and checked.
+ * importing: a run is writing rows. completed: a run finished (some rows may
+ * still be unresolved). failed: a run stopped part-way. expired: never
+ * imported, and its rows were deleted by the retention job.
+ */
+export const importBatchStatusValues = [
+  "draft",
+  "reviewed",
+  "importing",
+  "completed",
+  "failed",
+  "expired",
+] as const;
+export type ImportBatchStatus = (typeof importBatchStatusValues)[number];
+
+export const importRowOutcomeValues = [
+  "pending",
+  "imported",
+  "linked_existing",
+  "conflict",
+  "skipped",
+  "error",
+] as const;
+export type ImportRowOutcome = (typeof importRowOutcomeValues)[number];
+
+/** Who issued an external ID; `generic` covers spreadsheets with no provider. */
+export const externalIdentityProviderValues = ["give_do", "generic"] as const;
+export type ExternalIdentityProvider =
+  (typeof externalIdentityProviderValues)[number];
+
+export const externalIdentityEntityTypeValues = ["payment"] as const;
+export type ExternalIdentityEntityType =
+  (typeof externalIdentityEntityTypeValues)[number];
+
+/** DPDP Act processing basis for a collection of personal data. */
+export const processingBasisValues = [
+  "consent",
+  "voluntary_provision_7a",
+  "legal_disclosure_7d",
+] as const;
+export type ProcessingBasis = (typeof processingBasisValues)[number];

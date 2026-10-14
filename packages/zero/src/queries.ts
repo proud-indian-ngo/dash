@@ -20,7 +20,11 @@ import {
   programmeQueries,
   projectQueries,
 } from "./queries/finance-dimensions";
-import { contributionQueries, otherIncomeQueries } from "./queries/income";
+import {
+  contributionQueries,
+  importBatchQueries,
+  otherIncomeQueries,
+} from "./queries/income";
 import { kalakritiAssignmentQueries } from "./queries/kalakriti-assignment";
 import { kalakritiAttendeeQueries } from "./queries/kalakriti-attendee";
 import { kalakritiCenterQueries } from "./queries/kalakriti-center";
@@ -63,6 +67,7 @@ export const queries = defineQueries({
   expenseCategory: expenseCategoryQueries,
   fiscalYear: fiscalYearQueries,
   fund: fundQueries,
+  importBatch: importBatchQueries,
   kalakritiAssignment: kalakritiAssignmentQueries,
   kalakritiAttendee: kalakritiAttendeeQueries,
   kalakritiCenter: kalakritiCenterQueries,

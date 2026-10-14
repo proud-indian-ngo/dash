@@ -2,7 +2,9 @@ import {
   foreignSourceAssessmentValues,
   partyIdTypeValues,
 } from "@pi-dash/shared/constants";
+import { type SQL, sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
   date,
   index,
@@ -35,37 +37,52 @@ export const foreignSourceAssessmentEnum = privateSchema.enum(
   foreignSourceAssessmentValues
 );
 
-export const partyPrivate = privateSchema.table("party_private", {
-  addressLine1: text("address_line1"),
-  addressLine2: text("address_line2"),
-  assessedOn: date("assessed_on"),
-  assessmentNote: text("assessment_note"),
-  city: text("city"),
-  country: text("country").default("IN").notNull(),
-  email: text("email"),
-  foreignSourceAssessment: foreignSourceAssessmentEnum(
-    "foreign_source_assessment"
-  )
-    .default("domestic")
-    .notNull(),
-  /** Encrypted with DATA_ENCRYPTION_KEY; see packages/db/src/encryption.ts. */
-  idNumberEncrypted: text("id_number_encrypted"),
-  /** Last four characters in clear, for display and matching. */
-  idNumberLast4: text("id_number_last4"),
-  idType: partyIdTypeEnum("id_type").default("none").notNull(),
-  nationality: text("nationality"),
-  /** Restrict: identity evidence is disposed of by the retention process, never by a cascade. */
-  partyId: uuid("party_id")
-    .primaryKey()
-    .references(() => party.id, { onDelete: "restrict" }),
-  phone: text("phone"),
-  pincode: text("pincode"),
-  state: text("state"),
-  updatedAt: timestamp("updated_at").notNull(),
-  updatedBy: text("updated_by").references(() => user.id, {
-    onDelete: "set null",
-  }),
-});
+/** Lower-cased email, the form both the contact lookup and its index use. */
+export const emailKey = (email: AnyPgColumn): SQL => sql`lower(${email})`;
+
+/** The digits of a phone number, the form both the contact lookup and its index use. */
+export const phoneDigitsKey = (phone: AnyPgColumn): SQL =>
+  sql`regexp_replace(coalesce(${phone}, ''), '\\D', '', 'g')`;
+
+export const partyPrivate = privateSchema.table(
+  "party_private",
+  {
+    addressLine1: text("address_line1"),
+    addressLine2: text("address_line2"),
+    assessedOn: date("assessed_on"),
+    assessmentNote: text("assessment_note"),
+    city: text("city"),
+    country: text("country").default("IN").notNull(),
+    email: text("email"),
+    foreignSourceAssessment: foreignSourceAssessmentEnum(
+      "foreign_source_assessment"
+    )
+      .default("domestic")
+      .notNull(),
+    /** Encrypted with DATA_ENCRYPTION_KEY; see packages/db/src/encryption.ts. */
+    idNumberEncrypted: text("id_number_encrypted"),
+    /** Last four characters in clear, for display and matching. */
+    idNumberLast4: text("id_number_last4"),
+    idType: partyIdTypeEnum("id_type").default("none").notNull(),
+    nationality: text("nationality"),
+    /** Restrict: identity evidence is disposed of by the retention process, never by a cascade. */
+    partyId: uuid("party_id")
+      .primaryKey()
+      .references(() => party.id, { onDelete: "restrict" }),
+    phone: text("phone"),
+    pincode: text("pincode"),
+    state: text("state"),
+    updatedAt: timestamp("updated_at").notNull(),
+    updatedBy: text("updated_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+  },
+  (t) => [
+    // Contact matching for imports (findContributorsByContact).
+    index("party_private_email_lower_idx").on(emailKey(t.email)),
+    index("party_private_phone_digits_idx").on(phoneDigitsKey(t.phone)),
+  ]
+);
 
 export const partyBankAccount = privateSchema.table(
   "party_bank_account",
