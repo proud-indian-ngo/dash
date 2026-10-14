@@ -177,6 +177,7 @@ All paths are relative to project root.
 | `routes/_auth/verify-email.tsx` | Email verification |
 | `routes/unsubscribe.tsx` | Public page behind email unsubscribe links (confirm, undo) |
 | `routes/api/auth/$.ts` | Auth API handler |
+| `routes/api/version.ts` | Public, uncacheable `{ buildId }` of the running build (`lib/build-id.ts`, server-only), polled by `lib/new-version.ts` |
 | `routes/api/zero/query.ts` | Zero query endpoint |
 | `routes/api/zero/mutate.ts` | Zero mutate endpoint |
 | `routes/api/avatar.ts` | Avatar generation |
@@ -276,6 +277,7 @@ All function paths above are prefixed with `apps/web/src/`.
 | File | Purpose |
 |---|---|
 | `lib/api-auth.ts` | API route auth helpers |
+| `lib/new-version.ts` | Notes the server build at page load, rechecks every 5 minutes and on tab focus, and shows a persistent "new version" toast with Reload when it changes |
 | `lib/chunk-load-error.ts` | Detects failed chunk imports after a deploy and reloads once per chunk per session; used by both error boundaries and the `vite:preloadError` listener in `__root.tsx` |
 | `lib/audit.ts` | Audit actor snapshots, sanitized mutation summaries, and audited-action runners |
 | `lib/auth-client.ts` | Better-auth client with admin plugin |

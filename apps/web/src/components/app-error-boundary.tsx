@@ -1,4 +1,4 @@
-import { Alert01Icon } from "@hugeicons/core-free-icons";
+import { Alert01Icon, RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
@@ -6,7 +6,10 @@ import { log } from "evlog";
 import { type ReactNode, use } from "react";
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
 
-import { ErrorState } from "@/components/shared/error-state";
+import {
+  CHUNK_ERROR_DESCRIPTION,
+  ErrorState,
+} from "@/components/shared/error-state";
 import { AppContext } from "@/context/app-context";
 import { isChunkLoadError, reloadForChunkError } from "@/lib/chunk-load-error";
 import { getErrorReference } from "@/lib/error-reference";
@@ -38,7 +41,7 @@ function RootFallback(props: FallbackProps) {
         actions={
           <>
             <Button onClick={retry} type="button">
-              Try again
+              {isChunkLoadError(error) ? "Reload" : "Try again"}
             </Button>
             <Button onClick={goHome} type="button" variant="outline">
               Go to dashboard
@@ -56,6 +59,25 @@ function SectionFallback(props: FallbackProps) {
   const retry = useRetry(props);
   const appCtx = use(AppContext);
   const canSeeErrors = appCtx?.hasPermission("settings.app_config") ?? false;
+
+  if (isChunkLoadError(error)) {
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-md border p-6 text-center">
+        <HugeiconsIcon
+          className="text-muted-foreground size-6"
+          icon={RefreshIcon}
+          strokeWidth={2}
+        />
+        <p className="text-sm font-medium">A new version is available</p>
+        <p className="text-muted-foreground max-w-sm text-xs">
+          {CHUNK_ERROR_DESCRIPTION}
+        </p>
+        <Button onClick={retry} size="sm" type="button" variant="outline">
+          Reload
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="border-destructive/40 bg-destructive/10 flex flex-col items-center gap-3 rounded-md border p-6 text-center">
@@ -82,6 +104,21 @@ function InlineFallback(props: FallbackProps) {
   const retry = useRetry(props);
   const appCtx = use(AppContext);
   const canSeeErrors = appCtx?.hasPermission("settings.app_config") ?? false;
+
+  if (isChunkLoadError(error)) {
+    return (
+      <span className="text-muted-foreground text-sm">
+        New version available.{" "}
+        <button
+          className="underline underline-offset-2"
+          onClick={retry}
+          type="button"
+        >
+          Reload
+        </button>
+      </span>
+    );
+  }
 
   return (
     <span className="text-destructive text-sm">

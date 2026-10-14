@@ -9,7 +9,7 @@ import { createRequestLogger } from "evlog";
 import { defineMiddleware } from "nitro/h3";
 
 const SKIP_PREFIXES = ["/_build/", "/assets/", "/_server/"];
-const SKIP_EXACT = new Set(["/api/log/ingest", "/api/health"]);
+const SKIP_EXACT = new Set(["/api/log/ingest", "/api/health", "/api/version"]);
 
 function shouldSkip(path: string): boolean {
   return SKIP_EXACT.has(path) || SKIP_PREFIXES.some((p) => path.startsWith(p));
