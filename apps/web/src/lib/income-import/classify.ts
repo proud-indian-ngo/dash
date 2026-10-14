@@ -361,6 +361,12 @@ export type DonorChoice = string;
 export interface RowDecision {
   /** Only for rows with donor options. */
   donor?: DonorChoice;
+  /**
+   * With an existing donor proposed by email or phone: add the row's ID
+   * number, address, email or phone where that donor has none. On unless
+   * turned off.
+   */
+  fillMissing?: boolean;
   /** "skip" leaves any row out; "import" confirms a possible duplicate. */
   contribution?: "import" | "skip";
 }
@@ -379,6 +385,8 @@ export type RowPlan =
       donor:
         | { kind: "existing"; partyId: string }
         | { kind: "new"; key: string };
+      /** Fill the existing donor's empty details from this row. */
+      fill: boolean;
     };
 
 export const donorChoiceValue = (option: DonorOption): DonorChoice =>
@@ -423,6 +431,28 @@ function resolveDonor(
 }
 
 /**
+ * Whether the reviewer accepted an existing donor proposed by email or phone
+ * on this row and left "Fill missing details" on. ID-number matches already
+ * hold the identifier, so they never fill.
+ */
+export function fillsChosenDonor(
+  row: Pick<ClassifiedRow, "donor" | "donorOptions" | "sameDonorAs">,
+  decision: RowDecision
+): boolean {
+  if (
+    row.donor.kind !== "undecided" ||
+    row.sameDonorAs ||
+    decision.fillMissing === false
+  ) {
+    return false;
+  }
+  const option = row.donorOptions.find(
+    (o) => donorChoiceValue(o) === decision.donor
+  );
+  return option?.kind === "existing" && option.reason !== "id_number";
+}
+
+/**
  * Applies the reviewer's choices to classified rows. Rows that still need a
  * choice and did not get one are skipped, never guessed. A row that joins an
  * earlier row's donor, by choice or by the same ID number, gets that row's
@@ -464,7 +494,11 @@ export function planRows(
         return { action: "skip", reason: "undecided" };
       }
       return donor
-        ? { action: "import", donor }
+        ? {
+            action: "import",
+            donor,
+            fill: donor.kind === "existing" && fillsChosenDonor(row, decision),
+          }
         : { action: "skip", reason: "undecided" };
     })();
     plans.set(row.rowId, plan);

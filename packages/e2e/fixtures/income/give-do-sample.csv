@@ -1,0 +1,7 @@
+Date,Time,Transaction ID,Donation Currency,Donation Amount,Donor Name,Donor Email,Donor Mobile Number,Donor Address Line 1,Donor Address Line 2,Donor City,Donor State,Donor Country,Donor Zipcode / Pincode,Donor Complete Address,Donor PAN,Subscription Type,Parent Donation,tags
+04/06/2024,9:15,LC{RUN}A1,INR,1500,GiveDo Repeat {RUN},repeat-{RUN}@example.com,{PHONE_A},12 Test Lane,,Bengaluru,Karnataka,India,560001,"12 Test Lane, Bengaluru, Karnataka, India, 560001",{PAN_A},ONE-TIME,,social-proof
+11/06/2024,18:40,LC{RUN}B1,INR,500,GiveDo NoPan {RUN},nopan-{RUN}@example.com,{PHONE_B},4 Sample Road,,Pune,Maharashtra,India,411001,"4 Sample Road, Pune, Maharashtra, India, 411001",,ONE-TIME,,
+19/06/2024,7:05,LC{RUN}A2,INR,2000,GiveDo Repeat {RUN},repeat-{RUN}@example.com,{PHONE_A},12 Test Lane,,Bengaluru,Karnataka,India,560001,"12 Test Lane, Bengaluru, Karnataka, India, 560001",{PAN_A},ONE-TIME,,
+22/06/2024,13:30,LC{RUN}C1,INR,7000,GiveDo Single {RUN},single-{RUN}@example.com,{PHONE_C},88 Demo Street,,Chennai,Tamil Nadu,India,600001,"88 Demo Street, Chennai, Tamil Nadu, India, 600001",{PAN_C},ONE-TIME,,social-proof
+25/06/2024,21:10,LC{RUN}D1,USD,50,GiveDo Abroad {RUN},abroad-{RUN}@example.com,{PHONE_D},1 Example Ave,,Mumbai,Maharashtra,India,400001,"1 Example Ave, Mumbai, Maharashtra, India, 400001",,ONE-TIME,,
+28/06/2024,0:45,LC{RUN}E1,INR,280,GiveDo Night {RUN},night-{RUN}@example.com,{PHONE_E},7 Fixture Nagar,,Jaipur,Rajasthan,India,302001,"7 Fixture Nagar, Jaipur, Rajasthan, India, 302001",,ONE-TIME,,

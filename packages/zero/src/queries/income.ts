@@ -52,7 +52,8 @@ export const contributionQueries = {
         .related("project")
         .related("orgAccount")
         .related("fund")
-        .related("importBatch");
+        .related("importBatch")
+        .related("intermediary");
     }
     // Full project rows carry sponsor and budget terms, so the project name
     // only joins for finance.view, as in projectQueries.
@@ -66,6 +67,7 @@ export const contributionQueries = {
       .related("orgAccount")
       .related("fund")
       .related("importBatch")
+      .related("intermediary")
       .orderBy("receivedOn", "desc")
       .orderBy("id", "desc")
       .limit(INCOME_LIST_LIMIT);

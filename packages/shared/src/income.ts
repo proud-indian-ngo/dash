@@ -10,13 +10,38 @@ import type {
   DonationType,
   OtherIncomeKind,
 } from "./constants";
-import { directoryRoleValues } from "./constants";
+import { directoryRoleValues, GIVE_INDIA_PARTY_ID } from "./constants";
 
 /**
  * Roles that may give a contribution: individual donors, CSR sponsors,
  * grantors, and intermediaries such as Goodera that pass CSR money on.
  */
 export const CONTRIBUTOR_ROLES = directoryRoleValues;
+
+/** Roles that make a party a giver in its own right. */
+export const GIVER_ROLES = ["donor", "sponsor", "grantor"] as const;
+
+/**
+ * Donation platforms recorded as the intermediary of the gifts they pass on.
+ * Their intermediary role does not make them a giver; only a donor, sponsor
+ * or grantor role does.
+ */
+export const PLATFORM_INTERMEDIARY_PARTY_IDS: readonly string[] = [
+  GIVE_INDIA_PARTY_ID,
+];
+
+/** Whether a party with these active roles may be picked as the giver of a contribution. */
+export function canGive(
+  partyId: string,
+  activeRoles: readonly string[]
+): boolean {
+  const roles = PLATFORM_INTERMEDIARY_PARTY_IDS.includes(partyId)
+    ? GIVER_ROLES
+    : CONTRIBUTOR_ROLES;
+  return activeRoles.some((role) =>
+    (roles as readonly string[]).includes(role)
+  );
+}
 
 /** Any of these opens the Income page; managing implies seeing. */
 export const INCOME_PERMISSIONS = [

@@ -133,7 +133,12 @@ import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { ensureFinanceDimensions } from "@pi-dash/db/seed-finance-dimensions";
 import { ensureVendor } from "@pi-dash/db/seed-vendors";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
-import { GENERAL_FUND_ID, PROGRAMME_IDS } from "@pi-dash/shared/constants";
+import {
+  GENERAL_FUND_ID,
+  GIVE_INDIA_PARTY_ID,
+  GIVE_INDIA_PARTY_NAME,
+  PROGRAMME_IDS,
+} from "@pi-dash/shared/constants";
 import { getKalakritiCenterTransportStatus } from "@pi-dash/zero/kalakriti-center-scan-rules";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
@@ -569,6 +574,14 @@ const PARTIES = [
     roleId: "01930000-0000-7000-8000-000000000512",
     roles: ["intermediary"] as const,
   },
+  // The intermediary of every give.do contribution; the first give.do import creates it in production.
+  {
+    displayName: GIVE_INDIA_PARTY_NAME,
+    id: GIVE_INDIA_PARTY_ID,
+    kind: "organisation" as const,
+    roleId: "01930000-0000-7000-8000-000000000411",
+    roles: ["intermediary"] as const,
+  },
 ];
 
 /** Identity rows only; contact and ID details are entered through the app. */
@@ -628,6 +641,11 @@ const ORG_ACCOUNTS = [
     id: "01930000-0000-7000-8000-000000000602",
     kind: "gateway_clearing" as const,
     name: "Razorpay clearing",
+  },
+  {
+    id: "01930000-0000-7000-8000-000000000604",
+    kind: "gateway_clearing" as const,
+    name: "give.do clearing",
   },
   {
     id: "01930000-0000-7000-8000-000000000603",

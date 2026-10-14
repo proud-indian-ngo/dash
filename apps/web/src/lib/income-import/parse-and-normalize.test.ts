@@ -2,7 +2,13 @@ import { describe, expect, it } from "bun:test";
 
 import { saveDonorSchema } from "@/lib/donor-schema";
 
-import { checkMapping, IGNORE_FIELD, suggestMapping } from "./fields";
+import {
+  checkMapping,
+  IGNORE_FIELD,
+  type ImportMapping,
+  mappingProblem,
+  suggestMapping,
+} from "./fields";
 import {
   donorSaveInput,
   maskIdentifiers,
@@ -151,6 +157,7 @@ describe("mapping", () => {
     expect(checkMapping({ a: "donorName", b: "amount", c: "amount" })).toEqual({
       duplicates: ["amount"],
       missing: ["receivedOn"],
+      unmappedCurrency: null,
       weakIdentity: true,
     });
     expect(
@@ -161,6 +168,44 @@ describe("mapping", () => {
         d: "externalId",
       }).weakIdentity
     ).toBe(false);
+  });
+});
+
+describe("currency columns", () => {
+  const base: ImportMapping = {
+    Amount: "amount",
+    Date: "receivedOn",
+    Name: "donorName",
+  };
+
+  it("maps a currency column a remembered mapping left out", () => {
+    // The remembered mapping predates the Currency field.
+    expect(
+      suggestMapping(["Name", "Amount", "Date", "Currency"], {
+        Currency: IGNORE_FIELD,
+        Notes: IGNORE_FIELD,
+      })
+    ).toMatchObject({ Currency: "currency" });
+    expect(
+      suggestMapping(["Name", "Notes"], { Notes: IGNORE_FIELD }).Notes
+    ).toBe(IGNORE_FIELD);
+  });
+
+  it("refuses a mapping that leaves a present currency column out", () => {
+    const left = checkMapping({ ...base, "Donation Currency": IGNORE_FIELD });
+    expect(left.unmappedCurrency).toBe("Donation Currency");
+    expect(mappingProblem(left)).toContain(
+      'Map "Donation Currency" to Currency'
+    );
+    expect(
+      mappingProblem(checkMapping({ ...base, "Donation Currency": "currency" }))
+    ).toBeNull();
+    // A currency mapped from another column satisfies it.
+    expect(
+      checkMapping({ ...base, Currency: IGNORE_FIELD, Ccy: "currency" })
+        .unmappedCurrency
+    ).toBeNull();
+    expect(mappingProblem(checkMapping(base))).toBeNull();
   });
 });
 

@@ -147,6 +147,7 @@ function ImportBatchPage() {
         fileName: batch.fileName,
         mapping: (batch.mapping as ImportMapping | null) ?? {},
         rowCount: batch.rowCount,
+        source: batch.source as ImportBatchSource,
       }
     : null;
 

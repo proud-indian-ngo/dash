@@ -6,6 +6,8 @@ export interface ReviewSummary {
   errors: number;
   /** Distinct donors already on record that the imported gifts go to. */
   existingDonors: number;
+  /** Existing donors that get missing details filled (a donor chosen on several rows counts once). */
+  fills: number;
   imports: number;
   /** Rows an earlier upload already imported; they are linked, not imported again. */
   links: number;
@@ -83,6 +85,7 @@ export function summarizeReview(
     conflicts: 0,
     errors: 0,
     existingDonors: 0,
+    fills: 0,
     imports: 0,
     links: 0,
     newDonors: 0,
@@ -92,6 +95,7 @@ export function summarizeReview(
   };
   const resolved = new Map<string, DonorRef>();
   const donors = new Set<DonorRef>();
+  const filled = new Set<string>();
   for (const row of rows) {
     const decision = decisions[row.rowId];
     switch (row.category) {
@@ -124,6 +128,15 @@ export function summarizeReview(
     } else {
       summary.imports += 1;
       donors.add(donor);
+      const chosen = row.donorOptions.find((o) => o.value === decision?.donor);
+      if (
+        !row.sameDonorAs &&
+        chosen &&
+        chosen.fills.length > 0 &&
+        decision?.fillMissing !== false
+      ) {
+        filled.add(chosen.value);
+      }
     }
   }
   for (const donor of donors) {
@@ -133,6 +146,7 @@ export function summarizeReview(
       summary.existingDonors += 1;
     }
   }
+  summary.fills = filled.size;
   return summary;
 }
 

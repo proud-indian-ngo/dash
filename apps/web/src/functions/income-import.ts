@@ -23,6 +23,7 @@ import type {
   RunResponse,
 } from "@/lib/income-import/review-types";
 import {
+  countChosenFills,
   createImportBatch,
   getImportBatchDetail,
   reviewImportBatch,
@@ -134,6 +135,7 @@ export const getContributionImport = createServerFn({ method: "POST" })
 const decisionSchema = z.object({
   contribution: z.enum(["import", "skip"]).optional(),
   donor: z.string().max(80).optional(),
+  fillMissing: z.boolean().optional(),
 });
 
 export const runContributionImport = createServerFn({ method: "POST" })
@@ -150,12 +152,17 @@ export const runContributionImport = createServerFn({ method: "POST" })
       throw new Error("Unauthorized");
     }
     const { session } = context;
+    // Existing donors the run will fill, planned from the stored rows.
+    const fillMissingCount = await countChosenFills(data);
     return await runSessionAuditedAction(
       session,
       context.headers,
       {
         action: "import_batch.run",
-        metadata: { decisionCount: Object.keys(data.decisions).length },
+        metadata: {
+          decisionCount: Object.keys(data.decisions).length,
+          fillMissingCount,
+        },
         target: { id: data.batchId, type: "import_batch" },
       },
       async () => await runImportBatch(data, session.user.id)

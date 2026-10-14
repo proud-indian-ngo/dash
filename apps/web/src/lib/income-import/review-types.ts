@@ -1,6 +1,8 @@
 import type {
+  ImportBatchSource,
   ImportBatchStatus,
   ImportRowOutcome,
+  PartyFillField,
 } from "@pi-dash/shared/constants";
 
 import type { DuplicateRef, MatchReason, ReviewCategory } from "./classify";
@@ -14,6 +16,8 @@ import type { CellIssue } from "./normalize";
  */
 
 export interface DonorOptionView {
+  /** For an existing donor proposed by email or phone: the details it lacks that this row has. */
+  fills: PartyFillField[];
   label: string;
   reason: MatchReason;
   /** "party:<id>" or "row:<rowId>"; "new" is always offered as well. */
@@ -64,6 +68,7 @@ export interface ImportBatchSummaryView {
   id: string;
   mapping: ImportMapping | null;
   rowCount: number;
+  source: ImportBatchSource;
   status: ImportBatchStatus;
 }
 
@@ -86,6 +91,8 @@ export interface CreateBatchResponse {
 export interface RunResponse {
   conflicts: number;
   errors: number;
+  /** Existing donors whose empty details were filled from the file. */
+  filledDonors: number;
   imported: number;
   linked: number;
   newDonors: number;

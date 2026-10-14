@@ -65,6 +65,9 @@ export function ContributionDetailSheet({
     ["Amount", formatPaise(row.amountPaise)],
     ["Received on", formatReceivedOn(row.receivedOn)],
     ["Channel", channel],
+    ...(row.intermediary
+      ? ([["Through", row.intermediary.displayName]] as [string, ReactNode][])
+      : []),
     [
       "Reporting mode",
       withDescription(

@@ -35,6 +35,8 @@ mock.module("@/lib/audit", () => ({
   },
 }));
 mock.module("@/lib/income-import/server", () => ({
+  // The server plans the fills from the stored rows, whatever the request says.
+  countChosenFills: async () => 0,
   createImportBatch: async () => {
     serviceCalls.push("create");
     return { batchId: "b" };
@@ -136,7 +138,15 @@ describe("contribution import server functions", () => {
     });
     await call(fns.runContributionImport, {
       batchId: BATCH,
-      decisions: { [BATCH]: { donor: "new" } },
+      decisions: {
+        [BATCH]: { donor: "new" },
+        // Claims a fill the server's plan does not make.
+        "0190a000-0000-7000-8000-000000000002": { donor: "party:p-1" },
+        "0190a000-0000-7000-8000-000000000003": {
+          donor: "party:p-2",
+          fillMissing: false,
+        },
+      },
     });
     expect(audits).toEqual([
       {
@@ -146,7 +156,7 @@ describe("contribution import server functions", () => {
       },
       {
         action: "import_batch.run",
-        metadata: { decisionCount: 1 },
+        metadata: { decisionCount: 3, fillMissingCount: 0 },
         target: { id: BATCH, type: "import_batch" },
       },
     ]);

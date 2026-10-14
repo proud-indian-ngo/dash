@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { PROGRAMME_IDS } from "@pi-dash/shared/constants";
+import { GIVE_INDIA_PARTY_ID, PROGRAMME_IDS } from "@pi-dash/shared/constants";
 
 import {
   matchesScope,
@@ -38,6 +38,12 @@ function createDb(
         active: true,
         id: "r6",
         partyId: "goodera-1",
+        role: "intermediary",
+      },
+      {
+        active: true,
+        id: "r7",
+        partyId: GIVE_INDIA_PARTY_ID,
         role: "intermediary",
       },
     ],
@@ -217,6 +223,19 @@ describe("contribution mutators", () => {
         "Pick a party with an active donor, sponsor, grantor or intermediary role"
       );
     }
+  });
+
+  it("refuses GiveIndia as a giver, naming the person to record instead", async () => {
+    await expect(
+      run(
+        contributionMutators.create,
+        createDb(),
+        donorsCtx,
+        contribution({ partyId: GIVE_INDIA_PARTY_ID })
+      )
+    ).rejects.toThrow(
+      "GiveIndia is a donation platform, not a donor. Record the person who gave."
+    );
   });
 
   it("accepts sponsors, grantors and intermediaries as givers", async () => {

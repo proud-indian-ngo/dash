@@ -77,11 +77,22 @@ export interface NormalizeOptions {
   dateFormat: ImportDateFormat;
   /** Used when the file has no channel column or the cell is blank. */
   defaultChannel: ContributionChannel;
+  /** ID type for ID numbers when the ID type cell is absent or blank, as for give.do's PAN column. */
+  idType?: PartyIdType | null;
   /** Today in India; injectable for tests. */
   today?: string;
 }
 
 const CURRENCY_PREFIX = /^(?:₹|rs\.?|inr)\s*/i;
+const RUPEE_CURRENCY = /^(?:inr|₹|rs\.?|rupees?|indian rupees?)$/i;
+
+/** Foreign money needs FCRA registration, so it is never imported as a domestic gift. */
+export const FOREIGN_CURRENCY_MESSAGE =
+  "Foreign currency: FCRA is not activated";
+
+/** Whether a currency code or label means Indian rupees; shared by every import source. */
+export const isRupeeCurrency = (value: string) =>
+  RUPEE_CURRENCY.test(value.trim());
 const PLAIN_NUMBER = /^\d+(?:\.\d+)?$/;
 // 1,00,000.00 (Indian) or 100,000.00 (international) grouping.
 const INDIAN_GROUPED = /^\d{1,2}(?:,\d{2})*,\d{3}(?:\.\d+)?$/;
@@ -379,6 +390,12 @@ export function normalizeRow(
     amountPaise = amount.paise;
   }
 
+  // A file without a currency column, or a blank cell, is in rupees.
+  const currency = get("currency");
+  if (currency !== "" && !isRupeeCurrency(currency)) {
+    errors.push({ field: "currency", message: FOREIGN_CURRENCY_MESSAGE });
+  }
+
   let receivedOn: string | null = null;
   const date = parseDate(get("receivedOn"), options.dateFormat);
   if ("error" in date) {
@@ -452,7 +469,7 @@ export function normalizeRow(
   }
 
   const identifier = resolveIdentifier(
-    get("idType"),
+    get("idType") || (options.idType ?? ""),
     get("idNumber"),
     warnings
   );

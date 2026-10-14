@@ -2,8 +2,8 @@ import {
   type DirectoryRole,
   directoryRoleValues,
   type ForeignSourceAssessment,
+  type PartyFillField,
   type PartyIdType,
-  type PartyKind,
 } from "@pi-dash/shared/constants";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
@@ -16,16 +16,27 @@ import {
   visibleTail,
 } from "../encryption";
 import {
+  buildFillSave,
+  fillValuesPresent,
   PartyConflictError,
+  type PartyFillValues,
+  partyDetailGaps,
   resolveAssessedOn,
   resolveSaveMode,
   resolveSecret,
+  type SavePartyInput,
 } from "../party-save-rules";
 import { party, partyRole } from "../schema/party";
 import { partyPrivate } from "../schema/private/party-private";
 import { vendor } from "../schema/vendor";
 
-export { PartyConflictError };
+export {
+  fillValuesPresent,
+  PartyConflictError,
+  type PartyFillValues,
+  partyDetailGaps,
+  type SavePartyInput,
+};
 
 /** Associated data binding an encrypted identifier to its party. */
 export const partyIdNumberContext = (partyId: string) =>
@@ -98,34 +109,6 @@ export async function revealPartyIdNumber(
   return row?.encrypted
     ? decryptSecret(row.encrypted, partyIdNumberContext(partyId))
     : null;
-}
-
-export interface SavePartyInput {
-  addressLine1: string;
-  addressLine2: string;
-  assessmentNote: string;
-  city: string;
-  country: string;
-  displayName: string;
-  email: string;
-  /** The party row's updatedAt the editor loaded; null on create. A newer row rejects the save. */
-  expectedPartyUpdatedAt: number | null;
-  /** The private row's updatedAt the editor loaded; null when it loaded none. */
-  expectedUpdatedAt: number | null;
-  foreignSourceAssessment: ForeignSourceAssessment;
-  /** Client-generated on create so a retried request is idempotent. */
-  id: string;
-  /** Blank keeps a stored identifier of the same type; a value replaces it. */
-  idNumber: string;
-  idType: PartyIdType;
-  kind: PartyKind;
-  legalName: string;
-  mode: "create" | "update";
-  nationality: string;
-  phone: string;
-  pincode: string;
-  roles: readonly DirectoryRole[];
-  state: string;
 }
 
 /** Calendar day in India, where the trust keeps its books. */
@@ -330,4 +313,57 @@ export async function savePartyInTransaction(
     partyId,
     view: toView(row),
   };
+}
+
+/**
+ * Adds an imported row's details to an existing party only where the party
+ * has none, through `savePartyInTransaction` with the rows' versions, so
+ * identifiers are encrypted as in the donor form and nothing stored is
+ * replaced. The address fills as a whole, never line by line. Returns the
+ * fields filled; an empty list writes nothing.
+ */
+export async function fillMissingPartyDetails(
+  tx: Tx,
+  partyId: string,
+  values: PartyFillValues,
+  actorId: string | null,
+  options: { canStoreIds: boolean }
+): Promise<PartyFillField[]> {
+  // Taken before reading, so the versions read here are the ones the save checks.
+  await lockPartyId(tx, partyId);
+  const [existingParty] = await tx
+    .select()
+    .from(party)
+    .where(eq(party.id, partyId))
+    .limit(1);
+  if (!existingParty) {
+    return [];
+  }
+  const [existing] = await tx
+    .select()
+    .from(partyPrivate)
+    .where(eq(partyPrivate.partyId, partyId))
+    .limit(1);
+  const roles = await tx
+    .select({ role: partyRole.role })
+    .from(partyRole)
+    .where(
+      and(
+        eq(partyRole.partyId, partyId),
+        eq(partyRole.active, true),
+        inArray(partyRole.role, [...directoryRoleValues])
+      )
+    );
+  const save = buildFillSave(
+    existingParty,
+    existing ?? null,
+    roles.map((r) => r.role as DirectoryRole),
+    values,
+    options
+  );
+  if (!save) {
+    return [];
+  }
+  await savePartyInTransaction(tx, save.input, actorId);
+  return save.fill;
 }

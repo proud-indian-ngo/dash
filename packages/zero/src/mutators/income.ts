@@ -7,8 +7,10 @@ import {
 } from "@pi-dash/shared/constants";
 import {
   CONTRIBUTOR_ROLES,
+  canGive,
   contributionRuleIssues,
   isContributionEditable,
+  PLATFORM_INTERMEDIARY_PARTY_IDS,
   todayInKolkata,
 } from "@pi-dash/shared/income";
 import { positivePaiseSchema } from "@pi-dash/shared/money";
@@ -127,14 +129,23 @@ function assertActive(
 }
 
 async function assertContributor(tx: Tx, partyId: string) {
-  const role = await tx.run(
+  const roles = await tx.run(
     zql.partyRole
       .where("partyId", partyId)
       .where("role", "IN", [...CONTRIBUTOR_ROLES])
       .where("active", true)
-      .one()
   );
-  if (!role) {
+  if (
+    !canGive(
+      partyId,
+      roles.map((r) => r.role)
+    )
+  ) {
+    if (PLATFORM_INTERMEDIARY_PARTY_IDS.includes(partyId)) {
+      throw new Error(
+        "GiveIndia is a donation platform, not a donor. Record the person who gave."
+      );
+    }
     throw new Error(
       "Pick a party with an active donor, sponsor, grantor or intermediary role"
     );
