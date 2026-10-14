@@ -929,14 +929,15 @@ export async function statementLinkCandidates(
 
 /**
  * What an action ties the line to, for its audit entry (kind and record ID,
- * never line content): the suggestion an accept takes, the match an
- * unmatch undoes, or a give.do payout.
+ * never line content): the suggestion an accept takes or a dismiss turns
+ * down, the match an unmatch undoes, or a give.do payout.
  */
 export async function describeStatementAction(
   input: StatementLineAction
 ): Promise<{ kind?: string; targetId?: string }> {
   if (
     input.action !== "accept" &&
+    input.action !== "dismiss" &&
     input.action !== "unmatch" &&
     input.action !== "giveindia"
   ) {
@@ -950,12 +951,11 @@ export async function describeStatementAction(
     if (!line) {
       return {};
     }
-    const kind =
-      input.action === "accept" ? line.suggestedKind : line.matchKind;
-    const targetId =
-      input.action === "accept"
-        ? (line.suggestedSettlementId ?? line.suggestedContributionId)
-        : (line.matchedSettlementId ?? line.matchedContributionId);
+    const suggestion = input.action === "accept" || input.action === "dismiss";
+    const kind = suggestion ? line.suggestedKind : line.matchKind;
+    const targetId = suggestion
+      ? (line.suggestedSettlementId ?? line.suggestedContributionId)
+      : (line.matchedSettlementId ?? line.matchedContributionId);
     return {
       ...(kind ? { kind } : {}),
       ...(targetId ? { targetId } : {}),

@@ -203,8 +203,8 @@ const relatedIdKey = (kind: string) =>
 
 /**
  * Audit metadata for an action: kinds, reasons and record IDs, never the
- * note or line content. Accept and unmatch name what they tie or untie,
- * read from the line before the action.
+ * note or line content. Accept, dismiss and unmatch name the record they
+ * take, turn down or untie, read from the line before the action.
  */
 async function actionMetadata(
   input: ActionInput

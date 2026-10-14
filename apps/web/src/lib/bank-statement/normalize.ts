@@ -304,32 +304,44 @@ function readBalance(
   return balance.side === "debit" ? -Math.abs(balance.paise) : balance.paise;
 }
 
-// A bank reference after the payment rail: "UPI/412345678901/…",
-// "NEFT CR-HDFCN52026101412345678-…".
-const RAIL = /\b(?:UPI|IMPS|NEFT|RTGS)\b/i;
-const REFERENCE_TOKEN = /^[A-Z0-9]{10,22}$/;
+// The payment rail a narration names, and what its reference looks like.
+const RAIL = /\b(UPI|IMPS|NEFT|RTGS)\b/gi;
+/** UPI and IMPS: a 12-digit RRN. */
+const RRN = /^\d{12}$/;
+/**
+ * NEFT and RTGS: a UTR of 16 (NEFT) or 22 (RTGS) characters, starting with
+ * the bank's four letters ("HDFCN52026101412", "SBIN426123456789").
+ */
+const UTR = /^[A-Z]{4}(?:[A-Z0-9]{12}|[A-Z0-9]{18})$/;
+/** An IFSC code ("HDFC0001234"), never a reference. */
+const IFSC = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+/** An Indian mobile number, as in a numeric UPI ID ("9876543210@ybl"). */
+const MOBILE = /^[6-9]\d{9}$/;
 
 /**
- * The first UTR- or RRN-like token after UPI, IMPS, NEFT or RTGS in a
- * narration: 10 to 22 letters and digits with at least six digits. Read
- * from the narration as printed, before masking, for lines whose file has
- * no reference.
+ * A UTR or RRN read from a narration as printed, for lines whose file has
+ * no reference: the first 12-digit RRN after UPI or IMPS, or the first
+ * 16- or 22-character UTR after NEFT or RTGS. IFSC codes, mobile numbers
+ * and long digit runs (account numbers) are never taken; nothing is
+ * guessed when no token has the shape.
  */
 export function referenceFromNarration(narration: string): string {
-  const rail = RAIL.exec(narration);
-  if (!rail) {
-    return "";
+  const upper = narration.toUpperCase();
+  for (const rail of upper.matchAll(RAIL)) {
+    const tokens = upper
+      .slice((rail.index ?? 0) + rail[0].length)
+      .split(/[^A-Z0-9]+/)
+      .filter((token) => !(IFSC.test(token) || MOBILE.test(token)));
+    const kind = rail[1];
+    const found =
+      kind === "UPI" || kind === "IMPS"
+        ? tokens.find((token) => RRN.test(token))
+        : tokens.find((token) => UTR.test(token) && /\d/.test(token));
+    if (found) {
+      return found;
+    }
   }
-  const tokens = narration
-    .slice(rail.index + rail[0].length)
-    .toUpperCase()
-    .split(/[^A-Z0-9]+/);
-  return (
-    tokens.find(
-      (token) =>
-        REFERENCE_TOKEN.test(token) && (token.match(/\d/g)?.length ?? 0) >= 6
-    ) ?? ""
-  );
+  return "";
 }
 
 export function normalizeStatementRow(

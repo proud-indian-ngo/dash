@@ -236,7 +236,9 @@ export function findStatementHeaderRow(
  * case-insensitively. Add a spelling here when a bank prints it another way.
  */
 export const GIVEINDIA_NARRATION_PATTERNS: readonly RegExp[] = [
-  /\bgive\s*india\b/i,
+  /\bgive\s*india/i,
+  // GiveIndia's legal entity.
+  /\bgive\s+foundation\b/i,
   /give\s*\.\s*do\b/i,
   /\bgivedo\b/i,
 ];

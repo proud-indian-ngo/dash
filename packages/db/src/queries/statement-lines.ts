@@ -534,8 +534,6 @@ export interface StatementSummary {
   /** give.do gifts received less give.do payouts matched to bank lines. */
   giveDoClearingPaise: number;
   lineCount: number;
-  /** Unmatched debits: noted, ignored or marked as transfers until the ledger. */
-  moneyOutCount: number;
   suggestionCount: number;
   /** Unmatched credits: what is left to review. */
   unmatchedCount: number;
@@ -551,7 +549,6 @@ export async function statementSummary(
       creditsMatched: sql<number>`count(*) filter (where ${statementLine.direction} = 'credit' and ${statementLine.matchStatus} = 'matched')::int`,
       lines: sql<number>`count(*)::int`,
       suggestions: sql<number>`count(*) filter (where ${statementLine.matchStatus} = 'unmatched' and ${statementLine.suggestedKind} is not null)::int`,
-      moneyOut: sql<number>`count(*) filter (where ${statementLine.matchStatus} = 'unmatched' and ${statementLine.direction} = 'debit')::int`,
       unmatched: sql<number>`count(*) filter (where ${statementLine.matchStatus} = 'unmatched' and ${statementLine.direction} = 'credit')::int`,
     })
     .from(statementLine)
@@ -584,7 +581,6 @@ export async function statementSummary(
     creditsMatchedCount: Number(counts?.creditsMatched ?? 0),
     giveDoClearingPaise: await giveDoClearingPaise(),
     lineCount: Number(counts?.lines ?? 0),
-    moneyOutCount: Number(counts?.moneyOut ?? 0),
     suggestionCount: Number(counts?.suggestions ?? 0),
     unmatchedCount: Number(counts?.unmatched ?? 0),
   };

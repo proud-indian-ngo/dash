@@ -56,22 +56,60 @@ export function statementLineHashes(
   });
 }
 
+type OrderedLine = Pick<
+  NormalizedStatementLine,
+  "amountPaise" | "balancePaise" | "direction" | "valueOn"
+>;
+
+const signed = (line: OrderedLine) =>
+  line.direction === "credit" ? line.amountPaise : -line.amountPaise;
+
 /**
- * Lines in file order oldest first: a file whose first line is dated after
- * its last is listed newest first and is turned round, so `position` grows
- * with time within a file. A file whose lines all share a date keeps the
- * order it was given in, so its last line gives the closing balance.
+ * Whether the printed balances say the file is listed newest first: each
+ * line's balance is the next line's balance plus its own amount, rather
+ * than the previous line's balance plus the next amount. Null when the
+ * balances say neither (or are missing).
+ */
+function newestFirstByBalance(lines: readonly OrderedLine[]): boolean | null {
+  let oldestFirst = 0;
+  let newestFirst = 0;
+  for (let i = 0; i + 1 < lines.length; i += 1) {
+    const a = lines[i];
+    const b = lines[i + 1];
+    if (!(a && b) || a.balancePaise === null || b.balancePaise === null) {
+      continue;
+    }
+    if (b.balancePaise === a.balancePaise + signed(b)) {
+      oldestFirst += 1;
+    }
+    if (a.balancePaise === b.balancePaise + signed(a)) {
+      newestFirst += 1;
+    }
+  }
+  if (newestFirst === oldestFirst) {
+    return null;
+  }
+  return newestFirst > oldestFirst;
+}
+
+/**
+ * Lines in file order oldest first, so `position` grows with time within a
+ * file and the last line gives the closing balance. A file whose first line
+ * is dated after its last is listed newest first and is turned round. When
+ * the first and last dates tie (a one-day file), the running balances
+ * decide when they can; otherwise the file keeps the order it was given in.
  */
 export function positionsFor(
   rows: readonly {
-    line: Pick<NormalizedStatementLine, "valueOn"> | null;
+    line: OrderedLine | null;
     record: { id: string; rowNumber: number };
   }[]
 ): Map<string, number> {
-  const lines = rows.filter((r) => r.line);
-  const first = lines[0]?.line?.valueOn ?? "";
-  const last = lines.at(-1)?.line?.valueOn ?? "";
-  const newestFirst = first > last;
+  const lines = rows.flatMap((r) => (r.line ? [r.line] : []));
+  const first = lines[0]?.valueOn ?? "";
+  const last = lines.at(-1)?.valueOn ?? "";
+  const newestFirst =
+    first === last ? (newestFirstByBalance(lines) ?? false) : first > last;
   const positions = new Map<string, number>();
   for (const row of rows) {
     positions.set(

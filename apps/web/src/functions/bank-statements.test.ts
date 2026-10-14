@@ -38,7 +38,7 @@ mock.module("@/lib/bank-statement/server", () => ({
   actOnStatementLine: service("act", { lineId: "l" }),
   createStatementBatch: service("create", { batchId: "b" }),
   describeStatementAction: async (input: { action: string }) =>
-    input.action === "accept"
+    input.action === "accept" || input.action === "dismiss"
       ? { kind: "settlement", targetId: "0190a000-0000-7000-8000-000000000009" }
       : {},
   previewStatementMatches: async () => ({ matched: 2, suggested: 1 }),
@@ -223,9 +223,10 @@ describe("bank statement server functions", () => {
   it("audits an accepted suggestion with its kind and record", async () => {
     granted = ["finance.manage"];
     await call(fns.updateStatementLine, { action: "accept", lineId: LINE });
-    expect(audits).toEqual([
-      {
-        action: "statement_line.accept",
+    await call(fns.updateStatementLine, { action: "dismiss", lineId: LINE });
+    expect(audits).toEqual(
+      ["accept", "dismiss"].map((action) => ({
+        action: `statement_line.${action}`,
         metadata: {
           kind: "settlement",
           relatedIds: {
@@ -233,7 +234,7 @@ describe("bank statement server functions", () => {
           },
         },
         target: { id: LINE, type: "statement_line" },
-      },
-    ]);
+      }))
+    );
   });
 });

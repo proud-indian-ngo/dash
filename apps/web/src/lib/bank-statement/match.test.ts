@@ -7,6 +7,7 @@ import {
   type LineToMatch,
   lineHasUtr,
   planStatementMatches,
+  referenceIsFromNarration,
   sameReference,
 } from "./match";
 import type { NormalizedStatementLine } from "./normalize";
@@ -210,6 +211,30 @@ describe("contribution matching", () => {
     expect(different.get("line-1")).toEqual({ kind: "none" });
   });
 
+  it("never lets a reference read from the narration rule a gift out", () => {
+    // The file had no reference column: the reference came from the
+    // narration (masked to its last four there) and may be the wrong token.
+    const plans = planStatementMatches({
+      contributions: [gift],
+      lines: [
+        {
+          ...credit,
+          narration: "UPI/••••8901/ASHA",
+          reference: "999999998901",
+        },
+      ],
+      settlements: [],
+    });
+    expect(plans.get("line-1")?.kind).toBe("suggest");
+    expect(referenceIsFromNarration("999999998901", "UPI/••••8901/ASHA")).toBe(
+      true
+    );
+    expect(
+      referenceIsFromNarration("HDFCN52026101412", "NEFT CR-HDFCN52026101412-X")
+    ).toBe(true);
+    expect(referenceIsFromNarration("UPI999", "UPI/••••8901/ASHA")).toBe(false);
+  });
+
   it("ignores contributions outside the window or of another amount", () => {
     const plans = planStatementMatches({
       contributions: [
@@ -372,8 +397,23 @@ describe("line identity and masking", () => {
 });
 
 describe("file order", () => {
-  const row = (rowNumber: number, valueOn: string | null) => ({
-    line: valueOn ? { valueOn } : null,
+  const row = (
+    rowNumber: number,
+    valueOn: string | null,
+    money: {
+      amountPaise?: number;
+      balancePaise?: number | null;
+      direction?: "credit" | "debit";
+    } = {}
+  ) => ({
+    line: valueOn
+      ? {
+          amountPaise: money.amountPaise ?? 100,
+          balancePaise: money.balancePaise ?? null,
+          direction: money.direction ?? ("credit" as const),
+          valueOn,
+        }
+      : null,
     record: { id: `r${rowNumber}`, rowNumber },
   });
 
@@ -392,5 +432,31 @@ describe("file order", () => {
     expect([oneDay.get("r1"), oneDay.get("r2"), oneDay.get("r3")]).toEqual([
       1, 2, 3,
     ]);
+  });
+
+  it("reads a one-day file's order from its running balances", () => {
+    // Newest first: 1,500 after a 500 credit on 1,000, then 1,000.
+    const newestFirst = positionsFor([
+      row(1, "2026-10-05", { amountPaise: 50_000, balancePaise: 150_000 }),
+      row(2, "2026-10-05", {
+        amountPaise: 20_000,
+        balancePaise: 100_000,
+        direction: "debit",
+      }),
+      row(3, "2026-10-05", { amountPaise: 30_000, balancePaise: 120_000 }),
+    ]);
+    expect(newestFirst.get("r1")).toBe(3);
+    expect(newestFirst.get("r3")).toBe(1);
+    const oldestFirst = positionsFor([
+      row(1, "2026-10-05", { amountPaise: 30_000, balancePaise: 120_000 }),
+      row(2, "2026-10-05", {
+        amountPaise: 20_000,
+        balancePaise: 100_000,
+        direction: "debit",
+      }),
+      row(3, "2026-10-05", { amountPaise: 50_000, balancePaise: 150_000 }),
+    ]);
+    expect(oldestFirst.get("r1")).toBe(1);
+    expect(oldestFirst.get("r3")).toBe(3);
   });
 });

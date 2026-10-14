@@ -440,7 +440,9 @@ describe("contribution mutators", () => {
       notes: "Recurring",
       programmeId: "prog-edu",
     });
-    expect(db.locks[0]).toContain("for update");
+    // The statement line lock first, then the contribution row.
+    expect(db.locks[0]).toContain("statement-line-match");
+    expect(db.locks[1]).toContain("for update");
 
     for (const change of [
       { amountPaise: 400_000 },
@@ -718,9 +720,16 @@ describe("recording a donation from a bank statement line", () => {
         contribution({ channel: "razorpay" })
       )
     ).rejects.toThrow("Unmatch the line first");
-    expect(db.locks.some((lock) => lock.includes("statement-line-match"))).toBe(
-      true
+    // The statement line lock comes before the contribution row lock, as
+    // matching takes them, so the two never deadlock.
+    const order = db.locks.map((lock) =>
+      lock.includes("statement-line-match")
+        ? "lines"
+        : lock.includes("for update")
+          ? "row"
+          : "other"
     );
+    expect(order.slice(0, 2)).toEqual(["lines", "row"]);
     // Other fields still change.
     await run(
       contributionMutators.update,

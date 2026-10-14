@@ -13,6 +13,7 @@ import {
   normalizeStatementRow,
   parseStatementAmount,
   parseStatementDate,
+  referenceFromNarration,
 } from "./normalize";
 
 const TODAY = "2026-10-14";
@@ -272,7 +273,47 @@ describe("masking", () => {
 });
 
 describe("references", () => {
-  it("takes a reference from the narration when the file has none", () => {
+  it("reads the UTR or RRN from the narration, never IFSCs, mobiles or account numbers", () => {
+    const cases: [string, string][] = [
+      // HDFC UPI with a numeric UPI ID (the payer's mobile) and an IFSC.
+      [
+        "UPI-ASHA RAO-9876543210@YBL-HDFC0001234-412345678901-GIFT",
+        "412345678901",
+      ],
+      // HDFC UPI with a text UPI ID.
+      [
+        "UPI-ASHA RAO-ASHA.RAO@OKAXIS-UTIB0000123-512345678901-NA",
+        "512345678901",
+      ],
+      // HDFC NEFT credit: IFSC, then the UTR.
+      ["NEFT CR-HDFC0000123-ASHA RAO-HDFCN52026101412", "HDFCN52026101412"],
+      // NEFT naming an account number only.
+      ["NEFT/000123456789012345/ASHA RAO", ""],
+      // SBI.
+      [
+        "BY TRANSFER-UPI/CR/612345678901/ASHA RAO/SBIN/asharao@oksbi/Payment",
+        "612345678901",
+      ],
+      // ICICI.
+      [
+        "UPI/712345678901/Payment from Asha/asha@okicici/ICICI Bank",
+        "712345678901",
+      ],
+      // IMPS.
+      ["IMPS-812345678901-ASHA RAO-HDFC-XXXXXXX1234-GIFT", "812345678901"],
+      // RTGS, 22 characters.
+      [
+        "RTGS CR-SBIN0001234-ACME LTD-SBINR52026101400012345",
+        "SBINR52026101400012345",
+      ],
+      ["CASH DEPOSIT BRANCH 1234567890123", ""],
+    ];
+    for (const [narration, reference] of cases) {
+      expect(referenceFromNarration(narration)).toBe(reference);
+    }
+  });
+
+  it("fills the reference from the narration only when the file has none", () => {
     const upi = split({
       Date: "05/10/2026",
       "Deposit Amt.": "500",
@@ -283,14 +324,6 @@ describe("references", () => {
     expect(upi.kind === "line" && upi.line.narration).toBe(
       "UPI/••••8901/PAYMENT FROM ASHA/asha@okaxis"
     );
-    const neft = split({
-      Date: "05/10/2026",
-      "Deposit Amt.": "500",
-      Narration: "NEFT CR-HDFCN52026101412345678-ASHA RAO",
-    });
-    expect(neft.kind === "line" && neft.line.reference).toBe(
-      "HDFCN52026101412345678"
-    );
     const given = split({
       "Chq./Ref.No.": "000123",
       Date: "05/10/2026",
@@ -298,12 +331,6 @@ describe("references", () => {
       Narration: "UPI/412345678901/X",
     });
     expect(given.kind === "line" && given.line.reference).toBe("000123");
-    const none = split({
-      Date: "05/10/2026",
-      "Deposit Amt.": "500",
-      Narration: "CASH DEPOSIT BRANCH",
-    });
-    expect(none.kind === "line" && none.line.reference).toBe("");
   });
 });
 
@@ -367,5 +394,7 @@ describe("give.do payouts", () => {
     expect(isGiveIndiaNarration("give.do settlement")).toBe(true);
     expect(isGiveIndiaNarration("UPI-GIVE DONATION")).toBe(false);
     expect(isGiveIndiaNarration("FORGIVE INDIANA")).toBe(false);
+    expect(isGiveIndiaNarration("NEFT CR-GIVEINDIAFOUNDATION")).toBe(true);
+    expect(isGiveIndiaNarration("NEFT CR-GIVE FOUNDATION-SEP")).toBe(true);
   });
 });

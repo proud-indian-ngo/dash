@@ -247,6 +247,11 @@ async function lockContribution(tx: Tx, id: string): Promise<void> {
 }
 
 async function requireEditableContribution(tx: Tx, id: string) {
+  // Lock order: the statement line lock before the contribution row, as
+  // matching and the line actions take them (advisory lock, then the row's
+  // key-share lock through the line's foreign key). The other order could
+  // deadlock against them.
+  await lockStatementLines(tx);
   await lockContribution(tx, id);
   const existing = await tx.run(zql.contribution.where("id", id).one());
   if (!existing) {
@@ -331,14 +336,14 @@ async function requireRecordableLine(
 }
 
 /**
- * On the server: the bank line this contribution is matched to, if any,
- * read under the statement line lock, so a match made meanwhile is seen.
+ * On the server: the bank line this contribution is matched to, if any.
+ * Callers hold the statement line lock (taken first by
+ * `requireEditableContribution`), so a match made meanwhile is seen.
  */
 async function matchedLine(tx: Tx, contributionId: string) {
   if (tx.location !== "server") {
     return undefined;
   }
-  await lockStatementLines(tx);
   return await tx.run(
     zql.statementLine.where("matchedContributionId", contributionId).one()
   );

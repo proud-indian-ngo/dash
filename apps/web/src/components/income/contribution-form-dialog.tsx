@@ -142,6 +142,8 @@ export interface StatementLinePrefill {
   id: string;
   orgAccountId: string;
   reference: string | null;
+  /** The reference was read from the narration, so it is only a suggestion. */
+  referenceFromNarration: boolean;
   /** yyyy-MM-dd */
   valueOn: string;
 }
@@ -550,7 +552,11 @@ function ContributionForm({
         <FormSectionHeading>Reference</FormSectionHeading>
         <div className="grid gap-4">
           <InputField
-            description="UTR, cheque number or gateway payment ID."
+            description={
+              fromLine?.referenceFromNarration
+                ? "Read from the bank's narration, so it may be wrong: clear it if it isn't this payment's UTR or reference."
+                : "UTR, cheque number or gateway payment ID."
+            }
             label="Reference"
             name="reference"
           />

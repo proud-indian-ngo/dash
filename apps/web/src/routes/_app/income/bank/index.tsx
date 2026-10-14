@@ -60,6 +60,7 @@ import {
   updateStatementLine,
 } from "@/functions/bank-statements";
 import { guessChannel } from "@/lib/bank-statement/labels";
+import { referenceIsFromNarration } from "@/lib/bank-statement/match";
 import type {
   BankStatementSummaryResponse,
   StatementLineAction,
@@ -219,6 +220,8 @@ function BankStatementsPage() {
     banks.find((b) => b.active)?.id ??
     banks[0]?.id ??
     null;
+  // Donations can't be recorded into an inactive account.
+  const accountActive = banks.find((b) => b.id === accountId)?.active ?? true;
   const bankLabel = (bank: (typeof banks)[number]) =>
     bank.active ? bank.name : `${bank.name} (inactive)`;
   const [month, setMonth] = useQueryState(
@@ -290,6 +293,10 @@ function BankStatementsPage() {
         id: line.id,
         orgAccountId: line.orgAccountId,
         reference: line.reference ?? null,
+        referenceFromNarration: referenceIsFromNarration(
+          line.reference,
+          line.narration
+        ),
         valueOn: epochDayToIso(line.valueOn),
       }),
     onTransfer: (line) => setTransferring(line.id),
@@ -413,6 +420,17 @@ function BankStatementsPage() {
             </Select>
           </div>
           <StatsCards items={summaryItems(summary)} />
+          {accountActive ? null : (
+            <p
+              className="text-muted-foreground text-sm"
+              data-testid="inactive-account-note"
+              role="status"
+            >
+              This account is inactive. Its lines can still be matched, ignored
+              or noted, but no donation can be recorded into it; reactivate it
+              in Settings → Organisation accounts to do that.
+            </p>
+          )}
           <Tabs
             onValueChange={(value) => {
               setTab(value as LineTab);
@@ -464,7 +482,7 @@ function BankStatementsPage() {
                 <StatementLineItem
                   actions={actions}
                   canManage={canManage}
-                  canRecord={canRecord}
+                  canRecord={canRecord && accountActive}
                   key={line.id}
                   line={line}
                 />

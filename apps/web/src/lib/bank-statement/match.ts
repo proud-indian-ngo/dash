@@ -102,6 +102,28 @@ export function sameReference(
   return [...referenceForms(a)].some((form) => right.has(form));
 }
 
+/**
+ * Whether the line's reference may have been read from its own narration
+ * (a file without a reference column): the reference is a token of the
+ * stored narration, or the narration shows it masked to its last four. Such
+ * a reference is evidence for a match but never against one, since the
+ * reading can pick the wrong token.
+ */
+export function referenceIsFromNarration(
+  reference: string | null | undefined,
+  narration: string | null | undefined
+): boolean {
+  const ref = normalizeRef(reference);
+  if (ref === "") {
+    return false;
+  }
+  const text = narration ?? "";
+  return (
+    referenceForms(text).has(comparableRef(ref)) ||
+    (ref.length >= 8 && text.includes(`••••${ref.slice(-4)}`))
+  );
+}
+
 /** Whether the line carries this UTR as a whole token of its reference or narration. */
 export function lineHasUtr(
   line: Pick<LineToMatch, "narration" | "reference">,
@@ -249,10 +271,12 @@ export function planStatementMatches(
           open(c.id) &&
           c.amountPaise === line.amountPaise &&
           withinWindow(c.receivedOn, line.valueOn) &&
-          // Different references mean different payments.
+          // Different references mean different payments, unless the
+          // line's was only read from its narration.
           !(
             referenceForms(c.reference).size > 0 &&
             referenceForms(line.reference).size > 0 &&
+            !referenceIsFromNarration(line.reference, line.narration) &&
             !sameReference(c.reference, line.reference)
           )
       ),
