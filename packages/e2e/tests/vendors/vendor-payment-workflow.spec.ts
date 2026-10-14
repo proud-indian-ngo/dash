@@ -1,3 +1,6 @@
+import { currentFinancialYear } from "@pi-dash/shared/income";
+import { strFromU8, unzipSync } from "fflate";
+
 import { expect, test } from "../../fixtures/test";
 import {
   createVendorPayment,
@@ -88,9 +91,20 @@ test.describe("Vendor payment workflow (admin)", () => {
     ).toHaveCount(0);
 
     // Step 4: Upload invoice
-    await page.getByRole("button", { name: "Upload invoice" }).click();
-    const invoiceDialog = page.getByRole("dialog", { name: /invoice/i });
+    await page.getByRole("button", { name: "Add invoice or reason" }).click();
+    const invoiceDialog = page.getByRole("dialog", {
+      name: "Add invoice or reason",
+    });
     await expect(invoiceDialog).toBeVisible({ timeout: 5000 });
+    await expect(
+      invoiceDialog.getByText("Do you have an invoice?")
+    ).toBeVisible();
+    await expect(
+      invoiceDialog.getByRole("button", { name: "Yes, upload invoice" })
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(
+      invoiceDialog.getByRole("button", { name: "No invoice" })
+    ).toBeVisible();
     await invoiceDialog.getByLabel("Invoice Number").fill("INV-E2E-001");
     await invoiceDialog.getByLabel("Invoice Date").click();
     await page.getByRole("gridcell", { name: "15" }).first().click();
@@ -108,6 +122,204 @@ test.describe("Vendor payment workflow (admin)", () => {
     await page.getByRole("button", { name: "Approve invoice" }).click();
     await approveInDialog(page);
     await expectStatus(page, "Completed");
+  });
+
+  test("rent paid without an invoice: proof → approve → completed", async ({
+    page,
+  }) => {
+    test.slow();
+    const title = await createVendorPayment(page, "NoInvoice");
+    const fyStart = currentFinancialYear().startsOn.slice(0, 4);
+    const transactionDate = new Date();
+    transactionDate.setDate(10);
+    const expectedExportDate = [
+      transactionDate.getFullYear(),
+      String(transactionDate.getMonth() + 1).padStart(2, "0"),
+      "10",
+    ].join("-");
+
+    // Approve VP
+    await page.getByRole("button", { name: "Approve" }).first().click();
+    await approveInDialog(page);
+    await expectStatus(page, "Approved");
+
+    // Record full payment
+    await page.getByRole("button", { name: "Record payment" }).click();
+    const recordDialog = page.getByRole("dialog", { name: /payment/i });
+    await expect(recordDialog).toBeVisible({ timeout: 5000 });
+    await recordDialog.getByLabel("Amount").fill("5000");
+    await recordDialog.getByLabel("Transaction date").click();
+    await page.getByRole("button", { name: / 10th, / }).click();
+    const transactionDateLabel = await recordDialog
+      .getByLabel("Transaction date")
+      .textContent();
+    if (!transactionDateLabel) {
+      throw new Error("Missing transaction date label");
+    }
+    await recordDialog.getByRole("button", { name: "Record payment" }).click();
+    await expect(recordDialog).toBeHidden({ timeout: 10_000 });
+    await expectStatus(page, "Paid");
+
+    // Close it without an invoice: rent, with a receipt as proof
+    await page.getByRole("button", { name: "Add invoice or reason" }).click();
+    const invoiceDialog = page.getByRole("dialog", {
+      name: "Add invoice or reason",
+    });
+    await expect(invoiceDialog).toBeVisible({ timeout: 5000 });
+    await invoiceDialog.getByRole("button", { name: "No invoice" }).click();
+    await expect(
+      invoiceDialog.getByLabel("Receipt or challan date")
+    ).toHaveText(transactionDateLabel);
+    await invoiceDialog.getByLabel("Reason").click();
+    await page
+      .getByRole("option", { exact: true, name: "Rent / lease" })
+      .click();
+    await expect(invoiceDialog.getByLabel("Note (optional)")).toBeVisible();
+
+    await invoiceDialog
+      .getByPlaceholder("Paste URL and press Enter")
+      .fill("https://example.com/rent-receipt.pdf");
+    await invoiceDialog
+      .getByRole("button", { exact: true, name: "Add" })
+      .click();
+    await invoiceDialog
+      .getByRole("button", { name: "Submit for review" })
+      .click();
+    await expect(invoiceDialog).toBeHidden({ timeout: 10_000 });
+    await expectStatus(page, "Invoice Pending");
+    await expect(page.getByText("No invoice — Rent / lease")).toBeVisible();
+
+    // Approve it
+    await page
+      .getByRole("button", { exact: true, name: "Approve without invoice" })
+      .click();
+    await approveInDialog(page);
+    await expect(
+      page.getByText("Closed without invoice", { exact: true })
+    ).toBeVisible();
+    await expectStatus(page, "Completed");
+    await expect(page.getByText("No invoice — Rent / lease")).toBeVisible();
+
+    await page.getByRole("button", { name: "Edit details" }).click();
+    const editDialog = page.getByRole("dialog", { name: "Edit details" });
+    await expect(editDialog).toBeVisible({ timeout: 5000 });
+    await expect(editDialog.getByLabel("Receipt or challan date")).toHaveText(
+      transactionDateLabel
+    );
+    await editDialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(editDialog).toBeHidden({ timeout: 5000 });
+
+    // The document date places both invoice kinds in the financial year and is
+    // exported in the Invoice Date column.
+    const params = new URLSearchParams({
+      fyStart,
+      includeTransactions: "false",
+      includeVendorPayments: "true",
+      vendorPaymentStatus: "completed",
+    });
+    const response = await page.request.get(`/api/financial-export?${params}`);
+    expect(response.ok()).toBe(true);
+    const archive = unzipSync(await response.body());
+    const csv = Object.entries(archive).find(([name]) =>
+      name.startsWith("vendor-payments_")
+    )?.[1];
+    if (!csv) {
+      throw new Error("Missing vendor payments CSV");
+    }
+    const [headerLine, ...rows] = strFromU8(csv).split("\n");
+    const headers = headerLine?.split(",") ?? [];
+    const row = rows.find((line) => line.startsWith(`${title},`));
+    expect(row).toBeDefined();
+    const cells = row?.split(",") ?? [];
+    expect(cells[headers.indexOf("Invoice Number")]).toBe(
+      "No invoice — Rent / lease"
+    );
+    expect(cells[headers.indexOf("Invoice Date")]).toBe(expectedExportDate);
+  });
+
+  test("no-invoice reason rejection and resubmission", async ({ page }) => {
+    test.slow();
+    await createVendorPayment(page, "NoInvoiceReject");
+
+    await page.getByRole("button", { name: "Approve" }).first().click();
+    await approveInDialog(page);
+    await expectStatus(page, "Approved");
+
+    await page.getByRole("button", { name: "Record payment" }).click();
+    const recordDialog = page.getByRole("dialog", { name: /payment/i });
+    await expect(recordDialog).toBeVisible({ timeout: 5000 });
+    await recordDialog.getByLabel("Amount").fill("5000");
+    await recordDialog.getByRole("button", { name: "Record payment" }).click();
+    await expect(recordDialog).toBeHidden({ timeout: 10_000 });
+    await expectStatus(page, "Paid");
+
+    await page.getByRole("button", { name: "Add invoice or reason" }).click();
+    const invoiceDialog = page.getByRole("dialog", {
+      name: "Add invoice or reason",
+    });
+    await expect(invoiceDialog).toBeVisible({ timeout: 5000 });
+    await invoiceDialog.getByRole("button", { name: "No invoice" }).click();
+    await invoiceDialog.getByLabel("Reason").click();
+    await page
+      .getByRole("option", { exact: true, name: "Rent / lease" })
+      .click();
+    await invoiceDialog
+      .getByRole("button", { name: "Submit for review" })
+      .click();
+    await expect(invoiceDialog).toBeHidden({ timeout: 10_000 });
+    await expectStatus(page, "Invoice Pending");
+
+    await page
+      .getByRole("button", { exact: true, name: "Reject reason" })
+      .click();
+    const rejectDialog = page.getByRole("alertdialog", {
+      name: "Reject reason?",
+    });
+    await expect(rejectDialog).toBeVisible({ timeout: 5000 });
+    await rejectDialog
+      .getByRole("textbox", { name: "Reason" })
+      .fill("Use the specific exception reason");
+    await rejectDialog.getByRole("button", { name: "Reject" }).click();
+    await expect(rejectDialog).toBeHidden({ timeout: 10_000 });
+    await expect(
+      page.getByText("Reason rejected", { exact: true })
+    ).toBeVisible();
+    await expectStatus(page, "Paid");
+
+    await page.getByRole("button", { name: "Resubmit" }).click();
+    const resubmitDialog = page.getByRole("dialog", {
+      name: "Add invoice or reason",
+    });
+    await expect(resubmitDialog).toBeVisible({ timeout: 5000 });
+    await resubmitDialog.getByLabel("Reason").click();
+    await page.getByRole("option", { exact: true, name: "Other" }).click();
+    await expect(resubmitDialog.getByLabel("Date")).not.toHaveText(
+      "Pick a date"
+    );
+    const note = resubmitDialog.getByRole("textbox", {
+      exact: true,
+      name: "Note",
+    });
+    await expect(note).toHaveAttribute("aria-required", "true");
+    await note.fill("The landlord does not issue an invoice");
+    await resubmitDialog
+      .getByRole("button", { name: "Submit for review" })
+      .click();
+    await expect(resubmitDialog).toBeHidden({ timeout: 10_000 });
+    await expectStatus(page, "Invoice Pending");
+
+    await page
+      .getByRole("button", { exact: true, name: "Approve without invoice" })
+      .click();
+    await approveInDialog(page);
+    await expect(
+      page.getByText("Closed without invoice", { exact: true })
+    ).toBeVisible();
+    await expectStatus(page, "Completed");
+    await expect(page.getByText("No invoice — Other")).toBeVisible();
+    await expect(
+      page.getByText("The landlord does not issue an invoice")
+    ).toBeVisible();
   });
 
   test("invoice rejection and resubmission flow", async ({ page }) => {
@@ -129,8 +341,10 @@ test.describe("Vendor payment workflow (admin)", () => {
     await expectStatus(page, "Paid");
 
     // Upload invoice
-    await page.getByRole("button", { name: "Upload invoice" }).click();
-    const invoiceDialog = page.getByRole("dialog", { name: /invoice/i });
+    await page.getByRole("button", { name: "Add invoice or reason" }).click();
+    const invoiceDialog = page.getByRole("dialog", {
+      name: "Add invoice or reason",
+    });
     await expect(invoiceDialog).toBeVisible({ timeout: 5000 });
     await invoiceDialog.getByLabel("Invoice Number").fill("INV-BAD-001");
     await invoiceDialog.getByLabel("Invoice Date").click();
@@ -156,7 +370,9 @@ test.describe("Vendor payment workflow (admin)", () => {
 
     // Re-upload corrected invoice
     await page.getByRole("button", { name: "Resubmit invoice" }).click();
-    const editDialog = page.getByRole("dialog", { name: /invoice/i });
+    const editDialog = page.getByRole("dialog", {
+      name: "Add invoice or reason",
+    });
     await expect(editDialog).toBeVisible({ timeout: 5000 });
     await expect(editDialog.getByLabel("Invoice Number")).toHaveValue(
       "INV-BAD-001",
@@ -164,7 +380,7 @@ test.describe("Vendor payment workflow (admin)", () => {
     );
     await editDialog.getByLabel("Invoice Number").clear();
     await editDialog.getByLabel("Invoice Number").fill("INV-GOOD-001");
-    await editDialog.getByRole("button", { name: "Update invoice" }).click();
+    await editDialog.getByRole("button", { name: "Submit invoice" }).click();
     await expect(editDialog).toBeHidden({ timeout: 15_000 });
     await expectStatus(page, "Invoice Pending");
 

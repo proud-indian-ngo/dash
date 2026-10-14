@@ -49,6 +49,7 @@ test.describe("Vendor payment unhappy paths (admin)", () => {
       id: vpId,
       invoiceDate: Date.now(),
       invoiceNumber: "INV-E2E-001",
+      kind: "invoice",
     });
 
     const response = await page.request.post(
@@ -63,7 +64,34 @@ test.describe("Vendor payment unhappy paths (admin)", () => {
     expect(json.mutations[0].result.message).toMatch(/paid/i);
   });
 
-  test("UI: Upload Invoice button not shown on pending vendor payment", async ({
+  test("API: no-invoice submission rejected on pending vendor payment", async ({
+    page,
+    baseURL,
+  }) => {
+    test.slow();
+    const vpId = await createPendingVP(page);
+
+    const body = buildMutateBody("vendorPayment.submitInvoice", {
+      attachments: [],
+      id: vpId,
+      invoiceDate: Date.now(),
+      kind: "no_invoice",
+      noInvoiceReason: "rent",
+    });
+
+    const response = await page.request.post(
+      `${baseURL}/api/zero/mutate?schema=zero_0&appID=zero`,
+      { data: body }
+    );
+    expect(response.ok()).toBe(true);
+    const json = await response.json();
+    expect(json.mutations).toBeDefined();
+    // Pending VP cannot be closed without an invoice either.
+    expect(json.mutations[0].result.error).toBe("app");
+    expect(json.mutations[0].result.message).toMatch(/paid/i);
+  });
+
+  test("UI: invoice-or-reason button not shown on pending vendor payment", async ({
     page,
   }) => {
     test.slow();
@@ -78,9 +106,9 @@ test.describe("Vendor payment unhappy paths (admin)", () => {
       timeout: 10_000,
     });
 
-    // The "Upload Invoice" button should not be visible on a pending VP
+    // The invoice-or-reason action should not be visible on a pending VP.
     await expect(
-      page.getByRole("button", { name: /Upload Invoice/i })
+      page.getByRole("button", { name: "Add invoice or reason" })
     ).toBeHidden({ timeout: 5000 });
   });
 });

@@ -1,3 +1,4 @@
+import { vendorPaymentNoInvoiceReasonValues } from "@pi-dash/shared/constants";
 import { relations, sql } from "drizzle-orm";
 import {
   check,
@@ -42,6 +43,12 @@ export type VendorPaymentStatus = (typeof vendorPaymentStatusValues)[number];
 export const vendorPaymentStatusEnum = pgEnum(
   "vendor_payment_status",
   vendorPaymentStatusValues
+);
+
+/** Why a paid request closes without a vendor invoice (rent, tax and the like). */
+export const vendorPaymentNoInvoiceReasonEnum = pgEnum(
+  "vendor_payment_no_invoice_reason",
+  vendorPaymentNoInvoiceReasonValues
 );
 
 const attachmentPurposeValues = ["quotation", "invoice"] as const;
@@ -98,6 +105,12 @@ export const vendorPayment = pgTable(
     invoiceReviewedBy: text("invoice_reviewed_by").references(() => user.id, {
       onDelete: "set null",
     }),
+    /**
+     * Set instead of the invoice number and date when the payment has no
+     * invoice; the proof sits in the `invoice` attachments.
+     */
+    noInvoiceNote: text("no_invoice_note"),
+    noInvoiceReason: vendorPaymentNoInvoiceReasonEnum("no_invoice_reason"),
     rejectionReason: text("rejection_reason"),
     reviewedAt: timestamp("reviewed_at"),
     reviewedBy: text("reviewed_by").references(() => user.id, {
@@ -122,6 +135,10 @@ export const vendorPayment = pgTable(
     check(
       "vendor_payment_rejection_reason_chk",
       sql`((status = 'rejected'::vendor_payment_status) AND (rejection_reason IS NOT NULL)) OR ((status <> 'rejected'::vendor_payment_status) AND (rejection_reason IS NULL))`
+    ),
+    check(
+      "vendor_payment_invoice_or_no_invoice_chk",
+      sql`${table.noInvoiceReason} IS NULL OR ${table.invoiceNumber} IS NULL`
     ),
   ]
 );

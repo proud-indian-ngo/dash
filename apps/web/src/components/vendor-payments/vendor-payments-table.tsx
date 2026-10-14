@@ -4,6 +4,7 @@ import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/d
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { formatPaise } from "@pi-dash/shared/money";
+import { formatNoInvoice } from "@pi-dash/shared/vendor-payment";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { Link } from "@tanstack/react-router";
@@ -76,6 +77,7 @@ function searchFn(row: VendorPaymentWithRelations, query: string): boolean {
     row.status,
     row.user?.name,
     row.invoiceNumber,
+    row.noInvoiceReason ? formatNoInvoice(row.noInvoiceReason) : null,
     row.event?.name,
     row.event?.programme?.name,
   ]

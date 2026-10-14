@@ -1,4 +1,5 @@
 import {
+  AlertCircleIcon,
   Cancel01Icon,
   CheckmarkCircle01Icon,
   Upload04Icon,
@@ -6,6 +7,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { formatNoInvoice } from "@pi-dash/shared/vendor-payment";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
@@ -20,6 +22,7 @@ import {
 } from "@/components/shared/record-detail";
 import { useApp } from "@/context/app-context";
 import { DATE } from "@/lib/date-formats";
+import { epochToLocalDate } from "@/lib/local-date";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { mapAttachmentsToFormValues } from "@/lib/submission-mappers";
 
@@ -43,6 +46,28 @@ interface VendorPaymentInvoiceSectionProps {
   status: string;
 }
 
+function ReviewedBy({ request }: { request: VendorPaymentWithRelations }) {
+  if (
+    !(
+      request.status === "completed" &&
+      request.invoiceReviewer &&
+      request.invoiceReviewedAt
+    )
+  ) {
+    return null;
+  }
+  return (
+    <span className="text-muted-foreground">
+      {" "}
+      · approved by{" "}
+      <span className="text-foreground">
+        {request.invoiceReviewer.name}
+      </span> on{" "}
+      {format(request.invoiceReviewedAt, DATE)}
+    </span>
+  );
+}
+
 function InvoiceContent({
   hasInvoiceDetails,
   invoiceAttachments,
@@ -56,40 +81,69 @@ function InvoiceContent({
   request: VendorPaymentWithRelations;
   showEmptyState: boolean;
 }) {
+  const { noInvoiceNote, noInvoiceReason } = request;
+  const documentDate = epochToLocalDate(request.invoiceDate);
   return (
     <>
       {rejectionReason ? (
-        <RejectionNote label="Invoice rejected" reason={rejectionReason} />
+        <RejectionNote
+          label={noInvoiceReason ? "Reason rejected" : "Invoice rejected"}
+          reason={rejectionReason}
+        />
       ) : null}
 
-      {hasInvoiceDetails ? (
+      {noInvoiceReason ? (
+        <div className="flex flex-col gap-1">
+          <p className="text-sm">
+            <span className="font-medium">
+              {formatNoInvoice(noInvoiceReason)}
+            </span>
+            {documentDate ? (
+              <span className="text-muted-foreground tabular-nums">
+                {" "}
+                · {format(documentDate, DATE)}
+              </span>
+            ) : null}
+            <ReviewedBy request={request} />
+          </p>
+          {noInvoiceNote ? (
+            <p className="text-muted-foreground text-sm whitespace-pre-wrap">
+              {noInvoiceNote}
+            </p>
+          ) : null}
+          {invoiceAttachments.length === 0 ? (
+            <p className="text-warning-foreground flex items-center gap-1.5 text-sm">
+              <HugeiconsIcon className="size-4" icon={AlertCircleIcon} />
+              No proof attached
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {hasInvoiceDetails && !noInvoiceReason ? (
         <p className="text-sm">
           <span className="text-muted-foreground">Invoice </span>
           <span className="font-mono font-medium">{request.invoiceNumber}</span>
-          {request.invoiceDate ? (
+          {documentDate ? (
             <span className="text-muted-foreground tabular-nums">
               {" "}
-              · {format(request.invoiceDate, DATE)}
+              · {format(documentDate, DATE)}
             </span>
           ) : null}
-          {request.invoiceReviewer && request.invoiceReviewedAt ? (
-            <span className="text-muted-foreground">
-              {" "}
-              · approved by{" "}
-              <span className="text-foreground">
-                {request.invoiceReviewer.name}
-              </span>{" "}
-              on {format(request.invoiceReviewedAt, DATE)}
-            </span>
-          ) : null}
+          <ReviewedBy request={request} />
         </p>
       ) : null}
 
       {invoiceAttachments.length > 0 ? (
-        <AttachmentList
-          attachments={invoiceAttachments}
-          kind="vendorPaymentAttachment"
-        />
+        <div className="flex flex-col gap-1">
+          {noInvoiceReason ? (
+            <p className="text-muted-foreground text-xs font-medium">Proof</p>
+          ) : null}
+          <AttachmentList
+            attachments={invoiceAttachments}
+            kind="vendorPaymentAttachment"
+          />
+        </div>
       ) : null}
       {showEmptyState ? (
         <p className="text-muted-foreground rounded-lg border border-dashed py-6 text-center text-sm">
@@ -113,8 +167,15 @@ export function VendorPaymentInvoiceSection({
   const { hasPermission } = useApp();
   const canEditAll = hasPermission("requests.edit_all");
   const [invoiceFormOpen, setInvoiceFormOpen] = useState(false);
+  const [invoiceFormMode, setInvoiceFormMode] = useState<"submit" | "edit">(
+    "submit"
+  );
   const [invoiceApproveOpen, setInvoiceApproveOpen] = useState(false);
   const [invoiceRejectOpen, setInvoiceRejectOpen] = useState(false);
+  const isNoInvoice = Boolean(request.noInvoiceReason);
+  // What the approver reviews: the vendor's invoice, or the request to close
+  // the payment without one.
+  const reviewLabel = isNoInvoice ? "payment without an invoice" : "invoice";
 
   const handleApproveInvoice = useEventCallback(async (message: string) => {
     const res = await zero.mutate(
@@ -125,9 +186,9 @@ export function VendorPaymentInvoiceSection({
     ).server;
     handleMutationResult(res, {
       entityId: request.id,
-      errorMsg: "Failed to approve invoice",
+      errorMsg: `Failed to approve ${reviewLabel}`,
       mutation: "vendorPayment.approveInvoice",
-      successMsg: "Invoice approved",
+      successMsg: isNoInvoice ? "Closed without invoice" : "Invoice approved",
     });
     return res.type !== "error";
   });
@@ -138,16 +199,22 @@ export function VendorPaymentInvoiceSection({
     ).server;
     handleMutationResult(res, {
       entityId: request.id,
-      errorMsg: "Failed to reject invoice",
+      errorMsg: `Failed to reject ${reviewLabel}`,
       mutation: "vendorPayment.rejectInvoice",
-      successMsg: "Invoice rejected",
+      successMsg: isNoInvoice ? "Reason rejected" : "Invoice rejected",
     });
     if (res.type !== "error") {
       setInvoiceRejectOpen(false);
     }
   });
-  const stableOnClick0 = useEventCallback(() => setInvoiceFormOpen(true));
-  const stableOnClick1 = useEventCallback(() => setInvoiceFormOpen(true));
+  const openSubmitForm = useEventCallback(() => {
+    setInvoiceFormMode("submit");
+    setInvoiceFormOpen(true);
+  });
+  const openEditForm = useEventCallback(() => {
+    setInvoiceFormMode("edit");
+    setInvoiceFormOpen(true);
+  });
   const stableOnClick2 = useEventCallback(() => setInvoiceApproveOpen(true));
   const stableOnClick3 = useEventCallback(() => setInvoiceRejectOpen(true));
 
@@ -158,14 +225,27 @@ export function VendorPaymentInvoiceSection({
   const wasRejected =
     Boolean(request.invoiceRejectionReason) && status === "paid";
   const hasInvoiceDetails = Boolean(
-    request.invoiceNumber || request.invoiceDate
+    request.invoiceNumber || request.invoiceDate || request.noInvoiceReason
   );
   const showUploadButton = status === "paid" && (isOwner || canApprove);
   const showEditButton =
     (status === "invoice_pending" && isOwner) ||
     (canEditAll && hasInvoiceDetails);
   const showApproveRejectActions = canApprove && status === "invoice_pending";
-  const showEmptyState = invoiceAttachments.length === 0 && status === "paid";
+  const showEmptyState =
+    invoiceAttachments.length === 0 && !hasInvoiceDetails && status === "paid";
+  let uploadLabel = "Add invoice or reason";
+  if (wasRejected) {
+    uploadLabel = isNoInvoice ? "Resubmit" : "Resubmit invoice";
+  }
+  const latestPaymentDate = request.transactions.reduce<number | undefined>(
+    (latest, transaction) =>
+      transaction.status === "approved" &&
+      (latest === undefined || transaction.transactionDate > latest)
+        ? transaction.transactionDate
+        : latest,
+    undefined
+  );
   return (
     <>
       <RecordSection
@@ -179,7 +259,7 @@ export function VendorPaymentInvoiceSection({
                     icon={CheckmarkCircle01Icon}
                     strokeWidth={2}
                   />
-                  Approve invoice
+                  {isNoInvoice ? "Approve without invoice" : "Approve invoice"}
                 </Button>
                 <Button
                   onClick={stableOnClick3}
@@ -192,13 +272,13 @@ export function VendorPaymentInvoiceSection({
                     icon={Cancel01Icon}
                     strokeWidth={2}
                   />
-                  Reject invoice
+                  {isNoInvoice ? "Reject reason" : "Reject invoice"}
                 </Button>
               </>
             ) : null}
             {showUploadButton ? (
               <Button
-                onClick={stableOnClick0}
+                onClick={openSubmitForm}
                 size="sm"
                 type="button"
                 variant="outline"
@@ -208,17 +288,17 @@ export function VendorPaymentInvoiceSection({
                   icon={Upload04Icon}
                   strokeWidth={2}
                 />
-                {wasRejected ? "Resubmit invoice" : "Upload invoice"}
+                {uploadLabel}
               </Button>
             ) : null}
             {showEditButton ? (
               <Button
-                onClick={stableOnClick1}
+                onClick={openEditForm}
                 size="sm"
                 type="button"
                 variant="outline"
               >
-                Edit invoice
+                {isNoInvoice ? "Edit details" : "Edit invoice"}
               </Button>
             ) : null}
           </div>
@@ -235,18 +315,24 @@ export function VendorPaymentInvoiceSection({
       </RecordSection>
 
       <InvoiceFormDialog
+        defaultDocumentDate={
+          latestPaymentDate === undefined
+            ? undefined
+            : new Date(latestPaymentDate)
+        }
         initialValues={
-          request.invoiceNumber
+          hasInvoiceDetails
             ? {
                 attachments: mapAttachmentsToFormValues(invoiceAttachments),
-                invoiceDate: request.invoiceDate
-                  ? new Date(request.invoiceDate)
-                  : null,
-                invoiceNumber: request.invoiceNumber as string,
+                invoiceDate: epochToLocalDate(request.invoiceDate) ?? null,
+                invoiceNumber: request.invoiceNumber ?? "",
+                kind: isNoInvoice ? "no_invoice" : "invoice",
+                noInvoiceNote: request.noInvoiceNote ?? "",
+                noInvoiceReason: request.noInvoiceReason ?? null,
               }
             : undefined
         }
-        mode={showEditButton && hasInvoiceDetails ? "edit" : "submit"}
+        mode={invoiceFormMode}
         onOpenChange={setInvoiceFormOpen}
         open={invoiceFormOpen}
         vendorPaymentId={request.id as string}
@@ -254,14 +340,14 @@ export function VendorPaymentInvoiceSection({
 
       <ApproveDialog
         entityId={request.id}
-        entityLabel="invoice"
+        entityLabel={reviewLabel}
         hideScreenshot
         onConfirm={handleApproveInvoice}
         onOpenChange={setInvoiceApproveOpen}
         open={invoiceApproveOpen}
       />
       <RejectDialog
-        entityLabel="invoice"
+        entityLabel={isNoInvoice ? "reason" : "invoice"}
         onConfirm={handleRejectInvoice}
         onOpenChange={setInvoiceRejectOpen}
         open={invoiceRejectOpen}

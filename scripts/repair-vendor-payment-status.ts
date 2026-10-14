@@ -94,6 +94,7 @@ const payments = await db
     invoiceNumber: vendorPayment.invoiceNumber,
     invoiceRejectionReason: vendorPayment.invoiceRejectionReason,
     invoiceReviewedAt: vendorPayment.invoiceReviewedAt,
+    noInvoiceReason: vendorPayment.noInvoiceReason,
     status: vendorPayment.status,
     title: vendorPayment.title,
   })
@@ -175,9 +176,10 @@ const latestInvoiceSubmittedAt = new Map(
 );
 
 const REVIEW_REASONS: Record<VendorPaymentReviewReason, string> = {
-  invoice_not_fully_paid: "has an invoice but payments say",
+  invoice_not_fully_paid:
+    "has an invoice or no-invoice submission but payments say",
   invoice_review_stale:
-    "has an invoice changed after its last approval; payments say",
+    "has a submission changed after its last approval; payments say",
   rejected_with_payments:
     "was rejected but has approved payments; payments say",
 };
@@ -194,6 +196,7 @@ for (const payment of payments) {
     invoiceReviewedAt: payment.invoiceReviewedAt,
     latestInvoiceSubmittedAt: latestInvoiceSubmittedAt.get(payment.id) ?? null,
     lineItemAmountsPaise: lineItemAmounts.get(payment.id) ?? [],
+    noInvoiceReason: payment.noInvoiceReason,
     status: payment.status,
   });
   const label = `${payment.id} "${payment.title}"`;

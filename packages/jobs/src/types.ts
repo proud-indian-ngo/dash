@@ -1,3 +1,5 @@
+import type { VendorPaymentNoInvoiceReason } from "@pi-dash/shared/constants";
+
 // -- Low-level payload types ---------------------------------------------------
 
 export interface NotificationPayload {
@@ -128,20 +130,26 @@ export interface NotifyVendorPaymentRejectedPayload {
   vendorPaymentId: string;
 }
 
-// Vendor Payment Invoice
+// Vendor Payment Invoice. `noInvoiceReason` is set when the request closes
+// without an invoice, so the copy can say so.
 export interface NotifyVpInvoiceSubmittedPayload {
+  noInvoiceReason?: VendorPaymentNoInvoiceReason;
+  /** Number of invoice-purpose proof attachments on a no-invoice submission. */
+  proofAttachmentCount?: number;
   submitterName: string;
   timestamp: number;
   vendorPaymentId: string;
   vendorPaymentTitle: string;
 }
 export interface NotifyVpInvoiceApprovedPayload {
+  noInvoiceReason?: VendorPaymentNoInvoiceReason;
   note?: string;
   submitterId: string;
   vendorPaymentId: string;
   vendorPaymentTitle: string;
 }
 export interface NotifyVpInvoiceRejectedPayload {
+  noInvoiceReason?: VendorPaymentNoInvoiceReason;
   reason: string;
   submitterId: string;
   timestamp: number;

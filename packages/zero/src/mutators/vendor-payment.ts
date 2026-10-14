@@ -1,4 +1,12 @@
-import { cityValues } from "@pi-dash/shared/constants";
+import {
+  cityValues,
+  vendorPaymentNoInvoiceReasonValues,
+} from "@pi-dash/shared/constants";
+import {
+  NO_INVOICE_NOTE_MAX_LENGTH,
+  NO_INVOICE_REASON_LABELS,
+  noInvoiceDetailsError,
+} from "@pi-dash/shared/vendor-payment";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 
@@ -55,6 +63,95 @@ const vendorPaymentApprovalKeyPrefixes = (id: string) => [
   `approval-screenshots/vendor-payments/${id}/approval-screenshots/`,
   `approval-screenshots/${id}/`,
 ];
+
+/**
+ * Invoice details for a paid request: either the vendor's invoice, or a reason
+ * it has none (rent, statutory payments) with optional proof and a note. Both kinds keep
+ * their files in the `invoice` attachments, so switching kind replaces them.
+ */
+const invoiceDetailsUnion = z.discriminatedUnion("kind", [
+  z.strictObject({
+    attachments: z.array(attachmentSchema).min(1),
+    id: z.string(),
+    invoiceDate: z.number(),
+    invoiceNumber: z.string().trim().min(1),
+    kind: z.literal("invoice"),
+  }),
+  z.strictObject({
+    attachments: z.array(attachmentSchema),
+    id: z.string(),
+    invoiceDate: z.number(),
+    kind: z.literal("no_invoice"),
+    noInvoiceNote: z.string().trim().max(NO_INVOICE_NOTE_MAX_LENGTH).optional(),
+    noInvoiceReason: z.enum(vendorPaymentNoInvoiceReasonValues),
+  }),
+]);
+
+type InvoiceDetails = z.infer<typeof invoiceDetailsUnion>;
+
+// Accept older clients for one release; remove after the next release.
+const invoiceDetailsSchema = z.preprocess(
+  (
+    value:
+      | InvoiceDetails
+      | Omit<Extract<InvoiceDetails, { kind: "invoice" }>, "kind">
+  ) => {
+    if (value && typeof value === "object" && !("kind" in value)) {
+      return { ...value, kind: "invoice" };
+    }
+    return value;
+  },
+  invoiceDetailsUnion
+);
+
+/**
+ * Both kinds share a document date, but an invoice number and no-invoice
+ * reason are mutually exclusive, so each kind clears the other's details.
+ */
+function invoiceDetailsUpdate(args: InvoiceDetails) {
+  if (args.kind === "no_invoice") {
+    const note = args.noInvoiceNote?.trim() || null;
+    const error = noInvoiceDetailsError({
+      note,
+      reason: args.noInvoiceReason,
+    });
+    if (error) {
+      throw new Error(error);
+    }
+    return {
+      invoiceDate: args.invoiceDate,
+      invoiceNumber: null,
+      noInvoiceNote: note,
+      noInvoiceReason: args.noInvoiceReason,
+    };
+  }
+  if (args.attachments.length === 0) {
+    throw new Error("Attach the invoice");
+  }
+  return {
+    invoiceDate: args.invoiceDate,
+    invoiceNumber: args.invoiceNumber,
+    noInvoiceNote: null,
+    noInvoiceReason: null,
+  };
+}
+
+/** History note and metadata recording which kind was submitted. */
+function invoiceDetailsHistory(args: InvoiceDetails): {
+  metadata: Record<string, string>;
+  note: string | undefined;
+} {
+  if (args.kind === "no_invoice") {
+    return {
+      metadata: {
+        invoiceKind: "no_invoice",
+        noInvoiceReason: args.noInvoiceReason,
+      },
+      note: `No invoice: ${NO_INVOICE_REASON_LABELS[args.noInvoiceReason]}`,
+    };
+  }
+  return { metadata: { invoiceKind: "invoice" }, note: undefined };
+}
 
 const createSchema = z.object({
   attachments: z.array(attachmentSchema),
@@ -264,6 +361,7 @@ export const vendorPaymentMutators = {
             await enqueue(
               "notify-vp-invoice-approved",
               {
+                noInvoiceReason: entity.noInvoiceReason ?? undefined,
                 note: args.note,
                 submitterId,
                 vendorPaymentId: vpId,
@@ -305,6 +403,8 @@ export const vendorPaymentMutators = {
       invoiceRejectionReason: null,
       invoiceReviewedAt: null,
       invoiceReviewedBy: null,
+      noInvoiceNote: null,
+      noInvoiceReason: null,
       rejectionReason: null,
       reviewedAt: null,
       reviewedBy: null,
@@ -599,6 +699,7 @@ export const vendorPaymentMutators = {
             await enqueue(
               "notify-vp-invoice-rejected",
               {
+                noInvoiceReason: entity.noInvoiceReason ?? undefined,
                 reason: args.reason,
                 submitterId,
                 timestamp: ts,
@@ -649,6 +750,7 @@ export const vendorPaymentMutators = {
       if (
         entity.invoiceNumber ||
         entity.invoiceDate ||
+        entity.noInvoiceReason ||
         invoiceAttachments.length > 0
       ) {
         throw new Error(
@@ -683,12 +785,7 @@ export const vendorPaymentMutators = {
   ),
 
   submitInvoice: defineMutator(
-    z.object({
-      attachments: z.array(attachmentSchema).min(1),
-      id: z.string(),
-      invoiceDate: z.number(),
-      invoiceNumber: z.string().min(1),
-    }),
+    invoiceDetailsSchema,
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
       const { userId } = ctx;
@@ -706,12 +803,12 @@ export const vendorPaymentMutators = {
         );
       }
 
+      const details = invoiceDetailsUpdate(args);
       const now = Date.now();
 
       await tx.mutate.vendorPayment.update({
+        ...details,
         id: args.id,
-        invoiceDate: args.invoiceDate,
-        invoiceNumber: args.invoiceNumber,
         invoiceRejectionReason: null,
         status: "invoice_pending",
         updatedAt: now,
@@ -769,8 +866,10 @@ export const vendorPaymentMutators = {
         })
       );
 
+      const history = invoiceDetailsHistory(args);
       await tx.mutate.vendorPaymentHistory.insert({
-        ...buildHistoryInsert(userId, "invoice_submitted", now),
+        ...buildHistoryInsert(userId, "invoice_submitted", now, history.note),
+        metadata: history.metadata,
         vendorPaymentId: args.id,
       });
 
@@ -786,6 +885,8 @@ export const vendorPaymentMutators = {
             await enqueue(
               "notify-vp-invoice-submitted",
               {
+                noInvoiceReason: details.noInvoiceReason ?? undefined,
+                proofAttachmentCount: args.attachments.length,
                 submitterName: submitterName ?? "Someone",
                 timestamp: ts,
                 vendorPaymentId: vpId,
@@ -894,12 +995,7 @@ export const vendorPaymentMutators = {
   }),
 
   updateInvoice: defineMutator(
-    z.object({
-      attachments: z.array(attachmentSchema).min(1),
-      id: z.string(),
-      invoiceDate: z.number(),
-      invoiceNumber: z.string().min(1),
-    }),
+    invoiceDetailsSchema,
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
       const { userId } = ctx;
@@ -922,18 +1018,25 @@ export const vendorPaymentMutators = {
         );
       }
 
+      const details = invoiceDetailsUpdate(args);
       const now = Date.now();
 
-      // Admin editing a completed invoice keeps the status;
-      // non-admin or non-completed resets to invoice_pending for re-approval
+      const oldInvoiceKind = entity.noInvoiceReason ? "no_invoice" : "invoice";
+      const requiresNewApproval =
+        status === "completed" && oldInvoiceKind !== args.kind;
+      // Same-kind edits retain approval; changing kind needs a fresh review.
       const newStatus =
-        canEditAll && status === "completed" ? "completed" : "invoice_pending";
+        canEditAll && status === "completed" && !requiresNewApproval
+          ? "completed"
+          : "invoice_pending";
 
       await tx.mutate.vendorPayment.update({
+        ...details,
         id: args.id,
-        invoiceDate: args.invoiceDate,
-        invoiceNumber: args.invoiceNumber,
         invoiceRejectionReason: null,
+        ...(requiresNewApproval
+          ? { invoiceReviewedAt: null, invoiceReviewedBy: null }
+          : {}),
         status: newStatus,
         updatedAt: now,
       });
@@ -989,10 +1092,41 @@ export const vendorPaymentMutators = {
         })
       );
 
+      const history = invoiceDetailsHistory(args);
       await tx.mutate.vendorPaymentHistory.insert({
-        ...buildHistoryInsert(userId, "invoice_updated", now),
+        ...buildHistoryInsert(userId, "invoice_updated", now, history.note),
+        metadata: {
+          ...history.metadata,
+          newInvoiceKind: args.kind,
+          oldInvoiceKind,
+        },
         vendorPaymentId: args.id,
       });
+
+      if (requiresNewApproval && tx.location === "server") {
+        const submitter = await tx.run(zql.user.where("id", userId).one());
+        ctx.asyncTasks?.push({
+          fn: async () => {
+            const { enqueue } = await import("@pi-dash/jobs/enqueue");
+            await enqueue(
+              "notify-vp-invoice-submitted",
+              {
+                noInvoiceReason: details.noInvoiceReason ?? undefined,
+                proofAttachmentCount: args.attachments.length,
+                submitterName: submitter?.name ?? "Someone",
+                timestamp: now,
+                vendorPaymentId: args.id,
+                vendorPaymentTitle: entity.title,
+              },
+              { traceId: ctx.traceId }
+            );
+          },
+          meta: {
+            mutator: "updateVendorPaymentInvoice",
+            vendorPaymentId: args.id,
+          },
+        });
+      }
     }
   ),
 };
