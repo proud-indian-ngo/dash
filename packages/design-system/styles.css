@@ -35,6 +35,10 @@
   --destructive: var(--color-status-rejected);
   --border: var(--color-ui-line);
   --input: var(--color-ui-line);
+  /* Form-control outlines, apart from --input (which also tints fills): fields at ~2:1, checkboxes and off switches
+     at 3:1 (WCAG 1.4.11), since they are nothing but their outline */
+  --control: #aeb5bc;
+  --control-strong: #858e96;
   --ring: var(--color-sky-deep);
   --chart-1: var(--color-sky-deep);
   --chart-2: var(--color-sky);
@@ -89,6 +93,9 @@
   --destructive: var(--color-status-rejected-dark);
   --border: var(--color-ui-dark-line);
   --input: var(--color-ui-dark-line);
+  /* ~2:1 and 3:1 on the raised dialog surface, more on cards and the page */
+  --control: #5a5a63;
+  --control-strong: #707079;
   --ring: var(--color-sky);
   --chart-1: var(--color-sky);
   --chart-2: var(--color-sky-tint);
@@ -144,6 +151,8 @@
   --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-input: var(--input);
+  --color-control: var(--control);
+  --color-control-strong: var(--control-strong);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);

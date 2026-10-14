@@ -183,7 +183,7 @@ function DateTimePicker({
             aria-describedby={ariaDescribedBy}
             aria-invalid={ariaInvalid}
             className={cn(
-              "border-input h-9 w-full justify-between font-normal pointer-coarse:h-10",
+              "border-control dark:border-control h-9 w-full justify-between font-normal pointer-coarse:h-10",
               !value && "text-muted-foreground"
             )}
             disabled={disabled}

@@ -808,7 +808,7 @@ const CascaderItem = React.memo(function CascaderItem({
       // `in-data-[indeterminate]` reads the row, exactly as
       // `in-data-[selected]` does, so the box fills for a partial selection
       // without the row having to thread a second prop down here.
-      className="border-input in-data-[selected]:bg-primary in-data-[selected]:border-primary in-data-[selected]:text-primary-foreground in-data-[indeterminate]:bg-primary in-data-[indeterminate]:border-primary in-data-[indeterminate]:text-primary-foreground flex size-4 shrink-0 items-center justify-center rounded-[4px] border transition-colors"
+      className="border-control-strong in-data-[selected]:bg-primary in-data-[selected]:border-primary in-data-[selected]:text-primary-foreground in-data-[indeterminate]:bg-primary in-data-[indeterminate]:border-primary in-data-[indeterminate]:text-primary-foreground flex size-4 shrink-0 items-center justify-center rounded-[4px] border transition-colors"
     >
       {/* See `CHECKBOX_MARK_CLASS`: the colour is declared ON THE ICON, with
           `!`, because the row's own highlight rule is a descendant selector. */}
