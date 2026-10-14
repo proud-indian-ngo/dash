@@ -46,6 +46,7 @@ const EXEMPT_SERVER_FUNCTIONS = [
   "getRazorpaySettings",
   "getRequestUploadUrl",
   "getScheduledMessageUploadUrl",
+  "getSettlementSummary",
   "getUserEmailSuppression",
   "getVendorDetails",
   "inviteKalakritiGuardian",

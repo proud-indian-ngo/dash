@@ -25,6 +25,16 @@ mock.module("@pi-dash/db/queries/razorpay-refunds", () => ({
     amountChanged: 0,
   }),
 }));
+mock.module("@pi-dash/db/queries/razorpay-settlements", () => ({
+  linkSettlementLinesForPayment: async () => 0,
+  linkSettlementLinesForRefund: async () => 0,
+  razorpaySettlementStatus: async () => ({
+    lastSettledOn: "2026-10-12",
+    lastSyncedAt: new Date("2026-10-13T04:30:00Z"),
+    unlinked: 2,
+  }),
+  recordRazorpaySettlement: noop,
+}));
 mock.module("@pi-dash/db/queries/razorpay-import", () => ({
   appendImportRow: noop,
   failPendingPaymentRow: noop,
@@ -77,9 +87,11 @@ mock.module("@pi-dash/db/queries/razorpay-import", () => ({
 }));
 
 const {
+  getRazorpaySettingsView,
   requestRazorpayReconcile,
   saveRazorpaySettings,
   RazorpaySettingsError,
+  settlementsUnavailableReason,
 } = await import("./settings");
 const { DEFAULT_NOTES_KEYS } = await import("./notes-keys");
 
@@ -269,5 +281,46 @@ describe("requestRazorpayReconcile", () => {
     expect(replaced).toEqual([
       { expected: written[0]?.reconcileRun ?? "", value: "previous" },
     ]);
+  });
+});
+
+describe("settlements in Settings", () => {
+  const setup = (apiKey: { id: string; secret: string } | null) => ({
+    apiKey,
+    enabled: true as const,
+    mode: "test" as const,
+    testInProduction: false,
+    webhookSecret: "w",
+  });
+
+  it("are off without the key secret, saying it is needed", () => {
+    expect(settlementsUnavailableReason(setup(null))).toContain(
+      "RAZORPAY_KEY_SECRET"
+    );
+    expect(
+      settlementsUnavailableReason(setup({ id: "rzp_test_x", secret: "k" }))
+    ).toBeNull();
+    expect(settlementsUnavailableReason({ enabled: false })).toContain(
+      "not configured"
+    );
+    expect(
+      settlementsUnavailableReason({
+        ...setup({ id: "rzp_test_x", secret: "k" }),
+        testInProduction: true,
+      })
+    ).toContain("production");
+  });
+
+  it("shows the latest settlement and the lines still unlinked, and subscribes to settlement.processed", async () => {
+    const view = await getRazorpaySettingsView(
+      setup({ id: "rzp_test_x", secret: "k" })
+    );
+    expect(view.settlements).toEqual({
+      lastSettledOn: "2026-10-12",
+      lastSyncedAt: Date.parse("2026-10-13T04:30:00Z"),
+      unavailableReason: null,
+      unlinked: 2,
+    });
+    expect(view.webhookEvents).toContain("settlement.processed");
   });
 });

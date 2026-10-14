@@ -40,6 +40,7 @@ import {
   markImportRowWaiting,
 } from "@pi-dash/db/queries/razorpay-import";
 import { applyPendingRefunds } from "@pi-dash/db/queries/razorpay-refunds";
+import { linkSettlementLinesForPayment } from "@pi-dash/db/queries/razorpay-settlements";
 import {
   type ContributionChannel,
   type ImportBatchSource,
@@ -988,8 +989,9 @@ async function runClaimedBatch(
 
 /**
  * Once a Razorpay payment's row is imported or linked: apply the refunds
- * held for that payment in this same transaction, and remember its ID so
- * its refunds can be checked against the API after the run.
+ * held for that payment and link the settlement lines that waited for it,
+ * in this same transaction, and remember its ID so its refunds can be
+ * checked against the API after the run.
  */
 async function afterContribution(
   ctx: RunContext,
@@ -1004,6 +1006,12 @@ async function afterContribution(
     identity.externalId,
     (at) => todayInKolkata(at),
     ctx.now
+  );
+  // Settlement lines that were waiting for this payment.
+  await linkSettlementLinesForPayment(
+    ctx.tx,
+    identity.providerAccount,
+    identity.externalId
   );
   ctx.imported?.push(identity.externalId);
 }

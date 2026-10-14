@@ -3,6 +3,7 @@ import {
   recountImportBatches,
   writeRazorpayConfig,
 } from "@pi-dash/db/queries/razorpay-import";
+import { recordRazorpaySettlement } from "@pi-dash/db/queries/razorpay-settlements";
 import type { RazorpayReconcilePayload } from "@pi-dash/jobs/types";
 import { todayInKolkata } from "@pi-dash/shared/income";
 import { createRequestLogger } from "evlog";
@@ -34,6 +35,11 @@ import {
   type RefundTally,
   tallyRefund,
 } from "./refund";
+import {
+  type SettlementDeps,
+  type SettlementTally,
+  syncSettlementsForDay,
+} from "./settlement";
 
 /**
  * Server-only. The `razorpay-reconcile` run. First it syncs payments stuck
@@ -44,8 +50,10 @@ import {
  * lists each day's payments and refunds from the API (sequentially, paced,
  * backing off on 429), and puts every captured payment through the
  * webhook's own path (same staging, identity and rules), so a webhook and a
- * reconcile never count a payment twice. Afterwards it recounts every batch
- * it touched. Its progress and last result live in app_config as dates and
+ * reconcile never count a payment twice. After a day's payments and
+ * refunds it records that day's settlements and the lines they covered, so
+ * the payments a settlement names are already contributions to link to.
+ * Afterwards it recounts every batch it touched. Its progress and last result live in app_config as dates and
  * counts only.
  */
 
@@ -86,6 +94,16 @@ export interface ReconcileCounts {
   refundsWaiting: number;
   /** Stuck payments synced again. */
   retried: number;
+  /** Settlements whose amount Razorpay reported differently; flagged. */
+  settlementsChanged: number;
+  /** Settlements listed or named by the settlement recon. */
+  settlementsFound: number;
+  /** Payment and refund lines linked to their contribution or refund. */
+  settlementLinesLinked: number;
+  /** Payment and refund lines still waiting for their payment or refund. */
+  settlementLinesUnlinked: number;
+  /** Settlements recorded for the first time. */
+  settlementsNew: number;
   /** Payments that wait for a reviewer or a clearing account. */
   waiting: number;
 }
@@ -100,6 +118,11 @@ export const emptyCounts = (): ReconcileCounts => ({
   refundsChanged: 0,
   refundsWaiting: 0,
   retried: 0,
+  settlementLinesLinked: 0,
+  settlementLinesUnlinked: 0,
+  settlementsChanged: 0,
+  settlementsFound: 0,
+  settlementsNew: 0,
   waiting: 0,
 });
 
@@ -214,8 +237,13 @@ export function parseReconcileState(
   }
   try {
     const parsed = JSON.parse(value) as ReconcileState | null;
+    // Runs saved before settlements were synced have no settlement counts.
     return parsed && typeof parsed === "object" && "status" in parsed
-      ? { ...parsed, listed: parsed.listed ?? true }
+      ? {
+          ...parsed,
+          counts: { ...emptyCounts(), ...parsed.counts },
+          listed: parsed.listed ?? true,
+        }
       : null;
   } catch {
     return null;
@@ -264,9 +292,9 @@ async function saveLastReconcile(last: ReconcileState): Promise<void> {
   await writeRazorpayConfig({ lastReconcile: JSON.stringify(last) });
 }
 
-/** Logs one payment's or refund's failure with its IDs and safe error fields only. */
+/** Logs one payment's, refund's or settlement's failure with its IDs and safe error fields only. */
 function logItemFailure(
-  item: { paymentId?: string; refundId?: string },
+  item: { paymentId?: string; refundId?: string; settlementId?: string },
   error: unknown
 ): void {
   const log = createRequestLogger({
@@ -299,6 +327,13 @@ export interface ReconcileDeps {
   recount: typeof recountImportBatches;
   saveLast: (state: ReconcileState) => Promise<void>;
   saveRun: (state: ReconcileState | null) => Promise<void>;
+  /** Records one India day's settlements and their lines. */
+  settlements: (
+    day: string,
+    client: RazorpayClient,
+    mode: RazorpayMode,
+    logFailure: SettlementDeps["logFailure"]
+  ) => Promise<{ pages: number; tally: SettlementTally }>;
   stage: (
     payment: Parameters<typeof stageRazorpayPayment>[0],
     mode: RazorpayMode
@@ -325,6 +360,11 @@ export const reconcileDeps = (setup: RazorpaySetup): ReconcileDeps => ({
   recount: recountImportBatches,
   saveLast: saveLastReconcile,
   saveRun: saveReconcileRun,
+  settlements: (day, client, mode, logFailure) =>
+    syncSettlementsForDay(day, indiaDayWindow(day), client, mode, {
+      logFailure,
+      record: recordRazorpaySettlement,
+    }),
   stage: (payment, mode) => stageRazorpayPayment(payment, mode),
   syncStale: async (input, client) => {
     let tally = emptyRefundTally();
@@ -464,7 +504,16 @@ async function reconcileDay(
     }
   }
   addTally(counts, tally);
-  return payments.pages + refunds.pages;
+
+  // Settlements last: the payments and refunds they name are recorded by now.
+  const settled = await deps.settlements(day, client, mode, deps.logFailure);
+  counts.errors += settled.tally.errors;
+  counts.settlementsFound += settled.tally.found;
+  counts.settlementsNew += settled.tally.new;
+  counts.settlementsChanged += settled.tally.changed;
+  counts.settlementLinesLinked += settled.tally.linked;
+  counts.settlementLinesUnlinked += settled.tally.unlinked;
+  return payments.pages + refunds.pages + settled.pages;
 }
 
 export async function runRazorpayReconcile(

@@ -80,6 +80,7 @@ export const QUEUE_NAMES: JobName[] = [
   "razorpay-reconcile",
   "razorpay-sync-payment",
   "razorpay-sync-refund",
+  "razorpay-sync-settlement",
   "send-event-rsvp-polls",
   "remind-feedback-deadline",
   "remind-kalakriti-registration-close",

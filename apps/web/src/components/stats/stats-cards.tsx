@@ -1,6 +1,11 @@
 import type { IconSvgElement } from "@hugeicons/react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@pi-dash/design-system/components/ui/tooltip";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
@@ -11,6 +16,8 @@ export interface StatItem {
   /** Accessible name for a chip that filters on click. */
   actionLabel?: string;
   description?: string;
+  /** Explains the figure (how it is worked out) in a tooltip. */
+  hint?: string;
   href?: string;
   icon?: IconSvgElement;
   label: string;
@@ -86,6 +93,24 @@ export function StatChip({ item }: { item: StatItem }) {
       >
         {chip}
       </button>
+    );
+  }
+  if (item.hint) {
+    return (
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            // A button, so keyboard users can reach the hint too.
+            <button
+              className="focus-visible:ring-ring/50 cursor-help rounded-lg outline-none focus-visible:ring-3"
+              type="button"
+            />
+          }
+        >
+          {chip}
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">{item.hint}</TooltipContent>
+      </Tooltip>
     );
   }
   return chip;

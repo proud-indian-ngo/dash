@@ -1,5 +1,11 @@
 import { type RazorpayPayment, razorpayPaymentSchema } from "./payment";
 import { type RazorpayRefund, razorpayRefundSchema } from "./refund-schema";
+import {
+  type RazorpayReconItem,
+  type RazorpaySettlement,
+  razorpayReconItemSchema,
+  razorpaySettlementSchema,
+} from "./settlement-schema";
 
 /**
  * Server-only. The Razorpay API calls pi-dash makes, with basic auth; the
@@ -13,6 +19,8 @@ const API_BASE = "https://api.razorpay.com/v1";
 const TIMEOUT_MS = 10_000;
 /** Razorpay's largest page. */
 export const PAGE_SIZE = 100;
+/** The settlement recon's largest page. */
+export const RECON_PAGE_SIZE = 1000;
 /** A day with more payments than this is not a day of this trust's donations. */
 const MAX_PAGES = 500;
 const MAX_RATE_LIMIT_RETRIES = 5;
@@ -53,12 +61,23 @@ export interface Listing<T> {
   unreadable: number;
 }
 
+/** One India day, as the settlement recon takes it. */
+export interface ReconDay {
+  day: number;
+  month: number;
+  year: number;
+}
+
 export interface RazorpayClient {
   fetchPayment(paymentId: string): Promise<RazorpayPayment | null>;
   fetchRefund(refundId: string): Promise<RazorpayRefund | null>;
+  fetchSettlement(settlementId: string): Promise<RazorpaySettlement | null>;
   listPaymentRefunds(paymentId: string): Promise<Listing<RazorpayRefund>>;
   listPayments(window: UnixWindow): Promise<Listing<RazorpayPayment>>;
   listRefunds(window: UnixWindow): Promise<Listing<RazorpayRefund>>;
+  /** Lines settled on one day: payments, refunds, transfers and adjustments. */
+  listSettlementRecon(day: ReconDay): Promise<Listing<RazorpayReconItem>>;
+  listSettlements(window: UnixWindow): Promise<Listing<RazorpaySettlement>>;
 }
 
 const defaultSleep = (ms: number) =>
@@ -164,13 +183,21 @@ export function createRazorpayClient(
   async function list<T>(
     path: string,
     window: UnixWindow | null,
-    schema: Parser<T>
+    schema: Parser<T>,
+    {
+      pageSize = PAGE_SIZE,
+      query = {},
+    }: {
+      pageSize?: number;
+      query?: Record<string, number>;
+    } = {}
   ): Promise<Listing<T>> {
     const listing: Listing<T> = { items: [], pages: 0, unreadable: 0 };
-    for (let skip = 0; listing.pages < MAX_PAGES; skip += PAGE_SIZE) {
+    for (let skip = 0; listing.pages < MAX_PAGES; skip += pageSize) {
       const body = await get(path, {
-        count: PAGE_SIZE,
+        count: pageSize,
         ...(window ? { from: window.from, to: window.to } : {}),
+        ...query,
         skip,
       });
       listing.pages += 1;
@@ -180,7 +207,7 @@ export function createRazorpayClient(
       const page = parseCollection(body, schema);
       listing.items.push(...page.items);
       listing.unreadable += page.unreadable;
-      if (page.count < PAGE_SIZE) {
+      if (page.count < pageSize) {
         return listing;
       }
     }
@@ -225,8 +252,21 @@ export function createRazorpayClient(
         null,
         razorpayRefundSchema
       ),
+    fetchSettlement: (settlementId) =>
+      one(
+        `/settlements/${encodeURIComponent(settlementId)}`,
+        razorpaySettlementSchema,
+        "settlement"
+      ),
     listPayments: (window) => list("/payments", window, razorpayPaymentSchema),
     listRefunds: (window) => list("/refunds", window, razorpayRefundSchema),
+    listSettlementRecon: ({ day, month, year }) =>
+      list("/settlements/recon/combined", null, razorpayReconItemSchema, {
+        pageSize: RECON_PAGE_SIZE,
+        query: { day, month, year },
+      }),
+    listSettlements: (window) =>
+      list("/settlements", window, razorpaySettlementSchema),
   };
 }
 

@@ -39,6 +39,16 @@ const refundJobsSettled = (refundId: string) =>
   fixture<boolean>("refund-settled", refundId);
 const pendingRefunds = (paymentId: string) =>
   fixture<number>("pending-refunds", paymentId);
+const recordSettlement = (settlement: unknown) =>
+  fixture<{ created: boolean; linked: number; unlinked: number }>(
+    "record-settlement",
+    JSON.stringify(settlement)
+  );
+const settlementLinks = (settlementId: string) =>
+  fixture<{ externalId: string; linked: boolean }[]>(
+    "settlement-links",
+    settlementId
+  );
 
 /**
  * Razorpay Payment Page ingestion end to end: signed webhooks in, donors and
@@ -493,6 +503,151 @@ test.describe("Income: Razorpay Payment Page", () => {
         status: "refunded",
       });
     expect(await pendingRefunds(paymentId)).toBe(0);
+  });
+
+  test("lists a settlement with its breakdown, and links a payment imported after it", async ({
+    page,
+    request,
+  }) => {
+    test.slow();
+    const run = String(Date.now());
+    const donor = `E2E Razorpay Settled ${run}`;
+    const laterDonor = `E2E Razorpay Settled Later ${run}`;
+    const settledId = `pay_E2ESettled${run}`;
+    const laterId = `pay_E2ESettledLater${run}`;
+    const settlementId = `setl_E2E${run}`;
+    const utr = `UTRE2E${run}`;
+    await fixture("restore-clearing", E2E_CLEARING_ID);
+
+    // A ₹500 gift imported at once; Razorpay's fee is ₹11.80 with ₹1.80 GST.
+    const paid = capturedEvent("payment.captured", {
+      amount: 50_000,
+      contact: runPhone(run),
+      email: `rzp-settled-${run}@example.test`,
+      id: settledId,
+      notes: { "Full Name": donor, "PAN Number": runPan(run) },
+    });
+    expect((await post(request, paid)).status()).toBe(200);
+    await expect
+      .poll(() => paymentRows(settledId), { timeout: 30_000 })
+      .toEqual([{ outcome: "imported", reason: null }]);
+
+    // Not settled yet: the sheet says so.
+    const row = (await contributionRows(page, donor)).first();
+    await expect(row).toBeVisible({ timeout: 15_000 });
+    await row.getByText(donor).click();
+    await expect(page.getByTestId("contribution-settled")).toHaveText(
+      "Not settled yet"
+    );
+    await page.keyboard.press("Escape");
+
+    // Razorpay pays it out with a ₹300 payment not imported yet and a ₹10
+    // adjustment: 488.20 + 292.92 + 10.00 = ₹791.12.
+    const settledAt = new Date().toISOString();
+    const today = new Date().toLocaleDateString("en-CA", {
+      timeZone: "Asia/Kolkata",
+    });
+    const recorded = await recordSettlement({
+      amountPaise: 79_112,
+      externalId: settlementId,
+      lines: [
+        {
+          creditPaise: 48_820,
+          debitPaise: 0,
+          externalId: settledId,
+          feePaise: 1000,
+          settledAt,
+          taxPaise: 180,
+          type: "payment",
+        },
+        {
+          creditPaise: 29_292,
+          debitPaise: 0,
+          externalId: laterId,
+          feePaise: 600,
+          settledAt,
+          taxPaise: 108,
+          type: "payment",
+        },
+        {
+          creditPaise: 1000,
+          debitPaise: 0,
+          externalId: `adj_E2E${run}`,
+          feePaise: 0,
+          settledAt,
+          taxPaise: 0,
+          type: "adjustment",
+        },
+      ],
+      mode: "test",
+      settledOn: today,
+      status: "processed",
+      utr,
+    });
+    expect(recorded).toMatchObject({ created: true, linked: 1, unlinked: 1 });
+
+    await page.goto("/income?tab=settlements");
+    await waitForZeroReady(page);
+    await expect(page.getByText("Awaiting settlement")).toBeVisible();
+    await page.getByPlaceholder("Search settlement ID or UTR...").fill(utr);
+    const settlementRow = page.getByRole("row").filter({ hasText: utr });
+    await expect(settlementRow).toHaveCount(1, { timeout: 15_000 });
+    await expect(settlementRow).toContainText("₹791.12");
+    await expect(settlementRow).toContainText("₹800.00");
+    await expect(settlementRow).toContainText("₹18.88");
+    await expect(settlementRow).toContainText("1 unlinked");
+    await expect(settlementRow.getByTestId("settlement-status")).toHaveText(
+      "Processed"
+    );
+
+    // The sheet adds it up, Stripe-style, and lists every line.
+    await settlementRow.getByText(utr).click();
+    const breakdown = page.getByTestId("settlement-breakdown");
+    await expect(breakdown).toContainText("Payments (2)");
+    await expect(breakdown).toContainText("₹800.00");
+    await expect(breakdown).toContainText("− ₹16.00");
+    await expect(breakdown).toContainText("− ₹2.88");
+    await expect(breakdown).toContainText("+ ₹10.00");
+    await expect(breakdown).toContainText("Net paid");
+    await expect(breakdown).toContainText("₹791.12");
+    await expect(page.getByTestId("settlement-mismatch")).toHaveCount(0);
+    await expect(page.getByTestId("settlement-fee-mismatch")).toHaveCount(0);
+    await expect(page.getByTestId("settlement-unlinked")).toBeVisible();
+    const lines = page.getByTestId("settlement-lines");
+    await expect(lines).toContainText(donor);
+    await expect(lines).toContainText(settledId);
+    await expect(lines).toContainText("Not imported yet");
+    await expect(lines).toContainText(`adj_E2E${run}`);
+    await page.keyboard.press("Escape");
+
+    // The other payment arrives: its import links the waiting line.
+    const later = capturedEvent("payment.captured", {
+      amount: 30_000,
+      contact: `+9197${run.slice(-8)}`,
+      email: `rzp-settled-later-${run}@example.test`,
+      id: laterId,
+      notes: { "Full Name": laterDonor, "PAN Number": runPan(`${run}9`) },
+    });
+    expect((await post(request, later)).status()).toBe(200);
+    await expect
+      .poll(() => settlementLinks(settlementId), { timeout: 30_000 })
+      .toEqual(
+        [
+          { externalId: `adj_E2E${run}`, linked: false },
+          { externalId: laterId, linked: true },
+          { externalId: settledId, linked: true },
+        ].sort((a, b) => a.externalId.localeCompare(b.externalId))
+      );
+
+    // The gift's sheet shows when it was settled.
+    const settledRow = (await contributionRows(page, donor)).first();
+    await settledRow.getByText(donor).click();
+    await expect(page.getByTestId("contribution-settled")).toContainText(
+      "Settled on"
+    );
+    await expect(page.getByTestId("contribution-settled")).toContainText(
+      `(UTR ${utr})`
+    );
   });
 
   test("without the key secret, Sync now retries stuck payments and Import past payments is off", async ({

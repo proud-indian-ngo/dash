@@ -67,8 +67,18 @@ describe("registerHandlers", () => {
         retryLimit: 8,
       })
     );
+    expect(createQueue).toHaveBeenCalledWith(
+      "razorpay-sync-settlement",
+      expect.objectContaining({
+        policy: "stately",
+        retryBackoff: true,
+        retryDelayMax: 3600,
+        retryLimit: 8,
+      })
+    );
     const workers = work.mock.calls.map(([name]) => name);
     expect(workers).not.toContain("razorpay-reconcile");
     expect(workers).not.toContain("razorpay-sync-refund");
+    expect(workers).not.toContain("razorpay-sync-settlement");
   });
 });

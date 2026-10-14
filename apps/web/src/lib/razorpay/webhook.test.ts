@@ -219,6 +219,53 @@ describe("routeRazorpayEvent", () => {
     ).toMatchObject({ action: "ignore", reason: "malformed_payment" });
   });
 
+  it("queues a processed settlement by ID only with the key secret", () => {
+    // Razorpay's documented settlement.processed delivery.
+    const settled = {
+      account_id: "acc_PR7UDve9UNcOxW",
+      contains: ["settlement"],
+      created_at: 1_763_021_990,
+      entity: "event",
+      event: "settlement.processed",
+      payload: {
+        settlement: {
+          entity: {
+            amount: 1524,
+            created_at: 1_763_019_089,
+            entity: "settlement",
+            fees: 0,
+            id: "setl_Rf8uva1MU98B4l",
+            status: "processed",
+            tax: 0,
+            utr: "AXISCN1153863727",
+          },
+        },
+      },
+    };
+    expect(routeRazorpayEvent(settled, true)).toEqual({
+      action: "settlement",
+      event: "settlement.processed",
+      settlementId: "setl_Rf8uva1MU98B4l",
+    });
+    // Without the key secret its lines cannot be listed: not recorded.
+    expect(routeRazorpayEvent(settled, false)).toEqual({
+      action: "ignore",
+      event: "settlement.processed",
+      paymentId: null,
+      reason: "settlements_need_key_secret",
+      settlementId: "setl_Rf8uva1MU98B4l",
+    });
+    expect(
+      routeRazorpayEvent(
+        {
+          event: "settlement.processed",
+          payload: { settlement: { entity: { id: "../setl" } } },
+        },
+        true
+      )
+    ).toMatchObject({ action: "ignore", reason: "malformed_settlement" });
+  });
+
   it("ignores bodies that are not events", () => {
     expect(routeRazorpayEvent(null)).toMatchObject({
       action: "ignore",

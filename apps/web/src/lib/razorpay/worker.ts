@@ -4,6 +4,7 @@ import type {
   RazorpayReconcilePayload,
   RazorpaySyncPaymentPayload,
   RazorpaySyncRefundPayload,
+  RazorpaySyncSettlementPayload,
 } from "@pi-dash/jobs/types";
 import { createRequestLogger } from "evlog";
 
@@ -25,10 +26,15 @@ import {
   type RefundSyncOutcome,
   syncRazorpayRefund,
 } from "./refund";
+import {
+  type SettlementSyncOutcome,
+  syncRazorpaySettlement,
+} from "./settlement";
 
 /**
  * Server-only. The Razorpay workers (`razorpay-sync-payment`,
- * `razorpay-sync-refund` and `razorpay-reconcile`). They live in the web
+ * `razorpay-sync-refund`, `razorpay-sync-settlement` and
+ * `razorpay-reconcile`). They live in the web
  * app, not `@pi-dash/jobs`, because they run the contribution import rules
  * that live here; the queues themselves are created with the others. Logs
  * carry IDs, outcomes, counts and page numbers only.
@@ -37,6 +43,7 @@ import {
 const QUEUE = "razorpay-sync-payment";
 const REFUND_QUEUE = "razorpay-sync-refund";
 const RECONCILE_QUEUE = "razorpay-reconcile";
+const SETTLEMENT_QUEUE = "razorpay-sync-settlement";
 
 type Boss = NonNullable<ReturnType<typeof getBossInstance>>;
 /** The part of a pg-boss job a worker reads. */
@@ -172,6 +179,43 @@ export async function handleRazorpaySyncRefund(
   return { outcomes };
 }
 
+/**
+ * Records a settlement a webhook announced. A failure (the API, the
+ * database) is thrown so pg-boss retries it; logs carry the settlement ID
+ * and counts only.
+ */
+export async function handleRazorpaySyncSettlement(
+  jobs: readonly Job<RazorpaySyncSettlementPayload>[],
+  sync: (
+    input: RazorpaySyncSettlementPayload
+  ) => Promise<SettlementSyncOutcome> = (input) =>
+    syncRazorpaySettlement(input, razorpaySetup())
+): Promise<{ outcomes: SettlementSyncOutcome[] }> {
+  const outcomes: SettlementSyncOutcome[] = [];
+  for (const job of jobs) {
+    const { settlementId } = job.data;
+    const log = createRequestLogger({ method: "JOB", path: SETTLEMENT_QUEUE });
+    log.set({ jobId: job.id, settlementId });
+    try {
+      const outcome = await sync({ settlementId });
+      log.set({ event: "razorpay_settlement_synced", ...outcome });
+      log.emit();
+      outcomes.push(outcome);
+    } catch (error) {
+      const safe = sanitizedError(error, "razorpay_settlement_sync_failed");
+      log.set({
+        event: "razorpay_settlement_sync_failed",
+        lastAttempt: isLastAttempt(job),
+        ...databaseErrorFields(error),
+      });
+      log.error(safe);
+      log.emit();
+      throw safe;
+    }
+  }
+  return { outcomes };
+}
+
 /** Runs a reconcile; its result (counts, pages, error code) is logged and kept in app_config. */
 export async function handleRazorpayReconcile(
   jobs: readonly Job<RazorpayReconcilePayload>[],
@@ -256,6 +300,14 @@ export async function registerRazorpayWorker(boss: Boss): Promise<void> {
     (jobs) =>
       withDefaultOutput<RazorpaySyncRefundPayload>(() =>
         handleRazorpaySyncRefund(jobs)
+      )(jobs)
+  );
+  await boss.work<RazorpaySyncSettlementPayload>(
+    SETTLEMENT_QUEUE,
+    { includeMetadata: true, pollingIntervalSeconds: 10 },
+    (jobs) =>
+      withDefaultOutput<RazorpaySyncSettlementPayload>(() =>
+        handleRazorpaySyncSettlement(jobs)
       )(jobs)
   );
   // Low traffic: one run every six hours, or one a person asked for.

@@ -20,6 +20,9 @@ import {
   refundSummary,
 } from "@pi-dash/shared/income";
 import { formatPaise } from "@pi-dash/shared/money";
+import { queries } from "@pi-dash/zero/queries";
+import type { GatewaySettlement } from "@pi-dash/zero/schema";
+import { useQuery } from "@rocicorp/zero/react";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
 
@@ -28,6 +31,7 @@ import { PageHeaderMenu } from "@/components/shared/page-header";
 import { DetailsRow } from "@/components/shared/record-detail";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { Tag } from "@/components/shared/status-badge";
+import { useApp } from "@/context/app-context";
 import { DATE, DATE_TIME } from "@/lib/date-formats";
 import { epochToLocalDate } from "@/lib/local-date";
 
@@ -36,6 +40,7 @@ import {
   refundedOfLabel,
 } from "./contribution-status";
 import { type ContributionRow, donorName } from "./income-types";
+import { shortId } from "./settlements/settlement-types";
 
 function withDescription(label: string, description: string | null) {
   return description ? `${label}: ${description}` : label;
@@ -88,6 +93,36 @@ function RefundsList({
   );
 }
 
+/** "Settled on 16 Oct 2026 · setl_…9xYz (UTR …)", or "Not settled yet". */
+export function settledLabel(settlement: GatewaySettlement | null): string {
+  if (!settlement) {
+    return "Not settled yet";
+  }
+  return `Settled on ${formatReceivedOn(settlement.settledOn)} · ${shortId(settlement.externalId)}${
+    settlement.utr ? ` (UTR ${settlement.utr})` : ""
+  }`;
+}
+
+/**
+ * When Razorpay paid this gift out to the bank, for finance.view and
+ * finance.manage holders: the settlement line of its payment.
+ */
+function SettledFact({ contributionId }: { contributionId: string }) {
+  const [lines, result] = useQuery(
+    queries.gatewaySettlement.byContribution({ contributionId })
+  );
+  const settlement =
+    (lines as readonly { settlement?: GatewaySettlement | null }[]).find(
+      (line) => line.settlement
+    )?.settlement ?? null;
+  if (!settlement && result.type !== "complete") {
+    return <span className="text-muted-foreground">…</span>;
+  }
+  return (
+    <span data-testid="contribution-settled">{settledLabel(settlement)}</span>
+  );
+}
+
 export function ContributionDetailSheet({
   canDelete,
   canEdit,
@@ -105,6 +140,9 @@ export function ContributionDetailSheet({
   onEdit: (contribution: ContributionRow) => void;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { hasPermission } = useApp();
+  const seesSettlements =
+    hasPermission("finance.view") || hasPermission("finance.manage");
   if (!contribution) {
     return (
       <Sheet onOpenChange={onOpenChange} open={false}>
@@ -161,6 +199,12 @@ export function ContributionDetailSheet({
     ["Programme", row.programme?.name ?? "—"],
     ["Project", row.project?.name ?? "—"],
     ["Reference", row.reference ?? "—"],
+    // Razorpay gifts only: when Razorpay paid it out to the bank.
+    ...(razorpayUrl && seesSettlements
+      ? ([
+          ["Settlement", <SettledFact contributionId={row.id} key="settled" />],
+        ] as [string, ReactNode][])
+      : []),
     ["Notes", row.notes ?? "—"],
     [
       "Source",
