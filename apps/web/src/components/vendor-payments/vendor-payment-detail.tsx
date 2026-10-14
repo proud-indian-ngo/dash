@@ -225,13 +225,15 @@ export function VendorPaymentDetail({
   const { label, tone } = getStatusBadge(request.status);
   const canResetToPending =
     status !== "pending" &&
-    request.transactions.length === 0 &&
+    // Rejected payments stay as history and do not block a reset.
+    request.transactions.every((t) => t.status === "rejected") &&
     !(request.invoiceNumber || request.invoiceDate);
-  const showAdminActions =
-    canApprove && (status === "pending" || canUpdateAnyStatus);
-  const showApproveAction = showAdminActions && status !== "approved";
-  const showRejectAction = showAdminActions && status !== "rejected";
-  const showResetAction = showAdminActions && canResetToPending;
+  const showApproveAction = canApprove && status === "pending";
+  // A request paid before approval was required can only be approved.
+  const showRejectAction =
+    showApproveAction &&
+    !request.transactions.some((t) => t.status === "approved");
+  const showResetAction = canApprove && canUpdateAnyStatus && canResetToPending;
 
   const total = sumAmounts(request.lineItems);
 

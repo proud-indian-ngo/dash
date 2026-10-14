@@ -47,6 +47,14 @@ test.describe("Vendor payment workflow (admin)", () => {
     test.slow();
     await createVendorPayment(page, "Full");
 
+    // Payments wait for approval
+    await expect(
+      page.getByText("Payments can be recorded after this request is approved.")
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.getByRole("button", { name: "Record payment" })
+    ).toHaveCount(0);
+
     // Step 1: Approve VP
     await page.getByRole("button", { name: "Approve" }).first().click();
     await approveInDialog(page);
@@ -71,6 +79,13 @@ test.describe("Vendor payment workflow (admin)", () => {
     await recordDialog2.getByRole("button", { name: "Record payment" }).click();
     await expect(recordDialog2).toBeHidden({ timeout: 10_000 });
     await expectStatus(page, "Paid");
+    // Review is over once the request is approved
+    await expect(
+      page.getByRole("button", { exact: true, name: "Approve" })
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { exact: true, name: "Reject" })
+    ).toHaveCount(0);
 
     // Step 4: Upload invoice
     await page.getByRole("button", { name: "Upload invoice" }).click();
@@ -171,6 +186,17 @@ test.describe("Vendor payment workflow (volunteer)", () => {
     const title = await createVolunteerVP(page, "Volunteer");
 
     await expect(page.getByRole("heading", { name: title })).toBeVisible();
+    // Payments wait for approval
+    await expect(
+      page.getByText("Payments can be recorded after this request is approved.")
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.getByRole("button", { name: "Request payment" })
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Record payment" })
+    ).toHaveCount(0);
+
     await page.getByRole("button", { exact: true, name: "Edit" }).click();
 
     await expect(

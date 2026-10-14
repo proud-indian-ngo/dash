@@ -252,14 +252,17 @@ export const vendorPaymentTransactionMutators = {
     }
 
     const vpStatus = vendorPayment.status as string;
-    // Pending VPs allow transactions from submitter or admin;
-    // approved/partially_paid/paid always allow transactions
     if (vpStatus === "rejected") {
       throw new Error(
         "Cannot record payments against rejected vendor payments"
       );
     }
-    if (!PAYABLE_STATUSES.has(vpStatus) && vpStatus !== "pending") {
+    if (vpStatus === "pending") {
+      throw new Error(
+        "Payments can be recorded only after the vendor payment is approved"
+      );
+    }
+    if (!PAYABLE_STATUSES.has(vpStatus)) {
       throw new Error("Cannot record payments against this vendor payment");
     }
 

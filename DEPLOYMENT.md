@@ -341,6 +341,17 @@ bun run vendors:backfill-private
 
 It encrypts each legacy row into `party_private` and `party_bank_account`, deletes it, and prints the migrated and skipped counts. It is safe to rerun; a second run reports `0 migrated`. Editing a vendor before the backfill also migrates that vendor's row. A later migration drops `private.vendor_legacy_details` once production has no rows left in it.
 
+### Vendor payment status repair
+
+Once the build that records payments only on approved requests is deployed, list vendor payments whose status disagrees with their data, then apply:
+
+```bash
+bun run vendor-payments:repair-status
+bun run vendor-payments:repair-status --apply --actor <admin email>
+```
+
+Pending requests that were already paid are listed as `APPROVE IN APP`; approve each in the app, never reject it (the server refuses to reject a request with approved payments). Rows marked `REVIEW` are left unchanged for finance to check by hand. The output ends with the requests moved to `paid`; chase their invoices with the owners, as the script sends no notifications. Applied changes are recorded only as vendor payment history entries by the `--actor` user, not in `audit_log`. See `docs/architecture/vendor-payments.md`.
+
 ### Money in paise rollout
 
 Migration `0118_money_paise.sql` replaces the `numeric(12,2)` rupee `amount` column with `amount_paise bigint` on `reimbursement_line_item`, `advance_payment_line_item`, `vendor_payment_line_item` and `vendor_payment_transaction`. It runs in the existing `migrate` service: per table it adds the column, backfills `round(amount * 100)`, sets it NOT NULL and drops `amount`, all in the migration transaction. Before touching anything it checks every amount and aborts with `money_paise: an amount has more than two decimal places` if one has more than two; `numeric(12,2)` cannot hold such a value, so this only fires if the column type was changed by hand, and the deploy stops with no data changed.
