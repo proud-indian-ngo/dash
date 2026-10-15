@@ -379,18 +379,27 @@ test.describe("Books (treasurer)", () => {
     }
   });
 
-  // Last in this serial group: the first test leaves the opening balances
-  // posted, so the workbook can be built.
   test("downloads the year's CA workbook as a valid XLSX with its five sheets", async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "finance_admin", "Treasurer test");
+    // The workbook needs the opening balances; post them here so this test
+    // doesn't depend on another one running first (CI shards split the group).
+    await books("ensure-opening", YEAR);
     await page.goto(`/finance/books?year=${YEAR}`);
     await waitForZeroReady(page);
     const item = await openPageAction(page, "Download CA workbook (XLSX)");
-    // Enabled once the opening balances stand (posted by the test above or
-    // the seed); the reason shows underneath otherwise.
-    await expect(item).toBeEnabled({ timeout: 15_000 });
+    // Enabled once the opening balances stand. A disabled item shows its
+    // reason underneath, so a failure reports that reason.
+    await expect
+      .poll(
+        async () =>
+          (await item.isEnabled())
+            ? "enabled"
+            : `disabled: ${(await item.innerText()).replaceAll("\n", " ")}`,
+        { timeout: 15_000 }
+      )
+      .toBe("enabled");
     const downloadPromise = page.waitForEvent("download");
     await item.click();
     const download = await downloadPromise;
