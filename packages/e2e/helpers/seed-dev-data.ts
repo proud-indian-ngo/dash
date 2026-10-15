@@ -42,6 +42,7 @@ import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { ensureFinanceDimensions } from "@pi-dash/db/seed-finance-dimensions";
 import { ensureVendor } from "@pi-dash/db/seed-vendors";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
+import { PROGRAMME_IDS } from "@pi-dash/shared/constants";
 import { eq, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
@@ -721,6 +722,8 @@ async function seedReimbursements(
         bankAccountIfscCode: "SBIN0001234",
         bankAccountName: "Savings Account",
         bankAccountNumber: "1234567890",
+        chargedProgrammeId: PROGRAMME_IDS.unallocated,
+        chargedTo: "programme",
         city: r.city,
         createdAt: subDays(r.expenseDate, 2),
         expenseDate: r.expenseDate.toISOString().split("T")[0],
@@ -913,6 +916,8 @@ async function seedVendors(
   // Vendor Payment for QuickPrint — approved, partially paid
   const vpId = uuidv7();
   await db.insert(vendorPayment).values({
+    chargedProgrammeId: PROGRAMME_IDS.unallocated,
+    chargedTo: "programme",
     createdAt: past(15),
     id: vpId,
     reviewedAt: past(12),
@@ -1003,6 +1008,7 @@ async function seedVendors(
   // Second vendor payment — pending
   const vp2Id = uuidv7();
   await db.insert(vendorPayment).values({
+    chargedTo: "organisation",
     createdAt: past(3),
     id: vp2Id,
     status: "pending",

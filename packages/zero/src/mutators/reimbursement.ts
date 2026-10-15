@@ -14,6 +14,12 @@ import {
   mutatorLineItemSchema as lineItemSchema,
 } from "../shared-schemas";
 import {
+  assertCanChangeCharge,
+  expenseChargeArgs,
+  resolveExpenseCharge,
+  setChargedToSchema,
+} from "./expense-charge";
+import {
   assertApprovalScreenshot,
   assertCanDelete,
   assertCanModify,
@@ -43,6 +49,7 @@ export const createSchema = z.object({
   bankAccountIfscCode: z.string().optional(),
   bankAccountName: z.string().optional(),
   bankAccountNumber: z.string().optional(),
+  ...expenseChargeArgs,
   city: z.enum(cityValues).optional(),
   eventId: z.string().optional(),
   expenseDate: z
@@ -77,7 +84,6 @@ const entityFields = (args: z.infer<typeof createSchema>) => ({
   bankAccountName: args.bankAccountName,
   bankAccountNumber: args.bankAccountNumber,
   city: args.city,
-  eventId: args.eventId,
   expenseDate: args.expenseDate,
 });
 
@@ -197,6 +203,7 @@ export const reimbursementMutators = {
     assertHasPermission(ctx, "requests.create");
     const { userId } = ctx;
     const now = Date.now();
+    const charge = await resolveExpenseCharge(tx, args);
 
     await tx.mutate.reimbursement.insert({
       approvalScreenshotKey: null,
@@ -211,6 +218,7 @@ export const reimbursementMutators = {
       updatedAt: now,
       userId,
       ...entityFields(args),
+      ...charge,
     });
 
     await insertRelations(
@@ -450,6 +458,28 @@ export const reimbursementMutators = {
     }
   ),
 
+  /**
+   * Finance changes what the request is charged to, at approval or later.
+   * Expenses are not posted to the books yet; once they are, a posted
+   * request will refuse this.
+   */
+  setChargedTo: defineMutator(setChargedToSchema, async ({ tx, ctx, args }) => {
+    assertCanChangeCharge(ctx);
+    const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
+    assertEntityExists(entity, "Reimbursement");
+    const charge = await resolveExpenseCharge(tx, args, entity);
+    const now = Date.now();
+    await tx.mutate.reimbursement.update({
+      id: args.id,
+      updatedAt: now,
+      ...charge,
+    });
+    await tx.mutate.reimbursementHistory.insert({
+      ...buildHistoryInsert(ctx.userId, "updated", now, "Charged to changed"),
+      reimbursementId: args.id,
+    });
+  }),
+
   update: defineMutator(createSchema, async ({ tx, ctx, args }) => {
     assertIsLoggedIn(ctx);
     const { userId } = ctx;
@@ -466,12 +496,14 @@ export const reimbursementMutators = {
     );
 
     const now = Date.now();
+    const charge = await resolveExpenseCharge(tx, args, entity);
 
     await tx.mutate.reimbursement.update({
       id: args.id,
       title: args.title,
       updatedAt: now,
       ...entityFields(args),
+      ...charge,
     });
 
     await replaceRelations(

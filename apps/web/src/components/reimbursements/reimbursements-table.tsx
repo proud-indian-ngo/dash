@@ -47,7 +47,10 @@ import {
   type RequestRow,
 } from "@/lib/reimbursement-types";
 import { canEditRequestSubmission } from "@/lib/request-edit-permissions";
-import { requestProgrammeName } from "@/lib/request-programme";
+import {
+  requestChargeSummary,
+  requestProgrammeName,
+} from "@/lib/request-programme";
 import { sumAmounts } from "@/lib/stats";
 import { getStatusBadge } from "@/lib/status-badge";
 
@@ -143,7 +146,7 @@ function searchReimbursement(row: RequestRow, query: string): boolean {
     row.status,
     row.user?.name,
     "event" in row ? row.event?.name : "",
-    "event" in row ? row.event?.programme?.name : "",
+    isReimbursement(row) ? requestProgrammeName(row) : "",
     REQUEST_TYPE_LABELS[row.type],
   ]
     .join(" ")
@@ -320,13 +323,13 @@ export function ReimbursementsTable({
     },
     {
       accessorFn: (row) =>
-        isReimbursement(row) ? requestProgrammeName(row.event) : "",
+        isReimbursement(row) ? requestProgrammeName(row) : "",
       cell: ({ row }) => {
         const r = row.original;
-        // Advances have no event link, so no programme applies.
+        // Advances are charged to nothing, so no programme applies.
         return (
           <span className="text-muted-foreground truncate text-sm">
-            {isReimbursement(r) ? requestProgrammeName(r.event) : "\u2014"}
+            {isReimbursement(r) ? requestProgrammeName(r) : "\u2014"}
           </span>
         );
       },
@@ -568,6 +571,11 @@ export function ReimbursementsTable({
         onConfirm={handleApprove}
         onOpenChange={review.handleOpenChange}
         open={review.approveOpen}
+        summary={
+          review.row && isReimbursement(review.row) ? (
+            <>Charged to: {requestChargeSummary(review.row)}</>
+          ) : undefined
+        }
       />
       <RejectDialog
         entityLabel={reviewLabel}

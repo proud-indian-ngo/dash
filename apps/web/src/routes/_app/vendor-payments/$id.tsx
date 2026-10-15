@@ -38,11 +38,15 @@ export const Route = createFileRoute("/_app/vendor-payments/$id")({
 });
 
 function VendorPaymentEditPane({
+  currentChargeProgramme,
   initialValues,
   onCancel,
   onSaved,
   onViewDetails,
 }: {
+  currentChargeProgramme: React.ComponentProps<
+    typeof VendorPaymentForm
+  >["currentChargeProgramme"];
   initialValues: React.ComponentProps<
     typeof VendorPaymentForm
   >["initialValues"];
@@ -63,6 +67,7 @@ function VendorPaymentEditPane({
       />
       <div className="mt-6">
         <VendorPaymentForm
+          currentChargeProgramme={currentChargeProgramme}
           initialValues={initialValues}
           onCancel={onCancel}
           onSaved={onSaved}
@@ -138,6 +143,9 @@ function VendorPaymentDetailRouteComponent() {
     title: vendorPayment.title as string,
     vendorId: vendorPayment.vendorId as string,
     ...(vendorPayment.eventId ? { eventId: vendorPayment.eventId } : {}),
+    chargedProgrammeId: vendorPayment.chargedProgrammeId ?? undefined,
+    chargedProjectId: vendorPayment.chargedProjectId ?? undefined,
+    chargedTo: vendorPayment.chargedTo,
   };
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
@@ -147,6 +155,7 @@ function VendorPaymentDetailRouteComponent() {
       >
         {showEditForm ? (
           <VendorPaymentEditPane
+            currentChargeProgramme={vendorPayment.chargedProgramme ?? null}
             initialValues={initialValues}
             onCancel={stableOnCancel0}
             onSaved={stableOnSaved1}

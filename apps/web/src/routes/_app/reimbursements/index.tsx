@@ -10,6 +10,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { log } from "evlog";
 import { toast } from "sonner";
 
+import { UnallocatedFilterButton } from "@/components/expenses/unallocated-filter-button";
 import { computeReimbursementStats } from "@/components/reimbursements/reimbursement-stats";
 import { ReimbursementsTable } from "@/components/reimbursements/reimbursements-table";
 import { PageHeader } from "@/components/shared/page-header";
@@ -137,6 +138,7 @@ function ReimbursementsRouteComponent() {
           isLoading={isLoading}
           onDelete={handleDelete}
           onNavigate={stableOnNavigate1}
+          toolbarActions={<UnallocatedFilterButton rows={reimbursements} />}
         />
       </div>
     </div>

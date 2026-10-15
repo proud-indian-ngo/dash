@@ -1,35 +1,83 @@
+import type { ExpenseChargedTo } from "@pi-dash/shared/constants";
+import {
+  ADMIN_PROGRAMME_LABEL,
+  EXPENSE_CHARGED_TO_LABELS,
+  expenseProgrammeOf,
+} from "@pi-dash/shared/expense-charge";
 import type { Programme, TeamEvent } from "@pi-dash/zero/schema";
 
-/** A request's event, with the programme the request inherits from it. */
+/** A request's event, with the programme a request charged to it inherits. */
 export type RequestEvent = TeamEvent & { programme?: Programme | undefined };
 
-/** Filter value and label for requests without an event, which have no programme. */
-const NO_EVENT_VALUE = "no-event";
-const NO_EVENT_LABEL = "No event";
-
-/** A request has no programme of its own; it is the event's programme. */
-export function requestProgrammeId(
-  event: { programmeId?: string | null } | null | undefined
-): string {
-  return event?.programmeId ?? NO_EVENT_VALUE;
+/** What the request tables, filters and the spending chart read of a request. */
+export interface ChargedRequest {
+  chargedProgramme?: { name: string } | null;
+  chargedProgrammeId?: string | null;
+  chargedProjectId?: string | null;
+  /** Absent on legacy advance payments, which are charged to nothing. */
+  chargedTo?: ExpenseChargedTo | null;
+  event?: {
+    name?: string;
+    programme?: { name: string } | null;
+    programmeId?: string | null;
+  } | null;
 }
 
-/** Empty while the event's programme is still loading. */
-export function requestProgrammeName(
-  event: { programme?: { name: string } | null } | null | undefined
-): string {
-  return event ? (event.programme?.name ?? "") : NO_EVENT_LABEL;
+/** Filter value for requests charged to running the organisation. */
+export const ADMIN_PROGRAMME_VALUE = "admin";
+
+/**
+ * Filter value: the programme id the request counts against (through
+ * `expenseProgrammeOf`), "admin" for an organisation charge, or null for a
+ * legacy advance or an event that has not synced yet.
+ */
+export function requestProgrammeId(request: ChargedRequest): string | null {
+  if (!request.chargedTo) {
+    return null;
+  }
+  const { isAdmin, programmeId } = expenseProgrammeOf(request);
+  return isAdmin ? ADMIN_PROGRAMME_VALUE : programmeId;
+}
+
+/** "Admin", the programme's name, or empty while the programme loads. */
+export function requestProgrammeName(request: ChargedRequest): string {
+  switch (request.chargedTo) {
+    case "organisation":
+      return ADMIN_PROGRAMME_LABEL;
+    case "programme":
+      return request.chargedProgramme?.name ?? "";
+    case "event":
+      return request.event?.programme?.name ?? "";
+    default:
+      return "";
+  }
 }
 
 /**
- * Facet option value: undefined until the event's programme loads, so the
+ * Facet option value: undefined until the programme's name loads, so the
  * filter never lists a raw programme id as a label.
  */
 export function requestProgrammeOptionId(
-  event:
-    | { programme?: { name: string } | null; programmeId?: string | null }
-    | null
-    | undefined
+  request: ChargedRequest
 ): string | undefined {
-  return requestProgrammeName(event) ? requestProgrammeId(event) : undefined;
+  return requestProgrammeName(request)
+    ? (requestProgrammeId(request) ?? undefined)
+    : undefined;
+}
+
+/**
+ * One line naming what a request is charged to, for the approval dialog:
+ * "Event · Name", "Programme · Name" or "Organisation (admin)".
+ */
+export function requestChargeSummary(request: ChargedRequest): string {
+  switch (request.chargedTo) {
+    case "event":
+      return `Event · ${request.event?.name ?? "loading"}`;
+    case "programme":
+      return `Programme · ${request.chargedProgramme?.name ?? "loading"}`;
+    case "organisation":
+      return EXPENSE_CHARGED_TO_LABELS.organisation;
+    default:
+      return "Nothing";
+  }
 }

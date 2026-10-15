@@ -9,7 +9,7 @@ test.describe("Vendor payment programme (admin)", () => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
   });
 
-  test("the list shows the event's programme and filters by it", async ({
+  test("the list shows what each payment is charged to and filters by it", async ({
     page,
   }) => {
     test.slow();
@@ -22,19 +22,31 @@ test.describe("Vendor payment programme (admin)", () => {
     await expect(
       page.getByText(`Programme · ${PROGRAMME_EVENT.programme}`)
     ).toBeVisible({ timeout: 10_000 });
-    const withoutEvent = await createVendorPayment(page, `${tag} None`);
+    const admin = await createVendorPayment(page, `${tag} Admin`);
+    await expect(page.getByText("Programme · Admin")).toBeVisible({
+      timeout: 10_000,
+    });
+    const forProgramme = await createVendorPayment(page, `${tag} Programme`, {
+      programme: "Community support",
+    });
+    await expect(page.getByText("Programme · Community support")).toBeVisible({
+      timeout: 10_000,
+    });
 
     await page.goto("/vendor-payments");
     await waitForZeroReady(page);
     const list = new ListPage(page);
     await list.getSearchInput("Search vendor payments...").fill(tag);
     const eventRow = list.getRowByText(withEvent);
-    const noEventRow = list.getRowByText(withoutEvent);
+    const adminRow = list.getRowByText(admin);
+    const programmeRow = list.getRowByText(forProgramme);
     await expect(eventRow).toContainText(PROGRAMME_EVENT.programme);
-    await expect(noEventRow).toContainText("No event");
+    await expect(adminRow).toContainText("Admin");
+    await expect(programmeRow).toContainText("Community support");
 
-    await applyQuickFilter(page, "Programme", "No event");
-    await expect(noEventRow).toBeVisible();
+    await applyQuickFilter(page, "Programme", "Admin");
+    await expect(adminRow).toBeVisible();
     await expect(eventRow).toHaveCount(0);
+    await expect(programmeRow).toHaveCount(0);
   });
 });

@@ -2,6 +2,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import type { BankAccount } from "@pi-dash/zero/schema";
 import type { useZero } from "@rocicorp/zero/react";
 
+import { chargedToPayload } from "@/components/expenses/charged-to-schema";
 import { toLineItemsPayload } from "@/lib/form-schemas";
 
 import type { RequestFormValues } from "./form/reimbursement-form.schema";
@@ -51,7 +52,7 @@ export function buildMutation(
     const reimbPayload = {
       ...basePayload,
       expenseDate: requireDate(value.expenseDate, "expenseDate"),
-      ...(value.eventId ? { eventId: value.eventId } : {}),
+      ...chargedToPayload(value),
     };
     return existingId
       ? zero.mutate(mutators.reimbursement.update(reimbPayload))

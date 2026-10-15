@@ -57,8 +57,8 @@ export function getReimbursementFilterValue(
     case "expenseDate":
       return isReimbursement(row) ? row.expenseDate : null;
     case "programme":
-      // Advances have no event link, so they sit outside every bucket.
-      return isReimbursement(row) ? requestProgrammeId(row.event) : null;
+      // Advances are charged to nothing, so they sit outside every bucket.
+      return isReimbursement(row) ? requestProgrammeId(row) : null;
     case "status":
       return row.status;
     case "submittedAt":
@@ -95,10 +95,8 @@ export function createReimbursementFilterFields(
       optionsFromRows(
         rows,
         (row) =>
-          isReimbursement(row)
-            ? requestProgrammeOptionId(row.event)
-            : undefined,
-        (row) => (isReimbursement(row) ? requestProgrammeName(row.event) : "")
+          isReimbursement(row) ? requestProgrammeOptionId(row) : undefined,
+        (row) => (isReimbursement(row) ? requestProgrammeName(row) : "")
       )
     ),
     selectField(

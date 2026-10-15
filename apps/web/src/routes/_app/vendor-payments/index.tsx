@@ -8,6 +8,7 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
+import { UnallocatedFilterButton } from "@/components/expenses/unallocated-filter-button";
 import { PageHeader } from "@/components/shared/page-header";
 import { TipStrip } from "@/components/shared/tip-strip";
 import { StatsCards } from "@/components/stats/stats-cards";
@@ -88,6 +89,7 @@ function VendorPaymentsRouteComponent() {
           isLoading={isLoading}
           onDelete={handleDelete}
           onNavigate={stableOnNavigate1}
+          toolbarActions={<UnallocatedFilterButton rows={data} />}
         />
       </div>
     </div>

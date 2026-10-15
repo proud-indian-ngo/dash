@@ -15,6 +15,7 @@ import { useZero } from "@rocicorp/zero/react";
 import { useState } from "react";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
+import { ChargedToCard } from "@/components/expenses/charged-to-card";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
 import { reimbursementHeaderMeta } from "@/components/reimbursements/reimbursement-header-meta";
@@ -40,6 +41,7 @@ import {
   REQUEST_TYPE_LABELS,
   type RequestDetailData,
 } from "@/lib/reimbursement-types";
+import { requestChargeSummary } from "@/lib/request-programme";
 import { sumAmounts } from "@/lib/stats";
 import { getStatusBadge } from "@/lib/status-badge";
 
@@ -256,6 +258,9 @@ export function ReimbursementDetail({
         <RecordDetailLayout
           aside={
             <>
+              {isReimbursement(request) ? (
+                <ChargedToCard kind="reimbursement" request={request} />
+              ) : null}
               <BankAccountCard request={request} />
               <HistoryCard entries={request.history} />
             </>
@@ -331,6 +336,11 @@ export function ReimbursementDetail({
           onConfirm={handleApprove}
           onOpenChange={setApproveOpen}
           open={approveOpen}
+          summary={
+            isReimbursement(request) ? (
+              <>Charged to: {requestChargeSummary(request)}</>
+            ) : undefined
+          }
         />
         <RejectDialog
           entityLabel={typeLabel.toLowerCase()}

@@ -16,6 +16,7 @@ import capitalize from "lodash/capitalize";
 import { useState } from "react";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
+import { ChargedToCard } from "@/components/expenses/charged-to-card";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
@@ -29,6 +30,10 @@ import {
 import { RequesterMeta } from "@/components/shared/requester-meta";
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { handleMutationResult } from "@/lib/mutation-result";
+import {
+  requestChargeSummary,
+  requestProgrammeName,
+} from "@/lib/request-programme";
 import { sumAmounts } from "@/lib/stats";
 import { getStatusBadge } from "@/lib/status-badge";
 
@@ -199,9 +204,9 @@ function VendorPaymentHeader({
             {request.event.name}
           </Link>
         ) : null,
-        request.event?.programme ? (
+        requestProgrammeName(request) ? (
           <span key="programme">
-            Programme · {request.event.programme.name}
+            Programme · {requestProgrammeName(request)}
           </span>
         ) : null,
       ]}
@@ -308,6 +313,7 @@ export function VendorPaymentDetail({
         <RecordDetailLayout
           aside={
             <>
+              <ChargedToCard kind="vendorPayment" request={request} />
               <VendorDetailCards
                 ownsApprovedPayment={
                   isOwner && PAST_APPROVAL_STATUSES.has(request.status ?? "")
@@ -354,6 +360,7 @@ export function VendorPaymentDetail({
           onConfirm={handleApprove}
           onOpenChange={setApproveOpen}
           open={approveOpen}
+          summary={<>Charged to: {requestChargeSummary(request)}</>}
         />
         <RejectDialog
           entityLabel="vendor payment"

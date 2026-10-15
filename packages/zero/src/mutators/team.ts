@@ -160,6 +160,28 @@ export const teamMutators = {
         throw new Error("Team not found");
       }
 
+      // Deleting the team deletes its events, and an expense charged to an
+      // event must keep it. Finance moves those expenses first.
+      const [chargedReimbursement, chargedVendorPayment] = await Promise.all([
+        tx.run(
+          zql.reimbursement
+            .where("chargedTo", "event")
+            .whereExists("event", (e) => e.where("teamId", args.id))
+            .one()
+        ),
+        tx.run(
+          zql.vendorPayment
+            .where("chargedTo", "event")
+            .whereExists("event", (e) => e.where("teamId", args.id))
+            .one()
+        ),
+      ]);
+      if (chargedReimbursement || chargedVendorPayment) {
+        throw new Error(
+          "Expenses are charged to this team's events. Change what they are charged to before deleting the team."
+        );
+      }
+
       const memberUserIds = existing.members.map((m) => m.userId);
       const teamName = existing.name;
 

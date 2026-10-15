@@ -781,6 +781,7 @@ async function ensureReimbursement(
 
   const now = new Date();
   await db.insert(reimbursement).values({
+    chargedTo: "event",
     city: "bangalore",
     createdAt: now,
     eventId,
@@ -839,6 +840,7 @@ async function ensureUpcomingEventReimbursement(
 
   const now = new Date();
   await db.insert(reimbursement).values({
+    chargedTo: "event",
     city: "bangalore",
     createdAt: now,
     eventId,
@@ -963,6 +965,7 @@ async function ensureEventVendorPayment(
   }
 
   await db.insert(vendorPayment).values({
+    chargedTo: "event",
     city: "bangalore",
     createdAt: now,
     eventId,
@@ -1009,6 +1012,7 @@ async function ensureExportVendorPayment(userId: string): Promise<void> {
 
   const createdAt = new Date("2026-07-01T00:00:00.000Z");
   await db.insert(vendorPayment).values({
+    chargedTo: "organisation",
     city: "bangalore",
     createdAt,
     id: SEED_EXPORT_VENDOR_PAYMENT_ID,

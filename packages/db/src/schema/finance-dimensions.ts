@@ -21,6 +21,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
@@ -108,6 +109,9 @@ export const project = pgTable(
   (t) => [
     uniqueIndex("project_code_uidx").on(t.code),
     index("project_programmeId_idx").on(t.programmeId),
+    // Target of the (project, programme) foreign keys on expenses, which
+    // make the database refuse a project charged under another programme.
+    unique("project_id_programme_id_unique").on(t.id, t.programmeId),
   ]
 );
 

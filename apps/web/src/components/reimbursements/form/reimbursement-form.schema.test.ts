@@ -26,6 +26,7 @@ const validReimbursement = {
   bankAccountIfscCode: "HDFC0001234",
   bankAccountName: "HDFC Savings",
   bankAccountNumber: "1234567890",
+  chargedTo: "organisation" as const,
   city: "bangalore" as const,
   expenseDate: new Date(2025, 5, 1),
   lineItems: [validLineItem],
@@ -54,6 +55,38 @@ describe("reimbursementRequestFormSchema", () => {
   it("accepts valid reimbursement data", () => {
     const result = reimbursementRequestFormSchema.safeParse(validReimbursement);
     expect(result.success).toBe(true);
+  });
+
+  it("requires the event when charged to an event", () => {
+    const result = reimbursementRequestFormSchema.safeParse({
+      ...validReimbursement,
+      chargedTo: "event",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(["eventId"]);
+    expect(
+      reimbursementRequestFormSchema.safeParse({
+        ...validReimbursement,
+        chargedTo: "event",
+        eventId: "ev-1",
+      }).success
+    ).toBe(true);
+  });
+
+  it("requires the programme when charged to a programme", () => {
+    const result = reimbursementRequestFormSchema.safeParse({
+      ...validReimbursement,
+      chargedTo: "programme",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(["chargedProgrammeId"]);
+    expect(
+      reimbursementRequestFormSchema.safeParse({
+        ...validReimbursement,
+        chargedProgrammeId: "edu",
+        chargedTo: "programme",
+      }).success
+    ).toBe(true);
   });
 
   it("rejects empty title", () => {

@@ -2,14 +2,6 @@ import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-} from "@pi-dash/design-system/components/ui/combobox";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -19,7 +11,12 @@ import { Separator } from "@pi-dash/design-system/components/ui/separator";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ExpenseCategory } from "@pi-dash/zero/schema";
 
+import {
+  ChargedToFields,
+  type CurrentChargeProgramme,
+} from "@/components/expenses/charged-to-fields";
 import { AttachmentsSection } from "@/components/form/attachments-section";
+import { ComboboxField } from "@/components/form/combobox-field";
 import { CustomField } from "@/components/form/custom-field";
 import { FormActions } from "@/components/form/form-actions";
 import type { FormFieldApi } from "@/components/form/form-context";
@@ -37,6 +34,7 @@ import { cityOptions } from "@/lib/form-schemas";
 
 interface VendorPaymentFieldsProps {
   categoryList: ExpenseCategory[];
+  currentChargeProgramme?: CurrentChargeProgramme | null;
   eventOptions: SelectOption[];
   isEdit: boolean;
   onCancel: () => void;
@@ -110,54 +108,9 @@ function VendorSelectField({
   );
 }
 
-function EventSelectField({
-  eventOptions,
-  field,
-}: {
-  eventOptions: SelectOption[];
-  field: FormFieldApi<string | undefined>;
-}) {
-  const items = ["", ...eventOptions.map((o) => o.value)];
-  const optionMap = new Map(eventOptions.map((o) => [o.value, o.label]));
-  const itemToStringLabel = useEventCallback((value: string) =>
-    value === "" ? "No event" : (optionMap.get(value) ?? String(value))
-  );
-  const handleValueChange = useEventCallback((value: string | null) =>
-    field.handleChange(value === "" || value === null ? undefined : value)
-  );
-
-  return (
-    <Combobox
-      items={items}
-      itemToStringLabel={itemToStringLabel}
-      onValueChange={handleValueChange}
-      value={field.state.value ?? ""}
-    >
-      <ComboboxInput
-        className="w-full"
-        id={field.name}
-        onBlur={field.handleBlur}
-        placeholder="No event"
-        showClear={!!field.state.value}
-      />
-      <ComboboxContent>
-        <ComboboxList>
-          {(itemValue) => (
-            <ComboboxItem key={itemValue} value={itemValue}>
-              {itemValue === ""
-                ? "No event"
-                : (optionMap.get(itemValue) ?? itemValue)}
-            </ComboboxItem>
-          )}
-        </ComboboxList>
-        <ComboboxEmpty>No matching events.</ComboboxEmpty>
-      </ComboboxContent>
-    </Combobox>
-  );
-}
-
 export function VendorPaymentFields({
   categoryList,
+  currentChargeProgramme,
   eventOptions,
   isEdit,
   onCancel,
@@ -195,12 +148,21 @@ export function VendorPaymentFields({
             );
           }}
         </CustomField>
-        <CustomField<string | undefined> label="Event" name="eventId">
-          {(field) => (
-            <EventSelectField eventOptions={eventOptions} field={field} />
-          )}
-        </CustomField>
       </div>
+
+      <ChargedToFields
+        currentProgramme={currentChargeProgramme}
+        eventField={
+          <ComboboxField
+            emptyMessage="No matching events."
+            isRequired
+            label="Event"
+            name="eventId"
+            options={eventOptions}
+            placeholder="Search events"
+          />
+        }
+      />
 
       <Separator />
 
