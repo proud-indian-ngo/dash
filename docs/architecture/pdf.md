@@ -11,6 +11,10 @@ React PDF (`@react-pdf/renderer`) for cash voucher generation.
 | `src/amount-to-words.ts` | `paiseToWords`: paise amount → English words for vouchers |
 | `assets/logo.png`, `assets/signature.png` | Static assets embedded in PDF |
 
+## Donation receipts
+
+`src/donation-receipt.tsx` (A4, product palette, the bundled Plus Jakarta Sans and the Proud Indian logo from the Kalakriti asset map so the bundle embeds them) and `src/generate-donation-receipt.tsx` render a receipt from its frozen snapshot on demand; nothing is stored. Font: Plus Jakarta Sans, the brand typeface the Kalakriti cards already bundle (registered by `kalakriti-id-card-layout.ts`), because it is embedded in the server bundle and has the ₹ glyph; the product UI's Geist isn't bundled for PDFs. The document's creation and modification dates are the issue day, so the same receipt always renders the same bytes (a retried email attaches an identical file under the same idempotency key). `packages/jobs/src/lib/receipt-pdf.ts` maps the snapshot to props for the download route and the email job. Amounts in words use `paiseToIndianWords` from `@pi-dash/shared/amount-in-words` (lakh and crore, "rupees and paise"). See `finance-and-programmes.md`, "Donation receipts".
+
 Voucher flow: `generate-cash-voucher` job → queries reimbursement + line items → renders PDF → uploads to R2 → attaches to reimbursement record. Env vars `VOUCHER_ORG_*` configure org details on the voucher.
 
 ## Kalakriti ID cards

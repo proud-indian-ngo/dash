@@ -108,6 +108,7 @@ import { handleRemindPhotoApproval } from "./remind-photo-approval";
 import { handleRemindStaleRequests } from "./remind-stale-requests";
 import { handleScanWhatsAppGroups } from "./scan-whatsapp-groups";
 import { handleSendBulkNotification } from "./send-bulk-notification";
+import { handleSendContributionReceipt } from "./send-contribution-receipt";
 import { handleSendEventRsvpPolls } from "./send-event-rsvp-polls";
 import { handleSendNotification } from "./send-notification";
 import { handleSendScheduledMessage } from "./send-scheduled-message";
@@ -249,6 +250,11 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     withDefaultOutput(handleSendBulkNotification)
   );
   await boss.work("send-whatsapp", withDefaultOutput(handleSendWhatsApp));
+  await boss.work(
+    "send-contribution-receipt",
+    NOTIFY_POLL,
+    handleSendContributionReceipt
+  );
   await boss.work(
     "send-scheduled-message",
     withDefaultOutput(handleSendScheduledMessage)

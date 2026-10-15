@@ -4,6 +4,7 @@ import {
   LinkSquare02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import type { PermissionId } from "@pi-dash/db/permissions";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import type {
   ContributionChannel,
@@ -22,6 +23,7 @@ import {
   refundSummary,
 } from "@pi-dash/shared/income";
 import { formatPaise } from "@pi-dash/shared/money";
+import { canReadReceipts } from "@pi-dash/shared/receipts";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
 
@@ -41,6 +43,7 @@ import {
   refundedOfLabel,
 } from "./contribution-status";
 import { type ContributionRow, donorName } from "./income-types";
+import { ContributionReceiptFact } from "./receipts/contribution-receipt-fact";
 import {
   type ContributionSettlement,
   isGatewayContribution,
@@ -141,6 +144,10 @@ export function ContributionDetailSheet({
   const { hasPermission } = useApp();
   const seesSettlements =
     hasPermission("finance.view") || hasPermission("finance.manage");
+  const seesReceipts = canReadReceipts((permission) =>
+    hasPermission(permission as PermissionId)
+  );
+  const canIssueReceipts = hasPermission("donors.receipt");
   const isGatewayGift =
     contribution !== null && isGatewayContribution(contribution);
   // Gateway gifts only: when the provider paid it out to the bank.
@@ -236,6 +243,18 @@ export function ContributionDetailSheet({
             <span data-testid="contribution-settled" key="settled">
               {settledLabel(settlement)}
             </span>,
+          ],
+        ] as [string, ReactNode][])
+      : []),
+    ...(seesReceipts
+      ? ([
+          [
+            "Receipt",
+            <ContributionReceiptFact
+              canIssue={canIssueReceipts}
+              key="receipt"
+              row={row}
+            />,
           ],
         ] as [string, ReactNode][])
       : []),

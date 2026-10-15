@@ -70,7 +70,12 @@ function RowActions({
     canManage && isContributionEditable(row.status ?? "received");
   // A refund recorded against it keeps the contribution: edit, never delete.
   const deletable =
-    canManage && isContributionDeletable(row.status ?? "received", row.refunds);
+    canManage &&
+    isContributionDeletable(
+      row.status ?? "received",
+      row.refunds,
+      row.receipts
+    );
   return (
     <ResponsiveActionMenu
       actions={[

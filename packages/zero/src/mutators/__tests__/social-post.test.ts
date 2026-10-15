@@ -249,6 +249,36 @@ describe("appConfig key gating", () => {
     expect(db.writes).toHaveLength(1);
   });
 
+  it("lets finance.manage write complete receipt details only", async () => {
+    const ctx = { permissions: ["finance.manage"], userId: "u" };
+    const key = "donation_receipt_settings";
+    expect(() =>
+      assertCanWriteAppConfig(
+        { permissions: ["donors.manage"], userId: "u" } as never,
+        key
+      )
+    ).toThrow("Unauthorized");
+    const db = createDb();
+    const details = {
+      orgAddress: "1 Test Road, Testville 560001",
+      orgName: "Example Trust",
+      orgPan: "AAATE0000E",
+      signatoryDesignation: "Treasurer",
+      signatoryName: "Test Signatory",
+    };
+    await run(appConfigMutators.upsert, db, ctx as never, {
+      key,
+      value: JSON.stringify(details),
+    });
+    await expect(
+      run(appConfigMutators.upsert, db, ctx as never, {
+        key,
+        value: JSON.stringify({ ...details, orgPan: "not a pan" }),
+      })
+    ).rejects.toThrow("receipt details");
+    expect(db.writes).toHaveLength(1);
+  });
+
   it("lets settings.app_config write any key", () => {
     const ctx = { permissions: ["settings.app_config"], userId: "u" };
     for (const key of ["notifications_disabled", "social_paused"]) {

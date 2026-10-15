@@ -4,12 +4,14 @@ import {
   Coins01Icon,
   FileImportIcon,
   FileValidationIcon,
+  Invoice03Icon,
   MoneyAdd01Icon,
   MoneyReceive01Icon,
   PlusSignIcon,
   UserLove01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import type { PermissionId } from "@pi-dash/db/permissions";
 import {
   createFilterQuery,
   createFilterRule,
@@ -30,6 +32,7 @@ import {
   isContributionEditable,
 } from "@pi-dash/shared/income";
 import { formatPaise } from "@pi-dash/shared/money";
+import { canReadReceipts } from "@pi-dash/shared/receipts";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
@@ -58,6 +61,11 @@ import type {
 } from "@/components/income/income-types";
 import { OtherIncomeFormDialog } from "@/components/income/other-income-form-dialog";
 import { OtherIncomeTable } from "@/components/income/other-income-table";
+import {
+  IssueReceiptsDialog,
+  useReceiptCandidates,
+} from "@/components/income/receipts/issue-receipts-dialog";
+import { ReceiptsTab } from "@/components/income/receipts/receipts-tab";
 import { SettlementsTab } from "@/components/income/settlements/settlements-tab";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { NotFoundState } from "@/components/shared/not-found-state";
@@ -76,6 +84,7 @@ const INCOME_TABS = [
   "other",
   "imports",
   "settlements",
+  "receipts",
 ] as const;
 type IncomeTab = (typeof INCOME_TABS)[number];
 
@@ -273,7 +282,11 @@ function ContributionsTab({
         canDelete={
           canManage &&
           viewing !== null &&
-          isContributionDeletable(viewing.status ?? "received", viewing.refunds)
+          isContributionDeletable(
+            viewing.status ?? "received",
+            viewing.refunds,
+            viewing.receipts
+          )
         }
         canEdit={
           canManage &&
@@ -503,10 +516,30 @@ function IncomeRouteComponent() {
     "tab",
     parseAsStringLiteral(INCOME_TABS).withDefault("contributions")
   );
+  const canSeeReceipts = canReadReceipts((permission) =>
+    hasPermission(permission as PermissionId)
+  );
+  const canIssueReceipts = hasPermission("donors.receipt");
   const tab =
-    requestedTab === "settlements" && !canSeeSettlements
+    (requestedTab === "settlements" && !canSeeSettlements) ||
+    (requestedTab === "receipts" && !canSeeReceipts)
       ? "contributions"
       : requestedTab;
+  const [issueOpen, setIssueOpen] = useState(false);
+  // "Issue receipts (N)": direct gifts ready for a receipt, loaded only on
+  // the Receipts tab (the dialog loads its own on open) and refreshed as
+  // contributions change (issuing marks them Receipted).
+  const [contributionRows] = useQuery(queries.contribution.list());
+  const candidates = useReceiptCandidates(
+    canIssueReceipts && tab === "receipts" && !issueOpen,
+    null,
+    contributionsSignature(contributionRows as ContributionRow[])
+  );
+  const issueLabel =
+    candidates === null
+      ? "Issue receipts"
+      : `Issue receipts (${candidates.eligible.length})`;
+  const openIssue = useEventCallback(() => setIssueOpen(true));
   const handleTabChange = useEventCallback((value: string | null) =>
     setTab(value as IncomeTab)
   );
@@ -562,6 +595,13 @@ function IncomeRouteComponent() {
       label: "Bank statements",
       onSelect: openBank,
     },
+    canIssueReceipts &&
+      tab !== "receipts" && {
+        icon: Invoice03Icon,
+        id: "issue-receipts",
+        label: issueLabel,
+        onSelect: openIssue,
+      },
   ].filter((action) => action !== false);
 
   return (
@@ -569,9 +609,22 @@ function IncomeRouteComponent() {
       <PageHeader
         actions={
           <>
-            {tab === "settlements" &&
-            canManageContributions &&
-            canManageOtherIncome ? (
+            {tab === "receipts" && canIssueReceipts ? (
+              <Button
+                data-testid="issue-receipts"
+                onClick={openIssue}
+                type="button"
+              >
+                <HugeiconsIcon
+                  className="size-4"
+                  icon={Invoice03Icon}
+                  strokeWidth={2}
+                />
+                {issueLabel}
+              </Button>
+            ) : tab === "settlements" &&
+              canManageContributions &&
+              canManageOtherIncome ? (
               <Button onClick={openPayoutImport} type="button">
                 <HugeiconsIcon
                   className="size-4"
@@ -595,7 +648,7 @@ function IncomeRouteComponent() {
             ) : null}
           </>
         }
-        description="Donations and other money the trust has received. Receipts and filings come later; these are the staging records they will be built from."
+        description="Donations and other money the trust has received, with the receipts pi-dash issues for direct gifts."
         title="Income"
       />
       <Tabs className="mt-4" onValueChange={handleTabChange} value={tab}>
@@ -605,6 +658,9 @@ function IncomeRouteComponent() {
           <TabsTrigger value="imports">Imports</TabsTrigger>
           {canSeeSettlements ? (
             <TabsTrigger value="settlements">Settlements</TabsTrigger>
+          ) : null}
+          {canSeeReceipts ? (
+            <TabsTrigger value="receipts">Receipts</TabsTrigger>
           ) : null}
         </TabsList>
         <TabsContent
@@ -636,7 +692,19 @@ function IncomeRouteComponent() {
             <SettlementsTab />
           </TabsContent>
         ) : null}
+        {canSeeReceipts ? (
+          <TabsContent className="mt-4 grid gap-6 *:min-w-0" value="receipts">
+            <ReceiptsTab canIssue={canIssueReceipts} onIssue={openIssue} />
+          </TabsContent>
+        ) : null}
       </Tabs>
+      {canIssueReceipts ? (
+        <IssueReceiptsDialog
+          contributionIds={null}
+          onOpenChange={setIssueOpen}
+          open={issueOpen}
+        />
+      ) : null}
       <ContributionFormDialog
         contribution={null}
         onOpenChange={setContributionOpen}

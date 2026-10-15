@@ -953,6 +953,13 @@
       "when": 1792039815000,
       "tag": "0135_ledger_income",
       "breakpoints": true
+    },
+    {
+      "idx": 136,
+      "version": "7",
+      "when": 1792039820000,
+      "tag": "0136_donation_receipts",
+      "breakpoints": true
     }
   ]
 }

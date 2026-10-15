@@ -151,12 +151,21 @@ export function refundLockedChanges(
   );
 }
 
-/** Whether a contribution may be deleted: editable and no refund recorded against it. */
+/**
+ * Whether a contribution may be deleted: editable, no refund recorded
+ * against it, and no receipt ever issued for it (voided ones included,
+ * since receipt numbers are never reused).
+ */
 export function isContributionDeletable(
   status: string,
-  refunds?: readonly unknown[] | null
+  refunds?: readonly unknown[] | null,
+  receipts?: readonly unknown[] | null
 ): boolean {
-  return isContributionEditable(status) && (refunds?.length ?? 0) === 0;
+  return (
+    isContributionEditable(status) &&
+    (refunds?.length ?? 0) === 0 &&
+    (receipts?.length ?? 0) === 0
+  );
 }
 
 /**

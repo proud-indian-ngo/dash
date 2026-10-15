@@ -510,6 +510,119 @@ async function ensureReturnFixtures(userId: string): Promise<void> {
     .where(eq(appConfig.key, "donations_return_registration"));
 }
 
+const RECEIPT_DONOR_ID = "01930000-0000-7000-8000-000000000741";
+const RECEIPT_DONOR_PAN = "ABCPR1234R";
+
+/**
+ * Donation receipt fixtures: fake receipt details in Settings, and a donor
+ * with a PAN and an address who gave once by UPI (receiptable here) and
+ * once through give.do (receipted by give.do, so never here). Both gifts
+ * are dated today. The 80G registration is left to the spec, which enters
+ * it through Settings as the donations return spec does. Fake details only.
+ */
+async function ensureReceiptFixtures(userId: string): Promise<void> {
+  const now = new Date();
+  const todayInIndia = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+  }).format(now);
+  const settings = JSON.stringify({
+    orgAddress: "1 Test Road, Testville 560001",
+    orgName: "E2E Test Trust",
+    orgPan: "AAATE0000E",
+    signatoryDesignation: "Test Treasurer",
+    signatoryName: "E2E Signatory",
+  });
+  await db
+    .insert(appConfig)
+    .values({
+      key: "donation_receipt_settings",
+      updatedAt: now,
+      value: settings,
+    })
+    .onConflictDoUpdate({
+      set: { updatedAt: now, value: settings },
+      target: appConfig.key,
+    });
+  if (!hasEncryptionKey()) {
+    return;
+  }
+  await db
+    .insert(party)
+    .values({
+      createdAt: now,
+      createdBy: userId,
+      displayName: "E2E Receipt Donor",
+      id: RECEIPT_DONOR_ID,
+      kind: "person",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(partyRole)
+    .values({
+      active: true,
+      id: "01930000-0000-7000-8000-000000000742",
+      partyId: RECEIPT_DONOR_ID,
+      role: "donor",
+      since: now,
+    })
+    .onConflictDoNothing();
+  const details = {
+    addressLine1: "7, Test Street",
+    city: "Bengaluru",
+    email: "receipt-donor@pi-dash.test",
+    idNumberEncrypted: encryptSecret(
+      RECEIPT_DONOR_PAN,
+      partyIdNumberContext(RECEIPT_DONOR_ID)
+    ),
+    idNumberLast4: visibleTail(RECEIPT_DONOR_PAN),
+    idType: "pan" as const,
+    pincode: "560001",
+    state: "Karnataka",
+    updatedAt: now,
+    updatedBy: userId,
+  };
+  await db
+    .insert(partyPrivate)
+    .values({ ...details, partyId: RECEIPT_DONOR_ID })
+    .onConflictDoUpdate({ set: details, target: partyPrivate.partyId });
+  const gifts = [
+    {
+      amountPaise: 300_000,
+      channel: "upi" as const,
+      id: "01930000-0000-7000-8000-000000000743",
+      orgAccountId: E2E_ORG_ACCOUNT_ID,
+      reference: "E2E-RECEIPT-UPI",
+    },
+    {
+      amountPaise: 110_000,
+      channel: "give_do" as const,
+      id: "01930000-0000-7000-8000-000000000744",
+      orgAccountId: E2E_GIVE_DO_ACCOUNT_ID,
+      reference: "E2E-RECEIPT-GIVEDO",
+    },
+  ];
+  for (const gift of gifts) {
+    await db
+      .insert(contribution)
+      .values({
+        ...gift,
+        createdAt: now,
+        createdBy: userId,
+        fundId: GENERAL_FUND_ID,
+        partyId: RECEIPT_DONOR_ID,
+        receivedOn: todayInIndia,
+        reportingMode: "electronic_or_account_payee",
+        status: "received",
+        updatedAt: now,
+      })
+      .onConflictDoNothing();
+  }
+}
+
 async function ensureExpenseCategories(): Promise<void> {
   await Promise.all(
     SEED_CATEGORIES.map(async (name) => {
@@ -1622,6 +1735,7 @@ async function seed(): Promise<void> {
   await ensureDonorParty(superAdminUserId);
   await ensureIncomeFixtures(superAdminUserId);
   await ensureReturnFixtures(superAdminUserId);
+  await ensureReceiptFixtures(superAdminUserId);
   await ensureExportVendorPayment(superAdminUserId);
   await ensureUpcomingEventReimbursement(superAdminUserId, upcomingEvent.id);
 }

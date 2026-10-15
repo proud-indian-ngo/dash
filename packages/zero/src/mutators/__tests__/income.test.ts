@@ -401,6 +401,35 @@ describe("contribution mutators", () => {
     expect(db.tables.contribution?.map((c) => c.id)).toEqual(["c-9"]);
   });
 
+  it("refuses to delete a gift a receipt was issued for, even a voided one", async () => {
+    const db = createDb({
+      contribution: [
+        {
+          fundId: "fund-1",
+          id: "c-1",
+          orgAccountId: "acc-1",
+          partyId: "donor-1",
+          programmeId: null,
+          status: "received",
+        },
+      ],
+      contributionReceipt: [
+        {
+          contributionId: "c-1",
+          id: "r-1",
+          number: "PI/2026-27/0001",
+          voidedAt: 1_800_000_000_000,
+        },
+      ],
+    });
+    await expect(
+      run(contributionMutators.delete, db, donorsCtx, { id: "c-1" })
+    ).rejects.toThrow(
+      "A receipt was issued for this gift; it can't be deleted"
+    );
+    expect(db.tables.contribution).toHaveLength(1);
+  });
+
   it("locks the contribution, and with a refund keeps what the provider reported", async () => {
     const recorded = {
       amountPaise: 500_000,

@@ -1,4 +1,5 @@
 import { INCOME_LIST_LIMIT, INCOME_PERMISSIONS } from "@pi-dash/shared/income";
+import { canReadReceipts } from "@pi-dash/shared/receipts";
 import { defineQuery } from "@rocicorp/zero";
 import z from "zod";
 
@@ -16,6 +17,21 @@ export function canSeeIncome(
     ctx !== null &&
     ctx !== undefined &&
     INCOME_PERMISSIONS.some((permission) => can(ctx, permission))
+  );
+}
+
+/**
+ * Whether a viewer may read donation receipts: finance roles, donor managers
+ * and receipt issuers, who must also be able to see income. Receipts hold
+ * numbers, dates and actors only.
+ */
+export function canSeeReceipts(
+  ctx: Parameters<typeof can>[0] | null | undefined
+) {
+  return (
+    ctx !== null &&
+    ctx !== undefined &&
+    canReadReceipts((permission) => can(ctx, permission as never))
   );
 }
 
@@ -51,7 +67,8 @@ export const contributionQueries = {
         .related("fund")
         .related("importBatch")
         .related("intermediary")
-        .related("refunds");
+        .related("refunds")
+        .related("receipts");
     }
     // Full project rows carry sponsor and budget terms, so the project name
     // only joins for finance.view, as in projectQueries.
@@ -70,6 +87,12 @@ export const contributionQueries = {
         // Refunds are written only by the server; read-only here.
         .related("refunds", (r) =>
           r.orderBy("refundedOn", "asc").orderBy("id", "asc")
+        )
+        // Receipts too; voided ones stay, newest first.
+        .related("receipts", (r) =>
+          canSeeReceipts(ctx)
+            ? r.orderBy("createdAt", "desc").orderBy("id", "desc")
+            : r.where("id", "__never_match__")
         )
         .orderBy("receivedOn", "desc")
         .orderBy("id", "desc")
@@ -144,5 +167,27 @@ export const otherIncomeQueries = {
           .where("id", "__never_match__")
           .related("orgAccount")
           .related("fund")
+  ),
+};
+
+/** Most receipts the Receipts tab loads (several years of direct gifts). */
+export const RECEIPT_LIST_LIMIT = 5000;
+
+/** The Receipts tab: every receipt, voided ones included, newest first. */
+export const contributionReceiptQueries = {
+  list: defineQuery(({ ctx }) =>
+    canSeeReceipts(ctx)
+      ? zql.contributionReceipt
+          .related("contribution", (c) => c.related("party"))
+          .related("issuedByUser")
+          .related("voidedByUser")
+          .orderBy("createdAt", "desc")
+          .orderBy("id", "desc")
+          .limit(RECEIPT_LIST_LIMIT)
+      : zql.contributionReceipt
+          .where("id", "__never_match__")
+          .related("contribution", (c) => c.related("party"))
+          .related("issuedByUser")
+          .related("voidedByUser")
   ),
 };

@@ -476,6 +476,17 @@ export const contributionMutators = {
     if (hasRefund) {
       throw new Error("A contribution with a refund can't be deleted");
     }
+    // Receipt numbers are never reused, so a gift any receipt was issued
+    // for (voided ones too) stays, keeping its receipt's history whole.
+    if (
+      await tx.run(
+        zql.contributionReceipt.where("contributionId", args.id).one()
+      )
+    ) {
+      throw new Error(
+        "A receipt was issued for this gift; it can't be deleted"
+      );
+    }
     if (isSettled) {
       throw new Error(
         "Razorpay has settled this contribution to the bank, so it can't be deleted"

@@ -594,3 +594,8 @@ function maskTwelveDigits(text: string): string {
 export function maskIdentifiers(text: string): string {
   return maskTwelveDigits(maskPans(text));
 }
+
+/** Whether free text holds a PAN- or Aadhaar-shaped run, as `maskIdentifiers` finds them. */
+export function containsIdentifier(text: string): boolean {
+  return maskIdentifiers(text) !== text;
+}

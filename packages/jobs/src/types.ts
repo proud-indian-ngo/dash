@@ -92,6 +92,13 @@ export interface GenerateCashVoucherPayload {
   reimbursementId: string;
 }
 
+// Donation receipt email (manual "Email receipt"); IDs only.
+export interface SendContributionReceiptPayload {
+  receiptId: string;
+  /** One per click, so a deliberate resend is a new email but a retry is not. */
+  requestId: string;
+}
+
 // Advance Payment
 export interface NotifyAdvancePaymentSubmittedPayload {
   advancePaymentId: string;
@@ -715,6 +722,7 @@ export interface JobPayloads {
   "remind-stale-requests": RemindStaleRequestsPayload;
   "scan-whatsapp-groups": ScanWhatsAppGroupsPayload;
   "send-bulk-notification": BulkNotificationPayload;
+  "send-contribution-receipt": SendContributionReceiptPayload;
   "send-event-rsvp-polls": SendEventRsvpPollsPayload;
   "send-notification": NotificationPayload;
   "send-scheduled-message": ScheduledMessagePayload;

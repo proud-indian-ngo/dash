@@ -6,6 +6,10 @@ import {
   parseReturnRegistration,
   RETURN_REGISTRATION_CONFIG_KEY,
 } from "@pi-dash/shared/donations-return";
+import {
+  parseReceiptSettings,
+  RECEIPT_SETTINGS_CONFIG_KEY,
+} from "@pi-dash/shared/receipts";
 import { SOCIAL_MANAGE_CONFIG_KEYS } from "@pi-dash/shared/social-api";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
@@ -18,8 +22,8 @@ const socialManageKeys = new Set(SOCIAL_MANAGE_CONFIG_KEYS);
 /**
  * `settings.app_config` may write every key; `social.manage` may write only
  * the social settings keys shown on the Social page; `finance.manage` may
- * write only the default finance-approval threshold and the 80G
- * registration used by the donations return.
+ * write only the default finance-approval threshold, the 80G
+ * registration used by the donations return and the receipt details.
  */
 export function assertCanWriteAppConfig(
   ctx: Context | undefined,
@@ -34,7 +38,8 @@ export function assertCanWriteAppConfig(
   }
   if (
     (key === APP_CONFIG_FINANCE_THRESHOLD_KEY ||
-      key === RETURN_REGISTRATION_CONFIG_KEY) &&
+      key === RETURN_REGISTRATION_CONFIG_KEY ||
+      key === RECEIPT_SETTINGS_CONFIG_KEY) &&
     can(ctx, "finance.manage")
   ) {
     return;
@@ -48,6 +53,14 @@ export function assertValidAppConfigValue(key: string, value: string): void {
     if (!parseReturnRegistration(value)) {
       throw new Error(
         "The 80G registration needs a URN, its date of issue and a section code"
+      );
+    }
+    return;
+  }
+  if (key === RECEIPT_SETTINGS_CONFIG_KEY) {
+    if (!parseReceiptSettings(value)) {
+      throw new Error(
+        "The receipt details need the trust's name, address, a valid PAN and the signatory's name and designation"
       );
     }
     return;

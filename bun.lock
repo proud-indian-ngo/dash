@@ -277,6 +277,7 @@
       "name": "@pi-dash/jobs",
       "dependencies": {
         "@pi-dash/db": "workspace:*",
+        "@pi-dash/email": "workspace:*",
         "@pi-dash/env": "workspace:*",
         "@pi-dash/notifications": "workspace:*",
         "@pi-dash/observability": "workspace:*",

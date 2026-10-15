@@ -3,6 +3,9 @@ import { createRequestLogger } from "evlog";
 import { render } from "react-email";
 
 import { sendEmail } from "./mailer";
+import DonationReceiptEmail, {
+  type DonationReceiptEmailProps,
+} from "./templates/donation-receipt-email";
 import NotificationDigestEmail, {
   type NotificationDigestEmailProps,
 } from "./templates/notification-digest";
@@ -12,6 +15,7 @@ import ResetPasswordEmail from "./templates/reset-password-email";
 import VerificationEmail from "./templates/verification-email";
 
 export { FOOTER_NOTE_PLACEHOLDER } from "./templates/email-footer";
+export type { DonationReceiptEmailProps } from "./templates/donation-receipt-email";
 export type { EmailStatus } from "./templates/email-layout";
 export type { NotificationDigestEmailProps } from "./templates/notification-digest";
 export type { NotificationEmailProps } from "./templates/notification-email";
@@ -70,6 +74,18 @@ export function renderNotificationDigestEmail(
 ): Promise<string> {
   return render(
     <NotificationDigestEmail
+      appName={env.APP_NAME}
+      appUrl={env.APP_URL}
+      {...props}
+    />
+  );
+}
+
+export function renderDonationReceiptEmail(
+  props: DonationReceiptEmailProps
+): Promise<string> {
+  return render(
+    <DonationReceiptEmail
       appName={env.APP_NAME}
       appUrl={env.APP_URL}
       {...props}

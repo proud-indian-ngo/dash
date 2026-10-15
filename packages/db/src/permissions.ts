@@ -460,6 +460,13 @@ export const PERMISSIONS = [
     id: "donors.manage",
     name: "Manage Donors",
   },
+  {
+    category: "donors",
+    description:
+      "Issue, void, download and email donation receipts for direct gifts; the PDF carries the donor's full ID number",
+    id: "donors.receipt",
+    name: "Issue Donation Receipts",
+  },
 ] as const;
 
 export type PermissionId = (typeof PERMISSIONS)[number]["id"];
@@ -537,6 +544,7 @@ const adminExcluded = new Set<PermissionId>([
   "finance.adjust",
   "finance.post_pending",
   "donors.manage",
+  "donors.receipt",
   "jobs.manage",
   "system.alerts",
 ]);
