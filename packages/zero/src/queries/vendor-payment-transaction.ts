@@ -20,6 +20,20 @@ export const vendorPaymentTransactionQueries = {
           .where("userId", ctx?.userId)
           .one()
   ),
+  /**
+   * The payment row alone, for the books to link a payment to its request
+   * (one per cash book row, so no attachments, history or user).
+   */
+  requestOf: defineQuery(
+    z.object({ id: z.string() }),
+    ({ args: { id }, ctx }) =>
+      ctx !== null && can(ctx, "requests.view_all")
+        ? zql.vendorPaymentTransaction.where("id", id).one()
+        : zql.vendorPaymentTransaction
+            .where("id", id)
+            .where("userId", ctx?.userId)
+            .one()
+  ),
   byVendorPayment: defineQuery(
     z.object({ vendorPaymentId: z.string() }),
     ({ args: { vendorPaymentId }, ctx }) => {

@@ -27,6 +27,7 @@ import { teamEvent } from "../schema/team-event";
 import { vendor, vendorPayment, vendorPaymentLineItem } from "../schema/vendor";
 import { vendorPaymentTransaction } from "../schema/vendor-payment-transaction";
 import type { LedgerTx } from "./engine";
+import { userHasExpensesInBooks } from "./expense-posting";
 import {
   type IncomeSource,
   listIncomeSources,
@@ -594,6 +595,118 @@ it.skipIf(!localDatabase)(
           sp.delete(teamEvent).where(eq(teamEvent.id, event.id))
         )
       ).rejects.toThrow();
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "waits on an invoice above its approved payments, and posts once they agree, keeping the books balanced",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const vpId = uuidv7();
+      await tx.insert(vendorPayment).values({
+        chargedTo: "organisation",
+        createdAt: NOW,
+        id: vpId,
+        invoiceDate: "2026-07-15",
+        invoiceNumber: "INV-2",
+        invoiceReviewedAt: new Date("2026-07-20T06:00:00Z"),
+        status: "completed",
+        title: "Sound system",
+        updatedAt: NOW,
+        userId: ids.user,
+        vendorId: ids.vendor,
+      });
+      await tx.insert(vendorPaymentLineItem).values({
+        amountPaise: 250_000,
+        categoryId: ids.category,
+        createdAt: NOW,
+        id: uuidv7(),
+        sortOrder: 0,
+        updatedAt: NOW,
+        vendorPaymentId: vpId,
+      });
+      const addPayment = async (amountPaise: number) => {
+        const id = uuidv7();
+        await tx.insert(vendorPaymentTransaction).values({
+          amountPaise,
+          createdAt: NOW,
+          id,
+          status: "approved",
+          transactionDate: new Date("2026-07-10T06:00:00Z"),
+          updatedAt: NOW,
+          userId: ids.user,
+          vendorPaymentId: vpId,
+        });
+        await run(tx, {
+          sourceId: id,
+          sourceType: "vendor_payment_transaction",
+        });
+        return id;
+      };
+      const request: IncomeSource = {
+        sourceId: vpId,
+        sourceType: "vendor_payment",
+      };
+      await addPayment(200_000);
+      expect(await run(tx, request)).toMatchObject({
+        reason: "invoice_exceeds_payments",
+        status: "waiting",
+      });
+      expect(await postingsOf(tx, vpId)).toEqual([]);
+
+      await addPayment(50_000);
+      expect(await run(tx, request)).toMatchObject({
+        posted: 1,
+        status: "posted",
+      });
+      expect(await advancesOf(tx, ids.vendor)).toBe(0);
+      // Expense recognised equals the money that left the bank.
+      const [expense] = await tx
+        .select({
+          net: sql<string>`coalesce(sum(case when ${ledgerEntry.effect} = 'increase' then ${ledgerEntry.amountPaise} else -${ledgerEntry.amountPaise} end), 0)`,
+        })
+        .from(ledgerEntry)
+        .innerJoin(posting, eq(posting.id, ledgerEntry.postingId))
+        .where(
+          and(
+            eq(posting.sourceId, vpId),
+            eq(
+              ledgerEntry.accountHeadId,
+              sql`(select account_head_id from expense_category where id = ${ids.category})`
+            )
+          )
+        );
+      expect(Number(expense?.net)).toBe(-(await balanceOf(tx, ids.bank)));
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "names a login whose requests the books hold, until their postings are reversed",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const claimant = uuidv7();
+      await tx.insert(user).values({
+        email: `expense-test-${claimant}@example.test`,
+        emailVerified: true,
+        id: claimant,
+        isActive: true,
+        name: "Expense test claimant",
+        role: "volunteer",
+      });
+      const id = await addClaim(tx, { ...ids, user: claimant });
+      expect(await userHasExpensesInBooks(tx, claimant)).toBe(false);
+      await run(tx, claimSource(id));
+      expect(await userHasExpensesInBooks(tx, claimant)).toBe(true);
+      await tx
+        .update(reimbursement)
+        .set({ reviewedAt: null, status: "pending" })
+        .where(eq(reimbursement.id, id));
+      await run(tx, claimSource(id));
+      expect(await userHasExpensesInBooks(tx, claimant)).toBe(false);
     });
   }
 );

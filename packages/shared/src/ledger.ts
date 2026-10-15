@@ -140,6 +140,13 @@ export type LedgerSourceStatus = (typeof ledgerSourceStatusValues)[number];
 export const LEDGER_WAIT_REASONS = {
   closedYear: "year_closed",
   error: "error",
+  /**
+   * An accepted vendor invoice larger than the request's approved payments
+   * (lines raised, or a payment rejected or deleted, after the invoice):
+   * posting it would leave the books unbalanced, so it waits until the
+   * payments and the lines agree.
+   */
+  invoiceExceedsPayments: "invoice_exceeds_payments",
   noBankAccount: "pick_bank_account",
   noClearingAccount: "no_clearing_account",
   noOtherAccount: "pick_other_account",
@@ -154,6 +161,12 @@ export const LEDGER_WAIT_REASONS = {
    * the founder supplies the payment (cutover doc section 6).
    */
   noPaymentProof: "no_payment_proof",
+  /**
+   * A vendor payment request paid partly before 1 April 2026 and partly
+   * after: the audited opening balances hold the earlier part, so how its
+   * invoice posts is the CA's call.
+   */
+  paidAcrossCutover: "paid_across_cutover",
   referenceDataMissing: "reference_data_missing",
   /** Only in the year-close checklist: a record no posting run has seen. */
   unchecked: "unchecked",
@@ -163,12 +176,16 @@ export type LedgerWaitReason =
 
 export const LEDGER_WAIT_REASON_LABELS: Record<LedgerWaitReason, string> = {
   error: "Couldn't post",
+  invoice_exceeds_payments:
+    "The invoice is more than the approved payments: record the missing payment or correct the lines",
   unchecked: "Not looked at yet: post pending",
   no_clearing_account: "The settlement has no clearing account",
   pick_bank_account:
     "Pick the bank account: match the payout's bank statement line",
   no_payment_proof:
     "No payment screenshot: the founder gives the payment date, account and bank reference",
+  paid_across_cutover:
+    "Paid partly before 1 Apr 2026: ask the CA how its invoice posts",
   pick_other_account: "Pick the other account of the transfer",
   pick_paying_account:
     "The bank account it was paid from isn't known: mark the main bank account in Settings → Organisation accounts",

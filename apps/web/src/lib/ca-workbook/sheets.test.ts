@@ -75,6 +75,11 @@ function movement(
 }
 
 const HEADS = {
+  advances: {
+    accountHeadId: "h-advances",
+    headName: "Supplier advances",
+    headType: "asset",
+  },
   charges: {
     accountHeadId: "h-charges",
     headName: "Gateway charges",
@@ -761,6 +766,37 @@ describe("CA workbook sheets", () => {
     expect(bank.map((r) => r.cells[3])).toContain("Receipt (reversal)");
     expect(bank.at(-1)?.cells[4]).toBe(2226.4);
     expect(balanceSheet(facts).check.closingDifferencePaise).toBe(0);
+  });
+
+  it("names a vendor payment's payout from the supplier advance it makes", () => {
+    const facts = fixture();
+    const paid = {
+      sourceId: "vpt-1",
+      sourceType: "vendor_payment_transaction",
+    };
+    facts.movements.push(
+      movement({
+        ...paid,
+        amountPaise: 10_000,
+        direction: "out",
+        kind: "payout",
+        occurredOn: "2026-07-10",
+        orgAccountId: BANK,
+      })
+    );
+    facts.entries.push(
+      entry("advances", {
+        ...paid,
+        amountPaise: 10_000,
+        economicOn: "2026-07-10",
+        partyName: "Sharma Travels",
+      })
+    );
+    const payout = receiptsAndPaymentsSheet(facts).rows.find(
+      (r) => r.cells[3] === "Payout"
+    );
+    expect(payout?.cells[5]).toBe("Sharma Travels");
+    expect(payout?.cells[9]).toBe("Supplier advances");
   });
 
   it("carries a later year forward from summed earlier rows", () => {

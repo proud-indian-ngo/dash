@@ -82,7 +82,8 @@ const request = (
       id: "00000000-0000-7000-8000-000000000b11",
     },
   ],
-  paidPaise: 0,
+  paidBeforeCutoverPaise: 0,
+  paidPaise: 250_000,
   status: "completed",
   title: "Bus for the event",
   vendorId: VENDOR,
@@ -127,10 +128,37 @@ const validParts = (plan: SourcePlan) => {
   }
 };
 
+const ASSET_HEADS = new Set<string>([LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances]);
+
+/**
+ * Assets move by what the funds move by: money and asset heads on one side,
+ * expenses (here every other head) on the other, so the balance summary
+ * stays balanced.
+ */
+const isBalanced = (plan: SourcePlan) => {
+  let assets = 0;
+  let funds = 0;
+  for (const p of posted(plan).parts) {
+    for (const m of p.movements) {
+      assets += m.direction === "in" ? m.amountPaise : -m.amountPaise;
+    }
+    for (const e of p.entries) {
+      const signed = e.effect === "increase" ? e.amountPaise : -e.amountPaise;
+      if (ASSET_HEADS.has(e.accountHeadId)) {
+        assets += signed;
+      } else {
+        funds -= signed;
+      }
+    }
+  }
+  return assets === funds;
+};
+
 describe("reimbursementPlan", () => {
   it("posts an expense per line and one payment out of the bank on the approval day", () => {
     const plan = reimbursementPlan(claim());
     validParts(plan);
+    expect(isBalanced(plan)).toBe(true);
     expect(posted(plan).economicOn).toBe("2026-06-03");
     expect(part(plan, "recognise")?.entries).toEqual([
       {
@@ -303,26 +331,26 @@ describe("vendorPaymentPlan", () => {
   it("recognises the lines at the full amount (no recoverable GST) with the vendor as party, on acceptance", () => {
     const plan = vendorPaymentPlan(request());
     validParts(plan);
+    expect(isBalanced(plan)).toBe(true);
     expect(posted(plan).parts.map((p) => p.action)).toEqual(["recognise"]);
     expect(posted(plan).economicOn).toBe("2026-07-20");
-    expect(part(plan, "recognise")?.entries).toEqual([
-      {
-        accountHeadId: TRAVEL_HEAD,
-        amountPaise: 250_000,
-        effect: "increase",
-        eventId: EVENT,
-        fundId: GENERAL_FUND_ID,
-        memo: "Bus hire",
-        partyId: VENDOR,
-        programmeId: EVENT_PROGRAMME,
-        projectId: null,
-        sourceLineId: "00000000-0000-7000-8000-000000000b11",
-      },
-    ]);
+    expect(part(plan, "recognise")?.entries[0]).toEqual({
+      accountHeadId: TRAVEL_HEAD,
+      amountPaise: 250_000,
+      effect: "increase",
+      eventId: EVENT,
+      fundId: GENERAL_FUND_ID,
+      memo: "Bus hire",
+      partyId: VENDOR,
+      programmeId: EVENT_PROGRAMME,
+      projectId: null,
+      sourceLineId: "00000000-0000-7000-8000-000000000b11",
+    });
   });
 
   it("clears the supplier advance its payments made when the invoice is accepted", () => {
-    const plan = vendorPaymentPlan(request({ paidPaise: 250_000 }));
+    const plan = vendorPaymentPlan(request());
+    expect(isBalanced(plan)).toBe(true);
     expect(part(plan, "recognise")?.entries.at(-1)).toEqual({
       accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances,
       amountPaise: 250_000,
@@ -346,6 +374,43 @@ describe("vendorPaymentPlan", () => {
         0
       );
     expect(net).toBe(0);
+  });
+
+  it("clears only the invoice's amount when the payments were more, leaving the rest on the advance", () => {
+    const plan = vendorPaymentPlan(request({ paidPaise: 300_000 }));
+    expect(isBalanced(plan)).toBe(true);
+    expect(part(plan, "recognise")?.entries.at(-1)).toMatchObject({
+      accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances,
+      amountPaise: 250_000,
+      effect: "decrease",
+    });
+  });
+
+  it("waits when the invoice is more than the approved payments, since it wouldn't balance", () => {
+    for (const paidPaise of [0, 200_000]) {
+      expect(vendorPaymentPlan(request({ paidPaise }))).toEqual({
+        economicOn: "2026-07-20",
+        kind: "wait",
+        reason: "invoice_exceeds_payments",
+      });
+    }
+  });
+
+  it("keeps a request paid before the cutover as history, and waits for the CA when paid on both sides", () => {
+    expect(
+      vendorPaymentPlan(
+        request({ paidBeforeCutoverPaise: 250_000, paidPaise: 0 })
+      )
+    ).toEqual({ kind: "none", reason: "before_cutover" });
+    expect(
+      vendorPaymentPlan(
+        request({ paidBeforeCutoverPaise: 100_000, paidPaise: 150_000 })
+      )
+    ).toEqual({
+      economicOn: "2026-07-20",
+      kind: "wait",
+      reason: "paid_across_cutover",
+    });
   });
 
   it("posts nothing until the invoice (or no-invoice reason) is approved", () => {
@@ -383,6 +448,7 @@ describe("vendorPaymentTransactionPlan", () => {
   it("takes an approved payment out of the bank on its date as a supplier advance", () => {
     const plan = vendorPaymentTransactionPlan(payment());
     validParts(plan);
+    expect(isBalanced(plan)).toBe(true);
     expect(posted(plan).parts).toEqual([
       {
         action: "recognise",

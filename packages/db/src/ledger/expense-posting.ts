@@ -235,30 +235,44 @@ async function vendorPaymentFacts(
             asc(vendorPaymentLineItem.id)
           )
       : [];
-  // The supplier advance its accepted invoice clears: the payments the
-  // books hold (approved, dated from the cutover).
-  const [paid] =
+  // The supplier advance its accepted invoice clears: the approved
+  // payments, split at the cutover by the day each posts on, exactly as
+  // `vendorPaymentTransactionPlan` dates them.
+  const payments =
     row.status === "completed"
       ? await tx
           .select({
-            paise: sql<string>`coalesce(sum(${vendorPaymentTransaction.amountPaise}), 0)`,
+            amountPaise: vendorPaymentTransaction.amountPaise,
+            transactionDate: vendorPaymentTransaction.transactionDate,
           })
           .from(vendorPaymentTransaction)
           .where(
             and(
               eq(vendorPaymentTransaction.vendorPaymentId, id),
-              eq(vendorPaymentTransaction.status, "approved"),
-              sql`${indiaDay(sql`${vendorPaymentTransaction.transactionDate}`)} >= ${LEDGER_CUTOVER_ON}`
+              eq(vendorPaymentTransaction.status, "approved")
             )
           )
       : [];
+  let paidPaise = 0;
+  let paidBeforeCutoverPaise = 0;
+  for (const p of payments) {
+    if (p.amountPaise <= 0) {
+      continue;
+    }
+    if (todayInKolkata(p.transactionDate) < LEDGER_CUTOVER_ON) {
+      paidBeforeCutoverPaise += p.amountPaise;
+    } else {
+      paidPaise += p.amountPaise;
+    }
+  }
   return {
     acceptedOn: dayOf(row.invoiceReviewedAt),
     charge: await chargeFacts(tx, row),
     id: row.id,
     invoiceDate: row.invoiceDate,
     lines: await lineFacts(tx, lines),
-    paidPaise: Number(paid?.paise ?? 0),
+    paidBeforeCutoverPaise,
+    paidPaise,
     status: row.status,
     title: row.title,
     vendorId: row.vendorId,
@@ -443,4 +457,37 @@ export async function relatedExpenseSources(
     sourceId: p.id,
     sourceType: T.vendorPaymentTransaction,
   }));
+}
+
+// ── People the books name ───────────────────────────────────────────────────
+
+/**
+ * True while the books hold a standing posting for a reimbursement, vendor
+ * payment request or payment this login raised or recorded. Deleting the
+ * login would delete those records with it (their `user_id` cascades), and
+ * the next posting run would then reverse money that really left the bank,
+ * so the account can't be deleted while this holds (ban it instead).
+ */
+export async function userHasExpensesInBooks(
+  tx: Pick<LedgerTx, "execute">,
+  userId: string
+): Promise<boolean> {
+  const rows = (await tx.execute(sql`
+    select 1 from ${posting} p
+    where p.reverses_posting_id is null
+      and not exists (
+        select 1 from ${posting} r where r.reverses_posting_id = p.id
+      )
+      and (
+        (p.source_type = ${T.reimbursement} and p.source_id in (
+          select r.id from ${reimbursement} r where r.user_id = ${userId}))
+        or (p.source_type = ${T.vendorPayment} and p.source_id in (
+          select v.id from ${vendorPayment} v where v.user_id = ${userId}))
+        or (p.source_type = ${T.vendorPaymentTransaction} and p.source_id in (
+          select t.id from ${vendorPaymentTransaction} t
+          join ${vendorPayment} v on v.id = t.vendor_payment_id
+          where t.user_id = ${userId} or v.user_id = ${userId}))
+      )
+    limit 1`)) as unknown as unknown[];
+  return rows.length > 0;
 }

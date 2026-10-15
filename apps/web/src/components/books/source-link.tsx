@@ -89,7 +89,7 @@ function VendorPaymentMadeLink({
   transactionId: string;
 }) {
   const [payment] = useQuery(
-    queries.vendorPaymentTransaction.byId({ id: transactionId })
+    queries.vendorPaymentTransaction.requestOf({ id: transactionId })
   );
   if (!payment) {
     return <span>{label}</span>;

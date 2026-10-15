@@ -44,8 +44,10 @@ import type { EntryInput, MovementInput } from "./rules";
  *   payment"), so "Payments before the invoice are supplier advances until
  *   allocated" (`finance-and-programmes.md` section 3.6): each payment is a
  *   `Supplier advances` asset increase, and accepting the invoice reduces
- *   it by the request's posted payments as the expense is recognised.
- *   Without this the books would not balance between payment and invoice.
+ *   it by the expense it recognises. Without this the books would not
+ *   balance between payment and invoice. An invoice larger than the
+ *   payments waits (it would not balance); a smaller one leaves the rest on
+ *   the vendor's advance. A request paid before the cutover stays history.
  * - TDS: "Tax is deducted from a vendor payment (TDS) | Nothing; the amount
  *   owed to the government is tracked on the deduction | Nothing". The trust
  *   deducts none (founder, section 4 question 8), so nothing posts for it.
@@ -251,6 +253,12 @@ export interface VendorPaymentFacts {
   invoiceDate: string | null;
   lines: ExpenseLineFacts[];
   /**
+   * The request's approved payments dated before the cutover: they left the
+   * bank in a year the audited opening balances hold, so the books have no
+   * advance for them.
+   */
+  paidBeforeCutoverPaise: number;
+  /**
    * The request's approved payments dated from the cutover: the supplier
    * advance the accepted invoice clears.
    */
@@ -293,16 +301,32 @@ export function vendorPaymentPlan(vp: VendorPaymentFacts | null): SourcePlan {
   if (entries.length === 0) {
     return none(LEDGER_SKIP_REASONS.invoiceNotAccepted);
   }
-  if (vp.paidPaise > 0) {
-    entries.push({
-      accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances,
-      amountPaise: vp.paidPaise,
-      effect: "decrease",
-      fundId: GENERAL_FUND_ID,
-      memo: vp.title,
-      partyId: vp.vendorId,
-    });
+  // Paid before the cutover: the money left in a year the audited opening
+  // balances hold, so the request stays history ("A record dated earlier
+  // ... stays in pi-dash as history"). Paid on both sides of it, the
+  // split is the CA's call.
+  if (vp.paidBeforeCutoverPaise > 0) {
+    return vp.paidPaise > 0
+      ? wait(day, LEDGER_WAIT_REASONS.paidAcrossCutover)
+      : none(LEDGER_SKIP_REASONS.beforeCutover);
   }
+  // The expense is balanced by clearing the supplier advance the payments
+  // made. An invoice above the payments would leave part of the expense
+  // with nothing on the other side, so it waits until they agree; one
+  // below them clears only its own amount, and the rest stays on the
+  // vendor's advance for the CA to look at (an overpayment).
+  const expensePaise = entries.reduce((sum, e) => sum + e.amountPaise, 0);
+  if (expensePaise > vp.paidPaise) {
+    return wait(day, LEDGER_WAIT_REASONS.invoiceExceedsPayments);
+  }
+  entries.push({
+    accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances,
+    amountPaise: expensePaise,
+    effect: "decrease",
+    fundId: GENERAL_FUND_ID,
+    memo: vp.title,
+    partyId: vp.vendorId,
+  });
   return {
     attention: 0,
     economicOn: day,
