@@ -748,6 +748,55 @@ export async function postIncomeSource(
   }
   const { maxRevision, standing } = await standingPostings(tx, source);
 
+  if (plan.kind === "wait" && plan.reverseStanding && standing.length > 0) {
+    // What stands would count bank money twice: reverse it while it waits.
+    try {
+      const reversed = await tx.transaction(async (sp) => {
+        for (const s of standing) {
+          await reverse(sp, s.posting.id, {
+            actorId: context.actorId,
+            now,
+            reason: `The ${LEDGER_SOURCE_LABELS[source.sourceType].toLowerCase()} waits: ${ledgerReasonLabel(plan.reason)}`,
+          });
+        }
+        return standing.length;
+      });
+      await saveState(
+        tx,
+        source,
+        {
+          economicOn: plan.economicOn,
+          reason: plan.reason,
+          sourceUpdatedAt: seen,
+          status: "waiting",
+        },
+        now
+      );
+      return { posted: 0, reason: plan.reason, reversed, status: "waiting" };
+    } catch (error) {
+      if (!(error instanceof LedgerError && error.code === "closed_year")) {
+        throw error;
+      }
+      // A closed year refuses the reversal: it waits for the year first.
+      await saveState(
+        tx,
+        source,
+        {
+          economicOn: plan.economicOn,
+          reason: LEDGER_WAIT_REASONS.closedYear,
+          sourceUpdatedAt: seen,
+          status: "waiting",
+        },
+        now
+      );
+      return {
+        posted: 0,
+        reason: LEDGER_WAIT_REASONS.closedYear,
+        reversed: 0,
+        status: "waiting",
+      };
+    }
+  }
   if (plan.kind === "wait") {
     await saveState(
       tx,

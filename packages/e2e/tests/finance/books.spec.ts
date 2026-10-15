@@ -452,15 +452,15 @@ test.describe("Books (treasurer)", () => {
       .poll(() => books<string[]>("postings", fixture.claimId), {
         timeout: 30_000,
       })
-      .toEqual(["recognise", "cash"]);
-    // The vendor's payment left the bank as a supplier advance, in one
-    // part with the money; its invoice isn't approved yet, so no expense
-    // stands for it.
+      // The expense, the money out, and the claim as payable (settle).
+      .toEqual(["recognise", "cash", "settle"]);
+    // The vendor's payment left the bank as a supplier advance; its invoice
+    // isn't approved yet, so no expense stands for it.
     await expect
       .poll(() => books<string[]>("postings", fixture.paymentId), {
         timeout: 30_000,
       })
-      .toEqual(["cash"]);
+      .toEqual(["recognise", "cash"]);
     expect(await books<string[]>("postings", fixture.vendorPaymentId)).toEqual(
       []
     );
@@ -526,7 +526,7 @@ test.describe("Books (treasurer)", () => {
         timeout: 30_000,
       })
       .toEqual(["recognise"]);
-    // Both parts reversed and reposted (the reversals in either order).
+    // Every part reversed and reposted (the reversals in any order).
     await expect
       .poll(
         async () =>
@@ -540,6 +540,9 @@ test.describe("Books (treasurer)", () => {
         "recognise",
         "reverse:cash",
         "reverse:recognise",
+        "reverse:settle",
+        "settle",
+        "settle",
       ]);
     await expect(headRow).toContainText("₹2,975.00", { timeout: 15_000 });
     await railAccount(page, fixture.bankName).click();

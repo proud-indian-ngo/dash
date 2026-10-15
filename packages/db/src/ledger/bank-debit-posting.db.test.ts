@@ -1,4 +1,7 @@
-import { LEDGER_ACCOUNT_HEAD_IDS } from "@pi-dash/shared/constants";
+import {
+  GENERAL_FUND_ID,
+  LEDGER_ACCOUNT_HEAD_IDS,
+} from "@pi-dash/shared/constants";
 import { balanceSummary, LEDGER_CUTOVER_ON } from "@pi-dash/shared/ledger";
 import { SQL } from "bun";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
@@ -28,8 +31,9 @@ import { reimbursement, reimbursementLineItem } from "../schema/reimbursement";
 import { statementAllocation, statementLine } from "../schema/statement-line";
 import { vendor, vendorPayment, vendorPaymentLineItem } from "../schema/vendor";
 import { vendorPaymentTransaction } from "../schema/vendor-payment-transaction";
-import type { LedgerTx } from "./engine";
+import { type LedgerTx, post } from "./engine";
 import {
+  planIncomeSource,
   type IncomeSource,
   listIncomeSources,
   postIncomeSource,
@@ -434,9 +438,10 @@ it.skipIf(!localDatabase)(
       await allocate(tx, line, [
         { amountPaise: 42_500, kind: "reimbursement", reimbursementId: claim },
       ]);
+      // The money and the payable's clearing move; the expense stands.
       expect(await run(tx, claimSource(claim))).toMatchObject({
-        posted: 1,
-        reversed: 1,
+        posted: 2,
+        reversed: 2,
         status: "posted",
       });
       expect(await standingMovements(tx, claim)).toEqual([
@@ -455,9 +460,10 @@ it.skipIf(!localDatabase)(
 
       // Unmatched: back to the main account on the approval day.
       await release(tx, line);
+      // The money and the payable's clearing move; the expense stands.
       expect(await run(tx, claimSource(claim))).toMatchObject({
-        posted: 1,
-        reversed: 1,
+        posted: 2,
+        reversed: 2,
       });
       expect(await standingMovements(tx, claim)).toEqual([
         [ids.main, "2026-06-03", 42_500, "payout", null],
@@ -631,7 +637,7 @@ it.skipIf(!localDatabase)(
       ]);
       expect(await run(tx, claimSource(paidEarly))).toMatchObject({
         reason: "before_cutover",
-        reversed: 2,
+        reversed: 3,
         status: "none",
       });
       expect(await standingMovements(tx, paidEarly)).toEqual([]);
@@ -657,6 +663,7 @@ it.skipIf(!localDatabase)(
       ).toEqual([
         ["recognise", "2026-04-03"],
         ["cash", "2026-04-03"],
+        ["settle", "2026-04-03"],
       ]);
 
       // Debits on both sides of the cutover: waits for the CA.
@@ -810,12 +817,12 @@ it.skipIf(!localDatabase)(
           vendorPaymentTransactionId: paymentId,
         },
       ]);
-      expect(await run(tx, payment)).toMatchObject({ posted: 1, reversed: 1 });
+      // The money and its advance move together; the invoice is untouched.
+      expect(await run(tx, payment)).toMatchObject({ posted: 2, reversed: 2 });
       expect(await standingMovements(tx, paymentId)).toEqual([
         [ids.hdfc, "2026-08-11", 150_000, "payout", line],
       ]);
-      // The advance moved with the money: one part, on the debit's day.
-      expect(await recognisePostings(tx, paymentId)).toBe(0);
+      // The advance moved with the money, onto the debit's day.
       const advance = await tx
         .select({ on: ledgerEntry.economicOn, paise: ledgerEntry.amountPaise })
         .from(ledgerEntry)
@@ -1077,6 +1084,235 @@ it.skipIf(!localDatabase)(
           )
         );
       expect(Number(advance?.net)).toBe(50_000);
+      expect(await booksDifference(tx)).toBe(baseline);
+    });
+  }
+);
+
+async function addPayment(
+  tx: LedgerTx,
+  ids: Ids,
+  amountPaise: number,
+  paidAt = "2026-04-05T06:00:00Z"
+) {
+  const vpId = uuidv7();
+  await tx.insert(vendorPayment).values({
+    chargedTo: "organisation",
+    createdAt: NOW,
+    id: vpId,
+    status: "paid",
+    title: "Lights",
+    updatedAt: NOW,
+    userId: ids.user,
+    vendorId: ids.vendor,
+  });
+  const paymentId = uuidv7();
+  await tx.insert(vendorPaymentTransaction).values({
+    amountPaise,
+    createdAt: NOW,
+    id: paymentId,
+    paymentReference: "UTR77",
+    status: "approved",
+    transactionDate: new Date(paidAt),
+    updatedAt: NOW,
+    userId: ids.user,
+    vendorPaymentId: vpId,
+  });
+  return paymentId;
+}
+
+const paymentSource = (sourceId: string): IncomeSource => ({
+  sourceId,
+  sourceType: "vendor_payment_transaction",
+});
+
+it.skipIf(!localDatabase)(
+  "reverses what stands while a source waits because of its bank matches, so bank money is never counted twice",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const baseline = await booksDifference(tx);
+
+      // A claim with no screenshot posts once a debit L proves it paid.
+      const claim = await addClaim(tx, ids, [42_500], {
+        approvalScreenshotKey: null,
+      });
+      expect(await run(tx, claimSource(claim))).toMatchObject({
+        reason: "no_payment_proof",
+        status: "waiting",
+      });
+      const line = await addDebit(tx, ids.hdfc);
+      await allocate(tx, line, [
+        { amountPaise: 42_500, kind: "reimbursement", reimbursementId: claim },
+      ]);
+      expect(await run(tx, claimSource(claim))).toMatchObject({
+        posted: 3,
+        status: "posted",
+      });
+      expect(await balanceOf(tx, ids.hdfc)).toBe(-42_500);
+
+      // L unmatched: no proof again, and nothing of it stands.
+      await release(tx, line);
+      expect(await run(tx, claimSource(claim))).toMatchObject({
+        reason: "no_payment_proof",
+        reversed: 3,
+        status: "waiting",
+      });
+      expect(await standingMovements(tx, claim)).toEqual([]);
+      expect(await booksDifference(tx)).toBe(baseline);
+
+      // L marked as bank charges instead: the bank money counts once.
+      await allocate(tx, line, [{ amountPaise: 42_500, kind: "bank_charges" }]);
+      await run(tx, chargeSource(line));
+      expect(await balanceOf(tx, ids.hdfc)).toBe(-42_500);
+      expect(await booksDifference(tx)).toBe(baseline);
+
+      // A vendor payment posted by default, then found part paid by a
+      // debit before the cutover: it waits for the CA, reversed meanwhile.
+      const payment = await addPayment(tx, ids, 60_000);
+      expect(await run(tx, paymentSource(payment))).toMatchObject({
+        posted: 2,
+      });
+      expect(await balanceOf(tx, ids.main)).toBe(-60_000);
+      const early = await addDebit(tx, ids.main, {
+        amountPaise: 20_000,
+        valueOn: "2026-03-30",
+      });
+      await allocate(tx, early, [
+        {
+          amountPaise: 20_000,
+          kind: "vendor_payment_transaction",
+          vendorPaymentTransactionId: payment,
+        },
+      ]);
+      expect(await run(tx, paymentSource(payment))).toMatchObject({
+        reason: "bank_debit_across_cutover",
+        reversed: 2,
+        status: "waiting",
+      });
+      expect(await balanceOf(tx, ids.main)).toBe(0);
+      expect(await booksDifference(tx)).toBe(baseline);
+
+      // Matched debits more than the payment: waits, reversed meanwhile.
+      const small = await addPayment(tx, ids, 10_000);
+      await run(tx, paymentSource(small));
+      const big = await addDebit(tx, ids.main, {
+        amountPaise: 10_000,
+        valueOn: "2026-04-06",
+      });
+      await allocate(tx, big, [
+        {
+          amountPaise: 10_000,
+          kind: "vendor_payment_transaction",
+          vendorPaymentTransactionId: small,
+        },
+      ]);
+      await run(tx, paymentSource(small));
+      await tx
+        .update(vendorPaymentTransaction)
+        .set({ amountPaise: 5000, updatedAt: later() })
+        .where(eq(vendorPaymentTransaction.id, small));
+      expect(await run(tx, paymentSource(small))).toMatchObject({
+        reason: "match_exceeds_amount",
+        reversed: 2,
+        status: "waiting",
+      });
+      expect(await standingMovements(tx, small)).toEqual([]);
+      expect(await booksDifference(tx)).toBe(baseline);
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "moving to rules version 2 adds the claims payable and reverses no unmatched payment's money",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const baseline = await booksDifference(tx);
+      // Posted under the version 1 shape: a claim's expense and payout,
+      // and a vendor payment's advance (undated entry) and payout.
+      const claim = await addClaim(tx, ids);
+      const plan = await planIncomeSource(tx, claimSource(claim));
+      if (plan.kind !== "post") {
+        throw new Error("expected a posting");
+      }
+      for (const part of plan.parts.filter((p) => p.action !== "settle")) {
+        await post(
+          tx,
+          { ...part, sourceId: claim, sourceType: "reimbursement" },
+          { actorId: null, now: NOW }
+        );
+      }
+      const payment = await addPayment(tx, ids, 60_000);
+      await post(
+        tx,
+        {
+          action: "recognise",
+          economicOn: "2026-04-05",
+          entries: [
+            {
+              accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances,
+              amountPaise: 60_000,
+              effect: "increase",
+              fundId: GENERAL_FUND_ID,
+              memo: "Lights",
+              partyId: ids.vendor,
+            },
+          ],
+          movements: [],
+          sourceId: payment,
+          sourceType: "vendor_payment_transaction",
+        },
+        { actorId: null, now: NOW }
+      );
+      await post(
+        tx,
+        {
+          action: "cash",
+          economicOn: "2026-04-05",
+          entries: [],
+          movements: [
+            {
+              amountPaise: 60_000,
+              direction: "out",
+              kind: "payout",
+              memo: "Lights",
+              orgAccountId: ids.main,
+              paymentReference: "UTR77",
+            },
+          ],
+          sourceId: payment,
+          sourceType: "vendor_payment_transaction",
+        },
+        { actorId: null, now: NOW }
+      );
+      const movementReversals = async () => {
+        const [row] = await tx
+          .select({ count: sql<number>`count(*)::int` })
+          .from(accountMovement)
+          .innerJoin(posting, eq(posting.id, accountMovement.postingId))
+          .where(
+            and(
+              inArray(posting.sourceId, [claim, payment]),
+              sql`${accountMovement.reversesMovementId} is not null`
+            )
+          );
+        return Number(row?.count ?? 0);
+      };
+
+      // The version 2 run: the claim gains its settle part only; the
+      // payment is already in shape; no money is reversed.
+      expect(await run(tx, claimSource(claim))).toEqual({
+        posted: 1,
+        reason: null,
+        reversed: 0,
+        status: "posted",
+      });
+      expect(await run(tx, paymentSource(payment))).toMatchObject({
+        posted: 0,
+        reversed: 0,
+      });
+      expect(await movementReversals()).toBe(0);
       expect(await booksDifference(tx)).toBe(baseline);
     });
   }

@@ -439,11 +439,16 @@ export async function releaseDebit(
   actorId: string,
   now: Date
 ): Promise<LiveAllocation[]> {
-  await requireOpenYears(
-    tx,
-    line,
-    allocationSources(line.id, await liveAllocationsOfLines(tx, [line.id]))
-  );
+  // Only a debit something is matched to changes the books here; credits,
+  // transfers and ignored lines unmatch as before.
+  if (line.direction !== "debit") {
+    return [];
+  }
+  const live = await liveAllocationsOfLines(tx, [line.id]);
+  if (live.length === 0) {
+    return [];
+  }
+  await requireOpenYears(tx, line, allocationSources(line.id, live));
   return await releaseLineAllocations(tx, line.id, actorId, now);
 }
 

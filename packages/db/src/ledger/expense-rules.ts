@@ -310,6 +310,17 @@ const wait = (
   reason: (typeof LEDGER_WAIT_REASONS)[keyof typeof LEDGER_WAIT_REASONS]
 ): SourcePlan => ({ economicOn, kind: "wait", reason });
 
+/**
+ * A wait about when or whether the money left (layer 3-3b: its bank
+ * matches, its proof, its paying account): what stands is reversed while it
+ * waits, so bank money a line no longer pays, or money the opening balances
+ * already hold, is never counted twice.
+ */
+const waitOnMoney = (
+  economicOn: string | null,
+  reason: (typeof LEDGER_WAIT_REASONS)[keyof typeof LEDGER_WAIT_REASONS]
+): SourcePlan => ({ economicOn, kind: "wait", reason, reverseStanding: true });
+
 // ── Reimbursements ──────────────────────────────────────────────────────────
 
 export interface ReimbursementFacts extends PayingAccountFacts {
@@ -367,12 +378,12 @@ export function reimbursementPlan(
     }
     const waiting = timingWait(timing);
     if (waiting) {
-      return wait(claim.approvedOn, waiting);
+      return waitOnMoney(claim.approvedOn, waiting);
     }
   }
   // A matched bank debit is proof of payment too (layer 3-3b).
   if (!(claim.hasPaymentProof || claim.matches.length > 0)) {
-    return wait(claim.approvedOn, LEDGER_WAIT_REASONS.noPaymentProof);
+    return waitOnMoney(claim.approvedOn, LEDGER_WAIT_REASONS.noPaymentProof);
   }
   if (!claim.approvedOn) {
     return wait(null, LEDGER_WAIT_REASONS.noApprovalDay);
@@ -394,7 +405,7 @@ export function reimbursementPlan(
     totalPaise,
   });
   if (cash.kind === "wait") {
-    return wait(approvedOn, cash.reason);
+    return waitOnMoney(approvedOn, cash.reason);
   }
   const cashOn = cashDayOf(cash.movements, approvedOn);
   // Approved before the cutover but paid after it: recognised on the first
@@ -415,10 +426,12 @@ export function reimbursementPlan(
     fundId: GENERAL_FUND_ID,
     memo,
   });
-  // Each part balances on its own date: the approval raises the claim as
-  // payable, each payment out of the bank clears its part of it. A payment
-  // before the approval leaves the payable negative in between (an advance
-  // to the claimant).
+  // Three parts, each unchanged by what doesn't concern it: the expense on
+  // the approval day; the money out on each payment's day; and the claim as
+  // payable, raised on the approval day and cleared on each payment's day,
+  // so the books balance on every day in between. A payment before the
+  // approval leaves the payable negative in between (an advance to the
+  // claimant).
   return {
     attention: 0,
     economicOn: day,
@@ -427,16 +440,25 @@ export function reimbursementPlan(
       {
         action: POSTING_ACTIONS.recognise,
         economicOn: day,
-        entries: [...entries, payable("increase", totalPaise, day)],
+        entries,
         movements: [],
       },
       {
         action: POSTING_ACTIONS.cash,
         economicOn: cashOn,
-        entries: cash.movements.map((m) =>
-          payable("decrease", m.amountPaise, m.occurredOn ?? cashOn)
-        ),
+        entries: [],
         movements: cash.movements,
+      },
+      {
+        action: POSTING_ACTIONS.settle,
+        economicOn: day,
+        entries: [
+          payable("increase", totalPaise, day),
+          ...cash.movements.map((m) =>
+            payable("decrease", m.amountPaise, m.occurredOn ?? cashOn)
+          ),
+        ],
+        movements: [],
       },
     ],
   };
@@ -514,7 +536,7 @@ export function vendorPaymentPlan(vp: VendorPaymentFacts | null): SourcePlan {
     return none(LEDGER_SKIP_REASONS.invoiceNotAccepted);
   }
   if (vp.paymentWaiting) {
-    return wait(day, vp.paymentWaiting);
+    return waitOnMoney(day, vp.paymentWaiting);
   }
   // Paid before the cutover: the money left in a year the audited opening
   // balances hold, so the request stays history ("A record dated earlier
@@ -522,7 +544,7 @@ export function vendorPaymentPlan(vp: VendorPaymentFacts | null): SourcePlan {
   // split is the CA's call.
   if (vp.paidBeforeCutoverPaise > 0) {
     return vp.paidPaise > 0
-      ? wait(day, LEDGER_WAIT_REASONS.paidAcrossCutover)
+      ? waitOnMoney(day, LEDGER_WAIT_REASONS.paidAcrossCutover)
       : none(LEDGER_SKIP_REASONS.beforeCutover);
   }
   // The expense is balanced by clearing the supplier advance the payments
@@ -531,8 +553,11 @@ export function vendorPaymentPlan(vp: VendorPaymentFacts | null): SourcePlan {
   // below them clears only its own amount, and the rest stays on the
   // vendor's advance for the CA to look at (an overpayment).
   const expensePaise = entries.reduce((sum, e) => sum + e.amountPaise, 0);
+  // Reversed while it waits: what stands clears advances the payments no
+  // longer book (a payment rejected, voided, or found paid before the
+  // cutover by its bank debit), which would leave the advance negative.
   if (expensePaise > vp.paidPaise) {
-    return wait(day, LEDGER_WAIT_REASONS.invoiceExceedsPayments);
+    return waitOnMoney(day, LEDGER_WAIT_REASONS.invoiceExceedsPayments);
   }
   entries.push({
     accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances,
@@ -612,7 +637,7 @@ export function vendorPaymentTransactionPlan(
   }
   const waiting = timingWait(timing);
   if (waiting) {
-    return wait(payment.paidOn, waiting);
+    return waitOnMoney(payment.paidOn, waiting);
   }
   const cash = paymentMovements({
     defaultAccountId: payingAccount(payment),
@@ -627,18 +652,19 @@ export function vendorPaymentTransactionPlan(
     totalPaise: payment.amountPaise,
   });
   if (cash.kind === "wait") {
-    return wait(payment.paidOn, cash.reason);
+    return waitOnMoney(payment.paidOn, cash.reason);
   }
   const cashOn = cashDayOf(cash.movements, payment.paidOn);
-  // One part: the supplier advance rises on the day the money left, so
-  // moving the money to its bank debit moves the advance with it.
+  // The supplier advance rises on the day the money left (each matched
+  // debit's), in its own part, so an unchanged payment compares equal and
+  // moving the money to its debit moves the advance with it.
   return {
     attention: 0,
     economicOn: cashOn,
     kind: "post",
     parts: [
       {
-        action: POSTING_ACTIONS.cash,
+        action: POSTING_ACTIONS.recognise,
         economicOn: cashOn,
         entries: cash.movements.map((m) => ({
           accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances,
@@ -649,6 +675,12 @@ export function vendorPaymentTransactionPlan(
           memo: payment.title,
           partyId: payment.vendorId,
         })),
+        movements: [],
+      },
+      {
+        action: POSTING_ACTIONS.cash,
+        economicOn: cashOn,
+        entries: [],
         movements: cash.movements,
       },
     ],

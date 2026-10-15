@@ -70,9 +70,9 @@ export const GATEWAY_CHANNELS: readonly string[] = ["razorpay", "give_do"];
  * the next posting run looks at every source once (`postPendingIncome`),
  * not only those whose records changed. 1: corpus gifts credit the Corpus
  * Fund directly and their gateway charges are General Fund expenditure.
- * 2 (layer 3-3b): a reimbursement's payment clears "Claims payable" and a
- * vendor payment's supplier advance moves into its payment part, so every
- * part balances on its own date.
+ * 2 (layer 3-3b): each reimbursement gains a `settle` part ("Claims
+ * payable" raised on approval, cleared on each payment's day); its expense
+ * and money parts, and every vendor payment, compare equal and stay.
  */
 export const INCOME_RULES_VERSION = 2;
 
@@ -95,8 +95,18 @@ export type SourcePlan =
        */
       reverseOn?: string;
     }
-  /** It should post but can't yet; whatever stands is left alone. */
-  | { economicOn: string | null; kind: "wait"; reason: LedgerWaitReason }
+  /**
+   * It should post but can't yet; whatever stands is left alone, unless
+   * `reverseStanding`: the wait comes from its bank matches (layer 3-3b),
+   * so what stands may count bank money a line no longer pays, or money
+   * the opening balances already hold, and it is reversed while it waits.
+   */
+  | {
+      economicOn: string | null;
+      kind: "wait";
+      reason: LedgerWaitReason;
+      reverseStanding?: boolean;
+    }
   | {
       /** Settlement lines the books can't use, for a person to look at. */
       attention: number;

@@ -132,6 +132,12 @@ export const POSTING_ACTIONS = {
   /** Recognition part of an income source: income and expense entries. */
   recognise: "recognise",
   reverse: "reverse",
+  /**
+   * Entries only (layer 3-3b): a reimbursement's "Claims payable", raised on
+   * its approval day and cleared on each payment's day, kept apart from
+   * the expense and the money so neither reposts when only it changes.
+   */
+  settle: "settle",
 } as const;
 
 /**

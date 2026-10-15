@@ -296,8 +296,9 @@ it.skipIf(!localDatabase)(
     await inRolledBackTransaction(async (tx) => {
       const ids = await foundation(tx);
       const id = await addClaim(tx, ids);
+      // The expense, the money out, and the claim as payable (settle).
       expect(await run(tx, claimSource(id))).toEqual({
-        posted: 2,
+        posted: 3,
         reason: null,
         reversed: 0,
         status: "posted",
@@ -310,6 +311,7 @@ it.skipIf(!localDatabase)(
       expect(postings.map((p) => [p.action, p.economicOn])).toEqual([
         ["recognise", "2026-06-03"],
         ["cash", "2026-06-03"],
+        ["settle", "2026-06-03"],
       ]);
       expect(await balanceOf(tx, ids.bank)).toBe(-42_500);
       expect(await expenseByProgramme(tx, id)).toEqual(
@@ -368,7 +370,7 @@ it.skipIf(!localDatabase)(
         ])
       );
 
-      // An amount change reposts both parts at the next revision.
+      // An amount change reposts every part at the next revision.
       await tx
         .update(reimbursementLineItem)
         .set({ amountPaise: 40_000 })
@@ -379,8 +381,8 @@ it.skipIf(!localDatabase)(
           )
         );
       expect(await run(tx, claimSource(id))).toMatchObject({
-        posted: 2,
-        reversed: 2,
+        posted: 3,
+        reversed: 3,
       });
       expect(await balanceOf(tx, ids.bank)).toBe(-52_500);
       const revisions = (await postingsOf(tx, id)).map((p) => p.sourceRevision);
@@ -397,7 +399,7 @@ it.skipIf(!localDatabase)(
         .where(eq(reimbursement.id, id));
       expect(await run(tx, claimSource(id))).toMatchObject({
         posted: 0,
-        reversed: 2,
+        reversed: 3,
         status: "none",
       });
       expect(await balanceOf(tx, ids.bank)).toBe(0);
@@ -412,10 +414,10 @@ it.skipIf(!localDatabase)(
           status: "approved",
         })
         .where(eq(reimbursement.id, id));
-      expect(await run(tx, claimSource(id))).toMatchObject({ posted: 2 });
+      expect(await run(tx, claimSource(id))).toMatchObject({ posted: 3 });
       await tx.delete(reimbursement).where(eq(reimbursement.id, id));
       expect(await run(tx, claimSource(id))).toMatchObject({
-        reversed: 2,
+        reversed: 3,
         status: "none",
       });
       expect(await balanceOf(tx, ids.bank)).toBe(0);
@@ -586,8 +588,8 @@ it.skipIf(!localDatabase)(
       expect(await relatedIncomeSources(tx, payment)).toEqual([request]);
 
       // Paid, invoice not accepted: money out as a supplier advance.
-      // One part: the advance and the money out, on the payment's date.
-      expect(await run(tx, payment)).toMatchObject({ posted: 1 });
+      // The advance and the money out, each in its own part.
+      expect(await run(tx, payment)).toMatchObject({ posted: 2 });
       expect(await run(tx, request)).toMatchObject({
         reason: "invoice_not_accepted",
         status: "none",
@@ -883,11 +885,11 @@ it.skipIf(!localDatabase)(
       expect(await run(tx, claimSource(id))).toMatchObject({
         posted: 0,
         reason: "voided",
-        reversed: 2,
+        reversed: 3,
         status: "none",
       });
       const postings = await postingsOf(tx, id);
-      // Both reversals are written in one run; their order isn't fixed.
+      // The reversals are written in one run; their order isn't fixed.
       expect(
         postings
           .map((p) => [p.action, p.economicOn, p.reason ?? null])
@@ -897,6 +899,8 @@ it.skipIf(!localDatabase)(
         ["recognise", "2026-06-03", null],
         ["reverse:cash", "2026-11-02", "The reimbursement was voided"],
         ["reverse:recognise", "2026-11-02", "The reimbursement was voided"],
+        ["reverse:settle", "2026-11-02", "The reimbursement was voided"],
+        ["settle", "2026-06-03", null],
       ]);
       // The reversing entries and movements are dated the void day too.
       const reversalIds = postings
@@ -925,7 +929,7 @@ it.skipIf(!localDatabase)(
         posted: 0,
         reversed: 0,
       });
-      expect(await postingsOf(tx, id)).toHaveLength(4);
+      expect(await postingsOf(tx, id)).toHaveLength(6);
     });
   }
 );
@@ -952,9 +956,9 @@ it.skipIf(!localDatabase)(
         reversed: 0,
         status: "waiting",
       });
-      expect(await postingsOf(tx, id)).toHaveLength(2);
+      expect(await postingsOf(tx, id)).toHaveLength(3);
       await tx.update(fiscalYear).set({ closedAt: null });
-      expect(await run(tx, claimSource(id))).toMatchObject({ reversed: 2 });
+      expect(await run(tx, claimSource(id))).toMatchObject({ reversed: 3 });
     });
   }
 );
@@ -1005,7 +1009,7 @@ it.skipIf(!localDatabase)(
         .where(eq(vendorPayment.id, vpId));
       expect(await run(tx, source)).toMatchObject({
         reason: "voided",
-        reversed: 1,
+        reversed: 2,
       });
       expect(await balanceOf(tx, ids.bank)).toBe(0);
       expect(await advancesOf(tx, ids.vendor)).toBe(0);
