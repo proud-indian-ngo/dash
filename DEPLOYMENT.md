@@ -110,7 +110,7 @@ conversion; it cannot represent both files.
 | `VOUCHER_ORG_EMAIL` | Organization email |
 | `VOUCHER_ORG_REGISTRATION` | Organization registration number |
 
-Files required: `packages/pdf/assets/logo.png` and `packages/pdf/assets/signature.png` for voucher PDFs to include logo and signature.
+The treasurer signature (`packages/pdf/assets/signature.png`) is embedded in the server bundle at build time. The cash-voucher limit is a setting (Settings → Programmes), not an environment variable.
 
 ### Optional
 

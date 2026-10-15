@@ -145,6 +145,7 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
     orgPhone: env.VOUCHER_ORG_PHONE,
     orgRegistration: env.VOUCHER_ORG_REGISTRATION,
     paidTo: submitter?.name ?? "Unknown",
+    payeePhone: null,
     voucherNumber,
   });
 

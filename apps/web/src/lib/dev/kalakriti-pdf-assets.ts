@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 
 import { kalakritiIdCardAssets } from "@pi-dash/pdf/kalakriti-id-card-assets";
 import { receiptAssets } from "@pi-dash/pdf/receipt-assets";
+import { voucherAssets } from "@pi-dash/pdf/voucher-assets";
 import type { Plugin } from "vite";
 
 // Asset modules (flat maps of file paths) and the export each one names.
@@ -11,6 +12,7 @@ const assetModules: Record<string, [string, Record<string, string>]> = {
     kalakritiIdCardAssets,
   ],
   "/packages/pdf/src/receipt-assets.ts": ["receiptAssets", receiptAssets],
+  "/packages/pdf/src/voucher-assets.ts": ["voucherAssets", voucherAssets],
 };
 
 // Embed server-only PDF assets so the deployed bundle has no source-tree paths.
