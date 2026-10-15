@@ -318,6 +318,49 @@ test.describe("Books (treasurer)", () => {
     await expect(page.getByRole("dialog")).toContainText("Reversal");
   });
 
+  test("credits a corpus gift to the Corpus Fund, never as income", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "finance_admin", "Treasurer test");
+    test.setTimeout(120_000);
+    await books("ensure-opening", YEAR);
+    const run = `${Date.now()}${testInfo.retry}`;
+    const fixture = await books("corpus-gift", run);
+
+    await page.goto("/finance/books");
+    await waitForZeroReady(page);
+    await postPending(page);
+    await expect
+      .poll(() => books<string[]>("entries", fixture.id), { timeout: 30_000 })
+      .toEqual(["CORPUS_DONATIONS CORPUS 70000"]);
+    await expect(
+      railAccount(page, fixture.bankName).getByTestId("books-account-balance")
+    ).toHaveText("₹700.00", { timeout: 15_000 });
+
+    // Not in income and expenditure.
+    await page.getByRole("tab", { name: "Income & expenditure" }).click();
+    await expect(page.getByTestId("income-expenditure")).toBeVisible();
+    await expect(
+      page
+        .getByTestId("income-expenditure")
+        .getByRole("row")
+        .filter({ hasText: "Corpus donations" })
+    ).toHaveCount(0);
+
+    // The Corpus Fund shows it among the year's additions.
+    await page.getByRole("tab", { name: "Balance summary" }).click();
+    await expect(
+      page
+        .getByTestId("balance-funds")
+        .getByRole("listitem")
+        .filter({ hasText: "Corpus Fund" })
+        .getByTestId("balance-fund-movement")
+    ).toHaveText(
+      /^Opening balance -?₹[\d,.]+ · Additions during the year ₹[\d,.]+$/
+    );
+    await expect(page.getByTestId("balance-check")).toHaveText("Balances");
+  });
+
   test("lists a gift waiting for a closed year, and posts it once the year reopens", async ({
     page,
   }, testInfo) => {
@@ -388,6 +431,120 @@ test.describe("Books (treasurer)", () => {
       await books("fix-payout", payout.id);
       await books("reopen-year", YEAR);
     }
+  });
+
+  // Expense posting (layer 3-3a). In the same serial group: it posts into
+  // 2026-27, which the tests above close and reopen.
+  test("posts an approved reimbursement and a vendor payment, lists one without proof, and follows an edit", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "finance_admin", "Treasurer test");
+    test.setTimeout(150_000);
+    // Self-sufficient: CI shards may run this without the tests above.
+    await books("ensure-opening", YEAR);
+    const run = `${Date.now()}${testInfo.retry}`;
+    const fixture = await books("expense-fixture", run);
+
+    await page.goto("/finance/books");
+    await waitForZeroReady(page);
+    await postPending(page);
+    await expect
+      .poll(() => books<string[]>("postings", fixture.claimId), {
+        timeout: 30_000,
+      })
+      .toEqual(["recognise", "cash"]);
+    // The vendor's payment left the bank as a supplier advance; its invoice
+    // isn't approved yet, so no expense stands for it.
+    await expect
+      .poll(() => books<string[]>("postings", fixture.paymentId), {
+        timeout: 30_000,
+      })
+      .toEqual(["recognise", "cash"]);
+    expect(await books<string[]>("postings", fixture.vendorPaymentId)).toEqual(
+      []
+    );
+
+    // Paid out of the main bank account (this run's), on the approval and
+    // payment days.
+    await railAccount(page, fixture.bankName).click();
+    const cashBook = page.getByTestId("cash-book");
+    const claimRows = cashBook
+      .getByRole("row")
+      .filter({ hasText: "20 Jun 2026" })
+      .filter({ hasText: "Payout" });
+    await expect(claimRows).toContainText("₹425.00", { timeout: 15_000 });
+    await expect(
+      cashBook
+        .getByRole("row")
+        .filter({ hasText: "10 Jul 2026" })
+        .filter({ hasText: "Payout" })
+    ).toContainText("₹2,500.00");
+    // The books still balance between the payment and its invoice.
+    await page.getByRole("tab", { name: "Balance summary" }).click();
+    await expect(page.getByTestId("balance-check")).toHaveText("Balances", {
+      timeout: 15_000,
+    });
+
+    // An approved reimbursement without its payment screenshot waits.
+    const banner = page.getByTestId("waiting-to-post");
+    await banner.getByRole("button", { name: "Show" }).click();
+    await expect(page.getByTestId("waiting-list")).toContainText(
+      "No payment screenshot",
+      { timeout: 15_000 }
+    );
+    await page.keyboard.press("Escape");
+
+    // The expense is under its category's own head.
+    await page.getByRole("tab", { name: "Income & expenditure" }).click();
+    const headRow = page
+      .getByTestId("income-expenditure")
+      .getByRole("row")
+      .filter({ hasText: fixture.categoryName });
+    await expect(headRow).toContainText("₹425.00", { timeout: 15_000 });
+
+    // Approving the invoice in the app recognises the vendor's expense.
+    await page.goto(`/vendor-payments/${fixture.vendorPaymentId}`);
+    await waitForZeroReady(page);
+    await page.getByRole("button", { name: "Approve invoice" }).click();
+    const approve = page.getByRole("alertdialog");
+    await approve.getByRole("button", { name: "Approve" }).click();
+    await expect(approve).toBeHidden({ timeout: 10_000 });
+    await expect(
+      page
+        .locator('[data-slot="status-badge"]')
+        .getByText("Completed", { exact: true })
+    ).toBeVisible({ timeout: 10_000 });
+
+    // An edit after posting reverses and reposts the reimbursement.
+    await books("edit-claim", fixture.claimId);
+    await page.goto("/finance/books?tab=income");
+    await waitForZeroReady(page);
+    await postPending(page);
+    await expect
+      .poll(() => books<string[]>("postings", fixture.vendorPaymentId), {
+        timeout: 30_000,
+      })
+      .toEqual(["recognise"]);
+    // Both parts reversed and reposted (the reversals in either order).
+    await expect
+      .poll(
+        async () =>
+          [...(await books<string[]>("postings", fixture.claimId))].sort(),
+        { timeout: 30_000 }
+      )
+      .toEqual([
+        "cash",
+        "cash",
+        "recognise",
+        "recognise",
+        "reverse:cash",
+        "reverse:recognise",
+      ]);
+    await expect(headRow).toContainText("₹2,975.00", { timeout: 15_000 });
+    await railAccount(page, fixture.bankName).click();
+    await page.getByRole("tab", { name: "Cash book" }).click();
+    // The original payment, its reversal and the corrected one.
+    await expect(claimRows).toHaveCount(3, { timeout: 15_000 });
   });
 
   test("downloads the year's CA workbook as a valid XLSX with its five sheets", async ({

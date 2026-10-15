@@ -44,6 +44,8 @@ export type ReimbursementDetailData = Reimbursement & {
   attachments: readonly ReimbursementAttachment[];
   history: ReadonlyArray<ReimbursementHistory & { actor?: User | undefined }>;
   user: User | undefined;
+  /** Who raised it, when finance raised it for the claimant. */
+  creator?: User | undefined;
   event: RequestEvent | undefined;
   chargedProgramme?: Programme | undefined;
 };

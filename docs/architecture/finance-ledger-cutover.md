@@ -1,6 +1,6 @@
 # Finance Phase 0: ledger cutover contracts
 
-> **Status**: draft for founder and CA review (14 October 2026). Phase 3 layer 1 builds the opening-balance document, the `deposit` account kind and the year close (founder go-ahead 14 October 2026; see "Books (layer 3-1)" in `finance-and-programmes.md`); layer 3-2 implements the income rows of section 3 with the founder's answers in section 4, still pending the CA's confirmation (see "Income posting (layer 3-2)"); the rest fixes what later Phase 3 layers build and what Phase 4 exports. Items marked **Proposal** need sign-off; items under "Questions for the CA" need an answer before the ledger is switched on.
+> **Status**: draft for founder and CA review (14 October 2026). Phase 3 layer 1 builds the opening-balance document, the `deposit` account kind and the year close (founder go-ahead 14 October 2026; see "Books (layer 3-1)" in `finance-and-programmes.md`); layer 3-2 implements the income rows of section 3 with the founder's answers in section 4, still pending the CA's confirmation (see "Income posting (layer 3-2)"); layer 3-3a implements the reimbursement, vendor invoice, vendor payment and TDS rows (see "Expense posting (layer 3-3a)"); the rest fixes what later Phase 3 layers build and what Phase 4 exports. Items marked **Proposal** need sign-off; items under "Questions for the CA" need an answer before the ledger is switched on.
 > **Load when**: ledger cutover, opening balances, posting rules in plain language, backfill of FY 2026-27, CA handoff workbook columns, fixed deposit account, audited FY 2025-26 figures.
 > **Related**: `finance-and-programmes.md` (sections 2, 3.8, 3.13 and 5), `vendor-payments.md`
 
@@ -71,7 +71,7 @@ From the audited balance sheet at 31 March 2026, in rupees.
 - gets its money only by transfer: placing an FD is a transfer out of the current account into the FD account, and a maturity or premature closure is a transfer back;
 - earns interest that is recorded as other income (`other_income`, kind interest), never as a donation.
 
-The contribution form, the contribution mutator and income imports refuse a deposit account, and bank statements only list bank accounts. Transfers between the current account and the FD post from layer 3-3 onwards.
+The contribution form, the contribution mutator and income imports refuse a deposit account, and bank statements only list bank accounts. Transfers between the current account and the FD post from the current account's bank line marked as a transfer with the FD as the other account (built in layer 3-2; layer 3-3a adds nothing for them).
 
 The audited figures show FD interest of 3,817 as income on accrual. No accrued interest receivable appears at 31 March 2026, so nothing opens for it.
 
@@ -123,11 +123,20 @@ Restated from the trigger table in `finance-and-programmes.md` section 3.8:
 - The payout is a transfer of the net amount out of the clearing account into the bank account its bank statement line is matched to (else the only active bank account), on that line's date (else the settlement date).
 - A refund dated on or after 1 April 2026 reduces FY 2026-27 donation income on its own day, even for an earlier gift (question 1, item 6).
 - An in-kind gift is in-kind income and an equal in-kind consumption expense (used as received; keeping it as an asset comes later).
+- A corpus gift (donation type corpus: the donor's written direction that it form part of the corpus) is a capital receipt, not income: it is credited straight to the Corpus Fund (`Corpus donations`, a fund head) and stays out of the I&E and the year's surplus; the balance sheet items show it as the Corpus Fund's additions during the year. The corpus type decides the fund (a corpus gift is always the Corpus Fund's, and only corpus gifts are). Gateway charges on a corpus gift are a General Fund expense in the I&E, so the Corpus Fund keeps the gross the donor gave; a refund reduces the Corpus Fund. Founder decision (16 October 2026), replacing the earlier treatment as `Donations received`. Corpus gifts already posted are reversed and reposted under this rule on the next posting run, except in a closed year, where they wait until it is reopened. Open for the CA: an in-kind corpus gift still follows the in-kind rule (income and an equal consumption).
 - FD interest (other income of kind interest, or anything credited to the fixed deposit) is `Interest on fixed deposit`, as it is credited; question 9 (accrual) is still open.
 - Moving money between the current account and the FD posts once the reviewer marks the bank line as a transfer and picks the other account; between two bank accounts, from whichever side is marked first, once.
 - A reversed gift posts nothing (like a pending one); a refunded gift posts its receipt and its refunds.
 - A correction is a reversal plus a new posting. A classification change (programme, project, fund, donor) reverses and reposts the income line only; a change to the amount, date or account reverses and reposts the money too.
 - Records that can't post yet (year closed, the bank account not known, a missing account head) wait on the Books page's "Waiting to post" list with the reason; closing a year is blocked while any of its records wait.
+
+**Implemented for expenses (layer 3-3a, CA confirmation pending).** The reimbursement and vendor rows above post automatically, by the rules in `packages/db/src/ledger/expense-rules.ts`:
+
+- An approved reimbursement is an expense per line, under its expense category's account head, with the programme, project and event it is charged to and the General Fund, and one payment out of the main bank account, both on the approval day (pi-dash records no separate payment date). One without a payment screenshot waits on the Books page's "Waiting to post" list (section 6).
+- A vendor invoice is an expense per line at the full amount when its invoice (or the reason for having none) is approved, on that day; each approved payment is money out of the main bank account on its date. Because pi-dash takes the invoice only after payment, each payment is held as a supplier advance (an asset, finance chapter section 3.6) until the invoice is accepted, which clears it by the invoice's amount (an overpayment stays on the advance; an invoice above the approved payments waits until they agree). A request paid entirely before 1 April 2026 stays history, since the audited balance sheet holds no supplier advances; one paid on both sides of that date waits for the CA. **CA to confirm.** The trust is not GST-registered and deducts no TDS, so neither posts anything.
+- "The main bank account" is the account marked so in Settings → Organisation accounts, or the only active bank account.
+- The audit fee follows the founder's answer to question 5: its payment posts as FY 2026-27 expense like any other vendor payment. The opening liability stays until the CA advises; a write-back would be an adjustment (layer 3-3c).
+- Nothing approved, accepted or paid before 1 April 2026 posts. A correction is a reversal plus a new posting, as for income.
 
 Two consequences the CA should see:
 

@@ -5,13 +5,17 @@ import { can } from "../permissions";
 import { zql } from "../schema";
 
 function withBase(q: typeof zql.reimbursement) {
-  return q
-    .related("lineItems", (li) =>
-      li.orderBy("sortOrder", "asc").related("category")
-    )
-    .related("attachments", (a) => a.orderBy("createdAt", "asc"))
-    .related("history", (h) => h.orderBy("createdAt", "asc"))
-    .related("user");
+  return (
+    q
+      .related("lineItems", (li) =>
+        li.orderBy("sortOrder", "asc").related("category")
+      )
+      .related("attachments", (a) => a.orderBy("createdAt", "asc"))
+      .related("history", (h) => h.orderBy("createdAt", "asc"))
+      .related("user")
+      // "Raised by X for Y" when finance raised it for someone else.
+      .related("creator")
+  );
 }
 
 function withRelated(q: typeof zql.reimbursement) {

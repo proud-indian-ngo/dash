@@ -21,12 +21,20 @@ import {
   mutatorLineItemSchema as lineItemSchema,
 } from "../shared-schemas";
 import {
+  assertEligibleClaimant,
+  claimantBankFields,
+  resolveClaimant,
+  userName,
+} from "./claimant";
+import {
   assertCanChangeCharge,
   chargeChangeNote,
   expenseChargeArgs,
   resolveExpenseCharge,
+  POSTED_CHARGE_MESSAGE,
   setChargedToSchema,
 } from "./expense-charge";
+import { isPostedInBooks, queueLedgerPosting } from "./ledger-queue";
 import {
   assertApprovalScreenshot,
   assertCanDelete,
@@ -41,6 +49,7 @@ import {
   insertRelations,
   replaceRelations,
 } from "./submission-helpers";
+import { assertDeletable, assertNotVoided, voidSchema } from "./void";
 import {
   expenseDay,
   planVoucherFields,
@@ -59,6 +68,12 @@ const reimbursementApprovalKeyPrefixes = (id: string) => [
 
 /** A reimbursement line item: the shared fields plus the voucher payee. */
 const reimbursementLineItemSchema = lineItemSchema.extend({
+  /**
+   * The claimant was paid: the name and mobile are stored empty and the
+   * voucher prints the claimant. Without it a voucher item must name its
+   * payee.
+   */
+  payeeIsClaimant: z.boolean().optional().default(false),
   // Stored in NFC, so the same name always compares and prints the same.
   payeeName: z
     .string()
@@ -105,7 +120,43 @@ export const createSchema = z.object({
   title: z.string().min(1),
 });
 
+/**
+ * Create takes an optional claimant: finance raises a reimbursement for
+ * someone else (`requests.create_for_others`), paid to one of that person's
+ * saved bank accounts, chosen by ID so the server copies its details.
+ */
+export const createArgsSchema = createSchema.extend({
+  claimantBankAccountId: z.string().optional(),
+  claimantUserId: z.string().optional(),
+});
+
+/** Finance moves a reimbursement to another claimant, with a reason. */
+export const changeClaimantSchema = z.object({
+  /** One of the new claimant's saved accounts; null when they have none. */
+  bankAccountId: z.string().nullable(),
+  id: z.string(),
+  /** The claimant the client saw, so two changes never race. */
+  previousUserId: z.string(),
+  reason: z.string().trim().min(1, "Give a reason").max(500),
+  /** The new claimant. */
+  userId: z.string(),
+});
+
 const fk = (id: string) => ({ reimbursementId: id });
+
+/** Its posting in the books (finance layer 3-3a). */
+const ledgerSource = (id: string) => ({
+  sourceId: id,
+  sourceType: "reimbursement" as const,
+});
+
+/** After a change, the books follow: post, repost or reverse it. */
+const queuePosting = (
+  ctx: Parameters<typeof queueLedgerPosting>[0],
+  tx: Parameters<typeof queueLedgerPosting>[1],
+  id: string,
+  mutator: string
+) => queueLedgerPosting(ctx, tx, [ledgerSource(id)], mutator);
 
 /** Inserts each line item with its planned voucher fields and empty links. */
 function withPlannedVoucherFields<T extends { id: string }>(
@@ -174,6 +225,7 @@ export const reimbursementMutators = {
       const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
       const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
       assertEntityExists(entity, "Reimbursement");
+      assertNotVoided(entity);
       assertPending(entity, "reimbursement", "approved", canEditAnyStatus);
 
       const now = Date.now();
@@ -218,6 +270,7 @@ export const reimbursementMutators = {
         ...buildHistoryInsert(userId, "approved", now, args.note),
         reimbursementId: args.id,
       });
+      queuePosting(ctx, tx, args.id, "reimbursement.approve");
 
       if (tx.location === "server") {
         const { title, userId: ownerId } = entity;
@@ -301,6 +354,7 @@ export const reimbursementMutators = {
         zql.reimbursement.where("id", args.reimbursementId).one()
       );
       assertEntityExists(entity, "Reimbursement");
+      assertNotVoided(entity);
       const isOwner = entity.userId === ctx.userId;
       if (
         !(isOwner || can(ctx, "finance.manage") || can(ctx, "requests.approve"))
@@ -369,10 +423,145 @@ export const reimbursementMutators = {
       });
     }
   ),
-  create: defineMutator(createSchema, async ({ tx, ctx, args }) => {
+  /**
+   * Finance moves a reimbursement to another claimant, at any status, with a
+   * reason: the new claimant owns it, sees it and is reimbursed. The bank
+   * details become one of the new claimant's saved accounts (cleared when
+   * they have none). Vouchers print the claimant as "Claimed by", so any
+   * voucher and signed copy are unlinked (the files stay among the
+   * attachments) and an approved request queues fresh ones. Expenses aren't
+   * posted to the books yet; once they are, this must reverse and repost.
+   */
+  changeClaimant: defineMutator(
+    changeClaimantSchema,
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "requests.create_for_others");
+      const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
+      assertEntityExists(entity, "Reimbursement");
+      assertNotVoided(entity);
+      if (entity.userId !== args.previousUserId) {
+        throw new Error("The claimant changed meanwhile. Reload and try again");
+      }
+      if (args.userId === entity.userId) {
+        throw new Error("They're already the claimant");
+      }
+      const previousClaimantId = entity.userId;
+      const { title } = entity;
+      await assertEligibleClaimant(tx, args.userId);
+      const bank = await claimantBankFields(
+        tx,
+        args.userId,
+        args.bankAccountId,
+        { required: false }
+      );
+      const [changedByName, fromName, toName] = await Promise.all([
+        userName(tx, ctx.userId),
+        userName(tx, previousClaimantId),
+        userName(tx, args.userId),
+      ]);
+
+      const now = Date.now();
+      await tx.mutate.reimbursement.update({
+        id: args.id,
+        updatedAt: now,
+        userId: args.userId,
+        ...bank,
+      });
+
+      const lineItems = await tx.run(
+        zql.reimbursementLineItem.where("reimbursementId", args.id)
+      );
+      for (const item of lineItems) {
+        if (item.voucherAttachmentId || item.signedVoucherAttachmentId) {
+          await tx.mutate.reimbursementLineItem.update({
+            id: item.id,
+            signedVoucherAttachmentId: null,
+            updatedAt: now,
+            voucherAttachmentId: null,
+          });
+        }
+      }
+
+      await tx.mutate.reimbursementHistory.insert({
+        ...buildHistoryInsert(
+          ctx.userId,
+          "updated",
+          now,
+          `Claimant changed from ${fromName} to ${toName}. Reason: ${args.reason}`
+        ),
+        metadata: { fromUserId: previousClaimantId, toUserId: args.userId },
+        reimbursementId: args.id,
+      });
+
+      if (tx.location !== "server") {
+        return;
+      }
+      // The payout names the claimant: a posted request is reversed and
+      // reposted to the new one.
+      queuePosting(ctx, tx, args.id, "reimbursement.changeClaimant");
+      if (entity.status === "approved") {
+        const limitPaise = await readCashVoucherLimit(tx);
+        queueVouchers(
+          ctx,
+          args.id,
+          lineItems
+            .filter(
+              (li) =>
+                li.generateVoucher &&
+                qualifiesForCashVoucher(li.amountPaise, limitPaise)
+            )
+            .map((li) => li.id),
+          ctx.userId,
+          "reimbursement.changeClaimant:queueVouchers"
+        );
+      }
+      const notification = {
+        changedAt: now,
+        changedByName,
+        newClaimantId: args.userId,
+        newClaimantName: toName,
+        previousClaimantId,
+        reason: args.reason,
+        reimbursementId: args.id,
+        title,
+      };
+      ctx.asyncTasks?.push({
+        fn: async () => {
+          const { enqueue } = await import("@pi-dash/jobs/enqueue");
+          await enqueue("notify-reimbursement-claimant-changed", notification, {
+            traceId: ctx.traceId,
+          });
+        },
+        meta: {
+          mutator: "reimbursement.changeClaimant",
+          newClaimantId: args.userId,
+          previousClaimantId,
+          reimbursementId: args.id,
+        },
+      });
+    }
+  ),
+  create: defineMutator(createArgsSchema, async ({ tx, ctx, args }) => {
     assertIsLoggedIn(ctx);
     assertHasPermission(ctx, "requests.create");
     const { userId } = ctx;
+    const { claimantId, forOthers } = await resolveClaimant(
+      tx,
+      ctx,
+      args.claimantUserId
+    );
+    // For someone else, the bank details come from their saved account.
+    const bank = forOthers
+      ? await claimantBankFields(tx, claimantId, args.claimantBankAccountId, {
+          required: true,
+        })
+      : null;
+    const [creatorName, claimantName] = forOthers
+      ? await Promise.all([userName(tx, userId), userName(tx, claimantId)])
+      : [undefined, undefined];
+    const raisedForNote = forOthers
+      ? `Raised by ${creatorName} for ${claimantName}`
+      : undefined;
     const now = Date.now();
     const charge = await resolveExpenseCharge(tx, args);
     const voucherPlans = planVoucherFields({
@@ -387,6 +576,7 @@ export const reimbursementMutators = {
     await tx.mutate.reimbursement.insert({
       approvalScreenshotKey: null,
       createdAt: now,
+      createdBy: userId,
       id: args.id,
       rejectionReason: null,
       reviewedAt: null,
@@ -395,8 +585,9 @@ export const reimbursementMutators = {
       submittedAt: now,
       title: args.title,
       updatedAt: now,
-      userId,
+      userId: claimantId,
       ...entityFields(args),
+      ...bank,
       ...charge,
     });
 
@@ -410,7 +601,11 @@ export const reimbursementMutators = {
       {
         insertAttachment: (data) =>
           tx.mutate.reimbursementAttachment.insert(data),
-        insertHistory: (data) => tx.mutate.reimbursementHistory.insert(data),
+        insertHistory: (data) =>
+          tx.mutate.reimbursementHistory.insert({
+            ...data,
+            note: raisedForNote ?? data.note,
+          }),
         insertLineItem: withPlannedVoucherFields(voucherPlans, (data) =>
           tx.mutate.reimbursementLineItem.insert(data)
         ),
@@ -425,7 +620,9 @@ export const reimbursementMutators = {
       const reimbursementId = args.id;
       const { title } = args;
       const submitter = await tx.run(zql.user.where("id", userId).one());
-      const submitterName = submitter?.name;
+      const submitterName = forOthers
+        ? `${creatorName} for ${claimantName}`
+        : submitter?.name;
       ctx.asyncTasks?.push({
         fn: async () => {
           const { enqueue } = await import("@pi-dash/jobs/enqueue");
@@ -438,8 +635,21 @@ export const reimbursementMutators = {
             },
             { traceId: ctx.traceId }
           );
+          if (forOthers) {
+            await enqueue(
+              "notify-reimbursement-raised-for-you",
+              {
+                claimantId,
+                raisedByName: creatorName ?? "Finance",
+                reimbursementId,
+                title,
+              },
+              { traceId: ctx.traceId }
+            );
+          }
         },
         meta: {
+          claimantId,
           mutator: "createReimbursement",
           reimbursementId,
           title,
@@ -457,6 +667,7 @@ export const reimbursementMutators = {
       const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
       assertEntityExists(entity, "Reimbursement");
       assertCanDelete(entity, userId, can(ctx, "requests.delete_all"));
+      await assertDeletable(tx, entity, [ledgerSource(args.id)]);
       enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
         keyPrefixes: reimbursementApprovalKeyPrefixes(args.id),
         meta: {
@@ -487,6 +698,7 @@ export const reimbursementMutators = {
       });
 
       await tx.mutate.reimbursement.delete({ id: args.id });
+      queuePosting(ctx, tx, args.id, "reimbursement.delete");
     }
   ),
 
@@ -500,6 +712,7 @@ export const reimbursementMutators = {
         zql.reimbursement.where("id", args.reimbursementId).one()
       );
       assertEntityExists(entity, "Reimbursement");
+      assertNotVoided(entity);
       if (entity.status !== "approved") {
         throw new Error("Only approved reimbursements can have vouchers");
       }
@@ -551,6 +764,7 @@ export const reimbursementMutators = {
       const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
       const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
       assertEntityExists(entity, "Reimbursement");
+      assertNotVoided(entity);
       assertPending(entity, "reimbursement", "rejected", canEditAnyStatus);
 
       const now = Date.now();
@@ -567,6 +781,7 @@ export const reimbursementMutators = {
         ...buildHistoryInsert(userId, "rejected", now, args.reason),
         reimbursementId: args.id,
       });
+      queuePosting(ctx, tx, args.id, "reimbursement.reject");
 
       if (tx.location === "server") {
         const { title, userId: ownerId } = entity;
@@ -605,6 +820,7 @@ export const reimbursementMutators = {
       const { userId } = ctx;
       const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
       assertEntityExists(entity, "Reimbursement");
+      assertNotVoided(entity);
 
       if (entity.status === "pending") {
         throw new Error("Reimbursement is already pending");
@@ -633,18 +849,24 @@ export const reimbursementMutators = {
         ...buildHistoryInsert(userId, "submitted", now, "Reset to pending"),
         reimbursementId: args.id,
       });
+      // Un-approving a posted request reverses it in the books.
+      queuePosting(ctx, tx, args.id, "reimbursement.resetToPending");
     }
   ),
 
   /**
-   * Finance changes what the request is charged to, at approval or later.
-   * Expenses are not posted to the books yet; once they are, a posted
-   * request will refuse this.
+   * Finance changes what the request is charged to, at approval or later,
+   * until it is posted to the books: a posted request refuses this
+   * (founder decision, finance layer 3-3a).
    */
   setChargedTo: defineMutator(setChargedToSchema, async ({ tx, ctx, args }) => {
     const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
     assertEntityExists(entity, "Reimbursement");
+    assertNotVoided(entity);
     assertCanChangeCharge(ctx, entity);
+    if (await isPostedInBooks(tx, ledgerSource(args.id))) {
+      throw new Error(POSTED_CHARGE_MESSAGE);
+    }
     const charge = await resolveExpenseCharge(tx, args, entity);
     const note = await chargeChangeNote(tx, entity, charge);
     const now = Date.now();
@@ -657,6 +879,35 @@ export const reimbursementMutators = {
       ...buildHistoryInsert(ctx.userId, "updated", now, note),
       reimbursementId: args.id,
     });
+    queuePosting(ctx, tx, args.id, "reimbursement.setChargedTo");
+  }),
+
+  /**
+   * Voids the request (finance Option B): it stays, with its attachments,
+   * vouchers (their numbers stay used) and history, and takes no further
+   * change; the posting run reverses it on the void day. Voiding twice
+   * changes nothing.
+   */
+  void: defineMutator(voidSchema, async ({ tx, ctx, args }) => {
+    assertHasPermission(ctx, "requests.void");
+    const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
+    assertEntityExists(entity, "Reimbursement");
+    if (entity.voidedAt) {
+      return;
+    }
+    const now = Date.now();
+    await tx.mutate.reimbursement.update({
+      id: args.id,
+      updatedAt: now,
+      voidedAt: now,
+      voidedBy: ctx.userId,
+      voidReason: args.reason,
+    });
+    await tx.mutate.reimbursementHistory.insert({
+      ...buildHistoryInsert(ctx.userId, "voided", now, args.reason),
+      reimbursementId: args.id,
+    });
+    queuePosting(ctx, tx, args.id, "reimbursement.void");
   }),
 
   update: defineMutator(createSchema, async ({ tx, ctx, args }) => {
@@ -665,6 +916,7 @@ export const reimbursementMutators = {
     const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
     const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
     assertEntityExists(entity, "Reimbursement");
+    assertNotVoided(entity);
     assertCanModify(
       entity,
       userId,
@@ -756,5 +1008,7 @@ export const reimbursementMutators = {
         "reimbursement.update:queueVouchers"
       );
     }
+    // An edit after posting reverses and reposts it in the books.
+    queuePosting(ctx, tx, args.id, "reimbursement.update");
   }),
 };

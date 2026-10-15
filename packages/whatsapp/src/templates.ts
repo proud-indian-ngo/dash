@@ -156,6 +156,36 @@ export const WHATSAPP_TEMPLATES = [
     examples: { waiting: "2 reimbursements, 1 vendor payment" },
     name: "requests_awaiting_approval",
   },
+  {
+    body: 'Request update: {{raised_by}} raised the reimbursement "{{title}}" on your behalf. It is yours now, and you will be reimbursed once it is approved.',
+    category: "UTILITY",
+    dashboardPath: "reimbursements/0192",
+    examples: { raised_by: "Anita Rao", title: "Snacks for Sunday class" },
+    name: "reimbursement_raised_for_you",
+  },
+  {
+    body: 'Request update: {{changed_by}} moved the reimbursement "{{title}}" to you, so you will be reimbursed for it. Reason given: {{reason}}. Open the dashboard for details.',
+    category: "UTILITY",
+    dashboardPath: "reimbursements/0192",
+    examples: {
+      changed_by: "Anita Rao",
+      reason: "You paid for the snacks",
+      title: "Snacks for Sunday class",
+    },
+    name: "reimbursement_now_yours",
+  },
+  {
+    // No button: the previous claimant can no longer open the request.
+    body: 'Request update: {{changed_by}} moved the reimbursement "{{title}}" to {{new_claimant}}. Reason given: {{reason}}. It no longer appears in your requests and will not be paid to you.',
+    category: "UTILITY",
+    examples: {
+      changed_by: "Anita Rao",
+      new_claimant: "Priya Sharma",
+      reason: "Priya paid for the snacks",
+      title: "Snacks for Sunday class",
+    },
+    name: "reimbursement_moved_away",
+  },
 
   // ── Vendor payments: invoices and payments ────────────────────────────────
   {

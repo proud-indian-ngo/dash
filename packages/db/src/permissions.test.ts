@@ -46,4 +46,20 @@ describe("finance permissions by role", () => {
       expect(VOLUNTEER_BASELINE_PERMISSIONS).not.toContain(id);
     }
   });
+
+  it("lets finance admins and super admins, not admins or volunteers, claim for others", () => {
+    expect(PERMISSION_IDS.has("requests.create_for_others")).toBe(true);
+    expect(FINANCE_ADMIN_PERMISSIONS).toContain("requests.create_for_others");
+    expect(ADMIN_PERMISSIONS).not.toContain("requests.create_for_others");
+    expect(VOLUNTEER_BASELINE_PERMISSIONS).not.toContain(
+      "requests.create_for_others"
+    );
+  });
+
+  it("lets finance admins and super admins, not admins or volunteers, void requests", () => {
+    expect(PERMISSION_IDS.has("requests.void")).toBe(true);
+    expect(FINANCE_ADMIN_PERMISSIONS).toContain("requests.void");
+    expect(ADMIN_PERMISSIONS).not.toContain("requests.void");
+    expect(VOLUNTEER_BASELINE_PERMISSIONS).not.toContain("requests.void");
+  });
 });

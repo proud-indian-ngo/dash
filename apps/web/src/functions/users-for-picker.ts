@@ -89,6 +89,36 @@ export const getUsersForPicker = createServerFn({ method: "GET" })
     }
   });
 
+/**
+ * The people finance may raise a reimbursement for, or move one to: active,
+ * internal users. Only for `requests.create_for_others`; anyone else gets an
+ * empty list. Minimal fields only, as for `getUsersForPicker`.
+ */
+export const getClaimantsForPicker = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<PickerUser[]> => {
+    if (!context.session) {
+      return [];
+    }
+    const role = context.session.user.role ?? "unoriented_volunteer";
+    const permissions = await resolvePermissions(role);
+    if (!permissions.includes("requests.create_for_others")) {
+      return [];
+    }
+    return await db
+      .select({
+        email: user.email,
+        id: user.id,
+        image: user.image,
+        isActive: user.isActive,
+        name: user.name,
+        role: user.role,
+      })
+      .from(user)
+      .where(and(eq(user.isActive, true), ne(user.role, "external_user")))
+      .orderBy(user.name);
+  });
+
 async function loadKalakritiVolunteerPickerUsers(
   editionId: string,
   session: { user: { id: string; role?: string | null } },

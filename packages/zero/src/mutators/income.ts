@@ -14,7 +14,10 @@ import {
   keepsFixedAccount,
   RAZORPAY_CLEARING_ACCOUNT_CONFIG_KEY,
 } from "@pi-dash/shared/contribution-channel";
-import { donationTypeProgrammeIssue } from "@pi-dash/shared/contribution-programme";
+import {
+  donationTypeFundIssue,
+  donationTypeProgrammeIssue,
+} from "@pi-dash/shared/contribution-programme";
 import { ELIGIBILITY_REASON_MAX } from "@pi-dash/shared/donations-return";
 import {
   CONTRIBUTOR_ROLES,
@@ -276,6 +279,21 @@ function assertProgrammeFitsType(values: {
 }
 
 /**
+ * The corpus type decides the fund: a corpus gift goes to the Corpus Fund
+ * and stays there, and only a corpus gift goes there. A gift recorded
+ * against another fund before the rule is held to it when next edited.
+ */
+function assertFundFitsType(values: {
+  donationType: ContributionInput["donationType"];
+  fundId: string;
+}) {
+  const issue = donationTypeFundIssue(values);
+  if (issue) {
+    throw new Error(issue);
+  }
+}
+
+/**
  * A project fixes the programme: it must match when both are given, and fills
  * it in otherwise. The Unallocated holder is for spending, not gifts.
  */
@@ -473,6 +491,7 @@ export const contributionMutators = {
       values.programmeId = await resolveProgramme(tx, values);
     }
     assertProgrammeFitsType(values);
+    assertFundFitsType(values);
     const now = Date.now();
     await tx.mutate.contribution.insert({
       ...values,
@@ -594,6 +613,7 @@ export const contributionMutators = {
       values.programmeId = await resolveProgramme(tx, values, existing);
     }
     assertProgrammeFitsType(values);
+    assertFundFitsType(values);
     await tx.mutate.contribution.update({
       ...values,
       ...normalizeEligibility(args, {

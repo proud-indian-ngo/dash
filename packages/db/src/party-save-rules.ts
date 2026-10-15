@@ -212,14 +212,12 @@ export type BankAccountPlan =
   | { accountId: string; kind: "keep" };
 
 /**
- * Which bank account a save leaves active: a given number replaces, a blank
- * one keeps the active account, and with neither, a number still waiting in
- * the pre-party legacy row is carried over.
+ * Which bank account a save leaves active: a given number replaces, and a
+ * blank one keeps the active account.
  */
 export function resolveBankAccount(
   accountNumber: string,
-  active: { id: string } | null,
-  legacyAccountNumber: string | null
+  active: { id: string } | null
 ): BankAccountPlan {
   const given = accountNumber.trim();
   if (given) {
@@ -227,10 +225,6 @@ export function resolveBankAccount(
   }
   if (active) {
     return { accountId: active.id, kind: "keep" };
-  }
-  const legacy = legacyAccountNumber?.trim();
-  if (legacy) {
-    return { accountNumber: legacy, kind: "replace" };
   }
   throw new Error("Enter the account number");
 }

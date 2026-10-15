@@ -3,11 +3,12 @@ import { uuidv7 } from "uuidv7";
 
 import { db } from "..";
 import {
-  decryptSecret,
+  revealSecret,
   encryptSecret,
   hasEncryptionKey,
   visibleTail,
 } from "../encryption";
+import { accountNumberContext } from "../encryption-contexts";
 import {
   PartyConflictError,
   resolveBankAccount,
@@ -16,12 +17,12 @@ import {
 } from "../party-save-rules";
 import { user } from "../schema/auth";
 import { project } from "../schema/finance-dimensions";
+import { ledgerEntry } from "../schema/ledger";
 import { party, partyRole } from "../schema/party";
 import {
   partyBankAccount,
   partyPrivate,
 } from "../schema/private/party-private";
-import { vendorLegacyDetails } from "../schema/private/vendor-legacy";
 import { vendor, vendorPayment } from "../schema/vendor";
 import {
   lockPartyId,
@@ -31,7 +32,7 @@ import {
 
 /*
  * Lock order. Every writer of a vendor's rows (saveParty in party-private.ts,
- * saveVendor, deleteVendor, backfillVendorPrivate) first takes
+ * saveVendor, deleteVendor) first takes
  * `pg_advisory_xact_lock(hashtext(id))` and then `party FOR UPDATE`. Those two
  * locks are what serialise them: the advisory lock covers creates, before any
  * row exists to lock, and whoever holds the party row holds the vendor.
@@ -39,9 +40,8 @@ import {
  * The order of the later locks is listed for consistency:
  *
  *   3. `vendor`
- *   4. `vendor_legacy_details`
- *   5. `party_private`
- *   6. `party_bank_account`
+ *   4. `party_private`
+ *   5. `party_bank_account`
  *
  * saveParty locks `party_private` before it touches the `vendor` row, against
  * this order. That is safe because it already holds the party lock, so no
@@ -51,8 +51,7 @@ import {
 export { PartyConflictError };
 
 /** Associated data binding an encrypted account number to its account row. */
-export const accountNumberContext = (accountId: string) =>
-  `party_bank_account.account_number:${accountId}`;
+export { accountNumberContext };
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Executor = typeof db | Tx;
@@ -68,8 +67,6 @@ export interface VendorPrivateView {
   } | null;
   email: string | null;
   hasPan: boolean;
-  /** True while the details still sit in the pre-party legacy table. */
-  legacy: boolean;
   panLast4: string | null;
   partyId: string;
   phone: string | null;
@@ -79,7 +76,6 @@ export interface VendorPrivateView {
 
 type PrivateRow = typeof partyPrivate.$inferSelect;
 type BankRow = typeof partyBankAccount.$inferSelect;
-type LegacyRow = typeof vendorLegacyDetails.$inferSelect;
 
 function toView(
   vendorId: string,
@@ -98,32 +94,10 @@ function toView(
       : null,
     email: priv?.email ?? null,
     hasPan: priv?.idType === "pan" && priv.idNumberEncrypted !== null,
-    legacy: false,
     panLast4: priv?.idType === "pan" ? priv.idNumberLast4 : null,
     partyId: vendorId,
     phone: priv?.phone ?? null,
     updatedAt: priv ? priv.updatedAt.getTime() : null,
-  };
-}
-
-function legacyView(row: LegacyRow): VendorPrivateView {
-  const pan = row.panNumber?.trim().toUpperCase() || null;
-  return {
-    address: row.address,
-    bank: {
-      accountName: row.bankAccountName,
-      accountNumberLast4: visibleTail(row.bankAccountNumber.trim()),
-      // The legacy row has no account ID of its own; it is keyed by vendor.
-      id: row.vendorId,
-      ifscCode: row.bankAccountIfscCode,
-    },
-    email: row.contactEmail,
-    hasPan: pan !== null,
-    legacy: true,
-    panLast4: pan ? visibleTail(pan) : null,
-    partyId: row.vendorId,
-    phone: row.contactPhone,
-    updatedAt: null,
   };
 }
 
@@ -152,15 +126,7 @@ async function readView(
   vendorId: string
 ): Promise<VendorPrivateView | null> {
   const { bank, priv } = await loadPrivate(executor, vendorId);
-  if (priv || bank) {
-    return toView(vendorId, priv, bank);
-  }
-  const [legacy] = await executor
-    .select()
-    .from(vendorLegacyDetails)
-    .where(eq(vendorLegacyDetails.vendorId, vendorId))
-    .limit(1);
-  return legacy ? legacyView(legacy) : null;
+  return priv || bank ? toView(vendorId, priv, bank) : null;
 }
 
 export async function getVendorPrivate(
@@ -179,25 +145,14 @@ export async function revealVendorBankAccount(vendorId: string): Promise<{
   if (bank) {
     return {
       accountName: bank.accountName,
-      accountNumber: decryptSecret(
+      accountNumber: revealSecret(
         bank.accountNumberEncrypted,
         accountNumberContext(bank.id)
       ),
       ifscCode: bank.ifscCode,
     };
   }
-  const [legacy] = await db
-    .select()
-    .from(vendorLegacyDetails)
-    .where(eq(vendorLegacyDetails.vendorId, vendorId))
-    .limit(1);
-  return legacy
-    ? {
-        accountName: legacy.bankAccountName,
-        accountNumber: legacy.bankAccountNumber,
-        ifscCode: legacy.bankAccountIfscCode,
-      }
-    : null;
+  return null;
 }
 
 function requireKey(): void {
@@ -274,8 +229,7 @@ export interface SaveVendorResult {
 /**
  * Create or update a vendor: its party, vendor role, supplier profile, private
  * details and active bank account, in one transaction with every row it reads
- * locked. A vendor whose details still sit in the legacy table is migrated by
- * the same save. Replaced bank accounts stay as inactive history.
+ * locked. Replaced bank accounts stay as inactive history.
  */
 export async function saveVendor(
   input: SaveVendorInput,
@@ -297,12 +251,6 @@ export async function saveVendor(
       .select()
       .from(vendor)
       .where(eq(vendor.id, vendorId))
-      .limit(1)
-      .for("update");
-    const [legacy] = await tx
-      .select()
-      .from(vendorLegacyDetails)
-      .where(eq(vendorLegacyDetails.vendorId, vendorId))
       .limit(1)
       .for("update");
     const [existingPrivate] = await tx
@@ -389,14 +337,7 @@ export async function saveVendor(
         target: [partyRole.partyId, partyRole.role],
       });
 
-    // Details still in the legacy table are carried over when nothing newer exists.
-    const migrating =
-      legacy !== undefined && !existingPrivate && activeAccounts.length === 0;
-
-    let panNumber = input.panNumber.trim().toUpperCase();
-    if (!panNumber && migrating && legacy.panNumber?.trim()) {
-      panNumber = legacy.panNumber.trim().toUpperCase();
-    }
+    const panNumber = input.panNumber.trim().toUpperCase();
     let idType = existingPrivate?.idNumberEncrypted
       ? existingPrivate.idType
       : "none";
@@ -436,8 +377,7 @@ export async function saveVendor(
     };
     const plan = resolveBankAccount(
       input.bankAccountNumber,
-      activeAccounts[0] ?? null,
-      migrating ? legacy.bankAccountNumber : null
+      activeAccounts[0] ?? null
     );
     if (plan.kind === "replace") {
       await tx
@@ -457,12 +397,6 @@ export async function saveVendor(
         .update(partyBankAccount)
         .set({ ...bankDetails, updatedAt: now })
         .where(eq(partyBankAccount.id, plan.accountId));
-    }
-
-    if (legacy) {
-      await tx
-        .delete(vendorLegacyDetails)
-        .where(eq(vendorLegacyDetails.vendorId, vendorId));
     }
 
     const view = await readView(tx, vendorId);
@@ -507,6 +441,18 @@ async function assertPartyUnreferenced(tx: Tx, partyId: string) {
       "This vendor is linked to a project or user; unlink it first"
     );
   }
+  // The books keep the vendor as the party of its expenses for good
+  // (finance layer 3-3a), even after the payment request is gone.
+  const [bookRef] = await tx
+    .select({ id: ledgerEntry.id })
+    .from(ledgerEntry)
+    .where(eq(ledgerEntry.partyId, partyId))
+    .limit(1);
+  if (bookRef) {
+    throw new Error(
+      "The books hold expenses for this vendor, so it can't be deleted"
+    );
+  }
 }
 
 export async function deleteVendor(
@@ -548,9 +494,6 @@ export async function deleteVendor(
       await assertPartyUnreferenced(tx, vendorId);
     }
 
-    await tx
-      .delete(vendorLegacyDetails)
-      .where(eq(vendorLegacyDetails.vendorId, vendorId));
     await tx.delete(vendor).where(eq(vendor.id, vendorId));
     // Deleted for the whole party because only vendors store bank accounts
     // today. Once donors get bank details the rows need a purpose column, and
@@ -571,100 +514,4 @@ export async function deleteVendor(
     await tx.delete(party).where(eq(party.id, vendorId));
     return "party";
   });
-}
-
-export interface BackfillVendorPrivateResult {
-  /** Legacy rows whose details were encrypted into the party tables. */
-  migrated: number;
-  /** Legacy rows dropped because newer party details already existed. */
-  skipped: number;
-}
-
-/**
- * Encrypts every remaining `vendor_legacy_details` row into `party_private`
- * and `party_bank_account`, then deletes it. Rows of vendors that already have
- * party details are deleted without copying, since the newer details win.
- * Safe to run again: processed rows are gone.
- */
-export async function backfillVendorPrivate(): Promise<BackfillVendorPrivateResult> {
-  requireKey();
-  const rows = await db
-    .select({ vendorId: vendorLegacyDetails.vendorId })
-    .from(vendorLegacyDetails);
-  let migrated = 0;
-  let skipped = 0;
-  for (const { vendorId } of rows) {
-    const outcome = await db.transaction(async (tx) => {
-      // Same first locks as saveVendor, so the two queue instead of deadlocking.
-      await lockPartyId(tx, vendorId);
-      await tx
-        .select({ id: party.id })
-        .from(party)
-        .where(eq(party.id, vendorId))
-        .limit(1)
-        .for("update");
-      const [legacy] = await tx
-        .select()
-        .from(vendorLegacyDetails)
-        .where(eq(vendorLegacyDetails.vendorId, vendorId))
-        .limit(1)
-        .for("update");
-      if (!legacy) {
-        return null;
-      }
-      const [existingPrivate] = await tx
-        .select({ partyId: partyPrivate.partyId })
-        .from(partyPrivate)
-        .where(eq(partyPrivate.partyId, vendorId))
-        .limit(1)
-        .for("update");
-      const [existingAccount] = await tx
-        .select({ id: partyBankAccount.id })
-        .from(partyBankAccount)
-        .where(eq(partyBankAccount.partyId, vendorId))
-        .limit(1)
-        .for("update");
-      const now = new Date();
-      let result: "migrated" | "skipped" = "skipped";
-      if (!existingPrivate) {
-        const pan = legacy.panNumber?.trim().toUpperCase() || null;
-        const encrypted = pan ? encryptPan(vendorId, pan) : null;
-        await tx.insert(partyPrivate).values({
-          addressLine1: nullIfBlank(legacy.address ?? ""),
-          email: nullIfBlank(legacy.contactEmail ?? ""),
-          idNumberEncrypted: encrypted?.encrypted ?? null,
-          idNumberLast4: encrypted?.last4 ?? null,
-          idType: encrypted ? "pan" : "none",
-          partyId: vendorId,
-          phone: nullIfBlank(legacy.contactPhone),
-          updatedAt: now,
-        });
-        result = "migrated";
-      }
-      if (!existingAccount && legacy.bankAccountNumber.trim()) {
-        await tx.insert(partyBankAccount).values(
-          newBankAccount(
-            vendorId,
-            legacy.bankAccountNumber.trim(),
-            {
-              accountName: legacy.bankAccountName,
-              ifscCode: legacy.bankAccountIfscCode.trim().toUpperCase(),
-            },
-            now
-          )
-        );
-        result = "migrated";
-      }
-      await tx
-        .delete(vendorLegacyDetails)
-        .where(eq(vendorLegacyDetails.vendorId, vendorId));
-      return result;
-    });
-    if (outcome === "migrated") {
-      migrated += 1;
-    } else if (outcome === "skipped") {
-      skipped += 1;
-    }
-  }
-  return { migrated, skipped };
 }

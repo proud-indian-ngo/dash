@@ -1,4 +1,5 @@
 import {
+  CORPUS_FUND_ID,
   GENERAL_FUND_ID,
   LEDGER_ACCOUNT_HEAD_IDS,
 } from "@pi-dash/shared/constants";
@@ -24,6 +25,13 @@ import type { EntryInput, MovementInput } from "./rules";
  *   charges are an expense when the payout file reports them.
  * - Direct gifts (UPI, NEFT, cheque, and cash should it ever occur) are
  *   income into the account they were deposited in.
+ * - A corpus gift (donation type corpus: the donor's written direction
+ *   that it form part of the corpus) is a capital receipt: it is credited
+ *   straight to the Corpus Fund under `Corpus donations`, never income, so
+ *   it stays out of the year's surplus; the type decides the fund, even for
+ *   a gift recorded against another. Its gateway charges are General Fund
+ *   expenditure, so the Corpus Fund keeps the gross the donor gave, and a
+ *   refund reduces the Corpus Fund. (Founder decision, 16 October 2026.)
  * - In-kind gifts are in-kind income and an equal in-kind consumption
  *   expense, with no money movement (first release: in-kind as consumed).
  * - A refund reduces donation income with the gift's dimensions and takes
@@ -57,6 +65,14 @@ import type { EntryInput, MovementInput } from "./rules";
 
 export const GATEWAY_CHANNELS: readonly string[] = ["razorpay", "give_do"];
 
+/**
+ * Bumped when a rule changes how sources already posted should stand, so
+ * the next posting run looks at every source once (`postPendingIncome`),
+ * not only those whose records changed. 1: corpus gifts credit the Corpus
+ * Fund directly and their gateway charges are General Fund expenditure.
+ */
+export const INCOME_RULES_VERSION = 1;
+
 /** The entries and movements of one part of a source's posting. */
 export interface PlanPart {
   action: string;
@@ -67,7 +83,15 @@ export interface PlanPart {
 
 export type SourcePlan =
   /** Nothing should stand in the books for it; anything standing is reversed. */
-  | { kind: "none"; reason: LedgerSkipReason }
+  | {
+      kind: "none";
+      reason: LedgerSkipReason;
+      /**
+       * Reverse what stands on this day rather than on its own dates: a
+       * voided request is undone from the void day.
+       */
+      reverseOn?: string;
+    }
   /** It should post but can't yet; whatever stands is left alone. */
   | { economicOn: string | null; kind: "wait"; reason: LedgerWaitReason }
   | {
@@ -122,6 +146,8 @@ const RECEIVED_STATUSES: readonly string[] = [
 ];
 
 export interface GiftDimensions {
+  /** The corpus type makes the gift a capital receipt of the Corpus Fund. */
+  donationType: string;
   fundId: string;
   partyId: string;
   programmeId: string | null;
@@ -145,11 +171,32 @@ export interface ContributionFacts extends GiftDimensions {
   status: string;
 }
 
+/** A corpus gift: a capital receipt, credited straight to the Corpus Fund. */
+export const isCorpusGift = (gift: Pick<GiftDimensions, "donationType">) =>
+  gift.donationType === "corpus";
+
+/** The gift's dimensions; a corpus gift is always the Corpus Fund's. */
 const dimensionsOf = (gift: GiftDimensions) => ({
-  fundId: gift.fundId,
+  fundId: isCorpusGift(gift) ? CORPUS_FUND_ID : gift.fundId,
   partyId: gift.partyId,
   programmeId: gift.programmeId,
   projectId: gift.projectId,
+});
+
+/** Where a money gift (and its refund) is credited: corpus or income. */
+const giftHeadOf = (gift: GiftDimensions) =>
+  isCorpusGift(gift)
+    ? LEDGER_ACCOUNT_HEAD_IDS.corpusDonations
+    : LEDGER_ACCOUNT_HEAD_IDS.donationsReceived;
+
+/**
+ * The dimensions of a gift's gateway charges: the gift's, except that a
+ * corpus gift's charges are General Fund expenditure, so the Corpus Fund
+ * keeps the gross amount the donor gave.
+ */
+const chargeDimensionsOf = (gift: GiftDimensions) => ({
+  ...dimensionsOf(gift),
+  ...(isCorpusGift(gift) && { fundId: GENERAL_FUND_ID }),
 });
 
 /**
@@ -219,7 +266,7 @@ export function contributionPlan(gift: ContributionFacts | null): SourcePlan {
   const entries: EntryInput[] = [
     {
       ...dims,
-      accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.donationsReceived,
+      accountHeadId: giftHeadOf(gift),
       amountPaise: gift.amountPaise,
       effect: "increase",
     },
@@ -239,7 +286,7 @@ export function contributionPlan(gift: ContributionFacts | null): SourcePlan {
   const chargesPaise = gift.gatewayFeePaise + gift.gatewayTaxPaise;
   if (gift.channel === "razorpay" && chargesPaise > 0) {
     entries.push({
-      ...dims,
+      ...chargeDimensionsOf(gift),
       accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.gatewayCharges,
       amountPaise: chargesPaise,
       effect: "increase",
@@ -322,7 +369,7 @@ export function refundPlan(refund: RefundFacts | null): SourcePlan {
       entries: [
         {
           ...dimensionsOf(gift),
-          accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.donationsReceived,
+          accountHeadId: giftHeadOf(gift),
           amountPaise: refund.amountPaise,
           effect: "decrease",
           memo: "Refund",
@@ -553,7 +600,7 @@ export function settlementPlan(settlement: SettlementFacts | null): SourcePlan {
     }
     const memo = `${provider} charges`;
     entries.push({
-      ...dimensionsOf(item.gift),
+      ...chargeDimensionsOf(item.gift),
       accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.gatewayCharges,
       amountPaise: chargesPaise,
       effect: "increase",

@@ -74,4 +74,19 @@ describe("finance-private encryption", () => {
     expect(m.visibleTail("ABCDE1234F")).toBe("234F");
     expect(m.visibleTail("1234567")).toBeNull();
   });
+
+  it("reveals a value written under another key as unreadable, not as a crash", async () => {
+    const m = await load(KEY);
+    const other = m.encryptSecretWith(Buffer.alloc(32, 9), "ABCDE1234F", CTX);
+    expect(() => m.revealSecret(other, CTX)).toThrow(
+      m.EncryptedValueUnreadableError
+    );
+    expect(m.revealSecret(m.encryptSecret("ABCDE1234F", CTX), CTX)).toBe(
+      "ABCDE1234F"
+    );
+    const missing = await load(undefined);
+    expect(() => missing.revealSecret(other, CTX)).toThrow(
+      "DATA_ENCRYPTION_KEY is not set"
+    );
+  });
 });

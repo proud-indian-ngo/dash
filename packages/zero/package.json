@@ -14,7 +14,6 @@
     "./mutators": "./src/mutators.ts",
     "./vendor-patterns": "./src/vendor-patterns.ts",
     "./vendor-payment-constants": "./src/vendor-payment-constants.ts",
-    "./vendor-payment-status-repair": "./src/lib/vendor-payment-status-repair.ts",
     "./rrule-utils": "./src/lib/rrule-utils.ts"
   },
   "scripts": {

@@ -43,17 +43,13 @@ Switching kind replaces the request's `invoice` attachments with the ones submit
 
 The detail page shows "No invoice — <reason>" with the document date, note and files under "Proof". The financial-year export puts that text in the Invoice Number column and the stored `invoice_date` in the Invoice Date column. Both kinds fall in the financial year of `invoice_date`; there is no latest-approved-payment fallback.
 
+## Voiding
+
+A request or payment the books hold (finance layer 3-3a) is voided, not deleted (finance Option B; see "Voiding" under "Expense posting" in `finance-and-programmes.md`). `vendorPayment.delete` refuses when the request or any of its payments has a standing posting, and `vendorPaymentTransaction.delete` when the payment has one: "Posted to the books. Void it instead." `vendorPayment.void` (`requests.void`, a reason) sets `voided_at`, `voided_by` and `void_reason` on the request and on each of its payments, keeps their status, attachments and history, writes a `voided` history entry on each, and queues the posting run, which reverses the invoice's expense and each payment's advance and payout on the void day. `vendorPaymentTransaction.void` voids one payment: it no longer counts as paid (`recalculateParentStatus`, the payment cap), so the request may drop back to `partially_paid`, and an accepted invoice then waits in the books until the payments cover it again. A voided request takes no further step: no edit, approval, rejection, reset, invoice submission or review, and no payment recorded, edited or approved against it. The detail page shows the reason and a "Void" badge, the payments table marks voided payments and offers Void instead of Delete on posted ones, and the vendor payments list hides voided requests until "Show voided" is pressed.
+
 ## Status repair
 
-Before payments needed an approved request, a request could be paid while still `pending`, and an admin approval from any status reset a paid or invoiced request to `approved`. `bun run vendor-payments:repair-status` (`scripts/repair-vendor-payment-status.ts`, rules in `packages/zero/src/lib/vendor-payment-status-repair.ts`) lists the requests whose status disagrees with their data and is a dry run by default; `--apply --actor <email>` corrects them and writes an `updated` history entry by that user. That history entry is the only trace of a script change: scripts do not write `audit_log`, by design. The script warns when the actor lacks `requests.edit_all_statuses`.
-
-- `approved`, `partially_paid` or `paid` → the status the approved payments give, or `invoice_pending` / `completed` when an unrejected invoice is on file. A no-invoice reason counts as an invoice on file. A rejected invoice stays at `paid`.
-- `completed` only when the invoice approval is current. A kind-changing `updateInvoice` clears `invoiceReviewedAt` and moves the request to `invoice_pending`; a same-kind edit keeps both the completed status and review fields. For legacy data, the planner compares `invoiceReviewedAt` with the latest `invoice_submitted` or `invoice_updated` history entry; `updatedAt` is not used because every payment and status change moves it. A review earlier than that entry, or invoice details with no such entry, is listed for review by hand.
-- `pending` with approved payments is only listed; approve it in the app.
-- `rejected` with approved payments is listed for review by hand and never changed.
-- An unrejected invoice on a request whose payments no longer cover the line items is listed for review by hand.
-
-The output ends with the requests moved (or, in a dry run, that would move) to `paid`, so finance can chase their invoices; the script sends no notifications.
+Before payments needed an approved request, a request could be paid while still `pending`, and an admin approval from any status reset a paid or invoiced request to `approved`. A one-off repair corrected those statuses in production in October 2026, recording an `updated` history entry per change; the script and its rules are in git history.
 
 ## Attachment Purposes
 

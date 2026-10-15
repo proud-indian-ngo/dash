@@ -1,3 +1,4 @@
+import { refundPayloadHashInput } from "@pi-dash/db/import-hash";
 import z from "zod";
 
 import { keyedHash } from "@/lib/income-import/identity";
@@ -31,12 +32,12 @@ export type RazorpayRefund = z.infer<typeof razorpayRefundSchema>;
 export function refundPayloadHash(refund: RazorpayRefund): string {
   return keyedHash(
     "razorpay-refund",
-    JSON.stringify([
-      refund.id,
-      refund.payment_id,
-      String(refund.amount),
-      refund.currency,
-    ])
+    refundPayloadHashInput({
+      amountPaise: refund.amount,
+      currency: refund.currency,
+      paymentId: refund.payment_id,
+      refundId: refund.id,
+    })
   );
 }
 

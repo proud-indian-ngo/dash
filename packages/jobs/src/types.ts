@@ -75,6 +75,25 @@ export interface NotifyReimbursementRejectedPayload {
   submitterId: string;
   title: string;
 }
+/** Finance raised a reimbursement on the claimant's behalf. */
+export interface NotifyReimbursementRaisedForYouPayload {
+  claimantId: string;
+  raisedByName: string;
+  reimbursementId: string;
+  title: string;
+}
+/** Finance moved a reimbursement from one claimant to another. */
+export interface NotifyReimbursementClaimantChangedPayload {
+  /** The mutator's timestamp, so each change notifies once. */
+  changedAt: number;
+  changedByName: string;
+  newClaimantId: string;
+  newClaimantName: string;
+  previousClaimantId: string;
+  reason: string;
+  reimbursementId: string;
+  title: string;
+}
 
 // Event interest lifecycle
 export type ExpireEventInterestsPayload = Record<string, never>;
@@ -617,7 +636,11 @@ export interface RazorpaySyncSettlementPayload {
   settlementId: string;
 }
 
-/** One income source to bring into the books (finance layer 3-2), keyed by source. */
+/**
+ * One source to bring into the books, keyed by source: income (finance
+ * layer 3-2) or expenses (layer 3-3a: reimbursements, vendor payment
+ * requests and their payments).
+ */
 export interface LedgerPostSourcePayload {
   sourceId: string;
   sourceType:
@@ -625,11 +648,14 @@ export interface LedgerPostSourcePayload {
     | "contribution_refund"
     | "gateway_settlement"
     | "other_income"
-    | "statement_transfer";
+    | "reimbursement"
+    | "statement_transfer"
+    | "vendor_payment"
+    | "vendor_payment_transaction";
 }
 
 /**
- * The income posting sweep: every source not up to date in the books. Run
+ * The posting sweep: every income and expense source not up to date in the books. Run
  * daily, after bulk imports, and by "Post pending" when the page ran out of
  * time; `actorId` is the person who asked, if anyone.
  */
@@ -687,6 +713,8 @@ export interface JobPayloads {
   "notify-photo-approved": NotifyPhotoApprovedPayload;
   "notify-photo-rejected": NotifyPhotoRejectedPayload;
   "notify-reimbursement-approved": NotifyReimbursementApprovedPayload;
+  "notify-reimbursement-claimant-changed": NotifyReimbursementClaimantChangedPayload;
+  "notify-reimbursement-raised-for-you": NotifyReimbursementRaisedForYouPayload;
   "notify-reimbursement-rejected": NotifyReimbursementRejectedPayload;
   "notify-reimbursement-submitted": NotifyReimbursementSubmittedPayload;
   "notify-removed-from-event": NotifyRemovedFromEventPayload;

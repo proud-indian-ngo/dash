@@ -55,6 +55,14 @@ export const reimbursement = pgTable(
     chargedTo: expenseChargedToEnum("charged_to").notNull(),
     city: cityEnum("city"),
     createdAt: timestamp("created_at").notNull(),
+    /**
+     * Who raised the request. Usually the claimant (`userId`); finance raises
+     * one for someone else with `requests.create_for_others`. Null on rows
+     * from before this column.
+     */
+    createdBy: text("created_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     eventId: uuid("event_id").references(() => teamEvent.id, {
       onDelete: "set null",
     }),
@@ -69,12 +77,24 @@ export const reimbursement = pgTable(
     submittedAt: timestamp("submitted_at"),
     title: text("title").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
+    /** The claimant: owns the request and is reimbursed. */
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    /**
+     * Voided after it reached the books (finance Option B): the request stays,
+     * with its attachments and history, and the posting run reverses its
+     * entries on the void day. `voided_at` and `void_reason` go together.
+     */
+    voidedAt: timestamp("voided_at"),
+    voidedBy: text("voided_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    voidReason: text("void_reason"),
   },
   (table) => [
     index("reimbursement_userId_idx").on(table.userId),
+    index("reimbursement_createdBy_idx").on(table.createdBy),
     index("reimbursement_status_idx").on(table.status),
     index("reimbursement_eventId_idx").on(table.eventId),
     index("reimbursement_chargedProgrammeId_idx").on(table.chargedProgrammeId),
@@ -91,6 +111,10 @@ export const reimbursement = pgTable(
     check(
       "reimbursement_rejection_reason_chk",
       sql`((status = 'rejected'::reimbursement_status) AND (rejection_reason IS NOT NULL)) OR ((status <> 'rejected'::reimbursement_status) AND (rejection_reason IS NULL))`
+    ),
+    check(
+      "reimbursement_void_chk",
+      sql`(voided_at IS NULL AND void_reason IS NULL) OR (voided_at IS NOT NULL AND void_reason IS NOT NULL)`
     ),
   ]
 );
@@ -183,6 +207,11 @@ export const reimbursementRelations = relations(
     chargedProgramme: one(programme, {
       fields: [reimbursement.chargedProgrammeId],
       references: [programme.id],
+    }),
+    creator: one(user, {
+      fields: [reimbursement.createdBy],
+      references: [user.id],
+      relationName: "reimbursement_creator",
     }),
     event: one(teamEvent, {
       fields: [reimbursement.eventId],

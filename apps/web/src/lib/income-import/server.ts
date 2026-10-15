@@ -99,6 +99,7 @@ import {
   type NormalizeResult,
   normalizeRow,
   withChannelRules,
+  withFundRule,
   withProgrammeRule,
 } from "./normalize";
 import {
@@ -389,7 +390,10 @@ async function rowRulesFor(
   return {
     ...rules,
     normalize: (raw) => {
-      const result = withProgrammeRule(rules.normalize(raw), programme);
+      const result = withFundRule(
+        withProgrammeRule(rules.normalize(raw), programme),
+        batch
+      );
       return account ? withChannelRules(result, account, batchSetup) : result;
     },
   };

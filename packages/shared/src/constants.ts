@@ -82,6 +82,7 @@ export const historyActionValues = [
   "invoice_updated",
   "invoice_approved",
   "invoice_rejected",
+  "voided",
 ] as const;
 export type HistoryAction = (typeof historyActionValues)[number];
 
@@ -195,7 +196,10 @@ export const CORPUS_FUND_ID = "01930000-0000-7000-8000-000000000202";
 /** Account heads the books need from day one (ledger reference data). */
 export const LEDGER_ACCOUNT_HEAD_IDS = {
   auditFeesPayable: "01930000-0000-7000-8000-000000000802",
+  corpusDonations: "01930000-0000-7000-8000-000000000810",
   donationsReceived: "01930000-0000-7000-8000-000000000805",
+  /** Parent of the expense heads made from the expense categories (layer 3-3a). */
+  expenses: "01930000-0000-7000-8000-000000000810",
   fdInterest: "01930000-0000-7000-8000-000000000804",
   fixedAssets: "01930000-0000-7000-8000-000000000801",
   fundBalance: "01930000-0000-7000-8000-000000000803",
@@ -203,7 +207,20 @@ export const LEDGER_ACCOUNT_HEAD_IDS = {
   inKindConsumed: "01930000-0000-7000-8000-000000000807",
   inKindDonations: "01930000-0000-7000-8000-000000000806",
   otherIncome: "01930000-0000-7000-8000-000000000809",
+  /** Vendor payments made before their invoice is accepted (layer 3-3a). */
+  supplierAdvances: "01930000-0000-7000-8000-000000000811",
 } as const;
+
+/**
+ * Fund heads that take capital receipts during the year: a corpus gift is
+ * credited straight to the Corpus Fund under `corpusDonations`, outside
+ * income and expenditure. The balance views show these entries as the
+ * fund's additions during the year; other fund heads (the opening fund
+ * balances) are part of the fund's opening.
+ */
+export const CAPITAL_RECEIPT_HEAD_IDS: readonly string[] = [
+  LEDGER_ACCOUNT_HEAD_IDS.corpusDonations,
+];
 
 /**
  * GiveIndia, which runs give.do and passes its donors' gifts on: recorded as

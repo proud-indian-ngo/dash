@@ -4,6 +4,7 @@ import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { revealErrorMessage } from "@pi-dash/shared/encrypted-values";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useEffect, useState } from "react";
@@ -53,7 +54,9 @@ function IdentifierRow({
         caughtError: error instanceof Error ? error.message : String(error),
         component: "DonorDetailSheet",
       });
-      toast.error("Couldn't reveal the identifier");
+      toast.error(
+        revealErrorMessage(error, "ID number", "Couldn't reveal the identifier")
+      );
     }
   });
   const handleHide = useEventCallback(() => setRevealed(null));

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { donationTypeProgrammeIssue } from "./contribution-programme";
+import { CORPUS_FUND_ID, GENERAL_FUND_ID } from "./constants";
+import {
+  donationTypeFundIssue,
+  donationTypeProgrammeIssue,
+  fundForDonationType,
+} from "./contribution-programme";
 import { contributionRuleIssues } from "./income";
 
 describe("donationTypeProgrammeIssue", () => {
@@ -55,6 +60,50 @@ describe("donationTypeProgrammeIssue", () => {
         message: "A CSR gift needs the programme it's for",
         path: "programmeId",
       },
+    ]);
+  });
+});
+
+describe("donationTypeFundIssue", () => {
+  it("locks a corpus gift to the Corpus Fund", () => {
+    expect(fundForDonationType("corpus")).toBe(CORPUS_FUND_ID);
+    expect(
+      donationTypeFundIssue({ donationType: "corpus", fundId: CORPUS_FUND_ID })
+    ).toBe(null);
+    expect(
+      donationTypeFundIssue({ donationType: "corpus", fundId: GENERAL_FUND_ID })
+    ).toBe("A corpus gift goes to the Corpus Fund");
+  });
+
+  it("keeps every other type out of the Corpus Fund", () => {
+    for (const donationType of [
+      "voluntary",
+      "specific_grant",
+      "csr",
+      "other",
+    ] as const) {
+      expect(fundForDonationType(donationType)).toBe(null);
+      expect(
+        donationTypeFundIssue({ donationType, fundId: GENERAL_FUND_ID })
+      ).toBe(null);
+      expect(
+        donationTypeFundIssue({ donationType, fundId: CORPUS_FUND_ID })
+      ).toBe("Only a corpus gift goes to the Corpus Fund");
+    }
+  });
+
+  it("is part of the contribution rules, on the fund field, when a fund is given", () => {
+    const gift = {
+      channel: "neft",
+      donationType: "corpus",
+      orgAccountId: "bank",
+      reportingMode: "electronic_or_account_payee",
+    } as const;
+    expect(contributionRuleIssues(gift)).toEqual([]);
+    expect(
+      contributionRuleIssues({ ...gift, fundId: GENERAL_FUND_ID })
+    ).toEqual([
+      { message: "A corpus gift goes to the Corpus Fund", path: "fundId" },
     ]);
   });
 });

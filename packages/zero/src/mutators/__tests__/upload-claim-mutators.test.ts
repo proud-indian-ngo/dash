@@ -220,6 +220,11 @@ describe("server mutator upload claims", () => {
           status: "paid",
           userId: "owner-1",
         })
+        // The delete first checks that the books hold neither the request
+        // nor its payment (finance Option B).
+        .mockResolvedValueOnce([{ id: "transaction-1" }])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([])
@@ -963,12 +968,13 @@ describe("approval screenshot requirement", () => {
       expect(update.mock.calls[0]?.[0]).not.toHaveProperty(
         "approvalScreenshotKey"
       );
-      // Only the claimant notification is queued; no cleanup of the screenshot.
-      expect(ctx.asyncTasks?.map((task) => task.meta.mutator)).toEqual([
+      // Only the books (reimbursements) and the claimant notification are
+      // queued; no cleanup of the screenshot.
+      expect(ctx.asyncTasks?.map((task) => task.meta.mutator)).toEqual(
         tableName === "reimbursement"
-          ? "rejectReimbursement"
-          : "rejectAdvancePayment",
-      ]);
+          ? ["reimbursement.reject", "rejectReimbursement"]
+          : ["rejectAdvancePayment"]
+      );
     });
 
     it(`re-approves a rejected ${entity} with its stored payment screenshot`, async () => {

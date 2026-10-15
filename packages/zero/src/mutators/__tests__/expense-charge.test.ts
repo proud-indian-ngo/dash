@@ -8,6 +8,7 @@ import {
 } from "../../queries/query-scope-test-utils";
 import { resolveExpenseCharge } from "../expense-charge";
 import { reimbursementMutators } from "../reimbursement";
+import { teamMutators } from "../team";
 import { vendorPaymentMutators } from "../vendor-payment";
 
 type Row = Record<string, unknown>;
@@ -330,6 +331,83 @@ describe("changing what a request is charged to", () => {
     ).rejects.toThrow("Unauthorized");
   });
 
+  it("refuses a request posted to the books, but not one whose posting was reversed", async () => {
+    const posted = createDb({
+      posting: [
+        {
+          id: "p-1",
+          reversesPostingId: null,
+          sourceId: "r-1",
+          sourceType: "reimbursement",
+        },
+      ],
+      reimbursement: [reimbursementRow({ status: "approved" })],
+    });
+    await expect(
+      run(reimbursementMutators.setChargedTo, posted, approverCtx, {
+        chargedTo: "organisation",
+        id: "r-1",
+      })
+    ).rejects.toThrow(
+      "This request is in the books, so what it is charged to can't be changed"
+    );
+
+    const reversed = createDb({
+      posting: [
+        {
+          id: "p-1",
+          reversesPostingId: null,
+          sourceId: "r-1",
+          sourceType: "reimbursement",
+        },
+        {
+          id: "p-2",
+          reversesPostingId: "p-1",
+          sourceId: "r-1",
+          sourceType: "reimbursement",
+        },
+      ],
+      reimbursement: [reimbursementRow({ status: "approved" })],
+    });
+    await run(reimbursementMutators.setChargedTo, reversed, approverCtx, {
+      chargedTo: "organisation",
+      id: "r-1",
+    });
+    expect(reversed.tables.reimbursement?.[0]).toMatchObject({
+      chargedTo: "organisation",
+    });
+  });
+
+  it("refuses re-charging a vendor payment whose expense is posted", async () => {
+    const db = createDb({
+      posting: [
+        {
+          id: "p-1",
+          reversesPostingId: null,
+          sourceId: "vp-1",
+          sourceType: "vendor_payment",
+        },
+      ],
+      vendorPayment: [
+        {
+          chargedProgrammeId: null,
+          chargedProjectId: null,
+          chargedTo: "event",
+          eventId: "ev-1",
+          id: "vp-1",
+          status: "completed",
+          userId: "claimant",
+        },
+      ],
+    });
+    await expect(
+      run(vendorPaymentMutators.setChargedTo, db, financeCtx, {
+        chargedTo: "organisation",
+        id: "vp-1",
+      })
+    ).rejects.toThrow("This request is in the books");
+  });
+
   it("lets finance.manage charge a vendor payment to admin", async () => {
     const db = createDb({
       vendorPayment: [
@@ -356,5 +434,39 @@ describe("changing what a request is charged to", () => {
     expect(db.tables.vendorPaymentHistory?.[0]?.note).toBe(
       "Charged to: Event · Beach clean-up → Organisation (admin)"
     );
+  });
+});
+
+describe("team.delete and the books", () => {
+  const adminCtx = {
+    permissions: ["teams.delete"],
+    role: "admin",
+    userId: "admin",
+  };
+
+  it("refuses a team whose events the books hold expenses for", async () => {
+    const db = createDb({
+      ledgerEntry: [{ eventId: "ev-1", id: "e-1" }],
+      team: [{ id: "t-1", members: [], name: "Teaching" }],
+      teamEvent: [{ id: "ev-1", name: "Beach clean-up", teamId: "t-1" }],
+      teamMember: [],
+    });
+    await expect(
+      run(teamMutators.delete, db, adminCtx, { id: "t-1" })
+    ).rejects.toThrow(
+      "The books hold expenses for this team's events, so the team can't be deleted."
+    );
+    expect(db.tables.team).toHaveLength(1);
+  });
+
+  it("deletes a team whose events the books don't name", async () => {
+    const db = createDb({
+      ledgerEntry: [{ eventId: "ev-other", id: "e-1" }],
+      team: [{ id: "t-1", members: [], name: "Teaching" }],
+      teamEvent: [{ id: "ev-1", name: "Beach clean-up", teamId: "t-1" }],
+      teamMember: [],
+    });
+    await run(teamMutators.delete, db, adminCtx, { id: "t-1" });
+    expect(db.tables.team).toHaveLength(0);
   });
 });

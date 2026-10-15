@@ -114,29 +114,14 @@ bucket, so the rules must be applied in Cloudflare before deploying
 transactional claims. They are a fallback for abandoned uploads; successful
 claims enqueue source deletion immediately after commit.
 
-Legacy CDN URLs remain readable during rollout. Run the idempotent backfill in
-dry-run mode first, review changed/skipped/malformed counts, then apply it:
+Legacy CDN URLs remain readable. The one-off backfill that rewrote stored media
+references to canonical app URLs ran in production; it is in git history.
 
 Reference-checked deletion also recognizes the two historical protected-upload
 layouts: `scheduled-messages/scheduled-message-draft/` and invoice attachments
 under `attachments/<dialogUuid>/`. New uploads never use these layouts.
 Scheduled-message attachments remain referenced and downloadable after delivery;
 replacement or message deletion retires the reference and enqueues cleanup.
-
-```bash
-bun run r2:migrate-media-urls -- --legacy-cdn-url=https://cdn.example.org
-bun run r2:migrate-media-urls -- --legacy-cdn-url=https://cdn.example.org --apply
-bun run r2:migrate-media-urls -- --legacy-cdn-url=https://cdn.example.org --apply --batch-size=250
-```
-
-The migration rewrites `user.image`, `event_update.content`, and
-`event_feedback.content` in transactional batches of 100 rows by default;
-`--batch-size` accepts 1 through 1000. Raw keys and legacy CDN URLs are
-canonicalized, while unrelated external URLs are left unchanged. The
-report includes `malformedIds` per table so invalid Plate rows can be repaired.
-Do not disable public bucket access until a final dry-run reports both zero
-changes and zero malformed rows. The orphan-cleanup job recognizes raw keys,
-legacy CDN URLs, and canonical app URLs.
 
 During the private-storage rollout, the bucket remains publicly reachable only
 for asset families that have not migrated yet. All migrated reads use an exact
@@ -152,24 +137,6 @@ Avatar and Plate editor uploads have dedicated signers:
   event's team, accept the shared image MIME list with a 20 MB limit, and store
   `/api/media/event-update?eventId=<id>&key=<key>` in Plate content.
 - The generic attachment signer does not accept the `updates` subfolder.
-
-Legacy CDN URLs remain readable during rollout. Run the idempotent backfill in
-dry-run mode first, review changed/skipped/malformed counts, then apply it:
-
-```bash
-bun run r2:migrate-media-urls -- --legacy-cdn-url=https://cdn.example.org
-bun run r2:migrate-media-urls -- --legacy-cdn-url=https://cdn.example.org --apply
-bun run r2:migrate-media-urls -- --legacy-cdn-url=https://cdn.example.org --apply --batch-size=250
-```
-
-The migration rewrites `user.image`, `event_update.content`, and
-`event_feedback.content` in transactional batches of 100 rows by default;
-`--batch-size` accepts 1 through 1000. Raw keys and legacy CDN URLs are
-canonicalized, while unrelated external URLs are left unchanged. The
-report includes `malformedIds` per table so invalid Plate rows can be repaired.
-Do not disable public bucket access until a final dry-run reports both zero
-changes and zero malformed rows. The orphan-cleanup job recognizes raw keys,
-legacy CDN URLs, and canonical app URLs.
 
 ## Immich (Event Photos)
 

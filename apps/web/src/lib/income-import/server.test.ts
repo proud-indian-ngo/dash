@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-import { GIVE_INDIA_PARTY_ID } from "@pi-dash/shared/constants";
+import { CORPUS_FUND_ID, GIVE_INDIA_PARTY_ID } from "@pi-dash/shared/constants";
 
 const PAN = "ABCDE1234F";
 const OTHER_PAN = "PQRST6789K";
@@ -25,6 +25,7 @@ let payoutLinks: unknown[][] = [];
 let writtenOutcomes: { id: string; values: Record<string, unknown> }[] = [];
 /** The batch's programme, which every row gets. */
 let batchProgramme: string | null = null;
+let batchFund: string | null = null;
 /** Overrides the batch's account ID. */
 let batchAccount: string | null = null;
 /** The batch account's kind; null follows the source (give.do clearing or a bank). */
@@ -52,7 +53,7 @@ const batchRow = () => ({
   defaultChannel:
     source === "give_do_csv" || source === "give_do_payout" ? "give_do" : "upi",
   fileName: "gifts.csv",
-  fundId: "0190a000-0000-7000-8000-0000000000bb",
+  fundId: batchFund ?? "0190a000-0000-7000-8000-0000000000bb",
   id: BATCH,
   mapping:
     mapping ??
@@ -263,6 +264,7 @@ const { reviewSummaryLine, summarizeReview } = await import("./review-summary");
 beforeEach(() => {
   accountKind = null;
   batchProgramme = null;
+  batchFund = null;
   source = "generic_csv";
   rows = rawRows;
   mapping = null;
@@ -512,10 +514,22 @@ describe("programme rule", () => {
   };
 
   it("needs the batch's programme for a grant row", async () => {
+    batchFund = CORPUS_FUND_ID;
+    expect(await typeErrors()).toEqual([
+      ["Only a corpus gift goes to the Corpus Fund"],
+      [
+        "A specific grant needs the programme it's for",
+        "Only a corpus gift goes to the Corpus Fund",
+      ],
+      [],
+    ]);
+  });
+
+  it("needs the Corpus Fund for a corpus row, and corpus rows only there", async () => {
     expect(await typeErrors()).toEqual([
       [],
       ["A specific grant needs the programme it's for"],
-      [],
+      ["A corpus gift goes to the Corpus Fund"],
     ]);
   });
 
@@ -524,9 +538,13 @@ describe("programme rule", () => {
       { batchId: BATCH, decisions: {} },
       "user-1"
     );
-    expect(result).toMatchObject({ errors: 1 });
+    // The grant and the corpus row (not in a Corpus Fund batch).
+    expect(result).toMatchObject({ errors: 2 });
     expect(calls.contributions.map((c) => c.donationType)).not.toContain(
       "specific_grant"
+    );
+    expect(calls.contributions.map((c) => c.donationType)).not.toContain(
+      "corpus"
     );
     expect(calls.contributions.map((c) => c.donationType)).toContain(
       "voluntary"
@@ -535,11 +553,8 @@ describe("programme rule", () => {
 
   it("gives a corpus row no programme", async () => {
     batchProgramme = "0190a000-0000-7000-8000-0000000000ee";
-    expect(await typeErrors()).toEqual([
-      [],
-      [],
-      ["A corpus gift has no programme"],
-    ]);
+    batchFund = CORPUS_FUND_ID;
+    expect((await typeErrors())[2]).toEqual(["A corpus gift has no programme"]);
   });
 });
 

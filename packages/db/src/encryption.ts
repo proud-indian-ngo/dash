@@ -13,16 +13,35 @@ const IV_BYTES = 12;
 const TAG_BYTES = 16;
 const VERSION = "v1";
 
-function loadKey(): Buffer {
-  const raw = env.DATA_ENCRYPTION_KEY;
-  if (!raw) {
-    throw new Error("DATA_ENCRYPTION_KEY is not set");
+/**
+ * Thrown when a stored value cannot be decrypted with the key in use: it was
+ * written under another DATA_ENCRYPTION_KEY, or it was damaged. Carries a
+ * stable reason for logs and never the value.
+ */
+export class EncryptedValueUnreadableError extends Error {
+  readonly reason = "encrypted_value_unreadable";
+  constructor() {
+    super("Encrypted value cannot be read with the current key");
+    this.name = "EncryptedValueUnreadableError";
   }
+}
+
+/** Decodes the base64 data key. */
+function parseDataKey(raw: string): Buffer {
   const key = Buffer.from(raw, "base64");
   if (key.length !== 32) {
     throw new Error("DATA_ENCRYPTION_KEY must be 32 bytes, base64 encoded");
   }
   return key;
+}
+
+/** The current DATA_ENCRYPTION_KEY, decoded. */
+function loadKey(): Buffer {
+  const raw = env.DATA_ENCRYPTION_KEY;
+  if (!raw) {
+    throw new Error("DATA_ENCRYPTION_KEY is not set");
+  }
+  return parseDataKey(raw);
 }
 
 /** Whether finance-private identifiers can be stored in this environment. */
@@ -39,7 +58,15 @@ export function hasEncryptionKey(): boolean {
  * not decrypt.
  */
 export function encryptSecret(plain: string, context: string): string {
-  const key = loadKey();
+  return encryptSecretWith(loadKey(), plain, context);
+}
+
+/** `encryptSecret` under an explicit key, for re-encryption. */
+export function encryptSecretWith(
+  key: Buffer,
+  plain: string,
+  context: string
+): string {
   const iv = randomBytes(IV_BYTES);
   const cipher = createCipheriv(ALGORITHM, key, iv);
   cipher.setAAD(Buffer.from(context, "utf8"));
@@ -54,7 +81,14 @@ export function encryptSecret(plain: string, context: string): string {
 }
 
 export function decryptSecret(stored: string, context: string): string {
-  const key = loadKey();
+  return decryptSecretWith(loadKey(), stored, context);
+}
+
+function decryptSecretWith(
+  key: Buffer,
+  stored: string,
+  context: string
+): string {
   const [version, ivPart, bodyPart, tagPart] = stored.split(".");
   if (version !== VERSION || !ivPart || !bodyPart || !tagPart) {
     throw new Error("Unrecognised encrypted value");
@@ -71,6 +105,19 @@ export function decryptSecret(stored: string, context: string): string {
     decipher.update(Buffer.from(bodyPart, "base64url")),
     decipher.final(),
   ]).toString("utf8");
+}
+
+/**
+ * `decryptSecret` for reveals: a missing key still throws as configuration,
+ * but a value the key cannot open throws `EncryptedValueUnreadableError`.
+ */
+export function revealSecret(stored: string, context: string): string {
+  const key = loadKey();
+  try {
+    return decryptSecretWith(key, stored, context);
+  } catch {
+    throw new EncryptedValueUnreadableError();
+  }
 }
 
 /** The tail shown in clear beside an encrypted value; short values are not shown at all. */

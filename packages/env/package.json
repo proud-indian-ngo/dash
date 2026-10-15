@@ -15,7 +15,8 @@
     }
   },
   "scripts": {
-    "check:types": "tsc --noEmit --checkers 2"
+    "check:types": "tsc --noEmit --checkers 2",
+    "test:unit": "bun --bun vitest run"
   },
   "dependencies": {
     "@t3-oss/env-core": "^0.13.11",

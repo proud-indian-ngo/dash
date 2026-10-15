@@ -1,7 +1,6 @@
 import { todayInKolkata } from "@pi-dash/shared/income";
 import {
-  type IncomeSourceType,
-  INCOME_SOURCE_TYPES,
+  isExpenseSourceType,
   LEDGER_CUTOVER_ON,
   LEDGER_SKIP_REASONS,
   LEDGER_SOURCE_LABELS,
@@ -9,6 +8,8 @@ import {
   LEDGER_WAIT_REASONS,
   ledgerReasonLabel,
   type LedgerSourceStatus,
+  POSTED_SOURCE_TYPES,
+  type PostedSourceType,
 } from "@pi-dash/shared/ledger";
 import {
   and,
@@ -45,6 +46,12 @@ import {
 import { statementLine } from "../schema/statement-line";
 import { type LedgerTx, post, type PostingRow, reverse } from "./engine";
 import {
+  expenseSourceWatermark,
+  listExpenseSources,
+  planExpenseSource,
+  relatedExpenseSources,
+} from "./expense-posting";
+import {
   type ContributionFacts,
   contributionPlan,
   GATEWAY_CHANNELS,
@@ -63,10 +70,13 @@ import {
 import { type EntryInput, LedgerError, type MovementInput } from "./rules";
 
 /**
- * Income posting (finance Phase 3, layer 3-2), server only. One call looks
- * at one source (a contribution, refund, other income, gateway settlement
- * or bank transfer line), works out what the books should hold for it from
- * the rules in `income-rules.ts`, compares that with the postings standing
+ * Income posting (finance Phase 3, layer 3-2), and from layer 3-3a the
+ * posting run for every automatically posted source, server only. One call
+ * looks at one source (a contribution, refund, other income, gateway
+ * settlement or bank transfer line; a reimbursement, vendor payment request
+ * or vendor payment from layer 3-3a), works out what the books should hold
+ * for it from the rules in `income-rules.ts` or `expense-rules.ts`
+ * (facts loaded by `expense-posting.ts`), compares that with the postings standing
  * for it, and reverses and reposts only what differs. So it is idempotent
  * (a second call with nothing changed writes nothing), it backfills (a
  * source never posted is posted), and it follows edits and deletions:
@@ -84,9 +94,13 @@ import { type EntryInput, LedgerError, type MovementInput } from "./rules";
  * `ledger_source_state` as waiting, with its reason.
  */
 
+/**
+ * A source the posting run looks at: an income source (layer 3-2) or an
+ * expense source (layer 3-3a). The name stays from layer 3-2.
+ */
 export interface IncomeSource {
   sourceId: string;
-  sourceType: IncomeSourceType;
+  sourceType: PostedSourceType;
 }
 
 export interface IncomePostingResult {
@@ -188,6 +202,7 @@ async function contributionFacts(
   return {
     amountPaise: row.amountPaise,
     channel: row.channel,
+    donationType: row.donationType,
     fundId: row.fundId,
     gatewayFeePaise: row.gatewayFeePaise,
     gatewayTaxPaise: row.gatewayTaxPaise,
@@ -211,6 +226,7 @@ async function refundFacts(
     .select({
       amountPaise: contributionRefund.amountPaise,
       channel: contribution.channel,
+      donationType: contribution.donationType,
       fundId: contribution.fundId,
       id: contributionRefund.id,
       orgAccountId: contribution.orgAccountId,
@@ -234,6 +250,7 @@ async function refundFacts(
     amountPaise: row.amountPaise,
     gift: {
       channel: row.channel,
+      donationType: row.donationType,
       fundId: row.fundId,
       orgAccountId: row.orgAccountId,
       partyId: row.partyId,
@@ -324,6 +341,7 @@ async function settlementFacts(
     .select({
       contributionId: gatewaySettlementItem.contributionId,
       contributionRefundId: gatewaySettlementItem.contributionRefundId,
+      donationType: contribution.donationType,
       feePaise: gatewaySettlementItem.feePaise,
       fundId: contribution.fundId,
       giftFeePaise: contribution.gatewayFeePaise,
@@ -352,8 +370,9 @@ async function settlementFacts(
       feePaise: item.feePaise,
       giftChargesPaise: (item.giftFeePaise ?? 0) + (item.giftTaxPaise ?? 0),
       gift:
-        item.contributionId && item.fundId && item.partyId
+        item.contributionId && item.donationType && item.fundId && item.partyId
           ? {
+              donationType: item.donationType,
               fundId: item.fundId,
               partyId: item.partyId,
               programmeId: item.programmeId,
@@ -455,7 +474,13 @@ export async function planIncomeSource(
         await statementTransferFacts(tx, source.sourceId)
       );
     default:
-      throw new LedgerError("invalid", "Not an income source");
+      if (isExpenseSourceType(source.sourceType)) {
+        return await planExpenseSource(tx, {
+          sourceId: source.sourceId,
+          sourceType: source.sourceType,
+        });
+      }
+      throw new LedgerError("invalid", "Not a source the books post");
   }
 }
 
@@ -649,6 +674,9 @@ function reversalReason(source: IncomeSource, plan: SourcePlan): string {
     if (plan.reason === LEDGER_SKIP_REASONS.unmatched) {
       return "The bank line was unmatched";
     }
+    if (plan.reason === LEDGER_SKIP_REASONS.voided) {
+      return `The ${label} was voided`;
+    }
     return plan.reason === LEDGER_SKIP_REASONS.deleted
       ? `The ${label} was deleted`
       : `The ${label} no longer posts: ${ledgerReasonLabel(plan.reason)}`;
@@ -730,10 +758,11 @@ export async function postIncomeSource(
   const redo = moneyChanged
     ? new Set([...desired.keys(), ...byAction.keys()])
     : changed;
+  const reverseOn = plan.kind === "none" ? plan.reverseOn : undefined;
   const economicOn =
     plan.kind === "post"
       ? plan.economicOn
-      : (standing[0]?.posting.economicOn ?? null);
+      : (reverseOn ?? standing[0]?.posting.economicOn ?? null);
 
   if (redo.size === 0) {
     return await settle(tx, source, plan, standing, now, {
@@ -754,6 +783,7 @@ export async function postIncomeSource(
           await reverse(sp, s.posting.id, {
             actorId: context.actorId,
             now,
+            on: reverseOn,
             reason,
           });
           reversed += 1;
@@ -970,6 +1000,12 @@ export async function relatedIncomeSources(
         ]
       : [];
   }
+  if (isExpenseSourceType(source.sourceType)) {
+    return await relatedExpenseSources(tx, {
+      sourceId: source.sourceId,
+      sourceType: source.sourceType,
+    });
+  }
   return [];
 }
 
@@ -982,7 +1018,7 @@ export async function relatedIncomeSources(
  * bank accounts. Null when the record is gone. Stored on each look
  * (`source_updated_at`) and compared by the incremental sweep.
  */
-function sourceWatermark(type: IncomeSourceType, id: SQL): SQL {
+function sourceWatermark(type: PostedSourceType, id: SQL): SQL {
   switch (type) {
     case LEDGER_SOURCE_TYPES.contribution:
       return sql`(select wc.updated_at from ${contribution} wc where wc.id = ${id})`;
@@ -1010,7 +1046,9 @@ function sourceWatermark(type: IncomeSourceType, id: SQL): SQL {
           (select wp.updated_at from ${statementLine} wp where wp.id = wl.transfer_pair_line_id))
         from ${statementLine} wl where wl.id = ${id})`;
     default:
-      return sql`null::timestamp`;
+      return isExpenseSourceType(type)
+        ? expenseSourceWatermark(type, id)
+        : sql`null::timestamp`;
   }
 }
 
@@ -1058,7 +1096,7 @@ export async function listIncomeSources(
   const from = options.range?.startsOn ?? LEDGER_CUTOVER_ON;
   const to = options.range?.endsOn ?? "9999-12-31";
   // Skips a source whose state saw its record as it is now.
-  const changed = (type: IncomeSourceType, idColumn: SQL) =>
+  const changed = (type: PostedSourceType, idColumn: SQL) =>
     options.incremental
       ? sql`and not exists (
           select 1 from ${ledgerSourceState} st
@@ -1109,13 +1147,14 @@ export async function listIncomeSources(
       select l.id from ${statementLine} l
       where l.match_kind = 'transfer' and l.value_on between ${from} and ${to}`)
   );
+  const expenses = await listExpenseSources(tx, { from, to }, changed);
   // Standing postings whose record is gone, or whose record no longer
   // qualifies above (unmatched, back to pending): looked at to reverse them.
   const standing = await tx.execute(sql`
     select distinct p.source_type as type, p.source_id as id
     from ${posting} p
     where p.source_type in (${sql.join(
-      INCOME_SOURCE_TYPES.map((t) => sql`${t}`),
+      POSTED_SOURCE_TYPES.map((t) => sql`${t}`),
       sql`, `
     )})
       and p.reverses_posting_id is null
@@ -1129,7 +1168,7 @@ export async function listIncomeSources(
                 and st.status <> 'waiting'
                 and st.source_updated_at >= coalesce(case p.source_type
                   ${sql.join(
-                    INCOME_SOURCE_TYPES.map(
+                    POSTED_SOURCE_TYPES.map(
                       (t) =>
                         sql`when ${t} then ${sourceWatermark(t, sql`p.source_id`)}`
                     ),
@@ -1161,17 +1200,18 @@ export async function listIncomeSources(
       sourceId: r.id,
       sourceType: T.statementTransfer,
     })),
+    ...expenses,
     ...[
       ...(standing as unknown as { id: string; type: string }[]),
       ...waiting,
     ].flatMap((r) =>
-      (INCOME_SOURCE_TYPES as readonly string[]).includes(r.type)
-        ? [{ sourceId: String(r.id), sourceType: r.type as IncomeSourceType }]
+      (POSTED_SOURCE_TYPES as readonly string[]).includes(r.type)
+        ? [{ sourceId: String(r.id), sourceType: r.type as PostedSourceType }]
         : []
     ),
   ];
   const seen = new Set<string>();
-  const order = INCOME_SOURCE_TYPES as readonly string[];
+  const order = POSTED_SOURCE_TYPES as readonly string[];
   return all
     .filter((s) => {
       const key = sourceKey(s);

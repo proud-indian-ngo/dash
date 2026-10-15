@@ -7,18 +7,36 @@ import {
   yearCloseChecklist,
 } from "@pi-dash/db/ledger/year-close";
 import { user } from "@pi-dash/db/schema/auth";
-import { fiscalYear, orgAccount } from "@pi-dash/db/schema/finance-dimensions";
+import { expenseCategory } from "@pi-dash/db/schema/expense-category";
+import {
+  accountHead,
+  fiscalYear,
+  fund,
+  orgAccount,
+} from "@pi-dash/db/schema/finance-dimensions";
 import {
   gatewaySettlement,
   gatewaySettlementItem,
 } from "@pi-dash/db/schema/gateway-settlement";
 import { contribution } from "@pi-dash/db/schema/income";
 import {
+  ledgerEntry,
   ledgerSourceState,
   openingBalance,
   posting,
 } from "@pi-dash/db/schema/ledger";
+import { party } from "@pi-dash/db/schema/party";
+import {
+  reimbursement,
+  reimbursementLineItem,
+} from "@pi-dash/db/schema/reimbursement";
 import { statementLine } from "@pi-dash/db/schema/statement-line";
+import {
+  vendor,
+  vendorPayment,
+  vendorPaymentLineItem,
+} from "@pi-dash/db/schema/vendor";
+import { vendorPaymentTransaction } from "@pi-dash/db/schema/vendor-payment-transaction";
 import { and, asc, eq, gte, isNull, lte, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
@@ -41,6 +59,10 @@ import { uuidv7 } from "uuidv7";
  *   debit of 300 to mark as a transfer to the fixed deposit.
  * - `gift <accountId> <day>`: one more UPI gift of 250 into that account.
  * - `postings <sourceId>`: the actions posted for a source, oldest first.
+ * - `corpus-gift <run>`: a bank account of this run and a NEFT corpus gift
+ *   of 700 into it, recorded against the Corpus Fund.
+ * - `entries <sourceId>`: the standing recognition of a source, as
+ *   "<head code> <fund code> <signed paise>", sorted.
  * - `ensure-opening <label>`: posts fake, balanced opening balances for the
  *   year when none stand (a year can't close without them), so each
  *   treasurer test runs on its own when CI shards split the group.
@@ -50,6 +72,15 @@ import { uuidv7 } from "uuidv7";
  * - `close-year-strict <label>`: tries the real close as if the day after
  *   the year ended, without clearing anything, and reports the refusal.
  * - `reopen-year <label>`: reopens it if it is closed (test cleanup).
+ * - `expense-fixture <run>`: expense posting (layer 3-3a). A bank account
+ *   of this run marked as the main bank account (expenses are paid out of
+ *   it), an expense category of this run, a reimbursement of 300 + 125
+ *   charged to Education and approved on 20 Jun 2026 with its payment
+ *   screenshot (approving in the app needs R2, which CI lacks), one
+ *   approved the same day without a screenshot (it waits), and a vendor
+ *   payment of 2,500 to a vendor of this run, paid on 10 Jul 2026, with its
+ *   invoice submitted and waiting for approval.
+ * - `edit-claim <id>`: raises the reimbursement's first line to 350.
  * - `probe-guards`: tries to change and remove posted books rows, each in
  *   a rolled-back savepoint, and reports which statements the database
  *   refused. Proves the append-only guards exist in this database, whether
@@ -336,6 +367,160 @@ async function closeAfterPosting(
   });
 }
 
+async function expenseFixture(run: string) {
+  const now = new Date();
+  const userId = await anyUserId();
+  const bankId = uuidv7();
+  const bankName = `E2E Expense Bank ${run}`;
+  const categoryId = uuidv7();
+  const categoryName = `E2E Books Category ${run}`;
+  await db.transaction(async (tx) => {
+    // Expenses are paid out of the main bank account; this run's is it.
+    await tx
+      .update(orgAccount)
+      .set({ isMain: false, updatedAt: now })
+      .where(eq(orgAccount.isMain, true));
+    await tx.insert(orgAccount).values({
+      createdAt: now,
+      id: bankId,
+      isMain: true,
+      kind: "bank",
+      name: bankName,
+      updatedAt: now,
+    });
+  });
+  await db.insert(expenseCategory).values({
+    createdAt: now,
+    id: categoryId,
+    name: categoryName,
+    updatedAt: now,
+  });
+  const approvedAt = new Date("2026-06-20T05:00:00Z");
+  const claim = async (title: string, withProof: boolean) => {
+    const id = uuidv7();
+    await db.insert(reimbursement).values({
+      approvalScreenshotKey: withProof
+        ? `attachments/approval-screenshots/reimbursements/${id}/approval-screenshots/e2e-proof.png`
+        : null,
+      chargedProgrammeId: EDUCATION_ID,
+      chargedTo: "programme",
+      createdAt: now,
+      expenseDate: "2026-06-18",
+      id,
+      reviewedAt: approvedAt,
+      reviewedBy: userId,
+      status: "approved",
+      title,
+      updatedAt: now,
+      userId,
+    });
+    await db.insert(reimbursementLineItem).values(
+      [30_000, 12_500].map((amountPaise, index) => ({
+        amountPaise,
+        categoryId,
+        createdAt: now,
+        description: `${title} line ${index + 1}`,
+        id: uuidv7(),
+        reimbursementId: id,
+        sortOrder: index,
+        updatedAt: now,
+      }))
+    );
+    return id;
+  };
+  const claimTitle = `E2E books claim ${run}`;
+  const claimId = await claim(claimTitle, true);
+  const noProofId = await claim(`E2E books claim without proof ${run}`, false);
+
+  const vendorId = uuidv7();
+  await db.insert(party).values({
+    createdAt: now,
+    displayName: `E2E Books Vendor ${run}`,
+    id: vendorId,
+    kind: "organisation",
+    updatedAt: now,
+  });
+  await db.insert(vendor).values({
+    createdAt: now,
+    id: vendorId,
+    name: `E2E Books Vendor ${run}`,
+    status: "approved",
+    updatedAt: now,
+  });
+  const vendorPaymentId = uuidv7();
+  const vendorPaymentTitle = `E2E books vendor payment ${run}`;
+  await db.insert(vendorPayment).values({
+    chargedTo: "organisation",
+    createdAt: now,
+    id: vendorPaymentId,
+    invoiceDate: "2026-07-12",
+    invoiceNumber: `INV-E2E-${run}`,
+    reviewedAt: now,
+    reviewedBy: userId,
+    status: "invoice_pending",
+    title: vendorPaymentTitle,
+    updatedAt: now,
+    userId,
+    vendorId,
+  });
+  await db.insert(vendorPaymentLineItem).values({
+    amountPaise: 250_000,
+    categoryId,
+    createdAt: now,
+    id: uuidv7(),
+    sortOrder: 0,
+    updatedAt: now,
+    vendorPaymentId,
+  });
+  const paymentId = uuidv7();
+  await db.insert(vendorPaymentTransaction).values({
+    amountPaise: 250_000,
+    createdAt: now,
+    id: paymentId,
+    paymentMethod: "bank_transfer",
+    paymentReference: `E2EUTR${run}`,
+    reviewedAt: now,
+    reviewedBy: userId,
+    status: "approved",
+    transactionDate: new Date("2026-07-10T05:00:00Z"),
+    updatedAt: now,
+    userId,
+    vendorPaymentId,
+  });
+  return {
+    bankName,
+    categoryName,
+    claimId,
+    claimTitle,
+    noProofId,
+    paymentId,
+    vendorPaymentId,
+    vendorPaymentTitle,
+  };
+}
+
+async function editClaim(id: string) {
+  const [line] = await db
+    .select({ id: reimbursementLineItem.id })
+    .from(reimbursementLineItem)
+    .where(eq(reimbursementLineItem.reimbursementId, id))
+    .orderBy(asc(reimbursementLineItem.sortOrder))
+    .limit(1);
+  if (!line) {
+    throw new Error(`Reimbursement ${id} has no lines`);
+  }
+  const now = new Date();
+  await db
+    .update(reimbursementLineItem)
+    .set({ amountPaise: 35_000, updatedAt: now })
+    .where(eq(reimbursementLineItem.id, line.id));
+  await db
+    .update(reimbursement)
+    .set({ updatedAt: now })
+    .where(eq(reimbursement.id, id));
+  return { id };
+}
+
 /** "E2E Bank Account", seeded by seed-test-user. */
 const E2E_BANK_ID = "01930000-0000-7000-8000-000000000711";
 
@@ -373,6 +558,68 @@ async function ensureOpening(label: string) {
     )
   );
   return { id, posted: true };
+}
+
+/** Must match CORPUS_FUND_ID in @pi-dash/shared/constants. */
+const CORPUS_FUND_ID = "01930000-0000-7000-8000-000000000202";
+
+async function corpusGift(run: string) {
+  const now = new Date();
+  const bankId = uuidv7();
+  const bankName = `E2E Books Corpus Bank ${run}`;
+  await db.insert(orgAccount).values({
+    createdAt: now,
+    id: bankId,
+    kind: "bank",
+    name: bankName,
+    updatedAt: now,
+  });
+  const id = uuidv7();
+  await db.insert(contribution).values({
+    amountPaise: 70_000,
+    channel: "neft",
+    createdAt: now,
+    donationType: "corpus",
+    fundId: CORPUS_FUND_ID,
+    id,
+    orgAccountId: bankId,
+    partyId: INCOME_DONOR_ID,
+    receivedOn: "2026-06-20",
+    reference: `E2ECORPUS${run}`,
+    reportingMode: "electronic_or_account_payee",
+    status: "received",
+    updatedAt: now,
+  });
+  return { bankId, bankName, id };
+}
+
+/** A source's recognition net of reversals, by head and fund code. */
+async function entriesOf(sourceId: string) {
+  const rows = await db
+    .select({
+      amountPaise: ledgerEntry.amountPaise,
+      effect: ledgerEntry.effect,
+      fund: fund.code,
+      head: accountHead.code,
+    })
+    .from(ledgerEntry)
+    .innerJoin(posting, eq(posting.id, ledgerEntry.postingId))
+    .innerJoin(accountHead, eq(accountHead.id, ledgerEntry.accountHeadId))
+    .innerJoin(fund, eq(fund.id, ledgerEntry.fundId))
+    .where(eq(posting.sourceId, sourceId));
+  const net = new Map<string, number>();
+  for (const row of rows) {
+    const key = `${row.head} ${row.fund}`;
+    net.set(
+      key,
+      (net.get(key) ?? 0) +
+        (row.effect === "increase" ? row.amountPaise : -row.amountPaise)
+    );
+  }
+  return [...net]
+    .filter(([, paise]) => paise !== 0)
+    .map(([key, paise]) => `${key} ${paise}`)
+    .sort();
 }
 
 async function postingsOf(sourceId: string) {
@@ -442,8 +689,16 @@ if (action === "close-year") {
 } else if (action === "gift") {
   const [, accountId, day] = process.argv.slice(2);
   result = { id: await upiGift(accountId ?? "", day ?? "2026-05-01", 25_000) };
+} else if (action === "expense-fixture") {
+  result = await expenseFixture(label);
+} else if (action === "edit-claim") {
+  result = await editClaim(label);
 } else if (action === "postings") {
   result = await postingsOf(label);
+} else if (action === "corpus-gift") {
+  result = await corpusGift(label);
+} else if (action === "entries") {
+  result = await entriesOf(label);
 } else {
   throw new Error(`Unknown action ${action}`);
 }

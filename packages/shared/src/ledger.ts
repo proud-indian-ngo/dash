@@ -8,6 +8,8 @@
  * entry's effect or the movement's direction.
  */
 
+import { CAPITAL_RECEIPT_HEAD_IDS } from "./constants";
+
 /** The first day the pi-dash ledger keeps the books (FY 2026-27). Nothing earlier is posted. */
 export const LEDGER_CUTOVER_ON = "2026-04-01";
 
@@ -46,8 +48,9 @@ export type FiscalYearEventAction =
   (typeof fiscalYearEventActionValues)[number];
 
 /**
- * Source documents that post. Layer 3-3 adds the expense side
- * (reimbursement, vendor payment, adjustment).
+ * Source documents that post. Layer 3-3a adds the expense side
+ * (reimbursements, vendor payments and their payments); the adjustment
+ * document comes with layer 3-3c.
  */
 export const LEDGER_SOURCE_TYPES = {
   contribution: "contribution",
@@ -55,8 +58,14 @@ export const LEDGER_SOURCE_TYPES = {
   gatewaySettlement: "gateway_settlement",
   openingBalance: "opening_balance",
   otherIncome: "other_income",
+  /** An approved (already paid) reimbursement: expense per line and the payment. */
+  reimbursement: "reimbursement",
   /** A bank statement line marked as a transfer between the trust's own accounts. */
   statementTransfer: "statement_transfer",
+  /** A vendor payment request: expense per line once its invoice is accepted. */
+  vendorPayment: "vendor_payment",
+  /** One approved payment of a vendor payment request: money out of the bank. */
+  vendorPaymentTransaction: "vendor_payment_transaction",
 } as const;
 export type LedgerSourceType =
   (typeof LEDGER_SOURCE_TYPES)[keyof typeof LEDGER_SOURCE_TYPES];
@@ -74,13 +83,39 @@ export type IncomeSourceType = (typeof INCOME_SOURCE_TYPES)[number];
 export const isIncomeSourceType = (value: string): value is IncomeSourceType =>
   (INCOME_SOURCE_TYPES as readonly string[]).includes(value);
 
+/** The sources expense posting handles (layer 3-3a), posted by the server only. */
+export const EXPENSE_SOURCE_TYPES = [
+  LEDGER_SOURCE_TYPES.reimbursement,
+  LEDGER_SOURCE_TYPES.vendorPayment,
+  LEDGER_SOURCE_TYPES.vendorPaymentTransaction,
+] as const;
+export type ExpenseSourceType = (typeof EXPENSE_SOURCE_TYPES)[number];
+
+export const isExpenseSourceType = (
+  value: string
+): value is ExpenseSourceType =>
+  (EXPENSE_SOURCE_TYPES as readonly string[]).includes(value);
+
+/**
+ * Every source the automatic posting runs look at (income and expenses);
+ * opening balances are posted by hand and never swept.
+ */
+export const POSTED_SOURCE_TYPES = [
+  ...INCOME_SOURCE_TYPES,
+  ...EXPENSE_SOURCE_TYPES,
+] as const;
+export type PostedSourceType = (typeof POSTED_SOURCE_TYPES)[number];
+
 export const LEDGER_SOURCE_LABELS: Record<LedgerSourceType, string> = {
   contribution: "Contribution",
   contribution_refund: "Refund",
   gateway_settlement: "Settlement",
   opening_balance: "Opening balances",
   other_income: "Other income",
+  reimbursement: "Reimbursement",
   statement_transfer: "Transfer",
+  vendor_payment: "Vendor payment",
+  vendor_payment_transaction: "Vendor payment made",
 };
 
 export const POSTING_ACTIONS = {
@@ -105,9 +140,33 @@ export type LedgerSourceStatus = (typeof ledgerSourceStatusValues)[number];
 export const LEDGER_WAIT_REASONS = {
   closedYear: "year_closed",
   error: "error",
+  /**
+   * An accepted vendor invoice larger than the request's approved payments
+   * (lines raised, or a payment rejected or deleted, after the invoice):
+   * posting it would leave the books unbalanced, so it waits until the
+   * payments and the lines agree.
+   */
+  invoiceExceedsPayments: "invoice_exceeds_payments",
   noBankAccount: "pick_bank_account",
   noClearingAccount: "no_clearing_account",
   noOtherAccount: "pick_other_account",
+  /**
+   * An expense paid from "the main bank account" (cutover doc section 3)
+   * when the trust has no active bank account, or several and none marked
+   * as the main one.
+   */
+  noPayingAccount: "pick_paying_account",
+  /**
+   * An approved reimbursement with no payment screenshot (older records):
+   * the founder supplies the payment (cutover doc section 6).
+   */
+  noPaymentProof: "no_payment_proof",
+  /**
+   * A vendor payment request paid partly before 1 April 2026 and partly
+   * after: the audited opening balances hold the earlier part, so how its
+   * invoice posts is the CA's call.
+   */
+  paidAcrossCutover: "paid_across_cutover",
   referenceDataMissing: "reference_data_missing",
   /** Only in the year-close checklist: a record no posting run has seen. */
   unchecked: "unchecked",
@@ -117,11 +176,19 @@ export type LedgerWaitReason =
 
 export const LEDGER_WAIT_REASON_LABELS: Record<LedgerWaitReason, string> = {
   error: "Couldn't post",
+  invoice_exceeds_payments:
+    "The invoice is more than the approved payments: record the missing payment or correct the lines",
   unchecked: "Not looked at yet: post pending",
   no_clearing_account: "The settlement has no clearing account",
   pick_bank_account:
     "Pick the bank account: match the payout's bank statement line",
+  no_payment_proof:
+    "No payment screenshot: the founder gives the payment date, account and bank reference",
+  paid_across_cutover:
+    "Paid partly before 1 Apr 2026: ask the CA how its invoice posts",
   pick_other_account: "Pick the other account of the transfer",
+  pick_paying_account:
+    "The bank account it was paid from isn't known: mark the main bank account in Settings → Organisation accounts",
   reference_data_missing: "Books reference data missing",
   year_closed: "Year closed",
 };
@@ -130,10 +197,16 @@ export const LEDGER_WAIT_REASON_LABELS: Record<LedgerWaitReason, string> = {
 export const LEDGER_SKIP_REASONS = {
   beforeCutover: "before_cutover",
   deleted: "deleted",
+  /** A vendor payment whose invoice (or no-invoice reason) isn't accepted yet. */
+  invoiceNotAccepted: "invoice_not_accepted",
+  /** A reimbursement, vendor payment or payment that isn't approved. */
+  notApproved: "not_approved",
   notProcessed: "not_processed",
   notReceived: "not_received",
   otherSidePosts: "other_side_posts",
   unmatched: "unmatched",
+  /** A request or payment voided after it reached the books. */
+  voided: "voided",
 } as const;
 export type LedgerSkipReason =
   (typeof LEDGER_SKIP_REASONS)[keyof typeof LEDGER_SKIP_REASONS];
@@ -142,10 +215,13 @@ export const LEDGER_SKIP_REASON_LABELS: Record<LedgerSkipReason, string> = {
   before_cutover:
     "Dated before 1 Apr 2026: the audited opening balances already contain it",
   deleted: "Deleted",
+  invoice_not_accepted: "The invoice isn't approved yet",
+  not_approved: "Not approved",
   not_processed: "Not processed yet",
   not_received: "Not received, or reversed",
   other_side_posts: "Posted from the other account's statement line",
   unmatched: "No longer marked as a transfer",
+  voided: "Voided",
 };
 
 /** The words for a source's state: its wait or skip reason. */
@@ -460,12 +536,17 @@ export interface BalanceLine {
   key: string;
   kind: "account" | "head" | "fund";
   /**
-   * A fund that income or expenditure is posted to: its balance at the
-   * year's start (fund balance entries plus the surplus of earlier years)
-   * and the year's surplus, or deficit when negative, up to the date.
-   * `paise` is their sum.
+   * A fund that income or expenditure or capital receipts are posted to:
+   * its balance at the year's start (fund balance entries, earlier years'
+   * capital receipts and the surplus of earlier years), the year's capital
+   * receipts (corpus gifts less their refunds) and the year's surplus, or
+   * deficit when negative, up to the date. `paise` is their sum.
    */
-  movement?: { openingPaise: number; surplusPaise: number };
+  movement?: {
+    additionsPaise: number;
+    openingPaise: number;
+    surplusPaise: number;
+  };
   paise: number;
 }
 
@@ -484,8 +565,9 @@ export interface BalanceSummary {
 /**
  * The balance position at the end of `asOf`: account balances from the cash
  * book plus asset heads are the assets; liability heads the liabilities;
- * each fund's balance entries plus the income less expenditure posted to it
- * the funds. There is no year-close entry: each year's surplus simply stays
+ * each fund's balance entries, capital receipts (corpus gifts, credited
+ * straight to the Corpus Fund, never income) and the income less
+ * expenditure posted to it the funds. There is no year-close entry: each year's surplus simply stays
  * in its fund (the General Fund for unrestricted income), so a fund's
  * opening for the year starting `startsOn` carries every earlier year's
  * surplus, and the year's own surplus is shown beside it, as the audited
@@ -511,7 +593,12 @@ export function balanceSummary(input: {
   const liabilityHeads = new Map<string, number>();
   const funds = new Map<
     string,
-    { hasSurplus: boolean; paise: number; surplusPaise: number }
+    {
+      additionsPaise: number;
+      hasMovement: boolean;
+      paise: number;
+      surplusPaise: number;
+    }
   >();
   for (const e of input.entries) {
     if (e.economicOn > input.asOf) {
@@ -530,15 +617,22 @@ export function balanceSummary(input: {
       );
     } else {
       const fund = funds.get(e.fundId) ?? {
-        hasSurplus: false,
+        additionsPaise: 0,
+        hasMovement: false,
         paise: 0,
         surplusPaise: 0,
       };
       const surplus = surplusPaiseOf(e);
       if (surplus === null) {
         fund.paise += paise;
+        if (CAPITAL_RECEIPT_HEAD_IDS.includes(e.accountHeadId)) {
+          fund.hasMovement = true;
+          if (e.economicOn >= input.startsOn) {
+            fund.additionsPaise += paise;
+          }
+        }
       } else {
-        fund.hasSurplus = true;
+        fund.hasMovement = true;
         fund.paise += surplus;
         if (e.economicOn >= input.startsOn) {
           fund.surplusPaise += surplus;
@@ -558,15 +652,17 @@ export function balanceSummary(input: {
       key,
       kind: "fund",
       paise: fund.paise,
-      ...(fund.hasSurplus && {
-        // The opening is the balance less the year's surplus, so it also
-        // holds any fund-balance entry dated in the year. Today only the
-        // opening balances post to fund heads (dated the cutover year's
-        // first day, so part of its opening by design); a later in-year
-        // fund-balance posting (an adjustment) would show inside the
-        // opening here, while the workbook shows it as the year's movement.
+      ...(fund.hasMovement && {
+        // The opening is the balance less the year's capital receipts and
+        // surplus, so it also holds any other fund-balance entry dated in
+        // the year. Today only the opening balances post to the Fund
+        // balance head (dated the cutover year's first day, so part of its
+        // opening by design); a later in-year fund-balance posting (an
+        // adjustment) would show inside the opening here, while the
+        // workbook shows it as the year's movement.
         movement: {
-          openingPaise: fund.paise - fund.surplusPaise,
+          additionsPaise: fund.additionsPaise,
+          openingPaise: fund.paise - fund.additionsPaise - fund.surplusPaise,
           surplusPaise: fund.surplusPaise,
         },
       }),
@@ -597,3 +693,17 @@ export function booksAsOf(range: DateRange, today: string): string {
   }
   return today < range.startsOn ? range.startsOn : today;
 }
+
+// ── Voiding requests (Option B) ─────────────────────────────────────────────
+
+/** Refused delete: a request or payment the books hold is voided instead. */
+export const POSTED_DELETE_MESSAGE = "Posted to the books. Void it instead.";
+
+/** Refused change to a voided request or payment. */
+export const VOIDED_MESSAGE = "This is void, so it can't be changed";
+
+/** Refused delete of a voided request or payment: it stays as the record. */
+export const VOIDED_DELETE_MESSAGE =
+  "This is void and stays as the record, so it can't be deleted";
+
+export const VOID_REASON_MAX = 500;

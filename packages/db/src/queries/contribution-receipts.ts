@@ -44,6 +44,7 @@ import { uuidv7 } from "uuidv7";
 
 import { db } from "..";
 import { decryptSecret, encryptSecret, hasEncryptionKey } from "../encryption";
+import { snapshotIdContext } from "../encryption-contexts";
 import { appConfig } from "../schema/app-config";
 import { contributionReceipt } from "../schema/contribution-receipt";
 import { programme, project } from "../schema/finance-dimensions";
@@ -108,9 +109,6 @@ export interface ReceiptDocument extends ReceiptDocumentSnapshot {
   voidedAt: Date | null;
   voidReason: string | null;
 }
-
-const snapshotIdContext = (receiptId: string) =>
-  `contribution_receipt_snapshot.id_number:${receiptId}`;
 
 const blank = (value: string | null | undefined) => !value?.trim();
 

@@ -76,6 +76,12 @@ function selectLineItems(state: unknown, name: string): LineItem[] {
 
 interface LineItemsEditorProps {
   categories: ExpenseCategory[];
+  /**
+   * The claimant's name when someone else is the claimant (filing for them,
+   * or editing their claim); names the "paid to the claimant" box. Omitted
+   * on your own claim; empty while the name is unknown.
+   */
+  claimantName?: string;
   form?: FormInstance;
   name?: string;
   showVoucher?: boolean;
@@ -83,6 +89,7 @@ interface LineItemsEditorProps {
 
 interface LineItemRowProps {
   categoryOptions: { label: string; value: string }[];
+  claimantName?: string;
   form: FormInstance;
   index: number;
   name: string;
@@ -217,7 +224,20 @@ function LineTextInput({
   );
 }
 
-function VoucherCheckbox({
+/**
+ * "Paid to me" on your own claim, "Paid to Asha Rao (the claimant)" on
+ * someone else's; an empty name (not loaded yet) reads "Paid to the claimant".
+ */
+function payeeIsClaimantLabel(claimantName?: string): string {
+  if (claimantName === undefined) {
+    return "Paid to me";
+  }
+  return claimantName
+    ? `Paid to ${claimantName} (the claimant)`
+    : "Paid to the claimant";
+}
+
+function BooleanCheckbox({
   checkboxId,
   field,
 }: {
@@ -260,8 +280,71 @@ function AddLineItemButton({
   );
 }
 
+function PayeeFields({
+  claimantName,
+  form,
+  index,
+  name,
+}: {
+  claimantName?: string;
+  form: FormInstance;
+  index: number;
+  name: string;
+}) {
+  return (
+    <form.Field name={`${name}[${index}].payeeIsClaimant`}>
+      {(rawField: unknown) => {
+        const field = rawField as {
+          handleChange: (value: boolean) => void;
+          state: { value: boolean | undefined };
+        };
+        const checkboxId = `${name}-${index}-payee-is-claimant`;
+        const toClaimant = Boolean(field.state.value);
+        return (
+          <>
+            <label
+              className="flex cursor-pointer items-center gap-2 self-start"
+              htmlFor={checkboxId}
+            >
+              <BooleanCheckbox
+                checkboxId={checkboxId}
+                field={{
+                  handleChange: field.handleChange,
+                  state: { value: toClaimant },
+                }}
+              />
+              <span className="text-muted-foreground text-xs">
+                {payeeIsClaimantLabel(claimantName)}
+              </span>
+            </label>
+            {toClaimant ? null : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <InputField
+                  description="The person paid in cash, printed on the voucher."
+                  form={form}
+                  isRequired
+                  label="Paid to"
+                  name={`${name}[${index}].payeeName`}
+                />
+                <PhoneField
+                  defaultCountry="IN"
+                  description="Optional. Printed on the voucher, which the payee signs or thumb-prints."
+                  form={form}
+                  label="Payee's mobile"
+                  name={`${name}[${index}].payeePhone`}
+                />
+              </div>
+            )}
+          </>
+        );
+      }}
+    </form.Field>
+  );
+}
+
 function LineItemRow({
   categoryOptions,
+  claimantName,
   form,
   index,
   name,
@@ -351,7 +434,7 @@ function LineItemRow({
                         className="flex cursor-pointer items-center gap-2"
                         htmlFor={checkboxId}
                       >
-                        <VoucherCheckbox
+                        <BooleanCheckbox
                           checkboxId={checkboxId}
                           field={field}
                         />
@@ -379,22 +462,12 @@ function LineItemRow({
                       </Tooltip>
                     </div>
                     {field.state.value ? (
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <InputField
-                          description="The person paid in cash, printed on the voucher."
-                          form={form}
-                          isRequired
-                          label="Paid to"
-                          name={`${name}[${index}].payeeName`}
-                        />
-                        <PhoneField
-                          defaultCountry="IN"
-                          description="Optional. Printed on the voucher, which the payee signs or thumb-prints."
-                          form={form}
-                          label="Payee's mobile"
-                          name={`${name}[${index}].payeePhone`}
-                        />
-                      </div>
+                      <PayeeFields
+                        claimantName={claimantName}
+                        form={form}
+                        index={index}
+                        name={name}
+                      />
                     ) : null}
                   </div>
                 );
@@ -409,6 +482,7 @@ function LineItemRow({
 
 export function LineItemsEditor({
   categories,
+  claimantName,
   form: formProp,
   name = "lineItems",
   showVoucher,
@@ -450,6 +524,7 @@ export function LineItemsEditor({
                   {arrayField.state.value.map((item, index) => (
                     <LineItemRow
                       categoryOptions={categoryOptions}
+                      claimantName={claimantName}
                       form={form}
                       index={index}
                       key={item.id}

@@ -29,9 +29,24 @@ describe("mapLineItemsToFormValues", () => {
         description: "Taxi",
         generateVoucher: false,
         id: "1",
+        payeeIsClaimant: false,
         payeeName: "",
         payeePhone: "",
       },
+    ]);
+  });
+
+  it("ticks paid to the claimant on a voucher item with no payee", () => {
+    const item = { amountPaise: 50_000, categoryId: "c1", description: "A" };
+    const result = mapLineItemsToFormValues([
+      { ...item, generateVoucher: true, id: "1", payeeName: null },
+      { ...item, generateVoucher: true, id: "2", payeeName: "Ravi" },
+      { ...item, generateVoucher: false, id: "3", payeeName: null },
+    ]);
+    expect(result.map((li) => li.payeeIsClaimant)).toEqual([
+      true,
+      false,
+      false,
     ]);
   });
 
