@@ -1,4 +1,9 @@
 import {
+  CASH_VOUCHER_LIMIT_CONFIG_KEY,
+  CASH_VOUCHER_LIMIT_RANGE_MESSAGE,
+  isValidCashVoucherLimitValue,
+} from "@pi-dash/shared/cash-voucher";
+import {
   APP_CONFIG_FINANCE_THRESHOLD_KEY,
   MAX_PAISE,
 } from "@pi-dash/shared/constants";
@@ -22,8 +27,9 @@ const socialManageKeys = new Set(SOCIAL_MANAGE_CONFIG_KEYS);
 /**
  * `settings.app_config` may write every key; `social.manage` may write only
  * the social settings keys shown on the Social page; `finance.manage` may
- * write only the default finance-approval threshold, the 80G
- * registration used by the donations return and the receipt details.
+ * write only the default finance-approval threshold, the cash-voucher
+ * limit, the 80G registration used by the donations return and the
+ * receipt details.
  */
 export function assertCanWriteAppConfig(
   ctx: Context | undefined,
@@ -38,6 +44,7 @@ export function assertCanWriteAppConfig(
   }
   if (
     (key === APP_CONFIG_FINANCE_THRESHOLD_KEY ||
+      key === CASH_VOUCHER_LIMIT_CONFIG_KEY ||
       key === RETURN_REGISTRATION_CONFIG_KEY ||
       key === RECEIPT_SETTINGS_CONFIG_KEY) &&
     can(ctx, "finance.manage")
@@ -62,6 +69,12 @@ export function assertValidAppConfigValue(key: string, value: string): void {
       throw new Error(
         "The receipt details need the trust's name, address, a valid PAN and the signatory's name and designation"
       );
+    }
+    return;
+  }
+  if (key === CASH_VOUCHER_LIMIT_CONFIG_KEY) {
+    if (!isValidCashVoucherLimitValue(value)) {
+      throw new Error(CASH_VOUCHER_LIMIT_RANGE_MESSAGE);
     }
     return;
   }

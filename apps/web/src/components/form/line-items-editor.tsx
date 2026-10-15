@@ -21,13 +21,14 @@ import {
 } from "@pi-dash/design-system/components/ui/tooltip";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
-  formatPaise,
+  formatCashVoucherLimit,
   qualifiesForCashVoucher,
-  tryRupeesToPaise,
-} from "@pi-dash/shared/money";
+} from "@pi-dash/shared/cash-voucher";
+import { formatPaise, tryRupeesToPaise } from "@pi-dash/shared/money";
 import type { ExpenseCategory } from "@pi-dash/zero/schema";
 import type { ChangeEvent } from "react";
 
+import { useCashVoucherLimit } from "@/hooks/use-cash-voucher-limit";
 import {
   computeRunningTotalPaise,
   type LineItem,
@@ -40,6 +41,7 @@ import {
   shouldShowFieldErrors,
   useResolvedForm,
 } from "./form-context";
+import { PhoneField } from "./phone-field-lazy";
 
 interface ArrayFieldApi {
   pushValue: (value: LineItem) => void;
@@ -86,6 +88,7 @@ interface LineItemRowProps {
   removeValue: (index: number) => void;
   showVoucher?: boolean;
   submitted: boolean;
+  voucherLimitPaise: number;
 }
 
 function subFieldErrorProps(field: SubFieldApi, submitted: boolean) {
@@ -264,12 +267,13 @@ function LineItemRow({
   removeValue,
   showVoucher,
   submitted,
+  voucherLimitPaise,
 }: LineItemRowProps) {
   const handleRemove = useEventCallback(() => removeValue(index));
   const stableSelector0 = useEventCallback((state: unknown) => {
     const items = selectLineItems(state, name);
     const paise = tryRupeesToPaise(items[index]?.amount ?? "");
-    return paise !== null && qualifiesForCashVoucher(paise);
+    return paise !== null && qualifiesForCashVoucher(paise, voucherLimitPaise);
   });
 
   return (
@@ -341,35 +345,50 @@ function LineItemRow({
                   };
                   const checkboxId = `${name}-${index}-voucher`;
                   return (
-                    <div className="col-span-full flex items-center gap-2 pl-1">
-                      <label
-                        className="flex cursor-pointer items-center gap-2"
-                        htmlFor={checkboxId}
-                      >
-                        <VoucherCheckbox
-                          checkboxId={checkboxId}
-                          field={field}
-                        />
-                        <span className="text-muted-foreground text-xs">
-                          Generate cash voucher
-                        </span>
-                      </label>
-                      <Tooltip>
-                        <TooltipTrigger
-                          className="text-muted-foreground"
-                          type="button"
+                    <div className="col-span-full flex flex-col gap-2 pl-1">
+                      <div className="flex items-center gap-2">
+                        <label
+                          className="flex cursor-pointer items-center gap-2"
+                          htmlFor={checkboxId}
                         >
-                          <HugeiconsIcon
-                            className="size-3.5"
-                            icon={InformationCircleIcon}
-                            strokeWidth={2}
+                          <VoucherCheckbox
+                            checkboxId={checkboxId}
+                            field={field}
                           />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          A cash voucher PDF will be auto-generated on approval
-                          for line items ≤ ₹1,000 without an invoice.
-                        </TooltipContent>
-                      </Tooltip>
+                          <span className="text-muted-foreground text-xs">
+                            Generate cash voucher
+                          </span>
+                        </label>
+                        <Tooltip>
+                          <TooltipTrigger
+                            className="text-muted-foreground"
+                            type="button"
+                          >
+                            <HugeiconsIcon
+                              className="size-3.5"
+                              icon={InformationCircleIcon}
+                              strokeWidth={2}
+                            />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            A cash voucher PDF will be auto-generated on
+                            approval for line items ≤{" "}
+                            {formatCashVoucherLimit(voucherLimitPaise)} without
+                            an invoice.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      {field.state.value ? (
+                        <div className="max-w-xs">
+                          <PhoneField
+                            defaultCountry="IN"
+                            description="Printed on the voucher, which the payee signs or thumb-prints."
+                            form={form}
+                            label="Payee's mobile (optional)"
+                            name={`${name}[${index}].payeePhone`}
+                          />
+                        </div>
+                      ) : null}
                     </div>
                   );
                 }}
@@ -389,6 +408,7 @@ export function LineItemsEditor({
   showVoucher,
 }: LineItemsEditorProps) {
   const form = useResolvedForm(formProp, "LineItemsEditor");
+  const voucherLimitPaise = useCashVoucherLimit();
 
   const categoryOptions = categories.map((category) => ({
     label: category.name,
@@ -431,6 +451,7 @@ export function LineItemsEditor({
                       removeValue={arrayField.removeValue}
                       showVoucher={showVoucher}
                       submitted={form.state.submissionAttempts > 0}
+                      voucherLimitPaise={voucherLimitPaise}
                     />
                   ))}
                 </div>

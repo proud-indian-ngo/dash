@@ -9,7 +9,11 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { formatPaise, qualifiesForCashVoucher } from "@pi-dash/shared/money";
+import {
+  formatCashVoucherLimit,
+  qualifiesForCashVoucher,
+} from "@pi-dash/shared/cash-voucher";
+import { formatPaise } from "@pi-dash/shared/money";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useState } from "react";
@@ -31,6 +35,7 @@ import {
 } from "@/components/shared/record-detail";
 import { RequesterMeta } from "@/components/shared/requester-meta";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
+import { useCashVoucherLimit } from "@/hooks/use-cash-voucher-limit";
 import {
   getAttachmentDownloadHref,
   getAttachmentPreviewHref,
@@ -358,6 +363,7 @@ function VoucherCell({
   isApproved,
   isGenerating,
   item,
+  limitPaise,
   onGenerate,
 }: {
   canApprove: boolean;
@@ -369,11 +375,13 @@ function VoucherCell({
     id: string;
     voucherAttachmentId?: string | null;
   };
+  limitPaise: number;
   onGenerate: (lineItemId: string) => void;
 }) {
   const { amountPaise } = item;
   const hasVoucher = !!item.voucherAttachmentId;
-  const isQualifying = qualifiesForCashVoucher(amountPaise);
+  // A voucher made under a higher limit stays; only new ones need the current limit.
+  const isQualifying = qualifiesForCashVoucher(amountPaise, limitPaise);
   const handleGenerate = useEventCallback(() => onGenerate(item.id));
 
   if (hasVoucher) {
@@ -385,7 +393,7 @@ function VoucherCell({
           strokeWidth={2}
         />
         <span className="text-success-foreground text-xs">Generated</span>
-        {canApprove && isApproved ? (
+        {canApprove && isApproved && isQualifying ? (
           <Button
             className="ml-1 h-auto px-1.5 py-0.5 text-xs"
             disabled={isGenerating}
@@ -406,7 +414,15 @@ function VoucherCell({
     );
   }
 
-  if (item.generateVoucher && isApproved && !hasVoucher) {
+  if (item.generateVoucher && isApproved && !isQualifying) {
+    return (
+      <span className="text-muted-foreground text-xs">
+        Over the {formatCashVoucherLimit(limitPaise)} voucher limit
+      </span>
+    );
+  }
+
+  if (item.generateVoucher && isApproved) {
     return (
       <div className="flex items-center gap-1.5">
         <span className="text-muted-foreground text-xs">Pending...</span>
@@ -464,6 +480,7 @@ function LineItemsTable({
 }) {
   const isReimb = isReimbursement(request);
   const showVoucherCol = isReimb && request.status === "approved";
+  const voucherLimitPaise = useCashVoucherLimit();
 
   return (
     <RecordSection title="Line items">
@@ -497,6 +514,7 @@ function LineItemsTable({
                         isApproved={request.status === "approved"}
                         isGenerating={generatingVoucherId === item.id}
                         item={item}
+                        limitPaise={voucherLimitPaise}
                         onGenerate={onGenerateVoucher}
                       />
                     </td>

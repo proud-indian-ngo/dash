@@ -29,6 +29,7 @@ describe("mapLineItemsToFormValues", () => {
         description: "Taxi",
         generateVoucher: false,
         id: "1",
+        payeePhone: "",
       },
     ]);
   });

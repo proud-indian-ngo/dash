@@ -126,7 +126,8 @@ export class ReimbursementPage {
 
   async createReimbursement(
     titleSuffix: string,
-    event?: ChargeOption
+    event?: ChargeOption,
+    amount?: string
   ): Promise<string> {
     const title = `E2E ${titleSuffix} ${Date.now()}`;
     await this.navigateToNew();
@@ -148,7 +149,7 @@ export class ReimbursementPage {
     }
 
     await this.form.fillLineItem({
-      amount: this.type === "reimbursement" ? "100" : "200",
+      amount: amount ?? (this.type === "reimbursement" ? "100" : "200"),
       description: "Test item",
     });
     await this.form.submit();

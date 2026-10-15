@@ -1,5 +1,14 @@
+import type { Locator } from "@playwright/test";
+
 import { expect, test } from "../../fixtures/test";
+import { openSettingsPage } from "../../helpers/settings";
 import { ReimbursementPage } from "../../pages/reimbursement-page";
+
+async function setVoucherLimit(main: Locator, rupees: string) {
+  await main.getByRole("button", { name: "Edit cash voucher limit" }).click();
+  await main.getByLabel("Cash voucher limit (₹)").fill(rupees);
+  await main.getByRole("button", { name: "Save limit" }).click();
+}
 
 test.describe("Cash voucher", () => {
   let reimbursements: ReimbursementPage;
@@ -24,7 +33,7 @@ test.describe("Cash voucher", () => {
     await expect(page.getByText("Generate cash voucher")).toBeVisible();
   });
 
-  test("hides cash voucher checkbox for line item > 1000", async ({
+  test("hides cash voucher checkbox for line item over the limit", async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
@@ -32,7 +41,7 @@ test.describe("Cash voucher", () => {
     await reimbursements.navigateToNew();
 
     await reimbursements.form.fillLineItem({
-      amount: "1500",
+      amount: "15000",
       description: "Large expense",
       selectCategory: false,
     });
@@ -54,7 +63,7 @@ test.describe("Cash voucher", () => {
     });
     await expect(page.getByText("Generate cash voucher")).toBeVisible();
 
-    await reimbursements.form.getAmountInputs().last().fill("1500");
+    await reimbursements.form.getAmountInputs().last().fill("15000");
     await expect(page.getByText("Generate cash voucher")).toBeHidden();
 
     await reimbursements.form.getAmountInputs().last().fill("800");
@@ -135,5 +144,85 @@ test.describe("Cash voucher", () => {
     await expect(
       page.getByRole("columnheader", { name: "Voucher" })
     ).toBeHidden();
+  });
+});
+
+test.describe("Cash voucher limit", () => {
+  // Both tests change the shared limit; run them one after the other.
+  test.describe.configure({ mode: "serial" });
+
+  test.beforeEach(({ page: _page }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
+  });
+
+  test("a ₹2,000 limit lets a ₹2,000 item without a bill get a voucher", async ({
+    page,
+  }) => {
+    test.slow();
+    const reimbursements = new ReimbursementPage(page, "reimbursement");
+    const main = await openSettingsPage(
+      page,
+      "/settings/programmes",
+      "Programmes"
+    );
+    try {
+      await setVoucherLimit(main, "2000");
+      await expect(page.getByText("Voucher limit updated")).toBeVisible();
+      await expect(main.getByText("Limit: ₹2,000")).toBeVisible({
+        timeout: 10_000,
+      });
+
+      await reimbursements.navigateToNew();
+      await reimbursements.form.fillLineItem({
+        amount: "2000",
+        description: "Daily-wage labour",
+        selectCategory: false,
+      });
+      await expect(page.getByText("Generate cash voucher")).toBeVisible();
+
+      await reimbursements.createReimbursement(
+        "Voucher Limit",
+        undefined,
+        "2000"
+      );
+      await reimbursements.approveInDatabase();
+      await expect(
+        reimbursements.detail.getGenerateVoucherButton()
+      ).toBeVisible({ timeout: 10_000 });
+      await reimbursements.detail.getGenerateVoucherButton().click();
+      await expect(page.getByText("Voucher generation started")).toBeVisible({
+        timeout: 10_000,
+      });
+    } finally {
+      const settings = await openSettingsPage(
+        page,
+        "/settings/programmes",
+        "Programmes"
+      );
+      await setVoucherLimit(settings, "1000");
+      await expect(settings.getByText("Limit: ₹1,000")).toBeVisible({
+        timeout: 10_000,
+      });
+    }
+  });
+
+  test("refuses a limit above ₹10,000", async ({ page }) => {
+    const main = await openSettingsPage(
+      page,
+      "/settings/programmes",
+      "Programmes"
+    );
+    await main.getByRole("button", { name: "Edit cash voucher limit" }).click();
+    const input = main.getByLabel("Cash voucher limit (₹)");
+    await input.fill("10001");
+    await input.blur();
+    await expect(
+      main.getByText("The voucher limit must be between ₹1 and ₹10,000")
+    ).toBeVisible();
+    await expect(
+      main.getByRole("button", { name: "Save limit" })
+    ).toBeDisabled();
+    await main.getByRole("button", { name: "Cancel" }).click();
+    await expect(main.getByText("Limit: ₹1,000")).toBeVisible();
   });
 });

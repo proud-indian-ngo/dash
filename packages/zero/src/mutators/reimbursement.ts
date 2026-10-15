@@ -1,14 +1,18 @@
 import {
-  cityValues,
-  VOUCHER_AMOUNT_THRESHOLD,
-} from "@pi-dash/shared/constants";
-import { qualifiesForCashVoucher } from "@pi-dash/shared/money";
-import { defineMutator } from "@rocicorp/zero";
+  CASH_VOUCHER_LIMIT_CONFIG_KEY,
+  cashVoucherLimitError,
+  isIndianMobile,
+  PAYEE_PHONE_MESSAGE,
+  parseCashVoucherLimit,
+  qualifiesForCashVoucher,
+} from "@pi-dash/shared/cash-voucher";
+import { cityValues } from "@pi-dash/shared/constants";
+import { defineMutator, type Transaction } from "@rocicorp/zero";
 import z from "zod";
 
 import "../context";
 import { assertHasPermission, assertIsLoggedIn, can } from "../permissions";
-import { zql } from "../schema";
+import { type Schema, zql } from "../schema";
 import {
   mutatorAttachmentSchema as attachmentSchema,
   mutatorLineItemSchema as lineItemSchema,
@@ -45,6 +49,29 @@ const reimbursementApprovalKeyPrefixes = (id: string) => [
   `approval-screenshots/${id}/`,
 ];
 
+/** A reimbursement line item: the shared fields plus the voucher payee's phone. */
+const reimbursementLineItemSchema = lineItemSchema.extend({
+  payeePhone: z
+    .string()
+    .refine(isIndianMobile, PAYEE_PHONE_MESSAGE)
+    .nullable()
+    .optional(),
+});
+
+/**
+ * The cash-voucher limit in force (Settings → Programmes). On the server it
+ * reads the database, so the server decides; on the client it reads the
+ * synced `app_config` row and falls back to the default before it arrives.
+ */
+export async function readCashVoucherLimit(
+  tx: Transaction<Schema>
+): Promise<number> {
+  const row = await tx.run(
+    zql.appConfig.where("key", CASH_VOUCHER_LIMIT_CONFIG_KEY).one()
+  );
+  return parseCashVoucherLimit(row?.value);
+}
+
 export const createSchema = z.object({
   attachments: z.array(attachmentSchema),
   bankAccountIfscCode: z.string().optional(),
@@ -57,7 +84,7 @@ export const createSchema = z.object({
     .number()
     .refine((n) => n <= Date.now(), "Expense date cannot be in the future"),
   id: z.string(),
-  lineItems: z.array(lineItemSchema),
+  lineItems: z.array(reimbursementLineItemSchema),
   title: z.string().min(1),
 });
 
@@ -65,16 +92,27 @@ type LineItems = z.infer<typeof createSchema>["lineItems"];
 
 const fk = (id: string) => ({ reimbursementId: id });
 
-function withVoucherFields<T extends { id: string }>(
+/**
+ * Adds the voucher fields to each inserted line item. The opt-in only sticks
+ * to items within the voucher limit, and the payee's phone is kept only on
+ * items that opted in: a ticked box left behind when the amount grew past
+ * the limit is dropped rather than refused.
+ */
+function withVoucherFields<T extends { amountPaise: number; id: string }>(
   lineItems: LineItems,
+  limitPaise: number,
   insertFn: (data: T) => Promise<unknown>
 ) {
   const byId = new Map(lineItems.map((li) => [li.id, li]));
   return (data: T) => {
     const src = byId.get(data.id);
+    const generateVoucher =
+      Boolean(src?.generateVoucher) &&
+      qualifiesForCashVoucher(data.amountPaise, limitPaise);
     return insertFn({
       ...data,
-      generateVoucher: src?.generateVoucher,
+      generateVoucher,
+      payeePhone: generateVoucher ? (src?.payeePhone ?? null) : null,
       voucherAttachmentId: null,
     });
   };
@@ -155,8 +193,11 @@ export const reimbursementMutators = {
         const lineItems = await tx.run(
           zql.reimbursementLineItem.where("reimbursementId", args.id)
         );
+        const limitPaise = await readCashVoucherLimit(tx);
         const voucherLineItems = lineItems.filter(
-          (li) => li.generateVoucher && qualifiesForCashVoucher(li.amountPaise)
+          (li) =>
+            li.generateVoucher &&
+            qualifiesForCashVoucher(li.amountPaise, limitPaise)
         );
 
         ctx.asyncTasks?.push({
@@ -205,6 +246,7 @@ export const reimbursementMutators = {
     const { userId } = ctx;
     const now = Date.now();
     const charge = await resolveExpenseCharge(tx, args);
+    const limitPaise = await readCashVoucherLimit(tx);
 
     await tx.mutate.reimbursement.insert({
       approvalScreenshotKey: null,
@@ -233,7 +275,7 @@ export const reimbursementMutators = {
         insertAttachment: (data) =>
           tx.mutate.reimbursementAttachment.insert(data),
         insertHistory: (data) => tx.mutate.reimbursementHistory.insert(data),
-        insertLineItem: withVoucherFields(args.lineItems, (data) =>
+        insertLineItem: withVoucherFields(args.lineItems, limitPaise, (data) =>
           tx.mutate.reimbursementLineItem.insert(data)
         ),
       },
@@ -330,10 +372,9 @@ export const reimbursementMutators = {
         zql.reimbursementLineItem.where("id", args.lineItemId).one()
       );
       assertEntityExists(lineItem, "Line item");
-      if (!qualifiesForCashVoucher(lineItem.amountPaise)) {
-        throw new Error(
-          `Vouchers can only be generated for items ≤ ₹${VOUCHER_AMOUNT_THRESHOLD}`
-        );
+      const limitPaise = await readCashVoucherLimit(tx);
+      if (!qualifiesForCashVoucher(lineItem.amountPaise, limitPaise)) {
+        throw new Error(cashVoucherLimitError(limitPaise));
       }
 
       if (tx.location === "server") {
@@ -499,6 +540,7 @@ export const reimbursementMutators = {
 
     const now = Date.now();
     const charge = await resolveExpenseCharge(tx, args, entity);
+    const limitPaise = await readCashVoucherLimit(tx);
 
     await tx.mutate.reimbursement.update({
       id: args.id,
@@ -521,7 +563,7 @@ export const reimbursementMutators = {
         insertAttachment: (data) =>
           tx.mutate.reimbursementAttachment.insert(data),
         insertHistory: (data) => tx.mutate.reimbursementHistory.insert(data),
-        insertLineItem: withVoucherFields(args.lineItems, (data) =>
+        insertLineItem: withVoucherFields(args.lineItems, limitPaise, (data) =>
           tx.mutate.reimbursementLineItem.insert(data)
         ),
         onDeleteAttachmentObjectKey: (key) =>

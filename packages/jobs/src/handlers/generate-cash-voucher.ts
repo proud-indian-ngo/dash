@@ -1,4 +1,5 @@
 import { db } from "@pi-dash/db";
+import { appConfig } from "@pi-dash/db/schema/app-config";
 import { user } from "@pi-dash/db/schema/auth";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
 import {
@@ -7,7 +8,11 @@ import {
   reimbursementLineItem,
 } from "@pi-dash/db/schema/reimbursement";
 import { env } from "@pi-dash/env/server";
-import { qualifiesForCashVoucher } from "@pi-dash/shared/money";
+import {
+  CASH_VOUCHER_LIMIT_CONFIG_KEY,
+  parseCashVoucherLimit,
+  qualifiesForCashVoucher,
+} from "@pi-dash/shared/cash-voucher";
 import { eq, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { uuidv7 } from "uuidv7";
@@ -79,8 +84,13 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
   }
 
   const { amountPaise } = lineItem;
-  if (!qualifiesForCashVoucher(amountPaise)) {
-    log.set({ amountPaise, event: "amount_exceeds_threshold" });
+  const [limitRow] = await db
+    .select({ value: appConfig.value })
+    .from(appConfig)
+    .where(eq(appConfig.key, CASH_VOUCHER_LIMIT_CONFIG_KEY));
+  const limitPaise = parseCashVoucherLimit(limitRow?.value);
+  if (!qualifiesForCashVoucher(amountPaise, limitPaise)) {
+    log.set({ amountPaise, event: "amount_exceeds_threshold", limitPaise });
     log.emit();
     return;
   }
@@ -145,7 +155,7 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
     orgPhone: env.VOUCHER_ORG_PHONE,
     orgRegistration: env.VOUCHER_ORG_REGISTRATION,
     paidTo: submitter?.name ?? "Unknown",
-    payeePhone: null,
+    payeePhone: lineItem.payeePhone,
     voucherNumber,
   });
 

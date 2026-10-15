@@ -106,6 +106,8 @@ export const reimbursementLineItem = pgTable(
     description: text("description"),
     generateVoucher: boolean("generate_voucher").default(false).notNull(),
     id: uuid("id").primaryKey(),
+    /** Optional E.164 Indian mobile of the person a cash voucher pays; printed on the voucher. */
+    payeePhone: text("payee_phone"),
     reimbursementId: uuid("reimbursement_id")
       .notNull()
       .references(() => reimbursement.id, { onDelete: "cascade" }),

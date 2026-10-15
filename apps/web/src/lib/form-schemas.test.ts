@@ -109,6 +109,36 @@ describe("lineItemSchema", () => {
     ).toBe(true);
   });
 
+  it("accepts an empty or Indian mobile payee phone", () => {
+    for (const payeePhone of [undefined, "", "+919876543210"]) {
+      expect(
+        lineItemSchema.safeParse({
+          ...valid,
+          generateVoucher: true,
+          payeePhone,
+        }).success
+      ).toBe(true);
+    }
+  });
+
+  it("ignores the payee phone without a voucher opt-in", () => {
+    expect(
+      lineItemSchema.safeParse({ ...valid, payeePhone: "12345" }).success
+    ).toBe(true);
+  });
+
+  it("refuses a payee phone that isn't an Indian mobile", () => {
+    for (const payeePhone of ["+14155550123", "9876543210", "+915876543210"]) {
+      expect(
+        lineItemSchema.safeParse({
+          ...valid,
+          generateVoucher: true,
+          payeePhone,
+        }).error?.issues[0]?.message
+      ).toBe("Enter an Indian mobile number");
+    }
+  });
+
   it("rejects amount with more than 2 decimal places", () => {
     expect(
       lineItemSchema.safeParse({ ...valid, amount: "10.123" }).success
@@ -153,6 +183,29 @@ describe("toLineItemsPayload", () => {
     expect(payload.map((li) => li.amountPaise)).toEqual([1999, 150_000]);
     expect(payload.map((li) => li.sortOrder)).toEqual([0, 1]);
     expect(payload[0]).not.toHaveProperty("amount");
+  });
+
+  it("sends the payee phone only with a voucher opt-in", () => {
+    const payload = toLineItemsPayload([
+      {
+        ...newLineItem(),
+        amount: "2000",
+        generateVoucher: true,
+        payeePhone: "+919876543210",
+      },
+      {
+        ...newLineItem(),
+        amount: "2000",
+        generateVoucher: false,
+        payeePhone: "+919876543210",
+      },
+      { ...newLineItem(), amount: "500", generateVoucher: true },
+    ]);
+    expect(payload.map((li) => li.payeePhone)).toEqual([
+      "+919876543210",
+      null,
+      null,
+    ]);
   });
 });
 
