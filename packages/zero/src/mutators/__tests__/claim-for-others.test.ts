@@ -232,6 +232,24 @@ describe("reimbursement.create for someone else", () => {
     );
   });
 
+  it("runs on the client without the server's checks", async () => {
+    const db = createDb({}, "client");
+    await reimbursementMutators.create.fn({
+      args: {
+        ...createArgs,
+        claimantBankAccountId: "acct-ravi",
+        claimantUserId: "ravi",
+      },
+      ctx: financeCtx(),
+      tx: db.tx,
+    } as never);
+    expect(db.rows("reimbursement")[0]).toMatchObject({
+      bankAccountNumber: "111122223333",
+      createdBy: "asha",
+      userId: "ravi",
+    });
+  });
+
   it("refuses a bank account that isn't the claimant's", async () => {
     const db = createDb();
     await expect(

@@ -245,7 +245,10 @@ function ReimbursementFormInner({
       eventId: state.values.eventId,
     })
   );
+  // The picker fills in the default account on its own (after a claimant
+  // change, the fields start empty), so set the name too.
   const handleBankAccountSelected = useEventCallback((account: BankAccount) => {
+    form.setFieldValue("bankAccountName", account.accountName);
     form.setFieldValue("bankAccountNumber", account.accountNumber);
     form.setFieldValue("bankAccountIfscCode", account.ifscCode);
   });
