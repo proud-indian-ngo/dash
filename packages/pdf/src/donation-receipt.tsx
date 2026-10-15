@@ -17,16 +17,18 @@ import {
 } from "@pi-dash/shared/receipts";
 import {
   Document,
-  Image,
+  Font,
   Page,
   StyleSheet,
+  type Styles,
   Text,
   View,
 } from "@react-pdf/renderer";
+import type { ReactNode } from "react";
 
 import { kalakritiIdCardAssets } from "./kalakriti-id-card-assets";
-// Registers the bundled Plus Jakarta Sans faces ("IdCard", "IdCardBold").
-import "./kalakriti-id-card-layout";
+import { ProudIndianLockup } from "./proud-indian-lockup";
+import { receiptAssets } from "./receipt-assets";
 
 /** Everything a donation receipt prints. Server only: carries the donor's full ID. */
 export interface DonationReceiptProps {
@@ -56,33 +58,79 @@ export interface DonationReceiptProps {
   with80G: boolean;
 }
 
-// Product palette: ink text, ink-tinted greys, hairline borders.
-const INK = "#1f2937";
-const MUTED = "#6b7280";
-const BORDER = "#e5e7eb";
-const SUBTLE = "#f9fafb";
+// The product language's fonts: Geist to read, Bricolage 600 for the title,
+// Paper Mono for the amount, numbers and dates (Bricolage has no ₹).
+Font.register({
+  family: "ReceiptSans",
+  fonts: [
+    { fontWeight: 400, src: receiptAssets.sansRegular },
+    { fontWeight: 600, src: receiptAssets.sansSemiBold },
+  ],
+});
+Font.register({
+  family: "ReceiptDisplay",
+  fontWeight: 600,
+  src: receiptAssets.displaySemiBold,
+});
+Font.register({
+  family: "ReceiptMono",
+  fonts: [
+    { fontWeight: 400, src: receiptAssets.monoRegular },
+    { fontWeight: 500, src: receiptAssets.monoMedium },
+  ],
+});
+// Per-glyph fallback: Geist and Paper Mono lack the dotted IAST letters
+// (ṭ ḍ ṇ ṣ ṛ ḥ ṃ ṅ) common in Indian names and places, which Plus Jakarta Sans
+// (already bundled for the Kalakriti cards) has. Without it react-pdf would
+// substitute a non-embedded Helvetica and print garbage.
+Font.register({
+  family: "ReceiptFallback",
+  fonts: [
+    { fontWeight: 400, src: kalakritiIdCardAssets.regularFont },
+    { fontWeight: 600, src: kalakritiIdCardAssets.boldFont },
+  ],
+});
+
+const SANS = ["ReceiptSans", "ReceiptFallback"];
+const DISPLAY = ["ReceiptDisplay", "ReceiptSans", "ReceiptFallback"];
+const MONO = ["ReceiptMono", "ReceiptFallback"];
+
+// Product tokens (light theme), as in `packages/email/src/templates/theme.ts`.
+const INK = "#0F1B24";
+const MUTED = "#5B6670";
+const LINE = "#E7EAED";
+const FIELD = "#F6F7F8";
+const DANGER = "#B3261E";
+const DANGER_WASH = "#FBEAE9";
+
+const HAIRLINE = `0.75pt solid ${LINE}`;
 
 const styles = StyleSheet.create({
-  amount: { fontFamily: "IdCardBold", fontSize: 20 },
-  amountBox: {
-    backgroundColor: SUBTLE,
-    border: `0.75pt solid ${BORDER}`,
-    borderRadius: 6,
+  amount: { fontFamily: MONO, fontSize: 24, fontWeight: 500 },
+  amountCard: {
+    backgroundColor: FIELD,
+    border: HAIRLINE,
+    borderRadius: 7,
     marginTop: 18,
-    padding: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  amountWords: { fontSize: 10, marginTop: 4 },
-  block: { flex: 1 },
-  columns: { flexDirection: "row", gap: 24, marginTop: 18 },
-  divider: { borderBottom: `0.75pt solid ${BORDER}`, marginTop: 16 },
-  factLabel: { color: MUTED, fontSize: 8.5, width: 92 },
-  factRow: { flexDirection: "row", marginBottom: 5 },
-  factValue: { flex: 1, fontSize: 9.5 },
+  amountWords: { fontSize: 10, lineHeight: 1.4, marginTop: 6 },
+  factLabel: { color: MUTED, width: 110 },
+  factRow: {
+    borderBottom: HAIRLINE,
+    flexDirection: "row",
+    paddingVertical: 4.5,
+  },
+  factValue: { flex: 1 },
+  facts: { borderTop: HAIRLINE },
   footer: {
-    bottom: 32,
+    borderTop: HAIRLINE,
+    bottom: 28,
     color: MUTED,
-    fontSize: 8,
+    fontSize: 7.5,
     left: 48,
+    paddingTop: 8,
     position: "absolute",
     right: 48,
   },
@@ -91,51 +139,133 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  label: {
-    color: MUTED,
-    fontSize: 8,
-    letterSpacing: 0.4,
-    marginBottom: 4,
-    textTransform: "uppercase",
-  },
-  logo: { height: 30, objectFit: "contain", width: 141 },
-  name: { fontFamily: "IdCardBold", fontSize: 11 },
-  note: { color: INK, fontSize: 9, lineHeight: 1.45, marginTop: 14 },
-  orgLine: { color: MUTED, fontSize: 8.5, marginTop: 2 },
+  issuer: { alignItems: "flex-end", maxWidth: 270 },
+  issuerLine: { color: MUTED, fontSize: 8.5, marginTop: 2, textAlign: "right" },
+  issuerName: { fontWeight: 600, textAlign: "right" },
+  label: { color: MUTED, fontSize: 8.5, fontWeight: 600, marginBottom: 4 },
+  meta: { flexDirection: "row", gap: 24 },
+  metaValue: { fontFamily: MONO, fontSize: 10 },
+  mono: { fontFamily: MONO },
+  name: { fontSize: 13, fontWeight: 600 },
+  note: { fontSize: 9, lineHeight: 1.5 },
+  closing: { flexDirection: "row", gap: 28, marginTop: 24 },
+  notes: { flex: 1 },
   page: {
     color: INK,
-    fontFamily: "IdCard",
-    fontSize: 10,
-    paddingBottom: 64,
+    fontFamily: SANS,
+    fontSize: 9.5,
+    paddingBottom: 72,
     paddingHorizontal: 48,
     paddingTop: 44,
   },
-  signature: { alignItems: "flex-end", marginTop: 36 },
-  signatureLine: {
+  section: { marginTop: 18 },
+  signature: { width: 190 },
+  signatureBlock: {
     borderTop: `0.75pt solid ${INK}`,
-    marginTop: 34,
-    paddingTop: 4,
-    width: 180,
+    marginTop: 36,
+    paddingTop: 5,
   },
-  text: { fontSize: 9.5, lineHeight: 1.4 },
-  title: { fontFamily: "IdCardBold", fontSize: 16, textAlign: "right" },
-  titleMeta: { color: MUTED, fontSize: 9, marginTop: 3, textAlign: "right" },
-  voidBanner: {
-    border: "1pt solid #b91c1c",
+  signatureFor: {
+    fontSize: 9.5,
+    lineHeight: 1.45,
+  },
+  signatureName: { fontWeight: 600 },
+  small: { color: MUTED, fontSize: 8.5, marginTop: 2 },
+  // react-pdf multiplies a unitless lineHeight by the fontSize in the same
+  // style (18 when inherited), so every style with one sets both.
+  text: { fontSize: 9.5, lineHeight: 1.45 },
+  title: {
+    fontFamily: DISPLAY,
+    fontSize: 22,
+    fontWeight: 600,
+    letterSpacing: -0.2,
+  },
+  titleRow: {
+    alignItems: "flex-end",
+    borderTop: HAIRLINE,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 18,
+    paddingTop: 16,
+  },
+  voidMarker: {
+    border: `1.25pt solid ${DANGER}`,
     borderRadius: 4,
-    color: "#b91c1c",
-    fontFamily: "IdCardBold",
+    color: DANGER,
+    fontSize: 9,
+    fontWeight: 600,
+    letterSpacing: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    position: "absolute",
+    right: 48,
+    top: 16,
+  },
+  voidBanner: {
+    backgroundColor: DANGER_WASH,
+    border: `1.25pt solid ${DANGER}`,
+    borderRadius: 5,
+    color: DANGER,
     fontSize: 10,
-    marginTop: 14,
-    padding: 8,
+    fontWeight: 600,
+    lineHeight: 1.4,
+    marginTop: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
 });
 
-function Fact({ label, value }: { label: string; value: string }) {
+/** Longest run without spaces kept whole: it fits every column but the signature's. */
+const LONGEST_WHOLE_WORD = 40;
+
+/**
+ * Names, numbers and legal lines wrap between words, never hyphenated. A
+ * longer run with no spaces (a pasted reference) may break between any two
+ * characters rather than run off the page; react-pdf draws a hyphen at every
+ * such break and has no way to break without one.
+ */
+export function wholeWords(word: string): string[] {
+  return word.length > LONGEST_WHOLE_WORD ? Array.from(word) : [word];
+}
+
+function Line({
+  children,
+  style,
+}: {
+  children: ReactNode;
+  style?: Styles[string] | Styles[string][];
+}) {
+  return (
+    <Text hyphenationCallback={wholeWords} style={style}>
+      {children}
+    </Text>
+  );
+}
+
+function Fact({
+  label,
+  mono = false,
+  value,
+}: {
+  label: string;
+  mono?: boolean;
+  value: string;
+}) {
   return (
     <View style={styles.factRow}>
       <Text style={styles.factLabel}>{label}</Text>
-      <Text style={styles.factValue}>{value}</Text>
+      <Line style={mono ? [styles.factValue, styles.mono] : styles.factValue}>
+        {value}
+      </Line>
+    </View>
+  );
+}
+
+function Meta({ label, value }: { label: string; value: string }) {
+  return (
+    <View>
+      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.metaValue}>{value}</Text>
     </View>
   );
 }
@@ -178,51 +308,60 @@ export function DonationReceipt(props: DonationReceiptProps) {
     >
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
-          <Image src={kalakritiIdCardAssets.proudIndian} style={styles.logo} />
-          <View>
-            <Text style={styles.title}>{RECEIPT_TITLE}</Text>
-            <Text style={styles.titleMeta}>No. {props.number}</Text>
-            <Text style={styles.titleMeta}>
-              Date {formatReceiptDate(props.issuedOn)}
+          <ProudIndianLockup height={26} />
+          <View style={styles.issuer}>
+            <Text style={styles.label}>Issued by</Text>
+            <Line style={styles.issuerName}>{org.name}</Line>
+            <Line style={styles.issuerLine}>{org.address}</Line>
+            <Text style={styles.issuerLine}>PAN {org.pan}</Text>
+            <Text style={styles.issuerLine}>
+              80G URN {registration.urn} dated{" "}
+              {formatReceiptDate(registration.urnIssuedOn)}
             </Text>
           </View>
         </View>
 
-        <View style={{ marginTop: 18 }}>
-          <Text style={styles.label}>Issued by</Text>
-          <Text style={styles.name}>{org.name}</Text>
-          <Text style={styles.orgLine}>{org.address}</Text>
-          <Text style={styles.orgLine}>PAN {org.pan}</Text>
-          <Text style={styles.orgLine}>
-            80G URN {registration.urn} dated{" "}
-            {formatReceiptDate(registration.urnIssuedOn)}
-          </Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>{RECEIPT_TITLE}</Text>
+          <View style={styles.meta}>
+            <Meta label="No." value={props.number} />
+            <Meta label="Date" value={formatReceiptDate(props.issuedOn)} />
+          </View>
         </View>
 
         {props.voided ? (
-          <Text style={styles.voidBanner}>
+          <Line style={styles.voidBanner}>
             VOID: this receipt was cancelled ({props.voided.reason}). It is kept
             for the record and is not valid.
-          </Text>
+          </Line>
         ) : null}
 
-        <View style={styles.divider} />
+        <View style={styles.section} wrap={false}>
+          <Text style={styles.label}>Received with thanks from</Text>
+          <Line style={styles.name}>{donor.name}</Line>
+          <Line style={[styles.text, { marginTop: 3 }]}>{donor.address}</Line>
+          {donor.idType && donor.idNumber ? (
+            <Text style={[styles.text, { marginTop: 2 }]}>
+              {RECEIPT_ID_TYPE_LABELS[donor.idType]}{" "}
+              <Text style={styles.mono}>{donor.idNumber}</Text>
+            </Text>
+          ) : null}
+        </View>
 
-        <View style={styles.columns}>
-          <View style={styles.block}>
-            <Text style={styles.label}>Received with thanks from</Text>
-            <Text style={styles.name}>{donor.name}</Text>
-            <Text style={[styles.text, { marginTop: 3 }]}>{donor.address}</Text>
-            {donor.idType && donor.idNumber ? (
-              <Text style={[styles.text, { marginTop: 3 }]}>
-                {RECEIPT_ID_TYPE_LABELS[donor.idType]} {donor.idNumber}
-              </Text>
-            ) : null}
-          </View>
-          <View style={styles.block}>
-            <Text style={styles.label}>Details</Text>
+        <View style={styles.amountCard} wrap={false}>
+          <Text style={styles.label}>Amount</Text>
+          <Text style={styles.amount}>{formatPaise(gift.amountPaise)}</Text>
+          <Line style={styles.amountWords}>
+            {paiseToIndianWords(gift.amountPaise)} only
+          </Line>
+        </View>
+
+        <View style={styles.section} wrap={false}>
+          <Text style={styles.label}>Details</Text>
+          <View style={styles.facts}>
             <Fact
               label="Date received"
+              mono
               value={formatReceiptDate(gift.receivedOn)}
             />
             <Fact label="Mode" value={modeLabel(gift)} />
@@ -231,31 +370,37 @@ export function DonationReceipt(props: DonationReceiptProps) {
           </View>
         </View>
 
-        <View style={styles.amountBox}>
-          <Text style={styles.label}>Amount</Text>
-          <Text style={styles.amount}>{formatPaise(gift.amountPaise)}</Text>
-          <Text style={styles.amountWords}>
-            {paiseToIndianWords(gift.amountPaise)} only
-          </Text>
-        </View>
-
-        {props.with80G ? (
-          <>
-            <Text style={styles.note}>{receipt80GLine(registration)}</Text>
-            <Text style={styles.note}>{RECEIPT_CERTIFICATE_NOTE}</Text>
-          </>
-        ) : (
-          <Text style={styles.note}>{RECEIPT_NO_DEDUCTION_NOTE}</Text>
-        )}
-
-        <View style={styles.signature}>
-          <Text style={styles.text}>For {org.name}</Text>
-          <View style={styles.signatureLine}>
-            <Text style={styles.name}>{signatory.name}</Text>
-            <Text style={styles.orgLine}>{signatory.designation}</Text>
-            <Text style={styles.orgLine}>Authorised signatory</Text>
+        <View style={styles.closing} wrap={false}>
+          <View style={styles.notes}>
+            {props.with80G ? (
+              <>
+                <Line style={styles.note}>{receipt80GLine(registration)}</Line>
+                <Line style={[styles.note, { marginTop: 6 }]}>
+                  {RECEIPT_CERTIFICATE_NOTE}
+                </Line>
+              </>
+            ) : (
+              <Line style={styles.note}>{RECEIPT_NO_DEDUCTION_NOTE}</Line>
+            )}
+          </View>
+          <View style={styles.signature}>
+            <Line style={styles.signatureFor}>For {org.name}</Line>
+            <View style={styles.signatureBlock}>
+              <Line style={[styles.text, styles.signatureName]}>
+                {signatory.name}
+              </Line>
+              <Text style={styles.small}>{signatory.designation}</Text>
+              <Text style={styles.small}>Authorised signatory</Text>
+            </View>
           </View>
         </View>
+
+        {props.voided ? (
+          // On every page, so a page that spills over can't pass as valid.
+          <Text fixed style={styles.voidMarker}>
+            VOID
+          </Text>
+        ) : null}
 
         <Text fixed style={styles.footer}>
           Receipt {props.number} · {org.name} · PAN {org.pan}. Please keep this

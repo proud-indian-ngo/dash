@@ -1,7 +1,17 @@
 import { readFile } from "node:fs/promises";
 
 import { kalakritiIdCardAssets } from "@pi-dash/pdf/kalakriti-id-card-assets";
+import { receiptAssets } from "@pi-dash/pdf/receipt-assets";
 import type { Plugin } from "vite";
+
+// Asset modules (flat maps of file paths) and the export each one names.
+const assetModules: Record<string, [string, Record<string, string>]> = {
+  "/packages/pdf/src/kalakriti-id-card-assets.ts": [
+    "kalakritiIdCardAssets",
+    kalakritiIdCardAssets,
+  ],
+  "/packages/pdf/src/receipt-assets.ts": ["receiptAssets", receiptAssets],
+};
 
 // Embed server-only PDF assets so the deployed bundle has no source-tree paths.
 export function kalakritiPdfAssets(): Plugin {
@@ -23,10 +33,14 @@ export function kalakritiPdfAssets(): Plugin {
       return { code: `${imports.join("\n")}\n${transformed}`, map: null };
     },
     async load(id) {
-      if (!id.endsWith("/packages/pdf/src/kalakriti-id-card-assets.ts")) return;
+      const match = Object.entries(assetModules).find(([path]) =>
+        id.endsWith(path)
+      );
+      if (!match) return;
+      const [, [name, files]] = match;
       const assets = Object.fromEntries(
         await Promise.all(
-          Object.entries(kalakritiIdCardAssets).map(async ([key, file]) => {
+          Object.entries(files).map(async ([key, file]) => {
             const mime = file.endsWith(".ttf") ? "font/ttf" : "image/png";
             return [
               key,
@@ -35,7 +49,7 @@ export function kalakritiPdfAssets(): Plugin {
           })
         )
       );
-      return `export const kalakritiIdCardAssets = ${JSON.stringify(assets)};`;
+      return `export const ${name} = ${JSON.stringify(assets)};`;
     },
   };
 }
