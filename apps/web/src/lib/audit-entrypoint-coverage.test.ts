@@ -21,6 +21,7 @@ const AUDITED_SERVER_FUNCTIONS = [
   "deleteVendor",
   "emailContributionReceipt",
   "findBankStatementMatches",
+  "exportCaWorkbook",
   "exportDonationsReturn",
   "importPastRazorpayPayments",
   "issueContributionReceipts",

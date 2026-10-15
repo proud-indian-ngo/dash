@@ -21,6 +21,11 @@ mock.module("@/lib/api-auth", () => ({
     deny(permissions),
   assertServerPermission: async (_s: unknown, permission: string) =>
     deny([permission]),
+  buildSessionContext: async () => ({
+    permissions: granted,
+    role: "test",
+    userId: "u-1",
+  }),
 }));
 mock.module("@/lib/audit", () => ({
   runSessionAuditedAction: async (
@@ -50,6 +55,30 @@ mock.module("@/lib/books/server", () => ({
   },
   reopenFiscalYear: record("reopen", { label: "2026-27" }),
   reverseOpeningBalances: record("reverse"),
+}));
+let workbookInputs: { fiscalYearId: string; includeDonors: boolean }[] = [];
+mock.module("@/lib/ca-workbook/server", () => ({
+  buildCaWorkbook: async (input: {
+    fiscalYearId: string;
+    includeDonors: boolean;
+  }) => {
+    calls.push("workbook");
+    workbookInputs.push(input);
+    return {
+      counts: {
+        balanceItemCount: 12,
+        entryCount: 30,
+        giftCount: 7,
+        movementCount: 40,
+      },
+      file: {
+        base64: "UEsDBA==",
+        filename: "pi-dash-ca-workbook-2026-27.xlsx",
+      },
+      financialYear: "2026-27",
+      donorListIncluded: input.includeDonors,
+    };
+  },
 }));
 mock.module("@pi-dash/db/queries/ledger-sources", () => ({
   countWaitingLedgerSources: async () => 4,
@@ -89,6 +118,7 @@ describe("books server functions", () => {
     granted = [];
     audits = [];
     calls = [];
+    workbookInputs = [];
   });
 
   it("keeps each treasurer action behind its own permission", async () => {
@@ -197,5 +227,42 @@ describe("books server functions", () => {
     const serialized = JSON.stringify(audits);
     expect(serialized).not.toContain("Private");
     expect(serialized).not.toContain("123456");
+  });
+
+  it("exports the CA workbook to book readers, the donor list only with a donor permission, audited with counts", async () => {
+    granted = ["donors.view", "finance.post_pending"];
+    await expect(
+      call(fns.exportCaWorkbook, { fiscalYearId: YEAR })
+    ).rejects.toThrow("Forbidden");
+    expect(calls).toEqual([]);
+
+    granted = ["finance.view"];
+    const file = await call(fns.exportCaWorkbook, { fiscalYearId: YEAR });
+    expect(file).toEqual({
+      base64: "UEsDBA==",
+      filename: "pi-dash-ca-workbook-2026-27.xlsx",
+    });
+    granted = ["finance.manage", "donors.view"];
+    await call(fns.exportCaWorkbook, { fiscalYearId: YEAR });
+    granted = ["finance.view", "finance.view_sensitive"];
+    await call(fns.exportCaWorkbook, { fiscalYearId: YEAR });
+    expect(workbookInputs).toEqual([
+      { fiscalYearId: YEAR, includeDonors: false },
+      { fiscalYearId: YEAR, includeDonors: true },
+      { fiscalYearId: YEAR, includeDonors: true },
+    ]);
+    const audit = (donorListIncluded: boolean) => ({
+      action: "books.ca_workbook.export",
+      metadata: {
+        balanceItemCount: 12,
+        donorListIncluded,
+        entryCount: 30,
+        financialYear: "2026-27",
+        giftCount: 7,
+        movementCount: 40,
+      },
+      target: { id: YEAR, type: "fiscal_year" },
+    });
+    expect(audits).toEqual([audit(false), audit(true), audit(true)]);
   });
 });

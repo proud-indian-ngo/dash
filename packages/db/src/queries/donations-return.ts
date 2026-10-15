@@ -89,9 +89,11 @@ function readIdNumber(
 
 export async function loadReturnFacts(
   range: { endsOn: string; startsOn: string },
-  idMode: ReturnIdMode
+  idMode: ReturnIdMode,
+  /** The app database, or a transaction for a consistent snapshot. */
+  reader: Pick<typeof db, "select"> = db
 ): Promise<ReturnFacts> {
-  const rows = await db
+  const rows = await reader
     .select({
       amountPaise: contribution.amountPaise,
       channel: contribution.channel,
@@ -141,7 +143,7 @@ export async function loadReturnFacts(
   if (partyIds.length === 0) {
     return { donors, exportDetails, gifts, identifiersAvailable };
   }
-  const parties = await db
+  const parties = await reader
     .select({
       displayName: party.displayName,
       id: party.id,
@@ -150,7 +152,7 @@ export async function loadReturnFacts(
     })
     .from(party)
     .where(inArray(party.id, partyIds));
-  const privates = await db
+  const privates = await reader
     .select()
     .from(partyPrivate)
     .where(inArray(partyPrivate.partyId, partyIds));

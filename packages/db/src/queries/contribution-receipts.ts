@@ -273,8 +273,11 @@ async function loadGifts(
   }));
 }
 
+/** Anything that can run the receipt reads: the app database or a transaction. */
+type ReceiptReader = Pick<typeof db, "select">;
+
 async function loadLiveReceipts(
-  tx: ReceiptTx | typeof db,
+  tx: ReceiptReader,
   giftIds: string[]
 ): Promise<Map<string, { id: string; number: string }>> {
   if (giftIds.length === 0) {
@@ -768,8 +771,10 @@ export async function markReceiptEmailed(
 
 /** Live receipts of the given gifts: number and issuer, for the CA's file. */
 export async function loadLiveReceiptNumbers(
-  giftIds: string[]
+  giftIds: string[],
+  /** A transaction to read in, such as the CA workbook's snapshot. */
+  reader: ReceiptReader = db
 ): Promise<Map<string, string>> {
-  const live = await loadLiveReceipts(db, giftIds);
+  const live = await loadLiveReceipts(reader, giftIds);
   return new Map([...live].map(([giftId, value]) => [giftId, value.number]));
 }

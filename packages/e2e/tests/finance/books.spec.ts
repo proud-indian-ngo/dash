@@ -3,6 +3,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 
 import type { Locator, Page } from "@playwright/test";
+import readXlsxFile from "read-excel-file/node";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { pickDate } from "../../helpers/date-time-picker";
@@ -376,6 +377,43 @@ test.describe("Books (treasurer)", () => {
       await books("fix-payout", payout.id);
       await books("reopen-year", YEAR);
     }
+  });
+
+  // Last in this serial group: the first test leaves the opening balances
+  // posted, so the workbook can be built.
+  test("downloads the year's CA workbook as a valid XLSX with its five sheets", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "finance_admin", "Treasurer test");
+    await page.goto(`/finance/books?year=${YEAR}`);
+    await waitForZeroReady(page);
+    const item = await openPageAction(page, "Download CA workbook (XLSX)");
+    // Enabled once the opening balances stand (posted by the test above or
+    // the seed); the reason shows underneath otherwise.
+    await expect(item).toBeEnabled({ timeout: 15_000 });
+    const downloadPromise = page.waitForEvent("download");
+    await item.click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe(
+      `pi-dash-ca-workbook-${YEAR}.xlsx`
+    );
+    const file = await download.path();
+    const sheets = await readXlsxFile(file);
+    expect(sheets.map((s) => s.sheet)).toEqual([
+      "Receipts and payments",
+      "Income and expenditure",
+      "Income and expenditure summary",
+      "Balance sheet items",
+      "Donor list (Form 113)",
+    ]);
+    const balance = sheets[3]?.data ?? [];
+    expect(balance[0]?.[0]).toBe("Item");
+    const check = balance.at(-1) ?? [];
+    expect(String(check[0])).toContain("(balances)");
+    expect(check[4]).toBe(0);
+    // IDs are always masked in the workbook; a finance admin sees the list.
+    expect(sheets[4]?.data[0]?.[2]).toBe("ID (last 4)");
+    await expect(page.getByText("CA workbook downloaded")).toBeVisible();
   });
 });
 
