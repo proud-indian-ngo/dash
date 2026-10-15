@@ -187,8 +187,7 @@ export const LEDGER_WAIT_REASON_LABELS: Record<LedgerWaitReason, string> = {
   no_clearing_account: "The settlement has no clearing account",
   pick_bank_account:
     "Pick the bank account: match the payout's bank statement line",
-  no_payment_proof:
-    "No payment screenshot: the founder gives the payment date, account and bank reference",
+  no_payment_proof: "No payment screenshot: add the payment proof on the claim",
   no_approval_day:
     "The approval date isn't recorded: the founder gives the payment date",
   paid_across_cutover:

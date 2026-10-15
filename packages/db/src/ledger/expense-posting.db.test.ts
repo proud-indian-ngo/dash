@@ -452,6 +452,74 @@ it.skipIf(!localDatabase)(
 );
 
 it.skipIf(!localDatabase)(
+  "posts a waiting claim once its payment proof is added after approval",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const id = await addClaim(tx, ids, { approvalScreenshotKey: null });
+      expect(await run(tx, claimSource(id))).toMatchObject({
+        reason: "no_payment_proof",
+        status: "waiting",
+      });
+      expect(await postingsOf(tx, id)).toEqual([]);
+
+      // What reimbursement.addPaymentProof writes: the screenshot, where
+      // approval stores it, and nothing else about the claim.
+      await tx
+        .update(reimbursement)
+        .set({
+          approvalScreenshotKey: `approval-screenshots/reimbursements/${id}/approval-screenshots/added.png`,
+        })
+        .where(eq(reimbursement.id, id));
+      expect(await run(tx, claimSource(id))).toMatchObject({
+        posted: 2,
+        status: "posted",
+      });
+      // On its approval day, out of the main bank account.
+      expect(
+        (await postingsOf(tx, id)).map((p) => [p.action, p.economicOn])
+      ).toEqual([
+        ["recognise", "2026-06-03"],
+        ["cash", "2026-06-03"],
+      ]);
+      expect(await balanceOf(tx, ids.bank)).toBe(-42_500);
+      expect(await stateOf(tx, id)).toMatchObject({ status: "posted" });
+
+      // Replacing the proof later changes nothing in the books.
+      await tx
+        .update(reimbursement)
+        .set({
+          approvalScreenshotKey: `approval-screenshots/reimbursements/${id}/approval-screenshots/better.png`,
+        })
+        .where(eq(reimbursement.id, id));
+      expect(await run(tx, claimSource(id))).toMatchObject({
+        posted: 0,
+        reversed: 0,
+      });
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "says why an approved claim waits or posts nothing: no approval day, a zero total",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const noDay = await addClaim(tx, ids, { reviewedAt: null });
+      expect(await run(tx, claimSource(noDay))).toMatchObject({
+        reason: "no_approval_day",
+        status: "waiting",
+      });
+      const zero = await addClaim(tx, ids, {}, [0]);
+      expect(await run(tx, claimSource(zero))).toMatchObject({
+        reason: "nothing_to_post",
+        status: "none",
+      });
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
   "posts a vendor payment's payment from the bank, and its expense when the invoice is accepted",
   async () => {
     await inRolledBackTransaction(async (tx) => {

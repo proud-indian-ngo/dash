@@ -142,6 +142,39 @@ export const changeClaimantSchema = z.object({
   userId: z.string(),
 });
 
+/** Payment proof added after approval, or a replacement for it. */
+export const addPaymentProofSchema = z.object({
+  /** The uploaded screenshot (a temporary upload, claimed here). */
+  approvalScreenshotKey: z.string().min(1),
+  id: z.string(),
+  /** When replacing: the attachment that keeps the old screenshot. */
+  keptAttachmentId: z.string().optional(),
+  /** Whether the client saw a screenshot, so two uploads never race. */
+  replacing: z.boolean(),
+});
+
+const IMAGE_MIME_TYPES: Record<string, string> = {
+  jpeg: "image/jpeg",
+  jpg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+};
+
+const extensionOf = (key: string) => {
+  const name = key.split("/").pop() ?? "";
+  const dot = name.lastIndexOf(".");
+  return dot > 0 ? name.slice(dot + 1).toLowerCase() : "";
+};
+
+/** The kept file's name: "payment-proof-replaced.png". */
+const replacedProofFilename = (key: string) => {
+  const ext = extensionOf(key);
+  return ext ? `payment-proof-replaced.${ext}` : "payment-proof-replaced";
+};
+
+const imageMimeTypeOf = (key: string) =>
+  IMAGE_MIME_TYPES[extensionOf(key)] ?? null;
+
 const fk = (id: string) => ({ reimbursementId: id });
 
 /** Its posting in the books (finance layer 3-3a). */
@@ -326,6 +359,73 @@ export const reimbursementMutators = {
           },
         });
       }
+    }
+  ),
+  /**
+   * Adds the payment screenshot to an approved reimbursement that has none
+   * (older records approved before it was required), or replaces it. It is
+   * stored exactly as approval stores it (`approval_screenshot_key`), so the
+   * books post the claim with no special case: the posting job is queued
+   * after the commit. A replaced screenshot is never deleted: it stays among
+   * the request's attachments as evidence.
+   */
+  addPaymentProof: defineMutator(
+    addPaymentProofSchema,
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "requests.approve");
+      const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
+      assertEntityExists(entity, "Reimbursement");
+      assertNotVoided(entity);
+      if (entity.status !== "approved") {
+        throw new Error("Only an approved reimbursement takes payment proof");
+      }
+      const previousKey = entity.approvalScreenshotKey ?? null;
+      if (Boolean(previousKey) !== args.replacing) {
+        throw new Error(
+          "The payment proof changed meanwhile. Reload and try again"
+        );
+      }
+      if (previousKey && !args.keptAttachmentId) {
+        throw new Error("Replacing the payment proof keeps the old one");
+      }
+
+      const now = Date.now();
+      const approvalScreenshotKey = claimUploadedR2ObjectKey(
+        args.approvalScreenshotKey,
+        createR2ClaimOptions(ctx, tx.location, {
+          durablePrefix: `reimbursements/${args.id}/approval-screenshots`,
+          subfolder: "approval-screenshots",
+        })
+      );
+
+      if (previousKey && args.keptAttachmentId) {
+        await tx.mutate.reimbursementAttachment.insert({
+          createdAt: now,
+          filename: replacedProofFilename(previousKey),
+          id: args.keptAttachmentId,
+          mimeType: imageMimeTypeOf(previousKey),
+          objectKey: previousKey,
+          reimbursementId: args.id,
+          type: "file",
+          url: null,
+        });
+      }
+      await tx.mutate.reimbursement.update({
+        approvalScreenshotKey,
+        id: args.id,
+        updatedAt: now,
+      });
+      await tx.mutate.reimbursementHistory.insert({
+        ...buildHistoryInsert(
+          ctx.userId,
+          "updated",
+          now,
+          previousKey ? "Payment proof replaced" : "Payment proof added"
+        ),
+        reimbursementId: args.id,
+      });
+      // With its screenshot, an approved claim waiting in the books posts.
+      queuePosting(ctx, tx, args.id, "reimbursement.addPaymentProof");
     }
   ),
   /**
@@ -683,7 +783,11 @@ export const reimbursementMutators = {
         deleteLineItem: (data) => tx.mutate.reimbursementLineItem.delete(data),
         onDeleteAttachmentObjectKey: (key) =>
           enqueueDeleteR2Object(ctx, tx.location, key, {
-            keyPrefixes: reimbursementAttachmentKeyPrefixes(args.id),
+            // A replaced payment proof is kept as an attachment.
+            keyPrefixes: [
+              ...reimbursementAttachmentKeyPrefixes(args.id),
+              ...reimbursementApprovalKeyPrefixes(args.id),
+            ],
             meta: {
               mutator: "reimbursement.delete",
               reimbursementId: args.id,

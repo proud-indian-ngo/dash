@@ -2,6 +2,10 @@ import { describe, expect, it } from "bun:test";
 
 import { PROGRAMME_IDS } from "@pi-dash/shared/constants";
 
+import {
+  isMissingPaymentProof,
+  MISSING_PROOF_FILTER,
+} from "@/lib/payment-proof";
 import type { RequestRow } from "@/lib/reimbursement-types";
 import { requestToClearValue, TO_CLEAR_FILTER } from "@/lib/request-programme";
 
@@ -51,5 +55,33 @@ describe("getReimbursementFilterValue", () => {
     );
     expect(matching).toEqual([legacy]);
     expect(counted).toEqual(matching);
+  });
+
+  it("finds approved claims missing payment proof, as the button counts them", () => {
+    const missing = row({ approvalScreenshotKey: null, status: "approved" });
+    const rows = [
+      missing,
+      row({ approvalScreenshotKey: "proof.png", status: "approved" }),
+      row({ approvalScreenshotKey: null, status: "pending" }),
+      row({ approvalScreenshotKey: null, status: "rejected" }),
+      row({
+        approvalScreenshotKey: null,
+        status: "approved",
+        voidedAt: 1_760_000_000_000,
+      }),
+      // Advances don't post to the books.
+      row({
+        approvalScreenshotKey: null,
+        status: "approved",
+        type: "advance_payment",
+      }),
+    ];
+    const matching = rows.filter(
+      (r) =>
+        getReimbursementFilterValue(r, [MISSING_PROOF_FILTER.path]) ===
+        MISSING_PROOF_FILTER.value
+    );
+    expect(matching).toEqual([missing]);
+    expect(rows.filter(isMissingPaymentProof)).toEqual(matching);
   });
 });

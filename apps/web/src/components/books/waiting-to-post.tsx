@@ -1,16 +1,23 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { epochDayToIso } from "@pi-dash/shared/income";
-import { ledgerReasonLabel } from "@pi-dash/shared/ledger";
+import {
+  LEDGER_SOURCE_TYPES,
+  LEDGER_WAIT_REASONS,
+  ledgerReasonLabel,
+} from "@pi-dash/shared/ledger";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
+import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 
 import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
+import { useApp } from "@/context/app-context";
 import { postPendingFn } from "@/functions/books";
+import { missingProofQuery } from "@/lib/payment-proof";
 
 import { formatDay, sourceLabel } from "./labels";
 import { SourceLink } from "./source-link";
@@ -24,6 +31,11 @@ interface StateRow {
   sourceId: string;
   sourceType: string;
 }
+
+/** A reimbursement waiting for its payment screenshot (cutover section 6). */
+const needsPaymentProof = (row: StateRow) =>
+  row.sourceType === LEDGER_SOURCE_TYPES.reimbursement &&
+  row.reason === LEDGER_WAIT_REASONS.noPaymentProof;
 
 const plural = (count: number, one: string, many: string) =>
   `${count.toLocaleString("en-IN")} ${count === 1 ? one : many}`;
@@ -75,7 +87,10 @@ export function WaitingToPost({ canPost }: { canPost: boolean }) {
   const [attention] = useQuery(queries.ledger.needsAttention());
   const [open, setOpen] = useState(false);
   const { post, posting } = usePostPending();
+  const { hasPermission } = useApp();
+  const canAddProof = hasPermission("requests.approve");
   const rows = waiting as StateRow[];
+  const missingProof = rows.filter(needsPaymentProof).length;
   const attentionRows = attention as StateRow[];
   const attentionLines = attentionRows.reduce(
     (sum, row) => sum + (row.attentionCount ?? 0),
@@ -97,6 +112,9 @@ export function WaitingToPost({ canPost }: { canPost: boolean }) {
               Waiting to post: {rows.length.toLocaleString("en-IN")}
             </span>
           ) : null}
+          {missingProof > 0
+            ? ` (${plural(missingProof, "claim", "claims")} without payment proof)`
+            : null}
           {rows.length > 0 && attentionLines > 0 ? " · " : null}
           {attentionLines > 0
             ? `${plural(attentionLines, "payout line needs", "payout lines need")} a look`
@@ -136,7 +154,39 @@ export function WaitingToPost({ canPost }: { canPost: boolean }) {
             ]}
             title="Waiting to post"
           />
+          {missingProof > 0 ? (
+            <p
+              className="text-muted-foreground mx-6 mb-2 text-sm"
+              data-testid="missing-proof-summary"
+            >
+              {plural(
+                missingProof,
+                "approved claim has",
+                "approved claims have"
+              )}{" "}
+              no payment screenshot.{" "}
+              <Link
+                className="text-primary underline-offset-4 hover:underline"
+                search={{ filters: missingProofQuery() } as never}
+                to="/reimbursements"
+              >
+                Show them on Reimbursements
+              </Link>
+            </p>
+          ) : null}
           <StateList
+            action={(row) =>
+              canAddProof && needsPaymentProof(row) ? (
+                <Link
+                  className="text-primary shrink-0 text-sm font-medium underline-offset-4 hover:underline"
+                  params={{ id: row.sourceId }}
+                  search={{ proof: "add" }}
+                  to="/reimbursements/$id"
+                >
+                  Add payment proof
+                </Link>
+              ) : null
+            }
             emptyLabel="Nothing is waiting."
             rows={rows}
             testId="waiting-list"
@@ -166,11 +216,14 @@ export function WaitingToPost({ canPost }: { canPost: boolean }) {
 }
 
 function StateList({
+  action,
   emptyLabel,
   rows,
   testId,
   text,
 }: {
+  /** A way to fix the row, at its end. */
+  action?: (row: StateRow) => ReactNode;
   emptyLabel: string;
   rows: readonly StateRow[];
   testId: string;
@@ -199,6 +252,7 @@ function StateList({
             </span>
             <span className="text-muted-foreground block">{text(row)}</span>
           </span>
+          {action?.(row)}
         </li>
       ))}
     </ul>

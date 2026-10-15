@@ -9,6 +9,10 @@ import {
 import { useMigrateLegacyFilterParams } from "@/components/data-table/use-migrate-legacy-filter-params";
 import { cityOptions } from "@/lib/form-schemas";
 import {
+  MISSING_PROOF_FILTER,
+  requestPaymentProofValue,
+} from "@/lib/payment-proof";
+import {
   isReimbursement,
   REQUEST_TYPE_LABELS,
   type RequestRow,
@@ -63,6 +67,8 @@ export function getReimbursementFilterValue(
       return isReimbursement(row) ? requestProgrammeId(row) : null;
     case TO_CLEAR_FILTER.path:
       return isReimbursement(row) ? requestToClearValue(row) : null;
+    case MISSING_PROOF_FILTER.path:
+      return requestPaymentProofValue(row);
     case "status":
       return row.status;
     case "submittedAt":
@@ -105,6 +111,12 @@ export function createReimbursementFilterFields(
     ),
     selectField(TO_CLEAR_FILTER.path, TO_CLEAR_FILTER.label, [
       { label: TO_CLEAR_FILTER.optionLabel, value: TO_CLEAR_FILTER.value },
+    ]),
+    selectField(MISSING_PROOF_FILTER.path, MISSING_PROOF_FILTER.label, [
+      {
+        label: MISSING_PROOF_FILTER.optionLabel,
+        value: MISSING_PROOF_FILTER.value,
+      },
     ]),
     selectField(
       "createdBy",

@@ -47,7 +47,10 @@ money was paid, and a later re-approval can reuse it; the approve dialog then
 shows it as already attached with an optional Replace. Resetting to pending
 clears the stored screenshot and queues the file for deletion. Editing does not
 need a screenshot, and requests approved before the rule keep their missing
-screenshot.
+screenshot until an approver adds it: `reimbursement.addPaymentProof` claims a
+new upload from the same temporary folder into the same durable place and
+field as approval, and a replaced screenshot stays as a plain reimbursement
+attachment instead of being deleted (finance chapter, layer 3-3a).
 
 Vendor-payment invoice signing accepts the payment ID only to authorize the
 payment owner or a user with `requests.approve` or `requests.edit_all`; the

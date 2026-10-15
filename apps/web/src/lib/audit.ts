@@ -211,6 +211,9 @@ const SAFE_CHANGED_FIELD_NAMES = new Set([
   "scheduledAt",
   // The voucher copy the payee signed: the field name only, never its key.
   "signedCopy",
+  // Payment proof added after approval: field names only, never the key.
+  "approvalScreenshotKey",
+  "replacing",
   "scheduledMessageId",
   "seriesId",
   "socialNotes",

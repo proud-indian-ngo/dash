@@ -41,6 +41,7 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 | Orientation tracking | Track whether a volunteer attended orientation |
 | Requests | Unified view for reimbursement and advance payment requests — submit, review, approve/reject with line items and type filter |
 | Claim for others | Finance (`requests.create_for_others`) files a reimbursement for someone else, paid to one of their saved bank accounts, and can change the claimant later with a reason; the claimant owns it, is notified and is named on the voucher |
+| Payment proof | Approvers add (or replace, keeping the old file) the payment screenshot on an approved reimbursement that has none, so the books post it; a "Missing payment proof" filter and count on Reimbursements, and links from the Books "Waiting to post" list, find them |
 | Charged to | Every reimbursement and vendor payment says which work it served: an event, a programme or project without an event, or the organisation (admin). Finance can change it at approval or later; the Programme column and filter show "Admin" and an "Unallocated" count for legacy requests |
 | Teams | Organize volunteers into teams with leads; optionally link to WhatsApp groups for automated member syncing |
 | Events | Create team events (one-time or recurring), assign members, track attendance per occurrence; public events page for all users |

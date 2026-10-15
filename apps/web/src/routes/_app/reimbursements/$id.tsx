@@ -41,6 +41,8 @@ export const Route = createFileRoute("/_app/reimbursements/$id")({
   },
   validateSearch: z.object({
     mode: z.enum(["edit"]).optional(),
+    /** "add" opens Add payment proof (linked from the Books waiting list). */
+    proof: z.enum(["add"]).optional(),
   }),
 });
 
@@ -149,7 +151,7 @@ function buildInitialValues(resolved: ResolvedRequest) {
 
 function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
   const { session } = Route.useRouteContext();
-  const { mode } = Route.useSearch();
+  const { mode, proof } = Route.useSearch();
   const navigate = useNavigate();
   const { hasPermission } = useApp();
 
@@ -184,6 +186,11 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
     setEditMode(false);
   });
   const stableOnClick3 = useEventCallback(() => setEditMode(true));
+  const clearProofLink = useEventCallback(() => {
+    if (proof) {
+      setEditMode(false);
+    }
+  });
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
@@ -231,6 +238,8 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
             canApprove={canApprove}
             canUpdateAnyStatus={canEditAnyStatus}
             onEdit={canEdit ? stableOnClick3 : undefined}
+            onPaymentProofClose={clearProofLink}
+            openPaymentProof={proof === "add"}
             request={request}
           />
         )}
