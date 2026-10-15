@@ -366,12 +366,18 @@ test.describe("Income: contributions (finance)", () => {
     await expect(dialog).toBeVisible();
     await pickOption(dialog, page, "Programme", "Education");
 
-    // Corpus: no programme, so the field goes and its value is cleared.
+    // Corpus: no programme, so the field goes and its value is cleared;
+    // the type decides the fund, the Corpus Fund, which can't be changed.
+    const fund = dialog.getByRole("combobox", { exact: true, name: "Fund" });
     await chooseType("Corpus");
     await expect(programme).toHaveCount(0);
+    await expect(fund).toContainText("Corpus Fund");
+    await expect(fund).toBeDisabled();
 
-    // CSR: required again, and empty after corpus cleared it.
+    // CSR: required again, and empty after corpus cleared it; the fund
+    // leaves the Corpus Fund.
     await chooseType("CSR");
+    await expect(fund.filter({ hasText: "Corpus Fund" })).toHaveCount(0);
     await expect(programme).toBeVisible();
     await expect(programme).toHaveAttribute("aria-required", "true");
     await expect(programme).toHaveValue("");
@@ -394,9 +400,15 @@ test.describe("Income: contributions (finance)", () => {
     );
     const row = await findRow(page, reference, INCOME_DONOR);
     await expect(row).toHaveCount(1, { timeout: 15_000 });
+    // Recorded against the General Fund before the corpus type decided the
+    // fund: flagged until it is saved again.
+    await expect(row.getByTestId("contribution-fund-mismatch")).toBeVisible();
     await new ListPage(page).openRowActionAndClick(row, "Edit");
     const dialog = page.getByRole("dialog", { name: "Edit contribution" });
     await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByText("saving moves it to the Corpus Fund")
+    ).toBeVisible({ timeout: 10_000 });
 
     // The programme is set by the project, so it can't be cleared by hand.
     await expect(
@@ -412,6 +424,9 @@ test.describe("Income: contributions (finance)", () => {
       dialog.getByText("A corpus gift has no programme or project.")
     ).toHaveCount(0);
     await clickUntilDialogCloses(dialog, "Save changes");
+    await expect(row.getByTestId("contribution-fund-mismatch")).toHaveCount(0, {
+      timeout: 10_000,
+    });
 
     await new ListPage(page).openRowActionAndClick(row, "Edit");
     const again = page.getByRole("dialog", { name: "Edit contribution" });

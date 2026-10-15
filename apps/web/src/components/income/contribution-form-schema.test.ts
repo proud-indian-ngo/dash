@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
+import { CORPUS_FUND_ID } from "@pi-dash/shared/constants";
 import { channelAccountIssue } from "@pi-dash/shared/contribution-channel";
 
 import { buildFormSchema, type FormValues } from "./contribution-form-schema";
@@ -73,5 +74,22 @@ describe("contribution form schema", () => {
     expect(
       accountErrors(schema, { ...values, channel: "upi", orgAccountId: "rzp" })
     ).toEqual(["A UPI gift goes into a bank account"]);
+  });
+
+  it("holds a corpus gift to the Corpus Fund", () => {
+    const fundErrors = (input: FormValues) =>
+      (buildFormSchema(accountIssue).safeParse(input).error?.issues ?? [])
+        .filter((issue) => issue.path[0] === "fundId")
+        .map((issue) => issue.message);
+    const direct = { ...values, channel: "neft" as const };
+    expect(fundErrors({ ...direct, donationType: "corpus" })).toEqual([
+      "A corpus gift goes to the Corpus Fund",
+    ]);
+    expect(
+      fundErrors({ ...direct, donationType: "corpus", fundId: CORPUS_FUND_ID })
+    ).toEqual([]);
+    expect(fundErrors({ ...direct, fundId: CORPUS_FUND_ID })).toEqual([
+      "Only a corpus gift goes to the Corpus Fund",
+    ]);
   });
 });

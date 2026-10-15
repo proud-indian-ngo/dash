@@ -1,4 +1,5 @@
 import {
+  CORPUS_FUND_ID,
   GENERAL_FUND_ID,
   LEDGER_ACCOUNT_HEAD_IDS,
 } from "@pi-dash/shared/constants";
@@ -28,6 +29,7 @@ const GIVEDO = "00000000-0000-7000-8000-00000000c002";
 const gift = (over: Partial<ContributionFacts> = {}): ContributionFacts => ({
   amountPaise: 100_000,
   channel: "upi",
+  donationType: "voluntary",
   fundId: GENERAL_FUND_ID,
   gatewayFeePaise: 0,
   gatewayTaxPaise: 0,
@@ -212,11 +214,127 @@ describe("contributions", () => {
   });
 });
 
+describe("corpus gifts", () => {
+  const corpus = (over: Partial<ContributionFacts> = {}) =>
+    gift({
+      donationType: "corpus",
+      fundId: CORPUS_FUND_ID,
+      programmeId: null,
+      ...over,
+    });
+  const lines = (plan: SourcePlan) =>
+    (part(plan, "recognise")?.entries ?? []).map((e) => [
+      e.accountHeadId,
+      e.fundId,
+      e.effect,
+      e.amountPaise,
+    ]);
+
+  it("credits a corpus gift to the Corpus Fund directly, never as income", () => {
+    const plan = posted(contributionPlan(corpus()));
+    expect(lines(plan)).toEqual([
+      [H.corpusDonations, CORPUS_FUND_ID, "increase", 100_000],
+    ]);
+    expect(
+      plan.parts.flatMap((p) => p.entries).map((e) => e.accountHeadId)
+    ).not.toContain(H.donationsReceived);
+    expect(balances([plan]).get(BANK)).toBe(100_000);
+  });
+
+  it("credits the Corpus Fund even when the gift was recorded against another fund", () => {
+    const plan = posted(contributionPlan(corpus({ fundId: GENERAL_FUND_ID })));
+    expect(lines(plan)).toEqual([
+      [H.corpusDonations, CORPUS_FUND_ID, "increase", 100_000],
+    ]);
+  });
+
+  it("keeps the gross in the Corpus Fund and posts the Razorpay fee as General Fund expenditure", () => {
+    const plan = posted(
+      contributionPlan(
+        corpus({
+          channel: "razorpay",
+          gatewayFeePaise: 2000,
+          gatewayTaxPaise: 360,
+          orgAccountId: RZP,
+        })
+      )
+    );
+    expect(lines(plan)).toEqual([
+      [H.corpusDonations, CORPUS_FUND_ID, "increase", 100_000],
+      [H.gatewayCharges, GENERAL_FUND_ID, "increase", 2360],
+    ]);
+    expect(balances([plan]).get(RZP)).toBe(100_000 - 2360);
+  });
+
+  it("reduces the Corpus Fund on a refund", () => {
+    const plan = posted(
+      refundPlan({
+        amountPaise: 40_000,
+        gift: {
+          channel: "neft",
+          donationType: "corpus",
+          fundId: CORPUS_FUND_ID,
+          orgAccountId: BANK,
+          partyId: "00000000-0000-7000-8000-000000000d01",
+          programmeId: null,
+          projectId: null,
+        },
+        id: "00000000-0000-7000-8000-000000000f11",
+        reference: null,
+        refundedOn: "2026-05-20",
+        settledBankOn: null,
+      })
+    );
+    expect(lines(plan)).toEqual([
+      [H.corpusDonations, CORPUS_FUND_ID, "decrease", 40_000],
+    ]);
+  });
+
+  it("posts give.do charges on a corpus gift as General Fund expenditure at the payout", () => {
+    const plan = posted(
+      settlementPlan({
+        activeBankAccountIds: [BANK],
+        amountPaise: 95_000,
+        bankLine: null,
+        clearingAccountId: GIVEDO,
+        id: "00000000-0000-7000-8000-000000000f12",
+        items: [
+          {
+            feePaise: 5000,
+            gift: {
+              donationType: "corpus",
+              fundId: CORPUS_FUND_ID,
+              partyId: "00000000-0000-7000-8000-000000000d02",
+              programmeId: null,
+              projectId: null,
+            },
+            giftChargesPaise: 5000,
+            refundLinked: false,
+            taxPaise: 0,
+            type: "payment",
+          },
+        ],
+        postedBankAccountId: null,
+        provider: "give_do",
+        settledOn: "2026-05-12",
+        settlementFeePaise: null,
+        settlementTaxPaise: null,
+        status: "processed",
+        utr: null,
+      })
+    );
+    expect(lines(plan)).toEqual([
+      [H.gatewayCharges, GENERAL_FUND_ID, "increase", 5000],
+    ]);
+  });
+});
+
 describe("refunds", () => {
   const refund = (over: Partial<RefundFacts> = {}): RefundFacts => ({
     amountPaise: 40_000,
     gift: {
       channel: "razorpay",
+      donationType: "voluntary",
       fundId: GENERAL_FUND_ID,
       orgAccountId: RZP,
       partyId: "00000000-0000-7000-8000-000000000d01",
@@ -322,6 +440,7 @@ describe("gateway settlements", () => {
       {
         feePaise: 2000,
         gift: {
+          donationType: "voluntary",
           fundId: GENERAL_FUND_ID,
           partyId: "00000000-0000-7000-8000-000000000d01",
           programmeId: null,
@@ -438,6 +557,7 @@ describe("gateway settlements", () => {
         {
           feePaise: 5000,
           gift: {
+            donationType: "voluntary",
             fundId: GENERAL_FUND_ID,
             partyId: "00000000-0000-7000-8000-000000000d02",
             programmeId: "00000000-0000-7000-8000-000000000e02",
@@ -503,6 +623,7 @@ describe("gateway settlements", () => {
       amountPaise: 10_000,
       gift: {
         channel: "razorpay",
+        donationType: "voluntary",
         fundId: GENERAL_FUND_ID,
         orgAccountId: RZP,
         partyId: "00000000-0000-7000-8000-000000000d01",

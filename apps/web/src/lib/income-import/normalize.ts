@@ -8,7 +8,10 @@ import {
   type ChannelAccountSetup,
   channelAccountIssue,
 } from "@pi-dash/shared/contribution-channel";
-import { donationTypeProgrammeIssue } from "@pi-dash/shared/contribution-programme";
+import {
+  donationTypeFundIssue,
+  donationTypeProgrammeIssue,
+} from "@pi-dash/shared/contribution-programme";
 import { todayInKolkata } from "@pi-dash/shared/income";
 import {
   MAX_AMOUNT_MESSAGE,
@@ -640,6 +643,27 @@ export function withProgrammeRule(
   const issue = donationTypeProgrammeIssue({
     donationType: result.row.donationType,
     ...batch,
+  });
+  return issue
+    ? {
+        ...result,
+        errors: [...result.errors, { field: "donationType", message: issue }],
+      }
+    : result;
+}
+
+/**
+ * Adds the fund rule to a normalised row: a corpus row needs a batch
+ * imported into the Corpus Fund, and only corpus rows go there
+ * (`donationTypeFundIssue`), as the contribution mutators require.
+ */
+export function withFundRule(
+  result: NormalizeResult,
+  batch: { fundId: string }
+): NormalizeResult {
+  const issue = donationTypeFundIssue({
+    donationType: result.row.donationType,
+    fundId: batch.fundId,
   });
   return issue
     ? {

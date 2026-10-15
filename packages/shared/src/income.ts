@@ -16,7 +16,10 @@ import {
   CHANNEL_REPORTING_MODES,
   reportingModeIssue,
 } from "./contribution-channel";
-import { donationTypeProgrammeIssue } from "./contribution-programme";
+import {
+  donationTypeFundIssue,
+  donationTypeProgrammeIssue,
+} from "./contribution-programme";
 import { sumPaise } from "./money";
 
 /**
@@ -283,6 +286,8 @@ export interface ContributionRuleInput {
   donationType: DonationType;
   donationTypeDescription?: string | null;
   eligibilityReason?: string | null;
+  /** Checked against the donation type (`donationTypeFundIssue`); left out, not checked. */
+  fundId?: string | null;
   inKindDescription?: string | null;
   inKindValuationBasis?: string | null;
   orgAccountId?: string | null;
@@ -306,6 +311,7 @@ const blank = (value: string | null | undefined) => !value?.trim();
  * and how it was valued and has no account, everything else needs the
  * account it was deposited into, the donation type decides whether a
  * programme is needed, allowed or ruled out (`donationTypeProgrammeIssue`),
+ * the corpus type and the Corpus Fund go together (`donationTypeFundIssue`),
  * and excluding a gift from the donations return needs a reason. Which account fits the channel needs the accounts,
  * so `channelAccountIssue` checks that separately.
  */
@@ -332,6 +338,10 @@ export function contributionRuleIssues(v: ContributionRuleInput): RuleIssue[] {
   const programmeIssue = donationTypeProgrammeIssue(v);
   if (programmeIssue) {
     issues.push({ message: programmeIssue, path: "programmeId" });
+  }
+  const fundIssue = donationTypeFundIssue(v);
+  if (fundIssue) {
+    issues.push({ message: fundIssue, path: "fundId" });
   }
   if (v.deductionEligible === "no" && blank(v.eligibilityReason)) {
     issues.push({

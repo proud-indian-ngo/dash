@@ -7,13 +7,19 @@ import {
   yearCloseChecklist,
 } from "@pi-dash/db/ledger/year-close";
 import { user } from "@pi-dash/db/schema/auth";
-import { fiscalYear, orgAccount } from "@pi-dash/db/schema/finance-dimensions";
+import {
+  accountHead,
+  fiscalYear,
+  fund,
+  orgAccount,
+} from "@pi-dash/db/schema/finance-dimensions";
 import {
   gatewaySettlement,
   gatewaySettlementItem,
 } from "@pi-dash/db/schema/gateway-settlement";
 import { contribution } from "@pi-dash/db/schema/income";
 import {
+  ledgerEntry,
   ledgerSourceState,
   openingBalance,
   posting,
@@ -41,6 +47,10 @@ import { uuidv7 } from "uuidv7";
  *   debit of 300 to mark as a transfer to the fixed deposit.
  * - `gift <accountId> <day>`: one more UPI gift of 250 into that account.
  * - `postings <sourceId>`: the actions posted for a source, oldest first.
+ * - `corpus-gift <run>`: a bank account of this run and a NEFT corpus gift
+ *   of 700 into it, recorded against the Corpus Fund.
+ * - `entries <sourceId>`: the standing recognition of a source, as
+ *   "<head code> <fund code> <signed paise>", sorted.
  * - `ensure-opening <label>`: posts fake, balanced opening balances for the
  *   year when none stand (a year can't close without them), so each
  *   treasurer test runs on its own when CI shards split the group.
@@ -375,6 +385,68 @@ async function ensureOpening(label: string) {
   return { id, posted: true };
 }
 
+/** Must match CORPUS_FUND_ID in @pi-dash/shared/constants. */
+const CORPUS_FUND_ID = "01930000-0000-7000-8000-000000000202";
+
+async function corpusGift(run: string) {
+  const now = new Date();
+  const bankId = uuidv7();
+  const bankName = `E2E Books Corpus Bank ${run}`;
+  await db.insert(orgAccount).values({
+    createdAt: now,
+    id: bankId,
+    kind: "bank",
+    name: bankName,
+    updatedAt: now,
+  });
+  const id = uuidv7();
+  await db.insert(contribution).values({
+    amountPaise: 70_000,
+    channel: "neft",
+    createdAt: now,
+    donationType: "corpus",
+    fundId: CORPUS_FUND_ID,
+    id,
+    orgAccountId: bankId,
+    partyId: INCOME_DONOR_ID,
+    receivedOn: "2026-06-20",
+    reference: `E2ECORPUS${run}`,
+    reportingMode: "electronic_or_account_payee",
+    status: "received",
+    updatedAt: now,
+  });
+  return { bankId, bankName, id };
+}
+
+/** A source's recognition net of reversals, by head and fund code. */
+async function entriesOf(sourceId: string) {
+  const rows = await db
+    .select({
+      amountPaise: ledgerEntry.amountPaise,
+      effect: ledgerEntry.effect,
+      fund: fund.code,
+      head: accountHead.code,
+    })
+    .from(ledgerEntry)
+    .innerJoin(posting, eq(posting.id, ledgerEntry.postingId))
+    .innerJoin(accountHead, eq(accountHead.id, ledgerEntry.accountHeadId))
+    .innerJoin(fund, eq(fund.id, ledgerEntry.fundId))
+    .where(eq(posting.sourceId, sourceId));
+  const net = new Map<string, number>();
+  for (const row of rows) {
+    const key = `${row.head} ${row.fund}`;
+    net.set(
+      key,
+      (net.get(key) ?? 0) +
+        (row.effect === "increase" ? row.amountPaise : -row.amountPaise)
+    );
+  }
+  return [...net]
+    .filter(([, paise]) => paise !== 0)
+    .map(([key, paise]) => `${key} ${paise}`)
+    .sort();
+}
+
 async function postingsOf(sourceId: string) {
   const rows = await db
     .select({ action: posting.action })
@@ -444,6 +516,10 @@ if (action === "close-year") {
   result = { id: await upiGift(accountId ?? "", day ?? "2026-05-01", 25_000) };
 } else if (action === "postings") {
   result = await postingsOf(label);
+} else if (action === "corpus-gift") {
+  result = await corpusGift(label);
+} else if (action === "entries") {
+  result = await entriesOf(label);
 } else {
   throw new Error(`Unknown action ${action}`);
 }

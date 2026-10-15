@@ -8,32 +8,45 @@ import { formatDay } from "./labels";
 
 /**
  * A fund's opening at the year's start (with earlier years' surplus) and
- * the year's surplus or deficit, as the statements' fund note shows them.
+ * the year's figure, as the statements' fund note shows them: the General
+ * Fund's current year surplus or deficit; another fund's additions or
+ * deductions, its capital receipts (corpus gifts) with any surplus posted
+ * to it.
  */
 function FundMovement({
+  additionsPaise,
   general,
   openingPaise,
   surplusPaise,
 }: {
+  additionsPaise: number;
   /** The General Fund's year is a surplus or deficit; another fund's, additions or deductions. */
   general: boolean;
   openingPaise: number;
   surplusPaise: number;
 }) {
-  let year =
-    surplusPaise < 0
-      ? "Deductions during the year"
-      : "Additions during the year";
+  const parts = [`Opening balance ${formatPaise(openingPaise)}`];
   if (general) {
-    year = surplusPaise < 0 ? "Current year deficit" : "Current year surplus";
+    parts.push(
+      `${surplusPaise < 0 ? "Current year deficit" : "Current year surplus"} ${formatPaise(Math.abs(surplusPaise))}`
+    );
+    if (additionsPaise !== 0) {
+      parts.push(
+        `${additionsPaise < 0 ? "Deductions" : "Additions"} during the year ${formatPaise(Math.abs(additionsPaise))}`
+      );
+    }
+  } else {
+    const yearPaise = additionsPaise + surplusPaise;
+    parts.push(
+      `${yearPaise < 0 ? "Deductions" : "Additions"} during the year ${formatPaise(Math.abs(yearPaise))}`
+    );
   }
   return (
     <span
       className="text-muted-foreground block text-xs"
       data-testid="balance-fund-movement"
     >
-      Opening balance {formatPaise(openingPaise)} · {year}{" "}
-      {formatPaise(Math.abs(surplusPaise))}
+      {parts.join(" · ")}
     </span>
   );
 }
@@ -96,7 +109,8 @@ function Section({
  * What the trust has, owes and holds in funds at a date: account balances
  * from the cash book plus asset entries, against liabilities and funds. A
  * fund carries the income less expenditure posted to it, each year's
- * surplus rolling into its opening for the next.
+ * surplus rolling into its opening for the next; the Corpus Fund also
+ * carries the corpus gifts credited to it directly.
  */
 export function BalanceSummaryTab({
   asOf,

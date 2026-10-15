@@ -5,7 +5,10 @@ import type {
   WorkbookFacts,
   WorkbookMovement,
 } from "@pi-dash/db/queries/ca-workbook";
-import { GENERAL_FUND_ID } from "@pi-dash/shared/constants";
+import {
+  GENERAL_FUND_ID,
+  LEDGER_ACCOUNT_HEAD_IDS,
+} from "@pi-dash/shared/constants";
 import {
   balanceSummary,
   type BookEntry,
@@ -76,6 +79,11 @@ const HEADS = {
     accountHeadId: "h-charges",
     headName: "Gateway charges",
     headType: "expense",
+  },
+  corpus: {
+    accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.corpusDonations,
+    headName: "Corpus donations",
+    headType: "fund",
   },
   donations: {
     accountHeadId: "h-donations",
@@ -368,14 +376,18 @@ function nextYear(prior: WorkbookFacts): WorkbookFacts {
 const fundRowOf = (sheet: WorkbookSheet, name: string) =>
   sheet.rows.find((r) => r.cells[0] === name)?.cells.slice(1, 5);
 
-/** A 200 corpus gift in FY 2026-27, posted to the Corpus Fund. */
+/**
+ * A 200 corpus gift in FY 2026-27, credited to the Corpus Fund directly
+ * (never income).
+ */
 function withCorpusGift(facts: WorkbookFacts): WorkbookFacts {
   facts.entries.push(
-    entry("donations", {
+    entry("corpus", {
       amountPaise: 20_000,
       economicOn: "2026-08-01",
       fundId: "f-corpus",
       fundName: "Corpus Fund",
+      partyName: "Meera Iyer",
       sourceId: "gift-corpus",
       sourceType: "contribution",
     })
@@ -884,9 +896,10 @@ describe("CA workbook sheets", () => {
     ]);
   });
 
-  it("rolls income posted to a restricted fund into that fund, not the General Fund", () => {
+  it("credits a corpus gift to the Corpus Fund as an addition of the year, never income", () => {
     const facts = withCorpusGift(fixture());
     const { check, sheet } = balanceSheet(facts);
+    expect(check.openingDifferencePaise).toBe(0);
     expect(check.closingDifferencePaise).toBe(0);
     expect(fundRowOf(sheet, "Corpus Fund: opening balance")).toEqual([
       10, 0, 0, 10,
@@ -899,13 +912,36 @@ describe("CA workbook sheets", () => {
     expect(fundRowOf(sheet, "General Fund (Domestic) total")).toEqual([
       2940, 1313.4, 0, 4253.4,
     ]);
-    // The funds' surpluses add up to the summary's.
-    expect(incomeExpenditureTotals(facts).surplusPaise).toBe(151_340);
+    // Not income: the I&E surplus is the General Fund's alone.
+    expect(incomeExpenditureTotals(facts).surplusPaise).toBe(131_340);
+    const summary = summarySheet(facts).rows;
+    expect(summary.find((r) => r.cells[0] === "Total income")?.cells[2]).toBe(
+      1337
+    );
+    expect(
+      summary.find((r) => r.cells[0] === "Corpus donations (Corpus Fund)")
+        ?.cells[2]
+    ).toBe(200);
+    // The receipt names the donor and the corpus head.
+    const receipt = receiptsAndPaymentsSheet(facts).rows.find((r) =>
+      String(r.cells[10]).endsWith("gift-corpus")
+    );
+    expect(receipt?.cells[5]).toBe("Meera Iyer");
+    expect(receipt?.cells[9]).toBe("Corpus donations");
 
-    // The next year opens each fund with its own surplus.
+    // The next year opens the Corpus Fund with the gift.
     const next = balanceSheet(nextYear(withCorpusGift(fixture())));
     expect(next.check.openingDifferencePaise).toBe(0);
     expect(next.check.closingDifferencePaise).toBe(0);
+    expect(fundRowOf(next.sheet, "Corpus Fund: opening balance")).toEqual([
+      210, 0, 0, 210,
+    ]);
+    expect(
+      fundRowOf(
+        next.sheet,
+        "Corpus Fund: additions/(deductions) during the year"
+      )
+    ).toEqual([0, 0, 0, 0]);
     expect(fundRowOf(next.sheet, "Corpus Fund total")).toEqual([
       210, 0, 0, 210,
     ]);
@@ -1016,8 +1052,268 @@ describe("CA workbook sheets", () => {
         expect(Math.round(Number(opening[3]) * 100)).toBe(
           line.movement?.openingPaise ?? Number.NaN
         );
+        // The General Fund's year is its surplus; another fund's, its
+        // capital receipts (corpus gifts) with any surplus posted to it.
         expect(Math.round(Number(year?.[3]) * 100)).toBe(
-          line.movement?.surplusPaise ?? Number.NaN
+          line.key === GENERAL_FUND_ID
+            ? (line.movement?.surplusPaise ?? Number.NaN)
+            : (line.movement?.additionsPaise ?? Number.NaN) +
+                (line.movement?.surplusPaise ?? Number.NaN)
+        );
+      }
+    }
+  });
+});
+
+describe("corpus gifts in the CA workbook", () => {
+  /** A 1,000 corpus gift through Razorpay with a 23.60 fee, 100 of it refunded. */
+  function withRazorpayCorpusGift(facts: WorkbookFacts): WorkbookFacts {
+    const src = { sourceId: "gift-rzp-corpus", sourceType: "contribution" };
+    const ref = { sourceId: "ref-corpus", sourceType: "contribution_refund" };
+    const corpus = { fundId: "f-corpus", fundName: "Corpus Fund" };
+    facts.entries.push(
+      entry("corpus", {
+        ...src,
+        ...corpus,
+        amountPaise: 100_000,
+        economicOn: "2026-09-01",
+      }),
+      // The fee is General Fund expenditure.
+      entry("charges", { ...src, amountPaise: 2360, economicOn: "2026-09-01" }),
+      entry("corpus", {
+        ...ref,
+        ...corpus,
+        amountPaise: 10_000,
+        economicOn: "2026-10-01",
+        effect: "decrease",
+      })
+    );
+    facts.movements.push(
+      movement({
+        ...src,
+        amountPaise: 100_000,
+        direction: "in",
+        kind: "receipt",
+        occurredOn: "2026-09-01",
+        orgAccountId: CLEARING,
+      }),
+      movement({
+        ...src,
+        amountPaise: 2360,
+        direction: "out",
+        kind: "fee",
+        occurredOn: "2026-09-01",
+        orgAccountId: CLEARING,
+      }),
+      movement({
+        ...ref,
+        amountPaise: 10_000,
+        direction: "out",
+        kind: "refund",
+        occurredOn: "2026-10-01",
+        orgAccountId: CLEARING,
+      })
+    );
+    return facts;
+  }
+
+  it("keeps the gross in the Corpus Fund and the fee in the General Fund's I&E", () => {
+    const facts = withRazorpayCorpusGift(fixture());
+    const totals = incomeExpenditureTotals(facts);
+    // The fixture's income alone; its expenditure plus the corpus gift's fee.
+    expect(totals).toEqual({
+      expensePaise: 2360 + 2360,
+      incomePaise: 133_700,
+      surplusPaise: 131_340 - 2360,
+    });
+    const { check, sheet } = balanceSheet(facts);
+    expect(check.openingDifferencePaise).toBe(0);
+    expect(check.closingDifferencePaise).toBe(0);
+    expect(
+      fundRowOf(sheet, "Corpus Fund: additions/(deductions) during the year")
+    ).toEqual([0, 1000, 100, 900]);
+    expect(fundRowOf(sheet, "Corpus Fund total")).toEqual([10, 1000, 100, 910]);
+    expect(
+      fundRowOf(
+        sheet,
+        "General Fund (Domestic): current year surplus/(deficit)"
+      )
+    ).toEqual([0, 1289.8, 0, 1289.8]);
+    // The I&E summary lists the gift apart, net of its refund.
+    expect(
+      summarySheet(facts).rows.find(
+        (r) => r.cells[0] === "Corpus donations (Corpus Fund)"
+      )?.cells[2]
+    ).toBe(900);
+  });
+});
+
+/** A small seeded generator, so a failing ledger can be replayed. */
+function seeded(seed: number) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d_2b_79_f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4_294_967_296;
+  };
+}
+
+describe("CA workbook over random ledgers", () => {
+  const YEARS = [
+    {
+      closed: false,
+      endsOn: "2027-03-31",
+      id: "y1",
+      label: "2026-27",
+      startsOn: "2026-04-01",
+    },
+    {
+      closed: false,
+      endsOn: "2028-03-31",
+      id: "y2",
+      label: "2027-28",
+      startsOn: "2027-04-01",
+    },
+    {
+      closed: false,
+      endsOn: "2029-03-31",
+      id: "y3",
+      label: "2028-29",
+      startsOn: "2028-04-01",
+    },
+    {
+      closed: false,
+      endsOn: "2030-03-31",
+      id: "y4",
+      label: "2029-30",
+      startsOn: "2029-04-01",
+    },
+  ];
+  const FUNDS = {
+    corpus: { fundId: "f-corpus", fundName: "Corpus Fund" },
+    general: { fundId: GENERAL_FUND_ID, fundName: "General Fund (Domestic)" },
+  };
+
+  /**
+   * The fixture's opening balances, then four years of gifts (income, or
+   * corpus gifts credited to the Corpus Fund), their gateway fees (General
+   * Fund), refunds and spending, each with its money.
+   */
+  function randomFacts(seed: number): WorkbookFacts {
+    const rand = seeded(seed);
+    const pick = <T>(list: readonly T[]): T =>
+      list[Math.floor(rand() * list.length)] as T;
+    const facts = fixture();
+    facts.entries = facts.entries.filter(
+      (e) => e.sourceType === "opening_balance"
+    );
+    facts.movements = facts.movements.filter((m) => m.kind === "opening");
+    for (let i = 0; i < 30; i += 1) {
+      const year = pick(YEARS);
+      const start = Date.parse(`${year.startsOn}T00:00:00Z`);
+      const on = new Date(start + Math.floor(rand() * 365) * 86_400_000)
+        .toISOString()
+        .slice(0, 10);
+      const paise = 1 + Math.floor(rand() * 100_000);
+      const src = { sourceId: `src-${seed}-${i}`, sourceType: "contribution" };
+      const account = pick([BANK, CLEARING]);
+      const money = (
+        direction: "in" | "out",
+        kind: WorkbookMovement["kind"],
+        amountPaise: number
+      ) =>
+        facts.movements.push(
+          movement({
+            ...src,
+            amountPaise,
+            direction,
+            kind,
+            occurredOn: on,
+            orgAccountId: account,
+          })
+        );
+      const kind = pick(["gift", "corpus", "spend"] as const);
+      if (kind === "spend") {
+        facts.entries.push(
+          entry("charges", { ...src, amountPaise: paise, economicOn: on })
+        );
+        money("out", "fee", paise);
+        continue;
+      }
+      const head = kind === "corpus" ? "corpus" : "donations";
+      const fund =
+        kind === "corpus" ? FUNDS.corpus : pick([FUNDS.general, FUNDS.corpus]);
+      facts.entries.push(
+        entry(head, { ...src, ...fund, amountPaise: paise, economicOn: on })
+      );
+      money("in", "receipt", paise);
+      if (rand() < 0.5) {
+        const fee = Math.ceil(paise / 50);
+        facts.entries.push(
+          entry("charges", { ...src, amountPaise: fee, economicOn: on })
+        );
+        money("out", "fee", fee);
+      }
+      if (rand() < 0.2) {
+        const refund = Math.ceil(paise / 4);
+        facts.entries.push(
+          entry(head, {
+            ...src,
+            ...fund,
+            amountPaise: refund,
+            economicOn: on,
+            effect: "decrease",
+          })
+        );
+        money("out", "refund", refund);
+      }
+    }
+    return facts;
+  }
+
+  it("balances every year of 200 ledgers and agrees with the Books on every fund", () => {
+    for (let seed = 1; seed <= 200; seed += 1) {
+      const all = randomFacts(seed);
+      for (const year of YEARS) {
+        const facts = { ...all, year };
+        const { check, sheet } = balanceSheet(facts);
+        expect(check.openingDifferencePaise, `seed ${seed}`).toBe(0);
+        expect(check.closingDifferencePaise, `seed ${seed}`).toBe(0);
+        const books = balanceSummary({
+          accountIds: facts.accounts.map((a) => a.id),
+          asOf: year.endsOn,
+          entries: facts.entries.map((e) => ({
+            accountHeadId: e.accountHeadId,
+            amountPaise: e.amountPaise,
+            economicOn: e.economicOn,
+            effect: e.effect,
+            fundId: e.fundId,
+            headType: e.headType,
+            id: e.id,
+            programmeId: e.programmeId,
+          })),
+          movements: facts.movements,
+          startsOn: year.startsOn,
+        });
+        expect(books.differencePaise, `seed ${seed}`).toBe(0);
+        let surplus = 0;
+        for (const line of books.funds) {
+          const name =
+            line.key === GENERAL_FUND_ID
+              ? FUNDS.general.fundName
+              : FUNDS.corpus.fundName;
+          const total =
+            fundRowOf(sheet, `${name} total`) ?? fundRowOf(sheet, name) ?? [];
+          expect(Math.round(Number(total[3] ?? 0) * 100), `seed ${seed}`).toBe(
+            line.paise
+          );
+          surplus += line.movement?.surplusPaise ?? 0;
+        }
+        // Corpus gifts are no income: the funds' surpluses are the I&E's.
+        expect(surplus, `seed ${seed}`).toBe(
+          incomeExpenditureTotals(facts).surplusPaise
         );
       }
     }

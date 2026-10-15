@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { LEDGER_ACCOUNT_HEAD_IDS } from "./constants";
 import {
   balanceSummary,
   booksAsOf,
@@ -191,7 +192,7 @@ describe("balanceSummary", () => {
       {
         key: "general",
         kind: "fund",
-        movement: { openingPaise: 1000, surplusPaise: 200 },
+        movement: { additionsPaise: 0, openingPaise: 1000, surplusPaise: 200 },
         paise: 1200,
       },
     ]);
@@ -247,13 +248,13 @@ describe("balanceSummary", () => {
       {
         key: "corpus",
         kind: "fund",
-        movement: { openingPaise: 30, surplusPaise: 50 },
+        movement: { additionsPaise: 0, openingPaise: 30, surplusPaise: 50 },
         paise: 80,
       },
       {
         key: "general",
         kind: "fund",
-        movement: { openingPaise: 1000, surplusPaise: 400 },
+        movement: { additionsPaise: 0, openingPaise: 1000, surplusPaise: 400 },
         paise: 1400,
       },
     ]);
@@ -270,13 +271,13 @@ describe("balanceSummary", () => {
       {
         key: "corpus",
         kind: "fund",
-        movement: { openingPaise: 80, surplusPaise: 0 },
+        movement: { additionsPaise: 0, openingPaise: 80, surplusPaise: 0 },
         paise: 80,
       },
       {
         key: "general",
         kind: "fund",
-        movement: { openingPaise: 1400, surplusPaise: -290 },
+        movement: { additionsPaise: 0, openingPaise: 1400, surplusPaise: -290 },
         paise: 1110,
       },
     ]);
@@ -316,6 +317,7 @@ describe("balanceSummary fund openings", () => {
       startsOn: "2026-04-01",
     });
     expect(summary.funds[0]?.movement).toEqual({
+      additionsPaise: 0,
       openingPaise: 1000,
       surplusPaise: 500,
     });
@@ -374,5 +376,235 @@ describe("booksAsOf", () => {
     expect(booksAsOf(FY, "2026-10-14")).toBe("2026-10-14");
     expect(booksAsOf(FY, "2027-06-01")).toBe("2027-03-31");
     expect(booksAsOf(FY, "2026-01-01")).toBe("2026-04-01");
+  });
+});
+
+describe("corpus gifts in the books", () => {
+  const CORPUS_HEAD = LEDGER_ACCOUNT_HEAD_IDS.corpusDonations;
+  const corpusGift = (id: string, amountPaise: number, extra = {}) =>
+    entry(id, "fund", amountPaise, {
+      accountHeadId: CORPUS_HEAD,
+      economicOn: "2026-08-01",
+      fundId: "corpus",
+      ...extra,
+    });
+  const entries = [
+    entry("cf", "fund", 30, { fundId: "corpus" }),
+    entry("gf", "fund", 1000),
+    entry("inc", "income", 200, { economicOn: "2026-05-01" }),
+    // A 500 corpus gift through Razorpay: the gross to the Corpus Fund,
+    // its 12 fee General Fund expenditure; a 100 refund of it later.
+    corpusGift("corpus", 500),
+    entry("fee", "expense", 12, { economicOn: "2026-08-01" }),
+    corpusGift("corpus-refund", 100, {
+      economicOn: "2026-09-01",
+      effect: "decrease",
+    }),
+  ];
+  const movements = [
+    move("o1", "2026-04-01", "in", 1030),
+    move("m1", "2026-05-01", "in", 200),
+    move("m2", "2026-08-01", "in", 500, "razorpay"),
+    move("m3", "2026-08-01", "out", 12, "razorpay"),
+    move("m4", "2026-09-01", "out", 100, "razorpay"),
+  ];
+
+  it("leaves a corpus gift out of income and expenditure, keeping its fee in", () => {
+    const ie = incomeExpenditure(entries, FY, "head");
+    expect(ie.incomeTotalPaise).toBe(200);
+    expect(ie.expenseTotalPaise).toBe(12);
+    expect(ie.surplusPaise).toBe(188);
+    expect(ie.income.map((l) => l.key)).not.toContain(CORPUS_HEAD);
+  });
+
+  it("shows a corpus gift as the Corpus Fund's addition, and its fee in the General Fund", () => {
+    const summary = balanceSummary({
+      accountIds: ["bank", "razorpay"],
+      asOf: FY.endsOn,
+      entries,
+      movements,
+      startsOn: FY.startsOn,
+    });
+    expect(summary.balanced).toBe(true);
+    expect(summary.differencePaise).toBe(0);
+    expect(summary.funds).toEqual([
+      {
+        key: "corpus",
+        kind: "fund",
+        movement: { additionsPaise: 400, openingPaise: 30, surplusPaise: 0 },
+        paise: 430,
+      },
+      {
+        key: "general",
+        kind: "fund",
+        movement: { additionsPaise: 0, openingPaise: 1000, surplusPaise: 188 },
+        paise: 1188,
+      },
+    ]);
+    // The next year opens the Corpus Fund with the gift.
+    const next = balanceSummary({
+      accountIds: ["bank", "razorpay"],
+      asOf: "2028-03-31",
+      entries,
+      movements,
+      startsOn: "2027-04-01",
+    });
+    expect(next.balanced).toBe(true);
+    expect(next.funds[0]).toEqual({
+      key: "corpus",
+      kind: "fund",
+      movement: { additionsPaise: 0, openingPaise: 430, surplusPaise: 0 },
+      paise: 430,
+    });
+  });
+});
+
+/** A small seeded generator, so a failing ledger can be replayed. */
+function seeded(seed: number) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d_2b_79_f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4_294_967_296;
+  };
+}
+
+describe("balanceSummary over random ledgers", () => {
+  const YEARS = [
+    { endsOn: "2027-03-31", startsOn: "2026-04-01" },
+    { endsOn: "2028-03-31", startsOn: "2027-04-01" },
+    { endsOn: "2029-03-31", startsOn: "2028-04-01" },
+    { endsOn: "2030-03-31", startsOn: "2029-04-01" },
+  ];
+  const CORPUS_HEAD = LEDGER_ACCOUNT_HEAD_IDS.corpusDonations;
+
+  /**
+   * Opening balances, then gifts (income or corpus), gateway fees on them
+   * (always the General Fund), refunds, spending and its refunds, each
+   * with the money it moves, across four years.
+   */
+  function randomLedger(seed: number) {
+    const rand = seeded(seed);
+    const pick = <T>(list: readonly T[]): T =>
+      list[Math.floor(rand() * list.length)] as T;
+    const amount = () => 1 + Math.floor(rand() * 100_000);
+    const day = () => {
+      const year = pick(YEARS);
+      const start = Date.parse(`${year.startsOn}T00:00:00Z`);
+      return new Date(start + Math.floor(rand() * 365) * 86_400_000)
+        .toISOString()
+        .slice(0, 10);
+    };
+    const entries: BookEntry[] = [];
+    const movements: BookMovement[] = [];
+    let n = 0;
+    const id = (prefix: string) => {
+      n += 1;
+      return `${prefix}-${String(n).padStart(5, "0")}`;
+    };
+    const money = (on: string, direction: "in" | "out", paise: number) =>
+      movements.push(
+        move(id("m"), on, direction, paise, pick(["bank", "rzp"]))
+      );
+    const corpusOpening = amount();
+    const generalOpening = amount();
+    entries.push(
+      entry(id("e"), "fund", corpusOpening, { fundId: "corpus" }),
+      entry(id("e"), "fund", generalOpening)
+    );
+    money("2026-04-01", "in", corpusOpening + generalOpening);
+    for (let i = 0; i < 40; i += 1) {
+      const on = day();
+      const paise = amount();
+      const kind = pick(["gift", "corpus", "spend"] as const);
+      if (kind === "spend") {
+        entries.push(entry(id("e"), "expense", paise, { economicOn: on }));
+        money(on, "out", paise);
+        if (rand() < 0.3) {
+          const back = Math.ceil(paise / 2);
+          entries.push(
+            entry(id("e"), "expense", back, {
+              economicOn: on,
+              effect: "decrease",
+            })
+          );
+          money(on, "in", back);
+        }
+        continue;
+      }
+      const credit =
+        kind === "corpus"
+          ? { accountHeadId: CORPUS_HEAD, fundId: "corpus" }
+          : { fundId: pick(["general", "corpus"]) };
+      const headType = kind === "corpus" ? "fund" : "income";
+      entries.push(
+        entry(id("e"), headType, paise, { ...credit, economicOn: on })
+      );
+      money(on, "in", paise);
+      if (rand() < 0.5) {
+        const fee = Math.ceil(paise / 50);
+        entries.push(entry(id("e"), "expense", fee, { economicOn: on }));
+        money(on, "out", fee);
+      }
+      if (rand() < 0.2) {
+        const refund = Math.ceil(paise / 4);
+        entries.push(
+          entry(id("e"), headType, refund, {
+            ...credit,
+            economicOn: on,
+            effect: "decrease",
+          })
+        );
+        money(on, "out", refund);
+      }
+    }
+    return { entries, movements };
+  }
+
+  it("balances every year of 300 ledgers, each fund rolling into the next year", () => {
+    for (let seed = 1; seed <= 300; seed += 1) {
+      const { entries, movements } = randomLedger(seed);
+      let previous: Map<string, number> | null = null;
+      for (const year of YEARS) {
+        const summary = balanceSummary({
+          accountIds: ["bank", "rzp"],
+          asOf: year.endsOn,
+          entries,
+          movements,
+          startsOn: year.startsOn,
+        });
+        expect(summary.differencePaise, `seed ${seed}`).toBe(0);
+        const ie = incomeExpenditure(entries, year, "head");
+        let surplus = 0;
+        const totals = new Map<string, number>();
+        for (const fund of summary.funds) {
+          const m = fund.movement ?? {
+            additionsPaise: 0,
+            openingPaise: fund.paise,
+            surplusPaise: 0,
+          };
+          expect(m.openingPaise + m.additionsPaise + m.surplusPaise).toBe(
+            fund.paise
+          );
+          if (previous) {
+            expect(m.openingPaise, `seed ${seed}`).toBe(
+              previous.get(fund.key) ?? 0
+            );
+          }
+          // Corpus gifts are the only additions, and only the Corpus Fund's.
+          if (fund.key !== "corpus") {
+            expect(m.additionsPaise).toBe(0);
+          }
+          surplus += m.surplusPaise;
+          totals.set(fund.key, fund.paise);
+        }
+        // The funds' surpluses are the I&E surplus: corpus gifts aren't in it.
+        expect(surplus, `seed ${seed}`).toBe(ie.surplusPaise);
+        expect(ie.income.map((l) => l.key)).not.toContain(CORPUS_HEAD);
+        previous = totals;
+      }
+    }
   });
 });

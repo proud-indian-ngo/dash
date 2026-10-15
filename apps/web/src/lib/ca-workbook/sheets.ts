@@ -4,7 +4,10 @@ import type {
   WorkbookFacts,
   WorkbookMovement,
 } from "@pi-dash/db/queries/ca-workbook";
-import { GENERAL_FUND_ID } from "@pi-dash/shared/constants";
+import {
+  CAPITAL_RECEIPT_HEAD_IDS,
+  GENERAL_FUND_ID,
+} from "@pi-dash/shared/constants";
 import {
   LEDGER_SOURCE_LABELS,
   LEDGER_SOURCE_TYPES,
@@ -182,17 +185,21 @@ function standingEntriesBySource(entries: readonly WorkbookEntry[]) {
   return standing;
 }
 
-/** Which recognition a movement belongs with: a fee is an expense, a gift's money in or back out is income. */
-function headTypeForMovement(
+/**
+ * Which recognition a movement belongs with: a fee is an expense; a gift's
+ * money in or back out is income, or for a corpus gift a capital receipt
+ * credited to the Corpus Fund (a fund head).
+ */
+function headTypesForMovement(
   kind: WorkbookMovement["kind"]
-): WorkbookEntry["headType"] | null {
+): readonly WorkbookEntry["headType"][] {
   if (kind === "fee" || kind === "tax_remittance") {
-    return "expense";
+    return ["expense"];
   }
   if (kind === "receipt" || kind === "refund") {
-    return "income";
+    return ["income", "fund"];
   }
-  return null;
+  return [];
 }
 
 interface AccountTotals {
@@ -307,12 +314,10 @@ export function receiptsAndPaymentsSheet(facts: WorkbookFacts): WorkbookSheet {
       ),
     });
     for (const m of inYearMovements) {
-      const headType = headTypeForMovement(m.kind);
-      const matching = headType
-        ? (standing.get(`${m.sourceType}:${m.sourceId}`) ?? []).filter(
-            (e) => e.headType === headType
-          )
-        : [];
+      const headTypes = headTypesForMovement(m.kind);
+      const matching = (
+        standing.get(`${m.sourceType}:${m.sourceId}`) ?? []
+      ).filter((e) => headTypes.includes(e.headType));
       const kind = MOVEMENT_KIND_LABELS[m.kind];
       rows.push({
         cells: [
@@ -513,9 +518,49 @@ function groupSection(
 }
 
 /**
+ * The year's capital receipts, apart from income: corpus gifts less their
+ * refunds, by head and fund, credited to the fund directly (the balance
+ * sheet items show them as the fund's additions). None, no rows.
+ */
+function capitalReceiptRows(entries: readonly WorkbookEntry[]): WorkbookRow[] {
+  const groups = new Map<string, Group>();
+  for (const e of entries) {
+    if (
+      e.headType === "fund" &&
+      CAPITAL_RECEIPT_HEAD_IDS.includes(e.accountHeadId)
+    ) {
+      addTo(
+        groups,
+        `${e.accountHeadId}:${e.fundId}`,
+        `${e.headName} (${e.fundName})`,
+        signedPaise(e.effect, e.amountPaise)
+      );
+    }
+  }
+  if (groups.size === 0) {
+    return [];
+  }
+  return [
+    { cells: [null, null, null] },
+    {
+      bold: true,
+      cells: [
+        "Capital receipts (credited to the fund, not income)",
+        null,
+        null,
+      ],
+    },
+    ...[...groups.values()].sort(byLabel).map((group): WorkbookRow => ({
+      cells: [group.label, "All programmes", rupees(group.paise)],
+    })),
+  ];
+}
+
+/**
  * The year's income and expenditure by account head and programme, with a
  * total per head, per section and per programme, and the surplus (income
  * less expenditure). The totals tie to the income and expenditure sheet.
+ * Corpus gifts are no income: they follow as capital receipts.
  */
 export function summarySheet(facts: WorkbookFacts): WorkbookSheet {
   const entries = facts.entries.filter((e) => inYear(e.economicOn, facts));
@@ -578,6 +623,7 @@ export function summarySheet(facts: WorkbookFacts): WorkbookSheet {
           rupees(income.totalPaise - expenditure.totalPaise),
         ],
       },
+      ...capitalReceiptRows(entries),
       { cells: [null, null, null] },
       { bold: true, cells: ["By programme", null, null] },
       ...programmeRows,
@@ -695,29 +741,47 @@ function headItems(facts: WorkbookFacts, headType: "asset" | "liability") {
 }
 
 interface FundItem extends Item {
-  /**
-   * For a fund income or expenditure is posted to, its two parts as the
-   * statements' fund note shows them: the opening balance (fund balance
-   * entries plus every earlier year's surplus, with any other fund balance
-   * entry of the year) and the current year's surplus or deficit.
-   */
-  parts: { opening: ItemTotals; surplus: ItemTotals } | null;
   /** The General Fund's year is a surplus or deficit; another fund's, additions or deductions. */
   general: boolean;
+  /**
+   * For a fund with income or expenditure or a capital receipt posted to
+   * it, its parts as the statements' fund note shows them: the opening
+   * balance (fund balance entries, earlier years' capital receipts and
+   * every earlier year's surplus), the year's capital receipts (corpus
+   * gifts credited straight to the Corpus Fund, less their refunds, by
+   * effect) and the year's surplus or deficit.
+   */
+  parts: {
+    additions: ItemTotals | null;
+    opening: ItemTotals;
+    surplus: ItemTotals | null;
+  } | null;
 }
+
+/** A net figure as an increase, or a decrease when negative. */
+const netTotals = (paise: number): ItemTotals => ({
+  decreasesPaise: Math.max(-paise, 0),
+  increasesPaise: Math.max(paise, 0),
+  openingPaise: 0,
+});
 
 /**
  * Fund items, by fund. Income and expenditure roll into the fund each
  * entry is posted to (the General Fund for unrestricted income): earlier
  * years' surplus is part of the fund's opening and the year's surplus is
- * its increase (a deficit its decrease). No year-close entry is posted; the
- * roll-forward is how the books are read, so the next year needs no new
- * opening balance.
+ * its increase (a deficit its decrease). A corpus gift is no income: it is
+ * credited to the Corpus Fund directly, so it is that fund's addition of
+ * the year (a refund its deduction) and part of its opening after. No
+ * year-close entry is posted; the roll-forward is how the books are read,
+ * so the next year needs no new opening balance.
  */
 function fundItems(facts: WorkbookFacts): FundItem[] {
   const funds = new Map<
     string,
     {
+      additions: ItemTotals;
+      hasAdditions: boolean;
+      hasCapital: boolean;
       hasSurplus: boolean;
       label: string;
       opening: ItemTotals;
@@ -733,13 +797,23 @@ function fundItems(facts: WorkbookFacts): FundItem[] {
       continue;
     }
     const fund = funds.get(e.fundId) ?? {
+      additions: emptyTotals(),
+      hasAdditions: false,
+      hasCapital: false,
       hasSurplus: false,
       label: e.fundName,
       opening: emptyTotals(),
       surplusPaise: 0,
     };
     if (surplus === null) {
-      addEntry(fund.opening, e, facts);
+      // A fund that takes capital receipts shows its parts every year.
+      fund.hasCapital ||= CAPITAL_RECEIPT_HEAD_IDS.includes(e.accountHeadId);
+      if (isOpeningEntry(e, facts)) {
+        addEntry(fund.opening, e, facts);
+      } else {
+        fund.hasAdditions = true;
+        addEntry(fund.additions, e, facts);
+      }
     } else {
       fund.hasSurplus = true;
       if (e.economicOn < facts.year.startsOn) {
@@ -751,17 +825,21 @@ function fundItems(facts: WorkbookFacts): FundItem[] {
     funds.set(e.fundId, fund);
   }
   return [...funds]
-    .map(([fundId, { hasSurplus, label, opening, surplusPaise }]): FundItem => {
-      const surplus: ItemTotals = {
-        decreasesPaise: Math.max(-surplusPaise, 0),
-        increasesPaise: Math.max(surplusPaise, 0),
-        openingPaise: 0,
-      };
+    .map(([fundId, fund]): FundItem => {
+      const surplus = netTotals(fund.surplusPaise);
+      const additions = fund.hasAdditions ? fund.additions : null;
       return {
         general: fundId === GENERAL_FUND_ID,
-        label,
-        parts: hasSurplus ? { opening, surplus } : null,
-        totals: sumTotals([opening, surplus]),
+        label: fund.label,
+        parts:
+          fund.hasSurplus || fund.hasAdditions || fund.hasCapital
+            ? {
+                additions,
+                opening: fund.opening,
+                surplus: fund.hasSurplus ? surplus : null,
+              }
+            : null,
+        totals: sumTotals([fund.opening, fund.additions, surplus]),
       };
     })
     .filter(({ totals }) => !isZero(totals))
@@ -774,23 +852,39 @@ const isZero = (t: ItemTotals) =>
 
 /**
  * A fund's rows: one item, or for a fund carrying income less expenditure
- * its opening balance and the year's net figure (the General Fund's current
- * year surplus/(deficit), another fund's additions/(deductions); the gross
- * income and expenditure are in the I&E sheets) with the fund's total in
- * bold. A fund that is zero throughout has no row.
+ * or capital receipts its opening balance, the year's figure and the
+ * fund's total in bold. The General Fund's year is its current year
+ * surplus/(deficit), a net figure (the gross income and expenditure are in
+ * the I&E sheets). Another fund's is its additions/(deductions) during the
+ * year: its capital receipts (for the Corpus Fund, the corpus gifts less
+ * their refunds, gross) plus any surplus posted to it, net. A fund that is
+ * zero throughout has no row.
  */
 function fundRows({ general, label, parts, totals }: FundItem): WorkbookRow[] {
   if (!parts) {
     return [itemRow(label, totals)];
   }
+  const additionsLabel = `${label}: additions/(deductions) during the year`;
+  const year: WorkbookRow[] = general
+    ? [
+        itemRow(
+          `${label}: current year surplus/(deficit)`,
+          parts.surplus ?? emptyTotals()
+        ),
+        ...(parts.additions ? [itemRow(additionsLabel, parts.additions)] : []),
+      ]
+    : [
+        itemRow(
+          additionsLabel,
+          sumTotals([
+            parts.additions ?? emptyTotals(),
+            parts.surplus ?? emptyTotals(),
+          ])
+        ),
+      ];
   return [
     itemRow(`${label}: opening balance`, parts.opening),
-    itemRow(
-      general
-        ? `${label}: current year surplus/(deficit)`
-        : `${label}: additions/(deductions) during the year`,
-      parts.surplus
-    ),
+    ...year,
     totalRow(`${label} total`, totals),
   ];
 }
@@ -806,7 +900,8 @@ export interface BalanceCheck {
  * Each account, fixed asset, liability and fund from its opening at 1 April
  * through the year's increases and decreases to its closing at 31 March (a
  * fund carrying income less expenditure as its opening balance plus the
- * current year surplus/(deficit), which ties to the summary's surplus);
+ * current year surplus/(deficit), which ties to the summary's surplus; the
+ * Corpus Fund's corpus gifts as its additions during the year);
  * bank and fixed deposit closings beside their last bank statement balance;
  * and the check row: assets less funds and liabilities, zero when the books
  * balance.

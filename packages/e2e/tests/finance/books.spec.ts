@@ -318,6 +318,49 @@ test.describe("Books (treasurer)", () => {
     await expect(page.getByRole("dialog")).toContainText("Reversal");
   });
 
+  test("credits a corpus gift to the Corpus Fund, never as income", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "finance_admin", "Treasurer test");
+    test.setTimeout(120_000);
+    await books("ensure-opening", YEAR);
+    const run = `${Date.now()}${testInfo.retry}`;
+    const fixture = await books("corpus-gift", run);
+
+    await page.goto("/finance/books");
+    await waitForZeroReady(page);
+    await postPending(page);
+    await expect
+      .poll(() => books<string[]>("entries", fixture.id), { timeout: 30_000 })
+      .toEqual(["CORPUS_DONATIONS CORPUS 70000"]);
+    await expect(
+      railAccount(page, fixture.bankName).getByTestId("books-account-balance")
+    ).toHaveText("₹700.00", { timeout: 15_000 });
+
+    // Not in income and expenditure.
+    await page.getByRole("tab", { name: "Income & expenditure" }).click();
+    await expect(page.getByTestId("income-expenditure")).toBeVisible();
+    await expect(
+      page
+        .getByTestId("income-expenditure")
+        .getByRole("row")
+        .filter({ hasText: "Corpus donations" })
+    ).toHaveCount(0);
+
+    // The Corpus Fund shows it among the year's additions.
+    await page.getByRole("tab", { name: "Balance summary" }).click();
+    await expect(
+      page
+        .getByTestId("balance-funds")
+        .getByRole("listitem")
+        .filter({ hasText: "Corpus Fund" })
+        .getByTestId("balance-fund-movement")
+    ).toHaveText(
+      /^Opening balance -?₹[\d,.]+ · Additions during the year ₹[\d,.]+$/
+    );
+    await expect(page.getByTestId("balance-check")).toHaveText("Balances");
+  });
+
   test("lists a gift waiting for a closed year, and posts it once the year reopens", async ({
     page,
   }, testInfo) => {

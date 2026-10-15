@@ -13,6 +13,7 @@ import type {
   DeductionEligible,
   DonationType,
 } from "@pi-dash/shared/constants";
+import { donationTypeFundIssue } from "@pi-dash/shared/contribution-programme";
 import { TAX_CERTIFICATE_LABELS } from "@pi-dash/shared/donations-return";
 import {
   CONTRIBUTION_CHANNEL_LABELS,
@@ -59,6 +60,32 @@ function withDescription(label: string, description: string | null) {
 export function formatReceivedOn(epoch: number): string {
   const date = epochToLocalDate(epoch);
   return date ? format(date, DATE) : "—";
+}
+
+/**
+ * The gift's fund, flagged when it was recorded before the corpus type
+ * decided the fund: a corpus gift against another fund (the books credit
+ * the Corpus Fund) or another type against the Corpus Fund.
+ */
+function FundFact({ row }: { row: ContributionRow }) {
+  const donationType = (row.donationType ?? "voluntary") as DonationType;
+  const issue = donationTypeFundIssue({ donationType, fundId: row.fundId });
+  if (!issue) {
+    return <>{row.fund?.name ?? "—"}</>;
+  }
+  return (
+    <span className="flex flex-col gap-1">
+      <span>{row.fund?.name ?? "—"}</span>
+      <span
+        className="text-destructive text-xs"
+        data-testid="contribution-fund-mismatch"
+      >
+        {donationType === "corpus"
+          ? `${issue}: the books credit the Corpus Fund. Edit the gift to move it, or change its type.`
+          : `${issue}: the books count it as income of that fund. Edit the gift to change its fund, or make it a corpus gift.`}
+      </span>
+    </span>
+  );
 }
 
 /** Refunds recorded against the contribution: date, amount and reference. */
@@ -221,7 +248,7 @@ export function ContributionDetailSheet({
           string,
           ReactNode,
         ][])),
-    ["Fund", row.fund?.name ?? "—"],
+    ["Fund", <FundFact key="fund" row={row} />],
     ["Programme", row.programme?.name ?? "—"],
     ["Project", row.project?.name ?? "—"],
     ["Reference", row.reference ?? "—"],

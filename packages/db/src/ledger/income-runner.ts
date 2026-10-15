@@ -2,6 +2,7 @@ import { LEDGER_CUTOVER_ON } from "@pi-dash/shared/ledger";
 import { eq } from "drizzle-orm";
 
 import { db } from "..";
+import { appConfig } from "../schema/app-config";
 import { fiscalYear } from "../schema/finance-dimensions";
 import type { LedgerTx } from "./engine";
 import {
@@ -14,6 +15,7 @@ import {
   type SweepResult,
   sweepIncomeSources,
 } from "./income-posting";
+import { INCOME_RULES_VERSION } from "./income-rules";
 
 /**
  * Server only. Runs income posting against the app database, one
@@ -51,7 +53,39 @@ export async function postIncomeSourceNow(
   return { related: related.length, result };
 }
 
-/** Posts everything not up to date, stopping at the deadline (epoch ms). */
+/** The income rules version every source was last looked at under (`app_config`). */
+const INCOME_RULES_VERSION_KEY = "ledger_income_rules_version";
+
+async function sweptRulesVersion(): Promise<number> {
+  const [row] = await db
+    .select({ value: appConfig.value })
+    .from(appConfig)
+    .where(eq(appConfig.key, INCOME_RULES_VERSION_KEY))
+    .limit(1);
+  const version = Number(row?.value ?? 0);
+  return Number.isInteger(version) ? version : 0;
+}
+
+async function recordSweptRulesVersion() {
+  const value = String(INCOME_RULES_VERSION);
+  await db
+    .insert(appConfig)
+    .values({ key: INCOME_RULES_VERSION_KEY, updatedAt: new Date(), value })
+    .onConflictDoUpdate({
+      set: { updatedAt: new Date(), value },
+      target: appConfig.key,
+    });
+}
+
+/**
+ * Posts everything not up to date, stopping at the deadline (epoch ms).
+ * After a rule change (`INCOME_RULES_VERSION` moved on), an incremental run
+ * looks at every source instead, so sources posted under the old rule are
+ * reversed and reposted on the next run, not the next Sunday; once a run
+ * over everything finishes with nothing left or failed, the version is
+ * recorded and runs are incremental again. A source in a closed year can't
+ * be reposted: it waits ("Year closed") and its books stay as they are.
+ */
 export async function postPendingIncome(
   options: ListOptions & {
     actorId: string | null;
@@ -59,7 +93,19 @@ export async function postPendingIncome(
     onFailure?: (source: IncomeSource, error: unknown) => void;
   }
 ): Promise<SweepResult> {
-  return await sweepIncomeSources({ ...options, run: inTransaction });
+  const everything =
+    !options.range &&
+    (!options.incremental ||
+      (await sweptRulesVersion()) < INCOME_RULES_VERSION);
+  const result = await sweepIncomeSources({
+    ...options,
+    incremental: options.incremental && !everything,
+    run: inTransaction,
+  });
+  if (everything && result.remaining === 0 && result.failed === 0) {
+    await recordSweptRulesVersion();
+  }
+  return result;
 }
 
 /**

@@ -8,6 +8,8 @@
  * entry's effect or the movement's direction.
  */
 
+import { CAPITAL_RECEIPT_HEAD_IDS } from "./constants";
+
 /** The first day the pi-dash ledger keeps the books (FY 2026-27). Nothing earlier is posted. */
 export const LEDGER_CUTOVER_ON = "2026-04-01";
 
@@ -460,12 +462,17 @@ export interface BalanceLine {
   key: string;
   kind: "account" | "head" | "fund";
   /**
-   * A fund that income or expenditure is posted to: its balance at the
-   * year's start (fund balance entries plus the surplus of earlier years)
-   * and the year's surplus, or deficit when negative, up to the date.
-   * `paise` is their sum.
+   * A fund that income or expenditure or capital receipts are posted to:
+   * its balance at the year's start (fund balance entries, earlier years'
+   * capital receipts and the surplus of earlier years), the year's capital
+   * receipts (corpus gifts less their refunds) and the year's surplus, or
+   * deficit when negative, up to the date. `paise` is their sum.
    */
-  movement?: { openingPaise: number; surplusPaise: number };
+  movement?: {
+    additionsPaise: number;
+    openingPaise: number;
+    surplusPaise: number;
+  };
   paise: number;
 }
 
@@ -484,8 +491,9 @@ export interface BalanceSummary {
 /**
  * The balance position at the end of `asOf`: account balances from the cash
  * book plus asset heads are the assets; liability heads the liabilities;
- * each fund's balance entries plus the income less expenditure posted to it
- * the funds. There is no year-close entry: each year's surplus simply stays
+ * each fund's balance entries, capital receipts (corpus gifts, credited
+ * straight to the Corpus Fund, never income) and the income less
+ * expenditure posted to it the funds. There is no year-close entry: each year's surplus simply stays
  * in its fund (the General Fund for unrestricted income), so a fund's
  * opening for the year starting `startsOn` carries every earlier year's
  * surplus, and the year's own surplus is shown beside it, as the audited
@@ -511,7 +519,12 @@ export function balanceSummary(input: {
   const liabilityHeads = new Map<string, number>();
   const funds = new Map<
     string,
-    { hasSurplus: boolean; paise: number; surplusPaise: number }
+    {
+      additionsPaise: number;
+      hasMovement: boolean;
+      paise: number;
+      surplusPaise: number;
+    }
   >();
   for (const e of input.entries) {
     if (e.economicOn > input.asOf) {
@@ -530,15 +543,22 @@ export function balanceSummary(input: {
       );
     } else {
       const fund = funds.get(e.fundId) ?? {
-        hasSurplus: false,
+        additionsPaise: 0,
+        hasMovement: false,
         paise: 0,
         surplusPaise: 0,
       };
       const surplus = surplusPaiseOf(e);
       if (surplus === null) {
         fund.paise += paise;
+        if (CAPITAL_RECEIPT_HEAD_IDS.includes(e.accountHeadId)) {
+          fund.hasMovement = true;
+          if (e.economicOn >= input.startsOn) {
+            fund.additionsPaise += paise;
+          }
+        }
       } else {
-        fund.hasSurplus = true;
+        fund.hasMovement = true;
         fund.paise += surplus;
         if (e.economicOn >= input.startsOn) {
           fund.surplusPaise += surplus;
@@ -558,15 +578,17 @@ export function balanceSummary(input: {
       key,
       kind: "fund",
       paise: fund.paise,
-      ...(fund.hasSurplus && {
-        // The opening is the balance less the year's surplus, so it also
-        // holds any fund-balance entry dated in the year. Today only the
-        // opening balances post to fund heads (dated the cutover year's
-        // first day, so part of its opening by design); a later in-year
-        // fund-balance posting (an adjustment) would show inside the
-        // opening here, while the workbook shows it as the year's movement.
+      ...(fund.hasMovement && {
+        // The opening is the balance less the year's capital receipts and
+        // surplus, so it also holds any other fund-balance entry dated in
+        // the year. Today only the opening balances post to the Fund
+        // balance head (dated the cutover year's first day, so part of its
+        // opening by design); a later in-year fund-balance posting (an
+        // adjustment) would show inside the opening here, while the
+        // workbook shows it as the year's movement.
         movement: {
-          openingPaise: fund.paise - fund.surplusPaise,
+          additionsPaise: fund.additionsPaise,
+          openingPaise: fund.paise - fund.additionsPaise - fund.surplusPaise,
           surplusPaise: fund.surplusPaise,
         },
       }),
