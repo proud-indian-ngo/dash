@@ -821,9 +821,11 @@ it.skipIf(!localDatabase)(
         .update(reimbursement)
         .set({ updatedAt: new Date(NOW.getTime() + 1000), userId: second })
         .where(eq(reimbursement.id, id));
+      // Only the payout names the claimant, so only the cash part moves;
+      // the expense entries stand (layer 3-3b keeps expense parts apart).
       expect(await run(tx, claimSource(id))).toMatchObject({
-        posted: 2,
-        reversed: 2,
+        posted: 1,
+        reversed: 1,
       });
       expect(await payoutMemos()).toEqual([
         "out Class outing (paid to First claimant)",

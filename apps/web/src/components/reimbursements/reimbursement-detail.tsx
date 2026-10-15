@@ -26,6 +26,7 @@ import { ChargedToCard } from "@/components/expenses/charged-to-card";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
 import { VoidDialog } from "@/components/form/void-dialog";
+import { PaidFromBank } from "@/components/income/bank/in-bank-fact";
 import { ChangeClaimantDialog } from "@/components/reimbursements/change-claimant-dialog";
 import { PaymentProofDialog } from "@/components/reimbursements/payment-proof-dialog";
 import { reimbursementHeaderMeta } from "@/components/reimbursements/reimbursement-header-meta";
@@ -380,6 +381,19 @@ export function ReimbursementDetail({
             <>
               {isReimbursement(request) ? (
                 <ChargedToCard kind="reimbursement" request={request} />
+              ) : null}
+              {isReimbursement(request) &&
+              request.status === "approved" &&
+              !voided &&
+              (hasPermission("finance.view") ||
+                hasPermission("finance.manage")) ? (
+                <DetailsCard title="In the bank">
+                  <PaidFromBank
+                    amountPaise={total}
+                    documentId={request.id}
+                    kind="reimbursement"
+                  />
+                </DetailsCard>
               ) : null}
               <BankAccountCard request={request} />
               <HistoryCard entries={request.history} />

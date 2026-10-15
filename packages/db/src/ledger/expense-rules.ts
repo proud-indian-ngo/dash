@@ -8,6 +8,7 @@ import {
   LEDGER_CUTOVER_ON,
   LEDGER_SKIP_REASONS,
   LEDGER_WAIT_REASONS,
+  type LedgerWaitReason,
   POSTING_ACTIONS,
 } from "@pi-dash/shared/ledger";
 
@@ -85,7 +86,8 @@ export interface PayingAccountFacts {
  * "Out of the main bank account (the trust deals in no cash)": the account
  * already posted from, else the bank account marked main in Settings →
  * Organisation accounts, else the only active bank account. Null with none,
- * or several and none marked; layer 3-3b adds the matched bank debit.
+ * or several and none marked. A matched bank debit overrides this for the
+ * part it pays (`paymentMovements`, layer 3-3b).
  */
 export function payingAccount(facts: PayingAccountFacts): string | null {
   return (
@@ -96,6 +98,93 @@ export function payingAccount(facts: PayingAccountFacts): string | null {
       : null)
   );
 }
+
+/**
+ * A bank debit matched to the payment (layer 3-3b): the live
+ * `statement_allocation` and its line.
+ */
+export interface BankMatchFacts {
+  /** What the line pays of this payment. */
+  amountPaise: number;
+  /** The line's bank account. */
+  orgAccountId: string;
+  statementLineId: string;
+  /** The line's value date (yyyy-MM-dd). */
+  valueOn: string;
+}
+
+/** True when a matched bank debit sits on the other side of the cutover from `day`. */
+export function matchesCrossCutover(
+  matches: readonly BankMatchFacts[],
+  day: string
+): boolean {
+  const after = day >= LEDGER_CUTOVER_ON;
+  return matches.some((m) => m.valueOn >= LEDGER_CUTOVER_ON !== after);
+}
+
+export type PaymentMovements =
+  | { kind: "ok"; movements: MovementInput[] }
+  | { kind: "wait"; reason: LedgerWaitReason };
+
+/**
+ * The money out for a payment of `totalPaise` (layer 3-3b): "the payment's
+ * account and date follow the bank". Each matched bank debit pays its part
+ * from the line's account on the line's value date (`bank_value_on` set,
+ * reconciled to the line); whatever no debit is matched to yet leaves the
+ * default paying account on the default day, as layer 3-3a posts it.
+ * Matches are taken oldest line first, so the movements are stable.
+ *
+ * Waits when the debits matched are more than the payment (its amount was
+ * lowered after matching), and when the unmatched rest has no paying
+ * account. The caller has already refused matches across the cutover.
+ */
+export function paymentMovements(input: {
+  defaultAccountId: string | null;
+  defaultOn: string;
+  matches: readonly BankMatchFacts[];
+  movement: Omit<MovementInput, "amountPaise" | "orgAccountId">;
+  totalPaise: number;
+}): PaymentMovements {
+  const matches = [...input.matches].sort(
+    (a, b) =>
+      a.valueOn.localeCompare(b.valueOn) ||
+      a.statementLineId.localeCompare(b.statementLineId)
+  );
+  const matchedPaise = matches.reduce((sum, m) => sum + m.amountPaise, 0);
+  if (matchedPaise > input.totalPaise) {
+    return { kind: "wait", reason: LEDGER_WAIT_REASONS.matchExceedsAmount };
+  }
+  const movements: MovementInput[] = matches.map((m) => ({
+    ...input.movement,
+    amountPaise: m.amountPaise,
+    bankValueOn: m.valueOn,
+    occurredOn: m.valueOn,
+    orgAccountId: m.orgAccountId,
+    statementLineId: m.statementLineId,
+  }));
+  const restPaise = input.totalPaise - matchedPaise;
+  if (restPaise > 0) {
+    if (!input.defaultAccountId) {
+      return { kind: "wait", reason: LEDGER_WAIT_REASONS.noPayingAccount };
+    }
+    movements.push({
+      ...input.movement,
+      amountPaise: restPaise,
+      // Dated explicitly only beside a matched debit (the part's own date
+      // is then the earliest debit's).
+      ...(matches.length > 0 && { occurredOn: input.defaultOn }),
+      orgAccountId: input.defaultAccountId,
+    });
+  }
+  return { kind: "ok", movements };
+}
+
+/** The cash part's date: its earliest movement (a debit can precede the approval). */
+const cashDayOf = (movements: readonly MovementInput[], fallback: string) =>
+  movements
+    .map((m) => m.occurredOn ?? fallback)
+    .sort()
+    .at(0) ?? fallback;
 
 export interface ExpenseChargeFacts {
   chargedProgrammeId: string | null;
@@ -193,6 +282,8 @@ export interface ReimbursementFacts extends PayingAccountFacts {
   hasPaymentProof: boolean;
   id: string;
   lines: ExpenseLineFacts[];
+  /** Bank debits matched to it (layer 3-3b). */
+  matches: BankMatchFacts[];
   status: string;
   title: string;
   /** The void day in India, once voided. */
@@ -218,15 +309,25 @@ export function reimbursementPlan(
     return none(LEDGER_SKIP_REASONS.notApproved);
   }
   if (claim.approvedOn !== null && claim.approvedOn < LEDGER_CUTOVER_ON) {
-    return none(LEDGER_SKIP_REASONS.beforeCutover);
+    // Approved before the cutover but paid after it, by the bank: the
+    // opening balances hold no such payable, so the CA decides.
+    return matchesCrossCutover(claim.matches, claim.approvedOn)
+      ? wait(claim.approvedOn, LEDGER_WAIT_REASONS.bankDebitAcrossCutover)
+      : none(LEDGER_SKIP_REASONS.beforeCutover);
   }
-  if (!claim.hasPaymentProof) {
+  // A matched bank debit is proof of payment too (layer 3-3b).
+  if (!(claim.hasPaymentProof || claim.matches.length > 0)) {
     return wait(claim.approvedOn, LEDGER_WAIT_REASONS.noPaymentProof);
   }
   if (!claim.approvedOn) {
     return wait(null, LEDGER_WAIT_REASONS.noApprovalDay);
   }
   const day = claim.approvedOn;
+  // Paid from the bank before the cutover: the audited opening balance
+  // already has that money gone.
+  if (matchesCrossCutover(claim.matches, day)) {
+    return wait(day, LEDGER_WAIT_REASONS.bankDebitAcrossCutover);
+  }
   const entries = expenseEntries(claim.lines, claim.charge, null, claim.title);
   if (!entries) {
     return wait(day, LEDGER_WAIT_REASONS.referenceDataMissing);
@@ -235,9 +336,15 @@ export function reimbursementPlan(
   if (totalPaise <= 0) {
     return none(LEDGER_SKIP_REASONS.nothingToPost);
   }
-  const account = payingAccount(claim);
-  if (!account) {
-    return wait(day, LEDGER_WAIT_REASONS.noPayingAccount);
+  const cash = paymentMovements({
+    defaultAccountId: payingAccount(claim),
+    defaultOn: day,
+    matches: claim.matches,
+    movement: { direction: "out", kind: "payout", memo: payoutMemo(claim) },
+    totalPaise,
+  });
+  if (cash.kind === "wait") {
+    return wait(day, cash.reason);
   }
   return {
     attention: 0,
@@ -252,17 +359,9 @@ export function reimbursementPlan(
       },
       {
         action: POSTING_ACTIONS.cash,
-        economicOn: day,
+        economicOn: cashDayOf(cash.movements, day),
         entries: [],
-        movements: [
-          {
-            amountPaise: totalPaise,
-            direction: "out",
-            kind: "payout",
-            memo: payoutMemo(claim),
-            orgAccountId: account,
-          },
-        ],
+        movements: cash.movements,
       },
     ],
   };
@@ -387,6 +486,8 @@ const PAYABLE_REQUEST_STATUSES: readonly string[] = [
 export interface VendorPaymentTransactionFacts extends PayingAccountFacts {
   amountPaise: number;
   id: string;
+  /** Bank debits matched to it (layer 3-3b). */
+  matches: BankMatchFacts[];
   /** The payment's date in India. */
   paidOn: string;
   paymentReference: string | null;
@@ -413,24 +514,30 @@ export function vendorPaymentTransactionPlan(
   ) {
     return none(LEDGER_SKIP_REASONS.notApproved);
   }
+  if (matchesCrossCutover(payment.matches, payment.paidOn)) {
+    return wait(payment.paidOn, LEDGER_WAIT_REASONS.bankDebitAcrossCutover);
+  }
   if (payment.paidOn < LEDGER_CUTOVER_ON) {
     return none(LEDGER_SKIP_REASONS.beforeCutover);
   }
   if (payment.amountPaise <= 0) {
     return none(LEDGER_SKIP_REASONS.notApproved);
   }
-  const account = payingAccount(payment);
-  if (!account) {
-    return wait(payment.paidOn, LEDGER_WAIT_REASONS.noPayingAccount);
+  const cash = paymentMovements({
+    defaultAccountId: payingAccount(payment),
+    defaultOn: payment.paidOn,
+    matches: payment.matches,
+    movement: {
+      direction: "out",
+      kind: "payout",
+      memo: payment.title,
+      paymentReference: payment.paymentReference,
+    },
+    totalPaise: payment.amountPaise,
+  });
+  if (cash.kind === "wait") {
+    return wait(payment.paidOn, cash.reason);
   }
-  const movement: MovementInput = {
-    amountPaise: payment.amountPaise,
-    direction: "out",
-    kind: "payout",
-    memo: payment.title,
-    orgAccountId: account,
-    paymentReference: payment.paymentReference,
-  };
   return {
     attention: 0,
     economicOn: payment.paidOn,
@@ -453,9 +560,94 @@ export function vendorPaymentTransactionPlan(
       },
       {
         action: POSTING_ACTIONS.cash,
-        economicOn: payment.paidOn,
+        economicOn: cashDayOf(cash.movements, payment.paidOn),
         entries: [],
-        movements: [movement],
+        movements: cash.movements,
+      },
+    ],
+  };
+}
+
+// ── Bank charges and taxes on a bank debit ──────────────────────────────────
+
+export interface StatementChargeFacts {
+  /** The live bank charges on the line (zero when none). */
+  bankChargesPaise: number;
+  id: string;
+  orgAccountId: string;
+  /** The live tax or government fee payment on the line. */
+  taxPaise: number;
+  valueOn: string;
+}
+
+/**
+ * A bank debit marked as bank charges or a tax payment (layer 3-3b): money
+ * out with no document behind it, so the line itself is the source. "Bank
+ * charges" is an expense under its reference head; a tax payment is an
+ * expense under "Taxes and government fees", noted for the CA (the trust
+ * deducts no TDS, so it is not the TDS remittance of the cutover table).
+ * The money leaves the line's account on its value date (`fee` and
+ * `tax_remittance`), reconciled to the line. General Fund, no programme.
+ * A line before the cutover is evidence only.
+ */
+export function statementChargePlan(
+  line: StatementChargeFacts | null
+): SourcePlan {
+  if (!line) {
+    return none(LEDGER_SKIP_REASONS.deleted);
+  }
+  if (line.bankChargesPaise <= 0 && line.taxPaise <= 0) {
+    return none(LEDGER_SKIP_REASONS.unmatched);
+  }
+  if (line.valueOn < LEDGER_CUTOVER_ON) {
+    return none(LEDGER_SKIP_REASONS.beforeCutover);
+  }
+  const day = line.valueOn;
+  const parts = [
+    {
+      amountPaise: line.bankChargesPaise,
+      headId: LEDGER_ACCOUNT_HEAD_IDS.bankCharges,
+      kind: "fee" as const,
+      memo: "Bank charges",
+    },
+    {
+      amountPaise: line.taxPaise,
+      headId: LEDGER_ACCOUNT_HEAD_IDS.taxesAndFees,
+      kind: "tax_remittance" as const,
+      memo: "Tax or government fee",
+    },
+  ].filter((p) => p.amountPaise > 0);
+  return {
+    attention: 0,
+    economicOn: day,
+    kind: "post",
+    parts: [
+      {
+        action: POSTING_ACTIONS.recognise,
+        economicOn: day,
+        entries: parts.map((p) => ({
+          accountHeadId: p.headId,
+          amountPaise: p.amountPaise,
+          effect: "increase" as const,
+          fundId: GENERAL_FUND_ID,
+          memo: p.memo,
+        })),
+        movements: [],
+      },
+      {
+        action: POSTING_ACTIONS.cash,
+        economicOn: day,
+        entries: [],
+        movements: parts.map((p) => ({
+          amountPaise: p.amountPaise,
+          bankValueOn: day,
+          direction: "out" as const,
+          kind: p.kind,
+          memo: p.memo,
+          occurredOn: day,
+          orgAccountId: line.orgAccountId,
+          statementLineId: line.id,
+        })),
       },
     ],
   };

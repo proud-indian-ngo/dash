@@ -41,6 +41,7 @@ export function sourceLinkProps(
     case LEDGER_SOURCE_TYPES.otherIncome:
       return { search: { tab: "other" }, to: "/income" };
     case LEDGER_SOURCE_TYPES.statementTransfer:
+    case LEDGER_SOURCE_TYPES.statementCharge:
       return { search: { tab: "matched" }, to: "/income/bank" };
     case LEDGER_SOURCE_TYPES.reimbursement:
       return { to: `/reimbursements/${sourceId}` };

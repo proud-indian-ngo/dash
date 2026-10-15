@@ -36,6 +36,12 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import {
+  type DebitLineView,
+  DebitReconciliation,
+  FindDebitMatchDialog,
+  UnseenPaymentsList,
+} from "@/components/income/bank/debit-match";
+import {
   IgnoreLineDialog,
   LineNoteDialog,
   TransferLineDialog,
@@ -58,17 +64,28 @@ import { useApp } from "@/context/app-context";
 import {
   findBankStatementMatches,
   getBankStatementSummary,
+  getDebitSuggestions,
+  getUnseenPayments,
   updateStatementLine,
 } from "@/functions/bank-statements";
 import { guessChannel } from "@/lib/bank-statement/labels";
 import { referenceIsFromNarration } from "@/lib/bank-statement/match";
 import type {
   BankStatementSummaryResponse,
+  DebitSuggestionsResponse,
   StatementLineAction,
+  UnseenPaymentsResponse,
 } from "@/lib/bank-statement/types";
 import { assertAnyPermission } from "@/lib/route-guards";
 
-const LINE_TABS = ["review", "out", "matched", "ignored", "all"] as const;
+const LINE_TABS = [
+  "review",
+  "out",
+  "matched",
+  "ignored",
+  "all",
+  "unseen",
+] as const;
 type LineTab = (typeof LINE_TABS)[number];
 
 const ALL_MONTHS = "all";
@@ -84,7 +101,11 @@ export const Route = createFileRoute("/_app/income/bank/")({
 });
 
 const inTab = (line: StatementLineRow, tab: LineTab) => {
-  // Unmatched credits wait for review; unmatched debits wait for the ledger.
+  // Unmatched credits wait for review; unmatched debits wait to be matched
+  // to claims and vendor payments, or explained (layer 3-3b).
+  if (tab === "unseen") {
+    return false;
+  }
   if (tab === "review") {
     return line.matchStatus === "unmatched" && line.direction === "credit";
   }
@@ -192,13 +213,106 @@ function emptyTitle(lineCount: number, tab: LineTab): string {
     return "All money in is matched or ignored";
   }
   if (tab === "out") {
-    return "No money out left to note";
+    return "All money out is matched or explained";
   }
   return "No lines";
 }
 
+/** A debit's suggested claims and payments, refetched as the lines change. */
+function useDebitSuggestions(
+  orgAccountId: string | null,
+  enabled: boolean,
+  refreshKey: string
+) {
+  const load = useServerFn(getDebitSuggestions);
+  const [state, setState] = useState<DebitSuggestionsResponse | null>(null);
+  useEffect(() => {
+    if (!(orgAccountId && enabled)) {
+      setState(null);
+      return;
+    }
+    let cancelled = false;
+    load({ data: { orgAccountId } })
+      .then((result) => {
+        if (!cancelled) {
+          setState(result);
+        }
+      })
+      .catch((error: unknown) => {
+        log.error({
+          action: "income.debitSuggestions",
+          caughtError: error instanceof Error ? error.message : String(error),
+          component: "BankStatementsPage",
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [orgAccountId, enabled, refreshKey, load]);
+  return state;
+}
+
+/** Approved claims and payments since the cutover no bank debit pays yet. */
+function useUnseenPayments(enabled: boolean, refreshKey: string) {
+  const load = useServerFn(getUnseenPayments);
+  const [state, setState] = useState<UnseenPaymentsResponse | null>(null);
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+    let cancelled = false;
+    load()
+      .then((result) => {
+        if (!cancelled) {
+          setState(result);
+        }
+      })
+      .catch((error: unknown) => {
+        log.error({
+          action: "income.unseenPayments",
+          caughtError: error instanceof Error ? error.message : String(error),
+          component: "BankStatementsPage",
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, refreshKey, load]);
+  return state;
+}
+
 const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "Something went wrong";
+
+function UnseenPayments({
+  documents,
+}: {
+  documents: UnseenPaymentsResponse["documents"] | null;
+}) {
+  if (documents === null) {
+    return null;
+  }
+  if (documents.length === 0) {
+    return (
+      <NotFoundState
+        description="Every approved claim and vendor payment since 1 Apr 2026 is matched to a bank debit."
+        icon={CheckmarkCircle02Icon}
+        title="Everything paid is seen in the bank"
+      />
+    );
+  }
+  return (
+    <div className="grid gap-2">
+      <p className="text-muted-foreground text-sm">
+        Paid per approval, not seen in the bank: approved claims and vendor
+        payments since 1 Apr 2026 that no bank debit is matched to yet. The
+        books post them from the main bank account on the approval or payment
+        day until one is.
+      </p>
+      <UnseenPaymentsList documents={documents} />
+    </div>
+  );
+}
 
 function BankStatementsPage() {
   const { hasPermission } = useApp();
@@ -242,7 +356,10 @@ function BankStatementsPage() {
   );
   const lines = lineRows as StatementLineRow[];
   const loading = lines.length === 0 && linesResult.type !== "complete";
-  const summary = useSummary(accountId, linesSignature(lines));
+  const signature = linesSignature(lines);
+  const summary = useSummary(accountId, signature);
+  const suggestions = useDebitSuggestions(accountId, canManage, signature);
+  const unseen = useUnseenPayments(tab === "unseen", signature);
 
   const months = [...new Set(lines.map(monthOf))].sort().reverse();
   const inMonth = lines.filter(
@@ -260,6 +377,13 @@ function BankStatementsPage() {
   const [noting, setNoting] = useState<StatementLineRow | null>(null);
   const [transferring, setTransferring] = useState<string | null>(null);
   const [finding, setFinding] = useState(false);
+  const [matchingDebit, setMatchingDebit] = useState<DebitLineView | null>(
+    null
+  );
+  const [marking, setMarking] = useState<{
+    kind: "bank_charges" | "needs_claim" | "tax_payment";
+    line: StatementLineRow;
+  } | null>(null);
 
   const run = useEventCallback(
     async (input: StatementLineAction, success: string): Promise<boolean> => {
@@ -280,6 +404,34 @@ function BankStatementsPage() {
     onAccept: (line) => {
       run({ action: "accept", lineId: line.id }, "Line matched");
     },
+    onBankCharges: (line) => setMarking({ kind: "bank_charges", line }),
+    onClearNeedsClaim: (line) => {
+      run(
+        { action: "clear_needs_claim", lineId: line.id },
+        "No longer waiting for a claim"
+      );
+    },
+    onConfirm: (line, suggestion) => {
+      run(
+        {
+          action: "match_debit",
+          difference: "none",
+          items: [{ id: suggestion.id, kind: suggestion.kind }],
+          lineId: line.id,
+          reason: suggestion.reason,
+        },
+        "Debit matched"
+      );
+    },
+    onDismissSuggestion: (line, documentId) => {
+      run(
+        { action: "dismiss_debit", documentId, lineId: line.id },
+        "Suggestion dismissed"
+      );
+    },
+    onFind: (line) => setMatchingDebit(line),
+    onNeedsClaim: (line) => setMarking({ kind: "needs_claim", line }),
+    onTaxPayment: (line) => setMarking({ kind: "tax_payment", line }),
     onDismiss: (line) => {
       run({ action: "dismiss", lineId: line.id }, "Suggestion dismissed");
     },
@@ -364,7 +516,7 @@ function BankStatementsPage() {
             </>
           ) : null
         }
-        description="Lines imported from bank statements, matched to Razorpay settlements, donations and give.do payouts. A line never becomes a donation by itself."
+        description="Lines imported from bank statements: money in matched to Razorpay settlements, donations and give.do payouts, money out to claims, vendor payments and bank charges. A line never becomes a donation by itself."
         title="Bank statements"
       />
       {noBanks ? (
@@ -423,6 +575,7 @@ function BankStatementsPage() {
             </Select>
           </div>
           <StatsCards items={summaryItems(summary)} />
+          <DebitReconciliation summary={summary?.debits ?? null} />
           {accountActive ? null : (
             <p
               className="text-muted-foreground text-sm"
@@ -453,9 +606,14 @@ function BankStatementsPage() {
                 Ignored {counts.ignored}
               </TabsTrigger>
               <TabsTrigger value="all">All {counts.all}</TabsTrigger>
+              <TabsTrigger value="unseen">
+                Not in bank{unseen ? ` ${unseen.documents.length}` : ""}
+              </TabsTrigger>
             </TabsList>
           </Tabs>
-          {!loading && visible.length === 0 ? (
+          {tab === "unseen" ? (
+            <UnseenPayments documents={unseen?.documents ?? null} />
+          ) : !loading && visible.length === 0 ? (
             <NotFoundState
               actions={
                 canManage && lines.length === 0 ? (
@@ -488,11 +646,12 @@ function BankStatementsPage() {
                   canRecord={canRecord && accountActive}
                   key={line.id}
                   line={line}
+                  suggestions={suggestions?.lines[line.id]}
                 />
               ))}
             </ul>
           )}
-          {visible.length > shown ? (
+          {tab !== "unseen" && visible.length > shown ? (
             <div>
               <Button
                 onClick={() => setShown((n) => n + PAGE)}
@@ -585,6 +744,77 @@ function BankStatementsPage() {
           }
         }}
         open={transferring !== null}
+      />
+      <FindDebitMatchDialog
+        line={matchingDebit}
+        onOpenChange={(open) => {
+          if (!open) {
+            setMatchingDebit(null);
+          }
+        }}
+        onSubmit={async (items, difference) =>
+          matchingDebit
+            ? await run(
+                {
+                  action: "match_debit",
+                  difference,
+                  items,
+                  lineId: matchingDebit.id,
+                  reason: "manual",
+                },
+                "Debit matched"
+              )
+            : false
+        }
+      />
+      <LineNoteDialog
+        description={
+          marking?.kind === "needs_claim"
+            ? "The line stays open until someone files the claim and it is matched. Say who to chase."
+            : marking?.kind === "tax_payment"
+              ? "Posts what is left of the debit as an expense under Taxes and government fees, for the CA to classify."
+              : "Posts what is left of the debit as an expense under Bank charges."
+        }
+        initial={marking?.line.note ?? ""}
+        onOpenChange={(open) => {
+          if (!open) {
+            setMarking(null);
+          }
+        }}
+        onSubmit={async (note) => {
+          if (
+            marking &&
+            (await run(
+              {
+                action: marking.kind,
+                lineId: marking.line.id,
+                note: note || null,
+              },
+              marking.kind === "needs_claim"
+                ? "Flagged as needing a claim"
+                : marking.kind === "tax_payment"
+                  ? "Marked as a tax payment"
+                  : "Marked as bank charges"
+            ))
+          ) {
+            setMarking(null);
+          }
+        }}
+        open={marking !== null}
+        submitLabel={
+          marking?.kind === "needs_claim"
+            ? "Flag line"
+            : marking?.kind === "tax_payment"
+              ? "Mark as tax payment"
+              : "Mark as bank charges"
+        }
+        title={
+          marking?.kind === "needs_claim"
+            ? "Needs a claim"
+            : marking?.kind === "tax_payment"
+              ? "Tax payment"
+              : "Bank charges"
+        }
       />
       <LineNoteDialog
         description="A short note for whoever reviews this line next."

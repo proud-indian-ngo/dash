@@ -644,6 +644,7 @@ export interface LedgerPostSourcePayload {
     | "gateway_settlement"
     | "other_income"
     | "reimbursement"
+    | "statement_charge"
     | "statement_transfer"
     | "vendor_payment"
     | "vendor_payment_transaction";

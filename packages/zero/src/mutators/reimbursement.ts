@@ -51,7 +51,12 @@ import {
   insertRelations,
   replaceRelations,
 } from "./submission-helpers";
-import { assertDeletable, assertNotVoided, voidSchema } from "./void";
+import {
+  assertDeletable,
+  assertNotMatchedToBank,
+  assertNotVoided,
+  voidSchema,
+} from "./void";
 import {
   expenseDay,
   planVoucherFields,
@@ -1045,6 +1050,7 @@ export const reimbursementMutators = {
     if (entity.voidedAt) {
       return;
     }
+    await assertNotMatchedToBank(tx, [ledgerSource(args.id)]);
     const now = Date.now();
     await tx.mutate.reimbursement.update({
       id: args.id,

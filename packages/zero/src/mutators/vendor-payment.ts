@@ -53,7 +53,12 @@ import {
   recalculateParentStatus,
   transactionAttachmentKeyPrefixes,
 } from "./vendor-payment-transaction";
-import { assertDeletable, assertNotVoided, voidSchema } from "./void";
+import {
+  assertDeletable,
+  assertNotMatchedToBank,
+  assertNotVoided,
+  voidSchema,
+} from "./void";
 
 /** Its expense in the books (finance layer 3-3a); its payments follow it. */
 const ledgerSource = (id: string): LedgerSourceRef => ({
@@ -1041,6 +1046,16 @@ export const vendorPaymentMutators = {
     if (entity.voidedAt) {
       return;
     }
+    const transactions = await tx.run(
+      zql.vendorPaymentTransaction.where("vendorPaymentId", args.id)
+    );
+    await assertNotMatchedToBank(
+      tx,
+      transactions.map((t) => ({
+        sourceId: t.id,
+        sourceType: "vendor_payment_transaction" as const,
+      }))
+    );
     const now = Date.now();
     const voided = {
       updatedAt: now,
@@ -1053,9 +1068,6 @@ export const vendorPaymentMutators = {
       ...buildHistoryInsert(ctx.userId, "voided", now, args.reason),
       vendorPaymentId: args.id,
     });
-    const transactions = await tx.run(
-      zql.vendorPaymentTransaction.where("vendorPaymentId", args.id)
-    );
     for (const t of transactions) {
       if (t.voidedAt) {
         continue;

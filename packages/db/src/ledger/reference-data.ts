@@ -146,6 +146,28 @@ export const LEDGER_REFERENCE_HEADS = [
     tallyLedgerName: "Supplier Advances",
     type: "asset" as const,
   },
+  // Bank debit matching (layer 3-3b): money out the bank statement shows
+  // with no claim or vendor payment behind it.
+  {
+    code: "BANK_CHARGES",
+    description:
+      "Charges the bank debits from the account: fees, SMS and card charges, and the GST on them.",
+    id: LEDGER_ACCOUNT_HEAD_IDS.bankCharges,
+    name: "Bank charges",
+    sortOrder: 620,
+    tallyLedgerName: "Bank Charges",
+    type: "expense" as const,
+  },
+  {
+    code: "TAXES_AND_FEES",
+    description:
+      "Taxes and government fees paid from the bank (the trust deducts no TDS); for the CA to classify.",
+    id: LEDGER_ACCOUNT_HEAD_IDS.taxesAndFees,
+    name: "Taxes and government fees",
+    sortOrder: 630,
+    tallyLedgerName: "Rates and Taxes",
+    type: "expense" as const,
+  },
 ] as const;
 
 const CORPUS_FUND = {

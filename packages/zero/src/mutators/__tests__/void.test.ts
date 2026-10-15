@@ -4,6 +4,7 @@ const enqueue = mock();
 mock.module("@pi-dash/jobs/enqueue", () => ({ enqueue }));
 
 import {
+  MATCHED_TO_BANK_MESSAGE,
   POSTED_DELETE_MESSAGE,
   VOIDED_DELETE_MESSAGE,
   VOIDED_MESSAGE,
@@ -74,6 +75,7 @@ function createDb(
         voidedAt: null,
       },
     ],
+    statementAllocation: [],
     vendorPaymentTransactionAttachment: [],
     vendorPaymentTransactionHistory: [],
     ...seed,
@@ -408,5 +410,76 @@ describe("vendorPaymentTransaction.void", () => {
       { sourceId: "vpt-1", sourceType: "vendor_payment_transaction" },
       { sourceId: "vp-1", sourceType: "vendor_payment" },
     ]);
+  });
+});
+
+describe("records a bank debit is matched to (layer 3-3b)", () => {
+  const allocation = (over: Row): Row => ({
+    id: `sa-${String(over.reimbursementId ?? over.vendorPaymentTransactionId)}`,
+    releasedAt: null,
+    reimbursementId: null,
+    vendorPaymentTransactionId: null,
+    ...over,
+  });
+
+  it("refuses to void or delete a matched reimbursement, and allows it once released", async () => {
+    const db = createDb({
+      statementAllocation: [allocation({ reimbursementId: "r-1" })],
+    });
+    await expect(
+      run(reimbursementMutators.void, db, financeCtx(), {
+        id: "r-1",
+        reason: "Duplicate",
+      })
+    ).rejects.toThrow(MATCHED_TO_BANK_MESSAGE);
+    await expect(
+      run(reimbursementMutators.delete, db, financeCtx(), { id: "r-1" })
+    ).rejects.toThrow(MATCHED_TO_BANK_MESSAGE);
+    expect(db.rows("reimbursement")[0]?.voidedAt).toBeNull();
+
+    const released = createDb({
+      statementAllocation: [
+        allocation({ releasedAt: 1, reimbursementId: "r-1" }),
+      ],
+    });
+    await run(reimbursementMutators.void, released, financeCtx(), {
+      id: "r-1",
+      reason: "Duplicate",
+    });
+    expect(released.rows("reimbursement")[0]?.voidedAt).toBeNumber();
+  });
+
+  it("refuses to void a vendor payment request or payment a debit pays", async () => {
+    const db = createDb({
+      statementAllocation: [
+        allocation({ vendorPaymentTransactionId: "vpt-1" }),
+      ],
+    });
+    await expect(
+      run(vendorPaymentMutators.void, db, financeCtx(), {
+        id: "vp-1",
+        reason: "Wrong vendor",
+      })
+    ).rejects.toThrow(MATCHED_TO_BANK_MESSAGE);
+    await expect(
+      run(vendorPaymentTransactionMutators.void, db, financeCtx(), {
+        id: "vpt-1",
+        reason: "Wrong vendor",
+      })
+    ).rejects.toThrow(MATCHED_TO_BANK_MESSAGE);
+    expect(db.rows("vendorPayment")[0]?.voidedAt).toBeNull();
+    expect(db.rows("vendorPaymentTransaction")[0]?.voidedAt).toBeNull();
+  });
+
+  it("leaves the check to the server", async () => {
+    const db = createDb(
+      { statementAllocation: [allocation({ reimbursementId: "r-1" })] },
+      "client"
+    );
+    await run(reimbursementMutators.void, db, financeCtx(), {
+      id: "r-1",
+      reason: "Duplicate",
+    });
+    expect(db.rows("reimbursement")[0]?.voidedAt).toBeNumber();
   });
 });
