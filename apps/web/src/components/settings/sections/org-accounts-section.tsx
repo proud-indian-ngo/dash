@@ -74,6 +74,7 @@ const orgAccountSchema = z.object({
   active: z.boolean(),
   fcraRole: z.enum(fcraRoleValues),
   fundSource: z.enum(fundSourceValues),
+  isMain: z.boolean(),
   kind: z.enum(orgAccountKindValues, "Pick a kind"),
   name: z.string().trim().min(1, "Name is required").max(120),
 });
@@ -129,6 +130,17 @@ function OrgAccountForm({
                 label="FCRA role"
                 name="fcraRole"
                 options={fcraRoleOptions}
+              />
+            ) : null
+          }
+        </form.Subscribe>
+        <form.Subscribe selector={(state) => state.values.kind}>
+          {(kind) =>
+            kind === "bank" ? (
+              <CheckboxField
+                description="Reimbursements and vendor payments are paid out of it, so the books take them out of this account. One account at most."
+                label="Main bank account"
+                name="isMain"
               />
             ) : null
           }
@@ -222,6 +234,7 @@ function OrgAccountRow({
     >
       <span className="inline-flex items-center gap-2">
         {account.name}
+        {account.isMain ? <Badge variant="secondary">Main</Badge> : null}
         {account.active ? null : <Badge variant="outline">Inactive</Badge>}
       </span>
     </SettingsListItem>
@@ -234,6 +247,7 @@ function toMutatorArgs(id: string, values: OrgAccountFormValues) {
     fcraRole: values.fundSource === "fcra" ? values.fcraRole : "none",
     fundSource: values.fundSource,
     id,
+    isMain: values.kind === "bank" && values.isMain,
     kind: values.kind,
     name: values.name.trim(),
   };
@@ -319,6 +333,7 @@ export function OrgAccountsSection() {
               active: true,
               fcraRole: "none",
               fundSource: "domestic",
+              isMain: false,
               kind: "bank",
               name: "",
             }}
@@ -336,6 +351,7 @@ export function OrgAccountsSection() {
                 active: account.active ?? true,
                 fcraRole: account.fcraRole as FcraRole,
                 fundSource: account.fundSource as FundSource,
+                isMain: account.isMain ?? false,
                 kind: account.kind as OrgAccountKind,
                 name: account.name,
               }}

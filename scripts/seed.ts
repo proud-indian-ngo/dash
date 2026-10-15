@@ -702,6 +702,8 @@ async function seedParties(adminId: string): Promise<void> {
 const ORG_ACCOUNTS = [
   {
     id: "01930000-0000-7000-8000-000000000601",
+    // Expenses are paid out of it (books, layer 3-3a).
+    isMain: true,
     kind: "bank" as const,
     name: "HDFC current account",
   },

@@ -6,6 +6,8 @@ import { inArray } from "drizzle-orm";
 
 import { db } from "..";
 import { accountHead, fund } from "../schema/finance-dimensions";
+import type { LedgerTx } from "./engine";
+import { ensureExpenseCategoryHeads } from "./expense-heads";
 
 /**
  * The fund and account heads the books need from day one, under fixed IDs.
@@ -120,6 +122,29 @@ export const LEDGER_REFERENCE_HEADS = [
     tallyLedgerName: "Payment Gateway Charges",
     type: "expense" as const,
   },
+  // Expense posting (layer 3-3a): vendor payments until their invoice is
+  // accepted, and the parent of one head per expense
+  // category (`expense-heads.ts`).
+  {
+    code: "EXPENSES",
+    description:
+      "Programme and administration expenses; one head under it per expense category.",
+    id: LEDGER_ACCOUNT_HEAD_IDS.expenses,
+    name: "Expenses",
+    sortOrder: 690,
+    tallyLedgerName: "Expenses",
+    type: "expense" as const,
+  },
+  {
+    code: "SUPPLIER_ADVANCES",
+    description:
+      "Vendor payments made before their invoice is accepted; the accepted invoice clears them.",
+    id: LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances,
+    name: "Supplier advances",
+    sortOrder: 150,
+    tallyLedgerName: "Supplier Advances",
+    type: "asset" as const,
+  },
 ] as const;
 
 const CORPUS_FUND = {
@@ -177,6 +202,13 @@ export async function ensureLedgerReferenceData(): Promise<string[]> {
     .where(inArray(fund.id, [CORPUS_FUND_ID]));
   if (!corpus) {
     missing.push(CORPUS_FUND.code);
+  }
+  try {
+    await db.transaction((tx) =>
+      ensureExpenseCategoryHeads(tx as unknown as LedgerTx)
+    );
+  } catch (error) {
+    reportClash("Expense category heads", "EXPENSE_*", error);
   }
   if (missing.length > 0) {
     process.stderr.write(

@@ -95,6 +95,8 @@ export const orgAccountInputSchema = z.object({
   fcraRole: z.enum(fcraRoleValues).optional(),
   fundSource: z.enum(fundSourceValues).optional(),
   id: z.string(),
+  /** The main bank account, which expenses are paid from (layer 3-3a). */
+  isMain: z.boolean().optional(),
   kind: z.enum(orgAccountKindValues),
   name,
 });
@@ -631,6 +633,33 @@ function fcraRoleFor(fundSource: FundSource, fcraRole: FcraRole): FcraRole {
 }
 
 /**
+ * The main bank account: only an active bank account, and only one. Marking
+ * another one main unmarks the old one in the same transaction.
+ */
+async function applyMainAccount(
+  tx: Tx,
+  account: { active: boolean; id: string; isMain: boolean; kind: string },
+  now: number
+) {
+  if (!account.isMain) {
+    return;
+  }
+  if (account.kind !== "bank" || !account.active) {
+    throw new Error("Only an active bank account can be the main account");
+  }
+  const others = await tx.run(
+    zql.orgAccount.where("isMain", true).where("id", "!=", account.id)
+  );
+  for (const other of others) {
+    await tx.mutate.orgAccount.update({
+      id: other.id,
+      isMain: false,
+      updatedAt: now,
+    });
+  }
+}
+
+/**
  * Accounts are never deleted: contributions and other income point at them,
  * so an account that is no longer used is deactivated through update.
  */
@@ -640,12 +669,20 @@ export const orgAccountMutators = {
     await assertNameFree(tx, args);
     const now = Date.now();
     const fundSource = args.fundSource ?? "domestic";
+    const active = args.active ?? true;
+    const isMain = args.isMain ?? false;
+    await applyMainAccount(
+      tx,
+      { active, id: args.id, isMain, kind: args.kind },
+      now
+    );
     await tx.mutate.orgAccount.insert({
-      active: args.active ?? true,
+      active,
       createdAt: now,
       fcraRole: fcraRoleFor(fundSource, args.fcraRole ?? "none"),
       fundSource,
       id: args.id,
+      isMain,
       kind: args.kind,
       name: args.name,
       updatedAt: now,
@@ -658,18 +695,31 @@ export const orgAccountMutators = {
       throw new Error("Organisation account not found");
     }
     await assertNameFree(tx, args);
+    const now = Date.now();
     const fundSource = args.fundSource ?? existing.fundSource ?? "domestic";
+    const active = args.active ?? existing.active ?? true;
+    // Deactivating the main account, or making it another kind, unmarks it
+    // unless the form asked to keep it main (which is then refused).
+    const isMain =
+      args.isMain ??
+      ((existing.isMain ?? false) && active && args.kind === "bank");
+    await applyMainAccount(
+      tx,
+      { active, id: args.id, isMain, kind: args.kind },
+      now
+    );
     await tx.mutate.orgAccount.update({
-      active: args.active ?? existing.active ?? true,
+      active,
       fcraRole: fcraRoleFor(
         fundSource,
         args.fcraRole ?? existing.fcraRole ?? "none"
       ),
       fundSource,
       id: args.id,
+      isMain,
       kind: args.kind,
       name: args.name,
-      updatedAt: Date.now(),
+      updatedAt: now,
     });
   }),
 };
