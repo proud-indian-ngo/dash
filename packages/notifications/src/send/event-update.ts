@@ -4,6 +4,7 @@ import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
 import { sendWhatsAppGroupMessage } from "@pi-dash/whatsapp/messaging";
+import { whatsappTemplate } from "@pi-dash/whatsapp/template-message";
 import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 
@@ -54,6 +55,11 @@ export async function notifyEventUpdatePosted({
     title: "📝 New update",
     topic: TOPICS.EVENTS_SCHEDULE,
     userIds: eventMemberIds,
+    whatsappTemplate: whatsappTemplate(
+      "event_update_posted",
+      { author: authorName, event: eventLabel },
+      `/events/${eventId}`
+    ),
   });
 
   // Send to WhatsApp group (event group > team group fallback)
@@ -112,6 +118,11 @@ export async function notifyEventUpdateApproved({
     title: "✅ Update live!",
     to: authorId,
     topic: TOPICS.EVENTS_SCHEDULE,
+    whatsappTemplate: whatsappTemplate(
+      "event_post_approved",
+      { event: eventLabel },
+      `/events/${eventId}`
+    ),
   });
 }
 
@@ -152,6 +163,11 @@ export async function notifyEventUpdateRejected({
     title: "📝 Update not published",
     to: authorId,
     topic: TOPICS.EVENTS_SCHEDULE,
+    whatsappTemplate: whatsappTemplate(
+      "event_post_not_approved",
+      { event: eventLabel },
+      `/events/${eventId}`
+    ),
   });
 }
 
@@ -223,5 +239,10 @@ export async function notifyEventUpdatePending({
     title: "👀 Update needs review",
     topic: TOPICS.EVENTS_SCHEDULE,
     userIds: allUserIds,
+    whatsappTemplate: whatsappTemplate(
+      "event_post_needs_approval",
+      { author: authorName, event: eventLabel },
+      `/events/${eventId}`
+    ),
   });
 }

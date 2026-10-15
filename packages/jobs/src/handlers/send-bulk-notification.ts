@@ -23,6 +23,7 @@ export async function handleSendBulkNotification(
         body,
         clickAction,
         emailHtml,
+        whatsappTemplate,
       } = job.data;
 
       log.set({
@@ -49,6 +50,7 @@ export async function handleSendBulkNotification(
         title,
         topic,
         userIds,
+        whatsappTemplate: whatsappTemplate ?? null,
       });
 
       log.set({ event: "job_complete" });

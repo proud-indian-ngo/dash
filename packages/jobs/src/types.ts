@@ -1,4 +1,5 @@
 import type { VendorPaymentNoInvoiceReason } from "@pi-dash/shared/constants";
+import type { WhatsAppTemplateMessage } from "@pi-dash/whatsapp/template-message";
 
 // -- Low-level payload types ---------------------------------------------------
 
@@ -21,6 +22,8 @@ export interface BulkNotificationPayload {
   title: string;
   topicId: string;
   userIds: string[];
+  /** Needed for WhatsApp once the Cloud API is configured. */
+  whatsappTemplate?: WhatsAppTemplateMessage;
 }
 
 export interface WhatsAppPayload {
@@ -29,6 +32,8 @@ export interface WhatsAppPayload {
   imageUrl?: string;
   message: string;
   phone: string;
+  /** Sent instead of `message` when the WhatsApp Cloud API is configured. */
+  template?: WhatsAppTemplateMessage;
 }
 
 export interface ScheduledMessagePayload {

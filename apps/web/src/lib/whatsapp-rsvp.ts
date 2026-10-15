@@ -8,6 +8,7 @@ import { enqueue } from "@pi-dash/jobs/enqueue";
 import { getUserIdsWithPermission } from "@pi-dash/notifications/helpers";
 import { withFireAndForgetLog } from "@pi-dash/observability";
 import { formatPhoneForWhatsApp } from "@pi-dash/whatsapp/phone";
+import { whatsappTemplate } from "@pi-dash/whatsapp/template-message";
 import { and, eq, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { uuidv7 } from "uuidv7";
@@ -229,6 +230,15 @@ export async function processWhatsAppPollVoteWebhook(
             title: "RSVP from non-team member",
             topicId: "Account Notifications",
             userIds: adminIds,
+            whatsappTemplate: whatsappTemplate(
+              "rsvp_non_member",
+              {
+                answer: selectedOption,
+                event: event.name,
+                voter: voterName ?? "Someone",
+              },
+              `/events/${poll.eventId}`
+            ),
           });
         }
       );

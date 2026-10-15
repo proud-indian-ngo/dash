@@ -1,6 +1,7 @@
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
 import { formatPaise, sumPaise } from "@pi-dash/shared/money";
+import { whatsappTemplate } from "@pi-dash/whatsapp/template-message";
 
 import type { LineItemDetail } from "../helpers";
 import { getUserIdsWithPermission } from "../helpers";
@@ -16,6 +17,14 @@ function formatTotalSuffix(items: LineItemDetail[]): string {
     return "";
   }
   return ` (${formatPaise(computeTotal(items))})`;
+}
+
+/** The total for a WhatsApp template, which always needs an amount. */
+function formatTemplateAmount(items: LineItemDetail[]): string {
+  if (items.length === 0) {
+    return "amount not entered";
+  }
+  return formatPaise(computeTotal(items));
 }
 
 interface SubmissionNotifierConfig {
@@ -65,6 +74,7 @@ export function createSubmissionNotifier({
   statusTopic,
 }: SubmissionNotifierConfig): SubmissionNotifier {
   const listPath = `/${routePrefix}`;
+  const requestType = entityLabel.toLowerCase();
   return {
     async notifyApproved({ entityId, title, submitterId, note }) {
       const lineItems = await getLineItems(entityId);
@@ -95,6 +105,26 @@ export function createSubmissionNotifier({
         title: `✅ ${entityLabel} approved!`,
         to: submitterId,
         topic: statusTopic,
+        whatsappTemplate: note
+          ? whatsappTemplate(
+              "request_approved_with_note",
+              {
+                amount: formatTemplateAmount(lineItems),
+                note,
+                request_type: requestType,
+                title,
+              },
+              `/${routePrefix}/${entityId}`
+            )
+          : whatsappTemplate(
+              "request_approved",
+              {
+                amount: formatTemplateAmount(lineItems),
+                request_type: requestType,
+                title,
+              },
+              `/${routePrefix}/${entityId}`
+            ),
       });
     },
 
@@ -126,6 +156,16 @@ export function createSubmissionNotifier({
         title: `↩️ ${entityLabel} not approved`,
         to: submitterId,
         topic: statusTopic,
+        whatsappTemplate: whatsappTemplate(
+          "request_not_approved",
+          {
+            amount: formatTemplateAmount(lineItems),
+            reason,
+            request_type: requestType,
+            title,
+          },
+          `/${routePrefix}/${entityId}`
+        ),
       });
     },
     async notifySubmitted({ entityId, title, submitterName }) {
@@ -160,6 +200,16 @@ export function createSubmissionNotifier({
         title: `👀 New ${entityLabel.toLowerCase()} to review`,
         topic: submittedTopic,
         userIds: approverIds,
+        whatsappTemplate: whatsappTemplate(
+          "request_submitted",
+          {
+            amount: formatTemplateAmount(lineItems),
+            request_type: requestType,
+            submitter: submitterName,
+            title,
+          },
+          `/${routePrefix}/${entityId}`
+        ),
       });
     },
   };

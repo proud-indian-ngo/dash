@@ -10,6 +10,10 @@ import {
   SOCIAL_NOTIFY_MAX_LINE_LENGTH,
   SOCIAL_NOTIFY_MAX_LINES,
 } from "@pi-dash/shared/social-api";
+import {
+  type WhatsAppTemplateMessage,
+  whatsappTemplate,
+} from "@pi-dash/whatsapp/template-message";
 import { getUserPhone } from "@pi-dash/whatsapp/users";
 import { createRequestLogger } from "evlog";
 import * as z from "zod";
@@ -44,12 +48,46 @@ export function socialNotifyIdempotencyKey(
     .digest("hex");
 }
 
+const SUMMARY_MAX_LENGTH = 280;
+const SUMMARY_LINE_MAX_LENGTH = 100;
+const WHITESPACE = /\s+/g;
+
+function shortenLine(line: string): string {
+  const flat = line.replace(WHITESPACE, " ").trim();
+  return flat.length > SUMMARY_LINE_MAX_LENGTH
+    ? `${flat.slice(0, SUMMARY_LINE_MAX_LENGTH - 1).trimEnd()}…`
+    : flat;
+}
+
+/**
+ * The digest template's one-line summary: "3 items: first; second and 1
+ * more". Whole lines (each cut to ~100 characters) are included in order
+ * while the summary stays within ~280 characters, so it never ends mid-item.
+ */
+export function socialDigestSummary(lines: readonly string[]): string {
+  const prefix = `${lines.length} ${lines.length === 1 ? "item" : "items"}: `;
+  const build = (included: string[]) => {
+    const rest = lines.length - included.length;
+    return `${prefix}${included.join("; ")}${rest > 0 ? ` and ${rest} more` : ""}`;
+  };
+  const included: string[] = [];
+  for (const line of lines) {
+    const next = [...included, shortenLine(line)];
+    if (included.length > 0 && build(next).length > SUMMARY_MAX_LENGTH) {
+      break;
+    }
+    included.push(next.at(-1) as string);
+  }
+  return build(included);
+}
+
 export interface SocialNotifyDeps {
   authorize: SocialAuthorize;
   enqueueWhatsApp: (payload: {
     idempotencyKey: string;
     message: string;
     phone: string;
+    template: WhatsAppTemplateMessage;
   }) => Promise<unknown>;
   getAppConfigValues: typeof getAppConfigValues;
   getUserPhone: typeof getUserPhone;
@@ -113,6 +151,11 @@ export async function handleSocialNotifyRequest(
       idempotencyKey: socialNotifyIdempotencyKey(parsed.data, deps.now()),
       message: formatSocialDigest(parsed.data.lines),
       phone,
+      template: whatsappTemplate(
+        "social_digest",
+        { summary: socialDigestSummary(parsed.data.lines) },
+        "/social"
+      ),
     });
     log.set({ event: "digest_enqueued" });
     log.emit();

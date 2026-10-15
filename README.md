@@ -17,7 +17,7 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 - **Zero (Rocicorp)** — real-time data sync via PostgreSQL logical replication
 - **Drizzle ORM** — TypeScript-first ORM with migrations
 - **PostgreSQL** — primary database
-- **WhatsApp** — optional self-hosted WhatsApp gateway via go-whatsapp-web-multidevice
+- **WhatsApp** — Meta's official WhatsApp Cloud API for messages to people (approved templates), and the optional self-hosted go-whatsapp-web-multidevice gateway for groups and polls
 - **React Email + Resend** — transactional and notification email
 - **Zero-synced inbox** — self-owned in-app notifications with real-time sync
 - **Plate** — rich-text editor for event updates (bold, italic, lists, inline images)
@@ -73,9 +73,9 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 | Organisation accounts | The trust's bank, cash and gateway clearing accounts that income is deposited into, with fund source and FCRA role, and the 80G registration the donations return carries, managed in Settings |
 | Programmes | Cause-based programmes with a lead and a finance-approval threshold; the first piece of the finance redesign (`docs/architecture/finance-and-programmes.md`) |
 | Expense categories | Admin-managed categories for request line items |
-| Notifications | Self-owned multi-channel notifications (in-app inbox, email, WhatsApp); per-user topic preferences; email and WhatsApp batched over 5 minutes into one digest per person and topic |
+| Notifications | Self-owned multi-channel notifications (in-app inbox, email, WhatsApp); per-user topic preferences; email and WhatsApp batched over 5 minutes into one digest per person and topic; WhatsApp messages sent as Meta-approved templates (`bun run whatsapp:templates`), with an auto-reply and group invites instead of automatic adds |
 | Audit log | Immutable user-action history with server-side filters and a viewer restricted by the `audit_log.view` permission |
-| WhatsApp alerts | Optional WhatsApp notifications via self-hosted gateway |
+| WhatsApp alerts | Optional WhatsApp messages to people through Meta's Cloud API as approved templates; the self-hosted GoWA gateway keeps WhatsApp groups, polls and scheduled group messages |
 | CSV export | Export data tables to CSV files |
 | Settings | One page (`/settings`) with your profile, account, notifications and bank accounts, and, by permission, general settings, roles, expense categories, WhatsApp groups, API tokens and maintenance jobs |
 | Theming | Light/dark mode toggle with system preference detection |

@@ -1,9 +1,12 @@
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
 import { formatReminderInterval } from "@pi-dash/shared/event-reminders";
+import { isCloudApiEnabled } from "@pi-dash/whatsapp/cloud";
 import { sendWhatsAppGroupMessage } from "@pi-dash/whatsapp/messaging";
+import { whatsappTemplate } from "@pi-dash/whatsapp/template-message";
 import { createRequestLogger } from "evlog";
 
+import { formatEventWhen } from "../event-time";
 import { sendBulkMessage, sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
 
@@ -87,6 +90,9 @@ export async function notifyStaleRequests({
     title: "⏰ Requests need attention",
     to: userId,
     topic: TOPICS.REQUESTS_SUBMISSIONS,
+    whatsappTemplate: whatsappTemplate("requests_awaiting_approval", {
+      waiting: parts.join(", "),
+    }),
   });
 }
 
@@ -118,6 +124,11 @@ export async function notifyFeedbackDeadline({
     title: "⏰ Last chance for feedback",
     to: userId,
     topic: TOPICS.EVENTS_FEEDBACK,
+    whatsappTemplate: whatsappTemplate(
+      "feedback_closing",
+      { event: eventName },
+      `/events/${eventId}`
+    ),
   });
 }
 
@@ -225,6 +236,10 @@ export async function notifyWhatsAppScanResults({
     title: "📊 WhatsApp scan results",
     topic: TOPICS.ACCOUNT,
     userIds,
+    // An ops report for admins with no WhatsApp template: GoWA deployments
+    // still get it on WhatsApp as text; on the Cloud API it's inbox and email.
+    skipWhatsApp: isCloudApiEnabled(),
+    whatsappTemplate: null,
   });
 
   log.set({ event: "notification_sent" });
@@ -286,6 +301,10 @@ export async function notifyR2CleanupResults({
     title: "🗑️ R2 cleanup results",
     topic: TOPICS.ACCOUNT,
     userIds,
+    // An ops report for admins with no WhatsApp template: GoWA deployments
+    // still get it on WhatsApp as text; on the Cloud API it's inbox and email.
+    skipWhatsApp: isCloudApiEnabled(),
+    whatsappTemplate: null,
   });
 }
 
@@ -320,6 +339,14 @@ export async function notifyPhotoApprovalReminder({
     title: "👀 Photos need review",
     topic: TOPICS.EVENTS_PHOTOS,
     userIds,
+    whatsappTemplate: whatsappTemplate(
+      "photos_need_approval",
+      {
+        events: countOf(eventCount, "event"),
+        photos: countOf(pendingCount, "photo"),
+      },
+      "/events"
+    ),
   });
 }
 
@@ -343,7 +370,8 @@ export async function notifyEventReminder({
   startTime,
 }: EventReminderOptions): Promise<void> {
   const label = formatReminderInterval(intervalMinutes);
-  const when = formatEventTime(startTime);
+  // "Sat, 18 Oct, 10:00 am", as in the other event messages.
+  const when = formatEventWhen(startTime);
   const body = `"${eventName}" starts in ${label} (${when}).${location ? ` Location: ${location}` : ""}`;
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "View event",
@@ -366,6 +394,15 @@ export async function notifyEventReminder({
     title: "⏰ Coming up!",
     to: userId,
     topic: TOPICS.EVENTS_SCHEDULE,
+    whatsappTemplate: whatsappTemplate(
+      "event_reminder",
+      {
+        details: `on ${when}${location ? ` at ${location}` : ""}`,
+        event: eventName,
+        starts_in: label,
+      },
+      `/events/${eventId}`
+    ),
   });
 }
 
@@ -440,6 +477,11 @@ export async function notifyFeedbackNudge({
     title: "💬 How was it?",
     to: userId,
     topic: TOPICS.EVENTS_FEEDBACK,
+    whatsappTemplate: whatsappTemplate(
+      "feedback_open",
+      { event: eventName },
+      `/events/${eventId}`
+    ),
   });
 }
 
@@ -475,6 +517,11 @@ export async function notifyAttendanceNotMarked({
     title: "📋 Attendance reminder",
     to: userId,
     topic: TOPICS.EVENTS_SCHEDULE,
+    whatsappTemplate: whatsappTemplate(
+      "event_attendance_reminder",
+      { event: eventName },
+      `/events/${eventId}`
+    ),
   });
 }
 
@@ -513,5 +560,10 @@ export async function notifyPhotoUploadNudge({
     title: "📸 Got pics?",
     topic: TOPICS.EVENTS_PHOTOS,
     userIds,
+    whatsappTemplate: whatsappTemplate(
+      "photos_upload_request",
+      { event: eventName },
+      `/events/${eventId}`
+    ),
   });
 }

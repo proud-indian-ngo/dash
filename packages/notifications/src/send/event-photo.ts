@@ -1,5 +1,6 @@
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
+import { whatsappTemplate } from "@pi-dash/whatsapp/template-message";
 
 import { sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
@@ -45,6 +46,11 @@ export async function notifyPhotoApproved({
     title: "✅ Photo approved!",
     to: uploaderId,
     topic: TOPICS.EVENTS_PHOTOS,
+    whatsappTemplate: whatsappTemplate(
+      "photos_approved",
+      { count: "1", event: eventName },
+      `/events/${eventId}`
+    ),
   });
 }
 
@@ -75,6 +81,11 @@ export async function notifyPhotoRejected({
     title: "📷 Photo not published",
     to: uploaderId,
     topic: TOPICS.EVENTS_PHOTOS,
+    whatsappTemplate: whatsappTemplate(
+      "photos_not_published",
+      { count: "1", event: eventName },
+      `/events/${eventId}`
+    ),
   });
 }
 
@@ -114,6 +125,11 @@ export async function notifyPhotosApproved({
     title: "✅ Photos approved!",
     to: uploaderId,
     topic: TOPICS.EVENTS_PHOTOS,
+    whatsappTemplate: whatsappTemplate(
+      "photos_approved",
+      { count: String(count), event: eventName },
+      `/events/${eventId}`
+    ),
   });
 }
 
@@ -145,5 +161,10 @@ export async function notifyPhotosRejected({
     title: "📷 Photos not published",
     to: uploaderId,
     topic: TOPICS.EVENTS_PHOTOS,
+    whatsappTemplate: whatsappTemplate(
+      "photos_not_published",
+      { count: String(count), event: eventName },
+      `/events/${eventId}`
+    ),
   });
 }

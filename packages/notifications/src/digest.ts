@@ -1,6 +1,10 @@
 import type { EmailStatus } from "@pi-dash/email";
 import { formatPaise } from "@pi-dash/shared/money";
 import type { DigestRow } from "@pi-dash/shared/notification-digest";
+import {
+  type WhatsAppTemplateMessage,
+  whatsappTemplate,
+} from "@pi-dash/whatsapp/template-message";
 
 import { stripLeadingEmoji } from "./text";
 import { TOPIC_CATALOG } from "./topics";
@@ -140,6 +144,15 @@ function collapseRepeats(entries: DigestEntry[]): Collapsed[] {
     byKey.set(key, { ...entry, repeats: (earlier?.repeats ?? 0) + 1 });
   }
   return [...byKey.values()];
+}
+
+/**
+ * How many rows a digest of these entries would have once repeat updates
+ * collapse. One row means the batch is one record's updates: send the
+ * latest as itself rather than a "summary" of one.
+ */
+export function digestRowCount(entries: DigestEntry[]): number {
+  return collapseRepeats(entries).length;
 }
 
 /** The list every row points to, when they all point to the same one. */
@@ -282,4 +295,55 @@ export function buildWhatsAppDigestText(
   });
   const more = digest.moreCount > 0 ? `\n\nAnd ${digest.moreCount} more.` : "";
   return `*${digest.heading}*\n\n${digest.intro}\n\n${blocks.join("\n\n")}${more}${whatsAppFooter(options.appName, options.appUrl)}`;
+}
+
+/** Room for the digest's one-line list inside Meta's parameter limit. */
+const WHATSAPP_SUMMARY_LIMIT = 280;
+/** Where the digest button goes when its rows don't share a list page. */
+const DASHBOARD_HOME_PATH = "?from=whatsapp";
+
+/**
+ * The Cloud API digest: how many messages, which topic, and a one-line list
+ * of the rows, since template parameters can't hold new lines. The count is
+ * the messages held, not the rows they collapse into ("3 updates" to one
+ * record is still three notifications). Callers send a batch that collapses
+ * to one row (`digestRowCount`) as that message instead.
+ */
+export function buildWhatsAppDigestTemplate(
+  entries: DigestEntry[],
+  topicId: string
+): WhatsAppTemplateMessage {
+  const digest = buildDigest(entries, topicId, { limit: entries.length });
+  const names = digest.sections.flatMap((section) =>
+    section.items.map((item) =>
+      item.status ? `${item.name} (${item.status.label})` : item.name
+    )
+  );
+  let summary = "";
+  let shown = 0;
+  for (const name of names) {
+    const next = summary ? `${summary}; ${name}` : name;
+    if (next.length > WHATSAPP_SUMMARY_LIMIT) {
+      break;
+    }
+    summary = next;
+    shown += 1;
+  }
+  if (shown === 0 && names[0]) {
+    summary = truncate(names[0], WHATSAPP_SUMMARY_LIMIT);
+    shown = 1;
+  }
+  if (names.length > shown) {
+    summary = `${summary}; and ${names.length - shown} more`;
+  }
+  const listPath = entries[0]?.digest?.list?.path;
+  const sharedPath =
+    listPath && entries.every((e) => e.digest?.list?.path === listPath)
+      ? listPath
+      : DASHBOARD_HOME_PATH;
+  return whatsappTemplate(
+    "notifications_summary",
+    { count: String(entries.length), summary, topic: topicLabel(topicId) },
+    sharedPath
+  );
 }

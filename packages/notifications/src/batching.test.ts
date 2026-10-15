@@ -63,7 +63,28 @@ const mocks = vi.hoisted(() => ({
     async (_options: Record<string, unknown>) => true
   ),
   sendNotificationEmail: vi.fn(async () => true),
-  sendWhatsAppMessage: vi.fn(async () => undefined),
+  sendWhatsAppMessage: vi.fn(
+    async (
+      _phone: string,
+      _text: string,
+      _options: { idempotencyKey: string }
+    ) => undefined
+  ),
+  cloud: {
+    category: "UTILITY",
+    enabled: false,
+    status: "APPROVED",
+  },
+  getCloudTemplate: vi.fn(async (name: string) => ({
+    category: mocks.cloud.category,
+    name,
+    status: mocks.cloud.status,
+  })),
+  pruneWhatsAppMessages: vi.fn(async () => 0),
+  sendCloudTemplate: vi.fn(
+    async (_phone: string, _message: { name: string; params: object }) =>
+      "wamid.1"
+  ),
 }));
 
 vi.mock("@pi-dash/email", () => ({
@@ -72,8 +93,41 @@ vi.mock("@pi-dash/email", () => ({
 vi.mock("@pi-dash/env/server", () => ({
   env: { APP_NAME: "PI", APP_URL: "https://dash.test" },
 }));
-vi.mock("@pi-dash/whatsapp/messaging", () => ({
-  sendWhatsAppMessage: mocks.sendWhatsAppMessage,
+vi.mock("@pi-dash/whatsapp/cloud", () => ({
+  getCloudTemplate: mocks.getCloudTemplate,
+  isCloudApiEnabled: () => mocks.cloud.enabled,
+}));
+
+type Outcome = "sent" | "duplicate" | "no_template" | "rejected";
+/**
+ * sendWhatsAppNotification as the flush sees it: GoWA text without the
+ * Cloud API, otherwise the template (or "no_template" without one).
+ */
+const { notify } = vi.hoisted(() => ({
+  notify: async (
+    phone: string,
+    notification: {
+      template?: { name: string; params: object };
+      text: string;
+    },
+    options: { idempotencyKey: string; userId?: string }
+  ): Promise<Outcome> => {
+    if (!mocks.cloud.enabled) {
+      await mocks.sendWhatsAppMessage(phone, notification.text, {
+        idempotencyKey: options.idempotencyKey,
+      });
+      return "sent";
+    }
+    if (!notification.template) {
+      return "no_template";
+    }
+    await mocks.sendCloudTemplate(phone, notification.template);
+    return "sent";
+  },
+}));
+vi.mock("@pi-dash/whatsapp/notify", () => ({
+  pruneWhatsAppMessages: mocks.pruneWhatsAppMessages,
+  sendWhatsAppNotification: vi.fn(notify),
 }));
 vi.mock("@pi-dash/whatsapp/preferences", () => ({
   getEnabledUserPhonesForTopic: mocks.getEnabledUserPhonesForTopic,
@@ -90,13 +144,21 @@ vi.mock("./preferences", () => ({
   getBulkUserEmails: mocks.getBulkUserEmails,
 }));
 
-import { flushHeldNotifications, holdNotification } from "./batching";
+import { sendWhatsAppNotification } from "@pi-dash/whatsapp/notify";
+
+import {
+  flushHeldNotifications,
+  holdNotification,
+  WHATSAPP_SEPARATE_SEND_LIMIT,
+} from "./batching";
 import { TOPICS } from "./topics";
 
 interface Row {
   batchId: string;
   channel: "email" | "whatsapp";
   key: string;
+  /** The record it's about; rows about one record collapse into one. */
+  name?: string;
   title?: string;
   topicId?: string;
   userId: string;
@@ -112,13 +174,18 @@ function queueRun(rows: Row[], read: { key: string; userId: string }[] = []) {
       batchId: r.batchId,
       body: `body ${r.key}`,
       channel: r.channel,
-      clickAction: `/x/${r.key}`,
-      digest: { name: r.key },
+      clickAction: `/x/${r.name ?? r.key}`,
+      digest: { name: r.name ?? r.key },
       emailHtml: `<p>${r.key}</p>`,
       key: r.key,
       title: r.title ?? "📄 New invoice",
       topicId: r.topicId ?? TOPICS.REQUESTS_SUBMISSIONS,
       userId: r.userId,
+      whatsappTemplate: {
+        name: "invoice_submitted",
+        params: { submitter: "Priya", title: r.key },
+        path: `vendor-payments/${r.key}`,
+      },
       whatsappText: `wa ${r.key}`,
     }))
   );
@@ -128,6 +195,9 @@ function queueRun(rows: Row[], read: { key: string; userId: string }[] = []) {
 }
 
 const stampedSent = () => state.sets.filter((s) => "sentAt" in s).length;
+/** A claim expired for the next run (not a takeover, which counts attempts). */
+const expired = () =>
+  state.sets.some((s) => "claimedAt" in s && !("attempts" in s));
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -135,6 +205,10 @@ beforeEach(() => {
   state.select = [];
   state.sets = [];
   state.holdError = null;
+  mocks.cloud.enabled = false;
+  mocks.cloud.category = "UTILITY";
+  mocks.cloud.status = "APPROVED";
+  vi.mocked(sendWhatsAppNotification).mockImplementation(notify);
 });
 
 describe("flushHeldNotifications", () => {
@@ -285,6 +359,174 @@ describe("flushHeldNotifications", () => {
     expect(mocks.sendWhatsAppMessage).not.toHaveBeenCalled();
     expect(result.dropped).toBe(0);
     expect(stampedSent()).toBe(1);
+  });
+});
+
+describe("flushHeldNotifications with the Cloud API", () => {
+  beforeEach(() => {
+    mocks.cloud.enabled = true;
+  });
+
+  const twoForOnePerson = (): Row[] => [
+    { batchId: "b1", channel: "whatsapp", key: "k1", userId: "u1" },
+    { batchId: "b1", channel: "whatsapp", key: "k2", userId: "u1" },
+  ];
+
+  it("sends a single held message as its own template", async () => {
+    queueRun([{ batchId: "b1", channel: "whatsapp", key: "k1", userId: "u1" }]);
+    await flushHeldNotifications();
+    expect(mocks.sendWhatsAppMessage).not.toHaveBeenCalled();
+    expect(mocks.sendCloudTemplate).toHaveBeenCalledWith("91u1", {
+      name: "invoice_submitted",
+      params: { submitter: "Priya", title: "k1" },
+      path: "vendor-payments/k1",
+    });
+  });
+
+  it("sends several as the summary template while it's utility", async () => {
+    queueRun(twoForOnePerson());
+    const result = await flushHeldNotifications();
+    expect(mocks.sendCloudTemplate).toHaveBeenCalledTimes(1);
+    const [, message] = mocks.sendCloudTemplate.mock.calls[0] ?? [];
+    expect(message).toMatchObject({
+      name: "notifications_summary",
+      params: { count: "2", summary: "k1; k2" },
+    });
+    expect(result.digests).toBe(1);
+  });
+
+  it("sends each message alone once Meta moves the summary to marketing", async () => {
+    mocks.cloud.category = "MARKETING";
+    queueRun(twoForOnePerson());
+    const result = await flushHeldNotifications();
+    expect(
+      mocks.sendCloudTemplate.mock.calls.map(([, message]) => message.name)
+    ).toEqual(["invoice_submitted", "invoice_submitted"]);
+    expect(result).toMatchObject({ digests: 0, singles: 2 });
+  });
+
+  const heldFor = (count: number): Row[] =>
+    Array.from({ length: count }, (_, i) => ({
+      batchId: "b1",
+      channel: "whatsapp" as const,
+      key: `k${i + 1}`,
+      userId: "u1",
+    }));
+  const sentNames = () =>
+    mocks.sendCloudTemplate.mock.calls.map(([, message]) => message.name);
+
+  it("sends the marketing summary once a batch is past the separate-send limit", async () => {
+    mocks.cloud.category = "MARKETING";
+    queueRun(heldFor(WHATSAPP_SEPARATE_SEND_LIMIT + 1));
+    const result = await flushHeldNotifications();
+    expect(sentNames()).toEqual(["notifications_summary"]);
+    const [, message] = mocks.sendCloudTemplate.mock.calls[0] ?? [];
+    expect(message?.params).toMatchObject({ count: "6" });
+    expect(result.digests).toBe(1);
+  });
+
+  it("sends a marketing batch at the limit separately", async () => {
+    mocks.cloud.category = "MARKETING";
+    queueRun(heldFor(WHATSAPP_SEPARATE_SEND_LIMIT));
+    await flushHeldNotifications();
+    expect(sentNames()).toEqual(Array(5).fill("invoice_submitted"));
+  });
+
+  it("never sends a summary Meta hasn't approved, however many are held", async () => {
+    mocks.cloud.status = "PENDING";
+    queueRun(heldFor(7));
+    const result = await flushHeldNotifications();
+    expect(sentNames()).toEqual(Array(7).fill("invoice_submitted"));
+    expect(result).toMatchObject({ digests: 0, singles: 7 });
+  });
+
+  it("sends each message alone when the template lookup fails", async () => {
+    mocks.getCloudTemplate.mockRejectedValueOnce(new Error("graph down"));
+    queueRun(heldFor(7));
+    await flushHeldNotifications();
+    expect(sentNames()).toEqual(Array(7).fill("invoice_submitted"));
+  });
+
+  it("sends updates to one record as the newest message, not a summary", async () => {
+    queueRun([
+      {
+        batchId: "b1",
+        channel: "whatsapp",
+        key: "k1",
+        name: "rent",
+        userId: "u1",
+      },
+      {
+        batchId: "b1",
+        channel: "whatsapp",
+        key: "k2",
+        name: "rent",
+        userId: "u1",
+      },
+    ]);
+    const result = await flushHeldNotifications();
+    expect(mocks.getCloudTemplate).not.toHaveBeenCalled();
+    expect(sendWhatsAppNotification).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendWhatsAppNotification).mock.calls[0]?.[2]).toEqual({
+      idempotencyKey: "k2-whatsapp-u1",
+      userId: "u1",
+    });
+    expect(result).toMatchObject({ digests: 0, singles: 1 });
+  });
+
+  it("keeps sending the rest when one separate message is refused", async () => {
+    mocks.cloud.category = "MARKETING";
+    vi.mocked(sendWhatsAppNotification).mockResolvedValueOnce("rejected");
+    queueRun(twoForOnePerson());
+    const result = await flushHeldNotifications();
+    expect(sendWhatsAppNotification).toHaveBeenCalledTimes(2);
+    expect(result.singles).toBe(1);
+    // Refused for good: the batch is done, not retried.
+    expect(expired()).toBe(false);
+    expect(stampedSent()).toBe(2);
+  });
+
+  it("expires a batch for retry when a separate send fails for now", async () => {
+    mocks.cloud.category = "MARKETING";
+    vi.mocked(sendWhatsAppNotification).mockRejectedValueOnce(
+      new Error("throttled")
+    );
+    queueRun(twoForOnePerson());
+    const result = await flushHeldNotifications();
+    expect(sendWhatsAppNotification).toHaveBeenCalledTimes(2);
+    expect(result.singles).toBe(1);
+    expect(expired()).toBe(true);
+    // Only the takeover sweep's stamp; the batch itself isn't stamped sent.
+    expect(stampedSent()).toBe(1);
+  });
+
+  it("expires a batch for retry when its summary fails for now", async () => {
+    vi.mocked(sendWhatsAppNotification).mockRejectedValueOnce(new Error("503"));
+    queueRun(twoForOnePerson());
+    const result = await flushHeldNotifications();
+    expect(result.digests).toBe(0);
+    expect(expired()).toBe(true);
+    expect(stampedSent()).toBe(1);
+  });
+});
+
+describe("WhatsApp send log pruning", () => {
+  it("prunes at most hourly though the flush runs every minute", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2100-01-01T00:00:00Z"));
+      await flushHeldNotifications();
+      vi.setSystemTime(new Date("2100-01-01T00:01:00Z"));
+      await flushHeldNotifications();
+      vi.setSystemTime(new Date("2100-01-01T00:59:00Z"));
+      await flushHeldNotifications();
+      expect(mocks.pruneWhatsAppMessages).toHaveBeenCalledTimes(1);
+      vi.setSystemTime(new Date("2100-01-01T01:00:00Z"));
+      await flushHeldNotifications();
+      expect(mocks.pruneWhatsAppMessages).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

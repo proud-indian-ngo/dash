@@ -1,4 +1,4 @@
-import { sendWhatsAppMessage } from "@pi-dash/whatsapp/messaging";
+import { sendWhatsAppNotification } from "@pi-dash/whatsapp/notify";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 
@@ -10,21 +10,22 @@ export async function handleSendWhatsApp(
   await Promise.all(
     jobs.map(async (job) => {
       const log = createRequestLogger({ method: "JOB", path: "send-whatsapp" });
-      const { idempotencyKey, phone, message } = job.data;
+      const { idempotencyKey, phone, message, template } = job.data;
 
       log.set({
         event: "job_start",
         jobId: job.id,
         phone,
+        template: template?.name,
       });
 
-      await sendWhatsAppMessage(
+      const outcome = await sendWhatsAppNotification(
         phone,
-        message,
-        idempotencyKey ? { idempotencyKey } : undefined
+        { template, text: message },
+        { idempotencyKey: idempotencyKey ?? `send-whatsapp-${job.id}` }
       );
 
-      log.set({ event: "job_complete" });
+      log.set({ event: "job_complete", outcome });
       log.emit();
     })
   );

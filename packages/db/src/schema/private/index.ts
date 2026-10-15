@@ -9,3 +9,4 @@ export * from "./party-private";
 export * from "./vendor-legacy";
 export * from "./imports";
 export * from "./held-notification";
+export * from "./whatsapp-message";

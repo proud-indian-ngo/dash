@@ -1,5 +1,6 @@
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
+import { whatsappTemplate } from "@pi-dash/whatsapp/template-message";
 
 import { sendBulkMessage } from "../send-message";
 import { TOPICS } from "../topics";
@@ -41,5 +42,10 @@ export async function notifyEventFeedbackOpen({
     title: "💬 Your feedback matters",
     topic: TOPICS.EVENTS_FEEDBACK,
     userIds: memberUserIds,
+    whatsappTemplate: whatsappTemplate(
+      "feedback_open",
+      { event: eventName },
+      `/events/${eventId}`
+    ),
   });
 }

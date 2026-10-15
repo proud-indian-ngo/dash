@@ -925,6 +925,13 @@
       "when": 1792008354269,
       "tag": "0131_held_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 132,
+      "version": "7",
+      "when": 1792072882491,
+      "tag": "0132_whatsapp_cloud_api",
+      "breakpoints": true
     }
   ]
 }

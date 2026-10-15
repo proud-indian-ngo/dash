@@ -1,6 +1,7 @@
 import { getEmailSuppression } from "@pi-dash/db/queries/email-suppression";
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
+import { whatsappTemplate } from "@pi-dash/whatsapp/template-message";
 
 import { sendNotificationEmail } from "../email";
 import { sendMessage } from "../send-message";
@@ -44,6 +45,11 @@ export async function notifyKalakritiGuardianAccess({
     title: `Guardian access for ${editionName}`,
     to: userId,
     topic: TOPICS.ACCOUNT,
+    whatsappTemplate: whatsappTemplate(
+      "kalakriti_guardian_ready",
+      { edition: editionName },
+      path
+    ),
   });
 }
 
@@ -81,6 +87,7 @@ export async function notifyUserWelcome({
     title: "🎉 Welcome aboard!",
     to: userId,
     topic: TOPICS.ACCOUNT,
+    whatsappTemplate: whatsappTemplate("account_welcome", { name }),
   });
 }
 
@@ -102,6 +109,9 @@ export async function notifyRoleChanged({
     title: "🔑 New role for you",
     to: userId,
     topic: TOPICS.ACCOUNT,
+    whatsappTemplate: whatsappTemplate("account_role_changed", {
+      role: newRole,
+    }),
   });
 }
 
@@ -123,6 +133,9 @@ export async function notifyUserBanned({
     title: "⚠️ Account suspended",
     to: userId,
     topic: TOPICS.ACCOUNT,
+    whatsappTemplate: reason
+      ? whatsappTemplate("account_suspended", { reason })
+      : whatsappTemplate("account_suspended_no_reason", {}),
   });
 }
 
@@ -145,6 +158,7 @@ export async function notifyUserUnbanned({
     title: "🎉 Welcome back!",
     to: userId,
     topic: TOPICS.ACCOUNT,
+    whatsappTemplate: whatsappTemplate("account_reactivated", {}),
   });
 }
 
@@ -185,6 +199,7 @@ export async function notifyPasswordReset({
     title: "🔒 Password reset",
     to: userId,
     topic: TOPICS.ACCOUNT,
+    whatsappTemplate: whatsappTemplate("account_password_reset", {}),
   });
 }
 
@@ -204,6 +219,7 @@ export async function notifyUserDeactivated({
     title: "⚠️ Account deactivated",
     to: userId,
     topic: TOPICS.ACCOUNT,
+    whatsappTemplate: whatsappTemplate("account_deactivated", {}),
   });
 }
 
@@ -250,5 +266,6 @@ export async function notifyUserReactivated({
     title: "🎉 You're back!",
     to: userId,
     topic: TOPICS.ACCOUNT,
+    whatsappTemplate: whatsappTemplate("account_reactivated", {}),
   });
 }

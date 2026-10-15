@@ -1,4 +1,5 @@
 import type { DigestRow } from "@pi-dash/shared/notification-digest";
+import { whatsappTemplate } from "@pi-dash/whatsapp/template-message";
 
 import { sendMessage } from "../send-message";
 import { getTopicChannels, TOPICS } from "../topics";
@@ -35,6 +36,11 @@ export async function notifyKalakritiRegistrationLifecycle({
     title: copy.title,
     to: recipientUserId,
     topic: TOPICS.KALAKRITI_REGISTRATION,
+    whatsappTemplate: whatsappTemplate(
+      "kalakriti_registration",
+      { edition: editionName, status: copy.templateStatus },
+      `/kalakriti/${year}`
+    ),
   });
 }
 
@@ -61,6 +67,11 @@ export async function notifyKalakritiScheduleChanged({
     title: "Kalakriti schedule updated",
     to: recipientUserId,
     topic: TOPICS.KALAKRITI_SCHEDULE,
+    whatsappTemplate: whatsappTemplate(
+      "kalakriti_schedule_changed",
+      { edition: editionName },
+      `/kalakriti/${year}/schedule`
+    ),
   });
 }
 
@@ -91,6 +102,11 @@ export async function notifyKalakritiTransportChanged({
     title: "Kalakriti transport updated",
     to: recipientUserId,
     topic: TOPICS.KALAKRITI_TRANSPORT,
+    whatsappTemplate: whatsappTemplate(
+      "kalakriti_transport_changed",
+      { edition: editionName },
+      `/kalakriti/${year}/centers?centerId=${encodeURIComponent(centerId)}`
+    ),
   });
 }
 
@@ -122,30 +138,44 @@ export async function notifyKalakritiGuardianReactivated({
     title: "Kalakriti Guardian access restored",
     to: recipientUserId,
     topic: TOPICS.KALAKRITI_REGISTRATION,
+    whatsappTemplate: whatsappTemplate(
+      "kalakriti_guardian_reactivated",
+      { edition: editionName },
+      `/kalakriti/${year}`
+    ),
   });
 }
 
 function registrationCopy(
   editionName: string,
   transition: KalakritiRegistrationTransition
-): { body: string; status: DigestRow["status"]; title: string } {
+): {
+  body: string;
+  status: DigestRow["status"];
+  /** Fills "Registration for {{edition}} is {{status}}." */
+  templateStatus: string;
+  title: string;
+} {
   switch (transition) {
     case "registration_open":
       return {
         body: `Registration is now open for ${editionName}.`,
         status: { label: "Open", tone: "success" },
+        templateStatus: "now open",
         title: "Kalakriti registration open",
       };
     case "registration_close_reminder":
       return {
         body: `Registration for ${editionName} closes soon.`,
         status: { label: "Closing soon", tone: "warning" },
+        templateStatus: "closing soon",
         title: "Kalakriti registration closing soon",
       };
     case "registration_closed":
       return {
         body: `Registration for ${editionName} is now closed.`,
         status: { label: "Closed", tone: "neutral" },
+        templateStatus: "now closed",
         title: "Kalakriti registration closed",
       };
     default:

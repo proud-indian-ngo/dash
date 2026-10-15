@@ -4,6 +4,10 @@ import type { VendorPaymentNoInvoiceReason } from "@pi-dash/shared/constants";
 import { sumPaise } from "@pi-dash/shared/money";
 import type { DigestRow } from "@pi-dash/shared/notification-digest";
 import { NO_INVOICE_REASON_LABELS } from "@pi-dash/shared/vendor-payment";
+import {
+  type WhatsAppTemplateMessage,
+  whatsappTemplate,
+} from "@pi-dash/whatsapp/template-message";
 
 import {
   getUserIdsWithPermission,
@@ -27,6 +31,39 @@ const notifier = createSubmissionNotifier({
   statusTopic: TOPICS.REQUESTS_STATUS,
   submittedTopic: TOPICS.REQUESTS_SUBMISSIONS,
 });
+
+function formatProofCount(count: number): string {
+  if (count === 0) {
+    return "no proof attached";
+  }
+  return `${count} proof ${count === 1 ? "file" : "files"}`;
+}
+
+function invoiceApprovedTemplate(options: {
+  noInvoiceReason?: VendorPaymentNoInvoiceReason;
+  note?: string;
+  vendorPaymentId: string;
+  vendorPaymentTitle: string;
+}): WhatsAppTemplateMessage {
+  const path = `/vendor-payments/${options.vendorPaymentId}`;
+  const title = options.vendorPaymentTitle;
+  if (options.noInvoiceReason) {
+    return options.note
+      ? whatsappTemplate(
+          "no_invoice_approved_with_note",
+          { note: options.note, title },
+          path
+        )
+      : whatsappTemplate("no_invoice_approved", { title }, path);
+  }
+  return options.note
+    ? whatsappTemplate(
+        "invoice_approved_with_note",
+        { note: options.note, title },
+        path
+      )
+    : whatsappTemplate("invoice_approved", { title }, path);
+}
 
 export async function notifyVendorPaymentSubmitted(options: {
   submitterName: string;
@@ -101,6 +138,7 @@ export async function notifyVendorPaymentInvoiceSubmitted(options: {
     proofCount > 0
       ? `${proofCount} proof ${proofCount === 1 ? "file" : "files"}`
       : "No proof";
+  const path = `/vendor-payments/${options.vendorPaymentId}`;
   await sendBulkMessage({
     body,
     clickAction: `/vendor-payments/${options.vendorPaymentId}`,
@@ -122,6 +160,26 @@ export async function notifyVendorPaymentInvoiceSubmitted(options: {
     title: `📄 ${heading}`,
     topic: TOPICS.REQUESTS_SUBMISSIONS,
     userIds: approverIds,
+    whatsappTemplate: options.noInvoiceReason
+      ? whatsappTemplate(
+          "no_invoice_submitted",
+          {
+            no_invoice_reason:
+              NO_INVOICE_REASON_LABELS[options.noInvoiceReason],
+            proof: formatProofCount(proofCount),
+            submitter: options.submitterName,
+            title: options.vendorPaymentTitle,
+          },
+          path
+        )
+      : whatsappTemplate(
+          "invoice_submitted",
+          {
+            submitter: options.submitterName,
+            title: options.vendorPaymentTitle,
+          },
+          path
+        ),
   });
 }
 
@@ -167,6 +225,7 @@ export async function notifyVendorPaymentInvoiceApproved(options: {
     title: `✅ ${heading}`,
     to: options.submitterId,
     topic: TOPICS.REQUESTS_STATUS,
+    whatsappTemplate: invoiceApprovedTemplate(options),
   });
 }
 
@@ -205,6 +264,13 @@ export async function notifyVendorPaymentInvoiceRejected(options: {
     title: `↩️ ${heading}`,
     to: options.submitterId,
     topic: TOPICS.REQUESTS_STATUS,
+    whatsappTemplate: whatsappTemplate(
+      options.noInvoiceReason
+        ? "no_invoice_not_approved"
+        : "invoice_not_approved",
+      { reason: options.reason, title: options.vendorPaymentTitle },
+      `/vendor-payments/${options.vendorPaymentId}`
+    ),
   });
 }
 
@@ -234,6 +300,11 @@ export async function notifyVpFullyPaid(options: {
     title: "🎉 All paid up!",
     to: options.submitterId,
     topic: TOPICS.REQUESTS_STATUS,
+    whatsappTemplate: whatsappTemplate(
+      "vendor_payment_complete",
+      { title: options.title },
+      `/vendor-payments/${options.vendorPaymentId}`
+    ),
   });
 }
 
@@ -265,5 +336,14 @@ export async function notifyVptCascadeRejected(options: {
     title: "↩️ Transactions not approved",
     to: options.submitterId,
     topic: TOPICS.REQUESTS_STATUS,
+    whatsappTemplate: whatsappTemplate(
+      "payments_auto_rejected",
+      {
+        count: String(options.transactionCount),
+        reason: options.rejectionReason,
+        title: options.title,
+      },
+      `/vendor-payments/${options.vendorPaymentId}`
+    ),
   });
 }

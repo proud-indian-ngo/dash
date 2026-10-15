@@ -12,6 +12,13 @@ import { user } from "../auth";
 import { jsonb } from "../jsonb";
 import { privateSchema } from "./party-private";
 
+/** A filled-in WhatsApp template (`@pi-dash/whatsapp/template-message`). */
+export interface HeldWhatsAppTemplate {
+  name: string;
+  params: Record<string, string>;
+  path?: string;
+}
+
 export const heldNotificationChannelValues = ["email", "whatsapp"] as const;
 export type HeldNotificationChannel =
   (typeof heldNotificationChannelValues)[number];
@@ -45,6 +52,11 @@ export const heldNotification = privateSchema.table(
     key: text("key").primaryKey(),
     title: text("title").notNull(),
     topicId: text("topic_id").notNull(),
+    /**
+     * The WhatsApp Cloud API template for this message, sent on its own or
+     * when the digest template can't be used; null on the GoWA path.
+     */
+    whatsappTemplate: jsonb("whatsapp_template").$type<HeldWhatsAppTemplate>(),
     /** The WhatsApp text sent when this is the recipient's only message. */
     whatsappText: text("whatsapp_text"),
   },

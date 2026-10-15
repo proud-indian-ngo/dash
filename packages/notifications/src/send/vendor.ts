@@ -1,6 +1,7 @@
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
 import type { DigestRow } from "@pi-dash/shared/notification-digest";
+import { whatsappTemplate } from "@pi-dash/whatsapp/template-message";
 
 import { sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
@@ -48,6 +49,11 @@ export async function notifyVendorApproved({
     title: "✅ Vendor approved!",
     to: creatorId,
     topic: TOPICS.REQUESTS_STATUS,
+    whatsappTemplate: whatsappTemplate(
+      "vendor_approved",
+      { vendor: vendorName },
+      "/vendors"
+    ),
   });
 }
 
@@ -83,6 +89,11 @@ export async function notifyVendorUnapproved({
     title: "🔄 Vendor needs changes",
     to: creatorId,
     topic: TOPICS.REQUESTS_STATUS,
+    whatsappTemplate: whatsappTemplate(
+      "vendor_needs_changes",
+      { vendor: vendorName },
+      "/vendors"
+    ),
   });
 }
 
@@ -113,5 +124,10 @@ export async function notifyVendorAutoApproved({
     title: "✅ Vendor auto-approved!",
     to: creatorId,
     topic: TOPICS.REQUESTS_STATUS,
+    whatsappTemplate: whatsappTemplate(
+      "vendor_auto_approved",
+      { title: vendorPaymentTitle, vendor: vendorName },
+      "/vendors"
+    ),
   });
 }

@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildDigest,
+  buildWhatsAppDigestTemplate,
   buildWhatsAppDigestText,
   buildWhatsAppText,
   type DigestEntry,
+  digestRowCount,
 } from "./digest";
 import { TOPICS } from "./topics";
 
@@ -294,5 +296,64 @@ describe("buildWhatsAppDigestText", () => {
 
     expect(text).toContain(`${"x".repeat(199)}…`);
     expect(text).not.toContain("x".repeat(200));
+  });
+});
+
+describe("buildWhatsAppDigestTemplate", () => {
+  const named = (name: string, list = vendorPayments): DigestEntry => ({
+    body: "b",
+    clickAction: `/vendor-payments/${name.slice(0, 8)}`,
+    digest: { list, name },
+    title: "📄 New invoice",
+  });
+
+  it("counts the messages held, not the rows they collapse into", () => {
+    const entries = [invoice("Rent"), invoice("Rent"), invoice("Tea")];
+    const message = buildWhatsAppDigestTemplate(
+      entries,
+      TOPICS.REQUESTS_SUBMISSIONS
+    );
+    expect(message.params).toMatchObject({ count: "3", summary: "Rent; Tea" });
+    expect(digestRowCount(entries)).toBe(2);
+  });
+
+  it("tells a batch of one record's updates apart, to send it as itself", () => {
+    expect(digestRowCount([invoice("Rent"), invoice("Rent")])).toBe(1);
+  });
+
+  it("lists what fits in 280 characters and counts the rest", () => {
+    const entries = ["a", "b", "c", "d", "e"].map((c) => named(c.repeat(100)));
+    const { params } = buildWhatsAppDigestTemplate(
+      entries,
+      TOPICS.REQUESTS_SUBMISSIONS
+    );
+    expect(params.summary).toBe(
+      `${"a".repeat(100)}; ${"b".repeat(100)}; and 3 more`
+    );
+    expect(params.count).toBe("5");
+  });
+
+  it("cuts a single name too long to fit rather than listing none", () => {
+    const { params } = buildWhatsAppDigestTemplate(
+      [named("x".repeat(400)), named("short")],
+      TOPICS.REQUESTS_SUBMISSIONS
+    );
+    expect(params.summary).toBe(`${"x".repeat(279)}…; and 1 more`);
+  });
+
+  it("points the button at the list every row shares", () => {
+    const message = buildWhatsAppDigestTemplate(
+      [named("one"), named("two")],
+      TOPICS.REQUESTS_SUBMISSIONS
+    );
+    expect(message.path).toBe("vendor-payments");
+  });
+
+  it("points the button at the dashboard when rows don't share a list", () => {
+    const message = buildWhatsAppDigestTemplate(
+      [named("one"), named("two", { label: "Events", path: "/events" })],
+      TOPICS.REQUESTS_SUBMISSIONS
+    );
+    expect(message.path).toBe("?from=whatsapp");
   });
 });
