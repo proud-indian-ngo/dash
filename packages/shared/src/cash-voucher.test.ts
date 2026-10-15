@@ -5,6 +5,7 @@ import {
   DEFAULT_CASH_VOUCHER_LIMIT_PAISE,
   formatCashVoucherLimit,
   isIndianMobile,
+  isLatinName,
   isValidCashVoucherLimitPaise,
   isValidCashVoucherLimitValue,
   MAX_CASH_VOUCHER_LIMIT_PAISE,
@@ -75,5 +76,25 @@ describe("isIndianMobile", () => {
     expect(isIndianMobile("9876543210")).toBe(false);
     expect(isIndianMobile("+91 98765 43210")).toBe(false);
     expect(isIndianMobile("+9198765432101")).toBe(false);
+  });
+});
+
+describe("isLatinName", () => {
+  it("accepts English and IAST letters with . ' -", () => {
+    for (const name of [
+      "Ramesh Kumar",
+      "Kṛṣṇa Veṅkaṭeśa",
+      "D'Souza",
+      "A. R. Rahman",
+      "Mary-Ann",
+    ]) {
+      expect(isLatinName(name)).toBe(true);
+    }
+  });
+
+  it("refuses other scripts, digits and symbols", () => {
+    for (const name of ["रमेश", "ரமேஷ்", "Ramesh 2", "Ramesh@", "×"]) {
+      expect(isLatinName(name)).toBe(false);
+    }
   });
 });

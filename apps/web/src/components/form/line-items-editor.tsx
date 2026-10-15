@@ -26,7 +26,7 @@ import {
 } from "@pi-dash/shared/cash-voucher";
 import { formatPaise, tryRupeesToPaise } from "@pi-dash/shared/money";
 import type { ExpenseCategory } from "@pi-dash/zero/schema";
-import type { ChangeEvent } from "react";
+import { type ChangeEvent, useEffect } from "react";
 
 import { useCashVoucherLimit } from "@/hooks/use-cash-voucher-limit";
 import {
@@ -239,6 +239,31 @@ function VoucherCheckbox({
   );
 }
 
+/**
+ * Rendered while an item can't get a voucher (over the limit, or not a
+ * reimbursement): clears a tick and payee left behind, so hidden fields
+ * never block the form or reach the server.
+ */
+function ClearVoucherFields({
+  form,
+  index,
+  name,
+}: {
+  form: FormInstance;
+  index: number;
+  name: string;
+}) {
+  useEffect(() => {
+    const prefix = `${name}[${index}]`;
+    if (form.getFieldValue(`${prefix}.generateVoucher`)) {
+      form.setFieldValue(`${prefix}.generateVoucher`, false);
+      form.setFieldValue(`${prefix}.payeeName`, "");
+      form.setFieldValue(`${prefix}.payeePhone`, "");
+    }
+  }, [form, index, name]);
+  return null;
+}
+
 function AddLineItemButton({
   pushValue,
 }: {
@@ -334,77 +359,77 @@ function LineItemRow({
         <HugeiconsIcon className="size-4" icon={Delete02Icon} strokeWidth={2} />
       </Button>
 
-      {Boolean(showVoucher) && (
-        <form.Subscribe selector={stableSelector0}>
-          {(eligible: boolean) =>
-            eligible ? (
-              <form.Field name={`${name}[${index}].generateVoucher`}>
-                {(rawField: unknown) => {
-                  const field = rawField as {
-                    handleChange: (value: boolean) => void;
-                    state: { value: boolean };
-                  };
-                  const checkboxId = `${name}-${index}-voucher`;
-                  return (
-                    <div className="col-span-full flex flex-col gap-2 pl-1">
-                      <div className="flex items-center gap-2">
-                        <label
-                          className="flex cursor-pointer items-center gap-2"
-                          htmlFor={checkboxId}
+      <form.Subscribe selector={stableSelector0}>
+        {(eligible: boolean) =>
+          showVoucher && eligible ? (
+            <form.Field name={`${name}[${index}].generateVoucher`}>
+              {(rawField: unknown) => {
+                const field = rawField as {
+                  handleChange: (value: boolean) => void;
+                  state: { value: boolean };
+                };
+                const checkboxId = `${name}-${index}-voucher`;
+                return (
+                  <div className="col-span-full flex flex-col gap-2 pl-1">
+                    <div className="flex items-center gap-2">
+                      <label
+                        className="flex cursor-pointer items-center gap-2"
+                        htmlFor={checkboxId}
+                      >
+                        <VoucherCheckbox
+                          checkboxId={checkboxId}
+                          field={field}
+                        />
+                        <span className="text-muted-foreground text-xs">
+                          Generate cash voucher
+                        </span>
+                      </label>
+                      <Tooltip>
+                        <TooltipTrigger
+                          className="text-muted-foreground"
+                          type="button"
                         >
-                          <VoucherCheckbox
-                            checkboxId={checkboxId}
-                            field={field}
+                          <HugeiconsIcon
+                            className="size-3.5"
+                            icon={InformationCircleIcon}
+                            strokeWidth={2}
                           />
-                          <span className="text-muted-foreground text-xs">
-                            Generate cash voucher
-                          </span>
-                        </label>
-                        <Tooltip>
-                          <TooltipTrigger
-                            className="text-muted-foreground"
-                            type="button"
-                          >
-                            <HugeiconsIcon
-                              className="size-3.5"
-                              icon={InformationCircleIcon}
-                              strokeWidth={2}
-                            />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            A cash voucher PDF will be auto-generated on
-                            approval for line items ≤{" "}
-                            {formatCashVoucherLimit(voucherLimitPaise)} without
-                            an invoice.
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                      {field.state.value ? (
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <InputField
-                            description="The person paid in cash, printed on the voucher."
-                            form={form}
-                            isRequired
-                            label="Paid to"
-                            name={`${name}[${index}].payeeName`}
-                          />
-                          <PhoneField
-                            defaultCountry="IN"
-                            description="Optional. Printed on the voucher, which the payee signs or thumb-prints."
-                            form={form}
-                            label="Payee's mobile"
-                            name={`${name}[${index}].payeePhone`}
-                          />
-                        </div>
-                      ) : null}
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          A cash voucher PDF will be auto-generated on approval
+                          for line items ≤{" "}
+                          {formatCashVoucherLimit(voucherLimitPaise)} without an
+                          invoice.
+                        </TooltipContent>
+                      </Tooltip>
                     </div>
-                  );
-                }}
-              </form.Field>
-            ) : null
-          }
-        </form.Subscribe>
-      )}
+                    {field.state.value ? (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <InputField
+                          description="The person paid in cash, printed on the voucher."
+                          form={form}
+                          isRequired
+                          label="Paid to"
+                          name={`${name}[${index}].payeeName`}
+                        />
+                        <PhoneField
+                          defaultCountry="IN"
+                          description="Optional. Printed on the voucher, which the payee signs or thumb-prints."
+                          form={form}
+                          label="Payee's mobile"
+                          name={`${name}[${index}].payeePhone`}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              }}
+            </form.Field>
+          ) : (
+            <ClearVoucherFields form={form} index={index} name={name} />
+          )
+        }
+      </form.Subscribe>
     </div>
   );
 }

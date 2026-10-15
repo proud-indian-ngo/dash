@@ -1,8 +1,11 @@
 import {
   isIndianMobile,
+  isLatinName,
   PAYEE_NAME_MAX,
   PAYEE_NAME_REQUIRED_MESSAGE,
+  PAYEE_NAME_SCRIPT_MESSAGE,
   PAYEE_PHONE_MESSAGE,
+  qualifiesForCashVoucher,
 } from "@pi-dash/shared/cash-voucher";
 import { cityValues } from "@pi-dash/shared/constants";
 import {
@@ -40,39 +43,60 @@ export const positiveRupeesSchema = z
     }
   });
 
-export const lineItemSchema = z
-  .object({
-    amount: positiveRupeesSchema,
-    categoryId: z.string().min(1, "Category required"),
-    description: z.string().trim().min(1, "Description required"),
-    generateVoucher: z.boolean().optional(),
-    id: z.string(),
-    /** Who a cash voucher pays; required once the voucher is ticked. */
-    payeeName: z.string().max(PAYEE_NAME_MAX).optional(),
-    /** The cash-voucher payee's mobile, E.164 from the phone input; optional. */
-    payeePhone: z.string().optional(),
-  })
-  // Checked only while the voucher is ticked: the field is hidden, and its
-  // value dropped on submit, otherwise.
-  .superRefine((item, context) => {
-    if (!item.generateVoucher) {
-      return;
+export const lineItemSchema = z.object({
+  amount: positiveRupeesSchema,
+  categoryId: z.string().min(1, "Category required"),
+  description: z.string().trim().min(1, "Description required"),
+  generateVoucher: z.boolean().optional(),
+  id: z.string(),
+  /** Who a cash voucher pays; required on an eligible, ticked item. */
+  payeeName: z.string().max(PAYEE_NAME_MAX).optional(),
+  /** The cash-voucher payee's mobile, E.164 from the phone input; optional. */
+  payeePhone: z.string().optional(),
+});
+
+/**
+ * Checks the voucher payee on line items that will actually get a voucher:
+ * ticked and within `limitPaise`. The payee fields are hidden, and cleared,
+ * on any other item, so they must not block the form.
+ */
+export function addVoucherPayeeIssues(
+  lineItems: readonly LineItem[],
+  limitPaise: number,
+  context: z.RefinementCtx
+): void {
+  for (const [index, item] of lineItems.entries()) {
+    const paise = tryRupeesToPaise(item.amount);
+    if (
+      !item.generateVoucher ||
+      paise === null ||
+      !qualifiesForCashVoucher(paise, limitPaise)
+    ) {
+      continue;
     }
-    if (!item.payeeName?.trim()) {
+    const name = item.payeeName?.trim() ?? "";
+    if (!name) {
       context.addIssue({
         code: "custom",
         message: PAYEE_NAME_REQUIRED_MESSAGE,
-        path: ["payeeName"],
+        path: ["lineItems", index, "payeeName"],
+      });
+    } else if (!isLatinName(name)) {
+      context.addIssue({
+        code: "custom",
+        message: PAYEE_NAME_SCRIPT_MESSAGE,
+        path: ["lineItems", index, "payeeName"],
       });
     }
     if (item.payeePhone && !isIndianMobile(item.payeePhone)) {
       context.addIssue({
         code: "custom",
         message: PAYEE_PHONE_MESSAGE,
-        path: ["payeePhone"],
+        path: ["lineItems", index, "payeePhone"],
       });
     }
-  });
+  }
+}
 
 export const attachmentSchema = z.discriminatedUnion("type", [
   z.object({

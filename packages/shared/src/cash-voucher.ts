@@ -93,3 +93,16 @@ export function isIndianMobile(value: string): boolean {
 export const PAYEE_NAME_MAX = 120;
 
 export const PAYEE_NAME_REQUIRED_MESSAGE = "Name who was paid";
+
+/**
+ * Latin letters, including the accented and dotted IAST letters (ṭ ḍ ṇ ṣ ṛ
+ * ḥ ṃ ṅ ā ī ū) the voucher fonts carry, with spaces and . ' -. Devanagari and
+ * other Indian scripts don't render in the PDF yet.
+ */
+const LATIN_NAME = /^[A-Za-zÀ-ÖØ-öø-ɏḀ-ỿ .'-]+$/;
+
+export const PAYEE_NAME_SCRIPT_MESSAGE = "Write the name in English letters";
+
+export function isLatinName(value: string): boolean {
+  return LATIN_NAME.test(value);
+}

@@ -31,8 +31,11 @@ function createDb(
   };
   const inserts: { row: Row; table: string }[] = [];
   const updates: { row: Row; table: string }[] = [];
+  const deletes: { row: Row; table: string }[] = [];
   const tableApi = (table: string) => ({
-    delete: async () => {},
+    delete: async (row: Row) => {
+      deletes.push({ row, table });
+    },
     insert: async (row: Row) => {
       inserts.push({ row, table });
     },
@@ -59,7 +62,7 @@ function createDb(
       return query.format.singular ? result[0] : result;
     },
   };
-  return { inserts, tx, updates };
+  return { deletes, inserts, tx, updates };
 }
 
 const limit = (paise: number) => ({
@@ -326,6 +329,20 @@ describe("reimbursement.create voucher fields", () => {
     expect(result.success).toBe(false);
   });
 
+  it("wants the payee's name in English letters", () => {
+    const result = createSchema.safeParse(
+      args([lineItem("li-1", 50_000, { payeeName: "रमेश" })])
+    );
+    expect(result.error?.issues[0]?.message).toBe(
+      "Write the name in English letters"
+    );
+    expect(
+      createSchema.safeParse(
+        args([lineItem("li-1", 50_000, { payeeName: "Kṛṣṇa D'Souza" })])
+      ).success
+    ).toBe(true);
+  });
+
   it("accepts a missing payee phone", () => {
     const result = createSchema.safeParse(
       args([lineItem("li-1", 50_000, { payeePhone: null })])
@@ -369,32 +386,39 @@ describe("reimbursement voucher payee", () => {
   });
 });
 
-describe("reimbursement.update keeps voucher links", () => {
-  const before = (overrides: Row = {}) => ({
+describe("reimbursement.update and existing vouchers", () => {
+  const VOUCHER_KEY = "app/vouchers/request-1/att-voucher.pdf";
+  const SIGNED_KEY = "app/attachments/reimbursements/request-1/att-signed.pdf";
+  const stored = (overrides: Row = {}) => ({
     amountPaise: 50_000,
     categoryId: "cat-1",
     description: "Cleaning",
     generateVoucher: true,
     id: "li-1",
     payeeName: "Test Payee",
+    payeePhone: "+919876543210",
     reimbursementId: "request-1",
     signedVoucherAttachmentId: "att-signed",
     sortOrder: 0,
     voucherAttachmentId: "att-voucher",
     ...overrides,
   });
-  const fileAttachment = (id: string) => ({
+  const file = (id: string, objectKey: string) => ({
     filename: `${id}.pdf`,
     id,
-    objectKey: `app/attachments/reimbursements/request-1/${id}.pdf`,
+    objectKey,
     reimbursementId: "request-1",
     type: "file" as const,
   });
-  const args = (lineItem: Row) => ({
-    attachments: [fileAttachment("att-voucher"), fileAttachment("att-signed")],
+  const EXPENSE_DATE = new Date("2026-10-01").getTime();
+  const args = (lineItem: Row = {}, overrides: Row = {}) => ({
+    attachments: [
+      file("att-voucher", VOUCHER_KEY),
+      file("att-signed", SIGNED_KEY),
+    ],
     chargedTo: "organisation",
     city: "bangalore",
-    expenseDate: new Date("2026-10-01").getTime(),
+    expenseDate: EXPENSE_DATE,
     id: "request-1",
     lineItems: [
       {
@@ -404,112 +428,228 @@ describe("reimbursement.update keeps voucher links", () => {
         generateVoucher: true,
         id: "li-1",
         payeeName: "Test Payee",
+        payeePhone: "+919876543210",
         sortOrder: 0,
         ...lineItem,
       },
     ],
     title: "Hall clean-up",
+    ...overrides,
   });
-  const admin = {
-    permissions: ["requests.edit_all_statuses"],
-    role: "admin",
-    userId: "admin-1",
-  };
-  const seed = () => ({
-    reimbursement: [{ ...approvedRequest, chargedTo: "organisation" }],
-    reimbursementAttachment: [
-      fileAttachment("att-voucher"),
-      fileAttachment("att-signed"),
+  const seed = (extra: Partial<Record<string, Row[]>> = {}) => ({
+    reimbursement: [
+      {
+        ...approvedRequest,
+        chargedTo: "organisation",
+        expenseDate: EXPENSE_DATE,
+      },
     ],
-    reimbursementLineItem: [before()],
+    reimbursementAttachment: [
+      file("att-voucher", VOUCHER_KEY),
+      file("att-signed", SIGNED_KEY),
+    ],
+    reimbursementLineItem: [stored()],
+    ...extra,
   });
-
-  it("restores the voucher and signed copy of an unchanged item", async () => {
-    const db = createDb("client", seed());
+  const edit = async (
+    db: ReturnType<typeof createDb>,
+    editArgs: Row,
+    ctx: Row = {
+      permissions: ["requests.edit_all_statuses"],
+      role: "admin",
+      userId: "admin-1",
+    }
+  ) => {
     await reimbursementMutators.update.fn({
-      args: createSchema.parse(args({})),
-      ctx: admin,
+      args: createSchema.parse(editArgs),
+      ctx,
       tx: db.tx,
     } as never);
-    const links = db.updates.filter((u) => u.table === "reimbursementLineItem");
-    expect(links.map((u) => u.row)).toEqual([
+    return {
+      inserted: db.inserts.find((i) => i.table === "reimbursementLineItem")
+        ?.row,
+      links: db.updates
+        .filter((u) => u.table === "reimbursementLineItem")
+        .map((u) => u.row),
+    };
+  };
+  const relinked = [
+    {
+      id: "li-1",
+      signedVoucherAttachmentId: "att-signed",
+      voucherAttachmentId: "att-voucher",
+    },
+  ];
+
+  it("restores the voucher and signed copy of an unchanged item", async () => {
+    const { links } = await edit(createDb("client", seed()), args());
+    expect(links).toEqual(relinked);
+  });
+
+  it.each([
+    ["amount", { amountPaise: 60_000 }, {}],
+    ["description", { description: "Cleaning and painting" }, {}],
+    ["category", { categoryId: "cat-2" }, {}],
+    ["payee name", { payeeName: "Other Payee" }, {}],
+    ["payee mobile", { payeePhone: "+919000000002" }, {}],
+    ["expense date", {}, { expenseDate: new Date("2026-09-30").getTime() }],
+  ])("treats a changed %s as a stale voucher", async (_, item, request) => {
+    const { links } = await edit(
+      createDb("client", seed()),
+      args(item, request)
+    );
+    expect(links).toEqual([]);
+  });
+
+  it("drops the link when the voucher file was removed", async () => {
+    const { links } = await edit(
+      createDb("client", seed()),
+      args({}, { attachments: [file("att-signed", SIGNED_KEY)] })
+    );
+    expect(links).toEqual([]);
+  });
+
+  it("drops the link when another file took the voucher's id", async () => {
+    const { links } = await edit(
+      createDb("client", seed()),
+      args(
+        {},
+        {
+          attachments: [
+            file("att-voucher", "app/attachments/tmp/admin-1/other.pdf"),
+            file("att-signed", SIGNED_KEY),
+          ],
+        }
+      )
+    );
+    expect(links).toEqual([]);
+  });
+
+  it("keeps the voucher but not a signed copy whose key changed", async () => {
+    const { links } = await edit(
+      createDb("client", seed()),
+      args(
+        {},
+        {
+          attachments: [
+            file("att-voucher", VOUCHER_KEY),
+            file("att-signed", "app/attachments/tmp/admin-1/other.pdf"),
+          ],
+        }
+      )
+    );
+    expect(links).toEqual([
       {
         id: "li-1",
-        signedVoucherAttachmentId: "att-signed",
+        signedVoucherAttachmentId: null,
         voucherAttachmentId: "att-voucher",
       },
     ]);
   });
 
-  it("drops the link when the amount changed", async () => {
-    const db = createDb("client", seed());
-    await reimbursementMutators.update.fn({
-      args: createSchema.parse(args({ amountPaise: 60_000 })),
-      ctx: admin,
-      tx: db.tx,
-    } as never);
-    expect(
-      db.updates.filter((u) => u.table === "reimbursementLineItem")
-    ).toEqual([]);
+  it("keeps the stored opt-in and payee after the limit was lowered", async () => {
+    // ₹500 item with a voucher; the limit is now ₹200, so the form hid and
+    // cleared the voucher fields of this untouched item.
+    const { inserted, links } = await edit(
+      createDb("client", seed(limit(20_000))),
+      args({ generateVoucher: false, payeeName: null, payeePhone: null })
+    );
+    expect(inserted).toMatchObject({
+      generateVoucher: true,
+      payeeName: "Test Payee",
+      payeePhone: "+919876543210",
+    });
+    expect(links).toEqual(relinked);
   });
 
-  it("drops the link when the voucher file was removed", async () => {
-    const db = createDb("client", seed());
-    await reimbursementMutators.update.fn({
-      args: { ...createSchema.parse(args({})), attachments: [] },
-      ctx: admin,
-      tx: db.tx,
-    } as never);
-    expect(
-      db.updates.filter((u) => u.table === "reimbursementLineItem")
-    ).toEqual([]);
+  describe("on the server", () => {
+    const serverEdit = async (lineItem: Row, extra = {}) => {
+      const ctx = serverContext(["requests.edit_all_statuses"]);
+      const db = createDb("server", seed(extra));
+      await reimbursementMutators.update.fn({
+        args: createSchema.parse(args(lineItem)),
+        ctx,
+        tx: db.tx,
+      } as never);
+      for (const task of ctx.asyncTasks ?? []) {
+        if (task.meta.mutator === "reimbursement.update:queueVouchers") {
+          await task.fn();
+        }
+      }
+      return enqueue.mock.calls
+        .filter(([name]) => name === "generate-cash-voucher")
+        .map(([, payload]) => (payload as { lineItemId: string }).lineItemId);
+    };
+
+    it("queues a fresh voucher for a changed item of an approved request", async () => {
+      expect(await serverEdit({ description: "Cleaning twice" })).toEqual([
+        "li-1",
+      ]);
+    });
+
+    it("queues nothing for an unchanged item", async () => {
+      expect(await serverEdit({})).toEqual([]);
+    });
+
+    it("queues an opted-in item that has no voucher yet", async () => {
+      expect(
+        await serverEdit(
+          {},
+          {
+            reimbursementLineItem: [
+              stored({
+                signedVoucherAttachmentId: null,
+                voucherAttachmentId: null,
+              }),
+            ],
+          }
+        )
+      ).toEqual(["li-1"]);
+    });
   });
 });
 
 describe("reimbursement.attachSignedVoucher", () => {
-  const signedCopy = {
+  const owner = { permissions: [], role: "volunteer", userId: "owner-1" };
+  const signedCopy = (userId: string, id = "att-new") => ({
     filename: "signed.jpg",
-    id: "att-new",
+    id,
     mimeType: "image/jpeg",
-    objectKey: "pi-dash/attachments/tmp/owner-1/signed.jpg",
-  };
-  const run = (ctx: Row, seed: Partial<Record<string, Row[]>>) => {
-    const db = createDb("client", seed);
-    return {
-      db,
-      result: reimbursementMutators.attachSignedVoucher.fn({
-        args: {
-          lineItemId: "li-1",
-          reimbursementId: "request-1",
-          signedCopy: {
-            ...signedCopy,
-            objectKey: `pi-dash/attachments/tmp/${String(ctx.userId)}/signed.jpg`,
-          },
-        },
-        ctx,
-        tx: db.tx,
-      } as never),
-    };
-  };
-  const withVoucher = {
+    objectKey: `pi-dash/attachments/tmp/${userId}/signed.jpg`,
+  });
+  const lineItem = (overrides: Row = {}) => ({
+    amountPaise: 50_000,
+    id: "li-1",
+    reimbursementId: "request-1",
+    signedVoucherAttachmentId: null,
+    voucherAttachmentId: "att-voucher",
+    ...overrides,
+  });
+  const seed = (overrides: Partial<Record<string, Row[]>> = {}) => ({
     reimbursement: [approvedRequest],
-    reimbursementLineItem: [
-      {
-        amountPaise: 50_000,
-        id: "li-1",
+    reimbursementLineItem: [lineItem()],
+    ...overrides,
+  });
+  const attach = (
+    db: ReturnType<typeof createDb>,
+    ctx: Row,
+    overrides: Row = {}
+  ) =>
+    reimbursementMutators.attachSignedVoucher.fn({
+      args: {
+        lineItemId: "li-1",
         reimbursementId: "request-1",
-        signedVoucherAttachmentId: null,
-        voucherAttachmentId: "att-voucher",
+        replacesAttachmentId: null,
+        signedCopy: signedCopy(String(ctx.userId)),
+        ...overrides,
       },
-    ],
-  };
+      ctx,
+      tx: db.tx,
+    } as never);
 
   it("lets the claimant attach the signed copy", async () => {
-    const { db, result } = run(
-      { permissions: [], role: "volunteer", userId: "owner-1" },
-      withVoucher
-    );
-    await result;
+    const db = createDb("client", seed());
+    await attach(db, owner);
     expect(
       db.inserts.find((i) => i.table === "reimbursementAttachment")?.row.id
     ).toBe("att-new");
@@ -520,44 +660,111 @@ describe("reimbursement.attachSignedVoucher", () => {
   });
 
   it("lets finance attach it", async () => {
-    const { result } = run(
-      { permissions: ["finance.manage"], role: "admin", userId: "fin-1" },
-      withVoucher
-    );
-    await expect(result).resolves.toBeUndefined();
+    const finance = {
+      permissions: ["finance.manage"],
+      role: "admin",
+      userId: "fin-1",
+    };
+    await expect(
+      attach(createDb("client", seed()), finance)
+    ).resolves.toBeUndefined();
   });
 
   it("refuses someone else's volunteer", async () => {
-    const { result } = run(
-      {
+    await expect(
+      attach(createDb("client", seed()), {
         permissions: ["requests.edit_own"],
         role: "volunteer",
         userId: "vol-2",
-      },
-      withVoucher
-    );
-    await expect(result).rejects.toThrow("Unauthorized");
+      })
+    ).rejects.toThrow("Unauthorized");
   });
 
   it("needs a generated voucher and an approved request", async () => {
-    const owner = { permissions: [], role: "volunteer", userId: "owner-1" };
     await expect(
-      run(owner, {
-        ...withVoucher,
-        reimbursementLineItem: [
-          {
-            id: "li-1",
-            reimbursementId: "request-1",
-            voucherAttachmentId: null,
-          },
-        ],
-      }).result
+      attach(
+        createDb(
+          "client",
+          seed({
+            reimbursementLineItem: [lineItem({ voucherAttachmentId: null })],
+          })
+        ),
+        owner
+      )
     ).rejects.toThrow("Generate the voucher before uploading a signed copy");
     await expect(
-      run(owner, {
-        ...withVoucher,
-        reimbursement: [{ ...approvedRequest, status: "pending" }],
-      }).result
+      attach(
+        createDb(
+          "client",
+          seed({ reimbursement: [{ ...approvedRequest, status: "pending" }] })
+        ),
+        owner
+      )
     ).rejects.toThrow("Only approved reimbursements take a signed voucher");
+  });
+
+  it("refuses a line item of another request", async () => {
+    await expect(
+      attach(
+        createDb(
+          "client",
+          seed({
+            reimbursementLineItem: [lineItem({ reimbursementId: "request-2" })],
+          })
+        ),
+        owner
+      )
+    ).rejects.toThrow("Line item");
+  });
+
+  it("replaces a signed copy and keeps the old file attached", async () => {
+    const db = createDb(
+      "client",
+      seed({
+        reimbursementAttachment: [{ id: "att-old", objectKey: "old" }],
+        reimbursementLineItem: [
+          lineItem({ signedVoucherAttachmentId: "att-old" }),
+        ],
+      })
+    );
+    await attach(db, owner, { replacesAttachmentId: "att-old" });
+    expect(
+      db.updates.find((u) => u.table === "reimbursementLineItem")?.row
+        .signedVoucherAttachmentId
+    ).toBe("att-new");
+    expect(db.deletes).toEqual([]);
+    expect(
+      db.inserts.find((i) => i.table === "reimbursementHistory")?.row.note
+    ).toBe("Signed voucher replaced");
+  });
+
+  it("refuses a replace racing another upload", async () => {
+    const db = createDb(
+      "client",
+      seed({
+        reimbursementLineItem: [
+          lineItem({ signedVoucherAttachmentId: "att-other" }),
+        ],
+      })
+    );
+    await expect(
+      attach(db, owner, { replacesAttachmentId: "att-old" })
+    ).rejects.toThrow("The signed copy changed meanwhile");
+  });
+
+  it.each([
+    ["another user's upload", "app/attachments/tmp/someone-else/signed.jpg"],
+    ["a durable key", "app/attachments/reimbursements/request-2/signed.jpg"],
+  ])("refuses %s on the server", async (_, objectKey) => {
+    const ctx = {
+      ...serverContext([]),
+      role: "volunteer",
+      userId: "owner-1",
+    };
+    await expect(
+      attach(createDb("server", seed()), ctx, {
+        signedCopy: { ...signedCopy("owner-1"), objectKey },
+      })
+    ).rejects.toThrow("Invalid attachment object key");
   });
 });

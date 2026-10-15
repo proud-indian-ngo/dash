@@ -2,8 +2,9 @@ import {
   CASH_VOUCHER_LIMIT_CONFIG_KEY,
   cashVoucherLimitError,
   isIndianMobile,
+  isLatinName,
   PAYEE_NAME_MAX,
-  PAYEE_NAME_REQUIRED_MESSAGE,
+  PAYEE_NAME_SCRIPT_MESSAGE,
   PAYEE_PHONE_MESSAGE,
   parseCashVoucherLimit,
   qualifiesForCashVoucher,
@@ -12,7 +13,7 @@ import { cityValues } from "@pi-dash/shared/constants";
 import { defineMutator, type Transaction } from "@rocicorp/zero";
 import z from "zod";
 
-import "../context";
+import type { Context } from "../context";
 import { assertHasPermission, assertIsLoggedIn, can } from "../permissions";
 import { type Schema, zql } from "../schema";
 import {
@@ -40,6 +41,7 @@ import {
   insertRelations,
   replaceRelations,
 } from "./submission-helpers";
+import { planVoucherFields, type VoucherPlan } from "./voucher-fields";
 
 const reimbursementAttachmentKeyPrefixes = (id: string) => [
   `attachments/reimbursements/${id}/`,
@@ -53,7 +55,13 @@ const reimbursementApprovalKeyPrefixes = (id: string) => [
 
 /** A reimbursement line item: the shared fields plus the voucher payee. */
 const reimbursementLineItemSchema = lineItemSchema.extend({
-  payeeName: z.string().trim().max(PAYEE_NAME_MAX).nullable().optional(),
+  payeeName: z
+    .string()
+    .trim()
+    .max(PAYEE_NAME_MAX)
+    .refine((v) => v === "" || isLatinName(v), PAYEE_NAME_SCRIPT_MESSAGE)
+    .nullable()
+    .optional(),
   payeePhone: z
     .string()
     .refine(isIndianMobile, PAYEE_PHONE_MESSAGE)
@@ -91,97 +99,52 @@ export const createSchema = z.object({
   title: z.string().min(1),
 });
 
-type LineItems = z.infer<typeof createSchema>["lineItems"];
-
 const fk = (id: string) => ({ reimbursementId: id });
 
-/**
- * Adds the voucher fields to each inserted line item. The opt-in only sticks
- * to items within the voucher limit, and the payee is kept only on items
- * that opted in: a ticked box left behind when the amount grew past the
- * limit is dropped rather than refused. A voucher item must name its payee.
- * Voucher and signed-copy links start empty; `update` restores them.
- */
-function withVoucherFields<T extends { amountPaise: number; id: string }>(
-  lineItems: LineItems,
-  limitPaise: number,
+/** Inserts each line item with its planned voucher fields and empty links. */
+function withPlannedVoucherFields<T extends { id: string }>(
+  plans: ReadonlyMap<string, VoucherPlan>,
   insertFn: (data: T) => Promise<unknown>
 ) {
-  const byId = new Map(lineItems.map((li) => [li.id, li]));
   return (data: T) => {
-    const src = byId.get(data.id);
-    const generateVoucher =
-      Boolean(src?.generateVoucher) &&
-      qualifiesForCashVoucher(data.amountPaise, limitPaise);
-    const payeeName = generateVoucher ? src?.payeeName?.trim() || null : null;
-    if (generateVoucher && !payeeName) {
-      throw new Error(`${PAYEE_NAME_REQUIRED_MESSAGE} on each cash voucher`);
-    }
+    const plan = plans.get(data.id);
     return insertFn({
       ...data,
-      generateVoucher,
-      payeeName,
-      payeePhone: generateVoucher ? (src?.payeePhone ?? null) : null,
+      generateVoucher: plan?.fields.generateVoucher ?? false,
+      payeeName: plan?.fields.payeeName ?? null,
+      payeePhone: plan?.fields.payeePhone ?? null,
       signedVoucherAttachmentId: null,
       voucherAttachmentId: null,
     });
   };
 }
 
-interface ExistingLineItem {
-  amountPaise: number;
-  description: null | string;
-  id: string;
-  signedVoucherAttachmentId?: null | string;
-  voucherAttachmentId?: null | string;
-}
-
-/**
- * After an edit re-inserts the line items, put back the voucher and signed
- * copy links of items that kept their id, amount and description and whose
- * attachments are still on the request. A changed amount or description
- * makes the voucher stale: the link is dropped (the file stays among the
- * attachments) and the item is returned so an approved request can get a
- * fresh voucher.
- */
-export async function restoreVoucherLinks(
-  tx: Transaction<Schema>,
-  before: readonly ExistingLineItem[],
-  after: LineItems,
-  keptAttachmentIds: ReadonlySet<string>
-): Promise<string[]> {
-  const previous = new Map(before.map((li) => [li.id, li]));
-  const stale: string[] = [];
-  for (const item of after) {
-    const old = previous.get(item.id);
-    if (!old?.voucherAttachmentId) {
-      continue;
-    }
-    const unchanged =
-      old.amountPaise === item.amountPaise &&
-      (old.description ?? "") === item.description;
-    if (!unchanged) {
-      stale.push(item.id);
-      continue;
-    }
-    const voucherAttachmentId = keptAttachmentIds.has(old.voucherAttachmentId)
-      ? old.voucherAttachmentId
-      : null;
-    const signedVoucherAttachmentId =
-      voucherAttachmentId &&
-      old.signedVoucherAttachmentId &&
-      keptAttachmentIds.has(old.signedVoucherAttachmentId)
-        ? old.signedVoucherAttachmentId
-        : null;
-    if (voucherAttachmentId) {
-      await tx.mutate.reimbursementLineItem.update({
-        id: item.id,
-        signedVoucherAttachmentId,
-        voucherAttachmentId,
-      });
-    }
+/** Queues `generate-cash-voucher` for line items after commit, on the server. */
+function queueVouchers(
+  ctx: Context,
+  reimbursementId: string,
+  lineItemIds: readonly string[],
+  approverUserId: string,
+  mutator: string
+) {
+  if (lineItemIds.length === 0) {
+    return;
   }
-  return stale;
+  ctx.asyncTasks?.push({
+    fn: async () => {
+      const { enqueue } = await import("@pi-dash/jobs/enqueue");
+      await Promise.all(
+        lineItemIds.map(async (lineItemId) => {
+          await enqueue(
+            "generate-cash-voucher",
+            { approverUserId, lineItemId, reimbursementId },
+            { singletonKey: `voucher-${lineItemId}`, traceId: ctx.traceId }
+          );
+        })
+      );
+    },
+    meta: { mutator, reimbursementId },
+  });
 }
 
 const entityFields = (args: z.infer<typeof createSchema>) => ({
@@ -310,12 +273,15 @@ export const reimbursementMutators = {
    * Upload the voucher the payee signed or thumb-printed, after approval,
    * without reopening the claim. The claimant (owner) or finance
    * (finance.manage, or an approver) may attach or replace it; the file
-   * becomes a reimbursement attachment linked from the line item.
+   * becomes a reimbursement attachment linked from the line item, and a
+   * replaced copy stays attached to the request.
    */
   attachSignedVoucher: defineMutator(
     z.object({
       lineItemId: z.string(),
       reimbursementId: z.string(),
+      /** The signed copy the client saw, so a replace never races another. */
+      replacesAttachmentId: z.string().nullable(),
       signedCopy: z.object({
         filename: z.string().min(1).max(255),
         id: z.string(),
@@ -348,6 +314,14 @@ export const reimbursementMutators = {
       if (!lineItem.voucherAttachmentId) {
         throw new Error("Generate the voucher before uploading a signed copy");
       }
+      if (
+        (lineItem.signedVoucherAttachmentId ?? null) !==
+        args.replacesAttachmentId
+      ) {
+        throw new Error(
+          "The signed copy changed meanwhile. Reload and try again"
+        );
+      }
 
       const now = Date.now();
       const { signedCopy } = args;
@@ -375,24 +349,8 @@ export const reimbursementMutators = {
         updatedAt: now,
       });
 
+      // A replaced copy stays among the request's attachments as evidence.
       const previousId = lineItem.signedVoucherAttachmentId;
-      if (previousId) {
-        const previous = await tx.run(
-          zql.reimbursementAttachment.where("id", previousId).one()
-        );
-        if (previous) {
-          await tx.mutate.reimbursementAttachment.delete({ id: previousId });
-          enqueueDeleteR2Object(ctx, tx.location, previous.objectKey, {
-            keyPrefixes: reimbursementAttachmentKeyPrefixes(
-              args.reimbursementId
-            ),
-            meta: {
-              mutator: "reimbursement.attachSignedVoucher:replace",
-              reimbursementId: args.reimbursementId,
-            },
-          });
-        }
-      }
 
       await tx.mutate.reimbursementHistory.insert({
         ...buildHistoryInsert(
@@ -411,7 +369,14 @@ export const reimbursementMutators = {
     const { userId } = ctx;
     const now = Date.now();
     const charge = await resolveExpenseCharge(tx, args);
-    const limitPaise = await readCashVoucherLimit(tx);
+    const voucherPlans = planVoucherFields({
+      attachmentsAfter: [],
+      attachmentsBefore: [],
+      expenseDateChanged: false,
+      items: args.lineItems,
+      itemsBefore: [],
+      limitPaise: await readCashVoucherLimit(tx),
+    });
 
     await tx.mutate.reimbursement.insert({
       approvalScreenshotKey: null,
@@ -440,7 +405,7 @@ export const reimbursementMutators = {
         insertAttachment: (data) =>
           tx.mutate.reimbursementAttachment.insert(data),
         insertHistory: (data) => tx.mutate.reimbursementHistory.insert(data),
-        insertLineItem: withVoucherFields(args.lineItems, limitPaise, (data) =>
+        insertLineItem: withPlannedVoucherFields(voucherPlans, (data) =>
           tx.mutate.reimbursementLineItem.insert(data)
         ),
       },
@@ -705,10 +670,22 @@ export const reimbursementMutators = {
 
     const now = Date.now();
     const charge = await resolveExpenseCharge(tx, args, entity);
-    const limitPaise = await readCashVoucherLimit(tx);
-    const lineItemsBefore = await tx.run(
-      zql.reimbursementLineItem.where("reimbursementId", args.id)
-    );
+    const [itemsBefore, attachmentsBefore] = await Promise.all([
+      tx.run(zql.reimbursementLineItem.where("reimbursementId", args.id)),
+      tx.run(zql.reimbursementAttachment.where("reimbursementId", args.id)),
+    ]);
+    const voucherPlans = planVoucherFields({
+      attachmentsAfter: args.attachments.map((attachment) => ({
+        id: attachment.id,
+        objectKey: attachment.type === "file" ? attachment.objectKey : null,
+        type: attachment.type,
+      })),
+      attachmentsBefore,
+      expenseDateChanged: entity.expenseDate !== args.expenseDate,
+      items: args.lineItems,
+      itemsBefore,
+      limitPaise: await readCashVoucherLimit(tx),
+    });
 
     await tx.mutate.reimbursement.update({
       id: args.id,
@@ -731,7 +708,7 @@ export const reimbursementMutators = {
         insertAttachment: (data) =>
           tx.mutate.reimbursementAttachment.insert(data),
         insertHistory: (data) => tx.mutate.reimbursementHistory.insert(data),
-        insertLineItem: withVoucherFields(args.lineItems, limitPaise, (data) =>
+        insertLineItem: withPlannedVoucherFields(voucherPlans, (data) =>
           tx.mutate.reimbursementLineItem.insert(data)
         ),
         onDeleteAttachmentObjectKey: (key) =>
@@ -753,50 +730,23 @@ export const reimbursementMutators = {
       })
     );
 
-    const staleVoucherItemIds = await restoreVoucherLinks(
-      tx,
-      lineItemsBefore,
-      args.lineItems,
-      new Set(args.attachments.map((attachment) => attachment.id))
-    );
-
-    // An approved request edited by an admin gets fresh vouchers for opted-in
-    // items whose amount or description changed, as approval would.
-    if (tx.location === "server" && entity.status === "approved") {
-      const regenerate = args.lineItems.filter(
-        (li) =>
-          staleVoucherItemIds.includes(li.id) &&
-          li.generateVoucher &&
-          qualifiesForCashVoucher(li.amountPaise, limitPaise)
-      );
-      if (regenerate.length > 0) {
-        const reimbursementId = args.id;
-        ctx.asyncTasks?.push({
-          fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await Promise.all(
-              regenerate.map(async (li) => {
-                await enqueue(
-                  "generate-cash-voucher",
-                  {
-                    approverUserId: userId,
-                    lineItemId: li.id,
-                    reimbursementId,
-                  },
-                  {
-                    singletonKey: `voucher-${li.id}`,
-                    traceId: ctx.traceId,
-                  }
-                );
-              })
-            );
-          },
-          meta: {
-            mutator: "reimbursement.update:regenerateVouchers",
-            reimbursementId,
-          },
-        });
+    // Links go back once the attachments they point at are re-inserted.
+    for (const [id, plan] of voucherPlans) {
+      if (plan.links) {
+        await tx.mutate.reimbursementLineItem.update({ id, ...plan.links });
       }
+    }
+
+    // An approved request edited by an admin gets vouchers for opted-in
+    // items that are new, changed or still without one, as approval would.
+    if (tx.location === "server" && entity.status === "approved") {
+      queueVouchers(
+        ctx,
+        args.id,
+        [...voucherPlans].filter(([, plan]) => plan.queue).map(([id]) => id),
+        userId,
+        "reimbursement.update:queueVouchers"
+      );
     }
   }),
 };

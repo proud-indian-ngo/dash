@@ -28,6 +28,8 @@ import {
 
 const TARGET_ID = "019b1111-1111-7111-8111-111111111111";
 const TEAM_ID = "019b2222-2222-7222-8222-222222222222";
+const NEW_ID = "019b3333-3333-7333-8333-333333333333";
+const REPLACED_ID = "019b4444-4444-7444-8444-444444444444";
 const BETTER_AUTH_USER_ID = "0123456789abcdefghijklmnopqrstuv";
 const options = {
   action: "user.update",
@@ -193,9 +195,10 @@ describe("audit metadata", () => {
       {
         lineItemId: TARGET_ID,
         reimbursementId: TEAM_ID,
+        replacesAttachmentId: REPLACED_ID,
         signedCopy: {
           filename: "signed.jpg",
-          id: TARGET_ID,
+          id: NEW_ID,
           objectKey: "app/attachments/tmp/u/signed.jpg",
         },
       },

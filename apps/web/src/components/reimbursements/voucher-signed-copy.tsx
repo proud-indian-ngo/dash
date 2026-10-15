@@ -104,6 +104,7 @@ export function VoucherSignedCopy({
           mutators.reimbursement.attachSignedVoucher({
             lineItemId,
             reimbursementId,
+            replacesAttachmentId: signedVoucherAttachmentId ?? null,
             signedCopy: {
               filename: uploaded.filename,
               id: uploaded.id,

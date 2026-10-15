@@ -158,6 +158,12 @@ const QUEUE_OVERRIDES: Partial<
     policy: "exclusive",
     retryLimit: 0,
   },
+  // One queued and one active job per line item (singletonKey =
+  // "voucher-<lineItemId>"), so repeated requests collapse and an edit made
+  // while a voucher renders queues one more. pg-boss can't change an
+  // existing queue's policy, so a queue created before this stays
+  // "standard"; the job's commit check keeps duplicates harmless there.
+  "generate-cash-voucher": { policy: "stately" },
   "immich-sync-photo": { expireInSeconds: 1800 },
   // One queued and one active job per payment (singletonKey = payment ID),
   // so repeated deliveries collapse. The worker is registered by the web

@@ -109,48 +109,6 @@ describe("lineItemSchema", () => {
     ).toBe(true);
   });
 
-  it("accepts an empty or Indian mobile payee phone", () => {
-    for (const payeePhone of [undefined, "", "+919876543210"]) {
-      expect(
-        lineItemSchema.safeParse({
-          ...valid,
-          generateVoucher: true,
-          payeeName: "Test Payee",
-          payeePhone,
-        }).success
-      ).toBe(true);
-    }
-  });
-
-  it("requires a payee name once the voucher is ticked", () => {
-    expect(
-      lineItemSchema.safeParse({
-        ...valid,
-        generateVoucher: true,
-        payeeName: " ",
-      }).error?.issues[0]?.message
-    ).toBe("Name who was paid");
-  });
-
-  it("ignores the payee phone without a voucher opt-in", () => {
-    expect(
-      lineItemSchema.safeParse({ ...valid, payeePhone: "12345" }).success
-    ).toBe(true);
-  });
-
-  it("refuses a payee phone that isn't an Indian mobile", () => {
-    for (const payeePhone of ["+14155550123", "9876543210", "+915876543210"]) {
-      expect(
-        lineItemSchema.safeParse({
-          ...valid,
-          generateVoucher: true,
-          payeeName: "Test Payee",
-          payeePhone,
-        }).error?.issues[0]?.message
-      ).toBe("Enter an Indian mobile number");
-    }
-  });
-
   it("rejects amount with more than 2 decimal places", () => {
     expect(
       lineItemSchema.safeParse({ ...valid, amount: "10.123" }).success

@@ -93,6 +93,18 @@ describe("cash voucher PDF", () => {
     expect(pageCount(pdf)).toBe(1);
   });
 
+  it("spills a very long description to a second page", async () => {
+    // Around 700 characters stay on one page even with long names; the
+    // footer with the voucher number is fixed, so it repeats on page two.
+    const pdf = await generateCashVoucherPdf({
+      ...sampleVoucher,
+      description: "Loading and arranging chairs and tables at the hall, "
+        .repeat(40)
+        .slice(0, 2000),
+    });
+    expect(pageCount(pdf)).toBe(2);
+  });
+
   it("prints IAST names in embedded fonts, never Helvetica", async () => {
     const pdf = await generateCashVoucherPdf({
       ...sampleVoucher,

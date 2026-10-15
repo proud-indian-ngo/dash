@@ -646,6 +646,16 @@ export function summarizeZeroMutation(
       },
     };
   }
+  // The new signed voucher copy is nested; record its attachment ID only.
+  if (
+    action === "reimbursement.attachSignedVoucher" &&
+    values.signedCopy &&
+    typeof values.signedCopy === "object" &&
+    "id" in values.signedCopy &&
+    isSafeIdentifier(values.signedCopy.id)
+  ) {
+    relatedIds.signedCopyAttachmentId = values.signedCopy.id;
+  }
   const changedFields = Object.keys(values)
     .filter(
       (key) =>

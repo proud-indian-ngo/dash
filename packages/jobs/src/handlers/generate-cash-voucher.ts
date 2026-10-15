@@ -21,10 +21,22 @@ import type { GenerateCashVoucherPayload } from "../enqueue";
 import { createNotifyHandler } from "./create-handler";
 import { getR2Client } from "./r2";
 
+/** What the voucher printed from the line item and its request. */
+interface RenderedFrom {
+  amountPaise: number;
+  categoryId: string;
+  description: string | null;
+  expenseDate: string;
+  payeeName: string | null;
+  payeePhone: string | null;
+}
+
 /**
  * Atomically insert the new attachment, point the line item FK at it, and
- * delete the old attachment row. If this transaction fails the old voucher
- * stays linked and the new row is rolled back — no orphan attachment rows.
+ * delete the attachment row it replaces. The line item is locked and must
+ * still hold what was rendered: if an edit changed it meanwhile, nothing is
+ * linked and the newer job (queued by that edit) wins. Returns whether the
+ * voucher was linked, and the replaced object's key for cleanup.
  */
 async function commitVoucherAttachment(opts: {
   attachment: {
@@ -35,9 +47,38 @@ async function commitVoucherAttachment(opts: {
     reimbursementId: string;
   };
   lineItemId: string;
-  oldAttachmentId: string | null;
-}) {
-  await db.transaction(async (tx) => {
+  rendered: RenderedFrom;
+}): Promise<{ linked: false } | { linked: true; oldR2Key: string | null }> {
+  return await db.transaction(async (tx) => {
+    const [current] = await tx
+      .select({
+        amountPaise: reimbursementLineItem.amountPaise,
+        categoryId: reimbursementLineItem.categoryId,
+        description: reimbursementLineItem.description,
+        payeeName: reimbursementLineItem.payeeName,
+        payeePhone: reimbursementLineItem.payeePhone,
+        voucherAttachmentId: reimbursementLineItem.voucherAttachmentId,
+      })
+      .from(reimbursementLineItem)
+      .where(eq(reimbursementLineItem.id, opts.lineItemId))
+      .for("update");
+    const [request] = await tx
+      .select({ expenseDate: reimbursement.expenseDate })
+      .from(reimbursement)
+      .where(eq(reimbursement.id, opts.attachment.reimbursementId));
+    const { rendered } = opts;
+    if (
+      !(current && request) ||
+      current.amountPaise !== rendered.amountPaise ||
+      current.categoryId !== rendered.categoryId ||
+      current.description !== rendered.description ||
+      current.payeeName !== rendered.payeeName ||
+      current.payeePhone !== rendered.payeePhone ||
+      request.expenseDate !== rendered.expenseDate
+    ) {
+      return { linked: false };
+    }
+
     await tx.insert(reimbursementAttachment).values({
       createdAt: new Date(),
       filename: opts.attachment.filename,
@@ -59,11 +100,15 @@ async function commitVoucherAttachment(opts: {
       })
       .where(eq(reimbursementLineItem.id, opts.lineItemId));
 
-    if (opts.oldAttachmentId) {
-      await tx
+    let oldR2Key: string | null = null;
+    if (current.voucherAttachmentId) {
+      const [old] = await tx
         .delete(reimbursementAttachment)
-        .where(eq(reimbursementAttachment.id, opts.oldAttachmentId));
+        .where(eq(reimbursementAttachment.id, current.voucherAttachmentId))
+        .returning({ objectKey: reimbursementAttachment.objectKey });
+      oldR2Key = old?.objectKey ?? null;
     }
+    return { linked: true, oldR2Key };
   });
 }
 
@@ -111,16 +156,6 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
     });
     log.emit();
     return;
-  }
-
-  // Capture old voucher's R2 key before mutations, for cleanup after commit.
-  let oldR2Key: string | null = null;
-  if (lineItem.voucherAttachmentId) {
-    const [oldAtt] = await db
-      .select({ objectKey: reimbursementAttachment.objectKey })
-      .from(reimbursementAttachment)
-      .where(eq(reimbursementAttachment.id, lineItem.voucherAttachmentId));
-    oldR2Key = oldAtt?.objectKey ?? null;
   }
 
   const [submitter] = await db
@@ -172,11 +207,12 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
   const s3 = getR2Client();
   await s3.write(objectKey, pdfBuffer, { type: "application/pdf" });
 
-  // 2. Atomic commit: insert new attachment + swap FK + delete old row.
-  //    If this fails, old voucher stays linked. The uploaded R2 object
-  //    becomes an orphan (harmless — no DB row points to it).
+  // 2. Atomic commit: insert new attachment + swap FK + delete old row,
+  //    only if the item still holds what was rendered. If this fails, the
+  //    old voucher stays linked and the uploaded object is an orphan
+  //    (harmless — no DB row points to it).
   const attachmentId = uuidv7();
-  await commitVoucherAttachment({
+  const committed = await commitVoucherAttachment({
     attachment: {
       filename,
       id: attachmentId,
@@ -185,10 +221,31 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
       reimbursementId: data.reimbursementId,
     },
     lineItemId: data.lineItemId,
-    oldAttachmentId: lineItem.voucherAttachmentId,
+    rendered: {
+      amountPaise,
+      categoryId: lineItem.categoryId,
+      description: lineItem.description,
+      expenseDate: reimb.expenseDate,
+      payeeName: lineItem.payeeName,
+      payeePhone: lineItem.payeePhone,
+    },
   });
 
-  // 3. Best-effort R2 cleanup of old object.
+  if (!committed.linked) {
+    // The item changed while this rendered; its edit queued a newer job.
+    s3.delete(objectKey).catch((err: unknown) => {
+      log.set({
+        error: err instanceof Error ? err.message : String(err),
+        event: "stale_r2_cleanup_failed",
+      });
+    });
+    log.set({ event: "voucher_render_stale" });
+    log.emit();
+    return;
+  }
+
+  // 3. Best-effort R2 cleanup of the replaced voucher.
+  const { oldR2Key } = committed;
   if (oldR2Key) {
     s3.delete(oldR2Key).catch((err: unknown) => {
       log.set({

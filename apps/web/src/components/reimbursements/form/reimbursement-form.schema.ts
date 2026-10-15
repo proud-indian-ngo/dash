@@ -1,3 +1,4 @@
+import { DEFAULT_CASH_VOUCHER_LIMIT_PAISE } from "@pi-dash/shared/cash-voucher";
 import { cityValues } from "@pi-dash/shared/constants";
 import { startOfDay } from "date-fns";
 import z from "zod";
@@ -7,6 +8,7 @@ import {
   refineChargedTo,
 } from "@/components/expenses/charged-to-schema";
 import {
+  addVoucherPayeeIssues,
   attachmentSchema,
   lineItemSchema,
   newLineItem,
@@ -31,31 +33,49 @@ const baseFields = {
   title: z.string().min(1, "Title is required"),
 };
 
-export const reimbursementRequestFormSchema = z
-  .object({
-    ...baseFields,
-    ...chargedToFormFields,
-    expenseDate: z
-      .date()
-      .optional()
-      .refine((d): d is Date => d !== undefined, "Expense date is required")
-      .refine(
-        (d) => startOfDay(d) <= startOfDay(new Date()),
-        "Expense date cannot be in the future"
-      ),
-    type: z.literal("reimbursement"),
-  })
-  .superRefine(refineChargedTo);
+const reimbursementRequestFields = z.object({
+  ...baseFields,
+  ...chargedToFormFields,
+  expenseDate: z
+    .date()
+    .optional()
+    .refine((d): d is Date => d !== undefined, "Expense date is required")
+    .refine(
+      (d) => startOfDay(d) <= startOfDay(new Date()),
+      "Expense date cannot be in the future"
+    ),
+  type: z.literal("reimbursement"),
+});
+
+/** The reimbursement form, checking voucher payees against `voucherLimitPaise`. */
+export function createReimbursementRequestFormSchema(
+  voucherLimitPaise: number = DEFAULT_CASH_VOUCHER_LIMIT_PAISE
+) {
+  return reimbursementRequestFields.superRefine((value, context) => {
+    refineChargedTo(value, context);
+    addVoucherPayeeIssues(value.lineItems, voucherLimitPaise, context);
+  });
+}
+
+export const reimbursementRequestFormSchema =
+  createReimbursementRequestFormSchema();
 
 export const advancePaymentRequestFormSchema = z.object({
   ...baseFields,
   type: z.literal("advance_payment"),
 });
 
-export const requestFormSchema = z.discriminatedUnion("type", [
-  reimbursementRequestFormSchema,
-  advancePaymentRequestFormSchema,
-]);
+/** Either request form, with the cash-voucher limit in force. */
+export function createRequestFormSchema(voucherLimitPaise: number) {
+  return z.discriminatedUnion("type", [
+    createReimbursementRequestFormSchema(voucherLimitPaise),
+    advancePaymentRequestFormSchema,
+  ]);
+}
+
+export const requestFormSchema = createRequestFormSchema(
+  DEFAULT_CASH_VOUCHER_LIMIT_PAISE
+);
 
 export type RequestFormValues = z.infer<typeof requestFormSchema>;
 

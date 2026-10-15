@@ -8,12 +8,13 @@ import type {
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { format } from "date-fns";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { uuidv7 } from "uuidv7";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import type { CurrentChargeProgramme } from "@/components/expenses/charged-to-fields";
 import { FormLayout } from "@/components/form/form-layout";
+import { useCashVoucherLimit } from "@/hooks/use-cash-voucher-limit";
 import { DATE } from "@/lib/date-formats";
 import { newLineItem } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
@@ -23,7 +24,7 @@ import { REQUEST_TYPE_LABELS } from "@/lib/reimbursement-types";
 import {
   getDefaultValues,
   type RequestFormValues,
-  requestFormSchema,
+  createRequestFormSchema,
 } from "./form/reimbursement-form.schema";
 import { buildMutation } from "./reimbursement-form-mutations";
 import { StandardReimbursementFields } from "./standard-reimbursement-fields";
@@ -136,6 +137,12 @@ function ReimbursementFormInner({
     lineItems: initialValues?.lineItems ?? [newLineItem()],
     type: requestType,
   } as RequestFormValues;
+
+  const voucherLimitPaise = useCashVoucherLimit();
+  const requestFormSchema = useMemo(
+    () => createRequestFormSchema(voucherLimitPaise),
+    [voucherLimitPaise]
+  );
 
   const form = useForm({
     defaultValues,
