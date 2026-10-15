@@ -220,8 +220,11 @@ export function reimbursementPlan(
   if (claim.approvedOn !== null && claim.approvedOn < LEDGER_CUTOVER_ON) {
     return none(LEDGER_SKIP_REASONS.beforeCutover);
   }
-  if (!(claim.hasPaymentProof && claim.approvedOn)) {
+  if (!claim.hasPaymentProof) {
     return wait(claim.approvedOn, LEDGER_WAIT_REASONS.noPaymentProof);
+  }
+  if (!claim.approvedOn) {
+    return wait(null, LEDGER_WAIT_REASONS.noApprovalDay);
   }
   const day = claim.approvedOn;
   const entries = expenseEntries(claim.lines, claim.charge, null, claim.title);
@@ -230,7 +233,7 @@ export function reimbursementPlan(
   }
   const totalPaise = entries.reduce((sum, e) => sum + e.amountPaise, 0);
   if (totalPaise <= 0) {
-    return none(LEDGER_SKIP_REASONS.notApproved);
+    return none(LEDGER_SKIP_REASONS.nothingToPost);
   }
   const account = payingAccount(claim);
   if (!account) {

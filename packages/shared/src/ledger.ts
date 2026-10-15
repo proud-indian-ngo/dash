@@ -162,6 +162,11 @@ export const LEDGER_WAIT_REASONS = {
    */
   noPaymentProof: "no_payment_proof",
   /**
+   * An approved reimbursement with its payment screenshot but no approval
+   * day recorded (older records): the day it posts on is unknown.
+   */
+  noApprovalDay: "no_approval_day",
+  /**
    * A vendor payment request paid partly before 1 April 2026 and partly
    * after: the audited opening balances hold the earlier part, so how its
    * invoice posts is the CA's call.
@@ -184,6 +189,8 @@ export const LEDGER_WAIT_REASON_LABELS: Record<LedgerWaitReason, string> = {
     "Pick the bank account: match the payout's bank statement line",
   no_payment_proof:
     "No payment screenshot: the founder gives the payment date, account and bank reference",
+  no_approval_day:
+    "The approval date isn't recorded: the founder gives the payment date",
   paid_across_cutover:
     "Paid partly before 1 Apr 2026: ask the CA how its invoice posts",
   pick_other_account: "Pick the other account of the transfer",
@@ -201,6 +208,8 @@ export const LEDGER_SKIP_REASONS = {
   invoiceNotAccepted: "invoice_not_accepted",
   /** A reimbursement, vendor payment or payment that isn't approved. */
   notApproved: "not_approved",
+  /** An approved reimbursement whose lines add up to nothing. */
+  nothingToPost: "nothing_to_post",
   notProcessed: "not_processed",
   notReceived: "not_received",
   otherSidePosts: "other_side_posts",
@@ -217,6 +226,7 @@ export const LEDGER_SKIP_REASON_LABELS: Record<LedgerSkipReason, string> = {
   deleted: "Deleted",
   invoice_not_accepted: "The invoice isn't approved yet",
   not_approved: "Not approved",
+  nothing_to_post: "Nothing to post: the total is zero",
   not_processed: "Not processed yet",
   not_received: "Not received, or reversed",
   other_side_posts: "Posted from the other account's statement line",
