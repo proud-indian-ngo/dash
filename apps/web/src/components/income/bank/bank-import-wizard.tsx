@@ -274,7 +274,7 @@ function MapStep({
         <div className="text-muted-foreground hidden grid-cols-[1fr_1.2fr_1fr] gap-4 border-b px-4 py-2 text-xs font-medium sm:grid">
           <span>File column</span>
           <span>Example values</span>
-          <span>pi-dash field</span>
+          <span>Dashboard field</span>
         </div>
         <ul className="divide-y">
           {batch.columns.map((column, index) => (

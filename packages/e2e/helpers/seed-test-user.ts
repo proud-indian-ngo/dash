@@ -522,6 +522,9 @@ async function ensureReturnFixtures(userId: string): Promise<void> {
 
 const RECEIPT_DONOR_ID = "01930000-0000-7000-8000-000000000741";
 const RECEIPT_DONOR_PAN = "ABCPR1234R";
+/** A receipt donor without an address, until the receipts spec adds one. */
+const RECEIPT_DETAILS_DONOR_ID = "01930000-0000-7000-8000-000000000746";
+const RECEIPT_DETAILS_DONOR_PAN = "ABCPD1234D";
 
 /**
  * Donation receipt fixtures: fake receipt details in Settings, and a donor
@@ -614,6 +617,13 @@ async function ensureReceiptFixtures(userId: string): Promise<void> {
       orgAccountId: E2E_GIVE_DO_ACCOUNT_ID,
       reference: "E2E-RECEIPT-GIVEDO",
     },
+    {
+      amountPaise: 120_000,
+      channel: "razorpay" as const,
+      id: "01930000-0000-7000-8000-000000000745",
+      orgAccountId: E2E_RAZORPAY_CLEARING_ID,
+      reference: "E2E-RECEIPT-RAZORPAY",
+    },
   ];
   for (const gift of gifts) {
     await db
@@ -631,6 +641,62 @@ async function ensureReceiptFixtures(userId: string): Promise<void> {
       })
       .onConflictDoNothing();
   }
+
+  await db
+    .insert(party)
+    .values({
+      createdAt: now,
+      createdBy: userId,
+      displayName: "E2E Receipt Details Donor",
+      id: RECEIPT_DETAILS_DONOR_ID,
+      kind: "person",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(partyRole)
+    .values({
+      active: true,
+      id: "01930000-0000-7000-8000-000000000747",
+      partyId: RECEIPT_DETAILS_DONOR_ID,
+      role: "donor",
+      since: now,
+    })
+    .onConflictDoNothing();
+  const missingAddress = {
+    addressLine1: null,
+    idNumberEncrypted: encryptSecret(
+      RECEIPT_DETAILS_DONOR_PAN,
+      partyIdNumberContext(RECEIPT_DETAILS_DONOR_ID)
+    ),
+    idNumberLast4: visibleTail(RECEIPT_DETAILS_DONOR_PAN),
+    idType: "pan" as const,
+    pincode: null,
+    updatedAt: now,
+    updatedBy: userId,
+  };
+  await db
+    .insert(partyPrivate)
+    .values({ ...missingAddress, partyId: RECEIPT_DETAILS_DONOR_ID })
+    .onConflictDoUpdate({ set: missingAddress, target: partyPrivate.partyId });
+  await db
+    .insert(contribution)
+    .values({
+      amountPaise: 130_000,
+      channel: "upi",
+      createdAt: now,
+      createdBy: userId,
+      fundId: GENERAL_FUND_ID,
+      id: "01930000-0000-7000-8000-000000000748",
+      orgAccountId: E2E_ORG_ACCOUNT_ID,
+      partyId: RECEIPT_DETAILS_DONOR_ID,
+      receivedOn: todayInIndia,
+      reference: "E2E-RECEIPT-DETAILS",
+      reportingMode: "electronic_or_account_payee",
+      status: "received",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
 }
 
 async function ensureExpenseCategories(): Promise<void> {

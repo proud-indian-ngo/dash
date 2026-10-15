@@ -35,7 +35,7 @@ export type ReceiptIssuer = "razorpay" | "give_do" | "pi_dash";
 
 export const RECEIPT_ISSUER_LABELS: Record<ReceiptIssuer, string> = {
   give_do: "give.do",
-  pi_dash: "pi-dash",
+  pi_dash: "Proud Indian",
   razorpay: "Razorpay",
 };
 
@@ -259,7 +259,7 @@ export const receiptSkipValues = [
 export type ReceiptSkip = (typeof receiptSkipValues)[number];
 
 export const RECEIPT_SKIP_LABELS: Record<ReceiptSkip, string> = {
-  before_start: `Received before ${RECEIPTING_START_LABEL} (receipted outside pi-dash)`,
+  before_start: `Received before ${RECEIPTING_START_LABEL} (receipted outside the dashboard)`,
   in_kind: "In kind (not receipted)",
   pending: "Not received yet",
   refunded: "Refunded",
@@ -428,6 +428,135 @@ export function receiptAssessmentLabel(assessment: ReceiptAssessment): string {
     default:
       return "";
   }
+}
+
+// ── Income table Receipt column ─────────────────────────────────────────────
+
+/**
+ * One compact value per gift for the Income table's Receipt column and
+ * filter, in the column's sort order. `issued` shows the receipt number;
+ * `none` is a gift whose money isn't (or is no longer) with the trust.
+ */
+export const receiptColumnValues = [
+  "ready",
+  "needs_details",
+  "cant_issue",
+  "issued",
+  "razorpay",
+  "give_do",
+  "not_needed",
+  "none",
+] as const;
+export type ReceiptColumnValue = (typeof receiptColumnValues)[number];
+
+export const RECEIPT_COLUMN_LABELS: Record<ReceiptColumnValue, string> = {
+  cant_issue: "Can't issue",
+  give_do: `By ${RECEIPT_ISSUER_LABELS.give_do}`,
+  issued: "Issued",
+  needs_details: "Needs details",
+  none: "—",
+  not_needed: "Not needed",
+  razorpay: `By ${RECEIPT_ISSUER_LABELS.razorpay}`,
+  ready: "Ready to issue",
+};
+
+/** The Receipt filter's options; `none` gets words instead of a dash. */
+export const RECEIPT_COLUMN_FILTER_LABELS: Record<ReceiptColumnValue, string> =
+  {
+    ...RECEIPT_COLUMN_LABELS,
+    issued: "Receipt issued",
+    none: "Not received (pending, refunded, reversed)",
+  };
+
+/** Blocks the donor's details cause; adding the details clears them. */
+export const DONOR_RECEIPT_BLOCKS: readonly ReceiptBlock[] = [
+  "missing_name",
+  "missing_address",
+  "missing_id",
+  "invalid_id",
+];
+
+/** Blocks on the gift itself, which no donor detail clears. */
+export function giftReceiptBlocks(
+  blocks: readonly ReceiptBlock[]
+): ReceiptBlock[] {
+  return blocks.filter((block) => !DONOR_RECEIPT_BLOCKS.includes(block));
+}
+
+/**
+ * "Needs details" when only the donor's details hold a receipt up; "Can't
+ * issue" when anything about the gift does, since details alone won't help.
+ */
+export function blockedReceiptColumnValue(
+  blocks: readonly ReceiptBlock[]
+): "needs_details" | "cant_issue" {
+  return giftReceiptBlocks(blocks).length > 0 ? "cant_issue" : "needs_details";
+}
+
+/** The reasons a gift can't be receipted, for the cell's tooltip. */
+export function receiptBlocksTitle(blocks: readonly ReceiptBlock[]): string {
+  return blocks.map((block) => RECEIPT_BLOCK_LABELS[block]).join("; ");
+}
+
+/**
+ * The column value for an assessment. A live receipt always shows; money
+ * that is pending, refunded or reversed shows a dash, even on a gateway.
+ */
+export function receiptColumnValue(
+  assessment: ReceiptAssessment,
+  status: string | null | undefined
+): ReceiptColumnValue {
+  if (assessment.kind === "receipted") {
+    return "issued";
+  }
+  if (status === "pending" || status === "refunded" || status === "reversed") {
+    return "none";
+  }
+  switch (assessment.kind) {
+    case "external":
+      return assessment.issuer;
+    case "skipped":
+      return assessment.reason === "in_kind" ||
+        assessment.reason === "before_start"
+        ? "not_needed"
+        : "none";
+    case "eligible":
+      return "ready";
+    case "blocked":
+      return blockedReceiptColumnValue(assessment.blocks);
+    default:
+      return "none";
+  }
+}
+
+/**
+ * The column value from the gift alone, or null when it turns on the
+ * donor's private details (a direct gift that could be receipted), which
+ * only the server reads.
+ */
+export function receiptColumnValueWithoutDonor(
+  gift: ReceiptGiftFacts
+): ReceiptColumnValue | null {
+  const assessment = assessReceipt(gift, undefined);
+  if (assessment.kind === "blocked" || assessment.kind === "eligible") {
+    return null;
+  }
+  return receiptColumnValue(assessment, gift.status);
+}
+
+/**
+ * The Receipt column's sort key: the values in `receiptColumnValues` order,
+ * issued receipts by number within their group.
+ */
+export function receiptColumnSortKey(
+  value: ReceiptColumnValue | null,
+  receiptNumber?: string | null
+): string {
+  const rank =
+    value === null
+      ? receiptColumnValues.length
+      : receiptColumnValues.indexOf(value);
+  return `${String(rank).padStart(2, "0")}|${value === "issued" ? (receiptNumber ?? "") : ""}`;
 }
 
 /** Most gifts one issue may cover. */

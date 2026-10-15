@@ -47,7 +47,7 @@ export interface BuiltCaWorkbook {
 }
 
 export const caWorkbookFilename = (label: string) =>
-  `pi-dash-ca-workbook-${label}.xlsx`;
+  `proud-indian-ca-workbook-${label}.xlsx`;
 
 export const buildCaWorkbook = (input: {
   fiscalYearId: string;

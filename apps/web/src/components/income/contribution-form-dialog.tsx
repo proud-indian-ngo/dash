@@ -383,7 +383,7 @@ function ContributionForm({
     : refundLocked
       ? settlementLock === "locked"
         ? `Fixed: ${settlementProvider} has settled this contribution to the bank.`
-        : `Fixed until pi-dash has checked whether ${settlementProvider} settled it.`
+        : `Fixed until the dashboard has checked whether ${settlementProvider} settled it.`
       : undefined;
   // Fixed for the life of the form so a retried save cannot duplicate.
   const [id] = useState(() => contribution?.id ?? uuidv7());

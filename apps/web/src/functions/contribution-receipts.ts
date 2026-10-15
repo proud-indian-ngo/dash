@@ -1,21 +1,28 @@
 import type {
   IssueReceiptsResult,
   ReceiptCandidates,
+  ReceiptReadiness,
 } from "@pi-dash/db/queries/contribution-receipts";
+import { INCOME_PERMISSIONS } from "@pi-dash/shared/income";
 import {
   MAX_RECEIPTS_PER_ISSUE,
+  RECEIPT_VIEW_PERMISSIONS,
   VOID_REASON_MAX,
   VOID_REASON_MIN,
 } from "@pi-dash/shared/receipts";
 import { createServerFn } from "@tanstack/react-start";
 import z from "zod";
 
-import { assertServerPermission } from "@/lib/api-auth";
+import {
+  assertServerAnyPermission,
+  assertServerPermission,
+} from "@/lib/api-auth";
 import { MAX_ID_VALUES, runSessionAuditedAction } from "@/lib/audit";
 import { containsIdentifier } from "@/lib/income-import/normalize";
 import {
   issueReceipts,
   loadCandidates,
+  loadReadiness,
   queueReceiptEmail,
   voidReceipt,
 } from "@/lib/receipts/server";
@@ -44,6 +51,24 @@ export const getReceiptCandidates = createServerFn({ method: "POST" })
   .handler(async ({ context, data }): Promise<ReceiptCandidatesResponse> => {
     await assertServerPermission(context.session, "donors.receipt");
     return await loadCandidates(data.giftIds ?? null);
+  });
+
+export type ReceiptReadinessResponse = ReceiptReadiness;
+
+/**
+ * The Income table's Receipt column: which open direct gifts are ready to
+ * issue and which need details. Gift IDs only, never donor details; for
+ * anyone who may read receipts (an income permission and a receipt-view
+ * permission, as `canReadReceipts`). A read, so not audited.
+ */
+export const getContributionReceiptReadiness = createServerFn({
+  method: "POST",
+})
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<ReceiptReadinessResponse> => {
+    await assertServerAnyPermission(context.session, INCOME_PERMISSIONS);
+    await assertServerAnyPermission(context.session, RECEIPT_VIEW_PERMISSIONS);
+    return await loadReadiness();
   });
 
 export const issueContributionReceipts = createServerFn({ method: "POST" })

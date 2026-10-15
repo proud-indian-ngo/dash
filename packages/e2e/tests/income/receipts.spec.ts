@@ -1,3 +1,7 @@
+import { execFile } from "node:child_process";
+import path from "node:path";
+import { promisify } from "node:util";
+
 import type { Page } from "@playwright/test";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
@@ -6,6 +10,9 @@ import { clickUntilDialogCloses } from "../../helpers/dialog-submit";
 const RECEIPT_DONOR = "E2E Receipt Donor";
 const UPI_REFERENCE = "E2E-RECEIPT-UPI";
 const GIVE_DO_REFERENCE = "E2E-RECEIPT-GIVEDO";
+const RAZORPAY_REFERENCE = "E2E-RECEIPT-RAZORPAY";
+const DETAILS_DONOR = "E2E Receipt Details Donor";
+const DETAILS_REFERENCE = "E2E-RECEIPT-DETAILS";
 
 /** The financial year running now in India, whose series the receipt starts. */
 function currentFinancialYear(): string {
@@ -47,6 +54,55 @@ async function ensureRegistration(page: Page) {
   await expect(page.getByText(/^URN /)).toBeVisible({ timeout: 10_000 });
 }
 
+const execFileAsync = promisify(execFile);
+
+/** Clears the details donor's address, so the test starts from Needs details. */
+async function clearDetailsAddress(): Promise<void> {
+  const { stdout } = await execFileAsync(
+    "bun",
+    [
+      "run",
+      path.resolve(import.meta.dirname, "../../helpers/receipts.ts"),
+      "clear-details-address",
+    ],
+    { env: process.env }
+  );
+  const { cleared } = JSON.parse(stdout.trim()) as { cleared: number };
+  if (cleared !== 1) {
+    throw new Error("The receipt details donor isn't seeded");
+  }
+}
+
+/** The table row of one of the receipt donor's gifts, by its reference. */
+async function giftRow(
+  page: Page,
+  reference: string,
+  receiptFilter?: string,
+  donor = RECEIPT_DONOR
+) {
+  const filters = receiptFilter
+    ? `&filters=${encodeURIComponent(
+        JSON.stringify({
+          combinator: "and",
+          id: "root",
+          rules: [
+            {
+              id: "receipt",
+              operator: "is",
+              path: ["receipt"],
+              type: "rule",
+              value: [receiptFilter],
+            },
+          ],
+          type: "group",
+        })
+      )}`
+    : "";
+  await page.goto(`/income?search=${encodeURIComponent(reference)}${filters}`);
+  await waitForZeroReady(page);
+  return page.getByRole("row").filter({ hasText: donor });
+}
+
 async function openGift(page: Page, reference: string) {
   await page.goto("/income");
   await waitForZeroReady(page);
@@ -85,12 +141,44 @@ test.describe("Income: donation receipts (finance)", () => {
     );
   });
 
+  test("shows who receipts gateway gifts in the Receipt column", async ({
+    page,
+  }) => {
+    const razorpay = await giftRow(page, RAZORPAY_REFERENCE);
+    await expect(razorpay.getByTestId("contribution-receipt-cell")).toHaveText(
+      "By Razorpay"
+    );
+    await expect(razorpay.getByTestId("contribution-status")).toHaveText(
+      "Received"
+    );
+    const giveDo = await giftRow(page, GIVE_DO_REFERENCE);
+    await expect(giveDo.getByTestId("contribution-receipt-cell")).toHaveText(
+      "By give.do"
+    );
+  });
+
   test("issues, downloads and voids a receipt for a direct gift", async ({
     page,
   }, testInfo) => {
     test.slow();
     const fy = currentFinancialYear();
     await ensureRegistration(page);
+
+    // The table: Ready to issue, and the Receipt filter lists it alone of
+    // the donor's gifts (the gateway gifts are receipted by the gateway).
+    const ready = await giftRow(page, "E2E-RECEIPT", "ready");
+    await expect(ready).toHaveCount(1, { timeout: 15_000 });
+    await expect(ready.getByTestId("contribution-receipt-cell")).toHaveText(
+      "Ready to issue"
+    );
+    await expect(ready.getByTestId("contribution-status")).toHaveText(
+      "Received"
+    );
+    const byRazorpay = await giftRow(page, "E2E-RECEIPT", "razorpay");
+    await expect(byRazorpay).toHaveCount(1, { timeout: 15_000 });
+    await expect(
+      byRazorpay.getByTestId("contribution-receipt-cell")
+    ).toHaveText("By Razorpay");
 
     // The bulk review lists the gift as ready.
     await page.goto("/income?tab=receipts");
@@ -123,8 +211,9 @@ test.describe("Income: donation receipts (finance)", () => {
     if (testInfo.retry === 0) {
       expect(number).toBe(`PI/${fy}/0001`);
     }
+    // Status is the money's lifecycle only; receipting has its own column.
     await expect(sheet.getByTestId("contribution-status")).toHaveText(
-      "Receipted"
+      "Received"
     );
 
     // The PDF: an attachment named after the number, titled with it.
@@ -143,6 +232,17 @@ test.describe("Income: donation receipts (finance)", () => {
     const body = (await response.body()).toString("latin1");
     expect(body.startsWith("%PDF-")).toBe(true);
     expect(body).toContain(`(${number})`);
+
+    // The table shows the number, still Received, and the Issued filter finds it.
+    await page.keyboard.press("Escape");
+    const issued = await giftRow(page, UPI_REFERENCE, "issued");
+    await expect(issued).toHaveCount(1, { timeout: 15_000 });
+    await expect(issued.getByTestId("contribution-receipt-cell")).toHaveText(
+      number
+    );
+    await expect(issued.getByTestId("contribution-status")).toHaveText(
+      "Received"
+    );
 
     // Void it from the Receipts tab; the number stays in the list.
     await page.goto("/income?tab=receipts");
@@ -171,6 +271,13 @@ test.describe("Income: donation receipts (finance)", () => {
     await page.keyboard.press("Escape");
     await expect(row.getByTestId("receipt-status")).toHaveText("Voided");
 
+    // The table shows it Ready to issue again.
+    const again = await giftRow(page, UPI_REFERENCE);
+    await expect(again.getByTestId("contribution-receipt-cell")).toHaveText(
+      "Ready to issue",
+      { timeout: 15_000 }
+    );
+
     // The gift is Received again and can be receipted under a new number.
     const reopened = await openGift(page, UPI_REFERENCE);
     await expect(reopened.getByTestId("contribution-status")).toHaveText(
@@ -179,5 +286,59 @@ test.describe("Income: donation receipts (finance)", () => {
     await expect(
       reopened.getByTestId("contribution-issue-receipt")
     ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("a gift waiting on the donor's address is Ready to issue once it is added", async ({
+    page,
+  }) => {
+    test.slow();
+    // Self-resetting: a retry finds the address the last attempt added.
+    await clearDetailsAddress();
+    const row = await giftRow(
+      page,
+      DETAILS_REFERENCE,
+      undefined,
+      DETAILS_DONOR
+    );
+    await expect(row.getByTestId("contribution-receipt-cell")).toHaveText(
+      "Needs details",
+      { timeout: 15_000 }
+    );
+    await expect(
+      (
+        await giftRow(page, "E2E-RECEIPT", "needs_details", DETAILS_DONOR)
+      ).getByTestId("contribution-receipt-cell")
+    ).toHaveText("Needs details", { timeout: 15_000 });
+
+    // Add the address on the donor.
+    await page.goto("/donors");
+    await waitForZeroReady(page);
+    await page.getByPlaceholder("Search donors...").fill(DETAILS_DONOR);
+    await page
+      .getByRole("row")
+      .filter({ hasText: DETAILS_DONOR })
+      .first()
+      .click();
+    const sheet = page.getByRole("dialog").filter({ hasText: DETAILS_DONOR });
+    await sheet.getByRole("button", { name: "Edit" }).click();
+    const form = page.getByRole("dialog", { name: "Edit donor" });
+    await expect(form).toBeVisible();
+    await form
+      .getByRole("textbox", { name: "Address line 1" })
+      .fill("9, Test Road");
+    await form.getByRole("textbox", { name: "PIN code" }).fill("560002");
+    await clickUntilDialogCloses(form, "Save changes");
+    await page.keyboard.press("Escape");
+
+    const ready = await giftRow(
+      page,
+      DETAILS_REFERENCE,
+      undefined,
+      DETAILS_DONOR
+    );
+    await expect(ready.getByTestId("contribution-receipt-cell")).toHaveText(
+      "Ready to issue",
+      { timeout: 15_000 }
+    );
   });
 });

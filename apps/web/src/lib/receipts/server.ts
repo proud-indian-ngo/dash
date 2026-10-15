@@ -4,7 +4,9 @@ import {
   type IssueReceiptsResult,
   loadReceiptCandidates,
   loadReceiptEmailTarget,
+  loadReceiptReadiness,
   type ReceiptCandidates,
+  type ReceiptReadiness,
   ReceiptError,
   type VoidedReceipt,
   voidReceiptIn,
@@ -26,6 +28,7 @@ const MESSAGES = {
   candidates: "The gifts to receipt couldn't be loaded.",
   email: "The receipt couldn't be emailed.",
   issue: "The receipts couldn't be issued.",
+  readiness: "The receipt status couldn't be loaded.",
   void: "The receipt couldn't be voided.",
 } as const;
 
@@ -44,6 +47,9 @@ export const loadCandidates = (
   contributionIds: string[] | null
 ): Promise<ReceiptCandidates> =>
   safely("candidates", () => loadReceiptCandidates(contributionIds));
+
+export const loadReadiness = (): Promise<ReceiptReadiness> =>
+  safely("readiness", () => loadReceiptReadiness());
 
 export const issueReceipts = (
   contributionIds: string[],

@@ -11,6 +11,7 @@ import { encryptSecret } from "./encryption";
 import {
   allocateReceiptSequence,
   issueReceiptsIn,
+  loadReceiptReadiness,
   ReceiptError,
   type ReceiptTx,
   voidReceiptIn,
@@ -207,6 +208,52 @@ const statusOf = async (tx: Db, id: string) =>
       .from(contribution)
       .where(eq(contribution.id, id))
   )[0]?.status;
+
+it.skipIf(!localDatabase)(
+  "splits open direct gifts into ready, needs details and can't issue, by ID only",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const fixture = await foundation(tx);
+      const complete = await donor(tx, fixture);
+      const noAddress = await donor(tx, fixture, { address: false });
+      const ready = await gift(tx, fixture, complete);
+      const blocked = await gift(tx, fixture, noAddress);
+      const foreign = await gift(tx, fixture, complete, { currency: "USD" });
+      const gateway = await gift(tx, fixture, complete, {
+        channel: "razorpay",
+      });
+      const early = await gift(tx, fixture, complete, {
+        receivedOn: "2026-03-31",
+      });
+      const issued = await gift(tx, fixture, complete);
+      await issueReceiptsIn(
+        tx,
+        { actorId: fixture.actorId, contributionIds: [issued] },
+        { now: NOW }
+      );
+      const readiness = await loadReceiptReadiness(tx);
+      expect(readiness.ready).toContain(ready);
+      expect(readiness.needsDetails).toContain(blocked);
+      expect(readiness.cantIssue).toContainEqual({
+        blocks: ["foreign_currency"],
+        id: foreign,
+      });
+      const listed = [
+        ...readiness.ready,
+        ...readiness.needsDetails,
+        ...readiness.cantIssue.map((entry) => entry.id),
+      ];
+      for (const id of [gateway, early, issued]) {
+        expect(listed).not.toContain(id);
+      }
+      expect(Object.keys(readiness).sort()).toEqual([
+        "cantIssue",
+        "needsDetails",
+        "ready",
+      ]);
+    });
+  }
+);
 
 it.skipIf(!localDatabase)(
   "numbers receipts in a gap-free series per year and never reuses a voided number",

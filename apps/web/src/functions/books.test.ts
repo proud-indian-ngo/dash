@@ -73,7 +73,7 @@ mock.module("@/lib/ca-workbook/server", () => ({
       },
       file: {
         base64: "UEsDBA==",
-        filename: "pi-dash-ca-workbook-2026-27.xlsx",
+        filename: "proud-indian-ca-workbook-2026-27.xlsx",
       },
       financialYear: "2026-27",
       donorListIncluded: input.includeDonors,
@@ -240,7 +240,7 @@ describe("books server functions", () => {
     const file = await call(fns.exportCaWorkbook, { fiscalYearId: YEAR });
     expect(file).toEqual({
       base64: "UEsDBA==",
-      filename: "pi-dash-ca-workbook-2026-27.xlsx",
+      filename: "proud-indian-ca-workbook-2026-27.xlsx",
     });
     granted = ["finance.manage", "donors.view"];
     await call(fns.exportCaWorkbook, { fiscalYearId: YEAR });

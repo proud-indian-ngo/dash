@@ -148,7 +148,7 @@ export function WaitingToPost({ canPost }: { canPost: boolean }) {
                 Payout lines that need a look
               </h3>
               <p className="text-muted-foreground mx-6 mb-2 text-sm">
-                Adjustments, and lines whose gift or refund isn't in pi-dash.
+                Adjustments, and lines whose gift or refund isn't recorded here.
                 The payout itself is posted; these lines aren't.
               </p>
               <StateList

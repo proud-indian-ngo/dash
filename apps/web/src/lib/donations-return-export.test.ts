@@ -215,8 +215,8 @@ describe("buildAllGiftsFile", () => {
       "Contribution ID",
     ]);
     expect(lines[1]).toContain("PAN ending 234F");
-    expect(lines[1]).toContain("pi-dash,PI/2026-27/0001,g1");
-    expect(lines[2]).toContain("pi-dash,Not issued yet,g2");
+    expect(lines[1]).toContain("Proud Indian,PI/2026-27/0001,g1");
+    expect(lines[2]).toContain("Proud Indian,Not issued yet,g2");
     expect(lines[3]).toContain("Razorpay,,g3");
     expect(lines[2]).toContain("500.00,100.00,400.00");
     expect(lines[3]).toContain("Needs attention,No ID number");
@@ -235,7 +235,7 @@ describe("loadAllGiftsRows (CA workbook)", () => {
     expect(JSON.stringify(rows)).not.toContain(PAN);
     expect(rows[0]?.id).toBe("PAN ending 234F");
     expect([rows[0]?.receiptIssuer, rows[0]?.receiptNumber]).toEqual([
-      "pi-dash",
+      "Proud Indian",
       "PI/2026-27/0001",
     ]);
     // A donor without an ID stays blank.

@@ -431,8 +431,12 @@ test.describe("Income: contributions (finance)", () => {
     const value = stat.locator("[data-slot='stat-value']");
     await expect(value).toHaveText(/^[1-9]\d*$/, { timeout: 10_000 });
 
-    // The stat filters the table to this year's received gifts from them.
+    // The stat filters the table to this year's received gifts from them
+    // (searched, since other specs' donors can push it to a later page).
     await stat.click();
+    await page
+      .getByPlaceholder("Search donor or reference...")
+      .fill("E2E Seed Donor");
     await expect(
       page.getByRole("row").filter({ hasText: "E2E Seed Donor" })
     ).toHaveCount(1, { timeout: 10_000 });

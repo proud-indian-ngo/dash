@@ -136,7 +136,7 @@ export function DonationReceiptsSection() {
 
   return (
     <SettingsCard
-      description={`pi-dash receipts direct gifts received from ${RECEIPTING_START_LABEL}. Gateways receipt their own; this is fixed.`}
+      description={`Proud Indian receipts direct gifts received from ${RECEIPTING_START_LABEL}. Gateways receipt their own; this is fixed.`}
       title="Donation receipts"
     >
       {RECEIPT_ISSUER_POLICY.map((policy) => (
