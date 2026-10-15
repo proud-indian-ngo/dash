@@ -96,9 +96,9 @@ export function CashVoucher(props: CashVoucherProps) {
       author={props.orgName}
       // Fixed dates keep the bytes the same for the same voucher.
       creationDate={day}
-      creator="pi-dash"
+      creator="Proud Indian"
       modificationDate={day}
-      producer="pi-dash"
+      producer="Proud Indian"
       subject={`Cash voucher ${props.voucherNumber}`}
       title={props.voucherNumber}
     >
