@@ -46,3 +46,5 @@ Once a voucher exists on an approved request, the Voucher column offers **Upload
 6. The commit locks the line item and links the new PDF only if the item and its request still hold what was rendered (amount, description, category, payee, expense date). If an edit changed them meanwhile, the PDF is discarded and the newer job wins.
 
 **Config**: `VOUCHER_ORG_*` env vars (name, address, phone, email, registration) and `VOUCHER_FINANCE_ADMIN_NAME` (the approver printed beside the treasurer signature, `packages/pdf/assets/signature.png`).
+
+A voided reimbursement (finance Option B, `finance-and-programmes.md`) keeps its vouchers and signed copies; their numbers stay used, since `voucher_seq` never hands one out twice. The detail page marks each one VOID and offers no regenerate or signed-copy upload, and `generate-cash-voucher` makes no voucher for a voided request.
