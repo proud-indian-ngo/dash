@@ -15,6 +15,11 @@ import {
   MIME_TYPE_PATTERN,
 } from "@pi-dash/shared/constants";
 import { MAX_KALAKRITI_INVENTORY_PHOTO_SIZE_BYTES } from "@pi-dash/shared/kalakriti-inventory";
+import {
+  PAYEE_SIGNATURE_MAX_BYTES,
+  PAYEE_SIGNATURE_MIME_TYPE,
+  payeeSignatureImageProblem,
+} from "@pi-dash/shared/payee-signature";
 
 import { getS3 } from "./s3";
 
@@ -30,6 +35,7 @@ const defaultDeps: CopyR2ObjectDeps = { getS3 };
 
 export interface CopyR2ObjectInput {
   byteSize?: number;
+  contentCheck?: "payeeSignature";
   mimeType?: string;
   sourceKey: string;
   targetKey: string;
@@ -195,5 +201,45 @@ export async function copyR2Object(
   const options = { type: storedMimeType };
   const sourceFile = s3.file(input.sourceKey, options);
   const writer = s3.file(input.targetKey, options).writer(options);
+  if (input.contentCheck === "payeeSignature") {
+    await copyPayeeSignature(sourceFile, writer, storedMimeType, source.size);
+    return;
+  }
   await copyValidatedStream(sourceFile, writer, source.size, policy.maxSize);
+}
+
+/**
+ * A payee signature is small, so it is read whole and its PNG header checked
+ * before it is copied: the pad's size and format only, under its own byte
+ * cap rather than the generic attachment limit.
+ */
+async function copyPayeeSignature(
+  sourceFile: R2CopyFile,
+  writer: R2CopyWriter,
+  storedMimeType: string,
+  size: number
+): Promise<void> {
+  if (storedMimeType !== PAYEE_SIGNATURE_MIME_TYPE) {
+    throw new Error(`Unsupported upload type: ${storedMimeType}`);
+  }
+  if (size > PAYEE_SIGNATURE_MAX_BYTES) {
+    throw new Error(`Upload exceeds ${PAYEE_SIGNATURE_MAX_BYTES} byte limit`);
+  }
+  try {
+    const bytes = new Uint8Array(await sourceFile.arrayBuffer());
+    if (bytes.byteLength !== size) {
+      throw new Error("Upload changed during claim");
+    }
+    const problem = payeeSignatureImageProblem(bytes, size);
+    if (problem) {
+      throw new Error(`Invalid payee signature image: ${problem}`);
+    }
+    await writer.write(bytes);
+    await writer.end();
+  } catch (error) {
+    await writer.end(
+      error instanceof Error ? error : new Error("Upload copy failed")
+    );
+    throw error;
+  }
 }

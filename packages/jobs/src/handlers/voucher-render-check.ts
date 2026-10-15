@@ -40,6 +40,26 @@ export function stillAsRendered(
 }
 
 /**
+ * Whether a render was refused only because the payee's signature changed.
+ * Collecting a signature queues no voucher, so the job renders again.
+ */
+export function onlySignatureChanged(
+  current: Omit<RenderedFrom, "claimantId" | "expenseDate"> | undefined,
+  request: Pick<RenderedFrom, "claimantId" | "expenseDate"> | undefined,
+  rendered: RenderedFrom
+): boolean {
+  return Boolean(
+    current &&
+    current.payeeSignatureAttachmentId !==
+      rendered.payeeSignatureAttachmentId &&
+    stillAsRendered(current, request, {
+      ...rendered,
+      payeeSignatureAttachmentId: current.payeeSignatureAttachmentId,
+    })
+  );
+}
+
+/**
  * Who the voucher prints under "Paid to". A named payee prints with the
  * mobile given for them. With no payee (the item was paid to the claimant,
  * or predates the payee fields) it prints the claimant, with the mobile on

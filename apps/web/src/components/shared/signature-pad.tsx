@@ -4,6 +4,7 @@ import {
   type PointerEvent,
   type ReactNode,
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
 } from "react";
@@ -30,6 +31,7 @@ export function SignaturePad({
   baselineEnd,
   baselineStart,
   className,
+  fallback,
   hint,
   onStrokesChange,
   strokes,
@@ -40,12 +42,16 @@ export function SignaturePad({
   /** Printed under the baseline, left: for example the signer's name. */
   baselineStart?: ReactNode;
   className?: string;
-  /** Shown faintly until the first stroke. */
+  /** What to do instead, shown under the pad and read with it. */
+  fallback?: string;
+  /** Shown faintly until the first stroke, and read with the pad. */
   hint: string;
   onStrokesChange: (strokes: readonly SignatureStroke[]) => void;
   strokes: readonly SignatureStroke[];
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const hintId = useId();
+  const fallbackId = useId();
   const activePointer = useRef<number | null>(null);
   const current = useRef<SignaturePoint[]>([]);
 
@@ -138,53 +144,60 @@ export function SignaturePad({
   );
 
   return (
-    <div
-      className={cn(
-        // Capped by the screen's height, so a phone on its side still shows the
-        // whole pad without scrolling.
-        "relative mx-auto aspect-[2/1] w-full max-w-[min(100%,80dvh)] overflow-hidden rounded-lg border bg-white select-none",
-        className
-      )}
-      // Base UI drawers ignore swipes that start here.
-      data-base-ui-swipe-ignore=""
-    >
-      <span
-        aria-hidden
-        className="pointer-events-none absolute bottom-[30%] left-[6%] font-sans text-2xl leading-none text-neutral-400"
-      >
-        ×
-      </span>
+    <div className="flex flex-col gap-1.5">
       <div
-        aria-hidden
-        className="pointer-events-none absolute right-[6%] bottom-[28%] left-[6%] border-b border-neutral-300"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute right-[6%] bottom-[10%] left-[6%] flex items-baseline justify-between gap-3 text-xs text-neutral-500"
+        className={cn(
+          "relative mx-auto aspect-[2/1] w-full max-w-full overflow-hidden rounded-lg border bg-white select-none",
+          className
+        )}
+        // Base UI drawers ignore swipes that start here.
+        data-base-ui-swipe-ignore=""
       >
-        <span className="truncate">{baselineStart}</span>
-        <span className="shrink-0">{baselineEnd}</span>
-      </div>
-      {strokes.length === 0 ? (
-        <p
+        <span
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-[18%] px-4 text-center text-sm text-neutral-400"
+          className="pointer-events-none absolute bottom-[30%] left-[6%] font-sans text-2xl leading-none text-neutral-400"
+        >
+          ×
+        </span>
+        <div
+          aria-hidden
+          className="pointer-events-none absolute right-[6%] bottom-[28%] left-[6%] border-b border-neutral-300"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute right-[6%] bottom-[10%] left-[6%] flex items-baseline justify-between gap-3 text-xs text-neutral-500"
+        >
+          <span className="truncate">{baselineStart}</span>
+          <span className="shrink-0">{baselineEnd}</span>
+        </div>
+        <p
+          className={cn(
+            "pointer-events-none absolute inset-x-0 top-[18%] px-4 text-center text-sm text-neutral-400",
+            strokes.length > 0 && "sr-only"
+          )}
+          id={hintId}
         >
           {hint}
         </p>
+        <canvas
+          aria-describedby={fallback ? `${hintId} ${fallbackId}` : hintId}
+          aria-label={ariaLabel}
+          className="absolute inset-0 size-full cursor-crosshair touch-none"
+          onContextMenu={preventMenu}
+          onLostPointerCapture={finishStroke}
+          onPointerCancel={finishStroke}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={finishStroke}
+          ref={canvasRef}
+          role="img"
+        />
+      </div>
+      {fallback ? (
+        <p className="text-muted-foreground text-xs" id={fallbackId}>
+          {fallback}
+        </p>
       ) : null}
-      <canvas
-        aria-label={ariaLabel}
-        className="absolute inset-0 size-full cursor-crosshair touch-none"
-        onContextMenu={preventMenu}
-        onLostPointerCapture={finishStroke}
-        onPointerCancel={finishStroke}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={finishStroke}
-        ref={canvasRef}
-        role="img"
-      />
     </div>
   );
 }

@@ -40,6 +40,10 @@ import {
   POSTED_CHARGE_MESSAGE,
   setChargedToSchema,
 } from "./expense-charge";
+import {
+  type LockableKalakritiTx,
+  requireServerTransaction,
+} from "./kalakriti-row-locks";
 import { isPostedInBooks, queueLedgerPosting } from "./ledger-queue";
 import {
   assertApprovalScreenshot,
@@ -243,9 +247,49 @@ const collectPayeeSignatureSchema = z.object({
   reimbursementId: z.string(),
   /** The signature the client saw, so a re-collect never races another. */
   replacesAttachmentId: z.string().nullable(),
-  /** The statement shown above the pad, checked against the item. */
-  statement: z.string().min(1).max(1000),
+  /**
+   * The facts the statement shown above the pad was built from; the server
+   * checks them against the item and words the stored statement itself.
+   */
+  signedFacts: z.object({
+    amountPaise: z.number().int(),
+    categoryId: z.string(),
+    description: z.string(),
+    expenseDay: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    payeeName: z.string(),
+  }),
 });
+
+/**
+ * On the server, re-reads the request's status and void under a row lock
+ * held to the end of the transaction; on the client, nothing to add.
+ */
+async function lockReimbursement(
+  tx: Transaction<Schema>,
+  id: string
+): Promise<{ status?: string; voidedAt?: null | number }> {
+  if (tx.location !== "server") {
+    return {};
+  }
+  const [{ reimbursement }, { eq }] = await Promise.all([
+    import("@pi-dash/db/schema/reimbursement"),
+    import("drizzle-orm"),
+  ]);
+  const [row] = await requireServerTransaction(
+    tx as unknown as LockableKalakritiTx
+  )
+    .select({
+      status: reimbursement.status,
+      voidedAt: reimbursement.voidedAt,
+    })
+    .from(reimbursement)
+    .where(eq(reimbursement.id, id))
+    .for("update");
+  if (!row) {
+    throw new Error("Reimbursement not found");
+  }
+  return { status: row.status, voidedAt: row.voidedAt?.getTime() ?? null };
+}
 
 const PAYEE_SIGNATURE_FILENAME = "payee-signature.png";
 
@@ -271,6 +315,41 @@ function assertCanCollectPayeeSignature(
       "The payee signature is locked once the request is approved"
     );
   }
+}
+
+/**
+ * The request's linked payee signatures the edit form left out, as
+ * attachments to re-insert: a signature's file can't be deleted by an edit.
+ */
+function retainedSignatureAttachments(
+  itemsBefore: readonly { payeeSignatureAttachmentId?: null | string }[],
+  attachmentsBefore: readonly {
+    filename?: null | string;
+    id: string;
+    mimeType?: null | string;
+    objectKey?: null | string;
+  }[],
+  submitted: readonly { id: string }[]
+) {
+  const linked = new Set(
+    itemsBefore.map((item) => item.payeeSignatureAttachmentId).filter(Boolean)
+  );
+  const kept = new Set(submitted.map((attachment) => attachment.id));
+  return attachmentsBefore.flatMap((attachment) =>
+    linked.has(attachment.id) &&
+    !kept.has(attachment.id) &&
+    attachment.objectKey
+      ? [
+          {
+            filename: attachment.filename || PAYEE_SIGNATURE_FILENAME,
+            id: attachment.id,
+            mimeType: attachment.mimeType ?? undefined,
+            objectKey: attachment.objectKey,
+            type: "file" as const,
+          },
+        ]
+      : []
+  );
 }
 
 const fk = (id: string) => ({ reimbursementId: id });
@@ -631,10 +710,13 @@ export const reimbursementMutators = {
     collectPayeeSignatureSchema,
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
-      const entity = await tx.run(
+      const found = await tx.run(
         zql.reimbursement.where("id", args.reimbursementId).one()
       );
-      assertEntityExists(entity, "Reimbursement");
+      assertEntityExists(found, "Reimbursement");
+      // Lock the request so an approval can't slip in between this check
+      // and the commit: the signature is locked once approved.
+      const entity = { ...found, ...(await lockReimbursement(tx, found.id)) };
       assertNotVoided(entity);
       assertCanCollectPayeeSignature(ctx, entity);
       const lineItem = await tx.run(
@@ -667,6 +749,20 @@ export const reimbursementMutators = {
       const category = await tx.run(
         zql.expenseCategory.where("id", lineItem.categoryId).one()
       );
+      // The payee signed against the facts the client showed; they must
+      // still be the item's. The server words the statement itself.
+      const signed = args.signedFacts;
+      if (
+        signed.amountPaise !== lineItem.amountPaise ||
+        signed.categoryId !== lineItem.categoryId ||
+        signed.description !== (lineItem.description ?? "") ||
+        signed.expenseDay !== expenseDay(entity.expenseDate) ||
+        signed.payeeName !== lineItem.payeeName
+      ) {
+        throw new Error(
+          "The item changed while the payee was signing. Ask them to sign again"
+        );
+      }
       const statement = payeeSignatureStatement({
         amountPaise: lineItem.amountPaise,
         categoryName: category?.name,
@@ -674,16 +770,14 @@ export const reimbursementMutators = {
         expenseDate: entity.expenseDate,
         payeeName: lineItem.payeeName,
       });
-      if (args.statement !== statement) {
-        throw new Error(
-          "The item changed while the payee was signing. Ask them to sign again"
-        );
-      }
 
       const now = Date.now();
       const objectKey = claimUploadedR2ObjectKey(
         args.objectKey,
         createR2ClaimOptions(ctx, tx.location, {
+          // The PNG's size, dimensions and format are checked before the
+          // copy, so nothing later inflates a hostile image.
+          contentCheck: "payeeSignature",
           durablePrefix: `reimbursements/${args.reimbursementId}`,
           mimeType: PAYEE_SIGNATURE_MIME_TYPE,
           subfolder: "attachments",
@@ -1259,8 +1353,18 @@ export const reimbursementMutators = {
     ) {
       throw new Error(KEPT_PROOF_REMOVAL_MESSAGE);
     }
+    // A payee signature is evidence: removing its file in the edit form
+    // doesn't delete it. The row (and its R2 object) are kept.
+    const attachments = [
+      ...args.attachments,
+      ...retainedSignatureAttachments(
+        itemsBefore,
+        attachmentsBefore,
+        args.attachments
+      ),
+    ];
     const voucherPlans = planVoucherFields({
-      attachmentsAfter: args.attachments.map((attachment) => ({
+      attachmentsAfter: attachments.map((attachment) => ({
         id: attachment.id,
         objectKey: attachment.type === "file" ? attachment.objectKey : null,
         type: attachment.type,
@@ -1285,7 +1389,7 @@ export const reimbursementMutators = {
     await replaceRelations(
       fk(args.id),
       args.lineItems,
-      args.attachments,
+      attachments,
       userId,
       now,
       {

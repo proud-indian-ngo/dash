@@ -16,12 +16,13 @@ import {
   PAYEE_SIGNATURE_CONSENT,
   PAYEE_SIGNATURE_MAX_BYTES,
   PAYEE_SIGNATURE_MIME_TYPE,
+  type PayeeSignatureSignedFacts,
 } from "@pi-dash/shared/payee-signature";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 
 import { uploadSingleAttachment } from "@/components/form/attachment-upload";
@@ -55,8 +56,27 @@ export interface CollectPayeeSignatureProps {
   reimbursementId: string;
   /** The signature being replaced, so a re-collect never races another. */
   replacesAttachmentId: null | string;
-  /** What the payee acknowledges, shown above the pad and stored with it. */
+  /** The facts the statement is built from; the server checks them. */
+  signedFacts: PayeeSignatureSignedFacts;
+  /** What the payee acknowledges, shown above the pad. */
   statement: string;
+}
+
+/** Phones on their side: a short touch screen gets the full-screen sheet. */
+const SHORT_TOUCH_SCREEN = "(pointer: coarse) and (max-height: 540px)";
+
+function subscribeShortTouchScreen(onChange: () => void) {
+  const query = window.matchMedia(SHORT_TOUCH_SCREEN);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+
+function useShortTouchScreen(): boolean {
+  return useSyncExternalStore(
+    subscribeShortTouchScreen,
+    () => window.matchMedia(SHORT_TOUCH_SCREEN).matches,
+    () => false
+  );
 }
 
 const TITLE = "Collect payee signature";
@@ -68,7 +88,16 @@ const TITLE = "Collect payee signature";
  */
 export function CollectPayeeSignatureDialog(props: CollectPayeeSignatureProps) {
   const { onOpenChange, open } = props;
-  const isMobile = useIsMobile();
+  const shortTouchScreen = useShortTouchScreen();
+  const isMobile = useIsMobile() || shortTouchScreen;
+  // The dialog remounts each time it opens, so this is what the payee is
+  // shown when it opens; a sync that changes the item meanwhile doesn't
+  // change the statement under their pen (the server then refuses it).
+  const [frozen] = useState(() => ({
+    replacesAttachmentId: props.replacesAttachmentId,
+    signedFacts: props.signedFacts,
+    statement: props.statement,
+  }));
   const zero = useZero();
   const requestUploadUrl = useServerFn(getRequestUploadUrl);
   const vendorPaymentInvoiceUploadUrl = useServerFn(
@@ -119,8 +148,8 @@ export function CollectPayeeSignatureDialog(props: CollectPayeeSignatureProps) {
           lineItemId: props.lineItemId,
           objectKey: uploaded.objectKey,
           reimbursementId: props.reimbursementId,
-          replacesAttachmentId: props.replacesAttachmentId,
-          statement: props.statement,
+          replacesAttachmentId: frozen.replacesAttachmentId,
+          signedFacts: frozen.signedFacts,
         })
       ).server;
       if (result.type === "error") {
@@ -161,15 +190,32 @@ export function CollectPayeeSignatureDialog(props: CollectPayeeSignatureProps) {
       ? "Confirm signature"
       : "Waiting for signature";
 
-  const body = (
-    <SignatureBody
+  const statement = (
+    <p
+      className={cn(
+        "text-foreground font-medium",
+        shortTouchScreen
+          ? "text-base/relaxed"
+          : "text-base/relaxed sm:text-lg/relaxed"
+      )}
+      data-testid="payee-signature-statement"
+    >
+      {frozen.statement}
+    </p>
+  );
+  const pad = (
+    <PadArea
       dateLabel={props.dateLabel}
       onClear={clear}
       onStrokesChange={setStrokes}
       onUndo={undo}
+      // On a phone on its side the pad takes the height left under the
+      // title, keeping its 2:1 shape, beside the statement.
+      padClassName={
+        shortTouchScreen ? "h-[calc(100dvh-12rem)] w-auto" : undefined
+      }
       payeeName={props.payeeName}
       saving={saving}
-      statement={props.statement}
       strokes={strokes}
     />
   );
@@ -186,20 +232,42 @@ export function CollectPayeeSignatureDialog(props: CollectPayeeSignatureProps) {
 
   if (isMobile) {
     return (
-      <Sheet onOpenChange={handleOpenChange} open={open}>
+      <Sheet
+        forceMobile={shortTouchScreen}
+        onOpenChange={handleOpenChange}
+        open={open}
+      >
         <SheetContent aria-label={TITLE}>
           <div className="flex min-h-[calc(100dvh-4.5rem)] flex-col">
-            <SheetHeader className="px-4 pt-1 pb-3">
+            <SheetHeader
+              className={cn("px-4 pt-1", shortTouchScreen ? "pb-1" : "pb-3")}
+            >
               <SheetTitle className="text-base">{TITLE}</SheetTitle>
-              <SheetDescription>{description}</SheetDescription>
+              <SheetDescription className={shortTouchScreen ? "sr-only" : ""}>
+                {description}
+              </SheetDescription>
             </SheetHeader>
-            <div className="flex flex-1 flex-col gap-4 px-4 pb-4">
-              {body}
-              <div className="mt-auto flex flex-col gap-2">
-                {confirmButton}
-                <Consent />
+            {shortTouchScreen ? (
+              <div className="grid flex-1 grid-cols-[minmax(0,1fr)_auto] gap-4 px-4 pb-3">
+                <div className="flex flex-col gap-3">
+                  {statement}
+                  <div className="mt-auto flex flex-col gap-2">
+                    {confirmButton}
+                    <Consent />
+                  </div>
+                </div>
+                {pad}
               </div>
-            </div>
+            ) : (
+              <div className="flex flex-1 flex-col gap-4 px-4 pb-4">
+                {statement}
+                {pad}
+                <div className="mt-auto flex flex-col gap-2">
+                  {confirmButton}
+                  <Consent />
+                </div>
+              </div>
+            )}
           </div>
         </SheetContent>
       </Sheet>
@@ -213,7 +281,8 @@ export function CollectPayeeSignatureDialog(props: CollectPayeeSignatureProps) {
           <DialogTitle>{TITLE}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        {body}
+        {statement}
+        {pad}
         <DialogFooter className="sm:items-center">
           <Consent className="sm:mr-auto" />
           <Button
@@ -239,58 +308,52 @@ function Consent({ className }: { className?: string }) {
   );
 }
 
-function SignatureBody({
+function PadArea({
   dateLabel,
   onClear,
   onStrokesChange,
   onUndo,
+  padClassName,
   payeeName,
   saving,
-  statement,
   strokes,
 }: {
   dateLabel: string;
   onClear: () => void;
   onStrokesChange: (strokes: readonly SignatureStroke[]) => void;
   onUndo: () => void;
+  padClassName?: string;
   payeeName: string;
   saving: boolean;
-  statement: string;
   strokes: readonly SignatureStroke[];
 }) {
   const empty = strokes.length === 0;
   return (
-    <div className="flex flex-col gap-4">
-      <p
-        className="text-foreground text-base/relaxed font-medium sm:text-lg/relaxed"
-        data-testid="payee-signature-statement"
-      >
-        {statement}
-      </p>
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-end gap-1">
-          <PadAction
-            disabled={empty || saving}
-            icon={<HugeiconsIcon icon={Undo02Icon} strokeWidth={2} />}
-            label="Undo"
-            onClick={onUndo}
-          />
-          <PadAction
-            disabled={empty || saving}
-            icon={<HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />}
-            label="Clear"
-            onClick={onClear}
-          />
-        </div>
-        <SignaturePad
-          ariaLabel={`Signature pad for ${payeeName}`}
-          baselineEnd={dateLabel}
-          baselineStart={payeeName}
-          hint="Sign or write your name with your finger"
-          onStrokesChange={onStrokesChange}
-          strokes={strokes}
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-end gap-1">
+        <PadAction
+          disabled={empty || saving}
+          icon={<HugeiconsIcon icon={Undo02Icon} strokeWidth={2} />}
+          label="Undo"
+          onClick={onUndo}
+        />
+        <PadAction
+          disabled={empty || saving}
+          icon={<HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />}
+          label="Clear"
+          onClick={onClear}
         />
       </div>
+      <SignaturePad
+        ariaLabel={`Signature pad for ${payeeName}`}
+        baselineEnd={dateLabel}
+        baselineStart={payeeName}
+        className={padClassName}
+        fallback="If the payee can't sign here, print the voucher for a signature or thumb impression."
+        hint="Sign or write your name with your finger"
+        onStrokesChange={onStrokesChange}
+        strokes={strokes}
+      />
     </div>
   );
 }

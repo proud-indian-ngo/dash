@@ -99,6 +99,11 @@ export class ReimbursementPage {
     });
   }
 
+  /** Runs the real voucher job for the open reimbursement (needs R2). */
+  async generateVoucherInDatabase(): Promise<void> {
+    await this.runApprovalFixture("generate-voucher");
+  }
+
   /** Links a stand-in voucher to the open reimbursement's opted-in items. */
   async linkVoucherInDatabase(): Promise<void> {
     await this.runApprovalFixture("link-voucher");

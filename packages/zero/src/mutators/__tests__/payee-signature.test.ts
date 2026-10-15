@@ -17,7 +17,9 @@ type Row = Record<string, unknown>;
 
 function createDb(
   location: "client" | "server",
-  seed: Partial<Record<string, Row[]>> = {}
+  seed: Partial<Record<string, Row[]>> = {},
+  /** What the row lock reads on the server, when it differs from the seed. */
+  locked?: Row
 ) {
   const tables: Record<string, Row[]> = {
     appConfig: [],
@@ -42,7 +44,20 @@ function createDb(
       updates.push({ row, table });
     },
   });
+  const lockReads: Row[] = [];
+  const lockedRow = () => {
+    const row = locked ?? tables.reimbursement?.[0] ?? {};
+    lockReads.push(row);
+    return [{ status: row.status, voidedAt: null }];
+  };
   const tx = {
+    dbTransaction: {
+      wrappedTransaction: {
+        select: () => ({
+          from: () => ({ where: () => ({ for: async () => lockedRow() }) }),
+        }),
+      },
+    },
     location,
     mutate: Object.fromEntries(
       Object.keys(tables).map((table) => [table, tableApi(table)])
@@ -58,7 +73,7 @@ function createDb(
       return query.format.singular ? result[0] : result;
     },
   };
-  return { deletes, inserts, tx, updates };
+  return { deletes, inserts, lockReads, tx, updates };
 }
 
 const serverContext = (
@@ -134,7 +149,13 @@ describe("reimbursement.collectPayeeSignature", () => {
         objectKey: `app/attachments/tmp/${String(ctx.userId)}/payee-signature.png`,
         reimbursementId: "request-1",
         replacesAttachmentId: null,
-        statement: STATEMENT,
+        signedFacts: {
+          amountPaise: 50_000,
+          categoryId: "cat-1",
+          description: "Cleaning",
+          expenseDay: "2026-10-01",
+          payeeName: "Test Payee",
+        },
         ...overrides,
       },
       ctx,
@@ -275,7 +296,7 @@ describe("reimbursement.collectPayeeSignature", () => {
     }
   });
 
-  it("refuses a statement the item no longer produces", async () => {
+  it("refuses a signature given against facts the item no longer has", async () => {
     await expect(
       collect(
         createDb(
@@ -327,8 +348,24 @@ describe("reimbursement.collectPayeeSignature", () => {
     expect(ctx.beforeCommitTasks).toHaveLength(1);
     await ctx.beforeCommitTasks?.[0]?.fn();
     expect(ctx.copyR2Object).toHaveBeenCalledWith(
-      expect.objectContaining({ mimeType: "image/png" })
+      expect.objectContaining({
+        contentCheck: "payeeSignature",
+        mimeType: "image/png",
+      })
     );
+  });
+
+  it("re-checks the status under a row lock on the server", async () => {
+    // Synced as pending, but approved by the time the lock is taken.
+    const db = createDb("server", seed(), {
+      ...pendingRequest,
+      status: "approved",
+    });
+    await expect(collect(db, serverContext("owner-1"))).rejects.toThrow(
+      "The payee signature is locked once the request is approved"
+    );
+    expect(db.lockReads).toHaveLength(1);
+    expect(db.inserts).toEqual([]);
   });
 
   it.each([
@@ -434,7 +471,6 @@ describe("reimbursement.update and the payee signature", () => {
     ["paid to the claimant", { payeeIsClaimant: true }, {}],
     ["the voucher tick", { generateVoucher: false }, {}],
     ["the expense day", {}, { expenseDate: EXPENSE_DATE - 86_400_000 }],
-    ["the signature file", {}, { attachments: [] }],
   ])(
     "clears it when %s changes, keeping the file",
     async (_, item, request) => {
@@ -453,7 +489,7 @@ describe("reimbursement.update and the payee signature", () => {
     expect(restored).toHaveLength(1);
   });
 
-  it("regenerates a voucher that printed a signature the edit removed", async () => {
+  it("drops a voucher that printed a signature an untick cleared", async () => {
     const db = createDb("client", {
       reimbursement: [{ ...pendingRequest, status: "approved" }],
       reimbursementAttachment: [
@@ -467,8 +503,13 @@ describe("reimbursement.update and the payee signature", () => {
     await reimbursementMutators.update.fn({
       args: createSchema.parse(
         args(
-          {},
-          { attachments: [file("att-voucher", "app/vouchers/request-1/v.pdf")] }
+          { generateVoucher: false },
+          {
+            attachments: [
+              file("att-sig", SIGNATURE_KEY),
+              file("att-voucher", "app/vouchers/request-1/v.pdf"),
+            ],
+          }
         )
       ),
       ctx: {
@@ -481,5 +522,52 @@ describe("reimbursement.update and the payee signature", () => {
     expect(
       db.updates.filter((u) => u.table === "reimbursementLineItem")
     ).toEqual([]);
+  });
+
+  it("keeps the signature and its file when the edit form drops the file", async () => {
+    const db = createDb("client", seed());
+    await reimbursementMutators.update.fn({
+      args: createSchema.parse(args({}, { attachments: [] })),
+      ctx: { ...owner, permissions: ["requests.edit_own"] },
+      tx: db.tx,
+    } as never);
+    expect(
+      db.inserts
+        .filter((i) => i.table === "reimbursementAttachment")
+        .map((i) => i.row)
+    ).toEqual([
+      expect.objectContaining({ id: "att-sig", objectKey: SIGNATURE_KEY }),
+    ]);
+    expect(
+      db.updates.find((u) => u.table === "reimbursementLineItem")?.row
+        .payeeSignatureAttachmentId
+    ).toBe("att-sig");
+  });
+
+  it("keeps the signature and stored payee after the limit was lowered", async () => {
+    // ₹400 limit: the ₹500 item can't show the voucher box, so the form
+    // sends no tick and no payee.
+    const db = createDb("client", {
+      ...seed(),
+      appConfig: [{ key: "cash_voucher_limit_paise", value: "40000" }],
+    });
+    await reimbursementMutators.update.fn({
+      args: createSchema.parse(
+        args({ generateVoucher: false, payeeName: null, payeePhone: null })
+      ),
+      ctx: { ...owner, permissions: ["requests.edit_own"] },
+      tx: db.tx,
+    } as never);
+    expect(
+      db.inserts.find((i) => i.table === "reimbursementLineItem")?.row
+    ).toMatchObject({
+      generateVoucher: true,
+      payeeName: "Test Payee",
+      payeePhone: "+919876543210",
+    });
+    expect(
+      db.updates.find((u) => u.table === "reimbursementLineItem")?.row
+        .payeeSignatureAttachmentId
+    ).toBe("att-sig");
   });
 });

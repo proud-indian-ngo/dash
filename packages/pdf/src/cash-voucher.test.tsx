@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { createHash } from "node:crypto";
 
 import { paiseToWords } from "./amount-to-words";
 import {
@@ -14,6 +15,13 @@ function fontNames(pdf: Buffer): string[] {
   return [
     ...pdf.toString("latin1").matchAll(/\/BaseFont \/(?:[A-Z]{6}\+)?([\w-]+)/g),
   ].map((match) => match[1] ?? "");
+}
+
+const UNSIGNED_VOUCHER_SHA256 =
+  "3eb85483698c855b05d5e0d44972c179030f8994ea78a6a3c109e2f237b8beb5";
+
+function sha256(pdf: Buffer): string {
+  return createHash("sha256").update(pdf).digest("hex");
 }
 
 function imageCount(pdf: Buffer): number {
@@ -176,11 +184,14 @@ describe("formatPayeePhone", () => {
     });
 
     it("prints an unsigned voucher exactly as before", async () => {
+      // The SHA-256 of the sample voucher rendered before payee signatures
+      // existed (master at b4185eb4): an unsigned voucher must not change.
       const [unsigned, explicitNull] = await Promise.all([
         generateCashVoucherPdf(sampleVoucher),
         generateCashVoucherPdf({ ...sampleVoucher, payeeSignature: null }),
       ]);
-      expect(explicitNull.equals(unsigned)).toBe(true);
+      expect(sha256(unsigned)).toBe(UNSIGNED_VOUCHER_SHA256);
+      expect(sha256(explicitNull)).toBe(UNSIGNED_VOUCHER_SHA256);
     });
   });
 

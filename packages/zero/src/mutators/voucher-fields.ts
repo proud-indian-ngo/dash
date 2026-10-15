@@ -188,12 +188,18 @@ export function planVoucherFields(input: {
       (old.description ?? "") === item.description &&
       old.categoryId === item.categoryId &&
       !input.expenseDateChanged;
+    const overLimit = !qualifiesForCashVoucher(
+      item.amountPaise,
+      input.limitPaise
+    );
     const signature = keptSignature(old, {
       attachmentsAfter,
       attachmentsBefore,
       // The payee acknowledged these facts, so the voucher's stale rule
-      // applies, and the item must still be a voucher item naming them.
-      stillHolds: sameFacts && editsPayee && samePayee,
+      // applies: an eligible item must still be ticked and name the same
+      // payee; an item the lowered limit put out of reach can't show the
+      // box, so its stored opt-in and payee stand, as for the voucher.
+      stillHolds: sameFacts && (editsPayee ? samePayee : overLimit),
     });
     const signatureDropped = Boolean(
       old?.payeeSignatureAttachmentId && !signature
@@ -234,6 +240,21 @@ export function planVoucherFields(input: {
         });
         continue;
       }
+    }
+    if (old && signature) {
+      // Kept as stored, like a surviving voucher's fields.
+      plans.set(item.id, {
+        fields: {
+          generateVoucher: Boolean(old.generateVoucher),
+          payeeName: old.payeeName ?? null,
+          payeePhone: old.payeePhone ?? null,
+        },
+        links: null,
+        queue: Boolean(old.generateVoucher) && !overLimit,
+        signature,
+        signatureDropped,
+      });
+      continue;
     }
     const fields = normalizeVoucherFields(item, input.limitPaise);
     plans.set(item.id, {

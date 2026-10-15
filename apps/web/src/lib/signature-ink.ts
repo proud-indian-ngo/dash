@@ -1,3 +1,8 @@
+import {
+  PAYEE_SIGNATURE_MAX_HEIGHT,
+  PAYEE_SIGNATURE_MAX_WIDTH,
+} from "@pi-dash/shared/payee-signature";
+
 /**
  * Strokes drawn on the signature pad, kept as data rather than pixels so a
  * resize or an orientation change redraws them instead of losing them, and
@@ -162,12 +167,17 @@ export function drawStrokes(
   }
 }
 
-/** Export width of the whole pad; the PNG is cropped to the ink. */
-const EXPORT_WIDTH = 1200;
+/**
+ * Export size of the whole pad (the most the server accepts); the PNG is
+ * cropped to the ink.
+ */
+const EXPORT_WIDTH = PAYEE_SIGNATURE_MAX_WIDTH;
+const EXPORT_HEIGHT = PAYEE_SIGNATURE_MAX_HEIGHT;
 
 /**
- * The signature as a PNG cropped to the ink with a small margin, on a
- * transparent background so it sits on any paper.
+ * The signature as a PNG cropped to the ink with a small margin, on white,
+ * so it reads in any image viewer (dark ink on transparent doesn't on a
+ * dark background) and prints like paper.
  */
 export function signaturePngBlob(
   strokes: readonly SignatureStroke[]
@@ -177,7 +187,7 @@ export function signaturePngBlob(
     return Promise.reject(new Error("Nothing was drawn"));
   }
   const width = EXPORT_WIDTH;
-  const height = EXPORT_WIDTH / SIGNATURE_PAD_ASPECT;
+  const height = EXPORT_HEIGHT;
   const margin = INK_WIDTH * width * 2;
   const left = Math.max(0, Math.floor(bounds.minX * width - margin));
   const top = Math.max(0, Math.floor(bounds.minY * height - margin));
@@ -190,6 +200,8 @@ export function signaturePngBlob(
   if (!ctx) {
     return Promise.reject(new Error("Canvas isn't available"));
   }
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
   drawStrokes(ctx, strokes, width, height, { x: left, y: top });
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {

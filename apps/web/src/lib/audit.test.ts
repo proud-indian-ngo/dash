@@ -238,7 +238,7 @@ describe("audit metadata", () => {
     expect(JSON.stringify(summary)).not.toContain("approval-screenshots/");
   });
 
-  it("records a payee signature by IDs, never its statement or key", () => {
+  it("records a payee signature by IDs, never the payee or the key", () => {
     const summary = summarizeZeroMutation(
       "reimbursement.collectPayeeSignature",
       {
@@ -247,8 +247,13 @@ describe("audit metadata", () => {
         objectKey: "app/attachments/tmp/u/payee-signature.png",
         reimbursementId: TEAM_ID,
         replacesAttachmentId: REPLACED_ID,
-        statement:
-          "I, Test Payee, received ₹500 from Proud Indian for Cleaning on 1 Oct 2026.",
+        signedFacts: {
+          amountPaise: 50_000,
+          categoryId: TARGET_ID,
+          description: "Cleaning",
+          expenseDay: "2026-10-01",
+          payeeName: "Test Payee",
+        },
       },
       "actor-1"
     );

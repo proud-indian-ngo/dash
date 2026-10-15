@@ -40,14 +40,20 @@ function useResponsiveSheetContext(componentName: string) {
 
 export function Sheet({
   children,
+  forceMobile = false,
   onOpenChange,
   open,
 }: {
   children: ReactNode;
+  /**
+   * Use the phone drawer even on a wide screen, as for a phone on its side
+   * (wider than the breakpoint but too short for a dialog).
+   */
+  forceMobile?: boolean;
   onOpenChange?: (open: boolean) => void;
   open?: boolean;
 }) {
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile() || forceMobile;
   const handleOpenChange = useEventCallback((nextOpen: boolean) =>
     onOpenChange?.(nextOpen)
   );

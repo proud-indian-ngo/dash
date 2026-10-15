@@ -17,11 +17,16 @@ import { and, eq, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { uuidv7 } from "uuidv7";
 
-import type { GenerateCashVoucherPayload } from "../enqueue";
+import { enqueue, type GenerateCashVoucherPayload } from "../enqueue";
 import { createNotifyHandler } from "./create-handler";
+import {
+  type PayeeSignatureSkip,
+  readPayeeSignatureImage,
+} from "./payee-signature-image";
 import { getR2Client } from "./r2";
 import {
   type RenderedFrom,
+  onlySignatureChanged,
   stillAsRendered,
   voucherPayee,
 } from "./voucher-render-check";
@@ -43,7 +48,14 @@ async function commitVoucherAttachment(opts: {
   };
   lineItemId: string;
   rendered: RenderedFrom;
-}): Promise<{ linked: false } | { linked: true; oldR2Key: string | null }> {
+}): Promise<
+  | {
+      linked: false;
+      /** Only the payee signature changed: no edit queued a newer render. */
+      signatureOnly: boolean;
+    }
+  | { linked: true; oldR2Key: string | null }
+> {
   return await db.transaction(async (tx) => {
     const [current] = await tx
       .select({
@@ -67,7 +79,10 @@ async function commitVoucherAttachment(opts: {
       .from(reimbursement)
       .where(eq(reimbursement.id, opts.attachment.reimbursementId));
     if (!(current && stillAsRendered(current, request, opts.rendered))) {
-      return { linked: false };
+      return {
+        linked: false,
+        signatureOnly: onlySignatureChanged(current, request, opts.rendered),
+      };
     }
 
     await tx.insert(reimbursementAttachment).values({
@@ -103,14 +118,11 @@ async function commitVoucherAttachment(opts: {
   });
 }
 
-const PNG_SIGNATURE = Buffer.from([
-  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-]);
-
 /**
  * The payee's drawn signature for the Received by box, read from R2 like any
- * other attachment of the request. A missing row prints the empty box; a read
- * failure throws so the job retries rather than print a voucher without it.
+ * other attachment of the request. A missing row or object, or a file the
+ * pad couldn't have drawn, prints the empty box; storage errors throw so the
+ * job retries.
  */
 async function loadPayeeSignature(
   lineItem: {
@@ -119,12 +131,12 @@ async function loadPayeeSignature(
   },
   reimbursementId: string
 ): Promise<{
-  /** Why a linked signature isn't printed. */
-  skipped?: "payee_signature_missing" | "payee_signature_not_png";
+  skipped?: PayeeSignatureSkip;
   signature: { capturedAt: number; image: Buffer } | null;
 }> {
   const attachmentId = lineItem.payeeSignatureAttachmentId;
-  if (!(attachmentId && lineItem.payeeSignatureCapturedAt)) {
+  const capturedAt = lineItem.payeeSignatureCapturedAt;
+  if (!(attachmentId && capturedAt)) {
     return { signature: null };
   }
   const [row] = await db
@@ -139,18 +151,11 @@ async function loadPayeeSignature(
   if (!row?.objectKey) {
     return { signature: null, skipped: "payee_signature_missing" };
   }
-  const image = Buffer.from(
-    await getR2Client().file(row.objectKey).arrayBuffer()
-  );
-  if (!image.subarray(0, 8).equals(PNG_SIGNATURE)) {
-    return { signature: null, skipped: "payee_signature_not_png" };
+  const read = await readPayeeSignatureImage(getR2Client().file(row.objectKey));
+  if ("skipped" in read) {
+    return { signature: null, skipped: read.skipped };
   }
-  return {
-    signature: {
-      capturedAt: lineItem.payeeSignatureCapturedAt.getTime(),
-      image,
-    },
-  };
+  return { signature: { capturedAt: capturedAt.getTime(), image: read.image } };
 }
 
 async function generateCashVoucher(data: GenerateCashVoucherPayload) {
@@ -299,6 +304,13 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
       });
     });
     log.set({ event: "voucher_render_stale" });
+    if (committed.signatureOnly) {
+      // Collecting a signature queues no voucher, so render again with it.
+      await enqueue("generate-cash-voucher", data, {
+        singletonKey: `voucher-${data.lineItemId}`,
+      });
+      log.set({ requeued: true });
+    }
     log.emit();
     return;
   }

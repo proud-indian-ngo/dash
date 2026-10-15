@@ -18,6 +18,7 @@ import { formatTimestamp } from "@/lib/date-formats";
 export interface PayeeSignatureItem {
   amountPaise: number;
   category?: { name: string } | null;
+  categoryId: string;
   description?: null | string;
   generateVoucher?: boolean | null;
   id: string;
@@ -100,6 +101,13 @@ export function PayeeSignatureLine({
         payeeName={payeeName}
         reimbursementId={reimbursementId}
         replacesAttachmentId={signatureId ?? null}
+        signedFacts={{
+          amountPaise: item.amountPaise,
+          categoryId: item.categoryId,
+          description: item.description ?? "",
+          expenseDay: signatureExpenseDay(expenseDate),
+          payeeName,
+        }}
         statement={payeeSignatureStatement({
           amountPaise: item.amountPaise,
           categoryName: item.category?.name,

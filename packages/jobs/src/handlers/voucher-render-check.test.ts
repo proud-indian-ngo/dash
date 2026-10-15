@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+  onlySignatureChanged,
   type RenderedFrom,
   stillAsRendered,
   voucherPayee,
@@ -49,6 +50,30 @@ describe("stillAsRendered", () => {
     expect(
       stillAsRendered(item, { ...request, claimantId: "claimant-2" }, rendered)
     ).toBe(false);
+  });
+});
+
+describe("onlySignatureChanged", () => {
+  it("renders again when only the signature changed", () => {
+    expect(
+      onlySignatureChanged(
+        { ...item, payeeSignatureAttachmentId: "att-new" },
+        request,
+        rendered
+      )
+    ).toBe(true);
+  });
+
+  it("leaves other changes to the job their edit queued", () => {
+    expect(onlySignatureChanged(item, request, rendered)).toBe(false);
+    expect(
+      onlySignatureChanged(
+        { ...item, amountPaise: 1, payeeSignatureAttachmentId: "att-new" },
+        request,
+        rendered
+      )
+    ).toBe(false);
+    expect(onlySignatureChanged(undefined, request, rendered)).toBe(false);
   });
 });
 

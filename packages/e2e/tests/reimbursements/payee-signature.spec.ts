@@ -97,6 +97,60 @@ test.describe("Payee signature", () => {
     ).toBeVisible();
   });
 
+  test("the voucher prints the payee's signature", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "volunteer", "Claimant-only test");
+    test.skip(
+      Boolean(process.env.CI),
+      "Saving the signature and rendering the voucher need R2, which CI does not have"
+    );
+    test.slow();
+
+    const reimbursements = new ReimbursementPage(page, "reimbursement");
+    await reimbursements.createReimbursementWithVoucher("Signed Voucher PDF");
+    await page.getByRole("button", { name: "Collect payee signature" }).click();
+    await drawSignature(page);
+    await page.getByRole("button", { name: "Confirm signature" }).click();
+    await expect(page.getByText("Signature saved")).toBeVisible({
+      timeout: 15_000,
+    });
+
+    // Approval queues the real voucher job; run it as approval would.
+    await reimbursements.approveInDatabase();
+    await reimbursements.generateVoucherInDatabase();
+
+    const thumbnail = page
+      .getByTestId("payee-signature-chip")
+      .getByRole("img", { name: "Signature of Test Payee" });
+    const png = await page.request.get(
+      (await thumbnail.getAttribute("src")) ?? ""
+    );
+    const header = Buffer.from(await png.body());
+    const width = header.readUInt32BE(16);
+    const height = header.readUInt32BE(20);
+
+    const voucherLink = page.getByRole("link", { name: "View voucher" });
+    await expect(voucherLink).toBeVisible({ timeout: 15_000 });
+    const pdf = await page.request.get(
+      (await voucherLink.getAttribute("href")) ?? ""
+    );
+    expect(pdf.headers()["content-type"]).toBe("application/pdf");
+    // The PDF embeds an image the signature's size beside the treasurer's.
+    const images = [
+      ...Buffer.from(await pdf.body())
+        .toString("latin1")
+        .matchAll(/\/Subtype \/Image([^>]*)/g),
+    ].map((match) => {
+      const dict = match[1] ?? "";
+      return {
+        height: Number(/\/Height (\d+)/.exec(dict)?.[1]),
+        width: Number(/\/Width (\d+)/.exec(dict)?.[1]),
+      };
+    });
+    expect(images).toContainEqual({ height, width });
+  });
+
   test("an item paid to the claimant needs no payee signature", async ({
     page,
   }, testInfo) => {
@@ -150,5 +204,41 @@ test.describe("Payee signature on a phone", () => {
     await expect(
       sheet.getByRole("button", { name: "Confirm signature" })
     ).toBeEnabled();
+  });
+});
+
+test.describe("Payee signature on a phone on its side", () => {
+  test.use({
+    hasTouch: true,
+    isMobile: true,
+    viewport: { height: 390, width: 844 },
+  });
+
+  test("puts the pad beside the statement", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "volunteer", "Claimant-only test");
+    test.slow();
+
+    const reimbursements = new ReimbursementPage(page, "reimbursement");
+    await reimbursements.createReimbursementWithVoucher(
+      "Payee Signature Landscape"
+    );
+
+    await page.getByRole("button", { name: "Collect payee signature" }).click();
+    const sheet = page.getByRole("dialog", { name: "Collect payee signature" });
+    const statement = sheet.getByTestId("payee-signature-statement");
+    const pad = page.getByRole("img", { name: /^Signature pad for / });
+    await expect(statement).toBeVisible();
+    await expect(pad).toBeInViewport({ ratio: 1 });
+    const [statementBox, padBox] = await Promise.all([
+      statement.boundingBox(),
+      pad.boundingBox(),
+    ]);
+    expect(padBox?.x ?? 0).toBeGreaterThan(
+      (statementBox?.x ?? 0) + (statementBox?.width ?? 0) - 1
+    );
+    await drawSignature(page);
+    const confirm = sheet.getByRole("button", { name: "Confirm signature" });
+    await expect(confirm).toBeInViewport();
+    await expect(confirm).toBeEnabled();
   });
 });
