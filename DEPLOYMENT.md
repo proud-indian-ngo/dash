@@ -27,7 +27,7 @@ Copy `.env.sample` to `.env` and fill in values. Grouped by category:
 | `DATABASE_URL` | PostgreSQL connection string (pooled) |
 | `ZERO_UPSTREAM_DB` | PostgreSQL connection string (unpooled, for WAL replication) |
 | `BETTER_AUTH_SECRET` | Session encryption secret (min 32 chars) |
-| `DATA_ENCRYPTION_KEY` | Base64 of 32 random bytes (`openssl rand -base64 32`); encrypts finance-private fields such as donor ID numbers. Required in production and passed to the `web` service by `docker-compose.prod.yml`. Rotating it requires re-encrypting stored values |
+| `DATA_ENCRYPTION_KEY` | Base64 of 32 random bytes (`openssl rand -base64 32`); encrypts finance-private fields such as donor ID numbers. Required in production and passed to the `web` service by `docker-compose.prod.yml`. Rotating it requires re-encrypting stored values; see [Encryption key mismatch](#encryption-key-mismatch-check-and-rekey) |
 | `BETTER_AUTH_URL` | Auth base URL (e.g., `https://dash.example.com`). Also the base of the public events feed's `signUpUrl`; the proudindian.ngo website only accepts links starting with `https://dash.proudindian.ngo/`, so production must use exactly that origin |
 | `CORS_ORIGIN` | Allowed CORS origin (usually same as `BETTER_AUTH_URL`) |
 | `ZERO_ADMIN_PASSWORD` | Zero cache admin password |
@@ -363,6 +363,32 @@ bun run vendors:backfill-private
 ```
 
 It encrypts each legacy row into `party_private` and `party_bank_account`, deletes it, and prints the migrated and skipped counts. It is safe to rerun; a second run reports `0 migrated`. Editing a vendor before the backfill also migrates that vendor's row. A later migration drops `private.vendor_legacy_details` once production has no rows left in it.
+
+Run the backfill with the same `DATA_ENCRYPTION_KEY` the production app uses. It prints the target database, asks for a typed `yes` (or `--yes`) when the database is not local, and stops if the key opens none of the encrypted values already stored.
+
+### Encryption key mismatch: check and rekey
+
+If a reveal says "saved with a different encryption key" (server log reason `encrypted_value_unreadable`), some values were encrypted under another `DATA_ENCRYPTION_KEY`, for example a backfill run from a laptop with its local key. `bun run secrets:check` (read-only) reports, per encrypted column and per recomputable keyed hash, how many values open with the current key, with `OLD_DATA_ENCRYPTION_KEY`, or with neither. `bun run secrets:rekey` re-encrypts (and rehashes) only the values the old key opens, under the current key, one transaction per column; rows already on the current key are never touched and a second run changes nothing. Both print counts, row IDs and key fingerprints, never values or keys, and need `--yes` for a non-local database. `secrets:rekey --dry-run` shows the plan without writing.
+
+The production image contains only the built server, not `scripts/` or the sources, so run these from a repository checkout that can reach the production database (the tailnet `tailscale-postgres` host). Variables set on the command line override `.env`:
+
+```bash
+read -rs PROD_KEY   # production DATA_ENCRYPTION_KEY, from the Dokploy environment
+read -rs OLD_KEY    # the key the bad values were written with, e.g. the laptop's .env DATA_ENCRYPTION_KEY
+export DATABASE_URL='postgres://postgres:<password>@tailscale-postgres:5432/pi-dash'
+
+DATA_ENCRYPTION_KEY="$PROD_KEY" OLD_DATA_ENCRYPTION_KEY="$OLD_KEY" bun run secrets:check --yes
+DATA_ENCRYPTION_KEY="$PROD_KEY" OLD_DATA_ENCRYPTION_KEY="$OLD_KEY" bun run secrets:rekey --dry-run --yes
+DATA_ENCRYPTION_KEY="$PROD_KEY" OLD_DATA_ENCRYPTION_KEY="$OLD_KEY" bun run secrets:rekey --yes
+DATA_ENCRYPTION_KEY="$PROD_KEY" bun run secrets:check --yes   # expect exit 0
+unset PROD_KEY OLD_KEY DATABASE_URL
+```
+
+1. Check with the old key set: the affected rows show under "old key". Rows under "neither key" need a different candidate key; the rekey leaves them alone.
+2. Rekey, then check again without `OLD_DATA_ENCRYPTION_KEY`; it exits 0 when every checkable value opens with the current key.
+3. Remove `OLD_DATA_ENCRYPTION_KEY` from wherever it was set. It is never needed by the running app.
+
+Import hashes whose inputs are no longer stored (external identity payload hashes and fingerprints, expired raw rows, statement line hashes) cannot be checked or rehashed; the check only counts them.
 
 ### Vendor payment status repair
 

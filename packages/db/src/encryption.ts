@@ -13,16 +13,49 @@ const IV_BYTES = 12;
 const TAG_BYTES = 16;
 const VERSION = "v1";
 
-function loadKey(): Buffer {
+/**
+ * Thrown when a stored value cannot be decrypted with the key in use: it was
+ * written under another DATA_ENCRYPTION_KEY, or it was damaged. Carries a
+ * stable reason for logs and never the value.
+ */
+export class EncryptedValueUnreadableError extends Error {
+  readonly reason = "encrypted_value_unreadable";
+  constructor() {
+    super("Encrypted value cannot be read with the current key");
+    this.name = "EncryptedValueUnreadableError";
+  }
+}
+
+/** Decodes a base64 data key; `name` labels the variable in the error. */
+export function parseDataKey(
+  raw: string,
+  name = "DATA_ENCRYPTION_KEY"
+): Buffer {
+  const key = Buffer.from(raw, "base64");
+  if (key.length !== 32) {
+    throw new Error(`${name} must be 32 bytes, base64 encoded`);
+  }
+  return key;
+}
+
+/** The current DATA_ENCRYPTION_KEY, decoded. */
+export function loadKey(): Buffer {
   const raw = env.DATA_ENCRYPTION_KEY;
   if (!raw) {
     throw new Error("DATA_ENCRYPTION_KEY is not set");
   }
-  const key = Buffer.from(raw, "base64");
-  if (key.length !== 32) {
-    throw new Error("DATA_ENCRYPTION_KEY must be 32 bytes, base64 encoded");
-  }
-  return key;
+  return parseDataKey(raw);
+}
+
+/**
+ * A short, non-secret label for a key (HMAC of a fixed string under it), so
+ * scripts can say which key they used without printing the key.
+ */
+export function keyFingerprint(key: Buffer): string {
+  return createHmac("sha256", key)
+    .update("pi-dash key fingerprint", "utf8")
+    .digest("hex")
+    .slice(0, 8);
 }
 
 /** Whether finance-private identifiers can be stored in this environment. */
@@ -39,7 +72,15 @@ export function hasEncryptionKey(): boolean {
  * not decrypt.
  */
 export function encryptSecret(plain: string, context: string): string {
-  const key = loadKey();
+  return encryptSecretWith(loadKey(), plain, context);
+}
+
+/** `encryptSecret` under an explicit key, for re-encryption. */
+export function encryptSecretWith(
+  key: Buffer,
+  plain: string,
+  context: string
+): string {
   const iv = randomBytes(IV_BYTES);
   const cipher = createCipheriv(ALGORITHM, key, iv);
   cipher.setAAD(Buffer.from(context, "utf8"));
@@ -54,7 +95,15 @@ export function encryptSecret(plain: string, context: string): string {
 }
 
 export function decryptSecret(stored: string, context: string): string {
-  const key = loadKey();
+  return decryptSecretWith(loadKey(), stored, context);
+}
+
+/** `decryptSecret` under an explicit key, for key checks and re-encryption. */
+export function decryptSecretWith(
+  key: Buffer,
+  stored: string,
+  context: string
+): string {
   const [version, ivPart, bodyPart, tagPart] = stored.split(".");
   if (version !== VERSION || !ivPart || !bodyPart || !tagPart) {
     throw new Error("Unrecognised encrypted value");
@@ -71,6 +120,19 @@ export function decryptSecret(stored: string, context: string): string {
     decipher.update(Buffer.from(bodyPart, "base64url")),
     decipher.final(),
   ]).toString("utf8");
+}
+
+/**
+ * `decryptSecret` for reveals: a missing key still throws as configuration,
+ * but a value the key cannot open throws `EncryptedValueUnreadableError`.
+ */
+export function revealSecret(stored: string, context: string): string {
+  const key = loadKey();
+  try {
+    return decryptSecretWith(key, stored, context);
+  } catch {
+    throw new EncryptedValueUnreadableError();
+  }
 }
 
 /** The tail shown in clear beside an encrypted value; short values are not shown at all. */
@@ -112,4 +174,16 @@ export function keyedDigest(info: string, text: string): string {
   return createHmac("sha256", derivedKey(info))
     .update(text, "utf8")
     .digest("hex");
+}
+
+/** `keyedDigest` under a key derived from an explicit data key, for key checks. */
+export function keyedDigestWith(
+  dataKey: Buffer,
+  info: string,
+  text: string
+): string {
+  const key = Buffer.from(
+    hkdfSync("sha256", dataKey, Buffer.alloc(0), info, 32)
+  );
+  return createHmac("sha256", key).update(text, "utf8").digest("hex");
 }

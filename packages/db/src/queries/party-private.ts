@@ -10,11 +10,12 @@ import { uuidv7 } from "uuidv7";
 
 import { db } from "..";
 import {
-  decryptSecret,
+  revealSecret,
   encryptSecret,
   hasEncryptionKey,
   visibleTail,
 } from "../encryption";
+import { partyIdNumberContext } from "../encryption-contexts";
 import {
   buildFillSave,
   fillValuesPresent,
@@ -39,8 +40,7 @@ export {
 };
 
 /** Associated data binding an encrypted identifier to its party. */
-export const partyIdNumberContext = (partyId: string) =>
-  `party_private.id_number:${partyId}`;
+export { partyIdNumberContext };
 
 /** What the directory may show: contact details and a masked identifier. */
 export interface PartyPrivateView {
@@ -107,7 +107,7 @@ export async function revealPartyIdNumber(
     .where(eq(partyPrivate.partyId, partyId))
     .limit(1);
   return row?.encrypted
-    ? decryptSecret(row.encrypted, partyIdNumberContext(partyId))
+    ? revealSecret(row.encrypted, partyIdNumberContext(partyId))
     : null;
 }
 

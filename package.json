@@ -84,6 +84,8 @@
     "r2:migrate-media-urls": "bun --env-file=.env --env-file=.env.worktree run scripts/migrate-r2-media-urls.ts",
     "ruler:apply": "bunx @intellectronica/ruler@latest apply --local-only",
     "seed": "bun --env-file=.env --env-file=.env.worktree run scripts/seed.ts",
+    "secrets:check": "bun --env-file=.env --env-file=.env.worktree run scripts/secrets-rekey.ts check",
+    "secrets:rekey": "bun --env-file=.env --env-file=.env.worktree run scripts/secrets-rekey.ts rekey",
     "social:token": "bun --env-file=.env --env-file=.env.worktree run scripts/social-token.ts",
     "test:e2e": "turbo run --filter=@pi-dash/e2e test",
     "test:e2e:ui": "turbo run --filter=@pi-dash/e2e test:ui",

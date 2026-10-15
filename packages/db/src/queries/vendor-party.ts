@@ -3,11 +3,12 @@ import { uuidv7 } from "uuidv7";
 
 import { db } from "..";
 import {
-  decryptSecret,
+  revealSecret,
   encryptSecret,
   hasEncryptionKey,
   visibleTail,
 } from "../encryption";
+import { accountNumberContext } from "../encryption-contexts";
 import {
   PartyConflictError,
   resolveBankAccount,
@@ -28,6 +29,7 @@ import {
   nullIfBlank,
   partyIdNumberContext,
 } from "./party-private";
+import { assertKeyOpensStoredData } from "./secrets-rekey";
 
 /*
  * Lock order. Every writer of a vendor's rows (saveParty in party-private.ts,
@@ -51,8 +53,7 @@ import {
 export { PartyConflictError };
 
 /** Associated data binding an encrypted account number to its account row. */
-export const accountNumberContext = (accountId: string) =>
-  `party_bank_account.account_number:${accountId}`;
+export { accountNumberContext };
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Executor = typeof db | Tx;
@@ -179,7 +180,7 @@ export async function revealVendorBankAccount(vendorId: string): Promise<{
   if (bank) {
     return {
       accountName: bank.accountName,
-      accountNumber: decryptSecret(
+      accountNumber: revealSecret(
         bank.accountNumberEncrypted,
         accountNumberContext(bank.id)
       ),
@@ -588,6 +589,8 @@ export interface BackfillVendorPrivateResult {
  */
 export async function backfillVendorPrivate(): Promise<BackfillVendorPrivateResult> {
   requireKey();
+  // Refuse to add values under a key that opens none of those already stored.
+  await assertKeyOpensStoredData(db);
   const rows = await db
     .select({ vendorId: vendorLegacyDetails.vendorId })
     .from(vendorLegacyDetails);
