@@ -198,8 +198,12 @@ export const LEDGER_ACCOUNT_HEAD_IDS = {
   auditFeesPayable: "01930000-0000-7000-8000-000000000802",
   corpusDonations: "01930000-0000-7000-8000-000000000810",
   donationsReceived: "01930000-0000-7000-8000-000000000805",
-  /** Parent of the expense heads made from the expense categories (layer 3-3a). */
-  expenses: "01930000-0000-7000-8000-000000000810",
+  /**
+   * Parent of the expense heads made from the expense categories (layer
+   * 3-3a). It once shared `corpusDonations`' ID by mistake; the reference
+   * data repairs databases made then (`repairExpensesParent`).
+   */
+  expenses: "01930000-0000-7000-8000-000000000812",
   fdInterest: "01930000-0000-7000-8000-000000000804",
   fixedAssets: "01930000-0000-7000-8000-000000000801",
   fundBalance: "01930000-0000-7000-8000-000000000803",
