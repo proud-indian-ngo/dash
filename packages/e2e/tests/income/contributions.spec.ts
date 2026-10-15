@@ -250,6 +250,68 @@ test.describe("Income: contributions (finance)", () => {
     await expect(dialog).toBeHidden();
   });
 
+  test("keeps the mode of receipt as the channel changes", async ({ page }) => {
+    test.slow();
+    const reference = `E2E-MODE-${Date.now()}`;
+    const dialog = await openRecordDialog(page);
+    const mode = dialog.getByLabel("Reporting mode");
+    const chooseChannel = async (name: string) => {
+      await dialog.getByLabel("Channel").click();
+      await page.getByRole("option", { exact: true, name }).click();
+    };
+    const expectMode = async (label: string) => {
+      await expect(mode).toContainText(label);
+      await expect(mode).not.toContainText("Select an option");
+      await expect(mode).not.toHaveAttribute("aria-invalid", "true");
+      await expect(dialog.getByText("Invalid option")).toHaveCount(0);
+    };
+
+    // Open the mode list once while it can change: from then on its items are
+    // registered, which is when a channel change used to clear the mode.
+    await chooseChannel("Cheque");
+    await mode.click();
+    await page
+      .getByRole("option", {
+        exact: true,
+        name: "Electronic or account-payee cheque",
+      })
+      .click();
+    for (const [channel, label] of [
+      ["NEFT/IMPS", "Electronic or account-payee cheque"],
+      ["Cash", "Cash"],
+      ["NEFT/IMPS", "Electronic or account-payee cheque"],
+      ["Cheque", "Electronic or account-payee cheque"],
+      ["In kind", "In kind"],
+      ["Cheque", "Electronic or account-payee cheque"],
+      ["UPI", "Electronic or account-payee cheque"],
+      ["Cash", "Cash"],
+      ["Razorpay", "Electronic or account-payee cheque"],
+      ["Cash", "Cash"],
+      ["NEFT/IMPS", "Electronic or account-payee cheque"],
+    ] as const) {
+      await chooseChannel(channel);
+      await expectMode(label);
+    }
+
+    // A Cash gift saves after switching from NEFT, keeping the bank account
+    // (cash is deposited to the bank).
+    await pickOption(dialog, page, "Donor", INCOME_DONOR);
+    await dialog.getByRole("textbox", { name: "Amount (₹)" }).fill("410");
+    await pickOption(dialog, page, "Deposited into", ACCOUNT);
+    await chooseChannel("Cash");
+    await expectMode("Cash");
+    await expect(
+      dialog.getByRole("combobox", { name: "Deposited into" })
+    ).toHaveValue(ACCOUNT);
+    await dialog
+      .getByRole("textbox", { exact: true, name: "Reference" })
+      .fill(reference);
+    await clickUntilDialogCloses(dialog, "Save contribution");
+    const row = await findRow(page, reference, "₹410.00");
+    await expect(row).toHaveCount(1, { timeout: 10_000 });
+    await expect(row).toContainText("Cash");
+  });
+
   test("counts the seed donor, who has no ID, under Missing donor details", async ({
     page,
   }) => {
