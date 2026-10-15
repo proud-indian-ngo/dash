@@ -411,6 +411,35 @@ function withCorpusGift(facts: WorkbookFacts): WorkbookFacts {
   return facts;
 }
 
+/** The Books page's balance summary over the same facts. */
+const toBooks = (facts: WorkbookFacts) => {
+  const entries: BookEntry[] = facts.entries.map((e) => ({
+    accountHeadId: e.accountHeadId,
+    amountPaise: e.amountPaise,
+    economicOn: e.economicOn,
+    effect: e.effect,
+    fundId: e.fundId,
+    headType: e.headType,
+    id: e.id,
+    programmeId: e.programmeId,
+  }));
+  const movements: BookMovement[] = facts.movements.map((m) => ({
+    amountPaise: m.amountPaise,
+    direction: m.direction,
+    id: m.id,
+    kind: m.kind,
+    occurredOn: m.occurredOn,
+    orgAccountId: m.orgAccountId,
+  }));
+  return balanceSummary({
+    accountIds: facts.accounts.map((a) => a.id),
+    asOf: facts.year.endsOn,
+    entries,
+    movements,
+    startsOn: facts.year.startsOn,
+  });
+};
+
 describe("CA workbook sheets", () => {
   it("keeps the contract's column order", () => {
     const facts = fixture();
@@ -1032,34 +1061,127 @@ describe("CA workbook sheets", () => {
     ).toEqual([0, 0, 0, 0]);
   });
 
-  it("agrees with the Books balance summary on every fund", () => {
-    const toBooks = (facts: WorkbookFacts) => {
-      const entries: BookEntry[] = facts.entries.map((e) => ({
-        accountHeadId: e.accountHeadId,
-        amountPaise: e.amountPaise,
-        economicOn: e.economicOn,
-        effect: e.effect,
-        fundId: e.fundId,
-        headType: e.headType,
-        id: e.id,
-        programmeId: e.programmeId,
-      }));
-      const movements: BookMovement[] = facts.movements.map((m) => ({
-        amountPaise: m.amountPaise,
-        direction: m.direction,
-        id: m.id,
-        kind: m.kind,
-        occurredOn: m.occurredOn,
-        orgAccountId: m.orgAccountId,
-      }));
-      return balanceSummary({
-        accountIds: facts.accounts.map((a) => a.id),
-        asOf: facts.year.endsOn,
-        entries,
-        movements,
-        startsOn: facts.year.startsOn,
-      });
+  it("rolls posted expenses into the General Fund, reversals and supplier advances netting", () => {
+    const facts = fixture();
+    const travel = {
+      accountHeadId: "h-travel",
+      headName: "Travel",
+      headType: "expense",
+    } as const;
+    // An approved reimbursement of 425, reversed and reposted when its
+    // claimant changed (same money, a new payee on the payout).
+    const claim = { sourceId: "claim-1", sourceType: "reimbursement" };
+    const recognised = entry("charges", {
+      ...claim,
+      ...travel,
+      amountPaise: 42_500,
+      economicOn: "2026-06-03",
+    });
+    const paid = movement({
+      ...claim,
+      amountPaise: 42_500,
+      direction: "out",
+      kind: "payout",
+      memo: "Class outing (paid to Ravi)",
+      occurredOn: "2026-06-03",
+      orgAccountId: BANK,
+    });
+    facts.entries.push(
+      recognised,
+      {
+        ...recognised,
+        effect: "decrease",
+        id: "ent-claim-rev",
+        reversesEntryId: recognised.id,
+      },
+      { ...recognised, id: "ent-claim-repost" }
+    );
+    facts.movements.push(
+      paid,
+      {
+        ...paid,
+        direction: "in",
+        id: "mov-claim-rev",
+        reversesMovementId: paid.id,
+      },
+      { ...paid, id: "mov-claim-repost", memo: "Class outing (paid to Meena)" }
+    );
+    // A vendor paid 250 before its invoice (a supplier advance), then the
+    // accepted invoice recognises the expense and clears the advance.
+    const payment = {
+      sourceId: "vpt-2",
+      sourceType: "vendor_payment_transaction",
     };
+    const invoice = { sourceId: "vp-2", sourceType: "vendor_payment" };
+    facts.movements.push(
+      movement({
+        ...payment,
+        amountPaise: 25_000,
+        direction: "out",
+        kind: "payout",
+        occurredOn: "2026-07-10",
+        orgAccountId: BANK,
+      })
+    );
+    facts.entries.push(
+      entry("advances", {
+        ...payment,
+        amountPaise: 25_000,
+        economicOn: "2026-07-10",
+        partyName: "Sharma Travels",
+      }),
+      entry("charges", {
+        ...invoice,
+        ...travel,
+        amountPaise: 25_000,
+        economicOn: "2026-07-20",
+        partyName: "Sharma Travels",
+      }),
+      entry("advances", {
+        ...invoice,
+        amountPaise: 25_000,
+        economicOn: "2026-07-20",
+        effect: "decrease",
+        partyName: "Sharma Travels",
+      })
+    );
+
+    const { check, sheet } = balanceSheet(facts);
+    expect(check.openingDifferencePaise).toBe(0);
+    expect(check.closingDifferencePaise).toBe(0);
+    // 1,313.40 of surplus less 675 of expenses.
+    expect(
+      fundRowOf(
+        sheet,
+        "General Fund (Domestic): current year surplus/(deficit)"
+      )
+    ).toEqual([0, 638.4, 0, 638.4]);
+    expect(fundRowOf(sheet, "General Fund (Domestic) total")).toEqual([
+      2940, 638.4, 0, 3578.4,
+    ]);
+    // The cleared advance leaves no supplier advances standing.
+    expect(fundRowOf(sheet, "Supplier advances — other")).toEqual([
+      0, 250, 250, 0,
+    ]);
+    const books = toBooks(facts);
+    expect(books.balanced).toBe(true);
+    expect(books.funds.find((f) => f.key === GENERAL_FUND_ID)).toMatchObject({
+      movement: { openingPaise: 294_000, surplusPaise: 63_840 },
+      paise: 357_840,
+    });
+
+    // The next year opens the General Fund with the surplus after expenses.
+    const next = nextYear(facts);
+    const following = balanceSheet(next);
+    expect(following.check.openingDifferencePaise).toBe(0);
+    expect(following.check.closingDifferencePaise).toBe(0);
+    expect(
+      fundRowOf(following.sheet, "General Fund (Domestic): opening balance")
+    ).toEqual([3578.4, 0, 0, 3578.4]);
+    expect(toBooks(next).balanced).toBe(true);
+  });
+
+  it("agrees with the Books balance summary on every fund", () => {
     const cases = [
       withCorpusGift(fixture()),
       nextYear(withCorpusGift(fixture())),
