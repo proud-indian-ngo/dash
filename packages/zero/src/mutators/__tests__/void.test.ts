@@ -471,6 +471,24 @@ describe("records a bank debit is matched to (layer 3-3b)", () => {
     expect(db.rows("vendorPaymentTransaction")[0]?.voidedAt).toBeNull();
   });
 
+  it("refuses to reset or reject a matched approved reimbursement", async () => {
+    const db = createDb({
+      statementAllocation: [allocation({ reimbursementId: "r-1" })],
+    });
+    await expect(
+      run(reimbursementMutators.resetToPending, db, financeCtx(), {
+        id: "r-1",
+      })
+    ).rejects.toThrow(MATCHED_TO_BANK_MESSAGE);
+    await expect(
+      run(reimbursementMutators.reject, db, financeCtx(), {
+        id: "r-1",
+        reason: "Wrong",
+      })
+    ).rejects.toThrow(MATCHED_TO_BANK_MESSAGE);
+    expect(db.rows("reimbursement")[0]?.status).toBe("approved");
+  });
+
   it("leaves the check to the server", async () => {
     const db = createDb(
       { statementAllocation: [allocation({ reimbursementId: "r-1" })] },

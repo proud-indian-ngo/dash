@@ -854,10 +854,11 @@ async function requireNoAllocations(
 }
 
 /**
- * Applies one action; returns the posting sources it moved that the line
- * itself doesn't name (claims, vendor payments, bank charges).
+ * Applies one action in the caller's statement line transaction; returns
+ * the posting sources it moved that the line itself doesn't name (claims,
+ * vendor payments, bank charges). Exported for the database tests.
  */
-async function applyAction(
+export async function applyAction(
   tx: StatementTx,
   line: StatementLineRecord,
   input: StatementLineAction,
@@ -980,6 +981,9 @@ async function applyAction(
         matchKind: "transfer",
         matchReason: "manual",
         matchStatus: "matched",
+        // Only an open line waits for a claim.
+        needsClaimAt: null,
+        needsClaimBy: null,
         note: trimNote(input.note) ?? line.note,
         transferOrgAccountId: otherAccountId,
         suggestedContributionId: null,
@@ -1010,6 +1014,8 @@ async function applyAction(
         ...matched,
         ignoredReason: input.reason,
         matchStatus: "ignored",
+        needsClaimAt: null,
+        needsClaimBy: null,
         note: note ?? line.note,
         suggestedContributionId: null,
         suggestedKind: null,

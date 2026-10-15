@@ -168,6 +168,16 @@ export const LEDGER_REFERENCE_HEADS = [
     tallyLedgerName: "Rates and Taxes",
     type: "expense" as const,
   },
+  {
+    code: "CLAIMS_PAYABLE",
+    description:
+      "Approved reimbursements not yet paid out of the bank; a payment before its approval shows as a negative balance (an advance to the claimant).",
+    id: LEDGER_ACCOUNT_HEAD_IDS.claimsPayable,
+    name: "Claims payable",
+    sortOrder: 210,
+    tallyLedgerName: "Reimbursements Payable",
+    type: "liability" as const,
+  },
 ] as const;
 
 const CORPUS_FUND = {

@@ -70,8 +70,11 @@ export const GATEWAY_CHANNELS: readonly string[] = ["razorpay", "give_do"];
  * the next posting run looks at every source once (`postPendingIncome`),
  * not only those whose records changed. 1: corpus gifts credit the Corpus
  * Fund directly and their gateway charges are General Fund expenditure.
+ * 2 (layer 3-3b): a reimbursement's payment clears "Claims payable" and a
+ * vendor payment's supplier advance moves into its payment part, so every
+ * part balances on its own date.
  */
-export const INCOME_RULES_VERSION = 1;
+export const INCOME_RULES_VERSION = 2;
 
 /** The entries and movements of one part of a source's posting. */
 export interface PlanPart {

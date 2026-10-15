@@ -153,6 +153,8 @@ export interface DebitSuggestionsResponse {
 
 export interface UnseenPaymentsResponse {
   documents: DebitDocumentView[];
+  /** The list stopped at its limit: there are more. */
+  capped: boolean;
 }
 
 export interface LinkCandidatesResponse {

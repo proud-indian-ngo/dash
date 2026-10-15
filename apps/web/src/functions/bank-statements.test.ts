@@ -56,7 +56,7 @@ mock.module("@/lib/bank-statement/server", () => ({
 mock.module("@/lib/bank-statement/debits", () => ({
   accountDebitSummary: service("debitSummary", { debitCount: 0 }),
   debitSuggestions: service("suggestions", { lines: {} }),
-  listUnseenPayments: service("unseen", { documents: [] }),
+  listUnseenPayments: service("unseen", { capped: false, documents: [] }),
   searchDebitDocuments: service("search", []),
 }));
 mock.module("@pi-dash/db/queries/statement-lines", () => ({

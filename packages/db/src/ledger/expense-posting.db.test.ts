@@ -114,6 +114,14 @@ async function foundation(tx: LedgerTx) {
         updatedAt: NOW,
       },
       {
+        code: "TEST_CLAIMS_PAYABLE",
+        createdAt: NOW,
+        id: LEDGER_ACCOUNT_HEAD_IDS.claimsPayable,
+        name: "Test claims payable",
+        type: "liability",
+        updatedAt: NOW,
+      },
+      {
         code: "TEST_SUPPLIER_ADVANCES",
         createdAt: NOW,
         id: LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances,
@@ -245,6 +253,10 @@ async function expenseByProgramme(tx: LedgerTx, sourceId: string) {
     .where(eq(posting.sourceId, sourceId));
   const net = new Map<string | null, number>();
   for (const { entry } of rows) {
+    // Claims payable is a liability the payment clears, not expense.
+    if (entry.accountHeadId === LEDGER_ACCOUNT_HEAD_IDS.claimsPayable) {
+      continue;
+    }
     net.set(
       entry.programmeId,
       (net.get(entry.programmeId) ?? 0) +
@@ -322,8 +334,9 @@ it.skipIf(!localDatabase)(
             postings.map((p) => p.id)
           )
         );
+      // The category's head, and the claims payable the payment clears.
       expect(new Set(entries.map((e) => e.accountHeadId))).toEqual(
-        new Set([head?.id])
+        new Set([head?.id, LEDGER_ACCOUNT_HEAD_IDS.claimsPayable])
       );
       expect(await stateOf(tx, id)).toMatchObject({ status: "posted" });
     });
@@ -573,7 +586,8 @@ it.skipIf(!localDatabase)(
       expect(await relatedIncomeSources(tx, payment)).toEqual([request]);
 
       // Paid, invoice not accepted: money out as a supplier advance.
-      expect(await run(tx, payment)).toMatchObject({ posted: 2 });
+      // One part: the advance and the money out, on the payment's date.
+      expect(await run(tx, payment)).toMatchObject({ posted: 1 });
       expect(await run(tx, request)).toMatchObject({
         reason: "invoice_not_accepted",
         status: "none",
@@ -821,11 +835,11 @@ it.skipIf(!localDatabase)(
         .update(reimbursement)
         .set({ updatedAt: new Date(NOW.getTime() + 1000), userId: second })
         .where(eq(reimbursement.id, id));
-      // Only the payout names the claimant, so only the cash part moves;
-      // the expense entries stand (layer 3-3b keeps expense parts apart).
+      // The payout and the claims payable name the claimant, so both
+      // parts are reposted.
       expect(await run(tx, claimSource(id))).toMatchObject({
-        posted: 1,
-        reversed: 1,
+        posted: 2,
+        reversed: 2,
       });
       expect(await payoutMemos()).toEqual([
         "out Class outing (paid to First claimant)",
@@ -873,13 +887,16 @@ it.skipIf(!localDatabase)(
         status: "none",
       });
       const postings = await postingsOf(tx, id);
+      // Both reversals are written in one run; their order isn't fixed.
       expect(
-        postings.map((p) => [p.action, p.economicOn, p.reason ?? null])
+        postings
+          .map((p) => [p.action, p.economicOn, p.reason ?? null])
+          .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
       ).toEqual([
-        ["recognise", "2026-06-03", null],
         ["cash", "2026-06-03", null],
-        ["reverse:recognise", "2026-11-02", "The reimbursement was voided"],
+        ["recognise", "2026-06-03", null],
         ["reverse:cash", "2026-11-02", "The reimbursement was voided"],
+        ["reverse:recognise", "2026-11-02", "The reimbursement was voided"],
       ]);
       // The reversing entries and movements are dated the void day too.
       const reversalIds = postings
@@ -988,7 +1005,7 @@ it.skipIf(!localDatabase)(
         .where(eq(vendorPayment.id, vpId));
       expect(await run(tx, source)).toMatchObject({
         reason: "voided",
-        reversed: 2,
+        reversed: 1,
       });
       expect(await balanceOf(tx, ids.bank)).toBe(0);
       expect(await advancesOf(tx, ids.vendor)).toBe(0);

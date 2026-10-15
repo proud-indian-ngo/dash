@@ -920,6 +920,8 @@ export const reimbursementMutators = {
       assertEntityExists(entity, "Reimbursement");
       assertNotVoided(entity);
       assertPending(entity, "reimbursement", "rejected", canEditAnyStatus);
+      // An approved claim a bank debit pays can't be un-approved (layer 3-3b).
+      await assertNotMatchedToBank(tx, [ledgerSource(args.id)]);
 
       const now = Date.now();
       await tx.mutate.reimbursement.update({
@@ -979,6 +981,9 @@ export const reimbursementMutators = {
       if (entity.status === "pending") {
         throw new Error("Reimbursement is already pending");
       }
+      // Un-approving a claim a bank debit pays would leave the debit
+      // explained by nothing in the books (layer 3-3b): unmatch it first.
+      await assertNotMatchedToBank(tx, [ledgerSource(args.id)]);
 
       const now = Date.now();
       // The payment screenshot stays with the claim as evidence.

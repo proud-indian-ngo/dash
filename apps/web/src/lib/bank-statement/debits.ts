@@ -1,5 +1,6 @@
 import { db } from "@pi-dash/db";
 import {
+  closedYearTouched,
   type DebitDocument,
   type DebitDocumentFilter,
   debitSummary,
@@ -156,8 +157,15 @@ export async function searchDebitDocuments(
 
 /** Approved claims and payments from the cutover that no bank debit pays in full. */
 export async function listUnseenPayments(): Promise<UnseenPaymentsResponse> {
-  return { documents: (await unseenPayments(db)).map(view) };
+  const documents = await unseenPayments(db, UNSEEN_LIMIT);
+  return {
+    capped: documents.length >= UNSEEN_LIMIT,
+    documents: documents.map(view),
+  };
 }
+
+/** How many "Not in bank" records the page lists at most. */
+const UNSEEN_LIMIT = 500;
 
 /** The account's bank debit figures, for its reconciliation summary. */
 export async function accountDebitSummary(orgAccountId: string) {
@@ -174,6 +182,30 @@ async function openPaiseOf(tx: StatementTx, line: StatementLineRecord) {
     openPaise:
       line.amountPaise - live.reduce((sum, a) => sum + a.amountPaise, 0),
   };
+}
+
+/**
+ * Refuses changing a bank match that would move the books of a closed
+ * year: the line's own date (from the cutover; earlier lines are evidence
+ * only), or a standing posting of a claim, payment or charge it moves.
+ */
+async function requireOpenYears(
+  tx: StatementTx,
+  line: StatementLineRecord,
+  sources: readonly LedgerSourceRef[]
+) {
+  const label = await closedYearTouched(tx, {
+    dates: line.valueOn >= LEDGER_CUTOVER_ON ? [line.valueOn] : [],
+    sources: [
+      ...sources,
+      { sourceId: line.id, sourceType: "statement_charge" },
+    ],
+  });
+  if (label) {
+    throw new StatementInputError(
+      `FY ${label} is closed; reopen it to change its bank matches`
+    );
+  }
 }
 
 function requireOpenDebit(line: StatementLineRecord) {
@@ -243,6 +275,19 @@ export async function matchDebit(
     throw new StatementInputError("Pick at least one claim or payment");
   }
   await lockDebitDocuments(tx, input.items);
+  await requireOpenYears(
+    tx,
+    line,
+    allocationSources(
+      line.id,
+      input.items.map((i) => ({
+        kind: i.kind,
+        reimbursementId: i.kind === "reimbursement" ? i.id : null,
+        vendorPaymentTransactionId:
+          i.kind === "vendor_payment_transaction" ? i.id : null,
+      }))
+    )
+  );
   const docs = await listDebitDocuments(tx, {
     ids: input.items.map((i) => i.id),
   });
@@ -333,6 +378,7 @@ export async function markDebitCharge(
       "This line already has that mark; unmatch it to record it again"
     );
   }
+  await requireOpenYears(tx, line, []);
   const rows = [
     {
       amountPaise: openPaise,
@@ -393,6 +439,11 @@ export async function releaseDebit(
   actorId: string,
   now: Date
 ): Promise<LiveAllocation[]> {
+  await requireOpenYears(
+    tx,
+    line,
+    allocationSources(line.id, await liveAllocationsOfLines(tx, [line.id]))
+  );
   return await releaseLineAllocations(tx, line.id, actorId, now);
 }
 

@@ -117,6 +117,14 @@ async function foundation(tx: LedgerTx) {
     .insert(accountHead)
     .values([
       {
+        code: "TEST_CLAIMS_PAYABLE",
+        createdAt: NOW,
+        id: LEDGER_ACCOUNT_HEAD_IDS.claimsPayable,
+        name: "Test claims payable",
+        type: "liability",
+        updatedAt: NOW,
+      },
+      {
         code: "TEST_SUPPLIER_ADVANCES",
         createdAt: NOW,
         id: LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances,
@@ -367,7 +375,7 @@ async function balanceOf(tx: LedgerTx, orgAccountId: string) {
  * Zero when the books agree; compared before and after each step, since a
  * seeded database may hold books of its own.
  */
-async function booksDifference(tx: LedgerTx) {
+async function booksDifference(tx: LedgerTx, asOf = "9999-12-31") {
   const entries = await tx
     .select({
       accountHeadId: ledgerEntry.accountHeadId,
@@ -395,7 +403,7 @@ async function booksDifference(tx: LedgerTx) {
   const accounts = await tx.select({ id: orgAccount.id }).from(orgAccount);
   return balanceSummary({
     accountIds: accounts.map((a) => a.id),
-    asOf: "9999-12-31",
+    asOf,
     entries,
     movements,
     startsOn: LEDGER_CUTOVER_ON,
@@ -536,8 +544,9 @@ it.skipIf(!localDatabase)(
         { amountPaise: 5900, kind: "bank_charges" },
         { amountPaise: 120_000, kind: "tax_payment" },
       ]);
+      // One part: the expense and the money out, on the line's date.
       expect(await run(tx, chargeSource(line))).toMatchObject({
-        posted: 2,
+        posted: 1,
         status: "posted",
       });
       expect(await standingMovements(tx, line)).toEqual([
@@ -562,7 +571,7 @@ it.skipIf(!localDatabase)(
       await release(tx, line);
       expect(await run(tx, chargeSource(line))).toMatchObject({
         reason: "unmatched",
-        reversed: 2,
+        reversed: 1,
         status: "none",
       });
       expect(await standingMovements(tx, line)).toEqual([]);
@@ -602,19 +611,77 @@ it.skipIf(!localDatabase)(
       expect(await postingsOf(tx, old)).toEqual([]);
       expect(await postingsOf(tx, charges)).toEqual([]);
 
-      // Approved after the cutover, paid by the bank before it.
-      const across = await addClaim(tx, ids, [42_500], {
+      // Approved after the cutover and posted by default, then matched to
+      // a debit before it: the money left in FY 2025-26 (cash basis), so it
+      // is history and its default posting is reversed.
+      const paidEarly = await addClaim(tx, ids, [42_500], {
         reviewedAt: new Date("2026-04-02T06:00:00Z"),
       });
+      await run(tx, claimSource(paidEarly));
+      expect(await standingMovements(tx, paidEarly)).toEqual([
+        [ids.main, "2026-04-02", 42_500, "payout", null],
+      ]);
       const before = await addDebit(tx, ids.hdfc, { valueOn: "2026-03-30" });
       await allocate(tx, before, [
-        { amountPaise: 42_500, kind: "reimbursement", reimbursementId: across },
+        {
+          amountPaise: 42_500,
+          kind: "reimbursement",
+          reimbursementId: paidEarly,
+        },
       ]);
-      expect(await run(tx, claimSource(across))).toMatchObject({
+      expect(await run(tx, claimSource(paidEarly))).toMatchObject({
+        reason: "before_cutover",
+        reversed: 2,
+        status: "none",
+      });
+      expect(await standingMovements(tx, paidEarly)).toEqual([]);
+
+      // Approved before the cutover, paid by a debit after it: posted, both
+      // parts on the debit day.
+      const paidLate = await addClaim(tx, ids, [42_500], {
+        reviewedAt: new Date("2026-03-25T06:00:00Z"),
+      });
+      const after = await addDebit(tx, ids.hdfc, { valueOn: "2026-04-03" });
+      await allocate(tx, after, [
+        {
+          amountPaise: 42_500,
+          kind: "reimbursement",
+          reimbursementId: paidLate,
+        },
+      ]);
+      expect(await run(tx, claimSource(paidLate))).toMatchObject({
+        status: "posted",
+      });
+      expect(
+        (await postingsOf(tx, paidLate)).map((p) => [p.action, p.economicOn])
+      ).toEqual([
+        ["recognise", "2026-04-03"],
+        ["cash", "2026-04-03"],
+      ]);
+
+      // Debits on both sides of the cutover: waits for the CA.
+      const split = await addClaim(tx, ids, [42_500], {
+        reviewedAt: new Date("2026-04-02T06:00:00Z"),
+      });
+      const early = await addDebit(tx, ids.hdfc, {
+        amountPaise: 20_000,
+        valueOn: "2026-03-31",
+      });
+      const late = await addDebit(tx, ids.hdfc, {
+        amountPaise: 22_500,
+        valueOn: "2026-04-01",
+      });
+      await allocate(tx, early, [
+        { amountPaise: 20_000, kind: "reimbursement", reimbursementId: split },
+      ]);
+      await allocate(tx, late, [
+        { amountPaise: 22_500, kind: "reimbursement", reimbursementId: split },
+      ]);
+      expect(await run(tx, claimSource(split))).toMatchObject({
         reason: "bank_debit_across_cutover",
         status: "waiting",
       });
-      expect(await postingsOf(tx, across)).toEqual([]);
+      expect(await postingsOf(tx, split)).toEqual([]);
       expect(await booksDifference(tx)).toBe(baseline);
     });
   }
@@ -747,7 +814,20 @@ it.skipIf(!localDatabase)(
       expect(await standingMovements(tx, paymentId)).toEqual([
         [ids.hdfc, "2026-08-11", 150_000, "payout", line],
       ]);
-      expect(await recognisePostings(tx, paymentId)).toBe(1);
+      // The advance moved with the money: one part, on the debit's day.
+      expect(await recognisePostings(tx, paymentId)).toBe(0);
+      const advance = await tx
+        .select({ on: ledgerEntry.economicOn, paise: ledgerEntry.amountPaise })
+        .from(ledgerEntry)
+        .innerJoin(posting, eq(posting.id, ledgerEntry.postingId))
+        .where(
+          and(
+            eq(posting.sourceId, paymentId),
+            isNull(posting.reversesPostingId),
+            sql`not exists (select 1 from ${posting} r where r.reverses_posting_id = ${posting.id})`
+          )
+        );
+      expect(advance).toEqual([{ on: "2026-08-11", paise: 150_000 }]);
       expect(await booksDifference(tx)).toBe(baseline);
     });
   }
@@ -793,6 +873,211 @@ it.skipIf(!localDatabase)(
       await allocate(tx, line, [
         { amountPaise: 10_000, kind: "reimbursement", reimbursementId: claim },
       ]);
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "balances on every day between the approval and the debit, either way round and across a year end",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const cases = [
+        // Approved 3 Jun, paid 20 Jun: the claim is payable in between.
+        { approved: "2026-06-03", debit: "2026-06-20", between: "2026-06-04" },
+        // Paid 1 Jul, approved 10 Jul: an advance to the claimant in between.
+        { approved: "2026-07-10", debit: "2026-07-01", between: "2026-07-05" },
+        // Approved before the year end, paid after it, and the reverse.
+        { approved: "2027-03-29", debit: "2027-04-02", between: "2027-03-31" },
+        { approved: "2027-04-02", debit: "2027-03-30", between: "2027-03-31" },
+      ];
+      for (const c of cases) {
+        const days = [c.approved, c.between, c.debit, "9999-12-31"];
+        const baseline = await Promise.all(
+          days.map((d) => booksDifference(tx, d))
+        );
+        const claim = await addClaim(tx, ids, [42_500], {
+          reviewedAt: new Date(`${c.approved}T06:00:00Z`),
+        });
+        const line = await addDebit(tx, ids.hdfc, { valueOn: c.debit });
+        await allocate(tx, line, [
+          {
+            amountPaise: 42_500,
+            kind: "reimbursement",
+            reimbursementId: claim,
+          },
+        ]);
+        expect(await run(tx, claimSource(claim))).toMatchObject({
+          status: "posted",
+        });
+        for (const [index, day] of days.entries()) {
+          expect(await booksDifference(tx, day)).toBe(baseline[index]);
+        }
+      }
+
+      // A vendor payment dated 10 Aug, debited 20 Aug: the advance moves
+      // with the money, so 15 Aug balances too.
+      const days = ["2026-08-10", "2026-08-15", "2026-08-20"];
+      const baseline = await Promise.all(
+        days.map((d) => booksDifference(tx, d))
+      );
+      const vpId = uuidv7();
+      await tx.insert(vendorPayment).values({
+        chargedTo: "organisation",
+        createdAt: NOW,
+        id: vpId,
+        status: "paid",
+        title: "Stage hire",
+        updatedAt: NOW,
+        userId: ids.user,
+        vendorId: ids.vendor,
+      });
+      const paymentId = uuidv7();
+      await tx.insert(vendorPaymentTransaction).values({
+        amountPaise: 90_000,
+        createdAt: NOW,
+        id: paymentId,
+        status: "approved",
+        transactionDate: new Date("2026-08-10T06:00:00Z"),
+        updatedAt: NOW,
+        userId: ids.user,
+        vendorPaymentId: vpId,
+      });
+      const line = await addDebit(tx, ids.hdfc, {
+        amountPaise: 90_000,
+        valueOn: "2026-08-20",
+      });
+      await allocate(tx, line, [
+        {
+          amountPaise: 90_000,
+          kind: "vendor_payment_transaction",
+          vendorPaymentTransactionId: paymentId,
+        },
+      ]);
+      await run(tx, {
+        sourceId: paymentId,
+        sourceType: "vendor_payment_transaction",
+      });
+      for (const [index, day] of days.entries()) {
+        expect(await booksDifference(tx, day)).toBe(baseline[index]);
+      }
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "keeps an invoice from clearing an advance its pre-cutover payment never booked",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const baseline = await booksDifference(tx);
+      const addRequest = async (
+        paid: { amountPaise: number; debitOn: string }[]
+      ) => {
+        const vpId = uuidv7();
+        await tx.insert(vendorPayment).values({
+          chargedTo: "organisation",
+          createdAt: NOW,
+          id: vpId,
+          invoiceDate: "2026-04-10",
+          invoiceReviewedAt: new Date("2026-04-10T06:00:00Z"),
+          status: "completed",
+          title: "Sound system",
+          updatedAt: NOW,
+          userId: ids.user,
+          vendorId: ids.vendor,
+        });
+        await tx.insert(vendorPaymentLineItem).values({
+          amountPaise: paid.reduce((sum, p) => sum + p.amountPaise, 0),
+          categoryId: ids.category,
+          createdAt: NOW,
+          id: uuidv7(),
+          sortOrder: 0,
+          updatedAt: NOW,
+          vendorPaymentId: vpId,
+        });
+        const payments: string[] = [];
+        for (const p of paid) {
+          const paymentId = uuidv7();
+          payments.push(paymentId);
+          // Dated after the cutover in the request, paid by a debit as given.
+          await tx.insert(vendorPaymentTransaction).values({
+            amountPaise: p.amountPaise,
+            createdAt: NOW,
+            id: paymentId,
+            status: "approved",
+            transactionDate: new Date("2026-04-02T06:00:00Z"),
+            updatedAt: NOW,
+            userId: ids.user,
+            vendorPaymentId: vpId,
+          });
+          const line = await addDebit(tx, ids.hdfc, {
+            amountPaise: p.amountPaise,
+            valueOn: p.debitOn,
+          });
+          await allocate(tx, line, [
+            {
+              amountPaise: p.amountPaise,
+              kind: "vendor_payment_transaction",
+              vendorPaymentTransactionId: paymentId,
+            },
+          ]);
+        }
+        return { payments, vpId };
+      };
+      const runAll = async (r: { payments: string[]; vpId: string }) => {
+        const results = [];
+        for (const id of r.payments) {
+          results.push(
+            await run(tx, {
+              sourceId: id,
+              sourceType: "vendor_payment_transaction",
+            })
+          );
+        }
+        results.push(
+          await run(tx, { sourceId: r.vpId, sourceType: "vendor_payment" })
+        );
+        return results;
+      };
+
+      // Paid in full by a debit before the cutover: all history.
+      const old = await addRequest([
+        { amountPaise: 80_000, debitOn: "2026-03-30" },
+      ]);
+      expect((await runAll(old)).map((r) => [r.status, r.reason])).toEqual([
+        ["none", "before_cutover"],
+        ["none", "before_cutover"],
+      ]);
+      expect(await postingsOf(tx, old.vpId)).toEqual([]);
+
+      // One payment debited before the cutover, one after: the invoice waits.
+      const mixed = await addRequest([
+        { amountPaise: 30_000, debitOn: "2026-03-30" },
+        { amountPaise: 50_000, debitOn: "2026-04-05" },
+      ]);
+      expect((await runAll(mixed)).map((r) => [r.status, r.reason])).toEqual([
+        ["none", "before_cutover"],
+        ["posted", null],
+        ["waiting", "paid_across_cutover"],
+      ]);
+      // Only the booked advance stands; nothing cleared it below zero.
+      const [advance] = await tx
+        .select({
+          net: sql<string>`coalesce(sum(case when ${ledgerEntry.effect} = 'increase' then ${ledgerEntry.amountPaise} else -${ledgerEntry.amountPaise} end), 0)`,
+        })
+        .from(ledgerEntry)
+        .where(
+          and(
+            eq(ledgerEntry.partyId, ids.vendor),
+            eq(
+              ledgerEntry.accountHeadId,
+              LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances
+            )
+          )
+        );
+      expect(Number(advance?.net)).toBe(50_000);
+      expect(await booksDifference(tx)).toBe(baseline);
     });
   }
 );

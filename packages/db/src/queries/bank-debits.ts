@@ -332,9 +332,46 @@ export async function countLiveDocumentAllocations(
   return Number(row?.count ?? 0);
 }
 
+/**
+ * The first closed financial year a bank match would change (layer 3-3b):
+ * the year of any of `dates` (the line's own date, from the cutover), or of
+ * a standing posting of the sources it moves (a claim's or payment's
+ * current postings, the line's own charges). Null when every one is open.
+ */
+export async function closedYearTouched(
+  reader: Reader,
+  input: {
+    dates: readonly string[];
+    sources: readonly { sourceId: string; sourceType: string }[];
+  }
+): Promise<string | null> {
+  const byDate = input.dates.length
+    ? sql`exists (select 1 from unnest(array[${sql.join(
+        input.dates.map((d) => sql`${d}::date`),
+        sql`, `
+      )}]) d where d between fy.starts_on and fy.ends_on)`
+    : sql`false`;
+  const bySource = input.sources.length
+    ? sql`exists (select 1 from posting p
+        where p.fiscal_year_id = fy.id and p.reverses_posting_id is null
+          and not exists (select 1 from posting r where r.reverses_posting_id = p.id)
+          and (p.source_type, p.source_id) in (${sql.join(
+            input.sources.map(
+              (s) => sql`(${s.sourceType}, ${s.sourceId}::uuid)`
+            ),
+            sql`, `
+          )}))`
+    : sql`false`;
+  const rows = (await reader.execute(sql`
+    select fy.label from fiscal_year fy
+    where fy.closed_at is not null and (${byDate} or ${bySource})
+    order by fy.starts_on limit 1`)) as unknown as { label: string }[];
+  return rows[0]?.label ?? null;
+}
+
 /** The bank debit figures of one account, for its reconciliation summary. */
 export interface DebitSummary {
-  /** Debits not matched or ignored, that no one marked as needing a claim. */
+  /** Open debits (not matched in full, not ignored), those waiting for a claim included. */
   attentionCount: number;
   debitCount: number;
   debitsMatchedCount: number;

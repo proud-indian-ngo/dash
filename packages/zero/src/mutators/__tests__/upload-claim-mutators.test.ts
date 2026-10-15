@@ -950,12 +950,15 @@ describe("approval screenshot requirement", () => {
           [tableName]: { update },
           [`${tableName}History`]: { insert: mock() },
         },
-        run: mock().mockResolvedValueOnce({
-          approvalScreenshotKey: storedKey,
-          status: "approved",
-          title: "Travel",
-          userId: "owner-1",
-        }),
+        run: mock()
+          .mockResolvedValueOnce({
+            approvalScreenshotKey: storedKey,
+            status: "approved",
+            title: "Travel",
+            userId: "owner-1",
+          })
+          // A reimbursement checks that no bank debit pays it (layer 3-3b).
+          .mockResolvedValueOnce([]),
       };
 
       await mutators.reject.fn({

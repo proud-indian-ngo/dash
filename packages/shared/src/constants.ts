@@ -217,6 +217,13 @@ export const LEDGER_ACCOUNT_HEAD_IDS = {
   bankCharges: "01930000-0000-7000-8000-000000000820",
   /** Bank debits marked as a tax or government fee payment (layer 3-3b). */
   taxesAndFees: "01930000-0000-7000-8000-000000000821",
+  /**
+   * Approved reimbursements not yet paid, by date (layer 3-3b): the
+   * approval raises it, each payment out of the bank clears its part, so
+   * the books balance on every day between the two. A payment before the
+   * approval leaves it negative in between, as an advance to the claimant.
+   */
+  claimsPayable: "01930000-0000-7000-8000-000000000830",
 } as const;
 
 /**

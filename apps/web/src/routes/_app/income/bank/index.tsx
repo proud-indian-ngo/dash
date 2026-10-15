@@ -285,8 +285,10 @@ const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "Something went wrong";
 
 function UnseenPayments({
+  capped,
   documents,
 }: {
+  capped: boolean;
   documents: UnseenPaymentsResponse["documents"] | null;
 }) {
   if (documents === null) {
@@ -309,6 +311,12 @@ function UnseenPayments({
         books post them from the main bank account on the approval or payment
         day until one is.
       </p>
+      {capped ? (
+        <p className="text-muted-foreground text-sm" role="status">
+          Showing the newest {documents.length.toLocaleString("en-IN")}; match
+          these to see older ones.
+        </p>
+      ) : null}
       <UnseenPaymentsList documents={documents} />
     </div>
   );
@@ -607,12 +615,18 @@ function BankStatementsPage() {
               </TabsTrigger>
               <TabsTrigger value="all">All {counts.all}</TabsTrigger>
               <TabsTrigger value="unseen">
-                Not in bank{unseen ? ` ${unseen.documents.length}` : ""}
+                Not in bank
+                {unseen
+                  ? ` ${unseen.documents.length.toLocaleString("en-IN")}${unseen.capped ? "+" : ""}`
+                  : ""}
               </TabsTrigger>
             </TabsList>
           </Tabs>
           {tab === "unseen" ? (
-            <UnseenPayments documents={unseen?.documents ?? null} />
+            <UnseenPayments
+              capped={unseen?.capped ?? false}
+              documents={unseen?.documents ?? null}
+            />
           ) : !loading && visible.length === 0 ? (
             <NotFoundState
               actions={
