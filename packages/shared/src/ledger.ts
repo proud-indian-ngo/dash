@@ -438,10 +438,34 @@ export function incomeExpenditure(
 
 // ── Balance summary ─────────────────────────────────────────────────────────
 
+/**
+ * What an entry adds to income less expenditure: income increases and
+ * expense decreases (refunds of spending) raise it; expense increases and
+ * income decreases (refunds to donors) lower it. Null for balance heads.
+ */
+export function surplusPaiseOf(
+  e: Pick<BookEntry, "amountPaise" | "effect" | "headType">
+): number | null {
+  if (e.headType === "income") {
+    return signedPaise(e.effect, e.amountPaise);
+  }
+  if (e.headType === "expense") {
+    return -signedPaise(e.effect, e.amountPaise);
+  }
+  return null;
+}
+
 export interface BalanceLine {
-  /** Org account, account head or fund id; "surplus" for the running surplus. */
+  /** Org account, account head or fund id. */
   key: string;
-  kind: "account" | "head" | "fund" | "surplus";
+  kind: "account" | "head" | "fund";
+  /**
+   * A fund that income or expenditure is posted to: its balance at the
+   * year's start (fund balance entries plus the surplus of earlier years)
+   * and the year's surplus, or deficit when negative, up to the date.
+   * `paise` is their sum.
+   */
+  movement?: { openingPaise: number; surplusPaise: number };
   paise: number;
 }
 
@@ -460,15 +484,22 @@ export interface BalanceSummary {
 /**
  * The balance position at the end of `asOf`: account balances from the cash
  * book plus asset heads are the assets; liability heads the liabilities;
- * fund heads (per fund) plus income less expenditure since the cutover the
- * funds. Every account is listed, even at zero, so the rail and the summary
- * agree; heads and funds appear once they carry an entry.
+ * each fund's balance entries plus the income less expenditure posted to it
+ * the funds. There is no year-close entry: each year's surplus simply stays
+ * in its fund (the General Fund for unrestricted income), so a fund's
+ * opening for the year starting `startsOn` carries every earlier year's
+ * surplus, and the year's own surplus is shown beside it, as the audited
+ * statements' fund note does. Every account is listed, even at zero, so the
+ * rail and the summary agree; heads and funds appear once they carry an
+ * entry.
  */
 export function balanceSummary(input: {
   accountIds: readonly string[];
   asOf: string;
   entries: readonly BookEntry[];
   movements: readonly BookMovement[];
+  /** The selected year's first day; the year's surplus counts from it. */
+  startsOn: string;
 }): BalanceSummary {
   const balances = accountBalances(input.movements, input.asOf);
   const assets: BalanceLine[] = input.accountIds.map((id) => ({
@@ -478,9 +509,10 @@ export function balanceSummary(input: {
   }));
   const assetHeads = new Map<string, number>();
   const liabilityHeads = new Map<string, number>();
-  const funds = new Map<string, number>();
-  let surplus = 0;
-  let hasSurplus = false;
+  const funds = new Map<
+    string,
+    { hasSurplus: boolean; paise: number; surplusPaise: number }
+  >();
   for (const e of input.entries) {
     if (e.economicOn > input.asOf) {
       continue;
@@ -496,11 +528,23 @@ export function balanceSummary(input: {
         e.accountHeadId,
         (liabilityHeads.get(e.accountHeadId) ?? 0) + paise
       );
-    } else if (e.headType === "fund") {
-      funds.set(e.fundId, (funds.get(e.fundId) ?? 0) + paise);
     } else {
-      hasSurplus = true;
-      surplus += e.headType === "income" ? paise : -paise;
+      const fund = funds.get(e.fundId) ?? {
+        hasSurplus: false,
+        paise: 0,
+        surplusPaise: 0,
+      };
+      const surplus = surplusPaiseOf(e);
+      if (surplus === null) {
+        fund.paise += paise;
+      } else {
+        fund.hasSurplus = true;
+        fund.paise += surplus;
+        if (e.economicOn >= input.startsOn) {
+          fund.surplusPaise += surplus;
+        }
+      }
+      funds.set(e.fundId, fund);
     }
   }
   for (const [key, paise] of assetHeads) {
@@ -509,14 +553,25 @@ export function balanceSummary(input: {
   const liabilities: BalanceLine[] = [...liabilityHeads].map(
     ([key, paise]) => ({ key, kind: "head", paise })
   );
-  const fundLines: BalanceLine[] = [...funds].map(([key, paise]) => ({
-    key,
-    kind: "fund",
-    paise,
-  }));
-  if (hasSurplus) {
-    fundLines.push({ key: "surplus", kind: "surplus", paise: surplus });
-  }
+  const fundLines: BalanceLine[] = [...funds].map(
+    ([key, fund]): BalanceLine => ({
+      key,
+      kind: "fund",
+      paise: fund.paise,
+      ...(fund.hasSurplus && {
+        // The opening is the balance less the year's surplus, so it also
+        // holds any fund-balance entry dated in the year. Today only the
+        // opening balances post to fund heads (dated the cutover year's
+        // first day, so part of its opening by design); a later in-year
+        // fund-balance posting (an adjustment) would show inside the
+        // opening here, while the workbook shows it as the year's movement.
+        movement: {
+          openingPaise: fund.paise - fund.surplusPaise,
+          surplusPaise: fund.surplusPaise,
+        },
+      }),
+    })
+  );
   const sum = (lines: BalanceLine[]) =>
     lines.reduce((total, line) => total + line.paise, 0);
   const assetsPaise = sum(assets);

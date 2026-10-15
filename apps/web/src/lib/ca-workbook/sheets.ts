@@ -4,12 +4,14 @@ import type {
   WorkbookFacts,
   WorkbookMovement,
 } from "@pi-dash/db/queries/ca-workbook";
+import { GENERAL_FUND_ID } from "@pi-dash/shared/constants";
 import {
   LEDGER_SOURCE_LABELS,
   LEDGER_SOURCE_TYPES,
   MOVEMENT_KIND_LABELS,
   movementSignedPaise,
   signedPaise,
+  surplusPaiseOf,
 } from "@pi-dash/shared/ledger";
 import { paiseToRupees } from "@pi-dash/shared/money";
 
@@ -692,47 +694,105 @@ function headItems(facts: WorkbookFacts, headType: "asset" | "liability") {
   return [...items.values()].sort(byLabel);
 }
 
+interface FundItem extends Item {
+  /**
+   * For a fund income or expenditure is posted to, its two parts as the
+   * statements' fund note shows them: the opening balance (fund balance
+   * entries plus every earlier year's surplus, with any other fund balance
+   * entry of the year) and the current year's surplus or deficit.
+   */
+  parts: { opening: ItemTotals; surplus: ItemTotals } | null;
+  /** The General Fund's year is a surplus or deficit; another fund's, additions or deductions. */
+  general: boolean;
+}
+
 /**
- * Fund items, by fund, then income less expenditure since the cutover:
- * brought forward from earlier years, increased by income increases and
- * expense decreases (refunds of spending) and decreased by expense
- * increases and income decreases (refunds to donors), by effect.
+ * Fund items, by fund. Income and expenditure roll into the fund each
+ * entry is posted to (the General Fund for unrestricted income): earlier
+ * years' surplus is part of the fund's opening and the year's surplus is
+ * its increase (a deficit its decrease). No year-close entry is posted; the
+ * roll-forward is how the books are read, so the next year needs no new
+ * opening balance.
  */
-function fundItems(facts: WorkbookFacts) {
-  const items = new Map<string, Item>();
-  const surplus = emptyTotals();
-  let hasSurplus = false;
+function fundItems(facts: WorkbookFacts): FundItem[] {
+  const funds = new Map<
+    string,
+    {
+      hasSurplus: boolean;
+      label: string;
+      opening: ItemTotals;
+      surplusPaise: number;
+    }
+  >();
   for (const e of facts.entries) {
     if (e.economicOn > facts.year.endsOn) {
       continue;
     }
-    if (e.headType === "fund") {
-      const item = items.get(e.fundId) ?? {
-        label: e.fundName,
-        totals: emptyTotals(),
-      };
-      addEntry(item.totals, e, facts);
-      items.set(e.fundId, item);
-    } else if (e.headType === "income" || e.headType === "expense") {
-      hasSurplus = true;
-      const raises = (e.headType === "income") === (e.effect === "increase");
+    const surplus = surplusPaiseOf(e);
+    if (e.headType !== "fund" && surplus === null) {
+      continue;
+    }
+    const fund = funds.get(e.fundId) ?? {
+      hasSurplus: false,
+      label: e.fundName,
+      opening: emptyTotals(),
+      surplusPaise: 0,
+    };
+    if (surplus === null) {
+      addEntry(fund.opening, e, facts);
+    } else {
+      fund.hasSurplus = true;
       if (e.economicOn < facts.year.startsOn) {
-        surplus.openingPaise += raises ? e.amountPaise : -e.amountPaise;
-      } else if (raises) {
-        surplus.increasesPaise += e.amountPaise;
+        fund.opening.openingPaise += surplus;
       } else {
-        surplus.decreasesPaise += e.amountPaise;
+        fund.surplusPaise += surplus;
       }
     }
+    funds.set(e.fundId, fund);
   }
-  const list = [...items.values()].sort(byLabel);
-  if (hasSurplus) {
-    list.push({
-      label: "Income less expenditure (since 1 April 2026)",
-      totals: surplus,
-    });
+  return [...funds]
+    .map(([fundId, { hasSurplus, label, opening, surplusPaise }]): FundItem => {
+      const surplus: ItemTotals = {
+        decreasesPaise: Math.max(-surplusPaise, 0),
+        increasesPaise: Math.max(surplusPaise, 0),
+        openingPaise: 0,
+      };
+      return {
+        general: fundId === GENERAL_FUND_ID,
+        label,
+        parts: hasSurplus ? { opening, surplus } : null,
+        totals: sumTotals([opening, surplus]),
+      };
+    })
+    .filter(({ totals }) => !isZero(totals))
+    .sort(byLabel);
+}
+
+/** Nothing at the start, nothing in the year: a fund not worth a row. */
+const isZero = (t: ItemTotals) =>
+  t.openingPaise === 0 && t.increasesPaise === 0 && t.decreasesPaise === 0;
+
+/**
+ * A fund's rows: one item, or for a fund carrying income less expenditure
+ * its opening balance and the year's net figure (the General Fund's current
+ * year surplus/(deficit), another fund's additions/(deductions); the gross
+ * income and expenditure are in the I&E sheets) with the fund's total in
+ * bold. A fund that is zero throughout has no row.
+ */
+function fundRows({ general, label, parts, totals }: FundItem): WorkbookRow[] {
+  if (!parts) {
+    return [itemRow(label, totals)];
   }
-  return list;
+  return [
+    itemRow(`${label}: opening balance`, parts.opening),
+    itemRow(
+      general
+        ? `${label}: current year surplus/(deficit)`
+        : `${label}: additions/(deductions) during the year`,
+      parts.surplus
+    ),
+    totalRow(`${label} total`, totals),
+  ];
 }
 
 export interface BalanceCheck {
@@ -744,7 +804,9 @@ export interface BalanceCheck {
 
 /**
  * Each account, fixed asset, liability and fund from its opening at 1 April
- * through the year's increases and decreases to its closing at 31 March;
+ * through the year's increases and decreases to its closing at 31 March (a
+ * fund carrying income less expenditure as its opening balance plus the
+ * current year surplus/(deficit), which ties to the summary's surplus);
  * bank and fixed deposit closings beside their last bank statement balance;
  * and the check row: assets less funds and liabilities, zero when the books
  * balance.
@@ -798,7 +860,7 @@ export function balanceSheet(facts: WorkbookFacts): {
     ...assetItems.map(({ label, totals }) => itemRow(label, totals)),
     totalRow("Total assets", assets),
     heading("Funds"),
-    ...funds.map(({ label, totals }) => itemRow(label, totals)),
+    ...funds.flatMap(fundRows),
     totalRow("Total funds", fundsTotal),
     heading("Liabilities"),
     ...liabilityItems.map(({ label, totals }) => itemRow(label, totals)),
