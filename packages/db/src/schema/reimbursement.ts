@@ -2,6 +2,7 @@ import { relations, sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  foreignKey,
   date,
   index,
   integer,
@@ -15,8 +16,14 @@ import {
 
 import { user } from "./auth";
 import { expenseCategory } from "./expense-category";
+import { programme, project } from "./finance-dimensions";
 import { jsonb } from "./jsonb";
-import { attachmentTypeEnum, cityEnum, historyActionEnum } from "./shared";
+import {
+  attachmentTypeEnum,
+  cityEnum,
+  expenseChargedToEnum,
+  historyActionEnum,
+} from "./shared";
 import { teamEvent } from "./team-event";
 
 // Reimbursement-specific enums
@@ -37,6 +44,15 @@ export const reimbursement = pgTable(
     bankAccountIfscCode: text("bank_account_ifsc_code"),
     bankAccountName: text("bank_account_name"),
     bankAccountNumber: text("bank_account_number"),
+    /** Programme the expense is charged to when it has no event. */
+    chargedProgrammeId: uuid("charged_programme_id").references(
+      () => programme.id,
+      { onDelete: "restrict" }
+    ),
+    /** Optional project under the charged programme. */
+    chargedProjectId: uuid("charged_project_id"),
+    /** Which work the expense served; see `expenseProgrammeOf`. */
+    chargedTo: expenseChargedToEnum("charged_to").notNull(),
     city: cityEnum("city"),
     createdAt: timestamp("created_at").notNull(),
     eventId: uuid("event_id").references(() => teamEvent.id, {
@@ -61,6 +77,17 @@ export const reimbursement = pgTable(
     index("reimbursement_userId_idx").on(table.userId),
     index("reimbursement_status_idx").on(table.status),
     index("reimbursement_eventId_idx").on(table.eventId),
+    index("reimbursement_chargedProgrammeId_idx").on(table.chargedProgrammeId),
+    // A project must sit under the charged programme.
+    foreignKey({
+      columns: [table.chargedProjectId, table.chargedProgrammeId],
+      foreignColumns: [project.id, project.programmeId],
+      name: "reimbursement_charged_project_programme_fk",
+    }).onDelete("restrict"),
+    check(
+      "reimbursement_charged_to_chk",
+      sql`(${table.chargedTo} = 'event' AND ${table.eventId} IS NOT NULL AND ${table.chargedProgrammeId} IS NULL AND ${table.chargedProjectId} IS NULL) OR (${table.chargedTo} = 'programme' AND ${table.eventId} IS NULL AND ${table.chargedProgrammeId} IS NOT NULL) OR (${table.chargedTo} = 'organisation' AND ${table.eventId} IS NULL AND ${table.chargedProgrammeId} IS NULL AND ${table.chargedProjectId} IS NULL)`
+    ),
     check(
       "reimbursement_rejection_reason_chk",
       sql`((status = 'rejected'::reimbursement_status) AND (rejection_reason IS NOT NULL)) OR ((status <> 'rejected'::reimbursement_status) AND (rejection_reason IS NULL))`
@@ -79,9 +106,18 @@ export const reimbursementLineItem = pgTable(
     description: text("description"),
     generateVoucher: boolean("generate_voucher").default(false).notNull(),
     id: uuid("id").primaryKey(),
+    /** Who a cash voucher pays (for example a daily-wage labourer); printed as "Paid to". */
+    payeeName: text("payee_name"),
+    /** Optional E.164 Indian mobile of the person a cash voucher pays; printed on the voucher. */
+    payeePhone: text("payee_phone"),
     reimbursementId: uuid("reimbursement_id")
       .notNull()
       .references(() => reimbursement.id, { onDelete: "cascade" }),
+    /** The voucher signed or thumb-printed by the payee, uploaded after approval. */
+    signedVoucherAttachmentId: uuid("signed_voucher_attachment_id").references(
+      () => reimbursementAttachment.id,
+      { onDelete: "set null" }
+    ),
     sortOrder: integer("sort_order").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
     voucherAttachmentId: uuid("voucher_attachment_id").references(
@@ -144,6 +180,10 @@ export const reimbursementRelations = relations(
   reimbursement,
   ({ one, many }) => ({
     attachments: many(reimbursementAttachment),
+    chargedProgramme: one(programme, {
+      fields: [reimbursement.chargedProgrammeId],
+      references: [programme.id],
+    }),
     event: one(teamEvent, {
       fields: [reimbursement.eventId],
       references: [teamEvent.id],

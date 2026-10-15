@@ -1,5 +1,6 @@
 import {
   accountHeadTypeValues,
+  LEDGER_ACCOUNT_HEAD_IDS,
   type FcraRole,
   fcraRoleValues,
   type FundSource,
@@ -278,6 +279,19 @@ export const programmeMutators = {
   }),
 };
 
+/** A project with expenses charged to it keeps its programme. */
+async function assertNoChargedExpenses(tx: Tx, projectId: string) {
+  const [reimbursement, vendorPayment] = await Promise.all([
+    tx.run(zql.reimbursement.where("chargedProjectId", projectId).one()),
+    tx.run(zql.vendorPayment.where("chargedProjectId", projectId).one()),
+  ]);
+  if (reimbursement || vendorPayment) {
+    throw new Error(
+      "Expenses are charged to this project, so it can't move to another programme. Change what those expenses are charged to first."
+    );
+  }
+}
+
 export const projectMutators = {
   create: defineMutator(projectInput, async ({ tx, ctx, args }) => {
     assertHasPermission(ctx, "finance.manage");
@@ -324,6 +338,9 @@ export const projectMutators = {
       if (!programme.active) {
         throw new Error("Projects cannot be moved to an inactive programme");
       }
+      // Expenses charged to the project name its programme too, so moving
+      // it would split them from it.
+      await assertNoChargedExpenses(tx, args.id);
     }
     const byCode = await tx.run(
       zql.project.where("code", args.code).where("id", "!=", args.id).one()
@@ -485,6 +502,43 @@ export const costCentreMutators = {
   }),
 };
 
+const LEDGER_REFERENCE_HEAD_IDS = new Set<string>(
+  Object.values(LEDGER_ACCOUNT_HEAD_IDS)
+);
+
+/**
+ * A head the books use (one of the reference heads, or any head a ledger
+ * entry posts under) keeps its type and stays active: changing either would
+ * silently move posted amounts between income, expenditure and the balance
+ * summary. The ledger check runs on the server, where every entry is
+ * visible.
+ */
+async function assertHeadKeepsBooks(
+  tx: Tx,
+  existing: { active: boolean | null; id: string; type: string },
+  args: { active?: boolean | undefined; type: string }
+) {
+  const changesType = args.type !== existing.type;
+  const deactivates = args.active === false && existing.active !== false;
+  if (!(changesType || deactivates)) {
+    return;
+  }
+  let used = LEDGER_REFERENCE_HEAD_IDS.has(existing.id);
+  if (!used && tx.location === "server") {
+    used =
+      (await tx.run(
+        zql.ledgerEntry.where("accountHeadId", existing.id).one()
+      )) !== undefined;
+  }
+  if (used) {
+    throw new Error(
+      changesType
+        ? "This account head is used by the books, so its type can't change"
+        : "This account head is used by the books, so it can't be deactivated"
+    );
+  }
+}
+
 export const accountHeadMutators = {
   create: defineMutator(accountHeadInput, async ({ tx, ctx, args }) => {
     assertHasPermission(ctx, "finance.manage");
@@ -530,6 +584,7 @@ export const accountHeadMutators = {
     if (!existing) {
       throw new Error("Account head not found");
     }
+    await assertHeadKeepsBooks(tx, existing, args);
     await assertCodeAndNameFree(args, {
       byCode: () =>
         tx.run(

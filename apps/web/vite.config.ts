@@ -4,11 +4,11 @@ import { devtools } from "@tanstack/devtools-vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import react from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
-import { defineConfig, type UserConfig } from "vite";
+import { defineConfig, type Rolldown, type UserConfig } from "vite";
 
-import { apiMediaDevMiddleware } from "./src/lib/dev/api-media-dev-middleware";
-import { kalakritiPdfAssets } from "./src/lib/dev/kalakriti-pdf-assets";
-import { appReactCompilerPreset } from "./src/lib/dev/react-compiler-preset";
+import { apiMediaDevMiddleware } from "./src/lib/dev/api-media-dev-middleware.ts";
+import { kalakritiPdfAssets } from "./src/lib/dev/kalakriti-pdf-assets.ts";
+import { appReactCompilerPreset } from "./src/lib/dev/react-compiler-preset.ts";
 import "@pi-dash/env";
 
 const RE_REACT = /node_modules[\\/](react|react-dom|scheduler)\//;
@@ -32,7 +32,23 @@ const RE_DRIZZLE = /node_modules[\\/]drizzle-orm\//;
 const RE_ZOD = /node_modules[\\/]zod\//;
 const RE_RECHARTS =
   /node_modules[\\/](recharts|react-redux|@reduxjs[\\/]toolkit|redux|redux-thunk|reselect|immer|use-sync-external-store|victory-vendor|decimal\.js-light|eventemitter3)\//;
-const RE_VENDOR = /node_modules/;
+
+const onwarn: Rolldown.WarningHandlerWithDefault = (
+  warning,
+  defaultHandler
+) => {
+  // This app uses SSR, not RSC; client directives have no bundle semantics.
+  // The compiler runtime's opt-out has already served its purpose by bundling.
+  if (
+    warning.code === "MODULE_LEVEL_DIRECTIVE" &&
+    (warning.message.includes('"use client"') ||
+      (warning.message.includes("node_modules/") &&
+        warning.message.includes('"use no memo"')))
+  ) {
+    return;
+  }
+  defaultHandler(warning);
+};
 
 export default defineConfig(async ({ mode }): Promise<UserConfig> => {
   const reactCompiler = await babel({
@@ -46,6 +62,7 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
     build: {
       chunkSizeWarningLimit: 2300,
       rolldownOptions: {
+        onwarn,
         checks: {
           pluginTimings: false,
         },
@@ -75,7 +92,8 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
                   { name: "vendor-auth", priority: 15, test: RE_AUTH },
                   { name: "vendor-drizzle", priority: 15, test: RE_DRIZZLE },
                   { name: "vendor-zod", priority: 15, test: RE_ZOD },
-                  { name: "vendor", priority: 5, test: RE_VENDOR },
+                  // Let other dependencies follow their route/dynamic imports.
+                  // A catch-all vendor group pulls lazy features into the entry.
                 ],
               },
             },
@@ -94,9 +112,12 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
       kalakritiPdfAssets(),
       ...devtools(),
       ...tailwindcss(),
-      ...tanstackStart(),
+      ...tanstackStart({
+        router: { routeFileIgnorePattern: "\\.test\\.[tj]sx?$" },
+      }),
       apiMediaDevMiddleware,
       ...nitro({
+        rolldownConfig: { onwarn },
         experimental: {
           vite: {},
         },

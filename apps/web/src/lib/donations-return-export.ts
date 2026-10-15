@@ -1,3 +1,4 @@
+import { loadLiveReceiptNumbers } from "@pi-dash/db/queries/contribution-receipts";
 import {
   loadReturnFacts,
   loadReturnRegistration,
@@ -18,6 +19,11 @@ import {
   REPORTING_MODE_LABELS,
 } from "@pi-dash/shared/income";
 import { paiseToRupees } from "@pi-dash/shared/money";
+import {
+  RECEIPT_ISSUER_LABELS,
+  RECEIPTING_START_DAY,
+  receiptIssuerFor,
+} from "@pi-dash/shared/receipts";
 
 import { buildCsv } from "@/lib/csv-export";
 import { ID_TYPE_LABELS } from "@/lib/donor-schema";
@@ -127,8 +133,32 @@ export const ALL_GIFTS_HEADERS = [
   "Tax certificate",
   "Status",
   "Reason",
+  "Receipt issued by",
+  "Receipt number",
   "Contribution ID",
 ];
+
+/**
+ * Who receipts the gift under the fixed policy, and pi-dash's receipt number
+ * when it issued one. Direct gifts from before the start date were receipted
+ * outside pi-dash.
+ */
+export function receiptIssuerCells(
+  gift: { channel: Parameters<typeof receiptIssuerFor>[0]; receivedOn: string },
+  receiptNumber: string | undefined
+): [string, string] {
+  const issuer = receiptIssuerFor(gift.channel);
+  if (issuer === null) {
+    return ["", ""];
+  }
+  if (issuer !== "pi_dash") {
+    return [RECEIPT_ISSUER_LABELS[issuer], ""];
+  }
+  if (gift.receivedOn < RECEIPTING_START_DAY) {
+    return ["Outside the dashboard", ""];
+  }
+  return [RECEIPT_ISSUER_LABELS.pi_dash, receiptNumber ?? "Not issued yet"];
+}
 
 function maskedId(
   idType: PartyIdType,
@@ -141,13 +171,44 @@ function maskedId(
   return `${ID_TYPE_LABELS[idType]} ${last4 ? `ending ${last4}` : "(hidden)"}`;
 }
 
-/** Every gift of the year with its status and reason, for the CA. */
-export async function buildAllGiftsFile(
-  fy: FinancialYearRange
-): Promise<BuiltReturnFile> {
-  const facts = await loadReturnFacts(fy, "validate");
+/** One gift of the year with its status and reason, for the CA. */
+export interface AllGiftsRow {
+  amountPaise: number;
+  channel: string;
+  /** Contribution ID. */
+  contributionId: string;
+  deductionEligible: string;
+  donationType: string;
+  donor: string;
+  /** "PAN ending 234F": never the full number. */
+  id: string;
+  netPaise: number;
+  reason: string;
+  /** yyyy-MM-dd */
+  receivedOn: string;
+  receiptIssuer: string;
+  receiptNumber: string;
+  refundedPaise: number;
+  reportingMode: string;
+  status: string;
+}
+
+/**
+ * Every gift of the year with its status, reason and receipt, ID numbers
+ * masked to their last four characters (decrypted only to check them).
+ * The reader lets the CA workbook load them in its own snapshot.
+ */
+export async function loadAllGiftsRows(
+  fy: FinancialYearRange,
+  reader?: Parameters<typeof loadReturnFacts>[2]
+): Promise<AllGiftsRow[]> {
+  const facts = await loadReturnFacts(fy, "validate", reader);
   const { gifts } = assessReturn(facts.gifts, facts.donors);
-  const rows = facts.gifts.map((gift, index) => {
+  const receiptNumbers = await loadLiveReceiptNumbers(
+    facts.gifts.map((gift) => gift.id),
+    reader
+  );
+  return facts.gifts.map((gift, index): AllGiftsRow => {
     const assessed = gifts[index];
     const donor = facts.donors.get(gift.partyId);
     const details = facts.exportDetails.get(gift.partyId);
@@ -160,28 +221,58 @@ export async function buildAllGiftsFile(
       gift.eligibilityReason
         ? `${label.reason}: ${gift.eligibilityReason}`
         : label.reason;
-    return [
-      gift.receivedOn,
-      details?.name ?? "",
-      donor
+    const [receiptIssuer, receiptNumber] = receiptIssuerCells(
+      gift,
+      receiptNumbers.get(gift.id)
+    );
+    return {
+      amountPaise: gift.amountPaise,
+      channel: CONTRIBUTION_CHANNEL_LABELS[gift.channel],
+      contributionId: gift.id,
+      deductionEligible: TAX_CERTIFICATE_LABELS[gift.deductionEligible],
+      donationType: DONATION_TYPE_LABELS[gift.donationType],
+      donor: details?.name ?? "",
+      id: donor
         ? maskedId(
             donor.idType,
             donor.hasIdNumber,
             details?.idNumberLast4 ?? null
           )
         : "",
-      paiseToRupees(gift.amountPaise),
-      paiseToRupees(gift.refundedPaise),
-      paiseToRupees(assessed?.netPaise ?? 0),
-      CONTRIBUTION_CHANNEL_LABELS[gift.channel],
-      REPORTING_MODE_LABELS[gift.reportingMode],
-      DONATION_TYPE_LABELS[gift.donationType],
-      TAX_CERTIFICATE_LABELS[gift.deductionEligible],
-      label.status,
+      netPaise: assessed?.netPaise ?? 0,
       reason,
-      gift.id,
-    ];
+      receiptIssuer,
+      receiptNumber,
+      receivedOn: gift.receivedOn,
+      refundedPaise: gift.refundedPaise,
+      reportingMode: REPORTING_MODE_LABELS[gift.reportingMode],
+      status: label.status,
+    };
   });
+}
+
+/** Every gift of the year with its status and reason, for the CA. */
+export async function buildAllGiftsFile(
+  fy: FinancialYearRange
+): Promise<BuiltReturnFile> {
+  const gifts = await loadAllGiftsRows(fy);
+  const rows = gifts.map((row) => [
+    row.receivedOn,
+    row.donor,
+    row.id,
+    paiseToRupees(row.amountPaise),
+    paiseToRupees(row.refundedPaise),
+    paiseToRupees(row.netPaise),
+    row.channel,
+    row.reportingMode,
+    row.donationType,
+    row.deductionEligible,
+    row.status,
+    row.reason,
+    row.receiptIssuer,
+    row.receiptNumber,
+    row.contributionId,
+  ]);
   return {
     file: {
       // A byte order mark so spreadsheet apps read the file as UTF-8.

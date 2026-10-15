@@ -55,10 +55,20 @@ describe("Kalakriti navigation", () => {
         .find((group) => group.label === "Finance")
         ?.items.map((item) => item.title) ?? [];
     expect(financeTitles(["donors.view"])).toEqual(["Donors", "Income"]);
-    expect(financeTitles(["finance.view"])).toEqual(["Income"]);
+    expect(financeTitles(["finance.view"])).toEqual(["Income", "Books"]);
     expect(financeTitles(["donors.manage"])).toContain("Income");
     expect(financeTitles(["finance.manage"])).toContain("Income");
     expect(financeTitles(["requests.view_own"])).not.toContain("Income");
+  });
+  it("shows Books after Income to finance readers, not donor roles", () => {
+    const financeTitles = (permissions: string[]) =>
+      buildNavGroups(permissions)
+        .find((group) => group.label === "Finance")
+        ?.items.map((item) => item.title) ?? [];
+    expect(financeTitles(["finance.manage"])).toEqual(["Income", "Books"]);
+    expect(financeTitles(["donors.view", "donors.manage"])).not.toContain(
+      "Books"
+    );
   });
   it.each([
     ["/kalakriti", true],

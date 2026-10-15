@@ -5,7 +5,7 @@ import {
   advancePaymentLineItem,
 } from "@pi-dash/db/schema/advance-payment";
 import { user } from "@pi-dash/db/schema/auth";
-import { programme } from "@pi-dash/db/schema/finance-dimensions";
+import { programme, project } from "@pi-dash/db/schema/finance-dimensions";
 import {
   reimbursement,
   reimbursementAttachment,
@@ -18,6 +18,12 @@ import {
   vendorPaymentLineItem,
 } from "@pi-dash/db/schema/vendor";
 import { vendorPaymentTransaction } from "@pi-dash/db/schema/vendor-payment-transaction";
+import type { ExpenseChargedTo } from "@pi-dash/shared/constants";
+import {
+  ADMIN_PROGRAMME_LABEL,
+  EXPENSE_CHARGED_TO_LABELS,
+  expenseProgrammeOf,
+} from "@pi-dash/shared/expense-charge";
 import { formatNoInvoice } from "@pi-dash/shared/vendor-payment";
 import { and, eq, gte, inArray, lte, sum } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
@@ -71,12 +77,19 @@ type AttachmentTable =
   | typeof reimbursementAttachment
   | typeof advancePaymentAttachment;
 
+interface ChargeColumns {
+  chargedProgrammeId: AnyPgColumn;
+  chargedProjectId: AnyPgColumn;
+  chargedTo: AnyPgColumn;
+  eventId: AnyPgColumn;
+}
+
 interface QueryConfig {
   attachmentJoinCol: AnyPgColumn;
   attachmentKind: "advancePaymentAttachment" | "reimbursementAttachment";
   attachmentTable: AttachmentTable;
-  /** Set when the request links to an event, which carries the programme. */
-  eventIdCol?: AnyPgColumn;
+  /** Set when the request carries "Charged to"; legacy advances do not. */
+  chargeCols?: ChargeColumns;
   expenseDateCol?: AnyPgColumn;
   lineItemAmountCol: AnyPgColumn;
   lineItemJoinCol: AnyPgColumn;
@@ -86,18 +99,72 @@ interface QueryConfig {
   typeLabel: string;
 }
 
-interface RawResultRow {
+interface RawChargeRow {
+  chargedProgrammeId?: string | null;
+  chargedProjectId?: string | null;
+  chargedTo?: ExpenseChargedTo | null;
+  eventProgrammeId?: string | null;
+}
+
+interface RawResultRow extends RawChargeRow {
   city: string | null;
   createdAt: Date;
   createdBy: string | null;
   email: string;
   expenseDate?: string | null;
   id: string;
-  programme?: string | null;
   status: string;
   submittedAt: Date | null;
   title: string;
   total: string | null;
+}
+
+interface DimensionNames {
+  programmes: Map<string, string>;
+  projects: Map<string, string>;
+}
+
+/** Programme and project names by id, for the Programme and Project columns. */
+async function loadDimensionNames(): Promise<DimensionNames> {
+  const [programmes, projects] = await Promise.all([
+    db.select({ id: programme.id, name: programme.name }).from(programme),
+    db.select({ id: project.id, name: project.name }).from(project),
+  ]);
+  return {
+    programmes: new Map(programmes.map((row) => [row.id, row.name])),
+    projects: new Map(projects.map((row) => [row.id, row.name])),
+  };
+}
+
+/**
+ * The Programme, Project and Charged to columns, derived by
+ * `expenseProgrammeOf` like everywhere else. Legacy advances, charged to
+ * nothing, leave all three empty.
+ */
+function chargeCells(
+  row: RawChargeRow,
+  names: DimensionNames
+): { chargedTo: string; programme: string; project: string } {
+  if (!row.chargedTo) {
+    return { chargedTo: "", programme: "", project: "" };
+  }
+  const { isAdmin, programmeId, projectId } = expenseProgrammeOf({
+    chargedProgrammeId: row.chargedProgrammeId,
+    chargedProjectId: row.chargedProjectId,
+    chargedTo: row.chargedTo,
+    event: { programmeId: row.eventProgrammeId },
+  });
+  let programmeName = "";
+  if (isAdmin) {
+    programmeName = ADMIN_PROGRAMME_LABEL;
+  } else if (programmeId) {
+    programmeName = names.programmes.get(programmeId) ?? "";
+  }
+  return {
+    chargedTo: EXPENSE_CHARGED_TO_LABELS[row.chargedTo],
+    programme: programmeName,
+    project: projectId ? (names.projects.get(projectId) ?? "") : "",
+  };
 }
 
 interface RequestQueryResult {
@@ -108,7 +175,8 @@ interface RequestQueryResult {
 async function queryRequestRows(
   config: QueryConfig,
   fyStart: number,
-  statusFilter: RequestExportStatus[] | null
+  statusFilter: RequestExportStatus[] | null,
+  names: DimensionNames
 ): Promise<RequestQueryResult> {
   const { mainTable, lineItemTable, attachmentTable, typeLabel } = config;
   const fyStartDate = new Date(fyStart, 3, 1);
@@ -148,9 +216,17 @@ async function queryRequestRows(
     selectFields.expenseDate = config.expenseDateCol;
     groupByFields.push(config.expenseDateCol);
   }
-  if (config.eventIdCol) {
-    selectFields.programme = programme.name;
-    groupByFields.push(programme.name);
+  if (config.chargeCols) {
+    selectFields.chargedTo = config.chargeCols.chargedTo;
+    selectFields.chargedProgrammeId = config.chargeCols.chargedProgrammeId;
+    selectFields.chargedProjectId = config.chargeCols.chargedProjectId;
+    selectFields.eventProgrammeId = teamEvent.programmeId;
+    groupByFields.push(
+      config.chargeCols.chargedTo,
+      config.chargeCols.chargedProgrammeId,
+      config.chargeCols.chargedProjectId,
+      teamEvent.programmeId
+    );
   }
 
   let query = db
@@ -159,10 +235,11 @@ async function queryRequestRows(
     .innerJoin(user, eq(mainTable.userId, user.id))
     .leftJoin(lineItemTable, eq(config.lineItemJoinCol, mainTable.id))
     .$dynamic();
-  if (config.eventIdCol) {
-    query = query
-      .leftJoin(teamEvent, eq(config.eventIdCol, teamEvent.id))
-      .leftJoin(programme, eq(teamEvent.programmeId, programme.id));
+  if (config.chargeCols) {
+    query = query.leftJoin(
+      teamEvent,
+      eq(config.chargeCols.eventId, teamEvent.id)
+    );
   }
   const results = (await query
     .where(
@@ -219,7 +296,7 @@ async function queryRequestRows(
       createdBy: result.createdBy ?? "",
       email: result.email,
       expenseDate: result.expenseDate ?? "",
-      programme: result.programme ?? "",
+      ...chargeCells(result, names),
       status: result.status,
       submittedAt: result.submittedAt?.toISOString() ?? "",
       title: result.title,
@@ -233,7 +310,12 @@ const reimbursementConfig: QueryConfig = {
   attachmentJoinCol: reimbursementAttachment.reimbursementId,
   attachmentKind: "reimbursementAttachment",
   attachmentTable: reimbursementAttachment,
-  eventIdCol: reimbursement.eventId,
+  chargeCols: {
+    chargedProgrammeId: reimbursement.chargedProgrammeId,
+    chargedProjectId: reimbursement.chargedProjectId,
+    chargedTo: reimbursement.chargedTo,
+    eventId: reimbursement.eventId,
+  },
   expenseDateCol: reimbursement.expenseDate,
   lineItemAmountCol: reimbursementLineItem.amountPaise,
   lineItemJoinCol: reimbursementLineItem.reimbursementId,
@@ -256,6 +338,7 @@ const advancePaymentConfig: QueryConfig = {
 };
 
 async function queryVendorPaymentRows(
+  names: DimensionNames,
   fyStart: number,
   statusFilter: VendorPaymentExportStatus[] | null,
   includeTransactions: boolean
@@ -271,8 +354,11 @@ async function queryVendorPaymentRows(
       id: vendorPayment.id,
       invoiceDate: vendorPayment.invoiceDate,
       invoiceNumber: vendorPayment.invoiceNumber,
+      chargedProgrammeId: vendorPayment.chargedProgrammeId,
+      chargedProjectId: vendorPayment.chargedProjectId,
+      chargedTo: vendorPayment.chargedTo,
+      eventProgrammeId: teamEvent.programmeId,
       noInvoiceReason: vendorPayment.noInvoiceReason,
-      programme: programme.name,
       status: vendorPayment.status,
       submittedAt: vendorPayment.submittedAt,
       title: vendorPayment.title,
@@ -283,7 +369,6 @@ async function queryVendorPaymentRows(
     .innerJoin(user, eq(vendorPayment.userId, user.id))
     .innerJoin(vendor, eq(vendorPayment.vendorId, vendor.id))
     .leftJoin(teamEvent, eq(vendorPayment.eventId, teamEvent.id))
-    .leftJoin(programme, eq(teamEvent.programmeId, programme.id))
     .leftJoin(
       vendorPaymentLineItem,
       eq(vendorPaymentLineItem.vendorPaymentId, vendorPayment.id)
@@ -307,7 +392,10 @@ async function queryVendorPaymentRows(
       user.name,
       user.email,
       vendor.name,
-      programme.name
+      vendorPayment.chargedTo,
+      vendorPayment.chargedProgrammeId,
+      vendorPayment.chargedProjectId,
+      teamEvent.programmeId
     );
 
   const vendorPaymentIds = results.map((result) => result.id);
@@ -348,7 +436,7 @@ async function queryVendorPaymentRows(
       invoiceNumber:
         result.invoiceNumber ??
         (result.noInvoiceReason ? formatNoInvoice(result.noInvoiceReason) : ""),
-      programme: result.programme ?? "",
+      ...chargeCells(result, names),
       status: result.status,
       submittedAt: result.submittedAt?.toISOString() ?? "",
       title: result.title,
@@ -415,15 +503,26 @@ export async function getFinancialExportData(
   today: string
 ): Promise<FinancialExportData> {
   const requestStatusFilter = input.requestStatuses ?? null;
+  const names = await loadDimensionNames();
   const requestQueries: Promise<RequestQueryResult>[] = [];
   if (input.requestTypes.includes("reimbursement")) {
     requestQueries.push(
-      queryRequestRows(reimbursementConfig, input.fyStart, requestStatusFilter)
+      queryRequestRows(
+        reimbursementConfig,
+        input.fyStart,
+        requestStatusFilter,
+        names
+      )
     );
   }
   if (input.requestTypes.includes("advancePayment")) {
     requestQueries.push(
-      queryRequestRows(advancePaymentConfig, input.fyStart, requestStatusFilter)
+      queryRequestRows(
+        advancePaymentConfig,
+        input.fyStart,
+        requestStatusFilter,
+        names
+      )
     );
   }
 
@@ -431,6 +530,7 @@ export async function getFinancialExportData(
     Promise.all(requestQueries),
     input.includeVendorPayments
       ? queryVendorPaymentRows(
+          names,
           input.fyStart,
           input.vendorPaymentStatuses ?? null,
           input.includeTransactions

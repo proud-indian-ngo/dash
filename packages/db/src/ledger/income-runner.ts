@@ -1,0 +1,87 @@
+import { LEDGER_CUTOVER_ON } from "@pi-dash/shared/ledger";
+import { eq } from "drizzle-orm";
+
+import { db } from "..";
+import { fiscalYear } from "../schema/finance-dimensions";
+import type { LedgerTx } from "./engine";
+import {
+  type IncomePostingResult,
+  type IncomeSource,
+  type ListOptions,
+  postIncomeSource,
+  recordIncomeSourceFailure,
+  relatedIncomeSources,
+  type SweepResult,
+  sweepIncomeSources,
+} from "./income-posting";
+
+/**
+ * Server only. Runs income posting against the app database, one
+ * transaction per source: the `ledger-post-source` job (a source and the
+ * sources that depend on it) and the `ledger-post-pending` sweep (the daily
+ * job and the Books page's "Post pending").
+ */
+
+const inTransaction = <T>(work: (tx: LedgerTx) => Promise<T>) =>
+  db.transaction((tx) => work(tx as unknown as LedgerTx));
+
+export interface SourceRunResult {
+  related: number;
+  result: IncomePostingResult;
+}
+
+/** Posts one source, then the sources whose books follow it. */
+export async function postIncomeSourceNow(
+  source: IncomeSource,
+  actorId: string | null = null
+): Promise<SourceRunResult> {
+  let result: IncomePostingResult;
+  try {
+    result = await inTransaction((tx) =>
+      postIncomeSource(tx, source, { actorId })
+    );
+  } catch (error) {
+    await inTransaction((tx) => recordIncomeSourceFailure(tx, source));
+    throw error;
+  }
+  const related = await inTransaction((tx) => relatedIncomeSources(tx, source));
+  for (const next of related) {
+    await inTransaction((tx) => postIncomeSource(tx, next, { actorId }));
+  }
+  return { related: related.length, result };
+}
+
+/** Posts everything not up to date, stopping at the deadline (epoch ms). */
+export async function postPendingIncome(
+  options: ListOptions & {
+    actorId: string | null;
+    deadline?: number;
+    onFailure?: (source: IncomeSource, error: unknown) => void;
+  }
+): Promise<SweepResult> {
+  return await sweepIncomeSources({ ...options, run: inTransaction });
+}
+
+/**
+ * Before a year-close checklist is read or the year closed: posts every
+ * source dated in that year, bounded by the deadline, so the waiting check
+ * reflects the records as they are now.
+ */
+export async function postPendingForYear(
+  fiscalYearId: string,
+  options: {
+    actorId: string | null;
+    deadline: number;
+    onFailure?: (source: IncomeSource, error: unknown) => void;
+  }
+): Promise<SweepResult | null> {
+  const [year] = await db
+    .select({ endsOn: fiscalYear.endsOn, startsOn: fiscalYear.startsOn })
+    .from(fiscalYear)
+    .where(eq(fiscalYear.id, fiscalYearId))
+    .limit(1);
+  if (!year || year.endsOn < LEDGER_CUTOVER_ON) {
+    return null;
+  }
+  return await postPendingIncome({ ...options, range: year });
+}

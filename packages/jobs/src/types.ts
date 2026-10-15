@@ -97,6 +97,13 @@ export interface GenerateCashVoucherPayload {
   reimbursementId: string;
 }
 
+// Donation receipt email (manual "Email receipt"); IDs only.
+export interface SendContributionReceiptPayload {
+  receiptId: string;
+  /** One per click, so a deliberate resend is a new email but a retry is not. */
+  requestId: string;
+}
+
 // Advance Payment
 export interface NotifyAdvancePaymentSubmittedPayload {
   advancePaymentId: string;
@@ -610,6 +617,32 @@ export interface RazorpaySyncSettlementPayload {
   settlementId: string;
 }
 
+/** One income source to bring into the books (finance layer 3-2), keyed by source. */
+export interface LedgerPostSourcePayload {
+  sourceId: string;
+  sourceType:
+    | "contribution"
+    | "contribution_refund"
+    | "gateway_settlement"
+    | "other_income"
+    | "statement_transfer";
+}
+
+/**
+ * The income posting sweep: every source not up to date in the books. Run
+ * daily, after bulk imports, and by "Post pending" when the page ran out of
+ * time; `actorId` is the person who asked, if anyone.
+ */
+export interface LedgerPostPendingPayload {
+  actorId?: string;
+  /**
+   * Look at every source, not only those that may have changed since
+   * their last look. The Sunday scheduled run is full.
+   */
+  full?: boolean;
+  reason: "after_import" | "manual" | "scheduled";
+}
+
 export interface JobPayloads {
   "cleanup-notifications": Record<string, never>;
   "cleanup-r2-orphans": CleanupR2OrphansPayload;
@@ -625,6 +658,8 @@ export interface JobPayloads {
   "immich-delete-album": ImmichDeleteAlbumPayload;
   "immich-delete-asset": ImmichDeleteAssetPayload;
   "immich-sync-photo": ImmichSyncPhotoPayload;
+  "ledger-post-pending": LedgerPostPendingPayload;
+  "ledger-post-source": LedgerPostSourcePayload;
   "notify-added-to-event": NotifyAddedToEventPayload;
   "notify-added-to-team": NotifyAddedToTeamPayload;
   "notify-advance-payment-approved": NotifyAdvancePaymentApprovedPayload;
@@ -692,6 +727,7 @@ export interface JobPayloads {
   "remind-stale-requests": RemindStaleRequestsPayload;
   "scan-whatsapp-groups": ScanWhatsAppGroupsPayload;
   "send-bulk-notification": BulkNotificationPayload;
+  "send-contribution-receipt": SendContributionReceiptPayload;
   "send-event-rsvp-polls": SendEventRsvpPollsPayload;
   "send-notification": NotificationPayload;
   "send-scheduled-message": ScheduledMessagePayload;

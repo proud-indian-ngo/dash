@@ -20,6 +20,7 @@ import { createHash } from "node:crypto";
  *   programme, costCentre, fund, fiscalYear, fiscalPeriod, party, partyRole, partyPrivate,
  *   orgAccount, contribution, contributionRefund, otherIncome,
  *   gatewaySettlement, gatewaySettlementItem,
+ *   accountHead, openingBalance, posting, ledgerEntry, accountMovement (fake opening balances),
  *   importBatch, importRow, externalIdentity, collectionEvent, statementLine,
  *   reimbursement, reimbursementLineItem, reimbursementAttachment, reimbursementHistory,
  *   advancePayment, advancePaymentLineItem, advancePaymentAttachment, advancePaymentHistory,
@@ -32,6 +33,7 @@ import { createHash } from "node:crypto";
 import { auth } from "@pi-dash/auth";
 import { db } from "@pi-dash/db";
 import { importedRowRetention } from "@pi-dash/db/import-retention";
+import { postOpeningBalance } from "@pi-dash/db/ledger/opening-balance";
 import {
   advancePayment,
   advancePaymentAttachment,
@@ -103,6 +105,7 @@ import {
   kalakritiResultScorecard,
   kalakritiResultsState,
 } from "@pi-dash/db/schema/kalakriti-results";
+import { openingBalance } from "@pi-dash/db/schema/ledger";
 import { notification } from "@pi-dash/db/schema/notification";
 import { party, partyRole } from "@pi-dash/db/schema/party";
 import { emailSuppression } from "@pi-dash/db/schema/private/email-suppression";
@@ -144,11 +147,14 @@ import { ensureFinanceDimensions } from "@pi-dash/db/seed-finance-dimensions";
 import { ensureVendor } from "@pi-dash/db/seed-vendors";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
 import {
+  CORPUS_FUND_ID,
+  FISCAL_YEAR_IDS,
   GENERAL_FUND_ID,
   GIVE_INDIA_PARTY_ID,
   GIVE_INDIA_PARTY_NAME,
   PROGRAMME_IDS,
 } from "@pi-dash/shared/constants";
+import { normaliseExpenseCharge } from "@pi-dash/shared/expense-charge";
 import { getKalakritiCenterTransportStatus } from "@pi-dash/zero/kalakriti-center-scan-rules";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
@@ -714,6 +720,12 @@ const ORG_ACCOUNTS = [
     kind: "cash" as const,
     name: "Petty cash",
   },
+  // Fixed deposit for the books; its opening balance is entered in the UI.
+  {
+    id: "01930000-0000-7000-8000-000000000605",
+    kind: "deposit" as const,
+    name: "Fixed deposit",
+  },
 ];
 
 const DONOR_ID = PARTIES[0]?.id as string;
@@ -756,7 +768,8 @@ const CONTRIBUTIONS = [
     amountPaise: 200_000,
     channel: "cash" as const,
     id: "01930000-0000-7000-8000-000000000613",
-    orgAccountId: ORG_ACCOUNTS[2]?.id,
+    // Petty cash: a cash gift goes into a bank or cash account.
+    orgAccountId: ORG_ACCOUNTS[3]?.id,
     programmeId: PROGRAMME_IDS.communitySupport,
     receivedOn: "2025-12-20",
     reference: null,
@@ -957,10 +970,69 @@ async function seedIncome(adminId: string): Promise<void> {
       type: "payment",
     })
     .onConflictDoNothing();
+  // The books' cutover exception: a Razorpay gift captured on 30 March 2026
+  // whose payout reached the bank on 2 April posts as FY 2026-27 income on
+  // 2 April, with its fee, so Razorpay clearing opens and stays at zero.
+  await db
+    .insert(contribution)
+    .values({
+      amountPaise: 300_000,
+      channel: "razorpay",
+      createdAt: now,
+      createdBy: adminId,
+      fundId: GENERAL_FUND_ID,
+      gatewayFeePaise: 6000,
+      gatewayTaxPaise: 1080,
+      id: "01930000-0000-7000-8000-000000000617",
+      orgAccountId: ORG_ACCOUNTS[1]?.id as string,
+      partyId: DONOR_ID,
+      programmeId: PROGRAMME_IDS.education,
+      receivedOn: "2026-03-30",
+      reference: "pay_SEED0003",
+      reportingMode: "electronic_or_account_payee",
+      source: "import",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(gatewaySettlement)
+    .values({
+      amountPaise: 292_920,
+      createdAt: now,
+      externalId: "setl_SEED0002",
+      feesPaise: 6000,
+      grossPaise: 300_000,
+      id: "01930000-0000-7000-8000-000000000660",
+      itemCount: 1,
+      orgAccountId: ORG_ACCOUNTS[1]?.id as string,
+      paymentCount: 1,
+      provider: "razorpay",
+      providerAccount: "test",
+      settledOn: "2026-04-02",
+      status: "processed",
+      taxPaise: 1080,
+      updatedAt: now,
+      utr: "SEEDUTR0002",
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(gatewaySettlementItem)
+    .values({
+      contributionId: "01930000-0000-7000-8000-000000000617",
+      creditPaise: 292_920,
+      externalId: "pay_SEED0003",
+      feePaise: 6000,
+      id: "01930000-0000-7000-8000-000000000661",
+      settledAt: new Date("2026-04-02T04:30:00Z"),
+      settlementId: "01930000-0000-7000-8000-000000000660",
+      taxPaise: 1080,
+      type: "payment" as const,
+    })
+    .onConflictDoNothing();
   await seedImportBatch(adminId);
   await seedStatementLines(adminId);
   log(
-    `${ORG_ACCOUNTS.length} org accounts, ${CONTRIBUTIONS.length + RETURN_FIXTURE_CONTRIBUTIONS.length} contributions, 1 refund, 2 settlements, 1 other income, 1 import and ${STATEMENT_LINES.length} bank statement lines ready`
+    `${ORG_ACCOUNTS.length} org accounts, ${CONTRIBUTIONS.length + RETURN_FIXTURE_CONTRIBUTIONS.length + 1} contributions, 1 refund, 3 settlements, 1 other income, 1 import and ${STATEMENT_LINES.length} bank statement lines ready (Books → Post pending posts them)`
   );
 }
 
@@ -2443,6 +2515,9 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
           desc: "Snacks for kids",
           generateVoucher: true,
           id: ID.rli02,
+          // Synthetic payee, printed on the cash voucher.
+          payeeName: "Test Snack Vendor",
+          payeePhone: "+919000000001",
         },
       ],
       reviewedBy: adminId,
@@ -2475,6 +2550,9 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
       userId: v2,
     },
     {
+      // Ongoing cost without an event, charged straight to a programme.
+      chargedProgrammeId: PROGRAMME_IDS.communitySupport,
+      chargedTo: "programme" as const,
       city: "mumbai" as const,
       expenseDate: past(2),
       historyIds: [ID.rh06],
@@ -2520,9 +2598,13 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
           bankAccountIfscCode: "SBIN0001234",
           bankAccountName: "Savings Account",
           bankAccountNumber: "1234567890",
+          ...normaliseExpenseCharge({
+            chargedProgrammeId: r.chargedProgrammeId,
+            chargedTo: r.chargedTo,
+            eventId: r.eventId,
+          }),
           city: r.city,
           createdAt: subDays(r.expenseDate, 2),
-          eventId: r.eventId,
           expenseDate: r.expenseDate.toISOString().slice(0, 10),
           id: r.id,
           rejectionReason: r.rejectionReason,
@@ -2547,6 +2629,8 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
               description: item.desc,
               generateVoucher: item.generateVoucher ?? false,
               id: item.id,
+              payeeName: item.payeeName ?? null,
+              payeePhone: item.payeePhone ?? null,
               reimbursementId: r.id,
               sortOrder: i,
               updatedAt: now,
@@ -2797,6 +2881,7 @@ async function seedVendors(userMap: Map<string, string>): Promise<void> {
   await db
     .insert(vendorPayment)
     .values({
+      chargedTo: "event",
       city: "bangalore",
       createdAt: past(15),
       eventId: ID.evOutreach,
@@ -2967,6 +3052,9 @@ async function seedVendors(userMap: Map<string, string>): Promise<void> {
   await db
     .insert(vendorPayment)
     .values({
+      // A legacy request without an event, left for finance to clear.
+      chargedProgrammeId: PROGRAMME_IDS.unallocated,
+      chargedTo: "programme",
       city: "mumbai",
       createdAt: past(3),
       id: ID2.vp02,
@@ -3030,6 +3118,8 @@ async function seedVendors(userMap: Map<string, string>): Promise<void> {
   await db
     .insert(vendorPayment)
     .values({
+      // Office rent runs the trust, so it is charged to admin.
+      chargedTo: "organisation",
       city: "bangalore",
       createdAt: past(30),
       id: ID2.vp03,
@@ -3527,6 +3617,26 @@ async function seedAppConfig(): Promise<void> {
     { key: "social_all_time_optimists", value: "3600" },
     { key: "social_all_time_hours", value: "14000" },
     { key: "social_all_time_reached", value: "23000" },
+    // Fake receipt particulars and 80G registration so receipts can be
+    // issued in development; finance enters the real ones in Settings.
+    {
+      key: "donation_receipt_settings",
+      value: JSON.stringify({
+        orgAddress: "1 Example Road, Bengaluru, Karnataka 560001",
+        orgName: "Example Trust (development)",
+        orgPan: "AAATE0000E",
+        signatoryDesignation: "Treasurer",
+        signatoryName: "Dev Signatory",
+      }),
+    },
+    {
+      key: "donations_return_registration",
+      value: JSON.stringify({
+        sectionCode: "Section 80G",
+        urn: "DEVURN0000000000",
+        urnIssuedOn: "2021-04-01",
+      }),
+    },
   ];
 
   await db
@@ -3536,6 +3646,76 @@ async function seedAppConfig(): Promise<void> {
     )
     .onConflictDoNothing();
   log(`${configs.length} config entries ready`);
+}
+
+// ── Books ────────────────────────────────────────────────────────────────────
+
+/**
+ * Fake opening balances for FY 2026-27 so the Books page has something to
+ * show in development. Never the trust's real figures: those are entered by
+ * a finance admin from the audited statements. Skipped when the seed's
+ * document exists (posted or reversed) or another one stands for the year.
+ */
+const SEED_OPENING_BALANCE_ID = "01930000-0000-7000-8000-000000000820";
+
+async function seedBooks(adminId: string): Promise<void> {
+  log("Seeding fake opening balances...");
+  const fiscalYearId = FISCAL_YEAR_IDS["2026-27"];
+  const [seeded] = await db
+    .select({ reversalPostingId: openingBalance.reversalPostingId })
+    .from(openingBalance)
+    .where(eq(openingBalance.id, SEED_OPENING_BALANCE_ID))
+    .limit(1);
+  if (seeded) {
+    log(
+      seeded.reversalPostingId
+        ? "Seed opening balances were reversed; leaving the books as they are"
+        : "Seed opening balances already posted"
+    );
+    return;
+  }
+  const [standing] = await db
+    .select({ id: openingBalance.id })
+    .from(openingBalance)
+    .where(
+      and(
+        eq(openingBalance.fiscalYearId, fiscalYearId),
+        isNull(openingBalance.reversalPostingId)
+      )
+    )
+    .limit(1);
+  if (standing) {
+    log("Other opening balances already stand; not seeding fake ones");
+    return;
+  }
+  const bankId = ORG_ACCOUNTS[0]?.id as string;
+  const fdId = ORG_ACCOUNTS.find((a) => a.kind === "deposit")?.id as string;
+  await db.transaction((tx) =>
+    postOpeningBalance(
+      tx,
+      {
+        caConfirmedOn: "2026-10-01",
+        caName: "Seed CA (fake figures)",
+        fiscalYearId,
+        id: SEED_OPENING_BALANCE_ID,
+        lines: [
+          { amountPaise: 50_000_00, kind: "account", orgAccountId: bankId },
+          { amountPaise: 1_00_000_00, kind: "account", orgAccountId: fdId },
+          { amountPaise: 4_000_00, kind: "asset", memo: "Seed sewing machine" },
+          { amountPaise: 500_00, kind: "asset", memo: "Seed speaker" },
+          {
+            amountPaise: 5_000_00,
+            kind: "liability",
+            memo: "Audit fees payable (seed)",
+          },
+          { amountPaise: 1_000_00, fundId: CORPUS_FUND_ID, kind: "fund" },
+          { amountPaise: 1_48_500_00, fundId: GENERAL_FUND_ID, kind: "fund" },
+        ],
+      },
+      { actorId: adminId }
+    )
+  );
+  log("Fake opening balances posted");
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
@@ -3552,6 +3732,7 @@ async function main(): Promise<void> {
   await seedFinanceDimensions();
   await seedParties(getUser(userMap, "admin@pi-dash.dev"));
   await seedIncome(getUser(userMap, "admin@pi-dash.dev"));
+  await seedBooks(getUser(userMap, "admin@pi-dash.dev"));
   await seedBankAccounts(userMap);
   await seedWhatsappGroups();
   await seedTeams(userMap);

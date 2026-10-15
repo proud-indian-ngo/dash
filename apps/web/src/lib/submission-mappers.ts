@@ -16,6 +16,8 @@ interface RawLineItem {
   description: null | string;
   generateVoucher?: boolean | null;
   id: string;
+  payeeName?: null | string;
+  payeePhone?: null | string;
 }
 
 interface RawAttachment {
@@ -36,6 +38,8 @@ export function mapLineItemsToFormValues(
     description: li.description ?? "",
     generateVoucher: li.generateVoucher ?? false,
     id: li.id,
+    payeeName: li.payeeName ?? "",
+    payeePhone: li.payeePhone ?? "",
   }));
 }
 

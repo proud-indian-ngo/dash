@@ -1,7 +1,8 @@
 /**
  * The CSV column contract of the financial-year export. New columns go at the
  * end of a sheet so spreadsheets and CA templates keyed by column letter keep
- * working; the Programme column was appended in October 2026.
+ * working; the Programme column was appended in October 2026, then Project
+ * and Charged to after it.
  */
 import { assertSafePaise, paiseToRupees } from "@pi-dash/shared/money";
 
@@ -23,6 +24,8 @@ export const REQUEST_CSV_HEADERS = [
   "Created At",
   "Programme",
   "Attachments",
+  "Project",
+  "Charged to",
 ];
 
 export const VP_CSV_HEADERS = [
@@ -39,6 +42,8 @@ export const VP_CSV_HEADERS = [
   "Submitted At",
   "Created At",
   "Programme",
+  "Project",
+  "Charged to",
 ];
 
 export const TX_CSV_HEADERS = [
@@ -54,12 +59,14 @@ export const TX_CSV_HEADERS = [
 
 export interface RequestExportRow {
   attachments: ExportAttachmentLink[];
+  chargedTo: string;
   city: string;
   createdAt: string;
   createdBy: string;
   email: string;
   expenseDate: string;
   programme: string;
+  project: string;
   status: string;
   submittedAt: string;
   title: string;
@@ -68,6 +75,7 @@ export interface RequestExportRow {
 }
 
 export interface VendorPaymentExportRow {
+  chargedTo: string;
   createdAt: string;
   createdBy: string;
   email: string;
@@ -75,6 +83,7 @@ export interface VendorPaymentExportRow {
   invoiceNumber: string;
   paidAmount: string;
   programme: string;
+  project: string;
   remaining: string;
   status: string;
   submittedAt: string;
@@ -110,6 +119,8 @@ export const requestRowToArray = (
   row.createdAt,
   row.programme,
   formatExportAttachmentLinks(row.attachments, origin),
+  row.project,
+  row.chargedTo,
 ];
 
 export const vendorPaymentRowToArray = (
@@ -128,6 +139,8 @@ export const vendorPaymentRowToArray = (
   row.submittedAt,
   row.createdAt,
   row.programme,
+  row.project,
+  row.chargedTo,
 ];
 
 export const transactionRowToArray = (row: TransactionExportRow): string[] => [

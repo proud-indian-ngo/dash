@@ -11,6 +11,7 @@ import {
   gte,
   inArray,
   isNotNull,
+  isNull,
   lte,
   or,
   sql,
@@ -348,7 +349,22 @@ export async function matchLine(
       )
     )
     .returning({ id: statementLine.id });
+  if (updated.length > 0 && target.kind === "settlement" && target.targetId) {
+    await touchSettlement(tx, target.targetId, now);
+  }
   return updated.length > 0;
+}
+
+/**
+ * A payout's bank line was matched or unmatched: its own row is touched so
+ * the books' incremental posting sees it (its bank day and account follow
+ * the line).
+ */
+async function touchSettlement(tx: StatementTx, id: string, now: Date) {
+  await tx
+    .update(gatewaySettlement)
+    .set({ updatedAt: now })
+    .where(eq(gatewaySettlement.id, id));
 }
 
 /** Stores a line's suggestion, or clears it. */
@@ -408,6 +424,24 @@ export async function resetStatementLine(
   id: string,
   now: Date
 ): Promise<void> {
+  const [before] = await tx
+    .select({
+      matchedSettlementId: statementLine.matchedSettlementId,
+      transferPairLineId: statementLine.transferPairLineId,
+    })
+    .from(statementLine)
+    .where(eq(statementLine.id, id))
+    .limit(1);
+  // A transfer's pair comes apart on both sides.
+  if (before?.transferPairLineId) {
+    await updateStatementLine(tx, before.transferPairLineId, {
+      transferPairLineId: null,
+      updatedAt: now,
+    });
+  }
+  if (before?.matchedSettlementId) {
+    await touchSettlement(tx, before.matchedSettlementId, now);
+  }
   await updateStatementLine(tx, id, {
     ...clearedSuggestion,
     ignoredReason: null,
@@ -418,8 +452,75 @@ export async function resetStatementLine(
     matchKind: null,
     matchReason: null,
     matchStatus: "unmatched",
+    // The check allows the other account only on a transfer match.
+    transferOrgAccountId: null,
+    transferPairLineId: null,
     updatedAt: now,
   });
+}
+
+/** Days either side within which two lines can be one transfer's two sides. */
+export const TRANSFER_PAIR_DAYS = 5;
+
+/**
+ * After a line is marked as a transfer to another account: pairs it with
+ * that account's own line for the same transfer, if one is marked and not
+ * yet paired (opposite direction, same amount, value date within a few
+ * days, marked as a transfer back to this line's account), the nearest in
+ * date, then the first marked. Each line is in one pair at most, so two
+ * equal transfers never share a counterpart. Callers hold the statement
+ * line lock. Returns the paired line, if any.
+ */
+export async function pairTransferLine(
+  tx: StatementTx,
+  lineId: string,
+  now: Date
+): Promise<string | null> {
+  const [line] = await tx
+    .select()
+    .from(statementLine)
+    .where(eq(statementLine.id, lineId))
+    .limit(1);
+  if (
+    !line?.transferOrgAccountId ||
+    line.matchKind !== "transfer" ||
+    line.transferPairLineId
+  ) {
+    return line?.transferPairLineId ?? null;
+  }
+  const distance = sql`abs(${statementLine.valueOn} - ${line.valueOn}::date)`;
+  const [counterpart] = await tx
+    .select({ id: statementLine.id })
+    .from(statementLine)
+    .where(
+      and(
+        eq(statementLine.orgAccountId, line.transferOrgAccountId),
+        eq(statementLine.transferOrgAccountId, line.orgAccountId),
+        eq(statementLine.matchStatus, "matched"),
+        eq(statementLine.matchKind, "transfer"),
+        isNull(statementLine.transferPairLineId),
+        eq(
+          statementLine.direction,
+          line.direction === "debit" ? "credit" : "debit"
+        ),
+        eq(statementLine.amountPaise, line.amountPaise),
+        sql`${distance} <= ${TRANSFER_PAIR_DAYS}`
+      )
+    )
+    .orderBy(distance, asc(statementLine.matchedAt), asc(statementLine.id))
+    .limit(1);
+  if (!counterpart) {
+    return null;
+  }
+  await updateStatementLine(tx, line.id, {
+    transferPairLineId: counterpart.id,
+    updatedAt: now,
+  });
+  await updateStatementLine(tx, counterpart.id, {
+    transferPairLineId: line.id,
+    updatedAt: now,
+  });
+  return counterpart.id;
 }
 
 /** Another line already holds this settlement or contribution. */

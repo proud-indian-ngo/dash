@@ -229,7 +229,10 @@ export async function linkGiveDoSettlementPaymentsIn(
   paymentId?: string
 ): Promise<void> {
   const narrow = paymentId ? sql`and i.external_id = ${paymentId}` : sql``;
+  // The payout's own row is touched too, so the books' incremental posting
+  // sees that its lines changed.
   await tx.execute(sql`
+    with linked as (
     update ${gatewaySettlementItem} i set contribution_id = c.id
     from ${gatewaySettlement} s, ${externalIdentity} ei, ${contribution} c
     where s.id = i.settlement_id and s.provider = 'give_do' and s.provider_account = 'live'
@@ -237,7 +240,10 @@ export async function linkGiveDoSettlementPaymentsIn(
       and ei.provider = 'give_do' and ei.entity_type = 'payment' and ei.provider_account = ${orgAccountId}
       and ei.external_id = i.external_id and c.id = ei.contribution_id
       and c.channel = 'give_do' and c.org_account_id = s.org_account_id
-      and c.amount_paise = i.credit_paise + i.fee_paise ${narrow}`);
+      and c.amount_paise = i.credit_paise + i.fee_paise ${narrow}
+    returning i.settlement_id)
+    update ${gatewaySettlement} g set updated_at = now()
+    where g.id in (select settlement_id from linked)`);
   await tx.execute(sql`
     update ${contribution} c set gateway_fee_paise = i.fee_paise, updated_at = now()
     from ${gatewaySettlementItem} i, ${gatewaySettlement} s

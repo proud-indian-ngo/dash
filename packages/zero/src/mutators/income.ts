@@ -1,4 +1,5 @@
 import {
+  type ContributionChannel,
   contributionChannelValues,
   contributionReportingModeValues,
   type DeductionEligible,
@@ -7,6 +8,13 @@ import {
   otherIncomeKindValues,
   PROGRAMME_IDS,
 } from "@pi-dash/shared/constants";
+import {
+  type ChannelAccountSetup,
+  channelAccountIssue,
+  keepsFixedAccount,
+  RAZORPAY_CLEARING_ACCOUNT_CONFIG_KEY,
+} from "@pi-dash/shared/contribution-channel";
+import { donationTypeProgrammeIssue } from "@pi-dash/shared/contribution-programme";
 import { ELIGIBILITY_REASON_MAX } from "@pi-dash/shared/donations-return";
 import {
   CONTRIBUTOR_ROLES,
@@ -21,7 +29,7 @@ import { positivePaiseSchema } from "@pi-dash/shared/money";
 import { defineMutator, type Transaction } from "@rocicorp/zero";
 import z from "zod";
 
-import "../context";
+import { type Context, requireEnqueue } from "../context";
 import { assertHasPermission } from "../permissions";
 import { type Schema, zql } from "../schema";
 import {
@@ -210,10 +218,22 @@ async function assertContributor(tx: Tx, partyId: string) {
   }
 }
 
+/** The Razorpay clearing account chosen in Settings, if any. */
+async function readChannelSetup(tx: Tx): Promise<ChannelAccountSetup> {
+  const row = await tx.run(
+    zql.appConfig.where("key", RAZORPAY_CLEARING_ACCOUNT_CONFIG_KEY).one()
+  );
+  return { razorpayClearingAccountId: row?.value || null };
+}
+
 async function assertAccountAndFund(
   tx: Tx,
   next: { fundId: string; orgAccountId: string | null },
-  previous?: { fundId: string; orgAccountId: string | null }
+  previous?: { fundId: string; orgAccountId: string | null },
+  options: {
+    /** The gift's channel: the account must fit it (`channelAccountIssue`). */
+    donation?: { channel: ContributionChannel; keepAccount?: boolean };
+  } = {}
 ) {
   if (next.orgAccountId) {
     const account = await tx.run(
@@ -224,9 +244,35 @@ async function assertAccountAndFund(
       "Account",
       previous?.orgAccountId === next.orgAccountId
     );
+    // A fixed deposit gets money only by transfer, never a donation.
+    if (options.donation && account?.kind === "deposit") {
+      throw new Error("A donation can't be deposited into a fixed deposit");
+    }
+    if (account && options.donation && !options.donation.keepAccount) {
+      const issue = channelAccountIssue(
+        options.donation.channel,
+        account,
+        await readChannelSetup(tx)
+      );
+      if (issue) {
+        throw new Error(issue);
+      }
+    }
   }
   const fund = await tx.run(zql.fund.where("id", next.fundId).one());
   assertActive(fund, "Fund", previous?.fundId === next.fundId);
+}
+
+/** A specific grant or CSR gift names its programme; a corpus gift has none. */
+function assertProgrammeFitsType(values: {
+  donationType: ContributionInput["donationType"];
+  programmeId: string | null;
+  projectId: string | null;
+}) {
+  const issue = donationTypeProgrammeIssue(values);
+  if (issue) {
+    throw new Error(issue);
+  }
 }
 
 /**
@@ -383,6 +429,31 @@ async function matchedLine(tx: Tx, contributionId: string) {
   );
 }
 
+/**
+ * After the commit, brings the record into the books (finance layer 3-2):
+ * the `ledger-post-source` job posts, reverses or reposts it on the server.
+ * Keyed by source, so repeated edits collapse into one queued job.
+ */
+function queueLedgerPosting(
+  ctx: Context,
+  tx: Tx,
+  source: { sourceId: string; sourceType: "contribution" | "other_income" },
+  mutator: string
+) {
+  if (tx.location !== "server") {
+    return;
+  }
+  ctx.asyncTasks?.push({
+    fn: async () => {
+      await requireEnqueue(ctx)("ledger-post-source", source, {
+        singletonKey: `${source.sourceType}:${source.sourceId}`,
+        traceId: ctx.traceId,
+      });
+    },
+    meta: { mutator, ...source },
+  });
+}
+
 export const contributionMutators = {
   create: defineMutator(contributionCreateSchema, async ({ tx, ctx, args }) => {
     assertHasPermission(ctx, "donors.manage");
@@ -396,9 +467,12 @@ export const contributionMutators = {
       : undefined;
     if (tx.location === "server") {
       await assertContributor(tx, values.partyId);
-      await assertAccountAndFund(tx, values);
+      await assertAccountAndFund(tx, values, undefined, {
+        donation: { channel: values.channel },
+      });
       values.programmeId = await resolveProgramme(tx, values);
     }
+    assertProgrammeFitsType(values);
     const now = Date.now();
     await tx.mutate.contribution.insert({
       ...values,
@@ -429,6 +503,12 @@ export const contributionMutators = {
         updatedAt: now,
       });
     }
+    queueLedgerPosting(
+      ctx,
+      tx,
+      { sourceId: args.id, sourceType: "contribution" },
+      "contribution.create"
+    );
   }),
 
   delete: defineMutator(idInput, async ({ tx, ctx, args }) => {
@@ -439,6 +519,17 @@ export const contributionMutators = {
     );
     if (hasRefund) {
       throw new Error("A contribution with a refund can't be deleted");
+    }
+    // Receipt numbers are never reused, so a gift any receipt was issued
+    // for (voided ones too) stays, keeping its receipt's history whole.
+    if (
+      await tx.run(
+        zql.contributionReceipt.where("contributionId", args.id).one()
+      )
+    ) {
+      throw new Error(
+        "A receipt was issued for this gift; it can't be deleted"
+      );
     }
     if (isSettled) {
       throw new Error(
@@ -451,6 +542,12 @@ export const contributionMutators = {
       );
     }
     await tx.mutate.contribution.delete({ id: args.id });
+    queueLedgerPosting(
+      ctx,
+      tx,
+      { sourceId: args.id, sourceType: "contribution" },
+      "contribution.delete"
+    );
   }),
 
   update: defineMutator(contributionInputSchema, async ({ tx, ctx, args }) => {
@@ -482,9 +579,21 @@ export const contributionMutators = {
       if (values.partyId !== existing.partyId) {
         await assertContributor(tx, values.partyId);
       }
-      await assertAccountAndFund(tx, values, existing);
+      // A refund or a processed settlement fixes the channel and account,
+      // so a gift recorded before the channel rules keeps its account.
+      await assertAccountAndFund(tx, values, existing, {
+        donation: {
+          channel: values.channel,
+          keepAccount: keepsFixedAccount(
+            hasRefund || isSettled,
+            values,
+            existing
+          ),
+        },
+      });
       values.programmeId = await resolveProgramme(tx, values, existing);
     }
+    assertProgrammeFitsType(values);
     await tx.mutate.contribution.update({
       ...values,
       ...normalizeEligibility(args, {
@@ -494,6 +603,12 @@ export const contributionMutators = {
       id: args.id,
       updatedAt: Date.now(),
     });
+    queueLedgerPosting(
+      ctx,
+      tx,
+      { sourceId: args.id, sourceType: "contribution" },
+      "contribution.update"
+    );
   }),
 };
 
@@ -516,6 +631,12 @@ export const otherIncomeMutators = {
       receivedOn: isoDateToEpoch(args.receivedOn),
       updatedAt: now,
     });
+    queueLedgerPosting(
+      ctx,
+      tx,
+      { sourceId: args.id, sourceType: "other_income" },
+      "otherIncome.create"
+    );
   }),
 
   delete: defineMutator(idInput, async ({ tx, ctx, args }) => {
@@ -525,6 +646,12 @@ export const otherIncomeMutators = {
       throw new Error("Income not found");
     }
     await tx.mutate.otherIncome.delete({ id: args.id });
+    queueLedgerPosting(
+      ctx,
+      tx,
+      { sourceId: args.id, sourceType: "other_income" },
+      "otherIncome.delete"
+    );
   }),
 
   update: defineMutator(otherIncomeInputSchema, async ({ tx, ctx, args }) => {
@@ -546,5 +673,11 @@ export const otherIncomeMutators = {
       receivedOn: isoDateToEpoch(args.receivedOn),
       updatedAt: Date.now(),
     });
+    queueLedgerPosting(
+      ctx,
+      tx,
+      { sourceId: args.id, sourceType: "other_income" },
+      "otherIncome.update"
+    );
   }),
 };

@@ -85,10 +85,13 @@ import { Route as ApiMediaEventUpdateRouteImport } from './routes/api/media/even
 import { Route as ApiPublicEventsRouteImport } from './routes/api/public/events'
 import { Route as ApiPublicOpenapiDotjsonRouteImport } from './routes/api/public/openapi[.]json'
 import { Route as ApiRazorpayWebhookRouteImport } from './routes/api/razorpay/webhook'
+import { Route as ApiReceiptsReceiptIdRouteImport } from './routes/api/receipts/$receiptId'
 import { Route as ApiWhatsappWebhookRouteImport } from './routes/api/whatsapp/webhook'
 import { Route as ApiZeroMutateRouteImport } from './routes/api/zero/mutate'
 import { Route as ApiZeroQueryRouteImport } from './routes/api/zero/query'
 import { Route as KalakritiYearScheduleRouteImport } from './routes/kalakriti/$year/schedule'
+import { Route as AppFinanceBooksIndexRouteImport } from './routes/_app/finance/books/index'
+import { Route as AppFinanceBooksOpeningRouteImport } from './routes/_app/finance/books/opening'
 import { Route as AppIncomeBankIndexRouteImport } from './routes/_app/income/bank/index'
 import { Route as AppIncomeBankImportRouteImport } from './routes/_app/income/bank/import'
 import { Route as AppIncomeImportsBatchIdRouteImport } from './routes/_app/income/imports.$batchId'
@@ -528,6 +531,11 @@ const ApiRazorpayWebhookRoute = ApiRazorpayWebhookRouteImport.update({
   path: '/api/razorpay/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiReceiptsReceiptIdRoute = ApiReceiptsReceiptIdRouteImport.update({
+  id: '/api/receipts/$receiptId',
+  path: '/api/receipts/$receiptId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWhatsappWebhookRoute = ApiWhatsappWebhookRouteImport.update({
   id: '/api/whatsapp/webhook',
   path: '/api/whatsapp/webhook',
@@ -547,6 +555,16 @@ const KalakritiYearScheduleRoute = KalakritiYearScheduleRouteImport.update({
   id: '/kalakriti/$year/schedule',
   path: '/kalakriti/$year/schedule',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppFinanceBooksIndexRoute = AppFinanceBooksIndexRouteImport.update({
+  id: '/finance/books/',
+  path: '/finance/books/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFinanceBooksOpeningRoute = AppFinanceBooksOpeningRouteImport.update({
+  id: '/finance/books/opening',
+  path: '/finance/books/opening',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppIncomeBankIndexRoute = AppIncomeBankIndexRouteImport.update({
   id: '/bank/',
@@ -928,6 +946,7 @@ export interface FileRoutesByFullPath {
   '/api/public/events': typeof ApiPublicEventsRoute
   '/api/public/openapi.json': typeof ApiPublicOpenapiDotjsonRoute
   '/api/razorpay/webhook': typeof ApiRazorpayWebhookRoute
+  '/api/receipts/$receiptId': typeof ApiReceiptsReceiptIdRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
@@ -944,6 +963,7 @@ export interface FileRoutesByFullPath {
   '/api/jobs/': typeof ApiJobsIndexRoute
   '/kalakriti/$year/competitions': typeof AppKalakritiYearCompetitionsRouteRouteWithChildren
   '/kalakriti/$year/settings': typeof AppKalakritiYearSettingsRouteRouteWithChildren
+  '/finance/books/opening': typeof AppFinanceBooksOpeningRoute
   '/income/bank/import': typeof AppIncomeBankImportRoute
   '/income/imports/$batchId': typeof AppIncomeImportsBatchIdRoute
   '/income/payout/import': typeof AppIncomePayoutImportRoute
@@ -979,6 +999,7 @@ export interface FileRoutesByFullPath {
   '/api/social/v1/settings': typeof ApiSocialV1SettingsRoute
   '/api/social/v1/stats': typeof ApiSocialV1StatsRoute
   '/api/whatsapp/cloud/webhook': typeof ApiWhatsappCloudWebhookRoute
+  '/finance/books/': typeof AppFinanceBooksIndexRoute
   '/income/bank/': typeof AppIncomeBankIndexRoute
   '/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
   '/settings/roles/': typeof AppSettingsRolesIndexRoute
@@ -1054,6 +1075,7 @@ export interface FileRoutesByTo {
   '/api/public/events': typeof ApiPublicEventsRoute
   '/api/public/openapi.json': typeof ApiPublicOpenapiDotjsonRoute
   '/api/razorpay/webhook': typeof ApiRazorpayWebhookRoute
+  '/api/receipts/$receiptId': typeof ApiReceiptsReceiptIdRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
@@ -1068,6 +1090,7 @@ export interface FileRoutesByTo {
   '/vendor-payments': typeof AppVendorPaymentsIndexRoute
   '/vendors': typeof AppVendorsIndexRoute
   '/api/jobs': typeof ApiJobsIndexRoute
+  '/finance/books/opening': typeof AppFinanceBooksOpeningRoute
   '/income/bank/import': typeof AppIncomeBankImportRoute
   '/income/imports/$batchId': typeof AppIncomeImportsBatchIdRoute
   '/income/payout/import': typeof AppIncomePayoutImportRoute
@@ -1102,6 +1125,7 @@ export interface FileRoutesByTo {
   '/api/social/v1/settings': typeof ApiSocialV1SettingsRoute
   '/api/social/v1/stats': typeof ApiSocialV1StatsRoute
   '/api/whatsapp/cloud/webhook': typeof ApiWhatsappCloudWebhookRoute
+  '/finance/books': typeof AppFinanceBooksIndexRoute
   '/income/bank': typeof AppIncomeBankIndexRoute
   '/kalakriti/$year': typeof AppKalakritiYearIndexRoute
   '/settings/roles': typeof AppSettingsRolesIndexRoute
@@ -1191,6 +1215,7 @@ export interface FileRoutesById {
   '/api/public/events': typeof ApiPublicEventsRoute
   '/api/public/openapi.json': typeof ApiPublicOpenapiDotjsonRoute
   '/api/razorpay/webhook': typeof ApiRazorpayWebhookRoute
+  '/api/receipts/$receiptId': typeof ApiReceiptsReceiptIdRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
@@ -1207,6 +1232,7 @@ export interface FileRoutesById {
   '/api/jobs/': typeof ApiJobsIndexRoute
   '/_app/kalakriti/$year/competitions': typeof AppKalakritiYearCompetitionsRouteRouteWithChildren
   '/_app/kalakriti/$year/settings': typeof AppKalakritiYearSettingsRouteRouteWithChildren
+  '/_app/finance/books/opening': typeof AppFinanceBooksOpeningRoute
   '/_app/income/bank/import': typeof AppIncomeBankImportRoute
   '/_app/income/imports/$batchId': typeof AppIncomeImportsBatchIdRoute
   '/_app/income/payout/import': typeof AppIncomePayoutImportRoute
@@ -1242,6 +1268,7 @@ export interface FileRoutesById {
   '/api/social/v1/settings': typeof ApiSocialV1SettingsRoute
   '/api/social/v1/stats': typeof ApiSocialV1StatsRoute
   '/api/whatsapp/cloud/webhook': typeof ApiWhatsappCloudWebhookRoute
+  '/_app/finance/books/': typeof AppFinanceBooksIndexRoute
   '/_app/income/bank/': typeof AppIncomeBankIndexRoute
   '/_app/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
   '/_app/settings/roles/': typeof AppSettingsRolesIndexRoute
@@ -1330,6 +1357,7 @@ export interface FileRouteTypes {
     | '/api/public/events'
     | '/api/public/openapi.json'
     | '/api/razorpay/webhook'
+    | '/api/receipts/$receiptId'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
@@ -1346,6 +1374,7 @@ export interface FileRouteTypes {
     | '/api/jobs/'
     | '/kalakriti/$year/competitions'
     | '/kalakriti/$year/settings'
+    | '/finance/books/opening'
     | '/income/bank/import'
     | '/income/imports/$batchId'
     | '/income/payout/import'
@@ -1381,6 +1410,7 @@ export interface FileRouteTypes {
     | '/api/social/v1/settings'
     | '/api/social/v1/stats'
     | '/api/whatsapp/cloud/webhook'
+    | '/finance/books/'
     | '/income/bank/'
     | '/kalakriti/$year/'
     | '/settings/roles/'
@@ -1456,6 +1486,7 @@ export interface FileRouteTypes {
     | '/api/public/events'
     | '/api/public/openapi.json'
     | '/api/razorpay/webhook'
+    | '/api/receipts/$receiptId'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
@@ -1470,6 +1501,7 @@ export interface FileRouteTypes {
     | '/vendor-payments'
     | '/vendors'
     | '/api/jobs'
+    | '/finance/books/opening'
     | '/income/bank/import'
     | '/income/imports/$batchId'
     | '/income/payout/import'
@@ -1504,6 +1536,7 @@ export interface FileRouteTypes {
     | '/api/social/v1/settings'
     | '/api/social/v1/stats'
     | '/api/whatsapp/cloud/webhook'
+    | '/finance/books'
     | '/income/bank'
     | '/kalakriti/$year'
     | '/settings/roles'
@@ -1592,6 +1625,7 @@ export interface FileRouteTypes {
     | '/api/public/events'
     | '/api/public/openapi.json'
     | '/api/razorpay/webhook'
+    | '/api/receipts/$receiptId'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
@@ -1608,6 +1642,7 @@ export interface FileRouteTypes {
     | '/api/jobs/'
     | '/_app/kalakriti/$year/competitions'
     | '/_app/kalakriti/$year/settings'
+    | '/_app/finance/books/opening'
     | '/_app/income/bank/import'
     | '/_app/income/imports/$batchId'
     | '/_app/income/payout/import'
@@ -1643,6 +1678,7 @@ export interface FileRouteTypes {
     | '/api/social/v1/settings'
     | '/api/social/v1/stats'
     | '/api/whatsapp/cloud/webhook'
+    | '/_app/finance/books/'
     | '/_app/income/bank/'
     | '/_app/kalakriti/$year/'
     | '/_app/settings/roles/'
@@ -1685,6 +1721,7 @@ export interface RootRouteChildren {
   ApiPublicEventsRoute: typeof ApiPublicEventsRoute
   ApiPublicOpenapiDotjsonRoute: typeof ApiPublicOpenapiDotjsonRoute
   ApiRazorpayWebhookRoute: typeof ApiRazorpayWebhookRoute
+  ApiReceiptsReceiptIdRoute: typeof ApiReceiptsReceiptIdRoute
   ApiWhatsappWebhookRoute: typeof ApiWhatsappWebhookRoute
   ApiZeroMutateRoute: typeof ApiZeroMutateRoute
   ApiZeroQueryRoute: typeof ApiZeroQueryRoute
@@ -2244,6 +2281,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRazorpayWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/receipts/$receiptId': {
+      id: '/api/receipts/$receiptId'
+      path: '/api/receipts/$receiptId'
+      fullPath: '/api/receipts/$receiptId'
+      preLoaderRoute: typeof ApiReceiptsReceiptIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/whatsapp/webhook': {
       id: '/api/whatsapp/webhook'
       path: '/api/whatsapp/webhook'
@@ -2271,6 +2315,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/kalakriti/$year/schedule'
       preLoaderRoute: typeof KalakritiYearScheduleRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/finance/books/': {
+      id: '/_app/finance/books/'
+      path: '/finance/books'
+      fullPath: '/finance/books/'
+      preLoaderRoute: typeof AppFinanceBooksIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/finance/books/opening': {
+      id: '/_app/finance/books/opening'
+      path: '/finance/books/opening'
+      fullPath: '/finance/books/opening'
+      preLoaderRoute: typeof AppFinanceBooksOpeningRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/income/bank/': {
       id: '/_app/income/bank/'
@@ -2989,7 +3047,9 @@ interface AppRouteChildren {
   AppSocialRoute: typeof AppSocialRoute
   AppUsersRoute: typeof AppUsersRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppFinanceBooksOpeningRoute: typeof AppFinanceBooksOpeningRoute
   AppWhatsappGroupsGroupIdJoinRoute: typeof AppWhatsappGroupsGroupIdJoinRoute
+  AppFinanceBooksIndexRoute: typeof AppFinanceBooksIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -3011,7 +3071,9 @@ const AppRouteChildren: AppRouteChildren = {
   AppSocialRoute: AppSocialRoute,
   AppUsersRoute: AppUsersRoute,
   AppIndexRoute: AppIndexRoute,
+  AppFinanceBooksOpeningRoute: AppFinanceBooksOpeningRoute,
   AppWhatsappGroupsGroupIdJoinRoute: AppWhatsappGroupsGroupIdJoinRoute,
+  AppFinanceBooksIndexRoute: AppFinanceBooksIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
@@ -3079,6 +3141,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicEventsRoute: ApiPublicEventsRoute,
   ApiPublicOpenapiDotjsonRoute: ApiPublicOpenapiDotjsonRoute,
   ApiRazorpayWebhookRoute: ApiRazorpayWebhookRoute,
+  ApiReceiptsReceiptIdRoute: ApiReceiptsReceiptIdRoute,
   ApiWhatsappWebhookRoute: ApiWhatsappWebhookRoute,
   ApiZeroMutateRoute: ApiZeroMutateRoute,
   ApiZeroQueryRoute: ApiZeroQueryRoute,

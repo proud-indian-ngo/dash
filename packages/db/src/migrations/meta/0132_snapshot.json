@@ -1,5 +1,5 @@
 {
-  "id": "c20c8182-b7cf-4027-8fca-615b1e8bdd79",
+  "id": "cc490692-d1dc-43c4-8015-ae766c1cee30",
   "prevId": "463812e3-874e-4601-b7bd-8234703c10ab",
   "version": "7",
   "dialect": "postgresql",
@@ -3014,6 +3014,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "closed_by": {
+          "name": "closed_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "ends_on": {
           "name": "ends_on",
           "type": "date",
@@ -3056,7 +3062,21 @@
           "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "fiscal_year_closed_by_user_id_fk": {
+          "name": "fiscal_year_closed_by_user_id_fk",
+          "tableFrom": "fiscal_year",
+          "tableTo": "user",
+          "columnsFrom": [
+            "closed_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -10691,6 +10711,1112 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.account_movement": {
+      "name": "account_movement",
+      "schema": "",
+      "columns": {
+        "amount_paise": {
+          "name": "amount_paise",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bank_value_on": {
+          "name": "bank_value_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direction": {
+          "name": "direction",
+          "type": "account_movement_direction",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fiscal_period_id": {
+          "name": "fiscal_period_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "account_movement_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "memo": {
+          "name": "memo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "occurred_on": {
+          "name": "occurred_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "org_account_id": {
+          "name": "org_account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payment_reference": {
+          "name": "payment_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "posted_on": {
+          "name": "posted_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "posting_id": {
+          "name": "posting_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reverses_movement_id": {
+          "name": "reverses_movement_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "transfer_id": {
+          "name": "transfer_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "account_movement_postingId_idx": {
+          "name": "account_movement_postingId_idx",
+          "columns": [
+            {
+              "expression": "posting_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "account_movement_account_occurredOn_idx": {
+          "name": "account_movement_account_occurredOn_idx",
+          "columns": [
+            {
+              "expression": "org_account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_on",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "account_movement_transferId_idx": {
+          "name": "account_movement_transferId_idx",
+          "columns": [
+            {
+              "expression": "transfer_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "account_movement_fiscal_period_id_fiscal_period_id_fk": {
+          "name": "account_movement_fiscal_period_id_fiscal_period_id_fk",
+          "tableFrom": "account_movement",
+          "tableTo": "fiscal_period",
+          "columnsFrom": [
+            "fiscal_period_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "account_movement_org_account_id_org_account_id_fk": {
+          "name": "account_movement_org_account_id_org_account_id_fk",
+          "tableFrom": "account_movement",
+          "tableTo": "org_account",
+          "columnsFrom": [
+            "org_account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "account_movement_posting_id_posting_id_fk": {
+          "name": "account_movement_posting_id_posting_id_fk",
+          "tableFrom": "account_movement",
+          "tableTo": "posting",
+          "columnsFrom": [
+            "posting_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "account_movement_reverses_movement_id_account_movement_id_fk": {
+          "name": "account_movement_reverses_movement_id_account_movement_id_fk",
+          "tableFrom": "account_movement",
+          "tableTo": "account_movement",
+          "columnsFrom": [
+            "reverses_movement_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "account_movement_amount_check": {
+          "name": "account_movement_amount_check",
+          "value": "\"account_movement\".\"amount_paise\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.fiscal_year_event": {
+      "name": "fiscal_year_event",
+      "schema": "",
+      "columns": {
+        "action": {
+          "name": "action",
+          "type": "fiscal_year_event_action",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_id": {
+          "name": "actor_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fiscal_year_id": {
+          "name": "fiscal_year_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "fiscal_year_event_year_idx": {
+          "name": "fiscal_year_event_year_idx",
+          "columns": [
+            {
+              "expression": "fiscal_year_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "fiscal_year_event_actor_id_user_id_fk": {
+          "name": "fiscal_year_event_actor_id_user_id_fk",
+          "tableFrom": "fiscal_year_event",
+          "tableTo": "user",
+          "columnsFrom": [
+            "actor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "fiscal_year_event_fiscal_year_id_fiscal_year_id_fk": {
+          "name": "fiscal_year_event_fiscal_year_id_fiscal_year_id_fk",
+          "tableFrom": "fiscal_year_event",
+          "tableTo": "fiscal_year",
+          "columnsFrom": [
+            "fiscal_year_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.ledger_entry": {
+      "name": "ledger_entry",
+      "schema": "",
+      "columns": {
+        "account_head_id": {
+          "name": "account_head_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_paise": {
+          "name": "amount_paise",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cost_centre_id": {
+          "name": "cost_centre_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "economic_on": {
+          "name": "economic_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effect": {
+          "name": "effect",
+          "type": "ledger_effect",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fiscal_period_id": {
+          "name": "fiscal_period_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fund_id": {
+          "name": "fund_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "medium": {
+          "name": "medium",
+          "type": "ledger_medium",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'monetary'"
+        },
+        "memo": {
+          "name": "memo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "party_id": {
+          "name": "party_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "posted_on": {
+          "name": "posted_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "posting_id": {
+          "name": "posting_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "programme_id": {
+          "name": "programme_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reverses_entry_id": {
+          "name": "reverses_entry_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_line_id": {
+          "name": "source_line_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "ledger_entry_postingId_idx": {
+          "name": "ledger_entry_postingId_idx",
+          "columns": [
+            {
+              "expression": "posting_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "ledger_entry_economicOn_idx": {
+          "name": "ledger_entry_economicOn_idx",
+          "columns": [
+            {
+              "expression": "economic_on",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "ledger_entry_accountHeadId_idx": {
+          "name": "ledger_entry_accountHeadId_idx",
+          "columns": [
+            {
+              "expression": "account_head_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "ledger_entry_fiscalPeriodId_idx": {
+          "name": "ledger_entry_fiscalPeriodId_idx",
+          "columns": [
+            {
+              "expression": "fiscal_period_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "ledger_entry_account_head_id_account_head_id_fk": {
+          "name": "ledger_entry_account_head_id_account_head_id_fk",
+          "tableFrom": "ledger_entry",
+          "tableTo": "account_head",
+          "columnsFrom": [
+            "account_head_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "ledger_entry_cost_centre_id_cost_centre_id_fk": {
+          "name": "ledger_entry_cost_centre_id_cost_centre_id_fk",
+          "tableFrom": "ledger_entry",
+          "tableTo": "cost_centre",
+          "columnsFrom": [
+            "cost_centre_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "ledger_entry_event_id_team_event_id_fk": {
+          "name": "ledger_entry_event_id_team_event_id_fk",
+          "tableFrom": "ledger_entry",
+          "tableTo": "team_event",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "ledger_entry_fiscal_period_id_fiscal_period_id_fk": {
+          "name": "ledger_entry_fiscal_period_id_fiscal_period_id_fk",
+          "tableFrom": "ledger_entry",
+          "tableTo": "fiscal_period",
+          "columnsFrom": [
+            "fiscal_period_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "ledger_entry_fund_id_fund_id_fk": {
+          "name": "ledger_entry_fund_id_fund_id_fk",
+          "tableFrom": "ledger_entry",
+          "tableTo": "fund",
+          "columnsFrom": [
+            "fund_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "ledger_entry_party_id_party_id_fk": {
+          "name": "ledger_entry_party_id_party_id_fk",
+          "tableFrom": "ledger_entry",
+          "tableTo": "party",
+          "columnsFrom": [
+            "party_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "ledger_entry_posting_id_posting_id_fk": {
+          "name": "ledger_entry_posting_id_posting_id_fk",
+          "tableFrom": "ledger_entry",
+          "tableTo": "posting",
+          "columnsFrom": [
+            "posting_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "ledger_entry_programme_id_programme_id_fk": {
+          "name": "ledger_entry_programme_id_programme_id_fk",
+          "tableFrom": "ledger_entry",
+          "tableTo": "programme",
+          "columnsFrom": [
+            "programme_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "ledger_entry_project_id_project_id_fk": {
+          "name": "ledger_entry_project_id_project_id_fk",
+          "tableFrom": "ledger_entry",
+          "tableTo": "project",
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "ledger_entry_reverses_entry_id_ledger_entry_id_fk": {
+          "name": "ledger_entry_reverses_entry_id_ledger_entry_id_fk",
+          "tableFrom": "ledger_entry",
+          "tableTo": "ledger_entry",
+          "columnsFrom": [
+            "reverses_entry_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "ledger_entry_amount_check": {
+          "name": "ledger_entry_amount_check",
+          "value": "\"ledger_entry\".\"amount_paise\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.movement_allocation": {
+      "name": "movement_allocation",
+      "schema": "",
+      "columns": {
+        "account_movement_id": {
+          "name": "account_movement_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_paise": {
+          "name": "amount_paise",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "document_id": {
+          "name": "document_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "document_type": {
+          "name": "document_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "movement_allocation_movementId_idx": {
+          "name": "movement_allocation_movementId_idx",
+          "columns": [
+            {
+              "expression": "account_movement_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "movement_allocation_document_idx": {
+          "name": "movement_allocation_document_idx",
+          "columns": [
+            {
+              "expression": "document_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "document_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "movement_allocation_account_movement_id_account_movement_id_fk": {
+          "name": "movement_allocation_account_movement_id_account_movement_id_fk",
+          "tableFrom": "movement_allocation",
+          "tableTo": "account_movement",
+          "columnsFrom": [
+            "account_movement_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "movement_allocation_amount_check": {
+          "name": "movement_allocation_amount_check",
+          "value": "\"movement_allocation\".\"amount_paise\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.opening_balance": {
+      "name": "opening_balance",
+      "schema": "",
+      "columns": {
+        "as_on": {
+          "name": "as_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ca_confirmed_on": {
+          "name": "ca_confirmed_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ca_name": {
+          "name": "ca_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fiscal_year_id": {
+          "name": "fiscal_year_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "posting_id": {
+          "name": "posting_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reversal_posting_id": {
+          "name": "reversal_posting_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reversed_at": {
+          "name": "reversed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reversed_by": {
+          "name": "reversed_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "opening_balance_postingId_uidx": {
+          "name": "opening_balance_postingId_uidx",
+          "columns": [
+            {
+              "expression": "posting_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "opening_balance_live_year_uidx": {
+          "name": "opening_balance_live_year_uidx",
+          "columns": [
+            {
+              "expression": "fiscal_year_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"opening_balance\".\"reversal_posting_id\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "opening_balance_created_by_user_id_fk": {
+          "name": "opening_balance_created_by_user_id_fk",
+          "tableFrom": "opening_balance",
+          "tableTo": "user",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "opening_balance_fiscal_year_id_fiscal_year_id_fk": {
+          "name": "opening_balance_fiscal_year_id_fiscal_year_id_fk",
+          "tableFrom": "opening_balance",
+          "tableTo": "fiscal_year",
+          "columnsFrom": [
+            "fiscal_year_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "opening_balance_posting_id_posting_id_fk": {
+          "name": "opening_balance_posting_id_posting_id_fk",
+          "tableFrom": "opening_balance",
+          "tableTo": "posting",
+          "columnsFrom": [
+            "posting_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "opening_balance_reversal_posting_id_posting_id_fk": {
+          "name": "opening_balance_reversal_posting_id_posting_id_fk",
+          "tableFrom": "opening_balance",
+          "tableTo": "posting",
+          "columnsFrom": [
+            "reversal_posting_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "opening_balance_reversed_by_user_id_fk": {
+          "name": "opening_balance_reversed_by_user_id_fk",
+          "tableFrom": "opening_balance",
+          "tableTo": "user",
+          "columnsFrom": [
+            "reversed_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.posting": {
+      "name": "posting",
+      "schema": "",
+      "columns": {
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "economic_on": {
+          "name": "economic_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fiscal_year_id": {
+          "name": "fiscal_year_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "posted_on": {
+          "name": "posted_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reverses_posting_id": {
+          "name": "reverses_posting_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_revision": {
+          "name": "source_revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "source_type": {
+          "name": "source_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "posting_idempotency_uidx": {
+          "name": "posting_idempotency_uidx",
+          "columns": [
+            {
+              "expression": "source_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "source_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "source_revision",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "action",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "posting_reverses_uidx": {
+          "name": "posting_reverses_uidx",
+          "columns": [
+            {
+              "expression": "reverses_posting_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"posting\".\"reverses_posting_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "posting_fiscalYearId_idx": {
+          "name": "posting_fiscalYearId_idx",
+          "columns": [
+            {
+              "expression": "fiscal_year_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "posting_fiscal_year_id_fiscal_year_id_fk": {
+          "name": "posting_fiscal_year_id_fiscal_year_id_fk",
+          "tableFrom": "posting",
+          "tableTo": "fiscal_year",
+          "columnsFrom": [
+            "fiscal_year_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "posting_reverses_posting_id_posting_id_fk": {
+          "name": "posting_reverses_posting_id_posting_id_fk",
+          "tableFrom": "posting",
+          "tableTo": "posting",
+          "columnsFrom": [
+            "reverses_posting_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "posting_source_revision_check": {
+          "name": "posting_source_revision_check",
+          "value": "\"posting\".\"source_revision\" >= 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.notification": {
       "name": "notification",
       "schema": "",
@@ -14797,12 +15923,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "whatsapp_template": {
-          "name": "whatsapp_template",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "whatsapp_text": {
           "name": "whatsapp_text",
           "type": "text",
@@ -15984,116 +17104,6 @@
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
-    },
-    "private.whatsapp_message": {
-      "name": "whatsapp_message",
-      "schema": "private",
-      "columns": {
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "error": {
-          "name": "error",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "idempotency_key": {
-          "name": "idempotency_key",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "whatsapp_message_status",
-          "typeSchema": "private",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'sending'"
-        },
-        "template": {
-          "name": "template",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "wamid": {
-          "name": "wamid",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "whatsapp_message_wamid_idx": {
-          "name": "whatsapp_message_wamid_idx",
-          "columns": [
-            {
-              "expression": "wamid",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "whatsapp_message_created_at_idx": {
-          "name": "whatsapp_message_created_at_idx",
-          "columns": [
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "whatsapp_message_user_id_user_id_fk": {
-          "name": "whatsapp_message_user_id_user_id_fk",
-          "tableFrom": "whatsapp_message",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
     }
   },
   "enums": {
@@ -16176,7 +17186,8 @@
         "income",
         "expense",
         "asset",
-        "liability"
+        "liability",
+        "fund"
       ]
     },
     "public.fcra_role": {
@@ -16211,7 +17222,8 @@
       "values": [
         "bank",
         "cash",
-        "gateway_clearing"
+        "gateway_clearing",
+        "deposit"
       ]
     },
     "public.organisation_registration_type": {
@@ -16511,6 +17523,51 @@
         "adjustment"
       ]
     },
+    "public.account_movement_direction": {
+      "name": "account_movement_direction",
+      "schema": "public",
+      "values": [
+        "in",
+        "out"
+      ]
+    },
+    "public.account_movement_kind": {
+      "name": "account_movement_kind",
+      "schema": "public",
+      "values": [
+        "receipt",
+        "payout",
+        "transfer",
+        "refund",
+        "fee",
+        "tax_remittance",
+        "opening"
+      ]
+    },
+    "public.fiscal_year_event_action": {
+      "name": "fiscal_year_event_action",
+      "schema": "public",
+      "values": [
+        "close",
+        "reopen"
+      ]
+    },
+    "public.ledger_effect": {
+      "name": "ledger_effect",
+      "schema": "public",
+      "values": [
+        "increase",
+        "decrease"
+      ]
+    },
+    "public.ledger_medium": {
+      "name": "ledger_medium",
+      "schema": "public",
+      "values": [
+        "monetary",
+        "in_kind"
+      ]
+    },
     "public.party_kind": {
       "name": "party_kind",
       "schema": "public",
@@ -16775,17 +17832,6 @@
         "ration_card",
         "tax_id_foreign",
         "none"
-      ]
-    },
-    "private.whatsapp_message_status": {
-      "name": "whatsapp_message_status",
-      "schema": "private",
-      "values": [
-        "sending",
-        "sent",
-        "delivered",
-        "read",
-        "failed"
       ]
     }
   },

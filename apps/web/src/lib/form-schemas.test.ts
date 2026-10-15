@@ -154,6 +154,60 @@ describe("toLineItemsPayload", () => {
     expect(payload.map((li) => li.sortOrder)).toEqual([0, 1]);
     expect(payload[0]).not.toHaveProperty("amount");
   });
+
+  it("sends the voucher and payee only for ticked, eligible items", () => {
+    const ticked = {
+      ...newLineItem(),
+      generateVoucher: true,
+      payeeName: " Test Payee ",
+      payeePhone: "+919876543210",
+    };
+    const payload = toLineItemsPayload(
+      [
+        { ...ticked, amount: "900" },
+        // Ticked and named, then the amount grew past the limit.
+        { ...ticked, amount: "1500" },
+        { ...ticked, amount: "900", generateVoucher: false },
+      ],
+      100_000
+    );
+    expect(
+      payload.map((li) => [li.generateVoucher, li.payeeName, li.payeePhone])
+    ).toEqual([
+      [true, "Test Payee", "+919876543210"],
+      [false, null, null],
+      [false, null, null],
+    ]);
+  });
+
+  it("sends no voucher without a limit (vendor payments)", () => {
+    const [item] = toLineItemsPayload([
+      {
+        ...newLineItem(),
+        amount: "500",
+        generateVoucher: true,
+        payeeName: "X",
+      },
+    ]);
+    expect(item?.generateVoucher).toBe(false);
+    expect(item?.payeeName).toBeNull();
+  });
+
+  it("stores the payee name in NFC", () => {
+    const decomposed = "Kr\u0323s\u0323n\u0323a";
+    const [item] = toLineItemsPayload(
+      [
+        {
+          ...newLineItem(),
+          amount: "500",
+          generateVoucher: true,
+          payeeName: decomposed,
+        },
+      ],
+      100_000
+    );
+    expect(item?.payeeName).toBe("Kṛṣṇa");
+  });
 });
 
 describe("computeRunningTotalPaise with capped items", () => {

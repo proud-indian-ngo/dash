@@ -412,6 +412,39 @@ export const PERMISSIONS = [
     id: "finance.view_sensitive",
     name: "View Sensitive Finance Data",
   },
+  {
+    category: "finance",
+    description:
+      "Enter and post the CA-confirmed opening balances, and reverse them for a correction",
+    id: "finance.post_opening",
+    name: "Post Opening Balances",
+  },
+  {
+    category: "finance",
+    description: "Close a financial year so nothing more posts into it",
+    id: "finance.close_year",
+    name: "Close Financial Year",
+  },
+  {
+    category: "finance",
+    description: "Reopen a closed financial year, with a reason",
+    id: "finance.reopen_year",
+    name: "Reopen Financial Year",
+  },
+  {
+    category: "finance",
+    description:
+      "Record manual adjustments to the books, with a mandatory reason",
+    id: "finance.adjust",
+    name: "Adjust the Books",
+  },
+  {
+    category: "finance",
+    description:
+      "Post income records waiting for the books, from Books → Post pending",
+    id: "finance.post_pending",
+    name: "Post Pending Records",
+  },
 
   // ── Donors ──
   {
@@ -426,6 +459,13 @@ export const PERMISSIONS = [
       "Create and edit donors and sponsors, including their contact, ID and bank details",
     id: "donors.manage",
     name: "Manage Donors",
+  },
+  {
+    category: "donors",
+    description:
+      "Issue, void, download and email donation receipts for direct gifts; the PDF carries the donor's full ID number",
+    id: "donors.receipt",
+    name: "Issue Donation Receipts",
   },
 ] as const;
 
@@ -498,7 +538,13 @@ const adminExcluded = new Set<PermissionId>([
   "settings.whatsapp_groups",
   "finance.manage",
   "finance.view_sensitive",
+  "finance.post_opening",
+  "finance.close_year",
+  "finance.reopen_year",
+  "finance.adjust",
+  "finance.post_pending",
   "donors.manage",
+  "donors.receipt",
   "jobs.manage",
   "system.alerts",
 ]);

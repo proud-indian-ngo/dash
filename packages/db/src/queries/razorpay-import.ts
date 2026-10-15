@@ -1,3 +1,4 @@
+import { RAZORPAY_CLEARING_ACCOUNT_CONFIG_KEY } from "@pi-dash/shared/contribution-channel";
 import {
   and,
   count,
@@ -42,7 +43,7 @@ type Reader = Pick<typeof db, "select">;
  */
 
 export const RAZORPAY_CONFIG_KEYS = {
-  clearingAccountId: "razorpay_clearing_account_id",
+  clearingAccountId: RAZORPAY_CLEARING_ACCOUNT_CONFIG_KEY,
   /** JSON: the last finished reconcile run (window, counts, ok or failed); no personal data. */
   lastReconcile: "razorpay_last_reconcile",
   lastWebhookAt: "razorpay_last_webhook_at",

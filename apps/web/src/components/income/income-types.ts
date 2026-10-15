@@ -1,5 +1,6 @@
 import type {
   Contribution,
+  ContributionReceipt,
   ContributionRefund,
   Fund,
   ImportBatch,
@@ -20,6 +21,8 @@ export type ContributionRow = Contribution & {
   party?: Party | null;
   programme?: Programme | null;
   project?: Project | null;
+  /** Receipts pi-dash issued for it, newest first, voided ones included. */
+  receipts?: readonly ContributionReceipt[];
   /** Refunds recorded against it, oldest first; written only by the server. */
   refunds?: readonly ContributionRefund[];
 };

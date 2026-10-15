@@ -110,7 +110,7 @@ conversion; it cannot represent both files.
 | `VOUCHER_ORG_EMAIL` | Organization email |
 | `VOUCHER_ORG_REGISTRATION` | Organization registration number |
 
-Files required: `packages/pdf/assets/logo.png` and `packages/pdf/assets/signature.png` for voucher PDFs to include logo and signature.
+The treasurer signature (`packages/pdf/assets/signature.png`) is embedded in the server bundle at build time. The cash-voucher limit is a setting (Settings → Programmes), not an environment variable.
 
 ### Optional
 
@@ -255,6 +255,8 @@ Output: `apps/web/dist/`.
 
 Production Docker (`Dockerfile`) runs `bun install --frozen-lockfile --ignore-scripts` so `@rocicorp/zero-sqlite3` does not compile a native addon in the slim image. Pin `rocicorp/zero` in `docker-compose.prod.yml` to the same minor as the `@rocicorp/zero` catalog version.
 
+The web build and migrator share the `source` stage. The migrator copies dependencies and database sources directly from it, so building the migration image does not run Vite or require web build arguments.
+
 ## Running in Production
 
 ### Web App (TanStack Start)
@@ -290,13 +292,29 @@ bun run whatsapp:start
 
 Starts `go-whatsapp-web-multidevice` container on port 3100. Pair via QR code at `http://localhost:3100`.
 
+Local and production Compose configurations use the official `ghcr.io/aldinokemal/go-whatsapp-web-multidevice:v9.6.0` image. `pull_policy: always` checks the registry for that pinned version on `docker compose up`; version upgrades require changing the tag.
+
+#### Dashboard
+
+Since GoWA v9, the dashboard is released separately as [gowa-ui](https://github.com/aldinokemal/gowa-ui), but GoWA downloads and serves it itself. Both Compose files explicitly set `APP_UI_ENABLED=true` and `APP_UI_AUTO_UPDATE=true`; no separate UI container is required. Open `http://localhost:3100` locally or the existing GoWA Tailscale URL in production and use `WHATSAPP_AUTH_USER` / `WHATSAPP_AUTH_PASS`.
+
+The first startup needs outbound access to GitHub's API and release downloads. GoWA verifies the release digest and caches the HTML under `/app/storages/ui/`, inside the existing persistent WhatsApp volume. It checks for UI updates every three hours, independently of the pinned GoWA server version. A failed download with no cache displays a fallback page instead of the dashboard.
+
+For a fixed or offline UI build, follow [upstream's dashboard instructions](https://github.com/aldinokemal/go-whatsapp-web-multidevice/blob/v9.6.0/readme.md#web-dashboard-gowa-ui): place the chosen release's `gowa-ui.html` at `/app/storages/ui/index.html` and set `APP_UI_AUTO_UPDATE=false`. `APP_UI_ASSET_SHA256` can additionally enforce an exact asset digest; setting it while tracking latest can reject future releases.
+
+#### Local webhooks and upgrades
+
+GoWA v9.6.0 sends webhook requests with `Content-Length`, so the old buffering proxy is no longer needed. Local Compose sends callbacks directly to `http://host.docker.internal:${DEV_WEB_PORT:-3001}/api/whatsapp/webhook`. For local webhook testing, run the web dev server with `bun run --cwd apps/web dev --host 0.0.0.0` so Docker can reach it. If using a different `DEV_WEB_PORT`, supply the same value to the web process and Compose. The Vite configuration already allows the `host.docker.internal` hostname.
+
+Deploy the app's upstream poll parser and gateway image together. Both Compose configurations subscribe to `WHATSAPP_WEBHOOK_EVENTS=message`; change any device-specific webhook event override from `message.poll_vote` to `message` too. The app reads votes from `payload.poll` and ignores other messages and failed vote decryption. Keep the existing WhatsApp storage volume and `WHATSAPP_WEBHOOK_SECRET` when replacing the fork container.
+
 ### Switching WhatsApp to the Cloud API
 
 Messages to people move to Meta's Cloud API only once both `WHATSAPP_CLOUD_ACCESS_TOKEN` and `WHATSAPP_CLOUD_PHONE_NUMBER_ID` are set; until then everything stays on the gateway. Switch in this order:
 
 1. Check every template is approved: `bun run whatsapp:templates status`. Unapproved ones aren't sent on the Cloud API.
 2. Use a Cloud API number that is neither the GoWA gateway's number nor registered on the WhatsApp or WhatsApp Business app.
-3. Set `WHATSAPP_CLOUD_APP_SECRET`, `WHATSAPP_CLOUD_VERIFY_TOKEN` and `WHATSAPP_CLOUD_BUSINESS_ACCOUNT_ID`, then deploy. The deploy applies migration `0132` (send log and digest columns).
+3. Set `WHATSAPP_CLOUD_APP_SECRET`, `WHATSAPP_CLOUD_VERIFY_TOKEN` and `WHATSAPP_CLOUD_BUSINESS_ACCOUNT_ID`, then deploy. The deploy applies migration `0143` (send log and digest columns).
 4. In the app's WhatsApp → Configuration page, register the webhook `https://<APP_URL>/api/whatsapp/cloud/webhook` with the same verify token, and subscribe to the `messages` field.
 5. Set `WHATSAPP_CLOUD_ACCESS_TOKEN` (system user token, expiry **Never**) and `WHATSAPP_CLOUD_PHONE_NUMBER_ID`, and redeploy. This is the switch.
 
@@ -411,3 +429,35 @@ Migration `0126_razorpay_settlements` adds `gateway_settlement` (one row per Raz
 Migration `0127_bank_statement_lines` adds `statement_line` (one row per bank statement line: bank account, value date, direction, amount, printed balance, masked narration, reference, a keyed line hash unique per account, match status and kind, the matched settlement or contribution, a suggestion, an ignore reason and note) with four enums, and the `bank_csv` value of `import_batch_source`. Lines are synced through Zero to `finance.view` and `finance.manage` only and written only by the server and the contribution mutator. No new environment variables, services or queues. The line hash uses the import hashing key (`DATA_ENCRYPTION_KEY`), so keep that key fixed once statements are imported, as for contribution imports. Statement uploads are kept in `private.import_row` under the existing import retention job.
 
 Migration `0129_give_do_payouts` adds `give_do` to `gateway_settlement_provider` and `give_do_payout` to `import_batch_source`; there are no new tables or data backfills. Apply migrations before deploying the updated web/Zero code. The server-side XLSX reader is included in the web package and lockfile; no new environment variables, services, API credentials or queues are needed. Importers need both `donors.manage` and `finance.manage`, an active give.do clearing account and a fund. Existing `DATA_ENCRYPTION_KEY` and import retention requirements apply unchanged. Give.do imports are synchronous and atomic; re-uploaded UTRs preserve the first settlement and flag changed evidence. The default settlement date is the upload date and can be corrected during review.
+
+### The books (ledger, opening balances, year close)
+
+Migration `0132_ledger_books` adds `posting`, `ledger_entry`, `account_movement`, `movement_allocation`, `opening_balance` and `fiscal_year_event` with their enums, `fiscal_year.closed_by`, the `deposit` value of `org_account_kind` and the `fund` value of `account_head_type`. Migrations `0133_ledger_append_only` and `0134_ledger_guards` add the database guards: no UPDATE or DELETE on the ledger tables and `fiscal_year_event`, `opening_balance` final except its one-time reversal stamp, and no TRUNCATE on any of the six. A reviewed repair must run `SET LOCAL pi_dash.ledger_maintenance = 'on'` in its own transaction. All run in the existing `migrate` service; deploy them with the regenerated Zero schema and the web build. No new environment variables, services or queues, and nothing posts automatically yet.
+
+On start the web server ensures the Corpus Fund and the books' account heads (`Fixed assets`, `Audit fees payable`, `Fund balance`, `Interest on fixed deposit`); if one can't be created because another row already uses its code, the server log says "Books reference data missing" with the code, and the opening balances page says so too. The new permissions `finance.post_opening`, `finance.close_year`, `finance.reopen_year` and `finance.adjust` go to every finance admin and super admin automatically; admins don't get them, and there is no separate Treasurer role. Finance admins can post opening balances and close or reopen the year. After the deploy:
+
+1. In Settings → Organisation accounts, confirm the current account and add the fixed deposit with kind "Fixed deposit".
+2. Once the CA has confirmed the audited FY 2025-26 balance sheet, a finance admin enters the opening balances at Finance → Books → Opening balances (`/finance/books/opening`): each account's balance, one line per fixed asset, the audit fees payable, and the Corpus and General Fund balances, with the CA's name and date. It posts only when assets equal funds plus liabilities. Never seed or script the real figures.
+3. A year can be closed only after it has ended, once the previous year is closed; close FY 2026-27 from Finance → Books after 31 March 2027.
+
+### Income posting (books layer 3-2)
+
+Migration `0135_ledger_income` adds `ledger_source_state` (with the `ledger_source_status` enum) and `statement_line.transfer_org_account_id` with its check. Run it in the existing `migrate` service and deploy it with the regenerated Zero schema and the web build. No new environment variables or services. Two new pg-boss queues, created by the jobs worker at start: `ledger-post-source` (one job per changed income record) and `ledger-post-pending` (the sweep, scheduled daily at 03:30 India time). On start the web server adds the account heads `Donations received`, `In-kind donations`, `Other income`, `In-kind consumed` and `Gateway charges` (fixed IDs; a code clash is logged as "Books reference data missing" and the affected records wait with that reason). The new permission `finance.post_pending` goes to every finance admin and super admin automatically. After the deploy:
+
+1. Post the opening balances first if they aren't (the deploy steps above).
+2. A finance admin opens Finance → Books and chooses **Post pending** once. This is the backfill from 1 April 2026: every contribution, refund, other income, processed payout and marked transfer since then posts. It works for 20 seconds in the request and hands the rest to the `ledger-post-pending` job; the daily run catches anything left. Running it again is safe.
+3. Check the "Waiting to post" list on Books. A payout waits for its bank account when more than one bank account is active and its bank statement line isn't matched (match the line on Bank statements); a bank line marked as a transfer before this release waits for its other account (unmatch it and mark it again, picking the fixed deposit or the other bank account).
+
+### Donation receipts
+
+Migration `0136_donation_receipts` adds `contribution_receipt` (synced through Zero) and, in schema `private`, `contribution_receipt_counter` and `contribution_receipt_snapshot`. Deploy it with the regenerated Zero schema and the web build. No new environment variables or services; the new pg-boss queue `send-contribution-receipt` is created on start. Receipts with the 80G line need `DATA_ENCRYPTION_KEY` (already required for donor IDs); emailing needs `RESEND_API_KEY` and `EMAIL_FROM`.
+
+The new permission `donors.receipt` goes to every finance admin and super admin automatically; admins don't get it. After the deploy, a finance admin:
+
+1. Fills in Settings → Organisation accounts → Donation receipts: the trust's registered name, address, PAN, and the signatory's name and designation (printed on every receipt; never seed the real values).
+2. Checks the 80G registration (URN and date) under Donations return in the same page.
+3. Has the CA confirm the receipt wording marked CA TO CONFIRM in `packages/shared/src/receipts.ts` before the first receipt is sent.
+
+### CA handoff workbook (books layer 3-5)
+
+Nothing to configure: no migration, environment variable, service or queue. The web app gains the server-only `write-excel-file` dependency, installed by the existing `bun install` layer. After the deploy a finance admin can download the workbook from Finance → Books → ⋯ → Download CA workbook (XLSX) once the opening balances are posted.

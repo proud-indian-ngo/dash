@@ -16,8 +16,8 @@
     "@hugeicons/core-free-icons": "catalog:",
     "@hugeicons/react": "catalog:",
     "@proudindian/design": "github:proud-indian-ngo/design#v0.3.4",
-    "@tanstack/react-table": "^9.2.8",
-    "@tanstack/react-virtual": "^3.14.15",
+    "@tanstack/react-table": "^9.3.1",
+    "@tanstack/react-virtual": "^3.14.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -38,7 +38,7 @@
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
-    "shadcn": "^4.21.4",
+    "shadcn": "^4.21.5",
     "typescript": "catalog:"
   }
 }

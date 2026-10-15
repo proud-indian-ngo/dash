@@ -3,6 +3,11 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const AUDITED_SERVER_FUNCTIONS = [
+  "closeFiscalYearFn",
+  "postOpeningBalancesFn",
+  "postPendingFn",
+  "reopenFiscalYearFn",
+  "reverseOpeningBalancesFn",
   "createBankStatementImport",
   "createContributionImport",
   "createGiveDoPayoutImport",
@@ -14,9 +19,12 @@ const AUDITED_SERVER_FUNCTIONS = [
   "deleteTemporaryUpload",
   "deleteUserAdmin",
   "deleteVendor",
+  "emailContributionReceipt",
   "findBankStatementMatches",
+  "exportCaWorkbook",
   "exportDonationsReturn",
   "importPastRazorpayPayments",
+  "issueContributionReceipts",
   "postEventRsvpPoll",
   "resumeUserEmail",
   "revealPartyIdentifier",
@@ -40,6 +48,7 @@ const AUDITED_SERVER_FUNCTIONS = [
   "updateStatementLine",
   "updateUserAdmin",
   "uploadPhotoToImmich",
+  "voidContributionReceipt",
 ];
 
 const EXEMPT_SERVER_FUNCTIONS = [
@@ -56,10 +65,12 @@ const EXEMPT_SERVER_FUNCTIONS = [
   "getMissingDonorDetails",
   "getPartyDetails",
   "getProfilePictureUploadUrl",
+  "getReceiptCandidates",
   "getRazorpaySettings",
   "getRequestUploadUrl",
   "getScheduledMessageUploadUrl",
   "getSettlementSummary",
+  "getYearCloseChecklist",
   "getStatementLinkCandidates",
   "getUserEmailSuppression",
   "getVendorDetails",

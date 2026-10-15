@@ -72,8 +72,7 @@ export const Route = createFileRoute("/api/whatsapp/webhook")({
 
         const result = whatsAppPollVoteWebhookSchema.safeParse(parsedBody);
         if (!result.success) {
-          log.set({ issues: result.error.issues });
-          log.warn("unsupported_whatsapp_webhook_payload");
+          log.set({ outcome: "ignored", reason: "not_a_decrypted_poll_vote" });
           log.emit();
           return Response.json({ ok: true }, { status: 200 });
         }
@@ -82,12 +81,12 @@ export const Route = createFileRoute("/api/whatsapp/webhook")({
           const outcome = await processWhatsAppPollVoteWebhook(result.data);
           log.set({
             outcome,
-            pollMessageId: result.data.payload.poll_message_id,
+            pollMessageId: result.data.payload.poll.poll_id,
           });
           log.emit();
           return Response.json({ ok: true }, { status: 200 });
         } catch (error) {
-          log.set({ pollMessageId: result.data.payload.poll_message_id });
+          log.set({ pollMessageId: result.data.payload.poll.poll_id });
           log.error(error instanceof Error ? error : String(error));
           log.emit();
           return Response.json(

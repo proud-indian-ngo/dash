@@ -5,7 +5,12 @@ import { promisify } from "node:util";
 import { expect, type Page } from "@playwright/test";
 
 import { waitForZeroReady } from "../fixtures/test";
-import { selectRequestEvent } from "../helpers/request-event";
+import {
+  type ChargeOption,
+  chargeRequestTo,
+  chargeRequestToProgramme,
+  selectRequestEvent,
+} from "../helpers/request-event";
 import { ApprovalDetailPage } from "./approval-detail-page";
 import { ListPage } from "./list-page";
 import { RequestFormPage } from "./request-form-page";
@@ -94,6 +99,11 @@ export class ReimbursementPage {
     });
   }
 
+  /** Links a stand-in voucher to the open reimbursement's opted-in items. */
+  async linkVoucherInDatabase(): Promise<void> {
+    await this.runApprovalFixture("link-voucher");
+  }
+
   /**
    * Marks the open reimbursement rejected while it keeps a stored payment
    * screenshot, as when an approved request is later rejected.
@@ -121,17 +131,22 @@ export class ReimbursementPage {
 
   async createReimbursement(
     titleSuffix: string,
-    event?: { city: string; name: string }
+    event?: ChargeOption,
+    amount?: string
   ): Promise<string> {
     const title = `E2E ${titleSuffix} ${Date.now()}`;
     await this.navigateToNew();
 
     await this.form.selectBankAccount();
     await this.form.fillTitle(title);
-    if (event) {
+    if (event && "name" in event) {
       await selectRequestEvent(this.page, event.name, event.city);
+    } else if (event) {
+      await this.form.selectCity("Bangalore");
+      await chargeRequestToProgramme(this.page, event.programme);
     } else {
       await this.form.selectCity("Bangalore");
+      await chargeRequestTo(this.page, "Organisation (admin)");
     }
 
     if (this.type === "reimbursement") {
@@ -139,7 +154,7 @@ export class ReimbursementPage {
     }
 
     await this.form.fillLineItem({
-      amount: this.type === "reimbursement" ? "100" : "200",
+      amount: amount ?? (this.type === "reimbursement" ? "100" : "200"),
       description: "Test item",
     });
     await this.form.submit();
@@ -154,6 +169,7 @@ export class ReimbursementPage {
     await this.form.selectBankAccount();
     await this.form.fillTitle(title);
     await this.form.selectCity("Bangalore");
+    await chargeRequestTo(this.page, "Organisation (admin)");
     await this.selectExpenseDate();
 
     await this.form.fillLineItem({
@@ -162,6 +178,7 @@ export class ReimbursementPage {
     });
 
     await this.form.toggleCashVoucher(0);
+    await this.form.fillPayeeName(0, "Test Payee");
 
     await this.form.submit();
     await this.waitForDetail(title);

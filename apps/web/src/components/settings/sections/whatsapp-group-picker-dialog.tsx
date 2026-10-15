@@ -260,7 +260,7 @@ export function WhatsAppGroupPickerDialog({
         <DialogHeader>
           <DialogTitle>Add WhatsApp Groups</DialogTitle>
           <DialogDescription className="sr-only">
-            Select WhatsApp groups to add to pi-dash
+            Select WhatsApp groups to add to the dashboard
           </DialogDescription>
         </DialogHeader>
 

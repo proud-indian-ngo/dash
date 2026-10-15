@@ -12,6 +12,8 @@ import {
   requestProgrammeId,
   requestProgrammeName,
   requestProgrammeOptionId,
+  requestToClearValue,
+  TO_CLEAR_FILTER,
 } from "@/lib/request-programme";
 import { sumAmounts } from "@/lib/stats";
 
@@ -52,7 +54,9 @@ export function getVendorPaymentFilterValue(
     case "event":
       return row.eventId ?? null;
     case "programme":
-      return requestProgrammeId(row.event);
+      return requestProgrammeId(row);
+    case TO_CLEAR_FILTER.path:
+      return requestToClearValue(row);
     case "status":
       return row.status;
     case "submittedAt":
@@ -95,10 +99,13 @@ export function createVendorPaymentFilterFields(
       "Programme",
       optionsFromRows(
         rows,
-        (row) => requestProgrammeOptionId(row.event),
-        (row) => requestProgrammeName(row.event)
+        (row) => requestProgrammeOptionId(row),
+        (row) => requestProgrammeName(row)
       )
     ),
+    selectField(TO_CLEAR_FILTER.path, TO_CLEAR_FILTER.label, [
+      { label: TO_CLEAR_FILTER.optionLabel, value: TO_CLEAR_FILTER.value },
+    ]),
     selectField(
       "createdBy",
       "Created by",

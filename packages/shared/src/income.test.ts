@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  contributionDisplayStatus,
   contributionRuleIssues,
   countsAsReceived,
   currentFinancialYear,
@@ -73,6 +74,14 @@ describe("isInFinancialYear", () => {
 });
 
 describe("contribution statuses", () => {
+  it("shows receipted as received: receipting has its own column", () => {
+    expect(contributionDisplayStatus("receipted")).toBe("received");
+    expect(contributionDisplayStatus(null)).toBe("received");
+    expect(contributionDisplayStatus("pending")).toBe("pending");
+    expect(contributionDisplayStatus("refunded")).toBe("refunded");
+    expect(contributionDisplayStatus("reversed")).toBe("reversed");
+  });
+
   it("edits only pending and received contributions", () => {
     expect(isContributionEditable("pending")).toBe(true);
     expect(isContributionEditable("received")).toBe(true);
@@ -84,6 +93,9 @@ describe("contribution statuses", () => {
     expect(isContributionDeletable("received", [])).toBe(true);
     expect(isContributionDeletable("received", [{ id: "r" }])).toBe(false);
     expect(isContributionDeletable("receipted", [])).toBe(false);
+    // A voided receipt still keeps the gift.
+    expect(isContributionDeletable("received", [], [{ id: "r" }])).toBe(false);
+    expect(isContributionDeletable("received", [], [])).toBe(true);
   });
 
   it("names the refund-locked fields an edit would change", () => {
@@ -244,6 +256,8 @@ describe("contributionRuleIssues", () => {
     expect(
       contributionRuleIssues({
         ...base,
+        // Only a cheque may be reported as other (a bearer cheque).
+        channel: "cheque",
         donationType: "other",
         donationTypeDescription: "  ",
         reportingMode: "other",
@@ -252,10 +266,11 @@ describe("contributionRuleIssues", () => {
     expect(
       contributionRuleIssues({
         ...base,
+        channel: "cheque",
         donationType: "other",
         donationTypeDescription: "Event sponsorship",
         reportingMode: "other",
-        reportingModeDescription: "Demand draft",
+        reportingModeDescription: "Bearer cheque",
       })
     ).toEqual([]);
   });

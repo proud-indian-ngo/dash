@@ -3,6 +3,12 @@ import type {
   DonationType,
   PartyIdType,
 } from "@pi-dash/shared/constants";
+import {
+  type ChannelAccount,
+  type ChannelAccountSetup,
+  channelAccountIssue,
+} from "@pi-dash/shared/contribution-channel";
+import { donationTypeProgrammeIssue } from "@pi-dash/shared/contribution-programme";
 import { todayInKolkata } from "@pi-dash/shared/income";
 import {
   MAX_AMOUNT_MESSAGE,
@@ -593,4 +599,52 @@ function maskTwelveDigits(text: string): string {
 /** A value for display: PAN- and Aadhaar-shaped runs reduced to their last four characters. */
 export function maskIdentifiers(text: string): string {
   return maskTwelveDigits(maskPans(text));
+}
+
+/** Whether free text holds a PAN- or Aadhaar-shaped run, as `maskIdentifiers` finds them. */
+export function containsIdentifier(text: string): boolean {
+  return maskIdentifiers(text) !== text;
+}
+
+/**
+ * Adds the channel rules to a normalised row: its channel must fit the
+ * batch's account (`channelAccountIssue`), as the contribution mutators
+ * require. A row that breaks them is an error the reviewer sees, and a run
+ * never imports it.
+ */
+export function withChannelRules(
+  result: NormalizeResult,
+  account: Pick<ChannelAccount, "id" | "kind">,
+  setup: ChannelAccountSetup
+): NormalizeResult {
+  // Imports report under `defaultReportingMode(channel)`, which always fits
+  // the channel, so only the account needs checking.
+  const issue = channelAccountIssue(result.row.channel, account, setup);
+  return issue
+    ? {
+        ...result,
+        errors: [...result.errors, { field: "channel", message: issue }],
+      }
+    : result;
+}
+
+/**
+ * Adds the programme rule to a normalised row: a specific grant or CSR gift
+ * needs the batch's programme (or project), and a corpus gift must have
+ * none (`donationTypeProgrammeIssue`), as the contribution mutators require.
+ */
+export function withProgrammeRule(
+  result: NormalizeResult,
+  batch: { programmeId: string | null; projectId: string | null }
+): NormalizeResult {
+  const issue = donationTypeProgrammeIssue({
+    donationType: result.row.donationType,
+    ...batch,
+  });
+  return issue
+    ? {
+        ...result,
+        errors: [...result.errors, { field: "donationType", message: issue }],
+      }
+    : result;
 }

@@ -8,8 +8,6 @@ export const MAX_KALAKRITI_MUSIC_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
 export const MAX_KALAKRITI_MUSIC_FILES = 2;
 export const MAX_KALAKRITI_SCORECARD_SIZE_BYTES = 20 * 1024 * 1024;
 export const MAX_KALAKRITI_SCORECARD_FILES = 10;
-export const VOUCHER_AMOUNT_THRESHOLD = 1000;
-export const VOUCHER_AMOUNT_THRESHOLD_PAISE = VOUCHER_AMOUNT_THRESHOLD * 100;
 
 export const ALLOWED_IMAGE_TYPES = [
   "image/jpeg",
@@ -96,6 +94,18 @@ export const vendorPaymentNoInvoiceReasonValues = [
 export type VendorPaymentNoInvoiceReason =
   (typeof vendorPaymentNoInvoiceReasonValues)[number];
 
+/**
+ * Which work an expense served: an event (its programme comes from the
+ * event), a programme or project without an event, or running the
+ * organisation itself (admin).
+ */
+export const expenseChargedToValues = [
+  "event",
+  "programme",
+  "organisation",
+] as const;
+export type ExpenseChargedTo = (typeof expenseChargedToValues)[number];
+
 export const reminderTargetValues = ["participants", "group", "both"] as const;
 export type ReminderTarget = (typeof reminderTargetValues)[number];
 
@@ -123,18 +133,29 @@ export const fundRestrictionValues = [
 ] as const;
 export type FundRestriction = (typeof fundRestrictionValues)[number];
 
+/**
+ * `fund` heads carry fund balances (the trust's equity, such as the opening
+ * Corpus and General Fund balances); the fund itself is the entry's fund_id.
+ */
 export const accountHeadTypeValues = [
   "income",
   "expense",
   "asset",
   "liability",
+  "fund",
 ] as const;
 export type AccountHeadType = (typeof accountHeadTypeValues)[number];
 
+/**
+ * `deposit` is a fixed deposit: it gets money only by transfer from or to
+ * the current account, never takes donations or bank statement imports, and
+ * its interest is other income.
+ */
 export const orgAccountKindValues = [
   "bank",
   "cash",
   "gateway_clearing",
+  "deposit",
 ] as const;
 export type OrgAccountKind = (typeof orgAccountKindValues)[number];
 
@@ -167,6 +188,22 @@ export const COST_CENTRE_IDS = {
 } as const;
 
 export const GENERAL_FUND_ID = "01930000-0000-7000-8000-000000000201";
+
+/** Restricted corpus fund; created by the ledger reference data. */
+export const CORPUS_FUND_ID = "01930000-0000-7000-8000-000000000202";
+
+/** Account heads the books need from day one (ledger reference data). */
+export const LEDGER_ACCOUNT_HEAD_IDS = {
+  auditFeesPayable: "01930000-0000-7000-8000-000000000802",
+  donationsReceived: "01930000-0000-7000-8000-000000000805",
+  fdInterest: "01930000-0000-7000-8000-000000000804",
+  fixedAssets: "01930000-0000-7000-8000-000000000801",
+  fundBalance: "01930000-0000-7000-8000-000000000803",
+  gatewayCharges: "01930000-0000-7000-8000-000000000808",
+  inKindConsumed: "01930000-0000-7000-8000-000000000807",
+  inKindDonations: "01930000-0000-7000-8000-000000000806",
+  otherIncome: "01930000-0000-7000-8000-000000000809",
+} as const;
 
 /**
  * GiveIndia, which runs give.do and passes its donors' gifts on: recorded as

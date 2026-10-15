@@ -11,6 +11,7 @@ import {
   GIVE_INDIA_PARTY_NAME,
   PROGRAMME_IDS,
 } from "@pi-dash/shared/constants";
+import { RAZORPAY_CLEARING_ACCOUNT_CONFIG_KEY } from "@pi-dash/shared/contribution-channel";
 import {
   CONTRIBUTOR_ROLES,
   GIVER_ROLES,
@@ -37,6 +38,7 @@ import { uuidv7 } from "uuidv7";
 import { db } from "..";
 import { decryptSecret, hasEncryptionKey } from "../encryption";
 import { IMPORT_RUN_LOCK } from "../import-retention";
+import { appConfig } from "../schema/app-config";
 import {
   fund,
   orgAccount,
@@ -85,6 +87,36 @@ export async function insertImportBatch(
 }
 
 /**
+ * What the channel rules read for a batch: its account's ID and kind (null
+ * when it has none or it is gone) and the Razorpay clearing account chosen
+ * in Settings. Pass the import transaction to read them inside it.
+ */
+export async function findChannelRuleContext(
+  orgAccountId: string | null,
+  reader: Pick<typeof db, "select"> = db
+): Promise<{
+  account: { id: string; kind: string } | null;
+  razorpayClearingAccountId: string | null;
+}> {
+  const [account] = orgAccountId
+    ? await reader
+        .select({ id: orgAccount.id, kind: orgAccount.kind })
+        .from(orgAccount)
+        .where(eq(orgAccount.id, orgAccountId))
+        .limit(1)
+    : [];
+  const [setting] = await reader
+    .select({ value: appConfig.value })
+    .from(appConfig)
+    .where(eq(appConfig.key, RAZORPAY_CLEARING_ACCOUNT_CONFIG_KEY))
+    .limit(1);
+  return {
+    account: account ?? null,
+    razorpayClearingAccountId: setting?.value || null,
+  };
+}
+
+/**
  * Checks the account, fund, programme and project every row of a batch
  * gets, with the rules of the contribution form: all active, a project fixes
  * its programme, and the Unallocated holder is refused. Returns the
@@ -97,10 +129,11 @@ export async function resolveImportSettings(input: {
   projectId: string | null;
 }): Promise<{ programmeId: string | null }> {
   const [account] = await db
-    .select({ active: orgAccount.active })
+    .select({ active: orgAccount.active, kind: orgAccount.kind })
     .from(orgAccount)
     .where(eq(orgAccount.id, input.orgAccountId));
-  if (!account?.active) {
+  // A fixed deposit gets money only by transfer, never a donation.
+  if (!account?.active || account.kind === "deposit") {
     throw new Error("Pick an active account the money was deposited into");
   }
   const [fundRow] = await db

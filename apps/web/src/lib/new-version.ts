@@ -30,7 +30,7 @@ export async function fetchBuildId(
 }
 
 function showNewVersionToast() {
-  toast("A new version of pi-dash is available", {
+  toast("A new version is available", {
     action: { label: "Reload", onClick: () => window.location.reload() },
     description: "Reload to get the latest changes.",
     duration: Number.POSITIVE_INFINITY,

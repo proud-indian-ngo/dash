@@ -1,12 +1,4 @@
 import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-} from "@pi-dash/design-system/components/ui/combobox";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -18,7 +10,12 @@ import type { BankAccount, ExpenseCategory } from "@pi-dash/zero/schema";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
+import {
+  ChargedToFields,
+  type CurrentChargeProgramme,
+} from "@/components/expenses/charged-to-fields";
 import { AttachmentsSection } from "@/components/form/attachments-section";
+import { ComboboxField } from "@/components/form/combobox-field";
 import { CustomField } from "@/components/form/custom-field";
 import { DateField } from "@/components/form/date-field";
 import { FormActions } from "@/components/form/form-actions";
@@ -43,6 +40,7 @@ interface StandardReimbursementFieldsProps {
   bankAccountOptions: { label: string; value: string }[];
   bankAccountsStatus: "loading" | "complete" | "error";
   categoryList: ExpenseCategory[];
+  currentChargeProgramme?: CurrentChargeProgramme | null;
   disableBankAccountSelection: boolean;
   eventOptions: SelectOption[];
   form: FormWithField;
@@ -160,57 +158,12 @@ function BankAccountsSettingsLink() {
   );
 }
 
-function EventCombobox({
-  eventOptions,
-  field,
-}: {
-  eventOptions: SelectOption[];
-  field: FormFieldApi<string | undefined>;
-}) {
-  const items = ["", ...eventOptions.map((o) => o.value)];
-  const optionMap = new Map(eventOptions.map((o) => [o.value, o.label]));
-  const itemToStringLabel = useEventCallback((value: string) =>
-    value === "" ? "No event" : (optionMap.get(value) ?? String(value))
-  );
-  const handleValueChange = useEventCallback((value: string | null) =>
-    field.handleChange(value === "" || value === null ? undefined : value)
-  );
-
-  return (
-    <Combobox
-      items={items}
-      itemToStringLabel={itemToStringLabel}
-      onValueChange={handleValueChange}
-      value={field.state.value ?? ""}
-    >
-      <ComboboxInput
-        className="w-full"
-        id={field.name}
-        onBlur={field.handleBlur}
-        placeholder="No event"
-        showClear={!!field.state.value}
-      />
-      <ComboboxContent>
-        <ComboboxList>
-          {(itemValue) => (
-            <ComboboxItem key={itemValue} value={itemValue}>
-              {itemValue === ""
-                ? "No event"
-                : (optionMap.get(itemValue) ?? itemValue)}
-            </ComboboxItem>
-          )}
-        </ComboboxList>
-        <ComboboxEmpty>No matching events.</ComboboxEmpty>
-      </ComboboxContent>
-    </Combobox>
-  );
-}
-
 export function StandardReimbursementFields({
   bankAccountList,
   bankAccountOptions,
   bankAccountsStatus,
   categoryList,
+  currentChargeProgramme,
   disableBankAccountSelection,
   eventOptions,
   form,
@@ -290,19 +243,31 @@ export function StandardReimbursementFields({
             name="expenseDate"
           />
         ) : null}
-        {requestType === "reimbursement" ? (
-          <CustomField<string | undefined> label="Event" name="eventId">
-            {(field) => (
-              <EventCombobox eventOptions={eventOptions} field={field} />
-            )}
-          </CustomField>
-        ) : null}
         {renderBankAccountField()}
       </div>
 
+      {requestType === "reimbursement" ? (
+        <ChargedToFields
+          currentProgramme={currentChargeProgramme}
+          eventField={
+            <ComboboxField
+              emptyMessage="No matching events."
+              isRequired
+              label="Event"
+              name="eventId"
+              options={eventOptions}
+              placeholder="Search events"
+            />
+          }
+        />
+      ) : null}
+
       <Separator />
 
-      <LineItemsEditor categories={categoryList} showVoucher />
+      <LineItemsEditor
+        categories={categoryList}
+        showVoucher={requestType === "reimbursement"}
+      />
 
       <Separator />
 

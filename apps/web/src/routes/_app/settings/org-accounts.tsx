@@ -1,6 +1,7 @@
 import { env } from "@pi-dash/env/web";
 import { createFileRoute } from "@tanstack/react-router";
 
+import { DonationReceiptsSection } from "@/components/settings/sections/donation-receipts-section";
 import { DonationsReturnSection } from "@/components/settings/sections/donations-return-section";
 import { OrgAccountsSection } from "@/components/settings/sections/org-accounts-section";
 import { SettingsPage } from "@/components/settings/settings-layout";
@@ -28,6 +29,7 @@ function OrgAccountsSettingsPage() {
       <div className="flex flex-col gap-6">
         <OrgAccountsSection />
         <DonationsReturnSection />
+        <DonationReceiptsSection />
       </div>
     </SettingsPage>
   );

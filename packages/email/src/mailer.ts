@@ -15,7 +15,14 @@ export const BATCH_SIZE = 100;
 let client: Resend | undefined;
 let nextRequestAt = 0;
 
+export interface EmailAttachment {
+  content: Buffer;
+  filename: string;
+}
+
 export interface EmailMessage {
+  /** Files sent with a single email (never through the batch endpoint). */
+  attachments?: EmailAttachment[];
   headers?: Record<string, string>;
   html: string;
   subject: string;

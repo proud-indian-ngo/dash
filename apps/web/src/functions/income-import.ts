@@ -29,6 +29,7 @@ import {
   reviewImportBatch,
   runImportBatch,
 } from "@/lib/income-import/server";
+import { queueLedgerSweep } from "@/lib/ledger-posting";
 import { authMiddleware } from "@/middleware/auth";
 
 /**
@@ -154,7 +155,7 @@ export const runContributionImport = createServerFn({ method: "POST" })
     const { session } = context;
     // Existing donors the run will fill, planned from the stored rows.
     const fillMissingCount = await countChosenFills(data);
-    return await runSessionAuditedAction(
+    const result = await runSessionAuditedAction(
       session,
       context.headers,
       {
@@ -167,4 +168,7 @@ export const runContributionImport = createServerFn({ method: "POST" })
       },
       async () => await runImportBatch(data, session.user.id)
     );
+    // The imported gifts post to the books in one sweep.
+    queueLedgerSweep("after_import", session.user.id);
+    return result;
   });

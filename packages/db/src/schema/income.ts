@@ -24,6 +24,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
+import { contributionReceipt } from "./contribution-receipt";
 import { fund, orgAccount, programme, project } from "./finance-dimensions";
 import { importBatch } from "./import-batch";
 import { party } from "./party";
@@ -256,6 +257,7 @@ export const contributionRelations = relations(
       fields: [contribution.projectId],
       references: [project.id],
     }),
+    receipts: many(contributionReceipt),
     refunds: many(contributionRefund),
   })
 );

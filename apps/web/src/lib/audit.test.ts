@@ -28,6 +28,8 @@ import {
 
 const TARGET_ID = "019b1111-1111-7111-8111-111111111111";
 const TEAM_ID = "019b2222-2222-7222-8222-222222222222";
+const NEW_ID = "019b3333-3333-7333-8333-333333333333";
+const REPLACED_ID = "019b4444-4444-7444-8444-444444444444";
 const BETTER_AUTH_USER_ID = "0123456789abcdefghijklmnopqrstuv";
 const options = {
   action: "user.update",
@@ -185,6 +187,31 @@ describe("audit metadata", () => {
     );
     expect(config.metadata?.changedFields).toEqual(["key", "value"]);
     expect(JSON.stringify(config)).not.toContain("1200000");
+  });
+
+  it("records a signed voucher upload by IDs, never its object key", () => {
+    const summary = summarizeZeroMutation(
+      "reimbursement.attachSignedVoucher",
+      {
+        lineItemId: TARGET_ID,
+        reimbursementId: TEAM_ID,
+        replacesAttachmentId: REPLACED_ID,
+        signedCopy: {
+          filename: "signed.jpg",
+          id: NEW_ID,
+          objectKey: "app/attachments/tmp/u/signed.jpg",
+        },
+      },
+      "actor-1"
+    );
+    expect(summary.metadata?.changedFields).toEqual([
+      "reimbursementId",
+      "signedCopy",
+    ]);
+    expect(summary.metadata?.relatedIds).toMatchObject({
+      lineItemId: TARGET_ID,
+    });
+    expect(JSON.stringify(summary)).not.toContain("signed.jpg");
   });
 
   it("keeps IDs and field names without storing sensitive values", () => {
@@ -497,6 +524,22 @@ describe("audited action runner", () => {
       id: "team_lead",
       type: "role",
     });
+  });
+
+  it("merges counts known only after the action into the final metadata", async () => {
+    await createAuditedActionRunner(store)(
+      { ...options, metadata: { requestedCount: 3 } },
+      async () => ({ issued: 2 }),
+      undefined,
+      undefined,
+      (result) => ({ issuedCount: result.issued })
+    );
+    expect(store.finalize).toHaveBeenCalledWith(
+      expect.any(String),
+      "success",
+      undefined,
+      { issuedCount: 2, requestedCount: 3 }
+    );
   });
 
   it("retries finalization and leaves pending when it cannot finish", async () => {

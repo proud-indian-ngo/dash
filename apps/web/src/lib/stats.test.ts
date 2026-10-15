@@ -263,6 +263,7 @@ describe("computeEventData", () => {
 
 describe("computeProgrammeData", () => {
   const item = (programme: string | null | undefined, amount: number) => ({
+    chargedTo: "event" as const,
     event:
       programme === undefined
         ? null
@@ -282,15 +283,32 @@ describe("computeProgrammeData", () => {
     ]);
   });
 
-  it("buckets requests without an event and events whose programme has not loaded", () => {
+  it("counts a programme chosen without an event and admin spend", () => {
     const result = computeProgrammeData([
-      item(undefined, 10),
+      item("Education", 100),
+      {
+        chargedProgramme: { name: "Education" },
+        chargedProgrammeId: "edu",
+        chargedTo: "programme",
+        lineItems: [{ amountPaise: 30 }],
+      },
+      { chargedTo: "organisation", lineItems: [{ amountPaise: 70 }] },
+    ]);
+    expect(result).toEqual([
+      { amount: 130, count: 2, name: "Education" },
+      { amount: 70, count: 1, name: "Admin" },
+    ]);
+  });
+
+  it("buckets legacy advances and programmes that have not loaded", () => {
+    const result = computeProgrammeData([
+      { lineItems: [{ amountPaise: 10 }] },
       item(null, 20),
       item("Unallocated", 5),
     ]);
     expect(result).toEqual([
       { amount: 20, count: 1, name: "Programme unknown" },
-      { amount: 10, count: 1, name: "No event" },
+      { amount: 10, count: 1, name: "No programme" },
       { amount: 5, count: 1, name: "Unallocated" },
     ]);
   });

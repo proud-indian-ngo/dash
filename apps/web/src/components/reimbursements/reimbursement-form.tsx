@@ -8,11 +8,13 @@ import type {
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { format } from "date-fns";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { uuidv7 } from "uuidv7";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
+import type { CurrentChargeProgramme } from "@/components/expenses/charged-to-fields";
 import { FormLayout } from "@/components/form/form-layout";
+import { useCashVoucherLimit } from "@/hooks/use-cash-voucher-limit";
 import { DATE } from "@/lib/date-formats";
 import { newLineItem } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
@@ -22,12 +24,14 @@ import { REQUEST_TYPE_LABELS } from "@/lib/reimbursement-types";
 import {
   getDefaultValues,
   type RequestFormValues,
-  requestFormSchema,
+  createRequestFormSchema,
 } from "./form/reimbursement-form.schema";
 import { buildMutation } from "./reimbursement-form-mutations";
 import { StandardReimbursementFields } from "./standard-reimbursement-fields";
 
 export interface ReimbursementFormProps {
+  /** The programme the request is charged to, kept listed when editing. */
+  currentChargeProgramme?: CurrentChargeProgramme | null;
   disableBankAccountSelection?: boolean;
   initialValues?: Partial<RequestFormValues> & { id?: string };
   onCancel: () => void;
@@ -36,6 +40,7 @@ export interface ReimbursementFormProps {
 }
 
 export function ReimbursementForm({
+  currentChargeProgramme,
   disableBankAccountSelection = false,
   initialValues,
   onCancel,
@@ -45,6 +50,7 @@ export function ReimbursementForm({
   return (
     <AppErrorBoundary level="section">
       <ReimbursementFormInner
+        currentChargeProgramme={currentChargeProgramme}
         disableBankAccountSelection={disableBankAccountSelection}
         initialValues={initialValues}
         onCancel={onCancel}
@@ -56,6 +62,7 @@ export function ReimbursementForm({
 }
 
 interface ReimbursementFormInnerProps {
+  currentChargeProgramme?: CurrentChargeProgramme | null;
   disableBankAccountSelection: boolean;
   initialValues?: Partial<RequestFormValues> & { id?: string };
   onCancel: () => void;
@@ -64,6 +71,7 @@ interface ReimbursementFormInnerProps {
 }
 
 function ReimbursementFormInner({
+  currentChargeProgramme,
   disableBankAccountSelection,
   initialValues,
   onCancel,
@@ -130,6 +138,12 @@ function ReimbursementFormInner({
     type: requestType,
   } as RequestFormValues;
 
+  const voucherLimitPaise = useCashVoucherLimit();
+  const requestFormSchema = useMemo(
+    () => createRequestFormSchema(voucherLimitPaise),
+    [voucherLimitPaise]
+  );
+
   const form = useForm({
     defaultValues,
     onSubmit: async ({ value: rawValue }) => {
@@ -141,7 +155,8 @@ function ReimbursementFormInner({
         value,
         id,
         existingId,
-        bankAccountList
+        bankAccountList,
+        voucherLimitPaise
       );
 
       const mutatorNameMap = {
@@ -222,6 +237,7 @@ function ReimbursementFormInner({
               bankAccountOptions={bankAccountOptions}
               bankAccountsStatus={bankAccountsStatus}
               categoryList={categoryList}
+              currentChargeProgramme={currentChargeProgramme}
               disableBankAccountSelection={disableBankAccountSelection}
               eventOptions={filteredOptions}
               form={form}

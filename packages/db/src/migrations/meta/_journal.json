@@ -929,8 +929,85 @@
     {
       "idx": 132,
       "version": "7",
-      "when": 1792072882491,
-      "tag": "0132_whatsapp_cloud_api",
+      "when": 1792039800000,
+      "tag": "0132_ledger_books",
+      "breakpoints": true
+    },
+    {
+      "idx": 133,
+      "version": "7",
+      "when": 1792039805000,
+      "tag": "0133_ledger_append_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 134,
+      "version": "7",
+      "when": 1792039810000,
+      "tag": "0134_ledger_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 135,
+      "version": "7",
+      "when": 1792039815000,
+      "tag": "0135_ledger_income",
+      "breakpoints": true
+    },
+    {
+      "idx": 136,
+      "version": "7",
+      "when": 1792039820000,
+      "tag": "0136_donation_receipts",
+      "breakpoints": true
+    },
+    {
+      "idx": 137,
+      "version": "7",
+      "when": 1792039825000,
+      "tag": "0137_charged_to",
+      "breakpoints": true
+    },
+    {
+      "idx": 138,
+      "version": "7",
+      "when": 1792039830000,
+      "tag": "0138_backfill_charged_to",
+      "breakpoints": true
+    },
+    {
+      "idx": 139,
+      "version": "7",
+      "when": 1792039835000,
+      "tag": "0139_charged_to_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 140,
+      "version": "7",
+      "when": 1792039840000,
+      "tag": "0140_charged_to_single_team",
+      "breakpoints": true
+    },
+    {
+      "idx": 141,
+      "version": "7",
+      "when": 1792039845000,
+      "tag": "0141_charged_to_no_event",
+      "breakpoints": true
+    },
+    {
+      "idx": 142,
+      "version": "7",
+      "when": 1792081132482,
+      "tag": "0142_voucher_payee",
+      "breakpoints": true
+    },
+    {
+      "idx": 143,
+      "version": "7",
+      "when": 1792095365709,
+      "tag": "0143_whatsapp_cloud_api",
       "breakpoints": true
     }
   ]

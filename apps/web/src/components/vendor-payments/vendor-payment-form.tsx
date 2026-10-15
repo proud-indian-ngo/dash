@@ -9,6 +9,8 @@ import { useState } from "react";
 import { uuidv7 } from "uuidv7";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
+import type { CurrentChargeProgramme } from "@/components/expenses/charged-to-fields";
+import { chargedToPayload } from "@/components/expenses/charged-to-schema";
 import { FormLayout } from "@/components/form/form-layout";
 import { DATE } from "@/lib/date-formats";
 import { newLineItem, toLineItemsPayload } from "@/lib/form-schemas";
@@ -22,12 +24,15 @@ import {
 } from "./vendor-payment-form.schema";
 
 export interface VendorPaymentFormProps {
+  /** The programme the request is charged to, kept listed when editing. */
+  currentChargeProgramme?: CurrentChargeProgramme | null;
   initialValues?: Partial<VendorPaymentFormValues> & { id?: string };
   onCancel: () => void;
   onSaved: (id: string) => void;
 }
 
 export function VendorPaymentForm({
+  currentChargeProgramme,
   initialValues,
   onCancel,
   onSaved,
@@ -85,7 +90,7 @@ export function VendorPaymentForm({
       const payload = {
         attachments: value.attachments,
         city: value.city,
-        eventId: value.eventId ?? undefined,
+        ...chargedToPayload(value),
         id,
         lineItems,
         title: value.title,
@@ -137,6 +142,7 @@ export function VendorPaymentForm({
             return (
               <VendorPaymentFields
                 categoryList={categoryList}
+                currentChargeProgramme={currentChargeProgramme}
                 eventOptions={filteredOptions}
                 isEdit={isEdit}
                 onCancel={onCancel}

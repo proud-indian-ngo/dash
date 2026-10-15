@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@pi-dash/db": "workspace:*",
+    "@pi-dash/email": "workspace:*",
     "@pi-dash/env": "workspace:*",
     "@pi-dash/notifications": "workspace:*",
     "@pi-dash/observability": "workspace:*",
@@ -21,7 +22,7 @@
     "date-fns": "catalog:",
     "drizzle-orm": "catalog:",
     "evlog": "catalog:",
-    "pg-boss": "^12.37.1",
+    "pg-boss": "^12.38.0",
     "uuidv7": "catalog:"
   },
   "devDependencies": {

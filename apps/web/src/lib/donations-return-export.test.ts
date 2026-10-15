@@ -60,7 +60,7 @@ let facts = () => ({
   gifts: [
     gift({ id: "g1" }),
     gift({ amountPaise: 50_000, id: "g2", refundedPaise: 10_000 }),
-    gift({ id: "g3", partyId: "p2" }),
+    gift({ channel: "razorpay", id: "g3", partyId: "p2" }),
     gift({
       deductionEligible: "no",
       eligibilityReason: "Not a donation",
@@ -68,6 +68,10 @@ let facts = () => ({
     }),
   ],
 });
+
+mock.module("@pi-dash/db/queries/contribution-receipts", () => ({
+  loadLiveReceiptNumbers: async () => new Map([["g1", "PI/2026-27/0001"]]),
+}));
 
 mock.module("@pi-dash/db/queries/donations-return", () => ({
   loadReturnFacts: async (_range: unknown, idMode: string) => {
@@ -77,8 +81,12 @@ mock.module("@pi-dash/db/queries/donations-return", () => ({
   loadReturnRegistration: async () => registration,
 }));
 
-const { buildAllGiftsFile, buildUploadFile, DonationsReturnError } =
-  await import("./donations-return-export");
+const {
+  buildAllGiftsFile,
+  buildUploadFile,
+  DonationsReturnError,
+  loadAllGiftsRows,
+} = await import("./donations-return-export");
 
 const fy = {
   endsOn: "2027-03-31",
@@ -202,11 +210,35 @@ describe("buildAllGiftsFile", () => {
       "Tax certificate",
       "Status",
       "Reason",
+      "Receipt issued by",
+      "Receipt number",
       "Contribution ID",
     ]);
     expect(lines[1]).toContain("PAN ending 234F");
+    expect(lines[1]).toContain("Proud Indian,PI/2026-27/0001,g1");
+    expect(lines[2]).toContain("Proud Indian,Not issued yet,g2");
+    expect(lines[3]).toContain("Razorpay,,g3");
     expect(lines[2]).toContain("500.00,100.00,400.00");
     expect(lines[3]).toContain("Needs attention,No ID number");
     expect(lines[4]).toContain("Excluded,Gift excluded: Not a donation");
+  });
+});
+
+describe("loadAllGiftsRows (CA workbook)", () => {
+  beforeEach(() => {
+    idModes = [];
+  });
+
+  it("masks every ID to its last four characters", async () => {
+    const rows = await loadAllGiftsRows(fy);
+    expect(idModes).toEqual(["validate"]);
+    expect(JSON.stringify(rows)).not.toContain(PAN);
+    expect(rows[0]?.id).toBe("PAN ending 234F");
+    expect([rows[0]?.receiptIssuer, rows[0]?.receiptNumber]).toEqual([
+      "Proud Indian",
+      "PI/2026-27/0001",
+    ]);
+    // A donor without an ID stays blank.
+    expect(rows[2]?.id).toBe("");
   });
 });

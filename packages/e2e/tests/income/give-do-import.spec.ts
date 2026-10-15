@@ -85,9 +85,10 @@ async function uploadGiveDo(page: Page, name: string, csv: Buffer) {
 
   // Uploads start as give.do, on the give.do clearing account with the channel fixed.
   await expect(page.getByLabel("Source")).toContainText("give.do");
-  await expect(
-    page.getByRole("combobox", { name: "Deposited into" })
-  ).toHaveValue(/give\.do clearing/);
+  const account = page.getByRole("combobox", { name: "Deposited into" });
+  await expect(account).toHaveValue(/give\.do clearing/);
+  // The channel fixes the account (the combobox marks itself data-disabled).
+  await expect(account).toHaveAttribute("data-disabled", "");
   await expect(page.getByLabel("Channel")).toHaveCount(0);
 
   await page

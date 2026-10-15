@@ -9,7 +9,7 @@ import {
   MAX_APPROVAL_SCREENSHOT_SIZE_BYTES,
 } from "@pi-dash/shared/constants";
 import { log } from "evlog";
-import { useRef, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -36,6 +36,8 @@ interface ApproveDialogProps {
   onConfirm: (message: string, screenshotKey?: string) => Promise<boolean>;
   onOpenChange: (open: boolean) => void;
   open: boolean;
+  /** Facts the approver checks before approving, such as what it is charged to. */
+  summary?: ReactNode;
 }
 
 export function ApproveDialog({
@@ -46,6 +48,7 @@ export function ApproveDialog({
   onConfirm,
   onOpenChange,
   open,
+  summary,
 }: ApproveDialogProps) {
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -224,6 +227,7 @@ export function ApproveDialog({
               : `Approve only after the claimant has been paid. This will approve the ${entityLabel} and notify the submitter.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
+        {summary ? <div className="text-sm">{summary}</div> : null}
         <div className="flex flex-col gap-2">
           <Label htmlFor="approve-message">Message (optional)</Label>
           <Textarea

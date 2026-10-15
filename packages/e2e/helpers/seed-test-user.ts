@@ -259,6 +259,7 @@ const E2E_ORG_ACCOUNT_ID = "01930000-0000-7000-8000-000000000711";
 const E2E_RAZORPAY_CLEARING_ID = "01930000-0000-7000-8000-000000000713";
 /** The account a give.do upload defaults to. */
 const E2E_GIVE_DO_ACCOUNT_ID = "01930000-0000-7000-8000-000000000714";
+const E2E_DEPOSIT_ACCOUNT_ID = "01930000-0000-7000-8000-000000000715";
 const INCOME_DONOR_ID = "01930000-0000-7000-8000-000000000721";
 const INCOME_SPONSOR_ID = "01930000-0000-7000-8000-000000000723";
 
@@ -298,6 +299,17 @@ async function ensureIncomeFixtures(userId: string): Promise<void> {
       updatedAt: now,
     })
     .onConflictDoNothing();
+  // The books' fixed deposit (opening balances E2E).
+  await db
+    .insert(orgAccount)
+    .values({
+      createdAt: now,
+      id: E2E_DEPOSIT_ACCOUNT_ID,
+      kind: "deposit",
+      name: "E2E Fixed deposit",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
   await db
     .insert(orgAccount)
     .values({
@@ -306,6 +318,16 @@ async function ensureIncomeFixtures(userId: string): Promise<void> {
       kind: "gateway_clearing",
       name: "E2E Razorpay Clearing",
       updatedAt: now,
+    })
+    .onConflictDoNothing();
+  // Razorpay gifts land in it (the contribution form fixes the account); the
+  // Razorpay spec chooses it again and puts the setting back afterwards.
+  await db
+    .insert(appConfig)
+    .values({
+      key: "razorpay_clearing_account_id",
+      updatedAt: now,
+      value: E2E_RAZORPAY_CLEARING_ID,
     })
     .onConflictDoNothing();
   await db
@@ -498,6 +520,185 @@ async function ensureReturnFixtures(userId: string): Promise<void> {
     .where(eq(appConfig.key, "donations_return_registration"));
 }
 
+const RECEIPT_DONOR_ID = "01930000-0000-7000-8000-000000000741";
+const RECEIPT_DONOR_PAN = "ABCPR1234R";
+/** A receipt donor without an address, until the receipts spec adds one. */
+const RECEIPT_DETAILS_DONOR_ID = "01930000-0000-7000-8000-000000000746";
+const RECEIPT_DETAILS_DONOR_PAN = "ABCPD1234D";
+
+/**
+ * Donation receipt fixtures: fake receipt details in Settings, and a donor
+ * with a PAN and an address who gave once by UPI (receiptable here) and
+ * once through give.do (receipted by give.do, so never here). Both gifts
+ * are dated today. The 80G registration is left to the spec, which enters
+ * it through Settings as the donations return spec does. Fake details only.
+ */
+async function ensureReceiptFixtures(userId: string): Promise<void> {
+  const now = new Date();
+  const todayInIndia = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+  }).format(now);
+  const settings = JSON.stringify({
+    orgAddress: "1 Test Road, Testville 560001",
+    orgName: "E2E Test Trust",
+    orgPan: "AAATE0000E",
+    signatoryDesignation: "Test Treasurer",
+    signatoryName: "E2E Signatory",
+  });
+  await db
+    .insert(appConfig)
+    .values({
+      key: "donation_receipt_settings",
+      updatedAt: now,
+      value: settings,
+    })
+    .onConflictDoUpdate({
+      set: { updatedAt: now, value: settings },
+      target: appConfig.key,
+    });
+  if (!hasEncryptionKey()) {
+    return;
+  }
+  await db
+    .insert(party)
+    .values({
+      createdAt: now,
+      createdBy: userId,
+      displayName: "E2E Receipt Donor",
+      id: RECEIPT_DONOR_ID,
+      kind: "person",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(partyRole)
+    .values({
+      active: true,
+      id: "01930000-0000-7000-8000-000000000742",
+      partyId: RECEIPT_DONOR_ID,
+      role: "donor",
+      since: now,
+    })
+    .onConflictDoNothing();
+  const details = {
+    addressLine1: "7, Test Street",
+    city: "Bengaluru",
+    email: "receipt-donor@pi-dash.test",
+    idNumberEncrypted: encryptSecret(
+      RECEIPT_DONOR_PAN,
+      partyIdNumberContext(RECEIPT_DONOR_ID)
+    ),
+    idNumberLast4: visibleTail(RECEIPT_DONOR_PAN),
+    idType: "pan" as const,
+    pincode: "560001",
+    state: "Karnataka",
+    updatedAt: now,
+    updatedBy: userId,
+  };
+  await db
+    .insert(partyPrivate)
+    .values({ ...details, partyId: RECEIPT_DONOR_ID })
+    .onConflictDoUpdate({ set: details, target: partyPrivate.partyId });
+  const gifts = [
+    {
+      amountPaise: 300_000,
+      channel: "upi" as const,
+      id: "01930000-0000-7000-8000-000000000743",
+      orgAccountId: E2E_ORG_ACCOUNT_ID,
+      reference: "E2E-RECEIPT-UPI",
+    },
+    {
+      amountPaise: 110_000,
+      channel: "give_do" as const,
+      id: "01930000-0000-7000-8000-000000000744",
+      orgAccountId: E2E_GIVE_DO_ACCOUNT_ID,
+      reference: "E2E-RECEIPT-GIVEDO",
+    },
+    {
+      amountPaise: 120_000,
+      channel: "razorpay" as const,
+      id: "01930000-0000-7000-8000-000000000745",
+      orgAccountId: E2E_RAZORPAY_CLEARING_ID,
+      reference: "E2E-RECEIPT-RAZORPAY",
+    },
+  ];
+  for (const gift of gifts) {
+    await db
+      .insert(contribution)
+      .values({
+        ...gift,
+        createdAt: now,
+        createdBy: userId,
+        fundId: GENERAL_FUND_ID,
+        partyId: RECEIPT_DONOR_ID,
+        receivedOn: todayInIndia,
+        reportingMode: "electronic_or_account_payee",
+        status: "received",
+        updatedAt: now,
+      })
+      .onConflictDoNothing();
+  }
+
+  await db
+    .insert(party)
+    .values({
+      createdAt: now,
+      createdBy: userId,
+      displayName: "E2E Receipt Details Donor",
+      id: RECEIPT_DETAILS_DONOR_ID,
+      kind: "person",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(partyRole)
+    .values({
+      active: true,
+      id: "01930000-0000-7000-8000-000000000747",
+      partyId: RECEIPT_DETAILS_DONOR_ID,
+      role: "donor",
+      since: now,
+    })
+    .onConflictDoNothing();
+  const missingAddress = {
+    addressLine1: null,
+    idNumberEncrypted: encryptSecret(
+      RECEIPT_DETAILS_DONOR_PAN,
+      partyIdNumberContext(RECEIPT_DETAILS_DONOR_ID)
+    ),
+    idNumberLast4: visibleTail(RECEIPT_DETAILS_DONOR_PAN),
+    idType: "pan" as const,
+    pincode: null,
+    updatedAt: now,
+    updatedBy: userId,
+  };
+  await db
+    .insert(partyPrivate)
+    .values({ ...missingAddress, partyId: RECEIPT_DETAILS_DONOR_ID })
+    .onConflictDoUpdate({ set: missingAddress, target: partyPrivate.partyId });
+  await db
+    .insert(contribution)
+    .values({
+      amountPaise: 130_000,
+      channel: "upi",
+      createdAt: now,
+      createdBy: userId,
+      fundId: GENERAL_FUND_ID,
+      id: "01930000-0000-7000-8000-000000000748",
+      orgAccountId: E2E_ORG_ACCOUNT_ID,
+      partyId: RECEIPT_DETAILS_DONOR_ID,
+      receivedOn: todayInIndia,
+      reference: "E2E-RECEIPT-DETAILS",
+      reportingMode: "electronic_or_account_payee",
+      status: "received",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+}
+
 async function ensureExpenseCategories(): Promise<void> {
   await Promise.all(
     SEED_CATEGORIES.map(async (name) => {
@@ -656,6 +857,7 @@ async function ensureReimbursement(
 
   const now = new Date();
   await db.insert(reimbursement).values({
+    chargedTo: "event",
     city: "bangalore",
     createdAt: now,
     eventId,
@@ -714,6 +916,7 @@ async function ensureUpcomingEventReimbursement(
 
   const now = new Date();
   await db.insert(reimbursement).values({
+    chargedTo: "event",
     city: "bangalore",
     createdAt: now,
     eventId,
@@ -838,6 +1041,7 @@ async function ensureEventVendorPayment(
   }
 
   await db.insert(vendorPayment).values({
+    chargedTo: "event",
     city: "bangalore",
     createdAt: now,
     eventId,
@@ -884,6 +1088,7 @@ async function ensureExportVendorPayment(userId: string): Promise<void> {
 
   const createdAt = new Date("2026-07-01T00:00:00.000Z");
   await db.insert(vendorPayment).values({
+    chargedTo: "organisation",
     city: "bangalore",
     createdAt,
     id: SEED_EXPORT_VENDOR_PAYMENT_ID,
@@ -1610,6 +1815,7 @@ async function seed(): Promise<void> {
   await ensureDonorParty(superAdminUserId);
   await ensureIncomeFixtures(superAdminUserId);
   await ensureReturnFixtures(superAdminUserId);
+  await ensureReceiptFixtures(superAdminUserId);
   await ensureExportVendorPayment(superAdminUserId);
   await ensureUpcomingEventReimbursement(superAdminUserId, upcomingEvent.id);
 }

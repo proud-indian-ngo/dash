@@ -12,6 +12,11 @@ import type {
   OtherIncomeKind,
 } from "./constants";
 import { directoryRoleValues, GIVE_INDIA_PARTY_ID } from "./constants";
+import {
+  CHANNEL_REPORTING_MODES,
+  reportingModeIssue,
+} from "./contribution-channel";
+import { donationTypeProgrammeIssue } from "./contribution-programme";
 import { sumPaise } from "./money";
 
 /**
@@ -91,6 +96,31 @@ export const CONTRIBUTION_STATUS_LABELS: Record<ContributionStatus, string> = {
   reversed: "Reversed",
 };
 
+/**
+ * The statuses the Status column and filter show: the money's lifecycle
+ * only. Receipting has its own column, so a stored `receipted` shows as
+ * Received (the stored value and its edit lock are unchanged).
+ */
+export const contributionDisplayStatusValues = [
+  "pending",
+  "received",
+  "refunded",
+  "reversed",
+] as const;
+export type ContributionDisplayStatus =
+  (typeof contributionDisplayStatusValues)[number];
+
+/** A stored status as the Status column shows it; null reads as received. */
+export function contributionDisplayStatus(
+  status: string | null | undefined
+): ContributionDisplayStatus {
+  return (contributionDisplayStatusValues as readonly string[]).includes(
+    status ?? ""
+  )
+    ? (status as ContributionDisplayStatus)
+    : "received";
+}
+
 export const CONTRIBUTION_SOURCE_LABELS: Record<ContributionSource, string> = {
   import: "Imported",
   manual: "Manual",
@@ -103,17 +133,11 @@ export const OTHER_INCOME_KIND_LABELS: Record<OtherIncomeKind, string> = {
   misc: "Miscellaneous",
 };
 
-/** The reporting mode a channel implies; the person recording it may change it. */
+/** The reporting mode a channel implies; only a cheque may be reported otherwise. */
 export function defaultReportingMode(
   channel: ContributionChannel
 ): ContributionReportingMode {
-  if (channel === "cash") {
-    return "cash";
-  }
-  if (channel === "in_kind") {
-    return "in_kind";
-  }
-  return "electronic_or_account_payee";
+  return CHANNEL_REPORTING_MODES[channel][0] ?? "electronic_or_account_payee";
 }
 
 /** A contribution can be edited or deleted only before it is receipted or reversed. */
@@ -151,12 +175,21 @@ export function refundLockedChanges(
   );
 }
 
-/** Whether a contribution may be deleted: editable and no refund recorded against it. */
+/**
+ * Whether a contribution may be deleted: editable, no refund recorded
+ * against it, and no receipt ever issued for it (voided ones included,
+ * since receipt numbers are never reused).
+ */
 export function isContributionDeletable(
   status: string,
-  refunds?: readonly unknown[] | null
+  refunds?: readonly unknown[] | null,
+  receipts?: readonly unknown[] | null
 ): boolean {
-  return isContributionEditable(status) && (refunds?.length ?? 0) === 0;
+  return (
+    isContributionEditable(status) &&
+    (refunds?.length ?? 0) === 0 &&
+    (receipts?.length ?? 0) === 0
+  );
 }
 
 /**
@@ -206,7 +239,7 @@ export function netReceivedPaise(contribution: NetReceivedInput): number {
  * "Partly refunded" instead of its stored status (some, not all, has gone
  * back and the status is not `refunded`), and how much was refunded, for a
  * tooltip or a detail row. Null when nothing was refunded. Derived, never
- * stored; a receipted contribution its refunds cover keeps "Receipted".
+ * stored; a receipted contribution its refunds cover keeps its status (shown as Received).
  */
 export function refundSummary(
   contribution: NetReceivedInput
@@ -253,6 +286,9 @@ export interface ContributionRuleInput {
   inKindDescription?: string | null;
   inKindValuationBasis?: string | null;
   orgAccountId?: string | null;
+  /** With the project, checked against the donation type (`donationTypeProgrammeIssue`). */
+  programmeId?: string | null;
+  projectId?: string | null;
   reportingMode: ContributionReportingMode;
   reportingModeDescription?: string | null;
 }
@@ -265,10 +301,13 @@ export interface RuleIssue {
 const blank = (value: string | null | undefined) => !value?.trim();
 
 /**
- * Cross-field rules: "other" needs a description, cash and in-kind channels
- * fix the reporting mode, in-kind needs what was given and how it was valued
- * and has no account, everything else needs the account it was deposited
- * into, and excluding a gift from the donations return needs a reason.
+ * Cross-field rules: "other" needs a description, the channel limits the
+ * reporting mode (`CHANNEL_REPORTING_MODES`), in-kind needs what was given
+ * and how it was valued and has no account, everything else needs the
+ * account it was deposited into, the donation type decides whether a
+ * programme is needed, allowed or ruled out (`donationTypeProgrammeIssue`),
+ * and excluding a gift from the donations return needs a reason. Which account fits the channel needs the accounts,
+ * so `channelAccountIssue` checks that separately.
  */
 export function contributionRuleIssues(v: ContributionRuleInput): RuleIssue[] {
   const issues: RuleIssue[] = [];
@@ -284,19 +323,15 @@ export function contributionRuleIssues(v: ContributionRuleInput): RuleIssue[] {
       path: "donationTypeDescription",
     });
   }
-  // A cash or in-kind channel fixes the mode, so the donations return can
-  // never report such a gift under another mode.
-  if (v.channel === "cash" && v.reportingMode !== "cash") {
-    issues.push({
-      message: "A cash gift is reported as cash",
-      path: "reportingMode",
-    });
+  // The channel decides the mode, so the donations return can never report
+  // a gift under a mode its channel rules out.
+  const modeIssue = reportingModeIssue(v.channel, v.reportingMode);
+  if (modeIssue) {
+    issues.push({ message: modeIssue, path: "reportingMode" });
   }
-  if (v.channel === "in_kind" && v.reportingMode !== "in_kind") {
-    issues.push({
-      message: "An in-kind gift is reported as in kind",
-      path: "reportingMode",
-    });
+  const programmeIssue = donationTypeProgrammeIssue(v);
+  if (programmeIssue) {
+    issues.push({ message: programmeIssue, path: "programmeId" });
   }
   if (v.deductionEligible === "no" && blank(v.eligibilityReason)) {
     issues.push({

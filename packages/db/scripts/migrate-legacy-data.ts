@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { PROGRAMME_IDS } from "@pi-dash/shared/constants";
 import { rupeesToPaise } from "@pi-dash/shared/money";
 import { S3Client } from "bun";
 import { eq, ne } from "drizzle-orm";
@@ -824,6 +825,9 @@ async function insertReimbursementRow(
   const updatedAt = parseTimestamp(r.updated_at);
 
   await tx.insert(schema.reimbursement).values({
+    // Legacy claims carry no event; finance clears them from Unallocated.
+    chargedProgrammeId: PROGRAMME_IDS.unallocated,
+    chargedTo: "programme",
     city: mapCity(r.city_belongs_to),
     expenseDate: resolveExpenseDate(r),
     id: newId,

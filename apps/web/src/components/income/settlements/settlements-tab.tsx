@@ -15,6 +15,7 @@ import { useQuery } from "@rocicorp/zero/react";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
+import { parseAsString, useQueryState } from "nuqs";
 import { useEffect, useState } from "react";
 
 import { NotFoundState } from "@/components/shared/not-found-state";
@@ -29,10 +30,10 @@ import type { SettlementRow } from "./settlement-types";
 import { SettlementsTable } from "./settlements-table";
 
 export const AWAITING_SETTLEMENT_HINT =
-  "Razorpay gifts in pi-dash that no processed settlement has paid out yet (each gift less Razorpay's fee and GST), less their refunds that no processed settlement has taken back yet. A gift recorded by hand and linked to a Razorpay payment has no fee recorded, so it counts in full until settled.";
+  "Razorpay gifts recorded here that no processed settlement has paid out yet (each gift less Razorpay's fee and GST), less their refunds that no processed settlement has taken back yet. A gift recorded by hand and linked to a Razorpay payment has no fee recorded, so it counts in full until settled.";
 
 export const GIVE_DO_AWAITING_SETTLEMENT_HINT =
-  "give.do gifts in pi-dash that no processed payout has paid out yet, each gift less give.do's recorded charge.";
+  "give.do gifts recorded here that no processed payout has paid out yet, each gift less give.do's recorded charge.";
 
 /** Changes whenever a settlement is added or its amount or status changes. */
 const settlementsSignature = (rows: readonly SettlementRow[]) =>
@@ -104,7 +105,8 @@ export function SettlementsTab() {
   const isLoading =
     (summary === null && !failed) ||
     (rows.length === 0 && result.type !== "complete");
-  const [openId, setOpenId] = useState<string | null>(null);
+  // In the URL, so the books can link to a payout.
+  const [openId, setOpenId] = useQueryState("settlement", parseAsString);
   const open = useEventCallback((row: SettlementRow) => setOpenId(row.id));
 
   const items: StatItem[] = [
@@ -171,8 +173,8 @@ export function SettlementsTab() {
         data-testid="settled-payments-not-imported"
       >
         {notImported === 1
-          ? "1 settled payment isn't in pi-dash yet"
-          : `${notImported.toLocaleString("en-IN")} settled payments aren't in pi-dash yet`}
+          ? "1 settled payment isn't recorded here yet"
+          : `${notImported.toLocaleString("en-IN")} settled payments aren't recorded here yet`}
         , so Awaiting settlement leaves {notImported === 1 ? "it" : "them"} out.
         Bring {notImported === 1 ? "it" : "them"} in with{" "}
         <Link

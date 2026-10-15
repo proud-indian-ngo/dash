@@ -134,6 +134,13 @@ function buildInitialValues(resolved: ResolvedRequest) {
         }
       : {}),
     ...("eventId" in request ? { eventId: request.eventId ?? undefined } : {}),
+    ...("chargedTo" in request
+      ? {
+          chargedProgrammeId: request.chargedProgrammeId ?? undefined,
+          chargedProjectId: request.chargedProjectId ?? undefined,
+          chargedTo: request.chargedTo,
+        }
+      : {}),
     attachments: mapAttachmentsToFormValues(request.attachments),
     lineItems: mapLineItemsToFormValues(request.lineItems),
     ...(expenseDate ? { expenseDate } : {}),
@@ -201,6 +208,11 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
             />
             <div className="mt-6">
               <ReimbursementForm
+                currentChargeProgramme={
+                  "chargedProgramme" in request && request.chargedProgramme
+                    ? request.chargedProgramme
+                    : null
+                }
                 disableBankAccountSelection={isAdminEditingAnotherUser}
                 initialValues={buildInitialValues(resolved)}
                 onCancel={stableOnCancel1}

@@ -1,6 +1,6 @@
 # Finance Phase 0: ledger cutover contracts
 
-> **Status**: draft for founder and CA review (14 October 2026). Nothing here is built yet; it fixes what Phase 3 (posting controls and activation) builds and what Phase 4 exports. Items marked **Proposal** need sign-off; items under "Questions for the CA" need an answer before the ledger is switched on.
+> **Status**: draft for founder and CA review (14 October 2026). Phase 3 layer 1 builds the opening-balance document, the `deposit` account kind and the year close (founder go-ahead 14 October 2026; see "Books (layer 3-1)" in `finance-and-programmes.md`); layer 3-2 implements the income rows of section 3 with the founder's answers in section 4, still pending the CA's confirmation (see "Income posting (layer 3-2)"); the rest fixes what later Phase 3 layers build and what Phase 4 exports. Items marked **Proposal** need sign-off; items under "Questions for the CA" need an answer before the ledger is switched on.
 > **Load when**: ledger cutover, opening balances, posting rules in plain language, backfill of FY 2026-27, CA handoff workbook columns, fixed deposit account, audited FY 2025-26 figures.
 > **Related**: `finance-and-programmes.md` (sections 2, 3.8, 3.13 and 5), `vendor-payments.md`
 
@@ -61,17 +61,17 @@ From the audited balance sheet at 31 March 2026, in rupees.
 
 **Balancing check**: assets 4,00,648 + 7,00,000 + 4,391 = **11,05,039**; funds and liabilities 1,001 + 10,94,038 + 10,000 = **11,05,039**. The General Fund is the opening 4,45,052 plus the FY 2025-26 surplus of 6,48,986.
 
-**Proposal**: the opening balances are entered as one opening-balance document listing every line above. It cannot be posted unless its assets equal its funds plus liabilities, and it carries the CA's confirmation (name and date) before posting. Today's posting table (`finance-and-programmes.md` section 3.8) has only "opening in" movements for cash; this document extends it to the fund, liability and asset lines, which are recognition-side opening lines with no money movement.
+**Built (layer 3-1)**: a finance admin (`finance.post_opening`) enters the figures at Finance → Books → Opening balances (`/finance/books/opening`); pi-dash never seeds or hard-codes them. The document lists the accounts, one line per fixed asset (its name in the line), the liabilities and each fund; account lines become opening movements, the rest opening entries under the `Fixed assets`, `Audit fees payable` and `Fund balance` heads. A correction reverses the whole document and posts a new one. The evidence upload of the signed statements is not built yet. Original proposal: the opening balances are entered as one opening-balance document listing every line above. It cannot be posted unless its assets equal its funds plus liabilities, and it carries the CA's confirmation (name and date) before posting. Today's posting table (`finance-and-programmes.md` section 3.8) has only "opening in" movements for cash; this document extends it to the fund, liability and asset lines, which are recognition-side opening lines with no money movement.
 
 ### The fixed deposit
 
-pi-dash's account kinds today are bank, cash and gateway clearing. **Proposal**: add a `deposit` kind for fixed deposits, so the FD:
+**Built (layer 3-1)**: org accounts have a `deposit` kind for fixed deposits ("Fixed deposit" in Settings → Organisation accounts), so the FD:
 
 - never appears as a "deposited into" choice for donations and never takes bank statement imports;
 - gets its money only by transfer: placing an FD is a transfer out of the current account into the FD account, and a maturity or premature closure is a transfer back;
 - earns interest that is recorded as other income (`other_income`, kind interest), never as a donation.
 
-Fallback if the CA or founder prefers no schema change: a bank-kind account named "Fixed deposit", with the same rules kept by practice rather than by the system.
+The contribution form, the contribution mutator and income imports refuse a deposit account, and bank statements only list bank accounts. Transfers between the current account and the FD post from layer 3-3 onwards.
 
 The audited figures show FD interest of 3,817 as income on accrual. No accrued interest receivable appears at 31 March 2026, so nothing opens for it.
 
@@ -115,6 +115,20 @@ Restated from the trigger table in `finance-and-programmes.md` section 3.8:
 | A mistake is corrected | The wrong entry reversed and the right one added | Only if money really moved |
 | Opening balances at 1 April 2026 | Opening fund, liability and asset lines (section 2) | Opening amounts into the bank and FD accounts |
 
+**Implemented for income (layer 3-2, founder answers, CA confirmation pending).** The income rows above post automatically, by the rules in `packages/db/src/ledger/income-rules.ts` (one module, so a change the CA asks for is a one-place edit):
+
+- A gateway gift is income on the donor's payment date at the full amount. Razorpay's fee and GST are an expense at the gift; give.do's charges are an expense on the payout day, from the payout file. No TDS, no cash.
+- A gift captured before 1 April 2026 whose payout reached the bank on or after it posts on the payout's bank day as FY 2026-27 income (question 1, item 4); one paid out before 1 April never posts.
+- A refund made before 1 April 2026 of such a gift, taken back by a payout that reached the bank on or after 1 April, posts on that payout's bank day too, for the same reason (no gateway balance at 31 March 2026). Founder rule; **CA to confirm**.
+- The payout is a transfer of the net amount out of the clearing account into the bank account its bank statement line is matched to (else the only active bank account), on that line's date (else the settlement date).
+- A refund dated on or after 1 April 2026 reduces FY 2026-27 donation income on its own day, even for an earlier gift (question 1, item 6).
+- An in-kind gift is in-kind income and an equal in-kind consumption expense (used as received; keeping it as an asset comes later).
+- FD interest (other income of kind interest, or anything credited to the fixed deposit) is `Interest on fixed deposit`, as it is credited; question 9 (accrual) is still open.
+- Moving money between the current account and the FD posts once the reviewer marks the bank line as a transfer and picks the other account; between two bank accounts, from whichever side is marked first, once.
+- A reversed gift posts nothing (like a pending one); a refunded gift posts its receipt and its refunds.
+- A correction is a reversal plus a new posting. A classification change (programme, project, fund, donor) reverses and reposts the income line only; a change to the amount, date or account reverses and reposts the money too.
+- Records that can't post yet (year closed, the bank account not known, a missing account head) wait on the Books page's "Waiting to post" list with the reason; closing a year is blocked while any of its records wait.
+
 Two consequences the CA should see:
 
 - Each posting is final. A change is a reversal plus a new entry, so the CA's workbook always shows both.
@@ -151,6 +165,10 @@ Founder's answers (14 October 2026) are shown under each question as **Founder**
    - **Founder**: yes, `PI/2026-27/0001`, starting at 0001; no receipts were issued by hand since 1 April 2026.
 
 ## 5. CA handoff workbook (XLSX)
+
+**Implemented (layer 3-5), for the CA to review.** Finance → Books → Download CA workbook (XLSX); details and decisions in "CA handoff workbook (layer 3-5)" of `finance-and-programmes.md`. Differences from the table below: each account's movements sit between a balance brought forward and a balance carried forward row; Movement ID, Entry ID and Memo columns follow the contract's columns; the income and expenditure sheet also lists the opening asset, liability and fund lines (marked Asset, Liability or Fund); "Backfilled" means dated before the ledger went live (the day the opening balances were first posted); the balance sheet items add the bank statement balance and its date as two columns, one item per fixed asset, and income less expenditure rolled into the fund it is posted to (the General Fund for unrestricted income), each such fund shown as its opening balance plus the year's net figure (the General Fund's current year surplus/(deficit), another fund's additions/(deductions) during the year; the gross figures are in the income and expenditure sheets), as note 5 of the audited statements; the donor list keeps the ID masked to its last four characters for everyone, carries the receipt issuer and number, and is left out (a one-line note) for book readers without a donor permission or `finance.view_sensitive`.
+
+**The next year.** Opening balances are entered once, for the cutover year. Closing a year posts nothing: from FY 2027-28 on, each fund opens with its fund balance plus every earlier year's surplus or deficit posted to it, so the General Fund carries each year's surplus as note 5 of the statements does, and the next year needs no opening-balance entry. Nothing is frozen at close either: reopening FY N and posting into it changes the openings of every later year, so a later year's workbook the CA has already signed can drift from a fresh download; keep the signed copy.
 
 One workbook per financial year, one sheet per export (`finance-and-programmes.md` sections 3.13 and 6: XLSX only, no Tally XML; the account head names are pi-dash's own). Amounts are in rupees with two decimals; dates are dd-MM-yyyy; in-kind lines are labelled and kept out of cash totals. Every row carries the pi-dash document reference so the CA can ask about a single entry.
 

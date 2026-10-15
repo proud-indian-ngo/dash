@@ -91,7 +91,13 @@ export type StatementLineAction =
       targetId: string;
     }
   | { action: "giveindia"; lineId: string }
-  | { action: "transfer"; lineId: string; note: string | null }
+  | {
+      action: "transfer";
+      lineId: string;
+      note: string | null;
+      /** The trust's other account (the fixed deposit, another bank account), so the books can post it. */
+      otherAccountId: string;
+    }
   | {
       action: "ignore";
       lineId: string;

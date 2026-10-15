@@ -31,6 +31,7 @@ import {
   loadMatchInputs,
   lockStatementLine,
   matchLine,
+  pairTransferLine,
   resetStatementLine,
   setLineSuggestion,
   setStatementRowOutcomes,
@@ -55,6 +56,12 @@ import {
 import { fileHash, rawRowHash } from "@/lib/income-import/identity";
 import { maskIdentifiers } from "@/lib/income-import/normalize";
 import { CsvParseError, type ParsedCsv } from "@/lib/income-import/parse-csv";
+import {
+  type LedgerSourceRef,
+  queueLedgerPosting,
+  queueLedgerSweep,
+  settlementSource,
+} from "@/lib/ledger-posting";
 import { razorpaySetup } from "@/lib/razorpay/config";
 import { withSafeErrors } from "@/lib/safe-errors";
 
@@ -431,7 +438,7 @@ export async function runStatementBatch(
         throw new StatementInputError("Map the columns before importing");
       }
       const orgAccountId = batch.orgAccountId;
-      return await withStatementTransaction(async (tx) => {
+      const result = await withStatementTransaction(async (tx) => {
         // The retention expiry takes this lock too, so it never sees the run half done.
         await tx.execute(IMPORT_RUN_LOCK);
         const now = new Date();
@@ -532,6 +539,11 @@ export async function runStatementBatch(
           skipped: skipped.length,
         };
       });
+      // A payout matched to its bank line posts on that line's date and account.
+      if (result.matched > 0) {
+        queueLedgerSweep("after_import", actorId);
+      }
+      return result;
     } catch (error) {
       await updateImportBatch(batch.id, { status: "failed" });
       throw error;
@@ -671,13 +683,18 @@ export async function findStatementMatches(
   orgAccountId: string,
   actorId: string
 ): Promise<MatchRunResult> {
-  return await withStatementSafeErrors(
+  const result = await withStatementSafeErrors(
     "match",
     async () =>
       await withStatementTransaction(
         async (tx) => await refreshMatches(tx, orgAccountId, actorId)
       )
   );
+  // A payout matched to its bank line posts on that line's date and account.
+  if (result.matched > 0) {
+    queueLedgerSweep("after_import", actorId);
+  }
+  return result;
 }
 
 /** Checks that a credit line can be tied to this settlement or contribution. */
@@ -766,6 +783,56 @@ const withDismissed = (line: StatementLineRecord, key: string | null) =>
     ? [...(line.dismissedSuggestions ?? []), key]
     : (line.dismissedSuggestions ?? []);
 
+/** Accounts money can move to or from by transfer: a bank account or the fixed deposit. */
+const TRANSFER_ACCOUNT_KINDS: readonly string[] = ["bank", "deposit"];
+
+async function assertTransferAccount(
+  tx: StatementTx,
+  line: StatementLineRecord,
+  otherAccountId: string
+) {
+  if (otherAccountId === line.orgAccountId) {
+    throw new StatementInputError(
+      "Pick the other account, not this statement's account"
+    );
+  }
+  const account = await findBankAccount(otherAccountId, tx);
+  if (!(account?.active && TRANSFER_ACCOUNT_KINDS.includes(account.kind))) {
+    throw new StatementInputError(
+      "Pick an active bank account or fixed deposit"
+    );
+  }
+}
+
+/** What the books post from a line: its matched payout, or the line itself as a transfer. */
+function ledgerSourcesOf(
+  line: Pick<
+    StatementLineRecord,
+    "id" | "matchedSettlementId" | "matchKind" | "transferPairLineId"
+  > | null
+): LedgerSourceRef[] {
+  if (!line) {
+    return [];
+  }
+  return [
+    ...(line.matchedSettlementId
+      ? [settlementSource(line.matchedSettlementId)]
+      : []),
+    ...(line.matchKind === "transfer"
+      ? [{ sourceId: line.id, sourceType: "statement_transfer" as const }]
+      : []),
+    // Its pair decides which side posts, so it posts again too.
+    ...(line.transferPairLineId
+      ? [
+          {
+            sourceId: line.transferPairLineId,
+            sourceType: "statement_transfer" as const,
+          },
+        ]
+      : []),
+  ];
+}
+
 async function applyAction(
   tx: StatementTx,
   line: StatementLineRecord,
@@ -849,6 +916,8 @@ async function applyAction(
     }
     case "transfer": {
       requireUnmatched(line);
+      const { otherAccountId } = input;
+      await assertTransferAccount(tx, line, otherAccountId);
       await updateStatementLine(tx, line.id, {
         ...matched,
         ignoredReason: null,
@@ -856,11 +925,15 @@ async function applyAction(
         matchReason: "manual",
         matchStatus: "matched",
         note: trimNote(input.note) ?? line.note,
+        transferOrgAccountId: otherAccountId,
         suggestedContributionId: null,
         suggestedKind: null,
         suggestedSettlementId: null,
         suggestionReason: null,
       });
+      // The other bank's own line for this transfer, if already marked:
+      // paired one-to-one so the books post the transfer once.
+      await pairTransferLine(tx, line.id, now);
       return;
     }
     case "ignore": {
@@ -927,7 +1000,7 @@ export async function actOnStatementLine(
   input: StatementLineAction,
   actorId: string
 ): Promise<{ lineId: string }> {
-  return await withStatementSafeErrors(
+  const { lineId, sources } = await withStatementSafeErrors(
     `action_${input.action}`,
     async () =>
       await withStatementTransaction(async (tx) => {
@@ -936,9 +1009,16 @@ export async function actOnStatementLine(
           throw new StatementInputError("Bank statement line not found");
         }
         await applyAction(tx, line, input, actorId, new Date());
-        return { lineId: line.id };
+        const after = await lockStatementLine(tx, line.id);
+        // The payout or transfer it was and is tied to post again.
+        return {
+          lineId: line.id,
+          sources: [...ledgerSourcesOf(line), ...ledgerSourcesOf(after)],
+        };
       })
   );
+  queueLedgerPosting(sources);
+  return { lineId };
 }
 
 /** Records a credit line could be linked to by hand. */

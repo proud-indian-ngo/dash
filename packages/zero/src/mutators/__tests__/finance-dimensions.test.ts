@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import { LEDGER_ACCOUNT_HEAD_IDS } from "@pi-dash/shared/constants";
+
 import {
   matchesScope,
   type ScopeAst,
@@ -19,10 +21,13 @@ type Row = Record<string, unknown>;
 function createDb(seed: Partial<Record<string, Row[]>> = {}) {
   const tables: Record<string, Row[]> = {
     accountHead: [],
+    ledgerEntry: [],
     orgAccount: [],
     programme: [],
     project: [],
+    reimbursement: [],
     user: [],
+    vendorPayment: [],
     ...seed,
   };
   const writes: { action: string; row: Row; table: string }[] = [];
@@ -214,6 +219,46 @@ describe("project mutators", () => {
   });
 });
 
+describe("moving a project to another programme", () => {
+  const project = (overrides: Row = {}): Row => ({
+    code: "P1",
+    id: "proj-1",
+    kind: "class",
+    name: "Project",
+    programmeId: "prog-1",
+    ...overrides,
+  });
+  const move = {
+    code: "P1",
+    id: "proj-1",
+    name: "Project",
+    programmeId: "prog-2",
+  };
+  const programmes = [
+    programme(),
+    programme({ code: "ART", id: "prog-2", name: "Arts" }),
+  ];
+
+  it("refuses while an expense is charged to the project", async () => {
+    for (const table of ["reimbursement", "vendorPayment"]) {
+      const db = createDb({
+        programme: programmes,
+        project: [project()],
+        [table]: [{ chargedProjectId: "proj-1", id: "x-1" }],
+      });
+      await expect(
+        run(projectMutators.update, db, financeCtx, move)
+      ).rejects.toThrow("Expenses are charged to this project");
+    }
+  });
+
+  it("moves a project nothing is charged to", async () => {
+    const db = createDb({ programme: programmes, project: [project()] });
+    await run(projectMutators.update, db, financeCtx, move);
+    expect(db.tables.project?.[0]?.programmeId).toBe("prog-2");
+  });
+});
+
 describe("account head mutators", () => {
   const head = (overrides: Row = {}): Row => ({
     active: true,
@@ -258,6 +303,58 @@ describe("account head mutators", () => {
     await expect(
       run(accountHeadMutators.update, db, financeCtx, head({ parentId: "h-2" }))
     ).rejects.toThrow("cycle");
+  });
+
+  it("keeps a head the books post under on its type and active", async () => {
+    const db = createDb({
+      accountHead: [head()],
+      ledgerEntry: [{ accountHeadId: "h-1", id: "e-1" }],
+    });
+    await expect(
+      run(accountHeadMutators.update, db, financeCtx, head({ type: "income" }))
+    ).rejects.toThrow("its type can't change");
+    await expect(
+      run(accountHeadMutators.update, db, financeCtx, head({ active: false }))
+    ).rejects.toThrow("can't be deactivated");
+    await run(
+      accountHeadMutators.update,
+      db,
+      financeCtx,
+      head({ name: "Programme expenses" })
+    );
+    expect(db.tables.accountHead?.[0]).toMatchObject({
+      name: "Programme expenses",
+    });
+  });
+
+  it("protects the books' reference heads even before anything posts", async () => {
+    const fundBalance = head({
+      code: "FUND_BALANCE",
+      id: LEDGER_ACCOUNT_HEAD_IDS.fundBalance,
+      name: "Fund balance",
+      type: "fund",
+    });
+    const db = createDb({ accountHead: [fundBalance] });
+    await expect(
+      run(accountHeadMutators.update, db, financeCtx, {
+        ...fundBalance,
+        active: false,
+      })
+    ).rejects.toThrow("can't be deactivated");
+  });
+
+  it("lets an unused head change type or be deactivated", async () => {
+    const db = createDb({ accountHead: [head()] });
+    await run(
+      accountHeadMutators.update,
+      db,
+      financeCtx,
+      head({ active: false, type: "income" })
+    );
+    expect(db.tables.accountHead?.[0]).toMatchObject({
+      active: false,
+      type: "income",
+    });
   });
 });
 

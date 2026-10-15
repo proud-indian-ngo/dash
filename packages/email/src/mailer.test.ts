@@ -82,6 +82,20 @@ describe("sendEmail", () => {
     );
   });
 
+  it("passes attachments through to Resend", async () => {
+    mocks.send.mockResolvedValueOnce(sent);
+    const attachments = [
+      { content: Buffer.from("%PDF-1.4"), filename: "PI-2026-27-0001.pdf" },
+    ];
+
+    await expect(sendEmail({ ...email, attachments })).resolves.toBe("sent");
+
+    expect(mocks.send).toHaveBeenCalledWith(
+      expect.objectContaining({ attachments }),
+      expect.anything()
+    );
+  });
+
   it("throws EmailSendError with the Resend code when rejected", async () => {
     mocks.send.mockResolvedValueOnce({
       data: null,

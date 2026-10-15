@@ -59,6 +59,19 @@ function SelectFieldControl({
   const selectedLabel =
     options.find((option) => option.value === selectedValue)?.label ??
     placeholder;
+  // Base UI resets the value to null, with no user action, when the items
+  // change and no longer hold it (for example a channel that swaps the mode
+  // of receipt and its options in one update). The form owns the value, so
+  // only a chosen item changes it.
+  const handleValueChange = useEventCallback(
+    (value: string | null, details: { cancel: () => void }) => {
+      if (value === null) {
+        details.cancel();
+        return;
+      }
+      field.handleChange(value);
+    }
+  );
   const handleOpenChange = useEventCallback((open: boolean) => {
     if (!open) {
       field.handleBlur();
@@ -69,7 +82,7 @@ function SelectFieldControl({
     <Select
       disabled={disabled}
       onOpenChange={handleOpenChange}
-      onValueChange={field.handleChange}
+      onValueChange={handleValueChange}
       value={selectedValue ?? ""}
     >
       <SelectTrigger
