@@ -1,4 +1,6 @@
 import { LEDGER_SOURCE_TYPES } from "@pi-dash/shared/ledger";
+import { queries } from "@pi-dash/zero/queries";
+import { useQuery } from "@rocicorp/zero/react";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
@@ -7,7 +9,9 @@ import { sourceLabel } from "./labels";
 /**
  * Where a posting's source lives: the contribution sheet (a refund opens
  * its gift's sheet), the settlement sheet, Other income, the bank
- * statements, or the opening balances. Null for a source with no page.
+ * statements, the opening balances, or a reimbursement or vendor payment
+ * request. Null for a source with no page (a vendor payment's payment
+ * opens its request through `VendorPaymentMadeLink`).
  */
 export function sourceLinkProps(
   sourceType: string | undefined,
@@ -38,6 +42,10 @@ export function sourceLinkProps(
       return { search: { tab: "other" }, to: "/income" };
     case LEDGER_SOURCE_TYPES.statementTransfer:
       return { search: { tab: "matched" }, to: "/income/bank" };
+    case LEDGER_SOURCE_TYPES.reimbursement:
+      return { to: `/reimbursements/${sourceId}` };
+    case LEDGER_SOURCE_TYPES.vendorPayment:
+      return { to: `/vendor-payments/${sourceId}` };
     default:
       return null;
   }
@@ -53,8 +61,11 @@ export function SourceLink({
   sourceId: string | undefined;
   sourceType: string | undefined;
 }) {
-  const props = sourceLinkProps(sourceType, sourceId);
   const label = children ?? sourceLabel(sourceType);
+  if (sourceType === LEDGER_SOURCE_TYPES.vendorPaymentTransaction && sourceId) {
+    return <VendorPaymentMadeLink label={label} transactionId={sourceId} />;
+  }
+  const props = sourceLinkProps(sourceType, sourceId);
   if (!props) {
     return <span>{label}</span>;
   }
@@ -63,6 +74,31 @@ export function SourceLink({
       className="underline-offset-4 hover:underline"
       search={props.search as never}
       to={props.to as never}
+    >
+      {label}
+    </Link>
+  );
+}
+
+/** A vendor payment's payment opens its request, once the payment is loaded. */
+function VendorPaymentMadeLink({
+  label,
+  transactionId,
+}: {
+  label: ReactNode;
+  transactionId: string;
+}) {
+  const [payment] = useQuery(
+    queries.vendorPaymentTransaction.requestOf({ id: transactionId })
+  );
+  if (!payment) {
+    return <span>{label}</span>;
+  }
+  return (
+    <Link
+      className="underline-offset-4 hover:underline"
+      params={{ id: payment.vendorPaymentId }}
+      to="/vendor-payments/$id"
     >
       {label}
     </Link>

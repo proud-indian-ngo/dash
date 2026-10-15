@@ -38,6 +38,10 @@ export const setChargedToSchema = z.object({
   id: z.string(),
 });
 
+/** A posted request keeps its charge (founder decision, finance layer 3-3a). */
+export const POSTED_CHARGE_MESSAGE =
+  "This request is in the books, so what it is charged to can't be changed";
+
 /**
  * Finance changes what a submitted request is charged to: finance.manage, or
  * whoever approves requests and can see everyone's (the approve rules). Not

@@ -5,6 +5,7 @@ import {
   FileDownloadIcon,
   RepeatIcon,
   TickDouble02Icon,
+  UnavailableIcon,
   UserSwitchIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -23,6 +24,7 @@ import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ChargedToCard } from "@/components/expenses/charged-to-card";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
+import { VoidDialog } from "@/components/form/void-dialog";
 import { ChangeClaimantDialog } from "@/components/reimbursements/change-claimant-dialog";
 import { reimbursementHeaderMeta } from "@/components/reimbursements/reimbursement-header-meta";
 import { VoucherSignedCopy } from "@/components/reimbursements/voucher-signed-copy";
@@ -38,13 +40,21 @@ import {
 } from "@/components/shared/record-detail";
 import { RequesterMeta } from "@/components/shared/requester-meta";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
+import {
+  isVoided,
+  useIsPostedInBooks,
+  VoidBadge,
+} from "@/components/shared/void";
 import { useApp } from "@/context/app-context";
 import { useCashVoucherLimit } from "@/hooks/use-cash-voucher-limit";
 import {
   getAttachmentDownloadHref,
   getAttachmentPreviewHref,
 } from "@/lib/attachment-links";
-import { handleMutationResult } from "@/lib/mutation-result";
+import {
+  getMutationResultErrorMessage,
+  handleMutationResult,
+} from "@/lib/mutation-result";
 import {
   isReimbursement,
   type ReimbursementDetailData,
@@ -96,9 +106,21 @@ export function ReimbursementDetail({
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [changeClaimantOpen, setChangeClaimantOpen] = useState(false);
+  const [voidOpen, setVoidOpen] = useState(false);
+  const [voidLoading, setVoidLoading] = useState(false);
+  // A voided request takes no further change (finance Option B).
+  const voided = isVoided(request);
+  const posted = useIsPostedInBooks("reimbursement", request.id);
+  // Finance voids a reimbursement the books hold instead of deleting it.
+  const showVoid =
+    request.type === "reimbursement" &&
+    posted &&
+    !voided &&
+    hasPermission("requests.void");
   // Finance moves a reimbursement to the right claimant at any status.
   const showChangeClaimant =
     request.type === "reimbursement" &&
+    !voided &&
     hasPermission("requests.create_for_others");
   const [generatingVoucherId, setGeneratingVoucherId] = useState<string | null>(
     null
@@ -114,7 +136,10 @@ export function ReimbursementDetail({
 
   const { label, tone } = getStatusBadge(request.status);
   const showAdminActions =
-    canApprove && (request.status === "pending" || canUpdateAnyStatus);
+    !voided &&
+    canApprove &&
+    (request.status === "pending" || canUpdateAnyStatus);
+  const editAction = voided ? undefined : onEdit;
   const showApproveAction = showAdminActions && request.status !== "approved";
   const showRejectAction = showAdminActions && request.status !== "rejected";
   const showResetAction = showAdminActions && request.status !== "pending";
@@ -199,6 +224,29 @@ export function ReimbursementDetail({
   const handleChangeClaimant = useEventCallback(() =>
     setChangeClaimantOpen(true)
   );
+  const handleOpenVoid = useEventCallback(() => setVoidOpen(true));
+  const handleVoid = useEventCallback(async (reason: string) => {
+    setVoidLoading(true);
+    try {
+      const res = await zero.mutate(
+        mutators.reimbursement.void({ id: request.id, reason })
+      ).server;
+      handleMutationResult(res, {
+        entityId: request.id,
+        errorMsg: getMutationResultErrorMessage(
+          res.type === "error" ? res.error : undefined,
+          "Couldn't void the reimbursement"
+        ),
+        mutation: "reimbursement.void",
+        successMsg: "Reimbursement voided",
+      });
+      if (res.type !== "error") {
+        setVoidOpen(false);
+      }
+    } finally {
+      setVoidLoading(false);
+    }
+  });
   const stableOnClick0 = useEventCallback(() => setApproveOpen(true));
   const stableOnClick1 = useEventCallback(() => setRejectOpen(true));
 
@@ -236,8 +284,8 @@ export function ReimbursementDetail({
                   Reject
                 </Button>
               ) : null}
-              {onEdit ? (
-                <Button onClick={onEdit} type="button" variant="outline">
+              {editAction ? (
+                <Button onClick={editAction} type="button" variant="outline">
                   <HugeiconsIcon
                     className="size-4"
                     icon={Edit02Icon}
@@ -260,6 +308,13 @@ export function ReimbursementDetail({
                     label: "Reset to pending",
                     onSelect: handleResetToPending,
                   },
+                  showVoid && {
+                    destructive: true,
+                    id: "void",
+                    icon: UnavailableIcon,
+                    label: "Void",
+                    onSelect: handleOpenVoid,
+                  },
                 ]}
                 title={request.title}
               />
@@ -269,6 +324,7 @@ export function ReimbursementDetail({
             <>
               <Tag>{typeLabel}</Tag>
               <StatusBadge tone={tone}>{label}</StatusBadge>
+              {voided ? <VoidBadge /> : null}
             </>
           }
           meta={[
@@ -297,6 +353,9 @@ export function ReimbursementDetail({
           {request.status === "rejected" && request.rejectionReason ? (
             <RejectionNote reason={request.rejectionReason} />
           ) : null}
+          {voided && "voidReason" in request && request.voidReason ? (
+            <RejectionNote label="Void" reason={request.voidReason} />
+          ) : null}
 
           <LineItemsTable
             canApprove={canApprove}
@@ -304,6 +363,7 @@ export function ReimbursementDetail({
             onGenerateVoucher={handleGenerateVoucher}
             request={request}
             total={total}
+            voided={voided}
           />
 
           {request.status === "approved" && approvalScreenshot ? (
@@ -376,6 +436,13 @@ export function ReimbursementDetail({
           onOpenChange={setRejectOpen}
           open={rejectOpen}
         />
+        <VoidDialog
+          entityLabel="reimbursement"
+          loading={voidLoading}
+          onConfirm={handleVoid}
+          onOpenChange={setVoidOpen}
+          open={voidOpen}
+        />
         {showChangeClaimant ? (
           <ChangeClaimantDialog
             onOpenChange={setChangeClaimantOpen}
@@ -410,6 +477,7 @@ function VoucherCell({
   limitPaise,
   onGenerate,
   reimbursementId,
+  voided,
 }: {
   attachments: ReimbursementDetailData["attachments"];
   canApprove: boolean;
@@ -426,6 +494,8 @@ function VoucherCell({
   limitPaise: number;
   onGenerate: (lineItemId: string) => void;
   reimbursementId: string;
+  /** Voided: the voucher stays (its number stays used) marked VOID. */
+  voided: boolean;
 }) {
   const { amountPaise } = item;
   // A voucher made under a higher limit stays; only new ones need the current limit.
@@ -442,7 +512,12 @@ function VoucherCell({
             strokeWidth={2}
           />
           <span className="text-success-foreground text-xs">Generated</span>
-          {canApprove && isApproved && isQualifying ? (
+          {voided ? (
+            <StatusBadge data-testid="voucher-void" tone="danger">
+              VOID
+            </StatusBadge>
+          ) : null}
+          {canApprove && isApproved && isQualifying && !voided ? (
             <Button
               className="ml-1 h-auto px-1.5 py-0.5 text-xs"
               disabled={isGenerating}
@@ -462,7 +537,7 @@ function VoucherCell({
         </div>
         <VoucherSignedCopy
           attachments={attachments}
-          canUpload={canUploadSigned && isApproved}
+          canUpload={canUploadSigned && isApproved && !voided}
           lineItemId={item.id}
           reimbursementId={reimbursementId}
           signedVoucherAttachmentId={item.signedVoucherAttachmentId}
@@ -470,6 +545,10 @@ function VoucherCell({
         />
       </div>
     );
+  }
+
+  if (voided) {
+    return <span className="text-muted-foreground text-xs">—</span>;
   }
 
   if (item.generateVoucher && isApproved && !isQualifying) {
@@ -556,12 +635,14 @@ function LineItemsTable({
   onGenerateVoucher,
   request,
   total,
+  voided,
 }: {
   canApprove: boolean;
   generatingVoucherId: string | null;
   onGenerateVoucher: (lineItemId: string) => void;
   request: RequestDetailData;
   total: number;
+  voided: boolean;
 }) {
   const isReimb = isReimbursement(request);
   const showVoucherCol = isReimb && request.status === "approved";
@@ -611,6 +692,7 @@ function LineItemsTable({
                         limitPaise={voucherLimitPaise}
                         onGenerate={onGenerateVoucher}
                         reimbursementId={request.id}
+                        voided={voided}
                       />
                     </td>
                   ) : null}

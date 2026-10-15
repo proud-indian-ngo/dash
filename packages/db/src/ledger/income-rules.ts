@@ -83,7 +83,15 @@ export interface PlanPart {
 
 export type SourcePlan =
   /** Nothing should stand in the books for it; anything standing is reversed. */
-  | { kind: "none"; reason: LedgerSkipReason }
+  | {
+      kind: "none";
+      reason: LedgerSkipReason;
+      /**
+       * Reverse what stands on this day rather than on its own dates: a
+       * voided request is undone from the void day.
+       */
+      reverseOn?: string;
+    }
   /** It should post but can't yet; whatever stands is left alone. */
   | { economicOn: string | null; kind: "wait"; reason: LedgerWaitReason }
   | {

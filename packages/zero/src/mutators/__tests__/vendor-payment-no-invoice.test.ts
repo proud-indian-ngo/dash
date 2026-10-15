@@ -377,11 +377,18 @@ describe("closing a vendor payment without an invoice", () => {
         note: null,
       })
     );
-    expect(asyncTasks).toHaveLength(1);
-    expect(asyncTasks[0]?.meta).toEqual({
-      mutator: "updateVendorPaymentInvoice",
-      vendorPaymentId: "vp-1",
-    });
+    expect(asyncTasks.map((task) => task.meta)).toEqual([
+      // The books follow: a reopened review reverses a posted expense.
+      {
+        mutator: "vendorPayment.updateInvoice",
+        sourceId: "vp-1",
+        sourceType: "vendor_payment",
+      },
+      {
+        mutator: "updateVendorPaymentInvoice",
+        vendorPaymentId: "vp-1",
+      },
+    ]);
   });
 
   it("keeps a completed request and its review when an admin edits the same kind", async () => {

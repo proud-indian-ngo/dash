@@ -64,6 +64,13 @@ export const PERMISSIONS = [
   },
   {
     category: "reimbursements",
+    description:
+      "Void a reimbursement, vendor payment request or payment that is in the books, with a reason; the books reverse it on the void day",
+    id: "requests.void",
+    name: "Void Requests",
+  },
+  {
+    category: "reimbursements",
     description: "Record payment transactions against approved vendor payments",
     id: "requests.record_payment",
     name: "Record Payments",
@@ -534,6 +541,7 @@ const adminExcluded = new Set<PermissionId>([
   "requests.approve",
   "requests.create_for_others",
   "requests.edit_all_statuses",
+  "requests.void",
   "vendors.approve",
   "users.create",
   "users.edit",

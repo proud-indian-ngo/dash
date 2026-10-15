@@ -181,6 +181,25 @@ export const teamMutators = {
           "Expenses are charged to this team's events. Change what they are charged to before deleting the team."
         );
       }
+      // The books keep an event's expenses for good (finance layer 3-3a:
+      // ledger_entry.event_id is restrict), even after the request itself
+      // is gone, so an event the books name can't be deleted. Server only:
+      // the books sync to finance readers alone.
+      if (tx.location === "server") {
+        const events = await tx.run(zql.teamEvent.where("teamId", args.id));
+        const eventIds = events.map((e) => e.id);
+        const booked =
+          eventIds.length > 0
+            ? await tx.run(
+                zql.ledgerEntry.where("eventId", "IN", eventIds).one()
+              )
+            : undefined;
+        if (booked) {
+          throw new Error(
+            "The books hold expenses for this team's events, so the team can't be deleted."
+          );
+        }
+      }
 
       const memberUserIds = existing.members.map((m) => m.userId);
       const teamName = existing.name;

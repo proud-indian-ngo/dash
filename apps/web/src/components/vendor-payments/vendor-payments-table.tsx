@@ -1,4 +1,9 @@
-import { Delete02Icon, Edit02Icon, ViewIcon } from "@hugeicons/core-free-icons";
+import {
+  Delete02Icon,
+  Edit02Icon,
+  UnavailableIcon,
+  ViewIcon,
+} from "@hugeicons/core-free-icons";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
@@ -32,6 +37,7 @@ import {
 } from "@/components/shared/row-review";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
+import { isVoided, VoidBadge } from "@/components/shared/void";
 import {
   createVendorPaymentFilterFields,
   getVendorPaymentFilterValue,
@@ -97,6 +103,10 @@ interface VendorPaymentsTableProps {
     id: string
   ) => Promise<{ type: string; error?: { message?: string } }>;
   onNavigate: (id: string) => void;
+  /** Voids a request the books hold, with its payments (finance Option B). */
+  onVoid?: (payment: VendorPaymentWithRelations) => void;
+  /** Requests whose expense or a payment stands in the books: Void, not Delete. */
+  postedIds?: ReadonlySet<string>;
   toolbarActions?: ReactNode;
 }
 
@@ -105,14 +115,17 @@ function VendorPaymentRowActions({
   canEdit,
   id,
   onDelete,
+  onVoid,
   payment,
 }: {
   canDelete?: boolean;
   canEdit: boolean;
   id: string;
   onDelete: (payload: { id: string; title: string }) => void;
+  onVoid?: (payment: VendorPaymentWithRelations) => void;
   payment: VendorPaymentWithRelations;
 }) {
+  const handleVoid = useEventCallback(() => onVoid?.(payment));
   const stopPropagation = useEventCallback(
     (event: { stopPropagation: () => void }) => event.stopPropagation()
   );
@@ -143,6 +156,14 @@ function VendorPaymentRowActions({
             />
           ),
         },
+        Boolean(onVoid) && {
+          id: "void",
+          icon: UnavailableIcon,
+          label: "Void",
+          onSelect: handleVoid,
+          destructive: true,
+          group: "destructive",
+        },
         canDelete && {
           id: "delete",
           icon: Delete02Icon,
@@ -162,6 +183,8 @@ export function VendorPaymentsTable({
   isLoading,
   onDelete,
   onNavigate,
+  onVoid,
+  postedIds,
   toolbarActions,
 }: VendorPaymentsTableProps) {
   useMigrateLegacyVendorPaymentFilterParams();
@@ -172,6 +195,7 @@ export function VendorPaymentsTable({
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id;
   const { hasPermission } = useApp();
+  const canVoid = hasPermission("requests.void");
   const zero = useZero();
   const review = useRowReview<VendorPaymentWithRelations>();
   const [groupColumnId] = useDataTableGroupBy();
@@ -390,7 +414,12 @@ export function VendorPaymentsTable({
       accessorFn: (row) => row.status,
       cell: ({ row }) => {
         const { label, tone } = getStatusBadge(row.original.status);
-        return <StatusBadge tone={tone}>{label}</StatusBadge>;
+        return (
+          <span className="inline-flex items-center gap-1">
+            <StatusBadge tone={tone}>{label}</StatusBadge>
+            {isVoided(row.original) ? <VoidBadge /> : null}
+          </span>
+        );
       },
       header: ({ column }) => (
         <DataGridColumnHeader
@@ -412,24 +441,30 @@ export function VendorPaymentsTable({
       cell: ({ row }) => {
         const request = row.original;
         const id = request.id as string;
-        const canEdit = currentUserId
-          ? canEditVendorPaymentSubmission(
-              request,
-              currentUserId,
-              hasPermission
-            )
-          : false;
+        const voided = isVoided(request);
+        const posted = postedIds?.has(id) ?? false;
+        const canEdit =
+          !voided &&
+          (currentUserId
+            ? canEditVendorPaymentSubmission(
+                request,
+                currentUserId,
+                hasPermission
+              )
+            : false);
 
         const actions = (
           <VendorPaymentRowActions
-            canDelete={canDelete && Boolean(onDelete)}
+            // In the books or voided: kept as the record, never deleted.
+            canDelete={canDelete && Boolean(onDelete) && !(voided || posted)}
             canEdit={canEdit}
             id={id}
             onDelete={handleDeleteRequest}
+            onVoid={posted && !voided && canVoid ? onVoid : undefined}
             payment={request}
           />
         );
-        if (!(showReview && request.status === "pending")) {
+        if (!(showReview && request.status === "pending" && !voided)) {
           return actions;
         }
         return (

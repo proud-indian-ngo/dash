@@ -7,16 +7,25 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { log } from "evlog";
-import { toast } from "sonner";
+import { useState } from "react";
 
 import { UnallocatedFilterButton } from "@/components/expenses/unallocated-filter-button";
+import { VoidDialog } from "@/components/form/void-dialog";
 import { computeReimbursementStats } from "@/components/reimbursements/reimbursement-stats";
 import { ReimbursementsTable } from "@/components/reimbursements/reimbursements-table";
 import { PageHeader } from "@/components/shared/page-header";
 import { TipStrip } from "@/components/shared/tip-strip";
+import {
+  isVoided,
+  usePostedSourceIds,
+  useVoidedFilter,
+} from "@/components/shared/void";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { useApp } from "@/context/app-context";
+import {
+  getMutationResultErrorMessage,
+  handleMutationResult,
+} from "@/lib/mutation-result";
 import {
   normalizeToRequestRows,
   REQUEST_TYPE_LABELS,
@@ -68,21 +77,54 @@ function ReimbursementsRouteComponent() {
     advancePayments ?? []
   );
 
+  const postedIds = usePostedSourceIds("reimbursement");
+  const voidedFilter = useVoidedFilter(allData);
+  const [voidTarget, setVoidTarget] = useState<RequestRow | null>(null);
+  const [voidLoading, setVoidLoading] = useState(false);
+
   const handleDelete = useEventCallback(async (row: RequestRow) => {
     const typeLabel = REQUEST_TYPE_LABELS[row.type].toLowerCase();
+    const mutatorNs = getMutatorNs(row.type);
+    const res = await zero.mutate(mutatorNs.delete({ id: row.id })).server;
+    // A request the books hold is refused with "Void it instead".
+    handleMutationResult(res, {
+      entityId: row.id,
+      errorMsg: getMutationResultErrorMessage(
+        res.type === "error" ? res.error : undefined,
+        `Failed to delete ${typeLabel}`
+      ),
+      mutation: `${row.type}.delete`,
+      successMsg: `${REQUEST_TYPE_LABELS[row.type]} deleted`,
+    });
+  });
+  const handleVoidOpenChange = useEventCallback((open: boolean) => {
+    if (!open) {
+      setVoidTarget(null);
+    }
+  });
+  const handleVoid = useEventCallback(async (reason: string) => {
+    if (!voidTarget) {
+      return;
+    }
+    setVoidLoading(true);
     try {
-      const mutatorNs = getMutatorNs(row.type);
-      await zero.mutate(mutatorNs.delete({ id: row.id }));
-      toast.success(`${REQUEST_TYPE_LABELS[row.type]} deleted`);
-    } catch (error) {
-      log.error({
-        action: "delete",
-        component: "ReimbursementsIndex",
-        error: error instanceof Error ? error.message : String(error),
-        requestId: row.id,
-        type: row.type,
+      const res = await zero.mutate(
+        mutators.reimbursement.void({ id: voidTarget.id, reason })
+      ).server;
+      handleMutationResult(res, {
+        entityId: voidTarget.id,
+        errorMsg: getMutationResultErrorMessage(
+          res.type === "error" ? res.error : undefined,
+          "Couldn't void the reimbursement"
+        ),
+        mutation: "reimbursement.void",
+        successMsg: "Reimbursement voided",
       });
-      toast.error(`Failed to delete ${typeLabel}`);
+      if (res.type !== "error") {
+        setVoidTarget(null);
+      }
+    } finally {
+      setVoidLoading(false);
     }
   });
   const stableOnNavigate1 = useEventCallback((id: string) => {
@@ -131,16 +173,33 @@ function ReimbursementsRouteComponent() {
       <div className="mt-4 grid gap-6 *:min-w-0">
         <StatsCards
           isLoading={isLoading}
-          items={computeReimbursementStats(allData)}
+          // A voided request counts in no total.
+          items={computeReimbursementStats(
+            allData.filter((row) => !isVoided(row))
+          )}
         />
         <ReimbursementsTable
-          data={allData}
+          data={voidedFilter.rows}
           isLoading={isLoading}
           onDelete={handleDelete}
           onNavigate={stableOnNavigate1}
-          toolbarActions={<UnallocatedFilterButton rows={reimbursements} />}
+          onVoid={setVoidTarget}
+          postedIds={postedIds}
+          toolbarActions={
+            <>
+              <UnallocatedFilterButton rows={reimbursements} />
+              {voidedFilter.button}
+            </>
+          }
         />
       </div>
+      <VoidDialog
+        entityLabel="reimbursement"
+        loading={voidLoading}
+        onConfirm={handleVoid}
+        onOpenChange={handleVoidOpenChange}
+        open={voidTarget !== null}
+      />
     </div>
   );
 }

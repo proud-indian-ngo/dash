@@ -82,6 +82,7 @@ export const historyActionValues = [
   "invoice_updated",
   "invoice_approved",
   "invoice_rejected",
+  "voided",
 ] as const;
 export type HistoryAction = (typeof historyActionValues)[number];
 
@@ -197,6 +198,8 @@ export const LEDGER_ACCOUNT_HEAD_IDS = {
   auditFeesPayable: "01930000-0000-7000-8000-000000000802",
   corpusDonations: "01930000-0000-7000-8000-000000000810",
   donationsReceived: "01930000-0000-7000-8000-000000000805",
+  /** Parent of the expense heads made from the expense categories (layer 3-3a). */
+  expenses: "01930000-0000-7000-8000-000000000810",
   fdInterest: "01930000-0000-7000-8000-000000000804",
   fixedAssets: "01930000-0000-7000-8000-000000000801",
   fundBalance: "01930000-0000-7000-8000-000000000803",
@@ -204,6 +207,8 @@ export const LEDGER_ACCOUNT_HEAD_IDS = {
   inKindConsumed: "01930000-0000-7000-8000-000000000807",
   inKindDonations: "01930000-0000-7000-8000-000000000806",
   otherIncome: "01930000-0000-7000-8000-000000000809",
+  /** Vendor payments made before their invoice is accepted (layer 3-3a). */
+  supplierAdvances: "01930000-0000-7000-8000-000000000811",
 } as const;
 
 /**

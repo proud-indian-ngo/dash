@@ -1,5 +1,6 @@
 import { auth } from "@pi-dash/auth";
 import { db } from "@pi-dash/db";
+import { userHasExpensesInBooks } from "@pi-dash/db/ledger/expense-posting";
 import type { PermissionId } from "@pi-dash/db/permissions";
 import { ADMIN_TIER_ROLES } from "@pi-dash/db/permissions";
 import {
@@ -496,6 +497,13 @@ export const deleteUserAdmin = createServerFn({ method: "POST" })
           throw new Error("You cannot delete your own account");
         }
         await assertGenericUserTarget(data.userId);
+        // Their requests and payments would go with the account, and the
+        // books would then reverse money that really left the bank.
+        if (await userHasExpensesInBooks(db, data.userId)) {
+          throw new Error(
+            "The books hold expenses this person raised or paid, so the account can't be deleted. Ban it instead."
+          );
+        }
 
         // Capture delivery details while the user still exists, but don't send a
         // deletion confirmation until the database delete succeeds.

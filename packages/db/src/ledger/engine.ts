@@ -7,6 +7,7 @@ import type { db } from "..";
 import { fiscalPeriod, fiscalYear } from "../schema/finance-dimensions";
 import { accountMovement, ledgerEntry, posting } from "../schema/ledger";
 import {
+  isIsoDay,
   LedgerError,
   type PostingInput,
   postingDates,
@@ -226,11 +227,15 @@ export async function post(
  * dates, linked through `reverses_*`. The original stays as it was. A
  * posting is reversed at most once; a repeat returns the first reversal.
  * Reversing into a closed year is refused like any other posting.
+ *
+ * With `on`, the reversal is dated that day instead (a void: the request
+ * was right when it posted and is undone from the void day), so only that
+ * day's year must be open.
  */
 export async function reverse(
   tx: LedgerTx,
   postingId: string,
-  options: PostContext & { reason: string }
+  options: PostContext & { on?: string; reason: string }
 ): Promise<PostResult> {
   const reason = options.reason.trim();
   if (!reason) {
@@ -268,17 +273,29 @@ export async function reverse(
     .select()
     .from(accountMovement)
     .where(eq(accountMovement.postingId, original.id));
-  // The original dates must still be in an open year.
-  await resolvePeriods(
+  if (options.on !== undefined && !isIsoDay(options.on)) {
+    throw new LedgerError("invalid", "A reversal date must be YYYY-MM-DD");
+  }
+  // Never before the posting itself (a payment dated ahead of its void).
+  const on =
+    options.on !== undefined && options.on < original.economicOn
+      ? original.economicOn
+      : options.on;
+  // The dates it lands on must be in an open year: the original dates, or
+  // the reversal's own day.
+  const periods = await resolvePeriods(
     tx,
-    [
-      ...new Set([
-        original.economicOn,
-        ...entries.map((e) => e.economicOn),
-        ...movements.map((m) => m.occurredOn),
-      ]),
-    ].sort()
+    on === undefined
+      ? [
+          ...new Set([
+            original.economicOn,
+            ...entries.map((e) => e.economicOn),
+            ...movements.map((m) => m.occurredOn),
+          ]),
+        ].sort()
+      : [on]
   );
+  const dated = on === undefined ? null : { day: on, ...periodOf(periods, on) };
 
   const now = options.now ?? new Date();
   const postedOn = todayInKolkata(now);
@@ -288,8 +305,8 @@ export async function reverse(
       action: `${POSTING_ACTIONS.reverse}:${original.action}`,
       createdAt: now,
       createdBy: options.actorId,
-      economicOn: original.economicOn,
-      fiscalYearId: original.fiscalYearId,
+      economicOn: dated?.day ?? original.economicOn,
+      fiscalYearId: dated?.fiscalYearId ?? original.fiscalYearId,
       id: uuidv7(),
       postedOn,
       reason,
@@ -314,6 +331,10 @@ export async function reverse(
         postedOn,
         postingId: created.id,
         reversesEntryId: e.id,
+        ...(dated && {
+          economicOn: dated.day,
+          fiscalPeriodId: dated.periodId,
+        }),
       }))
     );
   }
@@ -326,6 +347,11 @@ export async function reverse(
         postedOn,
         postingId: created.id,
         reversesMovementId: m.id,
+        ...(dated && {
+          bankValueOn: null,
+          fiscalPeriodId: dated.periodId,
+          occurredOn: dated.day,
+        }),
       }))
     );
   }

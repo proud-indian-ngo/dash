@@ -327,6 +327,25 @@ describe("audit metadata", () => {
     expect(JSON.stringify(summary)).not.toContain("Paid by");
   });
 
+  it("records a void by the entity ID and field names, never the reason", async () => {
+    for (const [action, type] of [
+      ["reimbursement.void", "reimbursement"],
+      ["vendorPayment.void", "vendorPayment"],
+      ["vendorPaymentTransaction.void", "vendorPaymentTransaction"],
+    ] as const) {
+      const summary = await resolveZeroAuditSummary(
+        action,
+        { id: TARGET_ID, reason: "Paid twice to Ravi on 9876543210" },
+        "differentActorId000000000000000",
+        async () => new Set()
+      );
+      expect(summary.target).toEqual({ id: TARGET_ID, type });
+      expect(summary.metadata?.changedFields).toEqual(["id", "reason"]);
+      expect(JSON.stringify(summary)).not.toContain("Paid twice");
+      expect(JSON.stringify(summary)).not.toContain("9876543210");
+    }
+  });
+
   it("records the claimant of a claim raised for someone else", async () => {
     const summary = await resolveZeroAuditSummary(
       "reimbursement.create",

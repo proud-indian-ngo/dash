@@ -1,4 +1,9 @@
-import { Delete02Icon, Edit02Icon, ViewIcon } from "@hugeicons/core-free-icons";
+import {
+  Delete02Icon,
+  Edit02Icon,
+  UnavailableIcon,
+  ViewIcon,
+} from "@hugeicons/core-free-icons";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
@@ -37,6 +42,7 @@ import {
 } from "@/components/shared/row-review";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
+import { isVoided, VoidBadge } from "@/components/shared/void";
 import { useApp } from "@/context/app-context";
 import { authClient } from "@/lib/auth-client";
 import { DATE } from "@/lib/date-formats";
@@ -77,6 +83,10 @@ interface ReimbursementsTableProps {
   isLoading?: boolean;
   onDelete: (row: RequestRow) => Promise<void>;
   onNavigate: (id: string) => void;
+  /** Voids a request the books hold (finance Option B). */
+  onVoid?: (row: RequestRow) => void;
+  /** The reimbursements standing in the books: Void replaces Delete on them. */
+  postedIds?: ReadonlySet<string>;
   toolbarActions?: ReactNode;
 }
 
@@ -84,19 +94,25 @@ function RowActions({
   canDelete,
   canEdit,
   id,
+  inBooks,
   request,
   onRequestDelete,
+  onVoid,
 }: {
   canDelete: boolean;
   canEdit: boolean;
   id: string;
+  /** Posted or voided: kept as the record, so never deleted. */
+  inBooks: boolean;
   request: RequestRow;
   onRequestDelete: (row: RequestRow) => void;
+  onVoid?: (row: RequestRow) => void;
 }) {
   const stableOnClick0 = useEventCallback(
     (e: { stopPropagation: () => void }) => e.stopPropagation()
   );
   const handleDelete = useEventCallback(() => onRequestDelete(request));
+  const handleVoid = useEventCallback(() => onVoid?.(request));
 
   return (
     <ResponsiveActionMenu
@@ -121,7 +137,15 @@ function RowActions({
             />
           ),
         },
-        {
+        Boolean(onVoid) && {
+          id: "void",
+          icon: UnavailableIcon,
+          label: "Void",
+          onSelect: handleVoid,
+          destructive: true,
+          group: "destructive",
+        },
+        !inBooks && {
           id: "delete",
           icon: Delete02Icon,
           label: "Delete",
@@ -159,6 +183,8 @@ export function ReimbursementsTable({
   isLoading,
   onDelete,
   onNavigate,
+  onVoid,
+  postedIds,
   toolbarActions,
 }: ReimbursementsTableProps) {
   useMigrateLegacyReimbursementFilterParams();
@@ -166,6 +192,7 @@ export function ReimbursementsTable({
   const currentUserId = session?.user?.id;
   const { hasPermission } = useApp();
   const canDeleteAll = hasPermission("requests.delete_all");
+  const canVoid = hasPermission("requests.void");
   const zero = useZero();
   const review = useRowReview<RequestRow>();
   const [groupColumnId] = useDataTableGroupBy();
@@ -382,7 +409,12 @@ export function ReimbursementsTable({
       accessorFn: (row) => row.status,
       cell: ({ row }) => {
         const { label, tone } = getStatusBadge(row.original.status);
-        return <StatusBadge tone={tone}>{label}</StatusBadge>;
+        return (
+          <span className="inline-flex items-center gap-1">
+            <StatusBadge tone={tone}>{label}</StatusBadge>
+            {isVoided(row.original) ? <VoidBadge /> : null}
+          </span>
+        );
       },
       header: ({ column }) => (
         <DataGridColumnHeader
@@ -467,19 +499,25 @@ export function ReimbursementsTable({
         const r = row.original;
         const isOwner = r.userId === currentUserId;
         const canDelete = canDeleteAll || (isOwner && r.status === "pending");
-        const canEdit = currentUserId
-          ? canEditRequestSubmission(r, currentUserId, hasPermission)
-          : false;
+        const voided = isVoided(r);
+        const posted = postedIds?.has(r.id) ?? false;
+        const canEdit =
+          !voided &&
+          (currentUserId
+            ? canEditRequestSubmission(r, currentUserId, hasPermission)
+            : false);
         const actions = (
           <RowActions
             canDelete={canDelete}
             canEdit={canEdit}
             id={r.id}
+            inBooks={posted || voided}
             onRequestDelete={handleDeleteRequest}
+            onVoid={posted && !voided && canVoid ? onVoid : undefined}
             request={r}
           />
         );
-        if (!(showReview && r.status === "pending")) {
+        if (!(showReview && r.status === "pending" && !voided)) {
           return actions;
         }
         return (

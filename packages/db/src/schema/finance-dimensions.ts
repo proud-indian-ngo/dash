@@ -184,11 +184,27 @@ export const orgAccount = pgTable(
     fcraRole: fcraRoleEnum("fcra_role").default("none").notNull(),
     fundSource: fundSourceEnum("fund_source").default("domestic").notNull(),
     id: uuid("id").primaryKey(),
+    /**
+     * The main bank account (finance layer 3-3a): reimbursements and vendor
+     * payments are paid out of it ("Out of the main bank account (the
+     * trust deals in no cash)", finance-ledger-cutover.md section 3). At
+     * most one, and only a bank account.
+     */
+    isMain: boolean("is_main").default(false).notNull(),
     kind: orgAccountKindEnum("kind").notNull(),
     name: text("name").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
   },
-  (t) => [uniqueIndex("org_account_name_uidx").on(t.name)]
+  (t) => [
+    uniqueIndex("org_account_name_uidx").on(t.name),
+    uniqueIndex("org_account_is_main_uidx")
+      .on(t.isMain)
+      .where(sql`${t.isMain}`),
+    check(
+      "org_account_is_main_bank_chk",
+      sql`NOT ${t.isMain} OR ${t.kind} = 'bank'`
+    ),
+  ]
 );
 
 /** April to March financial year. */

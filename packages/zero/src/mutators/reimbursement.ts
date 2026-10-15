@@ -31,8 +31,10 @@ import {
   chargeChangeNote,
   expenseChargeArgs,
   resolveExpenseCharge,
+  POSTED_CHARGE_MESSAGE,
   setChargedToSchema,
 } from "./expense-charge";
+import { isPostedInBooks, queueLedgerPosting } from "./ledger-queue";
 import {
   assertApprovalScreenshot,
   assertCanDelete,
@@ -47,6 +49,7 @@ import {
   insertRelations,
   replaceRelations,
 } from "./submission-helpers";
+import { assertDeletable, assertNotVoided, voidSchema } from "./void";
 import {
   expenseDay,
   planVoucherFields,
@@ -141,6 +144,20 @@ export const changeClaimantSchema = z.object({
 
 const fk = (id: string) => ({ reimbursementId: id });
 
+/** Its posting in the books (finance layer 3-3a). */
+const ledgerSource = (id: string) => ({
+  sourceId: id,
+  sourceType: "reimbursement" as const,
+});
+
+/** After a change, the books follow: post, repost or reverse it. */
+const queuePosting = (
+  ctx: Parameters<typeof queueLedgerPosting>[0],
+  tx: Parameters<typeof queueLedgerPosting>[1],
+  id: string,
+  mutator: string
+) => queueLedgerPosting(ctx, tx, [ledgerSource(id)], mutator);
+
 /** Inserts each line item with its planned voucher fields and empty links. */
 function withPlannedVoucherFields<T extends { id: string }>(
   plans: ReadonlyMap<string, VoucherPlan>,
@@ -208,6 +225,7 @@ export const reimbursementMutators = {
       const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
       const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
       assertEntityExists(entity, "Reimbursement");
+      assertNotVoided(entity);
       assertPending(entity, "reimbursement", "approved", canEditAnyStatus);
 
       const now = Date.now();
@@ -252,6 +270,7 @@ export const reimbursementMutators = {
         ...buildHistoryInsert(userId, "approved", now, args.note),
         reimbursementId: args.id,
       });
+      queuePosting(ctx, tx, args.id, "reimbursement.approve");
 
       if (tx.location === "server") {
         const { title, userId: ownerId } = entity;
@@ -335,6 +354,7 @@ export const reimbursementMutators = {
         zql.reimbursement.where("id", args.reimbursementId).one()
       );
       assertEntityExists(entity, "Reimbursement");
+      assertNotVoided(entity);
       const isOwner = entity.userId === ctx.userId;
       if (
         !(isOwner || can(ctx, "finance.manage") || can(ctx, "requests.approve"))
@@ -418,6 +438,7 @@ export const reimbursementMutators = {
       assertHasPermission(ctx, "requests.create_for_others");
       const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
       assertEntityExists(entity, "Reimbursement");
+      assertNotVoided(entity);
       if (entity.userId !== args.previousUserId) {
         throw new Error("The claimant changed meanwhile. Reload and try again");
       }
@@ -475,6 +496,9 @@ export const reimbursementMutators = {
       if (tx.location !== "server") {
         return;
       }
+      // The payout names the claimant: a posted request is reversed and
+      // reposted to the new one.
+      queuePosting(ctx, tx, args.id, "reimbursement.changeClaimant");
       if (entity.status === "approved") {
         const limitPaise = await readCashVoucherLimit(tx);
         queueVouchers(
@@ -643,6 +667,7 @@ export const reimbursementMutators = {
       const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
       assertEntityExists(entity, "Reimbursement");
       assertCanDelete(entity, userId, can(ctx, "requests.delete_all"));
+      await assertDeletable(tx, entity, [ledgerSource(args.id)]);
       enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
         keyPrefixes: reimbursementApprovalKeyPrefixes(args.id),
         meta: {
@@ -673,6 +698,7 @@ export const reimbursementMutators = {
       });
 
       await tx.mutate.reimbursement.delete({ id: args.id });
+      queuePosting(ctx, tx, args.id, "reimbursement.delete");
     }
   ),
 
@@ -686,6 +712,7 @@ export const reimbursementMutators = {
         zql.reimbursement.where("id", args.reimbursementId).one()
       );
       assertEntityExists(entity, "Reimbursement");
+      assertNotVoided(entity);
       if (entity.status !== "approved") {
         throw new Error("Only approved reimbursements can have vouchers");
       }
@@ -737,6 +764,7 @@ export const reimbursementMutators = {
       const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
       const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
       assertEntityExists(entity, "Reimbursement");
+      assertNotVoided(entity);
       assertPending(entity, "reimbursement", "rejected", canEditAnyStatus);
 
       const now = Date.now();
@@ -753,6 +781,7 @@ export const reimbursementMutators = {
         ...buildHistoryInsert(userId, "rejected", now, args.reason),
         reimbursementId: args.id,
       });
+      queuePosting(ctx, tx, args.id, "reimbursement.reject");
 
       if (tx.location === "server") {
         const { title, userId: ownerId } = entity;
@@ -791,6 +820,7 @@ export const reimbursementMutators = {
       const { userId } = ctx;
       const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
       assertEntityExists(entity, "Reimbursement");
+      assertNotVoided(entity);
 
       if (entity.status === "pending") {
         throw new Error("Reimbursement is already pending");
@@ -819,18 +849,24 @@ export const reimbursementMutators = {
         ...buildHistoryInsert(userId, "submitted", now, "Reset to pending"),
         reimbursementId: args.id,
       });
+      // Un-approving a posted request reverses it in the books.
+      queuePosting(ctx, tx, args.id, "reimbursement.resetToPending");
     }
   ),
 
   /**
-   * Finance changes what the request is charged to, at approval or later.
-   * Expenses are not posted to the books yet; once they are, a posted
-   * request will refuse this.
+   * Finance changes what the request is charged to, at approval or later,
+   * until it is posted to the books: a posted request refuses this
+   * (founder decision, finance layer 3-3a).
    */
   setChargedTo: defineMutator(setChargedToSchema, async ({ tx, ctx, args }) => {
     const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
     assertEntityExists(entity, "Reimbursement");
+    assertNotVoided(entity);
     assertCanChangeCharge(ctx, entity);
+    if (await isPostedInBooks(tx, ledgerSource(args.id))) {
+      throw new Error(POSTED_CHARGE_MESSAGE);
+    }
     const charge = await resolveExpenseCharge(tx, args, entity);
     const note = await chargeChangeNote(tx, entity, charge);
     const now = Date.now();
@@ -843,6 +879,35 @@ export const reimbursementMutators = {
       ...buildHistoryInsert(ctx.userId, "updated", now, note),
       reimbursementId: args.id,
     });
+    queuePosting(ctx, tx, args.id, "reimbursement.setChargedTo");
+  }),
+
+  /**
+   * Voids the request (finance Option B): it stays, with its attachments,
+   * vouchers (their numbers stay used) and history, and takes no further
+   * change; the posting run reverses it on the void day. Voiding twice
+   * changes nothing.
+   */
+  void: defineMutator(voidSchema, async ({ tx, ctx, args }) => {
+    assertHasPermission(ctx, "requests.void");
+    const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
+    assertEntityExists(entity, "Reimbursement");
+    if (entity.voidedAt) {
+      return;
+    }
+    const now = Date.now();
+    await tx.mutate.reimbursement.update({
+      id: args.id,
+      updatedAt: now,
+      voidedAt: now,
+      voidedBy: ctx.userId,
+      voidReason: args.reason,
+    });
+    await tx.mutate.reimbursementHistory.insert({
+      ...buildHistoryInsert(ctx.userId, "voided", now, args.reason),
+      reimbursementId: args.id,
+    });
+    queuePosting(ctx, tx, args.id, "reimbursement.void");
   }),
 
   update: defineMutator(createSchema, async ({ tx, ctx, args }) => {
@@ -851,6 +916,7 @@ export const reimbursementMutators = {
     const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
     const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
     assertEntityExists(entity, "Reimbursement");
+    assertNotVoided(entity);
     assertCanModify(
       entity,
       userId,
@@ -942,5 +1008,7 @@ export const reimbursementMutators = {
         "reimbursement.update:queueVouchers"
       );
     }
+    // An edit after posting reverses and reposts it in the books.
+    queuePosting(ctx, tx, args.id, "reimbursement.update");
   }),
 };
