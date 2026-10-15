@@ -43,10 +43,36 @@ export interface CashVoucherProps {
    * claimant payee, the mobile on their profile.
    */
   payeePhone: string | null;
+  /**
+   * The payee's signature, drawn on the volunteer's phone: a trimmed PNG
+   * and when it was signed. Without it the Received by box stays empty for
+   * a signature or thumb impression on paper.
+   */
+  payeeSignature?: PayeeSignature | null;
   voucherNumber: string;
 }
 
+export interface PayeeSignature {
+  /** When the payee signed, epoch milliseconds. */
+  capturedAt: number;
+  /** The PNG bytes. */
+  image: Buffer;
+}
+
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+const IST = "Asia/Kolkata";
+const SIGNED_DAY = new Intl.DateTimeFormat("en-CA", {
+  day: "2-digit",
+  month: "2-digit",
+  timeZone: IST,
+  year: "numeric",
+});
+const SIGNED_TIME = new Intl.DateTimeFormat("en-IN", {
+  hour: "numeric",
+  hour12: true,
+  minute: "2-digit",
+  timeZone: IST,
+});
 const INDIAN_MOBILE = /^\+91(\d{5})(\d{5})$/;
 
 const styles = {
@@ -62,12 +88,14 @@ const styles = {
     },
     dateRule: { borderBottom: `0.75pt solid ${INK}`, flex: 1 },
     party: { flex: 1 },
+    payeeSignature: { height: 62, objectFit: "contain", width: "100%" },
     receivedBox: {
       border: HAIRLINE,
       borderRadius: 7,
       height: 78,
     },
     signatureImage: { height: 56, objectFit: "contain", width: 119 },
+    signedBox: { justifyContent: "center", paddingHorizontal: 10 },
     signatureRule: {
       borderTop: `0.75pt solid ${INK}`,
       marginTop: 6,
@@ -87,10 +115,59 @@ function voucherDate(date: string): string {
   return ISO_DAY.test(date) ? formatReceiptDate(date) : date;
 }
 
+/** "12 Oct 2026, 3:40 pm" in India, where vouchers are signed. */
+export function formatSignedAt(epochMs: number): string {
+  const when = new Date(epochMs);
+  return `${formatReceiptDate(SIGNED_DAY.format(when))}, ${SIGNED_TIME.format(when).toLowerCase()}`;
+}
+
+/** The Received by box: the drawn signature when there is one, else blank for paper. */
+function ReceivedBy({
+  paidTo,
+  signature,
+}: {
+  paidTo: string;
+  signature: PayeeSignature | null | undefined;
+}) {
+  if (!signature) {
+    return (
+      <View style={styles.party}>
+        <Text style={styles.label}>Received by</Text>
+        <View style={styles.receivedBox} />
+        <Text style={styles.small}>
+          Signature or thumb impression of the payee
+        </Text>
+        <View style={styles.dateLine}>
+          <Text style={[styles.small, styles.dateLabel]}>Date</Text>
+          <View style={styles.dateRule} />
+        </View>
+      </View>
+    );
+  }
+  return (
+    <View style={styles.party}>
+      <Text style={styles.label}>Received by</Text>
+      <View style={[styles.receivedBox, styles.signedBox]}>
+        <Image
+          src={{ data: signature.image, format: "png" }}
+          style={styles.payeeSignature}
+        />
+      </View>
+      <Line style={[styles.text, styles.signatureName, { marginTop: 4 }]}>
+        {paidTo}
+      </Line>
+      <Text style={styles.small}>
+        Signed electronically on {formatSignedAt(signature.capturedAt)}
+      </Text>
+    </View>
+  );
+}
+
 /**
  * A cash voucher for one reimbursement line item paid without a bill. The
- * payee signs or puts a thumb impression in the Received by box, and the
- * claimant uploads the signed copy to the reimbursement.
+ * Received by box carries the payee's signature drawn on the dashboard, or
+ * stays empty for them to sign or put a thumb impression on paper, after
+ * which the claimant uploads the signed copy to the reimbursement.
  */
 export function CashVoucher(props: CashVoucherProps) {
   const day = ISO_DAY.test(props.date) ? documentDate(props.date) : undefined;
@@ -172,17 +249,7 @@ export function CashVoucher(props: CashVoucherProps) {
               <Text style={styles.small}>Treasurer</Text>
             </View>
           </View>
-          <View style={styles.party}>
-            <Text style={styles.label}>Received by</Text>
-            <View style={styles.receivedBox} />
-            <Text style={styles.small}>
-              Signature or thumb impression of the payee
-            </Text>
-            <View style={styles.dateLine}>
-              <Text style={[styles.small, styles.dateLabel]}>Date</Text>
-              <View style={styles.dateRule} />
-            </View>
-          </View>
+          <ReceivedBy paidTo={props.paidTo} signature={props.payeeSignature} />
         </View>
 
         <Text fixed style={styles.footer}>

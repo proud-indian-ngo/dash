@@ -13,7 +13,7 @@ import {
   parseCashVoucherLimit,
   qualifiesForCashVoucher,
 } from "@pi-dash/shared/cash-voucher";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { uuidv7 } from "uuidv7";
 
@@ -52,6 +52,8 @@ async function commitVoucherAttachment(opts: {
         description: reimbursementLineItem.description,
         payeeName: reimbursementLineItem.payeeName,
         payeePhone: reimbursementLineItem.payeePhone,
+        payeeSignatureAttachmentId:
+          reimbursementLineItem.payeeSignatureAttachmentId,
         voucherAttachmentId: reimbursementLineItem.voucherAttachmentId,
       })
       .from(reimbursementLineItem)
@@ -99,6 +101,56 @@ async function commitVoucherAttachment(opts: {
     }
     return { linked: true, oldR2Key };
   });
+}
+
+const PNG_SIGNATURE = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+]);
+
+/**
+ * The payee's drawn signature for the Received by box, read from R2 like any
+ * other attachment of the request. A missing row prints the empty box; a read
+ * failure throws so the job retries rather than print a voucher without it.
+ */
+async function loadPayeeSignature(
+  lineItem: {
+    payeeSignatureAttachmentId: string | null;
+    payeeSignatureCapturedAt: Date | null;
+  },
+  reimbursementId: string
+): Promise<{
+  /** Why a linked signature isn't printed. */
+  skipped?: "payee_signature_missing" | "payee_signature_not_png";
+  signature: { capturedAt: number; image: Buffer } | null;
+}> {
+  const attachmentId = lineItem.payeeSignatureAttachmentId;
+  if (!(attachmentId && lineItem.payeeSignatureCapturedAt)) {
+    return { signature: null };
+  }
+  const [row] = await db
+    .select({ objectKey: reimbursementAttachment.objectKey })
+    .from(reimbursementAttachment)
+    .where(
+      and(
+        eq(reimbursementAttachment.id, attachmentId),
+        eq(reimbursementAttachment.reimbursementId, reimbursementId)
+      )
+    );
+  if (!row?.objectKey) {
+    return { signature: null, skipped: "payee_signature_missing" };
+  }
+  const image = Buffer.from(
+    await getR2Client().file(row.objectKey).arrayBuffer()
+  );
+  if (!image.subarray(0, 8).equals(PNG_SIGNATURE)) {
+    return { signature: null, skipped: "payee_signature_not_png" };
+  }
+  return {
+    signature: {
+      capturedAt: lineItem.payeeSignatureCapturedAt.getTime(),
+      image,
+    },
+  };
 }
 
 async function generateCashVoucher(data: GenerateCashVoucherPayload) {
@@ -163,6 +215,15 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
     .from(expenseCategory)
     .where(eq(expenseCategory.id, lineItem.categoryId));
 
+  // Read before a number is drawn, so a failed read wastes no number.
+  const { signature: payeeSignature, skipped } = await loadPayeeSignature(
+    lineItem,
+    data.reimbursementId
+  );
+  if (skipped) {
+    log.set({ payeeSignatureSkipped: skipped });
+  }
+
   // Allocate voucher number (nextval is atomic — no duplicates even concurrently)
   const seqRows = await db.execute(
     sql`SELECT nextval('voucher_seq') as seq_val`
@@ -191,6 +252,7 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
     orgRegistration: env.VOUCHER_ORG_REGISTRATION,
     claimedBy: submitter?.name ?? "Unknown",
     ...voucherPayee(lineItem, submitter),
+    payeeSignature,
     voucherNumber,
   });
 
@@ -222,6 +284,9 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
       expenseDate: reimb.expenseDate,
       payeeName: lineItem.payeeName,
       payeePhone: lineItem.payeePhone,
+      // A signature that failed to load printed nothing; a later edit that
+      // links one queues a new render.
+      payeeSignatureAttachmentId: lineItem.payeeSignatureAttachmentId,
     },
   });
 

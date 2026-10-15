@@ -29,6 +29,10 @@ export interface StoredVoucherItem {
   id: string;
   payeeName?: null | string;
   payeePhone?: null | string;
+  payeeSignatureAttachmentId?: null | string;
+  payeeSignatureCapturedAt?: null | number;
+  payeeSignatureCapturedBy?: null | string;
+  payeeSignatureStatement?: null | string;
   signedVoucherAttachmentId?: null | string;
   voucherAttachmentId?: null | string;
 }
@@ -45,6 +49,21 @@ export interface VoucherFields {
   payeePhone: null | string;
 }
 
+/** The payee's signature and what it acknowledged, as stored on the item. */
+export interface PayeeSignatureFields {
+  payeeSignatureAttachmentId: string;
+  payeeSignatureCapturedAt: null | number;
+  payeeSignatureCapturedBy: null | string;
+  payeeSignatureStatement: null | string;
+}
+
+export const NO_PAYEE_SIGNATURE = {
+  payeeSignatureAttachmentId: null,
+  payeeSignatureCapturedAt: null,
+  payeeSignatureCapturedBy: null,
+  payeeSignatureStatement: null,
+} as const;
+
 export interface VoucherPlan {
   fields: VoucherFields;
   /** Links to put back after the line items are re-inserted. */
@@ -54,6 +73,13 @@ export interface VoucherPlan {
   } | null;
   /** Whether an approved request should queue a voucher for this item. */
   queue: boolean;
+  /** The payee's signature to put back, when it still holds. */
+  signature: PayeeSignatureFields | null;
+  /**
+   * The item had a signature this edit made stale: the facts it acknowledged
+   * changed, or its file was removed. The file stays among the attachments.
+   */
+  signatureDropped: boolean;
 }
 
 /**
@@ -120,6 +146,12 @@ function sameAttachment(
  * current limit, except that an explicit untick is stored. Otherwise the voucher is stale: links are dropped (the
  * files stay among the attachments) and the item is treated as new, so an
  * approved request queues a fresh voucher, as approval would.
+ *
+ * The payee's signature follows the same rule, judged on its own: it was
+ * given against the amount, description, category, expense day and payee,
+ * so it survives only when those are unchanged, the item is still a voucher
+ * item naming that payee, and its file is still attached. A voucher need not
+ * exist yet; signatures are collected before approval.
  */
 export function planVoucherFields(input: {
   attachmentsAfter: readonly AttachmentIdentity[];
@@ -140,24 +172,37 @@ export function planVoucherFields(input: {
   const plans = new Map<string, VoucherPlan>();
   for (const item of input.items) {
     const old = before.get(item.id);
+    const editsPayee =
+      Boolean(item.generateVoucher) &&
+      qualifiesForCashVoucher(item.amountPaise, input.limitPaise);
+    // Ticking or unticking "paid to the claimant" changes the printed
+    // payee: no stored name means the voucher prints the claimant.
+    const payee = submittedPayee(item, editsPayee);
+    const samePayee =
+      old !== undefined &&
+      payee.payeeName === (old.payeeName ?? null) &&
+      payee.payeePhone === (old.payeePhone ?? null);
+    const sameFacts =
+      old !== undefined &&
+      old.amountPaise === item.amountPaise &&
+      (old.description ?? "") === item.description &&
+      old.categoryId === item.categoryId &&
+      !input.expenseDateChanged;
+    const signature = keptSignature(old, {
+      attachmentsAfter,
+      attachmentsBefore,
+      // The payee acknowledged these facts, so the voucher's stale rule
+      // applies, and the item must still be a voucher item naming them.
+      stillHolds: sameFacts && editsPayee && samePayee,
+    });
+    const signatureDropped = Boolean(
+      old?.payeeSignatureAttachmentId && !signature
+    );
     const voucherId = old?.voucherAttachmentId;
     if (old && voucherId) {
-      const editsPayee =
-        Boolean(item.generateVoucher) &&
-        qualifiesForCashVoucher(item.amountPaise, input.limitPaise);
-      // Ticking or unticking "paid to the claimant" changes the printed
-      // payee: no stored name means the voucher prints the claimant.
-      const payee = submittedPayee(item, editsPayee);
-      const payeeUnchanged =
-        !editsPayee ||
-        (payee.payeeName === (old.payeeName ?? null) &&
-          payee.payeePhone === (old.payeePhone ?? null));
+      // The voucher prints the signature too: losing it makes the voucher stale.
       const printedUnchanged =
-        old.amountPaise === item.amountPaise &&
-        (old.description ?? "") === item.description &&
-        old.categoryId === item.categoryId &&
-        !input.expenseDateChanged &&
-        payeeUnchanged;
+        sameFacts && (!editsPayee || samePayee) && !signatureDropped;
       if (
         printedUnchanged &&
         sameAttachment(voucherId, attachmentsBefore, attachmentsAfter)
@@ -184,14 +229,49 @@ export function planVoucherFields(input: {
             voucherAttachmentId: voucherId,
           },
           queue: false,
+          signature,
+          signatureDropped,
         });
         continue;
       }
     }
     const fields = normalizeVoucherFields(item, input.limitPaise);
-    plans.set(item.id, { fields, links: null, queue: fields.generateVoucher });
+    plans.set(item.id, {
+      fields,
+      links: null,
+      queue: fields.generateVoucher,
+      signature,
+      signatureDropped,
+    });
   }
   return plans;
+}
+
+/**
+ * The stored signature when it still holds: the facts it acknowledged are
+ * unchanged and its file is still attached under the same id and key.
+ */
+function keptSignature(
+  old: StoredVoucherItem | undefined,
+  input: {
+    attachmentsAfter: ReadonlyMap<string, AttachmentIdentity>;
+    attachmentsBefore: ReadonlyMap<string, AttachmentIdentity>;
+    stillHolds: boolean;
+  }
+): PayeeSignatureFields | null {
+  const id = old?.payeeSignatureAttachmentId;
+  if (
+    !(old && id && input.stillHolds) ||
+    !sameAttachment(id, input.attachmentsBefore, input.attachmentsAfter)
+  ) {
+    return null;
+  }
+  return {
+    payeeSignatureAttachmentId: id,
+    payeeSignatureCapturedAt: old.payeeSignatureCapturedAt ?? null,
+    payeeSignatureCapturedBy: old.payeeSignatureCapturedBy ?? null,
+    payeeSignatureStatement: old.payeeSignatureStatement ?? null,
+  };
 }
 
 /** The calendar day of an expense date in India, where expenses are dated. */

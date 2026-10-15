@@ -1,14 +1,23 @@
 import { describe, expect, it } from "bun:test";
 
 import { paiseToWords } from "./amount-to-words";
-import { type CashVoucherProps, formatPayeePhone } from "./cash-voucher";
+import {
+  type CashVoucherProps,
+  formatPayeePhone,
+  formatSignedAt,
+} from "./cash-voucher";
 import { generateCashVoucherPdf } from "./generate-voucher";
+import { syntheticSignaturePng } from "./synthetic-signature.test-helper";
 
 /** Embedded font names, without the subset prefix. */
 function fontNames(pdf: Buffer): string[] {
   return [
     ...pdf.toString("latin1").matchAll(/\/BaseFont \/(?:[A-Z]{6}\+)?([\w-]+)/g),
   ].map((match) => match[1] ?? "");
+}
+
+function imageCount(pdf: Buffer): number {
+  return [...pdf.toString("latin1").matchAll(/\/Subtype \/Image\b/g)].length;
 }
 
 function pageCount(pdf: Buffer): number {
@@ -126,5 +135,61 @@ describe("formatPayeePhone", () => {
 
   it("prints anything else as given", () => {
     expect(formatPayeePhone("+14155550123")).toBe("+14155550123");
+  });
+
+  describe("with the payee's signature", () => {
+    const signed: CashVoucherProps = {
+      ...sampleVoucher,
+      // 12 Oct 2026, 3:40 pm in India.
+      payeeSignature: {
+        capturedAt: Date.UTC(2026, 9, 12, 10, 10),
+        image: syntheticSignaturePng(),
+      },
+    };
+
+    it("embeds the signature beside the treasurer's", async () => {
+      const [plain, withSignature] = await Promise.all([
+        generateCashVoucherPdf(sampleVoucher),
+        generateCashVoucherPdf(signed),
+      ]);
+      expect(imageCount(withSignature)).toBeGreaterThan(imageCount(plain));
+      expect(pageCount(withSignature)).toBe(1);
+    });
+
+    it("renders the same bytes every time", async () => {
+      const first = await generateCashVoucherPdf(signed);
+      const second = await generateCashVoucherPdf(signed);
+      expect(second.equals(first)).toBe(true);
+    });
+
+    it("keeps a long payee name and a square signature on one page", async () => {
+      const pdf = await generateCashVoucherPdf({
+        ...signed,
+        paidTo:
+          "Venkatanarasimharajuvaripeta Subrahmanyam Lakshminarayanan Ramaswamy Iyengar",
+        payeeSignature: {
+          capturedAt: Date.UTC(2026, 9, 12, 10, 10),
+          image: syntheticSignaturePng(200, 200),
+        },
+      });
+      expect(pageCount(pdf)).toBe(1);
+    });
+
+    it("prints an unsigned voucher exactly as before", async () => {
+      const [unsigned, explicitNull] = await Promise.all([
+        generateCashVoucherPdf(sampleVoucher),
+        generateCashVoucherPdf({ ...sampleVoucher, payeeSignature: null }),
+      ]);
+      expect(explicitNull.equals(unsigned)).toBe(true);
+    });
+  });
+
+  it("dates the signature in India", () => {
+    expect(formatSignedAt(Date.UTC(2026, 9, 12, 10, 10))).toBe(
+      "12 Oct 2026, 3:40 pm"
+    );
+    expect(formatSignedAt(Date.UTC(2026, 9, 11, 19, 0))).toBe(
+      "12 Oct 2026, 12:30 am"
+    );
   });
 });

@@ -134,6 +134,23 @@ export const reimbursementLineItem = pgTable(
     payeeName: text("payee_name"),
     /** Optional E.164 Indian mobile of the person a cash voucher pays; printed on the voucher. */
     payeePhone: text("payee_phone"),
+    /**
+     * The payee's signature, drawn on the volunteer's phone before approval:
+     * a PNG among the request's attachments, printed in the voucher's
+     * Received by box. Unlinked (the file stays) when the item changes.
+     */
+    payeeSignatureAttachmentId: uuid(
+      "payee_signature_attachment_id"
+    ).references(() => reimbursementAttachment.id, { onDelete: "set null" }),
+    /** When the payee signed. */
+    payeeSignatureCapturedAt: timestamp("payee_signature_captured_at"),
+    /** The volunteer (or finance) who collected the signature. */
+    payeeSignatureCapturedBy: text("payee_signature_captured_by").references(
+      () => user.id,
+      { onDelete: "set null" }
+    ),
+    /** The statement shown above the pad, word for word. */
+    payeeSignatureStatement: text("payee_signature_statement"),
     reimbursementId: uuid("reimbursement_id")
       .notNull()
       .references(() => reimbursement.id, { onDelete: "cascade" }),

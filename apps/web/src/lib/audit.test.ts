@@ -238,6 +238,31 @@ describe("audit metadata", () => {
     expect(JSON.stringify(summary)).not.toContain("approval-screenshots/");
   });
 
+  it("records a payee signature by IDs, never its statement or key", () => {
+    const summary = summarizeZeroMutation(
+      "reimbursement.collectPayeeSignature",
+      {
+        attachmentId: NEW_ID,
+        lineItemId: TARGET_ID,
+        objectKey: "app/attachments/tmp/u/payee-signature.png",
+        reimbursementId: TEAM_ID,
+        replacesAttachmentId: REPLACED_ID,
+        statement:
+          "I, Test Payee, received ₹500 from Proud Indian for Cleaning on 1 Oct 2026.",
+      },
+      "actor-1"
+    );
+    expect(summary.metadata?.relatedIds).toEqual({
+      attachmentId: NEW_ID,
+      lineItemId: TARGET_ID,
+      reimbursementId: TEAM_ID,
+      replacesAttachmentId: REPLACED_ID,
+    });
+    const stored = JSON.stringify(summary);
+    expect(stored).not.toContain("Test Payee");
+    expect(stored).not.toContain("payee-signature.png");
+  });
+
   it("keeps IDs and field names without storing sensitive values", () => {
     const summary = summarizeZeroMutation(
       "user.update",

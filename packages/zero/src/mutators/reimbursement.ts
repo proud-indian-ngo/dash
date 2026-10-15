@@ -11,6 +11,10 @@ import {
 } from "@pi-dash/shared/cash-voucher";
 import { cityValues } from "@pi-dash/shared/constants";
 import { todayInKolkata } from "@pi-dash/shared/income";
+import {
+  PAYEE_SIGNATURE_MIME_TYPE,
+  payeeSignatureStatement,
+} from "@pi-dash/shared/payee-signature";
 import { defineMutator, type Transaction } from "@rocicorp/zero";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
@@ -59,6 +63,7 @@ import {
 } from "./void";
 import {
   expenseDay,
+  NO_PAYEE_SIGNATURE,
   planVoucherFields,
   type VoucherPlan,
 } from "./voucher-fields";
@@ -229,6 +234,45 @@ async function keepProofAsAttachment(
   });
 }
 
+/** The payee's drawn signature, uploaded as a PNG to the collector's temp folder. */
+const collectPayeeSignatureSchema = z.object({
+  /** The new attachment's id. */
+  attachmentId: z.string(),
+  lineItemId: z.string(),
+  objectKey: z.string().min(1),
+  reimbursementId: z.string(),
+  /** The signature the client saw, so a re-collect never races another. */
+  replacesAttachmentId: z.string().nullable(),
+  /** The statement shown above the pad, checked against the item. */
+  statement: z.string().min(1).max(1000),
+});
+
+const PAYEE_SIGNATURE_FILENAME = "payee-signature.png";
+
+const PAID_TO_CLAIMANT_SIGNATURE_MESSAGE =
+  "Paid to the claimant, so no payee signature is needed";
+
+/**
+ * Who may collect the payee's signature, and when: the claimant who paid
+ * the cash, finance or an approver, until the request is approved.
+ */
+function assertCanCollectPayeeSignature(
+  ctx: Context,
+  entity: { status: null | string; userId: string }
+) {
+  const isOwner = entity.userId === ctx.userId;
+  if (
+    !(isOwner || can(ctx, "finance.manage") || can(ctx, "requests.approve"))
+  ) {
+    throw new Error("Unauthorized");
+  }
+  if (entity.status === "approved") {
+    throw new Error(
+      "The payee signature is locked once the request is approved"
+    );
+  }
+}
+
 const fk = (id: string) => ({ reimbursementId: id });
 
 /** Its posting in the books (finance layer 3-3a). */
@@ -257,6 +301,7 @@ function withPlannedVoucherFields<T extends { id: string }>(
       generateVoucher: plan?.fields.generateVoucher ?? false,
       payeeName: plan?.fields.payeeName ?? null,
       payeePhone: plan?.fields.payeePhone ?? null,
+      ...NO_PAYEE_SIGNATURE,
       signedVoucherAttachmentId: null,
       voucherAttachmentId: null,
     });
@@ -569,6 +614,117 @@ export const reimbursementMutators = {
           now,
           previousId ? "Signed voucher replaced" : "Signed voucher uploaded"
         ),
+        reimbursementId: args.reimbursementId,
+      });
+    }
+  ),
+  /**
+   * The payee signs for the cash on the volunteer's phone, before approval.
+   * The drawn PNG becomes a request attachment linked from the line item,
+   * with the statement shown above the pad, when it was signed and who
+   * collected it. The statement must be the one the item's current facts
+   * produce, so a signature never acknowledges facts an edit has changed.
+   * Re-collecting replaces the link; the earlier file stays as evidence.
+   * Once the request is approved the signature is locked.
+   */
+  collectPayeeSignature: defineMutator(
+    collectPayeeSignatureSchema,
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+      const entity = await tx.run(
+        zql.reimbursement.where("id", args.reimbursementId).one()
+      );
+      assertEntityExists(entity, "Reimbursement");
+      assertNotVoided(entity);
+      assertCanCollectPayeeSignature(ctx, entity);
+      const lineItem = await tx.run(
+        zql.reimbursementLineItem
+          .where("id", args.lineItemId)
+          .where("reimbursementId", args.reimbursementId)
+          .one()
+      );
+      assertEntityExists(lineItem, "Line item");
+      const limitPaise = await readCashVoucherLimit(tx);
+      if (
+        !(
+          lineItem.generateVoucher &&
+          qualifiesForCashVoucher(lineItem.amountPaise, limitPaise)
+        )
+      ) {
+        throw new Error("Only cash voucher items take a payee signature");
+      }
+      if (!lineItem.payeeName) {
+        throw new Error(PAID_TO_CLAIMANT_SIGNATURE_MESSAGE);
+      }
+      if (
+        (lineItem.payeeSignatureAttachmentId ?? null) !==
+        args.replacesAttachmentId
+      ) {
+        throw new Error(
+          "The payee signature changed meanwhile. Reload and try again"
+        );
+      }
+      const category = await tx.run(
+        zql.expenseCategory.where("id", lineItem.categoryId).one()
+      );
+      const statement = payeeSignatureStatement({
+        amountPaise: lineItem.amountPaise,
+        categoryName: category?.name,
+        description: lineItem.description,
+        expenseDate: entity.expenseDate,
+        payeeName: lineItem.payeeName,
+      });
+      if (args.statement !== statement) {
+        throw new Error(
+          "The item changed while the payee was signing. Ask them to sign again"
+        );
+      }
+
+      const now = Date.now();
+      const objectKey = claimUploadedR2ObjectKey(
+        args.objectKey,
+        createR2ClaimOptions(ctx, tx.location, {
+          durablePrefix: `reimbursements/${args.reimbursementId}`,
+          mimeType: PAYEE_SIGNATURE_MIME_TYPE,
+          subfolder: "attachments",
+        })
+      );
+      await tx.mutate.reimbursementAttachment.insert({
+        createdAt: now,
+        filename: PAYEE_SIGNATURE_FILENAME,
+        id: args.attachmentId,
+        mimeType: PAYEE_SIGNATURE_MIME_TYPE,
+        objectKey,
+        reimbursementId: args.reimbursementId,
+        type: "file",
+        url: null,
+      });
+      await tx.mutate.reimbursementLineItem.update({
+        id: args.lineItemId,
+        payeeSignatureAttachmentId: args.attachmentId,
+        payeeSignatureCapturedAt: now,
+        payeeSignatureCapturedBy: ctx.userId,
+        payeeSignatureStatement: statement,
+        updatedAt: now,
+      });
+      // A replaced signature stays among the request's attachments.
+      const previousId = lineItem.payeeSignatureAttachmentId;
+      await tx.mutate.reimbursementHistory.insert({
+        ...buildHistoryInsert(
+          ctx.userId,
+          "updated",
+          now,
+          previousId
+            ? `Payee signature collected again from ${lineItem.payeeName}`
+            : `Payee signature collected from ${lineItem.payeeName}`
+        ),
+        // The statement is kept here too, so it outlives a later edit.
+        metadata: {
+          attachmentId: args.attachmentId,
+          lineItemId: args.lineItemId,
+          replacedAttachmentId: previousId ?? null,
+          statement,
+        },
         reimbursementId: args.reimbursementId,
       });
     }
@@ -1167,9 +1323,29 @@ export const reimbursementMutators = {
 
     // Links go back once the attachments they point at are re-inserted.
     for (const [id, plan] of voucherPlans) {
-      if (plan.links) {
-        await tx.mutate.reimbursementLineItem.update({ id, ...plan.links });
+      if (plan.links || plan.signature) {
+        await tx.mutate.reimbursementLineItem.update({
+          id,
+          ...plan.links,
+          ...plan.signature,
+        });
       }
+    }
+    const droppedSignatures = [...voucherPlans.values()].filter(
+      (plan) => plan.signatureDropped
+    ).length;
+    if (droppedSignatures > 0) {
+      await tx.mutate.reimbursementHistory.insert({
+        ...buildHistoryInsert(
+          userId,
+          "updated",
+          now,
+          droppedSignatures === 1
+            ? "Payee signature cleared: the item changed after it was signed"
+            : `${droppedSignatures} payee signatures cleared: the items changed after they were signed`
+        ),
+        reimbursementId: args.id,
+      });
     }
 
     // An approved request edited by an admin gets vouchers for opted-in

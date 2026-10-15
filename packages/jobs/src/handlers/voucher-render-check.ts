@@ -10,11 +10,13 @@ export interface RenderedFrom {
   expenseDate: string;
   payeeName: string | null;
   payeePhone: string | null;
+  /** The payee's signature printed in the Received by box, if any. */
+  payeeSignatureAttachmentId: string | null;
 }
 
 /**
  * Whether the line item and its request (expense date and claimant) still
- * hold what the voucher printed. The expense date is the stored calendar day (`YYYY-MM-DD`), so
+ * hold what the voucher printed, including the payee's signature. The expense date is the stored calendar day (`YYYY-MM-DD`), so
  * re-picking the same day never counts as a change.
  */
 export function stillAsRendered(
@@ -30,6 +32,8 @@ export function stillAsRendered(
     current.description === rendered.description &&
     current.payeeName === rendered.payeeName &&
     current.payeePhone === rendered.payeePhone &&
+    current.payeeSignatureAttachmentId ===
+      rendered.payeeSignatureAttachmentId &&
     request.expenseDate === rendered.expenseDate &&
     request.claimantId === rendered.claimantId
   );

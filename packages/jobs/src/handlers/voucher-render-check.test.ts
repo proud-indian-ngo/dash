@@ -14,6 +14,7 @@ const rendered: RenderedFrom = {
   expenseDate: "2026-10-01",
   payeeName: "Test Payee",
   payeePhone: "+919876543210",
+  payeeSignatureAttachmentId: "att-sig",
 };
 const { claimantId, expenseDate, ...item } = rendered;
 const request = { claimantId, expenseDate };
@@ -29,6 +30,7 @@ describe("stillAsRendered", () => {
     ["description", { description: "Painting" }],
     ["payee", { payeeName: "Other Payee" }],
     ["mobile", { payeePhone: null }],
+    ["payee signature", { payeeSignatureAttachmentId: null }],
   ])("discards a render when the %s changed", (_, change) => {
     expect(stillAsRendered({ ...item, ...change }, request, rendered)).toBe(
       false
