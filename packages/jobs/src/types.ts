@@ -70,6 +70,25 @@ export interface NotifyReimbursementRejectedPayload {
   submitterId: string;
   title: string;
 }
+/** Finance raised a reimbursement on the claimant's behalf. */
+export interface NotifyReimbursementRaisedForYouPayload {
+  claimantId: string;
+  raisedByName: string;
+  reimbursementId: string;
+  title: string;
+}
+/** Finance moved a reimbursement from one claimant to another. */
+export interface NotifyReimbursementClaimantChangedPayload {
+  /** The mutator's timestamp, so each change notifies once. */
+  changedAt: number;
+  changedByName: string;
+  newClaimantId: string;
+  newClaimantName: string;
+  previousClaimantId: string;
+  reason: string;
+  reimbursementId: string;
+  title: string;
+}
 
 // Event interest lifecycle
 export type ExpireEventInterestsPayload = Record<string, never>;
@@ -682,6 +701,8 @@ export interface JobPayloads {
   "notify-photo-approved": NotifyPhotoApprovedPayload;
   "notify-photo-rejected": NotifyPhotoRejectedPayload;
   "notify-reimbursement-approved": NotifyReimbursementApprovedPayload;
+  "notify-reimbursement-claimant-changed": NotifyReimbursementClaimantChangedPayload;
+  "notify-reimbursement-raised-for-you": NotifyReimbursementRaisedForYouPayload;
   "notify-reimbursement-rejected": NotifyReimbursementRejectedPayload;
   "notify-reimbursement-submitted": NotifyReimbursementSubmittedPayload;
   "notify-removed-from-event": NotifyRemovedFromEventPayload;

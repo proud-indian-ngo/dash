@@ -50,6 +50,8 @@ export const QUEUE_NAMES: JobName[] = [
   "notify-photo-approved",
   "notify-photo-rejected",
   "notify-reimbursement-approved",
+  "notify-reimbursement-claimant-changed",
+  "notify-reimbursement-raised-for-you",
   "notify-reimbursement-rejected",
   "notify-reimbursement-submitted",
   "notify-removed-from-event",

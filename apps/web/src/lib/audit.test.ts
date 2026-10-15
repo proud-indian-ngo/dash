@@ -293,6 +293,61 @@ describe("audit metadata", () => {
     });
   });
 
+  it("records a claimant change by IDs and field names, never the reason", async () => {
+    const previousUserId = "abcdefghijklmnopqrstuv0123456789";
+    const summary = await resolveZeroAuditSummary(
+      "reimbursement.changeClaimant",
+      {
+        bankAccountId: NEW_ID,
+        id: TARGET_ID,
+        previousUserId,
+        reason: "Paid by someone else",
+        userId: BETTER_AUTH_USER_ID,
+      },
+      "differentActorId000000000000000",
+      async () => new Set([BETTER_AUTH_USER_ID, previousUserId])
+    );
+    expect(summary.target).toEqual({
+      id: TARGET_ID,
+      type: "reimbursement",
+    });
+    expect(summary.metadata?.changedFields).toEqual([
+      "bankAccountId",
+      "id",
+      "previousUserId",
+      "reason",
+      "userId",
+    ]);
+    expect(summary.metadata?.relatedIds).toEqual({
+      bankAccountId: NEW_ID,
+      id: TARGET_ID,
+      previousUserId,
+      userId: BETTER_AUTH_USER_ID,
+    });
+    expect(JSON.stringify(summary)).not.toContain("Paid by");
+  });
+
+  it("records the claimant of a claim raised for someone else", async () => {
+    const summary = await resolveZeroAuditSummary(
+      "reimbursement.create",
+      {
+        claimantBankAccountId: NEW_ID,
+        claimantUserId: BETTER_AUTH_USER_ID,
+        id: TARGET_ID,
+        title: "Travel",
+      },
+      "differentActorId000000000000000",
+      async () => new Set([BETTER_AUTH_USER_ID])
+    );
+    expect(summary.metadata?.relatedIds).toMatchObject({
+      claimantBankAccountId: NEW_ID,
+      claimantUserId: BETTER_AUTH_USER_ID,
+    });
+    expect(summary.metadata?.changedFields).toEqual(
+      expect.arrayContaining(["claimantBankAccountId", "claimantUserId"])
+    );
+  });
+
   it("drops unknown session targets and propagates resolver failures", async () => {
     const unknown = mock(async () => new Set<string>());
     await expect(

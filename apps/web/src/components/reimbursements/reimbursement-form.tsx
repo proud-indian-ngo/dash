@@ -8,12 +8,13 @@ import type {
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { format } from "date-fns";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { uuidv7 } from "uuidv7";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import type { CurrentChargeProgramme } from "@/components/expenses/charged-to-fields";
 import { FormLayout } from "@/components/form/form-layout";
+import { useApp } from "@/context/app-context";
 import { useCashVoucherLimit } from "@/hooks/use-cash-voucher-limit";
 import { DATE } from "@/lib/date-formats";
 import { newLineItem } from "@/lib/form-schemas";
@@ -21,6 +22,8 @@ import { handleMutationResult } from "@/lib/mutation-result";
 import type { RequestType } from "@/lib/reimbursement-types";
 import { REQUEST_TYPE_LABELS } from "@/lib/reimbursement-types";
 
+import { ClaimForField } from "./claim-for-field";
+import { useClaimantOptions } from "./claimant-picker";
 import {
   getDefaultValues,
   type RequestFormValues,
@@ -79,14 +82,37 @@ function ReimbursementFormInner({
   requestType,
 }: ReimbursementFormInnerProps) {
   const zero = useZero();
-  const [categories] = useQuery(queries.expenseCategory.all());
-  const [bankAccounts, bankAccountsResult] = useQuery(
-    queries.bankAccount.bankAccountsByCurrentUser()
-  );
-  const [events] = useQuery(queries.teamEvent.allAccessible());
-
+  const { hasPermission, user } = useApp();
   const existingId = initialValues?.id;
   const isEdit = !!existingId;
+  // Finance raises a new reimbursement for someone else; the claimant owns
+  // it and is paid to one of their own saved accounts.
+  const canClaimForOthers =
+    requestType === "reimbursement" &&
+    !isEdit &&
+    hasPermission("requests.create_for_others");
+  const [claimantId, setClaimantId] = useState(user.id);
+  const forOthers = canClaimForOthers && claimantId !== user.id;
+  const claimants = useClaimantOptions(canClaimForOthers);
+  const claimantName = forOthers
+    ? (claimants.find((c) => c.id === claimantId)?.name ?? "The claimant")
+    : undefined;
+
+  const [categories] = useQuery(queries.expenseCategory.all());
+  const [ownBankAccounts, ownBankAccountsResult] = useQuery(
+    queries.bankAccount.bankAccountsByCurrentUser(),
+    { enabled: !forOthers }
+  );
+  const [claimantBankAccounts, claimantBankAccountsResult] = useQuery(
+    queries.bankAccount.bankAccountsForClaimant({ userId: claimantId }),
+    { enabled: forOthers }
+  );
+  const bankAccounts = forOthers ? claimantBankAccounts : ownBankAccounts;
+  const bankAccountsResult = forOthers
+    ? claimantBankAccountsResult
+    : ownBankAccountsResult;
+  const [events] = useQuery(queries.teamEvent.allAccessible());
+
   const entityId = existingId ?? uuidv7();
 
   const categoryList = (categories ?? []) as ExpenseCategory[];
@@ -156,7 +182,8 @@ function ReimbursementFormInner({
         id,
         existingId,
         bankAccountList,
-        voucherLimitPaise
+        voucherLimitPaise,
+        forOthers ? claimantId : undefined
       );
 
       const mutatorNameMap = {
@@ -222,9 +249,29 @@ function ReimbursementFormInner({
     form.setFieldValue("bankAccountNumber", account.accountNumber);
     form.setFieldValue("bankAccountIfscCode", account.ifscCode);
   });
+  // A new claimant means a new set of accounts: clear the old choice so the
+  // claimant's default fills in.
+  const handleClaimantChange = useEventCallback((nextId: string) => {
+    if (nextId === claimantId) {
+      return;
+    }
+    form.setFieldValue("bankAccountName", "");
+    form.setFieldValue("bankAccountNumber", "");
+    form.setFieldValue("bankAccountIfscCode", "");
+    autoBankAccountNumber.current = undefined;
+    setClaimantId(nextId);
+  });
 
   return (
     <FormLayout className="flex flex-col gap-4" form={form}>
+      {canClaimForOthers ? (
+        <ClaimForField
+          claimantId={claimantId}
+          claimants={claimants}
+          currentUser={user}
+          onChange={handleClaimantChange}
+        />
+      ) : null}
       <form.Subscribe selector={stableSelector0}>
         {({ city: selectedCity, eventId }) => {
           const filteredOptions = getFilteredEventOptions(selectedCity);
@@ -234,6 +281,8 @@ function ReimbursementFormInner({
           return (
             <StandardReimbursementFields
               bankAccountList={bankAccountList}
+              bankAccountsKey={claimantId}
+              claimantName={claimantName}
               bankAccountOptions={bankAccountOptions}
               bankAccountsStatus={bankAccountsStatus}
               categoryList={categoryList}

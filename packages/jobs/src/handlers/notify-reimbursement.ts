@@ -1,11 +1,15 @@
 import {
   notifyReimbursementApproved,
+  notifyReimbursementClaimantChanged,
+  notifyReimbursementRaisedForYou,
   notifyReimbursementRejected,
   notifyReimbursementSubmitted,
 } from "@pi-dash/notifications/send/reimbursement";
 
 import type {
   NotifyReimbursementApprovedPayload,
+  NotifyReimbursementClaimantChangedPayload,
+  NotifyReimbursementRaisedForYouPayload,
   NotifyReimbursementRejectedPayload,
   NotifyReimbursementSubmittedPayload,
 } from "../enqueue";
@@ -27,4 +31,16 @@ export const handleNotifyReimbursementRejected =
   createNotifyHandler<NotifyReimbursementRejectedPayload>(
     "notify-reimbursement-rejected",
     async () => notifyReimbursementRejected
+  );
+
+export const handleNotifyReimbursementRaisedForYou =
+  createNotifyHandler<NotifyReimbursementRaisedForYouPayload>(
+    "notify-reimbursement-raised-for-you",
+    async () => notifyReimbursementRaisedForYou
+  );
+
+export const handleNotifyReimbursementClaimantChanged =
+  createNotifyHandler<NotifyReimbursementClaimantChangedPayload>(
+    "notify-reimbursement-claimant-changed",
+    async () => notifyReimbursementClaimantChanged
   );

@@ -57,9 +57,20 @@ const SAFE_USER_ID_PATTERN = /^[A-Za-z0-9]{32}$/;
 const SENSITIVE_ID_KEY_PATTERN = /(password|secret|token|key|url)/i;
 const SAFE_ROLE_ID_PATTERN = /^[a-z][a-z0-9_]{0,49}$/;
 const SAFE_TARGET_TYPE_PATTERN = /^[a-z][A-Za-z0-9_.-]{0,63}$/;
+/** Argument keys whose values are user IDs (checked against the user table). */
+const USER_ID_KEYS = new Set([
+  "claimantUserId",
+  "previousUserId",
+  "userId",
+  "userIds",
+]);
 const SAFE_CHANGED_FIELD_NAMES = new Set([
   "accountName",
   "active",
+  "bankAccountId",
+  "claimantBankAccountId",
+  "claimantUserId",
+  "previousUserId",
   "cause",
   "code",
   "endsOn",
@@ -576,7 +587,7 @@ function isSafeRelatedIdentifier(
 ): value is string {
   return (
     isSafeIdentifier(value) ||
-    ((key === "userId" || key === "userIds") &&
+    (USER_ID_KEYS.has(key) &&
       typeof value === "string" &&
       knownUserIds.has(value))
   );
@@ -712,7 +723,7 @@ function collectZeroUserIdCandidates(args: unknown): string[] {
   }
   const candidates = new Set<string>();
   for (const [key, value] of Object.entries(args)) {
-    if (key !== "userId" && key !== "userIds") {
+    if (!USER_ID_KEYS.has(key)) {
       continue;
     }
     const values = Array.isArray(value) ? value : [value];

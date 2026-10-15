@@ -53,6 +53,8 @@ import {
 } from "./notify-kalakriti";
 import {
   handleNotifyReimbursementApproved,
+  handleNotifyReimbursementClaimantChanged,
+  handleNotifyReimbursementRaisedForYou,
   handleNotifyReimbursementRejected,
   handleNotifyReimbursementSubmitted,
 } from "./notify-reimbursement";
@@ -285,6 +287,16 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "notify-reimbursement-rejected",
     NOTIFY_POLL,
     handleNotifyReimbursementRejected
+  );
+  await boss.work(
+    "notify-reimbursement-raised-for-you",
+    NOTIFY_POLL,
+    handleNotifyReimbursementRaisedForYou
+  );
+  await boss.work(
+    "notify-reimbursement-claimant-changed",
+    NOTIFY_POLL,
+    handleNotifyReimbursementClaimantChanged
   );
 
   await boss.work(

@@ -8,6 +8,13 @@ export const PERMISSIONS = [
   },
   {
     category: "reimbursements",
+    description:
+      "Raise a reimbursement on someone else's behalf, paid to one of their saved bank accounts, and change who a reimbursement belongs to",
+    id: "requests.create_for_others",
+    name: "Claim for Others",
+  },
+  {
+    category: "reimbursements",
     description: "See your own submitted reimbursements and payments",
     id: "requests.view_own",
     name: "View Own Reimbursements",
@@ -525,6 +532,7 @@ export const TECHNICAL_ROLE_IDS = new Set(["external_user"]);
 const adminExcluded = new Set<PermissionId>([
   "audit_log.view",
   "requests.approve",
+  "requests.create_for_others",
   "requests.edit_all_statuses",
   "vendors.approve",
   "users.create",

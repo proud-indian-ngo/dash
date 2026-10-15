@@ -37,9 +37,13 @@ import type { RequestType } from "@/lib/reimbursement-types";
 
 interface StandardReimbursementFieldsProps {
   bankAccountList: BankAccount[];
+  /** Remounts the bank account picker when the claimant changes. */
+  bankAccountsKey?: string;
   bankAccountOptions: { label: string; value: string }[];
   bankAccountsStatus: "loading" | "complete" | "error";
   categoryList: ExpenseCategory[];
+  /** Set when raising for someone else: whose accounts are listed. */
+  claimantName?: string;
   currentChargeProgramme?: CurrentChargeProgramme | null;
   disableBankAccountSelection: boolean;
   eventOptions: SelectOption[];
@@ -161,8 +165,10 @@ function BankAccountsSettingsLink() {
 export function StandardReimbursementFields({
   bankAccountList,
   bankAccountOptions,
+  bankAccountsKey,
   bankAccountsStatus,
   categoryList,
+  claimantName,
   currentChargeProgramme,
   disableBankAccountSelection,
   eventOptions,
@@ -182,6 +188,9 @@ export function StandardReimbursementFields({
       return (
         <CustomField<string | undefined>
           isRequired
+          description={
+            claimantName ? `${claimantName}'s saved accounts` : undefined
+          }
           label="Bank account"
           name="bankAccountName"
         >
@@ -191,6 +200,7 @@ export function StandardReimbursementFields({
             return (
               <BankAccountSelect
                 bankAccountList={bankAccountList}
+                key={bankAccountsKey}
                 bankAccountOptions={bankAccountOptions}
                 disableBankAccountSelection={disableBankAccountSelection}
                 field={field}
@@ -212,6 +222,15 @@ export function StandardReimbursementFields({
       return (
         <p className="text-destructive text-sm">
           Failed to load bank accounts. Check your connection and try again.
+        </p>
+      );
+    }
+
+    if (claimantName) {
+      return (
+        <p className="text-muted-foreground text-sm">
+          {claimantName} has no saved bank account. They need to add one in
+          Settings &rarr; Bank accounts before you can raise this for them.
         </p>
       );
     }
