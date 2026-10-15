@@ -7,8 +7,8 @@
 
 `packages/env/src/index.ts` runs at import-time, before any env validation. Three layers, in order:
 
-1. **Layer 0 — base `.env`**: `findUp(".env")` from cwd, loaded via `dotenv` + `dotenv-expand`.
-2. **Layer 1 — explicit `.env.worktree` override**: `findUp(".env.worktree")`. Overrides base. Skipped if `VITE_E2E` is set — `run-e2e.sh` already injected correct E2E ports and worktree values would clobber them.
+1. **Layer 0 — base `.env`**: `findUp(".env")` from cwd, loaded via `dotenv` + `dotenv-expand` (`load-env-files.ts`).
+2. **Layer 1 — explicit `.env.worktree` override**: `findUp(".env.worktree")`. Overrides base, but never a variable set explicitly in the environment (`DATABASE_URL=... bun run <script>` uses that URL inside a worktree). A variable already in `process.env` whose value is exactly what `.env` or `.env.worktree` gives counts as loaded from that file (Bun pre-loads `.env`, and `--env-file` files, before this runs), so `.env.worktree` still overrides it. `envSource(name)` from `@pi-dash/env` says where a value came from. Skipped if `VITE_E2E` is set — `run-e2e.sh` already injected correct E2E ports and worktree values would clobber them.
 3. **Layer 2 — auto-detected worktree ports**: only runs when `WORKTREE_ID` not set AND `.env.worktree` not found. Triggers `autoDetectWorktreePorts()`.
 
 ## Worktree Auto-Detect

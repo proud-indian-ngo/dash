@@ -2,22 +2,32 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-import { config } from "dotenv";
-import { expand } from "dotenv-expand";
+import { type EnvSource, loadEnvFiles } from "./load-env-files";
 
-// Layer 0: Load base .env
+// Layer 0: base .env. Layer 1: .env.worktree (from the worktree:setup
+// script) overrides it. Variables set explicitly in the environment win over
+// both, so `DATABASE_URL=... bun run <script>` in a worktree uses that URL.
+// Skip .env.worktree when VITE_E2E is set — run-e2e.sh already exported
+// correct port overrides and .env.worktree contains dev ports that would
+// clobber the E2E values.
 const envPath = findUp(".env", process.cwd());
-if (envPath) {
-  expand(config({ path: envPath, quiet: true }));
+const worktreeEnvPath = process.env.VITE_E2E
+  ? undefined
+  : findUp(".env.worktree", process.cwd());
+const sources = loadEnvFiles(process.env, {
+  base: envPath ? readFileSync(envPath, "utf8") : undefined,
+  worktree: worktreeEnvPath ? readFileSync(worktreeEnvPath, "utf8") : undefined,
+});
+
+/**
+ * Where a variable came from: set explicitly in the environment, from
+ * `.env.worktree`, or from `.env`. Undefined when neither file sets it.
+ */
+export function envSource(name: string): EnvSource | undefined {
+  return sources.get(name);
 }
 
-// Layer 1: Explicit .env.worktree overrides (from worktree:setup script)
-// Skip when VITE_E2E is set — run-e2e.sh already exported correct port overrides
-// and .env.worktree contains dev ports that would clobber the E2E values.
-const worktreeEnvPath = findUp(".env.worktree", process.cwd());
-if (worktreeEnvPath && !process.env.VITE_E2E) {
-  expand(config({ override: true, path: worktreeEnvPath, quiet: true }));
-} else if (!process.env.WORKTREE_ID) {
+if (!(worktreeEnvPath || process.env.WORKTREE_ID)) {
   // Layer 2: Auto-detect git worktree and compute ports from path hash.
   // This makes `claude --worktree` and `isolation: "worktree"` work with zero setup.
   autoDetectWorktreePorts();

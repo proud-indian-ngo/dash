@@ -27,6 +27,7 @@ import {
   type KeyPair,
   needsAction,
 } from "@pi-dash/db/secret-keys";
+import { envSource } from "@pi-dash/env";
 import { env } from "@pi-dash/env/server";
 
 const USAGE = `Usage:
@@ -45,6 +46,19 @@ if (command !== "check" && command !== "rekey") {
   process.exit(1);
 }
 
+// The target comes first, so a wrong database is visible before anything else.
+const dryRun = args.includes("--dry-run");
+const action =
+  command === "check"
+    ? "Key check (read-only)"
+    : `Rekey${dryRun ? " (dry run, no writes)" : ""}`;
+process.stdout.write(
+  `DATABASE_URL from ${envSource("DATABASE_URL") ?? "environment"}\n`
+);
+if (!confirmDatabaseTarget(env.DATABASE_URL, args, action)) {
+  process.exit(1);
+}
+
 let keys: KeyPair;
 try {
   const oldRaw = env.OLD_DATA_ENCRYPTION_KEY?.trim();
@@ -56,14 +70,6 @@ try {
   fail(error instanceof Error ? error.message : String(error));
 }
 
-const dryRun = args.includes("--dry-run");
-const action =
-  command === "check"
-    ? "Key check (read-only)"
-    : `Rekey${dryRun ? " (dry run, no writes)" : ""}`;
-if (!confirmDatabaseTarget(env.DATABASE_URL, args, action)) {
-  process.exit(1);
-}
 process.stdout.write(
   `Current key (DATA_ENCRYPTION_KEY): fingerprint ${keyFingerprint(keys.current)}\n` +
     `Old key (OLD_DATA_ENCRYPTION_KEY): ${keys.old ? `fingerprint ${keyFingerprint(keys.old)}` : "not set"}\n\n`

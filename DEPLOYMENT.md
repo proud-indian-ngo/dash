@@ -370,7 +370,7 @@ Run the backfill with the same `DATA_ENCRYPTION_KEY` the production app uses. It
 
 If a reveal says "saved with a different encryption key" (server log reason `encrypted_value_unreadable`), some values were encrypted under another `DATA_ENCRYPTION_KEY`, for example a backfill run from a laptop with its local key. `bun run secrets:check` (read-only) reports, per encrypted column and per recomputable keyed hash, how many values open with the current key, with `OLD_DATA_ENCRYPTION_KEY`, or with neither. `bun run secrets:rekey` re-encrypts (and rehashes) only the values the old key opens, under the current key, one transaction per column; rows already on the current key are never touched and a second run changes nothing. Both print counts, row IDs and key fingerprints, never values or keys, and need `--yes` for a non-local database. `secrets:rekey --dry-run` shows the plan without writing.
 
-The production image contains only the built server, not `scripts/` or the sources, so run these from a repository checkout that can reach the production database (the tailnet `tailscale-postgres` host). Variables set on the command line override `.env`:
+The production image contains only the built server, not `scripts/` or the sources, so run these from a repository checkout that can reach the production database (the tailnet `tailscale-postgres` host). Variables set on the command line override `.env` and `.env.worktree`. Each run first prints where `DATABASE_URL` came from and the target `host:port/database`; with `--yes` it does not stop there, so check that line names the production database and stop the run (Ctrl-C) if it does not:
 
 ```bash
 read -rs PROD_KEY   # production DATA_ENCRYPTION_KEY, from the Dokploy environment
