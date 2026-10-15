@@ -6,6 +6,7 @@ import {
   channelAccountIssue,
   defaultGiveDoAccount,
   isReportingModeFixed,
+  keepsFixedAccount,
   reportingModeIssue,
 } from "./contribution-channel";
 import { contributionRuleIssues, defaultReportingMode } from "./income";
@@ -217,5 +218,28 @@ describe("defaultGiveDoAccount", () => {
   it("finds the gateway clearing account named for give.do", () => {
     expect(defaultGiveDoAccount(ACCOUNTS)?.id).toBe("gd");
     expect(defaultGiveDoAccount([BANK, RAZORPAY])).toBeUndefined();
+  });
+});
+
+describe("keepsFixedAccount", () => {
+  const stored = { channel: "razorpay", orgAccountId: "bank" };
+
+  it("keeps the stored channel and account only while locked", () => {
+    expect(keepsFixedAccount(true, { ...stored }, stored)).toBe(true);
+    expect(keepsFixedAccount(false, { ...stored }, stored)).toBe(false);
+    expect(keepsFixedAccount(true, { ...stored }, null)).toBe(false);
+  });
+
+  it("checks a changed channel or account", () => {
+    expect(
+      keepsFixedAccount(true, { channel: "upi", orgAccountId: "bank" }, stored)
+    ).toBe(false);
+    expect(
+      keepsFixedAccount(
+        true,
+        { channel: "razorpay", orgAccountId: "rzp" },
+        stored
+      )
+    ).toBe(false);
   });
 });

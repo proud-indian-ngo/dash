@@ -7,9 +7,8 @@ import {
   type ChannelAccount,
   type ChannelAccountSetup,
   channelAccountIssue,
-  reportingModeIssue,
 } from "@pi-dash/shared/contribution-channel";
-import { defaultReportingMode, todayInKolkata } from "@pi-dash/shared/income";
+import { todayInKolkata } from "@pi-dash/shared/income";
 import {
   MAX_AMOUNT_MESSAGE,
   MAX_AMOUNT_PAISE,
@@ -608,19 +607,18 @@ export function containsIdentifier(text: string): boolean {
 
 /**
  * Adds the channel rules to a normalised row: its channel must fit the
- * batch's account (`channelAccountIssue`) and the mode it is reported
- * under, as the contribution mutators require. A row that breaks them is
- * an error the reviewer sees, and a run never imports it.
+ * batch's account (`channelAccountIssue`), as the contribution mutators
+ * require. A row that breaks them is an error the reviewer sees, and a run
+ * never imports it.
  */
 export function withChannelRules(
   result: NormalizeResult,
   account: Pick<ChannelAccount, "id" | "kind">,
   setup: ChannelAccountSetup
 ): NormalizeResult {
-  const { channel } = result.row;
-  const issue =
-    channelAccountIssue(channel, account, setup) ??
-    reportingModeIssue(channel, defaultReportingMode(channel));
+  // Imports report under `defaultReportingMode(channel)`, which always fits
+  // the channel, so only the account needs checking.
+  const issue = channelAccountIssue(result.row.channel, account, setup);
   return issue
     ? {
         ...result,

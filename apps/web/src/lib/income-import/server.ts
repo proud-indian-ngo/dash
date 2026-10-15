@@ -323,12 +323,17 @@ function csvRowRules(
 }
 
 /** The batch's account and the settings the channel rules read. */
-async function channelRuleContext(orgAccountId: string | null): Promise<{
+async function channelRuleContext(
+  orgAccountId: string | null,
+  reader?: ImportTx
+): Promise<{
   account: { id: string; kind: string } | null;
   setup: ChannelAccountSetup;
 }> {
-  const { account, razorpayClearingAccountId } =
-    await findChannelRuleContext(orgAccountId);
+  const { account, razorpayClearingAccountId } = await findChannelRuleContext(
+    orgAccountId,
+    reader
+  );
   return { account, setup: { razorpayClearingAccountId } };
 }
 
@@ -350,23 +355,38 @@ async function assertBatchChannelFits(
 /**
  * The source's row rules plus the channel rules: a row whose channel does
  * not fit the batch's account is an error at review, and so never imported
- * by a run, which classifies the rows again.
+ * by a run, which classifies the rows again. Pass the import transaction
+ * when there is one, so the account and setting are read inside it.
+ *
+ * A Razorpay batch is judged by its own account: it was opened on the
+ * clearing account set at the time, so a later change of the setting does
+ * not turn its queued payments into errors. Its account must still be a
+ * gateway clearing account (and an inactive one makes the rows wait).
  */
 async function rowRulesFor(
   batch: ImportBatchRow,
-  settings: ClassifySettings
+  settings: ClassifySettings,
+  reader?: ImportTx
 ): Promise<RowRules> {
   const rules =
     batch.source === "razorpay_api"
       ? await razorpayRowRules(batch)
       : csvRowRules(batch, settings, todayInKolkata());
-  const { account, setup } = await channelRuleContext(batch.orgAccountId);
+  const { account, setup } = await channelRuleContext(
+    batch.orgAccountId,
+    reader
+  );
   if (!account) {
     return rules;
   }
+  const batchSetup =
+    batch.source === "razorpay_api"
+      ? { razorpayClearingAccountId: batch.orgAccountId }
+      : setup;
   return {
     ...rules,
-    normalize: (raw) => withChannelRules(rules.normalize(raw), account, setup),
+    normalize: (raw) =>
+      withChannelRules(rules.normalize(raw), account, batchSetup),
   };
 }
 
@@ -1025,7 +1045,7 @@ async function runClaimedBatch(
       const records = await listImportRows(batch.id, tx);
       const classification = await classifyBatch(
         records,
-        await rowRulesFor(batch, settings),
+        await rowRulesFor(batch, settings, tx),
         tx
       );
       const plans = planRows(classification.classified, input.decisions);
@@ -1343,7 +1363,7 @@ export async function importStagedRows(
   } else if (waiting.length > 0) {
     const classification = await classifyBatch(
       records,
-      await rowRulesFor(batch, settings),
+      await rowRulesFor(batch, settings, tx),
       tx
     );
     const plans = planRows(classification.classified, {});
@@ -1429,7 +1449,7 @@ export async function importPayoutContributionsIn(
   }
   const classification = await classifyBatch(
     await listImportRows(batch.id, tx),
-    await rowRulesFor(batch, settings),
+    await rowRulesFor(batch, settings, tx),
     tx
   );
   const plans = planRows(classification.classified, decisions);

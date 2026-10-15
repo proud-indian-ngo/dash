@@ -11,6 +11,7 @@ import {
 import {
   type ChannelAccountSetup,
   channelAccountIssue,
+  keepsFixedAccount,
   RAZORPAY_CLEARING_ACCOUNT_CONFIG_KEY,
 } from "@pi-dash/shared/contribution-channel";
 import { ELIGIBILITY_REASON_MAX } from "@pi-dash/shared/donations-return";
@@ -569,10 +570,11 @@ export const contributionMutators = {
       await assertAccountAndFund(tx, values, existing, {
         donation: {
           channel: values.channel,
-          keepAccount:
-            (hasRefund || isSettled) &&
-            values.channel === existing.channel &&
-            values.orgAccountId === (existing.orgAccountId ?? null),
+          keepAccount: keepsFixedAccount(
+            hasRefund || isSettled,
+            values,
+            existing
+          ),
         },
       });
       values.programmeId = await resolveProgramme(tx, values, existing);

@@ -7,9 +7,7 @@ import {
   type ContributionChannel,
   contributionChannelValues,
   type ContributionReportingMode,
-  contributionReportingModeValues,
   type DeductionEligible,
-  deductionEligibleValues,
   type DonationType,
   donationTypeValues,
   GENERAL_FUND_ID,
@@ -26,13 +24,11 @@ import {
   RAZORPAY_CLEARING_ACCOUNT_CONFIG_KEY,
 } from "@pi-dash/shared/contribution-channel";
 import {
-  ELIGIBILITY_REASON_MAX,
   ELIGIBILITY_REASON_PRESETS,
   TAX_CERTIFICATE_LABELS,
 } from "@pi-dash/shared/donations-return";
 import {
   CONTRIBUTION_CHANNEL_LABELS,
-  contributionRuleIssues,
   DONATION_TYPE_LABELS,
   defaultReportingMode,
   REPORTING_MODE_LABELS,
@@ -45,7 +41,6 @@ import { useForm } from "@tanstack/react-form";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
-import z from "zod";
 
 import { DonorFormDialog } from "@/components/donors/donor-form-dialog";
 import { contributorOptions } from "@/components/donors/party-row";
@@ -64,7 +59,6 @@ import {
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
 import { useApp } from "@/context/app-context";
-import { positiveRupeesSchema } from "@/lib/form-schemas";
 import { epochToLocalDate, localDateToIso } from "@/lib/local-date";
 import {
   getMutationResultErrorMessage,
@@ -72,6 +66,11 @@ import {
 } from "@/lib/mutation-result";
 import { paiseToRupeesInput } from "@/lib/paise";
 
+import {
+  buildFormSchema,
+  type FormValues,
+  OTHER_REASON,
+} from "./contribution-form-schema";
 import type { ContributionRow } from "./income-types";
 import { withCurrentOption } from "./picker-options";
 import {
@@ -102,8 +101,6 @@ const taxCertificateOptions = enumOptions(
   TAX_CERTIFICATE_LABELS
 );
 
-/** The reason picker's value for a reason typed by hand. */
-const OTHER_REASON = "other";
 const reasonOptions = [
   ...ELIGIBILITY_REASON_PRESETS.map((reason) => ({
     label: reason,
@@ -133,99 +130,6 @@ function reasonFrom(value: {
   return value.eligibilityReasonChoice === OTHER_REASON
     ? value.eligibilityReasonOther.trim()
     : value.eligibilityReasonChoice;
-}
-
-const text = (max: number) => z.string().trim().max(max);
-/** A required picker: empty until chosen, so the input type allows undefined. */
-const pick = (message: string) =>
-  z
-    .string()
-    .optional()
-    .refine((value) => Boolean(value), message);
-const requiredDate = (message: string) =>
-  z
-    .date()
-    .optional()
-    .refine((value) => value !== undefined, message);
-
-const baseSchema = z.object({
-  amount: positiveRupeesSchema,
-  channel: z.enum(contributionChannelValues),
-  deductionEligible: z.enum(deductionEligibleValues),
-  donationType: z.enum(donationTypeValues),
-  donationTypeDescription: text(200),
-  eligibilityReasonChoice: z.string(),
-  eligibilityReasonOther: text(ELIGIBILITY_REASON_MAX),
-  fundId: pick("Pick a fund"),
-  inKindDescription: text(500),
-  inKindValuationBasis: text(500),
-  notes: text(1000),
-  orgAccountId: z.string().optional(),
-  partyId: pick("Pick a donor"),
-  programmeId: z.string().optional(),
-  projectId: z.string().optional(),
-  receivedOn: requiredDate("Pick the date it was received"),
-  reference: text(120),
-  reportingMode: z.enum(contributionReportingModeValues),
-  reportingModeDescription: text(200),
-});
-
-type FormValues = z.input<typeof baseSchema>;
-
-/**
- * The form's rules: the shared contribution rules, the reason picker, and
- * whether the account fits the channel (`accountIssue`, which needs the
- * synced accounts and settings).
- */
-function buildFormSchema(
-  accountIssue: (
-    channel: ContributionChannel,
-    accountId: string | undefined
-  ) => string | null
-) {
-  return baseSchema.superRefine((value, context) => {
-    const issues = contributionRuleIssues({
-      ...value,
-      // A hidden account field never blocks an in-kind gift.
-      orgAccountId: value.channel === "in_kind" ? null : value.orgAccountId,
-    });
-    for (const issue of issues) {
-      context.addIssue({
-        code: "custom",
-        message: issue.message,
-        path: [issue.path],
-      });
-    }
-    if (value.deductionEligible === "no") {
-      if (value.eligibilityReasonChoice === "") {
-        context.addIssue({
-          code: "custom",
-          message: "Say why this gift is left out",
-          path: ["eligibilityReasonChoice"],
-        });
-      } else if (
-        value.eligibilityReasonChoice === OTHER_REASON &&
-        value.eligibilityReasonOther.trim() === ""
-      ) {
-        context.addIssue({
-          code: "custom",
-          message: "Describe the reason",
-          path: ["eligibilityReasonOther"],
-        });
-      }
-    }
-    const accountMessage =
-      value.channel === "in_kind" || !value.orgAccountId
-        ? null
-        : accountIssue(value.channel, value.orgAccountId);
-    if (accountMessage) {
-      context.addIssue({
-        code: "custom",
-        message: accountMessage,
-        path: ["orgAccountId"],
-      });
-    }
-  });
 }
 
 /**
@@ -488,16 +392,35 @@ function ContributionForm({
   const setup: ChannelAccountSetup = { razorpayClearingAccountId };
   // Stable while the accounts and settings are, so the form's validators
   // are not replaced on every render.
+  const storedChannel = contribution?.channel ?? null;
+  const storedAccountId = contribution?.orgAccountId ?? null;
   const formSchema = useMemo(
     () =>
-      buildFormSchema((channel, accountId) => {
-        const account = accounts.find((a) => a.id === accountId);
-        // An account that is no longer active is checked by the server.
-        return account
-          ? channelAccountIssue(channel, account, { razorpayClearingAccountId })
-          : null;
-      }),
-    [accounts, razorpayClearingAccountId]
+      buildFormSchema(
+        (channel, accountId) => {
+          const account = accounts.find((a) => a.id === accountId);
+          // An account that is no longer active is checked by the server.
+          return account
+            ? channelAccountIssue(channel, account, {
+                razorpayClearingAccountId,
+              })
+            : null;
+        },
+        {
+          locked: refundLocked,
+          stored:
+            storedChannel === null
+              ? null
+              : { channel: storedChannel, orgAccountId: storedAccountId },
+        }
+      ),
+    [
+      accounts,
+      razorpayClearingAccountId,
+      refundLocked,
+      storedAccountId,
+      storedChannel,
+    ]
   );
   const defaultFundId =
     picker.funds.find((f) => f.id === GENERAL_FUND_ID)?.id ??

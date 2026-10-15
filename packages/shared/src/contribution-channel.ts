@@ -131,6 +131,31 @@ export function channelAccountIssue(
   }
 }
 
+/** A gift's channel and account, as stored or as edited. */
+export interface ChannelAndAccount {
+  channel: string;
+  orgAccountId?: string | null;
+}
+
+/**
+ * Whether an edit keeps an account the channel rules would refuse: a refund
+ * or a processed gateway settlement fixes the channel and account, so a gift
+ * recorded before the rules can still have its other fields edited as long
+ * as neither changes. The form and the mutators both ask this.
+ */
+export function keepsFixedAccount(
+  locked: boolean,
+  next: ChannelAndAccount,
+  stored: ChannelAndAccount | null
+): boolean {
+  return (
+    locked &&
+    stored !== null &&
+    next.channel === stored.channel &&
+    (next.orgAccountId ?? null) === (stored.orgAccountId ?? null)
+  );
+}
+
 export interface ChannelAccountChoice<T extends ChannelAccount> {
   /** The accounts the channel allows. */
   allowed: T[];

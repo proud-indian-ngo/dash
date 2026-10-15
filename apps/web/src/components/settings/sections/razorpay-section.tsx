@@ -225,7 +225,7 @@ function SettingsForm({
             description={
               clearingAccounts.length === 0
                 ? "Add a gateway clearing account in Settings → Organisation accounts first."
-                : undefined
+                : "Changing it after payments are recorded is a migration: earlier Razorpay gifts stay in the old account and can't be edited until they are moved to the new one."
             }
             disabled={!canManage}
             emptyMessage="No active gateway clearing accounts."

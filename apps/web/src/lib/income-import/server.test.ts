@@ -218,6 +218,29 @@ mock.module("@pi-dash/db/queries/income-import", () => ({
     await run({}),
 }));
 
+// Razorpay rows read as generic cells here, with the Razorpay channel.
+mock.module("@/lib/razorpay/rules", () => ({
+  razorpayRowRules: async () => {
+    const { normalizeRow } = await import("./normalize");
+    return {
+      identity: () => ({
+        entityType: "payment",
+        externalId: "pay",
+        provider: "razorpay",
+        providerAccount: "test",
+        weak: false,
+      }),
+      normalize: (raw: Record<string, string>) =>
+        normalizeRow(raw, GENERIC_MAPPING, {
+          dateFormat: "dmy",
+          defaultChannel: "razorpay",
+        }),
+      payloadHash: () => "hash",
+      weakIdentity: false,
+    };
+  },
+}));
+
 const { DrizzleQueryError } = await import("drizzle-orm/errors");
 const {
   countChosenFills,
@@ -451,6 +474,44 @@ describe("channel rules", () => {
       );
       expect(result).toMatchObject({ errors: 1, imported: 0 });
       expect(calls.contributions).toEqual([]);
+    } finally {
+      batchAccount = null;
+    }
+  });
+});
+
+describe("channel rules for Razorpay batches", () => {
+  beforeEach(() => {
+    status = "completed";
+    outcomes = ["pending", "pending"];
+    source = "razorpay_api";
+    // Opened on a clearing account that is no longer the Settings choice.
+    batchAccount = "0190a000-0000-7000-8000-0000000000dd";
+  });
+
+  const channelErrors = async () => {
+    const detail = await getImportBatchDetail(BATCH, { canManage: true });
+    return (detail.review?.rows ?? []).flatMap((row) =>
+      row.errors.filter((e) => e.field === "channel")
+    );
+  };
+
+  it("judges a Razorpay batch by its own clearing account", async () => {
+    accountKind = "gateway_clearing";
+    try {
+      expect(await channelErrors()).toEqual([]);
+    } finally {
+      batchAccount = null;
+    }
+  });
+
+  it("still refuses a Razorpay batch on an account that is not a clearing account", async () => {
+    accountKind = "bank";
+    try {
+      expect(await channelErrors()).toContainEqual({
+        field: "channel",
+        message: "A Razorpay gift goes into the Razorpay clearing account",
+      });
     } finally {
       batchAccount = null;
     }

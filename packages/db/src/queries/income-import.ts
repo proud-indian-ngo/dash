@@ -89,22 +89,23 @@ export async function insertImportBatch(
 /**
  * What the channel rules read for a batch: its account's ID and kind (null
  * when it has none or it is gone) and the Razorpay clearing account chosen
- * in Settings.
+ * in Settings. Pass the import transaction to read them inside it.
  */
 export async function findChannelRuleContext(
-  orgAccountId: string | null
+  orgAccountId: string | null,
+  reader: Pick<typeof db, "select"> = db
 ): Promise<{
   account: { id: string; kind: string } | null;
   razorpayClearingAccountId: string | null;
 }> {
   const [account] = orgAccountId
-    ? await db
+    ? await reader
         .select({ id: orgAccount.id, kind: orgAccount.kind })
         .from(orgAccount)
         .where(eq(orgAccount.id, orgAccountId))
         .limit(1)
     : [];
-  const [setting] = await db
+  const [setting] = await reader
     .select({ value: appConfig.value })
     .from(appConfig)
     .where(eq(appConfig.key, RAZORPAY_CLEARING_ACCOUNT_CONFIG_KEY))
