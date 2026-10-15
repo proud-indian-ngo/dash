@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, mock } from "bun:test";
 const enqueue = mock();
 mock.module("@pi-dash/jobs/enqueue", () => ({ enqueue }));
 
+import { todayInKolkata } from "@pi-dash/shared/income";
+
 import type { Context } from "../../context";
 import {
   matchesScope,
@@ -15,6 +17,10 @@ import { reimbursementMutators } from "../reimbursement";
 type Row = Record<string, unknown>;
 
 const UPLOAD_KEY = "app/approval-screenshots/tmp/approver-1/upi-proof.png";
+/** The kept file's name today, as the mutators date it. */
+const keptName = (kind: string) =>
+  `payment-proof-${kind}-${todayInKolkata()}.png`;
+
 const OLD_KEY =
   "app/approval-screenshots/reimbursements/request-1/approval-screenshots/old.png";
 
@@ -210,7 +216,7 @@ describe("reimbursement.addPaymentProof", () => {
     expect(
       db.inserts.find((i) => i.table === "reimbursementAttachment")?.row
     ).toMatchObject({
-      filename: "payment-proof-replaced.png",
+      filename: keptName("replaced"),
       id: "att-kept",
       mimeType: "image/png",
       objectKey: OLD_KEY,
@@ -285,7 +291,7 @@ describe("payment proof is kept as evidence", () => {
       tx: db.tx,
     } as never);
     expect(keptAttachment(db)).toMatchObject({
-      filename: "payment-proof-replaced.png",
+      filename: keptName("replaced"),
       objectKey: OLD_KEY,
       reimbursementId: "request-1",
       type: "file",
@@ -318,7 +324,7 @@ describe("payment proof is kept as evidence", () => {
       tx: db.tx,
     } as never);
     expect(keptAttachment(db)).toMatchObject({
-      filename: "payment-proof-previous.png",
+      filename: keptName("previous"),
       mimeType: "image/png",
       objectKey: OLD_KEY,
     });
@@ -329,8 +335,11 @@ describe("payment proof is kept as evidence", () => {
     expect(await deletedKeys(ctx)).toEqual([]);
   });
 
-  it("deletes a kept screenshot the editor removes, once nothing refers to it", async () => {
-    const ctx = serverContext(["requests.edit_all_statuses"]);
+  it("deletes a kept screenshot an approver removes, once nothing refers to it", async () => {
+    const ctx = serverContext([
+      "requests.approve",
+      "requests.edit_all_statuses",
+    ]);
     const db = createDb("server", {
       reimbursement: [claim({ chargedTo: "organisation", expenseDate: 1 })],
       reimbursementAttachment: [
@@ -356,5 +365,100 @@ describe("payment proof is kept as evidence", () => {
       tx: db.tx,
     } as never);
     expect(await deletedKeys(ctx)).toContain(OLD_KEY);
+  });
+
+  it("lets no one but an approver remove kept payment proof", async () => {
+    const kept = {
+      filename: "payment-proof-previous-2026-10-17.png",
+      id: "att-kept",
+      objectKey: OLD_KEY,
+      reimbursementId: "request-1",
+      type: "file",
+    };
+    const edit = (ctx: Context, db: ReturnType<typeof createDb>) =>
+      reimbursementMutators.update.fn({
+        args: {
+          attachments: [],
+          chargedTo: "organisation",
+          expenseDate: 1,
+          id: "request-1",
+          lineItems: [],
+          title: "Class outing",
+        },
+        ctx,
+        tx: db.tx,
+      } as never);
+    const seed = () => ({
+      reimbursement: [
+        claim({
+          chargedTo: "organisation",
+          expenseDate: 1,
+          status: "pending",
+          userId: "approver-1",
+        }),
+      ],
+      reimbursementAttachment: [kept],
+    });
+    // The claimant editing their own pending claim can't drop it.
+    const own = createDb("server", seed());
+    await expect(
+      edit(serverContext(["requests.edit_own"]), own)
+    ).rejects.toThrow("Only an approver can remove kept payment proof");
+    expect(own.deletes).toEqual([]);
+    // Keeping it in the list is fine.
+    const keeps = createDb("server", seed());
+    await reimbursementMutators.update.fn({
+      args: {
+        attachments: [{ ...kept, type: "file" as const }],
+        chargedTo: "organisation",
+        expenseDate: 1,
+        id: "request-1",
+        lineItems: [],
+        title: "Class outing",
+      },
+      ctx: serverContext(["requests.edit_own"]),
+      tx: keeps.tx,
+    } as never);
+    // An ordinary attachment of the same claim removes as before.
+    const plain = createDb("server", {
+      ...seed(),
+      reimbursementAttachment: [
+        {
+          ...kept,
+          filename: "bill.png",
+          objectKey: "app/attachments/reimbursements/request-1/bill.png",
+        },
+      ],
+    });
+    await edit(serverContext(["requests.edit_own"]), plain);
+  });
+});
+
+describe("kept payment proof names", () => {
+  it("dates the kept file and adds a suffix when the claim has that name", async () => {
+    const ctx = serverContext(["requests.edit_all_statuses"]);
+    const db = createDb("server", {
+      reimbursement: [claim({ approvalScreenshotKey: OLD_KEY })],
+      reimbursementAttachment: [
+        {
+          filename: keptName("previous"),
+          id: "a-1",
+          reimbursementId: "request-1",
+        },
+        {
+          filename: keptName("previous").replace(".png", "-2.png"),
+          id: "a-2",
+          reimbursementId: "request-1",
+        },
+      ],
+    });
+    await reimbursementMutators.resetToPending.fn({
+      args: { id: "request-1" },
+      ctx,
+      tx: db.tx,
+    } as never);
+    expect(keptAttachment(db)?.filename).toBe(
+      keptName("previous").replace(".png", "-3.png")
+    );
   });
 });

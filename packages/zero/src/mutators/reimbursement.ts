@@ -10,6 +10,7 @@ import {
   qualifiesForCashVoucher,
 } from "@pi-dash/shared/cash-voucher";
 import { cityValues } from "@pi-dash/shared/constants";
+import { todayInKolkata } from "@pi-dash/shared/income";
 import { defineMutator, type Transaction } from "@rocicorp/zero";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
@@ -170,23 +171,50 @@ const extensionOf = (key: string) => {
 const imageMimeTypeOf = (key: string) =>
   IMAGE_MIME_TYPES[extensionOf(key)] ?? null;
 
+const KEPT_PROOF_PREFIX = "payment-proof-";
+
+/** A payment screenshot kept as an attachment (see `keepProofAsAttachment`). */
+const isKeptPaymentProof = (attachment: {
+  filename: null | string;
+  objectKey?: null | string;
+}) =>
+  Boolean(attachment.filename?.startsWith(KEPT_PROOF_PREFIX)) &&
+  Boolean(attachment.objectKey?.includes("approval-screenshots/"));
+
+const KEPT_PROOF_REMOVAL_MESSAGE =
+  "Only an approver can remove kept payment proof";
+
 /**
- * Payment proof is evidence and is never deleted: a screenshot that stops
- * being the claim's proof (replaced, or cleared by a reset to pending)
- * stays as a plain attachment, "payment-proof-replaced.png" or
- * "payment-proof-previous.png".
+ * Payment proof is evidence: a screenshot that stops being the claim's
+ * proof (replaced, or cleared by a reset to pending) is kept as a plain
+ * attachment, "payment-proof-replaced-2026-10-17.png" or
+ * "payment-proof-previous-2026-10-17.png" (the day in India, with "-2",
+ * "-3" when the claim already has that name). Kept; only approvers can
+ * remove it.
  */
-function keepProofAsAttachment(
+async function keepProofAsAttachment(
   tx: Transaction<Schema>,
   reimbursementId: string,
   objectKey: string,
   { id, kind, now }: { id: string; kind: "previous" | "replaced"; now: number }
 ) {
   const ext = extensionOf(objectKey);
-  const name = `payment-proof-${kind}`;
+  const base = `${KEPT_PROOF_PREFIX}${kind}-${todayInKolkata(new Date(now))}`;
+  const withExt = (name: string) => (ext ? `${name}.${ext}` : name);
+  const taken = new Set(
+    (
+      await tx.run(
+        zql.reimbursementAttachment.where("reimbursementId", reimbursementId)
+      )
+    ).map((a) => a.filename)
+  );
+  let filename = withExt(base);
+  for (let n = 2; taken.has(filename); n += 1) {
+    filename = withExt(`${base}-${n}`);
+  }
   return tx.mutate.reimbursementAttachment.insert({
     createdAt: now,
-    filename: ext ? `${name}.${ext}` : name,
+    filename,
     id,
     mimeType: imageMimeTypeOf(objectKey),
     objectKey,
@@ -1054,6 +1082,16 @@ export const reimbursementMutators = {
       tx.run(zql.reimbursementLineItem.where("reimbursementId", args.id)),
       tx.run(zql.reimbursementAttachment.where("reimbursementId", args.id)),
     ]);
+    // Kept payment proof is evidence: only an approver may remove it.
+    const keptIds = new Set(args.attachments.map((a) => a.id));
+    if (
+      attachmentsBefore.some(
+        (a) => !keptIds.has(a.id) && isKeptPaymentProof(a)
+      ) &&
+      !can(ctx, "requests.approve")
+    ) {
+      throw new Error(KEPT_PROOF_REMOVAL_MESSAGE);
+    }
     const voucherPlans = planVoucherFields({
       attachmentsAfter: args.attachments.map((attachment) => ({
         id: attachment.id,

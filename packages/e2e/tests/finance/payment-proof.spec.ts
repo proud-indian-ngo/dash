@@ -183,7 +183,7 @@ test.describe("Payment proof after approval", () => {
     await replace.getByRole("button", { name: "Replace proof" }).click();
     await expect(replace).toBeHidden({ timeout: 15_000 });
     await expect(
-      page.getByText("payment-proof-replaced.png").first()
+      page.getByText(/^payment-proof-replaced-\d{4}-\d{2}-\d{2}\.png$/).first()
     ).toBeVisible({
       timeout: 15_000,
     });
