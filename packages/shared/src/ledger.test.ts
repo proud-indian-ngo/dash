@@ -283,6 +283,78 @@ describe("balanceSummary", () => {
   });
 });
 
+describe("balanceSummary fund openings", () => {
+  const entries = [
+    entry("gf", "fund", 1000),
+    entry("inc", "income", 500, { economicOn: "2026-05-01" }),
+    entry("inc2", "income", 70, { economicOn: "2027-05-01" }),
+    entry("exp2", "expense", 20, { economicOn: "2027-08-01" }),
+  ];
+  const movements = [
+    move("o1", "2026-04-01", "in", 1000),
+    move("m1", "2026-05-01", "in", 500),
+    move("m2", "2027-05-01", "in", 70),
+    move("m3", "2027-08-01", "out", 20),
+  ];
+  const general = (asOf: string, startsOn: string) =>
+    balanceSummary({ accountIds: ["bank"], asOf, entries, movements, startsOn })
+      .funds[0];
+
+  it("reads mid-year with the year-to-date surplus apart from the opening", () => {
+    expect(general("2027-06-30", "2027-04-01")).toMatchObject({
+      movement: { openingPaise: 1500, surplusPaise: 70 },
+      paise: 1570,
+    });
+  });
+
+  it("carries the surplus across a year with no entries", () => {
+    const summary = balanceSummary({
+      accountIds: ["bank"],
+      asOf: "2027-03-31",
+      entries: entries.slice(0, 2),
+      movements: movements.slice(0, 2),
+      startsOn: "2026-04-01",
+    });
+    expect(summary.funds[0]?.movement).toEqual({
+      openingPaise: 1000,
+      surplusPaise: 500,
+    });
+    const later = balanceSummary({
+      accountIds: ["bank"],
+      asOf: "2029-03-31",
+      entries: entries.slice(0, 2),
+      movements: movements.slice(0, 2),
+      startsOn: "2028-04-01",
+    });
+    expect(later.funds[0]).toMatchObject({
+      movement: { openingPaise: 1500, surplusPaise: 0 },
+      paise: 1500,
+    });
+    expect(later.balanced).toBe(true);
+  });
+
+  // Pins an assumption: only the opening balances post to fund heads, so a
+  // fund-balance entry dated inside the year is read as part of the opening.
+  it("counts a fund-balance entry dated in the year as part of the opening", () => {
+    const summary = balanceSummary({
+      accountIds: ["bank"],
+      asOf: "2027-12-31",
+      entries: [
+        ...entries,
+        entry("adj", "fund", 30, { economicOn: "2027-09-01" }),
+        entry("adj-asset", "asset", 30, { economicOn: "2027-09-01" }),
+      ],
+      movements,
+      startsOn: "2027-04-01",
+    });
+    expect(summary.funds[0]).toMatchObject({
+      movement: { openingPaise: 1530, surplusPaise: 50 },
+      paise: 1580,
+    });
+    expect(summary.balanced).toBe(true);
+  });
+});
+
 describe("surplusPaiseOf", () => {
   it("raises on income and spending refunds, lowers on spending and donor refunds", () => {
     expect(surplusPaiseOf(entry("a", "income", 5))).toBe(5);

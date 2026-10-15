@@ -4,6 +4,7 @@ import type {
   WorkbookFacts,
   WorkbookMovement,
 } from "@pi-dash/db/queries/ca-workbook";
+import { GENERAL_FUND_ID } from "@pi-dash/shared/constants";
 import {
   LEDGER_SOURCE_LABELS,
   LEDGER_SOURCE_TYPES,
@@ -701,6 +702,8 @@ interface FundItem extends Item {
    * entry of the year) and the current year's surplus or deficit.
    */
   parts: { opening: ItemTotals; surplus: ItemTotals } | null;
+  /** The General Fund's year is a surplus or deficit; another fund's, additions or deductions. */
+  general: boolean;
 }
 
 /**
@@ -747,34 +750,47 @@ function fundItems(facts: WorkbookFacts): FundItem[] {
     }
     funds.set(e.fundId, fund);
   }
-  return [...funds.values()]
-    .map(({ hasSurplus, label, opening, surplusPaise }): FundItem => {
+  return [...funds]
+    .map(([fundId, { hasSurplus, label, opening, surplusPaise }]): FundItem => {
       const surplus: ItemTotals = {
         decreasesPaise: Math.max(-surplusPaise, 0),
         increasesPaise: Math.max(surplusPaise, 0),
         openingPaise: 0,
       };
       return {
+        general: fundId === GENERAL_FUND_ID,
         label,
         parts: hasSurplus ? { opening, surplus } : null,
         totals: sumTotals([opening, surplus]),
       };
     })
+    .filter(({ totals }) => !isZero(totals))
     .sort(byLabel);
 }
 
+/** Nothing at the start, nothing in the year: a fund not worth a row. */
+const isZero = (t: ItemTotals) =>
+  t.openingPaise === 0 && t.increasesPaise === 0 && t.decreasesPaise === 0;
+
 /**
  * A fund's rows: one item, or for a fund carrying income less expenditure
- * its opening balance and current year surplus/(deficit) with the fund's
- * total in bold.
+ * its opening balance and the year's net figure (the General Fund's current
+ * year surplus/(deficit), another fund's additions/(deductions); the gross
+ * income and expenditure are in the I&E sheets) with the fund's total in
+ * bold. A fund that is zero throughout has no row.
  */
-function fundRows({ label, parts, totals }: FundItem): WorkbookRow[] {
+function fundRows({ general, label, parts, totals }: FundItem): WorkbookRow[] {
   if (!parts) {
     return [itemRow(label, totals)];
   }
   return [
     itemRow(`${label}: opening balance`, parts.opening),
-    itemRow(`${label}: current year surplus/(deficit)`, parts.surplus),
+    itemRow(
+      general
+        ? `${label}: current year surplus/(deficit)`
+        : `${label}: additions/(deductions) during the year`,
+      parts.surplus
+    ),
     totalRow(`${label} total`, totals),
   ];
 }

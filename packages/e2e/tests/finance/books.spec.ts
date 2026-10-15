@@ -298,6 +298,17 @@ test.describe("Books (treasurer)", () => {
     await expect(
       cashBook.getByRole("row").filter({ hasText: "Receipt" })
     ).toHaveCount(1);
+    // The gifts' surplus sits in the General Fund, shown beside its opening.
+    await page.getByRole("tab", { name: "Balance summary" }).click();
+    await expect(
+      page
+        .getByTestId("balance-funds")
+        .getByRole("listitem")
+        .filter({ hasText: "General Fund (Domestic)" })
+        .getByTestId("balance-fund-movement")
+    ).toHaveText(
+      /^Opening balance -?₹[\d,.]+ · Current year (surplus|deficit) ₹[\d,.]+$/
+    );
     await page.getByRole("tab", { name: "Income & expenditure" }).click();
     await page
       .getByTestId("income-expenditure")

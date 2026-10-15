@@ -1,3 +1,4 @@
+import { GENERAL_FUND_ID } from "@pi-dash/shared/constants";
 import type { BalanceLine, BalanceSummary } from "@pi-dash/shared/ledger";
 import { formatPaise } from "@pi-dash/shared/money";
 
@@ -10,19 +11,28 @@ import { formatDay } from "./labels";
  * the year's surplus or deficit, as the statements' fund note shows them.
  */
 function FundMovement({
+  general,
   openingPaise,
   surplusPaise,
 }: {
+  /** The General Fund's year is a surplus or deficit; another fund's, additions or deductions. */
+  general: boolean;
   openingPaise: number;
   surplusPaise: number;
 }) {
+  let year =
+    surplusPaise < 0
+      ? "Deductions during the year"
+      : "Additions during the year";
+  if (general) {
+    year = surplusPaise < 0 ? "Current year deficit" : "Current year surplus";
+  }
   return (
     <span
       className="text-muted-foreground block text-xs"
       data-testid="balance-fund-movement"
     >
-      Opening balance {formatPaise(openingPaise)} · Current year{" "}
-      {surplusPaise < 0 ? "deficit" : "surplus"}{" "}
+      Opening balance {formatPaise(openingPaise)} · {year}{" "}
       {formatPaise(Math.abs(surplusPaise))}
     </span>
   );
@@ -55,7 +65,12 @@ function Section({
             >
               <span className="min-w-0">
                 <span className="block truncate">{nameOf(line)}</span>
-                {line.movement ? <FundMovement {...line.movement} /> : null}
+                {line.movement ? (
+                  <FundMovement
+                    general={line.key === GENERAL_FUND_ID}
+                    {...line.movement}
+                  />
+                ) : null}
               </span>
               <span className="shrink-0 font-mono tabular-nums">
                 {formatPaise(line.paise)}

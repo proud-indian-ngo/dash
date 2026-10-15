@@ -559,6 +559,12 @@ export function balanceSummary(input: {
       kind: "fund",
       paise: fund.paise,
       ...(fund.hasSurplus && {
+        // The opening is the balance less the year's surplus, so it also
+        // holds any fund-balance entry dated in the year. Today only the
+        // opening balances post to fund heads (dated the cutover year's
+        // first day, so part of its opening by design); a later in-year
+        // fund-balance posting (an adjustment) would show inside the
+        // opening here, while the workbook shows it as the year's movement.
         movement: {
           openingPaise: fund.paise - fund.surplusPaise,
           surplusPaise: fund.surplusPaise,
