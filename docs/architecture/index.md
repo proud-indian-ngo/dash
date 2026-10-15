@@ -17,7 +17,7 @@ Chapters intentionally sharded so loading stays cheap.
 | Notifications | `notifications.md` | `enqueue`, in-app inbox, email, WhatsApp RSVP poll, notification topic preferences, `notify-*` handlers, webhook proxy |
 | Social API | `social-api.md` | `/api/social/v1`, social-artifacts pipeline, bearer tokens, `social:token`, `event_partner`, `social_post`, signed photo links, social digest, post-event social fields |
 | File Uploads | `file-uploads.md` | R2, presigned URL, attachments, Immich sync, event photos, `immichAssetId` |
-| Cash Vouchers | `cash-vouchers.md` | cash voucher, PDF generation, `generate-cash-voucher`, `@react-pdf/renderer`, `VOUCHER_ORG_*` |
+| Cash Vouchers | `cash-vouchers.md` | cash voucher, cash-voucher limit, payee phone, PDF generation, `generate-cash-voucher`, `@react-pdf/renderer`, `VOUCHER_ORG_*` |
 | Observability | `observability.md` | evlog, `createRequestLogger`, `withTaskLog`, `withFireAndForgetLog`, client logger, `/api/log/ingest` |
 | Jobs | `jobs.md` | pg-boss, job handler, `enqueue`, schedules, retry, DLQ, `singletonKey`, 42 handlers |
 | PDF | `pdf.md` | `@pi-dash/pdf`, voucher layout, `amount-to-words`, signature assets |

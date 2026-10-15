@@ -6,9 +6,11 @@ import {
 import { user } from "@pi-dash/db/schema/auth";
 import {
   reimbursement,
+  reimbursementAttachment,
   reimbursementHistory,
+  reimbursementLineItem,
 } from "@pi-dash/db/schema/reimbursement";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 /**
@@ -108,10 +110,51 @@ async function rejectWithScreenshot(id: string) {
   return { approvalScreenshotKey, id, status: "rejected" };
 }
 
+/**
+ * Links a stand-in voucher attachment to each opted-in line item of an
+ * approved reimbursement, as the voucher job would. The key only has to look
+ * durable: the specs upload the signed copy, they never open this file.
+ */
+async function linkVoucher(id: string) {
+  const prefix = process.env.R2_KEY_PREFIX ?? "attachments";
+  const items = await db
+    .select({ id: reimbursementLineItem.id })
+    .from(reimbursementLineItem)
+    .where(
+      and(
+        eq(reimbursementLineItem.reimbursementId, id),
+        eq(reimbursementLineItem.generateVoucher, true)
+      )
+    );
+  if (items.length === 0) {
+    throw new Error(`Reimbursement ${id} has no voucher line item`);
+  }
+  for (const item of items) {
+    const attachmentId = uuidv7();
+    await db.insert(reimbursementAttachment).values({
+      createdAt: new Date(),
+      filename: "cash-voucher-E2E.pdf",
+      id: attachmentId,
+      mimeType: "application/pdf",
+      objectKey: `${prefix}/vouchers/${id}/${attachmentId}-cash-voucher-E2E.pdf`,
+      reimbursementId: id,
+      type: "file",
+      url: null,
+    });
+    await db
+      .update(reimbursementLineItem)
+      .set({ voucherAttachmentId: attachmentId })
+      .where(eq(reimbursementLineItem.id, item.id));
+  }
+  return { id, linked: items.length };
+}
+
 const [action, type = "", id = ""] = process.argv.slice(2);
 let result: unknown;
 if (action === "approve") {
   result = await approve(type, id);
+} else if (action === "link-voucher" && type === "reimbursement") {
+  result = await linkVoucher(id);
 } else if (action === "reject-with-screenshot" && type === "reimbursement") {
   result = await rejectWithScreenshot(id);
 } else {

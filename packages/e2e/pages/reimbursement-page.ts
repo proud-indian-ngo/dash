@@ -99,6 +99,11 @@ export class ReimbursementPage {
     });
   }
 
+  /** Links a stand-in voucher to the open reimbursement's opted-in items. */
+  async linkVoucherInDatabase(): Promise<void> {
+    await this.runApprovalFixture("link-voucher");
+  }
+
   /**
    * Marks the open reimbursement rejected while it keeps a stored payment
    * screenshot, as when an approved request is later rejected.
@@ -126,7 +131,8 @@ export class ReimbursementPage {
 
   async createReimbursement(
     titleSuffix: string,
-    event?: ChargeOption
+    event?: ChargeOption,
+    amount?: string
   ): Promise<string> {
     const title = `E2E ${titleSuffix} ${Date.now()}`;
     await this.navigateToNew();
@@ -148,7 +154,7 @@ export class ReimbursementPage {
     }
 
     await this.form.fillLineItem({
-      amount: this.type === "reimbursement" ? "100" : "200",
+      amount: amount ?? (this.type === "reimbursement" ? "100" : "200"),
       description: "Test item",
     });
     await this.form.submit();
@@ -172,6 +178,7 @@ export class ReimbursementPage {
     });
 
     await this.form.toggleCashVoucher(0);
+    await this.form.fillPayeeName(0, "Test Payee");
 
     await this.form.submit();
     await this.waitForDetail(title);

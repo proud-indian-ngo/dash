@@ -80,25 +80,33 @@ export const teamEventQueries = {
       .where("id", id)
       .one()
   ),
+  // No page uses this today; the event page reads `reimbursement.byEvent`
+  // and `vendorPayment.byEvent`. Its expenses follow the same rule: every
+  // request with `requests.view_all`, otherwise only the caller's own, so
+  // line items (and voucher payees) never reach other event viewers.
   byIdWithExpenses: defineQuery(
     z.object({ id: z.string() }),
-    ({ args: { id }, ctx }) =>
-      restrictToAccessibleEvents(withRelated(zql.teamEvent), ctx)
+    ({ args: { id }, ctx }) => {
+      const viewAll = ctx !== null && can(ctx, "requests.view_all");
+      return restrictToAccessibleEvents(withRelated(zql.teamEvent), ctx)
         .where("id", id)
-        .related("reimbursements", (r) =>
-          r
+        .related("reimbursements", (r) => {
+          const scoped = viewAll ? r : r.where("userId", ctx?.userId ?? "");
+          return scoped
             .related("lineItems", (li) => li.orderBy("sortOrder", "asc"))
             .related("user")
-            .orderBy("createdAt", "desc")
-        )
-        .related("vendorPayments", (vp) =>
-          vp
+            .orderBy("createdAt", "desc");
+        })
+        .related("vendorPayments", (vp) => {
+          const scoped = viewAll ? vp : vp.where("userId", ctx?.userId ?? "");
+          return scoped
             .related("lineItems", (li) => li.orderBy("sortOrder", "asc"))
             .related("user")
             .related("vendor")
-            .orderBy("createdAt", "desc")
-        )
-        .one()
+            .orderBy("createdAt", "desc");
+        })
+        .one();
+    }
   ),
   byTeam: defineQuery(
     z.object({ teamId: z.string() }),

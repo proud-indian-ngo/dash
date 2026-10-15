@@ -106,9 +106,18 @@ export const reimbursementLineItem = pgTable(
     description: text("description"),
     generateVoucher: boolean("generate_voucher").default(false).notNull(),
     id: uuid("id").primaryKey(),
+    /** Who a cash voucher pays (for example a daily-wage labourer); printed as "Paid to". */
+    payeeName: text("payee_name"),
+    /** Optional E.164 Indian mobile of the person a cash voucher pays; printed on the voucher. */
+    payeePhone: text("payee_phone"),
     reimbursementId: uuid("reimbursement_id")
       .notNull()
       .references(() => reimbursement.id, { onDelete: "cascade" }),
+    /** The voucher signed or thumb-printed by the payee, uploaded after approval. */
+    signedVoucherAttachmentId: uuid("signed_voucher_attachment_id").references(
+      () => reimbursementAttachment.id,
+      { onDelete: "set null" }
+    ),
     sortOrder: integer("sort_order").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
     voucherAttachmentId: uuid("voucher_attachment_id").references(

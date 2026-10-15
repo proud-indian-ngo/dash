@@ -21,13 +21,14 @@ import {
 } from "@pi-dash/design-system/components/ui/tooltip";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
-  formatPaise,
+  formatCashVoucherLimit,
   qualifiesForCashVoucher,
-  tryRupeesToPaise,
-} from "@pi-dash/shared/money";
+} from "@pi-dash/shared/cash-voucher";
+import { formatPaise, tryRupeesToPaise } from "@pi-dash/shared/money";
 import type { ExpenseCategory } from "@pi-dash/zero/schema";
 import type { ChangeEvent } from "react";
 
+import { useCashVoucherLimit } from "@/hooks/use-cash-voucher-limit";
 import {
   computeRunningTotalPaise,
   type LineItem,
@@ -40,6 +41,8 @@ import {
   shouldShowFieldErrors,
   useResolvedForm,
 } from "./form-context";
+import { InputField } from "./input-field";
+import { PhoneField } from "./phone-field-lazy";
 
 interface ArrayFieldApi {
   pushValue: (value: LineItem) => void;
@@ -86,6 +89,7 @@ interface LineItemRowProps {
   removeValue: (index: number) => void;
   showVoucher?: boolean;
   submitted: boolean;
+  voucherLimitPaise: number;
 }
 
 function subFieldErrorProps(field: SubFieldApi, submitted: boolean) {
@@ -264,12 +268,13 @@ function LineItemRow({
   removeValue,
   showVoucher,
   submitted,
+  voucherLimitPaise,
 }: LineItemRowProps) {
   const handleRemove = useEventCallback(() => removeValue(index));
   const stableSelector0 = useEventCallback((state: unknown) => {
     const items = selectLineItems(state, name);
     const paise = tryRupeesToPaise(items[index]?.amount ?? "");
-    return paise !== null && qualifiesForCashVoucher(paise);
+    return paise !== null && qualifiesForCashVoucher(paise, voucherLimitPaise);
   });
 
   return (
@@ -329,19 +334,19 @@ function LineItemRow({
         <HugeiconsIcon className="size-4" icon={Delete02Icon} strokeWidth={2} />
       </Button>
 
-      {Boolean(showVoucher) && (
-        <form.Subscribe selector={stableSelector0}>
-          {(eligible: boolean) =>
-            eligible ? (
-              <form.Field name={`${name}[${index}].generateVoucher`}>
-                {(rawField: unknown) => {
-                  const field = rawField as {
-                    handleChange: (value: boolean) => void;
-                    state: { value: boolean };
-                  };
-                  const checkboxId = `${name}-${index}-voucher`;
-                  return (
-                    <div className="col-span-full flex items-center gap-2 pl-1">
+      <form.Subscribe selector={stableSelector0}>
+        {(eligible: boolean) =>
+          showVoucher && eligible ? (
+            <form.Field name={`${name}[${index}].generateVoucher`}>
+              {(rawField: unknown) => {
+                const field = rawField as {
+                  handleChange: (value: boolean) => void;
+                  state: { value: boolean };
+                };
+                const checkboxId = `${name}-${index}-voucher`;
+                return (
+                  <div className="col-span-full flex flex-col gap-2 pl-1">
+                    <div className="flex items-center gap-2">
                       <label
                         className="flex cursor-pointer items-center gap-2"
                         htmlFor={checkboxId}
@@ -367,17 +372,37 @@ function LineItemRow({
                         </TooltipTrigger>
                         <TooltipContent>
                           A cash voucher PDF will be auto-generated on approval
-                          for line items ≤ ₹1,000 without an invoice.
+                          for line items ≤{" "}
+                          {formatCashVoucherLimit(voucherLimitPaise)} without an
+                          invoice.
                         </TooltipContent>
                       </Tooltip>
                     </div>
-                  );
-                }}
-              </form.Field>
-            ) : null
-          }
-        </form.Subscribe>
-      )}
+                    {field.state.value ? (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <InputField
+                          description="The person paid in cash, printed on the voucher."
+                          form={form}
+                          isRequired
+                          label="Paid to"
+                          name={`${name}[${index}].payeeName`}
+                        />
+                        <PhoneField
+                          defaultCountry="IN"
+                          description="Optional. Printed on the voucher, which the payee signs or thumb-prints."
+                          form={form}
+                          label="Payee's mobile"
+                          name={`${name}[${index}].payeePhone`}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              }}
+            </form.Field>
+          ) : null
+        }
+      </form.Subscribe>
     </div>
   );
 }
@@ -389,6 +414,7 @@ export function LineItemsEditor({
   showVoucher,
 }: LineItemsEditorProps) {
   const form = useResolvedForm(formProp, "LineItemsEditor");
+  const voucherLimitPaise = useCashVoucherLimit();
 
   const categoryOptions = categories.map((category) => ({
     label: category.name,
@@ -431,6 +457,7 @@ export function LineItemsEditor({
                       removeValue={arrayField.removeValue}
                       showVoucher={showVoucher}
                       submitted={form.state.submissionAttempts > 0}
+                      voucherLimitPaise={voucherLimitPaise}
                     />
                   ))}
                 </div>

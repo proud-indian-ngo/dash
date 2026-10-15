@@ -264,7 +264,10 @@ export function StandardReimbursementFields({
 
       <Separator />
 
-      <LineItemsEditor categories={categoryList} showVoucher />
+      <LineItemsEditor
+        categories={categoryList}
+        showVoucher={requestType === "reimbursement"}
+      />
 
       <Separator />
 

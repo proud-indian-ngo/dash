@@ -1,7 +1,5 @@
-import fs from "node:fs";
-import path from "node:path";
-
-import { paiseToRupees } from "@pi-dash/shared/money";
+import { formatPaise } from "@pi-dash/shared/money";
+import { formatReceiptDate } from "@pi-dash/shared/receipts";
 import {
   Document,
   Image,
@@ -11,11 +9,26 @@ import {
   View,
 } from "@react-pdf/renderer";
 
+import {
+  documentDate,
+  Fact,
+  HAIRLINE,
+  INK,
+  Line,
+  Meta,
+  productStyles,
+} from "./product-pdf";
+import { ProudIndianLockup } from "./proud-indian-lockup";
+import { voucherAssets } from "./voucher-assets";
+
 export interface CashVoucherProps {
-  amountPaise: number;
   amountInWords: string;
+  amountPaise: number;
   approvedBy: string;
   category: string;
+  /** The volunteer who claimed the reimbursement. */
+  claimedBy: string;
+  /** The expense date, `YYYY-MM-DD`. */
   date: string;
   description: string | null;
   orgAddress: string;
@@ -23,249 +36,157 @@ export interface CashVoucherProps {
   orgName: string;
   orgPhone: string;
   orgRegistration: string;
+  /** The payee: the person paid in cash, or the claimant on older items. */
   paidTo: string;
+  /** The payee's mobile in E.164 (`+919876543210`), when the claimant gave one. */
+  payeePhone: string | null;
   voucherNumber: string;
 }
 
-const ASSETS_DIR = path.resolve(import.meta.dirname, "../assets");
-const LOGO_PATH = path.join(ASSETS_DIR, "logo.png");
-const SIGNATURE_PATH = path.join(ASSETS_DIR, "signature.png");
-const HAS_LOGO = fs.existsSync(LOGO_PATH);
-const HAS_SIGNATURE = fs.existsSync(SIGNATURE_PATH);
-if (!HAS_LOGO) {
-  console.warn("[pdf] logo.png not found at", LOGO_PATH);
-}
-if (!HAS_SIGNATURE) {
-  console.warn("[pdf] signature.png not found at", SIGNATURE_PATH);
-}
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+const INDIAN_MOBILE = /^\+91(\d{5})(\d{5})$/;
 
-const styles = StyleSheet.create({
-  amountCell: {
-    flex: 1,
-    textAlign: "right",
-  },
-  amountInWordsLabel: {
-    fontSize: 10,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  amountInWordsRow: {
-    border: 1,
-    borderColor: "#e0e0e0",
-    marginBottom: 12,
-    padding: 8,
-  },
-  approvedByLabel: {
-    fontSize: 10,
-    fontWeight: "bold",
-    marginBottom: 8,
-  },
-  approvedByName: {
-    fontSize: 10,
-  },
-  approvedBySection: {
-    alignItems: "flex-end",
-    display: "flex",
-    flexDirection: "column",
-    marginTop: 24,
-  },
-  categoryCell: {
-    borderColor: "#e0e0e0",
-    borderRight: 1,
-    flex: 1,
-  },
-  descriptionCell: {
-    borderColor: "#e0e0e0",
-    borderRight: 1,
-    flex: 2,
-  },
-  header: {
-    display: "flex",
-    flexDirection: "row",
-    gap: 24,
-    marginBottom: 24,
-  },
-  logo: {
-    height: 60,
-    objectFit: "contain",
-    width: 60,
-  },
-  metadataLabel: {
-    fontSize: 10,
-    fontWeight: "bold",
-  },
-  metadataRow: {
-    display: "flex",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  metadataValue: {
-    fontSize: 10,
-  },
-  orgDetails: {
-    flex: 1,
-  },
-  orgName: {
-    fontSize: 14,
-    fontWeight: "bold",
-    marginBottom: 2,
-  },
-  orgText: {
-    color: "#333333",
-    fontSize: 9,
-    marginBottom: 1,
-  },
-  page: {
-    color: "#000000",
-    fontFamily: "Helvetica",
-    fontSize: 10,
-    padding: 40,
-  },
-  paidToLabel: {
-    fontSize: 10,
-    fontWeight: "bold",
-    marginBottom: 2,
-  },
-  paidToRow: {
-    border: 1,
-    borderColor: "#e0e0e0",
-    marginBottom: 12,
-    padding: 8,
-  },
-  signature: {
-    marginBottom: 4,
-    width: 80,
-  },
-  tableCell: {
-    fontSize: 10,
-    padding: 8,
-  },
-  tableContainer: {
-    border: 1,
-    borderColor: "#e0e0e0",
-    marginBottom: 12,
-  },
-  tableHeader: {
-    backgroundColor: "#f5f5f5",
-    borderBottom: 1,
-    borderColor: "#e0e0e0",
-    display: "flex",
-    flexDirection: "row",
-  },
-  tableRow: {
-    borderBottom: 1,
-    borderColor: "#e0e0e0",
-    display: "flex",
-    flexDirection: "row",
-    minHeight: 24,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 16,
-    textAlign: "center",
-  },
-});
+const styles = {
+  ...productStyles,
+  ...StyleSheet.create({
+    closing: { flexDirection: "row", gap: 28, marginTop: 28 },
+    dateLabel: { fontSize: 8.5 },
+    dateLine: {
+      alignItems: "flex-end",
+      flexDirection: "row",
+      gap: 6,
+      marginTop: 16,
+    },
+    dateRule: { borderBottom: `0.75pt solid ${INK}`, flex: 1 },
+    party: { flex: 1 },
+    receivedBox: {
+      border: HAIRLINE,
+      borderRadius: 7,
+      height: 78,
+    },
+    signatureImage: { height: 56, objectFit: "contain", width: 119 },
+    signatureRule: {
+      borderTop: `0.75pt solid ${INK}`,
+      marginTop: 6,
+      paddingTop: 5,
+    },
+    signatureSpace: { height: 72, justifyContent: "flex-end" },
+  }),
+};
 
-function CashVoucherContent(props: CashVoucherProps) {
-  return (
-    <Page size="A4" style={styles.page}>
-      <View style={styles.header}>
-        {HAS_LOGO ? <Image src={LOGO_PATH} style={styles.logo} /> : null}
-        <View style={styles.orgDetails}>
-          <Text style={styles.orgName}>{props.orgName}</Text>
-          <Text style={styles.orgText}>{props.orgAddress}</Text>
-          <Text style={styles.orgText}>Phone: {props.orgPhone}</Text>
-          <Text style={styles.orgText}>Email: {props.orgEmail}</Text>
-          <Text style={styles.orgText}>
-            Registration: {props.orgRegistration}
-          </Text>
-        </View>
-      </View>
-
-      <Text style={styles.title}>CASH VOUCHER</Text>
-
-      <View style={styles.metadataRow}>
-        <View>
-          <Text style={styles.metadataLabel}>Voucher No</Text>
-          <Text style={styles.metadataValue}>{props.voucherNumber}</Text>
-        </View>
-        <View>
-          <Text style={styles.metadataLabel}>Date</Text>
-          <Text style={styles.metadataValue}>{props.date}</Text>
-        </View>
-      </View>
-
-      <View style={styles.paidToRow}>
-        <Text style={styles.paidToLabel}>Paid To</Text>
-        <Text style={styles.metadataValue}>{props.paidTo}</Text>
-      </View>
-
-      <View style={styles.tableContainer}>
-        <View style={styles.tableHeader}>
-          <Text
-            style={[
-              styles.tableCell,
-              styles.descriptionCell,
-              { fontWeight: "bold" },
-            ]}
-          >
-            Description
-          </Text>
-          <Text
-            style={[
-              styles.tableCell,
-              styles.categoryCell,
-              { fontWeight: "bold" },
-            ]}
-          >
-            Category
-          </Text>
-          <Text
-            style={[
-              styles.tableCell,
-              styles.amountCell,
-              { fontWeight: "bold" },
-            ]}
-          >
-            Amount (₹)
-          </Text>
-        </View>
-        <View style={styles.tableRow}>
-          <Text style={[styles.tableCell, styles.descriptionCell]}>
-            {props.description || "—"}
-          </Text>
-          <Text style={[styles.tableCell, styles.categoryCell]}>
-            {props.category}
-          </Text>
-          <Text style={[styles.tableCell, styles.amountCell]}>
-            {paiseToRupees(props.amountPaise)}
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.amountInWordsRow}>
-        <Text style={styles.amountInWordsLabel}>Amount in Words</Text>
-        <Text style={styles.metadataValue}>{props.amountInWords}</Text>
-      </View>
-
-      <View style={styles.approvedBySection}>
-        <Text style={styles.approvedByLabel}>Approved By</Text>
-        {HAS_SIGNATURE ? (
-          <Image src={SIGNATURE_PATH} style={styles.signature} />
-        ) : null}
-        <Text style={styles.approvedByName}>{props.approvedBy}</Text>
-        <Text style={styles.metadataValue}>Treasurer</Text>
-      </View>
-    </Page>
-  );
+/** "+91 98765 43210" for Indian mobiles; anything else prints as given. */
+export function formatPayeePhone(phone: string): string {
+  const match = INDIAN_MOBILE.exec(phone);
+  return match ? `+91 ${match[1]} ${match[2]}` : phone;
 }
 
+function voucherDate(date: string): string {
+  return ISO_DAY.test(date) ? formatReceiptDate(date) : date;
+}
+
+/**
+ * A cash voucher for one reimbursement line item paid without a bill. The
+ * payee signs or puts a thumb impression in the Received by box, and the
+ * claimant uploads the signed copy to the reimbursement.
+ */
 export function CashVoucher(props: CashVoucherProps) {
+  const day = ISO_DAY.test(props.date) ? documentDate(props.date) : undefined;
   return (
-    <Document>
-      <CashVoucherContent {...props} />
+    <Document
+      author={props.orgName}
+      // Fixed dates keep the bytes the same for the same voucher.
+      creationDate={day}
+      creator="Proud Indian"
+      modificationDate={day}
+      producer="Proud Indian"
+      subject={`Cash voucher ${props.voucherNumber}`}
+      title={props.voucherNumber}
+    >
+      <Page size="A4" style={styles.page}>
+        <View style={styles.header}>
+          <ProudIndianLockup height={26} />
+          <View style={styles.issuer}>
+            <Text style={styles.label}>Issued by</Text>
+            <Line style={styles.issuerName}>{props.orgName}</Line>
+            <Line style={styles.issuerLine}>{props.orgAddress}</Line>
+            <Line style={styles.issuerLine}>Phone {props.orgPhone}</Line>
+            <Line style={styles.issuerLine}>{props.orgEmail}</Line>
+            <Line style={styles.issuerLine}>
+              Registration {props.orgRegistration}
+            </Line>
+          </View>
+        </View>
+
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>Cash voucher</Text>
+          <View style={styles.meta}>
+            <Meta label="No." value={props.voucherNumber} />
+            <Meta label="Date" value={voucherDate(props.date)} />
+          </View>
+        </View>
+
+        <View style={styles.section} wrap={false}>
+          <Text style={styles.label}>Paid to</Text>
+          <Line style={styles.name}>{props.paidTo}</Line>
+          {props.payeePhone ? (
+            <Text style={[styles.text, { marginTop: 3 }]}>
+              Mobile{" "}
+              <Text style={styles.mono}>
+                {formatPayeePhone(props.payeePhone)}
+              </Text>
+            </Text>
+          ) : null}
+        </View>
+
+        <View style={styles.amountCard} wrap={false}>
+          <Text style={styles.label}>Amount</Text>
+          <Text style={styles.amount}>{formatPaise(props.amountPaise)}</Text>
+          <Line style={styles.amountWords}>{props.amountInWords}</Line>
+        </View>
+
+        <View style={styles.section} wrap={false}>
+          <Text style={styles.label}>Details</Text>
+          <View style={styles.facts}>
+            <Fact label="Description" value={props.description || "—"} />
+            <Fact label="Category" value={props.category} />
+            <Fact label="Claimed by" value={props.claimedBy} />
+          </View>
+        </View>
+
+        <View style={styles.closing} wrap={false}>
+          <View style={styles.party}>
+            <Text style={styles.label}>Approved by</Text>
+            <View style={styles.signatureSpace}>
+              <Image
+                src={voucherAssets.treasurerSignature}
+                style={styles.signatureImage}
+              />
+            </View>
+            <View style={styles.signatureRule}>
+              <Line style={[styles.text, styles.signatureName]}>
+                {props.approvedBy}
+              </Line>
+              <Text style={styles.small}>Treasurer</Text>
+            </View>
+          </View>
+          <View style={styles.party}>
+            <Text style={styles.label}>Received by</Text>
+            <View style={styles.receivedBox} />
+            <Text style={styles.small}>
+              Signature or thumb impression of the payee
+            </Text>
+            <View style={styles.dateLine}>
+              <Text style={[styles.small, styles.dateLabel]}>Date</Text>
+              <View style={styles.dateRule} />
+            </View>
+          </View>
+        </View>
+
+        <Text fixed style={styles.footer}>
+          Cash voucher {props.voucherNumber} · {props.orgName} · Registration{" "}
+          {props.orgRegistration}
+        </Text>
+      </Page>
     </Document>
   );
 }

@@ -1,7 +1,5 @@
 import z from "zod";
 
-import { VOUCHER_AMOUNT_THRESHOLD_PAISE } from "./constants";
-
 /**
  * Money is stored as integer paise (bigint columns read as JavaScript
  * numbers) and converted to rupees only at presentation and export. Every
@@ -100,11 +98,6 @@ export function sumPaise(values: Iterable<number>): number {
     total += assertSafePaise(value);
   }
   return assertSafePaise(total);
-}
-
-/** Whether a line item is small enough for a cash voucher (up to ₹1,000). */
-export function qualifiesForCashVoucher(amountPaise: number): boolean {
-  return amountPaise > 0 && amountPaise <= VOUCHER_AMOUNT_THRESHOLD_PAISE;
 }
 
 /** Paise amount for mutator and server-function inputs. */

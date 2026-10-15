@@ -7,7 +7,6 @@ import {
   paiseSchema,
   paiseToRupees,
   positivePaiseSchema,
-  qualifiesForCashVoucher,
   rupeesToPaise,
   sumPaise,
   tryRupeesToPaise,
@@ -153,14 +152,5 @@ describe("sumPaise and schemas", () => {
     const total = sumPaise(Array.from({ length: 50 }, () => MAX_AMOUNT_PAISE));
     expect(total).toBe(49_999_999_999_950);
     expect(formatPaise(total)).toBe("₹4,99,99,99,99,999.50");
-  });
-});
-
-describe("qualifiesForCashVoucher", () => {
-  it("allows items up to ₹1,000", () => {
-    expect(qualifiesForCashVoucher(100_000)).toBe(true);
-    expect(qualifiesForCashVoucher(1)).toBe(true);
-    expect(qualifiesForCashVoucher(100_001)).toBe(false);
-    expect(qualifiesForCashVoucher(0)).toBe(false);
   });
 });
