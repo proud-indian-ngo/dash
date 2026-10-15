@@ -355,6 +355,26 @@ describe("reimbursement.collectPayeeSignature", () => {
     );
   });
 
+  it("refuses an upload key another attachment already holds", async () => {
+    // The temporary key was claimed before, so its durable key is taken.
+    const db = createDb(
+      "server",
+      seed({
+        reimbursementAttachment: [
+          {
+            id: "att-other",
+            objectKey:
+              "app/attachments/reimbursements/request-1/payee-signature.png",
+            reimbursementId: "request-1",
+          },
+        ],
+      })
+    );
+    await expect(collect(db, serverContext("owner-1"))).rejects.toThrow(
+      "This upload was already used"
+    );
+  });
+
   it("re-checks the status under a row lock on the server", async () => {
     // Synced as pending, but approved by the time the lock is taken.
     const db = createDb("server", seed(), {
@@ -569,5 +589,16 @@ describe("reimbursement.update and the payee signature", () => {
       db.updates.find((u) => u.table === "reimbursementLineItem")?.row
         .payeeSignatureAttachmentId
     ).toBe("att-sig");
+  });
+
+  it("locks the request before reading its items on the server", async () => {
+    const db = createDb("server", seed());
+    const ctx = { ...serverContext("owner-1", ["requests.edit_own"]) };
+    await reimbursementMutators.update.fn({
+      args: createSchema.parse(args()),
+      ctx,
+      tx: db.tx,
+    } as never);
+    expect(db.lockReads).toHaveLength(1);
   });
 });

@@ -783,6 +783,13 @@ export const reimbursementMutators = {
           subfolder: "attachments",
         })
       );
+      // A key already stored is someone else's file, never a new signature.
+      const reused = await tx.run(
+        zql.reimbursementAttachment.where("objectKey", objectKey).one()
+      );
+      if (reused) {
+        throw new Error("This upload was already used. Sign again");
+      }
       await tx.mutate.reimbursementAttachment.insert({
         createdAt: now,
         filename: PAYEE_SIGNATURE_FILENAME,
@@ -1337,6 +1344,9 @@ export const reimbursementMutators = {
       can(ctx, "requests.edit_own")
     );
 
+    // Lock before reading the items: a signature collected meanwhile would
+    // otherwise be wiped when the items are replaced.
+    await lockReimbursement(tx, args.id);
     const now = Date.now();
     const charge = await resolveExpenseCharge(tx, args, entity);
     const [itemsBefore, attachmentsBefore] = await Promise.all([

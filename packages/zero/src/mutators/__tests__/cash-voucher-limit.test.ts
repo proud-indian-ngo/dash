@@ -47,6 +47,24 @@ function createDb(
     },
   });
   const tx = {
+    // The row lock `update` takes on the server reads the seeded request.
+    dbTransaction: {
+      wrappedTransaction: {
+        // The bank-match check takes the statement-line lock first.
+        execute: async () => [],
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              for: async () =>
+                (tables.reimbursement ?? []).slice(0, 1).map((row) => ({
+                  status: row.status,
+                  voidedAt: null,
+                })),
+            }),
+          }),
+        }),
+      },
+    },
     location,
     mutate: Object.fromEntries(
       Object.keys(tables).map((table) => [table, tableApi(table)])
