@@ -146,6 +146,12 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
     log.emit();
     return;
   }
+  // A voided request keeps the vouchers it has and gets no new one.
+  if (reimb.voidedAt) {
+    log.set({ event: "reimbursement_voided" });
+    log.emit();
+    return;
+  }
 
   const [submitter] = await db
     .select({ name: user.name, phone: user.phone })

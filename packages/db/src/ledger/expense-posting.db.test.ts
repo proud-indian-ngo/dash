@@ -777,3 +777,151 @@ it.skipIf(!localDatabase)(
     });
   }
 );
+
+it.skipIf(!localDatabase)(
+  "reverses a voided reimbursement once, on the void day",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const id = await addClaim(tx, ids);
+      await run(tx, claimSource(id));
+      expect(await balanceOf(tx, ids.bank)).toBe(-42_500);
+
+      const VOIDED_AT = new Date("2026-11-02T05:00:00Z");
+      await tx
+        .update(reimbursement)
+        .set({
+          updatedAt: VOIDED_AT,
+          voidedAt: VOIDED_AT,
+          voidReason: "Paid twice by mistake",
+        })
+        .where(eq(reimbursement.id, id));
+      expect(await run(tx, claimSource(id))).toMatchObject({
+        posted: 0,
+        reason: "voided",
+        reversed: 2,
+        status: "none",
+      });
+      const postings = await postingsOf(tx, id);
+      expect(
+        postings.map((p) => [p.action, p.economicOn, p.reason ?? null])
+      ).toEqual([
+        ["recognise", "2026-06-03", null],
+        ["cash", "2026-06-03", null],
+        ["reverse:recognise", "2026-11-02", "The reimbursement was voided"],
+        ["reverse:cash", "2026-11-02", "The reimbursement was voided"],
+      ]);
+      // The reversing entries and movements are dated the void day too.
+      const reversalIds = postings
+        .filter((p) => p.reversesPostingId)
+        .map((p) => p.id);
+      const entries = await tx
+        .select({ economicOn: ledgerEntry.economicOn })
+        .from(ledgerEntry)
+        .where(inArray(ledgerEntry.postingId, reversalIds));
+      const movements = await tx
+        .select({ occurredOn: accountMovement.occurredOn })
+        .from(accountMovement)
+        .where(inArray(accountMovement.postingId, reversalIds));
+      expect(new Set(entries.map((e) => e.economicOn))).toEqual(
+        new Set(["2026-11-02"])
+      );
+      expect(movements.map((m) => m.occurredOn)).toEqual(["2026-11-02"]);
+      expect(await balanceOf(tx, ids.bank)).toBe(0);
+      expect(await stateOf(tx, id)).toMatchObject({
+        reason: "voided",
+        status: "none",
+      });
+
+      // Idempotent: another run (or the sweep) reverses nothing more.
+      expect(await run(tx, claimSource(id))).toMatchObject({
+        posted: 0,
+        reversed: 0,
+      });
+      expect(await postingsOf(tx, id)).toHaveLength(4);
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "waits to reverse a void while its day's year is closed",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const id = await addClaim(tx, ids);
+      await run(tx, claimSource(id));
+      const VOIDED_AT = new Date("2026-11-02T05:00:00Z");
+      await tx
+        .update(reimbursement)
+        .set({
+          updatedAt: VOIDED_AT,
+          voidedAt: VOIDED_AT,
+          voidReason: "Duplicate",
+        })
+        .where(eq(reimbursement.id, id));
+      await tx.update(fiscalYear).set({ closedAt: NOW });
+      expect(await run(tx, claimSource(id))).toMatchObject({
+        reason: "year_closed",
+        reversed: 0,
+        status: "waiting",
+      });
+      expect(await postingsOf(tx, id)).toHaveLength(2);
+      await tx.update(fiscalYear).set({ closedAt: null });
+      expect(await run(tx, claimSource(id))).toMatchObject({ reversed: 2 });
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "reverses a voided vendor payment request's payment through the request",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const vpId = uuidv7();
+      await tx.insert(vendorPayment).values({
+        chargedTo: "organisation",
+        createdAt: NOW,
+        id: vpId,
+        reviewedAt: NOW,
+        status: "paid",
+        title: "Sound system",
+        updatedAt: NOW,
+        userId: ids.user,
+        vendorId: ids.vendor,
+      });
+      const paymentId = uuidv7();
+      await tx.insert(vendorPaymentTransaction).values({
+        amountPaise: 10_000,
+        createdAt: NOW,
+        id: paymentId,
+        reviewedAt: NOW,
+        status: "approved",
+        transactionDate: new Date("2026-07-10T05:00:00Z"),
+        updatedAt: NOW,
+        userId: ids.user,
+        vendorPaymentId: vpId,
+      });
+      const source: IncomeSource = {
+        sourceId: paymentId,
+        sourceType: "vendor_payment_transaction",
+      };
+      await run(tx, source);
+      expect(await balanceOf(tx, ids.bank)).toBe(-10_000);
+      const VOIDED_AT = new Date("2026-11-02T05:00:00Z");
+      await tx
+        .update(vendorPayment)
+        .set({
+          updatedAt: VOIDED_AT,
+          voidedAt: VOIDED_AT,
+          voidReason: "Wrong vendor",
+        })
+        .where(eq(vendorPayment.id, vpId));
+      expect(await run(tx, source)).toMatchObject({
+        reason: "voided",
+        reversed: 2,
+      });
+      expect(await balanceOf(tx, ids.bank)).toBe(0);
+      expect(await advancesOf(tx, ids.vendor)).toBe(0);
+    });
+  }
+);

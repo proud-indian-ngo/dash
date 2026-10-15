@@ -81,6 +81,16 @@ export const reimbursement = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    /**
+     * Voided after it reached the books (finance Option B): the request stays,
+     * with its attachments and history, and the posting run reverses its
+     * entries on the void day. `voided_at` and `void_reason` go together.
+     */
+    voidedAt: timestamp("voided_at"),
+    voidedBy: text("voided_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    voidReason: text("void_reason"),
   },
   (table) => [
     index("reimbursement_userId_idx").on(table.userId),
@@ -101,6 +111,10 @@ export const reimbursement = pgTable(
     check(
       "reimbursement_rejection_reason_chk",
       sql`((status = 'rejected'::reimbursement_status) AND (rejection_reason IS NOT NULL)) OR ((status <> 'rejected'::reimbursement_status) AND (rejection_reason IS NULL))`
+    ),
+    check(
+      "reimbursement_void_chk",
+      sql`(voided_at IS NULL AND void_reason IS NULL) OR (voided_at IS NOT NULL AND void_reason IS NOT NULL)`
     ),
   ]
 );

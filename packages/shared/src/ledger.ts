@@ -205,6 +205,8 @@ export const LEDGER_SKIP_REASONS = {
   notReceived: "not_received",
   otherSidePosts: "other_side_posts",
   unmatched: "unmatched",
+  /** A request or payment voided after it reached the books. */
+  voided: "voided",
 } as const;
 export type LedgerSkipReason =
   (typeof LEDGER_SKIP_REASONS)[keyof typeof LEDGER_SKIP_REASONS];
@@ -219,6 +221,7 @@ export const LEDGER_SKIP_REASON_LABELS: Record<LedgerSkipReason, string> = {
   not_received: "Not received, or reversed",
   other_side_posts: "Posted from the other account's statement line",
   unmatched: "No longer marked as a transfer",
+  voided: "Voided",
 };
 
 /** The words for a source's state: its wait or skip reason. */
@@ -690,3 +693,17 @@ export function booksAsOf(range: DateRange, today: string): string {
   }
   return today < range.startsOn ? range.startsOn : today;
 }
+
+// ── Voiding requests (Option B) ─────────────────────────────────────────────
+
+/** Refused delete: a request or payment the books hold is voided instead. */
+export const POSTED_DELETE_MESSAGE = "Posted to the books. Void it instead.";
+
+/** Refused change to a voided request or payment. */
+export const VOIDED_MESSAGE = "This is void, so it can't be changed";
+
+/** Refused delete of a voided request or payment: it stays as the record. */
+export const VOIDED_DELETE_MESSAGE =
+  "This is void and stays as the record, so it can't be deleted";
+
+export const VOID_REASON_MAX = 500;

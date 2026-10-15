@@ -166,6 +166,13 @@ const none = (
   reason,
 });
 
+/** Voided: whatever stands is reversed on the void day (Option B). */
+const voided = (voidedOn: string): SourcePlan => ({
+  kind: "none",
+  reason: LEDGER_SKIP_REASONS.voided,
+  reverseOn: voidedOn,
+});
+
 const wait = (
   economicOn: string | null,
   reason: (typeof LEDGER_WAIT_REASONS)[keyof typeof LEDGER_WAIT_REASONS]
@@ -188,6 +195,8 @@ export interface ReimbursementFacts extends PayingAccountFacts {
   lines: ExpenseLineFacts[];
   status: string;
   title: string;
+  /** The void day in India, once voided. */
+  voidedOn: string | null;
 }
 
 /** The payout's memo: the title and who was paid. */
@@ -201,6 +210,9 @@ export function reimbursementPlan(
 ): SourcePlan {
   if (!claim) {
     return none(LEDGER_SKIP_REASONS.deleted);
+  }
+  if (claim.voidedOn) {
+    return voided(claim.voidedOn);
   }
   if (claim.status !== "approved") {
     return none(LEDGER_SKIP_REASONS.notApproved);
@@ -278,6 +290,8 @@ export interface VendorPaymentFacts {
   title: string;
   /** The vendor's party (a vendor is a party with the vendor role). */
   vendorId: string;
+  /** The void day in India, once voided. */
+  voidedOn: string | null;
 }
 
 /** The day an accepted invoice is recognised: its approval day, else its date. */
@@ -288,6 +302,9 @@ export const invoiceAcceptedDay = (
 export function vendorPaymentPlan(vp: VendorPaymentFacts | null): SourcePlan {
   if (!vp) {
     return none(LEDGER_SKIP_REASONS.deleted);
+  }
+  if (vp.voidedOn) {
+    return voided(vp.voidedOn);
   }
   if (vp.status !== "completed") {
     return none(
@@ -374,6 +391,8 @@ export interface VendorPaymentTransactionFacts extends PayingAccountFacts {
   status: string;
   title: string;
   vendorId: string;
+  /** The void day in India of the payment, else of its request. */
+  voidedOn: string | null;
 }
 
 export function vendorPaymentTransactionPlan(
@@ -381,6 +400,9 @@ export function vendorPaymentTransactionPlan(
 ): SourcePlan {
   if (!payment) {
     return none(LEDGER_SKIP_REASONS.deleted);
+  }
+  if (payment.voidedOn) {
+    return voided(payment.voidedOn);
   }
   if (
     payment.status !== "approved" ||

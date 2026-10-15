@@ -98,6 +98,20 @@ export const ledgerQueries = {
             .one()
         : zql.ledgerSourceState.where("id", NEVER).one()
   ),
+  /**
+   * The sources of one type that stand in the books, so a list can offer
+   * Void instead of Delete on them (finance Option B). IDs and status only.
+   */
+  postedSources: defineQuery(
+    z.object({ sourceType: z.string() }),
+    ({ args, ctx }) =>
+      canSeeBooks(ctx)
+        ? zql.ledgerSourceState
+            .where("status", "posted")
+            .where("sourceType", args.sourceType)
+            .limit(BOOK_LIST_LIMIT)
+        : zql.ledgerSourceState.where("id", NEVER)
+  ),
   /** Year close and reopen history, with who did it (name only is read). */
   yearEvents: defineQuery(({ ctx }) => {
     const events = zql.fiscalYearEvent

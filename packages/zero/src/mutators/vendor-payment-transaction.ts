@@ -22,6 +22,7 @@ import {
   createR2ClaimOptions,
   enqueueDeleteR2Object,
 } from "./submission-helpers";
+import { assertDeletable, assertNotVoided, voidSchema } from "./void";
 
 export const transactionAttachmentKeyPrefixes = (id: string) => [
   `attachments/vendor-payment-transactions/${id}/`,
@@ -78,9 +79,15 @@ async function assertWithinPaymentCap(
         id: string;
         status: string;
         amountPaise: number;
+        voidedAt?: number | null;
       }>
     )
-      .filter((t) => t.status !== "rejected" && t.id !== excludeTransactionId)
+      .filter(
+        (t) =>
+          t.status !== "rejected" &&
+          !t.voidedAt &&
+          t.id !== excludeTransactionId
+      )
       .map((t) => t.amountPaise)
   );
   const totalOwedPaise = sumPaise(
@@ -101,9 +108,14 @@ export async function recalculateParentStatus(
     zql.vendorPaymentTransaction.where("vendorPaymentId", vendorPaymentId)
   );
   const approvedAmounts = (
-    transactions as Array<{ status: string; amountPaise: number }>
+    transactions as Array<{
+      status: string;
+      amountPaise: number;
+      voidedAt?: number | null;
+    }>
   )
-    .filter((t) => t.status === "approved")
+    // A voided payment no longer counts as paid.
+    .filter((t) => t.status === "approved" && !t.voidedAt)
     .map((t) => t.amountPaise);
 
   const lineItems = await tx.run(
@@ -171,6 +183,7 @@ export const vendorPaymentTransactionMutators = {
         zql.vendorPaymentTransaction.where("id", args.id).one()
       );
       assertEntityExists(entity, "Transaction");
+      assertNotVoided(entity);
       assertPending(entity, "transaction", "approved");
       const vpId = entity.vendorPaymentId as string;
 
@@ -184,6 +197,7 @@ export const vendorPaymentTransactionMutators = {
           "Cannot approve transaction: parent vendor payment is not approved"
         );
       }
+      assertNotVoided(vendorPayment);
 
       await assertWithinPaymentCap(tx, vpId, entity.amountPaise, args.id);
 
@@ -267,6 +281,7 @@ export const vendorPaymentTransactionMutators = {
       zql.vendorPayment.where("id", args.vendorPaymentId).one()
     );
     assertEntityExists(vendorPayment, "Vendor payment");
+    assertNotVoided(vendorPayment);
 
     // Must be VP submitter or have approve permission
     const isVpOwner = vendorPayment.userId === userId;
@@ -430,6 +445,12 @@ export const vendorPaymentTransactionMutators = {
       }
 
       assertCanDelete(entity, userId, can(ctx, "requests.delete_all"));
+      if (parentVp) {
+        assertNotVoided(parentVp);
+      }
+      await assertDeletable(tx, entity, [
+        { sourceId: args.id, sourceType: "vendor_payment_transaction" },
+      ]);
 
       // Delete attachments
       const attachments = await tx.run(
@@ -483,6 +504,7 @@ export const vendorPaymentTransactionMutators = {
         zql.vendorPaymentTransaction.where("id", args.id).one()
       );
       assertEntityExists(entity, "Transaction");
+      assertNotVoided(entity);
       assertPending(entity, "transaction", "rejected");
       const vpId = entity.vendorPaymentId as string;
 
@@ -539,6 +561,38 @@ export const vendorPaymentTransactionMutators = {
     }
   ),
 
+  /**
+   * Voids one payment (finance Option B): it stays, with its attachments
+   * and history, no longer counts as paid, and the posting run reverses its
+   * money out and supplier advance on the void day. Voiding twice changes
+   * nothing.
+   */
+  void: defineMutator(voidSchema, async ({ tx, ctx, args }) => {
+    assertHasPermission(ctx, "requests.void");
+    const entity = await tx.run(
+      zql.vendorPaymentTransaction.where("id", args.id).one()
+    );
+    assertEntityExists(entity, "Transaction");
+    if (entity.voidedAt) {
+      return;
+    }
+    const vpId = entity.vendorPaymentId as string;
+    const now = Date.now();
+    await tx.mutate.vendorPaymentTransaction.update({
+      id: args.id,
+      updatedAt: now,
+      voidedAt: now,
+      voidedBy: ctx.userId,
+      voidReason: args.reason,
+    });
+    await tx.mutate.vendorPaymentTransactionHistory.insert({
+      ...buildHistoryInsert(ctx.userId, "voided", now, args.reason),
+      ...fk(args.id),
+    });
+    await recalculateParentStatus(tx, vpId, now);
+    queuePosting(ctx, tx, args.id, vpId, "vendorPaymentTransaction.void");
+  }),
+
   update: defineMutator(
     createSchema.omit({ vendorPaymentId: true }),
     async ({ tx, ctx, args }) => {
@@ -549,11 +603,15 @@ export const vendorPaymentTransactionMutators = {
         zql.vendorPaymentTransaction.where("id", args.id).one()
       );
       assertEntityExists(entity, "Transaction");
+      assertNotVoided(entity);
 
       // Block edits when parent VP invoice is locked (applies to all users)
       const parentVp = await tx.run(
         zql.vendorPayment.where("id", entity.vendorPaymentId as string).one()
       );
+      if (parentVp) {
+        assertNotVoided(parentVp);
+      }
       if (parentVp && INVOICE_LOCKED_STATUSES.has(parentVp.status as string)) {
         throw new Error(
           "Cannot edit transaction while invoice is pending or completed"

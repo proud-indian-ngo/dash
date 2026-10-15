@@ -53,6 +53,7 @@ import {
   recalculateParentStatus,
   transactionAttachmentKeyPrefixes,
 } from "./vendor-payment-transaction";
+import { assertDeletable, assertNotVoided, voidSchema } from "./void";
 
 /** Its expense in the books (finance layer 3-3a); its payments follow it. */
 const ledgerSource = (id: string): LedgerSourceRef => ({
@@ -195,6 +196,7 @@ export const vendorPaymentMutators = {
       const { userId } = ctx;
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
+      assertNotVoided(entity);
       // Review applies only to pending requests, even for admins who can edit
       // any status; they reset a request to pending to review it again.
       assertPending(entity, "vendor payment", "approved");
@@ -356,6 +358,7 @@ export const vendorPaymentMutators = {
       const { userId } = ctx;
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
+      assertNotVoided(entity);
 
       if (entity.status !== "invoice_pending") {
         throw new Error(
@@ -509,6 +512,18 @@ export const vendorPaymentMutators = {
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
       assertCanDelete(entity, userId, can(ctx, "requests.delete_all"));
+      // Neither the request nor any of its payments may stand in the books.
+      await assertDeletable(tx, entity, [
+        ledgerSource(args.id),
+        ...(
+          await tx.run(
+            zql.vendorPaymentTransaction.where("vendorPaymentId", args.id)
+          )
+        ).map((t) => ({
+          sourceId: t.id,
+          sourceType: "vendor_payment_transaction" as const,
+        })),
+      ]);
       enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
         keyPrefixes: vendorPaymentApprovalKeyPrefixes(args.id),
         meta: {
@@ -589,6 +604,7 @@ export const vendorPaymentMutators = {
       const { userId } = ctx;
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
+      assertNotVoided(entity);
       // Review applies only to pending requests, even for admins who can edit
       // any status; they reset a request to pending to review it again.
       assertPending(entity, "vendor payment", "rejected");
@@ -721,6 +737,7 @@ export const vendorPaymentMutators = {
       const { userId } = ctx;
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
+      assertNotVoided(entity);
 
       if (entity.status !== "invoice_pending") {
         throw new Error(
@@ -785,6 +802,7 @@ export const vendorPaymentMutators = {
       const { userId } = ctx;
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
+      assertNotVoided(entity);
 
       if (entity.status === "pending") {
         throw new Error("Vendor payment is already pending");
@@ -857,6 +875,7 @@ export const vendorPaymentMutators = {
       const { userId } = ctx;
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
+      assertNotVoided(entity);
 
       const isOwner = entity.userId === userId;
       const isAdmin = can(ctx, "requests.approve");
@@ -984,6 +1003,7 @@ export const vendorPaymentMutators = {
   setChargedTo: defineMutator(setChargedToSchema, async ({ tx, ctx, args }) => {
     const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
     assertEntityExists(entity, "Vendor payment");
+    assertNotVoided(entity);
     assertCanChangeCharge(ctx, entity);
     if (await isPostedInBooks(tx, ledgerSource(args.id))) {
       throw new Error(POSTED_CHARGE_MESSAGE);
@@ -1008,6 +1028,58 @@ export const vendorPaymentMutators = {
     );
   }),
 
+  /**
+   * Voids the request and its payments (finance Option B): they stay, with
+   * their attachments and history, and take no further change; the posting
+   * run reverses the expense and each payment on the void day. Voiding
+   * twice changes nothing.
+   */
+  void: defineMutator(voidSchema, async ({ tx, ctx, args }) => {
+    assertHasPermission(ctx, "requests.void");
+    const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
+    assertEntityExists(entity, "Vendor payment");
+    if (entity.voidedAt) {
+      return;
+    }
+    const now = Date.now();
+    const voided = {
+      updatedAt: now,
+      voidedAt: now,
+      voidedBy: ctx.userId,
+      voidReason: args.reason,
+    };
+    await tx.mutate.vendorPayment.update({ id: args.id, ...voided });
+    await tx.mutate.vendorPaymentHistory.insert({
+      ...buildHistoryInsert(ctx.userId, "voided", now, args.reason),
+      vendorPaymentId: args.id,
+    });
+    const transactions = await tx.run(
+      zql.vendorPaymentTransaction.where("vendorPaymentId", args.id)
+    );
+    for (const t of transactions) {
+      if (t.voidedAt) {
+        continue;
+      }
+      await tx.mutate.vendorPaymentTransaction.update({ id: t.id, ...voided });
+      await tx.mutate.vendorPaymentTransactionHistory.insert({
+        ...buildHistoryInsert(ctx.userId, "voided", now, args.reason),
+        vendorPaymentTransactionId: t.id,
+      });
+    }
+    queueLedgerPosting(
+      ctx,
+      tx,
+      [
+        ledgerSource(args.id),
+        ...transactions.map((t) => ({
+          sourceId: t.id,
+          sourceType: "vendor_payment_transaction" as const,
+        })),
+      ],
+      "vendorPayment.void"
+    );
+  }),
+
   update: defineMutator(createSchema, async ({ tx, ctx, args }) => {
     assertIsLoggedIn(ctx);
     const { userId } = ctx;
@@ -1016,6 +1088,7 @@ export const vendorPaymentMutators = {
     const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
     const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
     assertEntityExists(entity, "Vendor payment");
+    assertNotVoided(entity);
     if (!(hasEditAll || canEditAnyStatus)) {
       assertCanModify(
         entity,
@@ -1113,6 +1186,7 @@ export const vendorPaymentMutators = {
       const { userId } = ctx;
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
+      assertNotVoided(entity);
 
       const isOwner = entity.userId === userId;
       const canEditAll = can(ctx, "requests.edit_all");

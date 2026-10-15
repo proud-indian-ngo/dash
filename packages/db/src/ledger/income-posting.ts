@@ -674,6 +674,9 @@ function reversalReason(source: IncomeSource, plan: SourcePlan): string {
     if (plan.reason === LEDGER_SKIP_REASONS.unmatched) {
       return "The bank line was unmatched";
     }
+    if (plan.reason === LEDGER_SKIP_REASONS.voided) {
+      return `The ${label} was voided`;
+    }
     return plan.reason === LEDGER_SKIP_REASONS.deleted
       ? `The ${label} was deleted`
       : `The ${label} no longer posts: ${ledgerReasonLabel(plan.reason)}`;
@@ -755,10 +758,11 @@ export async function postIncomeSource(
   const redo = moneyChanged
     ? new Set([...desired.keys(), ...byAction.keys()])
     : changed;
+  const reverseOn = plan.kind === "none" ? plan.reverseOn : undefined;
   const economicOn =
     plan.kind === "post"
       ? plan.economicOn
-      : (standing[0]?.posting.economicOn ?? null);
+      : (reverseOn ?? standing[0]?.posting.economicOn ?? null);
 
   if (redo.size === 0) {
     return await settle(tx, source, plan, standing, now, {
@@ -779,6 +783,7 @@ export async function postIncomeSource(
           await reverse(sp, s.posting.id, {
             actorId: context.actorId,
             now,
+            on: reverseOn,
             reason,
           });
           reversed += 1;

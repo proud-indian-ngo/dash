@@ -59,6 +59,7 @@ const claim = (over: Partial<ReimbursementFacts> = {}): ReimbursementFacts => ({
   postedAccountId: null,
   status: "approved",
   title: "Class outing",
+  voidedOn: null,
   ...over,
 });
 
@@ -88,6 +89,7 @@ const request = (
   status: "completed",
   title: "Bus for the event",
   vendorId: VENDOR,
+  voidedOn: null,
   ...over,
 });
 
@@ -105,6 +107,7 @@ const payment = (
   status: "approved",
   title: "Bus for the event",
   vendorId: VENDOR,
+  voidedOn: null,
   ...over,
 });
 
@@ -553,5 +556,31 @@ describe("helpers", () => {
       "EXPENSE_FOOD_OR_REFRESHMENT"
     );
     expect(expenseHeadCode("  ")).toBe("EXPENSE_CATEGORY");
+  });
+});
+
+describe("voided requests", () => {
+  const voided = {
+    kind: "none",
+    reason: "voided",
+    reverseOn: "2026-11-02",
+  };
+
+  it("reverses a voided reimbursement on the void day, whatever its status", () => {
+    expect(reimbursementPlan(claim({ voidedOn: "2026-11-02" }))).toEqual(
+      voided
+    );
+    expect(
+      reimbursementPlan(claim({ status: "pending", voidedOn: "2026-11-02" }))
+    ).toEqual(voided);
+  });
+
+  it("reverses a voided vendor payment request and its payments", () => {
+    expect(vendorPaymentPlan(request({ voidedOn: "2026-11-02" }))).toEqual(
+      voided
+    );
+    expect(
+      vendorPaymentTransactionPlan(payment({ voidedOn: "2026-11-02" }))
+    ).toEqual(voided);
   });
 });

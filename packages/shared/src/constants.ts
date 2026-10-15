@@ -82,6 +82,7 @@ export const historyActionValues = [
   "invoice_updated",
   "invoice_approved",
   "invoice_rejected",
+  "voided",
 ] as const;
 export type HistoryAction = (typeof historyActionValues)[number];
 

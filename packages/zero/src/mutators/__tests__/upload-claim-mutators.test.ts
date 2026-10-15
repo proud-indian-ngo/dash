@@ -220,6 +220,11 @@ describe("server mutator upload claims", () => {
           status: "paid",
           userId: "owner-1",
         })
+        // The delete first checks that the books hold neither the request
+        // nor its payment (finance Option B).
+        .mockResolvedValueOnce([{ id: "transaction-1" }])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([])

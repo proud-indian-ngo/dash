@@ -55,4 +55,11 @@ describe("finance permissions by role", () => {
       "requests.create_for_others"
     );
   });
+
+  it("lets finance admins and super admins, not admins or volunteers, void requests", () => {
+    expect(PERMISSION_IDS.has("requests.void")).toBe(true);
+    expect(FINANCE_ADMIN_PERMISSIONS).toContain("requests.void");
+    expect(ADMIN_PERMISSIONS).not.toContain("requests.void");
+    expect(VOLUNTEER_BASELINE_PERMISSIONS).not.toContain("requests.void");
+  });
 });

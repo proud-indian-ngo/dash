@@ -142,6 +142,16 @@ export const vendorPayment = pgTable(
     vendorId: uuid("vendor_id")
       .notNull()
       .references(() => vendor.id, { onDelete: "cascade" }),
+    /**
+     * Voided after it reached the books (finance Option B): the request stays,
+     * with its attachments and history, and the posting run reverses its
+     * entries on the void day. `voided_at` and `void_reason` go together.
+     */
+    voidedAt: timestamp("voided_at"),
+    voidedBy: text("voided_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    voidReason: text("void_reason"),
   },
   (table) => [
     index("vendor_payment_userId_idx").on(table.userId),
@@ -166,6 +176,10 @@ export const vendorPayment = pgTable(
     check(
       "vendor_payment_invoice_or_no_invoice_chk",
       sql`${table.noInvoiceReason} IS NULL OR ${table.invoiceNumber} IS NULL`
+    ),
+    check(
+      "vendor_payment_void_chk",
+      sql`(voided_at IS NULL AND void_reason IS NULL) OR (voided_at IS NOT NULL AND void_reason IS NOT NULL)`
     ),
   ]
 );

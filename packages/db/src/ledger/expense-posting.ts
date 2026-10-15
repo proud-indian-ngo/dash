@@ -189,6 +189,7 @@ async function reimbursementFacts(
       postedAccountId: null,
       status: row.status,
       title: row.title,
+      voidedOn: dayOf(row.voidedAt),
     };
   }
   const lines = await tx
@@ -217,6 +218,7 @@ async function reimbursementFacts(
     lines: await lineFacts(tx, lines),
     status: row.status,
     title: row.title,
+    voidedOn: dayOf(row.voidedAt),
   };
 }
 
@@ -262,7 +264,9 @@ async function vendorPaymentFacts(
           .where(
             and(
               eq(vendorPaymentTransaction.vendorPaymentId, id),
-              eq(vendorPaymentTransaction.status, "approved")
+              eq(vendorPaymentTransaction.status, "approved"),
+              // A voided payment's advance is reversed, so it clears nothing.
+              isNull(vendorPaymentTransaction.voidedAt)
             )
           )
       : [];
@@ -289,6 +293,7 @@ async function vendorPaymentFacts(
     status: row.status,
     title: row.title,
     vendorId: row.vendorId,
+    voidedOn: dayOf(row.voidedAt),
   };
 }
 
@@ -306,6 +311,8 @@ async function vendorPaymentTransactionFacts(
       title: vendorPayment.title,
       transactionDate: vendorPaymentTransaction.transactionDate,
       vendorId: vendorPayment.vendorId,
+      voidedAt: vendorPaymentTransaction.voidedAt,
+      requestVoidedAt: vendorPayment.voidedAt,
     })
     .from(vendorPaymentTransaction)
     .innerJoin(
@@ -330,6 +337,7 @@ async function vendorPaymentTransactionFacts(
     status: row.status,
     title: row.title,
     vendorId: row.vendorId,
+    voidedOn: dayOf(row.voidedAt ?? row.requestVoidedAt),
   };
 }
 
