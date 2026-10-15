@@ -1,6 +1,6 @@
 # Notifications
 
-> **Load when**: notification batching or digests, `held_notification`, `flush-held-notifications`, `enqueue`, `notify-*` handler, notification topic preferences, WhatsApp poll, webhook proxy, fire-and-forget, group JID, `sync-whatsapp-status`, GoWA gateway.
+> **Load when**: notification batching or digests, `held_notification`, `flush-held-notifications`, `enqueue`, `notify-*` handler, notification topic preferences, WhatsApp poll, fire-and-forget, group JID, `sync-whatsapp-status`, GoWA gateway.
 > **Related**: `jobs.md`, `observability.md`
 
 ## Architecture
@@ -97,7 +97,7 @@ The official GoWA gateway sends `message` webhooks to `/api/whatsapp/webhook`. T
 
 Votes are recorded in `event_rsvp_vote`; "yes" auto-adds the user as an event member, and "no" or a cleared vote removes them. Unknown option hashes leave membership unchanged. Kalakriti-managed or Edition-linked events reject RSVP votes before writes so webhook traffic can't bypass the Edition volunteer enrollment policy.
 
-**Local dev webhook proxy**: GoWA (Go) can send `Transfer-Encoding: chunked` POSTs. Vite dev server rejects with 400. Run `bun run dev:webhook-proxy` alongside dev server — listens on `:3002`, buffers body, forwards to app on `:3001` with `Content-Length`. Dev `docker-compose.yml` points GoWA's webhook URL to `:3002`. Not needed in prod (Nitro handles direct).
+**Local webhooks**: GoWA v9.6.0 sends `Content-Length`, so callbacks go directly to the Vite server at `host.docker.internal:${DEV_WEB_PORT:-3001}/api/whatsapp/webhook`. No buffering proxy is needed. See [gateway setup](../../DEPLOYMENT.md#whatsapp-gateway-optional) for the dev-server binding.
 
 ## Topics & Preferences
 
@@ -116,6 +116,8 @@ messages go only to the affected Center's active Guardians and Liaisons.
 ## WhatsApp Gateway (GoWA)
 
 `packages/whatsapp` wraps the official GoWA REST API, pinned to `ghcr.io/aldinokemal/go-whatsapp-web-multidevice:v9.6.0` in local and production Compose. No custom fork is required. Config: `WHATSAPP_API_URL`, `WHATSAPP_AUTH_USER`, `WHATSAPP_AUTH_PASS`, `WHATSAPP_WEBHOOK_SECRET`.
+
+**Dashboard**: Both Compose files explicitly enable the official gowa-ui downloader (`APP_UI_ENABLED=true`, `APP_UI_AUTO_UPDATE=true`). GoWA serves the dashboard at `/` behind its existing Basic Auth and caches it in the existing storage volume under `ui/`. The UI follows upstream releases independently of the pinned server image; see [deployment details](../../DEPLOYMENT.md#whatsapp-gateway-optional) for networking and pinning. Production health probes use the unauthenticated `/health` endpoint.
 
 **Group JID format**: `<numeric-id>@g.us` (example `120363012345678901@g.us`). Users paste JIDs into the WhatsApp group form — admin copies from WhatsApp Web URL.
 
@@ -142,5 +144,3 @@ at-least-once for WhatsApp.
 `teamEvent.joinAsMember` (self-join) enqueues `notify-added-to-event` (same topic as admin-triggered add). `teamEvent.leaveEvent` (self-remove) enqueues `notify-event-volunteer-left` → bulk message to team leads (queried server-side at mutation time). Topic reuses `EVENTS_INTEREST` (same lead audience, related signal). Idempotency key includes `leftAt` timestamp so leave→rejoin→leave delivers two distinct notifications.
 
 **Webhook**: GoWA POSTs to `/api/whatsapp/webhook` with `x-hub-signature-256: sha256=<HMAC-SHA256 of the raw body using WHATSAPP_WEBHOOK_SECRET>`. The endpoint handles decrypted poll votes and acknowledges other payloads without processing them.
-
-**Chunked-request proxy**: GoWA (Go) emits `Transfer-Encoding: chunked` POSTs — Vite dev server rejects with 400. `bun run dev:webhook-proxy` buffers body on `:3002`, forwards to `:3001` with `Content-Length`. Prod (Nitro) handles chunked directly — proxy not needed.

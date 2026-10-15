@@ -62,7 +62,9 @@ services:
     pull_policy: always
     container_name: pi-dash-whatsapp
     environment:
-      WHATSAPP_WEBHOOK: http://host.docker.internal:3002/api/whatsapp/webhook
+      APP_UI_ENABLED: "true"
+      APP_UI_AUTO_UPDATE: "true"
+      WHATSAPP_WEBHOOK: http://host.docker.internal:${DEV_WEB_PORT:-3001}/api/whatsapp/webhook
       WHATSAPP_WEBHOOK_EVENTS: message
       WHATSAPP_WEBHOOK_SECRET: ${WHATSAPP_WEBHOOK_SECRET}
     ports:

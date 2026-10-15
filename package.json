@@ -80,7 +80,6 @@
     "dev:email": "turbo run dev:email --filter=@pi-dash/email",
     "dev:kill": "bash scripts/dev-kill.sh",
     "dev:web": "turbo run --filter=web dev",
-    "dev:webhook-proxy": "bun --env-file=.env run scripts/dev-whatsapp-webhook-proxy.ts",
     "fix": "oxfmt --threads=2 . && oxlint --fix .",
     "r2:migrate-media-urls": "bun --env-file=.env --env-file=.env.worktree run scripts/migrate-r2-media-urls.ts",
     "ruler:apply": "bunx @intellectronica/ruler@latest apply --local-only",
