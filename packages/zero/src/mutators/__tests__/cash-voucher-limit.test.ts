@@ -384,6 +384,58 @@ describe("reimbursement voucher payee", () => {
       } as never)
     ).rejects.toThrow("Name who was paid on each cash voucher");
   });
+
+  const createWith = async (lineItem: Row) => {
+    const db = createDb("client");
+    await reimbursementMutators.create.fn({
+      args: createSchema.parse({
+        attachments: [],
+        chargedTo: "organisation",
+        city: "bangalore",
+        expenseDate: new Date("2026-10-01").getTime(),
+        id: "request-3",
+        lineItems: [
+          {
+            amountPaise: 50_000,
+            categoryId: "cat-1",
+            description: "Cleaning",
+            generateVoucher: true,
+            id: "li-1",
+            sortOrder: 0,
+            ...lineItem,
+          },
+        ],
+        title: "Hall clean-up",
+      }),
+      ctx: {
+        permissions: ["requests.create"],
+        role: "volunteer",
+        userId: "owner-1",
+      },
+      tx: db.tx,
+    } as never);
+    return db.inserts.find((i) => i.table === "reimbursementLineItem")?.row;
+  };
+
+  it("stores no payee on an item paid to the claimant", async () => {
+    expect(
+      await createWith({
+        payeeIsClaimant: true,
+        payeeName: "Leftover Name",
+        payeePhone: "+919876543210",
+      })
+    ).toMatchObject({
+      generateVoucher: true,
+      payeeName: null,
+      payeePhone: null,
+    });
+  });
+
+  it("still requires the name when the item isn't paid to the claimant", async () => {
+    await expect(
+      createWith({ payeeIsClaimant: false, payeeName: null })
+    ).rejects.toThrow("Name who was paid on each cash voucher");
+  });
 });
 
 describe("reimbursement.update and existing vouchers", () => {
@@ -511,6 +563,46 @@ describe("reimbursement.update and existing vouchers", () => {
     expect(links).toEqual(relinked);
   });
 
+  it("treats ticking paid to the claimant as a stale voucher", async () => {
+    const { inserted, links } = await edit(
+      createDb("client", seed()),
+      args({ payeeIsClaimant: true })
+    );
+    expect(inserted).toMatchObject({ payeeName: null, payeePhone: null });
+    expect(links).toEqual([]);
+  });
+
+  it("treats unticking paid to the claimant as a stale voucher", async () => {
+    const { inserted, links } = await edit(
+      createDb(
+        "client",
+        seed({
+          reimbursementLineItem: [
+            stored({ payeeName: null, payeePhone: null }),
+          ],
+        })
+      ),
+      args({ payeeIsClaimant: false, payeeName: "Ravi", payeePhone: null })
+    );
+    expect(inserted).toMatchObject({ payeeName: "Ravi" });
+    expect(links).toEqual([]);
+  });
+
+  it("keeps the voucher of an item still paid to the claimant", async () => {
+    const { links } = await edit(
+      createDb(
+        "client",
+        seed({
+          reimbursementLineItem: [
+            stored({ payeeName: null, payeePhone: null }),
+          ],
+        })
+      ),
+      args({ payeeIsClaimant: true, payeeName: null, payeePhone: null })
+    );
+    expect(links).toEqual(relinked);
+  });
+
   it("stores an explicit untick and keeps the voucher", async () => {
     const { inserted, links } = await edit(
       createDb("client", seed()),
@@ -608,6 +700,10 @@ describe("reimbursement.update and existing vouchers", () => {
       expect(await serverEdit({ description: "Cleaning twice" })).toEqual([
         "li-1",
       ]);
+    });
+
+    it("queues a fresh voucher when the item becomes paid to the claimant", async () => {
+      expect(await serverEdit({ payeeIsClaimant: true })).toEqual(["li-1"]);
     });
 
     it("queues nothing for an unchanged item", async () => {

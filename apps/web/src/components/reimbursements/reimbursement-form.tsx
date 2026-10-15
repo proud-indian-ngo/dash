@@ -33,6 +33,8 @@ import { buildMutation } from "./reimbursement-form-mutations";
 import { StandardReimbursementFields } from "./standard-reimbursement-fields";
 
 export interface ReimbursementFormProps {
+  /** When editing someone else's claim: the claimant's name. */
+  claimantName?: string;
   /** The programme the request is charged to, kept listed when editing. */
   currentChargeProgramme?: CurrentChargeProgramme | null;
   disableBankAccountSelection?: boolean;
@@ -43,6 +45,7 @@ export interface ReimbursementFormProps {
 }
 
 export function ReimbursementForm({
+  claimantName,
   currentChargeProgramme,
   disableBankAccountSelection = false,
   initialValues,
@@ -53,6 +56,7 @@ export function ReimbursementForm({
   return (
     <AppErrorBoundary level="section">
       <ReimbursementFormInner
+        claimantName={claimantName}
         currentChargeProgramme={currentChargeProgramme}
         disableBankAccountSelection={disableBankAccountSelection}
         initialValues={initialValues}
@@ -65,6 +69,7 @@ export function ReimbursementForm({
 }
 
 interface ReimbursementFormInnerProps {
+  claimantName?: string;
   currentChargeProgramme?: CurrentChargeProgramme | null;
   disableBankAccountSelection: boolean;
   initialValues?: Partial<RequestFormValues> & { id?: string };
@@ -74,6 +79,7 @@ interface ReimbursementFormInnerProps {
 }
 
 function ReimbursementFormInner({
+  claimantName: editedClaimantName,
   currentChargeProgramme,
   disableBankAccountSelection,
   initialValues,
@@ -97,6 +103,10 @@ function ReimbursementFormInner({
   const claimantName = forOthers
     ? (claimants.find((c) => c.id === claimantId)?.name ?? "The claimant")
     : undefined;
+  // Names the claimant on the "paid to the claimant" box unless it's you.
+  const payeeClaimantName = forOthers
+    ? (claimants.find((c) => c.id === claimantId)?.name ?? "")
+    : editedClaimantName;
 
   const [categories] = useQuery(queries.expenseCategory.all());
   const [ownBankAccounts, ownBankAccountsResult] = useQuery(
@@ -296,6 +306,7 @@ function ReimbursementFormInner({
               isEdit={isEdit}
               onBankAccountSelected={handleBankAccountSelected}
               onCancel={onCancel}
+              payeeClaimantName={payeeClaimantName}
               requestType={requestType}
             />
           );

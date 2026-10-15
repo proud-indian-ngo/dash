@@ -208,6 +208,11 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
             />
             <div className="mt-6">
               <ReimbursementForm
+                claimantName={
+                  request.userId === session.user.id
+                    ? undefined
+                    : (request.user?.name ?? "")
+                }
                 currentChargeProgramme={
                   "chargedProgramme" in request && request.chargedProgramme
                     ? request.chargedProgramme

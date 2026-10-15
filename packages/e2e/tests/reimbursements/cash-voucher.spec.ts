@@ -191,6 +191,41 @@ test.describe("Cash voucher", () => {
     });
   });
 
+  test("pays the claimant on a voucher line item", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
+    test.slow();
+
+    const title = `E2E Voucher Claimant ${Date.now()}`;
+    await reimbursements.navigateToNew();
+    await reimbursements.form.selectBankAccount();
+    await reimbursements.form.fillTitle(title);
+    await reimbursements.form.selectCity("Bangalore");
+    await chargeRequestTo(page, "Organisation (admin)");
+    await reimbursements.selectExpenseDate();
+    await reimbursements.form.fillLineItem({
+      amount: "800",
+      description: "Auto fare paid in cash",
+    });
+    await reimbursements.form.toggleCashVoucher(0);
+    await expect(page.getByText("Paid to me")).toBeVisible();
+    await reimbursements.form.togglePayeeIsClaimant(0);
+    await expect(reimbursements.form.getPayeeNameInput(0)).toBeHidden();
+
+    // No payee name needed: the voucher pays the claimant.
+    await reimbursements.form.submit();
+    await reimbursements.waitForDetail(title);
+    await expect(page.getByText(/^Paid to .+ \(claimant\)$/)).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // Editing shows the box ticked and the payee fields still hidden.
+    await reimbursements.detail.editSubmission();
+    await expect(page.locator("#lineItems-0-payee-is-claimant")).toBeChecked();
+    await expect(reimbursements.form.getPayeeNameInput(0)).toBeHidden();
+  });
+
   test("an admin's edit of an approved request keeps its voucher", async ({
     page,
   }, testInfo) => {

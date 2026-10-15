@@ -233,6 +233,20 @@ describe("voucher payee checks", () => {
     ]);
   });
 
+  it("needs no payee on an item paid to the claimant", () => {
+    expect(
+      messages(
+        voucherItem({ payeeIsClaimant: true, payeeName: "", payeePhone: "x" })
+      )
+    ).toEqual([]);
+  });
+
+  it("requires the name again once paid to the claimant is unticked", () => {
+    expect(
+      messages(voucherItem({ payeeIsClaimant: false, payeeName: "" }))
+    ).toEqual([["lineItems.0.payeeName", "Name who was paid"]]);
+  });
+
   it("wants the name in English letters", () => {
     expect(messages(voucherItem({ payeeName: "रमेश" }))).toEqual([
       ["lineItems.0.payeeName", "Write the name in English letters"],

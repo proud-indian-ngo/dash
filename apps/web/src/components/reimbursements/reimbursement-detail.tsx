@@ -523,6 +523,33 @@ function VoucherCell({
   return <span className="text-muted-foreground text-xs">—</span>;
 }
 
+/**
+ * Who a voucher item paid: the named payee, or the claimant when none is
+ * stored, which is what the voucher prints.
+ */
+function PaidToLine({
+  claimantName,
+  item,
+}: {
+  claimantName: string | undefined;
+  item: RequestDetailData["lineItems"][number];
+}) {
+  if (!("payeeName" in item)) {
+    return null;
+  }
+  if (item.payeeName) {
+    return <span className="block text-xs">Paid to {item.payeeName}</span>;
+  }
+  if (!item.generateVoucher) {
+    return null;
+  }
+  return (
+    <span className="block text-xs">
+      Paid to {claimantName ?? "the claimant"} (claimant)
+    </span>
+  );
+}
+
 function LineItemsTable({
   canApprove,
   generatingVoucherId,
@@ -567,11 +594,7 @@ function LineItemsTable({
                   <td className="px-3 py-2">{item.category?.name}</td>
                   <td className="text-muted-foreground px-3 py-2">
                     {item.description}
-                    {"payeeName" in item && item.payeeName ? (
-                      <span className="block text-xs">
-                        Paid to {item.payeeName}
-                      </span>
-                    ) : null}
+                    <PaidToLine claimantName={request.user?.name} item={item} />
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     {formatPaise(item.amountPaise)}

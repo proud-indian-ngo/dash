@@ -49,6 +49,11 @@ export const lineItemSchema = z.object({
   description: z.string().trim().min(1, "Description required"),
   generateVoucher: z.boolean().optional(),
   id: z.string(),
+  /**
+   * The claimant was paid: the payee fields are hidden and the voucher
+   * prints the claimant. Only meaningful on a voucher item.
+   */
+  payeeIsClaimant: z.boolean().optional(),
   /** Who a cash voucher pays; required on an eligible, ticked item. */
   payeeName: z.string().max(PAYEE_NAME_MAX).optional(),
   /** The cash-voucher payee's mobile, E.164 from the phone input; optional. */
@@ -57,8 +62,9 @@ export const lineItemSchema = z.object({
 
 /**
  * Checks the voucher payee on line items that will actually get a voucher:
- * ticked and within `limitPaise`. The payee fields are hidden, and cleared,
- * on any other item, so they must not block the form.
+ * ticked and within `limitPaise`, and not paid to the claimant. The payee
+ * fields are hidden, and cleared, on any other item, so they must not block
+ * the form.
  */
 export function addVoucherPayeeIssues(
   lineItems: readonly LineItem[],
@@ -69,6 +75,7 @@ export function addVoucherPayeeIssues(
     const paise = tryRupeesToPaise(item.amount);
     if (
       !item.generateVoucher ||
+      item.payeeIsClaimant ||
       paise === null ||
       !qualifiesForCashVoucher(paise, limitPaise)
     ) {
@@ -122,6 +129,8 @@ export const newLineItem = (): LineItem => ({
   description: "",
   generateVoucher: false,
   id: uuidv7(),
+  // A cash voucher usually pays someone else, such as a labourer or driver.
+  payeeIsClaimant: false,
   payeeName: "",
   payeePhone: "",
 });
@@ -135,39 +144,58 @@ export const computeRunningTotalPaise = (lineItems: LineItem[]): number =>
  * and order becomes sortOrder. The voucher tick and payee go out only for
  * items that will get a voucher (ticked and within `voucherLimitPaise`);
  * hidden fields keep their values in the form, so retyping an amount brings
- * them back filled, but never reach the server. Without a limit (vendor
+ * them back filled, but never reach the server. An item paid to the
+ * claimant sends `payeeIsClaimant` and no payee. Without a limit (vendor
  * payments) no item is eligible.
  */
 export const toLineItemsPayload = <
   T extends {
     amount: string;
     generateVoucher?: boolean;
+    payeeIsClaimant?: boolean;
     payeeName?: string;
     payeePhone?: string;
   },
 >(
   lineItems: readonly T[],
   voucherLimitPaise?: number
-): (Omit<T, "amount" | "generateVoucher" | "payeeName" | "payeePhone"> & {
+): (Omit<
+  T,
+  "amount" | "generateVoucher" | "payeeIsClaimant" | "payeeName" | "payeePhone"
+> & {
   amountPaise: number;
   generateVoucher: boolean;
+  payeeIsClaimant: boolean;
   payeeName: string | null;
   payeePhone: string | null;
   sortOrder: number;
 })[] =>
   lineItems.map(
-    ({ amount, generateVoucher, payeeName, payeePhone, ...item }, index) => {
+    (
+      {
+        amount,
+        generateVoucher,
+        payeeIsClaimant,
+        payeeName,
+        payeePhone,
+        ...item
+      },
+      index
+    ) => {
       const amountPaise = rupeesToPaise(amount);
       const voucher =
         Boolean(generateVoucher) &&
         voucherLimitPaise !== undefined &&
         qualifiesForCashVoucher(amountPaise, voucherLimitPaise);
+      const toClaimant = voucher && Boolean(payeeIsClaimant);
+      const named = voucher && !toClaimant;
       return {
         ...item,
         amountPaise,
         generateVoucher: voucher,
-        payeeName: (voucher && payeeName?.trim().normalize("NFC")) || null,
-        payeePhone: (voucher && payeePhone) || null,
+        payeeIsClaimant: toClaimant,
+        payeeName: (named && payeeName?.trim().normalize("NFC")) || null,
+        payeePhone: (named && payeePhone) || null,
         sortOrder: index,
       };
     }
