@@ -86,7 +86,7 @@ export const reimbursement = pgTable(
     }).onDelete("restrict"),
     check(
       "reimbursement_charged_to_chk",
-      sql`(${table.chargedTo} = 'event' AND ${table.eventId} IS NOT NULL AND ${table.chargedProgrammeId} IS NULL AND ${table.chargedProjectId} IS NULL) OR (${table.chargedTo} = 'programme' AND ${table.chargedProgrammeId} IS NOT NULL) OR (${table.chargedTo} = 'organisation' AND ${table.chargedProgrammeId} IS NULL AND ${table.chargedProjectId} IS NULL)`
+      sql`(${table.chargedTo} = 'event' AND ${table.eventId} IS NOT NULL AND ${table.chargedProgrammeId} IS NULL AND ${table.chargedProjectId} IS NULL) OR (${table.chargedTo} = 'programme' AND ${table.eventId} IS NULL AND ${table.chargedProgrammeId} IS NOT NULL) OR (${table.chargedTo} = 'organisation' AND ${table.eventId} IS NULL AND ${table.chargedProgrammeId} IS NULL AND ${table.chargedProjectId} IS NULL)`
     ),
     check(
       "reimbursement_rejection_reason_chk",

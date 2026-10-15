@@ -26,6 +26,7 @@ import { FormLayout } from "@/components/form/form-layout";
 import { FormModal } from "@/components/form/form-modal";
 import { DetailsCard, DetailsRow } from "@/components/shared/record-detail";
 import { useApp } from "@/context/app-context";
+import { authClient } from "@/lib/auth-client";
 import { DATE } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
 import {
@@ -47,14 +48,22 @@ export interface ChargedRequestDetail extends ChargedRequest {
   } | null;
   eventId?: string | null;
   id: string;
+  status: string | null;
+  userId: string;
 }
 
 const changeSchema = z.object(chargedToFormFields).superRefine(refineChargedTo);
 
-/** Finance changes the charge: whoever approves requests, or finance.manage. */
+/**
+ * Finance changes the charge: finance.manage, or whoever approves requests
+ * and sees everyone's. Mirrors `assertCanChangeCharge`.
+ */
 export function useCanChangeCharge(): boolean {
   const { hasPermission } = useApp();
-  return hasPermission("requests.approve") || hasPermission("finance.manage");
+  return (
+    hasPermission("finance.manage") ||
+    (hasPermission("requests.approve") && hasPermission("requests.view_all"))
+  );
 }
 
 function ChangeChargedToForm({
@@ -144,7 +153,13 @@ export function ChargedToCard({
   kind: ChargeKind;
   request: ChargedRequestDetail;
 }) {
-  const canChange = useCanChangeCharge();
+  const { data: session } = authClient.useSession();
+  // Never on a rejected request, and never on your own: the claimant edits
+  // their request while it is pending instead.
+  const canChange =
+    useCanChangeCharge() &&
+    request.status !== "rejected" &&
+    request.userId !== session?.user?.id;
   const { hasPermission } = useApp();
   const [open, setOpen] = useState(false);
   const [formKey, setFormKey] = useState(0);

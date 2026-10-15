@@ -981,6 +981,20 @@
       "when": 1792039835000,
       "tag": "0139_charged_to_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 140,
+      "version": "7",
+      "when": 1792039840000,
+      "tag": "0140_charged_to_single_team",
+      "breakpoints": true
+    },
+    {
+      "idx": 141,
+      "version": "7",
+      "when": 1792039845000,
+      "tag": "0141_charged_to_no_event",
+      "breakpoints": true
     }
   ]
 }

@@ -3,6 +3,7 @@ import {
   PROGRAMME_IDS,
 } from "@pi-dash/shared/constants";
 import {
+  EXPENSE_CHARGED_TO_LABELS,
   type ExpenseCharge,
   type ExpenseChargeFields,
   expenseChargeError,
@@ -38,17 +39,73 @@ export const setChargedToSchema = z.object({
 });
 
 /**
- * Finance changes what a submitted request is charged to: whoever approves
- * requests, or finance.manage. The claimant changes it only by editing the
- * request while it is pending.
+ * Finance changes what a submitted request is charged to: finance.manage, or
+ * whoever approves requests and can see everyone's (the approve rules). Not
+ * on a rejected request, and never on their own: the claimant changes it
+ * only by editing the request while it is pending.
  */
 export function assertCanChangeCharge(
-  ctx: Context | undefined
+  ctx: Context | undefined,
+  entity: { status: string | null; userId: string }
 ): asserts ctx is Context {
   assertIsLoggedIn(ctx);
-  if (!(can(ctx, "requests.approve") || can(ctx, "finance.manage"))) {
+  const isFinance = can(ctx, "finance.manage");
+  const isApprover =
+    can(ctx, "requests.approve") && can(ctx, "requests.view_all");
+  if (!(isFinance || isApprover)) {
     throw new Error("Unauthorized");
   }
+  if (entity.userId === ctx.userId) {
+    throw new Error("You can't change what your own request is charged to");
+  }
+  if (entity.status === "rejected") {
+    throw new Error("A rejected request can't be charged to something else");
+  }
+}
+
+/** "Event · Name", "Programme · Name" or "Organisation (admin)", for history. */
+async function describeCharge(tx: Tx, charge: ExpenseChargeFields) {
+  switch (charge.chargedTo) {
+    case "event": {
+      const event = charge.eventId
+        ? await tx.run(zql.teamEvent.where("id", charge.eventId).one())
+        : undefined;
+      return `Event · ${event?.name ?? "unknown event"}`;
+    }
+    case "programme": {
+      const programme = charge.chargedProgrammeId
+        ? await tx.run(
+            zql.programme.where("id", charge.chargedProgrammeId).one()
+          )
+        : undefined;
+      const project = charge.chargedProjectId
+        ? await tx.run(zql.project.where("id", charge.chargedProjectId).one())
+        : undefined;
+      const name = programme?.name ?? "unknown programme";
+      return `Programme · ${project ? `${name} / ${project.name}` : name}`;
+    }
+    case "organisation":
+      return EXPENSE_CHARGED_TO_LABELS.organisation;
+    default:
+      return "nothing";
+  }
+}
+
+/**
+ * The history note for a re-charge: "Charged to: Event · X → Programme · Y".
+ * Names stay in the request's history; the audit ledger records field names
+ * only.
+ */
+export async function chargeChangeNote(
+  tx: Tx,
+  previous: ExpenseChargeFields,
+  next: ExpenseChargeFields
+): Promise<string> {
+  const [from, to] = await Promise.all([
+    describeCharge(tx, previous),
+    describeCharge(tx, next),
+  ]);
+  return `Charged to: ${from} → ${to}`;
 }
 
 /**

@@ -3,6 +3,7 @@ import {
   ADMIN_PROGRAMME_LABEL,
   EXPENSE_CHARGED_TO_LABELS,
   expenseProgrammeOf,
+  isUnallocatedCharge,
 } from "@pi-dash/shared/expense-charge";
 import type { Programme, TeamEvent } from "@pi-dash/zero/schema";
 
@@ -80,4 +81,31 @@ export function requestChargeSummary(request: ChargedRequest): string {
     default:
       return "Nothing";
   }
+}
+
+/**
+ * The "To clear" filter: requests charged straight to the Unallocated
+ * holding programme (legacy rows finance must re-charge). Separate from the
+ * Programme filter's Unallocated, which also matches requests charged to an
+ * event that sits on Unallocated.
+ */
+export const TO_CLEAR_FILTER = {
+  label: "To clear",
+  optionLabel: "Charged to Unallocated",
+  path: "toClear",
+  value: "charged-to-unallocated",
+} as const;
+
+/** The row's "To clear" filter value, or null. */
+export function requestToClearValue(request: ChargedRequest): string | null {
+  return isUnallocatedCharge(request) ? TO_CLEAR_FILTER.value : null;
+}
+
+/** The header fact: "Admin" for an organisation charge, else "Programme · Name". */
+export function requestProgrammeHeader(request: ChargedRequest): string | null {
+  if (request.chargedTo === "organisation") {
+    return ADMIN_PROGRAMME_LABEL;
+  }
+  const name = requestProgrammeName(request);
+  return name ? `Programme · ${name}` : null;
 }

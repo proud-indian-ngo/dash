@@ -23,6 +23,7 @@ import {
 } from "../vendor-payment-constants";
 import {
   assertCanChangeCharge,
+  chargeChangeNote,
   expenseChargeArgs,
   resolveExpenseCharge,
   setChargedToSchema,
@@ -918,10 +919,11 @@ export const vendorPaymentMutators = {
    * request will refuse this.
    */
   setChargedTo: defineMutator(setChargedToSchema, async ({ tx, ctx, args }) => {
-    assertCanChangeCharge(ctx);
     const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
     assertEntityExists(entity, "Vendor payment");
+    assertCanChangeCharge(ctx, entity);
     const charge = await resolveExpenseCharge(tx, args, entity);
+    const note = await chargeChangeNote(tx, entity, charge);
     const now = Date.now();
     await tx.mutate.vendorPayment.update({
       id: args.id,
@@ -929,7 +931,7 @@ export const vendorPaymentMutators = {
       ...charge,
     });
     await tx.mutate.vendorPaymentHistory.insert({
-      ...buildHistoryInsert(ctx.userId, "updated", now, "Charged to changed"),
+      ...buildHistoryInsert(ctx.userId, "updated", now, note),
       vendorPaymentId: args.id,
     });
   }),

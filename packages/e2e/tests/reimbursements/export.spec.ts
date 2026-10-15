@@ -104,7 +104,12 @@ test.describe("Export ZIP (admin)", () => {
     expect(headerLine).toContain("Type");
     expect(headerLine).toContain("Title");
     expect(headerLine).toContain("Status");
-    expect(headerLine.split(",").at(-2)).toBe("Programme");
+    expect(headerLine.split(",").slice(-4)).toEqual([
+      "Programme",
+      "Attachments",
+      "Project",
+      "Charged to",
+    ]);
 
     await expect(page.getByText(/Exported \d+ \w+/)).toBeVisible();
   });

@@ -279,6 +279,19 @@ export const programmeMutators = {
   }),
 };
 
+/** A project with expenses charged to it keeps its programme. */
+async function assertNoChargedExpenses(tx: Tx, projectId: string) {
+  const [reimbursement, vendorPayment] = await Promise.all([
+    tx.run(zql.reimbursement.where("chargedProjectId", projectId).one()),
+    tx.run(zql.vendorPayment.where("chargedProjectId", projectId).one()),
+  ]);
+  if (reimbursement || vendorPayment) {
+    throw new Error(
+      "Expenses are charged to this project, so it can't move to another programme. Change what those expenses are charged to first."
+    );
+  }
+}
+
 export const projectMutators = {
   create: defineMutator(projectInput, async ({ tx, ctx, args }) => {
     assertHasPermission(ctx, "finance.manage");
@@ -325,6 +338,9 @@ export const projectMutators = {
       if (!programme.active) {
         throw new Error("Projects cannot be moved to an inactive programme");
       }
+      // Expenses charged to the project name its programme too, so moving
+      // it would split them from it.
+      await assertNoChargedExpenses(tx, args.id);
     }
     const byCode = await tx.run(
       zql.project.where("code", args.code).where("id", "!=", args.id).one()

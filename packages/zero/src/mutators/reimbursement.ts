@@ -15,6 +15,7 @@ import {
 } from "../shared-schemas";
 import {
   assertCanChangeCharge,
+  chargeChangeNote,
   expenseChargeArgs,
   resolveExpenseCharge,
   setChargedToSchema,
@@ -464,10 +465,11 @@ export const reimbursementMutators = {
    * request will refuse this.
    */
   setChargedTo: defineMutator(setChargedToSchema, async ({ tx, ctx, args }) => {
-    assertCanChangeCharge(ctx);
     const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
     assertEntityExists(entity, "Reimbursement");
+    assertCanChangeCharge(ctx, entity);
     const charge = await resolveExpenseCharge(tx, args, entity);
+    const note = await chargeChangeNote(tx, entity, charge);
     const now = Date.now();
     await tx.mutate.reimbursement.update({
       id: args.id,
@@ -475,7 +477,7 @@ export const reimbursementMutators = {
       ...charge,
     });
     await tx.mutate.reimbursementHistory.insert({
-      ...buildHistoryInsert(ctx.userId, "updated", now, "Charged to changed"),
+      ...buildHistoryInsert(ctx.userId, "updated", now, note),
       reimbursementId: args.id,
     });
   }),

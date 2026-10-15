@@ -23,9 +23,11 @@ test.describe("Vendor payment programme (admin)", () => {
       page.getByText(`Programme · ${PROGRAMME_EVENT.programme}`)
     ).toBeVisible({ timeout: 10_000 });
     const admin = await createVendorPayment(page, `${tag} Admin`);
-    await expect(page.getByText("Programme · Admin")).toBeVisible({
-      timeout: 10_000,
-    });
+    // The header says "Admin", not "Programme · Admin".
+    await expect(
+      page.getByRole("region", { name: "Charged to" })
+    ).toContainText("Organisation (admin)", { timeout: 10_000 });
+    await expect(page.getByText(/Programme ·/)).toHaveCount(0);
     const forProgramme = await createVendorPayment(page, `${tag} Programme`, {
       programme: "Community support",
     });

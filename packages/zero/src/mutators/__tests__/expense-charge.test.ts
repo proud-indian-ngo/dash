@@ -20,13 +20,18 @@ function createDb(
 ) {
   const tables: Record<string, Row[]> = {
     programme: [
-      { active: true, id: "edu" },
-      { active: true, id: "arts" },
-      { active: false, id: "old" },
-      { active: true, id: UNALLOCATED },
+      { active: true, id: "edu", name: "Education" },
+      { active: true, id: "arts", name: "Arts and culture" },
+      { active: false, id: "old", name: "Old" },
+      { active: true, id: UNALLOCATED, name: "Unallocated" },
     ],
     project: [
-      { id: "class", programmeId: "edu", status: "active" },
+      {
+        id: "class",
+        name: "Maths class",
+        programmeId: "edu",
+        status: "active",
+      },
       { id: "done", programmeId: "edu", status: "closed" },
       { id: "k3", programmeId: "arts", status: "active" },
     ],
@@ -34,6 +39,7 @@ function createDb(
     reimbursementAttachment: [],
     reimbursementHistory: [],
     reimbursementLineItem: [],
+    teamEvent: [{ id: "ev-1", name: "Beach clean-up" }],
     user: [],
     vendor: [],
     vendorPayment: [],
@@ -280,8 +286,48 @@ describe("changing what a request is charged to", () => {
     expect(db.tables.reimbursementHistory?.[0]).toMatchObject({
       action: "updated",
       actorId: "approver",
-      note: "Charged to changed",
+      note: "Charged to: Programme · Unallocated → Programme · Education / Maths class",
     });
+  });
+
+  it("refuses a rejected request", async () => {
+    const db = createDb({
+      reimbursement: [reimbursementRow({ status: "rejected" })],
+    });
+    await expect(
+      run(reimbursementMutators.setChargedTo, db, approverCtx, {
+        chargedTo: "organisation",
+        id: "r-1",
+      })
+    ).rejects.toThrow("A rejected request can't be charged to something else");
+  });
+
+  it("refuses an approver re-charging their own request", async () => {
+    const db = createDb({
+      reimbursement: [reimbursementRow({ userId: "approver" })],
+    });
+    await expect(
+      run(reimbursementMutators.setChargedTo, db, approverCtx, {
+        chargedTo: "organisation",
+        id: "r-1",
+      })
+    ).rejects.toThrow("You can't change what your own request is charged to");
+  });
+
+  it("refuses an approver who can't see everyone's requests", async () => {
+    const db = createDb({ reimbursement: [reimbursementRow()] });
+    await expect(
+      run(
+        reimbursementMutators.setChargedTo,
+        db,
+        {
+          permissions: ["requests.approve"],
+          role: "admin",
+          userId: "approver",
+        },
+        { chargedTo: "organisation", id: "r-1" }
+      )
+    ).rejects.toThrow("Unauthorized");
   });
 
   it("lets finance.manage charge a vendor payment to admin", async () => {
@@ -294,6 +340,7 @@ describe("changing what a request is charged to", () => {
           eventId: "ev-1",
           id: "vp-1",
           status: "paid",
+          userId: "claimant",
         },
       ],
     });
@@ -306,5 +353,8 @@ describe("changing what a request is charged to", () => {
       chargedTo: "organisation",
       eventId: null,
     });
+    expect(db.tables.vendorPaymentHistory?.[0]?.note).toBe(
+      "Charged to: Event · Beach clean-up → Organisation (admin)"
+    );
   });
 });

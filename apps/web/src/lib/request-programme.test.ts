@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+  requestProgrammeHeader,
   requestProgrammeId,
   requestProgrammeName,
   requestProgrammeOptionId,
@@ -53,5 +54,16 @@ describe("request programme", () => {
     expect(requestProgrammeId({})).toBeNull();
     expect(requestProgrammeName({})).toBe("");
     expect(requestProgrammeOptionId({})).toBeUndefined();
+  });
+
+  it("heads an admin charge Admin and a programme charge with its name", () => {
+    expect(requestProgrammeHeader({ chargedTo: "organisation" })).toBe("Admin");
+    expect(
+      requestProgrammeHeader({
+        chargedProgramme: { name: "Education" },
+        chargedTo: "programme",
+      })
+    ).toBe("Programme · Education");
+    expect(requestProgrammeHeader({ chargedTo: "programme" })).toBeNull();
   });
 });

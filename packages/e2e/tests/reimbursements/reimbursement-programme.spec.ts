@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
 
-import { expect, test } from "../../fixtures/test";
+import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { applyQuickFilter } from "../../helpers/quick-filters";
 import {
   chargeRequestToProgramme,
@@ -47,7 +47,11 @@ test.describe("Reimbursement charged to", () => {
       page.getByText(`Programme · ${PROGRAMME_EVENT.programme}`)
     ).toBeVisible();
     const admin = await reimbursements.createReimbursement(`${tag} Admin`);
-    await expect(page.getByText("Programme · Admin")).toBeVisible();
+    // The header says "Admin", not "Programme · Admin".
+    await expect(
+      page.getByRole("region", { name: "Charged to" })
+    ).toContainText("Organisation (admin)");
+    await expect(page.getByText(/Programme ·/)).toHaveCount(0);
     const card = page.getByRole("region", { name: "Charged to" });
     await expect(card).toContainText("Organisation (admin)");
 
@@ -87,9 +91,21 @@ test.describe("Reimbursement charged to", () => {
   });
 
   test("finance changes it at approval", async ({ page }) => {
-    const title = await reimbursements.createReimbursement(
-      `Prog${Date.now()} Change`
+    // Nobody re-charges their own request, so a volunteer owns this one.
+    const title = `E2E Prog${Date.now()} Change`;
+    const { id } = await chargedTo(
+      "admin-request",
+      title,
+      process.env.VOLUNTEER_EMAIL ?? "test-volunteer@pi-dash.test"
     );
+    await page.goto(`/reimbursements/${id}`);
+    await waitForZeroReady(page);
+    await expect(page.getByRole("heading", { name: title })).toBeVisible();
+    // The header says "Admin", not "Programme · Admin".
+    await expect(
+      page.getByRole("region", { name: "Charged to" })
+    ).toContainText("Organisation (admin)");
+    await expect(page.getByText(/Programme ·/)).toHaveCount(0);
     const card = page.getByRole("region", { name: "Charged to" });
     await expect(card).toContainText("Organisation (admin)");
 
@@ -102,8 +118,14 @@ test.describe("Reimbursement charged to", () => {
     await dialog.getByRole("button", { name: "Save" }).click();
     await expect(dialog).toBeHidden();
     await expect(card).toContainText("Arts and culture");
-    await expect(page.getByText("Programme · Arts and culture")).toBeVisible();
-    await expect(page.getByText("Charged to changed")).toBeVisible();
+    await expect(
+      page.getByText("Programme · Arts and culture", { exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        "Charged to: Organisation (admin) → Programme · Arts and culture"
+      )
+    ).toBeVisible();
 
     await page.getByRole("button", { exact: true, name: "Approve" }).click();
     const approve = page.getByRole("alertdialog");
@@ -112,6 +134,13 @@ test.describe("Reimbursement charged to", () => {
     );
     await approve.getByRole("button", { name: "Cancel" }).click();
     await expect(page.getByRole("heading", { name: title })).toBeVisible();
+  });
+
+  test("nobody re-charges their own request", async ({ page }) => {
+    await reimbursements.createReimbursement(`Prog${Date.now()} Own`);
+    const card = page.getByRole("region", { name: "Charged to" });
+    await expect(card).toContainText("Organisation (admin)");
+    await expect(card.getByRole("button", { name: "Change" })).toHaveCount(0);
   });
 
   test("finance finds legacy requests on Unallocated", async ({ page }) => {

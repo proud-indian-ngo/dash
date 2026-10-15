@@ -16,11 +16,18 @@ import { uuidv7 } from "uuidv7";
  *   event on the Unallocated holding programme, as the backfill leaves legacy
  *   requests. The app refuses Unallocated for new picks, so only the
  *   database can make one.
+ * - `admin-request <title> <email>`: a pending reimbursement charged to the
+ *   organisation, owned by that user, so another user (finance) can change
+ *   what it is charged to; nobody may re-charge their own request.
  */
 
 const [action, title = "", email = ""] = process.argv.slice(2);
 
-async function legacyUnallocated() {
+async function insertRequest(
+  charge:
+    | { chargedProgrammeId: string; chargedTo: "programme" }
+    | { chargedTo: "organisation" }
+) {
   const [owner] = await db
     .select({ id: user.id })
     .from(user)
@@ -36,8 +43,7 @@ async function legacyUnallocated() {
   const id = uuidv7();
   const now = new Date();
   await db.insert(reimbursement).values({
-    chargedProgrammeId: PROGRAMME_IDS.unallocated,
-    chargedTo: "programme",
+    ...charge,
     city: "bangalore",
     createdAt: now,
     expenseDate: now.toISOString().slice(0, 10),
@@ -63,7 +69,12 @@ async function legacyUnallocated() {
 
 let result: unknown;
 if (action === "legacy-unallocated") {
-  result = await legacyUnallocated();
+  result = await insertRequest({
+    chargedProgrammeId: PROGRAMME_IDS.unallocated,
+    chargedTo: "programme",
+  });
+} else if (action === "admin-request") {
+  result = await insertRequest({ chargedTo: "organisation" });
 } else {
   throw new Error(`Unknown action ${action}`);
 }

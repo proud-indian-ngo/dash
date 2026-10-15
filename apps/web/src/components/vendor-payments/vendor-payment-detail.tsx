@@ -32,7 +32,7 @@ import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { handleMutationResult } from "@/lib/mutation-result";
 import {
   requestChargeSummary,
-  requestProgrammeName,
+  requestProgrammeHeader,
 } from "@/lib/request-programme";
 import { sumAmounts } from "@/lib/stats";
 import { getStatusBadge } from "@/lib/status-badge";
@@ -204,10 +204,8 @@ function VendorPaymentHeader({
             {request.event.name}
           </Link>
         ) : null,
-        requestProgrammeName(request) ? (
-          <span key="programme">
-            Programme · {requestProgrammeName(request)}
-          </span>
+        requestProgrammeHeader(request) ? (
+          <span key="programme">{requestProgrammeHeader(request)}</span>
         ) : null,
       ]}
       title={request.title}

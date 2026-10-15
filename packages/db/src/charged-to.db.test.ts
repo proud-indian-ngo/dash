@@ -41,6 +41,17 @@ async function inRolledBackTransaction(
   }
 }
 
+function migrationStatements(file: string): string[] {
+  return readFileSync(join(import.meta.dirname, "migrations", file), "utf8")
+    .split("--> statement-breakpoint")
+    .map((statement) => statement.trim())
+    .filter(Boolean);
+}
+
+const singleTeamStatements = migrationStatements(
+  "0140_charged_to_single_team.sql"
+);
+
 const backfillStatements = readFileSync(
   join(import.meta.dirname, "migrations/0138_backfill_charged_to.sql"),
   "utf8"
@@ -148,6 +159,20 @@ it.skipIf(!localDatabase)(
         })
       ).rejects.toThrow("reimbursement_charged_project_programme_fk");
 
+      if (event) {
+        // A programme or admin charge keeps no event.
+        await expect(
+          insert({
+            chargedProgrammeId: PROGRAMME_IDS.education,
+            chargedTo: "programme",
+            eventId: event.id,
+          })
+        ).rejects.toThrow("reimbursement_charged_to_chk");
+        await expect(
+          insert({ chargedTo: "organisation", eventId: event.id })
+        ).rejects.toThrow("reimbursement_charged_to_chk");
+      }
+
       await insert({
         chargedProgrammeId: PROGRAMME_IDS.education,
         chargedProjectId: projectId,
@@ -156,6 +181,64 @@ it.skipIf(!localDatabase)(
       await insert({ chargedTo: "organisation" });
       if (event) {
         await insert({ chargedTo: "event", eventId: event.id });
+      }
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "moves Unallocated rows to the submitter's only team's programme",
+  async () => {
+    await inRolledBackTransaction(async (sql) => {
+      const unallocated = PROGRAMME_IDS.unallocated;
+      const education = PROGRAMME_IDS.education;
+      const arts = PROGRAMME_IDS.artsAndCulture;
+      await sql.unsafe(
+        "CREATE TEMP TABLE team (id text PRIMARY KEY, programme_id uuid) ON COMMIT DROP"
+      );
+      await sql.unsafe(
+        "CREATE TEMP TABLE team_member (team_id text, user_id text) ON COMMIT DROP"
+      );
+      await sql.unsafe(`INSERT INTO team VALUES
+        ('edu', '${education}'), ('arts', '${arts}'),
+        ('holding', '${unallocated}'), ('none', NULL)`);
+      await sql.unsafe(`INSERT INTO team_member VALUES
+        ('edu', 'one-team'),
+        ('edu', 'two-teams'), ('arts', 'two-teams'),
+        ('holding', 'holding-team'), ('none', 'no-programme')`);
+      for (const table of ["reimbursement", "vendor_payment"]) {
+        await sql.unsafe(
+          `CREATE TEMP TABLE ${table} (id text PRIMARY KEY, user_id text, event_id uuid, charged_to text, charged_programme_id uuid, charged_project_id uuid) ON COMMIT DROP`
+        );
+        await sql.unsafe(`INSERT INTO ${table} VALUES
+          ('one-team', 'one-team', NULL, 'programme', '${unallocated}', NULL),
+          ('two-teams', 'two-teams', NULL, 'programme', '${unallocated}', NULL),
+          ('holding-team', 'holding-team', NULL, 'programme', '${unallocated}', NULL),
+          ('no-programme', 'no-programme', NULL, 'programme', '${unallocated}', NULL),
+          ('no-team', 'nobody', NULL, 'programme', '${unallocated}', NULL),
+          ('chosen', 'one-team', NULL, 'programme', '${arts}', NULL),
+          ('admin', 'one-team', NULL, 'organisation', NULL, NULL)`);
+      }
+      for (const _run of [1, 2]) {
+        for (const statement of singleTeamStatements) {
+          await sql.unsafe(statement);
+        }
+      }
+      for (const table of ["reimbursement", "vendor_payment"]) {
+        const rows = (await sql.unsafe(
+          `SELECT id, charged_programme_id FROM ${table} ORDER BY id`
+        )) as { charged_programme_id: string | null; id: string }[];
+        expect(
+          Object.fromEntries(rows.map((r) => [r.id, r.charged_programme_id]))
+        ).toEqual({
+          admin: null,
+          chosen: arts,
+          "holding-team": unallocated,
+          "no-programme": unallocated,
+          "no-team": unallocated,
+          "one-team": education,
+          "two-teams": unallocated,
+        });
       }
     });
   }

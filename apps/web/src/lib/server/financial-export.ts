@@ -5,7 +5,7 @@ import {
   advancePaymentLineItem,
 } from "@pi-dash/db/schema/advance-payment";
 import { user } from "@pi-dash/db/schema/auth";
-import { programme } from "@pi-dash/db/schema/finance-dimensions";
+import { programme, project } from "@pi-dash/db/schema/finance-dimensions";
 import {
   reimbursement,
   reimbursementAttachment,
@@ -21,6 +21,7 @@ import { vendorPaymentTransaction } from "@pi-dash/db/schema/vendor-payment-tran
 import type { ExpenseChargedTo } from "@pi-dash/shared/constants";
 import {
   ADMIN_PROGRAMME_LABEL,
+  EXPENSE_CHARGED_TO_LABELS,
   expenseProgrammeOf,
 } from "@pi-dash/shared/expense-charge";
 import { formatNoInvoice } from "@pi-dash/shared/vendor-payment";
@@ -118,29 +119,52 @@ interface RawResultRow extends RawChargeRow {
   total: string | null;
 }
 
-/** Programme names by id, for the Programme column. */
-async function loadProgrammeNames(): Promise<Map<string, string>> {
-  const rows = await db
-    .select({ id: programme.id, name: programme.name })
-    .from(programme);
-  return new Map(rows.map((row) => [row.id, row.name]));
+interface DimensionNames {
+  programmes: Map<string, string>;
+  projects: Map<string, string>;
 }
 
-/** The Programme column, derived by `expenseProgrammeOf` like everywhere else. */
-function programmeCell(row: RawChargeRow, names: Map<string, string>): string {
+/** Programme and project names by id, for the Programme and Project columns. */
+async function loadDimensionNames(): Promise<DimensionNames> {
+  const [programmes, projects] = await Promise.all([
+    db.select({ id: programme.id, name: programme.name }).from(programme),
+    db.select({ id: project.id, name: project.name }).from(project),
+  ]);
+  return {
+    programmes: new Map(programmes.map((row) => [row.id, row.name])),
+    projects: new Map(projects.map((row) => [row.id, row.name])),
+  };
+}
+
+/**
+ * The Programme, Project and Charged to columns, derived by
+ * `expenseProgrammeOf` like everywhere else. Legacy advances, charged to
+ * nothing, leave all three empty.
+ */
+function chargeCells(
+  row: RawChargeRow,
+  names: DimensionNames
+): { chargedTo: string; programme: string; project: string } {
   if (!row.chargedTo) {
-    return "";
+    return { chargedTo: "", programme: "", project: "" };
   }
-  const { isAdmin, programmeId } = expenseProgrammeOf({
+  const { isAdmin, programmeId, projectId } = expenseProgrammeOf({
     chargedProgrammeId: row.chargedProgrammeId,
     chargedProjectId: row.chargedProjectId,
     chargedTo: row.chargedTo,
     event: { programmeId: row.eventProgrammeId },
   });
+  let programmeName = "";
   if (isAdmin) {
-    return ADMIN_PROGRAMME_LABEL;
+    programmeName = ADMIN_PROGRAMME_LABEL;
+  } else if (programmeId) {
+    programmeName = names.programmes.get(programmeId) ?? "";
   }
-  return programmeId ? (names.get(programmeId) ?? "") : "";
+  return {
+    chargedTo: EXPENSE_CHARGED_TO_LABELS[row.chargedTo],
+    programme: programmeName,
+    project: projectId ? (names.projects.get(projectId) ?? "") : "",
+  };
 }
 
 interface RequestQueryResult {
@@ -152,7 +176,7 @@ async function queryRequestRows(
   config: QueryConfig,
   fyStart: number,
   statusFilter: RequestExportStatus[] | null,
-  programmeNames: Map<string, string>
+  names: DimensionNames
 ): Promise<RequestQueryResult> {
   const { mainTable, lineItemTable, attachmentTable, typeLabel } = config;
   const fyStartDate = new Date(fyStart, 3, 1);
@@ -272,7 +296,7 @@ async function queryRequestRows(
       createdBy: result.createdBy ?? "",
       email: result.email,
       expenseDate: result.expenseDate ?? "",
-      programme: programmeCell(result, programmeNames),
+      ...chargeCells(result, names),
       status: result.status,
       submittedAt: result.submittedAt?.toISOString() ?? "",
       title: result.title,
@@ -314,7 +338,7 @@ const advancePaymentConfig: QueryConfig = {
 };
 
 async function queryVendorPaymentRows(
-  programmeNames: Map<string, string>,
+  names: DimensionNames,
   fyStart: number,
   statusFilter: VendorPaymentExportStatus[] | null,
   includeTransactions: boolean
@@ -412,7 +436,7 @@ async function queryVendorPaymentRows(
       invoiceNumber:
         result.invoiceNumber ??
         (result.noInvoiceReason ? formatNoInvoice(result.noInvoiceReason) : ""),
-      programme: programmeCell(result, programmeNames),
+      ...chargeCells(result, names),
       status: result.status,
       submittedAt: result.submittedAt?.toISOString() ?? "",
       title: result.title,
@@ -479,7 +503,7 @@ export async function getFinancialExportData(
   today: string
 ): Promise<FinancialExportData> {
   const requestStatusFilter = input.requestStatuses ?? null;
-  const programmeNames = await loadProgrammeNames();
+  const names = await loadDimensionNames();
   const requestQueries: Promise<RequestQueryResult>[] = [];
   if (input.requestTypes.includes("reimbursement")) {
     requestQueries.push(
@@ -487,7 +511,7 @@ export async function getFinancialExportData(
         reimbursementConfig,
         input.fyStart,
         requestStatusFilter,
-        programmeNames
+        names
       )
     );
   }
@@ -497,7 +521,7 @@ export async function getFinancialExportData(
         advancePaymentConfig,
         input.fyStart,
         requestStatusFilter,
-        programmeNames
+        names
       )
     );
   }
@@ -506,7 +530,7 @@ export async function getFinancialExportData(
     Promise.all(requestQueries),
     input.includeVendorPayments
       ? queryVendorPaymentRows(
-          programmeNames,
+          names,
           input.fyStart,
           input.vendorPaymentStatuses ?? null,
           input.includeTransactions

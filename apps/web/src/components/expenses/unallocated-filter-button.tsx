@@ -6,12 +6,14 @@ import {
 } from "@pi-dash/design-system/components/reui/filters/filters-query";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { PROGRAMME_IDS } from "@pi-dash/shared/constants";
-import { isUnallocatedCharge } from "@pi-dash/shared/expense-charge";
 
 import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
 import { useCanChangeCharge } from "@/components/expenses/charged-to-card";
-import type { ChargedRequest } from "@/lib/request-programme";
+import {
+  type ChargedRequest,
+  requestToClearValue,
+  TO_CLEAR_FILTER,
+} from "@/lib/request-programme";
 
 /**
  * Finance's way into the legacy requests still on the Unallocated holding
@@ -25,15 +27,17 @@ export function UnallocatedFilterButton({
 }) {
   const canChange = useCanChangeCharge();
   const { setQuery } = useDataTableFilters();
-  const count = rows.filter(isUnallocatedCharge).length;
+  // The same rule as the "To clear" filter it applies, so the count and the
+  // filtered rows always agree.
+  const count = rows.filter((row) => requestToClearValue(row) !== null).length;
   const showUnallocated = useEventCallback(() =>
     setQuery(
       createFilterQuery([
         createFilterRule({
-          id: "unallocated",
+          id: "to-clear",
           operator: "is",
-          path: ["programme"],
-          value: PROGRAMME_IDS.unallocated,
+          path: [TO_CLEAR_FILTER.path],
+          value: TO_CLEAR_FILTER.value,
         }),
       ])
     )

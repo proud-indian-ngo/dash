@@ -17,12 +17,14 @@ import {
 
 const requestRow: RequestExportRow = {
   attachments: [],
+  chargedTo: "Programme",
   city: "bangalore",
   createdAt: "2026-05-01T00:00:00.000Z",
   createdBy: "Asha",
   email: "asha@example.test",
   expenseDate: "2026-04-30",
   programme: "Education",
+  project: "Maths class",
   status: "approved",
   submittedAt: "2026-05-01T00:00:00.000Z",
   title: "Chalk",
@@ -31,13 +33,15 @@ const requestRow: RequestExportRow = {
 };
 
 const vendorRow: VendorPaymentExportRow = {
+  chargedTo: "Organisation (admin)",
   createdAt: "2026-05-01T00:00:00.000Z",
   createdBy: "Asha",
   email: "asha@example.test",
   invoiceDate: "2026-05-02",
   invoiceNumber: "INV-1",
   paidAmount: "500",
-  programme: "",
+  programme: "Admin",
+  project: "",
   remaining: "0",
   status: "completed",
   submittedAt: "2026-05-01T00:00:00.000Z",
@@ -68,16 +72,24 @@ describe("financial export row contract", () => {
     ).toHaveLength(TX_CSV_HEADERS.length);
   });
 
-  it("puts Programme in the Programme column, after the original columns", () => {
+  it("appends Project and Charged to after the original columns", () => {
     const requestIndex = REQUEST_CSV_HEADERS.indexOf("Programme");
     expect(requestIndex).toBe(REQUEST_CSV_HEADERS.indexOf("Attachments") - 1);
-    expect(
-      requestRowToArray(requestRow, "https://dash.test")[requestIndex]
-    ).toBe("Education");
+    expect(REQUEST_CSV_HEADERS.slice(-2)).toEqual(["Project", "Charged to"]);
+    const requestCells = requestRowToArray(requestRow, "https://dash.test");
+    expect(requestCells[requestIndex]).toBe("Education");
+    expect(requestCells.slice(-2)).toEqual(["Maths class", "Programme"]);
 
-    const vendorIndex = VP_CSV_HEADERS.indexOf("Programme");
-    expect(vendorIndex).toBe(VP_CSV_HEADERS.length - 1);
-    expect(vendorPaymentRowToArray(vendorRow)[vendorIndex]).toBe("");
+    expect(VP_CSV_HEADERS.slice(-3)).toEqual([
+      "Programme",
+      "Project",
+      "Charged to",
+    ]);
+    expect(vendorPaymentRowToArray(vendorRow).slice(-3)).toEqual([
+      "Admin",
+      "",
+      "Organisation (admin)",
+    ]);
   });
 });
 
@@ -130,7 +142,9 @@ describe("financial export amount cells", () => {
       "1000000",
       "2026-05-01T00:00:00.000Z",
       "2026-05-01T00:00:00.000Z",
+      "Admin",
       "",
+      "Organisation (admin)",
     ]);
   });
 
