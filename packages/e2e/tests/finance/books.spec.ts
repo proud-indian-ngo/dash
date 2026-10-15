@@ -134,12 +134,8 @@ test.describe("Books (treasurer)", () => {
     await expect(
       cashBook.getByRole("row").filter({ hasText: "Opening" }).first()
     ).toContainText("₹2,000.00");
-    await expect(
-      page
-        .getByTestId("books-account")
-        .filter({ hasText: "E2E Fixed deposit" })
-        .getByTestId("books-account-balance")
-    ).toHaveText("₹2,000.00");
+    // (Its rail balance isn't checked: a transfer test may already have
+    // moved money into the FD in this database.)
 
     // A running year can't be closed: the checklist says why.
     await clickPageAction(page, `Close ${YEAR}`);
@@ -211,6 +207,8 @@ test.describe("Books (treasurer)", () => {
   }, testInfo) => {
     test.skip(testInfo.project.name !== "finance_admin", "Treasurer test");
     test.setTimeout(120_000);
+    // Self-sufficient: CI shards may run this without the test above.
+    await books("ensure-opening", YEAR);
     const run = `${Date.now()}${testInfo.retry}`;
     const fixture = await books("income-fixture", run);
 
@@ -313,6 +311,8 @@ test.describe("Books (treasurer)", () => {
   }, testInfo) => {
     test.skip(testInfo.project.name !== "finance_admin", "Treasurer test");
     test.setTimeout(120_000);
+    // Self-sufficient: CI shards may run this without the test above.
+    await books("ensure-opening", YEAR);
     const run = `${Date.now()}${testInfo.retry}`;
     const fixture = await books("income-fixture", run);
     await page.goto("/finance/books");
@@ -351,6 +351,8 @@ test.describe("Books (treasurer)", () => {
   }, testInfo) => {
     test.skip(testInfo.project.name !== "finance_admin", "Treasurer test");
     test.setTimeout(120_000);
+    // Self-sufficient: CI shards may run this without the test above.
+    await books("ensure-opening", YEAR);
     const run = `${Date.now()}${testInfo.retry}`;
     const payout = await books("waiting-payout", run);
     try {
@@ -366,7 +368,10 @@ test.describe("Books (treasurer)", () => {
       await page.keyboard.press("Escape");
       // The real close, run as of the day after the year ended, refuses.
       const close = await books("close-year-strict", YEAR);
-      expect(close.refused).toContain("waiting to post");
+      // Refused for the waiting record (the opening balances stand).
+      expect(close.refused).toBe(
+        "Records dated in this year are waiting to post. Post them, or resolve why they wait, before closing the year"
+      );
     } finally {
       await books("fix-payout", payout.id);
       await books("reopen-year", YEAR);

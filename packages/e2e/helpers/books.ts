@@ -1,5 +1,6 @@
 import { db } from "@pi-dash/db";
 import { postPendingForYear } from "@pi-dash/db/ledger/income-runner";
+import { postOpeningBalance } from "@pi-dash/db/ledger/opening-balance";
 import {
   closeYear,
   reopenYear,
@@ -12,9 +13,13 @@ import {
   gatewaySettlementItem,
 } from "@pi-dash/db/schema/gateway-settlement";
 import { contribution } from "@pi-dash/db/schema/income";
-import { ledgerSourceState, posting } from "@pi-dash/db/schema/ledger";
+import {
+  ledgerSourceState,
+  openingBalance,
+  posting,
+} from "@pi-dash/db/schema/ledger";
 import { statementLine } from "@pi-dash/db/schema/statement-line";
-import { and, asc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, lte, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 /**
@@ -36,6 +41,9 @@ import { uuidv7 } from "uuidv7";
  *   debit of 300 to mark as a transfer to the fixed deposit.
  * - `gift <accountId> <day>`: one more UPI gift of 250 into that account.
  * - `postings <sourceId>`: the actions posted for a source, oldest first.
+ * - `ensure-opening <label>`: posts fake, balanced opening balances for the
+ *   year when none stand (a year can't close without them), so each
+ *   treasurer test runs on its own when CI shards split the group.
  * - `waiting-payout <run>`: a processed payout with no clearing account,
  *   which waits to post ("no clearing account").
  * - `fix-payout <id>`: gives that payout a clearing account of its own.
@@ -328,6 +336,45 @@ async function closeAfterPosting(
   });
 }
 
+/** "E2E Bank Account", seeded by seed-test-user. */
+const E2E_BANK_ID = "01930000-0000-7000-8000-000000000711";
+
+async function ensureOpening(label: string) {
+  const year = await yearByLabel(label);
+  const [standing] = await db
+    .select({ id: openingBalance.id })
+    .from(openingBalance)
+    .where(
+      and(
+        eq(openingBalance.fiscalYearId, year.id),
+        isNull(openingBalance.reversalPostingId)
+      )
+    )
+    .limit(1);
+  if (standing) {
+    return { id: standing.id, posted: false };
+  }
+  const actorId = await anyUserId();
+  const id = uuidv7();
+  await db.transaction((tx) =>
+    postOpeningBalance(
+      tx,
+      {
+        caConfirmedOn: year.startsOn,
+        caName: "E2E Test CA",
+        fiscalYearId: year.id,
+        id,
+        lines: [
+          { amountPaise: 100_000, kind: "account", orgAccountId: E2E_BANK_ID },
+          { amountPaise: 100_000, fundId: GENERAL_FUND_ID, kind: "fund" },
+        ],
+      },
+      { actorId }
+    )
+  );
+  return { id, posted: true };
+}
+
 async function postingsOf(sourceId: string) {
   const rows = await db
     .select({ action: posting.action })
@@ -384,6 +431,8 @@ if (action === "close-year") {
       refused: error instanceof Error ? error.message : String(error),
     };
   }
+} else if (action === "ensure-opening") {
+  result = await ensureOpening(label);
 } else if (action === "waiting-payout") {
   result = await waitingPayout(label);
 } else if (action === "fix-payout") {
