@@ -154,9 +154,6 @@ function BooksPage() {
     if (line.kind === "fund") {
       return fundNames.get(line.key) ?? "Fund";
     }
-    if (line.kind === "surplus") {
-      return "Income less expenditure";
-    }
     return headNames.get(line.key) ?? "Account head";
   };
   const summary = balanceSummary({
@@ -164,6 +161,7 @@ function BooksPage() {
     asOf,
     entries: books.entries,
     movements: books.movements,
+    startsOn: year.startsOn,
   });
 
   // The workbook starts from the cutover year's opening balances.

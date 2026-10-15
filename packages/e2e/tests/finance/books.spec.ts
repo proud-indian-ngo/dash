@@ -420,6 +420,13 @@ test.describe("Books (treasurer)", () => {
     const check = balance.at(-1) ?? [];
     expect(String(check[0])).toContain("(balances)");
     expect(check[4]).toBe(0);
+    // Income less expenditure sits in its fund (opening balance plus the
+    // current year's surplus), never on a line of its own.
+    expect(
+      balance.some((row) =>
+        String(row[0]).startsWith("Income less expenditure")
+      )
+    ).toBe(false);
     // IDs are always masked in the workbook; a finance admin sees the list.
     expect(sheets[4]?.data[0]?.[2]).toBe("ID (last 4)");
     await expect(page.getByText("CA workbook downloaded")).toBeVisible();

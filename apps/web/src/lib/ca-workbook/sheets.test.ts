@@ -312,6 +312,56 @@ const sumColumn = (rows: WorkbookSheet["rows"], index: number) =>
     rows.reduce((sum, row) => sum + Number(row.cells[index] ?? 0), 0) * 100
   ) / 100;
 
+/**
+ * The year after `prior`, FY 2027-28, with every earlier row summed into
+ * brought-forward rows the day before, as loadWorkbookFacts reads them.
+ */
+function nextYear(prior: WorkbookFacts): WorkbookFacts {
+  const bfOn = "2027-03-31";
+  const sums = new Map<string, number>();
+  for (const m of prior.movements) {
+    sums.set(
+      m.orgAccountId,
+      (sums.get(m.orgAccountId) ?? 0) +
+        (m.direction === "in" ? m.amountPaise : -m.amountPaise)
+    );
+  }
+  return {
+    ...prior,
+    entries: prior.entries.map((e) => ({
+      ...e,
+      economicOn: e.economicOn < "2027-04-01" ? bfOn : e.economicOn,
+      reversesEntryId: null,
+      sourceType:
+        e.sourceType === "opening_balance" ? e.sourceType : "brought_forward",
+    })),
+    movements: [...sums]
+      .filter(([, paise]) => paise !== 0)
+      .map(([account, paise]) =>
+        movement({
+          amountPaise: Math.abs(paise),
+          direction: paise > 0 ? "in" : "out",
+          kind: "opening",
+          occurredOn: bfOn,
+          orgAccountId: account,
+          sourceId: account,
+          sourceType: "brought_forward",
+        })
+      ),
+    year: {
+      closed: false,
+      endsOn: "2028-03-31",
+      id: "fy2",
+      label: "2027-28",
+      startsOn: "2027-04-01",
+    },
+  };
+}
+
+/** A balance sheet row's opening, increases, decreases and closing. */
+const fundRowOf = (sheet: WorkbookSheet, name: string) =>
+  sheet.rows.find((r) => r.cells[0] === name)?.cells.slice(1, 5);
+
 describe("CA workbook sheets", () => {
   it("keeps the contract's column order", () => {
     const facts = fixture();
@@ -476,17 +526,39 @@ describe("CA workbook sheets", () => {
     expect(item("Razorpay clearing (Clearing)")[4]).toBe(0);
     expect(item("Fixed assets: Sewing machine")[1]).toBe(50);
     expect(item("Corpus Fund")[4]).toBe(10);
-    expect(item("Income less expenditure (since 1 April 2026)")).toEqual([
-      "Income less expenditure (since 1 April 2026)",
+    // Income less expenditure rolls into the General Fund, as the
+    // statements' fund note: opening balance plus the year's surplus.
+    expect(item("General Fund (Domestic): opening balance")).toEqual([
+      "General Fund (Domestic): opening balance",
+      2940,
       0,
-      // By effect: gifts and interest up; the reclassification's reversal,
-      // the refund and the fee down.
-      2037,
-      723.6,
+      0,
+      2940,
+      null,
+      null,
+    ]);
+    expect(
+      item("General Fund (Domestic): current year surplus/(deficit)")
+    ).toEqual([
+      "General Fund (Domestic): current year surplus/(deficit)",
+      0,
+      // The summary's surplus: gifts and interest less the reclassification's
+      // net nil, the refund and the fee.
+      1313.4,
+      0,
       1313.4,
       null,
       null,
     ]);
+    expect(
+      item("General Fund (Domestic): current year surplus/(deficit)")[4]
+    ).toBe(incomeExpenditureTotals(facts).surplusPaise / 100);
+    expect(item("General Fund (Domestic) total").slice(1, 5)).toEqual([
+      2940, 1313.4, 0, 4253.4,
+    ]);
+    expect(
+      sheet.rows.some((r) => String(r.cells[0]).startsWith("Income less"))
+    ).toBe(false);
     expect(item("Total assets")[4]).toBe(4363.4);
     expect(item("Total funds and liabilities")[4]).toBe(4363.4);
     const checkRow = sheet.rows.at(-1)?.cells ?? [];
@@ -720,14 +792,118 @@ describe("CA workbook sheets", () => {
     const { check, sheet } = balanceSheet(facts);
     expect(check.openingDifferencePaise).toBe(0);
     expect(check.closingDifferencePaise).toBe(0);
-    const surplus = sheet.rows.find((r) =>
-      String(r.cells[0]).startsWith("Income less expenditure")
-    );
-    expect(surplus?.cells.slice(1, 5)).toEqual([1313.4, 100, 0, 1413.4]);
+    const fundRow = (name: string) =>
+      sheet.rows.find((r) => r.cells[0] === name)?.cells.slice(1, 5);
+    // FY 2026-27's surplus is part of the General Fund's opening now; the
+    // year's own surplus is its increase.
+    expect(fundRow("General Fund (Domestic): opening balance")).toEqual([
+      4253.4, 0, 0, 4253.4,
+    ]);
+    expect(
+      fundRow("General Fund (Domestic): current year surplus/(deficit)")
+    ).toEqual([0, 100, 0, 100]);
+    expect(fundRow("General Fund (Domestic) total")).toEqual([
+      4253.4, 100, 0, 4353.4,
+    ]);
+    expect(fundRow("Corpus Fund")).toEqual([10, 0, 0, 10]);
     expect(
       sheet.rows.find((r) => r.cells[0] === "Fixed assets: Sewing machine")
         ?.cells[1]
     ).toBe(50);
+  });
+
+  it("rolls a deficit into the General Fund in the following year", () => {
+    const facts = nextYear(fixture());
+    // FY 2027-28 spends 500 and receives nothing.
+    facts.entries.push(
+      entry("charges", {
+        amountPaise: 50_000,
+        economicOn: "2027-06-01",
+        sourceId: "fee-9",
+        sourceType: "gateway_settlement",
+      })
+    );
+    facts.movements.push(
+      movement({
+        amountPaise: 50_000,
+        direction: "out",
+        kind: "fee",
+        occurredOn: "2027-06-01",
+        orgAccountId: BANK,
+        sourceId: "fee-9",
+        sourceType: "gateway_settlement",
+      })
+    );
+    const { check, sheet } = balanceSheet(facts);
+    expect(check.openingDifferencePaise).toBe(0);
+    expect(check.closingDifferencePaise).toBe(0);
+    expect(incomeExpenditureTotals(facts).surplusPaise).toBe(-50_000);
+    expect(
+      fundRowOf(sheet, "General Fund (Domestic): opening balance")
+    ).toEqual([4253.4, 0, 0, 4253.4]);
+    expect(
+      fundRowOf(
+        sheet,
+        "General Fund (Domestic): current year surplus/(deficit)"
+      )
+    ).toEqual([0, 0, 500, -500]);
+    expect(fundRowOf(sheet, "General Fund (Domestic) total")).toEqual([
+      4253.4, 0, 500, 3753.4,
+    ]);
+  });
+
+  it("rolls income posted to a restricted fund into that fund, not the General Fund", () => {
+    const corpusGift = (facts: WorkbookFacts) => {
+      facts.entries.push(
+        entry("donations", {
+          amountPaise: 20_000,
+          economicOn: "2026-08-01",
+          fundId: "f-corpus",
+          fundName: "Corpus Fund",
+          sourceId: "gift-corpus",
+          sourceType: "contribution",
+        })
+      );
+      facts.movements.push(
+        movement({
+          amountPaise: 20_000,
+          direction: "in",
+          kind: "receipt",
+          occurredOn: "2026-08-01",
+          orgAccountId: BANK,
+          sourceId: "gift-corpus",
+          sourceType: "contribution",
+        })
+      );
+      return facts;
+    };
+    const facts = corpusGift(fixture());
+    const { check, sheet } = balanceSheet(facts);
+    expect(check.closingDifferencePaise).toBe(0);
+    expect(fundRowOf(sheet, "Corpus Fund: opening balance")).toEqual([
+      10, 0, 0, 10,
+    ]);
+    expect(
+      fundRowOf(sheet, "Corpus Fund: current year surplus/(deficit)")
+    ).toEqual([0, 200, 0, 200]);
+    expect(fundRowOf(sheet, "Corpus Fund total")).toEqual([10, 200, 0, 210]);
+    // The General Fund keeps only its own surplus.
+    expect(fundRowOf(sheet, "General Fund (Domestic) total")).toEqual([
+      2940, 1313.4, 0, 4253.4,
+    ]);
+    // The funds' surpluses add up to the summary's.
+    expect(incomeExpenditureTotals(facts).surplusPaise).toBe(151_340);
+
+    // The next year opens each fund with its own surplus.
+    const next = balanceSheet(nextYear(corpusGift(fixture())));
+    expect(next.check.openingDifferencePaise).toBe(0);
+    expect(next.check.closingDifferencePaise).toBe(0);
+    expect(fundRowOf(next.sheet, "Corpus Fund total")).toEqual([
+      210, 0, 0, 210,
+    ]);
+    expect(fundRowOf(next.sheet, "General Fund (Domestic) total")).toEqual([
+      4253.4, 0, 0, 4253.4,
+    ]);
   });
 });
 

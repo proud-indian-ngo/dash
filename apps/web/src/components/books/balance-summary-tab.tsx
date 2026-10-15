@@ -5,6 +5,29 @@ import { StatusBadge } from "@/components/shared/status-badge";
 
 import { formatDay } from "./labels";
 
+/**
+ * A fund's opening at the year's start (with earlier years' surplus) and
+ * the year's surplus or deficit, as the statements' fund note shows them.
+ */
+function FundMovement({
+  openingPaise,
+  surplusPaise,
+}: {
+  openingPaise: number;
+  surplusPaise: number;
+}) {
+  return (
+    <span
+      className="text-muted-foreground block text-xs"
+      data-testid="balance-fund-movement"
+    >
+      Opening balance {formatPaise(openingPaise)} · Current year{" "}
+      {surplusPaise < 0 ? "deficit" : "surplus"}{" "}
+      {formatPaise(Math.abs(surplusPaise))}
+    </span>
+  );
+}
+
 function Section({
   label,
   lines,
@@ -30,7 +53,10 @@ function Section({
               className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm"
               key={`${line.kind}:${line.key}`}
             >
-              <span className="min-w-0 truncate">{nameOf(line)}</span>
+              <span className="min-w-0">
+                <span className="block truncate">{nameOf(line)}</span>
+                {line.movement ? <FundMovement {...line.movement} /> : null}
+              </span>
               <span className="shrink-0 font-mono tabular-nums">
                 {formatPaise(line.paise)}
               </span>
@@ -53,8 +79,9 @@ function Section({
 
 /**
  * What the trust has, owes and holds in funds at a date: account balances
- * from the cash book plus asset entries, against liabilities, fund
- * balances and income less expenditure since the cutover.
+ * from the cash book plus asset entries, against liabilities and funds. A
+ * fund carries the income less expenditure posted to it, each year's
+ * surplus rolling into its opening for the next.
  */
 export function BalanceSummaryTab({
   asOf,
