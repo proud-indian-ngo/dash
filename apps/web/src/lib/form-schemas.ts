@@ -1,5 +1,7 @@
 import {
   isIndianMobile,
+  PAYEE_NAME_MAX,
+  PAYEE_NAME_REQUIRED_MESSAGE,
   PAYEE_PHONE_MESSAGE,
 } from "@pi-dash/shared/cash-voucher";
 import { cityValues } from "@pi-dash/shared/constants";
@@ -45,17 +47,25 @@ export const lineItemSchema = z
     description: z.string().trim().min(1, "Description required"),
     generateVoucher: z.boolean().optional(),
     id: z.string(),
+    /** Who a cash voucher pays; required once the voucher is ticked. */
+    payeeName: z.string().max(PAYEE_NAME_MAX).optional(),
     /** The cash-voucher payee's mobile, E.164 from the phone input; optional. */
     payeePhone: z.string().optional(),
   })
   // Checked only while the voucher is ticked: the field is hidden, and its
   // value dropped on submit, otherwise.
   .superRefine((item, context) => {
-    if (
-      item.generateVoucher &&
-      item.payeePhone &&
-      !isIndianMobile(item.payeePhone)
-    ) {
+    if (!item.generateVoucher) {
+      return;
+    }
+    if (!item.payeeName?.trim()) {
+      context.addIssue({
+        code: "custom",
+        message: PAYEE_NAME_REQUIRED_MESSAGE,
+        path: ["payeeName"],
+      });
+    }
+    if (item.payeePhone && !isIndianMobile(item.payeePhone)) {
       context.addIssue({
         code: "custom",
         message: PAYEE_PHONE_MESSAGE,
@@ -88,6 +98,7 @@ export const newLineItem = (): LineItem => ({
   description: "",
   generateVoucher: false,
   id: uuidv7(),
+  payeeName: "",
   payeePhone: "",
 });
 
@@ -97,21 +108,28 @@ export const computeRunningTotalPaise = (lineItems: LineItem[]): number =>
 
 /**
  * Validated form line items to mutator line items: rupee text becomes paise,
- * order becomes sortOrder, and the payee phone is sent only with a voucher
- * opt-in (null otherwise).
+ * order becomes sortOrder, and the payee is sent only with a voucher opt-in
+ * (null otherwise).
  */
 export const toLineItemsPayload = <
-  T extends { amount: string; generateVoucher?: boolean; payeePhone?: string },
+  T extends {
+    amount: string;
+    generateVoucher?: boolean;
+    payeeName?: string;
+    payeePhone?: string;
+  },
 >(
   lineItems: readonly T[]
-): (Omit<T, "amount" | "payeePhone"> & {
+): (Omit<T, "amount" | "payeeName" | "payeePhone"> & {
   amountPaise: number;
+  payeeName: string | null;
   payeePhone: string | null;
   sortOrder: number;
 })[] =>
-  lineItems.map(({ amount, payeePhone, ...item }, index) => ({
+  lineItems.map(({ amount, payeeName, payeePhone, ...item }, index) => ({
     ...item,
     amountPaise: rupeesToPaise(amount),
+    payeeName: (item.generateVoucher && payeeName?.trim()) || null,
     payeePhone: (item.generateVoucher && payeePhone) || null,
     sortOrder: index,
   }));

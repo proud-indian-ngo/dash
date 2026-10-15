@@ -187,6 +187,30 @@ describe("audit metadata", () => {
     expect(JSON.stringify(config)).not.toContain("1200000");
   });
 
+  it("records a signed voucher upload by IDs, never its object key", () => {
+    const summary = summarizeZeroMutation(
+      "reimbursement.attachSignedVoucher",
+      {
+        lineItemId: TARGET_ID,
+        reimbursementId: TEAM_ID,
+        signedCopy: {
+          filename: "signed.jpg",
+          id: TARGET_ID,
+          objectKey: "app/attachments/tmp/u/signed.jpg",
+        },
+      },
+      "actor-1"
+    );
+    expect(summary.metadata?.changedFields).toEqual([
+      "reimbursementId",
+      "signedCopy",
+    ]);
+    expect(summary.metadata?.relatedIds).toMatchObject({
+      lineItemId: TARGET_ID,
+    });
+    expect(JSON.stringify(summary)).not.toContain("signed.jpg");
+  });
+
   it("keeps IDs and field names without storing sensitive values", () => {
     const summary = summarizeZeroMutation(
       "user.update",

@@ -99,6 +99,11 @@ export class ReimbursementPage {
     });
   }
 
+  /** Links a stand-in voucher to the open reimbursement's opted-in items. */
+  async linkVoucherInDatabase(): Promise<void> {
+    await this.runApprovalFixture("link-voucher");
+  }
+
   /**
    * Marks the open reimbursement rejected while it keeps a stored payment
    * screenshot, as when an approved request is later rejected.
@@ -173,6 +178,7 @@ export class ReimbursementPage {
     });
 
     await this.form.toggleCashVoucher(0);
+    await this.form.fillPayeeName(0, "Test Payee");
 
     await this.form.submit();
     await this.waitForDetail(title);

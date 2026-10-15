@@ -54,6 +54,7 @@ const roleOnlySpecs = {
     "events/event-interest-unhappy-paths.spec.ts",
     "events/social-recap.spec.ts",
     "kalakriti/entry-music-edit.spec.ts",
+    "reimbursements/signed-voucher.spec.ts",
   ],
   unoriented_volunteer: [
     "roles/unoriented-volunteer-flows.spec.ts",

@@ -150,6 +150,14 @@ export class RequestFormPage {
     return this.page.locator(`#lineItems-${index}-voucher`);
   }
 
+  getPayeeNameInput(index = 0): Locator {
+    return this.page.locator(`[id="lineItems[${index}].payeeName"]`);
+  }
+
+  async fillPayeeName(index: number, name: string): Promise<void> {
+    await this.getPayeeNameInput(index).fill(name);
+  }
+
   async toggleCashVoucher(index = 0): Promise<void> {
     await this.page.locator(`label[for="lineItems-${index}-voucher"]`).click();
   }

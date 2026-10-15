@@ -23,6 +23,7 @@ import { ChargedToCard } from "@/components/expenses/charged-to-card";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
 import { reimbursementHeaderMeta } from "@/components/reimbursements/reimbursement-header-meta";
+import { VoucherSignedCopy } from "@/components/reimbursements/voucher-signed-copy";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
 import {
   AttachmentList,
@@ -35,6 +36,7 @@ import {
 } from "@/components/shared/record-detail";
 import { RequesterMeta } from "@/components/shared/requester-meta";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
+import { useApp } from "@/context/app-context";
 import { useCashVoucherLimit } from "@/hooks/use-cash-voucher-limit";
 import {
   getAttachmentDownloadHref,
@@ -43,6 +45,7 @@ import {
 import { handleMutationResult } from "@/lib/mutation-result";
 import {
   isReimbursement,
+  type ReimbursementDetailData,
   REQUEST_TYPE_LABELS,
   type RequestDetailData,
 } from "@/lib/reimbursement-types";
@@ -359,57 +362,73 @@ export function ReimbursementDetail({
 }
 
 function VoucherCell({
+  attachments,
   canApprove,
+  canUploadSigned,
   isApproved,
   isGenerating,
   item,
   limitPaise,
   onGenerate,
+  reimbursementId,
 }: {
+  attachments: ReimbursementDetailData["attachments"];
   canApprove: boolean;
+  canUploadSigned: boolean;
   isApproved: boolean;
   isGenerating: boolean;
   item: {
     amountPaise: number;
     generateVoucher?: boolean | null;
     id: string;
+    signedVoucherAttachmentId?: string | null;
     voucherAttachmentId?: string | null;
   };
   limitPaise: number;
   onGenerate: (lineItemId: string) => void;
+  reimbursementId: string;
 }) {
   const { amountPaise } = item;
-  const hasVoucher = !!item.voucherAttachmentId;
   // A voucher made under a higher limit stays; only new ones need the current limit.
   const isQualifying = qualifiesForCashVoucher(amountPaise, limitPaise);
   const handleGenerate = useEventCallback(() => onGenerate(item.id));
 
-  if (hasVoucher) {
+  if (item.voucherAttachmentId) {
     return (
-      <div className="flex items-center gap-1.5">
-        <HugeiconsIcon
-          className="text-success-foreground size-3.5"
-          icon={TickDouble02Icon}
-          strokeWidth={2}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-1.5">
+          <HugeiconsIcon
+            className="text-success-foreground size-3.5"
+            icon={TickDouble02Icon}
+            strokeWidth={2}
+          />
+          <span className="text-success-foreground text-xs">Generated</span>
+          {canApprove && isApproved && isQualifying ? (
+            <Button
+              className="ml-1 h-auto px-1.5 py-0.5 text-xs"
+              disabled={isGenerating}
+              onClick={handleGenerate}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              <HugeiconsIcon
+                className="size-3"
+                icon={RepeatIcon}
+                strokeWidth={2}
+              />
+              {isGenerating ? "Regenerating..." : "Regenerate"}
+            </Button>
+          ) : null}
+        </div>
+        <VoucherSignedCopy
+          attachments={attachments}
+          canUpload={canUploadSigned && isApproved}
+          lineItemId={item.id}
+          reimbursementId={reimbursementId}
+          signedVoucherAttachmentId={item.signedVoucherAttachmentId}
+          voucherAttachmentId={item.voucherAttachmentId}
         />
-        <span className="text-success-foreground text-xs">Generated</span>
-        {canApprove && isApproved && isQualifying ? (
-          <Button
-            className="ml-1 h-auto px-1.5 py-0.5 text-xs"
-            disabled={isGenerating}
-            onClick={handleGenerate}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-3"
-              icon={RepeatIcon}
-              strokeWidth={2}
-            />
-            {isGenerating ? "Regenerating..." : "Regenerate"}
-          </Button>
-        ) : null}
       </div>
     );
   }
@@ -481,6 +500,12 @@ function LineItemsTable({
   const isReimb = isReimbursement(request);
   const showVoucherCol = isReimb && request.status === "approved";
   const voucherLimitPaise = useCashVoucherLimit();
+  const { hasPermission, user } = useApp();
+  // The claimant, finance or an approver may attach the signed copy.
+  const canUploadSigned =
+    request.userId === user.id ||
+    hasPermission("finance.manage") ||
+    hasPermission("requests.approve");
 
   return (
     <RecordSection title="Line items">
@@ -503,6 +528,11 @@ function LineItemsTable({
                   <td className="px-3 py-2">{item.category?.name}</td>
                   <td className="text-muted-foreground px-3 py-2">
                     {item.description}
+                    {"payeeName" in item && item.payeeName ? (
+                      <span className="block text-xs">
+                        Paid to {item.payeeName}
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     {formatPaise(item.amountPaise)}
@@ -510,12 +540,15 @@ function LineItemsTable({
                   {showVoucherCol ? (
                     <td className="px-3 py-2">
                       <VoucherCell
+                        attachments={isReimb ? request.attachments : []}
                         canApprove={canApprove}
+                        canUploadSigned={canUploadSigned}
                         isApproved={request.status === "approved"}
                         isGenerating={generatingVoucherId === item.id}
                         item={item}
                         limitPaise={voucherLimitPaise}
                         onGenerate={onGenerateVoucher}
+                        reimbursementId={request.id}
                       />
                     </td>
                   ) : null}

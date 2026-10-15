@@ -115,10 +115,21 @@ describe("lineItemSchema", () => {
         lineItemSchema.safeParse({
           ...valid,
           generateVoucher: true,
+          payeeName: "Test Payee",
           payeePhone,
         }).success
       ).toBe(true);
     }
+  });
+
+  it("requires a payee name once the voucher is ticked", () => {
+    expect(
+      lineItemSchema.safeParse({
+        ...valid,
+        generateVoucher: true,
+        payeeName: " ",
+      }).error?.issues[0]?.message
+    ).toBe("Name who was paid");
   });
 
   it("ignores the payee phone without a voucher opt-in", () => {
@@ -133,6 +144,7 @@ describe("lineItemSchema", () => {
         lineItemSchema.safeParse({
           ...valid,
           generateVoucher: true,
+          payeeName: "Test Payee",
           payeePhone,
         }).error?.issues[0]?.message
       ).toBe("Enter an Indian mobile number");
@@ -191,6 +203,7 @@ describe("toLineItemsPayload", () => {
         ...newLineItem(),
         amount: "2000",
         generateVoucher: true,
+        payeeName: " Test Payee ",
         payeePhone: "+919876543210",
       },
       {
@@ -200,6 +213,11 @@ describe("toLineItemsPayload", () => {
         payeePhone: "+919876543210",
       },
       { ...newLineItem(), amount: "500", generateVoucher: true },
+    ]);
+    expect(payload.map((li) => li.payeeName)).toEqual([
+      "Test Payee",
+      null,
+      null,
     ]);
     expect(payload.map((li) => li.payeePhone)).toEqual([
       "+919876543210",

@@ -222,7 +222,7 @@ pi-dash event remains read-only outside the Kalakriti module.
 | `components/audit/` | audit-log table, row detail sheet, and API response types |
 | `components/social/` | Social page: runs table, posts table (Drop action), social settings (pause switches, posting rules, digest approver, all-time totals), IST formatting |
 | `components/users/` | users-table, user-form, password-form, ban-user-form |
-| `components/reimbursements/` | reimbursements-table, reimbursement-form, reimbursement-detail, reimbursement-stats (unified reimbursements + advance payments) |
+| `components/reimbursements/` | reimbursements-table, reimbursement-form, reimbursement-detail, reimbursement-stats (unified reimbursements + advance payments); voucher-signed-copy (the Voucher column's voucher and signed-copy links, and Upload signed copy for the claimant, finance and approvers via `reimbursement.attachSignedVoucher`) |
 | `components/expenses/` | "Charged to" on reimbursements and vendor payments: the form fields (`charged-to-fields.tsx`, schema in `charged-to-schema.ts`), the detail card with finance's change dialog (`charged-to-card.tsx`) and the "Unallocated · N" list filter; the rule is `expenseProgrammeOf` in `packages/shared/src/expense-charge.ts`, the mutator checks in `packages/zero/src/mutators/expense-charge.ts` |
 | `components/teams/` | teams-table, team-detail, team-form-dialog, add-member-dialog |
 | `components/shared/` | user-avatar, user-picker, confirm-dialog, responsive-dialog, responsive-sheet (desktop side sheet and mobile drawer navigation), responsive-action-menu (desktop dropdown and mobile action sheet) |

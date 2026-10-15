@@ -1,5 +1,5 @@
 {
-  "id": "e826a07f-0f32-4b20-bb7f-8ca76f2aec49",
+  "id": "1df91fbb-9a1b-4a52-aba2-80908278d2ae",
   "prevId": "f013aca5-14c6-4d7c-a73d-c22e73ac070d",
   "version": "7",
   "dialect": "postgresql",
@@ -13209,6 +13209,12 @@
           "primaryKey": true,
           "notNull": true
         },
+        "payee_name": {
+          "name": "payee_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "payee_phone": {
           "name": "payee_phone",
           "type": "text",
@@ -13220,6 +13226,12 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "signed_voucher_attachment_id": {
+          "name": "signed_voucher_attachment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         },
         "sort_order": {
           "name": "sort_order",
@@ -13282,6 +13294,19 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "reimbursement_line_item_signed_voucher_attachment_id_reimbursement_attachment_id_fk": {
+          "name": "reimbursement_line_item_signed_voucher_attachment_id_reimbursement_attachment_id_fk",
+          "tableFrom": "reimbursement_line_item",
+          "tableTo": "reimbursement_attachment",
+          "columnsFrom": [
+            "signed_voucher_attachment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         },
         "reimbursement_line_item_voucher_attachment_id_reimbursement_attachment_id_fk": {

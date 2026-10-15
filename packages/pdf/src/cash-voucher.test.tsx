@@ -21,6 +21,7 @@ const sampleVoucher: CashVoucherProps = {
   amountPaise: 200_000,
   approvedBy: "Test Treasurer",
   category: "Labour",
+  claimedBy: "Test Volunteer",
   date: "2026-10-12",
   description: "Cleaning the community hall after the event",
   orgAddress: "1 Test Road, Testville 560001",
@@ -80,6 +81,7 @@ describe("cash voucher PDF", () => {
       ...sampleVoucher,
       approvedBy: "Example Treasurer With A Rather Long Synthetic Name",
       category: "Event logistics and venue arrangements",
+      claimedBy: "Synthetic Volunteer With A Rather Long Name For Testing",
       description: `${"Loading, unloading and arranging chairs, tables and stage props, ".repeat(6)}and returning hired furniture`,
       orgAddress:
         "Synthetic Trust Office, 3rd Floor, 99 Example Industrial Estate, Old Airport Road, Testville 560017",

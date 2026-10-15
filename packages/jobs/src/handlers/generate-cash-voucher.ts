@@ -49,9 +49,14 @@ async function commitVoucherAttachment(opts: {
       url: null,
     });
 
+    // A new voucher number makes an earlier signed copy stale: unlink it
+    // (the file stays among the request's attachments).
     await tx
       .update(reimbursementLineItem)
-      .set({ voucherAttachmentId: opts.attachment.id })
+      .set({
+        signedVoucherAttachmentId: null,
+        voucherAttachmentId: opts.attachment.id,
+      })
       .where(eq(reimbursementLineItem.id, opts.lineItemId));
 
     if (opts.oldAttachmentId) {
@@ -154,7 +159,9 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
     orgName: env.VOUCHER_ORG_NAME,
     orgPhone: env.VOUCHER_ORG_PHONE,
     orgRegistration: env.VOUCHER_ORG_REGISTRATION,
-    paidTo: submitter?.name ?? "Unknown",
+    claimedBy: submitter?.name ?? "Unknown",
+    // Vouchers from before the payee fields name the claimant, as they did.
+    paidTo: lineItem.payeeName?.trim() || submitter?.name || "Unknown",
     payeePhone: lineItem.payeePhone,
     voucherNumber,
   });

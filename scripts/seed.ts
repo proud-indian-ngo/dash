@@ -2515,7 +2515,8 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
           desc: "Snacks for kids",
           generateVoucher: true,
           id: ID.rli02,
-          // Synthetic payee mobile, printed on the cash voucher.
+          // Synthetic payee, printed on the cash voucher.
+          payeeName: "Test Snack Vendor",
           payeePhone: "+919000000001",
         },
       ],
@@ -2628,6 +2629,7 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
               description: item.desc,
               generateVoucher: item.generateVoucher ?? false,
               id: item.id,
+              payeeName: item.payeeName ?? null,
               payeePhone: item.payeePhone ?? null,
               reimbursementId: r.id,
               sortOrder: i,

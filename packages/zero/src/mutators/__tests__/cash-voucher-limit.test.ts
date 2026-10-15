@@ -24,17 +24,21 @@ function createDb(
   const tables: Record<string, Row[]> = {
     appConfig: [],
     reimbursement: [],
+    reimbursementAttachment: [],
     reimbursementHistory: [],
     reimbursementLineItem: [],
     ...seed,
   };
   const inserts: { row: Row; table: string }[] = [];
+  const updates: { row: Row; table: string }[] = [];
   const tableApi = (table: string) => ({
     delete: async () => {},
     insert: async (row: Row) => {
       inserts.push({ row, table });
     },
-    update: async () => {},
+    update: async (row: Row) => {
+      updates.push({ row, table });
+    },
     upsert: async (row: Row) => {
       inserts.push({ row, table });
     },
@@ -55,7 +59,7 @@ function createDb(
       return query.format.singular ? result[0] : result;
     },
   };
-  return { inserts, tx };
+  return { inserts, tx, updates };
 }
 
 const limit = (paise: number) => ({
@@ -277,6 +281,7 @@ describe("reimbursement.create voucher fields", () => {
     description: "Cleaning",
     generateVoucher: true,
     id,
+    payeeName: "Test Payee",
     payeePhone: "+919876543210",
     sortOrder: 0,
     ...extra,
@@ -301,11 +306,16 @@ describe("reimbursement.create voucher fields", () => {
     } as never);
     const items = db.inserts
       .filter((insert) => insert.table === "reimbursementLineItem")
-      .map(({ row }) => [row.id, row.generateVoucher, row.payeePhone]);
+      .map(({ row }) => [
+        row.id,
+        row.generateVoucher,
+        row.payeeName,
+        row.payeePhone,
+      ]);
     expect(items).toEqual([
-      ["li-in", true, "+919876543210"],
-      ["li-over", false, null],
-      ["li-no-voucher", false, null],
+      ["li-in", true, "Test Payee", "+919876543210"],
+      ["li-over", false, null, null],
+      ["li-no-voucher", false, null, null],
     ]);
   });
 
@@ -321,5 +331,233 @@ describe("reimbursement.create voucher fields", () => {
       args([lineItem("li-1", 50_000, { payeePhone: null })])
     );
     expect(result.success).toBe(true);
+  });
+});
+
+describe("reimbursement voucher payee", () => {
+  it("requires a payee name on a voucher item", async () => {
+    const db = createDb("client");
+    await expect(
+      reimbursementMutators.create.fn({
+        args: createSchema.parse({
+          attachments: [],
+          chargedTo: "organisation",
+          city: "bangalore",
+          expenseDate: new Date("2026-10-01").getTime(),
+          id: "request-3",
+          lineItems: [
+            {
+              amountPaise: 50_000,
+              categoryId: "cat-1",
+              description: "Cleaning",
+              generateVoucher: true,
+              id: "li-1",
+              payeeName: "  ",
+              sortOrder: 0,
+            },
+          ],
+          title: "Hall clean-up",
+        }),
+        ctx: {
+          permissions: ["requests.create"],
+          role: "volunteer",
+          userId: "owner-1",
+        },
+        tx: db.tx,
+      } as never)
+    ).rejects.toThrow("Name who was paid on each cash voucher");
+  });
+});
+
+describe("reimbursement.update keeps voucher links", () => {
+  const before = (overrides: Row = {}) => ({
+    amountPaise: 50_000,
+    categoryId: "cat-1",
+    description: "Cleaning",
+    generateVoucher: true,
+    id: "li-1",
+    payeeName: "Test Payee",
+    reimbursementId: "request-1",
+    signedVoucherAttachmentId: "att-signed",
+    sortOrder: 0,
+    voucherAttachmentId: "att-voucher",
+    ...overrides,
+  });
+  const fileAttachment = (id: string) => ({
+    filename: `${id}.pdf`,
+    id,
+    objectKey: `app/attachments/reimbursements/request-1/${id}.pdf`,
+    reimbursementId: "request-1",
+    type: "file" as const,
+  });
+  const args = (lineItem: Row) => ({
+    attachments: [fileAttachment("att-voucher"), fileAttachment("att-signed")],
+    chargedTo: "organisation",
+    city: "bangalore",
+    expenseDate: new Date("2026-10-01").getTime(),
+    id: "request-1",
+    lineItems: [
+      {
+        amountPaise: 50_000,
+        categoryId: "cat-1",
+        description: "Cleaning",
+        generateVoucher: true,
+        id: "li-1",
+        payeeName: "Test Payee",
+        sortOrder: 0,
+        ...lineItem,
+      },
+    ],
+    title: "Hall clean-up",
+  });
+  const admin = {
+    permissions: ["requests.edit_all_statuses"],
+    role: "admin",
+    userId: "admin-1",
+  };
+  const seed = () => ({
+    reimbursement: [{ ...approvedRequest, chargedTo: "organisation" }],
+    reimbursementAttachment: [
+      fileAttachment("att-voucher"),
+      fileAttachment("att-signed"),
+    ],
+    reimbursementLineItem: [before()],
+  });
+
+  it("restores the voucher and signed copy of an unchanged item", async () => {
+    const db = createDb("client", seed());
+    await reimbursementMutators.update.fn({
+      args: createSchema.parse(args({})),
+      ctx: admin,
+      tx: db.tx,
+    } as never);
+    const links = db.updates.filter((u) => u.table === "reimbursementLineItem");
+    expect(links.map((u) => u.row)).toEqual([
+      {
+        id: "li-1",
+        signedVoucherAttachmentId: "att-signed",
+        voucherAttachmentId: "att-voucher",
+      },
+    ]);
+  });
+
+  it("drops the link when the amount changed", async () => {
+    const db = createDb("client", seed());
+    await reimbursementMutators.update.fn({
+      args: createSchema.parse(args({ amountPaise: 60_000 })),
+      ctx: admin,
+      tx: db.tx,
+    } as never);
+    expect(
+      db.updates.filter((u) => u.table === "reimbursementLineItem")
+    ).toEqual([]);
+  });
+
+  it("drops the link when the voucher file was removed", async () => {
+    const db = createDb("client", seed());
+    await reimbursementMutators.update.fn({
+      args: { ...createSchema.parse(args({})), attachments: [] },
+      ctx: admin,
+      tx: db.tx,
+    } as never);
+    expect(
+      db.updates.filter((u) => u.table === "reimbursementLineItem")
+    ).toEqual([]);
+  });
+});
+
+describe("reimbursement.attachSignedVoucher", () => {
+  const signedCopy = {
+    filename: "signed.jpg",
+    id: "att-new",
+    mimeType: "image/jpeg",
+    objectKey: "pi-dash/attachments/tmp/owner-1/signed.jpg",
+  };
+  const run = (ctx: Row, seed: Partial<Record<string, Row[]>>) => {
+    const db = createDb("client", seed);
+    return {
+      db,
+      result: reimbursementMutators.attachSignedVoucher.fn({
+        args: {
+          lineItemId: "li-1",
+          reimbursementId: "request-1",
+          signedCopy: {
+            ...signedCopy,
+            objectKey: `pi-dash/attachments/tmp/${String(ctx.userId)}/signed.jpg`,
+          },
+        },
+        ctx,
+        tx: db.tx,
+      } as never),
+    };
+  };
+  const withVoucher = {
+    reimbursement: [approvedRequest],
+    reimbursementLineItem: [
+      {
+        amountPaise: 50_000,
+        id: "li-1",
+        reimbursementId: "request-1",
+        signedVoucherAttachmentId: null,
+        voucherAttachmentId: "att-voucher",
+      },
+    ],
+  };
+
+  it("lets the claimant attach the signed copy", async () => {
+    const { db, result } = run(
+      { permissions: [], role: "volunteer", userId: "owner-1" },
+      withVoucher
+    );
+    await result;
+    expect(
+      db.inserts.find((i) => i.table === "reimbursementAttachment")?.row.id
+    ).toBe("att-new");
+    expect(
+      db.updates.find((u) => u.table === "reimbursementLineItem")?.row
+        .signedVoucherAttachmentId
+    ).toBe("att-new");
+  });
+
+  it("lets finance attach it", async () => {
+    const { result } = run(
+      { permissions: ["finance.manage"], role: "admin", userId: "fin-1" },
+      withVoucher
+    );
+    await expect(result).resolves.toBeUndefined();
+  });
+
+  it("refuses someone else's volunteer", async () => {
+    const { result } = run(
+      {
+        permissions: ["requests.edit_own"],
+        role: "volunteer",
+        userId: "vol-2",
+      },
+      withVoucher
+    );
+    await expect(result).rejects.toThrow("Unauthorized");
+  });
+
+  it("needs a generated voucher and an approved request", async () => {
+    const owner = { permissions: [], role: "volunteer", userId: "owner-1" };
+    await expect(
+      run(owner, {
+        ...withVoucher,
+        reimbursementLineItem: [
+          {
+            id: "li-1",
+            reimbursementId: "request-1",
+            voucherAttachmentId: null,
+          },
+        ],
+      }).result
+    ).rejects.toThrow("Generate the voucher before uploading a signed copy");
+    await expect(
+      run(owner, {
+        ...withVoucher,
+        reimbursement: [{ ...approvedRequest, status: "pending" }],
+      }).result
+    ).rejects.toThrow("Only approved reimbursements take a signed voucher");
   });
 });

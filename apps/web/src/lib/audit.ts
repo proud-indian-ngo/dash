@@ -198,6 +198,8 @@ const SAFE_CHANGED_FIELD_NAMES = new Set([
   "rrule",
   "rsvpPollLeadMinutes",
   "scheduledAt",
+  // The voucher copy the payee signed: the field name only, never its key.
+  "signedCopy",
   "scheduledMessageId",
   "seriesId",
   "socialNotes",

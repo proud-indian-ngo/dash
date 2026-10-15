@@ -41,6 +41,7 @@ import {
   shouldShowFieldErrors,
   useResolvedForm,
 } from "./form-context";
+import { InputField } from "./input-field";
 import { PhoneField } from "./phone-field-lazy";
 
 interface ArrayFieldApi {
@@ -379,12 +380,19 @@ function LineItemRow({
                         </Tooltip>
                       </div>
                       {field.state.value ? (
-                        <div className="max-w-xs">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <InputField
+                            description="The person paid in cash, printed on the voucher."
+                            form={form}
+                            isRequired
+                            label="Paid to"
+                            name={`${name}[${index}].payeeName`}
+                          />
                           <PhoneField
                             defaultCountry="IN"
-                            description="Printed on the voucher, which the payee signs or thumb-prints."
+                            description="Optional. Printed on the voucher, which the payee signs or thumb-prints."
                             form={form}
-                            label="Payee's mobile (optional)"
+                            label="Payee's mobile"
                             name={`${name}[${index}].payeePhone`}
                           />
                         </div>

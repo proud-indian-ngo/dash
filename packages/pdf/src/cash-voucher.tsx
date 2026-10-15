@@ -26,6 +26,8 @@ export interface CashVoucherProps {
   amountPaise: number;
   approvedBy: string;
   category: string;
+  /** The volunteer who claimed the reimbursement. */
+  claimedBy: string;
   /** The expense date, `YYYY-MM-DD`. */
   date: string;
   description: string | null;
@@ -34,6 +36,7 @@ export interface CashVoucherProps {
   orgName: string;
   orgPhone: string;
   orgRegistration: string;
+  /** The payee: the person paid in cash, or the claimant on older items. */
   paidTo: string;
   /** The payee's mobile in E.164 (`+919876543210`), when the claimant gave one. */
   payeePhone: string | null;
@@ -146,6 +149,7 @@ export function CashVoucher(props: CashVoucherProps) {
           <View style={styles.facts}>
             <Fact label="Description" value={props.description || "—"} />
             <Fact label="Category" value={props.category} />
+            <Fact label="Claimed by" value={props.claimedBy} />
           </View>
         </View>
 

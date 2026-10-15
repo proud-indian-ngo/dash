@@ -127,6 +127,66 @@ test.describe("Cash voucher", () => {
     });
   });
 
+  test("names the payee on a voucher line item", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
+
+    await reimbursements.createReimbursementWithVoucher("Voucher Payee");
+
+    await expect(page.getByText("Paid to Test Payee")).toBeVisible({
+      timeout: 10_000,
+    });
+  });
+
+  test("requires the payee's name once the voucher is ticked", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
+
+    await reimbursements.navigateToNew();
+    await reimbursements.form.fillLineItem({
+      amount: "500",
+      description: "Daily-wage labour",
+      selectCategory: false,
+    });
+    await reimbursements.form.toggleCashVoucher(0);
+    await expect(reimbursements.form.getPayeeNameInput(0)).toBeVisible();
+    await reimbursements.form.submit();
+
+    await expect(page.getByText("Name who was paid")).toBeVisible();
+  });
+
+  test("an admin's edit of an approved request keeps its voucher", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
+    test.skip(
+      Boolean(process.env.CI),
+      "Generating a voucher and keeping it on edit need R2, which CI does not have"
+    );
+    test.slow();
+
+    await reimbursements.createReimbursement("Voucher Edit");
+    await reimbursements.approveInDatabase();
+    await reimbursements.detail.getGenerateVoucherButton().click();
+    await expect(
+      reimbursements.detail.getVoucherGeneratedIndicator()
+    ).toBeVisible({ timeout: 60_000 });
+
+    await reimbursements.detail.editSubmission();
+    const editedTitle = `E2E Voucher Edited ${Date.now()}`;
+    await reimbursements.form.getTitleInput().clear();
+    await reimbursements.form.fillTitle(editedTitle);
+    await reimbursements.form.submit();
+
+    await expect(page.getByRole("heading", { name: editedTitle })).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(
+      reimbursements.detail.getVoucherGeneratedIndicator()
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(reimbursements.detail.getGenerateVoucherButton()).toBeHidden();
+  });
+
   test("shows voucher column only for approved reimbursements", async ({
     page,
   }, testInfo) => {

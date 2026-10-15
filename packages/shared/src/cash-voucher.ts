@@ -88,3 +88,8 @@ export const PAYEE_PHONE_MESSAGE = "Enter an Indian mobile number";
 export function isIndianMobile(value: string): boolean {
   return INDIAN_MOBILE.test(value);
 }
+
+/** Longest payee name a voucher prints. */
+export const PAYEE_NAME_MAX = 120;
+
+export const PAYEE_NAME_REQUIRED_MESSAGE = "Name who was paid";
