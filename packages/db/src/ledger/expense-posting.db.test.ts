@@ -486,8 +486,9 @@ it.skipIf(!localDatabase)(
           approvalScreenshotKey: `approval-screenshots/reimbursements/${id}/approval-screenshots/added.png`,
         })
         .where(eq(reimbursement.id, id));
+      // The expense, the money out and the claim as payable (settle).
       expect(await run(tx, claimSource(id))).toMatchObject({
-        posted: 2,
+        posted: 3,
         status: "posted",
       });
       // On its approval day, out of the main bank account.
@@ -496,6 +497,7 @@ it.skipIf(!localDatabase)(
       ).toEqual([
         ["recognise", "2026-06-03"],
         ["cash", "2026-06-03"],
+        ["settle", "2026-06-03"],
       ]);
       expect(await balanceOf(tx, ids.bank)).toBe(-42_500);
       expect(await stateOf(tx, id)).toMatchObject({ status: "posted" });

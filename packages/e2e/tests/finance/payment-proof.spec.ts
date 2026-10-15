@@ -166,7 +166,8 @@ test.describe("Payment proof after approval", () => {
         },
         { timeout: 60_000 }
       )
-      .toEqual(["recognise", "cash"]);
+      // The expense, the money out and the claim as payable (settle).
+      .toEqual(["recognise", "cash", "settle"]);
 
     // Replacing keeps the old screenshot among the attachments.
     await page.goto(`/reimbursements/${fixture.noProofId}`);
