@@ -320,6 +320,16 @@ async function ensureIncomeFixtures(userId: string): Promise<void> {
       updatedAt: now,
     })
     .onConflictDoNothing();
+  // Razorpay gifts land in it (the contribution form fixes the account); the
+  // Razorpay spec chooses it again and puts the setting back afterwards.
+  await db
+    .insert(appConfig)
+    .values({
+      key: "razorpay_clearing_account_id",
+      updatedAt: now,
+      value: E2E_RAZORPAY_CLEARING_ID,
+    })
+    .onConflictDoNothing();
   await db
     .insert(contribution)
     .values({

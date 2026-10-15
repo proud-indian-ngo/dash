@@ -202,6 +202,54 @@ test.describe("Income: contributions (finance)", () => {
     await expect(await findRow(page, reference, "₹300.00")).toHaveCount(1);
   });
 
+  test("the channel decides the account and the reporting mode", async ({
+    page,
+  }) => {
+    const dialog = await openRecordDialog(page);
+    const mode = dialog.getByLabel("Reporting mode");
+    const account = dialog.getByRole("combobox", { name: "Deposited into" });
+
+    // UPI (the default): reported as electronic, into a bank account only.
+    await expect(mode).toContainText("Electronic or account-payee cheque");
+    await expect(mode).toBeDisabled();
+    await account.click();
+    await account.fill("E2E");
+    await expect(
+      page.getByRole("option").filter({ hasText: ACCOUNT }).first()
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.getByRole("option").filter({ hasText: "Clearing" })
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("option").filter({ hasText: "clearing" })
+    ).toHaveCount(0);
+    await page.getByRole("option").filter({ hasText: ACCOUNT }).first().click();
+    await expect(account).toHaveValue(ACCOUNT);
+
+    // Razorpay: the clearing account is filled in and fixed.
+    await dialog.getByLabel("Channel").click();
+    await page.getByRole("option", { exact: true, name: "Razorpay" }).click();
+    await expect(account).toHaveValue("E2E Razorpay Clearing", {
+      timeout: 10_000,
+    });
+    // The combobox marks itself disabled with data-disabled.
+    await expect(account).toHaveAttribute("data-disabled", "");
+    await expect(
+      dialog.getByText("Razorpay gifts land in the Razorpay clearing account.")
+    ).toBeVisible();
+    await expect(mode).toBeDisabled();
+
+    // Cheque: a bearer cheque may be reported as other; the clearing
+    // account does not fit, so it is cleared.
+    await dialog.getByLabel("Channel").click();
+    await page.getByRole("option", { exact: true, name: "Cheque" }).click();
+    await expect(mode).toBeEnabled();
+    await expect(account).not.toHaveAttribute("data-disabled");
+    await expect(account).not.toHaveValue("E2E Razorpay Clearing");
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden();
+  });
+
   test("counts the seed donor, who has no ID, under Missing donor details", async ({
     page,
   }) => {

@@ -12,6 +12,10 @@ import type {
   OtherIncomeKind,
 } from "./constants";
 import { directoryRoleValues, GIVE_INDIA_PARTY_ID } from "./constants";
+import {
+  CHANNEL_REPORTING_MODES,
+  reportingModeIssue,
+} from "./contribution-channel";
 import { sumPaise } from "./money";
 
 /**
@@ -103,17 +107,11 @@ export const OTHER_INCOME_KIND_LABELS: Record<OtherIncomeKind, string> = {
   misc: "Miscellaneous",
 };
 
-/** The reporting mode a channel implies; the person recording it may change it. */
+/** The reporting mode a channel implies; only a cheque may be reported otherwise. */
 export function defaultReportingMode(
   channel: ContributionChannel
 ): ContributionReportingMode {
-  if (channel === "cash") {
-    return "cash";
-  }
-  if (channel === "in_kind") {
-    return "in_kind";
-  }
-  return "electronic_or_account_payee";
+  return CHANNEL_REPORTING_MODES[channel][0] ?? "electronic_or_account_payee";
 }
 
 /** A contribution can be edited or deleted only before it is receipted or reversed. */
@@ -274,10 +272,12 @@ export interface RuleIssue {
 const blank = (value: string | null | undefined) => !value?.trim();
 
 /**
- * Cross-field rules: "other" needs a description, cash and in-kind channels
- * fix the reporting mode, in-kind needs what was given and how it was valued
- * and has no account, everything else needs the account it was deposited
- * into, and excluding a gift from the donations return needs a reason.
+ * Cross-field rules: "other" needs a description, the channel limits the
+ * reporting mode (`CHANNEL_REPORTING_MODES`), in-kind needs what was given
+ * and how it was valued and has no account, everything else needs the
+ * account it was deposited into, and excluding a gift from the donations
+ * return needs a reason. Which account fits the channel needs the accounts,
+ * so `channelAccountIssue` checks that separately.
  */
 export function contributionRuleIssues(v: ContributionRuleInput): RuleIssue[] {
   const issues: RuleIssue[] = [];
@@ -293,19 +293,11 @@ export function contributionRuleIssues(v: ContributionRuleInput): RuleIssue[] {
       path: "donationTypeDescription",
     });
   }
-  // A cash or in-kind channel fixes the mode, so the donations return can
-  // never report such a gift under another mode.
-  if (v.channel === "cash" && v.reportingMode !== "cash") {
-    issues.push({
-      message: "A cash gift is reported as cash",
-      path: "reportingMode",
-    });
-  }
-  if (v.channel === "in_kind" && v.reportingMode !== "in_kind") {
-    issues.push({
-      message: "An in-kind gift is reported as in kind",
-      path: "reportingMode",
-    });
+  // The channel decides the mode, so the donations return can never report
+  // a gift under a mode its channel rules out.
+  const modeIssue = reportingModeIssue(v.channel, v.reportingMode);
+  if (modeIssue) {
+    issues.push({ message: modeIssue, path: "reportingMode" });
   }
   if (v.deductionEligible === "no" && blank(v.eligibilityReason)) {
     issues.push({

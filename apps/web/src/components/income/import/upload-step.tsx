@@ -3,6 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { GENERAL_FUND_ID, PROGRAMME_IDS } from "@pi-dash/shared/constants";
+import { defaultGiveDoAccount } from "@pi-dash/shared/contribution-channel";
 import { CONTRIBUTION_CHANNEL_LABELS } from "@pi-dash/shared/income";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
@@ -25,7 +26,6 @@ import { useApp } from "@/context/app-context";
 import { createContributionImport } from "@/functions/income-import";
 import {
   AVAILABLE_IMPORT_SOURCES,
-  defaultGiveDoAccount,
   GIVE_DO_HEADERS,
   IMPORT_CHANNEL_VALUES,
   IMPORT_SOURCE_LABELS,

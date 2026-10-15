@@ -247,6 +247,8 @@ describe("contributionRuleIssues", () => {
     expect(
       contributionRuleIssues({
         ...base,
+        // Only a cheque may be reported as other (a bearer cheque).
+        channel: "cheque",
         donationType: "other",
         donationTypeDescription: "  ",
         reportingMode: "other",
@@ -255,10 +257,11 @@ describe("contributionRuleIssues", () => {
     expect(
       contributionRuleIssues({
         ...base,
+        channel: "cheque",
         donationType: "other",
         donationTypeDescription: "Event sponsorship",
         reportingMode: "other",
-        reportingModeDescription: "Demand draft",
+        reportingModeDescription: "Bearer cheque",
       })
     ).toEqual([]);
   });

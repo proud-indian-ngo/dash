@@ -1,6 +1,7 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import { GENERAL_FUND_ID } from "@pi-dash/shared/constants";
+import { defaultGiveDoAccount } from "@pi-dash/shared/contribution-channel";
 import { todayInKolkata } from "@pi-dash/shared/income";
 import { formatPaise } from "@pi-dash/shared/money";
 import { queries } from "@pi-dash/zero/queries";
@@ -27,10 +28,7 @@ import {
 } from "@/functions/give-do-payouts";
 import type { PayoutReview, PayoutRunResult } from "@/lib/give-do-payout/types";
 import type { RowDecision } from "@/lib/income-import/classify";
-import {
-  defaultGiveDoAccount,
-  MAX_IMPORT_FILE_BYTES,
-} from "@/lib/income-import/fields";
+import { MAX_IMPORT_FILE_BYTES } from "@/lib/income-import/fields";
 
 const uploadSchema = z.object({
   file: z

@@ -768,7 +768,8 @@ const CONTRIBUTIONS = [
     amountPaise: 200_000,
     channel: "cash" as const,
     id: "01930000-0000-7000-8000-000000000613",
-    orgAccountId: ORG_ACCOUNTS[2]?.id,
+    // Petty cash: a cash gift goes into a bank or cash account.
+    orgAccountId: ORG_ACCOUNTS[3]?.id,
     programmeId: PROGRAMME_IDS.communitySupport,
     receivedOn: "2025-12-20",
     reference: null,

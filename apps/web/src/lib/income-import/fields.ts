@@ -209,17 +209,6 @@ export function sourceRules(source: ImportBatchSource): SourceRules {
   };
 }
 
-const GIVE_DO_ACCOUNT_NAME = /give/i;
-
-/** The active give.do clearing account to default a give.do upload to, if there is one. */
-export function defaultGiveDoAccount<T extends { kind: string; name: string }>(
-  accounts: readonly T[]
-): T | undefined {
-  return accounts.find(
-    (a) => a.kind === "gateway_clearing" && GIVE_DO_ACCOUNT_NAME.test(a.name)
-  );
-}
-
 /**
  * Expected columns the file lacks, and columns the source does not have,
  * compared as `headerKey` does, so "DONOR PAN" is the Donor PAN column.
