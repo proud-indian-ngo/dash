@@ -2,7 +2,7 @@ import {
   CORPUS_FUND_ID,
   LEDGER_ACCOUNT_HEAD_IDS,
 } from "@pi-dash/shared/constants";
-import { and, eq, inArray, isNull, like, or } from "drizzle-orm";
+import { and, eq, inArray, like } from "drizzle-orm";
 
 import { db } from "..";
 import { accountHead, fund } from "../schema/finance-dimensions";
@@ -167,11 +167,14 @@ function reportClash(kind: string, code: string, error: unknown) {
 /**
  * The Corpus donations head (#265) and the Expenses parent (#266) once
  * shared one ID, so whichever was created first took it: the other was
- * skipped and the expense category heads were put under that row. This
- * gives the shared row back to Corpus donations (when it holds no entries;
- * expense lines post to the category heads, never to their parent) and
- * moves the category heads under the Expenses row, which the reference data
- * then creates. Idempotent: nothing changes once repaired.
+ * skipped and the expense category heads were put under that row. When the
+ * Expenses parent holds the row (code EXPENSES or type expense), this gives
+ * it back to Corpus donations (code, name, type, description, no parent;
+ * only when it holds no entries: expense lines post to the category heads,
+ * never to their parent); a renamed Corpus donations head is left alone.
+ * It then moves the `EXPENSE_*` heads still under that row to the Expenses
+ * row, once the reference data has created it. Idempotent: nothing changes
+ * once repaired.
  */
 export async function repairExpensesParent(tx: LedgerTx): Promise<void> {
   const corpusDefinition = LEDGER_REFERENCE_HEADS.find(
@@ -182,12 +185,12 @@ export async function repairExpensesParent(tx: LedgerTx): Promise<void> {
     .from(accountHead)
     .where(eq(accountHead.id, LEDGER_ACCOUNT_HEAD_IDS.corpusDonations))
     .limit(1);
+  // Only the clash itself: the Expenses parent took the row. A Corpus
+  // donations head the CA renamed is theirs to keep.
   if (
     corpusDefinition &&
     shared &&
-    (shared.code !== corpusDefinition.code ||
-      shared.name !== corpusDefinition.name ||
-      shared.type !== corpusDefinition.type)
+    (shared.code === "EXPENSES" || shared.type === "expense")
   ) {
     const [entry] = await tx
       .select({ id: ledgerEntry.id })
@@ -199,10 +202,16 @@ export async function repairExpensesParent(tx: LedgerTx): Promise<void> {
         `[books] The Corpus donations head's row holds "${shared.code}" with entries; not changed. Ask the CA before fixing it by hand.\n`
       );
     } else {
-      const { id: _id, ...fields } = corpusDefinition;
       await tx
         .update(accountHead)
-        .set({ ...fields, parentId: null, updatedAt: now() })
+        .set({
+          code: corpusDefinition.code,
+          description: corpusDefinition.description,
+          name: corpusDefinition.name,
+          parentId: null,
+          type: corpusDefinition.type,
+          updatedAt: now(),
+        })
         .where(eq(accountHead.id, shared.id));
     }
   }
@@ -221,10 +230,7 @@ export async function repairExpensesParent(tx: LedgerTx): Promise<void> {
       and(
         eq(accountHead.type, "expense"),
         like(accountHead.code, "EXPENSE\\_%"),
-        or(
-          isNull(accountHead.parentId),
-          eq(accountHead.parentId, LEDGER_ACCOUNT_HEAD_IDS.corpusDonations)
-        )
+        eq(accountHead.parentId, LEDGER_ACCOUNT_HEAD_IDS.corpusDonations)
       )
     );
 }

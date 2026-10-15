@@ -77,7 +77,8 @@ import { uuidv7 } from "uuidv7";
  *   it), an expense category of this run, a reimbursement of 300 + 125
  *   charged to Education and approved on 20 Jun 2026 with its payment
  *   screenshot (approving in the app needs R2, which CI lacks), one
- *   approved the same day without a screenshot (it waits), and a vendor
+ *   approved the same day without a screenshot (it waits), one approved on
+ *   20 Mar 2026 without a screenshot (before the cutover), and a vendor
  *   payment of 2,500 to a vendor of this run, paid on 10 Jul 2026, with its
  *   invoice submitted and waiting for approval.
  * - `edit-claim <id>`: raises the reimbursement's first line to 350.
@@ -396,7 +397,11 @@ async function expenseFixture(run: string) {
     updatedAt: now,
   });
   const approvedAt = new Date("2026-06-20T05:00:00Z");
-  const claim = async (title: string, withProof: boolean) => {
+  const claim = async (
+    title: string,
+    withProof: boolean,
+    reviewedAt: Date = approvedAt
+  ) => {
     const id = uuidv7();
     await db.insert(reimbursement).values({
       approvalScreenshotKey: withProof
@@ -407,7 +412,7 @@ async function expenseFixture(run: string) {
       createdAt: now,
       expenseDate: "2026-06-18",
       id,
-      reviewedAt: approvedAt,
+      reviewedAt,
       reviewedBy: userId,
       status: "approved",
       title,
@@ -431,6 +436,13 @@ async function expenseFixture(run: string) {
   const claimTitle = `E2E books claim ${run}`;
   const claimId = await claim(claimTitle, true);
   const noProofId = await claim(`E2E books claim without proof ${run}`, false);
+  // Approved before the cutover: history, never on the missing-proof list.
+  const earlyNoProofTitle = `E2E books early claim without proof ${run}`;
+  const earlyNoProofId = await claim(
+    earlyNoProofTitle,
+    false,
+    new Date("2026-03-20T05:00:00Z")
+  );
 
   const vendorId = uuidv7();
   await db.insert(party).values({
@@ -492,6 +504,8 @@ async function expenseFixture(run: string) {
     categoryName,
     claimId,
     claimTitle,
+    earlyNoProofId,
+    earlyNoProofTitle,
     noProofId,
     paymentId,
     vendorPaymentId,

@@ -424,6 +424,10 @@ The new permission `donors.receipt` goes to every finance admin and super admin 
 2. Checks the 80G registration (URN and date) under Donations return in the same page.
 3. Has the CA confirm the receipt wording marked CA TO CONFIRM in `packages/shared/src/receipts.ts` before the first receipt is sent.
 
+### Expenses head repair and payment proof
+
+No migration, environment variable, service or queue. On start the web server gives the Expenses parent head its own ID and moves the expense category heads (`EXPENSE_*`) out from under Corpus donations, where a clash of IDs had put them. During a rolling deploy an instance still on the old build may create one more category head under Corpus donations; the next restart moves it. After the deploy, a finance admin clears the Reimbursements filter "Missing payment proof" by adding each claim's payment screenshot (or voiding a claim that was never paid), then chooses Post pending on Books.
+
 ### CA handoff workbook (books layer 3-5)
 
 Nothing to configure: no migration, environment variable, service or queue. The web app gains the server-only `write-excel-file` dependency, installed by the existing `bun install` layer. After the deploy a finance admin can download the workbook from Finance → Books → ⋯ → Download CA workbook (XLSX) once the opening balances are posted.

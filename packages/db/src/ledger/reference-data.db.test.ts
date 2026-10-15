@@ -1,14 +1,18 @@
-import { LEDGER_ACCOUNT_HEAD_IDS } from "@pi-dash/shared/constants";
+import {
+  CORPUS_FUND_ID,
+  FISCAL_YEAR_IDS,
+  LEDGER_ACCOUNT_HEAD_IDS,
+} from "@pi-dash/shared/constants";
 import { SQL } from "bun";
 import { eq, like, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sql";
 import { uuidv7 } from "uuidv7";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 
 // biome-ignore lint/performance/noNamespaceImport: the test database needs the full Drizzle schema.
 import * as schema from "../schema";
-import { accountHead } from "../schema/finance-dimensions";
-import { ledgerEntry } from "../schema/ledger";
+import { accountHead, fiscalPeriod } from "../schema/finance-dimensions";
+import { ledgerEntry, posting } from "../schema/ledger";
 import type { LedgerTx } from "./engine";
 import { LEDGER_REFERENCE_HEADS, repairExpensesParent } from "./reference-data";
 
@@ -164,12 +168,92 @@ it.skipIf(!localDatabase)(
         .where(eq(accountHead.id, CORPUS));
 
       await repairExpensesParent(tx);
-      const { id: _id, ...corpus } = definition(CORPUS);
-      expect(await headOf(tx, CORPUS)).toMatchObject(corpus);
+      const corpus = definition(CORPUS);
+      // Only what the clash took: code, name, type, description and parent.
+      expect(await headOf(tx, CORPUS)).toMatchObject({
+        code: corpus.code,
+        description: corpus.description,
+        name: corpus.name,
+        parentId: null,
+        type: corpus.type,
+      });
 
       await insertExpensesHead(tx);
       await repairExpensesParent(tx);
       expect((await headOf(tx, categoryHead))?.parentId).toBe(EXPENSES);
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "leaves a Corpus donations head the CA renamed alone",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      await tx
+        .update(accountHead)
+        .set({ name: "Corpus contributions", tallyLedgerName: "Corpus A/c" })
+        .where(eq(accountHead.id, CORPUS));
+      const before = await headOf(tx, CORPUS);
+      await repairExpensesParent(tx);
+      expect(await headOf(tx, CORPUS)).toEqual(before);
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "refuses to rewrite the shared row once it holds entries, and says so",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const categoryHead = await brokenState(tx);
+      await tx
+        .update(accountHead)
+        .set({ code: "EXPENSES", name: "Expenses", type: "expense" })
+        .where(eq(accountHead.id, CORPUS));
+      const [period] = await tx
+        .select({ id: fiscalPeriod.id })
+        .from(fiscalPeriod)
+        .where(eq(fiscalPeriod.fiscalYearId, FISCAL_YEAR_IDS["2026-27"]))
+        .limit(1);
+      if (!period) {
+        throw new Error("No fiscal period for 2026-27");
+      }
+      const postingId = uuidv7();
+      await tx.insert(posting).values({
+        action: "recognise",
+        createdAt: new Date(),
+        economicOn: "2026-06-03",
+        fiscalYearId: FISCAL_YEAR_IDS["2026-27"],
+        id: postingId,
+        postedOn: "2026-06-03",
+        sourceId: uuidv7(),
+        sourceType: "repair_test",
+      });
+      await tx.insert(ledgerEntry).values({
+        accountHeadId: CORPUS,
+        amountPaise: 100,
+        economicOn: "2026-06-03",
+        effect: "increase",
+        fiscalPeriodId: period.id,
+        fundId: CORPUS_FUND_ID,
+        id: uuidv7(),
+        postedOn: "2026-06-03",
+        postingId,
+      });
+      const before = await headOf(tx, CORPUS);
+      const log = vi
+        .spyOn(process.stderr, "write")
+        .mockImplementation(() => true);
+      try {
+        await repairExpensesParent(tx);
+        expect(log).toHaveBeenCalledWith(
+          expect.stringContaining("with entries; not changed")
+        );
+      } finally {
+        log.mockRestore();
+      }
+      expect(await headOf(tx, CORPUS)).toEqual(before);
+      // Without its own Expenses row yet, the category head stays put.
+      expect((await headOf(tx, categoryHead))?.parentId).toBe(CORPUS);
     });
   }
 );

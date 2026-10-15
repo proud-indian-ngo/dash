@@ -189,7 +189,7 @@ export const LEDGER_WAIT_REASON_LABELS: Record<LedgerWaitReason, string> = {
     "Pick the bank account: match the payout's bank statement line",
   no_payment_proof: "No payment screenshot: add the payment proof on the claim",
   no_approval_day:
-    "The approval date isn't recorded: the founder gives the payment date",
+    "The approval date isn't recorded; ask an administrator to fix the claim",
   paid_across_cutover:
     "Paid partly before 1 Apr 2026: ask the CA how its invoice posts",
   pick_other_account: "Pick the other account of the transfer",

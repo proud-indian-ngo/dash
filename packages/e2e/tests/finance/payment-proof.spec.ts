@@ -93,6 +93,11 @@ test.describe("Payment proof after approval", () => {
     await expect(
       page.getByRole("row").filter({ hasText: fixture.claimTitle })
     ).toHaveCount(0);
+    // Approved before 1 Apr 2026: the books never post it, so it isn't listed.
+    await search.fill(fixture.earlyNoProofTitle);
+    await expect(
+      page.getByRole("row").filter({ hasText: fixture.earlyNoProofTitle })
+    ).toHaveCount(0);
     // The count button applies the same filter.
     await page.goto("/reimbursements");
     await waitForZeroReady(page);

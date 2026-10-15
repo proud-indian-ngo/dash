@@ -44,8 +44,15 @@ checks the stored object's type and size against the approval-screenshot
 limits; a temporary key that no longer exists is refused even when its durable
 target does. Rejecting keeps the stored screenshot, since it is evidence that
 money was paid, and a later re-approval can reuse it; the approve dialog then
-shows it as already attached with an optional Replace. Resetting to pending
-clears the stored screenshot and queues the file for deletion. Editing does not
+shows it as already attached with an optional Replace. For reimbursements the
+screenshot is never deleted while the claim exists: a replacement at
+re-approval keeps the old file as a plain attachment
+("payment-proof-replaced.<ext>"), and resetting to pending clears the field but
+keeps the file the same way ("payment-proof-previous.<ext>"); such kept files
+stay under the approval-screenshots prefix, which the reimbursement's edit and
+delete paths own, so removing one in the edit form queues its deletion
+(if-unreferenced) and orphan cleanup never sweeps a referenced key. Advance
+payments still delete a replaced or reset screenshot. Editing does not
 need a screenshot, and requests approved before the rule keep their missing
 screenshot until an approver adds it: `reimbursement.addPaymentProof` claims a
 new upload from the same temporary folder into the same durable place and

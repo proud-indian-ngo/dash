@@ -11,6 +11,7 @@ import {
 } from "@pi-dash/shared/cash-voucher";
 import { cityValues } from "@pi-dash/shared/constants";
 import { defineMutator, type Transaction } from "@rocicorp/zero";
+import { uuidv7 } from "uuidv7";
 import z from "zod";
 
 import type { Context } from "../context";
@@ -149,7 +150,7 @@ export const addPaymentProofSchema = z.object({
   id: z.string(),
   /** When replacing: the attachment that keeps the old screenshot. */
   keptAttachmentId: z.string().optional(),
-  /** Whether the client saw a screenshot, so two uploads never race. */
+  /** Whether the client saw a screenshot, so two adds never race. */
   replacing: z.boolean(),
 });
 
@@ -166,14 +167,34 @@ const extensionOf = (key: string) => {
   return dot > 0 ? name.slice(dot + 1).toLowerCase() : "";
 };
 
-/** The kept file's name: "payment-proof-replaced.png". */
-const replacedProofFilename = (key: string) => {
-  const ext = extensionOf(key);
-  return ext ? `payment-proof-replaced.${ext}` : "payment-proof-replaced";
-};
-
 const imageMimeTypeOf = (key: string) =>
   IMAGE_MIME_TYPES[extensionOf(key)] ?? null;
+
+/**
+ * Payment proof is evidence and is never deleted: a screenshot that stops
+ * being the claim's proof (replaced, or cleared by a reset to pending)
+ * stays as a plain attachment, "payment-proof-replaced.png" or
+ * "payment-proof-previous.png".
+ */
+function keepProofAsAttachment(
+  tx: Transaction<Schema>,
+  reimbursementId: string,
+  objectKey: string,
+  { id, kind, now }: { id: string; kind: "previous" | "replaced"; now: number }
+) {
+  const ext = extensionOf(objectKey);
+  const name = `payment-proof-${kind}`;
+  return tx.mutate.reimbursementAttachment.insert({
+    createdAt: now,
+    filename: ext ? `${name}.${ext}` : name,
+    id,
+    mimeType: imageMimeTypeOf(objectKey),
+    objectKey,
+    reimbursementId,
+    type: "file",
+    url: null,
+  });
+}
 
 const fk = (id: string) => ({ reimbursementId: id });
 
@@ -276,16 +297,17 @@ export const reimbursementMutators = {
         })
       );
 
+      // A re-approval with a new screenshot keeps the old one as evidence.
+      // The server alone writes it, under an ID of its own.
       if (
+        tx.location === "server" &&
         entity.approvalScreenshotKey &&
         entity.approvalScreenshotKey !== approvalScreenshotKey
       ) {
-        enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
-          keyPrefixes: reimbursementApprovalKeyPrefixes(args.id),
-          meta: {
-            mutator: "reimbursement.approve:replaceApprovalScreenshot",
-            reimbursementId: args.id,
-          },
+        await keepProofAsAttachment(tx, args.id, entity.approvalScreenshotKey, {
+          id: uuidv7(),
+          kind: "replaced",
+          now,
         });
       }
 
@@ -399,15 +421,10 @@ export const reimbursementMutators = {
       );
 
       if (previousKey && args.keptAttachmentId) {
-        await tx.mutate.reimbursementAttachment.insert({
-          createdAt: now,
-          filename: replacedProofFilename(previousKey),
+        await keepProofAsAttachment(tx, args.id, previousKey, {
           id: args.keptAttachmentId,
-          mimeType: imageMimeTypeOf(previousKey),
-          objectKey: previousKey,
-          reimbursementId: args.id,
-          type: "file",
-          url: null,
+          kind: "replaced",
+          now,
         });
       }
       await tx.mutate.reimbursement.update({
@@ -931,13 +948,14 @@ export const reimbursementMutators = {
       }
 
       const now = Date.now();
-      enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
-        keyPrefixes: reimbursementApprovalKeyPrefixes(args.id),
-        meta: {
-          mutator: "reimbursement.resetToPending",
-          reimbursementId: args.id,
-        },
-      });
+      // The payment screenshot stays with the claim as evidence.
+      if (tx.location === "server" && entity.approvalScreenshotKey) {
+        await keepProofAsAttachment(tx, args.id, entity.approvalScreenshotKey, {
+          id: uuidv7(),
+          kind: "previous",
+          now,
+        });
+      }
 
       await tx.mutate.reimbursement.update({
         approvalScreenshotKey: null,
@@ -1077,7 +1095,11 @@ export const reimbursementMutators = {
         ),
         onDeleteAttachmentObjectKey: (key) =>
           enqueueDeleteR2Object(ctx, tx.location, key, {
-            keyPrefixes: reimbursementAttachmentKeyPrefixes(args.id),
+            // Kept payment proof sits under the approval screenshots.
+            keyPrefixes: [
+              ...reimbursementAttachmentKeyPrefixes(args.id),
+              ...reimbursementApprovalKeyPrefixes(args.id),
+            ],
             meta: {
               mutator: "reimbursement.update",
               reimbursementId: args.id,

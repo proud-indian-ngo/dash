@@ -2,6 +2,8 @@ import {
   createFilterQuery,
   createFilterRule,
 } from "@pi-dash/design-system/components/reui/filters/filters-query";
+import { todayInKolkata } from "@pi-dash/shared/income";
+import { LEDGER_CUTOVER_ON } from "@pi-dash/shared/ledger";
 
 /**
  * The "Missing payment proof" filter on Reimbursements: approved
@@ -18,17 +20,24 @@ export const MISSING_PROOF_FILTER = {
 
 interface ProofFacts {
   approvalScreenshotKey?: null | string;
+  reviewedAt?: null | number;
   status: null | string;
   type: string;
   voidedAt?: null | number;
 }
+
+/** Approved before the cutover: the books never post it. */
+const approvedBeforeCutover = (reviewedAt: null | number | undefined) =>
+  reviewedAt != null &&
+  todayInKolkata(new Date(reviewedAt)) < LEDGER_CUTOVER_ON;
 
 export function isMissingPaymentProof(row: ProofFacts): boolean {
   return (
     row.type === "reimbursement" &&
     row.status === "approved" &&
     !row.voidedAt &&
-    !row.approvalScreenshotKey
+    !row.approvalScreenshotKey &&
+    !approvedBeforeCutover(row.reviewedAt)
   );
 }
 

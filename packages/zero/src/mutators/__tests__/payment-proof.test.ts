@@ -23,9 +23,11 @@ function createDb(
   seed: Partial<Record<string, Row[]>> = {}
 ) {
   const tables: Record<string, Row[]> = {
+    appConfig: [],
     reimbursement: [],
     reimbursementAttachment: [],
     reimbursementHistory: [],
+    reimbursementLineItem: [],
     ...seed,
   };
   const inserts: { row: Row; table: string }[] = [];
@@ -252,5 +254,107 @@ describe("reimbursement.addPaymentProof", () => {
         replacing: true,
       })
     ).rejects.toThrow("The payment proof changed meanwhile");
+  });
+});
+
+/** The R2 deletions the mutation's after-commit tasks queue. */
+async function deletedKeys(ctx: Context) {
+  await Promise.all(ctx.asyncTasks?.map((t) => t.fn()) ?? []);
+  return (ctx.enqueue as ReturnType<typeof mock>).mock.calls
+    .filter(([name]) => name === "delete-r2-object")
+    .map(([, payload]) => (payload as { r2Key: string }).r2Key);
+}
+
+const keptAttachment = (db: ReturnType<typeof createDb>) =>
+  db.inserts.find((i) => i.table === "reimbursementAttachment")?.row;
+
+describe("payment proof is kept as evidence", () => {
+  it("keeps the old screenshot when a re-approval brings a new one", async () => {
+    const ctx = serverContext([
+      "requests.approve",
+      "requests.edit_all_statuses",
+    ]);
+    const db = createDb("server", {
+      reimbursement: [
+        claim({ approvalScreenshotKey: OLD_KEY, status: "rejected" }),
+      ],
+    });
+    await reimbursementMutators.approve.fn({
+      args: { approvalScreenshotKey: UPLOAD_KEY, id: "request-1" },
+      ctx,
+      tx: db.tx,
+    } as never);
+    expect(keptAttachment(db)).toMatchObject({
+      filename: "payment-proof-replaced.png",
+      objectKey: OLD_KEY,
+      reimbursementId: "request-1",
+      type: "file",
+    });
+    expect(await deletedKeys(ctx)).not.toContain(OLD_KEY);
+  });
+
+  it("keeps nothing extra when the re-approval reuses the screenshot", async () => {
+    const db = createDb("server", {
+      reimbursement: [
+        claim({ approvalScreenshotKey: OLD_KEY, status: "rejected" }),
+      ],
+    });
+    await reimbursementMutators.approve.fn({
+      args: { id: "request-1" },
+      ctx: serverContext(["requests.approve", "requests.edit_all_statuses"]),
+      tx: db.tx,
+    } as never);
+    expect(keptAttachment(db)).toBeUndefined();
+  });
+
+  it("keeps the screenshot as an attachment on a reset to pending", async () => {
+    const ctx = serverContext(["requests.edit_all_statuses"]);
+    const db = createDb("server", {
+      reimbursement: [claim({ approvalScreenshotKey: OLD_KEY })],
+    });
+    await reimbursementMutators.resetToPending.fn({
+      args: { id: "request-1" },
+      ctx,
+      tx: db.tx,
+    } as never);
+    expect(keptAttachment(db)).toMatchObject({
+      filename: "payment-proof-previous.png",
+      mimeType: "image/png",
+      objectKey: OLD_KEY,
+    });
+    expect(
+      db.updates.find((u) => u.table === "reimbursement")?.row
+        .approvalScreenshotKey
+    ).toBeNull();
+    expect(await deletedKeys(ctx)).toEqual([]);
+  });
+
+  it("deletes a kept screenshot the editor removes, once nothing refers to it", async () => {
+    const ctx = serverContext(["requests.edit_all_statuses"]);
+    const db = createDb("server", {
+      reimbursement: [claim({ chargedTo: "organisation", expenseDate: 1 })],
+      reimbursementAttachment: [
+        {
+          filename: "payment-proof-replaced.png",
+          id: "att-kept",
+          objectKey: OLD_KEY,
+          reimbursementId: "request-1",
+          type: "file",
+        },
+      ],
+    });
+    await reimbursementMutators.update.fn({
+      args: {
+        attachments: [],
+        chargedTo: "organisation",
+        expenseDate: 1,
+        id: "request-1",
+        lineItems: [],
+        title: "Class outing",
+      },
+      ctx,
+      tx: db.tx,
+    } as never);
+    expect(await deletedKeys(ctx)).toContain(OLD_KEY);
   });
 });

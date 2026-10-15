@@ -442,10 +442,8 @@ export function ReimbursementDetail({
               </div>
             </RecordSection>
           ) : null}
-          {request.type === "reimbursement" &&
-          request.status === "approved" &&
-          !voided &&
-          !approvalScreenshot ? (
+          {/* Only for those who can add it: the claimant needn't see it. */}
+          {showPaymentProof && !approvalScreenshot ? (
             <RecordSection title="Payment proof">
               <div
                 className="flex flex-wrap items-center gap-3 rounded-lg border border-dashed p-3"
@@ -455,21 +453,19 @@ export function ReimbursementDetail({
                   No payment screenshot. The books post this claim once it has
                   one.
                 </span>
-                {showPaymentProof ? (
-                  <Button
-                    onClick={handleOpenPaymentProof}
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    <HugeiconsIcon
-                      className="size-4"
-                      icon={ImageUploadIcon}
-                      strokeWidth={2}
-                    />
-                    Add payment proof
-                  </Button>
-                ) : null}
+                <Button
+                  onClick={handleOpenPaymentProof}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={ImageUploadIcon}
+                    strokeWidth={2}
+                  />
+                  Add payment proof
+                </Button>
               </div>
             </RecordSection>
           ) : null}

@@ -59,8 +59,15 @@ describe("getReimbursementFilterValue", () => {
 
   it("finds approved claims missing payment proof, as the button counts them", () => {
     const missing = row({ approvalScreenshotKey: null, status: "approved" });
+    // 1 Apr 2026, 00:30 in India: from the cutover.
+    const atCutover = row({
+      approvalScreenshotKey: null,
+      reviewedAt: Date.parse("2026-03-31T19:00:00Z"),
+      status: "approved",
+    });
     const rows = [
       missing,
+      atCutover,
       row({ approvalScreenshotKey: "proof.png", status: "approved" }),
       row({ approvalScreenshotKey: null, status: "pending" }),
       row({ approvalScreenshotKey: null, status: "rejected" }),
@@ -68,6 +75,13 @@ describe("getReimbursementFilterValue", () => {
         approvalScreenshotKey: null,
         status: "approved",
         voidedAt: 1_760_000_000_000,
+      }),
+      // Approved before 1 Apr 2026 in India (31 Mar, 23:00 IST): the books
+      // never post it.
+      row({
+        approvalScreenshotKey: null,
+        reviewedAt: Date.parse("2026-03-31T17:30:00Z"),
+        status: "approved",
       }),
       // Advances don't post to the books.
       row({
@@ -81,7 +95,7 @@ describe("getReimbursementFilterValue", () => {
         getReimbursementFilterValue(r, [MISSING_PROOF_FILTER.path]) ===
         MISSING_PROOF_FILTER.value
     );
-    expect(matching).toEqual([missing]);
+    expect(matching).toEqual([missing, atCutover]);
     expect(rows.filter(isMissingPaymentProof)).toEqual(matching);
   });
 });
