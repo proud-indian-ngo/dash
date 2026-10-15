@@ -51,6 +51,11 @@ interface StandardReimbursementFieldsProps {
   isEdit: boolean;
   onBankAccountSelected: (account: BankAccount) => void;
   onCancel: () => void;
+  /**
+   * The claimant's name for the "paid to the claimant" box when they aren't
+   * the person filling in the form; omitted, the box reads "Paid to me".
+   */
+  payeeClaimantName?: string;
   requestType: RequestType;
 }
 
@@ -176,6 +181,7 @@ export function StandardReimbursementFields({
   onBankAccountSelected,
   isEdit,
   onCancel,
+  payeeClaimantName,
   requestType,
 }: StandardReimbursementFieldsProps) {
   const resolvedForm = useResolvedForm(
@@ -285,6 +291,7 @@ export function StandardReimbursementFields({
 
       <LineItemsEditor
         categories={categoryList}
+        claimantName={payeeClaimantName}
         showVoucher={requestType === "reimbursement"}
       />
 

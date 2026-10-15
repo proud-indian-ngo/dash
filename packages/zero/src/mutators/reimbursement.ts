@@ -65,6 +65,12 @@ const reimbursementApprovalKeyPrefixes = (id: string) => [
 
 /** A reimbursement line item: the shared fields plus the voucher payee. */
 const reimbursementLineItemSchema = lineItemSchema.extend({
+  /**
+   * The claimant was paid: the name and mobile are stored empty and the
+   * voucher prints the claimant. Without it a voucher item must name its
+   * payee.
+   */
+  payeeIsClaimant: z.boolean().optional().default(false),
   // Stored in NFC, so the same name always compares and prints the same.
   payeeName: z
     .string()

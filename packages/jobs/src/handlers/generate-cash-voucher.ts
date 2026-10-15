@@ -20,7 +20,11 @@ import { uuidv7 } from "uuidv7";
 import type { GenerateCashVoucherPayload } from "../enqueue";
 import { createNotifyHandler } from "./create-handler";
 import { getR2Client } from "./r2";
-import { type RenderedFrom, stillAsRendered } from "./voucher-render-check";
+import {
+  type RenderedFrom,
+  stillAsRendered,
+  voucherPayee,
+} from "./voucher-render-check";
 
 /**
  * Atomically insert the new attachment, point the line item FK at it, and
@@ -144,7 +148,7 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
   }
 
   const [submitter] = await db
-    .select({ name: user.name })
+    .select({ name: user.name, phone: user.phone })
     .from(user)
     .where(eq(user.id, reimb.userId));
 
@@ -180,9 +184,7 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
     orgPhone: env.VOUCHER_ORG_PHONE,
     orgRegistration: env.VOUCHER_ORG_REGISTRATION,
     claimedBy: submitter?.name ?? "Unknown",
-    // Vouchers from before the payee fields name the claimant, as they did.
-    paidTo: lineItem.payeeName?.trim() || submitter?.name || "Unknown",
-    payeePhone: lineItem.payeePhone,
+    ...voucherPayee(lineItem, submitter),
     voucherNumber,
   });
 

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { type RenderedFrom, stillAsRendered } from "./voucher-render-check";
+import {
+  type RenderedFrom,
+  stillAsRendered,
+  voucherPayee,
+} from "./voucher-render-check";
 
 const rendered: RenderedFrom = {
   amountPaise: 80_000,
@@ -43,5 +47,45 @@ describe("stillAsRendered", () => {
     expect(
       stillAsRendered(item, { ...request, claimantId: "claimant-2" }, rendered)
     ).toBe(false);
+  });
+});
+
+describe("voucherPayee", () => {
+  const claimant = { name: "Asha Rao", phone: "+919000000001" };
+
+  it("prints a named payee with their own mobile", () => {
+    expect(
+      voucherPayee({ payeeName: " Ravi ", payeePhone: null }, claimant)
+    ).toEqual({ paidTo: "Ravi", payeePhone: null });
+  });
+
+  it("prints the claimant and their mobile when no payee is stored", () => {
+    expect(
+      voucherPayee({ payeeName: null, payeePhone: null }, claimant)
+    ).toEqual({ paidTo: "Asha Rao", payeePhone: "+919000000001" });
+  });
+
+  it("prints a claimant name outside the English-letters rule", () => {
+    expect(
+      voucherPayee(
+        { payeeName: null, payeePhone: null },
+        { name: "आशा राव", phone: null }
+      )
+    ).toEqual({ paidTo: "आशा राव", payeePhone: null });
+  });
+
+  it("leaves out a claimant mobile that isn't an Indian mobile", () => {
+    expect(
+      voucherPayee(
+        { payeeName: null, payeePhone: null },
+        { name: "Asha Rao", phone: "+14155550123" }
+      ).payeePhone
+    ).toBeNull();
+  });
+
+  it("falls back to Unknown without a claimant", () => {
+    expect(
+      voucherPayee({ payeeName: null, payeePhone: null }, undefined)
+    ).toEqual({ paidTo: "Unknown", payeePhone: null });
   });
 });

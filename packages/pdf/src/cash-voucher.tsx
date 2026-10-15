@@ -36,9 +36,12 @@ export interface CashVoucherProps {
   orgName: string;
   orgPhone: string;
   orgRegistration: string;
-  /** The payee: the person paid in cash, or the claimant on older items. */
+  /** The payee: the person paid in cash, or the claimant when none is named. */
   paidTo: string;
-  /** The payee's mobile in E.164 (`+919876543210`), when the claimant gave one. */
+  /**
+   * The payee's mobile in E.164 (`+919876543210`), when one was given; for a
+   * claimant payee, the mobile on their profile.
+   */
   payeePhone: string | null;
   voucherNumber: string;
 }

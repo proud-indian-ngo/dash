@@ -158,6 +158,12 @@ export class RequestFormPage {
     await this.getPayeeNameInput(index).fill(name);
   }
 
+  async togglePayeeIsClaimant(index = 0): Promise<void> {
+    await this.page
+      .locator(`label[for="lineItems-${index}-payee-is-claimant"]`)
+      .click();
+  }
+
   async toggleCashVoucher(index = 0): Promise<void> {
     await this.page.locator(`label[for="lineItems-${index}-voucher"]`).click();
   }

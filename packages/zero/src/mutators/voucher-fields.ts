@@ -11,6 +11,11 @@ export interface SubmittedVoucherItem {
   description: string;
   generateVoucher?: boolean;
   id: string;
+  /**
+   * The claimant is the payee: the name and mobile are stored empty and the
+   * voucher prints the claimant, so a missing name is a deliberate choice.
+   */
+  payeeIsClaimant?: boolean;
   payeeName?: null | string;
   payeePhone?: null | string;
 }
@@ -52,10 +57,29 @@ export interface VoucherPlan {
 }
 
 /**
+ * The payee an item submits: none for an item without a voucher or one paid
+ * to the claimant (the voucher prints the claimant), otherwise the typed
+ * name and mobile.
+ */
+function submittedPayee(
+  item: SubmittedVoucherItem,
+  generateVoucher: boolean
+): Pick<VoucherFields, "payeeName" | "payeePhone"> {
+  if (!generateVoucher || item.payeeIsClaimant) {
+    return { payeeName: null, payeePhone: null };
+  }
+  return {
+    payeeName: item.payeeName?.trim() || null,
+    payeePhone: item.payeePhone || null,
+  };
+}
+
+/**
  * The voucher fields for a new or changed item: the opt-in only sticks
  * within the limit, the payee only on items that opt in, and a voucher item
- * must name its payee. A tick left behind after the amount grew past the
- * limit is dropped rather than refused.
+ * must name its payee unless it is marked as paid to the claimant. A tick
+ * left behind after the amount grew past the limit is dropped rather than
+ * refused.
  */
 export function normalizeVoucherFields(
   item: SubmittedVoucherItem,
@@ -64,15 +88,11 @@ export function normalizeVoucherFields(
   const generateVoucher =
     Boolean(item.generateVoucher) &&
     qualifiesForCashVoucher(item.amountPaise, limitPaise);
-  const payeeName = generateVoucher ? item.payeeName?.trim() || null : null;
-  if (generateVoucher && !payeeName) {
+  const payee = submittedPayee(item, generateVoucher);
+  if (generateVoucher && !item.payeeIsClaimant && !payee.payeeName) {
     throw new Error(`${PAYEE_NAME_REQUIRED_MESSAGE} on each cash voucher`);
   }
-  return {
-    generateVoucher,
-    payeeName,
-    payeePhone: generateVoucher ? item.payeePhone || null : null,
-  };
+  return { generateVoucher, ...payee };
 }
 
 function sameAttachment(
@@ -95,7 +115,7 @@ function sameAttachment(
  * existing voucher survives it. A voucher survives when everything it
  * prints is unchanged (amount, description, category, the request's
  * expense date, and the payee when the item is still a ticked, eligible
- * voucher item) and its file is still attached under the same id and key;
+ * voucher item, where "paid to the claimant" means no stored name) and its file is still attached under the same id and key;
  * then the stored opt-in and payee are kept as they are, whatever the
  * current limit, except that an explicit untick is stored. Otherwise the voucher is stale: links are dropped (the
  * files stay among the attachments) and the item is treated as new, so an
@@ -125,10 +145,13 @@ export function planVoucherFields(input: {
       const editsPayee =
         Boolean(item.generateVoucher) &&
         qualifiesForCashVoucher(item.amountPaise, input.limitPaise);
+      // Ticking or unticking "paid to the claimant" changes the printed
+      // payee: no stored name means the voucher prints the claimant.
+      const payee = submittedPayee(item, editsPayee);
       const payeeUnchanged =
         !editsPayee ||
-        ((item.payeeName?.trim() || null) === (old.payeeName ?? null) &&
-          (item.payeePhone || null) === (old.payeePhone ?? null));
+        (payee.payeeName === (old.payeeName ?? null) &&
+          payee.payeePhone === (old.payeePhone ?? null));
       const printedUnchanged =
         old.amountPaise === item.amountPaise &&
         (old.description ?? "") === item.description &&

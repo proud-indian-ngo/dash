@@ -38,6 +38,9 @@ export function mapLineItemsToFormValues(
     description: li.description ?? "",
     generateVoucher: li.generateVoucher ?? false,
     id: li.id,
+    // A voucher item with no payee prints the claimant, so the box shows
+    // ticked; that also covers items from before the payee fields.
+    payeeIsClaimant: Boolean(li.generateVoucher) && !li.payeeName,
     payeeName: li.payeeName ?? "",
     payeePhone: li.payeePhone ?? "",
   }));

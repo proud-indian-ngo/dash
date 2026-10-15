@@ -1,3 +1,5 @@
+import { isIndianMobile } from "@pi-dash/shared/cash-voucher";
+
 /** What the voucher printed from the line item and its request. */
 export interface RenderedFrom {
   amountPaise: number;
@@ -31,4 +33,26 @@ export function stillAsRendered(
     request.expenseDate === rendered.expenseDate &&
     request.claimantId === rendered.claimantId
   );
+}
+
+/**
+ * Who the voucher prints under "Paid to". A named payee prints with the
+ * mobile given for them. With no payee (the item was paid to the claimant,
+ * or predates the payee fields) it prints the claimant, with the mobile on
+ * their profile when it is an Indian mobile, the only kind a payee mobile
+ * may be.
+ */
+export function voucherPayee(
+  item: { payeeName: string | null; payeePhone: string | null },
+  claimant: { name: string; phone: string | null } | undefined
+): { paidTo: string; payeePhone: string | null } {
+  const named = item.payeeName?.trim();
+  if (named) {
+    return { paidTo: named, payeePhone: item.payeePhone };
+  }
+  const phone = claimant?.phone;
+  return {
+    paidTo: claimant?.name || "Unknown",
+    payeePhone: phone && isIndianMobile(phone) ? phone : null,
+  };
 }

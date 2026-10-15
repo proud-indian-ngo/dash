@@ -180,6 +180,35 @@ describe("toLineItemsPayload", () => {
     ]);
   });
 
+  it("sends no payee for an item paid to the claimant", () => {
+    const [toClaimant, overLimit] = toLineItemsPayload(
+      [
+        {
+          ...newLineItem(),
+          amount: "900",
+          generateVoucher: true,
+          payeeIsClaimant: true,
+          payeeName: "Typed then hidden",
+          payeePhone: "+919876543210",
+        },
+        {
+          ...newLineItem(),
+          amount: "1500",
+          generateVoucher: true,
+          payeeIsClaimant: true,
+        },
+      ],
+      100_000
+    );
+    expect(toClaimant).toMatchObject({
+      generateVoucher: true,
+      payeeIsClaimant: true,
+      payeeName: null,
+      payeePhone: null,
+    });
+    expect(overLimit?.payeeIsClaimant).toBe(false);
+  });
+
   it("sends no voucher without a limit (vendor payments)", () => {
     const [item] = toLineItemsPayload([
       {
