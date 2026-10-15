@@ -21,7 +21,7 @@ import { positivePaiseSchema } from "@pi-dash/shared/money";
 import { defineMutator, type Transaction } from "@rocicorp/zero";
 import z from "zod";
 
-import "../context";
+import { type Context, requireEnqueue } from "../context";
 import { assertHasPermission } from "../permissions";
 import { type Schema, zql } from "../schema";
 import {
@@ -388,6 +388,31 @@ async function matchedLine(tx: Tx, contributionId: string) {
   );
 }
 
+/**
+ * After the commit, brings the record into the books (finance layer 3-2):
+ * the `ledger-post-source` job posts, reverses or reposts it on the server.
+ * Keyed by source, so repeated edits collapse into one queued job.
+ */
+function queueLedgerPosting(
+  ctx: Context,
+  tx: Tx,
+  source: { sourceId: string; sourceType: "contribution" | "other_income" },
+  mutator: string
+) {
+  if (tx.location !== "server") {
+    return;
+  }
+  ctx.asyncTasks?.push({
+    fn: async () => {
+      await requireEnqueue(ctx)("ledger-post-source", source, {
+        singletonKey: `${source.sourceType}:${source.sourceId}`,
+        traceId: ctx.traceId,
+      });
+    },
+    meta: { mutator, ...source },
+  });
+}
+
 export const contributionMutators = {
   create: defineMutator(contributionCreateSchema, async ({ tx, ctx, args }) => {
     assertHasPermission(ctx, "donors.manage");
@@ -434,6 +459,12 @@ export const contributionMutators = {
         updatedAt: now,
       });
     }
+    queueLedgerPosting(
+      ctx,
+      tx,
+      { sourceId: args.id, sourceType: "contribution" },
+      "contribution.create"
+    );
   }),
 
   delete: defineMutator(idInput, async ({ tx, ctx, args }) => {
@@ -456,6 +487,12 @@ export const contributionMutators = {
       );
     }
     await tx.mutate.contribution.delete({ id: args.id });
+    queueLedgerPosting(
+      ctx,
+      tx,
+      { sourceId: args.id, sourceType: "contribution" },
+      "contribution.delete"
+    );
   }),
 
   update: defineMutator(contributionInputSchema, async ({ tx, ctx, args }) => {
@@ -499,6 +536,12 @@ export const contributionMutators = {
       id: args.id,
       updatedAt: Date.now(),
     });
+    queueLedgerPosting(
+      ctx,
+      tx,
+      { sourceId: args.id, sourceType: "contribution" },
+      "contribution.update"
+    );
   }),
 };
 
@@ -521,6 +564,12 @@ export const otherIncomeMutators = {
       receivedOn: isoDateToEpoch(args.receivedOn),
       updatedAt: now,
     });
+    queueLedgerPosting(
+      ctx,
+      tx,
+      { sourceId: args.id, sourceType: "other_income" },
+      "otherIncome.create"
+    );
   }),
 
   delete: defineMutator(idInput, async ({ tx, ctx, args }) => {
@@ -530,6 +579,12 @@ export const otherIncomeMutators = {
       throw new Error("Income not found");
     }
     await tx.mutate.otherIncome.delete({ id: args.id });
+    queueLedgerPosting(
+      ctx,
+      tx,
+      { sourceId: args.id, sourceType: "other_income" },
+      "otherIncome.delete"
+    );
   }),
 
   update: defineMutator(otherIncomeInputSchema, async ({ tx, ctx, args }) => {
@@ -551,5 +606,11 @@ export const otherIncomeMutators = {
       receivedOn: isoDateToEpoch(args.receivedOn),
       updatedAt: Date.now(),
     });
+    queueLedgerPosting(
+      ctx,
+      tx,
+      { sourceId: args.id, sourceType: "other_income" },
+      "otherIncome.update"
+    );
   }),
 };

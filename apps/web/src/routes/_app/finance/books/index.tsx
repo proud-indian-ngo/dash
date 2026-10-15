@@ -1,5 +1,6 @@
 import {
   Book02Icon,
+  BookUploadIcon,
   FileValidationIcon,
   SquareLock01Icon,
   SquareUnlock01Icon,
@@ -46,6 +47,10 @@ import {
   useBooks,
 } from "@/components/books/use-books";
 import {
+  usePostPending,
+  WaitingToPost,
+} from "@/components/books/waiting-to-post";
+import {
   CloseYearDialog,
   ReopenYearDialog,
 } from "@/components/books/year-close-dialogs";
@@ -84,6 +89,8 @@ function BooksPage() {
   );
   const [yearEvents] = useQuery(queries.ledger.yearEvents());
   const [closing, setClosing] = useState(false);
+  const { post: postPending, posting } = usePostPending();
+  const canPostPending = hasPermission("finance.post_pending");
   const [reopening, setReopening] = useState(false);
 
   const year =
@@ -192,6 +199,13 @@ function BooksPage() {
             ) : null}
             <PageHeaderMenu
               actions={[
+                canPostPending && {
+                  disabled: posting,
+                  icon: BookUploadIcon,
+                  id: "post-pending",
+                  label: posting ? "Posting..." : "Post pending",
+                  onSelect: postPending,
+                },
                 {
                   icon: FileValidationIcon,
                   id: "opening",
@@ -243,6 +257,7 @@ function BooksPage() {
           {lastEvent.reason ? `: ${lastEvent.reason}` : ""}
         </p>
       ) : null}
+      <WaitingToPost canPost={canPostPending} />
       <div className="mt-4 grid gap-4 *:min-w-0 xl:grid-cols-[16rem_1fr]">
         {accounts.length === 0 ? (
           <NotFoundState
@@ -283,6 +298,7 @@ function BooksPage() {
               entries={books.entries}
               headNames={headNames}
               isLoading={books.isLoading}
+              postings={books.postings}
               programmeNames={programmeNames}
               range={range}
             />

@@ -38,6 +38,7 @@ import { toast } from "sonner";
 import {
   IgnoreLineDialog,
   LineNoteDialog,
+  TransferLineDialog,
   LinkLineDialog,
 } from "@/components/income/bank/statement-line-dialogs";
 import {
@@ -211,6 +212,8 @@ function BankStatementsPage() {
   const [banks, accountsResult] = useQuery(
     queries.statementLine.bankAccounts()
   );
+  // The other side of a transfer: another bank account or the fixed deposit.
+  const [orgAccounts] = useQuery(queries.orgAccount.active());
   const [requestedAccount, setAccount] = useQueryState(
     "account",
     parseAsString
@@ -555,19 +558,26 @@ function BankStatementsPage() {
         }}
         open={ignoring !== null}
       />
-      <LineNoteDialog
-        description="Money moved between the trust's own accounts. It needs no other match."
-        initial=""
+      <TransferLineDialog
+        accounts={orgAccounts.filter(
+          (a) =>
+            a.id !== accountId && (a.kind === "bank" || a.kind === "deposit")
+        )}
         onOpenChange={(open) => {
           if (!open) {
             setTransferring(null);
           }
         }}
-        onSubmit={async (note) => {
+        onSubmit={async (otherAccountId, note) => {
           if (
             transferring &&
             (await run(
-              { action: "transfer", lineId: transferring, note: note || null },
+              {
+                action: "transfer",
+                lineId: transferring,
+                note: note || null,
+                otherAccountId,
+              },
               "Marked as transfer"
             ))
           ) {
@@ -575,8 +585,6 @@ function BankStatementsPage() {
           }
         }}
         open={transferring !== null}
-        submitLabel="Mark as transfer"
-        title="Mark as transfer"
       />
       <LineNoteDialog
         description="A short note for whoever reviews this line next."

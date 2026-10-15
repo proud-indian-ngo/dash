@@ -1,6 +1,10 @@
 import type { PgBoss, Queue, WorkOptions } from "pg-boss";
 
 import { type JobName, QUEUE_NAMES } from "../enqueue";
+import type {
+  LedgerPostPendingPayload,
+  LedgerPostSourcePayload,
+} from "../types";
 import { handleCleanupNotifications } from "./cleanup-notifications";
 import { handleCleanupR2Orphans } from "./cleanup-r2-orphans";
 import { handleCleanupStaleScheduledRecipients } from "./cleanup-stale-scheduled-recipients";
@@ -16,6 +20,7 @@ import { handleGenerateCashVoucher } from "./generate-cash-voucher";
 import { handleImmichDeleteAlbum } from "./immich-delete-album";
 import { handleImmichDeleteAsset } from "./immich-delete-asset";
 import { handleImmichSyncPhoto } from "./immich-sync-photo";
+import { handleLedgerPostPending, handleLedgerPostSource } from "./ledger-post";
 import {
   handleNotifyAdvancePaymentApproved,
   handleNotifyAdvancePaymentRejected,
@@ -167,6 +172,21 @@ const QUEUE_OVERRIDES: Partial<
     expireInSeconds: 4 * 60 * 60,
     heartbeatSeconds: 60,
     policy: "exclusive",
+    retryLimit: 0,
+  },
+  // Income posting. One queued and one active job per source
+  // (singletonKey = "type:id"), so a burst of edits collapses and an edit
+  // made while a job runs queues one more.
+  "ledger-post-source": { policy: "stately" },
+  // One sweep running at a time (singleton), whoever asked for it: a
+  // request made meanwhile waits its turn. The worker sends a heartbeat, so
+  // only a dead run expires, and it is not retried (the next run covers
+  // it), so an expiry never starts a second sweep alongside a live one.
+  // The sweep stops itself after 45 minutes.
+  "ledger-post-pending": {
+    expireInSeconds: 60 * 60,
+    heartbeatSeconds: 60,
+    policy: "singleton",
     retryLimit: 0,
   },
   "razorpay-sync-payment": { policy: "stately" },
@@ -499,6 +519,16 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "ensure-fiscal-years",
     NOTIFY_POLL,
     withDefaultOutput(handleEnsureFiscalYears)
+  );
+  await boss.work<LedgerPostSourcePayload>(
+    "ledger-post-source",
+    NOTIFY_POLL,
+    withDefaultOutput((jobs) => handleLedgerPostSource(jobs))
+  );
+  await boss.work<LedgerPostPendingPayload>(
+    "ledger-post-pending",
+    NOTIFY_POLL,
+    withDefaultOutput((jobs) => handleLedgerPostPending(jobs))
   );
   await boss.work(
     "flush-held-notifications",

@@ -13,6 +13,7 @@ import {
   MAX_IMPORT_ROWS,
 } from "@/lib/income-import/fields";
 import { countChosenFills } from "@/lib/income-import/server";
+import { queueLedgerSweep } from "@/lib/ledger-posting";
 import { authMiddleware } from "@/middleware/auth";
 
 const decisionSchema = z.object({
@@ -87,7 +88,7 @@ export const runGiveDoPayoutImport = createServerFn({ method: "POST" })
     const fillMissingCount = data.importUnknown
       ? await countChosenFills(data)
       : 0;
-    return runSessionAuditedAction(
+    const result = await runSessionAuditedAction(
       session,
       context.headers,
       {
@@ -100,4 +101,7 @@ export const runGiveDoPayoutImport = createServerFn({ method: "POST" })
       },
       () => runPayoutBatch(data, session.user.id)
     );
+    // The payout, and any gifts it imported, post to the books in one sweep.
+    queueLedgerSweep("after_import", session.user.id);
+    return result;
   });

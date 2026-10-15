@@ -44,8 +44,15 @@ mock.module("@/lib/books/server", () => ({
   closeFiscalYear: record("close", { label: "2026-27" }),
   loadYearCloseChecklist: record("checklist"),
   postOpeningBalances: record("post", { id: DOC }),
+  postPendingNow: record("postPending", { checked: 3, posted: 2 }),
+  queuePostingAfterReopen: () => {
+    calls.push("queueAfterReopen");
+  },
   reopenFiscalYear: record("reopen", { label: "2026-27" }),
   reverseOpeningBalances: record("reverse"),
+}));
+mock.module("@pi-dash/db/queries/ledger-sources", () => ({
+  countWaitingLedgerSources: async () => 4,
 }));
 mock.module("@tanstack/react-start", () => ({
   createServerFn: () => {
@@ -100,6 +107,34 @@ describe("books server functions", () => {
     ).rejects.toThrow("Forbidden");
     expect(calls).toEqual([]);
     expect(audits).toEqual([]);
+  });
+
+  it("posts pending records only for finance.post_pending, audited with the waiting count", async () => {
+    granted = ["finance.view", "finance.manage", "finance.close_year"];
+    await expect(call(fns.postPendingFn, {})).rejects.toThrow("Forbidden");
+    expect(calls).toEqual([]);
+    granted = ["finance.post_pending"];
+    expect(await call(fns.postPendingFn, {})).toEqual({
+      checked: 3,
+      posted: 2,
+    });
+    expect(calls).toEqual(["postPending"]);
+    expect(audits).toEqual([
+      {
+        action: "books.post_pending",
+        metadata: { waitingCount: 4 },
+        target: { type: "books" },
+      },
+    ]);
+  });
+
+  it("posts what waited for a year once it is reopened", async () => {
+    granted = ["finance.reopen_year"];
+    await call(fns.reopenFiscalYearFn, {
+      fiscalYearId: YEAR,
+      reason: "Missed",
+    });
+    expect(calls).toEqual(["reopen", "queueAfterReopen"]);
   });
 
   it("lets closing a year not imply reopening it", async () => {

@@ -438,6 +438,13 @@ export const PERMISSIONS = [
     id: "finance.adjust",
     name: "Adjust the Books",
   },
+  {
+    category: "finance",
+    description:
+      "Post income records waiting for the books, from Books → Post pending",
+    id: "finance.post_pending",
+    name: "Post Pending Records",
+  },
 
   // ── Donors ──
   {
@@ -528,6 +535,7 @@ const adminExcluded = new Set<PermissionId>([
   "finance.close_year",
   "finance.reopen_year",
   "finance.adjust",
+  "finance.post_pending",
   "donors.manage",
   "jobs.manage",
   "system.alerts",

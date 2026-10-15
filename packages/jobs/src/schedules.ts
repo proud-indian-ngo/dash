@@ -88,6 +88,17 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     { expireInSeconds: 600, retryLimit: 2, tz: IST_TIMEZONE }
   );
 
+  // Daily at 3:30 AM IST — post every income record not up to date in the
+  // books (a backstop for the per-record jobs, and the backfill from the
+  // cutover); records unchanged since their last look are skipped, except
+  // on Sundays, when every record is looked at
+  await boss.schedule(
+    "ledger-post-pending",
+    "30 3 * * *",
+    { reason: "scheduled" },
+    { expireInSeconds: 60 * 60, retryLimit: 0, tz: IST_TIMEZONE }
+  );
+
   // Monthly on 1st at 3:00 AM IST — clean up stale scheduled message recipients
   await boss.schedule(
     "cleanup-stale-scheduled-recipients",

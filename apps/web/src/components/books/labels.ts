@@ -1,4 +1,4 @@
-import { LEDGER_SOURCE_TYPES } from "@pi-dash/shared/ledger";
+import { LEDGER_SOURCE_LABELS } from "@pi-dash/shared/ledger";
 import { format } from "date-fns";
 
 import { DATE } from "@/lib/date-formats";
@@ -11,8 +11,11 @@ export const formatMonth = (month: string) =>
 
 /** What posted a line, in words. */
 export function sourceLabel(sourceType: string | undefined): string {
-  if (sourceType === LEDGER_SOURCE_TYPES.openingBalance) {
-    return "Opening balances";
+  if (!sourceType) {
+    return "—";
   }
-  return sourceType ? sourceType.replaceAll("_", " ") : "—";
+  return (
+    (LEDGER_SOURCE_LABELS as Record<string, string>)[sourceType] ??
+    sourceType.replaceAll("_", " ")
+  );
 }

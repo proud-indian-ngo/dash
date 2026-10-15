@@ -18,6 +18,7 @@ import { useQuery } from "@rocicorp/zero/react";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
 
+import { InTheBooks } from "@/components/books/in-the-books";
 import { SettlementInBank } from "@/components/income/bank/in-bank-fact";
 import { formatReceivedOn } from "@/components/income/contribution-detail-sheet";
 import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
@@ -327,6 +328,9 @@ export function SettlementDetailSheet({
           meta={[`Settled on ${formatReceivedOn(row.settledOn)}`, row.utr]}
           title={formatPaise(row.amountPaise)}
         />
+        <div className="px-6 pb-4">
+          <InTheBooks sourceId={row.id} sourceType="gateway_settlement" />
+        </div>
         <SettlementBody settlement={row} />
       </SheetContent>
     </Sheet>

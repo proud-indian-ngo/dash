@@ -25,6 +25,7 @@ import { formatPaise } from "@pi-dash/shared/money";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
 
+import { InTheBooks } from "@/components/books/in-the-books";
 import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
 import { PageHeaderMenu } from "@/components/shared/page-header";
 import { DetailsRow } from "@/components/shared/record-detail";
@@ -310,6 +311,9 @@ export function ContributionDetailSheet({
           meta={[donorName(row), formatReceivedOn(row.receivedOn), channel]}
           title={formatPaise(row.amountPaise)}
         />
+        <div className="px-6 pb-4">
+          <InTheBooks sourceId={row.id} sourceType="contribution" />
+        </div>
         <dl className="flex flex-col gap-2.5 px-6 pb-6">
           {facts.map(([label, value]) => (
             <DetailsRow key={label} label={label}>

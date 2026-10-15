@@ -15,6 +15,7 @@ import { useQuery } from "@rocicorp/zero/react";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
+import { parseAsString, useQueryState } from "nuqs";
 import { useEffect, useState } from "react";
 
 import { NotFoundState } from "@/components/shared/not-found-state";
@@ -104,7 +105,8 @@ export function SettlementsTab() {
   const isLoading =
     (summary === null && !failed) ||
     (rows.length === 0 && result.type !== "complete");
-  const [openId, setOpenId] = useState<string | null>(null);
+  // In the URL, so the books can link to a payout.
+  const [openId, setOpenId] = useQueryState("settlement", parseAsString);
   const open = useEventCallback((row: SettlementRow) => setOpenId(row.id));
 
   const items: StatItem[] = [

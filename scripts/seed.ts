@@ -968,10 +968,69 @@ async function seedIncome(adminId: string): Promise<void> {
       type: "payment",
     })
     .onConflictDoNothing();
+  // The books' cutover exception: a Razorpay gift captured on 30 March 2026
+  // whose payout reached the bank on 2 April posts as FY 2026-27 income on
+  // 2 April, with its fee, so Razorpay clearing opens and stays at zero.
+  await db
+    .insert(contribution)
+    .values({
+      amountPaise: 300_000,
+      channel: "razorpay",
+      createdAt: now,
+      createdBy: adminId,
+      fundId: GENERAL_FUND_ID,
+      gatewayFeePaise: 6000,
+      gatewayTaxPaise: 1080,
+      id: "01930000-0000-7000-8000-000000000617",
+      orgAccountId: ORG_ACCOUNTS[1]?.id as string,
+      partyId: DONOR_ID,
+      programmeId: PROGRAMME_IDS.education,
+      receivedOn: "2026-03-30",
+      reference: "pay_SEED0003",
+      reportingMode: "electronic_or_account_payee",
+      source: "import",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(gatewaySettlement)
+    .values({
+      amountPaise: 292_920,
+      createdAt: now,
+      externalId: "setl_SEED0002",
+      feesPaise: 6000,
+      grossPaise: 300_000,
+      id: "01930000-0000-7000-8000-000000000660",
+      itemCount: 1,
+      orgAccountId: ORG_ACCOUNTS[1]?.id as string,
+      paymentCount: 1,
+      provider: "razorpay",
+      providerAccount: "test",
+      settledOn: "2026-04-02",
+      status: "processed",
+      taxPaise: 1080,
+      updatedAt: now,
+      utr: "SEEDUTR0002",
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(gatewaySettlementItem)
+    .values({
+      contributionId: "01930000-0000-7000-8000-000000000617",
+      creditPaise: 292_920,
+      externalId: "pay_SEED0003",
+      feePaise: 6000,
+      id: "01930000-0000-7000-8000-000000000661",
+      settledAt: new Date("2026-04-02T04:30:00Z"),
+      settlementId: "01930000-0000-7000-8000-000000000660",
+      taxPaise: 1080,
+      type: "payment" as const,
+    })
+    .onConflictDoNothing();
   await seedImportBatch(adminId);
   await seedStatementLines(adminId);
   log(
-    `${ORG_ACCOUNTS.length} org accounts, ${CONTRIBUTIONS.length + RETURN_FIXTURE_CONTRIBUTIONS.length} contributions, 1 refund, 2 settlements, 1 other income, 1 import and ${STATEMENT_LINES.length} bank statement lines ready`
+    `${ORG_ACCOUNTS.length} org accounts, ${CONTRIBUTIONS.length + RETURN_FIXTURE_CONTRIBUTIONS.length + 1} contributions, 1 refund, 3 settlements, 1 other income, 1 import and ${STATEMENT_LINES.length} bank statement lines ready (Books → Post pending posts them)`
   );
 }
 

@@ -27,7 +27,13 @@ describe("settlement lines waiting for a payment or refund", () => {
     const { statements, tx } = recordingTx();
     expect(await linkSettlementLinesForPayment(tx, "live", "pay_A")).toBe(1);
     const [statement] = statements;
-    expect(statement?.sql).toMatch(/^\s*update "gateway_settlement_item" i/);
+    expect(statement?.sql).toMatch(
+      /^\s*with linked as \(\s*update "gateway_settlement_item" i/
+    );
+    // The payout is touched too, so the books' incremental posting sees it.
+    expect(statement?.sql).toContain(
+      'update "gateway_settlement" g set updated_at = now()'
+    );
     expect(statement?.sql).toContain(
       "set contribution_id = ei.contribution_id"
     );
@@ -48,6 +54,9 @@ describe("settlement lines waiting for a payment or refund", () => {
     expect(statement?.sql).toContain('"contribution_refund" r');
     expect(statement?.sql).toContain("r.reference = i.external_id");
     expect(statement?.sql).toContain("i.contribution_refund_id is null");
+    expect(statement?.sql).toContain(
+      'update "gateway_settlement" g set updated_at = now()'
+    );
     expect(statement?.params).toEqual(["test", "rfnd_A"]);
   });
 });

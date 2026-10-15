@@ -23,10 +23,12 @@ import {
   accountMovement,
   fiscalYearEvent,
   ledgerEntry,
+  ledgerSourceState,
   openingBalance,
   posting,
 } from "../schema/ledger";
 import { type LedgerTx, post, reverse } from "./engine";
+import { listIncomeSources } from "./income-posting";
 import { postOpeningBalance, reverseOpeningBalance } from "./opening-balance";
 import { LedgerError } from "./rules";
 import { closeYear, reopenYear, yearCloseChecklist } from "./year-close";
@@ -52,6 +54,11 @@ async function inRolledBackTransaction(run: (tx: LedgerTx) => Promise<void>) {
   const database = drizzle({ client, schema });
   try {
     await database.transaction(async (tx) => {
+      // One books test transaction at a time across test files: they all
+      // reset the same years and take the year-close lock.
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtextextended('ledger:db-tests', 0))`
+      );
       await run(tx as unknown as LedgerTx);
       throw new Rollback();
     });
@@ -122,6 +129,21 @@ async function foundation(tx: LedgerTx) {
     .onConflictDoNothing();
   // A clean 2026-27 for this transaction only.
   await tx.update(fiscalYear).set({ closedAt: null, closedBy: null });
+  // Nothing waiting to post, whatever the database's own records are doing.
+  await tx.delete(ledgerSourceState);
+  // The database's own income records count as looked at, so only this
+  // test's records can hold up a year close.
+  const existing = await listIncomeSources(tx);
+  if (existing.length > 0) {
+    await tx.insert(ledgerSourceState).values(
+      existing.map((source) => ({
+        ...source,
+        checkedAt: NOW,
+        id: uuidv7(),
+        status: "none" as const,
+      }))
+    );
+  }
   // Earlier opening balances are final; only a maintenance session may
   // clear them, and only inside this rolled-back transaction.
   await tx.execute(sql`SET LOCAL pi_dash.ledger_maintenance = 'on'`);
@@ -599,118 +621,166 @@ function connect() {
   return { client, database: drizzle({ client, schema }) };
 }
 
+/**
+ * Holds the books tests' lock (see inRolledBackTransaction) on its own
+ * session while a committing test runs, so no rolled-back test in another
+ * file holds the year rows meanwhile.
+ */
+async function exclusively(work: () => Promise<void>) {
+  const client = new SQL(databaseUrl as string, { max: 1 });
+  const reserved = await client.reserve();
+  try {
+    await reserved`SELECT pg_advisory_lock(hashtextextended('ledger:db-tests', 0))`;
+    await work();
+  } finally {
+    await reserved`SELECT pg_advisory_unlock(hashtextextended('ledger:db-tests', 0))`;
+    reserved.release();
+    await client.close();
+  }
+}
+
 it.skipIf(!localDatabase)(
   "installs the guards once when several servers start together",
-  async () => {
-    // Imported here: the module reads the app's database settings on load.
-    const { ensureLedgerTriggers } = await import("./immutability");
-    const setup = connect();
-    const runners = Array.from({ length: 4 }, connect);
-    try {
-      // An outdated version makes every start want to replace the functions.
-      await setup.database.execute(
-        sql`COMMENT ON FUNCTION "ledger_reject_change"() IS 'outdated'`
-      );
-      const results = await Promise.all(
-        runners.map(({ database }) => ensureLedgerTriggers(database as never))
-      );
-      const replaced = results.filter((r) => r.includes("functions"));
-      expect(replaced).toHaveLength(1);
-      expect(results.filter((r) => r.length === 0)).toHaveLength(3);
-      expect(await ensureLedgerTriggers(setup.database as never)).toEqual([]);
-    } finally {
-      await Promise.all(
-        [setup, ...runners].map(({ client }) => client.close())
-      );
-    }
-  }
+  () =>
+    exclusively(async () => {
+      // Imported here: the module reads the app's database settings on load.
+      const { ensureLedgerTriggers } = await import("./immutability");
+      const setup = connect();
+      const runners = Array.from({ length: 4 }, connect);
+      try {
+        // An outdated version makes every start want to replace the functions.
+        await setup.database.execute(
+          sql`COMMENT ON FUNCTION "ledger_reject_change"() IS 'outdated'`
+        );
+        const results = await Promise.all(
+          runners.map(({ database }) => ensureLedgerTriggers(database as never))
+        );
+        const replaced = results.filter((r) => r.includes("functions"));
+        expect(replaced).toHaveLength(1);
+        expect(results.filter((r) => r.length === 0)).toHaveLength(3);
+        expect(await ensureLedgerTriggers(setup.database as never)).toEqual([]);
+      } finally {
+        await Promise.all(
+          [setup, ...runners].map(({ client }) => client.close())
+        );
+      }
+    })
 );
 
 it.skipIf(!localDatabase)(
   "never lets closing a later year and reopening an earlier one both commit",
-  async () => {
-    const { client, database } = connect();
-    const other = connect();
-    const startedAt = new Date();
-    const afterFirstEnd = new Date("2027-04-02T06:00:00Z");
-    const afterSecondEnd = new Date("2028-04-02T06:00:00Z");
-    const years = await database
-      .select()
-      .from(fiscalYear)
-      .where(inArray(fiscalYear.label, ["2026-27", "2027-28"]))
-      .orderBy(fiscalYear.startsOn);
-    const [first, second] = years;
-    const [someone] = await database
-      .select({ id: user.id })
-      .from(user)
-      .limit(1);
-    const [opening] = first
-      ? await database
-          .select({ id: openingBalance.id })
-          .from(openingBalance)
-          .where(
-            and(
-              eq(openingBalance.fiscalYearId, first.id),
-              isNull(openingBalance.reversalPostingId)
-            )
-          )
-      : [];
-    if (!(first && second && someone && opening)) {
-      throw new Error("Seed the books first (bun run seed)");
-    }
-    const actor = { actorId: someone.id };
-    try {
-      await database.transaction((tx) =>
-        closeYear(tx as unknown as LedgerTx, first.id, {
-          ...actor,
-          now: afterFirstEnd,
-        })
-      );
-      // Race: close 2027-28 (needs 2026-27 closed) against reopening
-      // 2026-27 (needs 2027-28 open).
-      const outcomes = await Promise.allSettled([
-        database.transaction((tx) =>
-          closeYear(tx as unknown as LedgerTx, second.id, {
-            ...actor,
-            now: afterSecondEnd,
-          })
-        ),
-        other.database.transaction((tx) =>
-          reopenYear(
-            tx as unknown as LedgerTx,
-            { fiscalYearId: first.id, reason: "Concurrency test" },
-            actor
-          )
-        ),
-      ]);
-      expect(outcomes.filter((o) => o.status === "fulfilled")).toHaveLength(1);
-      const after = await database
-        .select({ closedAt: fiscalYear.closedAt, id: fiscalYear.id })
+  () =>
+    exclusively(async () => {
+      const { client, database } = connect();
+      const other = connect();
+      const startedAt = new Date();
+      const afterFirstEnd = new Date("2027-04-02T06:00:00Z");
+      const afterSecondEnd = new Date("2028-04-02T06:00:00Z");
+      const years = await database
+        .select()
         .from(fiscalYear)
-        .where(inArray(fiscalYear.id, [first.id, second.id]));
-      const closed = new Map(after.map((y) => [y.id, y.closedAt !== null]));
-      // Either both closed (the close won) or neither (the reopen won):
-      // never 2027-28 closed on top of an open 2026-27.
-      expect(closed.get(second.id) && !closed.get(first.id)).toBe(false);
-    } finally {
-      await database.transaction(async (tx) => {
-        await tx.execute(sql`SET LOCAL pi_dash.ledger_maintenance = 'on'`);
-        await tx
-          .update(fiscalYear)
-          .set({ closedAt: null, closedBy: null })
-          .where(inArray(fiscalYear.id, [first.id, second.id]));
-        await tx
-          .delete(fiscalYearEvent)
-          .where(
-            and(
-              inArray(fiscalYearEvent.fiscalYearId, [first.id, second.id]),
-              gte(fiscalYearEvent.id, uuidv7AtOrBefore(startedAt))
+        .where(inArray(fiscalYear.label, ["2026-27", "2027-28"]))
+        .orderBy(fiscalYear.startsOn);
+      const [first, second] = years;
+      const [someone] = await database
+        .select({ id: user.id })
+        .from(user)
+        .limit(1);
+      const [opening] = first
+        ? await database
+            .select({ id: openingBalance.id })
+            .from(openingBalance)
+            .where(
+              and(
+                eq(openingBalance.fiscalYearId, first.id),
+                isNull(openingBalance.reversalPostingId)
+              )
             )
-          );
+        : [];
+      if (!(first && second && someone && opening)) {
+        throw new Error("Seed the books first (bun run seed)");
+      }
+      const actor = { actorId: someone.id };
+      // The seeded income records count as looked at for this test (else a
+      // freshly seeded database can't close 2026-27); removed afterwards.
+      const marked = await database.transaction(async (tx) => {
+        const sources = await listIncomeSources(tx as unknown as LedgerTx);
+        if (sources.length === 0) {
+          return [];
+        }
+        const inserted = await tx
+          .insert(ledgerSourceState)
+          .values(
+            sources.map((source) => ({
+              ...source,
+              checkedAt: startedAt,
+              id: uuidv7(),
+              status: "none" as const,
+            }))
+          )
+          .onConflictDoNothing()
+          .returning({ id: ledgerSourceState.id });
+        return inserted.map((r) => r.id);
       });
-      await Promise.all([client.close(), other.client.close()]);
-    }
-  }
+      try {
+        await database.transaction((tx) =>
+          closeYear(tx as unknown as LedgerTx, first.id, {
+            ...actor,
+            now: afterFirstEnd,
+          })
+        );
+        // Race: close 2027-28 (needs 2026-27 closed) against reopening
+        // 2026-27 (needs 2027-28 open).
+        const outcomes = await Promise.allSettled([
+          database.transaction((tx) =>
+            closeYear(tx as unknown as LedgerTx, second.id, {
+              ...actor,
+              now: afterSecondEnd,
+            })
+          ),
+          other.database.transaction((tx) =>
+            reopenYear(
+              tx as unknown as LedgerTx,
+              { fiscalYearId: first.id, reason: "Concurrency test" },
+              actor
+            )
+          ),
+        ]);
+        expect(outcomes.filter((o) => o.status === "fulfilled")).toHaveLength(
+          1
+        );
+        const after = await database
+          .select({ closedAt: fiscalYear.closedAt, id: fiscalYear.id })
+          .from(fiscalYear)
+          .where(inArray(fiscalYear.id, [first.id, second.id]));
+        const closed = new Map(after.map((y) => [y.id, y.closedAt !== null]));
+        // Either both closed (the close won) or neither (the reopen won):
+        // never 2027-28 closed on top of an open 2026-27.
+        expect(closed.get(second.id) && !closed.get(first.id)).toBe(false);
+      } finally {
+        await database.transaction(async (tx) => {
+          await tx.execute(sql`SET LOCAL pi_dash.ledger_maintenance = 'on'`);
+          await tx
+            .update(fiscalYear)
+            .set({ closedAt: null, closedBy: null })
+            .where(inArray(fiscalYear.id, [first.id, second.id]));
+          await tx
+            .delete(fiscalYearEvent)
+            .where(
+              and(
+                inArray(fiscalYearEvent.fiscalYearId, [first.id, second.id]),
+                gte(fiscalYearEvent.id, uuidv7AtOrBefore(startedAt))
+              )
+            );
+        });
+        if (marked.length > 0) {
+          await database
+            .delete(ledgerSourceState)
+            .where(inArray(ledgerSourceState.id, marked));
+        }
+        await Promise.all([client.close(), other.client.close()]);
+      }
+    })
 );
 
 /** The smallest uuidv7 for an instant, to select rows created since then. */

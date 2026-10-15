@@ -1,5 +1,9 @@
 import { todayInKolkata } from "@pi-dash/shared/income";
-import { LEDGER_CUTOVER_ON } from "@pi-dash/shared/ledger";
+import {
+  LEDGER_CUTOVER_ON,
+  LEDGER_WAIT_REASONS,
+  ledgerReasonLabel,
+} from "@pi-dash/shared/ledger";
 import { formatPaise } from "@pi-dash/shared/money";
 import {
   and,
@@ -23,6 +27,7 @@ import {
 } from "../schema/ledger";
 import { statementLine } from "../schema/statement-line";
 import type { LedgerTx } from "./engine";
+import { uncheckedSources, waitingByReason } from "./income-posting";
 import { LedgerError } from "./rules";
 
 /**
@@ -31,11 +36,11 @@ import { LedgerError } from "./rules";
  * its own permission and a reason, kept in `fiscal_year_event`.
  *
  * Blocking: the year has ended, the previous year in the books is closed,
- * and (in the cutover year) the opening balances are posted. A later year
- * that is closed blocks reopening an earlier one. The rest of the checklist
- * is for the treasurer to judge: records waiting to post (always none until
- * income and expenses post), bank statements reaching the year end, and the
- * clearing balances at year end (payouts in transit are normal).
+ * (in the cutover year) the opening balances are posted, and no record
+ * dated in the year is waiting to post. A later year that is closed blocks
+ * reopening an earlier one. The rest of the checklist is for the treasurer
+ * to judge: bank statements reaching the year end, and the clearing
+ * balances at year end (payouts in transit are normal).
  */
 
 export type CloseCheckId =
@@ -66,6 +71,8 @@ export interface YearCloseChecklist {
 
 const BLOCKER_MESSAGES: Partial<Record<CloseCheckId, string>> = {
   opening_balances: "Post the opening balances before closing the year",
+  unposted_sources:
+    "Records dated in this year are waiting to post. Post them, or resolve why they wait, before closing the year",
   previous_year_closed: "Close the previous year first",
   year_ended: "A year can be closed only after it has ended",
 };
@@ -133,12 +140,24 @@ export async function yearCloseChecklist(
     });
   }
 
-  // Placeholder until income and expense posting arrive (layers 3-2, 3-3).
+  // Records waiting to post into this year (income from layer 3-2; the
+  // expense side joins in layer 3-3). Blocking: a closed year can't take them.
+  const range = { endsOn: year.endsOn, startsOn: year.startsOn };
+  const waiting = await waitingByReason(tx, range);
+  // A record no posting run has looked at yet counts as waiting too.
+  const unchecked = await uncheckedSources(tx, range);
+  if (unchecked > 0) {
+    waiting.set(LEDGER_WAIT_REASONS.unchecked, unchecked);
+  }
   checks.push({
-    details: [],
+    details: [...waiting.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(
+        ([reason, count]) => `${count} waiting: ${ledgerReasonLabel(reason)}`
+      ),
     id: "unposted_sources",
-    ok: true,
-    required: false,
+    ok: waiting.size === 0,
+    required: true,
   });
 
   const banks = await tx
