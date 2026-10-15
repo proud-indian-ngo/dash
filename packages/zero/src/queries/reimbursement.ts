@@ -18,9 +18,14 @@ function withRelated(q: typeof zql.reimbursement) {
   return withBase(q).related("event");
 }
 
-/** Analytics, the tables and the request header show the event's programme, so it is nested. */
+/**
+ * Analytics, the tables and the request header show the programme the request
+ * is charged to: the event's programme, or the one chosen without an event.
+ */
 function withProgramme(q: typeof zql.reimbursement) {
-  return withBase(q).related("event", (e) => e.related("programme"));
+  return withBase(q)
+    .related("event", (e) => e.related("programme"))
+    .related("chargedProgramme");
 }
 
 export const reimbursementQueries = {

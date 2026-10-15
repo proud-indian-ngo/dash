@@ -5,7 +5,12 @@ import { promisify } from "node:util";
 import { expect, type Page } from "@playwright/test";
 
 import { waitForZeroReady } from "../fixtures/test";
-import { selectRequestEvent } from "../helpers/request-event";
+import {
+  type ChargeOption,
+  chargeRequestTo,
+  chargeRequestToProgramme,
+  selectRequestEvent,
+} from "../helpers/request-event";
 import { ApprovalDetailPage } from "./approval-detail-page";
 import { ListPage } from "./list-page";
 import { RequestFormPage } from "./request-form-page";
@@ -121,17 +126,21 @@ export class ReimbursementPage {
 
   async createReimbursement(
     titleSuffix: string,
-    event?: { city: string; name: string }
+    event?: ChargeOption
   ): Promise<string> {
     const title = `E2E ${titleSuffix} ${Date.now()}`;
     await this.navigateToNew();
 
     await this.form.selectBankAccount();
     await this.form.fillTitle(title);
-    if (event) {
+    if (event && "name" in event) {
       await selectRequestEvent(this.page, event.name, event.city);
+    } else if (event) {
+      await this.form.selectCity("Bangalore");
+      await chargeRequestToProgramme(this.page, event.programme);
     } else {
       await this.form.selectCity("Bangalore");
+      await chargeRequestTo(this.page, "Organisation (admin)");
     }
 
     if (this.type === "reimbursement") {
@@ -154,6 +163,7 @@ export class ReimbursementPage {
     await this.form.selectBankAccount();
     await this.form.fillTitle(title);
     await this.form.selectCity("Bangalore");
+    await chargeRequestTo(this.page, "Organisation (admin)");
     await this.selectExpenseDate();
 
     await this.form.fillLineItem({

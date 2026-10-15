@@ -43,7 +43,10 @@ import { authClient } from "@/lib/auth-client";
 import { DATE } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { canEditVendorPaymentSubmission } from "@/lib/request-edit-permissions";
-import { requestProgrammeName } from "@/lib/request-programme";
+import {
+  requestChargeSummary,
+  requestProgrammeName,
+} from "@/lib/request-programme";
 import { sumAmounts } from "@/lib/stats";
 import { getStatusBadge } from "@/lib/status-badge";
 
@@ -79,7 +82,7 @@ function searchFn(row: VendorPaymentWithRelations, query: string): boolean {
     row.invoiceNumber,
     row.noInvoiceReason ? formatNoInvoice(row.noInvoiceReason) : null,
     row.event?.name,
-    row.event?.programme?.name,
+    requestProgrammeName(row),
   ]
     .join(" ")
     .toLowerCase()
@@ -292,10 +295,10 @@ export function VendorPaymentsTable({
       size: 180,
     },
     {
-      accessorFn: (row) => requestProgrammeName(row.event),
+      accessorFn: (row) => requestProgrammeName(row),
       cell: ({ row }) => (
         <span className="text-muted-foreground truncate text-sm">
-          {requestProgrammeName(row.original.event)}
+          {requestProgrammeName(row.original)}
         </span>
       ),
       header: ({ column }) => (
@@ -513,6 +516,11 @@ export function VendorPaymentsTable({
         onConfirm={handleApprove}
         onOpenChange={review.handleOpenChange}
         open={review.approveOpen}
+        summary={
+          review.row ? (
+            <>Charged to: {requestChargeSummary(review.row)}</>
+          ) : undefined
+        }
       />
       <RejectDialog
         entityLabel="vendor payment"

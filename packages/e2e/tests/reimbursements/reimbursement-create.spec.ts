@@ -1,4 +1,5 @@
 import { expect, test } from "../../fixtures/test";
+import { chargeRequestTo } from "../../helpers/request-event";
 import { ReimbursementPage } from "../../pages/reimbursement-page";
 
 test.describe("New reimbursement form", () => {
@@ -63,6 +64,7 @@ test.describe("New reimbursement form", () => {
     await reimbursements.form.selectBankAccount();
     await reimbursements.form.fillTitle("E2E Test Reimbursement");
     await reimbursements.form.selectCity("Bangalore");
+    await chargeRequestTo(page, "Organisation (admin)");
     await reimbursements.selectExpenseDate();
 
     await reimbursements.form.fillLineItem({

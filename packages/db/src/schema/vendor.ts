@@ -2,6 +2,7 @@ import { vendorPaymentNoInvoiceReasonValues } from "@pi-dash/shared/constants";
 import { relations, sql } from "drizzle-orm";
 import {
   check,
+  foreignKey,
   date,
   index,
   integer,
@@ -15,9 +16,15 @@ import {
 
 import { user } from "./auth";
 import { expenseCategory } from "./expense-category";
+import { programme, project } from "./finance-dimensions";
 import { jsonb } from "./jsonb";
 import { party } from "./party";
-import { attachmentTypeEnum, cityEnum, historyActionEnum } from "./shared";
+import {
+  attachmentTypeEnum,
+  cityEnum,
+  expenseChargedToEnum,
+  historyActionEnum,
+} from "./shared";
 import { teamEvent } from "./team-event";
 import { vendorPaymentTransaction } from "./vendor-payment-transaction";
 
@@ -92,6 +99,15 @@ export const vendorPayment = pgTable(
   "vendor_payment",
   {
     approvalScreenshotKey: text("approval_screenshot_key"),
+    /** Programme the expense is charged to when it has no event. */
+    chargedProgrammeId: uuid("charged_programme_id").references(
+      () => programme.id,
+      { onDelete: "restrict" }
+    ),
+    /** Optional project under the charged programme. */
+    chargedProjectId: uuid("charged_project_id"),
+    /** Which work the expense served; see `expenseProgrammeOf`. */
+    chargedTo: expenseChargedToEnum("charged_to").notNull(),
     city: cityEnum("city").notNull().default("bangalore"),
     createdAt: timestamp("created_at").notNull(),
     eventId: uuid("event_id").references(() => teamEvent.id, {
@@ -132,6 +148,17 @@ export const vendorPayment = pgTable(
     index("vendor_payment_vendorId_idx").on(table.vendorId),
     index("vendor_payment_status_idx").on(table.status),
     index("vendor_payment_eventId_idx").on(table.eventId),
+    index("vendor_payment_chargedProgrammeId_idx").on(table.chargedProgrammeId),
+    // A project must sit under the charged programme.
+    foreignKey({
+      columns: [table.chargedProjectId, table.chargedProgrammeId],
+      foreignColumns: [project.id, project.programmeId],
+      name: "vendor_payment_charged_project_programme_fk",
+    }).onDelete("restrict"),
+    check(
+      "vendor_payment_charged_to_chk",
+      sql`(${table.chargedTo} = 'event' AND ${table.eventId} IS NOT NULL AND ${table.chargedProgrammeId} IS NULL AND ${table.chargedProjectId} IS NULL) OR (${table.chargedTo} = 'programme' AND ${table.eventId} IS NULL AND ${table.chargedProgrammeId} IS NOT NULL) OR (${table.chargedTo} = 'organisation' AND ${table.eventId} IS NULL AND ${table.chargedProgrammeId} IS NULL AND ${table.chargedProjectId} IS NULL)`
+    ),
     check(
       "vendor_payment_rejection_reason_chk",
       sql`((status = 'rejected'::vendor_payment_status) AND (rejection_reason IS NOT NULL)) OR ((status <> 'rejected'::vendor_payment_status) AND (rejection_reason IS NULL))`
@@ -227,6 +254,10 @@ export const vendorPaymentRelations = relations(
   vendorPayment,
   ({ one, many }) => ({
     attachments: many(vendorPaymentAttachment),
+    chargedProgramme: one(programme, {
+      fields: [vendorPayment.chargedProgrammeId],
+      references: [programme.id],
+    }),
     event: one(teamEvent, {
       fields: [vendorPayment.eventId],
       references: [teamEvent.id],

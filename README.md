@@ -40,6 +40,7 @@ A volunteer and admin management dashboard built with a modern TypeScript monore
 | Email verification | Verification email sent on account creation |
 | Orientation tracking | Track whether a volunteer attended orientation |
 | Requests | Unified view for reimbursement and advance payment requests — submit, review, approve/reject with line items and type filter |
+| Charged to | Every reimbursement and vendor payment says which work it served: an event, a programme or project without an event, or the organisation (admin). Finance can change it at approval or later; the Programme column and filter show "Admin" and an "Unallocated" count for legacy requests |
 | Teams | Organize volunteers into teams with leads; optionally link to WhatsApp groups for automated member syncing |
 | Events | Create team events (one-time or recurring), assign members, track attendance per occurrence; public events page for all users |
 | Kalakriti Editions | Run production-gated yearly registration workspaces with Edition-scoped access, persistent external identities, Center quotas and controls, student and competition-entry registration, public schedules, assignment-scoped dashboards and ZIP exports, and administrator or assigned-Lead audit trails. Volunteer enrollment automatically promotes unoriented volunteers without changing admin or custom roles; see the [orientation policy](docs/architecture/kalakriti-registration.md#identity-and-access). |

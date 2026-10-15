@@ -3,6 +3,10 @@ import { startOfDay } from "date-fns";
 import z from "zod";
 
 import {
+  chargedToFormFields,
+  refineChargedTo,
+} from "@/components/expenses/charged-to-schema";
+import {
   attachmentSchema,
   lineItemSchema,
   newLineItem,
@@ -27,18 +31,21 @@ const baseFields = {
   title: z.string().min(1, "Title is required"),
 };
 
-export const reimbursementRequestFormSchema = z.object({
-  ...baseFields,
-  expenseDate: z
-    .date()
-    .optional()
-    .refine((d): d is Date => d !== undefined, "Expense date is required")
-    .refine(
-      (d) => startOfDay(d) <= startOfDay(new Date()),
-      "Expense date cannot be in the future"
-    ),
-  type: z.literal("reimbursement"),
-});
+export const reimbursementRequestFormSchema = z
+  .object({
+    ...baseFields,
+    ...chargedToFormFields,
+    expenseDate: z
+      .date()
+      .optional()
+      .refine((d): d is Date => d !== undefined, "Expense date is required")
+      .refine(
+        (d) => startOfDay(d) <= startOfDay(new Date()),
+        "Expense date cannot be in the future"
+      ),
+    type: z.literal("reimbursement"),
+  })
+  .superRefine(refineChargedTo);
 
 export const advancePaymentRequestFormSchema = z.object({
   ...baseFields,
@@ -66,6 +73,8 @@ export function getDefaultValues(type: RequestType): RequestFormValues {
   if (type === "reimbursement") {
     return {
       ...base,
+      // Most claims are for an event; the claimant switches otherwise.
+      chargedTo: "event",
       expenseDate: undefined,
       type: "reimbursement",
     };

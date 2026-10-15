@@ -25,7 +25,9 @@ function createDb(seed: Partial<Record<string, Row[]>> = {}) {
     orgAccount: [],
     programme: [],
     project: [],
+    reimbursement: [],
     user: [],
+    vendorPayment: [],
     ...seed,
   };
   const writes: { action: string; row: Row; table: string }[] = [];
@@ -214,6 +216,46 @@ describe("project mutators", () => {
         programmeId: "prog-1",
       })
     ).rejects.toThrow("inactive programme");
+  });
+});
+
+describe("moving a project to another programme", () => {
+  const project = (overrides: Row = {}): Row => ({
+    code: "P1",
+    id: "proj-1",
+    kind: "class",
+    name: "Project",
+    programmeId: "prog-1",
+    ...overrides,
+  });
+  const move = {
+    code: "P1",
+    id: "proj-1",
+    name: "Project",
+    programmeId: "prog-2",
+  };
+  const programmes = [
+    programme(),
+    programme({ code: "ART", id: "prog-2", name: "Arts" }),
+  ];
+
+  it("refuses while an expense is charged to the project", async () => {
+    for (const table of ["reimbursement", "vendorPayment"]) {
+      const db = createDb({
+        programme: programmes,
+        project: [project()],
+        [table]: [{ chargedProjectId: "proj-1", id: "x-1" }],
+      });
+      await expect(
+        run(projectMutators.update, db, financeCtx, move)
+      ).rejects.toThrow("Expenses are charged to this project");
+    }
+  });
+
+  it("moves a project nothing is charged to", async () => {
+    const db = createDb({ programme: programmes, project: [project()] });
+    await run(projectMutators.update, db, financeCtx, move);
+    expect(db.tables.project?.[0]?.programmeId).toBe("prog-2");
   });
 });
 

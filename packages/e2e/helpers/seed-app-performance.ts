@@ -456,6 +456,7 @@ export async function seedAppPerformance() {
             const index = start + offset;
             return {
               id: reimbursementId(index),
+              chargedTo: "event" as const,
               eventId: eventId(
                 index < eventExpenseCount
                   ? 0
@@ -575,6 +576,7 @@ export async function seedAppPerformance() {
             const index = start + offset;
             return {
               id: paymentId(index),
+              chargedTo: "event" as const,
               eventId: eventId(
                 index < eventExpenseCount
                   ? 0

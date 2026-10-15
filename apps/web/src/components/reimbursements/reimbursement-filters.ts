@@ -17,6 +17,8 @@ import {
   requestProgrammeId,
   requestProgrammeName,
   requestProgrammeOptionId,
+  requestToClearValue,
+  TO_CLEAR_FILTER,
 } from "@/lib/request-programme";
 import { sumAmounts } from "@/lib/stats";
 
@@ -57,8 +59,10 @@ export function getReimbursementFilterValue(
     case "expenseDate":
       return isReimbursement(row) ? row.expenseDate : null;
     case "programme":
-      // Advances have no event link, so they sit outside every bucket.
-      return isReimbursement(row) ? requestProgrammeId(row.event) : null;
+      // Advances are charged to nothing, so they sit outside every bucket.
+      return isReimbursement(row) ? requestProgrammeId(row) : null;
+    case TO_CLEAR_FILTER.path:
+      return isReimbursement(row) ? requestToClearValue(row) : null;
     case "status":
       return row.status;
     case "submittedAt":
@@ -95,12 +99,13 @@ export function createReimbursementFilterFields(
       optionsFromRows(
         rows,
         (row) =>
-          isReimbursement(row)
-            ? requestProgrammeOptionId(row.event)
-            : undefined,
-        (row) => (isReimbursement(row) ? requestProgrammeName(row.event) : "")
+          isReimbursement(row) ? requestProgrammeOptionId(row) : undefined,
+        (row) => (isReimbursement(row) ? requestProgrammeName(row) : "")
       )
     ),
+    selectField(TO_CLEAR_FILTER.path, TO_CLEAR_FILTER.label, [
+      { label: TO_CLEAR_FILTER.optionLabel, value: TO_CLEAR_FILTER.value },
+    ]),
     selectField(
       "createdBy",
       "Created by",

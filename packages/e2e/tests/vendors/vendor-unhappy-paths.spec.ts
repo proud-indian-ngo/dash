@@ -1,5 +1,6 @@
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { clickUntilDialogCloses } from "../../helpers/dialog-submit";
+import { chargeRequestTo } from "../../helpers/request-event";
 import { ListPage } from "../../pages/list-page";
 
 test.describe("Vendor unhappy paths (admin)", () => {
@@ -83,6 +84,7 @@ test.describe("Vendor unhappy paths (admin)", () => {
     const option = page.getByRole("option").filter({ hasText: vendorName });
     await expect(option).toBeVisible({ timeout: 10_000 });
     await option.click();
+    await chargeRequestTo(page, "Organisation (admin)");
 
     // Fill a line item
     await page

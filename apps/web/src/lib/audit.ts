@@ -114,6 +114,10 @@ const SAFE_CHANGED_FIELD_NAMES = new Set([
   "caption",
   "categoryId",
   "channel",
+  // What an expense is charged to: names and identifiers only.
+  "chargedProgrammeId",
+  "chargedProjectId",
+  "chargedTo",
   "childrenAttended",
   "city",
   "contactEmail",

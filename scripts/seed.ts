@@ -154,6 +154,7 @@ import {
   GIVE_INDIA_PARTY_NAME,
   PROGRAMME_IDS,
 } from "@pi-dash/shared/constants";
+import { normaliseExpenseCharge } from "@pi-dash/shared/expense-charge";
 import { getKalakritiCenterTransportStatus } from "@pi-dash/zero/kalakriti-center-scan-rules";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
@@ -2545,6 +2546,9 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
       userId: v2,
     },
     {
+      // Ongoing cost without an event, charged straight to a programme.
+      chargedProgrammeId: PROGRAMME_IDS.communitySupport,
+      chargedTo: "programme" as const,
       city: "mumbai" as const,
       expenseDate: past(2),
       historyIds: [ID.rh06],
@@ -2590,9 +2594,13 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
           bankAccountIfscCode: "SBIN0001234",
           bankAccountName: "Savings Account",
           bankAccountNumber: "1234567890",
+          ...normaliseExpenseCharge({
+            chargedProgrammeId: r.chargedProgrammeId,
+            chargedTo: r.chargedTo,
+            eventId: r.eventId,
+          }),
           city: r.city,
           createdAt: subDays(r.expenseDate, 2),
-          eventId: r.eventId,
           expenseDate: r.expenseDate.toISOString().slice(0, 10),
           id: r.id,
           rejectionReason: r.rejectionReason,
@@ -2867,6 +2875,7 @@ async function seedVendors(userMap: Map<string, string>): Promise<void> {
   await db
     .insert(vendorPayment)
     .values({
+      chargedTo: "event",
       city: "bangalore",
       createdAt: past(15),
       eventId: ID.evOutreach,
@@ -3037,6 +3046,9 @@ async function seedVendors(userMap: Map<string, string>): Promise<void> {
   await db
     .insert(vendorPayment)
     .values({
+      // A legacy request without an event, left for finance to clear.
+      chargedProgrammeId: PROGRAMME_IDS.unallocated,
+      chargedTo: "programme",
       city: "mumbai",
       createdAt: past(3),
       id: ID2.vp02,
@@ -3100,6 +3112,8 @@ async function seedVendors(userMap: Map<string, string>): Promise<void> {
   await db
     .insert(vendorPayment)
     .values({
+      // Office rent runs the trust, so it is charged to admin.
+      chargedTo: "organisation",
       city: "bangalore",
       createdAt: past(30),
       id: ID2.vp03,

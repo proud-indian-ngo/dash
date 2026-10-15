@@ -22,6 +22,13 @@ import {
   INVOICE_UPLOADABLE_STATUSES,
 } from "../vendor-payment-constants";
 import {
+  assertCanChangeCharge,
+  chargeChangeNote,
+  expenseChargeArgs,
+  resolveExpenseCharge,
+  setChargedToSchema,
+} from "./expense-charge";
+import {
   assertCanDelete,
   assertCanModify,
   assertEntityExists,
@@ -155,6 +162,7 @@ function invoiceDetailsHistory(args: InvoiceDetails): {
 
 const createSchema = z.object({
   attachments: z.array(attachmentSchema),
+  ...expenseChargeArgs,
   city: z.enum(cityValues).optional(),
   eventId: z.string().optional(),
   id: z.string(),
@@ -391,12 +399,13 @@ export const vendorPaymentMutators = {
 
     const now = Date.now();
     const vpFk = { vendorPaymentId: args.id };
+    const charge = await resolveExpenseCharge(tx, args);
 
     await tx.mutate.vendorPayment.insert({
       approvalScreenshotKey: null,
+      ...charge,
       city: args.city,
       createdAt: now,
-      eventId: args.eventId,
       id: args.id,
       invoiceDate: null,
       invoiceNumber: null,
@@ -904,6 +913,29 @@ export const vendorPaymentMutators = {
     }
   ),
 
+  /**
+   * Finance changes what the request is charged to, at approval or later.
+   * Expenses are not posted to the books yet; once they are, a posted
+   * request will refuse this.
+   */
+  setChargedTo: defineMutator(setChargedToSchema, async ({ tx, ctx, args }) => {
+    const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
+    assertEntityExists(entity, "Vendor payment");
+    assertCanChangeCharge(ctx, entity);
+    const charge = await resolveExpenseCharge(tx, args, entity);
+    const note = await chargeChangeNote(tx, entity, charge);
+    const now = Date.now();
+    await tx.mutate.vendorPayment.update({
+      id: args.id,
+      updatedAt: now,
+      ...charge,
+    });
+    await tx.mutate.vendorPaymentHistory.insert({
+      ...buildHistoryInsert(ctx.userId, "updated", now, note),
+      vendorPaymentId: args.id,
+    });
+  }),
+
   update: defineMutator(createSchema, async ({ tx, ctx, args }) => {
     assertIsLoggedIn(ctx);
     const { userId } = ctx;
@@ -938,10 +970,11 @@ export const vendorPaymentMutators = {
 
     const now = Date.now();
     const vpFk = { vendorPaymentId: args.id };
+    const charge = await resolveExpenseCharge(tx, args, entity);
 
     await tx.mutate.vendorPayment.update({
+      ...charge,
       city: args.city,
-      eventId: args.eventId,
       id: args.id,
       title: args.title,
       updatedAt: now,

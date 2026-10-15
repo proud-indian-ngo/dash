@@ -53,6 +53,7 @@ describe("server mutator upload claims", () => {
 
     await reimbursementMutators.create.fn({
       args: {
+        chargedTo: "organisation",
         attachments: [
           {
             filename: "receipt.pdf",
@@ -172,6 +173,7 @@ describe("server mutator upload claims", () => {
 
     await vendorPaymentMutators.create.fn({
       args: {
+        chargedTo: "organisation",
         attachments: [
           {
             filename: "quote.pdf",

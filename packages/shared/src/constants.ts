@@ -96,6 +96,18 @@ export const vendorPaymentNoInvoiceReasonValues = [
 export type VendorPaymentNoInvoiceReason =
   (typeof vendorPaymentNoInvoiceReasonValues)[number];
 
+/**
+ * Which work an expense served: an event (its programme comes from the
+ * event), a programme or project without an event, or running the
+ * organisation itself (admin).
+ */
+export const expenseChargedToValues = [
+  "event",
+  "programme",
+  "organisation",
+] as const;
+export type ExpenseChargedTo = (typeof expenseChargedToValues)[number];
+
 export const reminderTargetValues = ["participants", "group", "both"] as const;
 export type ReminderTarget = (typeof reminderTargetValues)[number];
 

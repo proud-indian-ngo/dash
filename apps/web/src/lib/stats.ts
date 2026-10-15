@@ -16,6 +16,10 @@ import {
 
 import type { StatItem } from "@/components/stats/stats-cards";
 import { DAY_MONTH } from "@/lib/date-formats";
+import {
+  type ChargedRequest,
+  requestProgrammeName,
+} from "@/lib/request-programme";
 
 export interface WithStatusAndLineItems {
   lineItems: readonly { amountPaise: number }[];
@@ -275,19 +279,19 @@ export interface ProgrammeDataPoint {
   name: string;
 }
 
-interface WithProgrammeData {
-  event?: { programme?: { name: string } | null } | null;
+interface WithProgrammeData extends ChargedRequest {
   lineItems: readonly { amountPaise: number }[];
 }
 
-export const NO_EVENT_PROGRAMME_LABEL = "No event";
-/** The event is loaded but its programme row has not synced yet. */
+/** Legacy advance payments, which are charged to nothing. */
+export const NO_PROGRAMME_LABEL = "No programme";
+/** The programme row has not synced yet. */
 export const UNKNOWN_PROGRAMME_LABEL = "Programme unknown";
 
 /**
- * Spend per programme, derived from each request's current event. Requests
- * without an event are grouped under "No event". Buckets are keyed by
- * programme name, which is unique.
+ * Spend per programme, by what each request is charged to (see
+ * `expenseProgrammeOf`): an event's programme, a programme chosen without an
+ * event, or "Admin". Buckets are keyed by programme name, which is unique.
  */
 export function computeProgrammeData(
   items: readonly WithProgrammeData[]
@@ -295,9 +299,9 @@ export function computeProgrammeData(
   const map = new Map<string, { amount: number; count: number }>();
 
   for (const item of items) {
-    const name = item.event
-      ? (item.event.programme?.name ?? UNKNOWN_PROGRAMME_LABEL)
-      : NO_EVENT_PROGRAMME_LABEL;
+    const name = item.chargedTo
+      ? requestProgrammeName(item) || UNKNOWN_PROGRAMME_LABEL
+      : NO_PROGRAMME_LABEL;
     const existing = map.get(name) ?? { amount: 0, count: 0 };
     existing.amount += sumAmounts(item.lineItems);
     existing.count += 1;

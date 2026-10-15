@@ -223,6 +223,7 @@ pi-dash event remains read-only outside the Kalakriti module.
 | `components/social/` | Social page: runs table, posts table (Drop action), social settings (pause switches, posting rules, digest approver, all-time totals), IST formatting |
 | `components/users/` | users-table, user-form, password-form, ban-user-form |
 | `components/reimbursements/` | reimbursements-table, reimbursement-form, reimbursement-detail, reimbursement-stats (unified reimbursements + advance payments) |
+| `components/expenses/` | "Charged to" on reimbursements and vendor payments: the form fields (`charged-to-fields.tsx`, schema in `charged-to-schema.ts`), the detail card with finance's change dialog (`charged-to-card.tsx`) and the "Unallocated · N" list filter; the rule is `expenseProgrammeOf` in `packages/shared/src/expense-charge.ts`, the mutator checks in `packages/zero/src/mutators/expense-charge.ts` |
 | `components/teams/` | teams-table, team-detail, team-form-dialog, add-member-dialog |
 | `components/shared/` | user-avatar, user-picker, confirm-dialog, responsive-dialog, responsive-sheet (desktop side sheet and mobile drawer navigation), responsive-action-menu (desktop dropdown and mobile action sheet) |
 | `components/editor/` | plate-editor (rich-text with image upload), plate-renderer (read-only) |
@@ -294,7 +295,7 @@ All function paths above are prefixed with `apps/web/src/`.
 | `lib/stats.ts` | Shared stat computation helpers |
 | `lib/status-badge.ts` | Status → badge variant mapping |
 | `lib/submission-mappers.ts` | Map Zero rows to form/display models |
-| `lib/request-programme.ts` | A request's programme derived from its event ("No event" without one) for the request tables and filters |
+| `lib/request-programme.ts` | A request's programme for the request tables, filters and the spending chart, derived by `expenseProgrammeOf` from what it is charged to ("Admin" for organisation) |
 | `lib/save-conflict.ts` | Detects the party save version conflict so donor and vendor forms reload the details |
 | `lib/nav-items.ts` | Nav items by user role |
 | `lib/route-guards.ts` | Route protection utilities |
