@@ -19,6 +19,7 @@ import {
   assertServerPermission,
 } from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
+import { mapUnreadableValue } from "@/lib/encrypted-reveal";
 import { canRevealVendorBank, canViewVendorDetails } from "@/lib/vendor-access";
 import { saveVendorSchema } from "@/lib/vendor-schema";
 import { authMiddleware } from "@/middleware/auth";
@@ -124,7 +125,15 @@ export const revealVendorBankAccount = createServerFn({ method: "POST" })
         target: { id: data.vendorId, type: "party" },
       },
       async () => ({
-        account: await revealVendorBankAccountRow(data.vendorId),
+        account: await mapUnreadableValue(
+          {
+            action: "vendor.bank_account.reveal",
+            ids: { vendorId: data.vendorId },
+            path: "revealVendorBankAccount",
+            what: "account number",
+          },
+          () => revealVendorBankAccountRow(data.vendorId)
+        ),
       })
     );
   });

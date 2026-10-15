@@ -14,6 +14,7 @@ import {
 } from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
 import { saveDonorSchema } from "@/lib/donor-schema";
+import { mapUnreadableValue } from "@/lib/encrypted-reveal";
 import { authMiddleware } from "@/middleware/auth";
 
 /**
@@ -62,7 +63,17 @@ export const revealPartyIdentifier = createServerFn({ method: "POST" })
         action: "party.identifier.reveal",
         target: { id: data.partyId, type: "party" },
       },
-      async () => ({ idNumber: await revealPartyIdNumber(data.partyId) })
+      async () => ({
+        idNumber: await mapUnreadableValue(
+          {
+            action: "party.identifier.reveal",
+            ids: { partyId: data.partyId },
+            path: "revealPartyIdentifier",
+            what: "ID number",
+          },
+          () => revealPartyIdNumber(data.partyId)
+        ),
+      })
     );
   });
 

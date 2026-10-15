@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import { keyedDigest } from "@pi-dash/db/encryption";
+import { importHash, rawRowHashInput } from "@pi-dash/db/import-hash";
 import type {
   ExternalIdentityEntityType,
   ExternalIdentityProvider,
@@ -23,12 +23,8 @@ import type { NormalizedRow } from "./normalize";
  * see "Import hashes and the key" in docs/architecture/finance-and-programmes.md.
  */
 
-const IMPORT_HASH_SCHEME = "h1";
-const IMPORT_HASH_INFO = "pi-dash import hash v1";
-
 /** A keyed hash of `text` for one purpose, prefixed with the scheme. */
-export const keyedHash = (purpose: string, text: string) =>
-  `${IMPORT_HASH_SCHEME}:${keyedDigest(IMPORT_HASH_INFO, `${purpose}\u0000${text}`)}`;
+export const keyedHash = importHash;
 
 export interface RowIdentity {
   entityType: ExternalIdentityEntityType;
@@ -127,7 +123,7 @@ export function payloadHash(row: NormalizedRow): string {
 
 /** Hash of the uploaded cells in header order. */
 export function rawRowHash(raw: Readonly<Record<string, string>>): string {
-  return keyedHash("raw", JSON.stringify(Object.entries(raw)));
+  return keyedHash("raw", rawRowHashInput(raw));
 }
 
 /** Plain SHA-256 of the whole file, only to spot the same file uploaded twice. */

@@ -27,7 +27,7 @@ Copy `.env.sample` to `.env` and fill in values. Grouped by category:
 | `DATABASE_URL` | PostgreSQL connection string (pooled) |
 | `ZERO_UPSTREAM_DB` | PostgreSQL connection string (unpooled, for WAL replication) |
 | `BETTER_AUTH_SECRET` | Session encryption secret (min 32 chars) |
-| `DATA_ENCRYPTION_KEY` | Base64 of 32 random bytes (`openssl rand -base64 32`); encrypts finance-private fields such as donor ID numbers. Required in production and passed to the `web` service by `docker-compose.prod.yml`. Rotating it requires re-encrypting stored values |
+| `DATA_ENCRYPTION_KEY` | Base64 of 32 random bytes (`openssl rand -base64 32`); encrypts finance-private fields such as donor ID numbers. Required in production and passed to the `web` service by `docker-compose.prod.yml`. Rotating it requires re-encrypting stored values. Run every script that writes encrypted values with this same key |
 | `BETTER_AUTH_URL` | Auth base URL (e.g., `https://dash.example.com`). Also the base of the public events feed's `signUpUrl`; the proudindian.ngo website only accepts links starting with `https://dash.proudindian.ngo/`, so production must use exactly that origin |
 | `CORS_ORIGIN` | Allowed CORS origin (usually same as `BETTER_AUTH_URL`) |
 | `ZERO_ADMIN_PASSWORD` | Zero cache admin password |
@@ -69,15 +69,12 @@ Private-storage cutover order:
 
 1. Configure the protected temp-key lifecycle rules.
 2. Deploy authenticated reads and transactional claims.
-3. Run `bun run r2:migrate-media-urls -- --legacy-cdn-url=<url>` and review the
-   changed, skipped, and malformed counts.
-4. Repair every row listed in each table's `malformedIds`.
-5. Apply with `bun run r2:migrate-media-urls -- --legacy-cdn-url=<url> --apply`.
-6. Rerun the dry-run until `totals.changed` and `totals.malformed` are both `0`.
-7. Verify request attachments, approval proofs, scheduled media, event photos,
+3. Backfill stored media references to canonical app URLs (done in production
+   with a one-off script, now in git history).
+4. Verify request attachments, approval proofs, scheduled media, event photos,
    avatars, and event editor media through authenticated application routes.
-8. Disable the R2 public development URL and public CDN route.
-9. In a follow-up, deploy code that removes `VITE_CDN_URL` usage and its schema
+5. Disable the R2 public development URL and public CDN route.
+6. In a follow-up, deploy code that removes `VITE_CDN_URL` usage and its schema
    requirement while the variable is still configured. Remove the runtime
    variable only after that deployment succeeds.
 
@@ -352,28 +349,15 @@ Apply both ordered results migrations (Entry composite uniqueness, then result t
 
 ### Vendor parties rollout
 
-Migration `0116_vendor_parties.sql` turns every vendor into a party (same UUID, kind organisation, `vendor` role) and moves its contact, PAN and bank details out of the replicated `vendor` table into the server-only `private.vendor_legacy_details`, dropping the old columns in the same step so they stop syncing at once. Because columns are dropped, deploy the migration, the regenerated Zero schema and the web build together; old app or Zero workers that still read the dropped columns fail. Until the backfill runs, the app reads the legacy rows as a fallback, so vendor screens and payments keep working.
+Migration `0116_vendor_parties.sql` turned every vendor into a party (same UUID, kind organisation, `vendor` role) and moved its contact, PAN and bank details out of the replicated `vendor` table. The one-off backfill that encrypted them into `party_private` and `party_bank_account` ran in production in October 2026, and the migration `drop_vendor_legacy_details` then drops the emptied `private.vendor_legacy_details` table. That migration stops with `vendor_legacy_details still has rows` if any are left, so nothing unmigrated is lost; restore the backfill script from git history (before the PR that removed it) and run it with the production `DATA_ENCRYPTION_KEY` first.
 
-`DATA_ENCRYPTION_KEY` is a prerequisite for this deploy, not only for the backfill: creating any vendor stores its bank account number encrypted, and editing a legacy vendor that has a PAN or bank account number migrates them into encrypted columns, so both fail without the key. Set it in the app environment first (see the environment variable table above for how to generate one), then deploy.
+If a reveal says "saved with a different encryption key" (server log reason `encrypted_value_unreadable`), the value was encrypted under another `DATA_ENCRYPTION_KEY`, for example by a script run from a laptop with its local key. Re-encrypt it under the production key; the one-off re-key tooling used in October 2026 is in git history.
 
-The backfill is the second step. After the deploy that includes migrations 0116 and 0117, run once:
-
-```bash
-bun run vendors:backfill-private
-```
-
-It encrypts each legacy row into `party_private` and `party_bank_account`, deletes it, and prints the migrated and skipped counts. It is safe to rerun; a second run reports `0 migrated`. Editing a vendor before the backfill also migrates that vendor's row. A later migration drops `private.vendor_legacy_details` once production has no rows left in it.
+Scripts read their database and key from the environment. Variables set on the command line override `.env` and `.env.worktree`; check the target before running anything against production.
 
 ### Vendor payment status repair
 
-Once the build that records payments only on approved requests is deployed, list vendor payments whose status disagrees with their data, then apply:
-
-```bash
-bun run vendor-payments:repair-status
-bun run vendor-payments:repair-status --apply --actor <admin email>
-```
-
-Pending requests that were already paid are listed as `APPROVE IN APP`; approve each in the app, never reject it (the server refuses to reject a request with approved payments). Rows marked `REVIEW` are left unchanged for finance to check by hand. The output ends with the requests moved to `paid`; chase their invoices with the owners, as the script sends no notifications. Applied changes are recorded only as vendor payment history entries by the `--actor` user, not in `audit_log`. See `docs/architecture/vendor-payments.md`.
+A one-off repair corrected vendor payment statuses that disagreed with their payments and invoice (requests paid while still `pending`, or reset to `approved` by a later approval). It ran in production in October 2026; the script is in git history.
 
 ### Money in paise rollout
 

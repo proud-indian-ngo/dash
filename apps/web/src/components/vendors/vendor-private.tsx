@@ -1,5 +1,6 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { revealErrorMessage } from "@pi-dash/shared/encrypted-values";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useEffect, useState } from "react";
@@ -112,7 +113,13 @@ export function VendorAccountNumber({
         caughtError: error instanceof Error ? error.message : String(error),
         component: "VendorAccountNumber",
       });
-      toast.error("Couldn't reveal the account number");
+      toast.error(
+        revealErrorMessage(
+          error,
+          "account number",
+          "Couldn't reveal the account number"
+        )
+      );
     }
   });
   const handleHide = useEventCallback(() => setRevealed(null));

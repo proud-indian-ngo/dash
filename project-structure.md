@@ -14,7 +14,6 @@ All paths are relative to project root.
 | `bun run db:generate` | Generate Drizzle types |
 | `bun run db:push` | Push schema changes to database |
 | `bun run db:migrate` | Run pending migrations |
-| `bun run r2:migrate-media-urls -- --legacy-cdn-url=<url>` | Dry-run legacy avatar/editor media backfill; add `--apply` only after reviewing the report |
 | `bun run zero:generate` | Regenerate Zero schema |
 | `bun run zero:analyze` | Analyze named Zero queries; `ZERO_ANALYZE_PROFILE=events` (default) or `kalakriti` with required `ZERO_ANALYZE_EDITION_ID`; authenticate via environment |
 | `bun run whatsapp:start` | Start WhatsApp gateway container |
@@ -353,7 +352,6 @@ All lib paths above are prefixed with `apps/web/src/`.
 | `advancePaymentHistory` | `packages/db/src/schema/advance-payment.ts` |
 | `party`, `partyRole` | `packages/db/src/schema/party.ts` (identity and roles; synced through Zero) |
 | `partyPrivate`, `partyBankAccount` | `packages/db/src/schema/private/party-private.ts` (contact, ID and bank details in the Postgres schema `private`; never in the Zero schema or the zero-cache replica; identifiers encrypted with `DATA_ENCRYPTION_KEY`) |
-| `vendorLegacyDetails` | `packages/db/src/schema/private/vendor-legacy.ts` (vendor details moved out of `vendor` by migration 0116, read as a fallback until `bun run vendors:backfill-private` encrypts them into the party tables; dropped once empty) |
 | `team` | `packages/db/src/schema/team.ts` (optional `programmeId`: default programme for the team's events) |
 | `teamMember` | `packages/db/src/schema/team.ts` |
 | `teamEvent` | `packages/db/src/schema/team-event.ts` (`programmeId` required; defaults to the Unallocated holding programme, backfilled from the team in migration 0114) |
@@ -433,8 +431,6 @@ All lib paths above are prefixed with `apps/web/src/`.
 - **Fixtures**: Import `test` and `expect` from `packages/e2e/fixtures/test.ts` for email fixtures, `kalakritiActors`, and `consoleErrors`. The `page` fixture annotates uncaught browser errors when a test needs a page. API-only tests use `request` without starting a browser page. Use plain `@playwright/test` for unauthenticated tests that do not need the shared fixtures.
 - **Page Object Model**: Shared page objects live in `packages/e2e/pages/`. `RequestPage` composes the request list, form, and approval detail objects; Kalakriti page objects cover Edition creation, Centers, students, competitions, entries, and the public schedule. New feature suites should follow the owning domain's existing pattern.
 - **API authorization tests**: `tests/authorization/api-authorization.spec.ts` tests that admin-only Zero mutations are rejected for volunteer users via the `request` fixture and the live `/api/zero/mutate` endpoint.
-- **Vendor details backfill**: `scripts/backfill-vendor-private.ts` — `bun run vendors:backfill-private` encrypts rows left in `private.vendor_legacy_details` by migration 0116 into the party tables; idempotent, needs `DATA_ENCRYPTION_KEY`.
-- **Vendor payment status repair**: `scripts/repair-vendor-payment-status.ts` — `bun run vendor-payments:repair-status` lists vendor payments whose status disagrees with their payments or invoice (dry run); `--apply --actor <email>` corrects them with a history entry and lists the requests moved to paid. Rules in `packages/zero/src/lib/vendor-payment-status-repair.ts`; idempotent.
 - **Social API tokens**: Settings → API tokens (`/settings/api-tokens`) (`settings.app_config`), or the CLI fallback `scripts/social-token.ts` — `bun run social:token create <name> --scopes …`, `list`, `revoke <id>`; both show the raw token once and store only its sha256.
 - **Dev seeding**: `scripts/seed.ts` — comprehensive idempotent seed covering all data models. Run via `bun run seed`. Used by worktree setup and general dev.
 - **E2E seeding**: `packages/e2e/helpers/seed-test-user.ts` creates standard test data plus the idempotent Kalakriti registration-release fixture, including all active role actors and one dormant external actor.
@@ -570,9 +566,7 @@ Protected temp subfolders: `attachments`, `approval-screenshots`, `photos`,
 Avatar uploads use `getProfilePictureUploadUrl` / `deleteProfilePicture` and
 are scoped to `avatars/{userId}/`. Event editor uploads use
 `getEventEditorUploadUrl` and require update permission or team-lead
-access. Run `r2:migrate-media-urls` in dry-run mode, repair all reported
-malformed rows, apply the backfill, and confirm a zero-change/zero-malformed
-dry-run before disabling public R2/CDN access.
+access.
 
 ### Notification Flow
 

@@ -263,31 +263,24 @@ describe("resolveSaveMode noun", () => {
 
 describe("resolveBankAccount", () => {
   it("replaces with a given number, trimmed", () => {
-    expect(resolveBankAccount(" 1234567890 ", { id: "a1" }, null)).toEqual({
+    expect(resolveBankAccount(" 1234567890 ", { id: "a1" })).toEqual({
       accountNumber: "1234567890",
       kind: "replace",
     });
   });
 
   it("keeps the active account when the number is blank", () => {
-    expect(resolveBankAccount("", { id: "a1" }, "999")).toEqual({
+    expect(resolveBankAccount("", { id: "a1" })).toEqual({
       accountId: "a1",
       kind: "keep",
     });
   });
 
-  it("carries a legacy number over when nothing is active", () => {
-    expect(resolveBankAccount("  ", null, "55556666")).toEqual({
-      accountNumber: "55556666",
-      kind: "replace",
-    });
-  });
-
   it("asks for a number when there is nothing to keep", () => {
-    expect(() => resolveBankAccount("", null, null)).toThrow(
+    expect(() => resolveBankAccount("", null)).toThrow(
       "Enter the account number"
     );
-    expect(() => resolveBankAccount("", null, "  ")).toThrow(
+    expect(() => resolveBankAccount("  ", null)).toThrow(
       "Enter the account number"
     );
   });
