@@ -284,6 +284,8 @@ bun run whatsapp:start
 
 Starts `go-whatsapp-web-multidevice` container on port 3100. Pair via QR code at `http://localhost:3100`.
 
+Local and production Compose configurations use `pull_policy: always` for the WhatsApp gateway, so `docker compose up` pulls the current `latest` image before starting the service.
+
 ## Production Checklist
 
 - [ ] PostgreSQL running with `wal_level=logical`

@@ -59,6 +59,7 @@ services:
 
   whatsapp:
     image: ghcr.io/somus/go-whatsapp-web-multidevice-poll-vote:latest
+    pull_policy: always
     container_name: pi-dash-whatsapp
     environment:
       WHATSAPP_WEBHOOK: http://host.docker.internal:3002/api/whatsapp/webhook
