@@ -48,6 +48,13 @@ export async function notifyEventInterestReceived({
   await sendBulkMessage({
     body: `${volunteerName} wants to join ${eventName}!`,
     clickAction: `/events/${eventId}`,
+    digest: {
+      actionLabel: "Review",
+      list: { label: "View events", path: "/events" },
+      meta: `Wants to join ${eventName}`,
+      name: volunteerName,
+      status: { label: "Interested", tone: "info" },
+    },
     emailHtml,
     idempotencyKey: `event-interest-received-${eventId}-${volunteerName}`,
     title: "🙋 Someone's interested!",
@@ -72,6 +79,12 @@ export async function notifyEventInterestApproved({
   await sendMessage({
     body: `Great news — you've been approved for ${eventName}! Welcome to the crew.`,
     clickAction: `/events/${eventId}`,
+    digest: {
+      list: { label: "View events", path: "/events" },
+      meta: "You've been approved",
+      name: eventName,
+      status: { label: "You're in", tone: "success" },
+    },
     emailHtml,
     idempotencyKey: `event-interest-approved-${eventId}-${userId}`,
     title: "✅ You're in!",
@@ -96,6 +109,12 @@ export async function notifyEventInterestRejected({
   await sendMessage({
     body: `Unfortunately, your interest in ${eventName} wasn't approved this time.`,
     clickAction: `/events/${eventId}`,
+    digest: {
+      list: { label: "View events", path: "/events" },
+      meta: "Not approved this time",
+      name: eventName,
+      status: { label: "Not approved", tone: "neutral" },
+    },
     emailHtml,
     idempotencyKey: `event-interest-rejected-${eventId}-${userId}`,
     title: "📅 Interest update",
@@ -121,6 +140,12 @@ export async function notifyEventVolunteerLeft({
   await sendBulkMessage({
     body: `${volunteerName} left ${eventName}.`,
     clickAction: `/events/${eventId}`,
+    digest: {
+      list: { label: "View events", path: "/events" },
+      meta: `Left ${eventName}`,
+      name: volunteerName,
+      status: { label: "Left", tone: "neutral" },
+    },
     emailHtml,
     idempotencyKey: `event-volunteer-left-${eventId}-${volunteerUserId}-${leftAt}`,
     title: "🏃 Volunteer left",

@@ -48,6 +48,8 @@ export async function handleSendNotification(
         emailHtml,
         idempotencyKey,
         imageUrl,
+        // An admin's one-off message is sent when they send it.
+        immediate: true,
         title,
         to: userId,
         topic,

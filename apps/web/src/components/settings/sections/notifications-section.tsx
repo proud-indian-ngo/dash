@@ -77,10 +77,17 @@ export function NotificationsSection() {
   );
 
   return (
-    <NotificationPreferenceGrid
-      isLoading={isLoading}
-      onToggle={handleToggle}
-      topics={topicsWithPrefs}
-    />
+    <div className="flex flex-col gap-3">
+      <p className="text-muted-foreground text-sm">
+        Your inbox updates right away. Email and WhatsApp can take a few
+        minutes, and several updates on one topic arrive together as one
+        message.
+      </p>
+      <NotificationPreferenceGrid
+        isLoading={isLoading}
+        onToggle={handleToggle}
+        topics={topicsWithPrefs}
+      />
+    </div>
   );
 }

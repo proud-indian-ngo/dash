@@ -16,6 +16,7 @@ export const QUEUE_NAMES: JobName[] = [
   "ensure-fiscal-years",
   "expire-event-interests",
   "expire-import-rows",
+  "flush-held-notifications",
   "generate-cash-voucher",
   "immich-delete-album",
   "immich-delete-asset",

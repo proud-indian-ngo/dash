@@ -78,6 +78,23 @@ describe("vendor payment invoice notifications", () => {
     expect(sent(mocks.sendBulkMessage).body).toContain("No proof attached");
   });
 
+  it("puts the payment first in its digest row", async () => {
+    await notifyVendorPaymentInvoiceSubmitted({
+      ...base,
+      noInvoiceReason: "rent",
+      proofAttachmentCount: 2,
+      submitterName: "Asha",
+    });
+    expect(mocks.sendBulkMessage.mock.calls[0]?.[0]).toMatchObject({
+      digest: {
+        actionLabel: "Review",
+        meta: "Asha · Rent / lease · 2 proof files",
+        name: "Office rent",
+        status: { label: "Needs review", tone: "warning" },
+      },
+    });
+  });
+
   it.each([
     [1, "with 1 proof file"],
     [2, "with 2 proof files"],

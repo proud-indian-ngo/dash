@@ -43,6 +43,12 @@ export async function notifyEventUpdatePosted({
   await sendBulkMessage({
     body,
     clickAction: `/events/${eventId}`,
+    digest: {
+      actionLabel: "Read",
+      list: { label: "View events", path: "/events" },
+      meta: `Update from ${authorName}`,
+      name: eventLabel,
+    },
     emailHtml,
     idempotencyKey: `event-update-posted-${eventId}-${updatedAt}`,
     title: "📝 New update",
@@ -95,6 +101,12 @@ export async function notifyEventUpdateApproved({
   await sendMessage({
     body,
     clickAction: `/events/${eventId}`,
+    digest: {
+      list: { label: "View events", path: "/events" },
+      meta: "Your update is live",
+      name: eventLabel,
+      status: { label: "Live", tone: "success" },
+    },
     emailHtml,
     idempotencyKey: `event-update-approved-${eventUpdateId}`,
     title: "✅ Update live!",
@@ -129,6 +141,12 @@ export async function notifyEventUpdateRejected({
   await sendMessage({
     body,
     clickAction: `/events/${eventId}`,
+    digest: {
+      list: { label: "View events", path: "/events" },
+      meta: "Your update wasn't published",
+      name: eventLabel,
+      status: { label: "Not published", tone: "neutral" },
+    },
     emailHtml,
     idempotencyKey: `event-update-rejected-${eventUpdateId}`,
     title: "📝 Update not published",
@@ -193,6 +211,13 @@ export async function notifyEventUpdatePending({
   await sendBulkMessage({
     body,
     clickAction: `/events/${eventId}`,
+    digest: {
+      actionLabel: "Review",
+      list: { label: "View events", path: "/events" },
+      meta: `Update from ${authorName}`,
+      name: eventLabel,
+      status: { label: "Needs review", tone: "warning" },
+    },
     emailHtml,
     idempotencyKey: `event-update-pending-${eventUpdateId}`,
     title: "👀 Update needs review",

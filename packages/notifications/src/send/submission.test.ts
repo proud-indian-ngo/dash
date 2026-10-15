@@ -37,6 +37,7 @@ describe("submission approval notifications", () => {
       entityLabel: "Reimbursement",
       getLineItems: async () => [],
       idempotencyPrefix: "reimbursement",
+      listNoun: "reimbursements",
       routePrefix: "reimbursements",
       statusTopic: TOPICS.REQUESTS_STATUS,
       submittedTopic: TOPICS.REQUESTS_SUBMISSIONS,
@@ -58,6 +59,38 @@ describe("submission approval notifications", () => {
     expect(messageOptions).not.toHaveProperty("imageUrl");
     expect(messageOptions).toMatchObject({
       clickAction: "/reimbursements/request-1",
+    });
+  });
+
+  it("describes a submission as a review row with its total", async () => {
+    const notifier = createSubmissionNotifier({
+      entityLabel: "Reimbursement",
+      getLineItems: async () => [
+        { amountPaise: 150_000, categoryName: "Travel", description: null },
+        { amountPaise: 25_000, categoryName: "Food", description: null },
+      ],
+      idempotencyPrefix: "reimbursement",
+      listNoun: "reimbursements",
+      routePrefix: "reimbursements",
+      statusTopic: TOPICS.REQUESTS_STATUS,
+      submittedTopic: TOPICS.REQUESTS_SUBMISSIONS,
+    });
+
+    await notifier.notifySubmitted({
+      entityId: "request-1",
+      submitterName: "Asha",
+      title: "Bus to venue",
+    });
+
+    expect(mocks.sendBulkMessage.mock.calls[0]?.[0]).toMatchObject({
+      digest: {
+        actionLabel: "Review",
+        amountPaise: 175_000,
+        list: { label: "Review reimbursements", path: "/reimbursements" },
+        meta: "Asha · Reimbursement",
+        name: "Bus to venue",
+        status: { label: "Needs review", tone: "warning" },
+      },
     });
   });
 });

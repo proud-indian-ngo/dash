@@ -34,6 +34,12 @@ export async function notifyPhotoApproved({
   await sendMessage({
     body,
     clickAction: `/events/${eventId}`,
+    digest: {
+      list: { label: "View events", path: "/events" },
+      meta: "Your photo was approved",
+      name: eventName,
+      status: { label: "Approved", tone: "success" },
+    },
     emailHtml,
     idempotencyKey: `photo-approved-${photoId}`,
     title: "✅ Photo approved!",
@@ -58,6 +64,12 @@ export async function notifyPhotoRejected({
   await sendMessage({
     body,
     clickAction: `/events/${eventId}`,
+    digest: {
+      list: { label: "View events", path: "/events" },
+      meta: "Your photo wasn't published",
+      name: eventName,
+      status: { label: "Not published", tone: "neutral" },
+    },
     emailHtml,
     idempotencyKey: `photo-rejected-${photoId}`,
     title: "📷 Photo not published",
@@ -91,6 +103,12 @@ export async function notifyPhotosApproved({
   await sendMessage({
     body,
     clickAction: `/events/${eventId}`,
+    digest: {
+      list: { label: "View events", path: "/events" },
+      meta: `${count} photos approved`,
+      name: eventName,
+      status: { label: "Approved", tone: "success" },
+    },
     emailHtml,
     idempotencyKey,
     title: "✅ Photos approved!",
@@ -116,6 +134,12 @@ export async function notifyPhotosRejected({
   await sendMessage({
     body,
     clickAction: `/events/${eventId}`,
+    digest: {
+      list: { label: "View events", path: "/events" },
+      meta: `${count} photos not published`,
+      name: eventName,
+      status: { label: "Not published", tone: "neutral" },
+    },
     emailHtml,
     idempotencyKey,
     title: "📷 Photos not published",

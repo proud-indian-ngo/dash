@@ -28,6 +28,11 @@ export interface TopicMeta {
   name: string;
   required: boolean;
   requiredPermission?: PermissionId;
+  /**
+   * Send email and WhatsApp as soon as they're raised. Every other topic is
+   * held for the batching window and sent as one digest per recipient.
+   */
+  sendImmediately?: true;
 }
 
 export const TOPIC_CATALOG: TopicMeta[] = [
@@ -50,6 +55,7 @@ export const TOPIC_CATALOG: TopicMeta[] = [
     name: "Schedule",
     required: false,
     requiredPermission: "kalakriti.view",
+    sendImmediately: true,
   },
   {
     channels: ["inbox", "whatsapp"],
@@ -60,6 +66,7 @@ export const TOPIC_CATALOG: TopicMeta[] = [
     name: "Transport",
     required: false,
     requiredPermission: "kalakriti.view",
+    sendImmediately: true,
   },
   {
     defaultEnabled: true,
@@ -68,6 +75,7 @@ export const TOPIC_CATALOG: TopicMeta[] = [
     id: TOPICS.ACCOUNT,
     name: "Account",
     required: true,
+    sendImmediately: true,
   },
   {
     defaultEnabled: true,
@@ -156,4 +164,15 @@ export function topicSupportsChannel(
   channel: NotificationChannel
 ): boolean {
   return getTopicChannels(topicId).includes(channel);
+}
+
+const IMMEDIATE_TOPICS: ReadonlySet<string> = new Set(
+  TOPIC_CATALOG.filter((topic) => topic.sendImmediately).map(
+    (topic) => topic.id
+  )
+);
+
+/** False for topics whose email and WhatsApp skip the batching window. */
+export function isBatchedTopic(topicId: Topic): boolean {
+  return !IMMEDIATE_TOPICS.has(topicId);
 }

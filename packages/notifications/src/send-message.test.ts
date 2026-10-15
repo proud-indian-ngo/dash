@@ -20,6 +20,10 @@ vi.mock("./inbox", () => ({
   insertNotification: vi.fn(async () => true),
 }));
 
+vi.mock("./batching", () => ({
+  holdNotification: vi.fn(async () => true),
+}));
+
 vi.mock("./email", () => ({
   sendBulkNotificationEmails: vi.fn(async () => true),
   sendNotificationEmail: vi.fn(async () => true),
@@ -49,6 +53,7 @@ import {
 } from "@pi-dash/whatsapp/preferences";
 import { getUserPhone } from "@pi-dash/whatsapp/users";
 
+import { holdNotification } from "./batching";
 import { sendBulkNotificationEmails, sendNotificationEmail } from "./email";
 import { insertNotification } from "./inbox";
 import { isNotificationsDisabled } from "./kill-switch";
@@ -204,7 +209,7 @@ describe("sendMessage channel allowlist", () => {
       body: "b",
       idempotencyKey: "bulk",
       title: "t",
-      topic: TOPICS.TEAMS,
+      topic: TOPICS.ACCOUNT,
       userIds: ["u1", "u2", "u3"],
     });
 
@@ -213,9 +218,10 @@ describe("sendMessage channel allowlist", () => {
       expect.objectContaining({
         idempotencyKey: "bulk-email",
         recipients: [{ email: "one@test.com", userId: "u1" }],
-        topic: TOPICS.TEAMS,
+        topic: TOPICS.ACCOUNT,
       })
     );
+    expect(holdNotification).not.toHaveBeenCalled();
   });
 
   it("honors preferences for allowed channels", async () => {
@@ -308,5 +314,124 @@ describe("sendBulkMessage WhatsApp delivery keys", () => {
       ["911111111111", { idempotencyKey: "k-whatsapp-user-1" }],
       ["922222222222", { idempotencyKey: "k-whatsapp-user-2" }],
     ]);
+  });
+});
+
+describe("batched topics", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(isNotificationsDisabled).mockResolvedValue(false);
+    vi.mocked(getChannelPreferences).mockResolvedValue({
+      emailEnabled: true,
+      inboxEnabled: true,
+      whatsappEnabled: true,
+    });
+  });
+
+  it("writes the inbox now and holds email and WhatsApp", async () => {
+    vi.mocked(getUserPhone).mockResolvedValue("919999999999");
+    vi.mocked(isWhatsAppTopicEnabled).mockResolvedValue(true);
+
+    const result = await sendMessage({
+      ...baseMessage,
+      clickAction: "/teams/t1",
+      emailHtml: "<p>html</p>",
+      title: "👥 Added to team",
+      topic: TOPICS.TEAMS,
+    });
+
+    expect(insertNotification).toHaveBeenCalledTimes(1);
+    expect(sendNotificationEmail).not.toHaveBeenCalled();
+    expect(sendWhatsAppMessage).not.toHaveBeenCalled();
+    expect(holdNotification).toHaveBeenCalledWith({
+      body: "b",
+      clickAction: "/teams/t1",
+      emailHtml: "<p>html</p>",
+      idempotencyKey: "k",
+      recipients: [
+        { channel: "email", userId: "user-1" },
+        { channel: "whatsapp", userId: "user-1" },
+      ],
+      title: "👥 Added to team",
+      topic: TOPICS.TEAMS,
+      whatsappText:
+        "*👥 Added to team*\n\nb\n\nView: http://test/teams/t1\n\n_Sent by test_(http://test)",
+    });
+    expect(result.held).toBe(true);
+    expect(result.channels).toEqual({
+      emailQueued: true,
+      inboxQueued: true,
+      whatsapp: true,
+    });
+  });
+
+  it("holds only recipients who would have been sent each channel", async () => {
+    vi.mocked(getBulkChannelPreferences).mockResolvedValueOnce(
+      new Map([
+        [
+          "u2",
+          { emailEnabled: false, inboxEnabled: true, whatsappEnabled: true },
+        ],
+      ])
+    );
+    vi.mocked(getBulkUserEmails).mockResolvedValueOnce(
+      new Map([
+        ["u1", "one@test.com"],
+        ["u2", "two@test.com"],
+      ])
+    );
+    vi.mocked(getEnabledUserPhonesForTopic).mockResolvedValueOnce(
+      new Map([["u3", "913333333333"]])
+    );
+
+    const result = await sendBulkMessage({
+      body: "b",
+      idempotencyKey: "bulk",
+      title: "t",
+      topic: TOPICS.REQUESTS_SUBMISSIONS,
+      userIds: ["u1", "u2", "u3"],
+    });
+
+    expect(sendBulkNotificationEmails).not.toHaveBeenCalled();
+    expect(sendWhatsAppMessage).not.toHaveBeenCalled();
+    expect(vi.mocked(holdNotification).mock.calls[0]?.[0].recipients).toEqual([
+      { channel: "email", userId: "u1" },
+      { channel: "whatsapp", userId: "u3" },
+    ]);
+    expect(result.held).toBe(true);
+    expect(result.channels.whatsappRecipients).toBe(1);
+  });
+
+  it("sends straight away when the message is marked immediate", async () => {
+    await sendMessage({
+      ...baseMessage,
+      channels: ["email"],
+      immediate: true,
+      topic: TOPICS.EVENTS_SCHEDULE,
+    });
+
+    expect(holdNotification).not.toHaveBeenCalled();
+    expect(sendNotificationEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails the send when the message can't be held, so the job retries", async () => {
+    vi.mocked(holdNotification).mockRejectedValueOnce(new Error("db down"));
+
+    await expect(
+      sendMessage({ ...baseMessage, channels: ["email"], topic: TOPICS.TEAMS })
+    ).rejects.toThrow("db down");
+  });
+
+  it("skips WhatsApp lookups when the bulk send posts to a group instead", async () => {
+    await sendBulkMessage({
+      body: "b",
+      idempotencyKey: "bulk",
+      skipWhatsApp: true,
+      title: "t",
+      topic: TOPICS.EVENTS_SCHEDULE,
+      userIds: ["u1"],
+    });
+
+    expect(getEnabledUserPhonesForTopic).not.toHaveBeenCalled();
   });
 });

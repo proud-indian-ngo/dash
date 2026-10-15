@@ -6,6 +6,7 @@ const notifier = createSubmissionNotifier({
   entityLabel: "Reimbursement",
   getLineItems: getReimbursementLineItems,
   idempotencyPrefix: "reimbursement",
+  listNoun: "reimbursements",
   routePrefix: "reimbursements",
   statusTopic: TOPICS.REQUESTS_STATUS,
   submittedTopic: TOPICS.REQUESTS_SUBMISSIONS,

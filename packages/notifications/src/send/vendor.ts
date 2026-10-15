@@ -1,8 +1,14 @@
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
+import type { DigestRow } from "@pi-dash/shared/notification-digest";
 
 import { sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
+
+const VENDORS_LIST: DigestRow["list"] = {
+  label: "View vendors",
+  path: "/vendors",
+};
 
 interface VendorApprovedOptions {
   creatorId: string;
@@ -32,6 +38,11 @@ export async function notifyVendorApproved({
   await sendMessage({
     body,
     clickAction: "/vendors",
+    digest: {
+      list: VENDORS_LIST,
+      name: vendorName,
+      status: { label: "Approved", tone: "success" },
+    },
     emailHtml,
     idempotencyKey: `vendor-approved-${vendorId}`,
     title: "✅ Vendor approved!",
@@ -61,6 +72,12 @@ export async function notifyVendorUnapproved({
   await sendMessage({
     body,
     clickAction: "/vendors",
+    digest: {
+      list: VENDORS_LIST,
+      meta: "Needs a few changes before approval",
+      name: vendorName,
+      status: { label: "Needs changes", tone: "warning" },
+    },
     emailHtml,
     idempotencyKey: `vendor-unapproved-${vendorId}`,
     title: "🔄 Vendor needs changes",
@@ -85,6 +102,12 @@ export async function notifyVendorAutoApproved({
   await sendMessage({
     body,
     clickAction: "/vendors",
+    digest: {
+      list: VENDORS_LIST,
+      meta: `Approved with "${vendorPaymentTitle}"`,
+      name: vendorName,
+      status: { label: "Approved", tone: "success" },
+    },
     emailHtml,
     idempotencyKey: `vendor-auto-approved-${vendorId}`,
     title: "✅ Vendor auto-approved!",
