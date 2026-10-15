@@ -249,6 +249,8 @@ Output: `apps/web/dist/`.
 
 Production Docker (`Dockerfile`) runs `bun install --frozen-lockfile --ignore-scripts` so `@rocicorp/zero-sqlite3` does not compile a native addon in the slim image. Pin `rocicorp/zero` in `docker-compose.prod.yml` to the same minor as the `@rocicorp/zero` catalog version.
 
+The web build and migrator share the `source` stage. The migrator copies dependencies and database sources directly from it, so building the migration image does not run Vite or require web build arguments.
+
 ## Running in Production
 
 ### Web App (TanStack Start)

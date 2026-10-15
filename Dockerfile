@@ -1,5 +1,5 @@
-# Stage 1: Install dependencies and build
-FROM oven/bun:1.4.3-slim AS build
+# Shared dependencies and source for the web build and migrator
+FROM oven/bun:1.4.3-slim AS source
 WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/web/package.json apps/web/
@@ -23,6 +23,8 @@ COPY packages/zero/package.json packages/zero/
 # the migrator do not load it — production zero-cache is the rocicorp/zero image.
 RUN bun install --frozen-lockfile --ignore-scripts
 COPY . .
+
+FROM source AS build
 ARG VITE_ZERO_URL
 ARG VITE_CDN_URL
 ARG VITE_IMMICH_URL
@@ -40,9 +42,9 @@ RUN cd apps/web && bunx --bun vite build
 FROM oven/bun:1.4.3-slim AS migrator
 ENV TZ=Asia/Kolkata
 WORKDIR /app
-COPY --from=build /app/node_modules node_modules
-COPY --from=build /app/packages/db packages/db
-COPY --from=build /app/package.json package.json
+COPY --from=source /app/node_modules node_modules
+COPY --from=source /app/packages/db packages/db
+COPY --from=source /app/package.json package.json
 CMD ["bun", "run", "packages/db/scripts/migrate.ts"]
 
 # Stage 3: Production
