@@ -1,6 +1,8 @@
 import { Delete02Icon, Edit02Icon, ViewIcon } from "@hugeicons/core-free-icons";
+import type { PermissionId } from "@pi-dash/db/permissions";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
+import { flattenFilterRules } from "@pi-dash/design-system/components/reui/filters/filters-query";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
@@ -17,6 +19,7 @@ import {
   isContributionEditable,
 } from "@pi-dash/shared/income";
 import { formatPaise } from "@pi-dash/shared/money";
+import { canReadReceipts } from "@pi-dash/shared/receipts";
 import { parseAsString, useQueryState } from "nuqs";
 import { useEffect, useMemo } from "react";
 
@@ -37,12 +40,16 @@ import {
   searchContribution,
   useMigrateLegacyContributionFilterParams,
 } from "./contribution-filters";
+import { contributionsSignature } from "./contribution-stats";
 import { ContributionStatusBadge } from "./contribution-status";
 import {
   type ContributionRow,
   donorName,
   programmeLabel,
 } from "./income-types";
+import { ContributionReceiptCell } from "./receipts/contribution-receipt-cell";
+import { contributionReceiptValue } from "./receipts/receipt-column";
+import { useReceiptReadiness } from "./receipts/use-receipt-readiness";
 import { useContributionBankEvidence } from "./use-contribution-bank-evidence";
 
 const SKELETON_DATE = <Skeleton className="h-5 w-24" />;
@@ -140,6 +147,18 @@ export function ContributionsTable({
     [data, missingPartyIds, query, searchQuery]
   );
   const bank = useContributionBankEvidence(seesBankEvidence, bankScope);
+  // The Receipt column: for receipt readers only, like the receipts relation.
+  const seesReceipts = canReadReceipts((permission) =>
+    hasPermission(permission as PermissionId)
+  );
+  const canDownloadReceipts = hasPermission("donors.receipt");
+  const signature = useMemo(() => contributionsSignature(data), [data]);
+  const readiness = useReceiptReadiness(seesReceipts, signature);
+  // A Receipt filter waits for the server's split rather than match nothing.
+  const receiptFilterPending =
+    seesReceipts &&
+    readiness === null &&
+    flattenFilterRules(query).some((rule) => rule.path[0] === "receipt");
   const getRowId = useEventCallback((row: ContributionRow) => row.id);
 
   const columns: DataGridColumnDef<ContributionRow>[] = [
@@ -279,6 +298,31 @@ export function ContributionsTable({
       },
       size: 150,
     },
+    ...(seesReceipts
+      ? [
+          {
+            accessorFn: (row: ContributionRow) =>
+              contributionReceiptValue(row, readiness) ?? "",
+            cell: ({ row }: { row: { original: ContributionRow } }) => (
+              <ContributionReceiptCell
+                canDownload={canDownloadReceipts}
+                readiness={readiness}
+                row={row.original}
+              />
+            ),
+            header: ({ column }) => (
+              <DataGridColumnHeader
+                column={column}
+                title="Receipt"
+                visibility={true}
+              />
+            ),
+            id: "receipt",
+            meta: { headerTitle: "Receipt", skeleton: SKELETON_TAG },
+            size: 160,
+          } satisfies DataGridColumnDef<ContributionRow>,
+        ]
+      : []),
     {
       accessorFn: (row) => row.source,
       cell: ({ row }) =>
@@ -331,11 +375,22 @@ export function ContributionsTable({
         applyLocally:
           !(bank.isLoading || bank.error) &&
           (seesBankEvidence || !bankFilterActive),
-        fields: createContributionFilterFields(data, seesBankEvidence),
-        getValue: getContributionFilterValue(missingPartyIds, bank.evidence),
+        fields: createContributionFilterFields(
+          data,
+          seesBankEvidence,
+          seesReceipts
+        ),
+        getValue: getContributionFilterValue(
+          missingPartyIds,
+          bank.evidence,
+          undefined,
+          readiness
+        ),
       }}
       getRowId={getRowId}
-      isLoading={isLoading || bank.isLoading || bank.error}
+      isLoading={
+        isLoading || bank.isLoading || bank.error || receiptFilterPending
+      }
       onRowClick={onView}
       searchFn={searchContribution}
       searchPlaceholder="Search donor or reference..."

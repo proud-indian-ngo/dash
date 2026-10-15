@@ -11,6 +11,7 @@ import { encryptSecret } from "./encryption";
 import {
   allocateReceiptSequence,
   issueReceiptsIn,
+  loadReceiptReadiness,
   ReceiptError,
   type ReceiptTx,
   voidReceiptIn,
@@ -207,6 +208,39 @@ const statusOf = async (tx: Db, id: string) =>
       .from(contribution)
       .where(eq(contribution.id, id))
   )[0]?.status;
+
+it.skipIf(!localDatabase)(
+  "splits open direct gifts into ready and blocked, by ID only",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const fixture = await foundation(tx);
+      const complete = await donor(tx, fixture);
+      const noAddress = await donor(tx, fixture, { address: false });
+      const ready = await gift(tx, fixture, complete);
+      const blocked = await gift(tx, fixture, noAddress);
+      const gateway = await gift(tx, fixture, complete, {
+        channel: "razorpay",
+      });
+      const early = await gift(tx, fixture, complete, {
+        receivedOn: "2026-03-31",
+      });
+      const issued = await gift(tx, fixture, complete);
+      await issueReceiptsIn(
+        tx,
+        { actorId: fixture.actorId, contributionIds: [issued] },
+        { now: NOW }
+      );
+      const readiness = await loadReceiptReadiness(tx);
+      expect(readiness.ready).toContain(ready);
+      expect(readiness.blocked).toContain(blocked);
+      for (const id of [gateway, early, issued]) {
+        expect(readiness.ready).not.toContain(id);
+        expect(readiness.blocked).not.toContain(id);
+      }
+      expect(Object.keys(readiness).sort()).toEqual(["blocked", "ready"]);
+    });
+  }
+);
 
 it.skipIf(!localDatabase)(
   "numbers receipts in a gap-free series per year and never reuses a voided number",

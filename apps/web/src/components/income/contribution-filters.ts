@@ -12,19 +12,24 @@ import type {
 import {
   contributionChannelValues,
   contributionSourceValues,
-  contributionStatusValues,
   donationTypeValues,
 } from "@pi-dash/shared/constants";
 import {
   CONTRIBUTION_CHANNEL_LABELS,
   CONTRIBUTION_SOURCE_LABELS,
   CONTRIBUTION_STATUS_LABELS,
+  contributionDisplayStatus,
+  contributionDisplayStatusValues,
   countsAsReceived,
   currentFinancialYear,
   DONATION_TYPE_LABELS,
   type FinancialYearRange,
   isInFinancialYear,
 } from "@pi-dash/shared/income";
+import {
+  RECEIPT_COLUMN_FILTER_LABELS,
+  receiptColumnValues,
+} from "@pi-dash/shared/receipts";
 
 import {
   compileFilterQuery,
@@ -42,6 +47,10 @@ import {
   donorName,
   importBatchLabel,
 } from "./income-types";
+import {
+  contributionReceiptValue,
+  type ReceiptReadinessSets,
+} from "./receipts/receipt-column";
 
 /** Filter value for donors flagged by the "Missing donor details" stat. */
 export const MISSING_DETAILS_VALUE = "missing";
@@ -114,7 +123,8 @@ export function isMissingDetailsRow(
 export function getContributionFilterValue(
   missingPartyIds: ReadonlySet<string>,
   bankEvidence: ContributionBankEvidence = EMPTY_BANK_EVIDENCE,
-  fy: FinancialYearRange = currentFinancialYear()
+  fy: FinancialYearRange = currentFinancialYear(),
+  receiptReadiness: ReceiptReadinessSets | null = null
 ) {
   return (row: ContributionRow, path: string[]): unknown => {
     const [key] = path;
@@ -135,12 +145,15 @@ export function getContributionFilterValue(
         return row.programmeId;
       case "reachedBank":
         return reachedBankValue(row, bankEvidence);
+      case "receipt":
+        return contributionReceiptValue(row, receiptReadiness);
       case "receivedOn":
         return row.receivedOn;
       case "source":
         return row.source;
       case "status":
-        return row.status;
+        // Receipted shows (and filters) as Received; see the Receipt column.
+        return contributionDisplayStatus(row.status);
       default:
         return;
     }
@@ -206,7 +219,9 @@ export function contributionBankScope(
   const matches = hasReachedBankInsideOr(query)
     ? () => true
     : compileFilterQuery(
-        removeFilterPath(query, "reachedBank"),
+        // The Receipt value needs the server's readiness, which this scope
+        // doesn't wait for; leaving it out only widens the scope.
+        removeFilterPath(removeFilterPath(query, "reachedBank"), "receipt"),
         getContributionFilterValue(missingPartyIds, EMPTY_BANK_EVIDENCE, fy)
       );
   return rows
@@ -217,13 +232,14 @@ export function contributionBankScope(
 
 export function createContributionFilterFields(
   rows: readonly ContributionRow[],
-  includeReachedBank = false
+  includeReachedBank = false,
+  includeReceipt = false
 ): FilterField[] {
   const fields: FilterField[] = [
     selectField(
       "status",
       "Status",
-      options(contributionStatusValues, CONTRIBUTION_STATUS_LABELS)
+      options(contributionDisplayStatusValues, CONTRIBUTION_STATUS_LABELS)
     ),
     selectField(
       "channel",
@@ -271,6 +287,17 @@ export function createContributionFilterFields(
       },
     ]),
   ];
+  if (includeReceipt) {
+    fields.splice(
+      1,
+      0,
+      selectField(
+        "receipt",
+        "Receipt",
+        options(receiptColumnValues, RECEIPT_COLUMN_FILTER_LABELS)
+      )
+    );
+  }
   if (includeReachedBank) {
     fields.splice(
       1,

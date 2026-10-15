@@ -614,6 +614,13 @@ async function ensureReceiptFixtures(userId: string): Promise<void> {
       orgAccountId: E2E_GIVE_DO_ACCOUNT_ID,
       reference: "E2E-RECEIPT-GIVEDO",
     },
+    {
+      amountPaise: 120_000,
+      channel: "razorpay" as const,
+      id: "01930000-0000-7000-8000-000000000745",
+      orgAccountId: E2E_RAZORPAY_CLEARING_ID,
+      reference: "E2E-RECEIPT-RAZORPAY",
+    },
   ];
   for (const gift of gifts) {
     await db

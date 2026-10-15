@@ -96,6 +96,31 @@ export const CONTRIBUTION_STATUS_LABELS: Record<ContributionStatus, string> = {
   reversed: "Reversed",
 };
 
+/**
+ * The statuses the Status column and filter show: the money's lifecycle
+ * only. Receipting has its own column, so a stored `receipted` shows as
+ * Received (the stored value and its edit lock are unchanged).
+ */
+export const contributionDisplayStatusValues = [
+  "pending",
+  "received",
+  "refunded",
+  "reversed",
+] as const;
+export type ContributionDisplayStatus =
+  (typeof contributionDisplayStatusValues)[number];
+
+/** A stored status as the Status column shows it; null reads as received. */
+export function contributionDisplayStatus(
+  status: string | null | undefined
+): ContributionDisplayStatus {
+  return (contributionDisplayStatusValues as readonly string[]).includes(
+    status ?? ""
+  )
+    ? (status as ContributionDisplayStatus)
+    : "received";
+}
+
 export const CONTRIBUTION_SOURCE_LABELS: Record<ContributionSource, string> = {
   import: "Imported",
   manual: "Manual",
@@ -214,7 +239,7 @@ export function netReceivedPaise(contribution: NetReceivedInput): number {
  * "Partly refunded" instead of its stored status (some, not all, has gone
  * back and the status is not `refunded`), and how much was refunded, for a
  * tooltip or a detail row. Null when nothing was refunded. Derived, never
- * stored; a receipted contribution its refunds cover keeps "Receipted".
+ * stored; a receipted contribution its refunds cover keeps its status (shown as Received).
  */
 export function refundSummary(
   contribution: NetReceivedInput

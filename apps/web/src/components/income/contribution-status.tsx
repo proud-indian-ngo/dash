@@ -3,9 +3,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@pi-dash/design-system/components/ui/tooltip";
-import type { ContributionStatus } from "@pi-dash/shared/constants";
 import {
   CONTRIBUTION_STATUS_LABELS,
+  type ContributionDisplayStatus,
+  contributionDisplayStatus,
   type NetReceivedInput,
   refundSummary,
 } from "@pi-dash/shared/income";
@@ -13,9 +14,8 @@ import { formatPaise } from "@pi-dash/shared/money";
 
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 
-const STATUS_TONE: Record<ContributionStatus, StatusTone> = {
+const STATUS_TONE: Record<ContributionDisplayStatus, StatusTone> = {
   pending: "warning",
-  receipted: "info",
   received: "success",
   refunded: "danger",
   reversed: "neutral",
@@ -32,7 +32,9 @@ export function refundedOfLabel(
 /**
  * One badge per contribution. While some, not all, of it has been refunded
  * it reads "Partly refunded" (derived from its refunds, never stored);
- * otherwise its status. When anything was refunded, the amount is in a
+ * otherwise its status. The badge shows the money's lifecycle only, so a
+ * receipted gift reads Received (receipting has its own column and line).
+ * When anything was refunded, the amount is in a
  * tooltip on the badge, so the cell stays one line.
  */
 export function ContributionStatusBadge({
@@ -43,18 +45,15 @@ export function ContributionStatusBadge({
   refund?: NetReceivedInput;
   status: string | null;
 }) {
-  const value = (status ?? "received") as ContributionStatus;
+  const value = contributionDisplayStatus(status);
   const summary = refund ? refundSummary(refund) : null;
   const badge = summary?.partly ? (
     <StatusBadge data-testid="contribution-status" tone="warning">
       Partly refunded
     </StatusBadge>
   ) : (
-    <StatusBadge
-      data-testid="contribution-status"
-      tone={STATUS_TONE[value] ?? "neutral"}
-    >
-      {CONTRIBUTION_STATUS_LABELS[value] ?? value}
+    <StatusBadge data-testid="contribution-status" tone={STATUS_TONE[value]}>
+      {CONTRIBUTION_STATUS_LABELS[value]}
     </StatusBadge>
   );
   if (!(summary && refund)) {

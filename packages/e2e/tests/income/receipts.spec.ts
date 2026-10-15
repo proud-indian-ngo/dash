@@ -6,6 +6,7 @@ import { clickUntilDialogCloses } from "../../helpers/dialog-submit";
 const RECEIPT_DONOR = "E2E Receipt Donor";
 const UPI_REFERENCE = "E2E-RECEIPT-UPI";
 const GIVE_DO_REFERENCE = "E2E-RECEIPT-GIVEDO";
+const RAZORPAY_REFERENCE = "E2E-RECEIPT-RAZORPAY";
 
 /** The financial year running now in India, whose series the receipt starts. */
 function currentFinancialYear(): string {
@@ -47,6 +48,31 @@ async function ensureRegistration(page: Page) {
   await expect(page.getByText(/^URN /)).toBeVisible({ timeout: 10_000 });
 }
 
+/** The table row of one of the receipt donor's gifts, by its reference. */
+async function giftRow(page: Page, reference: string, receiptFilter?: string) {
+  const filters = receiptFilter
+    ? `&filters=${encodeURIComponent(
+        JSON.stringify({
+          combinator: "and",
+          id: "root",
+          rules: [
+            {
+              id: "receipt",
+              operator: "is",
+              path: ["receipt"],
+              type: "rule",
+              value: [receiptFilter],
+            },
+          ],
+          type: "group",
+        })
+      )}`
+    : "";
+  await page.goto(`/income?search=${encodeURIComponent(reference)}${filters}`);
+  await waitForZeroReady(page);
+  return page.getByRole("row").filter({ hasText: RECEIPT_DONOR });
+}
+
 async function openGift(page: Page, reference: string) {
   await page.goto("/income");
   await waitForZeroReady(page);
@@ -85,12 +111,44 @@ test.describe("Income: donation receipts (finance)", () => {
     );
   });
 
+  test("shows who receipts gateway gifts in the Receipt column", async ({
+    page,
+  }) => {
+    const razorpay = await giftRow(page, RAZORPAY_REFERENCE);
+    await expect(razorpay.getByTestId("contribution-receipt-cell")).toHaveText(
+      "By Razorpay"
+    );
+    await expect(razorpay.getByTestId("contribution-status")).toHaveText(
+      "Received"
+    );
+    const giveDo = await giftRow(page, GIVE_DO_REFERENCE);
+    await expect(giveDo.getByTestId("contribution-receipt-cell")).toHaveText(
+      "By give.do"
+    );
+  });
+
   test("issues, downloads and voids a receipt for a direct gift", async ({
     page,
   }, testInfo) => {
     test.slow();
     const fy = currentFinancialYear();
     await ensureRegistration(page);
+
+    // The table: Ready to issue, and the Receipt filter lists it alone of
+    // the donor's gifts (the gateway gifts are receipted by the gateway).
+    const ready = await giftRow(page, "E2E-RECEIPT", "ready");
+    await expect(ready).toHaveCount(1, { timeout: 15_000 });
+    await expect(ready.getByTestId("contribution-receipt-cell")).toHaveText(
+      "Ready to issue"
+    );
+    await expect(ready.getByTestId("contribution-status")).toHaveText(
+      "Received"
+    );
+    const byRazorpay = await giftRow(page, "E2E-RECEIPT", "razorpay");
+    await expect(byRazorpay).toHaveCount(1, { timeout: 15_000 });
+    await expect(
+      byRazorpay.getByTestId("contribution-receipt-cell")
+    ).toHaveText("By Razorpay");
 
     // The bulk review lists the gift as ready.
     await page.goto("/income?tab=receipts");
@@ -123,8 +181,9 @@ test.describe("Income: donation receipts (finance)", () => {
     if (testInfo.retry === 0) {
       expect(number).toBe(`PI/${fy}/0001`);
     }
+    // Status is the money's lifecycle only; receipting has its own column.
     await expect(sheet.getByTestId("contribution-status")).toHaveText(
-      "Receipted"
+      "Received"
     );
 
     // The PDF: an attachment named after the number, titled with it.
@@ -143,6 +202,17 @@ test.describe("Income: donation receipts (finance)", () => {
     const body = (await response.body()).toString("latin1");
     expect(body.startsWith("%PDF-")).toBe(true);
     expect(body).toContain(`(${number})`);
+
+    // The table shows the number, still Received, and the Issued filter finds it.
+    await page.keyboard.press("Escape");
+    const issued = await giftRow(page, UPI_REFERENCE, "issued");
+    await expect(issued).toHaveCount(1, { timeout: 15_000 });
+    await expect(issued.getByTestId("contribution-receipt-cell")).toHaveText(
+      number
+    );
+    await expect(issued.getByTestId("contribution-status")).toHaveText(
+      "Received"
+    );
 
     // Void it from the Receipts tab; the number stays in the list.
     await page.goto("/income?tab=receipts");

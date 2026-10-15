@@ -63,6 +63,7 @@ mock.module("@/lib/receipts/server", () => ({
     eligible: [],
     other: [],
   }),
+  loadReadiness: record("readiness", { blocked: [], ready: [GIFT] }),
   queueReceiptEmail: record("email", { contributionId: GIFT }),
   voidReceipt: record("void", { contributionId: GIFT, id: RECEIPT }),
 }));
@@ -144,6 +145,29 @@ describe("receipt server functions", () => {
       },
     ]);
     expect(JSON.stringify(audits)).not.toContain("Private reason text");
+  });
+
+  it("lets receipt readers load readiness, unaudited", async () => {
+    granted = ["finance.view"];
+    await expect(
+      call(fns.getContributionReceiptReadiness, {})
+    ).resolves.toEqual({ blocked: [], ready: [GIFT] });
+    expect(calls).toEqual(["readiness"]);
+    expect(audits).toEqual([]);
+  });
+
+  it("refuses readiness without both an income and a receipt-view permission", async () => {
+    // donors.receipt alone opens nothing (no income permission).
+    granted = ["donors.receipt"];
+    await expect(call(fns.getContributionReceiptReadiness, {})).rejects.toThrow(
+      "Forbidden"
+    );
+    // donors.view sees income but not receipts.
+    granted = ["donors.view"];
+    await expect(call(fns.getContributionReceiptReadiness, {})).rejects.toThrow(
+      "Forbidden"
+    );
+    expect(calls).toEqual([]);
   });
 
   it("reads candidates without auditing", async () => {

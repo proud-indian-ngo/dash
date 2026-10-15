@@ -458,6 +458,46 @@ export async function loadReceiptCandidates(
   return result;
 }
 
+// ── Readiness (the Income table's Receipt column) ───────────────────────────
+
+/** Gift IDs only: no donor names, amounts or reasons. */
+export interface ReceiptReadiness {
+  blocked: string[];
+  ready: string[];
+}
+
+/**
+ * Direct gifts from the start date that have no live receipt, split into
+ * ready to issue and blocked. The Income table works out every other gift's
+ * Receipt value from synced data; only these turn on the donor's private
+ * details.
+ */
+export async function loadReceiptReadiness(
+  tx: ReceiptTx | typeof db = db
+): Promise<ReceiptReadiness> {
+  const gifts = await loadGifts(tx, null, false);
+  const live = await loadLiveReceipts(
+    tx,
+    gifts.map((gift) => gift.id)
+  );
+  const open = gifts.filter((gift) => !live.has(gift.id));
+  const donors = await loadDonors(
+    tx,
+    [...new Set(open.map((gift) => gift.partyId))],
+    false
+  );
+  const result: ReceiptReadiness = { blocked: [], ready: [] };
+  for (const gift of open) {
+    const assessment = assess(gift, live, donors);
+    if (assessment.kind === "eligible") {
+      result.ready.push(gift.id);
+    } else if (assessment.kind === "blocked") {
+      result.blocked.push(gift.id);
+    }
+  }
+  return result;
+}
+
 // ── Issue ───────────────────────────────────────────────────────────────────
 
 /**

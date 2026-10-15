@@ -8,7 +8,10 @@ import {
   parseReceiptSettings,
   type ReceiptDonorFacts,
   type ReceiptGiftFacts,
+  RECEIPT_COLUMN_LABELS,
   receiptAssessmentLabel,
+  receiptColumnValue,
+  receiptColumnValueWithoutDonor,
   receiptFileName,
   receiptIssuerFor,
   serializeReceiptSettings,
@@ -206,6 +209,64 @@ describe("assessReceipt", () => {
         donor()
       )
     ).toMatchObject({ blocks: ["foreign_currency", "intermediary_as_donor"] });
+  });
+});
+
+describe("receipt column", () => {
+  const column = (overrides: Partial<ReceiptGiftFacts>, facts = donor()) => {
+    const g = gift(overrides);
+    return receiptColumnValue(assessReceipt(g, facts), g.status);
+  };
+
+  it("names the gateway that receipts, and a dash once the money is gone", () => {
+    expect(column({ channel: "razorpay" })).toBe("razorpay");
+    expect(column({ channel: "give_do" })).toBe("give_do");
+    expect(column({ channel: "razorpay", status: "refunded" })).toBe("none");
+    expect(RECEIPT_COLUMN_LABELS.razorpay).toBe("By Razorpay");
+    expect(RECEIPT_COLUMN_LABELS.give_do).toBe("By give.do");
+  });
+
+  it("shows an issued receipt even when stored as receipted or later refunded", () => {
+    expect(column({ hasActiveReceipt: true, status: "receipted" })).toBe(
+      "issued"
+    );
+    expect(column({ hasActiveReceipt: true, status: "refunded" })).toBe(
+      "issued"
+    );
+  });
+
+  it("splits direct gifts into ready, needs details and not needed", () => {
+    expect(column({})).toBe("ready");
+    expect(column({}, donor({ hasAddress: false }))).toBe("needs_details");
+    expect(column({ status: "receipted" })).toBe("needs_details");
+    expect(column({ receivedOn: "2026-03-31" })).toBe("not_needed");
+    expect(column({ channel: "in_kind" })).toBe("not_needed");
+    expect(column({ channel: "in_kind", status: "pending" })).toBe("none");
+    expect(column({ status: "pending" })).toBe("none");
+    expect(column({ status: "reversed" })).toBe("none");
+    expect(RECEIPT_COLUMN_LABELS.ready).toBe("Ready to issue");
+    expect(RECEIPT_COLUMN_LABELS.needs_details).toBe("Needs details");
+    expect(RECEIPT_COLUMN_LABELS.not_needed).toBe("Not needed");
+    expect(RECEIPT_COLUMN_LABELS.none).toBe("—");
+  });
+
+  it("leaves receiptable direct gifts to the server, which reads the donor", () => {
+    expect(receiptColumnValueWithoutDonor(gift())).toBeNull();
+    expect(
+      receiptColumnValueWithoutDonor(gift({ refundedPaise: 100 }))
+    ).toBeNull();
+    expect(receiptColumnValueWithoutDonor(gift({ channel: "razorpay" }))).toBe(
+      "razorpay"
+    );
+    expect(
+      receiptColumnValueWithoutDonor(gift({ hasActiveReceipt: true }))
+    ).toBe("issued");
+    expect(
+      receiptColumnValueWithoutDonor(gift({ receivedOn: "2026-01-02" }))
+    ).toBe("not_needed");
+    expect(receiptColumnValueWithoutDonor(gift({ status: "pending" }))).toBe(
+      "none"
+    );
   });
 });
 
