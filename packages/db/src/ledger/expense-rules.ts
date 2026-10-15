@@ -544,7 +544,7 @@ export function vendorPaymentPlan(vp: VendorPaymentFacts | null): SourcePlan {
   // split is the CA's call.
   if (vp.paidBeforeCutoverPaise > 0) {
     return vp.paidPaise > 0
-      ? waitOnMoney(day, LEDGER_WAIT_REASONS.paidAcrossCutover)
+      ? wait(day, LEDGER_WAIT_REASONS.paidAcrossCutover)
       : none(LEDGER_SKIP_REASONS.beforeCutover);
   }
   // The expense is balanced by clearing the supplier advance the payments
@@ -553,11 +553,10 @@ export function vendorPaymentPlan(vp: VendorPaymentFacts | null): SourcePlan {
   // below them clears only its own amount, and the rest stays on the
   // vendor's advance for the CA to look at (an overpayment).
   const expensePaise = entries.reduce((sum, e) => sum + e.amountPaise, 0);
-  // Reversed while it waits: what stands clears advances the payments no
-  // longer book (a payment rejected, voided, or found paid before the
-  // cutover by its bank debit), which would leave the advance negative.
+  // What stands is kept: the invoice moves no money, and its expense with
+  // the advance it cleared (now partly unpaid) is still the right position.
   if (expensePaise > vp.paidPaise) {
-    return waitOnMoney(day, LEDGER_WAIT_REASONS.invoiceExceedsPayments);
+    return wait(day, LEDGER_WAIT_REASONS.invoiceExceedsPayments);
   }
   entries.push({
     accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances,

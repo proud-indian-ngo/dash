@@ -251,7 +251,10 @@ function statementMatched(
   if (account.kind !== "bank" || m.kind === "opening") {
     return "n/a";
   }
-  return facts.statementBacked.has(`${m.orgAccountId}:${m.sourceId}`)
+  // A movement reconciled to a bank line itself (layer 3-3b), or a source
+  // a matched line backs.
+  return facts.statementBacked.has(`movement:${m.id}`) ||
+    facts.statementBacked.has(`${m.orgAccountId}:${m.sourceId}`)
     ? "Yes"
     : "No";
 }

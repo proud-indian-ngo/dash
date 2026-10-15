@@ -537,6 +537,19 @@ describe("CA workbook sheets", () => {
     expect(clearing.at(-1)?.cells[4]).toBe(0);
   });
 
+  it("marks a movement the books reconciled to a bank line as statement matched", () => {
+    const facts = fixture();
+    const upi = facts.movements.find(
+      (m) => m.orgAccountId === BANK && m.kind === "receipt"
+    );
+    facts.statementBacked.add(`movement:${upi?.id}`);
+    const sheet = receiptsAndPaymentsSheet(facts);
+    const row = sheet.rows.find(
+      (r) => r.cells[1] === "Current account" && r.cells[3] === "Receipt"
+    );
+    expect(row?.cells[12]).toBe("Yes");
+  });
+
   it("lists every recognition entry, decreases negative, reversals linked", () => {
     const facts = fixture();
     const sheet = incomeExpenditureSheet(facts);

@@ -447,6 +447,22 @@ it.skipIf(!localDatabase)(
       expect(await standingMovements(tx, claim)).toEqual([
         [ids.hdfc, "2026-06-05", 42_500, "payout", line],
       ]);
+      // The CA workbook marks that payment as statement matched.
+      const { loadWorkbookFacts, loadWorkbookYear } =
+        await import("../queries/ca-workbook");
+      const [year] = await tx
+        .select({ id: fiscalYear.id })
+        .from(fiscalYear)
+        .where(eq(fiscalYear.label, "2026-27"));
+      const workbookYear = await loadWorkbookYear(tx, year?.id as string);
+      const facts = await loadWorkbookFacts(
+        tx,
+        workbookYear as NonNullable<typeof workbookYear>
+      );
+      const paid = facts.movements.find(
+        (m) => m.sourceId === claim && m.orgAccountId === ids.hdfc
+      );
+      expect(facts.statementBacked.has(`movement:${paid?.id}`)).toBe(true);
       // The expense entries were never touched: one recognise posting.
       expect(await recognisePostings(tx, claim)).toBe(1);
       expect(await balanceOf(tx, ids.main)).toBe(0);
@@ -1313,6 +1329,79 @@ it.skipIf(!localDatabase)(
         reversed: 0,
       });
       expect(await movementReversals()).toBe(0);
+      expect(await booksDifference(tx)).toBe(baseline);
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "an accepted invoice above its approved payments keeps its posted expense while it waits",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const baseline = await booksDifference(tx);
+      const vpId = uuidv7();
+      await tx.insert(vendorPayment).values({
+        chargedTo: "organisation",
+        createdAt: NOW,
+        id: vpId,
+        invoiceDate: "2026-07-15",
+        invoiceReviewedAt: new Date("2026-07-20T06:00:00Z"),
+        status: "completed",
+        title: "Generator hire",
+        updatedAt: NOW,
+        userId: ids.user,
+        vendorId: ids.vendor,
+      });
+      await tx.insert(vendorPaymentLineItem).values({
+        amountPaise: 150_000,
+        categoryId: ids.category,
+        createdAt: NOW,
+        id: uuidv7(),
+        sortOrder: 0,
+        updatedAt: NOW,
+        vendorPaymentId: vpId,
+      });
+      const payments: string[] = [];
+      for (const amountPaise of [100_000, 50_000]) {
+        const id = uuidv7();
+        payments.push(id);
+        await tx.insert(vendorPaymentTransaction).values({
+          amountPaise,
+          createdAt: NOW,
+          id,
+          status: "approved",
+          transactionDate: new Date("2026-07-10T06:00:00Z"),
+          updatedAt: NOW,
+          userId: ids.user,
+          vendorPaymentId: vpId,
+        });
+        await run(tx, paymentSource(id));
+      }
+      const request: IncomeSource = {
+        sourceId: vpId,
+        sourceType: "vendor_payment",
+      };
+      expect(await run(tx, request)).toMatchObject({ status: "posted" });
+      const standing = await postingsOf(tx, vpId);
+
+      // One payment is rejected after the invoice: the invoice is now above
+      // the approved payments. It waits, and its expense stays posted.
+      await tx
+        .update(vendorPaymentTransaction)
+        .set({
+          rejectionReason: "Paid twice",
+          status: "rejected",
+          updatedAt: later(),
+        })
+        .where(eq(vendorPaymentTransaction.id, payments[1] as string));
+      await run(tx, paymentSource(payments[1] as string));
+      expect(await run(tx, request)).toMatchObject({
+        reason: "invoice_exceeds_payments",
+        reversed: 0,
+        status: "waiting",
+      });
+      expect(await postingsOf(tx, vpId)).toEqual(standing);
       expect(await booksDifference(tx)).toBe(baseline);
     });
   }
