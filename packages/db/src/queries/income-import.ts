@@ -11,6 +11,7 @@ import {
   GIVE_INDIA_PARTY_NAME,
   PROGRAMME_IDS,
 } from "@pi-dash/shared/constants";
+import { RAZORPAY_CLEARING_ACCOUNT_CONFIG_KEY } from "@pi-dash/shared/contribution-channel";
 import {
   CONTRIBUTOR_ROLES,
   GIVER_ROLES,
@@ -37,6 +38,7 @@ import { uuidv7 } from "uuidv7";
 import { db } from "..";
 import { decryptSecret, hasEncryptionKey } from "../encryption";
 import { IMPORT_RUN_LOCK } from "../import-retention";
+import { appConfig } from "../schema/app-config";
 import {
   fund,
   orgAccount,
@@ -82,6 +84,35 @@ export async function insertImportBatch(
       await tx.insert(importRow).values(rows.slice(i, i + INSERT_CHUNK));
     }
   });
+}
+
+/**
+ * What the channel rules read for a batch: its account's ID and kind (null
+ * when it has none or it is gone) and the Razorpay clearing account chosen
+ * in Settings.
+ */
+export async function findChannelRuleContext(
+  orgAccountId: string | null
+): Promise<{
+  account: { id: string; kind: string } | null;
+  razorpayClearingAccountId: string | null;
+}> {
+  const [account] = orgAccountId
+    ? await db
+        .select({ id: orgAccount.id, kind: orgAccount.kind })
+        .from(orgAccount)
+        .where(eq(orgAccount.id, orgAccountId))
+        .limit(1)
+    : [];
+  const [setting] = await db
+    .select({ value: appConfig.value })
+    .from(appConfig)
+    .where(eq(appConfig.key, RAZORPAY_CLEARING_ACCOUNT_CONFIG_KEY))
+    .limit(1);
+  return {
+    account: account ?? null,
+    razorpayClearingAccountId: setting?.value || null,
+  };
 }
 
 /**

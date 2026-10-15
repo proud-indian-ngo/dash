@@ -3,7 +3,13 @@ import type {
   DonationType,
   PartyIdType,
 } from "@pi-dash/shared/constants";
-import { todayInKolkata } from "@pi-dash/shared/income";
+import {
+  type ChannelAccount,
+  type ChannelAccountSetup,
+  channelAccountIssue,
+  reportingModeIssue,
+} from "@pi-dash/shared/contribution-channel";
+import { defaultReportingMode, todayInKolkata } from "@pi-dash/shared/income";
 import {
   MAX_AMOUNT_MESSAGE,
   MAX_AMOUNT_PAISE,
@@ -598,4 +604,27 @@ export function maskIdentifiers(text: string): string {
 /** Whether free text holds a PAN- or Aadhaar-shaped run, as `maskIdentifiers` finds them. */
 export function containsIdentifier(text: string): boolean {
   return maskIdentifiers(text) !== text;
+}
+
+/**
+ * Adds the channel rules to a normalised row: its channel must fit the
+ * batch's account (`channelAccountIssue`) and the mode it is reported
+ * under, as the contribution mutators require. A row that breaks them is
+ * an error the reviewer sees, and a run never imports it.
+ */
+export function withChannelRules(
+  result: NormalizeResult,
+  account: Pick<ChannelAccount, "id" | "kind">,
+  setup: ChannelAccountSetup
+): NormalizeResult {
+  const { channel } = result.row;
+  const issue =
+    channelAccountIssue(channel, account, setup) ??
+    reportingModeIssue(channel, defaultReportingMode(channel));
+  return issue
+    ? {
+        ...result,
+        errors: [...result.errors, { field: "channel", message: issue }],
+      }
+    : result;
 }

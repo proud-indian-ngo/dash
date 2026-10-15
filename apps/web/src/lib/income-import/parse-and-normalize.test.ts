@@ -16,6 +16,7 @@ import {
   normalizeRow,
   parseAmount,
   parseDate,
+  withChannelRules,
 } from "./normalize";
 import { CsvParseError, parseCsv, sampleValues } from "./parse-csv";
 
@@ -429,5 +430,44 @@ describe("maskIdentifiers", () => {
     // Not twelve digits on their own: phone numbers and longer references.
     expect(maskIdentifiers("+91 98765 43210")).toBe("+91 98765 43210");
     expect(maskIdentifiers("1234567890123")).toBe("1234567890123");
+  });
+});
+
+describe("withChannelRules", () => {
+  const setup = { razorpayClearingAccountId: "rzp" };
+  const bank = { id: "bank", kind: "bank" };
+  const rowWith = (channel: string) =>
+    normalizeRow(
+      { Amount: "100", Date: "01/10/2026", Mode: channel, Name: "Asha" },
+      {
+        Amount: "amount",
+        Date: "receivedOn",
+        Mode: "channel",
+        Name: "donorName",
+      },
+      { dateFormat: "dmy", defaultChannel: "upi", today: "2026-10-15" }
+    );
+
+  it("keeps a row whose channel fits the account", () => {
+    const result = rowWith("UPI");
+    expect(withChannelRules(result, bank, setup)).toBe(result);
+  });
+
+  it("adds a channel error when the channel does not fit", () => {
+    expect(withChannelRules(rowWith("Razorpay"), bank, setup).errors).toEqual([
+      {
+        field: "channel",
+        message: "A Razorpay gift goes into the Razorpay clearing account",
+      },
+    ]);
+    expect(
+      withChannelRules(
+        rowWith("UPI"),
+        { id: "rzp", kind: "gateway_clearing" },
+        setup
+      ).errors
+    ).toEqual([
+      { field: "channel", message: "A UPI gift goes into a bank account" },
+    ]);
   });
 });

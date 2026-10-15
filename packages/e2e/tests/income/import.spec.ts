@@ -48,9 +48,15 @@ async function uploadAndReview(page: Page, name: string, csv: Buffer) {
   await page.getByLabel("Source").click();
   await page.getByRole("option", { exact: true, name: "Generic CSV" }).click();
   const account = page.getByRole("combobox", { name: "Deposited into" });
-  // The give.do account was only give.do's default, so it is cleared.
-  await expect(account).toHaveValue("");
+  // A UPI batch goes into a bank account: the give.do clearing account no
+  // longer fits, so it is cleared, and clearing accounts are not offered.
+  await expect(account).not.toHaveValue(/clearing/i);
+  await expect(account).not.toHaveAttribute("data-disabled");
   await account.click();
+  await account.fill("clearing");
+  await expect(
+    page.getByRole("option").filter({ hasText: /clearing/i })
+  ).toHaveCount(0);
   await account.fill(ACCOUNT);
   await page.getByRole("option").filter({ hasText: ACCOUNT }).first().click();
   await page

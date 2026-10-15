@@ -23,13 +23,18 @@ let storedIdentities: {
 }[] = [];
 let payoutLinks: unknown[][] = [];
 let writtenOutcomes: { id: string; values: Record<string, unknown> }[] = [];
+/** Overrides the batch's account ID. */
+let batchAccount: string | null = null;
+/** The batch account's kind; null follows the source (give.do clearing or a bank). */
+let accountKind: string | null = null;
+const RAZORPAY_CLEARING = "0190a000-0000-7000-8000-0000000000cc";
 
 const GENERIC_MAPPING = {
   Amount: "amount",
   Date: "receivedOn",
   Name: "donorName",
   "Tax ID": "idNumber",
-};
+} as const;
 const GIVE_DO_MAPPING = {
   Date: "receivedOn",
   "Donation Amount": "amount",
@@ -53,7 +58,7 @@ const batchRow = () => ({
       ? GIVE_DO_MAPPING
       : GENERIC_MAPPING),
   newDonorCount: 0,
-  orgAccountId: "0190a000-0000-7000-8000-0000000000aa",
+  orgAccountId: batchAccount ?? "0190a000-0000-7000-8000-0000000000aa",
   projectId: null,
   rowCount: rows().length,
   source,
@@ -144,6 +149,19 @@ mock.module("@pi-dash/db/queries/income-import", () => ({
     return GIVE_INDIA_PARTY_ID;
   },
   findBatchByFileHash: noop,
+  findChannelRuleContext: async (id: string | null) => ({
+    account: id
+      ? {
+          id,
+          kind:
+            accountKind ??
+            (source === "give_do_csv" || source === "give_do_payout"
+              ? "gateway_clearing"
+              : "bank"),
+        }
+      : null,
+    razorpayClearingAccountId: RAZORPAY_CLEARING,
+  }),
   findContributorsByContact: async () => ({
     byEmail: emailMatches,
     byPhone: new Map(),
@@ -217,6 +235,7 @@ const { parseCsv } = await import("./parse-csv");
 const { reviewSummaryLine, summarizeReview } = await import("./review-summary");
 
 beforeEach(() => {
+  accountKind = null;
   source = "generic_csv";
   rows = rawRows;
   mapping = null;
@@ -329,6 +348,112 @@ describe("createImportBatch errors", () => {
       createImportBatch(input, parseCsv(csv), "user-1")
     ).rejects.toThrow("Choose an active fund");
     expect(logged).toEqual([]);
+  });
+});
+
+describe("channel rules", () => {
+  const csv = `Name,Amount,PAN\nAsha,100,${PAN}\n`;
+  const upload = {
+    csv,
+    defaultChannel: "upi" as const,
+    fileName: "gifts.csv",
+    fundId: "0190a000-0000-7000-8000-0000000000f1",
+    orgAccountId: "0190a000-0000-7000-8000-0000000000aa",
+    programmeId: null,
+    projectId: null,
+    source: "generic_csv" as const,
+  };
+
+  beforeEach(() => {
+    insertBatch = async () => undefined;
+    status = "reviewed";
+    outcomes = [];
+  });
+
+  it("refuses an upload whose account cannot take its channel", async () => {
+    accountKind = "bank";
+    await expect(
+      createImportBatch(
+        { ...upload, defaultChannel: "give_do", source: "give_do_csv" },
+        parseCsv(csv),
+        "user-1"
+      )
+    ).rejects.toThrow("A give.do gift goes into the give.do clearing account");
+    accountKind = "gateway_clearing";
+    await expect(
+      createImportBatch(upload, parseCsv(csv), "user-1")
+    ).rejects.toThrow("A UPI gift goes into a bank account");
+    accountKind = "bank";
+    await expect(
+      createImportBatch(upload, parseCsv(csv), "user-1")
+    ).resolves.toMatchObject({ rowCount: 1 });
+  });
+
+  it("refuses a default channel the batch's account cannot take at review", async () => {
+    await expect(
+      reviewImportBatch({
+        batchId: BATCH,
+        dateFormat: "dmy",
+        defaultChannel: "razorpay",
+        mapping: GENERIC_MAPPING,
+      })
+    ).rejects.toThrow(
+      "A Razorpay gift goes into the Razorpay clearing account"
+    );
+  });
+
+  it("marks a row whose channel does not fit the account, and never imports it", async () => {
+    mapping = { ...GENERIC_MAPPING, Mode: "channel" };
+    rows = () => [
+      {
+        Amount: "100",
+        Date: "01/10/2026",
+        Mode: "UPI",
+        Name: "Asha Rao",
+        "Tax ID": PAN,
+      },
+      {
+        Amount: "200",
+        Date: "02/10/2026",
+        Mode: "Razorpay",
+        Name: "Dev Rao",
+        "Tax ID": OTHER_PAN,
+      },
+    ];
+    const review = await reviewImportBatch({
+      batchId: BATCH,
+      dateFormat: "dmy",
+      defaultChannel: "upi",
+      mapping: { ...GENERIC_MAPPING, Mode: "channel" },
+    });
+    expect(review.rows[0]?.errors).toEqual([]);
+    expect(review.rows[1]?.category).toBe("error");
+    expect(review.rows[1]?.errors).toContainEqual({
+      field: "channel",
+      message: "A Razorpay gift goes into the Razorpay clearing account",
+    });
+    const result = await runImportBatch(
+      { batchId: BATCH, decisions: {} },
+      "user-1"
+    );
+    expect(result).toMatchObject({ errors: 1, imported: 1 });
+    expect(calls.contributions.map((c) => c.channel)).toEqual(["upi"]);
+  });
+
+  it("refuses give.do rows into the Razorpay clearing account", async () => {
+    source = "give_do_csv";
+    rows = () => [giveDoRow({ "Transaction ID": "LC9" })];
+    batchAccount = RAZORPAY_CLEARING;
+    try {
+      const result = await runImportBatch(
+        { batchId: BATCH, decisions: {} },
+        "user-1"
+      );
+      expect(result).toMatchObject({ errors: 1, imported: 0 });
+      expect(calls.contributions).toEqual([]);
+    } finally {
+      batchAccount = null;
+    }
   });
 });
 

@@ -8,6 +8,7 @@ import {
   claimImportBatch,
   countImportBatchRows,
   ensureGiveIndiaParty,
+  findChannelRuleContext,
   findBatchByFileHash,
   findContributorsByContact,
   findContributorsByIdentifier,
@@ -49,6 +50,10 @@ import {
   partyFillFieldValues,
   type PartyIdType,
 } from "@pi-dash/shared/constants";
+import {
+  type ChannelAccountSetup,
+  channelAccountIssue,
+} from "@pi-dash/shared/contribution-channel";
 import { defaultReportingMode, todayInKolkata } from "@pi-dash/shared/income";
 import { uuidv7 } from "uuidv7";
 
@@ -93,6 +98,7 @@ import {
   type NormalizedRow,
   type NormalizeResult,
   normalizeRow,
+  withChannelRules,
 } from "./normalize";
 import {
   CSV_ROW_ISSUE_MESSAGES,
@@ -211,6 +217,10 @@ async function storeImportBatch(
 ): Promise<CreateBatchResponse> {
   const settings = await resolveImportSettings(input);
   const rules = sourceRules(input.source);
+  await assertBatchChannelFits(
+    rules.fixedChannel ?? input.defaultChannel,
+    input.orgAccountId
+  );
   const now = new Date();
   const today = todayInKolkata(now);
   const hash = fileHash(input.csv);
@@ -312,13 +322,52 @@ function csvRowRules(
   };
 }
 
+/** The batch's account and the settings the channel rules read. */
+async function channelRuleContext(orgAccountId: string | null): Promise<{
+  account: { id: string; kind: string } | null;
+  setup: ChannelAccountSetup;
+}> {
+  const { account, razorpayClearingAccountId } =
+    await findChannelRuleContext(orgAccountId);
+  return { account, setup: { razorpayClearingAccountId } };
+}
+
+/**
+ * Refuses a batch whose account cannot take its channel (the source's fixed
+ * channel, or the default for rows without one), with the mutators' words.
+ */
+async function assertBatchChannelFits(
+  channel: ContributionChannel,
+  orgAccountId: string | null
+): Promise<void> {
+  const { account, setup } = await channelRuleContext(orgAccountId);
+  const issue = account ? channelAccountIssue(channel, account, setup) : null;
+  if (issue) {
+    throw new ImportInputError(issue);
+  }
+}
+
+/**
+ * The source's row rules plus the channel rules: a row whose channel does
+ * not fit the batch's account is an error at review, and so never imported
+ * by a run, which classifies the rows again.
+ */
 async function rowRulesFor(
   batch: ImportBatchRow,
   settings: ClassifySettings
 ): Promise<RowRules> {
-  return batch.source === "razorpay_api"
-    ? await razorpayRowRules(batch)
-    : csvRowRules(batch, settings, todayInKolkata());
+  const rules =
+    batch.source === "razorpay_api"
+      ? await razorpayRowRules(batch)
+      : csvRowRules(batch, settings, todayInKolkata());
+  const { account, setup } = await channelRuleContext(batch.orgAccountId);
+  if (!account) {
+    return rules;
+  }
+  return {
+    ...rules,
+    normalize: (raw) => withChannelRules(rules.normalize(raw), account, setup),
+  };
 }
 
 interface PreparedRow {
@@ -713,6 +762,7 @@ async function saveReview(input: ReviewInput): Promise<ReviewResponse> {
     defaultChannel: input.defaultChannel,
     mapping,
   });
+  await assertBatchChannelFits(settings.defaultChannel, batch.orgAccountId);
   const rules = await rowRulesFor(batch, settings);
   const classification = await classifyBatch(records, rules);
   const status = batch.status === "draft" ? "reviewed" : batch.status;

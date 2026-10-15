@@ -69,9 +69,11 @@ async function uploadPayout(page: Page, run: PayoutRun) {
   await expect(
     page.getByRole("heading", { exact: true, name: "Import give.do payout" })
   ).toBeVisible();
-  await expect(
-    page.getByRole("combobox", { name: "give.do clearing account" })
-  ).toHaveValue("E2E give.do clearing");
+  const account = page.getByRole("combobox", {
+    name: "give.do clearing account",
+  });
+  await expect(account).toHaveValue("E2E give.do clearing");
+  await expect(account).toHaveAttribute("data-disabled", "");
   await page.getByTestId("payout-file-input").setInputFiles({
     buffer: run.workbook,
     mimeType:

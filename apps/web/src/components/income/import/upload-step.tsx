@@ -3,7 +3,11 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { GENERAL_FUND_ID, PROGRAMME_IDS } from "@pi-dash/shared/constants";
-import { defaultGiveDoAccount } from "@pi-dash/shared/contribution-channel";
+import {
+  accountForChannel,
+  channelAccountChoice,
+  RAZORPAY_CLEARING_ACCOUNT_CONFIG_KEY,
+} from "@pi-dash/shared/contribution-channel";
 import { CONTRIBUTION_CHANNEL_LABELS } from "@pi-dash/shared/income";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
@@ -29,13 +33,13 @@ import {
   GIVE_DO_HEADERS,
   IMPORT_CHANNEL_VALUES,
   IMPORT_SOURCE_LABELS,
+  type ImportChannel,
   MAX_IMPORT_FILE_BYTES,
   MAX_IMPORT_ROWS,
   sourceRules,
 } from "@/lib/income-import/fields";
 import { CsvParseError, parseCsv } from "@/lib/income-import/parse-csv";
 
-import { applyDepositAccountDefault } from "./deposit-account";
 import type { WizardBatch } from "./wizard-types";
 
 const pick = (message: string) =>
@@ -54,6 +58,14 @@ const formSchema = z.object({
 });
 
 type FormValues = z.input<typeof formSchema>;
+
+/** The channel a batch's rows default to: the source's own, or the one chosen. */
+function batchChannel(
+  source: FormValues["source"],
+  defaultChannel: FormValues["defaultChannel"]
+): ImportChannel {
+  return sourceRules(source).fixedChannel ?? defaultChannel;
+}
 
 const sourceOptions = AVAILABLE_IMPORT_SOURCES.map((value) => ({
   label: IMPORT_SOURCE_LABELS[value],
@@ -190,6 +202,7 @@ export function UploadStep({
   const { hasPermission } = useApp();
   const upload = useServerFn(createContributionImport);
   const [accounts] = useQuery(queries.orgAccount.active());
+  const [config] = useQuery(queries.appConfig.all());
   const [funds] = useQuery(queries.fund.active());
   const [programmes] = useQuery(queries.programme.active());
   const [projects] = useQuery(queries.project.all(), {
@@ -200,16 +213,17 @@ export function UploadStep({
   const defaultFundId =
     funds.find((f) => f.id === GENERAL_FUND_ID)?.id ?? funds[0]?.id;
 
-  const giveDoAccountId = defaultGiveDoAccount(accounts)?.id;
-  // Once the user picks an account, the source no longer sets it.
-  const userPickedAccount = useRef(false);
+  const razorpayClearingAccountId =
+    config.find((c) => c.key === RAZORPAY_CLEARING_ACCOUNT_CONFIG_KEY)?.value ||
+    null;
+  const setup = { razorpayClearingAccountId };
 
   // give.do is the usual source, so an upload starts as one.
   const form = useForm({
     defaultValues: {
       defaultChannel: "give_do",
       fundId: defaultFundId,
-      orgAccountId: giveDoAccountId,
+      orgAccountId: accountForChannel("give_do", undefined, accounts, setup),
       source: "give_do_csv",
     } as FormValues,
     listeners: {
@@ -222,14 +236,21 @@ export function UploadStep({
           } else if (formApi.getFieldValue("defaultChannel") === "give_do") {
             formApi.setFieldValue("defaultChannel", "upi");
           }
-          applyDepositAccountDefault(
-            formApi,
-            giveDoAccountId,
-            userPickedAccount.current
-          );
         }
-        if (fieldApi.name === "orgAccountId") {
-          userPickedAccount.current = true;
+        // The batch's channel decides which accounts can take it.
+        if (fieldApi.name === "source" || fieldApi.name === "defaultChannel") {
+          formApi.setFieldValue(
+            "orgAccountId",
+            accountForChannel(
+              batchChannel(
+                formApi.getFieldValue("source"),
+                formApi.getFieldValue("defaultChannel")
+              ),
+              formApi.getFieldValue("orgAccountId"),
+              accounts,
+              setup
+            )
+          );
         }
         if (fieldApi.name === "projectId") {
           const project = projects.find(
@@ -304,14 +325,26 @@ export function UploadStep({
     validators: { onSubmit: formSchema },
   });
 
-  // Accounts can sync after the form mounts, and after the source changes.
+  // Accounts and settings can sync after the form mounts: fill in the
+  // account the batch's channel implies then.
   useEffect(() => {
-    applyDepositAccountDefault(
-      form,
-      giveDoAccountId,
-      userPickedAccount.current
+    const current = form.getFieldValue("orgAccountId");
+    const next = accountForChannel(
+      batchChannel(
+        form.getFieldValue("source"),
+        form.getFieldValue("defaultChannel")
+      ),
+      current,
+      accounts,
+      { razorpayClearingAccountId }
     );
-  }, [form, giveDoAccountId]);
+    if (next !== current) {
+      form.setFieldValue("orgAccountId", next, {
+        dontUpdateMeta: true,
+        dontValidate: true,
+      });
+    }
+  }, [accounts, form, razorpayClearingAccountId]);
 
   const handleFile = useEventCallback((chosen: File) => {
     setFile(chosen);
@@ -327,34 +360,56 @@ export function UploadStep({
           name="source"
           options={sourceOptions}
         />
-        <form.Subscribe selector={(state) => state.values.source}>
-          {(source) => (
-            <ComboboxField
-              description={
-                source === "give_do_csv" && !defaultGiveDoAccount(accounts) ? (
-                  <>
-                    No give.do clearing account yet. Add one of kind gateway
-                    clearing named for give.do in{" "}
-                    <Link
-                      className="text-primary underline-offset-4 hover:underline"
-                      to="/settings/org-accounts"
-                    >
-                      Settings → Organisation accounts
-                    </Link>
-                    , or pick the account the money reached.
-                  </>
-                ) : undefined
-              }
-              emptyMessage="No active accounts. Add one in Settings → Organisation accounts."
-              isRequired
-              label="Deposited into"
-              name="orgAccountId"
-              options={accounts
-                .filter((a) => a.kind !== "deposit")
-                .map((a) => ({ label: a.name, value: a.id }))}
-              placeholder="Search accounts..."
-            />
-          )}
+        <form.Subscribe
+          selector={(state) => ({
+            channel: batchChannel(
+              state.values.source,
+              state.values.defaultChannel
+            ),
+            orgAccountId: state.values.orgAccountId,
+          })}
+        >
+          {({ channel, orgAccountId }) => {
+            const choice = channelAccountChoice(channel, accounts, setup);
+            // The channel fixes the account once it holds the gateway's.
+            const fixed = choice.fixed && orgAccountId === choice.preferred?.id;
+            return (
+              <ComboboxField
+                description={
+                  channel === "give_do" && choice.allowed.length === 0 ? (
+                    <>
+                      No give.do clearing account yet. Add one of kind gateway
+                      clearing named for give.do in{" "}
+                      <Link
+                        className="text-primary underline-offset-4 hover:underline"
+                        to="/settings/org-accounts"
+                      >
+                        Settings → Organisation accounts
+                      </Link>
+                      .
+                    </>
+                  ) : fixed ? (
+                    `${CONTRIBUTION_CHANNEL_LABELS[channel]} gifts land in the ${CONTRIBUTION_CHANNEL_LABELS[channel]} clearing account.`
+                  ) : (
+                    (choice.emptyReason ?? undefined)
+                  )
+                }
+                disabled={fixed}
+                emptyMessage={
+                  choice.emptyReason ??
+                  "No active accounts. Add one in Settings → Organisation accounts."
+                }
+                isRequired
+                label="Deposited into"
+                name="orgAccountId"
+                options={choice.allowed.map((a) => ({
+                  label: a.name,
+                  value: a.id,
+                }))}
+                placeholder="Search accounts..."
+              />
+            );
+          }}
         </form.Subscribe>
         {funds.length > 1 ? (
           <SelectField
