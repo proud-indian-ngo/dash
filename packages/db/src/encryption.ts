@@ -26,36 +26,22 @@ export class EncryptedValueUnreadableError extends Error {
   }
 }
 
-/** Decodes a base64 data key; `name` labels the variable in the error. */
-export function parseDataKey(
-  raw: string,
-  name = "DATA_ENCRYPTION_KEY"
-): Buffer {
+/** Decodes the base64 data key. */
+function parseDataKey(raw: string): Buffer {
   const key = Buffer.from(raw, "base64");
   if (key.length !== 32) {
-    throw new Error(`${name} must be 32 bytes, base64 encoded`);
+    throw new Error("DATA_ENCRYPTION_KEY must be 32 bytes, base64 encoded");
   }
   return key;
 }
 
 /** The current DATA_ENCRYPTION_KEY, decoded. */
-export function loadKey(): Buffer {
+function loadKey(): Buffer {
   const raw = env.DATA_ENCRYPTION_KEY;
   if (!raw) {
     throw new Error("DATA_ENCRYPTION_KEY is not set");
   }
   return parseDataKey(raw);
-}
-
-/**
- * A short, non-secret label for a key (HMAC of a fixed string under it), so
- * scripts can say which key they used without printing the key.
- */
-export function keyFingerprint(key: Buffer): string {
-  return createHmac("sha256", key)
-    .update("pi-dash key fingerprint", "utf8")
-    .digest("hex")
-    .slice(0, 8);
 }
 
 /** Whether finance-private identifiers can be stored in this environment. */
@@ -98,8 +84,7 @@ export function decryptSecret(stored: string, context: string): string {
   return decryptSecretWith(loadKey(), stored, context);
 }
 
-/** `decryptSecret` under an explicit key, for key checks and re-encryption. */
-export function decryptSecretWith(
+function decryptSecretWith(
   key: Buffer,
   stored: string,
   context: string
@@ -174,16 +159,4 @@ export function keyedDigest(info: string, text: string): string {
   return createHmac("sha256", derivedKey(info))
     .update(text, "utf8")
     .digest("hex");
-}
-
-/** `keyedDigest` under a key derived from an explicit data key, for key checks. */
-export function keyedDigestWith(
-  dataKey: Buffer,
-  info: string,
-  text: string
-): string {
-  const key = Buffer.from(
-    hkdfSync("sha256", dataKey, Buffer.alloc(0), info, 32)
-  );
-  return createHmac("sha256", key).update(text, "utf8").digest("hex");
 }

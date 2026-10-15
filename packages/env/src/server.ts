@@ -63,18 +63,6 @@ export const env = createEnv({
     GRAVATAR_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
     IMMICH_API_KEY: z.string().min(1).optional(),
     IMMICH_INTERNAL_URL: z.url().optional(),
-    /**
-     * Only while running `secrets:check` / `secrets:rekey`: a previous
-     * DATA_ENCRYPTION_KEY that some stored values were written with. Unset
-     * it once the rekey is done.
-     */
-    OLD_DATA_ENCRYPTION_KEY: z
-      .string()
-      .refine(
-        (v) => Buffer.from(v, "base64").length === 32,
-        "OLD_DATA_ENCRYPTION_KEY must be base64 of 32 bytes"
-      )
-      .optional(),
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),

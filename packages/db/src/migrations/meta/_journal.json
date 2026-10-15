@@ -1002,6 +1002,13 @@
       "when": 1792081132482,
       "tag": "0142_voucher_payee",
       "breakpoints": true
+    },
+    {
+      "idx": 143,
+      "version": "7",
+      "when": 1792093377762,
+      "tag": "0143_drop_vendor_legacy_details",
+      "breakpoints": true
     }
   ]
 }

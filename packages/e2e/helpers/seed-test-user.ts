@@ -25,7 +25,6 @@ import { contribution } from "@pi-dash/db/schema/income";
 import { party, partyRole } from "@pi-dash/db/schema/party";
 import { role, rolePermission } from "@pi-dash/db/schema/permission";
 import { partyPrivate } from "@pi-dash/db/schema/private/party-private";
-import { vendorLegacyDetails } from "@pi-dash/db/schema/private/vendor-legacy";
 import {
   reimbursement,
   reimbursementAttachment,
@@ -769,7 +768,6 @@ const SEED_REIMBURSEMENT_ATTACHMENT_ID = "e2e00000-0000-0000-0000-000000000005";
 const SEED_TEMP_REIMBURSEMENT_ATTACHMENT_ID =
   "e2e00000-0000-0000-0000-000000000006";
 const SEED_EXPORT_VENDOR_PAYMENT_ID = "e2e00000-0000-0000-0000-000000000007";
-const SEED_LEGACY_VENDOR_ID = "e2e00000-0000-0000-0000-000000000008";
 const ZERO_AUTH_PROTECTED_TEAM_ID = "e2e00000-0000-0000-0000-000000000101";
 const ZERO_AUTH_LEAD_TEAM_ID = "e2e00000-0000-0000-0000-000000000102";
 const ZERO_AUTH_PROTECTED_EVENT_ID = "e2e00000-0000-4000-8000-000000000201";
@@ -967,42 +965,6 @@ async function ensureR2AuthorizationFixtures(): Promise<void> {
         type: "file",
       },
     ])
-    .onConflictDoNothing();
-}
-
-/**
- * A vendor whose details still sit in the pre-party legacy table, as they do
- * in production until the backfill runs. Editing it migrates the row, so once
- * party details exist a later run leaves it alone.
- * It only exercises the legacy fallback on a fresh database, which run-e2e.sh
- * guarantees by starting with `down -v`.
- */
-async function ensureLegacyVendor(userId: string): Promise<void> {
-  await ensureVendor({
-    createdBy: userId,
-    id: SEED_LEGACY_VENDOR_ID,
-    name: "E2E Legacy Vendor",
-    status: "approved",
-  });
-  const [migrated] = await db
-    .select({ partyId: partyPrivate.partyId })
-    .from(partyPrivate)
-    .where(eq(partyPrivate.partyId, SEED_LEGACY_VENDOR_ID))
-    .limit(1);
-  if (migrated) {
-    return;
-  }
-  await db
-    .insert(vendorLegacyDetails)
-    .values({
-      bankAccountIfscCode: "SBIN0001234",
-      bankAccountName: "E2E Legacy Account",
-      bankAccountNumber: "1234509876",
-      contactPhone: "+919888877777",
-      movedAt: new Date(),
-      panNumber: "AABCL1234K",
-      vendorId: SEED_LEGACY_VENDOR_ID,
-    })
     .onConflictDoNothing();
 }
 
@@ -1811,7 +1773,6 @@ async function seed(): Promise<void> {
   await ensureReimbursement(superAdminUserId, pastEvent.id);
   await ensureR2AuthorizationFixtures();
   await ensureEventVendorPayment(superAdminUserId, pastEvent.id);
-  await ensureLegacyVendor(superAdminUserId);
   await ensureDonorParty(superAdminUserId);
   await ensureIncomeFixtures(superAdminUserId);
   await ensureReturnFixtures(superAdminUserId);
