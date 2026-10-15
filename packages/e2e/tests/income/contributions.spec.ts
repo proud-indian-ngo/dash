@@ -312,6 +312,56 @@ test.describe("Income: contributions (finance)", () => {
     await expect(row).toContainText("Cash");
   });
 
+  test("grants and CSR gifts name their programme; corpus has none", async ({
+    page,
+  }) => {
+    test.slow();
+    const reference = `E2E-GRANT-${Date.now()}`;
+    const dialog = await openRecordDialog(page);
+    const programme = dialog.getByRole("combobox", { name: "Programme" });
+    const chooseType = async (name: string) => {
+      await dialog.getByLabel("Donation type").click();
+      await page.getByRole("option", { exact: true, name }).click();
+      await expect(dialog.getByLabel("Donation type")).toContainText(name);
+    };
+
+    await pickOption(dialog, page, "Donor", INCOME_DONOR);
+    await dialog.getByRole("textbox", { name: "Amount (₹)" }).fill("620");
+    await pickOption(dialog, page, "Deposited into", ACCOUNT);
+    await dialog
+      .getByRole("textbox", { exact: true, name: "Reference" })
+      .fill(reference);
+
+    // Voluntary: the programme is optional.
+    await expect(programme).toBeVisible();
+    await expect(programme).not.toHaveAttribute("aria-required", "true");
+
+    // Specific grant: required, and saving is blocked until it is chosen.
+    await chooseType("Specific grant");
+    await expect(programme).toHaveAttribute("aria-required", "true");
+    await dialog.getByRole("button", { name: "Save contribution" }).click();
+    await expect(
+      dialog.getByText("A specific grant needs the programme it's for")
+    ).toBeVisible();
+    await expect(dialog).toBeVisible();
+    await pickOption(dialog, page, "Programme", "Education");
+
+    // Corpus: no programme, so the field goes and its value is cleared.
+    await chooseType("Corpus");
+    await expect(programme).toHaveCount(0);
+
+    // CSR: required again, and empty after corpus cleared it.
+    await chooseType("CSR");
+    await expect(programme).toBeVisible();
+    await expect(programme).toHaveAttribute("aria-required", "true");
+    await expect(programme).toHaveValue("");
+    await pickOption(dialog, page, "Programme", "Education");
+    await clickUntilDialogCloses(dialog, "Save contribution");
+    const row = await findRow(page, reference, "₹620.00");
+    await expect(row).toHaveCount(1, { timeout: 10_000 });
+    await expect(row).toContainText("Education");
+  });
+
   test("counts the seed donor, who has no ID, under Missing donor details", async ({
     page,
   }) => {

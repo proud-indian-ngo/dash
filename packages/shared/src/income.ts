@@ -16,6 +16,7 @@ import {
   CHANNEL_REPORTING_MODES,
   reportingModeIssue,
 } from "./contribution-channel";
+import { donationTypeProgrammeIssue } from "./contribution-programme";
 import { sumPaise } from "./money";
 
 /**
@@ -260,6 +261,9 @@ export interface ContributionRuleInput {
   inKindDescription?: string | null;
   inKindValuationBasis?: string | null;
   orgAccountId?: string | null;
+  /** With the project, checked against the donation type (`donationTypeProgrammeIssue`). */
+  programmeId?: string | null;
+  projectId?: string | null;
   reportingMode: ContributionReportingMode;
   reportingModeDescription?: string | null;
 }
@@ -275,8 +279,9 @@ const blank = (value: string | null | undefined) => !value?.trim();
  * Cross-field rules: "other" needs a description, the channel limits the
  * reporting mode (`CHANNEL_REPORTING_MODES`), in-kind needs what was given
  * and how it was valued and has no account, everything else needs the
- * account it was deposited into, and excluding a gift from the donations
- * return needs a reason. Which account fits the channel needs the accounts,
+ * account it was deposited into, the donation type decides whether a
+ * programme is needed, allowed or ruled out (`donationTypeProgrammeIssue`),
+ * and excluding a gift from the donations return needs a reason. Which account fits the channel needs the accounts,
  * so `channelAccountIssue` checks that separately.
  */
 export function contributionRuleIssues(v: ContributionRuleInput): RuleIssue[] {
@@ -298,6 +303,10 @@ export function contributionRuleIssues(v: ContributionRuleInput): RuleIssue[] {
   const modeIssue = reportingModeIssue(v.channel, v.reportingMode);
   if (modeIssue) {
     issues.push({ message: modeIssue, path: "reportingMode" });
+  }
+  const programmeIssue = donationTypeProgrammeIssue(v);
+  if (programmeIssue) {
+    issues.push({ message: programmeIssue, path: "programmeId" });
   }
   if (v.deductionEligible === "no" && blank(v.eligibilityReason)) {
     issues.push({

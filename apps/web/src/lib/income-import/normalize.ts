@@ -8,6 +8,7 @@ import {
   type ChannelAccountSetup,
   channelAccountIssue,
 } from "@pi-dash/shared/contribution-channel";
+import { donationTypeProgrammeIssue } from "@pi-dash/shared/contribution-programme";
 import { todayInKolkata } from "@pi-dash/shared/income";
 import {
   MAX_AMOUNT_MESSAGE,
@@ -623,6 +624,27 @@ export function withChannelRules(
     ? {
         ...result,
         errors: [...result.errors, { field: "channel", message: issue }],
+      }
+    : result;
+}
+
+/**
+ * Adds the programme rule to a normalised row: a specific grant or CSR gift
+ * needs the batch's programme (or project), and a corpus gift must have
+ * none (`donationTypeProgrammeIssue`), as the contribution mutators require.
+ */
+export function withProgrammeRule(
+  result: NormalizeResult,
+  batch: { programmeId: string | null; projectId: string | null }
+): NormalizeResult {
+  const issue = donationTypeProgrammeIssue({
+    donationType: result.row.donationType,
+    ...batch,
+  });
+  return issue
+    ? {
+        ...result,
+        errors: [...result.errors, { field: "donationType", message: issue }],
       }
     : result;
 }

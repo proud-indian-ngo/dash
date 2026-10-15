@@ -17,6 +17,7 @@ import {
   parseAmount,
   parseDate,
   withChannelRules,
+  withProgrammeRule,
 } from "./normalize";
 import { CsvParseError, parseCsv, sampleValues } from "./parse-csv";
 
@@ -469,5 +470,40 @@ describe("withChannelRules", () => {
     ).toEqual([
       { field: "channel", message: "A UPI gift goes into a bank account" },
     ]);
+  });
+});
+
+describe("withProgrammeRule", () => {
+  const typed = (type: string) =>
+    normalizeRow(
+      { Amount: "100", Date: "01/10/2026", Name: "Asha", Type: type },
+      {
+        Amount: "amount",
+        Date: "receivedOn",
+        Name: "donorName",
+        Type: "donationType",
+      },
+      { dateFormat: "dmy", defaultChannel: "upi", today: "2026-10-15" }
+    );
+  const none = { programmeId: null, projectId: null };
+
+  it("needs a programme for a CSR row and none for a corpus row", () => {
+    expect(withProgrammeRule(typed("CSR"), none).errors).toEqual([
+      {
+        field: "donationType",
+        message: "A CSR gift needs the programme it's for",
+      },
+    ]);
+    expect(
+      withProgrammeRule(typed("CSR"), { programmeId: "p", projectId: null })
+        .errors
+    ).toEqual([]);
+    expect(
+      withProgrammeRule(typed("Corpus"), { programmeId: "p", projectId: null })
+        .errors
+    ).toEqual([
+      { field: "donationType", message: "A corpus gift has no programme" },
+    ]);
+    expect(withProgrammeRule(typed("Voluntary"), none).errors).toEqual([]);
   });
 });

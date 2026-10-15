@@ -14,6 +14,7 @@ import {
   keepsFixedAccount,
   RAZORPAY_CLEARING_ACCOUNT_CONFIG_KEY,
 } from "@pi-dash/shared/contribution-channel";
+import { donationTypeProgrammeIssue } from "@pi-dash/shared/contribution-programme";
 import { ELIGIBILITY_REASON_MAX } from "@pi-dash/shared/donations-return";
 import {
   CONTRIBUTOR_ROLES,
@@ -262,6 +263,18 @@ async function assertAccountAndFund(
   assertActive(fund, "Fund", previous?.fundId === next.fundId);
 }
 
+/** A specific grant or CSR gift names its programme; a corpus gift has none. */
+function assertProgrammeFitsType(values: {
+  donationType: ContributionInput["donationType"];
+  programmeId: string | null;
+  projectId: string | null;
+}) {
+  const issue = donationTypeProgrammeIssue(values);
+  if (issue) {
+    throw new Error(issue);
+  }
+}
+
 /**
  * A project fixes the programme: it must match when both are given, and fills
  * it in otherwise. The Unallocated holder is for spending, not gifts.
@@ -459,6 +472,7 @@ export const contributionMutators = {
       });
       values.programmeId = await resolveProgramme(tx, values);
     }
+    assertProgrammeFitsType(values);
     const now = Date.now();
     await tx.mutate.contribution.insert({
       ...values,
@@ -579,6 +593,7 @@ export const contributionMutators = {
       });
       values.programmeId = await resolveProgramme(tx, values, existing);
     }
+    assertProgrammeFitsType(values);
     await tx.mutate.contribution.update({
       ...values,
       ...normalizeEligibility(args, {

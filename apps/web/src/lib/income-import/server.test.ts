@@ -23,6 +23,8 @@ let storedIdentities: {
 }[] = [];
 let payoutLinks: unknown[][] = [];
 let writtenOutcomes: { id: string; values: Record<string, unknown> }[] = [];
+/** The batch's programme, which every row gets. */
+let batchProgramme: string | null = null;
 /** Overrides the batch's account ID. */
 let batchAccount: string | null = null;
 /** The batch account's kind; null follows the source (give.do clearing or a bank). */
@@ -59,6 +61,7 @@ const batchRow = () => ({
       : GENERIC_MAPPING),
   newDonorCount: 0,
   orgAccountId: batchAccount ?? "0190a000-0000-7000-8000-0000000000aa",
+  programmeId: batchProgramme,
   projectId: null,
   rowCount: rows().length,
   source,
@@ -259,6 +262,7 @@ const { reviewSummaryLine, summarizeReview } = await import("./review-summary");
 
 beforeEach(() => {
   accountKind = null;
+  batchProgramme = null;
   source = "generic_csv";
   rows = rawRows;
   mapping = null;
@@ -477,6 +481,51 @@ describe("channel rules", () => {
     } finally {
       batchAccount = null;
     }
+  });
+});
+
+describe("programme rule", () => {
+  const TYPED = { ...GENERIC_MAPPING, Type: "donationType" } as const;
+  const typedRows = () => [
+    { ...rawRows()[0], Type: "Voluntary" },
+    { ...rawRows()[0], Name: "Grant Giver", Type: "Specific grant" },
+    { ...rawRows()[0], Name: "Corpus Giver", Type: "Corpus" },
+  ];
+
+  beforeEach(() => {
+    status = "reviewed";
+    outcomes = [];
+    mapping = TYPED;
+    rows = typedRows;
+  });
+
+  const typeErrors = async () => {
+    const review = await reviewImportBatch({
+      batchId: BATCH,
+      dateFormat: "dmy",
+      defaultChannel: "upi",
+      mapping: TYPED,
+    });
+    return review.rows.map((row) =>
+      row.errors.filter((e) => e.field === "donationType").map((e) => e.message)
+    );
+  };
+
+  it("needs the batch's programme for a grant row", async () => {
+    expect(await typeErrors()).toEqual([
+      [],
+      ["A specific grant needs the programme it's for"],
+      [],
+    ]);
+  });
+
+  it("gives a corpus row no programme", async () => {
+    batchProgramme = "0190a000-0000-7000-8000-0000000000ee";
+    expect(await typeErrors()).toEqual([
+      [],
+      [],
+      ["A corpus gift has no programme"],
+    ]);
   });
 });
 

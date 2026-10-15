@@ -433,6 +433,85 @@ describe("contribution mutators", () => {
     expect(refunded.tables.contribution?.[0]?.notes).toBe("Edited");
   });
 
+  it("names the programme of a grant or CSR gift, and none for corpus", async () => {
+    const db = createDb();
+    for (const [change, message] of [
+      [
+        { donationType: "specific_grant" },
+        "A specific grant needs the programme it's for",
+      ],
+      [{ donationType: "csr" }, "A CSR gift needs the programme it's for"],
+      [
+        { donationType: "corpus", programmeId: "prog-edu" },
+        "A corpus gift has no programme",
+      ],
+      [
+        { donationType: "corpus", projectId: "proj-k3" },
+        "A corpus gift has no programme",
+      ],
+    ] as const) {
+      await expect(
+        run(contributionMutators.create, db, donorsCtx, contribution(change))
+      ).rejects.toThrow(message);
+    }
+    expect(db.writes).toEqual([]);
+    await run(
+      contributionMutators.create,
+      db,
+      donorsCtx,
+      contribution({ donationType: "specific_grant", programmeId: "prog-edu" })
+    );
+    // A project sets the programme.
+    await run(
+      contributionMutators.create,
+      db,
+      donorsCtx,
+      contribution({ donationType: "csr", id: "c-2", projectId: "proj-k3" })
+    );
+    await run(
+      contributionMutators.create,
+      db,
+      donorsCtx,
+      contribution({ donationType: "corpus", id: "c-3" })
+    );
+    expect(db.tables.contribution?.map((c) => c.programmeId)).toEqual([
+      "prog-edu",
+      "prog-arts",
+      null,
+    ]);
+  });
+
+  it("holds an edited legacy grant to the rule until it names a programme", async () => {
+    const db = createDb({
+      contribution: [
+        {
+          donationType: "specific_grant",
+          fundId: "fund-1",
+          id: "c-1",
+          orgAccountId: "acc-1",
+          partyId: "donor-1",
+          programmeId: null,
+          status: "received",
+        },
+      ],
+    });
+    await expect(
+      run(
+        contributionMutators.update,
+        db,
+        donorsCtx,
+        contribution({ donationType: "specific_grant", notes: "Edited" })
+      )
+    ).rejects.toThrow("A specific grant needs the programme it's for");
+    await run(
+      contributionMutators.update,
+      db,
+      donorsCtx,
+      contribution({ donationType: "specific_grant", programmeId: "prog-edu" })
+    );
+    expect(db.tables.contribution?.[0]?.programmeId).toBe("prog-edu");
+  });
+
   it("takes the programme from the project and refuses a mismatch", async () => {
     const db = createDb();
     await run(

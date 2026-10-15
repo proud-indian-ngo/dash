@@ -23,6 +23,7 @@ import {
   isReportingModeFixed,
   RAZORPAY_CLEARING_ACCOUNT_CONFIG_KEY,
 } from "@pi-dash/shared/contribution-channel";
+import { DONATION_TYPE_PROGRAMME } from "@pi-dash/shared/contribution-programme";
 import {
   ELIGIBILITY_REASON_PRESETS,
   TAX_CERTIFICATE_LABELS,
@@ -450,6 +451,15 @@ function ContributionForm({
             );
           }
         }
+        // A corpus gift has no programme or project.
+        if (
+          fieldApi.name === "donationType" &&
+          DONATION_TYPE_PROGRAMME[formApi.getFieldValue("donationType")] ===
+            "none"
+        ) {
+          formApi.setFieldValue("projectId", undefined);
+          formApi.setFieldValue("programmeId", undefined);
+        }
         if (fieldApi.name === "projectId") {
           const projectId = formApi.getFieldValue("projectId");
           const project = picker.projects.find((p) => p.id === projectId);
@@ -624,6 +634,7 @@ function ContributionForm({
             orgAccountId: state.values.orgAccountId,
             deductionEligible: state.values.deductionEligible,
             donationType: state.values.donationType,
+            programmeId: state.values.programmeId,
             reasonChoice: state.values.eligibilityReasonChoice,
             projectId: state.values.projectId,
             reportingMode: state.values.reportingMode,
@@ -634,10 +645,16 @@ function ContributionForm({
             deductionEligible,
             donationType,
             orgAccountId,
+            programmeId,
             projectId,
             reasonChoice,
             reportingMode,
           }) => {
+            const programmeNeed = DONATION_TYPE_PROGRAMME[donationType];
+            // A corpus gift has no programme; one it still holds stays
+            // visible so it can be cleared.
+            const showProgramme =
+              programmeNeed !== "none" || Boolean(programmeId || projectId);
             const accountChoice = channelAccountChoice(
               channel,
               picker.accounts,
@@ -737,15 +754,26 @@ function ContributionForm({
                     options={picker.fundOptions}
                   />
                 ) : null}
-                <ComboboxField
-                  description={projectId ? "Set by the project." : undefined}
-                  disabled={Boolean(projectId)}
-                  label="Programme"
-                  name="programmeId"
-                  options={picker.programmeOptions}
-                  placeholder="Search programmes..."
-                />
-                {picker.projectOptions.length > 0 ? (
+                {showProgramme ? (
+                  <ComboboxField
+                    description={
+                      projectId
+                        ? "Set by the project."
+                        : programmeNeed === "required"
+                          ? "Grants and CSR gifts are for a named programme."
+                          : programmeNeed === "none"
+                            ? "A corpus gift has no programme; clear it."
+                            : undefined
+                    }
+                    disabled={Boolean(projectId)}
+                    isRequired={programmeNeed === "required"}
+                    label="Programme"
+                    name="programmeId"
+                    options={picker.programmeOptions}
+                    placeholder="Search programmes..."
+                  />
+                ) : null}
+                {showProgramme && picker.projectOptions.length > 0 ? (
                   <ComboboxField
                     label="Project"
                     name="projectId"

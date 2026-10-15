@@ -99,6 +99,7 @@ import {
   type NormalizeResult,
   normalizeRow,
   withChannelRules,
+  withProgrammeRule,
 } from "./normalize";
 import {
   CSV_ROW_ISSUE_MESSAGES,
@@ -353,8 +354,9 @@ async function assertBatchChannelFits(
 }
 
 /**
- * The source's row rules plus the channel rules: a row whose channel does
- * not fit the batch's account is an error at review, and so never imported
+ * The source's row rules plus the channel and programme rules: a row whose
+ * channel does not fit the batch's account, or whose donation type does not
+ * fit the batch's programme, is an error at review, and so never imported
  * by a run, which classifies the rows again. Pass the import transaction
  * when there is one, so the account and setting are read inside it.
  *
@@ -376,17 +378,20 @@ async function rowRulesFor(
     batch.orgAccountId,
     reader
   );
-  if (!account) {
-    return rules;
-  }
   const batchSetup =
     batch.source === "razorpay_api"
       ? { razorpayClearingAccountId: batch.orgAccountId }
       : setup;
+  const programme = {
+    programmeId: batch.programmeId,
+    projectId: batch.projectId,
+  };
   return {
     ...rules,
-    normalize: (raw) =>
-      withChannelRules(rules.normalize(raw), account, batchSetup),
+    normalize: (raw) => {
+      const result = withProgrammeRule(rules.normalize(raw), programme);
+      return account ? withChannelRules(result, account, batchSetup) : result;
+    },
   };
 }
 
