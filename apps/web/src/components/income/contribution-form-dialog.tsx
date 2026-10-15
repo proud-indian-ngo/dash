@@ -541,6 +541,10 @@ function ContributionForm({
     form.handleSubmit({ another: true });
   });
   const openDonorDialog = useEventCallback(() => setDonorDialogOpen(true));
+  const clearProgramme = useEventCallback(() => {
+    form.setFieldValue("projectId", undefined);
+    form.setFieldValue("programmeId", undefined);
+  });
   const handleDonorCreated = useEventCallback((partyId: string) => {
     form.setFieldValue("partyId", partyId);
   });
@@ -761,9 +765,7 @@ function ContributionForm({
                         ? "Set by the project."
                         : programmeNeed === "required"
                           ? "Grants and CSR gifts are for a named programme."
-                          : programmeNeed === "none"
-                            ? "A corpus gift has no programme; clear it."
-                            : undefined
+                          : undefined
                     }
                     disabled={Boolean(projectId)}
                     isRequired={programmeNeed === "required"}
@@ -780,6 +782,24 @@ function ContributionForm({
                     options={picker.projectOptions}
                     placeholder="Search projects..."
                   />
+                ) : null}
+                {programmeNeed === "none" && showProgramme ? (
+                  // A corpus gift that still holds a programme or project
+                  // (recorded before the rule). The project may not sync to
+                  // this user, so one action clears both.
+                  <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+                    <p className="text-destructive text-sm">
+                      A corpus gift has no programme or project.
+                    </p>
+                    <Button
+                      onClick={clearProgramme}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      Clear programme and project
+                    </Button>
+                  </div>
                 ) : null}
               </div>
             );

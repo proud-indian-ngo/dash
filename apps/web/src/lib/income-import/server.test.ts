@@ -519,6 +519,20 @@ describe("programme rule", () => {
     ]);
   });
 
+  it("never imports a row the rule refuses", async () => {
+    const result = await runImportBatch(
+      { batchId: BATCH, decisions: {} },
+      "user-1"
+    );
+    expect(result).toMatchObject({ errors: 1 });
+    expect(calls.contributions.map((c) => c.donationType)).not.toContain(
+      "specific_grant"
+    );
+    expect(calls.contributions.map((c) => c.donationType)).toContain(
+      "voluntary"
+    );
+  });
+
   it("gives a corpus row no programme", async () => {
     batchProgramme = "0190a000-0000-7000-8000-0000000000ee";
     expect(await typeErrors()).toEqual([

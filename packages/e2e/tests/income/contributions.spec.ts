@@ -1,3 +1,7 @@
+import { execFile } from "node:child_process";
+import path from "node:path";
+import { promisify } from "node:util";
+
 import type { Locator, Page } from "@playwright/test";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
@@ -7,6 +11,22 @@ import { applyQuickFilter } from "../../helpers/quick-filters";
 import { ListPage } from "../../pages/list-page";
 
 const INCOME_DONOR = "E2E Income Donor";
+
+const execFileAsync = promisify(execFile);
+
+/** Runs a step of `helpers/legacy-contribution.ts` against the test database. */
+async function legacyContribution(...args: string[]): Promise<{ id: string }> {
+  const { stdout } = await execFileAsync(
+    "bun",
+    [
+      "run",
+      path.resolve(import.meta.dirname, "../../helpers/legacy-contribution.ts"),
+      ...args,
+    ],
+    { env: process.env }
+  );
+  return JSON.parse(stdout.trim()) as { id: string };
+}
 const ACCOUNT = "E2E Bank Account";
 
 async function pickOption(
@@ -360,6 +380,45 @@ test.describe("Income: contributions (finance)", () => {
     const row = await findRow(page, reference, "₹620.00");
     await expect(row).toHaveCount(1, { timeout: 10_000 });
     await expect(row).toContainText("Education");
+  });
+
+  test("a corpus gift's old programme and project clear in one step", async ({
+    page,
+  }) => {
+    test.slow();
+    const reference = `E2E-CORPUS-${Date.now()}`;
+    await legacyContribution(
+      "corpus-with-project",
+      reference,
+      process.env.SUPER_ADMIN_EMAIL ?? "test-super-admin@pi-dash.test"
+    );
+    const row = await findRow(page, reference, INCOME_DONOR);
+    await expect(row).toHaveCount(1, { timeout: 15_000 });
+    await new ListPage(page).openRowActionAndClick(row, "Edit");
+    const dialog = page.getByRole("dialog", { name: "Edit contribution" });
+    await expect(dialog).toBeVisible();
+
+    // The programme is set by the project, so it can't be cleared by hand.
+    await expect(
+      dialog.getByText("A corpus gift has no programme or project.")
+    ).toBeVisible({ timeout: 10_000 });
+    await dialog
+      .getByRole("button", { name: "Clear programme and project" })
+      .click();
+    await expect(
+      dialog.getByRole("combobox", { name: "Programme" })
+    ).toHaveCount(0);
+    await expect(
+      dialog.getByText("A corpus gift has no programme or project.")
+    ).toHaveCount(0);
+    await clickUntilDialogCloses(dialog, "Save changes");
+
+    await new ListPage(page).openRowActionAndClick(row, "Edit");
+    const again = page.getByRole("dialog", { name: "Edit contribution" });
+    await expect(again).toBeVisible();
+    await expect(
+      again.getByRole("combobox", { name: "Programme" })
+    ).toHaveCount(0);
   });
 
   test("counts the seed donor, who has no ID, under Missing donor details", async ({
