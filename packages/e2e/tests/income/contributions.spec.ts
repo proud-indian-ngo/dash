@@ -1,3 +1,7 @@
+import { execFile } from "node:child_process";
+import path from "node:path";
+import { promisify } from "node:util";
+
 import type { Locator, Page } from "@playwright/test";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
@@ -7,6 +11,22 @@ import { applyQuickFilter } from "../../helpers/quick-filters";
 import { ListPage } from "../../pages/list-page";
 
 const INCOME_DONOR = "E2E Income Donor";
+
+const execFileAsync = promisify(execFile);
+
+/** Runs a step of `helpers/legacy-contribution.ts` against the test database. */
+async function legacyContribution(...args: string[]): Promise<{ id: string }> {
+  const { stdout } = await execFileAsync(
+    "bun",
+    [
+      "run",
+      path.resolve(import.meta.dirname, "../../helpers/legacy-contribution.ts"),
+      ...args,
+    ],
+    { env: process.env }
+  );
+  return JSON.parse(stdout.trim()) as { id: string };
+}
 const ACCOUNT = "E2E Bank Account";
 
 async function pickOption(
@@ -200,6 +220,205 @@ test.describe("Income: contributions (finance)", () => {
     await applyQuickFilter(page, "Channel", "Cash");
     await expect(seedRow).toHaveCount(0, { timeout: 10_000 });
     await expect(await findRow(page, reference, "₹300.00")).toHaveCount(1);
+  });
+
+  test("the channel decides the account and the reporting mode", async ({
+    page,
+  }) => {
+    const dialog = await openRecordDialog(page);
+    const mode = dialog.getByLabel("Reporting mode");
+    const account = dialog.getByRole("combobox", { name: "Deposited into" });
+
+    // UPI (the default): reported as electronic, into a bank account only.
+    await expect(mode).toContainText("Electronic or account-payee cheque");
+    await expect(mode).toBeDisabled();
+    await account.click();
+    await account.fill("E2E");
+    await expect(
+      page.getByRole("option").filter({ hasText: ACCOUNT }).first()
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.getByRole("option").filter({ hasText: "Clearing" })
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("option").filter({ hasText: "clearing" })
+    ).toHaveCount(0);
+    await page.getByRole("option").filter({ hasText: ACCOUNT }).first().click();
+    await expect(account).toHaveValue(ACCOUNT);
+
+    // Razorpay: the clearing account is filled in and fixed.
+    await dialog.getByLabel("Channel").click();
+    await page.getByRole("option", { exact: true, name: "Razorpay" }).click();
+    await expect(account).toHaveValue("E2E Razorpay Clearing", {
+      timeout: 10_000,
+    });
+    // The combobox marks itself disabled with data-disabled.
+    await expect(account).toHaveAttribute("data-disabled", "");
+    await expect(
+      dialog.getByText("Razorpay gifts land in the Razorpay clearing account.")
+    ).toBeVisible();
+    await expect(mode).toBeDisabled();
+
+    // Cheque: a bearer cheque may be reported as other; the clearing
+    // account does not fit, so it is cleared.
+    await dialog.getByLabel("Channel").click();
+    await page.getByRole("option", { exact: true, name: "Cheque" }).click();
+    await expect(mode).toBeEnabled();
+    await expect(account).not.toHaveAttribute("data-disabled");
+    await expect(account).not.toHaveValue("E2E Razorpay Clearing");
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden();
+  });
+
+  test("keeps the mode of receipt as the channel changes", async ({ page }) => {
+    test.slow();
+    const reference = `E2E-MODE-${Date.now()}`;
+    const dialog = await openRecordDialog(page);
+    const mode = dialog.getByLabel("Reporting mode");
+    const chooseChannel = async (name: string) => {
+      await dialog.getByLabel("Channel").click();
+      await page.getByRole("option", { exact: true, name }).click();
+    };
+    const expectMode = async (label: string) => {
+      await expect(mode).toContainText(label);
+      await expect(mode).not.toContainText("Select an option");
+      await expect(mode).not.toHaveAttribute("aria-invalid", "true");
+      await expect(dialog.getByText("Invalid option")).toHaveCount(0);
+    };
+
+    // Open the mode list once while it can change: from then on its items are
+    // registered, which is when a channel change used to clear the mode.
+    await chooseChannel("Cheque");
+    await mode.click();
+    await page
+      .getByRole("option", {
+        exact: true,
+        name: "Electronic or account-payee cheque",
+      })
+      .click();
+    for (const [channel, label] of [
+      ["NEFT/IMPS", "Electronic or account-payee cheque"],
+      ["Cash", "Cash"],
+      ["NEFT/IMPS", "Electronic or account-payee cheque"],
+      ["Cheque", "Electronic or account-payee cheque"],
+      ["In kind", "In kind"],
+      ["Cheque", "Electronic or account-payee cheque"],
+      ["UPI", "Electronic or account-payee cheque"],
+      ["Cash", "Cash"],
+      ["Razorpay", "Electronic or account-payee cheque"],
+      ["Cash", "Cash"],
+      ["NEFT/IMPS", "Electronic or account-payee cheque"],
+    ] as const) {
+      await chooseChannel(channel);
+      await expectMode(label);
+    }
+
+    // A Cash gift saves after switching from NEFT, keeping the bank account
+    // (cash is deposited to the bank).
+    await pickOption(dialog, page, "Donor", INCOME_DONOR);
+    await dialog.getByRole("textbox", { name: "Amount (₹)" }).fill("410");
+    await pickOption(dialog, page, "Deposited into", ACCOUNT);
+    await chooseChannel("Cash");
+    await expectMode("Cash");
+    await expect(
+      dialog.getByRole("combobox", { name: "Deposited into" })
+    ).toHaveValue(ACCOUNT);
+    await dialog
+      .getByRole("textbox", { exact: true, name: "Reference" })
+      .fill(reference);
+    await clickUntilDialogCloses(dialog, "Save contribution");
+    const row = await findRow(page, reference, "₹410.00");
+    await expect(row).toHaveCount(1, { timeout: 10_000 });
+    await expect(row).toContainText("Cash");
+  });
+
+  test("grants and CSR gifts name their programme; corpus has none", async ({
+    page,
+  }) => {
+    test.slow();
+    const reference = `E2E-GRANT-${Date.now()}`;
+    const dialog = await openRecordDialog(page);
+    const programme = dialog.getByRole("combobox", { name: "Programme" });
+    const chooseType = async (name: string) => {
+      await dialog.getByLabel("Donation type").click();
+      await page.getByRole("option", { exact: true, name }).click();
+      await expect(dialog.getByLabel("Donation type")).toContainText(name);
+    };
+
+    await pickOption(dialog, page, "Donor", INCOME_DONOR);
+    await dialog.getByRole("textbox", { name: "Amount (₹)" }).fill("620");
+    await pickOption(dialog, page, "Deposited into", ACCOUNT);
+    await dialog
+      .getByRole("textbox", { exact: true, name: "Reference" })
+      .fill(reference);
+
+    // Voluntary: the programme is optional.
+    await expect(programme).toBeVisible();
+    await expect(programme).not.toHaveAttribute("aria-required", "true");
+
+    // Specific grant: required, and saving is blocked until it is chosen.
+    await chooseType("Specific grant");
+    await expect(programme).toHaveAttribute("aria-required", "true");
+    await dialog.getByRole("button", { name: "Save contribution" }).click();
+    await expect(
+      dialog.getByText("A specific grant needs the programme it's for")
+    ).toBeVisible();
+    await expect(dialog).toBeVisible();
+    await pickOption(dialog, page, "Programme", "Education");
+
+    // Corpus: no programme, so the field goes and its value is cleared.
+    await chooseType("Corpus");
+    await expect(programme).toHaveCount(0);
+
+    // CSR: required again, and empty after corpus cleared it.
+    await chooseType("CSR");
+    await expect(programme).toBeVisible();
+    await expect(programme).toHaveAttribute("aria-required", "true");
+    await expect(programme).toHaveValue("");
+    await pickOption(dialog, page, "Programme", "Education");
+    await clickUntilDialogCloses(dialog, "Save contribution");
+    const row = await findRow(page, reference, "₹620.00");
+    await expect(row).toHaveCount(1, { timeout: 10_000 });
+    await expect(row).toContainText("Education");
+  });
+
+  test("a corpus gift's old programme and project clear in one step", async ({
+    page,
+  }) => {
+    test.slow();
+    const reference = `E2E-CORPUS-${Date.now()}`;
+    await legacyContribution(
+      "corpus-with-project",
+      reference,
+      process.env.SUPER_ADMIN_EMAIL ?? "test-super-admin@pi-dash.test"
+    );
+    const row = await findRow(page, reference, INCOME_DONOR);
+    await expect(row).toHaveCount(1, { timeout: 15_000 });
+    await new ListPage(page).openRowActionAndClick(row, "Edit");
+    const dialog = page.getByRole("dialog", { name: "Edit contribution" });
+    await expect(dialog).toBeVisible();
+
+    // The programme is set by the project, so it can't be cleared by hand.
+    await expect(
+      dialog.getByText("A corpus gift has no programme or project.")
+    ).toBeVisible({ timeout: 10_000 });
+    await dialog
+      .getByRole("button", { name: "Clear programme and project" })
+      .click();
+    await expect(
+      dialog.getByRole("combobox", { name: "Programme" })
+    ).toHaveCount(0);
+    await expect(
+      dialog.getByText("A corpus gift has no programme or project.")
+    ).toHaveCount(0);
+    await clickUntilDialogCloses(dialog, "Save changes");
+
+    await new ListPage(page).openRowActionAndClick(row, "Edit");
+    const again = page.getByRole("dialog", { name: "Edit contribution" });
+    await expect(again).toBeVisible();
+    await expect(
+      again.getByRole("combobox", { name: "Programme" })
+    ).toHaveCount(0);
   });
 
   test("counts the seed donor, who has no ID, under Missing donor details", async ({

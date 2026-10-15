@@ -21,14 +21,20 @@ function createDb(
   location = "server"
 ) {
   const tables: Record<string, Row[]> = {
+    appConfig: [{ key: "razorpay_clearing_account_id", value: "acc-rzp" }],
     contribution: [],
     contributionRefund: [],
     fund: [{ active: true, id: "fund-1" }],
     gatewaySettlement: [],
     gatewaySettlementItem: [],
     orgAccount: [
-      { active: true, id: "acc-1" },
-      { active: false, id: "acc-old" },
+      { active: true, id: "acc-1", kind: "bank" },
+      { active: false, id: "acc-old", kind: "bank" },
+      { active: true, id: "acc-2", kind: "bank" },
+      { active: true, id: "acc-cash", kind: "cash" },
+      { active: true, id: "acc-rzp", kind: "gateway_clearing" },
+      { active: true, id: "acc-gd", kind: "gateway_clearing" },
+      { active: true, id: "acc-fd", kind: "deposit" },
     ],
     otherIncome: [],
     partyRole: [
@@ -154,6 +160,9 @@ function contribution(overrides: Row = {}): Row {
   };
 }
 
+/** A Razorpay gift lands in the Razorpay clearing account. */
+const RAZORPAY_GIFT = { channel: "razorpay", orgAccountId: "acc-rzp" };
+
 function parse(args: Row) {
   return contributionInputSchema.safeParse(args);
 }
@@ -190,7 +199,11 @@ describe("contribution input validation", () => {
 
   it("requires a description for other donation types and reporting modes", () => {
     const result = parse(
-      contribution({ donationType: "other", reportingMode: "other" })
+      contribution({
+        channel: "cheque",
+        donationType: "other",
+        reportingMode: "other",
+      })
     );
     expect(result.error?.issues.map((i) => i.path[0])).toEqual([
       "reportingModeDescription",
@@ -293,6 +306,210 @@ describe("contribution mutators", () => {
         contribution({ fundId: "fund-x" })
       )
     ).rejects.toThrow("Fund not found");
+  });
+
+  it("puts the gift in the account its channel allows", async () => {
+    const db = createDb();
+    const refused: [Row, string][] = [
+      [{ orgAccountId: "acc-rzp" }, "A UPI gift goes into a bank account"],
+      [
+        { channel: "neft", orgAccountId: "acc-cash" },
+        "A NEFT/IMPS gift goes into a bank account",
+      ],
+      [
+        { channel: "razorpay", orgAccountId: "acc-1" },
+        "A Razorpay gift goes into the Razorpay clearing account",
+      ],
+      [
+        { channel: "give_do", orgAccountId: "acc-rzp" },
+        "A give.do gift goes into the give.do clearing account",
+      ],
+      [
+        { channel: "cash", orgAccountId: "acc-gd", reportingMode: "cash" },
+        "A cash gift goes into a bank or cash account",
+      ],
+    ];
+    for (const [change, message] of refused) {
+      await expect(
+        run(contributionMutators.create, db, donorsCtx, contribution(change))
+      ).rejects.toThrow(message);
+    }
+    expect(db.writes).toEqual([]);
+    for (const [index, change] of [
+      RAZORPAY_GIFT,
+      { channel: "give_do", orgAccountId: "acc-gd" },
+      { channel: "cash", orgAccountId: "acc-cash", reportingMode: "cash" },
+      { channel: "cash", orgAccountId: "acc-1", reportingMode: "cash" },
+      { channel: "cheque", orgAccountId: "acc-2" },
+    ].entries()) {
+      await run(
+        contributionMutators.create,
+        db,
+        donorsCtx,
+        contribution({ ...change, id: `c-ok-${index}` })
+      );
+    }
+    expect(db.tables.contribution).toHaveLength(5);
+  });
+
+  it("refuses a Razorpay gift until the clearing account is chosen", async () => {
+    await expect(
+      run(
+        contributionMutators.create,
+        createDb({ appConfig: [] }),
+        donorsCtx,
+        contribution(RAZORPAY_GIFT)
+      )
+    ).rejects.toThrow("Choose the Razorpay clearing account in Settings first");
+  });
+
+  it("refuses a reporting mode the channel rules out", () => {
+    const upi = parse(
+      contribution({ reportingMode: "other", reportingModeDescription: "DD" })
+    );
+    expect(upi.error?.issues.map((i) => i.message)).toEqual([
+      "A UPI gift is reported as electronic or account-payee cheque",
+    ]);
+    expect(
+      parse(
+        contribution({
+          channel: "cheque",
+          reportingMode: "other",
+          reportingModeDescription: "Bearer cheque",
+        })
+      ).success
+    ).toBe(true);
+    expect(
+      parse(contribution({ channel: "cheque", reportingMode: "cash" })).success
+    ).toBe(false);
+  });
+
+  it("holds an edit to the channel rules, except an account a refund fixed", async () => {
+    const recorded = {
+      amountPaise: 500_000,
+      channel: "razorpay",
+      fundId: "fund-1",
+      id: "c-1",
+      // Recorded before the rules, into a bank account.
+      orgAccountId: "acc-1",
+      partyId: "donor-1",
+      programmeId: null,
+      receivedOn: Date.UTC(2026, 9, 1),
+      status: "received",
+    };
+    const open = createDb({ contribution: [{ ...recorded }] });
+    await expect(
+      run(
+        contributionMutators.update,
+        open,
+        donorsCtx,
+        contribution({ channel: "razorpay", notes: "Edited" })
+      )
+    ).rejects.toThrow(
+      "A Razorpay gift goes into the Razorpay clearing account"
+    );
+    await run(
+      contributionMutators.update,
+      open,
+      donorsCtx,
+      contribution({ ...RAZORPAY_GIFT, notes: "Edited" })
+    );
+    expect(open.tables.contribution?.[0]?.orgAccountId).toBe("acc-rzp");
+
+    // A refund fixes the channel and account, so they cannot be put right;
+    // classification edits still save.
+    const refunded = createDb({
+      contribution: [{ ...recorded }],
+      contributionRefund: [
+        { amountPaise: 100_000, contributionId: "c-1", id: "r-1" },
+      ],
+    });
+    await run(
+      contributionMutators.update,
+      refunded,
+      donorsCtx,
+      contribution({ channel: "razorpay", notes: "Edited" })
+    );
+    expect(refunded.tables.contribution?.[0]?.notes).toBe("Edited");
+  });
+
+  it("names the programme of a grant or CSR gift, and none for corpus", async () => {
+    const db = createDb();
+    for (const [change, message] of [
+      [
+        { donationType: "specific_grant" },
+        "A specific grant needs the programme it's for",
+      ],
+      [{ donationType: "csr" }, "A CSR gift needs the programme it's for"],
+      [
+        { donationType: "corpus", programmeId: "prog-edu" },
+        "A corpus gift has no programme",
+      ],
+      [
+        { donationType: "corpus", projectId: "proj-k3" },
+        "A corpus gift has no programme",
+      ],
+    ] as const) {
+      await expect(
+        run(contributionMutators.create, db, donorsCtx, contribution(change))
+      ).rejects.toThrow(message);
+    }
+    expect(db.writes).toEqual([]);
+    await run(
+      contributionMutators.create,
+      db,
+      donorsCtx,
+      contribution({ donationType: "specific_grant", programmeId: "prog-edu" })
+    );
+    // A project sets the programme.
+    await run(
+      contributionMutators.create,
+      db,
+      donorsCtx,
+      contribution({ donationType: "csr", id: "c-2", projectId: "proj-k3" })
+    );
+    await run(
+      contributionMutators.create,
+      db,
+      donorsCtx,
+      contribution({ donationType: "corpus", id: "c-3" })
+    );
+    expect(db.tables.contribution?.map((c) => c.programmeId)).toEqual([
+      "prog-edu",
+      "prog-arts",
+      null,
+    ]);
+  });
+
+  it("holds an edited legacy grant to the rule until it names a programme", async () => {
+    const db = createDb({
+      contribution: [
+        {
+          donationType: "specific_grant",
+          fundId: "fund-1",
+          id: "c-1",
+          orgAccountId: "acc-1",
+          partyId: "donor-1",
+          programmeId: null,
+          status: "received",
+        },
+      ],
+    });
+    await expect(
+      run(
+        contributionMutators.update,
+        db,
+        donorsCtx,
+        contribution({ donationType: "specific_grant", notes: "Edited" })
+      )
+    ).rejects.toThrow("A specific grant needs the programme it's for");
+    await run(
+      contributionMutators.update,
+      db,
+      donorsCtx,
+      contribution({ donationType: "specific_grant", programmeId: "prog-edu" })
+    );
+    expect(db.tables.contribution?.[0]?.programmeId).toBe("prog-edu");
   });
 
   it("takes the programme from the project and refuses a mismatch", async () => {
@@ -496,7 +713,7 @@ describe("contribution mutators", () => {
       channel: "razorpay",
       fundId: "fund-1",
       id: "c-1",
-      orgAccountId: "acc-1",
+      orgAccountId: "acc-rzp",
       partyId: "donor-1",
       programmeId: null,
       receivedOn: Date.UTC(2026, 9, 1),
@@ -518,7 +735,7 @@ describe("contribution mutators", () => {
       contributionMutators.update,
       pending,
       donorsCtx,
-      contribution({ amountPaise: 400_000, channel: "razorpay" })
+      contribution({ amountPaise: 400_000, ...RAZORPAY_GIFT })
     );
     expect(pending.tables.contribution?.[0]?.amountPaise).toBe(400_000);
 
@@ -535,7 +752,7 @@ describe("contribution mutators", () => {
       contributionMutators.update,
       db,
       donorsCtx,
-      contribution({ channel: "razorpay", fundId: "fund-2", notes: "Kept" })
+      contribution({ ...RAZORPAY_GIFT, fundId: "fund-2", notes: "Kept" })
     );
     expect(db.tables.contribution?.[0]).toMatchObject({
       fundId: "fund-2",
@@ -553,7 +770,7 @@ describe("contribution mutators", () => {
           contributionMutators.update,
           db,
           donorsCtx,
-          contribution({ channel: "razorpay", ...change })
+          contribution({ ...RAZORPAY_GIFT, ...change })
         )
       ).rejects.toThrow("Razorpay has settled");
     }
@@ -567,7 +784,7 @@ describe("contribution mutators", () => {
       db,
       donorsCtx,
       contribution({
-        channel: "razorpay",
+        ...RAZORPAY_GIFT,
         deductionEligible: "no",
         eligibilityReason: "Donor declined",
         fundId: "fund-2",

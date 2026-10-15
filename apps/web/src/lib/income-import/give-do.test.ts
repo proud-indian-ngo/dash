@@ -2,6 +2,8 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
+import { defaultGiveDoAccount } from "@pi-dash/shared/contribution-channel";
+
 import {
   type ClassifyRowInput,
   classifyRows,
@@ -11,7 +13,6 @@ import {
 } from "./classify";
 import {
   compareHeaders,
-  defaultGiveDoAccount,
   GIVE_DO_COLUMNS,
   GIVE_DO_HEADERS,
   IGNORE_FIELD,

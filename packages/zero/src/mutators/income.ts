@@ -1,4 +1,5 @@
 import {
+  type ContributionChannel,
   contributionChannelValues,
   contributionReportingModeValues,
   type DeductionEligible,
@@ -7,6 +8,13 @@ import {
   otherIncomeKindValues,
   PROGRAMME_IDS,
 } from "@pi-dash/shared/constants";
+import {
+  type ChannelAccountSetup,
+  channelAccountIssue,
+  keepsFixedAccount,
+  RAZORPAY_CLEARING_ACCOUNT_CONFIG_KEY,
+} from "@pi-dash/shared/contribution-channel";
+import { donationTypeProgrammeIssue } from "@pi-dash/shared/contribution-programme";
 import { ELIGIBILITY_REASON_MAX } from "@pi-dash/shared/donations-return";
 import {
   CONTRIBUTOR_ROLES,
@@ -210,11 +218,22 @@ async function assertContributor(tx: Tx, partyId: string) {
   }
 }
 
+/** The Razorpay clearing account chosen in Settings, if any. */
+async function readChannelSetup(tx: Tx): Promise<ChannelAccountSetup> {
+  const row = await tx.run(
+    zql.appConfig.where("key", RAZORPAY_CLEARING_ACCOUNT_CONFIG_KEY).one()
+  );
+  return { razorpayClearingAccountId: row?.value || null };
+}
+
 async function assertAccountAndFund(
   tx: Tx,
   next: { fundId: string; orgAccountId: string | null },
   previous?: { fundId: string; orgAccountId: string | null },
-  options: { donation?: boolean } = {}
+  options: {
+    /** The gift's channel: the account must fit it (`channelAccountIssue`). */
+    donation?: { channel: ContributionChannel; keepAccount?: boolean };
+  } = {}
 ) {
   if (next.orgAccountId) {
     const account = await tx.run(
@@ -229,9 +248,31 @@ async function assertAccountAndFund(
     if (options.donation && account?.kind === "deposit") {
       throw new Error("A donation can't be deposited into a fixed deposit");
     }
+    if (account && options.donation && !options.donation.keepAccount) {
+      const issue = channelAccountIssue(
+        options.donation.channel,
+        account,
+        await readChannelSetup(tx)
+      );
+      if (issue) {
+        throw new Error(issue);
+      }
+    }
   }
   const fund = await tx.run(zql.fund.where("id", next.fundId).one());
   assertActive(fund, "Fund", previous?.fundId === next.fundId);
+}
+
+/** A specific grant or CSR gift names its programme; a corpus gift has none. */
+function assertProgrammeFitsType(values: {
+  donationType: ContributionInput["donationType"];
+  programmeId: string | null;
+  projectId: string | null;
+}) {
+  const issue = donationTypeProgrammeIssue(values);
+  if (issue) {
+    throw new Error(issue);
+  }
 }
 
 /**
@@ -426,9 +467,12 @@ export const contributionMutators = {
       : undefined;
     if (tx.location === "server") {
       await assertContributor(tx, values.partyId);
-      await assertAccountAndFund(tx, values, undefined, { donation: true });
+      await assertAccountAndFund(tx, values, undefined, {
+        donation: { channel: values.channel },
+      });
       values.programmeId = await resolveProgramme(tx, values);
     }
+    assertProgrammeFitsType(values);
     const now = Date.now();
     await tx.mutate.contribution.insert({
       ...values,
@@ -535,9 +579,21 @@ export const contributionMutators = {
       if (values.partyId !== existing.partyId) {
         await assertContributor(tx, values.partyId);
       }
-      await assertAccountAndFund(tx, values, existing, { donation: true });
+      // A refund or a processed settlement fixes the channel and account,
+      // so a gift recorded before the channel rules keeps its account.
+      await assertAccountAndFund(tx, values, existing, {
+        donation: {
+          channel: values.channel,
+          keepAccount: keepsFixedAccount(
+            hasRefund || isSettled,
+            values,
+            existing
+          ),
+        },
+      });
       values.programmeId = await resolveProgramme(tx, values, existing);
     }
+    assertProgrammeFitsType(values);
     await tx.mutate.contribution.update({
       ...values,
       ...normalizeEligibility(args, {

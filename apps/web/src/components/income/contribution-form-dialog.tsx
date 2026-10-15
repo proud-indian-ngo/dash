@@ -7,22 +7,29 @@ import {
   type ContributionChannel,
   contributionChannelValues,
   type ContributionReportingMode,
-  contributionReportingModeValues,
   type DeductionEligible,
-  deductionEligibleValues,
   type DonationType,
   donationTypeValues,
   GENERAL_FUND_ID,
   PROGRAMME_IDS,
 } from "@pi-dash/shared/constants";
 import {
-  ELIGIBILITY_REASON_MAX,
+  accountForChannel,
+  CHANNEL_REPORTING_MODES,
+  type ChannelAccount,
+  type ChannelAccountSetup,
+  channelAccountChoice,
+  channelAccountIssue,
+  isReportingModeFixed,
+  RAZORPAY_CLEARING_ACCOUNT_CONFIG_KEY,
+} from "@pi-dash/shared/contribution-channel";
+import { DONATION_TYPE_PROGRAMME } from "@pi-dash/shared/contribution-programme";
+import {
   ELIGIBILITY_REASON_PRESETS,
   TAX_CERTIFICATE_LABELS,
 } from "@pi-dash/shared/donations-return";
 import {
   CONTRIBUTION_CHANNEL_LABELS,
-  contributionRuleIssues,
   DONATION_TYPE_LABELS,
   defaultReportingMode,
   REPORTING_MODE_LABELS,
@@ -32,10 +39,9 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
-import z from "zod";
 
 import { DonorFormDialog } from "@/components/donors/donor-form-dialog";
 import { contributorOptions } from "@/components/donors/party-row";
@@ -54,7 +60,6 @@ import {
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
 import { useApp } from "@/context/app-context";
-import { positiveRupeesSchema } from "@/lib/form-schemas";
 import { epochToLocalDate, localDateToIso } from "@/lib/local-date";
 import {
   getMutationResultErrorMessage,
@@ -62,6 +67,11 @@ import {
 } from "@/lib/mutation-result";
 import { paiseToRupeesInput } from "@/lib/paise";
 
+import {
+  buildFormSchema,
+  type FormValues,
+  OTHER_REASON,
+} from "./contribution-form-schema";
 import type { ContributionRow } from "./income-types";
 import { withCurrentOption } from "./picker-options";
 import {
@@ -82,10 +92,6 @@ const channelOptions = enumOptions(
 const directChannelOptions = channelOptions.filter((option) =>
   ["upi", "neft", "cheque", "cash"].includes(option.value)
 );
-const reportingModeOptions = enumOptions(
-  contributionReportingModeValues,
-  REPORTING_MODE_LABELS
-);
 const donationTypeOptions = enumOptions(
   donationTypeValues,
   DONATION_TYPE_LABELS
@@ -96,8 +102,6 @@ const taxCertificateOptions = enumOptions(
   TAX_CERTIFICATE_LABELS
 );
 
-/** The reason picker's value for a reason typed by hand. */
-const OTHER_REASON = "other";
 const reasonOptions = [
   ...ELIGIBILITY_REASON_PRESETS.map((reason) => ({
     label: reason,
@@ -128,76 +132,6 @@ function reasonFrom(value: {
     ? value.eligibilityReasonOther.trim()
     : value.eligibilityReasonChoice;
 }
-
-const text = (max: number) => z.string().trim().max(max);
-/** A required picker: empty until chosen, so the input type allows undefined. */
-const pick = (message: string) =>
-  z
-    .string()
-    .optional()
-    .refine((value) => Boolean(value), message);
-const requiredDate = (message: string) =>
-  z
-    .date()
-    .optional()
-    .refine((value) => value !== undefined, message);
-
-const formSchema = z
-  .object({
-    amount: positiveRupeesSchema,
-    channel: z.enum(contributionChannelValues),
-    deductionEligible: z.enum(deductionEligibleValues),
-    donationType: z.enum(donationTypeValues),
-    donationTypeDescription: text(200),
-    eligibilityReasonChoice: z.string(),
-    eligibilityReasonOther: text(ELIGIBILITY_REASON_MAX),
-    fundId: pick("Pick a fund"),
-    inKindDescription: text(500),
-    inKindValuationBasis: text(500),
-    notes: text(1000),
-    orgAccountId: z.string().optional(),
-    partyId: pick("Pick a donor"),
-    programmeId: z.string().optional(),
-    projectId: z.string().optional(),
-    receivedOn: requiredDate("Pick the date it was received"),
-    reference: text(120),
-    reportingMode: z.enum(contributionReportingModeValues),
-    reportingModeDescription: text(200),
-  })
-  .superRefine((value, context) => {
-    const issues = contributionRuleIssues({
-      ...value,
-      // A hidden account field never blocks an in-kind gift.
-      orgAccountId: value.channel === "in_kind" ? null : value.orgAccountId,
-    });
-    for (const issue of issues) {
-      context.addIssue({
-        code: "custom",
-        message: issue.message,
-        path: [issue.path],
-      });
-    }
-    if (value.deductionEligible === "no") {
-      if (value.eligibilityReasonChoice === "") {
-        context.addIssue({
-          code: "custom",
-          message: "Say why this gift is left out",
-          path: ["eligibilityReasonChoice"],
-        });
-      } else if (
-        value.eligibilityReasonChoice === OTHER_REASON &&
-        value.eligibilityReasonOther.trim() === ""
-      ) {
-        context.addIssue({
-          code: "custom",
-          message: "Describe the reason",
-          path: ["eligibilityReasonOther"],
-        });
-      }
-    }
-  });
-
-type FormValues = z.input<typeof formSchema>;
 
 /**
  * A bank statement credit a donation is recorded from: its amount, account,
@@ -325,6 +259,7 @@ function usePickerOptions(row: ContributionRow | null) {
   const { hasPermission } = useApp();
   const [parties] = useQuery(queries.party.all());
   const [accounts] = useQuery(queries.orgAccount.active());
+  const [config] = useQuery(queries.appConfig.all());
   const [funds] = useQuery(queries.fund.active());
   const [programmes] = useQuery(queries.programme.active());
   // Project rows carry sponsor and budget terms, so only finance.view syncs them.
@@ -334,14 +269,27 @@ function usePickerOptions(row: ContributionRow | null) {
   const programmeNames = new Map(programmes.map((p) => [p.id, p.name]));
   const projectLabel = (name: string, programmeName: string | undefined) =>
     `${name} (${programmeName ?? "No programme"})`;
+  const razorpayClearingAccountId =
+    config.find((c) => c.key === RAZORPAY_CLEARING_ACCOUNT_CONFIG_KEY)?.value ||
+    null;
   return {
-    accountOptions: withCurrentOption(
-      accounts
-        .filter((a) => a.kind !== "deposit")
-        .map((a) => ({ label: a.name, value: a.id })),
-      row?.orgAccountId,
-      row?.orgAccount?.name
-    ),
+    accounts,
+    /** The channel's accounts, plus the one the field holds if the channel rules it out. */
+    accountOptions: (
+      allowed: readonly ChannelAccount[],
+      current: string | undefined
+    ) => {
+      const options = allowed.map((a) => ({ label: a.name, value: a.id }));
+      const active = accounts.find((a) => a.id === current);
+      if (active && !options.some((o) => o.value === current)) {
+        return [...options, { label: active.name, value: active.id }];
+      }
+      return withCurrentOption(
+        options,
+        current,
+        current === row?.orgAccountId ? row?.orgAccount?.name : undefined
+      );
+    },
     donorOptions: withCurrentOption(
       contributorOptions(parties),
       row?.partyId,
@@ -372,7 +320,36 @@ function usePickerOptions(row: ContributionRow | null) {
       row?.project ? projectLabel(row.project.name, row.programme?.name) : null
     ),
     projects,
+    razorpayClearingAccountId,
   };
+}
+
+/** A gateway channel's fixed account, in words. */
+const GATEWAY_ACCOUNT_NOTES: Partial<Record<ContributionChannel, string>> = {
+  give_do: "give.do gifts land in the give.do clearing account.",
+  razorpay: "Razorpay gifts land in the Razorpay clearing account.",
+};
+
+const CHEQUE_MODE_NOTE =
+  "An account-payee cheque is reported as electronic; choose Other for a bearer cheque.";
+
+/** Why the channel fixes the reporting mode, in words. */
+function fixedModeNote(channel: ContributionChannel): string {
+  return `Set by the channel: ${CONTRIBUTION_CHANNEL_LABELS[channel]} gifts are reported as ${REPORTING_MODE_LABELS[
+    defaultReportingMode(channel)
+  ].toLowerCase()}.`;
+}
+
+/** The reporting modes the channel allows, plus the one the field holds if it is ruled out. */
+function reportingModeOptions(
+  channel: ContributionChannel,
+  current: ContributionReportingMode
+) {
+  const modes = CHANNEL_REPORTING_MODES[channel];
+  return enumOptions(
+    modes.includes(current) ? modes : [...modes, current],
+    REPORTING_MODE_LABELS
+  );
 }
 
 function ContributionForm({
@@ -412,6 +389,40 @@ function ContributionForm({
   const [id] = useState(() => contribution?.id ?? uuidv7());
   const [donorDialogOpen, setDonorDialogOpen] = useState(false);
   const picker = usePickerOptions(contribution);
+  const { accounts, razorpayClearingAccountId } = picker;
+  const setup: ChannelAccountSetup = { razorpayClearingAccountId };
+  // Stable while the accounts and settings are, so the form's validators
+  // are not replaced on every render.
+  const storedChannel = contribution?.channel ?? null;
+  const storedAccountId = contribution?.orgAccountId ?? null;
+  const formSchema = useMemo(
+    () =>
+      buildFormSchema(
+        (channel, accountId) => {
+          const account = accounts.find((a) => a.id === accountId);
+          // An account that is no longer active is checked by the server.
+          return account
+            ? channelAccountIssue(channel, account, {
+                razorpayClearingAccountId,
+              })
+            : null;
+        },
+        {
+          locked: refundLocked,
+          stored:
+            storedChannel === null
+              ? null
+              : { channel: storedChannel, orgAccountId: storedAccountId },
+        }
+      ),
+    [
+      accounts,
+      razorpayClearingAccountId,
+      refundLocked,
+      storedAccountId,
+      storedChannel,
+    ]
+  );
   const defaultFundId =
     picker.funds.find((f) => f.id === GENERAL_FUND_ID)?.id ??
     picker.funds[0]?.id;
@@ -427,6 +438,27 @@ function ContributionForm({
         if (fieldApi.name === "channel") {
           const channel = formApi.getFieldValue("channel");
           formApi.setFieldValue("reportingMode", defaultReportingMode(channel));
+          // A bank line fixes the account; otherwise the channel decides it.
+          if (!fromLine) {
+            formApi.setFieldValue(
+              "orgAccountId",
+              accountForChannel(
+                channel,
+                formApi.getFieldValue("orgAccountId"),
+                picker.accounts,
+                setup
+              )
+            );
+          }
+        }
+        // A corpus gift has no programme or project.
+        if (
+          fieldApi.name === "donationType" &&
+          DONATION_TYPE_PROGRAMME[formApi.getFieldValue("donationType")] ===
+            "none"
+        ) {
+          formApi.setFieldValue("projectId", undefined);
+          formApi.setFieldValue("programmeId", undefined);
         }
         if (fieldApi.name === "projectId") {
           const projectId = formApi.getFieldValue("projectId");
@@ -480,11 +512,39 @@ function ContributionForm({
     validators: { onChange: formSchema, onSubmit: formSchema },
   });
 
+  // Accounts and settings can sync after a new form mounts: fill in the
+  // channel's account then. An edited record keeps what it holds.
+  const fillsAccount = !(isEdit || fromLine);
+  useEffect(() => {
+    if (!fillsAccount) {
+      return;
+    }
+    const current = form.getFieldValue("orgAccountId");
+    const next = accountForChannel(
+      form.getFieldValue("channel"),
+      current,
+      accounts,
+      { razorpayClearingAccountId }
+    );
+    if (next !== current) {
+      // A default, not an edit: no validation, so untouched fields show no
+      // errors yet.
+      form.setFieldValue("orgAccountId", next, {
+        dontUpdateMeta: true,
+        dontValidate: true,
+      });
+    }
+  }, [accounts, fillsAccount, form, razorpayClearingAccountId]);
+
   const cancel = useEventCallback(() => onOpenChange(false));
   const saveAndAnother = useEventCallback(() => {
     form.handleSubmit({ another: true });
   });
   const openDonorDialog = useEventCallback(() => setDonorDialogOpen(true));
+  const clearProgramme = useEventCallback(() => {
+    form.setFieldValue("projectId", undefined);
+    form.setFieldValue("programmeId", undefined);
+  });
   const handleDonorCreated = useEventCallback((partyId: string) => {
     form.setFieldValue("partyId", partyId);
   });
@@ -541,19 +601,44 @@ function ContributionForm({
             name="channel"
             options={fromLine ? directChannelOptions : channelOptions}
           />
-          <SelectField
-            description="Filled in from the channel; change it if the donation statement needs another mode."
-            isRequired
-            label="Reporting mode"
-            name="reportingMode"
-            options={reportingModeOptions}
-          />
+          <form.Subscribe
+            selector={(state) => ({
+              channel: state.values.channel,
+              reportingMode: state.values.reportingMode,
+            })}
+          >
+            {({ channel, reportingMode }) => {
+              // Fixed by the channel, unless the record holds a mode the
+              // channel rules out, which must stay changeable to fix it.
+              const fixed =
+                isReportingModeFixed(channel) &&
+                reportingMode === defaultReportingMode(channel);
+              return (
+                <SelectField
+                  description={
+                    fixed
+                      ? fixedModeNote(channel)
+                      : channel === "cheque"
+                        ? CHEQUE_MODE_NOTE
+                        : undefined
+                  }
+                  disabled={fixed}
+                  isRequired
+                  label="Reporting mode"
+                  name="reportingMode"
+                  options={reportingModeOptions(channel, reportingMode)}
+                />
+              );
+            }}
+          </form.Subscribe>
         </div>
         <form.Subscribe
           selector={(state) => ({
             channel: state.values.channel,
+            orgAccountId: state.values.orgAccountId,
             deductionEligible: state.values.deductionEligible,
             donationType: state.values.donationType,
+            programmeId: state.values.programmeId,
             reasonChoice: state.values.eligibilityReasonChoice,
             projectId: state.values.projectId,
             reportingMode: state.values.reportingMode,
@@ -563,105 +648,162 @@ function ContributionForm({
             channel,
             deductionEligible,
             donationType,
+            orgAccountId,
+            programmeId,
             projectId,
             reasonChoice,
             reportingMode,
-          }) => (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {reportingMode === "other" ? (
-                <InputField
-                  isRequired
-                  label="Reporting mode description"
-                  name="reportingModeDescription"
-                />
-              ) : null}
-              {channel === "in_kind" ? (
-                <>
+          }) => {
+            const programmeNeed = DONATION_TYPE_PROGRAMME[donationType];
+            // A corpus gift has no programme; one it still holds stays
+            // visible so it can be cleared.
+            const showProgramme =
+              programmeNeed !== "none" || Boolean(programmeId || projectId);
+            const accountChoice = channelAccountChoice(
+              channel,
+              picker.accounts,
+              setup
+            );
+            // A gateway channel fixes the account once it holds the
+            // gateway's; a record holding another stays changeable.
+            const accountFixed =
+              accountChoice.fixed &&
+              orgAccountId === accountChoice.preferred?.id;
+            return (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {reportingMode === "other" ? (
                   <InputField
                     isRequired
-                    label="What was given"
-                    name="inKindDescription"
+                    label="Reporting mode description"
+                    name="reportingModeDescription"
                   />
-                  <InputField
-                    description="For example the invoice value or a market quote."
+                ) : null}
+                {channel === "in_kind" ? (
+                  <>
+                    <InputField
+                      isRequired
+                      label="What was given"
+                      name="inKindDescription"
+                    />
+                    <InputField
+                      description="For example the invoice value or a market quote."
+                      isRequired
+                      label="Valuation basis"
+                      name="inKindValuationBasis"
+                    />
+                  </>
+                ) : (
+                  <ComboboxField
+                    description={
+                      fromLine
+                        ? "From the bank line."
+                        : accountFixed
+                          ? GATEWAY_ACCOUNT_NOTES[channel]
+                          : (accountChoice.emptyReason ?? undefined)
+                    }
+                    disabled={refundLocked || fromLine !== null || accountFixed}
+                    emptyMessage={
+                      accountChoice.emptyReason ?? "No accounts match."
+                    }
                     isRequired
-                    label="Valuation basis"
-                    name="inKindValuationBasis"
+                    label="Deposited into"
+                    name="orgAccountId"
+                    options={picker.accountOptions(
+                      accountChoice.allowed,
+                      orgAccountId
+                    )}
+                    placeholder="Search accounts..."
                   />
-                </>
-              ) : (
-                <ComboboxField
-                  description={fromLine ? "From the bank line." : undefined}
-                  disabled={refundLocked || fromLine !== null}
-                  emptyMessage="No active accounts."
-                  isRequired
-                  label="Deposited into"
-                  name="orgAccountId"
-                  options={picker.accountOptions}
-                  placeholder="Search accounts..."
-                />
-              )}
-              <SelectField
-                isRequired
-                label="Donation type"
-                name="donationType"
-                options={donationTypeOptions}
-              />
-              {donationType === "other" ? (
-                <InputField
-                  isRequired
-                  label="Donation type description"
-                  name="donationTypeDescription"
-                />
-              ) : null}
-              <SelectField
-                description="Whether this gift goes in the donations return (Form 113). Follow donor uses the donor's own choice."
-                label="Tax certificate"
-                name="deductionEligible"
-                options={taxCertificateOptions}
-              />
-              {deductionEligible === "no" ? (
+                )}
                 <SelectField
                   isRequired
-                  label="Reason"
-                  name="eligibilityReasonChoice"
-                  options={reasonOptions}
-                  placeholder="Why it is left out"
+                  label="Donation type"
+                  name="donationType"
+                  options={donationTypeOptions}
                 />
-              ) : null}
-              {deductionEligible === "no" && reasonChoice === OTHER_REASON ? (
-                <InputField
-                  isRequired
-                  label="Describe the reason"
-                  name="eligibilityReasonOther"
-                />
-              ) : null}
-              {picker.fundOptions.length > 1 ? (
+                {donationType === "other" ? (
+                  <InputField
+                    isRequired
+                    label="Donation type description"
+                    name="donationTypeDescription"
+                  />
+                ) : null}
                 <SelectField
-                  isRequired
-                  label="Fund"
-                  name="fundId"
-                  options={picker.fundOptions}
+                  description="Whether this gift goes in the donations return (Form 113). Follow donor uses the donor's own choice."
+                  label="Tax certificate"
+                  name="deductionEligible"
+                  options={taxCertificateOptions}
                 />
-              ) : null}
-              <ComboboxField
-                description={projectId ? "Set by the project." : undefined}
-                disabled={Boolean(projectId)}
-                label="Programme"
-                name="programmeId"
-                options={picker.programmeOptions}
-                placeholder="Search programmes..."
-              />
-              {picker.projectOptions.length > 0 ? (
-                <ComboboxField
-                  label="Project"
-                  name="projectId"
-                  options={picker.projectOptions}
-                  placeholder="Search projects..."
-                />
-              ) : null}
-            </div>
-          )}
+                {deductionEligible === "no" ? (
+                  <SelectField
+                    isRequired
+                    label="Reason"
+                    name="eligibilityReasonChoice"
+                    options={reasonOptions}
+                    placeholder="Why it is left out"
+                  />
+                ) : null}
+                {deductionEligible === "no" && reasonChoice === OTHER_REASON ? (
+                  <InputField
+                    isRequired
+                    label="Describe the reason"
+                    name="eligibilityReasonOther"
+                  />
+                ) : null}
+                {picker.fundOptions.length > 1 ? (
+                  <SelectField
+                    isRequired
+                    label="Fund"
+                    name="fundId"
+                    options={picker.fundOptions}
+                  />
+                ) : null}
+                {showProgramme ? (
+                  <ComboboxField
+                    description={
+                      projectId
+                        ? "Set by the project."
+                        : programmeNeed === "required"
+                          ? "Grants and CSR gifts are for a named programme."
+                          : undefined
+                    }
+                    disabled={Boolean(projectId)}
+                    isRequired={programmeNeed === "required"}
+                    label="Programme"
+                    name="programmeId"
+                    options={picker.programmeOptions}
+                    placeholder="Search programmes..."
+                  />
+                ) : null}
+                {showProgramme && picker.projectOptions.length > 0 ? (
+                  <ComboboxField
+                    label="Project"
+                    name="projectId"
+                    options={picker.projectOptions}
+                    placeholder="Search projects..."
+                  />
+                ) : null}
+                {programmeNeed === "none" && showProgramme ? (
+                  // A corpus gift that still holds a programme or project
+                  // (recorded before the rule). The project may not sync to
+                  // this user, so one action clears both.
+                  <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+                    <p className="text-destructive text-sm">
+                      A corpus gift has no programme or project.
+                    </p>
+                    <Button
+                      onClick={clearProgramme}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      Clear programme and project
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            );
+          }}
         </form.Subscribe>
         <FormSectionHeading>Reference</FormSectionHeading>
         <div className="grid gap-4">

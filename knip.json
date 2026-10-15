@@ -34,6 +34,7 @@
         "helpers/bank-statements.ts",
         "helpers/books.ts",
         "helpers/charged-to.ts",
+        "helpers/legacy-contribution.ts",
         "helpers/request-approval.ts",
         "helpers/kalakriti-event-day-transport.ts",
         "helpers/kalakriti-station-subject.ts",

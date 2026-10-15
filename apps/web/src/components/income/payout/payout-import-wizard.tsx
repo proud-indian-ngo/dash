@@ -1,6 +1,12 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import { GENERAL_FUND_ID } from "@pi-dash/shared/constants";
+import {
+  accountForChannel,
+  type ChannelAccountSetup,
+  channelAccountChoice,
+  RAZORPAY_CLEARING_ACCOUNT_CONFIG_KEY,
+} from "@pi-dash/shared/contribution-channel";
 import { todayInKolkata } from "@pi-dash/shared/income";
 import { formatPaise } from "@pi-dash/shared/money";
 import { queries } from "@pi-dash/zero/queries";
@@ -27,10 +33,7 @@ import {
 } from "@/functions/give-do-payouts";
 import type { PayoutReview, PayoutRunResult } from "@/lib/give-do-payout/types";
 import type { RowDecision } from "@/lib/income-import/classify";
-import {
-  defaultGiveDoAccount,
-  MAX_IMPORT_FILE_BYTES,
-} from "@/lib/income-import/fields";
+import { MAX_IMPORT_FILE_BYTES } from "@/lib/income-import/fields";
 
 const uploadSchema = z.object({
   file: z
@@ -56,11 +59,15 @@ function PayoutUploadForm({
   accounts,
   funds,
   onUploaded,
+  setup,
 }: {
   accounts: readonly { id: string; kind: string; name: string }[];
   funds: readonly { id: string; name: string }[];
   onUploaded: (review: PayoutReview) => void;
+  setup: ChannelAccountSetup;
 }) {
+  // give.do money lands in the give.do clearing account (the channel rules).
+  const choice = channelAccountChoice("give_do", accounts, setup);
   const upload = useServerFn(createGiveDoPayoutImport);
   const [error, setError] = useState<string | null>(null);
   const form = useForm({
@@ -70,7 +77,8 @@ function PayoutUploadForm({
         funds.find((fund) => fund.id === GENERAL_FUND_ID)?.id ??
         funds[0]?.id ??
         "",
-      orgAccountId: defaultGiveDoAccount(accounts)?.id ?? "",
+      orgAccountId:
+        accountForChannel("give_do", undefined, accounts, setup) ?? "",
     },
     validators: { onChange: uploadSchema, onSubmit: uploadSchema },
     onSubmit: async ({ value }) => {
@@ -105,24 +113,38 @@ function PayoutUploadForm({
   });
   return (
     <FormLayout className="max-w-xl" form={form}>
-      <ComboboxField
-        isRequired
-        label="give.do clearing account"
-        name="orgAccountId"
-        options={accounts
-          .filter((account) => account.kind === "gateway_clearing")
-          .map((account) => ({ label: account.name, value: account.id }))}
-        description={
-          <>
-            Choose the account used for give.do donation imports. Accounts can
-            be added in{" "}
-            <Link className="underline" to="/settings/org-accounts">
-              Organisation accounts
-            </Link>
-            .
-          </>
-        }
-      />
+      <form.Subscribe selector={(state) => state.values.orgAccountId}>
+        {(orgAccountId) => {
+          const fixed = choice.fixed && orgAccountId === choice.preferred?.id;
+          return (
+            <ComboboxField
+              description={
+                fixed ? (
+                  "give.do gifts land in the give.do clearing account."
+                ) : (
+                  <>
+                    Choose the account used for give.do donation imports.
+                    Accounts can be added in{" "}
+                    <Link className="underline" to="/settings/org-accounts">
+                      Organisation accounts
+                    </Link>
+                    .
+                  </>
+                )
+              }
+              disabled={fixed}
+              emptyMessage={choice.emptyReason ?? undefined}
+              isRequired
+              label="give.do clearing account"
+              name="orgAccountId"
+              options={choice.allowed.map((account) => ({
+                label: account.name,
+                value: account.id,
+              }))}
+            />
+          );
+        }}
+      </form.Subscribe>
       <ComboboxField
         isRequired
         label="Fund for new donations"
@@ -308,6 +330,7 @@ export function PayoutImportWizard() {
   const load = useServerFn(getGiveDoPayoutImport);
   const [accounts, accountsResult] = useQuery(queries.orgAccount.active());
   const [funds, fundsResult] = useQuery(queries.fund.active());
+  const [config, configResult] = useQuery(queries.appConfig.all());
   useEffect(() => {
     if (!batchId || payout?.review.batch.id === batchId) {
       return;
@@ -373,7 +396,8 @@ export function PayoutImportWizard() {
   if (
     batchId ||
     accountsResult.type !== "complete" ||
-    fundsResult.type !== "complete"
+    fundsResult.type !== "complete" ||
+    configResult.type !== "complete"
   ) {
     return (
       <p className="text-muted-foreground text-sm">Loading payout import...</p>
@@ -386,6 +410,11 @@ export function PayoutImportWizard() {
       onUploaded={(review) => {
         setPayout(review);
         void setBatchId(review.review.batch.id);
+      }}
+      setup={{
+        razorpayClearingAccountId:
+          config.find((c) => c.key === RAZORPAY_CLEARING_ACCOUNT_CONFIG_KEY)
+            ?.value || null,
       }}
     />
   );

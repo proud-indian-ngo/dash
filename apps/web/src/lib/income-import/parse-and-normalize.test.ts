@@ -16,6 +16,8 @@ import {
   normalizeRow,
   parseAmount,
   parseDate,
+  withChannelRules,
+  withProgrammeRule,
 } from "./normalize";
 import { CsvParseError, parseCsv, sampleValues } from "./parse-csv";
 
@@ -429,5 +431,79 @@ describe("maskIdentifiers", () => {
     // Not twelve digits on their own: phone numbers and longer references.
     expect(maskIdentifiers("+91 98765 43210")).toBe("+91 98765 43210");
     expect(maskIdentifiers("1234567890123")).toBe("1234567890123");
+  });
+});
+
+describe("withChannelRules", () => {
+  const setup = { razorpayClearingAccountId: "rzp" };
+  const bank = { id: "bank", kind: "bank" };
+  const rowWith = (channel: string) =>
+    normalizeRow(
+      { Amount: "100", Date: "01/10/2026", Mode: channel, Name: "Asha" },
+      {
+        Amount: "amount",
+        Date: "receivedOn",
+        Mode: "channel",
+        Name: "donorName",
+      },
+      { dateFormat: "dmy", defaultChannel: "upi", today: "2026-10-15" }
+    );
+
+  it("keeps a row whose channel fits the account", () => {
+    const result = rowWith("UPI");
+    expect(withChannelRules(result, bank, setup)).toBe(result);
+  });
+
+  it("adds a channel error when the channel does not fit", () => {
+    expect(withChannelRules(rowWith("Razorpay"), bank, setup).errors).toEqual([
+      {
+        field: "channel",
+        message: "A Razorpay gift goes into the Razorpay clearing account",
+      },
+    ]);
+    expect(
+      withChannelRules(
+        rowWith("UPI"),
+        { id: "rzp", kind: "gateway_clearing" },
+        setup
+      ).errors
+    ).toEqual([
+      { field: "channel", message: "A UPI gift goes into a bank account" },
+    ]);
+  });
+});
+
+describe("withProgrammeRule", () => {
+  const typed = (type: string) =>
+    normalizeRow(
+      { Amount: "100", Date: "01/10/2026", Name: "Asha", Type: type },
+      {
+        Amount: "amount",
+        Date: "receivedOn",
+        Name: "donorName",
+        Type: "donationType",
+      },
+      { dateFormat: "dmy", defaultChannel: "upi", today: "2026-10-15" }
+    );
+  const none = { programmeId: null, projectId: null };
+
+  it("needs a programme for a CSR row and none for a corpus row", () => {
+    expect(withProgrammeRule(typed("CSR"), none).errors).toEqual([
+      {
+        field: "donationType",
+        message: "A CSR gift needs the programme it's for",
+      },
+    ]);
+    expect(
+      withProgrammeRule(typed("CSR"), { programmeId: "p", projectId: null })
+        .errors
+    ).toEqual([]);
+    expect(
+      withProgrammeRule(typed("Corpus"), { programmeId: "p", projectId: null })
+        .errors
+    ).toEqual([
+      { field: "donationType", message: "A corpus gift has no programme" },
+    ]);
+    expect(withProgrammeRule(typed("Voluntary"), none).errors).toEqual([]);
   });
 });
