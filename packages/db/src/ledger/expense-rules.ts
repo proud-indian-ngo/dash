@@ -177,6 +177,11 @@ export interface ReimbursementFacts extends PayingAccountFacts {
   /** The approval day in India; null if an approved record has none. */
   approvedOn: string | null;
   charge: ExpenseChargeFacts;
+  /**
+   * Who was paid (`reimbursement.user_id`), named on the payout. A claimant
+   * has no party, so the name is how the books follow a claimant change.
+   */
+  claimantName: string | null;
   /** The payment screenshot attached at approval. */
   hasPaymentProof: boolean;
   id: string;
@@ -184,6 +189,12 @@ export interface ReimbursementFacts extends PayingAccountFacts {
   status: string;
   title: string;
 }
+
+/** The payout's memo: the title and who was paid. */
+const payoutMemo = (claim: ReimbursementFacts) =>
+  claim.claimantName
+    ? `${claim.title} (paid to ${claim.claimantName})`
+    : claim.title;
 
 export function reimbursementPlan(
   claim: ReimbursementFacts | null
@@ -233,7 +244,7 @@ export function reimbursementPlan(
             amountPaise: totalPaise,
             direction: "out",
             kind: "payout",
-            memo: claim.title,
+            memo: payoutMemo(claim),
             orgAccountId: account,
           },
         ],

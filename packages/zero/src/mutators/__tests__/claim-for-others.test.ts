@@ -101,6 +101,7 @@ function createDb(
 function context(userId: string, permissions: string[]) {
   return {
     asyncTasks: [] as AsyncTask[],
+    enqueue,
     permissions,
     role: "finance_admin",
     traceId: "trace-1",
@@ -291,40 +292,46 @@ describe("reimbursement.create for someone else", () => {
   });
 });
 
-function seededRequest(status: "approved" | "pending" | "rejected") {
-  return createDb({
-    reimbursement: [
-      {
-        bankAccountIfscCode: "SBIN0001234",
-        bankAccountName: "Ravi Kumar",
-        bankAccountNumber: "111122223333",
-        createdBy: "asha",
-        id: "r-1",
-        rejectionReason: status === "rejected" ? "Duplicate" : null,
-        status,
-        title: "Travel",
-        userId: "ravi",
-      },
-    ],
-    reimbursementLineItem: [
-      {
-        amountPaise: 50_000,
-        generateVoucher: true,
-        id: "li-voucher",
-        reimbursementId: "r-1",
-        signedVoucherAttachmentId: "att-signed",
-        voucherAttachmentId: "att-voucher",
-      },
-      {
-        amountPaise: 20_000,
-        generateVoucher: false,
-        id: "li-plain",
-        reimbursementId: "r-1",
-        signedVoucherAttachmentId: null,
-        voucherAttachmentId: null,
-      },
-    ],
-  });
+function seededRequest(
+  status: "approved" | "pending" | "rejected",
+  location: "client" | "server" = "server"
+) {
+  return createDb(
+    {
+      reimbursement: [
+        {
+          bankAccountIfscCode: "SBIN0001234",
+          bankAccountName: "Ravi Kumar",
+          bankAccountNumber: "111122223333",
+          createdBy: "asha",
+          id: "r-1",
+          rejectionReason: status === "rejected" ? "Duplicate" : null,
+          status,
+          title: "Travel",
+          userId: "ravi",
+        },
+      ],
+      reimbursementLineItem: [
+        {
+          amountPaise: 50_000,
+          generateVoucher: true,
+          id: "li-voucher",
+          reimbursementId: "r-1",
+          signedVoucherAttachmentId: "att-signed",
+          voucherAttachmentId: "att-voucher",
+        },
+        {
+          amountPaise: 20_000,
+          generateVoucher: false,
+          id: "li-plain",
+          reimbursementId: "r-1",
+          signedVoucherAttachmentId: null,
+          voucherAttachmentId: null,
+        },
+      ],
+    },
+    location
+  );
 }
 
 const changeArgs = {
@@ -391,6 +398,37 @@ describe("reimbursement.changeClaimant", () => {
       );
     });
   }
+
+  it("queues the books to reverse and repost the request to its new claimant", async () => {
+    const db = seededRequest("approved");
+    const ctx = financeCtx();
+    await reimbursementMutators.changeClaimant.fn({
+      args: changeArgs,
+      ctx,
+      tx: db.tx,
+    } as never);
+    await runTasks(ctx.asyncTasks);
+    expect(
+      enqueue.mock.calls.filter(([name]) => name === "ledger-post-source")
+    ).toEqual([
+      [
+        "ledger-post-source",
+        { sourceId: "r-1", sourceType: "reimbursement" },
+        { singletonKey: "reimbursement:r-1", traceId: "trace-1" },
+      ],
+    ]);
+  });
+
+  it("queues nothing for the books from the client's optimistic run", async () => {
+    const db = seededRequest("approved", "client");
+    const ctx = financeCtx();
+    await reimbursementMutators.changeClaimant.fn({
+      args: changeArgs,
+      ctx,
+      tx: db.tx,
+    } as never);
+    expect(ctx.asyncTasks).toEqual([]);
+  });
 
   it("queues fresh vouchers only for opted-in items on an approved request", async () => {
     const db = seededRequest("approved");

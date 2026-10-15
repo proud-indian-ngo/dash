@@ -492,6 +492,9 @@ export const reimbursementMutators = {
       if (tx.location !== "server") {
         return;
       }
+      // The payout names the claimant: a posted request is reversed and
+      // reposted to the new one.
+      queuePosting(ctx, tx, args.id, "reimbursement.changeClaimant");
       if (entity.status === "approved") {
         const limitPaise = await readCashVoucherLimit(tx);
         queueVouchers(

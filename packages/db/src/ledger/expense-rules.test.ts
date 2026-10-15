@@ -39,6 +39,7 @@ const claim = (over: Partial<ReimbursementFacts> = {}): ReimbursementFacts => ({
     eventId: null,
     eventProgrammeId: null,
   },
+  claimantName: "Ravi Kumar",
   hasPaymentProof: true,
   id: "00000000-0000-7000-8000-000000000a01",
   lines: [
@@ -191,10 +192,24 @@ describe("reimbursementPlan", () => {
         amountPaise: 42_500,
         direction: "out",
         kind: "payout",
-        memo: "Class outing",
+        memo: "Class outing (paid to Ravi Kumar)",
         orgAccountId: BANK,
       },
     ]);
+  });
+
+  it("names the claimant on the payout, so a claimant change reposts it", () => {
+    const memo = (over: Partial<ReimbursementFacts>) =>
+      part(reimbursementPlan(claim(over)), "cash")?.movements[0]?.memo;
+    expect(memo({ claimantName: "Meena S" })).toBe(
+      "Class outing (paid to Meena S)"
+    );
+    // The recognition doesn't change with the claimant.
+    expect(
+      part(reimbursementPlan(claim({ claimantName: "Meena S" })), "recognise")
+    ).toEqual(part(reimbursementPlan(claim()), "recognise"));
+    // A login without a name leaves the title alone.
+    expect(memo({ claimantName: null })).toBe("Class outing");
   });
 
   it("takes the event and its programme when charged to an event, and no programme for admin", () => {

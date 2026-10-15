@@ -710,3 +710,70 @@ it.skipIf(!localDatabase)(
     });
   }
 );
+
+it.skipIf(!localDatabase)(
+  "reverses and reposts a posted reimbursement to its new claimant",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const [first, second] = [uuidv7(), uuidv7()];
+      await tx.insert(user).values(
+        [
+          [first, "First claimant"],
+          [second, "Second claimant"],
+        ].map(([id, name]) => ({
+          email: `expense-test-${id}@example.test`,
+          emailVerified: true,
+          id: id as string,
+          isActive: true,
+          name: name as string,
+          role: "volunteer",
+        }))
+      );
+      const id = await addClaim(tx, { ...ids, user: first });
+      await run(tx, claimSource(id));
+      const payoutMemos = async () =>
+        (
+          await tx
+            .select({
+              direction: accountMovement.direction,
+              memo: accountMovement.memo,
+            })
+            .from(accountMovement)
+            .innerJoin(posting, eq(posting.id, accountMovement.postingId))
+            .where(eq(posting.sourceId, id))
+            .orderBy(posting.createdAt, posting.id)
+        ).map((m) => `${m.direction} ${m.memo}`);
+      expect(await payoutMemos()).toEqual([
+        "out Class outing (paid to First claimant)",
+      ]);
+
+      // reimbursement.changeClaimant moves the request to someone else.
+      await tx
+        .update(reimbursement)
+        .set({ updatedAt: new Date(NOW.getTime() + 1000), userId: second })
+        .where(eq(reimbursement.id, id));
+      expect(await run(tx, claimSource(id))).toMatchObject({
+        posted: 2,
+        reversed: 2,
+      });
+      expect(await payoutMemos()).toEqual([
+        "out Class outing (paid to First claimant)",
+        "in Class outing (paid to First claimant)",
+        "out Class outing (paid to Second claimant)",
+      ]);
+      // Paid once, expensed once.
+      expect(await balanceOf(tx, ids.bank)).toBe(-42_500);
+      expect(await expenseByProgramme(tx, id)).toEqual(
+        new Map([[ids.programmeA, 42_500]])
+      );
+      // The old claimant's login no longer holds it in the books.
+      expect(await userHasExpensesInBooks(tx, first)).toBe(false);
+      expect(await userHasExpensesInBooks(tx, second)).toBe(true);
+      expect(await run(tx, claimSource(id))).toMatchObject({
+        posted: 0,
+        reversed: 0,
+      });
+    });
+  }
+);

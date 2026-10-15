@@ -7,6 +7,7 @@ import {
 import { and, asc, eq, isNull, type SQL, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
+import { user } from "../schema/auth";
 import { expenseCategory } from "../schema/expense-category";
 import { orgAccount } from "../schema/finance-dimensions";
 import { accountMovement, posting } from "../schema/ledger";
@@ -148,6 +149,16 @@ async function lineFacts(
   }));
 }
 
+/** A login's display name, or null when it has none. */
+async function userNameOf(tx: LedgerTx, userId: string) {
+  const [row] = await tx
+    .select({ name: user.name })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+  return row?.name.trim() || null;
+}
+
 async function reimbursementFacts(
   tx: LedgerTx,
   id: string
@@ -171,6 +182,7 @@ async function reimbursementFacts(
       approvedOn,
       mainAccountId: null,
       charge: await chargeFacts(tx, row),
+      claimantName: null,
       hasPaymentProof: Boolean(row.approvalScreenshotKey),
       id: row.id,
       lines: [],
@@ -199,6 +211,7 @@ async function reimbursementFacts(
     })),
     approvedOn,
     charge: await chargeFacts(tx, row),
+    claimantName: await userNameOf(tx, row.userId),
     hasPaymentProof: Boolean(row.approvalScreenshotKey),
     id: row.id,
     lines: await lineFacts(tx, lines),
