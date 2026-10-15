@@ -284,7 +284,9 @@ bun run whatsapp:start
 
 Starts `go-whatsapp-web-multidevice` container on port 3100. Pair via QR code at `http://localhost:3100`.
 
-Local and production Compose configurations use `pull_policy: always` for the WhatsApp gateway, so `docker compose up` pulls the current `latest` image before starting the service.
+Local and production Compose configurations use the official `ghcr.io/aldinokemal/go-whatsapp-web-multidevice:v9.6.0` image. `pull_policy: always` checks the registry for that pinned version on `docker compose up`; version upgrades require changing the tag.
+
+Deploy the app's upstream poll parser and gateway image together. Both Compose configurations subscribe to `WHATSAPP_WEBHOOK_EVENTS=message`; change any device-specific webhook event override from `message.poll_vote` to `message` too. The app reads votes from `payload.poll` and ignores other messages and failed vote decryption. Keep the existing WhatsApp storage volume and `WHATSAPP_WEBHOOK_SECRET` when replacing the fork container.
 
 ## Production Checklist
 

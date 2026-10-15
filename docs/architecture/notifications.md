@@ -93,7 +93,9 @@ Resend posts delivery events to `POST /api/email/webhook`, verified with `RESEND
 
 Events with `postRsvpPoll` enabled → WhatsApp poll sent to their team/event group 3 days before start. pg-boss schedule: `send-event-rsvp-polls`, every 15 min.
 
-GoWA gateway (`go-whatsapp-web-multidevice-poll-vote`) sends poll vote webhooks to `/api/whatsapp/webhook`. Votes recorded in `event_rsvp_vote`; "yes" auto-adds user as event member, "no" removes. Kalakriti-managed or Edition-linked events reject RSVP votes before writes so webhook traffic can't bypass the Edition volunteer enrollment policy.
+The official GoWA gateway sends `message` webhooks to `/api/whatsapp/webhook`. The app accepts `payload.poll.type = "vote"`, using `poll_id` and `selected_option_hashes` from that nested object. `resolved`, `partially_resolved`, and `definition_missing` votes are usable because pi-dash stores its own Yes/No option hashes. Missing hashes and `decrypt_failed` votes are ignored, never treated as an empty selection; a successfully decrypted empty array clears the RSVP. Other message and poll types are acknowledged without processing. Both Compose configurations subscribe to `WHATSAPP_WEBHOOK_EVENTS=message`.
+
+Votes are recorded in `event_rsvp_vote`; "yes" auto-adds the user as an event member, and "no" or a cleared vote removes them. Unknown option hashes leave membership unchanged. Kalakriti-managed or Edition-linked events reject RSVP votes before writes so webhook traffic can't bypass the Edition volunteer enrollment policy.
 
 **Local dev webhook proxy**: GoWA (Go) can send `Transfer-Encoding: chunked` POSTs. Vite dev server rejects with 400. Run `bun run dev:webhook-proxy` alongside dev server — listens on `:3002`, buffers body, forwards to app on `:3001` with `Content-Length`. Dev `docker-compose.yml` points GoWA's webhook URL to `:3002`. Not needed in prod (Nitro handles direct).
 
@@ -113,7 +115,7 @@ messages go only to the affected Center's active Guardians and Liaisons.
 
 ## WhatsApp Gateway (GoWA)
 
-`packages/whatsapp` wraps the self-hosted GoWA (`go-whatsapp-web-multidevice-poll-vote`) REST API. Config: `WHATSAPP_API_URL`, `WHATSAPP_AUTH_USER`, `WHATSAPP_AUTH_PASS`, `WHATSAPP_WEBHOOK_SECRET`.
+`packages/whatsapp` wraps the official GoWA REST API, pinned to `ghcr.io/aldinokemal/go-whatsapp-web-multidevice:v9.6.0` in local and production Compose. No custom fork is required. Config: `WHATSAPP_API_URL`, `WHATSAPP_AUTH_USER`, `WHATSAPP_AUTH_PASS`, `WHATSAPP_WEBHOOK_SECRET`.
 
 **Group JID format**: `<numeric-id>@g.us` (example `120363012345678901@g.us`). Users paste JIDs into the WhatsApp group form — admin copies from WhatsApp Web URL.
 
@@ -139,6 +141,6 @@ at-least-once for WhatsApp.
 
 `teamEvent.joinAsMember` (self-join) enqueues `notify-added-to-event` (same topic as admin-triggered add). `teamEvent.leaveEvent` (self-remove) enqueues `notify-event-volunteer-left` → bulk message to team leads (queried server-side at mutation time). Topic reuses `EVENTS_INTEREST` (same lead audience, related signal). Idempotency key includes `leftAt` timestamp so leave→rejoin→leave delivers two distinct notifications.
 
-**Webhook**: GoWA POSTs to `/api/whatsapp/webhook` with `WHATSAPP_WEBHOOK_SECRET` header check. Handles poll votes + message status updates.
+**Webhook**: GoWA POSTs to `/api/whatsapp/webhook` with `x-hub-signature-256: sha256=<HMAC-SHA256 of the raw body using WHATSAPP_WEBHOOK_SECRET>`. The endpoint handles decrypted poll votes and acknowledges other payloads without processing them.
 
 **Chunked-request proxy**: GoWA (Go) emits `Transfer-Encoding: chunked` POSTs — Vite dev server rejects with 400. `bun run dev:webhook-proxy` buffers body on `:3002`, forwards to `:3001` with `Content-Length`. Prod (Nitro) handles chunked directly — proxy not needed.

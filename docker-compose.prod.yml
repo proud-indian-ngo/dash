@@ -101,11 +101,11 @@ services:
     restart: unless-stopped
 
   gowa:
-    image: ghcr.io/somus/go-whatsapp-web-multidevice-poll-vote:latest
+    image: ghcr.io/aldinokemal/go-whatsapp-web-multidevice:v9.6.0
     pull_policy: always
     environment:
       WHATSAPP_WEBHOOK: ${WHATSAPP_WEBHOOK:-}
-      WHATSAPP_WEBHOOK_EVENTS: ${WHATSAPP_WEBHOOK_EVENTS:-}
+      WHATSAPP_WEBHOOK_EVENTS: message
       WHATSAPP_WEBHOOK_SECRET: ${WHATSAPP_WEBHOOK_SECRET}
     volumes:
       - whatsapp_data:/app/storages

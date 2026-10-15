@@ -15,7 +15,7 @@ import z from "zod";
 
 export const whatsAppPollVoteWebhookSchema = z.object({
   device_id: z.string(),
-  event: z.literal("message.poll_vote"),
+  event: z.literal("message"),
   payload: z.object({
     chat_id: z.string(),
     from: z.string(),
@@ -23,10 +23,16 @@ export const whatsAppPollVoteWebhookSchema = z.object({
     from_name: z.string().optional(),
     id: z.string(),
     is_from_me: z.boolean(),
-    poll_chat_id: z.string().optional(),
-    poll_message_id: z.string(),
-    selected_option_count: z.number().int().nonnegative(),
-    selected_option_hashes: z.array(z.string()),
+    poll: z.object({
+      poll_id: z.string(),
+      resolution_status: z.enum([
+        "resolved",
+        "partially_resolved",
+        "definition_missing",
+      ]),
+      selected_option_hashes: z.array(z.string()),
+      type: z.literal("vote"),
+    }),
     timestamp: z.string(),
   }),
 });
@@ -77,9 +83,9 @@ export async function processWhatsAppPollVoteWebhook(
     eventType: webhook.event,
     from: webhook.payload.from,
     fromName: webhook.payload.from_name,
-    pollMessageId: webhook.payload.poll_message_id,
-    selectedOptionCount: webhook.payload.selected_option_count,
-    selectedOptionHashes: webhook.payload.selected_option_hashes,
+    pollMessageId: webhook.payload.poll.poll_id,
+    selectedOptionCount: webhook.payload.poll.selected_option_hashes.length,
+    selectedOptionHashes: webhook.payload.poll.selected_option_hashes,
     senderPhone,
     voteMessageId: webhook.payload.id,
   });
@@ -104,7 +110,7 @@ export async function processWhatsAppPollVoteWebhook(
     .from(eventRsvpPoll)
     .innerJoin(teamEvent, eq(teamEvent.id, eventRsvpPoll.eventId))
     .leftJoin(kalakritiEdition, eq(kalakritiEdition.teamEventId, teamEvent.id))
-    .where(eq(eventRsvpPoll.messageId, webhook.payload.poll_message_id))
+    .where(eq(eventRsvpPoll.messageId, webhook.payload.poll.poll_id))
     .limit(1);
 
   const [poll] = polls;
@@ -128,7 +134,7 @@ export async function processWhatsAppPollVoteWebhook(
   }
 
   const selectedOption = getSelectedOption(
-    webhook.payload.selected_option_hashes,
+    webhook.payload.poll.selected_option_hashes,
     poll.yesOptionHash,
     poll.noOptionHash
   );
@@ -156,7 +162,7 @@ export async function processWhatsAppPollVoteWebhook(
       phone: senderPhone,
       pollId: poll.id,
       selectedOption,
-      selectedOptionHashes: webhook.payload.selected_option_hashes,
+      selectedOptionHashes: webhook.payload.poll.selected_option_hashes,
       userId: resolvedUserId,
       votedAt: new Date(webhook.payload.timestamp),
       voteMessageId: webhook.payload.id,
