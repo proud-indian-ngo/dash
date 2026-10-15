@@ -649,7 +649,7 @@ function IncomeRouteComponent() {
             ) : null}
           </>
         }
-        description="Donations and other money the trust has received, with the receipts pi-dash issues for direct gifts."
+        description="Donations and other money the trust has received, with the receipts Proud Indian issues for direct gifts."
         title="Income"
       />
       <Tabs className="mt-4" onValueChange={handleTabChange} value={tab}>

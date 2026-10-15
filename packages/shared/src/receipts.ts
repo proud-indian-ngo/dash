@@ -35,7 +35,7 @@ export type ReceiptIssuer = "razorpay" | "give_do" | "pi_dash";
 
 export const RECEIPT_ISSUER_LABELS: Record<ReceiptIssuer, string> = {
   give_do: "give.do",
-  pi_dash: "pi-dash",
+  pi_dash: "Proud Indian",
   razorpay: "Razorpay",
 };
 
@@ -259,7 +259,7 @@ export const receiptSkipValues = [
 export type ReceiptSkip = (typeof receiptSkipValues)[number];
 
 export const RECEIPT_SKIP_LABELS: Record<ReceiptSkip, string> = {
-  before_start: `Received before ${RECEIPTING_START_LABEL} (receipted outside pi-dash)`,
+  before_start: `Received before ${RECEIPTING_START_LABEL} (receipted outside the dashboard)`,
   in_kind: "In kind (not receipted)",
   pending: "Not received yet",
   refunded: "Refunded",

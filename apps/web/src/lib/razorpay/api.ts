@@ -125,7 +125,7 @@ function parseCollection<T>(
 ): { count: number; items: T[]; unreadable: number } {
   const raw = (body as { items?: unknown } | null)?.items;
   if (!Array.isArray(raw)) {
-    throw new Error("Razorpay API returned a list pi-dash cannot read");
+    throw new Error("Razorpay API returned a list the dashboard cannot read");
   }
   const items: T[] = [];
   let unreadable = 0;
@@ -240,7 +240,9 @@ export function createRazorpayClient(
     }
     const parsed = schema.safeParse(body);
     if (!(parsed.success && parsed.data !== undefined)) {
-      throw new Error(`Razorpay API returned a ${what} pi-dash cannot read`);
+      throw new Error(
+        `Razorpay API returned a ${what} the dashboard cannot read`
+      );
     }
     return parsed.data;
   }

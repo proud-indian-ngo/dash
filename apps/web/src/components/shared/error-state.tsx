@@ -10,7 +10,7 @@ import { isChunkLoadError } from "@/lib/chunk-load-error";
 import { getErrorReference } from "@/lib/error-reference";
 
 export const CHUNK_ERROR_DESCRIPTION =
-  "pi-dash was updated while this page was open. Reload to get the latest version. If this keeps appearing, hard refresh with Ctrl+Shift+R (Cmd+Shift+R on a Mac).";
+  "The dashboard was updated while this page was open. Reload to get the latest version. If this keeps appearing, hard refresh with Ctrl+Shift+R (Cmd+Shift+R on a Mac).";
 
 /**
  * The page-level error block: the shared "nothing here" layout in the danger

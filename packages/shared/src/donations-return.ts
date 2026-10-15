@@ -99,7 +99,7 @@ export const returnExclusionValues = [
 export type ReturnExclusion = (typeof returnExclusionValues)[number];
 
 export const RETURN_EXCLUSION_LABELS: Record<ReturnExclusion, string> = {
-  before_first_return: "Before 1 April 2026 (filed outside pi-dash)",
+  before_first_return: "Before 1 April 2026 (filed outside the dashboard)",
   cash_over_limit: "Cash above ₹2,000 (not deductible; limit to be confirmed)",
   donor_declined: "Donor doesn't want a tax certificate",
   foreign_currency: "Foreign currency (FCRA is not activated)",

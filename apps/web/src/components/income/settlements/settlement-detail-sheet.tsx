@@ -193,7 +193,7 @@ function SettlementBody({ settlement }: { settlement: SettlementDetail }) {
         <Warning testId="settlement-unreadable">
           At least {unreadable.toLocaleString("en-IN")}{" "}
           {unreadable === 1 ? "line" : "lines"} not readable: {provider} listed
-          lines for this settlement in another currency or a shape pi-dash
+          lines for this settlement in another currency or a shape the dashboard
           doesn't read, so they aren't counted here.
         </Warning>
       ) : null}
@@ -206,8 +206,8 @@ function SettlementBody({ settlement }: { settlement: SettlementDetail }) {
       {unlinked > 0 ? (
         <Warning testId="settlement-unlinked">
           {unlinked === 1
-            ? "1 payment or refund isn't recorded in pi-dash yet;"
-            : `${unlinked.toLocaleString("en-IN")} payments or refunds aren't recorded in pi-dash yet;`}{" "}
+            ? "1 payment or refund isn't recorded here yet;"
+            : `${unlinked.toLocaleString("en-IN")} payments or refunds aren't recorded here yet;`}{" "}
           each is linked when it is imported.
         </Warning>
       ) : null}

@@ -404,7 +404,7 @@ test.describe("Books (treasurer)", () => {
     await item.click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toBe(
-      `pi-dash-ca-workbook-${YEAR}.xlsx`
+      `proud-indian-ca-workbook-${YEAR}.xlsx`
     );
     const file = await download.path();
     const sheets = await readXlsxFile(file);

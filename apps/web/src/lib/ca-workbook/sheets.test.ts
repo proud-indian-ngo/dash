@@ -741,7 +741,7 @@ const gift = (overrides: Partial<AllGiftsRow> = {}): AllGiftsRow => ({
   id: "PAN ending 234F",
   netPaise: 80_000,
   reason: "",
-  receiptIssuer: "pi-dash",
+  receiptIssuer: "Proud Indian",
   receiptNumber: "PI/2026-27/0001",
   receivedOn: "2026-05-20",
   refundedPaise: 20_000,
@@ -773,7 +773,7 @@ describe("donor list", () => {
     const cells = sheet.rows[0]?.cells ?? [];
     expect(cells[2]).toBe("PAN ending 234F");
     expect(cells.slice(3, 6)).toEqual([1000, 200, 800]);
-    expect(cells.slice(12, 14)).toEqual(["pi-dash", "PI/2026-27/0001"]);
+    expect(cells.slice(12, 14)).toEqual(["Proud Indian", "PI/2026-27/0001"]);
   });
 
   it("is a one-line note for someone who may not see donors", () => {

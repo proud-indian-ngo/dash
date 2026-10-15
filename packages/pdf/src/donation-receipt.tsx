@@ -300,9 +300,9 @@ export function DonationReceipt(props: DonationReceiptProps) {
       // Fixed dates keep the bytes the same on every render, so a retried
       // email attaches the identical file under the same idempotency key.
       creationDate={documentDate(props.issuedOn)}
-      creator="pi-dash"
+      creator="Proud Indian"
       modificationDate={documentDate(props.issuedOn)}
-      producer="pi-dash"
+      producer="Proud Indian"
       subject={`${RECEIPT_TITLE} ${props.number}`}
       title={props.number}
     >

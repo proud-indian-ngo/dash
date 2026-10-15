@@ -155,7 +155,7 @@ export function receiptIssuerCells(
     return [RECEIPT_ISSUER_LABELS[issuer], ""];
   }
   if (gift.receivedOn < RECEIPTING_START_DAY) {
-    return ["Outside pi-dash", ""];
+    return ["Outside the dashboard", ""];
   }
   return [RECEIPT_ISSUER_LABELS.pi_dash, receiptNumber ?? "Not issued yet"];
 }
